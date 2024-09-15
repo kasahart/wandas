@@ -6,6 +6,35 @@ from wandas.core.channel import Channel
 from wandas.core.signal import Signal
 
 
+@pytest.fixture
+def generate_signals():
+    # サンプルの直流データを生成
+    sampling_rate = 1000
+    t = np.linspace(0, 1, sampling_rate, endpoint=False)
+    data1_signal1 = np.full_like(t, 2)  # Signal 1の振幅2の直流信号
+    data2_signal1 = np.full_like(t, 3)  # Signal 1の振幅3の直流信号
+    data1_signal2 = np.full_like(t, 4)  # Signal 2の振幅4の直流信号
+    data2_signal2 = np.full_like(t, 5)  # Signal 2の振幅5の直流信号
+
+    ch1_signal1 = Channel(
+        data=data1_signal1, sampling_rate=sampling_rate, label="Channel 1"
+    )
+    ch2_signal1 = Channel(
+        data=data2_signal1, sampling_rate=sampling_rate, label="Channel 2"
+    )
+    ch1_signal2 = Channel(
+        data=data1_signal2, sampling_rate=sampling_rate, label="Channel 1"
+    )
+    ch2_signal2 = Channel(
+        data=data2_signal2, sampling_rate=sampling_rate, label="Channel 2"
+    )
+
+    signal1 = Signal(channels=[ch1_signal1, ch2_signal1], label="Signal 1")
+    signal2 = Signal(channels=[ch1_signal2, ch2_signal2], label="Signal 2")
+
+    return signal1, signal2
+
+
 def test_signal_initialization():
     data1 = np.array([0, 1, 2, 3, 4])
     data2 = np.array([5, 6, 7, 8, 9])
@@ -74,3 +103,51 @@ def test_signal_fft():
 
         # Check if the peak frequency matches the expected frequency
         assert np.isclose(peak_freq, expected_freq, atol=1)
+
+
+def test_signal_addition(generate_signals):
+    signal1, signal2 = generate_signals
+    result_signal = signal1 + signal2
+
+    # 各チャンネルの加算結果を確認
+    for i in range(len(signal1.channels)):
+        expected_data = signal1.channels[i].data + signal2.channels[i].data
+        assert np.array_equal(
+            result_signal.channels[i].data, expected_data
+        ), f"Signal addition failed for channel {i + 1}."
+
+
+def test_signal_subtraction(generate_signals):
+    signal1, signal2 = generate_signals
+    result_signal = signal1 - signal2
+
+    # 各チャンネルの減算結果を確認
+    for i in range(len(signal1.channels)):
+        expected_data = signal1.channels[i].data - signal2.channels[i].data
+        assert np.array_equal(
+            result_signal.channels[i].data, expected_data
+        ), f"Signal subtraction failed for channel {i + 1}."
+
+
+def test_signal_multiplication(generate_signals):
+    signal1, signal2 = generate_signals
+    result_signal = signal1 * signal2
+
+    # 各チャンネルの乗算結果を確認
+    for i in range(len(signal1.channels)):
+        expected_data = signal1.channels[i].data * signal2.channels[i].data
+        assert np.array_equal(
+            result_signal.channels[i].data, expected_data
+        ), f"Signal multiplication failed for channel {i + 1}."
+
+
+def test_signal_division(generate_signals):
+    signal1, signal2 = generate_signals
+    result_signal = signal1 / signal2
+
+    # 各チャンネルの除算結果を確認
+    for i in range(len(signal1.channels)):
+        expected_data = signal1.channels[i].data / signal2.channels[i].data
+        assert np.allclose(
+            result_signal.channels[i].data, expected_data, atol=1e-6
+        ), f"Signal division failed for channel {i + 1}."

@@ -134,3 +134,56 @@ class Channel(BaseChannel):
         if ax is None:
             plt.tight_layout()
             plt.show()
+
+    # 演算子オーバーロードの実装
+    def __add__(self, other: "Channel") -> "Channel":
+        """
+        チャンネル間の加算。
+        """
+        assert (
+            self.sampling_rate == other.sampling_rate
+        ), "Sampling rates must be the same for channel addition."
+        return Channel(
+            data=self.data + other.data,
+            sampling_rate=self.sampling_rate,
+            label=f"({self.label} + {other.label})",
+        )
+
+    def __sub__(self, other: "Channel") -> "Channel":
+        """
+        チャンネル間の減算。
+        """
+        assert (
+            self.sampling_rate == other.sampling_rate
+        ), "Sampling rates must be the same for channel subtraction."
+        return Channel(
+            data=self.data - other.data,
+            sampling_rate=self.sampling_rate,
+            label=f"({self.label} - {other.label})",
+        )
+
+    def __mul__(self, other: "Channel") -> "Channel":
+        """
+        チャンネル間の乗算。
+        """
+        assert (
+            self.sampling_rate == other.sampling_rate
+        ), "Sampling rates must be the same for channel multiplication."
+        return Channel(
+            data=self.data * other.data,
+            sampling_rate=self.sampling_rate,
+            label=f"({self.label} * {other.label})",
+        )
+
+    def __truediv__(self, other: "Channel") -> "Channel":
+        """
+        チャンネル間の除算。
+        """
+        assert (
+            self.sampling_rate == other.sampling_rate
+        ), "Sampling rates must be the same for channel division."
+        return Channel(
+            data=self.data / other.data,
+            sampling_rate=self.sampling_rate,
+            label=f"({self.label} / {other.label})",
+        )

@@ -5,6 +5,20 @@ import numpy as np
 from wandas.core.channel import Channel
 
 
+@pytest.fixture
+def generate_channels():
+    # サンプルの正弦波データを生成
+    sampling_rate = 1000
+    t = np.linspace(0, 1, sampling_rate, endpoint=False)
+    data1 = np.ones_like(t) * 2
+    data2 = np.ones_like(t) * 3
+
+    ch1 = Channel(data=data1, sampling_rate=sampling_rate, label="Channel 1")
+    ch2 = Channel(data=data2, sampling_rate=sampling_rate, label="Channel 2")
+
+    return ch1, ch2
+
+
 def test_channel_initialization():
     data = np.array([0, 1, 2, 3, 4])
     sampling_rate = 1000
@@ -79,3 +93,47 @@ def test_channel_plot():
     assert len(ax.lines) == 1
     assert np.array_equal(ax.lines[0].get_xdata(), np.arange(len(data)) / sampling_rate)
     assert np.array_equal(ax.lines[0].get_ydata(), data)
+
+
+def test_channel_addition(generate_channels):
+    ch1, ch2 = generate_channels
+    result_channel = ch1 + ch2
+
+    # 結果のデータを確認
+    expected_data = ch1.data + ch2.data
+    assert np.array_equal(
+        result_channel.data, expected_data
+    ), "Channel addition failed."
+
+
+def test_channel_subtraction(generate_channels):
+    ch1, ch2 = generate_channels
+    result_channel = ch1 - ch2
+
+    # 結果のデータを確認
+    expected_data = ch1.data - ch2.data
+    assert np.array_equal(
+        result_channel.data, expected_data
+    ), "Channel subtraction failed."
+
+
+def test_channel_multiplication(generate_channels):
+    ch1, ch2 = generate_channels
+    result_channel = ch1 * ch2
+
+    # 結果のデータを確認
+    expected_data = ch1.data * ch2.data
+    assert np.array_equal(
+        result_channel.data, expected_data
+    ), "Channel multiplication failed."
+
+
+def test_channel_division(generate_channels):
+    ch1, ch2 = generate_channels
+    result_channel = ch1 / ch2
+
+    # 結果のデータを確認
+    expected_data = ch1.data / ch2.data
+    assert np.allclose(
+        result_channel.data, expected_data, atol=1e-6
+    ), "Channel division failed."
