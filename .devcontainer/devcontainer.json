@@ -1,0 +1,23 @@
+{
+    "name": "Python 3",
+    "image": "mcr.microsoft.com/devcontainers/python:0-3.10",
+    "features": {
+        "ghcr.io/devcontainers/features/git:1": {},
+        "ghcr.io/akhildevelops/devcontainer-features/pip:0": {}
+    },
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/local/bin/python"
+            },
+            "extensions": [
+                "DavidAnson.vscode-markdownlint",
+                "njpwerner.autodocstring",
+                "GitHub.copilot",
+                "ms-python.python",
+                "spmeesseman.vscode-taskexplorer"
+            ]
+        }
+    },
+    "postCreateCommand": "pip install -r requirements.txt"
+}
