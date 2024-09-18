@@ -1,6 +1,6 @@
 # wandas/core/signal.py
 
-from typing import Optional, Any, List, Dict
+from typing import Optional, Any, List, Dict, Union
 import numpy as np
 from .channel import Channel
 from scipy.io import wavfile
@@ -26,6 +26,11 @@ class Signal:
         if len(sampling_rates) > 1:
             raise ValueError("All channels must have the same sampling_rate.")
         self.sampling_rate = channels[0].sampling_rate
+
+        # チャンネル名で辞書のようにアクセスできるようにするための辞書を構築
+        self.channel_dict = {ch.label: ch for ch in channels}
+        if len(self.channel_dict) != len(channels):
+            raise ValueError("Channel labels must be unique.")
 
     @classmethod
     def read_wav(cls, filename: str, labels: Optional[List[str]] = None) -> "Signal":
@@ -180,6 +185,31 @@ class Signal:
     # forでループを回すためのメソッド
     def __iter__(self):
         return iter(self.channels)
+
+    def __getitem__(self, key: Union[str, int]) -> Channel:
+        """
+        チャンネル名またはインデックスでチャンネルを取得するためのメソッド。
+
+        Parameters:
+            key (str or int): チャンネルの名前（label）またはインデックス番号。
+
+        Returns:
+            Channel: 対応するチャンネル。
+        """
+        if isinstance(key, str):
+            # チャンネル名でアクセス
+            if key not in self.channel_dict:
+                raise KeyError(f"Channel '{key}' not found.")
+            return self.channel_dict[key]
+        elif isinstance(key, int):
+            # インデックス番号でアクセス
+            if key < 0 or key >= len(self.channels):
+                raise IndexError(f"Channel index {key} out of range.")
+            return self.channels[key]
+        else:
+            raise TypeError(
+                "Key must be either a string (channel name) or an integer (channel index)."
+            )
 
     # 演算子オーバーロードの実装
     def __add__(self, other: "Signal") -> "Signal":
