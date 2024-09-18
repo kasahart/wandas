@@ -79,6 +79,28 @@ class Signal:
             plt.tight_layout()
             plt.show()
 
+    def rms_plot(self, ax: Optional[Any] = None, title: Optional[str] = None):
+        """
+        すべてのチャンネルの RMS データをプロットします。
+
+        Parameters:
+            title (str, optional): プロットのタイトル。
+        """
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(10, 4))
+
+        for channel in self.channels:
+            channel.rms_plot(ax=ax)
+
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("RMS")
+        ax.set_title(title or self.label or "Signal RMS")
+        ax.grid(True)
+        ax.legend()
+
+        if ax is None:
+            plt.tight_layout()
+
     def low_pass_filter(self, cutoff: float, order: int = 5) -> "Signal":
         """
         ローパスフィルタをすべてのチャンネルに適用します。
@@ -154,6 +176,10 @@ class Signal:
             return ch1 / ch2
         else:
             raise ValueError(f"Unsupported operation: {operation}")
+
+    # forでループを回すためのメソッド
+    def __iter__(self):
+        return iter(self.channels)
 
     # 演算子オーバーロードの実装
     def __add__(self, other: "Signal") -> "Signal":

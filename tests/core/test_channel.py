@@ -3,10 +3,11 @@
 import pytest
 import numpy as np
 from wandas.core.channel import Channel
+from wandas.core.signal import Signal
+import librosa
 
 
-@pytest.fixture
-def generate_channels():
+def _generate_channels():
     # サンプルの正弦波データを生成
     sampling_rate = 1000
     t = np.linspace(0, 1, sampling_rate, endpoint=False)
@@ -17,6 +18,16 @@ def generate_channels():
     ch2 = Channel(data=data2, sampling_rate=sampling_rate, label="Channel 2")
 
     return ch1, ch2
+
+
+@pytest.fixture
+def generate_channels():
+    return _generate_channels()
+
+
+@pytest.fixture
+def generate_signal():
+    return Signal(channels=_generate_channels())
 
 
 def test_channel_initialization():
@@ -73,6 +84,18 @@ def test_channel_fft():
     # Check specific frequency bin (50 Hz)
     freq_bin = np.where(expected_frequencies == 50)[0][0]
     assert np.isclose(freq_channel.data[freq_bin], 1.0, atol=1e-2)
+
+
+def test_rms_trend_signal(generate_signal):
+    signal = generate_signal
+
+    # RMS トレンドを計算
+    for ch in signal:
+        rms_librosa = librosa.feature.rms(
+            y=ch.data, frame_length=2048, hop_length=512
+        ).squeeze()
+        rms = ch.rms_trend()
+        assert np.array_equal(rms_librosa, rms.data)
 
 
 def test_channel_plot():

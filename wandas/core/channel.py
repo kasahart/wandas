@@ -1,11 +1,13 @@
 # wandas/core/channel.py
 
 from typing import Optional, Dict, Any
+import librosa.feature
 import numpy as np
 from .base_channel import BaseChannel
 from scipy.signal import butter, filtfilt
 from scipy.fft import rfft, rfftfreq
 from .frequency_channel import FrequencyChannel
+import librosa
 
 
 class Channel(BaseChannel):
@@ -111,6 +113,28 @@ class Channel(BaseChannel):
             metadata=self.metadata.copy(),
         )
 
+    def rms_trend(self, frame_length: int = 2048, hop_length: int = 512) -> "Channel":
+        """
+        移動平均を計算します。
+
+        Parameters:
+            window_size (int): 移動平均のウィンドウサイズ。
+
+        Returns:
+            Channel: 移動平均データを含む新しい Channel オブジェクト。
+        """
+        rms_data = librosa.feature.rms(
+            y=self.data, frame_length=frame_length, hop_length=hop_length
+        )
+
+        return Channel(
+            data=rms_data.squeeze(),
+            sampling_rate=int(self.sampling_rate / hop_length),
+            label=self.label,
+            unit=self.unit,
+            metadata=self.metadata.copy(),
+        )
+
     def plot(self, ax: Optional[Any] = None, title: Optional[str] = None):
         """
         時系列データをプロットします。
@@ -134,6 +158,40 @@ class Channel(BaseChannel):
         if ax is None:
             plt.tight_layout()
             plt.show()
+
+    def rms_plot(self, ax: Optional[Any] = None, title: Optional[str] = None):
+        """
+        RMS データをプロットします。
+        """
+        import matplotlib.pyplot as plt
+
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(10, 4))
+
+        rms_channel = self.rms_trend()
+        num_samples = len(rms_channel)
+        t = np.arange(num_samples) / rms_channel.sampling_rate
+        ax.plot(
+            t,
+            librosa.amplitude_to_db(rms_channel.data),
+            label=rms_channel.label or "Channel",
+        )
+
+        ax.set_xlabel("Time (s)")
+        ylabel = f"RMS ({rms_channel.unit})" if rms_channel.unit else "RMS"
+        ax.set_ylabel(ylabel)
+        ax.set_title(title or rms_channel.label or "Channel Data")
+        ax.grid(True)
+        ax.legend()
+
+        if ax is None:
+            plt.tight_layout()
+
+    def __len__(self) -> int:
+        """
+        チャンネルのデータ長を返します。
+        """
+        return self._data.shape[-1]
 
     # 演算子オーバーロードの実装
     def __add__(self, other: "Channel") -> "Channel":
