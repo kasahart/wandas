@@ -148,7 +148,7 @@ class Channel(BaseChannel):
         t = np.arange(num_samples) / self.sampling_rate
         ax.plot(t, self.data, label=self.label or "Channel")
 
-        ax.set_xlabel("Time (s)")
+        ax.set_xlabel("Time [s]")
         ylabel = f"Amplitude ({self.unit})" if self.unit else "Amplitude"
         ax.set_ylabel(ylabel)
         ax.set_title(title or self.label or "Channel Data")
@@ -177,7 +177,7 @@ class Channel(BaseChannel):
             label=rms_channel.label or "Channel",
         )
 
-        ax.set_xlabel("Time (s)")
+        ax.set_xlabel("Time [s]")
         ylabel = f"RMS ({rms_channel.unit})" if rms_channel.unit else "RMS"
         ax.set_ylabel(ylabel)
         ax.set_title(title or rms_channel.label or "Channel Data")
@@ -186,6 +186,23 @@ class Channel(BaseChannel):
 
         if ax is None:
             plt.tight_layout()
+
+    def transform(self, func, *args, **kwargs):
+        """
+        データに関数を適用し、新しい Channel オブジェクトを返す
+
+        Parameters:
+            func (callable): チャンネルデータに適用する関数。
+            *args: 関数に渡す引数。
+            **kwargs: 関数に渡すキーワード引数。
+
+        Returns:
+            Channel: 新しい Channel インスタンス。
+        """
+        new_data = func(self.data, *args, **kwargs)
+        return Channel(
+            data=new_data, sampling_rate=self.sampling_rate, label=self.label
+        )
 
     def __len__(self) -> int:
         """
@@ -245,3 +262,13 @@ class Channel(BaseChannel):
             sampling_rate=self.sampling_rate,
             label=f"({self.label} / {other.label})",
         )
+
+
+def channel_function_wrapper(func):
+    def wrapper(channel, *args, **kwargs):
+        new_data = func(channel.data, *args, **kwargs)
+        return Channel(
+            data=new_data, sampling_rate=channel.sampling_rate, label=channel.label
+        )
+
+    return wrapper

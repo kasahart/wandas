@@ -97,8 +97,8 @@ class Signal:
         for channel in self.channels:
             channel.rms_plot(ax=ax)
 
-        ax.set_xlabel("Time (s)")
-        ax.set_ylabel("RMS")
+        # ax.set_xlabel("Time [s)")
+        # ax.set_ylabel("RMS")
         ax.set_title(title or self.label or "Signal RMS")
         ax.grid(True)
         ax.legend()

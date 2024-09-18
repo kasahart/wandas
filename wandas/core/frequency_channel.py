@@ -4,6 +4,7 @@ from typing import Optional, Dict, Any
 import numpy as np
 from .base_channel import BaseChannel
 import matplotlib.pyplot as plt
+import librosa
 
 
 class FrequencyChannel(BaseChannel):
@@ -53,10 +54,14 @@ class FrequencyChannel(BaseChannel):
         if ax is None:
             fig, ax = plt.subplots(figsize=(10, 4))
 
-        ax.plot(self.frequencies, self.data, label=self.label or "Spectrum")
+        ax.plot(
+            self.frequencies,
+            librosa.amplitude_to_db(self.data),
+            label=self.label or "Spectrum",
+        )
 
-        ax.set_xlabel("Frequency (Hz)")
-        ylabel = f"Amplitude ({self.unit})" if self.unit else "Amplitude"
+        ax.set_xlabel("Frequency [Hz]")
+        ylabel = f"Amplitude [{self.unit}]" if self.unit else "Amplitude [dB]"
         ax.set_ylabel(ylabel)
         ax.set_title(title or self.label or "Spectrum")
         ax.grid(True)
