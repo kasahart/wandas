@@ -1,7 +1,5 @@
 # tests/utils/test_generate_sample.py
 
-import pytest
-import numpy as np
 from wandas.utils.generate_sample import generate_sample
 from wandas.core.signal import Signal
 from wandas.core.channel import Channel
@@ -26,7 +24,7 @@ def test_generate_sample_single_frequency():
 
 
 def test_generate_sample_multiple_frequencies():
-    freqs = [440, 880, 1760]
+    freqs = [440.0, 880.0, 1760.0]
     sampling_rate = 8000
     duration = 1.0
     signal = generate_sample(

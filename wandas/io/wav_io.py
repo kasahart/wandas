@@ -1,9 +1,11 @@
 # wandas/io/wav_io.py
 
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 import numpy as np
 from scipy.io import wavfile
-from ..core.channel import Channel
+
+if TYPE_CHECKING:
+    from wandas.core.signal import Signal
 
 
 def read_wav(filename: str, labels: Optional[List[str]] = None) -> "Signal":
@@ -17,7 +19,8 @@ def read_wav(filename: str, labels: Optional[List[str]] = None) -> "Signal":
     Returns:
         Signal: オーディオデータを含む Signal オブジェクト。
     """
-    from ..core.signal import Signal
+    from wandas.core.channel import Channel
+    from wandas.core.signal import Signal
 
     sampling_rate, data = wavfile.read(filename)
 

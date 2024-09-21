@@ -1,17 +1,17 @@
-# wandas/core/spectrum.py
+# wandas/core/spectrums.py
 
 from typing import Optional, Any, List
-from .frequency_channel import FrequencyChannel
+from wandas.core.frequency_channel import FrequencyChannel
 import matplotlib.pyplot as plt
 
 
-class Spectrum:
-    def __init__(self, channels: List[FrequencyChannel], label: Optional[str] = None):
+class Spectrums:
+    def __init__(self, channels: List["FrequencyChannel"], label: Optional[str] = None):
         """
         Spectrum オブジェクトを初期化します。
 
         Parameters:
-            channels (list of FrequencyChannel): FrequencyChannel オブジェクトのリスト。
+            channels (list of FrequencyChannel): FrequencyChannel   w オブジェクトのリスト。
             label (str, optional): スペクトルのラベル。
         """
         self.channels = channels
@@ -25,18 +25,16 @@ class Spectrum:
             ax (matplotlib.axes.Axes, optional): プロットに使用する Axes オブジェクト。
             title (str, optional): プロットのタイトル。
         """
-
-        if ax is None:
-            fig, ax = plt.subplots(figsize=(10, 4))
+        _ax = ax
+        if _ax is None:
+            _, _ax = plt.subplots(figsize=(10, 4))
 
         for channel in self.channels:
-            channel.plot(ax=ax)
+            channel.plot(ax=_ax)
 
-        ax.set_xlabel("Frequency (Hz)")
-        ax.set_ylabel("Amplitude")
-        ax.set_title(title or self.label or "Spectrum")
-        ax.grid(True)
-        ax.legend()
+        _ax.set_title(title or self.label or "Spectrum")
+        _ax.grid(True)
+        _ax.legend()
 
         if ax is None:
             plt.tight_layout()

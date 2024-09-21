@@ -1,16 +1,20 @@
 # wandas/core/signal.py
 
-from typing import Optional, Any, List, Dict, Union
+from typing import Optional, Any, List, Union, TYPE_CHECKING
 import numpy as np
-from .channel import Channel
+
 from scipy.io import wavfile
-from .spectrum import Spectrum
 import matplotlib.pyplot as plt
-from ..io import wav_io
+from wandas.io import wav_io
+
+
+if TYPE_CHECKING:
+    from wandas.core.channel import Channel
+    from wandas.core.spectrums import Spectrums
 
 
 class Signal:
-    def __init__(self, channels: List[Channel], label: Optional[str] = None):
+    def __init__(self, channels: List["Channel"], label: Optional[str] = None):
         """
         Signal オブジェクトを初期化します。
 
@@ -124,25 +128,23 @@ class Signal:
         self,
         n_fft: Optional[int] = None,
         window: Optional[str] = None,
-        fft_params: Optional[Dict[str, Any]] = None,
-    ) -> Spectrum:
+    ) -> "Spectrums":
         """
         フーリエ変換をすべてのチャンネルに適用します。
 
         Returns:
             Spectrum: 周波数と振幅データを含む Spectrum オブジェクト。
         """
-        spectrums = [
-            ch.fft(n_fft=n_fft, window=window, fft_params=fft_params)
-            for ch in self.channels
-        ]
+        from wandas.core.spectrums import Spectrums
 
-        return Spectrum(
-            channels=spectrums,
+        chs = [ch.fft(n_fft=n_fft, window=window) for ch in self.channels]
+
+        return Spectrums(
+            channels=chs,
             label=self.label,
         )
 
-    def get_channel_by_index(self, index: int) -> Channel:
+    def get_channel_by_index(self, index: int) -> "Channel":
         """
         指定されたインデックスのチャンネルを取得します。
 
@@ -156,7 +158,7 @@ class Signal:
             raise IndexError("Invalid channel index.")
         return self.channels[index]
 
-    def apply_operation(self, ch1_idx: int, ch2_idx: int, operation: str) -> Channel:
+    def apply_operation(self, ch1_idx: int, ch2_idx: int, operation: str) -> "Channel":
         """
         指定されたチャンネル間に演算を適用します。
 
@@ -186,7 +188,7 @@ class Signal:
     def __iter__(self):
         return iter(self.channels)
 
-    def __getitem__(self, key: Union[str, int]) -> Channel:
+    def __getitem__(self, key: Union[str, int]) -> "Channel":
         """
         チャンネル名またはインデックスでチャンネルを取得するためのメソッド。
 

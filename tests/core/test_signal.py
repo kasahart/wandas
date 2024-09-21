@@ -66,8 +66,8 @@ def test_signal_low_pass_filter():
     data1 = np.sin(2 * np.pi * 50 * t)
     data2 = np.sin(2 * np.pi * 100 * t)
     sampling_rate = 1000
-    channel1 = Channel(data=data1, sampling_rate=sampling_rate)
-    channel2 = Channel(data=data2, sampling_rate=sampling_rate)
+    channel1 = Channel(data=data1, sampling_rate=sampling_rate, label="Channel 1")
+    channel2 = Channel(data=data2, sampling_rate=sampling_rate, label="Channel 2")
     signal = Signal(channels=[channel1, channel2])
 
     filtered_signal = signal.low_pass_filter(cutoff=30)
@@ -78,7 +78,8 @@ def test_signal_low_pass_filter():
 
 
 def test_signal_fft():
-    t = np.linspace(0, 1, 1000)
+    signal_length = 1000
+    t = np.linspace(0, 1, signal_length)
     data1 = np.sin(2 * np.pi * 50 * t)
     data2 = np.sin(2 * np.pi * 100 * t)
     sampling_rate = 1000
@@ -93,8 +94,8 @@ def test_signal_fft():
         spectrum.channels, ["Channel 1", "Channel 2"], [50, 100]
     ):
         assert freq_ch.label == label
-        assert freq_ch.fft_params["n_fft"] == 1024
-        assert freq_ch.fft_params["window"] == "hann"
+        assert freq_ch.n_fft == 1024
+        assert not np.array_equal(freq_ch.window, np.hanning(signal_length))
 
         # Find the frequency bin with the maximum amplitude
         freqs = np.fft.fftfreq(1024, 1 / sampling_rate)

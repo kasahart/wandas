@@ -5,9 +5,9 @@ import librosa.feature
 import numpy as np
 from .base_channel import BaseChannel
 from scipy.signal import butter, filtfilt
-from scipy.fft import rfft, rfftfreq
 from .frequency_channel import FrequencyChannel
 import librosa
+from .time_frequency_channel import TimeFrequencyChannel
 
 
 class Channel(BaseChannel):
@@ -74,7 +74,6 @@ class Channel(BaseChannel):
         self,
         n_fft: Optional[int] = None,
         window: Optional[str] = None,
-        fft_params: Optional[Dict[str, Any]] = None,
     ) -> FrequencyChannel:
         """
         フーリエ変換を実行します。
@@ -87,30 +86,38 @@ class Channel(BaseChannel):
         Returns:
             FrequencyChannel: スペクトルデータを含むオブジェクト。
         """
-        from scipy.signal import get_window
 
-        n = n_fft or len(self._data)
-        fft_parameters = fft_params.copy() if fft_params else {}
-        fft_parameters.update({"n_fft": n, "window": window})
+        return FrequencyChannel.from_channel(ch=self, n_fft=n_fft, window=window)
 
-        if window:
-            window_values = get_window(window, len(self._data))
-            data = self._data * window_values
-        else:
-            data = self._data
+    def stft(
+        self,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: str = "hann",
+        center: bool = True,
+        # pad_mode: str = "constant",
+    ) -> TimeFrequencyChannel:
+        """
+        STFT（短時間フーリエ変換）を実行します。
 
-        yf = rfft(data, n=n)
-        xf = rfftfreq(n, 1 / self.sampling_rate)
-        amplitude = np.abs(yf) * 2 / n
+        Parameters:
+            n_fft (int): FFT のサンプル数。デフォルトは 1024。
+            hop_length (int): ホップサイズ（フレーム間の移動量）。デフォルトは 512。
+            win_length (int, optional): ウィンドウの長さ。デフォルトは n_fft と同じ。
 
-        return FrequencyChannel(
-            frequencies=xf,
-            data=amplitude,
-            label=self.label,
-            unit=self.unit,
-            calibration_value=self.calibration_value,
-            fft_params=fft_parameters,
-            metadata=self.metadata.copy(),
+        Returns:
+            FrequencyChannel: STFT の結果を格納した FrequencyChannel オブジェクト。
+        """
+
+        return TimeFrequencyChannel.from_channel(
+            ch=self,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            center=center,
+            # pad_mode=pad_mode,
         )
 
     def rms_trend(self, frame_length: int = 2048, hop_length: int = 512) -> "Channel":
@@ -149,7 +156,7 @@ class Channel(BaseChannel):
         ax.plot(t, self.data, label=self.label or "Channel")
 
         ax.set_xlabel("Time [s]")
-        ylabel = f"Amplitude ({self.unit})" if self.unit else "Amplitude"
+        ylabel = f"Amplitude [{self.unit}]" if self.unit else "Amplitude"
         ax.set_ylabel(ylabel)
         ax.set_title(title or self.label or "Channel Data")
         ax.grid(True)

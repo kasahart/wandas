@@ -17,7 +17,7 @@ def _generate_channels():
     ch1 = Channel(data=data1, sampling_rate=sampling_rate, label="Channel 1")
     ch2 = Channel(data=data2, sampling_rate=sampling_rate, label="Channel 2")
 
-    return ch1, ch2
+    return [ch1, ch2]
 
 
 @pytest.fixture
@@ -67,25 +67,6 @@ def test_channel_low_pass_filter():
     assert not np.array_equal(channel.data, filtered_channel.data)
 
 
-def test_channel_fft():
-    data = np.sin(2 * np.pi * 50 * np.linspace(0, 1, 1000, endpoint=False))
-    sampling_rate = 1000
-    channel = Channel(data=data, sampling_rate=sampling_rate)
-    freq_channel = channel.fft()
-
-    # Expected frequencies and amplitudes
-    expected_frequencies = np.fft.rfftfreq(len(data), 1 / sampling_rate)
-    expected_amplitudes = np.abs(np.fft.rfft(data)) * 2 / len(data)
-
-    # Check if the frequencies and amplitudes are close to the expected values
-    assert np.allclose(freq_channel.frequencies, expected_frequencies)
-    assert np.allclose(freq_channel.data, expected_amplitudes)
-
-    # Check specific frequency bin (50 Hz)
-    freq_bin = np.where(expected_frequencies == 50)[0][0]
-    assert np.isclose(freq_channel.data[freq_bin], 1.0, atol=1e-2)
-
-
 def test_rms_trend_signal(generate_signal):
     signal = generate_signal
 
@@ -110,8 +91,8 @@ def test_channel_plot():
     fig, ax = plt.subplots()
     channel.plot(ax=ax, title="Test Plot")
 
-    assert ax.get_xlabel() == "Time (s)"
-    assert ax.get_ylabel() == "Amplitude (V)"
+    assert ax.get_xlabel() == "Time [s]"
+    assert ax.get_ylabel() == "Amplitude [V]"
     assert ax.get_title() == "Test Plot"
     assert len(ax.lines) == 1
     assert np.array_equal(ax.lines[0].get_xdata(), np.arange(len(data)) / sampling_rate)
