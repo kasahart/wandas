@@ -180,12 +180,12 @@ class Channel(BaseChannel):
         t = np.arange(num_samples) / rms_channel.sampling_rate
         ax.plot(
             t,
-            librosa.amplitude_to_db(rms_channel.data),
+            librosa.amplitude_to_db(rms_channel.data, ref=self.ref),
             label=rms_channel.label or "Channel",
         )
 
         ax.set_xlabel("Time [s]")
-        ylabel = f"RMS ({rms_channel.unit})" if rms_channel.unit else "RMS"
+        ylabel = f"RMS [{rms_channel.unit}]" if rms_channel.unit else "RMS"
         ax.set_ylabel(ylabel)
         ax.set_title(title or rms_channel.label or "Channel Data")
         ax.grid(True)

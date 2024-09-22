@@ -1,9 +1,13 @@
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, TYPE_CHECKING
 import numpy as np
 import matplotlib.pyplot as plt
 import librosa.display
-from . import channel
 from .base_channel import BaseChannel
+from scipy import fft
+from scipy import signal as ss
+
+if TYPE_CHECKING:
+    from .channel import Channel
 
 
 class TimeFrequencyChannel(BaseChannel):
@@ -39,7 +43,7 @@ class TimeFrequencyChannel(BaseChannel):
             calibration_value=1,
             metadata=metadata,
         )
-        self.data = data
+        self._data = data
         self.sampling_rate = sampling_rate
         self.n_fft = n_fft
         self.hop_length = hop_length
@@ -49,9 +53,52 @@ class TimeFrequencyChannel(BaseChannel):
         # self.pad_mode = pad_mode
 
     @classmethod
+    def _stft(
+        cls,
+        data: np.ndarray,
+        n_fft: Optional[int] = None,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: str = "hann",
+        # pad_mode: str = "constant",
+    ) -> np.ndarray:
+        """
+        STFT（短時間フーリエ変換）を実行します。
+
+        Parameters:
+            data (numpy.ndarray): 入力データ。
+            n_fft (int): FFT のサンプル数。
+            hop_length (int): ホップサイズ（フレーム間の移動量）。
+            win_length (int): ウィンドウの長さ。
+            window (str): ウィンドウ関数の種類。
+            center (bool): フレームを中央に配置するかどうか。
+            pad_mode (str): パディングモード。
+
+        Returns:
+            numpy.ndarray: STFT の結果。
+        """
+        if n_fft is None:
+            n_fft = 2048
+        if hop_length is None:
+            hop_length = n_fft // 2
+        if win_length is None:
+            win_length = n_fft
+        _, _, data = ss.stft(
+            data,
+            nfft=n_fft,
+            noverlap=win_length - hop_length,
+            nperseg=win_length,
+            window=window,
+            detrend="constant",
+            # pad_mode=pad_mode,
+        )
+        data[..., 1:-1, :] *= 2.0
+        return data
+
+    @classmethod
     def from_channel(
         cls,
-        ch: "channel.Channel",
+        ch: "Channel",
         n_fft: Optional[int] = None,
         hop_length: Optional[int] = None,
         win_length: Optional[int] = None,
@@ -59,24 +106,23 @@ class TimeFrequencyChannel(BaseChannel):
         center: bool = True,
         # pad_mode: str = "constant",
     ) -> "TimeFrequencyChannel":
-        if n_fft is None:
-            n_fft = 2048
-        if hop_length is None:
-            hop_length = n_fft // 2
         if win_length is None:
-            win_length = n_fft
+            win_length = 2048
+        if n_fft is None:
+            n_fft = win_length
+        if hop_length is None:
+            hop_length = win_length // 2
 
-        data = librosa.stft(
-            ch.data,
+        data = cls._stft(
+            data=ch.data,
             n_fft=n_fft,
             hop_length=hop_length,
             win_length=win_length,
             window=window,
-            center=center,
-            # pad_mode=pad_mode,
         )
+
         return cls(
-            data=data,
+            data=data.squeeze(),
             sampling_rate=ch.sampling_rate,
             n_fft=n_fft,
             hop_length=hop_length,
@@ -89,6 +135,27 @@ class TimeFrequencyChannel(BaseChannel):
             metadata=ch.metadata.copy(),
         )
 
+    @property
+    def data(self) -> np.ndarray:
+        """
+        校正値を適用した振幅データを返します。
+        """
+        return self._data
+
+    def data_Aw(self, to_dB=False) -> np.ndarray:
+        """
+        A特性を適用した振幅データを返します。
+        """
+        freqs = fft.rfftfreq(self.n_fft, 1 / self.sampling_rate)
+        weighted = librosa.perceptual_weighting(
+            np.abs(self._data) ** 2, freqs, kind="A", ref=self.ref**2
+        )
+
+        if to_dB:
+            return weighted
+
+        return librosa.db_to_amplitude(weighted)
+
     def plot(
         self,
         ax: Optional[Any] = None,
@@ -96,7 +163,10 @@ class TimeFrequencyChannel(BaseChannel):
         db_scale: bool = True,
         fmin: Optional[float] = None,
         fmax: Optional[float] = None,
-    ):
+        Aw: bool = False,
+        vmin: Optional[float] = None,
+        vmax: Optional[float] = None,
+    ) -> tuple[Any, np.ndarray]:
         """
         時間周波数データをプロットします。
 
@@ -109,11 +179,12 @@ class TimeFrequencyChannel(BaseChannel):
         if _ax is None:
             _, _ax = plt.subplots(figsize=(10, 6))
 
-        # dBスケールでのプロットを選択可能
-        data_to_plot = np.abs(self.data)
-
-        if db_scale:
+        if Aw:
+            data_to_plot = self.data_Aw(to_dB=True)
+        elif db_scale:
             data_to_plot = self._to_db()
+        else:
+            data_to_plot = np.abs(self.data)
 
         # 時間周波数データをプロット
         img = librosa.display.specshow(
@@ -128,28 +199,38 @@ class TimeFrequencyChannel(BaseChannel):
             fmin=fmin,
             fmax=fmax,
             cmap="magma",
+            vmin=vmin,
+            vmax=vmax,
         )
 
         # ラベルとタイトルを設定
         _ax.set_xlabel("Time [s]")
         _ax.set_ylabel("Frequency [Hz]")
         _ax.set_title(title or self.label or "Time-Frequency Representation")
-        if db_scale:
-            _ax.figure.colorbar(img, ax=ax, format="%+2.0f dB")
-        else:
-            _ax.figure.colorbar(img, ax=ax)
+
+        if _ax.figure is not None:
+            if db_scale:
+                cbar = _ax.figure.colorbar(img, ax=ax, format="%+2.0f")
+                if Aw:
+                    unit = "dBA"
+                else:
+                    unit = "dB"
+                cbar.set_label(f"Spectrum level [{unit}]")
+            else:
+                cbar = _ax.figure.colorbar(img, ax=ax)
+                cbar.set_label(f"Amplitude [{self.unit}]")
 
         if ax is None:
             plt.tight_layout()
             plt.show()
 
-    def _to_db(self, ref=None) -> np.ndarray:
+        return _ax, data_to_plot
+
+    def _to_db(self) -> np.ndarray:
         """
         スペクトルデータを dB スケールに変換した新しい TimeFrequencyChannel を返す。
 
         Returns:
             TimeFrequencyChannel: dBスケールに変換された新しい TimeFrequencyChannel。
         """
-        if ref is None:
-            ref = np.max
-        return librosa.amplitude_to_db(np.abs(self.data), ref=ref)
+        return librosa.amplitude_to_db(np.abs(self.data), ref=self.ref)

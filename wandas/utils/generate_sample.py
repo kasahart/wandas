@@ -7,8 +7,8 @@ from typing import Optional, Union, List
 
 
 def generate_sample(
-    freqs: Union[float, List[float]] = 440.0,
-    sampling_rate: int = 44100,
+    freqs: Union[float, List[float]] = 1000,
+    sampling_rate: int = 16000,
     duration: float = 1.0,
     label: Optional[str] = None,
 ) -> Signal:
@@ -30,16 +30,18 @@ def generate_sample(
         # 複数の周波数の場合、各周波数に対してチャンネルを作成
         channels = []
         for idx, freq in enumerate(freqs):
-            data = np.sin(2 * np.pi * freq * t)
+            data = np.sin(2 * np.pi * freq * t) * 2 * np.sqrt(2)
             channel_label = f"Channel {idx + 1}"
             channel = Channel(
-                data=data, sampling_rate=sampling_rate, label=channel_label
+                data=data, sampling_rate=sampling_rate, label=channel_label, unit="Pa"
             )
             channels.append(channel)
     else:
         # 単一の周波数の場合、チャンネルを一つ作成
-        data = np.sin(2 * np.pi * freqs * t)
-        channel = Channel(data=data, sampling_rate=sampling_rate, label="Channel 1")
+        data = np.sin(2 * np.pi * freqs * t) * 2 * np.sqrt(2)
+        channel = Channel(
+            data=data, sampling_rate=sampling_rate, label="Channel 1", unit="Pa"
+        )
         channels = [channel]
 
     return Signal(channels=channels, label=label)

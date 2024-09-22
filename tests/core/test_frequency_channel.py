@@ -10,7 +10,6 @@ def test_frequency_channel_initialization():
     sampling_rate = 1000
     n_fft = 1024
     window = np.hanning(5)
-    norm = "forward"
     label = "Test Spectrum"
     unit = "V"
     calibration_value = 1
@@ -21,7 +20,6 @@ def test_frequency_channel_initialization():
         sampling_rate=sampling_rate,
         n_fft=n_fft,
         window=window,
-        norm=norm,
         label=label,
         unit=unit,
         metadata=metadata,
@@ -31,7 +29,6 @@ def test_frequency_channel_initialization():
     assert freq_channel.sampling_rate == sampling_rate
     assert freq_channel.n_fft == n_fft
     assert np.array_equal(freq_channel.window, window)
-    assert freq_channel.norm == norm
     assert freq_channel.label == label
     assert freq_channel.unit == unit
     assert freq_channel.calibration_value == calibration_value
@@ -70,6 +67,73 @@ def test_frequency_channel_data_property():
 
     expected_data = data
     assert np.array_equal(freq_channel.data, expected_data)
+
+
+def test_fft_amplitude():
+    fs = 16000
+    nperseg = 4096
+    win = "hann"
+    freq = 1000  # 周波数5Hz
+    amplitude = 2.0
+    sine_wave = (
+        amplitude * np.sin(freq * 2.0 * np.pi * np.arange(nperseg) / fs)
+    ).squeeze()
+
+    # FFTを計算
+    fft_result, _, _ = FrequencyChannel._fft(sine_wave, window=win)
+
+    # 振幅値がスペクトルの振幅と一致することを確認
+    fft_amplitude = np.abs(fft_result)
+    peak_amplitude = np.max(fft_amplitude)
+
+    assert np.isclose(
+        peak_amplitude, amplitude, atol=1e-5
+    ), f"Expected {amplitude}, but got {peak_amplitude}"
+
+    # ############
+    # paddingした場合
+    # ############
+    # FFTを計算
+    fft_result, _, _ = FrequencyChannel._fft(sine_wave, n_fft=nperseg * 2, window=win)
+
+    # 振幅値がスペクトルの振幅と一致することを確認
+    fft_amplitude = np.abs(fft_result)
+    peak_amplitude = np.max(fft_amplitude)
+
+    assert np.isclose(
+        peak_amplitude, amplitude, atol=1e-5
+    ), f"Expected {amplitude}, but got {peak_amplitude}"
+
+    # ###########
+    # 窓関数を変えてた場合
+    # ############
+    # FFTを計算
+    fft_result, _, _ = FrequencyChannel._fft(
+        sine_wave, n_fft=nperseg, window="blackman"
+    )
+
+    # 振幅値がスペクトルの振幅と一致することを確認
+    fft_amplitude = np.abs(fft_result)
+    peak_amplitude = np.max(fft_amplitude)
+
+    assert np.isclose(
+        peak_amplitude, amplitude, atol=1e-5
+    ), f"Expected {amplitude}, but got {peak_amplitude}"
+
+    # ###########
+    # 窓関数を変えてた場合
+    # ############
+    # FFTを計算
+
+    fft_result, _, _ = FrequencyChannel._fft(sine_wave, n_fft=nperseg, window="boxcar")
+
+    # 振幅値がスペクトルの振幅と一致することを確認
+    fft_amplitude = np.abs(fft_result)
+    peak_amplitude = np.max(fft_amplitude)
+
+    assert np.isclose(
+        peak_amplitude, amplitude, atol=1e-5
+    ), f"Expected {amplitude}, but got {peak_amplitude}"
 
 
 def test_frequency_channel_plot():

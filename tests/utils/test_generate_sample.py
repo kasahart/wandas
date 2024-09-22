@@ -6,8 +6,8 @@ from wandas.core.channel import Channel
 
 
 def test_generate_sample_single_frequency():
-    freq = 440
-    sampling_rate = 8000
+    freq = 1000.0
+    sampling_rate = 16000
     duration = 1.0
     signal = generate_sample(
         freqs=freq, sampling_rate=sampling_rate, duration=duration, label="Test Signal"
@@ -24,8 +24,8 @@ def test_generate_sample_single_frequency():
 
 
 def test_generate_sample_multiple_frequencies():
-    freqs = [440.0, 880.0, 1760.0]
-    sampling_rate = 8000
+    freqs = [500.0, 800.0, 1000.0]
+    sampling_rate = 16000
     duration = 1.0
     signal = generate_sample(
         freqs=freqs, sampling_rate=sampling_rate, duration=duration, label="Test Signal"

@@ -17,7 +17,9 @@ class Spectrums:
         self.channels = channels
         self.label = label
 
-    def plot(self, ax: Optional[Any] = None, title: Optional[str] = None):
+    def plot(
+        self, ax: Optional[Any] = None, title: Optional[str] = None, Aw: bool = False
+    ):
         """
         スペクトルデータをプロットします。
 
@@ -30,7 +32,7 @@ class Spectrums:
             _, _ax = plt.subplots(figsize=(10, 4))
 
         for channel in self.channels:
-            channel.plot(ax=_ax)
+            channel.plot(ax=_ax, Aw=Aw)
 
         _ax.set_title(title or self.label or "Spectrum")
         _ax.grid(True)

@@ -17,7 +17,6 @@ class FrequencyChannel(BaseChannel):
         sampling_rate: int,
         n_fft: int,
         window: np.ndarray,
-        norm: str = "forward",
         label: Optional[str] = None,
         unit: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
@@ -41,7 +40,37 @@ class FrequencyChannel(BaseChannel):
         self.sampling_rate = sampling_rate
         self.n_fft = n_fft
         self.window = window
-        self.norm = norm
+
+    @classmethod
+    def _fft(
+        cls,
+        data: np.ndarray,
+        n_fft: Optional[int] = None,
+        window: Optional[str] = None,
+    ) -> tuple[np.ndarray, np.ndarray, int]:
+        length = data.shape[-1]
+        if n_fft is None:
+            n_fft = length
+
+        if n_fft < length:
+            raise ValueError(
+                "n_fft must be greater than or equal to the length of the input data."
+            )
+
+        if window:
+            window_values = ss.get_window(window, length)
+        else:
+            window_values = np.ones(length)
+
+        data = data * window_values
+
+        out = fft.rfft(data, n=n_fft, norm=None)
+        out[1:-1] *= 2.0
+        # 窓関数補正
+        scaling_factor = np.sum(window_values)
+        out /= scaling_factor
+
+        return (out, window_values, n_fft)
 
     @classmethod
     def from_channel(
@@ -62,33 +91,13 @@ class FrequencyChannel(BaseChannel):
         Returns:
             FrequencyChannel: FrequencyChannel オブジェクト。
         """
-
-        if n_fft is None:
-            n_fft = len(ch)
-
-        if n_fft < len(ch):
-            raise ValueError(
-                "n_fft must be greater than or equal to the length of the input data."
-            )
-
-        data = ch._data
-
-        if window:
-            window_values = ss.get_window(window, len(ch))
-        else:
-            window_values = np.ones(len(ch))
-
-        data *= window_values
-        norm = "forward"
-        out = fft.rfft(data, n=n_fft, norm=norm)
-        # type: ignore
+        out, window_values, n_fft = cls._fft(ch.data, n_fft=n_fft, window=window)
 
         return cls(
-            data=out,  # type: ignore
+            data=out.squeeze(),  # type: ignore
             sampling_rate=ch.sampling_rate,
-            n_fft=n_fft,
+            n_fft=n_fft,  # type: ignore
             window=window_values,
-            norm=norm,
             label=ch.label,
             unit=ch.unit,
             metadata=ch.metadata.copy(),
@@ -101,7 +110,21 @@ class FrequencyChannel(BaseChannel):
         """
         return self._data
 
-    def plot(self, ax: Optional[Any] = None, title: Optional[str] = None):
+    def data_Aw(self, to_dB=False) -> np.ndarray:
+        """
+        A特性を適用した振幅データを返します。
+        """
+        freqs = fft.rfftfreq(self.n_fft, 1 / self.sampling_rate)
+        weighted = librosa.perceptual_weighting(
+            np.abs(self._data[..., None]) ** 2, freqs, kind="A", ref=self.ref**2
+        ).squeeze()
+
+        if to_dB:
+            return weighted
+
+        return librosa.db_to_amplitude(weighted, ref=self.ref)
+
+    def plot(self, ax: Optional[Any] = None, title: Optional[str] = None, Aw=False):
         """
         スペクトルデータをプロットします。
         """
@@ -110,14 +133,22 @@ class FrequencyChannel(BaseChannel):
             fig, ax = plt.subplots(figsize=(10, 4))
 
         x = fft.rfftfreq(self.n_fft, 1 / self.sampling_rate)
+
+        if Aw:
+            unit = "dBA"
+            data = self.data_Aw(to_dB=True)
+        else:
+            unit = "dB"
+            data = librosa.amplitude_to_db(np.abs(self.data), ref=self.ref)
+
         ax.plot(
             x,
-            librosa.amplitude_to_db(np.abs(self.data)),
+            data,
             label=self.label or "Spectrum",
         )
 
         ax.set_xlabel("Frequency [Hz]")
-        ylabel = f"Amplitude [{self.unit}]" if self.unit else "Amplitude [dB]"
+        ylabel = f"Spectrum level [{unit}]"
         ax.set_ylabel(ylabel)
         ax.set_title(title or self.label or "Spectrum")
         ax.grid(True)

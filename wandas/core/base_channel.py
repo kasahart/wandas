@@ -2,6 +2,7 @@
 
 from typing import Optional, Dict, Any
 from abc import ABC, abstractmethod
+from wandas.core import util
 
 
 class BaseChannel(ABC):
@@ -25,6 +26,7 @@ class BaseChannel(ABC):
         self.unit = unit
         self.calibration_value = calibration_value
         self.metadata = metadata or {}
+        self.ref = util.unit_to_ref(unit)
 
     @abstractmethod
     def plot(self, ax: Optional[Any] = None, title: Optional[str] = None):
