@@ -22,6 +22,7 @@ def generate_channel():
         sampling_rate=sampling_rate,
         label="Test Channel",
         unit="V",
+        calibration_value=1.0,
     )
 
 
@@ -32,8 +33,8 @@ def generate_time_frequency_channel(generate_channel):
     hop_length = n_fft // 2
     window = "hann"
     ch = generate_channel
-    return TimeFrequencyChannel.from_channel(
-        ch, n_fft=n_fft, hop_length=hop_length, win_length=win_length, window=window
+    return ch.stft(
+        n_fft=n_fft, hop_length=hop_length, win_length=win_length, window=window
     )
 
 
@@ -44,8 +45,8 @@ def generate_time_frequency_channel_boxcar(generate_channel):
     hop_length = n_fft // 2
     window = "boxcar"
     ch = generate_channel
-    return TimeFrequencyChannel.from_channel(
-        ch, n_fft=n_fft, hop_length=hop_length, win_length=win_length, window=window
+    return ch.stft(
+        n_fft=n_fft, hop_length=hop_length, win_length=win_length, window=window
     )
 
 
@@ -56,7 +57,7 @@ def test_time_frequency_channel_initialization():
     hop_length = 512
     win_length = 2048
     window = "hann"
-    center = True
+    # center = True
 
     tf_channel = TimeFrequencyChannel(
         data=data,
@@ -65,7 +66,7 @@ def test_time_frequency_channel_initialization():
         hop_length=hop_length,
         win_length=win_length,
         window=window,
-        center=center,
+        # center=center,
         label="Test TF Channel",
         unit="dB",
         metadata={"test": "metadata"},
@@ -77,7 +78,7 @@ def test_time_frequency_channel_initialization():
     assert tf_channel.hop_length == hop_length
     assert tf_channel.win_length == win_length
     assert tf_channel.window == window
-    assert tf_channel.center == center
+    # assert tf_channel.center == center
     assert tf_channel.label == "Test TF Channel"
     assert tf_channel.unit == "dB"
     assert tf_channel.metadata == {"test": "metadata"}
@@ -85,7 +86,7 @@ def test_time_frequency_channel_initialization():
 
 def test_time_frequency_channel_from_channel(generate_channel):
     ch = generate_channel
-    tf_channel = TimeFrequencyChannel.from_channel(ch)
+    tf_channel = ch.stft()
 
     assert tf_channel.sampling_rate == ch.sampling_rate
     assert tf_channel.label == ch.label
@@ -107,7 +108,7 @@ def test_stft_amplitude():
         amplitude * np.sin(freq * 2.0 * np.pi * np.arange(data_length) / fs)
     ).squeeze()
 
-    stft_result = TimeFrequencyChannel._stft(
+    stft_result = TimeFrequencyChannel.stft(
         data=sine_wave,
         n_fft=n_fft,
         hop_length=hop_length,
@@ -115,7 +116,7 @@ def test_stft_amplitude():
         window=window,
     )
 
-    stft_amplitude = np.abs(stft_result)
+    stft_amplitude = np.abs(stft_result["data"])
     peak_amplitude = np.max(stft_amplitude)
 
     assert np.isclose(
@@ -125,7 +126,7 @@ def test_stft_amplitude():
     # ############
     # paddingした場合
     # ############
-    stft_result = TimeFrequencyChannel._stft(
+    stft_result = TimeFrequencyChannel.stft(
         data=sine_wave,
         n_fft=n_fft * 2,
         hop_length=hop_length,
@@ -133,7 +134,7 @@ def test_stft_amplitude():
         window=window,
     )
 
-    stft_amplitude = np.abs(stft_result)
+    stft_amplitude = np.abs(stft_result["data"])
     peak_amplitude = np.max(stft_amplitude)
 
     assert np.isclose(
@@ -143,7 +144,7 @@ def test_stft_amplitude():
     # ###########
     # 窓関数を変えてた場合
     # ############
-    stft_result = TimeFrequencyChannel._stft(
+    stft_result = TimeFrequencyChannel.stft(
         data=sine_wave,
         n_fft=n_fft,
         hop_length=hop_length,
@@ -151,7 +152,7 @@ def test_stft_amplitude():
         window="blackman",
     )
 
-    stft_amplitude = np.abs(stft_result)
+    stft_amplitude = np.abs(stft_result["data"])
     peak_amplitude = np.max(stft_amplitude)
 
     assert np.isclose(
@@ -161,7 +162,7 @@ def test_stft_amplitude():
     # ###########
     # 窓関数を変えてた場合
     # ############
-    stft_result = TimeFrequencyChannel._stft(
+    stft_result = TimeFrequencyChannel.stft(
         data=sine_wave,
         n_fft=n_fft,
         hop_length=hop_length,
@@ -169,7 +170,7 @@ def test_stft_amplitude():
         window="boxcar",
     )
 
-    stft_amplitude = np.abs(stft_result)
+    stft_amplitude = np.abs(stft_result["data"])
     peak_amplitude = np.max(stft_amplitude)
 
     assert np.isclose(

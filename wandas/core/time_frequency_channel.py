@@ -1,13 +1,10 @@
-from typing import Optional, Dict, Any, TYPE_CHECKING
+from typing import Optional, Dict, Any
 import numpy as np
 import matplotlib.pyplot as plt
 import librosa.display
 from .base_channel import BaseChannel
 from scipy import fft
 from scipy import signal as ss
-
-if TYPE_CHECKING:
-    from .channel import Channel
 
 
 class TimeFrequencyChannel(BaseChannel):
@@ -19,11 +16,12 @@ class TimeFrequencyChannel(BaseChannel):
         hop_length: int,
         win_length: int,
         window: str,
-        center: bool,
+        # center: bool = None,
         # pad_mode: str,
         label: Optional[str] = None,
         unit: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        calibration_value: Optional[float] = None,
     ):
         """
         TimeFrequencyChannel オブジェクトを初期化します。
@@ -38,22 +36,22 @@ class TimeFrequencyChannel(BaseChannel):
             metadata (dict, optional): メタデータ。
         """
         super().__init__(
+            data=data,
+            sampling_rate=sampling_rate,
             label=label,
             unit=unit,
-            calibration_value=1,
+            calibration_value=calibration_value,
             metadata=metadata,
         )
-        self._data = data
-        self.sampling_rate = sampling_rate
         self.n_fft = n_fft
         self.hop_length = hop_length
         self.win_length = win_length
         self.window = window
-        self.center = center
+        # self.center = center
         # self.pad_mode = pad_mode
 
     @classmethod
-    def _stft(
+    def stft(
         cls,
         data: np.ndarray,
         n_fft: Optional[int] = None,
@@ -61,7 +59,7 @@ class TimeFrequencyChannel(BaseChannel):
         win_length: Optional[int] = None,
         window: str = "hann",
         # pad_mode: str = "constant",
-    ) -> np.ndarray:
+    ):
         """
         STFT（短時間フーリエ変換）を実行します。
 
@@ -94,46 +92,12 @@ class TimeFrequencyChannel(BaseChannel):
             # pad_mode=pad_mode,
         )
         data[..., 1:-1, :] *= 2.0
-        return data
-
-    @classmethod
-    def from_channel(
-        cls,
-        ch: "Channel",
-        n_fft: Optional[int] = None,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
-        window: str = "hann",
-        center: bool = True,
-        # pad_mode: str = "constant",
-    ) -> "TimeFrequencyChannel":
-        if win_length is None:
-            win_length = 2048
-        if n_fft is None:
-            n_fft = win_length
-        if hop_length is None:
-            hop_length = win_length // 2
-
-        data = cls._stft(
-            data=ch.data,
+        return dict(
+            data=data,
             n_fft=n_fft,
             hop_length=hop_length,
             win_length=win_length,
             window=window,
-        )
-
-        return cls(
-            data=data.squeeze(),
-            sampling_rate=ch.sampling_rate,
-            n_fft=n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
-            window=window,
-            center=center,
-            # pad_mode=pad_mode,
-            label=ch.label,
-            unit=ch.unit,
-            metadata=ch.metadata.copy(),
         )
 
     @property

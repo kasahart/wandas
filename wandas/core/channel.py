@@ -8,6 +8,7 @@ from scipy.signal import butter, filtfilt
 from .frequency_channel import FrequencyChannel
 import librosa
 from .time_frequency_channel import TimeFrequencyChannel
+import wandas.core.util as util
 
 
 class Channel(BaseChannel):
@@ -29,24 +30,16 @@ class Channel(BaseChannel):
             その他のパラメータは BaseChannel を参照。
         """
         super().__init__(
+            data=data,
+            sampling_rate=sampling_rate,
             label=label,
             unit=unit,
             calibration_value=calibration_value,
             metadata=metadata,
         )
-        self._data = data
-        self.sampling_rate = sampling_rate
 
-    @property
-    def data(self) -> np.ndarray:
-        """
-        校正値を適用したデータを返します。
-        """
-        if self.calibration_value is not None:
-            return self._data * self.calibration_value
-        return self._data
-
-    def low_pass_filter(self, cutoff: float, order: int = 5) -> "Channel":
+    @util.transform_method()
+    def low_pass_filter(self, cutoff: float, order: int = 5):
         """
         ローパスフィルタを適用します。
 
@@ -57,24 +50,20 @@ class Channel(BaseChannel):
         Returns:
             Channel: フィルタリングされた新しい Channel オブジェクト。
         """
+
         nyq = 0.5 * self.sampling_rate
         normal_cutoff = cutoff / nyq
         b, a = butter(order, normal_cutoff, btype="low", analog=False)
         filtered_data = filtfilt(b, a, self._data)
-        return Channel(
-            data=filtered_data,
-            sampling_rate=self.sampling_rate,
-            label=self.label,
-            unit=self.unit,
-            calibration_value=self.calibration_value,
-            metadata=self.metadata.copy(),
-        )
 
+        return dict(data=filtered_data)
+
+    @util.transform_method(FrequencyChannel)
     def fft(
         self,
         n_fft: Optional[int] = None,
         window: Optional[str] = None,
-    ) -> FrequencyChannel:
+    ):
         """
         フーリエ変換を実行します。
 
@@ -86,9 +75,11 @@ class Channel(BaseChannel):
         Returns:
             FrequencyChannel: スペクトルデータを含むオブジェクト。
         """
+        result = FrequencyChannel.fft(data=self.data, n_fft=n_fft, window=window)
+        result["calibration_value"] = 1.0
+        return result
 
-        return FrequencyChannel.from_channel(ch=self, n_fft=n_fft, window=window)
-
+    @util.transform_method(FrequencyChannel)
     def welch(
         self,
         n_fft: Optional[int] = None,
@@ -97,7 +88,7 @@ class Channel(BaseChannel):
         window: str = "hann",
         average: str = "mean",
         # pad_mode: str = "constant"
-    ) -> FrequencyChannel:
+    ):
         """
         Welch 法を用いたパワースペクトル密度推定を実行します。
 
@@ -108,15 +99,18 @@ class Channel(BaseChannel):
         Returns:
             FrequencyChannel: スペクトルデータを含むオブジェクト。
         """
-        return FrequencyChannel.from_channel_to_welch(
-            ch=self,
+        result = FrequencyChannel.welch(
+            data=self.data,
             n_fft=n_fft,
             hop_length=hop_length,
             win_length=win_length,
             window=window,
             average=average,
         )
+        result["calibration_value"] = 1.0
+        return result
 
+    @util.transform_method(TimeFrequencyChannel)
     def stft(
         self,
         n_fft: int = 2048,
@@ -125,7 +119,7 @@ class Channel(BaseChannel):
         window: str = "hann",
         center: bool = True,
         # pad_mode: str = "constant",
-    ) -> TimeFrequencyChannel:
+    ):
         """
         STFT（短時間フーリエ変換）を実行します。
 
@@ -138,17 +132,20 @@ class Channel(BaseChannel):
             FrequencyChannel: STFT の結果を格納した FrequencyChannel オブジェクト。
         """
 
-        return TimeFrequencyChannel.from_channel(
-            ch=self,
+        result = TimeFrequencyChannel.stft(
+            data=self.data,
             n_fft=n_fft,
             hop_length=hop_length,
             win_length=win_length,
             window=window,
-            center=center,
+            # center=center,
             # pad_mode=pad_mode,
         )
+        result["calibration_value"] = 1.0
+        return result
 
-    def rms_trend(self, frame_length: int = 2048, hop_length: int = 512) -> "Channel":
+    @util.transform_method()
+    def rms_trend(self, frame_length: int = 2048, hop_length: int = 512):
         """
         移動平均を計算します。
 
@@ -162,12 +159,8 @@ class Channel(BaseChannel):
             y=self.data, frame_length=frame_length, hop_length=hop_length
         )
 
-        return Channel(
-            data=rms_data.squeeze(),
-            sampling_rate=int(self.sampling_rate / hop_length),
-            label=self.label,
-            unit=self.unit,
-            metadata=self.metadata.copy(),
+        return dict(
+            data=rms_data.squeeze(), sampling_rate=int(self.sampling_rate / hop_length)
         )
 
     def plot(self, ax: Optional[Any] = None, title: Optional[str] = None):
@@ -194,7 +187,9 @@ class Channel(BaseChannel):
             plt.tight_layout()
             plt.show()
 
-    def rms_plot(self, ax: Optional[Any] = None, title: Optional[str] = None):
+    def rms_plot(
+        self, ax: Optional[Any] = None, title: Optional[str] = None
+    ) -> "Channel":
         """
         RMS データをプロットします。
         """
@@ -203,7 +198,7 @@ class Channel(BaseChannel):
         if ax is None:
             fig, ax = plt.subplots(figsize=(10, 4))
 
-        rms_channel = self.rms_trend()
+        rms_channel: Channel = self.rms_trend()  # type: ignore
         num_samples = len(rms_channel)
         t = np.arange(num_samples) / rms_channel.sampling_rate
         ax.plot(
@@ -222,22 +217,7 @@ class Channel(BaseChannel):
         if ax is None:
             plt.tight_layout()
 
-    def transform(self, func, *args, **kwargs):
-        """
-        データに関数を適用し、新しい Channel オブジェクトを返す
-
-        Parameters:
-            func (callable): チャンネルデータに適用する関数。
-            *args: 関数に渡す引数。
-            **kwargs: 関数に渡すキーワード引数。
-
-        Returns:
-            Channel: 新しい Channel インスタンス。
-        """
-        new_data = func(self.data, *args, **kwargs)
-        return Channel(
-            data=new_data, sampling_rate=self.sampling_rate, label=self.label
-        )
+        return rms_channel
 
     def __len__(self) -> int:
         """
@@ -246,64 +226,62 @@ class Channel(BaseChannel):
         return self._data.shape[-1]
 
     # 演算子オーバーロードの実装
-    def __add__(self, other: "Channel") -> "Channel":
+    @util.transform_method()
+    def __add__(self, other: "Channel"):
         """
         チャンネル間の加算。
         """
         assert (
             self.sampling_rate == other.sampling_rate
         ), "Sampling rates must be the same for channel addition."
-        return Channel(
+        return dict(
             data=self.data + other.data,
             sampling_rate=self.sampling_rate,
             label=f"({self.label} + {other.label})",
+            calibration_value=1,
         )
 
-    def __sub__(self, other: "Channel") -> "Channel":
+    @util.transform_method()
+    def __sub__(self, other: "Channel"):
         """
         チャンネル間の減算。
         """
         assert (
             self.sampling_rate == other.sampling_rate
         ), "Sampling rates must be the same for channel subtraction."
-        return Channel(
+        return dict(
             data=self.data - other.data,
             sampling_rate=self.sampling_rate,
             label=f"({self.label} - {other.label})",
+            calibration_value=1,
         )
 
-    def __mul__(self, other: "Channel") -> "Channel":
+    @util.transform_method()
+    def __mul__(self, other: "Channel"):
         """
         チャンネル間の乗算。
         """
         assert (
             self.sampling_rate == other.sampling_rate
         ), "Sampling rates must be the same for channel multiplication."
-        return Channel(
+        return dict(
             data=self.data * other.data,
             sampling_rate=self.sampling_rate,
             label=f"({self.label} * {other.label})",
+            calibration_value=1,
         )
 
-    def __truediv__(self, other: "Channel") -> "Channel":
+    @util.transform_method()
+    def __truediv__(self, other: "Channel"):
         """
         チャンネル間の除算。
         """
         assert (
             self.sampling_rate == other.sampling_rate
         ), "Sampling rates must be the same for channel division."
-        return Channel(
+        return dict(
             data=self.data / other.data,
             sampling_rate=self.sampling_rate,
             label=f"({self.label} / {other.label})",
+            calibration_value=1,
         )
-
-
-def channel_function_wrapper(func):
-    def wrapper(channel, *args, **kwargs):
-        new_data = func(channel.data, *args, **kwargs)
-        return Channel(
-            data=new_data, sampling_rate=channel.sampling_rate, label=channel.label
-        )
-
-    return wrapper

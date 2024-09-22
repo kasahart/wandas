@@ -1,16 +1,12 @@
 # wandas/core/frequency_channel.py
 
-from typing import Optional, Dict, Any, TYPE_CHECKING, Union
+from typing import Optional, Dict, Any, Union
 import numpy as np
 from .base_channel import BaseChannel
 import matplotlib.pyplot as plt
 import librosa
-from . import channel
 from scipy import signal as ss
 from scipy import fft
-
-if TYPE_CHECKING:
-    from .channel import Channel
 
 
 class FrequencyChannel(BaseChannel):
@@ -22,6 +18,7 @@ class FrequencyChannel(BaseChannel):
         window: Union[np.ndarray, str],
         label: Optional[str] = None,
         unit: Optional[str] = None,
+        calibration_value: Optional[float] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ):
         """
@@ -34,23 +31,24 @@ class FrequencyChannel(BaseChannel):
             その他のパラメータは BaseChannel を参照。
         """
         super().__init__(
+            data=data,
+            sampling_rate=sampling_rate,
             label=label,
             unit=unit,
-            calibration_value=1,
+            calibration_value=calibration_value,
             metadata=metadata,
         )
-        self._data = data
-        self.sampling_rate = sampling_rate
+
         self.n_fft = n_fft
         self.window = window
 
     @classmethod
-    def _fft(
+    def fft(
         cls,
         data: np.ndarray,
         n_fft: Optional[int] = None,
         window: Optional[str] = None,
-    ) -> tuple[np.ndarray, np.ndarray, int]:
+    ) -> Dict[str, Any]:
         length = data.shape[-1]
         if n_fft is None:
             n_fft = length
@@ -67,47 +65,16 @@ class FrequencyChannel(BaseChannel):
 
         data = data * window_values
 
-        out = fft.rfft(data, n=n_fft, norm=None)
+        out: np.ndarray = fft.rfft(data, n=n_fft, norm=None)  # type: ignore
         out[1:-1] *= 2.0
         # 窓関数補正
         scaling_factor = np.sum(window_values)
         out /= scaling_factor
 
-        return (out, window_values, n_fft)
+        return dict(data=out.squeeze(), window=window_values, n_fft=n_fft)
 
     @classmethod
-    def from_channel(
-        cls,
-        ch: "Channel",
-        n_fft: Optional[int] = None,
-        window: Optional[str] = None,
-    ) -> "FrequencyChannel":
-        """
-        Channel オブジェクトから FrequencyChannel オブジェクトを作成します。
-
-        Parameters:
-            ch (Channel): Channel オブジェクト。
-            n_fft (int, optional): FFT サイズ。
-            window (str, optional): 窓関数。
-            fft_params (dict, optional): FFT パラメータ。
-
-        Returns:
-            FrequencyChannel: FrequencyChannel オブジェクト。
-        """
-        out, window_values, n_fft = cls._fft(ch.data, n_fft=n_fft, window=window)
-
-        return cls(
-            data=out.squeeze(),  # type: ignore
-            sampling_rate=ch.sampling_rate,
-            n_fft=n_fft,  # type: ignore
-            window=window_values,
-            label=ch.label,
-            unit=ch.unit,
-            metadata=ch.metadata.copy(),
-        )
-
-    @classmethod
-    def _welch(
+    def welch(
         cls,
         data: np.ndarray,
         n_fft: Optional[int] = None,
@@ -116,7 +83,7 @@ class FrequencyChannel(BaseChannel):
         window: str = "hann",
         average: str = "mean",
         detrend: str = "constant",
-    ) -> np.ndarray:
+    ):
         if win_length is None:
             win_length = 2048
         if n_fft is None:
@@ -136,54 +103,14 @@ class FrequencyChannel(BaseChannel):
 
         # out[..., 1:-1] *= 2.0
 
-        return out
-
-    @classmethod
-    def from_channel_to_welch(
-        cls,
-        ch: "Channel",
-        n_fft: Optional[int] = None,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
-        window: str = "hann",
-        average: str = "mean",
-    ) -> "FrequencyChannel":
-        """
-        Channel オブジェクトから FrequencyChannel オブジェクトを作成します。
-
-        Parameters:
-            ch (Channel): Channel オブジェクト。
-            n_fft (int, optional): FFT サイズ。
-            window (str, optional): 窓関数。
-            fft_params (dict, optional): FFT パラメータ。
-
-        Returns:
-            FrequencyChannel: FrequencyChannel オブジェクト。
-        """
-        if win_length is None:
-            win_length = 2048
-        if n_fft is None:
-            n_fft = win_length
-        if hop_length is None:
-            hop_length = win_length // 2
-
-        out = cls._welch(
-            ch.data,
+        return dict(
+            data=out,
             n_fft=n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
-            average=average,
+            # hop_length=hop_length,
+            # win_length=win_length,
             window=window,
-        )
-
-        return cls(
-            data=out.squeeze(),  # type: ignore
-            sampling_rate=ch.sampling_rate,
-            n_fft=n_fft,  # type: ignore
-            window=window,
-            label=ch.label,
-            unit=ch.unit,
-            metadata=ch.metadata.copy(),
+            # average=average,
+            # detrend=detrend,
         )
 
     @property

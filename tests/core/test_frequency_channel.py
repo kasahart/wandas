@@ -32,7 +32,7 @@ def test_frequency_channel_initialization():
     window = np.hanning(5)
     label = "Test Spectrum"
     unit = "V"
-    calibration_value = 1
+    calibration_value = 1.0
     metadata = {"note": "Test metadata"}
 
     freq_channel = FrequencyChannel(
@@ -43,6 +43,7 @@ def test_frequency_channel_initialization():
         label=label,
         unit=unit,
         metadata=metadata,
+        calibration_value=calibration_value,
     )
 
     assert np.array_equal(freq_channel._data, data)
@@ -67,7 +68,7 @@ def test_frequency_channel_from_channel():
     n_fft = 8
     window = "hann"
 
-    freq_channel = FrequencyChannel.from_channel(ch, n_fft=n_fft, window=window)
+    freq_channel: FrequencyChannel = ch.fft(n_fft=n_fft, window=window)  # type: ignore
 
     assert freq_channel.sampling_rate == sampling_rate
     assert freq_channel.n_fft == n_fft
@@ -100,10 +101,10 @@ def test_fft_amplitude():
     ).squeeze()
 
     # FFTを計算
-    fft_result, _, _ = FrequencyChannel._fft(sine_wave, window=win)
+    result = FrequencyChannel.fft(sine_wave, window=win)
 
     # 振幅値がスペクトルの振幅と一致することを確認
-    fft_amplitude = np.abs(fft_result)
+    fft_amplitude = np.abs(result["data"])
     peak_amplitude = np.max(fft_amplitude)
 
     assert np.isclose(
@@ -114,10 +115,10 @@ def test_fft_amplitude():
     # paddingした場合
     # ############
     # FFTを計算
-    fft_result, _, _ = FrequencyChannel._fft(sine_wave, n_fft=nperseg * 2, window=win)
+    result = FrequencyChannel.fft(sine_wave, n_fft=nperseg * 2, window=win)
 
     # 振幅値がスペクトルの振幅と一致することを確認
-    fft_amplitude = np.abs(fft_result)
+    fft_amplitude = np.abs(result["data"])
     peak_amplitude = np.max(fft_amplitude)
 
     assert np.isclose(
@@ -128,12 +129,10 @@ def test_fft_amplitude():
     # 窓関数を変えてた場合
     # ############
     # FFTを計算
-    fft_result, _, _ = FrequencyChannel._fft(
-        sine_wave, n_fft=nperseg, window="blackman"
-    )
+    result = FrequencyChannel.fft(sine_wave, n_fft=nperseg, window="blackman")
 
     # 振幅値がスペクトルの振幅と一致することを確認
-    fft_amplitude = np.abs(fft_result)
+    fft_amplitude = np.abs(result["data"])
     peak_amplitude = np.max(fft_amplitude)
 
     assert np.isclose(
@@ -145,10 +144,10 @@ def test_fft_amplitude():
     # ############
     # FFTを計算
 
-    fft_result, _, _ = FrequencyChannel._fft(sine_wave, n_fft=nperseg, window="boxcar")
+    result = FrequencyChannel.fft(sine_wave, n_fft=nperseg, window="boxcar")
 
     # 振幅値がスペクトルの振幅と一致することを確認
-    fft_amplitude = np.abs(fft_result)
+    fft_amplitude = np.abs(result["data"])
     peak_amplitude = np.max(fft_amplitude)
 
     assert np.isclose(
@@ -166,8 +165,7 @@ def test_welch_amplitude(generate_channel):
     average = "mean"
 
     # Welch 法を計算
-    welch_result = FrequencyChannel.from_channel_to_welch(
-        ch,
+    welch_result: FrequencyChannel = ch.welch(  # type: ignore
         n_fft=n_fft,
         hop_length=hop_length,
         win_length=win_length,
@@ -187,8 +185,7 @@ def test_welch_amplitude(generate_channel):
     # paddingした場合
     # ############
     # Welch 法を計算
-    welch_result = FrequencyChannel.from_channel_to_welch(
-        ch,
+    welch_result: FrequencyChannel = ch.welch(  # type: ignore
         n_fft=n_fft * 2,
         hop_length=hop_length,
         win_length=win_length,
@@ -208,8 +205,7 @@ def test_welch_amplitude(generate_channel):
     # 窓関数を変えてた場合
     # ############
     # Welch 法を計算
-    welch_result = FrequencyChannel.from_channel_to_welch(
-        ch,
+    welch_result: FrequencyChannel = ch.welch(  # type: ignore
         n_fft=n_fft,
         hop_length=hop_length,
         win_length=win_length,
