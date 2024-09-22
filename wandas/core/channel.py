@@ -89,6 +89,34 @@ class Channel(BaseChannel):
 
         return FrequencyChannel.from_channel(ch=self, n_fft=n_fft, window=window)
 
+    def welch(
+        self,
+        n_fft: Optional[int] = None,
+        hop_length: Optional[int] = None,
+        win_length: int = 2048,
+        window: str = "hann",
+        average: str = "mean",
+        # pad_mode: str = "constant"
+    ) -> FrequencyChannel:
+        """
+        Welch 法を用いたパワースペクトル密度推定を実行します。
+
+        Parameters:
+            nperseg (int): セグメントのサイズ。
+            noverlap (int, optional): オーバーラップのサイズ。
+
+        Returns:
+            FrequencyChannel: スペクトルデータを含むオブジェクト。
+        """
+        return FrequencyChannel.from_channel_to_welch(
+            ch=self,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            average=average,
+        )
+
     def stft(
         self,
         n_fft: int = 2048,

@@ -77,12 +77,13 @@ class TimeFrequencyChannel(BaseChannel):
         Returns:
             numpy.ndarray: STFT の結果。
         """
-        if n_fft is None:
-            n_fft = 2048
-        if hop_length is None:
-            hop_length = n_fft // 2
         if win_length is None:
-            win_length = n_fft
+            win_length = 2048
+        if n_fft is None:
+            n_fft = win_length
+        if hop_length is None:
+            hop_length = win_length // 2
+
         _, _, data = ss.stft(
             data,
             nfft=n_fft,

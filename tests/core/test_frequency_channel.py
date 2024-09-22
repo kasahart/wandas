@@ -1,8 +1,28 @@
 # tests/core/test_frequency_channel.py
+import pytest
 
 import numpy as np
 from wandas.core.channel import Channel
 from wandas.core.frequency_channel import FrequencyChannel
+
+
+@pytest.fixture
+def generate_channel():
+    sampling_rate = 16000
+    freq = 1000  # 周波数5Hz
+    amplitude = 2.0
+    data_length = 512 * 20
+
+    sine_wave = (
+        amplitude * np.sin(freq * 2.0 * np.pi * np.arange(data_length) / sampling_rate)
+    ).squeeze()
+
+    return Channel(
+        data=sine_wave,
+        sampling_rate=sampling_rate,
+        label="Test Channel",
+        unit="V",
+    )
 
 
 def test_frequency_channel_initialization():
@@ -130,6 +150,76 @@ def test_fft_amplitude():
     # 振幅値がスペクトルの振幅と一致することを確認
     fft_amplitude = np.abs(fft_result)
     peak_amplitude = np.max(fft_amplitude)
+
+    assert np.isclose(
+        peak_amplitude, amplitude, atol=1e-5
+    ), f"Expected {amplitude}, but got {peak_amplitude}"
+
+
+def test_welch_amplitude(generate_channel):
+    ch = generate_channel
+    amplitude = 2
+    n_fft = 1024
+    win_length = 1024
+    hop_length = n_fft // 2
+    window = "hann"
+    average = "mean"
+
+    # Welch 法を計算
+    welch_result = FrequencyChannel.from_channel_to_welch(
+        ch,
+        n_fft=n_fft,
+        hop_length=hop_length,
+        win_length=win_length,
+        window=window,
+        average=average,
+    )
+
+    # 振幅値がスペクトルの振幅と一致することを確認
+    welch_amplitude = np.abs(welch_result.data)
+    peak_amplitude = np.max(welch_amplitude)
+
+    assert np.isclose(
+        peak_amplitude, amplitude, atol=1e-5
+    ), f"Expected {amplitude}, but got {peak_amplitude}"
+
+    # ############
+    # paddingした場合
+    # ############
+    # Welch 法を計算
+    welch_result = FrequencyChannel.from_channel_to_welch(
+        ch,
+        n_fft=n_fft * 2,
+        hop_length=hop_length,
+        win_length=win_length,
+        window=window,
+        average=average,
+    )
+
+    # 振幅値がスペクトルの振幅と一致することを確認
+    welch_amplitude = np.abs(welch_result.data)
+    peak_amplitude = np.max(welch_amplitude)
+
+    assert np.isclose(
+        peak_amplitude, amplitude, atol=1e-5
+    ), f"Expected {amplitude}, but got {peak_amplitude}"
+
+    # ###########
+    # 窓関数を変えてた場合
+    # ############
+    # Welch 法を計算
+    welch_result = FrequencyChannel.from_channel_to_welch(
+        ch,
+        n_fft=n_fft,
+        hop_length=hop_length,
+        win_length=win_length,
+        window="boxcar",
+        average=average,
+    )
+
+    # 振幅値がスペクトルの振幅と一致することを確認
+    welch_amplitude = np.abs(welch_result.data)
+    peak_amplitude = np.max(welch_amplitude)
 
     assert np.isclose(
         peak_amplitude, amplitude, atol=1e-5

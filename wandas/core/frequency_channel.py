@@ -1,6 +1,6 @@
 # wandas/core/frequency_channel.py
 
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, TYPE_CHECKING, Union
 import numpy as np
 from .base_channel import BaseChannel
 import matplotlib.pyplot as plt
@@ -9,6 +9,9 @@ from . import channel
 from scipy import signal as ss
 from scipy import fft
 
+if TYPE_CHECKING:
+    from .channel import Channel
+
 
 class FrequencyChannel(BaseChannel):
     def __init__(
@@ -16,7 +19,7 @@ class FrequencyChannel(BaseChannel):
         data: np.ndarray,
         sampling_rate: int,
         n_fft: int,
-        window: np.ndarray,
+        window: Union[np.ndarray, str],
         label: Optional[str] = None,
         unit: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
@@ -75,7 +78,7 @@ class FrequencyChannel(BaseChannel):
     @classmethod
     def from_channel(
         cls,
-        ch: "channel.Channel",
+        ch: "Channel",
         n_fft: Optional[int] = None,
         window: Optional[str] = None,
     ) -> "FrequencyChannel":
@@ -98,6 +101,86 @@ class FrequencyChannel(BaseChannel):
             sampling_rate=ch.sampling_rate,
             n_fft=n_fft,  # type: ignore
             window=window_values,
+            label=ch.label,
+            unit=ch.unit,
+            metadata=ch.metadata.copy(),
+        )
+
+    @classmethod
+    def _welch(
+        cls,
+        data: np.ndarray,
+        n_fft: Optional[int] = None,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = 2048,
+        window: str = "hann",
+        average: str = "mean",
+        detrend: str = "constant",
+    ) -> np.ndarray:
+        if win_length is None:
+            win_length = 2048
+        if n_fft is None:
+            n_fft = win_length
+        if hop_length is None:
+            hop_length = win_length // 2
+
+        _, out = ss.welch(
+            data,
+            nperseg=win_length,
+            noverlap=win_length - hop_length,
+            window=window,
+            average=average,
+            detrend=detrend,
+            scaling="spectrum",
+        )
+
+        # out[..., 1:-1] *= 2.0
+
+        return out
+
+    @classmethod
+    def from_channel_to_welch(
+        cls,
+        ch: "Channel",
+        n_fft: Optional[int] = None,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: str = "hann",
+        average: str = "mean",
+    ) -> "FrequencyChannel":
+        """
+        Channel オブジェクトから FrequencyChannel オブジェクトを作成します。
+
+        Parameters:
+            ch (Channel): Channel オブジェクト。
+            n_fft (int, optional): FFT サイズ。
+            window (str, optional): 窓関数。
+            fft_params (dict, optional): FFT パラメータ。
+
+        Returns:
+            FrequencyChannel: FrequencyChannel オブジェクト。
+        """
+        if win_length is None:
+            win_length = 2048
+        if n_fft is None:
+            n_fft = win_length
+        if hop_length is None:
+            hop_length = win_length // 2
+
+        out = cls._welch(
+            ch.data,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            average=average,
+            window=window,
+        )
+
+        return cls(
+            data=out.squeeze(),  # type: ignore
+            sampling_rate=ch.sampling_rate,
+            n_fft=n_fft,  # type: ignore
+            window=window,
             label=ch.label,
             unit=ch.unit,
             metadata=ch.metadata.copy(),
