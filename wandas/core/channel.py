@@ -5,7 +5,7 @@ import librosa.feature
 import numpy as np
 from .base_channel import BaseChannel
 from scipy.signal import butter, filtfilt
-from .frequency_channel import FrequencyChannel
+from .frequency_channel import FrequencyChannel, NOctChannel
 import librosa
 from .time_frequency_channel import TimeFrequencyChannel
 import wandas.core.util as util
@@ -106,6 +106,39 @@ class Channel(BaseChannel):
             win_length=win_length,
             window=window,
             average=average,
+        )
+        result["calibration_value"] = 1.0
+        return result
+
+    @util.transform_method(NOctChannel)
+    def noct_spectrum(
+        self,
+        n_octaves: int = 3,
+        fmin: float = 20,
+        fmax: float = 20000,
+        G: int = 10,
+        fr: int = 1000,
+    ):
+        """
+        オクターブバンドのスペクトルを計算します。
+
+        Parameters:
+            n_octaves (int): オクターブの数。
+
+        Returns:
+            FrequencyChannel: オクターブバンドのスペクトルデータを含むオブジェクト。
+        """
+        freqs = np.geomspace(fmin, fmax, n_octaves * G)
+        freqs = freqs[(freqs >= fmin) & (freqs <= fmax)]
+        freqs = np.round(freqs / fr) * fr
+
+        result = NOctChannel.noct_spectrum(
+            data=self.data,
+            sampling_rate=self.sampling_rate,
+            fmin=fmin,
+            fmax=fmax,
+            G=G,
+            fr=fr,
         )
         result["calibration_value"] = 1.0
         return result

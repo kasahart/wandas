@@ -2,8 +2,10 @@
 import pytest
 
 import numpy as np
+from mosqito.sound_level_meter import noct_spectrum, noct_synthesis, comp_spectrum
+
 from wandas.core.channel import Channel
-from wandas.core.frequency_channel import FrequencyChannel
+from wandas.core.frequency_channel import FrequencyChannel, NOctChannel
 
 
 @pytest.fixture
@@ -236,3 +238,59 @@ def test_frequency_channel_plot():
     fig, ax = plt.subplots()
     freq_channel.plot(ax=ax)
     plt.close(fig)
+
+
+def test_frequency_channel_noct_spectrum():
+    f = 1000
+    fs = 48000
+    d = 0.2
+    dB = 60
+    time = np.arange(0, d, 1 / fs)
+    stimulus = np.sin(2 * np.pi * f * time) + 0.5 * np.sin(6 * np.pi * f * time)
+    rms = np.sqrt(np.mean(np.power(stimulus, 2)))
+    ampl = 0.00002 * np.power(10, dB / 20) / rms
+    stimulus = stimulus * ampl
+    spec, freq_axis = noct_spectrum(stimulus, fs, fmin=90, fmax=14000)
+    spec = np.squeeze(spec)
+
+    result = NOctChannel.noct_spectrum(
+        data=stimulus,
+        sampling_rate=fs,
+        fmin=90,
+        fmax=14000,
+    )
+
+    assert np.allclose(
+        result["data"], spec, atol=1e-5
+    ), f"Expected {spec}, but got {result['data'],}"
+
+
+def test_frequency_channel_noct_synthesis():
+    f = 1000
+    fs = 48000
+    d = 0.2
+    dB = 60
+    time = np.arange(0, d, 1 / fs)
+    stimulus = np.sin(2 * np.pi * f * time) + 0.5 * np.sin(6 * np.pi * f * time)
+    rms = np.sqrt(np.mean(np.power(stimulus, 2)))
+    ampl = 0.00002 * np.power(10, dB / 20) / rms
+    stimulus = stimulus * ampl
+
+    ch = Channel(
+        data=stimulus,
+        sampling_rate=fs,
+    )
+    fch = ch.fft(n_fft=stimulus.shape[-1], window="hann")
+
+    spec_3, freq_axis = noct_synthesis(
+        fch.data / np.sqrt(2), fch.freqs, fmin=90, fmax=14000
+    )
+    spec_3 = np.squeeze(spec_3)
+
+    noch = fch.noct_synthesis(fmin=90, fmax=14000)
+
+    assert np.argmax(noch.data) == np.argmax(spec_3)
+
+    assert np.isclose(
+        noch.data.max(), spec_3.max(), atol=1e-5
+    ), f"Expected {spec_3.max()}, but got {noch.data.max()}"
