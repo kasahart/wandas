@@ -9,6 +9,7 @@ from .frequency_channel import FrequencyChannel, NOctChannel
 import librosa
 from .time_frequency_channel import TimeFrequencyChannel
 import wandas.core.util as util
+from IPython.display import Audio
 
 
 class Channel(BaseChannel):
@@ -318,3 +319,6 @@ class Channel(BaseChannel):
             label=f"({self.label} / {other.label})",
             calibration_value=1,
         )
+
+    def to_Audio(self, normalize: bool = True):
+        return Audio(self.data, rate=self.sampling_rate, normalize=normalize)

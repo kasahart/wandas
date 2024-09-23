@@ -17,6 +17,7 @@ setup(
         "matplotlib",
         "librosa",
         "mosqito",
+        "ipywidgets",
         # Add other dependencies
     ],
     classifiers=[
