@@ -3,7 +3,7 @@
 import pytest
 import numpy as np
 from wandas.core.channel import Channel
-from wandas.core.signal import Signal
+from wandas.core.signal import ChannelFrame
 import librosa
 
 
@@ -27,7 +27,7 @@ def generate_channels():
 
 @pytest.fixture
 def generate_signal():
-    return Signal(channels=_generate_channels())
+    return ChannelFrame(channels=_generate_channels())
 
 
 def test_channel_initialization():

@@ -37,6 +37,29 @@ class Channel(BaseChannel):
             metadata=metadata,
         )
 
+    def high_pass_filter(self, cutoff: float, order: int = 5):
+        """
+        ハイパスフィルタを適用します。
+
+        Parameters:
+            cutoff (float): カットオフ周波数（Hz）。
+            order (int): フィルタの次数。
+
+        Returns:
+            Channel: フィルタリングされた新しい Channel オブジェクト。
+        """
+
+        nyq = 0.5 * self.sampling_rate
+        normal_cutoff = cutoff / nyq
+        b, a = butter(order, normal_cutoff, btype="highpass", analog=False)
+        filtered_data = filtfilt(b, a, self._data)
+
+        result = dict(
+            data=filtered_data.squeeze(),
+        )
+
+        return util.transform_channel(self, self.__class__, **result)
+
     def low_pass_filter(self, cutoff: float, order: int = 5):
         """
         ローパスフィルタを適用します。

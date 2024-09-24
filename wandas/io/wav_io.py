@@ -5,22 +5,22 @@ import numpy as np
 from scipy.io import wavfile
 
 if TYPE_CHECKING:
-    from wandas.core.signal import Signal
+    from wandas.core.signal import ChannelFrame
 
 
-def read_wav(filename: str, labels: Optional[List[str]] = None) -> "Signal":
+def read_wav(filename: str, labels: Optional[List[str]] = None) -> "ChannelFrame":
     """
-    WAV ファイルを読み込み、Signal オブジェクトを作成します。
+    WAV ファイルを読み込み、ChannelFrame オブジェクトを作成します。
 
     Parameters:
         filename (str): WAV ファイルのパス。
         labels (list of str, optional): 各チャンネルのラベル。
 
     Returns:
-        Signal: オーディオデータを含む Signal オブジェクト。
+        ChannelFrame: オーディオデータを含む ChannelFrame オブジェクト。
     """
     from wandas.core.channel import Channel
-    from wandas.core.signal import Signal
+    from wandas.core.signal import ChannelFrame
 
     sampling_rate, data = wavfile.read(filename)
 
@@ -44,4 +44,4 @@ def read_wav(filename: str, labels: Optional[List[str]] = None) -> "Signal":
             Channel(data=channel_data, sampling_rate=sampling_rate, label=channel_label)
         )
 
-    return Signal(channels=channels, label=filename)
+    return ChannelFrame(channels=channels, label=filename)

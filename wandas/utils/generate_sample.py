@@ -1,7 +1,7 @@
 # wandas/utils/generate_sample.py
 
 import numpy as np
-from ..core.signal import Signal
+from ..core.signal import ChannelFrame
 from ..core.channel import Channel
 from typing import Optional, Union, List
 
@@ -11,7 +11,7 @@ def generate_sample(
     sampling_rate: int = 16000,
     duration: float = 1.0,
     label: Optional[str] = None,
-) -> Signal:
+) -> ChannelFrame:
     """
     サンプルの正弦波信号を生成します。
 
@@ -22,7 +22,7 @@ def generate_sample(
         label (str, optional): Signal 全体のラベル。
 
     Returns:
-        Signal: 正弦波を含む Signal オブジェクト。
+        ChannelFrame: 正弦波を含む ChannelFrame オブジェクト。
     """
     t = np.linspace(0, duration, int(sampling_rate * duration), endpoint=False)
 
@@ -44,4 +44,4 @@ def generate_sample(
         )
         channels = [channel]
 
-    return Signal(channels=channels, label=label)
+    return ChannelFrame(channels=channels, label=label)

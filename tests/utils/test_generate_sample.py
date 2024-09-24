@@ -1,7 +1,7 @@
 # tests/utils/test_generate_sample.py
 
 from wandas.utils.generate_sample import generate_sample
-from wandas.core.signal import Signal
+from wandas.core.signal import ChannelFrame
 from wandas.core.channel import Channel
 
 
@@ -13,7 +13,7 @@ def test_generate_sample_single_frequency():
         freqs=freq, sampling_rate=sampling_rate, duration=duration, label="Test Signal"
     )
 
-    assert isinstance(signal, Signal)
+    assert isinstance(signal, ChannelFrame)
     assert signal.label == "Test Signal"
     assert len(signal.channels) == 1
     channel = signal.channels[0]
@@ -31,7 +31,7 @@ def test_generate_sample_multiple_frequencies():
         freqs=freqs, sampling_rate=sampling_rate, duration=duration, label="Test Signal"
     )
 
-    assert isinstance(signal, Signal)
+    assert isinstance(signal, ChannelFrame)
     assert signal.label == "Test Signal"
     assert len(signal.channels) == len(freqs)
     for idx, channel in enumerate(signal.channels):

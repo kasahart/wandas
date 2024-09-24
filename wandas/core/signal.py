@@ -13,10 +13,10 @@ if TYPE_CHECKING:
     from wandas.core.spectrums import Spectrums
 
 
-class Signal:
+class ChannelFrame:
     def __init__(self, channels: List["Channel"], label: Optional[str] = None):
         """
-        Signal オブジェクトを初期化します。
+        ChannelFrame オブジェクトを初期化します。
 
         Parameters:
             channels (list of Channel): Channel オブジェクトのリスト。
@@ -37,22 +37,24 @@ class Signal:
             raise ValueError("Channel labels must be unique.")
 
     @classmethod
-    def read_wav(cls, filename: str, labels: Optional[List[str]] = None) -> "Signal":
+    def read_wav(
+        cls, filename: str, labels: Optional[List[str]] = None
+    ) -> "ChannelFrame":
         """
-        WAV ファイルを読み込み、Signal オブジェクトを作成します。
+        WAV ファイルを読み込み、ChannelFrame オブジェクトを作成します。
 
         Parameters:
             filename (str): WAV ファイルのパス。
             labels (list of str, optional): 各チャンネルのラベル。
 
         Returns:
-            Signal: オーディオデータを含む Signal オブジェクト。
+            ChannelFrame: オーディオデータを含む ChannelFrame オブジェクト。
         """
         return wav_io.read_wav(filename, labels)
 
     def to_wav(self, filename: str) -> None:
         """
-        Signal オブジェクトを WAV ファイルに書き出します。
+        ChannelFrame オブジェクトを WAV ファイルに書き出します。
 
         Parameters:
             filename (str): 出力する WAV ファイルのパス。
@@ -110,7 +112,7 @@ class Signal:
         if ax is None:
             plt.tight_layout()
 
-    def low_pass_filter(self, cutoff: float, order: int = 5) -> "Signal":
+    def low_pass_filter(self, cutoff: float, order: int = 5) -> "ChannelFrame":
         """
         ローパスフィルタをすべてのチャンネルに適用します。
 
@@ -119,10 +121,10 @@ class Signal:
             order (int): フィルタの次数。
 
         Returns:
-            Signal: フィルタリングされた新しい Signal オブジェクト。
+            ChannelFrame: フィルタリングされた新しい ChannelFrame オブジェクト。
         """
         filtered_channels = [ch.low_pass_filter(cutoff, order) for ch in self.channels]
-        return Signal(filtered_channels, label=self.label)
+        return ChannelFrame(filtered_channels, label=self.label)
 
     def fft(
         self,
@@ -214,50 +216,50 @@ class Signal:
             )
 
     # 演算子オーバーロードの実装
-    def __add__(self, other: "Signal") -> "Signal":
+    def __add__(self, other: "ChannelFrame") -> "ChannelFrame":
         """
         シグナル間の加算。
         """
         assert len(self.channels) == len(
             other.channels
-        ), "Signals must have the same number of channels."
+        ), "ChannelFrame must have the same number of channels."
         channels = [
             self.channels[i] + other.channels[i] for i in range(len(self.channels))
         ]
-        return Signal(channels=channels, label=f"({self.label} + {other.label})")
+        return ChannelFrame(channels=channels, label=f"({self.label} + {other.label})")
 
-    def __sub__(self, other: "Signal") -> "Signal":
+    def __sub__(self, other: "ChannelFrame") -> "ChannelFrame":
         """
         シグナル間の減算。
         """
         assert len(self.channels) == len(
             other.channels
-        ), "Signals must have the same number of channels."
+        ), "ChannelFrame must have the same number of channels."
         channels = [
             self.channels[i] - other.channels[i] for i in range(len(self.channels))
         ]
-        return Signal(channels=channels, label=f"({self.label} - {other.label})")
+        return ChannelFrame(channels=channels, label=f"({self.label} - {other.label})")
 
-    def __mul__(self, other: "Signal") -> "Signal":
+    def __mul__(self, other: "ChannelFrame") -> "ChannelFrame":
         """
         シグナル間の乗算。
         """
         assert len(self.channels) == len(
             other.channels
-        ), "Signals must have the same number of channels."
+        ), "ChannelFrame must have the same number of channels."
         channels = [
             self.channels[i] * other.channels[i] for i in range(len(self.channels))
         ]
-        return Signal(channels=channels, label=f"({self.label} * {other.label})")
+        return ChannelFrame(channels=channels, label=f"({self.label} * {other.label})")
 
-    def __truediv__(self, other: "Signal") -> "Signal":
+    def __truediv__(self, other: "ChannelFrame") -> "ChannelFrame":
         """
         シグナル間の除算。
         """
         assert len(self.channels) == len(
             other.channels
-        ), "Signals must have the same number of channels."
+        ), "ChannelFrame must have the same number of channels."
         channels = [
             self.channels[i] / other.channels[i] for i in range(len(self.channels))
         ]
-        return Signal(channels=channels, label=f"({self.label} / {other.label})")
+        return ChannelFrame(channels=channels, label=f"({self.label} / {other.label})")

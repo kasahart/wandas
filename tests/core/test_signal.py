@@ -3,7 +3,7 @@
 import pytest
 import numpy as np
 from wandas.core.channel import Channel
-from wandas.core.signal import Signal
+from wandas.core.signal import ChannelFrame
 
 
 @pytest.fixture
@@ -29,8 +29,8 @@ def generate_signals():
         data=data2_signal2, sampling_rate=sampling_rate, label="Channel 2"
     )
 
-    signal1 = Signal(channels=[ch1_signal1, ch2_signal1], label="Signal 1")
-    signal2 = Signal(channels=[ch1_signal2, ch2_signal2], label="Signal 2")
+    signal1 = ChannelFrame(channels=[ch1_signal1, ch2_signal1], label="Signal 1")
+    signal2 = ChannelFrame(channels=[ch1_signal2, ch2_signal2], label="Signal 2")
 
     return signal1, signal2
 
@@ -42,7 +42,7 @@ def test_signal_initialization():
     channel1 = Channel(data=data1, sampling_rate=sampling_rate, label="Channel 1")
     channel2 = Channel(data=data2, sampling_rate=sampling_rate, label="Channel 2")
 
-    signal = Signal(channels=[channel1, channel2], label="Test Signal")
+    signal = ChannelFrame(channels=[channel1, channel2], label="Test Signal")
 
     assert signal.label == "Test Signal"
     assert len(signal.channels) == 2
@@ -58,7 +58,7 @@ def test_signal_sampling_rate_mismatch():
     channel2 = Channel(data=data2, sampling_rate=2000)
 
     with pytest.raises(ValueError):
-        Signal(channels=[channel1, channel2])
+        ChannelFrame(channels=[channel1, channel2])
 
 
 def test_signal_low_pass_filter():
@@ -68,7 +68,7 @@ def test_signal_low_pass_filter():
     sampling_rate = 1000
     channel1 = Channel(data=data1, sampling_rate=sampling_rate, label="Channel 1")
     channel2 = Channel(data=data2, sampling_rate=sampling_rate, label="Channel 2")
-    signal = Signal(channels=[channel1, channel2])
+    signal = ChannelFrame(channels=[channel1, channel2])
 
     filtered_signal = signal.low_pass_filter(cutoff=30)
 
@@ -85,7 +85,7 @@ def test_signal_fft():
     sampling_rate = 1000
     channel1 = Channel(data=data1, sampling_rate=sampling_rate, label="Channel 1")
     channel2 = Channel(data=data2, sampling_rate=sampling_rate, label="Channel 2")
-    signal = Signal(channels=[channel1, channel2])
+    signal = ChannelFrame(channels=[channel1, channel2])
 
     spectrum = signal.fft(n_fft=1024, window="hann")
 
