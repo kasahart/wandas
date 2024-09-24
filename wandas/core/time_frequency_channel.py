@@ -21,7 +21,6 @@ class TimeFrequencyChannel(BaseChannel):
         label: Optional[str] = None,
         unit: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        calibration_value: Optional[float] = None,
     ):
         """
         TimeFrequencyChannel オブジェクトを初期化します。
@@ -32,7 +31,6 @@ class TimeFrequencyChannel(BaseChannel):
             data (numpy.ndarray): スペクトルデータ（時間周波数成分）。
             label (str, optional): チャンネルのラベル。
             unit (str, optional):    データの単位。
-            calibration_value (float, optional): 校正値。
             metadata (dict, optional): メタデータ。
         """
         super().__init__(
@@ -40,7 +38,6 @@ class TimeFrequencyChannel(BaseChannel):
             sampling_rate=sampling_rate,
             label=label,
             unit=unit,
-            calibration_value=calibration_value,
             metadata=metadata,
         )
         self.n_fft = n_fft

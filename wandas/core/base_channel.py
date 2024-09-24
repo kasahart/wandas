@@ -14,7 +14,6 @@ class BaseChannel(ABC):
         sampling_rate: int,
         label: Optional[str] = None,
         unit: Optional[str] = None,
-        calibration_value: Optional[float] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ):
         """
@@ -23,14 +22,12 @@ class BaseChannel(ABC):
         Parameters:
             label (str, optional): チャンネルのラベル。
             unit (str, optional): 単位。
-            calibration_value (float, optional): 校正値。
             metadata (dict, optional): その他のメタデータ。
         """
         self._data = data
         self._sampling_rate = sampling_rate
         self.label = label
         self.unit = unit if unit is not None else ""
-        self.calibration_value = calibration_value
         self.metadata = metadata or {}
         self.ref = util.unit_to_ref(self.unit)
 
@@ -39,8 +36,6 @@ class BaseChannel(ABC):
         """
         データを返します。
         """
-        if self.calibration_value is not None:
-            return self._data * self.calibration_value
         return self._data
 
     @property

@@ -34,7 +34,6 @@ def test_frequency_channel_initialization():
     window = np.hanning(5)
     label = "Test Spectrum"
     unit = "V"
-    calibration_value = 1.0
     metadata = {"note": "Test metadata"}
 
     freq_channel = FrequencyChannel(
@@ -45,7 +44,6 @@ def test_frequency_channel_initialization():
         label=label,
         unit=unit,
         metadata=metadata,
-        calibration_value=calibration_value,
     )
 
     assert np.array_equal(freq_channel._data, data)
@@ -54,7 +52,6 @@ def test_frequency_channel_initialization():
     assert np.array_equal(freq_channel.window, window)
     assert freq_channel.label == label
     assert freq_channel.unit == unit
-    assert freq_channel.calibration_value == calibration_value
     assert freq_channel.metadata == metadata
 
 
@@ -63,10 +60,9 @@ def test_frequency_channel_from_channel():
     sampling_rate = 1000
     label = "Test Channel"
     unit = "V"
-    calibration_value = 1.0
     metadata = {"note": "Test metadata"}
 
-    ch = Channel(data, sampling_rate, label, unit, calibration_value, metadata)
+    ch = Channel(data, sampling_rate, label, unit, metadata)
     n_fft = 8
     window = "hann"
 

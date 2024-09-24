@@ -22,7 +22,6 @@ def generate_channel():
         sampling_rate=sampling_rate,
         label="Test Channel",
         unit="V",
-        calibration_value=1.0,
     )
 
 

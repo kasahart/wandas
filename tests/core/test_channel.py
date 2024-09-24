@@ -41,20 +41,7 @@ def test_channel_initialization():
     assert channel.sampling_rate == sampling_rate
     assert channel.label == "Test Channel"
     assert channel.unit == "V"
-    assert channel.calibration_value is None
     assert channel.metadata == {}
-
-
-def test_channel_calibration():
-    data = np.array([0, 1, 2, 3, 4], dtype=float)
-    sampling_rate = 1000
-    calibration_value = 2.0
-    channel = Channel(
-        data=data, sampling_rate=sampling_rate, calibration_value=calibration_value
-    )
-
-    expected_data = data * calibration_value
-    assert np.allclose(channel.data, expected_data)
 
 
 def test_channel_low_pass_filter():

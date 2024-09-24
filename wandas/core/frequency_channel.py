@@ -22,7 +22,6 @@ class NOctChannel(BaseChannel):
         fr: int = 1000,
         label: Optional[str] = None,
         unit: Optional[str] = None,
-        calibration_value: Optional[float] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ):
         """
@@ -35,7 +34,6 @@ class NOctChannel(BaseChannel):
             sampling_rate=sampling_rate,
             label=label,
             unit=unit,
-            calibration_value=calibration_value,
             metadata=metadata,
         )
 
@@ -157,7 +155,6 @@ class FrequencyChannel(BaseChannel):
         window: Union[np.ndarray, str],
         label: Optional[str] = None,
         unit: Optional[str] = None,
-        calibration_value: Optional[float] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ):
         """
@@ -174,7 +171,6 @@ class FrequencyChannel(BaseChannel):
             sampling_rate=sampling_rate,
             label=label,
             unit=unit,
-            calibration_value=calibration_value,
             metadata=metadata,
         )
 
@@ -280,7 +276,6 @@ class FrequencyChannel(BaseChannel):
             G=G,
             fr=fr,
         )
-        result["calibration_value"] = 1.0
         return result
 
     def data_Aw(self, to_dB=False) -> np.ndarray:
