@@ -6,10 +6,9 @@ import numpy as np
 from scipy.io import wavfile
 import matplotlib.pyplot as plt
 from wandas.io import wav_io
-
+from wandas.core.channel import Channel
 
 if TYPE_CHECKING:
-    from wandas.core.channel import Channel
     from wandas.core.spectrums import Spectrums
 
 
@@ -146,46 +145,6 @@ class ChannelFrame:
             label=self.label,
         )
 
-    def get_channel_by_index(self, index: int) -> "Channel":
-        """
-        指定されたインデックスのチャンネルを取得します。
-
-        Parameters:
-            index (int): チャンネルのインデックス。
-
-        Returns:
-            Channel: 対応するチャンネル。
-        """
-        if index < 0 or index >= len(self.channels):
-            raise IndexError("Invalid channel index.")
-        return self.channels[index]
-
-    def apply_operation(self, ch1_idx: int, ch2_idx: int, operation: str) -> "Channel":
-        """
-        指定されたチャンネル間に演算を適用します。
-
-        Parameters:
-            ch1_idx (int): 最初のチャンネルのインデックス。
-            ch2_idx (int): 2番目のチャンネルのインデックス。
-            operation (str): 実行する演算。'add', 'sub', 'mul', 'div' のいずれか。
-
-        Returns:
-            Channel: 新しいチャンネル（演算結果）。
-        """
-        ch1 = self.get_channel_by_index(ch1_idx)
-        ch2 = self.get_channel_by_index(ch2_idx)
-
-        if operation == "add":
-            return ch1 + ch2
-        elif operation == "sub":
-            return ch1 - ch2
-        elif operation == "mul":
-            return ch1 * ch2
-        elif operation == "div":
-            return ch1 / ch2
-        else:
-            raise ValueError(f"Unsupported operation: {operation}")
-
     # forでループを回すためのメソッド
     def __iter__(self):
         return iter(self.channels)
@@ -214,6 +173,12 @@ class ChannelFrame:
             raise TypeError(
                 "Key must be either a string (channel name) or an integer (channel index)."
             )
+
+    def __len__(self) -> int:
+        """
+        チャンネルのデータ長を返します。
+        """
+        return len(self.channels)
 
     # 演算子オーバーロードの実装
     def __add__(self, other: "ChannelFrame") -> "ChannelFrame":
