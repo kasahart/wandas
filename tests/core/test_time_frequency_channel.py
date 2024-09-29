@@ -2,7 +2,11 @@
 
 import pytest
 import numpy as np
-from wandas.core.time_frequency_channel import TimeFrequencyChannel
+import librosa
+from wandas.core.time_frequency_channel import (
+    TimeFrequencyChannel,
+    TimeMelFrequencyChannel,
+)
 from wandas.core.channel import Channel
 
 
@@ -235,3 +239,152 @@ def test_time_frequency_channel_to_db_boxcar(generate_time_frequency_channel_box
     assert np.isclose(
         cal, ref, atol=1e-5
     ), f"Expected {cal}, but got {ref}"  # dB values should be <= 0
+
+
+def test_time_frequency_channel_melspectrogram(
+    generate_time_frequency_channel, generate_channel
+):
+    channel = generate_channel
+    tf_channel = generate_time_frequency_channel
+
+    n_mels = 128
+    mel_spectrogram = channel.melspectrogram(
+        n_mels=n_mels,
+        n_fft=tf_channel.n_fft,
+        hop_length=tf_channel.hop_length,
+        win_length=tf_channel.win_length,
+        window=tf_channel.window,
+    )
+    spec2mel_spec = tf_channel.melspectrogram(n_mels=n_mels)
+
+    assert spec2mel_spec.sampling_rate == tf_channel.sampling_rate
+    assert spec2mel_spec.n_fft == tf_channel.n_fft
+    assert spec2mel_spec.hop_length == tf_channel.hop_length
+    assert spec2mel_spec.win_length == tf_channel.win_length
+    assert spec2mel_spec.window == tf_channel.window
+    assert spec2mel_spec.label == tf_channel.label
+    assert spec2mel_spec.unit == tf_channel.unit
+    assert spec2mel_spec.metadata == tf_channel.metadata
+
+    cal = mel_spectrogram.data.max()
+    ref = spec2mel_spec.data.max()
+
+    assert np.isclose(
+        cal, ref, atol=1e-5
+    ), f"Expected {cal}, but got {ref}"  # dB values should be <= 0
+
+
+def test_time_mel_frequency_channel_initialization():
+    data = np.random.random((128, 44))
+    sampling_rate = 16000
+    n_fft = 2048
+    hop_length = 512
+    win_length = 2048
+    window = "hann"
+    n_mels = 128
+
+    tf_mel_channel = TimeMelFrequencyChannel(
+        data=data,
+        sampling_rate=sampling_rate,
+        n_fft=n_fft,
+        hop_length=hop_length,
+        win_length=win_length,
+        window=window,
+        n_mels=n_mels,
+        label="Test Mel TF Channel",
+        unit="dB",
+        metadata={"test": "metadata"},
+    )
+
+    assert np.array_equal(tf_mel_channel.data, data)
+    assert tf_mel_channel.sampling_rate == sampling_rate
+    assert tf_mel_channel.n_fft == n_fft
+    assert tf_mel_channel.hop_length == hop_length
+    assert tf_mel_channel.win_length == win_length
+    assert tf_mel_channel.window == window
+    assert tf_mel_channel.label == "Test Mel TF Channel"
+    assert tf_mel_channel.unit == "dB"
+    assert tf_mel_channel.metadata == {"test": "metadata"}
+
+
+def test_time_mel_frequency_channel_melspectrogram():
+    fs = 16000
+    n_fft = 2048
+    win_length = 2048
+    hop_length = 512
+    data_length = hop_length * 20
+    window = "hann"
+    n_mels = 128
+    freq = 1000
+
+    amplitude = 2.0 * np.sqrt(2.0)
+    sine_wave = (
+        amplitude * np.sin(freq * 2.0 * np.pi * np.arange(data_length) / fs)
+    ).squeeze()
+
+    ref_mel = librosa.feature.melspectrogram(
+        y=sine_wave,
+        sr=fs,
+        n_fft=n_fft,
+        hop_length=hop_length,
+        win_length=win_length,
+        window=window,
+        n_mels=n_mels,
+        power=1.0,
+        norm=None,
+    )
+
+    spec = librosa.stft(
+        y=sine_wave,
+        n_fft=n_fft,
+        hop_length=hop_length,
+        win_length=win_length,
+        window=window,
+    )
+    mel_spectrogram_result = TimeMelFrequencyChannel.spec2melspec(
+        sampling_rate=fs,
+        data=np.abs(spec),
+        n_fft=n_fft,
+        n_mels=n_mels,
+    )
+
+    assert mel_spectrogram_result["sampling_rate"] == fs
+    assert mel_spectrogram_result["n_fft"] == n_fft
+    assert mel_spectrogram_result["data"].shape[0] == n_mels
+    assert np.allclose(
+        mel_spectrogram_result["data"], ref_mel, atol=1e-5
+    ), (
+        f"Expected {mel_spectrogram_result['data']}, but got {ref_mel}"
+    )  # dB values should be <= 0
+
+
+def test_time_mel_frequency_channel_plot():
+    data = np.random.random((128, 44))
+    sampling_rate = 16000
+    n_fft = 2048
+    hop_length = 512
+    win_length = 2048
+    window = "hann"
+    n_mels = 128
+
+    tf_mel_channel = TimeMelFrequencyChannel(
+        data=data,
+        sampling_rate=sampling_rate,
+        n_fft=n_fft,
+        hop_length=hop_length,
+        win_length=win_length,
+        window=window,
+        n_mels=n_mels,
+        label="Test Mel TF Channel",
+        unit="dB",
+        metadata={"test": "metadata"},
+    )
+
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots()
+    ax, spec = tf_mel_channel.plot(ax=ax, title="Test Mel Plot")
+
+    assert ax.get_xlabel() == "Time [s]"
+    assert ax.get_ylabel() == "Frequency [Hz]"
+    assert ax.get_title() == "Test Mel Plot"

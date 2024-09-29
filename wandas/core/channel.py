@@ -7,7 +7,7 @@ from .base_channel import BaseChannel
 from scipy.signal import butter, filtfilt
 from .frequency_channel import FrequencyChannel, NOctChannel
 import librosa
-from .time_frequency_channel import TimeFrequencyChannel
+from .time_frequency_channel import TimeFrequencyChannel, TimeMelFrequencyChannel
 import wandas.core.util as util
 from IPython.display import Audio
 
@@ -194,6 +194,27 @@ class Channel(BaseChannel):
             # pad_mode=pad_mode,
         )
         return util.transform_channel(self, TimeFrequencyChannel, **result)
+
+    def melspectrogram(
+        self,
+        n_mels: int = 128,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: int = 2048,
+        window: str = "hann",
+        center: bool = True,
+        # pad_mode: str = "constant",
+    ) -> "TimeMelFrequencyChannel":
+        tf_ch = self.stft(
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            # center=center,
+            # pad_mode=pad_mode,
+        )
+
+        return tf_ch.melspectrogram(n_mels=n_mels)
 
     def rms_trend(self, frame_length: int = 2048, hop_length: int = 512):
         """
