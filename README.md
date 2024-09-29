@@ -1,4 +1,4 @@
-# Wandas
+# Wandas: **W**aveform **An**alysis **Da**ta **S**tructures
 
 **Wandas** is an open-source library for signal processing in Python. It adopts the user-friendly data structures and APIs of pandas, enabling efficient analysis of waveform and time-series data.
 
