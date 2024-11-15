@@ -15,7 +15,9 @@
                 "njpwerner.autodocstring",
                 "GitHub.copilot",
                 "ms-python.python",
-                "spmeesseman.vscode-taskexplorer"
+                "spmeesseman.vscode-taskexplorer",
+                "charliermarsh.ruff",
+                "ms-toolsai.jupyter"
             ]
         }
     },
