@@ -1,1 +1,1 @@
-
+from .signal import ChannelFrame

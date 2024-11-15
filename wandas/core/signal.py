@@ -36,6 +36,40 @@ class ChannelFrame:
             raise ValueError("Channel labels must be unique.")
 
     @classmethod
+    def from_ndarray(
+        cls,
+        array: np.ndarray,
+        sampling_rate: int,
+        labels: Optional[List[str]] = None,
+        unit: str = "Pa",
+    ) -> "ChannelFrame":
+        """
+        numpy の ndarray から ChannelFrame インスタンスを生成します。
+
+        Parameters:
+            array (np.ndarray): 信号データ。各行がチャンネルに対応します。
+            sampling_rate (int): サンプリングレート（Hz）。
+            labels (List[str], optional): 各チャンネルのラベル。
+            unit (str): 信号の単位。
+
+        Returns:
+            ChannelFrame: ndarray から生成された ChannelFrame オブジェクト。
+        """
+        channels = []
+        num_channels = array.shape[0]
+
+        if labels is None:
+            labels = [f"Channel {i + 1}" for i in range(num_channels)]
+
+        for i in range(num_channels):
+            channel = Channel(
+                data=array[i], sampling_rate=sampling_rate, label=labels[i], unit=unit
+            )
+            channels.append(channel)
+
+        return cls(channels=channels)
+
+    @classmethod
     def read_wav(
         cls, filename: str, labels: Optional[List[str]] = None
     ) -> "ChannelFrame":
