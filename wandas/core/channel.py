@@ -9,7 +9,8 @@ from .frequency_channel import FrequencyChannel, NOctChannel
 import librosa
 from .time_frequency_channel import TimeFrequencyChannel, TimeMelFrequencyChannel
 import wandas.core.util as util
-from IPython.display import Audio
+from IPython.display import Audio, display
+import ipywidgets as widgets
 
 
 class Channel(BaseChannel):
@@ -356,4 +357,8 @@ class Channel(BaseChannel):
         return util.transform_channel(self, self.__class__, **result)
 
     def to_Audio(self, normalize: bool = True):
-        return Audio(self.data, rate=self.sampling_rate, normalize=normalize)
+        output = widgets.Output()
+        with output:
+            display(Audio(self.data, rate=self.sampling_rate, normalize=normalize))
+
+        return widgets.VBox([widgets.Label(self.label), output])

@@ -7,6 +7,7 @@ from scipy.io import wavfile
 import matplotlib.pyplot as plt
 from wandas.io import wav_io
 from wandas.core.channel import Channel
+import ipywidgets as widgets
 
 if TYPE_CHECKING:
     from wandas.core.spectrums import Spectrums
@@ -99,6 +100,9 @@ class ChannelFrame:
         max_int16 = np.iinfo(np.int16).max
         scaled_data = np.int16(data / np.max(np.abs(data)) * max_int16)
         wavfile.write(filename, self.sampling_rate, scaled_data)
+
+    def to_Audio(self, normalize: bool = True):
+        return widgets.VBox([ch.to_Audio(normalize) for ch in self.channels])
 
     def plot(self, ax: Optional[Any] = None, title: Optional[str] = None):
         """
