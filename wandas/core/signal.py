@@ -104,6 +104,12 @@ class ChannelFrame:
     def to_Audio(self, normalize: bool = True):
         return widgets.VBox([ch.to_Audio(normalize) for ch in self.channels])
 
+    def describe(self):
+        """
+        チャンネルの情報を表示します。
+        """
+        return widgets.VBox([ch.describe() for ch in self.channels])
+
     def plot(self, ax: Optional[Any] = None, title: Optional[str] = None):
         """
         すべてのチャンネルをプロットします。

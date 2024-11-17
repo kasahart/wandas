@@ -11,6 +11,8 @@ from .time_frequency_channel import TimeFrequencyChannel, TimeMelFrequencyChanne
 import wandas.core.util as util
 from IPython.display import Audio, display
 import ipywidgets as widgets
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
 
 class Channel(BaseChannel):
@@ -37,6 +39,14 @@ class Channel(BaseChannel):
             unit=unit,
             metadata=metadata,
         )
+
+    @property
+    def time(self):
+        """
+        時刻データを返します。
+        """
+        num_samples = len(self._data)
+        return np.arange(num_samples) / self.sampling_rate
 
     def high_pass_filter(self, cutoff: float, order: int = 5):
         """
@@ -246,9 +256,7 @@ class Channel(BaseChannel):
         if ax is None:
             fig, ax = plt.subplots(figsize=(10, 4))
 
-        num_samples = len(self._data)
-        t = np.arange(num_samples) / self.sampling_rate
-        ax.plot(t, self.data, label=self.label or "Channel")
+        ax.plot(self.time, self.data, label=self.label or "Channel")
 
         ax.set_xlabel("Time [s]")
         ylabel = f"Amplitude [{self.unit}]" if self.unit else "Amplitude"
@@ -356,9 +364,73 @@ class Channel(BaseChannel):
         )
         return util.transform_channel(self, self.__class__, **result)
 
-    def to_Audio(self, normalize: bool = True):
+    def to_Audio(self, normalize: bool = True, label: bool = True):
         output = widgets.Output()
         with output:
             display(Audio(self.data, rate=self.sampling_rate, normalize=normalize))
 
-        return widgets.VBox([widgets.Label(self.label), output])
+        if label:
+            vbov = widgets.VBox([widgets.Label(self.label) if label else None, output])
+        else:
+            vbov = widgets.VBox([output])
+        return vbov
+
+    def describe(self):
+        """
+        チャンネルの統計情報を表示します。
+        """
+
+        gs = gridspec.GridSpec(
+            2, 3, height_ratios=[1, 3], width_ratios=[3, 1, 0.1]
+        )  # カラーマップの横幅をスペクトルの平均値の横幅の3倍に設定
+        gs.update(wspace=0.2)
+
+        fig = plt.figure(figsize=(12, 6))
+
+        # 最初のサブプロットを作成
+        ax_1 = fig.add_subplot(gs[0])
+        ax_1.plot(self.time, self.data)
+        ax_1.set(
+            ylabel=f"Amplitude [{self.unit}]" if self.unit else "Amplitude",
+        )
+        ax_1.grid(True)
+
+        # 2番目のサブプロットを作成し、x軸をax1と連動
+        ax_2 = fig.add_subplot(gs[3], sharex=ax_1)
+        stft_ch = self.stft()
+        img = librosa.display.specshow(
+            data=stft_ch._to_db(),
+            sr=stft_ch.sampling_rate,
+            hop_length=stft_ch.hop_length,
+            n_fft=stft_ch.n_fft,
+            win_length=stft_ch.win_length,
+            x_axis="time",
+            y_axis="linear",
+            ax=ax_2,
+            cmap="magma",
+        )
+
+        # 3番目のサブプロットを作成し、y軸をax1と連動
+        ax_3 = fig.add_subplot(gs[1])
+        ax_3.axis("off")
+
+        # 4番目のサブプロットを作成し、x軸とy軸をそれぞれax2とax3と連動
+        ax_4 = fig.add_subplot(gs[4], sharey=ax_2)
+        # f_ch = self.fft()
+        welch_ch = self.welch()
+        data_db = librosa.amplitude_to_db(np.abs(welch_ch.data), ref=welch_ch.ref)
+        ax_4.plot(data_db, welch_ch.freqs)
+        ax_4.grid(True)
+        ax_4.set(xlabel="Spectrum level [dB]")
+
+        # サブプロット間の隙間を調整
+        fig.subplots_adjust(wspace=0.0001)
+        cbar = fig.colorbar(img, ax=ax_4, format="%+2.0f")
+        cbar.set_label("dB")
+        fig.suptitle(self.label or "Channel Data")
+
+        output = widgets.Output()
+        with output:
+            plt.show()
+
+        return widgets.VBox([output, self.to_Audio(label=False)])
