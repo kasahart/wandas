@@ -1,6 +1,6 @@
 # wandas/core/channel.py
 
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union
 import librosa.feature
 import numpy as np
 from .base_channel import BaseChannel
@@ -307,60 +307,116 @@ class Channel(BaseChannel):
         """
         return self._data.shape[-1]
 
+    def add(self, other: "Channel", snr: Optional[float] = None) -> "Channel":
+        """_summary_
+
+        Args:
+            other (Channel): _description_
+            snr (float): _description_
+
+        Returns:
+            Channel: _description_
+        """
+        if snr is None:
+            return self + other
+
+        clean_rms = util.calculate_rms(self.data)
+        other_rms = util.calculate_rms(other.data)
+        desired_noise_rms = util.calculate_desired_noise_rms(clean_rms, snr)
+        gain = desired_noise_rms / other_rms
+
+        return self + other * gain
+
     # 演算子オーバーロードの実装
-    def __add__(self, other: "Channel") -> "Channel":
+    def __add__(self, other: Union["Channel", int, float, np.ndarray]) -> "Channel":
         """
         チャンネル間の加算。
         """
-        assert (
-            self.sampling_rate == other.sampling_rate
-        ), "Sampling rates must be the same for channel addition."
+        if isinstance(other, Channel):
+            assert (
+                self.sampling_rate == other.sampling_rate
+            ), "Sampling rates must be the same for channel addition."
+            data = self.data + other.data
+            label = f"({self.label} + {other.label})"
+        elif isinstance(other, (int, float, np.ndarray)):
+            data = self.data + other
+            label = f"({self.label} + {other})"
+        else:
+            raise TypeError("Unsupported type for addition with Channel")
+
         result = dict(
-            data=self.data + other.data,
+            data=data,
             sampling_rate=self.sampling_rate,
-            label=f"({self.label} + {other.label})",
+            label=label,
         )
         return util.transform_channel(self, self.__class__, **result)
 
-    def __sub__(self, other: "Channel") -> "Channel":
+    def __sub__(self, other: Union["Channel", int, float, np.ndarray]) -> "Channel":
         """
         チャンネル間の減算。
         """
-        assert (
-            self.sampling_rate == other.sampling_rate
-        ), "Sampling rates must be the same for channel subtraction."
+        if isinstance(other, Channel):
+            assert (
+                self.sampling_rate == other.sampling_rate
+            ), "Sampling rates must be the same for channel subtraction."
+            data = self.data - other.data
+            label = f"({self.label} - {other.label})"
+        elif isinstance(other, (int, float, np.ndarray)):
+            data = self.data - other
+            label = f"({self.label} - {other})"
+        else:
+            raise TypeError("Unsupported type for subtraction with Channel")
+
         result = dict(
-            data=self.data - other.data,
+            data=data,
             sampling_rate=self.sampling_rate,
-            label=f"({self.label} - {other.label})",
+            label=label,
         )
         return util.transform_channel(self, self.__class__, **result)
 
-    def __mul__(self, other: "Channel") -> "Channel":
+    def __mul__(self, other: Union["Channel", int, float, np.ndarray]) -> "Channel":
         """
         チャンネル間の乗算。
         """
-        assert (
-            self.sampling_rate == other.sampling_rate
-        ), "Sampling rates must be the same for channel multiplication."
+        if isinstance(other, Channel):
+            assert (
+                self.sampling_rate == other.sampling_rate
+            ), "Sampling rates must be the same for channel multiplication."
+            data = self.data * other.data
+            label = f"({self.label} * {other.label})"
+        elif isinstance(other, (int, float, np.ndarray)):
+            data = self.data * other
+            label = f"({self.label} * {other})"
+        else:
+            raise TypeError("Unsupported type for multiplication with Channel")
+
         result = dict(
-            data=self.data * other.data,
+            data=data,
             sampling_rate=self.sampling_rate,
-            label=f"({self.label} * {other.label})",
+            label=label,
         )
         return util.transform_channel(self, self.__class__, **result)
 
-    def __truediv__(self, other: "Channel") -> "Channel":
+    def __truediv__(self, other: Union["Channel", int, float, np.ndarray]) -> "Channel":
         """
         チャンネル間の除算。
         """
-        assert (
-            self.sampling_rate == other.sampling_rate
-        ), "Sampling rates must be the same for channel division."
+        if isinstance(other, Channel):
+            assert (
+                self.sampling_rate == other.sampling_rate
+            ), "Sampling rates must be the same for channel division."
+            data = self.data / other.data
+            label = f"({self.label} / {other.label})"
+        elif isinstance(other, (int, float, np.ndarray)):
+            data = self.data / other
+            label = f"({self.label} / {other})"
+        else:
+            raise TypeError("Unsupported type for division with Channel")
+
         result = dict(
-            data=self.data / other.data,
+            data=data,
             sampling_rate=self.sampling_rate,
-            label=f"({self.label} / {other.label})",
+            label=label,
         )
         return util.transform_channel(self, self.__class__, **result)
 

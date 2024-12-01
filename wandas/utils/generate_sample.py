@@ -40,7 +40,10 @@ def generate_sample(
         # 単一の周波数の場合、チャンネルを一つ作成
         data = np.sin(2 * np.pi * freqs * t) * 2 * np.sqrt(2)
         channel = Channel(
-            data=data, sampling_rate=sampling_rate, label="Channel 1", unit="Pa"
+            data=np.squeeze(data),
+            sampling_rate=sampling_rate,
+            label="Channel 1",
+            unit="Pa",
         )
         channels = [channel]
 

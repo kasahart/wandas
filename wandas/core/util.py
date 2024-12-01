@@ -1,4 +1,5 @@
 from typing import Callable, Dict, Any
+import numpy as np
 
 # from wandas.core.base_channel import BaseChannel
 # from wandas.core.channel import Channel
@@ -77,3 +78,16 @@ def unit_to_ref(unit: str) -> float:
 
     else:
         return 1.0
+
+
+def calculate_rms(wave: np.ndarray) -> float:
+    """
+    Calculate the root mean square of the wave.
+    """
+    return np.sqrt(np.mean(np.square(wave)))
+
+
+def calculate_desired_noise_rms(clean_rms: float, snr: float):
+    a = snr / 20
+    noise_rms = clean_rms / 10**a
+    return noise_rms

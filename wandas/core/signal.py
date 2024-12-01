@@ -108,7 +108,17 @@ class ChannelFrame:
         """
         チャンネルの情報を表示します。
         """
-        return widgets.VBox([ch.describe() for ch in self.channels])
+        content = [
+            widgets.HTML(
+                f"<span style='font-size:20px; font-weight:normal;'>{self.label}, {self.sampling_rate} Hz</span>"
+            )
+        ]
+        content += [ch.describe() for ch in self.channels]
+        # 中央寄せのレイアウトを設定
+        layout = widgets.Layout(
+            display="flex", justify_content="center", align_items="center"
+        )
+        return widgets.VBox(content, layout=layout)
 
     def plot(self, ax: Optional[Any] = None, title: Optional[str] = None):
         """

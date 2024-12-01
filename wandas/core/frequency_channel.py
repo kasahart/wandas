@@ -230,13 +230,12 @@ class FrequencyChannel(BaseChannel):
             data,
             nperseg=win_length,
             noverlap=win_length - hop_length,
+            nfft=n_fft,
             window=window,
             average=average,
             detrend=detrend,
             scaling="spectrum",
         )
-
-        # out[..., 1:-1] *= 2.0
 
         return dict(
             data=out,
