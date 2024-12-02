@@ -2,7 +2,7 @@
 import os
 from typing import Optional, Any, List, Union, TYPE_CHECKING
 import numpy as np
-from .signal import ChannelFrame
+from .channel_frame import ChannelFrame
 import ipywidgets as widgets
 
 

@@ -1,9 +1,9 @@
-# tests/core/test_signal.py
+# tests/core/channel_frame.py
 
 import pytest
 import numpy as np
 from wandas.core.channel import Channel
-from wandas.core.signal import ChannelFrame
+from wandas.core.channel_frame import ChannelFrame
 
 
 @pytest.fixture

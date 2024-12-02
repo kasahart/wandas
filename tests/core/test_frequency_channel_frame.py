@@ -1,8 +1,8 @@
-# tests/core/test_spectrum.py
+# tests/core/test_frequency_channel_frame.py
 
 import numpy as np
 from wandas.core.frequency_channel import FrequencyChannel
-from wandas.core.spectrums import Spectrums
+from wandas.core.frequency_channel_frame import FrequencyChannelFrame
 
 
 def test_spectrum_initialization():
@@ -35,7 +35,9 @@ def test_spectrum_initialization():
         metadata=metadata,
     )
 
-    spectrum = Spectrums(channels=[freq_channel1, freq_channel2], label="Test Spectrum")
+    spectrum = FrequencyChannelFrame(
+        channels=[freq_channel1, freq_channel2], label="Test Spectrum"
+    )
 
     assert spectrum.label == "Test Spectrum"
     assert len(spectrum.channels) == 2

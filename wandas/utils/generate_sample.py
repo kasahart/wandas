@@ -1,7 +1,7 @@
 # wandas/utils/generate_sample.py
 
 import numpy as np
-from ..core.signal import ChannelFrame
+from ..core.channel_frame import ChannelFrame
 from ..core.channel import Channel
 from typing import Optional, Union, List
 

@@ -3,12 +3,13 @@
 from typing import Optional, Any, List
 from wandas.core.frequency_channel import FrequencyChannel
 import matplotlib.pyplot as plt
+import numpy as np
 
 
-class Spectrums:
+class FrequencyChannelFrame:
     def __init__(self, channels: List["FrequencyChannel"], label: Optional[str] = None):
         """
-        Spectrum オブジェクトを初期化します。
+        FrequencyChannelFrame オブジェクトを初期化します。
 
         Parameters:
             channels (list of FrequencyChannel): FrequencyChannel   w オブジェクトのリスト。
@@ -41,3 +42,35 @@ class Spectrums:
         if ax is None:
             plt.tight_layout()
             plt.show()
+
+    def plot_matrix(self, title: Optional[str] = None, Aw: bool = False):
+        """
+        チャンネル間をプロットします。
+
+        Parameters:
+            ax (matplotlib.axes.Axes, optional): プロット先の軸。
+            title (str, optional): プロットのタイトル。
+            cmap (str, optional): カラーマップ。
+        """
+
+        num_channels = len(self.channels)
+        num_rows = int(np.ceil(np.sqrt(num_channels)))
+
+        fig, axes = plt.subplots(
+            num_rows,
+            num_rows,
+            figsize=(3 * num_rows, 3 * num_rows),
+            sharex=True,
+            sharey=True,
+        )
+        axes = axes.flatten()
+
+        for ch, ax in zip(self.channels, axes):
+            ch.plot(ax=ax, title=title, Aw=Aw)
+            ax.set_title(title or self.label)
+
+        if title:
+            fig.suptitle(title)
+
+        plt.tight_layout()
+        return fig, axes

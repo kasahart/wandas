@@ -2,7 +2,7 @@
 
 from typing import Optional, Any, List, Union, TYPE_CHECKING
 import numpy as np
-
+import pandas as pd
 from scipy.io import wavfile
 import matplotlib.pyplot as plt
 from wandas.io import wav_io
@@ -10,7 +10,7 @@ from wandas.core.channel import Channel
 import ipywidgets as widgets
 
 if TYPE_CHECKING:
-    from wandas.core.spectrums import Spectrums
+    from wandas.core.frequency_channel_frame import FrequencyChannelFrame
 
 
 class ChannelFrame:
@@ -101,6 +101,86 @@ class ChannelFrame:
         scaled_data = np.int16(data / np.max(np.abs(data)) * max_int16)
         wavfile.write(filename, self.sampling_rate, scaled_data)
 
+    @classmethod
+    def read_csv(
+        cls,
+        filename: str,
+        time_column: Union[int, str] = 0,
+        labels: Optional[List[str]] = None,
+        delimiter: str = ",",
+        header: Optional[int] = 0,
+    ) -> "ChannelFrame":
+        """
+        CSV ファイルを読み込み、ChannelFrame オブジェクトを作成します。
+
+        Parameters:
+            filename (str): CSV ファイルのパス。
+            labels (list of str, optional): 各チャンネルのラベル。
+            delimiter (str, optional): 区切り文字。デフォルトはカンマ。
+            header (int or None, optional): ヘッダー行の位置。None の場合はヘッダーなし。
+            time_column (int or str, optional): 時間列のインデックスまたは列名。デフォルトは最初の列。
+
+        Returns:
+            ChannelFrame: データを含む ChannelFrame オブジェクト。
+        """
+        # pandas を使用して CSV ファイルを読み込む
+        df = pd.read_csv(filename, delimiter=delimiter, header=header)
+
+        # サンプリングレートを計算
+        try:
+            time_values = (
+                df[time_column].values
+                if isinstance(time_column, str)
+                else df.iloc[:, time_column].values
+            )
+        except KeyError:
+            raise KeyError(f"Time column '{time_column}' not found in the CSV file.")
+        except IndexError:
+            raise IndexError(f"Time column index {time_column} is out of range.")
+        if len(time_values) < 2:
+            raise ValueError("Not enough time points to calculate sampling rate.")
+        time_values = np.array(time_values)
+        sampling_rate: int = int(1 / np.mean(np.diff(time_values)))
+
+        # 時間列を削除
+        df = df.drop(
+            columns=[time_column]
+            if isinstance(time_column, str)
+            else df.columns[time_column]
+        )
+
+        # データを NumPy 配列に変換
+        data = df.values  # shape: (サンプル数, チャンネル数)
+
+        # 転置してチャンネルを最初の次元に持ってくる
+        data = data.T  # shape: (チャンネル数, サンプル数)
+
+        num_channels = data.shape[0]
+
+        # ラベルの処理
+        if labels is not None:
+            if len(labels) != num_channels:
+                raise ValueError("Length of labels must match number of channels.")
+        else:
+            if header is not None:
+                labels = df.columns.tolist()
+            else:
+                labels = [f"Ch{i}" for i in range(num_channels)]
+
+        # 各チャンネルの Channel オブジェクトを作成
+        channels = []
+        for i in range(num_channels):
+            ch_data = data[i]
+            ch_label = labels[i]
+            channel = Channel(
+                data=ch_data,
+                sampling_rate=sampling_rate,
+                label=ch_label,
+            )
+            channels.append(channel)
+
+        return cls(channels=channels)
+
     def to_Audio(self, normalize: bool = True):
         return widgets.VBox([ch.to_Audio(normalize) for ch in self.channels])
 
@@ -120,26 +200,46 @@ class ChannelFrame:
         )
         return widgets.VBox(content, layout=layout)
 
-    def plot(self, ax: Optional[Any] = None, title: Optional[str] = None):
+    def plot(
+        self,
+        ax: Optional[Any] = None,
+        title: Optional[str] = None,
+        overlay: bool = True,
+    ):
         """
         すべてのチャンネルをプロットします。
 
         Parameters:
             title (str, optional): プロットのタイトル。
+            overlay (bool, optional): True の場合、すべてのチャンネルを同じプロットに重ねて描画します。
+                                      False の場合、各チャンネルを個別のプロットに描画します。
         """
-        if ax is None:
-            fig, ax = plt.subplots(figsize=(10, 4))
+        if overlay:
+            if ax is None:
+                fig, ax = plt.subplots(figsize=(10, 4))
 
-        for channel in self.channels:
-            channel.plot(ax=ax)
+            for channel in self.channels:
+                channel.plot(ax=ax)
 
-        ax.set_xlabel("Time (s)")
-        ax.set_ylabel("Amplitude")
-        ax.set_title(title or self.label or "Signal")
-        ax.grid(True)
-        ax.legend()
+            ax.grid(True)
+            ax.legend()
 
-        if ax is None:
+            if ax is None:
+                plt.tight_layout()
+                plt.show()
+        else:
+            num_channels = len(self.channels)
+            fig, axs = plt.subplots(
+                num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
+            )
+            if num_channels == 1:
+                axs = [axs]  # Ensure axs is iterable when there's only one channel
+
+            for i, channel in enumerate(self.channels):
+                channel.plot(ax=axs[i])
+
+            axs[-1].set_xlabel("Time (s)")
+            fig.suptitle(title or self.label or "Signal")
             plt.tight_layout()
             plt.show()
 
@@ -183,18 +283,18 @@ class ChannelFrame:
         self,
         n_fft: Optional[int] = None,
         window: Optional[str] = None,
-    ) -> "Spectrums":
+    ) -> "FrequencyChannelFrame":
         """
         フーリエ変換をすべてのチャンネルに適用します。
 
         Returns:
             Spectrum: 周波数と振幅データを含む Spectrum オブジェクト。
         """
-        from wandas.core.spectrums import Spectrums
+        from wandas.core.frequency_channel_frame import FrequencyChannelFrame
 
         chs = [ch.fft(n_fft=n_fft, window=window) for ch in self.channels]
 
-        return Spectrums(
+        return FrequencyChannelFrame(
             channels=chs,
             label=self.label,
         )

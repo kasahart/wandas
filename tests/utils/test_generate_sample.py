@@ -1,7 +1,7 @@
 # tests/utils/test_generate_sample.py
 
 from wandas.utils.generate_sample import generate_sample
-from wandas.core.signal import ChannelFrame
+from wandas.core.channel_frame import ChannelFrame
 from wandas.core.channel import Channel
 
 

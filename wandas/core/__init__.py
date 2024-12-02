@@ -1,2 +1,4 @@
-from .signal import ChannelFrame
+from .channel_frame import ChannelFrame
 from .file_frame import FileFrame
+from .frequency_channel_frame import FrequencyChannelFrame
+from .matrix_frame import MatrixFrame

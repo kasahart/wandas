@@ -7,8 +7,8 @@ import scipy.signal as ss
 from wandas.core.channel import Channel
 import wandas.core.util as util
 from .frequency_channel import FrequencyChannel
-from wandas.core.signal import ChannelFrame
-from wandas.core.spectrums import Spectrums
+from wandas.core.channel_frame import ChannelFrame
+from wandas.core.frequency_channel_frame import FrequencyChannelFrame
 
 
 class MatrixFrame:
@@ -176,7 +176,7 @@ class MatrixFrame:
         win_length: int = 2048,
         window: str = "hann",
         detrend: str = "constant",
-    ) -> "Spectrums":
+    ) -> "FrequencyChannelFrame":
         """
         コヒーレンス推定を実行します。
 
@@ -208,11 +208,7 @@ class MatrixFrame:
             detrend=detrend,
         )
         coh = coh.reshape(-1, coh.shape[-1])
-        channel_labels = [
-            f"Coherence between {ich.label} and {jch.label}"
-            for ich in self
-            for jch in self
-        ]
+        channel_labels = [f"{ich.label} & {jch.label}" for ich in self for jch in self]
         label = "Coherence"
 
         freq_channels = [
@@ -226,7 +222,7 @@ class MatrixFrame:
             for data, label in zip(coh, channel_labels)
         ]
 
-        return Spectrums(freq_channels, label=label)
+        return FrequencyChannelFrame(freq_channels, label=label)
 
     def csd(
         self,
@@ -237,7 +233,7 @@ class MatrixFrame:
         detrend: str = "constant",
         scaling: str = "spectrum",
         average: str = "mean",
-    ) -> "Spectrums":
+    ) -> "FrequencyChannelFrame":
         """
         クロススペクトル推定を実行します。
 
@@ -258,7 +254,7 @@ class MatrixFrame:
         if hop_length is None:
             hop_length = win_length // 2
 
-        f, coh = ss.csd(
+        f, csd = ss.csd(
             x=self.data[:, np.newaxis],
             y=self.data[np.newaxis],
             fs=self.sampling_rate,
@@ -270,12 +266,8 @@ class MatrixFrame:
             scaling=scaling,
             average=average,
         )
-        coh = np.sqrt(coh.reshape(-1, coh.shape[-1]))
-        channel_labels = [
-            f"Cross power spectral between {ich.label} and {jch.label}"
-            for ich in self
-            for jch in self
-        ]
+        coh = np.sqrt(csd.reshape(-1, csd.shape[-1]))
+        channel_labels = [f"{ich.label} & {jch.label}" for ich in self for jch in self]
         channel_units = [f"{ich.unit}*{jch.unit}" for ich in self for jch in self]
         label = "Cross power spectral"
 
@@ -291,9 +283,124 @@ class MatrixFrame:
             for data, label, unit in zip(coh, channel_labels, channel_units)
         ]
 
-        return Spectrums(freq_channels, label=label)
+        return FrequencyChannelFrame(freq_channels, label=label)
 
-    def plot(self, ax: Optional[Any] = None, title: Optional[str] = None):
+    def transfer_function(
+        self,
+        n_fft: Optional[int] = None,
+        hop_length: Optional[int] = None,
+        win_length: int = 2048,
+        window: str = "hann",
+        detrend: str = "constant",
+        scaling: str = "spectrum",
+        average: str = "mean",
+    ) -> "FrequencyChannelFrame":
+        """
+        伝達関数を推定します。
+
+        Parameters:
+            n_fft (int, optional): FFT のサンプル数。
+            hop_length (int, optional): オーバーラップのサンプル数。
+            win_length (int, optional): 窓関数のサイズ。
+            window (str, optional): 窓関数の種類。
+            detrend (str, optional): トレンドの除去方法。
+
+        Returns:
+            FrequencyChannelFrame: 伝達関数データを含むオブジェクト。
+        """
+        if win_length is None:
+            win_length = 2048
+        if n_fft is None:
+            n_fft = win_length
+        if hop_length is None:
+            hop_length = win_length // 2
+
+        num_channels = self.data.shape[0]
+
+        # クロススペクトル密度の計算（全チャンネル間）
+        f, P_yx = ss.csd(
+            x=self.data[:, np.newaxis, :],  # shape: (チャンネル数, 1, サンプル数)
+            y=self.data[np.newaxis, :, :],  # shape: (1, チャンネル数, サンプル数)
+            fs=self.sampling_rate,
+            nperseg=win_length,
+            noverlap=win_length - hop_length,
+            nfft=n_fft,
+            window=window,
+            detrend=detrend,
+            scaling=scaling,
+            average=average,
+            axis=-1,
+        )
+        # P_yx の形状: (チャンネル数, チャンネル数, 周波数数)
+
+        # パワースペクトル密度の計算（各チャンネル）
+        f, P_xx = ss.welch(
+            x=self.data,
+            fs=self.sampling_rate,
+            nperseg=win_length,
+            noverlap=win_length - hop_length,
+            nfft=n_fft,
+            window=window,
+            detrend=detrend,
+            scaling=scaling,
+            average=average,
+            axis=-1,
+        )
+        # P_xx の形状: (チャンネル数, 周波数数)
+
+        # 伝達関数の計算 H(f) = P_yx / P_xx（P_xx をブロードキャスト）
+        H_f = (
+            P_yx / P_xx[np.newaxis, :, :]
+        )  # P_xx を形状 (1, チャンネル数, 周波数数) に拡張
+
+        # ラベルと単位の生成
+        channel_labels = np.array(
+            [
+                [
+                    f"{self.channels[i].label} / {self.channels[j].label}"
+                    for j in range(num_channels)
+                ]
+                for i in range(num_channels)
+            ]
+        )
+        channel_units = np.array(
+            [
+                [
+                    f"{self.channels[i].unit} / {self.channels[j].unit}"
+                    for j in range(num_channels)
+                ]
+                for i in range(num_channels)
+            ]
+        )
+
+        # H_f, channel_labels, channel_units を一次元配列に変形
+        H_f_flat = H_f.reshape(
+            -1, H_f.shape[-1]
+        )  # shape: (チャンネル数 * チャンネル数, 周波数数)
+        channel_labels_flat = channel_labels.flatten()
+        channel_units_flat = channel_units.flatten()
+
+        # FrequencyChannel のリストを作成
+        freq_channels = [
+            FrequencyChannel(
+                data=H_f_flat[k],
+                sampling_rate=self.sampling_rate,
+                window=window,
+                label=channel_labels_flat[k],
+                n_fft=n_fft,
+                unit=channel_units_flat[k],
+            )
+            for k in range(H_f_flat.shape[0])
+        ]
+
+        return FrequencyChannelFrame(freq_channels, label="Transfer Function")
+
+    def plot(
+        self,
+        ax: Optional[Any] = None,
+        title: Optional[str] = None,
+        overlay: bool = True,
+    ):
         """
         すべてのチャンネルをプロットします。
 
@@ -302,4 +409,4 @@ class MatrixFrame:
             title (str, optional): プロットのタイトル。
         """
         cf = self.toChannelFrame()
-        cf.plot(ax=ax, title=title)
+        cf.plot(ax=ax, title=title, overlay=overlay)

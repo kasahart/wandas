@@ -3,8 +3,8 @@ import numpy as np
 from scipy import signal
 from wandas.core.matrix_frame import MatrixFrame
 from wandas.core.channel import Channel
-from wandas.core.signal import ChannelFrame
-from wandas.core.spectrums import Spectrums
+from wandas.core.channel_frame import ChannelFrame
+from wandas.core.frequency_channel_frame import FrequencyChannelFrame
 
 
 def test_matrix_frame_initialization():

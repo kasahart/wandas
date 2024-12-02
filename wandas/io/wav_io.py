@@ -5,7 +5,7 @@ import numpy as np
 from scipy.io import wavfile
 
 if TYPE_CHECKING:
-    from wandas.core.signal import ChannelFrame
+    from ..core.channel_frame import ChannelFrame
 
 
 def read_wav(filename: str, labels: Optional[List[str]] = None) -> "ChannelFrame":
@@ -20,7 +20,7 @@ def read_wav(filename: str, labels: Optional[List[str]] = None) -> "ChannelFrame
         ChannelFrame: オーディオデータを含む ChannelFrame オブジェクト。
     """
     from wandas.core.channel import Channel
-    from wandas.core.signal import ChannelFrame
+    from wandas.core.channel_frame import ChannelFrame
 
     sampling_rate, data = wavfile.read(filename)
 
