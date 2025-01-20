@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from wandas.io import wav_io
 from wandas.core.channel import Channel
 import ipywidgets as widgets
+import numbers
 
 if TYPE_CHECKING:
     from wandas.core.frequency_channel_frame import FrequencyChannelFrame
@@ -318,7 +319,7 @@ class ChannelFrame:
             if key not in self.channel_dict:
                 raise KeyError(f"Channel '{key}' not found.")
             return self.channel_dict[key]
-        elif isinstance(key, int):
+        elif isinstance(key, numbers.Integral):
             # インデックス番号でアクセス
             if key < 0 or key >= len(self.channels):
                 raise IndexError(f"Channel index {key} out of range.")
