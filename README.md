@@ -1,77 +1,68 @@
 # Wandas: **W**aveform **An**alysis **Da**ta **S**tructures
 
-**Wandas** is an open-source library for signal processing in Python. It adopts the user-friendly data structures and APIs of pandas, enabling efficient analysis of waveform and time-series data.
+**Wandas** は、Pythonによる効率的な信号解析のためのオープンソースライブラリです。Wandas は、信号処理のための包括的な機能を提供し、Matplotlibとのシームレスな統合を実現しています。
 
-## Features
+## 機能
 
-- **Intuitive Data Structures**: Provides `WaveFrame` for handling waveform data and `SignalSeries` for one-dimensional signal data.
-- **Comprehensive Signal Processing Functions**: Easily perform filtering, Fourier transforms, spectral analysis, and other essential signal processing operations.
-- **Powerful Support for Time-Series Data**: Easily manipulate time axes and change sampling rates.
-- **High Performance**: Built on NumPy and SciPy, allowing fast computations even with large datasets.
-- **Rich Data Input/Output**: Supports reading and writing various data formats like WAV, FLAC, CSV, and MAT files.
-- **Integration with Visualization Libraries**: Seamlessly integrate with libraries like Matplotlib and Seaborn for easy data visualization.
+- **包括的な信号処理機能**: フィルタリング、フーリエ変換、STFTなど、基本的な信号処理操作を簡単に実行可能
+- **可視化ライブラリとの統合**: Matplotlibとシームレスに統合してデータを簡単に可視化可能。
 
-## Installation
+## インストール
 
 ```bash
-pip install wandas
+pip install git+https://github.com/kasahart/wandas/issues
 ```
 
-## Quick Start
+## クイックスタート
 
 ```python
 import wandas as wd
 
-# Read a WAV file
+# WAV ファイルの読み込み
 signal = wd.read_wav('audio_sample.wav')
 
-# Plot the signal
+# 信号をプロット
 signal.plot()
 
-# Apply a low-pass filter
+# ローパスフィルタを適用
 filtered_signal = signal.low_pass_filter(cutoff=1000)
 
-# Perform Fourier transform for spectral analysis
+# スペクトル解析のためにフーリエ変換を実行
 spectrum = filtered_signal.fft()
 
-# Plot the spectrum
+# スペクトルをプロット
 spectrum.plot()
 
-# Write the filtered signal to a WAV file
+# フィルタ済み信号を WAV ファイルに保存
 filtered_signal.to_wav('filtered_audio.wav')
 ```
 
-## Documentation
+## ドキュメント
 
-For detailed usage and API references, please visit the [official documentation](https://wandas.readthedocs.io/).
+詳細な使用方法は`/exsampls`を参照してください
 
-## Supported Data Formats
+## 対応データ形式
 
-- **Audio Files**: WAV, FLAC, MP3 (read-only)
-- **Data Files**: CSV, Excel, MAT files
-- **Real-Time Data**: Streaming data from microphones and sensors (planned for future release)
+- **音声ファイル**: WAV
+- **データファイル**: CSV
 
-## Community and Contribution
+## バグ報告と機能リクエスト
 
-Wandas is an open-source project, and we welcome contributions from everyone.
+- **バグ報告**: [Issue Tracker](https://github.com/kasahart/wandas/issues) に詳細を記載してください。
+- **機能リクエスト**: 新機能や改善案があれば、気軽に Issue をオープンしてください。
 
-### Bug Reports and Feature Requests
+## 貢献方法
 
-- **Bug Reports**: Please provide details in the [Issue Tracker](https://github.com/yourusername/wandas/issues).
-- **Feature Requests**: If you have ideas for new features or improvements, feel free to open an issue.
+1. このリポジトリをフォークします。
+2. フィーチャーブランチを作成します。(`git checkout -b feature/new_feature`)
+3. 変更をコミットします。(`git commit -m 'Add new_feature'`)
+4. ブランチをプッシュします。(`git push origin feature/new_feature`)
+5. プルリクエストを送信します。
 
-### How to Contribute
+## ライセンス
 
-1. Fork this repository.
-2. Create a feature branch. (`git checkout -b feature/new_feature`)
-3. Commit your changes. (`git commit -m 'Add new_feature'`)
-4. Push to the branch. (`git push origin feature/new_feature`)
-5. Open a Pull Request.
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
+このプロジェクトは [MIT ライセンス](LICENSE) の下で公開されています。
 
 ---
 
-Experience efficient signal processing with Wandas!
+Wandas を使って効率的な信号解析体験を！
