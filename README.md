@@ -10,7 +10,7 @@
 ## インストール
 
 ```bash
-pip install git+https://github.com/kasahart/wandas/issues
+pip install git+https://github.com/kasahart/wandas
 ```
 
 ## クイックスタート
