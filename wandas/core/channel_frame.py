@@ -1,6 +1,6 @@
 # wandas/core/signal.py
 
-from typing import Optional, Any, List, Union, TYPE_CHECKING
+from typing import Optional, Any, List, Union, Dict, TYPE_CHECKING
 import numpy as np
 import pandas as pd
 from scipy.io import wavfile
@@ -185,16 +185,23 @@ class ChannelFrame:
     def to_Audio(self, normalize: bool = True):
         return widgets.VBox([ch.to_Audio(normalize) for ch in self.channels])
 
-    def describe(self):
+    def describe(self, axis_config: Optional[Dict[str, Dict[str, tuple]]] = None, cbar_config: Optional[Dict[str, Any]] = None):
         """
         チャンネルの情報を表示します。
+        Parameters:
+            axis_config (dict): 各サブプロットの軸設定を格納する辞書。
+                {
+                    "time_plot": {"xlim": (0, 1)},
+                    "freq_plot": {"ylim": (0, 20000)}
+                }
+            cbar_config (dict): カラーバーの設定を格納する辞書（例: {"vmin": -80, "vmax": 0}）。
         """
         content = [
             widgets.HTML(
                 f"<span style='font-size:20px; font-weight:normal;'>{self.label}, {self.sampling_rate} Hz</span>"
             )
         ]
-        content += [ch.describe() for ch in self.channels]
+        content += [ch.describe(axis_config=axis_config, cbar_config=cbar_config) for ch in self.channels]
         # 中央寄せのレイアウトを設定
         layout = widgets.Layout(
             display="flex", justify_content="center", align_items="center"

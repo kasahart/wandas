@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, TYPE_CHECKING
 import numpy as np
 import matplotlib.pyplot as plt
 import librosa.display
@@ -7,6 +7,9 @@ from scipy import fft
 from scipy import signal as ss
 import wandas.core.util as util
 
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+    from matplotlib.collections import QuadMesh
 
 class TimeFrequencyChannel(BaseChannel):
     def __init__(
@@ -139,9 +142,9 @@ class TimeFrequencyChannel(BaseChannel):
 
         return librosa.db_to_amplitude(weighted)
 
-    def plot(
+    def _plot(
         self,
-        ax: Optional[Any] = None,
+        ax: "Axes",
         title: Optional[str] = None,
         db_scale: bool = True,
         fmin: Optional[float] = None,
@@ -149,7 +152,7 @@ class TimeFrequencyChannel(BaseChannel):
         Aw: bool = False,
         vmin: Optional[float] = None,
         vmax: Optional[float] = None,
-    ) -> tuple[Any, np.ndarray]:
+    ) -> tuple["QuadMesh", np.ndarray]:
         """
         時間周波数データをプロットします。
 
@@ -158,9 +161,7 @@ class TimeFrequencyChannel(BaseChannel):
             title (str, optional): プロットのタイトル。
             db_scale (bool): dBスケールでプロットするかどうか。
         """
-        _ax = ax
-        if _ax is None:
-            _, _ax = plt.subplots(figsize=(10, 6))
+
 
         if Aw:
             data_to_plot = self.data_Aw(to_dB=True)
@@ -187,9 +188,36 @@ class TimeFrequencyChannel(BaseChannel):
         )
 
         # ラベルとタイトルを設定
-        _ax.set_xlabel("Time [s]")
-        _ax.set_ylabel("Frequency [Hz]")
-        _ax.set_title(title or self.label or "Time-Frequency Representation")
+        ax.set_xlabel("Time [s]")
+        ax.set_ylabel("Frequency [Hz]")
+        ax.set_title(title or self.label or "Time-Frequency Representation")
+    
+        return img, data_to_plot
+
+    def plot(
+        self,
+        ax: Optional["Axes"] = None,
+        title: Optional[str] = None,
+        db_scale: bool = True,
+        fmin: Optional[float] = None,
+        fmax: Optional[float] = None,
+        Aw: bool = False,
+        vmin: Optional[float] = None,
+        vmax: Optional[float] = None,
+    ) -> tuple[Any, np.ndarray]:
+        """
+        時間周波数データをプロットします。
+
+        Parameters:
+            ax (matplotlib.axes.Axes, optional): 既存のプロット軸。
+            title (str, optional): プロットのタイトル。
+            db_scale (bool): dBスケールでプロットするかどうか。
+        """
+        _ax = ax
+        if _ax is None:
+            _, _ax = plt.subplots(figsize=(10, 6))
+        
+        img, data_to_plot = self._plot(ax=_ax, title=title, db_scale=db_scale, fmin=fmin, fmax=fmax, Aw=Aw, vmin=vmin, vmax=vmax)
 
         if _ax.figure is not None:
             if db_scale:
@@ -296,7 +324,7 @@ class TimeMelFrequencyChannel(TimeFrequencyChannel):
 
     def plot(
         self,
-        ax: Optional[Any] = None,
+        ax: Optional["Axes"] = None,
         title: Optional[str] = None,
         db_scale: bool = True,
         fmin: Optional[float] = None,
