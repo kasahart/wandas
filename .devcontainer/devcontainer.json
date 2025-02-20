@@ -3,7 +3,9 @@
     "image": "mcr.microsoft.com/devcontainers/python:0-3.10",
     "features": {
         "ghcr.io/devcontainers/features/git:1": {},
-        "ghcr.io/akhildevelops/devcontainer-features/pip:0": {}
+        "ghcr.io/akhildevelops/devcontainer-features/pip:0": {},
+        "ghcr.io/devcontainers-contrib/features/isort:2": {},
+        "ghcr.io/devcontainers-contrib/features/ruff:1": {}
     },
     "customizations": {
         "vscode": {
@@ -14,6 +16,8 @@
                 "DavidAnson.vscode-markdownlint",
                 "njpwerner.autodocstring",
                 "ms-python.python",
+                "usernamehw.errorlens",
+				"ms-python.vscode-pylance",
                 "spmeesseman.vscode-taskexplorer",
                 "charliermarsh.ruff",
                 "ms-toolsai.jupyter"
