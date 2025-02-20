@@ -30,5 +30,6 @@ classifiers = [
 dev = [
     "pytest",
     "pandas",
+    "pytest-cov"
     # 他の開発用依存関係
 ]

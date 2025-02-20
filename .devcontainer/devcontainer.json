@@ -13,7 +13,6 @@
             "extensions": [
                 "DavidAnson.vscode-markdownlint",
                 "njpwerner.autodocstring",
-                "GitHub.copilot",
                 "ms-python.python",
                 "spmeesseman.vscode-taskexplorer",
                 "charliermarsh.ruff",
