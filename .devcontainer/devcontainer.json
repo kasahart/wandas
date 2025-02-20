@@ -17,10 +17,15 @@
                 "njpwerner.autodocstring",
                 "ms-python.python",
                 "usernamehw.errorlens",
-				"ms-python.vscode-pylance",
+                "ms-python.vscode-pylance",
                 "spmeesseman.vscode-taskexplorer",
                 "charliermarsh.ruff",
-                "ms-toolsai.jupyter"
+                "ms-toolsai.jupyter",
+                "eamodio.gitlens",
+                "donjayamanne.githistory",
+                "Gruntfuggly.todo-tree",
+                "github.vscode-github-actions",
+                "mhutchie.git-graph"
             ]
         }
     },
