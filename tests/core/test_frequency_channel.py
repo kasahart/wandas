@@ -1,8 +1,7 @@
 # tests/core/test_frequency_channel.py
-import pytest
-
 import numpy as np
-from mosqito.sound_level_meter import noct_spectrum, noct_synthesis, comp_spectrum
+import pytest
+from mosqito.sound_level_meter import comp_spectrum, noct_spectrum, noct_synthesis
 
 from wandas.core.channel import Channel
 from wandas.core.frequency_channel import FrequencyChannel, NOctChannel
@@ -105,9 +104,9 @@ def test_fft_amplitude():
     fft_amplitude = np.abs(result["data"])
     peak_amplitude = np.max(fft_amplitude)
 
-    assert np.isclose(
-        peak_amplitude, amplitude, atol=1e-5
-    ), f"Expected {amplitude}, but got {peak_amplitude}"
+    assert np.isclose(peak_amplitude, amplitude, atol=1e-5), (
+        f"Expected {amplitude}, but got {peak_amplitude}"
+    )
 
     # ############
     # paddingした場合
@@ -119,9 +118,9 @@ def test_fft_amplitude():
     fft_amplitude = np.abs(result["data"])
     peak_amplitude = np.max(fft_amplitude)
 
-    assert np.isclose(
-        peak_amplitude, amplitude, atol=1e-5
-    ), f"Expected {amplitude}, but got {peak_amplitude}"
+    assert np.isclose(peak_amplitude, amplitude, atol=1e-5), (
+        f"Expected {amplitude}, but got {peak_amplitude}"
+    )
 
     # ###########
     # 窓関数を変えてた場合
@@ -133,9 +132,9 @@ def test_fft_amplitude():
     fft_amplitude = np.abs(result["data"])
     peak_amplitude = np.max(fft_amplitude)
 
-    assert np.isclose(
-        peak_amplitude, amplitude, atol=1e-5
-    ), f"Expected {amplitude}, but got {peak_amplitude}"
+    assert np.isclose(peak_amplitude, amplitude, atol=1e-5), (
+        f"Expected {amplitude}, but got {peak_amplitude}"
+    )
 
     # ###########
     # 窓関数を変えてた場合
@@ -148,9 +147,9 @@ def test_fft_amplitude():
     fft_amplitude = np.abs(result["data"])
     peak_amplitude = np.max(fft_amplitude)
 
-    assert np.isclose(
-        peak_amplitude, amplitude, atol=1e-5
-    ), f"Expected {amplitude}, but got {peak_amplitude}"
+    assert np.isclose(peak_amplitude, amplitude, atol=1e-5), (
+        f"Expected {amplitude}, but got {peak_amplitude}"
+    )
 
 
 def test_welch_amplitude(generate_channel):
@@ -175,9 +174,9 @@ def test_welch_amplitude(generate_channel):
     welch_amplitude = np.abs(welch_result.data)
     peak_amplitude = np.max(welch_amplitude)
 
-    assert np.isclose(
-        peak_amplitude, amplitude, atol=1e-5
-    ), f"Expected {amplitude}, but got {peak_amplitude}"
+    assert np.isclose(peak_amplitude, amplitude, atol=1e-5), (
+        f"Expected {amplitude}, but got {peak_amplitude}"
+    )
 
     # ############
     # paddingした場合
@@ -195,9 +194,9 @@ def test_welch_amplitude(generate_channel):
     welch_amplitude = np.abs(welch_result.data)
     peak_amplitude = np.max(welch_amplitude)
 
-    assert np.isclose(
-        peak_amplitude, amplitude, atol=1e-5
-    ), f"Expected {amplitude}, but got {peak_amplitude}"
+    assert np.isclose(peak_amplitude, amplitude, atol=1e-5), (
+        f"Expected {amplitude}, but got {peak_amplitude}"
+    )
 
     # ###########
     # 窓関数を変えてた場合
@@ -215,9 +214,9 @@ def test_welch_amplitude(generate_channel):
     welch_amplitude = np.abs(welch_result.data)
     peak_amplitude = np.max(welch_amplitude)
 
-    assert np.isclose(
-        peak_amplitude, amplitude, atol=1e-5
-    ), f"Expected {amplitude}, but got {peak_amplitude}"
+    assert np.isclose(peak_amplitude, amplitude, atol=1e-5), (
+        f"Expected {amplitude}, but got {peak_amplitude}"
+    )
 
 
 def test_frequency_channel_plot():
@@ -240,7 +239,7 @@ def test_frequency_channel_noct_spectrum():
     f = 1000
     fs = 48000
     d = 0.2
-    dB = 60
+    dB = 60  # noqa: N806
     time = np.arange(0, d, 1 / fs)
     stimulus = np.sin(2 * np.pi * f * time) + 0.5 * np.sin(6 * np.pi * f * time)
     rms = np.sqrt(np.mean(np.power(stimulus, 2)))
@@ -256,16 +255,16 @@ def test_frequency_channel_noct_spectrum():
         fmax=14000,
     )
 
-    assert np.allclose(
-        result["data"], spec, atol=1e-5
-    ), f"Expected {spec}, but got {result['data'],}"
+    assert np.allclose(result["data"], spec, atol=1e-5), (
+        f"Expected {spec}, but got {(result['data'],)}"
+    )
 
 
 def test_frequency_channel_noct_synthesis():
     f = 1000
     fs = 48000
     d = 0.2
-    dB = 60
+    dB = 60  # noqa: N806
     time = np.arange(0, d, 1 / fs)
     stimulus = np.sin(2 * np.pi * f * time) + 0.5 * np.sin(6 * np.pi * f * time)
     rms = np.sqrt(np.mean(np.power(stimulus, 2)))
@@ -287,6 +286,6 @@ def test_frequency_channel_noct_synthesis():
 
     assert np.argmax(noch.data) == np.argmax(spec_3)
 
-    assert np.isclose(
-        noch.data.max(), spec_3.max(), atol=1e-5
-    ), f"Expected {spec_3.max()}, but got {noch.data.max()}"
+    assert np.isclose(noch.data.max(), spec_3.max(), atol=1e-5), (
+        f"Expected {spec_3.max()}, but got {noch.data.max()}"
+    )

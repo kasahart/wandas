@@ -3,6 +3,7 @@
     "files.insertFinalNewline": true,
     "files.trimFinalNewlines": true,
     "files.trimTrailingWhitespace": true,
+    "files.eol": "\n",
     "breadcrumbs.enabled": true,
     "python.analysis.typeCheckingMode": "basic",
     "python.testing.pytestArgs": [
@@ -16,5 +17,15 @@
     "python.testing.autoTestDiscoverOnSaveEnabled": true,
     "python.experiments.optInto": [
         "pythonTestAdapter"
-    ]
+    ],
+    "[python]": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        }
+    },
+    "mypy-type-checker.args": [
+        "--config=pyproject.toml"
+    ],
 }

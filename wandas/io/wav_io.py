@@ -1,6 +1,7 @@
 # wandas/io/wav_io.py
 
-from typing import Optional, List, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
+
 import numpy as np
 from scipy.io import wavfile
 
@@ -8,7 +9,7 @@ if TYPE_CHECKING:
     from ..core.channel_frame import ChannelFrame
 
 
-def read_wav(filename: str, labels: Optional[List[str]] = None) -> "ChannelFrame":
+def read_wav(filename: str, labels: Optional[list[str]] = None) -> "ChannelFrame":
     """
     WAV ファイルを読み込み、ChannelFrame オブジェクトを作成します。
 
@@ -39,7 +40,7 @@ def read_wav(filename: str, labels: Optional[List[str]] = None) -> "ChannelFrame
 
     for i in range(num_channels):
         channel_data = data[:, i]
-        channel_label = labels[i] if labels and i < len(labels) else f"Channel {i+1}"
+        channel_label = labels[i] if labels and i < len(labels) else f"Channel {i + 1}"
         channels.append(
             Channel(data=channel_data, sampling_rate=sampling_rate, label=channel_label)
         )

@@ -1,13 +1,14 @@
 # tests/core/test_time_frequency_channel.py
 
-import pytest
-import numpy as np
 import librosa
+import numpy as np
+import pytest
+
+from wandas.core.channel import Channel
 from wandas.core.time_frequency_channel import (
     TimeFrequencyChannel,
     TimeMelFrequencyChannel,
 )
-from wandas.core.channel import Channel
 
 
 @pytest.fixture
@@ -122,9 +123,9 @@ def test_stft_amplitude():
     stft_amplitude = np.abs(stft_result["data"])
     peak_amplitude = np.max(stft_amplitude)
 
-    assert np.isclose(
-        peak_amplitude, amplitude, atol=1e-5
-    ), f"Expected {amplitude}, but got {peak_amplitude}"
+    assert np.isclose(peak_amplitude, amplitude, atol=1e-5), (
+        f"Expected {amplitude}, but got {peak_amplitude}"
+    )
 
     # ############
     # paddingした場合
@@ -140,9 +141,9 @@ def test_stft_amplitude():
     stft_amplitude = np.abs(stft_result["data"])
     peak_amplitude = np.max(stft_amplitude)
 
-    assert np.isclose(
-        peak_amplitude, amplitude, atol=1e-5
-    ), f"Expected {amplitude}, but got {peak_amplitude}"
+    assert np.isclose(peak_amplitude, amplitude, atol=1e-5), (
+        f"Expected {amplitude}, but got {peak_amplitude}"
+    )
 
     # ###########
     # 窓関数を変えてた場合
@@ -158,9 +159,9 @@ def test_stft_amplitude():
     stft_amplitude = np.abs(stft_result["data"])
     peak_amplitude = np.max(stft_amplitude)
 
-    assert np.isclose(
-        peak_amplitude, amplitude, atol=1e-5
-    ), f"Expected {amplitude}, but got {peak_amplitude}"
+    assert np.isclose(peak_amplitude, amplitude, atol=1e-5), (
+        f"Expected {amplitude}, but got {peak_amplitude}"
+    )
 
     # ###########
     # 窓関数を変えてた場合
@@ -176,9 +177,9 @@ def test_stft_amplitude():
     stft_amplitude = np.abs(stft_result["data"])
     peak_amplitude = np.max(stft_amplitude)
 
-    assert np.isclose(
-        peak_amplitude, amplitude, atol=1e-5
-    ), f"Expected {amplitude}, but got {peak_amplitude}"
+    assert np.isclose(peak_amplitude, amplitude, atol=1e-5), (
+        f"Expected {amplitude}, but got {peak_amplitude}"
+    )
 
 
 def test_time_frequency_channel_plot(generate_time_frequency_channel):
@@ -195,9 +196,9 @@ def test_time_frequency_channel_plot(generate_time_frequency_channel):
 
     ref = 20 * np.log10(2)
     cal = spec.max()
-    assert np.isclose(
-        cal, ref, atol=1e-5
-    ), f"Expected {cal}, but got {ref}"  # dB values should be <= 0
+    assert np.isclose(cal, ref, atol=1e-5), (
+        f"Expected {cal}, but got {ref}"
+    )  # dB values should be <= 0
 
 
 def test_time_frequency_channel_plot_boxcar(generate_time_frequency_channel_boxcar):
@@ -214,9 +215,9 @@ def test_time_frequency_channel_plot_boxcar(generate_time_frequency_channel_boxc
 
     ref = 20 * np.log10(2)
     cal = spec.max()
-    assert np.isclose(
-        cal, ref, atol=1e-5
-    ), f"Expected {cal}, but got {ref}"  # dB values should be <= 0
+    assert np.isclose(cal, ref, atol=1e-5), (
+        f"Expected {cal}, but got {ref}"
+    )  # dB values should be <= 0
 
 
 def test_time_frequency_channel_to_db(generate_time_frequency_channel):
@@ -225,9 +226,9 @@ def test_time_frequency_channel_to_db(generate_time_frequency_channel):
     ref = 20 * np.log10(2)
     cal = db_data.max()
     assert db_data.shape == tf_channel.data.shape
-    assert np.isclose(
-        cal, ref, atol=1e-5
-    ), f"Expected {cal}, but got {ref}"  # dB values should be <= 0
+    assert np.isclose(cal, ref, atol=1e-5), (
+        f"Expected {cal}, but got {ref}"
+    )  # dB values should be <= 0
 
 
 def test_time_frequency_channel_to_db_boxcar(generate_time_frequency_channel_boxcar):
@@ -236,9 +237,9 @@ def test_time_frequency_channel_to_db_boxcar(generate_time_frequency_channel_box
     ref = 20 * np.log10(2)
     cal = db_data.max()
     assert db_data.shape == tf_channel.data.shape
-    assert np.isclose(
-        cal, ref, atol=1e-5
-    ), f"Expected {cal}, but got {ref}"  # dB values should be <= 0
+    assert np.isclose(cal, ref, atol=1e-5), (
+        f"Expected {cal}, but got {ref}"
+    )  # dB values should be <= 0
 
 
 def test_time_frequency_channel_melspectrogram(
@@ -269,9 +270,9 @@ def test_time_frequency_channel_melspectrogram(
     cal = mel_spectrogram.data.max()
     ref = spec2mel_spec.data.max()
 
-    assert np.isclose(
-        cal, ref, atol=1e-5
-    ), f"Expected {cal}, but got {ref}"  # dB values should be <= 0
+    assert np.isclose(cal, ref, atol=1e-5), (
+        f"Expected {cal}, but got {ref}"
+    )  # dB values should be <= 0
 
 
 def test_time_mel_frequency_channel_initialization():
@@ -351,9 +352,7 @@ def test_time_mel_frequency_channel_melspectrogram():
     assert mel_spectrogram_result["sampling_rate"] == fs
     assert mel_spectrogram_result["n_fft"] == n_fft
     assert mel_spectrogram_result["data"].shape[0] == n_mels
-    assert np.allclose(
-        mel_spectrogram_result["data"], ref_mel, atol=1e-5
-    ), (
+    assert np.allclose(mel_spectrogram_result["data"], ref_mel, atol=1e-5), (
         f"Expected {mel_spectrogram_result['data']}, but got {ref_mel}"
     )  # dB values should be <= 0
 
@@ -384,7 +383,6 @@ def test_time_mel_frequency_channel_plot():
 
     fig, ax = plt.subplots()
     ax, spec = tf_mel_channel.plot(ax=ax, title="Test Mel Plot")
-
     assert ax.get_xlabel() == "Time [s]"
     assert ax.get_ylabel() == "Frequency [Hz]"
     assert ax.get_title() == "Test Mel Plot"

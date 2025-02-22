@@ -1,14 +1,20 @@
 # wandas/core/frequency_channel.py
 
-from typing import Optional, Dict, Any, Union
-import numpy as np
-from .base_channel import BaseChannel
-import matplotlib.pyplot as plt
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
+
 import librosa
-from scipy import signal as ss
-from scipy import fft
+import matplotlib.pyplot as plt
+import numpy as np
 from mosqito.sound_level_meter import noct_spectrum, noct_synthesis
-import wandas.core.util as util
+from scipy import fft
+from scipy import signal as ss
+
+from wandas.core import util
+
+from .base_channel import BaseChannel
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
 
 
 class NOctChannel(BaseChannel):
@@ -18,7 +24,7 @@ class NOctChannel(BaseChannel):
         sampling_rate: int,
         fpref: np.ndarray,
         n: int = 3,
-        G: int = 10,
+        G: int = 10,  # noqa: N803
         fr: int = 1000,
         label: Optional[str] = None,
         unit: Optional[str] = None,
@@ -50,7 +56,7 @@ class NOctChannel(BaseChannel):
         fmin: float,
         fmax: float,
         n: int = 3,
-        G: int = 10,
+        G: int = 10,  # noqa: N803
         fr: int = 1000,
     ) -> Dict[str, Any]:
         """
@@ -71,7 +77,7 @@ class NOctChannel(BaseChannel):
         fmin: float,
         fmax: float,
         n: int = 3,
-        G: int = 10,
+        G: int = 10,  # noqa: N803
         fr: int = 1000,
         ref: float = 1,
     ) -> Dict[str, Any]:
@@ -99,7 +105,7 @@ class NOctChannel(BaseChannel):
             raise ValueError("fs must be 48000")
         return dict(data=spec, fpref=fpref, n=n, G=G, fr=fr)
 
-    def data_Aw(self, to_dB=False) -> np.ndarray:
+    def data_Aw(self, to_dB: bool = False) -> np.ndarray:  # noqa: N802, N803
         """
         A特性を適用した振幅データを返します。
         """
@@ -113,7 +119,12 @@ class NOctChannel(BaseChannel):
 
         return librosa.db_to_amplitude(weighted, ref=self.ref)
 
-    def plot(self, ax: Optional[Any] = None, title: Optional[str] = None, Aw=False):
+    def plot(
+        self,
+        ax: Optional["Axes"] = None,
+        title: Optional[str] = None,
+        Aw: bool = False,  # noqa: N803
+    ) -> tuple["Axes", np.ndarray]:
         """
         スペクトルデータをプロットします。
         """
@@ -144,6 +155,8 @@ class NOctChannel(BaseChannel):
         if ax is None:
             plt.tight_layout()
             plt.show()
+
+        return ax, data
 
 
 class FrequencyChannel(BaseChannel):
@@ -218,7 +231,7 @@ class FrequencyChannel(BaseChannel):
         window: str = "hann",
         average: str = "mean",
         detrend: str = "constant",
-    ):
+    ) -> Dict[str, Any]:
         if win_length is None:
             win_length = 2048
         if n_fft is None:
@@ -254,15 +267,14 @@ class FrequencyChannel(BaseChannel):
         """
         return fft.rfftfreq(self.n_fft, 1 / self.sampling_rate)
 
-    @util.transform_method(NOctChannel)
     def noct_synthesis(
         self,
         fmin: float,
         fmax: float,
         n: int = 3,
-        G: int = 10,
+        G: int = 10,  # noqa: N803
         fr: int = 1000,
-    ) -> Dict[str, Any]:
+    ) -> NOctChannel:
         """
         N-Octave Spectrum を計算します。
         """
@@ -275,9 +287,10 @@ class FrequencyChannel(BaseChannel):
             G=G,
             fr=fr,
         )
-        return result
 
-    def data_Aw(self, to_dB=False) -> np.ndarray:
+        return util.transform_channel(self, NOctChannel, **result)
+
+    def data_Aw(self, to_dB: bool = False) -> np.ndarray:  # noqa: N802, N803
         """
         A特性を適用した振幅データを返します。
         """
@@ -291,7 +304,12 @@ class FrequencyChannel(BaseChannel):
 
         return librosa.db_to_amplitude(weighted, ref=self.ref)
 
-    def plot(self, ax: Optional[Any] = None, title: Optional[str] = None, Aw=False):
+    def plot(
+        self,
+        ax: Optional["Axes"] = None,
+        title: Optional[str] = None,
+        Aw: bool = False,  # noqa: N803
+    ) -> tuple["Axes", np.ndarray]:
         """
         スペクトルデータをプロットします。
         """
@@ -322,3 +340,5 @@ class FrequencyChannel(BaseChannel):
         if ax is None:
             plt.tight_layout()
             plt.show()
+
+        return ax, data

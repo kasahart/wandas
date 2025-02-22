@@ -1,6 +1,5 @@
 # examples/basic_usage.py
 
-import wandas as wd
 from wandas.utils import generate_sample
 
 # Generate a sample

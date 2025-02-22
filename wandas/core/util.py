@@ -1,5 +1,8 @@
-from typing import Callable, Dict, Any
+from typing import Any, Callable, Optional, Type, TypeVar
+
 import numpy as np
+
+from wandas.core.base_channel import BaseChannel
 
 # from wandas.core.base_channel import BaseChannel
 # from wandas.core.channel import Channel
@@ -7,13 +10,13 @@ import numpy as np
 # from wandas.core.time_frequency_channel import TimeFrequencyChannel
 
 
-def transform_method(target_class=None):
+def transform_method(target_class: Optional[Type[BaseChannel]] = None) -> Callable:
     """
     デコレータ: 変換メソッドをラップし、共通の処理を適用します。
     """
 
-    def decorator(func: Callable):
-        def wrapper(self, *args, **kwargs):
+    def decorator(func: Callable[[BaseChannel], dict]) -> Callable:
+        def wrapper(self: BaseChannel, *args: tuple, **kwargs: dict) -> BaseChannel:
             # target_class が文字列の場合に実際のクラスオブジェクトに解決
 
             target_cls = self.__class__ if target_class is None else target_class
@@ -34,7 +37,10 @@ def transform_method(target_class=None):
     return decorator
 
 
-def transform_channel(org, target_class, **kwargs):
+T = TypeVar("T", bound=BaseChannel)
+
+
+def transform_channel(org: BaseChannel, target_class: Type[T], **kwargs: Any) -> T:
     # データ変換を実行
     return target_class(
         data=kwargs.pop("data"),
@@ -87,7 +93,7 @@ def calculate_rms(wave: np.ndarray) -> float:
     return np.sqrt(np.mean(np.square(wave)))
 
 
-def calculate_desired_noise_rms(clean_rms: float, snr: float):
+def calculate_desired_noise_rms(clean_rms: float, snr: float) -> float:
     a = snr / 20
     noise_rms = clean_rms / 10**a
     return noise_rms

@@ -1,14 +1,16 @@
 # wandas/core/matrix_frame.py
 
-from typing import Optional, Any, List, Union, Dict
-import numpy as np
+from typing import Any, Dict, Iterator, List, Optional, Union
 
+import numpy as np
 import scipy.signal as ss
+
+from wandas.core import util
 from wandas.core.channel import Channel
-import wandas.core.util as util
-from .frequency_channel import FrequencyChannel
 from wandas.core.channel_frame import ChannelFrame
 from wandas.core.frequency_channel_frame import FrequencyChannelFrame
+
+from .frequency_channel import FrequencyChannel
 
 
 class MatrixFrame:
@@ -93,7 +95,7 @@ class MatrixFrame:
         return self.data.shape[0]
 
     # forでループを回すためのメソッド
-    def __iter__(self):
+    def __iter__(self) -> Iterator["Channel"]:
         """
         チャンネルをイテレートします。
         """
@@ -132,7 +134,7 @@ class MatrixFrame:
             org=ch, target_class=Channel, data=self.data[idx].copy()
         )
 
-    def toChannelFrame(self) -> "ChannelFrame":
+    def to_channel_frame(self) -> "ChannelFrame":
         """
         ChannelFrame オブジェクトに変換します。
 
@@ -145,7 +147,7 @@ class MatrixFrame:
         )
 
     @classmethod
-    def fromChannelFrame(cls, cf: "ChannelFrame") -> "MatrixFrame":
+    def from_channel_frame(cls, cf: "ChannelFrame") -> "MatrixFrame":
         """
         ChannelFrame オブジェクトから MatrixFrame オブジェクトに変換します。
 
@@ -318,7 +320,7 @@ class MatrixFrame:
         num_channels = self.data.shape[0]
 
         # クロススペクトル密度の計算（全チャンネル間）
-        f, P_yx = ss.csd(
+        f, p_yx = ss.csd(
             x=self.data[:, np.newaxis, :],  # shape: (チャンネル数, 1, サンプル数)
             y=self.data[np.newaxis, :, :],  # shape: (1, チャンネル数, サンプル数)
             fs=self.sampling_rate,
@@ -334,7 +336,7 @@ class MatrixFrame:
         # P_yx の形状: (チャンネル数, チャンネル数, 周波数数)
 
         # パワースペクトル密度の計算（各チャンネル）
-        f, P_xx = ss.welch(
+        f, p_xx = ss.welch(
             x=self.data,
             fs=self.sampling_rate,
             nperseg=win_length,
@@ -349,8 +351,8 @@ class MatrixFrame:
         # P_xx の形状: (チャンネル数, 周波数数)
 
         # 伝達関数の計算 H(f) = P_yx / P_xx（P_xx をブロードキャスト）
-        H_f = (
-            P_yx / P_xx[np.newaxis, :, :]
+        h_f = (
+            p_yx / p_xx[np.newaxis, :, :]
         )  # P_xx を形状 (1, チャンネル数, 周波数数) に拡張
 
         # ラベルと単位の生成
@@ -374,8 +376,8 @@ class MatrixFrame:
         )
 
         # H_f, channel_labels, channel_units を一次元配列に変形
-        H_f_flat = H_f.reshape(
-            -1, H_f.shape[-1]
+        h_f_flat = h_f.reshape(
+            -1, h_f.shape[-1]
         )  # shape: (チャンネル数 * チャンネル数, 周波数数)
         channel_labels_flat = channel_labels.flatten()
         channel_units_flat = channel_units.flatten()
@@ -383,14 +385,14 @@ class MatrixFrame:
         # FrequencyChannel のリストを作成
         freq_channels = [
             FrequencyChannel(
-                data=H_f_flat[k],
+                data=h_f_flat[k],
                 sampling_rate=self.sampling_rate,
                 window=window,
                 label=channel_labels_flat[k],
                 n_fft=n_fft,
                 unit=channel_units_flat[k],
             )
-            for k in range(H_f_flat.shape[0])
+            for k in range(h_f_flat.shape[0])
         ]
 
         return FrequencyChannelFrame(freq_channels, label="Transfer Function")
@@ -400,7 +402,7 @@ class MatrixFrame:
         ax: Optional[Any] = None,
         title: Optional[str] = None,
         overlay: bool = True,
-    ):
+    ) -> None:
         """
         すべてのチャンネルをプロットします。
 
@@ -408,5 +410,5 @@ class MatrixFrame:
             ax (matplotlib.axes.Axes, optional): プロット先の軸。
             title (str, optional): プロットのタイトル。
         """
-        cf = self.toChannelFrame()
+        cf = self.to_channel_frame()
         cf.plot(ax=ax, title=title, overlay=overlay)

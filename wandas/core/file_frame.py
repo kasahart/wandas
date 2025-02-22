@@ -1,9 +1,10 @@
 # wandas/core/file_frame.py
 import os
-from typing import Optional, Any, List, Union, TYPE_CHECKING
-import numpy as np
-from .channel_frame import ChannelFrame
+from typing import Iterator, List, Optional, Union
+
 import ipywidgets as widgets
+
+from .channel_frame import ChannelFrame
 
 
 class FileFrame:
@@ -70,7 +71,8 @@ class FileFrame:
         Args:
             dir_path (str): ディレクトリのパス。
             label (Optional[str], optional): ファイルのラベル。デフォルトは None。
-            suffix (Optional[str], optional): 読み込むファイルの拡張子。デフォルトは None。
+            suffix (Optional[str], optional): 読み込むファイルの拡張子。
+                デフォルトは None。
 
         Returns:
             FileFrame: 作成された FileFrame オブジェクト。
@@ -84,7 +86,7 @@ class FileFrame:
                 file_list.append(os.path.join(root, file))
         return cls.from_filelist(file_list, label)
 
-    def describe(self):
+    def describe(self) -> widgets.VBox:
         """
         チャンネルの情報を表示します。
         """
@@ -97,7 +99,7 @@ class FileFrame:
         return widgets.VBox(content, layout=layout)
 
     # forでループを回すためのメソッド
-    def __iter__(self):
+    def __iter__(self) -> Iterator["ChannelFrame"]:
         return iter(self.channel_frames)
 
     def __getitem__(self, key: Union[str, int]) -> "ChannelFrame":
@@ -117,7 +119,8 @@ class FileFrame:
             return self.channel_frames[key]
         else:
             raise TypeError(
-                "Key must be either a string (channel name) or an integer (channel index)."
+                "Key must be either a string (channel name) or an integer "
+                "(channel index)."
             )
 
     def __len__(self) -> int:

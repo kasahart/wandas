@@ -1,23 +1,21 @@
 # examples/inter_channel_operations.py
-
-import wandas as wd
-import numpy as np
 from wandas.utils import generate_sample
 
-
 # Create a multi-channel signal with 3 channels
-signal = generate_sample.generate_multichannel_sample(freqs=[440, 880, 1760], label="Multi-Channel Signal")
+signal = generate_sample.generate_sample(
+    freqs=[440, 880, 1760], label="Multi-Channel Signal"
+)
 
 # Sum across channels
-summed_signal = signal.sum_channels()
+summed_signal = signal.sum()
 summed_signal.plot(title="Sum of Channels")
 
 # Compute mean across channels
-mean_signal = signal.mean_channels()
+mean_signal = signal.mean()
 mean_signal.plot(title="Mean of Channels")
 
 # Compute difference between channels
-diff_signal = signal.diff_channels(other_channel=0)
+diff_signal = signal.channel_difference(other_channel=0)
 diff_signal.plot(title="Difference between Channels")
 
 # # Compute cross-correlation between channels

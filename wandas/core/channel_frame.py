@@ -1,22 +1,26 @@
 # wandas/core/signal.py
 
-from typing import Optional, Any, List, Union, Dict, TYPE_CHECKING
+import numbers
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
+
+import ipywidgets as widgets
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.io import wavfile
-import matplotlib.pyplot as plt
-from wandas.io import wav_io
+
+from wandas.core import util
 from wandas.core.channel import Channel
-import ipywidgets as widgets
-import numbers
+from wandas.io import wav_io
 
 if TYPE_CHECKING:
     from wandas.core.frequency_channel_frame import FrequencyChannelFrame
 
 
 class ChannelFrame:
-    def __init__(self, channels: List["Channel"], label: Optional[str] = None):
+    def __init__(self, channels: list["Channel"], label: Optional[str] = None):
         """
+
         ChannelFrame オブジェクトを初期化します。
 
         Parameters:
@@ -42,7 +46,7 @@ class ChannelFrame:
         cls,
         array: np.ndarray,
         sampling_rate: int,
-        labels: Optional[List[str]] = None,
+        labels: Optional[list[str]] = None,
         unit: str = "Pa",
     ) -> "ChannelFrame":
         """
@@ -118,8 +122,10 @@ class ChannelFrame:
             filename (str): CSV ファイルのパス。
             labels (list of str, optional): 各チャンネルのラベル。
             delimiter (str, optional): 区切り文字。デフォルトはカンマ。
-            header (int or None, optional): ヘッダー行の位置。None の場合はヘッダーなし。
-            time_column (int or str, optional): 時間列のインデックスまたは列名。デフォルトは最初の列。
+            header (int or None, optional): ヘッダー行の位置。
+                None の場合はヘッダーなし。
+            time_column (int or str, optional): 時間列のインデックスまたは列名。
+                デフォルトは最初の列。
 
         Returns:
             ChannelFrame: データを含む ChannelFrame オブジェクト。
@@ -162,11 +168,10 @@ class ChannelFrame:
         if labels is not None:
             if len(labels) != num_channels:
                 raise ValueError("Length of labels must match number of channels.")
+        elif header is not None:
+            labels = df.columns.tolist()
         else:
-            if header is not None:
-                labels = df.columns.tolist()
-            else:
-                labels = [f"Ch{i}" for i in range(num_channels)]
+            labels = [f"Ch{i}" for i in range(num_channels)]
 
         # 各チャンネルの Channel オブジェクトを作成
         channels = []
@@ -182,10 +187,14 @@ class ChannelFrame:
 
         return cls(channels=channels)
 
-    def to_Audio(self, normalize: bool = True):
-        return widgets.VBox([ch.to_Audio(normalize) for ch in self.channels])
+    def to_audio(self, normalize: bool = True) -> widgets.VBox:
+        return widgets.VBox([ch.to_audio(normalize) for ch in self.channels])
 
-    def describe(self, axis_config: Optional[Dict[str, Dict[str, tuple]]] = None, cbar_config: Optional[Dict[str, Any]] = None):
+    def describe(
+        self,
+        axis_config: Optional[Dict[str, Dict[str, tuple]]] = None,
+        cbar_config: Optional[Dict[str, Any]] = None,
+    ) -> widgets.VBox:
         """
         チャンネルの情報を表示します。
         Parameters:
@@ -194,14 +203,19 @@ class ChannelFrame:
                     "time_plot": {"xlim": (0, 1)},
                     "freq_plot": {"ylim": (0, 20000)}
                 }
-            cbar_config (dict): カラーバーの設定を格納する辞書（例: {"vmin": -80, "vmax": 0}）。
+            cbar_config (dict): カラーバーの設定を格納する辞書
+                （例: {"vmin": -80, "vmax": 0}）。
         """
         content = [
             widgets.HTML(
-                f"<span style='font-size:20px; font-weight:normal;'>{self.label}, {self.sampling_rate} Hz</span>"
+                f"<span style='font-size:20px; font-weight:normal;'>"
+                f"{self.label}, {self.sampling_rate} Hz</span>"
             )
         ]
-        content += [ch.describe(axis_config=axis_config, cbar_config=cbar_config) for ch in self.channels]
+        content += [
+            ch.describe(axis_config=axis_config, cbar_config=cbar_config)
+            for ch in self.channels
+        ]
         # 中央寄せのレイアウトを設定
         layout = widgets.Layout(
             display="flex", justify_content="center", align_items="center"
@@ -213,14 +227,15 @@ class ChannelFrame:
         ax: Optional[Any] = None,
         title: Optional[str] = None,
         overlay: bool = True,
-    ):
+    ) -> None:
         """
         すべてのチャンネルをプロットします。
 
         Parameters:
             title (str, optional): プロットのタイトル。
-            overlay (bool, optional): True の場合、すべてのチャンネルを同じプロットに重ねて描画します。
-                                      False の場合、各チャンネルを個別のプロットに描画します。
+            overlay (bool, optional): True の場合、すべてのチャンネルを同じプロットに
+                                      重ねて描画します。False の場合、各チャンネルを
+                                      個別のプロットに描画します。
         """
         if overlay:
             if ax is None:
@@ -251,7 +266,7 @@ class ChannelFrame:
             plt.tight_layout()
             plt.show()
 
-    def rms_plot(self, ax: Optional[Any] = None, title: Optional[str] = None):
+    def rms_plot(self, ax: Optional[Any] = None, title: Optional[str] = None) -> None:
         """
         すべてのチャンネルの RMS データをプロットします。
 
@@ -308,7 +323,7 @@ class ChannelFrame:
         )
 
     # forでループを回すためのメソッド
-    def __iter__(self):
+    def __iter__(self) -> Iterator["Channel"]:
         return iter(self.channels)
 
     def __getitem__(self, key: Union[str, int]) -> "Channel":
@@ -333,7 +348,8 @@ class ChannelFrame:
             return self.channels[key]
         else:
             raise TypeError(
-                "Key must be either a string (channel name) or an integer (channel index)."
+                "Key must be either a string (channel name) or an integer "
+                "(channel index)."
             )
 
     def __len__(self) -> int:
@@ -347,9 +363,9 @@ class ChannelFrame:
         """
         シグナル間の加算。
         """
-        assert len(self.channels) == len(
-            other.channels
-        ), "ChannelFrame must have the same number of channels."
+        assert len(self.channels) == len(other.channels), (
+            "ChannelFrame must have the same number of channels."
+        )
         channels = [
             self.channels[i] + other.channels[i] for i in range(len(self.channels))
         ]
@@ -359,9 +375,9 @@ class ChannelFrame:
         """
         シグナル間の減算。
         """
-        assert len(self.channels) == len(
-            other.channels
-        ), "ChannelFrame must have the same number of channels."
+        assert len(self.channels) == len(other.channels), (
+            "ChannelFrame must have the same number of channels."
+        )
         channels = [
             self.channels[i] - other.channels[i] for i in range(len(self.channels))
         ]
@@ -371,9 +387,9 @@ class ChannelFrame:
         """
         シグナル間の乗算。
         """
-        assert len(self.channels) == len(
-            other.channels
-        ), "ChannelFrame must have the same number of channels."
+        assert len(self.channels) == len(other.channels), (
+            "ChannelFrame must have the same number of channels."
+        )
         channels = [
             self.channels[i] * other.channels[i] for i in range(len(self.channels))
         ]
@@ -383,10 +399,46 @@ class ChannelFrame:
         """
         シグナル間の除算。
         """
-        assert len(self.channels) == len(
-            other.channels
-        ), "ChannelFrame must have the same number of channels."
+        assert len(self.channels) == len(other.channels), (
+            "ChannelFrame must have the same number of channels."
+        )
         channels = [
             self.channels[i] / other.channels[i] for i in range(len(self.channels))
         ]
         return ChannelFrame(channels=channels, label=f"({self.label} / {other.label})")
+
+    def sum(self) -> "Channel":
+        """
+        すべてのチャンネルを合計します。
+
+        Returns:
+            Channel: 合計されたチャンネル。
+        """
+        data = np.stack([ch.data for ch in self.channels]).sum(axis=0)
+        result = dict(
+            data=data.squeeze(),
+        )
+        return util.transform_channel(self.channels[0], Channel, **result)
+
+    def mean(self) -> "Channel":
+        """
+        すべてのチャンネルの平均を計算します。
+
+        Returns:
+            Channel: 平均されたチャンネル。
+        """
+        data = np.stack([ch.data for ch in self.channels]).mean(axis=0)
+        result = dict(
+            data=data.squeeze(),
+        )
+        return util.transform_channel(self.channels[0], Channel, **result)
+
+    def channel_difference(self, other_channel: int = 0) -> "ChannelFrame":
+        """
+        チャンネル間の差分を計算します。
+
+        Returns:
+            ChannelFrame: 差分を計算した新しい ChannelFrame オブジェクト。
+        """
+        channels = [ch - self.channels[other_channel] for ch in self.channels]
+        return ChannelFrame(channels=channels, label=f"(ch[*] - ch[{other_channel}])")

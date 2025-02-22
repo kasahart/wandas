@@ -1,18 +1,24 @@
 # wandas/core/channel.py
 
-from typing import Optional, Dict, Any, Union, TYPE_CHECKING
-import librosa.feature
-import numpy as np
-from .base_channel import BaseChannel
-from scipy.signal import butter, filtfilt
-from .frequency_channel import FrequencyChannel, NOctChannel
-import librosa
-from .time_frequency_channel import TimeFrequencyChannel, TimeMelFrequencyChannel
-import wandas.core.util as util
-from IPython.display import Audio, display
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
+
 import ipywidgets as widgets
+import librosa
+import librosa.feature
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
+import numpy as np
+from IPython.display import Audio, display
+from matplotlib import gridspec
+from scipy.signal import butter, filtfilt
+
+from wandas.core import util
+
+from .base_channel import BaseChannel
+from .frequency_channel import FrequencyChannel, NOctChannel
+from .time_frequency_channel import TimeFrequencyChannel, TimeMelFrequencyChannel
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
 
 
 class Channel(BaseChannel):
@@ -41,14 +47,14 @@ class Channel(BaseChannel):
         )
 
     @property
-    def time(self):
+    def time(self) -> np.ndarray:
         """
         時刻データを返します。
         """
         num_samples = len(self._data)
         return np.arange(num_samples) / self.sampling_rate
 
-    def high_pass_filter(self, cutoff: float, order: int = 5):
+    def high_pass_filter(self, cutoff: float, order: int = 5) -> "Channel":
         """
         ハイパスフィルタを適用します。
 
@@ -62,7 +68,7 @@ class Channel(BaseChannel):
 
         nyq = 0.5 * self.sampling_rate
         normal_cutoff = cutoff / nyq
-        b, a = butter(order, normal_cutoff, btype="highpass", analog=False)
+        b, a = butter(order, normal_cutoff, btype="highpass", analog=False)  # type: ignore
         filtered_data = filtfilt(b, a, self._data)
 
         result = dict(
@@ -71,7 +77,7 @@ class Channel(BaseChannel):
 
         return util.transform_channel(self, self.__class__, **result)
 
-    def low_pass_filter(self, cutoff: float, order: int = 5):
+    def low_pass_filter(self, cutoff: float, order: int = 5) -> "Channel":
         """
         ローパスフィルタを適用します。
 
@@ -85,7 +91,7 @@ class Channel(BaseChannel):
 
         nyq = 0.5 * self.sampling_rate
         normal_cutoff = cutoff / nyq
-        b, a = butter(order, normal_cutoff, btype="low", analog=False)
+        b, a = butter(order, normal_cutoff, btype="lowpass", analog=False)  # type: ignore
         filtered_data = filtfilt(b, a, self._data)
 
         result = dict(
@@ -148,7 +154,7 @@ class Channel(BaseChannel):
         n_octaves: int = 3,
         fmin: float = 20,
         fmax: float = 20000,
-        G: int = 10,
+        G: int = 10,  # noqa: N803
         fr: int = 1000,
     ) -> "NOctChannel":
         """
@@ -227,7 +233,7 @@ class Channel(BaseChannel):
 
         return tf_ch.melspectrogram(n_mels=n_mels)
 
-    def rms_trend(self, frame_length: int = 2048, hop_length: int = 512):
+    def rms_trend(self, frame_length: int = 2048, hop_length: int = 512) -> "Channel":
         """
         移動平均を計算します。
 
@@ -247,7 +253,9 @@ class Channel(BaseChannel):
 
         return util.transform_channel(self, self.__class__, **result)
 
-    def plot(self, ax: Optional[Any] = None, title: Optional[str] = None):
+    def plot(
+        self, ax: Optional["Axes"] = None, title: Optional[str] = None
+    ) -> tuple["Axes", np.ndarray]:
         """
         時系列データをプロットします。
         """
@@ -268,6 +276,8 @@ class Channel(BaseChannel):
         if ax is None:
             plt.tight_layout()
             plt.show()
+
+        return ax, self.data
 
     def rms_plot(
         self, ax: Optional[Any] = None, title: Optional[str] = None
@@ -333,9 +343,9 @@ class Channel(BaseChannel):
         チャンネル間の加算。
         """
         if isinstance(other, Channel):
-            assert (
-                self.sampling_rate == other.sampling_rate
-            ), "Sampling rates must be the same for channel addition."
+            assert self.sampling_rate == other.sampling_rate, (
+                "Sampling rates must be the same for channel addition."
+            )
             data = self.data + other.data
             label = f"({self.label} + {other.label})"
         elif isinstance(other, (int, float, np.ndarray)):
@@ -356,9 +366,9 @@ class Channel(BaseChannel):
         チャンネル間の減算。
         """
         if isinstance(other, Channel):
-            assert (
-                self.sampling_rate == other.sampling_rate
-            ), "Sampling rates must be the same for channel subtraction."
+            assert self.sampling_rate == other.sampling_rate, (
+                "Sampling rates must be the same for channel subtraction."
+            )
             data = self.data - other.data
             label = f"({self.label} - {other.label})"
         elif isinstance(other, (int, float, np.ndarray)):
@@ -379,9 +389,9 @@ class Channel(BaseChannel):
         チャンネル間の乗算。
         """
         if isinstance(other, Channel):
-            assert (
-                self.sampling_rate == other.sampling_rate
-            ), "Sampling rates must be the same for channel multiplication."
+            assert self.sampling_rate == other.sampling_rate, (
+                "Sampling rates must be the same for channel multiplication."
+            )
             data = self.data * other.data
             label = f"({self.label} * {other.label})"
         elif isinstance(other, (int, float, np.ndarray)):
@@ -402,9 +412,9 @@ class Channel(BaseChannel):
         チャンネル間の除算。
         """
         if isinstance(other, Channel):
-            assert (
-                self.sampling_rate == other.sampling_rate
-            ), "Sampling rates must be the same for channel division."
+            assert self.sampling_rate == other.sampling_rate, (
+                "Sampling rates must be the same for channel division."
+            )
             data = self.data / other.data
             label = f"({self.label} / {other.label})"
         elif isinstance(other, (int, float, np.ndarray)):
@@ -420,7 +430,7 @@ class Channel(BaseChannel):
         )
         return util.transform_channel(self, self.__class__, **result)
 
-    def to_Audio(self, normalize: bool = True, label: bool = True):
+    def to_audio(self, normalize: bool = True, label: bool = True) -> widgets.VBox:
         output = widgets.Output()
         with output:
             display(Audio(self.data, rate=self.sampling_rate, normalize=normalize))
@@ -431,7 +441,11 @@ class Channel(BaseChannel):
             vbov = widgets.VBox([output])
         return vbov
 
-    def describe(self, axis_config: Optional[Dict[str, Dict[str, tuple]]] = None, cbar_config: Optional[Dict[str, Any]] = None):
+    def describe(
+        self,
+        axis_config: Optional[Dict[str, Dict[str, tuple]]] = None,
+        cbar_config: Optional[Dict[str, Any]] = None,
+    ) -> widgets.VBox:
         """
         チャンネルの統計情報を表示します。軸設定およびカラーバー設定を受け付けます。
 
@@ -441,14 +455,13 @@ class Channel(BaseChannel):
                     "time_plot": {"xlim": (0, 1)},
                     "freq_plot": {"ylim": (0, 20000)}
                 }
-            cbar_config (dict): カラーバーの設定を格納する辞書（例: {"vmin": -80, "vmax": 0}）。
+            cbar_config (dict): カラーバーの設定を格納する辞書
+                例: {"vmin": -80, "vmax": 0}
         """
         axis_config = axis_config or {}
         cbar_config = cbar_config or {}
 
-        gs = gridspec.GridSpec(
-            2, 3, height_ratios=[1, 3], width_ratios=[3, 1, 0.1]
-        )
+        gs = gridspec.GridSpec(2, 3, height_ratios=[1, 3], width_ratios=[3, 1, 0.1])
         gs.update(wspace=0.2)
 
         fig = plt.figure(figsize=(12, 6))
@@ -467,11 +480,9 @@ class Channel(BaseChannel):
         stft_ch = self.stft()
         # Pass vmin and vmax from cbar_config to stft_ch._plot
         img, _ = stft_ch._plot(
-            ax=ax_2,
-            vmin=cbar_config.get("vmin"),
-            vmax=cbar_config.get("vmax")
+            ax=ax_2, vmin=cbar_config.get("vmin"), vmax=cbar_config.get("vmax")
         )
-        ax_2.set( title="")
+        ax_2.set(title="")
 
         # 3番目のサブプロット
         ax_3 = fig.add_subplot(gs[1])
@@ -497,4 +508,4 @@ class Channel(BaseChannel):
         with output:
             plt.show()
 
-        return widgets.VBox([output, self.to_Audio(label=False)])
+        return widgets.VBox([output, self.to_audio(label=False)])

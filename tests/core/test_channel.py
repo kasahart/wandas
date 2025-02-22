@@ -1,10 +1,11 @@
 # tests/core/test_channel.py
 
-import pytest
+import librosa
 import numpy as np
+import pytest
+
 from wandas.core.channel import Channel
 from wandas.core.channel_frame import ChannelFrame
-import librosa
 
 
 def _generate_channels():
@@ -92,9 +93,9 @@ def test_channel_addition(generate_channels):
 
     # 結果のデータを確認
     expected_data = ch1.data + ch2.data
-    assert np.array_equal(
-        result_channel.data, expected_data
-    ), "Channel addition failed."
+    assert np.array_equal(result_channel.data, expected_data), (
+        "Channel addition failed."
+    )
 
 
 def test_channel_subtraction(generate_channels):
@@ -103,9 +104,9 @@ def test_channel_subtraction(generate_channels):
 
     # 結果のデータを確認
     expected_data = ch1.data - ch2.data
-    assert np.array_equal(
-        result_channel.data, expected_data
-    ), "Channel subtraction failed."
+    assert np.array_equal(result_channel.data, expected_data), (
+        "Channel subtraction failed."
+    )
 
 
 def test_channel_multiplication(generate_channels):
@@ -114,9 +115,9 @@ def test_channel_multiplication(generate_channels):
 
     # 結果のデータを確認
     expected_data = ch1.data * ch2.data
-    assert np.array_equal(
-        result_channel.data, expected_data
-    ), "Channel multiplication failed."
+    assert np.array_equal(result_channel.data, expected_data), (
+        "Channel multiplication failed."
+    )
 
 
 def test_channel_division(generate_channels):
@@ -125,6 +126,6 @@ def test_channel_division(generate_channels):
 
     # 結果のデータを確認
     expected_data = ch1.data / ch2.data
-    assert np.allclose(
-        result_channel.data, expected_data, atol=1e-6
-    ), "Channel division failed."
+    assert np.allclose(result_channel.data, expected_data, atol=1e-6), (
+        "Channel division failed."
+    )

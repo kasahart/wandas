@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "wandas"
@@ -8,8 +8,9 @@ version = "0.1.0"
 description = "Signal processing library in Python, inspired by pandas"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [
-    { name = "Your Name", email = "your.email@example.com" }
+    { name = "kasahart", email = "your.email@example.com" }
 ]
+requires-python = ">=3.8"
 license = { text = "MIT" }
 dependencies = [
     "numpy",
@@ -17,19 +18,38 @@ dependencies = [
     "matplotlib",
     "librosa",
     "mosqito",
+    "ipykernel",
     "ipywidgets",
     # 他の依存関係を追加
-]
-
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest",
     "pandas",
+    "pandas-stubs",
     "pytest-cov"
     # 他の開発用依存関係
 ]
+
+[tool.ruff]
+line-length = 88
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "Q", "UP", "I", "N"]
+
+[tool.mypy]
+files = ["wandas", "build"]
+no_implicit_optional = true
+check_untyped_defs = true
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["scipy.*", "ipywidgets", "mosqito.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+check_untyped_defs = false

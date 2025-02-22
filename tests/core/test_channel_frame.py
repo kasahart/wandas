@@ -1,7 +1,8 @@
 # tests/core/channel_frame.py
 
-import pytest
 import numpy as np
+import pytest
+
 from wandas.core.channel import Channel
 from wandas.core.channel_frame import ChannelFrame
 
@@ -113,9 +114,9 @@ def test_signal_addition(generate_signals):
     # 各チャンネルの加算結果を確認
     for i in range(len(signal1.channels)):
         expected_data = signal1.channels[i].data + signal2.channels[i].data
-        assert np.array_equal(
-            result_signal.channels[i].data, expected_data
-        ), f"Signal addition failed for channel {i + 1}."
+        assert np.array_equal(result_signal.channels[i].data, expected_data), (
+            f"Signal addition failed for channel {i + 1}."
+        )
 
 
 def test_signal_subtraction(generate_signals):
@@ -125,9 +126,9 @@ def test_signal_subtraction(generate_signals):
     # 各チャンネルの減算結果を確認
     for i in range(len(signal1.channels)):
         expected_data = signal1.channels[i].data - signal2.channels[i].data
-        assert np.array_equal(
-            result_signal.channels[i].data, expected_data
-        ), f"Signal subtraction failed for channel {i + 1}."
+        assert np.array_equal(result_signal.channels[i].data, expected_data), (
+            f"Signal subtraction failed for channel {i + 1}."
+        )
 
 
 def test_signal_multiplication(generate_signals):
@@ -137,9 +138,9 @@ def test_signal_multiplication(generate_signals):
     # 各チャンネルの乗算結果を確認
     for i in range(len(signal1.channels)):
         expected_data = signal1.channels[i].data * signal2.channels[i].data
-        assert np.array_equal(
-            result_signal.channels[i].data, expected_data
-        ), f"Signal multiplication failed for channel {i + 1}."
+        assert np.array_equal(result_signal.channels[i].data, expected_data), (
+            f"Signal multiplication failed for channel {i + 1}."
+        )
 
 
 def test_signal_division(generate_signals):
@@ -149,6 +150,6 @@ def test_signal_division(generate_signals):
     # 各チャンネルの除算結果を確認
     for i in range(len(signal1.channels)):
         expected_data = signal1.channels[i].data / signal2.channels[i].data
-        assert np.allclose(
-            result_signal.channels[i].data, expected_data, atol=1e-6
-        ), f"Signal division failed for channel {i + 1}."
+        assert np.allclose(result_signal.channels[i].data, expected_data, atol=1e-6), (
+            f"Signal division failed for channel {i + 1}."
+        )

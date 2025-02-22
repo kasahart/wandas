@@ -1,15 +1,19 @@
-from typing import Optional, Dict, Any, TYPE_CHECKING
-import numpy as np
-import matplotlib.pyplot as plt
+from typing import TYPE_CHECKING, Any, Dict, Optional
+
 import librosa.display
-from .base_channel import BaseChannel
+import matplotlib.pyplot as plt
+import numpy as np
 from scipy import fft
 from scipy import signal as ss
-import wandas.core.util as util
+
+from wandas.core import util
+
+from .base_channel import BaseChannel
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.collections import QuadMesh
+
 
 class TimeFrequencyChannel(BaseChannel):
     def __init__(
@@ -60,7 +64,7 @@ class TimeFrequencyChannel(BaseChannel):
         win_length: Optional[int] = None,
         window: str = "hann",
         # pad_mode: str = "constant",
-    ):
+    ) -> Dict[str, Any]:
         """
         STFT（短時間フーリエ変換）を実行します。
 
@@ -89,7 +93,7 @@ class TimeFrequencyChannel(BaseChannel):
             noverlap=win_length - hop_length,
             nperseg=win_length,
             window=window,
-            detrend="constant",
+            detrend="constant",  # type: ignore
             # pad_mode=pad_mode,
         )
         data[..., 1:-1, :] *= 2.0
@@ -105,7 +109,7 @@ class TimeFrequencyChannel(BaseChannel):
         self,
         n_mels: int = 128,
         # pad_mode: str = "constant",
-    ):
+    ) -> "TimeMelFrequencyChannel":
         result = TimeMelFrequencyChannel.spec2melspec(
             sampling_rate=self.sampling_rate,
             data=np.abs(self.data),
@@ -128,7 +132,7 @@ class TimeFrequencyChannel(BaseChannel):
         """
         return self._data
 
-    def data_Aw(self, to_dB=False) -> np.ndarray:
+    def data_Aw(self, to_dB: bool = False) -> np.ndarray:  # noqa: N802, N803
         """
         A特性を適用した振幅データを返します。
         """
@@ -149,7 +153,7 @@ class TimeFrequencyChannel(BaseChannel):
         db_scale: bool = True,
         fmin: Optional[float] = None,
         fmax: Optional[float] = None,
-        Aw: bool = False,
+        Aw: bool = False,  # noqa: N803
         vmin: Optional[float] = None,
         vmax: Optional[float] = None,
     ) -> tuple["QuadMesh", np.ndarray]:
@@ -161,7 +165,6 @@ class TimeFrequencyChannel(BaseChannel):
             title (str, optional): プロットのタイトル。
             db_scale (bool): dBスケールでプロットするかどうか。
         """
-
 
         if Aw:
             data_to_plot = self.data_Aw(to_dB=True)
@@ -191,7 +194,7 @@ class TimeFrequencyChannel(BaseChannel):
         ax.set_xlabel("Time [s]")
         ax.set_ylabel("Frequency [Hz]")
         ax.set_title(title or self.label or "Time-Frequency Representation")
-    
+
         return img, data_to_plot
 
     def plot(
@@ -201,10 +204,10 @@ class TimeFrequencyChannel(BaseChannel):
         db_scale: bool = True,
         fmin: Optional[float] = None,
         fmax: Optional[float] = None,
-        Aw: bool = False,
+        Aw: bool = False,  # noqa: N803
         vmin: Optional[float] = None,
         vmax: Optional[float] = None,
-    ) -> tuple[Any, np.ndarray]:
+    ) -> tuple["Axes", np.ndarray]:
         """
         時間周波数データをプロットします。
 
@@ -216,8 +219,17 @@ class TimeFrequencyChannel(BaseChannel):
         _ax = ax
         if _ax is None:
             _, _ax = plt.subplots(figsize=(10, 6))
-        
-        img, data_to_plot = self._plot(ax=_ax, title=title, db_scale=db_scale, fmin=fmin, fmax=fmax, Aw=Aw, vmin=vmin, vmax=vmax)
+
+        img, data_to_plot = self._plot(
+            ax=_ax,
+            title=title,
+            db_scale=db_scale,
+            fmin=fmin,
+            fmax=fmax,
+            Aw=Aw,
+            vmin=vmin,
+            vmax=vmax,
+        )
 
         if _ax.figure is not None:
             if db_scale:
@@ -329,10 +341,10 @@ class TimeMelFrequencyChannel(TimeFrequencyChannel):
         db_scale: bool = True,
         fmin: Optional[float] = None,
         fmax: Optional[float] = None,
-        Aw: bool = False,
+        Aw: bool = False,  # noqa: N803
         vmin: Optional[float] = None,
         vmax: Optional[float] = None,
-    ) -> tuple[Any, np.ndarray]:
+    ) -> tuple["Axes", np.ndarray]:
         """
         時間周波数データをプロットします。
 

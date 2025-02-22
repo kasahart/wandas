@@ -1,10 +1,14 @@
 # wandas/core/base_channel.py
 
-from typing import Optional, Dict, Any, Callable, Type
 from abc import ABC, abstractmethod
-from wandas.core import util
+from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
+
+from wandas.core import util
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
 
 
 class BaseChannel(ABC):
@@ -14,7 +18,7 @@ class BaseChannel(ABC):
         sampling_rate: int,
         label: Optional[str] = None,
         unit: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ):
         """
         BaseChannel オブジェクトを初期化します。
@@ -32,21 +36,23 @@ class BaseChannel(ABC):
         self.ref = util.unit_to_ref(self.unit)
 
     @property
-    def data(self):
+    def data(self) -> np.ndarray:
         """
         データを返します。
         """
         return self._data
 
     @property
-    def sampling_rate(self):
+    def sampling_rate(self) -> int:
         """
         データを返します。派生クラスで実装が必要です。
         """
         return self._sampling_rate
 
     @abstractmethod
-    def plot(self, ax: Optional[Any] = None, title: Optional[str] = None):
+    def plot(
+        self, ax: Optional["Axes"] = None, title: Optional[str] = None
+    ) -> tuple["Axes", np.ndarray]:
         """
         データをプロットします。派生クラスで実装が必要です。
         """

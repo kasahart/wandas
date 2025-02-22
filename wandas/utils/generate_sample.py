@@ -1,13 +1,15 @@
 # wandas/utils/generate_sample.py
 
+from typing import Optional, Union
+
 import numpy as np
-from ..core.channel_frame import ChannelFrame
+
 from ..core.channel import Channel
-from typing import Optional, Union, List
+from ..core.channel_frame import ChannelFrame
 
 
 def generate_sample(
-    freqs: Union[float, List[float]] = 1000,
+    freqs: Union[float, list[float]] = 1000,
     sampling_rate: int = 16000,
     duration: float = 1.0,
     label: Optional[str] = None,
@@ -16,7 +18,8 @@ def generate_sample(
     サンプルの正弦波信号を生成します。
 
     Parameters:
-        freqs (float またはリスト): 正弦波の周波数（Hz）。複数の周波数を指定すると複数のチャンネルになります。
+        freqs (float またはリスト): 正弦波の周波数（Hz）。
+            複数の周波数を指定すると複数のチャンネルになります。
         sampling_rate (int): サンプリングレート（Hz）。
         duration (float): 信号の持続時間（秒）。
         label (str, optional): Signal 全体のラベル。

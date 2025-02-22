@@ -1,6 +1,7 @@
 # tests/core/test_frequency_channel_frame.py
 
 import numpy as np
+
 from wandas.core.frequency_channel import FrequencyChannel
 from wandas.core.frequency_channel_frame import FrequencyChannelFrame
 
@@ -11,7 +12,6 @@ def test_spectrum_initialization():
     sampling_rate = 1000
     n_fft = 1024
     window = np.hanning(5)
-    norm = "forward"
     label = "Test Spectrum"
     unit = "V"
     metadata = {"note": "Test metadata"}

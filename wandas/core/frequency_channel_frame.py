@@ -1,9 +1,11 @@
 # wandas/core/spectrums.py
 
-from typing import Optional, Any, List
-from wandas.core.frequency_channel import FrequencyChannel
+from typing import Any, List, Optional
+
 import matplotlib.pyplot as plt
 import numpy as np
+
+from wandas.core.frequency_channel import FrequencyChannel
 
 
 class FrequencyChannelFrame:
@@ -12,15 +14,18 @@ class FrequencyChannelFrame:
         FrequencyChannelFrame オブジェクトを初期化します。
 
         Parameters:
-            channels (list of FrequencyChannel): FrequencyChannel   w オブジェクトのリスト。
+            channels (list of FrequencyChannel): FrequencyChannelオブジェクトのリスト。
             label (str, optional): スペクトルのラベル。
         """
         self.channels = channels
         self.label = label
 
     def plot(
-        self, ax: Optional[Any] = None, title: Optional[str] = None, Aw: bool = False
-    ):
+        self,
+        ax: Optional[Any] = None,
+        title: Optional[str] = None,
+        Aw: bool = False,  # noqa: N803
+    ) -> None:
         """
         スペクトルデータをプロットします。
 
@@ -43,7 +48,7 @@ class FrequencyChannelFrame:
             plt.tight_layout()
             plt.show()
 
-    def plot_matrix(self, title: Optional[str] = None, Aw: bool = False):
+    def plot_matrix(self, title: Optional[str] = None, Aw: bool = False) -> tuple:  # noqa: N803
         """
         チャンネル間をプロットします。
 

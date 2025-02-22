@@ -1,6 +1,9 @@
 import numpy as np
 
-def load_sample_signal(frequency: float = 5.0, sampling_rate: int = 100, duration: float = 1.0) -> np.ndarray:
+
+def load_sample_signal(
+    frequency: float = 5.0, sampling_rate: int = 100, duration: float = 1.0
+) -> np.ndarray:
     """
     Generates a sample sine wave signal.
 
