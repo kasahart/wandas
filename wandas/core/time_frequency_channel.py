@@ -7,6 +7,7 @@ from scipy import fft
 from scipy import signal as ss
 
 from wandas.core import util
+from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 from .base_channel import BaseChannel
 
@@ -18,7 +19,7 @@ if TYPE_CHECKING:
 class TimeFrequencyChannel(BaseChannel):
     def __init__(
         self,
-        data: np.ndarray,
+        data: NDArrayReal,
         sampling_rate: int,
         n_fft: int,
         hop_length: int,
@@ -58,7 +59,7 @@ class TimeFrequencyChannel(BaseChannel):
     @classmethod
     def stft(
         cls,
-        data: np.ndarray,
+        data: NDArrayReal,
         n_fft: Optional[int] = None,
         hop_length: Optional[int] = None,
         win_length: Optional[int] = None,
@@ -87,18 +88,19 @@ class TimeFrequencyChannel(BaseChannel):
         if hop_length is None:
             hop_length = win_length // 2
 
-        _, _, data = ss.stft(
+        spec_data: NDArrayComplex
+        _, _, spec_data = ss.stft(
             data,
             nfft=n_fft,
             noverlap=win_length - hop_length,
             nperseg=win_length,
             window=window,
-            detrend="constant",  # type: ignore
+            detrend="constant",  # type: ignore[unused-ignore]
             # pad_mode=pad_mode,
         )
-        data[..., 1:-1, :] *= 2.0
+        spec_data[..., 1:-1, :] *= 2.0
         return dict(
-            data=data,
+            data=spec_data,
             n_fft=n_fft,
             hop_length=hop_length,
             win_length=win_length,
@@ -126,13 +128,13 @@ class TimeFrequencyChannel(BaseChannel):
         return util.transform_channel(self, TimeMelFrequencyChannel, **result)
 
     @property
-    def data(self) -> np.ndarray:
+    def data(self) -> NDArrayReal:
         """
         校正値を適用した振幅データを返します。
         """
         return self._data
 
-    def data_Aw(self, to_dB: bool = False) -> np.ndarray:  # noqa: N802, N803
+    def data_Aw(self, to_dB: bool = False) -> NDArrayReal:  # noqa: N802, N803
         """
         A特性を適用した振幅データを返します。
         """
@@ -142,9 +144,9 @@ class TimeFrequencyChannel(BaseChannel):
         )
 
         if to_dB:
-            return weighted
+            return weighted.astype(np.float64)
 
-        return librosa.db_to_amplitude(weighted)
+        return np.asarray(librosa.db_to_amplitude(weighted), dtype=np.float64)
 
     def _plot(
         self,
@@ -156,7 +158,7 @@ class TimeFrequencyChannel(BaseChannel):
         Aw: bool = False,  # noqa: N803
         vmin: Optional[float] = None,
         vmax: Optional[float] = None,
-    ) -> tuple["QuadMesh", np.ndarray]:
+    ) -> tuple["QuadMesh", NDArrayReal]:
         """
         時間周波数データをプロットします。
 
@@ -207,7 +209,7 @@ class TimeFrequencyChannel(BaseChannel):
         Aw: bool = False,  # noqa: N803
         vmin: Optional[float] = None,
         vmax: Optional[float] = None,
-    ) -> tuple["Axes", np.ndarray]:
+    ) -> tuple["Axes", NDArrayReal]:
         """
         時間周波数データをプロットします。
 
@@ -249,20 +251,22 @@ class TimeFrequencyChannel(BaseChannel):
 
         return _ax, data_to_plot
 
-    def _to_db(self) -> np.ndarray:
+    def _to_db(self) -> NDArrayReal:
         """
         スペクトルデータを dB スケールに変換した新しい TimeFrequencyChannel を返す。
 
         Returns:
             TimeFrequencyChannel: dBスケールに変換された新しい TimeFrequencyChannel。
         """
-        return librosa.amplitude_to_db(np.abs(self.data), ref=self.ref)
+        return np.asarray(
+            librosa.amplitude_to_db(np.abs(self.data), ref=self.ref), np.float64
+        )
 
 
 class TimeMelFrequencyChannel(TimeFrequencyChannel):
     def __init__(
         self,
-        data: np.ndarray,
+        data: NDArrayReal,
         sampling_rate: int,
         n_fft: int,
         hop_length: int,
@@ -309,7 +313,7 @@ class TimeMelFrequencyChannel(TimeFrequencyChannel):
     def spec2melspec(
         cls,
         sampling_rate: int,
-        data: np.ndarray,
+        data: NDArrayReal,
         n_fft: int = 2048,
         fmin: float = 0.0,
         fmax: Optional[float] = None,
@@ -325,7 +329,7 @@ class TimeMelFrequencyChannel(TimeFrequencyChannel):
             norm=None,
         )
 
-        melspec: np.ndarray = np.einsum("...ft,mf->...mt", data, melfb, optimize=True)
+        melspec: NDArrayReal = np.einsum("...ft,mf->...mt", data, melfb, optimize=True)  # type: ignore[arg-type, unused-ignore]
 
         return dict(
             sampling_rate=sampling_rate,
@@ -344,7 +348,7 @@ class TimeMelFrequencyChannel(TimeFrequencyChannel):
         Aw: bool = False,  # noqa: N803
         vmin: Optional[float] = None,
         vmax: Optional[float] = None,
-    ) -> tuple["Axes", np.ndarray]:
+    ) -> tuple["Axes", NDArrayReal]:
         """
         時間周波数データをプロットします。
 

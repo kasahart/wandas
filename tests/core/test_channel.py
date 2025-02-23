@@ -1,5 +1,7 @@
 # tests/core/test_channel.py
 
+from typing import List
+
 import librosa
 import numpy as np
 import pytest
@@ -8,7 +10,7 @@ from wandas.core.channel import Channel
 from wandas.core.channel_frame import ChannelFrame
 
 
-def _generate_channels():
+def _generate_channels() -> List[Channel]:
     # サンプルの正弦波データを生成
     sampling_rate = 1000
     t = np.linspace(0, 1, sampling_rate, endpoint=False)
@@ -21,17 +23,17 @@ def _generate_channels():
     return [ch1, ch2]
 
 
-@pytest.fixture
-def generate_channels():
+@pytest.fixture  # type: ignore [misc]
+def generate_channels() -> List[Channel]:
     return _generate_channels()
 
 
-@pytest.fixture
-def generate_signal():
+@pytest.fixture  # type: ignore [misc]
+def generate_signal() -> ChannelFrame:
     return ChannelFrame(channels=_generate_channels())
 
 
-def test_channel_initialization():
+def test_channel_initialization() -> None:
     data = np.array([0, 1, 2, 3, 4])
     sampling_rate = 1000
     channel = Channel(
@@ -45,7 +47,7 @@ def test_channel_initialization():
     assert channel.metadata == {}
 
 
-def test_channel_low_pass_filter():
+def test_channel_low_pass_filter() -> None:
     data = np.sin(2 * np.pi * 50 * np.linspace(0, 1, 1000))
     sampling_rate = 1000
     channel = Channel(data=data, sampling_rate=sampling_rate)
@@ -55,7 +57,7 @@ def test_channel_low_pass_filter():
     assert not np.array_equal(channel.data, filtered_channel.data)
 
 
-def test_rms_trend_signal(generate_signal):
+def test_rms_trend_signal(generate_signal: ChannelFrame) -> None:
     signal = generate_signal
 
     # RMS トレンドを計算
@@ -67,7 +69,7 @@ def test_rms_trend_signal(generate_signal):
         assert np.array_equal(rms_librosa, rms.data)
 
 
-def test_channel_plot():
+def test_channel_plot() -> None:
     import matplotlib.pyplot as plt
 
     data = np.array([0, 1, 2, 3, 4])
@@ -87,7 +89,7 @@ def test_channel_plot():
     assert np.array_equal(ax.lines[0].get_ydata(), data)
 
 
-def test_channel_addition(generate_channels):
+def test_channel_addition(generate_channels: List[Channel]) -> None:
     ch1, ch2 = generate_channels
     result_channel = ch1 + ch2
 
@@ -98,7 +100,7 @@ def test_channel_addition(generate_channels):
     )
 
 
-def test_channel_subtraction(generate_channels):
+def test_channel_subtraction(generate_channels: List[Channel]) -> None:
     ch1, ch2 = generate_channels
     result_channel = ch1 - ch2
 
@@ -109,7 +111,7 @@ def test_channel_subtraction(generate_channels):
     )
 
 
-def test_channel_multiplication(generate_channels):
+def test_channel_multiplication(generate_channels: List[Channel]) -> None:
     ch1, ch2 = generate_channels
     result_channel = ch1 * ch2
 
@@ -120,7 +122,7 @@ def test_channel_multiplication(generate_channels):
     )
 
 
-def test_channel_division(generate_channels):
+def test_channel_division(generate_channels: List[Channel]) -> None:
     ch1, ch2 = generate_channels
     result_channel = ch1 / ch2
 

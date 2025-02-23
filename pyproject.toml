@@ -17,6 +17,7 @@ dependencies = [
     "mosqito",
     "ipykernel",
     "ipywidgets",
+    "cattrs"
     # 他の依存関係を追加
 
 ]
@@ -29,6 +30,7 @@ dev-dependencies = [
     "pytest-cov",
     "wandas",
     "pre-commit>=3.5.0",
+    "mypy"
 ]
 
 [tool.uv.sources]
@@ -36,22 +38,12 @@ wandas = { workspace = true }
 
 [tool.ruff]
 line-length = 88
-target-version = "py38"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "Q", "UP", "I", "N"]
 
 [tool.mypy]
-files = ["wandas", "build"]
-no_implicit_optional = true
-check_untyped_defs = true
-disallow_untyped_defs = true
-
-[[tool.mypy.overrides]]
-module = ["scipy.*", "ipywidgets", "mosqito.*"]
+files = ["wandas", "tests"]
+strict = true
+pretty = true
 ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = ["tests.*"]
-disallow_untyped_defs = false
-check_untyped_defs = false

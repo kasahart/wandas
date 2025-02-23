@@ -1,11 +1,15 @@
 # wandas/core/spectrums.py
 
-from typing import Any, List, Optional
+from typing import TYPE_CHECKING, Any, List, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 from wandas.core.frequency_channel import FrequencyChannel
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
 
 
 class FrequencyChannelFrame:
@@ -48,7 +52,11 @@ class FrequencyChannelFrame:
             plt.tight_layout()
             plt.show()
 
-    def plot_matrix(self, title: Optional[str] = None, Aw: bool = False) -> tuple:  # noqa: N803
+    def plot_matrix(
+        self,
+        title: Optional[str] = None,
+        Aw: bool = False,  # noqa: N803
+    ) -> tuple["Figure", "Axes"]:
         """
         チャンネル間をプロットします。
 

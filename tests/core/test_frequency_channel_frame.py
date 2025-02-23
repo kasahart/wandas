@@ -6,7 +6,7 @@ from wandas.core.frequency_channel import FrequencyChannel
 from wandas.core.frequency_channel_frame import FrequencyChannelFrame
 
 
-def test_spectrum_initialization():
+def test_spectrum_initialization() -> None:
     data1 = np.array([10, 9, 8, 7, 6])
     data2 = np.array([5, 4, 3, 2, 1])
     sampling_rate = 1000

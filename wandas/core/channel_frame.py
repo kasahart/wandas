@@ -12,6 +12,7 @@ from scipy.io import wavfile
 from wandas.core import util
 from wandas.core.channel import Channel
 from wandas.io import wav_io
+from wandas.utils.types import NDArrayReal
 
 if TYPE_CHECKING:
     from wandas.core.frequency_channel_frame import FrequencyChannelFrame
@@ -34,6 +35,7 @@ class ChannelFrame:
         sampling_rates = set(ch.sampling_rate for ch in channels)
         if len(sampling_rates) > 1:
             raise ValueError("All channels must have the same sampling_rate.")
+
         self.sampling_rate = channels[0].sampling_rate
 
         # チャンネル名で辞書のようにアクセスできるようにするための辞書を構築
@@ -44,7 +46,7 @@ class ChannelFrame:
     @classmethod
     def from_ndarray(
         cls,
-        array: np.ndarray,
+        array: NDArrayReal,
         sampling_rate: int,
         labels: Optional[list[str]] = None,
         unit: str = "Pa",
@@ -192,7 +194,7 @@ class ChannelFrame:
 
     def describe(
         self,
-        axis_config: Optional[Dict[str, Dict[str, tuple]]] = None,
+        axis_config: Optional[Dict[str, Dict[str, Any]]] = None,
         cbar_config: Optional[Dict[str, Any]] = None,
     ) -> widgets.VBox:
         """

@@ -7,8 +7,8 @@ from wandas.core.channel import Channel
 from wandas.core.channel_frame import ChannelFrame
 
 
-@pytest.fixture
-def generate_signals():
+@pytest.fixture  # type: ignore [misc]
+def generate_signals() -> tuple[ChannelFrame, ChannelFrame]:
     # サンプルの直流データを生成
     sampling_rate = 1000
     t = np.linspace(0, 1, sampling_rate, endpoint=False)
@@ -36,7 +36,7 @@ def generate_signals():
     return signal1, signal2
 
 
-def test_signal_initialization():
+def test_signal_initialization() -> None:
     data1 = np.array([0, 1, 2, 3, 4])
     data2 = np.array([5, 6, 7, 8, 9])
     sampling_rate = 1000
@@ -52,7 +52,7 @@ def test_signal_initialization():
     assert signal.sampling_rate == sampling_rate
 
 
-def test_signal_sampling_rate_mismatch():
+def test_signal_sampling_rate_mismatch() -> None:
     data1 = np.array([0, 1, 2, 3, 4])
     data2 = np.array([5, 6, 7, 8, 9])
     channel1 = Channel(data=data1, sampling_rate=1000)
@@ -62,7 +62,7 @@ def test_signal_sampling_rate_mismatch():
         ChannelFrame(channels=[channel1, channel2])
 
 
-def test_signal_low_pass_filter():
+def test_signal_low_pass_filter() -> None:
     t = np.linspace(0, 1, 1000)
     data1 = np.sin(2 * np.pi * 50 * t)
     data2 = np.sin(2 * np.pi * 100 * t)
@@ -78,7 +78,7 @@ def test_signal_low_pass_filter():
         assert not np.array_equal(original_ch.data, filtered_ch.data)
 
 
-def test_signal_fft():
+def test_signal_fft() -> None:
     signal_length = 1000
     t = np.linspace(0, 1, signal_length)
     data1 = np.sin(2 * np.pi * 50 * t)
@@ -107,7 +107,7 @@ def test_signal_fft():
         assert np.isclose(peak_freq, expected_freq, atol=1)
 
 
-def test_signal_addition(generate_signals):
+def test_signal_addition(generate_signals: tuple[ChannelFrame, ChannelFrame]) -> None:
     signal1, signal2 = generate_signals
     result_signal = signal1 + signal2
 
@@ -119,7 +119,9 @@ def test_signal_addition(generate_signals):
         )
 
 
-def test_signal_subtraction(generate_signals):
+def test_signal_subtraction(
+    generate_signals: tuple[ChannelFrame, ChannelFrame],
+) -> None:
     signal1, signal2 = generate_signals
     result_signal = signal1 - signal2
 
@@ -131,7 +133,9 @@ def test_signal_subtraction(generate_signals):
         )
 
 
-def test_signal_multiplication(generate_signals):
+def test_signal_multiplication(
+    generate_signals: tuple[ChannelFrame, ChannelFrame],
+) -> None:
     signal1, signal2 = generate_signals
     result_signal = signal1 * signal2
 
@@ -143,7 +147,7 @@ def test_signal_multiplication(generate_signals):
         )
 
 
-def test_signal_division(generate_signals):
+def test_signal_division(generate_signals: tuple[ChannelFrame, ChannelFrame]) -> None:
     signal1, signal2 = generate_signals
     result_signal = signal1 / signal2
 

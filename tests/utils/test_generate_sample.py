@@ -1,11 +1,11 @@
 # tests/utils/test_generate_sample.py
 
-from wandas.utils.generate_sample import generate_sample
-from wandas.core.channel_frame import ChannelFrame
 from wandas.core.channel import Channel
+from wandas.core.channel_frame import ChannelFrame
+from wandas.utils.generate_sample import generate_sample
 
 
-def test_generate_sample_single_frequency():
+def test_generate_sample_single_frequency() -> None:
     freq = 1000.0
     sampling_rate = 16000
     duration = 1.0
@@ -23,7 +23,7 @@ def test_generate_sample_single_frequency():
     assert len(channel.data) == int(sampling_rate * duration)
 
 
-def test_generate_sample_multiple_frequencies():
+def test_generate_sample_multiple_frequencies() -> None:
     freqs = [500.0, 800.0, 1000.0]
     sampling_rate = 16000
     duration = 1.0

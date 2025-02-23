@@ -10,6 +10,7 @@ from scipy import fft
 from scipy import signal as ss
 
 from wandas.core import util
+from wandas.utils.types import NDArrayReal
 
 from .base_channel import BaseChannel
 
@@ -20,9 +21,9 @@ if TYPE_CHECKING:
 class NOctChannel(BaseChannel):
     def __init__(
         self,
-        data: np.ndarray,
+        data: NDArrayReal,
         sampling_rate: int,
-        fpref: np.ndarray,
+        fpref: NDArrayReal,
         n: int = 3,
         G: int = 10,  # noqa: N803
         fr: int = 1000,
@@ -51,7 +52,7 @@ class NOctChannel(BaseChannel):
     @classmethod
     def noct_spectrum(
         cls,
-        data: np.ndarray,
+        data: NDArrayReal,
         sampling_rate: int,
         fmin: float,
         fmax: float,
@@ -72,8 +73,8 @@ class NOctChannel(BaseChannel):
     @classmethod
     def noct_synthesis(
         cls,
-        data: np.ndarray,
-        freqs: np.ndarray,
+        data: NDArrayReal,
+        freqs: NDArrayReal,
         fmin: float,
         fmax: float,
         n: int = 3,
@@ -105,7 +106,7 @@ class NOctChannel(BaseChannel):
             raise ValueError("fs must be 48000")
         return dict(data=spec, fpref=fpref, n=n, G=G, fr=fr)
 
-    def data_Aw(self, to_dB: bool = False) -> np.ndarray:  # noqa: N802, N803
+    def data_Aw(self, to_dB: bool = False) -> NDArrayReal:  # noqa: N802, N803
         """
         A特性を適用した振幅データを返します。
         """
@@ -117,14 +118,14 @@ class NOctChannel(BaseChannel):
         if to_dB:
             return weighted
 
-        return librosa.db_to_amplitude(weighted, ref=self.ref)
+        return np.asarray(librosa.db_to_amplitude(weighted, ref=self.ref))
 
     def plot(
         self,
         ax: Optional["Axes"] = None,
         title: Optional[str] = None,
         Aw: bool = False,  # noqa: N803
-    ) -> tuple["Axes", np.ndarray]:
+    ) -> tuple["Axes", NDArrayReal]:
         """
         スペクトルデータをプロットします。
         """
@@ -162,10 +163,10 @@ class NOctChannel(BaseChannel):
 class FrequencyChannel(BaseChannel):
     def __init__(
         self,
-        data: np.ndarray,
+        data: NDArrayReal,
         sampling_rate: int,
         n_fft: int,
-        window: Union[np.ndarray, str],
+        window: Union[NDArrayReal, str],
         label: Optional[str] = None,
         unit: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
@@ -193,7 +194,7 @@ class FrequencyChannel(BaseChannel):
     @classmethod
     def fft(
         cls,
-        data: np.ndarray,
+        data: NDArrayReal,
         n_fft: Optional[int] = None,
         window: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -213,7 +214,7 @@ class FrequencyChannel(BaseChannel):
 
         data = data * window_values
 
-        out: np.ndarray = fft.rfft(data, n=n_fft)  # type: ignore
+        out = np.asarray(fft.rfft(data, n=n_fft))
         out[1:-1] *= 2.0
         # 窓関数補正
         scaling_factor = np.sum(window_values)
@@ -224,7 +225,7 @@ class FrequencyChannel(BaseChannel):
     @classmethod
     def welch(
         cls,
-        data: np.ndarray,
+        data: NDArrayReal,
         n_fft: Optional[int] = None,
         hop_length: Optional[int] = None,
         win_length: Optional[int] = 2048,
@@ -261,11 +262,11 @@ class FrequencyChannel(BaseChannel):
         )
 
     @property
-    def freqs(self) -> np.ndarray:
+    def freqs(self) -> NDArrayReal:
         """
         フーリエ変換後の周波数データを返します。
         """
-        return fft.rfftfreq(self.n_fft, 1 / self.sampling_rate)
+        return np.asarray(fft.rfftfreq(self.n_fft, 1 / self.sampling_rate))
 
     def noct_synthesis(
         self,
@@ -290,7 +291,7 @@ class FrequencyChannel(BaseChannel):
 
         return util.transform_channel(self, NOctChannel, **result)
 
-    def data_Aw(self, to_dB: bool = False) -> np.ndarray:  # noqa: N802, N803
+    def data_Aw(self, to_dB: bool = False) -> NDArrayReal:  # noqa: N802, N803
         """
         A特性を適用した振幅データを返します。
         """
@@ -302,14 +303,14 @@ class FrequencyChannel(BaseChannel):
         if to_dB:
             return weighted
 
-        return librosa.db_to_amplitude(weighted, ref=self.ref)
+        return np.asarray(librosa.db_to_amplitude(weighted, ref=self.ref))
 
     def plot(
         self,
         ax: Optional["Axes"] = None,
         title: Optional[str] = None,
         Aw: bool = False,  # noqa: N803
-    ) -> tuple["Axes", np.ndarray]:
+    ) -> tuple["Axes", NDArrayReal]:
         """
         スペクトルデータをプロットします。
         """

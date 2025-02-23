@@ -1,14 +1,14 @@
 # tests/core/test_frequency_channel.py
 import numpy as np
 import pytest
-from mosqito.sound_level_meter import comp_spectrum, noct_spectrum, noct_synthesis
+from mosqito.sound_level_meter import noct_spectrum, noct_synthesis
 
 from wandas.core.channel import Channel
 from wandas.core.frequency_channel import FrequencyChannel, NOctChannel
 
 
-@pytest.fixture
-def generate_channel():
+@pytest.fixture  # type: ignore [misc]
+def generate_channel() -> Channel:
     sampling_rate = 16000
     freq = 1000  # 周波数5Hz
     amplitude = 2.0
@@ -26,7 +26,7 @@ def generate_channel():
     )
 
 
-def test_frequency_channel_initialization():
+def test_frequency_channel_initialization() -> None:
     data = np.array([10, 9, 8, 7, 6])
     sampling_rate = 1000
     n_fft = 1024
@@ -54,7 +54,7 @@ def test_frequency_channel_initialization():
     assert freq_channel.metadata == metadata
 
 
-def test_frequency_channel_from_channel():
+def test_frequency_channel_from_channel() -> None:
     data = np.array([1, 2, 3, 4, 5], dtype=np.float32)
     sampling_rate = 1000
     label = "Test Channel"
@@ -65,7 +65,7 @@ def test_frequency_channel_from_channel():
     n_fft = 8
     window = "hann"
 
-    freq_channel: FrequencyChannel = ch.fft(n_fft=n_fft, window=window)  # type: ignore
+    freq_channel: FrequencyChannel = ch.fft(n_fft=n_fft, window=window)
 
     assert freq_channel.sampling_rate == sampling_rate
     assert freq_channel.n_fft == n_fft
@@ -74,7 +74,7 @@ def test_frequency_channel_from_channel():
     assert freq_channel.metadata == metadata
 
 
-def test_frequency_channel_data_property():
+def test_frequency_channel_data_property() -> None:
     data = np.array([10, 9, 8, 7, 6])
     freq_channel = FrequencyChannel(
         data=data,
@@ -87,7 +87,7 @@ def test_frequency_channel_data_property():
     assert np.array_equal(freq_channel.data, expected_data)
 
 
-def test_fft_amplitude():
+def test_fft_amplitude() -> None:
     fs = 16000
     nperseg = 4096
     win = "hann"
@@ -152,7 +152,7 @@ def test_fft_amplitude():
     )
 
 
-def test_welch_amplitude(generate_channel):
+def test_welch_amplitude(generate_channel: Channel) -> None:
     ch = generate_channel
     amplitude = 2
     n_fft = 1024
@@ -162,7 +162,7 @@ def test_welch_amplitude(generate_channel):
     average = "mean"
 
     # Welch 法を計算
-    welch_result: FrequencyChannel = ch.welch(  # type: ignore
+    welch_result: FrequencyChannel = ch.welch(
         n_fft=n_fft,
         hop_length=hop_length,
         win_length=win_length,
@@ -219,7 +219,7 @@ def test_welch_amplitude(generate_channel):
     )
 
 
-def test_frequency_channel_plot():
+def test_frequency_channel_plot() -> None:
     data = np.array([10, 9, 8, 7, 6])
     freq_channel = FrequencyChannel(
         data=data,
@@ -235,7 +235,7 @@ def test_frequency_channel_plot():
     plt.close(fig)
 
 
-def test_frequency_channel_noct_spectrum():
+def test_frequency_channel_noct_spectrum() -> None:
     f = 1000
     fs = 48000
     d = 0.2
@@ -245,7 +245,7 @@ def test_frequency_channel_noct_spectrum():
     rms = np.sqrt(np.mean(np.power(stimulus, 2)))
     ampl = 0.00002 * np.power(10, dB / 20) / rms
     stimulus = stimulus * ampl
-    spec, freq_axis = noct_spectrum(stimulus, fs, fmin=90, fmax=14000)
+    spec, _ = noct_spectrum(stimulus, fs, fmin=90, fmax=14000)
     spec = np.squeeze(spec)
 
     result = NOctChannel.noct_spectrum(
@@ -260,7 +260,7 @@ def test_frequency_channel_noct_spectrum():
     )
 
 
-def test_frequency_channel_noct_synthesis():
+def test_frequency_channel_noct_synthesis() -> None:
     f = 1000
     fs = 48000
     d = 0.2
@@ -277,9 +277,7 @@ def test_frequency_channel_noct_synthesis():
     )
     fch = ch.fft(n_fft=stimulus.shape[-1], window="hann")
 
-    spec_3, freq_axis = noct_synthesis(
-        fch.data / np.sqrt(2), fch.freqs, fmin=90, fmax=14000
-    )
+    spec_3, _ = noct_synthesis(fch.data / np.sqrt(2), fch.freqs, fmin=90, fmax=14000)
     spec_3 = np.squeeze(spec_3)
 
     noch = fch.noct_synthesis(fmin=90, fmax=14000)

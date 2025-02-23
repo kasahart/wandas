@@ -9,6 +9,7 @@ from wandas.core import util
 from wandas.core.channel import Channel
 from wandas.core.channel_frame import ChannelFrame
 from wandas.core.frequency_channel_frame import FrequencyChannelFrame
+from wandas.utils.types import NDArrayReal
 
 from .frequency_channel import FrequencyChannel
 
@@ -16,7 +17,7 @@ from .frequency_channel import FrequencyChannel
 class MatrixFrame:
     def __init__(
         self,
-        data: np.ndarray,
+        data: NDArrayReal,
         sampling_rate: int,
         channel_units: Optional[List[str]] = None,
         channel_labels: Optional[List[str]] = None,
@@ -92,7 +93,7 @@ class MatrixFrame:
         """
         チャンネルの数を返します。
         """
-        return self.data.shape[0]
+        return int(self.data.shape[0])
 
     # forでループを回すためのメソッド
     def __iter__(self) -> Iterator["Channel"]:
@@ -166,7 +167,7 @@ class MatrixFrame:
             data=np.array([ch.data for ch in cf]),
             sampling_rate=cf.sampling_rate,
             channel_units=[ch.unit for ch in cf],
-            channel_labels=[ch.label for ch in cf],  # type: ignore
+            channel_labels=[ch.label for ch in cf],
             channel_metadata=[ch.metadata for ch in cf],
             label=cf.label,
         )

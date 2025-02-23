@@ -26,18 +26,16 @@ repos:
         entry: hadolint
 
 # mypy
-  -   repo: https://github.com/pre-commit/mirrors-mypy
-      rev: v1.7.0
-      hooks:
-      # Run the mypy.
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.7.0
+    hooks:
       - id: mypy
         name: mypy
-        description: "Run 'mypy' for Python linting"
+        description: "Run 'mypy' for Python linting using settings from pyproject.toml"
         entry: mypy
         language: python
-        args: [--strict]
+        args: [--strict, --ignore-missing-imports]
         require_serial: true
-        # Add types package list
         additional_dependencies: []
 
 ci:

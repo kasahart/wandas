@@ -1,13 +1,15 @@
 # tests/io/test_wav_io.py
 import os
+
 import numpy as np
 import pytest
 from scipy.io.wavfile import write
+
 from wandas.io import read_wav
 
 
-@pytest.fixture
-def create_test_wav(tmpdir):
+@pytest.fixture  # type: ignore [misc]
+def create_test_wav(tmpdir: str) -> str:
     """
     テスト用の一時的な WAV ファイルを作成するフィクスチャ。
     テスト後に自動で削除されます。
@@ -35,7 +37,7 @@ def create_test_wav(tmpdir):
     return filename
 
 
-def test_read_wav(create_test_wav):
+def test_read_wav(create_test_wav: str) -> None:
     # テスト用の WAV ファイルを読み込む
     signal = read_wav(create_test_wav)
 

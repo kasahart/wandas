@@ -7,7 +7,7 @@ from wandas.core.channel_frame import ChannelFrame
 from wandas.core.matrix_frame import MatrixFrame
 
 
-def test_matrix_frame_initialization():
+def test_matrix_frame_initialization() -> None:
     data = np.random.rand(3, 100)
     sampling_rate = 1000
     channel_units = ["mV", "mV", "mV"]
@@ -28,7 +28,7 @@ def test_matrix_frame_initialization():
     assert mf.channels[0].metadata == {"type": "EEG"}
 
 
-def test_matrix_frame_invalid_initialization():
+def test_matrix_frame_invalid_initialization() -> None:
     data = np.random.rand(3, 100)
     sampling_rate = 1000
 
@@ -42,13 +42,13 @@ def test_matrix_frame_invalid_initialization():
         )
 
 
-def test_matrix_frame_len():
+def test_matrix_frame_len() -> None:
     data = np.random.rand(3, 100)
     mf = MatrixFrame(data, 1000)
     assert len(mf) == 3
 
 
-def test_matrix_frame_iter():
+def test_matrix_frame_iter() -> None:
     data = np.random.rand(3, 100)
     mf = MatrixFrame(data, 1000)
     channels = list(mf)
@@ -56,7 +56,7 @@ def test_matrix_frame_iter():
     assert isinstance(channels[0], Channel)
 
 
-def test_matrix_frame_getitem():
+def test_matrix_frame_getitem() -> None:
     data = np.random.rand(3, 100)
     mf = MatrixFrame(data, 1000, channel_labels=["Ch1", "Ch2", "Ch3"])
 
@@ -73,7 +73,7 @@ def test_matrix_frame_getitem():
         mf["Ch10"]
 
 
-def test_matrix_frame_to_channel_frame():
+def test_matrix_frame_to_channel_frame() -> None:
     data = np.random.rand(3, 100)
     mf = MatrixFrame(data, 1000)
     cf = mf.to_channel_frame()
@@ -81,7 +81,7 @@ def test_matrix_frame_to_channel_frame():
     assert len(cf) == 3
 
 
-def test_matrix_frame_from_channel_frame():
+def test_matrix_frame_from_channel_frame() -> None:
     data = np.random.rand(3, 100)
     mf = MatrixFrame(data, 1000)
     cf = mf.to_channel_frame()
@@ -90,7 +90,7 @@ def test_matrix_frame_from_channel_frame():
     assert mf2.data.shape == (3, 100)
 
 
-def test_matrix_frame_coherence():
+def test_matrix_frame_coherence() -> None:
     # ランダムシードの設定
     rng = np.random.default_rng()
 
@@ -105,7 +105,7 @@ def test_matrix_frame_coherence():
     time = np.arange(N) / fs
 
     # 信号の生成
-    b, a = signal.butter(2, 0.25, "low")  # type: ignore
+    b, a = signal.butter(2, 0.25, "low")  # type: ignore [type-arg, unused-ignore]
     x = rng.normal(scale=np.sqrt(noise_power), size=time.shape)
     y = signal.lfilter(b, a, x)
     x += amp * np.sin(2 * np.pi * freq * time)
@@ -138,7 +138,7 @@ def test_matrix_frame_coherence():
         )
 
 
-def test_matrix_frame_csd():
+def test_matrix_frame_csd() -> None:
     # ランダムシードの設定
     rng = np.random.default_rng()
 
@@ -153,7 +153,7 @@ def test_matrix_frame_csd():
     time = np.arange(N) / fs
 
     # 信号の生成
-    b, a = signal.butter(2, 0.25, "low")  # type: ignore
+    b, a = signal.butter(2, 0.25, "low")  # type: ignore [type-arg, unused-ignore]
     x = rng.normal(scale=np.sqrt(noise_power), size=time.shape)
     y = signal.lfilter(b, a, x)
     x += amp * np.sin(2 * np.pi * freq * time)

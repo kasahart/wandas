@@ -12,6 +12,7 @@ from matplotlib import gridspec
 from scipy.signal import butter, filtfilt
 
 from wandas.core import util
+from wandas.utils.types import NDArrayReal
 
 from .base_channel import BaseChannel
 from .frequency_channel import FrequencyChannel, NOctChannel
@@ -24,7 +25,7 @@ if TYPE_CHECKING:
 class Channel(BaseChannel):
     def __init__(
         self,
-        data: np.ndarray,
+        data: NDArrayReal,
         sampling_rate: int,
         label: Optional[str] = None,
         unit: Optional[str] = None,
@@ -47,7 +48,7 @@ class Channel(BaseChannel):
         )
 
     @property
-    def time(self) -> np.ndarray:
+    def time(self) -> NDArrayReal:
         """
         時刻データを返します。
         """
@@ -68,7 +69,7 @@ class Channel(BaseChannel):
 
         nyq = 0.5 * self.sampling_rate
         normal_cutoff = cutoff / nyq
-        b, a = butter(order, normal_cutoff, btype="highpass", analog=False)  # type: ignore
+        b, a = butter(order, normal_cutoff, btype="highpass", analog=False)  # type: ignore[unused-ignore]
         filtered_data = filtfilt(b, a, self._data)
 
         result = dict(
@@ -91,7 +92,7 @@ class Channel(BaseChannel):
 
         nyq = 0.5 * self.sampling_rate
         normal_cutoff = cutoff / nyq
-        b, a = butter(order, normal_cutoff, btype="lowpass", analog=False)  # type: ignore
+        b, a = butter(order, normal_cutoff, btype="lowpass", analog=False)  # type: ignore[unused-ignore]
         filtered_data = filtfilt(b, a, self._data)
 
         result = dict(
@@ -255,7 +256,7 @@ class Channel(BaseChannel):
 
     def plot(
         self, ax: Optional["Axes"] = None, title: Optional[str] = None
-    ) -> tuple["Axes", np.ndarray]:
+    ) -> tuple["Axes", NDArrayReal]:
         """
         時系列データをプロットします。
         """
@@ -290,7 +291,7 @@ class Channel(BaseChannel):
         if ax is None:
             fig, ax = plt.subplots(figsize=(10, 4))
 
-        rms_channel: Channel = self.rms_trend()  # type: ignore
+        rms_channel: Channel = self.rms_trend()
         num_samples = len(rms_channel)
         t = np.arange(num_samples) / rms_channel.sampling_rate
         ax.plot(
@@ -315,7 +316,7 @@ class Channel(BaseChannel):
         """
         チャンネルのデータ長を返します。
         """
-        return self._data.shape[-1]
+        return int(self._data.shape[-1])
 
     def add(self, other: "Channel", snr: Optional[float] = None) -> "Channel":
         """_summary_
@@ -338,7 +339,7 @@ class Channel(BaseChannel):
         return self + other * gain
 
     # 演算子オーバーロードの実装
-    def __add__(self, other: Union["Channel", int, float, np.ndarray]) -> "Channel":
+    def __add__(self, other: Union["Channel", int, float, NDArrayReal]) -> "Channel":
         """
         チャンネル間の加算。
         """
@@ -361,7 +362,7 @@ class Channel(BaseChannel):
         )
         return util.transform_channel(self, self.__class__, **result)
 
-    def __sub__(self, other: Union["Channel", int, float, np.ndarray]) -> "Channel":
+    def __sub__(self, other: Union["Channel", int, float, NDArrayReal]) -> "Channel":
         """
         チャンネル間の減算。
         """
@@ -384,7 +385,7 @@ class Channel(BaseChannel):
         )
         return util.transform_channel(self, self.__class__, **result)
 
-    def __mul__(self, other: Union["Channel", int, float, np.ndarray]) -> "Channel":
+    def __mul__(self, other: Union["Channel", int, float, NDArrayReal]) -> "Channel":
         """
         チャンネル間の乗算。
         """
@@ -407,7 +408,9 @@ class Channel(BaseChannel):
         )
         return util.transform_channel(self, self.__class__, **result)
 
-    def __truediv__(self, other: Union["Channel", int, float, np.ndarray]) -> "Channel":
+    def __truediv__(
+        self, other: Union["Channel", int, float, NDArrayReal]
+    ) -> "Channel":
         """
         チャンネル間の除算。
         """
@@ -433,7 +436,7 @@ class Channel(BaseChannel):
     def to_audio(self, normalize: bool = True, label: bool = True) -> widgets.VBox:
         output = widgets.Output()
         with output:
-            display(Audio(self.data, rate=self.sampling_rate, normalize=normalize))
+            display(Audio(self.data, rate=self.sampling_rate, normalize=normalize))  # type: ignore [unused-ignore, no-untyped-call]
 
         if label:
             vbov = widgets.VBox([widgets.Label(self.label) if label else None, output])
@@ -443,7 +446,7 @@ class Channel(BaseChannel):
 
     def describe(
         self,
-        axis_config: Optional[Dict[str, Dict[str, tuple]]] = None,
+        axis_config: Optional[Dict[str, Dict[str, Any]]] = None,
         cbar_config: Optional[Dict[str, Any]] = None,
     ) -> widgets.VBox:
         """

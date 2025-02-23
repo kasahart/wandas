@@ -1,20 +1,28 @@
 # wandas/core/base_channel.py
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional
 
-import numpy as np
-
 from wandas.core import util
+from wandas.utils.types import NDArrayReal
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
 
+@dataclass
 class BaseChannel(ABC):
+    _data: NDArrayReal
+    _sampling_rate: int
+    label: str
+    unit: str
+    metadata: dict[str, Any]
+    ref: float = 1
+
     def __init__(
         self,
-        data: np.ndarray,
+        data: NDArrayReal,
         sampling_rate: int,
         label: Optional[str] = None,
         unit: Optional[str] = None,
@@ -30,13 +38,13 @@ class BaseChannel(ABC):
         """
         self._data = data
         self._sampling_rate = sampling_rate
-        self.label = label
-        self.unit = unit if unit is not None else ""
+        self.label = label or ""
+        self.unit = unit or ""
         self.metadata = metadata or {}
         self.ref = util.unit_to_ref(self.unit)
 
     @property
-    def data(self) -> np.ndarray:
+    def data(self) -> NDArrayReal:
         """
         データを返します。
         """
@@ -45,14 +53,14 @@ class BaseChannel(ABC):
     @property
     def sampling_rate(self) -> int:
         """
-        データを返します。派生クラスで実装が必要です。
+        サンプリング周波数を返します。
         """
         return self._sampling_rate
 
     @abstractmethod
     def plot(
         self, ax: Optional["Axes"] = None, title: Optional[str] = None
-    ) -> tuple["Axes", np.ndarray]:
+    ) -> tuple["Axes", NDArrayReal]:
         """
         データをプロットします。派生クラスで実装が必要です。
         """

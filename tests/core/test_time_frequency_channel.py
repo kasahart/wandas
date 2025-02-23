@@ -11,8 +11,8 @@ from wandas.core.time_frequency_channel import (
 )
 
 
-@pytest.fixture
-def generate_channel():
+@pytest.fixture()  # type: ignore [misc]
+def generate_channel() -> Channel:
     sampling_rate = 16000
     freq = 1000  # 周波数5Hz
     amplitude = 2.0
@@ -30,8 +30,8 @@ def generate_channel():
     )
 
 
-@pytest.fixture
-def generate_time_frequency_channel(generate_channel):
+@pytest.fixture()  # type: ignore [misc]
+def generate_time_frequency_channel(generate_channel: Channel) -> TimeFrequencyChannel:
     n_fft = 1024
     win_length = 1024
     hop_length = n_fft // 2
@@ -42,8 +42,10 @@ def generate_time_frequency_channel(generate_channel):
     )
 
 
-@pytest.fixture
-def generate_time_frequency_channel_boxcar(generate_channel):
+@pytest.fixture()  # type: ignore [misc]
+def generate_time_frequency_channel_boxcar(
+    generate_channel: Channel,
+) -> TimeFrequencyChannel:
     n_fft = 1024
     win_length = 1024
     hop_length = n_fft // 2
@@ -54,7 +56,7 @@ def generate_time_frequency_channel_boxcar(generate_channel):
     )
 
 
-def test_time_frequency_channel_initialization():
+def test_time_frequency_channel_initialization() -> None:
     data = np.random.random((1025, 44))
     sampling_rate = 16000
     n_fft = 1024
@@ -88,7 +90,7 @@ def test_time_frequency_channel_initialization():
     assert tf_channel.metadata == {"test": "metadata"}
 
 
-def test_time_frequency_channel_from_channel(generate_channel):
+def test_time_frequency_channel_from_channel(generate_channel: Channel) -> None:
     ch = generate_channel
     tf_channel = ch.stft()
 
@@ -98,7 +100,7 @@ def test_time_frequency_channel_from_channel(generate_channel):
     assert tf_channel.metadata == ch.metadata
 
 
-def test_stft_amplitude():
+def test_stft_amplitude() -> None:
     fs = 16000
     n_fft = 1024
     win_length = 1024
@@ -182,12 +184,14 @@ def test_stft_amplitude():
     )
 
 
-def test_time_frequency_channel_plot(generate_time_frequency_channel):
+def test_time_frequency_channel_plot(
+    generate_time_frequency_channel: TimeFrequencyChannel,
+) -> None:
     tf_channel = generate_time_frequency_channel
 
     import matplotlib.pyplot as plt
 
-    fig, ax = plt.subplots()
+    _, ax = plt.subplots()
     ax, spec = tf_channel.plot(ax=ax, title="Test Plot")
 
     assert ax.get_xlabel() == "Time [s]"
@@ -201,7 +205,9 @@ def test_time_frequency_channel_plot(generate_time_frequency_channel):
     )  # dB values should be <= 0
 
 
-def test_time_frequency_channel_plot_boxcar(generate_time_frequency_channel_boxcar):
+def test_time_frequency_channel_plot_boxcar(
+    generate_time_frequency_channel_boxcar: TimeFrequencyChannel,
+) -> None:
     tf_channel = generate_time_frequency_channel_boxcar
 
     import matplotlib.pyplot as plt
@@ -220,7 +226,9 @@ def test_time_frequency_channel_plot_boxcar(generate_time_frequency_channel_boxc
     )  # dB values should be <= 0
 
 
-def test_time_frequency_channel_to_db(generate_time_frequency_channel):
+def test_time_frequency_channel_to_db(
+    generate_time_frequency_channel: TimeFrequencyChannel,
+) -> None:
     tf_channel = generate_time_frequency_channel
     db_data = tf_channel._to_db()
     ref = 20 * np.log10(2)
@@ -231,7 +239,9 @@ def test_time_frequency_channel_to_db(generate_time_frequency_channel):
     )  # dB values should be <= 0
 
 
-def test_time_frequency_channel_to_db_boxcar(generate_time_frequency_channel_boxcar):
+def test_time_frequency_channel_to_db_boxcar(
+    generate_time_frequency_channel_boxcar: TimeFrequencyChannel,
+) -> None:
     tf_channel = generate_time_frequency_channel_boxcar
     db_data = tf_channel._to_db()
     ref = 20 * np.log10(2)
@@ -243,8 +253,8 @@ def test_time_frequency_channel_to_db_boxcar(generate_time_frequency_channel_box
 
 
 def test_time_frequency_channel_melspectrogram(
-    generate_time_frequency_channel, generate_channel
-):
+    generate_time_frequency_channel: TimeFrequencyChannel, generate_channel: Channel
+) -> None:
     channel = generate_channel
     tf_channel = generate_time_frequency_channel
 
@@ -275,7 +285,7 @@ def test_time_frequency_channel_melspectrogram(
     )  # dB values should be <= 0
 
 
-def test_time_mel_frequency_channel_initialization():
+def test_time_mel_frequency_channel_initialization() -> None:
     data = np.random.random((128, 44))
     sampling_rate = 16000
     n_fft = 2048
@@ -308,7 +318,7 @@ def test_time_mel_frequency_channel_initialization():
     assert tf_mel_channel.metadata == {"test": "metadata"}
 
 
-def test_time_mel_frequency_channel_melspectrogram():
+def test_time_mel_frequency_channel_melspectrogram() -> None:
     fs = 16000
     n_fft = 2048
     win_length = 2048
@@ -357,7 +367,7 @@ def test_time_mel_frequency_channel_melspectrogram():
     )  # dB values should be <= 0
 
 
-def test_time_mel_frequency_channel_plot():
+def test_time_mel_frequency_channel_plot() -> None:
     data = np.random.random((128, 44))
     sampling_rate = 16000
     n_fft = 2048
@@ -381,8 +391,8 @@ def test_time_mel_frequency_channel_plot():
 
     import matplotlib.pyplot as plt
 
-    fig, ax = plt.subplots()
-    ax, spec = tf_mel_channel.plot(ax=ax, title="Test Mel Plot")
+    _, ax = plt.subplots()
+    ax, _ = tf_mel_channel.plot(ax=ax, title="Test Mel Plot")
     assert ax.get_xlabel() == "Time [s]"
     assert ax.get_ylabel() == "Frequency [Hz]"
     assert ax.get_title() == "Test Mel Plot"
