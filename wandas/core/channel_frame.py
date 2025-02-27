@@ -268,7 +268,12 @@ class ChannelFrame:
             plt.tight_layout()
             plt.show()
 
-    def rms_plot(self, ax: Optional[Any] = None, title: Optional[str] = None) -> None:
+    def rms_plot(
+        self,
+        ax: Optional[Any] = None,
+        title: Optional[str] = None,
+        overlay: bool = True,
+    ) -> None:
         """
         すべてのチャンネルの RMS データをプロットします。
 
@@ -276,19 +281,38 @@ class ChannelFrame:
             title (str, optional): プロットのタイトル。
         """
         if ax is None:
-            fig, ax = plt.subplots(figsize=(10, 4))
-
-        for channel in self.channels:
-            channel.rms_plot(ax=ax)
-
-        # ax.set_xlabel("Time [s)")
-        # ax.set_ylabel("RMS")
-        ax.set_title(title or self.label or "Signal RMS")
-        ax.grid(True)
-        ax.legend()
-
-        if ax is None:
             plt.tight_layout()
+
+        if overlay:
+            if ax is None:
+                fig, ax = plt.subplots(figsize=(10, 4))
+
+            for channel in self.channels:
+                channel.rms_plot(ax=ax)
+
+            ax.set_title(title or self.label or "Signal RMS")
+            ax.grid(True)
+            ax.legend()
+
+            if ax is None:
+                plt.tight_layout()
+                plt.show()
+        else:
+            num_channels = len(self.channels)
+            fig, axs = plt.subplots(
+                num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
+            )
+            if num_channels == 1:
+                axs = [axs]  # Ensure axs is iterable when there's only one channel
+
+            for i, channel in enumerate(self.channels):
+                channel.rms_plot(ax=axs[i])
+
+            axs[-1].set_xlabel("Time (s)")
+
+            fig.suptitle(title or self.label or "Signal")
+            plt.tight_layout()
+            plt.show()
 
     def low_pass_filter(self, cutoff: float, order: int = 5) -> "ChannelFrame":
         """
