@@ -1,0 +1,49 @@
+{
+    "name": "Python 3",
+    "build": {
+        "context": "..",
+        "dockerfile": "Dockerfile",
+        "args": {
+            "UV_VERSION": "latest",
+            "DEBIAN_VERSION": "bookworm"
+        }
+    },
+    "features": {
+        "ghcr.io/devcontainers/features/git:1": {},
+        "ghcr.io/dhoeric/features/hadolint:1": {}
+        // "ghcr.io/devcontainers-contrib/features/ruff:1": {}
+    },
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "python.pythonPath": "~/.venv/lib/python3"
+            },
+            "extensions": [
+                "DavidAnson.vscode-markdownlint",
+                "njpwerner.autodocstring",
+                "ms-python.python",
+                "usernamehw.errorlens",
+                "ms-python.vscode-pylance",
+                "spmeesseman.vscode-taskexplorer",
+                "charliermarsh.ruff",
+                "ms-toolsai.jupyter",
+                "eamodio.gitlens",
+                "donjayamanne.githistory",
+                "Gruntfuggly.todo-tree",
+                "github.vscode-github-actions",
+                "mhutchie.git-graph",
+                "ms-python.mypy-type-checker",
+                "exiasr.hadolint",
+                "ms-azuretools.vscode-docker"
+            ]
+        }
+    },
+    "containerEnv": {
+        "PYTHONUNBUFFERED": "True",
+        "UV_LINK_MODE": "copy",
+        "UV_PROJECT_ENVIRONMENT": "/home/vscode/.venv"
+    },
+    "postCreateCommand": "uv sync --frozen",
+    "postStartCommand": "uv run pre-commit install",
+    "remoteUser": "vscode"
+}

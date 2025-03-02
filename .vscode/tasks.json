@@ -1,0 +1,17 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run ruff check",
+            "type": "shell",
+            "command": "uv run ruff check .",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run mypy wandas tests",
+            "type": "shell",
+            "command": "uv run mypy wandas tests",
+            "problemMatcher": []
+        }
+    ]
+}

@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: uv をインストール
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: 依存関係をインストール
+        run: uv sync --all-extras --dev
+
+      - name: フォーマットチェック (ruff)
+        run: uv run ruff check .
+
+      - name: 型チェック (mypy)
+        run: uv run mypy wandas tests
+
+      - name: テスト実行 (pytest)
+        run: uv run pytest tests
