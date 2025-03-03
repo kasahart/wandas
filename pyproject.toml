@@ -4,23 +4,24 @@ build-backend = "hatchling.build"
 
 [project]
 name = "wandas"
-version = "0.1.0"
-description = "Signal processing library in Python, inspired by pandas"
+version = "0.0.4"
+description = "Wandas is an open source library for efficient signal analysis in Python"
+authors = [{name = "kasahart", email="kasahart66@gmail.com"}]
+maintainers = [
+    {name = "kasahart", email="kasahart66@gmail.com"},
+]
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 dependencies = [
     "numpy",
     "scipy",
-    "matplotlib",
-    "librosa",
-    "mosqito",
-    "ipykernel",
-    "ipywidgets",
-    # 他の依存関係を追加
-    "cattrs",
-    "ipympl>=0.9.3",
+
 ]
+
+[project.urls]
+Repository = "https://github.com/kasahart/wandas.git"
+Issues = "https://github.com/kasahart/wandas/issues"
 
 [tool.uv]
 dev-dependencies = [

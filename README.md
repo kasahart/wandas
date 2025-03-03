@@ -1,6 +1,7 @@
 # Wandas: **W**aveform **An**alysis **Da**ta **S**tructures
 
 [![CI](https://github.com/kasahart/wandas/actions/workflows/ci.yml/badge.svg)](https://github.com/kasahart/wandas/actions/workflows/ci.yml)
+[![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/kasahart/wandas/blob/main/LICENSE)
 
 **Wandas** は、Pythonによる効率的な信号解析のためのオープンソースライブラリです。Wandas は、信号処理のための包括的な機能を提供し、Matplotlibとのシームレスな統合を実現しています。
 
@@ -52,14 +53,6 @@ filtered_signal.to_wav('filtered_audio.wav')
 
 - **バグ報告**: [Issue Tracker](https://github.com/kasahart/wandas/issues) に詳細を記載してください。
 - **機能リクエスト**: 新機能や改善案があれば、気軽に Issue をオープンしてください。
-
-## 貢献方法
-
-1. このリポジトリをフォークします。
-2. フィーチャーブランチを作成します。(`git checkout -b feature/new_feature`)
-3. 変更をコミットします。(`git commit -m 'Add new_feature'`)
-4. ブランチをプッシュします。(`git push origin feature/new_feature`)
-5. プルリクエストを送信します。
 
 ## ライセンス
 
