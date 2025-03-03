@@ -13,7 +13,7 @@
 ## インストール
 
 ```bash
-pip install git+https://github.com/kasahart/wandas
+pip install wandas
 ```
 
 ## クイックスタート
