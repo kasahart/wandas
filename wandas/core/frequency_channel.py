@@ -110,14 +110,16 @@ class NOctChannel(BaseChannel):
         A特性を適用した振幅データを返します。
         """
 
-        weighted = librosa.perceptual_weighting(
+        weighted: NDArrayReal = librosa.perceptual_weighting(
             self._data[..., None] ** 2, self.fpref, kind="A", ref=self.ref**2
         ).squeeze()
 
         if to_dB:
-            return weighted
+            return weighted.astype(np.float64)
 
-        return np.asarray(librosa.db_to_amplitude(weighted, ref=self.ref))
+        return np.asarray(
+            librosa.db_to_amplitude(weighted, ref=self.ref), dtype=np.float64
+        )
 
     def plot(
         self,
@@ -295,14 +297,16 @@ class FrequencyChannel(BaseChannel):
         A特性を適用した振幅データを返します。
         """
         freqs = self.freqs
-        weighted = librosa.perceptual_weighting(
+        weighted: NDArrayReal = librosa.perceptual_weighting(
             np.abs(self._data[..., None]) ** 2, freqs, kind="A", ref=self.ref**2
         ).squeeze()
 
         if to_dB:
-            return weighted
+            return weighted.astype(np.float64)
 
-        return np.asarray(librosa.db_to_amplitude(weighted, ref=self.ref))
+        return np.asarray(
+            librosa.db_to_amplitude(weighted, ref=self.ref), dtype=np.float64
+        )
 
     def plot(
         self,
