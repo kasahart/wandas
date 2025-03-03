@@ -139,7 +139,7 @@ class TimeFrequencyChannel(BaseChannel):
         A特性を適用した振幅データを返します。
         """
         freqs = fft.rfftfreq(self.n_fft, 1 / self.sampling_rate)
-        weighted = librosa.perceptual_weighting(
+        weighted: NDArrayReal = librosa.perceptual_weighting(
             np.abs(self._data) ** 2, freqs, kind="A", ref=self.ref**2
         )
 
