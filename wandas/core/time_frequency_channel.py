@@ -127,13 +127,6 @@ class TimeFrequencyChannel(BaseChannel):
         )
         return util.transform_channel(self, TimeMelFrequencyChannel, **result)
 
-    @property
-    def data(self) -> NDArrayReal:
-        """
-        校正値を適用した振幅データを返します。
-        """
-        return self._data
-
     def data_Aw(self, to_dB: bool = False) -> NDArrayReal:  # noqa: N802, N803
         """
         A特性を適用した振幅データを返します。

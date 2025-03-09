@@ -70,7 +70,7 @@ class Channel(BaseChannel):
         nyq = 0.5 * self.sampling_rate
         normal_cutoff = cutoff / nyq
         b, a = butter(order, normal_cutoff, btype="highpass", analog=False)  # type: ignore[unused-ignore]
-        filtered_data = filtfilt(b, a, self._data)
+        filtered_data = filtfilt(b, a, self.data)
 
         result = dict(
             data=filtered_data.squeeze(),
@@ -93,7 +93,7 @@ class Channel(BaseChannel):
         nyq = 0.5 * self.sampling_rate
         normal_cutoff = cutoff / nyq
         b, a = butter(order, normal_cutoff, btype="lowpass", analog=False)  # type: ignore[unused-ignore]
-        filtered_data = filtfilt(b, a, self._data)
+        filtered_data = filtfilt(b, a, self.data)
 
         result = dict(
             data=filtered_data.squeeze(),

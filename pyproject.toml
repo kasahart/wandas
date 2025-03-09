@@ -23,6 +23,8 @@ dependencies = [
     "ipywidgets",
     "cattrs",
     "ipympl>=0.9.3",
+    "h5py>=3.13.0",
+    "dask>=2024.8.0",
 ]
 
 [project.urls]

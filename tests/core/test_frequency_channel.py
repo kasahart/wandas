@@ -45,7 +45,7 @@ def test_frequency_channel_initialization() -> None:
         metadata=metadata,
     )
 
-    assert np.array_equal(freq_channel._data, data)
+    assert np.array_equal(freq_channel.data, data)
     assert freq_channel.sampling_rate == sampling_rate
     assert freq_channel.n_fft == n_fft
     assert np.array_equal(freq_channel.window, window)

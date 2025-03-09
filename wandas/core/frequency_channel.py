@@ -111,7 +111,7 @@ class NOctChannel(BaseChannel):
         """
 
         weighted: NDArrayReal = librosa.perceptual_weighting(
-            self._data[..., None] ** 2, self.fpref, kind="A", ref=self.ref**2
+            self.data[..., None] ** 2, self.fpref, kind="A", ref=self.ref**2
         ).squeeze()
 
         if to_dB:
@@ -298,7 +298,7 @@ class FrequencyChannel(BaseChannel):
         """
         freqs = self.freqs
         weighted: NDArrayReal = librosa.perceptual_weighting(
-            np.abs(self._data[..., None]) ** 2, freqs, kind="A", ref=self.ref**2
+            np.abs(self.data[..., None]) ** 2, freqs, kind="A", ref=self.ref**2
         ).squeeze()
 
         if to_dB:

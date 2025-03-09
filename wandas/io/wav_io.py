@@ -23,7 +23,7 @@ def read_wav(filename: str, labels: Optional[list[str]] = None) -> "ChannelFrame
     from wandas.core.channel import Channel
     from wandas.core.channel_frame import ChannelFrame
 
-    sampling_rate, data = wavfile.read(filename)
+    sampling_rate, data = wavfile.read(filename, mmap=True)
 
     # データ型の正規化
     # if data.dtype != np.float32 and data.dtype != np.float64:
