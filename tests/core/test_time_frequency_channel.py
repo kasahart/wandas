@@ -3,6 +3,7 @@
 import librosa
 import numpy as np
 import pytest
+from scipy import fft
 
 from wandas.core.channel import Channel
 from wandas.core.time_frequency_channel import (
@@ -396,3 +397,62 @@ def test_time_mel_frequency_channel_plot() -> None:
     assert ax.get_xlabel() == "Time [s]"
     assert ax.get_ylabel() == "Frequency [Hz]"
     assert ax.get_title() == "Test Mel Plot"
+    # Language: python
+
+
+def _create_dummy_tf_channel() -> TimeFrequencyChannel:
+    # Use small values so that rfftfreq returns a small array.
+    n_fft = 4
+    sampling_rate = 4
+    # Dummy data for BaseChannel purposes; it is overwritten later.
+    dummy_data = np.array([0, 1.0, 2.0, 3.0])
+    # Create a TimeFrequencyChannel instance.
+    tf_channel = TimeFrequencyChannel(
+        data=dummy_data,
+        sampling_rate=sampling_rate,
+        n_fft=n_fft,
+        hop_length=2,
+        win_length=4,
+        window="hann",
+        label="Dummy TF Channel",
+        unit="Pa",
+        metadata={"test": "metadata"},
+    )
+
+    return tf_channel
+
+
+def test_data_aw_returns_weighted_to_db_when_flag_true() -> None:
+    # Instantiate dummy channel
+    tf_channel = _create_dummy_tf_channel()
+    # Compute frequency bins
+    freqs = fft.rfftfreq(tf_channel.n_fft, 1 / tf_channel.sampling_rate)
+    # Compute expected weighted power via perceptual weighting, then cast to float64
+    expected_weighted = librosa.perceptual_weighting(
+        np.abs(tf_channel._data) ** 2, freqs, kind="A", ref=tf_channel.ref**2
+    ).astype(np.float64)
+
+    # Call data_Aw with to_dB=True
+    result = tf_channel.data_Aw(to_dB=True)
+
+    # Assert that the result matches expected weighted values
+    np.testing.assert_allclose(result, expected_weighted, rtol=1e-5)
+
+
+def test_data_aw_returns_amplitude_converted_values_when_flag_false() -> None:
+    # Instantiate dummy channel
+    tf_channel = _create_dummy_tf_channel()
+    # Compute frequency bins
+    freqs = fft.rfftfreq(tf_channel.n_fft, 1 / tf_channel.sampling_rate)
+    # Compute expected weighted power via perceptual weighting
+    weighted = librosa.perceptual_weighting(
+        np.abs(tf_channel._data) ** 2, freqs, kind="A", ref=tf_channel.ref**2
+    )
+    # Convert weighted dB values to amplitude
+    expected_amplitude = np.asarray(librosa.db_to_amplitude(weighted), dtype=np.float64)
+
+    # Call data_Aw with to_dB=False
+    result = tf_channel.data_Aw(to_dB=False)
+
+    # Assert that the result matches expected amplitude values
+    np.testing.assert_allclose(result, expected_amplitude, rtol=1e-5)
