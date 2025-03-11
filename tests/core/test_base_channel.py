@@ -49,7 +49,8 @@ def test_init_success(tmp_path: Path) -> None:
     assert channel.metadata == metadata
     # previous should be None by default
     assert channel.get_previous() is None
-    # For non-memmap data, _data_path should be set and the file exists during initialization
+    # For non-memmap data, _data_path should be set and
+    # the file exists during initialization
     assert channel._data_path is not None
     assert os.path.exists(channel._data_path)
     # Cleanup
@@ -74,7 +75,7 @@ def test_init_with_memmap(tmp_path: Path) -> None:
     # For memmap input, _data_path should be None
     assert channel._data_path is None
     channel.close()
-    mem._mmap.close()  # type: ignore
+    mem._mmap.close()  # type: ignore[unused-ignore]
 
 
 def test_os_unlink_actual_deletion(monkeypatch: pytest.MonkeyPatch) -> None:
