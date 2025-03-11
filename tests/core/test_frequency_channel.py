@@ -476,4 +476,4 @@ def test_frequency_channel_plot_without_passing_ax() -> None:
     assert returned_ax.get_ylabel() == "Spectrum level [dB]"
     assert returned_ax.get_title() == "Auto-created Figure"
 
-    plt.close(returned_ax.figure)  # type: ignore [unused-ignore]
+    plt.close(returned_ax.figure)  # type: ignore [unused-ignore, arg-type]
