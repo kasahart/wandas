@@ -252,7 +252,8 @@ class TimeFrequencyChannel(BaseChannel):
             TimeFrequencyChannel: dBスケールに変換された新しい TimeFrequencyChannel。
         """
         return np.asarray(
-            librosa.amplitude_to_db(np.abs(self.data), ref=self.ref), np.float64
+            librosa.amplitude_to_db(np.abs(self.data), ref=self.ref, amin=1e-12),
+            np.float64,
         )
 
 

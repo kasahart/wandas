@@ -294,7 +294,7 @@ class Channel(BaseChannel):
         t = np.arange(num_samples) / rms_channel.sampling_rate
         ax.plot(
             t,
-            librosa.amplitude_to_db(rms_channel.data, ref=self.ref),
+            librosa.amplitude_to_db(rms_channel.data, ref=self.ref, amin=1e-12),
             label=rms_channel.label or "Channel",
         )
 
@@ -492,7 +492,9 @@ class Channel(BaseChannel):
         # 4番目のサブプロット (Welch Plot)
         ax_4 = fig.add_subplot(gs[4], sharey=ax_2)
         welch_ch = self.welch()
-        data_db = librosa.amplitude_to_db(np.abs(welch_ch.data), ref=welch_ch.ref)
+        data_db = librosa.amplitude_to_db(
+            np.abs(welch_ch.data), ref=welch_ch.ref, amin=1e-12
+        )
         ax_4.plot(data_db, welch_ch.freqs)
         ax_4.grid(True)
         ax_4.set(xlabel="Spectrum level [dB]")

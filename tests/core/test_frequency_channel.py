@@ -397,7 +397,7 @@ def test_frequency_channel_plot_without_aw() -> None:
     returned_ax, plotted_data = fc.plot(ax=ax, title="Default Plot", Aw=False)
 
     # Expected data computed using amplitude_to_db.
-    expected = librosa.amplitude_to_db(np.abs(fc.data), ref=fc.ref)
+    expected = librosa.amplitude_to_db(np.abs(fc.data), ref=fc.ref, amin=1e-12)
 
     # There should be one line plotted.
     lines = returned_ax.get_lines()
@@ -457,7 +457,7 @@ def test_frequency_channel_plot_without_passing_ax() -> None:
     returned_ax, plotted_data = fc.plot(title="Auto-created Figure", Aw=False)
 
     # Expected data computed using amplitude_to_db.
-    expected = librosa.amplitude_to_db(np.abs(fc.data), ref=fc.ref)
+    expected = librosa.amplitude_to_db(np.abs(fc.data), ref=fc.ref, amin=1e-12)
     expected_freqs = np.asarray(fft.rfftfreq(fc.n_fft, 1 / fc.sampling_rate))
 
     # There should be one line plotted.
