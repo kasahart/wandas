@@ -70,7 +70,7 @@ class BaseChannel(ABC):
 
         if isinstance(data, np.memmap):
             # 既にメモリマップされたデータは numpy 配列に変換して dask.array でラップ
-            self._data: Array = da.from_array(data, chunks="auto")  # type: ignore [unused-ignore]
+            self._data: Array = da.from_array(data, chunks="auto")  # type: ignore [unused-ignore, attr-defined, no-untyped-call]
             self._data_path = None
             self._owns_file = False
         else:
@@ -85,7 +85,7 @@ class BaseChannel(ABC):
                 raise RuntimeError(f"HDF5 file creation failed: {e}")
             self._owns_file = True
             h5f = h5py.File(self._data_path, "r")
-            self._data = da.from_array(h5f["data"], chunks="auto")  # type: ignore [unused-ignore]
+            self._data = da.from_array(h5f["data"], chunks="auto")  # type: ignore [unused-ignore, attr-defined, no-untyped-call]
         self._finalizer = weakref.finalize(
             self, BaseChannel._finalize_cleanup, self._owns_file, self._data_path
         )

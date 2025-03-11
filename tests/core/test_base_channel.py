@@ -75,7 +75,7 @@ def test_init_with_memmap(tmp_path: Path) -> None:
     # For memmap input, _data_path should be None
     assert channel._data_path is None
     channel.close()
-    mem._mmap.close()  # type: ignore[unused-ignore]
+    mem._mmap.close()  # type: ignore [unused-ignore, attr-defined]
 
 
 def test_os_unlink_actual_deletion(monkeypatch: pytest.MonkeyPatch) -> None:
