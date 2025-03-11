@@ -509,4 +509,6 @@ class Channel(BaseChannel):
         with output:
             plt.show()
 
-        return widgets.VBox([output, self.to_audio(label=False)])
+        container = widgets.VBox([output, self.to_audio(label=False)])
+        # container.add_class("white-bg")
+        return container
