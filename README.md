@@ -21,15 +21,42 @@ pip install wandas
 ```python
 import wandas as wd
 
-# WAV ファイルの読み込み
-signal = wd.read_wav('audio_sample.wav')
+cf = wd.read_wav("data/summer_streets1.wav")
+cf.describe()
+```
 
-# 信号をプロット
-signal.plot()
+![alt text](images/read_wav_describe.png)
 
+```python
+cf.describe(
+    axis_config={
+        "time_plot": {"xlim": (0, 15), "ylim": (-30000, 30000)},
+        "freq_plot": {"xlim": (60, 120), "ylim": (0, 16000)},
+    },
+    cbar_config={"vmin": 10, "vmax": 70},
+)
+```
+
+![alt text](images/read_wav_describe_set_config.png)
+
+```python
+cf = wd.read_csv("data/test_signals.csv", time_column="Time")
+cf.plot(title="Plot of test_signals.csv using wandas", overlay=False)
+```
+
+![alt text](images/plot_csv_using_wandas.png)
+
+### 信号処理
+
+```python
+from wandas.utils import generate_sample
+signal = generate_sample.generate_sin(freqs=[5000, 1000], duration=1)
+signal.sum
 # ローパスフィルタを適用
 filtered_signal = signal.low_pass_filter(cutoff=1000)
+```
 
+```python
 # スペクトル解析のためにフーリエ変換を実行
 spectrum = filtered_signal.fft()
 
