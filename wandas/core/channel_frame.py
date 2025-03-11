@@ -16,6 +16,8 @@ from wandas.io import wav_io
 from wandas.utils.types import NDArrayReal
 
 if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+
     from wandas.core.frequency_channel_frame import FrequencyChannelFrame
 
 
@@ -227,7 +229,7 @@ class ChannelFrame:
 
     def plot(
         self,
-        ax: Optional[Any] = None,
+        ax: Optional["Axes"] = None,
         title: Optional[str] = None,
         overlay: bool = True,
     ) -> None:
@@ -240,20 +242,12 @@ class ChannelFrame:
                                       重ねて描画します。False の場合、各チャンネルを
                                       個別のプロットに描画します。
         """
-        if overlay:
-            if ax is None:
-                fig, ax = plt.subplots(figsize=(10, 4))
+        if ax is not None and not overlay:
+            raise ValueError("ax must be None when overlay is False.")
 
-            for channel in self.channels:
-                channel.plot(ax=ax)
+        suptitle = title or self.label or "Signal"
 
-            ax.grid(True)
-            ax.legend()
-
-            if ax is None:
-                plt.tight_layout()
-                plt.show()
-        else:
+        if not overlay:
             num_channels = len(self.channels)
             fig, axs = plt.subplots(
                 num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
@@ -262,10 +256,30 @@ class ChannelFrame:
                 axs = [axs]  # Ensure axs is iterable when there's only one channel
 
             for i, channel in enumerate(self.channels):
-                channel.plot(ax=axs[i])
+                tmp = axs[i]
+                channel.plot(ax=tmp)
+                leg = tmp.get_legend()
+                if leg:
+                    leg.remove()
 
-            axs[-1].set_xlabel("Time (s)")
-            fig.suptitle(title or self.label or "Signal")
+            fig.suptitle(suptitle)
+            plt.tight_layout()
+            plt.show()
+            return
+
+        if ax is None:
+            fig, tmp = plt.subplots(figsize=(10, 4))
+        else:
+            tmp = ax
+
+        for channel in self.channels:
+            channel.plot(ax=tmp)
+
+        tmp.grid(True)
+        tmp.legend()
+        tmp.set_title(suptitle)
+
+        if ax is None:
             plt.tight_layout()
             plt.show()
 
@@ -309,11 +323,25 @@ class ChannelFrame:
             for i, channel in enumerate(self.channels):
                 channel.rms_plot(ax=axs[i])
 
-            axs[-1].set_xlabel("Time (s)")
+            axs[-1].set_xlabel("Time [s]")
 
             fig.suptitle(title or self.label or "Signal")
             plt.tight_layout()
             plt.show()
+
+    def high_pass_filter(self, cutoff: float, order: int = 5) -> "ChannelFrame":
+        """
+        ハイパスフィルタをすべてのチャンネルに適用します。
+
+        Parameters:
+            cutoff (float): カットオフ周波数（Hz）。
+            order (int): フィルタの次数。
+
+        Returns:
+            ChannelFrame: フィルタリングされた新しい ChannelFrame オブジェクト。
+        """
+        filtered_channels = [ch.high_pass_filter(cutoff, order) for ch in self.channels]
+        return ChannelFrame(filtered_channels, label=self.label)
 
     def low_pass_filter(self, cutoff: float, order: int = 5) -> "ChannelFrame":
         """
@@ -343,6 +371,38 @@ class ChannelFrame:
         from wandas.core.frequency_channel_frame import FrequencyChannelFrame
 
         chs = [ch.fft(n_fft=n_fft, window=window) for ch in self.channels]
+
+        return FrequencyChannelFrame(
+            channels=chs,
+            label=self.label,
+        )
+
+    def welch(
+        self,
+        n_fft: Optional[int] = None,
+        hop_length: Optional[int] = None,
+        win_length: int = 2048,
+        window: str = "hann",
+        average: str = "mean",
+    ) -> "FrequencyChannelFrame":
+        """
+        Welch 法を用いたパワースペクトル密度推定を実行します。
+
+        Returns:
+            FrequencyChannelFrame: 周波数と振幅データを含む Spectrum オブジェクト。
+        """
+        from wandas.core.frequency_channel_frame import FrequencyChannelFrame
+
+        chs = [
+            ch.welch(
+                n_fft=n_fft,
+                hop_length=hop_length,
+                win_length=win_length,
+                window=window,
+                average=average,
+            )
+            for ch in self.channels
+        ]
 
         return FrequencyChannelFrame(
             channels=chs,

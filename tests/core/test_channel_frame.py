@@ -69,6 +69,22 @@ def test_signal_sampling_rate_mismatch() -> None:
         ChannelFrame(channels=[channel1, channel2])
 
 
+def test_signal_high_pass_filter() -> None:
+    t = np.linspace(0, 1, 1000)
+    data1 = np.sin(2 * np.pi * 50 * t)
+    data2 = np.sin(2 * np.pi * 100 * t)
+    sampling_rate = 1000
+    channel1 = Channel(data=data1, sampling_rate=sampling_rate, label="Channel 1")
+    channel2 = Channel(data=data2, sampling_rate=sampling_rate, label="Channel 2")
+    signal = ChannelFrame(channels=[channel1, channel2])
+
+    filtered_signal = signal.high_pass_filter(cutoff=30)
+
+    # 各チャンネルがフィルタリングされていることを確認
+    for original_ch, filtered_ch in zip(signal.channels, filtered_signal.channels):
+        assert not np.array_equal(original_ch.data, filtered_ch.data)
+
+
 def test_signal_low_pass_filter() -> None:
     t = np.linspace(0, 1, 1000)
     data1 = np.sin(2 * np.pi * 50 * t)
@@ -107,6 +123,38 @@ def test_signal_fft() -> None:
 
         # Find the frequency bin with the maximum amplitude
         freqs = np.fft.fftfreq(1024, 1 / sampling_rate)
+        fft_data = np.abs(freq_ch.data)
+        peak_freq = freqs[np.argmax(fft_data)]
+
+        # Check if the peak frequency matches the expected frequency
+        assert np.isclose(peak_freq, expected_freq, atol=1)
+
+
+def test_signal_welch() -> None:
+    n_fft = 1024
+    win_length = n_fft
+    signal_length = n_fft * 5
+    sampling_rate = 1000
+
+    t = np.linspace(0, 1, sampling_rate)
+    data1 = np.sin(2 * np.pi * 125 * t)
+    data2 = np.sin(2 * np.pi * 250 * t)
+    channel1 = Channel(data=data1, sampling_rate=sampling_rate, label="Channel 1")
+    channel2 = Channel(data=data2, sampling_rate=sampling_rate, label="Channel 2")
+    signal = ChannelFrame(channels=[channel1, channel2])
+
+    spectrum = signal.welch(n_fft=n_fft, win_length=win_length, window="hann")
+
+    assert len(spectrum.channels) == 2
+    for freq_ch, label, expected_freq in zip(
+        spectrum.channels, ["Channel 1", "Channel 2"], [125, 250]
+    ):
+        assert freq_ch.label == label
+        assert freq_ch.n_fft == n_fft
+        assert not np.array_equal(freq_ch.window, np.hanning(signal_length))
+
+        # Find the frequency bin with the maximum amplitude
+        freqs = np.fft.rfftfreq(n_fft, 1 / sampling_rate)
         fft_data = np.abs(freq_ch.data)
         peak_freq = freqs[np.argmax(fft_data)]
 
@@ -582,7 +630,7 @@ def test_rms_plot_non_overlay(monkeypatch: pytest.MonkeyPatch) -> None:
 
     # 最下部の Axes の x軸ラベルが "Time (s)" に設定されていることを検証
     axs = fig.get_axes()
-    assert axs[-1].get_xlabel() == "Time (s)", (
+    assert axs[-1].get_xlabel() == "Time [s]", (
         f"x軸ラベルが期待 'Time (s)' ではなく、'{axs[-1].get_xlabel()}' です。"
     )
 

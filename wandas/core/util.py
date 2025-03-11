@@ -1,14 +1,14 @@
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import numpy as np
 
-from wandas.core.base_channel import BaseChannel
-from wandas.utils.types import NDArrayReal
+if TYPE_CHECKING:
+    from wandas.core.base_channel import BaseChannel
+    from wandas.utils.types import NDArrayReal
+T = TypeVar("T", bound="BaseChannel")
 
-T = TypeVar("T", bound=BaseChannel)
 
-
-def transform_channel(org: BaseChannel, target_class: type[T], **kwargs: Any) -> T:
+def transform_channel(org: "BaseChannel", target_class: type[T], **kwargs: Any) -> T:
     # データ変換を実行
     return target_class(
         data=kwargs.pop("data"),
@@ -31,7 +31,7 @@ def unit_to_ref(unit: str) -> float:
         return 1.0
 
 
-def calculate_rms(wave: NDArrayReal) -> float:
+def calculate_rms(wave: "NDArrayReal") -> float:
     """
     Calculate the root mean square of the wave.
     """

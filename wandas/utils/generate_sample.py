@@ -1,19 +1,19 @@
 # wandas/utils/generate_sample.py
 
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
 
-from ..core.channel import Channel
-from ..core.channel_frame import ChannelFrame
+if TYPE_CHECKING:
+    from ..core.channel_frame import ChannelFrame
 
 
-def generate_sample(
+def generate_sin(
     freqs: Union[float, list[float]] = 1000,
     sampling_rate: int = 16000,
     duration: float = 1.0,
     label: Optional[str] = None,
-) -> ChannelFrame:
+) -> "ChannelFrame":
     """
     サンプルの正弦波信号を生成します。
 
@@ -27,6 +27,9 @@ def generate_sample(
     Returns:
         ChannelFrame: 正弦波を含む ChannelFrame オブジェクト。
     """
+    from ..core.channel import Channel
+    from ..core.channel_frame import ChannelFrame
+
     t = np.linspace(0, duration, int(sampling_rate * duration), endpoint=False)
 
     if isinstance(freqs, list):

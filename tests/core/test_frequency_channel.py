@@ -1,7 +1,10 @@
 # tests/core/test_frequency_channel.py
+import librosa
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 from mosqito.sound_level_meter import noct_spectrum, noct_synthesis
+from scipy import fft
 
 from wandas.core.channel import Channel
 from wandas.core.frequency_channel import FrequencyChannel, NOctChannel
@@ -45,7 +48,7 @@ def test_frequency_channel_initialization() -> None:
         metadata=metadata,
     )
 
-    assert np.array_equal(freq_channel._data, data)
+    assert np.array_equal(freq_channel.data, data)
     assert freq_channel.sampling_rate == sampling_rate
     assert freq_channel.n_fft == n_fft
     assert np.array_equal(freq_channel.window, window)
@@ -287,3 +290,190 @@ def test_frequency_channel_noct_synthesis() -> None:
     assert np.isclose(noch.data.max(), spec_3.max(), atol=1e-5), (
         f"Expected {spec_3.max()}, but got {noch.data.max()}"
     )
+
+
+def test_frequency_channel_data_aw_db() -> None:
+    # Create a FrequencyChannel with simple known data.
+    data = np.array([2.0, 3.0, 4.0])
+    sampling_rate = 1000
+    n_fft = 4
+    fc = FrequencyChannel(
+        data=data,
+        sampling_rate=sampling_rate,
+        n_fft=n_fft,
+        window="hanning",
+        unit="Pa",
+    )
+
+    # Compute expected weighted values using the same librosa call.
+    freqs = fc.freqs
+    weighted = librosa.perceptual_weighting(
+        np.abs(data[..., None]) ** 2, freqs, kind="A", ref=fc.ref**2
+    ).squeeze()
+    expected = weighted.astype(np.float64)
+
+    # Get actual output with to_dB=True.
+    actual = fc.data_Aw(to_dB=True)
+    assert np.allclose(actual, expected), f"Expected {expected}, got {actual}"
+
+
+def test_frequency_channel_data_aw_linear() -> None:
+    # Create a FrequencyChannel with simple known data.
+    data = np.array([2.0, 3.0, 4.0])
+    sampling_rate = 1000
+    n_fft = 4
+    window = np.hanning(8)
+    fc = FrequencyChannel(
+        data=data,
+        sampling_rate=sampling_rate,
+        n_fft=n_fft,
+        window=window,
+        unit="Pa",
+    )
+
+    # Compute expected weighted values.
+    freqs = fc.freqs
+    weighted = librosa.perceptual_weighting(
+        np.abs(data[..., None]) ** 2, freqs, kind="A", ref=fc.ref**2
+    ).squeeze()
+    expected = np.asarray(
+        librosa.db_to_amplitude(weighted, ref=fc.ref), dtype=np.float64
+    )
+
+    # Get actual output with to_dB=False.
+    actual = fc.data_Aw(to_dB=False)
+    assert np.allclose(actual, expected), f"Expected {expected}, got {actual}"
+
+
+def test_data_aw_dtype_and_shape() -> None:
+    # Ensure that the output of data_Aw is always a numpy array of dtype float64
+    data = np.array([2.0, 3.0, 4.0])
+    sampling_rate = 2000
+    n_fft = 4
+    window = np.hanning(n_fft)
+    fc = FrequencyChannel(
+        data=data,
+        sampling_rate=sampling_rate,
+        n_fft=n_fft,
+        window=window,
+        unit="Pa",
+    )
+
+    # Test with both to_dB True and False.
+    out_db = fc.data_Aw(to_dB=True)
+    out_lin = fc.data_Aw(to_dB=False)
+    for out in (out_db, out_lin):
+        assert isinstance(out, np.ndarray), "Output is not a numpy array"
+        assert out.dtype == np.float64, "Output dtype is not float64"
+        assert out.shape == fc.freqs.shape, (
+            f"Expected shape {fc.freqs.shape}, got {out.shape}"
+        )
+
+
+def create_dummy_frequency_channel() -> FrequencyChannel:
+    # Create a simple FrequencyChannel instance with dummy data.
+    data = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+    sampling_rate = 1000
+    n_fft = 8
+    # Use a simple window for testing.
+    window = np.ones(8)
+    label = "Test Spectrum"
+    unit = "Pa"
+    fc = FrequencyChannel(
+        data=data,
+        sampling_rate=sampling_rate,
+        n_fft=n_fft,
+        window=window,
+        label=label,
+        unit=unit,
+    )
+    # Provide a reference value required for dB conversion.
+    return fc
+
+
+def test_frequency_channel_plot_without_aw() -> None:
+    fc = create_dummy_frequency_channel()
+    fig, ax = plt.subplots(figsize=(8, 4))
+    returned_ax, plotted_data = fc.plot(ax=ax, title="Default Plot", Aw=False)
+
+    # Expected data computed using amplitude_to_db.
+    expected = librosa.amplitude_to_db(np.abs(fc.data), ref=fc.ref, amin=1e-12)
+
+    # There should be one line plotted.
+    lines = returned_ax.get_lines()
+    assert len(lines) >= 1, "No line was plotted on the axes."
+    line = lines[0]
+
+    # Compare x-data and y-data.
+    expected_freqs = np.asarray(fft.rfftfreq(fc.n_fft, 1 / fc.sampling_rate))
+    xdata = np.array(line.get_xdata())
+    np.testing.assert_allclose(xdata, expected_freqs, atol=1e-5)
+
+    ydata = np.array(line.get_ydata())
+    np.testing.assert_allclose(ydata, expected, atol=1e-5)
+
+    # Verify labels.
+    assert returned_ax.get_xlabel() == "Frequency [Hz]"
+    assert returned_ax.get_ylabel() == "Spectrum level [dB]"
+    # Verify title.
+    assert returned_ax.get_title() == "Default Plot"
+
+    plt.close(fig)
+
+
+def test_frequency_channel_plot_with_aw() -> None:
+    fc = create_dummy_frequency_channel()
+    fig, ax = plt.subplots(figsize=(8, 4))
+    returned_ax, plotted_data = fc.plot(ax=ax, title="A特性 Plot", Aw=True)
+
+    # Expected data computed using data_Aw with to_dB=True.
+    expected = fc.data_Aw(to_dB=True)
+
+    # There should be one line plotted.
+    lines = returned_ax.get_lines()
+    assert len(lines) >= 1, "No line was plotted on the axes."
+    line = lines[0]
+
+    # Compare x-data and y-data.
+    expected_freqs = np.asarray(fft.rfftfreq(fc.n_fft, 1 / fc.sampling_rate))
+    xdata = np.array(line.get_xdata())
+    np.testing.assert_allclose(xdata, expected_freqs, atol=1e-5)
+
+    ydata = np.array(line.get_ydata())
+    np.testing.assert_allclose(ydata, expected, atol=1e-5)
+
+    # Verify labels.
+    assert returned_ax.get_xlabel() == "Frequency [Hz]"
+    assert returned_ax.get_ylabel() == "Spectrum level [dBA]"
+    # Verify title.
+    assert returned_ax.get_title() == "A特性 Plot"
+
+    plt.close(fig)
+
+
+def test_frequency_channel_plot_without_passing_ax() -> None:
+    # When no Axes is passed, plot should create its own figure.
+    fc = create_dummy_frequency_channel()
+    returned_ax, plotted_data = fc.plot(title="Auto-created Figure", Aw=False)
+
+    # Expected data computed using amplitude_to_db.
+    expected = librosa.amplitude_to_db(np.abs(fc.data), ref=fc.ref, amin=1e-12)
+    expected_freqs = np.asarray(fft.rfftfreq(fc.n_fft, 1 / fc.sampling_rate))
+
+    # There should be one line plotted.
+    lines = returned_ax.get_lines()
+    assert len(lines) >= 1, "No line was plotted on the axes."
+    line = lines[0]
+
+    xdata = np.array(line.get_xdata())
+    np.testing.assert_allclose(xdata, expected_freqs, atol=1e-5)
+
+    ydata = np.array(line.get_ydata())
+    np.testing.assert_allclose(ydata, expected, atol=1e-5)
+
+    # Verify labels and title.
+    assert returned_ax.get_xlabel() == "Frequency [Hz]"
+    assert returned_ax.get_ylabel() == "Spectrum level [dB]"
+    assert returned_ax.get_title() == "Auto-created Figure"
+
+    plt.close(returned_ax.figure)  # type: ignore [unused-ignore, arg-type]

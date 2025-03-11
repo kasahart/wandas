@@ -70,7 +70,7 @@ class Channel(BaseChannel):
         nyq = 0.5 * self.sampling_rate
         normal_cutoff = cutoff / nyq
         b, a = butter(order, normal_cutoff, btype="highpass", analog=False)  # type: ignore[unused-ignore]
-        filtered_data = filtfilt(b, a, self._data)
+        filtered_data = filtfilt(b, a, self.data)
 
         result = dict(
             data=filtered_data.squeeze(),
@@ -93,7 +93,7 @@ class Channel(BaseChannel):
         nyq = 0.5 * self.sampling_rate
         normal_cutoff = cutoff / nyq
         b, a = butter(order, normal_cutoff, btype="lowpass", analog=False)  # type: ignore[unused-ignore]
-        filtered_data = filtfilt(b, a, self._data)
+        filtered_data = filtfilt(b, a, self.data)
 
         result = dict(
             data=filtered_data.squeeze(),
@@ -294,7 +294,7 @@ class Channel(BaseChannel):
         t = np.arange(num_samples) / rms_channel.sampling_rate
         ax.plot(
             t,
-            librosa.amplitude_to_db(rms_channel.data, ref=self.ref),
+            librosa.amplitude_to_db(rms_channel.data, ref=self.ref, amin=1e-12),
             label=rms_channel.label or "Channel",
         )
 
@@ -492,7 +492,9 @@ class Channel(BaseChannel):
         # 4番目のサブプロット (Welch Plot)
         ax_4 = fig.add_subplot(gs[4], sharey=ax_2)
         welch_ch = self.welch()
-        data_db = librosa.amplitude_to_db(np.abs(welch_ch.data), ref=welch_ch.ref)
+        data_db = librosa.amplitude_to_db(
+            np.abs(welch_ch.data), ref=welch_ch.ref, amin=1e-12
+        )
         ax_4.plot(data_db, welch_ch.freqs)
         ax_4.grid(True)
         ax_4.set(xlabel="Spectrum level [dB]")
@@ -509,4 +511,6 @@ class Channel(BaseChannel):
         with output:
             plt.show()
 
-        return widgets.VBox([output, self.to_audio(label=False)])
+        container = widgets.VBox([output, self.to_audio(label=False)])
+        # container.add_class("white-bg")
+        return container
