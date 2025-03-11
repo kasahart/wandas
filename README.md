@@ -49,22 +49,18 @@ cf.plot(title="Plot of test_signals.csv using wandas", overlay=False)
 ### 信号処理
 
 ```python
-from wandas.utils import generate_sample
-signal = generate_sample.generate_sin(freqs=[5000, 1000], duration=1)
-signal.sum
+signal = wd.generate_sin(freqs=[5000, 1000], duration=1)
 # ローパスフィルタを適用
-filtered_signal = signal.low_pass_filter(cutoff=1000)
+signal.low_pass_filter(cutoff=1000).fft().plot()
 ```
 
+![alt text](images/low_pass_filter.png)
+
 ```python
-# スペクトル解析のためにフーリエ変換を実行
-spectrum = filtered_signal.fft()
-
-# スペクトルをプロット
-spectrum.plot()
-
 # フィルタ済み信号を WAV ファイルに保存
-filtered_signal.to_wav('filtered_audio.wav')
+signal.low_pass_filter(cutoff=1000).to_wav('filtered_audio.wav')
+# Audioコントロール表示
+signal.to_audio()
 ```
 
 ## ドキュメント
