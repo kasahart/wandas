@@ -2,14 +2,14 @@
 
 from wandas.core.channel import Channel
 from wandas.core.channel_frame import ChannelFrame
-from wandas.utils.generate_sample import generate_sample
+from wandas.utils.generate_sample import generate_sin
 
 
-def test_generate_sample_single_frequency() -> None:
+def test_generate_sin_single_frequency() -> None:
     freq = 1000.0
     sampling_rate = 16000
     duration = 1.0
-    signal = generate_sample(
+    signal = generate_sin(
         freqs=freq, sampling_rate=sampling_rate, duration=duration, label="Test Signal"
     )
 
@@ -23,11 +23,11 @@ def test_generate_sample_single_frequency() -> None:
     assert len(channel.data) == int(sampling_rate * duration)
 
 
-def test_generate_sample_multiple_frequencies() -> None:
+def test_generate_sin_multiple_frequencies() -> None:
     freqs = [500.0, 800.0, 1000.0]
     sampling_rate = 16000
     duration = 1.0
-    signal = generate_sample(
+    signal = generate_sin(
         freqs=freqs, sampling_rate=sampling_rate, duration=duration, label="Test Signal"
     )
 
