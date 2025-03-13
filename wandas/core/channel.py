@@ -12,6 +12,7 @@ from matplotlib import gridspec
 from scipy.signal import butter, filtfilt
 
 from wandas.core import util
+from wandas.io import wav_io
 from wandas.utils.types import NDArrayReal
 
 from .base_channel import BaseChannel
@@ -253,7 +254,10 @@ class Channel(BaseChannel):
         return util.transform_channel(self, self.__class__, **result)
 
     def plot(
-        self, ax: Optional["Axes"] = None, title: Optional[str] = None
+        self,
+        ax: Optional["Axes"] = None,
+        title: Optional[str] = None,
+        plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> tuple["Axes", NDArrayReal]:
         """
         時系列データをプロットします。
@@ -263,7 +267,8 @@ class Channel(BaseChannel):
         if ax is None:
             fig, ax = plt.subplots(figsize=(10, 4))
 
-        ax.plot(self.time, self.data, label=self.label or "Channel")
+        plot_kwargs = plot_kwargs or {}
+        ax.plot(self.time, self.data, label=self.label or "Channel", **plot_kwargs)
 
         ax.set_xlabel("Time [s]")
         ylabel = f"Amplitude [{self.unit}]" if self.unit else "Amplitude"
@@ -294,7 +299,7 @@ class Channel(BaseChannel):
         t = np.arange(num_samples) / rms_channel.sampling_rate
         ax.plot(
             t,
-            librosa.amplitude_to_db(rms_channel.data, ref=self.ref, amin=1e-12),
+            util.amplitude_to_db(rms_channel.data, ref=self.ref),
             label=rms_channel.label or "Channel",
         )
 
@@ -431,6 +436,15 @@ class Channel(BaseChannel):
         )
         return util.transform_channel(self, self.__class__, **result)
 
+    def to_wav(self, filename: str) -> None:
+        """
+        Channel オブジェクトを WAV ファイルに書き出します。
+
+        Parameters:
+            filename (str): 出力する WAV ファイルのパス。
+        """
+        wav_io.write_wav(filename, self)
+
     def to_audio(self, normalize: bool = True, label: bool = True) -> widgets.VBox:
         output = widgets.Output()
         with output:
@@ -492,9 +506,7 @@ class Channel(BaseChannel):
         # 4番目のサブプロット (Welch Plot)
         ax_4 = fig.add_subplot(gs[4], sharey=ax_2)
         welch_ch = self.welch()
-        data_db = librosa.amplitude_to_db(
-            np.abs(welch_ch.data), ref=welch_ch.ref, amin=1e-12
-        )
+        data_db = util.amplitude_to_db(np.abs(welch_ch.data), ref=welch_ch.ref)
         ax_4.plot(data_db, welch_ch.freqs)
         ax_4.grid(True)
         ax_4.set(xlabel="Spectrum level [dB]")

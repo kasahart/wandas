@@ -1,11 +1,12 @@
 # wandas/io/wav_io.py
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
 from scipy.io import wavfile
 
 if TYPE_CHECKING:
+    from ..core.channel import Channel
     from ..core.channel_frame import ChannelFrame
 
 
@@ -46,3 +47,29 @@ def read_wav(filename: str, labels: Optional[list[str]] = None) -> "ChannelFrame
         )
 
     return ChannelFrame(channels=channels, label=filename)
+
+
+def write_wav(filename: str, target: Union["ChannelFrame", "Channel"]) -> None:
+    """
+    ChannelFrame オブジェクトを WAV ファイルに書き込みます。
+
+    Parameters:
+        filename (str): WAV ファイルのパス。
+        data (ChannelFrame): 書き込むデータを含む ChannelFrame オブジェクト。
+    """
+    from ..core.channel import Channel
+    from ..core.channel_frame import ChannelFrame
+
+    if isinstance(target, Channel):
+        data = target.data
+    elif isinstance(target, ChannelFrame):
+        data = np.column_stack([ch.data for ch in target.channels])
+    else:
+        raise ValueError(
+            "target は ChannelFrame または Channel オブジェクトである必要があります。"
+        )
+
+    # 16ビット整数にスケーリング
+    max_int16 = np.iinfo(np.int16).max
+    scaled_data = np.int16(data / np.max(np.abs(data)) * max_int16)
+    wavfile.write(filename=filename, rate=target.sampling_rate, data=scaled_data)

@@ -29,6 +29,8 @@ class FrequencyChannelFrame:
         ax: Optional[Any] = None,
         title: Optional[str] = None,
         Aw: bool = False,  # noqa: N803
+        overlay: bool = True,
+        plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> None:
         """
         スペクトルデータをプロットします。
@@ -37,16 +39,42 @@ class FrequencyChannelFrame:
             ax (matplotlib.axes.Axes, optional): プロットに使用する Axes オブジェクト。
             title (str, optional): プロットのタイトル。
         """
-        _ax = ax
-        if _ax is None:
-            _, _ax = plt.subplots(figsize=(10, 4))
+        if ax is not None and not overlay:
+            raise ValueError("ax must be None when overlay is False.")
+
+        suptitle = title or self.label or "Spectrum"
+
+        if not overlay:
+            num_channels = len(self.channels)
+            fig, axs = plt.subplots(
+                num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
+            )
+            if num_channels == 1:
+                axs = [axs]  # Ensure axs is iterable when there's only one channel
+
+            for i, channel in enumerate(self.channels):
+                tmp = axs[i]
+                channel.plot(ax=tmp, Aw=Aw, plot_kwargs=plot_kwargs)
+                leg = tmp.get_legend()
+                if leg:
+                    leg.remove()
+
+            fig.suptitle(suptitle)
+            plt.tight_layout()
+            plt.show()
+            return
+
+        if ax is None:
+            fig, tmp = plt.subplots(figsize=(10, 4))
+        else:
+            tmp = ax
 
         for channel in self.channels:
-            channel.plot(ax=_ax, Aw=Aw)
+            channel.plot(ax=tmp, Aw=Aw, plot_kwargs=plot_kwargs)
 
-        _ax.set_title(title or self.label or "Spectrum")
-        _ax.grid(True)
-        _ax.legend()
+        tmp.grid(True)
+        tmp.legend()
+        tmp.set_title(suptitle)
 
         if ax is None:
             plt.tight_layout()

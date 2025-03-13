@@ -1,6 +1,6 @@
 # tests/core/test_frequency_channel_frame.py
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -58,7 +58,7 @@ def test_plot_default(monkeypatch: pytest.MonkeyPatch) -> None:
     # Define a dummy frequency channel with a recording plot method.
     class DummyFrequencyChannel(FrequencyChannel):
         def __init__(self, label: str) -> None:
-            self.label = label
+            self._label = label
             self.plot_called = False
 
         def plot(
@@ -66,6 +66,7 @@ def test_plot_default(monkeypatch: pytest.MonkeyPatch) -> None:
             ax: Optional["Axes"] = None,
             title: Optional[str] = None,
             Aw: bool = False,  # noqa: N803
+            plot_kwargs: Optional[dict[str, Any]] = None,
         ) -> tuple["Axes", NDArrayReal]:
             self.plot_called = True
             _, ax = plt.subplots(figsize=(10, 4))
@@ -95,7 +96,7 @@ def test_plot_with_ax(monkeypatch: pytest.MonkeyPatch) -> None:
     # Define a dummy frequency channel with a recording plot method.
     class DummyFrequencyChannel(FrequencyChannel):
         def __init__(self, label: str) -> None:
-            self.label: str = label
+            self._label: str = label
             self.plot_called: bool = False
 
         def plot(
@@ -103,6 +104,7 @@ def test_plot_with_ax(monkeypatch: pytest.MonkeyPatch) -> None:
             ax: Optional["Axes"] = None,
             title: Optional[str] = None,
             Aw: bool = False,  # noqa: N803
+            plot_kwargs: Optional[dict[str, Any]] = None,
         ) -> tuple["Axes", NDArrayReal]:
             self.plot_called = True
             _, ax = plt.subplots(figsize=(10, 4))
@@ -135,7 +137,7 @@ def test_plot_matrix() -> None:
     # Define a dummy frequency channel with a recording plot method.
     class DummyFrequencyChannel(FrequencyChannel):
         def __init__(self, label: str) -> None:
-            self.label: str = label
+            self._label: str = label
             self.plot_called: bool = False
 
         def plot(
@@ -143,6 +145,7 @@ def test_plot_matrix() -> None:
             ax: Optional["Axes"] = None,
             title: Optional[str] = None,
             Aw: bool = False,  # noqa: N803
+            plot_kwargs: Optional[dict[str, Any]] = None,
         ) -> tuple["Axes", NDArrayReal]:
             self.plot_called = True
             if ax is None:

@@ -30,10 +30,10 @@ class BaseChannel(ABC):
         "_owns_file",
         "_is_closed",
         "_sampling_rate",
-        "label",
-        "unit",
-        "metadata",
-        "ref",
+        "_label",
+        "_unit",
+        "_metadata",
+        "_ref",
         "_finalizer",
         "_lock",
         "previous",  # 追加：変換前の状態を保持する属性
@@ -59,10 +59,10 @@ class BaseChannel(ABC):
             metadata (dict, optional): その他のメタデータ。
         """
         self._sampling_rate = sampling_rate
-        self.label = label or ""
-        self.unit = unit or ""
-        self.metadata = metadata or {}
-        self.ref = util.unit_to_ref(self.unit)
+        self._label = label or ""
+        self._unit = unit or ""
+        self._metadata = metadata or {}
+        self._ref = util.unit_to_ref(self.unit)
         self._is_closed = False
         self._lock = threading.Lock()
         self.previous = previous  # 変換前の状態を保持
@@ -118,6 +118,42 @@ class BaseChannel(ABC):
         サンプリング周波数を返します。
         """
         return self._sampling_rate
+
+    @property
+    def label(self) -> str:
+        """
+        ラベルを返します。
+        """
+        return self._label
+
+    @property
+    def unit(self) -> str:
+        """
+        単位を返します。
+        """
+        return self._unit
+
+    @unit.setter
+    def unit(self, unit: str) -> None:
+        """
+        単位を設定します。
+        """
+        self._unit = unit
+        self._ref = util.unit_to_ref(unit)
+
+    @property
+    def metadata(self) -> dict[str, Any]:
+        """
+        メタデータを返します。
+        """
+        return self._metadata
+
+    @property
+    def ref(self) -> float:
+        """
+        参照値を返します。
+        """
+        return self._ref
 
     @staticmethod
     def _finalize_cleanup(owns_file: bool, data_path: Union[str, Path, None]) -> None:
