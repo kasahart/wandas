@@ -139,7 +139,7 @@ class NOctChannel(BaseChannel):
             data = self.data_Aw(to_dB=True)
         else:
             unit = "dBr"
-            data = librosa.amplitude_to_db(np.abs(self.data), ref=self.ref, amin=1e-12)
+            data = util.amplitude_to_db(self.data, ref=self.ref)
 
         ax.step(
             self.fpref,
@@ -326,7 +326,7 @@ class FrequencyChannel(BaseChannel):
             data = self.data_Aw(to_dB=True)
         else:
             unit = "dB"
-            data = librosa.amplitude_to_db(np.abs(self.data), ref=self.ref, amin=1e-12)
+            data = util.amplitude_to_db(np.abs(self.data), ref=self.ref)
 
         ax.plot(
             self.freqs,

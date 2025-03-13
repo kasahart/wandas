@@ -58,7 +58,7 @@ def test_plot_default(monkeypatch: pytest.MonkeyPatch) -> None:
     # Define a dummy frequency channel with a recording plot method.
     class DummyFrequencyChannel(FrequencyChannel):
         def __init__(self, label: str) -> None:
-            self.label = label
+            self._label = label
             self.plot_called = False
 
         def plot(
@@ -95,7 +95,7 @@ def test_plot_with_ax(monkeypatch: pytest.MonkeyPatch) -> None:
     # Define a dummy frequency channel with a recording plot method.
     class DummyFrequencyChannel(FrequencyChannel):
         def __init__(self, label: str) -> None:
-            self.label: str = label
+            self._label: str = label
             self.plot_called: bool = False
 
         def plot(
@@ -135,7 +135,7 @@ def test_plot_matrix() -> None:
     # Define a dummy frequency channel with a recording plot method.
     class DummyFrequencyChannel(FrequencyChannel):
         def __init__(self, label: str) -> None:
-            self.label: str = label
+            self._label: str = label
             self.plot_called: bool = False
 
         def plot(

@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, Any, TypeVar
 
+import librosa
 import numpy as np
 
 if TYPE_CHECKING:
@@ -42,3 +43,13 @@ def calculate_desired_noise_rms(clean_rms: float, snr: float) -> float:
     a = snr / 20
     noise_rms = clean_rms / 10**a
     return noise_rms
+
+
+def amplitude_to_db(amplitude: "NDArrayReal", ref: float) -> "NDArrayReal":
+    """
+    Convert amplitude to decibel.
+    """
+    db: NDArrayReal = librosa.amplitude_to_db(
+        np.abs(amplitude), ref=ref, amin=1e-15, top_db=300
+    )
+    return db
