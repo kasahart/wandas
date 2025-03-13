@@ -12,6 +12,7 @@ from matplotlib import gridspec
 from scipy.signal import butter, filtfilt
 
 from wandas.core import util
+from wandas.io import wav_io
 from wandas.utils.types import NDArrayReal
 
 from .base_channel import BaseChannel
@@ -430,6 +431,15 @@ class Channel(BaseChannel):
             label=label,
         )
         return util.transform_channel(self, self.__class__, **result)
+
+    def to_wav(self, filename: str) -> None:
+        """
+        Channel オブジェクトを WAV ファイルに書き出します。
+
+        Parameters:
+            filename (str): 出力する WAV ファイルのパス。
+        """
+        wav_io.write_wav(filename, self)
 
     def to_audio(self, normalize: bool = True, label: bool = True) -> widgets.VBox:
         output = widgets.Output()
