@@ -225,6 +225,7 @@ class ChannelFrame:
         ax: Optional["Axes"] = None,
         title: Optional[str] = None,
         overlay: bool = True,
+        plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> None:
         """
         すべてのチャンネルをプロットします。
@@ -250,7 +251,7 @@ class ChannelFrame:
 
             for i, channel in enumerate(self.channels):
                 tmp = axs[i]
-                channel.plot(ax=tmp)
+                channel.plot(ax=tmp, plot_kwargs=plot_kwargs)
                 leg = tmp.get_legend()
                 if leg:
                     leg.remove()
@@ -266,7 +267,7 @@ class ChannelFrame:
             tmp = ax
 
         for channel in self.channels:
-            channel.plot(ax=tmp)
+            channel.plot(ax=tmp, plot_kwargs=plot_kwargs)
 
         tmp.grid(True)
         tmp.legend()

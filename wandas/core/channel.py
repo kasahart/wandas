@@ -254,7 +254,10 @@ class Channel(BaseChannel):
         return util.transform_channel(self, self.__class__, **result)
 
     def plot(
-        self, ax: Optional["Axes"] = None, title: Optional[str] = None
+        self,
+        ax: Optional["Axes"] = None,
+        title: Optional[str] = None,
+        plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> tuple["Axes", NDArrayReal]:
         """
         時系列データをプロットします。
@@ -264,7 +267,8 @@ class Channel(BaseChannel):
         if ax is None:
             fig, ax = plt.subplots(figsize=(10, 4))
 
-        ax.plot(self.time, self.data, label=self.label or "Channel")
+        plot_kwargs = plot_kwargs or {}
+        ax.plot(self.time, self.data, label=self.label or "Channel", **plot_kwargs)
 
         ax.set_xlabel("Time [s]")
         ylabel = f"Amplitude [{self.unit}]" if self.unit else "Amplitude"

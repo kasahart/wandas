@@ -313,6 +313,7 @@ class FrequencyChannel(BaseChannel):
         ax: Optional["Axes"] = None,
         title: Optional[str] = None,
         Aw: bool = False,  # noqa: N803
+        plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> tuple["Axes", NDArrayReal]:
         """
         スペクトルデータをプロットします。
@@ -328,11 +329,8 @@ class FrequencyChannel(BaseChannel):
             unit = "dB"
             data = util.amplitude_to_db(np.abs(self.data), ref=self.ref)
 
-        ax.plot(
-            self.freqs,
-            data,
-            label=self.label or "Spectrum",
-        )
+        plot_kwargs = plot_kwargs or {}
+        ax.plot(self.freqs, data, label=self.label or "Spectrum", **plot_kwargs)
 
         ax.set_xlabel("Frequency [Hz]")
         ylabel = f"Spectrum level [{unit}]"
