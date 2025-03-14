@@ -1,7 +1,10 @@
 # Wandas: **W**aveform **An**alysis **Da**ta **S**tructures
 
+[![PyPi](https://img.shields.io/pypi/v/wandas)](https://pypi.org/project/wandas/)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/wandas)
 [![CI](https://github.com/kasahart/wandas/actions/workflows/ci.yml/badge.svg)](https://github.com/kasahart/wandas/actions/workflows/ci.yml)
 [![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/kasahart/wandas/blob/main/LICENSE)
+[![Typing](https://img.shields.io/pypi/types/wandas)](https://pypi.org/project/wandas/)
 
 **Wandas** は、Pythonによる効率的な信号解析のためのオープンソースライブラリです。Wandas は、信号処理のための包括的な機能を提供し、Matplotlibとのシームレスな統合を実現しています。
 
@@ -25,7 +28,7 @@ cf = wd.read_wav("data/summer_streets1.wav")
 cf.describe()
 ```
 
-![alt text](images/read_wav_describe.png)
+![alt text](https://github.com/kasahart/wandas/blob/main/images/read_wav_describe.png?raw=true)
 
 ```python
 cf.describe(
@@ -37,14 +40,14 @@ cf.describe(
 )
 ```
 
-![alt text](images/read_wav_describe_set_config.png)
+![alt text](https://github.com/kasahart/wandas/blob/main/images/read_wav_describe_set_config.png?raw=true)
 
 ```python
 cf = wd.read_csv("data/test_signals.csv", time_column="Time")
 cf.plot(title="Plot of test_signals.csv using wandas", overlay=False)
 ```
 
-![alt text](images/plot_csv_using_wandas.png)
+![alt text](https://github.com/kasahart/wandas/blob/main/images/plot_csv_using_wandas.png?raw=true)
 
 ### 信号処理
 
@@ -54,7 +57,7 @@ signal = wd.generate_sin(freqs=[5000, 1000], duration=1)
 signal.low_pass_filter(cutoff=1000).fft().plot()
 ```
 
-![alt text](images/low_pass_filter.png)
+![alt text](https://github.com/kasahart/wandas/blob/main/images/low_pass_filter.png?raw=true)
 
 ```python
 # フィルタ済み信号を WAV ファイルに保存
