@@ -28,7 +28,7 @@ cf = wd.read_wav("data/summer_streets1.wav")
 cf.describe()
 ```
 
-![alt text](https://github.com/kasahart/wandas/blob/main/images/read_wav_describe.png?raw=true)
+![cf.describe](https://github.com/kasahart/wandas/blob/main/images/read_wav_describe.png?raw=true)
 
 ```python
 cf.describe(
@@ -40,14 +40,14 @@ cf.describe(
 )
 ```
 
-![alt text](https://github.com/kasahart/wandas/blob/main/images/read_wav_describe_set_config.png?raw=true)
+![cf.describe](https://github.com/kasahart/wandas/blob/main/images/read_wav_describe_set_config.png?raw=true)
 
 ```python
 cf = wd.read_csv("data/test_signals.csv", time_column="Time")
 cf.plot(title="Plot of test_signals.csv using wandas", overlay=False)
 ```
 
-![alt text](https://github.com/kasahart/wandas/blob/main/images/plot_csv_using_wandas.png?raw=true)
+![cf.plot](https://github.com/kasahart/wandas/blob/main/images/plot_csv_using_wandas.png?raw=true)
 
 ### 信号処理
 
@@ -57,7 +57,7 @@ signal = wd.generate_sin(freqs=[5000, 1000], duration=1)
 signal.low_pass_filter(cutoff=1000).fft().plot()
 ```
 
-![alt text](https://github.com/kasahart/wandas/blob/main/images/low_pass_filter.png?raw=true)
+![signal.low_pass_filter](https://github.com/kasahart/wandas/blob/main/images/low_pass_filter.png?raw=true)
 
 ```python
 # フィルタ済み信号を WAV ファイルに保存
