@@ -56,6 +56,27 @@ class Channel(BaseChannel):
         num_samples = len(self._data)
         return np.arange(num_samples) / self.sampling_rate
 
+    def trim(self, start: float, end: float) -> "Channel":
+        """
+        指定された範囲のデータを抽出します。
+
+        Parameters:
+            start (float): 抽出開始時刻（秒）。
+            end (float): 抽出終了時刻（秒）。
+
+        Returns:
+            Channel: 抽出されたデータを含む新しい Channel オブジェクト。
+        """
+        start_idx = int(start * self.sampling_rate)
+        end_idx = int(end * self.sampling_rate)
+        data = self.data[start_idx:end_idx]
+
+        result = dict(
+            data=data,
+        )
+
+        return util.transform_channel(self, self.__class__, **result)
+
     def high_pass_filter(self, cutoff: float, order: int = 5) -> "Channel":
         """
         ハイパスフィルタを適用します。

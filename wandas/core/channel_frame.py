@@ -220,6 +220,20 @@ class ChannelFrame:
         )
         return widgets.VBox(content, layout=layout)
 
+    def trim(self, start: float, end: float) -> "ChannelFrame":
+        """
+        指定された時間範囲でチャンネルをトリムします。
+
+        Parameters:
+            start (float): トリムの開始時間（秒）。
+            end (float): トリムの終了時間（秒）。
+
+        Returns:
+            ChannelFrame: トリムされた新しい ChannelFrame オブジェクト。
+        """
+        trimmed_channels = [ch.trim(start, end) for ch in self.channels]
+        return ChannelFrame(trimmed_channels, label=self.label)
+
     def plot(
         self,
         ax: Optional["Axes"] = None,

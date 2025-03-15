@@ -340,3 +340,60 @@ def test_channel_add_with_snr(monkeypatch: pytest.MonkeyPatch) -> None:
     result_channel = ch_clean.add(ch_noise, snr=snr_value)
 
     np.testing.assert_allclose(result_channel.data, expected_data, rtol=1e-5)
+
+
+def create_sequential_channel(
+    num_samples: int = 1000, sampling_rate: int = 1000
+) -> Channel:
+    data = np.arange(num_samples, dtype=float)
+    return Channel(data=data, sampling_rate=sampling_rate, label="Sequential")
+
+
+def test_channel_trim_extraction() -> None:
+    sampling_rate = 1000
+    channel = create_sequential_channel(num_samples=1000, sampling_rate=sampling_rate)
+
+    start_time = 0.2  # seconds
+    end_time = 0.5  # seconds
+    start_idx = int(start_time * sampling_rate)
+    end_idx = int(end_time * sampling_rate)
+
+    trimmed_channel = channel.trim(start_time, end_time)
+    expected_data = channel.data[start_idx:end_idx]
+
+    np.testing.assert_array_equal(trimmed_channel.data, expected_data)
+    # Ensure that other attributes are preserved
+    assert trimmed_channel.sampling_rate == channel.sampling_rate
+    assert trimmed_channel.label == channel.label
+
+
+def test_channel_trim_full_length() -> None:
+    sampling_rate = 1000
+    channel = create_sequential_channel(num_samples=1000, sampling_rate=sampling_rate)
+
+    # Trimming from start to end should return the full data
+    trimmed_channel = channel.trim(0.0, 1.0)
+    np.testing.assert_array_equal(trimmed_channel.data, channel.data)
+
+
+def test_channel_trim_edge_cases() -> None:
+    sampling_rate = 1000
+    num_samples = 1000
+    channel = create_sequential_channel(
+        num_samples=num_samples, sampling_rate=sampling_rate
+    )
+
+    # Test trimming with start time 0
+    trimmed_channel_start = channel.trim(0.0, 0.3)
+    expected_data_start = channel.data[: int(0.3 * sampling_rate)]
+    np.testing.assert_array_equal(trimmed_channel_start.data, expected_data_start)
+
+    # Test trimming with end time equal to duration
+    duration = num_samples / sampling_rate
+    trimmed_channel_end = channel.trim(0.7, duration)
+    expected_data_end = channel.data[int(0.7 * sampling_rate) :]
+    np.testing.assert_array_equal(trimmed_channel_end.data, expected_data_end)
+
+    # Test trimming with start and end resulting in zero samples if applicable
+    trimmed_channel_empty = channel.trim(0.5, 0.5)
+    assert trimmed_channel_empty.data.size == 0

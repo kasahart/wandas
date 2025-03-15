@@ -640,3 +640,60 @@ def test_rms_plot_non_overlay(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     plt.close(fig)
+
+
+def test_channel_frame_trim_normal() -> None:
+    sampling_rate = 1000
+    num_samples = 1000
+    data1 = np.arange(num_samples, dtype=float)
+    data2 = np.arange(num_samples, dtype=float) + 1000  # offset for distinction
+    channel1 = Channel(data=data1, sampling_rate=sampling_rate, label="Channel 1")
+    channel2 = Channel(data=data2, sampling_rate=sampling_rate, label="Channel 2")
+    cf = ChannelFrame(channels=[channel1, channel2], label="Test Signal")
+
+    start_time = 0.2
+    end_time = 0.5
+    start_idx = int(start_time * sampling_rate)
+    end_idx = int(end_time * sampling_rate)
+
+    trimmed_cf = cf.trim(start_time, end_time)
+
+    np.testing.assert_array_equal(trimmed_cf.channels[0].data, data1[start_idx:end_idx])
+    np.testing.assert_array_equal(trimmed_cf.channels[1].data, data2[start_idx:end_idx])
+    assert trimmed_cf.label == cf.label
+    assert trimmed_cf.sampling_rate == sampling_rate
+
+
+def test_channel_frame_trim_full_length() -> None:
+    sampling_rate = 1000
+    num_samples = 1000
+    data1 = np.arange(num_samples, dtype=float)
+    data2 = np.arange(num_samples, dtype=float) + 50
+    channel1 = Channel(data=data1, sampling_rate=sampling_rate, label="Channel 1")
+    channel2 = Channel(data=data2, sampling_rate=sampling_rate, label="Channel 2")
+    cf = ChannelFrame(channels=[channel1, channel2], label="Full Length Test")
+
+    trimmed_cf = cf.trim(0, num_samples / sampling_rate)
+
+    np.testing.assert_array_equal(trimmed_cf.channels[0].data, data1)
+    np.testing.assert_array_equal(trimmed_cf.channels[1].data, data2)
+    assert trimmed_cf.label == cf.label
+    assert trimmed_cf.sampling_rate == sampling_rate
+
+
+def test_channel_frame_trim_empty() -> None:
+    sampling_rate = 1000
+    num_samples = 1000
+    data1 = np.arange(num_samples, dtype=float)
+    data2 = np.arange(num_samples, dtype=float) + 10
+    channel1 = Channel(data=data1, sampling_rate=sampling_rate, label="Channel 1")
+    channel2 = Channel(data=data2, sampling_rate=sampling_rate, label="Channel 2")
+    cf = ChannelFrame(channels=[channel1, channel2], label="Empty Trim Test")
+
+    # Trimming where start and end are the same should yield empty channels.
+    trimmed_cf = cf.trim(0.5, 0.5)
+
+    assert trimmed_cf.channels[0].data.size == 0
+    assert trimmed_cf.channels[1].data.size == 0
+    assert trimmed_cf.label == cf.label
+    assert trimmed_cf.sampling_rate == sampling_rate
