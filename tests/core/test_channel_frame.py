@@ -697,3 +697,185 @@ def test_channel_frame_trim_empty() -> None:
     assert trimmed_cf.channels[1].data.size == 0
     assert trimmed_cf.label == cf.label
     assert trimmed_cf.sampling_rate == sampling_rate
+
+
+class DummyMatrixFrame:
+    def __init__(self, channel_frame: ChannelFrame):
+        self.channel_frame = channel_frame
+
+
+# Define a dummy implementation that simply wraps the provided ChannelFrame.
+def dummy_from_channel_frame(cf: ChannelFrame) -> DummyMatrixFrame:
+    return DummyMatrixFrame(cf)
+
+
+def test_to_matrix_frame_delegation(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Dummy MatrixFrame class to simulate
+    # the behavior of MatrixFrame.from_channel_frame.
+
+    # Monkey-patch the from_channel_frame method of MatrixFrame
+    # in the wandas.core.matrix_frame module.
+    monkeypatch.setattr(
+        "wandas.core.matrix_frame.MatrixFrame.from_channel_frame",
+        dummy_from_channel_frame,
+    )
+
+    # Import necessary objects
+
+    # Create a sample ChannelFrame with one channel.
+    sampling_rate = 1000
+    data = np.array([0, 1, 2], dtype=float)
+    channel = Channel(data=data, sampling_rate=sampling_rate, label="Test Channel")
+    cf = ChannelFrame(channels=[channel], label="Test CF")
+
+    # Call to_matrix_frame and verify that our dummy implementation is used.
+    matrix_frame = cf.to_matrix_frame()
+    assert isinstance(matrix_frame, DummyMatrixFrame), (
+        "Returned object is not an instance of DummyMatrixFrame."
+    )
+    # Verify that the ChannelFrame passed to the dummy equals the original.
+    assert matrix_frame.channel_frame == cf, (
+        "The ChannelFrame was not passed correctly to DummyMatrixFrame."
+    )
+
+
+def test_channel_frame_cut_basic() -> None:
+    # Prepare two channels with sequential data.
+    # Channel 1: 0..14, Channel 2: 100..114
+    data1 = np.arange(15, dtype=float)
+    data2 = np.arange(15, dtype=float) + 100
+    ch1 = Channel(data=data1, sampling_rate=1000, label="Ch1")
+    ch2 = Channel(data=data2, sampling_rate=1000, label="Ch2")
+    cf = ChannelFrame(channels=[ch1, ch2], label="TestSignal")
+
+    # Define a point_list with some valid and some invalid indices.
+    # Valid points: those p for which p+cut_len <= len(data)
+    point_list = [0, 5, 10, 13]  # p=13 is invalid since 13+3=16 > 15.
+    cut_len = 3
+    taper_rate = 0  # This yields a rectangular window (ones)
+    dc_cut = False
+
+    # Expected valid points: 0, 5, 10.
+    expected_seg_ch1: list[Channel] = ch1.cut(point_list, cut_len, taper_rate, dc_cut)
+    expected_seg_ch2: list[Channel] = ch2.cut(point_list, cut_len, taper_rate, dc_cut)
+
+    # Call cut; this returns a list of
+    # MatrixFrame objects (dummy: ChannelFrame objects).expected_seg_ch1[i].data
+    segments = cf.cut(point_list, cut_len, taper_rate, dc_cut)
+    assert len(segments) == 3, "Expected 3 segments from valid cut points."
+
+    # For each segment, check that both channels' data match the expected slices.
+    for i, seg in enumerate(segments):
+        # The segment is a ChannelFrame (returned via to_matrix_frame dummy).
+        # Check the label is updated.
+        expected_label = f"TestSignal, Segment:{i + 1}"
+        assert seg.label == expected_label, (
+            f"Segment label mismatch: expected {expected_label}, got {seg.label}."
+        )
+        # There should be exactly two channels.
+        assert len(seg._channels) == 2, "Each segment should contain two channels."
+        # Check that the data of each channel matches the expected slice.
+        actual_ch1 = seg[0].data
+        desired_ch1 = expected_seg_ch1[i].data
+        np.testing.assert_allclose(
+            actual_ch1,
+            desired_ch1,
+            err_msg=f"Segment {i + 1} channel 1 data mismatch.",
+        )
+        actual_ch2 = seg[1].data
+        desired_ch2 = expected_seg_ch2[i].data
+        np.testing.assert_allclose(
+            actual_ch2,
+            desired_ch2,
+            err_msg=f"Segment {i + 1} channel 2 data mismatch.",
+        )
+
+
+def test_channel_frame_cut_dc_cut() -> None:
+    # Prepare two channels with sequential data having DC offset.
+    data1 = np.arange(15, dtype=float)  # 0...14
+    data2 = np.arange(15, dtype=float) + 50  # 50...64
+    ch1 = Channel(data=data1, sampling_rate=1000, label="Ch1")
+    ch2 = Channel(data=data2, sampling_rate=1000, label="Ch2")
+    cf = ChannelFrame(channels=[ch1, ch2], label="DCSignal")
+
+    point_list = [2, 7, 10]  # All valid if 10+3<=15
+    cut_len = 3
+    taper_rate = 0  # rectangular window
+    dc_cut = True
+
+    # Expected valid points: 0, 5, 10.
+    expected_seg_ch1: list[Channel] = ch1.cut(point_list, cut_len, taper_rate, dc_cut)
+    expected_seg_ch2: list[Channel] = ch2.cut(point_list, cut_len, taper_rate, dc_cut)
+
+    segments = cf.cut(point_list, cut_len, taper_rate, dc_cut)
+    assert len(segments) == len(expected_seg_ch1), (
+        "Number of segments mismatch for dc_cut test."
+    )
+
+    for i, seg in enumerate(segments):
+        expected_label = f"DCSignal, Segment:{i + 1}"
+        assert seg.label == expected_label, f"Segment {i + 1} label mismatch."
+        assert len(seg._channels) == 2, "Each segment should contain two channels."
+        np.testing.assert_allclose(
+            seg[0].data,
+            expected_seg_ch1[i].data,
+            err_msg=f"Segment {i + 1} channel 1 data mismatch with dc_cut.",
+        )
+        np.testing.assert_allclose(
+            seg[1].data,
+            expected_seg_ch2[i].data,
+            err_msg=f"Segment {i + 1} channel 2 data mismatch with dc_cut.",
+        )
+
+
+def test_channel_frame_cut_empty() -> None:
+    # Create channels with short data so that no valid cut segments exist.
+    data = np.arange(
+        5, dtype=float
+    )  # length less than required for cut_len=3 from given point.
+    ch = Channel(data=data, sampling_rate=1000, label="Ch")
+    cf = ChannelFrame(channels=[ch], label="EmptyCutTest")
+
+    # Provide point_list with indices that are invalid.
+    point_list = [3, 4]  # For cut_len=3: 3+3 >5 and 4+3>5 -> no valid segments.
+    segments = cf.cut(point_list, cut_len=3, taper_rate=0, dc_cut=False)
+    assert segments == [], "Expected no segments when no valid cut points are provided."
+
+
+def test_channel_frame_cut_nonzero_taper() -> None:
+    # Prepare a channel with known data.
+    data = np.linspace(0, 29, 30, dtype=float)
+    ch1 = Channel(data=data, sampling_rate=1000, label="Ch1")
+    # Second channel offset by 100.
+    ch2 = Channel(data=data + 100, sampling_rate=1000, label="Ch2")
+    cf = ChannelFrame(channels=[ch1, ch2], label="TaperTest")
+
+    point_list = [0, 10, 20]  # All valid: 0+5, 10+5, 20+5 <= 30.
+    cut_len = 5
+    taper_rate = 0.5  # Non-zero taper produces a non-rectangular window.
+    dc_cut = False
+
+    # Expected valid points: 0, 5, 10.
+    expected_seg_ch1: list[Channel] = ch1.cut(point_list, cut_len, taper_rate, dc_cut)
+    expected_seg_ch2: list[Channel] = ch2.cut(point_list, cut_len, taper_rate, dc_cut)
+
+    segments = cf.cut(point_list, cut_len, taper_rate, dc_cut)
+    assert len(segments) == len(point_list), (
+        "Segment count mismatch for nonzero taper_rate test."
+    )
+
+    for i, seg in enumerate(segments):
+        expected_label = f"TaperTest, Segment:{i + 1}"
+        assert seg.label == expected_label, f"Segment {i + 1} label mismatch."
+        assert len(seg._channels) == 2, "Each segment should contain two channels."
+        np.testing.assert_allclose(
+            seg[0].data,
+            expected_seg_ch1[i].data,
+            err_msg=f"Segment {i + 1} channel 1 data mismatch with taper.",
+        )
+        np.testing.assert_allclose(
+            seg[1].data,
+            expected_seg_ch2[i].data,
+            err_msg=f"Segment {i + 1} channel 2 data mismatch with taper.",
+        )

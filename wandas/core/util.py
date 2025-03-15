@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 import librosa
 import numpy as np
+from scipy.signal.windows import tukey
 
 if TYPE_CHECKING:
     from wandas.core.base_channel import BaseChannel
@@ -53,3 +54,49 @@ def amplitude_to_db(amplitude: "NDArrayReal", ref: float) -> "NDArrayReal":
         np.abs(amplitude), ref=ref, amin=1e-15, top_db=300
     )
     return db
+
+
+def level_trigger(
+    data: "NDArrayReal", level: float, offset: int = 0, hold: int = 1
+) -> list[int]:
+    """
+    Level trigger
+    """
+    trig_point: list[int] = []
+
+    sig_len = len(data)
+    diff = np.diff(np.sign(data - level))
+    level_point = np.where(diff > 0)[0]
+    level_point = level_point[(level_point + hold) < sig_len]
+
+    if len(level_point) == 0:
+        return list()
+
+    last_point = level_point[0]
+    trig_point.append(last_point + offset)
+    for i in level_point:
+        if (last_point + hold) < i:
+            trig_point.append(i + offset)
+            last_point = i
+
+    return trig_point
+
+
+def cut_sig(
+    data: "NDArrayReal",
+    point_list: list[int],
+    cut_len: int,
+    taper_rate: float = 0,
+    dc_cut: bool = False,
+) -> "NDArrayReal":
+    length = len(data)
+    point_list_ = [p for p in point_list if p >= 0 and p + cut_len <= length]
+    trial = np.zeros((len(point_list_), cut_len))
+
+    for i, v in enumerate(point_list_):
+        trial[i] = data[v : v + cut_len]
+        if dc_cut:
+            trial[i] = trial[i] - trial[i].mean()
+
+    trial = trial * tukey(cut_len, taper_rate)
+    return trial

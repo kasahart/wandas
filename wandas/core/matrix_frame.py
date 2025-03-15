@@ -74,7 +74,7 @@ class MatrixFrame:
             channel_metadata = [{} for _ in range(num_channels)]
 
             # BaseChannel オブジェクトのリストを作成
-        self.channels = [
+        self._channels = [
             Channel(
                 data=np.array([]),
                 sampling_rate=sampling_rate,
@@ -88,7 +88,7 @@ class MatrixFrame:
         ]
 
         # ラベルからインデックスへのマッピングを作成
-        self.label_to_index = {ch.label: idx for idx, ch in enumerate(self.channels)}
+        self.label_to_index = {ch.label: idx for idx, ch in enumerate(self._channels)}
 
     def __len__(self) -> int:
         """
@@ -129,7 +129,7 @@ class MatrixFrame:
             raise TypeError("Key must be an integer index or a string label.")
 
         # チャネルデータとメタデータを取得
-        ch = self.channels[idx]
+        ch = self._channels[idx]
 
         # Channel オブジェクトを作成して返す
         return util.transform_channel(
@@ -361,7 +361,7 @@ class MatrixFrame:
         channel_labels = np.array(
             [
                 [
-                    f"{self.channels[i].label} / {self.channels[j].label}"
+                    f"{self._channels[i].label} / {self._channels[j].label}"
                     for j in range(num_channels)
                 ]
                 for i in range(num_channels)
@@ -370,7 +370,7 @@ class MatrixFrame:
         channel_units = np.array(
             [
                 [
-                    f"{self.channels[i].unit} / {self.channels[j].unit}"
+                    f"{self._channels[i].unit} / {self._channels[j].unit}"
                     for j in range(num_channels)
                 ]
                 for i in range(num_channels)

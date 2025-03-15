@@ -22,10 +22,10 @@ def test_matrix_frame_initialization() -> None:
     assert mf.data.shape == (3, 100)
     assert mf.sampling_rate == 1000
     assert mf.label == "Test Frame"
-    assert len(mf.channels) == 3
-    assert mf.channels[0].unit == "mV"
-    assert mf.channels[0].label == "Ch1"
-    assert mf.channels[0].metadata == {"type": "EEG"}
+    assert len(mf._channels) == 3
+    assert mf._channels[0].unit == "mV"
+    assert mf._channels[0].label == "Ch1"
+    assert mf._channels[0].metadata == {"type": "EEG"}
 
 
 def test_matrix_frame_invalid_initialization() -> None:

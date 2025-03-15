@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
     from wandas.core.frequency_channel_frame import FrequencyChannelFrame
+    from wandas.core.matrix_frame import MatrixFrame
 
 
 class ChannelFrame:
@@ -233,6 +234,51 @@ class ChannelFrame:
         """
         trimmed_channels = [ch.trim(start, end) for ch in self.channels]
         return ChannelFrame(trimmed_channels, label=self.label)
+
+    def cut(
+        self,
+        point_list: Union[list[int], list[float]],
+        cut_len: Union[int, float],
+        taper_rate: float = 0,
+        dc_cut: bool = False,
+    ) -> list["MatrixFrame"]:
+        """
+        チャンネルを指定された時間点でカットします。
+
+        Parameters:
+            point_list (list[int]): カットポイントのリスト。
+            cut_len (int): カットするデータ長。
+            taper_rate (float): テーパー率。
+            dc_cut (bool): DC カット。
+
+        Returns:
+            Channel: カットされた新しい Channel オブジェクト。
+        """
+
+        cut_channels = [
+            ch.cut(point_list, cut_len, taper_rate, dc_cut) for ch in self.channels
+        ]
+        segment_num = len(cut_channels[0])
+        matrix_frames = []
+        for i in range(segment_num):
+            matrix_frames.append(
+                ChannelFrame(
+                    channels=[ch[i] for ch in cut_channels],
+                    label=f"{self.label}, Segment:{i + 1}",
+                ).to_matrix_frame()
+            )
+        return matrix_frames
+
+    def to_matrix_frame(self) -> "MatrixFrame":
+        """
+        ChannelFrame オブジェクトを MatrixFrame オブジェクトに変換します。
+
+        Returns:
+            MatrixFrame: チャンネルデータを含む MatrixFrame オブジェクト。
+        """
+        from wandas.core.matrix_frame import MatrixFrame
+
+        return MatrixFrame.from_channel_frame(self)
 
     def plot(
         self,

@@ -77,6 +77,61 @@ class Channel(BaseChannel):
 
         return util.transform_channel(self, self.__class__, **result)
 
+    def trigger(
+        self,
+        threshold: float,
+        offset: int = 0,
+        hold: int = 1,
+        trigger_type: str = "level",
+    ) -> list[int]:
+        """
+        トリガーを検出します。
+
+        Parameters:
+            threshold (float): トリガー閾値。
+            offset (int): トリガー検出位置のオフセット。
+            hold (int): トリガーホールド。
+            trigger_type (str): トリガ
+                - "level": レベルトリガー
+        Returns:
+            list[int]: トリガー位置のリスト。
+        """
+        if trigger_type == "level":
+            return util.level_trigger(self.data, threshold, offset=offset, hold=hold)
+        else:
+            raise ValueError(f"Unsupported trigger type: {trigger_type}")
+
+    def cut(
+        self,
+        point_list: Union[list[int], list[float]],
+        cut_len: Union[int, float],
+        taper_rate: float = 0,
+        dc_cut: bool = False,
+    ) -> list["Channel"]:
+        """
+        チャンネルデータをカットします。
+
+        Parameters:
+            point_list (list[int]): カットポイントのリスト。
+            cut_len (int): カットするデータ長。
+            taper_rate (float): テーパー率。
+            dc_cut (bool): DC カット。
+
+        Returns:
+            Channel: カットされた新しい Channel オブジェクト。
+        """
+        # point_list がfloatの場合、サンプリングレートを考慮して整数に変換
+        _point_list: list[int] = [
+            int(p * self.sampling_rate) if isinstance(p, float) else p
+            for p in point_list
+        ]
+        # cut_len がfloatの場合、サンプリングレートを考慮して整数に変換
+        _cut_len = (
+            int(cut_len * self.sampling_rate) if isinstance(cut_len, float) else cut_len
+        )
+        data = util.cut_sig(self.data, _point_list, _cut_len, taper_rate, dc_cut)
+        return [util.transform_channel(self, self.__class__, data=d) for d in data]
+
     def high_pass_filter(self, cutoff: float, order: int = 5) -> "Channel":
         """
         ハイパスフィルタを適用します。
