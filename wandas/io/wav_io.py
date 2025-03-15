@@ -63,7 +63,7 @@ def write_wav(filename: str, target: Union["ChannelFrame", "Channel"]) -> None:
     if isinstance(target, Channel):
         data = target.data
     elif isinstance(target, ChannelFrame):
-        data = np.column_stack([ch.data for ch in target.channels])
+        data = np.column_stack([ch.data for ch in target])
     else:
         raise ValueError(
             "target は ChannelFrame または Channel オブジェクトである必要があります。"

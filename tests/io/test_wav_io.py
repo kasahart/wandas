@@ -47,14 +47,14 @@ def test_read_wav(create_test_wav: str) -> None:
     signal = read_wav(create_test_wav)
 
     # チャンネル数の確認
-    assert len(signal.channels) == 2
+    assert len(signal._channels) == 2
 
     # サンプリングレートの確認
     assert signal.sampling_rate == 44100
 
     # チャンネルデータの確認
-    assert np.allclose(signal.channels[0].data, 0.5)
-    assert np.allclose(signal.channels[1].data, 1.0)
+    assert np.allclose(signal._channels[0].data, 0.5)
+    assert np.allclose(signal._channels[1].data, 1.0)
     # tests/io/test_wav_io.py
 
 
@@ -96,13 +96,13 @@ def test_read_wav_default(create_stereo_wav: str) -> None:
     """
     channel_frame = read_wav(create_stereo_wav)
     # Assert two channels are present
-    assert len(channel_frame.channels) == 2
+    assert len(channel_frame._channels) == 2
     # Assert sampling rate
     assert channel_frame.sampling_rate == 44100
     # Assert channel data: each channel should be an array with constant values.
     # Since data is written as full arrays, test the first value in each channel.
-    np.testing.assert_allclose(channel_frame.channels[0].data[0], 0.5, rtol=1e-5)
-    np.testing.assert_allclose(channel_frame.channels[1].data[0], 1.0, rtol=1e-5)
+    np.testing.assert_allclose(channel_frame._channels[0].data[0], 0.5, rtol=1e-5)
+    np.testing.assert_allclose(channel_frame._channels[1].data[0], 1.0, rtol=1e-5)
 
 
 def test_read_wav_mono(create_mono_wav: str) -> None:
@@ -111,11 +111,11 @@ def test_read_wav_mono(create_mono_wav: str) -> None:
     """
     channel_frame = read_wav(create_mono_wav)
     # Assert one channel is present
-    assert len(channel_frame.channels) == 1
+    assert len(channel_frame._channels) == 1
     # Assert sampling rate
     assert channel_frame.sampling_rate == 22050
     # Check that the mono channel data is as expected
-    np.testing.assert_allclose(channel_frame.channels[0].data[0], 0.75, rtol=1e-5)
+    np.testing.assert_allclose(channel_frame._channels[0].data[0], 0.75, rtol=1e-5)
 
 
 def test_read_wav_with_labels(tmpdir: str) -> None:
@@ -135,8 +135,8 @@ def test_read_wav_with_labels(tmpdir: str) -> None:
     labels = ["Left Channel", "Right Channel"]
     channel_frame = read_wav(filepath, labels=labels)
     # Assert labels are set correctly
-    assert channel_frame.channels[0].label == "Left Channel"
-    assert channel_frame.channels[1].label == "Right Channel"
+    assert channel_frame._channels[0].label == "Left Channel"
+    assert channel_frame._channels[1].label == "Right Channel"
     # tests/io/test_wav_io.py
 
 
@@ -148,7 +148,7 @@ class DummyChannel(Channel):
 
 class DummyChannelFrame(ChannelFrame):
     def __init__(self, channels: list[Channel], sampling_rate: int, label: str = ""):
-        self.channels = channels
+        self._channels = channels
         self.sampling_rate = sampling_rate
         self.label = label
 

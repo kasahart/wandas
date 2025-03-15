@@ -31,7 +31,7 @@ class ChannelFrame:
             channels (list of Channel): Channel オブジェクトのリスト。
             label (str, optional): 信号のラベル。
         """
-        self.channels = channels
+        self._channels = channels
         self.label = label
 
         # サンプリングレートの一貫性をチェック
@@ -187,7 +187,7 @@ class ChannelFrame:
         return cls(channels=channels)
 
     def to_audio(self, normalize: bool = True) -> widgets.VBox:
-        return widgets.VBox([ch.to_audio(normalize) for ch in self.channels])
+        return widgets.VBox([ch.to_audio(normalize) for ch in self._channels])
 
     def describe(
         self,
@@ -213,7 +213,7 @@ class ChannelFrame:
         ]
         content += [
             ch.describe(axis_config=axis_config, cbar_config=cbar_config)
-            for ch in self.channels
+            for ch in self._channels
         ]
         # 中央寄せのレイアウトを設定
         layout = widgets.Layout(
@@ -232,7 +232,7 @@ class ChannelFrame:
         Returns:
             ChannelFrame: トリムされた新しい ChannelFrame オブジェクト。
         """
-        trimmed_channels = [ch.trim(start, end) for ch in self.channels]
+        trimmed_channels = [ch.trim(start, end) for ch in self._channels]
         return ChannelFrame(trimmed_channels, label=self.label)
 
     def cut(
@@ -256,7 +256,7 @@ class ChannelFrame:
         """
 
         cut_channels = [
-            ch.cut(point_list, cut_len, taper_rate, dc_cut) for ch in self.channels
+            ch.cut(point_list, cut_len, taper_rate, dc_cut) for ch in self._channels
         ]
         segment_num = len(cut_channels[0])
         matrix_frames = []
@@ -302,14 +302,14 @@ class ChannelFrame:
         suptitle = title or self.label or "Signal"
 
         if not overlay:
-            num_channels = len(self.channels)
+            num_channels = len(self._channels)
             fig, axs = plt.subplots(
                 num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
             )
             if num_channels == 1:
                 axs = [axs]  # Ensure axs is iterable when there's only one channel
 
-            for i, channel in enumerate(self.channels):
+            for i, channel in enumerate(self._channels):
                 tmp = axs[i]
                 channel.plot(ax=tmp, plot_kwargs=plot_kwargs)
                 leg = tmp.get_legend()
@@ -326,7 +326,7 @@ class ChannelFrame:
         else:
             tmp = ax
 
-        for channel in self.channels:
+        for channel in self._channels:
             channel.plot(ax=tmp, plot_kwargs=plot_kwargs)
 
         tmp.grid(True)
@@ -356,7 +356,7 @@ class ChannelFrame:
             if ax is None:
                 fig, ax = plt.subplots(figsize=(10, 4))
 
-            for channel in self.channels:
+            for channel in self._channels:
                 channel.rms_plot(ax=ax)
 
             ax.set_title(title or self.label or "Signal RMS")
@@ -367,14 +367,14 @@ class ChannelFrame:
                 plt.tight_layout()
                 plt.show()
         else:
-            num_channels = len(self.channels)
+            num_channels = len(self._channels)
             fig, axs = plt.subplots(
                 num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
             )
             if num_channels == 1:
                 axs = [axs]  # Ensure axs is iterable when there's only one channel
 
-            for i, channel in enumerate(self.channels):
+            for i, channel in enumerate(self._channels):
                 channel.rms_plot(ax=axs[i])
 
             axs[-1].set_xlabel("Time [s]")
@@ -394,7 +394,9 @@ class ChannelFrame:
         Returns:
             ChannelFrame: フィルタリングされた新しい ChannelFrame オブジェクト。
         """
-        filtered_channels = [ch.high_pass_filter(cutoff, order) for ch in self.channels]
+        filtered_channels = [
+            ch.high_pass_filter(cutoff, order) for ch in self._channels
+        ]
         return ChannelFrame(filtered_channels, label=self.label)
 
     def low_pass_filter(self, cutoff: float, order: int = 5) -> "ChannelFrame":
@@ -408,7 +410,7 @@ class ChannelFrame:
         Returns:
             ChannelFrame: フィルタリングされた新しい ChannelFrame オブジェクト。
         """
-        filtered_channels = [ch.low_pass_filter(cutoff, order) for ch in self.channels]
+        filtered_channels = [ch.low_pass_filter(cutoff, order) for ch in self._channels]
         return ChannelFrame(filtered_channels, label=self.label)
 
     def fft(
@@ -424,7 +426,7 @@ class ChannelFrame:
         """
         from wandas.core.frequency_channel_frame import FrequencyChannelFrame
 
-        chs = [ch.fft(n_fft=n_fft, window=window) for ch in self.channels]
+        chs = [ch.fft(n_fft=n_fft, window=window) for ch in self._channels]
 
         return FrequencyChannelFrame(
             channels=chs,
@@ -455,7 +457,7 @@ class ChannelFrame:
                 window=window,
                 average=average,
             )
-            for ch in self.channels
+            for ch in self._channels
         ]
 
         return FrequencyChannelFrame(
@@ -465,7 +467,8 @@ class ChannelFrame:
 
     # forでループを回すためのメソッド
     def __iter__(self) -> Iterator["Channel"]:
-        return iter(self.channels)
+        for idx in range(len(self)):
+            yield self[idx]
 
     def __getitem__(self, key: Union[str, int]) -> "Channel":
         """
@@ -484,9 +487,9 @@ class ChannelFrame:
             return self.channel_dict[key]
         elif isinstance(key, numbers.Integral):
             # インデックス番号でアクセス
-            if key < 0 or key >= len(self.channels):
+            if key < 0 or key >= len(self._channels):
                 raise IndexError(f"Channel index {key} out of range.")
-            return self.channels[key]
+            return self._channels[key]
         else:
             raise TypeError(
                 "Key must be either a string (channel name) or an integer "
@@ -497,18 +500,18 @@ class ChannelFrame:
         """
         チャンネルのデータ長を返します。
         """
-        return len(self.channels)
+        return len(self._channels)
 
     # 演算子オーバーロードの実装
     def __add__(self, other: "ChannelFrame") -> "ChannelFrame":
         """
         シグナル間の加算。
         """
-        assert len(self.channels) == len(other.channels), (
+        assert len(self._channels) == len(other._channels), (
             "ChannelFrame must have the same number of channels."
         )
         channels = [
-            self.channels[i] + other.channels[i] for i in range(len(self.channels))
+            self._channels[i] + other._channels[i] for i in range(len(self._channels))
         ]
         return ChannelFrame(channels=channels, label=f"({self.label} + {other.label})")
 
@@ -516,11 +519,11 @@ class ChannelFrame:
         """
         シグナル間の減算。
         """
-        assert len(self.channels) == len(other.channels), (
+        assert len(self._channels) == len(other._channels), (
             "ChannelFrame must have the same number of channels."
         )
         channels = [
-            self.channels[i] - other.channels[i] for i in range(len(self.channels))
+            self._channels[i] - other._channels[i] for i in range(len(self._channels))
         ]
         return ChannelFrame(channels=channels, label=f"({self.label} - {other.label})")
 
@@ -528,11 +531,11 @@ class ChannelFrame:
         """
         シグナル間の乗算。
         """
-        assert len(self.channels) == len(other.channels), (
+        assert len(self._channels) == len(other._channels), (
             "ChannelFrame must have the same number of channels."
         )
         channels = [
-            self.channels[i] * other.channels[i] for i in range(len(self.channels))
+            self._channels[i] * other._channels[i] for i in range(len(self._channels))
         ]
         return ChannelFrame(channels=channels, label=f"({self.label} * {other.label})")
 
@@ -540,11 +543,11 @@ class ChannelFrame:
         """
         シグナル間の除算。
         """
-        assert len(self.channels) == len(other.channels), (
+        assert len(self._channels) == len(other._channels), (
             "ChannelFrame must have the same number of channels."
         )
         channels = [
-            self.channels[i] / other.channels[i] for i in range(len(self.channels))
+            self._channels[i] / other._channels[i] for i in range(len(self._channels))
         ]
         return ChannelFrame(channels=channels, label=f"({self.label} / {other.label})")
 
@@ -555,11 +558,11 @@ class ChannelFrame:
         Returns:
             Channel: 合計されたチャンネル。
         """
-        data = np.stack([ch.data for ch in self.channels]).sum(axis=0)
+        data = np.stack([ch.data for ch in self._channels]).sum(axis=0)
         result = dict(
             data=data.squeeze(),
         )
-        return util.transform_channel(self.channels[0], Channel, **result)
+        return util.transform_channel(self._channels[0], Channel, **result)
 
     def mean(self) -> "Channel":
         """
@@ -568,11 +571,11 @@ class ChannelFrame:
         Returns:
             Channel: 平均されたチャンネル。
         """
-        data = np.stack([ch.data for ch in self.channels]).mean(axis=0)
+        data = np.stack([ch.data for ch in self._channels]).mean(axis=0)
         result = dict(
             data=data.squeeze(),
         )
-        return util.transform_channel(self.channels[0], Channel, **result)
+        return util.transform_channel(self._channels[0], Channel, **result)
 
     def channel_difference(self, other_channel: int = 0) -> "ChannelFrame":
         """
@@ -581,5 +584,5 @@ class ChannelFrame:
         Returns:
             ChannelFrame: 差分を計算した新しい ChannelFrame オブジェクト。
         """
-        channels = [ch - self.channels[other_channel] for ch in self.channels]
+        channels = [ch - self._channels[other_channel] for ch in self._channels]
         return ChannelFrame(channels=channels, label=f"(ch[*] - ch[{other_channel}])")

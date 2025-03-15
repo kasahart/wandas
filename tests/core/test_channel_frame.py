@@ -53,9 +53,9 @@ def test_signal_initialization() -> None:
     signal = ChannelFrame(channels=[channel1, channel2], label="Test Signal")
 
     assert signal.label == "Test Signal"
-    assert len(signal.channels) == 2
-    assert signal.channels[0] == channel1
-    assert signal.channels[1] == channel2
+    assert len(signal._channels) == 2
+    assert signal._channels[0] == channel1
+    assert signal._channels[1] == channel2
     assert signal.sampling_rate == sampling_rate
 
 
@@ -81,7 +81,7 @@ def test_signal_high_pass_filter() -> None:
     filtered_signal = signal.high_pass_filter(cutoff=30)
 
     # 各チャンネルがフィルタリングされていることを確認
-    for original_ch, filtered_ch in zip(signal.channels, filtered_signal.channels):
+    for original_ch, filtered_ch in zip(signal._channels, filtered_signal._channels):
         assert not np.array_equal(original_ch.data, filtered_ch.data)
 
 
@@ -97,7 +97,7 @@ def test_signal_low_pass_filter() -> None:
     filtered_signal = signal.low_pass_filter(cutoff=30)
 
     # 各チャンネルがフィルタリングされていることを確認
-    for original_ch, filtered_ch in zip(signal.channels, filtered_signal.channels):
+    for original_ch, filtered_ch in zip(signal._channels, filtered_signal._channels):
         assert not np.array_equal(original_ch.data, filtered_ch.data)
 
 
@@ -167,9 +167,9 @@ def test_signal_addition(generate_signals: tuple[ChannelFrame, ChannelFrame]) ->
     result_signal = signal1 + signal2
 
     # 各チャンネルの加算結果を確認
-    for i in range(len(signal1.channels)):
-        expected_data = signal1.channels[i].data + signal2.channels[i].data
-        assert np.array_equal(result_signal.channels[i].data, expected_data), (
+    for i in range(len(signal1._channels)):
+        expected_data = signal1._channels[i].data + signal2._channels[i].data
+        assert np.array_equal(result_signal._channels[i].data, expected_data), (
             f"Signal addition failed for channel {i + 1}."
         )
 
@@ -181,9 +181,9 @@ def test_signal_subtraction(
     result_signal = signal1 - signal2
 
     # 各チャンネルの減算結果を確認
-    for i in range(len(signal1.channels)):
-        expected_data = signal1.channels[i].data - signal2.channels[i].data
-        assert np.array_equal(result_signal.channels[i].data, expected_data), (
+    for i in range(len(signal1._channels)):
+        expected_data = signal1._channels[i].data - signal2._channels[i].data
+        assert np.array_equal(result_signal._channels[i].data, expected_data), (
             f"Signal subtraction failed for channel {i + 1}."
         )
 
@@ -195,9 +195,9 @@ def test_signal_multiplication(
     result_signal = signal1 * signal2
 
     # 各チャンネルの乗算結果を確認
-    for i in range(len(signal1.channels)):
-        expected_data = signal1.channels[i].data * signal2.channels[i].data
-        assert np.array_equal(result_signal.channels[i].data, expected_data), (
+    for i in range(len(signal1._channels)):
+        expected_data = signal1._channels[i].data * signal2._channels[i].data
+        assert np.array_equal(result_signal._channels[i].data, expected_data), (
             f"Signal multiplication failed for channel {i + 1}."
         )
 
@@ -207,9 +207,9 @@ def test_signal_division(generate_signals: tuple[ChannelFrame, ChannelFrame]) ->
     result_signal = signal1 / signal2
 
     # 各チャンネルの除算結果を確認
-    for i in range(len(signal1.channels)):
-        expected_data = signal1.channels[i].data / signal2.channels[i].data
-        assert np.allclose(result_signal.channels[i].data, expected_data, atol=1e-6), (
+    for i in range(len(signal1._channels)):
+        expected_data = signal1._channels[i].data / signal2._channels[i].data
+        assert np.allclose(result_signal._channels[i].data, expected_data, atol=1e-6), (
             f"Signal division failed for channel {i + 1}."
         )
 
@@ -220,11 +220,11 @@ def test_channel_frame_from_ndarray() -> None:
     labels = ["Channel 1", "Channel 2"]
     channel_frame = ChannelFrame.from_ndarray(array, sampling_rate, labels)
 
-    assert len(channel_frame.channels) == 2
-    assert channel_frame.channels[0].label == "Channel 1"
-    assert channel_frame.channels[1].label == "Channel 2"
-    assert np.array_equal(channel_frame.channels[0].data, array[0])
-    assert np.array_equal(channel_frame.channels[1].data, array[1])
+    assert len(channel_frame._channels) == 2
+    assert channel_frame._channels[0].label == "Channel 1"
+    assert channel_frame._channels[1].label == "Channel 2"
+    assert np.array_equal(channel_frame._channels[0].data, array[0])
+    assert np.array_equal(channel_frame._channels[1].data, array[1])
     assert channel_frame.sampling_rate == sampling_rate
 
 
@@ -236,9 +236,9 @@ def test_channel_frame_read_wav(tmp_path: Path) -> None:
 
     channel_frame = ChannelFrame.read_wav(str(filename))
 
-    assert len(channel_frame.channels) == 2
-    assert np.array_equal(channel_frame.channels[0].data, data[0])
-    assert np.array_equal(channel_frame.channels[1].data, data[1])
+    assert len(channel_frame._channels) == 2
+    assert np.array_equal(channel_frame._channels[0].data, data[0])
+    assert np.array_equal(channel_frame._channels[1].data, data[1])
     assert channel_frame.sampling_rate == sampling_rate
 
 
@@ -279,11 +279,11 @@ def test_from_ndarray() -> None:
     sampling_rate = 1000
     labels = ["Channel 1", "Channel 2"]
     cf = ChannelFrame.from_ndarray(data, sampling_rate, labels)
-    assert len(cf.channels) == 2
-    np.testing.assert_array_equal(cf.channels[0].data, data[0])
-    np.testing.assert_array_equal(cf.channels[1].data, data[1])
+    assert len(cf._channels) == 2
+    np.testing.assert_array_equal(cf._channels[0].data, data[0])
+    np.testing.assert_array_equal(cf._channels[1].data, data[1])
     assert cf.sampling_rate == sampling_rate
-    assert cf.channels[0].label == "Channel 1"
+    assert cf._channels[0].label == "Channel 1"
 
 
 # Test read_csv with valid CSV file
@@ -307,11 +307,11 @@ def test_read_csv_valid(tmp_path: Path) -> None:
     # Check the first channel
     expected_a = np.array([10, 11, 12, 13])
     expected_b = np.array([20, 21, 22, 23])
-    np.testing.assert_array_equal(cf.channels[0].data, expected_a)
-    np.testing.assert_array_equal(cf.channels[1].data, expected_b)
+    np.testing.assert_array_equal(cf._channels[0].data, expected_a)
+    np.testing.assert_array_equal(cf._channels[1].data, expected_b)
     # If header is present, labels should be the remaining column names.
-    assert cf.channels[0].label == "A"
-    assert cf.channels[1].label == "B"
+    assert cf._channels[0].label == "A"
+    assert cf._channels[1].label == "B"
 
 
 # Test read_csv with missing time column
@@ -369,7 +369,7 @@ def test_to_audio() -> None:
     audio_widget = cf.to_audio()
     assert isinstance(audio_widget, widgets.VBox)
     # Check that the number of children equals number of channels.
-    assert len(audio_widget.children) == len(cf.channels)
+    assert len(audio_widget.children) == len(cf._channels)
 
 
 def test_describe_returns_vbox() -> None:
@@ -466,9 +466,9 @@ def test_channel_difference() -> None:
     # Subtract channel 1 from all channels.
     diff_cf = cf.channel_difference(other_channel=0)
     # For channel 1, result should be zero.
-    np.testing.assert_array_equal(diff_cf.channels[0].data, data1 - data1)
-    np.testing.assert_array_equal(diff_cf.channels[1].data, data2 - data1)
-    np.testing.assert_array_equal(diff_cf.channels[2].data, data3 - data1)
+    np.testing.assert_array_equal(diff_cf._channels[0].data, data1 - data1)
+    np.testing.assert_array_equal(diff_cf._channels[1].data, data2 - data1)
+    np.testing.assert_array_equal(diff_cf._channels[2].data, data3 - data1)
 
 
 def test_plot_overlay_with_ax() -> None:
@@ -658,8 +658,12 @@ def test_channel_frame_trim_normal() -> None:
 
     trimmed_cf = cf.trim(start_time, end_time)
 
-    np.testing.assert_array_equal(trimmed_cf.channels[0].data, data1[start_idx:end_idx])
-    np.testing.assert_array_equal(trimmed_cf.channels[1].data, data2[start_idx:end_idx])
+    np.testing.assert_array_equal(
+        trimmed_cf._channels[0].data, data1[start_idx:end_idx]
+    )
+    np.testing.assert_array_equal(
+        trimmed_cf._channels[1].data, data2[start_idx:end_idx]
+    )
     assert trimmed_cf.label == cf.label
     assert trimmed_cf.sampling_rate == sampling_rate
 
@@ -675,8 +679,8 @@ def test_channel_frame_trim_full_length() -> None:
 
     trimmed_cf = cf.trim(0, num_samples / sampling_rate)
 
-    np.testing.assert_array_equal(trimmed_cf.channels[0].data, data1)
-    np.testing.assert_array_equal(trimmed_cf.channels[1].data, data2)
+    np.testing.assert_array_equal(trimmed_cf._channels[0].data, data1)
+    np.testing.assert_array_equal(trimmed_cf._channels[1].data, data2)
     assert trimmed_cf.label == cf.label
     assert trimmed_cf.sampling_rate == sampling_rate
 
@@ -693,8 +697,8 @@ def test_channel_frame_trim_empty() -> None:
     # Trimming where start and end are the same should yield empty channels.
     trimmed_cf = cf.trim(0.5, 0.5)
 
-    assert trimmed_cf.channels[0].data.size == 0
-    assert trimmed_cf.channels[1].data.size == 0
+    assert trimmed_cf._channels[0].data.size == 0
+    assert trimmed_cf._channels[1].data.size == 0
     assert trimmed_cf.label == cf.label
     assert trimmed_cf.sampling_rate == sampling_rate
 
