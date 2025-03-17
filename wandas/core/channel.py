@@ -3,19 +3,16 @@
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 import ipywidgets as widgets
-import librosa
-import librosa.feature
-import matplotlib.pyplot as plt
 import numpy as np
 from IPython.display import Audio, display
-from matplotlib import gridspec
-from scipy.signal import butter, filtfilt
 
-from wandas.core import util
+from wandas.core import channel_processing, util
+from wandas.core.arithmetic import ArithmeticMixin
 from wandas.io import wav_io
 from wandas.utils.types import NDArrayReal
 
 from .base_channel import BaseChannel
+from .channel_plotter import ChannelPlotter
 from .frequency_channel import FrequencyChannel, NOctChannel
 from .time_frequency_channel import TimeFrequencyChannel, TimeMelFrequencyChannel
 
@@ -23,7 +20,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
 
-class Channel(BaseChannel):
+class Channel(BaseChannel, ArithmeticMixin):
     def __init__(
         self,
         data: NDArrayReal,
@@ -31,6 +28,7 @@ class Channel(BaseChannel):
         label: Optional[str] = None,
         unit: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
+        previous: Optional["Channel"] = None,
     ):
         """
         Channel オブジェクトを初期化します。
@@ -46,6 +44,7 @@ class Channel(BaseChannel):
             label=label,
             unit=unit,
             metadata=metadata,
+            previous=previous,
         )
 
     @property
@@ -55,6 +54,78 @@ class Channel(BaseChannel):
         """
         num_samples = len(self._data)
         return np.arange(num_samples) / self.sampling_rate
+
+    def trim(self, start: float, end: float) -> "Channel":
+        """
+        指定された範囲のデータを抽出します。
+
+        Parameters:
+            start (float): 抽出開始時刻（秒）。
+            end (float): 抽出終了時刻（秒）。
+
+        Returns:
+            Channel: 抽出されたデータを含む新しい Channel オブジェクト。
+        """
+        start_idx = int(start * self.sampling_rate)
+        end_idx = int(end * self.sampling_rate)
+        data = self.data[start_idx:end_idx]
+
+        return Channel.from_channel(self, data=data)
+
+    def trigger(
+        self,
+        threshold: float,
+        offset: int = 0,
+        hold: int = 1,
+        trigger_type: str = "level",
+    ) -> list[int]:
+        """
+        トリガーを検出します。
+
+        Parameters:
+            threshold (float): トリガー閾値。
+            offset (int): トリガー検出位置のオフセット。
+            hold (int): トリガーホールド。
+            trigger_type (str): トリガ
+                - "level": レベルトリガー
+        Returns:
+            list[int]: トリガー位置のリスト。
+        """
+        if trigger_type == "level":
+            return util.level_trigger(self.data, threshold, offset=offset, hold=hold)
+        else:
+            raise ValueError(f"Unsupported trigger type: {trigger_type}")
+
+    def cut(
+        self,
+        point_list: Union[list[int], list[float]],
+        cut_len: Union[int, float],
+        taper_rate: float = 0,
+        dc_cut: bool = False,
+    ) -> list["Channel"]:
+        """
+        チャンネルデータをカットします。
+
+        Parameters:
+            point_list (list[int]): カットポイントのリスト。
+            cut_len (int): カットするデータ長。
+            taper_rate (float): テーパー率。
+            dc_cut (bool): DC カット。
+
+        Returns:
+            Channel: カットされた新しい Channel オブジェクト。
+        """
+        # point_list がfloatの場合、サンプリングレートを考慮して整数に変換
+        _point_list: list[int] = [
+            int(p * self.sampling_rate) if isinstance(p, float) else p
+            for p in point_list
+        ]
+        # cut_len がfloatの場合、サンプリングレートを考慮して整数に変換
+        _cut_len = (
+            int(cut_len * self.sampling_rate) if isinstance(cut_len, float) else cut_len
+        )
+        data = util.cut_sig(self.data, _point_list, _cut_len, taper_rate, dc_cut)
+        return [Channel.from_channel(self, data=d) for d in data]
 
     def high_pass_filter(self, cutoff: float, order: int = 5) -> "Channel":
         """
@@ -67,17 +138,13 @@ class Channel(BaseChannel):
         Returns:
             Channel: フィルタリングされた新しい Channel オブジェクト。
         """
-
-        nyq = 0.5 * self.sampling_rate
-        normal_cutoff = cutoff / nyq
-        b, a = butter(order, normal_cutoff, btype="highpass", analog=False)  # type: ignore[unused-ignore]
-        filtered_data = filtfilt(b, a, self.data)
-
-        result = dict(
-            data=filtered_data.squeeze(),
+        result = channel_processing.apply_filter(
+            ch=self,
+            cutoff=cutoff,
+            order=order,
+            filter_type="highpass",
         )
-
-        return util.transform_channel(self, self.__class__, **result)
+        return Channel.from_channel(self, **result)
 
     def low_pass_filter(self, cutoff: float, order: int = 5) -> "Channel":
         """
@@ -90,17 +157,13 @@ class Channel(BaseChannel):
         Returns:
             Channel: フィルタリングされた新しい Channel オブジェクト。
         """
-
-        nyq = 0.5 * self.sampling_rate
-        normal_cutoff = cutoff / nyq
-        b, a = butter(order, normal_cutoff, btype="lowpass", analog=False)  # type: ignore[unused-ignore]
-        filtered_data = filtfilt(b, a, self.data)
-
-        result = dict(
-            data=filtered_data.squeeze(),
+        result = channel_processing.apply_filter(
+            ch=self,
+            cutoff=cutoff,
+            order=order,
+            filter_type="lowpass",
         )
-
-        return util.transform_channel(self, self.__class__, **result)
+        return Channel.from_channel(self, **result)
 
     def fft(
         self,
@@ -118,9 +181,13 @@ class Channel(BaseChannel):
         Returns:
             FrequencyChannel: スペクトルデータを含むオブジェクト。
         """
-        result = FrequencyChannel.fft(data=self.data, n_fft=n_fft, window=window)
+        result = channel_processing.compute_fft(
+            ch=self,
+            n_fft=n_fft,
+            window=window,
+        )
 
-        return util.transform_channel(self, FrequencyChannel, **result)
+        return FrequencyChannel.from_channel(self, **result)
 
     def welch(
         self,
@@ -141,15 +208,15 @@ class Channel(BaseChannel):
         Returns:
             FrequencyChannel: スペクトルデータを含むオブジェクト。
         """
-        result = FrequencyChannel.welch(
-            data=self.data,
+        result = channel_processing.compute_welch(
+            ch=self,
             n_fft=n_fft,
             hop_length=hop_length,
             win_length=win_length,
             window=window,
             average=average,
         )
-        return util.transform_channel(self, FrequencyChannel, **result)
+        return FrequencyChannel.from_channel(self, **result)
 
     def noct_spectrum(
         self,
@@ -169,16 +236,15 @@ class Channel(BaseChannel):
             FrequencyChannel: オクターブバンドのスペクトルデータを含むオブジェクト。
         """
 
-        result = NOctChannel.noct_spectrum(
-            data=self.data,
-            sampling_rate=self.sampling_rate,
+        result = channel_processing.compute_octave(
+            ch=self,
+            n_octaves=n_octaves,
             fmin=fmin,
             fmax=fmax,
-            n=n_octaves,
             G=G,
             fr=fr,
         )
-        return util.transform_channel(self, NOctChannel, **result)
+        return NOctChannel.from_channel(self, **result)
 
     def stft(
         self,
@@ -201,16 +267,16 @@ class Channel(BaseChannel):
             FrequencyChannel: STFT の結果を格納した FrequencyChannel オブジェクト。
         """
 
-        result = TimeFrequencyChannel.stft(
-            data=self.data,
+        result = channel_processing.compute_stft(
+            ch=self,
             n_fft=n_fft,
             hop_length=hop_length,
             win_length=win_length,
             window=window,
-            # center=center,
-            # pad_mode=pad_mode,
+            center=center,
+            # pad_mode=pad_mode
         )
-        return util.transform_channel(self, TimeFrequencyChannel, **result)
+        return TimeFrequencyChannel.from_channel(self, **result)
 
     def melspectrogram(
         self,
@@ -243,77 +309,38 @@ class Channel(BaseChannel):
         Returns:
             Channel: 移動平均データを含む新しい Channel オブジェクト。
         """
-        rms_data = librosa.feature.rms(
-            y=self.data, frame_length=frame_length, hop_length=hop_length
+        result = channel_processing.compute_rms_trend(
+            ch=self,
+            frame_length=frame_length,
+            hop_length=hop_length,
         )
-        result = dict(
-            data=rms_data.squeeze(),
-            sampling_rate=int(self.sampling_rate / hop_length),
-        )
-
-        return util.transform_channel(self, self.__class__, **result)
+        return Channel.from_channel(self, **result)
 
     def plot(
         self,
         ax: Optional["Axes"] = None,
         title: Optional[str] = None,
         plot_kwargs: Optional[dict[str, Any]] = None,
-    ) -> tuple["Axes", NDArrayReal]:
+    ) -> "Axes":
         """
         時系列データをプロットします。
         """
-        import matplotlib.pyplot as plt
+        plotter = ChannelPlotter(self)
 
-        if ax is None:
-            fig, ax = plt.subplots(figsize=(10, 4))
-
-        plot_kwargs = plot_kwargs or {}
-        ax.plot(self.time, self.data, label=self.label or "Channel", **plot_kwargs)
-
-        ax.set_xlabel("Time [s]")
-        ylabel = f"Amplitude [{self.unit}]" if self.unit else "Amplitude"
-        ax.set_ylabel(ylabel)
-        ax.set_title(title or self.label or "Channel Data")
-        ax.grid(True)
-        ax.legend()
-
-        if ax is None:
-            plt.tight_layout()
-            plt.show()
-
-        return ax, self.data
+        return plotter.plot_time(ax=ax, title=title, plot_kwargs=plot_kwargs)
 
     def rms_plot(
-        self, ax: Optional[Any] = None, title: Optional[str] = None
-    ) -> "Channel":
+        self,
+        ax: Optional[Any] = None,
+        title: Optional[str] = None,
+        plot_kwargs: Optional[dict[str, Any]] = None,
+    ) -> "Axes":
         """
         RMS データをプロットします。
         """
-        import matplotlib.pyplot as plt
+        plotter = ChannelPlotter(self)
 
-        if ax is None:
-            fig, ax = plt.subplots(figsize=(10, 4))
-
-        rms_channel: Channel = self.rms_trend()
-        num_samples = len(rms_channel)
-        t = np.arange(num_samples) / rms_channel.sampling_rate
-        ax.plot(
-            t,
-            util.amplitude_to_db(rms_channel.data, ref=self.ref),
-            label=rms_channel.label or "Channel",
-        )
-
-        ax.set_xlabel("Time [s]")
-        ylabel = f"RMS [{rms_channel.unit}]" if rms_channel.unit else "RMS"
-        ax.set_ylabel(ylabel)
-        ax.set_title(title or rms_channel.label or "Channel Data")
-        ax.grid(True)
-        ax.legend()
-
-        if ax is None:
-            plt.tight_layout()
-
-        return rms_channel
+        return plotter.rms_plot(ax=ax, title=title, plot_kwargs=plot_kwargs)
 
     def __len__(self) -> int:
         """
@@ -334,107 +361,7 @@ class Channel(BaseChannel):
         if snr is None:
             return self + other
 
-        clean_rms = util.calculate_rms(self.data)
-        other_rms = util.calculate_rms(other.data)
-        desired_noise_rms = util.calculate_desired_noise_rms(clean_rms, snr)
-        gain = desired_noise_rms / other_rms
-
-        return self + other * gain
-
-    # 演算子オーバーロードの実装
-    def __add__(self, other: Union["Channel", int, float, NDArrayReal]) -> "Channel":
-        """
-        チャンネル間の加算。
-        """
-        if isinstance(other, Channel):
-            assert self.sampling_rate == other.sampling_rate, (
-                "Sampling rates must be the same for channel addition."
-            )
-            data = self.data + other.data
-            label = f"({self.label} + {other.label})"
-        elif isinstance(other, (int, float, np.ndarray)):
-            data = self.data + other
-            label = f"({self.label} + {other})"
-        else:
-            raise TypeError("Unsupported type for addition with Channel")
-
-        result = dict(
-            data=data,
-            sampling_rate=self.sampling_rate,
-            label=label,
-        )
-        return util.transform_channel(self, self.__class__, **result)
-
-    def __sub__(self, other: Union["Channel", int, float, NDArrayReal]) -> "Channel":
-        """
-        チャンネル間の減算。
-        """
-        if isinstance(other, Channel):
-            assert self.sampling_rate == other.sampling_rate, (
-                "Sampling rates must be the same for channel subtraction."
-            )
-            data = self.data - other.data
-            label = f"({self.label} - {other.label})"
-        elif isinstance(other, (int, float, np.ndarray)):
-            data = self.data - other
-            label = f"({self.label} - {other})"
-        else:
-            raise TypeError("Unsupported type for subtraction with Channel")
-
-        result = dict(
-            data=data,
-            sampling_rate=self.sampling_rate,
-            label=label,
-        )
-        return util.transform_channel(self, self.__class__, **result)
-
-    def __mul__(self, other: Union["Channel", int, float, NDArrayReal]) -> "Channel":
-        """
-        チャンネル間の乗算。
-        """
-        if isinstance(other, Channel):
-            assert self.sampling_rate == other.sampling_rate, (
-                "Sampling rates must be the same for channel multiplication."
-            )
-            data = self.data * other.data
-            label = f"({self.label} * {other.label})"
-        elif isinstance(other, (int, float, np.ndarray)):
-            data = self.data * other
-            label = f"({self.label} * {other})"
-        else:
-            raise TypeError("Unsupported type for multiplication with Channel")
-
-        result = dict(
-            data=data,
-            sampling_rate=self.sampling_rate,
-            label=label,
-        )
-        return util.transform_channel(self, self.__class__, **result)
-
-    def __truediv__(
-        self, other: Union["Channel", int, float, NDArrayReal]
-    ) -> "Channel":
-        """
-        チャンネル間の除算。
-        """
-        if isinstance(other, Channel):
-            assert self.sampling_rate == other.sampling_rate, (
-                "Sampling rates must be the same for channel division."
-            )
-            data = self.data / other.data
-            label = f"({self.label} / {other.label})"
-        elif isinstance(other, (int, float, np.ndarray)):
-            data = self.data / other
-            label = f"({self.label} / {other})"
-        else:
-            raise TypeError("Unsupported type for division with Channel")
-
-        result = dict(
-            data=data,
-            sampling_rate=self.sampling_rate,
-            label=label,
-        )
-        return util.transform_channel(self, self.__class__, **result)
+        return channel_processing.apply_add(self, other, snr)
 
     def to_wav(self, filename: str) -> None:
         """
@@ -473,56 +400,5 @@ class Channel(BaseChannel):
             cbar_config (dict): カラーバーの設定を格納する辞書
                 例: {"vmin": -80, "vmax": 0}
         """
-        axis_config = axis_config or {}
-        cbar_config = cbar_config or {}
-
-        gs = gridspec.GridSpec(2, 3, height_ratios=[1, 3], width_ratios=[3, 1, 0.1])
-        gs.update(wspace=0.2)
-
-        fig = plt.figure(figsize=(12, 6))
-
-        # 最初のサブプロット (Time Plot)
-        ax_1 = fig.add_subplot(gs[0])
-        self.plot(ax=ax_1)
-        if "time_plot" in axis_config:
-            conf = axis_config["time_plot"]
-            ax_1.set(**conf)
-        ax_1.legend().set_visible(False)
-        ax_1.set(xlabel="", title="")
-
-        # 2番目のサブプロット (STFT Plot)
-        ax_2 = fig.add_subplot(gs[3], sharex=ax_1)
-        stft_ch = self.stft()
-        # Pass vmin and vmax from cbar_config to stft_ch._plot
-        img, _ = stft_ch._plot(
-            ax=ax_2, vmin=cbar_config.get("vmin"), vmax=cbar_config.get("vmax")
-        )
-        ax_2.set(title="")
-
-        # 3番目のサブプロット
-        ax_3 = fig.add_subplot(gs[1])
-        ax_3.axis("off")
-
-        # 4番目のサブプロット (Welch Plot)
-        ax_4 = fig.add_subplot(gs[4], sharey=ax_2)
-        welch_ch = self.welch()
-        data_db = util.amplitude_to_db(np.abs(welch_ch.data), ref=welch_ch.ref)
-        ax_4.plot(data_db, welch_ch.freqs)
-        ax_4.grid(True)
-        ax_4.set(xlabel="Spectrum level [dB]")
-        if "freq_plot" in axis_config:
-            conf = axis_config["freq_plot"]
-            ax_4.set(**conf)
-
-        fig.subplots_adjust(wspace=0.0001)
-        cbar = fig.colorbar(img, ax=ax_4, format="%+2.0f")
-        cbar.set_label("dB")
-        fig.suptitle(self.label or "Channel Data")
-
-        output = widgets.Output()
-        with output:
-            plt.show()
-
-        container = widgets.VBox([output, self.to_audio(label=False)])
-        # container.add_class("white-bg")
-        return container
+        plotter = ChannelPlotter(self)
+        return plotter.describe(axis_config=axis_config, cbar_config=cbar_config)

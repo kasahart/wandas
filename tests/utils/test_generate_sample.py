@@ -15,8 +15,8 @@ def test_generate_sin_single_frequency() -> None:
 
     assert isinstance(signal, ChannelFrame)
     assert signal.label == "Test Signal"
-    assert len(signal.channels) == 1
-    channel = signal.channels[0]
+    assert len(signal._channels) == 1
+    channel = signal._channels[0]
     assert isinstance(channel, Channel)
     assert channel.sampling_rate == sampling_rate
     assert channel.label == "Channel 1"
@@ -33,8 +33,8 @@ def test_generate_sin_multiple_frequencies() -> None:
 
     assert isinstance(signal, ChannelFrame)
     assert signal.label == "Test Signal"
-    assert len(signal.channels) == len(freqs)
-    for idx, channel in enumerate(signal.channels):
+    assert len(signal._channels) == len(freqs)
+    for idx, channel in enumerate(signal._channels):
         assert isinstance(channel, Channel)
         assert channel.sampling_rate == sampling_rate
         assert channel.label == f"Channel {idx + 1}"

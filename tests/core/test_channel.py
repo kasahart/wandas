@@ -5,6 +5,7 @@ import ipywidgets as widgets
 import librosa
 import numpy as np
 import pytest
+from matplotlib.axes import Axes
 
 from wandas.core import util
 from wandas.core.channel import Channel
@@ -229,11 +230,8 @@ def test_channel_rms_plot() -> None:
     data = np.sin(2 * np.pi * 50 * t)
     channel: Channel = Channel(data=data, sampling_rate=sampling_rate, label="Sine50")
     # Call rms_plot, which should return a Channel object (with RMS trend data)
-    rms_ch: Channel = channel.rms_plot(title="RMS Plot Test")
-    assert isinstance(rms_ch, Channel)
-    # Check that the length of RMS data is less
-    # than original length due to downsampling in RMS trend
-    assert len(rms_ch.data) < len(channel.data)
+    rms_ch: Axes = channel.rms_plot(title="RMS Plot Test")
+    assert isinstance(rms_ch, Axes)
 
 
 def test_channel_to_audio() -> None:
@@ -340,3 +338,159 @@ def test_channel_add_with_snr(monkeypatch: pytest.MonkeyPatch) -> None:
     result_channel = ch_clean.add(ch_noise, snr=snr_value)
 
     np.testing.assert_allclose(result_channel.data, expected_data, rtol=1e-5)
+
+
+def create_sequential_channel(
+    num_samples: int = 1000, sampling_rate: int = 1000
+) -> Channel:
+    data = np.arange(num_samples, dtype=float)
+    return Channel(data=data, sampling_rate=sampling_rate, label="Sequential")
+
+
+def test_channel_trim_extraction() -> None:
+    sampling_rate = 1000
+    channel = create_sequential_channel(num_samples=1000, sampling_rate=sampling_rate)
+
+    start_time = 0.2  # seconds
+    end_time = 0.5  # seconds
+    start_idx = int(start_time * sampling_rate)
+    end_idx = int(end_time * sampling_rate)
+
+    trimmed_channel = channel.trim(start_time, end_time)
+    expected_data = channel.data[start_idx:end_idx]
+
+    np.testing.assert_array_equal(trimmed_channel.data, expected_data)
+    # Ensure that other attributes are preserved
+    assert trimmed_channel.sampling_rate == channel.sampling_rate
+    assert trimmed_channel.label == channel.label
+
+
+def test_channel_trim_full_length() -> None:
+    sampling_rate = 1000
+    channel = create_sequential_channel(num_samples=1000, sampling_rate=sampling_rate)
+
+    # Trimming from start to end should return the full data
+    trimmed_channel = channel.trim(0.0, 1.0)
+    np.testing.assert_array_equal(trimmed_channel.data, channel.data)
+
+
+def test_channel_trim_edge_cases() -> None:
+    sampling_rate = 1000
+    num_samples = 1000
+    channel = create_sequential_channel(
+        num_samples=num_samples, sampling_rate=sampling_rate
+    )
+
+    # Test trimming with start time 0
+    trimmed_channel_start = channel.trim(0.0, 0.3)
+    expected_data_start = channel.data[: int(0.3 * sampling_rate)]
+    np.testing.assert_array_equal(trimmed_channel_start.data, expected_data_start)
+
+    # Test trimming with end time equal to duration
+    duration = num_samples / sampling_rate
+    trimmed_channel_end = channel.trim(0.7, duration)
+    expected_data_end = channel.data[int(0.7 * sampling_rate) :]
+    np.testing.assert_array_equal(trimmed_channel_end.data, expected_data_end)
+
+    # Test trimming with start and end resulting in zero samples if applicable
+    trimmed_channel_empty = channel.trim(0.5, 0.5)
+    assert trimmed_channel_empty.data.size == 0
+
+
+def test_channel_trigger_level_basic() -> None:
+    # This test verifies that the Channel.trigger method
+    # returns the expected trigger indices
+    # using the "level" trigger on a known data array.
+
+    # Create a simple signal with known upward crossings.
+    # Calculation details:
+    # data = [0.0, 0.2, 0.6, 0.4, 0.7, 0.3, 0.9, 0.1]
+    # For threshold = 0.5, np.sign(data - 0.5) -> [-1, -1, 1, -1, 1, -1, 1, -1]
+    # diff yields [0, 2, -2, 2, -2, 2, -2]. The indices where diff > 0 are [1, 3, 5].
+    data = np.array([0.0, 0.2, 0.6, 0.4, 0.7, 0.3, 0.9, 0.1])
+    channel = Channel(data=data, sampling_rate=1000, label="Test Channel")
+    result = channel.trigger(threshold=0.5)
+    expected = util.level_trigger(data, level=0.5)
+    assert result == expected, f"Expected {expected}, but got {result}"
+
+
+def test_channel_trigger_invalid_trigger_type() -> None:
+    # This test checks that an unsupported trigger type raises a ValueError.
+
+    data = np.array([0.0, 0.2, 0.6, 0.4, 0.7, 0.3, 0.9, 0.1])
+    channel = Channel(data=data, sampling_rate=1000, label="Test Channel")
+
+    with pytest.raises(ValueError) as excinfo:
+        channel.trigger(threshold=0.5, trigger_type="unsupported")
+    assert "Unsupported trigger type" in str(excinfo.value)
+
+
+def test_channel_cut_basic() -> None:
+    # Create a channel with simple sequential data
+    data = np.arange(20, dtype=float)
+    sampling_rate = 1000
+    channel = Channel(data=data, sampling_rate=sampling_rate, label="CutTest")
+    # Define point_list including valid and invalid indices.
+    # Valid if p >= 0 and p + cut_len <= len(data)
+    point_list = [0, 10, 15, -1, 16]  # Only 0, 10, and 15 are valid (16+5=21 > 20)
+    cut_len = 5
+    taper_rate = 0  # rectangular window; tukey returns ones
+    dc_cut = False
+
+    result_channels = channel.cut(point_list, cut_len, taper_rate, dc_cut)
+    # Expected valid starting indices: [0, 10, 15]
+    expected_indices = [0, 10, 15]
+    expected_segments = util.cut_sig(
+        data, expected_indices, cut_len, taper_rate, dc_cut
+    )
+
+    assert len(result_channels) == len(expected_segments)
+    for res_ch, exp_seg in zip(result_channels, expected_segments):
+        np.testing.assert_allclose(res_ch.data, exp_seg)
+
+
+def test_channel_cut_dc_cut() -> None:
+    # Create a channel with data having a DC offset
+    data = np.arange(20, dtype=float) + 10  # Values from 10 to 29
+    sampling_rate = 1000
+    channel = Channel(data=data, sampling_rate=sampling_rate, label="CutDC")
+    # Choose valid cut points
+    point_list = [2, 8]  # Valid if 2+5 <= 20 and 8+5 <= 20
+    cut_len = 5
+    taper_rate = 0  # rectangular window
+    dc_cut = True
+
+    result_channels = channel.cut(point_list, cut_len, taper_rate, dc_cut)
+
+    expected_segments = util.cut_sig(
+        data=data, point_list=point_list, cut_len=cut_len, dc_cut=dc_cut
+    )
+
+    assert len(result_channels) == len(expected_segments)
+    for res_ch, exp_seg in zip(result_channels, expected_segments):
+        np.testing.assert_allclose(res_ch.data, exp_seg)
+
+
+def test_channel_cut_taper_rate() -> None:
+    # Create a channel with linearly spaced data
+    data = np.linspace(0, 1, 30)
+    sampling_rate = 1000
+    channel = Channel(data=data, sampling_rate=sampling_rate, label="CutTaper")
+    # Define valid cut points
+    point_list = [0, 12]  # Both valid since 0+6<=30 and 12+6<=30
+    cut_len = 6
+    taper_rate = 0.5  # Nonzero taper rate produces a tapered window
+    dc_cut = False
+
+    result_channels = channel.cut(point_list, cut_len, taper_rate, dc_cut)
+    expected_segments = util.cut_sig(
+        data=data,
+        point_list=point_list,
+        cut_len=cut_len,
+        taper_rate=taper_rate,
+        dc_cut=dc_cut,
+    )
+
+    assert len(result_channels) == len(expected_segments)
+    for res_ch, exp_seg in zip(result_channels, expected_segments):
+        np.testing.assert_allclose(res_ch.data, exp_seg)
