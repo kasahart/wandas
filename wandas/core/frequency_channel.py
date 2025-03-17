@@ -30,6 +30,7 @@ class NOctChannel(BaseChannel):
         label: Optional[str] = None,
         unit: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
+        previous: Optional["BaseChannel"] = None,
     ):
         """
         NOctChannel オブジェクトを初期化します。
@@ -42,6 +43,7 @@ class NOctChannel(BaseChannel):
             label=label,
             unit=unit,
             metadata=metadata,
+            previous=previous,
         )
 
         self.n = n
@@ -125,8 +127,8 @@ class NOctChannel(BaseChannel):
         self,
         ax: Optional["Axes"] = None,
         title: Optional[str] = None,
-        Aw: bool = False,  # noqa: N803
-    ) -> tuple["Axes", NDArrayReal]:
+        Aw: Optional[bool] = False,  # noqa: N803
+    ) -> "Axes":
         """
         スペクトルデータをプロットします。
         """
@@ -158,7 +160,7 @@ class NOctChannel(BaseChannel):
             plt.tight_layout()
             plt.show()
 
-        return ax, data
+        return ax
 
 
 class FrequencyChannel(BaseChannel):
@@ -171,6 +173,7 @@ class FrequencyChannel(BaseChannel):
         label: Optional[str] = None,
         unit: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
+        previous: Optional["BaseChannel"] = None,
     ):
         """
         FrequencyChannel オブジェクトを初期化します。
@@ -187,6 +190,7 @@ class FrequencyChannel(BaseChannel):
             label=label,
             unit=unit,
             metadata=metadata,
+            previous=previous,
         )
 
         self.n_fft = n_fft
@@ -290,7 +294,7 @@ class FrequencyChannel(BaseChannel):
             fr=fr,
         )
 
-        return util.transform_channel(self, NOctChannel, **result)
+        return NOctChannel.from_channel(self, **result)
 
     def data_Aw(self, to_dB: bool = False) -> NDArrayReal:  # noqa: N802, N803
         """

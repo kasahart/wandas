@@ -5,9 +5,9 @@ import os
 import tempfile
 import threading
 import weakref
-from abc import ABC, abstractmethod
+from abc import ABC
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
 
 import dask.array as da
 import h5py
@@ -18,9 +18,10 @@ from wandas.utils.types import NDArrayReal
 
 if TYPE_CHECKING:
     from dask.array.core import Array
-    from matplotlib.axes import Axes
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T", bound="BaseChannel")
 
 
 class BaseChannel(ABC):
@@ -180,14 +181,50 @@ class BaseChannel(ABC):
             self._is_closed = True
             self._data_path = None
 
-    @abstractmethod
-    def plot(
-        self, ax: Optional["Axes"] = None, title: Optional[str] = None
-    ) -> tuple["Axes", NDArrayReal]:
+    @classmethod
+    def from_channel(cls: type[T], org: "BaseChannel", **kwargs: Any) -> T:
         """
-        データをプロットします。派生クラスで実装が必要です。
+        Create a new channel instance based on an existing channel.
+        Keyword arguments can override or extend the original attributes.
         """
-        pass
+        data = kwargs.pop("data", org.data)
+        if not isinstance(data, np.ndarray):
+            raise TypeError("Data must be a numpy array")
+        sampling_rate = kwargs.pop("sampling_rate", org.sampling_rate)
+        if not isinstance(sampling_rate, int):
+            raise TypeError("Sampling rate must be an integer")
+
+        label = kwargs.pop("label", org.label)
+        if not isinstance(label, str):
+            raise TypeError("Label must be a string")
+        unit = kwargs.pop("unit", org.unit)
+        if not isinstance(unit, str):
+            raise TypeError("Unit must be a string")
+        metadata = kwargs.pop("metadata", org.metadata.copy())
+        if not isinstance(metadata, dict):
+            raise TypeError("Metadata must be a dictionary")
+
+        return cls(
+            data=data,
+            sampling_rate=sampling_rate,
+            label=label,
+            unit=unit,
+            metadata=metadata,
+            previous=org,
+            **kwargs,
+        )
+
+    # @abstractmethod
+    # def plot(
+    #     self,
+    #     ax: Optional["Axes"] = None,
+    #     title: Optional[str] = None,
+    #     plot_kwargs: Optional[dict[str, Any]] = None,
+    # ) -> "Axes":
+    #     """
+    #     データをプロットします。派生クラスで実装が必要です。
+    #     """
+    #     pass
 
     def __repr__(self) -> str:
         state = "closed" if self._is_closed else "open"

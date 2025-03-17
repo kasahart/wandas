@@ -5,6 +5,7 @@ import ipywidgets as widgets
 import librosa
 import numpy as np
 import pytest
+from matplotlib.axes import Axes
 
 from wandas.core import util
 from wandas.core.channel import Channel
@@ -229,11 +230,8 @@ def test_channel_rms_plot() -> None:
     data = np.sin(2 * np.pi * 50 * t)
     channel: Channel = Channel(data=data, sampling_rate=sampling_rate, label="Sine50")
     # Call rms_plot, which should return a Channel object (with RMS trend data)
-    rms_ch: Channel = channel.rms_plot(title="RMS Plot Test")
-    assert isinstance(rms_ch, Channel)
-    # Check that the length of RMS data is less
-    # than original length due to downsampling in RMS trend
-    assert len(rms_ch.data) < len(channel.data)
+    rms_ch: Axes = channel.rms_plot(title="RMS Plot Test")
+    assert isinstance(rms_ch, Axes)
 
 
 def test_channel_to_audio() -> None:

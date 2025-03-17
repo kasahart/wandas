@@ -6,7 +6,6 @@ import numpy as np
 from scipy import fft
 from scipy import signal as ss
 
-from wandas.core import util
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 from .base_channel import BaseChannel
@@ -30,6 +29,7 @@ class TimeFrequencyChannel(BaseChannel):
         label: Optional[str] = None,
         unit: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
+        previous: Optional["BaseChannel"] = None,
     ):
         """
         TimeFrequencyChannel オブジェクトを初期化します。
@@ -48,6 +48,7 @@ class TimeFrequencyChannel(BaseChannel):
             label=label,
             unit=unit,
             metadata=metadata,
+            previous=previous,
         )
         self.n_fft = n_fft
         self.hop_length = hop_length
@@ -125,7 +126,7 @@ class TimeFrequencyChannel(BaseChannel):
                 window=self.window,
             )
         )
-        return util.transform_channel(self, TimeMelFrequencyChannel, **result)
+        return TimeMelFrequencyChannel.from_channel(self, **result)
 
     def data_Aw(self, to_dB: bool = False) -> NDArrayReal:  # noqa: N802, N803
         """
@@ -272,6 +273,7 @@ class TimeMelFrequencyChannel(TimeFrequencyChannel):
         label: Optional[str] = None,
         unit: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
+        previous: Optional["BaseChannel"] = None,
     ):
         """
         TimeMelFrequencyChannel オブジェクトを初期化します。
@@ -295,6 +297,7 @@ class TimeMelFrequencyChannel(TimeFrequencyChannel):
             hop_length=hop_length,
             win_length=win_length,
             window=window,
+            previous=previous,
         )
         self.n_fft = n_fft
         self.hop_length = hop_length

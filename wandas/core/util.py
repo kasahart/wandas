@@ -1,25 +1,11 @@
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING
 
 import librosa
 import numpy as np
 from scipy.signal.windows import tukey
 
 if TYPE_CHECKING:
-    from wandas.core.base_channel import BaseChannel
     from wandas.utils.types import NDArrayReal
-T = TypeVar("T", bound="BaseChannel")
-
-
-def transform_channel(org: "BaseChannel", target_class: type[T], **kwargs: Any) -> T:
-    # データ変換を実行
-    return target_class(
-        data=kwargs.pop("data"),
-        sampling_rate=kwargs.pop("sampling_rate", org.sampling_rate),
-        label=kwargs.pop("label", org.label),
-        unit=kwargs.pop("unit", org.unit),
-        metadata=kwargs.pop("metadata", org.metadata.copy()),
-        **kwargs,  # target_classに必要な追加の引数
-    )
 
 
 def unit_to_ref(unit: str) -> float:

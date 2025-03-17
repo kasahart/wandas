@@ -6,7 +6,6 @@ from typing import Any, Optional, Union
 import numpy as np
 import scipy.signal as ss
 
-from wandas.core import util
 from wandas.core.channel import Channel
 from wandas.core.channel_frame import ChannelFrame
 from wandas.core.frequency_channel_frame import FrequencyChannelFrame
@@ -132,9 +131,7 @@ class MatrixFrame:
         ch = self._channels[idx]
 
         # Channel オブジェクトを作成して返す
-        return util.transform_channel(
-            org=ch, target_class=Channel, data=self.data[idx].copy()
-        )
+        return Channel.from_channel(ch, data=self.data[idx].copy())
 
     def to_channel_frame(self) -> "ChannelFrame":
         """

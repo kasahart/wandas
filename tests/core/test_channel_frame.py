@@ -2,7 +2,7 @@
 
 import csv
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import ipywidgets as widgets
 import numpy as np
@@ -12,6 +12,9 @@ from scipy.io import wavfile
 
 from wandas.core.channel import Channel
 from wandas.core.channel_frame import ChannelFrame
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
 
 
 @pytest.fixture  # type: ignore [misc, unused-ignore]
@@ -539,13 +542,20 @@ def test_rms_plot_overlay_with_ax(monkeypatch: pytest.MonkeyPatch) -> None:
 
     # インラインでダミーの rms_plot 関数を定義
     def dummy_rms_plot(
-        ax: Optional[Any] = None, title: Optional[str] = None
-    ) -> Channel:
+        ax: Optional["Axes"] = None,
+        title: Optional[str] = None,
+        overlay: bool = True,
+        plot_kwargs: Optional[dict[str, Any]] = None,
+    ) -> Union["Axes", list["Axes"]]:
         call_list.append("called")
         # ダミーとして、ax に適当な Line2D を追加
-        if ax is not None:
-            ax.plot([0, 1], [0, 1], label="dummy")
-        return Channel(data=data, sampling_rate=sampling_rate, label="dummy")
+
+        if ax is None:
+            fig, ax = plt.subplots()
+
+        ax.plot([0, 1], [0, 1], label="dummy")
+
+        return ax
 
     # チャンネルの生成と、rms_plot を上書き
     channel1 = Channel(data=data, sampling_rate=sampling_rate, label="Test Channel 1")
@@ -590,13 +600,20 @@ def test_rms_plot_non_overlay(monkeypatch: pytest.MonkeyPatch) -> None:
     call_list = []
 
     def dummy_rms_plot(
-        ax: Optional[Any] = None, title: Optional[str] = None
-    ) -> Channel:
+        ax: Optional["Axes"] = None,
+        title: Optional[str] = None,
+        overlay: bool = True,
+        plot_kwargs: Optional[dict[str, Any]] = None,
+    ) -> Union["Axes", list["Axes"]]:
         call_list.append("called")
         # ダミーとして、ax に適当な Line2D を追加
-        if ax is not None:
-            ax.plot([0, 1], [0, 1], label="dummy")
-        return Channel(data=data, sampling_rate=sampling_rate, label="dummy")
+
+        if ax is None:
+            fig, ax = plt.subplots()
+
+        ax.plot([0, 1], [0, 1], label="dummy")
+
+        return ax
 
     # チャンネルの生成と、rms_plot を上書き
     channel1 = Channel(data=data, sampling_rate=sampling_rate, label="Test Channel 1")
