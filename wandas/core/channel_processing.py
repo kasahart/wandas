@@ -48,6 +48,28 @@ def apply_filter(
         raise ValueError("Filtered data is not a ndarray.")
 
 
+def apply_hpss_harmonic(
+    ch: "Channel",
+    **kwargs: Any,
+) -> dict[str, NDArrayReal]:
+    harmonic = librosa.effects.harmonic(ch.data, **kwargs)
+    result = dict(
+        data=harmonic,
+    )
+    return result
+
+
+def apply_hpss_percussive(
+    ch: "Channel",
+    **kwargs: Any,
+) -> dict[str, NDArrayReal]:
+    percussive = librosa.effects.percussive(ch.data, **kwargs)
+    result = dict(
+        data=percussive,
+    )
+    return result
+
+
 def compute_fft(
     ch: "Channel", n_fft: Optional[int] = None, window: Optional[str] = None
 ) -> dict[str, NDArrayComplex]:

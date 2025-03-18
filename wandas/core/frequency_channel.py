@@ -312,6 +312,26 @@ class FrequencyChannel(BaseChannel):
             librosa.db_to_amplitude(weighted, ref=self.ref), dtype=np.float64
         )
 
+    def hpss_harmonic(self, **kwargs: Any) -> "FrequencyChannel":
+        """
+        ハーモニック成分を抽出します。
+        """
+        harmonic, _ = librosa.decompose.hpss(self.data, **kwargs)
+        result = dict(
+            data=harmonic,
+        )
+        return FrequencyChannel.from_channel(self, **result)
+
+    def hpss_percussive(self, **kwargs: Any) -> "FrequencyChannel":
+        """
+        パーカッシブ成分を抽出します。
+        """
+        _, percussive = librosa.decompose.hpss(self.data, **kwargs)
+        result = dict(
+            data=percussive,
+        )
+        return FrequencyChannel.from_channel(self, **result)
+
     def plot(
         self,
         ax: Optional["Axes"] = None,
