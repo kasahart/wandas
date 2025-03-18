@@ -116,9 +116,9 @@ def test_signal_fft() -> None:
 
     spectrum = signal.fft(n_fft=1024, window="hann")
 
-    assert len(spectrum.channels) == 2
+    assert len(spectrum._channels) == 2
     for freq_ch, label, expected_freq in zip(
-        spectrum.channels, ["Channel 1", "Channel 2"], [50, 100]
+        spectrum._channels, ["Channel 1", "Channel 2"], [50, 100]
     ):
         assert freq_ch.label == label
         assert freq_ch.n_fft == 1024
@@ -148,9 +148,9 @@ def test_signal_welch() -> None:
 
     spectrum = signal.welch(n_fft=n_fft, win_length=win_length, window="hann")
 
-    assert len(spectrum.channels) == 2
+    assert len(spectrum._channels) == 2
     for freq_ch, label, expected_freq in zip(
-        spectrum.channels, ["Channel 1", "Channel 2"], [125, 250]
+        spectrum._channels, ["Channel 1", "Channel 2"], [125, 250]
     ):
         assert freq_ch.label == label
         assert freq_ch.n_fft == n_fft
@@ -272,6 +272,7 @@ def test_sampling_rate_mismatch_init() -> None:
 def test_duplicate_channel_labels() -> None:
     channel1 = Channel(data=np.array([0, 1, 2]), sampling_rate=1000, label="Same")
     channel2 = Channel(data=np.array([3, 4, 5]), sampling_rate=1000, label="Same")
+
     with pytest.raises(ValueError):
         ChannelFrame(channels=[channel1, channel2])
 
@@ -412,6 +413,34 @@ def test_getitem_by_index_and_label() -> None:
     assert cf["Second"] == ch2
     with pytest.raises(KeyError):
         _ = cf["NonExistent"]
+
+
+def test_setitem_by_index_and_label() -> None:
+    # Test __setitem__ both for index and label.
+    data1 = np.array([0, 1, 2])
+    data2 = np.array([3, 4, 5])
+    sampling_rate = 1000
+    ch1 = Channel(data=data1, sampling_rate=sampling_rate, label="First")
+    ch2 = Channel(data=data2, sampling_rate=sampling_rate, label="Second")
+    cf = ChannelFrame(channels=[ch1, ch2], label="SetItemTest")
+
+    # Set by index.
+    new_ch1 = Channel(
+        data=np.array([10, 11, 12]), sampling_rate=sampling_rate, label="New1"
+    )
+    cf[0] = new_ch1
+    assert cf[0] == new_ch1
+
+    # Set by label.
+    new_ch2 = Channel(
+        data=np.array([13, 14, 15]), sampling_rate=sampling_rate, label="New2"
+    )
+    cf["Second"] = new_ch2
+    assert cf["Second"] == new_ch2
+
+    # Check that the original channels are not present.
+    assert ch1 not in cf
+    assert ch2 not in cf
 
 
 def test_iter_and_len() -> None:
