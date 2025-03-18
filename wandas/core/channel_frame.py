@@ -1,6 +1,5 @@
 # wandas/core/signal.py
-import numbers
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 import ipywidgets as widgets
@@ -8,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 from wandas.core.channel import Channel
+from wandas.core.channel_access_mixin import ChannelAccessMixin
 from wandas.io import wav_io
 from wandas.utils.types import NDArrayReal
 
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from wandas.core.matrix_frame import MatrixFrame
 
 
-class ChannelFrame:
+class ChannelFrame(ChannelAccessMixin["Channel"]):
     def __init__(self, channels: list["Channel"], label: Optional[str] = None):
         """
 
@@ -40,10 +40,8 @@ class ChannelFrame:
             raise ValueError("All channels must have the same sampling_rate.")
 
         self.sampling_rate = channels[0].sampling_rate
-
-        # チャンネル名で辞書のようにアクセスできるようにするための辞書を構築
-        self.channel_dict = {ch.label: ch for ch in channels}
-        if len(self.channel_dict) != len(channels):
+        self._channel_dict = {ch.label: ch for ch in self.channels}
+        if len(self._channel_dict) != len(self):
             raise ValueError("Channel labels must be unique.")
 
     @classmethod
@@ -393,43 +391,6 @@ class ChannelFrame:
             channels=chs,
             label=self.label,
         )
-
-    # forでループを回すためのメソッド
-    def __iter__(self) -> Iterator["Channel"]:
-        for idx in range(len(self)):
-            yield self[idx]
-
-    def __getitem__(self, key: Union[str, int]) -> "Channel":
-        """
-        チャンネル名またはインデックスでチャンネルを取得するためのメソッド。
-
-        Parameters:
-            key (str or int): チャンネルの名前（label）またはインデックス番号。
-
-        Returns:
-            Channel: 対応するチャンネル。
-        """
-        if isinstance(key, str):
-            # チャンネル名でアクセス
-            if key not in self.channel_dict:
-                raise KeyError(f"Channel '{key}' not found.")
-            return self.channel_dict[key]
-        elif isinstance(key, numbers.Integral):
-            # インデックス番号でアクセス
-            if key < 0 or key >= len(self._channels):
-                raise IndexError(f"Channel index {key} out of range.")
-            return self._channels[key]
-        else:
-            raise TypeError(
-                "Key must be either a string (channel name) or an integer "
-                "(channel index)."
-            )
-
-    def __len__(self) -> int:
-        """
-        チャンネルのデータ長を返します。
-        """
-        return len(self._channels)
 
     def _op(
         self,
