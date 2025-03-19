@@ -21,8 +21,11 @@ def apply_add(ch1: "Channel", ch2: "Channel", snr: float) -> "Channel":
     if ch1.data.shape != ch2.data.shape:
         raise ValueError("Data shapes of the two channels are different.")
 
-    clean_rms = util.calculate_rms(ch1.data)
     other_rms = util.calculate_rms(ch2.data)
+    if other_rms == 0:
+        raise ValueError("RMS of the noise channel is zero.")
+
+    clean_rms = util.calculate_rms(ch1.data)
     desired_noise_rms = util.calculate_desired_noise_rms(clean_rms, snr)
     gain = desired_noise_rms / other_rms
 

@@ -142,6 +142,34 @@ class TimeFrequencyChannel(BaseChannel):
 
         return np.asarray(librosa.db_to_amplitude(weighted), dtype=np.float64)
 
+    def hpss_harmonic(self, **kwargs: Any) -> "TimeFrequencyChannel":
+        """
+        ハーモニック成分を抽出します。
+        """
+        harmonic, _ = librosa.decompose.hpss(self.data, **kwargs)
+        result = dict(
+            data=harmonic,
+            n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            win_length=self.win_length,
+            window=self.window,
+        )
+        return TimeFrequencyChannel.from_channel(self, **result)
+
+    def hpss_percussive(self, **kwargs: Any) -> "TimeFrequencyChannel":
+        """
+        パーカッシブ成分を抽出します。
+        """
+        _, percussive = librosa.decompose.hpss(self.data, **kwargs)
+        result = dict(
+            data=percussive,
+            n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            win_length=self.win_length,
+            window=self.window,
+        )
+        return TimeFrequencyChannel.from_channel(self, **result)
+
     def _plot(
         self,
         ax: "Axes",
