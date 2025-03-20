@@ -104,3 +104,27 @@ class ChannelAccessMixin(Generic[ChannelT]):
         チャンネルのデータ長を返します。
         """
         return len(self._channels)
+
+    def append(self, channel: ChannelT) -> None:
+        """
+        チャンネルを追加します。
+
+        Parameters:
+            channel (Channel): 追加するチャンネル。
+        """
+        if channel.label in self.channel_dict:
+            raise KeyError(f"Channel '{channel.label}' already exists.")
+        self._channels.append(channel)
+        self.channel_dict[channel.label] = channel
+
+    def remove(self, channel: ChannelT) -> None:
+        """
+        チャンネルを削除します。
+
+        Parameters:
+            channel (Channel): 削除するチャンネル。
+        """
+        if channel.label not in self.channel_dict:
+            raise KeyError(f"Channel '{channel.label}' not found.")
+        self._channels.remove(channel)
+        del self.channel_dict[channel.label]
