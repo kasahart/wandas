@@ -1,6 +1,6 @@
 # tests/core/channel_frame.py
-
 import csv
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -246,18 +246,39 @@ def test_channel_frame_read_wav(tmp_path: Path) -> None:
 
 
 def test_channel_frame_to_wav(tmp_path: Path) -> None:
-    filename = tmp_path / "test.wav"
-    data1 = np.array([0, 1, 2], dtype=np.float32)
-    data2 = np.array([3, 4, 5], dtype=np.float32)
-    sampling_rate = 1000
+    expected_dir = tmp_path / "test"
+
+    sampling_rate = 48000
+    num_samples = 1000
+    data1 = np.full(num_samples, 0.3, dtype=np.float32)
+    data2 = np.full(num_samples, 0.6, dtype=np.float32)
     channel1 = Channel(data=data1, sampling_rate=sampling_rate, label="Channel 1")
     channel2 = Channel(data=data2, sampling_rate=sampling_rate, label="Channel 2")
     channel_frame = ChannelFrame(channels=[channel1, channel2])
 
-    channel_frame.to_wav(str(filename))
+    channel_frame.to_wav(str(expected_dir))
 
-    sr, data = wavfile.read(filename)
-    assert sr == sampling_rate
+    # After writing, a folder named "test_stereoframe" is created
+    assert os.path.isdir(expected_dir)
+
+    # Check that each channel file is written
+    left_file = os.path.join(expected_dir, "Channel 1.wav")
+    right_file = os.path.join(expected_dir, "Channel 2.wav")
+    assert os.path.isfile(left_file)
+    assert os.path.isfile(right_file)
+
+    # Verify sampling rate and data scaling for each channel
+    sr_left, wav_left = wavfile.read(left_file)
+    sr_right, wav_right = wavfile.read(right_file)
+    assert sr_left == sampling_rate
+    assert sr_right == sampling_rate
+
+    # Both channels should scale using the same norm, which is max(0.3, 0.6) = 0.6
+    # For data=0.3, scaled to (0.3 / 0.6)*32767 = ~16383, for data=0.6 => ~32767
+    np.testing.assert_array_equal(wav_left, np.full(num_samples, 16383, dtype=np.int16))
+    np.testing.assert_array_equal(
+        wav_right, np.full(num_samples, 32767, dtype=np.int16)
+    )
 
 
 # Test sampling rate mismatch in __init__
