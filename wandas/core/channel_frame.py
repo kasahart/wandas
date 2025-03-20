@@ -340,6 +340,26 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
         filtered_channels = [ch.low_pass_filter(cutoff, order) for ch in self]
         return ChannelFrame(filtered_channels, label=self.label)
 
+    def hpss_harmonic(self, **kwargs: Any) -> "ChannelFrame":
+        """
+        HPSS（Harmonic-Percussive Source Separation）の Harmonic 成分を抽出します。
+
+        Returns:
+            ChannelFrame: Harmonic 成分を含む新しい ChannelFrame オブジェクト。
+        """
+        harmonic_channels = [ch.hpss_harmonic(**kwargs) for ch in self]
+        return ChannelFrame(harmonic_channels, label=self.label)
+
+    def hpss_percussive(self, **kwargs: Any) -> "ChannelFrame":
+        """
+        HPSS（Harmonic-Percussive Source Separation）の Percussive 成分を抽出します。
+
+        Returns:
+            ChannelFrame: Percussive 成分を含む新しい ChannelFrame オブジェクト。
+        """
+        percussive_channels = [ch.hpss_percussive(**kwargs) for ch in self]
+        return ChannelFrame(percussive_channels, label=self.label)
+
     def fft(
         self,
         n_fft: Optional[int] = None,

@@ -929,3 +929,103 @@ def test_channel_frame_cut_nonzero_taper() -> None:
             expected_seg_ch2[i].data,
             err_msg=f"Segment {i + 1} channel 2 data mismatch with taper.",
         )
+
+
+def test_hpss_harmonic(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Test the hpss_harmonic method in ChannelFrame.
+    Verifies that it calls the corresponding method on each channel
+    and returns a new ChannelFrame with the results.
+    """
+    # Create test data with two channels
+    sampling_rate = 1000
+    t = np.linspace(0, 1, sampling_rate)
+    data1 = np.sin(2 * np.pi * 10 * t)  # 10 Hz sine wave
+    data2 = np.sin(2 * np.pi * 100 * t)  # 100 Hz sine wave
+
+    # Create channels and track calls to hpss_harmonic
+    calls = []
+
+    def mock_hpss_harmonic(self: "Channel", **kwargs: Any) -> "Channel":
+        # Record that this was called and with what arguments
+        calls.append((self.label, kwargs))
+        # Return a new channel with the same data (mock implementation)
+        return Channel(
+            data=self.data, sampling_rate=self.sampling_rate, label=self.label
+        )
+
+    # Patch the Channel.hpss_harmonic method
+    monkeypatch.setattr(Channel, "hpss_harmonic", mock_hpss_harmonic)
+
+    # Create channels and channel frame
+    ch1 = Channel(data=data1, sampling_rate=sampling_rate, label="Channel 1")
+    ch2 = Channel(data=data2, sampling_rate=sampling_rate, label="Channel 2")
+    cf = ChannelFrame(channels=[ch1, ch2], label="Test Frame")
+
+    # Set some custom kwargs to verify they're passed through
+    test_kwargs = {"margin": 3.0, "power": 2.0}
+
+    # Call the method being tested
+    harmonic_cf = cf.hpss_harmonic(**test_kwargs)
+
+    # Verify the result is a ChannelFrame
+    assert isinstance(harmonic_cf, ChannelFrame)
+    assert harmonic_cf.label == cf.label
+    assert len(harmonic_cf) == len(cf)
+
+    # Verify all channels had their hpss_harmonic method
+    # called with the right kwargs
+    assert len(calls) == 2
+    assert calls[0][0] == "Channel 1"
+    assert calls[1][0] == "Channel 2"
+    assert all(kwargs == test_kwargs for _, kwargs in calls)
+
+
+def test_hpss_percussive(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Test the hpss_percussive method in ChannelFrame.
+    Verifies that it calls the corresponding method on each channel
+    and returns a new ChannelFrame with the results.
+    """
+    # Create test data with two channels
+    sampling_rate = 1000
+    t = np.linspace(0, 1, sampling_rate)
+    data1 = np.sin(2 * np.pi * 10 * t)  # 10 Hz sine wave
+    data2 = np.sin(2 * np.pi * 100 * t)  # 100 Hz sine wave
+
+    # Create channels and track calls to hpss_percussive
+    calls = []
+
+    def mock_hpss_percussive(self: "Channel", **kwargs: Any) -> "Channel":
+        # Record that this was called and with what arguments
+        calls.append((self.label, kwargs))
+        # Return a new channel with the same data (mock implementation)
+        return Channel(
+            data=self.data, sampling_rate=self.sampling_rate, label=self.label
+        )
+
+    # Patch the Channel.hpss_percussive method
+    monkeypatch.setattr(Channel, "hpss_percussive", mock_hpss_percussive)
+
+    # Create channels and channel frame
+    ch1 = Channel(data=data1, sampling_rate=sampling_rate, label="Channel 1")
+    ch2 = Channel(data=data2, sampling_rate=sampling_rate, label="Channel 2")
+    cf = ChannelFrame(channels=[ch1, ch2], label="Test Frame")
+
+    # Set some custom kwargs to verify they're passed through
+    test_kwargs = {"margin": 2.0, "power": 4.0}
+
+    # Call the method being tested
+    percussive_cf = cf.hpss_percussive(**test_kwargs)
+
+    # Verify the result is a ChannelFrame
+    assert isinstance(percussive_cf, ChannelFrame)
+    assert percussive_cf.label == cf.label
+    assert len(percussive_cf) == len(cf)
+
+    # Verify all channels had their hpss_percussive method
+    # called with the right kwargs
+    assert len(calls) == 2
+    assert calls[0][0] == "Channel 1"
+    assert calls[1][0] == "Channel 2"
+    assert all(kwargs == test_kwargs for _, kwargs in calls)

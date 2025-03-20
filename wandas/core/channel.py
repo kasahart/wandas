@@ -1,6 +1,6 @@
 # wandas/core/channel.py
 
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Union
 
 import ipywidgets as widgets
 import numpy as np
@@ -162,6 +162,76 @@ class Channel(BaseChannel, ArithmeticMixin):
             cutoff=cutoff,
             order=order,
             filter_type="lowpass",
+        )
+        return Channel.from_channel(self, **result)
+
+    def hpss_harmonic(
+        self,
+        kernel_size: Union[int, tuple[int, int], list[int]] = 31,
+        power: float = 2.0,
+        mask: bool = False,
+        margin: Union[float, tuple[float, float], list[float]] = 1.0,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: Union[str, NDArrayReal] = "hann",
+        center: bool = True,
+        pad_mode: Literal[
+            "constant", "edge", "linear_ramp", "reflect", "symmetric", "empty"
+        ]
+        | Callable[..., Any] = "constant",
+    ) -> "Channel":
+        """
+        HPSS（Harmonic-Percussive Source Separation）のうち、
+        Harmonic 成分を取得します。
+        """
+        result = channel_processing.apply_hpss_harmonic(
+            ch=self,
+            kernel_size=kernel_size,
+            power=power,
+            mask=mask,
+            margin=margin,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            center=center,
+            pad_mode=pad_mode,
+        )
+        return Channel.from_channel(self, **result)
+
+    def hpss_percussive(
+        self,
+        kernel_size: Union[int, tuple[int, int], list[int]] = 31,
+        power: float = 2.0,
+        mask: bool = False,
+        margin: Union[float, tuple[float, float], list[float]] = 1.0,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: Union[str, NDArrayReal] = "hann",
+        center: bool = True,
+        pad_mode: Literal[
+            "constant", "edge", "linear_ramp", "reflect", "symmetric", "empty"
+        ]
+        | Callable[..., Any] = "constant",
+    ) -> "Channel":
+        """
+        HPSS（Harmonic-Percussive Source Separation）のうち、
+        Percussive 成分を取得します。
+        """
+        result = channel_processing.apply_hpss_percussive(
+            ch=self,
+            kernel_size=kernel_size,
+            power=power,
+            mask=mask,
+            margin=margin,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            center=center,
+            pad_mode=pad_mode,
         )
         return Channel.from_channel(self, **result)
 
@@ -348,7 +418,9 @@ class Channel(BaseChannel, ArithmeticMixin):
         """
         return int(self._data.shape[-1])
 
-    def add(self, other: "Channel", snr: Optional[float] = None) -> "Channel":
+    def add(
+        self, other: Union["Channel", NDArrayReal], snr: Optional[float] = None
+    ) -> "Channel":
         """_summary_
 
         Args:
@@ -358,6 +430,9 @@ class Channel(BaseChannel, ArithmeticMixin):
         Returns:
             Channel: _description_
         """
+        if isinstance(other, np.ndarray):
+            other = Channel.from_channel(self, data=other, label="ndarray")
+
         if snr is None:
             return self + other
 

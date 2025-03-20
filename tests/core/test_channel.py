@@ -494,3 +494,130 @@ def test_channel_cut_taper_rate() -> None:
     assert len(result_channels) == len(expected_segments)
     for res_ch, exp_seg in zip(result_channels, expected_segments):
         np.testing.assert_allclose(res_ch.data, exp_seg)
+
+
+def test_channel_hpss_harmonic_basic() -> None:
+    """
+    Test the basic functionality of the hpss_harmonic method.
+    """
+    # Create a test signal with both harmonic and percussive components
+    sampling_rate = 1000
+    t = np.linspace(0, 1, sampling_rate, endpoint=False)
+    # Harmonic component (sine wave)
+    harmonic = np.sin(2 * np.pi * 10 * t)
+    # Percussive component (short impulses)
+    percussive = np.zeros_like(t)
+    percussive[::100] = 1.0  # Impulses every 100 samples
+    # Combined signal
+    data = harmonic + percussive
+
+    channel = Channel(data=data, sampling_rate=sampling_rate, label="Mixed")
+
+    # Call hpss_harmonic with default parameters
+    harmonic_channel = channel.hpss_harmonic()
+
+    # Basic assertions
+    assert isinstance(harmonic_channel, Channel)
+    assert harmonic_channel.sampling_rate == sampling_rate
+    assert harmonic_channel.label == channel.label
+    assert len(harmonic_channel.data) == len(channel.data)
+    # Verify the result is not identical to the input (should be processed)
+    assert not np.array_equal(harmonic_channel.data, channel.data)
+
+
+def test_channel_hpss_percussive_basic() -> None:
+    """
+    Test the basic functionality of the hpss_percussive method.
+    """
+    # Create a test signal with both harmonic and percussive components
+    sampling_rate = 1000
+    t = np.linspace(0, 1, sampling_rate, endpoint=False)
+    # Harmonic component (sine wave)
+    harmonic = np.sin(2 * np.pi * 10 * t)
+    # Percussive component (short impulses)
+    percussive = np.zeros_like(t)
+    percussive[::100] = 1.0  # Impulses every 100 samples
+    # Combined signal
+    data = harmonic + percussive
+
+    channel = Channel(data=data, sampling_rate=sampling_rate, label="Mixed")
+
+    # Call hpss_percussive with default parameters
+    percussive_channel = channel.hpss_percussive()
+
+    # Basic assertions
+    assert isinstance(percussive_channel, Channel)
+    assert percussive_channel.sampling_rate == sampling_rate
+    assert percussive_channel.label == channel.label
+    assert len(percussive_channel.data) == len(channel.data)
+    # Verify the result is not identical to the input (should be processed)
+    assert not np.array_equal(percussive_channel.data, channel.data)
+
+
+def test_channel_hpss_parameter_passing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Test that parameters are correctly passed to the HPSS functions.
+    Uses monkeypatch to replace the actual implementation and verify parameter passing.
+    """
+    from wandas.core import channel_processing
+
+    # Track calls to the functions
+    harmonic_calls = []
+    percussive_calls = []
+
+    # Create mock versions of the channel_processing functions
+    def mock_apply_hpss_harmonic(
+        ch: "Channel", **kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
+        harmonic_calls.append((ch, kwargs))
+        return {"data": ch.data}  # Return minimal result
+
+    def mock_apply_hpss_percussive(
+        ch: "Channel", **kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
+        percussive_calls.append((ch, kwargs))
+        return {"data": ch.data}  # Return minimal result
+
+    # Replace the actual functions with our mocks
+    monkeypatch.setattr(
+        channel_processing, "apply_hpss_harmonic", mock_apply_hpss_harmonic
+    )
+    monkeypatch.setattr(
+        channel_processing, "apply_hpss_percussive", mock_apply_hpss_percussive
+    )
+
+    # Create a simple channel
+    sampling_rate = 1000
+    data = np.sin(2 * np.pi * 10 * np.linspace(0, 1, sampling_rate, endpoint=False))
+    channel = Channel(data=data, sampling_rate=sampling_rate, label="Test")
+
+    # Custom parameter values to verify passing
+    test_params: dict[str, Any] = {
+        "kernel_size": 51,
+        "power": 3.0,
+        "mask": True,
+        "margin": 2.0,
+        "n_fft": 1024,
+        "hop_length": 256,
+        "win_length": 1024,
+        "window": "hamming",
+        "center": False,
+        "pad_mode": "reflect",
+    }
+
+    # Call the methods with the custom parameters
+    channel.hpss_harmonic(**test_params)
+    channel.hpss_percussive(**test_params)
+
+    # Verify that each function was called once
+    assert len(harmonic_calls) == 1
+    assert len(percussive_calls) == 1
+
+    # Verify that the channel was passed correctly
+    assert harmonic_calls[0][0] is channel
+    assert percussive_calls[0][0] is channel
+
+    # Verify that all parameters were passed correctly
+    for param_name, param_value in test_params.items():
+        assert harmonic_calls[0][1][param_name] == param_value
+        assert percussive_calls[0][1][param_name] == param_value
