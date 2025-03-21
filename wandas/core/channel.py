@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Union
 import ipywidgets as widgets
 import numpy as np
 from IPython.display import Audio, display
+from waveform_analysis import A_weight
 
 from wandas.core import channel_processing, util
 from wandas.core.arithmetic import ArithmeticMixin
@@ -164,6 +165,14 @@ class Channel(BaseChannel, ArithmeticMixin):
             filter_type="lowpass",
         )
         return Channel.from_channel(self, **result)
+
+    def a_weighting(self) -> "Channel":
+        """
+        A-weighting フィルタを適用します。
+        """
+        data: NDArrayReal = np.array(A_weight(signal=self.data, fs=self.sampling_rate))
+
+        return Channel.from_channel(self, data=data, unit="dB(A)")
 
     def hpss_harmonic(
         self,
@@ -369,7 +378,12 @@ class Channel(BaseChannel, ArithmeticMixin):
 
         return tf_ch.melspectrogram(n_mels=n_mels)
 
-    def rms_trend(self, frame_length: int = 2048, hop_length: int = 512) -> "Channel":
+    def rms_trend(
+        self,
+        frame_length: int = 2048,
+        hop_length: int = 512,
+        Aw: bool = False,  # noqa: N803
+    ) -> "Channel":
         """
         移動平均を計算します。
 
@@ -383,6 +397,7 @@ class Channel(BaseChannel, ArithmeticMixin):
             ch=self,
             frame_length=frame_length,
             hop_length=hop_length,
+            Aw=Aw,  # noqa: N803
         )
         return Channel.from_channel(self, **result)
 
@@ -403,6 +418,7 @@ class Channel(BaseChannel, ArithmeticMixin):
         self,
         ax: Optional[Any] = None,
         title: Optional[str] = None,
+        Aw: bool = False,  # noqa: N803
         plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> "Axes":
         """
@@ -410,7 +426,7 @@ class Channel(BaseChannel, ArithmeticMixin):
         """
         plotter = ChannelPlotter(self)
 
-        return plotter.rms_plot(ax=ax, title=title, plot_kwargs=plot_kwargs)
+        return plotter.rms_plot(ax=ax, title=title, Aw=Aw, plot_kwargs=plot_kwargs)
 
     def __len__(self) -> int:
         """

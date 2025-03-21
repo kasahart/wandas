@@ -595,6 +595,7 @@ def test_rms_plot_overlay_with_ax(monkeypatch: pytest.MonkeyPatch) -> None:
         ax: Optional["Axes"] = None,
         title: Optional[str] = None,
         overlay: bool = True,
+        Aw: bool = False,  # noqa: N803
         plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> Union["Axes", list["Axes"]]:
         call_list.append("called")
@@ -653,6 +654,7 @@ def test_rms_plot_non_overlay(monkeypatch: pytest.MonkeyPatch) -> None:
         ax: Optional["Axes"] = None,
         title: Optional[str] = None,
         overlay: bool = True,
+        Aw: bool = False,  # noqa: N803
         plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> Union["Axes", list["Axes"]]:
         call_list.append("called")
