@@ -1,5 +1,6 @@
 # wandas/core/signal.py
-from collections.abc import Iterable
+import numbers
+from collections.abc import Iterable, Iterator
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 import ipywidgets as widgets
@@ -7,7 +8,6 @@ import numpy as np
 import pandas as pd
 
 from wandas.core.channel import Channel
-from wandas.core.channel_access_mixin import ChannelAccessMixin
 from wandas.io import wav_io
 from wandas.utils.types import NDArrayReal
 
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from wandas.core.matrix_frame import MatrixFrame
 
 
-class ChannelFrame(ChannelAccessMixin["Channel"]):
+class ChannelFrame:
     def __init__(self, channels: list["Channel"], label: Optional[str] = None):
         """
 
@@ -40,8 +40,10 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
             raise ValueError("All channels must have the same sampling_rate.")
 
         self.sampling_rate = channels[0].sampling_rate
-        self._channel_dict = {ch.label: ch for ch in self.channels}
-        if len(self._channel_dict) != len(self):
+
+        # チャンネル名で辞書のようにアクセスできるようにするための辞書を構築
+        self.channel_dict = {ch.label: ch for ch in channels}
+        if len(self.channel_dict) != len(channels):
             raise ValueError("Channel labels must be unique.")
 
     @classmethod
@@ -50,7 +52,7 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
         array: NDArrayReal,
         sampling_rate: int,
         labels: Optional[list[str]] = None,
-        unit: Optional[str] = None,
+        unit: str = "Pa",
     ) -> "ChannelFrame":
         """
         numpy の ndarray から ChannelFrame インスタンスを生成します。
@@ -298,7 +300,6 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
         ax: Optional["Axes"] = None,
         title: Optional[str] = None,
         overlay: bool = True,
-        Aw: bool = False,  # noqa: N803
         plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> Union["Axes", Iterable["Axes"]]:
         """
@@ -310,7 +311,7 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
         plotter = ChannelFramePlotter(self)
 
         return plotter.rms_plot(
-            ax=ax, title=title, overlay=overlay, Aw=Aw, plot_kwargs=plot_kwargs
+            ax=ax, title=title, overlay=overlay, plot_kwargs=plot_kwargs
         )
 
     def high_pass_filter(self, cutoff: float, order: int = 5) -> "ChannelFrame":
@@ -340,36 +341,6 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
         """
         filtered_channels = [ch.low_pass_filter(cutoff, order) for ch in self]
         return ChannelFrame(filtered_channels, label=self.label)
-
-    def a_weighting(self) -> "ChannelFrame":
-        """
-        A 加重をすべてのチャンネルに適用します。
-
-        Returns:
-            ChannelFrame: A 加重された新しい ChannelFrame オブジェクト。
-        """
-        weighted_channels = [ch.a_weighting() for ch in self]
-        return ChannelFrame(weighted_channels, label=self.label)
-
-    def hpss_harmonic(self, **kwargs: Any) -> "ChannelFrame":
-        """
-        HPSS（Harmonic-Percussive Source Separation）の Harmonic 成分を抽出します。
-
-        Returns:
-            ChannelFrame: Harmonic 成分を含む新しい ChannelFrame オブジェクト。
-        """
-        harmonic_channels = [ch.hpss_harmonic(**kwargs) for ch in self]
-        return ChannelFrame(harmonic_channels, label=self.label)
-
-    def hpss_percussive(self, **kwargs: Any) -> "ChannelFrame":
-        """
-        HPSS（Harmonic-Percussive Source Separation）の Percussive 成分を抽出します。
-
-        Returns:
-            ChannelFrame: Percussive 成分を含む新しい ChannelFrame オブジェクト。
-        """
-        percussive_channels = [ch.hpss_percussive(**kwargs) for ch in self]
-        return ChannelFrame(percussive_channels, label=self.label)
 
     def fft(
         self,
@@ -422,6 +393,43 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
             channels=chs,
             label=self.label,
         )
+
+    # forでループを回すためのメソッド
+    def __iter__(self) -> Iterator["Channel"]:
+        for idx in range(len(self)):
+            yield self[idx]
+
+    def __getitem__(self, key: Union[str, int]) -> "Channel":
+        """
+        チャンネル名またはインデックスでチャンネルを取得するためのメソッド。
+
+        Parameters:
+            key (str or int): チャンネルの名前（label）またはインデックス番号。
+
+        Returns:
+            Channel: 対応するチャンネル。
+        """
+        if isinstance(key, str):
+            # チャンネル名でアクセス
+            if key not in self.channel_dict:
+                raise KeyError(f"Channel '{key}' not found.")
+            return self.channel_dict[key]
+        elif isinstance(key, numbers.Integral):
+            # インデックス番号でアクセス
+            if key < 0 or key >= len(self._channels):
+                raise IndexError(f"Channel index {key} out of range.")
+            return self._channels[key]
+        else:
+            raise TypeError(
+                "Key must be either a string (channel name) or an integer "
+                "(channel index)."
+            )
+
+    def __len__(self) -> int:
+        """
+        チャンネルのデータ長を返します。
+        """
+        return len(self._channels)
 
     def _op(
         self,

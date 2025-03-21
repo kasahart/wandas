@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 import librosa
 import numpy as np
 from scipy.signal import butter, filtfilt
-from waveform_analysis import A_weight
 
 from wandas.core import util
 from wandas.utils.types import NDArrayComplex, NDArrayReal
@@ -22,11 +21,8 @@ def apply_add(ch1: "Channel", ch2: "Channel", snr: float) -> "Channel":
     if ch1.data.shape != ch2.data.shape:
         raise ValueError("Data shapes of the two channels are different.")
 
-    other_rms = util.calculate_rms(ch2.data)
-    if other_rms == 0:
-        raise ValueError("RMS of the noise channel is zero.")
-
     clean_rms = util.calculate_rms(ch1.data)
+    other_rms = util.calculate_rms(ch2.data)
     desired_noise_rms = util.calculate_desired_noise_rms(clean_rms, snr)
     gain = desired_noise_rms / other_rms
 
@@ -50,28 +46,6 @@ def apply_filter(
         )
     else:
         raise ValueError("Filtered data is not a ndarray.")
-
-
-def apply_hpss_harmonic(
-    ch: "Channel",
-    **kwargs: Any,
-) -> dict[str, NDArrayReal]:
-    harmonic = librosa.effects.harmonic(ch.data, **kwargs)
-    result = dict(
-        data=harmonic,
-    )
-    return result
-
-
-def apply_hpss_percussive(
-    ch: "Channel",
-    **kwargs: Any,
-) -> dict[str, NDArrayReal]:
-    percussive = librosa.effects.percussive(ch.data, **kwargs)
-    result = dict(
-        data=percussive,
-    )
-    return result
 
 
 def compute_fft(
@@ -144,17 +118,10 @@ def compute_stft(
 
 
 def compute_rms_trend(
-    ch: "Channel",
-    frame_length: int = 2048,
-    hop_length: int = 512,
-    Aw: bool = False,  # noqa: N803
+    ch: "Channel", frame_length: int = 2048, hop_length: int = 512
 ) -> dict[str, Any]:
-    data: NDArrayReal = ch.data
-    if Aw:
-        data = np.array(A_weight(data, ch.sampling_rate))
-
     rms_data = librosa.feature.rms(
-        y=data, frame_length=frame_length, hop_length=hop_length
+        y=ch.data, frame_length=frame_length, hop_length=hop_length
     )
     result = dict(
         data=rms_data.squeeze(),

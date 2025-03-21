@@ -52,7 +52,6 @@ class ChannelPlotter:
         self,
         ax: Optional["Axes"] = None,
         title: Optional[str] = None,
-        Aw: bool = False,  # noqa: N803
         plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> "Axes":
         _ax = ax
@@ -61,7 +60,7 @@ class ChannelPlotter:
 
         plot_kwargs = plot_kwargs or {}
 
-        rms_channel: Channel = self.channel.rms_trend(Aw=Aw)
+        rms_channel: Channel = self.channel.rms_trend()
         num_samples = len(rms_channel)
         t = np.arange(num_samples) / rms_channel.sampling_rate
 

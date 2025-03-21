@@ -133,8 +133,8 @@ def test_matrix_frame_coherence() -> None:
 
     spectrums = matrix_frame.coherence(win_length=1024)
     for i in range(Cxy_reshaped.shape[0]):
-        assert np.allclose(spectrums._channels[i].data, Cxy_reshaped[i], atol=1e-5), (
-            f"Expected {Cxy_reshaped[i]}, but got {(spectrums._channels[i].data,)}"
+        assert np.allclose(spectrums.channels[i].data, Cxy_reshaped[i], atol=1e-5), (
+            f"Expected {Cxy_reshaped[i]}, but got {(spectrums.channels[i].data,)}"
         )
 
 
@@ -182,8 +182,8 @@ def test_matrix_frame_csd() -> None:
 
     spectrums = matrix_frame.csd(win_length=1024)
     for i in range(Cxy_reshaped.shape[0]):
-        assert np.allclose(spectrums._channels[i].data, Cxy_reshaped[i], atol=1e-5), (
-            f"Expected {Cxy_reshaped[i]}, but got {(spectrums._channels[i].data,)}"
+        assert np.allclose(spectrums.channels[i].data, Cxy_reshaped[i], atol=1e-5), (
+            f"Expected {Cxy_reshaped[i]}, but got {(spectrums.channels[i].data,)}"
         )
 
 

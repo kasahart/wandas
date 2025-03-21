@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Any, Optional
 import matplotlib.pyplot as plt
 import numpy as np
 
-from wandas.core.channel_access_mixin import ChannelAccessMixin
 from wandas.core.frequency_channel import FrequencyChannel
 
 if TYPE_CHECKING:
@@ -13,7 +12,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
 
-class FrequencyChannelFrame(ChannelAccessMixin["FrequencyChannel"]):
+class FrequencyChannelFrame:
     def __init__(self, channels: list["FrequencyChannel"], label: Optional[str] = None):
         """
         FrequencyChannelFrame オブジェクトを初期化します。
@@ -22,11 +21,8 @@ class FrequencyChannelFrame(ChannelAccessMixin["FrequencyChannel"]):
             channels (list of FrequencyChannel): FrequencyChannelオブジェクトのリスト。
             label (str, optional): スペクトルのラベル。
         """
-        self._channels = channels
+        self.channels = channels
         self.label = label
-        self._channel_dict = {ch.label: ch for ch in self.channels}
-        if len(self._channel_dict) != len(self):
-            raise ValueError("Channel labels must be unique.")
 
     def plot(
         self,
@@ -49,14 +45,14 @@ class FrequencyChannelFrame(ChannelAccessMixin["FrequencyChannel"]):
         suptitle = title or self.label or "Spectrum"
 
         if not overlay:
-            num_channels = len(self._channels)
+            num_channels = len(self.channels)
             fig, axs = plt.subplots(
                 num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
             )
             if num_channels == 1:
                 axs = [axs]  # Ensure axs is iterable when there's only one channel
 
-            for i, channel in enumerate(self._channels):
+            for i, channel in enumerate(self.channels):
                 tmp = axs[i]
                 channel.plot(ax=tmp, Aw=Aw, plot_kwargs=plot_kwargs)
                 leg = tmp.get_legend()
@@ -73,7 +69,7 @@ class FrequencyChannelFrame(ChannelAccessMixin["FrequencyChannel"]):
         else:
             tmp = ax
 
-        for channel in self._channels:
+        for channel in self.channels:
             channel.plot(ax=tmp, Aw=Aw, plot_kwargs=plot_kwargs)
 
         tmp.grid(True)
@@ -98,7 +94,7 @@ class FrequencyChannelFrame(ChannelAccessMixin["FrequencyChannel"]):
             cmap (str, optional): カラーマップ。
         """
 
-        num_channels = len(self._channels)
+        num_channels = len(self.channels)
         num_rows = int(np.ceil(np.sqrt(num_channels)))
 
         fig, axes = plt.subplots(
@@ -110,7 +106,7 @@ class FrequencyChannelFrame(ChannelAccessMixin["FrequencyChannel"]):
         )
         axes = axes.flatten()
 
-        for ch, ax in zip(self._channels, axes):
+        for ch, ax in zip(self.channels, axes):
             ch.plot(ax=ax, title=title, Aw=Aw)
             ax.set_title(title or self.label)
 

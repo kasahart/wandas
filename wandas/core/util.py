@@ -37,7 +37,7 @@ def amplitude_to_db(amplitude: "NDArrayReal", ref: float) -> "NDArrayReal":
     Convert amplitude to decibel.
     """
     db: NDArrayReal = librosa.amplitude_to_db(
-        np.abs(amplitude), ref=ref, amin=1e-15, top_db=None
+        np.abs(amplitude), ref=ref, amin=1e-15, top_db=300
     )
     return db
 

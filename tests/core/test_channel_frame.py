@@ -1,6 +1,6 @@
 # tests/core/channel_frame.py
+
 import csv
-import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -116,9 +116,9 @@ def test_signal_fft() -> None:
 
     spectrum = signal.fft(n_fft=1024, window="hann")
 
-    assert len(spectrum._channels) == 2
+    assert len(spectrum.channels) == 2
     for freq_ch, label, expected_freq in zip(
-        spectrum._channels, ["Channel 1", "Channel 2"], [50, 100]
+        spectrum.channels, ["Channel 1", "Channel 2"], [50, 100]
     ):
         assert freq_ch.label == label
         assert freq_ch.n_fft == 1024
@@ -148,9 +148,9 @@ def test_signal_welch() -> None:
 
     spectrum = signal.welch(n_fft=n_fft, win_length=win_length, window="hann")
 
-    assert len(spectrum._channels) == 2
+    assert len(spectrum.channels) == 2
     for freq_ch, label, expected_freq in zip(
-        spectrum._channels, ["Channel 1", "Channel 2"], [125, 250]
+        spectrum.channels, ["Channel 1", "Channel 2"], [125, 250]
     ):
         assert freq_ch.label == label
         assert freq_ch.n_fft == n_fft
@@ -246,39 +246,18 @@ def test_channel_frame_read_wav(tmp_path: Path) -> None:
 
 
 def test_channel_frame_to_wav(tmp_path: Path) -> None:
-    expected_dir = tmp_path / "test"
-
-    sampling_rate = 48000
-    num_samples = 1000
-    data1 = np.full(num_samples, 0.3, dtype=np.float32)
-    data2 = np.full(num_samples, 0.6, dtype=np.float32)
+    filename = tmp_path / "test.wav"
+    data1 = np.array([0, 1, 2], dtype=np.float32)
+    data2 = np.array([3, 4, 5], dtype=np.float32)
+    sampling_rate = 1000
     channel1 = Channel(data=data1, sampling_rate=sampling_rate, label="Channel 1")
     channel2 = Channel(data=data2, sampling_rate=sampling_rate, label="Channel 2")
     channel_frame = ChannelFrame(channels=[channel1, channel2])
 
-    channel_frame.to_wav(str(expected_dir))
+    channel_frame.to_wav(str(filename))
 
-    # After writing, a folder named "test_stereoframe" is created
-    assert os.path.isdir(expected_dir)
-
-    # Check that each channel file is written
-    left_file = os.path.join(expected_dir, "Channel 1.wav")
-    right_file = os.path.join(expected_dir, "Channel 2.wav")
-    assert os.path.isfile(left_file)
-    assert os.path.isfile(right_file)
-
-    # Verify sampling rate and data scaling for each channel
-    sr_left, wav_left = wavfile.read(left_file)
-    sr_right, wav_right = wavfile.read(right_file)
-    assert sr_left == sampling_rate
-    assert sr_right == sampling_rate
-
-    # Both channels should scale using the same norm, which is max(0.3, 0.6) = 0.6
-    # For data=0.3, scaled to (0.3 / 0.6)*32767 = ~16383, for data=0.6 => ~32767
-    np.testing.assert_array_equal(wav_left, np.full(num_samples, 16383, dtype=np.int16))
-    np.testing.assert_array_equal(
-        wav_right, np.full(num_samples, 32767, dtype=np.int16)
-    )
+    sr, data = wavfile.read(filename)
+    assert sr == sampling_rate
 
 
 # Test sampling rate mismatch in __init__
@@ -293,7 +272,6 @@ def test_sampling_rate_mismatch_init() -> None:
 def test_duplicate_channel_labels() -> None:
     channel1 = Channel(data=np.array([0, 1, 2]), sampling_rate=1000, label="Same")
     channel2 = Channel(data=np.array([3, 4, 5]), sampling_rate=1000, label="Same")
-
     with pytest.raises(ValueError):
         ChannelFrame(channels=[channel1, channel2])
 
@@ -436,34 +414,6 @@ def test_getitem_by_index_and_label() -> None:
         _ = cf["NonExistent"]
 
 
-def test_setitem_by_index_and_label() -> None:
-    # Test __setitem__ both for index and label.
-    data1 = np.array([0, 1, 2])
-    data2 = np.array([3, 4, 5])
-    sampling_rate = 1000
-    ch1 = Channel(data=data1, sampling_rate=sampling_rate, label="First")
-    ch2 = Channel(data=data2, sampling_rate=sampling_rate, label="Second")
-    cf = ChannelFrame(channels=[ch1, ch2], label="SetItemTest")
-
-    # Set by index.
-    new_ch1 = Channel(
-        data=np.array([10, 11, 12]), sampling_rate=sampling_rate, label="New1"
-    )
-    cf[0] = new_ch1
-    assert cf[0] == new_ch1
-
-    # Set by label.
-    new_ch2 = Channel(
-        data=np.array([13, 14, 15]), sampling_rate=sampling_rate, label="New2"
-    )
-    cf["Second"] = new_ch2
-    assert cf["Second"] == new_ch2
-
-    # Check that the original channels are not present.
-    assert ch1 not in cf
-    assert ch2 not in cf
-
-
 def test_iter_and_len() -> None:
     # Test __iter__ and __len__
     data = np.array([0, 1, 2])
@@ -595,7 +545,6 @@ def test_rms_plot_overlay_with_ax(monkeypatch: pytest.MonkeyPatch) -> None:
         ax: Optional["Axes"] = None,
         title: Optional[str] = None,
         overlay: bool = True,
-        Aw: bool = False,  # noqa: N803
         plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> Union["Axes", list["Axes"]]:
         call_list.append("called")
@@ -654,7 +603,6 @@ def test_rms_plot_non_overlay(monkeypatch: pytest.MonkeyPatch) -> None:
         ax: Optional["Axes"] = None,
         title: Optional[str] = None,
         overlay: bool = True,
-        Aw: bool = False,  # noqa: N803
         plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> Union["Axes", list["Axes"]]:
         call_list.append("called")
@@ -952,103 +900,3 @@ def test_channel_frame_cut_nonzero_taper() -> None:
             expected_seg_ch2[i].data,
             err_msg=f"Segment {i + 1} channel 2 data mismatch with taper.",
         )
-
-
-def test_hpss_harmonic(monkeypatch: pytest.MonkeyPatch) -> None:
-    """
-    Test the hpss_harmonic method in ChannelFrame.
-    Verifies that it calls the corresponding method on each channel
-    and returns a new ChannelFrame with the results.
-    """
-    # Create test data with two channels
-    sampling_rate = 1000
-    t = np.linspace(0, 1, sampling_rate)
-    data1 = np.sin(2 * np.pi * 10 * t)  # 10 Hz sine wave
-    data2 = np.sin(2 * np.pi * 100 * t)  # 100 Hz sine wave
-
-    # Create channels and track calls to hpss_harmonic
-    calls = []
-
-    def mock_hpss_harmonic(self: "Channel", **kwargs: Any) -> "Channel":
-        # Record that this was called and with what arguments
-        calls.append((self.label, kwargs))
-        # Return a new channel with the same data (mock implementation)
-        return Channel(
-            data=self.data, sampling_rate=self.sampling_rate, label=self.label
-        )
-
-    # Patch the Channel.hpss_harmonic method
-    monkeypatch.setattr(Channel, "hpss_harmonic", mock_hpss_harmonic)
-
-    # Create channels and channel frame
-    ch1 = Channel(data=data1, sampling_rate=sampling_rate, label="Channel 1")
-    ch2 = Channel(data=data2, sampling_rate=sampling_rate, label="Channel 2")
-    cf = ChannelFrame(channels=[ch1, ch2], label="Test Frame")
-
-    # Set some custom kwargs to verify they're passed through
-    test_kwargs = {"margin": 3.0, "power": 2.0}
-
-    # Call the method being tested
-    harmonic_cf = cf.hpss_harmonic(**test_kwargs)
-
-    # Verify the result is a ChannelFrame
-    assert isinstance(harmonic_cf, ChannelFrame)
-    assert harmonic_cf.label == cf.label
-    assert len(harmonic_cf) == len(cf)
-
-    # Verify all channels had their hpss_harmonic method
-    # called with the right kwargs
-    assert len(calls) == 2
-    assert calls[0][0] == "Channel 1"
-    assert calls[1][0] == "Channel 2"
-    assert all(kwargs == test_kwargs for _, kwargs in calls)
-
-
-def test_hpss_percussive(monkeypatch: pytest.MonkeyPatch) -> None:
-    """
-    Test the hpss_percussive method in ChannelFrame.
-    Verifies that it calls the corresponding method on each channel
-    and returns a new ChannelFrame with the results.
-    """
-    # Create test data with two channels
-    sampling_rate = 1000
-    t = np.linspace(0, 1, sampling_rate)
-    data1 = np.sin(2 * np.pi * 10 * t)  # 10 Hz sine wave
-    data2 = np.sin(2 * np.pi * 100 * t)  # 100 Hz sine wave
-
-    # Create channels and track calls to hpss_percussive
-    calls = []
-
-    def mock_hpss_percussive(self: "Channel", **kwargs: Any) -> "Channel":
-        # Record that this was called and with what arguments
-        calls.append((self.label, kwargs))
-        # Return a new channel with the same data (mock implementation)
-        return Channel(
-            data=self.data, sampling_rate=self.sampling_rate, label=self.label
-        )
-
-    # Patch the Channel.hpss_percussive method
-    monkeypatch.setattr(Channel, "hpss_percussive", mock_hpss_percussive)
-
-    # Create channels and channel frame
-    ch1 = Channel(data=data1, sampling_rate=sampling_rate, label="Channel 1")
-    ch2 = Channel(data=data2, sampling_rate=sampling_rate, label="Channel 2")
-    cf = ChannelFrame(channels=[ch1, ch2], label="Test Frame")
-
-    # Set some custom kwargs to verify they're passed through
-    test_kwargs = {"margin": 2.0, "power": 4.0}
-
-    # Call the method being tested
-    percussive_cf = cf.hpss_percussive(**test_kwargs)
-
-    # Verify the result is a ChannelFrame
-    assert isinstance(percussive_cf, ChannelFrame)
-    assert percussive_cf.label == cf.label
-    assert len(percussive_cf) == len(cf)
-
-    # Verify all channels had their hpss_percussive method
-    # called with the right kwargs
-    assert len(calls) == 2
-    assert calls[0][0] == "Channel 1"
-    assert calls[1][0] == "Channel 2"
-    assert all(kwargs == test_kwargs for _, kwargs in calls)

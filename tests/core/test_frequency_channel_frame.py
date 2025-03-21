@@ -15,141 +15,13 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
 
-def test_getitem_by_index_and_label() -> None:
-    # Test __getitem__ both for index and label.
-    data1 = np.array([0, 1, 2])
-    data2 = np.array([3, 4, 5])
-    sampling_rate = 1000
-    n_fft = 1024
-    window = np.hanning(5)
-
-    unit = "V"
-    metadata = {"note": "Test metadata"}
-    ch1 = FrequencyChannel(
-        data=data1,
-        sampling_rate=sampling_rate,
-        n_fft=n_fft,
-        window=window,
-        label="First",
-        unit=unit,
-        metadata=metadata,
-    )
-    ch2 = FrequencyChannel(
-        data=data2,
-        sampling_rate=sampling_rate,
-        n_fft=n_fft,
-        window=window,
-        label="Second",
-        unit=unit,
-        metadata=metadata,
-    )
-    cf = FrequencyChannelFrame(channels=[ch1, ch2], label="GetItemTest")
-
-    # Access by index.
-    assert cf[0] == ch1
-    assert cf[1] == ch2
-    with pytest.raises(IndexError):
-        _ = cf[2]
-
-    # Access by label.
-    assert cf["First"] == ch1
-    assert cf["Second"] == ch2
-    with pytest.raises(KeyError):
-        _ = cf["NonExistent"]
-
-
-def test_setitem_by_index_and_label() -> None:
-    # Test __setitem__ both for index and label.
-    data1 = np.array([0, 1, 2])
-    data2 = np.array([3, 4, 5])
-    sampling_rate = 1000
-    n_fft = 1024
-    window = np.hanning(5)
-    unit = "V"
-    metadata = {"note": "Test metadata"}
-    ch1 = FrequencyChannel(
-        data=data1,
-        sampling_rate=sampling_rate,
-        n_fft=n_fft,
-        window=window,
-        label="First",
-        unit=unit,
-        metadata=metadata,
-    )
-    ch2 = FrequencyChannel(
-        data=data2,
-        sampling_rate=sampling_rate,
-        n_fft=n_fft,
-        window=window,
-        label="Second",
-        unit=unit,
-        metadata=metadata,
-    )
-    cf = FrequencyChannelFrame(channels=[ch1, ch2], label="SetItemTest")
-
-    # Set by index.
-    data3 = np.array([6, 7, 8])
-    ch3 = FrequencyChannel(
-        data=data3,
-        sampling_rate=sampling_rate,
-        n_fft=n_fft,
-        window=window,
-        label="Third",
-        unit=unit,
-        metadata=metadata,
-    )
-    cf[1] = ch3
-    assert cf[1] == ch3
-
-    # Set by label.
-    data4 = np.array([9, 10, 11])
-    ch4 = FrequencyChannel(
-        data=data4,
-        sampling_rate=sampling_rate,
-        n_fft=n_fft,
-        window=window,
-        label="Fourth",
-        unit=unit,
-        metadata=metadata,
-    )
-    cf["First"] = ch4
-    assert cf["First"] == ch4
-
-
-def test_iter_and_len() -> None:
-    # Test __iter__ and __len__
-    data = np.array([0, 1, 2])
-    sampling_rate = 1000
-    n_fft = 1024
-    window = np.hanning(5)
-    unit = "V"
-    metadata = {"note": "Test metadata"}
-    ch_list = [
-        FrequencyChannel(
-            data=data,
-            sampling_rate=sampling_rate,
-            n_fft=n_fft,
-            window=window,
-            label=f"ch{i}",
-            unit=unit,
-            metadata=metadata,
-        )
-        for i in range(3)
-    ]
-    cf = FrequencyChannelFrame(channels=ch_list, label="IterTest")
-    # Check length.
-    assert len(cf) == 3
-    # Check iteration produces all channels.
-    iterated = [ch for ch in cf]
-    assert iterated == ch_list
-
-
 def test_spectrum_initialization() -> None:
     data1 = np.array([10, 9, 8, 7, 6])
     data2 = np.array([5, 4, 3, 2, 1])
     sampling_rate = 1000
     n_fft = 1024
     window = np.hanning(5)
+    label = "Test Spectrum"
     unit = "V"
     metadata = {"note": "Test metadata"}
 
@@ -158,7 +30,7 @@ def test_spectrum_initialization() -> None:
         sampling_rate=sampling_rate,
         n_fft=n_fft,
         window=window,
-        label="Channel 1",
+        label=label,
         unit=unit,
         metadata=metadata,
     )
@@ -167,7 +39,7 @@ def test_spectrum_initialization() -> None:
         sampling_rate=sampling_rate,
         n_fft=n_fft,
         window=window,
-        label="Channel 2",
+        label=label,
         unit=unit,
         metadata=metadata,
     )
@@ -177,9 +49,9 @@ def test_spectrum_initialization() -> None:
     )
 
     assert spectrum.label == "Test Spectrum"
-    assert len(spectrum._channels) == 2
-    assert spectrum._channels[0] == freq_channel1
-    assert spectrum._channels[1] == freq_channel2
+    assert len(spectrum.channels) == 2
+    assert spectrum.channels[0] == freq_channel1
+    assert spectrum.channels[1] == freq_channel2
 
 
 def test_plot_default(monkeypatch: pytest.MonkeyPatch) -> None:
