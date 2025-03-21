@@ -42,6 +42,7 @@ dependencies = [
     "ipympl>=0.9.3",
     "h5py>=3.13.0",
     "dask>=2024.8.0",
+    "waveform-analysis",
 ]
 
 [project.urls]
@@ -62,6 +63,7 @@ dev-dependencies = [
 
 [tool.uv.sources]
 wandas = { workspace = true }
+waveform-analysis = { git = "https://github.com/endolith/waveform-analysis.git", rev = "master" }
 
 [tool.ruff]
 line-length = 88

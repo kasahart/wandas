@@ -1,9 +1,13 @@
 # wandas/io/wav_io.py
 
+import os
 from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
+import numpy.typing as npt
 from scipy.io import wavfile
+
+from wandas.utils.types import NDArrayReal
 
 if TYPE_CHECKING:
     from ..core.channel import Channel
@@ -60,16 +64,37 @@ def write_wav(filename: str, target: Union["ChannelFrame", "Channel"]) -> None:
     from ..core.channel import Channel
     from ..core.channel_frame import ChannelFrame
 
+    def scale_data(data: NDArrayReal, norm: Optional[float] = None) -> npt.ArrayLike:
+        if norm is None:
+            _norm = np.max(np.abs(data))
+        else:
+            _norm = norm
+        max_int16 = np.iinfo(np.int16).max
+        return np.int16(data / _norm * max_int16)
+
     if isinstance(target, Channel):
         data = target.data
+        wavfile.write(
+            filename=filename,
+            rate=target.sampling_rate,
+            data=scale_data(data, np.max(np.abs(data))),
+        )
+
     elif isinstance(target, ChannelFrame):
-        data = np.column_stack([ch.data for ch in target])
+        # filenameにラベルの拡張子を削除
+        _filename = os.path.splitext(filename)[0]
+        # フォルダを作成
+        os.makedirs(_filename, exist_ok=True)
+        _data = np.column_stack([ch.data for ch in target])
+        norm = np.max(np.abs(_data))
+
+        for ch in target:
+            wavfile.write(
+                filename=os.path.join(_filename, f"{ch.label}.wav"),
+                rate=target.sampling_rate,
+                data=scale_data(ch.data, norm),
+            )
     else:
         raise ValueError(
             "target は ChannelFrame または Channel オブジェクトである必要があります。"
         )
-
-    # 16ビット整数にスケーリング
-    max_int16 = np.iinfo(np.int16).max
-    scaled_data = np.int16(data / np.max(np.abs(data)) * max_int16)
-    wavfile.write(filename=filename, rate=target.sampling_rate, data=scaled_data)

@@ -7,6 +7,7 @@ import pytest
 
 from wandas.core import channel_processing, util
 from wandas.core.channel import Channel
+from wandas.core.channel_processing import compute_rms_trend
 from wandas.utils.types import NDArrayReal
 
 
@@ -417,3 +418,34 @@ def test_apply_hpss_harmonic_return_type() -> None:
     assert "data" in result
     assert isinstance(result["data"], np.ndarray)
     assert result["data"].dtype == np.float64 or result["data"].dtype == np.float32
+
+
+def test_compute_rms_trend_basic_usage() -> None:
+    data = np.ones(2048, dtype=np.float32)
+    ch = Channel(data=data, sampling_rate=2048)
+    result = compute_rms_trend(ch)
+    assert isinstance(result, dict)
+    assert "data" in result
+    assert "sampling_rate" in result
+    # Check shape and sampling rate
+    assert result["data"].ndim == 1
+    assert result["sampling_rate"] == (ch.sampling_rate // 512)
+
+
+def test_compute_rms_trend_custom_parameters() -> None:
+    data = np.random.random(4096).astype(np.float32)
+    ch = Channel(data=data, sampling_rate=4096)
+    frame_length = 1024
+    hop_length = 256
+    result = compute_rms_trend(ch, frame_length=frame_length, hop_length=hop_length)
+    assert result["sampling_rate"] == (ch.sampling_rate // hop_length)
+    assert result["data"].shape[0] > 0
+
+
+def test_compute_rms_trend_aw() -> None:
+    data = np.random.random(4096).astype(np.float32)
+    ch = Channel(data=data, sampling_rate=10000)
+    result_aw = compute_rms_trend(ch, Aw=True)
+    result_no_aw = compute_rms_trend(ch, Aw=False)
+    # Ensure that A-weighted results differ from non A-weighted
+    assert not np.allclose(result_aw["data"], result_no_aw["data"])

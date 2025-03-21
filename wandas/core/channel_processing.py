@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 import librosa
 import numpy as np
 from scipy.signal import butter, filtfilt
+from waveform_analysis import A_weight
 
 from wandas.core import util
 from wandas.utils.types import NDArrayComplex, NDArrayReal
@@ -143,10 +144,17 @@ def compute_stft(
 
 
 def compute_rms_trend(
-    ch: "Channel", frame_length: int = 2048, hop_length: int = 512
+    ch: "Channel",
+    frame_length: int = 2048,
+    hop_length: int = 512,
+    Aw: bool = False,  # noqa: N803
 ) -> dict[str, Any]:
+    data: NDArrayReal = ch.data
+    if Aw:
+        data = np.array(A_weight(data, ch.sampling_rate))
+
     rms_data = librosa.feature.rms(
-        y=ch.data, frame_length=frame_length, hop_length=hop_length
+        y=data, frame_length=frame_length, hop_length=hop_length
     )
     result = dict(
         data=rms_data.squeeze(),

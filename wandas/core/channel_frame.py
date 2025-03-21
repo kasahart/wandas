@@ -50,7 +50,7 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
         array: NDArrayReal,
         sampling_rate: int,
         labels: Optional[list[str]] = None,
-        unit: str = "Pa",
+        unit: Optional[str] = None,
     ) -> "ChannelFrame":
         """
         numpy の ndarray から ChannelFrame インスタンスを生成します。
@@ -298,6 +298,7 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
         ax: Optional["Axes"] = None,
         title: Optional[str] = None,
         overlay: bool = True,
+        Aw: bool = False,  # noqa: N803
         plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> Union["Axes", Iterable["Axes"]]:
         """
@@ -309,7 +310,7 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
         plotter = ChannelFramePlotter(self)
 
         return plotter.rms_plot(
-            ax=ax, title=title, overlay=overlay, plot_kwargs=plot_kwargs
+            ax=ax, title=title, overlay=overlay, Aw=Aw, plot_kwargs=plot_kwargs
         )
 
     def high_pass_filter(self, cutoff: float, order: int = 5) -> "ChannelFrame":
@@ -339,6 +340,16 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
         """
         filtered_channels = [ch.low_pass_filter(cutoff, order) for ch in self]
         return ChannelFrame(filtered_channels, label=self.label)
+
+    def a_weighting(self) -> "ChannelFrame":
+        """
+        A 加重をすべてのチャンネルに適用します。
+
+        Returns:
+            ChannelFrame: A 加重された新しい ChannelFrame オブジェクト。
+        """
+        weighted_channels = [ch.a_weighting() for ch in self]
+        return ChannelFrame(weighted_channels, label=self.label)
 
     def hpss_harmonic(self, **kwargs: Any) -> "ChannelFrame":
         """
