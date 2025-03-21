@@ -177,40 +177,6 @@ def test_write_wav_channel(tmpdir: str) -> None:
     np.testing.assert_array_equal(wav_data, expected)
 
 
-def test_write_wav_channelframe_raises(tmpdir: str) -> None:
-    """
-    Test write_wav with a DummyChannelFrame.
-    According to the current logic, passing a ChannelFrame instance
-    triggers the else branch and raises a ValueError.
-    """
-    sampling_rate = 48000
-    num_samples = 500
-    data = np.full(num_samples, 0.8, dtype=np.float32)
-    data5 = np.full(num_samples, 0.4, dtype=np.float32)
-
-    channel = DummyChannel(
-        data=data, sampling_rate=sampling_rate, label="Frame Channel"
-    )
-    channel5 = DummyChannel(
-        data=data5, sampling_rate=sampling_rate, label="Frame Channel 5"
-    )
-    channel_frame = DummyChannelFrame(
-        channels=[channel, channel5], sampling_rate=sampling_rate, label="Test Frame"
-    )
-
-    out_file = os.path.join(tmpdir, "dummy_frame.wav")
-    write_wav(out_file, channel_frame)
-    # tests/io/test_wav_io.py
-    # Read wav file and verify sampling rate and data
-    sr, wav_data = wavfile.read(out_file)
-    assert sr == sampling_rate
-    # Since the original max is 0.8, scaling should be: (0.8/0.8)*32767 = 32767.
-    expected = np.int16(
-        np.stack((np.full(num_samples, 32767), np.full(num_samples, 16383)), axis=1)
-    )
-    np.testing.assert_array_equal(wav_data, expected)
-
-
 def test_write_wav_invalid_target(tmpdir: str) -> None:
     """
     Test that write_wav raises ValueError when target is neither a Channel
@@ -220,3 +186,49 @@ def test_write_wav_invalid_target(tmpdir: str) -> None:
     invalid_target = {"data": np.array([0.1, 0.2])}
     with pytest.raises(ValueError):
         write_wav(out_file, cast(Any, invalid_target))
+
+
+def test_write_wav_channel_frame(tmpdir: str) -> None:
+    """
+    Test writing a ChannelFrame with multiple channels.
+    Expected behavior:
+    - Creates a folder named after the filename (minus extension).
+    - Writes each channel to its own WAV file (named by each channel's label).
+    - Scales all channel data consistently based on the same global norm.
+    """
+    sampling_rate = 48000
+    num_samples = 1000
+    data_left = np.full(num_samples, 0.3, dtype=np.float32)
+    data_right = np.full(num_samples, 0.6, dtype=np.float32)
+    ch_left = Channel(data=data_left, sampling_rate=sampling_rate, label="Left")
+    ch_right = Channel(data=data_right, sampling_rate=sampling_rate, label="Right")
+
+    # Create a ChannelFrame with two channels
+    channel_frame = ChannelFrame(channels=[ch_left, ch_right], label="StereoFrame")
+
+    # Define output filename, no extension
+    out_filename = os.path.join(tmpdir, "test_stereoframe")
+    write_wav(out_filename, channel_frame)
+
+    # After writing, a folder named "test_stereoframe" is created
+    expected_dir = os.path.splitext(out_filename)[0]
+    assert os.path.isdir(expected_dir)
+
+    # Check that each channel file is written
+    left_file = os.path.join(tmpdir, "test_stereoframe", "Left.wav")
+    right_file = os.path.join(tmpdir, "test_stereoframe", "Right.wav")
+    assert os.path.isfile(left_file)
+    assert os.path.isfile(right_file)
+
+    # Verify sampling rate and data scaling for each channel
+    sr_left, wav_left = wavfile.read(left_file)
+    sr_right, wav_right = wavfile.read(right_file)
+    assert sr_left == sampling_rate
+    assert sr_right == sampling_rate
+
+    # Both channels should scale using the same norm, which is max(0.3, 0.6) = 0.6
+    # For data=0.3, scaled to (0.3 / 0.6)*32767 = ~16383, for data=0.6 => ~32767
+    np.testing.assert_array_equal(wav_left, np.full(num_samples, 16383, dtype=np.int16))
+    np.testing.assert_array_equal(
+        wav_right, np.full(num_samples, 32767, dtype=np.int16)
+    )

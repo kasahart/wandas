@@ -1,10 +1,11 @@
 # wandas/core/channel.py
 
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Union
 
 import ipywidgets as widgets
 import numpy as np
 from IPython.display import Audio, display
+from waveform_analysis import A_weight
 
 from wandas.core import channel_processing, util
 from wandas.core.arithmetic import ArithmeticMixin
@@ -165,6 +166,84 @@ class Channel(BaseChannel, ArithmeticMixin):
         )
         return Channel.from_channel(self, **result)
 
+    def a_weighting(self) -> "Channel":
+        """
+        A-weighting フィルタを適用します。
+        """
+        data: NDArrayReal = np.array(A_weight(signal=self.data, fs=self.sampling_rate))
+
+        return Channel.from_channel(self, data=data, unit="dB(A)")
+
+    def hpss_harmonic(
+        self,
+        kernel_size: Union[int, tuple[int, int], list[int]] = 31,
+        power: float = 2.0,
+        mask: bool = False,
+        margin: Union[float, tuple[float, float], list[float]] = 1.0,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: Union[str, NDArrayReal] = "hann",
+        center: bool = True,
+        pad_mode: Literal[
+            "constant", "edge", "linear_ramp", "reflect", "symmetric", "empty"
+        ]
+        | Callable[..., Any] = "constant",
+    ) -> "Channel":
+        """
+        HPSS（Harmonic-Percussive Source Separation）のうち、
+        Harmonic 成分を取得します。
+        """
+        result = channel_processing.apply_hpss_harmonic(
+            ch=self,
+            kernel_size=kernel_size,
+            power=power,
+            mask=mask,
+            margin=margin,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            center=center,
+            pad_mode=pad_mode,
+        )
+        return Channel.from_channel(self, **result)
+
+    def hpss_percussive(
+        self,
+        kernel_size: Union[int, tuple[int, int], list[int]] = 31,
+        power: float = 2.0,
+        mask: bool = False,
+        margin: Union[float, tuple[float, float], list[float]] = 1.0,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: Union[str, NDArrayReal] = "hann",
+        center: bool = True,
+        pad_mode: Literal[
+            "constant", "edge", "linear_ramp", "reflect", "symmetric", "empty"
+        ]
+        | Callable[..., Any] = "constant",
+    ) -> "Channel":
+        """
+        HPSS（Harmonic-Percussive Source Separation）のうち、
+        Percussive 成分を取得します。
+        """
+        result = channel_processing.apply_hpss_percussive(
+            ch=self,
+            kernel_size=kernel_size,
+            power=power,
+            mask=mask,
+            margin=margin,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            center=center,
+            pad_mode=pad_mode,
+        )
+        return Channel.from_channel(self, **result)
+
     def fft(
         self,
         n_fft: Optional[int] = None,
@@ -299,7 +378,12 @@ class Channel(BaseChannel, ArithmeticMixin):
 
         return tf_ch.melspectrogram(n_mels=n_mels)
 
-    def rms_trend(self, frame_length: int = 2048, hop_length: int = 512) -> "Channel":
+    def rms_trend(
+        self,
+        frame_length: int = 2048,
+        hop_length: int = 512,
+        Aw: bool = False,  # noqa: N803
+    ) -> "Channel":
         """
         移動平均を計算します。
 
@@ -313,6 +397,7 @@ class Channel(BaseChannel, ArithmeticMixin):
             ch=self,
             frame_length=frame_length,
             hop_length=hop_length,
+            Aw=Aw,  # noqa: N803
         )
         return Channel.from_channel(self, **result)
 
@@ -333,6 +418,7 @@ class Channel(BaseChannel, ArithmeticMixin):
         self,
         ax: Optional[Any] = None,
         title: Optional[str] = None,
+        Aw: bool = False,  # noqa: N803
         plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> "Axes":
         """
@@ -340,7 +426,7 @@ class Channel(BaseChannel, ArithmeticMixin):
         """
         plotter = ChannelPlotter(self)
 
-        return plotter.rms_plot(ax=ax, title=title, plot_kwargs=plot_kwargs)
+        return plotter.rms_plot(ax=ax, title=title, Aw=Aw, plot_kwargs=plot_kwargs)
 
     def __len__(self) -> int:
         """
@@ -348,7 +434,9 @@ class Channel(BaseChannel, ArithmeticMixin):
         """
         return int(self._data.shape[-1])
 
-    def add(self, other: "Channel", snr: Optional[float] = None) -> "Channel":
+    def add(
+        self, other: Union["Channel", NDArrayReal], snr: Optional[float] = None
+    ) -> "Channel":
         """_summary_
 
         Args:
@@ -358,6 +446,9 @@ class Channel(BaseChannel, ArithmeticMixin):
         Returns:
             Channel: _description_
         """
+        if isinstance(other, np.ndarray):
+            other = Channel.from_channel(self, data=other, label="ndarray")
+
         if snr is None:
             return self + other
 

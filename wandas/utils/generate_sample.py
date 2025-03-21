@@ -39,7 +39,7 @@ def generate_sin(
             data = np.sin(2 * np.pi * freq * t) * 2 * np.sqrt(2)
             channel_label = f"Channel {idx + 1}"
             channel = Channel(
-                data=data, sampling_rate=sampling_rate, label=channel_label, unit="Pa"
+                data=data, sampling_rate=sampling_rate, label=channel_label, unit=None
             )
             channels.append(channel)
     else:
@@ -49,7 +49,7 @@ def generate_sin(
             data=np.squeeze(data),
             sampling_rate=sampling_rate,
             label="Channel 1",
-            unit="Pa",
+            unit=None,
         )
         channels = [channel]
 

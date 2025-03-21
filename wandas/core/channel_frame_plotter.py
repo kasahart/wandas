@@ -86,6 +86,7 @@ class ChannelFramePlotter:
         ax: Optional["Axes"] = None,
         title: Optional[str] = None,
         overlay: bool = True,
+        Aw: bool = False,  # noqa: N803
         plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> Union["Axes", Iterable["Axes"]]:
         if ax is None:
@@ -96,7 +97,7 @@ class ChannelFramePlotter:
                 fig, ax = plt.subplots(figsize=(10, 4))
 
             for channel in self.cf:
-                channel.rms_plot(ax=ax, title=title, plot_kwargs=plot_kwargs)
+                channel.rms_plot(ax=ax, title=title, Aw=Aw, plot_kwargs=plot_kwargs)
 
             ax.set_title(title or self.cf.label or "Signal RMS")
             ax.grid(True)
@@ -120,7 +121,9 @@ class ChannelFramePlotter:
                 axes_list = list(axs)
 
             for channel, ax_i in zip(self.cf, axes_list):
-                channel.rms_plot(ax=ax_i, title=channel.label, plot_kwargs=plot_kwargs)
+                channel.rms_plot(
+                    ax=ax_i, title=channel.label, Aw=Aw, plot_kwargs=plot_kwargs
+                )
 
             axes_list[-1].set_xlabel("Time [s]")
 

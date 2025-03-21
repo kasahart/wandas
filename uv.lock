@@ -2613,7 +2613,7 @@ wheels = [
 
 [[package]]
 name = "wandas"
-version = "0.0.8"
+version = "0.0.9"
 source = { editable = "." }
 dependencies = [
     { name = "cattrs" },
@@ -2630,6 +2630,7 @@ dependencies = [
     { name = "numpy" },
     { name = "scipy", version = "1.13.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "scipy", version = "1.15.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "waveform-analysis" },
 ]
 
 [package.dev-dependencies]
@@ -2658,6 +2659,7 @@ requires-dist = [
     { name = "mosqito" },
     { name = "numpy" },
     { name = "scipy" },
+    { name = "waveform-analysis", git = "https://github.com/endolith/waveform-analysis.git?rev=master" },
 ]
 
 [package.metadata.requires-dev]
@@ -2671,6 +2673,11 @@ dev = [
     { name = "ruff", specifier = ">=0.9.9" },
     { name = "wandas", editable = "." },
 ]
+
+[[package]]
+name = "waveform-analysis"
+version = "0.1"
+source = { git = "https://github.com/endolith/waveform-analysis.git?rev=master#baece1e4db3fa2324090086efe1d74cce314e65b" }
 
 [[package]]
 name = "wcwidth"
