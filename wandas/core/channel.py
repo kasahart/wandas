@@ -185,10 +185,10 @@ class Channel(BaseChannel, ArithmeticMixin):
         win_length: Optional[int] = None,
         window: Union[str, NDArrayReal] = "hann",
         center: bool = True,
-        pad_mode: Literal[
-            "constant", "edge", "linear_ramp", "reflect", "symmetric", "empty"
-        ]
-        | Callable[..., Any] = "constant",
+        pad_mode: Union[
+            Literal["constant", "edge", "linear_ramp", "reflect", "symmetric", "empty"],
+            Callable[..., Any],
+        ] = "constant",
     ) -> "Channel":
         """
         HPSS（Harmonic-Percussive Source Separation）のうち、
@@ -220,10 +220,10 @@ class Channel(BaseChannel, ArithmeticMixin):
         win_length: Optional[int] = None,
         window: Union[str, NDArrayReal] = "hann",
         center: bool = True,
-        pad_mode: Literal[
-            "constant", "edge", "linear_ramp", "reflect", "symmetric", "empty"
-        ]
-        | Callable[..., Any] = "constant",
+        pad_mode: Union[
+            Literal["constant", "edge", "linear_ramp", "reflect", "symmetric", "empty"],
+            Callable[..., Any],
+        ] = "constant",
     ) -> "Channel":
         """
         HPSS（Harmonic-Percussive Source Separation）のうち、
