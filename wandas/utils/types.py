@@ -12,5 +12,3 @@ Complex = np.complexfloating[Any, Any]
 NDArrayReal = npt.NDArray[Real]
 # 複素数型の要素を持つ NumPy 配列のエイリアス
 NDArrayComplex = npt.NDArray[Complex]
-
-# np.floating, np.complexfloating はジェネリック型なので、Any を型パラメータとして指定
