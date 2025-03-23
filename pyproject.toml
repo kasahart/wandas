@@ -43,6 +43,8 @@ dependencies = [
     "h5py>=3.13.0",
     "dask>=2024.8.0",
     "waveform-analysis",
+    "japanize-matplotlib>=1.1.3",
+    "ipycytoscape>=1.3.3",
 ]
 
 [project.urls]
@@ -76,3 +78,10 @@ files = ["wandas", "tests"]
 strict = true
 pretty = true
 ignore_missing_imports = true
+
+# scipy モジュールをmypyの型チェックから除外する設定
+[[tool.mypy.overrides]]
+module = ["scipy.*", "dask.*"]
+ignore_errors = true
+
+follow_imports = "skip"
