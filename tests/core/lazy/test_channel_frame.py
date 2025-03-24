@@ -10,7 +10,8 @@ import soundfile as sf
 from dask.array.core import Array as DaArray
 from matplotlib.axes import Axes
 
-from wandas.core.lazy.channel_frame import ChannelFrame, ChannelMetadata
+from wandas.core.lazy.channel_frame import ChannelFrame
+from wandas.core.lazy.metadata import ChannelMetadata
 from wandas.utils.types import NDArrayReal
 
 _da_from_array = da.from_array  # type: ignore [unused-ignore]
