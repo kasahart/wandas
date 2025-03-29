@@ -118,12 +118,16 @@ class CSVFileReader(FileReader):
         except Exception:
             estimated_sr = 0  # Default if can't calculate
 
+        frames = df.shape[0]
+        duration = frames / estimated_sr if estimated_sr > 0 else None
+
+        # Return file info
         return {
             "samplerate": estimated_sr,
             "channels": df.shape[1] - 1,  # Assuming first column is time
-            "frames": None,  # Will need full file read to determine
+            "frames": frames,
             "format": "CSV",
-            "duration": None,  # Will need full file read to determine
+            "duration": duration,
         }
 
     @classmethod

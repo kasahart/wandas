@@ -39,7 +39,7 @@ class WaveformPlotStrategy(PlotStrategy):
     ) -> Union["Axes", Iterator["Axes"]]:
         """波形プロット"""
         kwargs = kwargs or {}
-
+        metadata = cf.channels
         if ax is None:
             _, ax = plt.subplots(figsize=(10, 4))
 
@@ -51,9 +51,7 @@ class WaveformPlotStrategy(PlotStrategy):
         )
 
         ax.set_xlabel("Time [s]")
-        ylabel = (
-            f"Amplitude [{cf.channel[0].unit}]" if cf.channel[0].unit else "Amplitude"
-        )
+        ylabel = f"Amplitude [{metadata[0].unit}]" if metadata[0].unit else "Amplitude"
         ax.set_ylabel(ylabel)
         ax.set_title(title or cf.label or "Channel Data")
         ax.grid(True)

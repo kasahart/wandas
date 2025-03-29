@@ -1,8 +1,8 @@
 import logging
-from abc import ABC, abstractmethod
-from typing import Any, Callable, ClassVar
+from typing import Any, Callable, ClassVar, Union
 
 import dask.array as da
+import numpy as np
 
 # import numpy as np
 from dask.array.core import Array as DaArray
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 _da_map_blocks = da.map_blocks  # type: ignore [unused-ignore]
 
 
-class AudioOperation(ABC):
+class AudioOperation:
     """音声処理操作の抽象基底クラス"""
 
     # クラス変数：操作の名前
@@ -49,10 +49,10 @@ class AudioOperation(ABC):
         """パラメータの検証（無効な場合は例外を発生）"""
         pass
 
-    @abstractmethod
     def _create_processor(self) -> Callable[[NDArrayReal], NDArrayReal]:
         """処理関数を作成（サブクラスで実装）"""
-        pass
+        # デフォルトは何もしない関数
+        return lambda x: x
 
     def process(self, data: DaArray) -> DaArray:
         """
@@ -166,6 +166,119 @@ class LowPassFilter(AudioOperation):
         return _apply_filter
 
 
+class ABS(AudioOperation):
+    """絶対値操作"""
+
+    operation_name = "abs"
+
+    def __init__(self, sampling_rate: float):
+        """
+        絶対値操作の初期化
+
+        Parameters
+        ----------
+        sampling_rate : float
+            サンプリングレート (Hz)
+        """
+        super().__init__(sampling_rate)
+
+    def validate_params(self) -> None:
+        """パラメータ検証"""
+        # ABS操作には特にパラメータはない
+        pass
+
+    def _create_processor(self) -> Callable[[NDArrayReal], NDArrayReal]:
+        """絶対値操作のプロセッサ関数を作成"""
+
+        def _apply_abs(x: NDArrayReal) -> NDArrayReal:
+            logger.debug(f"Applying abs to block with shape: {x.shape}")
+            result = np.abs(x)
+            logger.debug(f"Abs applied, returning result with shape: {result.shape}")
+            return result
+
+        return _apply_abs
+
+
+class Power(AudioOperation):
+    """べき乗計算"""
+
+    operation_name = "power"
+
+    def __init__(self, sampling_rate: float, exponent: float):
+        """
+        絶対値操作の初期化
+
+        Parameters
+        ----------
+        sampling_rate : float
+            サンプリングレート (Hz)
+        """
+        super().__init__(sampling_rate)
+        self.exp = exponent
+
+    def validate_params(self) -> None:
+        """パラメータ検証"""
+        pass
+
+    def _create_processor(self) -> Callable[[NDArrayReal], NDArrayReal]:
+        """絶対値操作のプロセッサ関数を作成"""
+
+        def _apply_power(x: NDArrayReal) -> NDArrayReal:
+            logger.debug(
+                f"Applying power with exp {self.exp} to block with shape: {x.shape}"
+            )
+            result = np.power(x, self.exp)
+            logger.debug(f"Power applied, returning result with shape: {result.shape}")
+            return result
+
+        return _apply_power
+
+
+class Sum(AudioOperation):
+    """合計計算"""
+
+    operation_name = "sum"
+
+    def process(self, data: DaArray) -> DaArray:
+        # map_blocksを使わず、直接Daskの集約関数を使用
+        return data.sum(axis=0, keepdims=True)
+
+
+class Mean(AudioOperation):
+    """平均計算"""
+
+    operation_name = "mean"
+
+    def process(self, data: DaArray) -> DaArray:
+        # map_blocksを使わず、直接Daskの集約関数を使用
+        return data.mean(axis=0, keepdims=True)
+
+
+class ChannelDifference(AudioOperation):
+    """チャネル間の差分計算"""
+
+    operation_name = "channel_difference"
+    other_channel: Union[int, str]
+
+    def __init__(self, sampling_rate: float, other_channel: Union[int, str] = 0):
+        """
+        チャネル間の差分計算の初期化
+
+        Parameters
+        ----------
+        sampling_rate : float
+            サンプリングレート (Hz)
+        other_channel : int or str, optional
+            差分を計算するチャネル、デフォルトは0
+        """
+        self.other_channel = other_channel
+        super().__init__(sampling_rate, other_channel=other_channel)
+
+    def process(self, data: DaArray) -> DaArray:
+        # チャネル間の差分を計算
+        return data - data[self.other_channel]
+
+
 # class Normalize(AudioOperation):
 #     """音量正規化操作"""
 
@@ -227,6 +340,11 @@ class LowPassFilter(AudioOperation):
 _OPERATION_REGISTRY: dict[str, type[AudioOperation]] = {
     "highpass_filter": HighPassFilter,
     "lowpass_filter": LowPassFilter,
+    "abs": ABS,
+    "power": Power,
+    "sum": Sum,
+    "mean": Mean,
+    "channel_difference": ChannelDifference,
     # "normalize": Normalize,
 }
 

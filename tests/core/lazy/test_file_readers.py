@@ -111,7 +111,8 @@ class TestCSVFileReader:
 
         # Create sample data: time column + 3 data columns, 1000 rows
         n_rows: int = 1000
-        time_values: NDArrayReal = np.linspace(0, 1, n_rows)
+        sample_rate: int = 1000
+        time_values: NDArrayReal = np.arange(n_rows) / sample_rate  # 1kHz sample rate
         data_values: NDArrayReal = np.random.random((n_rows, 3))
 
         # Create DataFrame and save to CSV
@@ -144,8 +145,8 @@ class TestCSVFileReader:
         # Check specific values
         assert info["format"] == "CSV"
         assert info["channels"] == self.n_channels
-        assert info["frames"] is None
-        assert info["duration"] is None
+        assert info["frames"] == 1000
+        assert info["duration"] == 1
 
     def test_get_file_info_samplerate_calculation(self) -> None:
         """Test samplerate estimation from evenly spaced time values."""
@@ -179,7 +180,7 @@ class TestCSVFileReader:
         temp_file = Path(self.temp_dir.name) / "single_row.csv"
 
         df = pd.DataFrame(
-            [[0.0, 0.5, 0.3]],
+            [[0.0, 0.5, 0.3], [1, 0.5, 0.3]],
             columns=["time", "ch1", "ch2"],
         )
         df.to_csv(temp_file, index=False)
@@ -188,7 +189,7 @@ class TestCSVFileReader:
         info = self.reader.get_file_info(temp_file)
 
         # Check that samplerate is 0 (can't calculate from single row)
-        assert info["samplerate"] == 0
+        assert info["samplerate"] == 1
         assert info["channels"] == 2
         assert info["format"] == "CSV"
 

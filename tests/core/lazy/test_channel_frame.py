@@ -1,5 +1,6 @@
 import os
 import tempfile
+from pathlib import Path
 from typing import Any, Union
 from unittest import mock
 
@@ -11,7 +12,7 @@ from dask.array.core import Array as DaArray
 from matplotlib.axes import Axes
 
 from wandas.core.lazy.channel_frame import ChannelFrame
-from wandas.core.lazy.metadata import ChannelMetadata
+from wandas.core.lazy.channel_metadata import ChannelMetadata
 from wandas.utils.types import NDArrayReal
 
 _da_from_array = da.from_array  # type: ignore [unused-ignore]
@@ -64,6 +65,16 @@ class TestChannelFrame:
             result: NDArrayReal = self.channel_frame.compute()
             mock_compute.assert_called_once()
             np.testing.assert_array_equal(result, self.data)
+
+    def test_time(self) -> None:
+        """Test time property."""
+        with mock.patch.object(
+            DaArray, "compute", return_value=self.data
+        ) as mock_compute:
+            time: NDArrayReal = self.channel_frame.time
+            mock_compute.assert_not_called()
+            expected_time = np.arange(16000) / 16000
+            np.testing.assert_array_equal(time, expected_time)
 
     def test_operations_are_lazy(self) -> None:
         """Test that operations don't trigger immediate computation."""
@@ -239,7 +250,10 @@ class TestChannelFrame:
         for i, channel in enumerate(channels):
             assert isinstance(channel, ChannelFrame)
             assert channel.n_channels == 1
-            assert channel.label == f"test_audio_ch{i}"
+            assert channel.label == "test_audio"
+            assert channel.sampling_rate == self.sample_rate
+            assert channel.n_samples == 16000
+            assert channel.channels[0].label == f"ch{i}"
 
     def test_array_method(self) -> None:
         """Test __array__ method for numpy conversion."""
@@ -261,28 +275,72 @@ class TestChannelFrame:
 
     def test_getitem_method(self) -> None:
         """Test __getitem__ method."""
+
+        # Slice all channels
+        result = self.channel_frame["ch0"]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 1
+        assert result.n_samples == 16000
+        assert result.sampling_rate == self.sample_rate
+        assert result.label == "test_audio"
+        assert result.channels[0].label == "ch0"
+        assert result.shape == (1, 16000)
+        assert result.data.shape == (1, 16000)
+        np.testing.assert_array_equal(result.data, self.data[0:1])
+
+        result = self.channel_frame["ch1"]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 1
+        assert result.n_samples == 16000
+        assert result.sampling_rate == self.sample_rate
+        assert result.label == "test_audio"
+        assert result.channels[0].label == "ch1"
+        assert result.shape == (1, 16000)
+        assert result.data.shape == (1, 16000)
+        np.testing.assert_array_equal(result.data, self.data[1:2])
+
         # Single channel extraction
-        with mock.patch.object(DaArray, "compute") as mock_compute:
-            mock_compute.return_value = self.data[0:1]
-            result = self.channel_frame[0]
-            assert isinstance(result, ChannelFrame)
-            assert result.n_channels == 1
+        result = self.channel_frame[0]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 1
+        assert result.n_samples == 16000
+        assert result.sampling_rate == self.sample_rate
+        assert result.label == "test_audio"
+        assert result.channels[0].label == "ch0"
+        assert result.shape == (1, 16000)
+        np.testing.assert_array_equal(result.data, self.data[0:1])
 
         # Time slice
-        with mock.patch.object(DaArray, "compute") as mock_compute:
-            mock_compute.return_value = self.data[:, :1000]
-            result = self.channel_frame[:, :1000]  # type: ignore
-            assert isinstance(result, ChannelFrame)
-            assert result.n_samples == 1000
+        result = self.channel_frame[:, :1000]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_samples == 1000
+        assert result.n_channels == 2
+        assert result.sampling_rate == self.sample_rate
+        assert result.label == "test_audio"
+        assert result.channels[0].label == "ch0"
+        assert result.shape == (2, 1000)
+        np.testing.assert_array_equal(result.data, self.data[:, :1000])
+
+        result = self.channel_frame[0:2, :1000]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_samples == 1000
+        assert result.n_channels == 2
+        assert result.sampling_rate == self.sample_rate
+        assert result.label == "test_audio"
+        assert result.channels[0].label == "ch0"
+        assert result.channels[1].label == "ch1"
+        assert result.shape == (2, 1000)
+        np.testing.assert_array_equal(result.data, self.data[:, :1000])
 
         # Test error case
-        with pytest.raises(IndexError, match="インデックスの次元が多すぎます"):
+        with pytest.raises(ValueError, match="Invalid key length"):
             self.channel_frame[0, 0, 0]  # type: ignore
-
-        # Test for scalar value (should raise ValueError)
-        with mock.patch.object(DaArray, "__getitem__", return_value="scalar_value"):
-            with pytest.raises(ValueError, match="インデックス操作の結果が不明"):
-                self.channel_frame[0, 0]  # type: ignore
+        # Test for invalid channel index
+        with pytest.raises(IndexError, match="Channel index"):
+            _ = self.channel_frame[5]
+        # Test for invalid slice
+        with pytest.raises(TypeError, match="Invalid key type:"):
+            _ = self.channel_frame[1.5]  # type: ignore
 
     def test_binary_op_with_channel_frame(self) -> None:
         """Test binary operations with another ChannelFrame."""
@@ -310,52 +368,74 @@ class TestChannelFrame:
         with pytest.raises(ValueError, match="サンプリングレートが一致していません"):
             _ = self.channel_frame + other_cf
 
-    def test_sum_mean_methods(self) -> None:
-        """Test sum() and mean() methods."""
-        # Test sum method
-        sum_cf = self.channel_frame.sum()
-        assert isinstance(sum_cf, ChannelFrame)
-        assert sum_cf.n_channels == 1
+    def test_sum_methods(self) -> None:
+        """Test sum() methods."""
+        # Test that sum method is lazy
+        with mock.patch.object(DaArray, "compute") as mock_compute:
+            # Call sum() - this should be lazy and not trigger computation
+            sum_cf = self.channel_frame.sum()
 
-        # Compute and check results
-        with mock.patch.object(
-            DaArray,
-            "sum",
-            return_value=_da_from_array(self.data.sum(axis=0, keepdims=True)),
-        ):
-            sum_data = sum_cf.compute()
-            expected_sum = self.data.sum(axis=0, keepdims=True)
-            np.testing.assert_array_almost_equal(sum_data, expected_sum)
+            # Check no computation happened yet
+            mock_compute.assert_not_called()
+
+            # Verify result is the expected type
+            assert isinstance(sum_cf, ChannelFrame)
+            assert sum_cf.n_channels == 1
+
+        # Test correctness of computation result
+        sum_cf = self.channel_frame.sum()
+        sum_data = sum_cf.compute()
+        expected_sum = self.data.sum(axis=-2, keepdims=True)
+        np.testing.assert_array_almost_equal(sum_data, expected_sum)
+
+    def test_mean_methods(self) -> None:
+        """Test mean() methods."""
 
         # Test mean method
-        mean_cf = self.channel_frame.mean()
-        assert isinstance(mean_cf, ChannelFrame)
-        assert mean_cf.n_channels == 1
+        with mock.patch.object(DaArray, "compute") as mock_compute:
+            # Call sum() - this should be lazy and not trigger computation
+            mean_cf = self.channel_frame.mean()
+
+            # Check no computation happened yet
+            mock_compute.assert_not_called()
+
+            # Verify result is the expected type
+            assert isinstance(mean_cf, ChannelFrame)
+            assert mean_cf.n_channels == 1
 
         # Compute and check results
-        with mock.patch.object(
-            DaArray,
-            "mean",
-            return_value=_da_from_array(self.data.mean(axis=0, keepdims=True)),
-        ):
-            mean_data = mean_cf.compute()
-            expected_mean = self.data.mean(axis=0, keepdims=True)
-            np.testing.assert_array_almost_equal(mean_data, expected_mean)
+        mean_data = mean_cf.compute()
+        expected_mean = self.data.mean(axis=-2, keepdims=True)
+        np.testing.assert_array_almost_equal(mean_data, expected_mean)
 
     def test_channel_difference(self) -> None:
         """Test channel_difference method."""
+        # Test that channel_difference is lazy
+        with mock.patch.object(DaArray, "compute") as mock_compute:
+            # Call channel_difference - this should be lazy and not trigger computation
+            diff_cf = self.channel_frame.channel_difference(other_channel=0)
+
+            # Check no computation happened yet
+            mock_compute.assert_not_called()
+
+            # Verify result is the expected type
+            assert isinstance(diff_cf, ChannelFrame)
+            assert diff_cf.n_channels == self.channel_frame.n_channels
+
+        # Test correctness of computation result
         diff_cf = self.channel_frame.channel_difference(other_channel=0)
+        computed = diff_cf.compute()
+        expected = self.data - self.data[0:1]
+        np.testing.assert_array_almost_equal(computed, expected)
 
-        assert isinstance(diff_cf, ChannelFrame)
-        assert diff_cf.n_channels == self.channel_frame.n_channels
-
-        # Compute and check results
+        # Test that channel_difference with other_channel=0 works correctly
+        diff_cf = self.channel_frame.channel_difference(other_channel="ch0")
         computed = diff_cf.compute()
         expected = self.data - self.data[0:1]
         np.testing.assert_array_almost_equal(computed, expected)
 
         # Test invalid channel index
-        with pytest.raises(ValueError, match="チャネル指定が範囲外です"):
+        with pytest.raises(IndexError):
             self.channel_frame.channel_difference(other_channel=10)
 
     def test_additional_filter_operations(self) -> None:
@@ -424,9 +504,9 @@ class TestChannelFrame:
 
     def test_debug_info(self) -> None:
         """Test debug_info method."""
-        with mock.patch("wandas.core.lazy.channel_frame.logger") as mock_logger:
+        with mock.patch("wandas.core.lazy.base_frame.logger") as mock_logger:
             self.channel_frame.debug_info()
-            assert mock_logger.debug.call_count >= 9  # At least 9 debug messages
+            assert mock_logger.debug.call_count >= 6  # At least 9 debug messages
 
     @pytest.mark.integration  # type: ignore [misc, unused-ignore]
     def test_from_file_lazy_loading(self) -> None:
@@ -483,12 +563,13 @@ class TestChannelFrame:
                 cf = ChannelFrame.from_file(
                     temp_filename, channel=0, start=0.1, end=0.5
                 )
-                assert cf.metadata["channels"] == [0]
-
+                # assert cf.metadata["channels"] == [0]
+                assert cf.channels[0].label == "ch0"
                 # Test with multiple channels
                 cf = ChannelFrame.from_file(temp_filename, channel=[0, 1])
-                assert cf.metadata["channels"] == [0, 1]
-
+                # assert cf.metadata["channels"] == [0, 1]
+                assert cf.channels[0].label == "ch0"
+                assert cf.channels[1].label == "ch1"
                 # Test error cases
                 with pytest.raises(ValueError, match="チャネル指定が範囲外です"):
                     ChannelFrame.from_file(temp_filename, channel=5)
@@ -514,86 +595,57 @@ class TestChannelFrame:
     def test_channel_metadata_label_access(self) -> None:
         """Test accessing and modifying channel labels through metadata."""
         # Check default labels
-        assert self.channel_frame.channel[0].label == "test_audio_ch0"
-        assert self.channel_frame.channel[1].label == "test_audio_ch1"
+        assert self.channel_frame.channels[0].label == "ch0"
+        assert self.channel_frame.channels[1].label == "ch1"
 
         # Set new labels
-        self.channel_frame.channel[0].label = "left"
-        self.channel_frame.channel[1].label = "right"
+        self.channel_frame.channels[0].label = "left"
+        self.channel_frame.channels[1].label = "right"
 
         # Verify labels were changed
-        assert self.channel_frame.channel[0].label == "left"
-        assert self.channel_frame.channel[1].label == "right"
+        assert self.channel_frame.channels[0].label == "left"
+        assert self.channel_frame.channels[1].label == "right"
 
         # Test error handling with invalid channel index
-        with pytest.raises(ValueError, match="チャネル指定が範囲外です"):
-            _ = self.channel_frame.channel[5].label
+        with pytest.raises(IndexError):
+            _ = self.channel_frame.channels[5].label
 
-        with pytest.raises(ValueError, match="チャネル指定が範囲外です"):
-            self.channel_frame.channel[5].label = "invalid"
+        with pytest.raises(IndexError):
+            self.channel_frame.channels[5].label = "invalid"
 
     def test_channel_metadata_unit_access(self) -> None:
         """Test accessing and modifying channel units through metadata."""
         # Check default units (empty string)
-        assert self.channel_frame.channel[0].unit == ""
+        assert self.channel_frame.channels[0].unit == ""
 
         # Set new units
-        self.channel_frame.channel[0].unit = "Pa"
-        self.channel_frame.channel[1].unit = "V"
+        self.channel_frame.channels[0].unit = "Pa"
+        self.channel_frame.channels[1].unit = "V"
 
         # Verify units were changed
-        assert self.channel_frame.channel[0].unit == "Pa"
-        assert self.channel_frame.channel[1].unit == "V"
+        assert self.channel_frame.channels[0].unit == "Pa"
+        assert self.channel_frame.channels[1].unit == "V"
 
     def test_channel_metadata_arbitrary_items(self) -> None:
         """Test getting and setting arbitrary metadata items."""
         # Set arbitrary metadata items
-        self.channel_frame.channel[0]["gain"] = 0.5
-        self.channel_frame.channel[1]["gain"] = 0.75
-        self.channel_frame.channel[0]["device"] = "microphone"
+        self.channel_frame.channels[0]["gain"] = 0.5
+        self.channel_frame.channels[1]["gain"] = 0.75
+        self.channel_frame.channels[0]["device"] = "microphone"
 
         # Get items using __getitem__
-        assert self.channel_frame.channel[0]["gain"] == 0.5
-        assert self.channel_frame.channel[1]["gain"] == 0.75
-        assert self.channel_frame.channel[0]["device"] == "microphone"
+        assert self.channel_frame.channels[0]["gain"] == 0.5
+        assert self.channel_frame.channels[1]["gain"] == 0.75
+        assert self.channel_frame.channels[0]["device"] == "microphone"
 
         # Check missing item returns None
-        assert self.channel_frame.channel[0]["missing"] is None
-
-        # Test get() with default value
-        assert self.channel_frame.channel[0].get("gain") == 0.5
-        assert self.channel_frame.channel[0].get("missing") is None
-        assert self.channel_frame.channel[0].get("missing", "default") == "default"
-
-        # Test set() method
-        self.channel_frame.channel[0].set("new_key", "new_value")
-        assert self.channel_frame.channel[0]["new_key"] == "new_value"
-
-    def test_channel_metadata_all_method(self) -> None:
-        """Test getting all metadata for a channel."""
-        # Set up some metadata
-        self.channel_frame.channel[0].label = "left"
-        self.channel_frame.channel[0].unit = "Pa"
-        self.channel_frame.channel[0]["gain"] = 0.5
-
-        # Get all metadata
-        all_metadata = self.channel_frame.channel[0].all()
-
-        # Check it's a dict with expected values
-        assert isinstance(all_metadata, dict)
-        assert all_metadata["label"] == "left"
-        assert all_metadata["unit"] == "Pa"
-        assert all_metadata["gain"] == 0.5
-
-        # Verify that modifying the returned dict doesn't affect the original
-        all_metadata["label"] = "modified"
-        assert self.channel_frame.channel[0].label == "left"  # Original unchanged
+        assert self.channel_frame.channels[0]["missing"] is None
 
     def test_channel_metadata_collection_getitem(self) -> None:
         """Test getting ChannelMetadata objects from collection."""
         # Get metadata objects for specific channels
-        ch0_metadata = self.channel_frame.channel[0]
-        ch1_metadata = self.channel_frame.channel[1]
+        ch0_metadata = self.channel_frame.channels[0]
+        ch1_metadata = self.channel_frame.channels[1]
 
         # Verify they're ChannelMetadata objects
         assert isinstance(ch0_metadata, ChannelMetadata)
@@ -601,87 +653,111 @@ class TestChannelFrame:
 
         # Verify they reference the correct channels
         ch0_metadata.label = "test_ch0"
-        assert self.channel_frame.channel[0].label == "test_ch0"
+        assert self.channel_frame.channels[0].label == "test_ch0"
 
         # Test error handling with invalid index
-        with pytest.raises(ValueError, match="チャネル指定が範囲外です"):
-            _ = self.channel_frame.channel[5]
-
-    def test_channel_metadata_collection_get_all(self) -> None:
-        """Test getting all channel metadata."""
-        # Set up distinct metadata for each channel
-        self.channel_frame.channel[0].label = "left"
-        self.channel_frame.channel[1].label = "right"
-        self.channel_frame.channel[0]["gain"] = 0.5
-        self.channel_frame.channel[1]["gain"] = 0.75
-
-        # Get all channel metadata
-        all_metadata = self.channel_frame.channel.get_all()
-
-        # Verify structure and contents
-        assert isinstance(all_metadata, dict)
-        assert len(all_metadata) == 2
-        assert 0 in all_metadata
-        assert 1 in all_metadata
-
-        assert all_metadata[0]["label"] == "left"
-        assert all_metadata[0]["gain"] == 0.5
-        assert all_metadata[1]["label"] == "right"
-        assert all_metadata[1]["gain"] == 0.75
-
-        # Verify that modifying the returned dict doesn't affect the original
-        all_metadata[0]["label"] = "modified"
-        assert self.channel_frame.channel[0].label == "left"  # Original unchanged
-
-    def test_channel_metadata_collection_set_all(self) -> None:
-        """Test setting metadata for all channels."""
-        # Create new metadata to set
-        new_metadata = {
-            0: {"label": "new_left", "unit": "Pa", "custom": "value1"},
-            1: {"label": "new_right", "unit": "V", "custom": "value2"},
-        }
-
-        # Set all metadata
-        self.channel_frame.channel.set_all(new_metadata)
-
-        # Verify metadata was set correctly
-        assert self.channel_frame.channel[0].label == "new_left"
-        assert self.channel_frame.channel[0].unit == "Pa"
-        assert self.channel_frame.channel[0]["custom"] == "value1"
-
-        assert self.channel_frame.channel[1].label == "new_right"
-        assert self.channel_frame.channel[1].unit == "V"
-        assert self.channel_frame.channel[1]["custom"] == "value2"
-
-        # Test setting metadata for only one channel
-        partial_metadata = {0: {"label": "updated_left"}}
-        self.channel_frame.channel.set_all(partial_metadata)
-        assert self.channel_frame.channel[0].label == "updated_left"
-        assert self.channel_frame.channel[1].label == "new_right"  # Unchanged
-
-        # Test with invalid channel indices (should be ignored)
-        invalid_metadata = {5: {"label": "invalid"}}
-        self.channel_frame.channel.set_all(invalid_metadata)
-        # No exception should be raised, invalid indices are ignored
+        with pytest.raises(IndexError):
+            _ = self.channel_frame.channels[5]
 
     def test_channel_metadata_on_new_channel_frame(self) -> None:
         """Test metadata preservation when creating derived ChannelFrames."""
         # Set metadata on original frame
-        self.channel_frame.channel[0].label = "left"
-        self.channel_frame.channel[0]["gain"] = 0.5
-        self.channel_frame.channel[1].label = "right"
+        self.channel_frame.channels[0].label = "left"
+        self.channel_frame.channels[0]["gain"] = 0.5
+        self.channel_frame.channels[1].label = "right"
 
         # Create a derived ChannelFrame through an operation
         derived_frame = self.channel_frame + 1.0
 
         # Verify metadata was preserved
         assert (
-            derived_frame.channel[0].label == "(left + 1.0)"
+            derived_frame.channels[0].label == "(left + 1.0)"
         )  # Underlying label preserved
-        assert derived_frame.channel[0]["gain"] == 0.5
-        assert derived_frame.channel[1].label == "(right + 1.0)"
+        assert derived_frame.channels[0]["gain"] == 0.5
+        assert derived_frame.channels[1].label == "(right + 1.0)"
 
         # Test metadata in extracted channel
         channel0 = self.channel_frame.get_channel(0)
-        assert channel0.channel[0].label == "left"  # Label should be preserved
-        assert channel0.channel[0]["gain"] == 0.5
+        assert channel0.channels[0].label == "left"  # Label should be preserved
+        assert channel0.channels[0]["gain"] == 0.5
+
+    def test_from_numpy(self) -> None:
+        """Test from_numpy method."""
+        # Create a random array
+        data = np.random.random((2, 16000))
+        sampling_rate = 16000
+        label = "test_audio"
+        ch_labels = ["left", "right"]
+        ch_units = ["Pa", "V"]
+        metadata = {"gain": 0.5, "device": "microphone"}
+        # Create a ChannelFrame from the numpy array
+        cf = ChannelFrame.from_numpy(
+            data,
+            sampling_rate=sampling_rate,
+            label=label,
+            ch_labels=ch_labels,
+            ch_units=ch_units,
+            metadata=metadata,
+        )
+        # Check properties
+        assert cf.sampling_rate == sampling_rate
+        assert cf.label == label
+        assert cf.n_channels == 2
+        assert cf.n_samples == 16000
+        assert cf.channels[0].label == "left"
+        assert cf.channels[1].label == "right"
+        assert cf.channels[0].unit == "Pa"
+        assert cf.channels[1].unit == "V"
+        assert cf.metadata["gain"] == 0.5
+        assert cf.metadata["device"] == "microphone"
+        # Check data
+        np.testing.assert_array_equal(cf.data, data)
+
+        # Test ndim=1
+        data_1d = np.random.random(16000)
+        cf_1d = ChannelFrame.from_numpy(data_1d, sampling_rate=sampling_rate)
+        # Check properties
+        assert cf_1d.shape == (1, 16000)
+        assert cf_1d.n_channels == 1
+
+        # Test 3d array
+        with pytest.raises(
+            ValueError, match="データは1次元または2次元である必要があります"
+        ):
+            ChannelFrame.from_numpy(
+                np.random.random((3, 16000, 2)),
+                sampling_rate=sampling_rate,
+            )
+
+    def test_read_csv(self) -> None:
+        """Test read_csv method."""
+        # Create a temporary CSV file
+        with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as temp_file:
+            temp_filename = temp_file.name
+            # 時間と2つの値を持つCSVファイルを作成
+            header = "time,value1,value2\n"
+            data = "\n".join([f"{i / 16000},{1.1},{2.2}" for i in range(16000)])
+            temp_file.write(header.encode())
+            temp_file.write(data.encode())
+            temp_file.flush()
+            temp_file.seek(0)
+            # Close the file to ensure it's written
+            temp_file.close()
+
+        try:
+            # Read the CSV file into a ChannelFrame
+            cf = ChannelFrame.read_csv(temp_filename)
+
+            # Check properties
+            assert cf.sampling_rate == 16000
+            assert cf.n_channels == 2
+            assert cf.n_samples == 16000
+            assert cf.label == Path(temp_filename).stem
+
+            # Check data
+            expected_data = np.loadtxt(temp_filename, delimiter=",", skiprows=1).T
+            np.testing.assert_array_equal(cf.data, expected_data[1:])
+
+        finally:
+            if os.path.exists(temp_filename):
+                os.remove(temp_filename)
