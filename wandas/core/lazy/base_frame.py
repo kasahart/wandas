@@ -108,7 +108,7 @@ class BaseFrame(ABC):
         for idx in range(len(self)):
             yield self[idx]
 
-    def __getitem__(self: S, key: Union[str, int, tuple[slice, ...]]) -> S:
+    def __getitem__(self: S, key: Union[str, int, slice, tuple[slice, ...]]) -> S:
         """
         チャンネル名またはインデックスでチャンネルを取得するためのメソッド。
 
@@ -130,6 +130,16 @@ class BaseFrame(ABC):
                 )
             new_data = self._data[key]
             new_channel_metadata = self._channel_metadata[key[0]]
+            if isinstance(new_channel_metadata, ChannelMetadata):
+                new_channel_metadata = [new_channel_metadata]
+            return self._create_new_instance(
+                data=new_data,
+                operation_history=self.operation_history,
+                channel_metadata=new_channel_metadata,
+            )
+        elif isinstance(key, slice):
+            new_data = self._data[key]
+            new_channel_metadata = self._channel_metadata[key]
             if isinstance(new_channel_metadata, ChannelMetadata):
                 new_channel_metadata = [new_channel_metadata]
             return self._create_new_instance(

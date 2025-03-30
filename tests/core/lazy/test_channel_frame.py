@@ -310,6 +310,18 @@ class TestChannelFrame:
         assert result.shape == (1, 16000)
         np.testing.assert_array_equal(result.data, self.data[0:1])
 
+        # Two channel extraction
+        result = self.channel_frame[0:2]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 2
+        assert result.n_samples == 16000
+        assert result.sampling_rate == self.sample_rate
+        assert result.label == "test_audio"
+        assert result.channels[0].label == "ch0"
+        assert result.channels[1].label == "ch1"
+        assert result.shape == (2, 16000)
+        np.testing.assert_array_equal(result.data, self.data)
+
         # Time slice
         result = self.channel_frame[:, :1000]
         assert isinstance(result, ChannelFrame)
