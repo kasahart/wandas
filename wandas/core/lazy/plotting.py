@@ -1,24 +1,32 @@
 import abc
+import inspect
 import logging
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Optional, TypeVar, Union
 
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.axes import Axes
 
 if TYPE_CHECKING:
+    from .base_frame import BaseFrame
     from .channel_frame import ChannelFrame
+    from .spectral_frame import SpectralFrame
 
 logger = logging.getLogger(__name__)
 
+TFrame = TypeVar("TFrame", bound="BaseFrame")
 
-class PlotStrategy(abc.ABC):
+
+class PlotStrategy(abc.ABC, Generic[TFrame]):
     """プロット戦略の基底クラス"""
+
+    name: ClassVar[str]
 
     @abc.abstractmethod
     def plot(
         self,
-        cf: "ChannelFrame",
+        bf: TFrame,
         ax: Optional["Axes"] = None,
         title: Optional[str] = None,
         **kwargs: Any,
@@ -27,33 +35,76 @@ class PlotStrategy(abc.ABC):
         pass
 
 
-class WaveformPlotStrategy(PlotStrategy):
+class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
     """波形プロットの戦略"""
+
+    name = "waveform"
 
     def plot(
         self,
-        cf: "ChannelFrame",
+        bf: "ChannelFrame",
         ax: Optional["Axes"] = None,
         title: Optional[str] = None,
         **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
         """波形プロット"""
         kwargs = kwargs or {}
-        metadata = cf.channels
+        metadata = bf.channels
         if ax is None:
             _, ax = plt.subplots(figsize=(10, 4))
 
         ax.plot(
-            cf.time,
-            cf.data.T,
-            label=cf.labels,
+            bf.time,
+            bf.data.T,
+            label=bf.labels,
             **kwargs,
         )
 
         ax.set_xlabel("Time [s]")
         ylabel = f"Amplitude [{metadata[0].unit}]" if metadata[0].unit else "Amplitude"
         ax.set_ylabel(ylabel)
-        ax.set_title(title or cf.label or "Channel Data")
+        ax.set_title(title or bf.label or "Channel Data")
+        ax.grid(True)
+        ax.legend()
+
+        if ax is None:
+            plt.tight_layout()
+            plt.show()
+
+        return ax
+
+
+class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
+    """周波数プロットの戦略"""
+
+    name = "frequency"
+
+    def plot(
+        self,
+        bf: "SpectralFrame",
+        ax: Optional["Axes"] = None,
+        title: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Union["Axes", Iterator["Axes"]]:
+        """周波数プロット"""
+
+        kwargs = kwargs or {}
+        metadata = bf.channels
+        if ax is None:
+            _, ax = plt.subplots(figsize=(10, 4))
+
+        data = 20 * np.log10(bf.data)  # dBに変換
+        ax.plot(
+            bf.frequencies,
+            data.T,
+            label=bf.labels,
+            **kwargs,
+        )
+
+        ax.set_xlabel("Frequency [Hz]")
+        ylabel = f"Amplitude [{metadata[0].unit}]" if metadata[0].unit else "Amplitude"
+        ax.set_ylabel(ylabel)
+        ax.set_title(title or bf.label or "Channel Data")
         ax.grid(True)
         ax.legend()
 
@@ -105,20 +156,33 @@ class WaveformPlotStrategy(PlotStrategy):
 #         return ax
 
 
-# プロット戦略のレジストリ
-_plot_strategies: dict[str, PlotStrategy] = {
-    "waveform": WaveformPlotStrategy(),
-    # "spectrogram": SpectrogramPlotStrategy(),
-}
+# プロットタイプと対応するクラスのマッピングを保持
+_plot_strategies: dict[str, type[PlotStrategy[Any]]] = {}
 
 
-def register_plot_strategy(name: str, strategy: PlotStrategy) -> None:
-    """新しいプロット戦略を登録"""
-    _plot_strategies[name] = strategy
+def register_plot_strategy(strategy_cls: type) -> None:
+    """新しいプロット戦略をクラスから登録"""
+    if not issubclass(strategy_cls, PlotStrategy):
+        raise TypeError("Strategy class must inherit from PlotStrategy.")
+    if inspect.isabstract(strategy_cls):
+        raise TypeError("Cannot register abstract PlotStrategy class.")
+    _plot_strategies[strategy_cls.name] = strategy_cls
 
 
-def get_plot_strategy(name: str) -> PlotStrategy:
+# 抽象でないサブクラスのみを自動登録するように修正
+for strategy_cls in PlotStrategy.__subclasses__():
+    if not inspect.isabstract(strategy_cls):
+        register_plot_strategy(strategy_cls)
+
+
+def get_plot_strategy(name: str) -> type[PlotStrategy[Any]]:
     """名前からプロット戦略を取得"""
     if name not in _plot_strategies:
         raise ValueError(f"Unknown plot type: {name}")
     return _plot_strategies[name]
+
+
+def create_operation(name: str, **params: Any) -> PlotStrategy[Any]:
+    """操作名とパラメータから操作インスタンスを作成"""
+    operation_class = get_plot_strategy(name)
+    return operation_class(**params)

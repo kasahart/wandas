@@ -18,7 +18,7 @@ from wandas.utils.types import NDArrayReal
 from .base_frame import BaseFrame
 from .channel_metadata import ChannelMetadata
 from .file_readers import get_file_reader
-from .plotting import get_plot_strategy
+from .plotting import create_operation
 
 logger = logging.getLogger(__name__)
 
@@ -227,7 +227,7 @@ class ChannelFrame(BaseFrame):
         logger.debug(f"Plotting audio with plot_type={plot_type} (will compute now)")
 
         # プロット戦略を取得
-        plot_strategy = get_plot_strategy(plot_type)
+        plot_strategy = create_operation(plot_type)
 
         # プロット実行
         _ax = plot_strategy.plot(self, ax=ax, **kwargs)
