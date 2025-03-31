@@ -10,6 +10,7 @@ class ChannelMetadata(BaseModel):  # type: ignore[misc]
 
     label: str = ""
     unit: str = ""
+    ref: float = 1.0
     # 拡張性のために追加のメタデータを保存
     extra: dict[str, Any] = Field(default_factory=dict)
 
@@ -19,6 +20,8 @@ class ChannelMetadata(BaseModel):  # type: ignore[misc]
             return self.label
         elif key == "unit":
             return self.unit
+        elif key == "ref":
+            return self.ref
         else:
             return self.extra.get(key)
 
@@ -28,6 +31,8 @@ class ChannelMetadata(BaseModel):  # type: ignore[misc]
             self.label = value
         elif key == "unit":
             self.unit = value
+        elif key == "ref":
+            self.ref = value
         else:
             self.extra[key] = value
 

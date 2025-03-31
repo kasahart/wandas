@@ -1,5 +1,4 @@
 from typing import Callable
-from unittest import mock
 
 # filepath: /workspaces/wandas/tests/core/lazy/test_time_series_operation.py
 import dask.array as da
@@ -266,8 +265,8 @@ class TestHighPassFilter:
 
     def test_filter_effect(self) -> None:
         """Test that the filter attenuates frequencies below cutoff."""
-        processor: Callable[[NDArrayReal], NDArrayReal] = self.hpf._create_processor()
-        result: NDArrayReal = processor(self.signal)
+        processor = self.hpf._process_array
+        result: NDArrayReal = processor(self.signal).compute()
 
         # Calculate FFT to check frequency content
         fft_original = np.abs(np.fft.rfft(self.signal[0]))
@@ -296,20 +295,6 @@ class TestHighPassFilter:
         # Cutoff too high (above Nyquist)
         with pytest.raises(ValueError):
             HighPassFilter(self.sample_rate, self.sample_rate / 2 + 1)
-
-    def test_process_with_dask_array(self) -> None:
-        """Test process() method correctly applies to dask arrays."""
-        with mock.patch(
-            "wandas.core.lazy.time_series_operation._da_map_blocks"
-        ) as mock_map_blocks:
-            mock_map_blocks.return_value = self.dask_signal
-
-            self.hpf.process(self.dask_signal)
-
-            # Verify _da_map_blocks was called with the processor function
-            mock_map_blocks.assert_called_once()
-            assert mock_map_blocks.call_args[0][0] == self.hpf._processor_func
-            assert mock_map_blocks.call_args[0][1] is self.dask_signal
 
 
 class TestLowPassFilter:
@@ -350,8 +335,8 @@ class TestLowPassFilter:
 
     def test_filter_effect(self) -> None:
         """Test that the filter attenuates frequencies above cutoff."""
-        processor: Callable[[NDArrayReal], NDArrayReal] = self.lpf._create_processor()
-        result: NDArrayReal = processor(self.signal)
+        processor = self.lpf._process_array
+        result: NDArrayReal = processor(self.signal).compute()
 
         # Calculate FFT to check frequency content
         fft_original = np.abs(np.fft.rfft(self.signal[0]))
@@ -381,20 +366,6 @@ class TestLowPassFilter:
         with pytest.raises(ValueError):
             LowPassFilter(self.sample_rate, self.sample_rate / 2 + 1)
 
-    def test_process_with_dask_array(self) -> None:
-        """Test process() method correctly applies to dask arrays."""
-        with mock.patch(
-            "wandas.core.lazy.time_series_operation._da_map_blocks"
-        ) as mock_map_blocks:
-            mock_map_blocks.return_value = self.dask_signal
-
-            self.lpf.process(self.dask_signal)
-
-            # Verify _da_map_blocks was called with the processor function
-            mock_map_blocks.assert_called_once()
-            assert mock_map_blocks.call_args[0][0] == self.lpf._processor_func
-            assert mock_map_blocks.call_args[0][1] is self.dask_signal
-
 
 class TestOperationRegistry:
     """Test registry-related functions."""
@@ -416,13 +387,13 @@ class TestOperationRegistry:
 
         # Create a test operation class
         class TestOperation(AudioOperation):
-            operation_name = "test_register_op"
+            name = "test_register_op"
 
             def _create_processor(self) -> Callable[[NDArrayReal], NDArrayReal]:
                 return lambda x: x
 
         # Register and verify
-        register_operation("test_register_op", TestOperation)
+        register_operation(TestOperation)
         assert get_operation("test_register_op") == TestOperation
 
         # Clean up
@@ -437,9 +408,9 @@ class TestOperationRegistry:
             pass
 
         with pytest.raises(
-            TypeError, match="操作クラスは AudioOperation を継承する必要があります"
+            TypeError, match="Strategy class must inherit from AudioOperation."
         ):
-            register_operation("invalid", InvalidClass)  # type: ignore
+            register_operation(InvalidClass)  # type: ignore [unused-ignore]
 
     def test_create_operation_with_different_types(self) -> None:
         """Test creating operations of different types."""

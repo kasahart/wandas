@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Iterator
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union, cast
 
 import dask
 import dask.array as da
@@ -10,6 +10,8 @@ import soundfile as sf
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
+
+    from .spectral_frame import SpectralFrame
 
 from dask.array.core import Array as DaArray
 
@@ -580,3 +582,75 @@ class ChannelFrame(BaseFrame):
                 "channel_difference", other_channel=self.label2index(other_channel)
             )
         return self.apply_operation("channel_difference", other_channel=other_channel)
+
+    def fft(self, n_fft: Optional[int] = None, window: str = "hann") -> "SpectralFrame":
+        """時間領域データから周波数領域データへ変換（FFT）"""
+        from .spectral_frame import SpectralFrame
+        from .time_series_operation import FFT
+
+        params = {"n_fft": n_fft, "window": window}
+        operation_name = "fft"
+        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
+        from .time_series_operation import create_operation
+
+        # 操作インスタンスを作成
+        operation = create_operation(operation_name, self.sampling_rate, **params)
+        operation = cast("FFT", operation)
+        # データに処理を適用
+        spectrum_data = operation.process(self._data)
+
+        logger.debug(
+            f"Created new SpectralFrame with operation {operation_name} added to graph"
+        )
+
+        return SpectralFrame(
+            data=spectrum_data,
+            sampling_rate=self.sampling_rate,
+            n_fft=operation.n_fft,
+            window=operation.window,
+            label=f"Spectrum of {self.label}",
+            metadata={**self.metadata, "window": window, "n_fft": n_fft},
+            operation_history=[
+                *self.operation_history,
+                {"operation": "fft", "params": {"n_fft": n_fft, "window": window}},
+            ],
+            channel_metadata=self._channel_metadata,
+            previous=self,
+        )
+
+    def welch(
+        self, n_fft: Optional[int] = None, window: str = "hann"
+    ) -> "SpectralFrame":
+        """時間領域データから周波数領域データへ変換（welch）"""
+        from .spectral_frame import SpectralFrame
+        from .time_series_operation import Welch
+
+        params = {"n_fft": n_fft, "window": window}
+        operation_name = "welch"
+        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
+        from .time_series_operation import create_operation
+
+        # 操作インスタンスを作成
+        operation = create_operation(operation_name, self.sampling_rate, **params)
+        operation = cast("Welch", operation)
+        # データに処理を適用
+        spectrum_data = operation.process(self._data)
+
+        logger.debug(
+            f"Created new SpectralFrame with operation {operation_name} added to graph"
+        )
+
+        return SpectralFrame(
+            data=spectrum_data,
+            sampling_rate=self.sampling_rate,
+            n_fft=operation.n_fft,
+            window=operation.window,
+            label=f"Spectrum of {self.label}",
+            metadata={**self.metadata, "window": window, "n_fft": n_fft},
+            operation_history=[
+                *self.operation_history,
+                {"operation": "fft", "params": {"n_fft": n_fft, "window": window}},
+            ],
+            channel_metadata=self._channel_metadata,
+            previous=self,
+        )

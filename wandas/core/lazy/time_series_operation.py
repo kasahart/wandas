@@ -1,6 +1,8 @@
+import inspect
 import logging
-from typing import Any, Callable, ClassVar, Union
+from typing import Any, ClassVar, Optional, Union
 
+import dask
 import dask.array as da
 import numpy as np
 
@@ -13,13 +15,14 @@ from wandas.utils.types import NDArrayReal
 logger = logging.getLogger(__name__)
 
 _da_map_blocks = da.map_blocks  # type: ignore [unused-ignore]
+_da_from_delayed = da.from_delayed  # type: ignore [unused-ignore]
 
 
 class AudioOperation:
     """音声処理操作の抽象基底クラス"""
 
     # クラス変数：操作の名前
-    operation_name: ClassVar[str]
+    name: ClassVar[str]
 
     def __init__(self, sampling_rate: float, **params: Any):
         """
@@ -39,7 +42,7 @@ class AudioOperation:
         self.validate_params()
 
         # プロセッサ関数を作成（遅延初期化も可能）
-        self._processor_func = self._create_processor()
+        self._setup_processor()
 
         logger.debug(
             f"Initialized {self.__class__.__name__} operation with params: {params}"
@@ -49,20 +52,27 @@ class AudioOperation:
         """パラメータの検証（無効な場合は例外を発生）"""
         pass
 
-    def _create_processor(self) -> Callable[[NDArrayReal], NDArrayReal]:
-        """処理関数を作成（サブクラスで実装）"""
+    def _setup_processor(self) -> None:
+        """処理関数のセットアップ（サブクラスで実装）"""
+        pass
+
+    @dask.delayed  # type: ignore [misc, unused-ignore]
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """@dask.delayed でラップされた処理関数（サブクラスで実装）"""
         # デフォルトは何もしない関数
-        return lambda x: x
+        logger.debug(f"Default process operation on data with shape: {x.shape}")
+        return x
 
     def process(self, data: DaArray) -> DaArray:
         """
         操作を実行して結果を返す
         data の形状は (channels, samples)
         """
-        # 処理を計算グラフに追加
-        logger.debug("Adding operation to computation graph (no data load yet)")
-        result = _da_map_blocks(self._processor_func, data, dtype=data.dtype)
-        return result
+        # 遅延処理としてタスクを追加
+        logger.debug("Adding delayed operation to computation graph")
+        delayed_result = self._process_array(data)
+        # 遅延結果をdask配列に変換して返す
+        return _da_from_delayed(delayed_result, shape=data.shape, dtype=data.dtype)
 
     @classmethod
     def create(cls, sampling_rate: float, **params: Any) -> "AudioOperation":
@@ -73,7 +83,7 @@ class AudioOperation:
 class HighPassFilter(AudioOperation):
     """ハイパスフィルタ操作"""
 
-    operation_name = "highpass_filter"
+    name = "highpass_filter"
 
     def __init__(self, sampling_rate: float, cutoff: float, order: int = 4):
         """
@@ -100,28 +110,29 @@ class HighPassFilter(AudioOperation):
                 f"カットオフ周波数は0Hzから{limit}Hzの間である必要があります"
             )
 
-    def _create_processor(self) -> Callable[[NDArrayReal], NDArrayReal]:
-        """ハイパスフィルタのプロセッサ関数を作成"""
+    def _setup_processor(self) -> None:
+        """ハイパスフィルタのプロセッサをセットアップ"""
         # フィルタ係数を計算（一度だけ）- インスタンス変数から安全に取得
         nyquist = 0.5 * self.sampling_rate
         normal_cutoff = self.cutoff / nyquist
 
         # フィルタ係数を事前計算して保存
         self.b, self.a = signal.butter(self.order, normal_cutoff, btype="high")  # type: ignore [unused-ignore]
+        logger.debug(f"Highpass filter coefficients calculated: b={self.b}, a={self.a}")
 
-        def _apply_filter(x: NDArrayReal) -> NDArrayReal:
-            logger.debug(f"Applying highpass filter to block with shape: {x.shape}")
-            result: NDArrayReal = signal.filtfilt(self.b, self.a, x, axis=1)
-            logger.debug(f"Filter applied, returning result with shape: {result.shape}")
-            return result
-
-        return _apply_filter
+    @dask.delayed  # type: ignore [misc, unused-ignore]
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """@dask.delayed でラップされたフィルタ処理"""
+        logger.debug(f"Applying highpass filter to array with shape: {x.shape}")
+        result: NDArrayReal = signal.filtfilt(self.b, self.a, x, axis=1)
+        logger.debug(f"Filter applied, returning result with shape: {result.shape}")
+        return result
 
 
 class LowPassFilter(AudioOperation):
     """ローパスフィルタ操作"""
 
-    operation_name = "lowpass_filter"
+    name = "lowpass_filter"
     a: NDArrayReal
     b: NDArrayReal
 
@@ -149,27 +160,29 @@ class LowPassFilter(AudioOperation):
                 f"カットオフ周波数は0Hzから{self.sampling_rate / 2}Hzの間である必要があります"  # noqa: E501
             )
 
-    def _create_processor(self) -> Callable[[NDArrayReal], NDArrayReal]:
-        """ローパスフィルタのプロセッサ関数を作成"""
+    def _setup_processor(self) -> None:
+        """ローパスフィルタのプロセッサをセットアップ"""
         nyquist = 0.5 * self.sampling_rate
         normal_cutoff = self.cutoff / nyquist
 
         # フィルタ係数を事前計算して保存
         self.b, self.a = signal.butter(self.order, normal_cutoff, btype="low")  # type: ignore [unused-ignore]
+        logger.debug(f"Lowpass filter coefficients calculated: b={self.b}, a={self.a}")
 
-        def _apply_filter(x: NDArrayReal) -> NDArrayReal:
-            logger.debug(f"Applying lowpass filter to block with shape: {x.shape}")
-            result: NDArrayReal = signal.filtfilt(self.b, self.a, x, axis=1)
-            logger.debug(f"Filter applied, returning result with shape: {result.shape}")
-            return result
+    @dask.delayed  # type: ignore [misc, unused-ignore]
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """@dask.delayed でラップされたフィルタ処理"""
+        logger.debug(f"Applying lowpass filter to array with shape: {x.shape}")
+        result: NDArrayReal = signal.filtfilt(self.b, self.a, x, axis=1)
 
-        return _apply_filter
+        logger.debug(f"Filter applied, returning result with shape: {result.shape}")
+        return result
 
 
 class ABS(AudioOperation):
     """絶対値操作"""
 
-    operation_name = "abs"
+    name = "abs"
 
     def __init__(self, sampling_rate: float):
         """
@@ -182,27 +195,19 @@ class ABS(AudioOperation):
         """
         super().__init__(sampling_rate)
 
-    def validate_params(self) -> None:
-        """パラメータ検証"""
-        # ABS操作には特にパラメータはない
-        pass
-
-    def _create_processor(self) -> Callable[[NDArrayReal], NDArrayReal]:
+    @dask.delayed  # type: ignore [misc, unused-ignore]
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """絶対値操作のプロセッサ関数を作成"""
-
-        def _apply_abs(x: NDArrayReal) -> NDArrayReal:
-            logger.debug(f"Applying abs to block with shape: {x.shape}")
-            result = np.abs(x)
-            logger.debug(f"Abs applied, returning result with shape: {result.shape}")
-            return result
-
-        return _apply_abs
+        logger.debug(f"Applying abs to array with shape: {x.shape}")
+        result = np.abs(x)
+        logger.debug(f"Abs applied, returning result with shape: {result.shape}")
+        return result
 
 
 class Power(AudioOperation):
     """べき乗計算"""
 
-    operation_name = "power"
+    name = "power"
 
     def __init__(self, sampling_rate: float, exponent: float):
         """
@@ -216,28 +221,21 @@ class Power(AudioOperation):
         super().__init__(sampling_rate)
         self.exp = exponent
 
-    def validate_params(self) -> None:
-        """パラメータ検証"""
-        pass
-
-    def _create_processor(self) -> Callable[[NDArrayReal], NDArrayReal]:
-        """絶対値操作のプロセッサ関数を作成"""
-
-        def _apply_power(x: NDArrayReal) -> NDArrayReal:
-            logger.debug(
-                f"Applying power with exp {self.exp} to block with shape: {x.shape}"
-            )
-            result = np.power(x, self.exp)
-            logger.debug(f"Power applied, returning result with shape: {result.shape}")
-            return result
-
-        return _apply_power
+    @dask.delayed  # type: ignore [misc, unused-ignore]
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """べき乗操作のプロセッサ関数を作成"""
+        logger.debug(
+            f"Applying power with exp {self.exp} to array with shape: {x.shape}"
+        )
+        result = np.power(x, self.exp)
+        logger.debug(f"Power applied, returning result with shape: {result.shape}")
+        return result
 
 
 class Sum(AudioOperation):
     """合計計算"""
 
-    operation_name = "sum"
+    name = "sum"
 
     def process(self, data: DaArray) -> DaArray:
         # map_blocksを使わず、直接Daskの集約関数を使用
@@ -247,7 +245,7 @@ class Sum(AudioOperation):
 class Mean(AudioOperation):
     """平均計算"""
 
-    operation_name = "mean"
+    name = "mean"
 
     def process(self, data: DaArray) -> DaArray:
         # map_blocksを使わず、直接Daskの集約関数を使用
@@ -257,7 +255,7 @@ class Mean(AudioOperation):
 class ChannelDifference(AudioOperation):
     """チャネル間の差分計算"""
 
-    operation_name = "channel_difference"
+    name = "channel_difference"
     other_channel: Union[int, str]
 
     def __init__(self, sampling_rate: float, other_channel: Union[int, str] = 0):
@@ -279,81 +277,125 @@ class ChannelDifference(AudioOperation):
         return data - data[self.other_channel]
 
 
-# class Normalize(AudioOperation):
-#     """音量正規化操作"""
+class FFT(AudioOperation):
+    """FFT"""
 
-#     operation_name = "normalize"
+    name = "fft"
+    n_fft: int
+    window: str
 
-#     def __init__(
-#         self, sampling_rate: float, target_level: float = -20,
-#         channel_wise: bool = True
-#     ):
-#         """
-#         正規化処理の初期化
+    def __init__(self, sampling_rate: float, n_fft: int = 2048, window: str = "hann"):
+        """
+        FFT操作の初期化
+        Parameters
+        ----------
+        sampling_rate : float
+            サンプリングレート (Hz)
+        n_fft : int, optional
+            FFTのサイズ、デフォルトは2048
+        window : str, optional
+            窓関数の種類、デフォルトは'hann'
+        """
+        self.n_fft = n_fft
+        self.window = window
+        super().__init__(sampling_rate, n_fft=n_fft, window=window)
 
-#         Parameters
-#         ----------
-#         sampling_rate : float
-#             サンプリングレート (Hz)
-#         target_level : float, optional
-#             目標レベル (dB)、デフォルトは-20dB
-#         channel_wise : bool, optional
-#             チャネル個別に正規化するか、デフォルトはTrue
-#         """
-#         self.target_level = target_level
-#         self.channel_wise = channel_wise
-#         self.target_rms = 10 ** (target_level / 20)  # 事前計算
-#         super().__init__(
-#             sampling_rate, target_level=target_level, channel_wise=channel_wise
-#         )
+    @dask.delayed  # type: ignore [misc, unused-ignore]
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """FFT操作のプロセッサ関数を作成"""
+        from scipy.signal import get_window
 
-#     def _create_processor(self) -> Callable[[NDArrayReal], NDArrayReal]:
-#         """正規化処理のプロセッサ関数を作成"""
-
-#         def _apply_normalize(x: NDArrayReal) -> NDArrayReal:
-#             logger.debug(f"Applying normalize to block with shape: {x.shape}")
-
-#             # データが空かチェック
-#             if x.size == 0:
-#                 return x
-
-#             if x.shape[0] == 1 or not self.channel_wise:
-#                 # モノラルまたは全チャネル一括正規化
-#                 rms = np.sqrt(np.mean(x**2))
-#                 if rms < 1e-10:  # 無音の場合
-#                     return x
-#                 gain = self.target_rms / rms
-#                 return x * gain
-
-#             else:
-#                 # マルチチャネル、チャネルごとに独立正規化
-#                 rms_per_channel = np.sqrt(np.mean(x**2, axis=-1))
-#                 silent_mask = rms_per_channel < 1e-10
-#                 gain = np.ones_like(rms_per_channel)
-#                 gain[~silent_mask] = self.target_rms / rms_per_channel[~silent_mask]
-#                 return x * gain[:, np.newaxis]
-
-#         return _apply_normalize
+        n_samples = x.shape[-1]
+        win = get_window(self.window, n_samples)
+        x = x * win
+        result = np.fft.rfft(x, n=self.n_fft, axis=-1)
+        return result
 
 
-# 操作タイプと対応するクラスのマッピング
-_OPERATION_REGISTRY: dict[str, type[AudioOperation]] = {
-    "highpass_filter": HighPassFilter,
-    "lowpass_filter": LowPassFilter,
-    "abs": ABS,
-    "power": Power,
-    "sum": Sum,
-    "mean": Mean,
-    "channel_difference": ChannelDifference,
-    # "normalize": Normalize,
-}
+class Welch(AudioOperation):
+    """Welch"""
+
+    name = "welch"
+    n_fft: int
+    window: str
+    hop_length: int
+    win_length: int
+    average: str
+    detrend: str
+
+    def __init__(
+        self,
+        sampling_rate: float,
+        win_length: int = 2048,
+        n_fft: Optional[int] = None,
+        hop_length: Optional[int] = None,
+        window: str = "hann",
+        average: str = "mean",
+        detrend: str = "constant",
+    ):
+        """
+        Welch操作の初期化
+        Parameters
+        ----------
+        sampling_rate : float
+            サンプリングレート (Hz)
+        n_fft : int, optional
+            FFTのサイズ、デフォルトは2048
+        window : str, optional
+            窓関数の種類、デフォルトは'hann'
+        """
+        self.win_length = win_length
+        self.n_fft = n_fft if n_fft is not None else win_length
+        self.window = window
+        self.hop_length = hop_length if hop_length is not None else self.win_length // 4
+        self.average = average
+        self.detrend = detrend
+        super().__init__(
+            sampling_rate,
+        )
+
+    @dask.delayed  # type: ignore [misc, unused-ignore]
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """Welch操作のプロセッサ関数を作成"""
+        from scipy import signal as ss
+
+        _, result = ss.welch(
+            x,
+            nperseg=self.win_length,
+            noverlap=self.win_length - self.hop_length,
+            nfft=self.n_fft,
+            window=self.window,
+            average=self.average,
+            detrend=self.detrend,
+            scaling="spectrum",
+        )
+
+        if not isinstance(x, np.ndarray):
+            # Dask配列の場合、計算をトリガー
+            raise ValueError(
+                "Welch operation requires a Dask array, but received a non-ndarray."
+            )
+        return np.array(result)
 
 
-def register_operation(name: str, operation_class: type[AudioOperation]) -> None:
+# 操作タイプと対応するクラスのマッピングを自動で収集
+_OPERATION_REGISTRY: dict[str, type[AudioOperation]] = {}
+
+
+def register_operation(operation_class: type) -> None:
     """新しい操作タイプを登録"""
+
     if not issubclass(operation_class, AudioOperation):
-        raise TypeError("操作クラスは AudioOperation を継承する必要があります")
-    _OPERATION_REGISTRY[name] = operation_class
+        raise TypeError("Strategy class must inherit from AudioOperation.")
+    if inspect.isabstract(operation_class):
+        raise TypeError("Cannot register abstract AudioOperation class.")
+
+    _OPERATION_REGISTRY[operation_class.name] = operation_class
+
+
+for strategy_cls in AudioOperation.__subclasses__():
+    if not inspect.isabstract(strategy_cls):
+        register_operation(strategy_cls)
 
 
 def get_operation(name: str) -> type[AudioOperation]:

@@ -155,10 +155,33 @@ class TestChannelFrame:
             mock_op.process.assert_called()
             assert isinstance(result, ChannelFrame)
 
+        with mock.patch.object(
+            DaArray, "compute", return_value=self.dask_data.compute()
+        ) as mock_compute:
+            # Apply filter operations
+            result = self.channel_frame.highpass_filter(cutoff=100)
+            mock_compute.assert_not_called()
+
+            result = self.channel_frame.lowpass_filter(cutoff=5000)
+            mock_compute.assert_not_called()
+
+            # Check that the result has the expected type
+            assert isinstance(result, ChannelFrame)
+            assert isinstance(result._data, DaArray)
+            assert result.n_channels == 2
+            assert result.n_samples == 16000
+            assert result.sampling_rate == self.sample_rate
+            assert result.label == "test_audio"
+            assert result.channels[0].label == "ch0"
+            assert result.channels[1].label == "ch1"
+            assert result.shape == (2, 16000)
+            assert result.data.shape == (2, 16000)
+            np.testing.assert_array_equal(result.data, self.data)
+
     def test_plotting_triggers_compute(self) -> None:
         """Test that plotting triggers computation."""
         with mock.patch(
-            "wandas.core.lazy.channel_frame.get_plot_strategy"
+            "wandas.core.lazy.channel_frame.create_operation"
         ) as mock_get_strategy:
             mock_strategy: mock.MagicMock = mock.MagicMock()
             mock_get_strategy.return_value = mock_strategy
