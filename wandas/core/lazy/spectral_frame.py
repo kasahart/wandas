@@ -5,10 +5,11 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union
 
 import dask
 import dask.array as da
+import librosa
 import numpy as np
 from dask.array.core import Array as DaArray
 
-from wandas.utils.types import NDArrayReal
+from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 from .base_frame import BaseFrame
 from .channel_metadata import ChannelMetadata
@@ -25,10 +26,10 @@ da_from_array = da.from_array  # type: ignore [unused-ignore]
 
 logger = logging.getLogger(__name__)
 
-S = TypeVar("S", bound="BaseFrame")
+S = TypeVar("S", bound="BaseFrame[Any]")
 
 
-class SpectralFrame(BaseFrame):
+class SpectralFrame(BaseFrame[NDArrayComplex]):
     """
     周波数領域のデータを扱うクラス
     データ形状: (channels, frequency_bins)または単一チャネルの場合 (1, frequency_bins)
@@ -47,7 +48,7 @@ class SpectralFrame(BaseFrame):
         metadata: Optional[dict[str, Any]] = None,
         operation_history: Optional[list[dict[str, Any]]] = None,
         channel_metadata: Optional[list[ChannelMetadata]] = None,
-        previous: Optional["BaseFrame"] = None,
+        previous: Optional["BaseFrame[Any]"] = None,
     ) -> None:
         if data.ndim == 1:
             data = data.reshape(1, -1)
@@ -68,12 +69,37 @@ class SpectralFrame(BaseFrame):
         )
 
     @property
+    def magnitude(self) -> NDArrayReal:
+        return np.abs(self.data)
+
+    @property
+    def phase(self) -> NDArrayReal:
+        return np.angle(self.data)
+
+    @property
+    def power(self) -> NDArrayReal:
+        return np.abs(self.data) ** 2
+
+    @property
+    def dB(self) -> NDArrayReal:  # noqa: N802
+        # dB規定値を_channel_metadataから収集
+        ref = np.array([ch.ref for ch in self._channel_metadata])
+        # dB変換
+        return 20 * np.log10(np.maximum(self.magnitude / ref, 1e-12))
+
+    @property
+    def dBA(self) -> NDArrayReal:  # noqa: N802
+        # dB規定値を_channel_metadataから収集
+        weighted = librosa.A_weighting(frequencies=self.freqs, min_db=None)
+        return self.dB + weighted
+
+    @property
     def _n_channels(self) -> int:
         """チャネル数を返します。"""
         return self.shape[-2]
 
     @property
-    def frequencies(self) -> NDArrayReal:
+    def freqs(self) -> NDArrayReal:
         """周波数軸を返します"""
         return np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
 

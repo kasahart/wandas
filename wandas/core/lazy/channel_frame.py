@@ -29,10 +29,10 @@ da_from_delayed = da.from_delayed  # type: ignore [unused-ignore]
 da_from_array = da.from_array  # type: ignore [unused-ignore]
 
 
-S = TypeVar("S", bound="BaseFrame")
+S = TypeVar("S", bound="BaseFrame[Any]")
 
 
-class ChannelFrame(BaseFrame):
+class ChannelFrame(BaseFrame[NDArrayReal]):
     """
     音声チャネルのラッパークラス
     データ形状: (channels, samples) または単一チャネルの場合 (1, samples)
@@ -46,7 +46,7 @@ class ChannelFrame(BaseFrame):
         metadata: Optional[dict[str, Any]] = None,
         operation_history: Optional[list[dict[str, Any]]] = None,
         channel_metadata: Optional[list[ChannelMetadata]] = None,
-        previous: Optional["BaseFrame"] = None,
+        previous: Optional["BaseFrame[Any]"] = None,
     ) -> None:
         if data.ndim == 1:
             data = data.reshape(1, -1)

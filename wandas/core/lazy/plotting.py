@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-TFrame = TypeVar("TFrame", bound="BaseFrame")
+TFrame = TypeVar("TFrame", bound="BaseFrame[Any]")
 
 
 class PlotStrategy(abc.ABC, Generic[TFrame]):
@@ -95,7 +95,7 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
 
         data = 20 * np.log10(bf.data)  # dBに変換
         ax.plot(
-            bf.frequencies,
+            bf.freqs,
             data.T,
             label=bf.labels,
             **kwargs,

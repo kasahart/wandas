@@ -4,23 +4,24 @@ import numbers
 import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
-from typing import Any, Callable, Optional, TypeVar, Union
+from typing import Any, Callable, Generic, Optional, TypeVar, Union, cast
 
 import numpy as np
 import numpy.typing as npt
 from dask.array.core import Array as DaArray
 from matplotlib.axes import Axes
 
-from wandas.utils.types import NDArrayReal
+from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 from .channel_metadata import ChannelMetadata
 
 logger = logging.getLogger(__name__)
 
-S = TypeVar("S", bound="BaseFrame")
+T = TypeVar("T", NDArrayComplex, NDArrayReal)
+S = TypeVar("S", bound="BaseFrame[Any]")
 
 
-class BaseFrame(ABC):
+class BaseFrame(ABC, Generic[T]):
     """
     すべての信号フレーム型の抽象基底クラス
     """
@@ -31,7 +32,7 @@ class BaseFrame(ABC):
     metadata: dict[str, Any]
     operation_history: list[dict[str, Any]]
     _channel_metadata: list[ChannelMetadata]
-    _previous: Optional["BaseFrame"]
+    _previous: Optional["BaseFrame[Any]"]
 
     def __init__(
         self,
@@ -41,7 +42,7 @@ class BaseFrame(ABC):
         metadata: Optional[dict[str, Any]] = None,
         operation_history: Optional[list[dict[str, Any]]] = None,
         channel_metadata: Optional[list[ChannelMetadata]] = None,
-        previous: Optional["BaseFrame"] = None,
+        previous: Optional["BaseFrame[Any]"] = None,
     ):
         self._data = data.rechunk(chunks=-1)  # type: ignore [unused-ignore]
         self.sampling_rate = sampling_rate
@@ -178,7 +179,7 @@ class BaseFrame(ABC):
         return _shape
 
     @property
-    def data(self) -> NDArrayReal:
+    def data(self) -> T:
         """
         計算済みデータを返します。初めてアクセスしたときに計算が実行されます。
         """
@@ -189,7 +190,7 @@ class BaseFrame(ABC):
         """すべてのチャネルのラベルをリストとして取得します。"""
         return [ch.label for ch in self._channel_metadata]
 
-    def compute(self) -> NDArrayReal:
+    def compute(self) -> T:
         """
         データを計算して返します。
         このメソッドは遅延計算されたデータを具体的なNumPy配列として実体化します。
@@ -208,7 +209,7 @@ class BaseFrame(ABC):
             raise ValueError(f"計算結果がnp.ndarrayではありません: {type(result)}")
 
         logger.debug(f"Computation complete, result shape: {result.shape}")
-        return result
+        return cast(T, result)
 
     @abstractmethod
     def plot(
