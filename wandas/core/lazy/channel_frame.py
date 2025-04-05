@@ -175,6 +175,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
                 metadata=metadata,
                 operation_history=operation_history,
                 channel_metadata=merged_channel_metadata,
+                previous=self,
             )
 
         # スカラー、NumPy配列、または他のタイプとの演算
@@ -208,6 +209,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
                 metadata=metadata,
                 operation_history=operation_history,
                 channel_metadata=updated_channel_metadata,
+                previous=self,
             )
 
     def plot(
