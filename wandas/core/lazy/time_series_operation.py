@@ -312,6 +312,42 @@ class FFT(AudioOperation):
         return result
 
 
+class IFFT(AudioOperation):
+    """IFFT"""
+
+    name = "ifft"
+    n_fft: int
+    window: str
+
+    def __init__(self, sampling_rate: float, n_fft: int = 2048, window: str = "hann"):
+        """
+        IFFT操作の初期化
+        Parameters
+        ----------
+        sampling_rate : float
+            サンプリングレート (Hz)
+        n_fft : int, optional
+            FFTのサイズ、デフォルトは2048
+        window : str, optional
+            窓関数の種類、デフォルトは'hann'
+        """
+        self.n_fft = n_fft
+        self.window = window
+        super().__init__(sampling_rate, n_fft=n_fft, window=window)
+
+    @dask.delayed  # type: ignore [misc, unused-ignore]
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """FFT操作のプロセッサ関数を作成"""
+        from scipy.signal import get_window
+
+        result = np.fft.irfft(x, n=self.n_fft, axis=-1)
+
+        n_samples = result.shape[-1]
+        win = get_window(self.window, n_samples)
+        result = result / (win + 1e-12)
+        return result
+
+
 class Welch(AudioOperation):
     """Welch"""
 
