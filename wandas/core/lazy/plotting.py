@@ -87,6 +87,10 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
             fig, axs = plt.subplots(
                 num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
             )
+            # axs が単一の Axes オブジェクトの場合、リストに変換
+            if not isinstance(axs, (list, np.ndarray)):
+                axs = [axs]
+
             axes_list = list(axs)
             data = bf.data
             for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
@@ -146,6 +150,10 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
             fig, axs = plt.subplots(
                 num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
             )
+            # axs が単一の Axes オブジェクトの場合、リストに変換
+            if not isinstance(axs, (list, np.ndarray)):
+                axs = [axs]
+
             axes_list = list(axs)
             data = bf.data
             for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
@@ -198,6 +206,10 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
         fig, axs = plt.subplots(
             num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
         )
+        # axs が単一の Axes オブジェクトの場合、リストに変換
+        if not isinstance(axs, (list, np.ndarray)):
+            axs = [axs]
+
         axes_list = list(axs)
 
         is_aw = kwargs.pop("Aw", False)
