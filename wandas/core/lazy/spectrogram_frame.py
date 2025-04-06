@@ -28,8 +28,8 @@ S = TypeVar("S", bound="BaseFrame[Any]")
 class SpectrogramFrame(BaseFrame[NDArrayComplex]):
     """
     時間-周波数領域のデータ（スペクトログラム）を扱うクラス
-    データ形状: (channels, time_frames, frequency_bins) または
-             単一チャネルの場合 (1, time_frames, frequency_bins)
+    データ形状: (channels, frequency_bins, time_frames) または
+             単一チャネルの場合 (1, frequency_bins, time_frames)
     """
 
     n_fft: int
@@ -56,6 +56,10 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         elif data.ndim != 3:
             raise ValueError(
                 f"データは2次元または3次元である必要があります。形状: {data.shape}"
+            )
+        if not data.shape[-2] == n_fft // 2 + 1:
+            raise ValueError(
+                f"データの形状が無効です。周波数ビン数は {n_fft // 2 + 1} である必要があります。"  # noqa: E501
             )
 
         self.n_fft = n_fft
@@ -114,12 +118,12 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
     @property
     def n_frames(self) -> int:
         """時間フレーム数を返します"""
-        return self.shape[1]
+        return self.shape[-1]
 
     @property
     def n_freq_bins(self) -> int:
         """周波数ビン数を返します"""
-        return self.shape[2]
+        return self.shape[-2]
 
     @property
     def freqs(self) -> NDArrayReal:
@@ -306,7 +310,7 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
                 f"時間インデックス {time_idx} が範囲外です。有効範囲: 0-{self.n_frames - 1}"  # noqa: E501
             )
 
-        frame_data = self._data[:, time_idx, :]
+        frame_data = self._data[..., time_idx]
 
         return SpectralFrame(
             data=frame_data,
