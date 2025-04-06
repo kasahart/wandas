@@ -5,6 +5,7 @@ from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Optional, TypeVar, Union
 
 import librosa
+import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
@@ -199,18 +200,23 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
         if overlay:
             raise ValueError("Overlay is not supported for SpectrogramPlotStrategy.")
 
-        if ax is not None and bf.n_channels > 1:
-            raise ValueError("ax must be None when n_channels > 1.")
-
-        num_channels = bf.n_channels
-        fig, axs = plt.subplots(
-            num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
-        )
-        # axs が単一の Axes オブジェクトの場合、リストに変換
-        if not isinstance(axs, (list, np.ndarray)):
-            axs = [axs]
-
-        axes_list = list(axs)
+        # axが与えられていて、チャンネル数が1の場合は指定されたaxを使用
+        if ax is not None:
+            if bf.n_channels > 1:
+                raise ValueError("ax must be None when n_channels > 1.")
+            axes_list = [ax]
+            create_new_figure = False
+        else:
+            # axがNoneの場合は新しい図を作成
+            num_channels = bf.n_channels
+            fig, axs = plt.subplots(
+                num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
+            )
+            # axs が単一の Axes オブジェクトの場合、リストに変換
+            if not isinstance(axs, (list, np.ndarray)):
+                axs = [axs]
+            axes_list = list(axs)
+            create_new_figure = True
 
         is_aw = kwargs.pop("Aw", False)
         if is_aw:
@@ -247,17 +253,126 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
             ax_i.set(xlim=xlim, ylim=ylim)
             cbar = ax_i.figure.colorbar(img, ax=ax_i)
             cbar.set_label(f"Spectrum level [{unit}]")
-            ax_i.set_title(ch_meta.label)
+            # タイトルの設定：外部からaxが与えられた場合はその指定を優先
+            if create_new_figure or not title:
+                ax_i.set_title(ch_meta.label)
+            else:
+                ax_i.set_title(title)
             ax_i.set_xlabel("Frequency [Hz]")
             ax_i.set_ylabel(f"Spectrum level [{unit}]")
 
-        fig.suptitle(title or bf.label or "Spectrogram Data")
-
-        if ax is None:
+        # 新しい図を作成した場合のみ、suptitleとtight_layout、showを行う
+        if create_new_figure:
+            axes_list[0].figure.suptitle(title or bf.label or "Spectrogram Data")
             plt.tight_layout()
             plt.show()
+            return iter(axes_list)
+        else:
+            # axが与えられていて、チャンネル数が1の場合はaxを返す
+            return axes_list[0]
 
-        return iter(axes_list)
+
+class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
+    """ChannelFrameのデータを可視化するdescribeプロット戦略"""
+
+    name = "describe"
+
+    def channel_plot(self, x: Any, y: Any, ax: "Axes", **kwargs: Any) -> None:
+        """チャンネルプロットの実装"""
+        pass  # このメソッドはdescribeでは使用しないため未実装
+
+    def plot(
+        self,
+        bf: "ChannelFrame",
+        ax: Optional["Axes"] = None,
+        title: Optional[str] = None,
+        overlay: bool = False,
+        **kwargs: Any,
+    ) -> Union["Axes", Iterator["Axes"]]:
+        """ChannelFrameのデータを可視化するdescribeメソッドの実装"""
+        axis_config = kwargs.pop("axis_config", {})
+        fmin = kwargs.pop("fmin", 0)
+        fmax = kwargs.pop("fmax", None)
+        cmap = kwargs.pop("cmap", "jet")
+        vmin = kwargs.pop("vmin", None)
+        vmax = kwargs.pop("vmax", None)
+        xlim = kwargs.pop("xlim", None)
+        ylim = kwargs.pop("ylim", None)
+        is_aw = kwargs.pop("Aw", False)
+
+        gs = gridspec.GridSpec(2, 3, height_ratios=[1, 3], width_ratios=[3, 1, 0.1])
+        gs.update(wspace=0.2)
+
+        fig = plt.figure(figsize=(12, 6))
+        fig.subplots_adjust(wspace=0.0001)
+
+        # 最初のサブプロット (Time Plot)
+        ax_1 = fig.add_subplot(gs[0])
+        bf.plot(plot_type="waveform", ax=ax_1, overlay=True)
+        if "time_plot" in axis_config:
+            conf = axis_config["time_plot"]
+            ax_1.set(**conf)
+        ax_1.legend().set_visible(False)
+        ax_1.set(xlabel="", title="")
+
+        # 2番目のサブプロット (STFT Plot)
+        ax_2 = fig.add_subplot(gs[3], sharex=ax_1)
+        stft_ch = bf.stft()
+        if is_aw:
+            unit = "dBA"
+            channel_data = stft_ch.dBA[0]
+        else:
+            unit = "dB"
+            channel_data = stft_ch.dB[0]
+        # データの最大値を取得し、切りのいい値に丸める
+        if vmax is None:
+            data_max = np.nanmax(channel_data)
+            # 10, 5, 2のいずれかの刻みで切りのいい数に丸める
+            for step in [10, 5, 2]:
+                rounded_max = np.ceil(data_max / step) * step
+                if rounded_max >= data_max:
+                    vmax = rounded_max
+                    vmin = vmax - 180
+                    break
+        img = librosa.display.specshow(
+            data=channel_data,
+            sr=bf.sampling_rate,
+            hop_length=stft_ch.hop_length,
+            n_fft=stft_ch.n_fft,
+            win_length=stft_ch.win_length,
+            x_axis="time",
+            y_axis="linear",
+            ax=ax_2,
+            fmin=fmin,
+            fmax=fmax,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+        )
+        ax_2.set(xlim=xlim, ylim=ylim)
+
+        # 3番目のサブプロット
+        ax_3 = fig.add_subplot(gs[1])
+        ax_3.axis("off")
+
+        # 4番目のサブプロット (Welch Plot)
+        ax_4 = fig.add_subplot(gs[4], sharey=ax_2)
+        welch_ch = bf.welch()
+        if is_aw:
+            unit = "dBA"
+            data_db = welch_ch.dBA
+        else:
+            unit = "dB"
+            data_db = welch_ch.dB
+        ax_4.plot(data_db.T, welch_ch.freqs.T)
+        ax_4.grid(True)
+        ax_4.set(xlabel=f"Spectrum level [{unit}]", xlim=(vmin, vmax))
+
+        cbar = fig.colorbar(img, ax=ax_4, format="%+2.0f")
+        cbar.set_label(unit)
+        fig.suptitle(title or bf.label or "Channel Data")
+
+        return iter(fig.axes)
 
 
 # プロットタイプと対応するクラスのマッピングを保持

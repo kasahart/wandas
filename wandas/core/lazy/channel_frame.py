@@ -5,8 +5,11 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union, cast
 
 import dask
 import dask.array as da
+import ipywidgets as widgets
+import matplotlib.pyplot as plt
 import numpy as np
 import soundfile as sf
+from IPython.display import Audio, display
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -241,6 +244,20 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         logger.debug("Plot rendering complete")
 
         return _ax
+
+    def describe(self, normalize: bool = True, **kwargs: Any) -> widgets.VBox:
+        container = []
+        for ch in self:
+            output = widgets.Output()
+            with output:
+                ch.plot("describe", title=f"{ch.label} {ch.labels[0]}", **kwargs)
+                plt.show()
+            audio_output = widgets.Output()
+            with audio_output:
+                display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))  # type: ignore [unused-ignore, no-untyped-call]
+            container.append(widgets.VBox([output, audio_output]))
+
+        return widgets.VBox(container)
 
     @classmethod
     def from_numpy(
