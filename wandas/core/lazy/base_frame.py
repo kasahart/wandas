@@ -223,6 +223,13 @@ class BaseFrame(ABC, Generic[T]):
         persisted_data = self._data.persist()
         return self._create_new_instance(data=persisted_data)
 
+    @abstractmethod
+    def _get_additional_init_kwargs(self) -> dict[str, Any]:
+        """
+        派生クラスが必要な追加の初期化引数を提供するための抽象メソッド。
+        """
+        pass
+
     def _create_new_instance(self: S, data: DaArray, **kwargs: Any) -> S:
         """
         Create a new channel instance based on an existing channel.
@@ -230,8 +237,8 @@ class BaseFrame(ABC, Generic[T]):
         """
 
         sampling_rate = kwargs.pop("sampling_rate", self.sampling_rate)
-        if not isinstance(sampling_rate, int):
-            raise TypeError("Sampling rate must be an integer")
+        # if not isinstance(sampling_rate, int):
+        #     raise TypeError("Sampling rate must be an integer")
 
         label = kwargs.pop("label", self.label)
         if not isinstance(label, str):
@@ -240,6 +247,10 @@ class BaseFrame(ABC, Generic[T]):
         metadata = kwargs.pop("metadata", copy.deepcopy(self.metadata))
         if not isinstance(metadata, dict):
             raise TypeError("Metadata must be a dictionary")
+
+        # 派生クラスから追加の初期化引数を取得
+        additional_kwargs = self._get_additional_init_kwargs()
+        kwargs.update(additional_kwargs)
 
         return type(self)(
             data=data,

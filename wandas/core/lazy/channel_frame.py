@@ -729,3 +729,9 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
             operation_history=self.operation_history,
             channel_metadata=self._channel_metadata,
         )
+
+    def _get_additional_init_kwargs(self) -> dict[str, Any]:
+        """
+        ChannelFrame に必要な追加の初期化引数を提供します。
+        """
+        return {}

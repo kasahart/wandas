@@ -303,6 +303,15 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             channel_metadata=self._channel_metadata,
         )
 
+    def _get_additional_init_kwargs(self) -> dict[str, Any]:
+        """
+        SpectralFrame に必要な追加の初期化引数を提供します。
+        """
+        return {
+            "n_fft": self.n_fft,
+            "window": self.window,
+        }
+
     # def noct_synthesis(
     #     self,
     #     fmin: float,
