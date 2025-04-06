@@ -4,6 +4,7 @@ import logging
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Optional, TypeVar, Union
 
+import librosa
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
@@ -12,6 +13,7 @@ if TYPE_CHECKING:
     from .base_frame import BaseFrame
     from .channel_frame import ChannelFrame
     from .spectral_frame import SpectralFrame
+    from .spectrogram_frame import SpectrogramFrame
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +26,17 @@ class PlotStrategy(abc.ABC, Generic[TFrame]):
     name: ClassVar[str]
 
     @abc.abstractmethod
+    def channel_plot(self, x: Any, y: Any, ax: "Axes") -> None:
+        """チャンネルプロットの実装"""
+        pass
+
+    @abc.abstractmethod
     def plot(
         self,
         bf: TFrame,
         ax: Optional["Axes"] = None,
         title: Optional[str] = None,
+        overlay: bool = False,
         **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
         """プロットの実装"""
@@ -40,38 +48,58 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
 
     name = "waveform"
 
+    def channel_plot(
+        self,
+        x: Any,
+        y: Any,
+        ax: "Axes",
+        **kwargs: Any,
+    ) -> None:
+        """チャンネルプロットの実装"""
+        ax.plot(x, y, **kwargs)
+        ax.set_ylabel("Amplitude")
+        ax.grid(True)
+        ax.legend()
+
     def plot(
         self,
         bf: "ChannelFrame",
         ax: Optional["Axes"] = None,
         title: Optional[str] = None,
+        overlay: bool = False,
         **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
         """波形プロット"""
         kwargs = kwargs or {}
-        metadata = bf.channels
-        if ax is None:
-            _, ax = plt.subplots(figsize=(10, 4))
 
-        ax.plot(
-            bf.time,
-            bf.data.T,
-            label=bf.labels,
-            **kwargs,
-        )
+        if overlay:
+            if ax is None:
+                _, ax = plt.subplots(figsize=(10, 4))
+            self.channel_plot(bf.time, bf.data.T, ax, label=bf.labels)
+            ax.set_xlabel("Time [s]")
+            ax.set_title(title or bf.label or "Channel Data")
+            if ax is None:
+                plt.tight_layout()
+                plt.show()
+            return ax
+        else:
+            num_channels = bf.n_channels
+            fig, axs = plt.subplots(
+                num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
+            )
+            axes_list = list(axs)
+            data = bf.data
+            for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
+                self.channel_plot(bf.time, channel_data, ax_i, label=ch_meta.label)
 
-        ax.set_xlabel("Time [s]")
-        ylabel = f"Amplitude [{metadata[0].unit}]" if metadata[0].unit else "Amplitude"
-        ax.set_ylabel(ylabel)
-        ax.set_title(title or bf.label or "Channel Data")
-        ax.grid(True)
-        ax.legend()
+            axes_list[-1].set_xlabel("Time [s]")
+            fig.suptitle(title or bf.label or "Channel Data")
 
-        if ax is None:
-            plt.tight_layout()
-            plt.show()
+            if ax is None:
+                plt.tight_layout()
+                plt.show()
 
-        return ax
+            return iter(axes_list)
 
 
 class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
@@ -79,81 +107,145 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
 
     name = "frequency"
 
+    def channel_plot(
+        self,
+        x: Any,
+        y: Any,
+        ax: "Axes",
+        **kwargs: Any,
+    ) -> None:
+        """チャンネルプロットの実装"""
+        ax.plot(x, y, **kwargs)
+        ax.set_ylabel("Amplitude [dB]")
+        ax.grid(True)
+        ax.legend()
+
     def plot(
         self,
         bf: "SpectralFrame",
         ax: Optional["Axes"] = None,
         title: Optional[str] = None,
+        overlay: bool = False,
         **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
         """周波数プロット"""
-
         kwargs = kwargs or {}
-        metadata = bf.channels
-        if ax is None:
-            _, ax = plt.subplots(figsize=(10, 4))
 
-        data = 20 * np.log10(bf.data)  # dBに変換
-        ax.plot(
-            bf.freqs,
-            data.T,
-            label=bf.labels,
-            **kwargs,
+        if overlay:
+            if ax is None:
+                _, ax = plt.subplots(figsize=(10, 4))
+            self.channel_plot(bf.freqs, 20 * np.log10(bf.data.T), ax, label=bf.labels)
+            ax.set_xlabel("Frequency [Hz]")
+            ax.set_title(title or bf.label or "Channel Data")
+            if ax is None:
+                plt.tight_layout()
+                plt.show()
+            return ax
+        else:
+            num_channels = bf.n_channels
+            fig, axs = plt.subplots(
+                num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
+            )
+            axes_list = list(axs)
+            data = bf.data
+            for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
+                self.channel_plot(
+                    bf.freqs, 20 * np.log10(channel_data), ax_i, label=ch_meta.label
+                )
+
+            axes_list[-1].set_xlabel("Frequency [Hz]")
+            fig.suptitle(title or bf.label or "Channel Data")
+
+            if ax is None:
+                plt.tight_layout()
+                plt.show()
+
+            return iter(axes_list)
+
+
+class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
+    """スペクトログラムプロットの戦略"""
+
+    name = "spectrogram"
+
+    def channel_plot(
+        self,
+        x: Any,
+        y: Any,
+        ax: "Axes",
+        **kwargs: Any,
+    ) -> None:
+        """チャンネルプロットの実装"""
+        pass
+
+    def plot(
+        self,
+        bf: "SpectrogramFrame",
+        ax: Optional["Axes"] = None,
+        title: Optional[str] = None,
+        overlay: bool = False,
+        **kwargs: Any,
+    ) -> Union["Axes", Iterator["Axes"]]:
+        """スペクトログラムプロット"""
+        kwargs = kwargs or {}
+        if overlay:
+            raise ValueError("Overlay is not supported for SpectrogramPlotStrategy.")
+
+        if ax is not None and bf.n_channels > 1:
+            raise ValueError("ax must be None when n_channels > 1.")
+
+        num_channels = bf.n_channels
+        fig, axs = plt.subplots(
+            num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
         )
+        axes_list = list(axs)
 
-        ax.set_xlabel("Frequency [Hz]")
-        ylabel = f"Amplitude [{metadata[0].unit}]" if metadata[0].unit else "Amplitude"
-        ax.set_ylabel(ylabel)
-        ax.set_title(title or bf.label or "Channel Data")
-        ax.grid(True)
-        ax.legend()
+        is_aw = kwargs.pop("Aw", False)
+        if is_aw:
+            unit = "dBA"
+            data = bf.dBA
+        else:
+            unit = "dB"
+            data = bf.dB
+
+        fmin = kwargs.pop("fmin", 0)
+        fmax = kwargs.pop("fmax", None)
+        cmap = kwargs.pop("cmap", "jet")
+        vmin = kwargs.pop("vmin", None)
+        vmax = kwargs.pop("vmax", None)
+        xlim = kwargs.pop("xlim", None)
+        ylim = kwargs.pop("ylim", None)
+        for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
+            img = librosa.display.specshow(
+                data=channel_data,
+                sr=bf.sampling_rate,
+                hop_length=bf.hop_length,
+                n_fft=bf.n_fft,
+                win_length=bf.win_length,
+                x_axis="time",
+                y_axis="linear",
+                ax=ax_i,
+                fmin=fmin,
+                fmax=fmax,
+                cmap=cmap,
+                vmin=vmin,
+                vmax=vmax,
+                **kwargs,
+            )
+            ax_i.set(xlim=xlim, ylim=ylim)
+            cbar = ax_i.figure.colorbar(img, ax=ax_i)
+            cbar.set_label(f"Spectrum level [{unit}]")
+            ax_i.set_title(ch_meta.label)
+            ax_i.set_xlabel("Frequency [Hz]")
+            ax_i.set_ylabel(f"Spectrum level [{unit}]")
+
+        fig.suptitle(title or bf.label or "Spectrogram Data")
 
         if ax is None:
             plt.tight_layout()
             plt.show()
 
-        return ax
-
-
-# class SpectrogramPlotStrategy(PlotStrategy):
-#     """スペクトログラムプロットの戦略"""
-
-#     def plot(
-#         self,
-#         cf: "ChannelFrame",
-#         ax: Optional["Axes"],
-#         **kwargs: Any,
-#     ) -> Union["Axes", Iterator["Axes"]]:
-#         """スペクトログラム"""
-#         from matplotlib import pyplot as plt
-
-#         channel = kwargs.get("channel", 0)
-#         if channel >= data.shape[0]:
-#             raise ValueError(f"Channel index out of range: {channel}")
-
-#         n_fft = kwargs.get("n_fft", 2048)
-#         hop_length = kwargs.get("hop_length", n_fft // 4)
-
-#         # 単一チャネルのデータを取得
-#         audio_data = data[channel]
-
-#         # スペクトログラム計算 (scipy.signalを使用)
-#         from scipy import signal
-
-#         f, t, Sxx = signal.spectrogram(
-#             audio_data,
-#             sampling_rate,
-#             window="hann",
-#             nperseg=n_fft,
-#             noverlap=n_fft - hop_length,
-#         )
-
-#         img = ax.pcolormesh(t, f, 10 * np.log10(Sxx + 1e-10), shading="gouraud")
-#         ax.set_ylabel("Frequency [Hz]")
-#         ax.set_xlabel("Time [s]")
-#         plt.colorbar(img, ax=ax, label="Power/Frequency [dB/Hz]")
-
-#         return ax
+        return iter(axes_list)
 
 
 # プロットタイプと対応するクラスのマッピングを保持

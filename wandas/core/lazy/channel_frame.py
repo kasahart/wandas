@@ -12,6 +12,8 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
     from .spectral_frame import SpectralFrame
+    from .spectrogram_frame import SpectrogramFrame
+
 
 from dask.array.core import Array as DaArray
 
@@ -655,4 +657,75 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
             ],
             channel_metadata=self._channel_metadata,
             previous=self,
+        )
+
+    def stft(
+        self,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: str = "hann",
+        boundary: Optional[str] = "zeros",
+    ) -> "SpectrogramFrame":
+        """
+        短時間フーリエ変換（STFT）を計算し、時間-周波数領域のスペクトログラムを返します。
+
+        Parameters
+        ----------
+        n_fft : int, default=2048
+            FFTのサンプル数
+        hop_length : int, optional
+            フレーム間のホップ長。指定がない場合は n_fft//4
+        win_length : int, optional
+            各フレームの窓長。指定がない場合は n_fft
+        window : str, default="hann"
+            窓関数の種類
+        center : bool, default=True
+            信号の中心化を行うかどうか
+
+        Returns
+        -------
+        SpectrogramFrame
+            スペクトログラムデータを含むSpectrogramFrameオブジェクト
+        """
+        from .spectrogram_frame import SpectrogramFrame
+        from .time_series_operation import STFT, create_operation
+
+        # ホップ長とウィンドウ長の設定
+        _hop_length = hop_length if hop_length is not None else n_fft // 4
+        _win_length = win_length if win_length is not None else n_fft
+
+        params = {
+            "n_fft": n_fft,
+            "hop_length": _hop_length,
+            "win_length": _win_length,
+            "window": window,
+            "boundary": boundary,
+        }
+        operation_name = "stft"
+        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
+
+        # 操作インスタンスを作成
+        operation = create_operation(operation_name, self.sampling_rate, **params)
+        operation = cast("STFT", operation)
+
+        # データに処理を適用
+        spectrogram_data = operation.process(self._data)
+
+        logger.debug(
+            f"Created new SpectrogramFrame with operation {operation_name} added to graph"  # noqa: E501
+        )
+
+        # 新しいインスタンスを作成
+        return SpectrogramFrame(
+            data=spectrogram_data,
+            sampling_rate=self.sampling_rate,
+            n_fft=n_fft,
+            hop_length=_hop_length,
+            win_length=_win_length,
+            window=window,
+            label=f"stft({self.label})",
+            metadata=self.metadata,
+            operation_history=self.operation_history,
+            channel_metadata=self._channel_metadata,
         )

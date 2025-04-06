@@ -8,6 +8,8 @@ from dask.array.core import Array as DaArray
 
 from wandas.core.lazy.time_series_operation import (
     _OPERATION_REGISTRY,
+    ISTFT,
+    STFT,
     AudioOperation,
     HighPassFilter,
     LowPassFilter,
@@ -18,213 +20,6 @@ from wandas.core.lazy.time_series_operation import (
 from wandas.utils.types import NDArrayReal
 
 _da_from_array = da.from_array  # type: ignore [unused-ignore]
-
-
-# class TestNormalizeOperation:
-#     def setup_method(self) -> None:
-#         """Set up test fixtures for each test."""
-#         self.sample_rate: int = 16000
-#         self.mono_data: NDArrayReal = np.array(
-#             [[0.5, 0.5, 0.5, 0.5]]
-#         )  # 1 channel with constant value
-#         self.stereo_data: NDArrayReal = np.array(
-#             [[0.5, 0.5, 0.5, 0.5], [0.25, 0.25, 0.25, 0.25]]
-#         )  # 2 channels
-#         self.dask_mono: DaArray = _da_from_array(self.mono_data, chunks=(1, 2))
-#         self.dask_stereo: DaArray = _da_from_array(self.stereo_data, chunks=(1, 2))
-#         self.normalize: Normalize = Normalize(self.sample_rate)
-
-#     def test_initialization(self) -> None:
-#         """Test initialization with different parameters."""
-#         # Default initialization
-#         norm = Normalize(self.sample_rate)
-#         assert norm.sampling_rate == self.sample_rate
-#         assert norm.target_level == -20
-#         assert norm.channel_wise is True
-#         assert abs(norm.target_rms - 0.1) < 1e-10  # target_rms = 10^(-20/20) ≈ 0.1
-
-#         # Custom parameters
-#         norm = Normalize(self.sample_rate, target_level=-15, channel_wise=False)
-#         assert norm.target_level == -15
-#         assert norm.channel_wise is False
-#         assert abs(norm.target_rms - 0.1778) < 1e-4
-#         # target_rms = 10^(-15/20) ≈ 0.1778
-
-#     def test_normalize_mono_channel(self) -> None:
-#         """Test normalization of mono channel data."""
-#         # Create data with RMS = 0.5
-#         data: NDArrayReal = np.array([[0.5, 0.5, 0.5, 0.5]])  # RMS = 0.5
-#         norm: Normalize = Normalize(
-#             self.sample_rate, target_level=-20
-#         )  # target_rms ≈ 0.1
-
-#         # Get the processor function
-#         processor: Callable[[NDArrayReal], NDArrayReal] = norm._create_processor()
-#         result: NDArrayReal = processor(data)
-
-#         # Expected: data * (0.1 / 0.5) = data * 0.2
-#         expected: NDArrayReal = data * 0.2
-#         np.testing.assert_array_almost_equal(result, expected)
-
-#     def test_normalize_multi_channel_channel_wise(self) -> None:
-#         """Test channel-wise normalization of multi-channel data."""
-#         # Channel 1 has RMS = 0.5, Channel 2 has RMS = 0.25
-#         data: NDArrayReal = np.array([[0.5, 0.5, 0.5, 0.5], [0.25, 0.25, 0.25, 0.25]])
-#         norm: Normalize = Normalize(
-#             self.sample_rate, target_level=-20
-#         )  # target_rms ≈ 0.1
-
-#         processor: Callable[[NDArrayReal], NDArrayReal] = norm._create_processor()
-#         result: NDArrayReal = processor(data)
-
-#         # Expected: Channel 1 * (0.1 / 0.5) = Channel 1 * 0.2
-#         #           Channel 2 * (0.1 / 0.25) = Channel 2 * 0.4
-#         expected: NDArrayReal = np.array([[0.1, 0.1, 0.1, 0.1], [0.1, 0.1, 0.1, 0.1]])
-#         np.testing.assert_array_almost_equal(result, expected)
-
-#     def test_normalize_multi_channel_global(self) -> None:
-#         """Test global normalization of multi-channel data."""
-#         # Channel 1 has RMS = 0.5, Channel 2 has RMS = 0.25
-#         # Combined RMS = sqrt((0.5^2 + 0.25^2)/2) ≈ 0.3953
-#         data: NDArrayReal = np.array([[0.5, 0.5, 0.5, 0.5], [0.25, 0.25, 0.25, 0.25]])
-#         norm: Normalize = Normalize(
-#             self.sample_rate, target_level=-20, channel_wise=False
-#         )  # target_rms ≈ 0.1
-
-#         processor: Callable[[NDArrayReal], NDArrayReal] = norm._create_processor()
-#         result: NDArrayReal = processor(data)
-
-#         # Expected: data * (0.1 / 0.3953) ≈ data * 0.2529
-#         expected: NDArrayReal = data * (0.1 / np.sqrt((0.5**2 + 0.25**2) / 2))
-#         np.testing.assert_array_almost_equal(result, expected)
-
-#     def test_normalize_silent_data(self) -> None:
-#         """Test normalization of silent data."""
-#         data: NDArrayReal = np.zeros((2, 4))  # Silent data
-#         norm: Normalize = Normalize(self.sample_rate)
-
-#         processor: Callable[[NDArrayReal], NDArrayReal] = norm._create_processor()
-#         result: NDArrayReal = processor(data)
-
-#         # Silent data should remain silent
-#         np.testing.assert_array_equal(result, data)
-
-#     def test_normalize_near_silent_channel(self) -> None:
-#         """Test normalization of a near-silent channel."""
-#         # One normal channel, one very quiet channel
-#         data: NDArrayReal = np.array(
-#             [[0.5, 0.5, 0.5, 0.5], [1e-11, 1e-11, 1e-11, 1e-11]]
-#         )
-#         norm: Normalize = Normalize(self.sample_rate)
-
-#         processor: Callable[[NDArrayReal], NDArrayReal] = norm._create_processor()
-#         result: NDArrayReal = processor(data)
-
-#         # Channel 1 should be normalized, Channel 2 should remain unchanged
-#         expected: NDArrayReal = np.array(
-#             [[0.1, 0.1, 0.1, 0.1], [1e-11, 1e-11, 1e-11, 1e-11]]
-#         )
-#         np.testing.assert_array_almost_equal(result, expected)
-
-#     def test_normalize_empty_data(self) -> None:
-#         """Test normalization of empty data."""
-#         data: NDArrayReal = np.array([]).reshape(0, 0)
-#         norm: Normalize = Normalize(self.sample_rate)
-
-#         processor: Callable[[NDArrayReal], NDArrayReal] = norm._create_processor()
-#         result: NDArrayReal = processor(data)
-
-#         # Empty data should remain empty
-#         np.testing.assert_array_equal(result, data)
-
-#     def test_process_with_dask_array(self) -> None:
-#         """Test process() method with dask arrays."""
-#         # Mock _da_map_blocks to verify it's called correctly
-#         with mock.patch(
-#             "wandas.core.lazy.time_series_operation._da_map_blocks"
-#         ) as mock_map_blocks:
-#             # Set up the mock to return the input data
-#             mock_map_blocks.return_value = self.dask_mono
-
-#             norm: Normalize = Normalize(self.sample_rate)
-#             _: DaArray = norm.process(self.dask_mono)
-
-#             # Verify _da_map_blocks was called with the processor function
-#             mock_map_blocks.assert_called_once()
-#             assert mock_map_blocks.call_args[0][0] == norm._processor_func
-#             assert mock_map_blocks.call_args[0][1] is self.dask_mono
-
-#     def test_create_operation_function(self) -> None:
-#         """Test create_operation function correctly creates a Normalize instance."""
-#         with mock.patch(
-#             "wandas.core.lazy.time_series_operation.get_operation"
-#         ) as mock_get_op:
-#             mock_get_op.return_value = Normalize
-
-#             op: AudioOperation = create_operation(
-#                 "normalize", self.sample_rate, target_level=-15
-#             )
-
-#             mock_get_op.assert_called_with("normalize")
-#             assert isinstance(op, Normalize)
-#             assert op.target_level == -15
-#             assert op.sampling_rate == self.sample_rate
-
-#     def test_get_operation_function(self) -> None:
-#         """Test get_operation returns the correct operation class."""
-#         op_class: type[AudioOperation] = get_operation("normalize")
-#         assert op_class == Normalize
-
-#     def test_register_operation_function(self) -> None:
-#         """Test register_operation adds an operation to the registry."""
-
-#         # Create a mock operation class
-#         class TestOperation(AudioOperation):
-#             operation_name = "test_op"
-
-#             def _create_processor(self) -> Callable[[NDArrayReal], NDArrayReal]:
-#                 return lambda x: x
-
-#         # Register the operation
-#         register_operation("test_op", TestOperation)
-
-#         # Verify it was added to the registry
-#         assert get_operation("test_op") == TestOperation
-
-#         # Clean up after test
-#         if "test_op" in _OPERATION_REGISTRY:
-#             del _OPERATION_REGISTRY["test_op"]
-
-# def test_actual_normalization_results(self) -> None:
-#     """Test the actual normalization results with real data processing."""
-#     # Create data with varying amplitudes
-#     data: NDArrayReal = np.array(
-#         [
-#             [0.8, 0.6, 0.4, 0.2],  # RMS ≈ 0.55
-#             [0.2, 0.15, 0.1, 0.05],  # RMS ≈ 0.14
-#         ]
-#     )
-
-#     # Create dask array and normalize
-#     dask_data: DaArray = _da_from_array(data, chunks=(1, 2))
-#     norm: Normalize = Normalize(
-#         self.sample_rate, target_level=-20
-#     )  # target_rms ≈ 0.1
-
-#     # Process and compute result
-#     result_dask: DaArray = norm.process(dask_data)
-#     result: NDArrayReal = result_dask.compute()
-
-#     # Channel 1: Scale by 0.1/0.55 ≈ 0.182
-#     # Channel 2: Scale by 0.1/0.14 ≈ 0.714
-#     expected: NDArrayReal = np.array(
-#         [
-#             data[0] * (0.1 / np.sqrt(np.mean(data[0] ** 2))),
-#             data[1] * (0.1 / np.sqrt(np.mean(data[1] ** 2))),
-#         ]
-#     )
-
-#     np.testing.assert_array_almost_equal(result, expected)
 
 
 class TestHighPassFilter:
@@ -265,7 +60,7 @@ class TestHighPassFilter:
 
     def test_filter_effect(self) -> None:
         """Test that the filter attenuates frequencies below cutoff."""
-        processor = self.hpf._process_array
+        processor = self.hpf.process_array
         result: NDArrayReal = processor(self.signal).compute()
 
         # Calculate FFT to check frequency content
@@ -335,7 +130,7 @@ class TestLowPassFilter:
 
     def test_filter_effect(self) -> None:
         """Test that the filter attenuates frequencies above cutoff."""
-        processor = self.lpf._process_array
+        processor = self.lpf.process_array
         result: NDArrayReal = processor(self.signal).compute()
 
         # Calculate FFT to check frequency content
@@ -424,3 +219,328 @@ class TestOperationRegistry:
         assert isinstance(hpf_op, HighPassFilter)
         assert hpf_op.cutoff == 150.0
         assert hpf_op.order == 6
+
+
+class TestSTFTOperation:
+    def setup_method(self) -> None:
+        """Set up test fixtures for each test."""
+        self.sample_rate: int = 16000
+        self.n_fft: int = 1024
+        self.hop_length: int = 256
+        self.win_length: int = 1024
+        self.window: str = "hann"
+        self.boundary: str = "zeros"
+
+        # Create a test signal (1 second sine wave at 440 Hz)
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        self.signal_mono: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t)])
+        self.signal_stereo: NDArrayReal = np.array(
+            [np.sin(2 * np.pi * 440 * t), np.sin(2 * np.pi * 880 * t)]
+        )
+
+        # Create dask arrays
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, 1000))
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, 1000))
+
+        # Initialize STFT
+        self.stft = STFT(
+            sampling_rate=self.sample_rate,
+            n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            win_length=self.win_length,
+            window=self.window,
+            boundary=self.boundary,
+        )
+
+        # Initialize ISTFT
+        self.istft = ISTFT(
+            sampling_rate=self.sample_rate,
+            n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            win_length=self.win_length,
+            window=self.window,
+            boundary=self.boundary,
+        )
+
+    def test_stft_initialization(self) -> None:
+        """Test STFT initialization with different parameters."""
+        # Default initialization
+        stft = STFT(self.sample_rate)
+        assert stft.sampling_rate == self.sample_rate
+        assert stft.n_fft == 2048
+        assert stft.hop_length == 512  # 2048 // 4
+        assert stft.win_length == 2048
+        assert stft.window == "hann"
+        assert stft.boundary == "zeros"  # デフォルト値を確認
+
+        # Custom initialization
+        custom_stft = STFT(
+            sampling_rate=self.sample_rate,
+            n_fft=1024,
+            hop_length=256,
+            win_length=512,
+            window="hamming",
+            boundary="reflect",
+        )
+        assert custom_stft.n_fft == 1024
+        assert custom_stft.hop_length == 256
+        assert custom_stft.win_length == 512
+        assert custom_stft.window == "hamming"
+        assert custom_stft.boundary == "reflect"  # カスタム値を確認
+
+    def test_istft_initialization(self) -> None:
+        """Test ISTFT initialization with different parameters."""
+        # Default initialization
+        istft = ISTFT(self.sample_rate)
+        assert istft.sampling_rate == self.sample_rate
+        assert istft.n_fft == 2048
+        assert istft.hop_length == 512  # 2048 // 4
+        assert istft.win_length == 2048
+        assert istft.window == "hann"
+        assert istft.boundary == "zeros"  # デフォルト値を確認
+        assert istft.length is None
+
+        # Custom initialization
+        custom_istft = ISTFT(
+            sampling_rate=self.sample_rate,
+            n_fft=1024,
+            hop_length=256,
+            win_length=512,
+            window="hamming",
+            boundary=None,
+            length=16000,
+        )
+        assert custom_istft.n_fft == 1024
+        assert custom_istft.hop_length == 256
+        assert custom_istft.win_length == 512
+        assert custom_istft.window == "hamming"
+        assert custom_istft.boundary is None
+        assert custom_istft.length == 16000
+
+    def test_stft_shape_mono(self) -> None:
+        """Test STFT output shape for mono signal."""
+        # Process the mono signal
+        stft_result = self.stft.process_array(self.signal_mono).compute()
+
+        # Check the shape of the result
+        assert stft_result.ndim == 3, (
+            "Output should be 3D (channels, frequencies, time)"
+        )
+
+        # Expected shape: (channels, frequencies, time frames)
+        expected_n_channels = 1
+        expected_n_freqs = self.n_fft // 2 + 1
+        expected_n_frames = int(np.ceil(len(self.signal_mono[0]) / self.hop_length))
+        if self.boundary != "none":
+            expected_n_frames += 1  # パディングがある場合はフレーム数が増える
+
+        expected_shape = (expected_n_channels, expected_n_freqs, expected_n_frames)
+        assert stft_result.shape == expected_shape, (
+            f"Expected {expected_shape}, got {stft_result.shape}"
+        )
+
+    def test_stft_shape_stereo(self) -> None:
+        """Test STFT output shape for stereo signal."""
+        # Process the stereo signal
+        stft_result = self.stft.process_array(self.signal_stereo).compute()
+
+        assert stft_result.ndim == 3, (
+            "Output should be 3D (channels, frequencies, time)"
+        )
+
+        # Expected shape: (channels, frequencies, time frames)
+        expected_n_channels = 2
+        expected_n_freqs = self.n_fft // 2 + 1
+        expected_n_frames = int(np.ceil(len(self.signal_stereo[0]) / self.hop_length))
+        if self.boundary != "none":
+            expected_n_frames += 1  # パディングがある場合はフレーム数が増える
+
+        expected_shape = (expected_n_channels, expected_n_freqs, expected_n_frames)
+        assert stft_result.shape == expected_shape, (
+            f"Expected {expected_shape}, got {stft_result.shape}"
+        )
+
+    def test_stft_content(self) -> None:
+        """Test STFT content correctness."""
+        # Process the mono signal
+        stft_result = self.stft.process_array(self.signal_mono).compute()
+
+        assert stft_result.ndim == 3, (
+            "Output should be 3D (channels, frequencies, time)"
+        )
+
+        # Calculate the expected STFT using scipy directly for comparison
+        from scipy import signal as ss
+
+        _, _, expected_stft = ss.stft(
+            self.signal_mono[0],
+            fs=self.sample_rate,
+            window=self.window,
+            nperseg=self.win_length,
+            noverlap=self.win_length - self.hop_length,
+            nfft=self.n_fft,
+            boundary=self.boundary,
+            padded=True,
+        )
+
+        # Add channel dimension for comparison
+        expected_stft = expected_stft.reshape(1, *expected_stft.shape)
+
+        # Compare the results - should be very close but not exactly
+        # the same due to floating point
+        np.testing.assert_allclose(stft_result, expected_stft, rtol=1e-10, atol=1e-10)
+
+    def test_istft_shape(self) -> None:
+        """Test ISTFT output shape."""
+        # First get some STFT data
+        stft_data = self.stft.process_array(self.signal_mono)
+
+        # Process with ISTFT
+        istft_result = self.istft.process_array(stft_data).compute()
+
+        # Check the shape
+        assert istft_result.ndim == 2, "Output should be 2D (channels, time)"
+
+        # One channel
+        assert istft_result.shape[0] == 1
+
+        # Length should be approximately the original signal length
+        # The exact length depends on STFT/ISTFT parameters
+        expected_length = len(self.signal_mono[0])
+        assert abs(istft_result.shape[1] - expected_length) < self.win_length
+
+    def test_roundtrip_reconstruction(self) -> None:
+        """Test signal reconstruction quality through STFT->ISTFT roundtrip."""
+        # Process with STFT then ISTFT
+        stft_data = self.stft.process_array(self.signal_mono)
+        istft_data = self.istft.process_array(stft_data).compute()
+
+        # Compare with original signal (trim or pad to the same length)
+        orig_length = self.signal_mono.shape[1]
+        rec_length = istft_data.shape[1]
+
+        if rec_length > orig_length:
+            reconstructed_trimmed = istft_data[:, :orig_length]
+            # Should be very close to the original signal
+            np.testing.assert_allclose(
+                reconstructed_trimmed, self.signal_mono, rtol=1e-6, atol=1e-5
+            )
+        else:
+            reconstructed_padded = np.pad(
+                istft_data, ((0, 0), (0, orig_length - rec_length))
+            )
+            # The padded part won't match, so check only the common part
+            np.testing.assert_allclose(
+                reconstructed_padded[:, :rec_length],
+                self.signal_mono[:, :rec_length],
+                rtol=1e-6,
+                atol=1e-5,
+            )
+
+    def test_1d_input_handling(self) -> None:
+        """Test that 1D input is properly reshaped to (1, samples)."""
+        # Create a 1D array
+        signal_1d = np.sin(
+            2 * np.pi * 440 * np.linspace(0, 1, self.sample_rate, endpoint=False)
+        )
+
+        # Process 1D array
+        stft_result = self.stft.process_array(signal_1d).compute()
+
+        # Should be reshaped to 3D: (1, freqs, time)
+        assert stft_result.ndim == 3
+        assert stft_result.shape[0] == 1  # Single channel
+
+    def test_istft_2d_input_handling(self) -> None:
+        """
+        Test that 2D input (single channel spectrogram) is
+        properly reshaped to (1, freqs, frames).
+        """
+        # Create STFT data and remove channel dimension
+        stft_data = self.stft.process_array(self.signal_mono).compute()
+        stft_2d = stft_data[0]  # Remove channel dimension to get 2D
+
+        # Process with ISTFT
+        istft_result = self.istft.process_array(stft_2d).compute()  # Added compute()
+
+        # Should be reshaped to 2D: (1, time)
+        assert istft_result.ndim == 2
+        assert istft_result.shape[0] == 1  # Single channel
+
+    def test_boundary_parameter(self) -> None:
+        """
+        Test that different boundary parameters affect the output shape and content.
+        """
+        # Test with different boundary settings
+        boundaries = ["even", "odd", "constant", "zeros", None]
+
+        for boundary in boundaries:
+            # Create STFT with the specific boundary
+            stft = STFT(
+                sampling_rate=self.sample_rate,
+                n_fft=self.n_fft,
+                hop_length=self.hop_length,
+                win_length=self.win_length,
+                window=self.window,
+                boundary=boundary,
+            )
+
+            # Process signal
+            stft_result = stft.process_array(self.signal_mono).compute()
+
+            # Check that we got a result with reasonable dimensions
+            assert stft_result.ndim == 3
+            assert stft_result.shape[0] == 1  # Single channel
+            assert (
+                stft_result.shape[1] == self.n_fft // 2 + 1
+            )  # Number of frequency bins
+
+            # Number of frames may differ based on boundary condition
+            frame_count = stft_result.shape[2]
+            min_frames = int(np.ceil(len(self.signal_mono[0]) / self.hop_length))
+            # If boundary is not None, frame count is typically more than minimum
+            if boundary is not None:
+                assert frame_count >= min_frames
+
+            # For ISTFT as well
+            istft = ISTFT(
+                sampling_rate=self.sample_rate,
+                n_fft=self.n_fft,
+                hop_length=self.hop_length,
+                win_length=self.win_length,
+                window=self.window,
+                boundary=boundary,
+                length=len(self.signal_mono[0]),  # Set length to match original signal
+            )
+
+            # Roundtrip test
+            istft_result = istft.process_array(stft_result).compute()
+            assert istft_result.shape[0] == 1  # Single channel
+
+            assert istft_result.ndim == 2  # Should be 2D (channels, time)
+            assert istft_result.shape[1] == len(self.signal_mono[0])
+
+    def test_stft_operation_registry(self) -> None:
+        """Test that STFT is properly registered in the operation registry."""
+        # Verify that STFT and ISTFT can be accessed through the registry
+        assert get_operation("stft") == STFT
+        assert get_operation("istft") == ISTFT
+
+        # Create operation through the factory function
+        stft_op = create_operation(
+            "stft", self.sample_rate, n_fft=512, hop_length=128, boundary="reflect"
+        )
+        istft_op = create_operation(
+            "istft", self.sample_rate, n_fft=512, hop_length=128, boundary="reflect"
+        )
+
+        # Verify the operations were created with correct parameters
+        assert isinstance(stft_op, STFT)
+        assert stft_op.n_fft == 512
+        assert stft_op.hop_length == 128
+        assert stft_op.boundary == "reflect"
+
+        assert isinstance(istft_op, ISTFT)
+        assert istft_op.n_fft == 512
+        assert istft_op.hop_length == 128
+        assert istft_op.boundary == "reflect"

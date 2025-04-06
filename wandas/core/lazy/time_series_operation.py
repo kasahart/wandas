@@ -10,7 +10,7 @@ import numpy as np
 from dask.array.core import Array as DaArray
 from scipy import signal
 
-from wandas.utils.types import NDArrayReal
+from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 logger = logging.getLogger(__name__)
 
@@ -56,12 +56,36 @@ class AudioOperation:
         """処理関数のセットアップ（サブクラスで実装）"""
         pass
 
-    @dask.delayed  # type: ignore [misc, unused-ignore]
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """@dask.delayed でラップされた処理関数（サブクラスで実装）"""
         # デフォルトは何もしない関数
-        logger.debug(f"Default process operation on data with shape: {x.shape}")
         return x
+
+    @dask.delayed  # type: ignore [misc, unused-ignore]
+    def process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """@dask.delayed でラップされた処理関数（サブクラスで実装）"""
+        # デフォルトは何もしない関数
+        logger.debug(f"Default process operation on data with shape: {x.shape}")
+        return self._process_array(x)
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """
+        操作後の出力データの形状を計算します
+
+        Parameters
+        ----------
+        input_shape : tuple
+            入力データの形状
+
+        Returns
+        -------
+        tuple
+            出力データの形状
+        """
+        # デフォルトでは形状が変わらない
+        sample_input = np.ones((1, *input_shape[1:]))
+        x = self._process_array(sample_input)
+        return (input_shape[0], *x.shape[1:])
 
     def process(self, data: DaArray) -> DaArray:
         """
@@ -70,9 +94,10 @@ class AudioOperation:
         """
         # 遅延処理としてタスクを追加
         logger.debug("Adding delayed operation to computation graph")
-        delayed_result = self._process_array(data)
+        delayed_result = self.process_array(data)
         # 遅延結果をdask配列に変換して返す
-        return _da_from_delayed(delayed_result, shape=data.shape, dtype=data.dtype)
+        output_shape = self.calculate_output_shape(data.shape)
+        return _da_from_delayed(delayed_result, shape=output_shape, dtype=data.dtype)
 
     @classmethod
     def create(cls, sampling_rate: float, **params: Any) -> "AudioOperation":
@@ -120,7 +145,6 @@ class HighPassFilter(AudioOperation):
         self.b, self.a = signal.butter(self.order, normal_cutoff, btype="high")  # type: ignore [unused-ignore]
         logger.debug(f"Highpass filter coefficients calculated: b={self.b}, a={self.a}")
 
-    @dask.delayed  # type: ignore [misc, unused-ignore]
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """@dask.delayed でラップされたフィルタ処理"""
         logger.debug(f"Applying highpass filter to array with shape: {x.shape}")
@@ -169,7 +193,6 @@ class LowPassFilter(AudioOperation):
         self.b, self.a = signal.butter(self.order, normal_cutoff, btype="low")  # type: ignore [unused-ignore]
         logger.debug(f"Lowpass filter coefficients calculated: b={self.b}, a={self.a}")
 
-    @dask.delayed  # type: ignore [misc, unused-ignore]
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """@dask.delayed でラップされたフィルタ処理"""
         logger.debug(f"Applying lowpass filter to array with shape: {x.shape}")
@@ -195,7 +218,6 @@ class ABS(AudioOperation):
         """
         super().__init__(sampling_rate)
 
-    @dask.delayed  # type: ignore [misc, unused-ignore]
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """絶対値操作のプロセッサ関数を作成"""
         logger.debug(f"Applying abs to array with shape: {x.shape}")
@@ -221,7 +243,6 @@ class Power(AudioOperation):
         super().__init__(sampling_rate)
         self.exp = exponent
 
-    @dask.delayed  # type: ignore [misc, unused-ignore]
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """べき乗操作のプロセッサ関数を作成"""
         logger.debug(
@@ -300,15 +321,14 @@ class FFT(AudioOperation):
         self.window = window
         super().__init__(sampling_rate, n_fft=n_fft, window=window)
 
-    @dask.delayed  # type: ignore [misc, unused-ignore]
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
         """FFT操作のプロセッサ関数を作成"""
         from scipy.signal import get_window
 
         n_samples = x.shape[-1]
         win = get_window(self.window, n_samples)
         x = x * win
-        result = np.fft.rfft(x, n=self.n_fft, axis=-1)
+        result: NDArrayComplex = np.fft.rfft(x, n=self.n_fft, axis=-1)
         return result
 
 
@@ -335,8 +355,7 @@ class IFFT(AudioOperation):
         self.window = window
         super().__init__(sampling_rate, n_fft=n_fft, window=window)
 
-    @dask.delayed  # type: ignore [misc, unused-ignore]
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process_array(self, x: NDArrayComplex) -> NDArrayReal:
         """FFT操作のプロセッサ関数を作成"""
         from scipy.signal import get_window
 
@@ -390,7 +409,6 @@ class Welch(AudioOperation):
             sampling_rate,
         )
 
-    @dask.delayed  # type: ignore [misc, unused-ignore]
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Welch操作のプロセッサ関数を作成"""
         from scipy import signal as ss
@@ -412,6 +430,124 @@ class Welch(AudioOperation):
                 "Welch operation requires a Dask array, but received a non-ndarray."
             )
         return np.array(result)
+
+
+class STFT(AudioOperation):
+    """Short-Time Fourier Transform 操作"""
+
+    name = "stft"
+
+    def __init__(
+        self,
+        sampling_rate: float,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: str = "hann",
+        boundary: Optional[str] = "zeros",
+    ):
+        self.n_fft = n_fft
+        self.win_length = win_length if win_length is not None else n_fft
+        self.hop_length = hop_length if hop_length is not None else self.win_length // 4
+        self.noverlap = (
+            self.win_length - self.hop_length if hop_length is not None else None
+        )
+        self.window = window
+        self.boundary = boundary
+        super().__init__(
+            sampling_rate,
+            n_fft=n_fft,
+            win_length=self.win_length,
+            hop_length=self.hop_length,
+            window=window,
+            boundary=boundary,
+        )
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
+        """複数チャネルを一度にSciPyのSTFT処理"""
+        logger.debug(f"Applying SciPy STFT to array with shape: {x.shape}")
+
+        # 入力が1次元の場合は2次元に変換
+        if x.ndim == 1:
+            x = x.reshape(1, -1)
+
+        # Apply STFT to all channels at once
+        result: NDArrayComplex
+        _, _, result = signal.stft(
+            x,
+            fs=self.sampling_rate,
+            window=self.window,
+            nperseg=self.win_length,
+            noverlap=self.noverlap,
+            nfft=self.n_fft,
+            boundary=self.boundary,  # type: ignore [unused-ignore]
+            padded=True,
+            axis=-1,  # Process along the samples axis
+        )
+
+        logger.debug(f"SciPy STFT applied, returning result with shape: {result.shape}")
+        return result
+
+
+class ISTFT(AudioOperation):
+    """Inverse Short-Time Fourier Transform 操作"""
+
+    name = "istft"
+
+    def __init__(
+        self,
+        sampling_rate: float,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: str = "hann",
+        boundary: Optional[str] = "zeros",
+        length: Optional[int] = None,
+    ):
+        self.n_fft = n_fft
+        self.win_length = win_length if win_length is not None else n_fft
+        self.hop_length = hop_length if hop_length is not None else self.win_length // 4
+        self.noverlap = (
+            self.win_length - self.hop_length if hop_length is not None else None
+        )
+        self.window = window
+        self.boundary = boundary
+        self.length = length
+        super().__init__(
+            sampling_rate,
+            n_fft=n_fft,
+            win_length=self.win_length,
+            hop_length=self.hop_length,
+            window=window,
+            boundary=boundary,
+            length=length,
+        )
+
+    def _process_array(self, x: NDArrayComplex) -> NDArrayReal:
+        """複数チャネルを一度にSciPyのISTFT処理"""
+        logger.debug(f"Applying SciPy ISTFT to array with shape: {x.shape}")
+
+        # 入力が2次元の場合は3次元に変換 (単一チャネルとみなす)
+        if x.ndim == 2:
+            x = x.reshape(1, *x.shape)
+        result: NDArrayReal
+        _, result = signal.istft(
+            x,
+            fs=self.sampling_rate,
+            window=self.window,
+            nperseg=self.win_length,
+            noverlap=self.noverlap,
+            nfft=self.n_fft,
+            input_onesided=True,
+            boundary=False if self.boundary is None else True,
+            time_axis=-1,  # Process along the time axis
+            freq_axis=-2,  # Process along the frequency axis
+        )
+
+        logger.debug(
+            f"SciPy ISTFT applied, returning result with shape: {result.shape}"
+        )
+        return result[..., : self.length] if self.length is not None else result
 
 
 # 操作タイプと対応するクラスのマッピングを自動で収集
