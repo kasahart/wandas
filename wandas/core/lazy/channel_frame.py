@@ -588,6 +588,19 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         """べき乗計算を行います。"""
         return self.apply_operation("power", exponent=exponent)
 
+    def rms_trend(
+        self,
+        frame_length: int = 2048,
+        hop_length: int = 512,
+        Aw: bool = False,  # noqa: N803
+    ) -> "ChannelFrame":
+        """RMSトレンドを計算します。"""
+        cf = self.apply_operation(
+            "rms_trend", frame_length=frame_length, hop_length=hop_length, Aw=Aw
+        )
+        cf.sampling_rate = self.sampling_rate / hop_length
+        return cf
+
     def sum(self) -> "ChannelFrame":
         """合計値を計算します。"""
         return self.apply_operation("sum")

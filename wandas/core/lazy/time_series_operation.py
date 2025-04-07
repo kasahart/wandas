@@ -9,6 +9,7 @@ import numpy as np
 # import numpy as np
 from dask.array.core import Array as DaArray
 from scipy import signal
+from waveform_analysis import A_weight
 
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
@@ -200,6 +201,32 @@ class LowPassFilter(AudioOperation):
 
         logger.debug(f"Filter applied, returning result with shape: {result.shape}")
         return result
+
+
+class AWeighting(AudioOperation):
+    """Aウェイトフィルタ操作"""
+
+    name = "a_weighting"
+
+    def __init__(self, sampling_rate: float):
+        """
+        Aウェイトフィルタの初期化
+
+        Parameters
+        ----------
+        sampling_rate : float
+            サンプリングレート (Hz)
+        """
+        super().__init__(sampling_rate)
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """Aウェイトフィルタのプロセッサ関数を作成"""
+        logger.debug(f"Applying A-weighting to array with shape: {x.shape}")
+        result = A_weight(x, self.sampling_rate)
+        logger.debug(
+            f"A-weighting applied, returning result with shape: {result.shape}"
+        )
+        return np.array(result)
 
 
 class ABS(AudioOperation):
