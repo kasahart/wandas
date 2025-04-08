@@ -2,6 +2,7 @@ from typing import Callable
 from unittest import mock
 
 import dask.array as da
+import librosa
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
@@ -15,6 +16,7 @@ from wandas.core.lazy.time_series_operation import (
     AWeighting,
     HighPassFilter,
     LowPassFilter,
+    RmsTrend,
     create_operation,
     get_operation,
     register_operation,
@@ -637,3 +639,137 @@ class TestSTFTOperation:
         assert istft_op.n_fft == 512
         assert istft_op.hop_length == 128
         assert istft_op.boundary == "reflect"
+
+
+class TestRmsTrend:
+    def setup_method(self) -> None:
+        """Set up test fixtures for each test."""
+        self.sample_rate: int = 16000
+        self.frame_length: int = 1024
+        self.hop_length: int = 256
+
+        # 正弦波信号を作成（振幅1.0）
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        sine_wave = np.sin(2 * np.pi * 440 * t)  # 440Hzの正弦波
+
+        # 正弦波（振幅1.0）のRMS値は1/√2 = 0.7071...
+        self.expected_rms = 1.0 / np.sqrt(2)
+
+        # シングルチャンネルとマルチチャンネル信号を準備
+        self.signal_mono: NDArrayReal = np.array([sine_wave])
+        self.signal_stereo: NDArrayReal = np.array(
+            [sine_wave, sine_wave * 0.5]
+        )  # 第2チャンネルは振幅0.5
+
+        # Dask配列を作成
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, 1000))
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, 1000))
+
+        # RmsTrend操作を初期化
+        self.rms_op = RmsTrend(
+            sampling_rate=self.sample_rate,
+            frame_length=self.frame_length,
+            hop_length=self.hop_length,
+            Aw=False,
+        )
+
+        # A-weightingを適用するRmsTrend操作
+        self.rms_aw_op = RmsTrend(
+            sampling_rate=self.sample_rate,
+            frame_length=self.frame_length,
+            hop_length=self.hop_length,
+            Aw=True,
+        )
+
+    def test_initialization(self) -> None:
+        """パラメータ初期化のテスト"""
+        # デフォルト値でのイニシャライズ
+        rms_default = RmsTrend(self.sample_rate)
+        assert rms_default.sampling_rate == self.sample_rate
+        assert rms_default.frame_length == 2048  # デフォルト値
+        assert rms_default.hop_length == 512  # デフォルト値
+        assert rms_default.Aw is False  # デフォルト値
+
+        # カスタム値でのイニシャライズ
+        custom_frame_length = 4096
+        custom_hop_length = 1024
+        rms_custom = RmsTrend(
+            self.sample_rate,
+            frame_length=custom_frame_length,
+            hop_length=custom_hop_length,
+            Aw=True,
+        )
+        assert rms_custom.sampling_rate == self.sample_rate
+        assert rms_custom.frame_length == custom_frame_length
+        assert rms_custom.hop_length == custom_hop_length
+        assert rms_custom.Aw is True
+
+    def test_rms_calculation(self) -> None:
+        """RMS計算が正しく行われるかテスト"""
+        # RMS処理を実行
+        result = self.rms_op.process_array(self.signal_mono).compute()
+
+        # 形状をチェック
+        expected_frames = librosa.feature.rms(
+            y=self.signal_mono,
+            frame_length=self.frame_length,
+            hop_length=self.hop_length,
+        )[..., 0, :].shape[1]
+        assert result.shape == (1, expected_frames)
+
+        # 正弦波のRMS値は振幅の1/√2に近いはず
+        # フレーム分割とウィンドウ適用による誤差があるため厳密な一致ではなく近似値を確認
+        np.testing.assert_allclose(np.mean(result), self.expected_rms, rtol=0.1)
+
+        # ステレオ信号でもテスト
+        result_stereo = self.rms_op.process_array(self.signal_stereo).compute()
+        assert result_stereo.shape == (2, expected_frames)
+
+        # 第2チャンネル（振幅0.5）のRMS値は第1チャンネルの約半分のはず
+        ratio = np.mean(result_stereo[1]) / np.mean(result_stereo[0])
+        np.testing.assert_allclose(ratio, 0.5, rtol=0.1)
+
+    def test_a_weighting_effect(self) -> None:
+        """A-weightingフィルタの効果をテスト"""
+        # 通常のRMS計算
+        result_normal = self.rms_op.process_array(self.signal_mono).compute()
+
+        # A-weightingを適用したRMS計算
+        result_aw = self.rms_aw_op.process_array(self.signal_mono).compute()
+
+        # A-weightingを適用した場合と適用しない場合で結果が異なることを確認
+        # 440Hzの信号に対しては大きな変化はないが、少なくとも同一ではないはず
+        assert not np.allclose(result_normal, result_aw, rtol=1e-5)
+
+    def test_delayed_execution(self) -> None:
+        """Daskの遅延実行が正しく行われるかテスト"""
+        # モックを使ってcompute()が呼ばれないことを検証
+        with mock.patch.object(DaArray, "compute") as mock_compute:
+            # process()メソッド呼び出し時にはcomputeは実行されない
+            result = self.rms_op.process(self.dask_mono)
+            mock_compute.assert_not_called()
+
+            # process_array()メソッド呼び出し時にもcomputeは実行されない
+            _ = self.rms_op.process_array(self.dask_mono)
+            mock_compute.assert_not_called()
+
+            # compute()を明示的に呼び出すと実行される
+            _ = result.compute()
+            mock_compute.assert_called()
+
+    def test_operation_registry(self) -> None:
+        """操作レジストリからRmsTrendが取得できるかテスト"""
+        # レジストリから操作を取得
+        assert get_operation("rms_trend") == RmsTrend
+
+        # create_operationを使って操作を作成
+        rms_op = create_operation(
+            "rms_trend", self.sample_rate, frame_length=2048, hop_length=512, Aw=True
+        )
+
+        # 作成された操作が期待通りであることを確認
+        assert isinstance(rms_op, RmsTrend)
+        assert rms_op.sampling_rate == self.sample_rate
+        assert rms_op.frame_length == 2048
+        assert rms_op.hop_length == 512
+        assert rms_op.Aw is True

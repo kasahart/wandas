@@ -4,6 +4,7 @@ from typing import Any, ClassVar, Optional, Union
 
 import dask
 import dask.array as da
+import librosa
 import numpy as np
 
 # import numpy as np
@@ -277,6 +278,64 @@ class Power(AudioOperation):
         )
         result = np.power(x, self.exp)
         logger.debug(f"Power applied, returning result with shape: {result.shape}")
+        return result
+
+
+class RmsTrend(AudioOperation):
+    """RMS計算"""
+
+    name = "rms_trend"
+    frame_length: int
+    hop_length: int
+    Aw: bool
+
+    def __init__(
+        self,
+        sampling_rate: float,
+        frame_length: int = 2048,
+        hop_length: int = 512,
+        Aw: bool = False,  # noqa: N803
+    ) -> None:
+        """
+        RMS計算の初期化
+
+        Parameters
+        ----------
+        sampling_rate : float
+            サンプリングレート (Hz)
+        frame_length : int
+            フレームの長さ、デフォルトは2048
+        hop_length : int
+            ホップの長さ、デフォルトは512
+        """
+        self.frame_length = frame_length
+        self.hop_length = hop_length
+        self.Aw = Aw
+        super().__init__(
+            sampling_rate, frame_length=frame_length, hop_length=hop_length, Aw=Aw
+        )
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """RMS計算のプロセッサ関数を作成"""
+        logger.debug(f"Applying RMS to array with shape: {x.shape}")
+
+        if self.Aw:
+            # A-weightingを適用
+            _x = A_weight(x, self.sampling_rate)
+            if isinstance(_x, np.ndarray):
+                # A_weightがタプルを返す場合、最初の要素を使用
+                x = _x
+            elif isinstance(_x, tuple):
+                # A_weightがtupleを返す場合、最初の要素を使用
+                x = _x[0]
+            else:
+                raise ValueError("A_weighting returned an unexpected type.")
+
+        # RMSを計算
+        result = librosa.feature.rms(
+            y=x, frame_length=self.frame_length, hop_length=self.hop_length
+        )[..., 0, :]
+        logger.debug(f"RMS applied, returning result with shape: {result.shape}")
         return result
 
 
