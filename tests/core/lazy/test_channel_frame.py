@@ -796,3 +796,181 @@ class TestChannelFrame:
         finally:
             if os.path.exists(temp_filename):
                 os.remove(temp_filename)
+
+    def test_fft_transform(self) -> None:
+        """Test fft method for lazy transformation to frequency domain."""
+        from wandas.core.lazy.spectral_frame import SpectralFrame
+        from wandas.core.lazy.time_series_operation import FFT
+
+        with mock.patch(
+            "wandas.core.lazy.time_series_operation.create_operation"
+        ) as mock_create_op:
+            # モックFFTオペレーションの設定
+            mock_fft = mock.MagicMock(spec=FFT)
+            mock_fft.n_fft = 4096
+            mock_fft.window = "hann"
+            mock_data = mock.MagicMock(spec=DaArray)
+            mock_data.ndim = 2  # Set ndim property to pass dimension check
+            mock_data.shape = (2, 2049)  # Set appropriate shape for a 2D array
+            mock_fft.process.return_value = mock_data
+            mock_create_op.return_value = mock_fft
+
+            # fftを遅延実行
+            result = self.channel_frame.fft(n_fft=4096, window="hamming")
+
+            # オペレーションが正しく作成されたか確認
+            mock_create_op.assert_called_with(
+                "fft", self.sample_rate, n_fft=4096, window="hamming"
+            )
+
+            # processメソッドが呼び出されたか確認
+            mock_fft.process.assert_called_once_with(self.channel_frame._data)
+
+            # 結果が正しい型か確認
+            assert isinstance(result, SpectralFrame)
+            assert result.n_fft == 4096
+            assert result.window == "hann"
+            assert result.previous is self.channel_frame
+
+    def test_welch_transform(self) -> None:
+        """
+        Test welch method for lazy transformation to frequency domain
+        using Welch's method.
+        """
+        from wandas.core.lazy.spectral_frame import SpectralFrame
+        from wandas.core.lazy.time_series_operation import Welch
+
+        with mock.patch(
+            "wandas.core.lazy.time_series_operation.create_operation"
+        ) as mock_create_op:
+            # モックWelchオペレーションの設定
+            mock_welch = mock.MagicMock(spec=Welch)
+            mock_welch.n_fft = 2048
+            mock_welch.window = "hann"
+            mock_data = mock.MagicMock(spec=DaArray)
+            mock_data.ndim = 2  # Set ndim property to pass dimension check
+            mock_data.shape = (2, 1025)  # Set appropriate shape for a 2D array
+            mock_welch.process.return_value = mock_data
+            mock_create_op.return_value = mock_welch
+
+            # welchを遅延実行
+            result = self.channel_frame.welch(n_fft=2048, window="blackman")
+
+            # オペレーションが正しく作成されたか確認
+            mock_create_op.assert_called_with(
+                "welch", self.sample_rate, n_fft=2048, window="blackman"
+            )
+
+            # processメソッドが呼び出されたか確認
+            mock_welch.process.assert_called_once_with(self.channel_frame._data)
+
+            # 結果が正しい型か確認
+            assert isinstance(result, SpectralFrame)
+            assert result.n_fft == 2048
+            assert result.window == "hann"
+            assert result.previous is self.channel_frame
+
+    def test_stft_transform(self) -> None:
+        """Test stft method for lazy short-time Fourier transform."""
+        from wandas.core.lazy.spectrogram_frame import SpectrogramFrame
+        from wandas.core.lazy.time_series_operation import STFT
+
+        with mock.patch(
+            "wandas.core.lazy.time_series_operation.create_operation"
+        ) as mock_create_op:
+            # モックSTFTオペレーションの設定
+            mock_stft = mock.MagicMock(spec=STFT)
+            mock_data = mock.MagicMock(spec=DaArray)
+            mock_data.ndim = 3  # Set ndim property to pass dimension check
+            mock_data.shape = (2, 1025, 10)  # Set appropriate shape for a 3D array
+            mock_stft.process.return_value = mock_data
+            mock_create_op.return_value = mock_stft
+
+            # stftを遅延実行（デフォルト引数）
+            result = self.channel_frame.stft()
+
+            # デフォルトパラメータの確認
+            mock_create_op.assert_called_with(
+                "stft",
+                self.sample_rate,
+                n_fft=2048,
+                hop_length=512,  # n_fft//4
+                win_length=2048,
+                window="hann",
+                boundary="zeros",
+            )
+
+            # processメソッドが呼び出されたか確認
+            mock_stft.process.assert_called_once_with(self.channel_frame._data)
+
+            # 結果が正しい型か確認
+            assert isinstance(result, SpectrogramFrame)
+            assert result.n_fft == 2048
+            assert result.hop_length == 512
+            assert result.win_length == 2048
+            assert result.window == "hann"
+
+            # カスタムパラメータでテスト
+            mock_create_op.reset_mock()
+            mock_stft.process.reset_mock()
+
+            # Update mock data shape for n_fft=1024
+            mock_data.shape = (
+                2,
+                513,
+                10,
+            )  # For n_fft=1024, freq_bins = 1024 // 2 + 1 = 513
+
+            result = self.channel_frame.stft(
+                n_fft=1024,
+                hop_length=256,
+                win_length=1024,
+                window="hamming",
+                boundary="wrap",
+            )
+
+            mock_create_op.assert_called_with(
+                "stft",
+                self.sample_rate,
+                n_fft=1024,
+                hop_length=256,
+                win_length=1024,
+                window="hamming",
+                boundary="wrap",
+            )
+
+            assert result.n_fft == 1024
+            assert result.hop_length == 256
+            assert result.win_length == 1024
+            assert result.window == "hamming"
+
+    def test_describe_method(self) -> None:
+        """Test the describe method for generating visual and audio widgets."""
+        import ipywidgets as widgets
+        from IPython.display import Audio
+
+        # Mock the plot and audio display
+        with mock.patch(
+            "wandas.core.lazy.channel_frame.Audio", wraps=Audio
+        ) as mock_audio:
+            # Create real Output widgets instead of mocking them
+            with mock.patch(
+                "wandas.core.lazy.channel_frame.widgets.Output", wraps=widgets.Output
+            ):
+                # Call the describe method
+                result = self.channel_frame.describe(normalize=True)
+
+                # Verify the result is a VBox
+                assert isinstance(result, widgets.VBox)
+
+                # Verify the number of children matches the number of channels
+                assert len(result.children) == self.channel_frame.n_channels
+
+                # Verify that audio was called for each channel
+                assert mock_audio.call_count == self.channel_frame.n_channels
+
+                # Check that the audio widget was created with the correct parameters
+                for call_args in mock_audio.call_args_list:
+                    args, kwargs = call_args
+                    assert kwargs["rate"] == self.channel_frame.sampling_rate
+                    assert kwargs["normalize"] is True
