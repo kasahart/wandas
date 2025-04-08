@@ -83,6 +83,13 @@ class BaseFrame(ABC, Generic[T]):
         """チャネルのメタデータにアクセスするためのプロパティ。"""
         return self._channel_metadata
 
+    @property
+    def previous(self) -> Optional["BaseFrame[Any]"]:
+        """
+        Returns the previous frame.
+        """
+        return self._previous
+
     def get_channel(self: S, channel_idx: int) -> S:
         n_channels = len(self)
         if channel_idx < 0 or channel_idx >= n_channels:
