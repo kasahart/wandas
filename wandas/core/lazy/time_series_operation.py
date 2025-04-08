@@ -281,6 +281,42 @@ class Power(AudioOperation):
         return result
 
 
+class Trim(AudioOperation):
+    """トリミング操作"""
+
+    name = "trim"
+
+    def __init__(self, sampling_rate: float, start: float, end: float):
+        """
+        トリミング操作の初期化
+
+        Parameters
+        ----------
+        sampling_rate : float
+            サンプリングレート (Hz)
+        start : float
+            トリミング開始位置 (秒)
+        end : float
+            トリミング終了位置 (秒)
+        """
+        super().__init__(sampling_rate, start=start, end=end)
+        self.start = start
+        self.end = end
+        self.start_sample = int(start * sampling_rate)
+        self.end_sample = int(end * sampling_rate)
+        logger.debug(
+            f"Initialized Trim operation with start: {self.start}, end: {self.end}"
+        )
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """トリミング操作のプロセッサ関数を作成"""
+        logger.debug(f"Applying trim to array with shape: {x.shape}")
+        # トリミングを適用
+        result = x[..., self.start_sample : self.end_sample]
+        logger.debug(f"Trim applied, returning result with shape: {result.shape}")
+        return result
+
+
 class RmsTrend(AudioOperation):
     """RMS計算"""
 

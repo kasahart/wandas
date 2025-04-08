@@ -17,6 +17,7 @@ from wandas.core.lazy.time_series_operation import (
     HighPassFilter,
     LowPassFilter,
     RmsTrend,
+    Trim,
     create_operation,
     get_operation,
     register_operation,
@@ -773,3 +774,67 @@ class TestRmsTrend:
         assert rms_op.frame_length == 2048
         assert rms_op.hop_length == 512
         assert rms_op.Aw is True
+
+
+class TestTrim:
+    def setup_method(self) -> None:
+        """Set up test fixtures for each test."""
+        self.sample_rate: int = 16000  # 16 kHz
+        self.start_time: float = 1.0  # Start trimming at 1 second
+        self.end_time: float = 2.0  # End trimming at 2 seconds
+        self.trim_op: Trim = Trim(self.sample_rate, self.start_time, self.end_time)
+
+        # Create a test signal (3 seconds sine wave at 440 Hz)
+        t: np.ndarray = np.linspace(
+            0, 3, self.sample_rate * 3, endpoint=False
+        )  # 3 seconds
+        self.signal: NDArrayReal = np.sin(2 * np.pi * 440 * t).reshape(
+            1, -1
+        )  # Single channel
+
+        # Create a Dask array
+        self.dask_signal: DaArray = _da_from_array(self.signal, chunks=-1)
+
+    def test_initialization(self) -> None:
+        """Test initialization of the Trim operation."""
+        assert self.trim_op.start == self.start_time
+        assert self.trim_op.end == self.end_time
+        assert self.trim_op.start_sample == int(self.start_time * self.sample_rate)
+        assert self.trim_op.end_sample == int(self.end_time * self.sample_rate)
+
+    def test_trim_effect(self) -> None:
+        """Test that the Trim operation correctly trims the signal."""
+        result = self.trim_op.process_array(self.signal)
+
+        # Compute the result
+        computed_result: NDArrayReal = result.compute()
+
+        # Check the shape of the trimmed signal
+        expected_length: int = int((self.end_time - self.start_time) * self.sample_rate)
+        assert computed_result.shape == (1, expected_length)
+
+        # Check the content of the trimmed signal
+        start_idx: int = self.trim_op.start_sample
+        end_idx: int = self.trim_op.end_sample
+        np.testing.assert_array_equal(
+            computed_result, self.signal[..., start_idx:end_idx]
+        )
+
+    def test_dask_delayed_execution(self) -> None:
+        """Test that the Trim operation uses Dask's delayed execution."""
+        # Use mock to verify compute() isn't called during processing
+        with mock.patch.object(DaArray, "compute") as mock_compute:
+            # Just processing shouldn't trigger computation
+            result: DaArray = self.trim_op.process(self.dask_signal)
+
+            # Verify compute hasn't been called
+            mock_compute.assert_not_called()
+
+            # The result should be a Dask array
+            assert isinstance(result, DaArray)
+
+            # Now explicitly compute the result
+            _: NDArrayReal = result.compute()
+
+            # Verify compute was called
+            mock_compute.assert_called_once()

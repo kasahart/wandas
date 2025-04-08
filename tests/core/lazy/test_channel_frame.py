@@ -974,3 +974,30 @@ class TestChannelFrame:
                     args, kwargs = call_args
                     assert kwargs["rate"] == self.channel_frame.sampling_rate
                     assert kwargs["normalize"] is True
+
+    def test_trim(self) -> None:
+        """Test the trim method."""
+        # Test trimming with start and end times
+        trimmed_frame = self.channel_frame.trim(start=0.1, end=0.5)
+        assert isinstance(trimmed_frame, ChannelFrame)
+        assert trimmed_frame.n_samples == int(0.4 * self.sample_rate)
+        assert trimmed_frame.n_channels == self.channel_frame.n_channels
+
+        # Test trimming with only start time
+        trimmed_frame = self.channel_frame.trim(start=0.2)
+        assert isinstance(trimmed_frame, ChannelFrame)
+        assert trimmed_frame.n_samples == int(0.8 * self.sample_rate)
+
+        # Test trimming with only end time
+        trimmed_frame = self.channel_frame.trim(end=0.3)
+        assert isinstance(trimmed_frame, ChannelFrame)
+        assert trimmed_frame.n_samples == int(0.3 * self.sample_rate)
+
+        # Test trimming with no start or end (should return the same frame)
+        trimmed_frame = self.channel_frame.trim()
+        assert isinstance(trimmed_frame, ChannelFrame)
+        assert trimmed_frame.n_samples == self.channel_frame.n_samples
+
+        # Test trimming with invalid start and end times
+        with pytest.raises(ValueError):
+            self.channel_frame.trim(start=0.5, end=0.1)

@@ -588,6 +588,33 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         """べき乗計算を行います。"""
         return self.apply_operation("power", exponent=exponent)
 
+    def trim(
+        self,
+        start: float = 0,
+        end: Optional[float] = None,
+    ) -> "ChannelFrame":
+        """
+        チャネルをトリミングします。
+
+        Parameters
+        ----------
+        start : float, optional
+            トリミング開始位置（秒）。Noneの場合は先頭から
+        end : float, optional
+            トリミング終了位置（秒）。Noneの場合はファイル末尾まで
+
+        Returns
+        -------
+        ChannelFrame
+            トリミングされたチャネルフレーム
+        """
+        if end is None:
+            end = self.duration
+        if start > end:
+            raise ValueError("start must be less than end")
+        # トリミング操作を適用
+        return self.apply_operation("trim", start=start, end=end)
+
     def rms_trend(
         self,
         frame_length: int = 2048,
