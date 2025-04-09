@@ -128,6 +128,7 @@ class CSVFileReader(FileReader):
             "frames": frames,
             "format": "CSV",
             "duration": duration,
+            "ch_labels": df.columns[1:].tolist(),  # Assuming first column is time
         }
 
     @classmethod
