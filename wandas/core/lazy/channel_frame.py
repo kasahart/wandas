@@ -326,6 +326,46 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         return cf
 
     @classmethod
+    def from_ndarray(
+        cls,
+        data: NDArrayReal,
+        sampling_rate: float,
+        label: Optional[str] = None,
+        metadata: Optional[dict[str, Any]] = None,
+        ch_labels: Optional[list[str]] = None,
+        ch_units: Optional[list[str]] = None,
+    ) -> "ChannelFrame":
+        """
+        NumPy配列からチャネルフレームを作成します。
+
+        Parameters
+        ----------
+        data : numpy.ndarray
+            音声データ。形状は
+            (bach, channels, samples) または (channels, samples) または (samples,)
+        sampling_rate : float
+            サンプリングレート (Hz)
+        label : str, optional
+            チャネルのラベル
+
+        Returns
+        -------
+        ChannelFrame
+            データを含む新しいチャネルフレーム
+        """
+        # 互換性のために、from_ndarrayをfrom_numpyにリダイレクト
+        # ただし、from_ndarrayは非推奨
+        logger.warning("from_ndarrayは非推奨です。from_numpyを使用してください。")
+        return cls.from_numpy(
+            data=data,
+            sampling_rate=sampling_rate,
+            label=label,
+            metadata=metadata,
+            ch_labels=ch_labels,
+            ch_units=ch_units,
+        )
+
+    @classmethod
     def from_file(
         cls,
         path: Union[str, Path],
