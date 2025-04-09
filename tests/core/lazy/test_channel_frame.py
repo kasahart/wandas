@@ -965,35 +965,100 @@ class TestChannelFrame:
             assert result.window == "hamming"
 
     def test_describe_method(self) -> None:
-        """Test the describe method for generating visual and audio widgets."""
-        import ipywidgets as widgets
-        from IPython.display import Audio
+        """Test the describe method for visual and audio display."""
+        # Mock the display and Audio functions
+        with (
+            mock.patch("wandas.core.lazy.channel_frame.display") as mock_display,
+            mock.patch("wandas.core.lazy.channel_frame.plt.close") as mock_close,
+            mock.patch(
+                "wandas.core.lazy.channel_frame.Audio", return_value="mock_audio"
+            ) as mock_audio,
+        ):
+            # Execute the describe method
+            result = self.channel_frame.describe(normalize=True)  # type: ignore
 
-        # Mock the plot and audio display
+            # Check return value is None
+            assert result is None
+
+            # We have 2 channels, so display should be called at least 4 times
+            # (one figure and one audio widget per channel)
+            assert mock_display.call_count >= 4
+
+            # plt.close should be called once for each channel
+            assert mock_close.call_count == 2
+
+            # Audio should be called once for each channel
+            assert mock_audio.call_count == 2
+
+            # Check that Audio was created with correct parameters
+            for call in mock_audio.call_args_list:
+                assert call[1]["rate"] == self.sample_rate
+                assert call[1]["normalize"] is True
+
+            # Check that display was called with the Audio objects
+            mock_display.assert_any_call("mock_audio")
+
+    def test_describe_method_with_axis_config(self) -> None:
+        """Test describe method with legacy axis_config parameter."""
+        with (
+            mock.patch("wandas.core.lazy.channel_frame.display"),
+            mock.patch("wandas.core.lazy.channel_frame.plt.close"),
+            mock.patch(
+                "wandas.core.lazy.channel_frame.Audio", return_value="mock_audio"
+            ),
+            mock.patch("wandas.core.lazy.channel_frame.logger") as mock_logger,
+        ):
+            # 古いパラメータ形式でdescribeを呼び出す
+            axis_config = {
+                "time_plot": {"xlim": [0, 1], "ylim": [-1, 1]},
+                "freq_plot": {"xlim": [100, 1000], "ylim": [-60, 0]},
+            }
+
+            self.channel_frame.describe(axis_config=axis_config)
+
+            # 警告メッセージが記録されたことを確認
+            mock_logger.warning.assert_called_with(
+                "axis_configは前方互換性のために残されていますが、今後は非推奨となります。"
+            )
+
+    def test_describe_method_with_cbar_config(self) -> None:
+        """Test describe method with legacy cbar_config parameter."""
+        with (
+            mock.patch("wandas.core.lazy.channel_frame.display"),
+            mock.patch("wandas.core.lazy.channel_frame.plt.close"),
+            mock.patch(
+                "wandas.core.lazy.channel_frame.Audio", return_value="mock_audio"
+            ),
+            mock.patch("wandas.core.lazy.channel_frame.logger") as mock_logger,
+        ):
+            # 古いパラメータ形式でdescribeを呼び出す
+            cbar_config = {"vmin": -60, "vmax": 0}
+
+            self.channel_frame.describe(cbar_config=cbar_config)
+
+            # 警告メッセージが記録されたことを確認
+            mock_logger.warning.assert_called_with(
+                "cbar_configは前方互換性のために残されていますが、今後は非推奨となります。"
+            )
+
+    def test_describe_method_with_axes(self) -> None:
+        """Test describe method when plot returns axes."""
+        mock_ax = mock.MagicMock(spec=Axes)
+        mock_ax.figure = mock.MagicMock()
         with mock.patch(
-            "wandas.core.lazy.channel_frame.Audio", wraps=Audio
-        ) as mock_audio:
-            # Create real Output widgets instead of mocking them
-            with mock.patch(
-                "wandas.core.lazy.channel_frame.widgets.Output", wraps=widgets.Output
-            ):
-                # Call the describe method
-                result = self.channel_frame.describe(normalize=True)
+            "wandas.core.lazy.ChannelFrame.plot",
+            return_value=mock_ax,  # 1つのAxesを返す
+        ):
+            self.channel_frame.describe()
 
-                # Verify the result is a VBox
-                assert isinstance(result, widgets.VBox)
-
-                # Verify the number of children matches the number of channels
-                assert len(result.children) == self.channel_frame.n_channels
-
-                # Verify that audio was called for each channel
-                assert mock_audio.call_count == self.channel_frame.n_channels
-
-                # Check that the audio widget was created with the correct parameters
-                for call_args in mock_audio.call_args_list:
-                    args, kwargs = call_args
-                    assert kwargs["rate"] == self.channel_frame.sampling_rate
-                    assert kwargs["normalize"] is True
+    def test_describe_method_with_unexpected_plot_result(self) -> None:
+        """Test describe method when plot returns unexpected type."""
+        with mock.patch(
+            "wandas.core.lazy.ChannelFrame.plot",
+            return_value="not_an_axes_or_iterator",
+        ):
+            with pytest.raises(TypeError, match="Unexpected type for plot result"):
+                self.channel_frame.describe()
 
     def test_trim(self) -> None:
         """Test the trim method."""
