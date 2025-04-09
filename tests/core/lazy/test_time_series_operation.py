@@ -15,6 +15,8 @@ from wandas.core.lazy.time_series_operation import (
     AudioOperation,
     AWeighting,
     HighPassFilter,
+    HpssHarmonic,
+    HpssPercussive,
     LowPassFilter,
     RmsTrend,
     Trim,
@@ -837,4 +839,103 @@ class TestTrim:
             _: NDArrayReal = result.compute()
 
             # Verify compute was called
+            mock_compute.assert_called_once()
+
+
+class TestHpssHarmonic:
+    def setup_method(self) -> None:
+        """Set up test fixtures for each test."""
+        self.sample_rate: int = 16000
+        self.hpss_harmonic = HpssHarmonic(self.sample_rate, kernel_size=31, power=2)
+
+        # Create a test signal (1 second sine wave at 440 Hz)
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        self.signal: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t)])
+
+        # Create a Dask array
+        self.dask_signal: DaArray = _da_from_array(self.signal, chunks=(1, 1000))
+
+    def test_initialization(self) -> None:
+        """Test initialization of the HpssHarmonic operation."""
+        assert self.hpss_harmonic.sampling_rate == self.sample_rate
+        assert self.hpss_harmonic.kwargs["kernel_size"] == 31
+        assert self.hpss_harmonic.kwargs["power"] == 2
+
+    def test_harmonic_extraction(self) -> None:
+        """Test that the HpssHarmonic operation extracts harmonic components."""
+        with mock.patch(
+            "librosa.effects.harmonic", return_value=self.signal
+        ) as mock_harmonic:
+            result = self.hpss_harmonic.process_array(self.signal).compute()
+
+            # Verify that librosa.effects.harmonic was called with the correct arguments
+            mock_harmonic.assert_called_once_with(self.signal, kernel_size=31, power=2)
+
+            # Check that the result matches the mocked harmonic output
+            np.testing.assert_array_equal(result, self.signal)
+
+    def test_delayed_execution(self) -> None:
+        """Test that HPSS Harmonic operation is executed lazily."""
+        with mock.patch("dask.array.core.Array.compute") as mock_compute:
+            # Apply the harmonic operation lazily
+            result = self.hpss_harmonic.process(self.dask_signal)
+
+            # Ensure compute is not called during the operation setup
+            mock_compute.assert_not_called()
+
+            # Trigger computation explicitly
+            _ = result.compute()
+
+            # Verify compute is called once during explicit computation
+            mock_compute.assert_called_once()
+
+
+class TestHpssPercussive:
+    def setup_method(self) -> None:
+        """Set up test fixtures for each test."""
+        self.sample_rate: int = 16000
+        self.hpss_percussive = HpssPercussive(self.sample_rate, kernel_size=31, power=2)
+
+        # Create a test signal (1 second sine wave at 440 Hz)
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        self.signal: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t)])
+
+        # Create a Dask array
+        self.dask_signal: DaArray = _da_from_array(self.signal, chunks=(1, 1000))
+
+    def test_initialization(self) -> None:
+        """Test initialization of the HpssPercussive operation."""
+        assert self.hpss_percussive.sampling_rate == self.sample_rate
+        assert self.hpss_percussive.kwargs["kernel_size"] == 31
+        assert self.hpss_percussive.kwargs["power"] == 2
+
+    def test_percussive_extraction(self) -> None:
+        """Test that the HpssPercussive operation extracts percussive components."""
+        with mock.patch(
+            "librosa.effects.percussive", return_value=self.signal
+        ) as mock_percussive:
+            result = self.hpss_percussive.process_array(self.signal).compute()
+
+            # Verify that librosa.effects.percussive was
+            # called with the correct arguments
+            mock_percussive.assert_called_once_with(
+                self.signal, kernel_size=31, power=2
+            )
+
+            # Check that the result matches the mocked percussive output
+            np.testing.assert_array_equal(result, self.signal)
+
+    def test_delayed_execution(self) -> None:
+        """Test that HPSS Percussive operation is executed lazily."""
+        with mock.patch("dask.array.core.Array.compute") as mock_compute:
+            # Apply the percussive operation lazily
+            result = self.hpss_percussive.process(self.dask_signal)
+
+            # Ensure compute is not called during the operation setup
+            mock_compute.assert_not_called()
+
+            # Trigger computation explicitly
+            _ = result.compute()
+
+            # Verify compute is called once during explicit computation
             mock_compute.assert_called_once()

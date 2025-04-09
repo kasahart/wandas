@@ -12,6 +12,12 @@ import soundfile as sf
 from IPython.display import Audio, display
 
 if TYPE_CHECKING:
+    from librosa._typing import (
+        _FloatLike_co,
+        _IntLike_co,
+        _PadModeSTFT,
+        _WindowSpec,
+    )
     from matplotlib.axes import Axes
 
     from .spectral_frame import SpectralFrame
@@ -572,13 +578,69 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         """A加重フィルタを適用します。"""
         return self.apply_operation("a_weighting")
 
-    def hpss_harmonic(self, **kwargs: Any) -> "ChannelFrame":
+    def hpss_harmonic(
+        self,
+        kernel_size: Union[
+            "_IntLike_co", tuple["_IntLike_co", "_IntLike_co"], list["_IntLike_co"]
+        ] = 31,
+        power: float = 2,
+        margin: Union[
+            "_FloatLike_co",
+            tuple["_FloatLike_co", "_FloatLike_co"],
+            list["_FloatLike_co"],
+        ] = 1,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: "_WindowSpec" = "hann",
+        center: bool = True,
+        pad_mode: "_PadModeSTFT" = "constant",
+    ) -> "ChannelFrame":
         """HPSS（Harmonic-Percussive Source Separation）の調波成分を抽出します。"""
-        return self.apply_operation("hpss_harmonic", **kwargs)
+        return self.apply_operation(
+            "hpss_harmonic",
+            kernel_size=kernel_size,
+            power=power,
+            margin=margin,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            center=center,
+            pad_mode=pad_mode,
+        )
 
-    def hpss_percussive(self, **kwargs: Any) -> "ChannelFrame":
+    def hpss_percussive(
+        self,
+        kernel_size: Union[
+            "_IntLike_co", tuple["_IntLike_co", "_IntLike_co"], list["_IntLike_co"]
+        ] = 31,
+        power: float = 2,
+        margin: Union[
+            "_FloatLike_co",
+            tuple["_FloatLike_co", "_FloatLike_co"],
+            list["_FloatLike_co"],
+        ] = 1,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: "_WindowSpec" = "hann",
+        center: bool = True,
+        pad_mode: "_PadModeSTFT" = "constant",
+    ) -> "ChannelFrame":
         """HPSS（Harmonic-Percussive Source Separation）の打撃音成分を抽出します。"""
-        return self.apply_operation("hpss_percussive", **kwargs)
+        return self.apply_operation(
+            "hpss_percussive",
+            kernel_size=kernel_size,
+            power=power,
+            margin=margin,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            center=center,
+            pad_mode=pad_mode,
+        )
 
     def abs(self) -> "ChannelFrame":
         """絶対値を計算します。"""

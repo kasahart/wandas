@@ -230,6 +230,68 @@ class AWeighting(AudioOperation):
         return np.array(result)
 
 
+class HpssHarmonic(AudioOperation):
+    """HPSS Harmonic操作"""
+
+    name = "hpss_harmonic"
+
+    def __init__(
+        self,
+        sampling_rate: float,
+        **kwargs: Any,
+    ):
+        """
+        HPSS Harmonicの初期化
+
+        Parameters
+        ----------
+        sampling_rate : float
+            サンプリングレート (Hz)
+        """
+        self.kwargs = kwargs
+        super().__init__(sampling_rate, **kwargs)
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """HPSS Harmonicのプロセッサ関数を作成"""
+        logger.debug(f"Applying HPSS Harmonic to array with shape: {x.shape}")
+        result = librosa.effects.harmonic(x, **self.kwargs)
+        logger.debug(
+            f"HPSS Harmonic applied, returning result with shape: {result.shape}"
+        )
+        return result
+
+
+class HpssPercussive(AudioOperation):
+    """HPSS Percussive操作"""
+
+    name = "hpss_percussive"
+
+    def __init__(
+        self,
+        sampling_rate: float,
+        **kwargs: Any,
+    ):
+        """
+        HPSS Percussiveの初期化
+
+        Parameters
+        ----------
+        sampling_rate : float
+            サンプリングレート (Hz)
+        """
+        self.kwargs = kwargs
+        super().__init__(sampling_rate, **kwargs)
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """HPSS Percussiveのプロセッサ関数を作成"""
+        logger.debug(f"Applying HPSS Percussive to array with shape: {x.shape}")
+        result = librosa.effects.percussive(x, **self.kwargs)
+        logger.debug(
+            f"HPSS Percussive applied, returning result with shape: {result.shape}"
+        )
+        return result
+
+
 class ABS(AudioOperation):
     """絶対値操作"""
 

@@ -497,13 +497,33 @@ class TestChannelFrame:
             # Test HPSS methods
             result = self.channel_frame.hpss_harmonic(kernel_size=31)
             mock_create_op.assert_called_with(
-                "hpss_harmonic", self.sample_rate, kernel_size=31
+                "hpss_harmonic",
+                self.sample_rate,
+                kernel_size=31,
+                power=2,
+                margin=1,
+                n_fft=2048,
+                hop_length=None,
+                win_length=None,
+                window="hann",
+                center=True,
+                pad_mode="constant",
             )
             assert isinstance(result, ChannelFrame)
 
             result = self.channel_frame.hpss_percussive(kernel_size=31)
             mock_create_op.assert_called_with(
-                "hpss_percussive", self.sample_rate, kernel_size=31
+                "hpss_percussive",
+                self.sample_rate,
+                kernel_size=31,
+                power=2,
+                margin=1,
+                n_fft=2048,
+                hop_length=None,
+                win_length=None,
+                window="hann",
+                center=True,
+                pad_mode="constant",
             )
             assert isinstance(result, ChannelFrame)
 
