@@ -60,7 +60,8 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         ax.plot(x, y, **kwargs)
         ax.set_ylabel("Amplitude")
         ax.grid(True)
-        ax.legend()
+        if "label" in kwargs:
+            ax.legend()
 
     def plot(
         self,
@@ -95,7 +96,8 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
             axes_list = list(axs)
             data = bf.data
             for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
-                self.channel_plot(bf.time, channel_data, ax_i, label=ch_meta.label)
+                self.channel_plot(bf.time, channel_data, ax_i)
+                ax_i.set_title(ch_meta.label)
 
             axes_list[-1].set_xlabel("Time [s]")
             fig.suptitle(title or bf.label or "Channel Data")
@@ -290,7 +292,7 @@ class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
         **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
         """ChannelFrameのデータを可視化するdescribeメソッドの実装"""
-        axis_config = kwargs.pop("axis_config", {})
+
         fmin = kwargs.pop("fmin", 0)
         fmax = kwargs.pop("fmax", None)
         cmap = kwargs.pop("cmap", "jet")
@@ -299,6 +301,8 @@ class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
         xlim = kwargs.pop("xlim", None)
         ylim = kwargs.pop("ylim", None)
         is_aw = kwargs.pop("Aw", False)
+        waveform = kwargs.pop("waveform", {})
+        spectral = kwargs.pop("spectral", dict(xlim=(vmin, vmax)))
 
         gs = gridspec.GridSpec(2, 3, height_ratios=[1, 3], width_ratios=[3, 1, 0.1])
         gs.update(wspace=0.2)
@@ -309,9 +313,7 @@ class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
         # 最初のサブプロット (Time Plot)
         ax_1 = fig.add_subplot(gs[0])
         bf.plot(plot_type="waveform", ax=ax_1, overlay=True)
-        if "time_plot" in axis_config:
-            conf = axis_config["time_plot"]
-            ax_1.set(**conf)
+        ax_1.set(**waveform)
         ax_1.legend().set_visible(False)
         ax_1.set(xlabel="", title="")
 
@@ -366,7 +368,7 @@ class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
             data_db = welch_ch.dB
         ax_4.plot(data_db.T, welch_ch.freqs.T)
         ax_4.grid(True)
-        ax_4.set(xlabel=f"Spectrum level [{unit}]", xlim=(vmin, vmax))
+        ax_4.set(xlabel=f"Spectrum level [{unit}]", **spectral)
 
         cbar = fig.colorbar(img, ax=ax_4, format="%+2.0f")
         cbar.set_label(unit)

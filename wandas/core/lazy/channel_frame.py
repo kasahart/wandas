@@ -5,11 +5,11 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union, cast
 
 import dask
 import dask.array as da
-import ipywidgets as widgets
 import matplotlib.pyplot as plt
 import numpy as np
 import soundfile as sf
 from IPython.display import Audio, display
+from matplotlib.axes import Axes
 
 if TYPE_CHECKING:
     from librosa._typing import (
@@ -18,7 +18,6 @@ if TYPE_CHECKING:
         _PadModeSTFT,
         _WindowSpec,
     )
-    from matplotlib.axes import Axes
 
     from .spectral_frame import SpectralFrame
     from .spectrogram_frame import SpectrogramFrame
@@ -251,19 +250,47 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
 
         return _ax
 
-    def describe(self, normalize: bool = True, **kwargs: Any) -> widgets.VBox:
-        container = []
-        for ch in self:
-            output = widgets.Output()
-            with output:
-                ch.plot("describe", title=f"{ch.label} {ch.labels[0]}", **kwargs)
-                plt.show()
-            audio_output = widgets.Output()
-            with audio_output:
-                display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))  # type: ignore [unused-ignore, no-untyped-call]
-            container.append(widgets.VBox([output, audio_output]))
+    def describe(self, normalize: bool = True, **kwargs: Any) -> None:
+        if "axis_config" in kwargs:
+            logger.warning(
+                "axis_configは前方互換性のために残されていますが、今後は非推奨となります。"  # noqa: E501
+            )
+            axis_config = kwargs["axis_config"]
+            if "time_plot" in axis_config:
+                kwargs["waveform"] = axis_config["time_plot"]
+            if "freq_plot" in axis_config:
+                if "xlim" in axis_config["freq_plot"]:
+                    vlim = axis_config["freq_plot"]["xlim"]
+                    kwargs["vmin"] = vlim[0]
+                    kwargs["vmax"] = vlim[1]
+                if "ylim" in axis_config["freq_plot"]:
+                    ylim = axis_config["freq_plot"]["ylim"]
+                    kwargs["ylim"] = ylim
 
-        return widgets.VBox(container)
+        if "cbar_config" in kwargs:
+            logger.warning(
+                "cbar_configは前方互換性のために残されていますが、今後は非推奨となります。"  # noqa: E501
+            )
+            cbar_config = kwargs["cbar_config"]
+            if "vmin" in cbar_config:
+                kwargs["vmin"] = cbar_config["vmin"]
+            if "vmax" in cbar_config:
+                kwargs["vmax"] = cbar_config["vmax"]
+
+        for ch in self:
+            ax: Axes
+            _ax = ch.plot("describe", title=f"{ch.label} {ch.labels[0]}", **kwargs)
+            if isinstance(_ax, Iterator):
+                ax = next(iter(_ax))
+            elif isinstance(_ax, Axes):
+                ax = _ax
+            else:
+                raise TypeError(
+                    f"Unexpected type for plot result: {type(_ax)}. Expected Axes or Iterator[Axes]."  # noqa: E501
+                )
+            display(ax.figure)  # type: ignore [unused-ignore, no-untyped-call]
+            plt.close(fig=ax.figure)  # type: ignore [unused-ignore]
+            display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))  # type: ignore [unused-ignore, no-untyped-call]
 
     @classmethod
     def from_numpy(
@@ -416,6 +443,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         sr = info["samplerate"]
         n_channels = info["channels"]
         n_frames = info["frames"]
+        ch_labels = ch_labels or info.get("ch_labels", None)
 
         logger.debug(f"File info: sr={sr}, channels={n_channels}, frames={n_frames}")
 
