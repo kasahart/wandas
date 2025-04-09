@@ -141,12 +141,12 @@ class TestChannelFrame:
             mock_create_op.return_value = mock_op
 
             # Apply filter operations
-            result: ChannelFrame = self.channel_frame.highpass_filter(cutoff=100)
+            result: ChannelFrame = self.channel_frame.high_pass_filter(cutoff=100)
             mock_create_op.assert_called_with(
                 "highpass_filter", self.sample_rate, cutoff=100, order=4
             )
 
-            result = self.channel_frame.lowpass_filter(cutoff=5000)
+            result = self.channel_frame.low_pass_filter(cutoff=5000)
             mock_create_op.assert_called_with(
                 "lowpass_filter", self.sample_rate, cutoff=5000, order=4
             )
@@ -159,10 +159,10 @@ class TestChannelFrame:
             DaArray, "compute", return_value=self.dask_data.compute()
         ) as mock_compute:
             # Apply filter operations
-            result = self.channel_frame.highpass_filter(cutoff=100)
+            result = self.channel_frame.high_pass_filter(cutoff=100)
             mock_compute.assert_not_called()
 
-            result = self.channel_frame.lowpass_filter(cutoff=5000)
+            result = self.channel_frame.low_pass_filter(cutoff=5000)
             mock_compute.assert_not_called()
 
             # Check that the result has the expected type

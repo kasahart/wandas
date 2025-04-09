@@ -123,7 +123,6 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
     ) -> None:
         """チャンネルプロットの実装"""
         ax.plot(x, y, **kwargs)
-        ax.set_ylabel("Amplitude [dB]")
         ax.grid(True)
         ax.legend()
 
@@ -137,12 +136,20 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
     ) -> Union["Axes", Iterator["Axes"]]:
         """周波数プロット"""
         kwargs = kwargs or {}
+        is_aw = kwargs.pop("Aw", False)
 
+        if is_aw:
+            unit = "dBA"
+            data = bf.dBA
+        else:
+            unit = "dB"
+            data = bf.dB
         if overlay:
             if ax is None:
                 _, ax = plt.subplots(figsize=(10, 4))
-            self.channel_plot(bf.freqs, 20 * np.log10(bf.data.T), ax, label=bf.labels)
+            self.channel_plot(bf.freqs, data.T, ax, label=bf.labels)
             ax.set_xlabel("Frequency [Hz]")
+            ax.set_ylabel(f"Spectrum level [{unit}]")
             ax.set_title(title or bf.label or "Channel Data")
             if ax is None:
                 plt.tight_layout()
@@ -158,13 +165,11 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
                 axs = [axs]
 
             axes_list = list(axs)
-            data = bf.data
             for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
-                self.channel_plot(
-                    bf.freqs, 20 * np.log10(channel_data), ax_i, label=ch_meta.label
-                )
+                self.channel_plot(bf.freqs, channel_data, ax_i, label=ch_meta.label)
 
             axes_list[-1].set_xlabel("Frequency [Hz]")
+            axes_list[-1].set_ylabel(f"Spectrum level [{unit}]")
             fig.suptitle(title or bf.label or "Channel Data")
 
             if ax is None:
