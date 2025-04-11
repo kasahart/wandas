@@ -217,7 +217,7 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
             # axがNoneの場合は新しい図を作成
             num_channels = bf.n_channels
             fig, axs = plt.subplots(
-                num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
+                num_channels, 1, figsize=(10, 5 * num_channels), sharex=True
             )
             # axs が単一の Axes オブジェクトの場合、リストに変換
             if not isinstance(axs, (list, np.ndarray)):
@@ -265,8 +265,8 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
                 ax_i.set_title(ch_meta.label)
             else:
                 ax_i.set_title(title)
-            ax_i.set_xlabel("Frequency [Hz]")
-            ax_i.set_ylabel(f"Spectrum level [{unit}]")
+            ax_i.set_ylabel("Frequency [Hz]")
+            ax_i.set_xlabel("Time [s]")
 
         # 新しい図を作成した場合のみ、suptitleとtight_layout、showを行う
         if create_new_figure:
