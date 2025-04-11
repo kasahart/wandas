@@ -836,7 +836,11 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         )
 
     def welch(
-        self, n_fft: Optional[int] = None, window: str = "hann"
+        self,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: str = "hann",
     ) -> "SpectralFrame":
         """時間領域データから周波数領域データへ変換（welch）"""
         from .spectral_frame import SpectralFrame

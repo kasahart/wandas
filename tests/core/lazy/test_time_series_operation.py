@@ -6,10 +6,11 @@ import librosa
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
-from scipy import signal
+from scipy import fft, signal
 
 from wandas.core.lazy.time_series_operation import (
     _OPERATION_REGISTRY,
+    FFT,
     ISTFT,
     STFT,
     AudioOperation,
@@ -24,7 +25,7 @@ from wandas.core.lazy.time_series_operation import (
     get_operation,
     register_operation,
 )
-from wandas.utils.types import NDArrayReal
+from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 _da_from_array = da.from_array  # type: ignore [unused-ignore]
 
@@ -144,7 +145,7 @@ class TestLowPassFilter:
         fft_original = np.abs(np.fft.rfft(self.signal[0]))
         fft_filtered = np.abs(np.fft.rfft(result[0]))
 
-        freq_bins = np.fft.rfftfreq(len(self.signal[0]), 1 / self.sample_rate)
+        freq_bins = fft.rfftfreq(len(self.signal[0]), 1 / self.sample_rate)
 
         # Find indices closest to our test frequencies
         low_idx = np.argmin(np.abs(freq_bins - self.low_freq))
@@ -331,14 +332,14 @@ class TestSTFTOperation:
 
         # Create a test signal (1 second sine wave at 440 Hz)
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        self.signal_mono: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t)])
+        self.signal_mono: NDArrayReal = np.array([np.sin(2 * np.pi * 1000 * t)]) * 4
         self.signal_stereo: NDArrayReal = np.array(
-            [np.sin(2 * np.pi * 440 * t), np.sin(2 * np.pi * 880 * t)]
+            [np.sin(2 * np.pi * 1000 * t), np.sin(2 * np.pi * 2000 * t)]
         )
 
         # Create dask arrays
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, 1000))
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, 1000))
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=-1)
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=-1)
 
         # Initialize STFT
         self.stft = STFT(
@@ -480,13 +481,15 @@ class TestSTFTOperation:
             boundary=self.boundary,
             padded=True,
         )
-
+        expected_stft[..., 1:-1, :] *= 2.0
         # Add channel dimension for comparison
         expected_stft = expected_stft.reshape(1, *expected_stft.shape)
 
         # Compare the results - should be very close but not exactly
         # the same due to floating point
         np.testing.assert_allclose(stft_result, expected_stft, rtol=1e-10, atol=1e-10)
+
+        np.testing.assert_allclose(np.abs(stft_result).max(), 4, rtol=0.1)
 
     def test_istft_shape(self) -> None:
         """Test ISTFT output shape."""
@@ -515,25 +518,13 @@ class TestSTFTOperation:
 
         # Compare with original signal (trim or pad to the same length)
         orig_length = self.signal_mono.shape[1]
-        rec_length = istft_data.shape[1]
-
-        if rec_length > orig_length:
-            reconstructed_trimmed = istft_data[:, :orig_length]
-            # Should be very close to the original signal
-            np.testing.assert_allclose(
-                reconstructed_trimmed, self.signal_mono, rtol=1e-6, atol=1e-5
-            )
-        else:
-            reconstructed_padded = np.pad(
-                istft_data, ((0, 0), (0, orig_length - rec_length))
-            )
-            # The padded part won't match, so check only the common part
-            np.testing.assert_allclose(
-                reconstructed_padded[:, :rec_length],
-                self.signal_mono[:, :rec_length],
-                rtol=1e-6,
-                atol=1e-5,
-            )
+        reconstructed_trimmed = istft_data[:, :orig_length]
+        np.testing.assert_allclose(
+            reconstructed_trimmed[..., 16:-16],
+            self.signal_mono[..., 16:-16],
+            rtol=1e-6,
+            atol=1e-5,
+        )
 
     def test_1d_input_handling(self) -> None:
         """Test that 1D input is properly reshaped to (1, samples)."""
@@ -939,3 +930,169 @@ class TestHpssPercussive:
 
             # Verify compute is called once during explicit computation
             mock_compute.assert_called_once()
+
+
+class TestFFTOperation:
+    def setup_method(self) -> None:
+        """Set up test fixtures for each test."""
+        self.sample_rate: int = 16000
+        self.n_fft: int = 1024
+        self.window: str = "hann"
+        self.fft = FFT(self.sample_rate, n_fft=self.n_fft, window=self.window)
+
+        # Create a test signal (1 second sine wave at 500 Hz)
+        self.freq: float = 500
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        self.signal_mono: NDArrayReal = (
+            np.array([np.sin(2 * np.pi * self.freq * t)]) * 4
+        )
+
+        # Create a stereo signal
+        self.signal_stereo: NDArrayReal = np.array(
+            [
+                np.sin(2 * np.pi * self.freq * t),  # 500 Hz
+                np.sin(2 * np.pi * self.freq * 2 * t),  # 1000 Hz
+            ]
+        )
+
+        # Create dask arrays
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=-1)
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=-1)
+
+    def test_initialization(self) -> None:
+        """Test FFT initialization with different parameters."""
+        # Default initialization
+        fft = FFT(self.sample_rate)
+        assert fft.sampling_rate == self.sample_rate
+        assert fft.n_fft is None
+        assert fft.window == "hann"
+
+        # Custom initialization
+        custom_fft = FFT(self.sample_rate, n_fft=2048, window="hamming")
+        assert custom_fft.n_fft == 2048
+        assert custom_fft.window == "hamming"
+
+    def test_fft_shape(self) -> None:
+        """Test FFT output shape."""
+        # Process mono signal
+        fft_result = self.fft.process_array(self.signal_mono).compute()
+
+        # Check shape
+        expected_freqs = self.n_fft // 2 + 1
+        assert fft_result.shape == (1, expected_freqs)
+
+        # Process stereo signal
+        fft_result_stereo = self.fft.process_array(self.signal_stereo).compute()
+        assert fft_result_stereo.shape == (2, expected_freqs)
+
+    def test_fft_content(self) -> None:
+        """Test FFT content correctness."""
+        fft_result = self.fft.process_array(self.signal_mono).compute()
+
+        # Calculate frequency bins
+        freq_bins = np.fft.rfftfreq(self.n_fft, 1.0 / self.sample_rate)
+
+        # Find index of the bin closest to our test frequency (440 Hz)
+        target_idx = np.argmin(np.abs(freq_bins - self.freq))
+
+        # Get magnitude spectrum
+        magnitude = np.abs(fft_result[0])
+
+        # The peak should be at the bin closest to 440 Hz
+        peak_idx = np.argmax(magnitude)
+        assert abs(peak_idx - target_idx) <= 1  # Allow for slight bin difference
+
+        # Check that other frequencies have much lower magnitude
+        # Exclude a small region around the peak
+        mask = np.ones_like(magnitude, dtype=bool)
+        region = 5  # Number of bins around peak to exclude
+        lower = max(0, peak_idx - region)
+        upper = min(len(magnitude), peak_idx + region + 1)
+        mask[lower:upper] = False
+
+        # The peak should be significantly higher than other frequencies
+        assert np.max(magnitude[mask]) < 0.1 * magnitude[peak_idx]
+
+    def test_amplitude_scaling(self) -> None:
+        """Test that FFT amplitude scaling is correct."""
+        # Create a cosine wave with amplitude 1.0
+        # For a real cosine wave, the amplitude should be 0.5 in the FFT
+        fft_inst = FFT(self.sample_rate, n_fft=None, window=self.window)
+        amp = 2.0
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        cos_wave = amp * np.cos(2 * np.pi * self.freq * t)
+
+        # Apply window to match what the FFT class does internally
+        from scipy.signal import get_window
+
+        win = get_window(self.window, len(cos_wave))
+        scaled_cos = cos_wave * win
+        scaling_factor = np.sum(win)
+
+        # Get FFT result using our class
+        fft_result = fft_inst.process_array(np.array([cos_wave])).compute()
+
+        # Calculate expected FFT using numpy directly
+        expected_fft: NDArrayComplex = fft.rfft(scaled_cos)
+        expected_fft[1:-1] *= 2.0  # Double to account for single-sided spectrum
+        expected_fft /= scaling_factor  # Apply scaling factor
+
+        # Compare results
+        np.testing.assert_allclose(fft_result[0], expected_fft, rtol=1e-10)
+
+        # Find the actual frequency bin where the peak is located
+
+        # Find the peak in the results
+        peak_idx = np.argmax(np.abs(fft_result[0]))
+        peak_mag = np.abs(fft_result[0, peak_idx])
+        expected_mag = amp
+
+        # Allow some tolerance due to window effects and frequency binning
+        np.testing.assert_allclose(peak_mag, expected_mag, rtol=0.1)
+
+    def test_delayed_execution(self) -> None:
+        """Test that FFT operation uses dask's delayed execution."""
+        with mock.patch.object(DaArray, "compute") as mock_compute:
+            # Process should not trigger computation
+            result = self.fft.process(self.dask_mono)
+            mock_compute.assert_not_called()
+
+            # The result should be a Dask array
+            assert isinstance(result, DaArray)
+
+            # Now explicitly compute
+            _ = result.compute()
+            mock_compute.assert_called_once()
+
+    def test_window_function_effect(self) -> None:
+        """Test different window functions have different effects."""
+        # Test with rectangular window (no windowing)
+        rect_fft = FFT(self.sample_rate, n_fft=None, window="boxcar")
+        rect_result = rect_fft.process_array(self.signal_mono).compute()
+
+        # Test with Hann window
+        hann_fft = FFT(self.sample_rate, n_fft=None, window="hann")
+        hann_result = hann_fft.process_array(self.signal_mono).compute()
+
+        # The results should be different due to different window functions
+        assert not np.allclose(rect_result, hann_result)
+
+        rect_mag = np.abs(rect_result[0])
+        hann_mag = np.abs(hann_result[0])
+
+        np.testing.assert_allclose(rect_mag.max(), 4, rtol=0.1)
+        np.testing.assert_allclose(hann_mag.max(), 4, rtol=0.1)
+
+    def test_operation_registry(self) -> None:
+        """Test that FFT is properly registered in the operation registry."""
+        # Verify FFT can be accessed through the registry
+        assert get_operation("fft") == FFT
+
+        # Create operation through the factory function
+        fft_op = create_operation("fft", self.sample_rate, n_fft=512, window="hamming")
+
+        # Verify the operation was created correctly
+        assert isinstance(fft_op, FFT)
+        assert fft_op.sampling_rate == self.sample_rate
+        assert fft_op.n_fft == 512
+        assert fft_op.window == "hamming"

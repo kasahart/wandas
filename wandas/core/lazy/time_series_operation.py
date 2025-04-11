@@ -6,10 +6,8 @@ import dask
 import dask.array as da
 import librosa
 import numpy as np
-
-# import numpy as np
 from dask.array.core import Array as DaArray
-from scipy import signal
+from scipy import fft, signal  # Updated import statement
 from waveform_analysis import A_weight
 
 from wandas.utils.types import NDArrayComplex, NDArrayReal
@@ -486,10 +484,12 @@ class FFT(AudioOperation):
     """FFT"""
 
     name = "fft"
-    n_fft: int
+    n_fft: Optional[int]
     window: str
 
-    def __init__(self, sampling_rate: float, n_fft: int = 2048, window: str = "hann"):
+    def __init__(
+        self, sampling_rate: float, n_fft: Optional[int] = None, window: str = "hann"
+    ):
         """
         FFT操作の初期化
         Parameters
@@ -509,10 +509,13 @@ class FFT(AudioOperation):
         """FFT操作のプロセッサ関数を作成"""
         from scipy.signal import get_window
 
-        n_samples = x.shape[-1]
-        win = get_window(self.window, n_samples)
+        win = get_window(self.window, x.shape[-1])
         x = x * win
-        result: NDArrayComplex = np.fft.rfft(x, n=self.n_fft, axis=-1)
+        result: NDArrayComplex = fft.rfft(x, n=self.n_fft, axis=-1)
+        result[..., 1:-1] *= 2.0
+        # 窓関数補正
+        scaling_factor = np.sum(win)
+        result /= scaling_factor
         return result
 
 
@@ -520,10 +523,12 @@ class IFFT(AudioOperation):
     """IFFT"""
 
     name = "ifft"
-    n_fft: int
+    n_fft: Optional[int]
     window: str
 
-    def __init__(self, sampling_rate: float, n_fft: int = 2048, window: str = "hann"):
+    def __init__(
+        self, sampling_rate: float, n_fft: Optional[int] = None, window: str = "hann"
+    ):
         """
         IFFT操作の初期化
         Parameters
@@ -543,10 +548,15 @@ class IFFT(AudioOperation):
         """FFT操作のプロセッサ関数を作成"""
         from scipy.signal import get_window
 
-        result = np.fft.irfft(x, n=self.n_fft, axis=-1)
+        _x = np.copy(x)
+        _x[..., 1:-1] /= 2.0
+        result = fft.irfft(_x, n=self.n_fft, axis=-1)
 
+        # 窓関数補正
         n_samples = result.shape[-1]
         win = get_window(self.window, n_samples)
+        scaling_factor = np.sum(win)
+        result *= scaling_factor
         result = result / (win + 1e-12)
         return result
 
@@ -557,17 +567,17 @@ class Welch(AudioOperation):
     name = "welch"
     n_fft: int
     window: str
-    hop_length: int
-    win_length: int
+    hop_length: Optional[int]
+    win_length: Optional[int]
     average: str
     detrend: str
 
     def __init__(
         self,
         sampling_rate: float,
-        win_length: int = 2048,
-        n_fft: Optional[int] = None,
+        n_fft: int = 2048,
         hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
         window: str = "hann",
         average: str = "mean",
         detrend: str = "constant",
@@ -583,14 +593,23 @@ class Welch(AudioOperation):
         window : str, optional
             窓関数の種類、デフォルトは'hann'
         """
-        self.win_length = win_length
-        self.n_fft = n_fft if n_fft is not None else win_length
-        self.window = window
+        self.n_fft = n_fft
+        self.win_length = win_length if win_length is not None else n_fft
         self.hop_length = hop_length if hop_length is not None else self.win_length // 4
+        self.noverlap = (
+            self.win_length - self.hop_length if hop_length is not None else None
+        )
+        self.window = window
         self.average = average
         self.detrend = detrend
         super().__init__(
             sampling_rate,
+            n_fft=n_fft,
+            win_length=self.win_length,
+            hop_length=self.hop_length,
+            window=window,
+            average=average,
+            detrend=detrend,
         )
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
@@ -600,7 +619,7 @@ class Welch(AudioOperation):
         _, result = ss.welch(
             x,
             nperseg=self.win_length,
-            noverlap=self.win_length - self.hop_length,
+            noverlap=self.noverlap,
             nfft=self.n_fft,
             window=self.window,
             average=self.average,
@@ -668,7 +687,7 @@ class STFT(AudioOperation):
             padded=True,
             axis=-1,  # Process along the samples axis
         )
-
+        result[..., 1:-1, :] *= 2.0
         logger.debug(f"SciPy STFT applied, returning result with shape: {result.shape}")
         return result
 
@@ -714,9 +733,11 @@ class ISTFT(AudioOperation):
         # 入力が2次元の場合は3次元に変換 (単一チャネルとみなす)
         if x.ndim == 2:
             x = x.reshape(1, *x.shape)
+        _x = np.copy(x)
+        _x[..., 1:-1, :] /= 2.0
         result: NDArrayReal
         _, result = signal.istft(
-            x,
+            _x,
             fs=self.sampling_rate,
             window=self.window,
             nperseg=self.win_length,
