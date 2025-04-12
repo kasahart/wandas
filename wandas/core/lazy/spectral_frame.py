@@ -20,6 +20,8 @@ if TYPE_CHECKING:
     from wandas.core.lazy.plotting import PlotStrategy
 
     from .channel_frame import ChannelFrame
+    from .noct_frame import NOctFrame
+
 
 dask_delayed = dask.delayed  # type: ignore [unused-ignore]
 da_from_delayed = da.from_delayed  # type: ignore [unused-ignore]
@@ -312,25 +314,56 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             "window": self.window,
         }
 
-    # def noct_synthesis(
-    #     self,
-    #     fmin: float,
-    #     fmax: float,
-    #     n: int = 3,
-    #     G: int = 10,  # noqa: N803
-    #     fr: int = 1000,
-    # ) -> NOctChannel:
-    #     """
-    #     N-Octave Spectrum を計算します。
-    #     """
-    #     result = NOctChannel.noct_synthesis(
-    #         data=self.data / np.sqrt(2),
-    #         freqs=self.freqs,
-    #         fmin=fmin,
-    #         fmax=fmax,
-    #         n=n,
-    #         G=G,
-    #         fr=fr,
-    #     )
+    def noct_synthesis(
+        self,
+        fmin: float,
+        fmax: float,
+        n: int = 3,
+        G: int = 10,  # noqa: N803
+        fr: int = 1000,
+    ) -> "NOctFrame":
+        """
+        N-Octave Spectrum を計算します。
+        """
+        if self.sampling_rate != 48000:
+            raise ValueError(
+                "noct_synthesisは48000Hzのサンプリングレートでのみ使用できます。"
+            )
+        from .noct_frame import NOctFrame
+        from .time_series_operation import NOctSynthesis
 
-    #     return NOctChannel.from_channel(self, **result)
+        params = {"fmin": fmin, "fmax": fmax, "n": n, "G": G, "fr": fr}
+        operation_name = "noct_synthesis"
+        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
+        from .time_series_operation import create_operation
+
+        # 操作インスタンスを作成
+        operation = create_operation(operation_name, self.sampling_rate, **params)
+        operation = cast("NOctSynthesis", operation)
+        # データに処理を適用
+        spectrum_data = operation.process(self._data)
+
+        logger.debug(
+            f"Created new SpectralFrame with operation {operation_name} added to graph"
+        )
+
+        return NOctFrame(
+            data=spectrum_data,
+            sampling_rate=self.sampling_rate,
+            fmin=fmin,
+            fmax=fmax,
+            n=n,
+            G=G,
+            fr=fr,
+            label=f"1/{n}Oct of {self.label}",
+            metadata={**self.metadata, **params},
+            operation_history=[
+                *self.operation_history,
+                {
+                    "operation": "noct_synthesis",
+                    "params": params,
+                },
+            ],
+            channel_metadata=self._channel_metadata,
+            previous=self,
+        )

@@ -19,6 +19,7 @@ if TYPE_CHECKING:
         _WindowSpec,
     )
 
+    from .noct_frame import NOctFrame
     from .spectral_frame import SpectralFrame
     from .spectrogram_frame import SpectrogramFrame
 
@@ -871,6 +872,55 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
             operation_history=[
                 *self.operation_history,
                 {"operation": "fft", "params": {"n_fft": n_fft, "window": window}},
+            ],
+            channel_metadata=self._channel_metadata,
+            previous=self,
+        )
+
+    def noct_spectrum(
+        self,
+        fmin: float,
+        fmax: float,
+        n: int = 3,
+        G: int = 10,  # noqa: N803
+        fr: int = 1000,
+    ) -> "NOctFrame":
+        """ノクターナルスペクトルを計算します。"""
+
+        from .noct_frame import NOctFrame
+        from .time_series_operation import NOctSpectrum
+
+        params = {"fmin": fmin, "fmax": fmax, "n": n, "G": G, "fr": fr}
+        operation_name = "noct_spectrum"
+        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
+        from .time_series_operation import create_operation
+
+        # 操作インスタンスを作成
+        operation = create_operation(operation_name, self.sampling_rate, **params)
+        operation = cast("NOctSpectrum", operation)
+        # データに処理を適用
+        spectrum_data = operation.process(self._data)
+
+        logger.debug(
+            f"Created new SpectralFrame with operation {operation_name} added to graph"
+        )
+
+        return NOctFrame(
+            data=spectrum_data,
+            sampling_rate=self.sampling_rate,
+            fmin=fmin,
+            fmax=fmax,
+            n=n,
+            G=G,
+            fr=fr,
+            label=f"1/{n}Oct of {self.label}",
+            metadata={**self.metadata, **params},
+            operation_history=[
+                *self.operation_history,
+                {
+                    "operation": "noct_spectrum",
+                    "params": params,
+                },
             ],
             channel_metadata=self._channel_metadata,
             previous=self,

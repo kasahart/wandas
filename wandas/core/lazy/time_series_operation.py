@@ -7,6 +7,7 @@ import dask.array as da
 import librosa
 import numpy as np
 from dask.array.core import Array as DaArray
+from mosqito.sound_level_meter import noct_spectrum, noct_synthesis
 from scipy import fft, signal  # Updated import statement
 from waveform_analysis import A_weight
 
@@ -632,6 +633,128 @@ class Welch(AudioOperation):
             raise ValueError(
                 "Welch operation requires a Dask array, but received a non-ndarray."
             )
+        return np.array(result)
+
+
+class NOctSpectrum(AudioOperation):
+    """Nオクターブスペクトル操作"""
+
+    name = "noct_spectrum"
+
+    def __init__(
+        self,
+        sampling_rate: float,
+        fmin: float,
+        fmax: float,
+        n: int = 3,
+        G: int = 10,  # noqa: N803
+        fr: int = 1000,
+    ):
+        """
+        ノクターブスペクトルの初期化
+
+        Parameters
+        ----------
+        sampling_rate : float
+            サンプリングレート (Hz)
+        fmin : float
+            最小周波数 (Hz)
+        fmax : float
+            最大周波数 (Hz)
+        n : int, optional
+            オクターブの分割数, デフォルトは3
+        G : int, optional
+            基準レベル, デフォルトは10
+        fr : int, optional
+            基準周波数, デフォルトは1000
+        """
+        super().__init__(sampling_rate, fmin=fmin, fmax=fmax, n=n, G=G, fr=fr)
+        self.fmin = fmin
+        self.fmax = fmax
+        self.n = n
+        self.G = G
+        self.fr = fr
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """ノクターブスペクトルのプロセッサ関数を作成"""
+        logger.debug(f"Applying NoctSpectrum to array with shape: {x.shape}")
+        spec, _ = noct_spectrum(
+            sig=x.T,
+            fs=self.sampling_rate,
+            fmin=self.fmin,
+            fmax=self.fmax,
+            n=self.n,
+            G=self.G,
+            fr=self.fr,
+        )
+        spec = spec.T
+        logger.debug(f"NoctSpectrum applied, returning result with shape: {spec.shape}")
+        return np.array(spec)
+
+
+class NOctSynthesis(AudioOperation):
+    """ノクターブ合成操作"""
+
+    name = "noct_synthesis"
+
+    def __init__(
+        self,
+        sampling_rate: float,
+        fmin: float,
+        fmax: float,
+        n: int = 3,
+        G: int = 10,  # noqa: N803
+        fr: int = 1000,
+    ):
+        """
+        ノクターブ合成の初期化
+
+        Parameters
+        ----------
+        sampling_rate : float
+            サンプリングレート (Hz)
+        fmin : float
+            最小周波数 (Hz)
+        fmax : float
+            最大周波数 (Hz)
+        n : int, optional
+            オクターブの分割数, デフォルトは3
+        G : int, optional
+            基準レベル, デフォルトは10
+        fr : int, optional
+            基準周波数, デフォルトは1000
+        """
+        super().__init__(sampling_rate, fmin=fmin, fmax=fmax, n=n, G=G, fr=fr)
+
+        self.fmin = fmin
+        self.fmax = fmax
+        self.n = n
+        self.G = G
+        self.fr = fr
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """ノクターブ合成のプロセッサ関数を作成"""
+        logger.debug(f"Applying NoctSynthesis to array with shape: {x.shape}")
+        # nをshape[-1]から計算する
+        n = x.shape[-1]  # nをshape[-1]から計算する
+        if n % 2 == 0:
+            n = n * 2 - 1
+        else:
+            n = (n - 1) * 2
+        freqs = np.fft.rfftfreq(n, d=1 / self.sampling_rate)
+        result, _ = noct_synthesis(
+            spectrum=np.abs(x).T,
+            freqs=freqs,
+            fmin=self.fmin,
+            fmax=self.fmax,
+            n=self.n,
+            G=self.G,
+            fr=self.fr,
+        )
+        result = result.T
+        logger.debug(
+            f"NoctSynthesis applied, returning result with shape: {result.shape}"
+        )
         return np.array(result)
 
 
