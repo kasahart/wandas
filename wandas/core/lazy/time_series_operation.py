@@ -291,6 +291,35 @@ class HpssPercussive(AudioOperation):
         return result
 
 
+class ReSampling(AudioOperation):
+    """リサンプリング操作"""
+
+    name = "resampling"
+
+    def __init__(self, sampling_rate: float, target_sr: float):
+        """
+        リサンプリング操作の初期化
+
+        Parameters
+        ----------
+        sampling_rate : float
+            サンプリングレート (Hz)
+        target_sampling_rate : float
+            目標サンプリングレート (Hz)
+        """
+        super().__init__(sampling_rate, target_sr=target_sr)
+        self.target_sr = target_sr
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """リサンプリング操作のプロセッサ関数を作成"""
+        logger.debug(f"Applying resampling to array with shape: {x.shape}")
+        result = librosa.resample(
+            x, orig_sr=self.sampling_rate, target_sr=self.target_sr
+        )
+        logger.debug(f"Resampling applied, returning result with shape: {result.shape}")
+        return result
+
+
 class ABS(AudioOperation):
     """絶対値操作"""
 

@@ -116,6 +116,14 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         logger.debug(
             f"Created new ChannelFrame with operation {operation_name} added to graph"
         )
+        if operation_name == "resampling":
+            # リサンプリングの場合、サンプリングレートを更新
+            return self._create_new_instance(
+                sampling_rate=params["target_sr"],
+                data=processed_data,
+                metadata=new_metadata,
+                operation_history=new_history,
+            )
         return self._create_new_instance(
             data=processed_data,
             metadata=new_metadata,
@@ -725,6 +733,36 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
             window=window,
             center=center,
             pad_mode=pad_mode,
+        )
+
+    def resampling(
+        self,
+        target_sr: float,
+        **kwargs: Any,
+    ) -> "ChannelFrame":
+        """
+        音声データをリサンプリングします。
+
+        Parameters
+        ----------
+        target_sr : float
+            目標サンプリングレート (Hz)
+        resample_type : str, optional
+            リサンプリング方法 ('linear', 'sinc', 'fft'など)
+        window : str, optional
+            窓関数の種類 ('hann', 'hamming'など)
+        **kwargs : dict
+            追加のリサンプリングパラメータ
+
+        Returns
+        -------
+        ChannelFrame
+            リサンプリングされたチャネルフレーム
+        """
+        return self.apply_operation(
+            "resampling",
+            target_sr=target_sr,
+            **kwargs,
         )
 
     def abs(self) -> "ChannelFrame":
