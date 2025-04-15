@@ -917,7 +917,6 @@ class TestChannelFrame:
                 hop_length=512,  # n_fft//4
                 win_length=2048,
                 window="hann",
-                boundary="zeros",
             )
 
             # processメソッドが呼び出されたか確認
@@ -946,7 +945,6 @@ class TestChannelFrame:
                 hop_length=256,
                 win_length=1024,
                 window="hamming",
-                boundary="wrap",
             )
 
             mock_create_op.assert_called_with(
@@ -956,7 +954,6 @@ class TestChannelFrame:
                 hop_length=256,
                 win_length=1024,
                 window="hamming",
-                boundary="wrap",
             )
 
             assert result.n_fft == 1024

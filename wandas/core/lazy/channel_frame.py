@@ -970,7 +970,6 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         hop_length: Optional[int] = None,
         win_length: Optional[int] = None,
         window: str = "hann",
-        boundary: Optional[str] = "zeros",
     ) -> "SpectrogramFrame":
         """
         短時間フーリエ変換（STFT）を計算し、時間-周波数領域のスペクトログラムを返します。
@@ -1005,7 +1004,6 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
             "hop_length": _hop_length,
             "win_length": _win_length,
             "window": window,
-            "boundary": boundary,
         }
         operation_name = "stft"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")

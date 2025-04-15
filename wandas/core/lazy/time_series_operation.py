@@ -9,6 +9,8 @@ import numpy as np
 from dask.array.core import Array as DaArray
 from mosqito.sound_level_meter import noct_spectrum, noct_synthesis
 from scipy import fft, signal  # Updated import statement
+from scipy.signal import ShortTimeFFT
+from scipy.signal.windows import get_window
 from waveform_analysis import A_weight
 
 from wandas.utils.types import NDArrayComplex, NDArrayReal
@@ -799,7 +801,6 @@ class STFT(AudioOperation):
         hop_length: Optional[int] = None,
         win_length: Optional[int] = None,
         window: str = "hann",
-        boundary: Optional[str] = "zeros",
     ):
         self.n_fft = n_fft
         self.win_length = win_length if win_length is not None else n_fft
@@ -808,15 +809,41 @@ class STFT(AudioOperation):
             self.win_length - self.hop_length if hop_length is not None else None
         )
         self.window = window
-        self.boundary = boundary
+
+        self.SFT = ShortTimeFFT(
+            win=get_window(window, self.win_length),
+            hop=self.hop_length,
+            fs=sampling_rate,
+            mfft=self.n_fft,
+            scale_to="magnitude",
+        )
         super().__init__(
             sampling_rate,
             n_fft=n_fft,
             win_length=self.win_length,
             hop_length=self.hop_length,
             window=window,
-            boundary=boundary,
         )
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """
+        操作後の出力データの形状を計算します
+
+        Parameters
+        ----------
+        input_shape : tuple
+            入力データの形状
+
+        Returns
+        -------
+        tuple
+            出力データの形状
+        """
+        # デフォルトでは形状が変わらない
+        n_samples = input_shape[-1]
+        n_f = len(self.SFT.f)
+        n_t = len(self.SFT.t(n_samples))
+        return (input_shape[0], n_f, n_t)
 
     def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
         """複数チャネルを一度にSciPyのSTFT処理"""
@@ -827,18 +854,7 @@ class STFT(AudioOperation):
             x = x.reshape(1, -1)
 
         # Apply STFT to all channels at once
-        result: NDArrayComplex
-        _, _, result = signal.stft(
-            x,
-            fs=self.sampling_rate,
-            window=self.window,
-            nperseg=self.win_length,
-            noverlap=self.noverlap,
-            nfft=self.n_fft,
-            boundary=self.boundary,  # type: ignore [unused-ignore]
-            padded=True,
-            axis=-1,  # Process along the samples axis
-        )
+        result: NDArrayComplex = self.SFT.stft(x)
         result[..., 1:-1, :] *= 2.0
         logger.debug(f"SciPy STFT applied, returning result with shape: {result.shape}")
         return result
@@ -856,55 +872,79 @@ class ISTFT(AudioOperation):
         hop_length: Optional[int] = None,
         win_length: Optional[int] = None,
         window: str = "hann",
-        boundary: Optional[str] = "zeros",
         length: Optional[int] = None,
     ):
         self.n_fft = n_fft
         self.win_length = win_length if win_length is not None else n_fft
         self.hop_length = hop_length if hop_length is not None else self.win_length // 4
-        self.noverlap = (
-            self.win_length - self.hop_length if hop_length is not None else None
-        )
         self.window = window
-        self.boundary = boundary
         self.length = length
+
+        # Instantiate ShortTimeFFT for ISTFT calculation
+        self.SFT = ShortTimeFFT(
+            win=get_window(window, self.win_length),
+            hop=self.hop_length,
+            fs=sampling_rate,
+            mfft=self.n_fft,
+            scale_to="magnitude",  # Consistent scaling with STFT
+        )
+
         super().__init__(
             sampling_rate,
             n_fft=n_fft,
             win_length=self.win_length,
             hop_length=self.hop_length,
             window=window,
-            boundary=boundary,
             length=length,
         )
 
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """
+        操作後の出力データの形状を計算します
+
+        Parameters
+        ----------
+        input_shape : tuple
+            入力データの形状 (channels, freqs, time_frames)
+
+        Returns
+        -------
+        tuple
+            出力データの形状 (channels, samples)
+        """
+        k0: int = 0
+        q_max = input_shape[-1] + self.SFT.p_min
+        k_max = (q_max - 1) * self.SFT.hop + self.SFT.m_num - self.SFT.m_num_mid
+        k_q0, k_q1 = self.SFT.nearest_k_p(k0), self.SFT.nearest_k_p(k_max, left=False)
+        n_pts = k_q1 - k_q0 + self.SFT.m_num - self.SFT.m_num_mid
+
+        return input_shape[:-2] + (n_pts,)
+
     def _process_array(self, x: NDArrayComplex) -> NDArrayReal:
-        """複数チャネルを一度にSciPyのISTFT処理"""
-        logger.debug(f"Applying SciPy ISTFT to array with shape: {x.shape}")
+        """複数チャネルを一度にSciPyのISTFT処理 using ShortTimeFFT"""
+        logger.debug(
+            f"Applying SciPy ISTFT (ShortTimeFFT) to array with shape: {x.shape}"
+        )
 
         # 入力が2次元の場合は3次元に変換 (単一チャネルとみなす)
         if x.ndim == 2:
             x = x.reshape(1, *x.shape)
+
+        # Adjust scaling back if STFT applied factor of 2
         _x = np.copy(x)
         _x[..., 1:-1, :] /= 2.0
-        result: NDArrayReal
-        _, result = signal.istft(
-            _x,
-            fs=self.sampling_rate,
-            window=self.window,
-            nperseg=self.win_length,
-            noverlap=self.noverlap,
-            nfft=self.n_fft,
-            input_onesided=True,
-            boundary=False if self.boundary is None else True,
-            time_axis=-1,  # Process along the time axis
-            freq_axis=-2,  # Process along the frequency axis
-        )
+
+        # Apply ISTFT using the ShortTimeFFT instance
+        result: NDArrayReal = self.SFT.istft(_x)
+
+        # Trim to desired length if specified
+        if self.length is not None:
+            result = result[..., : self.length]
 
         logger.debug(
-            f"SciPy ISTFT applied, returning result with shape: {result.shape}"
+            f"ShortTimeFFT applied, returning result with shape: {result.shape}"
         )
-        return result[..., : self.length] if self.length is not None else result
+        return result
 
 
 # 操作タイプと対応するクラスのマッピングを自動で収集

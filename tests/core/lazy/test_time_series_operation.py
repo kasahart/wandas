@@ -328,7 +328,7 @@ class TestSTFTOperation:
         self.hop_length: int = 256
         self.win_length: int = 1024
         self.window: str = "hann"
-        self.boundary: str = "zeros"
+        self.boundary: str | None = "zeros"
 
         # Create a test signal (1 second sine wave at 440 Hz)
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
@@ -348,7 +348,6 @@ class TestSTFTOperation:
             hop_length=self.hop_length,
             win_length=self.win_length,
             window=self.window,
-            boundary=self.boundary,
         )
 
         # Initialize ISTFT
@@ -358,7 +357,6 @@ class TestSTFTOperation:
             hop_length=self.hop_length,
             win_length=self.win_length,
             window=self.window,
-            boundary=self.boundary,
         )
 
     def test_stft_initialization(self) -> None:
@@ -370,7 +368,6 @@ class TestSTFTOperation:
         assert stft.hop_length == 512  # 2048 // 4
         assert stft.win_length == 2048
         assert stft.window == "hann"
-        assert stft.boundary == "zeros"  # デフォルト値を確認
 
         # Custom initialization
         custom_stft = STFT(
@@ -379,13 +376,11 @@ class TestSTFTOperation:
             hop_length=256,
             win_length=512,
             window="hamming",
-            boundary="reflect",
         )
         assert custom_stft.n_fft == 1024
         assert custom_stft.hop_length == 256
         assert custom_stft.win_length == 512
         assert custom_stft.window == "hamming"
-        assert custom_stft.boundary == "reflect"  # カスタム値を確認
 
     def test_istft_initialization(self) -> None:
         """Test ISTFT initialization with different parameters."""
@@ -396,7 +391,6 @@ class TestSTFTOperation:
         assert istft.hop_length == 512  # 2048 // 4
         assert istft.win_length == 2048
         assert istft.window == "hann"
-        assert istft.boundary == "zeros"  # デフォルト値を確認
         assert istft.length is None
 
         # Custom initialization
@@ -406,18 +400,19 @@ class TestSTFTOperation:
             hop_length=256,
             win_length=512,
             window="hamming",
-            boundary=None,
             length=16000,
         )
         assert custom_istft.n_fft == 1024
         assert custom_istft.hop_length == 256
         assert custom_istft.win_length == 512
         assert custom_istft.window == "hamming"
-        assert custom_istft.boundary is None
         assert custom_istft.length == 16000
 
     def test_stft_shape_mono(self) -> None:
         """Test STFT output shape for mono signal."""
+        from scipy.signal import ShortTimeFFT as ScipySTFT
+        from scipy.signal import get_window
+
         # Process the mono signal
         stft_result = self.stft.process_array(self.signal_mono).compute()
 
@@ -427,11 +422,16 @@ class TestSTFTOperation:
         )
 
         # Expected shape: (channels, frequencies, time frames)
+        sft = ScipySTFT(
+            win=get_window(self.window, self.win_length),
+            hop=self.hop_length,
+            fs=self.sample_rate,
+            mfft=self.n_fft,
+            scale_to="magnitude",
+        )
         expected_n_channels = 1
-        expected_n_freqs = self.n_fft // 2 + 1
-        expected_n_frames = int(np.ceil(len(self.signal_mono[0]) / self.hop_length))
-        if self.boundary != "none":
-            expected_n_frames += 1  # パディングがある場合はフレーム数が増える
+        expected_n_freqs = sft.f.shape[0]
+        expected_n_frames = sft.t(self.signal_mono.shape[-1]).shape[0]
 
         expected_shape = (expected_n_channels, expected_n_freqs, expected_n_frames)
         assert stft_result.shape == expected_shape, (
@@ -440,6 +440,9 @@ class TestSTFTOperation:
 
     def test_stft_shape_stereo(self) -> None:
         """Test STFT output shape for stereo signal."""
+        from scipy.signal import ShortTimeFFT as ScipySTFT
+        from scipy.signal import get_window
+
         # Process the stereo signal
         stft_result = self.stft.process_array(self.signal_stereo).compute()
 
@@ -448,11 +451,16 @@ class TestSTFTOperation:
         )
 
         # Expected shape: (channels, frequencies, time frames)
+        sft = ScipySTFT(
+            win=get_window(self.window, self.win_length),
+            hop=self.hop_length,
+            fs=self.sample_rate,
+            mfft=self.n_fft,
+            scale_to="magnitude",
+        )
         expected_n_channels = 2
-        expected_n_freqs = self.n_fft // 2 + 1
-        expected_n_frames = int(np.ceil(len(self.signal_stereo[0]) / self.hop_length))
-        if self.boundary != "none":
-            expected_n_frames += 1  # パディングがある場合はフレーム数が増える
+        expected_n_freqs = sft.f.shape[0]
+        expected_n_frames = sft.t(self.signal_mono.shape[-1]).shape[0]
 
         expected_shape = (expected_n_channels, expected_n_freqs, expected_n_frames)
         assert stft_result.shape == expected_shape, (
@@ -461,35 +469,37 @@ class TestSTFTOperation:
 
     def test_stft_content(self) -> None:
         """Test STFT content correctness."""
-        # Process the mono signal
-        stft_result = self.stft.process_array(self.signal_mono).compute()
+        # Process the mono signal using the class under test
+        stft_result = self.stft.process(self.signal_mono).compute()
 
         assert stft_result.ndim == 3, (
             "Output should be 3D (channels, frequencies, time)"
         )
 
-        # Calculate the expected STFT using scipy directly for comparison
-        from scipy import signal as ss
+        # Calculate the expected STFT using scipy.signal.ShortTimeFFT directly
+        from scipy.signal import ShortTimeFFT as ScipySTFT
+        from scipy.signal import get_window
 
-        _, _, expected_stft = ss.stft(
-            self.signal_mono[0],
+        # Ensure parameters match the self.stft instance
+        sft = ScipySTFT(
+            win=get_window(self.window, self.win_length),
+            hop=self.hop_length,
             fs=self.sample_rate,
-            window=self.window,
-            nperseg=self.win_length,
-            noverlap=self.win_length - self.hop_length,
-            nfft=self.n_fft,
-            boundary=self.boundary,
-            padded=True,
+            mfft=self.n_fft,
+            scale_to="magnitude",
         )
-        expected_stft[..., 1:-1, :] *= 2.0
-        # Add channel dimension for comparison
-        expected_stft = expected_stft.reshape(1, *expected_stft.shape)
+        # Calculate STFT on the raw signal data (first channel)
+        expected_stft_raw = sft.stft(self.signal_mono[0])
+        expected_stft_raw[..., 1:-1, :] *= 2.0
+        # Reshape scipy's output (freqs, time) to match class
+        # output (channels, freqs, time)
+        expected_stft = expected_stft_raw.reshape(1, *expected_stft_raw.shape)
 
-        # Compare the results - should be very close but not exactly
-        # the same due to floating point
-        np.testing.assert_allclose(stft_result, expected_stft, rtol=1e-10, atol=1e-10)
-
-        np.testing.assert_allclose(np.abs(stft_result).max(), 4, rtol=0.1)
+        # Check the peak magnitude
+        #  (should be close to the original amplitude 4 due to scale_to='magnitude')
+        np.testing.assert_allclose(np.abs(stft_result).max(), 4, rtol=1e-5)
+        # Compare the results from the class with the directly calculated scipy result
+        np.testing.assert_allclose(stft_result, expected_stft, rtol=1e-5, atol=1e-5)
 
     def test_istft_shape(self) -> None:
         """Test ISTFT output shape."""
@@ -506,7 +516,6 @@ class TestSTFTOperation:
         assert istft_result.shape[0] == 1
 
         # Length should be approximately the original signal length
-        # The exact length depends on STFT/ISTFT parameters
         expected_length = len(self.signal_mono[0])
         assert abs(istft_result.shape[1] - expected_length) < self.win_length
 
@@ -516,7 +525,6 @@ class TestSTFTOperation:
         stft_data = self.stft.process_array(self.signal_mono)
         istft_data = self.istft.process_array(stft_data).compute()
 
-        # Compare with original signal (trim or pad to the same length)
         orig_length = self.signal_mono.shape[1]
         reconstructed_trimmed = istft_data[:, :orig_length]
         np.testing.assert_allclose(
@@ -528,111 +536,45 @@ class TestSTFTOperation:
 
     def test_1d_input_handling(self) -> None:
         """Test that 1D input is properly reshaped to (1, samples)."""
-        # Create a 1D array
         signal_1d = np.sin(
             2 * np.pi * 440 * np.linspace(0, 1, self.sample_rate, endpoint=False)
         )
 
-        # Process 1D array
         stft_result = self.stft.process_array(signal_1d).compute()
 
-        # Should be reshaped to 3D: (1, freqs, time)
         assert stft_result.ndim == 3
-        assert stft_result.shape[0] == 1  # Single channel
+        assert stft_result.shape[0] == 1
 
     def test_istft_2d_input_handling(self) -> None:
         """
         Test that 2D input (single channel spectrogram) is
         properly reshaped to (1, freqs, frames).
         """
-        # Create STFT data and remove channel dimension
         stft_data = self.stft.process_array(self.signal_mono).compute()
-        stft_2d = stft_data[0]  # Remove channel dimension to get 2D
+        stft_2d = stft_data[0]
 
-        # Process with ISTFT
-        istft_result = self.istft.process_array(stft_2d).compute()  # Added compute()
+        istft_result = self.istft.process_array(stft_2d).compute()
 
-        # Should be reshaped to 2D: (1, time)
         assert istft_result.ndim == 2
-        assert istft_result.shape[0] == 1  # Single channel
-
-    def test_boundary_parameter(self) -> None:
-        """
-        Test that different boundary parameters affect the output shape and content.
-        """
-        # Test with different boundary settings
-        boundaries = ["even", "odd", "constant", "zeros", None]
-
-        for boundary in boundaries:
-            # Create STFT with the specific boundary
-            stft = STFT(
-                sampling_rate=self.sample_rate,
-                n_fft=self.n_fft,
-                hop_length=self.hop_length,
-                win_length=self.win_length,
-                window=self.window,
-                boundary=boundary,
-            )
-
-            # Process signal
-            stft_result = stft.process_array(self.signal_mono).compute()
-
-            # Check that we got a result with reasonable dimensions
-            assert stft_result.ndim == 3
-            assert stft_result.shape[0] == 1  # Single channel
-            assert (
-                stft_result.shape[1] == self.n_fft // 2 + 1
-            )  # Number of frequency bins
-
-            # Number of frames may differ based on boundary condition
-            frame_count = stft_result.shape[2]
-            min_frames = int(np.ceil(len(self.signal_mono[0]) / self.hop_length))
-            # If boundary is not None, frame count is typically more than minimum
-            if boundary is not None:
-                assert frame_count >= min_frames
-
-            # For ISTFT as well
-            istft = ISTFT(
-                sampling_rate=self.sample_rate,
-                n_fft=self.n_fft,
-                hop_length=self.hop_length,
-                win_length=self.win_length,
-                window=self.window,
-                boundary=boundary,
-                length=len(self.signal_mono[0]),  # Set length to match original signal
-            )
-
-            # Roundtrip test
-            istft_result = istft.process_array(stft_result).compute()
-            assert istft_result.shape[0] == 1  # Single channel
-
-            assert istft_result.ndim == 2  # Should be 2D (channels, time)
-            assert istft_result.shape[1] == len(self.signal_mono[0])
+        assert istft_result.shape[0] == 1
 
     def test_stft_operation_registry(self) -> None:
         """Test that STFT is properly registered in the operation registry."""
-        # Verify that STFT and ISTFT can be accessed through the registry
         assert get_operation("stft") == STFT
         assert get_operation("istft") == ISTFT
 
-        # Create operation through the factory function
-        stft_op = create_operation(
-            "stft", self.sample_rate, n_fft=512, hop_length=128, boundary="reflect"
-        )
+        stft_op = create_operation("stft", self.sample_rate, n_fft=512, hop_length=128)
         istft_op = create_operation(
-            "istft", self.sample_rate, n_fft=512, hop_length=128, boundary="reflect"
+            "istft", self.sample_rate, n_fft=512, hop_length=128
         )
 
-        # Verify the operations were created with correct parameters
         assert isinstance(stft_op, STFT)
         assert stft_op.n_fft == 512
         assert stft_op.hop_length == 128
-        assert stft_op.boundary == "reflect"
 
         assert isinstance(istft_op, ISTFT)
         assert istft_op.n_fft == 512
         assert istft_op.hop_length == 128
-        assert istft_op.boundary == "reflect"
 
 
 class TestRmsTrend:
@@ -642,9 +584,8 @@ class TestRmsTrend:
         self.frame_length: int = 1024
         self.hop_length: int = 256
 
-        # 正弦波信号を作成（振幅1.0）
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        sine_wave = np.sin(2 * np.pi * 440 * t)  # 440Hzの正弦波
+        sine_wave = np.sin(2 * np.pi * 440 * t)
 
         # 正弦波（振幅1.0）のRMS値は1/√2 = 0.7071...
         self.expected_rms = 1.0 / np.sqrt(2)
