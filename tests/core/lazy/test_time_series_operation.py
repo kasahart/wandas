@@ -587,20 +587,14 @@ class TestRmsTrend:
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
         sine_wave = np.sin(2 * np.pi * 440 * t)
 
-        # 正弦波（振幅1.0）のRMS値は1/√2 = 0.7071...
         self.expected_rms = 1.0 / np.sqrt(2)
 
-        # シングルチャンネルとマルチチャンネル信号を準備
         self.signal_mono: NDArrayReal = np.array([sine_wave])
-        self.signal_stereo: NDArrayReal = np.array(
-            [sine_wave, sine_wave * 0.5]
-        )  # 第2チャンネルは振幅0.5
+        self.signal_stereo: NDArrayReal = np.array([sine_wave, sine_wave * 0.5])
 
-        # Dask配列を作成
         self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, 1000))
         self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, 1000))
 
-        # RmsTrend操作を初期化
         self.rms_op = RmsTrend(
             sampling_rate=self.sample_rate,
             frame_length=self.frame_length,
@@ -608,7 +602,6 @@ class TestRmsTrend:
             Aw=False,
         )
 
-        # A-weightingを適用するRmsTrend操作
         self.rms_aw_op = RmsTrend(
             sampling_rate=self.sample_rate,
             frame_length=self.frame_length,
@@ -618,14 +611,12 @@ class TestRmsTrend:
 
     def test_initialization(self) -> None:
         """パラメータ初期化のテスト"""
-        # デフォルト値でのイニシャライズ
         rms_default = RmsTrend(self.sample_rate)
         assert rms_default.sampling_rate == self.sample_rate
-        assert rms_default.frame_length == 2048  # デフォルト値
-        assert rms_default.hop_length == 512  # デフォルト値
-        assert rms_default.Aw is False  # デフォルト値
+        assert rms_default.frame_length == 2048
+        assert rms_default.hop_length == 512
+        assert rms_default.Aw is False
 
-        # カスタム値でのイニシャライズ
         custom_frame_length = 4096
         custom_hop_length = 1024
         rms_custom = RmsTrend(
@@ -641,10 +632,8 @@ class TestRmsTrend:
 
     def test_rms_calculation(self) -> None:
         """RMS計算が正しく行われるかテスト"""
-        # RMS処理を実行
         result = self.rms_op.process_array(self.signal_mono).compute()
 
-        # 形状をチェック
         expected_frames = librosa.feature.rms(
             y=self.signal_mono,
             frame_length=self.frame_length,
@@ -652,11 +641,8 @@ class TestRmsTrend:
         )[..., 0, :].shape[1]
         assert result.shape == (1, expected_frames)
 
-        # 正弦波のRMS値は振幅の1/√2に近いはず
-        # フレーム分割とウィンドウ適用による誤差があるため厳密な一致ではなく近似値を確認
         np.testing.assert_allclose(np.mean(result), self.expected_rms, rtol=0.1)
 
-        # ステレオ信号でもテスト
         result_stereo = self.rms_op.process_array(self.signal_stereo).compute()
         assert result_stereo.shape == (2, expected_frames)
 
@@ -702,7 +688,6 @@ class TestRmsTrend:
             "rms_trend", self.sample_rate, frame_length=2048, hop_length=512, Aw=True
         )
 
-        # 作成された操作が期待通りであることを確認
         assert isinstance(rms_op, RmsTrend)
         assert rms_op.sampling_rate == self.sample_rate
         assert rms_op.frame_length == 2048
@@ -713,20 +698,14 @@ class TestRmsTrend:
 class TestTrim:
     def setup_method(self) -> None:
         """Set up test fixtures for each test."""
-        self.sample_rate: int = 16000  # 16 kHz
-        self.start_time: float = 1.0  # Start trimming at 1 second
-        self.end_time: float = 2.0  # End trimming at 2 seconds
+        self.sample_rate: int = 16000
+        self.start_time: float = 1.0
+        self.end_time: float = 2.0
         self.trim_op: Trim = Trim(self.sample_rate, self.start_time, self.end_time)
 
-        # Create a test signal (3 seconds sine wave at 440 Hz)
-        t: np.ndarray = np.linspace(
-            0, 3, self.sample_rate * 3, endpoint=False
-        )  # 3 seconds
-        self.signal: NDArrayReal = np.sin(2 * np.pi * 440 * t).reshape(
-            1, -1
-        )  # Single channel
+        t: NDArrayReal = np.linspace(0, 3, self.sample_rate * 3, endpoint=False)
+        self.signal: NDArrayReal = np.sin(2 * np.pi * 440 * t).reshape(1, -1)
 
-        # Create a Dask array
         self.dask_signal: DaArray = _da_from_array(self.signal, chunks=-1)
 
     def test_initialization(self) -> None:
@@ -740,7 +719,6 @@ class TestTrim:
         """Test that the Trim operation correctly trims the signal."""
         result = self.trim_op.process_array(self.signal)
 
-        # Compute the result
         computed_result: NDArrayReal = result.compute()
 
         # Check the shape of the trimmed signal
@@ -761,16 +739,12 @@ class TestTrim:
             # Just processing shouldn't trigger computation
             result: DaArray = self.trim_op.process(self.dask_signal)
 
-            # Verify compute hasn't been called
             mock_compute.assert_not_called()
 
-            # The result should be a Dask array
             assert isinstance(result, DaArray)
 
-            # Now explicitly compute the result
             _: NDArrayReal = result.compute()
 
-            # Verify compute was called
             mock_compute.assert_called_once()
 
 
@@ -780,11 +754,9 @@ class TestHpssHarmonic:
         self.sample_rate: int = 16000
         self.hpss_harmonic = HpssHarmonic(self.sample_rate, kernel_size=31, power=2)
 
-        # Create a test signal (1 second sine wave at 440 Hz)
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
         self.signal: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t)])
 
-        # Create a Dask array
         self.dask_signal: DaArray = _da_from_array(self.signal, chunks=(1, 1000))
 
     def test_initialization(self) -> None:
@@ -800,25 +772,19 @@ class TestHpssHarmonic:
         ) as mock_harmonic:
             result = self.hpss_harmonic.process_array(self.signal).compute()
 
-            # Verify that librosa.effects.harmonic was called with the correct arguments
             mock_harmonic.assert_called_once_with(self.signal, kernel_size=31, power=2)
 
-            # Check that the result matches the mocked harmonic output
             np.testing.assert_array_equal(result, self.signal)
 
     def test_delayed_execution(self) -> None:
         """Test that HPSS Harmonic operation is executed lazily."""
         with mock.patch("dask.array.core.Array.compute") as mock_compute:
-            # Apply the harmonic operation lazily
             result = self.hpss_harmonic.process(self.dask_signal)
 
-            # Ensure compute is not called during the operation setup
             mock_compute.assert_not_called()
 
-            # Trigger computation explicitly
             _ = result.compute()
 
-            # Verify compute is called once during explicit computation
             mock_compute.assert_called_once()
 
 
@@ -828,11 +794,9 @@ class TestHpssPercussive:
         self.sample_rate: int = 16000
         self.hpss_percussive = HpssPercussive(self.sample_rate, kernel_size=31, power=2)
 
-        # Create a test signal (1 second sine wave at 440 Hz)
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
         self.signal: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t)])
 
-        # Create a Dask array
         self.dask_signal: DaArray = _da_from_array(self.signal, chunks=(1, 1000))
 
     def test_initialization(self) -> None:
@@ -848,28 +812,21 @@ class TestHpssPercussive:
         ) as mock_percussive:
             result = self.hpss_percussive.process_array(self.signal).compute()
 
-            # Verify that librosa.effects.percussive was
-            # called with the correct arguments
             mock_percussive.assert_called_once_with(
                 self.signal, kernel_size=31, power=2
             )
 
-            # Check that the result matches the mocked percussive output
             np.testing.assert_array_equal(result, self.signal)
 
     def test_delayed_execution(self) -> None:
         """Test that HPSS Percussive operation is executed lazily."""
         with mock.patch("dask.array.core.Array.compute") as mock_compute:
-            # Apply the percussive operation lazily
             result = self.hpss_percussive.process(self.dask_signal)
 
-            # Ensure compute is not called during the operation setup
             mock_compute.assert_not_called()
 
-            # Trigger computation explicitly
             _ = result.compute()
 
-            # Verify compute is called once during explicit computation
             mock_compute.assert_called_once()
 
 
@@ -881,48 +838,40 @@ class TestFFTOperation:
         self.window: str = "hann"
         self.fft = FFT(self.sample_rate, n_fft=self.n_fft, window=self.window)
 
-        # Create a test signal (1 second sine wave at 500 Hz)
         self.freq: float = 500
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
         self.signal_mono: NDArrayReal = (
             np.array([np.sin(2 * np.pi * self.freq * t)]) * 4
         )
 
-        # Create a stereo signal
         self.signal_stereo: NDArrayReal = np.array(
             [
-                np.sin(2 * np.pi * self.freq * t),  # 500 Hz
-                np.sin(2 * np.pi * self.freq * 2 * t),  # 1000 Hz
+                np.sin(2 * np.pi * self.freq * t),
+                np.sin(2 * np.pi * self.freq * 2 * t),
             ]
         )
 
-        # Create dask arrays
         self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=-1)
         self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=-1)
 
     def test_initialization(self) -> None:
         """Test FFT initialization with different parameters."""
-        # Default initialization
         fft = FFT(self.sample_rate)
         assert fft.sampling_rate == self.sample_rate
         assert fft.n_fft is None
         assert fft.window == "hann"
 
-        # Custom initialization
         custom_fft = FFT(self.sample_rate, n_fft=2048, window="hamming")
         assert custom_fft.n_fft == 2048
         assert custom_fft.window == "hamming"
 
     def test_fft_shape(self) -> None:
         """Test FFT output shape."""
-        # Process mono signal
         fft_result = self.fft.process_array(self.signal_mono).compute()
 
-        # Check shape
         expected_freqs = self.n_fft // 2 + 1
         assert fft_result.shape == (1, expected_freqs)
 
-        # Process stereo signal
         fft_result_stereo = self.fft.process_array(self.signal_stereo).compute()
         assert fft_result_stereo.shape == (2, expected_freqs)
 
@@ -930,92 +879,69 @@ class TestFFTOperation:
         """Test FFT content correctness."""
         fft_result = self.fft.process_array(self.signal_mono).compute()
 
-        # Calculate frequency bins
         freq_bins = np.fft.rfftfreq(self.n_fft, 1.0 / self.sample_rate)
 
-        # Find index of the bin closest to our test frequency (440 Hz)
         target_idx = np.argmin(np.abs(freq_bins - self.freq))
 
-        # Get magnitude spectrum
         magnitude = np.abs(fft_result[0])
 
-        # The peak should be at the bin closest to 440 Hz
         peak_idx = np.argmax(magnitude)
-        assert abs(peak_idx - target_idx) <= 1  # Allow for slight bin difference
+        assert abs(peak_idx - target_idx) <= 1
 
-        # Check that other frequencies have much lower magnitude
-        # Exclude a small region around the peak
         mask = np.ones_like(magnitude, dtype=bool)
-        region = 5  # Number of bins around peak to exclude
+        region = 5
         lower = max(0, peak_idx - region)
         upper = min(len(magnitude), peak_idx + region + 1)
         mask[lower:upper] = False
 
-        # The peak should be significantly higher than other frequencies
         assert np.max(magnitude[mask]) < 0.1 * magnitude[peak_idx]
 
     def test_amplitude_scaling(self) -> None:
         """Test that FFT amplitude scaling is correct."""
-        # Create a cosine wave with amplitude 1.0
-        # For a real cosine wave, the amplitude should be 0.5 in the FFT
         fft_inst = FFT(self.sample_rate, n_fft=None, window=self.window)
         amp = 2.0
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
         cos_wave = amp * np.cos(2 * np.pi * self.freq * t)
 
-        # Apply window to match what the FFT class does internally
         from scipy.signal import get_window
 
         win = get_window(self.window, len(cos_wave))
         scaled_cos = cos_wave * win
         scaling_factor = np.sum(win)
 
-        # Get FFT result using our class
         fft_result = fft_inst.process_array(np.array([cos_wave])).compute()
 
-        # Calculate expected FFT using numpy directly
         expected_fft: NDArrayComplex = fft.rfft(scaled_cos)
-        expected_fft[1:-1] *= 2.0  # Double to account for single-sided spectrum
-        expected_fft /= scaling_factor  # Apply scaling factor
+        expected_fft[1:-1] *= 2.0
+        expected_fft /= scaling_factor
 
-        # Compare results
         np.testing.assert_allclose(fft_result[0], expected_fft, rtol=1e-10)
 
-        # Find the actual frequency bin where the peak is located
-
-        # Find the peak in the results
         peak_idx = np.argmax(np.abs(fft_result[0]))
         peak_mag = np.abs(fft_result[0, peak_idx])
         expected_mag = amp
 
-        # Allow some tolerance due to window effects and frequency binning
         np.testing.assert_allclose(peak_mag, expected_mag, rtol=0.1)
 
     def test_delayed_execution(self) -> None:
         """Test that FFT operation uses dask's delayed execution."""
         with mock.patch.object(DaArray, "compute") as mock_compute:
-            # Process should not trigger computation
             result = self.fft.process(self.dask_mono)
             mock_compute.assert_not_called()
 
-            # The result should be a Dask array
             assert isinstance(result, DaArray)
 
-            # Now explicitly compute
             _ = result.compute()
             mock_compute.assert_called_once()
 
     def test_window_function_effect(self) -> None:
         """Test different window functions have different effects."""
-        # Test with rectangular window (no windowing)
         rect_fft = FFT(self.sample_rate, n_fft=None, window="boxcar")
         rect_result = rect_fft.process_array(self.signal_mono).compute()
 
-        # Test with Hann window
         hann_fft = FFT(self.sample_rate, n_fft=None, window="hann")
         hann_result = hann_fft.process_array(self.signal_mono).compute()
 
-        # The results should be different due to different window functions
         assert not np.allclose(rect_result, hann_result)
 
         rect_mag = np.abs(rect_result[0])
@@ -1026,13 +952,10 @@ class TestFFTOperation:
 
     def test_operation_registry(self) -> None:
         """Test that FFT is properly registered in the operation registry."""
-        # Verify FFT can be accessed through the registry
         assert get_operation("fft") == FFT
 
-        # Create operation through the factory function
         fft_op = create_operation("fft", self.sample_rate, n_fft=512, window="hamming")
 
-        # Verify the operation was created correctly
         assert isinstance(fft_op, FFT)
         assert fft_op.sampling_rate == self.sample_rate
         assert fft_op.n_fft == 512

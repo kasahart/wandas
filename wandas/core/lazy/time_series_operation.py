@@ -312,6 +312,25 @@ class ReSampling(AudioOperation):
         super().__init__(sampling_rate, target_sr=target_sr)
         self.target_sr = target_sr
 
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """
+        操作後の出力データの形状を計算します
+
+        Parameters
+        ----------
+        input_shape : tuple
+            入力データの形状
+
+        Returns
+        -------
+        tuple
+            出力データの形状
+        """
+        # リサンプリング後の長さを計算
+        ratio = float(self.target_sr) / float(self.sampling_rate)
+        n_samples = int(np.ceil(input_shape[-1] * ratio))
+        return (*input_shape[:-1], n_samples)
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """リサンプリング操作のプロセッサ関数を作成"""
         logger.debug(f"Applying resampling to array with shape: {x.shape}")
@@ -378,7 +397,12 @@ class Trim(AudioOperation):
 
     name = "trim"
 
-    def __init__(self, sampling_rate: float, start: float, end: float):
+    def __init__(
+        self,
+        sampling_rate: float,
+        start: float,
+        end: float,
+    ):
         """
         トリミング操作の初期化
 
@@ -399,6 +423,26 @@ class Trim(AudioOperation):
         logger.debug(
             f"Initialized Trim operation with start: {self.start}, end: {self.end}"
         )
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """
+        操作後の出力データの形状を計算します
+
+        Parameters
+        ----------
+        input_shape : tuple
+            入力データの形状
+
+        Returns
+        -------
+        tuple
+            出力データの形状
+        """
+        # リサンプリング後の長さを計算
+        # 信号がない部分は除外する
+        end_sample = min(self.end_sample, input_shape[-1])
+        n_samples = end_sample - self.start_sample
+        return (*input_shape[:-1], n_samples)
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """トリミング操作のプロセッサ関数を作成"""
