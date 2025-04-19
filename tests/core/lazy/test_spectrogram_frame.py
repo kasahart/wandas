@@ -98,11 +98,13 @@ class TestSpectrogramFrame:
         phase: NDArrayReal = spec.phase
         power: NDArrayReal = spec.power
         db: NDArrayReal = spec.dB
+        dba: NDArrayReal = spec.dBA
 
         assert magnitude.shape == (2, 513, 10)
         assert phase.shape == (2, 513, 10)
         assert power.shape == (2, 513, 10)
         assert db.shape == (2, 513, 10)
+        assert dba.shape == (2, 513, 10)
 
         # magnitude と power の関係を確認
         assert_array_almost_equal(power, magnitude**2)
@@ -395,3 +397,39 @@ class TestSpectrogramFrame:
         assert_array_equal(result.data, processed_data)
         assert "test_operation" in result.metadata
         assert result.operation_history[-1]["operation"] == "test_operation"
+
+    def test_dBA_property(  # noqa: N802
+        self, sample_spectrogram: SpectrogramFrame, monkeypatch: Any
+    ) -> None:
+        """dBAプロパティが正しくA特性重み付けを適用していることを確認"""
+        import librosa
+        import numpy as np
+
+        spec: SpectrogramFrame = sample_spectrogram
+
+        # A特性の重み付けの計算をモックする
+        mock_a_weights = np.array([1.0, 2.0, 3.0, 4.0, 5.0])  # サンプル重み
+
+        def mock_a_weighting(frequencies: Any, min_db: Any = None) -> NDArrayReal:
+            # 実際のfreqsと同じ長さの配列を返す
+            weights = np.zeros(len(frequencies))
+            # テスト用の簡易的な重み付け
+            for i in range(min(len(frequencies), len(mock_a_weights))):
+                weights[i] = mock_a_weights[i]
+            return weights
+
+        # librosa.A_weightingをモック
+        monkeypatch.setattr(librosa, "A_weighting", mock_a_weighting)
+
+        # dBとdBAの値を取得
+        db_values = spec.dB
+        dba_values = spec.dBA
+
+        # 各周波数ビンの最初の時間フレームと最初のチャネルについて確認
+        for i in range(min(5, spec.n_freq_bins)):
+            # dBA = dB + A_weight であることを確認
+            expected_dba = db_values[0, i, 0] + mock_a_weights[i]
+            assert_array_almost_equal(dba_values[0, i, 0], expected_dba)
+
+        # 形状が同じであることを確認
+        assert dba_values.shape == db_values.shape

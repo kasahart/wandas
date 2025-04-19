@@ -45,6 +45,8 @@ class BaseFrame(ABC, Generic[T]):
         previous: Optional["BaseFrame[Any]"] = None,
     ):
         self._data = data.rechunk(chunks=-1)  # type: ignore [unused-ignore]
+        if self._data.ndim == 1:
+            self._data = self._data.reshape((1, -1))
         self.sampling_rate = sampling_rate
         self.label = label or "unnamed_frame"
         self.metadata = metadata or {}

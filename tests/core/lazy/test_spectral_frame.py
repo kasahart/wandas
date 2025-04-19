@@ -328,3 +328,101 @@ class TestSpectralFrame:
 
             # 戻り値の検証
             assert result is mock_result
+
+    def test_noct_synthesis_sampling_rate_error(self) -> None:
+        """
+        Test that noct_synthesis raises ValueError when sampling rate is not 48000Hz
+        """
+        # SpectralFrameのsampling_rateは44100Hzで設定されているので、
+        # noct_synthesisを呼び出すとValueErrorが発生するはず
+        with pytest.raises(
+            ValueError,
+            match="noct_synthesisは48000Hzのサンプリングレートでのみ使用できます",
+        ):
+            self.frame.noct_synthesis(fmin=125.0, fmax=8000.0, n=3)
+
+    def test_noct_synthesis(self) -> None:
+        """Test noct_synthesis method"""
+        # 正しいサンプリングレートでSpectralFrameを作成
+        correct_sr_frame = SpectralFrame(
+            data=self.data,
+            sampling_rate=48000,  # 正しいサンプリングレート
+            n_fft=self.n_fft,
+            window=self.window,
+            label="test_frame",
+            metadata={"test": "metadata"},
+            channel_metadata=self.channel_metadata,
+        )
+
+        with (
+            mock.patch("wandas.core.lazy.noct_frame.NOctFrame") as mock_noct_frame,
+            mock.patch(
+                "wandas.core.lazy.time_series_operation.create_operation"
+            ) as mock_create_op,
+        ):
+            # NOctSynthesisオペレーションのモック設定
+            mock_noct_op: Any = mock.MagicMock()
+            mock_create_op.return_value = mock_noct_op
+            mock_spectrum_data: DaArray = mock.MagicMock(spec=DaArray)
+            mock_noct_op.process.return_value = mock_spectrum_data
+
+            # NOctFrameのモック設定
+            mock_result: Any = mock.MagicMock()
+            mock_noct_frame.return_value = mock_result
+
+            # テスト実行
+            fmin: float = 125.0
+            fmax: float = 8000.0
+            n: int = 3
+            G: int = 10  # noqa: N806
+            fr: int = 1000
+
+            result = correct_sr_frame.noct_synthesis(
+                fmin=fmin, fmax=fmax, n=n, G=G, fr=fr
+            )
+
+            # オペレーション作成の検証
+            mock_create_op.assert_called_once_with(
+                "noct_synthesis", 48000, fmin=fmin, fmax=fmax, n=n, G=G, fr=fr
+            )
+
+            # プロセスの呼び出し検証
+            mock_noct_op.process.assert_called_once_with(correct_sr_frame._data)
+
+            # NOctFrameの作成検証
+            mock_noct_frame.assert_called_once_with(
+                data=mock_spectrum_data,
+                sampling_rate=48000,
+                fmin=fmin,
+                fmax=fmax,
+                n=n,
+                G=G,
+                fr=fr,
+                label=f"1/{n}Oct of {correct_sr_frame.label}",
+                metadata={
+                    **correct_sr_frame.metadata,
+                    "fmin": fmin,
+                    "fmax": fmax,
+                    "n": n,
+                    "G": G,
+                    "fr": fr,
+                },
+                operation_history=[
+                    *correct_sr_frame.operation_history,
+                    {
+                        "operation": "noct_synthesis",
+                        "params": {
+                            "fmin": fmin,
+                            "fmax": fmax,
+                            "n": n,
+                            "G": G,
+                            "fr": fr,
+                        },
+                    },
+                ],
+                channel_metadata=correct_sr_frame._channel_metadata,
+                previous=correct_sr_frame,
+            )
+
+            # 結果の検証
+            assert result is mock_result

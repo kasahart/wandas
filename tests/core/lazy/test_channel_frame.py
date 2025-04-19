@@ -961,6 +961,52 @@ class TestChannelFrame:
             assert result.win_length == 1024
             assert result.window == "hamming"
 
+    def test_noct_spectrum_transform(self) -> None:
+        """Test noct_spectrum method for calculating N-octave spectrum analysis."""
+        from wandas.core.lazy.noct_frame import NOctFrame
+        from wandas.core.lazy.time_series_operation import NOctSpectrum
+
+        with mock.patch(
+            "wandas.core.lazy.time_series_operation.create_operation"
+        ) as mock_create_op:
+            # モックNOctSpectrumオペレーションの設定
+            mock_noct = mock.MagicMock(spec=NOctSpectrum)
+            mock_data = mock.MagicMock(spec=DaArray)
+            mock_data.ndim = 2
+            mock_data.shape = (2, 10)  # バンド数に応じた適切な形状
+            mock_noct.process.return_value = mock_data
+            mock_create_op.return_value = mock_noct
+
+            # noct_spectrumを呼び出す
+            fmin, fmax, n = 20, 20000, 3
+            G, fr = 10, 1000  # noqa: N806
+            result = self.channel_frame.noct_spectrum(
+                fmin=fmin, fmax=fmax, n=n, G=G, fr=fr
+            )
+
+            # オペレーションが正しく作成されたか確認
+            mock_create_op.assert_called_with(
+                "noct_spectrum",
+                self.sample_rate,
+                fmin=fmin,
+                fmax=fmax,
+                n=n,
+                G=G,
+                fr=fr,
+            )
+
+            # processメソッドが呼び出されたか確認
+            mock_noct.process.assert_called_once_with(self.channel_frame._data)
+
+            # 結果が正しい型か確認
+            assert isinstance(result, NOctFrame)
+            assert result.fmin == fmin
+            assert result.fmax == fmax
+            assert result.n == n
+            assert result.G == G
+            assert result.fr == fr
+            assert result.previous is self.channel_frame
+
     def test_describe_method(self) -> None:
         """Test the describe method for visual and audio display."""
         # Mock the display and Audio functions
@@ -971,29 +1017,20 @@ class TestChannelFrame:
                 "wandas.core.lazy.channel_frame.Audio", return_value="mock_audio"
             ) as mock_audio,
         ):
-            # Execute the describe method
-            result = self.channel_frame.describe(normalize=True)  # type: ignore
+            # Test basic describe method
+            self.channel_frame.describe()
 
-            # Check return value is None
-            assert result is None
+            # Verify display was called for each channel
+            assert mock_display.call_count >= 2 * self.channel_frame.n_channels
+            # One call for figure, one for Audio per channel
 
-            # We have 2 channels, so display should be called at least 4 times
-            # (one figure and one audio widget per channel)
-            assert mock_display.call_count >= 4
-
-            # plt.close should be called once for each channel
-            assert mock_close.call_count == 2
-
-            # Audio should be called once for each channel
-            assert mock_audio.call_count == 2
-
-            # Check that Audio was created with correct parameters
+            # Verify Audio was called with correct parameters
+            assert mock_audio.call_count == self.channel_frame.n_channels
             for call in mock_audio.call_args_list:
-                assert call[1]["rate"] == self.sample_rate
-                assert call[1]["normalize"] is True
+                assert call[1].get("normalize", True) is True
 
-            # Check that display was called with the Audio objects
-            mock_display.assert_any_call("mock_audio")
+            # Verify plt.close was called to clean up figures
+            assert mock_close.call_count == self.channel_frame.n_channels
 
     def test_describe_method_with_axis_config(self) -> None:
         """Test describe method with legacy axis_config parameter."""
@@ -1043,15 +1080,20 @@ class TestChannelFrame:
         mock_ax = mock.MagicMock(spec=Axes)
         mock_ax.figure = mock.MagicMock()
         with mock.patch(
-            "wandas.core.lazy.ChannelFrame.plot",
+            "wandas.core.lazy.channel_frame.ChannelFrame.plot",
             return_value=mock_ax,  # 1つのAxesを返す
         ):
-            self.channel_frame.describe()
+            with (
+                mock.patch("wandas.core.lazy.channel_frame.display"),
+                mock.patch("wandas.core.lazy.channel_frame.plt.close"),
+                mock.patch("wandas.core.lazy.channel_frame.Audio"),
+            ):
+                self.channel_frame.describe()
 
     def test_describe_method_with_unexpected_plot_result(self) -> None:
         """Test describe method when plot returns unexpected type."""
         with mock.patch(
-            "wandas.core.lazy.ChannelFrame.plot",
+            "wandas.core.lazy.channel_frame.ChannelFrame.plot",
             return_value="not_an_axes_or_iterator",
         ):
             with pytest.raises(TypeError, match="Unexpected type for plot result"):

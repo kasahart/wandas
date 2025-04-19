@@ -1,6 +1,6 @@
 import inspect
 import logging
-from typing import Any, ClassVar, Optional, Union
+from typing import Any, ClassVar, Generic, Optional, TypeVar
 
 import dask
 import dask.array as da
@@ -8,7 +8,8 @@ import librosa
 import numpy as np
 from dask.array.core import Array as DaArray
 from mosqito.sound_level_meter import noct_spectrum, noct_synthesis
-from scipy import fft, signal  # Updated import statement
+from mosqito.sound_level_meter.noct_spectrum._center_freq import _center_freq
+from scipy import signal
 from scipy.signal import ShortTimeFFT
 from scipy.signal.windows import get_window
 from waveform_analysis import A_weight
@@ -20,8 +21,12 @@ logger = logging.getLogger(__name__)
 _da_map_blocks = da.map_blocks  # type: ignore [unused-ignore]
 _da_from_delayed = da.from_delayed  # type: ignore [unused-ignore]
 
+# Define TypeVars for input and output array types
+InputArrayType = TypeVar("InputArrayType", NDArrayReal, NDArrayComplex)
+OutputArrayType = TypeVar("OutputArrayType", NDArrayReal, NDArrayComplex)
 
-class AudioOperation:
+
+class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     """音声処理操作の抽象基底クラス"""
 
     # クラス変数：操作の名前
@@ -59,21 +64,21 @@ class AudioOperation:
         """処理関数のセットアップ（サブクラスで実装）"""
         pass
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
-        """@dask.delayed でラップされた処理関数（サブクラスで実装）"""
+    def _process_array(self, x: InputArrayType) -> OutputArrayType:
+        """処理関数（サブクラスで実装）"""
         # デフォルトは何もしない関数
-        return x
+        raise NotImplementedError("Subclasses must implement this method.")
 
     @dask.delayed  # type: ignore [misc, unused-ignore]
-    def process_array(self, x: NDArrayReal) -> NDArrayReal:
-        """@dask.delayed でラップされた処理関数（サブクラスで実装）"""
+    def process_array(self, x: InputArrayType) -> OutputArrayType:
+        """@dask.delayed でラップされた処理関数"""
         # デフォルトは何もしない関数
         logger.debug(f"Default process operation on data with shape: {x.shape}")
         return self._process_array(x)
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
-        操作後の出力データの形状を計算します
+        操作後の出力データの形状を計算します（サブクラスで実装）
 
         Parameters
         ----------
@@ -85,10 +90,7 @@ class AudioOperation:
         tuple
             出力データの形状
         """
-        # デフォルトでは形状が変わらない
-        sample_input = np.ones((1, *input_shape[1:]))
-        x = self._process_array(sample_input)
-        return (input_shape[0], *x.shape[1:])
+        raise NotImplementedError("Subclasses must implement this method.")
 
     def process(self, data: DaArray) -> DaArray:
         """
@@ -102,13 +104,13 @@ class AudioOperation:
         output_shape = self.calculate_output_shape(data.shape)
         return _da_from_delayed(delayed_result, shape=output_shape, dtype=data.dtype)
 
-    @classmethod
-    def create(cls, sampling_rate: float, **params: Any) -> "AudioOperation":
-        """ファクトリーメソッド - サブクラスのインスタンスを作成"""
-        return cls(sampling_rate, **params)
+    # @classmethod
+    # def create(cls, sampling_rate: float, **params: Any) -> "AudioOperation":
+    #     """ファクトリーメソッド - サブクラスのインスタンスを作成"""
+    #     return cls(sampling_rate, **params)
 
 
-class HighPassFilter(AudioOperation):
+class HighPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
     """ハイパスフィルタ操作"""
 
     name = "highpass_filter"
@@ -148,6 +150,9 @@ class HighPassFilter(AudioOperation):
         self.b, self.a = signal.butter(self.order, normal_cutoff, btype="high")  # type: ignore [unused-ignore]
         logger.debug(f"Highpass filter coefficients calculated: b={self.b}, a={self.a}")
 
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        return input_shape
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """@dask.delayed でラップされたフィルタ処理"""
         logger.debug(f"Applying highpass filter to array with shape: {x.shape}")
@@ -156,7 +161,7 @@ class HighPassFilter(AudioOperation):
         return result
 
 
-class LowPassFilter(AudioOperation):
+class LowPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
     """ローパスフィルタ操作"""
 
     name = "lowpass_filter"
@@ -196,6 +201,9 @@ class LowPassFilter(AudioOperation):
         self.b, self.a = signal.butter(self.order, normal_cutoff, btype="low")  # type: ignore [unused-ignore]
         logger.debug(f"Lowpass filter coefficients calculated: b={self.b}, a={self.a}")
 
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        return input_shape
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """@dask.delayed でラップされたフィルタ処理"""
         logger.debug(f"Applying lowpass filter to array with shape: {x.shape}")
@@ -205,7 +213,7 @@ class LowPassFilter(AudioOperation):
         return result
 
 
-class AWeighting(AudioOperation):
+class AWeighting(AudioOperation[NDArrayReal, NDArrayReal]):
     """Aウェイトフィルタ操作"""
 
     name = "a_weighting"
@@ -221,17 +229,26 @@ class AWeighting(AudioOperation):
         """
         super().__init__(sampling_rate)
 
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        return input_shape
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Aウェイトフィルタのプロセッサ関数を作成"""
         logger.debug(f"Applying A-weighting to array with shape: {x.shape}")
         result = A_weight(x, self.sampling_rate)
+
+        # Handle case where A_weight returns a tuple
+        if isinstance(result, tuple):
+            # Use the first element of the tuple
+            result = result[0]
+
         logger.debug(
             f"A-weighting applied, returning result with shape: {result.shape}"
         )
         return np.array(result)
 
 
-class HpssHarmonic(AudioOperation):
+class HpssHarmonic(AudioOperation[NDArrayReal, NDArrayReal]):
     """HPSS Harmonic操作"""
 
     name = "hpss_harmonic"
@@ -252,6 +269,9 @@ class HpssHarmonic(AudioOperation):
         self.kwargs = kwargs
         super().__init__(sampling_rate, **kwargs)
 
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        return input_shape
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """HPSS Harmonicのプロセッサ関数を作成"""
         logger.debug(f"Applying HPSS Harmonic to array with shape: {x.shape}")
@@ -262,7 +282,7 @@ class HpssHarmonic(AudioOperation):
         return result
 
 
-class HpssPercussive(AudioOperation):
+class HpssPercussive(AudioOperation[NDArrayReal, NDArrayReal]):
     """HPSS Percussive操作"""
 
     name = "hpss_percussive"
@@ -283,6 +303,9 @@ class HpssPercussive(AudioOperation):
         self.kwargs = kwargs
         super().__init__(sampling_rate, **kwargs)
 
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        return input_shape
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """HPSS Percussiveのプロセッサ関数を作成"""
         logger.debug(f"Applying HPSS Percussive to array with shape: {x.shape}")
@@ -293,7 +316,7 @@ class HpssPercussive(AudioOperation):
         return result
 
 
-class ReSampling(AudioOperation):
+class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
     """リサンプリング操作"""
 
     name = "resampling"
@@ -341,7 +364,7 @@ class ReSampling(AudioOperation):
         return result
 
 
-class ABS(AudioOperation):
+class ABS(AudioOperation[NDArrayReal, NDArrayReal]):
     """絶対値操作"""
 
     name = "abs"
@@ -357,22 +380,19 @@ class ABS(AudioOperation):
         """
         super().__init__(sampling_rate)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
-        """絶対値操作のプロセッサ関数を作成"""
-        logger.debug(f"Applying abs to array with shape: {x.shape}")
-        result = np.abs(x)
-        logger.debug(f"Abs applied, returning result with shape: {result.shape}")
-        return result
+    def process(self, data: DaArray) -> DaArray:
+        # map_blocksを使わず、直接Daskの集約関数を使用
+        return da.abs(data)  # type: ignore [unused-ignore]
 
 
-class Power(AudioOperation):
-    """べき乗計算"""
+class Power(AudioOperation[NDArrayReal, NDArrayReal]):
+    """べき乗操作"""
 
     name = "power"
 
     def __init__(self, sampling_rate: float, exponent: float):
         """
-        絶対値操作の初期化
+        べき乗操作の初期化
 
         Parameters
         ----------
@@ -382,17 +402,12 @@ class Power(AudioOperation):
         super().__init__(sampling_rate)
         self.exp = exponent
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
-        """べき乗操作のプロセッサ関数を作成"""
-        logger.debug(
-            f"Applying power with exp {self.exp} to array with shape: {x.shape}"
-        )
-        result = np.power(x, self.exp)
-        logger.debug(f"Power applied, returning result with shape: {result.shape}")
-        return result
+    def process(self, data: DaArray) -> DaArray:
+        # map_blocksを使わず、直接Daskの集約関数を使用
+        return da.power(data, self.exp)  # type: ignore [unused-ignore]
 
 
-class Trim(AudioOperation):
+class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
     """トリミング操作"""
 
     name = "trim"
@@ -453,7 +468,7 @@ class Trim(AudioOperation):
         return result
 
 
-class RmsTrend(AudioOperation):
+class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
     """RMS計算"""
 
     name = "rms_trend"
@@ -487,6 +502,27 @@ class RmsTrend(AudioOperation):
             sampling_rate, frame_length=frame_length, hop_length=hop_length, Aw=Aw
         )
 
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """
+        操作後の出力データの形状を計算します
+
+        Parameters
+        ----------
+        input_shape : tuple
+            入力データの形状 (channels, samples)
+
+        Returns
+        -------
+        tuple
+            出力データの形状 (channels, frames)
+        """
+        n_frames = librosa.feature.rms(
+            y=np.ones((1, input_shape[-1])),
+            frame_length=self.frame_length,
+            hop_length=self.hop_length,
+        ).shape[-1]
+        return (*input_shape[:-1], n_frames)
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """RMS計算のプロセッサ関数を作成"""
         logger.debug(f"Applying RMS to array with shape: {x.shape}")
@@ -511,7 +547,7 @@ class RmsTrend(AudioOperation):
         return result
 
 
-class Sum(AudioOperation):
+class Sum(AudioOperation[NDArrayReal, NDArrayReal]):
     """合計計算"""
 
     name = "sum"
@@ -521,7 +557,7 @@ class Sum(AudioOperation):
         return data.sum(axis=0, keepdims=True)
 
 
-class Mean(AudioOperation):
+class Mean(AudioOperation[NDArrayReal, NDArrayReal]):
     """平均計算"""
 
     name = "mean"
@@ -531,13 +567,13 @@ class Mean(AudioOperation):
         return data.mean(axis=0, keepdims=True)
 
 
-class ChannelDifference(AudioOperation):
+class ChannelDifference(AudioOperation[NDArrayReal, NDArrayReal]):
     """チャネル間の差分計算"""
 
     name = "channel_difference"
-    other_channel: Union[int, str]
+    other_channel: int
 
-    def __init__(self, sampling_rate: float, other_channel: Union[int, str] = 0):
+    def __init__(self, sampling_rate: float, other_channel: int = 0):
         """
         チャネル間の差分計算の初期化
 
@@ -545,18 +581,19 @@ class ChannelDifference(AudioOperation):
         ----------
         sampling_rate : float
             サンプリングレート (Hz)
-        other_channel : int or str, optional
+        other_channel : int
             差分を計算するチャネル、デフォルトは0
         """
         self.other_channel = other_channel
         super().__init__(sampling_rate, other_channel=other_channel)
 
     def process(self, data: DaArray) -> DaArray:
-        # チャネル間の差分を計算
-        return data - data[self.other_channel]
+        # map_blocksを使わず、直接Daskの集約関数を使用
+        result = data - data[self.other_channel]
+        return result
 
 
-class FFT(AudioOperation):
+class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
     """FFT"""
 
     name = "fft"
@@ -581,21 +618,38 @@ class FFT(AudioOperation):
         self.window = window
         super().__init__(sampling_rate, n_fft=n_fft, window=window)
 
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """
+        操作後の出力データの形状を計算します
+
+        Parameters
+        ----------
+        input_shape : tuple
+            入力データの形状 (channels, samples)
+
+        Returns
+        -------
+        tuple
+            出力データの形状 (channels, freqs)
+        """
+        n_freqs = self.n_fft // 2 + 1 if self.n_fft else input_shape[-1] // 2 + 1
+        return (*input_shape[:-1], n_freqs)
+
     def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
         """FFT操作のプロセッサ関数を作成"""
         from scipy.signal import get_window
 
         win = get_window(self.window, x.shape[-1])
         x = x * win
-        result: NDArrayComplex = fft.rfft(x, n=self.n_fft, axis=-1)
+        result: NDArrayComplex = np.fft.rfft(x, n=self.n_fft, axis=-1)
         result[..., 1:-1] *= 2.0
         # 窓関数補正
         scaling_factor = np.sum(win)
-        result /= scaling_factor
+        result = result / scaling_factor
         return result
 
 
-class IFFT(AudioOperation):
+class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
     """IFFT"""
 
     name = "ifft"
@@ -612,7 +666,7 @@ class IFFT(AudioOperation):
         sampling_rate : float
             サンプリングレート (Hz)
         n_fft : int, optional
-            FFTのサイズ、デフォルトは2048
+            IFFTのサイズ、デフォルトはNone（入力サイズに基づいて決定）
         window : str, optional
             窓関数の種類、デフォルトは'hann'
         """
@@ -620,24 +674,48 @@ class IFFT(AudioOperation):
         self.window = window
         super().__init__(sampling_rate, n_fft=n_fft, window=window)
 
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """
+        操作後の出力データの形状を計算します
+
+        Parameters
+        ----------
+        input_shape : tuple
+            入力データの形状 (channels, freqs)
+
+        Returns
+        -------
+        tuple
+            出力データの形状 (channels, samples)
+        """
+        n_samples = 2 * (input_shape[-1] - 1) if self.n_fft is None else self.n_fft
+        return (*input_shape[:-1], n_samples)
+
     def _process_array(self, x: NDArrayComplex) -> NDArrayReal:
-        """FFT操作のプロセッサ関数を作成"""
+        """IFFT操作のプロセッサ関数を作成"""
+        logger.debug(f"Applying IFFT to array with shape: {x.shape}")
+
+        # 周波数成分のスケールを戻す（FFTで乗算した2.0を除去）
+        _x = x.copy()
+        _x[..., 1:-1] /= 2.0
+
+        # IFFT実行
+        result: NDArrayReal = np.fft.irfft(_x, n=self.n_fft, axis=-1)
+
+        # 窓関数補正（FFTの逆操作）
         from scipy.signal import get_window
 
-        _x = np.copy(x)
-        _x[..., 1:-1] /= 2.0
-        result = fft.irfft(_x, n=self.n_fft, axis=-1)
+        win = get_window(self.window, result.shape[-1])
 
-        # 窓関数補正
-        n_samples = result.shape[-1]
-        win = get_window(self.window, n_samples)
-        scaling_factor = np.sum(win)
-        result *= scaling_factor
-        result = result / (win + 1e-12)
+        # FFTの窓関数スケーリングを補正
+        scaling_factor = np.sum(win) / result.shape[-1]
+        result = result / scaling_factor
+
+        logger.debug(f"IFFT applied, returning result with shape: {result.shape}")
         return result
 
 
-class Welch(AudioOperation):
+class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
     """Welch"""
 
     name = "welch"
@@ -688,6 +766,23 @@ class Welch(AudioOperation):
             detrend=detrend,
         )
 
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """
+        操作後の出力データの形状を計算します
+
+        Parameters
+        ----------
+        input_shape : tuple
+            入力データの形状 (channels, samples)
+
+        Returns
+        -------
+        tuple
+            出力データの形状 (channels, freqs)
+        """
+        n_freqs = self.n_fft // 2 + 1
+        return (*input_shape[:-1], n_freqs)
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Welch操作のプロセッサ関数を作成"""
         from scipy import signal as ss
@@ -711,7 +806,7 @@ class Welch(AudioOperation):
         return np.array(result)
 
 
-class NOctSpectrum(AudioOperation):
+class NOctSpectrum(AudioOperation[NDArrayReal, NDArrayReal]):
     """Nオクターブスペクトル操作"""
 
     name = "noct_spectrum"
@@ -750,6 +845,26 @@ class NOctSpectrum(AudioOperation):
         self.G = G
         self.fr = fr
 
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """
+        操作後の出力データの形状を計算します
+
+        Parameters
+        ----------
+        input_shape : tuple
+            入力データの形状
+
+        Returns
+        -------
+        tuple
+            出力データの形状
+        """
+        # ノクターブスペクトルの出力形状を計算
+        _, fpref = _center_freq(
+            fmin=self.fmin, fmax=self.fmax, n=self.n, G=self.G, fr=self.fr
+        )
+        return (input_shape[0], fpref.shape[0])
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """ノクターブスペクトルのプロセッサ関数を作成"""
         logger.debug(f"Applying NoctSpectrum to array with shape: {x.shape}")
@@ -762,12 +877,16 @@ class NOctSpectrum(AudioOperation):
             G=self.G,
             fr=self.fr,
         )
-        spec = spec.T
+        if spec.ndim == 1:
+            # 1次元の場合、チャネル数を追加
+            spec = np.expand_dims(spec, axis=0)
+        else:
+            spec = spec.T
         logger.debug(f"NoctSpectrum applied, returning result with shape: {spec.shape}")
         return np.array(spec)
 
 
-class NOctSynthesis(AudioOperation):
+class NOctSynthesis(AudioOperation[NDArrayReal, NDArrayReal]):
     """ノクターブ合成操作"""
 
     name = "noct_synthesis"
@@ -807,6 +926,26 @@ class NOctSynthesis(AudioOperation):
         self.G = G
         self.fr = fr
 
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """
+        操作後の出力データの形状を計算します
+
+        Parameters
+        ----------
+        input_shape : tuple
+            入力データの形状
+
+        Returns
+        -------
+        tuple
+            出力データの形状
+        """
+        # ノクターブスペクトルの出力形状を計算
+        _, fpref = _center_freq(
+            fmin=self.fmin, fmax=self.fmax, n=self.n, G=self.G, fr=self.fr
+        )
+        return (input_shape[0], fpref.shape[0])
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """ノクターブ合成のプロセッサ関数を作成"""
         logger.debug(f"Applying NoctSynthesis to array with shape: {x.shape}")
@@ -833,7 +972,7 @@ class NOctSynthesis(AudioOperation):
         return np.array(result)
 
 
-class STFT(AudioOperation):
+class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
     """Short-Time Fourier Transform 操作"""
 
     name = "stft"
@@ -883,7 +1022,6 @@ class STFT(AudioOperation):
         tuple
             出力データの形状
         """
-        # デフォルトでは形状が変わらない
         n_samples = input_shape[-1]
         n_f = len(self.SFT.f)
         n_t = len(self.SFT.t(n_samples))
@@ -904,7 +1042,7 @@ class STFT(AudioOperation):
         return result
 
 
-class ISTFT(AudioOperation):
+class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
     """Inverse Short-Time Fourier Transform 操作"""
 
     name = "istft"
@@ -992,7 +1130,7 @@ class ISTFT(AudioOperation):
 
 
 # 操作タイプと対応するクラスのマッピングを自動で収集
-_OPERATION_REGISTRY: dict[str, type[AudioOperation]] = {}
+_OPERATION_REGISTRY: dict[str, type[AudioOperation[Any, Any]]] = {}
 
 
 def register_operation(operation_class: type) -> None:
@@ -1011,14 +1149,16 @@ for strategy_cls in AudioOperation.__subclasses__():
         register_operation(strategy_cls)
 
 
-def get_operation(name: str) -> type[AudioOperation]:
+def get_operation(name: str) -> type[AudioOperation[Any, Any]]:
     """名前から操作クラスを取得"""
     if name not in _OPERATION_REGISTRY:
         raise ValueError(f"未知の操作タイプです: {name}")
     return _OPERATION_REGISTRY[name]
 
 
-def create_operation(name: str, sampling_rate: float, **params: Any) -> AudioOperation:
+def create_operation(
+    name: str, sampling_rate: float, **params: Any
+) -> AudioOperation[Any, Any]:
     """操作名とパラメータから操作インスタンスを作成"""
     operation_class = get_operation(name)
     return operation_class(sampling_rate, **params)
