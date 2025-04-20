@@ -1,6 +1,6 @@
 import inspect
 import logging
-from typing import Any, ClassVar, Generic, Optional, TypeVar
+from typing import Any, ClassVar, Generic, Optional, TypeVar, Union
 
 import dask
 import dask.array as da
@@ -14,6 +14,7 @@ from scipy.signal import ShortTimeFFT
 from scipy.signal.windows import get_window
 from waveform_analysis import A_weight
 
+from wandas.core import util
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 logger = logging.getLogger(__name__)
@@ -481,6 +482,8 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         sampling_rate: float,
         frame_length: int = 2048,
         hop_length: int = 512,
+        ref: Union[list[float], float] = 1.0,
+        dB: bool = False,  # noqa: N803
         Aw: bool = False,  # noqa: N803
     ) -> None:
         """
@@ -497,9 +500,16 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         self.frame_length = frame_length
         self.hop_length = hop_length
+        self.dB = dB
         self.Aw = Aw
+        self.ref = np.array(ref if isinstance(ref, list) else [ref])
         super().__init__(
-            sampling_rate, frame_length=frame_length, hop_length=hop_length, Aw=Aw
+            sampling_rate,
+            frame_length=frame_length,
+            hop_length=hop_length,
+            dB=dB,
+            Aw=Aw,
+            ref=self.ref,
         )
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
@@ -543,6 +553,13 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         result = librosa.feature.rms(
             y=x, frame_length=self.frame_length, hop_length=self.hop_length
         )[..., 0, :]
+
+        if self.dB:
+            # dBに変換
+            result = 20 * np.log10(
+                np.maximum(result / self.ref[..., np.newaxis], 1e-12)
+            )
+        #
         logger.debug(f"RMS applied, returning result with shape: {result.shape}")
         return result
 
@@ -1126,6 +1143,65 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         logger.debug(
             f"ShortTimeFFT applied, returning result with shape: {result.shape}"
         )
+        return result
+
+
+class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
+    """SNRを考慮した加算操作"""
+
+    name = "add_with_snr"
+
+    def __init__(self, sampling_rate: float, other: DaArray, snr: float):
+        """
+        SNRを考慮した加算操作の初期化
+
+        Parameters
+        ----------
+        sampling_rate : float
+            サンプリングレート (Hz)
+        other : DaArray
+            加算するノイズ信号 (チャネルフレーム形式)
+        snr : float
+            信号対雑音比 (dB)
+        """
+        super().__init__(sampling_rate, other=other, snr=snr)
+
+        self.other = other
+        self.snr = snr
+        logger.debug(f"Initialized AddWithSNR operation with SNR: {snr} dB")
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """
+        操作後の出力データの形状を計算します
+
+        Parameters
+        ----------
+        input_shape : tuple
+            入力データの形状
+
+        Returns
+        -------
+        tuple
+            出力データの形状（入力と同じ）
+        """
+        return input_shape
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """SNRを考慮した加算処理を実行"""
+        logger.debug(f"Applying SNR-based addition with shape: {x.shape}")
+        other: NDArrayReal = self.other.compute()
+
+        # 多チャンネル対応版のcalculate_rmsとcalculate_desired_noise_rmsを使用
+        clean_rms = util.calculate_rms(x)
+        other_rms = util.calculate_rms(other)
+
+        # 指定されたSNRに基づいてノイズのゲインを調整（チャネルごとに適用）
+        desired_noise_rms = util.calculate_desired_noise_rms(clean_rms, self.snr)
+
+        # ブロードキャストでチャネルごとのゲインを適用
+        gain = desired_noise_rms / other_rms
+        # 調整したノイズを信号に加算
+        result: NDArrayReal = x + other * gain
         return result
 
 

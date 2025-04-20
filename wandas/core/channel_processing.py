@@ -30,7 +30,7 @@ def apply_add(ch1: "Channel", ch2: "Channel", snr: float) -> "Channel":
     desired_noise_rms = util.calculate_desired_noise_rms(clean_rms, snr)
     gain = desired_noise_rms / other_rms
 
-    result = ch1 + ch2 * gain
+    result: Channel = ch1 + ch2 * gain
     return result
 
 
@@ -161,3 +161,38 @@ def compute_rms_trend(
         sampling_rate=int(ch.sampling_rate / hop_length),
     )
     return result
+
+
+def apply_normalize(
+    ch: "Channel",
+    target_level: float = -20,
+    channel_wise: bool = True,
+) -> dict[str, NDArrayReal]:
+    """
+    チャンネル信号を正規化します。
+
+    Parameters:
+        ch (Channel): 正規化するチャンネル。
+        target_level (float): 目標信号レベル（dB）。
+        channel_wise (bool): チャンネルごとに正規化するかどうか。
+
+    Returns:
+        dict[str, NDArrayReal]: 正規化されたデータを含む辞書。
+    """
+    data = ch.data
+
+    # RMSを計算
+    current_rms = util.calculate_rms(data)
+
+    # 現在のdBレベルを計算（基準は1.0）
+    current_db = 20 * np.log10(current_rms) if current_rms > 0 else -100
+
+    # 必要なゲインを計算
+    gain = 10 ** ((target_level - current_db) / 20)
+
+    # 正規化された信号を作成
+    normalized_data = data * gain
+
+    return dict(
+        data=normalized_data,
+    )

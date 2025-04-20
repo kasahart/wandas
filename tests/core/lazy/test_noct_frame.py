@@ -214,7 +214,7 @@ class TestNOctFrame:
 
             # Test with default parameters
             result: Any = self.frame.plot()
-            mock_create_op.assert_called_once_with("frequency")
+            mock_create_op.assert_called_once_with("noct")
             mock_plot_strategy.plot.assert_called_once_with(self.frame, ax=None)
             assert result is mock_ax
 

@@ -13,6 +13,7 @@ from matplotlib.axes import Axes
 if TYPE_CHECKING:
     from .base_frame import BaseFrame
     from .channel_frame import ChannelFrame
+    from .noct_frame import NOctFrame
     from .spectral_frame import SpectralFrame
     from .spectrogram_frame import SpectrogramFrame
 
@@ -73,13 +74,16 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
     ) -> Union["Axes", Iterator["Axes"]]:
         """波形プロット"""
         kwargs = kwargs or {}
-
+        ylabel = kwargs.pop("ylabel", "Amplitude")
         if overlay:
             if ax is None:
                 _, ax = plt.subplots(figsize=(10, 4))
             self.channel_plot(bf.time, bf.data.T, ax, label=bf.labels)
-            ax.set_xlabel("Time [s]")
-            ax.set_title(title or bf.label or "Channel Data")
+            ax.set(
+                ylabel=ylabel,
+                title=title or bf.label or "Channel Data",
+                xlabel="Time [s]",
+            )
             if ax is None:
                 plt.tight_layout()
                 plt.show()
@@ -97,9 +101,13 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
             data = bf.data
             for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
                 self.channel_plot(bf.time, channel_data, ax_i)
-                ax_i.set_title(ch_meta.label)
+                ax_i.set(ylabel=ylabel, title=ch_meta.label)
 
-            axes_list[-1].set_xlabel("Time [s]")
+            axes_list[-1].set(
+                ylabel=ylabel,
+                title=title or bf.label or "Channel Data",
+                xlabel="Time [s]",
+            )
             fig.suptitle(title or bf.label or "Channel Data")
 
             if ax is None:
@@ -171,6 +179,78 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
             axes_list[-1].set_xlabel("Frequency [Hz]")
             axes_list[-1].set_ylabel(f"Spectrum level [{unit}]")
             fig.suptitle(title or bf.label or "Channel Data")
+
+            if ax is None:
+                plt.tight_layout()
+                plt.show()
+
+            return iter(axes_list)
+
+
+class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
+    """オクターブ解析プロットの戦略"""
+
+    name = "noct"
+
+    def channel_plot(
+        self,
+        x: Any,
+        y: Any,
+        ax: "Axes",
+        **kwargs: Any,
+    ) -> None:
+        """チャンネルプロットの実装"""
+        ax.step(x, y, **kwargs)
+        ax.grid(True)
+        if "label" in kwargs:
+            ax.legend()
+
+    def plot(
+        self,
+        bf: "NOctFrame",
+        ax: Optional["Axes"] = None,
+        title: Optional[str] = None,
+        overlay: bool = False,
+        **kwargs: Any,
+    ) -> Union["Axes", Iterator["Axes"]]:
+        """オクターブ解析プロット"""
+        kwargs = kwargs or {}
+        is_aw = kwargs.pop("Aw", False)
+
+        if is_aw:
+            unit = "dBrA"
+            data = bf.dBA
+        else:
+            unit = "dBr"
+            data = bf.dB
+
+        if overlay:
+            if ax is None:
+                _, ax = plt.subplots(figsize=(10, 4))
+            self.channel_plot(bf.freqs, data.T, ax, label=bf.labels)
+            ax.set_xlabel("Center frequency [Hz]")
+            ax.set_ylabel(f"Spectrum level [{unit}]")
+            ax.set_title(title or bf.label or f"1/{str(bf.n)}-Octave Spectrum")
+            if ax is None:
+                plt.tight_layout()
+                plt.show()
+            return ax
+        else:
+            num_channels = bf.n_channels
+            fig, axs = plt.subplots(
+                num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
+            )
+            # axs が単一の Axes オブジェクトの場合、リストに変換
+            if not isinstance(axs, (list, np.ndarray)):
+                axs = [axs]
+
+            axes_list = list(axs)
+            for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
+                self.channel_plot(bf.freqs, channel_data, ax_i, label=ch_meta.label)
+
+            axes_list[-1].set_xlabel("Center frequency [Hz]")
+            axes_list[-1].set_ylabel(f"Spectrum level [{unit}]")
+            fig.suptitle(title or bf.label or f"1/{str(bf.n)}-Octave Spectrum")
 
             if ax is None:
                 plt.tight_layout()

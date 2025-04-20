@@ -10,6 +10,7 @@ from mosqito.sound_level_meter import noct_spectrum, noct_synthesis
 from mosqito.sound_level_meter.noct_spectrum._center_freq import _center_freq
 from scipy import fft, signal
 
+from wandas.core import util
 from wandas.core.lazy.time_series_operation import (
     _OPERATION_REGISTRY,
     ABS,
@@ -17,6 +18,7 @@ from wandas.core.lazy.time_series_operation import (
     IFFT,
     ISTFT,
     STFT,
+    AddWithSNR,
     AudioOperation,
     AWeighting,
     ChannelDifference,
@@ -1967,3 +1969,142 @@ class TestChannelDifferenceOperation:
 
         assert isinstance(ch_diff_op, ChannelDifference)
         assert ch_diff_op.sampling_rate == self.sample_rate
+
+
+class TestAddWithSNROperation:
+    def setup_method(self) -> None:
+        """Set up test fixtures for each test."""
+        self.sample_rate: int = 16000
+
+        # Create a sinusoidal signal
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        self.signal_freq: float = 1000.0
+        self.signal_amp: float = 1.0
+        self.signal_mono: NDArrayReal = np.array(
+            [self.signal_amp * np.sin(2 * np.pi * self.signal_freq * t)]
+        )
+
+        # Create noise signal
+        np.random.seed(42)  # For reproducibility
+        self.noise_amp: float = 0.1
+        self.noise_mono: NDArrayReal = np.array(
+            [self.noise_amp * np.random.randn(self.sample_rate)]
+        )
+
+        # Create dask arrays
+        self.dask_signal: DaArray = _da_from_array(self.signal_mono, chunks=-1)
+        self.dask_noise: DaArray = _da_from_array(self.noise_mono, chunks=-1)
+
+    def test_initialization(self) -> None:
+        """Test initialization with parameters."""
+        snr_db: float = 20.0
+        add_with_snr = AddWithSNR(self.sample_rate, self.dask_noise, snr_db)
+        assert add_with_snr.sampling_rate == self.sample_rate
+        assert add_with_snr.snr == snr_db
+
+    def test_snr_effect(self) -> None:
+        """Test that the SNR is correctly applied."""
+        # Test with different SNR values
+        snr_values = [20.0, 10.0, 0.0, -10.0]
+
+        for snr_db in snr_values:
+            # Create operation
+            add_with_snr = AddWithSNR(self.sample_rate, self.dask_noise, snr_db)
+
+            # Process signal
+            result = add_with_snr.process(self.dask_signal).compute()
+
+            # Calculate actual SNR from result
+            # Extract noise component
+            noise_component = result - self.signal_mono
+
+            # Calculate RMS of signal and noise
+            signal_rms = util.calculate_rms(self.signal_mono)
+            noise_rms = util.calculate_rms(noise_component)
+
+            # Calculate actual SNR in dB
+            actual_snr_db = 20 * np.log10(signal_rms / noise_rms)
+
+            # Check that the actual SNR is close to
+            # the requested SNR with 0.0001% tolerance
+            np.testing.assert_allclose(actual_snr_db, snr_db, rtol=0.000001)
+
+    def test_output_shape(self) -> None:
+        """Test that the output shape matches the input shape."""
+        snr_db: float = 10.0
+        add_with_snr = AddWithSNR(self.sample_rate, self.dask_noise, snr_db)
+
+        # Process signal
+        result = add_with_snr.process(self.dask_signal).compute()
+
+        # Check shape
+        assert result.shape == self.signal_mono.shape
+
+    def test_different_amplitude_signals(self) -> None:
+        """Test with signals of different amplitudes."""
+        snr_db: float = 10.0
+
+        # Test with different signal amplitudes
+        for amplitude in [0.1, 0.5, 2.0, 5.0]:
+            # Create scaled signal
+            scaled_signal = self.signal_mono * amplitude
+            dask_scaled_signal = _da_from_array(scaled_signal, chunks=-1)
+
+            # Create operation
+            add_with_snr = AddWithSNR(self.sample_rate, self.dask_noise, snr_db)
+
+            # Process signal
+            result = add_with_snr.process(dask_scaled_signal).compute()
+
+            # Calculate actual SNR from result
+            noise_component = result - scaled_signal
+            signal_rms = util.calculate_rms(scaled_signal)
+            noise_rms = util.calculate_rms(noise_component)
+            actual_snr_db = 20 * np.log10(signal_rms / noise_rms)
+
+            # Check that the actual SNR is close to
+            # the requested SNR with 0.0001% tolerance
+            np.testing.assert_allclose(actual_snr_db, snr_db, rtol=0.000001)
+
+    def test_stereo_signal(self) -> None:
+        """Test with stereo signal and noise."""
+        # Create stereo signal and noise
+        stereo_signal = np.vstack([self.signal_mono, self.signal_mono * 0.5])
+        stereo_noise = np.vstack([self.noise_mono, self.noise_mono * 0.7])
+
+        dask_stereo_signal = _da_from_array(stereo_signal, chunks=-1)
+        dask_stereo_noise = _da_from_array(stereo_noise, chunks=-1)
+
+        # Set SNR
+        snr_db: float = 15.0
+        add_with_snr = AddWithSNR(self.sample_rate, dask_stereo_noise, snr_db)
+
+        # Process signal
+        result = add_with_snr.process(dask_stereo_signal).compute()
+
+        # Check shape
+        assert result.shape == stereo_signal.shape
+
+        # Check SNR for each channel
+        for ch in range(2):
+            noise_component = result[ch : ch + 1] - stereo_signal[ch : ch + 1]
+            signal_rms = util.calculate_rms(stereo_signal[ch : ch + 1])
+            noise_rms = util.calculate_rms(noise_component)
+            actual_snr_db = 20 * np.log10(signal_rms / noise_rms)
+
+            # Check that the actual SNR is close to
+            # the requested SNR with 0.001% tolerance
+            np.testing.assert_allclose(actual_snr_db, snr_db, rtol=0.000001)
+
+    def test_operation_registry(self) -> None:
+        """Test that AddWithSNR is properly registered in the operation registry."""
+        assert get_operation("add_with_snr") == AddWithSNR
+
+        # Create operation through registry
+        add_with_snr_op = create_operation(
+            "add_with_snr", self.sample_rate, other=self.dask_noise, snr=10.0
+        )
+
+        assert isinstance(add_with_snr_op, AddWithSNR)
+        assert add_with_snr_op.sampling_rate == self.sample_rate
+        assert add_with_snr_op.snr == 10.0

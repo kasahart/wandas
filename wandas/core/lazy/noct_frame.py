@@ -134,7 +134,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         return self
 
     def plot(
-        self, plot_type: str = "frequency", ax: Optional["Axes"] = None, **kwargs: Any
+        self, plot_type: str = "noct", ax: Optional["Axes"] = None, **kwargs: Any
     ) -> Union["Axes", Iterator["Axes"]]:
         """
         様々な形式のプロット (Strategyパターンを使用)

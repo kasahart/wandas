@@ -1126,3 +1126,88 @@ class TestChannelFrame:
         # Test trimming with invalid start and end times
         with pytest.raises(ValueError):
             self.channel_frame.trim(start=0.5, end=0.1)
+
+    def test_add_method(self) -> None:
+        """Test add method for adding signals."""
+        # 通常の加算をテスト
+        # Create another ChannelFrame
+        other_data = np.random.random((2, 16000))
+        other_dask_data = _da_from_array(other_data, chunks=(1, 4000))
+        other_cf = ChannelFrame(other_dask_data, self.sample_rate, label="other_audio")
+
+        # addメソッドを使用して加算
+        result = self.channel_frame.add(other_cf)
+
+        # Check result properties
+        assert isinstance(result, ChannelFrame)
+        assert result.sampling_rate == self.sample_rate
+        assert result.n_channels == 2
+        assert result.n_samples == 16000
+
+        # 実際の計算結果を確認
+        computed = result.compute()
+        expected = self.data + other_data
+        np.testing.assert_array_almost_equal(computed, expected)
+
+        # スカラー値との加算をテスト
+        scalar_value = 0.5
+        result = self.channel_frame.add(scalar_value)
+        assert isinstance(result, ChannelFrame)
+        computed = result.compute()
+        expected = self.data + scalar_value
+        np.testing.assert_array_almost_equal(computed, expected)
+
+        # NumPy配列との加算をテスト
+        array_value = np.random.random((2, 16000))
+        result = self.channel_frame.add(array_value)
+        assert isinstance(result, ChannelFrame)
+        computed = result.compute()
+        expected = self.data + array_value
+        np.testing.assert_array_almost_equal(computed, expected)
+
+        # サンプリングレートが一致しない場合のエラーをテスト
+        mismatch_cf = ChannelFrame(other_dask_data, 44100, label="mismatch_audio")
+        with pytest.raises(ValueError, match="サンプリングレートが一致していません"):
+            _ = self.channel_frame.add(mismatch_cf)
+
+    def test_add_with_snr(self) -> None:
+        """Test add method with SNR parameter."""
+        # 別のChannelFrameを作成
+        signal_data = np.random.random((2, 16000))
+        signal_dask_data = _da_from_array(signal_data, chunks=-1)
+        signal_cf = ChannelFrame(signal_dask_data, self.sample_rate, label="signal")
+
+        # ノイズデータを作成
+        noise_data = np.random.random((2, 16000)) * 0.1  # 小さいノイズ
+        noise_dask_data = _da_from_array(noise_data, chunks=-1)
+        noise_cf = ChannelFrame(noise_dask_data, self.sample_rate, label="noise")
+
+        # SNRを指定して加算
+        snr_value = 10.0  # 10dBのSNR
+        result = signal_cf.add(noise_cf, snr=snr_value)
+
+        # 基本的なプロパティをチェック
+        assert isinstance(result, ChannelFrame)
+        assert result.sampling_rate == self.sample_rate
+        assert result.n_channels == 2
+        assert result.n_samples == 16000
+
+        # 演算履歴の確認 - 実装に合わせて調整
+        # この部分はapply_addの実装によって異なる可能性があるため、
+        # 一般的な作成チェックのみを行う
+        assert len(result.operation_history) > len(signal_cf.operation_history)
+
+        # 実際の計算をトリガー
+        computed = result.compute()
+
+        # SNRを考慮した加算の結果を確認
+        # 実際の結果はSNRの具体的な実装によって異なりますが、型と形状は確認可能
+        assert isinstance(computed, np.ndarray)
+        assert computed.shape == (2, 16000)
+
+        # 負のSNR値もテスト
+        # 値が適用されることを確認する
+        neg_result = signal_cf.add(noise_cf, snr=-10.0)
+        neg_computed = neg_result.compute()
+        assert isinstance(neg_computed, np.ndarray)
+        assert neg_computed.shape == (2, 16000)

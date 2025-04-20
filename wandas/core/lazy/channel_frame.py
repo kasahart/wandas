@@ -231,6 +231,59 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
                 previous=self,
             )
 
+    def add(
+        self,
+        other: Union["ChannelFrame", int, float, NDArrayReal, "DaArray"],
+        snr: Optional[float] = None,
+    ) -> "ChannelFrame":
+        """
+        別の信号または値を現在の信号に加算します。
+        SNRを指定すると、信号対雑音比を考慮した加算を行います。
+
+        Parameters
+        ----------
+        other : ChannelFrame, int, float, ndarray, dask.array
+            加算する信号または値
+        snr : float, optional
+            信号対雑音比（dB）。指定すると、このSNRに基づいて他の信号のスケールを調整します。
+            self が信号、other がノイズとして扱われます。
+
+        Returns
+        -------
+        ChannelFrame
+            加算結果を含む新しいチャネルフレーム（遅延実行）
+        """
+        logger.debug(f"Setting up add operation with SNR={snr} (lazy)")
+
+        # SNRが指定されている場合は特別な処理
+        if snr is not None:
+            # other がChannelFrameでない場合、最初に変換
+            if not isinstance(other, ChannelFrame):
+                if isinstance(other, np.ndarray):
+                    other = ChannelFrame.from_numpy(
+                        other, self.sampling_rate, label="array_data"
+                    )
+                elif isinstance(other, (int, float)):
+                    # スカラーの場合はそのまま加算（SNRは無視）
+                    return self + other
+                else:
+                    raise TypeError(
+                        "SNR指定時の加算対象は ChannelFrame または "
+                        f"NumPy配列である必要があります: {type(other)}"
+                    )
+
+            # サンプリングレートが一致するか確認
+            if self.sampling_rate != other.sampling_rate:
+                raise ValueError(
+                    "サンプリングレートが一致していません。演算できません。"
+                )
+
+            # SNR調整付き加算操作を適用
+            return self.apply_operation("add_with_snr", other=other._data, snr=snr)
+
+        # SNRが指定されていない場合は通常の加算を実行
+        return self + other
+
     def plot(
         self, plot_type: str = "waveform", ax: Optional["Axes"] = None, **kwargs: Any
     ) -> Union["Axes", Iterator["Axes"]]:
@@ -261,7 +314,8 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
 
     def rms_plot(
         self,
-        Aw: bool = True,  # noqa: N803
+        ax: Optional["Axes"] = None,
+        Aw: bool = False,  # noqa: N803
         **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
         """
@@ -272,8 +326,10 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         **kwargs : dict
             プロット固有のパラメータ
         """
-
-        return self.rms_trend(Aw=Aw).plot(**kwargs)
+        kwargs = kwargs or {}
+        ylabel = kwargs.pop("ylabel", "RMS")
+        rms_ch: ChannelFrame = self.rms_trend(Aw=Aw, dB=True)
+        return rms_ch.plot(ax=ax, ylabel=ylabel, **kwargs)
 
     def describe(self, normalize: bool = True, **kwargs: Any) -> None:
         if "axis_config" in kwargs:
@@ -805,11 +861,17 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         self,
         frame_length: int = 2048,
         hop_length: int = 512,
+        dB: bool = False,  # noqa: N803
         Aw: bool = False,  # noqa: N803
     ) -> "ChannelFrame":
         """RMSトレンドを計算します。"""
         cf = self.apply_operation(
-            "rms_trend", frame_length=frame_length, hop_length=hop_length, Aw=Aw
+            "rms_trend",
+            frame_length=frame_length,
+            hop_length=hop_length,
+            ref=[ch.ref for ch in self._channel_metadata],
+            dB=dB,
+            Aw=Aw,
         )
         cf.sampling_rate = self.sampling_rate / hop_length
         return cf
