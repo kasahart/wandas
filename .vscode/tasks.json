@@ -10,7 +10,13 @@
         {
             "label": "Run mypy wandas tests",
             "type": "shell",
-            "command": "uv run mypy wandas tests",
+            "command": "uv run mypy",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run pytest",
+            "type": "shell",
+            "command": "uv run pytest",
             "problemMatcher": []
         }
     ]

@@ -98,3 +98,10 @@ module = ["dask", "dask.array", "dask.array.*"]
 ignore_missing_imports = true
 
 follow_imports = "skip"
+
+[tool.pytest]
+testpaths = ["tests"]
+addopts = "--cov=wandas --cov-report=xml"
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"

@@ -28,10 +28,13 @@ jobs:
         run: uv sync --all-extras --dev
 
       - name: フォーマットチェック (ruff)
+        # pyproject.tomlの設定を使用
         run: uv run ruff check .
 
       - name: 型チェック (mypy)
-        run: uv run mypy wandas tests
+        # pyproject.tomlの設定を使用
+        run: uv run mypy
 
       - name: テスト実行 (pytest)
-        run: uv run pytest tests
+        # pyproject.tomlの設定を使用
+        run: uv run pytest
