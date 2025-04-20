@@ -34,7 +34,7 @@ repos:
         description: "Run 'mypy' for Python linting using settings from pyproject.toml"
         entry: mypy
         language: python
-        args: [--strict, --ignore-missing-imports]
+        args: [--config-file=pyproject.toml]
         require_serial: true
         additional_dependencies: []
 

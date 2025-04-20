@@ -904,8 +904,8 @@ class TestFFTOperation:
 
         mask = np.ones_like(magnitude, dtype=bool)
         region = 5
-        lower: int = int(max(0, peak_idx - region))
-        upper: int = int(min(len(magnitude), peak_idx + region + 1))
+        lower = int(max(0, int(peak_idx - region)))
+        upper = int(min(len(magnitude), int(peak_idx + region + 1)))
         mask[lower:upper] = False
 
         assert np.max(magnitude[mask]) < 0.1 * magnitude[peak_idx]

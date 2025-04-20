@@ -199,7 +199,7 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
             for self_ch, other_ch in zip(
                 self._channel_metadata, other._channel_metadata
             ):
-                ch = self_ch.copy(deep=True)
+                ch = self_ch.model_copy(deep=True)
                 ch["label"] = f"({self_ch['label']} {symbol} {other_ch['label']})"
                 merged_channel_metadata.append(ch)
 
@@ -234,7 +234,7 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
 
             updated_channel_metadata: list[ChannelMetadata] = []
             for self_ch in self._channel_metadata:
-                ch = self_ch.copy(deep=True)
+                ch = self_ch.model_copy(deep=True)
                 ch["label"] = f"({self_ch.label} {symbol} {other_str})"
                 updated_channel_metadata.append(ch)
 

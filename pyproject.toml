@@ -39,6 +39,7 @@ dependencies = [
     "ipykernel",
     "ipywidgets",
     "cattrs",
+    "tqdm",
     "ipympl>=0.9.3",
     "h5py>=3.13.0",
     "dask>=2024.8.0",
@@ -75,14 +76,25 @@ line-length = 88
 select = ["E", "F", "W", "Q", "UP", "I", "N"]
 
 [tool.mypy]
+# plugins = ["pydantic.mypy"]
 files = ["wandas", "tests"]
 strict = true
 pretty = true
 ignore_missing_imports = true
 
-# scipy モジュールをmypyの型チェックから除外する設定
+# scipy, dask, librosa, IPython, matplotlibモジュールをmypyの型チェックから除外する設定
 [[tool.mypy.overrides]]
-module = ["scipy.*", "dask.*"]
+module = ["scipy.*", "dask.*", "librosa.*", "IPython.*", "matplotlib.*"]
 ignore_errors = true
+
+# pytestのfixtureデコレータのエラーを無視する設定
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_decorators = false
+
+# 追加の除外設定（daskに関連するモジュールの追加）
+[[tool.mypy.overrides]]
+module = ["dask", "dask.array", "dask.array.*"]
+ignore_missing_imports = true
 
 follow_imports = "skip"

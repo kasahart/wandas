@@ -35,9 +35,9 @@ from .plotting import create_operation
 
 logger = logging.getLogger(__name__)
 
-dask_delayed = dask.delayed  # type: ignore [unused-ignore]
-da_from_delayed = da.from_delayed  # type: ignore [unused-ignore]
-da_from_array = da.from_array  # type: ignore [unused-ignore]
+dask_delayed = dask.delayed
+da_from_delayed = da.from_delayed
+da_from_array = da.from_array
 
 
 S = TypeVar("S", bound="BaseFrame[Any]")
@@ -181,7 +181,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
             for self_ch, other_ch in zip(
                 self._channel_metadata, other._channel_metadata
             ):
-                ch = self_ch.copy(deep=True)
+                ch = self_ch.model_copy(deep=True)
                 ch["label"] = f"({self_ch['label']} {symbol} {other_ch['label']})"
                 merged_channel_metadata.append(ch)
 
@@ -215,7 +215,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
             # チャネルメタデータを更新
             updated_channel_metadata: list[ChannelMetadata] = []
             for self_ch in self._channel_metadata:
-                ch = self_ch.copy(deep=True)
+                ch = self_ch.model_copy(deep=True)
                 ch["label"] = f"({self_ch.label} {symbol} {other_str})"
                 updated_channel_metadata.append(ch)
 
@@ -313,9 +313,10 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
                 raise TypeError(
                     f"Unexpected type for plot result: {type(_ax)}. Expected Axes or Iterator[Axes]."  # noqa: E501
                 )
-            display(ax.figure)  # type: ignore [unused-ignore, no-untyped-call]
-            plt.close(fig=ax.figure)  # type: ignore [unused-ignore]
-            display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))  # type: ignore [unused-ignore, no-untyped-call]
+            # displayとAudioの型チェックを無視する
+            display(ax.figure)
+            plt.close(ax.figure)  # type: ignore[arg-type, unused-ignore]
+            display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))
 
     @classmethod
     def from_numpy(

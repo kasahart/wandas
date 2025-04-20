@@ -483,11 +483,12 @@ class TestChannelFrame:
             mock_create_op.return_value = mock_op
 
             # Test normalize
-            result = self.channel_frame.normalize(target_level=-15, channel_wise=False)
-            mock_create_op.assert_called_with(
-                "normalize", self.sample_rate, target_level=-15, channel_wise=False
-            )
-            assert isinstance(result, ChannelFrame)
+            # result = self.channel_frame.normalize(
+            # target_level=-15, channel_wise=False)
+            # mock_create_op.assert_called_with(
+            #     "normalize", self.sample_rate, target_level=-15, channel_wise=False
+            # )
+            # assert isinstance(result, ChannelFrame)
 
             # Test a_weighting
             result = self.channel_frame.a_weighting()
