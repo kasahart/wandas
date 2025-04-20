@@ -278,6 +278,7 @@ class TestPlotting:
                 # Python 3.9対応: figureプロパティのモックを設定せず、
                 # get_figure()メソッドを使う
                 mock_ax.get_figure.return_value = mock_fig
+                mock_ax.figure = mock_fig
                 mock_axs.append(mock_ax)
 
             if len(mock_axs) == 1:
