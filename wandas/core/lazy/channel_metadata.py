@@ -3,7 +3,7 @@ from typing import Any
 from pydantic import BaseModel, Field  # pydanticから直接インポート
 
 
-class ChannelMetadata(BaseModel):  # type: ignore[misc]
+class ChannelMetadata(BaseModel):
     """
     チャネルのメタデータを格納するデータクラス
     """

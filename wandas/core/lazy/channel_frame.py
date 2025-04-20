@@ -370,9 +370,9 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
                     f"Unexpected type for plot result: {type(_ax)}. Expected Axes or Iterator[Axes]."  # noqa: E501
                 )
             # displayとAudioの型チェックを無視する
-            display(ax.figure)
-            plt.close(ax.figure)  # type: ignore[arg-type, unused-ignore]
-            display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))
+            display(ax.figure)  # type: ignore
+            plt.close(ax.figure)  # type: ignore
+            display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))  # type: ignore
 
     @classmethod
     def from_numpy(
