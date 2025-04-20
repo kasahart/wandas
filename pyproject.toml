@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "wandas"
-version = "0.0.9"
+version = "0.1.0"
 description = "Wandas is an open source library for efficient signal analysis in Python"
 authors = [{name = "kasahart", email="kasahart66@gmail.com"}]
 maintainers = [
@@ -39,10 +39,14 @@ dependencies = [
     "ipykernel",
     "ipywidgets",
     "cattrs",
+    "tqdm",
     "ipympl>=0.9.3",
     "h5py>=3.13.0",
     "dask>=2024.8.0",
     "waveform-analysis",
+    "japanize-matplotlib>=1.1.3",
+    "ipycytoscape>=1.3.3",
+    "pydantic>=2.11.0",
 ]
 
 [project.urls]
@@ -51,7 +55,7 @@ Issues = "https://github.com/kasahart/wandas/issues"
 
 [tool.uv]
 dev-dependencies = [
-    "pytest",
+    "pytest>=8.3.5",
     "pandas",
     "pandas-stubs",
     "pytest-cov",
@@ -67,12 +71,56 @@ waveform-analysis = { git = "https://github.com/endolith/waveform-analysis.git",
 
 [tool.ruff]
 line-length = 88
+include = ["wandas/**/*.py", "tests/**/*.py"]
+fix = true
+# 共通のruff設定はここにまとめる
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "Q", "UP", "I", "N"]
 
+[tool.ruff.format]
+docstring-code-format = true
+
 [tool.mypy]
+# plugins = ["pydantic.mypy"]
 files = ["wandas", "tests"]
 strict = true
 pretty = true
 ignore_missing_imports = true
+
+# scipy, dask, librosa, IPython, matplotlibモジュールをmypyの型チェックから除外する設定
+[[tool.mypy.overrides]]
+module = ["scipy.*", "dask.*", "librosa.*", "IPython.*", "matplotlib.*"]
+ignore_errors = true
+
+# pytestのfixtureデコレータのエラーを無視する設定
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_decorators = false
+
+# 追加の除外設定（daskに関連するモジュールの追加）
+[[tool.mypy.overrides]]
+module = ["dask", "dask.array", "dask.array.*"]
+ignore_missing_imports = true
+
+follow_imports = "skip"
+
+[tool.pytest]
+testpaths = ["tests"]
+addopts = "--cov=wandas --cov-report=xml"
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+
+[tool.vscode.tasks]
+ruff-check = { command = "uv run ruff check wandas tests", label = "Run ruff check" }
+mypy = { command = "uv run mypy", label = "Run mypy wandas tests" }
+pytest = { command = "uv run pytest", label = "Run pytest" }
+
+[tool.pre-commit]
+use-uv = true
+
+[tool.pre-commit.hooks]
+ruff-check = { args = ["--fix", "wandas", "tests"] }
+ruff-format = { args = ["wandas", "tests"] }
+mypy = { require-serial = true }

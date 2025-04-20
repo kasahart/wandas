@@ -19,16 +19,49 @@ def unit_to_ref(unit: str) -> float:
         return 1.0
 
 
-def calculate_rms(wave: "NDArrayReal") -> float:
+def calculate_rms(wave: "NDArrayReal") -> "NDArrayReal":
     """
     Calculate the root mean square of the wave.
+
+    Parameters
+    ----------
+    wave : NDArrayReal
+        Input waveform data. Can be multi-channel (shape: [channels, samples])
+        or single channel (shape: [samples]).
+
+    Returns
+    -------
+    Union[float, NDArray[np.float64]]
+        RMS value(s). For multi-channel input, returns an array of RMS values,
+        one per channel. For single-channel input, returns a single RMS value.
     """
-    return float(np.sqrt(np.mean(np.square(wave))))
+    # 軸を考慮してRMSを計算（最後の次元に対して）
+    axis_to_use = -1 if wave.ndim > 1 else None
+    rms_values: NDArrayReal = np.sqrt(
+        np.mean(np.square(wave), axis=axis_to_use, keepdims=True)
+    )
+    return rms_values
 
 
-def calculate_desired_noise_rms(clean_rms: float, snr: float) -> float:
+def calculate_desired_noise_rms(clean_rms: "NDArrayReal", snr: float) -> "NDArrayReal":
+    """
+    Calculate the desired noise RMS based on clean signal RMS and target SNR.
+
+    Parameters
+    ----------
+    clean_rms : "NDArrayReal"
+        RMS value(s) of the clean signal.
+        Can be a single value or an array for multi-channel.
+    snr : float
+        Target Signal-to-Noise Ratio in dB.
+
+    Returns
+    -------
+    "NDArrayReal"
+        Desired noise RMS value(s) to achieve the target SNR.
+    """
     a = snr / 20
-    noise_rms = clean_rms / 10**a
+    noise_rms = clean_rms / (10**a)
     return noise_rms
 
 

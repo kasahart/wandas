@@ -2,17 +2,23 @@ default_stages: [pre-commit]
 
 repos:
 # Ruff
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.9.2
+  - repo: local
     hooks:
-      - id: ruff
-        name: Ruff check
+      - id: ruff-check
+        name: ruff check
         description: "Run 'ruff check' for extremely fast Python linting"
-        args: [--fix]
+        entry: uv run ruff check --config=pyproject.toml
+        args: [--fix, wandas, tests]
+        language: system
+        types: [python]
 
       - id: ruff-format
-        name: Ruff format
+        name: ruff format
         description: "Run 'ruff format' for extremely fast Python formatting"
+        entry: uv run ruff format --config=pyproject.toml
+        args: [wandas, tests]
+        language: system
+        types: [python]
 
 # hadolint
   - repo: https://github.com/hadolint/hadolint
@@ -26,17 +32,15 @@ repos:
         entry: hadolint
 
 # mypy
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.7.0
+  - repo: local
     hooks:
       - id: mypy
         name: mypy
         description: "Run 'mypy' for Python linting using settings from pyproject.toml"
-        entry: mypy
-        language: python
-        args: [--strict, --ignore-missing-imports]
+        entry: uv run mypy --config-file=pyproject.toml
+        language: system
+        types: [python]
         require_serial: true
-        additional_dependencies: []
 
 ci:
   autoupdate_schedule: weekly

@@ -51,7 +51,7 @@ def test_calculate_rms_random() -> None:
 def test_calculate_desired_noise_rms_basic() -> None:
     # For a clean_rms of 1.0 and snr of 20 dB:
     # a = 20/20 = 1, so noise_rms = 1.0 / 10**1 = 0.1
-    clean_rms = 1.0
+    clean_rms = np.array(1.0)  # floatをndarrayに変換
     snr = 20.0
     expected = 0.1
     result = calculate_desired_noise_rms(clean_rms, snr)
@@ -60,7 +60,7 @@ def test_calculate_desired_noise_rms_basic() -> None:
 
 def test_calculate_desired_noise_rms_snr_zero() -> None:
     # For snr = 0 dB, a = 0 and noise_rms should equal clean_rms.
-    clean_rms = 0.5
+    clean_rms = np.array(0.5)  # floatをndarrayに変換
     snr = 0.0
     expected = 0.5
     result = calculate_desired_noise_rms(clean_rms, snr)
@@ -70,7 +70,7 @@ def test_calculate_desired_noise_rms_snr_zero() -> None:
 def test_calculate_desired_noise_rms_negative_snr() -> None:
     # For a negative snr, e.g., snr = -20 dB:
     # a = -20/20 = -1, so noise_rms = clean_rms / 10**(-1) = clean_rms * 10.
-    clean_rms = 1.0
+    clean_rms = np.array(1.0)  # floatをndarrayに変換
     snr = -20.0
     expected = 10.0
     result = calculate_desired_noise_rms(clean_rms, snr)
@@ -80,7 +80,7 @@ def test_calculate_desired_noise_rms_negative_snr() -> None:
 def test_calculate_desired_noise_rms_fractional() -> None:
     # For a fractional snr, e.g., snr = 10 dB:
     # a = 10/20 = 0.5, so noise_rms = clean_rms / 10**0.5 = clean_rms / sqrt(10).
-    clean_rms = 2.0
+    clean_rms = np.array(2.0)  # floatをndarrayに変換
     snr = 10.0
     expected = 2.0 / np.sqrt(10)
     result = calculate_desired_noise_rms(clean_rms, snr)
