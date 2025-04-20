@@ -4,19 +4,19 @@
         {
             "label": "Run ruff check",
             "type": "shell",
-            "command": "uv run ruff check .",
+            "command": "uv run ruff check wandas tests --config=pyproject.toml",
             "problemMatcher": []
         },
         {
             "label": "Run mypy wandas tests",
             "type": "shell",
-            "command": "uv run mypy",
+            "command": "uv run mypy --config-file=pyproject.toml",
             "problemMatcher": []
         },
         {
             "label": "Run pytest",
             "type": "shell",
-            "command": "uv run pytest",
+            "command": "uv run pytest --pyproject=pyproject.toml",
             "problemMatcher": []
         }
     ]

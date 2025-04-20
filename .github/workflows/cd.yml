@@ -26,16 +26,16 @@ jobs:
               run: uv sync --all-extras --dev
 
             - name: コード品質チェック (ruff)
-              # pyproject.tomlの設定を使用
-              run: uv run ruff check .
+              # pyproject.tomlの設定を明示的に使用
+              run: uv run ruff check wandas tests --config=pyproject.toml
 
             - name: 型チェック (mypy)
-              # pyproject.tomlの設定を使用
-              run: uv run mypy
+              # pyproject.tomlの設定を明示的に使用
+              run: uv run mypy --config-file=pyproject.toml
 
             - name: テスト実行 (pytest)
-              # pyproject.tomlの設定を使用
-              run: uv run pytest
+              # pyproject.tomlの設定を明示的に使用
+              run: uv run pytest --pyproject=pyproject.toml
 
             - name: Build a binary wheel and a source tarball
               run: uv build

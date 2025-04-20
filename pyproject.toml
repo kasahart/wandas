@@ -71,9 +71,15 @@ waveform-analysis = { git = "https://github.com/endolith/waveform-analysis.git",
 
 [tool.ruff]
 line-length = 88
+include = ["wandas/**/*.py", "tests/**/*.py"]
+fix = true
+# 共通のruff設定はここにまとめる
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "Q", "UP", "I", "N"]
+
+[tool.ruff.format]
+docstring-code-format = true
 
 [tool.mypy]
 # plugins = ["pydantic.mypy"]
@@ -105,3 +111,16 @@ addopts = "--cov=wandas --cov-report=xml"
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
+
+[tool.vscode.tasks]
+ruff-check = { command = "uv run ruff check wandas tests", label = "Run ruff check" }
+mypy = { command = "uv run mypy", label = "Run mypy wandas tests" }
+pytest = { command = "uv run pytest", label = "Run pytest" }
+
+[tool.pre-commit]
+use-uv = true
+
+[tool.pre-commit.hooks]
+ruff-check = { args = ["--fix", "wandas", "tests"] }
+ruff-format = { args = ["wandas", "tests"] }
+mypy = { require-serial = true }
