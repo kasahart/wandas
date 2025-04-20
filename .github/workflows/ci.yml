@@ -36,5 +36,5 @@ jobs:
         run: uv run mypy --config-file=pyproject.toml
 
       - name: テスト実行 (pytest)
-        # pyproject.tomlの設定を明示的に使用
-        run: uv run pytest --pyproject=pyproject.toml
+        # pytestは自動的にpyproject.tomlを検出します
+        run: uv run pytest
