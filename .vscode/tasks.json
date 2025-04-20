@@ -18,6 +18,20 @@
             "type": "shell",
             "command": "uv run pytest",
             "problemMatcher": []
+        },
+        {
+            "label": "Run pytest with Python 3.9",
+            "type": "shell",
+            "command": "uv venv --python=3.9 .venv-py39 && source .venv-py39/bin/activate && uv pip install -e . && uv pip install pandas pandas-stubs pytest pytest-cov && python -m pytest",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": false
+            }
         }
     ]
 }

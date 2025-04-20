@@ -55,7 +55,7 @@ Issues = "https://github.com/kasahart/wandas/issues"
 
 [tool.uv]
 dev-dependencies = [
-    "pytest",
+    "pytest>=8.3.5",
     "pandas",
     "pandas-stubs",
     "pytest-cov",
