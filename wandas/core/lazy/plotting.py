@@ -338,8 +338,9 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
                 **kwargs,
             )
             ax_i.set(xlim=xlim, ylim=ylim)
-            cbar = ax_i.figure.colorbar(img, ax=ax_i)
-            cbar.set_label(f"Spectrum level [{unit}]")
+            if ax_i.figure is not None:
+                cbar = ax_i.figure.colorbar(img, ax=ax_i)
+                cbar.set_label(f"Spectrum level [{unit}]")
             # タイトルの設定：外部からaxが与えられた場合はその指定を優先
             if create_new_figure or not title:
                 ax_i.set_title(ch_meta.label)
@@ -350,7 +351,8 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
 
         # 新しい図を作成した場合のみ、suptitleとtight_layout、showを行う
         if create_new_figure:
-            axes_list[0].figure.suptitle(title or bf.label or "Spectrogram Data")
+            if axes_list[0].figure is not None:
+                axes_list[0].figure.suptitle(title or bf.label or "Spectrogram Data")
             plt.tight_layout()
             plt.show()
             return iter(axes_list)

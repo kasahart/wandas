@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Union
 from unittest import mock
 
 import dask.array as da
@@ -342,7 +342,7 @@ class TestSTFTOperation:
         self.hop_length: int = 256
         self.win_length: int = 1024
         self.window: str = "hann"
-        self.boundary: str | None = "zeros"
+        self.boundary: Union[str, None] = "zeros"
 
         # Create a test signal (1 second sine wave at 440 Hz)
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
