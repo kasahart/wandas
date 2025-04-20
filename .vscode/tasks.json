@@ -16,7 +16,7 @@
         {
             "label": "Run pytest",
             "type": "shell",
-            "command": "uv run pytest --pyproject=pyproject.toml",
+            "command": "uv run pytest",
             "problemMatcher": []
         }
     ]

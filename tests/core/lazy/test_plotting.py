@@ -237,20 +237,19 @@ class TestPlotting:
 
             fig, ax = plt.subplots()
 
-            # figureプロパティは読み取り専用なので、モックを使用
-            with mock.patch.object(
-                Axes, "figure", return_value=fig, new_callable=mock.PropertyMock
-            ):
-                result = strategy.plot(self.mock_single_spectrogram_frame, ax=ax)
+            # Python 3.9のmatplotlibでは、
+            # axの図形プロパティへのアクセス方法が異なるため、
+            # モックを使わずに実際の図と軸を使用するように修正
+            result = strategy.plot(self.mock_single_spectrogram_frame, ax=ax)
 
-                # 戻り値が単一のAxesであることを確認
-                assert result is ax
+            # 戻り値が単一のAxesであることを確認
+            assert result is ax
 
-                # specshowが呼び出されたことを確認
-                mock_specshow.assert_called_once()
+            # specshowが呼び出されたことを確認
+            mock_specshow.assert_called_once()
 
-                # カラーバーの作成が呼び出されたことを確認
-                mock_colorbar.assert_called_once()
+            # カラーバーの作成が呼び出されたことを確認
+            mock_colorbar.assert_called_once()
 
         # テスト2: チャネル数が1より大きい場合、axを指定するとエラー
         with mock.patch("librosa.display.specshow") as mock_specshow:
@@ -276,8 +275,9 @@ class TestPlotting:
             mock_axs = []
             for i in range(self.mock_spectrogram_frame.n_channels):
                 mock_ax = mock.MagicMock(spec=Axes)
-                # figureプロパティモックを設定
-                type(mock_ax).figure = mock.PropertyMock(return_value=mock_fig)
+                # Python 3.9対応: figureプロパティのモックを設定せず、
+                # get_figure()メソッドを使う
+                mock_ax.get_figure.return_value = mock_fig
                 mock_axs.append(mock_ax)
 
             if len(mock_axs) == 1:
