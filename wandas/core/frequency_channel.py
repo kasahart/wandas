@@ -33,9 +33,30 @@ class NOctChannel(BaseChannel):
         previous: Optional["BaseChannel"] = None,
     ):
         """
-        NOctChannel オブジェクトを初期化します。
+        Initialize a NOctChannel object for N-octave band spectrum analysis.
 
-
+        Parameters
+        ----------
+        data : NDArrayReal
+            Amplitude data for each band.
+        sampling_rate : int
+            Sampling rate (Hz).
+        fpref : NDArrayReal
+            Center frequencies of the bands.
+        n : int, default=3
+            Fraction denominator for octave bands (e.g., 3 for 1/3-octave).
+        G : int, default=10
+            Band number of the reference frequency band.
+        fr : int, default=1000
+            Reference frequency (Hz).
+        label : str, optional
+            Channel label.
+        unit : str, optional
+            Unit of measurement.
+        metadata : dict, optional
+            Additional metadata.
+        previous : BaseChannel, optional
+            Reference to the original channel before transformation.
         """
         super().__init__(
             data=data,
@@ -63,7 +84,29 @@ class NOctChannel(BaseChannel):
         fr: int = 1000,
     ) -> dict[str, Any]:
         """
-        N-Octave Spectrum を計算します。
+        Calculate N-Octave Spectrum.
+
+        Parameters
+        ----------
+        data : NDArrayReal
+            Input signal.
+        sampling_rate : int
+            Sampling rate (Hz).
+        fmin : float
+            Minimum frequency (Hz).
+        fmax : float
+            Maximum frequency (Hz).
+        n : int, default=3
+            Fraction denominator for octave bands (e.g., 3 for 1/3-octave).
+        G : int, default=10
+            Band number of the reference frequency band.
+        fr : int, default=1000
+            Reference frequency (Hz).
+
+        Returns
+        -------
+        dict
+            Dictionary containing the N-octave spectrum data and parameters.
         """
 
         spec, fpref = noct_spectrum(
@@ -84,7 +127,34 @@ class NOctChannel(BaseChannel):
         fr: int = 1000,
     ) -> dict[str, Any]:
         """
-        N-Octave Spectrum を計算します。
+        Synthesize N-Octave Spectrum from frequency domain data.
+
+        Parameters
+        ----------
+        data : NDArrayReal
+            Spectral data.
+        freqs : NDArrayReal
+            Frequency array.
+        fmin : float
+            Minimum frequency (Hz).
+        fmax : float
+            Maximum frequency (Hz).
+        n : int, default=3
+            Fraction denominator for octave bands (e.g., 3 for 1/3-octave).
+        G : int, default=10
+            Band number of the reference frequency band.
+        fr : int, default=1000
+            Reference frequency (Hz).
+
+        Returns
+        -------
+        dict
+            Dictionary containing the synthesized N-octave spectrum and parameters.
+
+        Raises
+        ------
+        ValueError
+            If sampling rate is not 48000 Hz.
         """
 
         fs = freqs.max() * 2
@@ -109,7 +179,17 @@ class NOctChannel(BaseChannel):
 
     def data_Aw(self, to_dB: bool = False) -> NDArrayReal:  # noqa: N802, N803
         """
-        A特性を適用した振幅データを返します。
+        Return amplitude data with A-weighting applied.
+
+        Parameters
+        ----------
+        to_dB : bool, default=False
+            If True, return the result in decibels.
+
+        Returns
+        -------
+        NDArrayReal
+            A-weighted amplitude data.
         """
 
         weighted: NDArrayReal = librosa.perceptual_weighting(
@@ -130,7 +210,21 @@ class NOctChannel(BaseChannel):
         Aw: Optional[bool] = False,  # noqa: N803
     ) -> "Axes":
         """
-        スペクトルデータをプロットします。
+        Plot spectrum data.
+
+        Parameters
+        ----------
+        ax : Axes, optional
+            Matplotlib axes to plot on. If None, a new one is created.
+        title : str, optional
+            Plot title.
+        Aw : bool, default=False
+            If True, apply A-weighting before plotting.
+
+        Returns
+        -------
+        Axes
+            Matplotlib axes containing the plot.
         """
 
         if ax is None:
@@ -176,13 +270,26 @@ class FrequencyChannel(BaseChannel):
         previous: Optional["BaseChannel"] = None,
     ):
         """
-        FrequencyChannel オブジェクトを初期化します。
+        Initialize a FrequencyChannel object.
 
-        Parameters:
-            frequencies (numpy.ndarray): 周波数データ。
-            data (numpy.ndarray): 振幅データ。
-            fft_params (dict, optional): FFT パラメータ。
-            その他のパラメータは BaseChannel を参照。
+        Parameters
+        ----------
+        data : NDArrayReal
+            Frequency domain data.
+        sampling_rate : int
+            Sampling rate (Hz).
+        n_fft : int
+            FFT size.
+        window : NDArrayReal or str
+            Window function used for the FFT.
+        label : str, optional
+            Channel label.
+        unit : str, optional
+            Unit of measurement.
+        metadata : dict, optional
+            Additional metadata.
+        previous : BaseChannel, optional
+            Reference to the original channel before transformation.
         """
         super().__init__(
             data=data,
@@ -203,6 +310,28 @@ class FrequencyChannel(BaseChannel):
         n_fft: Optional[int] = None,
         window: Optional[str] = None,
     ) -> dict[str, Any]:
+        """
+        Perform FFT on time-domain data.
+
+        Parameters
+        ----------
+        data : NDArrayReal
+            Input time-domain signal.
+        n_fft : int, optional
+            FFT size. If None, uses the length of the input data.
+        window : str, optional
+            Name of the window function to apply.
+
+        Returns
+        -------
+        dict
+            Dictionary containing the FFT results and parameters.
+
+        Raises
+        ------
+        ValueError
+            If n_fft is less than the length of the input data.
+        """
         length = data.shape[-1]
         if n_fft is None:
             n_fft = length
@@ -221,7 +350,7 @@ class FrequencyChannel(BaseChannel):
 
         out = np.asarray(fft.rfft(data, n=n_fft))
         out[1:-1] *= 2.0
-        # 窓関数補正
+        # Window function correction
         scaling_factor = np.sum(window_values)
         out /= scaling_factor
 
@@ -238,6 +367,32 @@ class FrequencyChannel(BaseChannel):
         average: str = "mean",
         detrend: str = "constant",
     ) -> dict[str, Any]:
+        """
+        Compute power spectral density using Welch's method.
+
+        Parameters
+        ----------
+        data : NDArrayReal
+            Input time-domain signal.
+        n_fft : int, optional
+            FFT size. If None, defaults to win_length.
+        hop_length : int, optional
+            Number of samples between successive segments.
+            If None, defaults to win_length//2.
+        win_length : int, default=2048
+            Window size.
+        window : str, default="hann"
+            Window function.
+        average : str, default="mean"
+            Method for averaging the segments.
+        detrend : str, default="constant"
+            Type of detrending.
+
+        Returns
+        -------
+        dict
+            Dictionary containing the Welch PSD results and parameters.
+        """
         if win_length is None:
             win_length = 2048
         if n_fft is None:
@@ -269,7 +424,12 @@ class FrequencyChannel(BaseChannel):
     @property
     def freqs(self) -> NDArrayReal:
         """
-        フーリエ変換後の周波数データを返します。
+        Returns the frequency array after Fourier transform.
+
+        Returns
+        -------
+        NDArrayReal
+            Array of frequency values in Hz.
         """
         return np.asarray(fft.rfftfreq(self.n_fft, 1 / self.sampling_rate))
 
@@ -282,7 +442,25 @@ class FrequencyChannel(BaseChannel):
         fr: int = 1000,
     ) -> NOctChannel:
         """
-        N-Octave Spectrum を計算します。
+        Calculate N-Octave Spectrum from frequency domain data.
+
+        Parameters
+        ----------
+        fmin : float
+            Minimum frequency (Hz).
+        fmax : float
+            Maximum frequency (Hz).
+        n : int, default=3
+            Fraction denominator for octave bands (e.g., 3 for 1/3-octave).
+        G : int, default=10
+            Band number of the reference frequency band.
+        fr : int, default=1000
+            Reference frequency (Hz).
+
+        Returns
+        -------
+        NOctChannel
+            Object containing the N-octave band spectrum.
         """
         result = NOctChannel.noct_synthesis(
             data=self.data / np.sqrt(2),
@@ -298,7 +476,17 @@ class FrequencyChannel(BaseChannel):
 
     def data_Aw(self, to_dB: bool = False) -> NDArrayReal:  # noqa: N802, N803
         """
-        A特性を適用した振幅データを返します。
+        Return amplitude data with A-weighting applied.
+
+        Parameters
+        ----------
+        to_dB : bool, default=False
+            If True, return the result in decibels.
+
+        Returns
+        -------
+        NDArrayReal
+            A-weighted amplitude data.
         """
         freqs = self.freqs
         weighted: NDArrayReal = librosa.perceptual_weighting(
@@ -320,7 +508,23 @@ class FrequencyChannel(BaseChannel):
         plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> tuple["Axes", NDArrayReal]:
         """
-        スペクトルデータをプロットします。
+        Plot spectrum data.
+
+        Parameters
+        ----------
+        ax : Axes, optional
+            Matplotlib axes to plot on. If None, a new one is created.
+        title : str, optional
+            Plot title.
+        Aw : bool, default=False
+            If True, apply A-weighting before plotting.
+        plot_kwargs : dict, optional
+            Additional keyword arguments for the plot function.
+
+        Returns
+        -------
+        tuple
+            Tuple containing (axes, plotted_data).
         """
 
         if ax is None:

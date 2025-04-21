@@ -14,16 +14,19 @@ class FileFrame:
         self, channel_frames: list["ChannelFrame"], label: Optional[str] = None
     ):
         """
-        FileFrame オブジェクトを初期化します。
+        Initialize a FileFrame object.
 
-        Parameters:
-            files (list of str): ファイルパスのリスト。
-            label (str, optional): ファイルのラベル。
+        Parameters
+        ----------
+        channel_frames : list of ChannelFrame
+            List of ChannelFrame objects.
+        label : str, optional
+            Label for the file frame.
         """
         self.channel_frames = channel_frames
         self.label = label
 
-        # ファイル名で辞書のようにアクセスできるようにするための辞書を構築
+        # Build a dictionary for accessing by file name
         # self.file_dict = {file: file for file in files}
         # if len(self.file_dict) != len(files):
         #     raise ValueError("File labels must be unique.")
@@ -33,26 +36,36 @@ class FileFrame:
         cls, files: list[str], label: Optional[str] = None
     ) -> "FileFrame":
         """
-        指定されたファイルリストから FileFrame オブジェクトを作成します。
+        Create a FileFrame object from a list of files.
 
-        Args:
-            files (list[str]): ファイルパスのリスト。
-            label (Optional[str], optional): ファイルのラベル。デフォルトは None。
+        Parameters
+        ----------
+        files : list of str
+            List of file paths.
+        label : str, optional
+            Label for the file frame.
 
-        Raises:
-            ValueError: サポートされていないファイル形式が含まれている場合。
+        Returns
+        -------
+        FileFrame
+            FileFrame object created from the file list.
+
+        Raises
+        ------
+        ValueError
+            If the file format is not supported.
         """
 
-        # ファイル名で辞書のようにアクセスできるようにするための辞書を構築
+        # Build a dictionary for accessing by file name
         # self.file_dict = {file: file for file in files}
         # if len(self.file_dict) != len(files):
         #     raise ValueError("File labels must be unique.")
 
         channel_frames = []
         for file in files:
-            # ファイルの拡張子に応じて読み込み関数を切り替え
+            # Switch loading function based on file extension
             if file.endswith(".wav"):
-                # wav ファイルの読み込み
+                # Load WAV file
                 channel_frame = ChannelFrame.read_wav(file)
             else:
                 raise ValueError(f"Unsupported file format: {file}")
@@ -68,16 +81,21 @@ class FileFrame:
         cls, dir_path: str, label: Optional[str] = None, suffix: Optional[str] = None
     ) -> "FileFrame":
         """
-        指定されたディレクトリから FileFrame オブジェクトを作成します。
+        Create a FileFrame object from a directory.
 
-        Args:
-            dir_path (str): ディレクトリのパス。
-            label (Optional[str], optional): ファイルのラベル。デフォルトは None。
-            suffix (Optional[str], optional): 読み込むファイルの拡張子。
-                デフォルトは None。
+        Parameters
+        ----------
+        dir_path : str
+            Path to the directory.
+        label : str, optional
+            Label for the file frame.
+        suffix : str, optional
+            File extension to load. If None, all files will be loaded.
 
-        Returns:
-            FileFrame: 作成された FileFrame オブジェクト。
+        Returns
+        -------
+        FileFrame
+            FileFrame object created from the directory.
         """
         pattern = os.path.join(dir_path, "**", ("*" + suffix) if suffix else "*")
         file_list = sorted(glob.glob(pattern, recursive=True))
@@ -85,32 +103,55 @@ class FileFrame:
 
     def describe(self) -> widgets.VBox:
         """
-        チャンネルの情報を表示します。
+        Display information about the channels.
+
+        Returns
+        -------
+        VBox
+            Widget containing channel information.
         """
         content = []
         content += [frame.describe() for frame in self.channel_frames]
-        # 中央寄せのレイアウトを設定
+        # Set layout for center alignment
         layout = widgets.Layout(
             display="flex", justify_content="center", align_items="center"
         )
         return widgets.VBox(content, layout=layout)
 
-    # forでループを回すためのメソッド
     def __iter__(self) -> Iterator["ChannelFrame"]:
+        """
+        Iterate through the channel frames.
+
+        Returns
+        -------
+        Iterator[ChannelFrame]
+            Iterator of ChannelFrame objects.
+        """
         return iter(self.channel_frames)
 
     def __getitem__(self, key: Union[str, int]) -> "ChannelFrame":
         """
-        チャンネル名またはインデックスでチャンネルを取得するためのメソッド。
+        Get a channel frame by index.
 
-        Parameters:
-            key (str or int): チャンネルの名前（label）またはインデックス番号。
+        Parameters
+        ----------
+        key : int
+            Index of the channel frame.
 
-        Returns:
-            Channel: 対応するチャンネル。
+        Returns
+        -------
+        ChannelFrame
+            Corresponding ChannelFrame object.
+
+        Raises
+        ------
+        IndexError
+            If the index is out of range.
+        TypeError
+            If the key is not an integer.
         """
         if isinstance(key, int):
-            # インデックス番号でアクセス
+            # Access by index
             if key < 0 or key >= len(self.channel_frames):
                 raise IndexError(f"Channel index {key} out of range.")
             return self.channel_frames[key]
@@ -122,6 +163,11 @@ class FileFrame:
 
     def __len__(self) -> int:
         """
-        ファイル数を返します。
+        Return the number of files.
+
+        Returns
+        -------
+        int
+            Number of files.
         """
         return len(self.channel_frames)

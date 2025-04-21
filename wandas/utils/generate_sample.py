@@ -16,17 +16,24 @@ def generate_sin(
     label: Optional[str] = None,
 ) -> "CoreChannelFrame":
     """
-    サンプルの正弦波信号を生成します。
+    Generate sample sine wave signals.
 
-    Parameters:
-        freqs (float またはリスト): 正弦波の周波数（Hz）。
-            複数の周波数を指定すると複数のチャンネルになります。
-        sampling_rate (int): サンプリングレート（Hz）。
-        duration (float): 信号の持続時間（秒）。
-        label (str, optional): Signal 全体のラベル。
+    Parameters
+    ----------
+    freqs : float or list of float, default=1000
+        Frequency of the sine wave(s) in Hz.
+        If multiple frequencies are specified, multiple channels will be created.
+    sampling_rate : int, default=16000
+        Sampling rate in Hz.
+    duration : float, default=1.0
+        Duration of the signal in seconds.
+    label : str, optional
+        Label for the entire signal.
 
-    Returns:
-        ChannelFrame: 正弦波を含む ChannelFrame オブジェクト。
+    Returns
+    -------
+    ChannelFrame
+        ChannelFrame object containing the sine wave(s).
     """
     from ..core.channel import Channel
     from ..core.channel_frame import ChannelFrame
@@ -34,7 +41,7 @@ def generate_sin(
     t = np.linspace(0, duration, int(sampling_rate * duration), endpoint=False)
 
     if isinstance(freqs, list):
-        # 複数の周波数の場合、各周波数に対してチャンネルを作成
+        # For multiple frequencies, create a channel for each frequency
         channels = []
         for idx, freq in enumerate(freqs):
             data = np.sin(2 * np.pi * freq * t) * 2 * np.sqrt(2)
@@ -44,7 +51,7 @@ def generate_sin(
             )
             channels.append(channel)
     else:
-        # 単一の周波数の場合、チャンネルを一つ作成
+        # For a single frequency, create one channel
         data = np.sin(2 * np.pi * freqs * t) * 2 * np.sqrt(2)
         channel = Channel(
             data=np.squeeze(data),
@@ -64,17 +71,24 @@ def generate_sin_lazy(
     label: Optional[str] = None,
 ) -> "LazyChannelFrame":
     """
-    サンプルの正弦波信号を生成します。
+    Generate sample sine wave signals using lazy computation.
 
-    Parameters:
-        freqs (float またはリスト): 正弦波の周波数（Hz）。
-            複数の周波数を指定すると複数のチャンネルになります。
-        sampling_rate (int): サンプリングレート（Hz）。
-        duration (float): 信号の持続時間（秒）。
-        label (str, optional): Signal 全体のラベル。
+    Parameters
+    ----------
+    freqs : float or list of float, default=1000
+        Frequency of the sine wave(s) in Hz.
+        If multiple frequencies are specified, multiple channels will be created.
+    sampling_rate : int, default=16000
+        Sampling rate in Hz.
+    duration : float, default=1.0
+        Duration of the signal in seconds.
+    label : str, optional
+        Label for the entire signal.
 
-    Returns:
-        ChannelFrame: 正弦波を含む ChannelFrame オブジェクト。
+    Returns
+    -------
+    ChannelFrame
+        Lazy ChannelFrame object containing the sine wave(s).
     """
     from ..core.lazy.channel_frame import ChannelFrame
 

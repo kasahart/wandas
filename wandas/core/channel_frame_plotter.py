@@ -20,13 +20,29 @@ class ChannelFramePlotter:
         plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> Union["Axes", Iterable["Axes"]]:
         """
-        すべてのチャンネルをプロットします。
+        Plot all channels in time domain.
 
-        Parameters:
-            title (str, optional): プロットのタイトル。
-            overlay (bool, optional): True の場合、すべてのチャンネルを同じプロットに
-                                      重ねて描画します。False の場合、各チャンネルを
-                                      個別のプロットに描画します。
+        Parameters
+        ----------
+        ax : Axes, optional
+            Matplotlib axes to plot on. If None, a new figure is created.
+        title : str, optional
+            Plot title.
+        overlay : bool, default=True
+            If True, all channels are plotted on the same axes.
+            If False, each channel is plotted on a separate subplot.
+        plot_kwargs : dict, optional
+            Additional keyword arguments for the plot function.
+
+        Returns
+        -------
+        Axes or list of Axes
+            The matplotlib axes object(s) containing the plot(s).
+
+        Raises
+        ------
+        ValueError
+            If ax is provided when overlay is False.
         """
         if ax is not None and not overlay:
             raise ValueError("ax must be None when overlay is False.")
@@ -89,6 +105,28 @@ class ChannelFramePlotter:
         Aw: bool = False,  # noqa: N803
         plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> Union["Axes", Iterable["Axes"]]:
+        """
+        Plot RMS values of all channels.
+
+        Parameters
+        ----------
+        ax : Axes, optional
+            Matplotlib axes to plot on. If None, a new figure is created.
+        title : str, optional
+            Plot title.
+        overlay : bool, default=True
+            If True, all channels are plotted on the same axes.
+            If False, each channel is plotted on a separate subplot.
+        Aw : bool, default=False
+            If True, apply A-weighting before plotting.
+        plot_kwargs : dict, optional
+            Additional keyword arguments for the plot function.
+
+        Returns
+        -------
+        Axes or list of Axes
+            The matplotlib axes object(s) containing the plot(s).
+        """
         if ax is None:
             plt.tight_layout()
 

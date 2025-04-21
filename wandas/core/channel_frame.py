@@ -24,17 +24,19 @@ if TYPE_CHECKING:
 class ChannelFrame(ChannelAccessMixin["Channel"]):
     def __init__(self, channels: list["Channel"], label: Optional[str] = None):
         """
+        Initialize a ChannelFrame object.
 
-        ChannelFrame オブジェクトを初期化します。
-
-        Parameters:
-            channels (list of Channel): Channel オブジェクトのリスト。
-            label (str, optional): 信号のラベル。
+        Parameters
+        ----------
+        channels : list of Channel
+            List of Channel objects.
+        label : str, optional
+            Label for the signal.
         """
         self._channels = channels
         self.label = label
 
-        # サンプリングレートの一貫性をチェック
+        # Check consistency of sampling rates
         sampling_rates = set(ch.sampling_rate for ch in channels)
         if len(sampling_rates) > 1:
             raise ValueError("All channels must have the same sampling_rate.")
@@ -53,16 +55,23 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
         unit: Optional[str] = None,
     ) -> "ChannelFrame":
         """
-        numpy の ndarray から ChannelFrame インスタンスを生成します。
+        Create a ChannelFrame instance from a numpy ndarray.
 
-        Parameters:
-            array (np.ndarray): 信号データ。各行がチャンネルに対応します。
-            sampling_rate (int): サンプリングレート（Hz）。
-            labels (list[str], optional): 各チャンネルのラベル。
-            unit (str): 信号の単位。
+        Parameters
+        ----------
+        array : NDArrayReal
+            Signal data. Each row corresponds to a channel.
+        sampling_rate : int
+            Sampling rate (Hz).
+        labels : list[str], optional
+            Labels for each channel.
+        unit : str, optional
+            Unit of the signal.
 
-        Returns:
-            ChannelFrame: ndarray から生成された ChannelFrame オブジェクト。
+        Returns
+        -------
+        ChannelFrame
+            ChannelFrame object generated from the ndarray.
         """
         channels = []
         num_channels = array.shape[0]
@@ -83,23 +92,30 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
         cls, filename: str, labels: Optional[list[str]] = None
     ) -> "ChannelFrame":
         """
-        WAV ファイルを読み込み、ChannelFrame オブジェクトを作成します。
+        Read a WAV file and create a ChannelFrame object.
 
-        Parameters:
-            filename (str): WAV ファイルのパス。
-            labels (list of str, optional): 各チャンネルのラベル。
+        Parameters
+        ----------
+        filename : str
+            Path to the WAV file.
+        labels : list of str, optional
+            Labels for each channel.
 
-        Returns:
-            ChannelFrame: オーディオデータを含む ChannelFrame オブジェクト。
+        Returns
+        -------
+        ChannelFrame
+            ChannelFrame object containing the audio data.
         """
         return wav_io.read_wav(filename, labels)
 
     def to_wav(self, filename: str) -> None:
         """
-        ChannelFrame オブジェクトを WAV ファイルに書き出します。
+        Write the ChannelFrame object to a WAV file.
 
-        Parameters:
-            filename (str): 出力する WAV ファイルのパス。
+        Parameters
+        ----------
+        filename : str
+            Path to the output WAV file.
         """
         wav_io.write_wav(filename, self)
 
@@ -113,24 +129,30 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
         header: Optional[int] = 0,
     ) -> "ChannelFrame":
         """
-        CSV ファイルを読み込み、ChannelFrame オブジェクトを作成します。
+        Read a CSV file and create a ChannelFrame object.
 
-        Parameters:
-            filename (str): CSV ファイルのパス。
-            labels (list of str, optional): 各チャンネルのラベル。
-            delimiter (str, optional): 区切り文字。デフォルトはカンマ。
-            header (int or None, optional): ヘッダー行の位置。
-                None の場合はヘッダーなし。
-            time_column (int or str, optional): 時間列のインデックスまたは列名。
-                デフォルトは最初の列。
+        Parameters
+        ----------
+        filename : str
+            Path to the CSV file.
+        time_column : int or str, default=0
+            Index or name of the time column. Default is the first column.
+        labels : list of str, optional
+            Labels for each channel.
+        delimiter : str, default=","
+            Delimiter character.
+        header : int or None, default=0
+            Row position for the header. None means no header.
 
-        Returns:
-            ChannelFrame: データを含む ChannelFrame オブジェクト。
+        Returns
+        -------
+        ChannelFrame
+            ChannelFrame object containing the data.
         """
-        # pandas を使用して CSV ファイルを読み込む
+        # Load CSV file using pandas
         df = pd.read_csv(filename, delimiter=delimiter, header=header)
 
-        # サンプリングレートを計算
+        # Calculate sampling rate
         try:
             time_values = (
                 df[time_column].values
@@ -146,22 +168,22 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
         time_values = np.array(time_values)
         sampling_rate: int = int(1 / np.mean(np.diff(time_values)))
 
-        # 時間列を削除
+        # Remove time column
         df = df.drop(
             columns=[time_column]
             if isinstance(time_column, str)
             else df.columns[time_column]
         )
 
-        # データを NumPy 配列に変換
-        data = df.values  # shape: (サンプル数, チャンネル数)
+        # Convert data to NumPy array
+        data = df.values  # shape: (num_samples, num_channels)
 
-        # 転置してチャンネルを最初の次元に持ってくる
-        data = data.T  # shape: (チャンネル数, サンプル数)
+        # Transpose to have channels as the first dimension
+        data = data.T  # shape: (num_channels, num_samples)
 
         num_channels = data.shape[0]
 
-        # ラベルの処理
+        # Process labels
         if labels is not None:
             if len(labels) != num_channels:
                 raise ValueError("Length of labels must match number of channels.")
@@ -170,7 +192,7 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
         else:
             labels = [f"Ch{i}" for i in range(num_channels)]
 
-        # 各チャンネルの Channel オブジェクトを作成
+        # Create Channel objects for each channel
         channels = []
         for i in range(num_channels):
             ch_data = data[i]
@@ -193,15 +215,16 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
         cbar_config: Optional[dict[str, Any]] = None,
     ) -> widgets.VBox:
         """
-        チャンネルの情報を表示します。
-        Parameters:
-            axis_config (dict): 各サブプロットの軸設定を格納する辞書。
-                {
-                    "time_plot": {"xlim": (0, 1)},
-                    "freq_plot": {"ylim": (0, 20000)}
-                }
-            cbar_config (dict): カラーバーの設定を格納する辞書
-                （例: {"vmin": -80, "vmax": 0}）。
+        Display information about the channels.
+
+        Parameters
+        ----------
+        axis_config : dict, optional
+            Dictionary containing axis settings for each subplot.
+            Example: {"time_plot": {"xlim": (0, 1)}, "freq_plot": {"ylim": (0, 20000)}}.
+        cbar_config : dict, optional
+            Dictionary containing color bar settings.
+            Example: {"vmin": -80, "vmax": 0}.
         """
         content = [
             widgets.HTML(
@@ -213,7 +236,7 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
             ch.describe(axis_config=axis_config, cbar_config=cbar_config)
             for ch in self._channels
         ]
-        # 中央寄せのレイアウトを設定
+        # Set layout for center alignment
         layout = widgets.Layout(
             display="flex", justify_content="center", align_items="center"
         )
@@ -221,14 +244,19 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
 
     def trim(self, start: float, end: float) -> "ChannelFrame":
         """
-        指定された時間範囲でチャンネルをトリムします。
+        Trim the channels within the specified time range.
 
-        Parameters:
-            start (float): トリムの開始時間（秒）。
-            end (float): トリムの終了時間（秒）。
+        Parameters
+        ----------
+        start : float
+            Start time for trimming (seconds).
+        end : float
+            End time for trimming (seconds).
 
-        Returns:
-            ChannelFrame: トリムされた新しい ChannelFrame オブジェクト。
+        Returns
+        -------
+        ChannelFrame
+            New ChannelFrame object with trimmed channels.
         """
         return cfp.trim_channel_frame(self, start, end)
 
@@ -240,18 +268,24 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
         dc_cut: bool = False,
     ) -> list["MatrixFrame"]:
         """
-        チャンネルを指定された時間点でカットします。
+        Cut the channels at specified time points.
 
-        Parameters:
-            point_list (list[int]): カットポイントのリスト。
-            cut_len (int): カットするデータ長。
-            taper_rate (float): テーパー率。
-            dc_cut (bool): DC カット。
+        Parameters
+        ----------
+        point_list : list[int] or list[float]
+            List of cut points.
+        cut_len : int or float
+            Length of data to cut.
+        taper_rate : float, optional
+            Taper rate.
+        dc_cut : bool, optional
+            DC cut.
 
-        Returns:
-            Channel: カットされた新しい Channel オブジェクト。
+        Returns
+        -------
+        list of MatrixFrame
+            List of new MatrixFrame objects with cut data.
         """
-
         return cfp.cut_channel_frame(
             cf=self,
             point_list=point_list,
@@ -262,10 +296,12 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
 
     def to_matrix_frame(self) -> "MatrixFrame":
         """
-        ChannelFrame オブジェクトを MatrixFrame オブジェクトに変換します。
+        Convert the ChannelFrame object to a MatrixFrame object.
 
-        Returns:
-            MatrixFrame: チャンネルデータを含む MatrixFrame オブジェクト。
+        Returns
+        -------
+        MatrixFrame
+            MatrixFrame object containing channel data.
         """
         from wandas.core.matrix_frame import MatrixFrame
 
@@ -279,13 +315,24 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
         plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> Union["Axes", Iterable["Axes"]]:
         """
-        すべてのチャンネルをプロットします。
+        Plot all channels.
 
-        Parameters:
-            title (str, optional): プロットのタイトル。
-            overlay (bool, optional): True の場合、すべてのチャンネルを同じプロットに
-                                      重ねて描画します。False の場合、各チャンネルを
-                                      個別のプロットに描画します。
+        Parameters
+        ----------
+        ax : Axes, optional
+            Matplotlib Axes object.
+        title : str, optional
+            Title for the plot.
+        overlay : bool, optional
+            If True, all channels are plotted on the same plot.
+            If False, each channel is plotted separately.
+        plot_kwargs : dict, optional
+            Additional keyword arguments for the plot.
+
+        Returns
+        -------
+        Axes or Iterable of Axes
+            Matplotlib Axes object(s).
         """
         plotter = ChannelFramePlotter(self)
 
@@ -302,10 +349,26 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
         plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> Union["Axes", Iterable["Axes"]]:
         """
-        すべてのチャンネルの RMS データをプロットします。
+        Plot RMS data for all channels.
 
-        Parameters:
-            title (str, optional): プロットのタイトル。
+        Parameters
+        ----------
+        ax : Axes, optional
+            Matplotlib Axes object.
+        title : str, optional
+            Title for the plot.
+        overlay : bool, optional
+            If True, all channels are plotted on the same plot.
+            If False, each channel is plotted separately.
+        Aw : bool, optional
+            Apply A-weighting.
+        plot_kwargs : dict, optional
+            Additional keyword arguments for the plot.
+
+        Returns
+        -------
+        Axes or Iterable of Axes
+            Matplotlib Axes object(s).
         """
         plotter = ChannelFramePlotter(self)
 
@@ -315,58 +378,76 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
 
     def high_pass_filter(self, cutoff: float, order: int = 5) -> "ChannelFrame":
         """
-        ハイパスフィルタをすべてのチャンネルに適用します。
+        Apply a high-pass filter to all channels.
 
-        Parameters:
-            cutoff (float): カットオフ周波数（Hz）。
-            order (int): フィルタの次数。
+        Parameters
+        ----------
+        cutoff : float
+            Cutoff frequency (Hz).
+        order : int, optional
+            Filter order.
 
-        Returns:
-            ChannelFrame: フィルタリングされた新しい ChannelFrame オブジェクト。
+        Returns
+        -------
+        ChannelFrame
+            New ChannelFrame object with filtered channels.
         """
         filtered_channels = [ch.high_pass_filter(cutoff, order) for ch in self]
         return ChannelFrame(filtered_channels, label=self.label)
 
     def low_pass_filter(self, cutoff: float, order: int = 5) -> "ChannelFrame":
         """
-        ローパスフィルタをすべてのチャンネルに適用します。
+        Apply a low-pass filter to all channels.
 
-        Parameters:
-            cutoff (float): カットオフ周波数（Hz）。
-            order (int): フィルタの次数。
+        Parameters
+        ----------
+        cutoff : float
+            Cutoff frequency (Hz).
+        order : int, optional
+            Filter order.
 
-        Returns:
-            ChannelFrame: フィルタリングされた新しい ChannelFrame オブジェクト。
+        Returns
+        -------
+        ChannelFrame
+            New ChannelFrame object with filtered channels.
         """
         filtered_channels = [ch.low_pass_filter(cutoff, order) for ch in self]
         return ChannelFrame(filtered_channels, label=self.label)
 
     def a_weighting(self) -> "ChannelFrame":
         """
-        A 加重をすべてのチャンネルに適用します。
+        Apply A-weighting to all channels.
 
-        Returns:
-            ChannelFrame: A 加重された新しい ChannelFrame オブジェクト。
+        Returns
+        -------
+        ChannelFrame
+            New ChannelFrame object with A-weighted channels.
         """
         weighted_channels = [ch.a_weighting() for ch in self]
         return ChannelFrame(weighted_channels, label=self.label)
 
     def hpss_harmonic(self, **kwargs: Any) -> "ChannelFrame":
         """
-        HPSS（Harmonic-Percussive Source Separation）の Harmonic 成分を抽出します。
+        Extract harmonic components using HPSS
+        (Harmonic-Percussive Source Separation).
 
-        Returns:
-            ChannelFrame: Harmonic 成分を含む新しい ChannelFrame オブジェクト。
+        Returns
+        -------
+        ChannelFrame
+            New ChannelFrame object with harmonic components.
         """
         harmonic_channels = [ch.hpss_harmonic(**kwargs) for ch in self]
         return ChannelFrame(harmonic_channels, label=self.label)
 
     def hpss_percussive(self, **kwargs: Any) -> "ChannelFrame":
         """
-        HPSS（Harmonic-Percussive Source Separation）の Percussive 成分を抽出します。
+        Extract percussive components using HPSS
+        (Harmonic-Percussive Source Separation).
 
-        Returns:
-            ChannelFrame: Percussive 成分を含む新しい ChannelFrame オブジェクト。
+        Returns
+        -------
+        ChannelFrame
+            New ChannelFrame object with percussive components.
         """
         percussive_channels = [ch.hpss_percussive(**kwargs) for ch in self]
         return ChannelFrame(percussive_channels, label=self.label)
@@ -377,10 +458,19 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
         window: Optional[str] = None,
     ) -> "FrequencyChannelFrame":
         """
-        フーリエ変換をすべてのチャンネルに適用します。
+        Apply Fourier Transform to all channels.
 
-        Returns:
-            Spectrum: 周波数と振幅データを含む Spectrum オブジェクト。
+        Parameters
+        ----------
+        n_fft : int, optional
+            Number of FFT points.
+        window : str, optional
+            Window function.
+
+        Returns
+        -------
+        FrequencyChannelFrame
+            FrequencyChannelFrame object containing frequency and amplitude data.
         """
         from wandas.core.frequency_channel_frame import FrequencyChannelFrame
 
@@ -400,10 +490,25 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
         average: str = "mean",
     ) -> "FrequencyChannelFrame":
         """
-        Welch 法を用いたパワースペクトル密度推定を実行します。
+        Estimate power spectral density using Welch's method.
 
-        Returns:
-            FrequencyChannelFrame: 周波数と振幅データを含む Spectrum オブジェクト。
+        Parameters
+        ----------
+        n_fft : int, optional
+            Number of FFT points.
+        hop_length : int, optional
+            Hop length.
+        win_length : int, default=2048
+            Window length.
+        window : str, default="hann"
+            Window function.
+        average : str, default="mean"
+            Averaging method.
+
+        Returns
+        -------
+        FrequencyChannelFrame
+            FrequencyChannelFrame object containing frequency and amplitude data.
         """
         from wandas.core.frequency_channel_frame import FrequencyChannelFrame
 
@@ -423,12 +528,50 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
             label=self.label,
         )
 
+    def normalize(
+        self, target_level: float = -20, channel_wise: bool = True
+    ) -> "ChannelFrame":
+        """
+        Normalize signal levels.
+
+        Parameters
+        ----------
+        target_level : float, default=-20
+            Target signal level (dB).
+        channel_wise : bool, default=True
+            Whether to normalize each channel individually.
+
+        Returns
+        -------
+        ChannelFrame
+            New ChannelFrame object with normalized channels.
+        """
+        normalized_channels = [ch.normalize(target_level, channel_wise) for ch in self]
+        return ChannelFrame(normalized_channels, label=self.label)
+
     def _op(
         self,
         other: "ChannelFrame",
         op: Callable[["Channel", "Channel"], "Channel"],
         symbol: str,
     ) -> "ChannelFrame":
+        """
+        Perform an operation between two ChannelFrame objects.
+
+        Parameters
+        ----------
+        other : ChannelFrame
+            Another ChannelFrame object.
+        op : Callable
+            Operation to perform.
+        symbol : str
+            Symbol representing the operation.
+
+        Returns
+        -------
+        ChannelFrame
+            New ChannelFrame object resulting from the operation.
+        """
         assert len(self) == len(other), (
             "ChannelFrame must have the same number of channels."
         )
@@ -439,57 +582,108 @@ class ChannelFrame(ChannelAccessMixin["Channel"]):
             channels=channels, label=f"({self.label} {symbol} {other.label})"
         )
 
-    # 演算子オーバーロードの実装
+    # Operator overloading
     def __add__(self, other: "ChannelFrame") -> "ChannelFrame":
         """
-        シグナル間の加算。
+        Addition between signals.
+
+        Parameters
+        ----------
+        other : ChannelFrame
+            Another ChannelFrame object.
+
+        Returns
+        -------
+        ChannelFrame
+            New ChannelFrame object resulting from addition.
         """
         return self._op(other, lambda a, b: a + b, "+")
 
     def __sub__(self, other: "ChannelFrame") -> "ChannelFrame":
         """
-        シグナル間の減算。
+        Subtraction between signals.
+
+        Parameters
+        ----------
+        other : ChannelFrame
+            Another ChannelFrame object.
+
+        Returns
+        -------
+        ChannelFrame
+            New ChannelFrame object resulting from subtraction.
         """
         return self._op(other, lambda a, b: a - b, "-")
 
     def __mul__(self, other: "ChannelFrame") -> "ChannelFrame":
         """
-        シグナル間の乗算。
+        Multiplication between signals.
+
+        Parameters
+        ----------
+        other : ChannelFrame
+            Another ChannelFrame object.
+
+        Returns
+        -------
+        ChannelFrame
+            New ChannelFrame object resulting from multiplication.
         """
         return self._op(other, lambda a, b: a * b, "*")
 
     def __truediv__(self, other: "ChannelFrame") -> "ChannelFrame":
         """
-        シグナル間の除算。
+        Division between signals.
+
+        Parameters
+        ----------
+        other : ChannelFrame
+            Another ChannelFrame object.
+
+        Returns
+        -------
+        ChannelFrame
+            New ChannelFrame object resulting from division.
         """
         return self._op(other, lambda a, b: a / b, "/")
 
     def sum(self) -> "Channel":
         """
-        すべてのチャンネルを合計します。
+        Sum all channels.
 
-        Returns:
-            Channel: 合計されたチャンネル。
+        Returns
+        -------
+        Channel
+            Channel object resulting from summation.
         """
         data = np.stack([ch.data for ch in self._channels]).sum(axis=0)
         return Channel.from_channel(self._channels[0], data=data.squeeze())
 
     def mean(self) -> "Channel":
         """
-        すべてのチャンネルの平均を計算します。
+        Calculate the mean of all channels.
 
-        Returns:
-            Channel: 平均されたチャンネル。
+        Returns
+        -------
+        Channel
+            Channel object resulting from averaging.
         """
         data = np.stack([ch.data for ch in self._channels]).mean(axis=0)
         return Channel.from_channel(self._channels[0], data=data.squeeze())
 
     def channel_difference(self, other_channel: int = 0) -> "ChannelFrame":
         """
-        チャンネル間の差分を計算します。
+        Calculate the difference between channels.
 
-        Returns:
-            ChannelFrame: 差分を計算した新しい ChannelFrame オブジェクト。
+        Parameters
+        ----------
+        other_channel : int, default=0
+            Index of the channel to subtract from.
+
+        Returns
+        -------
+        ChannelFrame
+            New ChannelFrame object with channel differences.
         """
         channels = [ch - self._channels[other_channel] for ch in self._channels]
         return ChannelFrame(channels=channels, label=f"(ch[*] - ch[{other_channel}])")

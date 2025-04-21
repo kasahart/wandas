@@ -1,11 +1,11 @@
-from .file_frame import FileFrame
-from .frequency_channel_frame import FrequencyChannelFrame
+# from .frequency_channel_frame import FrequencyChannelFrame
 from .lazy.channel_frame import ChannelFrame
+from .lazy.frame_dataset import FrameDataset
 from .matrix_frame import MatrixFrame
 
 __all__ = [
     "ChannelFrame",
-    "FileFrame",
-    "FrequencyChannelFrame",
+    "FrameDataset",
+    # "FrequencyChannelFrame",
     "MatrixFrame",
 ]

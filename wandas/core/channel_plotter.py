@@ -22,6 +22,23 @@ class ChannelPlotter:
         title: Optional[str] = None,
         plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> "Axes":
+        """
+        Plot channel data in time domain.
+
+        Parameters
+        ----------
+        ax : Axes, optional
+            Matplotlib axes to plot on. If None, a new figure is created.
+        title : str, optional
+            Plot title.
+        plot_kwargs : dict, optional
+            Additional keyword arguments for the plot function.
+
+        Returns
+        -------
+        Axes
+            The matplotlib axes object containing the plot.
+        """
         if ax is None:
             _, ax = plt.subplots(figsize=(10, 4))
 
@@ -55,6 +72,25 @@ class ChannelPlotter:
         Aw: bool = False,  # noqa: N803
         plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> "Axes":
+        """
+        Plot RMS values of channel data.
+
+        Parameters
+        ----------
+        ax : Axes, optional
+            Matplotlib axes to plot on. If None, a new figure is created.
+        title : str, optional
+            Plot title.
+        Aw : bool, default=False
+            If True, apply A-weighting before plotting.
+        plot_kwargs : dict, optional
+            Additional keyword arguments for the plot function.
+
+        Returns
+        -------
+        Axes
+            The matplotlib axes object containing the plot.
+        """
         _ax = ax
         if _ax is None:
             _, _ax = plt.subplots(figsize=(10, 4))
@@ -89,6 +125,23 @@ class ChannelPlotter:
         axis_config: Optional[dict[str, dict[str, Any]]] = None,
         cbar_config: Optional[dict[str, Any]] = None,
     ) -> widgets.VBox:
+        """
+        Create a comprehensive visualization of the channel data.
+
+        Parameters
+        ----------
+        axis_config : dict, optional
+            Dictionary containing axis settings for each subplot.
+            Example: {"time_plot": {"xlim": (0, 1)}, "freq_plot": {"ylim": (0, 20000)}}.
+        cbar_config : dict, optional
+            Dictionary containing color bar settings.
+            Example: {"vmin": -80, "vmax": 0}.
+
+        Returns
+        -------
+        VBox
+            Widget containing visualizations and audio player.
+        """
         axis_config = axis_config or {}
         cbar_config = cbar_config or {}
 
@@ -97,7 +150,7 @@ class ChannelPlotter:
 
         fig = plt.figure(figsize=(12, 6))
 
-        # 最初のサブプロット (Time Plot)
+        # First subplot (Time Plot)
         ax_1 = fig.add_subplot(gs[0])
         self.plot_time(ax=ax_1)
         if "time_plot" in axis_config:
@@ -106,7 +159,7 @@ class ChannelPlotter:
         ax_1.legend().set_visible(False)
         ax_1.set(xlabel="", title="")
 
-        # 2番目のサブプロット (STFT Plot)
+        # Second subplot (STFT Plot)
         ax_2 = fig.add_subplot(gs[3], sharex=ax_1)
         stft_ch = self.channel.stft()
         # Pass vmin and vmax from cbar_config to stft_ch._plot
@@ -115,11 +168,11 @@ class ChannelPlotter:
         )
         ax_2.set(title="")
 
-        # 3番目のサブプロット
+        # Third subplot
         ax_3 = fig.add_subplot(gs[1])
         ax_3.axis("off")
 
-        # 4番目のサブプロット (Welch Plot)
+        # Fourth subplot (Welch Plot)
         ax_4 = fig.add_subplot(gs[4], sharey=ax_2)
         welch_ch = self.channel.welch()
         data_db = util.amplitude_to_db(np.abs(welch_ch.data), ref=welch_ch.ref)

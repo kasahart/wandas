@@ -25,27 +25,35 @@ class MatrixFrame:
         label: Optional[str] = None,
     ):
         """
-        ChannelFrame オブジェクトを初期化します。
+        Initialize a MatrixFrame object.
 
-        Parameters:
-            data (numpy.ndarray): 形状が (チャンネル数, サンプル数) の多次元配列。
-            sampling_rate (int): サンプリングレート（Hz）。
-            labels (list of str, optional): 各チャンネルのラベル。
-            metadata (list of dict, optional): 各チャンネルのメタデータ。
-            label (str, optional): ChannelFrame のラベル。
+        Parameters
+        ----------
+        data : NDArrayReal
+            A multi-dimensional array with shape (num_channels, num_samples).
+        sampling_rate : int
+            Sampling rate (Hz).
+        channel_units : list of str, optional
+            Units for each channel.
+        channel_labels : list of str, optional
+            Labels for each channel.
+        channel_metadata : list of dict, optional
+            Metadata for each channel.
+        label : str, optional
+            Label for the MatrixFrame.
         """
         if data.ndim != 2:
             raise ValueError(
                 "Data must be a 2D NumPy array with shape (num_channels, num_samples)."
             )
 
-        self.data = data  # 形状: (チャンネル数, サンプル数)
+        self.data = data  # shape: (num_channels, num_samples)
         self.sampling_rate = sampling_rate
         self.label = label
 
         num_channels = data.shape[0]
 
-        # unitの処理
+        # Process units
         if channel_units is not None:
             if len(channel_units) != num_channels:
                 raise ValueError(
@@ -54,7 +62,7 @@ class MatrixFrame:
         else:
             channel_units = ["" for i in range(num_channels)]
 
-        # ラベルの処理
+        # Process labels
         if channel_labels is not None:
             if len(channel_labels) != num_channels:
                 raise ValueError(
@@ -63,7 +71,7 @@ class MatrixFrame:
         else:
             channel_labels = [f"Ch{i}" for i in range(num_channels)]
 
-        # メタデータの処理
+        # Process metadata
         if channel_metadata is not None:
             if len(channel_metadata) != num_channels:
                 raise ValueError(
@@ -72,7 +80,7 @@ class MatrixFrame:
         else:
             channel_metadata = [{} for _ in range(num_channels)]
 
-            # BaseChannel オブジェクトのリストを作成
+        # Create list of BaseChannel objects
         self._channels = [
             Channel(
                 data=np.array([]),
@@ -86,59 +94,82 @@ class MatrixFrame:
             )
         ]
 
-        # ラベルからインデックスへのマッピングを作成
+        # Create mapping from labels to indices
         self.label_to_index = {ch.label: idx for idx, ch in enumerate(self._channels)}
 
     def __len__(self) -> int:
         """
-        チャンネルの数を返します。
+        Return the number of channels.
+
+        Returns
+        -------
+        int
+            Number of channels.
         """
         return int(self.data.shape[0])
 
-    # forでループを回すためのメソッド
     def __iter__(self) -> Iterator["Channel"]:
         """
-        チャンネルをイテレートします。
+        Iterate through the channels.
+
+        Returns
+        -------
+        Iterator[Channel]
+            Iterator of Channel objects.
         """
         for idx in range(self.data.shape[0]):
             yield self[idx]
 
     def __getitem__(self, key: Union[int, str]) -> "Channel":
         """
-        インデックスまたはラベルでチャンネルを取得します。
+        Get a channel by index or label.
 
-        Parameters:
-            key (int or str): チャンネルのインデックスまたはラベル。
+        Parameters
+        ----------
+        key : int or str
+            Index or label of the channel.
 
-        Returns:
-            Channel: 対応する Channel オブジェクト。
+        Returns
+        -------
+        Channel
+            Corresponding Channel object.
+
+        Raises
+        ------
+        IndexError
+            If the index is out of range.
+        KeyError
+            If the label is not found.
+        TypeError
+            If the key is neither an integer nor a string.
         """
-
         if isinstance(key, int):
-            # インデックスでアクセス
+            # Access by index
             if key < 0 or key >= self.data.shape[0]:
                 raise IndexError("Channel index out of range.")
             idx = key
         elif isinstance(key, str):
-            # ラベルでアクセス
+            # Access by label
             if key not in self.label_to_index:
                 raise KeyError(f"Channel label '{key}' not found.")
             idx = self.label_to_index[key]
         else:
             raise TypeError("Key must be an integer index or a string label.")
 
-        # チャネルデータとメタデータを取得
+        # Get channel data and metadata
         ch = self._channels[idx]
 
-        # Channel オブジェクトを作成して返す
+        # Create and return Channel object
         return Channel.from_channel(ch, data=self.data[idx].copy())
 
     def to_channel_frame(self) -> "ChannelFrame":
         """
-        ChannelFrame オブジェクトに変換します。
+        Convert to a ChannelFrame object.
 
-        Returns:
-            ChannelFrame: 変換された ChannelFrame オブジェクト。
+        Returns
+        -------
+        ChannelFrame
+            Converted ChannelFrame object.
         """
         return ChannelFrame(
             channels=[ch for ch in self],
@@ -148,15 +179,24 @@ class MatrixFrame:
     @classmethod
     def from_channel_frame(cls, cf: "ChannelFrame") -> "MatrixFrame":
         """
-        ChannelFrame オブジェクトから MatrixFrame オブジェクトに変換します。
+        Convert a ChannelFrame object to a MatrixFrame object.
 
-        Parameters:
-            cf (ChannelFrame): 変換元の ChannelFrame オブジェクト。
+        Parameters
+        ----------
+        cf : ChannelFrame
+            Source ChannelFrame object.
 
-        Returns:
-            MatrixFrame: 変換された MatrixFrame オブジェクト。
+        Returns
+        -------
+        MatrixFrame
+            Converted MatrixFrame object.
+
+        Raises
+        ------
+        ValueError
+            If all channels don't have the same length.
         """
-        # チャンネルデータの長さが全て等しいか確認
+        # Check if all channel data have the same length
         length = len(cf[0].data)
         if not all([len(ch.data) == length for ch in cf]):
             raise ValueError("All channels must have the same length.")
@@ -179,17 +219,26 @@ class MatrixFrame:
         detrend: str = "constant",
     ) -> "FrequencyChannelFrame":
         """
-        コヒーレンス推定を実行します。
+        Perform coherence estimation.
 
-        Parameters:
-            n_fft (int, optional): FFT のサンプル数。
-            hop_length (int, optional): オーバーラップのサンプル数。
-            win_length (int, optional): 窓関数のサイズ。
-            window (str, optional): 窓関数の種類。
-            detrend (str, optional): トレンドの除去方法。
+        Parameters
+        ----------
+        n_fft : int, optional
+            Number of FFT points. If None, defaults to win_length.
+        hop_length : int, optional
+            Number of samples between successive frames.
+            If None, defaults to win_length//2.
+        win_length : int, default=2048
+            Window size.
+        window : str, default="hann"
+            Window function.
+        detrend : str, default="constant"
+            Type of detrending.
 
-        Returns:
-            Spectrums: コヒーレンスデータを含むオブジェクト。
+        Returns
+        -------
+        FrequencyChannelFrame
+            Object containing coherence data.
         """
         if win_length is None:
             win_length = 2048
@@ -236,17 +285,30 @@ class MatrixFrame:
         average: str = "mean",
     ) -> "FrequencyChannelFrame":
         """
-        クロススペクトル推定を実行します。
+        Perform cross-spectral density estimation.
 
-        Parameters:
-            n_fft (int, optional): FFT のサンプル数。
-            hop_length (int, optional): オーバーラップのサンプル数。
-            win_length (int, optional): 窓関数のサイズ。
-            window (str, optional): 窓関数の種類。
-            detrend (str, optional): トレンドの除去方法。
+        Parameters
+        ----------
+        n_fft : int, optional
+            Number of FFT points. If None, defaults to win_length.
+        hop_length : int, optional
+            Number of samples between successive frames.
+            If None, defaults to win_length//2.
+        win_length : int, default=2048
+            Window size.
+        window : str, default="hann"
+            Window function.
+        detrend : str, default="constant"
+            Type of detrending.
+        scaling : str, default="spectrum"
+            Scaling type.
+        average : str, default="mean"
+            Averaging method.
 
-        Returns:
-            Spectrums: クロススペクトル密度データを含むオブジェクト。
+        Returns
+        -------
+        FrequencyChannelFrame
+            Object containing cross-spectral density data.
         """
         if win_length is None:
             win_length = 2048
@@ -297,17 +359,30 @@ class MatrixFrame:
         average: str = "mean",
     ) -> "FrequencyChannelFrame":
         """
-        伝達関数を推定します。
+        Estimate transfer function.
 
-        Parameters:
-            n_fft (int, optional): FFT のサンプル数。
-            hop_length (int, optional): オーバーラップのサンプル数。
-            win_length (int, optional): 窓関数のサイズ。
-            window (str, optional): 窓関数の種類。
-            detrend (str, optional): トレンドの除去方法。
+        Parameters
+        ----------
+        n_fft : int, optional
+            Number of FFT points. If None, defaults to win_length.
+        hop_length : int, optional
+            Number of samples between successive frames.
+            If None, defaults to win_length//2.
+        win_length : int, default=2048
+            Window size.
+        window : str, default="hann"
+            Window function.
+        detrend : str, default="constant"
+            Type of detrending.
+        scaling : str, default="spectrum"
+            Scaling type.
+        average : str, default="mean"
+            Averaging method.
 
-        Returns:
-            FrequencyChannelFrame: 伝達関数データを含むオブジェクト。
+        Returns
+        -------
+        FrequencyChannelFrame
+            Object containing transfer function data.
         """
         if win_length is None:
             win_length = 2048
@@ -318,10 +393,10 @@ class MatrixFrame:
 
         num_channels = self.data.shape[0]
 
-        # クロススペクトル密度の計算（全チャンネル間）
+        # Calculate cross-spectral density (between all channels)
         f, p_yx = ss.csd(
-            x=self.data[:, np.newaxis, :],  # shape: (チャンネル数, 1, サンプル数)
-            y=self.data[np.newaxis, :, :],  # shape: (1, チャンネル数, サンプル数)
+            x=self.data[:, np.newaxis, :],  # shape: (num_channels, 1, num_samples)
+            y=self.data[np.newaxis, :, :],  # shape: (1, num_channels, num_samples)
             fs=self.sampling_rate,
             nperseg=win_length,
             noverlap=win_length - hop_length,
@@ -332,9 +407,9 @@ class MatrixFrame:
             average=average,
             axis=-1,
         )
-        # P_yx の形状: (チャンネル数, チャンネル数, 周波数数)
+        # P_yx shape: (num_channels, num_channels, num_frequencies)
 
-        # パワースペクトル密度の計算（各チャンネル）
+        # Calculate power spectral density (for each channel)
         f, p_xx = ss.welch(
             x=self.data,
             fs=self.sampling_rate,
@@ -347,14 +422,14 @@ class MatrixFrame:
             average=average,
             axis=-1,
         )
-        # P_xx の形状: (チャンネル数, 周波数数)
+        # P_xx shape: (num_channels, num_frequencies)
 
-        # 伝達関数の計算 H(f) = P_yx / P_xx（P_xx をブロードキャスト）
+        # Calculate transfer function H(f) = P_yx / P_xx (broadcast P_xx)
         h_f = (
             p_yx / p_xx[np.newaxis, :, :]
-        )  # P_xx を形状 (1, チャンネル数, 周波数数) に拡張
+        )  # Expand P_xx to shape (1, num_channels, num_frequencies)
 
-        # ラベルと単位の生成
+        # Generate labels and units
         channel_labels = np.array(
             [
                 [
@@ -374,14 +449,14 @@ class MatrixFrame:
             ]
         )
 
-        # H_f, channel_labels, channel_units を一次元配列に変形
+        # Reshape H_f, channel_labels, channel_units to 1D arrays
         h_f_flat = h_f.reshape(
             -1, h_f.shape[-1]
-        )  # shape: (チャンネル数 * チャンネル数, 周波数数)
+        )  # shape: (num_channels * num_channels, num_frequencies)
         channel_labels_flat = channel_labels.flatten()
         channel_units_flat = channel_units.flatten()
 
-        # FrequencyChannel のリストを作成
+        # Create list of FrequencyChannel objects
         freq_channels = [
             FrequencyChannel(
                 data=h_f_flat[k],
@@ -403,11 +478,16 @@ class MatrixFrame:
         overlay: bool = True,
     ) -> None:
         """
-        すべてのチャンネルをプロットします。
+        Plot all channels.
 
-        Parameters:
-            ax (matplotlib.axes.Axes, optional): プロット先の軸。
-            title (str, optional): プロットのタイトル。
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes, optional
+            Axes to plot on.
+        title : str, optional
+            Plot title.
+        overlay : bool, default=True
+            If True, plot all channels on the same axes.
         """
         cf = self.to_channel_frame()
         cf.plot(ax=ax, title=title, overlay=overlay)

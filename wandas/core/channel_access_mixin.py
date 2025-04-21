@@ -31,39 +31,69 @@ class ChannelAccessMixin(Generic[ChannelT]):
     @property
     def channels(self) -> list[ChannelT]:
         """
-        チャンネルのリストを返します。
+        Return the list of channels.
+
+        Returns
+        -------
+        list
+            List of channel objects.
         """
         return self._channels
 
     @property
     def channel_dict(self) -> dict[str, ChannelT]:
         """
-        チャンネルのラベルをキーとして、チャンネルオブジェクトを格納する辞書を返します。
+        Return a dictionary that maps channel labels to channel objects.
+
+        Returns
+        -------
+        dict
+            Dictionary with channel labels as keys and channel objects as values.
         """
         return self._channel_dict
 
-    # forでループを回すためのメソッド
     def __iter__(self) -> Iterator[ChannelT]:
+        """
+        Iterate through channels.
+
+        Returns
+        -------
+        Iterator
+            Iterator of channel objects.
+        """
         for idx in range(len(self)):
             yield self[idx]
 
     def __getitem__(self, key: Union[str, int]) -> ChannelT:
         """
-        チャンネル名またはインデックスでチャンネルを取得するためのメソッド。
+        Get a channel by name or index.
 
-        Parameters:
-            key (str or int): チャンネルの名前（label）またはインデックス番号。
+        Parameters
+        ----------
+        key : str or int
+            Channel name (label) or index.
 
-        Returns:
-            Channel: 対応するチャンネル。
+        Returns
+        -------
+        Channel
+            Corresponding channel.
+
+        Raises
+        ------
+        KeyError
+            If the channel name is not found.
+        IndexError
+            If the channel index is out of range.
+        TypeError
+            If the key is neither a string nor an integer.
         """
         if isinstance(key, str):
-            # チャンネル名でアクセス
+            # Access by channel name
             if key not in self.channel_dict:
                 raise KeyError(f"Channel '{key}' not found.")
             return self.channel_dict[key]
         elif isinstance(key, numbers.Integral):
-            # インデックス番号でアクセス
+            # Access by index
             if key < 0 or key >= len(self._channels):
                 raise IndexError(f"Channel index {key} out of range.")
             return self._channels[key]
@@ -75,20 +105,32 @@ class ChannelAccessMixin(Generic[ChannelT]):
 
     def __setitem__(self, key: Union[str, int], value: ChannelT) -> None:
         """
-        チャンネル名またはインデックスでチャンネルを設定するためのメソッド。
+        Set a channel by name or index.
 
-        Parameters:
-            key (str or int): チャンネルの名前（label）またはインデックス番号。
-            value (Channel): 設定するチャンネル。
+        Parameters
+        ----------
+        key : str or int
+            Channel name (label) or index.
+        value : Channel
+            Channel to set.
+
+        Raises
+        ------
+        KeyError
+            If the channel name is not found.
+        IndexError
+            If the channel index is out of range.
+        TypeError
+            If the key is neither a string nor an integer.
         """
         if isinstance(key, str):
-            # チャンネル名でアクセス
+            # Access by channel name
             if key not in self.channel_dict:
                 raise KeyError(f"Channel '{key}' not found.")
             self._channels[self._channels.index(self.channel_dict[key])] = value
             self.channel_dict[key] = value
         elif isinstance(key, numbers.Integral):
-            # インデックス番号でアクセス
+            # Access by index
             if key < 0 or key >= len(self._channels):
                 raise IndexError(f"Channel index {key} out of range.")
             self._channels[key] = value
@@ -101,16 +143,28 @@ class ChannelAccessMixin(Generic[ChannelT]):
 
     def __len__(self) -> int:
         """
-        チャンネルのデータ長を返します。
+        Return the number of channels.
+
+        Returns
+        -------
+        int
+            Number of channels.
         """
         return len(self._channels)
 
     def append(self, channel: ChannelT) -> None:
         """
-        チャンネルを追加します。
+        Add a channel.
 
-        Parameters:
-            channel (Channel): 追加するチャンネル。
+        Parameters
+        ----------
+        channel : Channel
+            Channel to add.
+
+        Raises
+        ------
+        KeyError
+            If a channel with the same label already exists.
         """
         if channel.label in self.channel_dict:
             raise KeyError(f"Channel '{channel.label}' already exists.")
@@ -119,10 +173,17 @@ class ChannelAccessMixin(Generic[ChannelT]):
 
     def remove(self, channel: ChannelT) -> None:
         """
-        チャンネルを削除します。
+        Remove a channel.
 
-        Parameters:
-            channel (Channel): 削除するチャンネル。
+        Parameters
+        ----------
+        channel : Channel
+            Channel to remove.
+
+        Raises
+        ------
+        KeyError
+            If the channel is not found.
         """
         if channel.label not in self.channel_dict:
             raise KeyError(f"Channel '{channel.label}' not found.")

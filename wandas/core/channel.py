@@ -32,12 +32,22 @@ class Channel(BaseChannel, ArithmeticMixin):
         previous: Optional["Channel"] = None,
     ):
         """
-        Channel オブジェクトを初期化します。
+        Initialize a Channel object.
 
-        Parameters:
-            data (numpy.ndarray): 時系列データ。
-            sampling_rate (int): サンプリングレート（Hz）。
-            その他のパラメータは BaseChannel を参照。
+        Parameters
+        ----------
+        data : numpy.ndarray
+            Time series data.
+        sampling_rate : int
+            Sampling rate (Hz).
+        label : str, optional
+            Channel label.
+        unit : str, optional
+            Unit of measurement.
+        metadata : dict, optional
+            Additional metadata.
+        previous : Channel, optional
+            Reference to the original channel before transformation.
         """
         super().__init__(
             data=data,
@@ -51,21 +61,31 @@ class Channel(BaseChannel, ArithmeticMixin):
     @property
     def time(self) -> NDArrayReal:
         """
-        時刻データを返します。
+        Returns the time data.
+
+        Returns
+        -------
+        NDArrayReal
+            Array containing time values in seconds.
         """
         num_samples = len(self._data)
         return np.arange(num_samples) / self.sampling_rate
 
     def trim(self, start: float, end: float) -> "Channel":
         """
-        指定された範囲のデータを抽出します。
+        Extract data within the specified time range.
 
-        Parameters:
-            start (float): 抽出開始時刻（秒）。
-            end (float): 抽出終了時刻（秒）。
+        Parameters
+        ----------
+        start : float
+            Start time (seconds).
+        end : float
+            End time (seconds).
 
-        Returns:
-            Channel: 抽出されたデータを含む新しい Channel オブジェクト。
+        Returns
+        -------
+        Channel
+            New Channel object containing the extracted data.
         """
         start_idx = int(start * self.sampling_rate)
         end_idx = int(end * self.sampling_rate)
@@ -81,16 +101,24 @@ class Channel(BaseChannel, ArithmeticMixin):
         trigger_type: str = "level",
     ) -> list[int]:
         """
-        トリガーを検出します。
+        Detect triggers in the signal.
 
-        Parameters:
-            threshold (float): トリガー閾値。
-            offset (int): トリガー検出位置のオフセット。
-            hold (int): トリガーホールド。
-            trigger_type (str): トリガ
-                - "level": レベルトリガー
-        Returns:
-            list[int]: トリガー位置のリスト。
+        Parameters
+        ----------
+        threshold : float
+            Trigger threshold.
+        offset : int, default=0
+            Offset for trigger detection position.
+        hold : int, default=1
+            Trigger hold.
+        trigger_type : str, default="level"
+            Trigger type:
+            - "level": Level trigger
+
+        Returns
+        -------
+        list[int]
+            List of trigger positions.
         """
         if trigger_type == "level":
             return util.level_trigger(self.data, threshold, offset=offset, hold=hold)
@@ -105,23 +133,30 @@ class Channel(BaseChannel, ArithmeticMixin):
         dc_cut: bool = False,
     ) -> list["Channel"]:
         """
-        チャンネルデータをカットします。
+        Cut channel data at specified points.
 
-        Parameters:
-            point_list (list[int]): カットポイントのリスト。
-            cut_len (int): カットするデータ長。
-            taper_rate (float): テーパー率。
-            dc_cut (bool): DC カット。
+        Parameters
+        ----------
+        point_list : list[int] or list[float]
+            List of cutting points. If floats, treated as time in seconds.
+        cut_len : int or float
+            Length of data to cut. If float, treated as time in seconds.
+        taper_rate : float, default=0
+            Taper rate.
+        dc_cut : bool, default=False
+            DC cut.
 
-        Returns:
-            Channel: カットされた新しい Channel オブジェクト。
+        Returns
+        -------
+        list[Channel]
+            List of Channel objects containing the cut data.
         """
-        # point_list がfloatの場合、サンプリングレートを考慮して整数に変換
+        # Convert float points to integer sample indices
         _point_list: list[int] = [
             int(p * self.sampling_rate) if isinstance(p, float) else p
             for p in point_list
         ]
-        # cut_len がfloatの場合、サンプリングレートを考慮して整数に変換
+        # Convert float cut_len to integer samples
         _cut_len = (
             int(cut_len * self.sampling_rate) if isinstance(cut_len, float) else cut_len
         )
@@ -130,14 +165,19 @@ class Channel(BaseChannel, ArithmeticMixin):
 
     def high_pass_filter(self, cutoff: float, order: int = 5) -> "Channel":
         """
-        ハイパスフィルタを適用します。
+        Apply a high-pass filter.
 
-        Parameters:
-            cutoff (float): カットオフ周波数（Hz）。
-            order (int): フィルタの次数。
+        Parameters
+        ----------
+        cutoff : float
+            Cutoff frequency (Hz).
+        order : int, default=5
+            Filter order.
 
-        Returns:
-            Channel: フィルタリングされた新しい Channel オブジェクト。
+        Returns
+        -------
+        Channel
+            New Channel object containing the filtered data.
         """
         result = channel_processing.apply_filter(
             ch=self,
@@ -149,14 +189,19 @@ class Channel(BaseChannel, ArithmeticMixin):
 
     def low_pass_filter(self, cutoff: float, order: int = 5) -> "Channel":
         """
-        ローパスフィルタを適用します。
+        Apply a low-pass filter.
 
-        Parameters:
-            cutoff (float): カットオフ周波数（Hz）。
-            order (int): フィルタの次数。
+        Parameters
+        ----------
+        cutoff : float
+            Cutoff frequency (Hz).
+        order : int, default=5
+            Filter order.
 
-        Returns:
-            Channel: フィルタリングされた新しい Channel オブジェクト。
+        Returns
+        -------
+        Channel
+            New Channel object containing the filtered data.
         """
         result = channel_processing.apply_filter(
             ch=self,
@@ -168,7 +213,12 @@ class Channel(BaseChannel, ArithmeticMixin):
 
     def a_weighting(self) -> "Channel":
         """
-        A-weighting フィルタを適用します。
+        Apply A-weighting filter.
+
+        Returns
+        -------
+        Channel
+            New Channel object containing the A-weighted data.
         """
         data: NDArrayReal = np.array(A_weight(signal=self.data, fs=self.sampling_rate))
 
@@ -191,8 +241,36 @@ class Channel(BaseChannel, ArithmeticMixin):
         ] = "constant",
     ) -> "Channel":
         """
-        HPSS（Harmonic-Percussive Source Separation）のうち、
-        Harmonic 成分を取得します。
+        Extract the harmonic component using HPSS
+        (Harmonic-Percussive Source Separation).
+
+        Parameters
+        ----------
+        kernel_size : int or tuple[int, int] or list[int], default=31
+            Size of the median filter kernel.
+        power : float, default=2.0
+            Exponent for the Wiener filter when constructing soft mask matrices.
+        mask : bool, default=False
+            Return the mask matrices instead of components.
+        margin : float or tuple[float, float] or list[float], default=1.0
+            Margin size for the masks.
+        n_fft : int, default=2048
+            FFT window size.
+        hop_length : int, optional
+            Number of samples between successive frames.
+        win_length : int, optional
+            Window size. If None, defaults to n_fft.
+        window : str or NDArrayReal, default="hann"
+            Window function.
+        center : bool, default=True
+            If True, the input is padded on both sides so that frames are centered.
+        pad_mode : str or Callable, default="constant"
+            Padding mode for centered frames.
+
+        Returns
+        -------
+        Channel
+            New Channel object containing the harmonic component.
         """
         result = channel_processing.apply_hpss_harmonic(
             ch=self,
@@ -226,8 +304,36 @@ class Channel(BaseChannel, ArithmeticMixin):
         ] = "constant",
     ) -> "Channel":
         """
-        HPSS（Harmonic-Percussive Source Separation）のうち、
-        Percussive 成分を取得します。
+        Extract the percussive component using HPSS
+        (Harmonic-Percussive Source Separation).
+
+        Parameters
+        ----------
+        kernel_size : int or tuple[int, int] or list[int], default=31
+            Size of the median filter kernel.
+        power : float, default=2.0
+            Exponent for the Wiener filter when constructing soft mask matrices.
+        mask : bool, default=False
+            Return the mask matrices instead of components.
+        margin : float or tuple[float, float] or list[float], default=1.0
+            Margin size for the masks.
+        n_fft : int, default=2048
+            FFT window size.
+        hop_length : int, optional
+            Number of samples between successive frames.
+        win_length : int, optional
+            Window size. If None, defaults to n_fft.
+        window : str or NDArrayReal, default="hann"
+            Window function.
+        center : bool, default=True
+            If True, the input is padded on both sides so that frames are centered.
+        pad_mode : str or Callable, default="constant"
+            Padding mode for centered frames.
+
+        Returns
+        -------
+        Channel
+            New Channel object containing the percussive component.
         """
         result = channel_processing.apply_hpss_percussive(
             ch=self,
@@ -250,15 +356,19 @@ class Channel(BaseChannel, ArithmeticMixin):
         window: Optional[str] = None,
     ) -> "FrequencyChannel":
         """
-        フーリエ変換を実行します。
+        Perform Fourier transform.
 
-        Parameters:
-            n_fft (int, optional): FFT のサンプル数。
-            window (str, optional): ウィンドウ関数の種類。
-            fft_params (dict, optional): その他の FFT パラメータ。
+        Parameters
+        ----------
+        n_fft : int, optional
+            Number of FFT samples.
+        window : str, optional
+            Type of window function.
 
-        Returns:
-            FrequencyChannel: スペクトルデータを含むオブジェクト。
+        Returns
+        -------
+        FrequencyChannel
+            Object containing the spectrum data.
         """
         result = channel_processing.compute_fft(
             ch=self,
@@ -278,14 +388,25 @@ class Channel(BaseChannel, ArithmeticMixin):
         # pad_mode: str = "constant"
     ) -> "FrequencyChannel":
         """
-        Welch 法を用いたパワースペクトル密度推定を実行します。
+        Perform power spectral density estimation using Welch's method.
 
-        Parameters:
-            nperseg (int): セグメントのサイズ。
-            noverlap (int, optional): オーバーラップのサイズ。
+        Parameters
+        ----------
+        n_fft : int, optional
+            FFT size.
+        hop_length : int, optional
+            Number of samples between successive frames.
+        win_length : int, default=2048
+            Size of each segment.
+        window : str, default="hann"
+            Window function.
+        average : str, default="mean"
+            Method for averaging the segments.
 
-        Returns:
-            FrequencyChannel: スペクトルデータを含むオブジェクト。
+        Returns
+        -------
+        FrequencyChannel
+            Object containing the spectrum data.
         """
         result = channel_processing.compute_welch(
             ch=self,
@@ -306,13 +427,25 @@ class Channel(BaseChannel, ArithmeticMixin):
         fr: int = 1000,
     ) -> "NOctChannel":
         """
-        オクターブバンドのスペクトルを計算します。
+        Calculate octave band spectrum.
 
-        Parameters:
-            n_octaves (int): オクターブの数。
+        Parameters
+        ----------
+        n_octaves : int, default=3
+            Number of octaves.
+        fmin : float, default=20
+            Minimum frequency (Hz).
+        fmax : float, default=20000
+            Maximum frequency (Hz).
+        G : int, default=10
+            Band number of the reference frequency band.
+        fr : int, default=1000
+            Reference frequency (Hz).
 
-        Returns:
-            FrequencyChannel: オクターブバンドのスペクトルデータを含むオブジェクト。
+        Returns
+        -------
+        NOctChannel
+            Object containing the octave band spectrum data.
         """
 
         result = channel_processing.compute_octave(
@@ -335,15 +468,25 @@ class Channel(BaseChannel, ArithmeticMixin):
         # pad_mode: str = "constant",
     ) -> "TimeFrequencyChannel":
         """
-        STFT（短時間フーリエ変換）を実行します。
+        Perform Short-Time Fourier Transform (STFT).
 
-        Parameters:
-            n_fft (int): FFT のサンプル数。デフォルトは 1024。
-            hop_length (int): ホップサイズ（フレーム間の移動量）。デフォルトは 512。
-            win_length (int, optional): ウィンドウの長さ。デフォルトは n_fft と同じ。
+        Parameters
+        ----------
+        n_fft : int, default=2048
+            FFT size.
+        hop_length : int, optional
+            Hop size (number of samples between successive frames).
+        win_length : int, optional
+            Window length. Defaults to n_fft if None.
+        window : str, default="hann"
+            Window function.
+        center : bool, default=True
+            If True, the signal is padded so that frames are centered.
 
-        Returns:
-            FrequencyChannel: STFT の結果を格納した FrequencyChannel オブジェクト。
+        Returns
+        -------
+        TimeFrequencyChannel
+            Object containing the STFT results.
         """
 
         result = channel_processing.compute_stft(
@@ -367,6 +510,29 @@ class Channel(BaseChannel, ArithmeticMixin):
         center: bool = True,
         # pad_mode: str = "constant",
     ) -> "TimeMelFrequencyChannel":
+        """
+        Compute mel spectrogram.
+
+        Parameters
+        ----------
+        n_mels : int, default=128
+            Number of mel bands.
+        n_fft : int, default=2048
+            FFT size.
+        hop_length : int, default=512
+            Hop size (number of samples between successive frames).
+        win_length : int, default=2048
+            Window length.
+        window : str, default="hann"
+            Window function.
+        center : bool, default=True
+            If True, the signal is padded so that frames are centered.
+
+        Returns
+        -------
+        TimeMelFrequencyChannel
+            Object containing the mel spectrogram.
+        """
         tf_ch = self.stft(
             n_fft=n_fft,
             hop_length=hop_length,
@@ -385,19 +551,52 @@ class Channel(BaseChannel, ArithmeticMixin):
         Aw: bool = False,  # noqa: N803
     ) -> "Channel":
         """
-        移動平均を計算します。
+        Calculate RMS energy trend.
 
-        Parameters:
-            window_size (int): 移動平均のウィンドウサイズ。
+        Parameters
+        ----------
+        frame_length : int, default=2048
+            Window size for the RMS calculation.
+        hop_length : int, default=512
+            Number of samples between successive frames.
+        Aw : bool, default=False
+            Apply A-weighting before RMS calculation.
 
-        Returns:
-            Channel: 移動平均データを含む新しい Channel オブジェクト。
+        Returns
+        -------
+        Channel
+            Channel object containing the RMS energy trend.
         """
         result = channel_processing.compute_rms_trend(
             ch=self,
             frame_length=frame_length,
             hop_length=hop_length,
             Aw=Aw,  # noqa: N803
+        )
+        return Channel.from_channel(self, **result)
+
+    def normalize(
+        self, target_level: float = -20, channel_wise: bool = True
+    ) -> "Channel":
+        """
+        Normalize signal level.
+
+        Parameters
+        ----------
+        target_level : float, default=-20
+            Target signal level (dB).
+        channel_wise : bool, default=True
+            Whether to normalize each channel separately.
+
+        Returns
+        -------
+        Channel
+            Normalized Channel object.
+        """
+        result = channel_processing.apply_normalize(
+            ch=self,
+            target_level=target_level,
+            channel_wise=channel_wise,
         )
         return Channel.from_channel(self, **result)
 
@@ -408,7 +607,21 @@ class Channel(BaseChannel, ArithmeticMixin):
         plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> "Axes":
         """
-        時系列データをプロットします。
+        Plot time-series data.
+
+        Parameters
+        ----------
+        ax : Axes, optional
+            Matplotlib axes to plot on. If None, a new one is created.
+        title : str, optional
+            Plot title.
+        plot_kwargs : dict, optional
+            Additional keyword arguments for the plot function.
+
+        Returns
+        -------
+        Axes
+            Matplotlib axes containing the plot.
         """
         plotter = ChannelPlotter(self)
 
@@ -422,7 +635,23 @@ class Channel(BaseChannel, ArithmeticMixin):
         plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> "Axes":
         """
-        RMS データをプロットします。
+        Plot RMS data.
+
+        Parameters
+        ----------
+        ax : Axes, optional
+            Matplotlib axes to plot on. If None, a new one is created.
+        title : str, optional
+            Plot title.
+        Aw : bool, default=False
+            Apply A-weighting before RMS calculation.
+        plot_kwargs : dict, optional
+            Additional keyword arguments for the plot function.
+
+        Returns
+        -------
+        Axes
+            Matplotlib axes containing the plot.
         """
         plotter = ChannelPlotter(self)
 
@@ -430,21 +659,33 @@ class Channel(BaseChannel, ArithmeticMixin):
 
     def __len__(self) -> int:
         """
-        チャンネルのデータ長を返します。
+        Return the length of the channel data.
+
+        Returns
+        -------
+        int
+            Number of samples in the channel.
         """
         return int(self._data.shape[-1])
 
     def add(
         self, other: Union["Channel", NDArrayReal], snr: Optional[float] = None
     ) -> "Channel":
-        """_summary_
+        """
+        Add another channel or array to this channel, optionally with specified SNR.
 
-        Args:
-            other (Channel): _description_
-            snr (float): _description_
+        Parameters
+        ----------
+        other : Channel or NDArrayReal
+            Channel or array to add.
+        snr : float, optional
+            Signal-to-noise ratio (dB). If provided, the other signal is scaled
+            to achieve this SNR before adding.
 
-        Returns:
-            Channel: _description_
+        Returns
+        -------
+        Channel
+            Result of the addition.
         """
         if isinstance(other, np.ndarray):
             other = Channel.from_channel(self, data=other, label="ndarray")
@@ -456,14 +697,31 @@ class Channel(BaseChannel, ArithmeticMixin):
 
     def to_wav(self, filename: str) -> None:
         """
-        Channel オブジェクトを WAV ファイルに書き出します。
+        Export the Channel object to a WAV file.
 
-        Parameters:
-            filename (str): 出力する WAV ファイルのパス。
+        Parameters
+        ----------
+        filename : str
+            Path to the output WAV file.
         """
         wav_io.write_wav(filename, self)
 
     def to_audio(self, normalize: bool = True, label: bool = True) -> widgets.VBox:
+        """
+        Create an audio widget for playback in Jupyter notebooks.
+
+        Parameters
+        ----------
+        normalize : bool, default=True
+            Whether to normalize the audio.
+        label : bool, default=True
+            Whether to show the channel label.
+
+        Returns
+        -------
+        widgets.VBox
+            Widget containing the audio player.
+        """
         output = widgets.Output()
         with output:
             display(Audio(self.data, rate=self.sampling_rate, normalize=normalize))  # type: ignore [unused-ignore, no-untyped-call]
@@ -480,16 +738,25 @@ class Channel(BaseChannel, ArithmeticMixin):
         cbar_config: Optional[dict[str, Any]] = None,
     ) -> widgets.VBox:
         """
-        チャンネルの統計情報を表示します。軸設定およびカラーバー設定を受け付けます。
+        Display channel statistics and visualizations.
 
-        Parameters:
-            axis_config (dict): 各サブプロットの軸設定を格納する辞書。
-                {
-                    "time_plot": {"xlim": (0, 1)},
-                    "freq_plot": {"ylim": (0, 20000)}
-                }
-            cbar_config (dict): カラーバーの設定を格納する辞書
-                例: {"vmin": -80, "vmax": 0}
+        Parameters
+        ----------
+        axis_config : dict, optional
+            Dictionary containing axis settings for each subplot.
+            Example:
+            {
+                "time_plot": {"xlim": (0, 1)},
+                "freq_plot": {"ylim": (0, 20000)}
+            }
+        cbar_config : dict, optional
+            Dictionary containing colorbar settings.
+            Example: {"vmin": -80, "vmax": 0}
+
+        Returns
+        -------
+        widgets.VBox
+            Widget containing the visualizations.
         """
         plotter = ChannelPlotter(self)
         return plotter.describe(axis_config=axis_config, cbar_config=cbar_config)

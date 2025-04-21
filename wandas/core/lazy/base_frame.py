@@ -23,7 +23,7 @@ S = TypeVar("S", bound="BaseFrame[Any]")
 
 class BaseFrame(ABC, Generic[T]):
     """
-    すべての信号フレーム型の抽象基底クラス
+    Abstract base class for all signal frame types.
     """
 
     _data: DaArray
@@ -62,7 +62,7 @@ class BaseFrame(ABC, Generic[T]):
             ]
 
         try:
-            # 新しいdaskバージョンでの情報表示
+            # Display information for newer dask versions
             logger.debug(f"Dask graph layers: {list(self._data.dask.layers.keys())}")
             logger.debug(
                 f"Dask graph dependencies: {len(self._data.dask.dependencies)}"
@@ -73,16 +73,16 @@ class BaseFrame(ABC, Generic[T]):
     @property
     @abstractmethod
     def _n_channels(self) -> int:
-        """チャネル数を返します。"""
+        """Returns the number of channels."""
 
     @property
     def n_channels(self) -> int:
-        """チャネル数を返します。"""
+        """Returns the number of channels."""
         return len(self)
 
     @property
     def channels(self) -> list[ChannelMetadata]:
-        """チャネルのメタデータにアクセスするためのプロパティ。"""
+        """Property to access channel metadata."""
         return self._channel_metadata
 
     @property
@@ -97,7 +97,8 @@ class BaseFrame(ABC, Generic[T]):
         if channel_idx < 0 or channel_idx >= n_channels:
             range_max = n_channels - 1
             raise ValueError(
-                f"チャネル指定が範囲外です: {channel_idx} (有効範囲: 0-{range_max})"
+                f"Channel index out of range: {channel_idx} "
+                f"(valid range: 0-{range_max})"
             )
         logger.debug(f"Extracting channel index={channel_idx} (lazy operation).")
         channel_data = self._data[channel_idx : channel_idx + 1]
@@ -110,7 +111,7 @@ class BaseFrame(ABC, Generic[T]):
 
     def __len__(self) -> int:
         """
-        チャンネルのデータ長を返します。
+        Returns the number of channels.
         """
         return len(self._channel_metadata)
 
@@ -120,20 +121,33 @@ class BaseFrame(ABC, Generic[T]):
 
     def __getitem__(self: S, key: Union[str, int, slice, tuple[slice, ...]]) -> S:
         """
-        チャンネル名またはインデックスでチャンネルを取得するためのメソッド。
+        Method to get a channel by name or index.
 
-        Parameters:
-            key (str or int): チャンネルの名前（label）またはインデックス番号。
+        Parameters
+        ----------
+        key : str, int, slice, or tuple of slices
+            Channel name (label) or index number.
 
-        Returns:
-            Channel: 対応するチャンネル。
+        Returns
+        -------
+        BaseFrame
+            The corresponding channel.
+
+        Raises
+        ------
+        ValueError
+            If the key length is invalid for the shape.
+        IndexError
+            If the channel index is out of range.
+        TypeError
+            If the key type is invalid.
         """
         if isinstance(key, str):
             index = self.label2index(key)
             return self.get_channel(index)
 
         elif isinstance(key, tuple):
-            # タプルの場合、最初の要素をインデックスとして扱う
+            # When key is a tuple, treat the first element as an index
             if len(key) > len(self.shape):
                 raise ValueError(
                     f"Invalid key length: {len(key)} for shape {self.shape}"
@@ -158,7 +172,7 @@ class BaseFrame(ABC, Generic[T]):
                 channel_metadata=new_channel_metadata,
             )
         elif isinstance(key, numbers.Integral):
-            # インデックス番号でアクセス
+            # Access by index number
             if key < 0 or key >= len(self):
                 raise IndexError(f"Channel index {key} out of range.")
             return self.get_channel(key)
@@ -169,13 +183,22 @@ class BaseFrame(ABC, Generic[T]):
 
     def label2index(self, label: str) -> int:
         """
-        チャンネルラベルからインデックスを取得するメソッド。
+        Get the index from a channel label.
 
-        Parameters:
-            label (str): チャンネルのラベル。
+        Parameters
+        ----------
+        label : str
+            Channel label.
 
-        Returns:
-            int: 対応するインデックス。
+        Returns
+        -------
+        int
+            Corresponding index.
+
+        Raises
+        ------
+        KeyError
+            If the channel label is not found.
         """
         for idx, ch in enumerate(self._channel_metadata):
             if ch.label == label:
@@ -190,24 +213,30 @@ class BaseFrame(ABC, Generic[T]):
     @property
     def data(self) -> T:
         """
-        計算済みデータを返します。初めてアクセスしたときに計算が実行されます。
+        Returns the computed data.
+        Calculation is executed the first time this is accessed.
         """
         return self.compute()
 
     @property
     def labels(self) -> list[str]:
-        """すべてのチャネルのラベルをリストとして取得します。"""
+        """Get a list of all channel labels."""
         return [ch.label for ch in self._channel_metadata]
 
     def compute(self) -> T:
         """
-        データを計算して返します。
-        このメソッドは遅延計算されたデータを具体的なNumPy配列として実体化します。
+        Compute and return the data.
+        This method materializes lazily computed data into a concrete NumPy array.
 
         Returns
         -------
         NDArrayReal
-            計算されたデータ
+            The computed data.
+
+        Raises
+        ------
+        ValueError
+            If the computed result is not a NumPy array.
         """
         logger.debug(
             "COMPUTING DASK ARRAY - This will trigger file reading and all processing"
@@ -215,7 +244,7 @@ class BaseFrame(ABC, Generic[T]):
         result = self._data.compute()
 
         if not isinstance(result, np.ndarray):
-            raise ValueError(f"計算結果がnp.ndarrayではありません: {type(result)}")
+            raise ValueError(f"Computed result is not a np.ndarray: {type(result)}")
 
         logger.debug(f"Computation complete, result shape: {result.shape}")
         return cast(T, result)
@@ -224,18 +253,19 @@ class BaseFrame(ABC, Generic[T]):
     def plot(
         self, plot_type: str = "default", ax: Optional[Axes] = None, **kwargs: Any
     ) -> Union[Axes, Iterator[Axes]]:
-        """データをプロットする"""
+        """Plot the data"""
         pass
 
     def persist(self: S) -> S:
-        """データをメモリに持続化する"""
+        """Persist the data in memory"""
         persisted_data = self._data.persist()
         return self._create_new_instance(data=persisted_data)
 
     @abstractmethod
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
         """
-        派生クラスが必要な追加の初期化引数を提供するための抽象メソッド。
+        Abstract method for derived classes to provide
+        additional initialization arguments.
         """
         pass
 
@@ -257,7 +287,7 @@ class BaseFrame(ABC, Generic[T]):
         if not isinstance(metadata, dict):
             raise TypeError("Metadata must be a dictionary")
 
-        # 派生クラスから追加の初期化引数を取得
+        # Get additional initialization arguments from derived classes
         additional_kwargs = self._get_additional_init_kwargs()
         kwargs.update(additional_kwargs)
 
@@ -271,14 +301,14 @@ class BaseFrame(ABC, Generic[T]):
         )
 
     def __array__(self, dtype: npt.DTypeLike = None) -> NDArrayReal:
-        """NumPy配列への暗黙的な変換"""
+        """Implicit conversion to NumPy array"""
         result = self.compute()
         if dtype is not None:
             return result.astype(dtype)
         return result
 
     def visualize_graph(self, filename: Optional[str] = None) -> Optional[str]:
-        """計算グラフを可視化してファイルに保存"""
+        """Visualize the computation graph and save it to a file"""
         try:
             filename = filename or f"graph_{uuid.uuid4().hex[:8]}.png"
             self._data.visualize(filename=filename)
@@ -294,53 +324,53 @@ class BaseFrame(ABC, Generic[T]):
         op: Callable[[DaArray, Any], DaArray],
         symbol: str,
     ) -> S:
-        """二項演算の基本実装"""
-        # 基本的なロジック
-        # 実際の実装は派生クラスに任せる
+        """Basic implementation of binary operations"""
+        # Basic logic
+        # Actual implementation is left to derived classes
         pass
 
     def __add__(self: S, other: Union[S, int, float, NDArrayReal]) -> S:
-        """加算演算子"""
+        """Addition operator"""
         return self._binary_op(other, lambda x, y: x + y, "+")
 
     def __sub__(self: S, other: Union[S, int, float, NDArrayReal]) -> S:
-        """減算演算子"""
+        """Subtraction operator"""
         return self._binary_op(other, lambda x, y: x - y, "-")
 
     def __mul__(self: S, other: Union[S, int, float, NDArrayReal]) -> S:
-        """乗算演算子"""
+        """Multiplication operator"""
         return self._binary_op(other, lambda x, y: x * y, "*")
 
     def __truediv__(self: S, other: Union[S, int, float, NDArrayReal]) -> S:
-        """除算演算子"""
+        """Division operator"""
         return self._binary_op(other, lambda x, y: x / y, "/")
 
     def apply_operation(self: S, operation_name: str, **params: Any) -> S:
         """
-        名前付き操作を適用します。
+        Apply a named operation.
 
         Parameters
         ----------
         operation_name : str
-            適用する操作の名前
+            Name of the operation to apply.
         **params : Any
-            操作に渡すパラメータ
+            Parameters to pass to the operation.
 
         Returns
         -------
-        T
-            操作を適用した新しいインスタンス
+        S
+            A new instance with the operation applied.
         """
-        # 操作を適用する抽象メソッド
+        # Apply the operation through abstract method
         return self._apply_operation_impl(operation_name, **params)
 
     @abstractmethod
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
-        """操作適用の実装"""
+        """Implementation of operation application"""
         pass
 
     def debug_info(self) -> None:
-        """詳細なデバッグ情報を出力"""
+        """Output detailed debug information"""
         logger.debug(f"=== {self.__class__.__name__} Debug Info ===")
         logger.debug(f"Label: {self.label}")
         logger.debug(f"Shape: {self.shape}")
@@ -350,5 +380,5 @@ class BaseFrame(ABC, Generic[T]):
         logger.debug("=== End Debug Info ===")
 
     def _debug_info_impl(self) -> None:
-        """派生クラス固有のデバッグ情報を実装"""
+        """Implement derived class-specific debug information"""
         pass

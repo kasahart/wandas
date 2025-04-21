@@ -12,7 +12,7 @@ read_csv = ChannelFrame.read_csv
 from_numpy = ChannelFrame.from_numpy
 from_ndarray = from_numpy
 
-generate_sin = generate_sample.generate_sin
+generate_sin = generate_sample.generate_sin_lazy
 __all__ = ["read_wav", "read_csv", "from_ndarray", "generate_sin"]
 
 
@@ -20,14 +20,19 @@ def setup_wandas_logging(
     level: Union[str, int] = "INFO", add_handler: bool = True
 ) -> logging.Logger:
     """
-    wandasライブラリのログレベルを設定する便利関数
+    Utility function to set up logging for the wandas library.
 
     Parameters
     ----------
     level : str or int
-        ログレベル ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
+        Logging level ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
     add_handler : bool
-        Trueの場合、コンソール出力用のハンドラを追加
+        If True, adds a console handler for output
+
+    Returns
+    -------
+    logging.Logger
+        Configured logger instance
     """
     if isinstance(level, str):
         level_map = {
@@ -42,7 +47,7 @@ def setup_wandas_logging(
     logger = logging.getLogger("wandas")
     logger.setLevel(level)
 
-    # オプションでハンドラを追加
+    # Optionally add a handler
     if add_handler and not logger.handlers:
         handler = logging.StreamHandler()
         handler.setFormatter(

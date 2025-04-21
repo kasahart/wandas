@@ -6,7 +6,23 @@ if TYPE_CHECKING:
 
 
 def trim_channel_frame(cf: "ChannelFrame", start: float, end: float) -> "ChannelFrame":
-    """各チャンネルを指定区間でトリミングし、新しい ChannelFrame を返す。"""
+    """
+    Trim each channel in the specified range and return a new ChannelFrame.
+
+    Parameters
+    ----------
+    cf : ChannelFrame
+        The channel frame to trim.
+    start : float
+        Start time for trimming (seconds).
+    end : float
+        End time for trimming (seconds).
+
+    Returns
+    -------
+    ChannelFrame
+        A new ChannelFrame containing trimmed channels.
+    """
     from .channel_frame import ChannelFrame
 
     trimmed_channels = [ch.trim(start, end) for ch in cf._channels]
@@ -21,12 +37,30 @@ def cut_channel_frame(
     dc_cut: bool = False,
 ) -> list["MatrixFrame"]:
     """
-    各チャンネルを切り出し、セグメント毎に新規の MatrixFrame オブジェクトに変換。
-    ここでは各チャンネルの cut メソッドを呼び出し、セグメントごとにグループ化する。
+    Cut each channel and convert segments into new MatrixFrame objects.
+    This function calls the cut method for each channel and groups them by segment.
+
+    Parameters
+    ----------
+    cf : ChannelFrame
+        The channel frame to cut.
+    point_list : list of int or list of float
+        List of cut points.
+    cut_len : int or float
+        Length of each segment to cut.
+    taper_rate : float, default=0
+        Taper rate to apply to the cut segments.
+    dc_cut : bool, default=False
+        Whether to remove DC component from the segments.
+
+    Returns
+    -------
+    list of MatrixFrame
+        A list of MatrixFrame objects, each containing one segment from all channels.
     """
     from .channel_frame import ChannelFrame
 
-    # 各チャンネルの cut (list of Channel) をまとめる
+    # Collect cut results (list of Channel) from each channel
     cut_channels = [
         ch.cut(point_list, cut_len, taper_rate, dc_cut) for ch in cf._channels
     ]
@@ -34,7 +68,8 @@ def cut_channel_frame(
     matrix_frames = []
     for i in range(segment_num):
         new_channels = [ch_seg[i] for ch_seg in cut_channels]
-        # ChannelFrameからMatrixFrameへの変換は内部処理（to_matrix_frame）に委譲
+        # Delegate conversion from ChannelFrame to MatrixFrame
+        # to internal processing (to_matrix_frame)
         new_cf = ChannelFrame(
             channels=new_channels, label=f"{cf.label}, Segment:{i + 1}"
         )

@@ -37,7 +37,7 @@ class BaseChannel(ABC):
         "_ref",
         "_finalizer",
         "_lock",
-        "previous",  # 追加：変換前の状態を保持する属性
+        "previous",  # Added: attribute to store the state before transformation
     )
 
     def __init__(
@@ -47,17 +47,25 @@ class BaseChannel(ABC):
         label: Optional[str] = None,
         unit: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
-        previous: Optional["BaseChannel"] = None,  # 新たな引数
+        previous: Optional["BaseChannel"] = None,  # New argument
     ):
         """
         Initializes the BaseChannel object.
 
-        Parameters:
-            data (NDArrayReal): チャンネルのデータ。
-            sampling_rate (int): サンプリング周波数。
-            label (str, optional): チャンネルのラベル。
-            unit (str, optional): 単位。
-            metadata (dict, optional): その他のメタデータ。
+        Parameters
+        ----------
+        data : NDArrayReal
+            Channel data.
+        sampling_rate : int
+            Sampling frequency.
+        label : str, optional
+            Channel label.
+        unit : str, optional
+            Unit of measurement.
+        metadata : dict, optional
+            Additional metadata.
+        previous : BaseChannel, optional
+            Reference to the original channel before transformation.
         """
         self._sampling_rate = sampling_rate
         self._label = label or ""
@@ -66,11 +74,11 @@ class BaseChannel(ABC):
         self._ref = util.unit_to_ref(self.unit)
         self._is_closed = False
         self._lock = threading.Lock()
-        self.previous = previous  # 変換前の状態を保持
+        self.previous = previous  # Store the state before transformation
         self._data_path = None
 
         if isinstance(data, np.memmap):
-            # 既にメモリマップされたデータは numpy 配列に変換して dask.array でラップ
+            # Wrap already memory-mapped data in a dask array
             self._data: Array = da.from_array(data, chunks="auto")  # type: ignore [unused-ignore, attr-defined, no-untyped-call]
             self._data_path = None
             self._owns_file = False
@@ -94,8 +102,8 @@ class BaseChannel(ABC):
     @property
     def dask_data(self) -> "Array":
         """
-        内部で h5py の "data" データセットを dask.array としてラップして返します。
-        このプロパティは内部処理用で、ユーザー向けではありません。
+        Returns the internal h5py "data" dataset wrapped as a dask.array.
+        This property is for internal processing and not intended for end users.
         """
         with self._lock:
             if self._is_closed:
@@ -105,8 +113,8 @@ class BaseChannel(ABC):
     @property
     def data(self) -> NDArrayReal:
         """
-        ユーザー向けのプロパティです。内部の dask.array を compute() して、
-        常に numpy 配列として返します。
+        User-facing property. Computes the internal dask.array and
+        always returns a numpy array.
         """
         if self.dask_data is None:
             raise RuntimeError("No data source available")
@@ -116,28 +124,28 @@ class BaseChannel(ABC):
     @property
     def sampling_rate(self) -> int:
         """
-        サンプリング周波数を返します。
+        Returns the sampling frequency.
         """
         return self._sampling_rate
 
     @property
     def label(self) -> str:
         """
-        ラベルを返します。
+        Returns the channel label.
         """
         return self._label
 
     @property
     def unit(self) -> str:
         """
-        単位を返します。
+        Returns the unit of measurement.
         """
         return self._unit
 
     @unit.setter
     def unit(self, unit: str) -> None:
         """
-        単位を設定します。
+        Sets the unit of measurement.
         """
         self._unit = unit
         self._ref = util.unit_to_ref(unit)
@@ -145,14 +153,14 @@ class BaseChannel(ABC):
     @property
     def metadata(self) -> dict[str, Any]:
         """
-        メタデータを返します。
+        Returns the metadata.
         """
         return self._metadata
 
     @property
     def ref(self) -> float:
         """
-        参照値を返します。
+        Returns the reference value.
         """
         return self._ref
 
@@ -167,7 +175,7 @@ class BaseChannel(ABC):
 
     def get_previous(self) -> Optional["BaseChannel"]:
         """
-        処理前のオブジェクト（元の状態）を返します。
+        Returns the object before processing (original state).
         """
         return self.previous
 
@@ -186,6 +194,18 @@ class BaseChannel(ABC):
         """
         Create a new channel instance based on an existing channel.
         Keyword arguments can override or extend the original attributes.
+
+        Parameters
+        ----------
+        org : BaseChannel
+            Original channel to copy from.
+        **kwargs
+            Additional parameters to override original values.
+
+        Returns
+        -------
+        T
+            New channel instance of the same type as the class.
         """
         data = kwargs.pop("data", org.data)
         if not isinstance(data, np.ndarray):
@@ -222,7 +242,7 @@ class BaseChannel(ABC):
     #     plot_kwargs: Optional[dict[str, Any]] = None,
     # ) -> "Axes":
     #     """
-    #     データをプロットします。派生クラスで実装が必要です。
+    #     Plot the data. Must be implemented in derived classes.
     #     """
     #     pass
 

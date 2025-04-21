@@ -169,28 +169,34 @@ def apply_normalize(
     channel_wise: bool = True,
 ) -> dict[str, NDArrayReal]:
     """
-    チャンネル信号を正規化します。
+    Normalize the channel signal.
 
-    Parameters:
-        ch (Channel): 正規化するチャンネル。
-        target_level (float): 目標信号レベル（dB）。
-        channel_wise (bool): チャンネルごとに正規化するかどうか。
+    Parameters
+    ----------
+    ch : Channel
+        Channel to normalize.
+    target_level : float, default=-20
+        Target signal level (dB).
+    channel_wise : bool, default=True
+        Whether to normalize each channel separately.
 
-    Returns:
-        dict[str, NDArrayReal]: 正規化されたデータを含む辞書。
+    Returns
+    -------
+    dict[str, NDArrayReal]
+        Dictionary containing the normalized data.
     """
     data = ch.data
 
-    # RMSを計算
+    # Calculate RMS
     current_rms = util.calculate_rms(data)
 
-    # 現在のdBレベルを計算（基準は1.0）
+    # Calculate current dB level (reference is 1.0)
     current_db = 20 * np.log10(current_rms) if current_rms > 0 else -100
 
-    # 必要なゲインを計算
+    # Calculate required gain
     gain = 10 ** ((target_level - current_db) / 20)
 
-    # 正規化された信号を作成
+    # Create normalized signal
     normalized_data = data * gain
 
     return dict(

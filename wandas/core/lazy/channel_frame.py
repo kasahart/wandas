@@ -45,8 +45,8 @@ S = TypeVar("S", bound="BaseFrame[Any]")
 
 class ChannelFrame(BaseFrame[NDArrayReal]):
     """
-    音声チャネルのラッパークラス
-    データ形状: (channels, samples) または単一チャネルの場合 (1, samples)
+    Wrapper class for audio channels.
+    Data shape: (channels, samples) or (1, samples) for a single channel.
     """
 
     def __init__(
@@ -63,7 +63,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
             data = data.reshape(1, -1)
         elif data.ndim > 2:
             raise ValueError(
-                f"データは1次元または2次元である必要があります。形状: {data.shape}"
+                f"Data must be 1-dimensional or 2-dimensional. Shape: {data.shape}"
             )
         super().__init__(
             data=data,
@@ -77,36 +77,38 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
 
     @property
     def _n_channels(self) -> int:
-        """チャネル数を返します。"""
+        """Returns the number of channels."""
         return self.shape[-2]
 
     @property
     def time(self) -> NDArrayReal:
         """
-        時刻データを返します。
+        Returns the time data.
         """
         return np.arange(self.n_samples) / self.sampling_rate
 
     @property
     def n_samples(self) -> int:
+        """Returns the number of samples."""
         n: int = self._data.shape[-1]
         return n
 
     @property
     def duration(self) -> float:
+        """Returns the duration in seconds."""
         return self.n_samples / self.sampling_rate
 
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
         from .time_series_operation import create_operation
 
-        # 操作インスタンスを作成
+        # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
 
-        # データに処理を適用
+        # Apply processing to data
         processed_data = operation.process(self._data)
 
-        # メタデータ更新
+        # Update metadata
         operation_metadata = {"operation": operation_name, "params": params}
         new_history = self.operation_history.copy()
         new_history.append(operation_metadata)
@@ -117,7 +119,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
             f"Created new ChannelFrame with operation {operation_name} added to graph"
         )
         if operation_name == "resampling":
-            # リサンプリングの場合、サンプリングレートを更新
+            # For resampling, update sampling rate
             return self._create_new_instance(
                 sampling_rate=params["target_sr"],
                 data=processed_data,
@@ -137,21 +139,21 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         symbol: str,
     ) -> "ChannelFrame":
         """
-        二項演算の共通実装 - daskの遅延演算を活用
+        Common implementation for binary operations - utilizing dask's lazy evaluation
 
         Parameters
         ----------
         other : ChannelFrame, int, float, ndarray, dask.array
-            演算の右オペランド
+            Right operand for the operation
         op : callable
-            演算を実行する関数 (例: lambda a, b: a + b)
+            Function to execute the operation (e.g., lambda a, b: a + b)
         symbol : str
-            演算のシンボル表現 (例: '+')
+            Symbolic representation of the operation (e.g., '+')
 
         Returns
         -------
         ChannelFrame
-            演算結果を含む新しいチャネル（遅延実行）
+            A new channel containing the operation result (lazy execution)
         """
         from .channel_frame import ChannelFrame
 
@@ -170,7 +172,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         if isinstance(other, ChannelFrame):
             if self.sampling_rate != other.sampling_rate:
                 raise ValueError(
-                    "サンプリングレートが一致していません。演算できません。"
+                    "Sampling rates do not match. Cannot perform operation."
                 )
 
             # dask arrayを直接演算（遅延実行を維持）
@@ -237,67 +239,69 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         snr: Optional[float] = None,
     ) -> "ChannelFrame":
         """
-        別の信号または値を現在の信号に加算します。
-        SNRを指定すると、信号対雑音比を考慮した加算を行います。
+        Add another signal or value to the current signal.
+        If SNR is specified, performs addition with consideration for
+        signal-to-noise ratio.
 
         Parameters
         ----------
         other : ChannelFrame, int, float, ndarray, dask.array
-            加算する信号または値
+            Signal or value to add
         snr : float, optional
-            信号対雑音比（dB）。指定すると、このSNRに基づいて他の信号のスケールを調整します。
-            self が信号、other がノイズとして扱われます。
+            Signal-to-noise ratio (dB). If specified, adjusts the scale of the
+            other signal based on this SNR.
+            self is treated as the signal, and other as the noise.
 
         Returns
         -------
         ChannelFrame
-            加算結果を含む新しいチャネルフレーム（遅延実行）
+            A new channel frame containing the addition result (lazy execution)
         """
         logger.debug(f"Setting up add operation with SNR={snr} (lazy)")
 
-        # SNRが指定されている場合は特別な処理
+        # Special processing when SNR is specified
         if snr is not None:
-            # other がChannelFrameでない場合、最初に変換
+            # First convert other to ChannelFrame if it's not
             if not isinstance(other, ChannelFrame):
                 if isinstance(other, np.ndarray):
                     other = ChannelFrame.from_numpy(
                         other, self.sampling_rate, label="array_data"
                     )
                 elif isinstance(other, (int, float)):
-                    # スカラーの場合はそのまま加算（SNRは無視）
+                    # For scalar values, simply add (ignore SNR)
                     return self + other
                 else:
                     raise TypeError(
-                        "SNR指定時の加算対象は ChannelFrame または "
-                        f"NumPy配列である必要があります: {type(other)}"
+                        "Addition target with SNR must be a ChannelFrame or "
+                        f"NumPy array: {type(other)}"
                     )
 
-            # サンプリングレートが一致するか確認
+            # Check if sampling rates match
             if self.sampling_rate != other.sampling_rate:
                 raise ValueError(
-                    "サンプリングレートが一致していません。演算できません。"
+                    "Sampling rates do not match. Cannot perform operation."
                 )
 
-            # SNR調整付き加算操作を適用
+            # Apply addition operation with SNR adjustment
             return self.apply_operation("add_with_snr", other=other._data, snr=snr)
 
-        # SNRが指定されていない場合は通常の加算を実行
+        # Execute normal addition if SNR is not specified
         return self + other
 
     def plot(
         self, plot_type: str = "waveform", ax: Optional["Axes"] = None, **kwargs: Any
     ) -> Union["Axes", Iterator["Axes"]]:
         """
-        様々な形式のプロット (Strategyパターンを使用)
+        Various types of plots (using Strategy pattern)
 
         Parameters
         ----------
         plot_type : str
-            'waveform', 'spectrogram'などのプロット種類
+            Plot type such as 'waveform', 'spectrogram', etc.
         ax : matplotlib.axes.Axes, optional
-            プロット先の軸。Noneの場合は新しい軸を作成
+            Axes to plot on. If None, creates a new axis
         **kwargs : dict
-            プロット固有のパラメータ
+            Plot-specific parameters
         """
 
         logger.debug(f"Plotting audio with plot_type={plot_type} (will compute now)")
@@ -319,12 +323,12 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
         """
-        RMSプロットを生成します。
+        Generate an RMS plot.
 
         Parameters
         ----------
         **kwargs : dict
-            プロット固有のパラメータ
+            Plot-specific parameters
         """
         kwargs = kwargs or {}
         ylabel = kwargs.pop("ylabel", "RMS")
@@ -332,6 +336,16 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         return rms_ch.plot(ax=ax, ylabel=ylabel, **kwargs)
 
     def describe(self, normalize: bool = True, **kwargs: Any) -> None:
+        """
+        Describes and displays the audio data with waveform visualization and playback.
+
+        Parameters
+        ----------
+        normalize : bool, default=True
+            Whether to normalize the audio data for playback
+        **kwargs : dict
+            Additional parameters for visualization
+        """
         if "axis_config" in kwargs:
             logger.warning(
                 "axis_configは前方互換性のために残されていますが、今後は非推奨となります。"  # noqa: E501
@@ -385,29 +399,35 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         ch_units: Optional[list[str]] = None,
     ) -> "ChannelFrame":
         """
-        NumPy配列からチャネルフレームを作成します。
+        Create a channel frame from a NumPy array.
 
         Parameters
         ----------
         data : numpy.ndarray
-            音声データ。形状は
-            (bach, channels, samples) または (channels, samples) または (samples,)
+            Audio data. Shape can be:
+            (batch, channels, samples) or (channels, samples) or (samples,)
         sampling_rate : float
-            サンプリングレート (Hz)
+            Sampling rate (Hz)
         label : str, optional
-            チャネルのラベル
+            Label for the channel
+        metadata : dict, optional
+            Additional metadata
+        ch_labels : list of str, optional
+            Labels for each channel
+        ch_units : list of str, optional
+            Units for each channel
 
         Returns
         -------
         ChannelFrame
-            データを含む新しいチャネルフレーム
+            A new channel frame containing the data
         """
 
         if data.ndim == 1:
             data = data.reshape(1, -1)
         elif data.ndim > 2:
             raise ValueError(
-                f"データは1次元または2次元である必要があります。形状: {data.shape}"
+                f"Data must be 1-dimensional or 2-dimensional. Shape: {data.shape}"
             )
 
         # NumPy配列をdask配列に変換
@@ -422,13 +442,15 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         if ch_labels is not None:
             if len(ch_labels) != cf.n_channels:
                 raise ValueError(
-                    "チャネルラベルの数が指定されたチャネル数と一致しません"
+                    "Number of channel labels does not match the number of channels"
                 )
             for i in range(len(ch_labels)):
                 cf._channel_metadata[i].label = ch_labels[i]
         if ch_units is not None:
             if len(ch_units) != cf.n_channels:
-                raise ValueError("チャネル単位の数が指定されたチャネル数と一致しません")
+                raise ValueError(
+                    "Number of channel units does not match the number of channels"
+                )
             for i in range(len(ch_units)):
                 cf._channel_metadata[i].unit = ch_units[i]
 
@@ -445,26 +467,34 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         ch_units: Optional[list[str]] = None,
     ) -> "ChannelFrame":
         """
-        NumPy配列からチャネルフレームを作成します。
+        Create a channel frame from a NumPy array.
+
+        This method is deprecated. Use from_numpy instead.
 
         Parameters
         ----------
         data : numpy.ndarray
-            音声データ。形状は
-            (bach, channels, samples) または (channels, samples) または (samples,)
+            Audio data. Shape can be:
+            (batch, channels, samples) or (channels, samples) or (samples,)
         sampling_rate : float
-            サンプリングレート (Hz)
+            Sampling rate (Hz)
         label : str, optional
-            チャネルのラベル
+            Label for the channel
+        metadata : dict, optional
+            Additional metadata
+        ch_labels : list of str, optional
+            Labels for each channel
+        ch_units : list of str, optional
+            Units for each channel
 
         Returns
         -------
         ChannelFrame
-            データを含む新しいチャネルフレーム
+            A new channel frame containing the data
         """
-        # 互換性のために、from_ndarrayをfrom_numpyにリダイレクト
-        # ただし、from_ndarrayは非推奨
-        logger.warning("from_ndarrayは非推奨です。from_numpyを使用してください。")
+        # Redirect to from_numpy for compatibility
+        # However, from_ndarray is deprecated
+        logger.warning("from_ndarray is deprecated. Use from_numpy instead.")
         return cls.from_numpy(
             data=data,
             sampling_rate=sampling_rate,
@@ -486,30 +516,30 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         **kwargs: Any,
     ) -> "ChannelFrame":
         """
-        ファイルから遅延読み込みでチャネルを作成します。
-        様々なファイル形式（WAV、CSV など）を自動的に検出してサポートします。
+        Creates a channel with lazy loading from a file.
+        Automatically detects and supports various file formats (WAV, CSV, etc.).
 
         Parameters
         ----------
         path : str or Path
-            読み込むファイルのパス
+            Path to the file to read
         channel : int or list of int, optional
-            読み込むチャネル番号。None の場合はすべてのチャネル
+            Channel number(s) to read. If None, all channels are read
         start : float, optional
-            読み込み開始位置（秒）。None の場合は先頭から
+            Start position in seconds. If None, starts from the beginning
         end : float, optional
-            読み込み終了位置（秒）。None の場合はファイル末尾まで
+            End position in seconds. If None, reads until the end of file
         chunk_size : int, optional
-            処理するチャンクサイズ。遅延処理の分割サイズを指定
+            Chunk size for processing. Specifies the splitting size for lazy processing
         ch_labels : list of str, optional
-            各チャネルに設定するラベル
+            Labels to set for each channel
         **kwargs :
-            追加のファイル固有パラメータ
+            Additional file-specific parameters
 
         Returns
         -------
         ChannelFrame
-            読み込んだデータを含む新しいチャネルフレーム（遅延読み込み）
+            A new channel frame containing the data (lazy loading)
         """
         from .channel_frame import ChannelFrame
 
@@ -620,19 +650,19 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         cls, filename: str, ch_labels: Optional[list[str]] = None
     ) -> "ChannelFrame":
         """
-        WAVファイルを読み込むユーティリティメソッド
+        Utility method to read a WAV file.
 
         Parameters
         ----------
         filename : str
-            WAVファイルのパス
+            Path to the WAV file
         ch_labels : list of str, optional
-            各チャネルに設定するラベル
+            Labels to set for each channel
 
         Returns
         -------
         ChannelFrame
-            読み込んだデータを含む新しいチャネルフレーム（遅延読み込み）
+            A new channel frame containing the data (lazy loading)
         """
         from .channel_frame import ChannelFrame
 
@@ -649,25 +679,25 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         header: Optional[int] = 0,
     ) -> "ChannelFrame":
         """
-        CSVファイルを読み込むユーティリティメソッド
+        Utility method to read a CSV file.
 
         Parameters
         ----------
         filename : str
-            CSVファイルのパス
+            Path to the CSV file
         ch_labels : list of str, optional
-            各チャネルに設定するラベル
+            Labels to set for each channel
         time_column : int or str, optional
-            時間列のインデックスまたは列名
+            Index or name of the time column
         delimiter : str, optional
-            区切り文字
+            Delimiter character
         header : int, optional
-            ヘッダー行の番号
+            Row number to use as header
 
         Returns
         -------
         ChannelFrame
-            読み込んだデータを含む新しいチャネルフレーム（遅延読み込み）
+            A new channel frame containing the data (lazy loading)
         """
         from .channel_frame import ChannelFrame
 
@@ -682,14 +712,14 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
 
     def save(self, path: Union[str, Path], format: Optional[str] = None) -> None:
         """
-        音声データをファイルに保存します。
+        Save audio data to a file.
 
         Parameters
         ----------
         path : str or Path
-            保存先のファイルパス
+            Path to save the file
         format : str, optional
-            ファイル形式。None の場合は拡張子から判断
+            File format. If None, determined from file extension
         """
         logger.debug(f"Saving audio data to file: {path} (will compute now)")
         data = self.compute()

@@ -16,11 +16,14 @@ if TYPE_CHECKING:
 class FrequencyChannelFrame(ChannelAccessMixin["FrequencyChannel"]):
     def __init__(self, channels: list["FrequencyChannel"], label: Optional[str] = None):
         """
-        FrequencyChannelFrame オブジェクトを初期化します。
+        Initialize a FrequencyChannelFrame object.
 
-        Parameters:
-            channels (list of FrequencyChannel): FrequencyChannelオブジェクトのリスト。
-            label (str, optional): スペクトルのラベル。
+        Parameters
+        ----------
+        channels : list of FrequencyChannel
+            List of FrequencyChannel objects.
+        label : str, optional
+            Label for the spectrum.
         """
         self._channels = channels
         self.label = label
@@ -37,11 +40,25 @@ class FrequencyChannelFrame(ChannelAccessMixin["FrequencyChannel"]):
         plot_kwargs: Optional[dict[str, Any]] = None,
     ) -> None:
         """
-        スペクトルデータをプロットします。
+        Plot spectrum data.
 
-        Parameters:
-            ax (matplotlib.axes.Axes, optional): プロットに使用する Axes オブジェクト。
-            title (str, optional): プロットのタイトル。
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes, optional
+            Axes object to use for plotting.
+        title : str, optional
+            Plot title.
+        Aw : bool, default=False
+            If True, apply A-weighting before plotting.
+        overlay : bool, default=True
+            If True, plot all channels on the same axes.
+        plot_kwargs : dict, optional
+            Additional keyword arguments for the plot function.
+
+        Raises
+        ------
+        ValueError
+            If ax is provided when overlay is False.
         """
         if ax is not None and not overlay:
             raise ValueError("ax must be None when overlay is False.")
@@ -90,12 +107,19 @@ class FrequencyChannelFrame(ChannelAccessMixin["FrequencyChannel"]):
         Aw: bool = False,  # noqa: N803
     ) -> tuple["Figure", "Axes"]:
         """
-        チャンネル間をプロットします。
+        Plot channels in a matrix layout.
 
-        Parameters:
-            ax (matplotlib.axes.Axes, optional): プロット先の軸。
-            title (str, optional): プロットのタイトル。
-            cmap (str, optional): カラーマップ。
+        Parameters
+        ----------
+        title : str, optional
+            Plot title.
+        Aw : bool, default=False
+            If True, apply A-weighting before plotting.
+
+        Returns
+        -------
+        tuple
+            Tuple containing (figure, axes).
         """
 
         num_channels = len(self._channels)

@@ -16,27 +16,26 @@ if TYPE_CHECKING:
 
 def read_wav(filename: str, labels: Optional[list[str]] = None) -> "ChannelFrame":
     """
-    WAV ファイルを読み込み、ChannelFrame オブジェクトを作成します。
+    Read a WAV file and create a ChannelFrame object.
 
-    Parameters:
-        filename (str): WAV ファイルのパス。
-        labels (list of str, optional): 各チャンネルのラベル。
+    Parameters
+    ----------
+    filename : str
+        Path to the WAV file.
+    labels : list of str, optional
+        Labels for each channel.
 
-    Returns:
-        ChannelFrame: オーディオデータを含む ChannelFrame オブジェクト。
+    Returns
+    -------
+    ChannelFrame
+        ChannelFrame object containing the audio data.
     """
     from wandas.core.channel import Channel
     from wandas.core.channel_frame import ChannelFrame
 
     sampling_rate, data = wavfile.read(filename, mmap=True)
 
-    # データ型の正規化
-    # if data.dtype != np.float32 and data.dtype != np.float64:
-    #     data = data.astype(np.float32) / np.iinfo(data.dtype).max
-    # else:
-    #     data = data.astype(np.float32)
-
-    # データを2次元配列に変換（num_samples, num_channels）
+    # Convert data to 2D array (num_samples, num_channels)
     if data.ndim == 1:
         data = data[:, np.newaxis]
 
@@ -55,11 +54,19 @@ def read_wav(filename: str, labels: Optional[list[str]] = None) -> "ChannelFrame
 
 def write_wav(filename: str, target: Union["ChannelFrame", "Channel"]) -> None:
     """
-    ChannelFrame オブジェクトを WAV ファイルに書き込みます。
+    Write a ChannelFrame or Channel object to a WAV file.
 
-    Parameters:
-        filename (str): WAV ファイルのパス。
-        data (ChannelFrame): 書き込むデータを含む ChannelFrame オブジェクト。
+    Parameters
+    ----------
+    filename : str
+        Path to the WAV file.
+    target : ChannelFrame or Channel
+        ChannelFrame or Channel object containing the data to write.
+
+    Raises
+    ------
+    ValueError
+        If target is neither a ChannelFrame nor a Channel object.
     """
     from ..core.channel import Channel
     from ..core.channel_frame import ChannelFrame
@@ -81,9 +88,9 @@ def write_wav(filename: str, target: Union["ChannelFrame", "Channel"]) -> None:
         )
 
     elif isinstance(target, ChannelFrame):
-        # filenameにラベルの拡張子を削除
+        # Remove extension from filename
         _filename = os.path.splitext(filename)[0]
-        # フォルダを作成
+        # Create folder
         os.makedirs(_filename, exist_ok=True)
         _data = np.column_stack([ch.data for ch in target])
         norm = np.max(np.abs(_data))
@@ -95,6 +102,4 @@ def write_wav(filename: str, target: Union["ChannelFrame", "Channel"]) -> None:
                 data=scale_data(ch.data, norm),
             )
     else:
-        raise ValueError(
-            "target は ChannelFrame または Channel オブジェクトである必要があります。"
-        )
+        raise ValueError("target must be a ChannelFrame or Channel object.")

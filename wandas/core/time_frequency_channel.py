@@ -32,15 +32,30 @@ class TimeFrequencyChannel(BaseChannel):
         previous: Optional["BaseChannel"] = None,
     ):
         """
-        TimeFrequencyChannel オブジェクトを初期化します。
+        Initialize a TimeFrequencyChannel object.
 
-        Parameters:
-            frequencies (numpy.ndarray): 周波数データ。
-            times (numpy.ndarray): 時間データ。
-            data (numpy.ndarray): スペクトルデータ（時間周波数成分）。
-            label (str, optional): チャンネルのラベル。
-            unit (str, optional):    データの単位。
-            metadata (dict, optional): メタデータ。
+        Parameters
+        ----------
+        data : NDArrayReal
+            Spectral data (time-frequency components).
+        sampling_rate : int
+            Sampling rate (Hz).
+        n_fft : int
+            FFT size.
+        hop_length : int
+            Number of samples between successive frames.
+        win_length : int
+            Window length.
+        window : str
+            Window function type.
+        label : str, optional
+            Channel label.
+        unit : str, optional
+            Unit of measurement.
+        metadata : dict, optional
+            Additional metadata.
+        previous : BaseChannel, optional
+            Reference to the original channel before transformation.
         """
         super().__init__(
             data=data,
@@ -68,19 +83,26 @@ class TimeFrequencyChannel(BaseChannel):
         # pad_mode: str = "constant",
     ) -> dict[str, Any]:
         """
-        STFT（短時間フーリエ変換）を実行します。
+        Perform Short-Time Fourier Transform (STFT).
 
-        Parameters:
-            data (numpy.ndarray): 入力データ。
-            n_fft (int): FFT のサンプル数。
-            hop_length (int): ホップサイズ（フレーム間の移動量）。
-            win_length (int): ウィンドウの長さ。
-            window (str): ウィンドウ関数の種類。
-            center (bool): フレームを中央に配置するかどうか。
-            pad_mode (str): パディングモード。
+        Parameters
+        ----------
+        data : NDArrayReal
+            Input signal.
+        n_fft : int, optional
+            FFT size. If None, defaults to win_length.
+        hop_length : int, optional
+            Hop size (number of samples between successive frames).
+            If None, defaults to win_length//2.
+        win_length : int, optional
+            Window length. If None, defaults to 2048.
+        window : str, default="hann"
+            Window function type.
 
-        Returns:
-            numpy.ndarray: STFT の結果。
+        Returns
+        -------
+        dict
+            Dictionary containing the STFT results and parameters.
         """
         if win_length is None:
             win_length = 2048
@@ -113,6 +135,19 @@ class TimeFrequencyChannel(BaseChannel):
         n_mels: int = 128,
         # pad_mode: str = "constant",
     ) -> "TimeMelFrequencyChannel":
+        """
+        Convert STFT to mel spectrogram.
+
+        Parameters
+        ----------
+        n_mels : int, default=128
+            Number of mel bands.
+
+        Returns
+        -------
+        TimeMelFrequencyChannel
+            Object containing the mel spectrogram.
+        """
         result = TimeMelFrequencyChannel.spec2melspec(
             sampling_rate=self.sampling_rate,
             data=np.abs(self.data),
@@ -130,7 +165,17 @@ class TimeFrequencyChannel(BaseChannel):
 
     def data_Aw(self, to_dB: bool = False) -> NDArrayReal:  # noqa: N802, N803
         """
-        A特性を適用した振幅データを返します。
+        Return amplitude data with A-weighting applied.
+
+        Parameters
+        ----------
+        to_dB : bool, default=False
+            If True, return the result in decibels.
+
+        Returns
+        -------
+        NDArrayReal
+            A-weighted amplitude data.
         """
         freqs = fft.rfftfreq(self.n_fft, 1 / self.sampling_rate)
         weighted: NDArrayReal = librosa.perceptual_weighting(
@@ -144,7 +189,17 @@ class TimeFrequencyChannel(BaseChannel):
 
     def hpss_harmonic(self, **kwargs: Any) -> "TimeFrequencyChannel":
         """
-        ハーモニック成分を抽出します。
+        Extract harmonic component.
+
+        Parameters
+        ----------
+        **kwargs
+            Additional keyword arguments to pass to librosa.decompose.hpss.
+
+        Returns
+        -------
+        TimeFrequencyChannel
+            Channel containing the harmonic component.
         """
         harmonic, _ = librosa.decompose.hpss(self.data, **kwargs)
         result = dict(
@@ -158,7 +213,17 @@ class TimeFrequencyChannel(BaseChannel):
 
     def hpss_percussive(self, **kwargs: Any) -> "TimeFrequencyChannel":
         """
-        パーカッシブ成分を抽出します。
+        Extract percussive component.
+
+        Parameters
+        ----------
+        **kwargs
+            Additional keyword arguments to pass to librosa.decompose.hpss.
+
+        Returns
+        -------
+        TimeFrequencyChannel
+            Channel containing the percussive component.
         """
         _, percussive = librosa.decompose.hpss(self.data, **kwargs)
         result = dict(
@@ -182,12 +247,31 @@ class TimeFrequencyChannel(BaseChannel):
         vmax: Optional[float] = None,
     ) -> tuple["QuadMesh", NDArrayReal]:
         """
-        時間周波数データをプロットします。
+        Plot time-frequency data (internal method).
 
-        Parameters:
-            ax (matplotlib.axes.Axes, optional): 既存のプロット軸。
-            title (str, optional): プロットのタイトル。
-            db_scale (bool): dBスケールでプロットするかどうか。
+        Parameters
+        ----------
+        ax : Axes
+            Matplotlib axes to plot on.
+        title : str, optional
+            Plot title.
+        db_scale : bool, default=True
+            If True, plot in dB scale.
+        fmin : float, optional
+            Minimum frequency to display.
+        fmax : float, optional
+            Maximum frequency to display.
+        Aw : bool, default=False
+            If True, apply A-weighting before plotting.
+        vmin : float, optional
+            Minimum value for color scaling.
+        vmax : float, optional
+            Maximum value for color scaling.
+
+        Returns
+        -------
+        tuple
+            Tuple containing (image, plotted_data).
         """
 
         if Aw:
@@ -197,7 +281,7 @@ class TimeFrequencyChannel(BaseChannel):
         else:
             data_to_plot = np.abs(self.data)
 
-        # 時間周波数データをプロット
+        # Plot time-frequency data
         img = librosa.display.specshow(
             data=data_to_plot,
             sr=self.sampling_rate,
@@ -214,7 +298,7 @@ class TimeFrequencyChannel(BaseChannel):
             vmax=vmax,
         )
 
-        # ラベルとタイトルを設定
+        # Set labels and title
         ax.set_xlabel("Time [s]")
         ax.set_ylabel("Frequency [Hz]")
         ax.set_title(title or self.label or "Time-Frequency Representation")
@@ -233,12 +317,31 @@ class TimeFrequencyChannel(BaseChannel):
         vmax: Optional[float] = None,
     ) -> tuple["Axes", NDArrayReal]:
         """
-        時間周波数データをプロットします。
+        Plot time-frequency data.
 
-        Parameters:
-            ax (matplotlib.axes.Axes, optional): 既存のプロット軸。
-            title (str, optional): プロットのタイトル。
-            db_scale (bool): dBスケールでプロットするかどうか。
+        Parameters
+        ----------
+        ax : Axes, optional
+            Matplotlib axes to plot on. If None, a new one is created.
+        title : str, optional
+            Plot title.
+        db_scale : bool, default=True
+            If True, plot in dB scale.
+        fmin : float, optional
+            Minimum frequency to display.
+        fmax : float, optional
+            Maximum frequency to display.
+        Aw : bool, default=False
+            If True, apply A-weighting before plotting.
+        vmin : float, optional
+            Minimum value for color scaling.
+        vmax : float, optional
+            Maximum value for color scaling.
+
+        Returns
+        -------
+        tuple
+            Tuple containing (axes, plotted_data).
         """
         _ax = ax
         if _ax is None:
@@ -275,10 +378,12 @@ class TimeFrequencyChannel(BaseChannel):
 
     def _to_db(self) -> NDArrayReal:
         """
-        スペクトルデータを dB スケールに変換した新しい TimeFrequencyChannel を返す。
+        Convert spectral data to dB scale.
 
-        Returns:
-            TimeFrequencyChannel: dBスケールに変換された新しい TimeFrequencyChannel。
+        Returns
+        -------
+        NDArrayReal
+            Data converted to dB scale.
         """
         return np.asarray(
             librosa.amplitude_to_db(np.abs(self.data), ref=self.ref, amin=1e-12),
@@ -304,16 +409,32 @@ class TimeMelFrequencyChannel(TimeFrequencyChannel):
         previous: Optional["BaseChannel"] = None,
     ):
         """
-        TimeMelFrequencyChannel オブジェクトを初期化します。
+        Initialize a TimeMelFrequencyChannel object.
 
-        Parameters:
-            frequencies (numpy.ndarray): 周波数データ。
-            times (numpy.ndarray): 時間データ。
-            data (numpy.ndarray): スペクトルデータ（時間周波数成分）。
-            label (str, optional): チャンネルのラベル。
-            unit (str, optional):    データの単位。
-            metadata (dict, optional): メタデータ。
-
+        Parameters
+        ----------
+        data : NDArrayReal
+            Spectral data (time-frequency components in mel scale).
+        sampling_rate : int
+            Sampling rate (Hz).
+        n_fft : int
+            FFT size.
+        hop_length : int
+            Number of samples between successive frames.
+        win_length : int
+            Window length.
+        window : str
+            Window function type.
+        n_mels : int, default=128
+            Number of mel bands.
+        label : str, optional
+            Channel label.
+        unit : str, optional
+            Unit of measurement.
+        metadata : dict, optional
+            Additional metadata.
+        previous : BaseChannel, optional
+            Reference to the original channel before transformation.
         """
         super().__init__(
             data=data,
@@ -345,6 +466,29 @@ class TimeMelFrequencyChannel(TimeFrequencyChannel):
         n_mels: int = 128,
         # pad_mode: str = "constant",
     ) -> dict[str, Any]:
+        """
+        Convert linear-frequency spectrogram to mel-frequency spectrogram.
+
+        Parameters
+        ----------
+        sampling_rate : int
+            Sampling rate (Hz).
+        data : NDArrayReal
+            Linear-frequency spectrogram.
+        n_fft : int, default=2048
+            FFT size.
+        fmin : float, default=0.0
+            Minimum frequency (Hz).
+        fmax : float, optional
+            Maximum frequency (Hz). If None, defaults to sampling_rate/2.
+        n_mels : int, default=128
+            Number of mel bands.
+
+        Returns
+        -------
+        dict
+            Dictionary containing the mel spectrogram and parameters.
+        """
         melfb = librosa.filters.mel(
             sr=sampling_rate,
             n_fft=n_fft,
@@ -375,12 +519,31 @@ class TimeMelFrequencyChannel(TimeFrequencyChannel):
         vmax: Optional[float] = None,
     ) -> tuple["Axes", NDArrayReal]:
         """
-        時間周波数データをプロットします。
+        Plot mel spectrogram.
 
-        Parameters:
-            ax (matplotlib.axes.Axes, optional): 既存のプロット軸。
-            title (str, optional): プロットのタイトル。
-            db_scale (bool): dBスケールでプロットするかどうか。
+        Parameters
+        ----------
+        ax : Axes, optional
+            Matplotlib axes to plot on. If None, a new one is created.
+        title : str, optional
+            Plot title.
+        db_scale : bool, default=True
+            If True, plot in dB scale.
+        fmin : float, optional
+            Minimum frequency to display.
+        fmax : float, optional
+            Maximum frequency to display.
+        Aw : bool, default=False
+            If True, apply A-weighting before plotting.
+        vmin : float, optional
+            Minimum value for color scaling.
+        vmax : float, optional
+            Maximum value for color scaling.
+
+        Returns
+        -------
+        tuple
+            Tuple containing (axes, plotted_data).
         """
         _ax = ax
         if _ax is None:
@@ -393,7 +556,7 @@ class TimeMelFrequencyChannel(TimeFrequencyChannel):
         else:
             data_to_plot = np.abs(self.data)
 
-        # 時間周波数データをプロット
+        # Plot mel spectrogram
         img = librosa.display.specshow(
             data=data_to_plot,
             sr=self.sampling_rate,
@@ -410,7 +573,7 @@ class TimeMelFrequencyChannel(TimeFrequencyChannel):
             vmax=vmax,
         )
 
-        # ラベルとタイトルを設定
+        # Set labels and title
         _ax.set_xlabel("Time [s]")
         _ax.set_ylabel("Frequency [Hz]")
         _ax.set_title(title or self.label or "Time-Frequency Representation")
