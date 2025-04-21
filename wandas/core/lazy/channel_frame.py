@@ -35,9 +35,9 @@ from .plotting import create_operation
 
 logger = logging.getLogger(__name__)
 
-dask_delayed = dask.delayed
-da_from_delayed = da.from_delayed
-da_from_array = da.from_array
+dask_delayed = dask.delayed  # type: ignore [unused-ignore]
+da_from_delayed = da.from_delayed  # type: ignore [unused-ignore]
+da_from_array = da.from_array  # type: ignore [unused-ignore]
 
 
 S = TypeVar("S", bound="BaseFrame[Any]")
