@@ -556,7 +556,7 @@ class TestChannelFrame:
         """Test read_wav class method."""
         with mock.patch.object(ChannelFrame, "from_file") as mock_from_file:
             mock_from_file.return_value = self.channel_frame
-            result = ChannelFrame.read_wav("test.wav", ch_labels=["left", "right"])
+            result = ChannelFrame.read_wav("test.wav", labels=["left", "right"])
             mock_from_file.assert_called_with("test.wav", ch_labels=["left", "right"])
             assert result is self.channel_frame
 
@@ -869,7 +869,9 @@ class TestChannelFrame:
             # モックWelchオペレーションの設定
             mock_welch = mock.MagicMock(spec=Welch)
             mock_welch.n_fft = 2048
-            mock_welch.window = "hann"
+            mock_welch.hop_length = 256
+            mock_welch.win_length = 1024
+            mock_welch.window = "blackman"
             mock_data = mock.MagicMock(spec=DaArray)
             mock_data.ndim = 2  # Set ndim property to pass dimension check
             mock_data.shape = (2, 1025)  # Set appropriate shape for a 2D array
@@ -877,11 +879,18 @@ class TestChannelFrame:
             mock_create_op.return_value = mock_welch
 
             # welchを遅延実行
-            result = self.channel_frame.welch(n_fft=2048, window="blackman")
+            result = self.channel_frame.welch(
+                n_fft=2048, hop_length=256, win_length=1024, window="blackman"
+            )
 
             # オペレーションが正しく作成されたか確認
             mock_create_op.assert_called_with(
-                "welch", self.sample_rate, n_fft=2048, window="blackman"
+                "welch",
+                self.sample_rate,
+                n_fft=2048,
+                hop_length=256,
+                win_length=1024,
+                window="blackman",
             )
 
             # processメソッドが呼び出されたか確認
@@ -890,7 +899,7 @@ class TestChannelFrame:
             # 結果が正しい型か確認
             assert isinstance(result, SpectralFrame)
             assert result.n_fft == 2048
-            assert result.window == "hann"
+            assert result.window == "blackman"
             assert result.previous is self.channel_frame
 
     def test_stft_transform(self) -> None:

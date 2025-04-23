@@ -319,6 +319,8 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
     def rms_plot(
         self,
         ax: Optional["Axes"] = None,
+        title: Optional[str] = None,
+        overlay: bool = True,
         Aw: bool = False,  # noqa: N803
         **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
@@ -327,13 +329,21 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
 
         Parameters
         ----------
+        ax : matplotlib.axes.Axes, optional
+            Axes to plot on. If None, creates a new axis
+        title : str, optional
+            Title for the plot
+        overlay : bool, default=True
+            Whether to overlay the plot on the existing axis
+        Aw : bool, optional
+            Apply A-weighting.
         **kwargs : dict
             Plot-specific parameters
         """
         kwargs = kwargs or {}
         ylabel = kwargs.pop("ylabel", "RMS")
         rms_ch: ChannelFrame = self.rms_trend(Aw=Aw, dB=True)
-        return rms_ch.plot(ax=ax, ylabel=ylabel, **kwargs)
+        return rms_ch.plot(ax=ax, ylabel=ylabel, title=title, overlay=overlay, **kwargs)
 
     def describe(self, normalize: bool = True, **kwargs: Any) -> None:
         """
@@ -396,7 +406,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         label: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
         ch_labels: Optional[list[str]] = None,
-        ch_units: Optional[list[str]] = None,
+        ch_units: Optional[Union[list[str], str]] = None,
     ) -> "ChannelFrame":
         """
         Create a channel frame from a NumPy array.
@@ -414,7 +424,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
             Additional metadata
         ch_labels : list of str, optional
             Labels for each channel
-        ch_units : list of str, optional
+        ch_units : Union[list[str], str], optional
             Units for each channel
 
         Returns
@@ -447,6 +457,9 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
             for i in range(len(ch_labels)):
                 cf._channel_metadata[i].label = ch_labels[i]
         if ch_units is not None:
+            if isinstance(ch_units, str):
+                ch_units = [ch_units] * cf.n_channels
+
             if len(ch_units) != cf.n_channels:
                 raise ValueError(
                     "Number of channel units does not match the number of channels"
@@ -459,12 +472,12 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
     @classmethod
     def from_ndarray(
         cls,
-        data: NDArrayReal,
+        array: NDArrayReal,
         sampling_rate: float,
-        label: Optional[str] = None,
+        labels: Optional[list[str]] = None,
+        unit: Optional[Union[list[str], str]] = None,
+        frame_label: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
-        ch_labels: Optional[list[str]] = None,
-        ch_units: Optional[list[str]] = None,
     ) -> "ChannelFrame":
         """
         Create a channel frame from a NumPy array.
@@ -473,19 +486,18 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
 
         Parameters
         ----------
-        data : numpy.ndarray
-            Audio data. Shape can be:
-            (batch, channels, samples) or (channels, samples) or (samples,)
-        sampling_rate : float
-            Sampling rate (Hz)
-        label : str, optional
-            Label for the channel
+        array : NDArrayReal
+            Signal data. Each row corresponds to a channel.
+        sampling_rate : int
+            Sampling rate (Hz).
+        labels : list[str], optional
+            Labels for each channel.
+        unit : Union[list[str], str], optional
+            Unit of the signal.
+        frame_label : str, optional
+            Label for the frame.
         metadata : dict, optional
             Additional metadata
-        ch_labels : list of str, optional
-            Labels for each channel
-        ch_units : list of str, optional
-            Units for each channel
 
         Returns
         -------
@@ -496,12 +508,12 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         # However, from_ndarray is deprecated
         logger.warning("from_ndarray is deprecated. Use from_numpy instead.")
         return cls.from_numpy(
-            data=data,
+            data=array,
             sampling_rate=sampling_rate,
-            label=label,
+            label=frame_label,
             metadata=metadata,
-            ch_labels=ch_labels,
-            ch_units=ch_units,
+            ch_labels=labels,
+            ch_units=unit,
         )
 
     @classmethod
@@ -647,7 +659,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
 
     @classmethod
     def read_wav(
-        cls, filename: str, ch_labels: Optional[list[str]] = None
+        cls, filename: str, labels: Optional[list[str]] = None
     ) -> "ChannelFrame":
         """
         Utility method to read a WAV file.
@@ -656,7 +668,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         ----------
         filename : str
             Path to the WAV file
-        ch_labels : list of str, optional
+        labels : list of str, optional
             Labels to set for each channel
 
         Returns
@@ -666,15 +678,15 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         """
         from .channel_frame import ChannelFrame
 
-        cf = ChannelFrame.from_file(filename, ch_labels=ch_labels)
+        cf = ChannelFrame.from_file(filename, ch_labels=labels)
         return cf
 
     @classmethod
     def read_csv(
         cls,
         filename: str,
-        ch_labels: Optional[list[str]] = None,
         time_column: Union[int, str] = 0,
+        labels: Optional[list[str]] = None,
         delimiter: str = ",",
         header: Optional[int] = 0,
     ) -> "ChannelFrame":
@@ -685,10 +697,10 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         ----------
         filename : str
             Path to the CSV file
-        ch_labels : list of str, optional
-            Labels to set for each channel
         time_column : int or str, optional
             Index or name of the time column
+        labels : list of str, optional
+            Labels to set for each channel
         delimiter : str, optional
             Delimiter character
         header : int, optional
@@ -703,7 +715,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
 
         cf = ChannelFrame.from_file(
             filename,
-            ch_labels=ch_labels,
+            ch_labels=labels,
             time_column=time_column,
             delimiter=delimiter,
             header=header,
@@ -978,7 +990,12 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         from .spectral_frame import SpectralFrame
         from .time_series_operation import Welch
 
-        params = {"n_fft": n_fft, "window": window}
+        params = dict(
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+        )
         operation_name = "welch"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
         from .time_series_operation import create_operation
@@ -999,10 +1016,10 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
             n_fft=operation.n_fft,
             window=operation.window,
             label=f"Spectrum of {self.label}",
-            metadata={**self.metadata, "window": window, "n_fft": n_fft},
+            metadata={**self.metadata, **params},
             operation_history=[
                 *self.operation_history,
-                {"operation": "fft", "params": {"n_fft": n_fft, "window": window}},
+                {"operation": "welch", "params": params},
             ],
             channel_metadata=self._channel_metadata,
             previous=self,
