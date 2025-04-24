@@ -872,6 +872,7 @@ class TestChannelFrame:
             mock_welch.hop_length = 256
             mock_welch.win_length = 1024
             mock_welch.window = "blackman"
+            mock_welch.average = "mean"
             mock_data = mock.MagicMock(spec=DaArray)
             mock_data.ndim = 2  # Set ndim property to pass dimension check
             mock_data.shape = (2, 1025)  # Set appropriate shape for a 2D array
@@ -880,7 +881,11 @@ class TestChannelFrame:
 
             # welchを遅延実行
             result = self.channel_frame.welch(
-                n_fft=2048, hop_length=256, win_length=1024, window="blackman"
+                n_fft=2048,
+                hop_length=256,
+                win_length=1024,
+                window="blackman",
+                average="mean",
             )
 
             # オペレーションが正しく作成されたか確認
@@ -891,6 +896,7 @@ class TestChannelFrame:
                 hop_length=256,
                 win_length=1024,
                 window="blackman",
+                average="mean",
             )
 
             # processメソッドが呼び出されたか確認

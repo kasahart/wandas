@@ -981,20 +981,41 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
 
     def welch(
         self,
-        n_fft: int = 2048,
+        n_fft: Optional[int] = None,
         hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
+        win_length: int = 2048,
         window: str = "hann",
+        average: str = "mean",
     ) -> "SpectralFrame":
-        """時間領域データから周波数領域データへ変換（welch）"""
+        """
+        Estimate power spectral density using Welch's method.
+        Parameters
+        ----------
+        n_fft : int, optional
+            FFT size. If None, defaults to 2048
+        hop_length : int, optional
+            Hop length. If None, defaults to n_fft // 4
+        win_length : int, default=2048
+            Window length. If None, defaults to n_fft
+        window : str, default="hann"
+            Window function type
+        average : str, default="mean"
+            Averaging method. Options: "mean", "median"
+
+        Returns
+        -------
+        SpectralFrame
+            A new spectral frame containing the power spectral density
+        """
         from .spectral_frame import SpectralFrame
         from .time_series_operation import Welch
 
         params = dict(
-            n_fft=n_fft,
+            n_fft=n_fft or win_length,
             hop_length=hop_length,
             win_length=win_length,
             window=window,
+            average=average,
         )
         operation_name = "welch"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
