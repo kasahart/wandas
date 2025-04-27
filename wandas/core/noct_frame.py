@@ -18,7 +18,7 @@ from .channel_metadata import ChannelMetadata
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from wandas.core.lazy.plotting import PlotStrategy
+    from wandas.core.plotting import PlotStrategy
 
 
 dask_delayed = dask.delayed  # type: ignore [unused-ignore]

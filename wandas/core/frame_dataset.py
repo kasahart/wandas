@@ -7,8 +7,8 @@ from typing import Any, Callable, Generic, Optional, TypeVar, Union, cast, overl
 
 from tqdm.auto import tqdm
 
-from wandas.core.lazy.channel_frame import ChannelFrame
-from wandas.core.lazy.spectrogram_frame import SpectrogramFrame
+from wandas.core.channel_frame import ChannelFrame
+from wandas.core.spectrogram_frame import SpectrogramFrame
 
 logger = logging.getLogger(__name__)
 

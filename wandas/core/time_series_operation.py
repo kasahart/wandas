@@ -1205,6 +1205,316 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
         return result
 
 
+class Coherence(AudioOperation[NDArrayReal, NDArrayReal]):
+    """コヒーレンス推定操作"""
+
+    name = "coherence"
+
+    def __init__(
+        self,
+        sampling_rate: float,
+        n_fft: int,
+        hop_length: int,
+        win_length: int,
+        window: str,
+        detrend: str,
+    ):
+        """
+        コヒーレンス推定操作の初期化
+
+        Parameters
+        ----------
+        sampling_rate : float
+            サンプリングレート (Hz)
+        n_fft : int
+            FFTのサイズ
+        hop_length : int
+            ホップ長
+        win_length : int
+            窓の長さ
+        window : str
+            窓関数
+        detrend : str
+            デトレンドの種類
+        """
+        self.n_fft = n_fft
+        self.hop_length = hop_length
+        self.win_length = win_length
+        self.window = window
+        self.detrend = detrend
+        super().__init__(
+            sampling_rate,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            detrend=detrend,
+        )
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """
+        操作後の出力データの形状を計算します
+
+        Parameters
+        ----------
+        input_shape : tuple
+            入力データの形状 (channels, samples)
+
+        Returns
+        -------
+        tuple
+            出力データの形状 (channels * channels, freqs)
+        """
+        n_channels = input_shape[0]
+        n_freqs = self.n_fft // 2 + 1
+        return (n_channels * n_channels, n_freqs)
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """コヒーレンス推定操作のプロセッサ関数"""
+        logger.debug(f"Applying coherence estimation to array with shape: {x.shape}")
+        from scipy import signal as ss
+
+        _, coh = ss.coherence(
+            x=x[:, np.newaxis],
+            y=x[np.newaxis, :],
+            fs=self.sampling_rate,
+            nperseg=self.win_length,
+            noverlap=self.win_length - self.hop_length,
+            nfft=self.n_fft,
+            window=self.window,
+            detrend=self.detrend,
+        )
+
+        # 結果を (n_channels * n_channels, n_freqs) に再整形
+        result: NDArrayReal = coh.reshape(-1, coh.shape[-1])
+
+        logger.debug(f"Coherence estimation applied, result shape: {result.shape}")
+        return result
+
+
+class CSD(AudioOperation[NDArrayReal, NDArrayComplex]):
+    """クロススペクトル密度推定操作"""
+
+    name = "csd"
+
+    def __init__(
+        self,
+        sampling_rate: float,
+        n_fft: int,
+        hop_length: int,
+        win_length: int,
+        window: str,
+        detrend: str,
+        scaling: str,
+        average: str,
+    ):
+        """
+        クロススペクトル密度推定操作の初期化
+
+        Parameters
+        ----------
+        sampling_rate : float
+            サンプリングレート (Hz)
+        n_fft : int
+            FFTのサイズ
+        hop_length : int
+            ホップ長
+        win_length : int
+            窓の長さ
+        window : str
+            窓関数
+        detrend : str
+            デトレンドの種類
+        scaling : str
+            スケーリングの種類
+        average : str
+            平均化の方法
+        """
+        self.n_fft = n_fft
+        self.hop_length = hop_length
+        self.win_length = win_length
+        self.window = window
+        self.detrend = detrend
+        self.scaling = scaling
+        self.average = average
+        super().__init__(
+            sampling_rate,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            detrend=detrend,
+            scaling=scaling,
+            average=average,
+        )
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """
+        操作後の出力データの形状を計算します
+
+        Parameters
+        ----------
+        input_shape : tuple
+            入力データの形状 (channels, samples)
+
+        Returns
+        -------
+        tuple
+            出力データの形状 (channels * channels, freqs)
+        """
+        n_channels = input_shape[0]
+        n_freqs = self.n_fft // 2 + 1
+        return (n_channels * n_channels, n_freqs)
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
+        """クロススペクトル密度推定操作のプロセッサ関数"""
+        logger.debug(f"Applying CSD estimation to array with shape: {x.shape}")
+        from scipy import signal as ss
+
+        # scipyのcsd関数で全ての組み合わせを計算
+        _, csd_result = ss.csd(
+            x=x[:, np.newaxis],
+            y=x[np.newaxis, :],
+            fs=self.sampling_rate,
+            nperseg=self.win_length,
+            noverlap=self.win_length - self.hop_length,
+            nfft=self.n_fft,
+            window=self.window,
+            detrend=self.detrend,
+            scaling=self.scaling,
+            average=self.average,
+        )
+
+        # 結果を (n_channels * n_channels, n_freqs) に再整形
+        result: NDArrayComplex = csd_result.reshape(-1, csd_result.shape[-1])
+
+        logger.debug(f"CSD estimation applied, result shape: {result.shape}")
+        return result
+
+
+class TransferFunction(AudioOperation[NDArrayReal, NDArrayComplex]):
+    """伝達関数推定操作"""
+
+    name = "transfer_function"
+
+    def __init__(
+        self,
+        sampling_rate: float,
+        n_fft: int,
+        hop_length: int,
+        win_length: int,
+        window: str,
+        detrend: str,
+        scaling: str,
+        average: str,
+    ):
+        """
+        伝達関数推定操作の初期化
+
+        Parameters
+        ----------
+        sampling_rate : float
+            サンプリングレート (Hz)
+        n_fft : int
+            FFTのサイズ
+        hop_length : int
+            ホップ長
+        win_length : int
+            窓の長さ
+        window : str
+            窓関数
+        detrend : str
+            デトレンドの種類
+        scaling : str
+            スケーリングの種類
+        average : str
+            平均化の方法
+        """
+        self.n_fft = n_fft
+        self.hop_length = hop_length
+        self.win_length = win_length
+        self.window = window
+        self.detrend = detrend
+        self.scaling = scaling
+        self.average = average
+        super().__init__(
+            sampling_rate,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            detrend=detrend,
+            scaling=scaling,
+            average=average,
+        )
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """
+        操作後の出力データの形状を計算します
+
+        Parameters
+        ----------
+        input_shape : tuple
+            入力データの形状 (channels, samples)
+
+        Returns
+        -------
+        tuple
+            出力データの形状 (channels * channels, freqs)
+        """
+        n_channels = input_shape[0]
+        n_freqs = self.n_fft // 2 + 1
+        return (n_channels * n_channels, n_freqs)
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
+        """伝達関数推定操作のプロセッサ関数"""
+        logger.debug(
+            f"Applying transfer function estimation to array with shape: {x.shape}"
+        )
+        from scipy import signal as ss
+
+        # 全チャネル間のクロススペクトル密度を計算
+        f, p_yx = ss.csd(
+            x=x[:, np.newaxis, :],
+            y=x[np.newaxis, :, :],
+            fs=self.sampling_rate,
+            nperseg=self.win_length,
+            noverlap=self.win_length - self.hop_length,
+            nfft=self.n_fft,
+            window=self.window,
+            detrend=self.detrend,
+            scaling=self.scaling,
+            average=self.average,
+            axis=-1,
+        )
+        # p_yx shape: (num_channels, num_channels, num_frequencies)
+
+        # 各チャネルのパワースペクトル密度を計算
+        f, p_xx = ss.welch(
+            x=x,
+            fs=self.sampling_rate,
+            nperseg=self.win_length,
+            noverlap=self.win_length - self.hop_length,
+            nfft=self.n_fft,
+            window=self.window,
+            detrend=self.detrend,
+            scaling=self.scaling,
+            average=self.average,
+            axis=-1,
+        )
+        # p_xx shape: (num_channels, num_frequencies)
+
+        # 伝達関数 H(f) = P_yx / P_xx を計算
+        h_f = p_yx / p_xx[np.newaxis, :, :]
+
+        result: NDArrayComplex = h_f.reshape(-1, h_f.shape[-1])
+
+        logger.debug(
+            f"Transfer function estimation applied, result shape: {result.shape}"
+        )
+        return result
+
+
 # 操作タイプと対応するクラスのマッピングを自動で収集
 _OPERATION_REGISTRY: dict[str, type[AudioOperation[Any, Any]]] = {}
 

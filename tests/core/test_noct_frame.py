@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 
-from wandas.core.lazy.channel_metadata import ChannelMetadata
-from wandas.core.lazy.noct_frame import NOctFrame
+from wandas.core.channel_metadata import ChannelMetadata
+from wandas.core.noct_frame import NOctFrame
 from wandas.utils.types import NDArrayReal
 
 # Reference to dask array functions
@@ -154,7 +154,7 @@ class TestNOctFrame:
 
     def test_property_freqs(self) -> None:
         """Test freqs property"""
-        with mock.patch("wandas.core.lazy.noct_frame._center_freq") as mock_center_freq:
+        with mock.patch("wandas.core.noct_frame._center_freq") as mock_center_freq:
             # モックの中心周波数を設定
             mock_center_bands = np.array([1, 2, 3])
             mock_center_freqs = np.array([100, 125, 160])
@@ -177,7 +177,7 @@ class TestNOctFrame:
 
     def test_freqs_not_numpy_array(self) -> None:
         """Test freqs property when _center_freq doesn't return numpy array"""
-        with mock.patch("wandas.core.lazy.noct_frame._center_freq") as mock_center_freq:
+        with mock.patch("wandas.core.noct_frame._center_freq") as mock_center_freq:
             # _center_freqが非Numpy配列を返すケース
             mock_center_freq.return_value = (None, "not_an_array")
 
@@ -206,7 +206,7 @@ class TestNOctFrame:
 
     def test_plot(self) -> None:
         """Test plot method"""
-        with mock.patch("wandas.core.lazy.plotting.create_operation") as mock_create_op:
+        with mock.patch("wandas.core.plotting.create_operation") as mock_create_op:
             mock_plot_strategy: Any = mock.MagicMock()
             mock_create_op.return_value = mock_plot_strategy
             mock_ax: Any = mock.MagicMock()

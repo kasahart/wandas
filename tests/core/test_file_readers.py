@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 import soundfile as sf
 
-from wandas.core.lazy.file_readers import (
+from wandas.core.file_readers import (
     CSVFileReader,
     FileReader,
     SoundFileReader,

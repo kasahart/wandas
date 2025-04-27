@@ -1,9 +1,9 @@
 import json
 from typing import Any
 
-from wandas.core.lazy.channel_metadata import ChannelMetadata
+from wandas.core.channel_metadata import ChannelMetadata
 
-# filepath: wandas/core/lazy/test_channel_metadata.py
+# filepath: wandas/core/test_channel_metadata.py
 
 
 class TestChannelMetadata:

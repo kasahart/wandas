@@ -11,8 +11,8 @@ import soundfile as sf
 from dask.array.core import Array as DaArray
 from matplotlib.axes import Axes
 
-from wandas.core.lazy.channel_frame import ChannelFrame
-from wandas.core.lazy.channel_metadata import ChannelMetadata
+from wandas.core.channel_frame import ChannelFrame
+from wandas.core.channel_metadata import ChannelMetadata
 from wandas.utils.types import NDArrayReal
 
 _da_from_array = da.from_array  # type: ignore [unused-ignore]
@@ -134,7 +134,7 @@ class TestChannelFrame:
     def test_filter_operations(self) -> None:
         """Test that filter operations are lazy."""
         with mock.patch(
-            "wandas.core.lazy.time_series_operation.create_operation"
+            "wandas.core.time_series_operation.create_operation"
         ) as mock_create_op:
             mock_op: mock.MagicMock = mock.MagicMock()
             mock_op.process.return_value = self.dask_data
@@ -181,7 +181,7 @@ class TestChannelFrame:
     def test_plotting_triggers_compute(self) -> None:
         """Test that plotting triggers computation."""
         with mock.patch(
-            "wandas.core.lazy.channel_frame.create_operation"
+            "wandas.core.channel_frame.create_operation"
         ) as mock_get_strategy:
             mock_strategy: mock.MagicMock = mock.MagicMock()
             mock_get_strategy.return_value = mock_strategy
@@ -478,7 +478,7 @@ class TestChannelFrame:
     def test_additional_filter_operations(self) -> None:
         """Test normalize and a_weighting operations."""
         with mock.patch(
-            "wandas.core.lazy.time_series_operation.create_operation"
+            "wandas.core.time_series_operation.create_operation"
         ) as mock_create_op:
             mock_op = mock.MagicMock()
             mock_op.process.return_value = self.dask_data
@@ -562,7 +562,7 @@ class TestChannelFrame:
 
     def test_debug_info(self) -> None:
         """Test debug_info method."""
-        with mock.patch("wandas.core.lazy.base_frame.logger") as mock_logger:
+        with mock.patch("wandas.core.base_frame.logger") as mock_logger:
             self.channel_frame.debug_info()
             assert mock_logger.debug.call_count >= 6  # At least 9 debug messages
 
@@ -590,7 +590,7 @@ class TestChannelFrame:
             # Patch necessary functions
             with (
                 mock.patch(
-                    "wandas.core.lazy.file_readers.get_file_reader"
+                    "wandas.core.file_readers.get_file_reader"
                 ) as mock_get_reader,
                 mock.patch("dask.array.from_delayed", return_value=mock_dask_array),
                 mock.patch("dask.delayed", return_value=mock.MagicMock()),
@@ -822,11 +822,11 @@ class TestChannelFrame:
 
     def test_fft_transform(self) -> None:
         """Test fft method for lazy transformation to frequency domain."""
-        from wandas.core.lazy.spectral_frame import SpectralFrame
-        from wandas.core.lazy.time_series_operation import FFT
+        from wandas.core.spectral_frame import SpectralFrame
+        from wandas.core.time_series_operation import FFT
 
         with mock.patch(
-            "wandas.core.lazy.time_series_operation.create_operation"
+            "wandas.core.time_series_operation.create_operation"
         ) as mock_create_op:
             # モックFFTオペレーションの設定
             mock_fft = mock.MagicMock(spec=FFT)
@@ -860,11 +860,11 @@ class TestChannelFrame:
         Test welch method for lazy transformation to frequency domain
         using Welch's method.
         """
-        from wandas.core.lazy.spectral_frame import SpectralFrame
-        from wandas.core.lazy.time_series_operation import Welch
+        from wandas.core.spectral_frame import SpectralFrame
+        from wandas.core.time_series_operation import Welch
 
         with mock.patch(
-            "wandas.core.lazy.time_series_operation.create_operation"
+            "wandas.core.time_series_operation.create_operation"
         ) as mock_create_op:
             # モックWelchオペレーションの設定
             mock_welch = mock.MagicMock(spec=Welch)
@@ -910,11 +910,11 @@ class TestChannelFrame:
 
     def test_stft_transform(self) -> None:
         """Test stft method for lazy short-time Fourier transform."""
-        from wandas.core.lazy.spectrogram_frame import SpectrogramFrame
-        from wandas.core.lazy.time_series_operation import STFT
+        from wandas.core.spectrogram_frame import SpectrogramFrame
+        from wandas.core.time_series_operation import STFT
 
         with mock.patch(
-            "wandas.core.lazy.time_series_operation.create_operation"
+            "wandas.core.time_series_operation.create_operation"
         ) as mock_create_op:
             # モックSTFTオペレーションの設定
             mock_stft = mock.MagicMock(spec=STFT)
@@ -981,11 +981,11 @@ class TestChannelFrame:
 
     def test_noct_spectrum_transform(self) -> None:
         """Test noct_spectrum method for calculating N-octave spectrum analysis."""
-        from wandas.core.lazy.noct_frame import NOctFrame
-        from wandas.core.lazy.time_series_operation import NOctSpectrum
+        from wandas.core.noct_frame import NOctFrame
+        from wandas.core.time_series_operation import NOctSpectrum
 
         with mock.patch(
-            "wandas.core.lazy.time_series_operation.create_operation"
+            "wandas.core.time_series_operation.create_operation"
         ) as mock_create_op:
             # モックNOctSpectrumオペレーションの設定
             mock_noct = mock.MagicMock(spec=NOctSpectrum)
@@ -1029,9 +1029,9 @@ class TestChannelFrame:
         """Test the describe method for visual and audio display."""
         # Mock the display and Audio functions
         with (
-            mock.patch("wandas.core.lazy.channel_frame.display") as mock_display,
+            mock.patch("wandas.core.channel_frame.display") as mock_display,
             mock.patch(
-                "wandas.core.lazy.channel_frame.Audio", return_value="mock_audio"
+                "wandas.core.channel_frame.Audio", return_value="mock_audio"
             ) as mock_audio,
         ):
             # Test basic describe method
@@ -1052,12 +1052,10 @@ class TestChannelFrame:
     def test_describe_method_with_axis_config(self) -> None:
         """Test describe method with legacy axis_config parameter."""
         with (
-            mock.patch("wandas.core.lazy.channel_frame.display"),
-            mock.patch("wandas.core.lazy.channel_frame.plt.close"),
-            mock.patch(
-                "wandas.core.lazy.channel_frame.Audio", return_value="mock_audio"
-            ),
-            mock.patch("wandas.core.lazy.channel_frame.logger") as mock_logger,
+            mock.patch("wandas.core.channel_frame.display"),
+            mock.patch("wandas.core.channel_frame.plt.close"),
+            mock.patch("wandas.core.channel_frame.Audio", return_value="mock_audio"),
+            mock.patch("wandas.core.channel_frame.logger") as mock_logger,
         ):
             # 古いパラメータ形式でdescribeを呼び出す
             axis_config = {
@@ -1075,12 +1073,10 @@ class TestChannelFrame:
     def test_describe_method_with_cbar_config(self) -> None:
         """Test describe method with legacy cbar_config parameter."""
         with (
-            mock.patch("wandas.core.lazy.channel_frame.display"),
-            mock.patch("wandas.core.lazy.channel_frame.plt.close"),
-            mock.patch(
-                "wandas.core.lazy.channel_frame.Audio", return_value="mock_audio"
-            ),
-            mock.patch("wandas.core.lazy.channel_frame.logger") as mock_logger,
+            mock.patch("wandas.core.channel_frame.display"),
+            mock.patch("wandas.core.channel_frame.plt.close"),
+            mock.patch("wandas.core.channel_frame.Audio", return_value="mock_audio"),
+            mock.patch("wandas.core.channel_frame.logger") as mock_logger,
         ):
             # 古いパラメータ形式でdescribeを呼び出す
             cbar_config = {"vmin": -60, "vmax": 0}
@@ -1097,20 +1093,20 @@ class TestChannelFrame:
         mock_ax = mock.MagicMock(spec=Axes)
         mock_ax.figure = mock.MagicMock()
         with mock.patch(
-            "wandas.core.lazy.channel_frame.ChannelFrame.plot",
+            "wandas.core.channel_frame.ChannelFrame.plot",
             return_value=mock_ax,  # 1つのAxesを返す
         ):
             with (
-                mock.patch("wandas.core.lazy.channel_frame.display"),
-                mock.patch("wandas.core.lazy.channel_frame.plt.close"),
-                mock.patch("wandas.core.lazy.channel_frame.Audio"),
+                mock.patch("wandas.core.channel_frame.display"),
+                mock.patch("wandas.core.channel_frame.plt.close"),
+                mock.patch("wandas.core.channel_frame.Audio"),
             ):
                 self.channel_frame.describe()
 
     def test_describe_method_with_unexpected_plot_result(self) -> None:
         """Test describe method when plot returns unexpected type."""
         with mock.patch(
-            "wandas.core.lazy.channel_frame.ChannelFrame.plot",
+            "wandas.core.channel_frame.ChannelFrame.plot",
             return_value="not_an_axes_or_iterator",
         ):
             with pytest.raises(TypeError, match="Unexpected type for plot result"):

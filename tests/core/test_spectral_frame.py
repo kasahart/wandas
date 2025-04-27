@@ -1,14 +1,14 @@
 from typing import Any, Optional
 from unittest import mock
 
-# filepath: wandas/core/lazy/test_spectral_frame.py
+# filepath: wandas/core/test_spectral_frame.py
 import dask.array as da
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 
-from wandas.core.lazy.channel_metadata import ChannelMetadata
-from wandas.core.lazy.spectral_frame import SpectralFrame
+from wandas.core.channel_metadata import ChannelMetadata
+from wandas.core.spectral_frame import SpectralFrame
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 # Reference to dask array functions
@@ -209,7 +209,7 @@ class TestSpectralFrame:
 
     def test_plot(self) -> None:
         """Test plot method"""
-        with mock.patch("wandas.core.lazy.plotting.create_operation") as mock_create_op:
+        with mock.patch("wandas.core.plotting.create_operation") as mock_create_op:
             mock_plot_strategy: Any = mock.MagicMock()
             mock_create_op.return_value = mock_plot_strategy
             mock_ax: Any = mock.MagicMock()
@@ -238,11 +238,9 @@ class TestSpectralFrame:
     def test_ifft(self) -> None:
         """Test ifft method"""
         with (
+            mock.patch("wandas.core.channel_frame.ChannelFrame") as mock_channel_frame,
             mock.patch(
-                "wandas.core.lazy.channel_frame.ChannelFrame"
-            ) as mock_channel_frame,
-            mock.patch(
-                "wandas.core.lazy.time_series_operation.create_operation"
+                "wandas.core.time_series_operation.create_operation"
             ) as mock_create_op,
         ):
             mock_ifft_op: Any = mock.MagicMock()
@@ -290,7 +288,7 @@ class TestSpectralFrame:
     def test_apply_operation_impl(self) -> None:
         """Test _apply_operation_impl method"""
         with mock.patch(
-            "wandas.core.lazy.time_series_operation.create_operation"
+            "wandas.core.time_series_operation.create_operation"
         ) as mock_create_op:
             mock_op: Any = mock.MagicMock()
             mock_create_op.return_value = mock_op
@@ -355,9 +353,9 @@ class TestSpectralFrame:
         )
 
         with (
-            mock.patch("wandas.core.lazy.noct_frame.NOctFrame") as mock_noct_frame,
+            mock.patch("wandas.core.noct_frame.NOctFrame") as mock_noct_frame,
             mock.patch(
-                "wandas.core.lazy.time_series_operation.create_operation"
+                "wandas.core.time_series_operation.create_operation"
             ) as mock_create_op,
         ):
             # NOctSynthesisオペレーションのモック設定
