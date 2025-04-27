@@ -7,18 +7,16 @@ import librosa
 import numpy as np
 from dask.array.core import Array as DaArray
 
+from wandas.core.base_frame import BaseFrame
+from wandas.core.metadata import ChannelMetadata
 from wandas.utils.types import NDArrayComplex, NDArrayReal
-
-from .base_frame import BaseFrame
-from .channel_metadata import ChannelMetadata
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from wandas.core.plotting import PlotStrategy
-
-    from .channel_frame import ChannelFrame
-    from .spectral_frame import SpectralFrame
+    from wandas.frames.channel import ChannelFrame
+    from wandas.frames.spectral import SpectralFrame
+    from wandas.visualization.plotting import PlotStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +138,7 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         操作を適用する内部実装。遅延評価を利用します。
         """
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-        from .time_series_operation import create_operation
+        from wandas.processing.time_series import create_operation
 
         operation = create_operation(operation_name, self.sampling_rate, **params)
         processed_data = operation.process(self._data)
@@ -268,7 +266,7 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         **kwargs : dict
             プロット固有のパラメータ
         """
-        from .plotting import create_operation
+        from wandas.visualization.plotting import create_operation
 
         logger.debug(
             f"Plotting spectrogram with plot_type={plot_type} (will compute now)"
@@ -303,7 +301,7 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         SpectralFrame
             指定された時間フレームのスペクトルデータ
         """
-        from .spectral_frame import SpectralFrame
+        from wandas.frames.spectral import SpectralFrame
 
         if time_idx < 0 or time_idx >= self.n_frames:
             raise IndexError(
@@ -332,8 +330,8 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         ChannelFrame
             時間領域のデータを含むChannelFrame
         """
-        from .channel_frame import ChannelFrame
-        from .time_series_operation import ISTFT, create_operation
+        from wandas.frames.channel import ChannelFrame
+        from wandas.processing.time_series import ISTFT, create_operation
 
         params = {
             "n_fft": self.n_fft,

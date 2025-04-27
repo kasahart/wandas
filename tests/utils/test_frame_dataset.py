@@ -10,15 +10,15 @@ import soundfile as sf
 from matplotlib.axes import Axes
 
 # テスト対象のクラスをインポート
-from wandas.core.channel_frame import ChannelFrame
-from wandas.core.frame_dataset import (
+from wandas.frames.channel import ChannelFrame
+from wandas.frames.spectrogram import SpectrogramFrame
+from wandas.utils.frame_dataset import (
     ChannelFrameDataset,
     FrameDataset,
     LazyFrame,  # 新しいクラスをインポート
     SpectrogramFrameDataset,
     _SampledFrameDataset,
 )
-from wandas.core.spectrogram_frame import SpectrogramFrame
 from wandas.utils.types import NDArrayReal
 
 _da_from_array = da.from_array  # type: ignore [unused-ignore]

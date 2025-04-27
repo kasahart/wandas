@@ -10,7 +10,7 @@ from matplotlib.collections import QuadMesh
 from matplotlib.colorbar import Colorbar
 from matplotlib.figure import Figure
 
-from wandas.core.plotting import (
+from wandas.visualization.plotting import (
     DescribePlotStrategy,
     FrequencyPlotStrategy,
     PlotStrategy,
@@ -53,7 +53,7 @@ class TestPlotting:
     def setup_method(self) -> None:
         """各テストの前に実行"""
         # 既存の登録を一時的に保存
-        from wandas.core.plotting import _plot_strategies
+        from wandas.visualization.plotting import _plot_strategies
 
         self.original_strategies = _plot_strategies.copy()
 
@@ -132,7 +132,7 @@ class TestPlotting:
     def teardown_method(self) -> None:
         """各テスト後の後処理"""
         # 元の戦略を復元
-        from wandas.core.plotting import _plot_strategies
+        from wandas.visualization.plotting import _plot_strategies
 
         _plot_strategies.clear()
         _plot_strategies.update(self.original_strategies)
@@ -360,7 +360,7 @@ class TestPlotting:
 
     def test_noct_plot_strategy(self) -> None:
         """NOctPlotStrategyのテスト"""
-        from wandas.core.plotting import NOctPlotStrategy
+        from wandas.visualization.plotting import NOctPlotStrategy
 
         strategy = NOctPlotStrategy()
 

@@ -10,8 +10,7 @@ from mosqito.sound_level_meter import noct_spectrum, noct_synthesis
 from mosqito.sound_level_meter.noct_spectrum._center_freq import _center_freq
 from scipy import fft, signal
 
-from wandas.core import util
-from wandas.core.time_series_operation import (
+from wandas.processing.time_series import (
     _OPERATION_REGISTRY,
     ABS,
     FFT,
@@ -39,6 +38,7 @@ from wandas.core.time_series_operation import (
     get_operation,
     register_operation,
 )
+from wandas.utils import util
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 _da_from_array = da.from_array  # type: ignore [unused-ignore]
@@ -1743,7 +1743,7 @@ class TestNOctSynthesisOperation:
         """Test that NOctSynthesis operation uses dask's delayed execution."""
         with mock.patch.object(DaArray, "compute") as mock_compute:
             with mock.patch(
-                "wandas.core.time_series_operation.noct_synthesis"
+                "wandas.processing.time_series.noct_synthesis"
             ) as mock_noct:
                 # Create a dummy result for the mock
                 dummy_signal = np.zeros((1, self.sample_rate))

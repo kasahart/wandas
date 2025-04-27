@@ -3,7 +3,8 @@ import logging
 from importlib.metadata import version
 from typing import Union
 
-from .core import ChannelFrame
+# coreからのインポートをframesからのインポートに変更
+from .frames.channel import ChannelFrame
 from .utils import generate_sample
 
 __version__ = version(__package__ or "wandas")

@@ -19,19 +19,19 @@ if TYPE_CHECKING:
         _WindowSpec,
     )
 
-    from .noct_frame import NOctFrame
-    from .spectral_frame import SpectralFrame
-    from .spectrogram_frame import SpectrogramFrame
+    from .noct import NOctFrame
+    from .spectral import SpectralFrame
+    from .spectrogram import SpectrogramFrame
 
 
 from dask.array.core import Array as DaArray
 
 from wandas.utils.types import NDArrayReal
 
-from .base_frame import BaseFrame
-from .channel_metadata import ChannelMetadata
-from .file_readers import get_file_reader
-from .plotting import create_operation
+from ..core.base_frame import BaseFrame
+from ..core.metadata import ChannelMetadata
+from ..io.readers import get_file_reader
+from ..visualization.plotting import create_operation
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +100,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
 
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-        from .time_series_operation import create_operation
+        from ..processing.time_series import create_operation
 
         # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
@@ -155,7 +155,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         ChannelFrame
             A new channel containing the operation result (lazy execution)
         """
-        from .channel_frame import ChannelFrame
+        from .channel import ChannelFrame
 
         logger.debug(f"Setting up {symbol} operation (lazy)")
 
@@ -553,7 +553,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         ChannelFrame
             A new channel frame containing the data (lazy loading)
         """
-        from .channel_frame import ChannelFrame
+        from .channel import ChannelFrame
 
         path = Path(path)
         if not path.exists():
@@ -676,7 +676,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         ChannelFrame
             A new channel frame containing the data (lazy loading)
         """
-        from .channel_frame import ChannelFrame
+        from .channel import ChannelFrame
 
         cf = ChannelFrame.from_file(filename, ch_labels=labels)
         return cf
@@ -711,7 +711,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         ChannelFrame
             A new channel frame containing the data (lazy loading)
         """
-        from .channel_frame import ChannelFrame
+        from .channel import ChannelFrame
 
         cf = ChannelFrame.from_file(
             filename,
@@ -936,13 +936,13 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
 
     def fft(self, n_fft: Optional[int] = None, window: str = "hann") -> "SpectralFrame":
         """時間領域データから周波数領域データへ変換（FFT）"""
-        from .spectral_frame import SpectralFrame
-        from .time_series_operation import FFT
+        from ..processing.time_series import FFT
+        from .spectral import SpectralFrame
 
         params = {"n_fft": n_fft, "window": window}
         operation_name = "fft"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-        from .time_series_operation import create_operation
+        from ..processing.time_series import create_operation
 
         # 操作インスタンスを作成
         operation = create_operation(operation_name, self.sampling_rate, **params)
@@ -1007,8 +1007,8 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         SpectralFrame
             A new spectral frame containing the power spectral density
         """
-        from .spectral_frame import SpectralFrame
-        from .time_series_operation import Welch
+        from ..processing.time_series import Welch
+        from .spectral import SpectralFrame
 
         params = dict(
             n_fft=n_fft or win_length,
@@ -1019,7 +1019,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         )
         operation_name = "welch"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-        from .time_series_operation import create_operation
+        from ..processing.time_series import create_operation
 
         # 操作インスタンスを作成
         operation = create_operation(operation_name, self.sampling_rate, **params)
@@ -1056,13 +1056,13 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
     ) -> "NOctFrame":
         """ノクターナルスペクトルを計算します。"""
 
-        from .noct_frame import NOctFrame
-        from .time_series_operation import NOctSpectrum
+        from ..processing.time_series import NOctSpectrum
+        from .noct import NOctFrame
 
         params = {"fmin": fmin, "fmax": fmax, "n": n, "G": G, "fr": fr}
         operation_name = "noct_spectrum"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-        from .time_series_operation import create_operation
+        from ..processing.time_series import create_operation
 
         # 操作インスタンスを作成
         operation = create_operation(operation_name, self.sampling_rate, **params)
@@ -1123,8 +1123,8 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         SpectrogramFrame
             スペクトログラムデータを含むSpectrogramFrameオブジェクト
         """
-        from .spectrogram_frame import SpectrogramFrame
-        from .time_series_operation import STFT, create_operation
+        from ..processing.time_series import STFT, create_operation
+        from .spectrogram import SpectrogramFrame
 
         # ホップ長とウィンドウ長の設定
         _hop_length = hop_length if hop_length is not None else n_fft // 4

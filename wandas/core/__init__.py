@@ -1,5 +1,5 @@
-from .channel_frame import ChannelFrame
+from .base_frame import BaseFrame
 
 __all__ = [
-    "ChannelFrame",
+    "BaseFrame",
 ]

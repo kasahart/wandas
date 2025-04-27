@@ -10,15 +10,14 @@ import numpy as np
 from dask.array.core import Array as DaArray
 from mosqito.sound_level_meter.noct_spectrum._center_freq import _center_freq
 
+from wandas.core.base_frame import BaseFrame
+from wandas.core.metadata import ChannelMetadata
 from wandas.utils.types import NDArrayReal
-
-from .base_frame import BaseFrame
-from .channel_metadata import ChannelMetadata
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from wandas.core.plotting import PlotStrategy
+    from wandas.visualization.plotting import PlotStrategy
 
 
 dask_delayed = dask.delayed  # type: ignore [unused-ignore]
@@ -148,7 +147,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         **kwargs : dict
             プロット固有のパラメータ
         """
-        from .plotting import create_operation
+        from wandas.visualization.plotting import create_operation
 
         logger.debug(f"Plotting audio with plot_type={plot_type} (will compute now)")
 

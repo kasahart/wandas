@@ -13,7 +13,7 @@ from matplotlib.axes import Axes
 
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
-from .channel_metadata import ChannelMetadata
+from .metadata import ChannelMetadata
 
 logger = logging.getLogger(__name__)
 

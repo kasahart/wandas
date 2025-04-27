@@ -11,16 +11,15 @@ from dask.array.core import Array as DaArray
 
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
-from .base_frame import BaseFrame
-from .channel_metadata import ChannelMetadata
+from ..core.base_frame import BaseFrame
+from ..core.metadata import ChannelMetadata
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from wandas.core.plotting import PlotStrategy
-
-    from .channel_frame import ChannelFrame
-    from .noct_frame import NOctFrame
+    from ..visualization.plotting import PlotStrategy
+    from .channel import ChannelFrame
+    from .noct import NOctFrame
 
 
 dask_delayed = dask.delayed  # type: ignore [unused-ignore]
@@ -114,7 +113,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
 
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-        from .time_series_operation import create_operation
+        from ..processing.time_series import create_operation
 
         # 操作インスタンスを作成
         operation = create_operation(operation_name, self.sampling_rate, **params)
@@ -228,7 +227,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             # チャネルメタデータを更新
             updated_channel_metadata: list[ChannelMetadata] = []
             for self_ch in self._channel_metadata:
-                ch = self_ch.copy(deep=True)
+                ch = self_ch.model_copy(deep=True)
                 ch["label"] = f"({self_ch.label} {symbol} {other_str})"
                 updated_channel_metadata.append(ch)
 
@@ -260,7 +259,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         **kwargs : dict
             プロット固有のパラメータ
         """
-        from .plotting import create_operation
+        from wandas.visualization.plotting import create_operation
 
         logger.debug(f"Plotting audio with plot_type={plot_type} (will compute now)")
 
@@ -278,8 +277,8 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         """
         逆FFTを計算し、時間領域のデータを返します。
         """
-        from .channel_frame import ChannelFrame
-        from .time_series_operation import IFFT, create_operation
+        from ..processing.time_series import IFFT, create_operation
+        from .channel import ChannelFrame
 
         params = {"n_fft": self.n_fft, "window": self.window}
         operation_name = "ifft"
@@ -329,13 +328,13 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             raise ValueError(
                 "noct_synthesisは48000Hzのサンプリングレートでのみ使用できます。"
             )
-        from .noct_frame import NOctFrame
-        from .time_series_operation import NOctSynthesis
+        from ..processing.time_series import NOctSynthesis
+        from .noct import NOctFrame
 
         params = {"fmin": fmin, "fmax": fmax, "n": n, "G": G, "fr": fr}
         operation_name = "noct_synthesis"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-        from .time_series_operation import create_operation
+        from ..processing.time_series import create_operation
 
         # 操作インスタンスを作成
         operation = create_operation(operation_name, self.sampling_rate, **params)

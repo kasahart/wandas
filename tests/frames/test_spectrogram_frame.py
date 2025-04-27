@@ -5,9 +5,9 @@ import pytest
 from dask.array.core import Array as DaArray
 from numpy.testing import assert_array_almost_equal, assert_array_equal
 
-from wandas.core.channel_metadata import ChannelMetadata
-from wandas.core.spectral_frame import SpectralFrame
-from wandas.core.spectrogram_frame import SpectrogramFrame
+from wandas.core.metadata import ChannelMetadata
+from wandas.frames.spectral import SpectralFrame
+from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 # Reference to dask array functions
@@ -181,10 +181,10 @@ class TestSpectrogramFrame:
             return MockPlotStrategy()
 
         # モックを適用
-        import wandas.core.plotting
+        import wandas.visualization.plotting
 
         monkeypatch.setattr(
-            wandas.core.plotting, "create_operation", mock_create_operation
+            wandas.visualization.plotting, "create_operation", mock_create_operation
         )
 
         # プロット機能をテスト
@@ -282,10 +282,10 @@ class TestSpectrogramFrame:
             return mock_op
 
         # モックを適用
-        import wandas.core.time_series_operation
+        import wandas.processing.time_series
 
         monkeypatch.setattr(
-            wandas.core.time_series_operation,
+            wandas.processing.time_series,
             "create_operation",
             mock_create_operation,
         )
@@ -342,7 +342,7 @@ class TestSpectrogramFrame:
         def fixed_apply_operation_impl(
             self: SpectrogramFrame, operation_name: str, **params: Any
         ) -> SpectrogramFrame:
-            from wandas.core.time_series_operation import create_operation
+            from wandas.processing.time_series import create_operation
 
             operation = create_operation(operation_name, self.sampling_rate, **params)
             processed_data = operation.process(self._data)
@@ -379,10 +379,10 @@ class TestSpectrogramFrame:
             return MockOperation()
 
         # モックを適用
-        import wandas.core.time_series_operation
+        import wandas.processing.time_series
 
         monkeypatch.setattr(
-            wandas.core.time_series_operation,
+            wandas.processing.time_series,
             "create_operation",
             mock_create_operation,
         )

@@ -1,7 +1,7 @@
 import json
 from typing import Any
 
-from wandas.core.channel_metadata import ChannelMetadata
+from wandas.core.metadata import ChannelMetadata
 
 # filepath: wandas/core/test_channel_metadata.py
 

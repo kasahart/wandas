@@ -2,7 +2,7 @@
 import numpy as np
 from scipy.signal.windows import tukey
 
-from wandas.core.util import (
+from wandas.utils.util import (
     calculate_desired_noise_rms,
     calculate_rms,
     cut_sig,

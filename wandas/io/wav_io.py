@@ -7,7 +7,7 @@ import numpy as np
 from scipy.io import wavfile
 
 if TYPE_CHECKING:
-    from ..core.channel_frame import ChannelFrame
+    from ..frames.channel import ChannelFrame
 
 
 def read_wav(filename: str, labels: Optional[list[str]] = None) -> "ChannelFrame":
@@ -26,7 +26,7 @@ def read_wav(filename: str, labels: Optional[list[str]] = None) -> "ChannelFrame
     ChannelFrame
         ChannelFrame object containing the audio data.
     """
-    from wandas.core.channel_frame import ChannelFrame
+    from wandas.frames.channel import ChannelFrame
 
     # データの読み込み
     sampling_rate, data = wavfile.read(filename, mmap=True)
@@ -66,7 +66,7 @@ def write_wav(filename: str, target: "ChannelFrame") -> None:
     ValueError
         If target is not a ChannelFrame object.
     """
-    from wandas.core.channel_frame import ChannelFrame
+    from wandas.frames.channel import ChannelFrame
 
     if not isinstance(target, ChannelFrame):
         raise ValueError("target must be a ChannelFrame object.")

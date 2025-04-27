@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Optional, Union
 import numpy as np
 
 if TYPE_CHECKING:
-    from ..core.channel_frame import ChannelFrame
+    from wandas.frames.channel import ChannelFrame
 
 
 def generate_sin(
@@ -66,7 +66,7 @@ def generate_sin_lazy(
     ChannelFrame
         Lazy ChannelFrame object containing the sine wave(s).
     """
-    from ..core.channel_frame import ChannelFrame
+    from wandas.frames.channel import ChannelFrame
 
     label = label or "Generated Sin"
     t = np.linspace(0, duration, int(sampling_rate * duration), endpoint=False)

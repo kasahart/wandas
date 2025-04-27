@@ -11,11 +11,11 @@ import numpy as np
 from matplotlib.axes import Axes
 
 if TYPE_CHECKING:
-    from .base_frame import BaseFrame
-    from .channel_frame import ChannelFrame
-    from .noct_frame import NOctFrame
-    from .spectral_frame import SpectralFrame
-    from .spectrogram_frame import SpectrogramFrame
+    from wandas.core.base_frame import BaseFrame
+    from wandas.frames.channel import ChannelFrame
+    from wandas.frames.noct import NOctFrame
+    from wandas.frames.spectral import SpectralFrame
+    from wandas.frames.spectrogram import SpectrogramFrame
 
 logger = logging.getLogger(__name__)
 

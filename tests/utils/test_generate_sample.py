@@ -1,6 +1,6 @@
 # tests/utils/test_generate_sample.py
 
-from wandas.core.channel_frame import ChannelFrame
+from wandas.frames.channel import ChannelFrame
 from wandas.utils.generate_sample import generate_sin
 
 

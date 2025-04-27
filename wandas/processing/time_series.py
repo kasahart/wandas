@@ -14,7 +14,7 @@ from scipy.signal import ShortTimeFFT
 from scipy.signal.windows import get_window
 from waveform_analysis import A_weight
 
-from wandas.core import util
+from wandas.utils import util
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 logger = logging.getLogger(__name__)
