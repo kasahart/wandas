@@ -81,6 +81,22 @@ class TestPlotting:
             mock.MagicMock(label="ch2"),
         ]
 
+        # NOctFrameのモック
+        self.mock_noct_frame = mock.MagicMock()
+        self.mock_noct_frame.n_channels = 2
+        self.mock_noct_frame.n = 3  # 1/3オクターブ
+        self.mock_noct_frame.freqs = np.array(
+            [63, 125, 250, 500, 1000, 2000, 4000, 8000]
+        )
+        self.mock_noct_frame.dB = np.random.rand(2, 8)
+        self.mock_noct_frame.dBA = np.random.rand(2, 8)
+        self.mock_noct_frame.labels = ["ch1", "ch2"]
+        self.mock_noct_frame.label = "Test NOct"
+        self.mock_noct_frame.channels = [
+            mock.MagicMock(label="ch1"),
+            mock.MagicMock(label="ch2"),
+        ]
+
         self.mock_spectrogram_frame = mock.MagicMock()
         self.mock_spectrogram_frame.n_channels = 2
         self.mock_spectrogram_frame.n_freq_bins = 513
@@ -341,3 +357,43 @@ class TestPlotting:
             # stftメソッドとwelchメソッドが呼び出されることを確認
             self.mock_channel_frame.stft.assert_called_once()
             self.mock_channel_frame.welch.assert_called_once()
+
+    def test_noct_plot_strategy(self) -> None:
+        """NOctPlotStrategyのテスト"""
+        from wandas.core.plotting import NOctPlotStrategy
+
+        strategy = NOctPlotStrategy()
+
+        # channel_plotのテスト
+        fig, ax = plt.subplots()
+        strategy.channel_plot(
+            self.mock_noct_frame.freqs,
+            self.mock_noct_frame.dB[0],
+            ax,
+            label="Test NOct",
+        )
+        # stepプロットが使われ、グリッドと凡例が表示されていることを確認
+        assert len(ax.xaxis.get_gridlines()) > 0  # グリッドが表示されていることを確認
+        assert len(ax.get_legend().get_texts()) > 0  # 凡例が表示されていることを確認
+
+        # 単一チャネルでのplotのテスト (overlay=True)
+        result = strategy.plot(self.mock_noct_frame, overlay=True)
+        assert isinstance(result, Axes)
+        assert result.get_xlabel() == "Center frequency [Hz]"
+        assert result.get_ylabel() == "Spectrum level [dBr]"
+        assert result.get_title() == "Test NOct"
+
+        # dBA単位でのplotのテスト (overlay=True, Aw=True)
+        result = strategy.plot(self.mock_noct_frame, overlay=True, Aw=True)
+        assert isinstance(result, Axes)
+        assert result.get_ylabel() == "Spectrum level [dBrA]"
+
+        # 複数チャネルでのplotのテスト (overlay=False)
+        result = strategy.plot(self.mock_noct_frame, overlay=False)
+        assert isinstance(result, Iterator)
+        axes_list = list(result)
+        assert len(axes_list) == self.mock_noct_frame.n_channels
+
+        # 最後の軸のxラベルとyラベルを確認
+        assert axes_list[-1].get_xlabel() == "Center frequency [Hz]"
+        assert axes_list[-1].get_ylabel() == "Spectrum level [dBr]"
