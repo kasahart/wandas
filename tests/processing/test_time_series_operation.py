@@ -13,6 +13,7 @@ from scipy import fft, signal
 from wandas.processing.time_series import (
     _OPERATION_REGISTRY,
     ABS,
+    CSD,
     FFT,
     IFFT,
     ISTFT,
@@ -21,6 +22,7 @@ from wandas.processing.time_series import (
     AudioOperation,
     AWeighting,
     ChannelDifference,
+    Coherence,
     HighPassFilter,
     HpssHarmonic,
     HpssPercussive,
@@ -32,6 +34,7 @@ from wandas.processing.time_series import (
     ReSampling,
     RmsTrend,
     Sum,
+    TransferFunction,
     Trim,
     Welch,
     create_operation,
@@ -2108,3 +2111,535 @@ class TestAddWithSNROperation:
         assert isinstance(add_with_snr_op, AddWithSNR)
         assert add_with_snr_op.sampling_rate == self.sample_rate
         assert add_with_snr_op.snr == 10.0
+
+
+class TestCoherenceOperation:
+    def setup_method(self) -> None:
+        """Set up test fixtures for each test."""
+        self.sample_rate: int = 16000
+        self.n_fft: int = 1024
+        self.hop_length: int = 256
+        self.win_length: int = 1024
+        self.window: str = "hann"
+        self.detrend: str = "constant"
+
+        # Create test signals with different frequencies
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        # 2つのチャンネルを持つ信号：1つは1000Hz、もう1つは関連する1100Hz
+        self.signal_stereo: NDArrayReal = np.array(
+            [np.sin(2 * np.pi * 1000 * t), np.sin(2 * np.pi * 1100 * t)]
+        )
+        # 3チャンネルの信号（1つはノイズ）
+        noise = np.random.randn(self.sample_rate) * 0.1
+        self.signal_multi: NDArrayReal = np.array(
+            [
+                np.sin(2 * np.pi * 1000 * t),
+                np.sin(2 * np.pi * 1100 * t),
+                noise,
+            ]
+        )
+
+        # Create dask arrays
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(2, 1000))
+        self.dask_multi: DaArray = _da_from_array(self.signal_multi, chunks=(3, 1000))
+
+        # Initialize Coherence operation
+        self.coherence = Coherence(
+            sampling_rate=self.sample_rate,
+            n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            win_length=self.win_length,
+            window=self.window,
+            detrend=self.detrend,
+        )
+
+    def test_initialization(self) -> None:
+        """Test initialization with parameters."""
+        # Default initialization already done in setup_method
+        assert self.coherence.sampling_rate == self.sample_rate
+        assert self.coherence.n_fft == self.n_fft
+        assert self.coherence.hop_length == self.hop_length
+        assert self.coherence.win_length == self.win_length
+        assert self.coherence.window == self.window
+        assert self.coherence.detrend == self.detrend
+
+        # Custom initialization
+        custom_hop = 512
+        custom_coherence = Coherence(
+            sampling_rate=self.sample_rate,
+            n_fft=self.n_fft,
+            hop_length=custom_hop,
+            win_length=self.win_length,
+            window="hamming",
+            detrend="linear",
+        )
+        assert custom_coherence.sampling_rate == self.sample_rate
+        assert custom_coherence.n_fft == self.n_fft
+        assert custom_coherence.hop_length == custom_hop
+        assert custom_coherence.win_length == self.win_length
+        assert custom_coherence.window == "hamming"
+        assert custom_coherence.detrend == "linear"
+
+    def test_coherence_shape(self) -> None:
+        """Test output shape for coherence."""
+        # Calculate coherence for stereo signal
+        result = self.coherence.process_array(self.signal_stereo).compute()
+
+        # Expected shape: (n_channels * n_channels, n_freqs)
+        n_channels = self.signal_stereo.shape[0]
+        n_freqs = self.n_fft // 2 + 1
+        expected_shape = (n_channels * n_channels, n_freqs)
+
+        assert result.shape == expected_shape
+
+        # Multi-channel test
+        result_multi = self.coherence.process_array(self.signal_multi).compute()
+        n_channels_multi = self.signal_multi.shape[0]
+        expected_shape_multi = (n_channels_multi * n_channels_multi, n_freqs)
+
+        assert result_multi.shape == expected_shape_multi
+
+    def test_coherence_content(self) -> None:
+        """Test coherence calculation correctness."""
+        result = self.coherence.process_array(self.signal_stereo).compute()
+
+        # Expected properties:
+        # 1. Coherence values should be between 0 and 1
+        assert np.all(result >= 0)
+        # 小数点6桁以下を丸めて比較
+        assert np.all(result <= 1.000001)
+
+        # 2. Self-coherence (diagonal elements) should be ~1
+        # For 2 channels, indices 0 and 3
+        assert np.isclose(result[0, :].mean(), 1.0)
+        assert np.isclose(result[3, :].mean(), 1.0)
+
+        # 3. Cross-coherence should be less than 1 but above 0
+        # For 2 channels, indices 1 and 2
+        cross_coherence = np.mean(result[1, :])
+        assert 0 < cross_coherence < 1, f"Cross-coherence mean: {cross_coherence}"
+
+        # 4. Verify with scipy.signal.coherence directly
+        from scipy import signal as ss
+
+        _, coh = ss.coherence(
+            x=self.signal_stereo[:, np.newaxis],
+            y=self.signal_stereo[np.newaxis, :],
+            fs=self.sample_rate,
+            nperseg=self.win_length,
+            noverlap=self.win_length - self.hop_length,
+            nfft=self.n_fft,
+            window=self.window,
+            detrend=self.detrend,
+        )
+
+        expected_result = coh.reshape(-1, coh.shape[-1])
+        np.testing.assert_allclose(result, expected_result, rtol=1e-6)
+
+    def test_delayed_execution(self) -> None:
+        """Test that coherence operation uses dask's delayed execution."""
+        with mock.patch.object(DaArray, "compute") as mock_compute:
+            result = self.coherence.process(self.dask_stereo)
+            mock_compute.assert_not_called()
+
+            # Only when compute() is called should the computation happen
+            _ = result.compute()
+            mock_compute.assert_called_once()
+
+    def test_operation_registry(self) -> None:
+        """Test that Coherence is properly registered in the operation registry."""
+        assert get_operation("coherence") == Coherence
+
+        coherence_op = create_operation(
+            "coherence",
+            self.sample_rate,
+            n_fft=512,
+            hop_length=128,
+            win_length=512,
+            window="hamming",
+            detrend="linear",
+        )
+
+        assert isinstance(coherence_op, Coherence)
+        assert coherence_op.sampling_rate == self.sample_rate
+        assert coherence_op.n_fft == 512
+        assert coherence_op.hop_length == 128
+        assert coherence_op.win_length == 512
+        assert coherence_op.window == "hamming"
+        assert coherence_op.detrend == "linear"
+
+
+class TestCSDOperation:
+    def setup_method(self) -> None:
+        """Set up test fixtures for each test."""
+        self.sample_rate: int = 16000
+        self.n_fft: int = 1024
+        self.hop_length: int = 256
+        self.win_length: int = 1024
+        self.window: str = "hann"
+        self.detrend: str = "constant"
+        self.scaling: str = "spectrum"
+        self.average: str = "mean"
+
+        # Create test signals with different frequencies
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        # 2つのチャンネルを持つ信号：1つは1000Hz、もう1つは関連する1100Hz
+        self.signal_stereo: NDArrayReal = np.array(
+            [np.sin(2 * np.pi * 1000 * t), np.sin(2 * np.pi * 1100 * t)]
+        )
+        # 3チャンネルの信号（1つはノイズ）
+        noise = np.random.randn(self.sample_rate) * 0.1
+        self.signal_multi: NDArrayReal = np.array(
+            [
+                np.sin(2 * np.pi * 1000 * t),
+                np.sin(2 * np.pi * 1100 * t),
+                noise,
+            ]
+        )
+
+        # Create dask arrays
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(2, 1000))
+        self.dask_multi: DaArray = _da_from_array(self.signal_multi, chunks=(3, 1000))
+
+        # Initialize CSD operation
+        self.csd = CSD(
+            sampling_rate=self.sample_rate,
+            n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            win_length=self.win_length,
+            window=self.window,
+            detrend=self.detrend,
+            scaling=self.scaling,
+            average=self.average,
+        )
+
+    def test_initialization(self) -> None:
+        """Test initialization with parameters."""
+        # Default initialization already done in setup_method
+        assert self.csd.sampling_rate == self.sample_rate
+        assert self.csd.n_fft == self.n_fft
+        assert self.csd.hop_length == self.hop_length
+        assert self.csd.win_length == self.win_length
+        assert self.csd.window == self.window
+        assert self.csd.detrend == self.detrend
+        assert self.csd.scaling == self.scaling
+        assert self.csd.average == self.average
+
+        # Custom initialization
+        custom_hop = 512
+        custom_csd = CSD(
+            sampling_rate=self.sample_rate,
+            n_fft=self.n_fft,
+            hop_length=custom_hop,
+            win_length=self.win_length,
+            window="hamming",
+            detrend="linear",
+            scaling="density",
+            average="median",
+        )
+        assert custom_csd.sampling_rate == self.sample_rate
+        assert custom_csd.n_fft == self.n_fft
+        assert custom_csd.hop_length == custom_hop
+        assert custom_csd.win_length == self.win_length
+        assert custom_csd.window == "hamming"
+        assert custom_csd.detrend == "linear"
+        assert custom_csd.scaling == "density"
+        assert custom_csd.average == "median"
+
+    def test_csd_shape(self) -> None:
+        """Test output shape for CSD."""
+        # Calculate CSD for stereo signal
+        result = self.csd.process_array(self.signal_stereo).compute()
+
+        # Expected shape: (n_channels * n_channels, n_freqs)
+        n_channels = self.signal_stereo.shape[0]
+        n_freqs = self.n_fft // 2 + 1
+        expected_shape = (n_channels * n_channels, n_freqs)
+
+        assert result.shape == expected_shape
+
+        # Multi-channel test
+        result_multi = self.csd.process_array(self.signal_multi).compute()
+        n_channels_multi = self.signal_multi.shape[0]
+        expected_shape_multi = (n_channels_multi * n_channels_multi, n_freqs)
+
+        assert result_multi.shape == expected_shape_multi
+
+    def test_csd_content(self) -> None:
+        """Test CSD calculation correctness."""
+        result = self.csd.process_array(self.signal_stereo).compute()
+
+        # Verify with scipy.signal.csd directly
+        from scipy import signal as ss
+
+        _, csd_expected = ss.csd(
+            x=self.signal_stereo[:, np.newaxis],
+            y=self.signal_stereo[np.newaxis, :],
+            fs=self.sample_rate,
+            nperseg=self.win_length,
+            noverlap=self.win_length - self.hop_length,
+            nfft=self.n_fft,
+            window=self.window,
+            detrend=self.detrend,
+            scaling=self.scaling,
+            average=self.average,
+        )
+
+        expected_result = csd_expected.transpose(1, 0, 2).reshape(
+            -1, csd_expected.shape[-1]
+        )
+        np.testing.assert_allclose(result, expected_result, rtol=1e-6)
+
+        # CSD of a signal with itself should be real and positive
+        # at the signal frequency
+        # Find indices closest to our test frequencies
+        freq_bins = np.fft.rfftfreq(self.n_fft, 1.0 / self.sample_rate)
+        idx_1000hz = np.argmin(np.abs(freq_bins - 1000))
+        idx_1100hz = np.argmin(np.abs(freq_bins - 1100))
+
+        # Auto-spectrum at 1000Hz (channel 0 with itself) should peak at 1000Hz
+        auto_ch0 = result[0]
+        assert np.argmax(np.abs(auto_ch0)) == idx_1000hz
+
+        # Auto-spectrum at 1100Hz (channel 1 with itself) should peak at 1100Hz
+        auto_ch1 = result[3]  # Index 3 is the 2nd channel with itself in flattened form
+        assert np.argmax(np.abs(auto_ch1)) == idx_1100hz
+
+    def test_delayed_execution(self) -> None:
+        """Test that CSD operation uses dask's delayed execution."""
+        with mock.patch.object(DaArray, "compute") as mock_compute:
+            result = self.csd.process(self.dask_stereo)
+            mock_compute.assert_not_called()
+
+            # Only when compute() is called should the computation happen
+            _ = result.compute()
+            mock_compute.assert_called_once()
+
+    def test_operation_registry(self) -> None:
+        """Test that CSD is properly registered in the operation registry."""
+        assert get_operation("csd") == CSD
+
+        csd_op = create_operation(
+            "csd",
+            self.sample_rate,
+            n_fft=512,
+            hop_length=128,
+            win_length=512,
+            window="hamming",
+            detrend="linear",
+            scaling="density",
+            average="median",
+        )
+
+        assert isinstance(csd_op, CSD)
+        assert csd_op.sampling_rate == self.sample_rate
+        assert csd_op.n_fft == 512
+        assert csd_op.hop_length == 128
+        assert csd_op.win_length == 512
+        assert csd_op.window == "hamming"
+        assert csd_op.detrend == "linear"
+        assert csd_op.scaling == "density"
+        assert csd_op.average == "median"
+
+
+class TestTransferFunctionOperation:
+    def setup_method(self) -> None:
+        """Set up test fixtures for each test."""
+        self.sample_rate: int = 16000
+        self.n_fft: int = 1024
+        self.hop_length: int = 256
+        self.win_length: int = 1024
+        self.window: str = "hann"
+        self.detrend: str = "constant"
+        self.scaling: str = "spectrum"
+        self.average: str = "mean"
+
+        # Create test signals with different frequencies
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        # 入力信号と出力信号のペアを作成（簡単な線形システムをシミュレート）
+        input_signal = np.sin(2 * np.pi * 1000 * t)
+        output_signal = 2 * input_signal + 0.1 * np.random.randn(
+            len(t)
+        )  # ゲイン2と少しのノイズ
+
+        self.signal_stereo: NDArrayReal = np.array([input_signal, output_signal])
+
+        # より複雑なシステムのシミュレーション（複数入力・出力）
+        input1 = np.sin(2 * np.pi * 1000 * t)
+        input2 = np.sin(2 * np.pi * 1500 * t)
+        output1 = 2 * input1 + 0.5 * input2 + 0.1 * np.random.randn(len(t))
+        output2 = 0.3 * input1 + 1.5 * input2 + 0.1 * np.random.randn(len(t))
+
+        self.signal_multi: NDArrayReal = np.array([input1, input2, output1, output2])
+
+        # Create dask arrays
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(2, 1000))
+        self.dask_multi: DaArray = _da_from_array(self.signal_multi, chunks=(4, 1000))
+
+        # Initialize TransferFunction operation
+        self.transfer_function = TransferFunction(
+            sampling_rate=self.sample_rate,
+            n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            win_length=self.win_length,
+            window=self.window,
+            detrend=self.detrend,
+            scaling=self.scaling,
+            average=self.average,
+        )
+
+    def test_initialization(self) -> None:
+        """Test initialization with parameters."""
+        # Default initialization already done in setup_method
+        assert self.transfer_function.sampling_rate == self.sample_rate
+        assert self.transfer_function.n_fft == self.n_fft
+        assert self.transfer_function.hop_length == self.hop_length
+        assert self.transfer_function.win_length == self.win_length
+        assert self.transfer_function.window == self.window
+        assert self.transfer_function.detrend == self.detrend
+        assert self.transfer_function.scaling == self.scaling
+        assert self.transfer_function.average == self.average
+
+        # Custom initialization
+        custom_hop = 512
+        custom_tf = TransferFunction(
+            sampling_rate=self.sample_rate,
+            n_fft=self.n_fft,
+            hop_length=custom_hop,
+            win_length=self.win_length,
+            window="hamming",
+            detrend="linear",
+            scaling="density",
+            average="median",
+        )
+        assert custom_tf.sampling_rate == self.sample_rate
+        assert custom_tf.n_fft == self.n_fft
+        assert custom_tf.hop_length == custom_hop
+        assert custom_tf.win_length == self.win_length
+        assert custom_tf.window == "hamming"
+        assert custom_tf.detrend == "linear"
+        assert custom_tf.scaling == "density"
+        assert custom_tf.average == "median"
+
+    def test_transfer_function_shape(self) -> None:
+        """Test output shape for transfer function."""
+        # Calculate transfer function for stereo signal
+        result = self.transfer_function.process_array(self.signal_stereo).compute()
+
+        # Expected shape: (n_channels * n_channels, n_freqs)
+        n_channels = self.signal_stereo.shape[0]
+        n_freqs = self.n_fft // 2 + 1
+        expected_shape = (n_channels * n_channels, n_freqs)
+
+        assert result.shape == expected_shape
+
+        # Multi-channel test
+        result_multi = self.transfer_function.process_array(self.signal_multi).compute()
+        n_channels_multi = self.signal_multi.shape[0]
+        expected_shape_multi = (n_channels_multi * n_channels_multi, n_freqs)
+
+        assert result_multi.shape == expected_shape_multi
+
+    def test_transfer_function_content(self) -> None:
+        """Test transfer function calculation correctness."""
+        result = self.transfer_function.process_array(self.signal_stereo).compute()
+
+        # 伝達関数の検証
+        # シミュレーションで使用したゲインは2.0（入力から出力へ）
+        # 周波数ビンの計算
+        freq_bins = np.fft.rfftfreq(self.n_fft, 1.0 / self.sample_rate)
+        idx_1000hz = np.argmin(np.abs(freq_bins - 1000))
+
+        # 入力から出力への伝達関数の値（チャンネル0からチャンネル1）
+        # 結果の構造：[ch0->ch0, ch0->ch1, ch1->ch0, ch1->ch1]
+        h_input_to_output = result[1, idx_1000hz]  # ch0->ch1 at 1000Hz
+
+        # ゲインは約2.0のはず（行列の形状で平坦化されていることに注意）
+        assert np.isclose(np.abs(h_input_to_output), 2.0, rtol=0.2)
+
+        # 入力から入力（自己伝達関数）と出力から出力は約1.0のはず
+        h_input_to_input = result[0, idx_1000hz]  # ch0->ch0
+        h_output_to_output = result[3, idx_1000hz]  # ch1->ch1
+
+        assert np.isclose(np.abs(h_input_to_input), 1.0, rtol=0.2)
+        assert np.isclose(np.abs(h_output_to_output), 1.0, rtol=0.2)
+
+        # 出力から入力への伝達関数の値は小さいはず（因果関係が逆）
+        h_output_to_input = result[2, idx_1000hz]  # ch1->ch0
+        assert np.isclose(np.abs(h_output_to_input), 0.5, rtol=0.2)
+
+        # 簡易的な手動計算による検証
+        from scipy import signal as ss
+
+        # クロススペクトル密度を計算
+        f, p_yx = ss.csd(
+            x=self.signal_stereo[:, np.newaxis, :],
+            y=self.signal_stereo[np.newaxis, :, :],
+            fs=self.sample_rate,
+            nperseg=self.win_length,
+            noverlap=self.win_length - self.hop_length,
+            nfft=self.n_fft,
+            window=self.window,
+            detrend=self.detrend,
+            scaling=self.scaling,
+            average=self.average,
+            axis=-1,
+        )
+
+        # 各チャネルのパワースペクトル密度を計算
+        f, p_xx = ss.welch(
+            x=self.signal_stereo,
+            fs=self.sample_rate,
+            nperseg=self.win_length,
+            noverlap=self.win_length - self.hop_length,
+            nfft=self.n_fft,
+            window=self.window,
+            detrend=self.detrend,
+            scaling=self.scaling,
+            average=self.average,
+            axis=-1,
+        )
+
+        # 伝達関数 H(f) = P_yx / P_xx を計算
+        h_f = p_yx / p_xx[np.newaxis, :, :]
+        expected_result = h_f.transpose(1, 0, 2).reshape(-1, h_f.shape[-1])
+
+        np.testing.assert_allclose(result, expected_result, rtol=1e-6)
+
+    def test_delayed_execution(self) -> None:
+        """Test that transfer function operation uses dask's delayed execution."""
+        with mock.patch.object(DaArray, "compute") as mock_compute:
+            result = self.transfer_function.process(self.dask_stereo)
+            mock_compute.assert_not_called()
+
+            # Only when compute() is called should the computation happen
+            _ = result.compute()
+            mock_compute.assert_called_once()
+
+    def test_operation_registry(self) -> None:
+        """
+        Test that TransferFunction is properly registered in the operation registry.
+        """
+        assert get_operation("transfer_function") == TransferFunction
+
+        tf_op = create_operation(
+            "transfer_function",
+            self.sample_rate,
+            n_fft=512,
+            hop_length=128,
+            win_length=512,
+            window="hamming",
+            detrend="linear",
+            scaling="density",
+            average="median",
+        )
+
+        assert isinstance(tf_op, TransferFunction)
+        assert tf_op.sampling_rate == self.sample_rate
+        assert tf_op.n_fft == 512
+        assert tf_op.hop_length == 128
+        assert tf_op.win_length == 512
+        assert tf_op.window == "hamming"
+        assert tf_op.detrend == "linear"
+        assert tf_op.scaling == "density"
+        assert tf_op.average == "median"

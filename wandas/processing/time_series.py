@@ -1286,7 +1286,7 @@ class Coherence(AudioOperation[NDArrayReal, NDArrayReal]):
         )
 
         # 結果を (n_channels * n_channels, n_freqs) に再整形
-        result: NDArrayReal = coh.reshape(-1, coh.shape[-1])
+        result: NDArrayReal = coh.transpose(1, 0, 2).reshape(-1, coh.shape[-1])
 
         logger.debug(f"Coherence estimation applied, result shape: {result.shape}")
         return result
@@ -1386,7 +1386,9 @@ class CSD(AudioOperation[NDArrayReal, NDArrayComplex]):
         )
 
         # 結果を (n_channels * n_channels, n_freqs) に再整形
-        result: NDArrayComplex = csd_result.reshape(-1, csd_result.shape[-1])
+        result: NDArrayComplex = csd_result.transpose(1, 0, 2).reshape(
+            -1, csd_result.shape[-1]
+        )
 
         logger.debug(f"CSD estimation applied, result shape: {result.shape}")
         return result
@@ -1405,8 +1407,8 @@ class TransferFunction(AudioOperation[NDArrayReal, NDArrayComplex]):
         win_length: int,
         window: str,
         detrend: str,
-        scaling: str,
-        average: str,
+        scaling: str = "spectrum",
+        average: str = "mean",
     ):
         """
         伝達関数推定操作の初期化
@@ -1506,8 +1508,7 @@ class TransferFunction(AudioOperation[NDArrayReal, NDArrayComplex]):
 
         # 伝達関数 H(f) = P_yx / P_xx を計算
         h_f = p_yx / p_xx[np.newaxis, :, :]
-
-        result: NDArrayComplex = h_f.reshape(-1, h_f.shape[-1])
+        result: NDArrayComplex = h_f.transpose(1, 0, 2).reshape(-1, h_f.shape[-1])
 
         logger.debug(
             f"Transfer function estimation applied, result shape: {result.shape}"

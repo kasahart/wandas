@@ -1164,6 +1164,271 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
             channel_metadata=self._channel_metadata,
         )
 
+    def coherence(
+        self,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: str = "hann",
+        detrend: str = "constant",
+    ) -> "SpectralFrame":
+        """
+        Calculate the coherence between two signals.
+
+        Parameters
+        ----------
+        other : ChannelFrame, int, str
+            The other signal to compare with. If int or str,
+            it is treated as a channel index or label.
+        n_fft : int, default=2048
+            FFT size
+        hop_length : int, optional
+            Hop length. If None, defaults to n_fft // 4
+        win_length : int, optional
+            Window length. If None, defaults to n_fft
+        window : str, default="hann"
+            Window function type
+        detrend : str, default="constant"
+            Detrending method. Options: "constant", "linear", None
+
+        Returns
+        -------
+        SpectralFrame
+            A new spectral frame containing the coherence data
+        """
+        from ..processing.time_series import Coherence, create_operation
+        from .spectral import SpectralFrame
+
+        params = {
+            "n_fft": n_fft,
+            "hop_length": hop_length,
+            "win_length": win_length,
+            "window": window,
+            "detrend": detrend,
+        }
+        operation_name = "coherence"
+        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
+
+        # 操作インスタンスを作成
+        operation = create_operation(operation_name, self.sampling_rate, **params)
+        operation = cast("Coherence", operation)
+
+        # データに処理を適用
+        coherence_data = operation.process(self._data)
+
+        logger.debug(
+            f"Created new SpectralFrame with operation {operation_name} added to graph"  # noqa: E501
+        )
+        # 新しいチャンネルメタデータの作成
+        channel_metadata = []
+        for in_ch in self._channel_metadata:
+            for out_ch in self._channel_metadata:
+                meta = ChannelMetadata()
+                meta.label = f"{operation_name}({in_ch.label}, {out_ch.label})"
+                meta.unit = ""
+                meta.ref = 1
+                meta["metadata"] = dict(
+                    in_ch=in_ch["metadata"], out_ch=out_ch["metadata"]
+                )
+                channel_metadata.append(meta)
+
+        # 新しいインスタンスを作成
+        return SpectralFrame(
+            data=coherence_data,
+            sampling_rate=self.sampling_rate,
+            n_fft=operation.n_fft,
+            window=operation.window,
+            label=f"Spectrum of {self.label}",
+            metadata={**self.metadata, **params},
+            operation_history=[
+                *self.operation_history,
+                {"operation": operation_name, "params": params},
+            ],
+            channel_metadata=channel_metadata,
+            previous=self,
+        )
+
+    def csd(
+        self,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: str = "hann",
+        detrend: str = "constant",
+        scaling: str = "spectrum",
+        average: str = "mean",
+    ) -> "SpectralFrame":
+        """
+        クロススペクトル密度（Cross-Spectral Density）を計算します。
+
+        Parameters
+        ----------
+        n_fft : int, default=2048
+            FFTのサイズ
+        hop_length : int, optional
+            ホップ長。Noneの場合、n_fft // 4がデフォルト
+        win_length : int, optional
+            窓長。Noneの場合、n_fftがデフォルト
+        window : str, default="hann"
+            窓関数の種類
+        detrend : str, default="constant"
+            トレンド除去方法。選択肢: "constant", "linear", None
+        scaling : str, default="spectrum"
+            スケーリング方法。選択肢: "spectrum", "density"
+        average : str, default="mean"
+            平均化方法。選択肢: "mean", "median"
+
+        Returns
+        -------
+        SpectralFrame
+            クロススペクトル密度データを含む新しいスペクトルフレーム
+        """
+        from ..processing.time_series import CSD, create_operation
+        from .spectral import SpectralFrame
+
+        params = {
+            "n_fft": n_fft,
+            "hop_length": hop_length,
+            "win_length": win_length,
+            "window": window,
+            "detrend": detrend,
+            "scaling": scaling,
+            "average": average,
+        }
+        operation_name = "csd"
+        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
+
+        # 操作インスタンスを作成
+        operation = create_operation(operation_name, self.sampling_rate, **params)
+        operation = cast("CSD", operation)
+
+        # データに処理を適用
+        csd_data = operation.process(self._data)
+
+        logger.debug(
+            f"Created new SpectralFrame with operation {operation_name} added to graph"  # noqa: E501
+        )
+        # 新しいチャンネルメタデータの作成
+        channel_metadata = []
+        for in_ch in self._channel_metadata:
+            for out_ch in self._channel_metadata:
+                meta = ChannelMetadata()
+                meta.label = f"{operation_name}({in_ch.label}, {out_ch.label})"
+                meta.unit = ""
+                meta.ref = 1
+                meta["metadata"] = dict(
+                    in_ch=in_ch["metadata"], out_ch=out_ch["metadata"]
+                )
+                channel_metadata.append(meta)
+
+        # 新しいインスタンスを作成
+        return SpectralFrame(
+            data=csd_data,
+            sampling_rate=self.sampling_rate,
+            n_fft=operation.n_fft,
+            window=operation.window,
+            label=f"CSD of {self.label}",
+            metadata={**self.metadata, **params},
+            operation_history=[
+                *self.operation_history,
+                {"operation": operation_name, "params": params},
+            ],
+            channel_metadata=channel_metadata,
+            previous=self,
+        )
+
+    def transfer_function(
+        self,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: str = "hann",
+        detrend: str = "constant",
+        scaling: str = "spectrum",
+        average: str = "mean",
+    ) -> "SpectralFrame":
+        """
+        チャネル間の伝達関数を計算します。
+
+        伝達関数は、あるチャネルから別のチャネルへの信号の伝達特性を表し、
+        周波数領域でシステムの入出力関係を特徴付けます。
+
+        Parameters
+        ----------
+        n_fft : int, default=2048
+            FFTのサイズ
+        hop_length : int, optional
+            ホップ長。Noneの場合、n_fft // 4がデフォルト
+        win_length : int, optional
+            窓長。Noneの場合、n_fftがデフォルト
+        window : str, default="hann"
+            窓関数の種類
+        detrend : str, default="constant"
+            トレンド除去方法。選択肢: "constant", "linear", None
+        scaling : str, default="spectrum"
+            スケーリング方法。選択肢: "spectrum", "density"
+        average : str, default="mean"
+            平均化方法。選択肢: "mean", "median"
+
+        Returns
+        -------
+        SpectralFrame
+            伝達関数データを含む新しいスペクトルフレーム
+        """
+        from ..processing.time_series import TransferFunction, create_operation
+        from .spectral import SpectralFrame
+
+        params = {
+            "n_fft": n_fft,
+            "hop_length": hop_length,
+            "win_length": win_length,
+            "window": window,
+            "detrend": detrend,
+            "scaling": scaling,
+            "average": average,
+        }
+        operation_name = "transfer_function"
+        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
+
+        # 操作インスタンスを作成
+        operation = create_operation(operation_name, self.sampling_rate, **params)
+        operation = cast("TransferFunction", operation)
+
+        # データに処理を適用
+        tf_data = operation.process(self._data)
+
+        logger.debug(
+            f"Created new SpectralFrame with operation {operation_name} added to graph"  # noqa: E501
+        )
+        # 新しいチャンネルメタデータの作成
+        channel_metadata = []
+        for in_ch in self._channel_metadata:
+            for out_ch in self._channel_metadata:
+                meta = ChannelMetadata()
+                meta.label = f"H({in_ch.label}->{out_ch.label})"
+                meta.unit = ""
+                meta.ref = 1
+                meta["metadata"] = dict(
+                    in_ch=in_ch["metadata"], out_ch=out_ch["metadata"]
+                )
+                channel_metadata.append(meta)
+
+        # 新しいインスタンスを作成
+        return SpectralFrame(
+            data=tf_data,
+            sampling_rate=self.sampling_rate,
+            n_fft=operation.n_fft,
+            window=operation.window,
+            label=f"Transfer function of {self.label}",
+            metadata={**self.metadata, **params},
+            operation_history=[
+                *self.operation_history,
+                {"operation": operation_name, "params": params},
+            ],
+            channel_metadata=channel_metadata,
+            previous=self,
+        )
+
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
         """
         ChannelFrame に必要な追加の初期化引数を提供します。

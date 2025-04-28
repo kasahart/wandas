@@ -1221,3 +1221,217 @@ class TestChannelFrame:
         neg_computed = neg_result.compute()
         assert isinstance(neg_computed, np.ndarray)
         assert neg_computed.shape == (2, 16000)
+
+    def test_csd(self) -> None:
+        """クロススペクトル密度（CSD）メソッドのテスト"""
+        # テスト用信号を作成
+        sr = 1000
+        t = np.linspace(0, 1, sr, endpoint=False)
+
+        # 既知の周波数成分を持つ信号を作成（100Hzと200Hz）
+        sig1 = np.sin(2 * np.pi * 100 * t) + 0.5 * np.sin(2 * np.pi * 200 * t)
+        sig2 = 0.8 * np.sin(2 * np.pi * 100 * t) + 0.3 * np.sin(2 * np.pi * 300 * t)
+
+        # 2チャンネル信号を作成
+        sigs = np.array([sig1, sig2])
+
+        # ChannelFrameインスタンスを作成
+        cf = ChannelFrame.from_numpy(sigs, sr)
+
+        # CSD計算のパラメータ
+        n_fft = 512
+        win_length = 256
+        hop_length = 128
+
+        # ChannelFrameメソッドを使用してCSDを計算
+        csd_frame = cf.csd(
+            n_fft=n_fft, win_length=win_length, hop_length=hop_length, window="hamming"
+        )
+
+        # 実際のデータを取得するために計算
+        csd_data = csd_frame.compute()
+
+        # 形状を確認
+        assert csd_data.shape == (4, n_fft // 2 + 1)
+
+        # チャンネルラベルが正しいことを確認
+        ch_pairs = [ch.label for ch in csd_frame._channel_metadata]
+
+        # 正しいラベル名を取得
+        ch0_label = cf.channels[0].label
+        ch1_label = cf.channels[1].label
+
+        expected_pairs = [
+            f"csd({ch0_label}, {ch0_label})",
+            f"csd({ch0_label}, {ch1_label})",
+            f"csd({ch1_label}, {ch0_label})",
+            f"csd({ch1_label}, {ch1_label})",
+        ]
+
+        for pair in expected_pairs:
+            assert pair in ch_pairs
+
+        # 主要な周波数成分の存在を確認
+        freq_bins = np.fft.rfftfreq(n_fft, d=1 / sr)
+        idx_100hz = np.argmin(np.abs(freq_bins - 100))
+        idx_200hz = np.argmin(np.abs(freq_bins - 200))
+        idx_300hz = np.argmin(np.abs(freq_bins - 300))
+
+        # 自己クロススペクトル密度では対応する周波数でピークが見られるはず
+        # ch0 (sig1) の自己CSDは100Hzと200Hzでピークを持つ
+        ch0_auto = csd_data[0]  # ch0 -> ch0
+        assert abs(ch0_auto[idx_100hz]) > abs(ch0_auto[idx_300hz])
+        assert abs(ch0_auto[idx_200hz]) > abs(ch0_auto[idx_300hz])
+
+        # ch1 (sig2) の自己CSDは100Hzと300Hzでピークを持つ
+        ch1_auto = csd_data[3]  # ch1 -> ch1
+        assert abs(ch1_auto[idx_100hz]) > abs(ch1_auto[idx_200hz])
+        assert abs(ch1_auto[idx_300hz]) > abs(ch1_auto[idx_200hz])
+
+    def test_transfer_function(self) -> None:
+        """伝達関数メソッドのテスト"""
+        # 単純なシステム用のテスト信号を作成
+        sr = 1000
+        t = np.linspace(0, 1, sr, endpoint=False)
+
+        # 入力信号
+        input_sig = np.sin(2 * np.pi * 100 * t) + 0.5 * np.sin(2 * np.pi * 200 * t)
+
+        # 出力信号（100Hzでゲイン2.0、200Hzでゲイン1.5を持つ）
+        # より現実的にするためにノイズを追加
+        output_sig = (
+            2 * np.sin(2 * np.pi * 100 * t)
+            + 0.75 * np.sin(2 * np.pi * 200 * t)
+            + 0.05 * np.random.randn(len(t))
+        )
+
+        # 2チャンネル信号を作成
+        sigs = np.array([input_sig, output_sig])
+
+        # ChannelFrameインスタンスを作成
+        cf = ChannelFrame.from_numpy(sigs, sr)
+
+        # 伝達関数計算のパラメータ
+        n_fft = 512
+        win_length = 256
+        hop_length = 128
+
+        # ChannelFrameメソッドを使用して伝達関数を計算
+        tf_frame = cf.transfer_function(
+            n_fft=n_fft, win_length=win_length, hop_length=hop_length, window="hamming"
+        )
+
+        # 実際のデータを取得するために計算
+        tf_data = tf_frame.compute()
+
+        # 形状を確認
+        assert tf_data.shape == (4, n_fft // 2 + 1)
+
+        # テスト周波数のインデックスを探す
+        freq_bins = np.fft.rfftfreq(n_fft, 1 / sr)
+        idx_100hz = np.argmin(np.abs(freq_bins - 100))
+        idx_200hz = np.argmin(np.abs(freq_bins - 200))
+
+        # 入力から出力への伝達関数（インデックス1は入力->出力）
+        # 主要周波数でのゲインがほぼ正確かチェック
+        h_in_to_out = tf_data[1]
+        assert np.isclose(np.abs(h_in_to_out[idx_100hz]), 2.0, rtol=0.2)
+        assert np.isclose(np.abs(h_in_to_out[idx_200hz]), 1.5, rtol=0.2)
+
+        # 自己伝達関数は約1.0になるはず
+        assert np.isclose(np.abs(tf_data[0, idx_100hz]), 1.0, rtol=0.2)  # 入力->入力
+        assert np.isclose(np.abs(tf_data[3, idx_100hz]), 1.0, rtol=0.2)  # 出力->出力
+
+        # チャンネルラベルが正しいことを確認
+        ch_pairs = [ch.label for ch in tf_frame._channel_metadata]
+
+        # 正しいラベル名を取得
+        ch0_label = cf.channels[0].label
+        ch1_label = cf.channels[1].label
+
+        expected_pairs = [
+            f"H({ch0_label}->{ch0_label})",
+            f"H({ch0_label}->{ch1_label})",
+            f"H({ch1_label}->{ch0_label})",
+            f"H({ch1_label}->{ch1_label})",
+        ]
+
+        for pair in expected_pairs:
+            assert pair in ch_pairs
+
+    def test_coherence(self) -> None:
+        """コヒーレンスメソッドのテスト"""
+        # テスト用信号を作成
+        sr = 1000
+        t = np.linspace(0, 1, sr, endpoint=False)
+
+        # 関連性のある2つの信号を作成
+        sig1 = np.sin(2 * np.pi * 100 * t) + 0.5 * np.sin(2 * np.pi * 200 * t)
+        sig2 = (
+            0.7 * np.sin(2 * np.pi * 100 * t)
+            + 0.4 * np.sin(2 * np.pi * 200 * t)
+            + 0.3 * np.sin(2 * np.pi * 300 * t)
+        )
+
+        # 2チャンネル信号を作成
+        sigs = np.array([sig1, sig2])
+
+        # ChannelFrameインスタンスを作成
+        cf = ChannelFrame.from_numpy(sigs, sr)
+
+        # コヒーレンス計算のパラメータ
+        n_fft = 512
+        win_length = 256
+        hop_length = 128
+
+        # ChannelFrameメソッドを使用してコヒーレンスを計算
+        coherence_frame = cf.coherence(
+            n_fft=n_fft, win_length=win_length, hop_length=hop_length, window="hamming"
+        )
+
+        # 実際のデータを取得するために計算
+        coherence_data = coherence_frame.compute()
+
+        # 形状を確認
+        assert coherence_data.shape == (4, n_fft // 2 + 1)
+
+        # 主要な周波数bins
+        freq_bins = np.fft.rfftfreq(n_fft, d=1 / sr)
+        idx_100hz = np.argmin(np.abs(freq_bins - 100))
+        idx_300hz = np.argmin(np.abs(freq_bins - 300))
+
+        # コヒーレンスの範囲チェック（0～1）
+        # 数値計算の誤差を考慮して、わずかに1を超える値も許容する
+        assert np.all(coherence_data >= 0)
+        assert np.all(coherence_data <= 1.001)  # 許容誤差を追加
+
+        # 自己コヒーレンスは1.0に近いはず
+        assert np.isclose(
+            coherence_data[0, idx_100hz], 1.0, rtol=1e-5
+        )  # チャンネル0自己コヒーレンス
+        assert np.isclose(
+            coherence_data[3, idx_100hz], 1.0, rtol=1e-5
+        )  # チャンネル1自己コヒーレンス
+
+        # チャンネル間のコヒーレンスを100Hzと300Hzで確認
+        # 100Hzでは両方の信号に成分があるので高いコヒーレンス
+        # 300Hzではチャンネル2にのみ成分があるので低いコヒーレンス
+        assert coherence_data[1, idx_100hz] > 0.8  # 100Hzでの高いコヒーレンス
+        assert coherence_data[1, idx_300hz] < 0.5  # 300Hzでの低いコヒーレンス
+
+        # チャンネルラベルが正しいことを確認
+        ch_pairs = [ch.label for ch in coherence_frame._channel_metadata]
+
+        # 正しいラベル名を取得
+        ch0_label = cf.channels[0].label
+        ch1_label = cf.channels[1].label
+
+        expected_pairs = [
+            f"coherence({ch0_label}, {ch0_label})",
+            f"coherence({ch0_label}, {ch1_label})",
+            f"coherence({ch1_label}, {ch0_label})",
+            f"coherence({ch1_label}, {ch1_label})",
+        ]
+
+        for pair in expected_pairs:
+            assert pair in ch_pairs
