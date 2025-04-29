@@ -290,7 +290,7 @@ class TestOperationRegistry:
 
     def test_get_operation_error(self) -> None:
         """Test get_operation raises ValueError for unknown operations."""
-        with pytest.raises(ValueError, match="未知の操作タイプです"):
+        with pytest.raises(ValueError, match="Unknown operation type:"):
             get_operation("nonexistent_operation")
 
     def test_register_operation_normal(self) -> None:

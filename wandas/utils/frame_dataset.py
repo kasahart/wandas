@@ -20,13 +20,13 @@ F_out = TypeVar("F_out", bound=FrameType)
 @dataclass
 class LazyFrame(Generic[F]):
     """
-    フレームとそのロード状態をカプセル化するクラス。
+    A class that encapsulates a frame and its loading state.
 
     Attributes:
-        file_path: フレームに関連付けられたファイルパス
-        frame: ロードされたフレームオブジェクト（未ロードの場合はNone）
-        is_loaded: フレームがロード済みかどうかのフラグ
-        load_attempted: ロードを試みたかどうかのフラグ（エラー検出用）
+        file_path: File path associated with the frame
+        frame: Loaded frame object (None if not loaded)
+        is_loaded: Flag indicating if the frame is loaded
+        load_attempted: Flag indicating if loading was attempted (for error detection)
     """
 
     file_path: Path
@@ -36,33 +36,33 @@ class LazyFrame(Generic[F]):
 
     def ensure_loaded(self, loader: Callable[[Path], Optional[F]]) -> Optional[F]:
         """
-        フレームがロードされていることを確認し、必要であればロードする。
+        Ensures the frame is loaded, loading it if necessary.
 
         Args:
-            loader: ファイルパスからフレームをロードする関数
+            loader: Function to load a frame from a file path
 
         Returns:
-            ロードされたフレーム、またはロードに失敗した場合はNone
+            The loaded frame, or None if loading failed
         """
-        # すでにロード済みの場合は現在のフレームを返す
+        # Return the current frame if already loaded
         if self.is_loaded:
             return self.frame
 
-        # まだロードしていない場合はロードを試みる
+        # Attempt to load if not loaded yet
         try:
             self.load_attempted = True
             self.frame = loader(self.file_path)
             self.is_loaded = True
             return self.frame
         except Exception as e:
-            logger.error(f"ファイル {self.file_path} の読み込みに失敗: {str(e)}")
-            self.is_loaded = True  # ロードは試みた
+            logger.error(f"Failed to load file {self.file_path}: {str(e)}")
+            self.is_loaded = True  # Loading was attempted
             self.frame = None
             return None
 
     def reset(self) -> None:
         """
-        フレームの状態をリセットする。
+        Reset the frame state.
         """
         self.frame = None
         self.is_loaded = False
@@ -71,9 +71,9 @@ class LazyFrame(Generic[F]):
 
 class FrameDataset(Generic[F], ABC):
     """
-    フォルダ内のファイルを処理するための抽象基底データセットクラス。
-    遅延ロード機能を持ち、大規模データセットを効率的に扱います。
-    サブクラスで具体的なフレームタイプ（ChannelFrame, SpectrogramFrameなど）を扱います。
+    Abstract base dataset class for processing files in a folder.
+    Includes lazy loading capability to efficiently handle large datasets.
+    Subclasses handle specific frame types (ChannelFrame, SpectrogramFrame, etc.).
     """
 
     def __init__(
@@ -89,7 +89,7 @@ class FrameDataset(Generic[F], ABC):
     ):
         self.folder_path = Path(folder_path)
         if source_dataset is None and not self.folder_path.exists():
-            raise FileNotFoundError(f"フォルダが存在しません: {self.folder_path}")
+            raise FileNotFoundError(f"Folder does not exist: {self.folder_path}")
 
         self.sampling_rate = sampling_rate
         self.signal_length = signal_length
@@ -97,7 +97,7 @@ class FrameDataset(Generic[F], ABC):
         self._recursive = recursive
         self._lazy_loading = lazy_loading
 
-        # LazyFrameのリストに変更
+        # Changed to a list of LazyFrame
         self._lazy_frames: list[LazyFrame[F]] = []
 
         self._source_dataset = source_dataset
@@ -109,15 +109,15 @@ class FrameDataset(Generic[F], ABC):
             self._initialize_from_folder()
 
     def _initialize_from_source(self) -> None:
-        """ソースデータセットを元に初期化します。"""
+        """Initialize from a source dataset."""
         if self._source_dataset is None:
             return
 
-        # ソースからファイルパスをコピー
+        # Copy file paths from source
         file_paths = self._source_dataset._get_file_paths()
         self._lazy_frames = [LazyFrame(file_path) for file_path in file_paths]
 
-        # 他のプロパティを継承
+        # Inherit other properties
         self.sampling_rate = self.sampling_rate or self._source_dataset.sampling_rate
         self.signal_length = self.signal_length or self._source_dataset.signal_length
         self.file_extensions = (
@@ -127,13 +127,13 @@ class FrameDataset(Generic[F], ABC):
         self.folder_path = self._source_dataset.folder_path
 
     def _initialize_from_folder(self) -> None:
-        """フォルダを元に初期化します。"""
+        """Initialize from a folder."""
         self._discover_files()
         if not self._lazy_loading:
             self._load_all_files()
 
     def _discover_files(self) -> None:
-        """フォルダ内のファイルを探してLazyFrameのリストに格納します。"""
+        """Discover files in the folder and store them in a list of LazyFrame."""
         file_paths = []
         for ext in self.file_extensions:
             pattern = f"**/*{ext}" if self._recursive else f"*{ext}"
@@ -141,31 +141,31 @@ class FrameDataset(Generic[F], ABC):
                 sorted(p for p in self.folder_path.glob(pattern) if p.is_file())
             )
 
-        # 重複を排除して並べ替え
+        # Remove duplicates and sort
         file_paths = sorted(list(set(file_paths)))
 
-        # LazyFrameのリストを作成
+        # Create a list of LazyFrame
         self._lazy_frames = [LazyFrame(file_path) for file_path in file_paths]
 
     def _load_all_files(self) -> None:
-        """すべてのファイルをロードします。"""
-        for i in tqdm(range(len(self._lazy_frames)), desc="ロード/変換中"):
+        """Load all files."""
+        for i in tqdm(range(len(self._lazy_frames)), desc="Loading/transforming"):
             try:
                 self._ensure_loaded(i)
             except Exception as e:
                 filepath = self._lazy_frames[i].file_path
                 logger.warning(
-                    f"インデックス {i} ({filepath}) のロード/変換に失敗: {str(e)}"
+                    f"Failed to load/transform index {i} ({filepath}): {str(e)}"
                 )
         self._lazy_loading = False
 
     @abstractmethod
     def _load_file(self, file_path: Path) -> Optional[F]:
-        """ファイルからフレームをロードするための抽象メソッド。"""
+        """Abstract method to load a frame from a file."""
         pass
 
     def _load_from_source(self, index: int) -> Optional[F]:
-        """ソースデータセットからフレームをロードし、必要に応じて変換します。"""
+        """Load a frame from the source dataset and transform it if necessary."""
         if self._source_dataset is None or self._transform is None:
             return None
 
@@ -176,37 +176,37 @@ class FrameDataset(Generic[F], ABC):
         try:
             return self._transform(source_frame)
         except Exception as e:
-            logger.warning(f"インデックス {index} の変換に失敗: {str(e)}")
+            logger.warning(f"Failed to transform index {index}: {str(e)}")
             return None
 
     def _ensure_loaded(self, index: int) -> Optional[F]:
-        """インデックスに対応するフレームがロードされていることを確認します。"""
+        """Ensure the frame at the given index is loaded."""
         if not (0 <= index < len(self._lazy_frames)):
             raise IndexError(
-                f"インデックス {index} は範囲外です (0-{len(self._lazy_frames) - 1})"
+                f"Index {index} is out of range (0-{len(self._lazy_frames) - 1})"
             )
 
         lazy_frame = self._lazy_frames[index]
 
-        # 既にロード済みならそれを返す
+        # Return if already loaded
         if lazy_frame.is_loaded:
             return lazy_frame.frame
 
         try:
-            # ソースデータセットから変換する場合
+            # Convert from source dataset
             if self._transform and self._source_dataset:
                 lazy_frame.load_attempted = True
                 frame = self._load_from_source(index)
                 lazy_frame.frame = frame
                 lazy_frame.is_loaded = True
                 return frame
-            # ファイルから直接ロードする場合
+            # Load directly from file
             else:
                 return lazy_frame.ensure_loaded(self._load_file)
         except Exception as e:
             f_path = lazy_frame.file_path
             logger.error(
-                f"index {index} ({f_path}) の読み込みまたは初期処理に失敗: {str(e)}"
+                f"Failed to load or initialize index {index} ({f_path}): {str(e)}"
             )
             lazy_frame.frame = None
             lazy_frame.is_loaded = True
@@ -214,15 +214,15 @@ class FrameDataset(Generic[F], ABC):
             return None
 
     def _get_file_paths(self) -> list[Path]:
-        """ファイルパスのリストを取得します。"""
+        """Get a list of file paths."""
         return [lazy_frame.file_path for lazy_frame in self._lazy_frames]
 
     def __len__(self) -> int:
-        """データセット内のファイル数を返します。"""
+        """Return the number of files in the dataset."""
         return len(self._lazy_frames)
 
     def __getitem__(self, index: int) -> Optional[F]:
-        """指定インデックスのフレームを取得します。"""
+        """Get the frame at the specified index."""
         return self._ensure_loaded(index)
 
     @overload
@@ -232,7 +232,7 @@ class FrameDataset(Generic[F], ABC):
     def apply(self, func: Callable[[F], Optional[Any]]) -> "FrameDataset[Any]": ...
 
     def apply(self, func: Callable[[F], Optional[Any]]) -> "FrameDataset[Any]":
-        """関数をデータセット全体に適用して新しいデータセットを作成します。"""
+        """Apply a function to the entire dataset to create a new dataset."""
         new_dataset = type(self)(
             folder_path=str(self.folder_path),
             lazy_loading=True,
@@ -246,8 +246,8 @@ class FrameDataset(Generic[F], ABC):
         return cast("FrameDataset[Any]", new_dataset)
 
     def save(self, output_folder: str, filename_prefix: str = "") -> None:
-        """処理済みフレームをファイルに保存します。"""
-        raise NotImplementedError("saveメソッドは現在実装されていません。")
+        """Save processed frames to files."""
+        raise NotImplementedError("The save method is not currently implemented.")
 
     def sample(
         self,
@@ -255,7 +255,7 @@ class FrameDataset(Generic[F], ABC):
         ratio: Optional[float] = None,
         seed: Optional[int] = None,
     ) -> "FrameDataset[F]":
-        """データセットからサンプルを取得します。"""
+        """Get a sample from the dataset."""
         if seed is not None:
             random.seed(seed)
 
@@ -270,7 +270,7 @@ class FrameDataset(Generic[F], ABC):
                 recursive=self._recursive,
             )
 
-        # サンプル数の決定
+        # Determine sample size
         if n is None and ratio is None:
             n = max(1, min(10, int(total * 0.1)))
         elif n is None and ratio is not None:
@@ -282,22 +282,22 @@ class FrameDataset(Generic[F], ABC):
 
         n = min(n, total)
 
-        # ランダムにインデックスを選択
+        # Randomly select indices
         sampled_indices = sorted(random.sample(range(total), n))
 
         return _SampledFrameDataset(self, sampled_indices)
 
     def get_metadata(self) -> dict[str, Any]:
-        """データセットのメタデータを取得します。"""
+        """Get metadata for the dataset."""
         actual_sr: Optional[Union[int, float]] = self.sampling_rate
         frame_type_name = "Unknown"
 
-        # ロード済みのフレーム数をカウント
+        # Count loaded frames
         loaded_count = sum(
             1 for lazy_frame in self._lazy_frames if lazy_frame.is_loaded
         )
 
-        # 最初のフレームからメタデータを取得（可能な場合）
+        # Get metadata from the first frame (if possible)
         first_frame: Optional[F] = None
         if len(self._lazy_frames) > 0:
             try:
@@ -311,7 +311,7 @@ class FrameDataset(Generic[F], ABC):
                     frame_type_name = type(first_frame).__name__
             except Exception as e:
                 logger.warning(
-                    f"メタデータ取得中に最初のフレームのアクセスでエラー: {e}"
+                    f"Error accessing the first frame during metadata retrieval: {e}"
                 )
 
         return {
@@ -332,8 +332,8 @@ class FrameDataset(Generic[F], ABC):
 
 class _SampledFrameDataset(FrameDataset[F]):
     """
-    データセットのサブセットを表すクラス。
-    元のデータセットから選択されたインデックスのみを含みます。
+    A class representing a subset of a dataset.
+    Contains only the indices selected from the original dataset.
     """
 
     def __init__(
@@ -342,29 +342,29 @@ class _SampledFrameDataset(FrameDataset[F]):
         sampled_indices: list[int],
     ):
         """
-        サンプリングされたデータセットを初期化します。
+        Initialize a sampled dataset.
 
         Args:
-            original_dataset: 元のデータセット
-            sampled_indices: 選択されたインデックスのリスト
+            original_dataset: The original dataset
+            sampled_indices: List of selected indices
         """
-        # 基底クラスの初期化
+        # Initialize base class
         super().__init__(
             folder_path=str(original_dataset.folder_path),
-            lazy_loading=True,  # サンプリングされたデータセットは常に遅延ロード
+            lazy_loading=True,  # Sampled datasets always use lazy loading
             sampling_rate=original_dataset.sampling_rate,
             signal_length=original_dataset.signal_length,
             file_extensions=original_dataset.file_extensions,
             recursive=original_dataset._recursive,
         )
 
-        # オリジナルデータセットを保持
+        # Store the original dataset
         self._original_dataset = original_dataset
 
-        # サンプリングされたインデックスのマッピング
+        # Mapping of sampled indices
         self._original_indices = sampled_indices
 
-        # 元のデータセットからファイルパスを取得して新しいLazyFrameを作成
+        # Get file paths from the original dataset and create new LazyFrames
         original_file_paths = original_dataset._get_file_paths()
         try:
             sampled_file_paths = [original_file_paths[i] for i in sampled_indices]
@@ -372,46 +372,44 @@ class _SampledFrameDataset(FrameDataset[F]):
                 LazyFrame(file_path) for file_path in sampled_file_paths
             ]
         except IndexError as e:
-            logger.error("サンプリングされたインデックスが元データセットの範囲外です")
-            logger.error(f"  元データセットのファイル数: {len(original_file_paths)}")
-            logger.error(f"  サンプリングされたインデックス: {sampled_indices}")
+            logger.error("Sampled indices are out of range for the original dataset")
+            logger.error(f"  Original dataset file count: {len(original_file_paths)}")
+            logger.error(f"  Sampled indices: {sampled_indices}")
             raise IndexError(
-                "インデックスが元データセットの範囲外です。元データセット数:"
-                f"{len(original_file_paths)}, インデックス: {sampled_indices}"
+                "Indices are out of range for the original dataset. Original dataset count: "  # noqa: E501
+                f"{len(original_file_paths)}, indices: {sampled_indices}"
             ) from e
 
     def _load_file(self, file_path: Path) -> Optional[F]:
-        """このクラスでは、ファイルからの直接ロードは行わず、元のデータセットからロードします。"""
-        raise NotImplementedError(
-            "_SampledFrameDatasetは直接ファイルをロードしません。"
-        )
+        """This class does not load directly from files but from the original dataset."""  # noqa: E501
+        raise NotImplementedError("_SampledFrameDataset does not load files directly.")
 
     def _ensure_loaded(self, index: int) -> Optional[F]:
         """
-        サンプリングデータセット内のインデックスに対応するフレームをロードします。
-        元のデータセットからフレームを取得します。
+        Load the frame corresponding to the index in the sampled dataset.
+        Get the frame from the original dataset.
         """
-        # インデックスの範囲チェック
+        # Check index range
         if not (0 <= index < len(self._lazy_frames)):
             raise IndexError(
-                f"インデックス {index} はサンプルされたデータセットの範囲外です "
+                f"Index {index} is out of range for the sampled dataset "
                 f"(0-{len(self._lazy_frames) - 1})"
             )
 
         lazy_frame = self._lazy_frames[index]
 
-        # 既にロード済みであればキャッシュから返す
+        # Return from cache if already loaded
         if lazy_frame.is_loaded:
             return lazy_frame.frame
 
-        # 元のデータセット内のインデックス
+        # Index in the original dataset
         original_index = self._original_indices[index]
 
         try:
-            # 元のデータセットからフレームを取得
+            # Get frame from the original dataset
             frame = self._original_dataset[original_index]
 
-            # LazyFrameを更新
+            # Update LazyFrame
             lazy_frame.frame = frame
             lazy_frame.is_loaded = True
             lazy_frame.load_attempted = True
@@ -420,8 +418,8 @@ class _SampledFrameDataset(FrameDataset[F]):
 
         except Exception as e:
             logger.error(
-                "サンプリングデータセットでのフレームのロード中にエラー"
-                f"(インデックス {index}, 元インデックス {original_index}): {str(e)}"
+                "Error loading frame in sampled dataset "
+                f"(index {index}, original index {original_index}): {str(e)}"
             )
             lazy_frame.frame = None
             lazy_frame.is_loaded = True
@@ -436,19 +434,19 @@ class _SampledFrameDataset(FrameDataset[F]):
 
     def apply(self, func: Callable[[F], Optional[Any]]) -> "FrameDataset[Any]":
         """
-        関数をサンプリングデータセット全体に適用します。
-        元のデータセットに対して新しい変換として追加され、サンプリングは維持されます。
+        Apply a function to the entire sampled dataset.
+        Added as a new transformation to the original dataset, maintaining sampling.
         """
-        # 元のデータセットに変換を適用した新しいデータセット
+        # Apply transformation to the original dataset
         transformed_dataset = self._original_dataset.apply(func)
 
-        # 同じサンプリングインデックスで新しいサンプリングデータセットを作成
+        # Create a new sampled dataset with the same sampling indices
         return _SampledFrameDataset(transformed_dataset, self._original_indices)
 
 
 class ChannelFrameDataset(FrameDataset[ChannelFrame]):
     """
-    フォルダ内の音声ファイルをChannelFrameとして扱うためのデータセットクラス。
+    Dataset class for handling audio files as ChannelFrames in a folder.
     """
 
     def __init__(
@@ -481,25 +479,22 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         )
 
     def _load_file(self, file_path: Path) -> Optional[ChannelFrame]:
-        """音声ファイルをロードしてChannelFrameを返します。"""
+        """Load an audio file and return a ChannelFrame."""
         try:
             frame = ChannelFrame.from_file(file_path)
             if self.sampling_rate and frame.sampling_rate != self.sampling_rate:
                 logger.info(
-                    f"ファイル {file_path.name} ({frame.sampling_rate} Hz) を "
-                    f"データセットのレート ({self.sampling_rate} Hz)"
-                    "にリサンプリングします。"
+                    f"Resampling file {file_path.name} ({frame.sampling_rate} Hz) to "
+                    f"dataset rate ({self.sampling_rate} Hz)."
                 )
                 frame = frame.resampling(target_sr=self.sampling_rate)
             return frame
         except Exception as e:
-            logger.error(
-                f"ファイル {file_path} の読み込みまたは初期処理に失敗: {str(e)}"
-            )
+            logger.error(f"Failed to load or initialize file {file_path}: {str(e)}")
             return None
 
     def resample(self, target_sr: int) -> "ChannelFrameDataset":
-        """データセット内のすべてのフレームをリサンプリングします。"""
+        """Resample all frames in the dataset."""
 
         def _resample_func(frame: ChannelFrame) -> Optional[ChannelFrame]:
             if frame is None:
@@ -507,14 +502,14 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
             try:
                 return frame.resampling(target_sr=target_sr)
             except Exception as e:
-                logger.warning(f"リサンプリングエラー (target_sr={target_sr}): {e}")
+                logger.warning(f"Resampling error (target_sr={target_sr}): {e}")
                 return None
 
         new_dataset = self.apply(_resample_func)
         return cast(ChannelFrameDataset, new_dataset)
 
     def trim(self, start: float, end: float) -> "ChannelFrameDataset":
-        """データセット内のすべてのフレームをトリミングします。"""
+        """Trim all frames in the dataset."""
 
         def _trim_func(frame: ChannelFrame) -> Optional[ChannelFrame]:
             if frame is None:
@@ -522,14 +517,14 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
             try:
                 return frame.trim(start=start, end=end)
             except Exception as e:
-                logger.warning(f"トリミングエラー (start={start}, end={end}): {e}")
+                logger.warning(f"Trimming error (start={start}, end={end}): {e}")
                 return None
 
         new_dataset = self.apply(_trim_func)
         return cast(ChannelFrameDataset, new_dataset)
 
     def normalize(self, **kwargs: Any) -> "ChannelFrameDataset":
-        """データセット内のすべてのフレームを正規化します。"""
+        """Normalize all frames in the dataset."""
 
         def _normalize_func(frame: ChannelFrame) -> Optional[ChannelFrame]:
             if frame is None:
@@ -537,7 +532,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
             try:
                 return frame.normalize(**kwargs)
             except Exception as e:
-                logger.warning(f"正規化エラー ({kwargs}): {e}")
+                logger.warning(f"Normalization error ({kwargs}): {e}")
                 return None
 
         new_dataset = self.apply(_normalize_func)
@@ -550,7 +545,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         win_length: Optional[int] = None,
         window: str = "hann",
     ) -> "SpectrogramFrameDataset":
-        """データセット内のすべてのフレームにSTFTを適用します。"""
+        """Apply STFT to all frames in the dataset."""
         _hop = hop_length or n_fft // 4
 
         def _stft_func(frame: ChannelFrame) -> Optional[SpectrogramFrame]:
@@ -564,7 +559,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
                     window=window,
                 )
             except Exception as e:
-                logger.warning(f"STFTエラー (n_fft={n_fft}, hop={_hop}): {e}")
+                logger.warning(f"STFT error (n_fft={n_fft}, hop={_hop}): {e}")
                 return None
 
         new_dataset = SpectrogramFrameDataset(
@@ -585,7 +580,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         recursive: bool = False,
         lazy_loading: bool = True,
     ) -> "ChannelFrameDataset":
-        """フォルダからChannelFrameDatasetを作成するクラスメソッド。"""
+        """Class method to create a ChannelFrameDataset from a folder."""
         extensions = (
             file_extensions
             if file_extensions is not None
@@ -603,8 +598,8 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
 
 class SpectrogramFrameDataset(FrameDataset[SpectrogramFrame]):
     """
-    フォルダ内のスペクトログラムデータをSpectrogramFrameとして扱うデータセットクラス。
-    主にChannelFrameDataset.stft()の結果として生成されることを想定。
+    Dataset class for handling spectrogram data as SpectrogramFrames.
+    Expected to be generated mainly as a result of ChannelFrameDataset.stft().
     """
 
     def __init__(
@@ -630,23 +625,23 @@ class SpectrogramFrameDataset(FrameDataset[SpectrogramFrame]):
         )
 
     def _load_file(self, file_path: Path) -> Optional[SpectrogramFrame]:
-        """現在直接ファイルからのロードはサポートされていません。"""
+        """Direct loading from files is not currently supported."""
         logger.warning(
-            "直接SpectrogramFrameをロードする方法は定義されていません。通常、"
-            "ChannelFrameDataset.stft()から作成されます。"
+            "No method defined for directly loading SpectrogramFrames. Normally "
+            "created from ChannelFrameDataset.stft()."
         )
         raise NotImplementedError(
-            "直接SpectrogramFrameをロードする方法は定義されていません"
+            "No method defined for directly loading SpectrogramFrames"
         )
 
     def plot(self, index: int, **kwargs: Any) -> None:
-        """指定インデックスのスペクトログラムをプロットします。"""
+        """Plot the spectrogram at the specified index."""
         try:
             frame = self._ensure_loaded(index)
 
             if frame is None:
                 logger.warning(
-                    f"index {index} はロード/変換に失敗していたためプロットできません。"
+                    f"Cannot plot index {index} as it failed to load/transform."
                 )
                 return
 
@@ -655,10 +650,8 @@ class SpectrogramFrameDataset(FrameDataset[SpectrogramFrame]):
                 plot_method(**kwargs)
             else:
                 logger.warning(
-                    f"フレーム (インデックス {index}, タイプ {type(frame).__name__}) に"
-                    f"plotメソッドが実装されていません。"
+                    f"Frame (index {index}, type {type(frame).__name__}) does not "
+                    f"have a plot method implemented."
                 )
         except Exception as e:
-            logger.error(
-                f"インデックス {index} のプロット中にエラーが発生しました: {e}"
-            )
+            logger.error(f"An error occurred while plotting index {index}: {e}")

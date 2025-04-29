@@ -23,13 +23,13 @@ TFrame = TypeVar("TFrame", bound="BaseFrame[Any]")
 
 
 class PlotStrategy(abc.ABC, Generic[TFrame]):
-    """プロット戦略の基底クラス"""
+    """Base class for plotting strategies"""
 
     name: ClassVar[str]
 
     @abc.abstractmethod
     def channel_plot(self, x: Any, y: Any, ax: "Axes") -> None:
-        """チャンネルプロットの実装"""
+        """Implementation of channel plotting"""
         pass
 
     @abc.abstractmethod
@@ -41,12 +41,12 @@ class PlotStrategy(abc.ABC, Generic[TFrame]):
         overlay: bool = False,
         **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
-        """プロットの実装"""
+        """Implementation of plotting"""
         pass
 
 
 class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
-    """波形プロットの戦略"""
+    """Strategy for waveform plotting"""
 
     name = "waveform"
 
@@ -57,7 +57,7 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         ax: "Axes",
         **kwargs: Any,
     ) -> None:
-        """チャンネルプロットの実装"""
+        """Implementation of channel plotting"""
         ax.plot(x, y, **kwargs)
         ax.set_ylabel("Amplitude")
         ax.grid(True)
@@ -72,7 +72,7 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         overlay: bool = False,
         **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
-        """波形プロット"""
+        """Waveform plotting"""
         kwargs = kwargs or {}
         ylabel = kwargs.pop("ylabel", "Amplitude")
         if overlay:
@@ -118,7 +118,7 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
 
 
 class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
-    """周波数プロットの戦略"""
+    """Strategy for frequency domain plotting"""
 
     name = "frequency"
 
@@ -129,7 +129,7 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
         ax: "Axes",
         **kwargs: Any,
     ) -> None:
-        """チャンネルプロットの実装"""
+        """Implementation of channel plotting"""
         ax.plot(x, y, **kwargs)
         ax.grid(True)
         ax.legend()
@@ -142,7 +142,7 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
         overlay: bool = False,
         **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
-        """周波数プロット"""
+        """Frequency domain plotting"""
         kwargs = kwargs or {}
 
         is_aw = kwargs.pop("Aw", False)
@@ -196,7 +196,7 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
 
 
 class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
-    """オクターブ解析プロットの戦略"""
+    """Strategy for N-octave band analysis plotting"""
 
     name = "noct"
 
@@ -207,7 +207,7 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
         ax: "Axes",
         **kwargs: Any,
     ) -> None:
-        """チャンネルプロットの実装"""
+        """Implementation of channel plotting"""
         ax.step(x, y, **kwargs)
         ax.grid(True)
         if "label" in kwargs:
@@ -221,7 +221,7 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
         overlay: bool = False,
         **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
-        """オクターブ解析プロット"""
+        """N-octave band analysis plotting"""
         kwargs = kwargs or {}
         is_aw = kwargs.pop("Aw", False)
 
@@ -268,7 +268,7 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
 
 
 class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
-    """スペクトログラムプロットの戦略"""
+    """Strategy for spectrogram plotting"""
 
     name = "spectrogram"
 
@@ -279,7 +279,7 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
         ax: "Axes",
         **kwargs: Any,
     ) -> None:
-        """チャンネルプロットの実装"""
+        """Implementation of channel plotting"""
         pass
 
     def plot(
@@ -290,7 +290,7 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
         overlay: bool = False,
         **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
-        """スペクトログラムプロット"""
+        """Spectrogram plotting"""
         if overlay:
             raise ValueError("Overlay is not supported for SpectrogramPlotStrategy.")
 
@@ -387,13 +387,13 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
 
 
 class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
-    """ChannelFrameのデータを可視化するdescribeプロット戦略"""
+    """Strategy for visualizing ChannelFrame data with describe plot"""
 
     name = "describe"
 
     def channel_plot(self, x: Any, y: Any, ax: "Axes", **kwargs: Any) -> None:
-        """チャンネルプロットの実装"""
-        pass  # このメソッドはdescribeでは使用しないため未実装
+        """Implementation of channel plotting"""
+        pass  # This method is not used for describe plot
 
     def plot(
         self,
@@ -403,7 +403,7 @@ class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
         overlay: bool = False,
         **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
-        """ChannelFrameのデータを可視化するdescribeメソッドの実装"""
+        """Implementation of describe method for visualizing ChannelFrame data"""
 
         fmin = kwargs.pop("fmin", 0)
         fmax = kwargs.pop("fmax", None)
@@ -490,7 +490,7 @@ class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
 
 
 class MatrixPlotStrategy(PlotStrategy[Union["SpectralFrame"]]):
-    """チャネル間の関係をマトリックス形式で表示するプロット戦略"""
+    """Strategy for displaying relationships between channels in matrix format"""
 
     name = "matrix"
 
@@ -501,7 +501,7 @@ class MatrixPlotStrategy(PlotStrategy[Union["SpectralFrame"]]):
         ax: "Axes",
         **kwargs: Any,
     ) -> None:
-        """チャンネルプロットの実装"""
+        """Implementation of channel plotting"""
         ylabel = kwargs.pop("ylabel", "")
         title = kwargs.pop("title", None)
         ax.plot(x, y)
@@ -518,7 +518,7 @@ class MatrixPlotStrategy(PlotStrategy[Union["SpectralFrame"]]):
         overlay: bool = False,
         **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
-        """周波数プロット"""
+        """Frequency domain plotting"""
         kwargs = kwargs or {}
         is_aw = kwargs.pop("Aw", False)
 
@@ -576,7 +576,7 @@ _plot_strategies: dict[str, type[PlotStrategy[Any]]] = {}
 
 
 def register_plot_strategy(strategy_cls: type) -> None:
-    """新しいプロット戦略をクラスから登録"""
+    """Register a new plot strategy from a class"""
     if not issubclass(strategy_cls, PlotStrategy):
         raise TypeError("Strategy class must inherit from PlotStrategy.")
     if inspect.isabstract(strategy_cls):
@@ -591,13 +591,13 @@ for strategy_cls in PlotStrategy.__subclasses__():
 
 
 def get_plot_strategy(name: str) -> type[PlotStrategy[Any]]:
-    """名前からプロット戦略を取得"""
+    """Get plot strategy by name"""
     if name not in _plot_strategies:
         raise ValueError(f"Unknown plot type: {name}")
     return _plot_strategies[name]
 
 
 def create_operation(name: str, **params: Any) -> PlotStrategy[Any]:
-    """操作名とパラメータから操作インスタンスを作成"""
+    """Create operation instance from operation name and parameters"""
     operation_class = get_plot_strategy(name)
     return operation_class(**params)

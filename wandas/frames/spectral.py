@@ -33,8 +33,73 @@ S = TypeVar("S", bound="BaseFrame[Any]")
 
 class SpectralFrame(BaseFrame[NDArrayComplex]):
     """
-    周波数領域のデータを扱うクラス
-    データ形状: (channels, frequency_bins)または単一チャネルの場合 (1, frequency_bins)
+    Class for handling frequency-domain signal data.
+
+    This class represents spectral data, providing methods for spectral analysis,
+    manipulation, and visualization. It handles complex-valued frequency domain data
+    obtained through operations like FFT.
+
+    Parameters
+    ----------
+    data : DaArray
+        The spectral data. Must be a dask array with shape:
+        - (channels, frequency_bins) for multi-channel data
+        - (frequency_bins,) for single-channel data, which will be
+          reshaped to (1, frequency_bins)
+    sampling_rate : float
+        The sampling rate of the original time-domain signal in Hz.
+    n_fft : int
+        The FFT size used to generate this spectral data.
+    window : str, default="hann"
+        The window function used in the FFT.
+    label : str, optional
+        A label for the frame.
+    metadata : dict, optional
+        Additional metadata for the frame.
+    operation_history : list[dict], optional
+        History of operations performed on this frame.
+    channel_metadata : list[ChannelMetadata], optional
+        Metadata for each channel in the frame.
+    previous : BaseFrame, optional
+        The frame that this frame was derived from.
+
+    Attributes
+    ----------
+    magnitude : NDArrayReal
+        The magnitude spectrum of the data.
+    phase : NDArrayReal
+        The phase spectrum in radians.
+    power : NDArrayReal
+        The power spectrum (magnitude squared).
+    dB : NDArrayReal
+        The spectrum in decibels relative to channel reference values.
+    dBA : NDArrayReal
+        The A-weighted spectrum in decibels.
+    freqs : NDArrayReal
+        The frequency axis values in Hz.
+
+    Examples
+    --------
+    Create a SpectralFrame from FFT:
+    >>> signal = ChannelFrame.from_numpy(data, sampling_rate=44100)
+    >>> spectrum = signal.fft(n_fft=2048)
+
+    Plot the magnitude spectrum:
+    >>> spectrum.plot()
+
+    Perform binary operations:
+    >>> scaled = spectrum * 2.0
+    >>> summed = spectrum1 + spectrum2  # Must have matching sampling rates
+
+    Convert back to time domain:
+    >>> time_signal = spectrum.ifft()
+
+    Notes
+    -----
+    - All operations are performed lazily using dask arrays for efficient memory usage.
+    - Binary operations (+, -, *, /) can be performed between SpectralFrames or with
+      scalar values.
+    - The class maintains the processing history and metadata through all operations.
     """
 
     n_fft: int
@@ -72,46 +137,120 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
 
     @property
     def magnitude(self) -> NDArrayReal:
+        """
+        Get the magnitude spectrum.
+
+        Returns
+        -------
+        NDArrayReal
+            The absolute values of the complex spectrum.
+        """
         return np.abs(self.data)
 
     @property
     def phase(self) -> NDArrayReal:
+        """
+        Get the phase spectrum.
+
+        Returns
+        -------
+        NDArrayReal
+            The phase angles of the complex spectrum in radians.
+        """
         return np.angle(self.data)
 
     @property
     def power(self) -> NDArrayReal:
-        return np.abs(self.data) ** 2
+        """
+        Get the power spectrum.
+
+        Returns
+        -------
+        NDArrayReal
+            The squared magnitude spectrum.
+        """
+        return self.magnitude**2
 
     @property
     def dB(self) -> NDArrayReal:  # noqa: N802
-        # dB規定値を_channel_metadataから収集
-        ref = np.array([ch.ref for ch in self._channel_metadata])
-        # dB変換
-        # 0除算を避けるために、最大値と1e-12のいずれかを使用
+        """
+        Get the spectrum in decibels.
+
+        The reference values are taken from channel metadata. If no reference
+        is specified, uses 1.0.
+
+        Returns
+        -------
+        NDArrayReal
+            The spectrum in dB relative to channel references.
+        """
+        mag: NDArrayReal = self.magnitude
+        ref_values: NDArrayReal = np.array([ch.ref for ch in self._channel_metadata])
         level: NDArrayReal = 20 * np.log10(
-            np.maximum(self.magnitude / ref[..., np.newaxis], 1e-12)
+            np.maximum(mag / ref_values[:, np.newaxis], 1e-12)
         )
+
         return level
 
     @property
     def dBA(self) -> NDArrayReal:  # noqa: N802
-        # dB規定値を_channel_metadataから収集
+        """
+        Get the A-weighted spectrum in decibels.
+
+        Applies A-weighting filter to the spectrum for better correlation with
+        perceived loudness.
+
+        Returns
+        -------
+        NDArrayReal
+            The A-weighted spectrum in dB.
+        """
         weighted: NDArrayReal = librosa.A_weighting(frequencies=self.freqs, min_db=None)
         return self.dB + weighted
 
     @property
     def _n_channels(self) -> int:
-        """チャネル数を返します。"""
+        """
+        Get the number of channels in the data.
+
+        Returns
+        -------
+        int
+            The number of channels.
+        """
         return self.shape[-2]
 
     @property
     def freqs(self) -> NDArrayReal:
-        """周波数軸を返します"""
+        """
+        Get the frequency axis values in Hz.
+
+        Returns
+        -------
+        NDArrayReal
+            Array of frequency values corresponding to each frequency bin.
+        """
         return np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
 
-    # 四則演算のメソッドは BaseFrame または ChannelFrame から同様に実装
-
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
+        """
+        Implementation of operation application for spectral data.
+
+        This internal method handles the application of various operations to
+        spectral data, maintaining lazy evaluation through dask.
+
+        Parameters
+        ----------
+        operation_name : str
+            Name of the operation to apply.
+        **params : Any
+            Parameters for the operation.
+
+        Returns
+        -------
+        S
+            A new instance with the operation applied.
+        """
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
         from ..processing.time_series import create_operation
 
@@ -146,23 +285,32 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         symbol: str,
     ) -> "SpectralFrame":
         """
-        二項演算の共通実装 - daskの遅延演算を活用
+        Common implementation for binary operations.
+
+        This method handles binary operations between SpectralFrames and various types
+        of operands, maintaining lazy evaluation through dask arrays.
 
         Parameters
         ----------
-        other : ChannelFrame, int, float, ndarray, dask.array
-            演算の右オペランド
+        other : Union[SpectralFrame, int, float, complex,
+                        NDArrayComplex, NDArrayReal, DaArray]
+            The right operand of the operation.
         op : callable
-            演算を実行する関数 (例: lambda a, b: a + b)
+            Function to execute the operation (e.g., lambda a, b: a + b)
         symbol : str
-            演算のシンボル表現 (例: '+')
+            String representation of the operation (e.g., '+')
 
         Returns
         -------
-        ChannelFrame
-            演算結果を含む新しいチャネル（遅延実行）
-        """
+        SpectralFrame
+            A new SpectralFrame containing the result of the operation.
 
+        Raises
+        ------
+        ValueError
+            If attempting to operate with a SpectralFrame
+            with a different sampling rate.
+        """
         logger.debug(f"Setting up {symbol} operation (lazy)")
 
         # Handle potentially None metadata and operation_history
@@ -245,19 +393,38 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             )
 
     def plot(
-        self, plot_type: str = "frequency", ax: Optional["Axes"] = None, **kwargs: Any
+        self,
+        plot_type: str = "frequency",
+        ax: Optional["Axes"] = None,
+        **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
         """
-        様々な形式のプロット (Strategyパターンを使用)
+        Plot the spectral data using various visualization strategies.
 
         Parameters
         ----------
-        plot_type : str
-            'waveform', 'spectrogram'などのプロット種類
+        plot_type : str, default="frequency"
+            Type of plot to create. Options include:
+            - "frequency": Standard frequency plot
+            - "matrix": Matrix plot for comparing channels
+            - Other types as defined by available plot strategies
         ax : matplotlib.axes.Axes, optional
-            プロット先の軸。Noneの場合は新しい軸を作成
+            Axes to plot on. If None, creates new axes.
         **kwargs : dict
-            プロット固有のパラメータ
+            Additional keyword arguments passed to the plot strategy.
+            Common options include:
+            - title: Plot title
+            - xlabel, ylabel: Axis labels
+            - vmin, vmax: Value limits for plots
+            - cmap: Colormap name
+            - dB: Whether to plot in decibels
+            - Aw: Whether to apply A-weighting
+
+        Returns
+        -------
+        Union[Axes, Iterator[Axes]]
+            The matplotlib axes containing the plot, or an iterator of axes
+            for multi-plot outputs.
         """
         from wandas.visualization.plotting import create_operation
 
@@ -275,7 +442,16 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
 
     def ifft(self) -> "ChannelFrame":
         """
-        逆FFTを計算し、時間領域のデータを返します。
+        Compute the Inverse Fast Fourier Transform (IFFT) to return to time domain.
+
+        This method transforms the frequency-domain data back to the time domain using
+        the inverse FFT operation. The window function used in the forward FFT is
+        taken into account to ensure proper reconstruction.
+
+        Returns
+        -------
+        ChannelFrame
+            A new ChannelFrame containing the time-domain signal.
         """
         from ..processing.time_series import IFFT, create_operation
         from .channel import ChannelFrame
@@ -307,6 +483,11 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
         """
         SpectralFrame に必要な追加の初期化引数を提供します。
+
+        Returns
+        -------
+        dict[str, Any]
+            Additional initialization arguments for SpectralFrame.
         """
         return {
             "n_fft": self.n_fft,
@@ -322,7 +503,34 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         fr: int = 1000,
     ) -> "NOctFrame":
         """
-        N-Octave Spectrum を計算します。
+        Synthesize N-octave band spectrum.
+
+        This method combines frequency components into N-octave bands according to
+        standard acoustical band definitions. This is commonly used in noise and
+        vibration analysis.
+
+        Parameters
+        ----------
+        fmin : float
+            Lower frequency bound in Hz.
+        fmax : float
+            Upper frequency bound in Hz.
+        n : int, default=3
+            Number of bands per octave (e.g., 3 for third-octave bands).
+        G : int, default=10
+            Reference band number.
+        fr : int, default=1000
+            Reference frequency in Hz.
+
+        Returns
+        -------
+        NOctFrame
+            A new NOctFrame containing the N-octave band spectrum.
+
+        Raises
+        ------
+        ValueError
+            If the sampling rate is not 48000 Hz, which is required for this operation.
         """
         if self.sampling_rate != 48000:
             raise ValueError(
@@ -373,25 +581,26 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
         """
-        チャネル間の関係をマトリックス形式でプロット
+        Plot channel relationships in matrix format.
+
+        This method creates a matrix plot showing relationships between channels,
+        such as coherence, transfer functions, or cross-spectral density.
 
         Parameters
         ----------
-        other : SpectralFrame or BaseFrame, optional
-            比較する別のフレーム。指定しない場合は自身の全チャネル間で関係を表示
         plot_type : str, default="matrix"
+            Type of matrix plot to create.
         **kwargs : dict
-            その他のプロットパラメータ：
-            - vmin, vmax: カラースケールの最小値と最大値
-            - cmap: カラーマップ名
-            - title: 図のタイトル
+            Additional plot parameters:
+            - vmin, vmax: Color scale limits
+            - cmap: Colormap name
+            - title: Plot title
 
         Returns
         -------
-        matplotlib.figure.Figure
-            プロットされた図のオブジェクト
+        Union[Axes, Iterator[Axes]]
+            The matplotlib axes containing the plot.
         """
-
         from wandas.visualization.plotting import create_operation
 
         logger.debug(f"Plotting audio with plot_type={plot_type} (will compute now)")

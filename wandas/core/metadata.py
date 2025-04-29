@@ -5,17 +5,17 @@ from pydantic import BaseModel, Field  # pydanticから直接インポート
 
 class ChannelMetadata(BaseModel):
     """
-    チャネルのメタデータを格納するデータクラス
+    Data class for storing channel metadata
     """
 
     label: str = ""
     unit: str = ""
     ref: float = 1.0
-    # 拡張性のために追加のメタデータを保存
+    # Additional metadata for extensibility
     extra: dict[str, Any] = Field(default_factory=dict)
 
     def __getitem__(self, key: str) -> Any:
-        """辞書のような振る舞いを提供"""
+        """Provide dictionary-like behavior"""
         if key == "label":
             return self.label
         elif key == "unit":
@@ -26,7 +26,7 @@ class ChannelMetadata(BaseModel):
             return self.extra.get(key)
 
     def __setitem__(self, key: str, value: Any) -> None:
-        """辞書のような振る舞いを提供"""
+        """Provide dictionary-like behavior"""
         if key == "label":
             self.label = value
         elif key == "unit":
@@ -37,13 +37,13 @@ class ChannelMetadata(BaseModel):
             self.extra[key] = value
 
     def to_json(self) -> str:
-        """JSON形式に変換"""
+        """Convert to JSON format"""
         json_data: str = self.model_dump_json(indent=4)
         return json_data
 
     @classmethod
     def from_json(cls, json_data: str) -> "ChannelMetadata":
-        """JSON形式から変換"""
+        """Convert from JSON format"""
         root_model: ChannelMetadata = ChannelMetadata.model_validate_json(json_data)
 
         return root_model

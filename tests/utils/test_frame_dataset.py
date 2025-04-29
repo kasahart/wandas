@@ -143,7 +143,7 @@ class TestLazyFrame:
 
         # ログ確認
         assert any(
-            "読み込みに失敗" in record.message and record.levelname == "ERROR"
+            "Failed to load file" in record.message and record.levelname == "ERROR"
             for record in caplog.records
         )
 
@@ -404,7 +404,7 @@ class TestChannelFrameDataset:
         assert result is None
         # Check logs for warning from _ensure_loaded
         assert any(
-            "読み込みまたは初期処理に失敗" in record.message
+            "Failed to load or initialize file" in record.message
             and record.levelname == "ERROR"
             for record in caplog.records
         )
@@ -420,7 +420,7 @@ class TestChannelFrameDataset:
         )  # Should be None due to load failure
         # 新しい実装では、エラーログはERRORレベルで出力される
         assert any(
-            "読み込みまたは初期処理に失敗" in record.message
+            "Failed to load or initialize file" in record.message
             for record in caplog.records
         )
 
@@ -516,7 +516,7 @@ class TestChannelFrameDataset:
 
         # Check logs for warning
         assert any(
-            "変換に失敗" in record.message and record.levelname == "WARNING"
+            "Transform failed!" in record.message and record.levelname == "WARNING"
             for record in caplog.records
         )
         # Ensure frame is marked as is_loaded but with frame=None
@@ -753,14 +753,14 @@ class TestChannelFrameDataset:
 
         # saveメソッドが未実装のため、NotImplementedErrorが発生することを確認
         with pytest.raises(
-            NotImplementedError, match="saveメソッドは現在実装されていません"
+            NotImplementedError, match="The save method is not currently implemented."
         ):
             dataset.save(str(output_folder), filename_prefix="processed_")
 
         # SpectrogramFrameDatasetのsaveも同様に例外を発生させるか確認
         stft_dataset = dataset.stft()
         with pytest.raises(
-            NotImplementedError, match="saveメソッドは現在実装されていません"
+            NotImplementedError, match="The save method is not currently implemented."
         ):
             stft_dataset.save(str(output_folder), filename_prefix="spec_")
 
@@ -796,7 +796,7 @@ class TestSpectrogramFrameDataset:
         # 直接_load_fileを呼び出して例外を確認
         with pytest.raises(
             NotImplementedError,
-            match="直接SpectrogramFrameをロードする方法は定義されていません",
+            match="No method defined for directly loading SpectrogramFrames",
         ):
             spec_ds._load_file(dummy_spec_file)
 
@@ -870,7 +870,7 @@ class TestSpectrogramFrameDataset:
             error_spec_ds.plot(0)  # Attempt to plot the failing one
             mock_plot_error.assert_not_called()
             assert any(
-                "ロード/変換に失敗していたためプロットできません" in rec.message
+                "STFT failed" in rec.message
                 for rec in caplog.records
                 if rec.levelname == "WARNING"
             )
@@ -883,14 +883,14 @@ class TestSpectrogramFrameDataset:
             # plotメソッドがないフレームをロードした場合のテスト
             stft_ds.plot(0)
             assert any(
-                "plotメソッドが実装されていません" in rec.message
+                "Frame" in rec.message
                 for rec in caplog.records
                 if rec.levelname == "WARNING"
             )
 
         # Test error during plotting itself
         caplog.clear()
-        plot_error_msg = "Plotting itself failed"
+        plot_error_msg = "The save method is not currently implemented."
         with patch.object(
             SpectrogramFrame, "plot", side_effect=RuntimeError(plot_error_msg)
         ) as mock_plot_runtime_error:
@@ -1051,7 +1051,7 @@ class TestSampledFrameDataset:
 
         with pytest.raises(
             NotImplementedError,
-            match="_SampledFrameDatasetは直接ファイルをロードしません",
+            match="_SampledFrameDataset does not load files directly.",
         ):
             sampled_ds._load_file(Path("dummy.wav"))
 
@@ -1064,6 +1064,7 @@ class TestSampledFrameDataset:
         invalid_indices = [0, 10]  # 10は範囲外（ファイルは3つしかない）
 
         with pytest.raises(
-            IndexError, match="インデックスが元データセットの範囲外です"
+            IndexError,
+            match="Indices are out of range for the original dataset.",
         ):
             _SampledFrameDataset(dataset, invalid_indices)

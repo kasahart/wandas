@@ -625,15 +625,19 @@ class TestChannelFrame:
                 assert cf.channels[0].label == "ch0"
                 assert cf.channels[1].label == "ch1"
                 # Test error cases
-                with pytest.raises(ValueError, match="チャネル指定が範囲外です"):
+                with pytest.raises(
+                    ValueError, match="Channel specification is out of range"
+                ):
                     ChannelFrame.from_file(temp_filename, channel=5)
 
-                with pytest.raises(ValueError, match="チャネル指定が範囲外です"):
+                with pytest.raises(
+                    ValueError, match="Channel specification is out of range"
+                ):
                     ChannelFrame.from_file(temp_filename, channel=[0, 5])
 
                 with pytest.raises(
                     TypeError,
-                    match="channel は int, list, または None である必要があります",
+                    match="channel must be int, list, or None",
                 ):
                     ChannelFrame.from_file(temp_filename, channel="invalid")  # type: ignore
 
@@ -1063,7 +1067,7 @@ class TestChannelFrame:
 
             # 警告メッセージが記録されたことを確認
             mock_logger.warning.assert_called_with(
-                "axis_configは前方互換性のために残されていますが、今後は非推奨となります。"
+                "axis_config is retained for backward compatibility but will be deprecated in the future."  # noqa: E501
             )
 
     def test_describe_method_with_cbar_config(self) -> None:
@@ -1081,7 +1085,7 @@ class TestChannelFrame:
 
             # 警告メッセージが記録されたことを確認
             mock_logger.warning.assert_called_with(
-                "cbar_configは前方互換性のために残されていますが、今後は非推奨となります。"
+                "cbar_config is retained for backward compatibility but will be deprecated in the future."  # noqa: E501
             )
 
     def test_describe_method_with_axes(self) -> None:

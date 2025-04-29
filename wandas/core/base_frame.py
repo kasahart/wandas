@@ -24,6 +24,38 @@ S = TypeVar("S", bound="BaseFrame[Any]")
 class BaseFrame(ABC, Generic[T]):
     """
     Abstract base class for all signal frame types.
+
+    This class provides the common interface and functionality for all frame types
+    used in signal processing. It implements basic operations like indexing, iteration,
+    and data manipulation that are shared across all frame types.
+
+    Parameters
+    ----------
+    data : DaArray
+        The signal data to process. Must be a dask array.
+    sampling_rate : float
+        The sampling rate of the signal in Hz.
+    label : str, optional
+        A label for the frame. If not provided, defaults to "unnamed_frame".
+    metadata : dict, optional
+        Additional metadata for the frame.
+    operation_history : list[dict], optional
+        History of operations performed on this frame.
+    channel_metadata : list[ChannelMetadata], optional
+        Metadata for each channel in the frame.
+    previous : BaseFrame, optional
+        The frame that this frame was derived from.
+
+    Attributes
+    ----------
+    sampling_rate : float
+        The sampling rate of the signal in Hz.
+    label : str
+        The label of the frame.
+    metadata : dict
+        Additional metadata for the frame.
+    operation_history : list[dict]
+        History of operations performed on this frame.
     """
 
     _data: DaArray

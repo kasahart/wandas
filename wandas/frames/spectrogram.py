@@ -25,9 +25,76 @@ S = TypeVar("S", bound="BaseFrame[Any]")
 
 class SpectrogramFrame(BaseFrame[NDArrayComplex]):
     """
-    時間-周波数領域のデータ（スペクトログラム）を扱うクラス
-    データ形状: (channels, frequency_bins, time_frames) または
-             単一チャネルの場合 (1, frequency_bins, time_frames)
+    Class for handling time-frequency domain data (spectrograms).
+
+    This class represents spectrogram data obtained through
+    Short-Time Fourier Transform (STFT)
+    or similar time-frequency analysis methods. It provides methods for visualization,
+    manipulation, and conversion back to time domain.
+
+    Parameters
+    ----------
+    data : DaArray
+        The spectrogram data. Must be a dask array with shape:
+        - (channels, frequency_bins, time_frames) for multi-channel data
+        - (frequency_bins, time_frames) for single-channel data, which will be
+          reshaped to (1, frequency_bins, time_frames)
+    sampling_rate : float
+        The sampling rate of the original time-domain signal in Hz.
+    n_fft : int
+        The FFT size used to generate this spectrogram.
+    hop_length : int
+        Number of samples between successive frames.
+    win_length : int, optional
+        The window length in samples. If None, defaults to n_fft.
+    window : str, default="hann"
+        The window function to use (e.g., "hann", "hamming", "blackman").
+    label : str, optional
+        A label for the frame.
+    metadata : dict, optional
+        Additional metadata for the frame.
+    operation_history : list[dict], optional
+        History of operations performed on this frame.
+    channel_metadata : list[ChannelMetadata], optional
+        Metadata for each channel in the frame.
+    previous : BaseFrame, optional
+        The frame that this frame was derived from.
+
+    Attributes
+    ----------
+    magnitude : NDArrayReal
+        The magnitude spectrogram.
+    phase : NDArrayReal
+        The phase spectrogram in radians.
+    power : NDArrayReal
+        The power spectrogram.
+    dB : NDArrayReal
+        The spectrogram in decibels relative to channel reference values.
+    dBA : NDArrayReal
+        The A-weighted spectrogram in decibels.
+    n_frames : int
+        Number of time frames.
+    n_freq_bins : int
+        Number of frequency bins.
+    freqs : NDArrayReal
+        The frequency axis values in Hz.
+    times : NDArrayReal
+        The time axis values in seconds.
+
+    Examples
+    --------
+    Create a spectrogram from a time-domain signal:
+    >>> signal = ChannelFrame.from_wav("audio.wav")
+    >>> spectrogram = signal.stft(n_fft=2048, hop_length=512)
+
+    Extract a specific time frame:
+    >>> frame_at_1s = spectrogram.get_frame_at(int(1.0 * sampling_rate / hop_length))
+
+    Convert back to time domain:
+    >>> reconstructed = spectrogram.to_channel_frame()
+
+    Plot the spectrogram:
+    >>> spectrogram.plot()
     """
 
     n_fft: int
@@ -64,7 +131,6 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         self.hop_length = hop_length
         self.win_length = win_length if win_length is not None else n_fft
         self.window = window
-
         super().__init__(
             data=data,
             sampling_rate=sampling_rate,
@@ -77,22 +143,53 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
 
     @property
     def magnitude(self) -> NDArrayReal:
-        """振幅スペクトログラム"""
+        """
+        Get the magnitude spectrogram.
+
+        Returns
+        -------
+        NDArrayReal
+            The absolute values of the complex spectrogram.
+        """
         return np.abs(self.data)
 
     @property
     def phase(self) -> NDArrayReal:
-        """位相スペクトログラム"""
+        """
+        Get the phase spectrogram.
+
+        Returns
+        -------
+        NDArrayReal
+            The phase angles of the complex spectrogram in radians.
+        """
         return np.angle(self.data)
 
     @property
     def power(self) -> NDArrayReal:
-        """パワースペクトログラム"""
+        """
+        Get the power spectrogram.
+
+        Returns
+        -------
+        NDArrayReal
+            The squared magnitude of the complex spectrogram.
+        """
         return np.abs(self.data) ** 2
 
     @property
     def dB(self) -> NDArrayReal:  # noqa: N802
-        """デシベル単位のスペクトログラム"""
+        """
+        Get the spectrogram in decibels relative to each channel's reference value.
+
+        The reference value for each channel is specified in its metadata.
+        A minimum value of -120 dB is enforced to avoid numerical issues.
+
+        Returns
+        -------
+        NDArrayReal
+            The spectrogram in decibels.
+        """
         # dB規定値を_channel_metadataから収集
         ref = np.array([ch.ref for ch in self._channel_metadata])
         # dB変換
@@ -104,38 +201,99 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
 
     @property
     def dBA(self) -> NDArrayReal:  # noqa: N802
-        """A特性重み付けデシベル単位のスペクトログラム"""
+        """
+        Get the A-weighted spectrogram in decibels.
+
+        A-weighting applies a frequency-dependent weighting filter that approximates
+        the human ear's response. This is particularly useful for analyzing noise
+        and acoustic measurements.
+
+        Returns
+        -------
+        NDArrayReal
+            The A-weighted spectrogram in decibels.
+        """
         weighted: NDArrayReal = librosa.A_weighting(frequencies=self.freqs, min_db=None)
         return self.dB + weighted[:, np.newaxis]  # 周波数軸に沿ってブロードキャスト
 
     @property
     def _n_channels(self) -> int:
-        """チャネル数を返します"""
+        """
+        Get the number of channels in the data.
+
+        Returns
+        -------
+        int
+            The number of channels.
+        """
         return self.shape[0]
 
     @property
     def n_frames(self) -> int:
-        """時間フレーム数を返します"""
+        """
+        Get the number of time frames.
+
+        Returns
+        -------
+        int
+            The number of time frames in the spectrogram.
+        """
         return self.shape[-1]
 
     @property
     def n_freq_bins(self) -> int:
-        """周波数ビン数を返します"""
+        """
+        Get the number of frequency bins.
+
+        Returns
+        -------
+        int
+            The number of frequency bins (n_fft // 2 + 1).
+        """
         return self.shape[-2]
 
     @property
     def freqs(self) -> NDArrayReal:
-        """周波数軸を返します"""
+        """
+        Get the frequency axis values in Hz.
+
+        Returns
+        -------
+        NDArrayReal
+            Array of frequency values corresponding to each frequency bin.
+        """
         return np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
 
     @property
     def times(self) -> NDArrayReal:
-        """時間軸を返します"""
+        """
+        Get the time axis values in seconds.
+
+        Returns
+        -------
+        NDArrayReal
+            Array of time values corresponding to each time frame.
+        """
         return np.arange(self.n_frames) * self.hop_length / self.sampling_rate
 
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
         """
-        操作を適用する内部実装。遅延評価を利用します。
+        Implementation of operation application for spectrogram data.
+
+        This internal method handles the application of various operations to
+        spectrogram data, maintaining lazy evaluation through dask.
+
+        Parameters
+        ----------
+        operation_name : str
+            Name of the operation to apply.
+        **params : Any
+            Parameters for the operation.
+
+        Returns
+        -------
+        S
+            A new instance with the operation applied.
         """
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
         from wandas.processing.time_series import create_operation
@@ -173,7 +331,32 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         symbol: str,
     ) -> "SpectrogramFrame":
         """
-        二項演算の共通実装 - daskの遅延演算を活用
+        Common implementation for binary operations.
+
+        This method handles binary operations between
+        SpectrogramFrames and various types
+        of operands, maintaining lazy evaluation through dask arrays.
+
+        Parameters
+        ----------
+        other : Union[SpectrogramFrame, int, float, complex,
+            NDArrayComplex, NDArrayReal, DaArray]
+            The right operand of the operation.
+        op : callable
+            Function to execute the operation (e.g., lambda a, b: a + b)
+        symbol : str
+            String representation of the operation (e.g., '+')
+
+        Returns
+        -------
+        SpectrogramFrame
+            A new SpectrogramFrame containing the result of the operation.
+
+        Raises
+        ------
+        ValueError
+            If attempting to operate with a SpectrogramFrame
+            with a different sampling rate.
         """
         logger.debug(f"Setting up {symbol} operation (lazy)")
 
@@ -255,22 +438,31 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         self, plot_type: str = "spectrogram", ax: Optional["Axes"] = None, **kwargs: Any
     ) -> Union["Axes", Iterator["Axes"]]:
         """
-        様々な形式のプロットを生成します (Strategyパターンを使用)
+        Plot the spectrogram using various visualization strategies.
 
         Parameters
         ----------
-        plot_type : str
-            'spectrogram', 'phasegram' などのプロット種類
+        plot_type : str, default="spectrogram"
+            Type of plot to create.
         ax : matplotlib.axes.Axes, optional
-            プロット先の軸。Noneの場合は新しい軸を作成
+            Axes to plot on. If None, creates new axes.
         **kwargs : dict
-            プロット固有のパラメータ
+            Additional keyword arguments passed to the plot strategy.
+            Common options include:
+            - vmin, vmax: Colormap scaling
+            - cmap: Colormap name
+            - dB: Whether to plot in decibels
+            - Aw: Whether to apply A-weighting
+
+        Returns
+        -------
+        Union[Axes, Iterator[Axes]]
+            The matplotlib axes containing the plot, or an iterator of axes
+            for multi-plot outputs.
         """
         from wandas.visualization.plotting import create_operation
 
-        logger.debug(
-            f"Plotting spectrogram with plot_type={plot_type} (will compute now)"
-        )
+        logger.debug(f"Plotting audio with plot_type={plot_type} (will compute now)")
 
         # プロット戦略を取得
         plot_strategy: PlotStrategy[SpectrogramFrame] = create_operation(plot_type)
@@ -285,21 +477,46 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
     def plot_Aw(  # noqa: N802
         self, plot_type: str = "spectrogram", ax: Optional["Axes"] = None, **kwargs: Any
     ) -> Union["Axes", Iterator["Axes"]]:
+        """
+        Plot the A-weighted spectrogram.
+
+        A convenience method that calls plot() with Aw=True, applying A-weighting
+        to the spectrogram before plotting.
+
+        Parameters
+        ----------
+        plot_type : str, default="spectrogram"
+            Type of plot to create.
+        ax : matplotlib.axes.Axes, optional
+            Axes to plot on. If None, creates new axes.
+        **kwargs : dict
+            Additional keyword arguments passed to plot().
+
+        Returns
+        -------
+        Union[Axes, Iterator[Axes]]
+            The matplotlib axes containing the plot.
+        """
         return self.plot(plot_type=plot_type, ax=ax, Aw=True, **kwargs)
 
     def get_frame_at(self, time_idx: int) -> "SpectralFrame":
         """
-        特定の時間フレームのスペクトルデータを取得します
+        Extract spectral data at a specific time frame.
 
         Parameters
         ----------
         time_idx : int
-            取得する時間フレームのインデックス
+            Index of the time frame to extract.
 
         Returns
         -------
         SpectralFrame
-            指定された時間フレームのスペクトルデータ
+            A new SpectralFrame containing the spectral data at the specified time.
+
+        Raises
+        ------
+        IndexError
+            If time_idx is out of range.
         """
         from wandas.frames.spectral import SpectralFrame
 
@@ -323,12 +540,15 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
 
     def to_channel_frame(self) -> "ChannelFrame":
         """
-        スペクトログラムを逆STFTで時間領域のデータに変換します
+        Convert the spectrogram back to time domain using inverse STFT.
+
+        This method performs an inverse Short-Time Fourier Transform (ISTFT) to
+        reconstruct the time-domain signal from the spectrogram.
 
         Returns
         -------
         ChannelFrame
-            時間領域のデータを含むChannelFrame
+            A new ChannelFrame containing the reconstructed time-domain signal.
         """
         from wandas.frames.channel import ChannelFrame
         from wandas.processing.time_series import ISTFT, create_operation
@@ -345,7 +565,6 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         # 操作インスタンスを作成
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("ISTFT", operation)
-
         # データに処理を適用
         time_series = operation.process(self._data)
 
@@ -365,7 +584,15 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
         """
-        SpectrogramFrame に必要な追加の初期化引数を提供します。
+        Get additional initialization arguments for SpectrogramFrame.
+
+        This internal method provides the additional initialization arguments
+        required by SpectrogramFrame beyond those required by BaseFrame.
+
+        Returns
+        -------
+        dict[str, Any]
+            Additional initialization arguments.
         """
         return {
             "n_fft": self.n_fft,

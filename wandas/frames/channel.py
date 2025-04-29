@@ -44,9 +44,10 @@ S = TypeVar("S", bound="BaseFrame[Any]")
 
 
 class ChannelFrame(BaseFrame[NDArrayReal]):
-    """
-    Wrapper class for audio channels.
-    Data shape: (channels, samples) or (1, samples) for a single channel.
+    """Channel-based data frame for handling audio signals and time series data.
+
+    This frame represents channel-based data such as audio signals and time series data,
+    with each channel containing data samples in the time domain.
     """
 
     def __init__(
@@ -59,6 +60,21 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         channel_metadata: Optional[list[ChannelMetadata]] = None,
         previous: Optional["BaseFrame[Any]"] = None,
     ) -> None:
+        """Initialize a ChannelFrame.
+
+        Args:
+            data: Dask array containing channel data.
+            Shape should be (n_channels, n_samples).
+            sampling_rate: The sampling rate of the data in Hz.
+            label: A label for the frame.
+            metadata: Optional metadata dictionary.
+            operation_history: History of operations applied to the frame.
+            channel_metadata: Metadata for each channel.
+            previous: Reference to the previous frame in the processing chain.
+
+        Raises:
+            ValueError: If data has more than 2 dimensions.
+        """
         if data.ndim == 1:
             data = data.reshape(1, -1)
         elif data.ndim > 2:
@@ -82,8 +98,10 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
 
     @property
     def time(self) -> NDArrayReal:
-        """
-        Returns the time data.
+        """Get time array for the signal.
+
+        Returns:
+            Array of time points in seconds.
         """
         return np.arange(self.n_samples) / self.sampling_rate
 
@@ -139,21 +157,16 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         symbol: str,
     ) -> "ChannelFrame":
         """
-        Common implementation for binary operations - utilizing dask's lazy evaluation
+        Common implementation for binary operations
+        - utilizing dask's lazy evaluation.
 
-        Parameters
-        ----------
-        other : ChannelFrame, int, float, ndarray, dask.array
-            Right operand for the operation
-        op : callable
-            Function to execute the operation (e.g., lambda a, b: a + b)
-        symbol : str
-            Symbolic representation of the operation (e.g., '+')
+        Args:
+            other: Right operand for the operation.
+            op: Function to execute the operation (e.g., lambda a, b: a + b).
+            symbol: Symbolic representation of the operation (e.g., '+').
 
-        Returns
-        -------
-        ChannelFrame
-            A new channel containing the operation result (lazy execution)
+        Returns:
+            A new channel containing the operation result (lazy execution).
         """
         from .channel import ChannelFrame
 
@@ -175,10 +188,10 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
                     "Sampling rates do not match. Cannot perform operation."
                 )
 
-            # dask arrayを直接演算（遅延実行を維持）
+            # Perform operation directly on dask array (maintaining lazy execution)
             result_data = op(self._data, other._data)
 
-            # チャネルメタデータを結合
+            # Merge channel metadata
             merged_channel_metadata = []
             for self_ch, other_ch in zip(
                 self._channel_metadata, other._channel_metadata
@@ -199,22 +212,22 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
                 previous=self,
             )
 
-        # スカラー、NumPy配列、または他のタイプとの演算
+        # Perform operation with scalar, NumPy array, or other types
         else:
-            # dask arrayに直接演算を適用（遅延実行を維持）
+            # Apply operation directly on dask array (maintaining lazy execution)
             result_data = op(self._data, other)
 
-            # オペランドの表示用文字列
+            # Operand display string
             if isinstance(other, (int, float)):
                 other_str = str(other)
             elif isinstance(other, np.ndarray):
                 other_str = f"ndarray{other.shape}"
-            elif hasattr(other, "shape"):  # dask.array.Arrayのチェック
+            elif hasattr(other, "shape"):  # Check for dask.array.Array
                 other_str = f"dask.array{other.shape}"
             else:
                 other_str = str(type(other).__name__)
 
-            # チャネルメタデータを更新
+            # Update channel metadata
             updated_channel_metadata: list[ChannelMetadata] = []
             for self_ch in self._channel_metadata:
                 ch = self_ch.model_copy(deep=True)
@@ -238,24 +251,19 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         other: Union["ChannelFrame", int, float, NDArrayReal, "DaArray"],
         snr: Optional[float] = None,
     ) -> "ChannelFrame":
-        """
-        Add another signal or value to the current signal.
+        """Add another signal or value to the current signal.
+
         If SNR is specified, performs addition with consideration for
         signal-to-noise ratio.
 
-        Parameters
-        ----------
-        other : ChannelFrame, int, float, ndarray, dask.array
-            Signal or value to add
-        snr : float, optional
-            Signal-to-noise ratio (dB). If specified, adjusts the scale of the
-            other signal based on this SNR.
-            self is treated as the signal, and other as the noise.
+        Args:
+            other: Signal or value to add.
+            snr: Signal-to-noise ratio (dB). If specified, adjusts the scale of the
+                other signal based on this SNR.
+                self is treated as the signal, and other as the noise.
 
-        Returns
-        -------
-        ChannelFrame
-            A new channel frame containing the addition result (lazy execution)
+        Returns:
+            A new channel frame containing the addition result (lazy execution).
         """
         logger.debug(f"Setting up add operation with SNR={snr} (lazy)")
 
@@ -291,25 +299,22 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
     def plot(
         self, plot_type: str = "waveform", ax: Optional["Axes"] = None, **kwargs: Any
     ) -> Union["Axes", Iterator["Axes"]]:
-        """
-        Various types of plots (using Strategy pattern)
+        """Plot the frame data.
 
-        Parameters
-        ----------
-        plot_type : str
-            Plot type such as 'waveform', 'spectrogram', etc.
-        ax : matplotlib.axes.Axes, optional
-            Axes to plot on. If None, creates a new axis
-        **kwargs : dict
-            Plot-specific parameters
-        """
+        Args:
+            plot_type: Type of plot. Default is "waveform".
+            ax: Optional matplotlib axes for plotting.
+            **kwargs: Additional arguments passed to the plot function.
 
+        Returns:
+            Single Axes object or iterator of Axes objects.
+        """
         logger.debug(f"Plotting audio with plot_type={plot_type} (will compute now)")
 
-        # プロット戦略を取得
+        # Get plot strategy
         plot_strategy = create_operation(plot_type)
 
-        # プロット実行
+        # Execute plot
         _ax = plot_strategy.plot(self, ax=ax, **kwargs)
 
         logger.debug("Plot rendering complete")
@@ -324,21 +329,17 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         Aw: bool = False,  # noqa: N803
         **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
-        """
-        Generate an RMS plot.
+        """Generate an RMS plot.
 
-        Parameters
-        ----------
-        ax : matplotlib.axes.Axes, optional
-            Axes to plot on. If None, creates a new axis
-        title : str, optional
-            Title for the plot
-        overlay : bool, default=True
-            Whether to overlay the plot on the existing axis
-        Aw : bool, optional
-            Apply A-weighting.
-        **kwargs : dict
-            Plot-specific parameters
+        Args:
+            ax: Optional matplotlib axes for plotting.
+            title: Title for the plot.
+            overlay: Whether to overlay the plot on the existing axis.
+            Aw: Apply A-weighting.
+            **kwargs: Additional arguments passed to the plot function.
+
+        Returns:
+            Single Axes object or iterator of Axes objects.
         """
         kwargs = kwargs or {}
         ylabel = kwargs.pop("ylabel", "RMS")
@@ -346,19 +347,15 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         return rms_ch.plot(ax=ax, ylabel=ylabel, title=title, overlay=overlay, **kwargs)
 
     def describe(self, normalize: bool = True, **kwargs: Any) -> None:
-        """
-        Describes and displays the audio data with waveform visualization and playback.
+        """Display visual and audio representation of the frame.
 
-        Parameters
-        ----------
-        normalize : bool, default=True
-            Whether to normalize the audio data for playback
-        **kwargs : dict
-            Additional parameters for visualization
+        Args:
+            normalize: Whether to normalize the audio data for playback.
+            **kwargs: Additional parameters for visualization.
         """
         if "axis_config" in kwargs:
             logger.warning(
-                "axis_configは前方互換性のために残されていますが、今後は非推奨となります。"  # noqa: E501
+                "axis_config is retained for backward compatibility but will be deprecated in the future."  # noqa: E501
             )
             axis_config = kwargs["axis_config"]
             if "time_plot" in axis_config:
@@ -374,7 +371,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
 
         if "cbar_config" in kwargs:
             logger.warning(
-                "cbar_configは前方互換性のために残されていますが、今後は非推奨となります。"  # noqa: E501
+                "cbar_config is retained for backward compatibility but will be deprecated in the future."  # noqa: E501
             )
             cbar_config = kwargs["cbar_config"]
             if "vmin" in cbar_config:
@@ -393,7 +390,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
                 raise TypeError(
                     f"Unexpected type for plot result: {type(_ax)}. Expected Axes or Iterator[Axes]."  # noqa: E501
                 )
-            # displayとAudioの型チェックを無視する
+            # Ignore type checks for display and Audio
             display(ax.figure)  # type: ignore
             plt.close(ax.figure)  # type: ignore
             display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))  # type: ignore
@@ -408,31 +405,19 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         ch_labels: Optional[list[str]] = None,
         ch_units: Optional[Union[list[str], str]] = None,
     ) -> "ChannelFrame":
+        """Create a ChannelFrame from a NumPy array.
+
+        Args:
+            data: NumPy array containing channel data.
+            sampling_rate: The sampling rate in Hz.
+            label: A label for the frame.
+            metadata: Optional metadata dictionary.
+            ch_labels: Labels for each channel.
+            ch_units: Units for each channel.
+
+        Returns:
+            A new ChannelFrame containing the NumPy data.
         """
-        Create a channel frame from a NumPy array.
-
-        Parameters
-        ----------
-        data : numpy.ndarray
-            Audio data. Shape can be:
-            (batch, channels, samples) or (channels, samples) or (samples,)
-        sampling_rate : float
-            Sampling rate (Hz)
-        label : str, optional
-            Label for the channel
-        metadata : dict, optional
-            Additional metadata
-        ch_labels : list of str, optional
-            Labels for each channel
-        ch_units : Union[list[str], str], optional
-            Units for each channel
-
-        Returns
-        -------
-        ChannelFrame
-            A new channel frame containing the data
-        """
-
         if data.ndim == 1:
             data = data.reshape(1, -1)
         elif data.ndim > 2:
@@ -440,7 +425,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
                 f"Data must be 1-dimensional or 2-dimensional. Shape: {data.shape}"
             )
 
-        # NumPy配列をdask配列に変換
+        # Convert NumPy array to dask array
         dask_data = da_from_array(data)
         cf = ChannelFrame(
             data=dask_data,
@@ -479,30 +464,20 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         frame_label: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
     ) -> "ChannelFrame":
-        """
-        Create a channel frame from a NumPy array.
+        """Create a ChannelFrame from a NumPy array.
 
         This method is deprecated. Use from_numpy instead.
 
-        Parameters
-        ----------
-        array : NDArrayReal
-            Signal data. Each row corresponds to a channel.
-        sampling_rate : int
-            Sampling rate (Hz).
-        labels : list[str], optional
-            Labels for each channel.
-        unit : Union[list[str], str], optional
-            Unit of the signal.
-        frame_label : str, optional
-            Label for the frame.
-        metadata : dict, optional
-            Additional metadata
+        Args:
+            array: Signal data. Each row corresponds to a channel.
+            sampling_rate: Sampling rate (Hz).
+            labels: Labels for each channel.
+            unit: Unit of the signal.
+            frame_label: Label for the frame.
+            metadata: Optional metadata dictionary.
 
-        Returns
-        -------
-        ChannelFrame
-            A new channel frame containing the data
+        Returns:
+            A new ChannelFrame containing the data.
         """
         # Redirect to from_numpy for compatibility
         # However, from_ndarray is deprecated
@@ -527,42 +502,36 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         ch_labels: Optional[list[str]] = None,
         **kwargs: Any,
     ) -> "ChannelFrame":
-        """
-        Creates a channel with lazy loading from a file.
-        Automatically detects and supports various file formats (WAV, CSV, etc.).
+        """Create a ChannelFrame from an audio file.
 
-        Parameters
-        ----------
-        path : str or Path
-            Path to the file to read
-        channel : int or list of int, optional
-            Channel number(s) to read. If None, all channels are read
-        start : float, optional
-            Start position in seconds. If None, starts from the beginning
-        end : float, optional
-            End position in seconds. If None, reads until the end of file
-        chunk_size : int, optional
-            Chunk size for processing. Specifies the splitting size for lazy processing
-        ch_labels : list of str, optional
-            Labels to set for each channel
-        **kwargs :
-            Additional file-specific parameters
+        Args:
+            path: Path to the audio file.
+            channel: Channel(s) to load.
+            start: Start time in seconds.
+            end: End time in seconds.
+            chunk_size: Chunk size for processing.
+            Specifies the splitting size for lazy processing.
+            ch_labels: Labels for each channel.
+            **kwargs: Additional arguments passed to the file reader.
 
-        Returns
-        -------
-        ChannelFrame
-            A new channel frame containing the data (lazy loading)
+        Returns:
+            A new ChannelFrame containing the loaded audio data.
+
+        Raises:
+            ValueError: If channel selection is invalid.
+            TypeError: If channel parameter type is invalid.
+            FileNotFoundError: If the file doesn't exist.
         """
         from .channel import ChannelFrame
 
         path = Path(path)
         if not path.exists():
-            raise FileNotFoundError(f"ファイルが見つかりません: {path}")
+            raise FileNotFoundError(f"File not found: {path}")
 
-        # ファイルリーダー取得
+        # Get file reader
         reader = get_file_reader(path)
 
-        # ファイル情報取得
+        # Get file info
         info = reader.get_file_info(path, **kwargs)
         sr = info["samplerate"]
         n_channels = info["channels"]
@@ -571,7 +540,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
 
         logger.debug(f"File info: sr={sr}, channels={n_channels}, frames={n_frames}")
 
-        # チャネル選択処理
+        # Channel selection processing
         all_channels = list(range(n_channels))
 
         if channel is None:
@@ -580,7 +549,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         elif isinstance(channel, int):
             if channel < 0 or channel >= n_channels:
                 raise ValueError(
-                    f"チャネル指定が範囲外です: {channel} (有効範囲: 0-{n_channels - 1})"  # noqa: E501
+                    f"Channel specification is out of range: {channel} (valid range: 0-{n_channels - 1})"  # noqa: E501
                 )
             channels_to_load = [channel]
             logger.debug(f"Will load single channel: {channel}")
@@ -588,14 +557,14 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
             for ch in channel:
                 if ch < 0 or ch >= n_channels:
                     raise ValueError(
-                        f"チャネル指定が範囲外です: {ch} (有効範囲: 0-{n_channels - 1})"
+                        f"Channel specification is out of range: {ch} (valid range: 0-{n_channels - 1})"  # noqa: E501
                     )
             channels_to_load = list(channel)
             logger.debug(f"Will load specific channels: {channels_to_load}")
         else:
-            raise TypeError("channel は int, list, または None である必要があります")
+            raise TypeError("channel must be int, list, or None")
 
-        # インデックス計算
+        # Index calculation
         start_idx = 0 if start is None else max(0, int(start * sr))
         end_idx = n_frames if end is None else min(n_frames, int(end * sr))
         frames_to_read = end_idx - start_idx
@@ -605,7 +574,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
             f"start_idx={start_idx}, end_idx={end_idx}"
         )
 
-        # 遅延読み込み用の設定
+        # Settings for lazy loading
         expected_shape = (len(channels_to_load), frames_to_read)
 
         # Define the loading function using the file reader
@@ -651,7 +620,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         if ch_labels is not None:
             if len(ch_labels) != len(cf):
                 raise ValueError(
-                    "チャネルラベルの数が指定されたチャネル数と一致しません"
+                    "Number of channel labels does not match the number of specified channels"  # noqa: E501
                 )
             for i in range(len(ch_labels)):
                 cf._channel_metadata[i].label = ch_labels[i]
@@ -661,20 +630,14 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
     def read_wav(
         cls, filename: str, labels: Optional[list[str]] = None
     ) -> "ChannelFrame":
-        """
-        Utility method to read a WAV file.
+        """Utility method to read a WAV file.
 
-        Parameters
-        ----------
-        filename : str
-            Path to the WAV file
-        labels : list of str, optional
-            Labels to set for each channel
+        Args:
+            filename: Path to the WAV file.
+            labels: Labels to set for each channel.
 
-        Returns
-        -------
-        ChannelFrame
-            A new channel frame containing the data (lazy loading)
+        Returns:
+            A new ChannelFrame containing the data (lazy loading).
         """
         from .channel import ChannelFrame
 
@@ -690,26 +653,17 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         delimiter: str = ",",
         header: Optional[int] = 0,
     ) -> "ChannelFrame":
-        """
-        Utility method to read a CSV file.
+        """Utility method to read a CSV file.
 
-        Parameters
-        ----------
-        filename : str
-            Path to the CSV file
-        time_column : int or str, optional
-            Index or name of the time column
-        labels : list of str, optional
-            Labels to set for each channel
-        delimiter : str, optional
-            Delimiter character
-        header : int, optional
-            Row number to use as header
+        Args:
+            filename: Path to the CSV file.
+            time_column: Index or name of the time column.
+            labels: Labels to set for each channel.
+            delimiter: Delimiter character.
+            header: Row number to use as header.
 
-        Returns
-        -------
-        ChannelFrame
-            A new channel frame containing the data (lazy loading)
+        Returns:
+            A new ChannelFrame containing the data (lazy loading).
         """
         from .channel import ChannelFrame
 
@@ -723,15 +677,11 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         return cf
 
     def save(self, path: Union[str, Path], format: Optional[str] = None) -> None:
-        """
-        Save audio data to a file.
+        """Save the audio data to a file.
 
-        Parameters
-        ----------
-        path : str or Path
-            Path to save the file
-        format : str, optional
-            File format. If None, determined from file extension
+        Args:
+            path: Path to save the file.
+            format: File format. If None, determined from file extension.
         """
         logger.debug(f"Saving audio data to file: {path} (will compute now)")
         data = self.compute()
@@ -742,14 +692,30 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         logger.debug(f"Save complete: {path}")
 
     def high_pass_filter(self, cutoff: float, order: int = 4) -> "ChannelFrame":
-        """ハイパスフィルターを適用します。"""
+        """Apply a high-pass filter to the signal.
+
+        Args:
+            cutoff: The cutoff frequency of the filter in Hz.
+            order: The order of the filter. Default is 4.
+
+        Returns:
+            A new ChannelFrame with the filtered signal.
+        """
         logger.debug(
             f"Setting up highpass filter: cutoff={cutoff}, order={order} (lazy)"
         )
         return self.apply_operation("highpass_filter", cutoff=cutoff, order=order)
 
     def low_pass_filter(self, cutoff: float, order: int = 4) -> "ChannelFrame":
-        """ローパスフィルターを適用します。"""
+        """Apply a low-pass filter to the signal.
+
+        Args:
+            cutoff: The cutoff frequency of the filter in Hz.
+            order: The order of the filter. Default is 4.
+
+        Returns:
+            A new ChannelFrame with the filtered signal.
+        """
         logger.debug(
             f"Setting up lowpass filter: cutoff={cutoff}, order={order} (lazy)"
         )
@@ -758,7 +724,18 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
     def normalize(
         self, target_level: float = -20, channel_wise: bool = True
     ) -> "ChannelFrame":
-        """信号レベルを正規化します。"""
+        """Normalize the signal level.
+
+        This method adjusts the signal amplitude to reach a target RMS level.
+
+        Args:
+            target_level: Target RMS level in dB. Default is -20.
+            channel_wise: If True, normalize each channel independently.
+                If False, apply the same scaling to all channels.
+
+        Returns:
+            A new ChannelFrame containing the normalized signal.
+        """
         logger.debug(
             f"Setting up normalize: target_level={target_level}, channel_wise={channel_wise} (lazy)"  # noqa: E501
         )
@@ -767,7 +744,14 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         )
 
     def a_weighting(self) -> "ChannelFrame":
-        """A加重フィルタを適用します。"""
+        """Apply A-weighting filter to the signal.
+
+        A-weighting adjusts the frequency response to approximate human hearing
+        perception, following IEC 61672-1:2013 standard.
+
+        Returns:
+            A new ChannelFrame with A-weighted signal.
+        """
         return self.apply_operation("a_weighting")
 
     def hpss_harmonic(
@@ -788,7 +772,10 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         center: bool = True,
         pad_mode: "_PadModeSTFT" = "constant",
     ) -> "ChannelFrame":
-        """HPSS（Harmonic-Percussive Source Separation）の調波成分を抽出します。"""
+        """
+        Extract harmonic components using HPSS
+         (Harmonic-Percussive Source Separation).
+        """
         return self.apply_operation(
             "hpss_harmonic",
             kernel_size=kernel_size,
@@ -820,7 +807,20 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         center: bool = True,
         pad_mode: "_PadModeSTFT" = "constant",
     ) -> "ChannelFrame":
-        """HPSS（Harmonic-Percussive Source Separation）の打撃音成分を抽出します。"""
+        """
+        Extract percussive components using HPSS
+        (Harmonic-Percussive Source Separation).
+
+        This method separates the percussive (tonal) components from the signal.
+
+        Args:
+            kernel_size: Median filter size for HPSS.
+            power: Exponent for the Weiner filter used in HPSS.
+            margin: Margin size for the separation.
+
+        Returns:
+            A new ChannelFrame containing the harmonic components.
+        """
         return self.apply_operation(
             "hpss_percussive",
             kernel_size=kernel_size,
@@ -840,23 +840,21 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         **kwargs: Any,
     ) -> "ChannelFrame":
         """
-        音声データをリサンプリングします。
+        Resample audio data.
 
         Parameters
         ----------
         target_sr : float
-            目標サンプリングレート (Hz)
+            Target sampling rate (Hz)
         resample_type : str, optional
-            リサンプリング方法 ('linear', 'sinc', 'fft'など)
-        window : str, optional
-            窓関数の種類 ('hann', 'hamming'など)
+            Resampling method ('soxr_hq', 'linear', 'sinc', 'fft', etc.)
         **kwargs : dict
-            追加のリサンプリングパラメータ
+            Additional resampling parameters
 
         Returns
         -------
         ChannelFrame
-            リサンプリングされたチャネルフレーム
+            Resampled channel frame
         """
         return self.apply_operation(
             "resampling",
@@ -865,11 +863,22 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         )
 
     def abs(self) -> "ChannelFrame":
-        """絶対値を計算します。"""
+        """Calculate the absolute value of the signal.
+
+        Returns:
+            A new ChannelFrame containing the absolute values.
+        """
         return self.apply_operation("abs")
 
-    def power(self, exponent: float) -> "ChannelFrame":
-        """べき乗計算を行います。"""
+    def power(self, exponent: float = 2.0) -> "ChannelFrame":
+        """Calculate the power of the signal.
+
+        Args:
+            exponent: The exponent to raise the signal to. Default is 2.0.
+
+        Returns:
+            A new ChannelFrame containing the signal raised to the power.
+        """
         return self.apply_operation("power", exponent=exponent)
 
     def trim(
@@ -877,26 +886,23 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         start: float = 0,
         end: Optional[float] = None,
     ) -> "ChannelFrame":
-        """
-        チャネルをトリミングします。
+        """Trim the signal to specified time range.
 
-        Parameters
-        ----------
-        start : float, optional
-            トリミング開始位置（秒）。Noneの場合は先頭から
-        end : float, optional
-            トリミング終了位置（秒）。Noneの場合はファイル末尾まで
+        Args:
+            start: Start time in seconds.
+            end: End time in seconds.
 
-        Returns
-        -------
-        ChannelFrame
-            トリミングされたチャネルフレーム
+        Returns:
+            A new ChannelFrame with trimmed signal.
+
+        Raises:
+            ValueError: If end time is before start time.
         """
         if end is None:
             end = self.duration
         if start > end:
             raise ValueError("start must be less than end")
-        # トリミング操作を適用
+        # Apply trim operation
         return self.apply_operation("trim", start=start, end=end)
 
     def rms_trend(
@@ -906,7 +912,19 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         dB: bool = False,  # noqa: N803
         Aw: bool = False,  # noqa: N803
     ) -> "ChannelFrame":
-        """RMSトレンドを計算します。"""
+        """Calculate the RMS trend of the signal.
+
+        This method computes the root mean square value over sliding windows.
+
+        Args:
+            frame_length: The size of the sliding window in samples. Default is 2048.
+            hop_length: The hop length between windows in samples. Default is 512.
+            dB: Whether to return the RMS values in decibels. Default is False.
+            Aw: Whether to apply A-weighting. Default is False.
+
+        Returns:
+            A new ChannelFrame containing the RMS trend.
+        """
         cf = self.apply_operation(
             "rms_trend",
             frame_length=frame_length,
@@ -919,15 +937,30 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         return cf
 
     def sum(self) -> "ChannelFrame":
-        """合計値を計算します。"""
+        """Sum all channels.
+
+        Returns:
+            A new ChannelFrame with summed signal.
+        """
         return self.apply_operation("sum")
 
     def mean(self) -> "ChannelFrame":
-        """平均値を計算します。"""
+        """Average all channels.
+
+        Returns:
+            A new ChannelFrame with averaged signal.
+        """
         return self.apply_operation("mean")
 
     def channel_difference(self, other_channel: Union[int, str] = 0) -> "ChannelFrame":
-        """チャンネル間の差分を計算します。"""
+        """Calculate channel differences relative to a reference channel.
+
+        Args:
+            other_channel: Reference channel index or label. Default is 0.
+
+        Returns:
+            A new ChannelFrame with channel differences.
+        """
         if isinstance(other_channel, str):
             return self.apply_operation(
                 "channel_difference", other_channel=self.label2index(other_channel)
@@ -935,7 +968,15 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         return self.apply_operation("channel_difference", other_channel=other_channel)
 
     def fft(self, n_fft: Optional[int] = None, window: str = "hann") -> "SpectralFrame":
-        """時間領域データから周波数領域データへ変換（FFT）"""
+        """Compute Fast Fourier Transform.
+
+        Args:
+            n_fft: Number of FFT points. Default is next power of 2 of data length.
+            window: Window type. Default is "hann".
+
+        Returns:
+            A SpectralFrame containing the FFT results.
+        """
         from ..processing.time_series import FFT
         from .spectral import SpectralFrame
 
@@ -944,10 +985,10 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
         from ..processing.time_series import create_operation
 
-        # 操作インスタンスを作成
+        # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("FFT", operation)
-        # データに処理を適用
+        # Apply processing to data
         spectrum_data = operation.process(self._data)
 
         logger.debug(
@@ -987,25 +1028,18 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         window: str = "hann",
         average: str = "mean",
     ) -> "SpectralFrame":
-        """
-        Estimate power spectral density using Welch's method.
-        Parameters
-        ----------
-        n_fft : int, optional
-            FFT size. If None, defaults to 2048
-        hop_length : int, optional
-            Hop length. If None, defaults to n_fft // 4
-        win_length : int, default=2048
-            Window length. If None, defaults to n_fft
-        window : str, default="hann"
-            Window function type
-        average : str, default="mean"
-            Averaging method. Options: "mean", "median"
+        """Compute power spectral density using Welch's method.
 
-        Returns
-        -------
-        SpectralFrame
-            A new spectral frame containing the power spectral density
+        Args:
+            n_fft: Number of FFT points. Default is 2048.
+            hop_length: Number of samples between successive frames.
+            Default is n_fft//4.
+            win_length: Length of window. Default is n_fft.
+            window: Window type. Default is "hann".
+            average: Method for averaging segments. Default is "mean".
+
+        Returns:
+            A SpectralFrame containing the power spectral density.
         """
         from ..processing.time_series import Welch
         from .spectral import SpectralFrame
@@ -1021,10 +1055,10 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
         from ..processing.time_series import create_operation
 
-        # 操作インスタンスを作成
+        # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("Welch", operation)
-        # データに処理を適用
+        # Apply processing to data
         spectrum_data = operation.process(self._data)
 
         logger.debug(
@@ -1054,8 +1088,18 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         G: int = 10,  # noqa: N803
         fr: int = 1000,
     ) -> "NOctFrame":
-        """ノクターナルスペクトルを計算します。"""
+        """Compute N-octave band spectrum.
 
+        Args:
+            fmin: Minimum center frequency in Hz. Default is 20 Hz.
+            fmax: Maximum center frequency in Hz. Default is 20000 Hz.
+            n: Band division (1 for octave, 3 for 1/3 octave). Default is 3.
+            G: Reference gain in dB. Default is 10 dB.
+            fr: Reference frequency in Hz. Default is 1000 Hz.
+
+        Returns:
+            A NOctFrame containing the N-octave band spectrum.
+        """
         from ..processing.time_series import NOctSpectrum
         from .noct import NOctFrame
 
@@ -1064,10 +1108,10 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
         from ..processing.time_series import create_operation
 
-        # 操作インスタンスを作成
+        # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("NOctSpectrum", operation)
-        # データに処理を適用
+        # Apply processing to data
         spectrum_data = operation.process(self._data)
 
         logger.debug(
@@ -1102,31 +1146,22 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         win_length: Optional[int] = None,
         window: str = "hann",
     ) -> "SpectrogramFrame":
-        """
-        短時間フーリエ変換（STFT）を計算し、時間-周波数領域のスペクトログラムを返します。
+        """Compute Short-Time Fourier Transform.
 
-        Parameters
-        ----------
-        n_fft : int, default=2048
-            FFTのサンプル数
-        hop_length : int, optional
-            フレーム間のホップ長。指定がない場合は n_fft//4
-        win_length : int, optional
-            各フレームの窓長。指定がない場合は n_fft
-        window : str, default="hann"
-            窓関数の種類
-        center : bool, default=True
-            信号の中心化を行うかどうか
+        Args:
+            n_fft: Number of FFT points. Default is 2048.
+            hop_length: Number of samples between successive frames.
+            Default is n_fft//4.
+            win_length: Length of window. Default is n_fft.
+            window: Window type. Default is "hann".
 
-        Returns
-        -------
-        SpectrogramFrame
-            スペクトログラムデータを含むSpectrogramFrameオブジェクト
+        Returns:
+            A SpectrogramFrame containing the STFT results.
         """
         from ..processing.time_series import STFT, create_operation
         from .spectrogram import SpectrogramFrame
 
-        # ホップ長とウィンドウ長の設定
+        # Set hop length and window length
         _hop_length = hop_length if hop_length is not None else n_fft // 4
         _win_length = win_length if win_length is not None else n_fft
 
@@ -1139,18 +1174,18 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         operation_name = "stft"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
 
-        # 操作インスタンスを作成
+        # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("STFT", operation)
 
-        # データに処理を適用
+        # Apply processing to data
         spectrogram_data = operation.process(self._data)
 
         logger.debug(
             f"Created new SpectrogramFrame with operation {operation_name} added to graph"  # noqa: E501
         )
 
-        # 新しいインスタンスを作成
+        # Create new instance
         return SpectrogramFrame(
             data=spectrogram_data,
             sampling_rate=self.sampling_rate,
@@ -1172,29 +1207,18 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         window: str = "hann",
         detrend: str = "constant",
     ) -> "SpectralFrame":
-        """
-        Calculate the coherence between two signals.
+        """Compute magnitude squared coherence.
 
-        Parameters
-        ----------
-        other : ChannelFrame, int, str
-            The other signal to compare with. If int or str,
-            it is treated as a channel index or label.
-        n_fft : int, default=2048
-            FFT size
-        hop_length : int, optional
-            Hop length. If None, defaults to n_fft // 4
-        win_length : int, optional
-            Window length. If None, defaults to n_fft
-        window : str, default="hann"
-            Window function type
-        detrend : str, default="constant"
-            Detrending method. Options: "constant", "linear", None
+        Args:
+            n_fft: Number of FFT points. Default is 2048.
+            hop_length: Number of samples between successive frames.
+            Default is n_fft//4.
+            win_length: Length of window. Default is n_fft.
+            window: Window type. Default is "hann".
+            detrend: Detrending method. Options: "constant", "linear", None.
 
-        Returns
-        -------
-        SpectralFrame
-            A new spectral frame containing the coherence data
+        Returns:
+            A SpectralFrame containing the magnitude squared coherence.
         """
         from ..processing.time_series import Coherence, create_operation
         from .spectral import SpectralFrame
@@ -1209,17 +1233,17 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         operation_name = "coherence"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
 
-        # 操作インスタンスを作成
+        # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("Coherence", operation)
 
-        # データに処理を適用
+        # Apply processing to data
         coherence_data = operation.process(self._data)
 
         logger.debug(
             f"Created new SpectralFrame with operation {operation_name} added to graph"  # noqa: E501
         )
-        # 新しいチャンネルメタデータの作成
+        # Create new channel metadata
         channel_metadata = []
         for in_ch in self._channel_metadata:
             for out_ch in self._channel_metadata:
@@ -1232,7 +1256,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
                 )
                 channel_metadata.append(meta)
 
-        # 新しいインスタンスを作成
+        # Create new instance
         return SpectralFrame(
             data=coherence_data,
             sampling_rate=self.sampling_rate,
@@ -1258,30 +1282,20 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         scaling: str = "spectrum",
         average: str = "mean",
     ) -> "SpectralFrame":
-        """
-        クロススペクトル密度（Cross-Spectral Density）を計算します。
+        """Compute cross-spectral density matrix.
 
-        Parameters
-        ----------
-        n_fft : int, default=2048
-            FFTのサイズ
-        hop_length : int, optional
-            ホップ長。Noneの場合、n_fft // 4がデフォルト
-        win_length : int, optional
-            窓長。Noneの場合、n_fftがデフォルト
-        window : str, default="hann"
-            窓関数の種類
-        detrend : str, default="constant"
-            トレンド除去方法。選択肢: "constant", "linear", None
-        scaling : str, default="spectrum"
-            スケーリング方法。選択肢: "spectrum", "density"
-        average : str, default="mean"
-            平均化方法。選択肢: "mean", "median"
+        Args:
+            n_fft: Number of FFT points. Default is 2048.
+            hop_length: Number of samples between successive frames.
+            Default is n_fft//4.
+            win_length: Length of window. Default is n_fft.
+            window: Window type. Default is "hann".
+            detrend: Detrending method. Options: "constant", "linear", None.
+            scaling: Scaling method. Options: "spectrum", "density".
+            average: Method for averaging segments. Default is "mean".
 
-        Returns
-        -------
-        SpectralFrame
-            クロススペクトル密度データを含む新しいスペクトルフレーム
+        Returns:
+            A SpectralFrame containing the cross-spectral density matrix.
         """
         from ..processing.time_series import CSD, create_operation
         from .spectral import SpectralFrame
@@ -1298,17 +1312,17 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         operation_name = "csd"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
 
-        # 操作インスタンスを作成
+        # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("CSD", operation)
 
-        # データに処理を適用
+        # Apply processing to data
         csd_data = operation.process(self._data)
 
         logger.debug(
             f"Created new SpectralFrame with operation {operation_name} added to graph"  # noqa: E501
         )
-        # 新しいチャンネルメタデータの作成
+        # Create new channel metadata
         channel_metadata = []
         for in_ch in self._channel_metadata:
             for out_ch in self._channel_metadata:
@@ -1321,7 +1335,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
                 )
                 channel_metadata.append(meta)
 
-        # 新しいインスタンスを作成
+        # Create new instance
         return SpectralFrame(
             data=csd_data,
             sampling_rate=self.sampling_rate,
@@ -1347,33 +1361,24 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         scaling: str = "spectrum",
         average: str = "mean",
     ) -> "SpectralFrame":
-        """
-        チャネル間の伝達関数を計算します。
+        """Compute transfer function matrix.
 
-        伝達関数は、あるチャネルから別のチャネルへの信号の伝達特性を表し、
-        周波数領域でシステムの入出力関係を特徴付けます。
+        The transfer function characterizes the signal transmission properties
+        between channels in the frequency domain, representing the input-output
+        relationship of a system.
 
-        Parameters
-        ----------
-        n_fft : int, default=2048
-            FFTのサイズ
-        hop_length : int, optional
-            ホップ長。Noneの場合、n_fft // 4がデフォルト
-        win_length : int, optional
-            窓長。Noneの場合、n_fftがデフォルト
-        window : str, default="hann"
-            窓関数の種類
-        detrend : str, default="constant"
-            トレンド除去方法。選択肢: "constant", "linear", None
-        scaling : str, default="spectrum"
-            スケーリング方法。選択肢: "spectrum", "density"
-        average : str, default="mean"
-            平均化方法。選択肢: "mean", "median"
+        Args:
+            n_fft: Number of FFT points. Default is 2048.
+            hop_length: Number of samples between successive frames.
+            Default is n_fft//4.
+            win_length: Length of window. Default is n_fft.
+            window: Window type. Default is "hann".
+            detrend: Detrending method. Options: "constant", "linear", None.
+            scaling: Scaling method. Options: "spectrum", "density".
+            average: Method for averaging segments. Default is "mean".
 
-        Returns
-        -------
-        SpectralFrame
-            伝達関数データを含む新しいスペクトルフレーム
+        Returns:
+            A SpectralFrame containing the transfer function matrix.
         """
         from ..processing.time_series import TransferFunction, create_operation
         from .spectral import SpectralFrame
@@ -1390,17 +1395,17 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         operation_name = "transfer_function"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
 
-        # 操作インスタンスを作成
+        # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("TransferFunction", operation)
 
-        # データに処理を適用
+        # Apply processing to data
         tf_data = operation.process(self._data)
 
         logger.debug(
             f"Created new SpectralFrame with operation {operation_name} added to graph"  # noqa: E501
         )
-        # 新しいチャンネルメタデータの作成
+        # Create new channel metadata
         channel_metadata = []
         for in_ch in self._channel_metadata:
             for out_ch in self._channel_metadata:
@@ -1413,7 +1418,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
                 )
                 channel_metadata.append(meta)
 
-        # 新しいインスタンスを作成
+        # Create new instance
         return SpectralFrame(
             data=tf_data,
             sampling_rate=self.sampling_rate,
@@ -1430,7 +1435,5 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         )
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
-        """
-        ChannelFrame に必要な追加の初期化引数を提供します。
-        """
+        """Provide additional initialization arguments required for ChannelFrame."""
         return {}
