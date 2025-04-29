@@ -1238,15 +1238,15 @@ class Coherence(AudioOperation[NDArrayReal, NDArrayReal]):
             デトレンドの種類
         """
         self.n_fft = n_fft
-        self.hop_length = hop_length
-        self.win_length = win_length
+        self.win_length = win_length if win_length is not None else n_fft
+        self.hop_length = hop_length if hop_length is not None else self.win_length // 4
         self.window = window
         self.detrend = detrend
         super().__init__(
             sampling_rate,
             n_fft=n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
+            hop_length=self.hop_length,
+            win_length=self.win_length,
             window=window,
             detrend=detrend,
         )
@@ -1331,8 +1331,8 @@ class CSD(AudioOperation[NDArrayReal, NDArrayComplex]):
             平均化の方法
         """
         self.n_fft = n_fft
-        self.hop_length = hop_length
-        self.win_length = win_length
+        self.win_length = win_length if win_length is not None else n_fft
+        self.hop_length = hop_length if hop_length is not None else self.win_length // 4
         self.window = window
         self.detrend = detrend
         self.scaling = scaling
@@ -1340,8 +1340,8 @@ class CSD(AudioOperation[NDArrayReal, NDArrayComplex]):
         super().__init__(
             sampling_rate,
             n_fft=n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
+            hop_length=self.hop_length,
+            win_length=self.win_length,
             window=window,
             detrend=detrend,
             scaling=scaling,
@@ -1433,8 +1433,8 @@ class TransferFunction(AudioOperation[NDArrayReal, NDArrayComplex]):
             平均化の方法
         """
         self.n_fft = n_fft
-        self.hop_length = hop_length
-        self.win_length = win_length
+        self.win_length = win_length if win_length is not None else n_fft
+        self.hop_length = hop_length if hop_length is not None else self.win_length // 4
         self.window = window
         self.detrend = detrend
         self.scaling = scaling
@@ -1442,8 +1442,8 @@ class TransferFunction(AudioOperation[NDArrayReal, NDArrayComplex]):
         super().__init__(
             sampling_rate,
             n_fft=n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
+            hop_length=self.hop_length,
+            win_length=self.win_length,
             window=window,
             detrend=detrend,
             scaling=scaling,

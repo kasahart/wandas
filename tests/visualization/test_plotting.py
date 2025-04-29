@@ -7,7 +7,6 @@ import numpy as np
 import pytest
 from matplotlib.axes import Axes
 from matplotlib.collections import QuadMesh
-from matplotlib.colorbar import Colorbar
 from matplotlib.figure import Figure
 
 from wandas.visualization.plotting import (
@@ -129,6 +128,26 @@ class TestPlotting:
         ]
         self.mock_single_spectrogram_frame.label = "Test Single Spectrogram"
 
+        # コヒーレンスデータでのテスト
+        self.mock_coherence_spectral_frame = mock.MagicMock()
+        self.mock_coherence_spectral_frame.n_channels = 4
+        self.mock_coherence_spectral_frame.freqs = self.mock_spectral_frame.freqs
+        self.mock_coherence_spectral_frame.magnitude = np.random.rand(4, 513)
+        self.mock_coherence_spectral_frame.labels = [
+            "ch1-ch1",
+            "ch1-ch2",
+            "ch2-ch1",
+            "ch2-ch2",
+        ]
+        self.mock_coherence_spectral_frame.label = "Coherence Data"
+        self.mock_coherence_spectral_frame.operation_history = [
+            {"operation": "coherence"}
+        ]
+        self.mock_coherence_spectral_frame.channels = [
+            mock.MagicMock(label=label)
+            for label in self.mock_coherence_spectral_frame.labels
+        ]
+
     def teardown_method(self) -> None:
         """各テスト後の後処理"""
         # 元の戦略を復元
@@ -240,78 +259,35 @@ class TestPlotting:
             strategy.plot(self.mock_spectrogram_frame, overlay=True)
 
         # テスト1: 単一チャネルのスペクトログラムフレームでのテスト
-        with (
-            mock.patch("librosa.display.specshow") as mock_specshow,
-            mock.patch("matplotlib.figure.Figure.colorbar") as mock_colorbar,
-        ):
-            # モックの戻り値を適切に設定
-            mock_img = mock.MagicMock(spec=QuadMesh)
-            mock_specshow.return_value = mock_img
+        fig, ax = plt.subplots()
+        result = strategy.plot(self.mock_single_spectrogram_frame, ax=ax)
 
-            mock_cbar = mock.MagicMock(spec=Colorbar)
-            mock_colorbar.return_value = mock_cbar
-
-            fig, ax = plt.subplots()
-
-            # Python 3.9のmatplotlibでは、
-            # axの図形プロパティへのアクセス方法が異なるため、
-            # モックを使わずに実際の図と軸を使用するように修正
-            result = strategy.plot(self.mock_single_spectrogram_frame, ax=ax)
-
-            # 戻り値が単一のAxesであることを確認
-            assert result is ax
-
-            # specshowが呼び出されたことを確認
-            mock_specshow.assert_called_once()
-
-            # カラーバーの作成が呼び出されたことを確認
-            mock_colorbar.assert_called_once()
+        # 戻り値が単一のAxesであることを確認
+        assert isinstance(result, Axes)
+        assert result is ax
+        assert result.get_xlabel() == "Time [s]"
+        assert result.get_ylabel() == "Frequency [Hz]"
 
         # テスト2: チャネル数が1より大きい場合、axを指定するとエラー
-        with mock.patch("librosa.display.specshow") as mock_specshow:
-            fig, ax = plt.subplots()
-            with pytest.raises(ValueError, match="ax must be None when n_channels > 1"):
-                strategy.plot(self.mock_spectrogram_frame, ax=ax)
+        fig, ax = plt.subplots()
+        with pytest.raises(ValueError, match="ax must be None when n_channels > 1"):
+            strategy.plot(self.mock_spectrogram_frame, ax=ax)
 
         # テスト3: 複数チャネルでのテスト（axなし）
-        with (
-            mock.patch("librosa.display.specshow") as mock_specshow,
-            mock.patch("matplotlib.pyplot.subplots") as mock_subplots,
-            mock.patch("matplotlib.figure.Figure.colorbar") as mock_colorbar,
-        ):
-            # モックの戻り値を設定
-            mock_img = mock.MagicMock(spec=QuadMesh)
-            mock_specshow.return_value = mock_img
+        result = strategy.plot(self.mock_spectrogram_frame)
 
-            mock_cbar = mock.MagicMock(spec=Colorbar)
-            mock_colorbar.return_value = mock_cbar
+        # 結果がAxesのイテレータであることを確認
+        assert isinstance(result, Iterator)
+        axes_list = list(result)
+        assert len(axes_list) == self.mock_spectrogram_frame.n_channels * 2
 
-            # 図と軸のモックを設定
-            mock_fig = mock.MagicMock(spec=Figure)
-            mock_axs = []
-            for i in range(self.mock_spectrogram_frame.n_channels):
-                mock_ax = mock.MagicMock(spec=Axes)
-                # Python 3.9対応: figureプロパティのモックを設定せず、
-                # get_figure()メソッドを使う
-                mock_ax.get_figure.return_value = mock_fig
-                mock_ax.figure = mock_fig
-                mock_axs.append(mock_ax)
+        # 各軸が適切に設定されていることを確認
+        for ax in axes_list[:2]:
+            assert ax.get_xlabel() == "Time [s]"
+            assert ax.get_ylabel() == "Frequency [Hz]"
 
-            if len(mock_axs) == 1:
-                mock_subplots.return_value = (mock_fig, mock_axs[0])
-            else:
-                mock_subplots.return_value = (mock_fig, mock_axs)
-
-            # 複数チャネルでのプロット実行
-            result = strategy.plot(self.mock_spectrogram_frame)
-
-            # 結果がAxesのイテレータであることを確認
-            assert isinstance(result, Iterator)
-            axes_list = list(result)
-            assert len(axes_list) == self.mock_spectrogram_frame.n_channels
-
-            # 各チャネルに対してspecshowが呼び出されることを確認
-            assert mock_specshow.call_count == self.mock_spectrogram_frame.n_channels
+        # すべての図をクローズ
+        plt.close("all")
 
     def test_describe_plot_strategy(self) -> None:
         """DescribePlotStrategyのテスト"""
@@ -397,3 +373,76 @@ class TestPlotting:
         # 最後の軸のxラベルとyラベルを確認
         assert axes_list[-1].get_xlabel() == "Center frequency [Hz]"
         assert axes_list[-1].get_ylabel() == "Spectrum level [dBr]"
+
+    def test_matrix_plot_strategy(self) -> None:
+        """MatrixPlotStrategyのテスト"""
+        from wandas.visualization.plotting import MatrixPlotStrategy
+
+        strategy = MatrixPlotStrategy()
+
+        # channel_plotのテスト
+        fig, ax = plt.subplots()
+        strategy.channel_plot(
+            self.mock_coherence_spectral_frame.freqs,
+            self.mock_coherence_spectral_frame.magnitude[0],
+            ax,
+            title="Test Channel",
+            ylabel="Test Label",
+        )
+
+        # 正しくラベルとタイトルが設定されていることを確認
+        assert ax.get_xlabel() == "Frequency [Hz]"
+        assert ax.get_ylabel() == "Test Label"
+        assert ax.get_title() == "Test Channel"
+        # グリッドが表示されていることを確認
+        assert len(ax.xaxis.get_gridlines()) > 0
+
+        # 通常の周波数データでのplotのテスト
+        result = strategy.plot(self.mock_coherence_spectral_frame)
+
+        # 結果がAxesのイテレータであることを確認
+        assert isinstance(result, Iterator)
+        axes_list = list(result)
+        assert len(axes_list) == self.mock_coherence_spectral_frame.n_channels
+
+        # 各軸のラベルとタイトルを確認
+        for i, ax in enumerate(axes_list):
+            assert ax.get_xlabel() == "Frequency [Hz]"
+            assert "coherence" in ax.get_ylabel()
+            assert self.mock_coherence_spectral_frame.labels[i] in ax.get_title()
+
+        plt.close("all")  # すべての図をクローズ
+
+        # A特性重み付けデータでのテスト (Aw=True)
+        result = strategy.plot(self.mock_spectral_frame, Aw=True)
+
+        # 結果がAxesのイテレータであることを確認
+        assert isinstance(result, Iterator)
+        axes_list = list(result)
+        assert len(axes_list) == 4
+
+        # 各軸のラベルとタイトルを確認（A特性重み付け）
+        for i, ax in enumerate(axes_list[:2]):
+            assert ax.get_xlabel() == "Frequency [Hz]"
+            assert "dBA" in ax.get_ylabel() or "A-weighted" in ax.get_ylabel()
+            assert self.mock_spectral_frame.labels[i] in ax.get_title()
+
+        plt.close("all")  # すべての図をクローズ
+
+        # コヒーレンスデータでのテスト
+
+        result = strategy.plot(self.mock_coherence_spectral_frame)
+
+        # 結果がAxesのイテレータであることを確認
+        assert isinstance(result, Iterator)
+        axes_list = list(result)
+        assert len(axes_list) == self.mock_coherence_spectral_frame.n_channels
+
+        # 各軸のラベルとタイトルを確認（コヒーレンス）
+        for i, ax in enumerate(axes_list):
+            assert ax.get_xlabel() == "Frequency [Hz]"
+            # y軸ラベルに「coherence」が含まれることを確認
+            assert "coherence" in ax.get_ylabel().lower()
+            assert self.mock_coherence_spectral_frame.labels[i] in ax.get_title()
+
+        plt.close("all")  # すべての図をクローズ

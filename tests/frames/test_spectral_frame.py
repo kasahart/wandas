@@ -237,6 +237,50 @@ class TestSpectralFrame:
             )
             assert result is mock_ax
 
+    def test_plot_matrix(self) -> None:
+        """Test plot_matrix method"""
+        with mock.patch(
+            "wandas.visualization.plotting.create_operation"
+        ) as mock_create_op:
+            mock_plot_strategy: Any = mock.MagicMock()
+            mock_create_op.return_value = mock_plot_strategy
+            mock_ax: Any = mock.MagicMock()
+            mock_plot_strategy.plot.return_value = mock_ax
+
+            # テスト実行（デフォルトパラメータ）
+            result: Any = self.frame.plot_matrix()
+
+            # プロットストラテジーの作成を検証
+            mock_create_op.assert_called_once_with("matrix")
+
+            # プロットメソッドの呼び出しを検証
+            mock_plot_strategy.plot.assert_called_once_with(self.frame)
+
+            # 戻り値を検証
+            assert result is mock_ax
+
+            # モックをリセット
+            mock_create_op.reset_mock()
+            mock_plot_strategy.plot.reset_mock()
+
+            # カスタムパラメータでテスト
+            kwargs: dict[str, Any] = {
+                "vmin": -10,
+                "vmax": 10,
+                "cmap": "viridis",
+                "title": "Test Matrix Plot",
+            }
+            result = self.frame.plot_matrix(plot_type="custom_matrix", **kwargs)
+
+            # カスタムプロットタイプでの呼び出しを検証
+            mock_create_op.assert_called_once_with("custom_matrix")
+
+            # カスタムパラメータの渡し方を検証
+            mock_plot_strategy.plot.assert_called_once_with(self.frame, **kwargs)
+
+            # 戻り値を検証
+            assert result is mock_ax
+
     def test_ifft(self) -> None:
         """Test ifft method"""
         with (

@@ -1350,10 +1350,10 @@ class TestChannelFrame:
         ch1_label = cf.channels[1].label
 
         expected_pairs = [
-            f"H({ch0_label}->{ch0_label})",
-            f"H({ch0_label}->{ch1_label})",
-            f"H({ch1_label}->{ch0_label})",
-            f"H({ch1_label}->{ch1_label})",
+            f"$H_{{{ch0_label}, {ch0_label}}}$",
+            f"$H_{{{ch0_label}, {ch1_label}}}$",
+            f"$H_{{{ch1_label}, {ch0_label}}}$",
+            f"$H_{{{ch1_label}, {ch1_label}}}$",
         ]
 
         for pair in expected_pairs:
@@ -1427,10 +1427,10 @@ class TestChannelFrame:
         ch1_label = cf.channels[1].label
 
         expected_pairs = [
-            f"coherence({ch0_label}, {ch0_label})",
-            f"coherence({ch0_label}, {ch1_label})",
-            f"coherence({ch1_label}, {ch0_label})",
-            f"coherence({ch1_label}, {ch1_label})",
+            f"$\\gamma_{{{ch0_label}, {ch0_label}}}$",
+            f"$\\gamma_{{{ch0_label}, {ch1_label}}}$",
+            f"$\\gamma_{{{ch1_label}, {ch0_label}}}$",
+            f"$\\gamma_{{{ch1_label}, {ch1_label}}}$",
         ]
 
         for pair in expected_pairs:

@@ -1224,7 +1224,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         for in_ch in self._channel_metadata:
             for out_ch in self._channel_metadata:
                 meta = ChannelMetadata()
-                meta.label = f"{operation_name}({in_ch.label}, {out_ch.label})"
+                meta.label = f"$\\gamma_{{{in_ch.label}, {out_ch.label}}}$"
                 meta.unit = ""
                 meta.ref = 1
                 meta["metadata"] = dict(
@@ -1238,7 +1238,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
             sampling_rate=self.sampling_rate,
             n_fft=operation.n_fft,
             window=operation.window,
-            label=f"Spectrum of {self.label}",
+            label=f"Coherence of {self.label}",
             metadata={**self.metadata, **params},
             operation_history=[
                 *self.operation_history,
@@ -1327,7 +1327,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
             sampling_rate=self.sampling_rate,
             n_fft=operation.n_fft,
             window=operation.window,
-            label=f"CSD of {self.label}",
+            label=f"$C_{{{in_ch.label}, {out_ch.label}}}$",
             metadata={**self.metadata, **params},
             operation_history=[
                 *self.operation_history,
@@ -1405,7 +1405,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         for in_ch in self._channel_metadata:
             for out_ch in self._channel_metadata:
                 meta = ChannelMetadata()
-                meta.label = f"H({in_ch.label}->{out_ch.label})"
+                meta.label = f"$H_{{{in_ch.label}, {out_ch.label}}}$"
                 meta.unit = ""
                 meta.ref = 1
                 meta["metadata"] = dict(

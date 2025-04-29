@@ -366,3 +366,42 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             channel_metadata=self._channel_metadata,
             previous=self,
         )
+
+    def plot_matrix(
+        self,
+        plot_type: str = "matrix",
+        **kwargs: Any,
+    ) -> Union["Axes", Iterator["Axes"]]:
+        """
+        チャネル間の関係をマトリックス形式でプロット
+
+        Parameters
+        ----------
+        other : SpectralFrame or BaseFrame, optional
+            比較する別のフレーム。指定しない場合は自身の全チャネル間で関係を表示
+        plot_type : str, default="matrix"
+        **kwargs : dict
+            その他のプロットパラメータ：
+            - vmin, vmax: カラースケールの最小値と最大値
+            - cmap: カラーマップ名
+            - title: 図のタイトル
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            プロットされた図のオブジェクト
+        """
+
+        from wandas.visualization.plotting import create_operation
+
+        logger.debug(f"Plotting audio with plot_type={plot_type} (will compute now)")
+
+        # プロット戦略を取得
+        plot_strategy: PlotStrategy[SpectralFrame] = create_operation(plot_type)
+
+        # プロット実行
+        _ax = plot_strategy.plot(self, **kwargs)
+
+        logger.debug("Plot rendering complete")
+
+        return _ax
