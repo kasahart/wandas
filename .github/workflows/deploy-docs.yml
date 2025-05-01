@@ -1,0 +1,40 @@
+name: Deploy Documentation to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main  # mainブランチへのプッシュ時にトリガー
+
+permissions:
+  contents: write # peaceiris/actions-gh-pages が gh-pages ブランチにプッシュするために必要
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@v5
+        with:
+          # pyproject.toml に基づくバージョン、または特定のバージョンを指定
+          python-version: '3.10'
+          enable-cache: true # 依存関係のキャッシュを有効化
+
+      - name: Install dependencies including MkDocs
+        # pyproject.toml の dev-dependencies に MkDocs 関連が含まれていることを前提とする
+        run: uv sync --all-extras --dev
+
+      - name: Build MkDocs documentation
+        # uv run を使って uv の環境で mkdocs を実行
+        run: uv run mkdocs build -f docs/mkdocs.yml
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site # MkDocs のビルド出力ディレクトリ
+          # publish_branch: gh-pages # デプロイ先のブランチ (デフォルト)
+          # user_name: 'github-actions[bot]' # コミットユーザー名 (デフォルト)
+          # user_email: 'github-actions[bot]@users.noreply.github.com' # コミットユーザーEmail (デフォルト)
