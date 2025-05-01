@@ -5,8 +5,7 @@ from typing import TYPE_CHECKING, Optional, Union
 import numpy as np
 
 if TYPE_CHECKING:
-    from ..core.channel_frame import ChannelFrame as CoreChannelFrame
-    from ..core.lazy.channel_frame import ChannelFrame as LazyChannelFrame
+    from wandas.frames.channel import ChannelFrame
 
 
 def generate_sin(
@@ -14,7 +13,7 @@ def generate_sin(
     sampling_rate: int = 16000,
     duration: float = 1.0,
     label: Optional[str] = None,
-) -> "CoreChannelFrame":
+) -> "ChannelFrame":
     """
     Generate sample sine wave signals.
 
@@ -35,33 +34,10 @@ def generate_sin(
     ChannelFrame
         ChannelFrame object containing the sine wave(s).
     """
-    from ..core.channel import Channel
-    from ..core.channel_frame import ChannelFrame
-
-    t = np.linspace(0, duration, int(sampling_rate * duration), endpoint=False)
-
-    if isinstance(freqs, list):
-        # For multiple frequencies, create a channel for each frequency
-        channels = []
-        for idx, freq in enumerate(freqs):
-            data = np.sin(2 * np.pi * freq * t) * 2 * np.sqrt(2)
-            channel_label = f"Channel {idx + 1}"
-            channel = Channel(
-                data=data, sampling_rate=sampling_rate, label=channel_label, unit=None
-            )
-            channels.append(channel)
-    else:
-        # For a single frequency, create one channel
-        data = np.sin(2 * np.pi * freqs * t) * 2 * np.sqrt(2)
-        channel = Channel(
-            data=np.squeeze(data),
-            sampling_rate=sampling_rate,
-            label="Channel 1",
-            unit=None,
-        )
-        channels = [channel]
-
-    return ChannelFrame(channels=channels, label=label)
+    # 直接、generate_sin_lazy関数を呼び出す
+    return generate_sin_lazy(
+        freqs=freqs, sampling_rate=sampling_rate, duration=duration, label=label
+    )
 
 
 def generate_sin_lazy(
@@ -69,7 +45,7 @@ def generate_sin_lazy(
     sampling_rate: int = 16000,
     duration: float = 1.0,
     label: Optional[str] = None,
-) -> "LazyChannelFrame":
+) -> "ChannelFrame":
     """
     Generate sample sine wave signals using lazy computation.
 
@@ -90,16 +66,18 @@ def generate_sin_lazy(
     ChannelFrame
         Lazy ChannelFrame object containing the sine wave(s).
     """
-    from ..core.lazy.channel_frame import ChannelFrame
+    from wandas.frames.channel import ChannelFrame
 
-    label = "Generated Sin"
+    label = label or "Generated Sin"
     t = np.linspace(0, duration, int(sampling_rate * duration), endpoint=False)
 
     _freqs: list[float]
     if isinstance(freqs, float):
         _freqs = [freqs]
-    else:
+    elif isinstance(freqs, list):
         _freqs = freqs
+    else:
+        raise ValueError("freqs must be a float or a list of floats.")
 
     channels = []
     labels = []

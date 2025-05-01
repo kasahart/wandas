@@ -1,0 +1,113 @@
+site_name: Wandas
+site_description: Wandasライブラリのドキュメント
+site_author: Wandas Team
+site_url: https://wandas.github.io/
+
+# ドキュメントのソースとビルド先の設定
+docs_dir: src
+site_dir: ../site
+
+# リポジトリの設定
+repo_name: wandas
+repo_url: https://github.com/yourusername/wandas
+edit_uri: edit/main/docs/
+
+# テーマの設定
+theme:
+  name: material
+  logo: "assets/images/logo.png"  # ヘッダーにロゴを追加
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - search.highlight
+    - search.share
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+
+# 拡張機能
+markdown_extensions:
+  - admonition
+  - codehilite
+  - footnotes
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed
+  - pymdownx.critic
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - toc:
+      permalink: true
+
+# 多言語サポート
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          selection:
+            docstring_style: numpy
+          rendering:
+            show_source: true
+  - i18n:
+      languages:
+        - locale: en
+          name: English
+          build: true
+          site_name: Wandas Documentation (English)
+        - locale: ja
+          default: true  # 日本語をデフォルト言語として設定
+          name: 日本語
+          build: true
+          site_name: Wandas ドキュメント (日本語)
+      docs_structure: suffix
+
+# ナビゲーション構造
+nav:
+  - Home: index.md
+  - Tutorials:
+    - Getting Started: tutorial/index.md
+  - Cookbooks:
+    - Common Uses: how_to/index.md
+  - API Reference:
+    - Overview: api/index.md
+    - Core: api/core.md
+    - Frames: api/frames.md
+    - IO: api/io.md
+    - Processing: api/processing.md
+    - Datasets: api/datasets.md
+    - Visualization: api/visualization.md
+    - Utils: api/utils.md
+  - Theory & Architecture:
+    - Overview: explanation/index.md
+  - Contributing Guide: contributing.md
+
+extra:
+  analytics:
+    provider: google
+    property: G-MEASUREMENT-ID
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/yourusername/wandas
+      name: Wandas on GitHub
+  alternate:
+    - name: English
+      link: /en/
+      lang: en
+    - name: 日本語
+      link: /ja/
+      lang: ja
