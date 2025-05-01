@@ -32,6 +32,31 @@
                 "kind": "test",
                 "isDefault": false
             }
+        },
+        {
+            "label": "Build MkDocs Documentation",
+            "type": "shell",
+            "command": "cd /workspaces/wandas && mkdocs build -f docs/mkdocs.yml",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "Serve MkDocs Documentation",
+            "type": "shell",
+            "command": "cd /workspaces/wandas && mkdocs serve -f docs/mkdocs.yml",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "isBackground": true
         }
     ]
 }
