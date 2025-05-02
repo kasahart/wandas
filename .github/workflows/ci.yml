@@ -44,7 +44,7 @@ jobs:
 
       - name: テスト実行とカバレッジレポート生成 (pytest)
         # --cov オプションでカバレッジ計測対象を指定し、--cov-report=xml で xml レポートを生成
-        run: uv run pytest --cov=wandas --cov-report=xml
+        run: uv run pytest --cov=wandas --cov-report=xml -vv
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5 # 最新バージョンを使用
