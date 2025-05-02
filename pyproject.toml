@@ -110,12 +110,13 @@ ignore_missing_imports = true
 
 follow_imports = "skip"
 
-[tool.pytest]
+[tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--cov=wandas --cov-report=xml"
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
+norecursedirs = ["scripts"]
 
 [tool.vscode.tasks]
 ruff-check = { command = "uv run ruff check wandas tests", label = "Run ruff check" }
