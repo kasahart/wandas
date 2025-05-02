@@ -72,12 +72,6 @@ jobs:
             - name: Create virtual environment
               run: uv venv test-install-env
 
-            - name: Install Git dependency (waveform-analysis)
-              shell: bash
-              run: |
-                  source test-install-env/bin/activate
-                  uv pip install git+https://github.com/endolith/waveform-analysis.git@master
-
             - name: Activate virtual environment and install wheel
               run: |
                   source test-install-env/bin/activate
