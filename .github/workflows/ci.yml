@@ -6,12 +6,19 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
-    runs-on: ubuntu-latest
+    name: Test on ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     strategy:
+      fail-fast: false
       matrix:
+        os: [ubuntu-latest, windows-latest]
         python-version: ["3.9", "3.10", "3.11", "3.12"]
     steps:
       - name: チェックアウト
@@ -22,9 +29,9 @@ jobs:
         with:
           version: "latest"
           python-version: ${{ matrix.python-version }}
-          enable-cache: true
 
       - name: 依存関係をインストール
+        # pytest-cov もインストールされるようにする (pyproject.toml の dev 依存に含まれているか確認)
         run: uv sync --all-extras --dev
 
       - name: フォーマットチェック (ruff)
@@ -35,6 +42,14 @@ jobs:
         # pyproject.tomlの設定を明示的に使用
         run: uv run mypy --config-file=pyproject.toml
 
-      - name: テスト実行 (pytest)
-        # pytestは自動的にpyproject.tomlを検出します
-        run: uv run pytest
+      - name: テスト実行とカバレッジレポート生成 (pytest)
+        # Windowsの場合のみ MPLBACKEND を設定
+        env:
+          MPLBACKEND: ${{ matrix.os == 'windows-latest' && 'Agg' || '' }}
+        run: uv run pytest --cov=wandas --cov-report=xml -vv
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5 # 最新バージョンを使用
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: kasahart/wandas

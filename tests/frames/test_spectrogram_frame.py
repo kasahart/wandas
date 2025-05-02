@@ -18,8 +18,8 @@ _da_random_random = da.random.random  # type: ignore [unused-ignore]
 def sample_spectrogram() -> SpectrogramFrame:
     """スペクトログラムのサンプルデータを生成するフィクスチャ"""
     # 形状: (channels=2, freq_bins=513, time_frames=10)
-    complex_data: DaArray = _da_random_random((2, 513, 10)) + 1j * _da_random_random(
-        (2, 513, 10)
+    complex_data: DaArray = _da_random_random((2, 65, 5)) + 1j * _da_random_random(
+        (2, 65, 5)
     )
 
     # メタデータの設定
@@ -31,8 +31,8 @@ def sample_spectrogram() -> SpectrogramFrame:
     return SpectrogramFrame(
         data=complex_data,
         sampling_rate=44100,
-        n_fft=1024,
-        hop_length=512,
+        n_fft=128,
+        hop_length=64,
         window="hann",
         label="test_spectrogram",
         channel_metadata=channel_metadata,
@@ -83,15 +83,15 @@ class TestSpectrogramFrame:
         spec: SpectrogramFrame = sample_spectrogram
 
         # 基本的なプロパティ
-        assert spec.n_fft == 1024
-        assert spec.hop_length == 512
+        assert spec.n_fft == 128
+        assert spec.hop_length == 64
         assert spec.window == "hann"
         assert spec.sampling_rate == 44100.0
 
         # データ関連プロパティ
         assert spec._n_channels == 2
-        assert spec.n_frames == 10
-        assert spec.n_freq_bins == 513
+        assert spec.n_frames == 5
+        assert spec.n_freq_bins == 65
 
         # 各種変換プロパティ
         magnitude: NDArrayReal = spec.magnitude
@@ -100,11 +100,11 @@ class TestSpectrogramFrame:
         db: NDArrayReal = spec.dB
         dba: NDArrayReal = spec.dBA
 
-        assert magnitude.shape == (2, 513, 10)
-        assert phase.shape == (2, 513, 10)
-        assert power.shape == (2, 513, 10)
-        assert db.shape == (2, 513, 10)
-        assert dba.shape == (2, 513, 10)
+        assert magnitude.shape == (2, 65, 5)
+        assert phase.shape == (2, 65, 5)
+        assert power.shape == (2, 65, 5)
+        assert db.shape == (2, 65, 5)
+        assert dba.shape == (2, 65, 5)
 
         # magnitude と power の関係を確認
         assert_array_almost_equal(power, magnitude**2)
@@ -113,7 +113,7 @@ class TestSpectrogramFrame:
         freqs: NDArrayReal = spec.freqs
         times: NDArrayReal = spec.times
         assert len(freqs) == spec.n_freq_bins  # FFTサイズの半分 + 1
-        assert len(times) == 10
+        assert len(times) == 5
 
     def test_binary_operations(self, sample_spectrogram: SpectrogramFrame) -> None:
         """二項演算子の動作テスト"""
@@ -147,15 +147,15 @@ class TestSpectrogramFrame:
         spec: SpectrogramFrame = sample_spectrogram
 
         # 正常なインデックス
-        frame: SpectralFrame = spec.get_frame_at(5)
-        assert frame.shape == (2, 513)  # チャネル数 x 周波数ビン数
+        frame: SpectralFrame = spec.get_frame_at(4)
+        assert frame.shape == (2, 65)  # チャネル数 x 周波数ビン数
 
         # 範囲外インデックス
         with pytest.raises(IndexError):
             spec.get_frame_at(-1)
 
         with pytest.raises(IndexError):
-            spec.get_frame_at(20)  # n_frames=10 なので範囲外
+            spec.get_frame_at(20)  # n_frames=5 なので範囲外
 
     def test_to_channel_frame(self, sample_spectrogram: SpectrogramFrame) -> None:
         """時間領域への変換テスト"""

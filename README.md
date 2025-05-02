@@ -3,6 +3,7 @@
 [![PyPi](https://img.shields.io/pypi/v/wandas)](https://pypi.org/project/wandas/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/wandas)
 [![CI](https://github.com/kasahart/wandas/actions/workflows/ci.yml/badge.svg)](https://github.com/kasahart/wandas/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/kasahart/wandas/graph/badge.svg?token=53NPNQQZZ8)](https://codecov.io/gh/kasahart/wandas)
 [![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/kasahart/wandas/blob/main/LICENSE)
 [![Typing](https://img.shields.io/pypi/types/wandas)](https://pypi.org/project/wandas/)
 
