@@ -43,7 +43,9 @@ jobs:
         run: uv run mypy --config-file=pyproject.toml
 
       - name: テスト実行とカバレッジレポート生成 (pytest)
-        # --cov オプションでカバレッジ計測対象を指定し、--cov-report=xml で xml レポートを生成
+        # Windowsの場合のみ MPLBACKEND を設定
+        env:
+          MPLBACKEND: ${{ matrix.os == 'windows-latest' && 'Agg' || '' }}
         run: uv run pytest --cov=wandas --cov-report=xml -vv
 
       - name: Upload coverage reports to Codecov
