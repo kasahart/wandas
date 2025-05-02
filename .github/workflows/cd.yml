@@ -80,7 +80,7 @@ jobs:
             - name: Run import test
               run: |
                   source test-install-env/bin/activate
-                  uv run python -c "import wandas as wd; print(wd.__version__); signal = wd.generate_sin(freqs=[5000, 1000], duration=1); signal.fft()"
+                  uv run python scripts/test_installation.py
 
 
     publish-to-pypi:
