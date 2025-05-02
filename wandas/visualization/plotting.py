@@ -339,8 +339,10 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
                 xlabel="Time [s]",
             )
 
-            cbar = ax.figure.colorbar(img, ax=ax)
-            cbar.set_label(f"Spectrum level [{unit}]")
+            fig = ax.figure
+            if fig is not None:
+                cbar = fig.colorbar(img, ax=ax)
+                cbar.set_label(f"Spectrum level [{unit}]")
             return ax
 
         else:
