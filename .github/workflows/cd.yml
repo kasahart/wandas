@@ -53,7 +53,7 @@ jobs:
         needs: build
         runs-on: ubuntu-latest
         steps:
-          - name: リポジトリをチェックアウト
+            - name: リポジトリをチェックアウト
               uses: actions/checkout@v4
 
             - name: uv をインストール
