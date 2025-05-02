@@ -4,11 +4,12 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 
-# np.floating, np.complexfloating はジェネリック型なので、Any を型パラメータとして指定
+# np.floating and np.complexfloating are generic types,
+# so we specify Any as the type parameter
 Real = np.number[Any]
 Complex = np.complexfloating[Any, Any]
 
-# 実数型の要素を持つ NumPy 配列のエイリアス
+# Type alias for NumPy arrays with real number elements
 NDArrayReal = npt.NDArray[Real]
-# 複素数型の要素を持つ NumPy 配列のエイリアス
+# Type alias for NumPy arrays with complex number elements
 NDArrayComplex = npt.NDArray[Complex]

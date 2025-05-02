@@ -20,9 +20,9 @@
             "problemMatcher": []
         },
         {
-            "label": "Run pytest with Python 3.9",
+            "label": "Run pytest and mypy with Python 3.9",
             "type": "shell",
-            "command": "uv venv --python=3.9 .venv-py39 && source .venv-py39/bin/activate && uv pip install -e . && uv pip install pandas pandas-stubs pytest pytest-cov && python -m pytest",
+            "command": "uv venv --python=3.9 .venv-py39 && source .venv-py39/bin/activate && uv pip install -e . && uv pip install pandas pandas-stubs pytest pytest-cov mypy && python -m mypy wandas tests && python -m pytest",
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
@@ -32,6 +32,31 @@
                 "kind": "test",
                 "isDefault": false
             }
+        },
+        {
+            "label": "Build MkDocs Documentation",
+            "type": "shell",
+            "command": "cd /workspaces/wandas && mkdocs build -f docs/mkdocs.yml",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "Serve MkDocs Documentation",
+            "type": "shell",
+            "command": "cd /workspaces/wandas && mkdocs serve -f docs/mkdocs.yml",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "isBackground": true
         }
     ]
 }

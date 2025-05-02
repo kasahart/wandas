@@ -33,4 +33,13 @@
     "mypy-type-checker.args": [
         "--config=pyproject.toml"
     ],
+    "ruff.enable": true,
+    "ruff.path": [
+        "uv",
+        "run",
+        "ruff"
+    ],
+    "ruff.organizeImports": true,
+    "ruff.fixAll": true,
+    "ruff.configuration": "${workspaceFolder}/pyproject.toml"
 }
