@@ -9,7 +9,7 @@
 [![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/kasahart/wandas/blob/main/LICENSE)
 [![Typing](https://img.shields.io/pypi/types/wandas)](https://pypi.org/project/wandas/)
 
-**Wandas** は、Pythonによる効率的な信号解析のためのオープンソースライブラリです。Wandas は、信号処理のための包括的な機能を提供し、Matplotlibとのシームレスな統合を実現しています。
+**Wandas** (**W**aveform **An**alysis **Da**ta **S**tructures)は、Pythonによる効率的な信号解析のためのオープンソースライブラリです。Wandas は、信号処理のための包括的な機能を提供し、Matplotlibとのシームレスな統合を実現しています。
 
 ## 機能
 
