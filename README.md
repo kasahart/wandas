@@ -1,4 +1,6 @@
-# Wandas: **W**aveform **An**alysis **Da**ta **S**tructures
+<h1 align="center">
+    <img src="https://github.com/kasahart/wandas/blob/dev-v0.1.3/images/logo.png?raw=true" alt="Wandas logo" width="300"/>
+</h1>
 
 [![PyPi](https://img.shields.io/pypi/v/wandas)](https://pypi.org/project/wandas/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/wandas)
