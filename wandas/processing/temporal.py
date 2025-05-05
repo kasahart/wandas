@@ -1,5 +1,5 @@
 import logging
-from typing import Union
+from typing import Optional, Union
 
 import librosa
 import numpy as np
@@ -117,6 +117,67 @@ class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
         # Apply trimming
         result = x[..., self.start_sample : self.end_sample]
         logger.debug(f"Trim applied, returning result with shape: {result.shape}")
+        return result
+
+
+class FixLength(AudioOperation[NDArrayReal, NDArrayReal]):
+    """信号の長さを指定された長さに調整する操作"""
+
+    name = "fix_length"
+
+    def __init__(
+        self,
+        sampling_rate: float,
+        length: Optional[int] = None,
+        duration: Optional[float] = None,
+    ):
+        """
+        Initialize fix length operation
+
+        Parameters
+        ----------
+        sampling_rate : float
+            Sampling rate (Hz)
+        length : Optional[int]
+            Target length for fixing
+        duration : Optional[float]
+            Target length for fixing
+        """
+        if length is None:
+            if duration is None:
+                raise ValueError("Either length or duration must be provided.")
+            else:
+                length = int(duration * sampling_rate)
+        self.target_length = length
+
+        super().__init__(sampling_rate, target_length=self.target_length)
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """
+        Calculate output data shape after operation
+
+        Parameters
+        ----------
+        input_shape : tuple
+            Input data shape
+
+        Returns
+        -------
+        tuple
+            Output data shape
+        """
+        return (*input_shape[:-1], self.target_length)
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """Create processor function for padding operation"""
+        logger.debug(f"Applying padding to array with shape: {x.shape}")
+        # Apply padding
+        pad_width = self.target_length - x.shape[-1]
+        if pad_width > 0:
+            result = np.pad(x, ((0, 0), (0, pad_width)), mode="constant")
+        else:
+            result = x[..., : self.target_length]
+        logger.debug(f"Padding applied, returning result with shape: {result.shape}")
         return result
 
 
