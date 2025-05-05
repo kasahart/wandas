@@ -296,7 +296,7 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
             A new instance with the operation applied.
         """
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-        from wandas.processing.time_series import create_operation
+        from wandas.processing import create_operation
 
         operation = create_operation(operation_name, self.sampling_rate, **params)
         processed_data = operation.process(self._data)
@@ -551,7 +551,7 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
             A new ChannelFrame containing the reconstructed time-domain signal.
         """
         from wandas.frames.channel import ChannelFrame
-        from wandas.processing.time_series import ISTFT, create_operation
+        from wandas.processing import ISTFT, create_operation
 
         params = {
             "n_fft": self.n_fft,

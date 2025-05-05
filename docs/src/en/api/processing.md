@@ -18,24 +18,20 @@ resampled_frame = frame.resample(target_rate=16000)
 
 The filtering and other signal processing functions are internally implemented by the following classes:
 
-::: wandas.processing.time_series.HighPassFilter
-    handler: python
+::: wandas.processing.HighPassFilter
 
-::: wandas.processing.time_series.LowPassFilter
-    handler: python
+::: wandas.processing.LowPassFilter
 
-::: wandas.processing.time_series.ReSampling
-    handler: python
+::: wandas.processing.ReSampling
 
-::: wandas.processing.time_series.AWeighting
-    handler: python
+::: wandas.processing.AWeighting
 
 ## AudioOperation
 
 The `AudioOperation` class enables abstraction and chaining of audio processing operations.
 
 ```python
-from wandas.processing.time_series import AudioOperation
+from wandas.processing import AudioOperation
 
 # Usage example
 import wandas
@@ -52,10 +48,27 @@ operation = (
 processed_frame = operation.apply(frame)
 ```
 
-::: wandas.processing.time_series.AudioOperation
-    handler: python
-    selection:
-      members:
-        - __init__
-        - add_step
-        - apply
+## Creating Custom Operations
+
+```python
+from wandas.processing import AudioOperation
+
+class MyCustomOperation(AudioOperation):
+    def __init__(self, sampling_rate, **kwargs):
+        super().__init__(sampling_rate)
+        # Initialize parameters
+
+    def process(self, data):
+        # Process data
+        return processed_data
+```
+
+You can then register and use your custom operation:
+
+```python
+from wandas.processing import register_operation
+
+register_operation("my_custom_op", MyCustomOperation)
+```
+
+::: wandas.processing.AudioOperation

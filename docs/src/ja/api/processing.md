@@ -18,24 +18,20 @@ resampled_frame = frame.resample(target_rate=16000)
 
 フィルタリングや他の信号処理機能は、内部的には以下のクラスによって実装されています：
 
-::: wandas.processing.time_series.HighPassFilter
-    handler: python
+::: wandas.processing.HighPassFilter
 
-::: wandas.processing.time_series.LowPassFilter
-    handler: python
+::: wandas.processing.LowPassFilter
 
-::: wandas.processing.time_series.ReSampling
-    handler: python
+::: wandas.processing.ReSampling
 
-::: wandas.processing.time_series.AWeighting
-    handler: python
+::: wandas.processing.AWeighting
 
 ## AudioOperation
 
 `AudioOperation` クラスは音声処理操作の抽象化と連鎖処理を可能にします。
 
 ```python
-from wandas.processing.time_series import AudioOperation
+from wandas.processing import AudioOperation
 
 # 使用例
 import wandas
@@ -52,10 +48,27 @@ operation = (
 processed_frame = operation.apply(frame)
 ```
 
-::: wandas.processing.time_series.AudioOperation
-    handler: python
-    selection:
-      members:
-        - __init__
-        - add_step
-        - apply
+## カスタム操作の作成
+
+```python
+from wandas.processing import AudioOperation
+
+class MyCustomOperation(AudioOperation):
+    def __init__(self, sampling_rate, **kwargs):
+        super().__init__(sampling_rate)
+        # パラメータの初期化
+
+    def process(self, data):
+        # データを処理
+        return processed_data
+```
+
+そして、カスタム操作を登録して使用できます：
+
+```python
+from wandas.processing import register_operation
+
+register_operation("my_custom_op", MyCustomOperation)
+```
+
+::: wandas.processing.AudioOperation

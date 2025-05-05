@@ -98,8 +98,7 @@ frame = wandas.read_csv("data.csv")
 
 Wandas provides various signal processing functions.
 
-::: wandas.processing.time_series
-    handler: python
+::: wandas.processing
 
 ## Utilities
 

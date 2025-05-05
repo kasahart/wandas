@@ -118,7 +118,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
 
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-        from ..processing.time_series import create_operation
+        from ..processing import create_operation
 
         # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
@@ -977,13 +977,13 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         Returns:
             A SpectralFrame containing the FFT results.
         """
-        from ..processing.time_series import FFT
+        from ..processing import FFT
         from .spectral import SpectralFrame
 
         params = {"n_fft": n_fft, "window": window}
         operation_name = "fft"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-        from ..processing.time_series import create_operation
+        from ..processing import create_operation
 
         # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
@@ -1041,7 +1041,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         Returns:
             A SpectralFrame containing the power spectral density.
         """
-        from ..processing.time_series import Welch
+        from ..processing import Welch
         from .spectral import SpectralFrame
 
         params = dict(
@@ -1053,7 +1053,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         )
         operation_name = "welch"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-        from ..processing.time_series import create_operation
+        from ..processing import create_operation
 
         # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
@@ -1100,13 +1100,13 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         Returns:
             A NOctFrame containing the N-octave band spectrum.
         """
-        from ..processing.time_series import NOctSpectrum
+        from ..processing import NOctSpectrum
         from .noct import NOctFrame
 
         params = {"fmin": fmin, "fmax": fmax, "n": n, "G": G, "fr": fr}
         operation_name = "noct_spectrum"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-        from ..processing.time_series import create_operation
+        from ..processing import create_operation
 
         # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
@@ -1158,7 +1158,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         Returns:
             A SpectrogramFrame containing the STFT results.
         """
-        from ..processing.time_series import STFT, create_operation
+        from ..processing import STFT, create_operation
         from .spectrogram import SpectrogramFrame
 
         # Set hop length and window length
@@ -1220,7 +1220,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         Returns:
             A SpectralFrame containing the magnitude squared coherence.
         """
-        from ..processing.time_series import Coherence, create_operation
+        from ..processing import Coherence, create_operation
         from .spectral import SpectralFrame
 
         params = {
@@ -1297,7 +1297,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         Returns:
             A SpectralFrame containing the cross-spectral density matrix.
         """
-        from ..processing.time_series import CSD, create_operation
+        from ..processing import CSD, create_operation
         from .spectral import SpectralFrame
 
         params = {
@@ -1380,7 +1380,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         Returns:
             A SpectralFrame containing the transfer function matrix.
         """
-        from ..processing.time_series import TransferFunction, create_operation
+        from ..processing import TransferFunction, create_operation
         from .spectral import SpectralFrame
 
         params = {
