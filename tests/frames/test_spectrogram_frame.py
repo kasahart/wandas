@@ -282,10 +282,10 @@ class TestSpectrogramFrame:
             return mock_op
 
         # モックを適用
-        import wandas.processing.time_series
+        import wandas.processing
 
         monkeypatch.setattr(
-            wandas.processing.time_series,
+            wandas.processing,
             "create_operation",
             mock_create_operation,
         )
@@ -342,7 +342,7 @@ class TestSpectrogramFrame:
         def fixed_apply_operation_impl(
             self: SpectrogramFrame, operation_name: str, **params: Any
         ) -> SpectrogramFrame:
-            from wandas.processing.time_series import create_operation
+            from wandas.processing import create_operation
 
             operation = create_operation(operation_name, self.sampling_rate, **params)
             processed_data = operation.process(self._data)
@@ -379,10 +379,10 @@ class TestSpectrogramFrame:
             return MockOperation()
 
         # モックを適用
-        import wandas.processing.time_series
+        import wandas.processing
 
         monkeypatch.setattr(
-            wandas.processing.time_series,
+            wandas.processing,
             "create_operation",
             mock_create_operation,
         )

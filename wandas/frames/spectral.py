@@ -252,7 +252,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             A new instance with the operation applied.
         """
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-        from ..processing.time_series import create_operation
+        from ..processing import create_operation
 
         # 操作インスタンスを作成
         operation = create_operation(operation_name, self.sampling_rate, **params)
@@ -453,7 +453,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         ChannelFrame
             A new ChannelFrame containing the time-domain signal.
         """
-        from ..processing.time_series import IFFT, create_operation
+        from ..processing import IFFT, create_operation
         from .channel import ChannelFrame
 
         params = {"n_fft": self.n_fft, "window": self.window}
@@ -536,13 +536,13 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             raise ValueError(
                 "noct_synthesisは48000Hzのサンプリングレートでのみ使用できます。"
             )
-        from ..processing.time_series import NOctSynthesis
+        from ..processing import NOctSynthesis
         from .noct import NOctFrame
 
         params = {"fmin": fmin, "fmax": fmax, "n": n, "G": G, "fr": fr}
         operation_name = "noct_synthesis"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-        from ..processing.time_series import create_operation
+        from ..processing import create_operation
 
         # 操作インスタンスを作成
         operation = create_operation(operation_name, self.sampling_rate, **params)

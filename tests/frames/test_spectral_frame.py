@@ -285,9 +285,7 @@ class TestSpectralFrame:
         """Test ifft method"""
         with (
             mock.patch("wandas.frames.channel.ChannelFrame") as mock_channel_frame,
-            mock.patch(
-                "wandas.processing.time_series.create_operation"
-            ) as mock_create_op,
+            mock.patch("wandas.processing.create_operation") as mock_create_op,
         ):
             mock_ifft_op: Any = mock.MagicMock()
             mock_create_op.return_value = mock_ifft_op
@@ -333,9 +331,7 @@ class TestSpectralFrame:
 
     def test_apply_operation_impl(self) -> None:
         """Test _apply_operation_impl method"""
-        with mock.patch(
-            "wandas.processing.time_series.create_operation"
-        ) as mock_create_op:
+        with mock.patch("wandas.processing.create_operation") as mock_create_op:
             mock_op: Any = mock.MagicMock()
             mock_create_op.return_value = mock_op
             mock_processed_data: DaArray = mock.MagicMock(spec=DaArray)
@@ -400,9 +396,7 @@ class TestSpectralFrame:
 
         with (
             mock.patch("wandas.frames.noct.NOctFrame") as mock_noct_frame,
-            mock.patch(
-                "wandas.processing.time_series.create_operation"
-            ) as mock_create_op,
+            mock.patch("wandas.processing.create_operation") as mock_create_op,
         ):
             # NOctSynthesisオペレーションのモック設定
             mock_noct_op: Any = mock.MagicMock()

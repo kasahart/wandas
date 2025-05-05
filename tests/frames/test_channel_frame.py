@@ -133,9 +133,7 @@ class TestChannelFrame:
 
     def test_filter_operations(self) -> None:
         """Test that filter operations are lazy."""
-        with mock.patch(
-            "wandas.processing.time_series.create_operation"
-        ) as mock_create_op:
+        with mock.patch("wandas.processing.create_operation") as mock_create_op:
             mock_op: mock.MagicMock = mock.MagicMock()
             mock_op.process.return_value = self.dask_data
             mock_create_op.return_value = mock_op
@@ -475,9 +473,7 @@ class TestChannelFrame:
 
     def test_additional_filter_operations(self) -> None:
         """Test normalize and a_weighting operations."""
-        with mock.patch(
-            "wandas.processing.time_series.create_operation"
-        ) as mock_create_op:
+        with mock.patch("wandas.processing.create_operation") as mock_create_op:
             mock_op = mock.MagicMock()
             mock_op.process.return_value = self.dask_data
             mock_create_op.return_value = mock_op
@@ -823,11 +819,9 @@ class TestChannelFrame:
     def test_fft_transform(self) -> None:
         """Test fft method for lazy transformation to frequency domain."""
         from wandas.frames.spectral import SpectralFrame
-        from wandas.processing.time_series import FFT
+        from wandas.processing import FFT
 
-        with mock.patch(
-            "wandas.processing.time_series.create_operation"
-        ) as mock_create_op:
+        with mock.patch("wandas.processing.create_operation") as mock_create_op:
             # モックFFTオペレーションの設定
             mock_fft = mock.MagicMock(spec=FFT)
             mock_fft.n_fft = 4096
@@ -861,11 +855,9 @@ class TestChannelFrame:
         using Welch's method.
         """
         from wandas.frames.spectral import SpectralFrame
-        from wandas.processing.time_series import Welch
+        from wandas.processing import Welch
 
-        with mock.patch(
-            "wandas.processing.time_series.create_operation"
-        ) as mock_create_op:
+        with mock.patch("wandas.processing.create_operation") as mock_create_op:
             # モックWelchオペレーションの設定
             mock_welch = mock.MagicMock(spec=Welch)
             mock_welch.n_fft = 2048
@@ -911,11 +903,9 @@ class TestChannelFrame:
     def test_stft_transform(self) -> None:
         """Test stft method for lazy short-time Fourier transform."""
         from wandas.frames.spectrogram import SpectrogramFrame
-        from wandas.processing.time_series import STFT
+        from wandas.processing import STFT
 
-        with mock.patch(
-            "wandas.processing.time_series.create_operation"
-        ) as mock_create_op:
+        with mock.patch("wandas.processing.create_operation") as mock_create_op:
             # モックSTFTオペレーションの設定
             mock_stft = mock.MagicMock(spec=STFT)
             mock_data = mock.MagicMock(spec=DaArray)
@@ -982,11 +972,9 @@ class TestChannelFrame:
     def test_noct_spectrum_transform(self) -> None:
         """Test noct_spectrum method for calculating N-octave spectrum analysis."""
         from wandas.frames.noct import NOctFrame
-        from wandas.processing.time_series import NOctSpectrum
+        from wandas.processing import NOctSpectrum
 
-        with mock.patch(
-            "wandas.processing.time_series.create_operation"
-        ) as mock_create_op:
+        with mock.patch("wandas.processing.create_operation") as mock_create_op:
             # モックNOctSpectrumオペレーションの設定
             mock_noct = mock.MagicMock(spec=NOctSpectrum)
             mock_data = mock.MagicMock(spec=DaArray)
