@@ -237,8 +237,8 @@ class ChannelFrame(
 
     def add(
         self,
-        other: Union["ChannelFrame", int, float, NDArrayReal, "DaArray"],
-        snr: Optional[float] = None,
+        other: Union["ChannelFrame", int, float, NDArrayReal],
+        snr: Optional[float] = 1,
     ) -> "ChannelFrame":
         """Add another signal or value to the current signal.
 
@@ -256,34 +256,33 @@ class ChannelFrame(
         """
         logger.debug(f"Setting up add operation with SNR={snr} (lazy)")
 
-        # Special processing when SNR is specified
-        if snr is not None:
-            # First convert other to ChannelFrame if it's not
-            if not isinstance(other, ChannelFrame):
-                if isinstance(other, np.ndarray):
-                    other = ChannelFrame.from_numpy(
-                        other, self.sampling_rate, label="array_data"
-                    )
-                elif isinstance(other, (int, float)):
-                    # For scalar values, simply add (ignore SNR)
-                    return self + other
-                else:
-                    raise TypeError(
-                        "Addition target with SNR must be a ChannelFrame or "
-                        f"NumPy array: {type(other)}"
-                    )
-
+        if isinstance(other, ChannelFrame):
             # Check if sampling rates match
             if self.sampling_rate != other.sampling_rate:
                 raise ValueError(
                     "Sampling rates do not match. Cannot perform operation."
                 )
 
-            # Apply addition operation with SNR adjustment
-            return self.apply_operation("add_with_snr", other=other._data, snr=snr)
+        elif isinstance(other, np.ndarray):
+            other = ChannelFrame.from_numpy(
+                other, self.sampling_rate, label="array_data"
+            )
+        elif isinstance(other, (int, float)):
+            return self + other
+        else:
+            raise TypeError(
+                "Addition target with SNR must be a ChannelFrame or "
+                f"NumPy array: {type(other)}"
+            )
 
-        # Execute normal addition if SNR is not specified
-        return self + other
+        # If SNR is specified, adjust the length of the other signal
+        if other.duration != self.duration:
+            other = other.fix_length(length=self.n_samples)
+
+        if snr is not None:
+            return self + other
+
+        return self.apply_operation("add_with_snr", other=other._data, snr=snr)
 
     def plot(
         self, plot_type: str = "waveform", ax: Optional["Axes"] = None, **kwargs: Any

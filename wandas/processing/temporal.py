@@ -283,5 +283,5 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 # Register all operations
-for op_class in [ReSampling, Trim, RmsTrend]:
+for op_class in [ReSampling, Trim, RmsTrend, FixLength]:
     register_operation(op_class)

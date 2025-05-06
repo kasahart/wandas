@@ -1214,6 +1214,46 @@ class TestChannelFrame:
         assert isinstance(neg_computed, np.ndarray)
         assert neg_computed.shape == (2, 16000)
 
+    def test_add_with_different_lengths(self) -> None:
+        """異なる長さの信号を加算するテスト。"""
+        # 標準の長さのフレーム（self.channel_frame）
+        # 長さが標準フレームよりも短いフレーム（切り詰め必要）
+        short_data = np.random.random((2, 8000))  # 半分の長さ
+        short_dask_data = _da_from_array(short_data, chunks=(1, 2000))
+        short_cf = ChannelFrame(short_dask_data, self.sample_rate, label="short_audio")
+
+        # 長さが標準フレームよりも長いフレーム（パディング必要）
+        long_data = np.random.random((2, 24000))  # 1.5倍の長さ
+        long_dask_data = _da_from_array(long_data, chunks=(1, 6000))
+        long_cf = ChannelFrame(long_dask_data, self.sample_rate, label="long_audio")
+
+        # 短いフレームを標準フレームに加算（パディングが必要）
+        result_short = self.channel_frame.add(short_cf)
+        computed_short = result_short.compute()
+
+        # 結果の形状が元のフレームと同じであることを確認
+        assert computed_short.shape == self.data.shape
+
+        # 短いフレーム部分は加算され、残りは元のフレームのままであることを確認
+        expected_short = self.data.copy()
+        expected_short[:, : short_data.shape[1]] = (
+            expected_short[:, : short_data.shape[1]] + short_data
+        )
+        np.testing.assert_array_almost_equal(computed_short, expected_short)
+
+        # 長いフレームを標準フレームに加算（切り詰めが必要）
+        result_long = self.channel_frame.add(long_cf)
+        computed_long = result_long.compute()
+
+        # 結果の形状が元のフレームと同じであることを確認
+        assert computed_long.shape == self.data.shape
+
+        # 元のフレームと同じ長さだけ長いフレームを切り詰めて加算されることを確認
+        expected_long = self.data + long_data[:, : self.data.shape[1]]
+        np.testing.assert_array_almost_equal(computed_long, expected_long)
+
+        # スカラー値や同じ長さの配列との加算は既に他のテストでカバーされているので省略
+
     def test_csd(self) -> None:
         """クロススペクトル密度（CSD）メソッドのテスト"""
         # テスト用信号を作成

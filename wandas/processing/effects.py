@@ -84,7 +84,7 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
 
     name = "add_with_snr"
 
-    def __init__(self, sampling_rate: float, other: DaArray, snr: float):
+    def __init__(self, sampling_rate: float, other: DaArray, snr: float = 1.0):
         """
         Initialize addition operation considering SNR
 
