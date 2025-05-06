@@ -1,9 +1,11 @@
 import dask.array as da
 import numpy as np
+import pytest
 from dask.array.core import Array as DaArray
 
-from wandas.processing.base import create_operation, get_operation
+from wandas.processing.base import create_operation, get_operation, register_operation
 from wandas.processing.temporal import (
+    FixLength,
     ReSampling,
     RmsTrend,
     Trim,
@@ -264,3 +266,110 @@ class TestRmsTrend:
         assert rms_op.frame_length == 1024
         assert rms_op.hop_length == 256
         assert rms_op.dB is True
+
+
+class TestFixLength:
+    def setup_method(self) -> None:
+        """Set up test fixtures for each test."""
+        self.sample_rate: int = 16000
+        self.target_length: int = 8000  # サンプル単位での目標長
+        self.target_duration: float = 0.5  # 秒単位での目標長
+        self.fix_length = FixLength(self.sample_rate, length=self.target_length)
+
+        # 1秒のサイン波（440Hz）のサンプル信号を作成
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        self.signal_mono: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t)])
+        self.signal_stereo: NDArrayReal = np.array(
+            [
+                np.sin(2 * np.pi * 440 * t),
+                np.sin(2 * np.pi * 880 * t),
+            ]
+        )
+
+        # 短い信号（目標長より短い）
+        t_short = np.linspace(0, 0.25, int(self.sample_rate * 0.25), endpoint=False)
+        self.short_signal: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t_short)])
+
+        # 長い信号（目標長より長い）
+        t_long = np.linspace(0, 2, int(self.sample_rate * 2), endpoint=False)
+        self.long_signal: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t_long)])
+
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=-1)
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=-1)
+        self.dask_short: DaArray = _da_from_array(self.short_signal, chunks=-1)
+        self.dask_long: DaArray = _da_from_array(self.long_signal, chunks=-1)
+
+    def test_initialization(self) -> None:
+        """異なるパラメータでの初期化をテストします。"""
+        # lengthで初期化
+        fix_length = FixLength(self.sample_rate, length=self.target_length)
+        assert fix_length.sampling_rate == self.sample_rate
+        assert fix_length.target_length == self.target_length
+
+        # durationで初期化
+        fix_duration = FixLength(self.sample_rate, duration=self.target_duration)
+        assert fix_duration.target_length == int(
+            self.target_duration * self.sample_rate
+        )
+
+        # パラメータなしの場合はエラー
+        with pytest.raises(ValueError):
+            FixLength(self.sample_rate)
+
+    def test_fix_length_shape(self) -> None:
+        """出力形状をテストします。"""
+        # 標準のモノラル信号
+        result = self.fix_length.process(self.dask_mono).compute()
+        assert result.shape == (1, self.target_length)
+
+        # ステレオ信号
+        result_stereo = self.fix_length.process(self.dask_stereo).compute()
+        assert result_stereo.shape == (2, self.target_length)
+
+        # 短い信号（パディングが必要）
+        result_short = self.fix_length.process(self.dask_short).compute()
+        assert result_short.shape == (1, self.target_length)
+
+        # 長い信号（切り詰めが必要）
+        result_long = self.fix_length.process(self.dask_long).compute()
+        assert result_long.shape == (1, self.target_length)
+
+    def test_fix_length_content(self) -> None:
+        """処理内容をテストします。"""
+        # 短い信号のパディング
+        result_short = self.fix_length.process(self.dask_short).compute()
+        # 元の部分は同じ
+        np.testing.assert_allclose(
+            result_short[0, : self.short_signal.shape[1]], self.short_signal[0]
+        )
+        # パディング部分はゼロ
+        assert np.allclose(
+            result_short[0, self.short_signal.shape[1] :],
+            np.zeros(self.target_length - self.short_signal.shape[1]),
+        )
+
+        # 長い信号の切り詰め
+        result_long = self.fix_length.process(self.dask_long).compute()
+        # 保持された部分は元のデータと同じ
+        np.testing.assert_allclose(
+            result_long[0], self.long_signal[0, : self.target_length]
+        )
+
+    def test_operation_registry(self) -> None:
+        """オペレーションレジストリにFixLengthが適切に登録されているかテストします。"""
+        assert get_operation("fix_length") == FixLength
+
+        # lengthで作成
+        fix_op = create_operation("fix_length", 16000, length=12000)
+        assert isinstance(fix_op, FixLength)
+        assert fix_op.sampling_rate == 16000
+        assert fix_op.target_length == 12000
+
+        # durationで作成
+        fix_op2 = create_operation("fix_length", 16000, duration=0.75)
+        assert isinstance(fix_op2, FixLength)
+        assert fix_op2.target_length == int(0.75 * 16000)
+
+
+# Register FixLength in the operation registry (if not done in __init__.py)
+register_operation(FixLength)

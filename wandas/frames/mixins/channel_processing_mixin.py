@@ -156,6 +156,24 @@ class ChannelProcessingMixin:
         result = self.apply_operation("trim", start=start, end=end)
         return cast(T_Processing, result)
 
+    def fix_length(
+        self: T_Processing,
+        length: Optional[int] = None,
+        duration: Optional[float] = None,
+    ) -> T_Processing:
+        """信号を指定された時間にする。
+
+        Args:
+            duration: 信号の長さ（秒）
+            length: 信号の長さ（サンプル数）
+
+        Returns:
+            指定された長さに調整された信号を含む新しいChannelFrame
+        """
+
+        result = self.apply_operation("fix_length", length=length, duration=duration)
+        return cast(T_Processing, result)
+
     def rms_trend(
         self: T_Processing,
         frame_length: int = 2048,
