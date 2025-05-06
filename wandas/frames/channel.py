@@ -279,7 +279,7 @@ class ChannelFrame(
         if other.duration != self.duration:
             other = other.fix_length(length=self.n_samples)
 
-        if snr is not None:
+        if snr is None:
             return self + other
 
         return self.apply_operation("add_with_snr", other=other._data, snr=snr)
