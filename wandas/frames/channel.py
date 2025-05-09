@@ -238,7 +238,7 @@ class ChannelFrame(
     def add(
         self,
         other: Union["ChannelFrame", int, float, NDArrayReal],
-        snr: Optional[float] = 1,
+        snr: Optional[float] = None,
     ) -> "ChannelFrame":
         """Add another signal or value to the current signal.
 
@@ -281,7 +281,6 @@ class ChannelFrame(
 
         if snr is None:
             return self + other
-
         return self.apply_operation("add_with_snr", other=other._data, snr=snr)
 
     def plot(
