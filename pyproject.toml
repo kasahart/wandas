@@ -64,10 +64,15 @@ dev-dependencies = [
     "mypy",
     "ruff>=0.9.9",
     "mkdocs>=1.6.1",
-    "mkdocs-material>=9.6.12",
-    "mkdocstrings>=0.29.1",
+    "mkdocs-material[all]>=9.6.12",
+    "mkdocstrings[python]>=0.29.1",
     "mkdocstrings-python>=1.16.10",
     "mkdocs-static-i18n>=1.3.0",
+    "mkdocs-jupyter>=0.25.1",
+    "jupytext>=1.17.1",
+    "ipykernel>=6.29.5",
+    "mkdocs-git-revision-date-localized-plugin>=1.4.5",
+    "markdown-exec>=1.10.3",
 ]
 
 [tool.uv.sources]
