@@ -1,8 +1,8 @@
 import logging
 from typing import Any
 
-import librosa
 from dask.array.core import Array as DaArray
+from librosa import effects  # type: ignore[attr-defined]
 
 from wandas.processing.base import AudioOperation, register_operation
 from wandas.utils import util
@@ -38,7 +38,7 @@ class HpssHarmonic(AudioOperation[NDArrayReal, NDArrayReal]):
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for HPSS Harmonic"""
         logger.debug(f"Applying HPSS Harmonic to array with shape: {x.shape}")
-        result = librosa.effects.harmonic(x, **self.kwargs)
+        result: NDArrayReal = effects.harmonic(x, **self.kwargs)
         logger.debug(
             f"HPSS Harmonic applied, returning result with shape: {result.shape}"
         )
@@ -72,7 +72,7 @@ class HpssPercussive(AudioOperation[NDArrayReal, NDArrayReal]):
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for HPSS Percussive"""
         logger.debug(f"Applying HPSS Percussive to array with shape: {x.shape}")
-        result = librosa.effects.percussive(x, **self.kwargs)
+        result: NDArrayReal = effects.percussive(x, **self.kwargs)
         logger.debug(
             f"HPSS Percussive applied, returning result with shape: {result.shape}"
         )

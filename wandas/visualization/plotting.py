@@ -4,7 +4,16 @@ import logging
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Optional, TypeVar, Union
 
+# librosaをインポート（displayも含めて）
 import librosa
+
+try:
+    # librosa.displayが明示的にエクスポートされていないためのエラーを回避
+    from librosa import display  # type: ignore
+except ImportError:
+    # fallback
+    display = librosa.display  # type: ignore
+
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
@@ -43,6 +52,12 @@ class PlotStrategy(abc.ABC, Generic[TFrame]):
     ) -> Union["Axes", Iterator["Axes"]]:
         """Implementation of plotting"""
         pass
+
+
+# 戻り値型に関するヘルパー関数
+def _return_axes_iterator(axes_list: Any) -> Iterator[Axes]:
+    """Helper to convert fig.axes to Iterator[Axes] with proper typing"""
+    return iter(axes_list)
 
 
 class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
@@ -114,7 +129,7 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
                 plt.tight_layout()
                 plt.show()
 
-            return iter(fig.axes)
+            return _return_axes_iterator(fig.axes)
 
 
 class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
@@ -192,7 +207,7 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
                 plt.tight_layout()
                 plt.show()
 
-            return iter(fig.axes)
+            return _return_axes_iterator(fig.axes)
 
 
 class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
@@ -264,7 +279,7 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
                 plt.tight_layout()
                 plt.show()
 
-            return iter(fig.axes)
+            return _return_axes_iterator(fig.axes)
 
 
 class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
@@ -315,7 +330,7 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
         ylim = kwargs.pop("ylim", None)
 
         if ax is not None:
-            img = librosa.display.specshow(
+            img = display.specshow(
                 data=data[0],
                 sr=bf.sampling_rate,
                 hop_length=bf.hop_length,
@@ -356,7 +371,7 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
                 axs = np.array([axs])
 
             for ax_i, channel_data, ch_meta in zip(axs.flatten(), data, bf.channels):
-                img = librosa.display.specshow(
+                img = display.specshow(
                     data=channel_data,
                     sr=bf.sampling_rate,
                     hop_length=bf.hop_length,
@@ -385,7 +400,7 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
             plt.tight_layout()
             plt.show()
 
-            return iter(fig.axes)
+            return _return_axes_iterator(fig.axes)
 
 
 class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
@@ -450,7 +465,7 @@ class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
                     vmax = rounded_max
                     vmin = vmax - 180
                     break
-        img = librosa.display.specshow(
+        img = display.specshow(
             data=channel_data,
             sr=bf.sampling_rate,
             hop_length=stft_ch.hop_length,
@@ -488,7 +503,7 @@ class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
         cbar.set_label(unit)
         fig.suptitle(title or bf.label or "Channel Data")
 
-        return iter(fig.axes)
+        return _return_axes_iterator(fig.axes)
 
 
 class MatrixPlotStrategy(PlotStrategy[Union["SpectralFrame"]]):
@@ -570,7 +585,7 @@ class MatrixPlotStrategy(PlotStrategy[Union["SpectralFrame"]]):
         plt.tight_layout()
         plt.show()
 
-        return iter(fig.axes)
+        return _return_axes_iterator(fig.axes)
 
 
 # プロットタイプと対応するクラスのマッピングを保持

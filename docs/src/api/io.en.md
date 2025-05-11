@@ -13,3 +13,9 @@ Provides functionality to read data from various file formats.
 Provides functions for reading and writing WAV files.
 
 ::: wandas.io.wav_io
+
+## WDF File IO
+
+Provides functions for reading and writing WDF (Wandas Data File) format, which enables complete preservation including metadata.
+
+::: wandas.io.wdf_io

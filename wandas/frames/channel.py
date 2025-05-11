@@ -380,11 +380,11 @@ class ChannelFrame(
                 raise TypeError(
                     f"Unexpected type for plot result: {type(_ax)}. Expected Axes or Iterator[Axes]."  # noqa: E501
                 )
-            # Ignore type checks for display and Audio
-            display(ax.figure)  # type: ignore
+            # display関数とAudioクラスを使用
+            display(ax.figure)
             if is_close:
-                plt.close(ax.figure)  # type: ignore
-            display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))  # type: ignore
+                plt.close(ax.figure)
+            display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))
 
     @classmethod
     def from_numpy(
@@ -667,8 +667,8 @@ class ChannelFrame(
         )
         return cf
 
-    def save(self, path: Union[str, Path], format: Optional[str] = None) -> None:
-        """Save the audio data to a file.
+    def to_wav(self, path: Union[str, Path], format: Optional[str] = None) -> None:
+        """Save the audio data to a WAV file.
 
         Args:
             path: Path to save the file.
@@ -681,6 +681,71 @@ class ChannelFrame(
             data = data.squeeze(axis=1)
         sf.write(str(path), data, int(self.sampling_rate), format=format)
         logger.debug(f"Save complete: {path}")
+
+    def save(
+        self,
+        path: Union[str, Path],
+        *,
+        format: str = "hdf5",
+        compress: Optional[str] = "gzip",
+        overwrite: bool = False,
+        dtype: Optional[Union[str, np.dtype[Any]]] = None,
+    ) -> None:
+        """Save the ChannelFrame to a WDF (Wandas Data File) format.
+
+        This saves the complete frame including all channel data and metadata
+        in a format that can be loaded back with full fidelity.
+
+        Args:
+            path: Path to save the file. '.wdf' extension will be added if not present.
+            format: Format to use (currently only 'hdf5' is supported)
+            compress: Compression method ('gzip' by default, None for no compression)
+            overwrite: Whether to overwrite existing file
+            dtype: Optional data type conversion before saving (e.g. 'float32')
+
+        Raises:
+            FileExistsError: If the file exists and overwrite=False.
+            NotImplementedError: For unsupported formats.
+
+        Example:
+            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> cf.save("audio_analysis.wdf")
+        """
+        from ..io.wdf_io import save as wdf_save
+
+        wdf_save(
+            self,
+            path,
+            format=format,
+            compress=compress,
+            overwrite=overwrite,
+            dtype=dtype,
+        )
+
+    @classmethod
+    def load(cls, path: Union[str, Path], *, format: str = "hdf5") -> "ChannelFrame":
+        """Load a ChannelFrame from a WDF (Wandas Data File) file.
+
+        This loads data saved with the save() method, preserving all channel data,
+        metadata, labels, and units.
+
+        Args:
+            path: Path to the WDF file
+            format: Format of the file (currently only 'hdf5' is supported)
+
+        Returns:
+            A new ChannelFrame with all data and metadata loaded
+
+        Raises:
+            FileNotFoundError: If the file doesn't exist
+            NotImplementedError: For unsupported formats
+
+        Example:
+            >>> cf = ChannelFrame.load("audio_analysis.wdf")
+        """
+        from ..io.wdf_io import load as wdf_load
+
+        return wdf_load(path, format=format)
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
         """Provide additional initialization arguments required for ChannelFrame."""

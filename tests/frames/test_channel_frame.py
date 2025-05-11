@@ -229,7 +229,7 @@ class TestChannelFrame:
                 with mock.patch.object(
                     self.channel_frame, "compute", return_value=self.data
                 ):
-                    self.channel_frame.save(temp_filename)
+                    self.channel_frame.to_wav(temp_filename)
                     mock_write.assert_called_once()
 
                     # Check that data was transposed for soundfile
@@ -249,7 +249,7 @@ class TestChannelFrame:
                 with mock.patch.object(
                     channel_frame, "compute", return_value=single_channel_data
                 ):
-                    channel_frame.save(temp_filename)
+                    channel_frame.to_wav(temp_filename)
                     mock_write.assert_called_once()
 
                     # Check that data was transposed and squeezed

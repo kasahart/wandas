@@ -102,16 +102,10 @@ ignore_missing_imports = true
 
 # scipy, dask, librosa, IPython, matplotlibモジュールをmypyの型チェックから除外する設定
 [[tool.mypy.overrides]]
-module = ["scipy.*", "dask.*", "librosa.*", "IPython.*", "matplotlib.*", "requests.*","tests.*"]
+module = ["scipy.*", "dask.*", "librosa.*", "IPython.*", "matplotlib.*", "requests.*","tests.*","dask", "dask.array", "dask.array.*"]
 ignore_errors = true
-# pytestのfixtureデコレータのエラーを無視する設定
 disallow_untyped_decorators = false
-
-# 追加の除外設定（daskに関連するモジュールの追加）
-[[tool.mypy.overrides]]
-module = ["dask", "dask.array", "dask.array.*"]
 ignore_missing_imports = true
-
 follow_imports = "skip"
 
 [tool.pytest.ini_options]

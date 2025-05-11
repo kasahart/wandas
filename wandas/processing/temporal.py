@@ -52,7 +52,7 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for resampling operation"""
         logger.debug(f"Applying resampling to array with shape: {x.shape}")
-        result = librosa.resample(
+        result: NDArrayReal = librosa.resample(
             x, orig_sr=self.sampling_rate, target_sr=self.target_sr
         )
         logger.debug(f"Resampling applied, returning result with shape: {result.shape}")
@@ -268,7 +268,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
                 raise ValueError("A_weighting returned an unexpected type.")
 
         # Calculate RMS
-        result = librosa.feature.rms(
+        result: NDArrayReal = librosa.feature.rms(
             y=x, frame_length=self.frame_length, hop_length=self.hop_length
         )[..., 0, :]
 
