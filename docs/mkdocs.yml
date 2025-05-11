@@ -1,113 +1,114 @@
+# ─── 基本情報 ───────────────────────────────
 site_name: Wandas
-site_description: Wandasライブラリのドキュメント
+site_description: Wandas ライブラリのドキュメント
 site_author: Wandas Team
 site_url: https://wandas.github.io/
+copyright: © 2025 Wandas Team
 
-# ドキュメントのソースとビルド先の設定
 docs_dir: src
-site_dir: ../site
+site_dir: site
 
-# リポジトリの設定
-repo_name: wandas
-repo_url: https://github.com/yourusername/wandas
-edit_uri: edit/main/docs/
+repo_name: kasahart/wandas
+repo_url: https://github.com/kasahart/wandas
+edit_uri: edit/main/src/
 
-# テーマの設定
+# ─── テーマ (Material) ─────────────────────
 theme:
   name: material
-  logo: "assets/images/logo.png"  # ヘッダーにロゴを追加
+  logo: assets/images/logo.png
+  icon: { repo: fontawesome/brands/github }
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle: { icon: material/weather-night, name: ダークモードへ }
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle: { icon: material/weather-sunny, name: ライトモードへ }
   features:
     - navigation.tabs
     - navigation.sections
     - navigation.expand
+    - navigation.tracking
+    - navigation.top
     - search.highlight
     - search.share
-  palette:
-    - scheme: default
-      primary: indigo
-      accent: indigo
-      toggle:
-        icon: material/toggle-switch-off-outline
-        name: Switch to dark mode
-    - scheme: slate
-      primary: indigo
-      accent: indigo
-      toggle:
-        icon: material/toggle-switch
-        name: Switch to light mode
-  icon:
-    repo: fontawesome/brands/github
 
-# 拡張機能
+# ─── Markdown 拡張 ─────────────────────────
 markdown_extensions:
   - admonition
-  - codehilite
   - footnotes
+  - toc: { permalink: true }
+  - attr_list
   - pymdownx.highlight
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: python
+          class: python
+          validator: !!python/name:markdown_exec.validator
+          format: !!python/name:markdown_exec.formatter
   - pymdownx.inlinehilite
   - pymdownx.tabbed
   - pymdownx.critic
-  - pymdownx.tasklist:
-      custom_checkbox: true
-  - toc:
-      permalink: true
+  - pymdownx.tasklist: { custom_checkbox: true }
 
-# 多言語サポート
+# ─── プラグイン ────────────────────────────
 plugins:
+  # 1) i18n - 多言語対応
+  - i18n:
+      docs_structure: suffix
+      languages:
+        - locale: ja
+          default: true
+          name: 日本語
+        - locale: en
+          name: English
+
+  # 基本プラグイン
   - search
+  - autorefs
+
+  # 2) markdown‑exec
+  - markdown-exec:
+
+  # 3) API 自動生成
   - mkdocstrings:
       handlers:
         python:
-          selection:
-            docstring_style: numpy
-          rendering:
+          paths: [../wandas]  # wandasパッケージへのパス
+          options:
             show_source: true
-  - i18n:
-      languages:
-        - locale: en
-          name: English
-          build: true
-          site_name: Wandas Documentation (English)
-        - locale: ja
-          default: true  # 日本語をデフォルト言語として設定
-          name: 日本語
-          build: true
-          site_name: Wandas ドキュメント (日本語)
-      docs_structure: suffix
+            show_submodules: true
+            heading_level: 2
+            show_category_heading: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            members_order: source
+            docstring_style: google
+            show_root_heading: true
+            show_root_full_path: true
+            show_if_no_docstring: true
 
-# ナビゲーション構造
+  # 4) その他
+  - git-revision-date-localized
+
+# ─── ナビゲーション ────────────────────────
 nav:
   - Home: index.md
   - Tutorials:
-    - Getting Started: tutorial/index.md
+      - Getting Started: tutorial/index.md
   - Cookbooks:
-    - Common Uses: how_to/index.md
-  - API Reference:
-    - Overview: api/index.md
-    - Core: api/core.md
-    - Frames: api/frames.md
-    - IO: api/io.md
-    - Processing: api/processing.md
-    - Datasets: api/datasets.md
-    - Visualization: api/visualization.md
-    - Utils: api/utils.md
+      - Common Uses: how_to/index.md
+  - API Reference: api/index.md
   - Theory & Architecture:
-    - Overview: explanation/index.md
+      - Overview: explanation/index.md
   - Contributing Guide: contributing.md
 
+# ─── 追加設定 ──────────────────────────────
 extra:
-  analytics:
-    provider: google
-    property: G-MEASUREMENT-ID
+  analytics: { provider: google, property: G-MEASUREMENT-ID }
   social:
-    - icon: fontawesome/brands/github
-      link: https://github.com/yourusername/wandas
-      name: Wandas on GitHub
-  alternate:
-    - name: English
-      link: /en/
-      lang: en
-    - name: 日本語
-      link: /ja/
-      lang: ja
+    - { icon: fontawesome/brands/github, link: https://github.com/kasahart/wandas, name: Wandas on GitHub }
