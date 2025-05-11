@@ -333,11 +333,14 @@ class ChannelFrame(
         rms_ch: ChannelFrame = self.rms_trend(Aw=Aw, dB=True)
         return rms_ch.plot(ax=ax, ylabel=ylabel, title=title, overlay=overlay, **kwargs)
 
-    def describe(self, normalize: bool = True, **kwargs: Any) -> None:
+    def describe(
+        self, normalize: bool = True, is_close: bool = True, **kwargs: Any
+    ) -> None:
         """Display visual and audio representation of the frame.
 
         Args:
             normalize: Whether to normalize the audio data for playback.
+            is_close: Whether to close the figure after displaying.
             **kwargs: Additional parameters for visualization.
         """
         if "axis_config" in kwargs:
@@ -379,7 +382,8 @@ class ChannelFrame(
                 )
             # Ignore type checks for display and Audio
             display(ax.figure)  # type: ignore
-            plt.close(ax.figure)  # type: ignore
+            if is_close:
+                plt.close(ax.figure)  # type: ignore
             display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))  # type: ignore
 
     @classmethod

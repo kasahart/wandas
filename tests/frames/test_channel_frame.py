@@ -1132,7 +1132,7 @@ class TestChannelFrame:
         # 通常の加算をテスト
         # Create another ChannelFrame
         other_data = np.random.random((2, 16000))
-        other_dask_data = _da_from_array(other_data, chunks=(1, 4000))
+        other_dask_data = _da_from_array(other_data, chunks=-1)
         other_cf = ChannelFrame(other_dask_data, self.sample_rate, label="other_audio")
 
         # addメソッドを使用して加算

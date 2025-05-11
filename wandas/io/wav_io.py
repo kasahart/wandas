@@ -1,9 +1,10 @@
 # wandas/io/wav_io.py
-
+import io
 import os
 from typing import TYPE_CHECKING, Optional
 
 import numpy as np
+import requests
 from scipy.io import wavfile
 
 if TYPE_CHECKING:
@@ -17,7 +18,7 @@ def read_wav(filename: str, labels: Optional[list[str]] = None) -> "ChannelFrame
     Parameters
     ----------
     filename : str
-        Path to the WAV file.
+        Path to the WAV file or URL to the WAV file.
     labels : list of str, optional
         Labels for each channel.
 
@@ -28,8 +29,20 @@ def read_wav(filename: str, labels: Optional[list[str]] = None) -> "ChannelFrame
     """
     from wandas.frames.channel import ChannelFrame
 
-    # データの読み込み
-    sampling_rate, data = wavfile.read(filename, mmap=True)
+    # ファイル名がURLかどうかを判断
+    if filename.startswith("http://") or filename.startswith("https://"):
+        # URLの場合、requestsを使用してダウンロード
+
+        response = requests.get(filename)
+        file_obj = io.BytesIO(response.content)
+        file_label = os.path.basename(filename)
+        # メモリマッピングは使用せずに読み込む
+        sampling_rate, data = wavfile.read(file_obj)
+    else:
+        # ローカルファイルパスの場合
+        file_label = os.path.basename(filename)
+        # データの読み込み（メモリマッピングを使用）
+        sampling_rate, data = wavfile.read(filename, mmap=True)
 
     # データを(num_channels, num_samples)形状のNumPy配列に変換
     if data.ndim == 1:
@@ -43,7 +56,7 @@ def read_wav(filename: str, labels: Optional[list[str]] = None) -> "ChannelFrame
     channel_frame = ChannelFrame.from_numpy(
         data=data,
         sampling_rate=sampling_rate,
-        label=os.path.basename(filename),
+        label=file_label,
         ch_labels=labels,
     )
 
