@@ -7,7 +7,6 @@ import dask
 import dask.array as da
 import matplotlib.pyplot as plt
 import numpy as np
-import soundfile as sf
 from dask.array.core import Array as DaArray
 from IPython.display import Audio, display
 from matplotlib.axes import Axes
@@ -674,13 +673,9 @@ class ChannelFrame(
             path: Path to save the file.
             format: File format. If None, determined from file extension.
         """
-        logger.debug(f"Saving audio data to file: {path} (will compute now)")
-        data = self.compute()
-        data = data.T
-        if data.shape[1] == 1:
-            data = data.squeeze(axis=1)
-        sf.write(str(path), data, int(self.sampling_rate), format=format)
-        logger.debug(f"Save complete: {path}")
+        from wandas.io.wav_io import write_wav
+
+        write_wav(str(path), self, format=format)
 
     def save(
         self,
