@@ -7,7 +7,8 @@ import dask
 import dask.array as da
 import matplotlib.pyplot as plt
 import numpy as np
-from dask.array.core import Array as DaArray
+from dask.array.core import Array as DaskArray
+from dask.array.core import concatenate, from_array
 from IPython.display import Audio, display
 from matplotlib.axes import Axes
 
@@ -40,7 +41,7 @@ class ChannelFrame(
 
     def __init__(
         self,
-        data: DaArray,
+        data: DaskArray,
         sampling_rate: float,
         label: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
@@ -64,7 +65,7 @@ class ChannelFrame(
             ValueError: If data has more than 2 dimensions.
         """
         if data.ndim == 1:
-            data = data.reshape(1, -1)
+            data = da.reshape(data, (1, -1))
         elif data.ndim > 2:
             raise ValueError(
                 f"Data must be 1-dimensional or 2-dimensional. Shape: {data.shape}"
@@ -140,8 +141,8 @@ class ChannelFrame(
 
     def _binary_op(
         self,
-        other: Union["ChannelFrame", int, float, NDArrayReal, "DaArray"],
-        op: Callable[["DaArray", Any], "DaArray"],
+        other: Union["ChannelFrame", int, float, NDArrayReal, "DaskArray"],
+        op: Callable[["DaskArray", Any], "DaskArray"],
         symbol: str,
     ) -> "ChannelFrame":
         """
@@ -417,7 +418,7 @@ class ChannelFrame(
 
         # Convert NumPy array to dask array
         dask_data = da_from_array(data)
-        cf = ChannelFrame(
+        cf = cls(
             data=dask_data,
             sampling_rate=sampling_rate,
             label=label or "numpy_data",
@@ -745,3 +746,162 @@ class ChannelFrame(
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
         """Provide additional initialization arguments required for ChannelFrame."""
         return {}
+
+    def add_channel(
+        self,
+        data: Union[np.ndarray[Any, Any], DaskArray, "ChannelFrame"],
+        label: Optional[str] = None,
+        align: str = "strict",
+        suffix_on_dup: Optional[str] = None,
+        inplace: bool = False,
+        **kwargs: Any,
+    ) -> "ChannelFrame":
+        # ndarray/dask/同型Frame対応
+        if isinstance(data, ChannelFrame):
+            if self.sampling_rate != data.sampling_rate:
+                raise ValueError("sampling_rate不一致")
+            if data.n_samples != self.n_samples:
+                if align == "pad":
+                    pad_len = self.n_samples - data.n_samples
+                    arr = data._data
+                    if pad_len > 0:
+                        arr = concatenate(
+                            [
+                                arr,
+                                from_array(
+                                    np.zeros((arr.shape[0], pad_len), dtype=arr.dtype)
+                                ),
+                            ],
+                            axis=1,
+                        )
+                    else:
+                        arr = arr[:, : self.n_samples]
+                elif align == "truncate":
+                    arr = data._data[:, : self.n_samples]
+                    if arr.shape[1] < self.n_samples:
+                        pad_len = self.n_samples - arr.shape[1]
+                        arr = concatenate(
+                            [
+                                arr,
+                                from_array(
+                                    np.zeros((arr.shape[0], pad_len), dtype=arr.dtype)
+                                ),
+                            ],
+                            axis=1,
+                        )
+                else:
+                    raise ValueError("データ長不一致: align指定を確認")
+            else:
+                arr = data._data
+            labels = [ch.label for ch in self._channel_metadata]
+            new_labels = []
+            for chmeta in data._channel_metadata:
+                new_label = chmeta.label
+                if new_label in labels or new_label in new_labels:
+                    if suffix_on_dup:
+                        new_label += suffix_on_dup
+                    else:
+                        raise ValueError(f"label重複: {new_label}")
+                new_labels.append(new_label)
+            new_data = concatenate([self._data, arr], axis=0)
+            from ..core.metadata import ChannelMetadata
+
+            new_chmeta = self._channel_metadata + [
+                ChannelMetadata(label=lbl) for lbl in new_labels
+            ]
+            if inplace:
+                self._data = new_data
+                self._channel_metadata = new_chmeta
+                return self
+            else:
+                return ChannelFrame(
+                    data=new_data,
+                    sampling_rate=self.sampling_rate,
+                    label=self.label,
+                    metadata=self.metadata,
+                    operation_history=self.operation_history,
+                    channel_metadata=new_chmeta,
+                    previous=self,
+                )
+        if isinstance(data, np.ndarray):
+            arr = from_array(data.reshape(1, -1))
+        elif isinstance(data, DaskArray):
+            arr = data[None, ...] if data.ndim == 1 else data
+            if arr.shape[0] != 1:
+                arr = arr.reshape((1, -1))
+        else:
+            raise TypeError("add_channel: ndarray/dask/同型Frameのみ対応")
+        if arr.shape[1] != self.n_samples:
+            if align == "pad":
+                pad_len = self.n_samples - arr.shape[1]
+                if pad_len > 0:
+                    arr = concatenate(
+                        [arr, from_array(np.zeros((1, pad_len), dtype=arr.dtype))],
+                        axis=1,
+                    )
+                else:
+                    arr = arr[:, : self.n_samples]
+            elif align == "truncate":
+                arr = arr[:, : self.n_samples]
+                if arr.shape[1] < self.n_samples:
+                    pad_len = self.n_samples - arr.shape[1]
+                    arr = concatenate(
+                        [arr, from_array(np.zeros((1, pad_len), dtype=arr.dtype))],
+                        axis=1,
+                    )
+            else:
+                raise ValueError("データ長不一致: align指定を確認")
+        labels = [ch.label for ch in self._channel_metadata]
+        new_label = label or f"ch{len(labels)}"
+        if new_label in labels:
+            if suffix_on_dup:
+                new_label += suffix_on_dup
+            else:
+                raise ValueError("label重複")
+        new_data = concatenate([self._data, arr], axis=0)
+        from ..core.metadata import ChannelMetadata
+
+        new_chmeta = self._channel_metadata + [ChannelMetadata(label=new_label)]
+        if inplace:
+            self._data = new_data
+            self._channel_metadata = new_chmeta
+            return self
+        else:
+            return ChannelFrame(
+                data=new_data,
+                sampling_rate=self.sampling_rate,
+                label=self.label,
+                metadata=self.metadata,
+                operation_history=self.operation_history,
+                channel_metadata=new_chmeta,
+                previous=self,
+            )
+
+    def remove_channel(
+        self, key: Union[int, str], inplace: bool = False
+    ) -> "ChannelFrame":
+        if isinstance(key, int):
+            if not (0 <= key < self.n_channels):
+                raise IndexError(f"index {key} out of range")
+            idx = key
+        else:
+            labels = [ch.label for ch in self._channel_metadata]
+            if key not in labels:
+                raise KeyError(f"label {key} not found")
+            idx = labels.index(key)
+        new_data = self._data[[i for i in range(self.n_channels) if i != idx], :]
+        new_chmeta = [ch for i, ch in enumerate(self._channel_metadata) if i != idx]
+        if inplace:
+            self._data = new_data
+            self._channel_metadata = new_chmeta
+            return self
+        else:
+            return ChannelFrame(
+                data=new_data,
+                sampling_rate=self.sampling_rate,
+                label=self.label,
+                metadata=self.metadata,
+                operation_history=self.operation_history,
+                channel_metadata=new_chmeta,
+                previous=self,
+            )
