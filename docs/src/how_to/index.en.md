@@ -15,8 +15,6 @@ This section provides examples of various practical tasks using the Wandas libra
 
 - [Concatenate multiple audio files](concatenation.md)
 - [Extract specific parts](trimming.md)
-- [Apply fade-in/fade-out to audio](fading.md)
-- [Convert between different formats](format_conversion.md)
 
 ## Advanced Applications
 

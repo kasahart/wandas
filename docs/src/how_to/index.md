@@ -15,8 +15,6 @@
 
 - [複数の音声ファイルを連結する](concatenation.md)
 - [特定の部分を切り出す](trimming.md)
-- [音声をフェードイン/フェードアウトさせる](fading.md)
-- [異なるフォーマット間で変換する](format_conversion.md)
 
 ## 高度な応用
 
