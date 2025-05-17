@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Any, ClassVar, Generic, Optional, TypeVar, Uni
 # Import librosa (including display)
 import librosa
 
+from wandas.utils.introspection import filter_kwargs
+
 try:
     # Avoid error due to librosa.display not being explicitly exported
     from librosa import display  # type: ignore
@@ -18,6 +20,7 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
+from matplotlib.lines import Line2D
 
 if TYPE_CHECKING:
     from wandas.core.base_frame import BaseFrame
@@ -90,16 +93,32 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         """Waveform plotting"""
         kwargs = kwargs or {}
         ylabel = kwargs.pop("ylabel", "Amplitude")
+        xlabel = kwargs.pop("xlabel", "Time [s]")
+        alpha = kwargs.pop("alpha", 0)
+        plot_kwargs = filter_kwargs(
+            Line2D,
+            kwargs,
+            strict_mode=True,
+        )
+        ax_set = filter_kwargs(
+            Axes.set,
+            kwargs,
+            strict_mode=True,
+        )
         if overlay:
             if ax is None:
-                _, ax = plt.subplots(figsize=(10, 4))
-            self.channel_plot(bf.time, bf.data.T, ax, label=bf.labels)
+                fig, ax = plt.subplots(figsize=(10, 4))
+            self.channel_plot(
+                bf.time, bf.data.T, ax, label=bf.labels, alpha=alpha, **plot_kwargs
+            )
             ax.set(
                 ylabel=ylabel,
                 title=title or bf.label or "Channel Data",
-                xlabel="Time [s]",
+                xlabel=xlabel,
+                **ax_set,
             )
             if ax is None:
+                fig.suptitle(title or bf.label or None)
                 plt.tight_layout()
                 plt.show()
             return ax
@@ -115,12 +134,17 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
             axes_list = list(axs)
             data = bf.data
             for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
-                self.channel_plot(bf.time, channel_data, ax_i)
-                ax_i.set(ylabel=ylabel, title=ch_meta.label)
+                self.channel_plot(
+                    bf.time, channel_data, ax_i, alpha=alpha, **plot_kwargs
+                )
+                ax_i.set(
+                    ylabel=ylabel,
+                    title=ch_meta.label,
+                    **ax_set,
+                )
 
             axes_list[-1].set(
                 ylabel=ylabel,
-                title=title or bf.label or "Channel Data",
                 xlabel="Time [s]",
             )
             fig.suptitle(title or bf.label or "Channel Data")
@@ -250,7 +274,7 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
         if overlay:
             if ax is None:
                 _, ax = plt.subplots(figsize=(10, 4))
-            self.channel_plot(bf.freqs, data.T, ax, label=bf.labels)
+            self.channel_plot(bf.freqs, data.T, ax, label=bf.labels, **kwargs)
             ax.set_xlabel("Center frequency [Hz]")
             ax.set_ylabel(f"Spectrum level [{unit}]")
             ax.set_title(title or bf.label or f"1/{str(bf.n)}-Octave Spectrum")
@@ -269,7 +293,9 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
 
             axes_list = list(axs)
             for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
-                self.channel_plot(bf.freqs, channel_data, ax_i, label=ch_meta.label)
+                self.channel_plot(
+                    bf.freqs, channel_data, ax_i, label=ch_meta.label, **kwargs
+                )
 
             axes_list[-1].set_xlabel("Center frequency [Hz]")
             axes_list[-1].set_ylabel(f"Spectrum level [{unit}]")
@@ -577,7 +603,12 @@ class MatrixPlotStrategy(PlotStrategy[Union["SpectralFrame"]]):
 
         for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
             self.channel_plot(
-                bf.freqs, channel_data, ax_i, title=ch_meta.label, ylabel=ylabel
+                bf.freqs,
+                channel_data,
+                ax_i,
+                title=ch_meta.label,
+                ylabel=ylabel,
+                **kwargs,
             )
 
         fig.suptitle(title or bf.label or "Spectral Data")
