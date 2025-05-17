@@ -11,6 +11,7 @@ from wandas.processing.base import create_operation, get_operation
 # インポートパスを修正 (filter → filters)
 from wandas.processing.filters import (
     AWeighting,
+    BandPassFilter,
     HighPassFilter,
     LowPassFilter,
 )
@@ -248,3 +249,113 @@ class TestAWeightingOperation:
         # Verify the operation was created correctly
         assert isinstance(a_weight_op, AWeighting)
         assert a_weight_op.sampling_rate == self.sample_rate
+
+
+class TestBandPassFilter:
+    def setup_method(self) -> None:
+        """Set up test fixtures for each test."""
+        self.sample_rate: int = 16000
+        self.low_cutoff: float = 300.0
+        self.high_cutoff: float = 1000.0
+        self.order: int = 4
+        self.bpf: BandPassFilter = BandPassFilter(
+            self.sample_rate, self.low_cutoff, self.high_cutoff, self.order
+        )
+
+        # Create sample data with low, mid, and high frequency components
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)  # 1 second of audio
+
+        # 100 Hz (below band), 500 Hz (in band), 1500 Hz (above band)
+        self.below_band_freq: float = 100.0
+        self.in_band_freq: float = 500.0
+        self.above_band_freq: float = 1500.0
+
+        below_band_signal = np.sin(2 * np.pi * self.below_band_freq * t)
+        in_band_signal = np.sin(2 * np.pi * self.in_band_freq * t)
+        above_band_signal = np.sin(2 * np.pi * self.above_band_freq * t)
+
+        # Single channel signal with all components
+        self.signal: NDArrayReal = np.array(
+            [below_band_signal + in_band_signal + above_band_signal]
+        )
+
+        # Create dask array
+        self.dask_signal: DaArray = _da_from_array(self.signal, chunks=(1, 500))
+
+    def test_initialization(self) -> None:
+        """Test initialization with different parameters."""
+        bpf = BandPassFilter(self.sample_rate, self.low_cutoff, self.high_cutoff)
+        assert bpf.sampling_rate == self.sample_rate
+        assert bpf.low_cutoff == self.low_cutoff
+        assert bpf.high_cutoff == self.high_cutoff
+        assert bpf.order == 4  # Default value
+
+        custom_order = 6
+        bpf = BandPassFilter(
+            self.sample_rate, self.low_cutoff, self.high_cutoff, order=custom_order
+        )
+        assert bpf.order == custom_order
+
+    def test_filter_effect(self) -> None:
+        """Test the band-pass filter frequency response."""
+        # processメソッドを使用してフィルタリング
+        result: NDArrayReal = self.bpf.process(self.dask_signal).compute()
+
+        # Calculate FFT to check frequency content
+        fft_original = np.abs(np.fft.rfft(self.signal[0]))
+        fft_filtered = np.abs(np.fft.rfft(result[0]))
+
+        freq_bins = np.fft.rfftfreq(len(self.signal[0]), 1 / self.sample_rate)
+
+        # Find indices closest to our test frequencies
+        below_idx = np.argmin(np.abs(freq_bins - self.below_band_freq))
+        in_idx = np.argmin(np.abs(freq_bins - self.in_band_freq))
+        above_idx = np.argmin(np.abs(freq_bins - self.above_band_freq))
+
+        # Below band frequency should be attenuated
+        assert (
+            fft_filtered[below_idx] < 0.1 * fft_original[below_idx]
+        )  # At least 90% attenuation
+
+        # In-band frequency should be preserved
+        assert (
+            fft_filtered[in_idx] > 0.9 * fft_original[in_idx]
+        )  # At most 10% attenuation
+
+        # Above band frequency should be attenuated
+        assert (
+            fft_filtered[above_idx] < 0.1 * fft_original[above_idx]
+        )  # At least 90% attenuation
+
+    def test_invalid_cutoff_frequencies(self) -> None:
+        """Test that invalid cutoff frequencies raise ValueError."""
+        # Low cutoff too low
+        with pytest.raises(ValueError):
+            BandPassFilter(self.sample_rate, 0, self.high_cutoff)
+
+        # High cutoff too high (above Nyquist)
+        with pytest.raises(ValueError):
+            BandPassFilter(self.sample_rate, self.low_cutoff, self.sample_rate / 2 + 1)
+
+        # Low cutoff higher than high cutoff
+        with pytest.raises(ValueError):
+            BandPassFilter(self.sample_rate, 1000, 500)
+
+    def test_operation_registry(self) -> None:
+        """Test that BandPassFilter is properly registered in the operation registry."""
+        # Verify BandPassFilter can be accessed through the registry
+        assert get_operation("bandpass_filter") == BandPassFilter
+
+        # Create operation through the factory function
+        bpf_op = create_operation(
+            "bandpass_filter",
+            self.sample_rate,
+            low_cutoff=self.low_cutoff,
+            high_cutoff=self.high_cutoff,
+        )
+
+        # Verify the operation was created correctly
+        assert isinstance(bpf_op, BandPassFilter)
+        assert bpf_op.sampling_rate == self.sample_rate
+        assert bpf_op.low_cutoff == self.low_cutoff
+        assert bpf_op.high_cutoff == self.high_cutoff

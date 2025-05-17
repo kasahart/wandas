@@ -55,6 +55,41 @@ class TestChannelProcessing:
             assert isinstance(result, ChannelFrame)
             assert isinstance(result._data, DaArray)
 
+    def test_band_pass_filter(self) -> None:
+        """Test band_pass_filter operation."""
+        with mock.patch("wandas.processing.create_operation") as mock_create_op:
+            mock_op: mock.MagicMock = mock.MagicMock()
+            mock_op.process.return_value = self.dask_data
+            mock_create_op.return_value = mock_op
+
+            # Apply band-pass filter operation
+            result: ChannelFrame = self.channel_frame.band_pass_filter(
+                low_cutoff=200, high_cutoff=5000
+            )
+            mock_create_op.assert_called_with(
+                "bandpass_filter",
+                self.sample_rate,
+                low_cutoff=200,
+                high_cutoff=5000,
+                order=4,
+            )
+
+            # Test with custom order
+            result = self.channel_frame.band_pass_filter(
+                low_cutoff=300, high_cutoff=3000, order=6
+            )
+            mock_create_op.assert_called_with(
+                "bandpass_filter",
+                self.sample_rate,
+                low_cutoff=300,
+                high_cutoff=3000,
+                order=6,
+            )
+
+            # No compute should have happened
+            assert isinstance(result, ChannelFrame)
+            assert isinstance(result._data, DaArray)
+
     def test_a_weighting(self) -> None:
         """Test a_weighting operation."""
         with mock.patch("wandas.processing.create_operation") as mock_create_op:
