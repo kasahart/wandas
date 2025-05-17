@@ -172,10 +172,10 @@ class NOctFrame(BaseFrame[NDArrayReal]):
             The spectrum in decibels. Shape matches the input data shape:
             (channels, frequency_bins).
         """
-        # dB規定値を_channel_metadataから収集
+        # Collect dB reference values from _channel_metadata
         ref = np.array([ch.ref for ch in self._channel_metadata])
-        # dB変換
-        # 0除算を避けるために、最大値と1e-12のいずれかを使用
+        # Convert to dB
+        # Use either the maximum value or 1e-12 to avoid division by zero
         level: NDArrayReal = 20 * np.log10(
             np.maximum(self.data / ref[..., np.newaxis], 1e-12)
         )
@@ -199,7 +199,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
             The A-weighted spectrum in decibels. Shape matches the input data shape:
             (channels, frequency_bins).
         """
-        # dB規定値を_channel_metadataから収集
+        # Collect dB reference values from _channel_metadata
         weighted: NDArrayReal = librosa.A_weighting(frequencies=self.freqs, min_db=None)
         return self.dB + weighted
 
@@ -278,9 +278,9 @@ class NOctFrame(BaseFrame[NDArrayReal]):
 
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
         """
-        遅延評価を使用して操作を適用します。
+        Apply operations using lazy evaluation.
         """
-        # 遅延評価を使用して操作を適用
+        # Apply operations using lazy evaluation
         raise NotImplementedError(
             f"Operation {operation_name} is not implemented for NOctFrame."
         )
@@ -322,10 +322,10 @@ class NOctFrame(BaseFrame[NDArrayReal]):
 
         logger.debug(f"Plotting audio with plot_type={plot_type} (will compute now)")
 
-        # プロット戦略を取得
+        # Get plot strategy
         plot_strategy: PlotStrategy[NOctFrame] = create_operation(plot_type)
 
-        # プロット実行
+        # Execute plot
         _ax = plot_strategy.plot(self, ax=ax, **kwargs)
 
         logger.debug("Plot rendering complete")

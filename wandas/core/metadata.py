@@ -1,6 +1,6 @@
 from typing import Any
 
-from pydantic import BaseModel, Field  # pydanticから直接インポート
+from pydantic import BaseModel, Field  # Direct import from pydantic
 
 
 class ChannelMetadata(BaseModel):

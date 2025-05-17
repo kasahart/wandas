@@ -1,6 +1,6 @@
-"""共通プロトコル定義モジュール。
+"""Common protocol definition module.
 
-このモジュールには、ミックスインクラスが使用する共通プロトコルが含まれています。
+This module contains common protocols used by mixin classes.
 """
 
 import logging
@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 
 @runtime_checkable
 class BaseFrameProtocol(Protocol):
-    """基本的なフレーム操作を定義するプロトコル。
+    """Protocol that defines basic frame operations.
 
-    すべてのフレームクラスが提供する基本的なメソッドとプロパティを定義します。
+    Defines the basic methods and properties provided by all frame classes.
     """
 
     _data: DaArray
@@ -41,23 +41,23 @@ class BaseFrameProtocol(Protocol):
     def apply_operation(
         self, operation_name: str, **params: Any
     ) -> "BaseFrameProtocol":
-        """名前付き操作を適用する。
+        """Apply a named operation.
 
         Args:
-            operation_name: 適用する操作の名前
-            **params: 操作に渡すパラメータ
+            operation_name: Name of the operation to apply
+            **params: Parameters to pass to the operation
 
         Returns:
-            操作を適用した新しいフレームインスタンス
+            A new frame instance with the operation applied
         """
         ...
 
 
 @runtime_checkable
 class ProcessingFrameProtocol(BaseFrameProtocol, Protocol):
-    """信号処理に関連する操作を定義するプロトコル。
+    """Protocol that defines operations related to signal processing.
 
-    信号処理に関連するフレーム操作を提供するメソッドを定義します。
+    Defines methods that provide frame operations related to signal processing.
     """
 
     pass
@@ -65,15 +65,16 @@ class ProcessingFrameProtocol(BaseFrameProtocol, Protocol):
 
 @runtime_checkable
 class TransformFrameProtocol(BaseFrameProtocol, Protocol):
-    """変換操作に関連するプロトコル。
+    """Protocol related to transform operations.
 
-    周波数解析やスペクトル変換などの操作を提供するメソッドを定義します。
+    Defines methods that provide operations such as frequency analysis and
+    spectral transformation.
     """
 
     pass
 
 
-# 型変数の定義
+# Type variable definitions
 T_Base = TypeVar("T_Base", bound=BaseFrameProtocol)
 T_Processing = TypeVar("T_Processing", bound=ProcessingFrameProtocol)
 T_Transform = TypeVar("T_Transform", bound=TransformFrameProtocol)

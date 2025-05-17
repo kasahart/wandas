@@ -121,7 +121,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             data = data.reshape(1, -1)
         elif data.ndim > 2:
             raise ValueError(
-                f"データは1次元または2次元である必要があります。形状: {data.shape}"
+                f"Data must be 1-dimensional or 2-dimensional. Shape: {data.shape}"
             )
         self.n_fft = n_fft
         self.window = window
@@ -254,13 +254,13 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
         from ..processing import create_operation
 
-        # 操作インスタンスを作成
+        # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
 
-        # データに処理を適用
+        # Apply processing to data
         processed_data = operation.process(self._data)
 
-        # メタデータ更新
+        # Update metadata
         operation_metadata = {"operation": operation_name, "params": params}
         new_history = self.operation_history.copy()
         new_history.append(operation_metadata)
@@ -326,13 +326,13 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         if isinstance(other, SpectralFrame):
             if self.sampling_rate != other.sampling_rate:
                 raise ValueError(
-                    "サンプリングレートが一致していません。演算できません。"
+                    "Sampling rates do not match. Cannot perform operation."
                 )
 
-            # dask arrayを直接演算（遅延実行を維持）
+            # Directly operate on dask arrays (maintaining lazy execution)
             result_data = op(self._data, other._data)
 
-            # チャネルメタデータを結合
+            # Combine channel metadata
             merged_channel_metadata = []
             for self_ch, other_ch in zip(
                 self._channel_metadata, other._channel_metadata
@@ -355,24 +355,24 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
                 previous=self,
             )
 
-        # スカラー、NumPy配列、または他のタイプとの演算
+        # Operation with scalar, NumPy array, or other types
         else:
-            # dask arrayに直接演算を適用（遅延実行を維持）
+            # Apply operation directly to dask array (maintaining lazy execution)
             result_data = op(self._data, other)
 
-            # オペランドの表示用文字列
+            # String representation of operand for display
             if isinstance(other, (int, float)):
                 other_str = str(other)
             elif isinstance(other, complex):
                 other_str = f"complex({other.real}, {other.imag})"
             elif isinstance(other, np.ndarray):
                 other_str = f"ndarray{other.shape}"
-            elif hasattr(other, "shape"):  # dask.array.Arrayのチェック
+            elif hasattr(other, "shape"):  # Check for dask.array.Array
                 other_str = f"dask.array{other.shape}"
             else:
                 other_str = str(type(other).__name__)
 
-            # チャネルメタデータを更新
+            # Update channel metadata
             updated_channel_metadata: list[ChannelMetadata] = []
             for self_ch in self._channel_metadata:
                 ch = self_ch.model_copy(deep=True)
@@ -430,10 +430,10 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
 
         logger.debug(f"Plotting audio with plot_type={plot_type} (will compute now)")
 
-        # プロット戦略を取得
+        # Get plot strategy
         plot_strategy: PlotStrategy[SpectralFrame] = create_operation(plot_type)
 
-        # プロット実行
+        # Execute plot
         _ax = plot_strategy.plot(self, ax=ax, **kwargs)
 
         logger.debug("Plot rendering complete")
@@ -460,17 +460,17 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         operation_name = "ifft"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
 
-        # 操作インスタンスを作成
+        # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("IFFT", operation)
-        # データに処理を適用
+        # Apply processing to data
         time_series = operation.process(self._data)
 
         logger.debug(
             f"Created new SpectralFrame with operation {operation_name} added to graph"
         )
 
-        # 新しいインスタンスを作成
+        # Create new instance
         return ChannelFrame(
             data=time_series,
             sampling_rate=self.sampling_rate,
@@ -482,7 +482,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
         """
-        SpectralFrame に必要な追加の初期化引数を提供します。
+        Provide additional initialization arguments required for SpectralFrame.
 
         Returns
         -------
@@ -534,7 +534,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         """
         if self.sampling_rate != 48000:
             raise ValueError(
-                "noct_synthesisは48000Hzのサンプリングレートでのみ使用できます。"
+                "noct_synthesis can only be used with a sampling rate of 48000 Hz."
             )
         from ..processing import NOctSynthesis
         from .noct import NOctFrame
@@ -544,10 +544,10 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
         from ..processing import create_operation
 
-        # 操作インスタンスを作成
+        # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("NOctSynthesis", operation)
-        # データに処理を適用
+        # Apply processing to data
         spectrum_data = operation.process(self._data)
 
         logger.debug(
@@ -605,10 +605,10 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
 
         logger.debug(f"Plotting audio with plot_type={plot_type} (will compute now)")
 
-        # プロット戦略を取得
+        # Get plot strategy
         plot_strategy: PlotStrategy[SpectralFrame] = create_operation(plot_type)
 
-        # プロット実行
+        # Execute plot
         _ax = plot_strategy.plot(self, **kwargs)
 
         logger.debug("Plot rendering complete")

@@ -1,5 +1,6 @@
 """
-ChannelCollectionMixin: ChannelFrame系のch追加・削除共通機能
+ChannelCollectionMixin: Common functionality for adding/removing channels in
+ChannelFrame
 """
 
 from typing import TYPE_CHECKING, Any, Literal, Optional, TypeVar, Union
@@ -24,19 +25,19 @@ class ChannelCollectionMixin:
         **kwargs: Any,
     ) -> T:
         """
-        チャンネルを追加する
+        Add a channel
         Args:
-            data: 追加するチャンネル（1ch ndarray/dask/ChannelFrame）
-            label: 追加チャンネルのラベル
-            align: 長さ不一致時の挙動
-            suffix_on_dup: ラベル重複時のsuffix
-            inplace: Trueで自己書換え
+            data: Channel to add (1ch ndarray/dask/ChannelFrame)
+            label: Label for the added channel
+            align: Behavior when lengths don't match
+            suffix_on_dup: Suffix when label is duplicated
+            inplace: True for self-modification
         Returns:
-            新しいFrame or self
+            New Frame or self
         Raises:
             ValueError, TypeError
         """
-        raise NotImplementedError("add_channel()はサブクラスで実装してください")
+        raise NotImplementedError("add_channel() must be implemented in subclasses")
 
     def remove_channel(
         self: T,
@@ -44,13 +45,13 @@ class ChannelCollectionMixin:
         inplace: bool = False,
     ) -> T:
         """
-        チャンネルを削除する
+        Remove a channel
         Args:
-            key: 削除対象（index or label）
-            inplace: Trueで自己書換え
+            key: Target to remove (index or label)
+            inplace: True for self-modification
         Returns:
-            新しいFrame or self
+            New Frame or self
         Raises:
             ValueError, KeyError, IndexError
         """
-        raise NotImplementedError("remove_channel()はサブクラスで実装してください")
+        raise NotImplementedError("remove_channel() must be implemented in subclasses")

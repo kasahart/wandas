@@ -1,4 +1,4 @@
-"""信号処理に関連するミックスインを提供するモジュール。"""
+"""Module providing mixins related to signal processing."""
 
 import logging
 from typing import TYPE_CHECKING, Any, Optional, Union, cast
@@ -16,23 +16,24 @@ logger = logging.getLogger(__name__)
 
 
 class ChannelProcessingMixin:
-    """信号処理に関連するメソッドを提供するミックスイン。
+    """Mixin that provides methods related to signal processing.
 
-    このミックスインは、信号処理フィルタや変換操作など、
-    オーディオ信号やその他の時系列データに適用される処理メソッドを提供します。
+    This mixin provides processing methods applied to audio signals and
+    other time-series data, such as signal processing filters and
+    transformation operations.
     """
 
     def high_pass_filter(
         self: T_Processing, cutoff: float, order: int = 4
     ) -> T_Processing:
-        """信号にハイパスフィルタを適用する。
+        """Apply a high-pass filter to the signal.
 
         Args:
-            cutoff: フィルタのカットオフ周波数（Hz）
-            order: フィルタの次数。デフォルトは4。
+            cutoff: Filter cutoff frequency (Hz)
+            order: Filter order. Default is 4.
 
         Returns:
-            フィルタ適用後の新しいChannelFrame
+            New ChannelFrame after filter application
         """
         logger.debug(
             f"Setting up highpass filter: cutoff={cutoff}, order={order} (lazy)"
@@ -43,14 +44,14 @@ class ChannelProcessingMixin:
     def low_pass_filter(
         self: T_Processing, cutoff: float, order: int = 4
     ) -> T_Processing:
-        """信号にローパスフィルタを適用する。
+        """Apply a low-pass filter to the signal.
 
         Args:
-            cutoff: フィルタのカットオフ周波数（Hz）
-            order: フィルタの次数。デフォルトは4。
+            cutoff: Filter cutoff frequency (Hz)
+            order: Filter order. Default is 4.
 
         Returns:
-            フィルタ適用後の新しいChannelFrame
+            New ChannelFrame after filter application
         """
         logger.debug(
             f"Setting up lowpass filter: cutoff={cutoff}, order={order} (lazy)"
@@ -61,20 +62,21 @@ class ChannelProcessingMixin:
     def normalize(
         self: T_Processing, target_level: float = -20, channel_wise: bool = True
     ) -> T_Processing:
-        """信号レベルを正規化する。
+        """Normalize signal levels.
 
-        このメソッドは、ターゲットRMSレベルに達するように信号振幅を調整します。
+        This method adjusts the signal amplitude to reach the target RMS level.
 
         Args:
-            target_level: ターゲットRMSレベル（dB）。デフォルトは-20。
-            channel_wise: Trueの場合、各チャネルを個別に正規化します。
-                Falseの場合、すべてのチャネルに同じスケーリングを適用します。
+            target_level: Target RMS level (dB). Default is -20.
+            channel_wise: If True, normalize each channel individually.
+                If False, apply the same scaling to all channels.
 
         Returns:
-            正規化された信号を含む新しいChannelFrame
+            New ChannelFrame containing the normalized signal
         """
         logger.debug(
-            f"Setting up normalize: target_level={target_level}, channel_wise={channel_wise} (lazy)"  # noqa: E501
+            f"Setting up normalize: target_level={target_level}, "
+            f"channel_wise={channel_wise} (lazy)"
         )
         result = self.apply_operation(
             "normalize", target_level=target_level, channel_wise=channel_wise
@@ -82,34 +84,34 @@ class ChannelProcessingMixin:
         return cast(T_Processing, result)
 
     def a_weighting(self: T_Processing) -> T_Processing:
-        """信号にA特性重み付けフィルタを適用する。
+        """Apply A-weighting filter to the signal.
 
-        A特性重み付けは、IEC 61672-1:2013規格に従って、
-        人間の聴覚の知覚に近似するように周波数応答を調整します。
+        A-weighting adjusts the frequency response to approximate human
+        auditory perception, according to the IEC 61672-1:2013 standard.
 
         Returns:
-            A特性重み付けされた信号を含む新しいChannelFrame
+            New ChannelFrame containing the A-weighted signal
         """
         result = self.apply_operation("a_weighting")
         return cast(T_Processing, result)
 
     def abs(self: T_Processing) -> T_Processing:
-        """信号の絶対値を計算する。
+        """Compute the absolute value of the signal.
 
         Returns:
-            絶対値を含む新しいChannelFrame
+            New ChannelFrame containing the absolute values
         """
         result = self.apply_operation("abs")
         return cast(T_Processing, result)
 
     def power(self: T_Processing, exponent: float = 2.0) -> T_Processing:
-        """信号のべき乗を計算する。
+        """Compute the power of the signal.
 
         Args:
-            exponent: 信号を累乗する指数。デフォルトは2.0。
+            exponent: Exponent to raise the signal to. Default is 2.0.
 
         Returns:
-            べき乗された信号を含む新しいChannelFrame
+            New ChannelFrame containing the powered signal
         """
         result = self.apply_operation("power", exponent=exponent)
         return cast(T_Processing, result)
@@ -137,17 +139,17 @@ class ChannelProcessingMixin:
         start: float = 0,
         end: Optional[float] = None,
     ) -> T_Processing:
-        """信号を指定された時間範囲にトリミングする。
+        """Trim the signal to the specified time range.
 
         Args:
-            start: 開始時間（秒）
-            end: 終了時間（秒）
+            start: Start time (seconds)
+            end: End time (seconds)
 
         Returns:
-            トリミングされた信号を含む新しいChannelFrame
+            New ChannelFrame containing the trimmed signal
 
         Raises:
-            ValueError: 終了時間が開始時間より前の場合
+            ValueError: If end time is earlier than start time
         """
         if end is None:
             end = self.duration
@@ -161,14 +163,14 @@ class ChannelProcessingMixin:
         length: Optional[int] = None,
         duration: Optional[float] = None,
     ) -> T_Processing:
-        """信号を指定された時間にする。
+        """Adjust the signal to the specified length.
 
         Args:
-            duration: 信号の長さ（秒）
-            length: 信号の長さ（サンプル数）
+            duration: Signal length in seconds
+            length: Signal length in samples
 
         Returns:
-            指定された長さに調整された信号を含む新しいChannelFrame
+            New ChannelFrame containing the adjusted signal
         """
 
         result = self.apply_operation("fix_length", length=length, duration=duration)
@@ -181,24 +183,23 @@ class ChannelProcessingMixin:
         dB: bool = False,  # noqa: N803
         Aw: bool = False,  # noqa: N803
     ) -> T_Processing:
-        """信号のRMS傾向を計算する。
+        """Compute the RMS trend of the signal.
 
-        このメソッドは、スライディングウィンドウ上で二乗平均平方根値を計算します。
+        This method calculates the root mean square value over a sliding window.
 
         Args:
-            frame_length: サンプル単位のスライディングウィンドウのサイズ。
-            デフォルトは2048。
-            hop_length: サンプル単位のウィンドウ間のホップ長。デフォルトは512。
-            dB: RMS値をデシベルで返すかどうか。デフォルトはFalse。
-            Aw: A特性重み付けを適用するかどうか。デフォルトはFalse。
+            frame_length: Size of the sliding window in samples. Default is 2048.
+            hop_length: Hop length between windows in samples. Default is 512.
+            dB: Whether to return RMS values in decibels. Default is False.
+            Aw: Whether to apply A-weighting. Default is False.
 
         Returns:
-            RMS傾向を含む新しいChannelFrame
+            New ChannelFrame containing the RMS trend
         """
-        # _channel_metadataにアクセスして参照値を取得
+        # Access _channel_metadata to retrieve reference values
         frame = cast(ProcessingFrameProtocol, self)
 
-        # _channel_metadataが存在することを確認してから参照
+        # Ensure _channel_metadata exists before referencing
         ref_values = []
         if hasattr(frame, "_channel_metadata") and frame._channel_metadata:
             ref_values = [ch.ref for ch in frame._channel_metadata]
@@ -212,7 +213,7 @@ class ChannelProcessingMixin:
             Aw=Aw,
         )
 
-        # サンプリングレートを更新
+        # Update sampling rate
         result_obj = cast(T_Processing, result)
         if hasattr(result_obj, "sampling_rate"):
             result_obj.sampling_rate = frame.sampling_rate / hop_length
@@ -222,15 +223,15 @@ class ChannelProcessingMixin:
     def channel_difference(
         self: T_Processing, other_channel: Union[int, str] = 0
     ) -> T_Processing:
-        """チャネル間の差分を計算する。
+        """Compute the difference between channels.
 
         Args:
-            other_channel: 参照チャネルのインデックスまたはラベル。デフォルトは0。
+            other_channel: Index or label of the reference channel. Default is 0.
 
         Returns:
-            チャネル差分を含む新しいChannelFrame
+            New ChannelFrame containing the channel difference
         """
-        # label2indexはBaseFrameのメソッド
+        # label2index is a method of BaseFrame
         if isinstance(other_channel, str):
             if hasattr(self, "label2index"):
                 other_channel = self.label2index(other_channel)
@@ -243,14 +244,14 @@ class ChannelProcessingMixin:
         target_sr: float,
         **kwargs: Any,
     ) -> T_Processing:
-        """オーディオデータをリサンプリングする。
+        """Resample audio data.
 
         Args:
-            target_sr: 目標サンプリングレート（Hz）
-            **kwargs: 追加のリサンプリングパラメータ
+            target_sr: Target sampling rate (Hz)
+            **kwargs: Additional resampling parameters
 
         Returns:
-            リサンプリングされたChannelFrame
+            Resampled ChannelFrame
         """
         return cast(
             T_Processing,
@@ -282,6 +283,22 @@ class ChannelProcessingMixin:
         """
         Extract harmonic components using HPSS
          (Harmonic-Percussive Source Separation).
+
+        This method separates the harmonic (tonal) components from the signal.
+
+        Args:
+            kernel_size: Median filter size for HPSS.
+            power: Exponent for the Weiner filter used in HPSS.
+            margin: Margin size for the separation.
+            n_fft: Size of FFT window.
+            hop_length: Hop length for STFT.
+            win_length: Window length for STFT.
+            window: Window type for STFT.
+            center: If True, center the frames.
+            pad_mode: Padding mode for STFT.
+
+        Returns:
+            A new ChannelFrame containing the harmonic components.
         """
         result = self.apply_operation(
             "hpss_harmonic",

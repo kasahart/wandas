@@ -1,4 +1,5 @@
-"""周波数変換や変換操作に関連するミックスインを提供するモジュール。"""
+"""Module providing mixins related to frequency transformations and transform
+operations."""
 
 import logging
 from typing import TYPE_CHECKING, Any, Optional, cast
@@ -16,23 +17,24 @@ logger = logging.getLogger(__name__)
 
 
 class ChannelTransformMixin:
-    """周波数変換やその他の変換操作に関連するメソッドを提供するミックスイン。
+    """Mixin providing methods related to frequency transformations.
 
-    このミックスインは、FFT、STFT、ウェルチ法などの周波数解析と
-    変換に関する操作を提供します。
+    This mixin provides operations related to frequency analysis and
+    transformations such as FFT, STFT, and Welch method.
     """
 
     def fft(
         self: T_Transform, n_fft: Optional[int] = None, window: str = "hann"
     ) -> "SpectralFrame":
-        """高速フーリエ変換（FFT）を計算する。
+        """Calculate Fast Fourier Transform (FFT).
 
         Args:
-            n_fft: FFTポイント数。デフォルトはデータ長の次のべき乗。
-            window: ウィンドウタイプ。デフォルトは"hann"。
+            n_fft: Number of FFT points. Default is the next power of 2 of the data
+                length.
+            window: Window type. Default is "hann".
 
         Returns:
-            FFT結果を含むSpectralFrame
+            SpectralFrame containing FFT results
         """
         from wandas.frames.spectral import SpectralFrame
         from wandas.processing import FFT, create_operation
@@ -41,10 +43,10 @@ class ChannelTransformMixin:
         operation_name = "fft"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
 
-        # 操作インスタンスの作成
+        # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("FFT", operation)
-        # データに処理を適用
+        # Apply processing to data
         spectrum_data = operation.process(self._data)
 
         logger.debug(
@@ -61,7 +63,7 @@ class ChannelTransformMixin:
         else:
             _n_fft = n_fft
 
-        # BaseFrame型としてselfをキャスト
+        # Cast self as BaseFrame type
         base_self = cast(BaseFrame[Any], self)
 
         return SpectralFrame(
@@ -87,18 +89,18 @@ class ChannelTransformMixin:
         window: str = "hann",
         average: str = "mean",
     ) -> "SpectralFrame":
-        """ウェルチ法によるパワースペクトル密度を計算する。
+        """Calculate power spectral density using Welch's method.
 
         Args:
-            n_fft: FFTポイント数。デフォルトは2048。
-            hop_length: フレーム間のサンプル数。
-                デフォルトはn_fft//4。
-            win_length: ウィンドウの長さ。デフォルトはn_fft。
-            window: ウィンドウの種類。デフォルトは"hann"。
-            average: セグメントの平均化方法。デフォルトは"mean"。
+            n_fft: Number of FFT points. Default is 2048.
+            hop_length: Number of samples between frames.
+                Default is n_fft//4.
+            win_length: Window length. Default is n_fft.
+            window: Window type. Default is "hann".
+            average: Method for averaging segments. Default is "mean".
 
         Returns:
-            パワースペクトル密度を含むSpectralFrame
+            SpectralFrame containing power spectral density
         """
         from wandas.frames.spectral import SpectralFrame
         from wandas.processing import Welch, create_operation
@@ -113,17 +115,17 @@ class ChannelTransformMixin:
         operation_name = "welch"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
 
-        # 操作インスタンスの作成
+        # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("Welch", operation)
-        # データに処理を適用
+        # Apply processing to data
         spectrum_data = operation.process(self._data)
 
         logger.debug(
             f"Created new SpectralFrame with operation {operation_name} added to graph"
         )
 
-        # BaseFrame型としてselfをキャスト
+        # Cast self as BaseFrame type
         base_self = cast(BaseFrame[Any], self)
 
         return SpectralFrame(
@@ -149,17 +151,17 @@ class ChannelTransformMixin:
         G: int = 10,  # noqa: N803
         fr: int = 1000,
     ) -> "NOctFrame":
-        """N-オクターブバンドスペクトルを計算する。
+        """Calculate N-octave band spectrum.
 
         Args:
-            fmin: 最小中心周波数（Hz）。デフォルトは20 Hz。
-            fmax: 最大中心周波数（Hz）。デフォルトは20000 Hz。
-            n: バンド分割（1：オクターブ、3：1/3オクターブ）。デフォルトは3。
-            G: 参照ゲイン（dB）。デフォルトは10 dB。
-            fr: 参照周波数（Hz）。デフォルトは1000 Hz。
+            fmin: Minimum center frequency (Hz). Default is 20 Hz.
+            fmax: Maximum center frequency (Hz). Default is 20000 Hz.
+            n: Band division (1: octave, 3: 1/3 octave). Default is 3.
+            G: Reference gain (dB). Default is 10 dB.
+            fr: Reference frequency (Hz). Default is 1000 Hz.
 
         Returns:
-            N-オクターブバンドスペクトルを含むNOctFrame
+            NOctFrame containing N-octave band spectrum
         """
         from wandas.processing import NOctSpectrum, create_operation
 
@@ -169,17 +171,17 @@ class ChannelTransformMixin:
         operation_name = "noct_spectrum"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
 
-        # 操作インスタンスの作成
+        # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("NOctSpectrum", operation)
-        # データに処理を適用
+        # Apply processing to data
         spectrum_data = operation.process(self._data)
 
         logger.debug(
             f"Created new SpectralFrame with operation {operation_name} added to graph"
         )
 
-        # BaseFrame型としてselfをキャスト
+        # Cast self as BaseFrame type
         base_self = cast(BaseFrame[Any], self)
 
         return NOctFrame(
@@ -210,23 +212,23 @@ class ChannelTransformMixin:
         win_length: Optional[int] = None,
         window: str = "hann",
     ) -> "SpectrogramFrame":
-        """短時間フーリエ変換を計算する。
+        """Calculate Short-Time Fourier Transform.
 
         Args:
-            n_fft: FFTポイント数。デフォルトは2048。
-            hop_length: フレーム間のサンプル数。
-                デフォルトはn_fft//4。
-            win_length: ウィンドウの長さ。デフォルトはn_fft。
-            window: ウィンドウの種類。デフォルトは"hann"。
+            n_fft: Number of FFT points. Default is 2048.
+            hop_length: Number of samples between frames.
+                Default is n_fft//4.
+            win_length: Window length. Default is n_fft.
+            window: Window type. Default is "hann".
 
         Returns:
-            STFT結果を含むSpectrogramFrame
+            SpectrogramFrame containing STFT results
         """
         from wandas.processing import STFT, create_operation
 
         from ..spectrogram import SpectrogramFrame
 
-        # ホップ長とウィンドウ長の設定
+        # Set hop length and window length
         _hop_length = hop_length if hop_length is not None else n_fft // 4
         _win_length = win_length if win_length is not None else n_fft
 
@@ -239,21 +241,21 @@ class ChannelTransformMixin:
         operation_name = "stft"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
 
-        # 操作インスタンスの作成
+        # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("STFT", operation)
 
-        # データに処理を適用
+        # Apply processing to data
         spectrogram_data = operation.process(self._data)
 
         logger.debug(
             f"Created new SpectrogramFrame with operation {operation_name} added to graph"  # noqa: E501
         )
 
-        # BaseFrame型としてselfをキャスト
+        # Cast self as BaseFrame type
         base_self = cast(BaseFrame[Any], self)
 
-        # 新しいインスタンスの作成
+        # Create new instance
         return SpectrogramFrame(
             data=spectrogram_data,
             sampling_rate=self.sampling_rate,
@@ -276,18 +278,18 @@ class ChannelTransformMixin:
         window: str = "hann",
         detrend: str = "constant",
     ) -> "SpectralFrame":
-        """マグニチュード二乗コヒーレンスを計算する。
+        """Calculate magnitude squared coherence.
 
         Args:
-            n_fft: FFTポイント数。デフォルトは2048。
-            hop_length: フレーム間のサンプル数。
-                デフォルトはn_fft//4。
-            win_length: ウィンドウの長さ。デフォルトはn_fft。
-            window: ウィンドウの種類。デフォルトは"hann"。
-            detrend: トレンド除去方法。オプション："constant"、"linear"、None。
+            n_fft: Number of FFT points. Default is 2048.
+            hop_length: Number of samples between frames.
+                Default is n_fft//4.
+            win_length: Window length. Default is n_fft.
+            window: Window type. Default is "hann".
+            detrend: Detrend method. Options: "constant", "linear", None.
 
         Returns:
-            マグニチュード二乗コヒーレンスを含むSpectralFrame
+            SpectralFrame containing magnitude squared coherence
         """
         from wandas.core.metadata import ChannelMetadata
         from wandas.processing import Coherence, create_operation
@@ -304,21 +306,21 @@ class ChannelTransformMixin:
         operation_name = "coherence"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
 
-        # 操作インスタンスの作成
+        # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("Coherence", operation)
 
-        # データに処理を適用
+        # Apply processing to data
         coherence_data = operation.process(self._data)
 
         logger.debug(
             f"Created new SpectralFrame with operation {operation_name} added to graph"
         )
 
-        # BaseFrame型としてselfをキャスト
+        # Cast self as BaseFrame type
         base_self = cast(BaseFrame[Any], self)
 
-        # 新しいチャネルメタデータの作成
+        # Create new channel metadata
         channel_metadata = []
         for in_ch in self._channel_metadata:
             for out_ch in self._channel_metadata:
@@ -331,7 +333,7 @@ class ChannelTransformMixin:
                 )
                 channel_metadata.append(meta)
 
-        # 新しいインスタンスの作成
+        # Create new instance
         return SpectralFrame(
             data=coherence_data,
             sampling_rate=self.sampling_rate,
@@ -357,20 +359,20 @@ class ChannelTransformMixin:
         scaling: str = "spectrum",
         average: str = "mean",
     ) -> "SpectralFrame":
-        """クロススペクトル密度行列を計算する。
+        """Calculate cross-spectral density matrix.
 
         Args:
-            n_fft: FFTポイント数。デフォルトは2048。
-            hop_length: フレーム間のサンプル数。
-                デフォルトはn_fft//4。
-            win_length: ウィンドウの長さ。デフォルトはn_fft。
-            window: ウィンドウの種類。デフォルトは"hann"。
-            detrend: トレンド除去方法。オプション："constant"、"linear"、None。
-            scaling: スケーリング方法。オプション："spectrum"、"density"。
-            average: セグメントの平均化方法。デフォルトは"mean"。
+            n_fft: Number of FFT points. Default is 2048.
+            hop_length: Number of samples between frames.
+                Default is n_fft//4.
+            win_length: Window length. Default is n_fft.
+            window: Window type. Default is "hann".
+            detrend: Detrend method. Options: "constant", "linear", None.
+            scaling: Scaling method. Options: "spectrum", "density".
+            average: Method for averaging segments. Default is "mean".
 
         Returns:
-            クロススペクトル密度行列を含むSpectralFrame
+            SpectralFrame containing cross-spectral density matrix
         """
         from wandas.core.metadata import ChannelMetadata
         from wandas.frames.spectral import SpectralFrame
@@ -388,21 +390,21 @@ class ChannelTransformMixin:
         operation_name = "csd"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
 
-        # 操作インスタンスの作成
+        # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("CSD", operation)
 
-        # データに処理を適用
+        # Apply processing to data
         csd_data = operation.process(self._data)
 
         logger.debug(
             f"Created new SpectralFrame with operation {operation_name} added to graph"
         )
 
-        # BaseFrame型としてselfをキャスト
+        # Cast self as BaseFrame type
         base_self = cast(BaseFrame[Any], self)
 
-        # 新しいチャネルメタデータの作成
+        # Create new channel metadata
         channel_metadata = []
         for in_ch in self._channel_metadata:
             for out_ch in self._channel_metadata:
@@ -415,7 +417,7 @@ class ChannelTransformMixin:
                 )
                 channel_metadata.append(meta)
 
-        # 新しいインスタンスの作成
+        # Create new instance
         return SpectralFrame(
             data=csd_data,
             sampling_rate=self.sampling_rate,
@@ -441,23 +443,24 @@ class ChannelTransformMixin:
         scaling: str = "spectrum",
         average: str = "mean",
     ) -> "SpectralFrame":
-        """伝達関数行列を計算する。
+        """Calculate transfer function matrix.
 
-        伝達関数は、周波数領域でのチャネル間の信号伝達特性を表し、
-        システムの入力-出力関係を表します。
+        The transfer function represents the signal transfer characteristics between
+        channels in the frequency domain and represents the input-output relationship
+        of the system.
 
         Args:
-            n_fft: FFTポイント数。デフォルトは2048。
-            hop_length: フレーム間のサンプル数。
-                デフォルトはn_fft//4。
-            win_length: ウィンドウの長さ。デフォルトはn_fft。
-            window: ウィンドウの種類。デフォルトは"hann"。
-            detrend: トレンド除去方法。オプション："constant"、"linear"、None。
-            scaling: スケーリング方法。オプション："spectrum"、"density"。
-            average: セグメントの平均化方法。デフォルトは"mean"。
+            n_fft: Number of FFT points. Default is 2048.
+            hop_length: Number of samples between frames.
+                Default is n_fft//4.
+            win_length: Window length. Default is n_fft.
+            window: Window type. Default is "hann".
+            detrend: Detrend method. Options: "constant", "linear", None.
+            scaling: Scaling method. Options: "spectrum", "density".
+            average: Method for averaging segments. Default is "mean".
 
         Returns:
-            伝達関数行列を含むSpectralFrame
+            SpectralFrame containing transfer function matrix
         """
         from wandas.core.metadata import ChannelMetadata
         from wandas.frames.spectral import SpectralFrame
@@ -475,21 +478,21 @@ class ChannelTransformMixin:
         operation_name = "transfer_function"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
 
-        # 操作インスタンスの作成
+        # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("TransferFunction", operation)
 
-        # データに処理を適用
+        # Apply processing to data
         tf_data = operation.process(self._data)
 
         logger.debug(
             f"Created new SpectralFrame with operation {operation_name} added to graph"
         )
 
-        # BaseFrame型としてselfをキャスト
+        # Cast self as BaseFrame type
         base_self = cast(BaseFrame[Any], self)
 
-        # 新しいチャネルメタデータの作成
+        # Create new channel metadata
         channel_metadata = []
         for in_ch in self._channel_metadata:
             for out_ch in self._channel_metadata:
@@ -502,7 +505,7 @@ class ChannelTransformMixin:
                 )
                 channel_metadata.append(meta)
 
-        # 新しいインスタンスの作成
+        # Create new instance
         return SpectralFrame(
             data=tf_data,
             sampling_rate=self.sampling_rate,

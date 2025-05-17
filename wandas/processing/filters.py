@@ -44,7 +44,7 @@ class HighPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
         nyquist = 0.5 * self.sampling_rate
         normal_cutoff = self.cutoff / nyquist
 
-        # フィルタ係数を事前計算して保存
+        # Precompute and save filter coefficients
         self.b, self.a = signal.butter(self.order, normal_cutoff, btype="high")  # type: ignore [unused-ignore]
         logger.debug(f"Highpass filter coefficients calculated: b={self.b}, a={self.a}")
 
@@ -95,7 +95,7 @@ class LowPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
         nyquist = 0.5 * self.sampling_rate
         normal_cutoff = self.cutoff / nyquist
 
-        # フィルタ係数を事前計算して保存
+        # Precompute and save filter coefficients
         self.b, self.a = signal.butter(self.order, normal_cutoff, btype="low")  # type: ignore [unused-ignore]
         logger.debug(f"Lowpass filter coefficients calculated: b={self.b}, a={self.a}")
 

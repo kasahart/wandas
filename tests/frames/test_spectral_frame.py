@@ -322,7 +322,9 @@ class TestSpectralFrame:
             window=self.window,
         )
 
-        with pytest.raises(ValueError, match="サンプリングレートが一致していません"):
+        with pytest.raises(
+            ValueError, match="Sampling rates do not match. Cannot perform operation."
+        ):
 
             def add_op(a: Any, b: Any) -> Any:
                 return a + b
@@ -377,7 +379,7 @@ class TestSpectralFrame:
         # noct_synthesisを呼び出すとValueErrorが発生するはず
         with pytest.raises(
             ValueError,
-            match="noct_synthesisは48000Hzのサンプリングレートでのみ使用できます",
+            match="noct_synthesis can only be used with a sampling rate of 48000 Hz.",
         ):
             self.frame.noct_synthesis(fmin=125.0, fmax=8000.0, n=3)
 

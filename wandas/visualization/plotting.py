@@ -4,11 +4,11 @@ import logging
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Optional, TypeVar, Union
 
-# librosaをインポート（displayも含めて）
+# Import librosa (including display)
 import librosa
 
 try:
-    # librosa.displayが明示的にエクスポートされていないためのエラーを回避
+    # Avoid error due to librosa.display not being explicitly exported
     from librosa import display  # type: ignore
 except ImportError:
     # fallback
@@ -54,7 +54,7 @@ class PlotStrategy(abc.ABC, Generic[TFrame]):
         pass
 
 
-# 戻り値型に関するヘルパー関数
+# Helper function for return type
 def _return_axes_iterator(axes_list: Any) -> Iterator[Axes]:
     """Helper to convert fig.axes to Iterator[Axes] with proper typing"""
     return iter(axes_list)
@@ -108,7 +108,7 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
             fig, axs = plt.subplots(
                 num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
             )
-            # axs が単一の Axes オブジェクトの場合、リストに変換
+            # Convert axs to list if it is a single Axes object
             if not isinstance(axs, (list, np.ndarray)):
                 axs = [axs]
 
@@ -191,7 +191,7 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
             fig, axs = plt.subplots(
                 num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
             )
-            # axs が単一の Axes オブジェクトの場合、リストに変換
+            # Convert axs to list if it is a single Axes object
             if not isinstance(axs, (list, np.ndarray)):
                 axs = [axs]
 
@@ -263,7 +263,7 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
             fig, axs = plt.subplots(
                 num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
             )
-            # axs が単一の Axes オブジェクトの場合、リストに変換
+            # Convert axs to list if it is a single Axes object
             if not isinstance(axs, (list, np.ndarray)):
                 axs = [axs]
 
@@ -361,12 +361,12 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
             return ax
 
         else:
-            # axがNoneの場合は新しい図を作成
+            # Create a new figure if ax is None
             num_channels = bf.n_channels
             fig, axs = plt.subplots(
                 num_channels, 1, figsize=(10, 5 * num_channels), sharex=True
             )
-            # axs が単一の Axes オブジェクトの場合、リストに変換
+            # Convert axs to array if it is a single Axes object
             if not isinstance(axs, np.ndarray):
                 axs = np.array([axs])
 
@@ -439,14 +439,14 @@ class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
         fig = plt.figure(figsize=(12, 6))
         fig.subplots_adjust(wspace=0.0001)
 
-        # 最初のサブプロット (Time Plot)
+        # First subplot (Time Plot)
         ax_1 = fig.add_subplot(gs[0])
         bf.plot(plot_type="waveform", ax=ax_1, overlay=True)
         ax_1.set(**waveform)
         ax_1.legend().set_visible(False)
         ax_1.set(xlabel="", title="")
 
-        # 2番目のサブプロット (STFT Plot)
+        # Second subplot (STFT Plot)
         ax_2 = fig.add_subplot(gs[3], sharex=ax_1)
         stft_ch = bf.stft()
         if is_aw:
@@ -455,10 +455,10 @@ class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
         else:
             unit = "dB"
             channel_data = stft_ch.dB[0]
-        # データの最大値を取得し、切りのいい値に丸める
+        # Get the maximum value of the data and round it to a convenient value
         if vmax is None:
             data_max = np.nanmax(channel_data)
-            # 10, 5, 2のいずれかの刻みで切りのいい数に丸める
+            # Round to a convenient number with increments of 10, 5, or 2
             for step in [10, 5, 2]:
                 rounded_max = np.ceil(data_max / step) * step
                 if rounded_max >= data_max:
@@ -482,11 +482,11 @@ class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
         )
         ax_2.set(xlim=xlim, ylim=ylim)
 
-        # 3番目のサブプロット
+        # Third subplot
         ax_3 = fig.add_subplot(gs[1])
         ax_3.axis("off")
 
-        # 4番目のサブプロット (Welch Plot)
+        # Fourth subplot (Welch Plot)
         ax_4 = fig.add_subplot(gs[4], sharey=ax_2)
         welch_ch = bf.welch()
         if is_aw:
@@ -565,7 +565,7 @@ class MatrixPlotStrategy(PlotStrategy[Union["SpectralFrame"]]):
             sharey=True,
         )
 
-        # axs が単一の Axes オブジェクトの場合、リストに変換
+        # Convert axs to list if it is a single Axes object
         if isinstance(axs, np.ndarray):
             axes_list = axs.flatten().tolist()
         elif isinstance(axs, list):
@@ -588,7 +588,7 @@ class MatrixPlotStrategy(PlotStrategy[Union["SpectralFrame"]]):
         return _return_axes_iterator(fig.axes)
 
 
-# プロットタイプと対応するクラスのマッピングを保持
+# Maintain mapping of plot types to corresponding classes
 _plot_strategies: dict[str, type[PlotStrategy[Any]]] = {}
 
 
@@ -601,7 +601,7 @@ def register_plot_strategy(strategy_cls: type) -> None:
     _plot_strategies[strategy_cls.name] = strategy_cls
 
 
-# 抽象でないサブクラスのみを自動登録するように修正
+# Modified to auto-register only non-abstract subclasses
 for strategy_cls in PlotStrategy.__subclasses__():
     if not inspect.isabstract(strategy_cls):
         register_plot_strategy(strategy_cls)
