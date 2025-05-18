@@ -94,7 +94,7 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         kwargs = kwargs or {}
         ylabel = kwargs.pop("ylabel", "Amplitude")
         xlabel = kwargs.pop("xlabel", "Time [s]")
-        alpha = kwargs.pop("alpha", 0)
+        alpha = kwargs.pop("alpha", 1)
         plot_kwargs = filter_kwargs(
             Line2D,
             kwargs,
@@ -198,7 +198,7 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
                 data = bf.dB
             ylabel = kwargs.pop("ylabel", f"Spectrum level [{unit}]")
         xlabel = kwargs.pop("xlabel", "Frequency [Hz]")
-        alpha = kwargs.pop("alpha", 0)
+        alpha = kwargs.pop("alpha", 1)
         plot_kwargs = filter_kwargs(Line2D, kwargs, strict_mode=True)
         ax_set = filter_kwargs(Axes.set, kwargs, strict_mode=True)
         if overlay:
@@ -293,7 +293,7 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
             data = bf.dB
         ylabel = kwargs.pop("ylabel", f"Spectrum level [{unit}]")
         xlabel = kwargs.pop("xlabel", "Center frequency [Hz]")
-        alpha = kwargs.pop("alpha", 0)
+        alpha = kwargs.pop("alpha", 1)
         plot_kwargs = filter_kwargs(Line2D, kwargs, strict_mode=True)
         ax_set = filter_kwargs(Axes.set, kwargs, strict_mode=True)
         if overlay:
@@ -381,6 +381,7 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
             raise ValueError("ax must be None when n_channels > 1.")
 
         kwargs = kwargs or {}
+
         is_aw = kwargs.pop("Aw", False)
         if is_aw:
             unit = "dBA"
@@ -389,13 +390,12 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
             unit = "dB"
             data = bf.dB
 
-        fmin = kwargs.pop("fmin", 0)
-        fmax = kwargs.pop("fmax", None)
+        specshow_kwargs = filter_kwargs(display.specshow, kwargs, strict_mode=True)
+        ax_set_kwargs = filter_kwargs(Axes.set, kwargs, strict_mode=True)
+
         cmap = kwargs.pop("cmap", "jet")
         vmin = kwargs.pop("vmin", None)
         vmax = kwargs.pop("vmax", None)
-        xlim = kwargs.pop("xlim", None)
-        ylim = kwargs.pop("ylim", None)
 
         if ax is not None:
             img = display.specshow(
@@ -406,20 +406,17 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
                 win_length=bf.win_length,
                 x_axis="time",
                 y_axis="linear",
-                ax=ax,
-                fmin=fmin,
-                fmax=fmax,
                 cmap=cmap,
+                ax=ax,
                 vmin=vmin,
                 vmax=vmax,
-                **kwargs,
+                **specshow_kwargs,
             )
             ax.set(
-                xlim=xlim,
-                ylim=ylim,
                 title=title or bf.label or "Spectrogram",
                 ylabel="Frequency [Hz]",
                 xlabel="Time [s]",
+                **ax_set_kwargs,
             )
 
             fig = ax.figure
@@ -448,19 +445,16 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
                     x_axis="time",
                     y_axis="linear",
                     ax=ax_i,
-                    fmin=fmin,
-                    fmax=fmax,
                     cmap=cmap,
                     vmin=vmin,
                     vmax=vmax,
-                    **kwargs,
+                    **specshow_kwargs,
                 )
                 ax_i.set(
-                    xlim=xlim,
-                    ylim=ylim,
                     title=ch_meta.label,
                     ylabel="Frequency [Hz]",
                     xlabel="Time [s]",
+                    **ax_set_kwargs,
                 )
                 cbar = ax_i.figure.colorbar(img, ax=ax_i)
                 cbar.set_label(f"Spectrum level [{unit}]")
@@ -622,7 +616,7 @@ class MatrixPlotStrategy(PlotStrategy[Union["SpectralFrame"]]):
                 data = bf.dB
             ylabel = kwargs.pop("ylabel", f"Spectrum level [{unit}]")
         xlabel = kwargs.pop("xlabel", "Frequency [Hz]")
-        alpha = kwargs.pop("alpha", 0)
+        alpha = kwargs.pop("alpha", 1)
         plot_kwargs = filter_kwargs(Line2D, kwargs, strict_mode=True)
         ax_set = filter_kwargs(Axes.set, kwargs, strict_mode=True)
         num_channels = bf.n_channels
