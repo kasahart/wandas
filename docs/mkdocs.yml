@@ -98,13 +98,9 @@ plugins:
 # ─── ナビゲーション ────────────────────────
 nav:
   - Home: index.md
-  - Tutorials:
-      - Getting Started: tutorial/index.md
-  - Cookbooks:
-      - Common Uses: how_to/index.md
+  - Tutorials: tutorial/index.md
   - API Reference: api/index.md
-  - Theory & Architecture:
-      - Overview: explanation/index.md
+  - Theory & Architecture: explanation/index.md
   - Contributing Guide: contributing.md
 
 # ─── 追加設定 ──────────────────────────────

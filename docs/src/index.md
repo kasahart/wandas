@@ -37,12 +37,11 @@ import wandas as wd
 
 ![ローパスフィルタの適用結果](../assets/images/low_pass_filter.png)
 
-詳細なドキュメントや使用例については、[チュートリアル](tutorial/index.md)や[クックブック](how_to/index.md)をご覧ください。
+詳細なドキュメントや使用例については、[チュートリアル](tutorial/index.md)をご覧ください。
 
 ## ドキュメント構成
 
-- [チュートリアル](tutorial/index.md) - 5分で始められる入門ガイド
-- [クックブック](how_to/index.md) - 一般的なタスクのレシピ集
+- [チュートリアル](tutorial/index.md) - 5分で始められる入門ガイドと一般的なタスクのレシピ集
 - [APIリファレンス](api/index.md) - 詳細なAPI仕様
 - [理論背景/アーキテクチャ](explanation/index.md) - 設計思想とアルゴリズムの解説
 - [貢献ガイド](contributing.md) - コントリビューションのルールと方法
