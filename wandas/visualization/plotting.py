@@ -431,6 +431,8 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
             fig, axs = plt.subplots(
                 num_channels, 1, figsize=(10, 5 * num_channels), sharex=True
             )
+            if not isinstance(fig, plt.Figure):
+                raise ValueError("fig must be a matplotlib Figure object.")
             # Convert axs to array if it is a single Axes object
             if not isinstance(axs, np.ndarray):
                 axs = np.array([axs])
@@ -458,7 +460,7 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
                 )
                 cbar = ax_i.figure.colorbar(img, ax=ax_i)
                 cbar.set_label(f"Spectrum level [{unit}]")
-            fig.suptitle(title or "Spectrogram Data")
+                fig.suptitle(title or "Spectrogram Data")
             plt.tight_layout()
             plt.show()
 
