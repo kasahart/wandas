@@ -5,10 +5,12 @@ from typing import Union
 
 # coreからのインポートをframesからのインポートに変更
 from .frames.channel import ChannelFrame
+from .io import wav_io
 from .utils import generate_sample
 
 __version__ = version(__package__ or "wandas")
-read_wav = ChannelFrame.read_wav
+read_wav = wav_io.read_wav
+
 read_csv = ChannelFrame.read_csv
 from_numpy = ChannelFrame.from_numpy
 from_ndarray = from_numpy

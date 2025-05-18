@@ -1,37 +1,23 @@
 import logging
 from collections.abc import Iterator
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union, cast
+from typing import Any, Callable, Optional, TypeVar, Union
 
 import dask
 import dask.array as da
 import matplotlib.pyplot as plt
 import numpy as np
-import soundfile as sf
+from dask.array.core import Array as DaskArray
+from dask.array.core import concatenate, from_array
 from IPython.display import Audio, display
 from matplotlib.axes import Axes
-
-if TYPE_CHECKING:
-    from librosa._typing import (
-        _FloatLike_co,
-        _IntLike_co,
-        _PadModeSTFT,
-        _WindowSpec,
-    )
-
-    from .noct import NOctFrame
-    from .spectral import SpectralFrame
-    from .spectrogram import SpectrogramFrame
-
-
-from dask.array.core import Array as DaArray
 
 from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
 from ..core.metadata import ChannelMetadata
 from ..io.readers import get_file_reader
-from ..visualization.plotting import create_operation
+from .mixins import ChannelProcessingMixin, ChannelTransformMixin
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +29,9 @@ da_from_array = da.from_array  # type: ignore [unused-ignore]
 S = TypeVar("S", bound="BaseFrame[Any]")
 
 
-class ChannelFrame(BaseFrame[NDArrayReal]):
+class ChannelFrame(
+    BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransformMixin
+):
     """Channel-based data frame for handling audio signals and time series data.
 
     This frame represents channel-based data such as audio signals and time series data,
@@ -52,7 +40,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
 
     def __init__(
         self,
-        data: DaArray,
+        data: DaskArray,
         sampling_rate: float,
         label: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
@@ -76,7 +64,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
             ValueError: If data has more than 2 dimensions.
         """
         if data.ndim == 1:
-            data = data.reshape(1, -1)
+            data = da.reshape(data, (1, -1))
         elif data.ndim > 2:
             raise ValueError(
                 f"Data must be 1-dimensional or 2-dimensional. Shape: {data.shape}"
@@ -118,7 +106,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
 
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-        from ..processing.time_series import create_operation
+        from ..processing import create_operation
 
         # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
@@ -152,8 +140,8 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
 
     def _binary_op(
         self,
-        other: Union["ChannelFrame", int, float, NDArrayReal, "DaArray"],
-        op: Callable[["DaArray", Any], "DaArray"],
+        other: Union["ChannelFrame", int, float, NDArrayReal, "DaskArray"],
+        op: Callable[["DaskArray", Any], "DaskArray"],
         symbol: str,
     ) -> "ChannelFrame":
         """
@@ -248,7 +236,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
 
     def add(
         self,
-        other: Union["ChannelFrame", int, float, NDArrayReal, "DaArray"],
+        other: Union["ChannelFrame", int, float, NDArrayReal],
         snr: Optional[float] = None,
     ) -> "ChannelFrame":
         """Add another signal or value to the current signal.
@@ -267,34 +255,32 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         """
         logger.debug(f"Setting up add operation with SNR={snr} (lazy)")
 
-        # Special processing when SNR is specified
-        if snr is not None:
-            # First convert other to ChannelFrame if it's not
-            if not isinstance(other, ChannelFrame):
-                if isinstance(other, np.ndarray):
-                    other = ChannelFrame.from_numpy(
-                        other, self.sampling_rate, label="array_data"
-                    )
-                elif isinstance(other, (int, float)):
-                    # For scalar values, simply add (ignore SNR)
-                    return self + other
-                else:
-                    raise TypeError(
-                        "Addition target with SNR must be a ChannelFrame or "
-                        f"NumPy array: {type(other)}"
-                    )
-
+        if isinstance(other, ChannelFrame):
             # Check if sampling rates match
             if self.sampling_rate != other.sampling_rate:
                 raise ValueError(
                     "Sampling rates do not match. Cannot perform operation."
                 )
 
-            # Apply addition operation with SNR adjustment
-            return self.apply_operation("add_with_snr", other=other._data, snr=snr)
+        elif isinstance(other, np.ndarray):
+            other = ChannelFrame.from_numpy(
+                other, self.sampling_rate, label="array_data"
+            )
+        elif isinstance(other, (int, float)):
+            return self + other
+        else:
+            raise TypeError(
+                "Addition target with SNR must be a ChannelFrame or "
+                f"NumPy array: {type(other)}"
+            )
 
-        # Execute normal addition if SNR is not specified
-        return self + other
+        # If SNR is specified, adjust the length of the other signal
+        if other.duration != self.duration:
+            other = other.fix_length(length=self.n_samples)
+
+        if snr is None:
+            return self + other
+        return self.apply_operation("add_with_snr", other=other._data, snr=snr)
 
     def plot(
         self, plot_type: str = "waveform", ax: Optional["Axes"] = None, **kwargs: Any
@@ -312,6 +298,8 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         logger.debug(f"Plotting audio with plot_type={plot_type} (will compute now)")
 
         # Get plot strategy
+        from ..visualization.plotting import create_operation
+
         plot_strategy = create_operation(plot_type)
 
         # Execute plot
@@ -346,11 +334,14 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         rms_ch: ChannelFrame = self.rms_trend(Aw=Aw, dB=True)
         return rms_ch.plot(ax=ax, ylabel=ylabel, title=title, overlay=overlay, **kwargs)
 
-    def describe(self, normalize: bool = True, **kwargs: Any) -> None:
+    def describe(
+        self, normalize: bool = True, is_close: bool = True, **kwargs: Any
+    ) -> None:
         """Display visual and audio representation of the frame.
 
         Args:
             normalize: Whether to normalize the audio data for playback.
+            is_close: Whether to close the figure after displaying.
             **kwargs: Additional parameters for visualization.
         """
         if "axis_config" in kwargs:
@@ -390,10 +381,11 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
                 raise TypeError(
                     f"Unexpected type for plot result: {type(_ax)}. Expected Axes or Iterator[Axes]."  # noqa: E501
                 )
-            # Ignore type checks for display and Audio
-            display(ax.figure)  # type: ignore
-            plt.close(ax.figure)  # type: ignore
-            display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))  # type: ignore
+            # display関数とAudioクラスを使用
+            display(ax.figure)
+            if is_close:
+                plt.close(ax.figure)
+            display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))
 
     @classmethod
     def from_numpy(
@@ -427,7 +419,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
 
         # Convert NumPy array to dask array
         dask_data = da_from_array(data)
-        cf = ChannelFrame(
+        cf = cls(
             data=dask_data,
             sampling_rate=sampling_rate,
             label=label or "numpy_data",
@@ -518,7 +510,7 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
             A new ChannelFrame containing the loaded audio data.
 
         Raises:
-            ValueError: If channel selection is invalid.
+            ValueError: If channel specification is invalid.
             TypeError: If channel parameter type is invalid.
             FileNotFoundError: If the file doesn't exist.
         """
@@ -676,764 +668,241 @@ class ChannelFrame(BaseFrame[NDArrayReal]):
         )
         return cf
 
-    def save(self, path: Union[str, Path], format: Optional[str] = None) -> None:
-        """Save the audio data to a file.
+    def to_wav(self, path: Union[str, Path], format: Optional[str] = None) -> None:
+        """Save the audio data to a WAV file.
 
         Args:
             path: Path to save the file.
             format: File format. If None, determined from file extension.
         """
-        logger.debug(f"Saving audio data to file: {path} (will compute now)")
-        data = self.compute()
-        data = data.T
-        if data.shape[1] == 1:
-            data = data.squeeze(axis=1)
-        sf.write(str(path), data, int(self.sampling_rate), format=format)
-        logger.debug(f"Save complete: {path}")
+        from wandas.io.wav_io import write_wav
 
-    def high_pass_filter(self, cutoff: float, order: int = 4) -> "ChannelFrame":
-        """Apply a high-pass filter to the signal.
+        write_wav(str(path), self, format=format)
 
-        Args:
-            cutoff: The cutoff frequency of the filter in Hz.
-            order: The order of the filter. Default is 4.
-
-        Returns:
-            A new ChannelFrame with the filtered signal.
-        """
-        logger.debug(
-            f"Setting up highpass filter: cutoff={cutoff}, order={order} (lazy)"
-        )
-        return self.apply_operation("highpass_filter", cutoff=cutoff, order=order)
-
-    def low_pass_filter(self, cutoff: float, order: int = 4) -> "ChannelFrame":
-        """Apply a low-pass filter to the signal.
-
-        Args:
-            cutoff: The cutoff frequency of the filter in Hz.
-            order: The order of the filter. Default is 4.
-
-        Returns:
-            A new ChannelFrame with the filtered signal.
-        """
-        logger.debug(
-            f"Setting up lowpass filter: cutoff={cutoff}, order={order} (lazy)"
-        )
-        return self.apply_operation("lowpass_filter", cutoff=cutoff, order=order)
-
-    def normalize(
-        self, target_level: float = -20, channel_wise: bool = True
-    ) -> "ChannelFrame":
-        """Normalize the signal level.
-
-        This method adjusts the signal amplitude to reach a target RMS level.
-
-        Args:
-            target_level: Target RMS level in dB. Default is -20.
-            channel_wise: If True, normalize each channel independently.
-                If False, apply the same scaling to all channels.
-
-        Returns:
-            A new ChannelFrame containing the normalized signal.
-        """
-        logger.debug(
-            f"Setting up normalize: target_level={target_level}, channel_wise={channel_wise} (lazy)"  # noqa: E501
-        )
-        return self.apply_operation(
-            "normalize", target_level=target_level, channel_wise=channel_wise
-        )
-
-    def a_weighting(self) -> "ChannelFrame":
-        """Apply A-weighting filter to the signal.
-
-        A-weighting adjusts the frequency response to approximate human hearing
-        perception, following IEC 61672-1:2013 standard.
-
-        Returns:
-            A new ChannelFrame with A-weighted signal.
-        """
-        return self.apply_operation("a_weighting")
-
-    def hpss_harmonic(
+    def save(
         self,
-        kernel_size: Union[
-            "_IntLike_co", tuple["_IntLike_co", "_IntLike_co"], list["_IntLike_co"]
-        ] = 31,
-        power: float = 2,
-        margin: Union[
-            "_FloatLike_co",
-            tuple["_FloatLike_co", "_FloatLike_co"],
-            list["_FloatLike_co"],
-        ] = 1,
-        n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
-        window: "_WindowSpec" = "hann",
-        center: bool = True,
-        pad_mode: "_PadModeSTFT" = "constant",
-    ) -> "ChannelFrame":
-        """
-        Extract harmonic components using HPSS
-         (Harmonic-Percussive Source Separation).
-        """
-        return self.apply_operation(
-            "hpss_harmonic",
-            kernel_size=kernel_size,
-            power=power,
-            margin=margin,
-            n_fft=n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
-            window=window,
-            center=center,
-            pad_mode=pad_mode,
-        )
+        path: Union[str, Path],
+        *,
+        format: str = "hdf5",
+        compress: Optional[str] = "gzip",
+        overwrite: bool = False,
+        dtype: Optional[Union[str, np.dtype[Any]]] = None,
+    ) -> None:
+        """Save the ChannelFrame to a WDF (Wandas Data File) format.
 
-    def hpss_percussive(
-        self,
-        kernel_size: Union[
-            "_IntLike_co", tuple["_IntLike_co", "_IntLike_co"], list["_IntLike_co"]
-        ] = 31,
-        power: float = 2,
-        margin: Union[
-            "_FloatLike_co",
-            tuple["_FloatLike_co", "_FloatLike_co"],
-            list["_FloatLike_co"],
-        ] = 1,
-        n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
-        window: "_WindowSpec" = "hann",
-        center: bool = True,
-        pad_mode: "_PadModeSTFT" = "constant",
-    ) -> "ChannelFrame":
-        """
-        Extract percussive components using HPSS
-        (Harmonic-Percussive Source Separation).
-
-        This method separates the percussive (tonal) components from the signal.
+        This saves the complete frame including all channel data and metadata
+        in a format that can be loaded back with full fidelity.
 
         Args:
-            kernel_size: Median filter size for HPSS.
-            power: Exponent for the Weiner filter used in HPSS.
-            margin: Margin size for the separation.
-
-        Returns:
-            A new ChannelFrame containing the harmonic components.
-        """
-        return self.apply_operation(
-            "hpss_percussive",
-            kernel_size=kernel_size,
-            power=power,
-            margin=margin,
-            n_fft=n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
-            window=window,
-            center=center,
-            pad_mode=pad_mode,
-        )
-
-    def resampling(
-        self,
-        target_sr: float,
-        **kwargs: Any,
-    ) -> "ChannelFrame":
-        """
-        Resample audio data.
-
-        Parameters
-        ----------
-        target_sr : float
-            Target sampling rate (Hz)
-        resample_type : str, optional
-            Resampling method ('soxr_hq', 'linear', 'sinc', 'fft', etc.)
-        **kwargs : dict
-            Additional resampling parameters
-
-        Returns
-        -------
-        ChannelFrame
-            Resampled channel frame
-        """
-        return self.apply_operation(
-            "resampling",
-            target_sr=target_sr,
-            **kwargs,
-        )
-
-    def abs(self) -> "ChannelFrame":
-        """Calculate the absolute value of the signal.
-
-        Returns:
-            A new ChannelFrame containing the absolute values.
-        """
-        return self.apply_operation("abs")
-
-    def power(self, exponent: float = 2.0) -> "ChannelFrame":
-        """Calculate the power of the signal.
-
-        Args:
-            exponent: The exponent to raise the signal to. Default is 2.0.
-
-        Returns:
-            A new ChannelFrame containing the signal raised to the power.
-        """
-        return self.apply_operation("power", exponent=exponent)
-
-    def trim(
-        self,
-        start: float = 0,
-        end: Optional[float] = None,
-    ) -> "ChannelFrame":
-        """Trim the signal to specified time range.
-
-        Args:
-            start: Start time in seconds.
-            end: End time in seconds.
-
-        Returns:
-            A new ChannelFrame with trimmed signal.
+            path: Path to save the file. '.wdf' extension will be added if not present.
+            format: Format to use (currently only 'hdf5' is supported)
+            compress: Compression method ('gzip' by default, None for no compression)
+            overwrite: Whether to overwrite existing file
+            dtype: Optional data type conversion before saving (e.g. 'float32')
 
         Raises:
-            ValueError: If end time is before start time.
+            FileExistsError: If the file exists and overwrite=False.
+            NotImplementedError: For unsupported formats.
+
+        Example:
+            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> cf.save("audio_analysis.wdf")
         """
-        if end is None:
-            end = self.duration
-        if start > end:
-            raise ValueError("start must be less than end")
-        # Apply trim operation
-        return self.apply_operation("trim", start=start, end=end)
+        from ..io.wdf_io import save as wdf_save
 
-    def rms_trend(
-        self,
-        frame_length: int = 2048,
-        hop_length: int = 512,
-        dB: bool = False,  # noqa: N803
-        Aw: bool = False,  # noqa: N803
-    ) -> "ChannelFrame":
-        """Calculate the RMS trend of the signal.
+        wdf_save(
+            self,
+            path,
+            format=format,
+            compress=compress,
+            overwrite=overwrite,
+            dtype=dtype,
+        )
 
-        This method computes the root mean square value over sliding windows.
+    @classmethod
+    def load(cls, path: Union[str, Path], *, format: str = "hdf5") -> "ChannelFrame":
+        """Load a ChannelFrame from a WDF (Wandas Data File) file.
+
+        This loads data saved with the save() method, preserving all channel data,
+        metadata, labels, and units.
 
         Args:
-            frame_length: The size of the sliding window in samples. Default is 2048.
-            hop_length: The hop length between windows in samples. Default is 512.
-            dB: Whether to return the RMS values in decibels. Default is False.
-            Aw: Whether to apply A-weighting. Default is False.
+            path: Path to the WDF file
+            format: Format of the file (currently only 'hdf5' is supported)
 
         Returns:
-            A new ChannelFrame containing the RMS trend.
+            A new ChannelFrame with all data and metadata loaded
+
+        Raises:
+            FileNotFoundError: If the file doesn't exist
+            NotImplementedError: For unsupported formats
+
+        Example:
+            >>> cf = ChannelFrame.load("audio_analysis.wdf")
         """
-        cf = self.apply_operation(
-            "rms_trend",
-            frame_length=frame_length,
-            hop_length=hop_length,
-            ref=[ch.ref for ch in self._channel_metadata],
-            dB=dB,
-            Aw=Aw,
-        )
-        cf.sampling_rate = self.sampling_rate / hop_length
-        return cf
+        from ..io.wdf_io import load as wdf_load
 
-    def sum(self) -> "ChannelFrame":
-        """Sum all channels.
-
-        Returns:
-            A new ChannelFrame with summed signal.
-        """
-        return self.apply_operation("sum")
-
-    def mean(self) -> "ChannelFrame":
-        """Average all channels.
-
-        Returns:
-            A new ChannelFrame with averaged signal.
-        """
-        return self.apply_operation("mean")
-
-    def channel_difference(self, other_channel: Union[int, str] = 0) -> "ChannelFrame":
-        """Calculate channel differences relative to a reference channel.
-
-        Args:
-            other_channel: Reference channel index or label. Default is 0.
-
-        Returns:
-            A new ChannelFrame with channel differences.
-        """
-        if isinstance(other_channel, str):
-            return self.apply_operation(
-                "channel_difference", other_channel=self.label2index(other_channel)
-            )
-        return self.apply_operation("channel_difference", other_channel=other_channel)
-
-    def fft(self, n_fft: Optional[int] = None, window: str = "hann") -> "SpectralFrame":
-        """Compute Fast Fourier Transform.
-
-        Args:
-            n_fft: Number of FFT points. Default is next power of 2 of data length.
-            window: Window type. Default is "hann".
-
-        Returns:
-            A SpectralFrame containing the FFT results.
-        """
-        from ..processing.time_series import FFT
-        from .spectral import SpectralFrame
-
-        params = {"n_fft": n_fft, "window": window}
-        operation_name = "fft"
-        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-        from ..processing.time_series import create_operation
-
-        # Create operation instance
-        operation = create_operation(operation_name, self.sampling_rate, **params)
-        operation = cast("FFT", operation)
-        # Apply processing to data
-        spectrum_data = operation.process(self._data)
-
-        logger.debug(
-            f"Created new SpectralFrame with operation {operation_name} added to graph"
-        )
-
-        if n_fft is None:
-            is_even = spectrum_data.shape[-1] % 2 == 0
-            _n_fft = (
-                spectrum_data.shape[-1] * 2 - 2
-                if is_even
-                else spectrum_data.shape[-1] * 2 - 1
-            )
-        else:
-            _n_fft = n_fft
-
-        return SpectralFrame(
-            data=spectrum_data,
-            sampling_rate=self.sampling_rate,
-            n_fft=_n_fft,
-            window=operation.window,
-            label=f"Spectrum of {self.label}",
-            metadata={**self.metadata, "window": window, "n_fft": _n_fft},
-            operation_history=[
-                *self.operation_history,
-                {"operation": "fft", "params": {"n_fft": _n_fft, "window": window}},
-            ],
-            channel_metadata=self._channel_metadata,
-            previous=self,
-        )
-
-    def welch(
-        self,
-        n_fft: Optional[int] = None,
-        hop_length: Optional[int] = None,
-        win_length: int = 2048,
-        window: str = "hann",
-        average: str = "mean",
-    ) -> "SpectralFrame":
-        """Compute power spectral density using Welch's method.
-
-        Args:
-            n_fft: Number of FFT points. Default is 2048.
-            hop_length: Number of samples between successive frames.
-            Default is n_fft//4.
-            win_length: Length of window. Default is n_fft.
-            window: Window type. Default is "hann".
-            average: Method for averaging segments. Default is "mean".
-
-        Returns:
-            A SpectralFrame containing the power spectral density.
-        """
-        from ..processing.time_series import Welch
-        from .spectral import SpectralFrame
-
-        params = dict(
-            n_fft=n_fft or win_length,
-            hop_length=hop_length,
-            win_length=win_length,
-            window=window,
-            average=average,
-        )
-        operation_name = "welch"
-        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-        from ..processing.time_series import create_operation
-
-        # Create operation instance
-        operation = create_operation(operation_name, self.sampling_rate, **params)
-        operation = cast("Welch", operation)
-        # Apply processing to data
-        spectrum_data = operation.process(self._data)
-
-        logger.debug(
-            f"Created new SpectralFrame with operation {operation_name} added to graph"
-        )
-
-        return SpectralFrame(
-            data=spectrum_data,
-            sampling_rate=self.sampling_rate,
-            n_fft=operation.n_fft,
-            window=operation.window,
-            label=f"Spectrum of {self.label}",
-            metadata={**self.metadata, **params},
-            operation_history=[
-                *self.operation_history,
-                {"operation": "welch", "params": params},
-            ],
-            channel_metadata=self._channel_metadata,
-            previous=self,
-        )
-
-    def noct_spectrum(
-        self,
-        fmin: float,
-        fmax: float,
-        n: int = 3,
-        G: int = 10,  # noqa: N803
-        fr: int = 1000,
-    ) -> "NOctFrame":
-        """Compute N-octave band spectrum.
-
-        Args:
-            fmin: Minimum center frequency in Hz. Default is 20 Hz.
-            fmax: Maximum center frequency in Hz. Default is 20000 Hz.
-            n: Band division (1 for octave, 3 for 1/3 octave). Default is 3.
-            G: Reference gain in dB. Default is 10 dB.
-            fr: Reference frequency in Hz. Default is 1000 Hz.
-
-        Returns:
-            A NOctFrame containing the N-octave band spectrum.
-        """
-        from ..processing.time_series import NOctSpectrum
-        from .noct import NOctFrame
-
-        params = {"fmin": fmin, "fmax": fmax, "n": n, "G": G, "fr": fr}
-        operation_name = "noct_spectrum"
-        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-        from ..processing.time_series import create_operation
-
-        # Create operation instance
-        operation = create_operation(operation_name, self.sampling_rate, **params)
-        operation = cast("NOctSpectrum", operation)
-        # Apply processing to data
-        spectrum_data = operation.process(self._data)
-
-        logger.debug(
-            f"Created new SpectralFrame with operation {operation_name} added to graph"
-        )
-
-        return NOctFrame(
-            data=spectrum_data,
-            sampling_rate=self.sampling_rate,
-            fmin=fmin,
-            fmax=fmax,
-            n=n,
-            G=G,
-            fr=fr,
-            label=f"1/{n}Oct of {self.label}",
-            metadata={**self.metadata, **params},
-            operation_history=[
-                *self.operation_history,
-                {
-                    "operation": "noct_spectrum",
-                    "params": params,
-                },
-            ],
-            channel_metadata=self._channel_metadata,
-            previous=self,
-        )
-
-    def stft(
-        self,
-        n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
-        window: str = "hann",
-    ) -> "SpectrogramFrame":
-        """Compute Short-Time Fourier Transform.
-
-        Args:
-            n_fft: Number of FFT points. Default is 2048.
-            hop_length: Number of samples between successive frames.
-            Default is n_fft//4.
-            win_length: Length of window. Default is n_fft.
-            window: Window type. Default is "hann".
-
-        Returns:
-            A SpectrogramFrame containing the STFT results.
-        """
-        from ..processing.time_series import STFT, create_operation
-        from .spectrogram import SpectrogramFrame
-
-        # Set hop length and window length
-        _hop_length = hop_length if hop_length is not None else n_fft // 4
-        _win_length = win_length if win_length is not None else n_fft
-
-        params = {
-            "n_fft": n_fft,
-            "hop_length": _hop_length,
-            "win_length": _win_length,
-            "window": window,
-        }
-        operation_name = "stft"
-        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-
-        # Create operation instance
-        operation = create_operation(operation_name, self.sampling_rate, **params)
-        operation = cast("STFT", operation)
-
-        # Apply processing to data
-        spectrogram_data = operation.process(self._data)
-
-        logger.debug(
-            f"Created new SpectrogramFrame with operation {operation_name} added to graph"  # noqa: E501
-        )
-
-        # Create new instance
-        return SpectrogramFrame(
-            data=spectrogram_data,
-            sampling_rate=self.sampling_rate,
-            n_fft=n_fft,
-            hop_length=_hop_length,
-            win_length=_win_length,
-            window=window,
-            label=f"stft({self.label})",
-            metadata=self.metadata,
-            operation_history=self.operation_history,
-            channel_metadata=self._channel_metadata,
-        )
-
-    def coherence(
-        self,
-        n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
-        window: str = "hann",
-        detrend: str = "constant",
-    ) -> "SpectralFrame":
-        """Compute magnitude squared coherence.
-
-        Args:
-            n_fft: Number of FFT points. Default is 2048.
-            hop_length: Number of samples between successive frames.
-            Default is n_fft//4.
-            win_length: Length of window. Default is n_fft.
-            window: Window type. Default is "hann".
-            detrend: Detrending method. Options: "constant", "linear", None.
-
-        Returns:
-            A SpectralFrame containing the magnitude squared coherence.
-        """
-        from ..processing.time_series import Coherence, create_operation
-        from .spectral import SpectralFrame
-
-        params = {
-            "n_fft": n_fft,
-            "hop_length": hop_length,
-            "win_length": win_length,
-            "window": window,
-            "detrend": detrend,
-        }
-        operation_name = "coherence"
-        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-
-        # Create operation instance
-        operation = create_operation(operation_name, self.sampling_rate, **params)
-        operation = cast("Coherence", operation)
-
-        # Apply processing to data
-        coherence_data = operation.process(self._data)
-
-        logger.debug(
-            f"Created new SpectralFrame with operation {operation_name} added to graph"  # noqa: E501
-        )
-        # Create new channel metadata
-        channel_metadata = []
-        for in_ch in self._channel_metadata:
-            for out_ch in self._channel_metadata:
-                meta = ChannelMetadata()
-                meta.label = f"$\\gamma_{{{in_ch.label}, {out_ch.label}}}$"
-                meta.unit = ""
-                meta.ref = 1
-                meta["metadata"] = dict(
-                    in_ch=in_ch["metadata"], out_ch=out_ch["metadata"]
-                )
-                channel_metadata.append(meta)
-
-        # Create new instance
-        return SpectralFrame(
-            data=coherence_data,
-            sampling_rate=self.sampling_rate,
-            n_fft=operation.n_fft,
-            window=operation.window,
-            label=f"Coherence of {self.label}",
-            metadata={**self.metadata, **params},
-            operation_history=[
-                *self.operation_history,
-                {"operation": operation_name, "params": params},
-            ],
-            channel_metadata=channel_metadata,
-            previous=self,
-        )
-
-    def csd(
-        self,
-        n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
-        window: str = "hann",
-        detrend: str = "constant",
-        scaling: str = "spectrum",
-        average: str = "mean",
-    ) -> "SpectralFrame":
-        """Compute cross-spectral density matrix.
-
-        Args:
-            n_fft: Number of FFT points. Default is 2048.
-            hop_length: Number of samples between successive frames.
-            Default is n_fft//4.
-            win_length: Length of window. Default is n_fft.
-            window: Window type. Default is "hann".
-            detrend: Detrending method. Options: "constant", "linear", None.
-            scaling: Scaling method. Options: "spectrum", "density".
-            average: Method for averaging segments. Default is "mean".
-
-        Returns:
-            A SpectralFrame containing the cross-spectral density matrix.
-        """
-        from ..processing.time_series import CSD, create_operation
-        from .spectral import SpectralFrame
-
-        params = {
-            "n_fft": n_fft,
-            "hop_length": hop_length,
-            "win_length": win_length,
-            "window": window,
-            "detrend": detrend,
-            "scaling": scaling,
-            "average": average,
-        }
-        operation_name = "csd"
-        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-
-        # Create operation instance
-        operation = create_operation(operation_name, self.sampling_rate, **params)
-        operation = cast("CSD", operation)
-
-        # Apply processing to data
-        csd_data = operation.process(self._data)
-
-        logger.debug(
-            f"Created new SpectralFrame with operation {operation_name} added to graph"  # noqa: E501
-        )
-        # Create new channel metadata
-        channel_metadata = []
-        for in_ch in self._channel_metadata:
-            for out_ch in self._channel_metadata:
-                meta = ChannelMetadata()
-                meta.label = f"{operation_name}({in_ch.label}, {out_ch.label})"
-                meta.unit = ""
-                meta.ref = 1
-                meta["metadata"] = dict(
-                    in_ch=in_ch["metadata"], out_ch=out_ch["metadata"]
-                )
-                channel_metadata.append(meta)
-
-        # Create new instance
-        return SpectralFrame(
-            data=csd_data,
-            sampling_rate=self.sampling_rate,
-            n_fft=operation.n_fft,
-            window=operation.window,
-            label=f"$C_{{{in_ch.label}, {out_ch.label}}}$",
-            metadata={**self.metadata, **params},
-            operation_history=[
-                *self.operation_history,
-                {"operation": operation_name, "params": params},
-            ],
-            channel_metadata=channel_metadata,
-            previous=self,
-        )
-
-    def transfer_function(
-        self,
-        n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
-        window: str = "hann",
-        detrend: str = "constant",
-        scaling: str = "spectrum",
-        average: str = "mean",
-    ) -> "SpectralFrame":
-        """Compute transfer function matrix.
-
-        The transfer function characterizes the signal transmission properties
-        between channels in the frequency domain, representing the input-output
-        relationship of a system.
-
-        Args:
-            n_fft: Number of FFT points. Default is 2048.
-            hop_length: Number of samples between successive frames.
-            Default is n_fft//4.
-            win_length: Length of window. Default is n_fft.
-            window: Window type. Default is "hann".
-            detrend: Detrending method. Options: "constant", "linear", None.
-            scaling: Scaling method. Options: "spectrum", "density".
-            average: Method for averaging segments. Default is "mean".
-
-        Returns:
-            A SpectralFrame containing the transfer function matrix.
-        """
-        from ..processing.time_series import TransferFunction, create_operation
-        from .spectral import SpectralFrame
-
-        params = {
-            "n_fft": n_fft,
-            "hop_length": hop_length,
-            "win_length": win_length,
-            "window": window,
-            "detrend": detrend,
-            "scaling": scaling,
-            "average": average,
-        }
-        operation_name = "transfer_function"
-        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-
-        # Create operation instance
-        operation = create_operation(operation_name, self.sampling_rate, **params)
-        operation = cast("TransferFunction", operation)
-
-        # Apply processing to data
-        tf_data = operation.process(self._data)
-
-        logger.debug(
-            f"Created new SpectralFrame with operation {operation_name} added to graph"  # noqa: E501
-        )
-        # Create new channel metadata
-        channel_metadata = []
-        for in_ch in self._channel_metadata:
-            for out_ch in self._channel_metadata:
-                meta = ChannelMetadata()
-                meta.label = f"$H_{{{in_ch.label}, {out_ch.label}}}$"
-                meta.unit = ""
-                meta.ref = 1
-                meta["metadata"] = dict(
-                    in_ch=in_ch["metadata"], out_ch=out_ch["metadata"]
-                )
-                channel_metadata.append(meta)
-
-        # Create new instance
-        return SpectralFrame(
-            data=tf_data,
-            sampling_rate=self.sampling_rate,
-            n_fft=operation.n_fft,
-            window=operation.window,
-            label=f"Transfer function of {self.label}",
-            metadata={**self.metadata, **params},
-            operation_history=[
-                *self.operation_history,
-                {"operation": operation_name, "params": params},
-            ],
-            channel_metadata=channel_metadata,
-            previous=self,
-        )
+        return wdf_load(path, format=format)
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
         """Provide additional initialization arguments required for ChannelFrame."""
         return {}
+
+    def add_channel(
+        self,
+        data: Union[np.ndarray[Any, Any], DaskArray, "ChannelFrame"],
+        label: Optional[str] = None,
+        align: str = "strict",
+        suffix_on_dup: Optional[str] = None,
+        inplace: bool = False,
+        **kwargs: Any,
+    ) -> "ChannelFrame":
+        # ndarray/dask/同型Frame対応
+        if isinstance(data, ChannelFrame):
+            if self.sampling_rate != data.sampling_rate:
+                raise ValueError("sampling_rate不一致")
+            if data.n_samples != self.n_samples:
+                if align == "pad":
+                    pad_len = self.n_samples - data.n_samples
+                    arr = data._data
+                    if pad_len > 0:
+                        arr = concatenate(
+                            [
+                                arr,
+                                from_array(
+                                    np.zeros((arr.shape[0], pad_len), dtype=arr.dtype)
+                                ),
+                            ],
+                            axis=1,
+                        )
+                    else:
+                        arr = arr[:, : self.n_samples]
+                elif align == "truncate":
+                    arr = data._data[:, : self.n_samples]
+                    if arr.shape[1] < self.n_samples:
+                        pad_len = self.n_samples - arr.shape[1]
+                        arr = concatenate(
+                            [
+                                arr,
+                                from_array(
+                                    np.zeros((arr.shape[0], pad_len), dtype=arr.dtype)
+                                ),
+                            ],
+                            axis=1,
+                        )
+                else:
+                    raise ValueError("データ長不一致: align指定を確認")
+            else:
+                arr = data._data
+            labels = [ch.label for ch in self._channel_metadata]
+            new_labels = []
+            for chmeta in data._channel_metadata:
+                new_label = chmeta.label
+                if new_label in labels or new_label in new_labels:
+                    if suffix_on_dup:
+                        new_label += suffix_on_dup
+                    else:
+                        raise ValueError(f"label重複: {new_label}")
+                new_labels.append(new_label)
+            new_data = concatenate([self._data, arr], axis=0)
+            from ..core.metadata import ChannelMetadata
+
+            new_chmeta = self._channel_metadata + [
+                ChannelMetadata(label=lbl) for lbl in new_labels
+            ]
+            if inplace:
+                self._data = new_data
+                self._channel_metadata = new_chmeta
+                return self
+            else:
+                return ChannelFrame(
+                    data=new_data,
+                    sampling_rate=self.sampling_rate,
+                    label=self.label,
+                    metadata=self.metadata,
+                    operation_history=self.operation_history,
+                    channel_metadata=new_chmeta,
+                    previous=self,
+                )
+        if isinstance(data, np.ndarray):
+            arr = from_array(data.reshape(1, -1))
+        elif isinstance(data, DaskArray):
+            arr = data[None, ...] if data.ndim == 1 else data
+            if arr.shape[0] != 1:
+                arr = arr.reshape((1, -1))
+        else:
+            raise TypeError("add_channel: ndarray/dask/同型Frameのみ対応")
+        if arr.shape[1] != self.n_samples:
+            if align == "pad":
+                pad_len = self.n_samples - arr.shape[1]
+                if pad_len > 0:
+                    arr = concatenate(
+                        [arr, from_array(np.zeros((1, pad_len), dtype=arr.dtype))],
+                        axis=1,
+                    )
+                else:
+                    arr = arr[:, : self.n_samples]
+            elif align == "truncate":
+                arr = arr[:, : self.n_samples]
+                if arr.shape[1] < self.n_samples:
+                    pad_len = self.n_samples - arr.shape[1]
+                    arr = concatenate(
+                        [arr, from_array(np.zeros((1, pad_len), dtype=arr.dtype))],
+                        axis=1,
+                    )
+            else:
+                raise ValueError("データ長不一致: align指定を確認")
+        labels = [ch.label for ch in self._channel_metadata]
+        new_label = label or f"ch{len(labels)}"
+        if new_label in labels:
+            if suffix_on_dup:
+                new_label += suffix_on_dup
+            else:
+                raise ValueError("label重複")
+        new_data = concatenate([self._data, arr], axis=0)
+        from ..core.metadata import ChannelMetadata
+
+        new_chmeta = self._channel_metadata + [ChannelMetadata(label=new_label)]
+        if inplace:
+            self._data = new_data
+            self._channel_metadata = new_chmeta
+            return self
+        else:
+            return ChannelFrame(
+                data=new_data,
+                sampling_rate=self.sampling_rate,
+                label=self.label,
+                metadata=self.metadata,
+                operation_history=self.operation_history,
+                channel_metadata=new_chmeta,
+                previous=self,
+            )
+
+    def remove_channel(
+        self, key: Union[int, str], inplace: bool = False
+    ) -> "ChannelFrame":
+        if isinstance(key, int):
+            if not (0 <= key < self.n_channels):
+                raise IndexError(f"index {key} out of range")
+            idx = key
+        else:
+            labels = [ch.label for ch in self._channel_metadata]
+            if key not in labels:
+                raise KeyError(f"label {key} not found")
+            idx = labels.index(key)
+        new_data = self._data[[i for i in range(self.n_channels) if i != idx], :]
+        new_chmeta = [ch for i, ch in enumerate(self._channel_metadata) if i != idx]
+        if inplace:
+            self._data = new_data
+            self._channel_metadata = new_chmeta
+            return self
+        else:
+            return ChannelFrame(
+                data=new_data,
+                sampling_rate=self.sampling_rate,
+                label=self.label,
+                metadata=self.metadata,
+                operation_history=self.operation_history,
+                channel_metadata=new_chmeta,
+                previous=self,
+            )
