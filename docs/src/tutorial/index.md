@@ -89,6 +89,24 @@ print(buffer.getvalue())
 
 ## 次のステップ
 
-- [クックブック](../how_to/index.md) で様々な応用例を確認する
 - [APIリファレンス](../api/index.md) で詳細な機能を調べる
 - [理論背景](../explanation/index.md) でライブラリの設計思想を理解する
+
+## ユースケース別レシピ
+
+このセクションでは、Wandasライブラリのより詳細な機能や応用例を、以下のチュートリアルノートブックを通じて学ぶことができます。
+
+- [00_setup.ipynb: セットアップと基本的な設定](/tutorial/00_setup.ipynb)
+- [01_io_basics.ipynb: ファイルの読み書きと基本的な操作](/tutorial/01_io_basics.ipynb)
+- [02_signal_processing_basics.ipynb:基本的な信号処理](/tutorial/02_signal_processing_basics.ipynb)
+- [03_visualization.ipynb: データの可視化](/tutorial/03_visualization.ipynb)
+- [04_time_frequency.ipynb: 時間周波数分析](/tutorial/04_time_frequency.ipynb)
+- [05_lazy_and_dask.ipynb: 遅延評価とDaskによる大規模データ処理](/tutorial/05_lazy_and_dask.ipynb)
+- [06_metadata_history.ipynb: メタデータと処理履歴の活用](/tutorial/06_metadata_history.ipynb)
+- [07_batch_processing.ipynb: 複数ファイルへの一括処理](/tutorial/07_batch_processing.ipynb)
+- [08_extending_api.ipynb: カスタム関数の追加とAPIの拡張](/tutorial/08_extending_api.ipynb)
+- [08_interoperability.ipynb: 他のライブラリとの連携](/tutorial/08_interoperability.ipynb)
+- [09_case_studies.ipynb: 実践的なユースケーススタディ](/tutorial/09_case_studies.ipynb)
+
+!!! tip "ヒント"
+    各ノートブックは特定のトピックに焦点を当てています。興味のあるものから順に、または必要に応じて参照してください。Wandasの基本的な使い方については、このチュートリアルの冒頭部分も合わせてご覧ください。

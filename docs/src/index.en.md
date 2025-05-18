@@ -32,16 +32,23 @@ signal.low_pass_filter(cutoff=1000).fft().plot()
 
 ![Low-pass filter results](../assets/images/low_pass_filter.png)
 
-For detailed documentation and usage examples, see the [Tutorial](tutorial/index.md) and [Cookbook](how_to/index.md).
+For detailed documentation and usage examples, see the [Tutorial](tutorial/index.md).
 
 ## Documentation Structure
 
-- [Tutorial](tutorial/index.md) - 5-minute getting started guide
-- [Cookbook](how_to/index.md) - Recipe collection for common tasks
+- [Tutorial](tutorial/index.md) - 5-minute getting started guide and recipe collection for common tasks
 - [API Reference](api/index.md) - Detailed API specifications
 - [Theory & Architecture](explanation/index.md) - Design philosophy and algorithm explanations
 - [Contributing Guide](contributing.md) - Rules and methods for contribution
 
-## License
+## Next Steps
 
-This project is released under the [MIT License](https://opensource.org/licenses/MIT).
+- Explore detailed features in the [API Reference](../api/index.md)
+- Understand the library's design philosophy in the [Explanation](../explanation/index.md)
+- See [Contributing Guidelines](./contributing.md) if you want to contribute.
+
+## For More Information
+
+- Visit the [Wandas GitHub Repository](https://github.com/kasahart/wandas) for source code and issues
+- Check the [Wandas Documentation](https://kasahart.github.io/wandas/) for hosted documentation
+- Join the [Wandas Discussion Forum](https://github.com/kasahart/wandas/discussions) for community support and discussions

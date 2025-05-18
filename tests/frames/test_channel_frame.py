@@ -133,7 +133,9 @@ class TestChannelFrame:
 
     def test_plotting_triggers_compute(self) -> None:
         """Test that plotting triggers computation."""
-        with mock.patch("wandas.frames.channel.create_operation") as mock_get_strategy:
+        with mock.patch(
+            "wandas.visualization.plotting.create_operation"
+        ) as mock_get_strategy:
             mock_strategy: mock.MagicMock = mock.MagicMock()
             mock_get_strategy.return_value = mock_strategy
 

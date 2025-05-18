@@ -59,6 +59,31 @@ class ChannelProcessingMixin:
         result = self.apply_operation("lowpass_filter", cutoff=cutoff, order=order)
         return cast(T_Processing, result)
 
+    def band_pass_filter(
+        self: T_Processing, low_cutoff: float, high_cutoff: float, order: int = 4
+    ) -> T_Processing:
+        """Apply a band-pass filter to the signal.
+
+        Args:
+            low_cutoff: Lower cutoff frequency (Hz)
+            high_cutoff: Higher cutoff frequency (Hz)
+            order: Filter order. Default is 4.
+
+        Returns:
+            New ChannelFrame after filter application
+        """
+        logger.debug(
+            f"Setting up bandpass filter: low_cutoff={low_cutoff}, "
+            f"high_cutoff={high_cutoff}, order={order} (lazy)"
+        )
+        result = self.apply_operation(
+            "bandpass_filter",
+            low_cutoff=low_cutoff,
+            high_cutoff=high_cutoff,
+            order=order,
+        )
+        return cast(T_Processing, result)
+
     def normalize(
         self: T_Processing, target_level: float = -20, channel_wise: bool = True
     ) -> T_Processing:

@@ -164,3 +164,7 @@ cython_debug/
 #.idea/
 
 examples/data/dataset/
+# Ignore everything in tutorial directory
+tutorial/*
+# But not the .ipynb files
+!tutorial/*.ipynb
