@@ -17,7 +17,6 @@ from wandas.utils.types import NDArrayReal
 from ..core.base_frame import BaseFrame
 from ..core.metadata import ChannelMetadata
 from ..io.readers import get_file_reader
-from ..visualization.plotting import create_operation
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
 
 logger = logging.getLogger(__name__)
@@ -299,6 +298,8 @@ class ChannelFrame(
         logger.debug(f"Plotting audio with plot_type={plot_type} (will compute now)")
 
         # Get plot strategy
+        from ..visualization.plotting import create_operation
+
         plot_strategy = create_operation(plot_type)
 
         # Execute plot
@@ -509,7 +510,7 @@ class ChannelFrame(
             A new ChannelFrame containing the loaded audio data.
 
         Raises:
-            ValueError: If channel selection is invalid.
+            ValueError: If channel specification is invalid.
             TypeError: If channel parameter type is invalid.
             FileNotFoundError: If the file doesn't exist.
         """

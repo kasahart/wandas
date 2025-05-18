@@ -171,7 +171,8 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
         """Implementation of channel plotting"""
         ax.plot(x, y, **kwargs)
         ax.grid(True)
-        ax.legend()
+        if "label" in kwargs:
+            ax.legend()
 
     def plot(
         self,
@@ -183,13 +184,11 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
     ) -> Union["Axes", Iterator["Axes"]]:
         """Frequency domain plotting"""
         kwargs = kwargs or {}
-
         is_aw = kwargs.pop("Aw", False)
-
         if bf.operation_history[-1]["operation"] == "coherence":
             unit = ""
             data = bf.magnitude
-            ylabel = "coherence"
+            ylabel = kwargs.pop("ylabel", "coherence")
         else:
             if is_aw:
                 unit = "dBA"
@@ -197,15 +196,28 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
             else:
                 unit = "dB"
                 data = bf.dB
-            ylabel = f"Spectrum level [{unit}]"
-
+            ylabel = kwargs.pop("ylabel", f"Spectrum level [{unit}]")
+        xlabel = kwargs.pop("xlabel", "Frequency [Hz]")
+        alpha = kwargs.pop("alpha", 0)
+        plot_kwargs = filter_kwargs(Line2D, kwargs, strict_mode=True)
+        ax_set = filter_kwargs(Axes.set, kwargs, strict_mode=True)
         if overlay:
             if ax is None:
                 _, ax = plt.subplots(figsize=(10, 4))
-            self.channel_plot(bf.freqs, data.T, ax, label=bf.labels)
-            ax.set_xlabel("Frequency [Hz]")
-            ax.set_ylabel(f"Spectrum level [{unit}]")
-            ax.set_title(title or bf.label or "Channel Data")
+            self.channel_plot(
+                bf.freqs,
+                data.T,
+                ax,
+                label=bf.labels,
+                alpha=alpha,
+                **plot_kwargs,
+            )
+            ax.set(
+                ylabel=ylabel,
+                xlabel=xlabel,
+                title=title or bf.label or "Channel Data",
+                **ax_set,
+            )
             if ax is None:
                 plt.tight_layout()
                 plt.show()
@@ -221,16 +233,25 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
 
             axes_list = list(axs)
             for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
-                self.channel_plot(bf.freqs, channel_data, ax_i, label=ch_meta.label)
-
-            axes_list[-1].set_xlabel("Frequency [Hz]")
-            axes_list[-1].set_ylabel(ylabel)
+                self.channel_plot(
+                    bf.freqs,
+                    channel_data,
+                    ax_i,
+                    label=ch_meta.label,
+                    alpha=alpha,
+                    **plot_kwargs,
+                )
+                ax_i.set(
+                    ylabel=ylabel,
+                    title=ch_meta.label,
+                    xlabel=xlabel,
+                    **ax_set,
+                )
+            axes_list[-1].set(ylabel=ylabel, xlabel=xlabel)
             fig.suptitle(title or bf.label or "Channel Data")
-
             if ax is None:
                 plt.tight_layout()
                 plt.show()
-
             return _return_axes_iterator(fig.axes)
 
 
@@ -270,14 +291,28 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
         else:
             unit = "dBr"
             data = bf.dB
-
+        ylabel = kwargs.pop("ylabel", f"Spectrum level [{unit}]")
+        xlabel = kwargs.pop("xlabel", "Center frequency [Hz]")
+        alpha = kwargs.pop("alpha", 0)
+        plot_kwargs = filter_kwargs(Line2D, kwargs, strict_mode=True)
+        ax_set = filter_kwargs(Axes.set, kwargs, strict_mode=True)
         if overlay:
             if ax is None:
                 _, ax = plt.subplots(figsize=(10, 4))
-            self.channel_plot(bf.freqs, data.T, ax, label=bf.labels, **kwargs)
-            ax.set_xlabel("Center frequency [Hz]")
-            ax.set_ylabel(f"Spectrum level [{unit}]")
-            ax.set_title(title or bf.label or f"1/{str(bf.n)}-Octave Spectrum")
+            self.channel_plot(
+                bf.freqs,
+                data.T,
+                ax,
+                label=bf.labels,
+                alpha=alpha,
+                **plot_kwargs,
+            )
+            ax.set(
+                ylabel=ylabel,
+                xlabel=xlabel,
+                title=title or bf.label or f"1/{str(bf.n)}-Octave Spectrum",
+                **ax_set,
+            )
             if ax is None:
                 plt.tight_layout()
                 plt.show()
@@ -294,17 +329,24 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
             axes_list = list(axs)
             for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
                 self.channel_plot(
-                    bf.freqs, channel_data, ax_i, label=ch_meta.label, **kwargs
+                    bf.freqs,
+                    channel_data,
+                    ax_i,
+                    label=ch_meta.label,
+                    alpha=alpha,
+                    **plot_kwargs,
                 )
-
-            axes_list[-1].set_xlabel("Center frequency [Hz]")
-            axes_list[-1].set_ylabel(f"Spectrum level [{unit}]")
+                ax_i.set(
+                    ylabel=ylabel,
+                    title=ch_meta.label,
+                    xlabel=xlabel,
+                    **ax_set,
+                )
+            axes_list[-1].set(ylabel=ylabel, xlabel=xlabel)
             fig.suptitle(title or bf.label or f"1/{str(bf.n)}-Octave Spectrum")
-
             if ax is None:
                 plt.tight_layout()
                 plt.show()
-
             return _return_axes_iterator(fig.axes)
 
 
@@ -542,16 +584,17 @@ class MatrixPlotStrategy(PlotStrategy[Union["SpectralFrame"]]):
         x: Any,
         y: Any,
         ax: "Axes",
+        title: Optional[str] = None,
+        ylabel: str = "",
+        xlabel: str = "Frequency [Hz]",
+        alpha: float = 0,
         **kwargs: Any,
     ) -> None:
-        """Implementation of channel plotting"""
-        ylabel = kwargs.pop("ylabel", "")
-        title = kwargs.pop("title", None)
-        ax.plot(x, y)
+        ax.plot(x, y, **kwargs)
         ax.grid(True)
-        ax.set_xlabel("Frequency [Hz]")
+        ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
-        ax.set_title(title)
+        ax.set_title(title or "")
 
     def plot(
         self,
@@ -561,17 +604,15 @@ class MatrixPlotStrategy(PlotStrategy[Union["SpectralFrame"]]):
         overlay: bool = False,
         **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
-        """Frequency domain plotting"""
         kwargs = kwargs or {}
         is_aw = kwargs.pop("Aw", False)
-
         if (
             len(bf.operation_history) > 0
             and bf.operation_history[-1]["operation"] == "coherence"
         ):
             unit = ""
             data = bf.magnitude
-            ylabel = "coherence"
+            ylabel = kwargs.pop("ylabel", "coherence")
         else:
             if is_aw:
                 unit = "dBA"
@@ -579,44 +620,67 @@ class MatrixPlotStrategy(PlotStrategy[Union["SpectralFrame"]]):
             else:
                 unit = "dB"
                 data = bf.dB
-            ylabel = f"Spectrum level [{unit}]"
-
+            ylabel = kwargs.pop("ylabel", f"Spectrum level [{unit}]")
+        xlabel = kwargs.pop("xlabel", "Frequency [Hz]")
+        alpha = kwargs.pop("alpha", 0)
+        plot_kwargs = filter_kwargs(Line2D, kwargs, strict_mode=True)
+        ax_set = filter_kwargs(Axes.set, kwargs, strict_mode=True)
         num_channels = bf.n_channels
-        num_rows = int(np.ceil(np.sqrt(num_channels)))
-        fig, axs = plt.subplots(
-            num_rows,
-            num_rows,
-            figsize=(3 * num_rows, 3 * num_rows),
-            sharex=True,
-            sharey=True,
-        )
-
-        # Convert axs to list if it is a single Axes object
-        if isinstance(axs, np.ndarray):
-            axes_list = axs.flatten().tolist()
-        elif isinstance(axs, list):
-            import itertools
-
-            axes_list = list(itertools.chain.from_iterable(axs))
-        else:
-            axes_list = [axs]
-
-        for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
+        if overlay:
+            if ax is None:
+                fig, ax = plt.subplots(1, 1, figsize=(6, 6))
             self.channel_plot(
                 bf.freqs,
-                channel_data,
-                ax_i,
-                title=ch_meta.label,
+                data.T,
+                ax,  # ここで必ずAxes型
+                title=title or bf.label or "Spectral Data",
                 ylabel=ylabel,
-                **kwargs,
+                xlabel=xlabel,
+                alpha=alpha,
+                **plot_kwargs,
             )
+            if ax is not None:
+                ax.set(**ax_set)
+                fig.suptitle(title or bf.label or "Spectral Data")
+                plt.tight_layout()
+                plt.show()
+                return ax
+            # axがNoneのケースはここで発生しない
+        else:
+            num_rows = int(np.ceil(np.sqrt(num_channels)))
+            fig, axs = plt.subplots(
+                num_rows,
+                num_rows,
+                figsize=(3 * num_rows, 3 * num_rows),
+                sharex=True,
+                sharey=True,
+            )
+            if isinstance(axs, np.ndarray):
+                axes_list = axs.flatten().tolist()
+            elif isinstance(axs, list):
+                import itertools
 
-        fig.suptitle(title or bf.label or "Spectral Data")
+                axes_list = list(itertools.chain.from_iterable(axs))
+            else:
+                axes_list = [axs]
+            for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
+                self.channel_plot(
+                    bf.freqs,
+                    channel_data,
+                    ax_i,
+                    title=ch_meta.label,
+                    ylabel=ylabel,
+                    xlabel=xlabel,
+                    alpha=alpha,
+                    **plot_kwargs,
+                )
+                ax_i.set(**ax_set)
+            fig.suptitle(title or bf.label or "Spectral Data")
+            plt.tight_layout()
+            plt.show()
+            return _return_axes_iterator(fig.axes)
 
-        plt.tight_layout()
-        plt.show()
-
-        return _return_axes_iterator(fig.axes)
+        raise NotImplementedError()
 
 
 # Maintain mapping of plot types to corresponding classes
