@@ -34,7 +34,7 @@ jobs:
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./doc/site # MkDocs のビルド出力ディレクトリ
+          publish_dir: ./site # MkDocs のビルド出力ディレクトリ
           # publish_branch: gh-pages # デプロイ先のブランチ (デフォルト)
           # user_name: 'github-actions[bot]' # コミットユーザー名 (デフォルト)
           # user_email: 'github-actions[bot]@users.noreply.github.com' # コミットユーザーEmail (デフォルト)
