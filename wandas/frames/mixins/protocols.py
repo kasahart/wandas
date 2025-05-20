@@ -13,6 +13,9 @@ from wandas.core.metadata import ChannelMetadata
 logger = logging.getLogger(__name__)
 
 
+T_Base = TypeVar("T_Base", bound="BaseFrameProtocol")
+
+
 @runtime_checkable
 class BaseFrameProtocol(Protocol):
     """Protocol that defines basic frame operations.
@@ -52,6 +55,18 @@ class BaseFrameProtocol(Protocol):
         """
         ...
 
+    def _create_new_instance(self: T_Base, data: DaArray, **kwargs: Any) -> T_Base:
+        """Create a new instance of the frame with updated data and metadata.
+        Args:
+            data: The new data for the frame
+            metadata: The new metadata for the frame
+            operation_history: The new operation history for the frame
+            channel_metadata: The new channel metadata for the frame
+        Returns:
+            A new instance of the frame with the updated data and metadata
+        """
+        ...
+
 
 @runtime_checkable
 class ProcessingFrameProtocol(BaseFrameProtocol, Protocol):
@@ -75,7 +90,6 @@ class TransformFrameProtocol(BaseFrameProtocol, Protocol):
 
 
 # Type variable definitions
-T_Base = TypeVar("T_Base", bound=BaseFrameProtocol)
 T_Processing = TypeVar("T_Processing", bound=ProcessingFrameProtocol)
 T_Transform = TypeVar("T_Transform", bound=TransformFrameProtocol)
 
@@ -83,7 +97,5 @@ __all__ = [
     "BaseFrameProtocol",
     "ProcessingFrameProtocol",
     "TransformFrameProtocol",
-    "T_Base",
     "T_Processing",
-    "T_Transform",
 ]

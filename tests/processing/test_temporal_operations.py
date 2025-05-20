@@ -238,6 +238,17 @@ class TestRmsTrend:
 
         np.testing.assert_allclose(np.mean(result), expected_rms_db, rtol=0.1)
 
+    def test_db_conversion_with_ref(self) -> None:
+        """Test dB conversion with custom ref value."""
+        # RMS値は1/sqrt(2)
+        rms_value = 1 / np.sqrt(2)
+        # ref=0.5 で dB変換
+        rms_db = RmsTrend(self.sample_rate, dB=True, ref=0.5)
+        result = rms_db.process(self.dask_mono).compute()
+        # 期待されるdB値
+        expected_rms_db = 20 * np.log10(rms_value / 0.5)
+        np.testing.assert_allclose(np.mean(result), expected_rms_db, rtol=0.1)
+
     def test_a_weighting(self) -> None:
         """Test A-weighting effect on RMS."""
         rms_normal = RmsTrend(self.sample_rate)

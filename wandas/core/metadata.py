@@ -2,6 +2,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field  # Direct import from pydantic
 
+from wandas.utils.util import unit_to_ref
+
 
 class ChannelMetadata(BaseModel):
     """
@@ -13,6 +15,12 @@ class ChannelMetadata(BaseModel):
     ref: float = 1.0
     # Additional metadata for extensibility
     extra: dict[str, Any] = Field(default_factory=dict)
+
+    def __init__(self, **data: Any):
+        super().__init__(**data)
+        # unitが指定されていてrefがデフォルト値ならunit_to_refで自動設定
+        if self.unit and ("ref" not in data or data.get("ref", 1.0) == 1.0):
+            self.ref = unit_to_ref(self.unit)
 
     def __getitem__(self, key: str) -> Any:
         """Provide dictionary-like behavior"""
@@ -31,6 +39,7 @@ class ChannelMetadata(BaseModel):
             self.label = value
         elif key == "unit":
             self.unit = value
+            self.ref = unit_to_ref(value)
         elif key == "ref":
             self.ref = value
         else:
