@@ -319,6 +319,12 @@ class BaseFrame(ABC, Generic[T]):
         if not isinstance(metadata, dict):
             raise TypeError("Metadata must be a dictionary")
 
+        channel_metadata = kwargs.pop(
+            "channel_metadata", copy.deepcopy(self._channel_metadata)
+        )
+        if not isinstance(channel_metadata, list):
+            raise TypeError("Channel metadata must be a list")
+
         # Get additional initialization arguments from derived classes
         additional_kwargs = self._get_additional_init_kwargs()
         kwargs.update(additional_kwargs)
@@ -328,6 +334,7 @@ class BaseFrame(ABC, Generic[T]):
             sampling_rate=sampling_rate,
             label=label,
             metadata=metadata,
+            channel_metadata=channel_metadata,
             previous=self,
             **kwargs,
         )
