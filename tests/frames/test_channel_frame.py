@@ -11,6 +11,7 @@ import soundfile as sf
 from dask.array.core import Array as DaArray
 from matplotlib.axes import Axes
 
+import wandas as wd
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.utils.types import NDArrayReal
@@ -502,7 +503,7 @@ class TestChannelFrame:
         ch_units = ["Pa", "V"]
         metadata = {"gain": 0.5, "device": "microphone"}
         # Create a ChannelFrame from the numpy array
-        cf = ChannelFrame.from_numpy(
+        cf = wd.from_numpy(
             data,
             sampling_rate=sampling_rate,
             label=label,
@@ -510,6 +511,17 @@ class TestChannelFrame:
             ch_units=ch_units,
             metadata=metadata,
         )
+
+        # Check data
+        np.testing.assert_array_equal(cf.data, data)
+        np.testing.assert_array_equal(cf[0].data, data[0:1])
+        np.testing.assert_array_equal(cf[1].data, data[1:2])
+        np.testing.assert_array_equal(cf[:, :1000].data, data[:, :1000])
+        # np.testing.assert_array_equal(cf[0, :1000].data, data[0, :1000])
+        # np.testing.assert_array_equal(cf[1, :1000].data, data[1, :1000])
+        np.testing.assert_array_equal(cf["left"].data, data[0:1])
+        np.testing.assert_array_equal(cf["right"].data, data[1:2])
+
         # Check properties
         assert cf.sampling_rate == sampling_rate
         assert cf.label == label
@@ -521,8 +533,6 @@ class TestChannelFrame:
         assert cf.channels[1].unit == "V"
         assert cf.metadata["gain"] == 0.5
         assert cf.metadata["device"] == "microphone"
-        # Check data
-        np.testing.assert_array_equal(cf.data, data)
 
         # Test ndim=1
         data_1d = np.random.random(16000)
