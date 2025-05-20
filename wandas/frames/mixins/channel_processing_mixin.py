@@ -3,6 +3,8 @@
 import logging
 from typing import TYPE_CHECKING, Any, Optional, Union, cast
 
+from wandas.core.metadata import ChannelMetadata
+
 from .protocols import ProcessingFrameProtocol, T_Processing
 
 if TYPE_CHECKING:
@@ -141,14 +143,51 @@ class ChannelProcessingMixin:
         result = self.apply_operation("power", exponent=exponent)
         return cast(T_Processing, result)
 
+    def _reduce_channels(self: T_Processing, op: str) -> T_Processing:
+        """Helper to reduce all channels with the given operation ('sum' or 'mean')."""
+        if op == "sum":
+            reduced_data = self._data.sum(axis=0, keepdims=True)
+            label = "sum"
+        elif op == "mean":
+            reduced_data = self._data.mean(axis=0, keepdims=True)
+            label = "mean"
+        else:
+            raise ValueError(f"Unsupported reduction operation: {op}")
+
+        units = [ch.unit for ch in self._channel_metadata]
+        if all(u == units[0] for u in units):
+            reduced_unit = units[0]
+        else:
+            reduced_unit = ""
+
+        reduced_extra = {"source_extras": [ch.extra for ch in self._channel_metadata]}
+        new_channel_metadata = [
+            ChannelMetadata(
+                label=label,
+                unit=reduced_unit,
+                extra=reduced_extra,
+            )
+        ]
+        new_history = (
+            self.operation_history.copy() if hasattr(self, "operation_history") else []
+        )
+        new_history.append({"operation": op})
+        new_metadata = self.metadata.copy() if hasattr(self, "metadata") else {}
+        result = self._create_new_instance(
+            data=reduced_data,
+            metadata=new_metadata,
+            operation_history=new_history,
+            channel_metadata=new_channel_metadata,
+        )
+        return result
+
     def sum(self: T_Processing) -> T_Processing:
         """Sum all channels.
 
         Returns:
             A new ChannelFrame with summed signal.
         """
-        result = self.apply_operation("sum")
-        return cast(T_Processing, result)
+        return cast(T_Processing, cast(Any, self)._reduce_channels("sum"))
 
     def mean(self: T_Processing) -> T_Processing:
         """Average all channels.
@@ -156,8 +195,7 @@ class ChannelProcessingMixin:
         Returns:
             A new ChannelFrame with averaged signal.
         """
-        result = self.apply_operation("mean")
-        return cast(T_Processing, result)
+        return cast(T_Processing, cast(Any, self)._reduce_channels("mean"))
 
     def trim(
         self: T_Processing,
