@@ -110,7 +110,7 @@ class BaseFrame(ABC, Generic[T]):
     @property
     def n_channels(self) -> int:
         """Returns the number of channels."""
-        return len(self)
+        return int(self._data.shape[-2])
 
     @property
     def channels(self) -> list[ChannelMetadata]:
@@ -240,6 +240,8 @@ class BaseFrame(ABC, Generic[T]):
     @property
     def shape(self) -> tuple[int, ...]:
         _shape: tuple[int, ...] = self._data.shape
+        if _shape[0] == 1:
+            return _shape[1:]
         return _shape
 
     @property
@@ -248,7 +250,10 @@ class BaseFrame(ABC, Generic[T]):
         Returns the computed data.
         Calculation is executed the first time this is accessed.
         """
-        return self.compute()
+        data = self.compute()
+        if self.n_channels == 1:
+            return data.squeeze(axis=0)
+        return data
 
     @property
     def labels(self) -> list[str]:

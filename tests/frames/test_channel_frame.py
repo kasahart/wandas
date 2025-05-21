@@ -163,7 +163,7 @@ class TestChannelFrame:
         cf = ChannelFrame(dask_data_1d, self.sample_rate)
 
         # Check that the data was reshaped
-        assert cf.shape == (1, 16000)
+        assert cf.shape == (16000,)
         assert cf.n_channels == 1
 
     def test_initialization_error_high_dim(self) -> None:
@@ -261,9 +261,9 @@ class TestChannelFrame:
         assert result.sampling_rate == self.sample_rate
         assert result.label == "test_audio"
         assert result.channels[0].label == "ch0"
-        assert result.shape == (1, 16000)
-        assert result.data.shape == (1, 16000)
-        np.testing.assert_array_equal(result.data, self.data[0:1])
+        assert result.shape == (16000,)
+        assert result.data.shape == (16000,)
+        np.testing.assert_array_equal(result.data, self.data[0])
 
         result = self.channel_frame["ch1"]
         assert isinstance(result, ChannelFrame)
@@ -272,9 +272,9 @@ class TestChannelFrame:
         assert result.sampling_rate == self.sample_rate
         assert result.label == "test_audio"
         assert result.channels[0].label == "ch1"
-        assert result.shape == (1, 16000)
-        assert result.data.shape == (1, 16000)
-        np.testing.assert_array_equal(result.data, self.data[1:2])
+        assert result.shape == (16000,)
+        assert result.data.shape == (16000,)
+        np.testing.assert_array_equal(result.data, self.data[1])
 
         # Single channel extraction
         result = self.channel_frame[0]
@@ -284,8 +284,8 @@ class TestChannelFrame:
         assert result.sampling_rate == self.sample_rate
         assert result.label == "test_audio"
         assert result.channels[0].label == "ch0"
-        assert result.shape == (1, 16000)
-        np.testing.assert_array_equal(result.data, self.data[0:1])
+        assert result.shape == (16000,)
+        np.testing.assert_array_equal(result.data, self.data[0])
 
         # Two channel extraction
         result = self.channel_frame[0:2]
@@ -514,13 +514,13 @@ class TestChannelFrame:
 
         # Check data
         np.testing.assert_array_equal(cf.data, data)
-        np.testing.assert_array_equal(cf[0].data, data[0:1])
-        np.testing.assert_array_equal(cf[1].data, data[1:2])
+        np.testing.assert_array_equal(cf[0].data, data[0])
+        np.testing.assert_array_equal(cf[1].data, data[1])
         np.testing.assert_array_equal(cf[:, :1000].data, data[:, :1000])
         # np.testing.assert_array_equal(cf[0, :1000].data, data[0, :1000])
         # np.testing.assert_array_equal(cf[1, :1000].data, data[1, :1000])
-        np.testing.assert_array_equal(cf["left"].data, data[0:1])
-        np.testing.assert_array_equal(cf["right"].data, data[1:2])
+        np.testing.assert_array_equal(cf["left"].data, data[0])
+        np.testing.assert_array_equal(cf["right"].data, data[1])
 
         # Check properties
         assert cf.sampling_rate == sampling_rate
@@ -538,7 +538,7 @@ class TestChannelFrame:
         data_1d = np.random.random(16000)
         cf_1d = ChannelFrame.from_numpy(data_1d, sampling_rate=sampling_rate)
         # Check properties
-        assert cf_1d.shape == (1, 16000)
+        assert cf_1d.shape == (16000,)
         assert cf_1d.n_channels == 1
 
         # Test 3d array

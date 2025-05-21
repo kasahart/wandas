@@ -213,7 +213,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         int
             The number of channels in the N-octave band data.
         """
-        return self.shape[-2]
+        return int(self._data.shape[-2])
 
     @property
     def freqs(self) -> NDArrayReal:

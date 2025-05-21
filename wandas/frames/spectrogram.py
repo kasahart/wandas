@@ -226,7 +226,7 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         int
             The number of channels.
         """
-        return self.shape[0]
+        return int(self._data.shape[-3])
 
     @property
     def n_frames(self) -> int:
