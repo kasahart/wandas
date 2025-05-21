@@ -105,11 +105,15 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
             kwargs,
             strict_mode=True,
         )
+        data = bf.data
+        if data.ndim == 1:
+            data = data.reshape(1, -1)
         if overlay:
             if ax is None:
                 fig, ax = plt.subplots(figsize=(10, 4))
+
             self.channel_plot(
-                bf.time, bf.data.T, ax, label=bf.labels, alpha=alpha, **plot_kwargs
+                bf.time, data.T, ax, label=bf.labels, alpha=alpha, **plot_kwargs
             )
             ax.set(
                 ylabel=ylabel,
@@ -132,7 +136,6 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
                 axs = [axs]
 
             axes_list = list(axs)
-            data = bf.data
             for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
                 self.channel_plot(
                     bf.time, channel_data, ax_i, alpha=alpha, **plot_kwargs
@@ -197,6 +200,8 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
                 unit = "dB"
                 data = bf.dB
             ylabel = kwargs.pop("ylabel", f"Spectrum level [{unit}]")
+        if data.ndim == 1:
+            data = data.reshape(1, -1)
         xlabel = kwargs.pop("xlabel", "Frequency [Hz]")
         alpha = kwargs.pop("alpha", 1)
         plot_kwargs = filter_kwargs(Line2D, kwargs, strict_mode=True)
@@ -291,6 +296,8 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
         else:
             unit = "dBr"
             data = bf.dB
+        if data.ndim == 1:
+            data = data.reshape(1, -1)
         ylabel = kwargs.pop("ylabel", f"Spectrum level [{unit}]")
         xlabel = kwargs.pop("xlabel", "Center frequency [Hz]")
         alpha = kwargs.pop("alpha", 1)
@@ -389,7 +396,8 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
         else:
             unit = "dB"
             data = bf.dB
-
+        if data.ndim == 1:
+            data = data.reshape(1, -1)
         specshow_kwargs = filter_kwargs(display.specshow, kwargs, strict_mode=True)
         ax_set_kwargs = filter_kwargs(Axes.set, kwargs, strict_mode=True)
 
@@ -515,10 +523,12 @@ class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
         stft_ch = bf.stft()
         if is_aw:
             unit = "dBA"
-            channel_data = stft_ch.dBA[0]
+            channel_data = stft_ch.dBA
         else:
             unit = "dB"
-            channel_data = stft_ch.dB[0]
+            channel_data = stft_ch.dB
+        if channel_data.ndim == 3:
+            channel_data = channel_data[0]
         # Get the maximum value of the data and round it to a convenient value
         if vmax is None:
             data_max = np.nanmax(channel_data)
@@ -617,6 +627,10 @@ class MatrixPlotStrategy(PlotStrategy[Union["SpectralFrame"]]):
                 unit = "dB"
                 data = bf.dB
             ylabel = kwargs.pop("ylabel", f"Spectrum level [{unit}]")
+
+        if data.ndim == 1:
+            data = data.reshape(1, -1)
+
         xlabel = kwargs.pop("xlabel", "Frequency [Hz]")
         alpha = kwargs.pop("alpha", 1)
         plot_kwargs = filter_kwargs(Line2D, kwargs, strict_mode=True)
