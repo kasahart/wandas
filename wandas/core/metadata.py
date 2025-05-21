@@ -22,6 +22,13 @@ class ChannelMetadata(BaseModel):
         if self.unit and ("ref" not in data or data.get("ref", 1.0) == 1.0):
             self.ref = unit_to_ref(self.unit)
 
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Override setattr to update ref when unit is changed directly"""
+        super().__setattr__(name, value)
+        # Only proceed if unit is being set to a non-empty value
+        if name == "unit" and value and isinstance(value, str):
+            super().__setattr__("ref", unit_to_ref(value))
+
     def __getitem__(self, key: str) -> Any:
         """Provide dictionary-like behavior"""
         if key == "label":
