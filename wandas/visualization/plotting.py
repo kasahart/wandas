@@ -141,13 +141,12 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
                     bf.time, channel_data, ax_i, alpha=alpha, **plot_kwargs
                 )
                 ax_i.set(
-                    ylabel=ylabel,
+                    ylabel=ylabel + f" [{ch_meta.unit}]",
                     title=ch_meta.label,
                     **ax_set,
                 )
 
             axes_list[-1].set(
-                ylabel=ylabel,
                 xlabel="Time [s]",
             )
             fig.suptitle(title or bf.label or "Channel Data")
@@ -396,8 +395,8 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
         else:
             unit = "dB"
             data = bf.dB
-        if data.ndim == 1:
-            data = data.reshape(1, -1)
+        if data.ndim == 2:
+            data = data.reshape((1,) + data.shape)
         specshow_kwargs = filter_kwargs(display.specshow, kwargs, strict_mode=True)
         ax_set_kwargs = filter_kwargs(Axes.set, kwargs, strict_mode=True)
 

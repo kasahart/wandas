@@ -60,9 +60,15 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         """FFT操作のプロセッサ関数を作成"""
         from scipy.signal import get_window
 
-        win = get_window(self.window, x.shape[-1])
-        x = x * win
-        result: NDArrayComplex = np.fft.rfft(x, n=self.n_fft, axis=-1)
+        if self.n_fft is None:
+            # FFT size is determined by input size
+            _x = x
+            self.n_fft = x.shape[-1]
+        else:
+            _x = x[..., : self.n_fft]
+        win = get_window(self.window, self.n_fft)
+        _x = _x * win
+        result: NDArrayComplex = np.fft.rfft(_x, n=self.n_fft, axis=-1)
         result[..., 1:-1] *= 2.0
         # 窓関数補正
         scaling_factor = np.sum(win)

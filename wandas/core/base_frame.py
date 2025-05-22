@@ -110,7 +110,7 @@ class BaseFrame(ABC, Generic[T]):
     @property
     def n_channels(self) -> int:
         """Returns the number of channels."""
-        return int(self._data.shape[-2])
+        return self._n_channels
 
     @property
     def channels(self) -> list[ChannelMetadata]:
