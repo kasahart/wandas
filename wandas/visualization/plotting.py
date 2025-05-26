@@ -480,9 +480,12 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
                 try:
                     cbar = fig.colorbar(img, ax=ax)
                     cbar.set_label(f"Spectrum level [{unit}]")
-                except (ValueError, AttributeError):
+                except (ValueError, AttributeError) as e:
                     # Handle case where img doesn't have proper colorbar properties
-                    pass
+                    logger.warning(
+                        f"Failed to create colorbar for spectrogram: "
+                        f"{type(e).__name__}: {e}"
+                    )
             return ax
 
         else:
@@ -521,9 +524,12 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
                 try:
                     cbar = ax_i.figure.colorbar(img, ax=ax_i)
                     cbar.set_label(f"Spectrum level [{unit}]")
-                except (ValueError, AttributeError):
+                except (ValueError, AttributeError) as e:
                     # Handle case where img doesn't have proper colorbar properties
-                    pass
+                    logger.warning(
+                        f"Failed to create colorbar for spectrogram: "
+                        f"{type(e).__name__}: {e}"
+                    )
                 fig.suptitle(title or "Spectrogram Data")
             plt.tight_layout()
             plt.show()

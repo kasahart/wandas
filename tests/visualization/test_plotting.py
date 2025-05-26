@@ -42,7 +42,8 @@ class TestPlotStrategy(PlotStrategy[Any]):
         **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
         if ax is None:
-            fig, ax = plt.subplots()
+            fig, created_ax = plt.subplots()
+            return created_ax
         return ax
 
 
@@ -830,6 +831,99 @@ class TestPlotting:
 
         plt.close("all")
 
+    def test_spectrogram_plot_strategy_colorbar_exception_handling(self) -> None:
+        """SpectrogramPlotStrategyのカラーバー例外処理のテスト"""
+        strategy = SpectrogramPlotStrategy()
+
+        # ValueError発生時のテスト（単一チャネル）
+        with (
+            mock.patch("librosa.display.specshow") as mock_specshow,
+            mock.patch("wandas.visualization.plotting.logger") as mock_logger,
+        ):
+            mock_img = mock.MagicMock()
+            mock_specshow.return_value = mock_img
+
+            fig, ax = plt.subplots()
+            # fig.colorbarでValueErrorを発生させる
+            fig.colorbar = mock.MagicMock(
+                side_effect=ValueError("Invalid colorbar properties")
+            )
+
+            result = strategy.plot(self.mock_single_spectrogram_frame, ax=ax)
+
+            # プロットは正常に完了し、警告ログが出力される
+            assert result is ax
+            mock_logger.warning.assert_called_once()
+            warning_call = mock_logger.warning.call_args[0][0]
+            assert "Failed to create colorbar for spectrogram" in warning_call
+            assert "ValueError: Invalid colorbar properties" in warning_call
+
+        # AttributeError発生時のテスト（単一チャネル）
+        with (
+            mock.patch("librosa.display.specshow") as mock_specshow,
+            mock.patch("wandas.visualization.plotting.logger") as mock_logger,
+        ):
+            mock_img = mock.MagicMock()
+            mock_specshow.return_value = mock_img
+
+            fig, ax = plt.subplots()
+            # fig.colorbarでAttributeErrorを発生させる
+            fig.colorbar = mock.MagicMock(
+                side_effect=AttributeError(
+                    "'NoneType' object has no attribute 'colorbar'"
+                )
+            )
+
+            result = strategy.plot(self.mock_single_spectrogram_frame, ax=ax)
+
+            # プロットは正常に完了し、警告ログが出力される
+            assert result is ax
+            mock_logger.warning.assert_called_once()
+            warning_call = mock_logger.warning.call_args[0][0]
+            assert "Failed to create colorbar for spectrogram" in warning_call
+            assert "AttributeError" in warning_call
+
+        # 複数チャネルでのValueError発生時のテスト
+        with (
+            mock.patch("librosa.display.specshow") as mock_specshow,
+            mock.patch("wandas.visualization.plotting.logger") as mock_logger,
+            mock.patch("matplotlib.pyplot.subplots") as mock_subplots,
+            mock.patch("matplotlib.pyplot.tight_layout"),
+            mock.patch("matplotlib.pyplot.show"),
+        ):
+            mock_img = mock.MagicMock()
+            mock_specshow.return_value = mock_img
+
+            # 複数チャネル用のモックFigureとAxesを設定
+            mock_fig = mock.MagicMock(spec=Figure)
+            mock_axes = [mock.MagicMock(spec=Axes) for _ in range(2)]
+            mock_subplots.return_value = (mock_fig, mock_axes)
+
+            # 各axのfigureのcolorbarでValueErrorを発生させる
+            for ax in mock_axes:
+                ax.figure.colorbar = mock.MagicMock(
+                    side_effect=ValueError("Cannot create colorbar")
+                )
+
+            # mock_figのaxesプロパティを設定
+            mock_fig.axes = mock_axes
+
+            result = strategy.plot(self.mock_spectrogram_frame)
+
+            # プロットは正常に完了し、警告ログが出力される
+            # resultはIteratorなので、型チェックしてからlist変換
+            assert hasattr(result, "__iter__")
+            if isinstance(result, Iterator):
+                axes_list = list(result)
+                assert len(axes_list) == 2
+            # 複数チャネルの場合、各チャネルでカラーバーを作成しようとするため
+            # 複数回警告が出力される可能性がある
+            assert mock_logger.warning.call_count >= 1
+            warning_call = mock_logger.warning.call_args[0][0]
+            assert "Failed to create colorbar for spectrogram" in warning_call
+
+        plt.close("all")
+
     def test_describe_plot_strategy_edge_cases(self) -> None:
         """DescribePlotStrategyのエッジケースのテスト"""
         strategy = DescribePlotStrategy()
@@ -1047,3 +1141,179 @@ class TestPlotting:
         axes_list = list(result)
         assert len(axes_list) == 3
         assert all(isinstance(ax, mock.MagicMock) for ax in axes_list)
+
+    def test_matrix_plot_strategy_detailed_behavior(self) -> None:
+        """MatrixPlotStrategyの詳細な動作のテスト（選択されたコード部分）"""
+        from wandas.visualization.plotting import MatrixPlotStrategy
+
+        strategy = MatrixPlotStrategy()
+
+        # ax_setパラメータが正しく適用されることをテスト
+        with (
+            mock.patch("matplotlib.pyplot.subplots") as mock_subplots,
+            mock.patch("matplotlib.pyplot.tight_layout") as mock_tight_layout,
+            mock.patch("matplotlib.pyplot.show") as mock_show,
+        ):
+            mock_fig = mock.MagicMock()
+            mock_ax = mock.MagicMock(spec=Axes)
+            # ax.figure == figの場合、tight_layoutは呼び出されない（外部axesと同じ動作）
+            mock_ax.figure = mock_fig
+            mock_subplots.return_value = (mock_fig, mock_ax)
+
+            # ax_setパラメータを含むkwargsでテスト
+            _ = strategy.plot(
+                self.mock_spectral_frame,
+                overlay=True,
+                xlim=(100, 8000),  # ax_setに含まれるパラメータ
+                ylim=(-60, 0),  # ax_setに含まれるパラメータ
+                title="Test Matrix Plot",
+            )
+
+            # ax.setが呼び出されることを確認
+            mock_ax.set.assert_called()
+            call_kwargs = mock_ax.set.call_args[1]
+            assert "xlim" in call_kwargs
+            assert "ylim" in call_kwargs
+            assert call_kwargs["xlim"] == (100, 8000)
+            assert call_kwargs["ylim"] == (-60, 0)
+
+            # suptitleが設定されることを確認
+            mock_fig.suptitle.assert_called_with("Test Matrix Plot")
+
+            # ax.figure == figなので、tight_layoutとshowは呼び出されない
+            mock_tight_layout.assert_not_called()
+            mock_show.assert_not_called()
+
+    def test_matrix_plot_strategy_external_axes_behavior(self) -> None:
+        """MatrixPlotStrategyで外部axesを使用した場合の動作テスト"""
+        from wandas.visualization.plotting import MatrixPlotStrategy
+
+        strategy = MatrixPlotStrategy()
+
+        with (
+            mock.patch("matplotlib.pyplot.tight_layout") as mock_tight_layout,
+            mock.patch("matplotlib.pyplot.show") as mock_show,
+        ):
+            # 外部のfigureとaxesを作成
+            external_fig = mock.MagicMock()
+            external_ax = mock.MagicMock(spec=Axes)
+            external_ax.figure = external_fig
+
+            # 外部axesを指定してplot
+            result = strategy.plot(
+                self.mock_spectral_frame,
+                ax=external_ax,
+                overlay=True,
+                title="External Axes Test",
+            )
+
+            # 外部axesが返されることを確認
+            assert result is external_ax
+
+            # 外部axesのsetが呼び出されることを確認
+            external_ax.set.assert_called()
+
+            # 外部figureのsuptitleが設定されることを確認
+            external_fig.suptitle.assert_called_with("External Axes Test")
+
+            # 外部axesの場合、tight_layoutとshowは呼び出されないことを確認
+            mock_tight_layout.assert_not_called()
+            mock_show.assert_not_called()
+
+    def test_matrix_plot_strategy_figure_condition(self) -> None:
+        """MatrixPlotStrategyのfigure条件分岐のテスト"""
+        from wandas.visualization.plotting import MatrixPlotStrategy
+
+        strategy = MatrixPlotStrategy()
+
+        with (
+            mock.patch("matplotlib.pyplot.subplots") as mock_subplots,
+            mock.patch("matplotlib.pyplot.tight_layout") as mock_tight_layout,
+            mock.patch("matplotlib.pyplot.show") as mock_show,
+        ):
+            # 異なるfigureを持つaxesをシミュレート
+            created_fig = mock.MagicMock()
+            different_fig = mock.MagicMock()
+            mock_ax = mock.MagicMock(spec=Axes)
+            mock_ax.figure = different_fig  # 作成したfigureとは異なる
+            mock_subplots.return_value = (created_fig, mock_ax)
+
+            # plotを実行
+            _ = strategy.plot(
+                self.mock_spectral_frame, overlay=True, title="Figure Condition Test"
+            )
+
+            # ax.figure != figの条件により、tight_layoutとshowが呼び出されることを確認
+            mock_tight_layout.assert_called_once()
+            mock_show.assert_called_once()
+
+    def test_matrix_plot_strategy_suptitle_fallback(self) -> None:
+        """MatrixPlotStrategyのsuptitleフォールバック動作のテスト"""
+        from wandas.visualization.plotting import MatrixPlotStrategy
+
+        strategy = MatrixPlotStrategy()
+
+        with (
+            mock.patch("matplotlib.pyplot.subplots") as mock_subplots,
+            mock.patch("matplotlib.pyplot.tight_layout"),
+            mock.patch("matplotlib.pyplot.show"),
+        ):
+            mock_fig = mock.MagicMock()
+            mock_ax = mock.MagicMock(spec=Axes)
+            mock_ax.figure = mock_fig
+            mock_subplots.return_value = (mock_fig, mock_ax)
+
+            # titleもlabelも指定しない場合
+            self.mock_spectral_frame.label = None
+            _ = strategy.plot(self.mock_spectral_frame, overlay=True)
+
+            # デフォルトのタイトルが使用されることを確認
+            mock_fig.suptitle.assert_called_with("Spectral Data")
+
+            # labelがある場合
+            self.mock_spectral_frame.label = "Test Label"
+            _ = strategy.plot(self.mock_spectral_frame, overlay=True)
+
+            # labelが使用されることを確認
+            mock_fig.suptitle.assert_called_with("Test Label")
+
+    def test_matrix_plot_strategy_coherence_data_ax_set(self) -> None:
+        """MatrixPlotStrategyでコヒーレンスデータのax_set処理をテスト"""
+        from wandas.visualization.plotting import MatrixPlotStrategy
+
+        strategy = MatrixPlotStrategy()
+
+        with (
+            mock.patch("matplotlib.pyplot.subplots") as mock_subplots,
+            mock.patch("matplotlib.pyplot.tight_layout"),
+            mock.patch("matplotlib.pyplot.show"),
+        ):
+            mock_fig = mock.MagicMock()
+            mock_ax = mock.MagicMock(spec=Axes)
+            mock_ax.figure = mock_fig
+            mock_subplots.return_value = (mock_fig, mock_ax)
+
+            # コヒーレンスデータでax_setパラメータをテスト
+            # gridパラメータはAxes.setでは無効なので、filter_kwargsで除外される
+            _ = strategy.plot(
+                self.mock_coherence_spectral_frame,
+                overlay=True,
+                xlim=(10, 10000),
+                ylim=(0, 1),
+                xscale="log",
+                grid=True,  # このパラメータはfilter_kwargsで除外される
+            )
+
+            # ax.setが適切なパラメータで呼び出されることを確認
+            mock_ax.set.assert_called()
+            call_kwargs = mock_ax.set.call_args[1]
+            assert "xlim" in call_kwargs
+            assert "ylim" in call_kwargs
+            assert "xscale" in call_kwargs
+            # gridはAxes.setで有効なパラメータではないので含まれない
+            assert "grid" not in call_kwargs
+            assert call_kwargs["xlim"] == (10, 10000)
+            assert call_kwargs["ylim"] == (0, 1)
+            assert call_kwargs["xscale"] == "log"
+
+        plt.close("all")
