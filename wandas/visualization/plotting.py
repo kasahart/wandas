@@ -90,20 +90,23 @@ def _reshape_spectrogram_data(data: Any) -> Any:
     Reshape spectrogram data to 3D for consistent processing.
 
     This function ensures that spectrogram data has 3 dimensions:
-    (channels, freqs, time). If the input data is 2D, it will be reshaped
-    to (1, freqs, time).
+    (channels, freqs, time). Handles both 1D and 2D input data.
 
     Parameters
     ----------
     data : array-like
-        Input spectrogram data that may be 2D or already 3D
+        Input spectrogram data that may be 1D, 2D, or already 3D
 
     Returns
     -------
     array-like
         Data reshaped to ensure 3 dimensions for spectrogram plotting
     """
-    if data.ndim == 2:
+    if data.ndim == 1:
+        # 1D data: reshape to (1, freqs, 1) - single channel, single time frame
+        data = data.reshape((1, data.shape[0], 1))
+    elif data.ndim == 2:
+        # 2D data: reshape to (1, freqs, time) - single channel spectrogram
         data = data.reshape((1,) + data.shape)
     return data
 
