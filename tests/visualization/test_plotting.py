@@ -741,3 +741,309 @@ class TestPlotting:
         assert axes_list[0].figure.get_suptitle() == "Custom Matrix Title"
 
         plt.close("all")  # すべての図をクローズ
+
+    def test_waveform_plot_strategy_edge_cases(self) -> None:
+        """WaveformPlotStrategyのエッジケースのテスト"""
+        strategy = WaveformPlotStrategy()
+
+        # カスタムパラメータでのテスト
+        result = strategy.plot(
+            self.mock_channel_frame,
+            overlay=True,
+            alpha=0.5,
+            color="red",
+            xlabel="Custom Time",
+            ylabel="Custom Amplitude",
+        )
+        assert isinstance(result, Axes)
+        assert result.get_xlabel() == "Custom Time"
+        assert result.get_ylabel() == "Custom Amplitude"
+
+        # 外部のaxを指定した場合のテスト
+        fig, external_ax = plt.subplots()
+        result = strategy.plot(
+            self.mock_channel_frame,
+            ax=external_ax,
+            overlay=True,
+            title="External Ax Test",
+        )
+        assert result is external_ax
+        assert result.get_title() == "External Ax Test"
+
+        plt.close("all")
+
+    def test_frequency_plot_strategy_edge_cases(self) -> None:
+        """FrequencyPlotStrategyのエッジケースのテスト"""
+        strategy = FrequencyPlotStrategy()
+
+        # コヒーレンス操作履歴を持つフレームでのテスト
+        self.mock_spectral_frame.operation_history = [{"operation": "coherence"}]
+        self.mock_spectral_frame.magnitude = np.random.rand(2, 513)
+
+        result = strategy.plot(self.mock_spectral_frame, overlay=True)
+        assert isinstance(result, Axes)
+        assert "coherence" in result.get_ylabel()
+
+        # 操作履歴をリセット
+        self.mock_spectral_frame.operation_history = []
+
+        # カスタムパラメータでのテスト
+        result = strategy.plot(
+            self.mock_spectral_frame,
+            overlay=True,
+            alpha=0.7,
+            linewidth=2,
+            xlabel="Custom Frequency",
+            ylabel="Custom Level",
+        )
+        assert isinstance(result, Axes)
+        assert result.get_xlabel() == "Custom Frequency"
+        assert result.get_ylabel() == "Custom Level"
+
+        plt.close("all")
+
+    def test_spectrogram_plot_strategy_edge_cases(self) -> None:
+        """SpectrogramPlotStrategyのエッジケースのテスト"""
+        strategy = SpectrogramPlotStrategy()
+
+        # dBA単位でのテスト
+        fig, ax = plt.subplots()
+        with mock.patch("librosa.display.specshow") as mock_specshow:
+            mock_img = mock.MagicMock()
+            mock_specshow.return_value = mock_img
+
+            result = strategy.plot(
+                self.mock_single_spectrogram_frame,
+                ax=ax,
+                Aw=True,
+                cmap="viridis",
+                vmin=-100,
+                vmax=0,
+            )
+
+            assert result is ax
+            # dBA単位が使用されていることを確認
+            mock_specshow.assert_called_once()
+            call_args = mock_specshow.call_args
+            assert "cmap" in call_args[1]
+            assert call_args[1]["cmap"] == "viridis"
+
+        plt.close("all")
+
+    def test_describe_plot_strategy_edge_cases(self) -> None:
+        """DescribePlotStrategyのエッジケースのテスト"""
+        strategy = DescribePlotStrategy()
+
+        # A特性重み付けでのテスト
+        self.mock_channel_frame.stft.return_value = self.mock_spectrogram_frame
+        self.mock_channel_frame.welch.return_value = self.mock_spectral_frame
+
+        with (
+            mock.patch("matplotlib.figure.Figure.add_subplot") as mock_add_subplot,
+            mock.patch("librosa.display.specshow") as mock_specshow,
+            mock.patch("matplotlib.pyplot.figure") as mock_figure,
+            mock.patch.object(Figure, "colorbar"),
+        ):
+            mock_img = mock.MagicMock()
+            mock_specshow.return_value = mock_img
+            mock_fig = mock.MagicMock(spec=Figure)
+            mock_figure.return_value = mock_fig
+
+            mock_ax1 = mock.MagicMock(spec=Axes)
+            mock_ax2 = mock.MagicMock(spec=Axes)
+            mock_ax3 = mock.MagicMock(spec=Axes)
+            mock_ax4 = mock.MagicMock(spec=Axes)
+
+            mock_axes_iter = iter([mock_ax1, mock_ax2, mock_ax3, mock_ax4])
+            mock_add_subplot.side_effect = lambda *args, **kwargs: next(mock_axes_iter)
+            mock_fig.axes = [mock_ax1, mock_ax2, mock_ax3, mock_ax4]
+
+            # A特性重み付けでのプロット
+            result = strategy.plot(
+                self.mock_channel_frame,
+                Aw=True,
+                fmin=100,
+                fmax=8000,
+                xlim=(0, 10),
+                ylim=(0, 5000),
+            )
+
+            assert isinstance(result, Iterator)
+
+    def test_matrix_plot_strategy_overlay_mode(self) -> None:
+        """MatrixPlotStrategyのオーバーレイモードのテスト"""
+        from wandas.visualization.plotting import MatrixPlotStrategy
+
+        strategy = MatrixPlotStrategy()
+
+        # オーバーレイモードでのテスト
+        result = strategy.plot(self.mock_spectral_frame, overlay=True)
+        assert isinstance(result, Axes)
+
+        # オーバーレイモードでコヒーレンスデータのテスト
+        result = strategy.plot(self.mock_coherence_spectral_frame, overlay=True)
+        assert isinstance(result, Axes)
+
+        # 外部axを指定したオーバーレイモードのテスト
+        fig, external_ax = plt.subplots()
+        result = strategy.plot(
+            self.mock_spectral_frame,
+            ax=external_ax,
+            overlay=True,
+            title="External Overlay Test",
+        )
+        assert result is external_ax
+
+        plt.close("all")
+
+    def test_plot_strategy_kwargs_filtering(self) -> None:
+        """プロット戦略でのkwargs フィルタリングのテスト"""
+        strategy = WaveformPlotStrategy()
+
+        # 無効なkwargsを含むテスト
+        result = strategy.plot(
+            self.mock_channel_frame,
+            overlay=True,
+            color="blue",
+            linewidth=2,
+            invalid_param="should_be_ignored",  # 無効なパラメータ
+            xlim=(0, 1),
+        )
+        assert isinstance(result, Axes)
+
+        plt.close("all")
+
+    def test_plot_with_empty_labels(self) -> None:
+        """ラベルが空の場合のテスト"""
+        # ラベルが空のモックフレームを作成
+        empty_label_frame = mock.MagicMock()
+        empty_label_frame.n_channels = 1
+        empty_label_frame.time = np.linspace(0, 1, 1000)
+        empty_label_frame.data = np.random.rand(1000)
+        empty_label_frame.labels = [""]
+        empty_label_frame.label = ""
+        empty_label_frame.channels = [mock.MagicMock(label="")]
+
+        strategy = WaveformPlotStrategy()
+        result = strategy.plot(empty_label_frame, overlay=True)
+        assert isinstance(result, Axes)
+        # デフォルトタイトルが使用されることを確認
+        assert "Channel Data" in result.get_title()
+
+        plt.close("all")
+
+    def test_spectrogram_2d_data_handling(self) -> None:
+        """スペクトログラムの2Dデータ処理のテスト"""
+        strategy = SpectrogramPlotStrategy()
+
+        # 2Dデータ（単一チャネル）のテスト
+        fig, ax = plt.subplots()
+
+        with mock.patch("librosa.display.specshow") as mock_specshow:
+            mock_img = mock.MagicMock()
+            mock_specshow.return_value = mock_img
+
+            _ = strategy.plot(self.mock_single_spectrogram_frame, ax=ax)
+
+            # specshowが呼び出されていることを確認
+            mock_specshow.assert_called_once()
+            call_args = mock_specshow.call_args
+            # 正しいパラメータが渡されていることを確認
+            assert "sr" in call_args[1]
+            assert (
+                call_args[1]["sr"] == self.mock_single_spectrogram_frame.sampling_rate
+            )
+
+        plt.close("all")
+
+    def test_channel_metadata_access(self) -> None:
+        """チャネルメタデータアクセスのテスト"""
+        # unitプロパティを持つチャネルメタデータ
+        channel_with_unit = mock.MagicMock()
+        channel_with_unit.label = "Test Channel"
+        channel_with_unit.unit = "V"
+
+        self.mock_channel_frame.channels = [channel_with_unit]
+        self.mock_channel_frame.n_channels = 1
+        self.mock_channel_frame.data = np.random.rand(1, 1000)
+
+        strategy = WaveformPlotStrategy()
+        result = strategy.plot(self.mock_channel_frame, overlay=False)
+
+        assert isinstance(result, Iterator)
+        axes_list = list(result)
+        # unitがy軸ラベルに含まれることを確認
+        assert "V" in axes_list[0].get_ylabel()
+
+        plt.close("all")
+
+    def test_noct_strategy_with_different_n_values(self) -> None:
+        """異なるN値でのNOctPlotStrategyのテスト"""
+        from wandas.visualization.plotting import NOctPlotStrategy
+
+        strategy = NOctPlotStrategy()
+
+        # 一時的にlabelを保存してNoneに設定
+        original_label = self.mock_noct_frame.label
+        self.mock_noct_frame.label = None
+
+        # n=1（1オクターブ）のテスト
+        self.mock_noct_frame.n = 1
+        result = strategy.plot(self.mock_noct_frame, overlay=True)
+        assert isinstance(result, Axes)
+        assert "1/1-Octave Spectrum" in result.get_title()
+
+        # n=12（1/12オクターブ）のテスト
+        self.mock_noct_frame.n = 12
+        result = strategy.plot(self.mock_noct_frame, overlay=True)
+        assert isinstance(result, Axes)
+        assert "1/12-Octave Spectrum" in result.get_title()
+
+        # labelを復元
+        self.mock_noct_frame.label = original_label
+
+        plt.close("all")
+
+    def test_multiple_operations_history(self) -> None:
+        """複数の操作履歴を持つフレームのテスト"""
+        strategy = FrequencyPlotStrategy()
+
+        # 複数の操作履歴を持つフレーム
+        self.mock_spectral_frame.operation_history = [
+            {"operation": "fft"},
+            {"operation": "coherence"},  # 最後の操作がcoherence
+        ]
+        self.mock_spectral_frame.magnitude = np.random.rand(2, 513)
+
+        result = strategy.plot(self.mock_spectral_frame, overlay=True)
+        assert isinstance(result, Axes)
+        assert "coherence" in result.get_ylabel()
+
+        plt.close("all")
+
+    def test_error_handling_in_describe_plot(self) -> None:
+        """DescribePlotでのエラーハンドリングのテスト"""
+        strategy = DescribePlotStrategy()
+
+        # stftメソッドが存在しないフレーム
+        broken_frame = mock.MagicMock()
+        broken_frame.stft.side_effect = AttributeError("No stft method")
+
+        with pytest.raises(AttributeError):
+            strategy.plot(broken_frame)
+
+    def test_return_axes_iterator_helper(self) -> None:
+        """_return_axes_iterator ヘルパー関数のテスト"""
+        from wandas.visualization.plotting import _return_axes_iterator
+
+        # モックのaxesリストを作成
+        mock_axes = [mock.MagicMock(spec=Axes) for _ in range(3)]
+
+        # ヘルパー関数をテスト
+        result = _return_axes_iterator(mock_axes)
+        assert isinstance(result, Iterator)
+
+        # イテレータから要素を取得
+        axes_list = list(result)
+        assert len(axes_list) == 3
+        assert all(isinstance(ax, mock.MagicMock) for ax in axes_list)

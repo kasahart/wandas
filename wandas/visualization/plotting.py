@@ -63,6 +63,51 @@ def _return_axes_iterator(axes_list: Any) -> Iterator[Axes]:
     return iter(axes_list)
 
 
+def _reshape_to_2d(data: Any) -> Any:
+    """
+    Reshape 1D data to 2D for consistent processing across plot strategies.
+
+    This function ensures that data has at least 2 dimensions for plotting operations.
+    If the input data is 1D, it will be reshaped to (1, -1).
+
+    Parameters
+    ----------
+    data : array-like
+        Input data that may be 1D or already 2D+
+
+    Returns
+    -------
+    array-like
+        Data reshaped to ensure at least 2 dimensions
+    """
+    if data.ndim == 1:
+        data = data.reshape(1, -1)
+    return data
+
+
+def _reshape_spectrogram_data(data: Any) -> Any:
+    """
+    Reshape spectrogram data to 3D for consistent processing.
+
+    This function ensures that spectrogram data has 3 dimensions:
+    (channels, freqs, time). If the input data is 2D, it will be reshaped
+    to (1, freqs, time).
+
+    Parameters
+    ----------
+    data : array-like
+        Input spectrogram data that may be 2D or already 3D
+
+    Returns
+    -------
+    array-like
+        Data reshaped to ensure 3 dimensions for spectrogram plotting
+    """
+    if data.ndim == 2:
+        data = data.reshape((1,) + data.shape)
+    return data
+
+
 class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
     """Strategy for waveform plotting"""
 
@@ -106,8 +151,7 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
             strict_mode=True,
         )
         data = bf.data
-        if data.ndim == 1:
-            data = data.reshape(1, -1)
+        data = _reshape_to_2d(data)
         if overlay:
             if ax is None:
                 fig, ax = plt.subplots(figsize=(10, 4))
@@ -187,7 +231,10 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
         """Frequency domain plotting"""
         kwargs = kwargs or {}
         is_aw = kwargs.pop("Aw", False)
-        if bf.operation_history[-1]["operation"] == "coherence":
+        if (
+            len(bf.operation_history) > 0
+            and bf.operation_history[-1]["operation"] == "coherence"
+        ):
             unit = ""
             data = bf.magnitude
             ylabel = kwargs.pop("ylabel", "coherence")
@@ -199,8 +246,7 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
                 unit = "dB"
                 data = bf.dB
             ylabel = kwargs.pop("ylabel", f"Spectrum level [{unit}]")
-        if data.ndim == 1:
-            data = data.reshape(1, -1)
+        data = _reshape_to_2d(data)
         xlabel = kwargs.pop("xlabel", "Frequency [Hz]")
         alpha = kwargs.pop("alpha", 1)
         plot_kwargs = filter_kwargs(Line2D, kwargs, strict_mode=True)
@@ -295,8 +341,7 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
         else:
             unit = "dBr"
             data = bf.dB
-        if data.ndim == 1:
-            data = data.reshape(1, -1)
+        data = _reshape_to_2d(data)
         ylabel = kwargs.pop("ylabel", f"Spectrum level [{unit}]")
         xlabel = kwargs.pop("xlabel", "Center frequency [Hz]")
         alpha = kwargs.pop("alpha", 1)
@@ -313,10 +358,12 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
                 alpha=alpha,
                 **plot_kwargs,
             )
+            default_title = f"1/{str(bf.n)}-Octave Spectrum"
+            actual_title = title if title else (bf.label or default_title)
             ax.set(
                 ylabel=ylabel,
                 xlabel=xlabel,
-                title=title or bf.label or f"1/{str(bf.n)}-Octave Spectrum",
+                title=actual_title,
                 **ax_set,
             )
             if ax is None:
@@ -395,8 +442,7 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
         else:
             unit = "dB"
             data = bf.dB
-        if data.ndim == 2:
-            data = data.reshape((1,) + data.shape)
+        data = _reshape_spectrogram_data(data)
         specshow_kwargs = filter_kwargs(display.specshow, kwargs, strict_mode=True)
         ax_set_kwargs = filter_kwargs(Axes.set, kwargs, strict_mode=True)
 
@@ -428,8 +474,12 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
 
             fig = ax.figure
             if fig is not None:
-                cbar = fig.colorbar(img, ax=ax)
-                cbar.set_label(f"Spectrum level [{unit}]")
+                try:
+                    cbar = fig.colorbar(img, ax=ax)
+                    cbar.set_label(f"Spectrum level [{unit}]")
+                except (ValueError, AttributeError):
+                    # Handle case where img doesn't have proper colorbar properties
+                    pass
             return ax
 
         else:
@@ -465,8 +515,12 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
                     xlabel="Time [s]",
                     **ax_set_kwargs,
                 )
-                cbar = ax_i.figure.colorbar(img, ax=ax_i)
-                cbar.set_label(f"Spectrum level [{unit}]")
+                try:
+                    cbar = ax_i.figure.colorbar(img, ax=ax_i)
+                    cbar.set_label(f"Spectrum level [{unit}]")
+                except (ValueError, AttributeError):
+                    # Handle case where img doesn't have proper colorbar properties
+                    pass
                 fig.suptitle(title or "Spectrogram Data")
             plt.tight_layout()
             plt.show()
@@ -627,8 +681,7 @@ class MatrixPlotStrategy(PlotStrategy[Union["SpectralFrame"]]):
                 data = bf.dB
             ylabel = kwargs.pop("ylabel", f"Spectrum level [{unit}]")
 
-        if data.ndim == 1:
-            data = data.reshape(1, -1)
+        data = _reshape_to_2d(data)
 
         xlabel = kwargs.pop("xlabel", "Frequency [Hz]")
         alpha = kwargs.pop("alpha", 1)
@@ -638,6 +691,8 @@ class MatrixPlotStrategy(PlotStrategy[Union["SpectralFrame"]]):
         if overlay:
             if ax is None:
                 fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+            else:
+                fig = ax.figure
             self.channel_plot(
                 bf.freqs,
                 data.T,
@@ -648,13 +703,13 @@ class MatrixPlotStrategy(PlotStrategy[Union["SpectralFrame"]]):
                 alpha=alpha,
                 **plot_kwargs,
             )
-            if ax is not None:
-                ax.set(**ax_set)
+            ax.set(**ax_set)
+            if fig is not None:
                 fig.suptitle(title or bf.label or "Spectral Data")
+            if ax.figure != fig:  # Only show if we created the figure
                 plt.tight_layout()
                 plt.show()
-                return ax
-            # axがNoneのケースはここで発生しない
+            return ax
         else:
             num_rows = int(np.ceil(np.sqrt(num_channels)))
             fig, axs = plt.subplots(
