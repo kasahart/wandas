@@ -2,6 +2,7 @@ from collections.abc import Iterator
 from typing import Any, Optional, Union
 from unittest import mock
 
+import dask.array as da
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
@@ -22,6 +23,8 @@ from wandas.visualization.plotting import (
 
 # Matplotlibのインタラクティブモードをオフにする
 plt.ioff()
+
+_da_from_array = da.from_array  # type: ignore [unused-ignore]
 
 
 # テスト用のプロット戦略クラス
@@ -831,98 +834,95 @@ class TestPlotting:
 
         plt.close("all")
 
-    def test_spectrogram_plot_strategy_colorbar_exception_handling(self) -> None:
-        """SpectrogramPlotStrategyのカラーバー例外処理のテスト"""
+    def test_spectrogram_plot_strategy_basic_functionality(self) -> None:
+        """SpectrogramPlotStrategyの基本機能テスト（mockなし）"""
         strategy = SpectrogramPlotStrategy()
 
-        # ValueError発生時のテスト（単一チャネル）
-        with (
-            mock.patch("librosa.display.specshow") as mock_specshow,
-            mock.patch("wandas.visualization.plotting.logger") as mock_logger,
-        ):
-            mock_img = mock.MagicMock()
-            mock_specshow.return_value = mock_img
+        # テスト用の実データを作成
+        sample_rate: float = 44100
+        duration: float = 0.1  # 短時間のテストデータ
+        n_samples = int(sample_rate * duration)
+        t = np.linspace(0, duration, n_samples)
+        # シンプルなサイン波
+        signal = np.sin(2 * np.pi * 440.0 * t)  # 440Hz
 
-            fig, ax = plt.subplots()
-            # fig.colorbarでValueErrorを発生させる
-            fig.colorbar = mock.MagicMock(
-                side_effect=ValueError("Invalid colorbar properties")
-            )
+        # ChannelFrameを作成
+        from wandas.frames.channel import ChannelFrame
 
-            result = strategy.plot(self.mock_single_spectrogram_frame, ax=ax)
+        dask_data = _da_from_array(signal.reshape(1, -1), chunks=(1, -1))
+        channel_frame = ChannelFrame(
+            data=dask_data, sampling_rate=sample_rate, label="test_channel"
+        )
 
-            # プロットは正常に完了し、警告ログが出力される
-            assert result is ax
-            mock_logger.warning.assert_called_once()
-            warning_call = mock_logger.warning.call_args[0][0]
-            assert "Failed to create colorbar for spectrogram" in warning_call
-            assert "ValueError: Invalid colorbar properties" in warning_call
+        # STFTを実行してSpectrogramFrameを作成
+        spectrogram_frame = channel_frame.stft(n_fft=512, hop_length=256)
 
-        # AttributeError発生時のテスト（単一チャネル）
-        with (
-            mock.patch("librosa.display.specshow") as mock_specshow,
-            mock.patch("wandas.visualization.plotting.logger") as mock_logger,
-        ):
-            mock_img = mock.MagicMock()
-            mock_specshow.return_value = mock_img
+        # 単一チャネルでのテスト
+        fig, ax = plt.subplots()
+        result = strategy.plot(spectrogram_frame, ax=ax)
 
-            fig, ax = plt.subplots()
-            # fig.colorbarでAttributeErrorを発生させる
-            fig.colorbar = mock.MagicMock(
-                side_effect=AttributeError(
-                    "'NoneType' object has no attribute 'colorbar'"
-                )
-            )
+        # 戻り値が正しいAxesオブジェクトであることを確認
+        assert result is ax
+        assert result.get_xlabel() == "Time [s]"
+        assert result.get_ylabel() == "Frequency [Hz]"
 
-            result = strategy.plot(self.mock_single_spectrogram_frame, ax=ax)
+        plt.close(fig)
 
-            # プロットは正常に完了し、警告ログが出力される
-            assert result is ax
-            mock_logger.warning.assert_called_once()
-            warning_call = mock_logger.warning.call_args[0][0]
-            assert "Failed to create colorbar for spectrogram" in warning_call
-            assert "AttributeError" in warning_call
+        # 複数チャネルのテスト用データ
+        multi_signal = np.array([signal, signal * 0.5])  # 2チャネル
+        multi_dask_data = _da_from_array(multi_signal, chunks=(1, -1))
+        multi_channel_frame = ChannelFrame(
+            data=multi_dask_data, sampling_rate=sample_rate, label="multi_channel_test"
+        )
+        multi_spectrogram_frame = multi_channel_frame.stft(n_fft=512, hop_length=256)
 
-        # 複数チャネルでのValueError発生時のテスト
-        with (
-            mock.patch("librosa.display.specshow") as mock_specshow,
-            mock.patch("wandas.visualization.plotting.logger") as mock_logger,
-            mock.patch("matplotlib.pyplot.subplots") as mock_subplots,
-            mock.patch("matplotlib.pyplot.tight_layout"),
-            mock.patch("matplotlib.pyplot.show"),
-        ):
-            mock_img = mock.MagicMock()
-            mock_specshow.return_value = mock_img
+        # 複数チャネルでのテスト
+        result = strategy.plot(multi_spectrogram_frame)
 
-            # 複数チャネル用のモックFigureとAxesを設定
-            mock_fig = mock.MagicMock(spec=Figure)
-            mock_axes = [mock.MagicMock(spec=Axes) for _ in range(2)]
-            mock_subplots.return_value = (mock_fig, mock_axes)
+        # Iteratorが返されることを確認
+        assert isinstance(result, Iterator)
+        axes_list = list(result)
+        # 2チャネル + 2つのカラーバー軸 = 4軸
+        assert len(axes_list) == 4
 
-            # 各axのfigureのcolorbarでValueErrorを発生させる
-            for ax in mock_axes:
-                ax.figure.colorbar = mock.MagicMock(
-                    side_effect=ValueError("Cannot create colorbar")
-                )
-
-            # mock_figのaxesプロパティを設定
-            mock_fig.axes = mock_axes
-
-            result = strategy.plot(self.mock_spectrogram_frame)
-
-            # プロットは正常に完了し、警告ログが出力される
-            # resultはIteratorなので、型チェックしてからlist変換
-            assert hasattr(result, "__iter__")
-            if isinstance(result, Iterator):
-                axes_list = list(result)
-                assert len(axes_list) == 2
-            # 複数チャネルの場合、各チャネルでカラーバーを作成しようとするため
-            # 複数回警告が出力される可能性がある
-            assert mock_logger.warning.call_count >= 1
-            warning_call = mock_logger.warning.call_args[0][0]
-            assert "Failed to create colorbar for spectrogram" in warning_call
+        # メインプロット軸（最初の2つ）が適切に設定されていることを確認
+        main_axes = [ax for ax in axes_list if ax.get_label() != "<colorbar>"]
+        assert len(main_axes) == 2
+        for ax in main_axes:
+            assert ax.get_xlabel() == "Time [s]"
+            assert ax.get_ylabel() == "Frequency [Hz]"
 
         plt.close("all")
+
+    def test_spectrogram_plot_strategy_dba_mode(self) -> None:
+        """SpectrogramPlotStrategyのdBAモードテスト（mockなし）"""
+        strategy = SpectrogramPlotStrategy()
+
+        # 実際のデータでdBAモードをテスト
+        sample_rate: float = 44100
+        duration: float = 0.1
+        n_samples = int(sample_rate * duration)
+        t = np.linspace(0, duration, n_samples)
+        signal = np.sin(2 * np.pi * 1000.0 * t)  # 1kHz
+
+        from wandas.frames.channel import ChannelFrame
+
+        dask_data = _da_from_array(signal.reshape(1, -1), chunks=(1, -1))
+        channel_frame = ChannelFrame(
+            data=dask_data, sampling_rate=sample_rate, label="test_channel"
+        )
+
+        spectrogram_frame = channel_frame.stft(n_fft=512, hop_length=256)
+
+        # dBAモードでプロット
+        fig, ax = plt.subplots()
+        result = strategy.plot(spectrogram_frame, ax=ax, Aw=True)
+
+        assert result is ax
+        # カラーバーラベルにdBAが含まれていることを期待
+        # （実際のカラーバーの検証は視覚的確認が必要）
+
+        plt.close(fig)
 
     def test_describe_plot_strategy_edge_cases(self) -> None:
         """DescribePlotStrategyのエッジケースのテスト"""

@@ -20,6 +20,7 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 
 if TYPE_CHECKING:
@@ -494,7 +495,7 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
             fig, axs = plt.subplots(
                 num_channels, 1, figsize=(10, 5 * num_channels), sharex=True
             )
-            if not isinstance(fig, plt.Figure):
+            if not isinstance(fig, Figure):
                 raise ValueError("fig must be a matplotlib Figure object.")
             # Convert axs to array if it is a single Axes object
             if not isinstance(axs, np.ndarray):
