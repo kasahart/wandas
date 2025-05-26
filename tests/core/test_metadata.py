@@ -228,3 +228,42 @@ class TestChannelMetadata:
         assert metadata3.ref == 0.3
         metadata3["unit"] = "Pa"  # Setting unit should override ref
         assert metadata3.ref == 2e-5  # Should be updated based on unit
+
+    def test_property_methods(self) -> None:
+        """Test property getter methods"""
+        metadata: ChannelMetadata = ChannelMetadata(
+            label="test_label",
+            unit="Pa",
+            ref=0.5,
+            extra={"source": "microphone", "calibrated": True},
+        )
+
+        # Test property getters
+        assert metadata.label_value == "test_label"
+        assert metadata.unit_value == "Pa"
+        assert metadata.ref_value == 0.5
+        assert metadata.extra_data == {"source": "microphone", "calibrated": True}
+
+    def test_property_methods_default_values(self) -> None:
+        """Test property getter methods with default values"""
+        metadata: ChannelMetadata = ChannelMetadata()
+
+        assert metadata.label_value == ""
+        assert metadata.unit_value == ""
+        assert metadata.ref_value == 1.0
+        assert metadata.extra_data == {}
+
+    def test_property_methods_after_modification(self) -> None:
+        """Test property getter methods after modifying values"""
+        metadata: ChannelMetadata = ChannelMetadata()
+
+        # Modify values and check properties
+        metadata.label = "modified_label"
+        metadata.unit = "Hz"
+        metadata.ref = 0.75
+        metadata.extra["new_key"] = "new_value"
+
+        assert metadata.label_value == "modified_label"
+        assert metadata.unit_value == "Hz"
+        assert metadata.ref_value == 0.75
+        assert metadata.extra_data["new_key"] == "new_value"

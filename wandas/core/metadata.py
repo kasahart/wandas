@@ -29,6 +29,26 @@ class ChannelMetadata(BaseModel):
         if name == "unit" and value and isinstance(value, str):
             super().__setattr__("ref", unit_to_ref(value))
 
+    @property
+    def label_value(self) -> str:
+        """Get the label value"""
+        return self.label
+
+    @property
+    def unit_value(self) -> str:
+        """Get the unit value"""
+        return self.unit
+
+    @property
+    def ref_value(self) -> float:
+        """Get the ref value"""
+        return self.ref
+
+    @property
+    def extra_data(self) -> dict[str, Any]:
+        """Get the extra metadata dictionary"""
+        return self.extra
+
     def __getitem__(self, key: str) -> Any:
         """Provide dictionary-like behavior"""
         if key == "label":
