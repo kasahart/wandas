@@ -92,7 +92,7 @@ class TestSpectralFrame:
         )
 
         # Check that shape is (1, n_fft//2+1)
-        assert frame_1d.shape == (1, self.n_fft // 2 + 1)
+        assert frame_1d.shape == (self.n_fft // 2 + 1,)
 
     def test_reject_high_dim_data(self) -> None:
         """Test that >2D data raises ValueError"""

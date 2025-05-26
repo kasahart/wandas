@@ -82,7 +82,7 @@ class ChannelFrame(
     @property
     def _n_channels(self) -> int:
         """Returns the number of channels."""
-        return self.shape[-2]
+        return int(self._data.shape[-2])
 
     @property
     def time(self) -> NDArrayReal:

@@ -101,7 +101,7 @@ class TestNOctFrame:
             sampling_rate=self.sampling_rate,
         )
         assert frame_1d.n_channels == 1
-        assert frame_1d.shape == (1, self.n_freq_bins)
+        assert frame_1d.shape == (self.n_freq_bins,)
 
     # def test_reject_high_dim_data(self) -> None:
     #     """Test that >2D data raises ValueError"""

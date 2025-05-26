@@ -218,7 +218,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         int
             The number of channels.
         """
-        return self.shape[-2]
+        return int(self._data.shape[-2])
 
     @property
     def freqs(self) -> NDArrayReal:

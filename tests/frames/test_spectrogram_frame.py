@@ -54,7 +54,7 @@ class TestSpectrogramFrame:
             n_fft=1024,
             hop_length=512,
         )
-        assert spec_2d.shape == (1, 513, 10)
+        assert spec_2d.shape == (513, 10)
 
         # 3D配列から初期化（複数チャネル）
         data_3d: DaArray = _da_random_random((2, 513, 10)) + 1j * _da_random_random(

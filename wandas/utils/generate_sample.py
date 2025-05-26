@@ -82,7 +82,7 @@ def generate_sin_lazy(
     channels = []
     labels = []
     for idx, freq in enumerate(_freqs):
-        data = np.sin(2 * np.pi * freq * t) * 2 * np.sqrt(2)
+        data = np.sin(2 * np.pi * freq * t)
         labels.append(f"Channel {idx + 1}")
         channels.append(data)
     return ChannelFrame.from_numpy(
