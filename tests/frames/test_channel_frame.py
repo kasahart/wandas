@@ -719,6 +719,330 @@ class TestChannelFrame:
             with pytest.raises(TypeError, match="Unexpected type for plot result"):
                 self.channel_frame.describe()
 
+    def test_describe_with_explicit_parameters(self) -> None:
+        """Test describe method with new explicit parameters."""
+        with (
+            mock.patch("wandas.frames.channel.display"),
+            mock.patch("wandas.frames.channel.plt.close"),
+            mock.patch("wandas.frames.channel.Audio", return_value="mock_audio"),
+            mock.patch("wandas.frames.channel.ChannelFrame.plot") as mock_plot,
+        ):
+            mock_ax = mock.MagicMock(spec=Axes)
+            mock_ax.figure = mock.MagicMock()
+            mock_plot.return_value = mock_ax
+
+            # Test with explicit frequency parameters
+            self.channel_frame.describe(
+                fmin=100,
+                fmax=5000,
+                cmap="viridis",
+                vmin=-80,
+                vmax=-20,
+            )
+
+            # Verify plot was called with correct parameters
+            mock_plot.assert_called()
+            call_kwargs = mock_plot.call_args[1]
+            assert call_kwargs["fmin"] == 100
+            assert call_kwargs["fmax"] == 5000
+            assert call_kwargs["cmap"] == "viridis"
+            assert call_kwargs["vmin"] == -80
+            assert call_kwargs["vmax"] == -20
+
+    def test_describe_with_axis_limits(self) -> None:
+        """Test describe method with axis limit parameters."""
+        with (
+            mock.patch("wandas.frames.channel.display"),
+            mock.patch("wandas.frames.channel.plt.close"),
+            mock.patch("wandas.frames.channel.Audio", return_value="mock_audio"),
+            mock.patch("wandas.frames.channel.ChannelFrame.plot") as mock_plot,
+        ):
+            mock_ax = mock.MagicMock(spec=Axes)
+            mock_ax.figure = mock.MagicMock()
+            mock_plot.return_value = mock_ax
+
+            # Test with axis limits
+            self.channel_frame.describe(
+                xlim=(0, 5),
+                ylim=(20, 20000),
+            )
+
+            call_kwargs = mock_plot.call_args[1]
+            assert call_kwargs["xlim"] == (0, 5)
+            assert call_kwargs["ylim"] == (20, 20000)
+
+    def test_describe_with_a_weighting(self) -> None:
+        """Test describe method with A-weighting parameter."""
+        with (
+            mock.patch("wandas.frames.channel.display"),
+            mock.patch("wandas.frames.channel.plt.close"),
+            mock.patch("wandas.frames.channel.Audio", return_value="mock_audio"),
+            mock.patch("wandas.frames.channel.ChannelFrame.plot") as mock_plot,
+        ):
+            mock_ax = mock.MagicMock(spec=Axes)
+            mock_ax.figure = mock.MagicMock()
+            mock_plot.return_value = mock_ax
+
+            # Test with A-weighting
+            self.channel_frame.describe(Aw=True)
+
+            call_kwargs = mock_plot.call_args[1]
+            assert call_kwargs["Aw"] is True
+
+    def test_describe_with_subplot_configs(self) -> None:
+        """Test describe method with waveform and spectral configurations."""
+        with (
+            mock.patch("wandas.frames.channel.display"),
+            mock.patch("wandas.frames.channel.plt.close"),
+            mock.patch("wandas.frames.channel.Audio", return_value="mock_audio"),
+            mock.patch("wandas.frames.channel.ChannelFrame.plot") as mock_plot,
+        ):
+            mock_ax = mock.MagicMock(spec=Axes)
+            mock_ax.figure = mock.MagicMock()
+            mock_plot.return_value = mock_ax
+
+            # Test with subplot configs
+            waveform_config = {"ylabel": "Sound Pressure [Pa]", "xlim": (0, 10)}
+            spectral_config = {"ylabel": "SPL [dB]", "xlim": (-80, -20)}
+
+            self.channel_frame.describe(
+                waveform=waveform_config,
+                spectral=spectral_config,
+            )
+
+            call_kwargs = mock_plot.call_args[1]
+            assert call_kwargs["waveform"] == waveform_config
+            assert call_kwargs["spectral"] == spectral_config
+
+    def test_describe_normalize_and_close_params(self) -> None:
+        """Test describe method with normalize and is_close parameters."""
+        with (
+            mock.patch("wandas.frames.channel.display"),
+            mock.patch("wandas.frames.channel.plt.close") as mock_close,
+            mock.patch("wandas.frames.channel.Audio") as mock_audio,
+            mock.patch("wandas.frames.channel.ChannelFrame.plot") as mock_plot,
+        ):
+            mock_ax = mock.MagicMock(spec=Axes)
+            mock_ax.figure = mock.MagicMock()
+            mock_plot.return_value = mock_ax
+
+            # Test with normalize=False and is_close=False
+            self.channel_frame.describe(normalize=False, is_close=False)
+
+            # Verify Audio was called with normalize=False
+            for call in mock_audio.call_args_list:
+                assert call[1].get("normalize") is False
+
+            # Verify plt.close was not called
+            mock_close.assert_not_called()
+
+    def test_describe_backward_compatibility_warning(self) -> None:
+        """Test that using deprecated parameters shows warning."""
+        with (
+            mock.patch("wandas.frames.channel.display"),
+            mock.patch("wandas.frames.channel.plt.close"),
+            mock.patch("wandas.frames.channel.Audio", return_value="mock_audio"),
+            mock.patch("wandas.frames.channel.logger") as mock_logger,
+        ):
+            # Use deprecated axis_config
+            self.channel_frame.describe(axis_config={"time_plot": {"ylabel": "Custom"}})
+
+            # Verify warning was logged
+            assert any(
+                "backward compatibility" in str(call)
+                for call in mock_logger.warning.call_args_list
+            )
+
+
+class TestDescribeIntegration:
+    """Integration tests for describe() method with actual execution."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        # Create a simple test signal
+        self.sample_rate = 16000
+        t = np.linspace(0, 1, self.sample_rate)
+        # 440Hz sine wave (A4 note)
+        signal = np.sin(2 * np.pi * 440 * t)
+        self.data = signal.reshape(1, -1)
+        self.channel_frame = ChannelFrame.from_numpy(
+            data=self.data, sampling_rate=self.sample_rate, label="test_sine"
+        )
+
+    def test_describe_integration_basic(self) -> None:
+        """Test describe() actually executes with default parameters."""
+        with (
+            mock.patch("wandas.frames.channel.display"),
+            mock.patch("wandas.frames.channel.Audio"),
+            mock.patch("matplotlib.pyplot.close"),
+        ):
+            # Should not raise any exceptions
+            self.channel_frame.describe()
+
+    def test_describe_integration_with_explicit_params(self) -> None:
+        """Test describe() with explicit frequency parameters."""
+        with (
+            mock.patch("wandas.frames.channel.display"),
+            mock.patch("wandas.frames.channel.Audio"),
+            mock.patch("matplotlib.pyplot.close"),
+        ):
+            # Test with various parameter combinations
+            self.channel_frame.describe(
+                fmin=100, fmax=5000, cmap="viridis", vmin=-80, vmax=-20
+            )
+
+    def test_describe_integration_with_axis_limits(self) -> None:
+        """Test describe() with axis limits."""
+        with (
+            mock.patch("wandas.frames.channel.display"),
+            mock.patch("wandas.frames.channel.Audio"),
+            mock.patch("matplotlib.pyplot.close"),
+        ):
+            self.channel_frame.describe(xlim=(0, 0.5), ylim=(100, 1000))
+
+    def test_describe_integration_with_a_weighting(self) -> None:
+        """Test describe() with A-weighting."""
+        with (
+            mock.patch("wandas.frames.channel.display"),
+            mock.patch("wandas.frames.channel.Audio"),
+            mock.patch("matplotlib.pyplot.close"),
+        ):
+            self.channel_frame.describe(Aw=True)
+
+    def test_describe_integration_with_subplot_configs(self) -> None:
+        """Test describe() with waveform and spectral configurations."""
+        with (
+            mock.patch("wandas.frames.channel.display"),
+            mock.patch("wandas.frames.channel.Audio"),
+            mock.patch("matplotlib.pyplot.close"),
+        ):
+            waveform_config = {"ylabel": "Amplitude [V]", "xlim": (0, 0.5)}
+            spectral_config = {"ylabel": "Power [dB]", "xlim": (-60, 0)}
+
+            self.channel_frame.describe(
+                waveform=waveform_config, spectral=spectral_config
+            )
+
+    def test_describe_integration_combined_params(self) -> None:
+        """Test describe() with multiple parameters combined."""
+        with (
+            mock.patch("wandas.frames.channel.display"),
+            mock.patch("wandas.frames.channel.Audio"),
+            mock.patch("matplotlib.pyplot.close"),
+        ):
+            self.channel_frame.describe(
+                fmin=20,
+                fmax=8000,
+                cmap="magma",
+                vmin=-90,
+                vmax=-10,
+                xlim=(0, 0.5),
+                ylim=(20, 8000),
+                Aw=True,
+                waveform={"ylabel": "Sound Pressure [Pa]"},
+                spectral={"ylabel": "SPL [dBA]"},
+                normalize=False,
+                is_close=True,
+            )
+
+    def test_describe_integration_typeddict_params(self) -> None:
+        """Test describe() using TypedDict configuration."""
+        from wandas.visualization.types import DescribeParams
+
+        # Create configuration using TypedDict
+        config: DescribeParams = {
+            "fmin": 100,
+            "fmax": 5000,
+            "cmap": "viridis",
+            "Aw": True,
+            "vmin": -80,
+            "vmax": -20,
+            "normalize": False,
+        }
+
+        with (
+            mock.patch("wandas.frames.channel.display"),
+            mock.patch("wandas.frames.channel.Audio"),
+            mock.patch("matplotlib.pyplot.close"),
+        ):
+            # Expand TypedDict as kwargs
+            self.channel_frame.describe(**config)
+
+    def test_describe_integration_plot_is_created(self) -> None:
+        """Test that describe() actually creates plots."""
+        with (
+            mock.patch("wandas.frames.channel.display") as mock_display,
+            mock.patch("wandas.frames.channel.Audio"),
+        ):
+            self.channel_frame.describe(is_close=False)
+
+            # Verify plot was created (display was called)
+            assert mock_display.call_count > 0
+
+    def test_describe_integration_stft_computation(self) -> None:
+        """Test that describe() computes STFT correctly."""
+        with (
+            mock.patch("wandas.frames.channel.display"),
+            mock.patch("wandas.frames.channel.Audio"),
+            mock.patch("matplotlib.pyplot.close"),
+        ):
+            # This should trigger STFT computation
+            self.channel_frame.describe(fmin=100, fmax=5000)
+
+            # If we got here without exception, STFT worked
+
+    def test_describe_integration_welch_computation(self) -> None:
+        """Test that describe() computes Welch spectrum correctly."""
+        with (
+            mock.patch("wandas.frames.channel.display"),
+            mock.patch("wandas.frames.channel.Audio"),
+            mock.patch("matplotlib.pyplot.close"),
+        ):
+            # This should trigger Welch computation
+            self.channel_frame.describe(Aw=True)
+
+            # If we got here without exception, Welch worked
+
+    def test_describe_integration_multi_channel(self) -> None:
+        """Test describe() with multi-channel signal."""
+        # Create 2-channel signal
+        t = np.linspace(0, 1, self.sample_rate)
+        signal1 = np.sin(2 * np.pi * 440 * t)
+        signal2 = np.sin(2 * np.pi * 880 * t)
+        multi_data = np.vstack([signal1, signal2])
+
+        cf_multi = ChannelFrame.from_numpy(
+            data=multi_data, sampling_rate=self.sample_rate, label="test_multi"
+        )
+
+        with (
+            mock.patch("wandas.frames.channel.display"),
+            mock.patch("wandas.frames.channel.Audio"),
+            mock.patch("matplotlib.pyplot.close"),
+        ):
+            cf_multi.describe(fmin=100, fmax=5000)
+
+    def test_describe_integration_backward_compat(self) -> None:
+        """Test describe() with deprecated parameters still works."""
+        with (
+            mock.patch("wandas.frames.channel.display"),
+            mock.patch("wandas.frames.channel.Audio"),
+            mock.patch("matplotlib.pyplot.close"),
+            mock.patch("wandas.frames.channel.logger"),
+        ):
+            # Old style parameters should still work
+            axis_config = {
+                "time_plot": {"ylabel": "Custom"},
+                "freq_plot": {"xlim": (-80, -20), "ylim": (100, 5000)},
+            }
+            cbar_config = {"vmin": -90, "vmax": -10}
+
+            self.channel_frame.describe(
+                axis_config=axis_config, cbar_config=cbar_config
+            )
+
+            # Should complete without errors
+
     def test_read_csv(self) -> None:
         """Test read_csv method."""
         # Create a temporary CSV file

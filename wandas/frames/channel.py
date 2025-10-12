@@ -335,44 +335,125 @@ class ChannelFrame(
         return rms_ch.plot(ax=ax, ylabel=ylabel, title=title, overlay=overlay, **kwargs)
 
     def describe(
-        self, normalize: bool = True, is_close: bool = True, **kwargs: Any
+        self,
+        normalize: bool = True,
+        is_close: bool = True,
+        *,
+        fmin: float = 0,
+        fmax: Optional[float] = None,
+        cmap: str = "jet",
+        vmin: Optional[float] = None,
+        vmax: Optional[float] = None,
+        xlim: Optional[tuple[float, float]] = None,
+        ylim: Optional[tuple[float, float]] = None,
+        Aw: bool = False,  # noqa: N803
+        waveform: Optional[dict[str, Any]] = None,
+        spectral: Optional[dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> None:
         """Display visual and audio representation of the frame.
 
+        This method creates a comprehensive visualization with three plots:
+        1. Time-domain waveform (top)
+        2. Spectrogram (bottom-left)
+        3. Frequency spectrum via Welch method (bottom-right)
+
         Args:
             normalize: Whether to normalize the audio data for playback.
+                Default: True
             is_close: Whether to close the figure after displaying.
-            **kwargs: Additional parameters for visualization.
+                Default: True
+            fmin: Minimum frequency to display in the spectrogram (Hz).
+                Default: 0
+            fmax: Maximum frequency to display in the spectrogram (Hz).
+                Default: Nyquist frequency (sampling_rate / 2)
+            cmap: Colormap for the spectrogram.
+                Default: 'jet'
+            vmin: Minimum value for spectrogram color scale (dB).
+                Auto-calculated if None.
+            vmax: Maximum value for spectrogram color scale (dB).
+                Auto-calculated if None.
+            xlim: Time axis limits (seconds) for all time-based plots.
+                Format: (start_time, end_time)
+            ylim: Frequency axis limits (Hz) for frequency-based plots.
+                Format: (min_freq, max_freq)
+            Aw: Apply A-weighting to the frequency analysis.
+                Default: False
+            waveform: Additional configuration dict for waveform subplot.
+                Can include 'xlabel', 'ylabel', 'xlim', 'ylim'.
+            spectral: Additional configuration dict for spectral subplot.
+                Can include 'xlabel', 'ylabel', 'xlim', 'ylim'.
+            **kwargs: Deprecated parameters for backward compatibility:
+                - axis_config: Old configuration format
+                - cbar_config: Old colorbar configuration
+
+        Examples:
+            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> # Basic usage
+            >>> cf.describe()
+            >>>
+            >>> # Custom frequency range
+            >>> cf.describe(fmin=100, fmax=5000)
+            >>>
+            >>> # Custom color scale
+            >>> cf.describe(vmin=-80, vmax=-20, cmap="viridis")
+            >>>
+            >>> # A-weighted analysis
+            >>> cf.describe(Aw=True)
+            >>>
+            >>> # Custom time range
+            >>> cf.describe(xlim=(0, 5))  # Show first 5 seconds
+            >>>
+            >>> # Custom waveform subplot settings
+            >>> cf.describe(waveform={"ylabel": "Custom Label"})
         """
-        if "axis_config" in kwargs:
+        # Prepare kwargs with explicit parameters
+        plot_kwargs: dict[str, Any] = {
+            "fmin": fmin,
+            "fmax": fmax,
+            "cmap": cmap,
+            "vmin": vmin,
+            "vmax": vmax,
+            "xlim": xlim,
+            "ylim": ylim,
+            "Aw": Aw,
+            "waveform": waveform or {},
+            "spectral": spectral or {},
+        }
+        # Merge with additional kwargs
+        plot_kwargs.update(kwargs)
+
+        if "axis_config" in plot_kwargs:
             logger.warning(
-                "axis_config is retained for backward compatibility but will be deprecated in the future."  # noqa: E501
+                "axis_config is retained for backward compatibility but will "
+                "be deprecated in the future."
             )
-            axis_config = kwargs["axis_config"]
+            axis_config = plot_kwargs["axis_config"]
             if "time_plot" in axis_config:
-                kwargs["waveform"] = axis_config["time_plot"]
+                plot_kwargs["waveform"] = axis_config["time_plot"]
             if "freq_plot" in axis_config:
                 if "xlim" in axis_config["freq_plot"]:
                     vlim = axis_config["freq_plot"]["xlim"]
-                    kwargs["vmin"] = vlim[0]
-                    kwargs["vmax"] = vlim[1]
+                    plot_kwargs["vmin"] = vlim[0]
+                    plot_kwargs["vmax"] = vlim[1]
                 if "ylim" in axis_config["freq_plot"]:
-                    ylim = axis_config["freq_plot"]["ylim"]
-                    kwargs["ylim"] = ylim
+                    ylim_config = axis_config["freq_plot"]["ylim"]
+                    plot_kwargs["ylim"] = ylim_config
 
-        if "cbar_config" in kwargs:
+        if "cbar_config" in plot_kwargs:
             logger.warning(
-                "cbar_config is retained for backward compatibility but will be deprecated in the future."  # noqa: E501
+                "cbar_config is retained for backward compatibility but will "
+                "be deprecated in the future."
             )
-            cbar_config = kwargs["cbar_config"]
+            cbar_config = plot_kwargs["cbar_config"]
             if "vmin" in cbar_config:
-                kwargs["vmin"] = cbar_config["vmin"]
+                plot_kwargs["vmin"] = cbar_config["vmin"]
             if "vmax" in cbar_config:
-                kwargs["vmax"] = cbar_config["vmax"]
+                plot_kwargs["vmax"] = cbar_config["vmax"]
 
         for ch in self:
             ax: Axes
-            _ax = ch.plot("describe", title=f"{ch.label} {ch.labels[0]}", **kwargs)
+            _ax = ch.plot("describe", title=f"{ch.label} {ch.labels[0]}", **plot_kwargs)
             if isinstance(_ax, Iterator):
                 ax = next(iter(_ax))
             elif isinstance(_ax, Axes):
