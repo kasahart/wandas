@@ -877,6 +877,7 @@ class ChannelFrame(
                 arr = data._data
             labels = [ch.label for ch in self._channel_metadata]
             new_labels = []
+            new_metadata_list = []
             for chmeta in data._channel_metadata:
                 new_label = chmeta.label
                 if new_label in labels or new_label in new_labels:
@@ -885,12 +886,13 @@ class ChannelFrame(
                     else:
                         raise ValueError(f"label重複: {new_label}")
                 new_labels.append(new_label)
+                # channel_metadata全体をコピーして、ラベルだけ更新
+                new_ch_meta = chmeta.model_copy(deep=True)
+                new_ch_meta.label = new_label
+                new_metadata_list.append(new_ch_meta)
             new_data = concatenate([self._data, arr], axis=0)
-            from ..core.metadata import ChannelMetadata
 
-            new_chmeta = self._channel_metadata + [
-                ChannelMetadata(label=lbl) for lbl in new_labels
-            ]
+            new_chmeta = self._channel_metadata + new_metadata_list
             if inplace:
                 self._data = new_data
                 self._channel_metadata = new_chmeta
