@@ -104,6 +104,33 @@ class ChannelFrame(
         """Returns the duration in seconds."""
         return self.n_samples / self.sampling_rate
 
+    @property
+    def rms(self) -> NDArrayReal:
+        """Calculate RMS (Root Mean Square) value for each channel.
+
+        Returns:
+            Array of RMS values, one per channel.
+
+        Examples:
+            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> rms_values = cf.rms
+            >>> print(f"RMS values: {rms_values}")
+            >>> # Select channels with RMS > threshold
+            >>> active_channels = cf[cf.rms > 0.5]
+        """
+        # Compute RMS for each channel: sqrt(mean(x^2))
+        data = self.data  # This will trigger computation if lazy
+
+        # Ensure data is 2D (n_channels, n_samples)
+        if data.ndim == 1:
+            data = data.reshape(1, -1)
+
+        # Convert to a concrete NumPy ndarray to satisfy numpy.mean typing
+        # and to ensure dask arrays are materialized for this operation.
+        arr: NDArrayReal = np.asarray(data)
+        rms_values: NDArrayReal = np.sqrt(np.mean(arr**2, axis=1))  # type: ignore [arg-type]
+        return rms_values
+
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
         from ..processing import create_operation

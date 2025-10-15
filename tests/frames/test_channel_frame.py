@@ -1539,3 +1539,104 @@ class TestDescribeIntegration:
         ):
             filename = self.channel_frame.visualize_graph()
             assert filename is None
+
+    def test_rms_property(self) -> None:
+        """Test RMS property calculation."""
+        # Create a known signal for testing RMS
+        # Channel 1: constant value of 2.0
+        # Channel 2: constant value of 3.0
+        data = np.array([[2.0] * 1000, [3.0] * 1000])
+        dask_data = _da_from_array(data, chunks=(1, 100))
+        cf = ChannelFrame(data=dask_data, sampling_rate=16000)
+
+        # Calculate RMS
+        rms_values = cf.rms
+
+        # For a constant signal, RMS equals the absolute value
+        expected_rms = np.array([2.0, 3.0])
+        np.testing.assert_array_almost_equal(rms_values, expected_rms)
+
+    def test_rms_property_with_sine_wave(self) -> None:
+        """Test RMS property with sine wave signals."""
+        # For a sine wave, RMS = amplitude / sqrt(2)
+        sample_rate = 16000
+        duration = 1.0
+        n_samples = int(sample_rate * duration)
+        t = np.linspace(0, duration, n_samples, endpoint=False)
+
+        # Create two sine waves with different amplitudes
+        amp1 = 1.0
+        amp2 = 2.0
+        freq = 440  # Hz
+
+        channel1 = amp1 * np.sin(2 * np.pi * freq * t)
+        channel2 = amp2 * np.sin(2 * np.pi * freq * t)
+
+        data = np.vstack([channel1, channel2])
+        dask_data = _da_from_array(data, chunks=(1, 1000))
+        cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
+
+        # Calculate RMS
+        rms_values = cf.rms
+
+        # Expected RMS for sine wave: amplitude / sqrt(2)
+        expected_rms = np.array([amp1 / np.sqrt(2), amp2 / np.sqrt(2)])
+        np.testing.assert_array_almost_equal(rms_values, expected_rms, decimal=5)
+
+    def test_rms_property_single_channel(self) -> None:
+        """Test RMS property with single channel."""
+        # Single channel with known values
+        data = np.array([[1.0, 2.0, 3.0, 4.0]])
+        dask_data = _da_from_array(data, chunks=(1, 2))
+        cf = ChannelFrame(data=dask_data, sampling_rate=16000)
+
+        rms_values = cf.rms
+
+        # Calculate expected RMS: sqrt(mean([1, 4, 9, 16]))
+        expected_rms = np.sqrt(np.mean([1.0, 4.0, 9.0, 16.0]))
+        np.testing.assert_array_almost_equal(rms_values, [expected_rms])
+
+    def test_rms_property_indexing(self) -> None:
+        """Test using RMS property for conditional indexing."""
+        # Create channels with different RMS values
+        data = np.array([[1.0] * 1000, [2.0] * 1000, [3.0] * 1000])
+        dask_data = _da_from_array(data, chunks=(1, 100))
+        cf = ChannelFrame(data=dask_data, sampling_rate=16000)
+
+        # Get RMS values
+        rms_values = cf.rms
+        assert len(rms_values) == 3
+
+        # Create boolean mask based on RMS threshold
+        threshold = 1.5
+        mask = rms_values > threshold
+        expected_mask = np.array([False, True, True])
+        np.testing.assert_array_equal(mask, expected_mask)
+
+        # Use mask to select channels
+        filtered_cf = cf[mask]
+        assert filtered_cf.n_channels == 2
+
+        # Verify the selected channels have correct RMS values
+        filtered_rms = filtered_cf.rms
+        assert all(filtered_rms > threshold)
+
+    def test_rms_property_with_sorting(self) -> None:
+        """Test using RMS property to sort and select top channels."""
+        # Create channels with different RMS values
+        data = np.array([[1.0] * 1000, [3.0] * 1000, [2.0] * 1000])
+        dask_data = _da_from_array(data, chunks=(1, 100))
+        cf = ChannelFrame(data=dask_data, sampling_rate=16000)
+
+        # Get top 2 channels by RMS
+        rms_values = cf.rms
+        top_n = 2
+        top_indices = np.argsort(rms_values)[::-1][:top_n]
+
+        # Select top channels
+        top_channels = cf[top_indices]
+        assert top_channels.n_channels == top_n
+
+        # Verify they are indeed the top channels
+        top_rms = top_channels.rms
+        assert np.all(top_rms >= 2.0)  # Channels with RMS 3.0 and 2.0
