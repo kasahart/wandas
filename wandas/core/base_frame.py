@@ -124,22 +124,46 @@ class BaseFrame(ABC, Generic[T]):
         """
         return self._previous
 
-    def get_channel(self: S, channel_idx: int) -> S:
-        n_channels = len(self)
-        if channel_idx < 0 or channel_idx >= n_channels:
-            range_max = n_channels - 1
-            raise ValueError(
-                f"Channel index out of range: {channel_idx} "
-                f"(valid range: 0-{range_max})"
-            )
-        logger.debug(f"Extracting channel index={channel_idx} (lazy operation).")
-        channel_data = self._data[channel_idx : channel_idx + 1]
+    def get_channel(
+        self: S,
+        channel_idx: Union[int, list[int], tuple[int, ...], npt.NDArray[np.int_]],
+    ) -> S:
+        """
+        Get channel(s) by index.
 
-        return self._create_new_instance(
-            data=channel_data,
-            operation_history=self.operation_history,
-            channel_metadata=[self._channel_metadata[channel_idx]],
-        )
+        Parameters
+        ----------
+        channel_idx : int or sequence of int
+            Single channel index or sequence of channel indices.
+            Supports negative indices (e.g., -1 for the last channel).
+
+        Returns
+        -------
+        S
+            New instance containing the selected channel(s).
+
+        Examples
+        --------
+        >>> frame.get_channel(0)  # Single channel
+        >>> frame.get_channel([0, 2, 3])  # Multiple channels
+        >>> frame.get_channel((-1, -2))  # Last two channels
+        >>> frame.get_channel(np.array([1, 2]))  # NumPy array of indices
+        """
+        if isinstance(channel_idx, int):
+            # 単一チャンネルの場合
+            # ネガティブインデックスはPythonのリストインデックスで自動処理
+            return self[channel_idx]
+        else:
+            # 複数チャンネルの場合
+            # リスト、タプル、numpy配列などに対応
+            indices = list(channel_idx)
+            new_data = self._data[indices]
+            new_channel_metadata = [self._channel_metadata[i] for i in indices]
+            return self._create_new_instance(
+                data=new_data,
+                operation_history=self.operation_history,
+                channel_metadata=new_channel_metadata,
+            )
 
     def __len__(self) -> int:
         """

@@ -132,6 +132,172 @@ class TestChannelFrame:
             _: NDArrayReal = channel.data
             mock_compute.assert_called_once()
 
+    def test_get_channel_single_int(self) -> None:
+        """Test get_channel with single integer index."""
+        # Test positive index
+        channel = self.channel_frame.get_channel(0)
+        assert isinstance(channel, ChannelFrame)
+        assert channel.n_channels == 1
+        assert channel.channels[0].label == "ch0"
+        np.testing.assert_array_equal(channel.data, self.data[0])
+
+        channel = self.channel_frame.get_channel(1)
+        assert isinstance(channel, ChannelFrame)
+        assert channel.n_channels == 1
+        assert channel.channels[0].label == "ch1"
+        np.testing.assert_array_equal(channel.data, self.data[1])
+
+        # Test negative index
+        channel = self.channel_frame.get_channel(-1)
+        assert isinstance(channel, ChannelFrame)
+        assert channel.n_channels == 1
+        assert channel.channels[0].label == "ch1"
+        np.testing.assert_array_equal(channel.data, self.data[-1])
+
+        channel = self.channel_frame.get_channel(-2)
+        assert isinstance(channel, ChannelFrame)
+        assert channel.n_channels == 1
+        assert channel.channels[0].label == "ch0"
+        np.testing.assert_array_equal(channel.data, self.data[-2])
+
+    def test_get_channel_list_of_ints(self) -> None:
+        """Test get_channel with list of integer indices."""
+        # Test with list of multiple indices
+        channels = self.channel_frame.get_channel([0, 1])
+        assert isinstance(channels, ChannelFrame)
+        assert channels.n_channels == 2
+        assert channels.channels[0].label == "ch0"
+        assert channels.channels[1].label == "ch1"
+        np.testing.assert_array_equal(channels.data, self.data[[0, 1]])
+
+        # Test with reversed order
+        channels = self.channel_frame.get_channel([1, 0])
+        assert isinstance(channels, ChannelFrame)
+        assert channels.n_channels == 2
+        assert channels.channels[0].label == "ch1"
+        assert channels.channels[1].label == "ch0"
+        np.testing.assert_array_equal(channels.data, self.data[[1, 0]])
+
+        # Test with single element list
+        channels = self.channel_frame.get_channel([0])
+        assert isinstance(channels, ChannelFrame)
+        assert channels.n_channels == 1
+        assert channels.channels[0].label == "ch0"
+        # Single channel .data is squeezed to 1D
+        np.testing.assert_array_equal(channels.data, self.data[0])
+
+        # Test with negative indices
+        channels = self.channel_frame.get_channel([-1, -2])
+        assert isinstance(channels, ChannelFrame)
+        assert channels.n_channels == 2
+        assert channels.channels[0].label == "ch1"
+        assert channels.channels[1].label == "ch0"
+        np.testing.assert_array_equal(channels.data, self.data[[-1, -2]])
+
+    def test_get_channel_tuple_of_ints(self) -> None:
+        """Test get_channel with tuple of integer indices."""
+        # Test with tuple
+        channels = self.channel_frame.get_channel((0, 1))
+        assert isinstance(channels, ChannelFrame)
+        assert channels.n_channels == 2
+        assert channels.channels[0].label == "ch0"
+        assert channels.channels[1].label == "ch1"
+        np.testing.assert_array_equal(channels.data, self.data[[0, 1]])
+
+        # Test with single element tuple
+        channels = self.channel_frame.get_channel((1,))
+        assert isinstance(channels, ChannelFrame)
+        assert channels.n_channels == 1
+        assert channels.channels[0].label == "ch1"
+        # Single channel .data is squeezed to 1D
+        np.testing.assert_array_equal(channels.data, self.data[1])
+
+    def test_get_channel_numpy_array(self) -> None:
+        """Test get_channel with numpy array of indices."""
+        # Test with numpy array
+        indices = np.array([0, 1])
+        channels = self.channel_frame.get_channel(indices)
+        assert isinstance(channels, ChannelFrame)
+        assert channels.n_channels == 2
+        np.testing.assert_array_equal(channels.data, self.data[[0, 1]])
+
+        # Test with single element numpy array
+        indices = np.array([0])
+        channels = self.channel_frame.get_channel(indices)
+        assert isinstance(channels, ChannelFrame)
+        assert channels.n_channels == 1
+        # Single channel .data is squeezed to 1D
+        np.testing.assert_array_equal(channels.data, self.data[0])
+
+        # Test with negative indices in numpy array
+        indices = np.array([-1, -2])
+        channels = self.channel_frame.get_channel(indices)
+        assert isinstance(channels, ChannelFrame)
+        assert channels.n_channels == 2
+        np.testing.assert_array_equal(channels.data, self.data[[-1, -2]])
+
+    def test_get_channel_with_range(self) -> None:
+        """Test get_channel with range object."""
+        # Create a frame with more channels
+        data = np.random.random((4, 16000))
+        dask_data = _da_from_array(data, chunks=(1, 4000))
+        frame = ChannelFrame(
+            data=dask_data, sampling_rate=self.sample_rate, label="test_audio"
+        )
+
+        # Test with range
+        channels = frame.get_channel(list(range(3)))
+        assert isinstance(channels, ChannelFrame)
+        assert channels.n_channels == 3
+        assert channels.channels[0].label == "ch0"
+        assert channels.channels[1].label == "ch1"
+        assert channels.channels[2].label == "ch2"
+        np.testing.assert_array_equal(channels.data, data[[0, 1, 2]])
+
+    def test_get_channel_preserves_metadata(self) -> None:
+        """Test that get_channel preserves metadata correctly."""
+        # Set metadata
+        self.channel_frame.channels[0].label = "left"
+        self.channel_frame.channels[0]["gain"] = 0.5
+        self.channel_frame.channels[1].label = "right"
+        self.channel_frame.channels[1]["gain"] = 0.75
+
+        # Get single channel
+        channel = self.channel_frame.get_channel(0)
+        assert channel.channels[0].label == "left"
+        assert channel.channels[0]["gain"] == 0.5
+
+        # Get multiple channels
+        channels = self.channel_frame.get_channel([0, 1])
+        assert channels.channels[0].label == "left"
+        assert channels.channels[0]["gain"] == 0.5
+        assert channels.channels[1].label == "right"
+        assert channels.channels[1]["gain"] == 0.75
+
+        # Get channels in reverse order
+        channels = self.channel_frame.get_channel([1, 0])
+        assert channels.channels[0].label == "right"
+        assert channels.channels[0]["gain"] == 0.75
+        assert channels.channels[1].label == "left"
+        assert channels.channels[1]["gain"] == 0.5
+
+    def test_get_channel_is_lazy(self) -> None:
+        """Test that get_channel operations remain lazy."""
+        with mock.patch.object(
+            DaArray, "compute", return_value=self.data
+        ) as mock_compute:
+            # Single channel
+            _ = self.channel_frame.get_channel(0)
+            mock_compute.assert_not_called()
+
+            # Multiple channels
+            channels = self.channel_frame.get_channel([0, 1])
+            mock_compute.assert_not_called()
+
+            # Only accessing .data should trigger compute
+            _ = channels.data
+            mock_compute.assert_called_once()
+
     def test_plotting_triggers_compute(self) -> None:
         """Test that plotting triggers computation."""
         with mock.patch(
