@@ -156,7 +156,7 @@ class BaseFrame(ABC, Generic[T]):
         >>> frame.get_channel(np.array([1, 2]))  # NumPy array of indices
         """
         if isinstance(channel_idx, int):
-            # 単一チャンネルの場合リストにする。
+            # Convert single channel to a list.
             channel_idx_list: list[int] = [channel_idx]
         else:
             channel_idx_list = list(channel_idx)
