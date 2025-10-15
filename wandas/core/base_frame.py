@@ -124,21 +124,49 @@ class BaseFrame(ABC, Generic[T]):
         """
         return self._previous
 
-    def get_channel(self: S, channel_idx: int) -> S:
-        n_channels = len(self)
-        if channel_idx < 0 or channel_idx >= n_channels:
-            range_max = n_channels - 1
-            raise ValueError(
-                f"Channel index out of range: {channel_idx} "
-                f"(valid range: 0-{range_max})"
-            )
-        logger.debug(f"Extracting channel index={channel_idx} (lazy operation).")
-        channel_data = self._data[channel_idx : channel_idx + 1]
+    def get_channel(
+        self: S,
+        channel_idx: Union[
+            int,
+            list[int],
+            tuple[int, ...],
+            npt.NDArray[np.int_],
+            npt.NDArray[np.bool_],
+        ],
+    ) -> S:
+        """
+        Get channel(s) by index.
 
+        Parameters
+        ----------
+        channel_idx : int or sequence of int
+            Single channel index or sequence of channel indices.
+            Supports negative indices (e.g., -1 for the last channel).
+
+        Returns
+        -------
+        S
+            New instance containing the selected channel(s).
+
+        Examples
+        --------
+        >>> frame.get_channel(0)  # Single channel
+        >>> frame.get_channel([0, 2, 3])  # Multiple channels
+        >>> frame.get_channel((-1, -2))  # Last two channels
+        >>> frame.get_channel(np.array([1, 2]))  # NumPy array of indices
+        """
+        if isinstance(channel_idx, int):
+            # Convert single channel to a list.
+            channel_idx_list: list[int] = [channel_idx]
+        else:
+            channel_idx_list = list(channel_idx)
+
+        new_data = self._data[channel_idx_list]
+        new_channel_metadata = [self._channel_metadata[i] for i in channel_idx_list]
         return self._create_new_instance(
-            data=channel_data,
+            data=new_data,
             operation_history=self.operation_history,
-            channel_metadata=[self._channel_metadata[channel_idx]],
+            channel_metadata=new_channel_metadata,
         )
 
     def __len__(self) -> int:
@@ -151,49 +179,153 @@ class BaseFrame(ABC, Generic[T]):
         for idx in range(len(self)):
             yield self[idx]
 
-    def __getitem__(self: S, key: Union[str, int, slice, tuple[slice, ...]]) -> S:
+    def __getitem__(
+        self: S,
+        key: Union[
+            int,
+            str,
+            slice,
+            list[int],
+            list[str],
+            tuple[
+                Union[
+                    int,
+                    str,
+                    slice,
+                    list[int],
+                    list[str],
+                    npt.NDArray[np.int_],
+                    npt.NDArray[np.bool_],
+                ],
+                ...,
+            ],
+            npt.NDArray[np.int_],
+            npt.NDArray[np.bool_],
+        ],
+    ) -> S:
         """
-        Method to get a channel by name or index.
+        Get channel(s) by index, label, or advanced indexing.
+
+        This method supports multiple indexing patterns similar to NumPy and pandas:
+
+        - Single channel by index: `frame[0]`
+        - Single channel by label: `frame["ch0"]`
+        - Slice of channels: `frame[0:3]`
+        - Multiple channels by indices: `frame[[0, 2, 5]]`
+        - Multiple channels by labels: `frame[["ch0", "ch2"]]`
+        - NumPy integer array: `frame[np.array([0, 2])]`
+        - Boolean mask: `frame[mask]` where mask is a boolean array
+        - Multidimensional indexing: `frame[0, 100:200]` (channel + time)
 
         Parameters
         ----------
-        key : str, int, slice, or tuple of slices
-            Channel name (label) or index number.
+        key : int, str, slice, list, tuple, or ndarray
+            - int: Single channel index (supports negative indexing)
+            - str: Single channel label
+            - slice: Range of channels
+            - list[int]: Multiple channel indices
+            - list[str]: Multiple channel labels
+            - tuple: Multidimensional indexing (channel_key, time_key, ...)
+            - ndarray[int]: NumPy array of channel indices
+            - ndarray[bool]: Boolean mask for channel selection
 
         Returns
         -------
-        BaseFrame
-            The corresponding channel.
+        S
+            New instance containing the selected channel(s).
 
         Raises
         ------
         ValueError
-            If the key length is invalid for the shape.
+            If the key length is invalid for the shape or if boolean mask
+            length doesn't match number of channels.
         IndexError
             If the channel index is out of range.
         TypeError
-            If the key type is invalid.
+            If the key type is invalid or list contains mixed types.
+        KeyError
+            If a channel label is not found.
+
+        Examples
+        --------
+        >>> # Single channel selection
+        >>> frame[0]  # First channel
+        >>> frame["acc_x"]  # By label
+        >>> frame[-1]  # Last channel
+        >>>
+        >>> # Multiple channel selection
+        >>> frame[[0, 2, 5]]  # Multiple indices
+        >>> frame[["acc_x", "acc_z"]]  # Multiple labels
+        >>> frame[0:3]  # Slice
+        >>>
+        >>> # NumPy array indexing
+        >>> frame[np.array([0, 2, 4])]  # Integer array
+        >>> mask = np.array([True, False, True])
+        >>> frame[mask]  # Boolean mask
+        >>>
+        >>> # Time slicing (multidimensional)
+        >>> frame[0, 100:200]  # Channel 0, samples 100-200
+        >>> frame[[0, 1], ::2]  # Channels 0-1, every 2nd sample
         """
+
+        # Single index (int)
+        if isinstance(key, numbers.Integral):
+            return self.get_channel(key)
+
+        # Single label (str)
         if isinstance(key, str):
             index = self.label2index(key)
             return self.get_channel(index)
 
-        elif isinstance(key, tuple):
-            # When key is a tuple, treat the first element as an index
-            if len(key) > len(self.shape):
-                raise ValueError(
-                    f"Invalid key length: {len(key)} for shape {self.shape}"
+        # Phase 2: NumPy array support (bool mask and int array)
+        if isinstance(key, np.ndarray):
+            if key.dtype == bool or key.dtype == np.bool_:
+                # Boolean mask
+                if len(key) != self.n_channels:
+                    raise ValueError(
+                        f"Boolean mask length {len(key)} does not match "
+                        f"number of channels {self.n_channels}"
+                    )
+                indices = np.where(key)[0]
+                return self.get_channel(indices)
+            elif np.issubdtype(key.dtype, np.integer):
+                # Integer array
+                return self.get_channel(key)
+            else:
+                raise TypeError(
+                    f"NumPy array must be of integer or boolean type, got {key.dtype}"
                 )
-            new_data = self._data[key]
-            new_channel_metadata = self._channel_metadata[key[0]]
-            if isinstance(new_channel_metadata, ChannelMetadata):
-                new_channel_metadata = [new_channel_metadata]
-            return self._create_new_instance(
-                data=new_data,
-                operation_history=self.operation_history,
-                channel_metadata=new_channel_metadata,
-            )
-        elif isinstance(key, slice):
+
+        # Phase 1: List support (int or str)
+        if isinstance(key, list):
+            if len(key) == 0:
+                raise ValueError("Cannot index with an empty list")
+
+            # Check if all elements are strings
+            if all(isinstance(k, str) for k in key):
+                # Multiple labels - type narrowing for mypy
+                str_list = cast(list[str], key)
+                indices_from_labels = [self.label2index(label) for label in str_list]
+                return self.get_channel(indices_from_labels)
+
+            # Check if all elements are integers
+            elif all(isinstance(k, (int, np.integer)) for k in key):
+                # Multiple indices - convert to list[int] for type safety
+                int_list = [int(k) for k in key]
+                return self.get_channel(int_list)
+
+            else:
+                raise TypeError(
+                    f"List must contain all str or all int, got mixed types: "
+                    f"{[type(k).__name__ for k in key]}"
+                )
+
+        # Tuple: multidimensional indexing
+        if isinstance(key, tuple):
+            return self._handle_multidim_indexing(key)
+
+        # Slice
+        if isinstance(key, slice):
             new_data = self._data[key]
             new_channel_metadata = self._channel_metadata[key]
             if isinstance(new_channel_metadata, ChannelMetadata):
@@ -203,15 +335,73 @@ class BaseFrame(ABC, Generic[T]):
                 operation_history=self.operation_history,
                 channel_metadata=new_channel_metadata,
             )
-        elif isinstance(key, numbers.Integral):
-            # Access by index number
-            if key < 0 or key >= len(self):
-                raise IndexError(f"Channel index {key} out of range.")
-            return self.get_channel(key)
+
+        raise TypeError(
+            f"Invalid key type: {type(key).__name__}. "
+            f"Expected int, str, slice, list, tuple, or ndarray."
+        )
+
+    def _handle_multidim_indexing(
+        self: S,
+        key: tuple[
+            Union[
+                int,
+                str,
+                slice,
+                list[int],
+                list[str],
+                npt.NDArray[np.int_],
+                npt.NDArray[np.bool_],
+            ],
+            ...,
+        ],
+    ) -> S:
+        """
+        Handle multidimensional indexing (channel + time axis).
+
+        Parameters
+        ----------
+        key : tuple
+            Tuple of indices where the first element selects channels
+            and subsequent elements select along other dimensions (e.g., time).
+
+        Returns
+        -------
+        S
+            New instance with selected channels and time range.
+
+        Raises
+        ------
+        ValueError
+            If the key length exceeds the data dimensions.
+        """
+        if len(key) > self._data.ndim:
+            raise ValueError(f"Invalid key length: {len(key)} for shape {self.shape}")
+
+        # First element: channel selection
+        channel_key = key[0]
+        time_keys = key[1:] if len(key) > 1 else ()
+
+        # Select channels first (recursively call __getitem__)
+        if isinstance(channel_key, (list, np.ndarray)):
+            selected = self[channel_key]
+        elif isinstance(channel_key, (int, str, slice)):
+            selected = self[channel_key]
         else:
             raise TypeError(
-                f"Invalid key type: {type(key)}. Expected str, int, or tuple."
+                f"Invalid channel key type in tuple: {type(channel_key).__name__}"
             )
+
+        # Apply time indexing if present
+        if time_keys:
+            new_data = selected._data[(slice(None),) + time_keys]
+            return selected._create_new_instance(
+                data=new_data,
+                operation_history=selected.operation_history,
+                channel_metadata=selected._channel_metadata,
+            )
+
+        return selected
 
     def label2index(self, label: str) -> int:
         """

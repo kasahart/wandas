@@ -68,11 +68,42 @@ class TestSpectrogramFrame:
         )
         assert spec_3d.shape == (2, 513, 10)
 
-        # 不正な次元の配列
-        with pytest.raises(ValueError):
+        # 不正な次元の配列（1次元）
+        with pytest.raises(
+            ValueError, match="データは2次元または3次元である必要があります"
+        ):
             data_1d: DaArray = _da_random_random(10) + 1j * _da_random_random(10)
             SpectrogramFrame(
                 data=data_1d,
+                sampling_rate=44100.0,
+                n_fft=1024,
+                hop_length=512,
+            )
+
+        # 不正な次元の配列（4次元）
+        with pytest.raises(
+            ValueError, match="データは2次元または3次元である必要があります"
+        ):
+            data_4d: DaArray = _da_random_random(
+                (2, 513, 10, 2)
+            ) + 1j * _da_random_random((2, 513, 10, 2))
+            SpectrogramFrame(
+                data=data_4d,
+                sampling_rate=44100.0,
+                n_fft=1024,
+                hop_length=512,
+            )
+
+        # 不正な周波数ビン数
+        with pytest.raises(
+            ValueError,
+            match="データの形状が無効です。周波数ビン数は 513 である必要があります",
+        ):
+            data_invalid_bins: DaArray = _da_random_random(
+                (2, 400, 10)
+            ) + 1j * _da_random_random((2, 400, 10))
+            SpectrogramFrame(
+                data=data_invalid_bins,
                 sampling_rate=44100.0,
                 n_fft=1024,
                 hop_length=512,
@@ -142,6 +173,92 @@ class TestSpectrogramFrame:
         assert_array_almost_equal((spec_mult.data), (spec.data * 2.0))
         assert_array_almost_equal((spec_div.data), (spec.data / 2.0))
 
+    def test_binary_operations_sampling_rate_mismatch(
+        self, sample_spectrogram: SpectrogramFrame
+    ) -> None:
+        """
+        サンプリングレートが異なるSpectrogramFrame同士の演算で
+        例外が発生することをテスト
+        """
+        spec1: SpectrogramFrame = sample_spectrogram
+
+        # 異なるサンプリングレートのSpectrogramFrameを作成
+        complex_data: DaArray = _da_random_random((2, 65, 5)) + 1j * _da_random_random(
+            (2, 65, 5)
+        )
+        spec2: SpectrogramFrame = SpectrogramFrame(
+            data=complex_data,
+            sampling_rate=48000.0,  # 異なるサンプリングレート
+            n_fft=128,
+            hop_length=64,
+            window="hann",
+        )
+
+        # サンプリングレートが異なる場合、ValueErrorが発生することを確認
+        with pytest.raises(
+            ValueError, match="サンプリングレートが一致していません。演算できません。"
+        ):
+            _ = spec1 + spec2
+
+        with pytest.raises(
+            ValueError, match="サンプリングレートが一致していません。演算できません。"
+        ):
+            _ = spec1 - spec2
+
+        with pytest.raises(
+            ValueError, match="サンプリングレートが一致していません。演算できません。"
+        ):
+            _ = spec1 * spec2
+
+        with pytest.raises(
+            ValueError, match="サンプリングレートが一致していません。演算できません。"
+        ):
+            _ = spec1 / spec2
+
+    def test_binary_operations_with_various_types(
+        self, sample_spectrogram: SpectrogramFrame
+    ) -> None:
+        """様々な型との二項演算をテスト"""
+        import numpy as np
+
+        spec: SpectrogramFrame = sample_spectrogram
+
+        # complex型との演算
+        complex_val = 1.0 + 2.0j
+        spec_complex: SpectrogramFrame = spec + complex_val
+        assert "complex(1.0, 2.0)" in spec_complex.label
+        assert_array_almost_equal(spec_complex.data, spec.data + complex_val)
+
+        # numpy配列との演算
+        np_array = np.ones((2, 65, 5), dtype=complex)
+        spec_np: SpectrogramFrame = spec * np_array
+        assert "ndarray(2, 65, 5)" in spec_np.label
+        assert_array_almost_equal(spec_np.data, spec.data * np_array)
+
+        # dask配列との演算
+        da_array: DaArray = da.ones((2, 65, 5), dtype=complex)
+        spec_da: SpectrogramFrame = spec - da_array
+        assert "dask.array(2, 65, 5)" in spec_da.label
+        assert_array_almost_equal(spec_da.data, spec.data - da_array)
+
+        # その他の型（カスタムオブジェクト）との演算でelse節をカバー
+        # 演算をサポートするカスタムクラスを作成
+        class CustomNumber:
+            def __init__(self, value: complex) -> None:
+                self.value = value
+
+            def __radd__(self, other: Any) -> Any:
+                # dask配列との加算をサポート
+                if isinstance(other, DaArray):
+                    return other + self.value
+                return other + self.value
+
+        custom_obj = CustomNumber(1.0 + 0j)
+        spec_custom: SpectrogramFrame = spec + custom_obj
+        # カスタムオブジェクトの型名がラベルに含まれることを確認
+        assert "CustomNumber" in spec_custom.label
+        assert_array_almost_equal(spec_custom.data, spec.data + custom_obj.value)
+
     def test_get_frame_at(self, sample_spectrogram: SpectrogramFrame) -> None:
         """特定時間フレームの取得テスト"""
         spec: SpectrogramFrame = sample_spectrogram
@@ -150,12 +267,26 @@ class TestSpectrogramFrame:
         frame: SpectralFrame = spec.get_frame_at(4)
         assert frame.shape == (2, 65)  # チャネル数 x 周波数ビン数
 
-        # 範囲外インデックス
-        with pytest.raises(IndexError):
+        # 範囲外インデックス（負の値）
+        with pytest.raises(
+            IndexError,
+            match=r"時間インデックス -1 が範囲外です。有効範囲: 0-\d+",
+        ):
             spec.get_frame_at(-1)
 
-        with pytest.raises(IndexError):
+        # 範囲外インデックス（大きすぎる値）
+        with pytest.raises(
+            IndexError,
+            match=r"時間インデックス 20 が範囲外です。有効範囲: 0-\d+",
+        ):
             spec.get_frame_at(20)  # n_frames=5 なので範囲外
+
+        # 境界値テスト（n_frames と同じ値）
+        with pytest.raises(
+            IndexError,
+            match=r"時間インデックス 5 が範囲外です。有効範囲: 0-\d+",
+        ):
+            spec.get_frame_at(5)  # n_frames=5 なので範囲外
 
     def test_to_channel_frame(self, sample_spectrogram: SpectrogramFrame) -> None:
         """時間領域への変換テスト"""
@@ -165,6 +296,24 @@ class TestSpectrogramFrame:
         # 基本プロパティの確認
         assert channel_frame.sampling_rate == spec.sampling_rate
         assert channel_frame._n_channels == spec._n_channels
+
+    def test_istft(self, sample_spectrogram: SpectrogramFrame) -> None:
+        """istftメソッドがto_channel_frameのエイリアスとして機能することをテスト"""
+        spec: SpectrogramFrame = sample_spectrogram
+
+        # istftメソッドを呼び出し
+        channel_frame_istft: Any = spec.istft()
+
+        # to_channel_frameメソッドを呼び出し
+        channel_frame_to: Any = spec.to_channel_frame()
+
+        # 両者が同じプロパティを持つことを確認
+        assert channel_frame_istft.sampling_rate == channel_frame_to.sampling_rate
+        assert channel_frame_istft._n_channels == channel_frame_to._n_channels
+        assert channel_frame_istft.shape == channel_frame_to.shape
+
+        # データが同じであることを確認
+        assert_array_almost_equal(channel_frame_istft.data, channel_frame_to.data)
 
     def test_plot(self, sample_spectrogram: SpectrogramFrame, monkeypatch: Any) -> None:
         """プロット機能のモックテスト"""
@@ -433,3 +582,94 @@ class TestSpectrogramFrame:
 
         # 形状が同じであることを確認
         assert dba_values.shape == db_values.shape
+
+    def test_abs(self, sample_spectrogram: SpectrogramFrame) -> None:
+        """abs()メソッドの動作テスト"""
+        import numpy as np
+
+        spec: SpectrogramFrame = sample_spectrogram
+
+        # abs()メソッドを呼び出し
+        abs_spec: SpectrogramFrame = spec.abs()
+
+        # 戻り値がSpectrogramFrameのインスタンスであることを確認
+        assert isinstance(abs_spec, SpectrogramFrame)
+
+        # 形状が同じであることを確認
+        assert abs_spec.shape == spec.shape
+
+        # サンプリングレートやその他のパラメータが保持されていることを確認
+        assert abs_spec.sampling_rate == spec.sampling_rate
+        assert abs_spec.n_fft == spec.n_fft
+        assert abs_spec.hop_length == spec.hop_length
+        assert abs_spec.win_length == spec.win_length
+        assert abs_spec.window == spec.window
+
+        # ラベルが正しく更新されていることを確認
+        assert abs_spec.label == f"abs({spec.label})"
+
+        # データが絶対値になっていることを確認
+        original_magnitude = np.abs(spec.data)
+        abs_magnitude = np.abs(abs_spec.data)
+        assert_array_almost_equal(abs_magnitude, original_magnitude)
+
+        # 操作履歴に "abs" が追加されていることを確認
+        assert len(abs_spec.operation_history) == len(spec.operation_history) + 1
+        assert abs_spec.operation_history[-1]["operation"] == "abs"
+        assert abs_spec.operation_history[-1]["params"] == {}
+
+        # メタデータに "abs" が追加されていることを確認
+        assert "abs" in abs_spec.metadata
+        assert abs_spec.metadata["abs"] == {}
+
+        # チャネルメタデータが保持されていることを確認
+        assert abs_spec._channel_metadata == spec._channel_metadata
+
+        # previousが正しく設定されていることを確認
+        assert abs_spec.previous == spec
+
+    def test_abs_preserves_magnitude_property(
+        self, sample_spectrogram: SpectrogramFrame
+    ) -> None:
+        """abs()メソッドの結果がmagnitudeプロパティと一致することを確認"""
+        spec: SpectrogramFrame = sample_spectrogram
+
+        # abs()メソッドを呼び出し
+        abs_spec: SpectrogramFrame = spec.abs()
+
+        # 元のmagnitudeと、abs()後のmagnitudeが同じであることを確認
+        original_magnitude = spec.magnitude
+        abs_magnitude = abs_spec.magnitude
+
+        assert_array_almost_equal(abs_magnitude, original_magnitude)
+
+    def test_abs_lazy_evaluation(self, sample_spectrogram: SpectrogramFrame) -> None:
+        """abs()メソッドが遅延評価を維持していることを確認"""
+        spec: SpectrogramFrame = sample_spectrogram
+
+        # abs()メソッドを呼び出し
+        abs_spec: SpectrogramFrame = spec.abs()
+
+        # データがdask配列であることを確認（遅延評価が維持されている）
+        assert isinstance(abs_spec._data, DaArray)
+
+        # compute()を呼ばない限り、実際の計算は行われない
+        # （データのtype確認）
+        assert hasattr(abs_spec._data, "compute")
+
+    def test_abs_chain_operations(self, sample_spectrogram: SpectrogramFrame) -> None:
+        """abs()メソッドが他の操作とチェーン可能であることを確認"""
+        spec: SpectrogramFrame = sample_spectrogram
+
+        # abs()メソッドとスカラー演算をチェーン
+        result: SpectrogramFrame = spec.abs() * 2.0
+
+        # 結果がSpectrogramFrameであることを確認
+        assert isinstance(result, SpectrogramFrame)
+
+        # 操作履歴が正しく記録されていることを確認
+        # spec -> abs -> multiply
+        assert len(result.operation_history) >= len(spec.operation_history) + 2
+        # abs操作が含まれていることを確認
+        abs_op_found = any(op["operation"] == "abs" for op in result.operation_history)
+        assert abs_op_found

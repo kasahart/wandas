@@ -104,6 +104,33 @@ class ChannelFrame(
         """Returns the duration in seconds."""
         return self.n_samples / self.sampling_rate
 
+    @property
+    def rms(self) -> NDArrayReal:
+        """Calculate RMS (Root Mean Square) value for each channel.
+
+        Returns:
+            Array of RMS values, one per channel.
+
+        Examples:
+            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> rms_values = cf.rms
+            >>> print(f"RMS values: {rms_values}")
+            >>> # Select channels with RMS > threshold
+            >>> active_channels = cf[cf.rms > 0.5]
+        """
+        # Compute RMS for each channel: sqrt(mean(x^2))
+        data = self.data  # This will trigger computation if lazy
+
+        # Ensure data is 2D (n_channels, n_samples)
+        if data.ndim == 1:
+            data = data.reshape(1, -1)
+
+        # Convert to a concrete NumPy ndarray to satisfy numpy.mean typing
+        # and to ensure dask arrays are materialized for this operation.
+        arr: NDArrayReal = np.asarray(data)
+        rms_values: NDArrayReal = np.sqrt(np.mean(arr**2, axis=1))  # type: ignore [arg-type]
+        return rms_values
+
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
         from ..processing import create_operation
@@ -335,44 +362,125 @@ class ChannelFrame(
         return rms_ch.plot(ax=ax, ylabel=ylabel, title=title, overlay=overlay, **kwargs)
 
     def describe(
-        self, normalize: bool = True, is_close: bool = True, **kwargs: Any
+        self,
+        normalize: bool = True,
+        is_close: bool = True,
+        *,
+        fmin: float = 0,
+        fmax: Optional[float] = None,
+        cmap: str = "jet",
+        vmin: Optional[float] = None,
+        vmax: Optional[float] = None,
+        xlim: Optional[tuple[float, float]] = None,
+        ylim: Optional[tuple[float, float]] = None,
+        Aw: bool = False,  # noqa: N803
+        waveform: Optional[dict[str, Any]] = None,
+        spectral: Optional[dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> None:
         """Display visual and audio representation of the frame.
 
+        This method creates a comprehensive visualization with three plots:
+        1. Time-domain waveform (top)
+        2. Spectrogram (bottom-left)
+        3. Frequency spectrum via Welch method (bottom-right)
+
         Args:
             normalize: Whether to normalize the audio data for playback.
+                Default: True
             is_close: Whether to close the figure after displaying.
-            **kwargs: Additional parameters for visualization.
+                Default: True
+            fmin: Minimum frequency to display in the spectrogram (Hz).
+                Default: 0
+            fmax: Maximum frequency to display in the spectrogram (Hz).
+                Default: Nyquist frequency (sampling_rate / 2)
+            cmap: Colormap for the spectrogram.
+                Default: 'jet'
+            vmin: Minimum value for spectrogram color scale (dB).
+                Auto-calculated if None.
+            vmax: Maximum value for spectrogram color scale (dB).
+                Auto-calculated if None.
+            xlim: Time axis limits (seconds) for all time-based plots.
+                Format: (start_time, end_time)
+            ylim: Frequency axis limits (Hz) for frequency-based plots.
+                Format: (min_freq, max_freq)
+            Aw: Apply A-weighting to the frequency analysis.
+                Default: False
+            waveform: Additional configuration dict for waveform subplot.
+                Can include 'xlabel', 'ylabel', 'xlim', 'ylim'.
+            spectral: Additional configuration dict for spectral subplot.
+                Can include 'xlabel', 'ylabel', 'xlim', 'ylim'.
+            **kwargs: Deprecated parameters for backward compatibility:
+                - axis_config: Old configuration format
+                - cbar_config: Old colorbar configuration
+
+        Examples:
+            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> # Basic usage
+            >>> cf.describe()
+            >>>
+            >>> # Custom frequency range
+            >>> cf.describe(fmin=100, fmax=5000)
+            >>>
+            >>> # Custom color scale
+            >>> cf.describe(vmin=-80, vmax=-20, cmap="viridis")
+            >>>
+            >>> # A-weighted analysis
+            >>> cf.describe(Aw=True)
+            >>>
+            >>> # Custom time range
+            >>> cf.describe(xlim=(0, 5))  # Show first 5 seconds
+            >>>
+            >>> # Custom waveform subplot settings
+            >>> cf.describe(waveform={"ylabel": "Custom Label"})
         """
-        if "axis_config" in kwargs:
+        # Prepare kwargs with explicit parameters
+        plot_kwargs: dict[str, Any] = {
+            "fmin": fmin,
+            "fmax": fmax,
+            "cmap": cmap,
+            "vmin": vmin,
+            "vmax": vmax,
+            "xlim": xlim,
+            "ylim": ylim,
+            "Aw": Aw,
+            "waveform": waveform or {},
+            "spectral": spectral or {},
+        }
+        # Merge with additional kwargs
+        plot_kwargs.update(kwargs)
+
+        if "axis_config" in plot_kwargs:
             logger.warning(
-                "axis_config is retained for backward compatibility but will be deprecated in the future."  # noqa: E501
+                "axis_config is retained for backward compatibility but will "
+                "be deprecated in the future."
             )
-            axis_config = kwargs["axis_config"]
+            axis_config = plot_kwargs["axis_config"]
             if "time_plot" in axis_config:
-                kwargs["waveform"] = axis_config["time_plot"]
+                plot_kwargs["waveform"] = axis_config["time_plot"]
             if "freq_plot" in axis_config:
                 if "xlim" in axis_config["freq_plot"]:
                     vlim = axis_config["freq_plot"]["xlim"]
-                    kwargs["vmin"] = vlim[0]
-                    kwargs["vmax"] = vlim[1]
+                    plot_kwargs["vmin"] = vlim[0]
+                    plot_kwargs["vmax"] = vlim[1]
                 if "ylim" in axis_config["freq_plot"]:
-                    ylim = axis_config["freq_plot"]["ylim"]
-                    kwargs["ylim"] = ylim
+                    ylim_config = axis_config["freq_plot"]["ylim"]
+                    plot_kwargs["ylim"] = ylim_config
 
-        if "cbar_config" in kwargs:
+        if "cbar_config" in plot_kwargs:
             logger.warning(
-                "cbar_config is retained for backward compatibility but will be deprecated in the future."  # noqa: E501
+                "cbar_config is retained for backward compatibility but will "
+                "be deprecated in the future."
             )
-            cbar_config = kwargs["cbar_config"]
+            cbar_config = plot_kwargs["cbar_config"]
             if "vmin" in cbar_config:
-                kwargs["vmin"] = cbar_config["vmin"]
+                plot_kwargs["vmin"] = cbar_config["vmin"]
             if "vmax" in cbar_config:
-                kwargs["vmax"] = cbar_config["vmax"]
+                plot_kwargs["vmax"] = cbar_config["vmax"]
 
         for ch in self:
             ax: Axes
-            _ax = ch.plot("describe", title=f"{ch.label} {ch.labels[0]}", **kwargs)
+            _ax = ch.plot("describe", title=f"{ch.label} {ch.labels[0]}", **plot_kwargs)
             if isinstance(_ax, Iterator):
                 ax = next(iter(_ax))
             elif isinstance(_ax, Axes):
@@ -796,6 +904,7 @@ class ChannelFrame(
                 arr = data._data
             labels = [ch.label for ch in self._channel_metadata]
             new_labels = []
+            new_metadata_list = []
             for chmeta in data._channel_metadata:
                 new_label = chmeta.label
                 if new_label in labels or new_label in new_labels:
@@ -804,12 +913,13 @@ class ChannelFrame(
                     else:
                         raise ValueError(f"label重複: {new_label}")
                 new_labels.append(new_label)
+                # Copy the entire channel_metadata and update only the label
+                new_ch_meta = chmeta.model_copy(deep=True)
+                new_ch_meta.label = new_label
+                new_metadata_list.append(new_ch_meta)
             new_data = concatenate([self._data, arr], axis=0)
-            from ..core.metadata import ChannelMetadata
 
-            new_chmeta = self._channel_metadata + [
-                ChannelMetadata(label=lbl) for lbl in new_labels
-            ]
+            new_chmeta = self._channel_metadata + new_metadata_list
             if inplace:
                 self._data = new_data
                 self._channel_metadata = new_chmeta
