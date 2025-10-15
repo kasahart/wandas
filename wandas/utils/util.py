@@ -171,12 +171,13 @@ def cut_sig(
     """
     length = len(data)
     point_list_ = [p for p in point_list if p >= 0 and p + cut_len <= length]
-    trial = np.zeros((len(point_list_), cut_len))
+    trial: NDArrayReal = np.zeros((len(point_list_), cut_len))
 
     for i, v in enumerate(point_list_):
         trial[i] = data[v : v + cut_len]
         if dc_cut:
             trial[i] = trial[i] - trial[i].mean()
 
-    trial = trial * tukey(cut_len, taper_rate)
+    win: NDArrayReal = tukey(cut_len, taper_rate).astype(trial.dtype)[np.newaxis, :]
+    trial = trial * win
     return trial
