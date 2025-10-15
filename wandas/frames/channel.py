@@ -913,7 +913,7 @@ class ChannelFrame(
                     else:
                         raise ValueError(f"label重複: {new_label}")
                 new_labels.append(new_label)
-                # channel_metadata全体をコピーして、ラベルだけ更新
+                # Copy the entire channel_metadata and update only the label
                 new_ch_meta = chmeta.model_copy(deep=True)
                 new_ch_meta.label = new_label
                 new_metadata_list.append(new_ch_meta)
