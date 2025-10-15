@@ -549,6 +549,10 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         -------
         ChannelFrame
             A new ChannelFrame containing the reconstructed time-domain signal.
+
+        See Also
+        --------
+        istft : Alias for this method with more intuitive naming.
         """
         from wandas.frames.channel import ChannelFrame
         from wandas.processing import ISTFT, create_operation
@@ -581,6 +585,31 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
             operation_history=self.operation_history,
             channel_metadata=self._channel_metadata,
         )
+
+    def istft(self) -> "ChannelFrame":
+        """
+        Convert the spectrogram back to time domain using inverse STFT.
+
+        This is an alias for `to_channel_frame()` with a more intuitive name.
+        It performs an inverse Short-Time Fourier Transform (ISTFT) to
+        reconstruct the time-domain signal from the spectrogram.
+
+        Returns
+        -------
+        ChannelFrame
+            A new ChannelFrame containing the reconstructed time-domain signal.
+
+        See Also
+        --------
+        to_channel_frame : The underlying implementation.
+
+        Examples
+        --------
+        >>> signal = ChannelFrame.from_wav("audio.wav")
+        >>> spectrogram = signal.stft(n_fft=2048, hop_length=512)
+        >>> reconstructed = spectrogram.istft()
+        """
+        return self.to_channel_frame()
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
         """
