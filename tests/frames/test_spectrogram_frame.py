@@ -433,3 +433,94 @@ class TestSpectrogramFrame:
 
         # 形状が同じであることを確認
         assert dba_values.shape == db_values.shape
+
+    def test_abs(self, sample_spectrogram: SpectrogramFrame) -> None:
+        """abs()メソッドの動作テスト"""
+        import numpy as np
+
+        spec: SpectrogramFrame = sample_spectrogram
+
+        # abs()メソッドを呼び出し
+        abs_spec: SpectrogramFrame = spec.abs()
+
+        # 戻り値がSpectrogramFrameのインスタンスであることを確認
+        assert isinstance(abs_spec, SpectrogramFrame)
+
+        # 形状が同じであることを確認
+        assert abs_spec.shape == spec.shape
+
+        # サンプリングレートやその他のパラメータが保持されていることを確認
+        assert abs_spec.sampling_rate == spec.sampling_rate
+        assert abs_spec.n_fft == spec.n_fft
+        assert abs_spec.hop_length == spec.hop_length
+        assert abs_spec.win_length == spec.win_length
+        assert abs_spec.window == spec.window
+
+        # ラベルが正しく更新されていることを確認
+        assert abs_spec.label == f"abs({spec.label})"
+
+        # データが絶対値になっていることを確認
+        original_magnitude = np.abs(spec.data)
+        abs_magnitude = np.abs(abs_spec.data)
+        assert_array_almost_equal(abs_magnitude, original_magnitude)
+
+        # 操作履歴に "abs" が追加されていることを確認
+        assert len(abs_spec.operation_history) == len(spec.operation_history) + 1
+        assert abs_spec.operation_history[-1]["operation"] == "abs"
+        assert abs_spec.operation_history[-1]["params"] == {}
+
+        # メタデータに "abs" が追加されていることを確認
+        assert "abs" in abs_spec.metadata
+        assert abs_spec.metadata["abs"] == {}
+
+        # チャネルメタデータが保持されていることを確認
+        assert abs_spec._channel_metadata == spec._channel_metadata
+
+        # previousが正しく設定されていることを確認
+        assert abs_spec.previous == spec
+
+    def test_abs_preserves_magnitude_property(
+        self, sample_spectrogram: SpectrogramFrame
+    ) -> None:
+        """abs()メソッドの結果がmagnitudeプロパティと一致することを確認"""
+        spec: SpectrogramFrame = sample_spectrogram
+
+        # abs()メソッドを呼び出し
+        abs_spec: SpectrogramFrame = spec.abs()
+
+        # 元のmagnitudeと、abs()後のmagnitudeが同じであることを確認
+        original_magnitude = spec.magnitude
+        abs_magnitude = abs_spec.magnitude
+
+        assert_array_almost_equal(abs_magnitude, original_magnitude)
+
+    def test_abs_lazy_evaluation(self, sample_spectrogram: SpectrogramFrame) -> None:
+        """abs()メソッドが遅延評価を維持していることを確認"""
+        spec: SpectrogramFrame = sample_spectrogram
+
+        # abs()メソッドを呼び出し
+        abs_spec: SpectrogramFrame = spec.abs()
+
+        # データがdask配列であることを確認（遅延評価が維持されている）
+        assert isinstance(abs_spec._data, DaArray)
+
+        # compute()を呼ばない限り、実際の計算は行われない
+        # （データのtype確認）
+        assert hasattr(abs_spec._data, "compute")
+
+    def test_abs_chain_operations(self, sample_spectrogram: SpectrogramFrame) -> None:
+        """abs()メソッドが他の操作とチェーン可能であることを確認"""
+        spec: SpectrogramFrame = sample_spectrogram
+
+        # abs()メソッドとスカラー演算をチェーン
+        result: SpectrogramFrame = spec.abs() * 2.0
+
+        # 結果がSpectrogramFrameであることを確認
+        assert isinstance(result, SpectrogramFrame)
+
+        # 操作履歴が正しく記録されていることを確認
+        # spec -> abs -> multiply
+        assert len(result.operation_history) >= len(spec.operation_history) + 2
+        # abs操作が含まれていることを確認
+        abs_op_found = any(op["operation"] == "abs" for op in result.operation_history)
+        assert abs_op_found

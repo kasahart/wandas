@@ -499,6 +499,57 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         """
         return self.plot(plot_type=plot_type, ax=ax, Aw=True, **kwargs)
 
+    def abs(self) -> "SpectrogramFrame":
+        """
+        Compute the absolute value (magnitude) of the complex spectrogram.
+
+        This method calculates the magnitude of each complex value in the
+        spectrogram, converting the complex-valued data to real-valued magnitude data.
+        The result is stored in a new SpectrogramFrame with complex dtype to maintain
+        compatibility with other spectrogram operations.
+
+        Returns
+        -------
+        SpectrogramFrame
+            A new SpectrogramFrame containing the magnitude values as complex numbers
+            (with zero imaginary parts).
+
+        Examples
+        --------
+        >>> signal = ChannelFrame.from_wav("audio.wav")
+        >>> spectrogram = signal.stft(n_fft=2048, hop_length=512)
+        >>> magnitude_spectrogram = spectrogram.abs()
+        >>> # The magnitude can be accessed via the magnitude property or data
+        >>> print(magnitude_spectrogram.magnitude.shape)
+        """
+        logger.debug("Computing absolute value (magnitude) of spectrogram")
+
+        # Compute the absolute value using dask for lazy evaluation
+        magnitude_data = da.absolute(self._data)
+
+        # Update operation history
+        operation_metadata = {"operation": "abs", "params": {}}
+        new_history = self.operation_history.copy()
+        new_history.append(operation_metadata)
+        new_metadata = {**self.metadata}
+        new_metadata["abs"] = {}
+
+        logger.debug("Created new SpectrogramFrame with abs operation added to graph")
+
+        return SpectrogramFrame(
+            data=magnitude_data,
+            sampling_rate=self.sampling_rate,
+            n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            win_length=self.win_length,
+            window=self.window,
+            label=f"abs({self.label})",
+            metadata=new_metadata,
+            operation_history=new_history,
+            channel_metadata=self._channel_metadata,
+            previous=self,
+        )
+
     def get_frame_at(self, time_idx: int) -> "SpectralFrame":
         """
         Extract spectral data at a specific time frame.
