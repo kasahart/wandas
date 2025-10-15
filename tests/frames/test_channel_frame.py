@@ -1640,3 +1640,91 @@ class TestDescribeIntegration:
         # Verify they are indeed the top channels
         top_rms = top_channels.rms
         assert np.all(top_rms >= 2.0)  # Channels with RMS 3.0 and 2.0
+
+
+class TestBaseFrameExceptionHandling:
+    """BaseFrameの例外処理をテスト（ChannelFrameを通じて間接的にテスト）"""
+
+    def setup_method(self) -> None:
+        """テストフィクスチャのセットアップ"""
+        self.sample_rate = 16000
+        self.data = np.random.random((2, 16000))
+        self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
+        self.channel_frame = ChannelFrame(
+            data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
+        )
+
+    def test_getitem_empty_list_error(self) -> None:
+        """空のリストでインデックスするとValueErrorが発生することをテスト"""
+        with pytest.raises(ValueError, match="Cannot index with an empty list"):
+            _ = self.channel_frame[[]]
+
+    def test_getitem_mixed_type_list_error(self) -> None:
+        """混合型のリストでインデックスするとTypeErrorが発生することをテスト"""
+        with pytest.raises(TypeError, match="List must contain all str or all int"):
+            _ = self.channel_frame[[0, "ch1"]]  # type: ignore
+
+    def test_getitem_invalid_numpy_dtype_error(self) -> None:
+        """無効なdtypeのNumPy配列でIndexErrorが発生することをテスト"""
+        # float型のNumPy配列
+        float_array = np.array([0.5, 1.5])
+        with pytest.raises(
+            TypeError, match="NumPy array must be of integer or boolean type"
+        ):
+            _ = self.channel_frame[float_array]
+
+    def test_handle_multidim_indexing_invalid_key_length(self) -> None:
+        """多次元インデックスで無効なキー長のテスト"""
+        # データは2次元なので、3次元以上のインデックスは無効
+        with pytest.raises(ValueError, match="Invalid key length"):
+            _ = self.channel_frame[0, 0, 0]
+
+    def test_handle_multidim_indexing_invalid_channel_key_type(self) -> None:
+        """多次元インデックスで無効なチャネルキー型のテスト"""
+        # 浮動小数点数は無効なチャネルキー
+        with pytest.raises(TypeError, match="Invalid channel key type in tuple"):
+            _ = self.channel_frame[1.5, :]  # type: ignore
+
+    def test_label2index_key_error(self) -> None:
+        """存在しないラベルでKeyErrorが発生することをテスト"""
+        with pytest.raises(KeyError, match="Channel label .* not found"):
+            _ = self.channel_frame.label2index("nonexistent_label")
+
+    def test_label2index_with_valid_label(self) -> None:
+        """有効なラベルでインデックスを取得できることをテスト"""
+        index = self.channel_frame.label2index("ch0")
+        assert index == 0
+
+        index = self.channel_frame.label2index("ch1")
+        assert index == 1
+
+    def test_create_new_instance_invalid_label_type(self) -> None:
+        """_create_new_instanceで無効なlabel型のテスト"""
+        with pytest.raises(TypeError, match="Label must be a string"):
+            self.channel_frame._create_new_instance(
+                data=self.dask_data,
+                label=123,  # type: ignore
+            )
+
+    def test_create_new_instance_invalid_metadata_type(self) -> None:
+        """_create_new_instanceで無効なmetadata型のテスト"""
+        with pytest.raises(TypeError, match="Metadata must be a dictionary"):
+            self.channel_frame._create_new_instance(
+                data=self.dask_data,
+                metadata="invalid",  # type: ignore
+            )
+
+    def test_create_new_instance_invalid_channel_metadata_type(self) -> None:
+        """_create_new_instanceで無効なchannel_metadata型のテスト"""
+        with pytest.raises(TypeError, match="Channel metadata must be a list"):
+            self.channel_frame._create_new_instance(
+                data=self.dask_data,
+                channel_metadata="invalid",  # type: ignore
+            )
+
+    def test_compute_non_ndarray_result(self) -> None:
+        """computeで非ndarray結果のテスト"""
+        # Mock the compute method to return something other than ndarray
+        with mock.patch.object(DaArray, "compute", return_value="not_an_array"):
+            with pytest.raises(ValueError, match="Computed result is not a np.ndarray"):
+                _ = self.channel_frame.compute()
