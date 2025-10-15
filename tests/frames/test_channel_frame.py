@@ -491,11 +491,273 @@ class TestChannelFrame:
         with pytest.raises(ValueError, match="Invalid key length"):
             self.channel_frame[0, 0, 0]  # type: ignore
         # Test for invalid channel index
-        with pytest.raises(IndexError, match="Channel index"):
+        with pytest.raises(IndexError):
             _ = self.channel_frame[5]
         # Test for invalid slice
         with pytest.raises(TypeError, match="Invalid key type:"):
             _ = self.channel_frame[1.5]  # type: ignore
+
+    def test_negative_indexing(self) -> None:
+        """Test negative indexing support."""
+        # Test negative integer index
+        result = self.channel_frame[-1]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 1
+        assert result.channels[0].label == "ch1"
+        np.testing.assert_array_equal(result.data, self.data[1])
+
+        result = self.channel_frame[-2]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 1
+        assert result.channels[0].label == "ch0"
+        np.testing.assert_array_equal(result.data, self.data[0])
+
+        # Test negative slice
+        result = self.channel_frame[-2:]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 2
+        np.testing.assert_array_equal(result.data, self.data[-2:])
+
+        result = self.channel_frame[-1:]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 1
+        # For single channel result from slice, data should be (1, 16000)
+        # For integer index, data is squeezed to (16000,)
+        assert result.data.shape == (16000,)
+        np.testing.assert_array_equal(result.data, self.data[-1])
+
+        # Test negative slice with end
+        result = self.channel_frame[-2:-1]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 1
+        assert result.channels[0].label == "ch0"
+        # Single channel from slice is squeezed
+        np.testing.assert_array_equal(result.data, self.data[0])
+
+        # Test out of range negative index
+        with pytest.raises(IndexError):
+            _ = self.channel_frame[-3]
+
+    def test_step_slicing(self) -> None:
+        """Test slicing with step parameter."""
+        # Create a frame with more channels for better testing
+        data = np.random.random((4, 16000))
+        dask_data = _da_from_array(data, chunks=(1, 4000))
+        frame = ChannelFrame(
+            data=dask_data, sampling_rate=self.sample_rate, label="test_audio"
+        )
+
+        # Test every second channel
+        result = frame[::2]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 2
+        assert result.channels[0].label == "ch0"
+        assert result.channels[1].label == "ch2"
+        np.testing.assert_array_equal(result.data, data[::2])
+
+        # Test reverse order
+        result = frame[::-1]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 4
+        assert result.channels[0].label == "ch3"
+        assert result.channels[1].label == "ch2"
+        assert result.channels[2].label == "ch1"
+        assert result.channels[3].label == "ch0"
+        np.testing.assert_array_equal(result.data, data[::-1])
+
+        # Test every third channel
+        result = frame[::3]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 2
+        np.testing.assert_array_equal(result.data, data[::3])
+
+        # Test with start and step
+        result = frame[1::2]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 2
+        assert result.channels[0].label == "ch1"
+        assert result.channels[1].label == "ch3"
+        np.testing.assert_array_equal(result.data, data[1::2])
+
+    def test_boolean_indexing(self) -> None:
+        """Test boolean array indexing."""
+        # Test boolean mask
+        mask = np.array([True, False])
+        result = self.channel_frame[mask]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 1
+        assert result.channels[0].label == "ch0"
+        # Single channel result is squeezed
+        np.testing.assert_array_equal(result.data, self.data[0])
+
+        mask = np.array([False, True])
+        result = self.channel_frame[mask]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 1
+        assert result.channels[0].label == "ch1"
+        # Single channel result is squeezed
+        np.testing.assert_array_equal(result.data, self.data[1])
+
+        mask = np.array([True, True])
+        result = self.channel_frame[mask]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 2
+        np.testing.assert_array_equal(result.data, self.data)
+
+        # Test error for wrong length boolean array
+        mask = np.array([True, False, True])
+        with pytest.raises(ValueError, match="Boolean mask length"):
+            _ = self.channel_frame[mask]
+
+    def test_integer_array_indexing(self) -> None:
+        """Test integer array indexing."""
+        # Test with numpy array
+        indices = np.array([0, 1])
+        result = self.channel_frame[indices]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 2
+        np.testing.assert_array_equal(result.data, self.data)
+
+        indices = np.array([1, 0])
+        result = self.channel_frame[indices]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 2
+        assert result.channels[0].label == "ch1"
+        assert result.channels[1].label == "ch0"
+        np.testing.assert_array_equal(result.data, self.data[[1, 0]])
+
+        # Test with list
+        result = self.channel_frame[[0]]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 1
+        assert result.channels[0].label == "ch0"
+        # Single channel result is squeezed
+        np.testing.assert_array_equal(result.data, self.data[0])
+
+        result = self.channel_frame[[1, 0]]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 2
+        assert result.channels[0].label == "ch1"
+        assert result.channels[1].label == "ch0"
+
+        # Test negative indices in array
+        indices = np.array([-1, -2])
+        result = self.channel_frame[indices]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 2
+        assert result.channels[0].label == "ch1"
+        assert result.channels[1].label == "ch0"
+
+        # Test out of range
+        indices = np.array([0, 5])
+        with pytest.raises(IndexError, match="Index is out of bounds"):
+            _ = self.channel_frame[indices]
+
+        # Test empty list
+        with pytest.raises(ValueError, match="Cannot index with an empty list"):
+            _ = self.channel_frame[[]]
+
+        # Test invalid list content (mixed types)
+        with pytest.raises(TypeError, match="List must contain all str or all int"):
+            _ = self.channel_frame[[0, "ch1"]]  # type: ignore
+
+    def test_label_list_indexing(self) -> None:
+        """Test list of labels indexing."""
+        # Test single label in list
+        result = self.channel_frame[["ch0"]]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 1
+        assert result.channels[0].label == "ch0"
+        np.testing.assert_array_equal(result.data, self.data[0])
+
+        # Test multiple labels
+        result = self.channel_frame[["ch0", "ch1"]]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 2
+        assert result.channels[0].label == "ch0"
+        assert result.channels[1].label == "ch1"
+        np.testing.assert_array_equal(result.data, self.data)
+
+        # Test reversed order
+        result = self.channel_frame[["ch1", "ch0"]]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 2
+        assert result.channels[0].label == "ch1"
+        assert result.channels[1].label == "ch0"
+        np.testing.assert_array_equal(result.data, self.data[[1, 0]])
+
+        # Test duplicate labels
+        result = self.channel_frame[["ch0", "ch0"]]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 2
+        assert result.channels[0].label == "ch0"
+        assert result.channels[1].label == "ch0"
+
+        # Test error for non-existent label
+        with pytest.raises(KeyError, match="Channel label .* not found"):
+            _ = self.channel_frame[["ch0", "ch999"]]
+
+    def test_multidimensional_indexing(self) -> None:
+        """Test multidimensional indexing (channel + time)."""
+        # Single channel + time slice
+        result = self.channel_frame[0, 100:200]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 1
+        assert result.n_samples == 100
+        assert result.channels[0].label == "ch0"
+        np.testing.assert_array_equal(result.data, self.data[0, 100:200])
+
+        # Label + time slice
+        result = self.channel_frame["ch1", 500:1000]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 1
+        assert result.n_samples == 500
+        assert result.channels[0].label == "ch1"
+        np.testing.assert_array_equal(result.data, self.data[1, 500:1000])
+
+        # Multiple channels + time slice
+        result = self.channel_frame[[0, 1], 100:200]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 2
+        assert result.n_samples == 100
+        np.testing.assert_array_equal(result.data, self.data[:, 100:200])
+
+        # List of labels + time slice
+        result = self.channel_frame[["ch0", "ch1"], 0:1000]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 2
+        assert result.n_samples == 1000
+        np.testing.assert_array_equal(result.data, self.data[:, 0:1000])
+
+        # Slice + time slice
+        result = self.channel_frame[0:2, 500:1500]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 2
+        assert result.n_samples == 1000
+        np.testing.assert_array_equal(result.data, self.data[:, 500:1500])
+
+        # All channels + time slice with step
+        result = self.channel_frame[:, ::2]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 2
+        assert result.n_samples == 8000
+        np.testing.assert_array_equal(result.data, self.data[:, ::2])
+
+        # NumPy array + time slice
+        indices = np.array([0, 1])
+        result = self.channel_frame[indices, 100:200]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 2
+        assert result.n_samples == 100
+        np.testing.assert_array_equal(result.data, self.data[:, 100:200])
+
+        # Boolean mask + time slice
+        mask = np.array([True, False])
+        result = self.channel_frame[mask, 0:1000]
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 1
+        assert result.n_samples == 1000
+        np.testing.assert_array_equal(result.data, self.data[0, 0:1000])
 
     def test_binary_op_with_channel_frame(self) -> None:
         """Test binary operations with another ChannelFrame."""
