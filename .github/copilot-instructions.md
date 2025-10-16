@@ -215,6 +215,10 @@ def fft(self, n_fft: Optional[int] = None, window: str = "hann") -> "SpectralFra
 - **カバレッジ100%を目標**にしてください（最低90%以上）
 - **テストの独立性**: 各テストは他のテストに依存せず、単独で実行可能にしてください
 - **テストの可読性**: テスト名は「何をテストしているか」が明確にわかるようにしてください
+- **数値検証の原則**: 数値のチェックを行う場合は、理論値と照合して検証してください
+  - 単なる非ゼロチェックや範囲チェックではなく、期待される理論値（数式から導出される値）と比較してください
+  - 浮動小数点数の比較には適切な許容誤差を設定してください（`np.allclose()`, `pytest.approx()` など）
+  - 理論値の根拠をコメントやdocstringに記載してください
 
 ```python
 import pytest
@@ -287,11 +291,32 @@ def test_low_pass_filter_attenuates_high_frequencies(
     filtered_spectrum = filtered.fft()
 
     # 880 Hz成分が減衰していることを確認
+    # 理論値: カットオフ周波数600Hzのローパスフィルタは880Hz成分を大きく減衰させるはず
     freq_880_idx = np.argmin(np.abs(original_spectrum.freqs - 880))
     assert (
         np.abs(filtered_spectrum.data[freq_880_idx]) <
         np.abs(original_spectrum.data[freq_880_idx]) * 0.5
     )
+
+def test_fft_preserves_energy(sample_signal: ChannelFrame) -> None:
+    """Test that FFT preserves signal energy (Parseval's theorem)."""
+    # Parseval's theorem: sum(|x[n]|^2) = (1/N) * sum(|X[k]|^2)
+    # 時間領域のエネルギー
+    time_energy = np.sum(np.abs(sample_signal.data) ** 2)
+
+    # 周波数領域のエネルギー
+    spectrum = sample_signal.fft()
+    freq_energy = np.sum(np.abs(spectrum.data) ** 2) / len(sample_signal.data)
+
+    # 理論値: 両者は等しいはず（Parsevalの定理）
+    np.testing.assert_allclose(time_energy, freq_energy, rtol=1e-10)
+
+def test_normalize_produces_unit_maximum(sample_signal: ChannelFrame) -> None:
+    """Test that normalization produces signal with maximum amplitude of 1.0."""
+    normalized = sample_signal.normalize()
+
+    # 理論値: 正規化後の最大振幅は1.0になるはず
+    assert np.abs(np.max(np.abs(normalized.data)) - 1.0) < 1e-10
 ```
 
 ### 7. ロギング
