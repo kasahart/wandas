@@ -103,6 +103,7 @@ This section provides links to tutorial notebooks that demonstrate more detailed
 - [05_lazy_and_dask.ipynb: Lazy evaluation and large-scale data processing with Dask](/tutorial/05_lazy_and_dask.ipynb)
 - [06_metadata_history.ipynb: Utilizing metadata and processing history](/tutorial/06_metadata_history.ipynb)
 - [07_batch_processing.ipynb: Batch processing for multiple files](/tutorial/07_batch_processing.ipynb)
+- [FrameDataset Usage Guide: Efficient processing of multiple audio files in a folder](../../examples/03_frame_dataset_usage.ipynb)
 - [08_extending_api.ipynb: Adding custom functions and extending the API](/tutorial/08_extending_api.ipynb)
 - [08_interoperability.ipynb: Integration with other libraries](/tutorial/08_interoperability.ipynb)
 - [09_case_studies.ipynb: Practical use case studies](/tutorial/09_case_studies.ipynb)
