@@ -310,17 +310,46 @@ class ChannelFrame(
         return self.apply_operation("add_with_snr", other=other._data, snr=snr)
 
     def plot(
-        self, plot_type: str = "waveform", ax: Optional["Axes"] = None, **kwargs: Any
+        self,
+        plot_type: str = "waveform",
+        ax: Optional["Axes"] = None,
+        title: Optional[str] = None,
+        overlay: bool = False,
+        xlabel: Optional[str] = None,
+        ylabel: Optional[str] = None,
+        alpha: float = 1.0,
+        xlim: Optional[tuple[float, float]] = None,
+        ylim: Optional[tuple[float, float]] = None,
+        **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
         """Plot the frame data.
 
         Args:
             plot_type: Type of plot. Default is "waveform".
             ax: Optional matplotlib axes for plotting.
-            **kwargs: Additional arguments passed to the plot function.
+            title: Title for the plot. If None, uses the frame label.
+            overlay: Whether to overlay all channels on a single plot (True)
+                or create separate subplots for each channel (False).
+            xlabel: Label for the x-axis. If None, uses default based on plot type.
+            ylabel: Label for the y-axis. If None, uses default based on plot type.
+            alpha: Transparency level for the plot lines (0.0 to 1.0).
+            xlim: Limits for the x-axis as (min, max) tuple.
+            ylim: Limits for the y-axis as (min, max) tuple.
+            **kwargs: Additional matplotlib Line2D parameters
+                (e.g., color, linewidth, linestyle).
+                These are passed to the underlying matplotlib plot functions.
 
         Returns:
             Single Axes object or iterator of Axes objects.
+
+        Examples:
+            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> # Basic plot
+            >>> cf.plot()
+            >>> # Overlay all channels
+            >>> cf.plot(overlay=True, alpha=0.7)
+            >>> # Custom styling
+            >>> cf.plot(title="My Signal", ylabel="Voltage [V]", color="red")
         """
         logger.debug(f"Plotting audio with plot_type={plot_type} (will compute now)")
 
@@ -329,8 +358,25 @@ class ChannelFrame(
 
         plot_strategy = create_operation(plot_type)
 
+        # Build kwargs for plot strategy
+        plot_kwargs = {
+            "title": title,
+            "overlay": overlay,
+            **kwargs,
+        }
+        if xlabel is not None:
+            plot_kwargs["xlabel"] = xlabel
+        if ylabel is not None:
+            plot_kwargs["ylabel"] = ylabel
+        if alpha != 1.0:
+            plot_kwargs["alpha"] = alpha
+        if xlim is not None:
+            plot_kwargs["xlim"] = xlim
+        if ylim is not None:
+            plot_kwargs["ylim"] = ylim
+
         # Execute plot
-        _ax = plot_strategy.plot(self, ax=ax, **kwargs)
+        _ax = plot_strategy.plot(self, ax=ax, **plot_kwargs)
 
         logger.debug("Plot rendering complete")
 
@@ -351,10 +397,21 @@ class ChannelFrame(
             title: Title for the plot.
             overlay: Whether to overlay the plot on the existing axis.
             Aw: Apply A-weighting.
-            **kwargs: Additional arguments passed to the plot function.
+            **kwargs: Additional arguments passed to the plot() method.
+                Accepts the same arguments as plot() including xlabel, ylabel,
+                alpha, xlim, ylim, and matplotlib Line2D parameters.
 
         Returns:
             Single Axes object or iterator of Axes objects.
+
+        Examples:
+            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> # Basic RMS plot
+            >>> cf.rms_plot()
+            >>> # With A-weighting
+            >>> cf.rms_plot(Aw=True)
+            >>> # Custom styling
+            >>> cf.rms_plot(ylabel="RMS [V]", alpha=0.8, color="blue")
         """
         kwargs = kwargs or {}
         ylabel = kwargs.pop("ylabel", "RMS")
@@ -410,9 +467,9 @@ class ChannelFrame(
                 Can include 'xlabel', 'ylabel', 'xlim', 'ylim'.
             spectral: Additional configuration dict for spectral subplot.
                 Can include 'xlabel', 'ylabel', 'xlim', 'ylim'.
-            **kwargs: Deprecated parameters for backward compatibility:
-                - axis_config: Old configuration format
-                - cbar_config: Old colorbar configuration
+            **kwargs: Deprecated parameters for backward compatibility only.
+                - axis_config: Old configuration format (use waveform/spectral instead)
+                - cbar_config: Old colorbar configuration (use vmin/vmax instead)
 
         Examples:
             >>> cf = ChannelFrame.read_wav("audio.wav")
@@ -600,7 +657,10 @@ class ChannelFrame(
         end: Optional[float] = None,
         chunk_size: Optional[int] = None,
         ch_labels: Optional[list[str]] = None,
-        **kwargs: Any,
+        # CSV-specific parameters
+        time_column: Union[int, str] = 0,
+        delimiter: str = ",",
+        header: Optional[int] = 0,
     ) -> "ChannelFrame":
         """Create a ChannelFrame from an audio file.
 
@@ -610,9 +670,13 @@ class ChannelFrame(
             start: Start time in seconds.
             end: End time in seconds.
             chunk_size: Chunk size for processing.
-            Specifies the splitting size for lazy processing.
+                Specifies the splitting size for lazy processing.
             ch_labels: Labels for each channel.
-            **kwargs: Additional arguments passed to the file reader.
+            time_column: For CSV files, index or name of the time column.
+                Default is 0 (first column).
+            delimiter: For CSV files, delimiter character. Default is ",".
+            header: For CSV files, row number to use as header.
+                Default is 0 (first row). Set to None if no header.
 
         Returns:
             A new ChannelFrame containing the loaded audio data.
@@ -621,6 +685,16 @@ class ChannelFrame(
             ValueError: If channel specification is invalid.
             TypeError: If channel parameter type is invalid.
             FileNotFoundError: If the file doesn't exist.
+
+        Examples:
+            >>> # Load WAV file
+            >>> cf = ChannelFrame.from_file("audio.wav")
+            >>> # Load specific channels
+            >>> cf = ChannelFrame.from_file("audio.wav", channel=[0, 2])
+            >>> # Load CSV file
+            >>> cf = ChannelFrame.from_file(
+            ...     "data.csv", time_column=0, delimiter=",", header=0
+            ... )
         """
         from .channel import ChannelFrame
 
@@ -631,8 +705,16 @@ class ChannelFrame(
         # Get file reader
         reader = get_file_reader(path)
 
+        # Build kwargs for reader
+        reader_kwargs: dict[str, Any] = {}
+        if path.suffix.lower() == ".csv":
+            reader_kwargs["time_column"] = time_column
+            reader_kwargs["delimiter"] = delimiter
+            if header is not None:
+                reader_kwargs["header"] = header
+
         # Get file info
-        info = reader.get_file_info(path, **kwargs)
+        info = reader.get_file_info(path, **reader_kwargs)
         sr = info["samplerate"]
         n_channels = info["channels"]
         n_frames = info["frames"]
@@ -681,7 +763,9 @@ class ChannelFrame(
         def _load_audio() -> NDArrayReal:
             logger.debug(">>> EXECUTING DELAYED LOAD <<<")
             # Use the reader to get audio data with parameters
-            out = reader.get_data(path, channels_to_load, start_idx, frames_to_read)
+            out = reader.get_data(
+                path, channels_to_load, start_idx, frames_to_read, **reader_kwargs
+            )
             if not isinstance(out, np.ndarray):
                 raise ValueError("Unexpected data type after reading file")
             return out
@@ -764,6 +848,14 @@ class ChannelFrame(
 
         Returns:
             A new ChannelFrame containing the data (lazy loading).
+
+        Examples:
+            >>> # Read CSV with default settings
+            >>> cf = ChannelFrame.read_csv("data.csv")
+            >>> # Read CSV with custom delimiter
+            >>> cf = ChannelFrame.read_csv("data.csv", delimiter=";")
+            >>> # Read CSV without header
+            >>> cf = ChannelFrame.read_csv("data.csv", header=None)
         """
         from .channel import ChannelFrame
 
@@ -863,8 +955,41 @@ class ChannelFrame(
         align: str = "strict",
         suffix_on_dup: Optional[str] = None,
         inplace: bool = False,
-        **kwargs: Any,
     ) -> "ChannelFrame":
+        """Add a new channel to the frame.
+
+        Args:
+            data: Data to add as a new channel. Can be:
+                - numpy array (1D or 2D)
+                - dask array (1D or 2D)
+                - ChannelFrame (channels will be added)
+            label: Label for the new channel. If None, generates a default label.
+                Ignored when data is a ChannelFrame (uses its channel labels).
+            align: How to handle length mismatches:
+                - "strict": Raise error if lengths don't match
+                - "pad": Pad shorter data with zeros
+                - "truncate": Truncate longer data to match
+            suffix_on_dup: Suffix to add to duplicate labels. If None, raises error.
+            inplace: If True, modifies the frame in place.
+                Otherwise returns a new frame.
+
+        Returns:
+            Modified ChannelFrame (self if inplace=True, new frame otherwise).
+
+        Raises:
+            ValueError: If data length doesn't match and align="strict",
+                or if label is duplicate and suffix_on_dup is None.
+            TypeError: If data type is not supported.
+
+        Examples:
+            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> # Add a numpy array as a new channel
+            >>> new_data = np.sin(2 * np.pi * 440 * cf.time)
+            >>> cf_new = cf.add_channel(new_data, label="sine_440Hz")
+            >>> # Add another ChannelFrame's channels
+            >>> cf2 = ChannelFrame.read_wav("audio2.wav")
+            >>> cf_combined = cf.add_channel(cf2)
+        """
         # ndarray/dask/同型Frame対応
         if isinstance(data, ChannelFrame):
             if self.sampling_rate != data.sampling_rate:

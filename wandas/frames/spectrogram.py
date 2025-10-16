@@ -435,7 +435,19 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
             )
 
     def plot(
-        self, plot_type: str = "spectrogram", ax: Optional["Axes"] = None, **kwargs: Any
+        self,
+        plot_type: str = "spectrogram",
+        ax: Optional["Axes"] = None,
+        title: Optional[str] = None,
+        cmap: str = "jet",
+        vmin: Optional[float] = None,
+        vmax: Optional[float] = None,
+        fmin: float = 0,
+        fmax: Optional[float] = None,
+        xlim: Optional[tuple[float, float]] = None,
+        ylim: Optional[tuple[float, float]] = None,
+        Aw: bool = False,  # noqa: N803
+        **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
         """
         Plot the spectrogram using various visualization strategies.
@@ -446,19 +458,42 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
             Type of plot to create.
         ax : matplotlib.axes.Axes, optional
             Axes to plot on. If None, creates new axes.
+        title : str, optional
+            Title for the plot. If None, uses the frame label.
+        cmap : str, default="jet"
+            Colormap name for the spectrogram visualization.
+        vmin : float, optional
+            Minimum value for colormap scaling (dB). Auto-calculated if None.
+        vmax : float, optional
+            Maximum value for colormap scaling (dB). Auto-calculated if None.
+        fmin : float, default=0
+            Minimum frequency to display (Hz).
+        fmax : float, optional
+            Maximum frequency to display (Hz). If None, uses Nyquist frequency.
+        xlim : tuple[float, float], optional
+            Time axis limits as (start_time, end_time) in seconds.
+        ylim : tuple[float, float], optional
+            Frequency axis limits as (min_freq, max_freq) in Hz.
+        Aw : bool, default=False
+            Whether to apply A-weighting to the spectrogram.
         **kwargs : dict
-            Additional keyword arguments passed to the plot strategy.
-            Common options include:
-            - vmin, vmax: Colormap scaling
-            - cmap: Colormap name
-            - dB: Whether to plot in decibels
-            - Aw: Whether to apply A-weighting
+            Additional keyword arguments passed to librosa.display.specshow().
 
         Returns
         -------
         Union[Axes, Iterator[Axes]]
             The matplotlib axes containing the plot, or an iterator of axes
             for multi-plot outputs.
+
+        Examples
+        --------
+        >>> stft = cf.stft()
+        >>> # Basic spectrogram
+        >>> stft.plot()
+        >>> # Custom color scale and frequency range
+        >>> stft.plot(vmin=-80, vmax=-20, fmin=100, fmax=5000)
+        >>> # A-weighted spectrogram
+        >>> stft.plot(Aw=True, cmap="viridis")
         """
         from wandas.visualization.plotting import create_operation
 
@@ -467,15 +502,34 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         # プロット戦略を取得
         plot_strategy: PlotStrategy[SpectrogramFrame] = create_operation(plot_type)
 
+        # Build kwargs for plot strategy
+        plot_kwargs = {
+            "title": title,
+            "cmap": cmap,
+            "vmin": vmin,
+            "vmax": vmax,
+            "fmin": fmin,
+            "fmax": fmax,
+            "Aw": Aw,
+            **kwargs,
+        }
+        if xlim is not None:
+            plot_kwargs["xlim"] = xlim
+        if ylim is not None:
+            plot_kwargs["ylim"] = ylim
+
         # プロット実行
-        _ax = plot_strategy.plot(self, ax=ax, **kwargs)
+        _ax = plot_strategy.plot(self, ax=ax, **plot_kwargs)
 
         logger.debug("Plot rendering complete")
 
         return _ax
 
     def plot_Aw(  # noqa: N802
-        self, plot_type: str = "spectrogram", ax: Optional["Axes"] = None, **kwargs: Any
+        self,
+        plot_type: str = "spectrogram",
+        ax: Optional["Axes"] = None,
+        **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
         """
         Plot the A-weighted spectrogram.
@@ -491,11 +545,18 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
             Axes to plot on. If None, creates new axes.
         **kwargs : dict
             Additional keyword arguments passed to plot().
+            Accepts all parameters from plot() except Aw (which is set to True).
 
         Returns
         -------
         Union[Axes, Iterator[Axes]]
             The matplotlib axes containing the plot.
+
+        Examples
+        --------
+        >>> stft = cf.stft()
+        >>> # A-weighted spectrogram with custom settings
+        >>> stft.plot_Aw(vmin=-60, vmax=-10, cmap="magma")
         """
         return self.plot(plot_type=plot_type, ax=ax, Aw=True, **kwargs)
 

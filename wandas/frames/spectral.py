@@ -396,6 +396,14 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         self,
         plot_type: str = "frequency",
         ax: Optional["Axes"] = None,
+        title: Optional[str] = None,
+        overlay: bool = False,
+        xlabel: Optional[str] = None,
+        ylabel: Optional[str] = None,
+        alpha: float = 1.0,
+        xlim: Optional[tuple[float, float]] = None,
+        ylim: Optional[tuple[float, float]] = None,
+        Aw: bool = False,  # noqa: N803
         **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
         """
@@ -410,21 +418,42 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             - Other types as defined by available plot strategies
         ax : matplotlib.axes.Axes, optional
             Axes to plot on. If None, creates new axes.
+        title : str, optional
+            Title for the plot. If None, uses the frame label.
+        overlay : bool, default=False
+            Whether to overlay all channels on a single plot (True)
+            or create separate subplots for each channel (False).
+        xlabel : str, optional
+            Label for the x-axis. If None, uses default "Frequency [Hz]".
+        ylabel : str, optional
+            Label for the y-axis. If None, uses default based on data type.
+        alpha : float, default=1.0
+            Transparency level for the plot lines (0.0 to 1.0).
+        xlim : tuple[float, float], optional
+            Limits for the x-axis as (min, max) tuple.
+        ylim : tuple[float, float], optional
+            Limits for the y-axis as (min, max) tuple.
+        Aw : bool, default=False
+            Whether to apply A-weighting to the data.
         **kwargs : dict
-            Additional keyword arguments passed to the plot strategy.
-            Common options include:
-            - title: Plot title
-            - xlabel, ylabel: Axis labels
-            - vmin, vmax: Value limits for plots
-            - cmap: Colormap name
-            - dB: Whether to plot in decibels
-            - Aw: Whether to apply A-weighting
+            Additional matplotlib Line2D parameters
+            (e.g., color, linewidth, linestyle).
 
         Returns
         -------
         Union[Axes, Iterator[Axes]]
             The matplotlib axes containing the plot, or an iterator of axes
             for multi-plot outputs.
+
+        Examples
+        --------
+        >>> spectrum = cf.fft()
+        >>> # Basic frequency plot
+        >>> spectrum.plot()
+        >>> # Overlay with A-weighting
+        >>> spectrum.plot(overlay=True, Aw=True)
+        >>> # Custom styling
+        >>> spectrum.plot(title="Frequency Spectrum", color="red", linewidth=2)
         """
         from wandas.visualization.plotting import create_operation
 
@@ -433,8 +462,26 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         # Get plot strategy
         plot_strategy: PlotStrategy[SpectralFrame] = create_operation(plot_type)
 
+        # Build kwargs for plot strategy
+        plot_kwargs = {
+            "title": title,
+            "overlay": overlay,
+            "Aw": Aw,
+            **kwargs,
+        }
+        if xlabel is not None:
+            plot_kwargs["xlabel"] = xlabel
+        if ylabel is not None:
+            plot_kwargs["ylabel"] = ylabel
+        if alpha != 1.0:
+            plot_kwargs["alpha"] = alpha
+        if xlim is not None:
+            plot_kwargs["xlim"] = xlim
+        if ylim is not None:
+            plot_kwargs["ylim"] = ylim
+
         # Execute plot
-        _ax = plot_strategy.plot(self, ax=ax, **kwargs)
+        _ax = plot_strategy.plot(self, ax=ax, **plot_kwargs)
 
         logger.debug("Plot rendering complete")
 

@@ -287,7 +287,18 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         return self
 
     def plot(
-        self, plot_type: str = "noct", ax: Optional["Axes"] = None, **kwargs: Any
+        self,
+        plot_type: str = "noct",
+        ax: Optional["Axes"] = None,
+        title: Optional[str] = None,
+        overlay: bool = False,
+        xlabel: Optional[str] = None,
+        ylabel: Optional[str] = None,
+        alpha: float = 1.0,
+        xlim: Optional[tuple[float, float]] = None,
+        ylim: Optional[tuple[float, float]] = None,
+        Aw: bool = False,  # noqa: N803
+        **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
         """
         Plot the N-octave band data using various visualization strategies.
@@ -298,25 +309,46 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         Parameters
         ----------
         plot_type : str, default="noct"
-            Type of plot to create. The default "noct" type creates a bar plot
+            Type of plot to create. The default "noct" type creates a step plot
             suitable for displaying N-octave band data.
         ax : matplotlib.axes.Axes, optional
             Axes to plot on. If None, creates new axes.
+        title : str, optional
+            Title for the plot. If None, uses a default title with band specification.
+        overlay : bool, default=False
+            Whether to overlay all channels on a single plot (True)
+            or create separate subplots for each channel (False).
+        xlabel : str, optional
+            Label for the x-axis. If None, uses default "Center frequency [Hz]".
+        ylabel : str, optional
+            Label for the y-axis. If None, uses default based on data type.
+        alpha : float, default=1.0
+            Transparency level for the plot lines (0.0 to 1.0).
+        xlim : tuple[float, float], optional
+            Limits for the x-axis as (min, max) tuple.
+        ylim : tuple[float, float], optional
+            Limits for the y-axis as (min, max) tuple.
+        Aw : bool, default=False
+            Whether to apply A-weighting to the data.
         **kwargs : dict
-            Additional keyword arguments passed to the plot strategy.
-            Common options include:
-            - dB: Whether to plot in decibels
-            - Aw: Whether to apply A-weighting
-            - title: Plot title
-            - xlabel, ylabel: Axis labels
-            - xscale: Set to "log" for logarithmic frequency axis
-            - grid: Whether to show grid lines
+            Additional matplotlib Line2D parameters
+            (e.g., color, linewidth, linestyle).
 
         Returns
         -------
         Union[Axes, Iterator[Axes]]
             The matplotlib axes containing the plot, or an iterator of axes
             for multi-plot outputs.
+
+        Examples
+        --------
+        >>> noct = spectrum.noct(n=3)
+        >>> # Basic 1/3-octave plot
+        >>> noct.plot()
+        >>> # Overlay with A-weighting
+        >>> noct.plot(overlay=True, Aw=True)
+        >>> # Custom styling
+        >>> noct.plot(title="1/3-Octave Spectrum", color="blue", linewidth=2)
         """
         from wandas.visualization.plotting import create_operation
 
@@ -325,8 +357,26 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         # Get plot strategy
         plot_strategy: PlotStrategy[NOctFrame] = create_operation(plot_type)
 
+        # Build kwargs for plot strategy
+        plot_kwargs = {
+            "title": title,
+            "overlay": overlay,
+            "Aw": Aw,
+            **kwargs,
+        }
+        if xlabel is not None:
+            plot_kwargs["xlabel"] = xlabel
+        if ylabel is not None:
+            plot_kwargs["ylabel"] = ylabel
+        if alpha != 1.0:
+            plot_kwargs["alpha"] = alpha
+        if xlim is not None:
+            plot_kwargs["xlim"] = xlim
+        if ylim is not None:
+            plot_kwargs["ylim"] = ylim
+
         # Execute plot
-        _ax = plot_strategy.plot(self, ax=ax, **kwargs)
+        _ax = plot_strategy.plot(self, ax=ax, **plot_kwargs)
 
         logger.debug("Plot rendering complete")
 

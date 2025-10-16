@@ -217,7 +217,12 @@ class TestNOctFrame:
             # Test with default parameters
             result: Any = self.frame.plot()
             mock_create_op.assert_called_once_with("noct")
-            mock_plot_strategy.plot.assert_called_once_with(self.frame, ax=None)
+            # Check that plot was called with the frame and the new explicit parameters
+            call_kwargs = mock_plot_strategy.plot.call_args[1]
+            assert call_kwargs["ax"] is None
+            assert call_kwargs["title"] is None
+            assert call_kwargs["overlay"] is False
+            assert call_kwargs["Aw"] is False
             assert result is mock_ax
 
             # Reset mocks and test with custom parameters
@@ -229,9 +234,11 @@ class TestNOctFrame:
             result = self.frame.plot("custom_plot", ax=custom_ax, **kwargs)
 
             mock_create_op.assert_called_once_with("custom_plot")
-            mock_plot_strategy.plot.assert_called_once_with(
-                self.frame, ax=custom_ax, **kwargs
-            )
+            # Verify that custom parameters are passed through
+            call_kwargs = mock_plot_strategy.plot.call_args[1]
+            assert call_kwargs["ax"] is custom_ax
+            assert call_kwargs["param1"] == "value1"
+            assert call_kwargs["param2"] == "value2"
             assert result is mock_ax
 
     def test_get_additional_init_kwargs(self) -> None:
