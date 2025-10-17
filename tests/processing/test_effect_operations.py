@@ -352,7 +352,7 @@ class TestNormalize:
         normalize = Normalize(self.sample_rate, norm=np.inf, axis=-1)
         result = normalize.process(dask_zero).compute()
 
-        # ゼロ信号はゼロのまま（または fill 値）
+        # Zero signal remains zero (or fill value)
         assert np.allclose(result, 0.0)
 
     def test_normalize_with_threshold(self) -> None:
