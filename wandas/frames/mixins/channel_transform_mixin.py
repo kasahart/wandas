@@ -520,3 +520,71 @@ class ChannelTransformMixin:
             channel_metadata=channel_metadata,
             previous=base_self,
         )
+
+    def roughness(
+        self: T_Transform,
+        method: str = "time",
+        overlap: float = 0.0,
+    ) -> Any:
+        """Calculate roughness using Daniel & Weber method.
+
+        Roughness is a psychoacoustic metric that quantifies the perceived
+        roughness of a sound, related to rapid amplitude modulations
+        in the 15-300 Hz range.
+
+        Args:
+            method: Calculation method. Options are:
+                - 'time': Time-domain calculation (default)
+                - 'freq': Frequency-domain calculation
+            overlap: Overlap ratio for time-domain method (0.0 to 1.0).
+                Default is 0.0. Only applicable when method='time'.
+
+        Returns:
+            NDArrayReal: Roughness values in asper (scalar per channel).
+                Shape is (n_channels,) containing one roughness value per channel.
+
+        Raises:
+            ValueError: If method is not 'time' or 'freq', or if overlap
+                is not in the range [0, 1].
+
+        Examples:
+            >>> signal = wd.read_wav("audio.wav")
+            >>> roughness = signal.roughness(method='time')
+            >>> print(f"Roughness: {roughness[0]:.2f} asper")
+
+        Notes:
+            The roughness is calculated using the Daniel & Weber method
+            as implemented in the MoSQITo library. The unit of roughness
+            is asper, where 1 asper corresponds to the roughness of a
+            1 kHz tone at 60 dB SPL, 100% modulated at 70 Hz.
+
+        References:
+            Daniel, P., & Weber, R. (1997). Psychoacoustical roughness:
+            implementation of an optimized model. Acustica, 83, 113-123.
+        """
+        import numpy as np
+
+        from wandas.processing import RoughnessDW, create_operation
+
+        params = {"method": method, "overlap": overlap}
+        operation_name = "roughness_dw"
+        logger.debug(
+            f"Applying operation={operation_name} with params={params} (lazy)"
+        )
+
+        # Create operation instance
+        operation = create_operation(operation_name, self.sampling_rate, **params)
+        operation = cast("RoughnessDW", operation)
+
+        # Apply processing to data
+        roughness_data = operation.process(self._data)
+
+        logger.debug(
+            f"Roughness calculation completed with operation {operation_name}"
+        )
+
+        # Compute the result and extract scalar values
+        result = roughness_data.compute()
+
+        # Reshape to 1D array (one value per channel)
+        return np.squeeze(result)
