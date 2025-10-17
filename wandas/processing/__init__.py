@@ -33,6 +33,10 @@ from wandas.processing.spectral import (
     TransferFunction,
     Welch,
 )
+from wandas.processing.psychoacoustics import (
+    LoudnessZwst,
+    LoudnessZwtv,
+)
 from wandas.processing.stats import (
     ABS,
     ChannelDifference,
@@ -82,4 +86,7 @@ __all__ = [
     "Mean",
     "Power",
     "Sum",
+    # Psychoacoustics
+    "LoudnessZwst",
+    "LoudnessZwtv",
 ]
