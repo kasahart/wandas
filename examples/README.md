@@ -10,7 +10,7 @@ This directory contains example notebooks and scripts demonstrating various feat
 
 - **[00_file_read.ipynb](./00_file_read.ipynb)** - File reading and basic operations / ファイルの読み込みと基本操作
 - **[01_basic_usage.ipynb](./01_basic_usage.ipynb)** - Basic usage examples / 基本的な使用例
-- **[02_siganal_processing.ipynb](./02_siganal_processing.ipynb)** - Signal processing examples / 信号処理の例
+- **[02_signal_processing.ipynb](./02_signal_processing.ipynb)** - Signal processing examples / 信号処理の例
 
 ### Dataset Processing / データセット処理
 
