@@ -312,7 +312,7 @@ class TestNormalize:
         normalize = Normalize(self.sample_rate, norm=2, axis=-1)
         result = normalize.process(self.dask_signal).compute()
 
-        # 理論値: norm=2 の場合、L2ノルムが1になるはず
+        # Theoretical value: When norm=2, the L2 norm should be 1
         l2_norm = np.sqrt(np.sum(result**2, axis=-1))
         np.testing.assert_allclose(l2_norm, 1.0, rtol=1e-10)
 
