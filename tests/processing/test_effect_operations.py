@@ -377,8 +377,8 @@ class TestNormalize:
         normalize = Normalize(self.sample_rate, norm=np.inf, axis=-1, fill=True)
         result = normalize.process(dask_zero).compute()
 
-        # 理論値: fill=True の場合、ゼロベクトルは正規化されて1になる値で埋められる
-        # norm=np.inf (最大絶対値) の場合、すべての値が1になるはず
+        # Theoretical value: When fill=True, zero vectors are filled with values that normalize to 1.
+        # For norm=np.inf (maximum absolute value), all values should be 1.
         assert result.shape == zero_signal.shape
         # Should no longer be a zero vector
         assert not np.allclose(result, 0.0)
