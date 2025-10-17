@@ -25,6 +25,13 @@ Wandas は、信号処理のための包括的な機能を提供し、Matplotlib
   スペクトル分析（Welch法、CSD、コヒーレンス、伝達関数）、
   Nオクターブ分析など、基本的な信号処理操作を簡単に実行可能。
 
+- **Psychoacoustic Metrics**:
+  Calculate loudness (ISO 532-1:2017) using the MoSQITo library integration. Supports both time-varying and stationary loudness calculations with free-field and diffuse-field conditions.
+
+  **心理音響メトリクス**:
+  MoSQIToライブラリ統合によるラウドネス計算（ISO 532-1:2017）。
+  時間変化および定常状態のラウドネス計算、自由音場と拡散音場の両方に対応。
+
 - **Intuitive Data Structures**:
   Utilizes `ChannelFrame` for time-domain data, `SpectralFrame` for frequency-domain data, and `SpectrogramFrame` for time-frequency data, offering a pandas-like experience.
 
