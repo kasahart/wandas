@@ -382,7 +382,7 @@ class TestNormalize:
         assert result.shape == zero_signal.shape
         # ゼロベクトルでなくなっているはず
         assert not np.allclose(result, 0.0)
-        # 正規化されているので、最大絶対値は1のはず
+        # Since it is normalized, the maximum absolute value should be 1
         np.testing.assert_allclose(np.max(np.abs(result)), 1.0, rtol=1e-10)
 
     def test_operation_registry(self) -> None:
