@@ -422,3 +422,49 @@ class ChannelProcessingMixin:
             pad_mode=pad_mode,
         )
         return cast(T_Processing, result)
+
+    def loudness_zwtv(self: T_Processing, field_type: str = "free") -> T_Processing:
+        """
+        Calculate time-varying loudness using Zwicker method (ISO 532-1:2017).
+
+        This method computes the loudness of non-stationary signals according to
+        the Zwicker method, as specified in ISO 532-1:2017. The loudness is
+        calculated in sones, where a doubling of sones corresponds to a doubling
+        of perceived loudness.
+
+        Args:
+            field_type: Type of sound field. Options:
+                - 'free': Free field (sound from a specific direction)
+                - 'diffuse': Diffuse field (sound from all directions)
+                Default is 'free'.
+
+        Returns:
+            New ChannelFrame containing time-varying loudness values in sones.
+            Each channel is processed independently.
+
+        Raises:
+            ValueError: If field_type is not 'free' or 'diffuse'
+
+        Examples:
+            Calculate loudness for a signal:
+            >>> import wandas as wd
+            >>> signal = wd.read_wav("audio.wav")
+            >>> loudness = signal.loudness_zwtv(field_type="free")
+            >>> loudness.plot(title="Time-varying Loudness")
+
+            Compare free field and diffuse field:
+            >>> loudness_free = signal.loudness_zwtv(field_type="free")
+            >>> loudness_diffuse = signal.loudness_zwtv(field_type="diffuse")
+
+        Notes:
+            - The output contains time-varying loudness values in sones
+            - Typical loudness: 1 sone ≈ 40 phon (loudness level)
+            - The time resolution is approximately 2ms (determined by the algorithm)
+            - For multi-channel signals, loudness is calculated per channel
+
+        References:
+            ISO 532-1:2017, "Acoustics — Methods for calculating loudness —
+            Part 1: Zwicker method"
+        """
+        result = self.apply_operation("loudness_zwtv", field_type=field_type)
+        return cast(T_Processing, result)
