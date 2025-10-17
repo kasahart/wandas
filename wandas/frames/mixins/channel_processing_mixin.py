@@ -87,26 +87,52 @@ class ChannelProcessingMixin:
         return cast(T_Processing, result)
 
     def normalize(
-        self: T_Processing, target_level: float = -20, channel_wise: bool = True
+        self: T_Processing,
+        norm: Union[float, None] = float("inf"),
+        axis: Union[int, None] = -1,
+        threshold: Union[float, None] = None,
+        fill: Union[bool, None] = None,
     ) -> T_Processing:
-        """Normalize signal levels.
+        """Normalize signal levels using librosa.util.normalize.
 
-        This method adjusts the signal amplitude to reach the target RMS level.
+        This method normalizes the signal amplitude according to the specified norm.
 
         Args:
-            target_level: Target RMS level (dB). Default is -20.
-            channel_wise: If True, normalize each channel individually.
-                If False, apply the same scaling to all channels.
+            norm: Norm type. Default is np.inf (maximum absolute value normalization).
+                Supported values:
+                - np.inf: Maximum absolute value normalization
+                - -np.inf: Minimum absolute value normalization
+                - 0: Peak normalization
+                - float: Lp norm
+                - None: No normalization
+            axis: Axis along which to normalize. Default is -1 (time axis).
+                - -1: Normalize along time axis (each channel independently)
+                - None: Global normalization across all axes
+                - int: Normalize along specified axis
+            threshold: Threshold below which values are considered zero.
+                If None, no threshold is applied.
+            fill: Value to fill when the norm is zero.
+                If None, the zero vector remains zero.
 
         Returns:
             New ChannelFrame containing the normalized signal
+
+        Examples:
+            >>> import wandas as wd
+            >>> signal = wd.read_wav("audio.wav")
+            >>> # Normalize to maximum absolute value of 1.0 (per channel)
+            >>> normalized = signal.normalize()
+            >>> # Global normalization across all channels
+            >>> normalized_global = signal.normalize(axis=None)
+            >>> # L2 normalization
+            >>> normalized_l2 = signal.normalize(norm=2)
         """
         logger.debug(
-            f"Setting up normalize: target_level={target_level}, "
-            f"channel_wise={channel_wise} (lazy)"
+            f"Setting up normalize: norm={norm}, axis={axis}, "
+            f"threshold={threshold}, fill={fill} (lazy)"
         )
         result = self.apply_operation(
-            "normalize", target_level=target_level, channel_wise=channel_wise
+            "normalize", norm=norm, axis=axis, threshold=threshold, fill=fill
         )
         return cast(T_Processing, result)
 

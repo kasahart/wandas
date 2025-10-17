@@ -7,6 +7,7 @@ from wandas.processing.effects import (
     AddWithSNR,
     HpssHarmonic,
     HpssPercussive,
+    Normalize,
 )
 from wandas.utils.types import NDArrayReal
 
@@ -245,3 +246,151 @@ class TestAddWithSNR:
     def test_operation_registry(self) -> None:
         """Test that AddWithSNR is properly registered in the operation registry."""
         assert get_operation("add_with_snr") == AddWithSNR
+
+
+class TestNormalize:
+    def setup_method(self) -> None:
+        """Set up test fixtures for each test."""
+        self.sample_rate: int = 16000
+
+        # Create test signal with known values
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        # Signal with max value of 2.0
+        self.signal: NDArrayReal = np.array([2.0 * np.sin(2 * np.pi * 440 * t)])
+        self.dask_signal: DaArray = _da_from_array(self.signal, chunks=-1)
+
+        # Multi-channel signal
+        self.multi_channel_signal: NDArrayReal = np.array(
+            [
+                2.0 * np.sin(2 * np.pi * 440 * t),  # max = 2.0
+                3.0 * np.sin(2 * np.pi * 880 * t),  # max = 3.0
+            ]
+        )
+        self.dask_multi_channel: DaArray = _da_from_array(
+            self.multi_channel_signal, chunks=-1
+        )
+
+    def test_initialization(self) -> None:
+        """Test initialization with different parameters."""
+        # Default initialization (norm=np.inf)
+        normalize = Normalize(self.sample_rate)
+        assert normalize.sampling_rate == self.sample_rate
+        assert normalize.norm == np.inf
+        assert normalize.axis == -1
+
+        # Custom parameters
+        normalize_custom = Normalize(self.sample_rate, norm=2, axis=0)
+        assert normalize_custom.norm == 2
+        assert normalize_custom.axis == 0
+
+    def test_shape_preservation(self) -> None:
+        """Test that normalization preserves signal shape."""
+        normalize = Normalize(self.sample_rate)
+        result = normalize.process(self.dask_signal).compute()
+        assert result.shape == self.signal.shape
+
+    def test_normalize_inf_norm(self) -> None:
+        """Test normalization with inf norm (max absolute value = 1)."""
+        normalize = Normalize(self.sample_rate, norm=np.inf, axis=-1)
+        result = normalize.process(self.dask_signal).compute()
+
+        # 理論値: norm=np.inf の場合、最大絶対値が1になるはず
+        max_val = np.max(np.abs(result))
+        np.testing.assert_allclose(max_val, 1.0, rtol=1e-10)
+
+    def test_normalize_l1_norm(self) -> None:
+        """Test normalization with L1 norm."""
+        normalize = Normalize(self.sample_rate, norm=1, axis=-1)
+        result = normalize.process(self.dask_signal).compute()
+
+        # 理論値: norm=1 の場合、L1ノルムが1になるはず
+        l1_norm = np.sum(np.abs(result), axis=-1)
+        np.testing.assert_allclose(l1_norm, 1.0, rtol=1e-10)
+
+    def test_normalize_l2_norm(self) -> None:
+        """Test normalization with L2 norm."""
+        normalize = Normalize(self.sample_rate, norm=2, axis=-1)
+        result = normalize.process(self.dask_signal).compute()
+
+        # 理論値: norm=2 の場合、L2ノルムが1になるはず
+        l2_norm = np.sqrt(np.sum(result**2, axis=-1))
+        np.testing.assert_allclose(l2_norm, 1.0, rtol=1e-10)
+
+    def test_normalize_multi_channel_independent(self) -> None:
+        """Test that each channel is normalized independently when axis=-1."""
+        normalize = Normalize(self.sample_rate, norm=np.inf, axis=-1)
+        result = normalize.process(self.dask_multi_channel).compute()
+
+        # 理論値: 各チャンネルの最大絶対値が1になるはず
+        for ch in range(result.shape[0]):
+            max_val = np.max(np.abs(result[ch]))
+            np.testing.assert_allclose(max_val, 1.0, rtol=1e-10)
+
+    def test_normalize_multi_channel_global(self) -> None:
+        """Test global normalization when axis=None."""
+        normalize = Normalize(self.sample_rate, norm=np.inf, axis=None)
+        result = normalize.process(self.dask_multi_channel).compute()
+
+        # 理論値: 全体の最大絶対値が1になるはず
+        max_val = np.max(np.abs(result))
+        np.testing.assert_allclose(max_val, 1.0, rtol=1e-10)
+
+        # 各チャンネルの最大値は異なるはず
+        # （元の信号で最大値が3.0のチャンネルは、全体の最大値で正規化される）
+        # 元の比率が保たれているか確認
+        orig_ratio = np.max(np.abs(self.multi_channel_signal[0])) / np.max(
+            np.abs(self.multi_channel_signal[1])
+        )
+        result_ratio = np.max(np.abs(result[0])) / np.max(np.abs(result[1]))
+        np.testing.assert_allclose(orig_ratio, result_ratio, rtol=1e-10)
+
+    def test_normalize_zero_signal(self) -> None:
+        """Test normalization with zero signal."""
+        zero_signal: NDArrayReal = np.array([[0.0] * self.sample_rate])
+        dask_zero = _da_from_array(zero_signal, chunks=-1)
+
+        normalize = Normalize(self.sample_rate, norm=np.inf, axis=-1)
+        result = normalize.process(dask_zero).compute()
+
+        # ゼロ信号はゼロのまま（または fill 値）
+        assert np.allclose(result, 0.0)
+
+    def test_normalize_with_threshold(self) -> None:
+        """Test normalization with threshold parameter."""
+        # Very small signal
+        small_signal: NDArrayReal = np.array([[1e-12] * self.sample_rate])
+        dask_small = _da_from_array(small_signal, chunks=-1)
+
+        # With threshold=1e-10, this should be treated as zero
+        normalize = Normalize(self.sample_rate, norm=np.inf, axis=-1, threshold=1e-10)
+        result = normalize.process(dask_small).compute()
+
+        # Should remain small (not normalized to 1.0)
+        assert np.max(np.abs(result)) < 1.0
+
+    def test_normalize_with_fill(self) -> None:
+        """Test normalization with fill parameter for zero vectors."""
+        zero_signal: NDArrayReal = np.array([[0.0] * self.sample_rate])
+        dask_zero = _da_from_array(zero_signal, chunks=-1)
+
+        # fill=True: zero vectors are filled with uniform values that normalize to 1
+        normalize = Normalize(self.sample_rate, norm=np.inf, axis=-1, fill=True)
+        result = normalize.process(dask_zero).compute()
+
+        # 理論値: fill=True の場合、ゼロベクトルは正規化されて1になる値で埋められる
+        # norm=np.inf (最大絶対値) の場合、すべての値が1になるはず
+        assert result.shape == zero_signal.shape
+        # ゼロベクトルでなくなっているはず
+        assert not np.allclose(result, 0.0)
+        # 正規化されているので、最大絶対値は1のはず
+        np.testing.assert_allclose(np.max(np.abs(result)), 1.0, rtol=1e-10)
+
+    def test_operation_registry(self) -> None:
+        """Test that Normalize is properly registered in the operation registry."""
+        assert get_operation("normalize") == Normalize
+
+        normalize_op = create_operation("normalize", self.sample_rate, norm=2, axis=0)
+        assert isinstance(normalize_op, Normalize)
+        assert normalize_op.sampling_rate == self.sample_rate
+        assert normalize_op.norm == 2
+        assert normalize_op.axis == 0
