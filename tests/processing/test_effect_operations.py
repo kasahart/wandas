@@ -294,7 +294,7 @@ class TestNormalize:
         normalize = Normalize(self.sample_rate, norm=np.inf, axis=-1)
         result = normalize.process(self.dask_signal).compute()
 
-        # 理論値: norm=np.inf の場合、最大絶対値が1になるはず
+        # Theoretical value: with norm=np.inf, the maximum absolute value should be 1
         max_val = np.max(np.abs(result))
         np.testing.assert_allclose(max_val, 1.0, rtol=1e-10)
 
