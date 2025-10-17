@@ -209,10 +209,12 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
 
         # Calculate gain factor
         if self.channel_wise:
-            # Avoid division by zero
-            gain = np.where(
-                current_rms > 1e-10, target_rms / current_rms, np.ones_like(current_rms)
-            )
+            # Avoid division by zero - use a safe approach
+            # Replace zeros with 1.0 to avoid division by zero
+            safe_rms = np.where(current_rms > 1e-10, current_rms, 1.0)
+            gain = target_rms / safe_rms
+            # Set gain to 1.0 for channels with very low RMS
+            gain = np.where(current_rms > 1e-10, gain, 1.0)
             # Apply gain per channel
             result: NDArrayReal = x * gain
         else:
