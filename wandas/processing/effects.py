@@ -1,8 +1,10 @@
 import logging
-from typing import Any
+from typing import Any, Union
 
+import numpy as np
 from dask.array.core import Array as DaArray
 from librosa import effects  # type: ignore[attr-defined]
+from librosa import util as librosa_util
 
 from wandas.processing.base import AudioOperation, register_operation
 from wandas.utils import util
@@ -79,6 +81,91 @@ class HpssPercussive(AudioOperation[NDArrayReal, NDArrayReal]):
         return result
 
 
+class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
+    """Signal normalization operation using librosa.util.normalize"""
+
+    name = "normalize"
+
+    def __init__(
+        self,
+        sampling_rate: float,
+        norm: Union[float, None] = np.inf,
+        axis: Union[int, None] = -1,
+        threshold: Union[float, None] = None,
+        fill: Union[bool, None] = None,
+    ):
+        """
+        Initialize normalization operation
+
+        Parameters
+        ----------
+        sampling_rate : float
+            Sampling rate (Hz)
+        norm : float or np.inf, default=np.inf
+            Norm type. Supported values:
+            - np.inf: Maximum absolute value normalization
+            - -np.inf: Minimum absolute value normalization
+            - 0: Peak normalization
+            - float: Lp norm
+            - None: No normalization
+        axis : int or None, default=-1
+            Axis along which to normalize.
+            - -1: Normalize along time axis (each channel independently)
+            - None: Global normalization across all axes
+            - int: Normalize along specified axis
+        threshold : float or None, optional
+            Threshold below which values are considered zero.
+            If None, no threshold is applied.
+        fill : bool or None, optional
+            Value to fill when the norm is zero.
+            If None, the zero vector remains zero.
+        """
+        super().__init__(
+            sampling_rate, norm=norm, axis=axis, threshold=threshold, fill=fill
+        )
+        self.norm = norm
+        self.axis = axis
+        self.threshold = threshold
+        self.fill = fill
+        logger.debug(
+            f"Initialized Normalize operation with norm={norm}, "
+            f"axis={axis}, threshold={threshold}, fill={fill}"
+        )
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """
+        Calculate output data shape after operation
+
+        Parameters
+        ----------
+        input_shape : tuple
+            Input data shape
+
+        Returns
+        -------
+        tuple
+            Output data shape (same as input)
+        """
+        return input_shape
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """Perform normalization processing"""
+        logger.debug(
+            f"Applying normalization to array with shape: {x.shape}, "
+            f"norm={self.norm}, axis={self.axis}"
+        )
+
+        # Apply librosa.util.normalize
+        result: NDArrayReal = librosa_util.normalize(
+            x, norm=self.norm, axis=self.axis, threshold=self.threshold, fill=self.fill
+        )
+
+        logger.debug(
+            f"Normalization applied, returning result with shape: {result.shape}"
+        )
+        return result
+
+
 class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
     """Addition operation considering SNR"""
 
@@ -139,5 +226,5 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 # Register all operations
-for op_class in [HpssHarmonic, HpssPercussive, AddWithSNR]:
+for op_class in [HpssHarmonic, HpssPercussive, Normalize, AddWithSNR]:
     register_operation(op_class)
