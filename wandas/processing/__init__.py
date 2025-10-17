@@ -15,6 +15,7 @@ from wandas.processing.effects import (
     AddWithSNR,
     HpssHarmonic,
     HpssPercussive,
+    Normalize,
 )
 from wandas.processing.filters import (
     AWeighting,
@@ -76,6 +77,7 @@ __all__ = [
     "AddWithSNR",
     "HpssHarmonic",
     "HpssPercussive",
+    "Normalize",
     # Stats
     "ABS",
     "ChannelDifference",
