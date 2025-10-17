@@ -1,5 +1,6 @@
 import dask.array as da
 import numpy as np
+import pytest
 from dask.array.core import Array as DaArray
 
 from wandas.processing.base import create_operation, get_operation
@@ -8,6 +9,7 @@ from wandas.processing.stats import (
     ChannelDifference,
     Mean,
     Power,
+    SpeechIntelligibilityIndex,
     Sum,
 )
 from wandas.utils.types import NDArrayReal
@@ -373,3 +375,140 @@ class TestChannelDifference:
         assert isinstance(diff_op, ChannelDifference)
         assert diff_op.sampling_rate == self.sample_rate
         assert diff_op.other_channel == 1
+
+
+class TestSpeechIntelligibilityIndex:
+    """Test Speech Intelligibility Index operation."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures for each test."""
+        self.sample_rate: int = 44100
+        self.duration: float = 1.0
+        self.n_samples: int = int(self.sample_rate * self.duration)
+
+        # Create test signals
+        t = np.linspace(0, self.duration, self.n_samples, endpoint=False)
+
+        # Speech-like signal with multiple frequencies
+        self.speech_signal: NDArrayReal = np.array(
+            [
+                np.sin(2 * np.pi * 250 * t) * 0.3
+                + np.sin(2 * np.pi * 500 * t) * 0.3
+                + np.sin(2 * np.pi * 1000 * t) * 0.2
+                + np.sin(2 * np.pi * 2000 * t) * 0.1
+                + np.random.normal(0, 0.05, len(t))
+            ]
+        )
+
+        # Noisy signal (high noise floor)
+        self.noisy_signal: NDArrayReal = np.array(
+            [np.random.normal(0, 0.5, len(t))]
+        )
+
+        # Clean tone signal
+        self.clean_signal: NDArrayReal = np.array([np.sin(2 * np.pi * 1000 * t)])
+
+        # Multi-channel signal
+        self.multi_channel_signal: NDArrayReal = np.array(
+            [
+                np.sin(2 * np.pi * 500 * t) * 0.3,
+                np.sin(2 * np.pi * 1000 * t) * 0.3,
+            ]
+        )
+
+        # Create Dask arrays
+        self.dask_speech: DaArray = _da_from_array(self.speech_signal, chunks=-1)
+        self.dask_noisy: DaArray = _da_from_array(self.noisy_signal, chunks=-1)
+        self.dask_clean: DaArray = _da_from_array(self.clean_signal, chunks=-1)
+        self.dask_multi: DaArray = _da_from_array(self.multi_channel_signal, chunks=-1)
+
+    def test_initialization(self) -> None:
+        """Test initialization with different method bands."""
+        # Test default initialization
+        sii_op = SpeechIntelligibilityIndex(self.sample_rate)
+        assert sii_op.sampling_rate == self.sample_rate
+        assert sii_op.method_band == "octave"
+
+        # Test with different method bands
+        for method in ["octave", "third octave", "critical"]:
+            sii_op = SpeechIntelligibilityIndex(self.sample_rate, method_band=method)
+            assert sii_op.method_band == method
+
+    def test_invalid_method_band(self) -> None:
+        """Test that invalid method_band raises ValueError."""
+        with pytest.raises(ValueError, match="method_band must be one of"):
+            SpeechIntelligibilityIndex(self.sample_rate, method_band="invalid")
+
+    def test_output_shape(self) -> None:
+        """Test that output shape is correct."""
+        sii_op = SpeechIntelligibilityIndex(self.sample_rate)
+        result = sii_op.process(self.dask_speech).compute()
+        assert result.shape == (1, 1)
+
+    def test_sii_value_range(self) -> None:
+        """Test that SII value is in valid range [0, 1]."""
+        sii_op = SpeechIntelligibilityIndex(self.sample_rate)
+
+        # Test with speech signal
+        result_speech = sii_op.process(self.dask_speech).compute()
+        sii_value_speech = result_speech[0, 0]
+        assert 0.0 <= sii_value_speech <= 1.0
+
+        # Test with noisy signal
+        result_noisy = sii_op.process(self.dask_noisy).compute()
+        sii_value_noisy = result_noisy[0, 0]
+        assert 0.0 <= sii_value_noisy <= 1.0
+
+        # Test with clean signal
+        result_clean = sii_op.process(self.dask_clean).compute()
+        sii_value_clean = result_clean[0, 0]
+        assert 0.0 <= sii_value_clean <= 1.0
+
+    def test_multi_channel_handling(self) -> None:
+        """Test that multi-channel signals are properly converted to mono."""
+        sii_op = SpeechIntelligibilityIndex(self.sample_rate)
+        result = sii_op.process(self.dask_multi).compute()
+
+        # Should not raise error and return valid SII
+        assert result.shape == (1, 1)
+        sii_value = result[0, 0]
+        assert 0.0 <= sii_value <= 1.0
+
+    def test_comparison_with_mosqito(self) -> None:
+        """Test that values match direct MoSQITo computation."""
+        from mosqito.sq_metrics.speech_intelligibility.sii_ansi import comp_sii
+
+        sii_op = SpeechIntelligibilityIndex(self.sample_rate, method_band="octave")
+
+        # Get wandas result
+        wandas_result = sii_op.process(self.dask_speech).compute()[0, 0]
+
+        # Get direct MoSQITo result
+        signal_mono = self.speech_signal.flatten()
+        mosqito_sii, _, _ = comp_sii(signal_mono, self.sample_rate, method_band="octave")
+
+        # Values should match
+        np.testing.assert_allclose(wandas_result, mosqito_sii, rtol=1e-10)
+
+    def test_different_method_bands(self) -> None:
+        """Test computation with different method bands."""
+        for method in ["octave", "third octave", "critical"]:
+            sii_op = SpeechIntelligibilityIndex(self.sample_rate, method_band=method)
+            result = sii_op.process(self.dask_speech).compute()
+
+            # Should return valid SII value
+            sii_value = result[0, 0]
+            assert 0.0 <= sii_value <= 1.0
+
+    def test_operation_registry(self) -> None:
+        """Test that SpeechIntelligibilityIndex is properly registered."""
+        assert get_operation("speech_intelligibility_index") == SpeechIntelligibilityIndex
+
+        sii_op = create_operation(
+            "speech_intelligibility_index",
+            self.sample_rate,
+            method_band="third octave"
+        )
+        assert isinstance(sii_op, SpeechIntelligibilityIndex)
+        assert sii_op.sampling_rate == self.sample_rate
+        assert sii_op.method_band == "third octave"

@@ -422,3 +422,63 @@ class ChannelProcessingMixin:
             pad_mode=pad_mode,
         )
         return cast(T_Processing, result)
+
+    def sii(
+        self: ProcessingFrameProtocol,
+        method_band: Union[str, None] = "octave",
+    ) -> tuple[float, Any, Any]:
+        """
+        Calculate Speech Intelligibility Index (SII) for the signal.
+
+        Computes the Speech Intelligibility Index according to ANSI S3.5 standard
+        using the MoSQITo library. The SII is a measure of speech intelligibility
+        that ranges from 0.0 (completely unintelligible) to 1.0 (perfectly intelligible).
+
+        Note:
+            Multi-channel signals will be automatically converted to mono by
+            averaging across channels before computing SII.
+
+        Args:
+            method_band: Frequency band method for SII calculation.
+                Options are:
+                - 'octave': Use octave bands (faster, less detailed)
+                - 'third octave': Use third-octave bands (balanced)
+                - 'critical': Use critical bands (most detailed, slower)
+                Default is 'octave'.
+
+        Returns:
+            A tuple containing:
+            - sii_value (float): Overall SII value from 0.0 to 1.0
+            - specific_sii (ndarray): Frequency-specific SII values
+            - freq_axis (ndarray): Corresponding frequency axis
+
+        Examples:
+            >>> import wandas as wd
+            >>> signal = wd.generate_sin(freqs=[1000], duration=1.0, sampling_rate=44100)
+            >>> sii_value, specific_sii, freq_axis = signal.sii(method_band="octave")
+            >>> print(f"SII: {sii_value:.3f}")
+
+        References:
+            ANSI S3.5-1997: Methods for Calculation of the Speech Intelligibility Index
+            MoSQITo documentation: https://mosqito.readthedocs.io/
+        """
+        from mosqito.sq_metrics.speech_intelligibility.sii_ansi import comp_sii
+
+        # Get the data as numpy array
+        data = self._data.compute()
+
+        # Convert to mono if multi-channel
+        if data.ndim > 1 and data.shape[0] > 1:
+            signal = data.mean(axis=0)
+        else:
+            signal = data.flatten() if data.ndim > 1 else data
+
+        # Compute SII using MoSQITo
+        if method_band is None:
+            method_band = "octave"
+
+        sii_value, specific_sii, freq_axis = comp_sii(
+            signal, self.sampling_rate, method_band=method_band
+        )
+
+        return float(sii_value), specific_sii, freq_axis

@@ -38,6 +38,7 @@ from wandas.processing.stats import (
     ChannelDifference,
     Mean,
     Power,
+    SpeechIntelligibilityIndex,
     Sum,
 )
 from wandas.processing.temporal import (
@@ -81,5 +82,6 @@ __all__ = [
     "ChannelDifference",
     "Mean",
     "Power",
+    "SpeechIntelligibilityIndex",
     "Sum",
 ]
