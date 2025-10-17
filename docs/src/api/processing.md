@@ -37,3 +37,9 @@
 時間領域の処理機能を提供します。
 
 ::: wandas.processing.temporal
+
+## 心理音響メトリクス
+
+MoSQIToを使用した音質解析のための心理音響メトリクスを提供します。
+
+::: wandas.processing.psychoacoustic

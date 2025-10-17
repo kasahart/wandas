@@ -37,3 +37,9 @@ Provides statistical analysis functions for audio data.
 Provides time-domain processing capabilities.
 
 ::: wandas.processing.temporal
+
+## Psychoacoustic Metrics
+
+Provides psychoacoustic metrics for sound quality analysis using MoSQITo.
+
+::: wandas.processing.psychoacoustic
