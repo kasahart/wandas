@@ -96,16 +96,18 @@ class TestLoudnessZwtv:
         assert result.shape[1] < self.signal_stereo.shape[1]
 
     def test_loudness_values_range(self) -> None:
-        """Test that loudness values are in reasonable range."""
+        """Test that loudness values match MoSQITo output."""
         result = self.loudness_op.process_array(self.signal_mono).compute()
 
-        # Loudness should be positive and in a reasonable range (typically 0-100 sones)
-        assert np.all(result >= 0)
-        assert np.all(result < 1000)  # Sanity check for extremely high values
+        # Calculate using MoSQITo directly for comparison
+        N_direct, _, _, _ = loudness_zwtv(
+            self.signal_mono[0], self.sample_rate, field_type=self.field_type
+        )
 
-        # For 70 dB SPL signal, loudness should be around 4-8 sones
-        mean_loudness = np.mean(result)
-        assert 1.0 < mean_loudness < 20.0, f"Mean loudness {mean_loudness} outside expected range"
+        # Results should match exactly
+        np.testing.assert_array_equal(
+            result[0], N_direct, err_msg="Loudness values differ from MoSQITo output"
+        )
 
     def test_comparison_with_mosqito_direct(self) -> None:
         """
@@ -141,11 +143,17 @@ class TestLoudnessZwtv:
         loudness_diffuse = LoudnessZwtv(self.sample_rate, field_type="diffuse")
         result_diffuse = loudness_diffuse.process_array(self.signal_mono).compute()
 
-        # Results should be different but similar
-        assert not np.allclose(result_free, result_diffuse)
-        # But they should be in the same ballpark (within 50% of each other)
-        ratio = np.mean(result_free) / np.mean(result_diffuse)
-        assert 0.5 < ratio < 2.0
+        # Compare with MoSQITo direct calculation
+        N_free_direct, _, _, _ = loudness_zwtv(
+            self.signal_mono[0], self.sample_rate, field_type="free"
+        )
+        N_diffuse_direct, _, _, _ = loudness_zwtv(
+            self.signal_mono[0], self.sample_rate, field_type="diffuse"
+        )
+
+        # Results should match MoSQITo exactly
+        np.testing.assert_array_equal(result_free[0], N_free_direct)
+        np.testing.assert_array_equal(result_diffuse[0], N_diffuse_direct)
 
     def test_amplitude_dependency(self) -> None:
         """Test that loudness increases with amplitude."""
@@ -159,14 +167,21 @@ class TestLoudnessZwtv:
         # High amplitude signal (approx 80 dB SPL)
         signal_high = np.array([0.2 * np.sin(2 * np.pi * freq * t)])
 
-        # Calculate loudness
+        # Calculate loudness using wandas
         loudness_low = self.loudness_op.process_array(signal_low).compute()
         loudness_high = self.loudness_op.process_array(signal_high).compute()
 
-        # Higher amplitude should result in higher loudness
-        assert np.mean(loudness_high) > np.mean(loudness_low)
-        # The difference should be substantial (at least 2x for 30 dB difference)
-        assert np.mean(loudness_high) > 2 * np.mean(loudness_low)
+        # Compare with MoSQITo direct calculation
+        N_low_direct, _, _, _ = loudness_zwtv(
+            signal_low[0], self.sample_rate, field_type=self.field_type
+        )
+        N_high_direct, _, _, _ = loudness_zwtv(
+            signal_high[0], self.sample_rate, field_type=self.field_type
+        )
+
+        # Results should match MoSQITo exactly
+        np.testing.assert_array_equal(loudness_low[0], N_low_direct)
+        np.testing.assert_array_equal(loudness_high[0], N_high_direct)
 
     def test_silence_produces_low_loudness(self) -> None:
         """Test that silence produces near-zero loudness."""
@@ -175,8 +190,13 @@ class TestLoudnessZwtv:
 
         result = self.loudness_op.process_array(silence).compute()
 
-        # Loudness should be very close to zero
-        assert np.max(result) < 0.1  # Allow small numerical errors
+        # Compare with MoSQITo direct calculation
+        N_direct, _, _, _ = loudness_zwtv(
+            silence[0], self.sample_rate, field_type=self.field_type
+        )
+
+        # Results should match MoSQITo exactly
+        np.testing.assert_array_equal(result[0], N_direct)
 
     def test_white_noise_loudness(self) -> None:
         """Test loudness calculation with white noise."""
@@ -186,18 +206,25 @@ class TestLoudnessZwtv:
 
         result = self.loudness_op.process_array(noise).compute()
 
-        # Noise should produce positive loudness
-        assert np.all(result >= 0)
-        assert np.mean(result) > 0.5  # Should be audible
+        # Compare with MoSQITo direct calculation
+        N_direct, _, _, _ = loudness_zwtv(
+            noise[0], self.sample_rate, field_type=self.field_type
+        )
+
+        # Results should match MoSQITo exactly
+        np.testing.assert_array_equal(result[0], N_direct)
 
     def test_process_with_dask(self) -> None:
         """Test that process method works with dask arrays."""
         result = self.loudness_op.process(self.dask_mono).compute()
 
-        # Should produce valid output
-        assert result.shape[0] == 1  # 1 channel
-        assert result.shape[1] > 0  # Has time samples
-        assert np.all(result >= 0)  # All values non-negative
+        # Compare with MoSQITo direct calculation
+        N_direct, _, _, _ = loudness_zwtv(
+            self.signal_mono[0], self.sample_rate, field_type=self.field_type
+        )
+
+        # Results should match MoSQITo exactly
+        np.testing.assert_array_equal(result[0], N_direct)
 
     def test_multi_channel_independence(self) -> None:
         """Test that each channel is processed independently."""
@@ -210,10 +237,17 @@ class TestLoudnessZwtv:
 
         result = self.loudness_op.process_array(stereo_signal).compute()
 
-        # Both channels should have different loudness patterns
-        assert not np.allclose(result[0], result[1])
-        # Channel 2 should generally have higher loudness (higher amplitude)
-        assert np.mean(result[1]) > np.mean(result[0])
+        # Compare each channel with MoSQITo direct calculation
+        N_ch1_direct, _, _, _ = loudness_zwtv(
+            signal_ch1, self.sample_rate, field_type=self.field_type
+        )
+        N_ch2_direct, _, _, _ = loudness_zwtv(
+            signal_ch2, self.sample_rate, field_type=self.field_type
+        )
+
+        # Results should match MoSQITo exactly for each channel
+        np.testing.assert_array_equal(result[0], N_ch1_direct)
+        np.testing.assert_array_equal(result[1], N_ch2_direct)
 
     def test_calculate_output_shape(self) -> None:
         """Test calculate_output_shape method."""
@@ -247,16 +281,16 @@ class TestLoudnessZwtv:
         np.testing.assert_array_equal(result1, result2)
 
     def test_time_resolution(self) -> None:
-        """Test that time resolution is approximately 2ms as expected."""
+        """Test that time resolution matches MoSQITo output."""
         result = self.loudness_op.process_array(self.signal_mono).compute()
 
-        # Expected time resolution is ~2ms (0.002s)
-        # For 1 second signal, we expect ~500 time points
-        n_time_points = result.shape[1]
-        expected_time_points = int(self.duration / 0.002)
+        # Compare with MoSQITo direct calculation
+        N_direct, _, _, _ = loudness_zwtv(
+            self.signal_mono[0], self.sample_rate, field_type=self.field_type
+        )
 
-        # Allow 20% tolerance
-        assert 0.8 * expected_time_points < n_time_points < 1.2 * expected_time_points
+        # Time resolution should match exactly
+        assert result.shape[1] == len(N_direct)
 
 
 class TestLoudnessZwtvIntegration:

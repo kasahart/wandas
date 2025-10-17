@@ -88,7 +88,44 @@ The method returns a `ChannelFrame` containing:
 
 ### Examples
 
-#### Example 1: Analyzing a Sine Wave
+#### Example 1: Basic Usage
+
+```python
+import wandas as wd
+import numpy as np
+
+# Load an audio file
+signal = wd.read_wav("audio.wav")
+
+# Calculate loudness (free field by default)
+loudness = signal.loudness_zwtv()
+
+# Plot the loudness over time
+loudness.plot(title="Time-varying Loudness (sones)")
+```
+
+#### Example 2: Creating a Test Signal
+
+```python
+import wandas as wd
+import numpy as np
+
+# Generate a 1 kHz sine wave at moderate level
+signal = wd.generate_sin(freqs=[1000], duration=2.0, sampling_rate=48000)
+
+# Scale to approximately 70 dB SPL
+signal = signal * 0.063
+
+# Calculate loudness
+loudness = signal.loudness_zwtv()
+
+# Print statistics
+print(f"Mean loudness: {loudness.mean():.2f} sones")
+print(f"Max loudness: {loudness.max():.2f} sones")
+print(f"Min loudness: {loudness.min():.2f} sones")
+```
+
+#### Example 3: Comparing Free vs Diffuse Field
 
 ```python
 import wandas as wd
@@ -106,41 +143,65 @@ print(f"Mean loudness: {loudness.mean():.2f} sones")
 print(f"Max loudness: {loudness.max():.2f} sones")
 ```
 
-#### Example 2: Comparing Free vs Diffuse Field
+#### Example 3: Comparing Free vs Diffuse Field
 
 ```python
 import wandas as wd
 import matplotlib.pyplot as plt
 
+# Load signal
 signal = wd.read_wav("audio.wav")
 
+# Calculate for both field types
 loudness_free = signal.loudness_zwtv(field_type="free")
 loudness_diffuse = signal.loudness_zwtv(field_type="diffuse")
 
+# Plot comparison
 fig, axes = plt.subplots(2, 1, figsize=(12, 8))
-loudness_free.plot(ax=axes[0], title="Free Field")
-loudness_diffuse.plot(ax=axes[1], title="Diffuse Field")
+loudness_free.plot(ax=axes[0], title="Free Field Loudness")
+loudness_diffuse.plot(ax=axes[1], title="Diffuse Field Loudness")
 plt.tight_layout()
 plt.show()
 ```
 
-#### Example 3: Multi-Channel Processing
+#### Example 4: Multi-Channel Processing
 
 ```python
 import wandas as wd
 
 # Load stereo audio
-stereo = wd.read_wav("stereo.wav")
+stereo_signal = wd.read_wav("stereo_audio.wav")
 
-# Calculate loudness for both channels
-loudness = stereo.loudness_zwtv()
-
-# Plot both channels
-loudness.plot(overlay=True, title="Stereo Loudness")
+# Calculate loudness (each channel processed independently)
+loudness = stereo_signal.loudness_zwtv()
 
 # Access individual channels
 left_loudness = loudness[0]
 right_loudness = loudness[1]
+
+# Plot both channels
+loudness.plot(overlay=True, title="Stereo Loudness Comparison")
+```
+
+#### Example 5: Accessing MoSQITo Directly
+
+If you need more detailed output (specific loudness, bark axis, etc.), you can use MoSQITo directly:
+
+```python
+from mosqito.sq_metrics.loudness.loudness_zwtv import loudness_zwtv
+import wandas as wd
+
+signal = wd.read_wav("audio.wav")
+data = signal.data[0]  # Get first channel
+
+# Call MoSQITo directly
+N, N_spec, bark_axis, time_axis = loudness_zwtv(
+    data, signal.sampling_rate, field_type="free"
+)
+
+print(f"Loudness shape: {N.shape}")
+print(f"Specific loudness shape: {N_spec.shape}")
+print(f"Time axis: {time_axis[:10]}...")  # First 10 time points
 ```
 
 ### Technical Details
