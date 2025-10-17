@@ -93,11 +93,17 @@ class TestLoudnessZwtv:
         loudness_op = LoudnessZwtv(self.sample_rate, field_type=self.field_type)
         result = loudness_op.process_array(self.signal_stereo).compute()
 
-        # Result should be 2D with 2 channels
-        assert result.ndim == 2
-        assert result.shape[0] == 2  # 2 channels
-        # Time samples should be less than input samples (downsampled)
-        assert result.shape[1] < self.signal_stereo.shape[1]
+        # Compare with MoSQITo direct calculation for each channel
+        N_ch1_direct, _, _, _ = loudness_zwtv(
+            self.signal_stereo[0], self.sample_rate, field_type=self.field_type
+        )
+        N_ch2_direct, _, _, _ = loudness_zwtv(
+            self.signal_stereo[1], self.sample_rate, field_type=self.field_type
+        )
+
+        # Results should match MoSQITo exactly
+        np.testing.assert_array_equal(result[0], N_ch1_direct)
+        np.testing.assert_array_equal(result[1], N_ch2_direct)
 
     def test_loudness_values_range(self) -> None:
         """Test that loudness values match MoSQITo output."""
