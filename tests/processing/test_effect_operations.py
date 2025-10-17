@@ -303,7 +303,7 @@ class TestNormalize:
         normalize = Normalize(self.sample_rate, norm=1, axis=-1)
         result = normalize.process(self.dask_signal).compute()
 
-        # 理論値: norm=1 の場合、L1ノルムが1になるはず
+        # Theoretical value: when norm=1, the L1 norm should be 1
         l1_norm = np.sum(np.abs(result), axis=-1)
         np.testing.assert_allclose(l1_norm, 1.0, rtol=1e-10)
 
