@@ -8,7 +8,11 @@ from .frames.channel import ChannelFrame
 from .io import wav_io
 from .utils import generate_sample
 
-__version__ = version(__package__ or "wandas")
+try:
+    __version__ = version(__package__ or "wandas")
+except Exception:
+    # Fallback for development when package is not installed
+    __version__ = "0.1.7-dev"
 read_wav = wav_io.read_wav
 
 read_csv = ChannelFrame.read_csv
