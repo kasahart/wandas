@@ -273,3 +273,17 @@ class TestLoudnessZwtvIntegration:
 
         assert "loudness_zwtv" in _OPERATION_REGISTRY
         assert _OPERATION_REGISTRY["loudness_zwtv"] == LoudnessZwtv
+
+    def test_channel_frame_loudness_method_exists(self) -> None:
+        """Test that ChannelFrame has loudness_zwtv method."""
+        from wandas.frames.channel import ChannelFrame
+
+        # Create a simple frame
+        t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
+        signal = np.array([0.05 * np.sin(2 * np.pi * 1000 * t)])
+        dask_data = _da_from_array(signal, chunks=-1)
+        frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
+
+        # Check method exists
+        assert hasattr(frame, "loudness_zwtv")
+        assert callable(frame.loudness_zwtv)
