@@ -68,14 +68,12 @@ Apply processing operations to all files in the dataset:
 # Built-in transformations
 resampled = dataset.resample(target_sr=8000)
 trimmed = dataset.trim(start=0.5, end=2.0)
-normalized = dataset.normalize()
 
 # Chain multiple transformations
 processed = (
     dataset
     .resample(target_sr=8000)
     .trim(start=0.5, end=2.0)
-    .normalize()
 )
 
 # Custom transformation

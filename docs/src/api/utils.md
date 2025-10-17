@@ -68,14 +68,12 @@ sampled = dataset.sample(seed=42)
 # 組み込み変換
 resampled = dataset.resample(target_sr=8000)
 trimmed = dataset.trim(start=0.5, end=2.0)
-normalized = dataset.normalize()
 
 # 複数の変換をチェーン
 processed = (
     dataset
     .resample(target_sr=8000)
     .trim(start=0.5, end=2.0)
-    .normalize()
 )
 
 # カスタム変換

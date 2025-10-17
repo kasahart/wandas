@@ -93,7 +93,6 @@ sampled = dataset.sample(n=10, seed=42)
 processed = (
     dataset
     .resample(target_sr=8000)
-    .normalize()
     .trim(start=0.5, end=2.0)
 )
 
