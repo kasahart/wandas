@@ -31,7 +31,7 @@ This directory contains example notebooks and scripts demonstrating various feat
 ### Advanced Topics / 高度なトピック
 
 - **[calculation.ipynb](./calculation.ipynb)** - Calculation examples / 計算の例
-- **[matarix_usage.ipynb](./matarix_usage.ipynb)** - Matrix operations / 行列操作
+- **[matrix_usage.ipynb](./matrix_usage.ipynb)** - Matrix operations / 行列操作
 - **[compare_signal_usage.ipynb](./compare_signal_usage.ipynb)** - Signal comparison / 信号の比較
 
 ## Getting Started / はじめに
