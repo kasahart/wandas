@@ -380,7 +380,7 @@ class TestNormalize:
         # 理論値: fill=True の場合、ゼロベクトルは正規化されて1になる値で埋められる
         # norm=np.inf (最大絶対値) の場合、すべての値が1になるはず
         assert result.shape == zero_signal.shape
-        # ゼロベクトルでなくなっているはず
+        # Should no longer be a zero vector
         assert not np.allclose(result, 0.0)
         # Since it is normalized, the maximum absolute value should be 1
         np.testing.assert_allclose(np.max(np.abs(result)), 1.0, rtol=1e-10)
