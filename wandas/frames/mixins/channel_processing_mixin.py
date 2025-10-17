@@ -441,6 +441,8 @@ class ChannelProcessingMixin:
         Returns:
             New ChannelFrame containing time-varying loudness values in sones.
             Each channel is processed independently.
+            The output sampling rate is adjusted based on the loudness
+            calculation time resolution (typically ~500 Hz for 2ms steps).
 
         Raises:
             ValueError: If field_type is not 'free' or 'diffuse'
@@ -461,10 +463,20 @@ class ChannelProcessingMixin:
             - Typical loudness: 1 sone ≈ 40 phon (loudness level)
             - The time resolution is approximately 2ms (determined by the algorithm)
             - For multi-channel signals, loudness is calculated per channel
+            - The output sampling rate is updated to reflect the time resolution
 
         References:
             ISO 532-1:2017, "Acoustics — Methods for calculating loudness —
             Part 1: Zwicker method"
         """
         result = self.apply_operation("loudness_zwtv", field_type=field_type)
-        return cast(T_Processing, result)
+
+        # Update sampling rate based on MoSQITo's time resolution
+        # The Zwicker method uses approximately 2ms time steps (500 Hz)
+        result_obj = cast(T_Processing, result)
+        if hasattr(result_obj, "sampling_rate"):
+            # MoSQITo's loudness_zwtv uses ~2ms time steps
+            # which corresponds to 500 Hz sampling rate
+            result_obj.sampling_rate = 500.0
+
+        return result_obj

@@ -166,6 +166,9 @@ class LoudnessZwtv(AudioOperation[NDArrayReal, NDArrayReal]):
         for ch in range(n_channels):
             channel_data = x[ch, :]
 
+            # Ensure channel_data is a contiguous 1D NumPy array
+            channel_data = np.asarray(channel_data).ravel()
+
             # Call MoSQITo's loudness_zwtv function
             # Returns: N (loudness), N_spec (specific loudness),
             #          bark_axis, time_axis
