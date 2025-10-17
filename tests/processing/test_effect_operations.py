@@ -331,7 +331,7 @@ class TestNormalize:
         normalize = Normalize(self.sample_rate, norm=np.inf, axis=None)
         result = normalize.process(self.dask_multi_channel).compute()
 
-        # 理論値: 全体の最大絶対値が1になるはず
+        # Theoretical value: The maximum absolute value of the whole should be 1
         max_val = np.max(np.abs(result))
         np.testing.assert_allclose(max_val, 1.0, rtol=1e-10)
 
