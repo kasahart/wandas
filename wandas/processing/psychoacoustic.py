@@ -6,10 +6,9 @@ including loudness calculation using standardized methods.
 """
 
 import logging
-from typing import Optional
 
 import numpy as np
-from mosqito.sq_metrics.loudness.loudness_zwtv import loudness_zwtv
+from mosqito.sq_metrics import loudness_zwtv as loudness_zwtv_mosqito
 
 from wandas.processing.base import AudioOperation, register_operation
 from wandas.utils.types import NDArrayReal
@@ -81,8 +80,8 @@ class LoudnessZwtv(AudioOperation[NDArrayReal, NDArrayReal]):
         field_type : str, default="free"
             Type of sound field ('free' or 'diffuse')
         """
-        super().__init__(sampling_rate, field_type=field_type)
         self.field_type = field_type
+        super().__init__(sampling_rate, field_type=field_type)
 
     def validate_params(self) -> None:
         """
@@ -170,15 +169,16 @@ class LoudnessZwtv(AudioOperation[NDArrayReal, NDArrayReal]):
             # Call MoSQITo's loudness_zwtv function
             # Returns: N (loudness), N_spec (specific loudness),
             #          bark_axis, time_axis
-            N, N_spec, bark_axis, time_axis = loudness_zwtv(
+            loudness_n, _, _, _ = loudness_zwtv_mosqito(
                 channel_data, self.sampling_rate, field_type=self.field_type
             )
 
-            loudness_results.append(N)
+            loudness_results.append(loudness_n)
 
             logger.debug(
-                f"Channel {ch}: Calculated loudness with {len(N)} time points, "
-                f"max loudness: {np.max(N):.2f} sones"
+                f"Channel {ch}: Calculated loudness with "
+                f"{len(loudness_n)} time points, "
+                f"max loudness: {np.max(loudness_n):.2f} sones"
             )
 
         # Stack results

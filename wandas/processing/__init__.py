@@ -21,6 +21,9 @@ from wandas.processing.filters import (
     HighPassFilter,
     LowPassFilter,
 )
+from wandas.processing.psychoacoustic import (
+    LoudnessZwtv,
+)
 from wandas.processing.spectral import (
     CSD,
     FFT,
@@ -32,9 +35,6 @@ from wandas.processing.spectral import (
     NOctSynthesis,
     TransferFunction,
     Welch,
-)
-from wandas.processing.psychoacoustic import (
-    LoudnessZwtv,
 )
 from wandas.processing.stats import (
     ABS,
