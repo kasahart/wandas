@@ -563,8 +563,8 @@ class ChannelProcessingMixin:
         # Ensure data is 2D (n_channels, n_samples)
         if data.ndim == 1:
             data = data.reshape(1, -1)
-        # Process the array
-        result = operation._process_array(data)
+        # Process the array using the public API and materialize to NumPy
+        result = operation.process_array(data).compute()
 
         # Squeeze to get 1D array (n_channels,)
         loudness_values: NDArrayReal = result.squeeze()
