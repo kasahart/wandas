@@ -236,7 +236,7 @@ print(f"時間軸: {time_axis[:10]}...")  # 最初の10個の時間点
 | **対象信号** | 非定常（時間変化する音） | 定常（持続的な音） |
 | **使用例** | 音声、音楽、過渡音 | ファンノイズ、定常機械音 |
 | **出力** | 時系列のラウドネス値 | 単一のラウドネス値 |
-| **出力形状** | (channels, time_samples) | (channels, 1) |
+| **出力形状** | (channels, time_samples) | (n_channels,) |
 | **サンプリングレート** | ~500 Hzに更新 | 変更なし（単一値） |
 
 ### 使用方法
@@ -253,7 +253,7 @@ signal = wd.read_wav("fan_noise.wav")
 loudness = signal.loudness_zwst()
 
 # 結果を表示
-print(f"定常ラウドネス: {loudness.data[0, 0]:.2f} sones")
+print(f"定常ラウドネス: {loudness[0]:.2f} sones")
 ```
 
 #### 音場タイプの選択
@@ -274,7 +274,7 @@ print(f"拡散音場: {loudness_diffuse.data[0, 0]:.2f} sones")
 ### メソッドシグネチャ
 
 ```python
-def loudness_zwst(self, field_type: str = "free") -> ChannelFrame:
+def loudness_zwst(self, field_type: str = "free") -> NDArrayReal:
     """
     Zwicker法を使用して定常ラウドネスを計算
     
@@ -285,18 +285,20 @@ def loudness_zwst(self, field_type: str = "free") -> ChannelFrame:
     
     Returns
     -------
-    ChannelFrame
+    NDArrayReal
         ソーン単位の定常ラウドネス値（各チャンネルごとに1つの値）
+        形状: (n_channels,)
     """
 ```
 
 ### 出力
 
-このメソッドは以下を含む `ChannelFrame` を返します：
+このメソッドは以下を含む `NDArrayReal` を返します：
 
 - **単一のラウドネス値**（ソーン単位、各チャンネルごと）
-- **出力形状**: (channels, 1)
+- **出力形状**: (n_channels,) - 1D配列
 - **マルチチャンネル処理**: 各チャンネルが独立して処理されます
+- **NumPy互換**: 直接NumPy操作が可能（`loudness[0]`, `loudness.mean()`など）
 
 ### 使用例
 
@@ -312,7 +314,7 @@ fan_signal = wd.read_wav("fan_noise.wav")
 loudness = fan_signal.loudness_zwst(field_type="free")
 
 # 結果を表示
-print(f"ファンノイズのラウドネス: {loudness.data[0, 0]:.2f} sones")
+print(f"ファンノイズのラウドネス: {loudness[0]:.2f} sones")
 ```
 
 #### 例2: 複数の定常音源の比較
@@ -329,10 +331,10 @@ loudness1 = fan1.loudness_zwst()
 loudness2 = fan2.loudness_zwst()
 
 # 比較
-print(f"Fan 1: {loudness1.data[0, 0]:.2f} sones")
-print(f"Fan 2: {loudness2.data[0, 0]:.2f} sones")
+print(f"Fan 1: {loudness1[0]:.2f} sones")
+print(f"Fan 2: {loudness2[0]:.2f} sones")
 
-if loudness1.data[0, 0] > loudness2.data[0, 0]:
+if loudness1[0] > loudness2[0]:
     print("Fan 1 is louder")
 else:
     print("Fan 2 is louder")
@@ -350,8 +352,8 @@ stereo_signal = wd.read_wav("stereo_steady_noise.wav")
 loudness = stereo_signal.loudness_zwst()
 
 # 各チャンネルの結果を表示
-print(f"左チャンネル: {loudness.data[0, 0]:.2f} sones")
-print(f"右チャンネル: {loudness.data[1, 0]:.2f} sones")
+print(f"左チャンネル: {loudness[0]:.2f} sones")
+print(f"右チャンネル: {loudness[1]:.2f} sones")
 ```
 
 #### 例4: 自由音場と拡散音場の比較
@@ -367,9 +369,9 @@ loudness_free = signal.loudness_zwst(field_type="free")
 loudness_diffuse = signal.loudness_zwst(field_type="diffuse")
 
 # 比較
-print(f"自由音場: {loudness_free.data[0, 0]:.2f} sones")
-print(f"拡散音場: {loudness_diffuse.data[0, 0]:.2f} sones")
-print(f"差: {abs(loudness_free.data[0, 0] - loudness_diffuse.data[0, 0]):.2f} sones")
+print(f"自由音場: {loudness_free[0]:.2f} sones")
+print(f"拡散音場: {loudness_diffuse[0]:.2f} sones")
+print(f"差: {abs(loudness_free[0] - loudness_diffuse[0]):.2f} sones")
 ```
 
 #### 例5: MoSQIToを直接使用

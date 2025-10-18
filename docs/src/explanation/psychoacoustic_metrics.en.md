@@ -254,7 +254,7 @@ The `loudness_zwst()` method calculates steady-state loudness for stationary (st
 | **Signal type** | Non-stationary (time-varying) | Stationary (steady) |
 | **Use cases** | Speech, music, transient sounds | Fan noise, constant machinery |
 | **Output** | Time series of loudness values | Single loudness value |
-| **Output shape** | (channels, time_samples) | (channels, 1) |
+| **Output shape** | (channels, time_samples) | (n_channels,) |
 | **Sampling rate** | Updated to ~500 Hz | Not changed (single value) |
 
 ### Usage
@@ -271,7 +271,7 @@ signal = wd.read_wav("fan_noise.wav")
 loudness = signal.loudness_zwst()
 
 # Display result
-print(f"Steady-state loudness: {loudness.data[0, 0]:.2f} sones")
+print(f"Steady-state loudness: {loudness[0]:.2f} sones")
 ```
 
 #### Field Type Selection
@@ -292,7 +292,7 @@ print(f"Diffuse field: {loudness_diffuse.data[0, 0]:.2f} sones")
 ### Method Signature
 
 ```python
-def loudness_zwst(self, field_type: str = "free") -> ChannelFrame:
+def loudness_zwst(self, field_type: str = "free") -> NDArrayReal:
     """
     Calculate steady-state loudness using Zwicker method
     
@@ -303,18 +303,20 @@ def loudness_zwst(self, field_type: str = "free") -> ChannelFrame:
     
     Returns
     -------
-    ChannelFrame
+    NDArrayReal
         Steady-state loudness values in sones (one value per channel)
+        Shape: (n_channels,)
     """
 ```
 
 ### Output
 
-The method returns a `ChannelFrame` containing:
+The method returns `NDArrayReal` containing:
 
 - **Single loudness value** in sones for each channel
-- **Output shape**: (channels, 1)
+- **Output shape**: (n_channels,) - 1D array
 - **Multi-channel handling**: Each channel is processed independently
+- **NumPy compatible**: Direct NumPy operations possible (`loudness[0]`, `loudness.mean()`, etc.)
 
 ### Examples
 
@@ -330,7 +332,7 @@ fan_signal = wd.read_wav("fan_noise.wav")
 loudness = fan_signal.loudness_zwst(field_type="free")
 
 # Display result
-print(f"Fan noise loudness: {loudness.data[0, 0]:.2f} sones")
+print(f"Fan noise loudness: {loudness[0]:.2f} sones")
 ```
 
 #### Example 2: Comparing Multiple Steady Sound Sources
@@ -347,10 +349,10 @@ loudness1 = fan1.loudness_zwst()
 loudness2 = fan2.loudness_zwst()
 
 # Compare
-print(f"Fan 1: {loudness1.data[0, 0]:.2f} sones")
-print(f"Fan 2: {loudness2.data[0, 0]:.2f} sones")
+print(f"Fan 1: {loudness1[0]:.2f} sones")
+print(f"Fan 2: {loudness2[0]:.2f} sones")
 
-if loudness1.data[0, 0] > loudness2.data[0, 0]:
+if loudness1[0] > loudness2[0]:
     print("Fan 1 is louder")
 else:
     print("Fan 2 is louder")
@@ -368,8 +370,8 @@ stereo_signal = wd.read_wav("stereo_steady_noise.wav")
 loudness = stereo_signal.loudness_zwst()
 
 # Display results for each channel
-print(f"Left channel: {loudness.data[0, 0]:.2f} sones")
-print(f"Right channel: {loudness.data[1, 0]:.2f} sones")
+print(f"Left channel: {loudness[0]:.2f} sones")
+print(f"Right channel: {loudness[1]:.2f} sones")
 ```
 
 #### Example 4: Comparing Free Field and Diffuse Field
@@ -385,9 +387,9 @@ loudness_free = signal.loudness_zwst(field_type="free")
 loudness_diffuse = signal.loudness_zwst(field_type="diffuse")
 
 # Compare
-print(f"Free field: {loudness_free.data[0, 0]:.2f} sones")
-print(f"Diffuse field: {loudness_diffuse.data[0, 0]:.2f} sones")
-print(f"Difference: {abs(loudness_free.data[0, 0] - loudness_diffuse.data[0, 0]):.2f} sones")
+print(f"Free field: {loudness_free[0]:.2f} sones")
+print(f"Diffuse field: {loudness_diffuse[0]:.2f} sones")
+print(f"Difference: {abs(loudness_free[0] - loudness_diffuse[0]):.2f} sones")
 ```
 
 #### Example 5: Accessing MoSQITo Directly

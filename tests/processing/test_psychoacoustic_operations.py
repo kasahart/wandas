@@ -678,3 +678,64 @@ class TestLoudnessZwstIntegration:
         assert hasattr(frame, "loudness_zwst")
         assert callable(frame.loudness_zwst)
 
+    def test_channel_frame_loudness_returns_ndarray(self) -> None:
+        """Test that ChannelFrame.loudness_zwst() returns NDArrayReal."""
+        from wandas.frames.channel import ChannelFrame
+        from wandas.utils.types import NDArrayReal
+
+        # Create mono frame
+        t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
+        signal_mono = np.array([0.05 * np.sin(2 * np.pi * 1000 * t)])
+        dask_data_mono = _da_from_array(signal_mono, chunks=-1)
+        frame_mono = ChannelFrame(data=dask_data_mono, sampling_rate=self.sample_rate)
+
+        # Calculate loudness
+        loudness_mono = frame_mono.loudness_zwst(field_type="free")
+
+        # Should be NDArrayReal (1D array)
+        assert isinstance(loudness_mono, np.ndarray)
+        assert loudness_mono.ndim == 1
+        assert loudness_mono.shape[0] == 1  # One value per channel
+        assert isinstance(loudness_mono[0], (float, np.floating))
+
+        # Create stereo frame
+        signal_stereo = np.vstack([signal_mono[0], signal_mono[0] * 0.5])
+        dask_data_stereo = _da_from_array(signal_stereo, chunks=-1)
+        frame_stereo = ChannelFrame(data=dask_data_stereo, sampling_rate=self.sample_rate)
+
+        # Calculate loudness for stereo
+        loudness_stereo = frame_stereo.loudness_zwst(field_type="free")
+
+        # Should be 1D array with 2 values
+        assert isinstance(loudness_stereo, np.ndarray)
+        assert loudness_stereo.ndim == 1
+        assert loudness_stereo.shape[0] == 2  # Two values (one per channel)
+
+        # Can access values directly without double indexing
+        assert isinstance(loudness_stereo[0], (float, np.floating))
+        assert isinstance(loudness_stereo[1], (float, np.floating))
+
+        # Can use numpy operations directly
+        mean_loudness = loudness_stereo.mean()
+        assert isinstance(mean_loudness, (float, np.floating))
+
+    def test_channel_frame_loudness_matches_mosqito(self) -> None:
+        """Test that ChannelFrame.loudness_zwst() matches direct MoSQITo call."""
+        from wandas.frames.channel import ChannelFrame
+
+        # Create test signal
+        t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
+        signal = np.array([0.05 * np.sin(2 * np.pi * 1000 * t)])
+        dask_data = _da_from_array(signal, chunks=-1)
+        frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
+
+        # Calculate using wandas
+        loudness_wandas = frame.loudness_zwst(field_type="free")
+
+        # Calculate using MoSQITo directly
+        n_direct, _, _ = loudness_zwst(signal[0], self.sample_rate, field_type="free")
+
+        # Results should match
+        np.testing.assert_allclose(loudness_wandas[0], n_direct, rtol=1e-10)
+
+
