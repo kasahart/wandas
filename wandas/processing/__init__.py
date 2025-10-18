@@ -22,6 +22,7 @@ from wandas.processing.filters import (
     LowPassFilter,
 )
 from wandas.processing.psychoacoustic import (
+    LoudnessZwst,
     LoudnessZwtv,
 )
 from wandas.processing.spectral import (
@@ -86,5 +87,6 @@ __all__ = [
     "Power",
     "Sum",
     # Psychoacoustic
+    "LoudnessZwst",
     "LoudnessZwtv",
 ]

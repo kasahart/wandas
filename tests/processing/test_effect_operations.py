@@ -377,8 +377,9 @@ class TestNormalize:
         normalize = Normalize(self.sample_rate, norm=np.inf, axis=-1, fill=True)
         result = normalize.process(dask_zero).compute()
 
-        # Theoretical value: When fill=True, zero vectors are filled with values that normalize to 1.
-        # For norm=np.inf (maximum absolute value), all values should be 1.
+        # Theoretical value: When fill=True, zero vectors are filled with values
+        # that normalize to 1. For norm=np.inf (maximum absolute value), all
+        # values should be 1.
         assert result.shape == zero_signal.shape
         # Should no longer be a zero vector
         assert not np.allclose(result, 0.0)
