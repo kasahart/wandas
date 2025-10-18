@@ -495,3 +495,58 @@ class ChannelProcessingMixin:
 
         # Sampling rate update is handled by the Operation class
         return cast(T_Processing, result)
+
+    def loudness_zwst(self: T_Processing, field_type: str = "free") -> T_Processing:
+        """
+        Calculate steady-state loudness using Zwicker method (ISO 532-1:2017).
+
+        This method computes the loudness of stationary (steady) signals according to
+        the Zwicker method, as specified in ISO 532-1:2017. The loudness is
+        calculated in sones, where a doubling of sones corresponds to a doubling
+        of perceived loudness.
+
+        This method is suitable for analyzing steady sounds such as fan noise,
+        constant machinery sounds, or other stationary signals.
+
+        Args:
+            field_type: Type of sound field. Options:
+                - 'free': Free field (sound from a specific direction)
+                - 'diffuse': Diffuse field (sound from all directions)
+                Default is 'free'.
+
+        Returns:
+            New ChannelFrame containing a single steady-state loudness value
+            (in sones) for each channel. The output will have shape (channels, 1).
+
+        Raises:
+            ValueError: If field_type is not 'free' or 'diffuse'
+
+        Examples:
+            Calculate steady-state loudness for a fan noise:
+            >>> import wandas as wd
+            >>> signal = wd.read_wav("fan_noise.wav")
+            >>> loudness = signal.loudness_zwst(field_type="free")
+            >>> print(f"Steady-state loudness: {loudness.data[0, 0]:.2f} sones")
+
+            Compare free field and diffuse field:
+            >>> loudness_free = signal.loudness_zwst(field_type="free")
+            >>> loudness_diffuse = signal.loudness_zwst(field_type="diffuse")
+            >>> print(f"Free field: {loudness_free.data[0, 0]:.2f} sones")
+            >>> print(f"Diffuse field: {loudness_diffuse.data[0, 0]:.2f} sones")
+
+        Notes:
+            - The output contains a single loudness value in sones per channel
+            - Typical loudness: 1 sone ≈ 40 phon (loudness level)
+            - For multi-channel signals, loudness is calculated independently per channel
+            - This method is designed for stationary signals (constant sounds)
+            - For time-varying signals, use loudness_zwtv() instead
+
+        References:
+            ISO 532-1:2017, "Acoustics — Methods for calculating loudness —
+            Part 1: Zwicker method"
+        """
+        result = self.apply_operation("loudness_zwst", field_type=field_type)
+
+        # No sampling rate update needed for steady-state loudness
+        return cast(T_Processing, result)
+
