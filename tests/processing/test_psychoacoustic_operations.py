@@ -19,7 +19,7 @@ class TestLoudnessZwtv:
     def setup_method(self) -> None:
         """Set up test fixtures for each test."""
         self.sample_rate: int = 48000
-        self.duration: float = 1.0
+        self.duration: float = 0.1
         self.field_type: str = "free"
 
         # Create test signal: 1 kHz sine wave at 70 dB SPL
@@ -311,7 +311,7 @@ class TestLoudnessZwtvIntegration:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.sample_rate: int = 48000
-        self.duration: float = 0.5
+        self.duration: float = 0.1  # Reduced for faster tests
 
     def test_loudness_in_operation_registry(self) -> None:
         """Test that loudness operation is in registry."""
@@ -350,7 +350,7 @@ class TestLoudnessZwst:
     def setup_method(self) -> None:
         """Set up test fixtures for each test."""
         self.sample_rate: int = 48000
-        self.duration: float = 1.0
+        self.duration: float = 0.1  # Reduced from 1.0s for faster tests
         self.field_type: str = "free"
 
         # Create test signal: 1 kHz sine wave at 70 dB SPL
@@ -614,7 +614,9 @@ class TestLoudnessZwst:
 
         # Test with stereo
         input_shape_stereo = (2, 48000)
-        output_shape_stereo = self.loudness_op.calculate_output_shape(input_shape_stereo)
+        output_shape_stereo = self.loudness_op.calculate_output_shape(
+            input_shape_stereo
+        )
         assert output_shape_stereo[0] == 2
         assert output_shape_stereo[1] == 1
 
@@ -655,7 +657,7 @@ class TestLoudnessZwstIntegration:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.sample_rate: int = 48000
-        self.duration: float = 0.5
+        self.duration: float = 0.1  # Reduced for faster tests
 
     def test_loudness_in_operation_registry(self) -> None:
         """Test that loudness operation is in registry."""
@@ -681,7 +683,6 @@ class TestLoudnessZwstIntegration:
     def test_channel_frame_loudness_returns_ndarray(self) -> None:
         """Test that ChannelFrame.loudness_zwst() returns NDArrayReal."""
         from wandas.frames.channel import ChannelFrame
-        from wandas.utils.types import NDArrayReal
 
         # Create mono frame
         t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
@@ -701,7 +702,9 @@ class TestLoudnessZwstIntegration:
         # Create stereo frame
         signal_stereo = np.vstack([signal_mono[0], signal_mono[0] * 0.5])
         dask_data_stereo = _da_from_array(signal_stereo, chunks=-1)
-        frame_stereo = ChannelFrame(data=dask_data_stereo, sampling_rate=self.sample_rate)
+        frame_stereo = ChannelFrame(
+            data=dask_data_stereo, sampling_rate=self.sample_rate
+        )
 
         # Calculate loudness for stereo
         loudness_stereo = frame_stereo.loudness_zwst(field_type="free")
@@ -737,5 +740,3 @@ class TestLoudnessZwstIntegration:
 
         # Results should match
         np.testing.assert_allclose(loudness_wandas[0], n_direct, rtol=1e-10)
-
-

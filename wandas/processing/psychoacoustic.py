@@ -9,8 +9,8 @@ import logging
 from typing import Any
 
 import numpy as np
-from mosqito.sq_metrics import loudness_zwtv as loudness_zwtv_mosqito
 from mosqito.sq_metrics import loudness_zwst as loudness_zwst_mosqito
+from mosqito.sq_metrics import loudness_zwtv as loudness_zwtv_mosqito
 
 from wandas.processing.base import AudioOperation, register_operation
 from wandas.utils.types import NDArrayReal
@@ -406,4 +406,3 @@ class LoudnessZwst(AudioOperation[NDArrayReal, NDArrayReal]):
 
 # Register the operation
 register_operation(LoudnessZwst)
-

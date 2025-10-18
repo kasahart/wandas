@@ -3,8 +3,6 @@
 import logging
 from typing import TYPE_CHECKING, Any, Optional, Union, cast
 
-import numpy as np
-
 from wandas.core.metadata import ChannelMetadata
 
 from .protocols import ProcessingFrameProtocol, T_Processing
@@ -16,6 +14,7 @@ if TYPE_CHECKING:
         _PadModeSTFT,
         _WindowSpec,
     )
+
     from wandas.utils.types import NDArrayReal
 logger = logging.getLogger(__name__)
 
@@ -499,7 +498,7 @@ class ChannelProcessingMixin:
         # Sampling rate update is handled by the Operation class
         return cast(T_Processing, result)
 
-    def loudness_zwst(self, field_type: str = "free") -> "NDArrayReal":
+    def loudness_zwst(self: T_Processing, field_type: str = "free") -> "NDArrayReal":
         """
         Calculate steady-state loudness using Zwicker method (ISO 532-1:2017).
 
@@ -540,7 +539,8 @@ class ChannelProcessingMixin:
         Notes:
             - Returns a 1D array with one loudness value per channel
             - Typical loudness: 1 sone ≈ 40 phon (loudness level)
-            - For multi-channel signals, loudness is calculated independently per channel
+            - For multi-channel signals, loudness is calculated independently
+              per channel
             - This method is designed for stationary signals (constant sounds)
             - For time-varying signals, use loudness_zwtv() instead
             - Similar to the rms property, returns NDArrayReal for consistency
@@ -549,31 +549,28 @@ class ChannelProcessingMixin:
             ISO 532-1:2017, "Acoustics — Methods for calculating loudness —
             Part 1: Zwicker method"
         """
+        # Treat self as a ProcessingFrameProtocol so mypy understands
+        # where sampling_rate and data come from.
         from wandas.processing.psychoacoustic import LoudnessZwst
         from wandas.utils.types import NDArrayReal
-        
+
         # Create operation instance
         operation = LoudnessZwst(self.sampling_rate, field_type=field_type)
-        
+
         # Get data (triggers computation if lazy)
         data = self.data
-        
+
         # Ensure data is 2D (n_channels, n_samples)
         if data.ndim == 1:
             data = data.reshape(1, -1)
-        
-        # Convert to NumPy array
-        arr: NDArrayReal = np.asarray(data)
-        
         # Process the array
-        result = operation._process_array(arr)
-        
+        result = operation._process_array(data)
+
         # Squeeze to get 1D array (n_channels,)
         loudness_values: NDArrayReal = result.squeeze()
-        
+
         # Ensure it's 1D even for single channel
         if loudness_values.ndim == 0:
             loudness_values = loudness_values.reshape(1)
-        
-        return loudness_values
 
+        return loudness_values
