@@ -55,6 +55,42 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         """Set up processor function (implemented by subclasses)"""
         pass
 
+    def get_metadata_updates(self) -> dict[str, Any]:
+        """
+        Get metadata updates to apply after processing.
+
+        This method allows operations to specify how metadata should be
+        updated after processing. By default, no metadata is updated.
+
+        Returns
+        -------
+        dict
+            Dictionary of metadata updates. Can include:
+            - 'sampling_rate': New sampling rate (float)
+            - Other metadata keys as needed
+
+        Examples
+        --------
+        Return empty dict for operations that don't change metadata:
+
+        >>> return {}
+
+        Return new sampling rate for operations that resample:
+
+        >>> return {"sampling_rate": self.target_sr}
+
+        Notes
+        -----
+        This method is called by the framework after processing to update
+        the frame metadata. Subclasses should override this method if they
+        need to update metadata (e.g., changing sampling rate).
+
+        Design principle: Operations should use parameters provided at
+        initialization (via __init__). All necessary information should be
+        available as instance variables.
+        """
+        return {}
+
     def _process_array(self, x: InputArrayType) -> OutputArrayType:
         """Processing function (implemented by subclasses)"""
         # Default is no-op function

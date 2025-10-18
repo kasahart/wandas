@@ -6,6 +6,7 @@ including loudness calculation using standardized methods.
 """
 
 import logging
+from typing import Any
 
 import numpy as np
 from mosqito.sq_metrics import loudness_zwtv as loudness_zwtv_mosqito
@@ -96,6 +97,26 @@ class LoudnessZwtv(AudioOperation[NDArrayReal, NDArrayReal]):
             raise ValueError(
                 f"field_type must be 'free' or 'diffuse', got '{self.field_type}'"
             )
+
+    def get_metadata_updates(self) -> dict[str, Any]:
+        """
+        Update sampling rate based on MoSQITo's time resolution.
+
+        The Zwicker method uses approximately 2ms time steps,
+        which corresponds to 500 Hz sampling rate, independent of
+        the input sampling rate.
+
+        Returns
+        -------
+        dict
+            Metadata updates with new sampling rate
+
+        Notes
+        -----
+        All necessary parameters are provided at initialization.
+        The output sampling rate is always 500 Hz regardless of input.
+        """
+        return {"sampling_rate": 500.0}
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """

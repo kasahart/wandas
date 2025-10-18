@@ -276,12 +276,8 @@ class ChannelProcessingMixin:
             Aw=Aw,
         )
 
-        # Update sampling rate
-        result_obj = cast(T_Processing, result)
-        if hasattr(result_obj, "sampling_rate"):
-            result_obj.sampling_rate = frame.sampling_rate / hop_length
-
-        return result_obj
+        # Sampling rate update is handled by the Operation class
+        return cast(T_Processing, result)
 
     def channel_difference(
         self: T_Processing, other_channel: Union[int, str] = 0
@@ -471,12 +467,5 @@ class ChannelProcessingMixin:
         """
         result = self.apply_operation("loudness_zwtv", field_type=field_type)
 
-        # Update sampling rate based on MoSQITo's time resolution
-        # The Zwicker method uses approximately 2ms time steps (500 Hz)
-        result_obj = cast(T_Processing, result)
-        if hasattr(result_obj, "sampling_rate"):
-            # MoSQITo's loudness_zwtv uses ~2ms time steps
-            # which corresponds to 500 Hz sampling rate
-            result_obj.sampling_rate = 500.0
-
-        return result_obj
+        # Sampling rate update is handled by the Operation class
+        return cast(T_Processing, result)

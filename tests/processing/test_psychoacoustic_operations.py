@@ -333,3 +333,12 @@ class TestLoudnessZwtvIntegration:
         # Check method exists
         assert hasattr(frame, "loudness_zwtv")
         assert callable(frame.loudness_zwtv)
+
+    def test_loudness_zwtv_metadata_updates(self) -> None:
+        """Test that LoudnessZwtv returns correct metadata updates."""
+        operation = LoudnessZwtv(sampling_rate=44100, field_type="free")
+
+        updates = operation.get_metadata_updates()
+
+        assert "sampling_rate" in updates
+        assert updates["sampling_rate"] == 500.0
