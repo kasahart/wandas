@@ -142,6 +142,12 @@ For more detailed information, API reference, and tutorials, please visit the [o
 
 より詳細な情報やAPIリファレンス、チュートリアルについては、[公式ドキュメントサイト](https://kasahart.github.io/wandas/) をご覧ください。
 
+### Design Documents
+
+For design decisions, implementation plans, and refactoring summaries, see the [Design Documents Index](docs/design/INDEX.md).
+
+設計決定、実装計画、リファクタリングサマリーについては、[設計ドキュメント一覧](docs/design/INDEX.md) をご覧ください。
+
 ## Tutorial
 
 For practical usage and advanced examples, see the [Tutorial](tutorial/00_setup.ipynb) and the [Tutorial Index](tutorial/).

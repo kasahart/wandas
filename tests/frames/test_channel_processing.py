@@ -391,6 +391,11 @@ class TestChannelProcessing:
         with mock.patch("wandas.processing.create_operation") as mock_create_op:
             mock_op = mock.MagicMock()
             mock_op.process.return_value = self.dask_data
+            # Mock get_metadata_updates to return updated sampling rate
+            hop_length = 256
+            mock_op.get_metadata_updates.return_value = {
+                "sampling_rate": self.sample_rate / hop_length
+            }
             mock_create_op.return_value = mock_op
 
             result = self.channel_frame.rms_trend(frame_length=1024, hop_length=256)
@@ -560,8 +565,78 @@ class TestChannelProcessing:
         with mock.patch("wandas.processing.create_operation") as mock_create_op:
             mock_op = mock.MagicMock()
             mock_op.process.return_value = self.dask_data
+            # Mock get_metadata_updates to return target sampling rate
+            target_sr = 8000
+            mock_op.get_metadata_updates.return_value = {"sampling_rate": target_sr}
             mock_create_op.return_value = mock_op
-            result = self.channel_frame.resampling(target_sr=8000)
+            result = self.channel_frame.resampling(target_sr=target_sr)
             self._check_channel_frame_attrs(
                 result, self.channel_frame, hop_length=2, op_key="resampling"
             )
+
+
+class TestSamplingRateUpdates:
+    """Integration tests for sampling rate updates via metadata."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.sample_rate = 44100
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        signal = np.array([0.1 * np.sin(2 * np.pi * 440 * t)])
+        self.dask_data = _da_from_array(signal, chunks=-1)
+        self.frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate)
+
+    def test_loudness_zwtv_updates_sampling_rate(self) -> None:
+        """Test that loudness_zwtv correctly updates sampling rate."""
+        loudness = self.frame.loudness_zwtv(field_type="free")
+
+        # Sampling rate should be updated to 500 Hz (2ms time steps)
+        assert loudness.sampling_rate == 500.0
+        assert loudness.sampling_rate != self.sample_rate
+
+    def test_rms_trend_updates_sampling_rate(self) -> None:
+        """Test that rms_trend correctly updates sampling rate."""
+        hop_length = 512
+        rms = self.frame.rms_trend(hop_length=hop_length)
+
+        # Sampling rate should be updated based on hop_length
+        expected_sr = self.sample_rate / hop_length
+        assert np.isclose(rms.sampling_rate, expected_sr)
+        assert rms.sampling_rate != self.sample_rate
+
+    def test_resampling_updates_sampling_rate(self) -> None:
+        """Test that resampling correctly updates sampling rate."""
+        target_sr = 16000
+        resampled = self.frame.resampling(target_sr=target_sr)
+
+        # Sampling rate should be updated to target_sr
+        assert resampled.sampling_rate == target_sr
+        assert resampled.sampling_rate != self.sample_rate
+
+    def test_operations_without_metadata_updates_preserve_sampling_rate(
+        self,
+    ) -> None:
+        """Test that operations without metadata updates preserve sampling rate."""
+        # Operations that don't change sampling rate
+        filtered = self.frame.low_pass_filter(cutoff=1000)
+        a_weighted = self.frame.a_weighting()
+        power_op = self.frame.power(exponent=2.0)
+
+        # Sampling rate should remain unchanged
+        assert filtered.sampling_rate == self.sample_rate
+        assert a_weighted.sampling_rate == self.sample_rate
+        assert power_op.sampling_rate == self.sample_rate
+
+    def test_chained_operations_with_sampling_rate_updates(self) -> None:
+        """Test chained operations that update sampling rate."""
+        # Chain operations: filter -> a_weighting -> rms_trend
+        hop_length = 512
+        result = (
+            self.frame.low_pass_filter(cutoff=5000)
+            .a_weighting()
+            .rms_trend(hop_length=hop_length)
+        )
+
+        # Final sampling rate should reflect rms_trend's update
+        expected_sr = self.sample_rate / hop_length
+        assert np.isclose(result.sampling_rate, expected_sr)

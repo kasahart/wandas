@@ -302,12 +302,8 @@ class ChannelProcessingMixin:
             Aw=Aw,
         )
 
-        # Update sampling rate
-        result_obj = cast(T_Processing, result)
-        if hasattr(result_obj, "sampling_rate"):
-            result_obj.sampling_rate = frame.sampling_rate / hop_length
-
-        return result_obj
+        # Sampling rate update is handled by the Operation class
+        return cast(T_Processing, result)
 
     def channel_difference(
         self: T_Processing, other_channel: Union[int, str] = 0
@@ -447,4 +443,55 @@ class ChannelProcessingMixin:
             center=center,
             pad_mode=pad_mode,
         )
+        return cast(T_Processing, result)
+
+    def loudness_zwtv(self: T_Processing, field_type: str = "free") -> T_Processing:
+        """
+        Calculate time-varying loudness using Zwicker method (ISO 532-1:2017).
+
+        This method computes the loudness of non-stationary signals according to
+        the Zwicker method, as specified in ISO 532-1:2017. The loudness is
+        calculated in sones, where a doubling of sones corresponds to a doubling
+        of perceived loudness.
+
+        Args:
+            field_type: Type of sound field. Options:
+                - 'free': Free field (sound from a specific direction)
+                - 'diffuse': Diffuse field (sound from all directions)
+                Default is 'free'.
+
+        Returns:
+            New ChannelFrame containing time-varying loudness values in sones.
+            Each channel is processed independently.
+            The output sampling rate is adjusted based on the loudness
+            calculation time resolution (typically ~500 Hz for 2ms steps).
+
+        Raises:
+            ValueError: If field_type is not 'free' or 'diffuse'
+
+        Examples:
+            Calculate loudness for a signal:
+            >>> import wandas as wd
+            >>> signal = wd.read_wav("audio.wav")
+            >>> loudness = signal.loudness_zwtv(field_type="free")
+            >>> loudness.plot(title="Time-varying Loudness")
+
+            Compare free field and diffuse field:
+            >>> loudness_free = signal.loudness_zwtv(field_type="free")
+            >>> loudness_diffuse = signal.loudness_zwtv(field_type="diffuse")
+
+        Notes:
+            - The output contains time-varying loudness values in sones
+            - Typical loudness: 1 sone ≈ 40 phon (loudness level)
+            - The time resolution is approximately 2ms (determined by the algorithm)
+            - For multi-channel signals, loudness is calculated per channel
+            - The output sampling rate is updated to reflect the time resolution
+
+        References:
+            ISO 532-1:2017, "Acoustics — Methods for calculating loudness —
+            Part 1: Zwicker method"
+        """
+        result = self.apply_operation("loudness_zwtv", field_type=field_type)
+
+        # Sampling rate update is handled by the Operation class
         return cast(T_Processing, result)

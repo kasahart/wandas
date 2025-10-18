@@ -384,3 +384,29 @@ class TestFixLength:
 
 # Register FixLength in the operation registry (if not done in __init__.py)
 register_operation(FixLength)
+
+
+class TestRmsTrendMetadataUpdates:
+    """Test metadata updates for RmsTrend operation."""
+
+    def test_rms_trend_metadata_updates(self) -> None:
+        """Test that RmsTrend returns correct metadata updates."""
+        operation = RmsTrend(sampling_rate=44100, frame_length=2048, hop_length=512)
+
+        updates = operation.get_metadata_updates()
+
+        assert "sampling_rate" in updates
+        expected_sr = 44100 / 512
+        assert np.isclose(updates["sampling_rate"], expected_sr)
+
+    def test_rms_trend_metadata_with_different_hop_length(self) -> None:
+        """Test metadata updates with different hop_length values."""
+        hop_length = 256
+        operation = RmsTrend(
+            sampling_rate=48000, frame_length=2048, hop_length=hop_length
+        )
+
+        updates = operation.get_metadata_updates()
+
+        expected_sr = 48000 / hop_length
+        assert np.isclose(updates["sampling_rate"], expected_sr)

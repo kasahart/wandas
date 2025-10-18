@@ -21,6 +21,9 @@ from wandas.processing.filters import (
     HighPassFilter,
     LowPassFilter,
 )
+from wandas.processing.psychoacoustic import (
+    LoudnessZwtv,
+)
 from wandas.processing.spectral import (
     CSD,
     FFT,
@@ -82,4 +85,6 @@ __all__ = [
     "Mean",
     "Power",
     "Sum",
+    # Psychoacoustic
+    "LoudnessZwtv",
 ]

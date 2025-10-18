@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 import librosa
 import numpy as np
@@ -29,6 +29,22 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         super().__init__(sampling_rate, target_sr=target_sr)
         self.target_sr = target_sr
+
+    def get_metadata_updates(self) -> dict[str, Any]:
+        """
+        Update sampling rate to target sampling rate.
+
+        Returns
+        -------
+        dict
+            Metadata updates with new sampling rate
+
+        Notes
+        -----
+        Resampling always produces output at target_sr, regardless of input
+        sampling rate. All necessary parameters are provided at initialization.
+        """
+        return {"sampling_rate": self.target_sr}
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
@@ -229,6 +245,23 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
             Aw=Aw,
             ref=self.ref,
         )
+
+    def get_metadata_updates(self) -> dict[str, Any]:
+        """
+        Update sampling rate based on hop length.
+
+        Returns
+        -------
+        dict
+            Metadata updates with new sampling rate based on hop length
+
+        Notes
+        -----
+        The output sampling rate is determined by downsampling the input
+        by hop_length. All necessary parameters are provided at initialization.
+        """
+        new_sr = self.sampling_rate / self.hop_length
+        return {"sampling_rate": new_sr}
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """

@@ -140,6 +140,9 @@ venv.bak/
 # mkdocs documentation
 /site
 
+# Design documents (temporary working files)
+docs/design/working/
+
 # mypy
 .mypy_cache/
 .dmypy.json

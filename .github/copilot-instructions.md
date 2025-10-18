@@ -12,6 +12,8 @@ pandasライクなAPIで信号処理、スペクトル解析、可視化を提�
 
 これらの原則はすべてのコード変更において最優先で遵守してください：
 
+### ドメイン固有の原則
+
 1. **Pandasライクなインターフェース**: ユーザーがpandasの操作感で信号処理できるようにする
 2. **型安全性**: mypyの厳格モードに準拠し、実行時エラーを防ぐ
 3. **チェインメソッド**: メソッドチェーンで複数の処理を直感的に記述できるようにする
@@ -19,6 +21,49 @@ pandasライクなAPIで信号処理、スペクトル解析、可視化を提�
 5. **拡張性**: ユーザーが独自の処理を追加しやすい設計にする
 6. **テスタビリティ**: すべての機能が独立してテスト可能な設計にする
 7. **ドキュメント駆動**: コードの意図が明確に伝わるドキュメントを提供する
+
+### 普遍的な設計原則
+
+すべての実装はこれらの基本原則に従ってください：
+
+#### SOLID原則
+
+1. **Single Responsibility Principle（単一責任の原則）**
+   - 各クラス・関数は1つの責任のみを持つ
+   - 変更する理由は1つだけ
+
+2. **Open-Closed Principle（開放閉鎖の原則）**
+   - 拡張には開いている（新機能を追加できる）
+   - 修正には閉じている（既存コードを変更不要）
+
+3. **Liskov Substitution Principle（リスコフの置換原則）**
+   - 派生型は基本型と置き換え可能
+   - 継承関係の正しさを保証
+
+4. **Interface Segregation Principle（インターフェース分離の原則）**
+   - クライアントは使用しないメソッドに依存すべきでない
+   - 小さく焦点を絞ったインターフェース
+
+5. **Dependency Inversion Principle（依存性逆転の原則）**
+   - 上位モジュールは下位モジュールに依存しない
+   - 両者とも抽象に依存する
+
+#### その他の重要な原則
+
+1. **YAGNI (You Aren't Gonna Need It)**
+   - 必要になるまで実装しない
+   - 過剰設計を避ける
+   - 実際に使われる機能のみを実装
+
+2. **KISS (Keep It Simple, Stupid)**
+   - シンプルさを保つ
+   - 複雑性を最小化
+   - 理解しやすいコードを書く
+
+3. **DRY (Don't Repeat Yourself)**
+   - コードの重複を避ける
+   - 再利用可能なコンポーネントを設計
+   - 知識の重複を排除
 
 ## コーディング規約
 
@@ -587,19 +632,26 @@ def old_method(self, param: float) -> "ChannelFrame":
 
 コードを変更する際は、以下の手順を**必ず**順守してください：
 
+### 0. 既存の設計ドキュメントを確認
+- **変更を始める前に、必ず `docs/design/INDEX.md` を確認**してください
+- 類似の機能やリファクタリングが過去に行われていないか確認
+- 既存のガイドドキュメントから設計パターンを学ぶ
+- 特に以下のドキュメントは重要な設計原則を含んでいます：
+  - `docs/design/guides/metadata-encapsulation.md` - メタデータ更新パターン
+  - `docs/design/guides/api-improvements.md` - API改善パターン
+  - `.github/copilot-instructions.md` - このガイドライン
+
 ### 1. 変更プランの作成
 - **変更プランを記載したMarkdownファイルを作成**してください
-- ファイル名: `PLAN_<機能名または変更内容>.md`（例: `PLAN_add_bandpass_filter.md`）
+- ファイル名: `docs/design/working/plans/PLAN_<機能名>.md`（例: `PLAN_add_bandpass_filter.md`）
+- **Git管理外**（`.gitignore`に登録済み）のため、自由に編集可能
 - プランには以下の内容を**すべて**含めてください：
   - **変更の目的と背景**: なぜこの変更が必要か
-  - **影響を受けるファイルとモジュール**: 変更するファイルのリスト
   - **実装方針と技術的な詳細**: どのように実装するか
   - **テスト戦略**: どのようなテストケースが必要か
   - **想定されるリスクと対応策**: 何が問題になりうるか
-  - **後方互換性**: 既存コードへの影響
-  - **ドキュメント更新計画**: どのドキュメントを更新するか
 - **変更作業中は常にこのプランファイルを参照**してください
-- プランファイルは変更完了後もリポジトリに残してください（将来の参照用）
+- **実装完了後**: 削除または放置（gitignoreされているため問題なし）
 
 ### 2. 変更プランのレビュー
 実装前に以下の観点で**必ず**レビューを実施してください：
@@ -684,6 +736,12 @@ def test_new_feature_records_operation_history():
 - [ ] 他のモジュールとの統合テストが通るか
 - [ ] 既存の機能に影響がないか（リグレッションテスト）
 - [ ] パフォーマンステストが通るか（該当する場合）
+
+#### 設計ドキュメントチェックリスト
+- [ ] 実装完了後、重要な設計決定があれば`working/drafts/`にSUMMARY下書きを作成したか
+- [ ] 清書して`guides/`に移動したか（必要な場合）
+- [ ] `docs/design/INDEX.md`を更新したか
+- [ ] ドキュメントライフサイクルルール（`docs/design/DOCUMENT_LIFECYCLE.md`）に従っているか
 
 ## ツールとワークフロー
 
@@ -891,9 +949,14 @@ def test_fft_performance(benchmark, sample_signal):
 3. その行を実行するテストケースを追加
 
 ## 参考資料
+
+### プロジェクト固有
+- **設計ドキュメント一覧**: `docs/DESIGN_DOCUMENTS.md` - 過去の設計決定とパターンの記録
 - **プロジェクトドキュメント**: https://kasahart.github.io/wandas/
 - **リポジトリ**: https://github.com/kasahart/wandas
 - **Issue Tracker**: https://github.com/kasahart/wandas/issues
+
+### 外部リソース
 - **NumPy Docstring Guide**: https://numpydoc.readthedocs.io/
 - **Python Type Hints**: https://docs.python.org/3/library/typing.html
 - **pytest Documentation**: https://docs.pytest.org/
@@ -902,7 +965,7 @@ def test_fft_performance(benchmark, sample_signal):
 
 このガイドラインは進化し続けます。改善提案がある場合は：
 1. Issueで議論を開始
-2. このガイドライン自体の変更プラン（PLAN_update_guidelines.md）を作成
+2. このガイドライン自体の変更プラン（`working/plans/PLAN_update_guidelines.md`）を作成
 3. プルリクエストを送信
 
 ---

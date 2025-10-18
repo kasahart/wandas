@@ -148,22 +148,22 @@ class ChannelFrame(
         new_metadata = {**self.metadata}
         new_metadata[operation_name] = params
 
+        # Get metadata updates from operation
+        metadata_updates = operation.get_metadata_updates()
+
         logger.debug(
             f"Created new ChannelFrame with operation {operation_name} added to graph"
         )
-        if operation_name == "resampling":
-            # For resampling, update sampling rate
-            return self._create_new_instance(
-                sampling_rate=params["target_sr"],
-                data=processed_data,
-                metadata=new_metadata,
-                operation_history=new_history,
-            )
-        return self._create_new_instance(
-            data=processed_data,
-            metadata=new_metadata,
-            operation_history=new_history,
-        )
+
+        # Apply metadata updates (including sampling_rate if specified)
+        creation_params: dict[str, Any] = {
+            "data": processed_data,
+            "metadata": new_metadata,
+            "operation_history": new_history,
+        }
+        creation_params.update(metadata_updates)
+
+        return self._create_new_instance(**creation_params)
 
     def _binary_op(
         self,
