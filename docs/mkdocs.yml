@@ -100,7 +100,9 @@ nav:
   - Home: index.md
   - Tutorials: tutorial/index.md
   - API Reference: api/index.md
-  - Theory & Architecture: explanation/index.md
+  - Theory & Architecture:
+      - explanation/index.md
+      - Psychoacoustic Metrics: explanation/psychoacoustic_metrics.md
   - Contributing Guide: contributing.md
 
 # ─── 追加設定 ──────────────────────────────
