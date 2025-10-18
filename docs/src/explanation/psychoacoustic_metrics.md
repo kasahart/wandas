@@ -221,8 +221,215 @@ print(f"時間軸: {time_axis[:10]}...")  # 最初の10個の時間点
 - **Zwicker, E., & Fastl, H. (1999)**: Psychoacoustics: Facts and models (2nd ed.). Springer.
 - **MoSQIToライブラリ**: https://mosqito.readthedocs.io/en/latest/
 
+---
+
+## ラウドネス（定常信号）
+
+### 概要
+
+`loudness_zwst()` メソッドは、ISO 532-1:2017に従ったZwicker法を使用して、定常信号のラウドネスを計算します。このメソッドは、ファンノイズ、定常的な機械音などの持続的な音の評価に適しています。
+
+### 非定常ラウドネスとの違い
+
+| 特性 | 時間変化（`loudness_zwtv`） | 定常（`loudness_zwst`） |
+|------|---------------------------|----------------------|
+| **対象信号** | 非定常（時間変化する音） | 定常（持続的な音） |
+| **使用例** | 音声、音楽、過渡音 | ファンノイズ、定常機械音 |
+| **出力** | 時系列のラウドネス値 | 単一のラウドネス値 |
+| **出力形状** | (channels, time_samples) | (channels, 1) |
+| **サンプリングレート** | ~500 Hzに更新 | 変更なし（単一値） |
+
+### 使用方法
+
+#### 基本的な使い方
+
+```python
+import wandas as wd
+
+# 定常信号を読み込む（ファンノイズなど）
+signal = wd.read_wav("fan_noise.wav")
+
+# 定常ラウドネスを計算（自由音場）
+loudness = signal.loudness_zwst()
+
+# 結果を表示
+print(f"定常ラウドネス: {loudness.data[0, 0]:.2f} sones")
+```
+
+#### 音場タイプの選択
+
+時間変化するラウドネスと同様に、2種類の音場をサポートしています：
+
+```python
+# 自由音場（デフォルト）
+loudness_free = signal.loudness_zwst(field_type="free")
+
+# 拡散音場
+loudness_diffuse = signal.loudness_zwst(field_type="diffuse")
+
+print(f"自由音場: {loudness_free.data[0, 0]:.2f} sones")
+print(f"拡散音場: {loudness_diffuse.data[0, 0]:.2f} sones")
+```
+
+### メソッドシグネチャ
+
+```python
+def loudness_zwst(self, field_type: str = "free") -> ChannelFrame:
+    """
+    Zwicker法を使用して定常ラウドネスを計算
+    
+    Parameters
+    ----------
+    field_type : str, default="free"
+        音場のタイプ（'free' または 'diffuse'）
+    
+    Returns
+    -------
+    ChannelFrame
+        ソーン単位の定常ラウドネス値（各チャンネルごとに1つの値）
+    """
+```
+
+### 出力
+
+このメソッドは以下を含む `ChannelFrame` を返します：
+
+- **単一のラウドネス値**（ソーン単位、各チャンネルごと）
+- **出力形状**: (channels, 1)
+- **マルチチャンネル処理**: 各チャンネルが独立して処理されます
+
+### 使用例
+
+#### 例1: ファンノイズの評価
+
+```python
+import wandas as wd
+
+# ファンノイズを読み込む
+fan_signal = wd.read_wav("fan_noise.wav")
+
+# 定常ラウドネスを計算
+loudness = fan_signal.loudness_zwst(field_type="free")
+
+# 結果を表示
+print(f"ファンノイズのラウドネス: {loudness.data[0, 0]:.2f} sones")
+```
+
+#### 例2: 複数の定常音源の比較
+
+```python
+import wandas as wd
+
+# 異なる定常音源を読み込む
+fan1 = wd.read_wav("fan1.wav")
+fan2 = wd.read_wav("fan2.wav")
+
+# 定常ラウドネスを計算
+loudness1 = fan1.loudness_zwst()
+loudness2 = fan2.loudness_zwst()
+
+# 比較
+print(f"Fan 1: {loudness1.data[0, 0]:.2f} sones")
+print(f"Fan 2: {loudness2.data[0, 0]:.2f} sones")
+
+if loudness1.data[0, 0] > loudness2.data[0, 0]:
+    print("Fan 1 is louder")
+else:
+    print("Fan 2 is louder")
+```
+
+#### 例3: ステレオ定常音源の処理
+
+```python
+import wandas as wd
+
+# ステレオの定常音源を読み込む
+stereo_signal = wd.read_wav("stereo_steady_noise.wav")
+
+# 定常ラウドネスを計算（各チャンネル独立）
+loudness = stereo_signal.loudness_zwst()
+
+# 各チャンネルの結果を表示
+print(f"左チャンネル: {loudness.data[0, 0]:.2f} sones")
+print(f"右チャンネル: {loudness.data[1, 0]:.2f} sones")
+```
+
+#### 例4: 自由音場と拡散音場の比較
+
+```python
+import wandas as wd
+
+# 定常信号を読み込む
+signal = wd.read_wav("steady_noise.wav")
+
+# 両方の音場タイプで計算
+loudness_free = signal.loudness_zwst(field_type="free")
+loudness_diffuse = signal.loudness_zwst(field_type="diffuse")
+
+# 比較
+print(f"自由音場: {loudness_free.data[0, 0]:.2f} sones")
+print(f"拡散音場: {loudness_diffuse.data[0, 0]:.2f} sones")
+print(f"差: {abs(loudness_free.data[0, 0] - loudness_diffuse.data[0, 0]):.2f} sones")
+```
+
+#### 例5: MoSQIToを直接使用
+
+より詳細な出力が必要な場合は、MoSQIToを直接使用できます：
+
+```python
+from mosqito.sq_metrics.loudness.loudness_zwst import loudness_zwst
+import wandas as wd
+
+signal = wd.read_wav("steady_noise.wav")
+data = signal.data[0]  # 最初のチャンネルを取得
+
+# MoSQIToを直接呼び出す
+N, N_spec, bark_axis = loudness_zwst(
+    data, signal.sampling_rate, field_type="free"
+)
+
+print(f"ラウドネス: {N:.2f} sones")
+print(f"特定ラウドネスの形状: {N_spec.shape}")
+print(f"バーク軸: {bark_axis}")
+```
+
+### 技術的詳細
+
+#### アルゴリズム
+
+定常ラウドネスの計算は、時間変化するラウドネスと同じZwicker法に基づいていますが、単一の代表値を出力します：
+
+1. **外耳伝達関数**: 外耳のフィルタリング効果をシミュレート
+2. **中耳伝達関数**: 中耳の伝達をモデル化
+3. **励起パターン**: 基底膜に沿った励起を計算
+4. **特定ラウドネス**: 各臨界帯域でラウドネスを決定
+5. **総ラウドネス**: すべての臨界帯域にわたって特定ラウドネスを積分
+
+#### 計算の複雑さ
+
+- 定常信号を想定しているため、時間変化するラウドネスよりも計算が簡略化されます
+- 処理時間は信号の長さに依存しますが、単一の値のみを出力します
+- メモリ使用量は小さい（単一のラウドネス値のみを保存）
+
+### 制限事項
+
+1. **サンプリングレート**: 44.1 kHz以上のサンプリングレートで最良の結果が得られます
+2. **信号レベル**: 可聴範囲内の信号（通常20-100 dB SPL）で正確です
+3. **定常性の仮定**: このメソッドは定常信号用に設計されています。時間変化する信号には `loudness_zwtv()` を使用してください
+4. **キャリブレーション**: 物理単位（Pa）への適切な信号キャリブレーションを前提としています
+
+### 標準と参考文献
+
+- **ISO 532-1:2017**: "Acoustics — Methods for calculating loudness — Part 1: Zwicker method"
+- **Zwicker, E., & Fastl, H. (1999)**: Psychoacoustics: Facts and models (2nd ed.). Springer.
+- **MoSQIToライブラリ**: https://mosqito.readthedocs.io/en/latest/
+
+---
+
 ### 関連する操作
 
+- `loudness_zwtv()`: 時間変化するラウドネスを計算（非定常信号用）
+- `loudness_zwst()`: 定常ラウドネスを計算（定常信号用）
 - `a_weighting()`: A特性フィルタを適用（人間の聴覚を近似する周波数重み付け）
 - `noct_spectrum()`: Nオクターブバンドスペクトルを計算
 - `rms_trend()`: 時間に沿ったRMSトレンドを計算
