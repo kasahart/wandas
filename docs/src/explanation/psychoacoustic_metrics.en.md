@@ -285,8 +285,8 @@ loudness_free = signal.loudness_zwst(field_type="free")
 # Diffuse field
 loudness_diffuse = signal.loudness_zwst(field_type="diffuse")
 
-print(f"Free field: {loudness_free.data[0, 0]:.2f} sones")
-print(f"Diffuse field: {loudness_diffuse.data[0, 0]:.2f} sones")
+print(f"Free field: {loudness_free[0]:.2f} sones")
+print(f"Diffuse field: {loudness_diffuse[0]:.2f} sones")
 ```
 
 ### Method Signature
