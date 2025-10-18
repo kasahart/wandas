@@ -59,6 +59,7 @@ Issues = "https://github.com/kasahart/wandas/issues"
 [tool.uv]
 dev-dependencies = [
     "pytest>=8.3.5",
+    "pytest-xdist>=3.6.1",
     "pandas",
     "pandas-stubs",
     "pytest-cov",
@@ -121,6 +122,7 @@ norecursedirs = ["scripts"]
 ruff-check = { command = "uv run ruff check wandas tests", label = "Run ruff check" }
 mypy = { command = "uv run mypy", label = "Run mypy wandas tests" }
 pytest = { command = "uv run pytest", label = "Run pytest" }
+pytest-parallel = { command = "uv run pytest -n auto", label = "Run pytest (parallel)" }
 
 [tool.pre-commit]
 use-uv = true

@@ -69,6 +69,12 @@ Performance considerations when using Wandas:
 - When building complex processing chains, improve performance by caching intermediate results
 - Multi-channel processing efficiently utilizes multi-core processors
 
+## Psychoacoustic Metrics
+
+Wandas provides psychoacoustic metrics for analyzing audio signals based on human perception:
+
+- **[Loudness Calculation](psychoacoustic_metrics.en.md)**: Time-varying loudness calculation using Zwicker method according to ISO 532-1:2017
+
 ## References
 
 1. Smith, J. O. (2011). Spectral Audio Signal Processing. W3K Publishing.

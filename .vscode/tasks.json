@@ -16,6 +16,12 @@
         {
             "label": "Run pytest",
             "type": "shell",
+            "command": "uv run pytest -n auto",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run pytest (serial)",
+            "type": "shell",
             "command": "uv run pytest",
             "problemMatcher": []
         },
