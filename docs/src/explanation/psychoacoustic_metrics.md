@@ -267,8 +267,8 @@ loudness_free = signal.loudness_zwst(field_type="free")
 # 拡散音場
 loudness_diffuse = signal.loudness_zwst(field_type="diffuse")
 
-print(f"自由音場: {loudness_free.data[0, 0]:.2f} sones")
-print(f"拡散音場: {loudness_diffuse.data[0, 0]:.2f} sones")
+print(f"自由音場: {loudness_free[0]:.2f} sones")
+print(f"拡散音場: {loudness_diffuse[0]:.2f} sones")
 ```
 
 ### メソッドシグネチャ
