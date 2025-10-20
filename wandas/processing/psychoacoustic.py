@@ -11,6 +11,7 @@ from typing import Any
 import numpy as np
 from mosqito.sq_metrics import loudness_zwst as loudness_zwst_mosqito
 from mosqito.sq_metrics import loudness_zwtv as loudness_zwtv_mosqito
+from mosqito.sq_metrics import roughness_dw as roughness_dw_mosqito
 
 from wandas.processing.base import AudioOperation, register_operation
 from wandas.utils.types import NDArrayReal
@@ -406,3 +407,216 @@ class LoudnessZwst(AudioOperation[NDArrayReal, NDArrayReal]):
 
 # Register the operation
 register_operation(LoudnessZwst)
+
+
+class RoughnessDw(AudioOperation[NDArrayReal, NDArrayReal]):
+    """
+    Calculate time-varying roughness using Daniel and Weber method.
+
+    This operation computes the roughness of audio signals according to
+    the Daniel and Weber (1997) method. It uses the MoSQITo library's
+    implementation of the standardized roughness calculation.
+
+    Roughness is a psychoacoustic metric that quantifies the perceived
+    harshness or roughness of a sound. The unit is asper, where higher
+    values indicate rougher sounds.
+
+    The calculation follows the standard formula:
+    R = 0.25 * sum(R'_i) for i=1 to 47 Bark bands
+
+    Parameters
+    ----------
+    sampling_rate : float
+        Sampling rate in Hz. The signal should be sampled at a rate appropriate
+        for the analysis (typically 44100 Hz or 48000 Hz for audio).
+    overlap : float, default=0.5
+        Overlapping coefficient for the analysis windows (0.0 to 1.0).
+        The analysis uses 200ms windows:
+        - overlap=0.5: 100ms hop size → ~10 Hz output sampling rate
+        - overlap=0.0: 200ms hop size → ~5 Hz output sampling rate
+
+    Attributes
+    ----------
+    name : str
+        Operation name: "roughness_dw"
+    overlap : float
+        The overlapping coefficient used for calculation
+
+    Examples
+    --------
+    Calculate roughness for a signal:
+    >>> import wandas as wd
+    >>> signal = wd.read_wav("motor_noise.wav")
+    >>> roughness = signal.roughness_dw(overlap=0.5)
+    >>> print(f"Mean roughness: {roughness.data.mean():.2f} asper")
+
+    Notes
+    -----
+    - The output contains time-varying roughness values in asper
+    - For mono signals, the roughness is calculated directly
+    - For multi-channel signals, roughness is calculated per channel
+    - The method follows Daniel & Weber (1997) standard
+    - Typical roughness values: 0-2 asper for most sounds
+    - Higher overlap values provide better time resolution but increase
+      computational cost
+
+    References
+    ----------
+    .. [1] Daniel, P., & Weber, R. (1997). "Psychoacoustical roughness:
+           Implementation of an optimized model." Acustica, 83, 113-123.
+    .. [2] MoSQITo documentation:
+           https://mosqito.readthedocs.io/en/latest/
+    """
+
+    name = "roughness_dw"
+
+    def __init__(self, sampling_rate: float, overlap: float = 0.5) -> None:
+        """
+        Initialize Roughness calculation operation.
+
+        Parameters
+        ----------
+        sampling_rate : float
+            Sampling rate (Hz)
+        overlap : float, default=0.5
+            Overlapping coefficient (0.0 to 1.0)
+        """
+        self.overlap = overlap
+        super().__init__(sampling_rate, overlap=overlap)
+
+    def validate_params(self) -> None:
+        """
+        Validate parameters.
+
+        Raises
+        ------
+        ValueError
+            If overlap is not in [0.0, 1.0]
+        """
+        if not 0.0 <= self.overlap <= 1.0:
+            raise ValueError(f"overlap must be in [0.0, 1.0], got {self.overlap}")
+
+    def get_metadata_updates(self) -> dict[str, Any]:
+        """
+        Update sampling rate based on overlap and window size.
+
+        The Daniel & Weber method uses 200ms windows. The output
+        sampling rate depends on the overlap:
+        - overlap=0.0: hop=200ms → fs=5 Hz
+        - overlap=0.5: hop=100ms → fs=10 Hz
+        - overlap=0.75: hop=50ms → fs=20 Hz
+
+        Returns
+        -------
+        dict
+            Metadata updates with new sampling rate
+
+        Notes
+        -----
+        The output sampling rate is approximately 1 / (0.2 * (1 - overlap)) Hz.
+        """
+        window_duration = 0.2  # 200ms window
+        hop_duration = window_duration * (1 - self.overlap)
+        output_sampling_rate = 1.0 / hop_duration if hop_duration > 0 else 5.0
+        return {"sampling_rate": output_sampling_rate}
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """
+        Calculate output data shape after operation.
+
+        The roughness calculation produces a time-varying output where the
+        number of time points depends on the signal length and overlap.
+
+        Parameters
+        ----------
+        input_shape : tuple
+            Input data shape (channels, samples)
+
+        Returns
+        -------
+        tuple
+            Output data shape (channels, time_samples)
+        """
+        n_channels = input_shape[0] if len(input_shape) > 1 else 1
+        n_samples = input_shape[-1]
+
+        # Estimate output length based on window size and overlap
+        window_samples = int(0.2 * self.sampling_rate)  # 200ms
+        hop_samples = int(window_samples * (1 - self.overlap))
+
+        if hop_samples > 0:
+            estimated_time_samples = max(
+                1, (n_samples - window_samples) // hop_samples + 1
+            )
+        else:
+            estimated_time_samples = 1
+
+        return (n_channels, estimated_time_samples)
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """
+        Process array to calculate roughness.
+
+        This method calculates the time-varying roughness for each channel
+        of the input signal using the Daniel and Weber method.
+
+        Parameters
+        ----------
+        x : NDArrayReal
+            Input signal array with shape (channels, samples) or (samples,)
+
+        Returns
+        -------
+        NDArrayReal
+            Time-varying roughness in asper for each channel.
+            Shape: (channels, time_samples)
+
+        Notes
+        -----
+        The function processes each channel independently and returns
+        the total roughness values (R). The specific roughness per Bark
+        band (R_spec) is not returned by this operation but can be obtained
+        using the roughness_dw_spec method.
+        """
+        logger.debug(
+            f"Calculating roughness for signal with shape: {x.shape}, "
+            f"overlap: {self.overlap}"
+        )
+
+        # Handle 1D input (single channel)
+        if x.ndim == 1:
+            x = x.reshape(1, -1)
+
+        n_channels = x.shape[0]
+        roughness_results = []
+
+        for ch in range(n_channels):
+            channel_data = x[ch, :]
+
+            # Ensure channel_data is a contiguous 1D NumPy array
+            channel_data = np.asarray(channel_data).ravel()
+
+            # Call MoSQITo's roughness_dw function
+            # Returns: R (total roughness), R_spec (specific roughness),
+            #          bark_axis, time_axis
+            roughness_r, _, _, _ = roughness_dw_mosqito(
+                channel_data, self.sampling_rate, overlap=self.overlap
+            )
+
+            roughness_results.append(roughness_r)
+
+            logger.debug(
+                f"Channel {ch}: Calculated roughness with "
+                f"{len(roughness_r)} time points, "
+                f"max roughness: {np.max(roughness_r):.2f} asper"
+            )
+
+        # Stack results
+        result: NDArrayReal = np.stack(roughness_results, axis=0)
+
+        logger.debug(f"Roughness calculation complete, output shape: {result.shape}")
+        return result
+
+
+# Register the operation
+register_operation(RoughnessDw)

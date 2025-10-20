@@ -5,9 +5,10 @@ import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 from mosqito.sq_metrics import loudness_zwst, loudness_zwtv
+from mosqito.sq_metrics import roughness_dw as roughness_dw_mosqito
 
 from wandas.processing.base import create_operation, get_operation
-from wandas.processing.psychoacoustic import LoudnessZwst, LoudnessZwtv
+from wandas.processing.psychoacoustic import LoudnessZwst, LoudnessZwtv, RoughnessDw
 from wandas.utils.types import NDArrayReal
 
 _da_from_array = da.from_array  # type: ignore [unused-ignore]
@@ -303,6 +304,68 @@ class TestLoudnessZwtv:
 
         # Time resolution should match exactly
         assert result.shape[1] == len(n_direct)
+
+    def test_time_axis_values(self) -> None:
+        """Test that time axis is correctly calculated based on sampling rate."""
+        from wandas.frames.channel import ChannelFrame
+
+        # Create frame and calculate loudness
+        dask_data = _da_from_array(self.signal_mono, chunks=-1)
+        frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
+        loudness_frame = frame.loudness_zwtv(field_type=self.field_type)
+
+        # wandas time axis should be evenly spaced based on output sampling rate
+        time_wandas = loudness_frame.time
+        expected_sampling_rate = 500.0  # LoudnessZwtv outputs at 500 Hz
+
+        # Check time axis properties
+        assert len(time_wandas) > 0
+        assert time_wandas[0] == 0.0  # Start at 0
+
+        # Check that time axis is evenly spaced with correct sampling rate
+        if len(time_wandas) > 1:
+            time_steps = np.diff(time_wandas)
+            expected_step = 1.0 / expected_sampling_rate
+
+            np.testing.assert_allclose(
+                time_steps,
+                expected_step,
+                rtol=1e-10,
+                err_msg="Time steps are not evenly spaced",
+            )
+
+            # Verify sampling rate matches expected
+            assert loudness_frame.sampling_rate == expected_sampling_rate, (
+                f"Expected {expected_sampling_rate} Hz, "
+                f"got {loudness_frame.sampling_rate}"
+            )
+
+    def test_plot_method_exists_and_works(self) -> None:
+        """Test that loudness ChannelFrame can be plotted."""
+        import matplotlib.pyplot as plt
+
+        from wandas.frames.channel import ChannelFrame
+
+        # Create frame and calculate loudness
+        dask_data = _da_from_array(self.signal_mono, chunks=-1)
+        frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
+        loudness_frame = frame.loudness_zwtv(field_type=self.field_type)
+
+        # Test plot method exists
+        assert hasattr(loudness_frame, "plot")
+        assert callable(loudness_frame.plot)
+
+        # Test plot execution without error (use overlay=True for single Axes)
+        fig, ax = plt.subplots()
+        result_ax = loudness_frame.plot(
+            ax=ax, title="Test Loudness", ylabel="Loudness [sones]", overlay=True
+        )
+
+        assert result_ax is ax
+        assert ax.get_ylabel() == "Loudness [sones]"
+        assert ax.get_title() == "Test Loudness"
+
+        plt.close(fig)
 
 
 class TestLoudnessZwtvIntegration:
@@ -740,3 +803,377 @@ class TestLoudnessZwstIntegration:
 
         # Results should match
         np.testing.assert_allclose(loudness_wandas[0], n_direct, rtol=1e-10)
+
+
+class TestRoughnessDw:
+    """Test suite for RoughnessDw operation."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures for each test."""
+        self.sample_rate: int = 48000
+        self.duration: float = 0.5  # 0.5s for roughness calculation
+        self.overlap: float = 0.5
+
+        # Create test signal: AM modulated tone (typical roughness stimulus)
+        # 1 kHz carrier modulated at 70 Hz (known to produce roughness)
+        t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
+        carrier_freq = 1000.0
+        modulation_freq = 70.0
+        amplitude = 0.1
+
+        # AM signal: carrier * (1 + modulation_depth * sin(mod_freq))
+        modulation_depth = 1.0
+        carrier = np.sin(2 * np.pi * carrier_freq * t)
+        modulation = 1 + modulation_depth * np.sin(2 * np.pi * modulation_freq * t)
+        self.signal_mono: NDArrayReal = np.array([amplitude * carrier * modulation])
+
+        # Create stereo signal with different modulation frequencies
+        modulation2 = 1 + modulation_depth * np.sin(2 * np.pi * 40 * t)
+        self.signal_stereo: NDArrayReal = np.vstack(
+            [
+                amplitude * carrier * modulation,
+                amplitude * carrier * modulation2,
+            ]
+        )
+
+        # Create dask arrays
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=-1)
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=-1)
+
+        # Create operation instance
+        self.roughness_op = RoughnessDw(self.sample_rate, overlap=self.overlap)
+
+    def test_initialization(self) -> None:
+        """Test RoughnessDw initialization with different parameters."""
+        # Default initialization
+        roughness = RoughnessDw(self.sample_rate)
+        assert roughness.sampling_rate == self.sample_rate
+        assert roughness.overlap == 0.5
+
+        # Custom overlap
+        roughness_custom = RoughnessDw(self.sample_rate, overlap=0.0)
+        assert roughness_custom.overlap == 0.0
+
+    def test_invalid_overlap(self) -> None:
+        """Test that invalid overlap raises ValueError."""
+        with pytest.raises(ValueError, match="overlap must be in"):
+            RoughnessDw(self.sample_rate, overlap=1.5)
+
+        with pytest.raises(ValueError, match="overlap must be in"):
+            RoughnessDw(self.sample_rate, overlap=-0.1)
+
+    def test_operation_name(self) -> None:
+        """Test that operation has correct name."""
+        assert self.roughness_op.name == "roughness_dw"
+
+    def test_operation_registration(self) -> None:
+        """Test that operation is properly registered."""
+        op_class = get_operation("roughness_dw")
+        assert op_class == RoughnessDw
+
+    def test_create_operation(self) -> None:
+        """Test creating operation via create_operation function."""
+        op = create_operation("roughness_dw", self.sample_rate, overlap=0.75)
+        assert isinstance(op, RoughnessDw)
+        assert op.overlap == 0.75
+
+    def test_mono_signal_shape(self) -> None:
+        """Test roughness calculation output shape for mono signal."""
+        result = self.roughness_op.process_array(self.signal_mono).compute()
+
+        # Result should be 2D (channels, time_samples)
+        assert result.ndim == 2
+        assert result.shape[0] == 1  # 1 channel
+        # Time samples should be less than input samples (windowed processing)
+        assert result.shape[1] < self.signal_mono.shape[1]
+        assert result.shape[1] > 0
+
+    def test_stereo_signal_shape(self) -> None:
+        """Test roughness calculation output shape for stereo signal."""
+        result = self.roughness_op.process_array(self.signal_stereo).compute()
+
+        # Result should be 2D (channels, time_samples)
+        assert result.ndim == 2
+        assert result.shape[0] == 2  # 2 channels
+        assert result.shape[1] > 0
+
+    def test_comparison_with_mosqito_direct(self) -> None:
+        """Test that values match MoSQITo direct calculation."""
+        # Calculate using our operation
+        our_result = self.roughness_op.process_array(self.signal_mono).compute()
+
+        # Calculate using MoSQITo directly
+        r_direct, _, _, _ = roughness_dw_mosqito(
+            self.signal_mono[0], self.sample_rate, overlap=self.overlap
+        )
+
+        # Results should match MoSQITo exactly
+        np.testing.assert_array_equal(
+            our_result[0],
+            r_direct,
+            err_msg="Roughness values differ from direct MoSQITo calculation",
+        )
+
+    def test_stereo_matches_mosqito(self) -> None:
+        """Test stereo signal matches MoSQITo for each channel."""
+        result = self.roughness_op.process_array(self.signal_stereo).compute()
+
+        # Compare with MoSQITo direct calculation for each channel
+        r_ch1_direct, _, _, _ = roughness_dw_mosqito(
+            self.signal_stereo[0], self.sample_rate, overlap=self.overlap
+        )
+        r_ch2_direct, _, _, _ = roughness_dw_mosqito(
+            self.signal_stereo[1], self.sample_rate, overlap=self.overlap
+        )
+
+        # Results should match MoSQITo exactly
+        np.testing.assert_array_equal(result[0], r_ch1_direct)
+        np.testing.assert_array_equal(result[1], r_ch2_direct)
+
+    def test_overlap_affects_time_resolution(self) -> None:
+        """Test that overlap affects output time resolution."""
+        # Test with different overlap values
+        roughness_overlap0 = RoughnessDw(self.sample_rate, overlap=0.0)
+        roughness_overlap05 = RoughnessDw(self.sample_rate, overlap=0.5)
+
+        result_overlap0 = roughness_overlap0.process_array(self.signal_mono).compute()
+        result_overlap05 = roughness_overlap05.process_array(self.signal_mono).compute()
+
+        # Higher overlap should give more time points
+        # (overlap=0.5 has 100ms hop, overlap=0.0 has 200ms hop)
+        # So overlap=0.5 should have approximately 2x more points
+        assert result_overlap05.shape[1] > result_overlap0.shape[1]
+
+    def test_roughness_values_range(self) -> None:
+        """Test that roughness values are in reasonable range."""
+        result = self.roughness_op.process_array(self.signal_mono).compute()
+
+        # Roughness values should be non-negative
+        assert np.all(result >= 0)
+
+        # For our AM signal, roughness should be detectable (> 0)
+        assert np.max(result) > 0
+
+        # Compare with MoSQITo direct calculation
+        r_direct, _, _, _ = roughness_dw_mosqito(
+            self.signal_mono[0], self.sample_rate, overlap=self.overlap
+        )
+
+        # Verify it matches MoSQITo
+        np.testing.assert_array_equal(result[0], r_direct)
+
+    def test_silence_produces_low_roughness(self) -> None:
+        """Test that silence produces near-zero roughness."""
+        silence = np.zeros((1, int(self.sample_rate * self.duration)))
+
+        result = self.roughness_op.process_array(silence).compute()
+
+        # Compare with MoSQITo direct calculation
+        r_direct, _, _, _ = roughness_dw_mosqito(
+            silence[0], self.sample_rate, overlap=self.overlap
+        )
+
+        # Results should match MoSQITo exactly
+        np.testing.assert_array_equal(result[0], r_direct)
+
+        # Roughness should be very low for silence
+        assert np.all(result < 0.01)
+
+    def test_process_with_dask(self) -> None:
+        """Test that process method works with dask arrays."""
+        result = self.roughness_op.process(self.dask_mono).compute()
+
+        # Compare with MoSQITo direct calculation
+        r_direct, _, _, _ = roughness_dw_mosqito(
+            self.signal_mono[0], self.sample_rate, overlap=self.overlap
+        )
+
+        # Results should match MoSQITo exactly
+        np.testing.assert_array_equal(result[0], r_direct)
+
+    def test_multi_channel_independence(self) -> None:
+        """Test that each channel is processed independently."""
+        result = self.roughness_op.process_array(self.signal_stereo).compute()
+
+        # Compare each channel with MoSQITo direct calculation
+        r_ch1_direct, _, _, _ = roughness_dw_mosqito(
+            self.signal_stereo[0], self.sample_rate, overlap=self.overlap
+        )
+        r_ch2_direct, _, _, _ = roughness_dw_mosqito(
+            self.signal_stereo[1], self.sample_rate, overlap=self.overlap
+        )
+
+        # Results should match MoSQITo exactly for each channel
+        np.testing.assert_array_equal(result[0], r_ch1_direct)
+        np.testing.assert_array_equal(result[1], r_ch2_direct)
+
+    def test_1d_input_handling(self) -> None:
+        """Test that 1D input is properly handled."""
+        # Create 1D signal
+        t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
+        signal_1d = 0.1 * np.sin(2 * np.pi * 1000 * t)
+
+        result = self.roughness_op.process_array(signal_1d).compute()
+
+        # Should be reshaped to 2D with 1 channel
+        assert result.ndim == 2
+        assert result.shape[0] == 1
+
+    def test_consistency_across_calls(self) -> None:
+        """Test that repeated calls with same input produce same output."""
+        result1 = self.roughness_op.process_array(self.signal_mono).compute()
+        result2 = self.roughness_op.process_array(self.signal_mono).compute()
+
+        # Results should be identical
+        np.testing.assert_array_equal(result1, result2)
+
+    def test_sampling_rate_metadata(self) -> None:
+        """Test that output sampling rate is correctly calculated."""
+        # overlap=0.5, window=200ms, hop=100ms → fs≈10Hz
+        metadata_updates = self.roughness_op.get_metadata_updates()
+
+        assert "sampling_rate" in metadata_updates
+        expected_sr = 1.0 / (0.2 * (1 - self.overlap))
+        assert metadata_updates["sampling_rate"] == pytest.approx(expected_sr)
+
+        # Test with overlap=0.0 → fs≈5Hz
+        roughness_overlap0 = RoughnessDw(self.sample_rate, overlap=0.0)
+        metadata_overlap0 = roughness_overlap0.get_metadata_updates()
+        expected_sr_overlap0 = 1.0 / 0.2  # 5 Hz
+        assert metadata_overlap0["sampling_rate"] == pytest.approx(expected_sr_overlap0)
+
+    def test_calculate_output_shape(self) -> None:
+        """Test calculate_output_shape method."""
+        input_shape = (1, int(self.sample_rate * self.duration))
+        output_shape = self.roughness_op.calculate_output_shape(input_shape)
+
+        # Output should have same number of channels
+        assert output_shape[0] == input_shape[0]
+        # Output should have fewer time samples
+        assert output_shape[1] < input_shape[1]
+        assert output_shape[1] > 0
+
+    def test_time_axis_values(self) -> None:
+        """Test that time axis is correctly calculated based on sampling rate."""
+        from wandas.frames.channel import ChannelFrame
+
+        # Create frame and calculate roughness
+        dask_data = _da_from_array(self.signal_mono, chunks=-1)
+        frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
+        roughness_frame = frame.roughness_dw(overlap=self.overlap)
+
+        # wandas time axis should be evenly spaced based on output sampling rate
+        time_wandas = roughness_frame.time
+
+        # RoughnessDw with overlap=0.5 should output at ~10 Hz
+        # (200ms window, 100ms hop -> 1/0.1 = 10 Hz)
+        expected_sampling_rate = 1.0 / (0.2 * (1 - self.overlap))
+
+        # Check time axis properties
+        assert len(time_wandas) > 0
+        assert time_wandas[0] == 0.0  # Start at 0
+
+        # Check that time axis is evenly spaced with correct sampling rate
+        if len(time_wandas) > 1:
+            time_steps = np.diff(time_wandas)
+            expected_step = 1.0 / expected_sampling_rate
+
+            np.testing.assert_allclose(
+                time_steps,
+                expected_step,
+                rtol=1e-10,
+                err_msg="Time steps are not evenly spaced",
+            )
+
+            # Verify sampling rate matches expected
+            assert roughness_frame.sampling_rate == pytest.approx(
+                expected_sampling_rate
+            ), (
+                f"Expected {expected_sampling_rate} Hz, "
+                f"got {roughness_frame.sampling_rate}"
+            )
+
+
+class TestRoughnessDwIntegration:
+    """Integration tests for roughness calculation with ChannelFrame."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.sample_rate: int = 48000
+        self.duration: float = 0.5
+
+    def test_roughness_in_operation_registry(self) -> None:
+        """Test that roughness operation is in registry."""
+        from wandas.processing.base import _OPERATION_REGISTRY
+
+        assert "roughness_dw" in _OPERATION_REGISTRY
+        assert _OPERATION_REGISTRY["roughness_dw"] == RoughnessDw
+
+    def test_channel_frame_roughness_method_exists(self) -> None:
+        """Test that ChannelFrame has roughness_dw method."""
+        from wandas.frames.channel import ChannelFrame
+
+        # Create a simple frame
+        t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
+        signal = np.array([0.1 * np.sin(2 * np.pi * 1000 * t)])
+        dask_data = _da_from_array(signal, chunks=-1)
+        frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
+
+        # Check method exists
+        assert hasattr(frame, "roughness_dw")
+        assert callable(frame.roughness_dw)
+
+    def test_channel_frame_roughness_returns_channelframe(self) -> None:
+        """Test that ChannelFrame.roughness_dw() returns ChannelFrame."""
+        from wandas.frames.channel import ChannelFrame
+
+        # Create AM modulated signal
+        t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
+        carrier = np.sin(2 * np.pi * 1000 * t)
+        modulation = 1 + np.sin(2 * np.pi * 70 * t)
+        signal = np.array([0.1 * carrier * modulation])
+        dask_data = _da_from_array(signal, chunks=-1)
+        frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
+
+        # Calculate roughness
+        roughness_frame = frame.roughness_dw(overlap=0.5)
+
+        # Should return ChannelFrame
+        assert isinstance(roughness_frame, ChannelFrame)
+
+        # Should have updated sampling rate
+        assert roughness_frame.sampling_rate == pytest.approx(10.0)  # ~10 Hz
+
+        # Should have roughness data
+        assert roughness_frame.data is not None
+        assert roughness_frame.n_samples > 0
+
+    def test_channel_frame_roughness_matches_mosqito(self) -> None:
+        """Test that ChannelFrame.roughness_dw() matches direct MoSQITo call."""
+        from wandas.frames.channel import ChannelFrame
+
+        # Create AM modulated signal
+        t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
+        carrier = np.sin(2 * np.pi * 1000 * t)
+        modulation = 1 + np.sin(2 * np.pi * 70 * t)
+        signal = np.array([0.1 * carrier * modulation])
+        dask_data = _da_from_array(signal, chunks=-1)
+        frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
+
+        # Calculate using wandas
+        roughness_frame = frame.roughness_dw(overlap=0.5)
+
+        # Get data (may be Dask or NumPy)
+        roughness_wandas_data = (
+            roughness_frame._data.compute()
+            if hasattr(roughness_frame._data, "compute")
+            else roughness_frame._data
+        )
+
+        # Calculate using MoSQITo directly
+        r_direct, _, _, _ = roughness_dw_mosqito(
+            signal[0], self.sample_rate, overlap=0.5
+        )
+
+        # Results should match (roughness_wandas_data is 2D: (n_channels, n_time))
+        np.testing.assert_array_equal(roughness_wandas_data[0], r_direct)
