@@ -88,8 +88,25 @@ class ChannelFrame(
     def time(self) -> NDArrayReal:
         """Get time array for the signal.
 
+        The time array represents the start time of each sample, calculated as
+        sample_index / sampling_rate. This provides a uniform, evenly-spaced
+        time axis that is consistent across all frame types in wandas.
+
+        For frames resulting from windowed analysis operations (e.g., FFT,
+        loudness, roughness), each time point corresponds to the start of
+        the analysis window, not the center. This differs from some libraries
+        (e.g., MoSQITo) which use window center times, but does not affect
+        the calculated values themselves.
+
         Returns:
-            Array of time points in seconds.
+            Array of time points in seconds, starting from 0.0.
+
+        Examples:
+            >>> import wandas as wd
+            >>> signal = wd.read_wav("audio.wav")
+            >>> time = signal.time
+            >>> print(f"Duration: {time[-1]:.3f}s")
+            >>> print(f"Time step: {time[1] - time[0]:.6f}s")
         """
         return np.arange(self.n_samples) / self.sampling_rate
 
