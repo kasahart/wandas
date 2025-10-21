@@ -301,9 +301,9 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
                     f"{other.sampling_rate}"
                 )
 
-            if self.data.shape != other.data.shape:
+            if self._data.shape != other._data.shape:
                 raise ValueError(
-                    f"Shape mismatch: {self.data.shape} vs {other.data.shape}"
+                    f"Shape mismatch: {self._data.shape} vs {other._data.shape}"
                 )
 
             # Apply operation
