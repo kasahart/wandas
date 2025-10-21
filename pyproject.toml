@@ -56,8 +56,8 @@ dependencies = [
 Repository = "https://github.com/kasahart/wandas.git"
 Issues = "https://github.com/kasahart/wandas/issues"
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "pytest>=8.3.5",
     "pytest-xdist>=3.6.1",
     "pandas",

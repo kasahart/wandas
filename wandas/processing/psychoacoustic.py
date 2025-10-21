@@ -620,3 +620,98 @@ class RoughnessDw(AudioOperation[NDArrayReal, NDArrayReal]):
 
 # Register the operation
 register_operation(RoughnessDw)
+
+
+class RoughnessDwSpec(AudioOperation[NDArrayReal, NDArrayReal]):
+    """Specific roughness (R_spec) operation.
+
+    Computes per-Bark-band specific roughness over time using MoSQITo's
+    `roughness_dw` implementation. Output is band-by-time.
+    """
+
+    name = "roughness_dw_spec"
+
+    def __init__(self, sampling_rate: float, overlap: float = 0.5) -> None:
+        self.overlap = overlap
+        self._bark_axis: NDArrayReal = np.linspace(0.5, 23.5, 47)
+        super().__init__(sampling_rate, overlap=overlap)
+
+    @property
+    def bark_axis(self) -> NDArrayReal:
+        return self._bark_axis
+
+    def validate_params(self) -> None:
+        if not 0.0 <= self.overlap <= 1.0:
+            raise ValueError(f"overlap must be in [0.0, 1.0], got {self.overlap}")
+
+    def get_metadata_updates(self) -> dict[str, Any]:
+        window_duration = 0.2
+        hop_duration = window_duration * (1 - self.overlap)
+        output_sampling_rate = 1.0 / hop_duration if hop_duration > 0 else 5.0
+
+        return {"sampling_rate": output_sampling_rate, "bark_axis": self._bark_axis}
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        n_bark_bands = 47
+        if len(input_shape) == 1:
+            n_samples = input_shape[0]
+            n_channels = 1
+        else:
+            n_channels, n_samples = input_shape[:2]
+
+        window_samples = int(0.2 * self.sampling_rate)
+        hop_samples = int(window_samples * (1 - self.overlap))
+
+        if hop_samples > 0:
+            estimated_time_samples = max(
+                1, (n_samples - window_samples) // hop_samples + 1
+            )
+        else:
+            estimated_time_samples = 1
+
+        if n_channels == 1:
+            return (n_bark_bands, estimated_time_samples)
+        return (n_channels, n_bark_bands, estimated_time_samples)
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        logger.debug(
+            "Calculating specific roughness for signal with shape: %s, overlap: %s",
+            x.shape,
+            self.overlap,
+        )
+
+        # Ensure (n_channels, n_samples)
+        if x.ndim == 1:
+            x_proc = x.reshape(1, -1)
+        else:
+            x_proc = x
+
+        n_channels = x_proc.shape[0]
+        r_spec_list: list[NDArrayReal] = []
+
+        for ch in range(n_channels):
+            channel_data = np.asarray(x_proc[ch]).ravel()
+
+            # Call MoSQITo's roughness_dw (module-level import)
+            _, r_spec, bark_axis, _ = roughness_dw_mosqito(
+                channel_data, self.sampling_rate, overlap=self.overlap
+            )
+
+            r_spec_list.append(r_spec)
+            if self._bark_axis is None:
+                self._bark_axis = bark_axis
+
+            logger.debug(
+                "Channel %d: calculated specific roughness shape=%s",
+                ch,
+                r_spec.shape,
+            )
+
+        if n_channels == 1:
+            result: NDArrayReal = r_spec_list[0]
+            return result
+        return np.stack(r_spec_list, axis=0)
+
+
+# Register the operation
+register_operation(RoughnessDwSpec)

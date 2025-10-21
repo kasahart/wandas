@@ -640,3 +640,192 @@ class TestSamplingRateUpdates:
         # Final sampling rate should reflect rms_trend's update
         expected_sr = self.sample_rate / hop_length
         assert np.isclose(result.sampling_rate, expected_sr)
+
+
+class TestRoughnessOperations:
+    """Test roughness calculation operations."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures for each test."""
+        # Create a test signal (1 second at 44100 Hz)
+        self.sample_rate: float = 44100.0
+        duration: float = 1.0
+        t = np.linspace(0, duration, int(self.sample_rate * duration))
+
+        # Create a signal with modulated amplitude (roughness stimuli)
+        carrier_freq = 1000.0  # 1 kHz carrier
+        mod_freq = 70.0  # 70 Hz modulation (creates roughness)
+        signal = np.sin(2 * np.pi * carrier_freq * t) * (
+            1 + 0.5 * np.sin(2 * np.pi * mod_freq * t)
+        )
+
+        self.data: np.ndarray = signal.reshape(1, -1)  # 1 channel
+        self.dask_data: DaArray = _da_from_array(self.data, chunks=(1, 4410))
+        self.frame: ChannelFrame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            label="roughness_test",
+        )
+
+    def test_roughness_dw_basic(self) -> None:
+        """Test basic roughness_dw calculation."""
+        result = self.frame.roughness_dw(overlap=0.5)
+
+        # Check that result is a ChannelFrame
+        assert isinstance(result, ChannelFrame)
+
+        # Check that data shape is reduced (time-varying roughness)
+        # Note: mono signals are squeezed by ChannelFrame.data property to 1D
+        assert result.data.ndim in (1, 2)
+        n_time_points = (
+            result.data.shape[0] if result.data.ndim == 1 else result.data.shape[1]
+        )
+        original_samples = (
+            self.frame.data.shape[0]
+            if self.frame.data.ndim == 1
+            else self.frame.data.shape[1]
+        )
+        assert n_time_points < original_samples  # Reduced time points
+
+        # Check that sampling rate is updated
+        # For overlap=0.5 with 200ms windows, sampling rate should be ~10 Hz
+        assert result.sampling_rate < self.sample_rate
+        # Check operation history (accept both 'name' and 'operation' keys)
+        assert len(result.operation_history) == 1
+        first_op = result.operation_history[0]
+        op_name = first_op.get("name") or first_op.get("operation")
+        assert op_name == "roughness_dw"
+        assert first_op["params"]["overlap"] == 0.5
+
+    def test_roughness_dw_different_overlap(self) -> None:
+        """Test roughness_dw with different overlap values."""
+        result_overlap_0 = self.frame.roughness_dw(overlap=0.0)
+        result_overlap_05 = self.frame.roughness_dw(overlap=0.5)
+
+        # Higher overlap should result in more time points
+        n_time_0 = (
+            result_overlap_0.data.shape[0]
+            if result_overlap_0.data.ndim == 1
+            else result_overlap_0.data.shape[1]
+        )
+        n_time_05 = (
+            result_overlap_05.data.shape[0]
+            if result_overlap_05.data.ndim == 1
+            else result_overlap_05.data.shape[1]
+        )
+        assert n_time_05 > n_time_0
+
+        # Sampling rates should be different
+        assert result_overlap_05.sampling_rate > result_overlap_0.sampling_rate
+
+    def test_roughness_dw_validates_overlap(self) -> None:
+        """Test that roughness_dw validates overlap parameter."""
+        with pytest.raises(ValueError, match="overlap must be in"):
+            self.frame.roughness_dw(overlap=1.5)
+
+        with pytest.raises(ValueError, match="overlap must be in"):
+            self.frame.roughness_dw(overlap=-0.1)
+
+    def test_roughness_dw_spec_basic(self) -> None:
+        """Test basic roughness_dw_spec calculation."""
+        from mosqito.sq_metrics import roughness_dw as roughness_dw_mosqito
+
+        from wandas.frames.roughness import RoughnessFrame
+
+        result = self.frame.roughness_dw_spec(overlap=0.5)
+
+        # Check that result is a RoughnessFrame
+        assert isinstance(result, RoughnessFrame)
+
+        # Check dimensions
+        # Mono signal: (47, n_time), Multi-channel: (n_channels, 47, n_time)
+        assert result.data.ndim == 2  # (n_bark_bands, n_time) for mono
+        assert result.data.shape[0] == 47  # 47 Bark bands
+        assert result.data.shape[1] > 0  # Time points
+
+        # Check bark_axis
+        assert len(result.bark_axis) == 47
+        assert result.bark_axis[0] == pytest.approx(0.5, abs=0.1)
+        assert result.bark_axis[-1] == pytest.approx(23.5, abs=0.1)
+
+        # Check properties
+        assert result.n_bark_bands == 47
+        assert result.overlap == 0.5
+        assert len(result.time) == result.n_time_points
+        # Check operation history (accept both 'name' and 'operation' keys)
+        assert len(result.operation_history) == 1
+        first_op = result.operation_history[0]
+        op_name = first_op.get("name") or first_op.get("operation")
+        assert op_name == "roughness_dw_spec"
+
+        # Compare with MoSQITo direct calculation
+        computed_data = (
+            result.data.compute() if hasattr(result.data, "compute") else result.data
+        )
+        _, r_spec_direct, _, _ = roughness_dw_mosqito(
+            self.data[0], self.sample_rate, overlap=0.5
+        )
+        np.testing.assert_array_equal(
+            computed_data,
+            r_spec_direct,
+            err_msg="Specific roughness values differ from MoSQITo calculation",
+        )
+
+    def test_roughness_dw_spec_plot(self) -> None:
+        """Test that roughness_dw_spec plot method works."""
+        import matplotlib.pyplot as plt
+
+        result = self.frame.roughness_dw_spec(overlap=0.5)
+
+        # Should not raise an error
+        ax = result.plot()
+        assert ax is not None
+
+        plt.close("all")
+
+    def test_roughness_consistency(self) -> None:
+        """Test that roughness_dw and roughness_dw_spec are consistent."""
+        roughness = self.frame.roughness_dw(overlap=0.5)
+        roughness_spec = self.frame.roughness_dw_spec(overlap=0.5)
+
+        # Time points should match
+        n_time_roughness = (
+            roughness.data.shape[0]
+            if roughness.data.ndim == 1
+            else roughness.data.shape[1]
+        )
+        assert n_time_roughness == roughness_spec.n_time_points
+
+        # Total roughness should approximately equal 0.25 * sum(R_spec)
+        # R = 0.25 * sum(R_spec) according to Daniel & Weber
+        # roughness_spec.data: (47, n_time) for mono
+        total_from_spec = 0.25 * roughness_spec.data.sum(axis=0)
+        total_direct = roughness.data
+
+        # They should be close (allowing for numerical differences)
+        np.testing.assert_allclose(
+            total_direct.flatten(), total_from_spec.flatten(), rtol=0.1, atol=0.01
+        )
+
+    def test_roughness_multi_channel(self) -> None:
+        """Test roughness calculation with multi-channel signal."""
+        # Create 2-channel signal
+        data_2ch = np.vstack([self.data, self.data * 0.8])
+        dask_data_2ch: DaArray = _da_from_array(data_2ch, chunks=(1, 4410))
+        frame_2ch: ChannelFrame = ChannelFrame(
+            data=dask_data_2ch,
+            sampling_rate=self.sample_rate,
+            label="roughness_2ch",
+        )
+
+        # Test roughness_dw
+        roughness = frame_2ch.roughness_dw(overlap=0.5)
+        # Multi-channel data is NOT squeezed
+        assert roughness.data.ndim == 2
+        assert roughness.data.shape[0] == 2  # 2 channels
+
+        # Test roughness_dw_spec
+        roughness_spec = frame_2ch.roughness_dw_spec(overlap=0.5)
+        assert roughness_spec.data.ndim == 3
+        assert roughness_spec.data.shape[0] == 2  # 2 channels
+        assert roughness_spec.data.shape[1] == 47  # 47 Bark bands

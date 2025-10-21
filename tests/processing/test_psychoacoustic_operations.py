@@ -1177,3 +1177,334 @@ class TestRoughnessDwIntegration:
 
         # Results should match (roughness_wandas_data is 2D: (n_channels, n_time))
         np.testing.assert_array_equal(roughness_wandas_data[0], r_direct)
+
+
+class TestRoughnessDwSpec:
+    """Test suite for RoughnessDwSpec operation."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures for each test."""
+        self.sample_rate: int = 48000
+        self.duration: float = 0.5
+        self.overlap: float = 0.5
+
+        # Create AM modulated signal (roughness stimuli)
+        t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
+        carrier = np.sin(2 * np.pi * 1000 * t)
+        modulation = 1 + np.sin(2 * np.pi * 70 * t)
+        self.signal_mono: NDArrayReal = np.array([0.1 * carrier * modulation])
+
+        # Create stereo signal (different modulation frequencies)
+        modulation2 = 1 + np.sin(2 * np.pi * 50 * t)
+        self.signal_stereo: NDArrayReal = np.vstack(
+            [
+                0.1 * carrier * modulation,
+                0.1 * carrier * modulation2,
+            ]
+        )
+
+        # Create dask arrays
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=-1)
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=-1)
+
+        # Import operation class
+        from wandas.processing.psychoacoustic import RoughnessDwSpec
+
+        self.roughness_spec_op = RoughnessDwSpec(self.sample_rate, overlap=self.overlap)
+
+    def test_initialization(self) -> None:
+        """Test RoughnessDwSpec initialization with different parameters."""
+        from wandas.processing.psychoacoustic import RoughnessDwSpec
+
+        # Default initialization
+        roughness_spec = RoughnessDwSpec(self.sample_rate)
+        assert roughness_spec.sampling_rate == self.sample_rate
+        assert roughness_spec.overlap == 0.5
+
+        # Custom overlap
+        roughness_spec_custom = RoughnessDwSpec(self.sample_rate, overlap=0.0)
+        assert roughness_spec_custom.overlap == 0.0
+
+    def test_invalid_overlap(self) -> None:
+        """Test that invalid overlap raises ValueError."""
+        from wandas.processing.psychoacoustic import RoughnessDwSpec
+
+        with pytest.raises(ValueError, match="overlap must be in"):
+            RoughnessDwSpec(self.sample_rate, overlap=1.5)
+
+        with pytest.raises(ValueError, match="overlap must be in"):
+            RoughnessDwSpec(self.sample_rate, overlap=-0.1)
+
+    def test_operation_name(self) -> None:
+        """Test that operation has correct name."""
+        assert self.roughness_spec_op.name == "roughness_dw_spec"
+
+    def test_operation_registration(self) -> None:
+        """Test that operation is properly registered."""
+        op_class = get_operation("roughness_dw_spec")
+        from wandas.processing.psychoacoustic import RoughnessDwSpec
+
+        assert op_class == RoughnessDwSpec
+
+    def test_create_operation(self) -> None:
+        """Test creating operation via create_operation function."""
+        op = create_operation("roughness_dw_spec", self.sample_rate, overlap=0.75)
+        from wandas.processing.psychoacoustic import RoughnessDwSpec
+
+        assert isinstance(op, RoughnessDwSpec)
+        assert op.overlap == 0.75
+
+    def test_mono_signal_shape(self) -> None:
+        """Test roughness_spec calculation output shape for mono signal."""
+        result = self.roughness_spec_op.process_array(self.signal_mono).compute()
+
+        # Result should be 2D (n_bark_bands, time_samples) for mono
+        assert result.ndim == 2
+        assert result.shape[0] == 47  # 47 Bark bands
+        assert result.shape[1] > 0  # Time samples
+
+    def test_stereo_signal_shape(self) -> None:
+        """Test roughness_spec calculation output shape for stereo signal."""
+        result = self.roughness_spec_op.process_array(self.signal_stereo).compute()
+
+        # Result should be 3D (n_channels, n_bark_bands, time_samples) for stereo
+        assert result.ndim == 3
+        assert result.shape[0] == 2  # 2 channels
+        assert result.shape[1] == 47  # 47 Bark bands
+        assert result.shape[2] > 0  # Time samples
+
+    def test_comparison_with_mosqito_direct_mono(self) -> None:
+        """Test that specific roughness values match MoSQITo direct calculation."""
+        # Calculate using our operation
+        our_result = self.roughness_spec_op.process_array(self.signal_mono).compute()
+
+        # Calculate using MoSQITo directly
+        _, r_spec_direct, _, _ = roughness_dw_mosqito(
+            self.signal_mono[0], self.sample_rate, overlap=self.overlap
+        )
+
+        # Results should match MoSQITo exactly
+        np.testing.assert_array_equal(
+            our_result,
+            r_spec_direct,
+            err_msg="Specific roughness values differ from direct MoSQITo calculation",
+        )
+
+    def test_comparison_with_mosqito_direct_stereo(self) -> None:
+        """Test that stereo specific roughness matches MoSQITo for each channel."""
+        result = self.roughness_spec_op.process_array(self.signal_stereo).compute()
+
+        # Compare with MoSQITo direct calculation for each channel
+        _, r_spec_ch1_direct, _, _ = roughness_dw_mosqito(
+            self.signal_stereo[0], self.sample_rate, overlap=self.overlap
+        )
+        _, r_spec_ch2_direct, _, _ = roughness_dw_mosqito(
+            self.signal_stereo[1], self.sample_rate, overlap=self.overlap
+        )
+
+        # Results should match MoSQITo exactly
+        np.testing.assert_array_equal(result[0], r_spec_ch1_direct)
+        np.testing.assert_array_equal(result[1], r_spec_ch2_direct)
+
+    def test_bark_axis_values(self) -> None:
+        """Test that bark_axis has correct values."""
+        bark_axis = self.roughness_spec_op.bark_axis
+
+        # Should have 47 Bark bands from 0.5 to 23.5
+        assert len(bark_axis) == 47
+        assert bark_axis[0] == pytest.approx(0.5)
+        assert bark_axis[-1] == pytest.approx(23.5)
+
+    def test_bark_axis_matches_mosqito(self) -> None:
+        """Test that bark_axis matches MoSQITo bark_axis exactly."""
+        # Get bark_axis from our operation
+        bark_axis_wandas = self.roughness_spec_op.bark_axis
+
+        # Get bark_axis from MoSQITo directly
+        _, _, bark_axis_mosqito, _ = roughness_dw_mosqito(
+            self.signal_mono[0], self.sample_rate, overlap=self.overlap
+        )
+
+        # Results should match exactly
+        np.testing.assert_array_equal(
+            bark_axis_wandas,
+            bark_axis_mosqito,
+            err_msg="Bark axis values differ from MoSQITo bark axis",
+        )
+
+    def test_integration_with_total_roughness(self) -> None:
+        """Test that integrating specific roughness gives total roughness."""
+        # Calculate specific roughness
+        r_spec = self.roughness_spec_op.process_array(self.signal_mono).compute()
+
+        # Calculate total roughness directly
+        r_total, _, _, _ = roughness_dw_mosqito(
+            self.signal_mono[0], self.sample_rate, overlap=self.overlap
+        )
+
+        # Integrate specific roughness: R = 0.25 * sum(R_spec) over Bark bands
+        r_integrated = 0.25 * np.sum(r_spec, axis=0)
+
+        # Should match total roughness (within numerical precision)
+        np.testing.assert_allclose(
+            r_integrated,
+            r_total,
+            rtol=1e-10,
+            err_msg="Integrated specific roughness does not match total roughness",
+        )
+
+    def test_metadata_updates(self) -> None:
+        """Test that metadata updates include sampling rate and bark_axis."""
+        metadata_updates = self.roughness_spec_op.get_metadata_updates()
+
+        assert "sampling_rate" in metadata_updates
+        assert "bark_axis" in metadata_updates
+
+        # Check sampling rate is correct
+        expected_sr = 1.0 / (0.2 * (1 - self.overlap))
+        assert metadata_updates["sampling_rate"] == pytest.approx(expected_sr)
+
+        # Check bark_axis
+        bark_axis = metadata_updates["bark_axis"]
+        assert len(bark_axis) == 47
+        assert bark_axis[0] == pytest.approx(0.5)
+        assert bark_axis[-1] == pytest.approx(23.5)
+
+    def test_silence_produces_low_specific_roughness(self) -> None:
+        """Test that silence produces near-zero specific roughness."""
+        silence = np.zeros((1, int(self.sample_rate * self.duration)))
+
+        result = self.roughness_spec_op.process_array(silence).compute()
+
+        # Compare with MoSQITo direct calculation
+        _, r_spec_direct, _, _ = roughness_dw_mosqito(
+            silence[0], self.sample_rate, overlap=self.overlap
+        )
+
+        # Results should match MoSQITo exactly
+        np.testing.assert_array_equal(result, r_spec_direct)
+
+        # Specific roughness should be very low for silence
+        assert np.all(result < 0.01)
+
+    def test_process_with_dask(self) -> None:
+        """Test that process method works with dask arrays."""
+        result = self.roughness_spec_op.process(self.dask_mono).compute()
+
+        # Compare with MoSQITo direct calculation
+        _, r_spec_direct, _, _ = roughness_dw_mosqito(
+            self.signal_mono[0], self.sample_rate, overlap=self.overlap
+        )
+
+        # Results should match MoSQITo exactly
+        np.testing.assert_array_equal(result, r_spec_direct)
+
+    def test_1d_input_handling(self) -> None:
+        """Test that 1D input is properly handled."""
+        # Create 1D signal
+        t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
+        signal_1d = 0.1 * np.sin(2 * np.pi * 1000 * t)
+
+        result = self.roughness_spec_op.process_array(signal_1d).compute()
+
+        # Should be reshaped to 2D with shape (n_bark_bands, n_time)
+        assert result.ndim == 2
+        assert result.shape[0] == 47
+
+    def test_consistency_across_calls(self) -> None:
+        """Test that repeated calls with same input produce same output."""
+        result1 = self.roughness_spec_op.process_array(self.signal_mono).compute()
+        result2 = self.roughness_spec_op.process_array(self.signal_mono).compute()
+
+        # Results should be identical
+        np.testing.assert_array_equal(result1, result2)
+
+
+class TestRoughnessDwSpecIntegration:
+    """Integration tests for specific roughness calculation with ChannelFrame."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.sample_rate: int = 48000
+        self.duration: float = 0.5
+
+    def test_roughness_spec_in_operation_registry(self) -> None:
+        """Test that roughness_dw_spec operation is in registry."""
+        from wandas.processing.base import _OPERATION_REGISTRY
+        from wandas.processing.psychoacoustic import RoughnessDwSpec
+
+        assert "roughness_dw_spec" in _OPERATION_REGISTRY
+        assert _OPERATION_REGISTRY["roughness_dw_spec"] == RoughnessDwSpec
+
+    def test_channel_frame_roughness_spec_method_exists(self) -> None:
+        """Test that ChannelFrame has roughness_dw_spec method."""
+        from wandas.frames.channel import ChannelFrame
+
+        # Create a simple frame
+        t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
+        signal = np.array([0.1 * np.sin(2 * np.pi * 1000 * t)])
+        dask_data = _da_from_array(signal, chunks=-1)
+        frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
+
+        # Check method exists
+        assert hasattr(frame, "roughness_dw_spec")
+        assert callable(frame.roughness_dw_spec)
+
+    def test_channel_frame_roughness_spec_returns_roughness_frame(self) -> None:
+        """Test that ChannelFrame.roughness_dw_spec() returns RoughnessFrame."""
+        from wandas.frames.channel import ChannelFrame
+        from wandas.frames.roughness import RoughnessFrame
+
+        # Create AM modulated signal
+        t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
+        carrier = np.sin(2 * np.pi * 1000 * t)
+        modulation = 1 + np.sin(2 * np.pi * 70 * t)
+        signal = np.array([0.1 * carrier * modulation])
+        dask_data = _da_from_array(signal, chunks=-1)
+        frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
+
+        # Calculate specific roughness
+        roughness_spec_frame = frame.roughness_dw_spec(overlap=0.5)
+
+        # Should return RoughnessFrame
+        assert isinstance(roughness_spec_frame, RoughnessFrame)
+
+        # Should have updated sampling rate
+        assert roughness_spec_frame.sampling_rate == pytest.approx(10.0)  # ~10 Hz
+
+        # Should have 47 Bark bands
+        assert roughness_spec_frame.n_bark_bands == 47
+
+        # Should have bark_axis
+        assert len(roughness_spec_frame.bark_axis) == 47
+
+    def test_channel_frame_roughness_spec_matches_mosqito(self) -> None:
+        """Test that ChannelFrame.roughness_dw_spec() matches direct MoSQITo call."""
+        from wandas.frames.channel import ChannelFrame
+
+        # Create AM modulated signal
+        t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
+        carrier = np.sin(2 * np.pi * 1000 * t)
+        modulation = 1 + np.sin(2 * np.pi * 70 * t)
+        signal = np.array([0.1 * carrier * modulation])
+        dask_data = _da_from_array(signal, chunks=-1)
+        frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
+
+        # Calculate using wandas
+        roughness_spec_frame = frame.roughness_dw_spec(overlap=0.5)
+
+        # Get data (may be Dask or NumPy)
+        roughness_spec_wandas_data = (
+            roughness_spec_frame._data.compute()
+            if hasattr(roughness_spec_frame._data, "compute")
+            else roughness_spec_frame._data
+        )
+
+        # Calculate using MoSQITo directly
+        _, r_spec_direct, _, _ = roughness_dw_mosqito(
+            signal[0], self.sample_rate, overlap=0.5
+        )
+
+        # Results should match
+        # For mono signal, wandas returns (n_bark, n_time)
+        np.testing.assert_array_equal(roughness_spec_wandas_data, r_spec_direct)

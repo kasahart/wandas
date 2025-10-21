@@ -15,6 +15,7 @@ if TYPE_CHECKING:
         _WindowSpec,
     )
 
+    from wandas.frames.roughness import RoughnessFrame
     from wandas.utils.types import NDArrayReal
 logger = logging.getLogger(__name__)
 
@@ -658,3 +659,122 @@ class ChannelProcessingMixin:
         logger.debug(f"Applying roughness_dw operation with overlap={overlap} (lazy)")
         result = self.apply_operation("roughness_dw", overlap=overlap)
         return cast(T_Processing, result)
+
+    def roughness_dw_spec(self: T_Processing, overlap: float = 0.5) -> "RoughnessFrame":
+        """Calculate specific roughness with Bark-band frequency information.
+
+        This method returns detailed roughness analysis data organized by
+        Bark frequency bands over time, allowing for frequency-specific
+        roughness analysis. It uses the Daniel & Weber (1997) method.
+
+        The relationship between total roughness and specific roughness:
+        R = 0.25 * sum(R'_i) for i=1 to 47 Bark bands
+
+        Args:
+            overlap: Overlapping coefficient for 200ms analysis windows (0.0 to 1.0).
+                - overlap=0.5: 100ms hop → ~10 Hz output sampling rate
+                - overlap=0.0: 200ms hop → ~5 Hz output sampling rate
+                Default is 0.5.
+
+        Returns:
+            RoughnessFrame containing:
+                - data: Specific roughness by Bark band, shape (47, n_time)
+                        for mono or (n_channels, 47, n_time) for multi-channel
+                - bark_axis: Frequency axis in Bark scale (47 values, 0.5-23.5)
+                - time: Time axis for each analysis frame
+                - overlap: Overlap coefficient used
+                - plot(): Method for Bark-Time heatmap visualization
+
+        Raises:
+            ValueError: If overlap is not in the range [0.0, 1.0]
+
+        Examples:
+            Analyze frequency-specific roughness:
+            >>> import wandas as wd
+            >>> import numpy as np
+            >>> signal = wd.read_wav("motor.wav")
+            >>> roughness_spec = signal.roughness_dw_spec(overlap=0.5)
+            >>>
+            >>> # Plot Bark-Time heatmap
+            >>> roughness_spec.plot(cmap="viridis", title="Roughness Analysis")
+            >>>
+            >>> # Find dominant Bark band
+            >>> dominant_idx = roughness_spec.data.mean(axis=1).argmax()
+            >>> dominant_bark = roughness_spec.bark_axis[dominant_idx]
+            >>> print(f"Most contributing band: {dominant_bark:.1f} Bark")
+            >>>
+            >>> # Extract specific Bark band time series
+            >>> bark_10_idx = np.argmin(np.abs(roughness_spec.bark_axis - 10.0))
+            >>> roughness_at_10bark = roughness_spec.data[bark_10_idx, :]
+            >>>
+            >>> # Verify standard formula
+            >>> total_roughness = 0.25 * roughness_spec.data.sum(axis=-2)
+            >>> # This should match signal.roughness_dw(overlap=0.5).data
+
+        Notes:
+            - Returns a RoughnessFrame (not ChannelFrame)
+            - Contains 47 Bark bands from 0.5 to 23.5 Bark
+            - Each Bark band corresponds to a critical band of hearing
+            - Useful for identifying which frequencies contribute most to roughness
+            - The specific roughness can be integrated to obtain total roughness
+            - For simple time-series analysis, use roughness_dw() instead
+
+            **Time axis convention:**
+            The time axis represents the start time of each 200ms analysis
+            window, consistent with roughness_dw() and other wandas methods.
+
+        References:
+            Daniel, P., & Weber, R. (1997). "Psychoacoustical roughness:
+            Implementation of an optimized model." Acustica, 83, 113-123.
+        """
+        from wandas.core.base_frame import BaseFrame
+        from wandas.frames.roughness import RoughnessFrame
+        from wandas.processing import create_operation
+
+        params = {"overlap": overlap}
+        operation_name = "roughness_dw_spec"
+        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
+
+        # Create operation instance via factory
+        operation = create_operation(operation_name, self.sampling_rate, **params)
+
+        # Apply processing lazily to self._data (Dask)
+        r_spec_dask = operation.process(self._data)
+
+        # Get metadata updates (sampling rate, bark_axis)
+        metadata_updates = operation.get_metadata_updates()
+
+        # Build metadata and history
+        new_metadata = {**self.metadata, **params}
+        new_history = [
+            *self.operation_history,
+            {"operation": operation_name, "params": params},
+        ]
+
+        # Extract bark_axis with proper type handling
+        bark_axis_value = metadata_updates.get("bark_axis")
+        if bark_axis_value is None:
+            raise ValueError("Operation did not provide bark_axis in metadata")
+
+        # Create RoughnessFrame. operation.get_metadata_updates() should provide
+        # sampling_rate and bark_axis
+        roughness_frame = RoughnessFrame(
+            data=r_spec_dask,
+            sampling_rate=metadata_updates.get("sampling_rate", self.sampling_rate),
+            bark_axis=bark_axis_value,
+            overlap=overlap,
+            label=f"{self.label}_roughness_spec" if self.label else "roughness_spec",
+            metadata=new_metadata,
+            operation_history=new_history,
+            channel_metadata=self._channel_metadata,
+            previous=cast("BaseFrame[NDArrayReal]", self),
+        )
+
+        logger.debug(
+            "Created RoughnessFrame via operation %s, shape=%s, sampling_rate=%.2f Hz",
+            operation_name,
+            r_spec_dask.shape,
+            roughness_frame.sampling_rate,
+        )
+
+        return roughness_frame
