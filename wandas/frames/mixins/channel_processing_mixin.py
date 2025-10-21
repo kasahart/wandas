@@ -4,6 +4,8 @@ import logging
 from typing import TYPE_CHECKING, Any, Optional, Union, cast
 
 from wandas.core.metadata import ChannelMetadata
+from wandas.frames.roughness import RoughnessFrame
+from wandas.processing import create_operation
 
 from .protocols import ProcessingFrameProtocol, T_Processing
 
@@ -15,7 +17,7 @@ if TYPE_CHECKING:
         _WindowSpec,
     )
 
-    from wandas.frames.roughness import RoughnessFrame
+    from wandas.core.base_frame import BaseFrame
     from wandas.utils.types import NDArrayReal
 logger = logging.getLogger(__name__)
 
@@ -727,9 +729,6 @@ class ChannelProcessingMixin:
             Daniel, P., & Weber, R. (1997). "Psychoacoustical roughness:
             Implementation of an optimized model." Acustica, 83, 113-123.
         """
-        from wandas.core.base_frame import BaseFrame
-        from wandas.frames.roughness import RoughnessFrame
-        from wandas.processing import create_operation
 
         params = {"overlap": overlap}
         operation_name = "roughness_dw_spec"
