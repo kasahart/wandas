@@ -338,7 +338,7 @@ class TestChannelFrame:
         dask_data_3d = _da_from_array(data_3d, chunks=(1, 4000, 3))
 
         with pytest.raises(
-            ValueError, match="Data must be 1-dimensional or 2-dimensional."
+            ValueError, match="Data must be 1-dimensional or 2-dimensional"
         ):
             ChannelFrame(dask_data_3d, self.sample_rate)
 
@@ -971,7 +971,7 @@ class TestChannelFrame:
 
         # Test 3d array
         with pytest.raises(
-            ValueError, match="Data must be 1-dimensional or 2-dimensional."
+            ValueError, match="Data must be 1-dimensional or 2-dimensional"
         ):
             ChannelFrame.from_numpy(
                 np.random.random((3, 16000, 2)),
