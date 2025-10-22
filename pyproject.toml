@@ -60,6 +60,7 @@ Issues = "https://github.com/kasahart/wandas/issues"
 dev = [
     "pytest>=8.3.5",
     "pytest-xdist>=3.6.1",
+    "pytest-benchmark>=5.1.0",
     "pandas",
     "pandas-stubs",
     "pytest-cov",
