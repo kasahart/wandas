@@ -622,12 +622,27 @@ class ChannelFrame(
 
         Returns:
             A new ChannelFrame containing the NumPy data.
+
+        Raises:
+            ValueError: If data has more than 2 dimensions.
         """
         if data.ndim == 1:
             data = data.reshape(1, -1)
         elif data.ndim > 2:
             raise ValueError(
-                f"Data must be 1-dimensional or 2-dimensional. Shape: {data.shape}"
+                f"Invalid data shape:\n"
+                f"  Given: {data.ndim}D array with shape {data.shape}\n"
+                f"  Expected: 1D or 2D array\n"
+                f"\n"
+                f"Solution:\n"
+                f"  - For single channel: use 1D array (n_samples,)\n"
+                f"  - For multi-channel: use 2D array (n_channels, n_samples)\n"
+                f"  - To reshape: data.reshape(n_channels, n_samples)\n"
+                f"\n"
+                f"Background:\n"
+                f"  ChannelFrame expects time-series data where:\n"
+                f"  - First dimension (if 2D) represents channels\n"
+                f"  - Last dimension represents samples in time order"
             )
 
         # Convert NumPy array to dask array
