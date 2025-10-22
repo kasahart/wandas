@@ -54,6 +54,7 @@ class ChannelFrame(
             data: Dask array containing channel data.
             Shape should be (n_channels, n_samples).
             sampling_rate: The sampling rate of the data in Hz.
+            Must be a positive number.
             label: A label for the frame.
             metadata: Optional metadata dictionary.
             operation_history: History of operations applied to the frame.
@@ -61,13 +62,43 @@ class ChannelFrame(
             previous: Reference to the previous frame in the processing chain.
 
         Raises:
-            ValueError: If data has more than 2 dimensions.
+            ValueError: If data has more than 2 dimensions or if sampling rate
+                is not positive.
         """
+        # Validate sampling rate
+        if sampling_rate <= 0:
+            raise ValueError(
+                f"Invalid sampling rate:\n"
+                f"  Given: {sampling_rate} Hz\n"
+                f"  Expected: positive number (> 0)\n"
+                f"\n"
+                f"Solution:\n"
+                f"  - Ensure sampling_rate is a positive value\n"
+                f"  - Common values: 8000, 16000, 44100, 48000 Hz\n"
+                f"\n"
+                f"Background:\n"
+                f"  Sampling rate represents the number of samples per second.\n"
+                f"  It must be positive to properly represent time-domain signals."
+            )
+
+        # Validate and reshape data
         if data.ndim == 1:
             data = da.reshape(data, (1, -1))
         elif data.ndim > 2:
             raise ValueError(
-                f"Data must be 1-dimensional or 2-dimensional. Shape: {data.shape}"
+                f"Invalid data shape:\n"
+                f"  Given: {data.ndim}D array with shape {data.shape}\n"
+                f"  Expected: 1D or 2D array\n"
+                f"\n"
+                f"Solution:\n"
+                f"  - For single channel: use 1D array (n_samples,)\n"
+                f"  - For multi-channel: use 2D array (n_channels, n_samples)\n"
+                f"  - To reshape: data.reshape(n_channels, n_samples)\n"
+                f"\n"
+                f"Background:\n"
+                f"  ChannelFrame expects time-series data where:\n"
+                f"  - First dimension (if 2D) represents channels\n"
+                f"  - Last dimension represents samples in time order"
             )
         super().__init__(
             data=data,

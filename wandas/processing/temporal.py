@@ -26,9 +26,68 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
             Sampling rate (Hz)
         target_sampling_rate : float
             Target sampling rate (Hz)
+
+        Raises
+        ------
+        ValueError
+            If target sampling rate is invalid or if resampling ratio is extreme.
         """
         super().__init__(sampling_rate, target_sr=target_sr)
         self.target_sr = target_sr
+
+    def validate_params(self) -> None:
+        """Validate resampling parameters
+
+        Raises
+        ------
+        ValueError
+            If target sampling rate is not positive or if resampling ratio
+            is extremely large (> 10x) or small (< 0.1x).
+        """
+        if self.target_sr <= 0:
+            raise ValueError(
+                f"Invalid target sampling rate:\n"
+                f"  Given: {self.target_sr} Hz\n"
+                f"  Expected: positive number (> 0)\n"
+                f"\n"
+                f"Solution:\n"
+                f"  - Ensure target_sr is a positive value\n"
+                f"  - Common values: 8000, 16000, 44100, 48000 Hz\n"
+                f"\n"
+                f"Background:\n"
+                f"  Sampling rate represents the number of samples per second.\n"
+                f"  It must be positive to properly represent time-domain signals."
+            )
+
+        # Check for extreme resampling ratios
+        ratio = self.target_sr / self.sampling_rate
+        if ratio > 10:
+            logger.warning(
+                f"Extreme upsampling detected:\n"
+                f"  Original rate: {self.sampling_rate} Hz\n"
+                f"  Target rate: {self.target_sr} Hz\n"
+                f"  Ratio: {ratio:.1f}x\n"
+                f"\n"
+                f"  This may result in:\n"
+                f"  - Significantly increased memory usage\n"
+                f"  - Longer processing time\n"
+                f"  - No improvement in audio quality\n"
+                f"\n"
+                f"  Consider whether such a high sampling rate is necessary."
+            )
+        elif ratio < 0.1:
+            logger.warning(
+                f"Extreme downsampling detected:\n"
+                f"  Original rate: {self.sampling_rate} Hz\n"
+                f"  Target rate: {self.target_sr} Hz\n"
+                f"  Ratio: {ratio:.1f}x\n"
+                f"\n"
+                f"  This may result in:\n"
+                f"  - Significant loss of high-frequency information\n"
+                f"  - Aliasing artifacts\n"
+                f"\n"
+                f"  Consider applying a low-pass filter before resampling."
+            )
 
     def get_metadata_updates(self) -> dict[str, Any]:
         """

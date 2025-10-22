@@ -30,23 +30,105 @@ def read_wav(filename: str, labels: Optional[list[str]] = None) -> "ChannelFrame
     -------
     ChannelFrame
         ChannelFrame object containing the audio data.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the local file does not exist.
+    ValueError
+        If the file format is invalid or corrupted.
+    requests.RequestException
+        If URL download fails.
     """
+    from pathlib import Path
+
     from wandas.frames.channel import ChannelFrame
 
     # ファイル名がURLかどうかを判断
     if filename.startswith("http://") or filename.startswith("https://"):
         # URLの場合、requestsを使用してダウンロード
-
-        response = requests.get(filename)
-        file_obj = io.BytesIO(response.content)
-        file_label = os.path.basename(filename)
-        # メモリマッピングは使用せずに読み込む
-        sampling_rate, data = wavfile.read(file_obj)
+        try:
+            response = requests.get(filename)
+            response.raise_for_status()
+            file_obj = io.BytesIO(response.content)
+            file_label = os.path.basename(filename)
+            # メモリマッピングは使用せずに読み込む
+            try:
+                sampling_rate, data = wavfile.read(file_obj)
+            except Exception as e:
+                raise ValueError(
+                    f"Failed to read WAV data from URL:\n"
+                    f"  URL: {filename}\n"
+                    f"  Error: {str(e)}\n"
+                    f"\n"
+                    f"Solution:\n"
+                    f"  - Verify the URL points to a valid WAV file\n"
+                    f"  - Check the file is not corrupted\n"
+                    f"  - Ensure the file format is standard WAV\n"
+                    f"\n"
+                    f"Background:\n"
+                    f"  WAV files must follow the RIFF WAVE format specification.\n"
+                    f"  Corrupted or non-standard files cannot be read."
+                ) from e
+        except requests.RequestException as e:
+            raise ValueError(
+                f"Failed to download WAV file from URL:\n"
+                f"  URL: {filename}\n"
+                f"  Error: {str(e)}\n"
+                f"\n"
+                f"Solution:\n"
+                f"  - Verify the URL is accessible\n"
+                f"  - Check your internet connection\n"
+                f"  - Ensure the URL is correct and points to a WAV file\n"
+                f"\n"
+                f"Background:\n"
+                f"  Network errors can occur due to connectivity issues,\n"
+                f"  invalid URLs, or server problems."
+            ) from e
     else:
         # ローカルファイルパスの場合
+        file_path = Path(filename)
+        if not file_path.exists():
+            # Provide helpful suggestions based on the file path
+            suggestions = [f"  - Verify the file path: {file_path}"]
+            if file_path.is_absolute():
+                suggestions.append("  - Use absolute path if file is outside current directory")
+            else:
+                suggestions.append(f"  - Current directory: {Path.cwd()}")
+                suggestions.append("  - Use absolute path if needed")
+
+            raise FileNotFoundError(
+                f"WAV file not found:\n"
+                f"  Given path: {filename}\n"
+                f"  Absolute path: {file_path.absolute()}\n"
+                f"\n"
+                f"Solution:\n"
+                + "\n".join(suggestions)
+                + "\n"
+                f"  - Check file name spelling\n"
+                f"  - Ensure the file has not been moved or deleted\n"
+            )
+
         file_label = os.path.basename(filename)
         # データの読み込み（メモリマッピングを使用）
-        sampling_rate, data = wavfile.read(filename, mmap=True)
+        try:
+            sampling_rate, data = wavfile.read(filename, mmap=True)
+        except Exception as e:
+            raise ValueError(
+                f"Failed to read WAV file:\n"
+                f"  File: {filename}\n"
+                f"  Error: {str(e)}\n"
+                f"\n"
+                f"Solution:\n"
+                f"  - Verify the file is a valid WAV file\n"
+                f"  - Check the file is not corrupted\n"
+                f"  - Ensure the file format is standard WAV (not compressed)\n"
+                f"  - Try opening the file in an audio player to verify\n"
+                f"\n"
+                f"Background:\n"
+                f"  WAV files must follow the RIFF WAVE format specification.\n"
+                f"  Corrupted or non-standard files (e.g., compressed WAV) may fail."
+            ) from e
 
     # データを(num_channels, num_samples)形状のNumPy配列に変換
     if data.ndim == 1:
