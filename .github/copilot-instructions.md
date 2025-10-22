@@ -498,6 +498,10 @@ def plot(
 ```
 
 ### 10. エラーハンドリング
+- **3要素構造**: すべてのエラーメッセージは以下の3要素で構成してください
+  1. **何が問題か** (What): エラーの内容を明確に記述
+  2. **なぜダメか** (Why): 制約や条件の説明
+  3. **どうすればいいか** (How): 解決策の提示
 - **明確なエラーメッセージ**: ユーザーが問題を理解し、解決できるメッセージを提供してください
 - **適切な例外型**: 状況に応じた適切な例外を使用してください
   - `ValueError`: 不正な値やパラメータ
@@ -506,6 +510,7 @@ def plot(
   - カスタム例外: ドメイン固有のエラー
 - **入力検証**: 関数の先頭で入力値を検証してください
 - **リソース管理**: ファイルやネットワーク接続は適切にクローズしてください
+- **詳細なガイド**: エラーメッセージの詳細なガイドは `docs/src/development/error_message_guide.md` を参照してください
 
 ```python
 from pathlib import Path
@@ -559,13 +564,18 @@ def read_wav(
     if not filepath.exists():
         raise FileNotFoundError(
             f"WAV file not found: {filepath}\n"
-            f"Please check the file path and try again."
+            f"The file path must point to an existing audio file.\n"
+            f"Please check:\n"
+            f"  1. The file path is correct: {filepath.absolute()}\n"
+            f"  2. The file exists in the specified location\n"
+            f"  3. You have read permissions for the file"
         )
 
     if not filepath.suffix.lower() == ".wav":
         raise ValueError(
             f"Expected WAV file, got: {filepath.suffix}\n"
-            f"This function only supports .wav files."
+            f"This function only supports .wav files.\n"
+            f"Please use a .wav file or convert your audio file to WAV format."
         )
 
     # ファイル読み込み（with文でリソース管理）
@@ -577,19 +587,62 @@ def read_wav(
         raise ValueError(
             f"Failed to read WAV file: {filepath}\n"
             f"The file may be corrupted or in an unsupported format.\n"
-            f"Error details: {e}"
+            f"Please verify the file integrity or try a different file. Error: {e}"
         ) from e
 
     # サンプリングレートの検証
     if sampling_rate is not None and file_sr != sampling_rate:
         raise InvalidSamplingRateError(
-            f"Sampling rate mismatch:\n"
-            f"  Expected: {sampling_rate} Hz\n"
-            f"  File contains: {file_sr} Hz\n"
-            f"Consider using resample() method to convert the sampling rate."
+            f"Sampling rate mismatch: expected {sampling_rate} Hz, got {file_sr} Hz.\n"
+            f"Operations require matching sampling rates to maintain temporal alignment.\n"
+            f"Use resample() method to convert: signal.resample(target_rate={sampling_rate})"
         )
 
     return ChannelFrame(data=data, sampling_rate=file_sr)
+```
+
+### エラーメッセージのベストプラクティス
+
+#### 良い例: 3要素構造を持つエラーメッセージ
+
+```python
+def set_cutoff_frequency(self, cutoff: float) -> None:
+    """Set cutoff frequency for the filter."""
+    nyquist = self.sampling_rate / 2
+    if cutoff <= 0 or cutoff >= nyquist:
+        raise ValueError(
+            # What: 何が問題か
+            f"Cutoff frequency must be between 0 Hz and {nyquist} Hz, got {cutoff} Hz.\n"
+            # Why: なぜダメか
+            f"The cutoff must be positive and less than Nyquist frequency to avoid aliasing.\n"
+            # How: どうすればいいか
+            f"Please provide a cutoff frequency in the valid range: 0 < cutoff < {nyquist}."
+        )
+
+def get_channel(self, channel_index: int) -> ChannelFrame:
+    """Get data for a specific channel."""
+    if not 0 <= channel_index < self.n_channels:
+        raise IndexError(
+            # What: インデックスが範囲外
+            f"Channel index {channel_index} is out of range for {self.n_channels} channels.\n"
+            # Why: 有効な範囲の説明
+            f"Valid channel indices are 0 to {self.n_channels - 1} (0-based indexing).\n"
+            # How: 正しい使い方
+            f"Please use an index in the range [0, {self.n_channels - 1}]."
+        )
+```
+
+#### 悪い例: 要素が欠けているエラーメッセージ
+
+```python
+# 悪い例1: 情報不足
+raise ValueError("Invalid cutoff")
+
+# 悪い例2: 解決策がない
+raise ValueError(f"Cutoff frequency {cutoff} is invalid")
+
+# 悪い例3: なぜダメかの説明がない
+raise ValueError(f"Cutoff must be less than {nyquist} Hz")
 ```
 
 ### 11. 互換性
