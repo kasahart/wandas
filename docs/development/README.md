@@ -20,6 +20,21 @@ Comprehensive guidelines for writing user-friendly, actionable error messages.
 - Reviewing pull requests
 - Understanding error message best practices
 
+### [Error Improvement Examples](error_improvement_examples.md)
+Practical before/after examples from actual wandas code.
+
+**Contents:**
+- 15+ real examples with improvements
+- Common patterns (dimension, sampling rate, type, file, etc.)
+- Implementation checklist
+- Quick reference templates
+
+**When to Use:**
+- Implementing Phase 2 improvements
+- Need concrete examples
+- Quick pattern matching
+- Copy-paste templates for similar cases
+
 ### [Error Inventory](error_inventory.md)
 Complete inventory of all error messages in the codebase with quality analysis and prioritization.
 
