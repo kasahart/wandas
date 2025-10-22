@@ -34,7 +34,27 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
             FFT size, default is None (determined by input size)
         window : str, optional
             Window function type, default is 'hann'
+
+        Raises
+        ------
+        ValueError
+            If n_fft is not a positive integer
         """
+        # Validate n_fft parameter
+        if n_fft is not None:
+            if not isinstance(n_fft, int):
+                raise ValueError(
+                    f"FFT size must be an integer, got {type(n_fft).__name__}.\n"
+                    f"Expected: positive integer (e.g., 512, 1024, 2048)\n"
+                    f"Received: {n_fft}"
+                )
+            if n_fft <= 0:
+                raise ValueError(
+                    f"FFT size must be a positive integer, got {n_fft}.\n"
+                    f"Expected: n_fft > 0 (e.g., 512, 1024, 2048)\n"
+                    f"Hint: Common FFT sizes are powers of 2 for optimal performance."
+                )
+
         self.n_fft = n_fft
         self.window = window
         super().__init__(sampling_rate, n_fft=n_fft, window=window)
@@ -154,9 +174,74 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         win_length: Optional[int] = None,
         window: str = "hann",
     ):
+        """
+        Initialize STFT operation
+
+        Parameters
+        ----------
+        sampling_rate : float
+            Sampling rate (Hz)
+        n_fft : int, optional
+            FFT size, default is 2048
+        hop_length : int, optional
+            Hop length (samples between frames), default is win_length // 4
+        win_length : int, optional
+            Window length, default is n_fft
+        window : str, optional
+            Window function type, default is 'hann'
+
+        Raises
+        ------
+        ValueError
+            If n_fft is not a positive integer
+            If win_length is not a positive integer or exceeds n_fft
+            If hop_length is not a positive integer
+        """
+        # Validate n_fft
+        if not isinstance(n_fft, int) or n_fft <= 0:
+            raise ValueError(
+                f"FFT size (n_fft) must be a positive integer, got {n_fft}.\n"
+                f"Expected: n_fft > 0 (e.g., 512, 1024, 2048)\n"
+                "Hint: Common FFT sizes are powers of 2 for optimal performance."
+            )
+
+        # Set default win_length
+        _win_length = win_length if win_length is not None else n_fft
+
+        # Validate win_length
+        if not isinstance(_win_length, int) or _win_length <= 0:
+            raise ValueError(
+                "Window length (win_length) must be a positive integer, "
+                f"got {_win_length}.\n"
+                f"Expected: win_length > 0\n"
+                f"Hint: Default is n_fft ({n_fft})."
+            )
+
+        if _win_length > n_fft:
+            raise ValueError(
+                f"Window length (win_length={_win_length}) cannot exceed "
+                f"FFT size (n_fft={n_fft}).\n"
+                f"Expected: win_length <= n_fft\n"
+                f"Current values: win_length={_win_length}, n_fft={n_fft}\n"
+                "Solution: Either decrease win_length or increase n_fft."
+            )
+
+        # Set default hop_length
+        _hop_length = hop_length if hop_length is not None else _win_length // 4
+
+        # Validate hop_length
+        if not isinstance(_hop_length, int) or _hop_length <= 0:
+            raise ValueError(
+                "Hop length (hop_length) must be a positive integer, "
+                f"got {_hop_length}.\n"
+                f"Expected: hop_length > 0\n"
+                f"Hint: Default is win_length // 4 ({_win_length // 4}).\n"
+                "Typical values: 25-75% of win_length for good overlap."
+            )
+
         self.n_fft = n_fft
-        self.win_length = win_length if win_length is not None else n_fft
-        self.hop_length = hop_length if hop_length is not None else self.win_length // 4
+        self.win_length = _win_length
+        self.hop_length = _hop_length
         self.noverlap = (
             self.win_length - self.hop_length if hop_length is not None else None
         )
@@ -329,12 +414,81 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
             Sampling rate (Hz)
         n_fft : int, optional
             FFT size, default is 2048
+        hop_length : int, optional
+            Hop length (samples between frames), default is win_length // 4
+        win_length : int, optional
+            Window length, default is n_fft
         window : str, optional
             Window function type, default is 'hann'
+        average : str, optional
+            Averaging method, default is 'mean'
+        detrend : str, optional
+            Detrend type, default is 'constant'
+
+        Raises
+        ------
+        ValueError
+            If n_fft is not a positive integer
+            If win_length is not a positive integer or exceeds n_fft
+            If hop_length is not a positive integer
+            If average method is not supported
         """
+        # Validate n_fft
+        if not isinstance(n_fft, int) or n_fft <= 0:
+            raise ValueError(
+                f"FFT size (n_fft) must be a positive integer, got {n_fft}.\n"
+                f"Expected: n_fft > 0 (e.g., 512, 1024, 2048)\n"
+                f"Hint: Common FFT sizes are powers of 2 for optimal performance."
+            )
+
+        # Set default win_length
+        _win_length = win_length if win_length is not None else n_fft
+
+        # Validate win_length
+        if not isinstance(_win_length, int) or _win_length <= 0:
+            raise ValueError(
+                "Window length (win_length) must be a positive integer, "
+                f"got {_win_length}.\n"
+                f"Expected: win_length > 0\n"
+                f"Hint: Default is n_fft ({n_fft})."
+            )
+
+        if _win_length > n_fft:
+            raise ValueError(
+                f"Window length (win_length={_win_length}) cannot exceed "
+                f"FFT size (n_fft={n_fft}).\n"
+                f"Expected: win_length <= n_fft\n"
+                f"Current values: win_length={_win_length}, n_fft={n_fft}\n"
+                "Solution: Either decrease win_length or increase n_fft."
+            )
+
+        # Set default hop_length
+        _hop_length = hop_length if hop_length is not None else _win_length // 4
+
+        # Validate hop_length
+        if not isinstance(_hop_length, int) or _hop_length <= 0:
+            raise ValueError(
+                "Hop length (hop_length) must be a positive integer, "
+                f"got {_hop_length}.\n"
+                f"Expected: hop_length > 0\n"
+                f"Hint: Default is win_length // 4 ({_win_length // 4}).\n"
+                "Typical values: 25-75% of win_length for good overlap."
+            )
+
+        # Validate average method
+        valid_averages = ["mean", "median"]
+        if average not in valid_averages:
+            raise ValueError(
+                f"Averaging method '{average}' is not supported.\n"
+                f"Expected: one of {valid_averages}\n"
+                f"Received: '{average}'\n"
+                "Hint: Use 'mean' for standard averaging or "
+                "'median' for robust averaging."
+            )
+
         self.n_fft = n_fft
-        self.win_length = win_length if win_length is not None else n_fft
-        self.hop_length = hop_length if hop_length is not None else self.win_length // 4
+        self.win_length = _win_length
+        self.hop_length = _hop_length
         self.noverlap = (
             self.win_length - self.hop_length if hop_length is not None else None
         )

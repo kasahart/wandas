@@ -24,9 +24,41 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
         ----------
         sampling_rate : float
             Sampling rate (Hz)
-        target_sampling_rate : float
+        target_sr : float
             Target sampling rate (Hz)
+
+        Raises
+        ------
+        ValueError
+            If target_sr is not a positive number
         """
+        # Validate target_sr parameter
+        if not isinstance(target_sr, (int, float, np.number)):
+            raise ValueError(
+                f"Target sampling rate must be a number.\n"
+                f"Received type: {type(target_sr).__name__}\n"
+                f"Received value: {target_sr}\n"
+                f"Expected: positive number (e.g., 16000, 44100, 48000)"
+            )
+
+        if target_sr <= 0:
+            raise ValueError(
+                f"Target sampling rate must be positive, got {target_sr} Hz.\n"
+                f"Expected: target_sr > 0\n"
+                f"Hint: Common sampling rates are 8000, 16000, 44100, 48000 Hz."
+            )
+
+        # Warn if resampling ratio is extreme
+        if sampling_rate > 0:
+            ratio = target_sr / sampling_rate
+            if ratio < 0.1 or ratio > 10:
+                logger.warning(
+                    f"Extreme resampling ratio detected: {ratio:.2f}x "
+                    f"(from {sampling_rate} Hz to {target_sr} Hz).\n"
+                    f"This may result in quality loss or excessive computation.\n"
+                    f"Consider whether this is intentional."
+                )
+
         super().__init__(sampling_rate, target_sr=target_sr)
         self.target_sr = target_sr
 

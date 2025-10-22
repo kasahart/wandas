@@ -119,7 +119,33 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
         fill : bool or None, optional
             Value to fill when the norm is zero.
             If None, the zero vector remains zero.
+
+        Raises
+        ------
+        ValueError
+            If norm parameter is not a valid type
+            If axis parameter is not a valid integer or None
         """
+        # Validate norm parameter
+        if norm is not None and not isinstance(norm, (int, float, np.number)):
+            raise ValueError(
+                f"Norm parameter must be a number, np.inf, -np.inf, or None.\n"
+                f"Received type: {type(norm).__name__}\n"
+                f"Received value: {norm}\n"
+                f"Hint: Common values are np.inf (max normalization), "
+                f"2 (L2 norm), or None (no normalization)."
+            )
+
+        # Validate axis parameter
+        if axis is not None and not isinstance(axis, (int, np.integer)):
+            raise ValueError(
+                f"Axis parameter must be an integer or None.\n"
+                f"Received type: {type(axis).__name__}\n"
+                f"Received value: {axis}\n"
+                f"Hint: Use -1 for time axis normalization (per channel) "
+                f"or None for global normalization."
+            )
+
         super().__init__(
             sampling_rate, norm=norm, axis=axis, threshold=threshold, fill=fill
         )
