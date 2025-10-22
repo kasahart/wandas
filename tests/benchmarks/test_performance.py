@@ -13,7 +13,9 @@ class TestFFTPerformance:
     """Benchmark tests for FFT operation."""
 
     def test_fft_performance(
-        self, benchmark: pytest.fixture, benchmark_signal: ChannelFrame  # type: ignore [valid-type]
+        self,
+        benchmark: pytest.fixture,
+        benchmark_signal: ChannelFrame,  # type: ignore [valid-type]
     ) -> None:
         """Benchmark FFT computation with default parameters.
 
@@ -26,7 +28,9 @@ class TestFFTPerformance:
         assert result.n_channels == benchmark_signal.n_channels
 
     def test_fft_large_performance(
-        self, benchmark: pytest.fixture, benchmark_signal: ChannelFrame  # type: ignore [valid-type]
+        self,
+        benchmark: pytest.fixture,
+        benchmark_signal: ChannelFrame,  # type: ignore [valid-type]
     ) -> None:
         """Benchmark FFT computation with larger FFT size.
 
@@ -43,7 +47,9 @@ class TestSTFTPerformance:
     """Benchmark tests for STFT operation."""
 
     def test_stft_performance(
-        self, benchmark: pytest.fixture, benchmark_signal: ChannelFrame  # type: ignore [valid-type]
+        self,
+        benchmark: pytest.fixture,
+        benchmark_signal: ChannelFrame,  # type: ignore [valid-type]
     ) -> None:
         """Benchmark STFT computation with default parameters.
 
@@ -56,7 +62,9 @@ class TestSTFTPerformance:
         assert result.n_channels == benchmark_signal.n_channels
 
     def test_stft_small_hop_performance(
-        self, benchmark: pytest.fixture, benchmark_signal: ChannelFrame  # type: ignore [valid-type]
+        self,
+        benchmark: pytest.fixture,
+        benchmark_signal: ChannelFrame,  # type: ignore [valid-type]
     ) -> None:
         """Benchmark STFT with smaller hop length (more frames).
 
@@ -73,7 +81,9 @@ class TestWelchPerformance:
     """Benchmark tests for Welch method."""
 
     def test_welch_performance(
-        self, benchmark: pytest.fixture, benchmark_signal: ChannelFrame  # type: ignore [valid-type]
+        self,
+        benchmark: pytest.fixture,
+        benchmark_signal: ChannelFrame,  # type: ignore [valid-type]
     ) -> None:
         """Benchmark Welch method with default parameters.
 
@@ -88,7 +98,9 @@ class TestWelchPerformance:
         assert result.n_channels == benchmark_signal.n_channels
 
     def test_welch_large_window_performance(
-        self, benchmark: pytest.fixture, benchmark_signal: ChannelFrame  # type: ignore [valid-type]
+        self,
+        benchmark: pytest.fixture,
+        benchmark_signal: ChannelFrame,  # type: ignore [valid-type]
     ) -> None:
         """Benchmark Welch method with larger window.
 
@@ -107,7 +119,9 @@ class TestFilterPerformance:
     """Benchmark tests for filter operations."""
 
     def test_lowpass_filter_performance(
-        self, benchmark: pytest.fixture, benchmark_signal: ChannelFrame  # type: ignore [valid-type]
+        self,
+        benchmark: pytest.fixture,
+        benchmark_signal: ChannelFrame,  # type: ignore [valid-type]
     ) -> None:
         """Benchmark low-pass filter application.
 
@@ -120,7 +134,9 @@ class TestFilterPerformance:
         assert result.n_channels == benchmark_signal.n_channels
 
     def test_highpass_filter_performance(
-        self, benchmark: pytest.fixture, benchmark_signal: ChannelFrame  # type: ignore [valid-type]
+        self,
+        benchmark: pytest.fixture,
+        benchmark_signal: ChannelFrame,  # type: ignore [valid-type]
     ) -> None:
         """Benchmark high-pass filter application.
 
@@ -133,7 +149,9 @@ class TestFilterPerformance:
         assert result.n_channels == benchmark_signal.n_channels
 
     def test_lowpass_high_order_performance(
-        self, benchmark: pytest.fixture, benchmark_signal: ChannelFrame  # type: ignore [valid-type]
+        self,
+        benchmark: pytest.fixture,
+        benchmark_signal: ChannelFrame,  # type: ignore [valid-type]
     ) -> None:
         """Benchmark low-pass filter with higher order.
 
@@ -146,7 +164,9 @@ class TestFilterPerformance:
         assert result.n_channels == benchmark_signal.n_channels
 
     def test_highpass_high_order_performance(
-        self, benchmark: pytest.fixture, benchmark_signal: ChannelFrame  # type: ignore [valid-type]
+        self,
+        benchmark: pytest.fixture,
+        benchmark_signal: ChannelFrame,  # type: ignore [valid-type]
     ) -> None:
         """Benchmark high-pass filter with higher order.
 
