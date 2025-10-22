@@ -61,13 +61,41 @@ class ChannelFrame(
             previous: Reference to the previous frame in the processing chain.
 
         Raises:
-            ValueError: If data has more than 2 dimensions.
+            ValueError: If data has more than 2 dimensions or if sampling rate
+                is not positive.
         """
+        # Validate sampling rate
+        if sampling_rate <= 0:
+            raise ValueError(
+                f"Sampling rate must be positive:\n"
+                f"  Given: {sampling_rate} Hz\n"
+                f"\n"
+                f"Solution:\n"
+                f"  - Use a positive sampling rate (e.g., 44100 Hz for audio)\n"
+                f"  - Common values: 8000, 16000, 44100, 48000 Hz\n"
+                f"\n"
+                f"Background:\n"
+                f"  Sampling rate defines how many samples per second.\n"
+                f"  It must be positive to represent time correctly."
+            )
+        
+        # Validate and reshape data
         if data.ndim == 1:
             data = da.reshape(data, (1, -1))
         elif data.ndim > 2:
             raise ValueError(
-                f"Data must be 1-dimensional or 2-dimensional. Shape: {data.shape}"
+                f"Data must be 1-dimensional or 2-dimensional:\n"
+                f"  Given shape: {data.shape} ({data.ndim} dimensions)\n"
+                f"  Expected: (n_samples,) or (n_channels, n_samples)\n"
+                f"\n"
+                f"Solution:\n"
+                f"  - For single channel: use shape (n_samples,) or (1, n_samples)\n"
+                f"  - For multi-channel: use shape (n_channels, n_samples)\n"
+                f"  - Reshape your data: data.reshape(n_channels, n_samples)\n"
+                f"\n"
+                f"Background:\n"
+                f"  ChannelFrame represents time-series data with channels.\n"
+                f"  First dimension is channels, second is time samples."
             )
         super().__init__(
             data=data,
@@ -591,12 +619,26 @@ class ChannelFrame(
 
         Returns:
             A new ChannelFrame containing the NumPy data.
+
+        Raises:
+            ValueError: If data has more than 2 dimensions.
         """
         if data.ndim == 1:
             data = data.reshape(1, -1)
         elif data.ndim > 2:
             raise ValueError(
-                f"Data must be 1-dimensional or 2-dimensional. Shape: {data.shape}"
+                f"Data must be 1-dimensional or 2-dimensional:\n"
+                f"  Given shape: {data.shape} ({data.ndim} dimensions)\n"
+                f"  Expected: (n_samples,) or (n_channels, n_samples)\n"
+                f"\n"
+                f"Solution:\n"
+                f"  - For single channel: use shape (n_samples,) or (1, n_samples)\n"
+                f"  - For multi-channel: use shape (n_channels, n_samples)\n"
+                f"  - Reshape your data: data.reshape(n_channels, n_samples)\n"
+                f"\n"
+                f"Background:\n"
+                f"  ChannelFrame represents time-series data with channels.\n"
+                f"  First dimension is channels, second is time samples."
             )
 
         # Convert NumPy array to dask array
@@ -717,7 +759,17 @@ class ChannelFrame(
 
         path = Path(path)
         if not path.exists():
-            raise FileNotFoundError(f"File not found: {path}")
+            raise FileNotFoundError(
+                f"Audio file not found:\n"
+                f"  Path: {path}\n"
+                f"  Absolute path: {path.absolute()}\n"
+                f"\n"
+                f"Solution:\n"
+                f"  - Check if the file path is correct\n"
+                f"  - Ensure the file exists in the specified location\n"
+                f"  - Use absolute path if relative path is not working\n"
+                f"  - Check file permissions\n"
+            )
 
         # Get file reader
         reader = get_file_reader(path)
