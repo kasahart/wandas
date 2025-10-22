@@ -1520,25 +1520,31 @@ class TestDescribeIntegration:
 
     def test_visualize_graph(self) -> None:
         """Test visualize_graph method."""
-        # Test successful visualization
+        # Test successful visualization - returns mock object from visualize()
         with mock.patch.object(DaArray, "visualize") as mock_visualize:
-            filename = self.channel_frame.visualize_graph()
+            mock_return_value = mock.MagicMock()
+            mock_visualize.return_value = mock_return_value
+            result = self.channel_frame.visualize_graph()
             mock_visualize.assert_called_once()
-            assert filename is not None
+            # visualize_graph returns the result from _data.visualize()
+            assert result is mock_return_value
 
         # Test with provided filename
         with mock.patch.object(DaArray, "visualize") as mock_visualize:
+            mock_return_value = mock.MagicMock()
+            mock_visualize.return_value = mock_return_value
             custom_filename = "test_graph.png"
-            filename = self.channel_frame.visualize_graph(filename=custom_filename)
+            result = self.channel_frame.visualize_graph(filename=custom_filename)
             mock_visualize.assert_called_with(filename=custom_filename)
-            assert filename == custom_filename
+            # Returns the mock object from visualize()
+            assert result is mock_return_value
 
         # Test handling of visualization error
         with mock.patch.object(
             DaArray, "visualize", side_effect=Exception("Test error")
         ):
-            filename = self.channel_frame.visualize_graph()
-            assert filename is None
+            result = self.channel_frame.visualize_graph()
+            assert result is None
 
     def test_rms_property(self) -> None:
         """Test RMS property calculation."""

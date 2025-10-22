@@ -9,6 +9,7 @@ from typing import Any, Callable, Generic, Optional, TypeVar, Union, cast
 import numpy as np
 import numpy.typing as npt
 from dask.array.core import Array as DaArray
+from IPython.display import Image as IPythonImage
 from matplotlib.axes import Axes
 
 from wandas.utils.types import NDArrayComplex, NDArrayReal
@@ -270,7 +271,8 @@ class BaseFrame(ABC, Generic[T]):
 
         # Single index (int)
         if isinstance(key, numbers.Integral):
-            return self.get_channel(key)
+            # Ensure we pass a plain Python int to satisfy the type checker
+            return self.get_channel(int(key))
 
         # Single label (str)
         if isinstance(key, str):
@@ -541,12 +543,59 @@ class BaseFrame(ABC, Generic[T]):
             return result.astype(dtype)
         return result
 
-    def visualize_graph(self, filename: Optional[str] = None) -> Optional[str]:
-        """Visualize the computation graph and save it to a file"""
+    def visualize_graph(
+        self, filename: Optional[str] = None
+    ) -> Union["IPythonImage", None]:
+        """
+        Visualize the computation graph and save it to a file.
+
+        This method creates a visual representation of the Dask computation graph.
+        In Jupyter notebooks, it returns an IPython.display.Image object that
+        will be displayed inline. In other environments, it saves the graph to
+        a file and returns None.
+
+        Parameters
+        ----------
+        filename : str, optional
+            Output filename for the graph image. If None, a unique filename
+            is generated using UUID. The file is saved in the current working
+            directory.
+
+        Returns
+        -------
+        IPython.display.Image or None
+            In Jupyter environments: Returns an IPython.display.Image object
+            that can be displayed inline.
+            In other environments: Returns None after saving the graph to file.
+            Returns None if visualization fails.
+
+        Notes
+        -----
+        This method requires graphviz to be installed on your system:
+        - Ubuntu/Debian: `sudo apt-get install graphviz`
+        - macOS: `brew install graphviz`
+        - Windows: Download from https://graphviz.org/download/
+
+        The graph displays operation names (e.g., 'normalize', 'lowpass_filter')
+        making it easier to understand the processing pipeline.
+
+        Examples
+        --------
+        >>> import wandas as wd
+        >>> signal = wd.read_wav("audio.wav")
+        >>> processed = signal.normalize().low_pass_filter(cutoff=1000)
+        >>> # In Jupyter: displays graph inline
+        >>> processed.visualize_graph()
+        >>> # Save to specific file
+        >>> processed.visualize_graph("my_graph.png")
+
+        See Also
+        --------
+        debug_info : Print detailed debug information about the frame
+        """
         try:
             filename = filename or f"graph_{uuid.uuid4().hex[:8]}.png"
-            self._data.visualize(filename=filename)
-            return filename
+            return self._data.visualize(filename=filename)
         except Exception as e:
             logger.warning(f"Failed to visualize the graph: {e}")
             return None

@@ -2,9 +2,9 @@ import inspect
 import logging
 from typing import Any, ClassVar, Generic, TypeVar
 
-import dask
 import dask.array as da
 from dask.array.core import Array as DaArray
+from dask.delayed import delayed
 
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
@@ -96,12 +96,45 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         # Default is no-op function
         raise NotImplementedError("Subclasses must implement this method.")
 
-    @dask.delayed  # type: ignore [misc, unused-ignore]
-    def process_array(self, x: InputArrayType) -> OutputArrayType:
-        """Processing function wrapped with @dask.delayed"""
-        # Default is no-op function
-        logger.debug(f"Default process operation on data with shape: {x.shape}")
-        return self._process_array(x)
+    def _create_named_wrapper(self) -> Any:
+        """
+        Create a named wrapper function for better Dask graph visualization.
+
+        Returns
+        -------
+        callable
+            A wrapper function with the operation name set as __name__.
+        """
+
+        def operation_wrapper(x: InputArrayType) -> OutputArrayType:
+            return self._process_array(x)
+
+        # Set the function name to the operation name for better visualization
+        operation_wrapper.__name__ = self.name
+        return operation_wrapper
+
+    def process_array(self, x: InputArrayType) -> Any:
+        """
+        Processing function wrapped with @dask.delayed.
+
+        This method returns a Delayed object that can be computed later.
+        The operation name is used in the Dask task graph for better visualization.
+
+        Parameters
+        ----------
+        x : InputArrayType
+            Input array to process.
+
+        Returns
+        -------
+        dask.delayed.Delayed
+            A Delayed object representing the computation.
+        """
+        logger.debug(f"Creating delayed operation on data with shape: {x.shape}")
+        # Create wrapper with operation name and wrap it with dask.delayed
+        wrapper = self._create_named_wrapper()
+        delayed_func = delayed(wrapper, pure=False)
+        return delayed_func(x)
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
@@ -124,9 +157,15 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         Execute operation and return result
         data shape is (channels, samples)
         """
-        # Add task as delayed processing
+        # Add task as delayed processing with custom name for visualization
         logger.debug("Adding delayed operation to computation graph")
-        delayed_result = self.process_array(data)
+
+        # Create a wrapper function with the operation name
+        # This allows Dask to use the operation name in the task graph
+        wrapper = self._create_named_wrapper()
+        delayed_func = delayed(wrapper, pure=False)
+        delayed_result = delayed_func(data)
+
         # Convert delayed result to dask array and return
         output_shape = self.calculate_output_shape(data.shape)
         return _da_from_delayed(delayed_result, shape=output_shape, dtype=data.dtype)
