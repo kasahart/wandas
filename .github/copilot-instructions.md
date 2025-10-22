@@ -499,7 +499,7 @@ def plot(
 
 ### 10. エラーハンドリング
 
-**重要**: エラーメッセージの詳細なガイドラインは **[Error Message Guide](../docs/development/error_message_guide.md)** を参照してください。
+**Important**: For detailed guidelines on error messages, refer to the **[Error Message Guide](../docs/development/error_message_guide.md)**.
 
 #### エラーメッセージの3要素ルール
 
