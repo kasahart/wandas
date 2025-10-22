@@ -24,19 +24,57 @@ class HighPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
         sampling_rate : float
             Sampling rate (Hz)
         cutoff : float
-            Cutoff frequency (Hz)
+            Cutoff frequency (Hz). Must be in range (0, Nyquist frequency).
         order : int, optional
             Filter order, default is 4
+            
+        Raises
+        ------
+        ValueError
+            If cutoff frequency is <= 0 or >= Nyquist frequency (sampling_rate / 2).
         """
         self.cutoff = cutoff
         self.order = order
         super().__init__(sampling_rate, cutoff=cutoff, order=order)
 
     def validate_params(self) -> None:
-        """Validate parameters"""
-        if self.cutoff <= 0 or self.cutoff >= self.sampling_rate / 2:
-            limit = self.sampling_rate / 2
-            raise ValueError(f"Cutoff frequency must be between 0 Hz and {limit} Hz")
+        """Validate parameters
+        
+        Raises:
+            ValueError: If cutoff frequency is invalid (not in range (0, Nyquist)).
+        """
+        nyquist = self.sampling_rate / 2
+        if self.cutoff <= 0:
+            raise ValueError(
+                f"Cutoff frequency is too low:\n"
+                f"  Given: {self.cutoff} Hz\n"
+                f"  Minimum: > 0 Hz\n"
+                f"\n"
+                f"Solution:\n"
+                f"  - Use a positive cutoff frequency\n"
+                f"  - For high-pass filter, typical range: 20 Hz to {nyquist} Hz\n"
+                f"\n"
+                f"Background:\n"
+                f"  Cutoff frequency defines the frequency below which signals\n"
+                f"  are attenuated. It must be positive and physical."
+            )
+        elif self.cutoff >= nyquist:
+            raise ValueError(
+                f"Cutoff frequency exceeds Nyquist limit:\n"
+                f"  Given: {self.cutoff} Hz\n"
+                f"  Nyquist frequency (limit): {nyquist} Hz\n"
+                f"  Sampling rate: {self.sampling_rate} Hz\n"
+                f"\n"
+                f"Solution:\n"
+                f"  - Use cutoff < {nyquist} Hz\n"
+                f"  - Or increase sampling rate to at least {self.cutoff * 2} Hz using:\n"
+                f"    frame.resample(target_sr={int(self.cutoff * 2.5)})\n"
+                f"\n"
+                f"Background:\n"
+                f"  Nyquist frequency is half of the sampling rate.\n"
+                f"  Filters cannot work above this limit due to aliasing.\n"
+                f"  To filter higher frequencies, you need a higher sampling rate."
+            )
 
     def _setup_processor(self) -> None:
         """Set up high-pass filter processor"""
@@ -75,19 +113,56 @@ class LowPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
         sampling_rate : float
             Sampling rate (Hz)
         cutoff : float
-            Cutoff frequency (Hz)
+            Cutoff frequency (Hz). Must be in range (0, Nyquist frequency).
         order : int, optional
             Filter order, default is 4
+            
+        Raises
+        ------
+        ValueError
+            If cutoff frequency is <= 0 or >= Nyquist frequency (sampling_rate / 2).
         """
         self.cutoff = cutoff
         self.order = order
         super().__init__(sampling_rate, cutoff=cutoff, order=order)
 
     def validate_params(self) -> None:
-        """Validate parameters"""
-        if self.cutoff <= 0 or self.cutoff >= self.sampling_rate / 2:
+        """Validate parameters
+        
+        Raises:
+            ValueError: If cutoff frequency is invalid (not in range (0, Nyquist)).
+        """
+        nyquist = self.sampling_rate / 2
+        if self.cutoff <= 0:
             raise ValueError(
-                f"Cutoff frequency must be between 0 Hz and {self.sampling_rate / 2} Hz"
+                f"Cutoff frequency is too low:\n"
+                f"  Given: {self.cutoff} Hz\n"
+                f"  Minimum: > 0 Hz\n"
+                f"\n"
+                f"Solution:\n"
+                f"  - Use a positive cutoff frequency\n"
+                f"  - For low-pass filter, typical range: 20 Hz to {nyquist} Hz\n"
+                f"\n"
+                f"Background:\n"
+                f"  Cutoff frequency defines the frequency above which signals\n"
+                f"  are attenuated. It must be positive and physical."
+            )
+        elif self.cutoff >= nyquist:
+            raise ValueError(
+                f"Cutoff frequency exceeds Nyquist limit:\n"
+                f"  Given: {self.cutoff} Hz\n"
+                f"  Nyquist frequency (limit): {nyquist} Hz\n"
+                f"  Sampling rate: {self.sampling_rate} Hz\n"
+                f"\n"
+                f"Solution:\n"
+                f"  - Use cutoff < {nyquist} Hz\n"
+                f"  - Or increase sampling rate to at least {self.cutoff * 2} Hz using:\n"
+                f"    frame.resample(target_sr={int(self.cutoff * 2.5)})\n"
+                f"\n"
+                f"Background:\n"
+                f"  Nyquist frequency is half of the sampling rate.\n"
+                f"  Filters cannot work above this limit due to aliasing.\n"
+                f"  To filter higher frequencies, you need a higher sampling rate."
             )
 
     def _setup_processor(self) -> None:
@@ -133,11 +208,18 @@ class BandPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
         sampling_rate : float
             Sampling rate (Hz)
         low_cutoff : float
-            Lower cutoff frequency (Hz)
+            Lower cutoff frequency (Hz). Must be in range (0, Nyquist frequency).
         high_cutoff : float
-            Higher cutoff frequency (Hz)
+            Higher cutoff frequency (Hz). Must be in range (0, Nyquist frequency)
+            and greater than low_cutoff.
         order : int, optional
             Filter order, default is 4
+            
+        Raises
+        ------
+        ValueError
+            If low_cutoff or high_cutoff is <= 0 or >= Nyquist frequency,
+            or if low_cutoff >= high_cutoff.
         """
         self.low_cutoff = low_cutoff
         self.high_cutoff = high_cutoff
@@ -147,20 +229,79 @@ class BandPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
         )
 
     def validate_params(self) -> None:
-        """Validate parameters"""
+        """Validate parameters
+        
+        Raises:
+            ValueError: If cutoff frequencies are invalid.
+        """
         nyquist = self.sampling_rate / 2
-        if self.low_cutoff <= 0 or self.low_cutoff >= nyquist:
+        if self.low_cutoff <= 0:
             raise ValueError(
-                f"Lower cutoff frequency must be between 0 Hz and {nyquist} Hz"
+                f"Lower cutoff frequency is too low:\n"
+                f"  Given: {self.low_cutoff} Hz\n"
+                f"  Minimum: > 0 Hz\n"
+                f"\n"
+                f"Solution:\n"
+                f"  - Use a positive lower cutoff frequency\n"
+                f"  - For band-pass filter, typical range: 20 Hz to {nyquist} Hz\n"
+                f"\n"
+                f"Background:\n"
+                f"  Lower cutoff frequency defines the lower edge of the passband.\n"
+                f"  It must be positive and physical."
             )
-        if self.high_cutoff <= 0 or self.high_cutoff >= nyquist:
+        if self.low_cutoff >= nyquist:
             raise ValueError(
-                f"Higher cutoff frequency must be between 0 Hz and {nyquist} Hz"
+                f"Lower cutoff frequency exceeds Nyquist limit:\n"
+                f"  Given: {self.low_cutoff} Hz\n"
+                f"  Nyquist frequency (limit): {nyquist} Hz\n"
+                f"  Sampling rate: {self.sampling_rate} Hz\n"
+                f"\n"
+                f"Solution:\n"
+                f"  - Use lower cutoff < {nyquist} Hz\n"
+                f"  - Or increase sampling rate to at least {self.low_cutoff * 2} Hz\n"
+                f"\n"
+                f"Background:\n"
+                f"  Nyquist frequency is half of the sampling rate.\n"
+                f"  Filters cannot work above this limit due to aliasing."
+            )
+        if self.high_cutoff <= 0:
+            raise ValueError(
+                f"Higher cutoff frequency is too low:\n"
+                f"  Given: {self.high_cutoff} Hz\n"
+                f"  Minimum: > 0 Hz\n"
+                f"\n"
+                f"Solution:\n"
+                f"  - Use a positive higher cutoff frequency\n"
+                f"  - For band-pass filter, typical range: 20 Hz to {nyquist} Hz"
+            )
+        if self.high_cutoff >= nyquist:
+            raise ValueError(
+                f"Higher cutoff frequency exceeds Nyquist limit:\n"
+                f"  Given: {self.high_cutoff} Hz\n"
+                f"  Nyquist frequency (limit): {nyquist} Hz\n"
+                f"  Sampling rate: {self.sampling_rate} Hz\n"
+                f"\n"
+                f"Solution:\n"
+                f"  - Use higher cutoff < {nyquist} Hz\n"
+                f"  - Or increase sampling rate to at least {self.high_cutoff * 2} Hz\n"
+                f"\n"
+                f"Background:\n"
+                f"  Nyquist frequency is half of the sampling rate.\n"
+                f"  Filters cannot work above this limit due to aliasing."
             )
         if self.low_cutoff >= self.high_cutoff:
             raise ValueError(
-                f"Lower cutoff frequency ({self.low_cutoff} Hz) must be less than "
-                f"higher cutoff frequency ({self.high_cutoff} Hz)"
+                f"Invalid cutoff frequency range:\n"
+                f"  Lower cutoff: {self.low_cutoff} Hz\n"
+                f"  Higher cutoff: {self.high_cutoff} Hz\n"
+                f"\n"
+                f"Solution:\n"
+                f"  - Ensure lower cutoff < higher cutoff\n"
+                f"  - For band-pass filter, use: low_cutoff={self.high_cutoff/2} Hz, high_cutoff={self.high_cutoff} Hz\n"
+                f"\n"
+                f"Background:\n"
+                f"  Band-pass filter requires a valid frequency range.\n"
+                f"  Lower cutoff must be less than higher cutoff to define a passband."
             )
 
     def _setup_processor(self) -> None:

@@ -54,6 +54,7 @@ class ChannelFrame(
             data: Dask array containing channel data.
             Shape should be (n_channels, n_samples).
             sampling_rate: The sampling rate of the data in Hz.
+            Must be a positive number.
             label: A label for the frame.
             metadata: Optional metadata dictionary.
             operation_history: History of operations applied to the frame.
@@ -61,13 +62,45 @@ class ChannelFrame(
             previous: Reference to the previous frame in the processing chain.
 
         Raises:
-            ValueError: If data has more than 2 dimensions.
+            ValueError: If data has more than 2 dimensions or if sampling_rate
+                is not positive.
         """
+        # Validate sampling rate
+        if sampling_rate <= 0:
+            raise ValueError(
+                f"Invalid sampling rate:\n"
+                f"  Given: {sampling_rate} Hz\n"
+                f"  Expected: Positive number > 0 Hz\n"
+                f"\n"
+                f"Solution:\n"
+                f"  - Check your audio file metadata\n"
+                f"  - Common sampling rates: 8000, 16000, 22050, 44100, 48000 Hz\n"
+                f"  - For custom data, specify the actual sampling rate used\n"
+                f"\n"
+                f"Background:\n"
+                f"  Sampling rate defines how many samples per second were recorded.\n"
+                f"  It must be positive to correctly interpret time-domain data."
+            )
+        
+        # Validate and reshape data
         if data.ndim == 1:
             data = da.reshape(data, (1, -1))
         elif data.ndim > 2:
             raise ValueError(
-                f"Data must be 1-dimensional or 2-dimensional. Shape: {data.shape}"
+                f"Invalid data shape for ChannelFrame:\n"
+                f"  Given shape: {data.shape} ({data.ndim}D array)\n"
+                f"  Expected: 1D array (samples,) or 2D array (channels, samples)\n"
+                f"\n"
+                f"Solution:\n"
+                f"  - For single channel: Use 1D array with shape (n_samples,)\n"
+                f"  - For multiple channels: Use 2D array with shape (n_channels, n_samples)\n"
+                f"  - If you have shape {data.shape}, consider reshaping:\n"
+                f"    data.reshape(n_channels, n_samples)\n"
+                f"\n"
+                f"Background:\n"
+                f"  ChannelFrame expects time-series data where each row is a channel\n"
+                f"  and each column is a sample point. Higher dimensional arrays\n"
+                f"  (3D, 4D, etc.) are not supported."
             )
         super().__init__(
             data=data,
@@ -596,7 +629,20 @@ class ChannelFrame(
             data = data.reshape(1, -1)
         elif data.ndim > 2:
             raise ValueError(
-                f"Data must be 1-dimensional or 2-dimensional. Shape: {data.shape}"
+                f"Invalid data shape for ChannelFrame:\n"
+                f"  Given shape: {data.shape} ({data.ndim}D array)\n"
+                f"  Expected: 1D array (samples,) or 2D array (channels, samples)\n"
+                f"\n"
+                f"Solution:\n"
+                f"  - For single channel: Use 1D array with shape (n_samples,)\n"
+                f"  - For multiple channels: Use 2D array with shape (n_channels, n_samples)\n"
+                f"  - If you have shape {data.shape}, consider reshaping:\n"
+                f"    data.reshape(n_channels, n_samples)\n"
+                f"\n"
+                f"Background:\n"
+                f"  ChannelFrame expects time-series data where each row is a channel\n"
+                f"  and each column is a sample point. Higher dimensional arrays\n"
+                f"  (3D, 4D, etc.) are not supported."
             )
 
         # Convert NumPy array to dask array
@@ -701,7 +747,9 @@ class ChannelFrame(
         Raises:
             ValueError: If channel specification is invalid.
             TypeError: If channel parameter type is invalid.
-            FileNotFoundError: If the file doesn't exist.
+            FileNotFoundError: If the file doesn't exist. The error message
+                includes the absolute path, current directory, and helpful
+                suggestions for resolving the issue.
 
         Examples:
             >>> # Load WAV file
@@ -717,7 +765,21 @@ class ChannelFrame(
 
         path = Path(path)
         if not path.exists():
-            raise FileNotFoundError(f"File not found: {path}")
+            raise FileNotFoundError(
+                f"Audio file not found:\n"
+                f"  Specified path: {path}\n"
+                f"  Absolute path: {path.resolve()}\n"
+                f"  Current directory: {Path.cwd()}\n"
+                f"\n"
+                f"Solution:\n"
+                f"  - Check the file path is correct\n"
+                f"  - Check the file extension (.wav, .flac, .ogg, etc.)\n"
+                f"  - Use absolute path: ChannelFrame.from_file('/full/path/to/file.wav')\n"
+                f"  - Or relative to current directory: {Path.cwd()}\n"
+                f"\n"
+                f"Tip:\n"
+                f"  Use Path('{path}').exists() to verify the file before loading."
+            )
 
         # Get file reader
         reader = get_file_reader(path)

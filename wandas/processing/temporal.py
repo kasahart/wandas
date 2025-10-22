@@ -24,9 +24,34 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
         ----------
         sampling_rate : float
             Sampling rate (Hz)
-        target_sampling_rate : float
+        target_sr : float
             Target sampling rate (Hz)
+            
+        Raises
+        ------
+        ValueError
+            If target_sr is not positive.
         """
+        if target_sr <= 0:
+            raise ValueError(
+                f"Invalid target sampling rate:\n"
+                f"  Given: {target_sr} Hz\n"
+                f"  Expected: Positive number > 0 Hz\n"
+                f"\n"
+                f"Solution:\n"
+                f"  - Use a positive target sampling rate\n"
+                f"  - Common rates: 8000, 16000, 22050, 44100, 48000 Hz\n"
+                f"\n"
+                f"Background:\n"
+                f"  Target sampling rate must be positive to define the output rate."
+            )
+        
+        if target_sr == sampling_rate:
+            logger.warning(
+                f"Target sampling rate ({target_sr} Hz) equals current sampling rate.\n"
+                f"No resampling will be performed. This operation has no effect."
+            )
+        
         super().__init__(sampling_rate, target_sr=target_sr)
         self.target_sr = target_sr
 
