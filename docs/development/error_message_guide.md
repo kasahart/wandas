@@ -2,7 +2,7 @@
 
 **Last Updated**: 2025-10-22  
 **Status**: Active  
-**Related**: [Copilot Instructions](.github/copilot-instructions.md)
+**Related**: [Copilot Instructions](../../.github/copilot-instructions.md)
 
 ## Purpose
 
