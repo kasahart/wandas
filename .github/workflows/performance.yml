@@ -1,0 +1,132 @@
+name: Performance Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: Run Performance Benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for comparison
+
+      - name: uv をインストール
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          python-version: "3.10"
+
+      - name: 依存関係をインストール
+        run: uv sync --all-extras --dev
+
+      - name: ベンチマークテストを実行
+        run: |
+          uv run pytest tests/benchmarks/ \
+            --benchmark-only \
+            --benchmark-min-rounds=5 \
+            --benchmark-warmup=on \
+            --benchmark-json=benchmark-results.json \
+            --benchmark-verbose
+
+      - name: ベンチマーク結果をアップロード
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-results-${{ github.sha }}
+          path: benchmark-results.json
+          retention-days: 90
+
+      - name: ベンチマーク結果を比較 (Pull Request時)
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        run: |
+          # Fetch base branch benchmark results from main
+          echo "Comparing performance with base branch..."
+          
+          # Download previous benchmark results if available
+          # Note: This requires benchmark results to be stored in the repo or artifacts
+          # For now, we'll just display current results
+          echo "Current benchmark results:"
+          cat benchmark-results.json | python3 -m json.tool
+          
+      - name: パフォーマンス劣化チェック
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        run: |
+          # This is a placeholder for performance regression detection
+          # In a real implementation, you would:
+          # 1. Download baseline benchmark from main branch
+          # 2. Compare current results with baseline
+          # 3. Fail if any benchmark is >150% slower
+          echo "Performance regression check (placeholder)"
+          echo "To be implemented: Check if any benchmark is >150% slower than baseline"
+
+      - name: ベンチマーク結果のサマリーをコメント (Pull Request時)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        continue-on-error: true
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Read benchmark results
+            let benchmarkData;
+            try {
+              benchmarkData = JSON.parse(fs.readFileSync('benchmark-results.json', 'utf8'));
+            } catch (error) {
+              console.log('Failed to read benchmark results:', error);
+              return;
+            }
+            
+            // Format benchmark results as a table
+            let comment = '## 📊 Performance Benchmark Results\n\n';
+            comment += '| Test Name | Mean (μs) | Min (μs) | Max (μs) | StdDev (μs) | Rounds |\n';
+            comment += '|-----------|-----------|----------|----------|-------------|--------|\n';
+            
+            if (benchmarkData.benchmarks) {
+              for (const benchmark of benchmarkData.benchmarks) {
+                const name = benchmark.name || 'N/A';
+                const stats = benchmark.stats || {};
+                const mean = stats.mean ? (stats.mean * 1e6).toFixed(2) : 'N/A';
+                const min = stats.min ? (stats.min * 1e6).toFixed(2) : 'N/A';
+                const max = stats.max ? (stats.max * 1e6).toFixed(2) : 'N/A';
+                const stddev = stats.stddev ? (stats.stddev * 1e6).toFixed(2) : 'N/A';
+                const rounds = stats.rounds || 'N/A';
+                
+                comment += `| ${name} | ${mean} | ${min} | ${max} | ${stddev} | ${rounds} |\n`;
+              }
+            }
+            
+            comment += '\n---\n';
+            comment += '💡 *Full benchmark results are available in the workflow artifacts.*\n';
+            
+            // Post comment
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: ベンチマーク結果をGitHub Pagesにデプロイ (mainブランチのみ)
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+        run: |
+          # Placeholder for GitHub Pages deployment
+          # This would typically:
+          # 1. Generate HTML report from benchmark results
+          # 2. Commit to gh-pages branch
+          # 3. GitHub Pages will serve the results
+          echo "GitHub Pages deployment (to be implemented)"
+          echo "Benchmark results saved to artifacts for now"
