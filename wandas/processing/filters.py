@@ -24,9 +24,15 @@ class HighPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
         sampling_rate : float
             Sampling rate (Hz)
         cutoff : float
-            Cutoff frequency (Hz)
+            Cutoff frequency (Hz). Must be between 0 and Nyquist frequency
+            (sampling_rate / 2).
         order : int, optional
             Filter order, default is 4
+            
+        Raises
+        ------
+        ValueError
+            If cutoff frequency is not within valid range (0 < cutoff < Nyquist)
         """
         self.cutoff = cutoff
         self.order = order
@@ -84,9 +90,15 @@ class LowPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
         sampling_rate : float
             Sampling rate (Hz)
         cutoff : float
-            Cutoff frequency (Hz)
+            Cutoff frequency (Hz). Must be between 0 and Nyquist frequency
+            (sampling_rate / 2).
         order : int, optional
             Filter order, default is 4
+            
+        Raises
+        ------
+        ValueError
+            If cutoff frequency is not within valid range (0 < cutoff < Nyquist)
         """
         self.cutoff = cutoff
         self.order = order
@@ -150,11 +162,18 @@ class BandPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
         sampling_rate : float
             Sampling rate (Hz)
         low_cutoff : float
-            Lower cutoff frequency (Hz)
+            Lower cutoff frequency (Hz). Must be between 0 and Nyquist frequency.
         high_cutoff : float
-            Higher cutoff frequency (Hz)
+            Higher cutoff frequency (Hz). Must be between 0 and Nyquist frequency
+            and greater than low_cutoff.
         order : int, optional
             Filter order, default is 4
+            
+        Raises
+        ------
+        ValueError
+            If either cutoff frequency is not within valid range (0 < cutoff < Nyquist),
+            or if low_cutoff >= high_cutoff
         """
         self.low_cutoff = low_cutoff
         self.high_cutoff = high_cutoff

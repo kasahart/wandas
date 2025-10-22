@@ -719,7 +719,9 @@ class ChannelFrame(
         Raises:
             ValueError: If channel specification is invalid.
             TypeError: If channel parameter type is invalid.
-            FileNotFoundError: If the file doesn't exist.
+            FileNotFoundError: If the file doesn't exist at the specified path.
+                Error message includes absolute path, current directory, and
+                troubleshooting suggestions.
 
         Examples:
             >>> # Load WAV file
