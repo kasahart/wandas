@@ -249,28 +249,6 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
             length=length,
         )
 
-    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        """
-        Calculate output data shape after operation
-
-        Parameters
-        ----------
-        input_shape : tuple
-            Input data shape (channels, freqs, time_frames)
-
-        Returns
-        -------
-        tuple
-            Output data shape (channels, samples)
-        """
-        k0: int = 0
-        q_max = input_shape[-1] + self.SFT.p_min
-        k_max = (q_max - 1) * self.SFT.hop + self.SFT.m_num - self.SFT.m_num_mid
-        k_q0, k_q1 = self.SFT.nearest_k_p(k0), self.SFT.nearest_k_p(k_max, left=False)
-        n_pts = k_q1 - k_q0 + self.SFT.m_num - self.SFT.m_num_mid
-
-        return input_shape[:-2] + (n_pts,)
-
     def _process_array(self, x: NDArrayComplex) -> NDArrayReal:
         """
         Apply SciPy ISTFT processing to multiple channels at once using ShortTimeFFT"""

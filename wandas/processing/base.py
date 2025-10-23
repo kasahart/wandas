@@ -138,7 +138,11 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
-        Calculate output data shape after operation (implemented by subclasses)
+        Calculate output data shape after operation.
+
+        This method can be overridden by subclasses for efficiency.
+        If not overridden, it will execute _process_array on a small test array
+        to determine the output shape.
 
         Parameters
         ----------
@@ -149,8 +153,42 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         -------
         tuple
             Output data shape
+
+        Notes
+        -----
+        The default implementation creates a minimal test array and processes it
+        to determine output shape. For performance-critical code, subclasses should
+        override this method with a direct calculation.
         """
-        raise NotImplementedError("Subclasses must implement this method.")
+        # Try to infer shape by executing _process_array on test data
+        import numpy as np
+
+        try:
+            # Create minimal test array with input shape
+            if len(input_shape) == 0:
+                return input_shape
+
+            # Create test input with correct dtype
+            # Try complex first, fall back to float if needed
+            test_input: Any = np.zeros(input_shape, dtype=np.complex128)
+
+            # Process test input
+            test_output: Any = self._process_array(test_input)
+
+            # Return the shape of the output
+            if isinstance(test_output, np.ndarray):
+                return tuple(int(s) for s in test_output.shape)
+            return input_shape
+        except Exception as e:
+            logger.warning(
+                f"Failed to infer output shape for {self.__class__.__name__}: {e}. "
+                "Please implement calculate_output_shape method."
+            )
+            raise NotImplementedError(
+                f"Subclass {self.__class__.__name__} must implement "
+                f"calculate_output_shape or ensure _process_array can be "
+                f"called with test data."
+            ) from e
 
     def process(self, data: DaArray) -> DaArray:
         """
