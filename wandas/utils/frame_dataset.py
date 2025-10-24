@@ -1,5 +1,6 @@
 import logging
 import random
+import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -221,9 +222,99 @@ class FrameDataset(Generic[F], ABC):
         """Return the number of files in the dataset."""
         return len(self._lazy_frames)
 
-    def __getitem__(self, index: int) -> Optional[F]:
-        """Get the frame at the specified index."""
-        return self._ensure_loaded(index)
+    def get_by_label(self, label: str) -> Optional[F]:
+        """
+        Get a frame by its label (filename).
+
+        Parameters
+        ----------
+        label : str
+            The filename (label) to search for (e.g., 'sample_1.wav').
+
+        Returns
+        -------
+        Optional[F]
+            The frame if found, otherwise None.
+
+        Examples
+        --------
+        >>> frame = dataset.get_by_label("sample_1.wav")
+        >>> if frame:
+        ...     print(frame.label)
+        """
+        # Keep for backward compatibility: return the first match but emit
+        # a DeprecationWarning recommending `get_all_by_label`.
+        all_matches = self.get_all_by_label(label)
+        if len(all_matches) > 0:
+            warnings.warn(
+                "get_by_label() returns the first matching frame and is deprecated; "
+                "use get_all_by_label() to obtain all matches.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return all_matches[0]
+        return None
+
+    def get_all_by_label(self, label: str) -> list[F]:
+        """
+        Get all frames matching the given label (filename).
+
+        Parameters
+        ----------
+        label : str
+            The filename (label) to search for (e.g., 'sample_1.wav').
+
+        Returns
+        -------
+        list[F]
+            A list of frames matching the label.
+            If none are found, returns an empty list.
+
+        Notes
+        -----
+        - Search is performed against the filename portion only (i.e. Path.name).
+        - Each matched frame will be loaded (triggering lazy load) via `_ensure_loaded`.
+        """
+        matches: list[F] = []
+        for i, lazy_frame in enumerate(self._lazy_frames):
+            if lazy_frame.file_path.name == label:
+                loaded = self._ensure_loaded(i)
+                if loaded is not None:
+                    matches.append(loaded)
+        return matches
+
+    @overload
+    def __getitem__(self, key: int) -> Optional[F]: ...
+
+    @overload
+    def __getitem__(self, key: str) -> list[F]: ...
+
+    def __getitem__(self, key: Union[int, str]) -> Union[Optional[F], list[F]]:
+        """
+        Get the frame by index (int) or label (str).
+
+        Parameters
+        ----------
+        key : int or str
+            Index (int) or filename/label (str).
+
+        Returns
+        -------
+        Optional[F] or list[F]
+            If `key` is an int, returns the frame or None. If `key` is a str,
+            returns a list of matching frames (may be empty).
+
+        Examples
+        --------
+        >>> frame = dataset[0]  # by index
+        >>> frames = dataset["sample_1.wav"]  # list of matches by filename
+        """
+        if isinstance(key, int):
+            return self._ensure_loaded(key)
+        if isinstance(key, str):
+            # pandas-like behaviour: return all matches for the label as a list
+            return self.get_all_by_label(key)
+        raise TypeError(f"Invalid key type: {type(key)}. Must be int or str.")
 
     @overload
     def apply(self, func: Callable[[F], Optional[F_out]]) -> "FrameDataset[F_out]": ...
