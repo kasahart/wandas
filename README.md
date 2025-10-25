@@ -5,7 +5,7 @@
 </h1>
 
 <p align="center">
-    <strong>Waveform Analysis Data Structures</strong><br>
+    <strong>Data Structures for Waveform Analysis</strong><br>
     Pythonによる効率的な信号解析のためのオープンソースライブラリ
 </p>
 
