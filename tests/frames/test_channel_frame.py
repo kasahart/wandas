@@ -1734,3 +1734,274 @@ class TestBaseFrameExceptionHandling:
         with mock.patch.object(DaArray, "compute", return_value="not_an_array"):
             with pytest.raises(ValueError, match="Computed result is not a np.ndarray"):
                 _ = self.channel_frame.compute()
+
+
+class TestFadeIntegration:
+    """Integration tests for fade functionality with other operations."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures for fade integration tests."""
+        # Create a test signal with known properties
+        self.sample_rate = 16000
+        duration = 1.0  # 1 second
+        n_samples = int(self.sample_rate * duration)
+        t = np.linspace(0, duration, n_samples, endpoint=False)
+
+        # Create a sine wave with amplitude 1.0
+        freq = 440  # Hz
+        signal = np.sin(2 * np.pi * freq * t)
+        self.data = signal.reshape(1, -1)  # Single channel
+        self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
+        self.channel_frame = ChannelFrame(
+            data=self.dask_data, sampling_rate=self.sample_rate, label="test_sine"
+        )
+
+    def test_fade_preserves_rms_calculation(self) -> None:
+        """Test that fade operation allows RMS calculation to work correctly."""
+        # Apply fade
+        faded = self.channel_frame.fade(fade_ms=100.0)
+
+        # RMS should be calculable without errors
+        rms_values = faded.rms
+        assert len(rms_values) == 1
+        assert rms_values[0] > 0  # RMS should be positive
+
+        # Faded signal should have lower RMS than original (due to fade-in/out)
+        original_rms = self.channel_frame.rms
+        assert rms_values[0] < original_rms[0]
+
+    def test_fade_with_normalize_chain(self) -> None:
+        """Test fade operation chained with normalize."""
+        # Chain fade and normalize operations
+        processed = self.channel_frame.fade(fade_ms=50.0).normalize()
+
+        # Should complete without errors
+        assert isinstance(processed, ChannelFrame)
+        assert processed.sampling_rate == self.sample_rate
+        assert processed.n_channels == 1
+        assert processed.n_samples == self.channel_frame.n_samples
+
+        # Check that operation history is recorded
+        assert len(processed.operation_history) == 2
+        assert processed.operation_history[0]["operation"] == "fade"
+        assert processed.operation_history[1]["operation"] == "normalize"
+
+        # Normalized signal should have max amplitude of 1.0
+        max_amplitude = np.max(np.abs(processed.data))
+        np.testing.assert_almost_equal(max_amplitude, 1.0, decimal=6)
+
+    def test_fade_with_filter_chain(self) -> None:
+        """Test fade operation chained with filtering."""
+        # Chain fade and low-pass filter
+        processed = self.channel_frame.fade(fade_ms=50.0).low_pass_filter(cutoff=1000)
+
+        # Should complete without errors
+        assert isinstance(processed, ChannelFrame)
+        assert processed.sampling_rate == self.sample_rate
+
+        # Check operation history
+        assert len(processed.operation_history) == 2
+        assert processed.operation_history[0]["operation"] == "fade"
+        assert processed.operation_history[1]["operation"] == "lowpass_filter"
+
+    def test_fade_with_multiple_operations_chain(self) -> None:
+        """Test fade in a complex operation chain."""
+
+        # Create a more complex processing chain
+        processed = (
+            self.channel_frame.fade(fade_ms=25.0)
+            .normalize()
+            .low_pass_filter(cutoff=2000)
+            .high_pass_filter(cutoff=100)
+        )
+
+        # Should complete without errors
+        assert isinstance(processed, ChannelFrame)
+        assert processed.sampling_rate == self.sample_rate
+
+        # Check that all operations are recorded
+        assert len(processed.operation_history) == 4
+        operations = [op["operation"] for op in processed.operation_history]
+        assert operations == ["fade", "normalize", "lowpass_filter", "highpass_filter"]
+
+    def test_fade_with_channel_operations(self) -> None:
+        """Test fade with channel selection and operations."""
+        # Create multi-channel signal
+        multi_data = np.vstack([self.data[0], self.data[0] * 0.5])  # 2 channels
+        multi_dask = _da_from_array(multi_data, chunks=(1, 4000))
+        multi_frame = ChannelFrame(
+            data=multi_dask, sampling_rate=self.sample_rate, label="multi_test"
+        )
+
+        # Apply fade to all channels, then select one channel
+        processed = multi_frame.fade(fade_ms=50.0).get_channel(0)
+
+        # Should work correctly
+        assert isinstance(processed, ChannelFrame)
+        assert processed.n_channels == 1
+        assert processed.operation_history[-1]["operation"] == "fade"
+
+    def test_fade_with_arithmetic_operations(self) -> None:
+        """Test fade with arithmetic operations."""
+        # Apply fade, then add a constant
+        processed = self.channel_frame.fade(fade_ms=50.0) + 0.1
+
+        # Should complete without errors
+        assert isinstance(processed, ChannelFrame)
+        assert processed.operation_history[0]["operation"] == "fade"
+
+        # Check that arithmetic operation is recorded
+        assert "+" in str(processed.operation_history[1]["operation"])
+
+    def test_fade_preserves_metadata_and_labels(self) -> None:
+        """Test that fade preserves channel metadata and labels."""
+        # Set custom labels and metadata
+        self.channel_frame.channels[0].label = "test_channel"
+        self.channel_frame.channels[0]["gain"] = 0.8
+        self.channel_frame.metadata["test_key"] = "test_value"
+
+        # Apply fade
+        faded = self.channel_frame.fade(fade_ms=50.0)
+
+        # Check that metadata is preserved
+        assert faded.channels[0].label == "test_channel"
+        assert faded.channels[0]["gain"] == 0.8
+        assert faded.metadata["test_key"] == "test_value"
+
+        # Check operation history
+        assert faded.operation_history[0]["operation"] == "fade"
+        assert faded.operation_history[0]["params"]["fade_ms"] == 50.0
+
+    def test_fade_with_file_io_roundtrip(self) -> None:
+        """Test fade operation with file save/load roundtrip."""
+        import os
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
+            temp_filename = temp_file.name
+
+        try:
+            # Apply fade and save
+            faded = self.channel_frame.fade(fade_ms=50.0)
+            faded.to_wav(temp_filename)
+
+            # Load back and verify
+            loaded = ChannelFrame.from_file(temp_filename)
+
+            # Should be able to load and have same basic properties
+            assert loaded.sampling_rate == self.sample_rate
+            assert loaded.n_channels == 1
+            assert loaded.n_samples == self.channel_frame.n_samples
+
+            # Data should be different (faded) but same shape
+            assert loaded.data.shape == faded.data.shape
+
+        finally:
+            if os.path.exists(temp_filename):
+                os.remove(temp_filename)
+
+    def test_fade_with_different_fade_durations(self) -> None:
+        """Test fade with different fade durations and verify effects."""
+        # Test with very short fade
+        short_fade = self.channel_frame.fade(fade_ms=1.0)
+        short_rms = short_fade.rms[0]
+
+        # Test with longer fade
+        long_fade = self.channel_frame.fade(fade_ms=100.0)
+        long_rms = long_fade.rms[0]
+
+        # Longer fade should result in lower RMS (more signal attenuated)
+        assert long_rms < short_rms
+
+        # Both should be less than original
+        original_rms = self.channel_frame.rms[0]
+        assert short_rms < original_rms
+        assert long_rms < original_rms
+
+    def test_fade_with_multi_channel_signal(self) -> None:
+        """Test fade with multi-channel signal."""
+        # Create 3-channel signal
+        multi_data = np.vstack(
+            [
+                self.data[0],  # Original
+                self.data[0] * 0.7,  # Scaled down
+                self.data[0] * 1.3,  # Scaled up
+            ]
+        )
+        multi_dask = _da_from_array(multi_data, chunks=(1, 4000))
+        multi_frame = ChannelFrame(
+            data=multi_dask, sampling_rate=self.sample_rate, label="multi_test"
+        )
+
+        # Apply fade
+        faded = multi_frame.fade(fade_ms=50.0)
+
+        # Should work for all channels
+        assert faded.n_channels == 3
+        assert faded.operation_history[0]["operation"] == "fade"
+
+        # Each channel should have different RMS due to different amplitudes
+        rms_values = faded.rms
+        assert len(rms_values) == 3
+        assert rms_values[0] > rms_values[1]  # Original > scaled down
+        assert rms_values[2] > rms_values[0]  # Scaled up > original
+
+    def test_fade_lazy_evaluation_preserved(self) -> None:
+        """Test that fade preserves lazy evaluation."""
+        # Apply fade without computing
+        faded = self.channel_frame.fade(fade_ms=50.0)
+
+        # Should still be lazy (dask array)
+        assert isinstance(faded._data, DaArray)
+
+        # Operation history should be updated without computation
+        assert len(faded.operation_history) == 1
+        assert faded.operation_history[0]["operation"] == "fade"
+
+        # Only when we access .data should computation happen
+        with mock.patch.object(
+            DaArray, "compute", return_value=self.data
+        ) as mock_compute:
+            _ = faded.data
+            mock_compute.assert_called_once()
+
+    def test_fade_with_visualization(self) -> None:
+        """Test that faded signal can be visualized."""
+        # Apply fade
+        faded = self.channel_frame.fade(fade_ms=50.0)
+
+        # Should be able to create plots without errors
+        with (
+            mock.patch("matplotlib.pyplot.figure"),
+            mock.patch("matplotlib.pyplot.subplot"),
+            mock.patch("matplotlib.axes.Axes.plot"),
+            mock.patch("matplotlib.pyplot.tight_layout"),
+            mock.patch("matplotlib.pyplot.show"),
+        ):
+            # Basic plot should work
+            faded.plot()
+
+            # RMS plot should work
+            faded.rms_plot()
+
+    def test_fade_error_handling_integration(self) -> None:
+        """Test error handling in fade operation within processing chains."""
+        # Test with invalid fade_ms (too long)
+        # Create very short signal
+        short_data = self.data[:, :100]  # Only 100 samples
+        short_dask = _da_from_array(short_data, chunks=(1, 50))
+        short_frame = ChannelFrame(
+            data=short_dask, sampling_rate=self.sample_rate, label="short"
+        )
+
+        # Apply fade with duration longer than signal
+        # Should not fail immediately due to lazy eval
+        faded_short = short_frame.fade(fade_ms=10.0)
+
+        # Error should occur when we try to compute the result
+        with pytest.raises(ValueError, match="Fade length too long"):
+            _ = faded_short.data
+
+        # Test with negative fade_ms - fails during operation creation
+        with pytest.raises(ValueError, match="fade_ms must be non-negative"):
+            self.channel_frame.fade(fade_ms=-1.0)
