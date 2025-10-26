@@ -8,6 +8,7 @@ from typing import Any, Callable, Generic, Optional, TypeVar, Union, cast
 
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
 from dask.array.core import Array as DaArray
 from IPython.display import Image as IPythonImage
 from matplotlib.axes import Axes
@@ -680,6 +681,70 @@ class BaseFrame(ABC, Generic[T]):
         >>> print(f"Shape: {data.shape}")  # (n_channels, n_samples)
         """
         return self.data
+
+    def to_dataframe(self) -> "pd.DataFrame":
+        """Convert the frame data to a pandas DataFrame.
+
+        This method provides a common implementation for converting frame data
+        to pandas DataFrame. Subclasses can override this method for custom behavior.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with appropriate index and columns.
+
+        Examples
+        --------
+        >>> cf = ChannelFrame.read_wav("audio.wav")
+        >>> df = cf.to_dataframe()
+        >>> print(df.head())
+        """
+        # Get data as numpy array
+        data = self.to_numpy()
+
+        # Get column names from subclass
+        columns = self._get_dataframe_columns()
+
+        # Get index from subclass
+        index = self._get_dataframe_index()
+
+        # Create DataFrame
+        if data.ndim == 1:
+            # Single channel case - reshape to 2D
+            df = pd.DataFrame(data.reshape(-1, 1), columns=columns, index=index)
+        else:
+            # Multi-channel case - transpose to (n_samples, n_channels)
+            df = pd.DataFrame(data.T, columns=columns, index=index)
+
+        return df
+
+    @abstractmethod
+    def _get_dataframe_columns(self) -> list[str]:
+        """Get column names for DataFrame.
+
+        This method should be implemented by subclasses to provide
+        appropriate column names for the DataFrame.
+
+        Returns
+        -------
+        list[str]
+            List of column names.
+        """
+        pass
+
+    @abstractmethod
+    def _get_dataframe_index(self) -> "pd.Index[Any]":
+        """Get index for DataFrame.
+
+        This method should be implemented by subclasses to provide
+        appropriate index for the DataFrame based on the frame type.
+
+        Returns
+        -------
+        pd.Index
+            Index for the DataFrame.
+        """
+        pass
 
     def _debug_info_impl(self) -> None:
         """Implement derived class-specific debug information"""

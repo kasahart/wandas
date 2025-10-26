@@ -7,6 +7,7 @@ import dask
 import dask.array as da
 import librosa
 import numpy as np
+import pandas as pd
 from dask.array.core import Array as DaArray
 from mosqito.sound_level_meter.noct_spectrum._center_freq import _center_freq
 
@@ -407,3 +408,11 @@ class NOctFrame(BaseFrame[NDArrayReal]):
             "fmin": self.fmin,
             "fmax": self.fmax,
         }
+
+    def _get_dataframe_columns(self) -> list[str]:
+        """Get channel labels as DataFrame columns."""
+        return [ch.label for ch in self._channel_metadata]
+
+    def _get_dataframe_index(self) -> "pd.Index[Any]":
+        """Get frequency index for DataFrame."""
+        return pd.Index(self.freqs, name="frequency")

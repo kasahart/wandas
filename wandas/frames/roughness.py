@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 import dask.array as da
 import numpy as np
+import pandas as pd
 
 from wandas.core.base_frame import BaseFrame
 from wandas.utils.types import NDArrayReal
@@ -256,6 +257,31 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             "bark_axis": self._bark_axis,
             "overlap": self._overlap,
         }
+
+    def _get_dataframe_columns(self) -> list[str]:
+        """Get channel labels as DataFrame columns."""
+        return [ch.label for ch in self._channel_metadata]
+
+    def _get_dataframe_index(self) -> "pd.Index[Any]":
+        """DataFrame index is not supported for RoughnessFrame."""
+        raise NotImplementedError(
+            "DataFrame index is not supported for RoughnessFrame."
+        )
+
+    def to_dataframe(self) -> "pd.DataFrame":
+        """DataFrame conversion is not supported for RoughnessFrame.
+
+        RoughnessFrame contains 3D data (channels, bark_bands, time_frames)
+        which cannot be directly converted to a 2D DataFrame.
+
+        Raises
+        ------
+        NotImplementedError
+            Always raised as DataFrame conversion is not supported.
+        """
+        raise NotImplementedError(
+            "DataFrame conversion is not supported for RoughnessFrame."
+        )
 
     def _binary_op(
         self,

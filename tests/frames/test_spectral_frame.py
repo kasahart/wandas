@@ -4,6 +4,7 @@ from unittest import mock
 # filepath: wandas/core/test_spectral_frame.py
 import dask.array as da
 import numpy as np
+import pandas as pd
 import pytest
 from dask.array.core import Array as DaArray
 
@@ -473,3 +474,48 @@ class TestSpectralFrame:
 
             # 結果の検証
             assert result is mock_result
+
+    def test_to_dataframe(self) -> None:
+        """Test to_dataframe converts frame data to DataFrame with frequency index."""
+        # SpectralFrameの作成
+        spectral_frame = SpectralFrame(
+            data=self.data,
+            sampling_rate=self.sampling_rate,
+            n_fft=self.n_fft,
+            window=self.window,
+            channel_metadata=self.channel_metadata,
+        )
+
+        # DataFrame変換
+        df = spectral_frame.to_dataframe()
+
+        # DataFrameの検証
+        assert isinstance(df, pd.DataFrame)
+        assert df.shape == (self.shape[1], self.shape[0])  # (freq_bins, channels)
+        assert df.index.name == "frequency"
+        assert list(df.columns) == ["ch1", "ch2"]
+
+        # 周波数インデックスの検証
+        expected_freqs = spectral_frame.freqs
+        np.testing.assert_array_almost_equal(df.index.values, expected_freqs)
+
+    def test_to_dataframe_single_channel(self) -> None:
+        """Test to_dataframe with single channel."""
+        # 単一チャネルのデータ作成
+        single_channel_data = self.data[0:1, :]  # 最初のチャネルのみ
+        single_channel_metadata = [self.channel_metadata[0]]
+
+        spectral_frame = SpectralFrame(
+            data=single_channel_data,
+            sampling_rate=self.sampling_rate,
+            n_fft=self.n_fft,
+            window=self.window,
+            channel_metadata=single_channel_metadata,
+        )
+
+        df = spectral_frame.to_dataframe()
+
+        assert isinstance(df, pd.DataFrame)
+        assert df.shape == (self.shape[1], 1)  # (freq_bins, 1)
+        assert df.index.name == "frequency"
+        assert list(df.columns) == ["ch1"]

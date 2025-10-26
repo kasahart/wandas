@@ -673,3 +673,22 @@ class TestSpectrogramFrame:
         # abs操作が含まれていることを確認
         abs_op_found = any(op["operation"] == "abs" for op in result.operation_history)
         assert abs_op_found
+
+    def test_to_dataframe_raises_not_implemented_error(self) -> None:
+        """Test to_dataframe raises NotImplementedError for 2D spectrogram data."""
+        # SpectrogramFrameの作成
+        spectrogram_frame = SpectrogramFrame(
+            data=_da_random_random((2, 65, 5)) + 1j * _da_random_random((2, 65, 5)),
+            sampling_rate=44100,
+            n_fft=128,
+            hop_length=64,
+            window="hann",
+            channel_metadata=[
+                ChannelMetadata(label="ch1", unit="Pa", ref=1.0),
+                ChannelMetadata(label="ch2", unit="Pa", ref=1.0),
+            ],
+        )
+
+        # DataFrame変換がNotImplementedErrorを投げることを確認
+        with pytest.raises(NotImplementedError, match="not supported"):
+            spectrogram_frame.to_dataframe()

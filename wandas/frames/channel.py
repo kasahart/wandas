@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Callable, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union
 
 import dask
 import dask.array as da
@@ -19,6 +19,9 @@ from ..core.base_frame import BaseFrame
 from ..core.metadata import ChannelMetadata
 from ..io.readers import get_file_reader
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
 
 logger = logging.getLogger(__name__)
 
@@ -1160,31 +1163,10 @@ class ChannelFrame(
                 previous=self,
             )
 
-    def to_dataframe(self) -> "pd.DataFrame":
-        """Convert the frame data to a pandas DataFrame.
+    def _get_dataframe_columns(self) -> list[str]:
+        """Get channel labels as DataFrame columns."""
+        return [ch.label for ch in self._channel_metadata]
 
-        The DataFrame columns correspond to channel labels, and the index
-        represents time in seconds.
-
-        Returns:
-            pandas DataFrame with time index and channel columns.
-
-        Examples:
-            >>> cf = ChannelFrame.read_wav("audio.wav")
-            >>> df = cf.to_dataframe()
-            >>> print(df.head())
-            >>> # Access specific channel
-            >>> channel_0 = df["channel_0"]
-        """
-        # Get data as numpy array
-        data = self.to_numpy()
-
-        # Create DataFrame with channel labels as columns
-        channel_labels = [ch.label for ch in self._channel_metadata]
-        df = pd.DataFrame(data.T, columns=channel_labels)
-
-        # Set time index
-        time_index = pd.Index(self.time, name="time")
-        df.index = time_index
-
-        return df
+    def _get_dataframe_index(self) -> "pd.Index[Any]":
+        """Get time index for DataFrame."""
+        return pd.Index(self.time, name="time")

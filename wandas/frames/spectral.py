@@ -7,6 +7,7 @@ import dask
 import dask.array as da
 import librosa
 import numpy as np
+import pandas as pd
 from dask.array.core import Array as DaArray
 
 from wandas.utils.types import NDArrayComplex, NDArrayReal
@@ -337,7 +338,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             for self_ch, other_ch in zip(
                 self._channel_metadata, other._channel_metadata
             ):
-                ch = self_ch.copy(deep=True)
+                ch = self_ch.model_copy(deep=True)
                 ch["label"] = f"({self_ch['label']} {symbol} {other_ch['label']})"
                 merged_channel_metadata.append(ch)
 
@@ -540,6 +541,14 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             "n_fft": self.n_fft,
             "window": self.window,
         }
+
+    def _get_dataframe_columns(self) -> list[str]:
+        """Get channel labels as DataFrame columns."""
+        return [ch.label for ch in self._channel_metadata]
+
+    def _get_dataframe_index(self) -> "pd.Index[Any]":
+        """Get frequency index for DataFrame."""
+        return pd.Index(self.freqs, name="frequency")
 
     def noct_synthesis(
         self,

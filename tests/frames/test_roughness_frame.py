@@ -266,3 +266,17 @@ class TestRoughnessFrame:
             overlap=self.overlap,
         )
         assert frame_stereo._n_channels == 2
+
+    def test_to_dataframe_raises_not_implemented_error(self) -> None:
+        """Test to_dataframe raises NotImplementedError for 2D roughness data."""
+        # RoughnessFrameの作成（モノラル）
+        roughness_frame = RoughnessFrame(
+            data=self.data_mono,
+            sampling_rate=self.sampling_rate,
+            bark_axis=self.bark_axis,
+            overlap=self.overlap,
+        )
+
+        # DataFrame変換がNotImplementedErrorを投げることを確認
+        with pytest.raises(NotImplementedError, match="not supported"):
+            roughness_frame.to_dataframe()
