@@ -9,13 +9,7 @@
         }
     },
     "features": {
-        "ghcr.io/devcontainers/features/git:1": {},
-        "ghcr.io/dhoeric/features/hadolint:1": {},
-        "ghcr.io/devcontainers/features/github-cli:1": {
-            "installDirectlyFromGitHubRelease": true,
-            "version": "latest"
-        }
-        // "ghcr.io/devcontainers-contrib/features/ruff:1": {}
+        "ghcr.io/devcontainers/features/git:1": {}
     },
     "customizations": {
         "vscode": {
@@ -53,7 +47,7 @@
         // For Windows (uncomment if needed)
         // "source=${env:USERPROFILE}\\.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached"
     ],
-    "postCreateCommand": "uv sync --frozen && gh extension install github/gh-copilot",
+    "postCreateCommand": "uv sync --frozen",
     "postStartCommand": "uv run pre-commit install",
     "remoteUser": "vscode"
 }
