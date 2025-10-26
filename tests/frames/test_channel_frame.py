@@ -6,6 +6,7 @@ from unittest import mock
 
 import dask.array as da
 import numpy as np
+import pandas as pd
 import pytest
 import soundfile as sf
 from dask.array.core import Array as DaArray
@@ -2005,3 +2006,66 @@ class TestFadeIntegration:
         # Test with negative fade_ms - fails during operation creation
         with pytest.raises(ValueError, match="fade_ms must be non-negative"):
             self.channel_frame.fade(fade_ms=-1.0)
+
+    def test_to_numpy(self) -> None:
+        """Test to_numpy method converts frame data to NumPy array."""
+        # For single channel, to_numpy should return 1D array (squeezed)
+        if self.data.shape[0] == 1:
+            expected_result = self.data.squeeze(axis=0)
+        else:
+            expected_result = self.data
+
+        # Test with mock to ensure compute is called
+        with mock.patch.object(
+            self.channel_frame, "compute", return_value=self.data
+        ) as mock_compute:
+            result = self.channel_frame.to_numpy()
+            mock_compute.assert_called_once()
+            np.testing.assert_array_equal(result, expected_result)
+            assert isinstance(result, np.ndarray)
+
+    def test_to_dataframe(self) -> None:
+        """Test to_dataframe method converts frame data to pandas DataFrame."""
+        # Test basic conversion
+        df = self.channel_frame.to_dataframe()
+
+        # Check DataFrame properties
+        assert isinstance(df, pd.DataFrame)
+        assert df.shape == (
+            self.data.shape[1],
+            self.data.shape[0],
+        )  # (n_samples, n_channels)
+        assert list(df.columns) == ["ch0"]  # Single channel
+        assert df.index.name == "time"
+
+        # Check data values (transposed)
+        np.testing.assert_array_equal(df.values.T, self.data)
+
+        # Check time index
+        expected_time = np.arange(self.data.shape[1]) / self.sample_rate
+        np.testing.assert_array_equal(df.index.values, expected_time)
+
+    def test_to_dataframe_with_custom_labels(self) -> None:
+        """Test to_dataframe with custom channel labels."""
+        # Set custom labels
+        self.channel_frame.channels[0].label = "left"
+
+        df = self.channel_frame.to_dataframe()
+
+        # Check column names
+        assert list(df.columns) == ["left"]
+
+    def test_to_dataframe_single_channel(self) -> None:
+        """Test to_dataframe with single channel."""
+        # Get single channel (already single channel)
+        single_channel = self.channel_frame.get_channel(0)
+
+        df = single_channel.to_dataframe()
+
+        # Check DataFrame properties
+        assert df.shape == (self.data.shape[1], 1)  # (n_samples, 1)
+        assert list(df.columns) == ["ch0"]
+        assert df.index.name == "time"
+
+        # Check data values
+        np.testing.assert_array_equal(df.values.flatten(), self.data[0])

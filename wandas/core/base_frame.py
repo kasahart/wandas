@@ -662,6 +662,25 @@ class BaseFrame(ABC, Generic[T]):
         self._debug_info_impl()
         logger.debug("=== End Debug Info ===")
 
+    def to_numpy(self) -> T:
+        """Convert the frame data to a NumPy array.
+
+        This method computes the Dask array and returns it as a concrete NumPy array.
+        The returned array has the same shape as the frame's data.
+
+        Returns
+        -------
+        T
+            NumPy array containing the frame data.
+
+        Examples
+        --------
+        >>> cf = ChannelFrame.read_wav("audio.wav")
+        >>> data = cf.to_numpy()
+        >>> print(f"Shape: {data.shape}")  # (n_channels, n_samples)
+        """
+        return self.data
+
     def _debug_info_impl(self) -> None:
         """Implement derived class-specific debug information"""
         pass
