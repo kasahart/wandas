@@ -154,6 +154,9 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
             kwargs,
             strict_mode=True,
         )
+        # If an Axes is provided, prefer drawing into it (treat as overlay)
+        if ax is not None:
+            overlay = True
         data = bf.data
         data = _reshape_to_2d(data)
         if overlay:
@@ -255,6 +258,9 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
         alpha = kwargs.pop("alpha", 1)
         plot_kwargs = filter_kwargs(Line2D, kwargs, strict_mode=True)
         ax_set = filter_kwargs(Axes.set, kwargs, strict_mode=True)
+        # If an Axes is provided, prefer drawing into it (treat as overlay)
+        if ax is not None:
+            overlay = True
         if overlay:
             if ax is None:
                 _, ax = plt.subplots(figsize=(10, 4))
@@ -351,6 +357,9 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
         alpha = kwargs.pop("alpha", 1)
         plot_kwargs = filter_kwargs(Line2D, kwargs, strict_mode=True)
         ax_set = filter_kwargs(Axes.set, kwargs, strict_mode=True)
+        # If an Axes is provided, prefer drawing into it (treat as overlay)
+        if ax is not None:
+            overlay = True
         if overlay:
             if ax is None:
                 _, ax = plt.subplots(figsize=(10, 4))
@@ -431,9 +440,11 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
         **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
         """Spectrogram plotting"""
+        # Explicit overlay mode is not supported for spectrograms
         if overlay:
             raise ValueError("Overlay is not supported for SpectrogramPlotStrategy.")
 
+        # If an Axes is provided, allow drawing into it only for single-channel frames
         if ax is not None and bf.n_channels > 1:
             raise ValueError("ax must be None when n_channels > 1.")
 
@@ -698,6 +709,9 @@ class MatrixPlotStrategy(PlotStrategy[Union["SpectralFrame"]]):
         plot_kwargs = filter_kwargs(Line2D, kwargs, strict_mode=True)
         ax_set = filter_kwargs(Axes.set, kwargs, strict_mode=True)
         num_channels = bf.n_channels
+        # If an Axes is provided, prefer drawing into it (treat as overlay)
+        if ax is not None:
+            overlay = True
         if overlay:
             if ax is None:
                 fig, ax = plt.subplots(1, 1, figsize=(6, 6))

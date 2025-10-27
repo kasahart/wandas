@@ -663,6 +663,33 @@ class BaseFrame(ABC, Generic[T]):
         self._debug_info_impl()
         logger.debug("=== End Debug Info ===")
 
+    def print_operation_history(self) -> None:
+        """
+        Print the operation history to standard output in a readable format.
+
+        This method writes a human-friendly representation of the
+        `operation_history` list to stdout. Each operation is printed on its
+        own line with an index, the operation name (if available), and the
+        parameters used.
+
+        Examples
+        --------
+        >>> cf.print_operation_history()
+        1: normalize {}
+        2: low_pass_filter {'cutoff': 1000}
+        """
+        if not self.operation_history:
+            print("Operation history: <empty>")
+            return
+
+        print(f"Operation history ({len(self.operation_history)}):")
+        for i, record in enumerate(self.operation_history, start=1):
+            # record is expected to be a dict with at least a 'operation' key
+            op_name = record.get("operation") or record.get("name") or "<unknown>"
+            # Copy params for display - exclude the 'operation'/'name' keys
+            params = {k: v for k, v in record.items() if k not in ("operation", "name")}
+            print(f"{i}: {op_name} {params}")
+
     def to_numpy(self) -> T:
         """Convert the frame data to a NumPy array.
 

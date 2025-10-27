@@ -32,7 +32,8 @@
                 "mhutchie.git-graph",
                 "ms-python.mypy-type-checker",
                 "exiasr.hadolint",
-                "ms-azuretools.vscode-docker"
+                "ms-azuretools.vscode-docker",
+                "bierner.markdown-mermaid"
             ]
         }
     },
