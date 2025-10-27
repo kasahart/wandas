@@ -11,10 +11,12 @@
 
 <p align="center">
     <a href="https://pypi.org/project/wandas/"><img src="https://img.shields.io/pypi/v/wandas" alt="PyPI"></a>
+    <a href="https://pypi.org/project/wandas/"><img src="https://img.shields.io/pypi/dm/wandas" alt="PyPI Downloads"></a>
     <a href="https://github.com/kasahart/wandas/actions/workflows/ci.yml"><img src="https://github.com/kasahart/wandas/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
     <a href="https://codecov.io/gh/kasahart/wandas"><img src="https://codecov.io/gh/kasahart/wandas/graph/badge.svg?token=53NPNQQZZ8" alt="codecov"></a>
     <a href="https://github.com/kasahart/wandas/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License"></a>
     <a href="https://pypi.org/project/wandas/"><img src="https://img.shields.io/pypi/pyversions/wandas" alt="Python Version"></a>
+
 </p>
 
 ---
