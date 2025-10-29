@@ -692,3 +692,212 @@ class TestSpectrogramFrame:
         # DataFrame変換がNotImplementedErrorを投げることを確認
         with pytest.raises(NotImplementedError, match="not supported"):
             spectrogram_frame.to_dataframe()
+
+    def test_from_numpy_2d_array(self) -> None:
+        """from_numpyメソッドで2D NumPy配列からSpectrogramFrameを作成するテスト"""
+        import numpy as np
+
+        # 2D NumPy配列の作成（単一チャネル）
+        np_data = np.random.random((65, 10)) + 1j * np.random.random((65, 10))
+        sampling_rate = 44100.0
+        n_fft = 128
+        hop_length = 64
+
+        # from_numpyでSpectrogramFrameを作成
+        spec_frame = SpectrogramFrame.from_numpy(
+            data=np_data,
+            sampling_rate=sampling_rate,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            window="hann",
+            label="test_2d",
+        )
+
+        # 基本プロパティの確認
+        assert isinstance(spec_frame, SpectrogramFrame)
+        assert spec_frame.sampling_rate == sampling_rate
+        assert spec_frame.n_fft == n_fft
+        assert spec_frame.hop_length == hop_length
+        assert spec_frame.window == "hann"
+        assert spec_frame.label == "test_2d"
+
+        # データ形状の確認（2D配列は3Dに拡張される）
+        # shapeプロパティは単一チャネルの場合最初の次元を隠す
+        assert spec_frame.shape == (65, 10)
+        assert spec_frame._n_channels == 1
+        assert spec_frame.n_freq_bins == 65
+        assert spec_frame.n_frames == 10
+
+        # データの内容が保持されていることを確認
+        np.testing.assert_array_equal(spec_frame.data, np_data)
+
+    def test_from_numpy_3d_array(self) -> None:
+        """from_numpyメソッドで3D NumPy配列からSpectrogramFrameを作成するテスト"""
+        import numpy as np
+
+        # 3D NumPy配列の作成（複数チャネル）
+        np_data = np.random.random((2, 65, 10)) + 1j * np.random.random((2, 65, 10))
+        sampling_rate = 44100.0
+        n_fft = 128
+        hop_length = 64
+
+        # from_numpyでSpectrogramFrameを作成
+        spec_frame = SpectrogramFrame.from_numpy(
+            data=np_data,
+            sampling_rate=sampling_rate,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            window="hamming",
+            label="test_3d",
+        )
+
+        # 基本プロパティの確認
+        assert isinstance(spec_frame, SpectrogramFrame)
+        assert spec_frame.sampling_rate == sampling_rate
+        assert spec_frame.n_fft == n_fft
+        assert spec_frame.hop_length == hop_length
+        assert spec_frame.window == "hamming"
+        assert spec_frame.label == "test_3d"
+
+        # データ形状の確認
+        assert spec_frame.shape == (2, 65, 10)  # (channels, freq_bins, time_frames)
+        assert spec_frame._n_channels == 2
+        assert spec_frame.n_freq_bins == 65
+        assert spec_frame.n_frames == 10
+
+        # データの内容が保持されていることを確認
+        np.testing.assert_array_equal(spec_frame.data, np_data)
+
+    def test_from_numpy_with_all_parameters(self) -> None:
+        """from_numpyメソッドで全てのパラメータを指定してSpectrogramFrameを作成するテスト"""
+        import numpy as np
+
+        # テストデータの作成
+        np_data = np.random.random((2, 65, 5)) + 1j * np.random.random((2, 65, 5))
+        sampling_rate = 48000.0
+        n_fft = 128
+        hop_length = 64
+        win_length = 100
+        window = "blackman"
+
+        # メタデータの作成
+        metadata = {"source": "test", "version": "1.0"}
+        operation_history = [{"operation": "test_op", "params": {"param": 1}}]
+        channel_metadata = [
+            ChannelMetadata(label="ch1", unit="Pa", ref=1.0),
+            ChannelMetadata(label="ch2", unit="Pa", ref=2.0),
+        ]
+
+        # from_numpyでSpectrogramFrameを作成
+        spec_frame = SpectrogramFrame.from_numpy(
+            data=np_data,
+            sampling_rate=sampling_rate,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            label="test_full",
+            metadata=metadata,
+            operation_history=operation_history,
+            channel_metadata=channel_metadata,
+        )
+
+        # 全てのパラメータが正しく設定されていることを確認
+        assert spec_frame.sampling_rate == sampling_rate
+        assert spec_frame.n_fft == n_fft
+        assert spec_frame.hop_length == hop_length
+        assert spec_frame.win_length == win_length
+        assert spec_frame.window == window
+        assert spec_frame.label == "test_full"
+        assert spec_frame.metadata == metadata
+        assert spec_frame.operation_history == operation_history
+        assert spec_frame._channel_metadata == channel_metadata
+
+    def test_from_numpy_default_label(self) -> None:
+        """from_numpyメソッドでラベルを指定しない場合のデフォルト値テスト"""
+        import numpy as np
+
+        # ラベルを指定せずにSpectrogramFrameを作成
+        np_data = np.random.random((65, 10)) + 1j * np.random.random((65, 10))
+        spec_frame = SpectrogramFrame.from_numpy(
+            data=np_data,
+            sampling_rate=44100.0,
+            n_fft=128,
+            hop_length=64,
+        )
+
+        # デフォルトラベルが設定されていることを確認
+        assert spec_frame.label == "numpy_spectrogram"
+
+    def test_from_numpy_invalid_dimensions(self) -> None:
+        """from_numpyメソッドで不正な次元の配列を渡した場合のエラーテスト"""
+        import numpy as np
+
+        # 1D配列（不正）
+        np_data_1d = np.random.random(10) + 1j * np.random.random(10)
+        with pytest.raises(
+            ValueError, match="データは2次元または3次元である必要があります"
+        ):
+            SpectrogramFrame.from_numpy(
+                data=np_data_1d,
+                sampling_rate=44100.0,
+                n_fft=128,
+                hop_length=64,
+            )
+
+        # 4D配列（不正）
+        np_data_4d = np.random.random((2, 65, 10, 2)) + 1j * np.random.random(
+            (2, 65, 10, 2)
+        )
+        with pytest.raises(
+            ValueError, match="データは2次元または3次元である必要があります"
+        ):
+            SpectrogramFrame.from_numpy(
+                data=np_data_4d,
+                sampling_rate=44100.0,
+                n_fft=128,
+                hop_length=64,
+            )
+
+    def test_from_numpy_invalid_freq_bins(self) -> None:
+        """from_numpyメソッドで不正な周波数ビン数の配列を渡した場合のエラーテスト"""
+        import numpy as np
+
+        # 周波数ビン数がn_fft//2+1と一致しない配列
+        np_data = np.random.random((2, 50, 10)) + 1j * np.random.random(
+            (2, 50, 10)
+        )  # 50 != 65
+        with pytest.raises(
+            ValueError,
+            match="データの形状が無効です。周波数ビン数は 65 である必要があります",
+        ):
+            SpectrogramFrame.from_numpy(
+                data=np_data,
+                sampling_rate=44100.0,
+                n_fft=128,  # n_fft//2+1 = 65
+                hop_length=64,
+            )
+
+    def test_from_numpy_data_conversion(self) -> None:
+        """from_numpyメソッドでのNumPyからDaskへのデータ変換テスト"""
+        import numpy as np
+
+        # NumPy配列の作成
+        np_data = np.random.random((2, 65, 10)) + 1j * np.random.random((2, 65, 10))
+
+        # from_numpyでSpectrogramFrameを作成
+        spec_frame = SpectrogramFrame.from_numpy(
+            data=np_data,
+            sampling_rate=44100.0,
+            n_fft=128,
+            hop_length=64,
+        )
+
+        # データがdask配列に変換されていることを確認
+        assert isinstance(spec_frame._data, DaArray)
+
+        # データの内容が保持されていることを確認
+        np.testing.assert_array_equal(spec_frame._data.compute(), np_data)
+
+        # 元のNumPy配列とdask配列のデータ型が一致することを確認
+        assert spec_frame._data.dtype == np_data.dtype

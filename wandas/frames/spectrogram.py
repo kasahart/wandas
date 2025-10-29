@@ -771,3 +771,55 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
             "Use get_frame_at() to extract a specific time frame as SpectralFrame, "
             "then convert that to a DataFrame."
         )
+
+    @classmethod
+    def from_numpy(
+        cls,
+        data: NDArrayComplex,
+        sampling_rate: float,
+        n_fft: int,
+        hop_length: int,
+        win_length: Optional[int] = None,
+        window: str = "hann",
+        label: Optional[str] = None,
+        metadata: Optional[dict[str, Any]] = None,
+        operation_history: Optional[list[dict[str, Any]]] = None,
+        channel_metadata: Optional[list[ChannelMetadata]] = None,
+        previous: Optional["BaseFrame[Any]"] = None,
+    ) -> "SpectrogramFrame":
+        """Create a SpectrogramFrame from a NumPy array.
+
+        Args:
+            data: NumPy array containing spectrogram data.
+                Shape should be (n_channels, n_freq_bins, n_time_frames) or
+                (n_freq_bins, n_time_frames) for single channel.
+            sampling_rate: The sampling rate in Hz.
+            n_fft: The FFT size used to generate this spectrogram.
+            hop_length: Number of samples between successive frames.
+            win_length: The window length in samples. If None, defaults to n_fft.
+            window: The window function used (e.g., "hann", "hamming").
+            label: A label for the frame.
+            metadata: Optional metadata dictionary.
+            ch_labels: Labels for each channel.
+            ch_units: Units for each channel.
+
+        Returns:
+            A new SpectrogramFrame containing the NumPy data.
+        """
+
+        # Convert NumPy array to dask array
+        dask_data = da.from_array(data)
+        sf = cls(
+            data=dask_data,
+            sampling_rate=sampling_rate,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            label=label or "numpy_spectrogram",
+            metadata=metadata,
+            operation_history=operation_history,
+            channel_metadata=channel_metadata,
+            previous=previous,
+        )
+        return sf
