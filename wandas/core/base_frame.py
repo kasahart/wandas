@@ -629,6 +629,10 @@ class BaseFrame(ABC, Generic[T]):
         """Division operator"""
         return self._binary_op(other, lambda x, y: x / y, "/")
 
+    def __pow__(self: S, other: Union[S, int, float, NDArrayReal]) -> S:
+        """Power operator"""
+        return self._binary_op(other, lambda x, y: x**y, "**")
+
     def apply_operation(self: S, operation_name: str, **params: Any) -> S:
         """
         Apply a named operation.
