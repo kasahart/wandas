@@ -191,6 +191,25 @@ def load(path: Union[str, Path], *, format: str = "hdf5") -> "ChannelFrame":
             meta_json = f["meta"].attrs.get("json", "{}")
             frame_metadata = json.loads(meta_json)
 
+        # Load operation history
+        operation_history = []
+        if "operation_history" in f:
+            op_grp = f["operation_history"]
+            # Sort operation indices numerically
+            op_indices = sorted([int(key.split("_")[1]) for key in op_grp.keys()])
+
+            for idx in op_indices:
+                op_sub_grp = op_grp[f"operation_{idx}"]
+                op_dict = {}
+                for attr_name in op_sub_grp.attrs:
+                    attr_value = op_sub_grp.attrs[attr_name]
+                    # Try to deserialize JSON, fallback to string
+                    try:
+                        op_dict[attr_name] = json.loads(attr_value)
+                    except (json.JSONDecodeError, TypeError):
+                        op_dict[attr_name] = attr_value
+                operation_history.append(op_dict)
+
         # Load channel data and metadata
         all_channel_data = []
         channel_metadata_list = []
@@ -238,6 +257,7 @@ def load(path: Union[str, Path], *, format: str = "hdf5") -> "ChannelFrame":
             sampling_rate=sampling_rate,
             label=frame_label if frame_label else None,
             metadata=frame_metadata,
+            operation_history=operation_history,
             channel_metadata=channel_metadata_list,
         )
 
