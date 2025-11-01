@@ -121,6 +121,12 @@ class TestSpectralFrame:
         expected: NDArrayReal = np.angle(self.data.compute())
         np.testing.assert_allclose(phase, expected)
 
+    def test_property_unwrapped_phase(self) -> None:
+        """Test unwrapped_phase property"""
+        unwrapped_phase: NDArrayReal = self.frame.unwrapped_phase
+        expected: NDArrayReal = np.unwrap(np.angle(self.data.compute()))
+        np.testing.assert_allclose(unwrapped_phase, expected)
+
     def test_property_power(self) -> None:
         """Test power property"""
         power: NDArrayReal = self.frame.power

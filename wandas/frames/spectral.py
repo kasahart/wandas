@@ -70,6 +70,8 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         The magnitude spectrum of the data.
     phase : NDArrayReal
         The phase spectrum in radians.
+    unwrapped_phase : NDArrayReal
+        The unwrapped phase spectrum in radians.
     power : NDArrayReal
         The power spectrum (magnitude squared).
     dB : NDArrayReal
@@ -159,6 +161,21 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             The phase angles of the complex spectrum in radians.
         """
         return np.angle(self.data)
+
+    @property
+    def unwrapped_phase(self) -> NDArrayReal:
+        """
+        Get the unwrapped phase spectrum.
+
+        The unwrapped phase removes discontinuities of 2π radians, providing
+        continuous phase values across frequency bins.
+
+        Returns
+        -------
+        NDArrayReal
+            The unwrapped phase angles of the complex spectrum in radians.
+        """
+        return np.unwrap(np.angle(self.data))
 
     @property
     def power(self) -> NDArrayReal:
