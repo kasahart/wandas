@@ -141,6 +141,36 @@ class ChannelProcessingMixin:
         )
         return cast(T_Processing, result)
 
+    def remove_dc(self: T_Processing) -> T_Processing:
+        """Remove DC component (DC offset) from the signal.
+
+        This method removes the DC (direct current) component by subtracting
+        the mean value from each channel. This is equivalent to centering the
+        signal around zero.
+
+        Returns:
+            New ChannelFrame with DC component removed
+
+        Examples:
+            >>> import wandas as wd
+            >>> import numpy as np
+            >>> # Create signal with DC offset
+            >>> signal = wd.read_wav("audio.wav")
+            >>> signal_with_dc = signal + 2.0  # Add DC offset
+            >>> # Remove DC offset
+            >>> signal_clean = signal_with_dc.remove_dc()
+            >>> # Verify DC removal
+            >>> assert np.allclose(signal_clean.data.mean(axis=1), 0, atol=1e-10)
+
+        Notes:
+            - This operation is performed per channel
+            - Equivalent to applying a high-pass filter with very low cutoff
+            - Useful for removing sensor drift or measurement offset
+        """
+        logger.debug("Setting up DC removal (lazy)")
+        result = self.apply_operation("remove_dc")
+        return cast(T_Processing, result)
+
     def a_weighting(self: T_Processing) -> T_Processing:
         """Apply A-weighting filter to the signal.
 

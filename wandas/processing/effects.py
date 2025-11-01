@@ -167,6 +167,65 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
         return result
 
 
+@register_operation
+class RemoveDC(AudioOperation[NDArrayReal, NDArrayReal]):
+    """Remove DC component (DC offset) from the signal.
+
+    This operation removes the DC component by subtracting the mean value
+    from each channel, centering the signal around zero.
+    """
+
+    name = "remove_dc"
+
+    def __init__(self, sampling_rate: float):
+        """Initialize DC removal operation.
+
+        Parameters
+        ----------
+        sampling_rate : float
+            Sampling rate (Hz)
+        """
+        super().__init__(sampling_rate)
+        logger.debug("Initialized RemoveDC operation")
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """Calculate output data shape after operation.
+
+        Parameters
+        ----------
+        input_shape : tuple
+            Input data shape
+
+        Returns
+        -------
+        tuple
+            Output data shape (same as input)
+        """
+        return input_shape
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """Perform DC removal processing.
+
+        Parameters
+        ----------
+        x : NDArrayReal
+            Input signal array (channels, samples)
+
+        Returns
+        -------
+        NDArrayReal
+            Signal with DC component removed
+        """
+        logger.debug(f"Removing DC component from array with shape: {x.shape}")
+
+        # Subtract mean along time axis (axis=1 for channel data)
+        mean_values = x.mean(axis=-1, keepdims=True)
+        result: NDArrayReal = x - mean_values
+
+        logger.debug(f"DC removal applied, returning result with shape: {result.shape}")
+        return result
+
+
 class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
     """Addition operation considering SNR"""
 
