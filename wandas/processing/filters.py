@@ -201,7 +201,7 @@ class BandPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
                 f"  Valid range: 0 < cutoff < {nyquist} Hz (Nyquist frequency)\n"
                 f"The Nyquist frequency is half the sampling rate ({self.sampling_rate} Hz).\n"
                 f"Filters cannot work above this limit due to aliasing.\n"
-                f"Use a higher cutoff frequency below {nyquist} Hz"
+                f"Use a cutoff frequency below {nyquist} Hz"
             )
         if self.low_cutoff >= self.high_cutoff:
             raise ValueError(
