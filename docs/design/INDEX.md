@@ -1,6 +1,6 @@
 # 設計ドキュメント一覧
 
-**最終更新**: 2025年10月18日
+**最終更新**: 2025年11月2日
 
 ## 📖 このディレクトリについて
 
@@ -15,7 +15,8 @@ docs/design/
 │   └── drafts/          # *_SUMMARY.md（実装後の下書き）
 ├── guides/              # 永続的なガイドドキュメント（Git管理）
 │   ├── api-improvements.md
-│   └── metadata-encapsulation.md
+│   ├── metadata-encapsulation.md
+│   └── copilot-custom-instructions-best-practices.md
 ├── INDEX.md             # このファイル
 └── DOCUMENT_LIFECYCLE.md # ドキュメント管理ルール
 ```
@@ -38,6 +39,14 @@ docs/design/
 
 **[DOCUMENT_LIFECYCLE.md](./DOCUMENT_LIFECYCLE.md)**
 ドキュメントのライフサイクル管理ルール。新しいドキュメントを作成する前に必読。
+
+**[guides/copilot-custom-instructions-best-practices.md](./guides/copilot-custom-instructions-best-practices.md)**
+
+- GitHub Copilotカスタム命令の作成方法
+- 効果的な構成とコンテンツの書き方
+- コード例の提供方法
+- 保守とメンテナンスのベストプラクティス
+- よくある落とし穴と対策
 
 ### API設計
 
