@@ -395,3 +395,51 @@ class TestNormalize:
         assert normalize_op.sampling_rate == self.sample_rate
         assert normalize_op.norm == 2
         assert normalize_op.axis == 0
+
+    def test_invalid_norm_type_error_message(self) -> None:
+        """Test that invalid norm type provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            Normalize(sampling_rate=44100, norm="invalid")  # type: ignore[arg-type]
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid normalization method" in error_msg
+        # Check WHY
+        assert "float, int, np.inf" in error_msg
+        # Check HOW
+        assert "Common values:" in error_msg
+        assert "np.inf" in error_msg
+
+    def test_negative_norm_error_message(self) -> None:
+        """Test that negative norm (except -np.inf) provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            Normalize(sampling_rate=44100, norm=-2)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid normalization method" in error_msg
+        assert "-2" in error_msg
+        # Check WHY
+        assert "Non-negative value" in error_msg
+        # Check HOW
+        assert "Common values:" in error_msg
+
+    def test_negative_threshold_error_message(self) -> None:
+        """Test that negative threshold provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            Normalize(sampling_rate=44100, threshold=-0.5)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid threshold for normalization" in error_msg
+        assert "-0.5" in error_msg
+        # Check WHY
+        assert "Non-negative value" in error_msg
+        # Check HOW
+        assert "Typical values:" in error_msg

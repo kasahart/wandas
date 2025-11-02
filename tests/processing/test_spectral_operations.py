@@ -156,6 +156,36 @@ class TestFFTOperation:
         assert fft_op.n_fft == 512
         assert fft_op.window == "hamming"
 
+    def test_negative_n_fft_error_message(self) -> None:
+        """Test that negative n_fft provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            FFT(sampling_rate=44100, n_fft=-1024)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid FFT size" in error_msg
+        assert "-1024" in error_msg
+        # Check WHY
+        assert "Positive integer" in error_msg
+        # Check HOW
+        assert "Common values:" in error_msg
+        assert "2048" in error_msg
+
+    def test_zero_n_fft_error_message(self) -> None:
+        """Test that zero n_fft provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            FFT(sampling_rate=44100, n_fft=0)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid FFT size" in error_msg
+        # Check WHY
+        assert "Positive integer" in error_msg
+
 
 class TestIFFTOperation:
     def setup_method(self) -> None:
@@ -519,6 +549,127 @@ class TestSTFTOperation:
         assert istft_op.n_fft == 512
         assert istft_op.hop_length == 128
 
+    def test_negative_n_fft_error_message(self) -> None:
+        """Test that negative n_fft provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            STFT(sampling_rate=44100, n_fft=-2048)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid FFT size for STFT" in error_msg
+        assert "-2048" in error_msg
+        # Check WHY
+        assert "Positive integer" in error_msg
+        # Check HOW
+        assert "Common values:" in error_msg
+
+    def test_win_length_greater_than_n_fft_error_message(self) -> None:
+        """Test that win_length > n_fft provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            STFT(sampling_rate=44100, n_fft=1024, win_length=2048)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid window length for STFT" in error_msg
+        assert "win_length=2048" in error_msg
+        # Check WHY
+        assert "win_length <= n_fft" in error_msg
+        assert "1024" in error_msg
+        # Check HOW
+        assert "win_length=1024 or smaller" in error_msg or "increase n_fft to 2048" in error_msg
+
+    def test_negative_hop_length_error_message(self) -> None:
+        """Test that negative hop_length provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            STFT(sampling_rate=44100, n_fft=2048, hop_length=-512)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid hop length for STFT" in error_msg
+        assert "-512" in error_msg
+        # Check WHY
+        assert "Positive integer" in error_msg
+
+    def test_hop_length_greater_than_win_length_error_message(self) -> None:
+        """Test that hop_length > win_length provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            STFT(sampling_rate=44100, n_fft=2048, win_length=1024, hop_length=2048)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid hop length for STFT" in error_msg
+        assert "hop_length=2048" in error_msg
+        # Check WHY
+        assert "hop_length <= win_length" in error_msg
+        assert "1024" in error_msg
+        # Check HOW
+        assert "would create gaps" in error_msg
+
+    def test_zero_n_fft_error_message(self) -> None:
+        """Test that zero n_fft provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            STFT(sampling_rate=44100, n_fft=0)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid FFT size for STFT" in error_msg
+        assert "0" in error_msg
+        # Check WHY
+        assert "Positive integer" in error_msg
+
+    def test_negative_win_length_error_message(self) -> None:
+        """Test that negative win_length provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            STFT(sampling_rate=44100, n_fft=2048, win_length=-1024)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid window length for STFT" in error_msg
+        assert "-1024" in error_msg
+        # Check WHY
+        assert "Positive integer" in error_msg
+
+    def test_zero_win_length_error_message(self) -> None:
+        """Test that zero win_length provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            STFT(sampling_rate=44100, n_fft=2048, win_length=0)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid window length for STFT" in error_msg
+        # Check WHY
+        assert "Positive integer" in error_msg
+
+    def test_win_length_too_small_for_default_hop_error_message(self) -> None:
+        """Test that win_length < 4 with no hop_length provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            STFT(sampling_rate=44100, n_fft=2048, win_length=3)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Window length too small" in error_msg
+        assert "win_length=3" in error_msg
+        # Check WHY
+        assert "win_length >= 4" in error_msg
+        # Check HOW
+        assert "specify a larger win_length or provide hop_length explicitly" in error_msg
+
 
 class TestNOctSynthesisOperation:
     def setup_method(self) -> None:
@@ -835,6 +986,110 @@ class TestWelchOperation:
         assert welch_op.win_length == 512
         assert welch_op.hop_length == 128
         assert welch_op.window == "hamming"
+
+    def test_negative_n_fft_error_message(self) -> None:
+        """Test that negative n_fft provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            Welch(sampling_rate=44100, n_fft=-2048)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid FFT size for Welch" in error_msg
+        assert "-2048" in error_msg
+        # Check WHY
+        assert "Positive integer" in error_msg
+        # Check HOW
+        assert "Common values:" in error_msg
+
+    def test_win_length_greater_than_n_fft_error_message(self) -> None:
+        """Test that win_length > n_fft provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            Welch(sampling_rate=44100, n_fft=1024, win_length=2048)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid window length for Welch" in error_msg
+        assert "win_length=2048" in error_msg
+        # Check WHY
+        assert "win_length <= n_fft" in error_msg
+        # Check HOW
+        assert "or increase n_fft" in error_msg
+
+    def test_hop_length_greater_than_win_length_error_message(self) -> None:
+        """Test that hop_length > win_length provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            Welch(sampling_rate=44100, n_fft=2048, win_length=1024, hop_length=2048)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid hop length for Welch" in error_msg
+        # Check WHY
+        assert "hop_length <= win_length" in error_msg
+        # Check HOW
+        assert "would create gaps" in error_msg
+
+    def test_zero_n_fft_error_message(self) -> None:
+        """Test that zero n_fft provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            Welch(sampling_rate=44100, n_fft=0)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid FFT size for Welch" in error_msg
+        assert "0" in error_msg
+        # Check WHY
+        assert "Positive integer" in error_msg
+
+    def test_negative_win_length_error_message(self) -> None:
+        """Test that negative win_length provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            Welch(sampling_rate=44100, n_fft=2048, win_length=-1024)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid window length for Welch" in error_msg
+        assert "-1024" in error_msg
+        # Check WHY
+        assert "Positive integer" in error_msg
+
+    def test_zero_win_length_error_message(self) -> None:
+        """Test that zero win_length provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            Welch(sampling_rate=44100, n_fft=2048, win_length=0)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid window length for Welch" in error_msg
+        # Check WHY
+        assert "Positive integer" in error_msg
+
+    def test_win_length_too_small_for_default_hop_error_message(self) -> None:
+        """Test that win_length < 4 with no hop_length provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            Welch(sampling_rate=44100, n_fft=2048, win_length=3)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Window length too small" in error_msg
+        assert "win_length=3" in error_msg
+        # Check WHY
+        assert "win_length >= 4" in error_msg
+        # Check HOW
+        assert "specify a larger win_length or provide hop_length explicitly" in error_msg
 
 
 class TestCoherenceOperation:
