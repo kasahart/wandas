@@ -2069,3 +2069,61 @@ class TestFadeIntegration:
 
         # Check data values
         np.testing.assert_array_equal(df.values.flatten(), self.data[0])
+
+    def test_info_method_basic(self, capsys: Any) -> None:
+        """Test info() method displays correct information."""
+        self.channel_frame.info()
+        
+        captured = capsys.readouterr()
+        output = captured.out
+        
+        # Verify all expected information is present
+        assert "チャンネル数: 2" in output
+        assert f"サンプリングレート: {self.sample_rate} Hz" in output
+        assert "長さ: 1.0 秒" in output
+        assert f"サンプル数: {self.channel_frame.n_samples}" in output
+        assert "チャンネル名: ['ch0', 'ch1']" in output
+
+    def test_info_method_single_channel(self, capsys: Any) -> None:
+        """Test info() method with single channel."""
+        single_data = self.data[0:1]
+        single_frame = ChannelFrame.from_numpy(
+            single_data, sampling_rate=self.sample_rate, label="single"
+        )
+        
+        single_frame.info()
+        
+        captured = capsys.readouterr()
+        output = captured.out
+        
+        assert "チャンネル数: 1" in output
+        assert "チャンネル名: ['ch0']" in output
+
+    def test_info_method_custom_labels(self, capsys: Any) -> None:
+        """Test info() method with custom channel labels."""
+        # Set custom labels
+        self.channel_frame.channels[0].label = "left"
+        self.channel_frame.channels[1].label = "right"
+        
+        self.channel_frame.info()
+        
+        captured = capsys.readouterr()
+        output = captured.out
+        
+        assert "チャンネル名: ['left', 'right']" in output
+
+    def test_info_method_different_duration(self, capsys: Any) -> None:
+        """Test info() method with different durations."""
+        # Create a frame with 0.5 seconds of data
+        short_data = np.random.random((2, 8000))
+        short_frame = ChannelFrame.from_numpy(
+            short_data, sampling_rate=self.sample_rate, label="short"
+        )
+        
+        short_frame.info()
+        
+        captured = capsys.readouterr()
+        output = captured.out
+        
+        assert "長さ: 0.5 秒" in output
+        assert "サンプル数: 8000" in output

@@ -152,6 +152,35 @@ class ChannelFrame(
         rms_values: NDArrayReal = np.sqrt(np.mean(arr**2, axis=1))  # type: ignore [arg-type]
         return rms_values
 
+    def info(self) -> None:
+        """Display comprehensive information about the ChannelFrame.
+
+        This method prints a summary of the frame's properties including:
+        - Number of channels
+        - Sampling rate
+        - Duration
+        - Number of samples
+        - Channel labels
+
+        This is a convenience method to view all key properties at once,
+        similar to pandas DataFrame.info().
+
+        Examples
+        --------
+        >>> cf = ChannelFrame.read_wav("audio.wav")
+        >>> cf.info()
+        チャンネル数: 2
+        サンプリングレート: 44100 Hz
+        長さ: 1.0 秒
+        サンプル数: 44100
+        チャンネル名: ['ch0', 'ch1']
+        """
+        print(f"  チャンネル数: {self.n_channels}")
+        print(f"  サンプリングレート: {self.sampling_rate} Hz")
+        print(f"  長さ: {self.duration:.1f} 秒")
+        print(f"  サンプル数: {self.n_samples}")
+        print(f"  チャンネル名: {self.labels}")
+
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
         from ..processing import create_operation
