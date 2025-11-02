@@ -382,7 +382,7 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
                 self._channel_metadata, other._channel_metadata
             ):
                 ch = self_ch.model_copy(deep=True)
-                ch["label"] = f"({self_ch['label']} {symbol} {other_ch['label']})"
+                ch["label"] = f"({self_ch.label} {symbol} {other_ch.label})"
                 merged_channel_metadata.append(ch)
 
             operation_history.append({"operation": symbol, "with": other.label})
