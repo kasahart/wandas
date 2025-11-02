@@ -203,16 +203,7 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         # Set win_length with default
         actual_win_length = win_length if win_length is not None else n_fft
         
-        # Validate win_length
-        if actual_win_length > n_fft:
-            raise ValueError(
-                f"Invalid window length for STFT\n"
-                f"  Got: win_length={actual_win_length}\n"
-                f"  Expected: win_length <= n_fft ({n_fft})\n"
-                f"Window length cannot exceed FFT size.\n"
-                f"Use win_length={n_fft} or smaller, or increase n_fft to {actual_win_length} or larger"
-            )
-        
+        # Validate win_length - check positive first, then relationship
         if actual_win_length <= 0:
             raise ValueError(
                 f"Invalid window length for STFT\n"
@@ -220,6 +211,15 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
                 f"  Expected: Positive integer > 0\n"
                 f"Window length must be a positive integer.\n"
                 f"Typical values: same as n_fft ({n_fft}) or slightly smaller"
+            )
+        
+        if actual_win_length > n_fft:
+            raise ValueError(
+                f"Invalid window length for STFT\n"
+                f"  Got: win_length={actual_win_length}\n"
+                f"  Expected: win_length <= n_fft ({n_fft})\n"
+                f"Window length cannot exceed FFT size.\n"
+                f"Use win_length={n_fft} or smaller, or increase n_fft to {actual_win_length} or larger"
             )
         
         # Set hop_length with default
@@ -501,16 +501,7 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
         # Set win_length with default
         actual_win_length = win_length if win_length is not None else n_fft
         
-        # Validate win_length
-        if actual_win_length > n_fft:
-            raise ValueError(
-                f"Invalid window length for Welch method\n"
-                f"  Got: win_length={actual_win_length}\n"
-                f"  Expected: win_length <= n_fft ({n_fft})\n"
-                f"Window length cannot exceed FFT size.\n"
-                f"Use win_length={n_fft} or smaller, or increase n_fft to {actual_win_length} or larger"
-            )
-        
+        # Validate win_length - check positive first, then relationship
         if actual_win_length <= 0:
             raise ValueError(
                 f"Invalid window length for Welch method\n"
@@ -518,6 +509,15 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
                 f"  Expected: Positive integer > 0\n"
                 f"Window length must be a positive integer.\n"
                 f"Typical values: same as n_fft ({n_fft}) or slightly smaller"
+            )
+        
+        if actual_win_length > n_fft:
+            raise ValueError(
+                f"Invalid window length for Welch method\n"
+                f"  Got: win_length={actual_win_length}\n"
+                f"  Expected: win_length <= n_fft ({n_fft})\n"
+                f"Window length cannot exceed FFT size.\n"
+                f"Use win_length={n_fft} or smaller, or increase n_fft to {actual_win_length} or larger"
             )
         
         # Set hop_length with default

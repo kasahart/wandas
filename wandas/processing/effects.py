@@ -106,7 +106,7 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
             Norm type. Supported values:
             - np.inf: Maximum absolute value normalization
             - -np.inf: Minimum absolute value normalization
-            - 0: Peak normalization
+            - 0: Pseudo L0 normalization (divide by number of non-zero elements)
             - float: Lp norm
             - None: No normalization
         axis : int or None, default=-1
@@ -133,7 +133,7 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
                 f"  Got: {type(norm).__name__} ({norm})\n"
                 f"  Expected: float, int, np.inf, -np.inf, or None\n"
                 f"Norm parameter must be a numeric value or None.\n"
-                f"Common values: np.inf (max norm), 2 (L2 norm), 1 (L1 norm), 0 (peak norm)"
+                f"Common values: np.inf (max norm), 2 (L2 norm), 1 (L1 norm), 0 (pseudo L0)"
             )
         
         # Validate that norm is non-negative (except for -np.inf which is valid)
@@ -143,7 +143,7 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
                 f"  Got: {norm}\n"
                 f"  Expected: Non-negative value, np.inf, -np.inf, or None\n"
                 f"Norm parameter must be non-negative (except -np.inf for min norm).\n"
-                f"Common values: np.inf (max norm), 2 (L2 norm), 1 (L1 norm), 0 (peak norm)"
+                f"Common values: np.inf (max norm), 2 (L2 norm), 1 (L1 norm), 0 (pseudo L0)"
             )
         
         # Validate threshold
