@@ -498,7 +498,21 @@ def plot(
 ```
 
 ### 10. エラーハンドリング
+
+**Important**: For detailed guidelines on error messages, refer to the **[Error Message Guide](../docs/development/error_message_guide.md)**.
+
+#### エラーメッセージの3要素ルール
+
+すべてのエラーメッセージは以下の3要素を含めてください：
+
+1. **WHAT（何が問題か）**: エラーの内容を明確に記述
+2. **WHY（なぜダメか）**: 制約や条件を説明
+3. **HOW（どうすればいいか）**: 解決策を提示
+
+#### 基本原則
+
 - **明確なエラーメッセージ**: ユーザーが問題を理解し、解決できるメッセージを提供してください
+- **英語で記述**: すべてのエラーメッセージは英語で記述してください
 - **適切な例外型**: 状況に応じた適切な例外を使用してください
   - `ValueError`: 不正な値やパラメータ
   - `TypeError`: 型の不一致
@@ -506,6 +520,22 @@ def plot(
   - カスタム例外: ドメイン固有のエラー
 - **入力検証**: 関数の先頭で入力値を検証してください
 - **リソース管理**: ファイルやネットワーク接続は適切にクローズしてください
+- **実際の値を表示**: 期待値と実際の値の両方を示してください
+- **具体的な提案**: 抽象的ではなく、具体的で実行可能な解決策を提示してください
+
+#### エラーメッセージのテンプレート
+
+```python
+# 標準テンプレート
+raise ValueError(
+    f"<WHAT: 問題の明確な記述>\n"
+    f"  Got: <実際の値>\n"
+    f"  Expected: <期待される値>\n"
+    f"<HOW: 具体的な解決策>"
+)
+```
+
+#### 実装例
 
 ```python
 from pathlib import Path
@@ -557,15 +587,21 @@ def read_wav(
 
     # 入力検証
     if not filepath.exists():
+        # WHAT: File not found, WHY: Path doesn't exist, HOW: Check path
         raise FileNotFoundError(
-            f"WAV file not found: {filepath}\n"
-            f"Please check the file path and try again."
+            f"Audio file not found\n"
+            f"  Path: {filepath.absolute()}\n"
+            f"  Current directory: {Path.cwd()}\n"
+            f"Please check the file path and ensure the file exists."
         )
 
     if not filepath.suffix.lower() == ".wav":
+        # WHAT: Wrong file type, WHY: Only WAV supported, HOW: Use WAV file
         raise ValueError(
-            f"Expected WAV file, got: {filepath.suffix}\n"
-            f"This function only supports .wav files."
+            f"Invalid file format\n"
+            f"  Got: {filepath.suffix}\n"
+            f"  Expected: .wav\n"
+            f"This function only supports WAV files. Please convert your file to WAV format."
         )
 
     # ファイル読み込み（with文でリソース管理）
@@ -574,19 +610,24 @@ def read_wav(
             # 読み込み処理
             file_sr, data = _read_wav_data(f)
     except Exception as e:
+        # WHAT: Read failed, WHY: File corrupted/unsupported, HOW: Check file
         raise ValueError(
-            f"Failed to read WAV file: {filepath}\n"
-            f"The file may be corrupted or in an unsupported format.\n"
-            f"Error details: {e}"
+            f"Failed to read WAV file\n"
+            f"  File: {filepath}\n"
+            f"  Error: {e}\n"
+            f"The file may be corrupted or in an unsupported format. "
+            f"Try opening it in an audio editor to verify."
         ) from e
 
     # サンプリングレートの検証
     if sampling_rate is not None and file_sr != sampling_rate:
+        # WHAT: Rate mismatch, WHY: Expected vs actual, HOW: Resample
         raise InvalidSamplingRateError(
-            f"Sampling rate mismatch:\n"
+            f"Sampling rate mismatch\n"
+            f"  File sampling rate: {file_sr} Hz\n"
             f"  Expected: {sampling_rate} Hz\n"
-            f"  File contains: {file_sr} Hz\n"
-            f"Consider using resample() method to convert the sampling rate."
+            f"Use signal.resample({sampling_rate}) to convert the sampling rate, "
+            f"or set sampling_rate=None to accept any rate."
         )
 
     return ChannelFrame(data=data, sampling_rate=file_sr)

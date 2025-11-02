@@ -89,6 +89,25 @@ class TestHighPassFilter:
         with pytest.raises(ValueError):
             HighPassFilter(self.sample_rate, self.sample_rate / 2 + 1)
 
+    def test_cutoff_too_high_error_message(self) -> None:
+        """Test that cutoff above Nyquist provides helpful error message."""
+        invalid_cutoff = 10000.0  # Above Nyquist for 16kHz sample rate
+        nyquist = self.sample_rate / 2
+
+        with pytest.raises(ValueError) as exc_info:
+            HighPassFilter(self.sample_rate, invalid_cutoff)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Cutoff frequency out of valid range" in error_msg
+        assert f"{invalid_cutoff}" in error_msg
+        # Check WHY
+        assert "Nyquist" in error_msg
+        assert f"{nyquist}" in error_msg
+        # Check HOW
+        assert "Solutions:" in error_msg
+        assert "resample" in error_msg.lower()
+
 
 class TestLowPassFilter:
     def setup_method(self) -> None:
@@ -158,6 +177,25 @@ class TestLowPassFilter:
         # Cutoff too high (above Nyquist)
         with pytest.raises(ValueError):
             LowPassFilter(self.sample_rate, self.sample_rate / 2 + 1)
+
+    def test_cutoff_too_high_error_message(self) -> None:
+        """Test that cutoff above Nyquist provides helpful error message."""
+        invalid_cutoff = 10000.0  # Above Nyquist for 16kHz sample rate
+        nyquist = self.sample_rate / 2
+
+        with pytest.raises(ValueError) as exc_info:
+            LowPassFilter(self.sample_rate, invalid_cutoff)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Cutoff frequency out of valid range" in error_msg
+        assert f"{invalid_cutoff}" in error_msg
+        # Check WHY
+        assert "Nyquist" in error_msg
+        assert f"{nyquist}" in error_msg
+        # Check HOW
+        assert "Solutions:" in error_msg
+        assert "resample" in error_msg.lower()
 
 
 class TestAWeightingOperation:
@@ -340,6 +378,25 @@ class TestBandPassFilter:
         # Low cutoff higher than high cutoff
         with pytest.raises(ValueError):
             BandPassFilter(self.sample_rate, 1000, 500)
+
+    def test_invalid_cutoff_order_error_message(self) -> None:
+        """Test that inverted cutoff frequencies provide helpful error message."""
+        low = 1000.0
+        high = 500.0
+
+        with pytest.raises(ValueError) as exc_info:
+            BandPassFilter(self.sample_rate, low, high)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid bandpass filter" in error_msg
+        assert f"{low}" in error_msg
+        assert f"{high}" in error_msg
+        # Check WHY
+        assert "Lower cutoff must be less than higher cutoff" in error_msg
+        # Check HOW
+        assert "bandpass filter passes frequencies between" in error_msg
+        assert "low_cutoff < high_cutoff" in error_msg
 
     def test_operation_registry(self) -> None:
         """Test that BandPassFilter is properly registered in the operation registry."""

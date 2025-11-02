@@ -54,6 +54,7 @@ class ChannelFrame(
             data: Dask array containing channel data.
             Shape should be (n_channels, n_samples).
             sampling_rate: The sampling rate of the data in Hz.
+                Must be a positive value.
             label: A label for the frame.
             metadata: Optional metadata dictionary.
             operation_history: History of operations applied to the frame.
@@ -61,13 +62,32 @@ class ChannelFrame(
             previous: Reference to the previous frame in the processing chain.
 
         Raises:
-            ValueError: If data has more than 2 dimensions.
+            ValueError: If data has more than 2 dimensions, or if
+                sampling_rate is not positive.
         """
+        # Validate sampling rate
+        if sampling_rate <= 0:
+            raise ValueError(
+                f"Invalid sampling rate\n"
+                f"  Got: {sampling_rate} Hz\n"
+                f"  Expected: Positive value > 0\n"
+                f"Sampling rate represents samples per second and must be positive.\n"
+                f"Common values: 8000, 16000, 22050, 44100, 48000 Hz"
+            )
+
+        # Validate and reshape data
         if data.ndim == 1:
             data = da.reshape(data, (1, -1))
         elif data.ndim > 2:
             raise ValueError(
-                f"Data must be 1-dimensional or 2-dimensional. Shape: {data.shape}"
+                f"Invalid data shape for ChannelFrame\n"
+                f"  Got: {data.shape} ({data.ndim}D)\n"
+                f"  Expected: 1D (samples,) or 2D (channels, samples)\n"
+                f"If you have a 1D array, it will be automatically reshaped to\n"
+                f"  (1, n_samples).\n"
+                f"For higher-dimensional data, reshape it before creating\n"
+                f"  ChannelFrame:\n"
+                f"  Example: data.reshape(n_channels, -1)"
             )
         super().__init__(
             data=data,
@@ -701,7 +721,9 @@ class ChannelFrame(
         Raises:
             ValueError: If channel specification is invalid.
             TypeError: If channel parameter type is invalid.
-            FileNotFoundError: If the file doesn't exist.
+            FileNotFoundError: If the file doesn't exist at the specified path.
+                Error message includes absolute path, current directory, and
+                troubleshooting suggestions.
 
         Examples:
             >>> # Load WAV file
@@ -717,7 +739,15 @@ class ChannelFrame(
 
         path = Path(path)
         if not path.exists():
-            raise FileNotFoundError(f"File not found: {path}")
+            raise FileNotFoundError(
+                f"Audio file not found\n"
+                f"  Path: {path.absolute()}\n"
+                f"  Current directory: {Path.cwd()}\n"
+                f"Please check:\n"
+                f"  - File path is correct\n"
+                f"  - File exists at the specified location\n"
+                f"  - You have read permissions for the file"
+            )
 
         # Get file reader
         reader = get_file_reader(path)
