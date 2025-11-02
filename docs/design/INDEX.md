@@ -16,7 +16,9 @@ docs/design/
 ├── guides/              # 永続的なガイドドキュメント（Git管理）
 │   ├── api-improvements.md
 │   ├── metadata-encapsulation.md
-│   └── copilot-custom-instructions-best-practices.md
+│   ├── copilot-custom-instructions-best-practices.md
+│   ├── copilot-custom-instructions-best-practices.en.md
+│   └── copilot-custom-instructions-quick-reference.md
 ├── INDEX.md             # このファイル
 └── DOCUMENT_LIFECYCLE.md # ドキュメント管理ルール
 ```
@@ -40,7 +42,7 @@ docs/design/
 **[DOCUMENT_LIFECYCLE.md](./DOCUMENT_LIFECYCLE.md)**
 ドキュメントのライフサイクル管理ルール。新しいドキュメントを作成する前に必読。
 
-**[guides/copilot-custom-instructions-best-practices.md](./guides/copilot-custom-instructions-best-practices.md)**
+**[guides/copilot-custom-instructions-best-practices.md](./guides/copilot-custom-instructions-best-practices.md)** | [English](./guides/copilot-custom-instructions-best-practices.en.md) | [クイックリファレンス](./guides/copilot-custom-instructions-quick-reference.md)
 
 - GitHub Copilotカスタム命令の作成方法
 - 効果的な構成とコンテンツの書き方
