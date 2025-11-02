@@ -2078,11 +2078,11 @@ class TestFadeIntegration:
         output = captured.out
         
         # Verify all expected information is present
-        assert "チャンネル数: 2" in output
-        assert f"サンプリングレート: {self.sample_rate} Hz" in output
-        assert "長さ: 1.0 秒" in output
-        assert f"サンプル数: {self.channel_frame.n_samples}" in output
-        assert "チャンネル名: ['ch0', 'ch1']" in output
+        assert "Channels: 2" in output
+        assert f"Sampling rate: {self.sample_rate} Hz" in output
+        assert "Duration: 1.0 s" in output
+        assert f"Samples: {self.channel_frame.n_samples}" in output
+        assert "Channel labels: ['ch0', 'ch1']" in output
 
     def test_info_method_single_channel(self, capsys: Any) -> None:
         """Test info() method with single channel."""
@@ -2096,8 +2096,8 @@ class TestFadeIntegration:
         captured = capsys.readouterr()
         output = captured.out
         
-        assert "チャンネル数: 1" in output
-        assert "チャンネル名: ['ch0']" in output
+        assert "Channels: 1" in output
+        assert "Channel labels: ['ch0']" in output
 
     def test_info_method_custom_labels(self, capsys: Any) -> None:
         """Test info() method with custom channel labels."""
@@ -2110,7 +2110,7 @@ class TestFadeIntegration:
         captured = capsys.readouterr()
         output = captured.out
         
-        assert "チャンネル名: ['left', 'right']" in output
+        assert "Channel labels: ['left', 'right']" in output
 
     def test_info_method_different_duration(self, capsys: Any) -> None:
         """Test info() method with different durations."""
@@ -2125,5 +2125,5 @@ class TestFadeIntegration:
         captured = capsys.readouterr()
         output = captured.out
         
-        assert "長さ: 0.5 秒" in output
-        assert "サンプル数: 8000" in output
+        assert "Duration: 0.5 s" in output
+        assert "Samples: 8000" in output

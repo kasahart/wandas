@@ -169,17 +169,17 @@ class ChannelFrame(
         --------
         >>> cf = ChannelFrame.read_wav("audio.wav")
         >>> cf.info()
-        チャンネル数: 2
-        サンプリングレート: 44100 Hz
-        長さ: 1.0 秒
-        サンプル数: 44100
-        チャンネル名: ['ch0', 'ch1']
+        Channels: 2
+        Sampling rate: 44100 Hz
+        Duration: 1.0 s
+        Samples: 44100
+        Channel labels: ['ch0', 'ch1']
         """
-        print(f"  チャンネル数: {self.n_channels}")
-        print(f"  サンプリングレート: {self.sampling_rate} Hz")
-        print(f"  長さ: {self.duration:.1f} 秒")
-        print(f"  サンプル数: {self.n_samples}")
-        print(f"  チャンネル名: {self.labels}")
+        print(f"  Channels: {self.n_channels}")
+        print(f"  Sampling rate: {self.sampling_rate} Hz")
+        print(f"  Duration: {self.duration:.1f} s")
+        print(f"  Samples: {self.n_samples}")
+        print(f"  Channel labels: {self.labels}")
 
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
