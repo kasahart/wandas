@@ -221,6 +221,16 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
                 f"Window length cannot exceed FFT size.\n"
                 f"Use win_length={n_fft} or smaller, or increase n_fft to {actual_win_length} or larger"
             )
+
+        # Validate win_length is large enough for default hop_length calculation
+        if actual_win_length < 4:
+            raise ValueError(
+                f"Window length too small for default hop_length calculation in STFT\n"
+                f"  Got: win_length={actual_win_length}\n"
+                f"  Expected: win_length >= 4\n"
+                f"Window length must be at least 4 to compute a valid default hop_length (win_length // 4 > 0).\n"
+                f"Please specify a larger win_length or provide hop_length explicitly."
+            )
         
         # Set hop_length with default
         actual_hop_length = hop_length if hop_length is not None else actual_win_length // 4
