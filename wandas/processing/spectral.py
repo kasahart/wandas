@@ -13,6 +13,104 @@ from wandas.utils.types import NDArrayComplex, NDArrayReal
 logger = logging.getLogger(__name__)
 
 
+def _validate_spectral_params(
+    n_fft: int,
+    win_length: Optional[int],
+    hop_length: Optional[int],
+    method_name: str,
+) -> tuple[int, int]:
+    """
+    Validate and compute spectral analysis parameters.
+
+    Parameters
+    ----------
+    n_fft : int
+        FFT size
+    win_length : int or None
+        Window length (None means use n_fft)
+    hop_length : int or None
+        Hop length (None means use win_length // 4)
+    method_name : str
+        Name of the method for error messages (e.g., "STFT", "Welch method")
+
+    Returns
+    -------
+    tuple[int, int]
+        (actual_win_length, actual_hop_length)
+
+    Raises
+    ------
+    ValueError
+        If parameters are invalid
+    """
+    # Validate n_fft
+    if n_fft <= 0:
+        raise ValueError(
+            f"Invalid FFT size for {method_name}\n"
+            f"  Got: {n_fft}\n"
+            f"  Expected: Positive integer > 0\n"
+            f"FFT size must be a positive integer.\n"
+            f"Common values: 512, 1024, 2048, 4096 (powers of 2 are most efficient)"
+        )
+    
+    # Set win_length with default
+    actual_win_length = win_length if win_length is not None else n_fft
+    
+    # Validate win_length - check positive first, then relationship
+    if actual_win_length <= 0:
+        raise ValueError(
+            f"Invalid window length for {method_name}\n"
+            f"  Got: {actual_win_length}\n"
+            f"  Expected: Positive integer > 0\n"
+            f"Window length must be a positive integer.\n"
+            f"Typical values: same as n_fft ({n_fft}) or slightly smaller"
+        )
+    
+    if actual_win_length > n_fft:
+        raise ValueError(
+            f"Invalid window length for {method_name}\n"
+            f"  Got: win_length={actual_win_length}\n"
+            f"  Expected: win_length <= n_fft ({n_fft})\n"
+            f"Window length cannot exceed FFT size.\n"
+            f"Use win_length={n_fft} or smaller, or increase n_fft to {actual_win_length} or larger"
+        )
+    
+    # Set hop_length with default
+    if hop_length is None:
+        if actual_win_length < 4:
+            raise ValueError(
+                f"Window length too small to compute default hop length for {method_name}\n"
+                f"  Got: win_length={actual_win_length}\n"
+                f"  Expected: win_length >= 4 when hop_length is not specified\n"
+                f"Default hop_length is computed as win_length // 4, which would be zero for win_length < 4.\n"
+                f"Please specify a larger win_length or provide hop_length explicitly."
+            )
+        actual_hop_length = actual_win_length // 4
+    else:
+        actual_hop_length = hop_length
+    
+    # Validate hop_length
+    if actual_hop_length <= 0:
+        raise ValueError(
+            f"Invalid hop length for {method_name}\n"
+            f"  Got: {actual_hop_length}\n"
+            f"  Expected: Positive integer > 0\n"
+            f"Hop length must be a positive integer.\n"
+            f"Typical value: win_length // 4 = {actual_win_length // 4}"
+        )
+    
+    if actual_hop_length > actual_win_length:
+        raise ValueError(
+            f"Invalid hop length for {method_name}\n"
+            f"  Got: hop_length={actual_hop_length}\n"
+            f"  Expected: hop_length <= win_length ({actual_win_length})\n"
+            f"Hop length cannot exceed window length (would create gaps).\n"
+            f"Use hop_length={actual_win_length} or smaller for proper overlap"
+        )
+    
+    return actual_win_length, actual_hop_length
+
+
 class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
     """FFT (Fast Fourier Transform) operation"""
 
@@ -190,69 +288,10 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         ValueError
             If n_fft is not positive, win_length > n_fft, or hop_length is invalid
         """
-        # Validate n_fft
-        if n_fft <= 0:
-            raise ValueError(
-                f"Invalid FFT size for STFT\n"
-                f"  Got: {n_fft}\n"
-                f"  Expected: Positive integer > 0\n"
-                f"FFT size must be a positive integer.\n"
-                f"Common values: 512, 1024, 2048, 4096 (powers of 2 are most efficient)"
-            )
-        
-        # Set win_length with default
-        actual_win_length = win_length if win_length is not None else n_fft
-        
-        # Validate win_length - check positive first, then relationship
-        if actual_win_length <= 0:
-            raise ValueError(
-                f"Invalid window length for STFT\n"
-                f"  Got: {actual_win_length}\n"
-                f"  Expected: Positive integer > 0\n"
-                f"Window length must be a positive integer.\n"
-                f"Typical values: same as n_fft ({n_fft}) or slightly smaller"
-            )
-        
-        if actual_win_length > n_fft:
-            raise ValueError(
-                f"Invalid window length for STFT\n"
-                f"  Got: win_length={actual_win_length}\n"
-                f"  Expected: win_length <= n_fft ({n_fft})\n"
-                f"Window length cannot exceed FFT size.\n"
-                f"Use win_length={n_fft} or smaller, or increase n_fft to {actual_win_length} or larger"
-            )
-
-        # Validate win_length is large enough for default hop_length calculation
-        if actual_win_length < 4:
-            raise ValueError(
-                f"Window length too small for default hop_length calculation in STFT\n"
-                f"  Got: win_length={actual_win_length}\n"
-                f"  Expected: win_length >= 4\n"
-                f"Window length must be at least 4 to compute a valid default hop_length (win_length // 4 > 0).\n"
-                f"Please specify a larger win_length or provide hop_length explicitly."
-            )
-        
-        # Set hop_length with default
-        actual_hop_length = hop_length if hop_length is not None else actual_win_length // 4
-        
-        # Validate hop_length
-        if actual_hop_length <= 0:
-            raise ValueError(
-                f"Invalid hop length for STFT\n"
-                f"  Got: {actual_hop_length}\n"
-                f"  Expected: Positive integer > 0\n"
-                f"Hop length must be a positive integer.\n"
-                f"Typical value: win_length // 4 = {actual_win_length // 4}"
-            )
-        
-        if actual_hop_length > actual_win_length:
-            raise ValueError(
-                f"Invalid hop length for STFT\n"
-                f"  Got: hop_length={actual_hop_length}\n"
-                f"  Expected: hop_length <= win_length ({actual_win_length})\n"
-                f"Hop length cannot exceed window length (would create gaps).\n"
-                f"Use hop_length={actual_win_length} or smaller for proper overlap"
-            )
+        # Validate and compute parameters
+        actual_win_length, actual_hop_length = _validate_spectral_params(
+            n_fft, win_length, hop_length, "STFT"
+        )
         
         self.n_fft = n_fft
         self.win_length = actual_win_length
@@ -498,70 +537,10 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
         ValueError
             If n_fft, win_length, or hop_length are invalid
         """
-        # Validate n_fft
-        if n_fft <= 0:
-            raise ValueError(
-                f"Invalid FFT size for Welch method\n"
-                f"  Got: {n_fft}\n"
-                f"  Expected: Positive integer > 0\n"
-                f"FFT size must be a positive integer.\n"
-                f"Common values: 512, 1024, 2048, 4096 (powers of 2 are most efficient)"
-            )
-        
-        # Set win_length with default
-        actual_win_length = win_length if win_length is not None else n_fft
-        
-        # Validate win_length - check positive first, then relationship
-        if actual_win_length <= 0:
-            raise ValueError(
-                f"Invalid window length for Welch method\n"
-                f"  Got: {actual_win_length}\n"
-                f"  Expected: Positive integer > 0\n"
-                f"Window length must be a positive integer.\n"
-                f"Typical values: same as n_fft ({n_fft}) or slightly smaller"
-            )
-        
-        if actual_win_length > n_fft:
-            raise ValueError(
-                f"Invalid window length for Welch method\n"
-                f"  Got: win_length={actual_win_length}\n"
-                f"  Expected: win_length <= n_fft ({n_fft})\n"
-                f"Window length cannot exceed FFT size.\n"
-                f"Use win_length={n_fft} or smaller, or increase n_fft to {actual_win_length} or larger"
-            )
-        
-        # Set hop_length with default
-        if hop_length is None:
-            if actual_win_length < 4:
-                raise ValueError(
-                    f"Window length too small to compute default hop length for Welch method\n"
-                    f"  Got: win_length={actual_win_length}\n"
-                    f"  Expected: win_length >= 4 when hop_length is not specified\n"
-                    f"Default hop_length is computed as win_length // 4, which would be zero for win_length < 4.\n"
-                    f"Please specify a larger win_length or provide hop_length explicitly."
-                )
-            actual_hop_length = actual_win_length // 4
-        else:
-            actual_hop_length = hop_length
-        
-        # Validate hop_length
-        if actual_hop_length <= 0:
-            raise ValueError(
-                f"Invalid hop length for Welch method\n"
-                f"  Got: {actual_hop_length}\n"
-                f"  Expected: Positive integer > 0\n"
-                f"Hop length must be a positive integer.\n"
-                f"Typical value: win_length // 4 = {actual_win_length // 4}"
-            )
-        
-        if actual_hop_length > actual_win_length:
-            raise ValueError(
-                f"Invalid hop length for Welch method\n"
-                f"  Got: hop_length={actual_hop_length}\n"
-                f"  Expected: hop_length <= win_length ({actual_win_length})\n"
-                f"Hop length cannot exceed window length (would create gaps).\n"
-                f"Use hop_length={actual_win_length} or smaller for proper overlap"
-            )
+        # Validate and compute parameters
+        actual_win_length, actual_hop_length = _validate_spectral_params(
+            n_fft, win_length, hop_length, "Welch method"
+        )
         
         self.n_fft = n_fft
         self.win_length = actual_win_length
