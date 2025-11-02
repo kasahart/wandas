@@ -137,7 +137,7 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
             )
         
         # Validate that norm is non-negative (except for -np.inf which is valid)
-        if norm is not None and norm < 0 and norm != float('-inf'):
+        if norm is not None and norm < 0 and not np.isneginf(norm):
             raise ValueError(
                 f"Invalid normalization method\n"
                 f"  Got: {norm}\n"
