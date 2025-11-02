@@ -737,11 +737,10 @@ class ChannelFrame(
 
         path = Path(path)
         if not path.exists():
-            from pathlib import Path as PathLib
             raise FileNotFoundError(
                 f"Audio file not found\n"
                 f"  Path: {path.absolute()}\n"
-                f"  Current directory: {PathLib.cwd()}\n"
+                f"  Current directory: {Path.cwd()}\n"
                 f"Please check:\n"
                 f"  - File path is correct\n"
                 f"  - File exists at the specified location\n"
