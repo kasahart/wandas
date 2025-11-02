@@ -1728,3 +1728,71 @@ class TestBaseFrameExceptionHandling:
         with mock.patch.object(DaArray, "compute", return_value="not_an_array"):
             with pytest.raises(ValueError, match="Computed result is not a np.ndarray"):
                 _ = self.channel_frame.compute()
+
+    # Error Message Tests (Phase 1 Improvements)
+    def test_invalid_data_shape_error_message(self) -> None:
+        """Test that invalid data shape provides helpful error message."""
+        data_3d = np.random.random((2, 3, 4))  # 3D array
+        dask_data_3d = _da_from_array(data_3d)
+        
+        with pytest.raises(ValueError) as exc_info:
+            ChannelFrame(data=dask_data_3d, sampling_rate=16000)
+        
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid data shape" in error_msg
+        assert "(2, 3, 4)" in error_msg
+        assert "3D" in error_msg
+        # Check WHY
+        assert "Expected: 1D" in error_msg
+        assert "2D" in error_msg
+        # Check HOW
+        assert "reshape" in error_msg.lower()
+        assert "Example:" in error_msg
+
+    def test_negative_sampling_rate_error_message(self) -> None:
+        """Test that negative sampling rate provides helpful error message."""
+        with pytest.raises(ValueError) as exc_info:
+            ChannelFrame(data=self.dask_data, sampling_rate=-44100)
+        
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid sampling rate" in error_msg
+        assert "-44100" in error_msg
+        # Check WHY
+        assert "Positive value" in error_msg
+        # Check HOW
+        assert "Common values:" in error_msg
+        assert "44100" in error_msg
+
+    def test_zero_sampling_rate_error_message(self) -> None:
+        """Test that zero sampling rate provides helpful error message."""
+        with pytest.raises(ValueError) as exc_info:
+            ChannelFrame(data=self.dask_data, sampling_rate=0)
+        
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid sampling rate" in error_msg
+        assert "0" in error_msg
+        # Check WHY
+        assert "Positive value" in error_msg
+        # Check HOW
+        assert "Common values:" in error_msg
+
+    def test_file_not_found_error_message(self) -> None:
+        """Test that missing file provides helpful error message."""
+        fake_path = "/nonexistent/path/to/audio.wav"
+        
+        with pytest.raises(FileNotFoundError) as exc_info:
+            ChannelFrame.from_file(fake_path)
+        
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Audio file not found" in error_msg
+        assert fake_path in error_msg
+        # Check WHY (context)
+        assert "Current directory:" in error_msg
+        # Check HOW
+        assert "check" in error_msg.lower()
+        assert "File path is correct" in error_msg
+        assert "File exists" in error_msg

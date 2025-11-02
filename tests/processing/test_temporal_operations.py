@@ -99,6 +99,57 @@ class TestReSampling:
         assert resampling_op.sampling_rate == 16000
         assert resampling_op.target_sr == 22050
 
+    def test_negative_source_sampling_rate_error_message(self) -> None:
+        """Test that negative source sampling rate provides helpful error message."""
+        with pytest.raises(ValueError) as exc_info:
+            ReSampling(sampling_rate=-44100, target_sr=22050)
+        
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid source sampling rate" in error_msg
+        assert "-44100" in error_msg
+        # Check WHY
+        assert "Positive value" in error_msg
+        # Check HOW
+        assert "Common values:" in error_msg
+        assert "44100" in error_msg
+
+    def test_zero_source_sampling_rate_error_message(self) -> None:
+        """Test that zero source sampling rate provides helpful error message."""
+        with pytest.raises(ValueError) as exc_info:
+            ReSampling(sampling_rate=0, target_sr=22050)
+        
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid source sampling rate" in error_msg
+        # Check WHY
+        assert "Positive value" in error_msg
+
+    def test_negative_target_sampling_rate_error_message(self) -> None:
+        """Test that negative target sampling rate provides helpful error message."""
+        with pytest.raises(ValueError) as exc_info:
+            ReSampling(sampling_rate=44100, target_sr=-22050)
+        
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid target sampling rate" in error_msg
+        assert "-22050" in error_msg
+        # Check WHY
+        assert "Positive value" in error_msg
+        # Check HOW
+        assert "Common values:" in error_msg
+
+    def test_zero_target_sampling_rate_error_message(self) -> None:
+        """Test that zero target sampling rate provides helpful error message."""
+        with pytest.raises(ValueError) as exc_info:
+            ReSampling(sampling_rate=44100, target_sr=0)
+        
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid target sampling rate" in error_msg
+        # Check WHY
+        assert "Positive value" in error_msg
+
 
 class TestTrim:
     def setup_method(self) -> None:
