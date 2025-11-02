@@ -531,7 +531,18 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
             )
         
         # Set hop_length with default
-        actual_hop_length = hop_length if hop_length is not None else actual_win_length // 4
+        if hop_length is None:
+            if actual_win_length < 4:
+                raise ValueError(
+                    f"Window length too small to compute default hop length for Welch method\n"
+                    f"  Got: win_length={actual_win_length}\n"
+                    f"  Expected: win_length >= 4 when hop_length is not specified\n"
+                    f"Default hop_length is computed as win_length // 4, which would be zero for win_length < 4.\n"
+                    f"Please specify a larger win_length or provide hop_length explicitly."
+                )
+            actual_hop_length = actual_win_length // 4
+        else:
+            actual_hop_length = hop_length
         
         # Validate hop_length
         if actual_hop_length <= 0:
