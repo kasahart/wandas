@@ -93,10 +93,10 @@ class TestHighPassFilter:
         """Test that cutoff above Nyquist provides helpful error message."""
         invalid_cutoff = 10000.0  # Above Nyquist for 16kHz sample rate
         nyquist = self.sample_rate / 2
-        
+
         with pytest.raises(ValueError) as exc_info:
             HighPassFilter(self.sample_rate, invalid_cutoff)
-        
+
         error_msg = str(exc_info.value)
         # Check WHAT
         assert "Cutoff frequency out of valid range" in error_msg
@@ -182,10 +182,10 @@ class TestLowPassFilter:
         """Test that cutoff above Nyquist provides helpful error message."""
         invalid_cutoff = 10000.0  # Above Nyquist for 16kHz sample rate
         nyquist = self.sample_rate / 2
-        
+
         with pytest.raises(ValueError) as exc_info:
             LowPassFilter(self.sample_rate, invalid_cutoff)
-        
+
         error_msg = str(exc_info.value)
         # Check WHAT
         assert "Cutoff frequency out of valid range" in error_msg
@@ -383,10 +383,10 @@ class TestBandPassFilter:
         """Test that inverted cutoff frequencies provide helpful error message."""
         low = 1000.0
         high = 500.0
-        
+
         with pytest.raises(ValueError) as exc_info:
             BandPassFilter(self.sample_rate, low, high)
-        
+
         error_msg = str(exc_info.value)
         # Check WHAT
         assert "Invalid bandpass filter" in error_msg

@@ -251,25 +251,78 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
-        Calculate output data shape after operation
+        Calculate output data shape after ISTFT operation.
+
+        Uses the SciPy ShortTimeFFT calculation formula to compute the expected
+        output length based on the input spectrogram dimensions and output range
+        parameters (k0, k1).
 
         Parameters
         ----------
         input_shape : tuple
-            Input data shape (channels, freqs, time_frames)
+            Input spectrogram shape (channels, n_freqs, n_frames)
+            where n_freqs = n_fft // 2 + 1 and n_frames is the number of time frames.
 
         Returns
         -------
         tuple
-            Output data shape (channels, samples)
-        """
-        k0: int = 0
-        q_max = input_shape[-1] + self.SFT.p_min
-        k_max = (q_max - 1) * self.SFT.hop + self.SFT.m_num - self.SFT.m_num_mid
-        k_q0, k_q1 = self.SFT.nearest_k_p(k0), self.SFT.nearest_k_p(k_max, left=False)
-        n_pts = k_q1 - k_q0 + self.SFT.m_num - self.SFT.m_num_mid
+            Output shape (channels, output_samples) where output_samples is the
+            reconstructed signal length determined by the output range [k0, k1).
 
-        return input_shape[:-2] + (n_pts,)
+        Notes
+        -----
+        The calculation follows SciPy's ShortTimeFFT.istft() implementation.
+        When k1 is None (default), the maximum reconstructible signal length is
+        computed as:
+
+        .. math::
+
+            q_{max} = n_{frames} + p_{min}
+
+            k_{max} = (q_{max} - 1) \\cdot hop + m_{num} - m_{num\\_mid}
+
+        The output length is then:
+
+        .. math::
+
+            output\\_samples = k_1 - k_0
+
+        where k0 defaults to 0 and k1 defaults to k_max.
+
+        Parameters that affect the calculation:
+        - n_frames: number of time frames in the STFT
+        - p_min: minimum frame index (ShortTimeFFT property)
+        - hop: hop length (samples between frames)
+        - m_num: window length
+        - m_num_mid: window midpoint position
+        - self.length: optional length override (if set, limits output)
+
+        References
+        ----------
+        - SciPy ShortTimeFFT.istft:
+          https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.ShortTimeFFT.istft.html
+        - SciPy Source: https://github.com/scipy/scipy/blob/main/scipy/signal/_short_time_fft.py
+        """
+        n_channels = input_shape[0]
+        n_frames = input_shape[-1]  # time_frames
+
+        # SciPy ShortTimeFFT の計算式に従う
+        # See: https://github.com/scipy/scipy/blob/main/scipy/signal/_short_time_fft.py
+        q_max = n_frames + self.SFT.p_min
+        k_max = (q_max - 1) * self.SFT.hop + self.SFT.m_num - self.SFT.m_num_mid
+
+        # Default parameters: k0=0, k1=None (which becomes k_max)
+        # The output length is k1 - k0 = k_max - 0 = k_max
+        k0 = 0
+        k1 = k_max
+
+        # If self.length is specified, it acts as an override to limit the output
+        if self.length is not None:
+            k1 = min(self.length, k1)
+
+        output_samples = k1 - k0
+
+        return (n_channels, output_samples)
 
     def _process_array(self, x: NDArrayComplex) -> NDArrayReal:
         """

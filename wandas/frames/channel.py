@@ -74,7 +74,7 @@ class ChannelFrame(
                 f"Sampling rate represents samples per second and must be positive.\n"
                 f"Common values: 8000, 16000, 22050, 44100, 48000 Hz"
             )
-        
+
         # Validate and reshape data
         if data.ndim == 1:
             data = da.reshape(data, (1, -1))
@@ -83,8 +83,10 @@ class ChannelFrame(
                 f"Invalid data shape for ChannelFrame\n"
                 f"  Got: {data.shape} ({data.ndim}D)\n"
                 f"  Expected: 1D (samples,) or 2D (channels, samples)\n"
-                f"If you have a 1D array, it will be automatically reshaped to (1, n_samples).\n"
-                f"For higher-dimensional data, reshape it before creating ChannelFrame:\n"
+                f"If you have a 1D array, it will be automatically reshaped to\n"
+                f"  (1, n_samples).\n"
+                f"For higher-dimensional data, reshape it before creating\n"
+                f"  ChannelFrame:\n"
                 f"  Example: data.reshape(n_channels, -1)"
             )
         super().__init__(

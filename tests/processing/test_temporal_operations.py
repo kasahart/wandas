@@ -103,7 +103,7 @@ class TestReSampling:
         """Test that negative source sampling rate provides helpful error message."""
         with pytest.raises(ValueError) as exc_info:
             ReSampling(sampling_rate=-44100, target_sr=22050)
-        
+
         error_msg = str(exc_info.value)
         # Check WHAT
         assert "Invalid source sampling rate" in error_msg
@@ -118,7 +118,7 @@ class TestReSampling:
         """Test that zero source sampling rate provides helpful error message."""
         with pytest.raises(ValueError) as exc_info:
             ReSampling(sampling_rate=0, target_sr=22050)
-        
+
         error_msg = str(exc_info.value)
         # Check WHAT
         assert "Invalid source sampling rate" in error_msg
@@ -129,7 +129,7 @@ class TestReSampling:
         """Test that negative target sampling rate provides helpful error message."""
         with pytest.raises(ValueError) as exc_info:
             ReSampling(sampling_rate=44100, target_sr=-22050)
-        
+
         error_msg = str(exc_info.value)
         # Check WHAT
         assert "Invalid target sampling rate" in error_msg
@@ -143,7 +143,7 @@ class TestReSampling:
         """Test that zero target sampling rate provides helpful error message."""
         with pytest.raises(ValueError) as exc_info:
             ReSampling(sampling_rate=44100, target_sr=0)
-        
+
         error_msg = str(exc_info.value)
         # Check WHAT
         assert "Invalid target sampling rate" in error_msg

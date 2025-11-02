@@ -777,3 +777,42 @@ class ChannelProcessingMixin:
         )
 
         return roughness_frame
+
+    def fade(self: T_Processing, fade_ms: float = 50) -> T_Processing:
+        """Apply symmetric fade-in and fade-out to the signal using Tukey window.
+
+        This method applies a symmetric fade-in and fade-out envelope to the signal
+        using a Tukey (tapered cosine) window. The fade duration is the same for
+        both the beginning and end of the signal.
+
+        Args:
+            fade_ms: Fade duration in milliseconds for each end of the signal.
+                The total fade duration is 2 * fade_ms. Default is 50 ms.
+                Must be positive and less than half the signal duration.
+
+        Returns:
+            New ChannelFrame containing the faded signal
+
+        Raises:
+            ValueError: If fade_ms is negative or too long for the signal
+
+        Examples:
+            >>> import wandas as wd
+            >>> signal = wd.read_wav("audio.wav")
+            >>> # Apply 10ms fade-in and fade-out
+            >>> faded = signal.fade(fade_ms=10.0)
+            >>> # Apply very short fade (almost no effect)
+            >>> faded_short = signal.fade(fade_ms=0.1)
+
+        Notes:
+            - Uses SciPy's Tukey window for smooth fade transitions
+            - Fade is applied symmetrically to both ends of the signal
+            - The Tukey window alpha parameter is computed automatically
+              based on the fade duration and signal length
+            - For multi-channel signals, the same fade envelope is applied
+              to all channels
+            - Lazy evaluation is preserved - computation occurs only when needed
+        """
+        logger.debug(f"Setting up fade: fade_ms={fade_ms} (lazy)")
+        result = self.apply_operation("fade", fade_ms=fade_ms)
+        return cast(T_Processing, result)

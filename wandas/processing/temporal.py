@@ -26,7 +26,7 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
             Sampling rate (Hz)
         target_sampling_rate : float
             Target sampling rate (Hz)
-            
+
         Raises
         ------
         ValueError
