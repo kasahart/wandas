@@ -51,6 +51,10 @@ class HighPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         return input_shape
 
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "hpf"
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Filter processing wrapped with @dask.delayed"""
         logger.debug(f"Applying highpass filter to array with shape: {x.shape}")
@@ -101,6 +105,10 @@ class LowPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         return input_shape
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "lpf"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Filter processing wrapped with @dask.delayed"""
@@ -178,6 +186,10 @@ class BandPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         return input_shape
 
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "bpf"
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Filter processing wrapped with @dask.delayed"""
         logger.debug(f"Applying bandpass filter to array with shape: {x.shape}")
@@ -204,6 +216,10 @@ class AWeighting(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         return input_shape
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "Aw"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for A-weighting filter"""

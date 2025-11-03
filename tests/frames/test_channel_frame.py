@@ -1864,8 +1864,9 @@ class TestFadeIntegration:
         # Apply fade
         faded = self.channel_frame.fade(fade_ms=50.0)
 
-        # Check that metadata is preserved
-        assert faded.channels[0].label == "test_channel"
+        # Check that label is updated to reflect the operation
+        assert faded.channels[0].label == "fade(test_channel)"
+        # Check that other metadata is preserved
         assert faded.channels[0]["gain"] == 0.8
         assert faded.metadata["test_key"] == "test_value"
 

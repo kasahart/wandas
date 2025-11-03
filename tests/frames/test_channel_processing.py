@@ -365,7 +365,10 @@ class TestChannelProcessing:
 
             # _channel_metadata から ref を取得するケース
             frame = self.channel_frame
-            frame._channel_metadata = [mock.Mock(ref=0.5), mock.Mock(ref=1.0)]
+            frame._channel_metadata = [
+                ChannelMetadata(label="ch0", unit="", ref=0.5, extra={}),
+                ChannelMetadata(label="ch1", unit="", ref=1.0, extra={}),
+            ]
             result2 = frame.rms_trend()
             mock_create_op.assert_called_with(
                 "rms_trend",
@@ -425,9 +428,15 @@ class TestChannelProcessing:
                         f"unit='Pa'のrefが一致しません: "
                         f"{res_meta.ref} != {base_meta.ref}"
                     )
-        assert getattr(result, "_channel_metadata", None) == getattr(
-            base, "_channel_metadata", None
-        )
+                # Check that labels are updated (not the same as base)
+                # Labels should now contain the operation name
+                if op_key:
+                    assert base_meta.label in res_meta.label, (
+                        f"Expected base label '{base_meta.label}' to be in "
+                        f"result label '{res_meta.label}'"
+                    )
+        # Note: We no longer check for exact equality of _channel_metadata
+        # because labels are now updated to reflect operations
         assert len(result.operation_history) == len(base.operation_history) + 1
         assert result.previous is base
 
