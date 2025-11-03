@@ -94,7 +94,14 @@ class BaseFrame(ABC, Generic[T]):
                 if isinstance(ch, ChannelMetadata):
                     self._channel_metadata.append(copy.deepcopy(ch))
                 elif isinstance(ch, dict):
-                    self._channel_metadata.append(ChannelMetadata(**ch))
+                    try:
+                        self._channel_metadata.append(ChannelMetadata(**ch))
+                    except TypeError as e:
+                        invalid_keys = set(ch.keys()) - set(ChannelMetadata.__init__.__code__.co_varnames)
+                        raise TypeError(
+                            f"Invalid keys in channel_metadata dict: {invalid_keys}. "
+                            f"Error: {e}. Dict: {ch}"
+                        ) from e
                 else:
                     raise TypeError(
                         f"channel_metadata must be ChannelMetadata or dict, "
