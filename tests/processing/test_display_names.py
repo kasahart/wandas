@@ -1,6 +1,5 @@
 """Tests for display names in all audio operations."""
 
-import pytest
 
 from wandas.processing.effects import (
     AddWithSNR,
