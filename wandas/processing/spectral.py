@@ -338,7 +338,7 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
 
     def get_display_name(self) -> str:
         """Get display name for the operation for use in channel labels."""
-        return "iSTF"
+        return "iSTFT"
 
     def _process_array(self, x: NDArrayComplex) -> NDArrayReal:
         """
