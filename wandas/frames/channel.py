@@ -172,6 +172,10 @@ class ChannelFrame(
         # Get metadata updates from operation
         metadata_updates = operation.get_metadata_updates()
 
+        # Update channel labels to reflect the operation
+        display_name = operation.get_display_name()
+        new_channel_metadata = self._relabel_channels(operation_name, display_name)
+
         logger.debug(
             f"Created new ChannelFrame with operation {operation_name} added to graph"
         )
@@ -181,6 +185,7 @@ class ChannelFrame(
             "data": processed_data,
             "metadata": new_metadata,
             "operation_history": new_history,
+            "channel_metadata": new_channel_metadata,
         }
         creation_params.update(metadata_updates)
 

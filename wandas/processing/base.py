@@ -1,6 +1,6 @@
 import inspect
 import logging
-from typing import Any, ClassVar, Generic, TypeVar
+from typing import Any, ClassVar, Generic, Optional, TypeVar
 
 import dask.array as da
 from dask.array.core import Array as DaArray
@@ -90,6 +90,53 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         available as instance variables.
         """
         return {}
+
+    def get_display_name(self) -> Optional[str]:
+        """
+        Get display name for the operation for use in channel labels.
+
+        This method allows operations to customize how they appear in
+        channel labels. By default, returns None, which means the
+        operation name will be used.
+
+        Returns
+        -------
+        str or None
+            Display name for the operation. If None, the operation name
+            (from the `name` class variable) is used.
+
+        Examples
+        --------
+        Default behavior (returns None, uses operation name):
+
+        >>> class NormalizeOp(AudioOperation):
+        ...     name = "normalize"
+        >>> op = NormalizeOp(44100)
+        >>> op.get_display_name()  # Returns None
+        >>> # Channel label: "normalize(ch0)"
+
+        Custom display name:
+
+        >>> class LowPassFilter(AudioOperation):
+        ...     name = "lowpass_filter"
+        ...
+        ...     def __init__(self, sr, cutoff):
+        ...         self.cutoff = cutoff
+        ...         super().__init__(sr, cutoff=cutoff)
+        ...
+        ...     def get_display_name(self):
+        ...         return f"lpf_{self.cutoff}Hz"
+        >>> op = LowPassFilter(44100, cutoff=1000)
+        >>> op.get_display_name()  # Returns "lpf_1000Hz"
+        >>> # Channel label: "lpf_1000Hz(ch0)"
+
+        Notes
+        -----
+        Subclasses can override this method to provide operation-specific
+        display names that include parameter information, making labels
+        more informative.
+        """
+        return None
 
     def _process_array(self, x: InputArrayType) -> OutputArrayType:
         """Processing function (implemented by subclasses)"""

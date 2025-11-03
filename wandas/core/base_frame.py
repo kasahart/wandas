@@ -88,7 +88,25 @@ class BaseFrame(ABC, Generic[T]):
         self._previous = previous
 
         if channel_metadata:
-            self._channel_metadata = copy.deepcopy(channel_metadata)
+            # Convert dictionaries to ChannelMetadata objects if needed
+            self._channel_metadata = []
+            for ch in channel_metadata:
+                if isinstance(ch, ChannelMetadata):
+                    self._channel_metadata.append(copy.deepcopy(ch))
+                elif isinstance(ch, dict):
+                    try:
+                        self._channel_metadata.append(ChannelMetadata(**ch))
+                    except TypeError as e:
+                        invalid_keys = set(ch.keys()) - set(ChannelMetadata.__init__.__code__.co_varnames)
+                        raise TypeError(
+                            f"Invalid keys in channel_metadata dict: {invalid_keys}. "
+                            f"Error: {e}. Dict: {ch}"
+                        ) from e
+                else:
+                    raise TypeError(
+                        f"channel_metadata must be ChannelMetadata or dict, "
+                        f"got {type(ch)}"
+                    )
         else:
             self._channel_metadata = [
                 ChannelMetadata(label=f"ch{i}", unit="", extra={})
@@ -656,6 +674,52 @@ class BaseFrame(ABC, Generic[T]):
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
         """Implementation of operation application"""
         pass
+
+    def _relabel_channels(
+        self,
+        operation_name: str,
+        display_name: Optional[str] = None,
+    ) -> list[ChannelMetadata]:
+        """
+        Update channel labels to reflect applied operation.
+
+        This method creates new channel metadata with labels that include
+        the operation name, making it easier to track processing history
+        and distinguish frames in plots.
+
+        Parameters
+        ----------
+        operation_name : str
+            Name of the operation (e.g., "normalize", "lowpass_filter")
+        display_name : str, optional
+            Display name for the operation. If None, uses operation_name.
+            This allows operations to provide custom, more readable labels.
+
+        Returns
+        -------
+        list[ChannelMetadata]
+            New channel metadata with updated labels.
+            Original metadata is deep-copied and only labels are modified.
+
+        Examples
+        --------
+        >>> # Original label: "ch0"
+        >>> # After normalize: "normalize(ch0)"
+        >>> # After chained ops: "lowpass_filter(normalize(ch0))"
+
+        Notes
+        -----
+        Labels are nested for chained operations, allowing full
+        traceability of the processing pipeline.
+        """
+        display = display_name or operation_name
+        new_metadata = []
+        for ch in self._channel_metadata:
+            # All channel metadata are ChannelMetadata objects at this point
+            new_ch = ch.model_copy(deep=True)
+            new_ch.label = f"{display}({ch.label})"
+            new_metadata.append(new_ch)
+        return new_metadata
 
     def debug_info(self) -> None:
         """Output detailed debug information"""
