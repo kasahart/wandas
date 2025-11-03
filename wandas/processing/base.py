@@ -119,9 +119,11 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
 
         >>> class LowPassFilter(AudioOperation):
         ...     name = "lowpass_filter"
+        ...
         ...     def __init__(self, sr, cutoff):
         ...         self.cutoff = cutoff
         ...         super().__init__(sr, cutoff=cutoff)
+        ...
         ...     def get_display_name(self):
         ...         return f"lpf_{self.cutoff}Hz"
         >>> op = LowPassFilter(44100, cutoff=1000)

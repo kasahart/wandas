@@ -8,7 +8,6 @@ of processing pipelines.
 
 import dask.array as da
 import numpy as np
-import pytest
 
 from wandas.frames.channel import ChannelFrame
 
@@ -72,7 +71,10 @@ class TestChannelLabelUpdates:
 
         result = frame.high_pass_filter(cutoff=100)
 
-        assert result.labels == ["highpass_filter(signal_a)", "highpass_filter(signal_b)"]
+        assert result.labels == [
+            "highpass_filter(signal_a)",
+            "highpass_filter(signal_b)",
+        ]
 
     def test_band_pass_filter_updates_labels(self) -> None:
         """Test that band_pass_filter updates channel labels."""
@@ -165,9 +167,7 @@ class TestChainedOperationLabels:
         )
 
         result = (
-            frame.normalize()
-            .high_pass_filter(cutoff=100)
-            .low_pass_filter(cutoff=1000)
+            frame.normalize().high_pass_filter(cutoff=100).low_pass_filter(cutoff=1000)
         )
 
         assert result.labels == ["lowpass_filter(highpass_filter(normalize(raw)))"]
@@ -268,9 +268,7 @@ class TestEdgeCases:
         frame = ChannelFrame(
             data=self.dask_data,
             sampling_rate=self.sample_rate,
-            channel_metadata=[
-                {"label": "sensor-1_output", "unit": "", "extra": {}}
-            ],
+            channel_metadata=[{"label": "sensor-1_output", "unit": "", "extra": {}}],
         )
 
         result = frame.normalize()

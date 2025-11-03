@@ -97,7 +97,8 @@ class BaseFrame(ABC, Generic[T]):
                     self._channel_metadata.append(ChannelMetadata(**ch))
                 else:
                     raise TypeError(
-                        f"channel_metadata must be ChannelMetadata or dict, got {type(ch)}"
+                        f"channel_metadata must be ChannelMetadata or dict, "
+                        f"got {type(ch)}"
                     )
         else:
             self._channel_metadata = [
