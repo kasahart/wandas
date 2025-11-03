@@ -194,7 +194,7 @@ class FixLength(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def get_display_name(self) -> str:
         """Get display name for the operation for use in channel labels."""
-        return "len"
+        return "fix"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for padding operation"""

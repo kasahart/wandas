@@ -439,7 +439,7 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def get_display_name(self) -> str:
         """Get display name for the operation for use in channel labels."""
-        return "PSD"
+        return "PS"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for Welch operation"""
@@ -610,7 +610,7 @@ class NOctSynthesis(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def get_display_name(self) -> str:
         """Get display name for the operation for use in channel labels."""
-        return "iOct"
+        return "Octs"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for octave synthesis"""

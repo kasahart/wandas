@@ -79,9 +79,9 @@ class TestSpectralDisplayNames:
         assert op.get_display_name() == "iSTFT"
 
     def test_welch_display_name(self) -> None:
-        """Test that Welch returns 'PSD' as display name."""
+        """Test that Welch returns 'PS' as display name."""
         op = Welch(sampling_rate=44100)
-        assert op.get_display_name() == "PSD"
+        assert op.get_display_name() == "PS"
 
     def test_noct_spectrum_display_name(self) -> None:
         """Test that NOctSpectrum returns 'Oct' as display name."""
@@ -89,9 +89,9 @@ class TestSpectralDisplayNames:
         assert op.get_display_name() == "Oct"
 
     def test_noct_synthesis_display_name(self) -> None:
-        """Test that NOctSynthesis returns 'iOct' as display name."""
+        """Test that NOctSynthesis returns 'Octs' as display name."""
         op = NOctSynthesis(sampling_rate=44100, fmin=20, fmax=20000)
-        assert op.get_display_name() == "iOct"
+        assert op.get_display_name() == "Octs"
 
     def test_coherence_display_name(self) -> None:
         """Test that Coherence returns 'Coh' as display name."""
@@ -185,9 +185,9 @@ class TestTemporalDisplayNames:
         assert op.get_display_name() == "trim"
 
     def test_fix_length_display_name(self) -> None:
-        """Test that FixLength returns 'len' as display name."""
+        """Test that FixLength returns 'fix' as display name."""
         op = FixLength(sampling_rate=44100, length=44100)
-        assert op.get_display_name() == "len"
+        assert op.get_display_name() == "fix"
 
     def test_rms_trend_display_name(self) -> None:
         """Test that RmsTrend returns 'RMS' as display name."""
