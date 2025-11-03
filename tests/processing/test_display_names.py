@@ -74,9 +74,9 @@ class TestSpectralDisplayNames:
         assert op.get_display_name() == "STFT"
 
     def test_istft_display_name(self) -> None:
-        """Test that ISTFT returns 'iSTF' as display name."""
+        """Test that ISTFT returns 'iSTFT' as display name."""
         op = ISTFT(sampling_rate=44100)
-        assert op.get_display_name() == "iSTF"
+        assert op.get_display_name() == "iSTFT"
 
     def test_welch_display_name(self) -> None:
         """Test that Welch returns 'PSD' as display name."""
