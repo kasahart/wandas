@@ -38,6 +38,10 @@ class HpssHarmonic(AudioOperation[NDArrayReal, NDArrayReal]):
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         return input_shape
 
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "Hrm"
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for HPSS Harmonic"""
         logger.debug(f"Applying HPSS Harmonic to array with shape: {x.shape}")
@@ -71,6 +75,10 @@ class HpssPercussive(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         return input_shape
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "Prc"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for HPSS Percussive"""
@@ -149,6 +157,10 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         return input_shape
 
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "norm"
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Perform normalization processing"""
         logger.debug(
@@ -202,6 +214,10 @@ class RemoveDC(AudioOperation[NDArrayReal, NDArrayReal]):
             Output data shape (same as input)
         """
         return input_shape
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "dcRM"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Perform DC removal processing.
@@ -266,6 +282,10 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         return input_shape
 
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "+SNR"
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Perform addition processing considering SNR"""
         logger.debug(f"Applying SNR-based addition with shape: {x.shape}")
@@ -308,6 +328,10 @@ class Fade(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         return input_shape
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "fade"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying Tukey Fade to array with shape: {x.shape}")
