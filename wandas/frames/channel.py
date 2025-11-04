@@ -181,10 +181,7 @@ class ChannelFrame(
         print(f"  Duration: {self.duration:.1f} s")
         print(f"  Samples: {self.n_samples}")
         print(f"  Channel labels: {self.labels}")
-        if self.operation_history:
-            print(f"  Operations Applied: {len(self.operation_history)}")
-        else:
-            print("  Operations Applied: None")
+        self._print_operation_history()
 
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")

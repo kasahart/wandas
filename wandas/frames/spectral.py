@@ -697,6 +697,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         - FFT size
         - Frequency range
         - Number of frequency bins
+        - Frequency resolution (ΔF)
         - Channel labels
 
         This is a convenience method to view all key properties at once,
@@ -706,21 +707,25 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         --------
         >>> spectrum = cf.fft()
         >>> spectrum.info()
-        Channels: 2
-        Sampling rate: 44100 Hz
-        FFT size: 2048
-        Frequency range: 0.0 - 22050.0 Hz
-        Frequency bins: 1025
-        Channel labels: ['ch0', 'ch1']
+        SpectralFrame Information:
+          Channels: 2
+          Sampling rate: 44100 Hz
+          FFT size: 2048
+          Frequency range: 0.0 - 22050.0 Hz
+          Frequency bins: 1025
+          Frequency resolution (ΔF): 21.5 Hz
+          Channel labels: ['ch0', 'ch1']
+          Operations Applied: 1
         """
+        # Calculate frequency resolution (ΔF)
+        delta_f = self.sampling_rate / self.n_fft
+
         print("SpectralFrame Information:")
         print(f"  Channels: {self.n_channels}")
         print(f"  Sampling rate: {self.sampling_rate} Hz")
         print(f"  FFT size: {self.n_fft}")
         print(f"  Frequency range: {self.freqs[0]:.1f} - {self.freqs[-1]:.1f} Hz")
         print(f"  Frequency bins: {len(self.freqs)}")
+        print(f"  Frequency resolution (ΔF): {delta_f:.1f} Hz")
         print(f"  Channel labels: {self.labels}")
-        if self.operation_history:
-            print(f"  Operations Applied: {len(self.operation_history)}")
-        else:
-            print("  Operations Applied: None")
+        self._print_operation_history()
