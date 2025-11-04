@@ -179,7 +179,6 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
         return result
 
 
-@register_operation
 class RemoveDC(AudioOperation[NDArrayReal, NDArrayReal]):
     """Remove DC component (DC offset) from the signal.
 
@@ -365,5 +364,5 @@ class Fade(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 # Register all operations
-for op_class in [HpssHarmonic, HpssPercussive, Normalize, AddWithSNR, Fade]:
+for op_class in [HpssHarmonic, HpssPercussive, Normalize, RemoveDC, AddWithSNR, Fade]:
     register_operation(op_class)

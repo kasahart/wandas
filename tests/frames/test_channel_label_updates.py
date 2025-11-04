@@ -37,8 +37,8 @@ class TestChannelLabelUpdates:
 
         result = frame.normalize()
 
-        # Verify labels are updated
-        assert result.labels == ["normalize(ch0)", "normalize(ch1)"]
+        # Verify labels are updated (using display name "norm")
+        assert result.labels == ["norm(ch0)", "norm(ch1)"]
         # Verify original frame is unchanged
         assert frame.labels == ["ch0", "ch1"]
 
@@ -56,7 +56,7 @@ class TestChannelLabelUpdates:
 
         result = frame.low_pass_filter(cutoff=1000)
 
-        assert result.labels == ["lowpass_filter(acc_x)", "lowpass_filter(acc_y)"]
+        assert result.labels == ["lpf(acc_x)", "lpf(acc_y)"]
 
     def test_high_pass_filter_updates_labels(self) -> None:
         """Test that high_pass_filter updates channel labels."""
@@ -72,8 +72,8 @@ class TestChannelLabelUpdates:
         result = frame.high_pass_filter(cutoff=100)
 
         assert result.labels == [
-            "highpass_filter(signal_a)",
-            "highpass_filter(signal_b)",
+            "hpf(signal_a)",
+            "hpf(signal_b)",
         ]
 
     def test_band_pass_filter_updates_labels(self) -> None:
@@ -89,7 +89,7 @@ class TestChannelLabelUpdates:
 
         result = frame.band_pass_filter(low_cutoff=200, high_cutoff=5000)
 
-        assert result.labels == ["bandpass_filter(mic1)", "bandpass_filter(mic2)"]
+        assert result.labels == ["bpf(mic1)", "bpf(mic2)"]
 
     def test_a_weighting_updates_labels(self) -> None:
         """Test that a_weighting updates channel labels."""
@@ -104,7 +104,7 @@ class TestChannelLabelUpdates:
 
         result = frame.a_weighting()
 
-        assert result.labels == ["a_weighting(audio_left)", "a_weighting(audio_right)"]
+        assert result.labels == ["Aw(audio_left)", "Aw(audio_right)"]
 
     def test_abs_updates_labels(self) -> None:
         """Test that abs operation updates channel labels."""
@@ -134,7 +134,7 @@ class TestChannelLabelUpdates:
 
         result = frame.power(exponent=2.0)
 
-        assert result.labels == ["power(signal)", "power(reference)"]
+        assert result.labels == ["pow(signal)", "pow(reference)"]
 
 
 class TestChainedOperationLabels:
@@ -156,7 +156,7 @@ class TestChainedOperationLabels:
 
         result = frame.normalize().low_pass_filter(cutoff=1000)
 
-        assert result.labels == ["lowpass_filter(normalize(ch0))"]
+        assert result.labels == ["lpf(norm(ch0))"]
 
     def test_triple_chained_operations(self) -> None:
         """Test three operations chained together."""
@@ -170,7 +170,7 @@ class TestChainedOperationLabels:
             frame.normalize().high_pass_filter(cutoff=100).low_pass_filter(cutoff=1000)
         )
 
-        assert result.labels == ["lowpass_filter(highpass_filter(normalize(raw)))"]
+        assert result.labels == ["lpf(hpf(norm(raw)))"]
 
     def test_chained_operations_preserve_metadata(self) -> None:
         """Test that chained operations preserve non-label metadata."""
@@ -184,8 +184,8 @@ class TestChainedOperationLabels:
 
         result = frame.normalize().low_pass_filter(cutoff=1000)
 
-        # Label should be updated
-        assert result.labels == ["lowpass_filter(normalize(ch0))"]
+        # Label should be updated (using display names)
+        assert result.labels == ["lpf(norm(ch0))"]
         # But other metadata should be preserved
         assert result.channels[0].unit == "Pa"
         assert result.channels[0].extra == {"sensor_id": 123}
@@ -216,8 +216,8 @@ class TestBinaryOperationLabelCompatibility:
 
         result = frame1 + frame2
 
-        # Binary operation should include the processed label
-        assert "normalize(ch0)" in result.labels[0]
+        # Binary operation should include the processed label (display name "norm")
+        assert "norm(ch0)" in result.labels[0]
         assert "ch0" in result.labels[0]
 
     def test_add_two_processed_frames(self) -> None:
@@ -236,9 +236,9 @@ class TestBinaryOperationLabelCompatibility:
 
         result = frame1 + frame2
 
-        # Both processed labels should appear
-        assert "normalize(ch0)" in result.labels[0]
-        assert "lowpass_filter(ch0)" in result.labels[0]
+        # Both processed labels should appear (using display names)
+        assert "norm(ch0)" in result.labels[0]
+        assert "lpf(ch0)" in result.labels[0]
 
 
 class TestEdgeCases:
@@ -261,7 +261,7 @@ class TestEdgeCases:
         result = frame.normalize()
 
         assert len(result.labels) == 1
-        assert result.labels[0] == "normalize(mono)"
+        assert result.labels[0] == "norm(mono)"
 
     def test_operation_with_special_characters_in_label(self) -> None:
         """Test that special characters in labels are handled correctly."""
@@ -273,7 +273,7 @@ class TestEdgeCases:
 
         result = frame.normalize()
 
-        assert result.labels[0] == "normalize(sensor-1_output)"
+        assert result.labels[0] == "norm(sensor-1_output)"
 
     def test_label_update_preserves_channel_metadata_structure(self) -> None:
         """Test that label updates preserve the ChannelMetadata structure."""
@@ -293,8 +293,8 @@ class TestEdgeCases:
 
         # Check that the result has ChannelMetadata objects
         assert isinstance(result.channels[0], ChannelMetadata)
-        # Check that all fields are preserved except label
-        assert result.channels[0].label == "normalize(ch0)"
+        # Check that all fields are preserved except label (which uses display name)
+        assert result.channels[0].label == "norm(ch0)"
         assert result.channels[0].unit == "Pa"
         assert result.channels[0].ref == 2e-5
         assert result.channels[0].extra == {"calibration": 1.0}
@@ -319,9 +319,9 @@ class TestBackwardCompatibility:
         # Default labels should be ch0, ch1
         assert frame.labels == ["ch0", "ch1"]
 
-        # After operation, they should be updated
+        # After operation, they should be updated (using display name)
         result = frame.normalize()
-        assert result.labels == ["normalize(ch0)", "normalize(ch1)"]
+        assert result.labels == ["norm(ch0)", "norm(ch1)"]
 
     def test_operation_history_still_tracked(self) -> None:
         """Test that operation history is still tracked correctly."""

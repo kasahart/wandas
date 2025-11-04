@@ -97,7 +97,9 @@ class BaseFrame(ABC, Generic[T]):
                     try:
                         self._channel_metadata.append(ChannelMetadata(**ch))
                     except TypeError as e:
-                        invalid_keys = set(ch.keys()) - set(ChannelMetadata.__init__.__code__.co_varnames)
+                        invalid_keys = set(ch.keys()) - set(
+                            ChannelMetadata.__init__.__code__.co_varnames
+                        )
                         raise TypeError(
                             f"Invalid keys in channel_metadata dict: {invalid_keys}. "
                             f"Error: {e}. Dict: {ch}"

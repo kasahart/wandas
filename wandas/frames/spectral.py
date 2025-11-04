@@ -687,3 +687,40 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         logger.debug("Plot rendering complete")
 
         return _ax
+
+    def info(self) -> None:
+        """Display comprehensive information about the SpectralFrame.
+
+        This method prints a summary of the frame's properties including:
+        - Number of channels
+        - Sampling rate
+        - FFT size
+        - Frequency range
+        - Number of frequency bins
+        - Channel labels
+
+        This is a convenience method to view all key properties at once,
+        similar to pandas DataFrame.info().
+
+        Examples
+        --------
+        >>> spectrum = cf.fft()
+        >>> spectrum.info()
+        Channels: 2
+        Sampling rate: 44100 Hz
+        FFT size: 2048
+        Frequency range: 0.0 - 22050.0 Hz
+        Frequency bins: 1025
+        Channel labels: ['ch0', 'ch1']
+        """
+        print("SpectralFrame Information:")
+        print(f"  Channels: {self.n_channels}")
+        print(f"  Sampling rate: {self.sampling_rate} Hz")
+        print(f"  FFT size: {self.n_fft}")
+        print(f"  Frequency range: {self.freqs[0]:.1f} - {self.freqs[-1]:.1f} Hz")
+        print(f"  Frequency bins: {len(self.freqs)}")
+        print(f"  Channel labels: {self.labels}")
+        if self.operation_history:
+            print(f"  Operations Applied: {len(self.operation_history)}")
+        else:
+            print("  Operations Applied: None")

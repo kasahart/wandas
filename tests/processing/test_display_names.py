@@ -1,6 +1,5 @@
 """Tests for display names in all audio operations."""
 
-
 from wandas.processing.effects import (
     AddWithSNR,
     Fade,
@@ -27,7 +26,7 @@ from wandas.processing.spectral import (
     TransferFunction,
     Welch,
 )
-from wandas.processing.stats import ABS, Mean, Power, Sum, ChannelDifference
+from wandas.processing.stats import ABS, ChannelDifference, Mean, Power, Sum
 from wandas.processing.temporal import FixLength, ReSampling, RmsTrend, Trim
 
 

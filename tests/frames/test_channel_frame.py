@@ -2074,16 +2074,16 @@ class TestFadeIntegration:
     def test_info_method_basic(self, capsys: Any) -> None:
         """Test info() method displays correct information."""
         self.channel_frame.info()
-        
+
         captured = capsys.readouterr()
         output = captured.out
-        
+
         # Verify all expected information is present
-        assert "Channels: 2" in output
+        assert "Channels: 1" in output
         assert f"Sampling rate: {self.sample_rate} Hz" in output
         assert "Duration: 1.0 s" in output
         assert f"Samples: {self.channel_frame.n_samples}" in output
-        assert "Channel labels: ['ch0', 'ch1']" in output
+        assert "Channel labels: ['ch0']" in output
 
     def test_info_method_single_channel(self, capsys: Any) -> None:
         """Test info() method with single channel."""
@@ -2091,12 +2091,12 @@ class TestFadeIntegration:
         single_frame = ChannelFrame.from_numpy(
             single_data, sampling_rate=self.sample_rate, label="single"
         )
-        
+
         single_frame.info()
-        
+
         captured = capsys.readouterr()
         output = captured.out
-        
+
         assert "Channels: 1" in output
         assert "Channel labels: ['ch0']" in output
 
@@ -2104,27 +2104,26 @@ class TestFadeIntegration:
         """Test info() method with custom channel labels."""
         # Set custom labels
         self.channel_frame.channels[0].label = "left"
-        self.channel_frame.channels[1].label = "right"
-        
+
         self.channel_frame.info()
-        
+
         captured = capsys.readouterr()
         output = captured.out
-        
-        assert "Channel labels: ['left', 'right']" in output
+
+        assert "Channel labels: ['left']" in output
 
     def test_info_method_different_duration(self, capsys: Any) -> None:
         """Test info() method with different durations."""
         # Create a frame with 0.5 seconds of data
-        short_data = np.random.random((2, 8000))
+        short_data = np.random.random((1, 8000))
         short_frame = ChannelFrame.from_numpy(
             short_data, sampling_rate=self.sample_rate, label="short"
         )
-        
+
         short_frame.info()
-        
+
         captured = capsys.readouterr()
         output = captured.out
-        
+
         assert "Duration: 0.5 s" in output
         assert "Samples: 8000" in output
