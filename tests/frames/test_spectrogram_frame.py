@@ -901,3 +901,130 @@ class TestSpectrogramFrame:
 
         # 元のNumPy配列とdask配列のデータ型が一致することを確認
         assert spec_frame._data.dtype == np_data.dtype
+
+    def test_spectrogram_info_display(
+        self, sample_spectrogram: SpectrogramFrame
+    ) -> None:
+        """Test that info() displays spectrogram information without errors."""
+        # info()メソッドがエラーなく実行できることを確認
+        import io
+        import sys
+
+        captured_output = io.StringIO()
+        sys.stdout = captured_output
+
+        sample_spectrogram.info()
+
+        sys.stdout = sys.__stdout__
+        output = captured_output.getvalue()
+
+        # 基本的な情報が出力されていることを確認
+        assert "SpectrogramFrame Information:" in output
+        assert "Channels:" in output
+        assert "Sampling rate:" in output
+        assert "FFT size:" in output
+        assert "Frequency resolution (ΔF):" in output
+        assert "Time resolution (ΔT):" in output
+
+    def test_spectrogram_info_values_are_correct(
+        self, sample_spectrogram: SpectrogramFrame
+    ) -> None:
+        """Test that info() displays correct values."""
+        import io
+        import sys
+
+        captured_output = io.StringIO()
+        sys.stdout = captured_output
+
+        sample_spectrogram.info()
+
+        sys.stdout = sys.__stdout__
+        output = captured_output.getvalue()
+
+        # 理論値の計算
+        delta_f = sample_spectrogram.sampling_rate / sample_spectrogram.n_fft
+        delta_t = (
+            sample_spectrogram.hop_length / sample_spectrogram.sampling_rate * 1000
+        )
+        total_duration = (
+            sample_spectrogram.n_frames
+            * sample_spectrogram.hop_length
+            / sample_spectrogram.sampling_rate
+        )
+
+        # 出力に理論値が含まれることを確認
+        assert f"{delta_f:.1f} Hz" in output
+        assert f"{delta_t:.1f} ms" in output
+        assert f"{total_duration:.2f} s" in output
+        assert f"Channels: {sample_spectrogram.n_channels}" in output
+        assert f"FFT size: {sample_spectrogram.n_fft}" in output
+        assert f"Hop length: {sample_spectrogram.hop_length} samples" in output
+
+    def test_spectrogram_info_with_multichannel(self) -> None:
+        """Test info() with multi-channel spectrogram."""
+        # 4チャンネルのスペクトログラムを作成
+        complex_data: DaArray = _da_random_random(
+            (4, 65, 10)
+        ) + 1j * _da_random_random((4, 65, 10))
+
+        channel_metadata: list[ChannelMetadata] = [
+            ChannelMetadata(label=f"ch{i}", unit="Pa", ref=1.0) for i in range(4)
+        ]
+
+        spec = SpectrogramFrame(
+            data=complex_data,
+            sampling_rate=48000,
+            n_fft=128,
+            hop_length=32,
+            window="hamming",
+            channel_metadata=channel_metadata,
+        )
+
+        import io
+        import sys
+
+        captured_output = io.StringIO()
+        sys.stdout = captured_output
+
+        spec.info()
+
+        sys.stdout = sys.__stdout__
+        output = captured_output.getvalue()
+
+        # マルチチャンネルでもエラーなく動作することを確認
+        assert "Channels: 4" in output
+        assert "['ch0', 'ch1', 'ch2', 'ch3']" in output
+        assert "Window: hamming" in output
+
+    def test_spectrogram_info_with_operations(
+        self, sample_spectrogram: SpectrogramFrame
+    ) -> None:
+        """Test info() shows operation history count."""
+        import io
+        import sys
+
+        # 操作履歴がない場合
+        captured_output = io.StringIO()
+        sys.stdout = captured_output
+
+        sample_spectrogram.info()
+
+        sys.stdout = sys.__stdout__
+        output = captured_output.getvalue()
+
+        # 初期状態では操作履歴がNone
+        assert "Operations Applied: None" in output or "Operations Applied: 0" in output
+
+        # 操作を追加（absメソッドを使用）
+        spec_with_ops = sample_spectrogram.abs()
+
+        captured_output = io.StringIO()
+        sys.stdout = captured_output
+
+        spec_with_ops.info()
+
+        sys.stdout = sys.__stdout__
+        output = captured_output.getvalue()
+
+        # 操作履歴が記録されていることを確認
+        assert "Operations Applied: 1" in output

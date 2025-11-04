@@ -772,6 +772,73 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
             "then convert that to a DataFrame."
         )
 
+    def info(self) -> None:
+        """Display comprehensive information about the SpectrogramFrame.
+
+        This method prints a summary of the frame's properties including:
+        - Number of channels
+        - Sampling rate
+        - FFT size
+        - Hop length
+        - Window length
+        - Window function
+        - Frequency range
+        - Number of frequency bins
+        - Frequency resolution (ΔF)
+        - Number of time frames
+        - Time resolution (ΔT)
+        - Total duration
+        - Channel labels
+        - Number of operations applied
+
+        This is a convenience method to view all key properties at once,
+        similar to pandas DataFrame.info().
+
+        Examples
+        --------
+        >>> signal = ChannelFrame.from_wav("audio.wav")
+        >>> spectrogram = signal.stft(n_fft=2048, hop_length=512)
+        >>> spectrogram.info()
+        SpectrogramFrame Information:
+          Channels: 2
+          Sampling rate: 44100 Hz
+          FFT size: 2048
+          Hop length: 512 samples
+          Window length: 2048 samples
+          Window: hann
+          Frequency range: 0.0 - 22050.0 Hz
+          Frequency bins: 1025
+          Frequency resolution (ΔF): 21.5 Hz
+          Time frames: 100
+          Time resolution (ΔT): 11.6 ms
+          Total duration: 1.16 s
+          Channel labels: ['ch0', 'ch1']
+          Operations Applied: 1
+        """
+        # Calculate frequency resolution (ΔF) and time resolution (ΔT)
+        delta_f = self.sampling_rate / self.n_fft
+        delta_t_ms = (self.hop_length / self.sampling_rate) * 1000
+        total_duration = (self.n_frames * self.hop_length) / self.sampling_rate
+
+        print("SpectrogramFrame Information:")
+        print(f"  Channels: {self.n_channels}")
+        print(f"  Sampling rate: {self.sampling_rate} Hz")
+        print(f"  FFT size: {self.n_fft}")
+        print(f"  Hop length: {self.hop_length} samples")
+        print(f"  Window length: {self.win_length} samples")
+        print(f"  Window: {self.window}")
+        print(f"  Frequency range: {self.freqs[0]:.1f} - {self.freqs[-1]:.1f} Hz")
+        print(f"  Frequency bins: {self.n_freq_bins}")
+        print(f"  Frequency resolution (ΔF): {delta_f:.1f} Hz")
+        print(f"  Time frames: {self.n_frames}")
+        print(f"  Time resolution (ΔT): {delta_t_ms:.1f} ms")
+        print(f"  Total duration: {total_duration:.2f} s")
+        print(f"  Channel labels: {self.labels}")
+        if self.operation_history:
+            print(f"  Operations Applied: {len(self.operation_history)}")
+        else:
+            print("  Operations Applied: None")
+
     @classmethod
     def from_numpy(
         cls,

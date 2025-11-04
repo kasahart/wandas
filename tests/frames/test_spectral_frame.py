@@ -525,3 +525,98 @@ class TestSpectralFrame:
         assert df.shape == (self.shape[1], 1)  # (freq_bins, 1)
         assert df.index.name == "frequency"
         assert list(df.columns) == ["ch1"]
+
+    def test_spectral_info_includes_frequency_resolution(self) -> None:
+        """Test that info() includes frequency resolution (ΔF)."""
+        import io
+        import sys
+
+        # 標準出力をキャプチャ
+        captured_output = io.StringIO()
+        sys.stdout = captured_output
+
+        self.frame.info()
+
+        sys.stdout = sys.__stdout__
+        output = captured_output.getvalue()
+
+        # デルタFが含まれていることを確認
+        assert "Frequency resolution (ΔF):" in output
+
+        # 理論値との比較
+        expected_delta_f = self.frame.sampling_rate / self.frame.n_fft
+        assert f"{expected_delta_f:.1f} Hz" in output
+
+    def test_spectral_info_display(self) -> None:
+        """Test that info() displays spectral frame information without errors."""
+        import io
+        import sys
+
+        captured_output = io.StringIO()
+        sys.stdout = captured_output
+
+        self.frame.info()
+
+        sys.stdout = sys.__stdout__
+        output = captured_output.getvalue()
+
+        # 基本的な情報が出力されていることを確認
+        assert "SpectralFrame Information:" in output
+        assert "Channels:" in output
+        assert "Sampling rate:" in output
+        assert "FFT size:" in output
+        assert "Frequency range:" in output
+        assert "Frequency bins:" in output
+        assert "Channel labels:" in output
+
+    def test_spectral_info_values_are_correct(self) -> None:
+        """Test that info() displays correct values."""
+        import io
+        import sys
+
+        captured_output = io.StringIO()
+        sys.stdout = captured_output
+
+        self.frame.info()
+
+        sys.stdout = sys.__stdout__
+        output = captured_output.getvalue()
+
+        # 理論値の計算
+        delta_f = self.frame.sampling_rate / self.frame.n_fft
+
+        # 出力に理論値が含まれることを確認
+        assert f"Channels: {self.frame.n_channels}" in output
+        assert f"Sampling rate: {self.frame.sampling_rate} Hz" in output
+        assert f"FFT size: {self.frame.n_fft}" in output
+        assert f"Frequency resolution (ΔF): {delta_f:.1f} Hz" in output
+        assert f"Frequency bins: {len(self.frame.freqs)}" in output
+
+    def test_spectral_info_with_operation_history(self) -> None:
+        """Test info() with operation history."""
+        import io
+        import sys
+
+        # 操作履歴を持つフレームを作成
+        frame_with_ops = SpectralFrame(
+            data=self.data,
+            sampling_rate=self.sampling_rate,
+            n_fft=self.n_fft,
+            window=self.window,
+            operation_history=[
+                {"operation": "fft", "params": {}},
+                {"operation": "normalize", "params": {}},
+            ],
+            channel_metadata=self.channel_metadata,
+        )
+
+        captured_output = io.StringIO()
+        sys.stdout = captured_output
+
+        frame_with_ops.info()
+
+        sys.stdout = sys.__stdout__
+        output = captured_output.getvalue()
+
+        # 操作履歴が表示されていることを確認
+        assert "Operations Applied: 2" in output
