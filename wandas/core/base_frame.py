@@ -846,3 +846,14 @@ class BaseFrame(ABC, Generic[T]):
     def _debug_info_impl(self) -> None:
         """Implement derived class-specific debug information"""
         pass
+
+    def _print_operation_history(self) -> None:
+        """Print the operation history information.
+
+        This is a helper method for info() implementations to display
+        the number of operations applied to the frame in a consistent format.
+        """
+        if self.operation_history:
+            print(f"  Operations Applied: {len(self.operation_history)}")
+        else:
+            print("  Operations Applied: None")

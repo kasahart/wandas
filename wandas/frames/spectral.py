@@ -728,7 +728,4 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         print(f"  Frequency bins: {len(self.freqs)}")
         print(f"  Frequency resolution (ΔF): {delta_f:.1f} Hz")
         print(f"  Channel labels: {self.labels}")
-        if self.operation_history:
-            print(f"  Operations Applied: {len(self.operation_history)}")
-        else:
-            print("  Operations Applied: None")
+        self._print_operation_history()

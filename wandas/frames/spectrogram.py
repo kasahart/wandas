@@ -834,10 +834,7 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         print(f"  Time resolution (ΔT): {delta_t_ms:.1f} ms")
         print(f"  Total duration: {total_duration:.2f} s")
         print(f"  Channel labels: {self.labels}")
-        if self.operation_history:
-            print(f"  Operations Applied: {len(self.operation_history)}")
-        else:
-            print("  Operations Applied: None")
+        self._print_operation_history()
 
     @classmethod
     def from_numpy(
