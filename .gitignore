@@ -171,3 +171,4 @@ examples/data/dataset/
 tutorial/*
 # But not the .ipynb files
 !tutorial/*.ipynb
+.github/copilot-instructions.md.original

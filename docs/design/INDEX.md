@@ -1,6 +1,6 @@
 # 設計ドキュメント一覧
 
-**最終更新**: 2025年10月18日
+**最終更新**: 2025年11月05日
 
 ## 📖 このディレクトリについて
 
@@ -38,6 +38,14 @@ docs/design/
 
 **[DOCUMENT_LIFECYCLE.md](./DOCUMENT_LIFECYCLE.md)**
 ドキュメントのライフサイクル管理ルール。新しいドキュメントを作成する前に必読。
+
+**[guides/copilot-instructions-optimization.md](./guides/copilot-instructions-optimization.md)**
+
+- GitHub Copilot instructions の最適化 (36KB → 10KB)
+- 日本語から英語への移行
+- パス固有の指示（Python, テスト, ドキュメント）
+- 参照ドキュメント戦略
+- モジュラー構造への改善
 
 ### API設計
 
@@ -98,7 +106,7 @@ docs/design/
 
 ## 🎯 目標ドキュメント数
 
-- **guides/**: 5-15個が理想（現在: 2個）
+- **guides/**: 5-15個が理想（現在: 3個）
 - **working/**: 無制限（Git管理外）
 - **15個超えたら整理を検討**
 

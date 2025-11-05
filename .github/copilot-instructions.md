@@ -1,208 +1,272 @@
----
-applyTo: '.py, .ipynb'
----
+# Wandas Development Guidelines
 
-# Wandas プロジェクト開発ガイドライン
+## About Wandas
 
-## プロジェクト概要
-Wandas (**W**aveform **An**alysis **Da**ta **S**tructures) は、音響信号・波形解析に特化したPythonライブラリです。
-pandasライクなAPIで信号処理、スペクトル解析、可視化を提供します。
+Wandas (**W**aveform **An**alysis **Da**ta **S**tructures) is a Python library for audio signal and waveform analysis. It provides a pandas-like API for signal processing, spectral analysis, and visualization.
 
-## 設計原則
+**Core Focus**: Type-safe, immutable operations with lazy evaluation using Dask arrays.
 
-これらの原則はすべてのコード変更において最優先で遵守してください：
+## Core Principles
 
-### ドメイン固有の原則
+### Critical Rules (Always Follow)
 
-1. **Pandasライクなインターフェース**: ユーザーがpandasの操作感で信号処理できるようにする
-2. **型安全性**: mypyの厳格モードに準拠し、実行時エラーを防ぐ
-3. **チェインメソッド**: メソッドチェーンで複数の処理を直感的に記述できるようにする
-4. **遅延評価**: Dask配列を活用し、大規模データでもメモリ効率的に処理する
-5. **拡張性**: ユーザーが独自の処理を追加しやすい設計にする
-6. **テスタビリティ**: すべての機能が独立してテスト可能な設計にする
-7. **ドキュメント駆動**: コードの意図が明確に伝わるドキュメントを提供する
+1. **Type Safety First**
+   - Use mypy strict mode (`strict = true`)
+   - All functions require complete type hints including return types
+   - Use type aliases from `wandas.utils.types` (e.g., `NDArrayReal`, `NDArrayComplex`)
 
-### 普遍的な設計原則
+2. **Immutability**
+   - Never modify input arrays or frames in-place
+   - Operations always return new frames
+   - Preserve operation history in metadata
 
-すべての実装はこれらの基本原則に従ってください：
+3. **Pandas-like API**
+   - Support method chaining
+   - Return `self` or new instance for chainable operations
+   - Follow pandas naming conventions where applicable
 
-#### SOLID原則
+4. **Lazy Evaluation**
+   - Prefer Dask arrays over NumPy for large data
+   - Avoid unnecessary `.compute()` calls
+   - Let users decide when to materialize results
 
-1. **Single Responsibility Principle（単一責任の原則）**
-   - 各クラス・関数は1つの責任のみを持つ
-   - 変更する理由は1つだけ
+### Design Principles
 
-2. **Open-Closed Principle（開放閉鎖の原則）**
-   - 拡張には開いている（新機能を追加できる）
-   - 修正には閉じている（既存コードを変更不要）
+- **SOLID**: Single responsibility, open-closed, Liskov substitution, interface segregation, dependency inversion
+- **YAGNI**: Implement only what's needed now
+- **KISS**: Keep solutions simple and understandable
+- **DRY**: Eliminate code and knowledge duplication
 
-3. **Liskov Substitution Principle（リスコフの置換原則）**
-   - 派生型は基本型と置き換え可能
-   - 継承関係の正しさを保証
+## Coding Standards
 
-4. **Interface Segregation Principle（インターフェース分離の原則）**
-   - クライアントは使用しないメソッドに依存すべきでない
-   - 小さく焦点を絞ったインターフェース
-
-5. **Dependency Inversion Principle（依存性逆転の原則）**
-   - 上位モジュールは下位モジュールに依存しない
-   - 両者とも抽象に依存する
-
-#### その他の重要な原則
-
-1. **YAGNI (You Aren't Gonna Need It)**
-   - 必要になるまで実装しない
-   - 過剰設計を避ける
-   - 実際に使われる機能のみを実装
-
-2. **KISS (Keep It Simple, Stupid)**
-   - シンプルさを保つ
-   - 複雑性を最小化
-   - 理解しやすいコードを書く
-
-3. **DRY (Don't Repeat Yourself)**
-   - コードの重複を避ける
-   - 再利用可能なコンポーネントを設計
-   - 知識の重複を排除
-
-## コーディング規約
-
-### 1. 型ヒントとType Safety
-- **すべての関数・メソッドに型ヒントを必須で付与**してください
-- mypyの厳格モード (`strict = true`) に準拠してください
-- 型エイリアスは `wandas.utils.types` から使用してください（例: `NDArrayReal`, `NDArrayComplex`）
-- 戻り値の型も必ず明示してください（`None` を含む）
+### Type Hints (Required)
 
 ```python
-# 良い例
+# Good: Complete type hints
 def process_signal(data: NDArrayReal, sampling_rate: float) -> NDArrayComplex:
     ...
 
-# 悪い例
-def process_signal(data, sampling_rate):  # 型ヒントなし
+# Bad: Missing type hints
+def process_signal(data, sampling_rate):
     ...
 ```
 
-### 2. NumPy/Dask配列の扱い
-- **Dask配列を優先的に使用**して遅延評価を活用してください
-- NumPy配列との相互運用性を保ってください
-- 配列操作は軸（axis）を明示的に指定してください
-- 形状（shape）の検証を行い、期待する次元数をチェックしてください
+### Operations (Signal Processing)
+
+All signal processing operations must:
+- Inherit from `AudioOperation[InputT, OutputT]`
+- Use `@register_operation` decorator
+- Implement `_process_array` method
+- Record operation in `operation_history`
 
 ```python
-# 良い例
+from wandas.processing.base import AudioOperation, register_operation
+
+@register_operation
+class MyFilter(AudioOperation[NDArrayReal, NDArrayReal]):
+    name = "my_filter"
+    
+    def __init__(self, sampling_rate: float, cutoff: float) -> None:
+        super().__init__(sampling_rate, cutoff=cutoff)
+        
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        # Implementation here
+        ...
+```
+
+### Error Messages (3-Element Rule)
+
+Every error must include:
+1. **WHAT**: Clear problem description
+2. **WHY**: Explain the constraint
+3. **HOW**: Provide actionable solution
+
+```python
+# Good: Informative error
+raise ValueError(
+    f"Sampling rate mismatch\n"
+    f"  File: {file_sr} Hz\n"
+    f"  Expected: {sampling_rate} Hz\n"
+    f"Use signal.resample({sampling_rate}) to convert the sampling rate."
+)
+
+# Bad: Vague error
+raise ValueError("Invalid sampling rate")
+```
+
+### Documentation (Required)
+
+- **Language**: English only
+- **Style**: NumPy/Google docstring format
+- **Sections**: Parameters, Returns, Raises, Examples
+- **Math**: LaTeX notation for formulas
+
+```python
+def fft(self, n_fft: Optional[int] = None) -> "SpectralFrame":
+    """
+    Apply Fast Fourier Transform to the signal.
+
+    Parameters
+    ----------
+    n_fft : int, optional
+        FFT size. Must be power of 2 for optimal performance.
+
+    Returns
+    -------
+    SpectralFrame
+        Frequency domain representation of the signal.
+
+    Raises
+    ------
+    ValueError
+        If n_fft is not a positive integer.
+
+    Examples
+    --------
+    >>> signal = wd.read_wav("audio.wav")
+    >>> spectrum = signal.fft(n_fft=2048)
+    """
+    ...
+```
+
+## Testing Requirements
+
+### Test Structure
+
+- Use pytest with fixtures
+- Test behavior, not implementation
+- Name tests descriptively: `test_<action>_<expected_result>`
+- Validate against theoretical values (not just non-zero checks)
+
+```python
+def test_fft_preserves_energy(sample_signal: ChannelFrame) -> None:
+    """Test FFT preserves signal energy (Parseval's theorem)."""
+    time_energy = np.sum(np.abs(sample_signal.data) ** 2)
+    spectrum = sample_signal.fft()
+    freq_energy = np.sum(np.abs(spectrum.data) ** 2) / len(sample_signal.data)
+    
+    # Theoretical: Both should be equal per Parseval's theorem
+    np.testing.assert_allclose(time_energy, freq_energy, rtol=1e-10)
+```
+
+### Coverage
+
+- Target: 100% coverage (minimum 90%)
+- Use `# pragma: no cover` only for:
+  - Platform-specific code
+  - Debug code
+  - Type checking blocks (`if TYPE_CHECKING:`)
+
+## Code Change Workflow
+
+### Before Implementation
+
+1. **Check existing designs**: Review `docs/design/INDEX.md` for similar patterns
+2. **Create plan**: Write `docs/design/working/plans/PLAN_<feature>.md` (gitignored)
+3. **Write tests first**: Test-driven development, ensure tests fail initially
+
+### During Implementation
+
+4. **Small changes**: Make minimal, focused modifications
+5. **Test frequently**: Run tests after each logical change
+6. **Lint continuously**: Use ruff and mypy during development
+
+### After Implementation
+
+7. **Validate coverage**: Ensure tests achieve target coverage
+8. **Check types**: `uv run mypy --config-file=pyproject.toml`
+9. **Format code**: `uv run ruff format`
+10. **Create summary**: Document in `docs/design/working/drafts/` if significant
+
+## Tools and Commands
+
+### Quality Checks
+
+```bash
+# Type checking
+uv run mypy --config-file=pyproject.toml
+
+# Linting and formatting
+uv run ruff check wandas tests --fix
+uv run ruff format wandas tests
+
+# Testing
+uv run pytest                                    # All tests
+uv run pytest --cov=wandas --cov-report=html    # With coverage
+uv run pytest tests/frames/test_channel_frame.py # Specific file
+```
+
+### Pre-commit
+
+```bash
+pre-commit install    # Install hooks
+pre-commit run --all-files  # Manual run
+```
+
+## References
+
+### Documentation
+- **Detailed Coding Standards**: `docs/development/coding_standards.md` (to be created)
+- **Error Message Guide**: `docs/development/error_message_guide.md`
+- **Testing Guide**: `docs/development/testing_guide.md` (to be created)
+- **Design Patterns**: `docs/design/INDEX.md`
+- **Design Lifecycle**: `docs/design/DOCUMENT_LIFECYCLE.md`
+
+### External Resources
+- **NumPy Docstring Guide**: https://numpydoc.readthedocs.io/
+- **Python Type Hints**: https://docs.python.org/3/library/typing.html
+- **pytest Documentation**: https://docs.pytest.org/
+
+### Project Links
+- **Documentation**: https://kasahart.github.io/wandas/
+- **Repository**: https://github.com/kasahart/wandas
+- **Issues**: https://github.com/kasahart/wandas/issues
+
+---
+
+**Note**: For detailed guidance, see reference documentation. For Japanese documentation, see `docs/ja/` (when available).
+
+---
+applyTo: "**/*.py"
+---
+
+# Python-Specific Guidelines
+
+## Array Handling
+
+- **Prefer Dask**: Use `dask.array` for lazy evaluation
+- **Explicit axes**: Always specify `axis` parameter
+- **Shape validation**: Check dimensions at function entry
+
+```python
 import dask.array as da
 
 def apply_filter(data: DaskArray, axis: int = -1) -> DaskArray:
     if data.ndim not in (1, 2):
         raise ValueError(f"Expected 1D or 2D array, got {data.ndim}D")
-    result = da.some_operation(data, axis=axis)
-    return result
+    return da.some_operation(data, axis=axis)
 ```
 
-### 3. 信号処理の実装
-- **AudioOperation基底クラス**を継承して新しい処理を実装してください
-- `_process_array` メソッドで実際の処理ロジックを実装してください
-- 処理は`@register_operation`デコレータで登録してください
-- サンプリングレート、FFTサイズ、窓関数などのパラメータを適切に管理してください
-- **不変性の原則**: 元のデータを変更せず、新しいフレームを返してください
+## Metadata Management
+
+- **Operation history**: Always record operations
+- **Channel metadata**: Preserve or update appropriately
+- **Previous reference**: Link to previous frame for traceability
 
 ```python
-from wandas.processing.base import AudioOperation, register_operation
-from wandas.utils.types import NDArrayReal
-
-@register_operation
-class MyCustomFilter(AudioOperation[NDArrayReal, NDArrayReal]):
-    """
-    Custom filter for signal processing.
-
-    This filter applies a custom algorithm to the input signal
-    while preserving the original data structure.
-
-    Parameters
-    ----------
-    sampling_rate : float
-        Sampling rate of the input signal in Hz.
-    cutoff : float
-        Cutoff frequency in Hz. Must be less than Nyquist frequency.
-
-    Raises
-    ------
-    ValueError
-        If cutoff frequency is greater than or equal to Nyquist frequency.
-    """
-
-    name = "my_custom_filter"
-
-    def __init__(self, sampling_rate: float, cutoff: float) -> None:
-        if cutoff >= sampling_rate / 2:
-            raise ValueError(
-                f"Cutoff frequency ({cutoff} Hz) must be less than "
-                f"Nyquist frequency ({sampling_rate / 2} Hz)"
-            )
-        self.cutoff = cutoff
-        super().__init__(sampling_rate, cutoff=cutoff)
-
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
-        """
-        Process the input array.
-
-        Parameters
-        ----------
-        x : NDArrayReal
-            Input signal array.
-
-        Returns
-        -------
-        NDArrayReal
-            Filtered signal array.
-        """
-        # 実装
-        ...
-```
-
-### 4. メタデータと処理履歴
-- **処理履歴を必ず記録**してください（`operation_history`）
-- チャンネルメタデータ（`ChannelMetadata`）を適切に管理してください
-- `previous` 属性で前処理のフレームへの参照を保持してください
-- **トレーサビリティ**: どの処理がどの順序で適用されたかを追跡可能にしてください
-
-```python
-from wandas.core.metadata import ChannelMetadata, OperationRecord
-from typing import Optional
-
 def create_processed_frame(
     self,
     data: NDArrayReal,
     operation_name: str,
     **params: Any
 ) -> "ChannelFrame":
-    """
-    Create a new frame with operation history.
-
-    Parameters
-    ----------
-    data : NDArrayReal
-        Processed data array.
-    operation_name : str
-        Name of the operation applied.
-    **params : Any
-        Parameters used in the operation.
-
-    Returns
-    -------
-    ChannelFrame
-        New frame with updated metadata and operation history.
-    """
     new_history = self.operation_history.copy()
-    new_history.append(
-        OperationRecord(
-            name=operation_name,
-            params=params,
-            timestamp=datetime.now()
-        )
-    )
-
+    new_history.append(OperationRecord(
+        name=operation_name,
+        params=params,
+        timestamp=datetime.now()
+    ))
+    
     return ChannelFrame(
         data=data,
         sampling_rate=self.sampling_rate,
@@ -212,801 +276,88 @@ def create_processed_frame(
     )
 ```
 
-### 5. ドキュメンテーション
-- **docstringは英語で記述**してください
-- **NumPy/Google形式のdocstring**を使用してください
-- **すべてのパラメータに説明を記載**してください（型、デフォルト値、説明を含む）
-- 引数、戻り値、Raises、Examples セクションを含めてください
-- 数式はLaTeX記法で記述してください（MkDocsでレンダリング）
+## Performance
+
+- **Vectorize**: Use NumPy/Dask operations, avoid Python loops
+- **Avoid compute**: Return Dask arrays without calling `.compute()`
+- **Memory efficiency**: Consider chunk sizes for large arrays
+
+---
+applyTo: "tests/**/*.py"
+---
+
+# Test-Specific Guidelines
+
+## Numerical Validation
+
+**Critical**: Always validate against theoretical values, not just existence checks.
 
 ```python
-def fft(self, n_fft: Optional[int] = None, window: str = "hann") -> "SpectralFrame":
-    """
-    Apply Fast Fourier Transform to the signal.
+# Good: Validates against theory
+def test_normalize_produces_unit_maximum(signal: ChannelFrame) -> None:
+    """Test normalization produces amplitude of 1.0."""
+    normalized = signal.normalize()
+    # Theory: max amplitude should be exactly 1.0
+    assert np.abs(np.max(np.abs(normalized.data)) - 1.0) < 1e-10
 
-    Parameters
-    ----------
-    n_fft : int, optional
-        Size of FFT. If None, it will be determined based on the data length.
-        Must be a power of 2 for optimal performance.
-    window : str, default="hann"
-        Window function type to apply before FFT.
-        Supported values: 'hann', 'hamming', 'blackman', 'bartlett', 'boxcar'.
-
-    Returns
-    -------
-    SpectralFrame
-        A new SpectralFrame containing the frequency domain representation
-        of the input signal.
-
-    Raises
-    ------
-    ValueError
-        If n_fft is not a positive integer or if window type is not supported.
-
-    Examples
-    --------
-    >>> signal = wd.read_wav("audio.wav")
-    >>> spectrum = signal.fft(n_fft=2048)
-    >>> spectrum.plot()
-    """
-    ...
+# Bad: Only checks non-zero
+def test_normalize_works(signal: ChannelFrame) -> None:
+    normalized = signal.normalize()
+    assert normalized.data is not None  # Not validating correctness!
 ```
 
-### 6. テスト
-- **pytest**を使用してテストを記述してください
-- 各モジュールに対応する `tests/` ディレクトリにテストファイルを配置してください
-- フィクスチャを活用してテストデータを共有してください
-- **カバレッジ100%を目標**にしてください（最低90%以上）
-- **テストの独立性**: 各テストは他のテストに依存せず、単独で実行可能にしてください
-- **テストの可読性**: テスト名は「何をテストしているか」が明確にわかるようにしてください
-- **数値検証の原則**: 数値のチェックを行う場合は、理論値と照合して検証してください
-  - 単なる非ゼロチェックや範囲チェックではなく、期待される理論値（数式から導出される値）と比較してください
-  - 浮動小数点数の比較には適切な許容誤差を設定してください（`np.allclose()`, `pytest.approx()` など）
-  - 理論値の根拠をコメントやdocstringに記載してください
+## Test Independence
+
+- Each test runs independently
+- No shared mutable state between tests
+- Use fixtures for setup, not global variables
+
+## Metadata Validation
+
+Always verify operation history and metadata preservation:
 
 ```python
-import pytest
-import numpy as np
-from wandas.frames.channel import ChannelFrame
+def test_filter_records_operation_history(signal: ChannelFrame) -> None:
+    """Test that filtering records operation in history."""
+    filtered = signal.low_pass_filter(cutoff=1000)
+    assert len(filtered.operation_history) == len(signal.operation_history) + 1
+    assert filtered.operation_history[-1].name == "low_pass_filter"
+    assert filtered.operation_history[-1].params["cutoff"] == 1000
+```
+
+---
+applyTo: "docs/**/*.md"
+---
+
+# Documentation Guidelines
+
+## Language and Style
+
+- **Primary language**: English
+- **Technical accuracy**: Precision over style
+- **Code examples**: Must be runnable and tested
+- **Cross-references**: Link to related documents
+
+## Structure
+
+- Use clear heading hierarchy (H1 → H2 → H3)
+- Include table of contents for documents >200 lines
+- Add "Last Updated" date at the top
+- Reference related documents explicitly
+
+## Code Examples
+
+```markdown
+## Example Usage
+
+\`\`\`python
 import wandas as wd
 
-@pytest.fixture
-def sample_signal() -> ChannelFrame:
-    """
-    Generate a sample signal for testing.
-
-    Returns
-    -------
-    ChannelFrame
-        A 1-second signal containing 440 Hz and 880 Hz sine waves.
-    """
-    return wd.generate_sin(freqs=[440, 880], duration=1.0, sampling_rate=44100)
-
-@pytest.fixture
-def sample_signal_with_noise(sample_signal: ChannelFrame) -> ChannelFrame:
-    """
-    Generate a noisy sample signal for testing.
-
-    Parameters
-    ----------
-    sample_signal : ChannelFrame
-        Clean sample signal.
-
-    Returns
-    -------
-    ChannelFrame
-        Signal with added Gaussian noise (SNR = 20 dB).
-    """
-    noise = np.random.normal(0, 0.01, sample_signal.shape)
-    return sample_signal + noise
-
-def test_low_pass_filter_preserves_shape(sample_signal: ChannelFrame) -> None:
-    """Test that low-pass filter preserves the signal shape."""
-    filtered = sample_signal.low_pass_filter(cutoff=1000)
-    assert filtered.n_samples == sample_signal.n_samples
-    assert filtered.n_channels == sample_signal.n_channels
-
-def test_low_pass_filter_preserves_sampling_rate(sample_signal: ChannelFrame) -> None:
-    """Test that low-pass filter preserves the sampling rate."""
-    filtered = sample_signal.low_pass_filter(cutoff=1000)
-    assert filtered.sampling_rate == sample_signal.sampling_rate
-
-def test_low_pass_filter_records_operation_history(sample_signal: ChannelFrame) -> None:
-    """Test that low-pass filter records operation in history."""
-    filtered = sample_signal.low_pass_filter(cutoff=1000)
-    assert len(filtered.operation_history) == len(sample_signal.operation_history) + 1
-    assert filtered.operation_history[-1].name == "low_pass_filter"
-
-def test_low_pass_filter_with_invalid_cutoff_raises_error(
-    sample_signal: ChannelFrame
-) -> None:
-    """Test that invalid cutoff frequency raises ValueError."""
-    with pytest.raises(ValueError, match="Cutoff frequency.*must be less than"):
-        sample_signal.low_pass_filter(cutoff=50000)  # > Nyquist frequency
-
-def test_low_pass_filter_attenuates_high_frequencies(
-    sample_signal: ChannelFrame
-) -> None:
-    """Test that low-pass filter actually attenuates high frequencies."""
-    filtered = sample_signal.low_pass_filter(cutoff=600)
-
-    # 元の信号のスペクトル
-    original_spectrum = sample_signal.fft()
-    filtered_spectrum = filtered.fft()
-
-    # 880 Hz成分が減衰していることを確認
-    # 理論値: カットオフ周波数600Hzのローパスフィルタは880Hz成分を大きく減衰させるはず
-    freq_880_idx = np.argmin(np.abs(original_spectrum.freqs - 880))
-    assert (
-        np.abs(filtered_spectrum.data[freq_880_idx]) <
-        np.abs(original_spectrum.data[freq_880_idx]) * 0.5
-    )
-
-def test_fft_preserves_energy(sample_signal: ChannelFrame) -> None:
-    """Test that FFT preserves signal energy (Parseval's theorem)."""
-    # Parseval's theorem: sum(|x[n]|^2) = (1/N) * sum(|X[k]|^2)
-    # 時間領域のエネルギー
-    time_energy = np.sum(np.abs(sample_signal.data) ** 2)
-
-    # 周波数領域のエネルギー
-    spectrum = sample_signal.fft()
-    freq_energy = np.sum(np.abs(spectrum.data) ** 2) / len(sample_signal.data)
-
-    # 理論値: 両者は等しいはず（Parsevalの定理）
-    np.testing.assert_allclose(time_energy, freq_energy, rtol=1e-10)
-
-def test_normalize_produces_unit_maximum(sample_signal: ChannelFrame) -> None:
-    """Test that normalization produces signal with maximum amplitude of 1.0."""
-    normalized = sample_signal.normalize()
-
-    # 理論値: 正規化後の最大振幅は1.0になるはず
-    assert np.abs(np.max(np.abs(normalized.data)) - 1.0) < 1e-10
+# Load and process audio
+signal = wd.read_wav("audio.wav")
+spectrum = signal.fft(n_fft=2048)
+spectrum.plot()
+\`\`\`
 ```
-
-### 7. ロギング
-- **標準ライブラリのlogging**を使用してください
-- デバッグ情報は`logger.debug()`で、重要な情報は`logger.info()`で記録してください
-- エラーメッセージは明確で実用的な内容にしてください
-
-```python
-import logging
-
-logger = logging.getLogger(__name__)
-
-def process_data(data: NDArrayReal) -> NDArrayReal:
-    logger.debug(f"Processing data with shape: {data.shape}")
-    try:
-        result = some_operation(data)
-        logger.debug(f"Processing completed, result shape: {result.shape}")
-        return result
-    except Exception as e:
-        logger.error(f"Failed to process data: {e}")
-        raise
-```
-
-### 8. パフォーマンス
-- 大規模データ処理では**Daskの遅延評価**を活用してください
-- 不要な `.compute()` 呼び出しを避けてください
-- メモリ効率を意識した実装を心がけてください
-- ベクトル化されたNumPy演算を優先してください
-- **プロファイリング**: パフォーマンスが重要な処理では計測を行ってください
-
-```python
-import dask.array as da
-from typing import Union
-import numpy as np
-
-def efficient_processing(
-    data: Union[np.ndarray, da.Array],
-    chunk_size: int = 1000
-) -> da.Array:
-    """
-    Process data efficiently using Dask for large arrays.
-
-    Parameters
-    ----------
-    data : Union[np.ndarray, da.Array]
-        Input data array.
-    chunk_size : int, default=1000
-        Chunk size for Dask array processing.
-
-    Returns
-    -------
-    da.Array
-        Processed data as Dask array (not computed).
-
-    Notes
-    -----
-    This function returns a Dask array without computing it,
-    allowing users to chain operations efficiently.
-    """
-    # NumPy配列の場合はDask配列に変換
-    if isinstance(data, np.ndarray):
-        data = da.from_array(data, chunks=chunk_size)
-
-    # ベクトル化された演算を使用
-    result = da.fft.fft(data, axis=-1)
-
-    # compute()を呼ばずにDask配列を返す
-    return result
-```
-
-### 9. 可視化
-- **Matplotlibとの統合**を維持してください
-- `.plot()` メソッドは `matplotlib.axes.Axes` を返すようにしてください
-- 日本語表示には `japanize-matplotlib` を活用してください
-- カスタマイズ可能なプロットパラメータを提供してください
-- **アクセシビリティ**: カラーブラインド対応の配色を使用してください
-
-```python
-from typing import Optional
-import matplotlib.pyplot as plt
-from matplotlib.axes import Axes
-
-def plot(
-    self,
-    ax: Optional[Axes] = None,
-    title: Optional[str] = None,
-    xlabel: str = "Time [s]",
-    ylabel: str = "Amplitude",
-    color: str = "#1f77b4",  # デフォルトの青（カラーブラインド対応）
-    **kwargs: Any
-) -> Axes:
-    """
-    Plot the signal in time domain.
-
-    Parameters
-    ----------
-    ax : Axes, optional
-        Matplotlib axes to plot on. If None, a new figure is created.
-    title : str, optional
-        Plot title. If None, no title is displayed.
-    xlabel : str, default="Time [s]"
-        Label for the x-axis.
-    ylabel : str, default="Amplitude"
-        Label for the y-axis.
-    color : str, default="#1f77b4"
-        Line color in hex or named color format.
-    **kwargs : Any
-        Additional keyword arguments passed to matplotlib.pyplot.plot.
-
-    Returns
-    -------
-    Axes
-        The matplotlib axes object containing the plot.
-
-    Examples
-    --------
-    >>> signal = wd.read_wav("audio.wav")
-    >>> ax = signal.plot(title="My Signal", color="red")
-    >>> plt.show()
-    """
-    if ax is None:
-        _, ax = plt.subplots(figsize=(10, 4))
-
-    time = np.arange(self.n_samples) / self.sampling_rate
-    ax.plot(time, self.data, color=color, **kwargs)
-
-    if title is not None:
-        ax.set_title(title)
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    ax.grid(True, alpha=0.3)
-
-    return ax
-```
-
-### 10. エラーハンドリング
-
-**Important**: For detailed guidelines on error messages, refer to the **[Error Message Guide](../docs/development/error_message_guide.md)**.
-
-#### エラーメッセージの3要素ルール
-
-すべてのエラーメッセージは以下の3要素を含めてください：
-
-1. **WHAT（何が問題か）**: エラーの内容を明確に記述
-2. **WHY（なぜダメか）**: 制約や条件を説明
-3. **HOW（どうすればいいか）**: 解決策を提示
-
-#### 基本原則
-
-- **明確なエラーメッセージ**: ユーザーが問題を理解し、解決できるメッセージを提供してください
-- **英語で記述**: すべてのエラーメッセージは英語で記述してください
-- **適切な例外型**: 状況に応じた適切な例外を使用してください
-  - `ValueError`: 不正な値やパラメータ
-  - `TypeError`: 型の不一致
-  - `RuntimeError`: 実行時の予期しない状態
-  - カスタム例外: ドメイン固有のエラー
-- **入力検証**: 関数の先頭で入力値を検証してください
-- **リソース管理**: ファイルやネットワーク接続は適切にクローズしてください
-- **実際の値を表示**: 期待値と実際の値の両方を示してください
-- **具体的な提案**: 抽象的ではなく、具体的で実行可能な解決策を提示してください
-
-#### エラーメッセージのテンプレート
-
-```python
-# 標準テンプレート
-raise ValueError(
-    f"<WHAT: 問題の明確な記述>\n"
-    f"  Got: <実際の値>\n"
-    f"  Expected: <期待される値>\n"
-    f"<HOW: 具体的な解決策>"
-)
-```
-
-#### 実装例
-
-```python
-from pathlib import Path
-from typing import Union
-
-class WandasError(Exception):
-    """Base exception for wandas library."""
-    pass
-
-class InvalidSamplingRateError(WandasError):
-    """Raised when sampling rate is invalid."""
-    pass
-
-def read_wav(
-    filepath: Union[str, Path],
-    sampling_rate: Optional[float] = None
-) -> "ChannelFrame":
-    """
-    Read WAV file and create ChannelFrame.
-
-    Parameters
-    ----------
-    filepath : str or Path
-        Path to the WAV file to read.
-    sampling_rate : float, optional
-        Expected sampling rate. If provided and doesn't match the file,
-        raises InvalidSamplingRateError.
-
-    Returns
-    -------
-    ChannelFrame
-        Audio data from the WAV file.
-
-    Raises
-    ------
-    FileNotFoundError
-        If the specified file does not exist.
-    InvalidSamplingRateError
-        If the file's sampling rate doesn't match the expected rate.
-    ValueError
-        If the file format is invalid or corrupted.
-
-    Examples
-    --------
-    >>> signal = wd.read_wav("audio.wav")
-    >>> signal = wd.read_wav("audio.wav", sampling_rate=44100)
-    """
-    filepath = Path(filepath)
-
-    # 入力検証
-    if not filepath.exists():
-        # WHAT: File not found, WHY: Path doesn't exist, HOW: Check path
-        raise FileNotFoundError(
-            f"Audio file not found\n"
-            f"  Path: {filepath.absolute()}\n"
-            f"  Current directory: {Path.cwd()}\n"
-            f"Please check the file path and ensure the file exists."
-        )
-
-    if not filepath.suffix.lower() == ".wav":
-        # WHAT: Wrong file type, WHY: Only WAV supported, HOW: Use WAV file
-        raise ValueError(
-            f"Invalid file format\n"
-            f"  Got: {filepath.suffix}\n"
-            f"  Expected: .wav\n"
-            f"This function only supports WAV files. Please convert your file to WAV format."
-        )
-
-    # ファイル読み込み（with文でリソース管理）
-    try:
-        with open(filepath, "rb") as f:
-            # 読み込み処理
-            file_sr, data = _read_wav_data(f)
-    except Exception as e:
-        # WHAT: Read failed, WHY: File corrupted/unsupported, HOW: Check file
-        raise ValueError(
-            f"Failed to read WAV file\n"
-            f"  File: {filepath}\n"
-            f"  Error: {e}\n"
-            f"The file may be corrupted or in an unsupported format. "
-            f"Try opening it in an audio editor to verify."
-        ) from e
-
-    # サンプリングレートの検証
-    if sampling_rate is not None and file_sr != sampling_rate:
-        # WHAT: Rate mismatch, WHY: Expected vs actual, HOW: Resample
-        raise InvalidSamplingRateError(
-            f"Sampling rate mismatch\n"
-            f"  File sampling rate: {file_sr} Hz\n"
-            f"  Expected: {sampling_rate} Hz\n"
-            f"Use signal.resample({sampling_rate}) to convert the sampling rate, "
-            f"or set sampling_rate=None to accept any rate."
-        )
-
-    return ChannelFrame(data=data, sampling_rate=file_sr)
-```
-
-### 11. 互換性
-- **Python 3.9以上**をサポートしてください
-- 後方互換性を保つよう注意してください
-- 破壊的変更は慎重に検討し、適切に文書化してください
-- **非推奨化**: 機能を削除する前に少なくとも1バージョンは非推奨警告を出してください
-
-```python
-import warnings
-from typing import Optional
-
-def old_method(self, param: float) -> "ChannelFrame":
-    """
-    Old method (deprecated).
-
-    .. deprecated:: 0.2.0
-        Use :meth:`new_method` instead. This method will be removed in v0.4.0.
-
-    Parameters
-    ----------
-    param : float
-        Some parameter.
-
-    Returns
-    -------
-    ChannelFrame
-        Processed frame.
-    """
-    warnings.warn(
-        "old_method is deprecated and will be removed in v0.4.0. "
-        "Use new_method instead.",
-        DeprecationWarning,
-        stacklevel=2
-    )
-    return self.new_method(param)
-```
-
-## コード変更時の手順
-
-コードを変更する際は、以下の手順を**必ず**順守してください：
-
-### 0. 既存の設計ドキュメントを確認
-- **変更を始める前に、必ず `docs/design/INDEX.md` を確認**してください
-- 類似の機能やリファクタリングが過去に行われていないか確認
-- 既存のガイドドキュメントから設計パターンを学ぶ
-- 特に以下のドキュメントは重要な設計原則を含んでいます：
-  - `docs/design/guides/metadata-encapsulation.md` - メタデータ更新パターン
-  - `docs/design/guides/api-improvements.md` - API改善パターン
-  - `.github/copilot-instructions.md` - このガイドライン
-
-### 1. 変更プランの作成
-- **変更プランを記載したMarkdownファイルを作成**してください
-- ファイル名: `docs/design/working/plans/PLAN_<機能名>.md`（例: `PLAN_add_bandpass_filter.md`）
-- **Git管理外**（`.gitignore`に登録済み）のため、自由に編集可能
-- プランには以下の内容を**すべて**含めてください：
-  - **変更の目的と背景**: なぜこの変更が必要か
-  - **実装方針と技術的な詳細**: どのように実装するか
-  - **テスト戦略**: どのようなテストケースが必要か
-  - **想定されるリスクと対応策**: 何が問題になりうるか
-- **変更作業中は常にこのプランファイルを参照**してください
-- **実装完了後**: 削除または放置（gitignoreされているため問題なし）
-
-### 2. 変更プランのレビュー
-実装前に以下の観点で**必ず**レビューを実施してください：
-
-#### 設計チェックリスト
-- [ ] 設計原則（Pandasライクなインターフェース、型安全性など）に沿っているか
-- [ ] 後方互換性は保たれているか（破壊的変更の場合は非推奨化の計画があるか）
-- [ ] パフォーマンスへの影響は考慮されているか
-- [ ] メモリ効率は最適か（大規模データでの動作を考慮）
-- [ ] エラーハンドリングは適切か
-- [ ] 関連する既存コードへの影響は洗い出されているか
-
-#### ドキュメントチェックリスト
-- [ ] docstringは英語で記述されているか
-- [ ] すべてのパラメータに説明があるか
-- [ ] 戻り値の説明があるか
-- [ ] 発生する可能性のある例外が記載されているか
-- [ ] 使用例（Examples）が含まれているか
-
-### 3. テスト駆動開発
-- **変更部分のテストケースを先に作成**してください
-- **カバレッジ100%を達成**するようにテストを設計してください
-- 以下のテストパターンを**すべて**含めてください：
-  - **正常系のテスト**: 期待通りの動作を確認
-  - **異常系のテスト**: エラーハンドリングを確認
-  - **境界値のテスト**: 極端な値での動作を確認
-  - **エッジケースのテスト**: 特殊なケースでの動作を確認
-  - **統合テスト**: 他のモジュールとの連携を確認
-- テストが**失敗することを確認**してから実装を開始してください（Red-Green-Refactorサイクル）
-
-#### テスト作成の具体例
-```python
-# tests/processing/test_new_feature.py
-
-def test_new_feature_normal_case():
-    """正常系: 基本的な動作を確認"""
-    ...
-
-def test_new_feature_with_edge_values():
-    """境界値: 最小値・最大値での動作を確認"""
-    ...
-
-def test_new_feature_raises_error_on_invalid_input():
-    """異常系: 不正な入力でエラーが発生することを確認"""
-    ...
-
-def test_new_feature_preserves_metadata():
-    """メタデータが保持されることを確認"""
-    ...
-
-def test_new_feature_records_operation_history():
-    """処理履歴が記録されることを確認"""
-    ...
-```
-
-### 4. 実装とテストの反復
-- **小さな単位**で実装とテストを繰り返してください
-- 各ステップで**テストが通ることを確認**してください
-- コミットは**意味のある単位**で行ってください
-  - Good: `feat: Add bandpass filter implementation`
-  - Bad: `update`, `fix`, `changes`
-- コミットメッセージは[Conventional Commits](https://www.conventionalcommits.org/)形式を推奨
-
-### 5. 最終確認
-実装完了後、以下を**すべて**確認してください：
-
-#### 品質チェックリスト
-- [ ] すべてのテストが通ることを確認（`uv run pytest`）
-- [ ] カバレッジレポートで100%達成を確認（`uv run pytest --cov`）
-- [ ] 型チェックが通ることを確認（`uv run mypy --config-file=pyproject.toml`）
-- [ ] リントが通ることを確認（`uv run ruff check wandas tests`）
-- [ ] フォーマットが整っていることを確認（`uv run ruff format wandas tests`）
-
-#### ドキュメントチェックリスト
-- [ ] 変更したコードにdocstringが記載されているか
-- [ ] APIドキュメント（`docs/`）が更新されているか
-- [ ] README.mdが更新されているか（必要な場合）
-- [ ] CHANGELOGが更新されているか
-- [ ] 使用例が追加されているか（`examples/`）
-
-#### 統合チェックリスト
-- [ ] 他のモジュールとの統合テストが通るか
-- [ ] 既存の機能に影響がないか（リグレッションテスト）
-- [ ] パフォーマンステストが通るか（該当する場合）
-
-#### 設計ドキュメントチェックリスト
-- [ ] 実装完了後、重要な設計決定があれば`working/drafts/`にSUMMARY下書きを作成したか
-- [ ] 清書して`guides/`に移動したか（必要な場合）
-- [ ] `docs/design/INDEX.md`を更新したか
-- [ ] ドキュメントライフサイクルルール（`docs/design/DOCUMENT_LIFECYCLE.md`）に従っているか
-
-## ツールとワークフロー
-
-### 開発環境セットアップ
-```bash
-# uvを使用した環境構築
-uv venv
-source .venv/bin/activate  # Linux/Mac
-# または
-.venv\Scripts\activate  # Windows
-
-# 依存関係のインストール（開発用含む）
-uv pip install -e ".[dev]"
-```
-
-### コード品質チェック
-```bash
-# Ruffでリント・フォーマット
-uv run ruff check wandas tests --fix
-uv run ruff format wandas tests
-
-# mypyで型チェック
-uv run mypy --config-file=pyproject.toml
-
-# テスト実行
-uv run pytest
-
-# カバレッジ付きテスト実行
-uv run pytest --cov=wandas --cov-report=html --cov-report=term
-
-# 特定のファイルのカバレッジ確認
-uv run pytest tests/frames/test_channel_frame.py --cov=wandas.frames.channel --cov-report=term-missing
-```
-
-### 継続的インテグレーション
-- すべてのプルリクエストで自動テストが実行されます
-- カバレッジが90%未満の場合は警告が表示されます
-- 型チェックとリントのエラーはマージをブロックします
-
-### プリコミットフック
-`.pre-commit-config.yaml` を使用して、コミット前に自動チェックが実行されます。
-
-```bash
-# pre-commitのインストール
-pre-commit install
-
-# 手動実行
-pre-commit run --all-files
-```
-
-## ベストプラクティス集
-
-### 1. メソッドチェーンの実装
-```python
-# 良い例: メソッドチェーンが可能
-signal = (
-    wd.read_wav("audio.wav")
-    .normalize()
-    .low_pass_filter(cutoff=1000)
-    .resample(target_rate=16000)
-)
-
-# 実装時は常にselfまたは新しいフレームを返す
-def normalize(self) -> "ChannelFrame":
-    """Normalize signal amplitude to [-1, 1]."""
-    normalized_data = self.data / np.max(np.abs(self.data))
-    return self._create_new_frame(normalized_data, operation_name="normalize")
-```
-
-### 2. 型ヒントの活用
-```python
-from typing import Union, Optional, Literal, overload
-from wandas.utils.types import NDArrayReal, DaskArray
-
-# オーバーロードで戻り値の型を明確にする
-@overload
-def process(self, mode: Literal["numpy"]) -> NDArrayReal: ...
-
-@overload
-def process(self, mode: Literal["dask"]) -> DaskArray: ...
-
-def process(
-    self,
-    mode: Literal["numpy", "dask"] = "numpy"
-) -> Union[NDArrayReal, DaskArray]:
-    """Process data with specified backend."""
-    ...
-```
-
-### 3. リソース管理
-```python
-from contextlib import contextmanager
-from typing import Generator
-
-@contextmanager
-def open_audio_file(filepath: Path) -> Generator[AudioFile, None, None]:
-    """
-    Context manager for audio file handling.
-
-    Ensures proper resource cleanup even if an error occurs.
-    """
-    file = AudioFile(filepath)
-    try:
-        yield file
-    finally:
-        file.close()
-
-# 使用例
-with open_audio_file("audio.wav") as f:
-    data = f.read()
-```
-
-### 4. 設定可能なデフォルト値
-```python
-from dataclasses import dataclass, field
-from typing import ClassVar
-
-@dataclass
-class FilterConfig:
-    """Global configuration for filters."""
-
-    default_order: ClassVar[int] = 5
-    default_window: ClassVar[str] = "hann"
-
-    # インスタンス変数
-    order: int = field(default_factory=lambda: FilterConfig.default_order)
-    window: str = field(default_factory=lambda: FilterConfig.default_window)
-
-# ユーザーがグローバル設定を変更可能
-FilterConfig.default_order = 8
-```
-
-### 5. デバッグ情報の提供
-```python
-def __repr__(self) -> str:
-    """Provide detailed string representation for debugging."""
-    return (
-        f"{self.__class__.__name__}("
-        f"n_samples={self.n_samples}, "
-        f"n_channels={self.n_channels}, "
-        f"sampling_rate={self.sampling_rate}, "
-        f"duration={self.duration:.2f}s"
-        ")"
-    )
-
-def _repr_html_(self) -> str:
-    """Provide HTML representation for Jupyter notebooks."""
-    return f"""
-    <div>
-        <strong>{self.__class__.__name__}</strong>
-        <ul>
-            <li>Samples: {self.n_samples:,}</li>
-            <li>Channels: {self.n_channels}</li>
-            <li>Sampling Rate: {self.sampling_rate:,} Hz</li>
-            <li>Duration: {self.duration:.2f} s</li>
-        </ul>
-    </div>
-    """
-```
-
-## よくある質問（FAQ）
-
-### Q: NumPy配列とDask配列のどちらを使うべきか？
-A: 遅延評価のため、Dask配列を使用してください。
-
-### Q: カバレッジ100%が難しい場合は？
-A: 以下の場合は例外的に許容されます：
-- プラットフォーム依存のコード（# pragma: no cover）
-- デバッグ用のコード
-- 型チェック用のコード（if TYPE_CHECKING:）
-
-ただし、これらは最小限に抑えてください。
-
-### Q: 破壊的変更が必要な場合は？
-A: 以下の手順を踏んでください：
-1. 非推奨化（Deprecation）警告を出す（最低1バージョン）
-2. ドキュメントに移行ガイドを記載
-3. CHANGELOGに詳細を記載
-4. メジャーバージョンアップ時に削除
-
-### Q: パフォーマンステストはどう書くべきか？
-A: pytest-benchmarkを使用してください：
-```python
-def test_fft_performance(benchmark, sample_signal):
-    """Test FFT performance."""
-    result = benchmark(sample_signal.fft)
-    assert result is not None
-```
-
-## トラブルシューティング
-
-### 型チェックエラーが解決できない
-1. `reveal_type()` を使って型を確認
-2. `cast()` を使って明示的に型を指定（最終手段）
-3. 必要に応じて `# type: ignore` を使用（理由をコメントで記載）
-
-### テストが不安定
-1. 乱数のシードを固定（`np.random.seed(42)`）
-2. 浮動小数点数の比較には `np.allclose()` を使用
-3. テストの独立性を確認（他のテストに依存していないか）
-
-### カバレッジが上がらない
-1. `pytest --cov-report=html` でHTMLレポートを確認
-2. カバーされていない行を特定
-3. その行を実行するテストケースを追加
-
-## 参考資料
-
-### プロジェクト固有
-- **設計ドキュメント一覧**: `docs/DESIGN_DOCUMENTS.md` - 過去の設計決定とパターンの記録
-- **プロジェクトドキュメント**: https://kasahart.github.io/wandas/
-- **リポジトリ**: https://github.com/kasahart/wandas
-- **Issue Tracker**: https://github.com/kasahart/wandas/issues
-
-### 外部リソース
-- **NumPy Docstring Guide**: https://numpydoc.readthedocs.io/
-- **Python Type Hints**: https://docs.python.org/3/library/typing.html
-- **pytest Documentation**: https://docs.pytest.org/
-
-## コントリビューション
-
-このガイドラインは進化し続けます。改善提案がある場合は：
-1. Issueで議論を開始
-2. このガイドライン自体の変更プラン（`working/plans/PLAN_update_guidelines.md`）を作成
-3. プルリクエストを送信
 
 ---
