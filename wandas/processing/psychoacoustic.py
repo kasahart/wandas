@@ -633,7 +633,13 @@ class RoughnessDwSpec(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def __init__(self, sampling_rate: float, overlap: float = 0.5) -> None:
         self.overlap = overlap
-        self._bark_axis: NDArrayReal = np.linspace(0.5, 23.5, 47)
+        # Retrieve bark_axis dynamically from MoSQITo to ensure consistency
+        # Use a minimal reference signal to get the bark_axis structure
+        reference_signal = np.zeros(int(sampling_rate * 0.2))  # 200ms minimal signal
+        _, _, bark_axis_from_mosqito, _ = roughness_dw_mosqito(
+            reference_signal, sampling_rate, overlap=overlap
+        )
+        self._bark_axis: NDArrayReal = bark_axis_from_mosqito
         super().__init__(sampling_rate, overlap=overlap)
 
     @property
@@ -652,7 +658,7 @@ class RoughnessDwSpec(AudioOperation[NDArrayReal, NDArrayReal]):
         return {"sampling_rate": output_sampling_rate, "bark_axis": self._bark_axis}
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        n_bark_bands = 47
+        n_bark_bands = len(self._bark_axis)
         if len(input_shape) == 1:
             n_samples = input_shape[0]
             n_channels = 1
