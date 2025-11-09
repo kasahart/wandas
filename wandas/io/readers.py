@@ -258,12 +258,12 @@ class CSVFileReader(FileReader):
         **kwargs : Any
             Additional parameters for CSV reading. Supported parameters:
 
-            - time_column : Union[int, str], default=0
-                Index or name of the time column.
             - delimiter : str, default=","
                 Delimiter character.
             - header : Optional[int], default=0
                 Row number to use as header.
+            - time_column : Union[int, str], default=0
+                Index or name of the time column.
 
         Returns
         -------
