@@ -303,3 +303,54 @@ class TestNOctFrame:
         assert df.shape == (self.shape[1], 1)  # (freq_bins, 1)
         assert df.index.name == "frequency"
         assert list(df.columns) == ["ch1"]
+
+    def test_plot_with_all_options(self) -> None:
+        """Test plot method with all optional parameters"""
+        with mock.patch(
+            "wandas.visualization.plotting.create_operation"
+        ) as mock_create_op:
+            mock_plot_strategy: Any = mock.MagicMock()
+            mock_create_op.return_value = mock_plot_strategy
+            mock_ax: Any = mock.MagicMock()
+            mock_plot_strategy.plot.return_value = mock_ax
+
+            # Test with all optional parameters
+            result = self.frame.plot(
+                plot_type="noct",
+                ax=mock_ax,
+                title="Test Title",
+                overlay=True,
+                xlabel="Frequency",
+                ylabel="Level",
+                alpha=0.5,
+                xlim=(20, 20000),
+                ylim=(0, 100),
+                Aw=True,
+                color="red",
+            )
+
+            # Verify all parameters were passed
+            call_kwargs = mock_plot_strategy.plot.call_args[1]
+            assert call_kwargs["ax"] is mock_ax
+            assert call_kwargs["title"] == "Test Title"
+            assert call_kwargs["overlay"] is True
+            assert call_kwargs["xlabel"] == "Frequency"
+            assert call_kwargs["ylabel"] == "Level"
+            assert call_kwargs["alpha"] == 0.5
+            assert call_kwargs["xlim"] == (20, 20000)
+            assert call_kwargs["ylim"] == (0, 100)
+            assert call_kwargs["Aw"] is True
+            assert call_kwargs["color"] == "red"
+            assert result is mock_ax
+
+    def test_get_dataframe_columns(self) -> None:
+        """Test _get_dataframe_columns method"""
+        columns = self.frame._get_dataframe_columns()
+        assert columns == ["ch1", "ch2"]
+
+    def test_get_dataframe_index(self) -> None:
+        """Test _get_dataframe_index method"""
+        index = self.frame._get_dataframe_index()
+        assert isinstance(index, pd.Index)
+        assert index.name == "frequency"
+        np.testing.assert_array_equal(index.values, self.frame.freqs)

@@ -280,3 +280,144 @@ class TestRoughnessFrame:
         # DataFrame変換がNotImplementedErrorを投げることを確認
         with pytest.raises(NotImplementedError, match="not supported"):
             roughness_frame.to_dataframe()
+
+    def test_get_dataframe_index_not_implemented(self) -> None:
+        """Test _get_dataframe_index raises NotImplementedError."""
+        frame = RoughnessFrame(
+            data=self.data_mono,
+            sampling_rate=self.sampling_rate,
+            bark_axis=self.bark_axis,
+            overlap=self.overlap,
+        )
+        with pytest.raises(
+            NotImplementedError, match="DataFrame index is not supported"
+        ):
+            frame._get_dataframe_index()
+
+    def test_apply_operation_not_implemented(self) -> None:
+        """Test _apply_operation_impl raises NotImplementedError."""
+        frame = RoughnessFrame(
+            data=self.data_mono,
+            sampling_rate=self.sampling_rate,
+            bark_axis=self.bark_axis,
+            overlap=self.overlap,
+        )
+        with pytest.raises(NotImplementedError, match="Operation .* is not supported"):
+            frame._apply_operation_impl("some_operation", param=1.0)
+
+    def test_binary_op_with_scalar(self) -> None:
+        """Test binary operations with scalar values."""
+        frame = RoughnessFrame(
+            data=self.data_mono,
+            sampling_rate=self.sampling_rate,
+            bark_axis=self.bark_axis,
+            overlap=self.overlap,
+        )
+
+        # Test addition with scalar
+        result = frame + 1.0
+        assert isinstance(result, RoughnessFrame)
+        assert result.sampling_rate == frame.sampling_rate
+        assert result.overlap == frame.overlap
+        assert np.allclose(result.data, frame.data + 1.0)
+
+    def test_binary_op_with_roughness_frame(self) -> None:
+        """Test binary operations between RoughnessFrame instances."""
+        frame1 = RoughnessFrame(
+            data=self.data_mono,
+            sampling_rate=self.sampling_rate,
+            bark_axis=self.bark_axis,
+            overlap=self.overlap,
+        )
+        frame2 = RoughnessFrame(
+            data=self.data_mono,
+            sampling_rate=self.sampling_rate,
+            bark_axis=self.bark_axis,
+            overlap=self.overlap,
+        )
+
+        # Test addition
+        result = frame1 + frame2
+        assert isinstance(result, RoughnessFrame)
+        assert np.allclose(result.data, frame1.data + frame2.data)
+
+    def test_binary_op_sampling_rate_mismatch(self) -> None:
+        """Test binary operation raises error on sampling rate mismatch."""
+        frame1 = RoughnessFrame(
+            data=self.data_mono,
+            sampling_rate=10.0,
+            bark_axis=self.bark_axis,
+            overlap=self.overlap,
+        )
+        frame2 = RoughnessFrame(
+            data=self.data_mono,
+            sampling_rate=20.0,
+            bark_axis=self.bark_axis,
+            overlap=self.overlap,
+        )
+
+        with pytest.raises(ValueError, match="Sampling rates do not match"):
+            _ = frame1 + frame2
+
+    def test_binary_op_shape_mismatch(self) -> None:
+        """Test binary operation raises error on shape mismatch."""
+        frame1 = RoughnessFrame(
+            data=self.data_mono,
+            sampling_rate=self.sampling_rate,
+            bark_axis=self.bark_axis,
+            overlap=self.overlap,
+        )
+        # Create data with different time dimension
+        different_time_data = da.from_array(
+            np.random.random((self.n_bark, 5)), chunks=(47, 5)
+        )
+        frame2 = RoughnessFrame(
+            data=different_time_data,
+            sampling_rate=self.sampling_rate,
+            bark_axis=self.bark_axis,
+            overlap=self.overlap,
+        )
+
+        with pytest.raises(ValueError, match="Shape mismatch"):
+            _ = frame1 + frame2
+
+    def test_binary_op_with_numpy_array(self) -> None:
+        """Test binary operation with numpy array."""
+        frame = RoughnessFrame(
+            data=self.data_mono,
+            sampling_rate=self.sampling_rate,
+            bark_axis=self.bark_axis,
+            overlap=self.overlap,
+        )
+        # Add numpy array
+        array = np.ones((self.n_bark, self.n_time))
+        result = frame + array
+        assert isinstance(result, RoughnessFrame)
+        assert np.allclose(result.data, frame.data + array)
+
+    def test_get_additional_init_kwargs(self) -> None:
+        """Test _get_additional_init_kwargs returns correct parameters."""
+        frame = RoughnessFrame(
+            data=self.data_mono,
+            sampling_rate=self.sampling_rate,
+            bark_axis=self.bark_axis,
+            overlap=self.overlap,
+        )
+        kwargs = frame._get_additional_init_kwargs()
+        assert "bark_axis" in kwargs
+        assert "overlap" in kwargs
+        assert np.array_equal(kwargs["bark_axis"], self.bark_axis)
+        assert kwargs["overlap"] == self.overlap
+
+    def test_get_dataframe_columns(self) -> None:
+        """Test _get_dataframe_columns returns channel labels."""
+        frame = RoughnessFrame(
+            data=self.data_stereo,
+            sampling_rate=self.sampling_rate,
+            bark_axis=self.bark_axis,
+            overlap=self.overlap,
+        )
+        columns = frame._get_dataframe_columns()
+        assert isinstance(columns, list)
+        assert len(columns) == 2
+        assert all(isinstance(col, str) for col in columns)

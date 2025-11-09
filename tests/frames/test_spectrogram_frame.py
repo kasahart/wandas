@@ -693,6 +693,21 @@ class TestSpectrogramFrame:
         with pytest.raises(NotImplementedError, match="not supported"):
             spectrogram_frame.to_dataframe()
 
+    def test_get_dataframe_index_raises_not_implemented_error(self) -> None:
+        """Test _get_dataframe_index raises NotImplementedError."""
+        # SpectrogramFrameの作成
+        spectrogram_frame = SpectrogramFrame(
+            data=_da_random_random((2, 65, 5)) + 1j * _da_random_random((2, 65, 5)),
+            sampling_rate=44100,
+            n_fft=128,
+            hop_length=64,
+            window="hann",
+        )
+
+        # _get_dataframe_indexがNotImplementedErrorを投げることを確認
+        with pytest.raises(NotImplementedError, match="not supported"):
+            spectrogram_frame._get_dataframe_index()
+
     def test_from_numpy_2d_array(self) -> None:
         """from_numpyメソッドで2D NumPy配列からSpectrogramFrameを作成するテスト"""
         import numpy as np

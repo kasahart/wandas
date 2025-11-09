@@ -214,6 +214,67 @@ class TestSpectralFrame:
         expected_data: NDArrayComplex = multiply_op(self.data, scalar).compute()
         np.testing.assert_allclose(result.data, expected_data)
 
+    def test_binary_op_with_complex(self) -> None:
+        """Test _binary_op with complex number"""
+        complex_val: complex = 2.0 + 1.0j
+
+        def multiply_op(a: Any, b: Any) -> Any:
+            return a * b
+
+        symbol: str = "*"
+        result: SpectralFrame = self.frame._binary_op(complex_val, multiply_op, symbol)
+
+        assert isinstance(result, SpectralFrame)
+        assert f"complex({complex_val.real}, {complex_val.imag})" in result.label
+
+    def test_binary_op_with_numpy_array(self) -> None:
+        """Test _binary_op with numpy array"""
+        np_array: NDArrayReal = np.ones(self.shape)
+
+        def multiply_op(a: Any, b: Any) -> Any:
+            return a * b
+
+        symbol: str = "*"
+        result: SpectralFrame = self.frame._binary_op(np_array, multiply_op, symbol)
+
+        assert isinstance(result, SpectralFrame)
+        assert "ndarray" in result.label
+
+    def test_binary_op_with_dask_array(self) -> None:
+        """Test _binary_op with dask array"""
+        dask_arr: DaArray = _da_from_array(np.ones(self.shape), chunks=-1)
+
+        def multiply_op(a: Any, b: Any) -> Any:
+            return a * b
+
+        symbol: str = "*"
+        result: SpectralFrame = self.frame._binary_op(dask_arr, multiply_op, symbol)
+
+        assert isinstance(result, SpectralFrame)
+        assert "dask.array" in result.label
+
+    def test_binary_op_with_other_type(self) -> None:
+        """Test _binary_op with other type (no shape attribute)"""
+
+        class CustomType:
+            pass
+
+        custom_obj = CustomType()
+
+        def identity_op(a: Any, b: Any) -> Any:
+            return a
+
+        symbol: str = "~"
+        # type: ignore to test runtime behavior with unexpected types
+        result: SpectralFrame = self.frame._binary_op(
+            custom_obj,
+            identity_op,
+            symbol,  # type: ignore[arg-type]
+        )
+
+        assert isinstance(result, SpectralFrame)
+        assert "CustomType" in result.label
+
     def test_plot(self) -> None:
         """Test plot method"""
         with mock.patch(
@@ -250,6 +311,32 @@ class TestSpectralFrame:
             assert call_kwargs["param1"] == "value1"
             assert call_kwargs["param2"] == "value2"
             assert result is mock_ax
+
+    def test_plot_with_optional_parameters(self) -> None:
+        """Test plot method with optional parameters for conditional branches"""
+        with mock.patch(
+            "wandas.visualization.plotting.create_operation"
+        ) as mock_create_op:
+            mock_plot_strategy: Any = mock.MagicMock()
+            mock_create_op.return_value = mock_plot_strategy
+            mock_ax: Any = mock.MagicMock()
+            mock_plot_strategy.plot.return_value = mock_ax
+
+            # Test with all optional parameters
+            self.frame.plot(
+                xlabel="Custom X",
+                ylabel="Custom Y",
+                alpha=0.5,
+                xlim=(0, 1000),
+                ylim=(-60, 0),
+            )
+
+            call_kwargs = mock_plot_strategy.plot.call_args[1]
+            assert call_kwargs["xlabel"] == "Custom X"
+            assert call_kwargs["ylabel"] == "Custom Y"
+            assert call_kwargs["alpha"] == 0.5
+            assert call_kwargs["xlim"] == (0, 1000)
+            assert call_kwargs["ylim"] == (-60, 0)
 
     def test_plot_matrix(self) -> None:
         """Test plot_matrix method"""
@@ -620,3 +707,12 @@ class TestSpectralFrame:
 
         # 操作履歴が表示されていることを確認
         assert "Operations Applied: 2" in output
+
+    def test_get_additional_init_kwargs(self) -> None:
+        """Test _get_additional_init_kwargs returns correct parameters"""
+        kwargs = self.frame._get_additional_init_kwargs()
+
+        assert "n_fft" in kwargs
+        assert "window" in kwargs
+        assert kwargs["n_fft"] == self.n_fft
+        assert kwargs["window"] == self.window
