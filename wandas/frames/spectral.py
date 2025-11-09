@@ -1,7 +1,9 @@
 # spectral_frame.py
+from __future__ import annotations
+
 import logging
 from collections.abc import Callable, Iterator
-from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import dask
 import dask.array as da
@@ -118,7 +120,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         metadata: dict[str, Any] | None = None,
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
-        previous: Optional["BaseFrame[Any]"] = None,
+        previous: BaseFrame[Any] | None = None,
     ) -> None:
         if data.ndim == 1:
             data = data.reshape(1, -1)
@@ -296,12 +298,18 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
 
     def _binary_op(
         self,
-        other: Union[
-            "SpectralFrame", int, float, complex, NDArrayComplex, NDArrayReal, "DaArray"
-        ],
-        op: Callable[["DaArray", Any], "DaArray"],
+        other: (
+            SpectralFrame
+            | int
+            | float
+            | complex
+            | NDArrayComplex
+            | NDArrayReal
+            | DaArray
+        ),
+        op: Callable[[DaArray, Any], DaArray],
         symbol: str,
-    ) -> "SpectralFrame":
+    ) -> SpectralFrame:
         """
         Common implementation for binary operations.
 
@@ -413,7 +421,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
     def plot(
         self,
         plot_type: str = "frequency",
-        ax: Optional["Axes"] = None,
+        ax: Axes | None = None,
         title: str | None = None,
         overlay: bool = False,
         xlabel: str | None = None,
@@ -505,7 +513,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
 
         return _ax
 
-    def ifft(self) -> "ChannelFrame":
+    def ifft(self) -> ChannelFrame:
         """
         Compute the Inverse Fast Fourier Transform (IFFT) to return to time domain.
 
@@ -563,7 +571,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         """Get channel labels as DataFrame columns."""
         return [ch.label for ch in self._channel_metadata]
 
-    def _get_dataframe_index(self) -> "pd.Index[Any]":
+    def _get_dataframe_index(self) -> pd.Index[Any]:
         """Get frequency index for DataFrame."""
         return pd.Index(self.freqs, name="frequency")
 
@@ -574,7 +582,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         n: int = 3,
         G: int = 10,  # noqa: N803
         fr: int = 1000,
-    ) -> "NOctFrame":
+    ) -> NOctFrame:
         """
         Synthesize N-octave band spectrum.
 
@@ -652,7 +660,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         self,
         plot_type: str = "matrix",
         **kwargs: Any,
-    ) -> Union["Axes", Iterator["Axes"]]:
+    ) -> Axes | Iterator[Axes]:
         """
         Plot channel relationships in matrix format.
 
