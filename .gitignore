@@ -171,3 +171,7 @@ examples/data/dataset/
 tutorial/*
 # But not the .ipynb files
 !tutorial/*.ipynb
+
+# Ignore examples and tutorial directories completely
+examples/
+tutorial/
