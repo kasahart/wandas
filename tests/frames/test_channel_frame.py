@@ -1754,7 +1754,7 @@ class TestBaseFrameExceptionHandling:
 
         error_msg = str(exc_info.value)
         # Check WHAT
-        assert "Invalid sampling rate" in error_msg
+        assert "Invalid sampling_rate" in error_msg
         assert "-44100" in error_msg
         # Check WHY
         assert "Positive value" in error_msg
@@ -1769,12 +1769,16 @@ class TestBaseFrameExceptionHandling:
 
         error_msg = str(exc_info.value)
         # Check WHAT
-        assert "Invalid sampling rate" in error_msg
-        assert "0" in error_msg
+        assert "Invalid sampling_rate" in error_msg
+        assert "Got: 0 Hz" in error_msg
         # Check WHY
-        assert "Positive value" in error_msg
+        assert "Expected: Positive value > 0" in error_msg
         # Check HOW
-        assert "Common values:" in error_msg
+        assert (
+            "Sampling rate represents samples per second and must be positive."
+            in error_msg
+        )
+        assert "Common values: 8000, 16000, 22050, 44100, 48000 Hz" in error_msg
 
     def test_file_not_found_error_message(self) -> None:
         """Test that missing file provides helpful error message."""
@@ -2214,10 +2218,10 @@ class TestFadeIntegration:
 
         error_msg = str(exc_info.value)
         # Check WHAT
-        assert "Invalid sampling rate" in error_msg
-        assert "-44100" in error_msg
+        assert "Invalid sampling_rate" in error_msg
+        assert "Got: -44100 Hz" in error_msg
         # Check WHY
-        assert "Positive value" in error_msg
+        assert "Expected: Positive value > 0" in error_msg
         # Check HOW
         assert "Common values:" in error_msg
         assert "44100" in error_msg
@@ -2229,12 +2233,16 @@ class TestFadeIntegration:
 
         error_msg = str(exc_info.value)
         # Check WHAT
-        assert "Invalid sampling rate" in error_msg
-        assert "0" in error_msg
+        assert "Invalid sampling_rate" in error_msg
+        assert "Got: 0 Hz" in error_msg
         # Check WHY
-        assert "Positive value" in error_msg
+        assert "Expected: Positive value > 0" in error_msg
         # Check HOW
-        assert "Common values:" in error_msg
+        assert (
+            "Sampling rate represents samples per second and must be positive."
+            in error_msg
+        )
+        assert "Common values: 8000, 16000, 22050, 44100, 48000 Hz" in error_msg
 
     def test_file_not_found_error_message(self) -> None:
         """Test that missing file provides helpful error message."""

@@ -78,7 +78,7 @@ class BaseFrame(ABC, Generic[T]):
         metadata: Optional[dict[str, Any]] = None,
         operation_history: Optional[list[dict[str, Any]]] = None,
         channel_metadata: Optional[
-            list[Union[ChannelMetadata, dict[str, Any]]]
+            Union[list[ChannelMetadata], list[dict[str, Any]]]
         ] = None,
         previous: Optional["BaseFrame[Any]"] = None,
     ):
@@ -93,7 +93,9 @@ class BaseFrame(ABC, Generic[T]):
 
         if channel_metadata:
             # Pydantic handles both ChannelMetadata objects and dicts
-            def _to_channel_metadata(ch, index):
+            def _to_channel_metadata(
+                ch: Union[ChannelMetadata, dict[str, Any]], index: int
+            ) -> ChannelMetadata:
                 if isinstance(ch, ChannelMetadata):
                     return copy.deepcopy(ch)
                 elif isinstance(ch, dict):
@@ -112,10 +114,13 @@ class BaseFrame(ABC, Generic[T]):
                         f"Invalid type in channel_metadata at index {index}\n"
                         f"  Got: {type(ch).__name__} ({ch!r})\n"
                         f"  Expected: ChannelMetadata or dict\n"
-                        f"Use either ChannelMetadata objects or dicts with valid fields."
+                        f"Use ChannelMetadata objects or dicts with valid fields."
                     )
+
             self._channel_metadata = [
-                _to_channel_metadata(ch, i)
+                _to_channel_metadata(
+                    cast(Union[ChannelMetadata, dict[str, Any]], ch), i
+                )
                 for i, ch in enumerate(channel_metadata)
             ]
         else:

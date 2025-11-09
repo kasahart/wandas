@@ -1456,7 +1456,8 @@ class TestRoughnessDwSpec:
         cache_key_2 = (self.sample_rate, 0.0)
         assert cache_key_2 in RoughnessDwSpec._bark_axis_cache
 
-        # Bark axis should be the same (MoSQITo returns same bark_axis regardless of overlap)
+        # Bark axis should be the same (MoSQITo returns same bark_axis
+        # regardless of overlap)
         np.testing.assert_array_equal(bark_axis_1, bark_axis_3)
 
         # Clean up: clear cache after test

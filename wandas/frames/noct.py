@@ -133,7 +133,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         metadata: Optional[dict[str, Any]] = None,
         operation_history: Optional[list[dict[str, Any]]] = None,
         channel_metadata: Optional[
-            list[Union[ChannelMetadata, dict[str, Any]]]
+            Union[list[ChannelMetadata], list[dict[str, Any]]]
         ] = None,
         previous: Optional["BaseFrame[Any]"] = None,
     ) -> None:
