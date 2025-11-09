@@ -1419,6 +1419,49 @@ class TestRoughnessDwSpec:
         # Results should be identical
         np.testing.assert_array_equal(result1, result2)
 
+    def test_bark_axis_caching(self) -> None:
+        """Test that bark_axis is cached to avoid redundant MoSQITo calls."""
+        from wandas.processing.psychoacoustic import RoughnessDwSpec
+
+        # Clear the cache to start fresh
+        RoughnessDwSpec._bark_axis_cache.clear()
+
+        # First instantiation should compute bark_axis
+        op1 = RoughnessDwSpec(self.sample_rate, overlap=self.overlap)
+        bark_axis_1 = op1.bark_axis
+
+        # Cache should now contain one entry
+        assert len(RoughnessDwSpec._bark_axis_cache) == 1
+        cache_key = (self.sample_rate, self.overlap)
+        assert cache_key in RoughnessDwSpec._bark_axis_cache
+
+        # Second instantiation with same parameters should use cached value
+        op2 = RoughnessDwSpec(self.sample_rate, overlap=self.overlap)
+        bark_axis_2 = op2.bark_axis
+
+        # Cache should still have one entry (not recomputed)
+        assert len(RoughnessDwSpec._bark_axis_cache) == 1
+
+        # Both instances should have identical bark_axis (same array reference)
+        np.testing.assert_array_equal(bark_axis_1, bark_axis_2)
+        assert bark_axis_1 is RoughnessDwSpec._bark_axis_cache[cache_key]
+        assert bark_axis_2 is RoughnessDwSpec._bark_axis_cache[cache_key]
+
+        # Different parameters should trigger new computation
+        op3 = RoughnessDwSpec(self.sample_rate, overlap=0.0)
+        bark_axis_3 = op3.bark_axis
+
+        # Cache should now have two entries
+        assert len(RoughnessDwSpec._bark_axis_cache) == 2
+        cache_key_2 = (self.sample_rate, 0.0)
+        assert cache_key_2 in RoughnessDwSpec._bark_axis_cache
+
+        # Bark axis should be the same (MoSQITo returns same bark_axis regardless of overlap)
+        np.testing.assert_array_equal(bark_axis_1, bark_axis_3)
+
+        # Clean up: clear cache after test
+        RoughnessDwSpec._bark_axis_cache.clear()
+
 
 class TestRoughnessDwSpecIntegration:
     """Integration tests for specific roughness calculation with ChannelFrame."""
