@@ -52,10 +52,10 @@ def _validate_spectral_params(
             f"FFT size must be a positive integer.\n"
             f"Common values: 512, 1024, 2048, 4096 (powers of 2 are most efficient)"
         )
-    
+
     # Set win_length with default
     actual_win_length = win_length if win_length is not None else n_fft
-    
+
     # Validate win_length - check positive first, then relationship
     if actual_win_length <= 0:
         raise ValueError(
@@ -65,30 +65,33 @@ def _validate_spectral_params(
             f"Window length must be a positive integer.\n"
             f"Typical values: same as n_fft ({n_fft}) or slightly smaller"
         )
-    
+
     if actual_win_length > n_fft:
         raise ValueError(
             f"Invalid window length for {method_name}\n"
             f"  Got: win_length={actual_win_length}\n"
             f"  Expected: win_length <= n_fft ({n_fft})\n"
             f"Window length cannot exceed FFT size.\n"
-            f"Use win_length={n_fft} or smaller, or increase n_fft to {actual_win_length} or larger"
+            f"Use win_length={n_fft} or smaller, or increase n_fft to\n"
+            f"{actual_win_length} or larger"
         )
-    
+
     # Set hop_length with default
     if hop_length is None:
         if actual_win_length < 4:
             raise ValueError(
-                f"Window length too small to compute default hop length for {method_name}\n"
+                f"Window length too small to compute default hop length for\n"
+                f"{method_name}\n"
                 f"  Got: win_length={actual_win_length}\n"
                 f"  Expected: win_length >= 4 when hop_length is not specified\n"
-                f"Default hop_length is computed as win_length // 4, which would be zero for win_length < 4.\n"
+                f"Default hop_length is computed as win_length // 4, which would be\n"
+                f"zero for win_length < 4.\n"
                 f"Please specify a larger win_length or provide hop_length explicitly."
             )
         actual_hop_length = actual_win_length // 4
     else:
         actual_hop_length = hop_length
-    
+
     # Validate hop_length
     if actual_hop_length <= 0:
         raise ValueError(
@@ -98,7 +101,7 @@ def _validate_spectral_params(
             f"Hop length must be a positive integer.\n"
             f"Typical value: win_length // 4 = {actual_win_length // 4}"
         )
-    
+
     if actual_hop_length > actual_win_length:
         raise ValueError(
             f"Invalid hop length for {method_name}\n"
@@ -107,7 +110,7 @@ def _validate_spectral_params(
             f"Hop length cannot exceed window length (would create gaps).\n"
             f"Use hop_length={actual_win_length} or smaller for proper overlap"
         )
-    
+
     return actual_win_length, actual_hop_length
 
 
@@ -145,9 +148,10 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
                 f"  Got: {n_fft}\n"
                 f"  Expected: Positive integer > 0\n"
                 f"FFT size must be a positive integer.\n"
-                f"Common values: 512, 1024, 2048, 4096, 8192 (powers of 2 are most efficient)"
+                f"Common values: 512, 1024, 2048, 4096,\n"
+                f"8192 (powers of 2 are most efficient)"
             )
-        
+
         self.n_fft = n_fft
         self.window = window
         super().__init__(sampling_rate, n_fft=n_fft, window=window)
@@ -300,7 +304,7 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         actual_win_length, actual_hop_length = _validate_spectral_params(
             n_fft, win_length, hop_length, "STFT"
         )
-        
+
         self.n_fft = n_fft
         self.win_length = actual_win_length
         self.hop_length = actual_hop_length
@@ -557,7 +561,7 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
         actual_win_length, actual_hop_length = _validate_spectral_params(
             n_fft, win_length, hop_length, "Welch method"
         )
-        
+
         self.n_fft = n_fft
         self.win_length = actual_win_length
         self.hop_length = actual_hop_length

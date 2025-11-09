@@ -580,7 +580,10 @@ class TestSTFTOperation:
         assert "win_length <= n_fft" in error_msg
         assert "1024" in error_msg
         # Check HOW
-        assert "win_length=1024 or smaller" in error_msg or "increase n_fft to 2048" in error_msg
+        assert (
+            "win_length=1024 or smaller" in error_msg
+            or "increase n_fft to 2048" in error_msg
+        )
 
     def test_negative_hop_length_error_message(self) -> None:
         """Test that negative hop_length provides helpful error message."""
@@ -655,7 +658,8 @@ class TestSTFTOperation:
         assert "Positive integer" in error_msg
 
     def test_win_length_too_small_for_default_hop_error_message(self) -> None:
-        """Test that win_length < 4 with no hop_length provides helpful error message."""
+        """Test that win_length < 4 with no hop_length provides
+        helpful error message."""
         import pytest
 
         with pytest.raises(ValueError) as exc_info:
@@ -668,7 +672,9 @@ class TestSTFTOperation:
         # Check WHY
         assert "win_length >= 4" in error_msg
         # Check HOW
-        assert "specify a larger win_length or provide hop_length explicitly" in error_msg
+        assert (
+            "specify a larger win_length or provide hop_length explicitly" in error_msg
+        )
 
 
 class TestNOctSynthesisOperation:
@@ -1076,7 +1082,8 @@ class TestWelchOperation:
         assert "Positive integer" in error_msg
 
     def test_win_length_too_small_for_default_hop_error_message(self) -> None:
-        """Test that win_length < 4 with no hop_length provides helpful error message."""
+        """Test that win_length < 4 with no hop_length provides
+        helpful error message."""
         import pytest
 
         with pytest.raises(ValueError) as exc_info:
@@ -1089,7 +1096,9 @@ class TestWelchOperation:
         # Check WHY
         assert "win_length >= 4" in error_msg
         # Check HOW
-        assert "specify a larger win_length or provide hop_length explicitly" in error_msg
+        assert (
+            "specify a larger win_length or provide hop_length explicitly" in error_msg
+        )
 
 
 class TestCoherenceOperation:

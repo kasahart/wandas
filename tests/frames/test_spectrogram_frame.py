@@ -963,9 +963,9 @@ class TestSpectrogramFrame:
     def test_spectrogram_info_with_multichannel(self) -> None:
         """Test info() with multi-channel spectrogram."""
         # 4チャンネルのスペクトログラムを作成
-        complex_data: DaArray = _da_random_random(
+        complex_data: DaArray = _da_random_random((4, 65, 10)) + 1j * _da_random_random(
             (4, 65, 10)
-        ) + 1j * _da_random_random((4, 65, 10))
+        )
 
         channel_metadata: list[ChannelMetadata] = [
             ChannelMetadata(label=f"ch{i}", unit="Pa", ref=1.0) for i in range(4)

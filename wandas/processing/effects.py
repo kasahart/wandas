@@ -141,9 +141,10 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
                 f"  Got: {type(norm).__name__} ({norm})\n"
                 f"  Expected: float, int, np.inf, -np.inf, or None\n"
                 f"Norm parameter must be a numeric value or None.\n"
-                f"Common values: np.inf (max norm), 2 (L2 norm), 1 (L1 norm), 0 (pseudo L0)"
+                f"Common values: np.inf (max norm), 2 (L2 norm),\n"
+                f"1 (L1 norm), 0 (pseudo L0)"
             )
-        
+
         # Validate that norm is non-negative (except for -np.inf which is valid)
         if norm is not None and norm < 0 and not np.isneginf(norm):
             raise ValueError(
@@ -151,9 +152,10 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
                 f"  Got: {norm}\n"
                 f"  Expected: Non-negative value, np.inf, -np.inf, or None\n"
                 f"Norm parameter must be non-negative (except -np.inf for min norm).\n"
-                f"Common values: np.inf (max norm), 2 (L2 norm), 1 (L1 norm), 0 (pseudo L0)"
+                f"Common values: np.inf (max norm), 2 (L2 norm),\n"
+                f"1 (L1 norm), 0 (pseudo L0)"
             )
-        
+
         # Validate threshold
         if threshold is not None and threshold < 0:
             raise ValueError(
@@ -163,7 +165,7 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
                 f"Threshold must be non-negative.\n"
                 f"Typical values: 0.0 (no threshold), 1e-10 (small threshold)"
             )
-        
+
         super().__init__(
             sampling_rate, norm=norm, axis=axis, threshold=threshold, fill=fill
         )

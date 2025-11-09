@@ -2185,6 +2185,7 @@ class TestFadeIntegration:
 
         assert "Duration: 0.5 s" in output
         assert "Samples: 8000" in output
+
     # Error Message Tests (Phase 1 Improvements)
     def test_invalid_data_shape_error_message(self) -> None:
         """Test that invalid data shape provides helpful error message."""
