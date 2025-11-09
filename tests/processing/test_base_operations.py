@@ -151,3 +151,44 @@ class TestAudioOperation:
         # Invalid parameters should raise during initialization
         with pytest.raises(ValueError, match="Value must be non-negative"):
             _ = ValidatedOp(16000, -1)
+
+    def test_pure_parameter_default(self) -> None:
+        """Test that pure parameter defaults to True."""
+        op = self.TestOp(16000)
+        assert op.pure is True
+
+    def test_pure_parameter_explicit_true(self) -> None:
+        """Test that pure parameter can be explicitly set to True."""
+        op = self.TestOp(16000, pure=True)
+        assert op.pure is True
+
+    def test_pure_parameter_explicit_false(self) -> None:
+        """Test that pure parameter can be explicitly set to False."""
+        op = self.TestOp(16000, pure=False)
+        assert op.pure is False
+
+    def test_pure_parameter_used_in_delayed(self) -> None:
+        """Test that pure parameter is passed to dask.delayed."""
+
+        # Test with pure=True
+        op_true = self.TestOp(16000, pure=True)
+        with mock.patch("wandas.processing.base.delayed") as mock_delayed:
+            mock_delayed.return_value = lambda x: mock.MagicMock()
+            test_array = np.array([[1.0, 2.0, 3.0]])
+            op_true.process_array(test_array)
+
+            # Verify delayed was called with pure=True
+            mock_delayed.assert_called_once()
+            _, kwargs = mock_delayed.call_args
+            assert kwargs["pure"] is True
+
+        # Test with pure=False
+        op_false = self.TestOp(16000, pure=False)
+        with mock.patch("wandas.processing.base.delayed") as mock_delayed:
+            mock_delayed.return_value = lambda x: mock.MagicMock()
+            op_false.process_array(test_array)
+
+            # Verify delayed was called with pure=False
+            mock_delayed.assert_called_once()
+            _, kwargs = mock_delayed.call_args
+            assert kwargs["pure"] is False

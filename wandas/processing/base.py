@@ -23,7 +23,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     # Class variable: operation name
     name: ClassVar[str]
 
-    def __init__(self, sampling_rate: float, **params: Any):
+    def __init__(self, sampling_rate: float, *, pure: bool = True, **params: Any):
         """
         Initialize AudioOperation.
 
@@ -31,10 +31,15 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         ----------
         sampling_rate : float
             Sampling rate (Hz)
+        pure : bool, default=True
+            Whether the operation is pure (deterministic with no side effects).
+            When True, Dask can cache results for identical inputs.
+            Set to False only if the operation has side effects or is non-deterministic.
         **params : Any
             Operation-specific parameters
         """
         self.sampling_rate = sampling_rate
+        self.pure = pure
         self.params = params
 
         # Validate parameters during initialization
@@ -180,7 +185,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         logger.debug(f"Creating delayed operation on data with shape: {x.shape}")
         # Create wrapper with operation name and wrap it with dask.delayed
         wrapper = self._create_named_wrapper()
-        delayed_func = delayed(wrapper, pure=False)
+        delayed_func = delayed(wrapper, pure=self.pure)
         return delayed_func(x)
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
@@ -248,7 +253,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         # Create a wrapper function with the operation name
         # This allows Dask to use the operation name in the task graph
         wrapper = self._create_named_wrapper()
-        delayed_func = delayed(wrapper, pure=False)
+        delayed_func = delayed(wrapper, pure=self.pure)
         delayed_result = delayed_func(data)
 
         # Convert delayed result to dask array and return
