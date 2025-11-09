@@ -629,33 +629,49 @@ class RoughnessDwSpec(AudioOperation[NDArrayReal, NDArrayReal]):
     `roughness_dw` implementation. Output is band-by-time.
     
     The bark_axis is retrieved dynamically from MoSQITo during initialization
-    to ensure consistency with MoSQITo's implementation.
+    to ensure consistency with MoSQITo's implementation. Results are cached
+    based on sampling_rate and overlap to avoid redundant computations.
     """
 
     name = "roughness_dw_spec"
+    # Class-level cache: {(sampling_rate, overlap): bark_axis}
+    _bark_axis_cache: dict[tuple[float, float], NDArrayReal] = {}
 
     def __init__(self, sampling_rate: float, overlap: float = 0.5) -> None:
         self.overlap = overlap
-        # Retrieve bark_axis dynamically from MoSQITo to ensure consistency
-        # Use a minimal reference signal to get the bark_axis structure
-        reference_signal = np.zeros(int(sampling_rate * 0.2))  # 200ms minimal signal
-        try:
-            _, _, bark_axis_from_mosqito, _ = roughness_dw_mosqito(
-                reference_signal, sampling_rate, overlap=overlap
+        # Check cache first to avoid redundant MoSQITo calls
+        cache_key = (sampling_rate, overlap)
+        if cache_key in RoughnessDwSpec._bark_axis_cache:
+            logger.debug(
+                f"Using cached bark_axis for sampling_rate={sampling_rate}, overlap={overlap}"
             )
-        except Exception as e:
-            logger.error(
-                f"Failed to retrieve bark_axis from MoSQITo's roughness_dw: {e}"
+            self._bark_axis: NDArrayReal = RoughnessDwSpec._bark_axis_cache[cache_key]
+        else:
+            # Retrieve bark_axis dynamically from MoSQITo to ensure consistency
+            # Use a minimal reference signal to get the bark_axis structure
+            logger.debug(
+                f"Computing bark_axis from MoSQITo for sampling_rate={sampling_rate}, overlap={overlap}"
             )
-            raise RuntimeError(
-                "Could not initialize RoughnessDwSpec: error retrieving bark_axis from MoSQITo."
-            ) from e
-        if bark_axis_from_mosqito is None or (hasattr(bark_axis_from_mosqito, "__len__") and len(bark_axis_from_mosqito) == 0):
-            logger.error("MoSQITo's roughness_dw returned an empty or None bark_axis.")
-            raise RuntimeError(
-                "Could not initialize RoughnessDwSpec: MoSQITo's roughness_dw returned an empty or None bark_axis."
-            )
-        self._bark_axis: NDArrayReal = bark_axis_from_mosqito
+            reference_signal = np.zeros(int(sampling_rate * 0.2))  # 200ms minimal signal
+            try:
+                _, _, bark_axis_from_mosqito, _ = roughness_dw_mosqito(
+                    reference_signal, sampling_rate, overlap=overlap
+                )
+            except Exception as e:
+                logger.error(
+                    f"Failed to retrieve bark_axis from MoSQITo's roughness_dw: {e}"
+                )
+                raise RuntimeError(
+                    "Could not initialize RoughnessDwSpec: error retrieving bark_axis from MoSQITo."
+                ) from e
+            if bark_axis_from_mosqito is None or (hasattr(bark_axis_from_mosqito, "__len__") and len(bark_axis_from_mosqito) == 0):
+                logger.error("MoSQITo's roughness_dw returned an empty or None bark_axis.")
+                raise RuntimeError(
+                    "Could not initialize RoughnessDwSpec: MoSQITo's roughness_dw returned an empty or None bark_axis."
+                )
+            self._bark_axis = bark_axis_from_mosqito
+            # Cache the result for future use
+            RoughnessDwSpec._bark_axis_cache[cache_key] = bark_axis_from_mosqito
         super().__init__(sampling_rate, overlap=overlap)
 
     @property
