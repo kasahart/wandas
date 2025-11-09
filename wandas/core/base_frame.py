@@ -12,6 +12,7 @@ import pandas as pd
 from dask.array.core import Array as DaArray
 from IPython.display import Image as IPythonImage
 from matplotlib.axes import Axes
+from pydantic import ValidationError
 
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
@@ -43,8 +44,9 @@ class BaseFrame(ABC, Generic[T]):
         Additional metadata for the frame.
     operation_history : list[dict], optional
         History of operations performed on this frame.
-    channel_metadata : list[ChannelMetadata], optional
-        Metadata for each channel in the frame.
+    channel_metadata : list[ChannelMetadata | dict], optional
+        Metadata for each channel in the frame. Can be ChannelMetadata objects
+        or dicts that will be validated by Pydantic.
     previous : BaseFrame, optional
         The frame that this frame was derived from.
 
@@ -75,7 +77,9 @@ class BaseFrame(ABC, Generic[T]):
         label: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
         operation_history: Optional[list[dict[str, Any]]] = None,
-        channel_metadata: Optional[list[ChannelMetadata]] = None,
+        channel_metadata: Optional[
+            list[Union[ChannelMetadata, dict[str, Any]]]
+        ] = None,
         previous: Optional["BaseFrame[Any]"] = None,
     ):
         self._data = data.rechunk(chunks=-1)  # type: ignore [unused-ignore]
@@ -88,27 +92,32 @@ class BaseFrame(ABC, Generic[T]):
         self._previous = previous
 
         if channel_metadata:
-            # Convert dictionaries to ChannelMetadata objects if needed
-            self._channel_metadata = []
-            for ch in channel_metadata:
+            # Pydantic handles both ChannelMetadata objects and dicts
+            def _to_channel_metadata(ch, index):
                 if isinstance(ch, ChannelMetadata):
-                    self._channel_metadata.append(copy.deepcopy(ch))
+                    return copy.deepcopy(ch)
                 elif isinstance(ch, dict):
                     try:
-                        self._channel_metadata.append(ChannelMetadata(**ch))
-                    except TypeError as e:
-                        invalid_keys = set(ch.keys()) - set(
-                            ChannelMetadata.model_fields.keys()
-                        )
-                        raise TypeError(
-                            f"Invalid keys in channel_metadata dict: {invalid_keys}. "
-                            f"Error: {e}. Dict: {ch}"
+                        return ChannelMetadata(**ch)
+                    except ValidationError as e:
+                        raise ValueError(
+                            f"Invalid channel_metadata at index {index}\n"
+                            f"  Got: {ch}\n"
+                            f"  Validation error: {e}\n"
+                            f"Ensure all dict keys match ChannelMetadata fields "
+                            f"(label, unit, ref, extra) and have correct types."
                         ) from e
                 else:
                     raise TypeError(
-                        f"channel_metadata must be ChannelMetadata or dict, "
-                        f"got {type(ch)}"
+                        f"Invalid type in channel_metadata at index {index}\n"
+                        f"  Got: {type(ch).__name__} ({ch!r})\n"
+                        f"  Expected: ChannelMetadata or dict\n"
+                        f"Use either ChannelMetadata objects or dicts with valid fields."
                     )
+            self._channel_metadata = [
+                _to_channel_metadata(ch, i)
+                for i, ch in enumerate(channel_metadata)
+            ]
         else:
             self._channel_metadata = [
                 ChannelMetadata(label=f"ch{i}", unit="", extra={})

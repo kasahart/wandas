@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from wandas.core.base_frame import BaseFrame
+from wandas.core.metadata import ChannelMetadata
 from wandas.utils.types import NDArrayReal
 
 if TYPE_CHECKING:
@@ -113,7 +114,9 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         label: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
         operation_history: Optional[list[dict[str, Any]]] = None,
-        channel_metadata: Optional[list[Any]] = None,
+        channel_metadata: Optional[
+            list[Union[ChannelMetadata, dict[str, Any]]]
+        ] = None,
         previous: Optional["BaseFrame[Any]"] = None,
     ) -> None:
         """Initialize a RoughnessFrame."""
