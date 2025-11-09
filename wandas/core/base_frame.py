@@ -92,9 +92,17 @@ class BaseFrame(ABC, Generic[T]):
 
         if channel_metadata:
             # Pydantic handles both ChannelMetadata objects and dicts
+            def _to_channel_metadata(ch):
+                if isinstance(ch, ChannelMetadata):
+                    return copy.deepcopy(ch)
+                elif isinstance(ch, dict):
+                    return ChannelMetadata(**ch)
+                else:
+                    raise TypeError(
+                        f"Each item in channel_metadata must be a ChannelMetadata or dict, got {type(ch).__name__}: {ch!r}"
+                    )
             self._channel_metadata = [
-                copy.deepcopy(ch) if isinstance(ch, ChannelMetadata)
-                else ChannelMetadata(**ch)
+                _to_channel_metadata(ch)
                 for ch in channel_metadata
             ]
         else:
