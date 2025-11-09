@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     )
 
     from wandas.utils.types import NDArrayReal
+    from wandas.frames.base import BaseFrame
 logger = logging.getLogger(__name__)
 
 
