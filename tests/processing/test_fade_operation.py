@@ -35,8 +35,10 @@ def test_fade_tukey_matches_expected_single_channel():
     op = create_operation("fade", sr, fade_ms=fade_ms)
     out = op.process(dsig).compute()
 
-    # expected tukey window
-    alpha = float(2 * fade_len) / float(n)
+    # expected tukey window using Fade's static method
+    from wandas.processing.effects import Fade
+
+    alpha = Fade.calculate_tukey_alpha(fade_len, n)
     expected = sp_windows.tukey(n, alpha=alpha)
 
     assert out.shape == sig.shape
