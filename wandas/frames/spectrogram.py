@@ -114,7 +114,9 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         label: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
         operation_history: Optional[list[dict[str, Any]]] = None,
-        channel_metadata: Optional[list[ChannelMetadata]] = None,
+        channel_metadata: Optional[
+            list[Union[ChannelMetadata, dict[str, Any]]]
+        ] = None,
         previous: Optional["BaseFrame[Any]"] = None,
     ) -> None:
         if data.ndim == 2:
@@ -848,7 +850,9 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         label: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
         operation_history: Optional[list[dict[str, Any]]] = None,
-        channel_metadata: Optional[list[ChannelMetadata]] = None,
+        channel_metadata: Optional[
+            list[Union[ChannelMetadata, dict[str, Any]]]
+        ] = None,
         previous: Optional["BaseFrame[Any]"] = None,
     ) -> "SpectrogramFrame":
         """Create a SpectrogramFrame from a NumPy array.
