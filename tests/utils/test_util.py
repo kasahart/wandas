@@ -1,5 +1,6 @@
 # tests/core/test_util.py
 import numpy as np
+import pytest
 from scipy.signal.windows import tukey
 
 from wandas.utils.util import (
@@ -7,7 +8,76 @@ from wandas.utils.util import (
     calculate_rms,
     cut_sig,
     level_trigger,
+    validate_sampling_rate,
 )
+
+
+class TestValidateSamplingRate:
+    """Test suite for validate_sampling_rate function."""
+
+    def test_positive_sampling_rate(self) -> None:
+        """Test that positive sampling rates pass validation."""
+        # Common sampling rates
+        validate_sampling_rate(8000)
+        validate_sampling_rate(16000)
+        validate_sampling_rate(22050)
+        validate_sampling_rate(44100)
+        validate_sampling_rate(48000)
+        validate_sampling_rate(96000)
+
+        # Edge case: very small positive value
+        validate_sampling_rate(0.001)
+
+        # Edge case: very large value
+        validate_sampling_rate(1e9)
+
+    def test_zero_sampling_rate_raises_error(self) -> None:
+        """Test that zero sampling rate raises ValueError."""
+        with pytest.raises(ValueError) as exc_info:
+            validate_sampling_rate(0)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid sampling_rate" in error_msg
+        # Check WHY (actual vs expected)
+        assert "0" in error_msg or "0.0" in error_msg
+        assert "Positive value > 0" in error_msg
+        # Check HOW (common values as guidance)
+        assert "Common values:" in error_msg
+        assert "44100" in error_msg
+
+    def test_negative_sampling_rate_raises_error(self) -> None:
+        """Test that negative sampling rate raises ValueError."""
+        with pytest.raises(ValueError) as exc_info:
+            validate_sampling_rate(-44100)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid sampling_rate" in error_msg
+        # Check WHY (actual vs expected)
+        assert "-44100" in error_msg
+        assert "Positive value > 0" in error_msg
+        # Check HOW
+        assert "Common values:" in error_msg
+
+    def test_custom_param_name(self) -> None:
+        """Test that custom parameter name appears in error message."""
+        with pytest.raises(ValueError) as exc_info:
+            validate_sampling_rate(-100, "target sampling rate")
+
+        error_msg = str(exc_info.value)
+        # Custom parameter name should be in the error
+        assert "target sampling rate" in error_msg
+        assert "-100" in error_msg
+
+    def test_very_small_negative_value(self) -> None:
+        """Test that very small negative values are caught."""
+        with pytest.raises(ValueError) as exc_info:
+            validate_sampling_rate(-0.001)
+
+        error_msg = str(exc_info.value)
+        assert "Invalid sampling_rate" in error_msg
+        assert "Positive value > 0" in error_msg
 
 
 def test_calculate_rms_zeros() -> None:

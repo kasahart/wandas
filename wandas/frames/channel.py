@@ -13,6 +13,7 @@ from dask.array.core import concatenate, from_array
 from IPython.display import Audio, display
 from matplotlib.axes import Axes
 
+from wandas.utils import validate_sampling_rate
 from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
@@ -70,14 +71,7 @@ class ChannelFrame(
                 sampling_rate is not positive.
         """
         # Validate sampling rate
-        if sampling_rate <= 0:
-            raise ValueError(
-                f"Invalid sampling rate\n"
-                f"  Got: {sampling_rate} Hz\n"
-                f"  Expected: Positive value > 0\n"
-                f"Sampling rate represents samples per second and must be positive.\n"
-                f"Common values: 8000, 16000, 22050, 44100, 48000 Hz"
-            )
+        validate_sampling_rate(sampling_rate)
 
         # Validate and reshape data
         if data.ndim == 1:
