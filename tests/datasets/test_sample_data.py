@@ -1,7 +1,5 @@
 # filepath: /workspaces/wandas/tests/datasets/test_sample_data.py
 import numpy as np
-import pytest
-
 from wandas.datasets.sample_data import load_sample_signal
 
 
