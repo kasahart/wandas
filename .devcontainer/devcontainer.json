@@ -48,6 +48,8 @@
         // For Windows (uncomment if needed)
         // "source=${env:USERPROFILE}\\.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached"
     ],
+    // The GitHub CLI Copilot extension installation (`gh extension install github/gh-copilot`) was removed from postCreateCommand.
+    // If Copilot CLI is needed for development, please add it back. Otherwise, this is intentional.
     "postCreateCommand": "uv sync --frozen",
     "postStartCommand": "uv run pre-commit install",
     "remoteUser": "vscode"
