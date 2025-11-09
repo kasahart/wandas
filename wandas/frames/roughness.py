@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from wandas.core.base_frame import BaseFrame
+from wandas.core.metadata import ChannelMetadata
 from wandas.utils.types import NDArrayReal
 
 if TYPE_CHECKING:
