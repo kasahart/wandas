@@ -17,7 +17,6 @@ if TYPE_CHECKING:
         _WindowSpec,
     )
 
-    from wandas.core.base_frame import BaseFrame
     from wandas.utils.types import NDArrayReal
 logger = logging.getLogger(__name__)
 
