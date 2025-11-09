@@ -35,17 +35,17 @@ class CSVGetDataParams(TypedDict, total=False):
 
     Parameters
     ----------
-    time_column : Union[int, str]
-        Index or name of the time column. Default is 0.
     delimiter : str
         Delimiter character. Default is ",".
     header : Optional[int]
         Row number to use as header. Default is 0.
+    time_column : Union[int, str]
+        Index or name of the time column. Default is 0.
     """
 
-    time_column: Union[int, str]
     delimiter: str
     header: Optional[int]
+    time_column: Union[int, str]
 
 
 class FileReader(ABC):
