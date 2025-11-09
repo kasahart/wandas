@@ -864,8 +864,9 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
             window: The window function used (e.g., "hann", "hamming").
             label: A label for the frame.
             metadata: Optional metadata dictionary.
-            ch_labels: Labels for each channel.
-            ch_units: Units for each channel.
+            operation_history: History of operations applied to the frame.
+            channel_metadata: Metadata for each channel.
+            previous: Reference to the previous frame in the processing chain.
 
         Returns:
             A new SpectrogramFrame containing the NumPy data.
