@@ -369,6 +369,36 @@ class Fade(AudioOperation[NDArrayReal, NDArrayReal]):
         """Get display name for the operation for use in channel labels."""
         return "fade"
 
+    @staticmethod
+    def calculate_tukey_alpha(fade_len: int, n_samples: int) -> float:
+        """Calculate Tukey window alpha parameter from fade length.
+
+        The alpha parameter determines what fraction of the window is tapered.
+        For symmetric fade-in/fade-out, alpha = 2 * fade_len / n_samples ensures
+        that each side's taper has exactly fade_len samples.
+
+        Parameters
+        ----------
+        fade_len : int
+            Desired fade length in samples for each end (in and out).
+        n_samples : int
+            Total number of samples in the signal.
+
+        Returns
+        -------
+        float
+            Alpha parameter for scipy.signal.windows.tukey, clamped to [0, 1].
+
+        Examples
+        --------
+        >>> Fade.calculate_tukey_alpha(fade_len=20, n_samples=200)
+        0.2
+        >>> Fade.calculate_tukey_alpha(fade_len=100, n_samples=100)
+        1.0
+        """
+        alpha = float(2 * fade_len) / float(n_samples)
+        return min(1.0, alpha)
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying Tukey Fade to array with shape: {x.shape}")
 
@@ -387,10 +417,8 @@ class Fade(AudioOperation[NDArrayReal, NDArrayReal]):
                 "Fade length too long: 2*fade_ms must be less than signal length"
             )
 
-        # alpha is fraction of the window that is tapered (total), so that
-        # each side taper length == fade_len -> alpha = 2*fade_len / n_samples
-        alpha = float(2 * self.fade_len) / float(n_samples)
-        alpha = min(1.0, alpha)
+        # Calculate Tukey window alpha parameter
+        alpha = self.calculate_tukey_alpha(self.fade_len, n_samples)
 
         # Create tukey window (numpy) and apply
         env = sp_windows.tukey(n_samples, alpha=alpha)
