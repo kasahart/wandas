@@ -627,6 +627,9 @@ class RoughnessDwSpec(AudioOperation[NDArrayReal, NDArrayReal]):
 
     Computes per-Bark-band specific roughness over time using MoSQITo's
     `roughness_dw` implementation. Output is band-by-time.
+    
+    The bark_axis is retrieved dynamically from MoSQITo during initialization
+    to ensure consistency with MoSQITo's implementation.
     """
 
     name = "roughness_dw_spec"
