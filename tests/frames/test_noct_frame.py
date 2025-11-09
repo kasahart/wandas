@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 from unittest import mock
 
 import dask.array as da
@@ -21,7 +21,7 @@ def create_real_data(shape: tuple[int, ...]) -> NDArrayReal:
     return np.random.rand(*shape).astype(np.float32)
 
 
-def create_dask_array(data: NDArrayReal, chunks: Optional[tuple[int, ...]]) -> DaArray:
+def create_dask_array(data: NDArrayReal, chunks: tuple[int, ...] | None) -> DaArray:
     """Convert NumPy array to Dask array with specified chunks."""
     return _da_from_array(data, chunks=chunks)
 

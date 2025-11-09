@@ -3,8 +3,8 @@ import logging
 import numbers
 import uuid
 from abc import ABC, abstractmethod
-from collections.abc import Iterator
-from typing import Any, Callable, Generic, Optional, TypeVar, Union, cast
+from collections.abc import Callable, Iterator
+from typing import Any, Generic, Optional, TypeVar, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -74,12 +74,10 @@ class BaseFrame(ABC, Generic[T]):
         self,
         data: DaArray,
         sampling_rate: float,
-        label: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        operation_history: Optional[list[dict[str, Any]]] = None,
-        channel_metadata: Optional[
-            Union[list[ChannelMetadata], list[dict[str, Any]]]
-        ] = None,
+        label: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        operation_history: list[dict[str, Any]] | None = None,
+        channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
         previous: Optional["BaseFrame[Any]"] = None,
     ):
         self._data = data.rechunk(chunks=-1)  # type: ignore [unused-ignore]
@@ -94,7 +92,7 @@ class BaseFrame(ABC, Generic[T]):
         if channel_metadata:
             # Pydantic handles both ChannelMetadata objects and dicts
             def _to_channel_metadata(
-                ch: Union[ChannelMetadata, dict[str, Any]], index: int
+                ch: ChannelMetadata | dict[str, Any], index: int
             ) -> ChannelMetadata:
                 if isinstance(ch, ChannelMetadata):
                     return copy.deepcopy(ch)
@@ -118,9 +116,7 @@ class BaseFrame(ABC, Generic[T]):
                     )
 
             self._channel_metadata = [
-                _to_channel_metadata(
-                    cast(Union[ChannelMetadata, dict[str, Any]], ch), i
-                )
+                _to_channel_metadata(cast(ChannelMetadata | dict[str, Any], ch), i)
                 for i, ch in enumerate(channel_metadata)
             ]
         else:
@@ -162,13 +158,11 @@ class BaseFrame(ABC, Generic[T]):
 
     def get_channel(
         self: S,
-        channel_idx: Union[
-            int,
-            list[int],
-            tuple[int, ...],
-            npt.NDArray[np.int_],
-            npt.NDArray[np.bool_],
-        ],
+        channel_idx: int
+        | list[int]
+        | tuple[int, ...]
+        | npt.NDArray[np.int_]
+        | npt.NDArray[np.bool_],
     ) -> S:
         """
         Get channel(s) by index.
@@ -217,27 +211,23 @@ class BaseFrame(ABC, Generic[T]):
 
     def __getitem__(
         self: S,
-        key: Union[
-            int,
-            str,
-            slice,
-            list[int],
-            list[str],
-            tuple[
-                Union[
-                    int,
-                    str,
-                    slice,
-                    list[int],
-                    list[str],
-                    npt.NDArray[np.int_],
-                    npt.NDArray[np.bool_],
-                ],
-                ...,
-            ],
-            npt.NDArray[np.int_],
-            npt.NDArray[np.bool_],
-        ],
+        key: int
+        | str
+        | slice
+        | list[int]
+        | list[str]
+        | tuple[
+            int
+            | str
+            | slice
+            | list[int]
+            | list[str]
+            | npt.NDArray[np.int_]
+            | npt.NDArray[np.bool_],
+            ...,
+        ]
+        | npt.NDArray[np.int_]
+        | npt.NDArray[np.bool_],
     ) -> S:
         """
         Get channel(s) by index, label, or advanced indexing.
@@ -346,7 +336,7 @@ class BaseFrame(ABC, Generic[T]):
                 return self.get_channel(indices_from_labels)
 
             # Check if all elements are integers
-            elif all(isinstance(k, (int, np.integer)) for k in key):
+            elif all(isinstance(k, int | np.integer) for k in key):
                 # Multiple indices - convert to list[int] for type safety
                 int_list = [int(k) for k in key]
                 return self.get_channel(int_list)
@@ -381,15 +371,13 @@ class BaseFrame(ABC, Generic[T]):
     def _handle_multidim_indexing(
         self: S,
         key: tuple[
-            Union[
-                int,
-                str,
-                slice,
-                list[int],
-                list[str],
-                npt.NDArray[np.int_],
-                npt.NDArray[np.bool_],
-            ],
+            int
+            | str
+            | slice
+            | list[int]
+            | list[str]
+            | npt.NDArray[np.int_]
+            | npt.NDArray[np.bool_],
             ...,
         ],
     ) -> S:
@@ -420,9 +408,9 @@ class BaseFrame(ABC, Generic[T]):
         time_keys = key[1:] if len(key) > 1 else ()
 
         # Select channels first (recursively call __getitem__)
-        if isinstance(channel_key, (list, np.ndarray)):
+        if isinstance(channel_key, list | np.ndarray):
             selected = self[channel_key]
-        elif isinstance(channel_key, (int, str, slice)):
+        elif isinstance(channel_key, int | str | slice):
             selected = self[channel_key]
         else:
             raise TypeError(
@@ -515,8 +503,8 @@ class BaseFrame(ABC, Generic[T]):
 
     @abstractmethod
     def plot(
-        self, plot_type: str = "default", ax: Optional[Axes] = None, **kwargs: Any
-    ) -> Union[Axes, Iterator[Axes]]:
+        self, plot_type: str = "default", ax: Axes | None = None, **kwargs: Any
+    ) -> Axes | Iterator[Axes]:
         """Plot the data"""
         pass
 
@@ -578,9 +566,7 @@ class BaseFrame(ABC, Generic[T]):
             return result.astype(dtype)
         return result
 
-    def visualize_graph(
-        self, filename: Optional[str] = None
-    ) -> Union["IPythonImage", None]:
+    def visualize_graph(self, filename: str | None = None) -> IPythonImage | None:
         """
         Visualize the computation graph and save it to a file.
 
@@ -638,7 +624,7 @@ class BaseFrame(ABC, Generic[T]):
     @abstractmethod
     def _binary_op(
         self: S,
-        other: Union[S, int, float, NDArrayReal, DaArray],
+        other: S | int | float | NDArrayReal | DaArray,
         op: Callable[[DaArray, Any], DaArray],
         symbol: str,
     ) -> S:
@@ -647,23 +633,23 @@ class BaseFrame(ABC, Generic[T]):
         # Actual implementation is left to derived classes
         pass
 
-    def __add__(self: S, other: Union[S, int, float, NDArrayReal]) -> S:
+    def __add__(self: S, other: S | int | float | NDArrayReal) -> S:
         """Addition operator"""
         return self._binary_op(other, lambda x, y: x + y, "+")
 
-    def __sub__(self: S, other: Union[S, int, float, NDArrayReal]) -> S:
+    def __sub__(self: S, other: S | int | float | NDArrayReal) -> S:
         """Subtraction operator"""
         return self._binary_op(other, lambda x, y: x - y, "-")
 
-    def __mul__(self: S, other: Union[S, int, float, NDArrayReal]) -> S:
+    def __mul__(self: S, other: S | int | float | NDArrayReal) -> S:
         """Multiplication operator"""
         return self._binary_op(other, lambda x, y: x * y, "*")
 
-    def __truediv__(self: S, other: Union[S, int, float, NDArrayReal]) -> S:
+    def __truediv__(self: S, other: S | int | float | NDArrayReal) -> S:
         """Division operator"""
         return self._binary_op(other, lambda x, y: x / y, "/")
 
-    def __pow__(self: S, other: Union[S, int, float, NDArrayReal]) -> S:
+    def __pow__(self: S, other: S | int | float | NDArrayReal) -> S:
         """Power operator"""
         return self._binary_op(other, lambda x, y: x**y, "**")
 
@@ -694,7 +680,7 @@ class BaseFrame(ABC, Generic[T]):
     def _relabel_channels(
         self,
         operation_name: str,
-        display_name: Optional[str] = None,
+        display_name: str | None = None,
     ) -> list[ChannelMetadata]:
         """
         Update channel labels to reflect applied operation.

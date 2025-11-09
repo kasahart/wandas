@@ -3,7 +3,7 @@ ChannelCollectionMixin: Common functionality for adding/removing channels in
 ChannelFrame
 """
 
-from typing import TYPE_CHECKING, Any, Literal, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
 import dask.array as da
 import numpy as np
@@ -17,10 +17,10 @@ T = TypeVar("T", bound="ChannelCollectionMixin")
 class ChannelCollectionMixin:
     def add_channel(
         self: T,
-        data: Union[np.ndarray[Any, Any], da.Array, T],
-        label: Optional[str] = None,
+        data: np.ndarray[Any, Any] | da.Array | T,
+        label: str | None = None,
         align: Literal["strict", "pad", "truncate"] = "strict",
-        suffix_on_dup: Optional[str] = None,
+        suffix_on_dup: str | None = None,
         inplace: bool = False,
         **kwargs: Any,
     ) -> T:
@@ -41,7 +41,7 @@ class ChannelCollectionMixin:
 
     def remove_channel(
         self: T,
-        key: Union[int, str],
+        key: int | str,
         inplace: bool = False,
     ) -> T:
         """

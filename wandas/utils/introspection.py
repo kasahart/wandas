@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from inspect import Parameter, signature
-from typing import Any, Callable, Final
+from typing import Any, Final
 
 __all__: Final = ["accepted_kwargs", "filter_kwargs"]
 

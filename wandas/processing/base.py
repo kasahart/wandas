@@ -1,6 +1,6 @@
 import inspect
 import logging
-from typing import Any, ClassVar, Generic, Optional, TypeVar
+from typing import Any, ClassVar, Generic, TypeVar
 
 import dask.array as da
 from dask.array.core import Array as DaArray
@@ -96,7 +96,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         """
         return {}
 
-    def get_display_name(self) -> Optional[str]:
+    def get_display_name(self) -> str | None:
         """
         Get display name for the operation for use in channel labels.
 

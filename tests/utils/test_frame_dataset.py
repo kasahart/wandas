@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import dask.array as da
@@ -195,7 +194,7 @@ class TestFrameDatasetABC:
 
         # テスト用のサブクラスを作成し、抽象メソッドを実装
         class MinimalFrameDataset(FrameDataset[ChannelFrame]):
-            def _load_file(self, file_path: Path) -> Optional[ChannelFrame]:
+            def _load_file(self, file_path: Path) -> ChannelFrame | None:
                 return ChannelFrame.from_ndarray(np.zeros((10, 2)), 44100)
 
         # これは例外を投げない

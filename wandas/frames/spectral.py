@@ -1,7 +1,7 @@
 # spectral_frame.py
 import logging
-from collections.abc import Iterator
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union, cast
+from collections.abc import Callable, Iterator
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast
 
 import dask
 import dask.array as da
@@ -114,12 +114,10 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         sampling_rate: float,
         n_fft: int,
         window: str = "hann",
-        label: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        operation_history: Optional[list[dict[str, Any]]] = None,
-        channel_metadata: Optional[
-            Union[list[ChannelMetadata], list[dict[str, Any]]]
-        ] = None,
+        label: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        operation_history: list[dict[str, Any]] | None = None,
+        channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
         previous: Optional["BaseFrame[Any]"] = None,
     ) -> None:
         if data.ndim == 1:
@@ -381,7 +379,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             result_data = op(self._data, other)
 
             # String representation of operand for display
-            if isinstance(other, (int, float)):
+            if isinstance(other, int | float):
                 other_str = str(other)
             elif isinstance(other, complex):
                 other_str = f"complex({other.real}, {other.imag})"
@@ -416,16 +414,16 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         self,
         plot_type: str = "frequency",
         ax: Optional["Axes"] = None,
-        title: Optional[str] = None,
+        title: str | None = None,
         overlay: bool = False,
-        xlabel: Optional[str] = None,
-        ylabel: Optional[str] = None,
+        xlabel: str | None = None,
+        ylabel: str | None = None,
         alpha: float = 1.0,
-        xlim: Optional[tuple[float, float]] = None,
-        ylim: Optional[tuple[float, float]] = None,
+        xlim: tuple[float, float] | None = None,
+        ylim: tuple[float, float] | None = None,
         Aw: bool = False,  # noqa: N803
         **kwargs: Any,
-    ) -> Union["Axes", Iterator["Axes"]]:
+    ) -> Axes | Iterator[Axes]:
         """
         Plot the spectral data using various visualization strategies.
 

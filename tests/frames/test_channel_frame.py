@@ -1,7 +1,7 @@
 import os
 import tempfile
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 from unittest import mock
 
 import dask.array as da
@@ -312,7 +312,7 @@ class TestChannelFrame:
                 self.channel_frame, "compute", return_value=self.data
             ) as mock_compute:
                 mock_ax: mock.MagicMock = mock.MagicMock()
-                _: Union[Axes, Any] = self.channel_frame.plot(
+                _: Axes | Any = self.channel_frame.plot(
                     plot_type="waveform", ax=mock_ax
                 )
 

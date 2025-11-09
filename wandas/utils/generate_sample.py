@@ -1,6 +1,6 @@
 # wandas/utils/generate_sample.py
 
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -9,10 +9,10 @@ if TYPE_CHECKING:
 
 
 def generate_sin(
-    freqs: Union[float, list[float]] = 1000,
+    freqs: float | list[float] = 1000,
     sampling_rate: int = 16000,
     duration: float = 1.0,
-    label: Optional[str] = None,
+    label: str | None = None,
 ) -> "ChannelFrame":
     """
     Generate sample sine wave signals.
@@ -41,10 +41,10 @@ def generate_sin(
 
 
 def generate_sin_lazy(
-    freqs: Union[float, list[float]] = 1000,
+    freqs: float | list[float] = 1000,
     sampling_rate: int = 16000,
     duration: float = 1.0,
-    label: Optional[str] = None,
+    label: str | None = None,
 ) -> "ChannelFrame":
     """
     Generate sample sine wave signals using lazy computation.

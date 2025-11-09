@@ -1,7 +1,8 @@
 """Roughness analysis frame for detailed psychoacoustic analysis."""
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import dask.array as da
 import numpy as np
@@ -111,12 +112,10 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         sampling_rate: float,
         bark_axis: NDArrayReal,
         overlap: float,
-        label: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        operation_history: Optional[list[dict[str, Any]]] = None,
-        channel_metadata: Optional[
-            Union[list[ChannelMetadata], list[dict[str, Any]]]
-        ] = None,
+        label: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        operation_history: list[dict[str, Any]] | None = None,
+        channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
         previous: Optional["BaseFrame[Any]"] = None,
     ) -> None:
         """Initialize a RoughnessFrame."""
@@ -402,10 +401,10 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         self,
         plot_type: str = "heatmap",
         ax: Optional["Axes"] = None,
-        title: Optional[str] = None,
+        title: str | None = None,
         cmap: str = "viridis",
-        vmin: Optional[float] = None,
-        vmax: Optional[float] = None,
+        vmin: float | None = None,
+        vmax: float | None = None,
         xlabel: str = "Time [s]",
         ylabel: str = "Frequency [Bark]",
         colorbar_label: str = "Specific Roughness [Asper/Bark]",

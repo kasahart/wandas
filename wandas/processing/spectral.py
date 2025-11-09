@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 import numpy as np
 from mosqito.sound_level_meter import noct_spectrum, noct_synthesis
@@ -15,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 def _validate_spectral_params(
     n_fft: int,
-    win_length: Optional[int],
-    hop_length: Optional[int],
+    win_length: int | None,
+    hop_length: int | None,
     method_name: str,
 ) -> tuple[int, int]:
     """
@@ -118,11 +117,11 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
     """FFT (Fast Fourier Transform) operation"""
 
     name = "fft"
-    n_fft: Optional[int]
+    n_fft: int | None
     window: str
 
     def __init__(
-        self, sampling_rate: float, n_fft: Optional[int] = None, window: str = "hann"
+        self, sampling_rate: float, n_fft: int | None = None, window: str = "hann"
     ):
         """
         Initialize FFT operation
@@ -199,11 +198,11 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
     """IFFT (Inverse Fast Fourier Transform) operation"""
 
     name = "ifft"
-    n_fft: Optional[int]
+    n_fft: int | None
     window: str
 
     def __init__(
-        self, sampling_rate: float, n_fft: Optional[int] = None, window: str = "hann"
+        self, sampling_rate: float, n_fft: int | None = None, window: str = "hann"
     ):
         """
         Initialize IFFT operation
@@ -275,8 +274,8 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         self,
         sampling_rate: float,
         n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
+        hop_length: int | None = None,
+        win_length: int | None = None,
         window: str = "hann",
     ):
         """
@@ -375,10 +374,10 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         self,
         sampling_rate: float,
         n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
+        hop_length: int | None = None,
+        win_length: int | None = None,
         window: str = "hann",
-        length: Optional[int] = None,
+        length: int | None = None,
     ):
         """
         Initialize ISTFT operation
@@ -545,8 +544,8 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
     name = "welch"
     n_fft: int
     window: str
-    hop_length: Optional[int]
-    win_length: Optional[int]
+    hop_length: int | None
+    win_length: int | None
     average: str
     detrend: str
 
@@ -554,8 +553,8 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
         self,
         sampling_rate: float,
         n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
+        hop_length: int | None = None,
+        win_length: int | None = None,
         window: str = "hann",
         average: str = "mean",
         detrend: str = "constant",
@@ -836,8 +835,8 @@ class Coherence(AudioOperation[NDArrayReal, NDArrayReal]):
         self,
         sampling_rate: float,
         n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
+        hop_length: int | None = None,
+        win_length: int | None = None,
         window: str = "hann",
         detrend: str = "constant",
     ):
@@ -937,8 +936,8 @@ class CSD(AudioOperation[NDArrayReal, NDArrayComplex]):
         self,
         sampling_rate: float,
         n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
+        hop_length: int | None = None,
+        win_length: int | None = None,
         window: str = "hann",
         detrend: str = "constant",
         scaling: str = "spectrum",
@@ -1053,8 +1052,8 @@ class TransferFunction(AudioOperation[NDArrayReal, NDArrayComplex]):
         self,
         sampling_rate: float,
         n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
+        hop_length: int | None = None,
+        win_length: int | None = None,
         window: str = "hann",
         detrend: str = "constant",
         scaling: str = "spectrum",

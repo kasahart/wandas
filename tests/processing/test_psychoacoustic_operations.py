@@ -760,7 +760,7 @@ class TestLoudnessZwstIntegration:
         assert isinstance(loudness_mono, np.ndarray)
         assert loudness_mono.ndim == 1
         assert loudness_mono.shape[0] == 1  # One value per channel
-        assert isinstance(loudness_mono[0], (float, np.floating))
+        assert isinstance(loudness_mono[0], float | np.floating)
 
         # Create stereo frame
         signal_stereo = np.vstack([signal_mono[0], signal_mono[0] * 0.5])
@@ -778,12 +778,12 @@ class TestLoudnessZwstIntegration:
         assert loudness_stereo.shape[0] == 2  # Two values (one per channel)
 
         # Can access values directly without double indexing
-        assert isinstance(loudness_stereo[0], (float, np.floating))
-        assert isinstance(loudness_stereo[1], (float, np.floating))
+        assert isinstance(loudness_stereo[0], float | np.floating)
+        assert isinstance(loudness_stereo[1], float | np.floating)
 
         # Can use numpy operations directly
         mean_loudness = loudness_stereo.mean()
-        assert isinstance(mean_loudness, (float, np.floating))
+        assert isinstance(mean_loudness, float | np.floating)
 
     def test_channel_frame_loudness_matches_mosqito(self) -> None:
         """Test that ChannelFrame.loudness_zwst() matches direct MoSQITo call."""

@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Union
+from typing import Any
 
 import numpy as np
 from dask.array.core import Array as DaArray
@@ -98,10 +98,10 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
     def __init__(
         self,
         sampling_rate: float,
-        norm: Union[float, None] = np.inf,
-        axis: Union[int, None] = -1,
-        threshold: Union[float, None] = None,
-        fill: Union[bool, None] = None,
+        norm: float | None = np.inf,
+        axis: int | None = -1,
+        threshold: float | None = None,
+        fill: bool | None = None,
     ):
         """
         Initialize normalization operation
@@ -135,7 +135,7 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
             If norm parameter is invalid or threshold is negative
         """
         # Validate norm parameter
-        if norm is not None and not isinstance(norm, (int, float)):
+        if norm is not None and not isinstance(norm, int | float):
             raise ValueError(
                 f"Invalid normalization method\n"
                 f"  Got: {type(norm).__name__} ({norm})\n"

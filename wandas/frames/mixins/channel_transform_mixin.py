@@ -2,7 +2,7 @@
 operations."""
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from ...core.base_frame import BaseFrame
 from .protocols import T_Transform
@@ -24,7 +24,7 @@ class ChannelTransformMixin:
     """
 
     def fft(
-        self: T_Transform, n_fft: Optional[int] = None, window: str = "hann"
+        self: T_Transform, n_fft: int | None = None, window: str = "hann"
     ) -> "SpectralFrame":
         """Calculate Fast Fourier Transform (FFT).
 
@@ -83,8 +83,8 @@ class ChannelTransformMixin:
 
     def welch(
         self: T_Transform,
-        n_fft: Optional[int] = None,
-        hop_length: Optional[int] = None,
+        n_fft: int | None = None,
+        hop_length: int | None = None,
         win_length: int = 2048,
         window: str = "hann",
         average: str = "mean",
@@ -208,8 +208,8 @@ class ChannelTransformMixin:
     def stft(
         self: T_Transform,
         n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
+        hop_length: int | None = None,
+        win_length: int | None = None,
         window: str = "hann",
     ) -> "SpectrogramFrame":
         """Calculate Short-Time Fourier Transform.
@@ -273,8 +273,8 @@ class ChannelTransformMixin:
     def coherence(
         self: T_Transform,
         n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
+        hop_length: int | None = None,
+        win_length: int | None = None,
         window: str = "hann",
         detrend: str = "constant",
     ) -> "SpectralFrame":
@@ -352,8 +352,8 @@ class ChannelTransformMixin:
     def csd(
         self: T_Transform,
         n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
+        hop_length: int | None = None,
+        win_length: int | None = None,
         window: str = "hann",
         detrend: str = "constant",
         scaling: str = "spectrum",
@@ -436,8 +436,8 @@ class ChannelTransformMixin:
     def transfer_function(
         self: T_Transform,
         n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
+        hop_length: int | None = None,
+        win_length: int | None = None,
         window: str = "hann",
         detrend: str = "constant",
         scaling: str = "spectrum",

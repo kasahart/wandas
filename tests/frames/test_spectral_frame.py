@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 from unittest import mock
 
 # filepath: wandas/core/test_spectral_frame.py
@@ -24,9 +24,7 @@ def create_complex_data(shape: tuple[int, ...]) -> NDArrayComplex:
     return real_part + 1j * imag_part
 
 
-def create_dask_array(
-    data: NDArrayComplex, chunks: Optional[tuple[int, ...]]
-) -> DaArray:
+def create_dask_array(data: NDArrayComplex, chunks: tuple[int, ...] | None) -> DaArray:
     """Convert NumPy array to Dask array with specified chunks."""
     return _da_from_array(data, chunks=chunks)
 

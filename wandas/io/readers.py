@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Optional, TypedDict, Union
+from typing import Any, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -26,8 +26,8 @@ class CSVFileInfoParams(TypedDict, total=False):
     """
 
     delimiter: str
-    header: Optional[int]
-    time_column: Union[int, str]
+    header: int | None
+    time_column: int | str
 
 
 class CSVGetDataParams(TypedDict, total=False):
@@ -44,8 +44,8 @@ class CSVGetDataParams(TypedDict, total=False):
     """
 
     delimiter: str
-    header: Optional[int]
-    time_column: Union[int, str]
+    header: int | None
+    time_column: int | str
 
 
 class FileReader(ABC):
@@ -56,7 +56,7 @@ class FileReader(ABC):
 
     @classmethod
     @abstractmethod
-    def get_file_info(cls, path: Union[str, Path], **kwargs: Any) -> dict[str, Any]:
+    def get_file_info(cls, path: str | Path, **kwargs: Any) -> dict[str, Any]:
         """Get basic information about the audio file.
 
         Args:
@@ -77,7 +77,7 @@ class FileReader(ABC):
     @abstractmethod
     def get_data(
         cls,
-        path: Union[str, Path],
+        path: str | Path,
         channels: list[int],
         start_idx: int,
         frames: int,
@@ -98,7 +98,7 @@ class FileReader(ABC):
         pass
 
     @classmethod
-    def can_read(cls, path: Union[str, Path]) -> bool:
+    def can_read(cls, path: str | Path) -> bool:
         """Check if this reader can handle the file based on extension."""
         ext = Path(path).suffix.lower()
         return ext in cls.supported_extensions
@@ -111,7 +111,7 @@ class SoundFileReader(FileReader):
     supported_extensions = [".wav", ".flac", ".ogg", ".aiff", ".aif", ".snd"]
 
     @classmethod
-    def get_file_info(cls, path: Union[str, Path], **kwargs: Any) -> dict[str, Any]:
+    def get_file_info(cls, path: str | Path, **kwargs: Any) -> dict[str, Any]:
         """Get basic information about the audio file."""
         info = sf.info(str(path))
         return {
@@ -126,7 +126,7 @@ class SoundFileReader(FileReader):
     @classmethod
     def get_data(
         cls,
-        path: Union[str, Path],
+        path: str | Path,
         channels: list[int],
         start_idx: int,
         frames: int,
@@ -163,7 +163,7 @@ class CSVFileReader(FileReader):
     @classmethod
     def get_file_info(
         cls,
-        path: Union[str, Path],
+        path: str | Path,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Get basic information about the CSV file.
@@ -200,8 +200,8 @@ class CSVFileReader(FileReader):
         """
         # Extract parameters with defaults
         delimiter: str = kwargs.get("delimiter", ",")
-        header: Optional[int] = kwargs.get("header", 0)
-        time_column: Union[int, str] = kwargs.get("time_column", 0)
+        header: int | None = kwargs.get("header", 0)
+        time_column: int | str = kwargs.get("time_column", 0)
 
         # Read first few lines to determine structure
         df = pd.read_csv(path, delimiter=delimiter, header=header)
@@ -237,7 +237,7 @@ class CSVFileReader(FileReader):
     @classmethod
     def get_data(
         cls,
-        path: Union[str, Path],
+        path: str | Path,
         channels: list[int],
         start_idx: int,
         frames: int,
@@ -276,9 +276,9 @@ class CSVFileReader(FileReader):
         See CSVGetDataParams for supported parameter types.
         """
         # Extract parameters with defaults
-        time_column: Union[int, str] = kwargs.get("time_column", 0)
+        time_column: int | str = kwargs.get("time_column", 0)
         delimiter: str = kwargs.get("delimiter", ",")
-        header: Optional[int] = kwargs.get("header", 0)
+        header: int | None = kwargs.get("header", 0)
 
         logger.debug(f"Reading CSV data from {path} starting at {start_idx}")
 
@@ -320,7 +320,7 @@ class CSVFileReader(FileReader):
 _file_readers = [SoundFileReader(), CSVFileReader()]
 
 
-def get_file_reader(path: Union[str, Path]) -> FileReader:
+def get_file_reader(path: str | Path) -> FileReader:
     """Get an appropriate file reader for the given path."""
     path_str = str(path)
     ext = Path(path).suffix.lower()

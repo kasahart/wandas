@@ -1,7 +1,7 @@
 """Module providing mixins related to signal processing."""
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Union, cast
 
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.roughness import RoughnessFrame
@@ -93,10 +93,10 @@ class ChannelProcessingMixin:
 
     def normalize(
         self: T_Processing,
-        norm: Union[float, None] = float("inf"),
-        axis: Union[int, None] = -1,
-        threshold: Union[float, None] = None,
-        fill: Union[bool, None] = None,
+        norm: float | None = float("inf"),
+        axis: int | None = -1,
+        threshold: float | None = None,
+        fill: bool | None = None,
     ) -> T_Processing:
         """Normalize signal levels using librosa.util.normalize.
 
@@ -261,7 +261,7 @@ class ChannelProcessingMixin:
     def trim(
         self: T_Processing,
         start: float = 0,
-        end: Optional[float] = None,
+        end: float | None = None,
     ) -> T_Processing:
         """Trim the signal to the specified time range.
 
@@ -284,8 +284,8 @@ class ChannelProcessingMixin:
 
     def fix_length(
         self: T_Processing,
-        length: Optional[int] = None,
-        duration: Optional[float] = None,
+        length: int | None = None,
+        duration: float | None = None,
     ) -> T_Processing:
         """Adjust the signal to the specified length.
 
@@ -341,7 +341,7 @@ class ChannelProcessingMixin:
         return cast(T_Processing, result)
 
     def channel_difference(
-        self: T_Processing, other_channel: Union[int, str] = 0
+        self: T_Processing, other_channel: int | str = 0
     ) -> T_Processing:
         """Compute the difference between channels.
 
@@ -394,8 +394,8 @@ class ChannelProcessingMixin:
             list["_FloatLike_co"],
         ] = 1,
         n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
+        hop_length: int | None = None,
+        win_length: int | None = None,
         window: "_WindowSpec" = "hann",
         center: bool = True,
         pad_mode: "_PadModeSTFT" = "constant",
@@ -446,8 +446,8 @@ class ChannelProcessingMixin:
             list["_FloatLike_co"],
         ] = 1,
         n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
+        hop_length: int | None = None,
+        win_length: int | None = None,
         window: "_WindowSpec" = "hann",
         center: bool = True,
         pad_mode: "_PadModeSTFT" = "constant",

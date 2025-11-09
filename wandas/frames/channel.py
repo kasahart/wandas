@@ -1,7 +1,7 @@
 import logging
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Optional, TypeVar
 
 import dask
 import dask.array as da
@@ -47,12 +47,10 @@ class ChannelFrame(
         self,
         data: DaskArray,
         sampling_rate: float,
-        label: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        operation_history: Optional[list[dict[str, Any]]] = None,
-        channel_metadata: Optional[
-            Union[list[ChannelMetadata], list[dict[str, Any]]]
-        ] = None,
+        label: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        operation_history: list[dict[str, Any]] | None = None,
+        channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
         previous: Optional["BaseFrame[Any]"] = None,
     ) -> None:
         """Initialize a ChannelFrame.
@@ -240,7 +238,7 @@ class ChannelFrame(
 
     def _binary_op(
         self,
-        other: Union["ChannelFrame", int, float, NDArrayReal, "DaskArray"],
+        other: "ChannelFrame | int | float | NDArrayReal | DaskArray",
         op: Callable[["DaskArray", Any], "DaskArray"],
         symbol: str,
     ) -> "ChannelFrame":
@@ -306,7 +304,7 @@ class ChannelFrame(
             result_data = op(self._data, other)
 
             # Operand display string
-            if isinstance(other, (int, float)):
+            if isinstance(other, int | float):
                 other_str = str(other)
             elif isinstance(other, np.ndarray):
                 other_str = f"ndarray{other.shape}"
@@ -336,8 +334,8 @@ class ChannelFrame(
 
     def add(
         self,
-        other: Union["ChannelFrame", int, float, NDArrayReal],
-        snr: Optional[float] = None,
+        other: "ChannelFrame | int | float | NDArrayReal",
+        snr: float | None = None,
     ) -> "ChannelFrame":
         """Add another signal or value to the current signal.
 
@@ -366,7 +364,7 @@ class ChannelFrame(
             other = ChannelFrame.from_numpy(
                 other, self.sampling_rate, label="array_data"
             )
-        elif isinstance(other, (int, float)):
+        elif isinstance(other, int | float):
             return self + other
         else:
             raise TypeError(
@@ -386,15 +384,15 @@ class ChannelFrame(
         self,
         plot_type: str = "waveform",
         ax: Optional["Axes"] = None,
-        title: Optional[str] = None,
+        title: str | None = None,
         overlay: bool = False,
-        xlabel: Optional[str] = None,
-        ylabel: Optional[str] = None,
+        xlabel: str | None = None,
+        ylabel: str | None = None,
         alpha: float = 1.0,
-        xlim: Optional[tuple[float, float]] = None,
-        ylim: Optional[tuple[float, float]] = None,
+        xlim: tuple[float, float] | None = None,
+        ylim: tuple[float, float] | None = None,
         **kwargs: Any,
-    ) -> Union["Axes", Iterator["Axes"]]:
+    ) -> Axes | Iterator[Axes]:
         """Plot the frame data.
 
         Args:
@@ -458,11 +456,11 @@ class ChannelFrame(
     def rms_plot(
         self,
         ax: Optional["Axes"] = None,
-        title: Optional[str] = None,
+        title: str | None = None,
         overlay: bool = True,
         Aw: bool = False,  # noqa: N803
         **kwargs: Any,
-    ) -> Union["Axes", Iterator["Axes"]]:
+    ) -> Axes | Iterator[Axes]:
         """Generate an RMS plot.
 
         Args:
@@ -497,15 +495,15 @@ class ChannelFrame(
         is_close: bool = True,
         *,
         fmin: float = 0,
-        fmax: Optional[float] = None,
+        fmax: float | None = None,
         cmap: str = "jet",
-        vmin: Optional[float] = None,
-        vmax: Optional[float] = None,
-        xlim: Optional[tuple[float, float]] = None,
-        ylim: Optional[tuple[float, float]] = None,
+        vmin: float | None = None,
+        vmax: float | None = None,
+        xlim: tuple[float, float] | None = None,
+        ylim: tuple[float, float] | None = None,
         Aw: bool = False,  # noqa: N803
-        waveform: Optional[dict[str, Any]] = None,
-        spectral: Optional[dict[str, Any]] = None,
+        waveform: dict[str, Any] | None = None,
+        spectral: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
         """Display visual and audio representation of the frame.
@@ -622,7 +620,7 @@ class ChannelFrame(
             # display関数とAudioクラスを使用
             display(ax.figure)
             if is_close:
-                plt.close(ax.figure)
+                plt.close(getattr(ax, "figure", None))
             display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))
 
     @classmethod
@@ -630,10 +628,10 @@ class ChannelFrame(
         cls,
         data: NDArrayReal,
         sampling_rate: float,
-        label: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        ch_labels: Optional[list[str]] = None,
-        ch_units: Optional[Union[list[str], str]] = None,
+        label: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        ch_labels: list[str] | None = None,
+        ch_units: list[str] | str | None = None,
     ) -> "ChannelFrame":
         """Create a ChannelFrame from a NumPy array.
 
@@ -689,10 +687,10 @@ class ChannelFrame(
         cls,
         array: NDArrayReal,
         sampling_rate: float,
-        labels: Optional[list[str]] = None,
-        unit: Optional[Union[list[str], str]] = None,
-        frame_label: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        labels: list[str] | None = None,
+        unit: list[str] | str | None = None,
+        frame_label: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> "ChannelFrame":
         """Create a ChannelFrame from a NumPy array.
 
@@ -724,16 +722,16 @@ class ChannelFrame(
     @classmethod
     def from_file(
         cls,
-        path: Union[str, Path],
-        channel: Optional[Union[int, list[int]]] = None,
-        start: Optional[float] = None,
-        end: Optional[float] = None,
-        chunk_size: Optional[int] = None,
-        ch_labels: Optional[list[str]] = None,
+        path: str | Path,
+        channel: int | list[int] | None = None,
+        start: float | None = None,
+        end: float | None = None,
+        chunk_size: int | None = None,
+        ch_labels: list[str] | None = None,
         # CSV-specific parameters
-        time_column: Union[int, str] = 0,
+        time_column: int | str = 0,
         delimiter: str = ",",
-        header: Optional[int] = 0,
+        header: int | None = 0,
     ) -> "ChannelFrame":
         """Create a ChannelFrame from an audio file.
 
@@ -818,7 +816,7 @@ class ChannelFrame(
                 )
             channels_to_load = [channel]
             logger.debug(f"Will load single channel: {channel}")
-        elif isinstance(channel, (list, tuple)):
+        elif isinstance(channel, list | tuple):
             for ch in channel:
                 if ch < 0 or ch >= n_channels:
                     raise ValueError(
@@ -894,9 +892,7 @@ class ChannelFrame(
         return cf
 
     @classmethod
-    def read_wav(
-        cls, filename: str, labels: Optional[list[str]] = None
-    ) -> "ChannelFrame":
+    def read_wav(cls, filename: str, labels: list[str] | None = None) -> "ChannelFrame":
         """Utility method to read a WAV file.
 
         Args:
@@ -915,10 +911,10 @@ class ChannelFrame(
     def read_csv(
         cls,
         filename: str,
-        time_column: Union[int, str] = 0,
-        labels: Optional[list[str]] = None,
+        time_column: int | str = 0,
+        labels: list[str] | None = None,
         delimiter: str = ",",
-        header: Optional[int] = 0,
+        header: int | None = 0,
     ) -> "ChannelFrame":
         """Utility method to read a CSV file.
 
@@ -951,7 +947,7 @@ class ChannelFrame(
         )
         return cf
 
-    def to_wav(self, path: Union[str, Path], format: Optional[str] = None) -> None:
+    def to_wav(self, path: str | Path, format: str | None = None) -> None:
         """Save the audio data to a WAV file.
 
         Args:
@@ -964,12 +960,12 @@ class ChannelFrame(
 
     def save(
         self,
-        path: Union[str, Path],
+        path: str | Path,
         *,
         format: str = "hdf5",
-        compress: Optional[str] = "gzip",
+        compress: str | None = "gzip",
         overwrite: bool = False,
-        dtype: Optional[Union[str, np.dtype[Any]]] = None,
+        dtype: str | np.dtype[Any] | None = None,
     ) -> None:
         """Save the ChannelFrame to a WDF (Wandas Data File) format.
 
@@ -1003,7 +999,7 @@ class ChannelFrame(
         )
 
     @classmethod
-    def load(cls, path: Union[str, Path], *, format: str = "hdf5") -> "ChannelFrame":
+    def load(cls, path: str | Path, *, format: str = "hdf5") -> "ChannelFrame":
         """Load a ChannelFrame from a WDF (Wandas Data File) file.
 
         This loads data saved with the save() method, preserving all channel data,
@@ -1033,10 +1029,10 @@ class ChannelFrame(
 
     def add_channel(
         self,
-        data: Union[np.ndarray[Any, Any], DaskArray, "ChannelFrame"],
-        label: Optional[str] = None,
+        data: "np.ndarray[Any, Any] | DaskArray | ChannelFrame",
+        label: str | None = None,
         align: str = "strict",
-        suffix_on_dup: Optional[str] = None,
+        suffix_on_dup: str | None = None,
         inplace: bool = False,
     ) -> "ChannelFrame":
         """Add a new channel to the frame.
@@ -1196,9 +1192,7 @@ class ChannelFrame(
                 previous=self,
             )
 
-    def remove_channel(
-        self, key: Union[int, str], inplace: bool = False
-    ) -> "ChannelFrame":
+    def remove_channel(self, key: int | str, inplace: bool = False) -> "ChannelFrame":
         if isinstance(key, int):
             if not (0 <= key < self.n_channels):
                 raise IndexError(f"index {key} out of range")

@@ -1,6 +1,6 @@
 import logging
-from collections.abc import Iterator
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union, cast
+from collections.abc import Callable, Iterator
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast
 
 import dask.array as da
 import librosa
@@ -109,14 +109,12 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         sampling_rate: float,
         n_fft: int,
         hop_length: int,
-        win_length: Optional[int] = None,
+        win_length: int | None = None,
         window: str = "hann",
-        label: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        operation_history: Optional[list[dict[str, Any]]] = None,
-        channel_metadata: Optional[
-            Union[list[ChannelMetadata], list[dict[str, Any]]]
-        ] = None,
+        label: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        operation_history: list[dict[str, Any]] | None = None,
+        channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
         previous: Optional["BaseFrame[Any]"] = None,
     ) -> None:
         if data.ndim == 2:
@@ -405,7 +403,7 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         else:
             result_data = op(self._data, other)
 
-            if isinstance(other, (int, float)):
+            if isinstance(other, int | float):
                 other_str = str(other)
             elif isinstance(other, complex):
                 other_str = f"complex({other.real}, {other.imag})"
@@ -441,14 +439,14 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         self,
         plot_type: str = "spectrogram",
         ax: Optional["Axes"] = None,
-        title: Optional[str] = None,
+        title: str | None = None,
         cmap: str = "jet",
-        vmin: Optional[float] = None,
-        vmax: Optional[float] = None,
+        vmin: float | None = None,
+        vmax: float | None = None,
         fmin: float = 0,
-        fmax: Optional[float] = None,
-        xlim: Optional[tuple[float, float]] = None,
-        ylim: Optional[tuple[float, float]] = None,
+        fmax: float | None = None,
+        xlim: tuple[float, float] | None = None,
+        ylim: tuple[float, float] | None = None,
         Aw: bool = False,  # noqa: N803
         **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
@@ -845,14 +843,12 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         sampling_rate: float,
         n_fft: int,
         hop_length: int,
-        win_length: Optional[int] = None,
+        win_length: int | None = None,
         window: str = "hann",
-        label: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        operation_history: Optional[list[dict[str, Any]]] = None,
-        channel_metadata: Optional[
-            Union[list[ChannelMetadata], list[dict[str, Any]]]
-        ] = None,
+        label: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        operation_history: list[dict[str, Any]] | None = None,
+        channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
         previous: Optional["BaseFrame[Any]"] = None,
     ) -> "SpectrogramFrame":
         """Create a SpectrogramFrame from a NumPy array.

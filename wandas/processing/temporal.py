@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional, Union
+from typing import Any
 
 import librosa
 import numpy as np
@@ -160,8 +160,8 @@ class FixLength(AudioOperation[NDArrayReal, NDArrayReal]):
     def __init__(
         self,
         sampling_rate: float,
-        length: Optional[int] = None,
-        duration: Optional[float] = None,
+        length: int | None = None,
+        duration: float | None = None,
     ):
         """
         Initialize fix length operation
@@ -230,7 +230,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         sampling_rate: float,
         frame_length: int = 2048,
         hop_length: int = 512,
-        ref: Union[list[float], float] = 1.0,
+        ref: list[float] | float = 1.0,
         dB: bool = False,  # noqa: N803
         Aw: bool = False,  # noqa: N803
     ) -> None:

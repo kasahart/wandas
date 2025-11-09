@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 import dask.array as da
 import pytest
@@ -321,7 +321,7 @@ class TestSpectrogramFrame:
         # PlotStrategy をモック
         class MockPlotStrategy:
             def plot(
-                self, frame: SpectrogramFrame, ax: Optional[Any] = None, **kwargs: Any
+                self, frame: SpectrogramFrame, ax: Any | None = None, **kwargs: Any
             ) -> None:
                 return None
 
@@ -337,7 +337,7 @@ class TestSpectrogramFrame:
         )
 
         # プロット機能をテスト
-        result: Optional[Any] = sample_spectrogram.plot(plot_type="spectrogram")
+        result: Any | None = sample_spectrogram.plot(plot_type="spectrogram")
         assert result is None
 
     def test_get_additional_init_kwargs(
@@ -374,7 +374,7 @@ class TestSpectrogramFrame:
         def mock_plot(
             self: SpectrogramFrame,
             plot_type: str = "spectrogram",
-            ax: Optional[Any] = None,
+            ax: Any | None = None,
             **kwargs: Any,
         ) -> None:
             nonlocal plot_args

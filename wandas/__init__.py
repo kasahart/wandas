@@ -1,7 +1,6 @@
 # wandas/__init__.py
 import logging
 from importlib.metadata import version
-from typing import Union
 
 # coreからのインポートをframesからのインポートに変更
 from .frames.channel import ChannelFrame
@@ -20,7 +19,7 @@ __all__ = ["read_wav", "read_csv", "from_ndarray", "generate_sin"]
 
 
 def setup_wandas_logging(
-    level: Union[str, int] = "INFO", add_handler: bool = True
+    level: str | int = "INFO", add_handler: bool = True
 ) -> logging.Logger:
     """
     Utility function to set up logging for the wandas library.
