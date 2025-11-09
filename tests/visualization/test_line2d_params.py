@@ -4,7 +4,6 @@ This module tests how matplotlib Line2D parameters are filtered
 when passed to plotting functions via filter_kwargs.
 """
 
-import pytest
 from matplotlib.lines import Line2D
 
 from wandas.utils.introspection import filter_kwargs
