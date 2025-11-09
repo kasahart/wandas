@@ -1790,7 +1790,8 @@ class TestBaseFrameExceptionHandling:
         error_msg = str(exc_info.value)
         # Check WHAT
         assert "Audio file not found" in error_msg
-        assert fake_path in error_msg
+        # Cross-platform: check for key path components instead of exact path
+        assert "nonexistent" in error_msg and "audio.wav" in error_msg
         # Check WHY (context)
         assert "Current directory:" in error_msg
         # Check HOW
@@ -2254,7 +2255,8 @@ class TestFadeIntegration:
         error_msg = str(exc_info.value)
         # Check WHAT
         assert "Audio file not found" in error_msg
-        assert fake_path in error_msg
+        # Cross-platform: check for key path components instead of exact path
+        assert "nonexistent" in error_msg and "audio.wav" in error_msg
         # Check WHY (context)
         assert "Current directory:" in error_msg
         # Check HOW
