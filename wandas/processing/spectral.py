@@ -380,9 +380,37 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         window: str = "hann",
         length: Optional[int] = None,
     ):
+        """
+        Initialize ISTFT operation
+
+        Parameters
+        ----------
+        sampling_rate : float
+            Sampling rate (Hz)
+        n_fft : int
+            FFT size, default is 2048
+        hop_length : int, optional
+            Number of samples between frames. Default is win_length // 4
+        win_length : int, optional
+            Window length. Default is n_fft
+        window : str
+            Window type, default is 'hann'
+        length : int, optional
+            Length of output signal. Default is None (determined from input)
+
+        Raises
+        ------
+        ValueError
+            If n_fft is not positive, win_length > n_fft, or hop_length is invalid
+        """
+        # Validate and compute parameters
+        actual_win_length, actual_hop_length = _validate_spectral_params(
+            n_fft, win_length, hop_length, "ISTFT"
+        )
+
         self.n_fft = n_fft
-        self.win_length = win_length if win_length is not None else n_fft
-        self.hop_length = hop_length if hop_length is not None else self.win_length // 4
+        self.win_length = actual_win_length
+        self.hop_length = actual_hop_length
         self.window = window
         self.length = length
 
@@ -807,11 +835,11 @@ class Coherence(AudioOperation[NDArrayReal, NDArrayReal]):
     def __init__(
         self,
         sampling_rate: float,
-        n_fft: int,
-        hop_length: int,
-        win_length: int,
-        window: str,
-        detrend: str,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: str = "hann",
+        detrend: str = "constant",
     ):
         """
         Initialize coherence estimation operation
@@ -821,19 +849,29 @@ class Coherence(AudioOperation[NDArrayReal, NDArrayReal]):
         sampling_rate : float
             Sampling rate (Hz)
         n_fft : int
-            FFT size
-        hop_length : int
-            Hop length
-        win_length : int
-            Window length
+            FFT size, default is 2048
+        hop_length : int, optional
+            Number of samples between frames. Default is win_length // 4
+        win_length : int, optional
+            Window length. Default is n_fft
         window : str
-            Window function
+            Window function, default is 'hann'
         detrend : str
-            Type of detrend
+            Type of detrend, default is 'constant'
+
+        Raises
+        ------
+        ValueError
+            If n_fft is not positive, win_length > n_fft, or hop_length is invalid
         """
+        # Validate and compute parameters
+        actual_win_length, actual_hop_length = _validate_spectral_params(
+            n_fft, win_length, hop_length, "Coherence"
+        )
+
         self.n_fft = n_fft
-        self.win_length = win_length if win_length is not None else n_fft
-        self.hop_length = hop_length if hop_length is not None else self.win_length // 4
+        self.win_length = actual_win_length
+        self.hop_length = actual_hop_length
         self.window = window
         self.detrend = detrend
         super().__init__(
@@ -898,13 +936,13 @@ class CSD(AudioOperation[NDArrayReal, NDArrayComplex]):
     def __init__(
         self,
         sampling_rate: float,
-        n_fft: int,
-        hop_length: int,
-        win_length: int,
-        window: str,
-        detrend: str,
-        scaling: str,
-        average: str,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: str = "hann",
+        detrend: str = "constant",
+        scaling: str = "spectrum",
+        average: str = "mean",
     ):
         """
         Initialize cross-spectral density estimation operation
@@ -914,23 +952,33 @@ class CSD(AudioOperation[NDArrayReal, NDArrayComplex]):
         sampling_rate : float
             Sampling rate (Hz)
         n_fft : int
-            FFT size
-        hop_length : int
-            Hop length
-        win_length : int
-            Window length
+            FFT size, default is 2048
+        hop_length : int, optional
+            Number of samples between frames. Default is win_length // 4
+        win_length : int, optional
+            Window length. Default is n_fft
         window : str
-            Window function
+            Window function, default is 'hann'
         detrend : str
-            Type of detrend
+            Type of detrend, default is 'constant'
         scaling : str
-            Type of scaling
+            Type of scaling, default is 'spectrum'
         average : str
-            Method of averaging
+            Method of averaging, default is 'mean'
+
+        Raises
+        ------
+        ValueError
+            If n_fft is not positive, win_length > n_fft, or hop_length is invalid
         """
+        # Validate and compute parameters
+        actual_win_length, actual_hop_length = _validate_spectral_params(
+            n_fft, win_length, hop_length, "CSD"
+        )
+
         self.n_fft = n_fft
-        self.win_length = win_length if win_length is not None else n_fft
-        self.hop_length = hop_length if hop_length is not None else self.win_length // 4
+        self.win_length = actual_win_length
+        self.hop_length = actual_hop_length
         self.window = window
         self.detrend = detrend
         self.scaling = scaling
@@ -1004,11 +1052,11 @@ class TransferFunction(AudioOperation[NDArrayReal, NDArrayComplex]):
     def __init__(
         self,
         sampling_rate: float,
-        n_fft: int,
-        hop_length: int,
-        win_length: int,
-        window: str,
-        detrend: str,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: str = "hann",
+        detrend: str = "constant",
         scaling: str = "spectrum",
         average: str = "mean",
     ):
@@ -1020,23 +1068,33 @@ class TransferFunction(AudioOperation[NDArrayReal, NDArrayComplex]):
         sampling_rate : float
             Sampling rate (Hz)
         n_fft : int
-            FFT size
-        hop_length : int
-            Hop length
-        win_length : int
-            Window length
+            FFT size, default is 2048
+        hop_length : int, optional
+            Number of samples between frames. Default is win_length // 4
+        win_length : int, optional
+            Window length. Default is n_fft
         window : str
-            Window function
+            Window function, default is 'hann'
         detrend : str
-            Type of detrend
+            Type of detrend, default is 'constant'
         scaling : str
-            Type of scaling
+            Type of scaling, default is 'spectrum'
         average : str
-            Method of averaging
+            Method of averaging, default is 'mean'
+
+        Raises
+        ------
+        ValueError
+            If n_fft is not positive, win_length > n_fft, or hop_length is invalid
         """
+        # Validate and compute parameters
+        actual_win_length, actual_hop_length = _validate_spectral_params(
+            n_fft, win_length, hop_length, "Transfer function"
+        )
+
         self.n_fft = n_fft
-        self.win_length = win_length if win_length is not None else n_fft
-        self.hop_length = hop_length if hop_length is not None else self.win_length // 4
+        self.win_length = actual_win_length
+        self.hop_length = actual_hop_length
         self.window = window
         self.detrend = detrend
         self.scaling = scaling
