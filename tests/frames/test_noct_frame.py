@@ -3,6 +3,7 @@ from unittest import mock
 
 import dask.array as da
 import numpy as np
+import pandas as pd
 import pytest
 from dask.array.core import Array as DaArray
 
@@ -251,3 +252,54 @@ class TestNOctFrame:
             "fmin": self.fmin,
             "fmax": self.fmax,
         }
+
+    def test_to_dataframe(self) -> None:
+        """Test to_dataframe converts frame data to DataFrame with frequency index."""
+        # NOctFrameの作成
+        noct_frame = NOctFrame(
+            data=self.data,
+            sampling_rate=self.sampling_rate,
+            n=self.n,
+            G=self.G,
+            fr=self.fr,
+            fmin=self.fmin,
+            fmax=self.fmax,
+            channel_metadata=self.channel_metadata,
+        )
+
+        # DataFrame変換
+        df = noct_frame.to_dataframe()
+
+        # DataFrameの検証
+        assert isinstance(df, pd.DataFrame)
+        assert df.shape == (self.shape[1], self.shape[0])  # (freq_bins, channels)
+        assert df.index.name == "frequency"
+        assert list(df.columns) == ["ch1", "ch2"]
+
+        # 周波数インデックスの検証
+        expected_freqs = noct_frame.freqs
+        np.testing.assert_array_almost_equal(df.index.values, expected_freqs)
+
+    def test_to_dataframe_single_channel(self) -> None:
+        """Test to_dataframe with single channel."""
+        # 単一チャネルのデータ作成
+        single_channel_data = self.data[0:1, :]  # 最初のチャネルのみ
+        single_channel_metadata = [self.channel_metadata[0]]
+
+        noct_frame = NOctFrame(
+            data=single_channel_data,
+            sampling_rate=self.sampling_rate,
+            n=self.n,
+            G=self.G,
+            fr=self.fr,
+            fmin=self.fmin,
+            fmax=self.fmax,
+            channel_metadata=single_channel_metadata,
+        )
+
+        df = noct_frame.to_dataframe()
+
+        assert isinstance(df, pd.DataFrame)
+        assert df.shape == (self.shape[1], 1)  # (freq_bins, 1)
+        assert df.index.name == "frequency"
+        assert list(df.columns) == ["ch1"]

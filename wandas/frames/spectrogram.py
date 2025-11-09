@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union, cast
 import dask.array as da
 import librosa
 import numpy as np
+import pandas as pd
 from dask.array.core import Array as DaArray
 
 from wandas.core.base_frame import BaseFrame
@@ -741,3 +742,149 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
             "win_length": self.win_length,
             "window": self.window,
         }
+
+    def _get_dataframe_columns(self) -> list[str]:
+        """Get channel labels as DataFrame columns."""
+        return [ch.label for ch in self._channel_metadata]
+
+    def _get_dataframe_index(self) -> "pd.Index[Any]":
+        """DataFrame index is not supported for SpectrogramFrame."""
+        raise NotImplementedError(
+            "DataFrame index is not supported for SpectrogramFrame."
+        )
+
+    def to_dataframe(self) -> "pd.DataFrame":
+        """DataFrame conversion is not supported for SpectrogramFrame.
+
+        SpectrogramFrame contains 3D data (channels, frequency_bins, time_frames)
+        which cannot be directly converted to a 2D DataFrame. Consider using
+        get_frame_at() to extract a specific time frame as a SpectralFrame,
+        then convert that to a DataFrame.
+
+        Raises
+        ------
+        NotImplementedError
+            Always raised as DataFrame conversion is not supported.
+        """
+        raise NotImplementedError(
+            "DataFrame conversion is not supported for SpectrogramFrame. "
+            "Use get_frame_at() to extract a specific time frame as SpectralFrame, "
+            "then convert that to a DataFrame."
+        )
+
+    def info(self) -> None:
+        """Display comprehensive information about the SpectrogramFrame.
+
+        This method prints a summary of the frame's properties including:
+        - Number of channels
+        - Sampling rate
+        - FFT size
+        - Hop length
+        - Window length
+        - Window function
+        - Frequency range
+        - Number of frequency bins
+        - Frequency resolution (ΔF)
+        - Number of time frames
+        - Time resolution (ΔT)
+        - Total duration
+        - Channel labels
+        - Number of operations applied
+
+        This is a convenience method to view all key properties at once,
+        similar to pandas DataFrame.info().
+
+        Examples
+        --------
+        >>> signal = ChannelFrame.from_wav("audio.wav")
+        >>> spectrogram = signal.stft(n_fft=2048, hop_length=512)
+        >>> spectrogram.info()
+        SpectrogramFrame Information:
+          Channels: 2
+          Sampling rate: 44100 Hz
+          FFT size: 2048
+          Hop length: 512 samples
+          Window length: 2048 samples
+          Window: hann
+          Frequency range: 0.0 - 22050.0 Hz
+          Frequency bins: 1025
+          Frequency resolution (ΔF): 21.5 Hz
+          Time frames: 100
+          Time resolution (ΔT): 11.6 ms
+          Total duration: 1.16 s
+          Channel labels: ['ch0', 'ch1']
+          Operations Applied: 1
+        """
+        # Calculate frequency resolution (ΔF) and time resolution (ΔT)
+        delta_f = self.sampling_rate / self.n_fft
+        delta_t_ms = (self.hop_length / self.sampling_rate) * 1000
+        total_duration = (self.n_frames * self.hop_length) / self.sampling_rate
+
+        print("SpectrogramFrame Information:")
+        print(f"  Channels: {self.n_channels}")
+        print(f"  Sampling rate: {self.sampling_rate} Hz")
+        print(f"  FFT size: {self.n_fft}")
+        print(f"  Hop length: {self.hop_length} samples")
+        print(f"  Window length: {self.win_length} samples")
+        print(f"  Window: {self.window}")
+        print(f"  Frequency range: {self.freqs[0]:.1f} - {self.freqs[-1]:.1f} Hz")
+        print(f"  Frequency bins: {self.n_freq_bins}")
+        print(f"  Frequency resolution (ΔF): {delta_f:.1f} Hz")
+        print(f"  Time frames: {self.n_frames}")
+        print(f"  Time resolution (ΔT): {delta_t_ms:.1f} ms")
+        print(f"  Total duration: {total_duration:.2f} s")
+        print(f"  Channel labels: {self.labels}")
+        self._print_operation_history()
+
+    @classmethod
+    def from_numpy(
+        cls,
+        data: NDArrayComplex,
+        sampling_rate: float,
+        n_fft: int,
+        hop_length: int,
+        win_length: Optional[int] = None,
+        window: str = "hann",
+        label: Optional[str] = None,
+        metadata: Optional[dict[str, Any]] = None,
+        operation_history: Optional[list[dict[str, Any]]] = None,
+        channel_metadata: Optional[list[ChannelMetadata]] = None,
+        previous: Optional["BaseFrame[Any]"] = None,
+    ) -> "SpectrogramFrame":
+        """Create a SpectrogramFrame from a NumPy array.
+
+        Args:
+            data: NumPy array containing spectrogram data.
+                Shape should be (n_channels, n_freq_bins, n_time_frames) or
+                (n_freq_bins, n_time_frames) for single channel.
+            sampling_rate: The sampling rate in Hz.
+            n_fft: The FFT size used to generate this spectrogram.
+            hop_length: Number of samples between successive frames.
+            win_length: The window length in samples. If None, defaults to n_fft.
+            window: The window function used (e.g., "hann", "hamming").
+            label: A label for the frame.
+            metadata: Optional metadata dictionary.
+            operation_history: History of operations applied to the frame.
+            channel_metadata: Metadata for each channel.
+            previous: Reference to the previous frame in the processing chain.
+
+        Returns:
+            A new SpectrogramFrame containing the NumPy data.
+        """
+
+        # Convert NumPy array to dask array
+        dask_data = da.from_array(data)
+        sf = cls(
+            data=dask_data,
+            sampling_rate=sampling_rate,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            label=label or "numpy_spectrogram",
+            metadata=metadata,
+            operation_history=operation_history,
+            channel_metadata=channel_metadata,
+            previous=previous,
+        )
+        return sf

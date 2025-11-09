@@ -147,7 +147,7 @@ class TestChannelMetadata:
             unit="Hz",
             extra={"source": "microphone", "calibrated": True},
         )
-        copy_mata: ChannelMetadata = metadata.copy(deep=True)
+        copy_mata: ChannelMetadata = metadata.model_copy(deep=True)
 
         # Verify all fields are equal
         assert copy_mata.label == metadata.label

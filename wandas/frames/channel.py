@@ -1,12 +1,13 @@
 import logging
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Callable, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union
 
 import dask
 import dask.array as da
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from dask.array.core import Array as DaskArray
 from dask.array.core import concatenate, from_array
 from IPython.display import Audio, display
@@ -18,6 +19,9 @@ from ..core.base_frame import BaseFrame
 from ..core.metadata import ChannelMetadata
 from ..io.readers import get_file_reader
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
 
 logger = logging.getLogger(__name__)
 
@@ -168,6 +172,37 @@ class ChannelFrame(
         rms_values: NDArrayReal = np.sqrt(np.mean(arr**2, axis=1))  # type: ignore [arg-type]
         return rms_values
 
+    def info(self) -> None:
+        """Display comprehensive information about the ChannelFrame.
+
+        This method prints a summary of the frame's properties including:
+        - Number of channels
+        - Sampling rate
+        - Duration
+        - Number of samples
+        - Channel labels
+
+        This is a convenience method to view all key properties at once,
+        similar to pandas DataFrame.info().
+
+        Examples
+        --------
+        >>> cf = ChannelFrame.read_wav("audio.wav")
+        >>> cf.info()
+        Channels: 2
+        Sampling rate: 44100 Hz
+        Duration: 1.0 s
+        Samples: 44100
+        Channel labels: ['ch0', 'ch1']
+        """
+        print("ChannelFrame Information:")
+        print(f"  Channels: {self.n_channels}")
+        print(f"  Sampling rate: {self.sampling_rate} Hz")
+        print(f"  Duration: {self.duration:.1f} s")
+        print(f"  Samples: {self.n_samples}")
+        print(f"  Channel labels: {self.labels}")
+        self._print_operation_history()
+
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
         from ..processing import create_operation
@@ -188,6 +223,10 @@ class ChannelFrame(
         # Get metadata updates from operation
         metadata_updates = operation.get_metadata_updates()
 
+        # Update channel labels to reflect the operation
+        display_name = operation.get_display_name()
+        new_channel_metadata = self._relabel_channels(operation_name, display_name)
+
         logger.debug(
             f"Created new ChannelFrame with operation {operation_name} added to graph"
         )
@@ -197,6 +236,7 @@ class ChannelFrame(
             "data": processed_data,
             "metadata": new_metadata,
             "operation_history": new_history,
+            "channel_metadata": new_channel_metadata,
         }
         creation_params.update(metadata_updates)
 
@@ -1188,3 +1228,11 @@ class ChannelFrame(
                 channel_metadata=new_chmeta,
                 previous=self,
             )
+
+    def _get_dataframe_columns(self) -> list[str]:
+        """Get channel labels as DataFrame columns."""
+        return [ch.label for ch in self._channel_metadata]
+
+    def _get_dataframe_index(self) -> "pd.Index[Any]":
+        """Get time index for DataFrame."""
+        return pd.Index(self.time, name="time")

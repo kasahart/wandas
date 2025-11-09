@@ -86,6 +86,10 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
         n_samples = int(np.ceil(input_shape[-1] * ratio))
         return (*input_shape[:-1], n_samples)
 
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "rs"
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for resampling operation"""
         logger.debug(f"Applying resampling to array with shape: {x.shape}")
@@ -148,6 +152,10 @@ class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
         n_samples = end_sample - self.start_sample
         return (*input_shape[:-1], n_samples)
 
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "trim"
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for trimming operation"""
         logger.debug(f"Applying trim to array with shape: {x.shape}")
@@ -204,6 +212,10 @@ class FixLength(AudioOperation[NDArrayReal, NDArrayReal]):
             Output data shape
         """
         return (*input_shape[:-1], self.target_length)
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "fix"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for padding operation"""
@@ -304,6 +316,10 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
             hop_length=self.hop_length,
         ).shape[-1]
         return (*input_shape[:-1], n_frames)
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "RMS"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for RMS calculation"""

@@ -7,6 +7,7 @@ import dask
 import dask.array as da
 import librosa
 import numpy as np
+import pandas as pd
 from dask.array.core import Array as DaArray
 
 from wandas.utils.types import NDArrayComplex, NDArrayReal
@@ -69,6 +70,8 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         The magnitude spectrum of the data.
     phase : NDArrayReal
         The phase spectrum in radians.
+    unwrapped_phase : NDArrayReal
+        The unwrapped phase spectrum in radians.
     power : NDArrayReal
         The power spectrum (magnitude squared).
     dB : NDArrayReal
@@ -158,6 +161,21 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             The phase angles of the complex spectrum in radians.
         """
         return np.angle(self.data)
+
+    @property
+    def unwrapped_phase(self) -> NDArrayReal:
+        """
+        Get the unwrapped phase spectrum.
+
+        The unwrapped phase removes discontinuities of 2π radians, providing
+        continuous phase values across frequency bins.
+
+        Returns
+        -------
+        NDArrayReal
+            The unwrapped phase angles of the complex spectrum in radians.
+        """
+        return np.unwrap(np.angle(self.data))
 
     @property
     def power(self) -> NDArrayReal:
@@ -337,7 +355,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             for self_ch, other_ch in zip(
                 self._channel_metadata, other._channel_metadata
             ):
-                ch = self_ch.copy(deep=True)
+                ch = self_ch.model_copy(deep=True)
                 ch["label"] = f"({self_ch['label']} {symbol} {other_ch['label']})"
                 merged_channel_metadata.append(ch)
 
@@ -541,6 +559,14 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             "window": self.window,
         }
 
+    def _get_dataframe_columns(self) -> list[str]:
+        """Get channel labels as DataFrame columns."""
+        return [ch.label for ch in self._channel_metadata]
+
+    def _get_dataframe_index(self) -> "pd.Index[Any]":
+        """Get frequency index for DataFrame."""
+        return pd.Index(self.freqs, name="frequency")
+
     def noct_synthesis(
         self,
         fmin: float,
@@ -661,3 +687,45 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         logger.debug("Plot rendering complete")
 
         return _ax
+
+    def info(self) -> None:
+        """Display comprehensive information about the SpectralFrame.
+
+        This method prints a summary of the frame's properties including:
+        - Number of channels
+        - Sampling rate
+        - FFT size
+        - Frequency range
+        - Number of frequency bins
+        - Frequency resolution (ΔF)
+        - Channel labels
+
+        This is a convenience method to view all key properties at once,
+        similar to pandas DataFrame.info().
+
+        Examples
+        --------
+        >>> spectrum = cf.fft()
+        >>> spectrum.info()
+        SpectralFrame Information:
+          Channels: 2
+          Sampling rate: 44100 Hz
+          FFT size: 2048
+          Frequency range: 0.0 - 22050.0 Hz
+          Frequency bins: 1025
+          Frequency resolution (ΔF): 21.5 Hz
+          Channel labels: ['ch0', 'ch1']
+          Operations Applied: 1
+        """
+        # Calculate frequency resolution (ΔF)
+        delta_f = self.sampling_rate / self.n_fft
+
+        print("SpectralFrame Information:")
+        print(f"  Channels: {self.n_channels}")
+        print(f"  Sampling rate: {self.sampling_rate} Hz")
+        print(f"  FFT size: {self.n_fft}")
+        print(f"  Frequency range: {self.freqs[0]:.1f} - {self.freqs[-1]:.1f} Hz")
+        print(f"  Frequency bins: {len(self.freqs)}")
+        print(f"  Frequency resolution (ΔF): {delta_f:.1f} Hz")
+        print(f"  Channel labels: {self.labels}")
+        self._print_operation_history()

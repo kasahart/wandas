@@ -8,6 +8,7 @@ from typing import Any, Callable, Generic, Optional, TypeVar, Union, cast
 
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
 from dask.array.core import Array as DaArray
 from IPython.display import Image as IPythonImage
 from matplotlib.axes import Axes
@@ -87,7 +88,27 @@ class BaseFrame(ABC, Generic[T]):
         self._previous = previous
 
         if channel_metadata:
-            self._channel_metadata = copy.deepcopy(channel_metadata)
+            # Convert dictionaries to ChannelMetadata objects if needed
+            self._channel_metadata = []
+            for ch in channel_metadata:
+                if isinstance(ch, ChannelMetadata):
+                    self._channel_metadata.append(copy.deepcopy(ch))
+                elif isinstance(ch, dict):
+                    try:
+                        self._channel_metadata.append(ChannelMetadata(**ch))
+                    except TypeError as e:
+                        invalid_keys = set(ch.keys()) - set(
+                            ChannelMetadata.model_fields.keys()
+                        )
+                        raise TypeError(
+                            f"Invalid keys in channel_metadata dict: {invalid_keys}. "
+                            f"Error: {e}. Dict: {ch}"
+                        ) from e
+                else:
+                    raise TypeError(
+                        f"channel_metadata must be ChannelMetadata or dict, "
+                        f"got {type(ch)}"
+                    )
         else:
             self._channel_metadata = [
                 ChannelMetadata(label=f"ch{i}", unit="", extra={})
@@ -628,6 +649,10 @@ class BaseFrame(ABC, Generic[T]):
         """Division operator"""
         return self._binary_op(other, lambda x, y: x / y, "/")
 
+    def __pow__(self: S, other: Union[S, int, float, NDArrayReal]) -> S:
+        """Power operator"""
+        return self._binary_op(other, lambda x, y: x**y, "**")
+
     def apply_operation(self: S, operation_name: str, **params: Any) -> S:
         """
         Apply a named operation.
@@ -652,6 +677,52 @@ class BaseFrame(ABC, Generic[T]):
         """Implementation of operation application"""
         pass
 
+    def _relabel_channels(
+        self,
+        operation_name: str,
+        display_name: Optional[str] = None,
+    ) -> list[ChannelMetadata]:
+        """
+        Update channel labels to reflect applied operation.
+
+        This method creates new channel metadata with labels that include
+        the operation name, making it easier to track processing history
+        and distinguish frames in plots.
+
+        Parameters
+        ----------
+        operation_name : str
+            Name of the operation (e.g., "normalize", "lowpass_filter")
+        display_name : str, optional
+            Display name for the operation. If None, uses operation_name.
+            This allows operations to provide custom, more readable labels.
+
+        Returns
+        -------
+        list[ChannelMetadata]
+            New channel metadata with updated labels.
+            Original metadata is deep-copied and only labels are modified.
+
+        Examples
+        --------
+        >>> # Original label: "ch0"
+        >>> # After normalize: "normalize(ch0)"
+        >>> # After chained ops: "lowpass_filter(normalize(ch0))"
+
+        Notes
+        -----
+        Labels are nested for chained operations, allowing full
+        traceability of the processing pipeline.
+        """
+        display = display_name or operation_name
+        new_metadata = []
+        for ch in self._channel_metadata:
+            # All channel metadata are ChannelMetadata objects at this point
+            new_ch = ch.model_copy(deep=True)
+            new_ch.label = f"{display}({ch.label})"
+            new_metadata.append(new_ch)
+        return new_metadata
+
     def debug_info(self) -> None:
         """Output detailed debug information"""
         logger.debug(f"=== {self.__class__.__name__} Debug Info ===")
@@ -662,6 +733,127 @@ class BaseFrame(ABC, Generic[T]):
         self._debug_info_impl()
         logger.debug("=== End Debug Info ===")
 
+    def print_operation_history(self) -> None:
+        """
+        Print the operation history to standard output in a readable format.
+
+        This method writes a human-friendly representation of the
+        `operation_history` list to stdout. Each operation is printed on its
+        own line with an index, the operation name (if available), and the
+        parameters used.
+
+        Examples
+        --------
+        >>> cf.print_operation_history()
+        1: normalize {}
+        2: low_pass_filter {'cutoff': 1000}
+        """
+        if not self.operation_history:
+            print("Operation history: <empty>")
+            return
+
+        print(f"Operation history ({len(self.operation_history)}):")
+        for i, record in enumerate(self.operation_history, start=1):
+            # record is expected to be a dict with at least a 'operation' key
+            op_name = record.get("operation") or record.get("name") or "<unknown>"
+            # Copy params for display - exclude the 'operation'/'name' keys
+            params = {k: v for k, v in record.items() if k not in ("operation", "name")}
+            print(f"{i}: {op_name} {params}")
+
+    def to_numpy(self) -> T:
+        """Convert the frame data to a NumPy array.
+
+        This method computes the Dask array and returns it as a concrete NumPy array.
+        The returned array has the same shape as the frame's data.
+
+        Returns
+        -------
+        T
+            NumPy array containing the frame data.
+
+        Examples
+        --------
+        >>> cf = ChannelFrame.read_wav("audio.wav")
+        >>> data = cf.to_numpy()
+        >>> print(f"Shape: {data.shape}")  # (n_channels, n_samples)
+        """
+        return self.data
+
+    def to_dataframe(self) -> "pd.DataFrame":
+        """Convert the frame data to a pandas DataFrame.
+
+        This method provides a common implementation for converting frame data
+        to pandas DataFrame. Subclasses can override this method for custom behavior.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with appropriate index and columns.
+
+        Examples
+        --------
+        >>> cf = ChannelFrame.read_wav("audio.wav")
+        >>> df = cf.to_dataframe()
+        >>> print(df.head())
+        """
+        # Get data as numpy array
+        data = self.to_numpy()
+
+        # Get column names from subclass
+        columns = self._get_dataframe_columns()
+
+        # Get index from subclass
+        index = self._get_dataframe_index()
+
+        # Create DataFrame
+        if data.ndim == 1:
+            # Single channel case - reshape to 2D
+            df = pd.DataFrame(data.reshape(-1, 1), columns=columns, index=index)
+        else:
+            # Multi-channel case - transpose to (n_samples, n_channels)
+            df = pd.DataFrame(data.T, columns=columns, index=index)
+
+        return df
+
+    @abstractmethod
+    def _get_dataframe_columns(self) -> list[str]:
+        """Get column names for DataFrame.
+
+        This method should be implemented by subclasses to provide
+        appropriate column names for the DataFrame.
+
+        Returns
+        -------
+        list[str]
+            List of column names.
+        """
+        pass
+
+    @abstractmethod
+    def _get_dataframe_index(self) -> "pd.Index[Any]":
+        """Get index for DataFrame.
+
+        This method should be implemented by subclasses to provide
+        appropriate index for the DataFrame based on the frame type.
+
+        Returns
+        -------
+        pd.Index
+            Index for the DataFrame.
+        """
+        pass
+
     def _debug_info_impl(self) -> None:
         """Implement derived class-specific debug information"""
         pass
+
+    def _print_operation_history(self) -> None:
+        """Print the operation history information.
+
+        This is a helper method for info() implementations to display
+        the number of operations applied to the frame in a consistent format.
+        """
+        if self.operation_history:
+            print(f"  Operations Applied: {len(self.operation_history)}")
+        else:
+            print("  Operations Applied: None")

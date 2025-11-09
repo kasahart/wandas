@@ -145,8 +145,8 @@ class ChannelTransformMixin:
 
     def noct_spectrum(
         self: T_Transform,
-        fmin: float,
-        fmax: float,
+        fmin: float = 25,
+        fmax: float = 20000,
         n: int = 3,
         G: int = 10,  # noqa: N803
         fr: int = 1000,
@@ -154,7 +154,7 @@ class ChannelTransformMixin:
         """Calculate N-octave band spectrum.
 
         Args:
-            fmin: Minimum center frequency (Hz). Default is 20 Hz.
+            fmin: Minimum center frequency (Hz). Default is 25 Hz.
             fmax: Maximum center frequency (Hz). Default is 20000 Hz.
             n: Band division (1: octave, 3: 1/3 octave). Default is 3.
             G: Reference gain (dB). Default is 10 dB.

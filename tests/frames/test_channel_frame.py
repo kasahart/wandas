@@ -6,6 +6,7 @@ from unittest import mock
 
 import dask.array as da
 import numpy as np
+import pandas as pd
 import pytest
 import soundfile as sf
 from dask.array.core import Array as DaArray
@@ -1921,8 +1922,9 @@ class TestFadeIntegration:
         # Apply fade
         faded = self.channel_frame.fade(fade_ms=50.0)
 
-        # Check that metadata is preserved
-        assert faded.channels[0].label == "test_channel"
+        # Check that label is updated to reflect the operation
+        assert faded.channels[0].label == "fade(test_channel)"
+        # Check that other metadata is preserved
         assert faded.channels[0]["gain"] == 0.8
         assert faded.metadata["test_key"] == "test_value"
 
@@ -2064,6 +2066,125 @@ class TestFadeIntegration:
         with pytest.raises(ValueError, match="fade_ms must be non-negative"):
             self.channel_frame.fade(fade_ms=-1.0)
 
+    def test_to_numpy(self) -> None:
+        """Test to_numpy method converts frame data to NumPy array."""
+        # For single channel, to_numpy should return 1D array (squeezed)
+        if self.data.shape[0] == 1:
+            expected_result = self.data.squeeze(axis=0)
+        else:
+            expected_result = self.data
+
+        # Test with mock to ensure compute is called
+        with mock.patch.object(
+            self.channel_frame, "compute", return_value=self.data
+        ) as mock_compute:
+            result = self.channel_frame.to_numpy()
+            mock_compute.assert_called_once()
+            np.testing.assert_array_equal(result, expected_result)
+            assert isinstance(result, np.ndarray)
+
+    def test_to_dataframe(self) -> None:
+        """Test to_dataframe method converts frame data to pandas DataFrame."""
+        # Test basic conversion
+        df = self.channel_frame.to_dataframe()
+
+        # Check DataFrame properties
+        assert isinstance(df, pd.DataFrame)
+        assert df.shape == (
+            self.data.shape[1],
+            self.data.shape[0],
+        )  # (n_samples, n_channels)
+        assert list(df.columns) == ["ch0"]  # Single channel
+        assert df.index.name == "time"
+
+        # Check data values (transposed)
+        np.testing.assert_array_equal(df.values.T, self.data)
+
+        # Check time index
+        expected_time = np.arange(self.data.shape[1]) / self.sample_rate
+        np.testing.assert_array_equal(df.index.values, expected_time)
+
+    def test_to_dataframe_with_custom_labels(self) -> None:
+        """Test to_dataframe with custom channel labels."""
+        # Set custom labels
+        self.channel_frame.channels[0].label = "left"
+
+        df = self.channel_frame.to_dataframe()
+
+        # Check column names
+        assert list(df.columns) == ["left"]
+
+    def test_to_dataframe_single_channel(self) -> None:
+        """Test to_dataframe with single channel."""
+        # Get single channel (already single channel)
+        single_channel = self.channel_frame.get_channel(0)
+
+        df = single_channel.to_dataframe()
+
+        # Check DataFrame properties
+        assert df.shape == (self.data.shape[1], 1)  # (n_samples, 1)
+        assert list(df.columns) == ["ch0"]
+        assert df.index.name == "time"
+
+        # Check data values
+        np.testing.assert_array_equal(df.values.flatten(), self.data[0])
+
+    def test_info_method_basic(self, capsys: Any) -> None:
+        """Test info() method displays correct information."""
+        self.channel_frame.info()
+
+        captured = capsys.readouterr()
+        output = captured.out
+
+        # Verify all expected information is present
+        assert "Channels: 1" in output
+        assert f"Sampling rate: {self.sample_rate} Hz" in output
+        assert "Duration: 1.0 s" in output
+        assert f"Samples: {self.channel_frame.n_samples}" in output
+        assert "Channel labels: ['ch0']" in output
+
+    def test_info_method_single_channel(self, capsys: Any) -> None:
+        """Test info() method with single channel."""
+        single_data = self.data[0:1]
+        single_frame = ChannelFrame.from_numpy(
+            single_data, sampling_rate=self.sample_rate, label="single"
+        )
+
+        single_frame.info()
+
+        captured = capsys.readouterr()
+        output = captured.out
+
+        assert "Channels: 1" in output
+        assert "Channel labels: ['ch0']" in output
+
+    def test_info_method_custom_labels(self, capsys: Any) -> None:
+        """Test info() method with custom channel labels."""
+        # Set custom labels
+        self.channel_frame.channels[0].label = "left"
+
+        self.channel_frame.info()
+
+        captured = capsys.readouterr()
+        output = captured.out
+
+        assert "Channel labels: ['left']" in output
+
+    def test_info_method_different_duration(self, capsys: Any) -> None:
+        """Test info() method with different durations."""
+        # Create a frame with 0.5 seconds of data
+        short_data = np.random.random((1, 8000))
+        short_frame = ChannelFrame.from_numpy(
+            short_data, sampling_rate=self.sample_rate, label="short"
+        )
+
+        short_frame.info()
+
+        captured = capsys.readouterr()
+        output = captured.out
+
+        assert "Duration: 0.5 s" in output
+        assert "Samples: 8000" in output
     # Error Message Tests (Phase 1 Improvements)
     def test_invalid_data_shape_error_message(self) -> None:
         """Test that invalid data shape provides helpful error message."""

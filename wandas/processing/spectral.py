@@ -169,6 +169,10 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         n_freqs = self.n_fft // 2 + 1 if self.n_fft else input_shape[-1] // 2 + 1
         return (*input_shape[:-1], n_freqs)
 
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "FFT"
+
     def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
         """FFT操作のプロセッサ関数を作成"""
         from scipy.signal import get_window
@@ -229,6 +233,10 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         """
         n_samples = 2 * (input_shape[-1] - 1) if self.n_fft is None else self.n_fft
         return (*input_shape[:-1], n_samples)
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "iFFT"
 
     def _process_array(self, x: NDArrayComplex) -> NDArrayReal:
         """Create processor function for IFFT operation"""
@@ -334,6 +342,10 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         n_f = len(self.SFT.f)
         n_t = len(self.SFT.t(n_samples))
         return (input_shape[0], n_f, n_t)
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "STFT"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
         """Apply SciPy STFT processing to multiple channels at once"""
@@ -463,6 +475,10 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
 
         return (n_channels, output_samples)
 
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "iSTFT"
+
     def _process_array(self, x: NDArrayComplex) -> NDArrayReal:
         """
         Apply SciPy ISTFT processing to multiple channels at once using ShortTimeFFT"""
@@ -578,6 +594,10 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
         n_freqs = self.n_fft // 2 + 1
         return (*input_shape[:-1], n_freqs)
 
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "PS"
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for Welch operation"""
         from scipy import signal as ss
@@ -660,6 +680,10 @@ class NOctSpectrum(AudioOperation[NDArrayReal, NDArrayReal]):
         )
         return (input_shape[0], fpref.shape[0])
 
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "Oct"
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for octave spectrum"""
         logger.debug(f"Applying NoctSpectrum to array with shape: {x.shape}")
@@ -740,6 +764,10 @@ class NOctSynthesis(AudioOperation[NDArrayReal, NDArrayReal]):
             fmin=self.fmin, fmax=self.fmax, n=self.n, G=self.G, fr=self.fr
         )
         return (input_shape[0], fpref.shape[0])
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "Octs"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for octave synthesis"""
@@ -830,6 +858,10 @@ class Coherence(AudioOperation[NDArrayReal, NDArrayReal]):
         n_channels = input_shape[0]
         n_freqs = self.n_fft // 2 + 1
         return (n_channels * n_channels, n_freqs)
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "Coh"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Processor function for coherence estimation operation"""
@@ -927,6 +959,10 @@ class CSD(AudioOperation[NDArrayReal, NDArrayComplex]):
         n_channels = input_shape[0]
         n_freqs = self.n_fft // 2 + 1
         return (n_channels * n_channels, n_freqs)
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "CSD"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
         """Processor function for cross-spectral density estimation operation"""
@@ -1029,6 +1065,10 @@ class TransferFunction(AudioOperation[NDArrayReal, NDArrayComplex]):
         n_channels = input_shape[0]
         n_freqs = self.n_fft // 2 + 1
         return (n_channels * n_channels, n_freqs)
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "H"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
         """Processor function for transfer function estimation operation"""
