@@ -11,7 +11,7 @@ maintainers = [
     {name = "kasahart", email="kasahart66@gmail.com"},
 ]
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { text = "MIT" }
 classifiers = [
     'Development Status :: 2 - Pre-Alpha',
@@ -20,7 +20,6 @@ classifiers = [
     'License :: OSI Approved :: MIT License',
     'Programming Language :: Python',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
@@ -32,9 +31,9 @@ classifiers = [
     'Typing :: Typed',
 ]
 dependencies = [
-    "numpy",
-    "scipy",
-    "matplotlib",
+    "numpy>=2.0.0",
+    "scipy>=1.13.0",
+    "matplotlib>=3.9.0",
     "librosa",
     "mosqito",
     "ipykernel",
@@ -61,7 +60,6 @@ Issues = "https://github.com/kasahart/wandas/issues"
 dev = [
     "pytest>=8.3.5",
     "pytest-xdist>=3.6.1",
-    "pandas",
     "pandas-stubs",
     "pytest-cov",
     "wandas",
