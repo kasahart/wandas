@@ -12,6 +12,7 @@ import pandas as pd
 from dask.array.core import Array as DaArray
 from IPython.display import Image as IPythonImage
 from matplotlib.axes import Axes
+from pydantic import ValidationError
 
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
@@ -92,18 +93,30 @@ class BaseFrame(ABC, Generic[T]):
 
         if channel_metadata:
             # Pydantic handles both ChannelMetadata objects and dicts
-            def _to_channel_metadata(ch):
+            def _to_channel_metadata(ch, index):
                 if isinstance(ch, ChannelMetadata):
                     return copy.deepcopy(ch)
                 elif isinstance(ch, dict):
-                    return ChannelMetadata(**ch)
+                    try:
+                        return ChannelMetadata(**ch)
+                    except ValidationError as e:
+                        raise ValueError(
+                            f"Invalid channel_metadata at index {index}\n"
+                            f"  Got: {ch}\n"
+                            f"  Validation error: {e}\n"
+                            f"Ensure all dict keys match ChannelMetadata fields "
+                            f"(label, unit, ref, extra) and have correct types."
+                        ) from e
                 else:
                     raise TypeError(
-                        f"Each item in channel_metadata must be a ChannelMetadata or dict, got {type(ch).__name__}: {ch!r}"
+                        f"Invalid type in channel_metadata at index {index}\n"
+                        f"  Got: {type(ch).__name__} ({ch!r})\n"
+                        f"  Expected: ChannelMetadata or dict\n"
+                        f"Use either ChannelMetadata objects or dicts with valid fields."
                     )
             self._channel_metadata = [
-                _to_channel_metadata(ch)
-                for ch in channel_metadata
+                _to_channel_metadata(ch, i)
+                for i, ch in enumerate(channel_metadata)
             ]
         else:
             self._channel_metadata = [
