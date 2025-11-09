@@ -8,6 +8,40 @@ if TYPE_CHECKING:
     from wandas.utils.types import NDArrayReal
 
 
+def validate_sampling_rate(
+    sampling_rate: float, param_name: str = "sampling_rate"
+) -> None:
+    """
+    Validate that sampling rate is positive.
+
+    Parameters
+    ----------
+    sampling_rate : float
+        Sampling rate in Hz to validate.
+    param_name : str, default="sampling_rate"
+        Name of the parameter being validated (for error messages).
+
+    Raises
+    ------
+    ValueError
+        If sampling_rate is not positive (i.e., <= 0).
+
+    Examples
+    --------
+    >>> validate_sampling_rate(44100)  # No error
+    >>> validate_sampling_rate(0)  # Raises ValueError
+    >>> validate_sampling_rate(-100)  # Raises ValueError
+    """
+    if sampling_rate <= 0:
+        raise ValueError(
+            f"Invalid {param_name}\n"
+            f"  Got: {sampling_rate} Hz\n"
+            f"  Expected: Positive value > 0\n"
+            f"Sampling rate represents samples per second and must be positive.\n"
+            f"Common values: 8000, 16000, 22050, 44100, 48000 Hz"
+        )
+
+
 def unit_to_ref(unit: str) -> float:
     """
     Convert unit to reference value.

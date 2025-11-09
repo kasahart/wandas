@@ -6,6 +6,7 @@ import numpy as np
 from waveform_analysis import A_weight
 
 from wandas.processing.base import AudioOperation, register_operation
+from wandas.utils import validate_sampling_rate
 from wandas.utils.types import NDArrayReal
 
 logger = logging.getLogger(__name__)
@@ -32,22 +33,8 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
         ValueError
             If sampling_rate or target_sr is not positive
         """
-        if sampling_rate <= 0:
-            raise ValueError(
-                f"Invalid source sampling rate\n"
-                f"  Got: {sampling_rate} Hz\n"
-                f"  Expected: Positive value > 0\n"
-                f"Sampling rate must be positive.\n"
-                f"Common values: 8000, 16000, 22050, 44100, 48000 Hz"
-            )
-        if target_sr <= 0:
-            raise ValueError(
-                f"Invalid target sampling rate\n"
-                f"  Got: {target_sr} Hz\n"
-                f"  Expected: Positive value > 0\n"
-                f"Target sampling rate must be positive.\n"
-                f"Common values: 8000, 16000, 22050, 44100, 48000 Hz"
-            )
+        validate_sampling_rate(sampling_rate, "source sampling rate")
+        validate_sampling_rate(target_sr, "target sampling rate")
         super().__init__(sampling_rate, target_sr=target_sr)
         self.target_sr = target_sr
 
