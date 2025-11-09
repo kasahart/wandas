@@ -1,5 +1,6 @@
 # filepath: /workspaces/wandas/tests/datasets/test_sample_data.py
 import numpy as np
+import pytest
 
 from wandas.datasets.sample_data import load_sample_signal
 
@@ -105,3 +106,87 @@ class TestSampleData:
 
         # デフォルト値に基づくサンプル数を確認
         assert len(default_signal) == 100  # サンプリングレート100 × 持続時間1秒
+
+    def test_load_sample_signal_zero_frequency(self) -> None:
+        """Test signal generation with zero frequency (DC signal)."""
+        signal = load_sample_signal(frequency=0.0, sampling_rate=100, duration=1.0)
+
+        # Zero frequency should produce all zeros (sin(0) = 0)
+        assert signal.shape == (100,)
+        np.testing.assert_array_almost_equal(signal, np.zeros(100))
+
+    def test_load_sample_signal_high_frequency(self) -> None:
+        """Test signal generation with high frequency."""
+        # Test frequency close to Nyquist frequency
+        sampling_rate = 1000
+        frequency = 400.0  # 400 Hz (below 500 Hz Nyquist)
+        duration = 0.1
+
+        signal = load_sample_signal(
+            frequency=frequency, sampling_rate=sampling_rate, duration=duration
+        )
+
+        # Should generate valid signal
+        assert signal.shape == (100,)
+        assert np.max(signal) <= 1.0
+        assert np.min(signal) >= -1.0
+
+    def test_load_sample_signal_short_duration(self) -> None:
+        """Test signal generation with very short duration."""
+        signal = load_sample_signal(frequency=5.0, sampling_rate=100, duration=0.01)
+
+        # Should generate 1 sample (100 Hz * 0.01 s = 1 sample)
+        assert signal.shape == (1,)
+        assert isinstance(signal[0], (float, np.floating))
+
+    def test_load_sample_signal_long_duration(self) -> None:
+        """Test signal generation with long duration."""
+        signal = load_sample_signal(frequency=5.0, sampling_rate=100, duration=60.0)
+
+        # Should generate 6000 samples (100 Hz * 60 s)
+        assert signal.shape == (6000,)
+        assert np.max(signal) <= 1.0
+        assert np.min(signal) >= -1.0
+
+    def test_load_sample_signal_fractional_samples(self) -> None:
+        """Test signal generation when duration * sampling_rate is not integer."""
+        # 44100 * 0.001 = 44.1 samples, should truncate to 44
+        signal = load_sample_signal(frequency=440.0, sampling_rate=44100, duration=0.001)
+
+        assert signal.shape == (44,)
+
+    def test_load_sample_signal_high_sampling_rate(self) -> None:
+        """Test signal generation with high sampling rate."""
+        signal = load_sample_signal(frequency=440.0, sampling_rate=192000, duration=0.1)
+
+        # Should generate 19200 samples
+        expected_samples = int(192000 * 0.1)
+        assert signal.shape == (expected_samples,)
+        assert signal.dtype == np.float64
+
+    def test_load_sample_signal_low_frequency_accuracy(self) -> None:
+        """Test that low frequency signals are accurately generated."""
+        # Very low frequency
+        frequency = 0.1  # 0.1 Hz
+        sampling_rate = 100
+        duration = 10.0  # 10 seconds to capture full cycle
+
+        signal = load_sample_signal(
+            frequency=frequency, sampling_rate=sampling_rate, duration=duration
+        )
+
+        # Should have exactly 1 full cycle in 10 seconds for 0.1 Hz
+        # Check amplitude is still within [-1, 1]
+        assert np.max(signal) <= 1.0
+        assert np.min(signal) >= -1.0
+        assert signal.shape == (1000,)
+
+    def test_load_sample_signal_consistency(self) -> None:
+        """Test that repeated calls with same parameters produce identical results."""
+        params = {"frequency": 10.0, "sampling_rate": 1000, "duration": 1.0}
+
+        signal1 = load_sample_signal(**params)
+        signal2 = load_sample_signal(**params)
+
+        # Should be exactly the same (deterministic)
+        np.testing.assert_array_equal(signal1, signal2)
