@@ -1,0 +1,2081 @@
+
+<!doctype html>
+<html lang="ja" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Wandas ライブラリのドキュメント">
+      
+      
+        <meta name="author" content="Wandas Team">
+      
+      
+        <link rel="canonical" href="https://wandas.github.io/explanation/psychoacoustic_metrics/">
+      
+      
+        <link rel="prev" href="../">
+      
+      
+        <link rel="next" href="../../contributing/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.23">
+    
+    
+      
+        <title>Psychoacoustic Metrics - Wandas</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.84d31ad4.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_markdown_exec_pyodide.css">
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+  
+
+
+  
+  
+
+<script id="__analytics">function __md_analytics(){function e(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],e("js",new Date),e("config","G-MEASUREMENT-ID"),document.addEventListener("DOMContentLoaded",(function(){document.forms.search&&document.forms.search.query.addEventListener("blur",(function(){this.value&&e("event","search",{search_term:this.value})}));document$.subscribe((function(){var t=document.forms.feedback;if(void 0!==t)for(var a of t.querySelectorAll("[type=submit]"))a.addEventListener("click",(function(a){a.preventDefault();var n=document.location.pathname,d=this.getAttribute("data-md-value");e("event","feedback",{page:n,data:d}),t.firstElementChild.disabled=!0;var r=t.querySelector(".md-feedback__note [data-md-value='"+d+"']");r&&(r.hidden=!1)})),t.hidden=!1})),location$.subscribe((function(t){e("config","G-MEASUREMENT-ID",{page_path:t.pathname})}))}));var t=document.createElement("script");t.async=!0,t.src="https://www.googletagmanager.com/gtag/js?id=G-MEASUREMENT-ID",document.getElementById("__analytics").insertAdjacentElement("afterEnd",t)}</script>
+  
+    <script>"undefined"!=typeof __md_analytics&&__md_analytics()</script>
+  
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#_1" class="md-skip">
+          コンテンツにスキップ
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="ヘッダー">
+    <a href="../.." title="Wandas" class="md-header__button md-logo" aria-label="Wandas" data-md-component="logo">
+      
+  <img src="../../assets/images/logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Wandas
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Psychoacoustic Metrics
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="ダークモードへ"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="ダークモードへ" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="ライトモードへ"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="ライトモードへ" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+      <div class="md-header__option">
+  <div class="md-select">
+    
+    <button class="md-header__button md-icon" aria-label="言語切り替え">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2zm-2.62 7 1.62-4.33L19.12 17z"/></svg>
+    </button>
+    <div class="md-select__inner">
+      <ul class="md-select__list">
+        
+          <li class="md-select__item">
+            <a href="./" hreflang="ja" class="md-select__link">
+              日本語
+            </a>
+          </li>
+        
+          <li class="md-select__item">
+            <a href="../../en/explanation/psychoacoustic_metrics/" hreflang="en" class="md-select__link">
+              English
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</div>
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="検索" placeholder="検索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="検索">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="共有" aria-label="共有" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="クリア" aria-label="クリア" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            検索を初期化
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/kasahart/wandas" title="リポジトリへ" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kasahart/wandas
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="タブ" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../tutorial/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Tutorials
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../api/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  API Reference
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+  Theory & Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing Guide
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="ナビゲーション" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Wandas" class="md-nav__button md-logo" aria-label="Wandas" data-md-component="logo">
+      
+  <img src="../../assets/images/logo.png" alt="logo">
+
+    </a>
+    Wandas
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/kasahart/wandas" title="リポジトリへ" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kasahart/wandas
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorial/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Tutorials
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    API Reference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Theory & Architecture
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Theory & Architecture
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    理論背景とアーキテクチャ
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Psychoacoustic Metrics
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Psychoacoustic Metrics
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      ラウドネス（非定常信号）
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ラウドネス（非定常信号）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      概要
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      ラウドネスとは？
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      典型的なラウドネス値
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      使用方法
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="使用方法">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      基本的な使い方
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      音場タイプの選択
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      メソッドシグネチャ
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      出力
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      使用例
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="使用例">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1" class="md-nav__link">
+    <span class="md-ellipsis">
+      例1: 基本的な使い方
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2" class="md-nav__link">
+    <span class="md-ellipsis">
+      例2: テスト信号の生成
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3" class="md-nav__link">
+    <span class="md-ellipsis">
+      例3: 自由音場と拡散音場の比較
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4" class="md-nav__link">
+    <span class="md-ellipsis">
+      例4: マルチチャンネル処理
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-mosqito" class="md-nav__link">
+    <span class="md-ellipsis">
+      例5: MoSQIToを直接使用
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      技術的詳細
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="技術的詳細">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      アルゴリズム
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_14" class="md-nav__link">
+    <span class="md-ellipsis">
+      時間分解能
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_15" class="md-nav__link">
+    <span class="md-ellipsis">
+      計算の複雑さ
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_16" class="md-nav__link">
+    <span class="md-ellipsis">
+      制限事項
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_17" class="md-nav__link">
+    <span class="md-ellipsis">
+      標準と参考文献
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_18" class="md-nav__link">
+    <span class="md-ellipsis">
+      ラウドネス（定常信号）
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ラウドネス（定常信号）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_19" class="md-nav__link">
+    <span class="md-ellipsis">
+      概要
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_20" class="md-nav__link">
+    <span class="md-ellipsis">
+      非定常ラウドネスとの違い
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_21" class="md-nav__link">
+    <span class="md-ellipsis">
+      使用方法
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="使用方法">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_22" class="md-nav__link">
+    <span class="md-ellipsis">
+      基本的な使い方
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_23" class="md-nav__link">
+    <span class="md-ellipsis">
+      音場タイプの選択
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_24" class="md-nav__link">
+    <span class="md-ellipsis">
+      メソッドシグネチャ
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_25" class="md-nav__link">
+    <span class="md-ellipsis">
+      出力
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_26" class="md-nav__link">
+    <span class="md-ellipsis">
+      使用例
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="使用例">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      例1: ファンノイズの評価
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      例2: 複数の定常音源の比較
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      例3: ステレオ定常音源の処理
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      例4: 自由音場と拡散音場の比較
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-mosqito_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      例5: MoSQIToを直接使用
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_27" class="md-nav__link">
+    <span class="md-ellipsis">
+      技術的詳細
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="技術的詳細">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_28" class="md-nav__link">
+    <span class="md-ellipsis">
+      アルゴリズム
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_29" class="md-nav__link">
+    <span class="md-ellipsis">
+      計算の複雑さ
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_30" class="md-nav__link">
+    <span class="md-ellipsis">
+      制限事項
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_31" class="md-nav__link">
+    <span class="md-ellipsis">
+      標準と参考文献
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_32" class="md-nav__link">
+    <span class="md-ellipsis">
+      関連する操作
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_33" class="md-nav__link">
+    <span class="md-ellipsis">
+      参照
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../psychoacoustic_metrics.en.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Psychoacoustic Metrics (EN)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Contributing Guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      ラウドネス（非定常信号）
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ラウドネス（非定常信号）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      概要
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      ラウドネスとは？
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      典型的なラウドネス値
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      使用方法
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="使用方法">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      基本的な使い方
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      音場タイプの選択
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      メソッドシグネチャ
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      出力
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      使用例
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="使用例">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1" class="md-nav__link">
+    <span class="md-ellipsis">
+      例1: 基本的な使い方
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2" class="md-nav__link">
+    <span class="md-ellipsis">
+      例2: テスト信号の生成
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3" class="md-nav__link">
+    <span class="md-ellipsis">
+      例3: 自由音場と拡散音場の比較
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4" class="md-nav__link">
+    <span class="md-ellipsis">
+      例4: マルチチャンネル処理
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-mosqito" class="md-nav__link">
+    <span class="md-ellipsis">
+      例5: MoSQIToを直接使用
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      技術的詳細
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="技術的詳細">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      アルゴリズム
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_14" class="md-nav__link">
+    <span class="md-ellipsis">
+      時間分解能
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_15" class="md-nav__link">
+    <span class="md-ellipsis">
+      計算の複雑さ
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_16" class="md-nav__link">
+    <span class="md-ellipsis">
+      制限事項
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_17" class="md-nav__link">
+    <span class="md-ellipsis">
+      標準と参考文献
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_18" class="md-nav__link">
+    <span class="md-ellipsis">
+      ラウドネス（定常信号）
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ラウドネス（定常信号）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_19" class="md-nav__link">
+    <span class="md-ellipsis">
+      概要
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_20" class="md-nav__link">
+    <span class="md-ellipsis">
+      非定常ラウドネスとの違い
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_21" class="md-nav__link">
+    <span class="md-ellipsis">
+      使用方法
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="使用方法">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_22" class="md-nav__link">
+    <span class="md-ellipsis">
+      基本的な使い方
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_23" class="md-nav__link">
+    <span class="md-ellipsis">
+      音場タイプの選択
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_24" class="md-nav__link">
+    <span class="md-ellipsis">
+      メソッドシグネチャ
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_25" class="md-nav__link">
+    <span class="md-ellipsis">
+      出力
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_26" class="md-nav__link">
+    <span class="md-ellipsis">
+      使用例
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="使用例">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      例1: ファンノイズの評価
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      例2: 複数の定常音源の比較
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      例3: ステレオ定常音源の処理
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      例4: 自由音場と拡散音場の比較
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-mosqito_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      例5: MoSQIToを直接使用
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_27" class="md-nav__link">
+    <span class="md-ellipsis">
+      技術的詳細
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="技術的詳細">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_28" class="md-nav__link">
+    <span class="md-ellipsis">
+      アルゴリズム
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_29" class="md-nav__link">
+    <span class="md-ellipsis">
+      計算の複雑さ
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_30" class="md-nav__link">
+    <span class="md-ellipsis">
+      制限事項
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_31" class="md-nav__link">
+    <span class="md-ellipsis">
+      標準と参考文献
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_32" class="md-nav__link">
+    <span class="md-ellipsis">
+      関連する操作
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_33" class="md-nav__link">
+    <span class="md-ellipsis">
+      参照
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="_1">心理音響メトリクス<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h1>
+<p>Wandasは、人間の知覚に基づく音響信号を分析するための心理音響メトリクスを提供します。これらのメトリクスは、標準化された手法とMoSQIToライブラリを使用して計算されます。</p>
+<h2 id="_2">ラウドネス（非定常信号）<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
+<h3 id="_3">概要<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h3>
+<p><code>loudness_zwtv()</code> メソッドは、ISO 532-1:2017に従ったZwicker法を使用して、非定常信号の時間変化するラウドネスを計算します。この方法は、人間の知覚とよく相関する知覚ラウドネスの尺度を提供します。</p>
+<h3 id="_4">ラウドネスとは？<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h3>
+<p>ラウドネスは <strong>ソーン（sone）</strong> で測定される知覚単位です：</p>
+<ul>
+<li><strong>1 sone</strong> は40 phon（約40 dB SPLの1 kHz純音のラウドネス）のラウドネスレベルに相当</li>
+<li><strong>ソーンが2倍</strong> になると、知覚ラウドネスも2倍になります</li>
+<li>関係式：音Aのソーン値が音Bの2倍であれば、2倍の大きさに聞こえます</li>
+</ul>
+<h3 id="_5">典型的なラウドネス値<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>環境/音源</th>
+<th>おおよそのラウドネス</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>静かな図書館</td>
+<td>~0.5-1 sone</td>
+</tr>
+<tr>
+<td>静かな会話</td>
+<td>~2-4 sones</td>
+</tr>
+<tr>
+<td>通常の会話</td>
+<td>~4-8 sones</td>
+</tr>
+<tr>
+<td>賑やかなオフィス</td>
+<td>~8-16 sones</td>
+</tr>
+<tr>
+<td>大音量の音楽</td>
+<td>~32+ sones</td>
+</tr>
+<tr>
+<td>非常に大きな騒音</td>
+<td>~100+ sones</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_6">使用方法<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h3>
+<h4 id="_7">基本的な使い方<a class="headerlink" href="#_7" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
+
+<span class="c1"># 音声ファイルを読み込む</span>
+<span class="n">signal</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read_wav</span><span class="p">(</span><span class="s2">&quot;audio.wav&quot;</span><span class="p">)</span>
+
+<span class="c1"># ラウドネスを計算（自由音場）</span>
+<span class="n">loudness</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">loudness_zwtv</span><span class="p">()</span>
+
+<span class="c1"># 時間変化するラウドネスをプロット</span>
+<span class="n">loudness</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;時間変化するラウドネス&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h4 id="_8">音場タイプの選択<a class="headerlink" href="#_8" title="Permanent link">&para;</a></h4>
+<p>このメソッドは2種類の音場をサポートしています：</p>
+<ul>
+<li><strong>自由音場</strong> (<code>field_type="free"</code>): 特定の方向から到来する音（例：リスナーの前方にあるスピーカー）</li>
+<li><strong>拡散音場</strong> (<code>field_type="diffuse"</code>): 全方向から均一に到来する音（例：残響室）</li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="c1"># 自由音場（デフォルト）</span>
+<span class="n">loudness_free</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">loudness_zwtv</span><span class="p">(</span><span class="n">field_type</span><span class="o">=</span><span class="s2">&quot;free&quot;</span><span class="p">)</span>
+
+<span class="c1"># 拡散音場</span>
+<span class="n">loudness_diffuse</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">loudness_zwtv</span><span class="p">(</span><span class="n">field_type</span><span class="o">=</span><span class="s2">&quot;diffuse&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="_9">メソッドシグネチャ<a class="headerlink" href="#_9" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">loudness_zwtv</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChannelFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Zwicker法を使用して時間変化するラウドネスを計算</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    field_type : str, default=&quot;free&quot;</span>
+<span class="sd">        音場のタイプ（&#39;free&#39; または &#39;diffuse&#39;）</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ChannelFrame</span>
+<span class="sd">        ソーン単位の時間変化するラウドネス値</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+</code></pre></div>
+<h3 id="_10">出力<a class="headerlink" href="#_10" title="Permanent link">&para;</a></h3>
+<p>このメソッドは以下を含む <code>ChannelFrame</code> を返します：</p>
+<ul>
+<li><strong>時間変化するラウドネス値</strong>（ソーン単位）</li>
+<li><strong>時間分解能</strong>: 約2ms（0.002秒）</li>
+<li><strong>マルチチャンネル処理</strong>: 各チャンネルが独立して処理されます</li>
+</ul>
+<h3 id="_11">使用例<a class="headerlink" href="#_11" title="Permanent link">&para;</a></h3>
+<h4 id="1">例1: 基本的な使い方<a class="headerlink" href="#1" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="c1"># 音声ファイルを読み込む</span>
+<span class="n">signal</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read_wav</span><span class="p">(</span><span class="s2">&quot;audio.wav&quot;</span><span class="p">)</span>
+
+<span class="c1"># ラウドネスを計算（デフォルトは自由音場）</span>
+<span class="n">loudness</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">loudness_zwtv</span><span class="p">()</span>
+
+<span class="c1"># 時間変化するラウドネスをプロット</span>
+<span class="n">loudness</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;時間変化するラウドネス（sone）&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h4 id="2">例2: テスト信号の生成<a class="headerlink" href="#2" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="c1"># 1 kHz 正弦波を中程度のレベルで生成</span>
+<span class="n">signal</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">generate_sin</span><span class="p">(</span><span class="n">freqs</span><span class="o">=</span><span class="p">[</span><span class="mi">1000</span><span class="p">],</span> <span class="n">duration</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="o">=</span><span class="mi">48000</span><span class="p">)</span>
+
+<span class="c1"># 約70 dB SPLにスケーリング</span>
+<span class="n">signal</span> <span class="o">=</span> <span class="n">signal</span> <span class="o">*</span> <span class="mf">0.063</span>
+
+<span class="c1"># ラウドネスを計算</span>
+<span class="n">loudness</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">loudness_zwtv</span><span class="p">()</span>
+
+<span class="c1"># 統計情報を表示</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;平均ラウドネス: </span><span class="si">{</span><span class="n">loudness</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> sones&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;最大ラウドネス: </span><span class="si">{</span><span class="n">loudness</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> sones&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;最小ラウドネス: </span><span class="si">{</span><span class="n">loudness</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> sones&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h4 id="3">例3: 自由音場と拡散音場の比較<a class="headerlink" href="#3" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="c1"># 信号を読み込む</span>
+<span class="n">signal</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read_wav</span><span class="p">(</span><span class="s2">&quot;audio.wav&quot;</span><span class="p">)</span>
+
+<span class="c1"># 両方の音場タイプで計算</span>
+<span class="n">loudness_free</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">loudness_zwtv</span><span class="p">(</span><span class="n">field_type</span><span class="o">=</span><span class="s2">&quot;free&quot;</span><span class="p">)</span>
+<span class="n">loudness_diffuse</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">loudness_zwtv</span><span class="p">(</span><span class="n">field_type</span><span class="o">=</span><span class="s2">&quot;diffuse&quot;</span><span class="p">)</span>
+
+<span class="c1"># 比較プロット</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+<span class="n">loudness_free</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">ax</span><span class="o">=</span><span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;自由音場のラウドネス&quot;</span><span class="p">)</span>
+<span class="n">loudness_diffuse</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">ax</span><span class="o">=</span><span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;拡散音場のラウドネス&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</code></pre></div>
+<h4 id="4">例4: マルチチャンネル処理<a class="headerlink" href="#4" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
+
+<span class="c1"># ステレオ音声を読み込む</span>
+<span class="n">stereo_signal</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read_wav</span><span class="p">(</span><span class="s2">&quot;stereo_audio.wav&quot;</span><span class="p">)</span>
+
+<span class="c1"># ラウドネスを計算（各チャンネルが独立して処理される）</span>
+<span class="n">loudness</span> <span class="o">=</span> <span class="n">stereo_signal</span><span class="o">.</span><span class="n">loudness_zwtv</span><span class="p">()</span>
+
+<span class="c1"># 個々のチャンネルにアクセス</span>
+<span class="n">left_loudness</span> <span class="o">=</span> <span class="n">loudness</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">right_loudness</span> <span class="o">=</span> <span class="n">loudness</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+<span class="c1"># 両方のチャンネルをプロット</span>
+<span class="n">loudness</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">overlay</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;ステレオラウドネス比較&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h4 id="5-mosqito">例5: MoSQIToを直接使用<a class="headerlink" href="#5-mosqito" title="Permanent link">&para;</a></h4>
+<p>より詳細な出力（特定ラウドネス、バーク軸など）が必要な場合は、MoSQIToを直接使用できます：</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">mosqito.sq_metrics.loudness.loudness_zwtv</span><span class="w"> </span><span class="kn">import</span> <span class="n">loudness_zwtv</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
+
+<span class="n">signal</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read_wav</span><span class="p">(</span><span class="s2">&quot;audio.wav&quot;</span><span class="p">)</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># 最初のチャンネルを取得</span>
+
+<span class="c1"># MoSQIToを直接呼び出す</span>
+<span class="n">N</span><span class="p">,</span> <span class="n">N_spec</span><span class="p">,</span> <span class="n">bark_axis</span><span class="p">,</span> <span class="n">time_axis</span> <span class="o">=</span> <span class="n">loudness_zwtv</span><span class="p">(</span>
+    <span class="n">data</span><span class="p">,</span> <span class="n">signal</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="n">field_type</span><span class="o">=</span><span class="s2">&quot;free&quot;</span>
+<span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ラウドネスの形状: </span><span class="si">{</span><span class="n">N</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;特定ラウドネスの形状: </span><span class="si">{</span><span class="n">N_spec</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;時間軸: </span><span class="si">{</span><span class="n">time_axis</span><span class="p">[:</span><span class="mi">10</span><span class="p">]</span><span class="si">}</span><span class="s2">...&quot;</span><span class="p">)</span>  <span class="c1"># 最初の10個の時間点</span>
+</code></pre></div>
+<h3 id="_12">技術的詳細<a class="headerlink" href="#_12" title="Permanent link">&para;</a></h3>
+<h4 id="_13">アルゴリズム<a class="headerlink" href="#_13" title="Permanent link">&para;</a></h4>
+<p>この実装は、MoSQIToの <code>loudness_zwtv</code> 関数を使用しており、以下を実装しています：</p>
+<ol>
+<li><strong>外耳伝達関数</strong>: 外耳のフィルタリング効果をシミュレート</li>
+<li><strong>中耳伝達関数</strong>: 中耳の伝達をモデル化</li>
+<li><strong>励起パターン</strong>: 基底膜に沿った励起を計算</li>
+<li><strong>特定ラウドネス</strong>: 各臨界帯域でラウドネスを決定</li>
+<li><strong>総ラウドネス</strong>: すべての臨界帯域にわたって特定ラウドネスを積分</li>
+</ol>
+<h4 id="_14">時間分解能<a class="headerlink" href="#_14" title="Permanent link">&para;</a></h4>
+<p>ラウドネス計算は約2msの時間分解能で値を生成します。1秒の信号に対して、約500個のラウドネス値が期待できます。</p>
+<h4 id="_15">計算の複雑さ<a class="headerlink" href="#_15" title="Permanent link">&para;</a></h4>
+<ul>
+<li>アルゴリズムは効率性のためブロック単位で信号を処理します</li>
+<li>処理時間は信号の長さに対して線形にスケールします</li>
+<li>メモリ使用量は中程度（時間変化するラウドネス値を保存）</li>
+</ul>
+<h3 id="_16">制限事項<a class="headerlink" href="#_16" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>サンプリングレート</strong>: 44.1 kHz以上のサンプリングレートで最良の結果が得られます</li>
+<li><strong>信号レベル</strong>: 可聴範囲内の信号（通常20-100 dB SPL）で正確です</li>
+<li><strong>定常性の仮定</strong>: 非定常信号用に設計されていますが、極端に急激な過渡現象は完全には捉えられない場合があります</li>
+<li><strong>キャリブレーション</strong>: 物理単位（Pa）への適切な信号キャリブレーションを前提としています</li>
+</ol>
+<h3 id="_17">標準と参考文献<a class="headerlink" href="#_17" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>ISO 532-1:2017</strong>: "Acoustics — Methods for calculating loudness — Part 1: Zwicker method"</li>
+<li><strong>Zwicker, E., &amp; Fastl, H. (1999)</strong>: Psychoacoustics: Facts and models (2nd ed.). Springer.</li>
+<li><strong>MoSQIToライブラリ</strong>: https://mosqito.readthedocs.io/en/latest/</li>
+</ul>
+<hr />
+<h2 id="_18">ラウドネス（定常信号）<a class="headerlink" href="#_18" title="Permanent link">&para;</a></h2>
+<h3 id="_19">概要<a class="headerlink" href="#_19" title="Permanent link">&para;</a></h3>
+<p><code>loudness_zwst()</code> メソッドは、ISO 532-1:2017に従ったZwicker法を使用して、定常信号のラウドネスを計算します。このメソッドは、ファンノイズ、定常的な機械音などの持続的な音の評価に適しています。</p>
+<h3 id="_20">非定常ラウドネスとの違い<a class="headerlink" href="#_20" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>時間変化（<code>loudness_zwtv</code>）</th>
+<th>定常（<code>loudness_zwst</code>）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>対象信号</strong></td>
+<td>非定常（時間変化する音）</td>
+<td>定常（持続的な音）</td>
+</tr>
+<tr>
+<td><strong>使用例</strong></td>
+<td>音声、音楽、過渡音</td>
+<td>ファンノイズ、定常機械音</td>
+</tr>
+<tr>
+<td><strong>出力</strong></td>
+<td>時系列のラウドネス値</td>
+<td>単一のラウドネス値</td>
+</tr>
+<tr>
+<td><strong>出力形状</strong></td>
+<td>(channels, time_samples)</td>
+<td>(n_channels,)</td>
+</tr>
+<tr>
+<td><strong>サンプリングレート</strong></td>
+<td>~500 Hzに更新</td>
+<td>変更なし（単一値）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_21">使用方法<a class="headerlink" href="#_21" title="Permanent link">&para;</a></h3>
+<h4 id="_22">基本的な使い方<a class="headerlink" href="#_22" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
+
+<span class="c1"># 定常信号を読み込む（ファンノイズなど）</span>
+<span class="n">signal</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read_wav</span><span class="p">(</span><span class="s2">&quot;fan_noise.wav&quot;</span><span class="p">)</span>
+
+<span class="c1"># 定常ラウドネスを計算（自由音場）</span>
+<span class="n">loudness</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">loudness_zwst</span><span class="p">()</span>
+
+<span class="c1"># 結果を表示</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;定常ラウドネス: </span><span class="si">{</span><span class="n">loudness</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> sones&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h4 id="_23">音場タイプの選択<a class="headerlink" href="#_23" title="Permanent link">&para;</a></h4>
+<p>時間変化するラウドネスと同様に、2種類の音場をサポートしています：</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># 自由音場（デフォルト）</span>
+<span class="n">loudness_free</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">loudness_zwst</span><span class="p">(</span><span class="n">field_type</span><span class="o">=</span><span class="s2">&quot;free&quot;</span><span class="p">)</span>
+
+<span class="c1"># 拡散音場</span>
+<span class="n">loudness_diffuse</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">loudness_zwst</span><span class="p">(</span><span class="n">field_type</span><span class="o">=</span><span class="s2">&quot;diffuse&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;自由音場: </span><span class="si">{</span><span class="n">loudness_free</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> sones&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;拡散音場: </span><span class="si">{</span><span class="n">loudness_diffuse</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> sones&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="_24">メソッドシグネチャ<a class="headerlink" href="#_24" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">loudness_zwst</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArrayReal</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Zwicker法を使用して定常ラウドネスを計算</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    field_type : str, default=&quot;free&quot;</span>
+<span class="sd">        音場のタイプ（&#39;free&#39; または &#39;diffuse&#39;）</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    NDArrayReal</span>
+<span class="sd">        ソーン単位の定常ラウドネス値（各チャンネルごとに1つの値）</span>
+<span class="sd">        形状: (n_channels,)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+</code></pre></div>
+<h3 id="_25">出力<a class="headerlink" href="#_25" title="Permanent link">&para;</a></h3>
+<p>このメソッドは以下を含む <code>NDArrayReal</code> を返します：</p>
+<ul>
+<li><strong>単一のラウドネス値</strong>（ソーン単位、各チャンネルごと）</li>
+<li><strong>出力形状</strong>: (n_channels,) - 1D配列</li>
+<li><strong>マルチチャンネル処理</strong>: 各チャンネルが独立して処理されます</li>
+<li><strong>NumPy互換</strong>: 直接NumPy操作が可能（<code>loudness[0]</code>, <code>loudness.mean()</code>など）</li>
+</ul>
+<h3 id="_26">使用例<a class="headerlink" href="#_26" title="Permanent link">&para;</a></h3>
+<h4 id="1_1">例1: ファンノイズの評価<a class="headerlink" href="#1_1" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
+
+<span class="c1"># ファンノイズを読み込む</span>
+<span class="n">fan_signal</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read_wav</span><span class="p">(</span><span class="s2">&quot;fan_noise.wav&quot;</span><span class="p">)</span>
+
+<span class="c1"># 定常ラウドネスを計算</span>
+<span class="n">loudness</span> <span class="o">=</span> <span class="n">fan_signal</span><span class="o">.</span><span class="n">loudness_zwst</span><span class="p">(</span><span class="n">field_type</span><span class="o">=</span><span class="s2">&quot;free&quot;</span><span class="p">)</span>
+
+<span class="c1"># 結果を表示</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ファンノイズのラウドネス: </span><span class="si">{</span><span class="n">loudness</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> sones&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h4 id="2_1">例2: 複数の定常音源の比較<a class="headerlink" href="#2_1" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
+
+<span class="c1"># 異なる定常音源を読み込む</span>
+<span class="n">fan1</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read_wav</span><span class="p">(</span><span class="s2">&quot;fan1.wav&quot;</span><span class="p">)</span>
+<span class="n">fan2</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read_wav</span><span class="p">(</span><span class="s2">&quot;fan2.wav&quot;</span><span class="p">)</span>
+
+<span class="c1"># 定常ラウドネスを計算</span>
+<span class="n">loudness1</span> <span class="o">=</span> <span class="n">fan1</span><span class="o">.</span><span class="n">loudness_zwst</span><span class="p">()</span>
+<span class="n">loudness2</span> <span class="o">=</span> <span class="n">fan2</span><span class="o">.</span><span class="n">loudness_zwst</span><span class="p">()</span>
+
+<span class="c1"># 比較</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fan 1: </span><span class="si">{</span><span class="n">loudness1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> sones&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fan 2: </span><span class="si">{</span><span class="n">loudness2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> sones&quot;</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">loudness1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">loudness2</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Fan 1 is louder&quot;</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Fan 2 is louder&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h4 id="3_1">例3: ステレオ定常音源の処理<a class="headerlink" href="#3_1" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
+
+<span class="c1"># ステレオの定常音源を読み込む</span>
+<span class="n">stereo_signal</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read_wav</span><span class="p">(</span><span class="s2">&quot;stereo_steady_noise.wav&quot;</span><span class="p">)</span>
+
+<span class="c1"># 定常ラウドネスを計算（各チャンネル独立）</span>
+<span class="n">loudness</span> <span class="o">=</span> <span class="n">stereo_signal</span><span class="o">.</span><span class="n">loudness_zwst</span><span class="p">()</span>
+
+<span class="c1"># 各チャンネルの結果を表示</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;左チャンネル: </span><span class="si">{</span><span class="n">loudness</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> sones&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;右チャンネル: </span><span class="si">{</span><span class="n">loudness</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> sones&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h4 id="4_1">例4: 自由音場と拡散音場の比較<a class="headerlink" href="#4_1" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
+
+<span class="c1"># 定常信号を読み込む</span>
+<span class="n">signal</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read_wav</span><span class="p">(</span><span class="s2">&quot;steady_noise.wav&quot;</span><span class="p">)</span>
+
+<span class="c1"># 両方の音場タイプで計算</span>
+<span class="n">loudness_free</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">loudness_zwst</span><span class="p">(</span><span class="n">field_type</span><span class="o">=</span><span class="s2">&quot;free&quot;</span><span class="p">)</span>
+<span class="n">loudness_diffuse</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">loudness_zwst</span><span class="p">(</span><span class="n">field_type</span><span class="o">=</span><span class="s2">&quot;diffuse&quot;</span><span class="p">)</span>
+
+<span class="c1"># 比較</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;自由音場: </span><span class="si">{</span><span class="n">loudness_free</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> sones&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;拡散音場: </span><span class="si">{</span><span class="n">loudness_diffuse</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> sones&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;差: </span><span class="si">{</span><span class="nb">abs</span><span class="p">(</span><span class="n">loudness_free</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">loudness_diffuse</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> sones&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h4 id="5-mosqito_1">例5: MoSQIToを直接使用<a class="headerlink" href="#5-mosqito_1" title="Permanent link">&para;</a></h4>
+<p>より詳細な出力が必要な場合は、MoSQIToを直接使用できます：</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">mosqito.sq_metrics.loudness.loudness_zwst</span><span class="w"> </span><span class="kn">import</span> <span class="n">loudness_zwst</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
+
+<span class="n">signal</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read_wav</span><span class="p">(</span><span class="s2">&quot;steady_noise.wav&quot;</span><span class="p">)</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># 最初のチャンネルを取得</span>
+
+<span class="c1"># MoSQIToを直接呼び出す</span>
+<span class="n">N</span><span class="p">,</span> <span class="n">N_spec</span><span class="p">,</span> <span class="n">bark_axis</span> <span class="o">=</span> <span class="n">loudness_zwst</span><span class="p">(</span>
+    <span class="n">data</span><span class="p">,</span> <span class="n">signal</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="n">field_type</span><span class="o">=</span><span class="s2">&quot;free&quot;</span>
+<span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ラウドネス: </span><span class="si">{</span><span class="n">N</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> sones&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;特定ラウドネスの形状: </span><span class="si">{</span><span class="n">N_spec</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;バーク軸: </span><span class="si">{</span><span class="n">bark_axis</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="_27">技術的詳細<a class="headerlink" href="#_27" title="Permanent link">&para;</a></h3>
+<h4 id="_28">アルゴリズム<a class="headerlink" href="#_28" title="Permanent link">&para;</a></h4>
+<p>定常ラウドネスの計算は、時間変化するラウドネスと同じZwicker法に基づいていますが、単一の代表値を出力します：</p>
+<ol>
+<li><strong>外耳伝達関数</strong>: 外耳のフィルタリング効果をシミュレート</li>
+<li><strong>中耳伝達関数</strong>: 中耳の伝達をモデル化</li>
+<li><strong>励起パターン</strong>: 基底膜に沿った励起を計算</li>
+<li><strong>特定ラウドネス</strong>: 各臨界帯域でラウドネスを決定</li>
+<li><strong>総ラウドネス</strong>: すべての臨界帯域にわたって特定ラウドネスを積分</li>
+</ol>
+<h4 id="_29">計算の複雑さ<a class="headerlink" href="#_29" title="Permanent link">&para;</a></h4>
+<ul>
+<li>定常信号を想定しているため、時間変化するラウドネスよりも計算が簡略化されます</li>
+<li>処理時間は信号の長さに依存しますが、単一の値のみを出力します</li>
+<li>メモリ使用量は小さい（単一のラウドネス値のみを保存）</li>
+</ul>
+<h3 id="_30">制限事項<a class="headerlink" href="#_30" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>サンプリングレート</strong>: 44.1 kHz以上のサンプリングレートで最良の結果が得られます</li>
+<li><strong>信号レベル</strong>: 可聴範囲内の信号（通常20-100 dB SPL）で正確です</li>
+<li><strong>定常性の仮定</strong>: このメソッドは定常信号用に設計されています。時間変化する信号には <code>loudness_zwtv()</code> を使用してください</li>
+<li><strong>キャリブレーション</strong>: 物理単位（Pa）への適切な信号キャリブレーションを前提としています</li>
+</ol>
+<h3 id="_31">標準と参考文献<a class="headerlink" href="#_31" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>ISO 532-1:2017</strong>: "Acoustics — Methods for calculating loudness — Part 1: Zwicker method"</li>
+<li><strong>Zwicker, E., &amp; Fastl, H. (1999)</strong>: Psychoacoustics: Facts and models (2nd ed.). Springer.</li>
+<li><strong>MoSQIToライブラリ</strong>: https://mosqito.readthedocs.io/en/latest/</li>
+</ul>
+<hr />
+<h3 id="_32">関連する操作<a class="headerlink" href="#_32" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>loudness_zwtv()</code>: 時間変化するラウドネスを計算（非定常信号用）</li>
+<li><code>loudness_zwst()</code>: 定常ラウドネスを計算（定常信号用）</li>
+<li><code>a_weighting()</code>: A特性フィルタを適用（人間の聴覚を近似する周波数重み付け）</li>
+<li><code>noct_spectrum()</code>: Nオクターブバンドスペクトルを計算</li>
+<li><code>rms_trend()</code>: 時間に沿ったRMSトレンドを計算</li>
+</ul>
+<h3 id="_33">参照<a class="headerlink" href="#_33" title="Permanent link">&para;</a></h3>
+<ul>
+<li><a href="https://mosqito.readthedocs.io/en/latest/">MoSQITo Documentation</a></li>
+<li><a href="https://www.iso.org/standard/63077.html">ISO 532-1:2017 Standard</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Psychoacoustics">Psychoacoustics Fundamentals</a></li>
+</ul>
+
+
+
+
+
+
+
+  
+    
+  
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="最終更新日">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2025年10月18日 18:33:35 UTC">2025年10月18日</span>
+  </span>
+
+    
+    
+    
+    
+  </aside>
+
+
+  
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  ページトップへ戻る
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      © 2025 Wandas Team
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/kasahart/wandas" target="_blank" rel="noopener" title="Wandas on GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.tracking", "navigation.top", "search.highlight", "search.share"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "\u30b3\u30d4\u30fc\u3057\u307e\u3057\u305f", "clipboard.copy": "\u30af\u30ea\u30c3\u30d7\u30dc\u30fc\u30c9\u3078\u30b3\u30d4\u30fc", "search.result.more.one": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3082\u30461\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.more.other": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3042\u3068#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.none": "\u4f55\u3082\u898b\u3064\u304b\u308a\u307e\u305b\u3093\u3067\u3057\u305f", "search.result.one": "1\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.other": "#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.placeholder": "\u691c\u7d22\u30ad\u30fc\u30ef\u30fc\u30c9\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044", "search.result.term.missing": "\u691c\u7d22\u306b\u542b\u307e\u308c\u306a\u3044", "select.version": "\u30d0\u30fc\u30b8\u30e7\u30f3\u5207\u308a\u66ff\u3048"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+        <script src="../../assets/_markdown_exec_pyodide.js"></script>
+      
+    
+  </body>
+</html>
