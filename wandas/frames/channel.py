@@ -153,19 +153,10 @@ class ChannelFrame(
             >>> # Select channels with RMS > threshold
             >>> active_channels = cf[cf.rms > 0.5]
         """
-        # Compute RMS for each channel: sqrt(mean(x^2))
-        data = self.data  # This will trigger computation if lazy
-
-        # Ensure data is 2D (n_channels, n_samples)
-        if data.ndim == 1:
-            data = data.reshape(1, -1)
-
         # Convert to a concrete NumPy ndarray to satisfy numpy.mean typing
         # and to ensure dask arrays are materialized for this operation.
-        arr: NDArrayReal = np.asarray(data)
-        squared = arr**2
-        rms_values: NDArrayReal = np.sqrt(np.mean(squared, axis=1))  # type: ignore[arg-type]
-        return rms_values
+        rms_values = da.sqrt((self._data**2).mean(axis=1))
+        return np.array(rms_values.compute())
 
     def info(self) -> None:
         """Display comprehensive information about the ChannelFrame.
