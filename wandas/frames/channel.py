@@ -163,7 +163,8 @@ class ChannelFrame(
         # Convert to a concrete NumPy ndarray to satisfy numpy.mean typing
         # and to ensure dask arrays are materialized for this operation.
         arr: NDArrayReal = np.asarray(data)
-        rms_values: NDArrayReal = np.sqrt(np.mean(arr**2, axis=1))  # type: ignore [arg-type]
+        squared = arr**2
+        rms_values: NDArrayReal = np.sqrt(np.mean(squared, axis=1))  # type: ignore[arg-type]
         return rms_values
 
     def info(self) -> None:
