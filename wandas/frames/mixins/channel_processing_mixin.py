@@ -1,9 +1,11 @@
 """Module providing mixins related to signal processing."""
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Union, cast
 
 from wandas.core.metadata import ChannelMetadata
+from wandas.frames.roughness import RoughnessFrame
+from wandas.processing import create_operation
 
 from .protocols import ProcessingFrameProtocol, T_Processing
 
@@ -14,6 +16,9 @@ if TYPE_CHECKING:
         _PadModeSTFT,
         _WindowSpec,
     )
+
+    from wandas.core.base_frame import BaseFrame
+    from wandas.utils.types import NDArrayReal
 logger = logging.getLogger(__name__)
 
 
@@ -87,27 +92,83 @@ class ChannelProcessingMixin:
         return cast(T_Processing, result)
 
     def normalize(
-        self: T_Processing, target_level: float = -20, channel_wise: bool = True
+        self: T_Processing,
+        norm: float | None = float("inf"),
+        axis: int | None = -1,
+        threshold: float | None = None,
+        fill: bool | None = None,
     ) -> T_Processing:
-        """Normalize signal levels.
+        """Normalize signal levels using librosa.util.normalize.
 
-        This method adjusts the signal amplitude to reach the target RMS level.
+        This method normalizes the signal amplitude according to the specified norm.
 
         Args:
-            target_level: Target RMS level (dB). Default is -20.
-            channel_wise: If True, normalize each channel individually.
-                If False, apply the same scaling to all channels.
+            norm: Norm type. Default is np.inf (maximum absolute value normalization).
+                Supported values:
+                - np.inf: Maximum absolute value normalization
+                - -np.inf: Minimum absolute value normalization
+                - 0: Peak normalization
+                - float: Lp norm
+                - None: No normalization
+            axis: Axis along which to normalize. Default is -1 (time axis).
+                - -1: Normalize along time axis (each channel independently)
+                - None: Global normalization across all axes
+                - int: Normalize along specified axis
+            threshold: Threshold below which values are considered zero.
+                If None, no threshold is applied.
+            fill: Value to fill when the norm is zero.
+                If None, the zero vector remains zero.
 
         Returns:
             New ChannelFrame containing the normalized signal
+
+        Examples:
+            >>> import wandas as wd
+            >>> signal = wd.read_wav("audio.wav")
+            >>> # Normalize to maximum absolute value of 1.0 (per channel)
+            >>> normalized = signal.normalize()
+            >>> # Global normalization across all channels
+            >>> normalized_global = signal.normalize(axis=None)
+            >>> # L2 normalization
+            >>> normalized_l2 = signal.normalize(norm=2)
         """
         logger.debug(
-            f"Setting up normalize: target_level={target_level}, "
-            f"channel_wise={channel_wise} (lazy)"
+            f"Setting up normalize: norm={norm}, axis={axis}, "
+            f"threshold={threshold}, fill={fill} (lazy)"
         )
         result = self.apply_operation(
-            "normalize", target_level=target_level, channel_wise=channel_wise
+            "normalize", norm=norm, axis=axis, threshold=threshold, fill=fill
         )
+        return cast(T_Processing, result)
+
+    def remove_dc(self: T_Processing) -> T_Processing:
+        """Remove DC component (DC offset) from the signal.
+
+        This method removes the DC (direct current) component by subtracting
+        the mean value from each channel. This is equivalent to centering the
+        signal around zero.
+
+        Returns:
+            New ChannelFrame with DC component removed
+
+        Examples:
+            >>> import wandas as wd
+            >>> import numpy as np
+            >>> # Create signal with DC offset
+            >>> signal = wd.read_wav("audio.wav")
+            >>> signal_with_dc = signal + 2.0  # Add DC offset
+            >>> # Remove DC offset
+            >>> signal_clean = signal_with_dc.remove_dc()
+            >>> # Verify DC removal
+            >>> assert np.allclose(signal_clean.data.mean(axis=1), 0, atol=1e-10)
+
+        Notes:
+            - This operation is performed per channel
+            - Equivalent to applying a high-pass filter with very low cutoff
+            - Useful for removing sensor drift or measurement offset
+        """
+        logger.debug("Setting up DC removal (lazy)")
+        result = self.apply_operation("remove_dc")
         return cast(T_Processing, result)
 
     def a_weighting(self: T_Processing) -> T_Processing:
@@ -200,7 +261,7 @@ class ChannelProcessingMixin:
     def trim(
         self: T_Processing,
         start: float = 0,
-        end: Optional[float] = None,
+        end: float | None = None,
     ) -> T_Processing:
         """Trim the signal to the specified time range.
 
@@ -223,8 +284,8 @@ class ChannelProcessingMixin:
 
     def fix_length(
         self: T_Processing,
-        length: Optional[int] = None,
-        duration: Optional[float] = None,
+        length: int | None = None,
+        duration: float | None = None,
     ) -> T_Processing:
         """Adjust the signal to the specified length.
 
@@ -276,15 +337,11 @@ class ChannelProcessingMixin:
             Aw=Aw,
         )
 
-        # Update sampling rate
-        result_obj = cast(T_Processing, result)
-        if hasattr(result_obj, "sampling_rate"):
-            result_obj.sampling_rate = frame.sampling_rate / hop_length
-
-        return result_obj
+        # Sampling rate update is handled by the Operation class
+        return cast(T_Processing, result)
 
     def channel_difference(
-        self: T_Processing, other_channel: Union[int, str] = 0
+        self: T_Processing, other_channel: int | str = 0
     ) -> T_Processing:
         """Compute the difference between channels.
 
@@ -337,8 +394,8 @@ class ChannelProcessingMixin:
             list["_FloatLike_co"],
         ] = 1,
         n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
+        hop_length: int | None = None,
+        win_length: int | None = None,
         window: "_WindowSpec" = "hann",
         center: bool = True,
         pad_mode: "_PadModeSTFT" = "constant",
@@ -389,8 +446,8 @@ class ChannelProcessingMixin:
             list["_FloatLike_co"],
         ] = 1,
         n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
+        hop_length: int | None = None,
+        win_length: int | None = None,
         window: "_WindowSpec" = "hann",
         center: bool = True,
         pad_mode: "_PadModeSTFT" = "constant",
@@ -421,4 +478,371 @@ class ChannelProcessingMixin:
             center=center,
             pad_mode=pad_mode,
         )
+        return cast(T_Processing, result)
+
+    def loudness_zwtv(self: T_Processing, field_type: str = "free") -> T_Processing:
+        """
+        Calculate time-varying loudness using Zwicker method (ISO 532-1:2017).
+
+        This method computes the loudness of non-stationary signals according to
+        the Zwicker method, as specified in ISO 532-1:2017. The loudness is
+        calculated in sones, where a doubling of sones corresponds to a doubling
+        of perceived loudness.
+
+        Args:
+            field_type: Type of sound field. Options:
+                - 'free': Free field (sound from a specific direction)
+                - 'diffuse': Diffuse field (sound from all directions)
+                Default is 'free'.
+
+        Returns:
+            New ChannelFrame containing time-varying loudness values in sones.
+            Each channel is processed independently.
+            The output sampling rate is adjusted based on the loudness
+            calculation time resolution (typically ~500 Hz for 2ms steps).
+
+        Raises:
+            ValueError: If field_type is not 'free' or 'diffuse'
+
+        Examples:
+            Calculate loudness for a signal:
+            >>> import wandas as wd
+            >>> signal = wd.read_wav("audio.wav")
+            >>> loudness = signal.loudness_zwtv(field_type="free")
+            >>> loudness.plot(title="Time-varying Loudness")
+
+            Compare free field and diffuse field:
+            >>> loudness_free = signal.loudness_zwtv(field_type="free")
+            >>> loudness_diffuse = signal.loudness_zwtv(field_type="diffuse")
+
+        Notes:
+            - The output contains time-varying loudness values in sones
+            - Typical loudness: 1 sone ≈ 40 phon (loudness level)
+            - The time resolution is approximately 2ms (determined by the algorithm)
+            - For multi-channel signals, loudness is calculated per channel
+            - The output sampling rate is updated to reflect the time resolution
+
+            **Time axis convention:**
+            The time axis in the returned frame represents the start time of
+            each 2ms analysis step. This differs slightly from the MoSQITo
+            library, which uses the center time of each step. For example:
+
+            - wandas time: [0.000s, 0.002s, 0.004s, ...] (step start)
+            - MoSQITo time: [0.001s, 0.003s, 0.005s, ...] (step center)
+
+            The difference is very small (~1ms) and does not affect the loudness
+            values themselves. This design choice ensures consistency with
+            wandas's time axis convention across all frame types.
+
+        References:
+            ISO 532-1:2017, "Acoustics — Methods for calculating loudness —
+            Part 1: Zwicker method"
+        """
+        result = self.apply_operation("loudness_zwtv", field_type=field_type)
+
+        # Sampling rate update is handled by the Operation class
+        return cast(T_Processing, result)
+
+    def loudness_zwst(self: T_Processing, field_type: str = "free") -> "NDArrayReal":
+        """
+        Calculate steady-state loudness using Zwicker method (ISO 532-1:2017).
+
+        This method computes the loudness of stationary (steady) signals according to
+        the Zwicker method, as specified in ISO 532-1:2017. The loudness is
+        calculated in sones, where a doubling of sones corresponds to a doubling
+        of perceived loudness.
+
+        This method is suitable for analyzing steady sounds such as fan noise,
+        constant machinery sounds, or other stationary signals.
+
+        Args:
+            field_type: Type of sound field. Options:
+                - 'free': Free field (sound from a specific direction)
+                - 'diffuse': Diffuse field (sound from all directions)
+                Default is 'free'.
+
+        Returns:
+            Loudness values in sones, one per channel. Shape: (n_channels,)
+
+        Raises:
+            ValueError: If field_type is not 'free' or 'diffuse'
+
+        Examples:
+            Calculate steady-state loudness for a fan noise:
+            >>> import wandas as wd
+            >>> signal = wd.read_wav("fan_noise.wav")
+            >>> loudness = signal.loudness_zwst(field_type="free")
+            >>> print(f"Channel 0 loudness: {loudness[0]:.2f} sones")
+            >>> print(f"Mean loudness: {loudness.mean():.2f} sones")
+
+            Compare free field and diffuse field:
+            >>> loudness_free = signal.loudness_zwst(field_type="free")
+            >>> loudness_diffuse = signal.loudness_zwst(field_type="diffuse")
+            >>> print(f"Free field: {loudness_free[0]:.2f} sones")
+            >>> print(f"Diffuse field: {loudness_diffuse[0]:.2f} sones")
+
+        Notes:
+            - Returns a 1D array with one loudness value per channel
+            - Typical loudness: 1 sone ≈ 40 phon (loudness level)
+            - For multi-channel signals, loudness is calculated independently
+              per channel
+            - This method is designed for stationary signals (constant sounds)
+            - For time-varying signals, use loudness_zwtv() instead
+            - Similar to the rms property, returns NDArrayReal for consistency
+
+        References:
+            ISO 532-1:2017, "Acoustics — Methods for calculating loudness —
+            Part 1: Zwicker method"
+        """
+        # Treat self as a ProcessingFrameProtocol so mypy understands
+        # where sampling_rate and data come from.
+        from wandas.processing.psychoacoustic import LoudnessZwst
+        from wandas.utils.types import NDArrayReal
+
+        # Create operation instance
+        operation = LoudnessZwst(self.sampling_rate, field_type=field_type)
+
+        # Get data (triggers computation if lazy)
+        data = self.data
+
+        # Ensure data is 2D (n_channels, n_samples)
+        if data.ndim == 1:
+            data = data.reshape(1, -1)
+        # Process the array using the public API and materialize to NumPy
+        result = operation.process_array(data).compute()
+
+        # Squeeze to get 1D array (n_channels,)
+        loudness_values: NDArrayReal = result.squeeze()
+
+        # Ensure it's 1D even for single channel
+        if loudness_values.ndim == 0:
+            loudness_values = loudness_values.reshape(1)
+
+        return loudness_values
+
+    def roughness_dw(self: T_Processing, overlap: float = 0.5) -> T_Processing:
+        """Calculate time-varying roughness using Daniel and Weber method.
+
+        Roughness is a psychoacoustic metric that quantifies the perceived
+        harshness or roughness of a sound, measured in asper. This method
+        implements the Daniel & Weber (1997) standard calculation.
+
+        The calculation follows the standard formula:
+        R = 0.25 * sum(R'_i) for i=1 to 47 Bark bands
+
+        Args:
+            overlap: Overlapping coefficient for 200ms analysis windows (0.0 to 1.0).
+                - overlap=0.5: 100ms hop → ~10 Hz output sampling rate
+                - overlap=0.0: 200ms hop → ~5 Hz output sampling rate
+                Default is 0.5.
+
+        Returns:
+            New ChannelFrame containing time-varying roughness values in asper.
+            The output sampling rate depends on the overlap parameter.
+
+        Raises:
+            ValueError: If overlap is not in the range [0.0, 1.0]
+
+        Examples:
+            Calculate roughness for a motor noise:
+            >>> import wandas as wd
+            >>> signal = wd.read_wav("motor_noise.wav")
+            >>> roughness = signal.roughness_dw(overlap=0.5)
+            >>> roughness.plot(ylabel="Roughness [asper]")
+
+            Analyze roughness statistics:
+            >>> mean_roughness = roughness.data.mean()
+            >>> max_roughness = roughness.data.max()
+            >>> print(f"Mean: {mean_roughness:.2f} asper")
+            >>> print(f"Max: {max_roughness:.2f} asper")
+
+            Compare before and after modification:
+            >>> before = wd.read_wav("motor_before.wav").roughness_dw()
+            >>> after = wd.read_wav("motor_after.wav").roughness_dw()
+            >>> improvement = before.data.mean() - after.data.mean()
+            >>> print(f"Roughness reduction: {improvement:.2f} asper")
+
+        Notes:
+            - Returns a ChannelFrame with time-varying roughness values
+            - Typical roughness values: 0-2 asper for most sounds
+            - Higher values indicate rougher, harsher sounds
+            - For multi-channel signals, roughness is calculated independently
+              per channel
+            - This is the standard-compliant total roughness (R)
+            - For detailed Bark-band analysis, use roughness_dw_spec() instead
+
+            **Time axis convention:**
+            The time axis in the returned frame represents the start time of
+            each 200ms analysis window. This differs from the MoSQITo library,
+            which uses the center time of each window. For example:
+
+            - wandas time: [0.0s, 0.1s, 0.2s, ...] (window start)
+            - MoSQITo time: [0.1s, 0.2s, 0.3s, ...] (window center)
+
+            The difference is constant (half the window duration = 100ms) and
+            does not affect the roughness values themselves. This design choice
+            ensures consistency with wandas's time axis convention across all
+            frame types.
+
+        References:
+            Daniel, P., & Weber, R. (1997). "Psychoacoustical roughness:
+            Implementation of an optimized model." Acustica, 83, 113-123.
+        """
+        logger.debug(f"Applying roughness_dw operation with overlap={overlap} (lazy)")
+        result = self.apply_operation("roughness_dw", overlap=overlap)
+        return cast(T_Processing, result)
+
+    def roughness_dw_spec(self: T_Processing, overlap: float = 0.5) -> "RoughnessFrame":
+        """Calculate specific roughness with Bark-band frequency information.
+
+        This method returns detailed roughness analysis data organized by
+        Bark frequency bands over time, allowing for frequency-specific
+        roughness analysis. It uses the Daniel & Weber (1997) method.
+
+        The relationship between total roughness and specific roughness:
+        R = 0.25 * sum(R'_i) for i=1 to 47 Bark bands
+
+        Args:
+            overlap: Overlapping coefficient for 200ms analysis windows (0.0 to 1.0).
+                - overlap=0.5: 100ms hop → ~10 Hz output sampling rate
+                - overlap=0.0: 200ms hop → ~5 Hz output sampling rate
+                Default is 0.5.
+
+        Returns:
+            RoughnessFrame containing:
+                - data: Specific roughness by Bark band, shape (47, n_time)
+                        for mono or (n_channels, 47, n_time) for multi-channel
+                - bark_axis: Frequency axis in Bark scale (47 values, 0.5-23.5)
+                - time: Time axis for each analysis frame
+                - overlap: Overlap coefficient used
+                - plot(): Method for Bark-Time heatmap visualization
+
+        Raises:
+            ValueError: If overlap is not in the range [0.0, 1.0]
+
+        Examples:
+            Analyze frequency-specific roughness:
+            >>> import wandas as wd
+            >>> import numpy as np
+            >>> signal = wd.read_wav("motor.wav")
+            >>> roughness_spec = signal.roughness_dw_spec(overlap=0.5)
+            >>>
+            >>> # Plot Bark-Time heatmap
+            >>> roughness_spec.plot(cmap="viridis", title="Roughness Analysis")
+            >>>
+            >>> # Find dominant Bark band
+            >>> dominant_idx = roughness_spec.data.mean(axis=1).argmax()
+            >>> dominant_bark = roughness_spec.bark_axis[dominant_idx]
+            >>> print(f"Most contributing band: {dominant_bark:.1f} Bark")
+            >>>
+            >>> # Extract specific Bark band time series
+            >>> bark_10_idx = np.argmin(np.abs(roughness_spec.bark_axis - 10.0))
+            >>> roughness_at_10bark = roughness_spec.data[bark_10_idx, :]
+            >>>
+            >>> # Verify standard formula
+            >>> total_roughness = 0.25 * roughness_spec.data.sum(axis=-2)
+            >>> # This should match signal.roughness_dw(overlap=0.5).data
+
+        Notes:
+            - Returns a RoughnessFrame (not ChannelFrame)
+            - Contains 47 Bark bands from 0.5 to 23.5 Bark
+            - Each Bark band corresponds to a critical band of hearing
+            - Useful for identifying which frequencies contribute most to roughness
+            - The specific roughness can be integrated to obtain total roughness
+            - For simple time-series analysis, use roughness_dw() instead
+
+            **Time axis convention:**
+            The time axis represents the start time of each 200ms analysis
+            window, consistent with roughness_dw() and other wandas methods.
+
+        References:
+            Daniel, P., & Weber, R. (1997). "Psychoacoustical roughness:
+            Implementation of an optimized model." Acustica, 83, 113-123.
+        """
+
+        params = {"overlap": overlap}
+        operation_name = "roughness_dw_spec"
+        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
+
+        # Create operation instance via factory
+        operation = create_operation(operation_name, self.sampling_rate, **params)
+
+        # Apply processing lazily to self._data (Dask)
+        r_spec_dask = operation.process(self._data)
+
+        # Get metadata updates (sampling rate, bark_axis)
+        metadata_updates = operation.get_metadata_updates()
+
+        # Build metadata and history
+        new_metadata = {**self.metadata, **params}
+        new_history = [
+            *self.operation_history,
+            {"operation": operation_name, "params": params},
+        ]
+
+        # Extract bark_axis with proper type handling
+        bark_axis_value = metadata_updates.get("bark_axis")
+        if bark_axis_value is None:
+            raise ValueError("Operation did not provide bark_axis in metadata")
+
+        # Create RoughnessFrame. operation.get_metadata_updates() should provide
+        # sampling_rate and bark_axis
+        roughness_frame = RoughnessFrame(
+            data=r_spec_dask,
+            sampling_rate=metadata_updates.get("sampling_rate", self.sampling_rate),
+            bark_axis=bark_axis_value,
+            overlap=overlap,
+            label=f"{self.label}_roughness_spec" if self.label else "roughness_spec",
+            metadata=new_metadata,
+            operation_history=new_history,
+            channel_metadata=self._channel_metadata,
+            previous=cast("BaseFrame[NDArrayReal]", self),
+        )
+
+        logger.debug(
+            "Created RoughnessFrame via operation %s, shape=%s, sampling_rate=%.2f Hz",
+            operation_name,
+            r_spec_dask.shape,
+            roughness_frame.sampling_rate,
+        )
+
+        return roughness_frame
+
+    def fade(self: T_Processing, fade_ms: float = 50) -> T_Processing:
+        """Apply symmetric fade-in and fade-out to the signal using Tukey window.
+
+        This method applies a symmetric fade-in and fade-out envelope to the signal
+        using a Tukey (tapered cosine) window. The fade duration is the same for
+        both the beginning and end of the signal.
+
+        Args:
+            fade_ms: Fade duration in milliseconds for each end of the signal.
+                The total fade duration is 2 * fade_ms. Default is 50 ms.
+                Must be positive and less than half the signal duration.
+
+        Returns:
+            New ChannelFrame containing the faded signal
+
+        Raises:
+            ValueError: If fade_ms is negative or too long for the signal
+
+        Examples:
+            >>> import wandas as wd
+            >>> signal = wd.read_wav("audio.wav")
+            >>> # Apply 10ms fade-in and fade-out
+            >>> faded = signal.fade(fade_ms=10.0)
+            >>> # Apply very short fade (almost no effect)
+            >>> faded_short = signal.fade(fade_ms=0.1)
+
+        Notes:
+            - Uses SciPy's Tukey window for smooth fade transitions
+            - Fade is applied symmetrically to both ends of the signal
+            - The Tukey window alpha parameter is computed automatically
+              based on the fade duration and signal length
+            - For multi-channel signals, the same fade envelope is applied
+              to all channels
+            - Lazy evaluation is preserved - computation occurs only when needed
+        """
+        logger.debug(f"Setting up fade: fade_ms={fade_ms} (lazy)")
+        result = self.apply_operation("fade", fade_ms=fade_ms)
         return cast(T_Processing, result)

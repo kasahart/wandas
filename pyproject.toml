@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "wandas"
-version = "0.1.6"
+version = "0.1.7"
 description = "Wandas is an open source library for efficient signal analysis in Python"
 authors = [{name = "kasahart", email="kasahart66@gmail.com"}]
 maintainers = [
     {name = "kasahart", email="kasahart66@gmail.com"},
 ]
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { text = "MIT" }
 classifiers = [
     'Development Status :: 2 - Pre-Alpha',
@@ -20,10 +20,10 @@ classifiers = [
     'License :: OSI Approved :: MIT License',
     'Programming Language :: Python',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
     'Programming Language :: Python :: 3 :: Only',
     'Topic :: Software Development',
     'Topic :: Scientific/Engineering',
@@ -31,9 +31,9 @@ classifiers = [
     'Typing :: Typed',
 ]
 dependencies = [
-    "numpy",
-    "scipy",
-    "matplotlib",
+    "numpy>=2.0.2",
+    "scipy>=1.13.0",
+    "matplotlib>=3.9.0",
     "librosa",
     "mosqito",
     "ipykernel",
@@ -49,32 +49,42 @@ dependencies = [
     "pydantic>=2.11.0",
     "requests>=2.32.3",
     "types-requests>=2.32.0.20250328",
+    "pandas",
 ]
 
 [project.urls]
 Repository = "https://github.com/kasahart/wandas.git"
 Issues = "https://github.com/kasahart/wandas/issues"
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+# CI最小限（テスト・リント・型チェック）
+test = [
     "pytest>=8.3.5",
-    "pandas",
-    "pandas-stubs",
+    "pytest-xdist>=3.6.1",
     "pytest-cov",
-    "wandas",
-    "pre-commit>=3.5.0",
     "mypy",
     "ruff>=0.9.9",
+    "pandas-stubs",
+]
+
+# ドキュメント生成
+docs = [
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.6.12",
     "mkdocstrings[python]>=0.29.1",
     "mkdocstrings-python>=1.16.10",
     "mkdocs-static-i18n>=1.3.0",
     "mkdocs-jupyter>=0.25.1",
-    "jupytext>=1.17.1",
-    "ipykernel>=6.29.5",
     "mkdocs-git-revision-date-localized-plugin>=1.4.5",
     "markdown-exec>=1.10.3",
+    "jupytext>=1.17.1",
+    "ipykernel>=6.29.5",
+]
+
+# 開発補助ツール（ローカル開発用）
+dev = [
+    "pre-commit>=3.5.0",
+    "wandas",
 ]
 
 [tool.uv.sources]
@@ -120,6 +130,7 @@ norecursedirs = ["scripts"]
 ruff-check = { command = "uv run ruff check wandas tests", label = "Run ruff check" }
 mypy = { command = "uv run mypy", label = "Run mypy wandas tests" }
 pytest = { command = "uv run pytest", label = "Run pytest" }
+pytest-parallel = { command = "uv run pytest -n auto", label = "Run pytest (parallel)" }
 
 [tool.pre-commit]
 use-uv = true

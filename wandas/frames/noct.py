@@ -1,12 +1,13 @@
 # spectral_frame.py
 import logging
-from collections.abc import Iterator
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union
+from collections.abc import Callable, Iterator
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
 
 import dask
 import dask.array as da
 import librosa
 import numpy as np
+import pandas as pd
 from dask.array.core import Array as DaArray
 from mosqito.sound_level_meter.noct_spectrum._center_freq import _center_freq
 
@@ -128,10 +129,10 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         n: int = 3,
         G: int = 10,  # noqa: N803
         fr: int = 1000,
-        label: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        operation_history: Optional[list[dict[str, Any]]] = None,
-        channel_metadata: Optional[list[ChannelMetadata]] = None,
+        label: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        operation_history: list[dict[str, Any]] | None = None,
+        channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
         previous: Optional["BaseFrame[Any]"] = None,
     ) -> None:
         """
@@ -249,7 +250,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
 
     def _binary_op(
         self: S,
-        other: Union[S, int, float, NDArrayReal, DaArray],
+        other: S | int | float | NDArrayReal | DaArray,
         op: Callable[[DaArray, Any], DaArray],
         symbol: str,
     ) -> S:
@@ -287,7 +288,18 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         return self
 
     def plot(
-        self, plot_type: str = "noct", ax: Optional["Axes"] = None, **kwargs: Any
+        self,
+        plot_type: str = "noct",
+        ax: Optional["Axes"] = None,
+        title: str | None = None,
+        overlay: bool = False,
+        xlabel: str | None = None,
+        ylabel: str | None = None,
+        alpha: float = 1.0,
+        xlim: tuple[float, float] | None = None,
+        ylim: tuple[float, float] | None = None,
+        Aw: bool = False,  # noqa: N803
+        **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
         """
         Plot the N-octave band data using various visualization strategies.
@@ -298,25 +310,46 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         Parameters
         ----------
         plot_type : str, default="noct"
-            Type of plot to create. The default "noct" type creates a bar plot
+            Type of plot to create. The default "noct" type creates a step plot
             suitable for displaying N-octave band data.
         ax : matplotlib.axes.Axes, optional
             Axes to plot on. If None, creates new axes.
+        title : str, optional
+            Title for the plot. If None, uses a default title with band specification.
+        overlay : bool, default=False
+            Whether to overlay all channels on a single plot (True)
+            or create separate subplots for each channel (False).
+        xlabel : str, optional
+            Label for the x-axis. If None, uses default "Center frequency [Hz]".
+        ylabel : str, optional
+            Label for the y-axis. If None, uses default based on data type.
+        alpha : float, default=1.0
+            Transparency level for the plot lines (0.0 to 1.0).
+        xlim : tuple[float, float], optional
+            Limits for the x-axis as (min, max) tuple.
+        ylim : tuple[float, float], optional
+            Limits for the y-axis as (min, max) tuple.
+        Aw : bool, default=False
+            Whether to apply A-weighting to the data.
         **kwargs : dict
-            Additional keyword arguments passed to the plot strategy.
-            Common options include:
-            - dB: Whether to plot in decibels
-            - Aw: Whether to apply A-weighting
-            - title: Plot title
-            - xlabel, ylabel: Axis labels
-            - xscale: Set to "log" for logarithmic frequency axis
-            - grid: Whether to show grid lines
+            Additional matplotlib Line2D parameters
+            (e.g., color, linewidth, linestyle).
 
         Returns
         -------
         Union[Axes, Iterator[Axes]]
             The matplotlib axes containing the plot, or an iterator of axes
             for multi-plot outputs.
+
+        Examples
+        --------
+        >>> noct = spectrum.noct(n=3)
+        >>> # Basic 1/3-octave plot
+        >>> noct.plot()
+        >>> # Overlay with A-weighting
+        >>> noct.plot(overlay=True, Aw=True)
+        >>> # Custom styling
+        >>> noct.plot(title="1/3-Octave Spectrum", color="blue", linewidth=2)
         """
         from wandas.visualization.plotting import create_operation
 
@@ -325,8 +358,26 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         # Get plot strategy
         plot_strategy: PlotStrategy[NOctFrame] = create_operation(plot_type)
 
+        # Build kwargs for plot strategy
+        plot_kwargs = {
+            "title": title,
+            "overlay": overlay,
+            "Aw": Aw,
+            **kwargs,
+        }
+        if xlabel is not None:
+            plot_kwargs["xlabel"] = xlabel
+        if ylabel is not None:
+            plot_kwargs["ylabel"] = ylabel
+        if alpha != 1.0:
+            plot_kwargs["alpha"] = alpha
+        if xlim is not None:
+            plot_kwargs["xlim"] = xlim
+        if ylim is not None:
+            plot_kwargs["ylim"] = ylim
+
         # Execute plot
-        _ax = plot_strategy.plot(self, ax=ax, **kwargs)
+        _ax = plot_strategy.plot(self, ax=ax, **plot_kwargs)
 
         logger.debug("Plot rendering complete")
 
@@ -357,3 +408,11 @@ class NOctFrame(BaseFrame[NDArrayReal]):
             "fmin": self.fmin,
             "fmax": self.fmax,
         }
+
+    def _get_dataframe_columns(self) -> list[str]:
+        """Get channel labels as DataFrame columns."""
+        return [ch.label for ch in self._channel_metadata]
+
+    def _get_dataframe_index(self) -> "pd.Index[Any]":
+        """Get frequency index for DataFrame."""
+        return pd.Index(self.freqs, name="frequency")

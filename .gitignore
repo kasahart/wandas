@@ -140,6 +140,9 @@ venv.bak/
 # mkdocs documentation
 /site
 
+# Design documents (temporary working files)
+docs/design/working/
+
 # mypy
 .mypy_cache/
 .dmypy.json
@@ -168,3 +171,9 @@ examples/data/dataset/
 tutorial/*
 # But not the .ipynb files
 !tutorial/*.ipynb
+
+# Ignore examples and tutorial directories completely
+examples/
+tutorial/
+
+*.html

@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 import dask.array as da
 import pytest
@@ -321,7 +321,7 @@ class TestSpectrogramFrame:
         # PlotStrategy をモック
         class MockPlotStrategy:
             def plot(
-                self, frame: SpectrogramFrame, ax: Optional[Any] = None, **kwargs: Any
+                self, frame: SpectrogramFrame, ax: Any | None = None, **kwargs: Any
             ) -> None:
                 return None
 
@@ -337,7 +337,7 @@ class TestSpectrogramFrame:
         )
 
         # プロット機能をテスト
-        result: Optional[Any] = sample_spectrogram.plot(plot_type="spectrogram")
+        result: Any | None = sample_spectrogram.plot(plot_type="spectrogram")
         assert result is None
 
     def test_get_additional_init_kwargs(
@@ -374,7 +374,7 @@ class TestSpectrogramFrame:
         def mock_plot(
             self: SpectrogramFrame,
             plot_type: str = "spectrogram",
-            ax: Optional[Any] = None,
+            ax: Any | None = None,
             **kwargs: Any,
         ) -> None:
             nonlocal plot_args
@@ -673,3 +673,373 @@ class TestSpectrogramFrame:
         # abs操作が含まれていることを確認
         abs_op_found = any(op["operation"] == "abs" for op in result.operation_history)
         assert abs_op_found
+
+    def test_to_dataframe_raises_not_implemented_error(self) -> None:
+        """Test to_dataframe raises NotImplementedError for 2D spectrogram data."""
+        # SpectrogramFrameの作成
+        spectrogram_frame = SpectrogramFrame(
+            data=_da_random_random((2, 65, 5)) + 1j * _da_random_random((2, 65, 5)),
+            sampling_rate=44100,
+            n_fft=128,
+            hop_length=64,
+            window="hann",
+            channel_metadata=[
+                ChannelMetadata(label="ch1", unit="Pa", ref=1.0),
+                ChannelMetadata(label="ch2", unit="Pa", ref=1.0),
+            ],
+        )
+
+        # DataFrame変換がNotImplementedErrorを投げることを確認
+        with pytest.raises(NotImplementedError, match="not supported"):
+            spectrogram_frame.to_dataframe()
+
+    def test_get_dataframe_index_raises_not_implemented_error(self) -> None:
+        """Test _get_dataframe_index raises NotImplementedError."""
+        # SpectrogramFrameの作成
+        spectrogram_frame = SpectrogramFrame(
+            data=_da_random_random((2, 65, 5)) + 1j * _da_random_random((2, 65, 5)),
+            sampling_rate=44100,
+            n_fft=128,
+            hop_length=64,
+            window="hann",
+        )
+
+        # _get_dataframe_indexがNotImplementedErrorを投げることを確認
+        with pytest.raises(NotImplementedError, match="not supported"):
+            spectrogram_frame._get_dataframe_index()
+
+    def test_from_numpy_2d_array(self) -> None:
+        """from_numpyメソッドで2D NumPy配列からSpectrogramFrameを作成するテスト"""
+        import numpy as np
+
+        # 2D NumPy配列の作成（単一チャネル）
+        np_data = np.random.random((65, 10)) + 1j * np.random.random((65, 10))
+        sampling_rate = 44100.0
+        n_fft = 128
+        hop_length = 64
+
+        # from_numpyでSpectrogramFrameを作成
+        spec_frame = SpectrogramFrame.from_numpy(
+            data=np_data,
+            sampling_rate=sampling_rate,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            window="hann",
+            label="test_2d",
+        )
+
+        # 基本プロパティの確認
+        assert isinstance(spec_frame, SpectrogramFrame)
+        assert spec_frame.sampling_rate == sampling_rate
+        assert spec_frame.n_fft == n_fft
+        assert spec_frame.hop_length == hop_length
+        assert spec_frame.window == "hann"
+        assert spec_frame.label == "test_2d"
+
+        # データ形状の確認（2D配列は3Dに拡張される）
+        # shapeプロパティは単一チャネルの場合最初の次元を隠す
+        assert spec_frame.shape == (65, 10)
+        assert spec_frame._n_channels == 1
+        assert spec_frame.n_freq_bins == 65
+        assert spec_frame.n_frames == 10
+
+        # データの内容が保持されていることを確認
+        np.testing.assert_array_equal(spec_frame.data, np_data)
+
+    def test_from_numpy_3d_array(self) -> None:
+        """from_numpyメソッドで3D NumPy配列からSpectrogramFrameを作成するテスト"""
+        import numpy as np
+
+        # 3D NumPy配列の作成（複数チャネル）
+        np_data = np.random.random((2, 65, 10)) + 1j * np.random.random((2, 65, 10))
+        sampling_rate = 44100.0
+        n_fft = 128
+        hop_length = 64
+
+        # from_numpyでSpectrogramFrameを作成
+        spec_frame = SpectrogramFrame.from_numpy(
+            data=np_data,
+            sampling_rate=sampling_rate,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            window="hamming",
+            label="test_3d",
+        )
+
+        # 基本プロパティの確認
+        assert isinstance(spec_frame, SpectrogramFrame)
+        assert spec_frame.sampling_rate == sampling_rate
+        assert spec_frame.n_fft == n_fft
+        assert spec_frame.hop_length == hop_length
+        assert spec_frame.window == "hamming"
+        assert spec_frame.label == "test_3d"
+
+        # データ形状の確認
+        assert spec_frame.shape == (2, 65, 10)  # (channels, freq_bins, time_frames)
+        assert spec_frame._n_channels == 2
+        assert spec_frame.n_freq_bins == 65
+        assert spec_frame.n_frames == 10
+
+        # データの内容が保持されていることを確認
+        np.testing.assert_array_equal(spec_frame.data, np_data)
+
+    def test_from_numpy_with_all_parameters(self) -> None:
+        """from_numpyメソッドで全てのパラメータを指定してSpectrogramFrameを作成するテスト"""
+        import numpy as np
+
+        # テストデータの作成
+        np_data = np.random.random((2, 65, 5)) + 1j * np.random.random((2, 65, 5))
+        sampling_rate = 48000.0
+        n_fft = 128
+        hop_length = 64
+        win_length = 100
+        window = "blackman"
+
+        # メタデータの作成
+        metadata = {"source": "test", "version": "1.0"}
+        operation_history = [{"operation": "test_op", "params": {"param": 1}}]
+        channel_metadata = [
+            ChannelMetadata(label="ch1", unit="Pa", ref=1.0),
+            ChannelMetadata(label="ch2", unit="Pa", ref=2.0),
+        ]
+
+        # from_numpyでSpectrogramFrameを作成
+        spec_frame = SpectrogramFrame.from_numpy(
+            data=np_data,
+            sampling_rate=sampling_rate,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            label="test_full",
+            metadata=metadata,
+            operation_history=operation_history,
+            channel_metadata=channel_metadata,
+        )
+
+        # 全てのパラメータが正しく設定されていることを確認
+        assert spec_frame.sampling_rate == sampling_rate
+        assert spec_frame.n_fft == n_fft
+        assert spec_frame.hop_length == hop_length
+        assert spec_frame.win_length == win_length
+        assert spec_frame.window == window
+        assert spec_frame.label == "test_full"
+        assert spec_frame.metadata == metadata
+        assert spec_frame.operation_history == operation_history
+        assert spec_frame._channel_metadata == channel_metadata
+
+    def test_from_numpy_default_label(self) -> None:
+        """from_numpyメソッドでラベルを指定しない場合のデフォルト値テスト"""
+        import numpy as np
+
+        # ラベルを指定せずにSpectrogramFrameを作成
+        np_data = np.random.random((65, 10)) + 1j * np.random.random((65, 10))
+        spec_frame = SpectrogramFrame.from_numpy(
+            data=np_data,
+            sampling_rate=44100.0,
+            n_fft=128,
+            hop_length=64,
+        )
+
+        # デフォルトラベルが設定されていることを確認
+        assert spec_frame.label == "numpy_spectrogram"
+
+    def test_from_numpy_invalid_dimensions(self) -> None:
+        """from_numpyメソッドで不正な次元の配列を渡した場合のエラーテスト"""
+        import numpy as np
+
+        # 1D配列（不正）
+        np_data_1d = np.random.random(10) + 1j * np.random.random(10)
+        with pytest.raises(
+            ValueError, match="データは2次元または3次元である必要があります"
+        ):
+            SpectrogramFrame.from_numpy(
+                data=np_data_1d,
+                sampling_rate=44100.0,
+                n_fft=128,
+                hop_length=64,
+            )
+
+        # 4D配列（不正）
+        np_data_4d = np.random.random((2, 65, 10, 2)) + 1j * np.random.random(
+            (2, 65, 10, 2)
+        )
+        with pytest.raises(
+            ValueError, match="データは2次元または3次元である必要があります"
+        ):
+            SpectrogramFrame.from_numpy(
+                data=np_data_4d,
+                sampling_rate=44100.0,
+                n_fft=128,
+                hop_length=64,
+            )
+
+    def test_from_numpy_invalid_freq_bins(self) -> None:
+        """from_numpyメソッドで不正な周波数ビン数の配列を渡した場合のエラーテスト"""
+        import numpy as np
+
+        # 周波数ビン数がn_fft//2+1と一致しない配列
+        np_data = np.random.random((2, 50, 10)) + 1j * np.random.random(
+            (2, 50, 10)
+        )  # 50 != 65
+        with pytest.raises(
+            ValueError,
+            match="データの形状が無効です。周波数ビン数は 65 である必要があります",
+        ):
+            SpectrogramFrame.from_numpy(
+                data=np_data,
+                sampling_rate=44100.0,
+                n_fft=128,  # n_fft//2+1 = 65
+                hop_length=64,
+            )
+
+    def test_from_numpy_data_conversion(self) -> None:
+        """from_numpyメソッドでのNumPyからDaskへのデータ変換テスト"""
+        import numpy as np
+
+        # NumPy配列の作成
+        np_data = np.random.random((2, 65, 10)) + 1j * np.random.random((2, 65, 10))
+
+        # from_numpyでSpectrogramFrameを作成
+        spec_frame = SpectrogramFrame.from_numpy(
+            data=np_data,
+            sampling_rate=44100.0,
+            n_fft=128,
+            hop_length=64,
+        )
+
+        # データがdask配列に変換されていることを確認
+        assert isinstance(spec_frame._data, DaArray)
+
+        # データの内容が保持されていることを確認
+        np.testing.assert_array_equal(spec_frame._data.compute(), np_data)
+
+        # 元のNumPy配列とdask配列のデータ型が一致することを確認
+        assert spec_frame._data.dtype == np_data.dtype
+
+    def test_spectrogram_info_display(
+        self, sample_spectrogram: SpectrogramFrame
+    ) -> None:
+        """Test that info() displays spectrogram information without errors."""
+        # info()メソッドがエラーなく実行できることを確認
+        import io
+        import sys
+
+        captured_output = io.StringIO()
+        sys.stdout = captured_output
+
+        sample_spectrogram.info()
+
+        sys.stdout = sys.__stdout__
+        output = captured_output.getvalue()
+
+        # 基本的な情報が出力されていることを確認
+        assert "SpectrogramFrame Information:" in output
+        assert "Channels:" in output
+        assert "Sampling rate:" in output
+        assert "FFT size:" in output
+        assert "Frequency resolution (ΔF):" in output
+        assert "Time resolution (ΔT):" in output
+
+    def test_spectrogram_info_values_are_correct(
+        self, sample_spectrogram: SpectrogramFrame
+    ) -> None:
+        """Test that info() displays correct values."""
+        import io
+        import sys
+
+        captured_output = io.StringIO()
+        sys.stdout = captured_output
+
+        sample_spectrogram.info()
+
+        sys.stdout = sys.__stdout__
+        output = captured_output.getvalue()
+
+        # 理論値の計算
+        delta_f = sample_spectrogram.sampling_rate / sample_spectrogram.n_fft
+        delta_t = (
+            sample_spectrogram.hop_length / sample_spectrogram.sampling_rate * 1000
+        )
+        total_duration = (
+            sample_spectrogram.n_frames
+            * sample_spectrogram.hop_length
+            / sample_spectrogram.sampling_rate
+        )
+
+        # 出力に理論値が含まれることを確認
+        assert f"{delta_f:.1f} Hz" in output
+        assert f"{delta_t:.1f} ms" in output
+        assert f"{total_duration:.2f} s" in output
+        assert f"Channels: {sample_spectrogram.n_channels}" in output
+        assert f"FFT size: {sample_spectrogram.n_fft}" in output
+        assert f"Hop length: {sample_spectrogram.hop_length} samples" in output
+
+    def test_spectrogram_info_with_multichannel(self) -> None:
+        """Test info() with multi-channel spectrogram."""
+        # 4チャンネルのスペクトログラムを作成
+        complex_data: DaArray = _da_random_random((4, 65, 10)) + 1j * _da_random_random(
+            (4, 65, 10)
+        )
+
+        channel_metadata: list[ChannelMetadata] = [
+            ChannelMetadata(label=f"ch{i}", unit="Pa", ref=1.0) for i in range(4)
+        ]
+
+        spec = SpectrogramFrame(
+            data=complex_data,
+            sampling_rate=48000,
+            n_fft=128,
+            hop_length=32,
+            window="hamming",
+            channel_metadata=channel_metadata,
+        )
+
+        import io
+        import sys
+
+        captured_output = io.StringIO()
+        sys.stdout = captured_output
+
+        spec.info()
+
+        sys.stdout = sys.__stdout__
+        output = captured_output.getvalue()
+
+        # マルチチャンネルでもエラーなく動作することを確認
+        assert "Channels: 4" in output
+        assert "['ch0', 'ch1', 'ch2', 'ch3']" in output
+        assert "Window: hamming" in output
+
+    def test_spectrogram_info_with_operations(
+        self, sample_spectrogram: SpectrogramFrame
+    ) -> None:
+        """Test info() shows operation history count."""
+        import io
+        import sys
+
+        # 操作履歴がない場合
+        captured_output = io.StringIO()
+        sys.stdout = captured_output
+
+        sample_spectrogram.info()
+
+        sys.stdout = sys.__stdout__
+        output = captured_output.getvalue()
+
+        # 初期状態では操作履歴がNone
+        assert "Operations Applied: None" in output or "Operations Applied: 0" in output
+
+        # 操作を追加（absメソッドを使用）
+        spec_with_ops = sample_spectrogram.abs()
+
+        captured_output = io.StringIO()
+        sys.stdout = captured_output
+
+        spec_with_ops.info()
+
+        sys.stdout = sys.__stdout__
+        output = captured_output.getvalue()
+
+        # 操作履歴が記録されていることを確認
+        assert "Operations Applied: 1" in output

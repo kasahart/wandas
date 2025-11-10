@@ -24,8 +24,8 @@ jobs:
           enable-cache: true # 依存関係のキャッシュを有効化
 
       - name: Install dependencies including MkDocs
-        # pyproject.toml の dev-dependencies に MkDocs 関連が含まれていることを前提とする
-        run: uv sync --all-extras --dev
+        # docsグループでドキュメント生成に必要なパッケージのみインストール
+        run: uv sync --all-extras --group docs
 
       - name: Build MkDocs documentation
         # uv run を使って uv の環境で mkdocs を実行

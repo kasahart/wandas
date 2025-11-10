@@ -9,7 +9,7 @@ all metadata including sampling rate, channel labels, units, and frame metadata.
 import json
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 import dask.array as da
 import h5py
@@ -31,12 +31,12 @@ WDF_FORMAT_VERSION = "0.1"
 
 def save(
     frame: BaseFrame[Any],
-    path: Union[str, Path],
+    path: str | Path,
     *,
     format: str = "hdf5",
-    compress: Optional[str] = "gzip",
+    compress: str | None = "gzip",
     overwrite: bool = False,
-    dtype: Optional[Union[str, np.dtype[Any]]] = None,
+    dtype: str | np.dtype[Any] | None = None,
 ) -> None:
     """Save a frame to a file.
 
@@ -116,7 +116,7 @@ def save(
                 op_sub_grp = op_grp.create_group(f"operation_{i}")
                 for k, v in op.items():
                     # Store simple attributes directly
-                    if isinstance(v, (str, int, float, bool, np.number)):
+                    if isinstance(v, str | int | float | bool | np.number):
                         op_sub_grp.attrs[k] = v
                     else:
                         # For complex types, serialize to JSON
@@ -136,13 +136,13 @@ def save(
 
             # Also store individual metadata items as attributes for compatibility
             for k, v in frame.metadata.items():
-                if isinstance(v, (str, int, float, bool, np.number)):
+                if isinstance(v, str | int | float | bool | np.number):
                     meta_grp.attrs[k] = v
 
     logger.info(f"Frame saved to {path}")
 
 
-def load(path: Union[str, Path], *, format: str = "hdf5") -> "ChannelFrame":
+def load(path: str | Path, *, format: str = "hdf5") -> "ChannelFrame":
     """Load a ChannelFrame object from a WDF (Wandas Data File) file.
 
     Args:
@@ -191,6 +191,25 @@ def load(path: Union[str, Path], *, format: str = "hdf5") -> "ChannelFrame":
             meta_json = f["meta"].attrs.get("json", "{}")
             frame_metadata = json.loads(meta_json)
 
+        # Load operation history
+        operation_history = []
+        if "operation_history" in f:
+            op_grp = f["operation_history"]
+            # Sort operation indices numerically
+            op_indices = sorted([int(key.split("_")[1]) for key in op_grp.keys()])
+
+            for idx in op_indices:
+                op_sub_grp = op_grp[f"operation_{idx}"]
+                op_dict = {}
+                for attr_name in op_sub_grp.attrs:
+                    attr_value = op_sub_grp.attrs[attr_name]
+                    # Try to deserialize JSON, fallback to string
+                    try:
+                        op_dict[attr_name] = json.loads(attr_value)
+                    except (json.JSONDecodeError, TypeError):
+                        op_dict[attr_name] = attr_value
+                operation_history.append(op_dict)
+
         # Load channel data and metadata
         all_channel_data = []
         channel_metadata_list = []
@@ -238,6 +257,7 @@ def load(path: Union[str, Path], *, format: str = "hdf5") -> "ChannelFrame":
             sampling_rate=sampling_rate,
             label=frame_label if frame_label else None,
             metadata=frame_metadata,
+            operation_history=operation_history,
             channel_metadata=channel_metadata_list,
         )
 

@@ -1,11 +1,12 @@
 import logging
-from typing import Optional, Union
+from typing import Any
 
 import librosa
 import numpy as np
 from waveform_analysis import A_weight
 
 from wandas.processing.base import AudioOperation, register_operation
+from wandas.utils import validate_sampling_rate
 from wandas.utils.types import NDArrayReal
 
 logger = logging.getLogger(__name__)
@@ -26,9 +27,32 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
             Sampling rate (Hz)
         target_sampling_rate : float
             Target sampling rate (Hz)
+
+        Raises
+        ------
+        ValueError
+            If sampling_rate or target_sr is not positive
         """
+        validate_sampling_rate(sampling_rate, "source sampling rate")
+        validate_sampling_rate(target_sr, "target sampling rate")
         super().__init__(sampling_rate, target_sr=target_sr)
         self.target_sr = target_sr
+
+    def get_metadata_updates(self) -> dict[str, Any]:
+        """
+        Update sampling rate to target sampling rate.
+
+        Returns
+        -------
+        dict
+            Metadata updates with new sampling rate
+
+        Notes
+        -----
+        Resampling always produces output at target_sr, regardless of input
+        sampling rate. All necessary parameters are provided at initialization.
+        """
+        return {"sampling_rate": self.target_sr}
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
@@ -48,6 +72,10 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
         ratio = float(self.target_sr) / float(self.sampling_rate)
         n_samples = int(np.ceil(input_shape[-1] * ratio))
         return (*input_shape[:-1], n_samples)
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "rs"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for resampling operation"""
@@ -111,6 +139,10 @@ class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
         n_samples = end_sample - self.start_sample
         return (*input_shape[:-1], n_samples)
 
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "trim"
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for trimming operation"""
         logger.debug(f"Applying trim to array with shape: {x.shape}")
@@ -128,8 +160,8 @@ class FixLength(AudioOperation[NDArrayReal, NDArrayReal]):
     def __init__(
         self,
         sampling_rate: float,
-        length: Optional[int] = None,
-        duration: Optional[float] = None,
+        length: int | None = None,
+        duration: float | None = None,
     ):
         """
         Initialize fix length operation
@@ -168,6 +200,10 @@ class FixLength(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         return (*input_shape[:-1], self.target_length)
 
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "fix"
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for padding operation"""
         logger.debug(f"Applying padding to array with shape: {x.shape}")
@@ -194,7 +230,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         sampling_rate: float,
         frame_length: int = 2048,
         hop_length: int = 512,
-        ref: Union[list[float], float] = 1.0,
+        ref: list[float] | float = 1.0,
         dB: bool = False,  # noqa: N803
         Aw: bool = False,  # noqa: N803
     ) -> None:
@@ -230,6 +266,23 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
             ref=self.ref,
         )
 
+    def get_metadata_updates(self) -> dict[str, Any]:
+        """
+        Update sampling rate based on hop length.
+
+        Returns
+        -------
+        dict
+            Metadata updates with new sampling rate based on hop length
+
+        Notes
+        -----
+        The output sampling rate is determined by downsampling the input
+        by hop_length. All necessary parameters are provided at initialization.
+        """
+        new_sr = self.sampling_rate / self.hop_length
+        return {"sampling_rate": new_sr}
+
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
         Calculate output data shape after operation
@@ -250,6 +303,10 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
             hop_length=self.hop_length,
         ).shape[-1]
         return (*input_shape[:-1], n_frames)
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "RMS"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for RMS calculation"""

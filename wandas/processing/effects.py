@@ -1,8 +1,11 @@
 import logging
 from typing import Any
 
+import numpy as np
 from dask.array.core import Array as DaArray
 from librosa import effects  # type: ignore[attr-defined]
+from librosa import util as librosa_util
+from scipy.signal import windows as sp_windows
 
 from wandas.processing.base import AudioOperation, register_operation
 from wandas.utils import util
@@ -34,6 +37,10 @@ class HpssHarmonic(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         return input_shape
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "Hrm"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for HPSS Harmonic"""
@@ -69,6 +76,10 @@ class HpssPercussive(AudioOperation[NDArrayReal, NDArrayReal]):
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         return input_shape
 
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "Prc"
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for HPSS Percussive"""
         logger.debug(f"Applying HPSS Percussive to array with shape: {x.shape}")
@@ -76,6 +87,194 @@ class HpssPercussive(AudioOperation[NDArrayReal, NDArrayReal]):
         logger.debug(
             f"HPSS Percussive applied, returning result with shape: {result.shape}"
         )
+        return result
+
+
+class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
+    """Signal normalization operation using librosa.util.normalize"""
+
+    name = "normalize"
+
+    def __init__(
+        self,
+        sampling_rate: float,
+        norm: float | None = np.inf,
+        axis: int | None = -1,
+        threshold: float | None = None,
+        fill: bool | None = None,
+    ):
+        """
+        Initialize normalization operation
+
+        Parameters
+        ----------
+        sampling_rate : float
+            Sampling rate (Hz)
+        norm : float or np.inf, default=np.inf
+            Norm type. Supported values:
+            - np.inf: Maximum absolute value normalization
+            - -np.inf: Minimum absolute value normalization
+            - 0: Pseudo L0 normalization (divide by number of non-zero elements)
+            - float: Lp norm
+            - None: No normalization
+        axis : int or None, default=-1
+            Axis along which to normalize.
+            - -1: Normalize along time axis (each channel independently)
+            - None: Global normalization across all axes
+            - int: Normalize along specified axis
+        threshold : float or None, optional
+            Threshold below which values are considered zero.
+            If None, no threshold is applied.
+        fill : bool or None, optional
+            Value to fill when the norm is zero.
+            If None, the zero vector remains zero.
+
+        Raises
+        ------
+        ValueError
+            If norm parameter is invalid or threshold is negative
+        """
+        # Validate norm parameter
+        if norm is not None and not isinstance(norm, int | float):
+            raise ValueError(
+                f"Invalid normalization method\n"
+                f"  Got: {type(norm).__name__} ({norm})\n"
+                f"  Expected: float, int, np.inf, -np.inf, or None\n"
+                f"Norm parameter must be a numeric value or None.\n"
+                f"Common values: np.inf (max norm), 2 (L2 norm),\n"
+                f"1 (L1 norm), 0 (pseudo L0)"
+            )
+
+        # Validate that norm is non-negative (except for -np.inf which is valid)
+        if norm is not None and norm < 0 and not np.isneginf(norm):
+            raise ValueError(
+                f"Invalid normalization method\n"
+                f"  Got: {norm}\n"
+                f"  Expected: Non-negative value, np.inf, -np.inf, or None\n"
+                f"Norm parameter must be non-negative (except -np.inf for min norm).\n"
+                f"Common values: np.inf (max norm), 2 (L2 norm),\n"
+                f"1 (L1 norm), 0 (pseudo L0)"
+            )
+
+        # Validate threshold
+        if threshold is not None and threshold < 0:
+            raise ValueError(
+                f"Invalid threshold for normalization\n"
+                f"  Got: {threshold}\n"
+                f"  Expected: Non-negative value or None\n"
+                f"Threshold must be non-negative.\n"
+                f"Typical values: 0.0 (no threshold), 1e-10 (small threshold)"
+            )
+
+        super().__init__(
+            sampling_rate, norm=norm, axis=axis, threshold=threshold, fill=fill
+        )
+        self.norm = norm
+        self.axis = axis
+        self.threshold = threshold
+        self.fill = fill
+        logger.debug(
+            f"Initialized Normalize operation with norm={norm}, "
+            f"axis={axis}, threshold={threshold}, fill={fill}"
+        )
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """
+        Calculate output data shape after operation
+
+        Parameters
+        ----------
+        input_shape : tuple
+            Input data shape
+
+        Returns
+        -------
+        tuple
+            Output data shape (same as input)
+        """
+        return input_shape
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "norm"
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """Perform normalization processing"""
+        logger.debug(
+            f"Applying normalization to array with shape: {x.shape}, "
+            f"norm={self.norm}, axis={self.axis}"
+        )
+
+        # Apply librosa.util.normalize
+        result: NDArrayReal = librosa_util.normalize(
+            x, norm=self.norm, axis=self.axis, threshold=self.threshold, fill=self.fill
+        )
+
+        logger.debug(
+            f"Normalization applied, returning result with shape: {result.shape}"
+        )
+        return result
+
+
+class RemoveDC(AudioOperation[NDArrayReal, NDArrayReal]):
+    """Remove DC component (DC offset) from the signal.
+
+    This operation removes the DC component by subtracting the mean value
+    from each channel, centering the signal around zero.
+    """
+
+    name = "remove_dc"
+
+    def __init__(self, sampling_rate: float):
+        """Initialize DC removal operation.
+
+        Parameters
+        ----------
+        sampling_rate : float
+            Sampling rate (Hz)
+        """
+        super().__init__(sampling_rate)
+        logger.debug("Initialized RemoveDC operation")
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """Calculate output data shape after operation.
+
+        Parameters
+        ----------
+        input_shape : tuple
+            Input data shape
+
+        Returns
+        -------
+        tuple
+            Output data shape (same as input)
+        """
+        return input_shape
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "dcRM"
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """Perform DC removal processing.
+
+        Parameters
+        ----------
+        x : NDArrayReal
+            Input signal array (channels, samples)
+
+        Returns
+        -------
+        NDArrayReal
+            Signal with DC component removed
+        """
+        logger.debug(f"Removing DC component from array with shape: {x.shape}")
+
+        # Subtract mean along time axis (axis=1 for channel data)
+        mean_values = x.mean(axis=-1, keepdims=True)
+        result: NDArrayReal = x - mean_values
+
+        logger.debug(f"DC removal applied, returning result with shape: {result.shape}")
         return result
 
 
@@ -119,6 +318,10 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         return input_shape
 
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "+SNR"
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Perform addition processing considering SNR"""
         logger.debug(f"Applying SNR-based addition with shape: {x.shape}")
@@ -138,6 +341,93 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
         return result
 
 
+class Fade(AudioOperation[NDArrayReal, NDArrayReal]):
+    """Fade operation using a Tukey (tapered cosine) window.
+
+    This operation applies symmetric fade-in and fade-out with the same
+    duration. The Tukey window alpha parameter is computed from the fade
+    duration so that the tapered portion equals the requested fade length
+    at each end.
+    """
+
+    name = "fade"
+
+    def __init__(self, sampling_rate: float, fade_ms: float = 50) -> None:
+        self.fade_ms = float(fade_ms)
+        # Precompute fade length in samples at construction time
+        self.fade_len = int(round(self.fade_ms * float(sampling_rate) / 1000.0))
+        super().__init__(sampling_rate, fade_ms=fade_ms)
+
+    def validate_params(self) -> None:
+        if self.fade_ms < 0:
+            raise ValueError("fade_ms must be non-negative")
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        return input_shape
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "fade"
+
+    @staticmethod
+    def calculate_tukey_alpha(fade_len: int, n_samples: int) -> float:
+        """Calculate Tukey window alpha parameter from fade length.
+
+        The alpha parameter determines what fraction of the window is tapered.
+        For symmetric fade-in/fade-out, alpha = 2 * fade_len / n_samples ensures
+        that each side's taper has exactly fade_len samples.
+
+        Parameters
+        ----------
+        fade_len : int
+            Desired fade length in samples for each end (in and out).
+        n_samples : int
+            Total number of samples in the signal.
+
+        Returns
+        -------
+        float
+            Alpha parameter for scipy.signal.windows.tukey, clamped to [0, 1].
+
+        Examples
+        --------
+        >>> Fade.calculate_tukey_alpha(fade_len=20, n_samples=200)
+        0.2
+        >>> Fade.calculate_tukey_alpha(fade_len=100, n_samples=100)
+        1.0
+        """
+        alpha = float(2 * fade_len) / float(n_samples)
+        return min(1.0, alpha)
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        logger.debug(f"Applying Tukey Fade to array with shape: {x.shape}")
+
+        arr = x
+        if arr.ndim == 1:
+            arr = arr.reshape(1, -1)
+
+        n_samples = int(arr.shape[-1])
+
+        # If no fade requested, return input
+        if self.fade_len <= 0:
+            return arr
+
+        if 2 * self.fade_len >= n_samples:
+            raise ValueError(
+                "Fade length too long: 2*fade_ms must be less than signal length"
+            )
+
+        # Calculate Tukey window alpha parameter
+        alpha = self.calculate_tukey_alpha(self.fade_len, n_samples)
+
+        # Create tukey window (numpy) and apply
+        env = sp_windows.tukey(n_samples, alpha=alpha)
+
+        result: NDArrayReal = arr * env[None, :]
+        logger.debug("Tukey fade applied")
+        return result
+
+
 # Register all operations
-for op_class in [HpssHarmonic, HpssPercussive, AddWithSNR]:
+for op_class in [HpssHarmonic, HpssPercussive, Normalize, RemoveDC, AddWithSNR, Fade]:
     register_operation(op_class)

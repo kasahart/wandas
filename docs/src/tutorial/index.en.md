@@ -103,9 +103,10 @@ This section provides links to tutorial notebooks that demonstrate more detailed
 - [05_lazy_and_dask.ipynb: Lazy evaluation and large-scale data processing with Dask](/tutorial/05_lazy_and_dask.ipynb)
 - [06_metadata_history.ipynb: Utilizing metadata and processing history](/tutorial/06_metadata_history.ipynb)
 - [07_batch_processing.ipynb: Batch processing for multiple files](/tutorial/07_batch_processing.ipynb)
-- [08_extending_api.ipynb: Adding custom functions and extending the API](/tutorial/08_extending_api.ipynb)
-- [08_interoperability.ipynb: Integration with other libraries](/tutorial/08_interoperability.ipynb)
-- [09_case_studies.ipynb: Practical use case studies](/tutorial/09_case_studies.ipynb)
+- [08_frame_dataset_usage.ipynb: FrameDataset Usage Guide - Efficient processing of multiple audio files in a folder](../../examples/03_frame_dataset_usage.ipynb)
+- [09_extending_api.ipynb: Adding custom functions and extending the API](/tutorial/08_extending_api.ipynb)
+- [10_interoperability.ipynb: Integration with other libraries](/tutorial/08_interoperability.ipynb)
+- [11_case_studies.ipynb: Practical use case studies](/tutorial/09_case_studies.ipynb)
 
 !!! tip "Hint"
     Each notebook focuses on a specific topic. Refer to them sequentially or as needed based on your interests. For basic usage of Wandas, please also see the "Basic Usage" section at the beginning of this document.

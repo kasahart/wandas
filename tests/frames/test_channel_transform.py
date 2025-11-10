@@ -429,3 +429,84 @@ class TestChannelTransform:
 
         for pair in expected_pairs:
             assert pair in ch_pairs
+
+    def test_istft_calculate_output_shape_accuracy(self) -> None:
+        """Test ISTFT.calculate_output_shape accuracy using ChannelFrame.
+
+        This test verifies that:
+        1. ISTFT.calculate_output_shape() predicts the correct output size
+        2. The predicted n_samples matches actual reconstructed data shape
+        3. The test runs across multiple parameter combinations
+        """
+        from wandas.processing import ISTFT
+
+        # Test parameters: different n_fft, hop_length combinations
+        test_configs = [
+            {"n_fft": 512, "hop_length": 128, "win_length": 512},
+            {"n_fft": 1024, "hop_length": 256, "win_length": 1024},
+            {"n_fft": 2048, "hop_length": 512, "win_length": 2048},
+            {"n_fft": 4096, "hop_length": 1024, "win_length": 4096},
+        ]
+
+        sr = 16000
+
+        for config in test_configs:
+            # Create a test signal
+            duration = 2.0  # 2 seconds
+            t = np.linspace(0, duration, int(sr * duration), endpoint=False)
+            sig = np.sin(2 * np.pi * 440 * t) + 0.5 * np.sin(2 * np.pi * 880 * t)
+            sigs = np.array([sig, sig])
+
+            # Create ChannelFrame
+            original = ChannelFrame.from_numpy(sigs, sr)
+
+            # Apply STFT
+            spec = original.stft(
+                n_fft=config["n_fft"],
+                hop_length=config["hop_length"],
+                win_length=config["win_length"],
+                window="hann",
+            )
+
+            # Create ISTFT operation
+            istft_op = ISTFT(
+                sampling_rate=sr,
+                n_fft=config["n_fft"],
+                hop_length=config["hop_length"],
+                win_length=config["win_length"],
+                window="hann",
+            )
+
+            # Get predicted shape from calculate_output_shape
+            input_shape = spec.data.shape  # (channels, freqs, frames)
+            predicted_shape = istft_op.calculate_output_shape(input_shape)
+
+            # Apply iSTFT to get actual reconstructed ChannelFrame
+            reconstructed = spec.istft()
+
+            # Get actual shape from reconstructed ChannelFrame
+            actual_shape = reconstructed.data.shape
+            actual_n_samples = reconstructed.n_samples
+
+            # Assertions
+            assert predicted_shape == actual_shape, (
+                f"Config {config}: Predicted {predicted_shape} != actual {actual_shape}"
+            )
+
+            assert predicted_shape[-1] == actual_n_samples, (
+                f"Config {config}: "
+                f"Predicted samples {predicted_shape[-1]} != "
+                f"n_samples {actual_n_samples}"
+            )
+
+            assert actual_shape[-1] == actual_n_samples, (
+                f"Config {config}: "
+                f"actual_data.shape[-1] ({actual_shape[-1]}) != "
+                f"n_samples ({actual_n_samples})"
+            )
+
+            print(
+                f"✓ Config {config}: "
+                f"predicted={predicted_shape}, actual={actual_shape}, "
+                f"n_samples={actual_n_samples}"
+            )

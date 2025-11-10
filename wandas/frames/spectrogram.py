@@ -1,10 +1,11 @@
 import logging
-from collections.abc import Iterator
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union, cast
+from collections.abc import Callable, Iterator
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast
 
 import dask.array as da
 import librosa
 import numpy as np
+import pandas as pd
 from dask.array.core import Array as DaArray
 
 from wandas.core.base_frame import BaseFrame
@@ -108,12 +109,12 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         sampling_rate: float,
         n_fft: int,
         hop_length: int,
-        win_length: Optional[int] = None,
+        win_length: int | None = None,
         window: str = "hann",
-        label: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        operation_history: Optional[list[dict[str, Any]]] = None,
-        channel_metadata: Optional[list[ChannelMetadata]] = None,
+        label: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        operation_history: list[dict[str, Any]] | None = None,
+        channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
         previous: Optional["BaseFrame[Any]"] = None,
     ) -> None:
         if data.ndim == 2:
@@ -402,7 +403,7 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         else:
             result_data = op(self._data, other)
 
-            if isinstance(other, (int, float)):
+            if isinstance(other, int | float):
                 other_str = str(other)
             elif isinstance(other, complex):
                 other_str = f"complex({other.real}, {other.imag})"
@@ -435,7 +436,19 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
             )
 
     def plot(
-        self, plot_type: str = "spectrogram", ax: Optional["Axes"] = None, **kwargs: Any
+        self,
+        plot_type: str = "spectrogram",
+        ax: Optional["Axes"] = None,
+        title: str | None = None,
+        cmap: str = "jet",
+        vmin: float | None = None,
+        vmax: float | None = None,
+        fmin: float = 0,
+        fmax: float | None = None,
+        xlim: tuple[float, float] | None = None,
+        ylim: tuple[float, float] | None = None,
+        Aw: bool = False,  # noqa: N803
+        **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
         """
         Plot the spectrogram using various visualization strategies.
@@ -446,19 +459,42 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
             Type of plot to create.
         ax : matplotlib.axes.Axes, optional
             Axes to plot on. If None, creates new axes.
+        title : str, optional
+            Title for the plot. If None, uses the frame label.
+        cmap : str, default="jet"
+            Colormap name for the spectrogram visualization.
+        vmin : float, optional
+            Minimum value for colormap scaling (dB). Auto-calculated if None.
+        vmax : float, optional
+            Maximum value for colormap scaling (dB). Auto-calculated if None.
+        fmin : float, default=0
+            Minimum frequency to display (Hz).
+        fmax : float, optional
+            Maximum frequency to display (Hz). If None, uses Nyquist frequency.
+        xlim : tuple[float, float], optional
+            Time axis limits as (start_time, end_time) in seconds.
+        ylim : tuple[float, float], optional
+            Frequency axis limits as (min_freq, max_freq) in Hz.
+        Aw : bool, default=False
+            Whether to apply A-weighting to the spectrogram.
         **kwargs : dict
-            Additional keyword arguments passed to the plot strategy.
-            Common options include:
-            - vmin, vmax: Colormap scaling
-            - cmap: Colormap name
-            - dB: Whether to plot in decibels
-            - Aw: Whether to apply A-weighting
+            Additional keyword arguments passed to librosa.display.specshow().
 
         Returns
         -------
         Union[Axes, Iterator[Axes]]
             The matplotlib axes containing the plot, or an iterator of axes
             for multi-plot outputs.
+
+        Examples
+        --------
+        >>> stft = cf.stft()
+        >>> # Basic spectrogram
+        >>> stft.plot()
+        >>> # Custom color scale and frequency range
+        >>> stft.plot(vmin=-80, vmax=-20, fmin=100, fmax=5000)
+        >>> # A-weighted spectrogram
+        >>> stft.plot(Aw=True, cmap="viridis")
         """
         from wandas.visualization.plotting import create_operation
 
@@ -467,15 +503,34 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         # プロット戦略を取得
         plot_strategy: PlotStrategy[SpectrogramFrame] = create_operation(plot_type)
 
+        # Build kwargs for plot strategy
+        plot_kwargs = {
+            "title": title,
+            "cmap": cmap,
+            "vmin": vmin,
+            "vmax": vmax,
+            "fmin": fmin,
+            "fmax": fmax,
+            "Aw": Aw,
+            **kwargs,
+        }
+        if xlim is not None:
+            plot_kwargs["xlim"] = xlim
+        if ylim is not None:
+            plot_kwargs["ylim"] = ylim
+
         # プロット実行
-        _ax = plot_strategy.plot(self, ax=ax, **kwargs)
+        _ax = plot_strategy.plot(self, ax=ax, **plot_kwargs)
 
         logger.debug("Plot rendering complete")
 
         return _ax
 
     def plot_Aw(  # noqa: N802
-        self, plot_type: str = "spectrogram", ax: Optional["Axes"] = None, **kwargs: Any
+        self,
+        plot_type: str = "spectrogram",
+        ax: Optional["Axes"] = None,
+        **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:
         """
         Plot the A-weighted spectrogram.
@@ -491,11 +546,18 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
             Axes to plot on. If None, creates new axes.
         **kwargs : dict
             Additional keyword arguments passed to plot().
+            Accepts all parameters from plot() except Aw (which is set to True).
 
         Returns
         -------
         Union[Axes, Iterator[Axes]]
             The matplotlib axes containing the plot.
+
+        Examples
+        --------
+        >>> stft = cf.stft()
+        >>> # A-weighted spectrogram with custom settings
+        >>> stft.plot_Aw(vmin=-60, vmax=-10, cmap="magma")
         """
         return self.plot(plot_type=plot_type, ax=ax, Aw=True, **kwargs)
 
@@ -680,3 +742,149 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
             "win_length": self.win_length,
             "window": self.window,
         }
+
+    def _get_dataframe_columns(self) -> list[str]:
+        """Get channel labels as DataFrame columns."""
+        return [ch.label for ch in self._channel_metadata]
+
+    def _get_dataframe_index(self) -> "pd.Index[Any]":
+        """DataFrame index is not supported for SpectrogramFrame."""
+        raise NotImplementedError(
+            "DataFrame index is not supported for SpectrogramFrame."
+        )
+
+    def to_dataframe(self) -> "pd.DataFrame":
+        """DataFrame conversion is not supported for SpectrogramFrame.
+
+        SpectrogramFrame contains 3D data (channels, frequency_bins, time_frames)
+        which cannot be directly converted to a 2D DataFrame. Consider using
+        get_frame_at() to extract a specific time frame as a SpectralFrame,
+        then convert that to a DataFrame.
+
+        Raises
+        ------
+        NotImplementedError
+            Always raised as DataFrame conversion is not supported.
+        """
+        raise NotImplementedError(
+            "DataFrame conversion is not supported for SpectrogramFrame. "
+            "Use get_frame_at() to extract a specific time frame as SpectralFrame, "
+            "then convert that to a DataFrame."
+        )
+
+    def info(self) -> None:
+        """Display comprehensive information about the SpectrogramFrame.
+
+        This method prints a summary of the frame's properties including:
+        - Number of channels
+        - Sampling rate
+        - FFT size
+        - Hop length
+        - Window length
+        - Window function
+        - Frequency range
+        - Number of frequency bins
+        - Frequency resolution (ΔF)
+        - Number of time frames
+        - Time resolution (ΔT)
+        - Total duration
+        - Channel labels
+        - Number of operations applied
+
+        This is a convenience method to view all key properties at once,
+        similar to pandas DataFrame.info().
+
+        Examples
+        --------
+        >>> signal = ChannelFrame.from_wav("audio.wav")
+        >>> spectrogram = signal.stft(n_fft=2048, hop_length=512)
+        >>> spectrogram.info()
+        SpectrogramFrame Information:
+          Channels: 2
+          Sampling rate: 44100 Hz
+          FFT size: 2048
+          Hop length: 512 samples
+          Window length: 2048 samples
+          Window: hann
+          Frequency range: 0.0 - 22050.0 Hz
+          Frequency bins: 1025
+          Frequency resolution (ΔF): 21.5 Hz
+          Time frames: 100
+          Time resolution (ΔT): 11.6 ms
+          Total duration: 1.16 s
+          Channel labels: ['ch0', 'ch1']
+          Operations Applied: 1
+        """
+        # Calculate frequency resolution (ΔF) and time resolution (ΔT)
+        delta_f = self.sampling_rate / self.n_fft
+        delta_t_ms = (self.hop_length / self.sampling_rate) * 1000
+        total_duration = (self.n_frames * self.hop_length) / self.sampling_rate
+
+        print("SpectrogramFrame Information:")
+        print(f"  Channels: {self.n_channels}")
+        print(f"  Sampling rate: {self.sampling_rate} Hz")
+        print(f"  FFT size: {self.n_fft}")
+        print(f"  Hop length: {self.hop_length} samples")
+        print(f"  Window length: {self.win_length} samples")
+        print(f"  Window: {self.window}")
+        print(f"  Frequency range: {self.freqs[0]:.1f} - {self.freqs[-1]:.1f} Hz")
+        print(f"  Frequency bins: {self.n_freq_bins}")
+        print(f"  Frequency resolution (ΔF): {delta_f:.1f} Hz")
+        print(f"  Time frames: {self.n_frames}")
+        print(f"  Time resolution (ΔT): {delta_t_ms:.1f} ms")
+        print(f"  Total duration: {total_duration:.2f} s")
+        print(f"  Channel labels: {self.labels}")
+        self._print_operation_history()
+
+    @classmethod
+    def from_numpy(
+        cls,
+        data: NDArrayComplex,
+        sampling_rate: float,
+        n_fft: int,
+        hop_length: int,
+        win_length: int | None = None,
+        window: str = "hann",
+        label: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        operation_history: list[dict[str, Any]] | None = None,
+        channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
+        previous: Optional["BaseFrame[Any]"] = None,
+    ) -> "SpectrogramFrame":
+        """Create a SpectrogramFrame from a NumPy array.
+
+        Args:
+            data: NumPy array containing spectrogram data.
+                Shape should be (n_channels, n_freq_bins, n_time_frames) or
+                (n_freq_bins, n_time_frames) for single channel.
+            sampling_rate: The sampling rate in Hz.
+            n_fft: The FFT size used to generate this spectrogram.
+            hop_length: Number of samples between successive frames.
+            win_length: The window length in samples. If None, defaults to n_fft.
+            window: The window function used (e.g., "hann", "hamming").
+            label: A label for the frame.
+            metadata: Optional metadata dictionary.
+            operation_history: History of operations applied to the frame.
+            channel_metadata: Metadata for each channel.
+            previous: Reference to the previous frame in the processing chain.
+
+        Returns:
+            A new SpectrogramFrame containing the NumPy data.
+        """
+
+        # Convert NumPy array to dask array
+        dask_data = da.from_array(data)
+        sf = cls(
+            data=dask_data,
+            sampling_rate=sampling_rate,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            label=label or "numpy_spectrogram",
+            metadata=metadata,
+            operation_history=operation_history,
+            channel_metadata=channel_metadata,
+            previous=previous,
+        )
+        return sf

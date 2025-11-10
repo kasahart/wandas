@@ -1,23 +1,28 @@
 import logging
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any, Callable, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Optional, TypeVar
 
 import dask
 import dask.array as da
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from dask.array.core import Array as DaskArray
 from dask.array.core import concatenate, from_array
 from IPython.display import Audio, display
 from matplotlib.axes import Axes
 
+from wandas.utils import validate_sampling_rate
 from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
 from ..core.metadata import ChannelMetadata
 from ..io.readers import get_file_reader
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
 
 logger = logging.getLogger(__name__)
 
@@ -42,10 +47,10 @@ class ChannelFrame(
         self,
         data: DaskArray,
         sampling_rate: float,
-        label: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        operation_history: Optional[list[dict[str, Any]]] = None,
-        channel_metadata: Optional[list[ChannelMetadata]] = None,
+        label: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        operation_history: list[dict[str, Any]] | None = None,
+        channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
         previous: Optional["BaseFrame[Any]"] = None,
     ) -> None:
         """Initialize a ChannelFrame.
@@ -54,6 +59,7 @@ class ChannelFrame(
             data: Dask array containing channel data.
             Shape should be (n_channels, n_samples).
             sampling_rate: The sampling rate of the data in Hz.
+                Must be a positive value.
             label: A label for the frame.
             metadata: Optional metadata dictionary.
             operation_history: History of operations applied to the frame.
@@ -61,13 +67,25 @@ class ChannelFrame(
             previous: Reference to the previous frame in the processing chain.
 
         Raises:
-            ValueError: If data has more than 2 dimensions.
+            ValueError: If data has more than 2 dimensions, or if
+                sampling_rate is not positive.
         """
+        # Validate sampling rate
+        validate_sampling_rate(sampling_rate)
+
+        # Validate and reshape data
         if data.ndim == 1:
             data = da.reshape(data, (1, -1))
         elif data.ndim > 2:
             raise ValueError(
-                f"Data must be 1-dimensional or 2-dimensional. Shape: {data.shape}"
+                f"Invalid data shape for ChannelFrame\n"
+                f"  Got: {data.shape} ({data.ndim}D)\n"
+                f"  Expected: 1D (samples,) or 2D (channels, samples)\n"
+                f"If you have a 1D array, it will be automatically reshaped to\n"
+                f"  (1, n_samples).\n"
+                f"For higher-dimensional data, reshape it before creating\n"
+                f"  ChannelFrame:\n"
+                f"  Example: data.reshape(n_channels, -1)"
             )
         super().__init__(
             data=data,
@@ -88,8 +106,25 @@ class ChannelFrame(
     def time(self) -> NDArrayReal:
         """Get time array for the signal.
 
+        The time array represents the start time of each sample, calculated as
+        sample_index / sampling_rate. This provides a uniform, evenly-spaced
+        time axis that is consistent across all frame types in wandas.
+
+        For frames resulting from windowed analysis operations (e.g., FFT,
+        loudness, roughness), each time point corresponds to the start of
+        the analysis window, not the center. This differs from some libraries
+        (e.g., MoSQITo) which use window center times, but does not affect
+        the calculated values themselves.
+
         Returns:
-            Array of time points in seconds.
+            Array of time points in seconds, starting from 0.0.
+
+        Examples:
+            >>> import wandas as wd
+            >>> signal = wd.read_wav("audio.wav")
+            >>> time = signal.time
+            >>> print(f"Duration: {time[-1]:.3f}s")
+            >>> print(f"Time step: {time[1] - time[0]:.6f}s")
         """
         return np.arange(self.n_samples) / self.sampling_rate
 
@@ -118,18 +153,41 @@ class ChannelFrame(
             >>> # Select channels with RMS > threshold
             >>> active_channels = cf[cf.rms > 0.5]
         """
-        # Compute RMS for each channel: sqrt(mean(x^2))
-        data = self.data  # This will trigger computation if lazy
-
-        # Ensure data is 2D (n_channels, n_samples)
-        if data.ndim == 1:
-            data = data.reshape(1, -1)
-
         # Convert to a concrete NumPy ndarray to satisfy numpy.mean typing
         # and to ensure dask arrays are materialized for this operation.
-        arr: NDArrayReal = np.asarray(data)
-        rms_values: NDArrayReal = np.sqrt(np.mean(arr**2, axis=1))  # type: ignore [arg-type]
-        return rms_values
+        rms_values = da.sqrt((self._data**2).mean(axis=1))
+        return np.array(rms_values.compute())
+
+    def info(self) -> None:
+        """Display comprehensive information about the ChannelFrame.
+
+        This method prints a summary of the frame's properties including:
+        - Number of channels
+        - Sampling rate
+        - Duration
+        - Number of samples
+        - Channel labels
+
+        This is a convenience method to view all key properties at once,
+        similar to pandas DataFrame.info().
+
+        Examples
+        --------
+        >>> cf = ChannelFrame.read_wav("audio.wav")
+        >>> cf.info()
+        Channels: 2
+        Sampling rate: 44100 Hz
+        Duration: 1.0 s
+        Samples: 44100
+        Channel labels: ['ch0', 'ch1']
+        """
+        print("ChannelFrame Information:")
+        print(f"  Channels: {self.n_channels}")
+        print(f"  Sampling rate: {self.sampling_rate} Hz")
+        print(f"  Duration: {self.duration:.1f} s")
+        print(f"  Samples: {self.n_samples}")
+        print(f"  Channel labels: {self.labels}")
+        self._print_operation_history()
 
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
@@ -148,26 +206,31 @@ class ChannelFrame(
         new_metadata = {**self.metadata}
         new_metadata[operation_name] = params
 
+        # Get metadata updates from operation
+        metadata_updates = operation.get_metadata_updates()
+
+        # Update channel labels to reflect the operation
+        display_name = operation.get_display_name()
+        new_channel_metadata = self._relabel_channels(operation_name, display_name)
+
         logger.debug(
             f"Created new ChannelFrame with operation {operation_name} added to graph"
         )
-        if operation_name == "resampling":
-            # For resampling, update sampling rate
-            return self._create_new_instance(
-                sampling_rate=params["target_sr"],
-                data=processed_data,
-                metadata=new_metadata,
-                operation_history=new_history,
-            )
-        return self._create_new_instance(
-            data=processed_data,
-            metadata=new_metadata,
-            operation_history=new_history,
-        )
+
+        # Apply metadata updates (including sampling_rate if specified)
+        creation_params: dict[str, Any] = {
+            "data": processed_data,
+            "metadata": new_metadata,
+            "operation_history": new_history,
+            "channel_metadata": new_channel_metadata,
+        }
+        creation_params.update(metadata_updates)
+
+        return self._create_new_instance(**creation_params)
 
     def _binary_op(
         self,
-        other: Union["ChannelFrame", int, float, NDArrayReal, "DaskArray"],
+        other: "ChannelFrame | int | float | NDArrayReal | DaskArray",
         op: Callable[["DaskArray", Any], "DaskArray"],
         symbol: str,
     ) -> "ChannelFrame":
@@ -233,7 +296,7 @@ class ChannelFrame(
             result_data = op(self._data, other)
 
             # Operand display string
-            if isinstance(other, (int, float)):
+            if isinstance(other, int | float):
                 other_str = str(other)
             elif isinstance(other, np.ndarray):
                 other_str = f"ndarray{other.shape}"
@@ -263,8 +326,8 @@ class ChannelFrame(
 
     def add(
         self,
-        other: Union["ChannelFrame", int, float, NDArrayReal],
-        snr: Optional[float] = None,
+        other: "ChannelFrame | int | float | NDArrayReal",
+        snr: float | None = None,
     ) -> "ChannelFrame":
         """Add another signal or value to the current signal.
 
@@ -293,7 +356,7 @@ class ChannelFrame(
             other = ChannelFrame.from_numpy(
                 other, self.sampling_rate, label="array_data"
             )
-        elif isinstance(other, (int, float)):
+        elif isinstance(other, int | float):
             return self + other
         else:
             raise TypeError(
@@ -310,17 +373,46 @@ class ChannelFrame(
         return self.apply_operation("add_with_snr", other=other._data, snr=snr)
 
     def plot(
-        self, plot_type: str = "waveform", ax: Optional["Axes"] = None, **kwargs: Any
-    ) -> Union["Axes", Iterator["Axes"]]:
+        self,
+        plot_type: str = "waveform",
+        ax: Optional["Axes"] = None,
+        title: str | None = None,
+        overlay: bool = False,
+        xlabel: str | None = None,
+        ylabel: str | None = None,
+        alpha: float = 1.0,
+        xlim: tuple[float, float] | None = None,
+        ylim: tuple[float, float] | None = None,
+        **kwargs: Any,
+    ) -> Axes | Iterator[Axes]:
         """Plot the frame data.
 
         Args:
             plot_type: Type of plot. Default is "waveform".
             ax: Optional matplotlib axes for plotting.
-            **kwargs: Additional arguments passed to the plot function.
+            title: Title for the plot. If None, uses the frame label.
+            overlay: Whether to overlay all channels on a single plot (True)
+                or create separate subplots for each channel (False).
+            xlabel: Label for the x-axis. If None, uses default based on plot type.
+            ylabel: Label for the y-axis. If None, uses default based on plot type.
+            alpha: Transparency level for the plot lines (0.0 to 1.0).
+            xlim: Limits for the x-axis as (min, max) tuple.
+            ylim: Limits for the y-axis as (min, max) tuple.
+            **kwargs: Additional matplotlib Line2D parameters
+                (e.g., color, linewidth, linestyle).
+                These are passed to the underlying matplotlib plot functions.
 
         Returns:
             Single Axes object or iterator of Axes objects.
+
+        Examples:
+            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> # Basic plot
+            >>> cf.plot()
+            >>> # Overlay all channels
+            >>> cf.plot(overlay=True, alpha=0.7)
+            >>> # Custom styling
+            >>> cf.plot(title="My Signal", ylabel="Voltage [V]", color="red")
         """
         logger.debug(f"Plotting audio with plot_type={plot_type} (will compute now)")
 
@@ -329,8 +421,25 @@ class ChannelFrame(
 
         plot_strategy = create_operation(plot_type)
 
+        # Build kwargs for plot strategy
+        plot_kwargs = {
+            "title": title,
+            "overlay": overlay,
+            **kwargs,
+        }
+        if xlabel is not None:
+            plot_kwargs["xlabel"] = xlabel
+        if ylabel is not None:
+            plot_kwargs["ylabel"] = ylabel
+        if alpha != 1.0:
+            plot_kwargs["alpha"] = alpha
+        if xlim is not None:
+            plot_kwargs["xlim"] = xlim
+        if ylim is not None:
+            plot_kwargs["ylim"] = ylim
+
         # Execute plot
-        _ax = plot_strategy.plot(self, ax=ax, **kwargs)
+        _ax = plot_strategy.plot(self, ax=ax, **plot_kwargs)
 
         logger.debug("Plot rendering complete")
 
@@ -339,11 +448,11 @@ class ChannelFrame(
     def rms_plot(
         self,
         ax: Optional["Axes"] = None,
-        title: Optional[str] = None,
+        title: str | None = None,
         overlay: bool = True,
         Aw: bool = False,  # noqa: N803
         **kwargs: Any,
-    ) -> Union["Axes", Iterator["Axes"]]:
+    ) -> Axes | Iterator[Axes]:
         """Generate an RMS plot.
 
         Args:
@@ -351,10 +460,21 @@ class ChannelFrame(
             title: Title for the plot.
             overlay: Whether to overlay the plot on the existing axis.
             Aw: Apply A-weighting.
-            **kwargs: Additional arguments passed to the plot function.
+            **kwargs: Additional arguments passed to the plot() method.
+                Accepts the same arguments as plot() including xlabel, ylabel,
+                alpha, xlim, ylim, and matplotlib Line2D parameters.
 
         Returns:
             Single Axes object or iterator of Axes objects.
+
+        Examples:
+            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> # Basic RMS plot
+            >>> cf.rms_plot()
+            >>> # With A-weighting
+            >>> cf.rms_plot(Aw=True)
+            >>> # Custom styling
+            >>> cf.rms_plot(ylabel="RMS [V]", alpha=0.8, color="blue")
         """
         kwargs = kwargs or {}
         ylabel = kwargs.pop("ylabel", "RMS")
@@ -367,15 +487,15 @@ class ChannelFrame(
         is_close: bool = True,
         *,
         fmin: float = 0,
-        fmax: Optional[float] = None,
+        fmax: float | None = None,
         cmap: str = "jet",
-        vmin: Optional[float] = None,
-        vmax: Optional[float] = None,
-        xlim: Optional[tuple[float, float]] = None,
-        ylim: Optional[tuple[float, float]] = None,
+        vmin: float | None = None,
+        vmax: float | None = None,
+        xlim: tuple[float, float] | None = None,
+        ylim: tuple[float, float] | None = None,
         Aw: bool = False,  # noqa: N803
-        waveform: Optional[dict[str, Any]] = None,
-        spectral: Optional[dict[str, Any]] = None,
+        waveform: dict[str, Any] | None = None,
+        spectral: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
         """Display visual and audio representation of the frame.
@@ -410,9 +530,9 @@ class ChannelFrame(
                 Can include 'xlabel', 'ylabel', 'xlim', 'ylim'.
             spectral: Additional configuration dict for spectral subplot.
                 Can include 'xlabel', 'ylabel', 'xlim', 'ylim'.
-            **kwargs: Deprecated parameters for backward compatibility:
-                - axis_config: Old configuration format
-                - cbar_config: Old colorbar configuration
+            **kwargs: Deprecated parameters for backward compatibility only.
+                - axis_config: Old configuration format (use waveform/spectral instead)
+                - cbar_config: Old colorbar configuration (use vmin/vmax instead)
 
         Examples:
             >>> cf = ChannelFrame.read_wav("audio.wav")
@@ -492,7 +612,7 @@ class ChannelFrame(
             # display関数とAudioクラスを使用
             display(ax.figure)
             if is_close:
-                plt.close(ax.figure)
+                plt.close(getattr(ax, "figure", None))
             display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))
 
     @classmethod
@@ -500,10 +620,10 @@ class ChannelFrame(
         cls,
         data: NDArrayReal,
         sampling_rate: float,
-        label: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        ch_labels: Optional[list[str]] = None,
-        ch_units: Optional[Union[list[str], str]] = None,
+        label: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        ch_labels: list[str] | None = None,
+        ch_units: list[str] | str | None = None,
     ) -> "ChannelFrame":
         """Create a ChannelFrame from a NumPy array.
 
@@ -559,10 +679,10 @@ class ChannelFrame(
         cls,
         array: NDArrayReal,
         sampling_rate: float,
-        labels: Optional[list[str]] = None,
-        unit: Optional[Union[list[str], str]] = None,
-        frame_label: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        labels: list[str] | None = None,
+        unit: list[str] | str | None = None,
+        frame_label: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> "ChannelFrame":
         """Create a ChannelFrame from a NumPy array.
 
@@ -594,13 +714,16 @@ class ChannelFrame(
     @classmethod
     def from_file(
         cls,
-        path: Union[str, Path],
-        channel: Optional[Union[int, list[int]]] = None,
-        start: Optional[float] = None,
-        end: Optional[float] = None,
-        chunk_size: Optional[int] = None,
-        ch_labels: Optional[list[str]] = None,
-        **kwargs: Any,
+        path: str | Path,
+        channel: int | list[int] | None = None,
+        start: float | None = None,
+        end: float | None = None,
+        chunk_size: int | None = None,
+        ch_labels: list[str] | None = None,
+        # CSV-specific parameters
+        time_column: int | str = 0,
+        delimiter: str = ",",
+        header: int | None = 0,
     ) -> "ChannelFrame":
         """Create a ChannelFrame from an audio file.
 
@@ -610,9 +733,13 @@ class ChannelFrame(
             start: Start time in seconds.
             end: End time in seconds.
             chunk_size: Chunk size for processing.
-            Specifies the splitting size for lazy processing.
+                Specifies the splitting size for lazy processing.
             ch_labels: Labels for each channel.
-            **kwargs: Additional arguments passed to the file reader.
+            time_column: For CSV files, index or name of the time column.
+                Default is 0 (first column).
+            delimiter: For CSV files, delimiter character. Default is ",".
+            header: For CSV files, row number to use as header.
+                Default is 0 (first row). Set to None if no header.
 
         Returns:
             A new ChannelFrame containing the loaded audio data.
@@ -620,19 +747,47 @@ class ChannelFrame(
         Raises:
             ValueError: If channel specification is invalid.
             TypeError: If channel parameter type is invalid.
-            FileNotFoundError: If the file doesn't exist.
+            FileNotFoundError: If the file doesn't exist at the specified path.
+                Error message includes absolute path, current directory, and
+                troubleshooting suggestions.
+
+        Examples:
+            >>> # Load WAV file
+            >>> cf = ChannelFrame.from_file("audio.wav")
+            >>> # Load specific channels
+            >>> cf = ChannelFrame.from_file("audio.wav", channel=[0, 2])
+            >>> # Load CSV file
+            >>> cf = ChannelFrame.from_file(
+            ...     "data.csv", time_column=0, delimiter=",", header=0
+            ... )
         """
         from .channel import ChannelFrame
 
         path = Path(path)
         if not path.exists():
-            raise FileNotFoundError(f"File not found: {path}")
+            raise FileNotFoundError(
+                f"Audio file not found\n"
+                f"  Path: {path.absolute()}\n"
+                f"  Current directory: {Path.cwd()}\n"
+                f"Please check:\n"
+                f"  - File path is correct\n"
+                f"  - File exists at the specified location\n"
+                f"  - You have read permissions for the file"
+            )
 
         # Get file reader
         reader = get_file_reader(path)
 
+        # Build kwargs for reader
+        reader_kwargs: dict[str, Any] = {}
+        if path.suffix.lower() == ".csv":
+            reader_kwargs["time_column"] = time_column
+            reader_kwargs["delimiter"] = delimiter
+            if header is not None:
+                reader_kwargs["header"] = header
+
         # Get file info
-        info = reader.get_file_info(path, **kwargs)
+        info = reader.get_file_info(path, **reader_kwargs)
         sr = info["samplerate"]
         n_channels = info["channels"]
         n_frames = info["frames"]
@@ -653,7 +808,7 @@ class ChannelFrame(
                 )
             channels_to_load = [channel]
             logger.debug(f"Will load single channel: {channel}")
-        elif isinstance(channel, (list, tuple)):
+        elif isinstance(channel, list | tuple):
             for ch in channel:
                 if ch < 0 or ch >= n_channels:
                     raise ValueError(
@@ -681,7 +836,9 @@ class ChannelFrame(
         def _load_audio() -> NDArrayReal:
             logger.debug(">>> EXECUTING DELAYED LOAD <<<")
             # Use the reader to get audio data with parameters
-            out = reader.get_data(path, channels_to_load, start_idx, frames_to_read)
+            out = reader.get_data(
+                path, channels_to_load, start_idx, frames_to_read, **reader_kwargs
+            )
             if not isinstance(out, np.ndarray):
                 raise ValueError("Unexpected data type after reading file")
             return out
@@ -727,9 +884,7 @@ class ChannelFrame(
         return cf
 
     @classmethod
-    def read_wav(
-        cls, filename: str, labels: Optional[list[str]] = None
-    ) -> "ChannelFrame":
+    def read_wav(cls, filename: str, labels: list[str] | None = None) -> "ChannelFrame":
         """Utility method to read a WAV file.
 
         Args:
@@ -748,10 +903,10 @@ class ChannelFrame(
     def read_csv(
         cls,
         filename: str,
-        time_column: Union[int, str] = 0,
-        labels: Optional[list[str]] = None,
+        time_column: int | str = 0,
+        labels: list[str] | None = None,
         delimiter: str = ",",
-        header: Optional[int] = 0,
+        header: int | None = 0,
     ) -> "ChannelFrame":
         """Utility method to read a CSV file.
 
@@ -764,6 +919,14 @@ class ChannelFrame(
 
         Returns:
             A new ChannelFrame containing the data (lazy loading).
+
+        Examples:
+            >>> # Read CSV with default settings
+            >>> cf = ChannelFrame.read_csv("data.csv")
+            >>> # Read CSV with custom delimiter
+            >>> cf = ChannelFrame.read_csv("data.csv", delimiter=";")
+            >>> # Read CSV without header
+            >>> cf = ChannelFrame.read_csv("data.csv", header=None)
         """
         from .channel import ChannelFrame
 
@@ -776,7 +939,7 @@ class ChannelFrame(
         )
         return cf
 
-    def to_wav(self, path: Union[str, Path], format: Optional[str] = None) -> None:
+    def to_wav(self, path: str | Path, format: str | None = None) -> None:
         """Save the audio data to a WAV file.
 
         Args:
@@ -789,12 +952,12 @@ class ChannelFrame(
 
     def save(
         self,
-        path: Union[str, Path],
+        path: str | Path,
         *,
         format: str = "hdf5",
-        compress: Optional[str] = "gzip",
+        compress: str | None = "gzip",
         overwrite: bool = False,
-        dtype: Optional[Union[str, np.dtype[Any]]] = None,
+        dtype: str | np.dtype[Any] | None = None,
     ) -> None:
         """Save the ChannelFrame to a WDF (Wandas Data File) format.
 
@@ -828,7 +991,7 @@ class ChannelFrame(
         )
 
     @classmethod
-    def load(cls, path: Union[str, Path], *, format: str = "hdf5") -> "ChannelFrame":
+    def load(cls, path: str | Path, *, format: str = "hdf5") -> "ChannelFrame":
         """Load a ChannelFrame from a WDF (Wandas Data File) file.
 
         This loads data saved with the save() method, preserving all channel data,
@@ -858,13 +1021,46 @@ class ChannelFrame(
 
     def add_channel(
         self,
-        data: Union[np.ndarray[Any, Any], DaskArray, "ChannelFrame"],
-        label: Optional[str] = None,
+        data: "np.ndarray[Any, Any] | DaskArray | ChannelFrame",
+        label: str | None = None,
         align: str = "strict",
-        suffix_on_dup: Optional[str] = None,
+        suffix_on_dup: str | None = None,
         inplace: bool = False,
-        **kwargs: Any,
     ) -> "ChannelFrame":
+        """Add a new channel to the frame.
+
+        Args:
+            data: Data to add as a new channel. Can be:
+                - numpy array (1D or 2D)
+                - dask array (1D or 2D)
+                - ChannelFrame (channels will be added)
+            label: Label for the new channel. If None, generates a default label.
+                Ignored when data is a ChannelFrame (uses its channel labels).
+            align: How to handle length mismatches:
+                - "strict": Raise error if lengths don't match
+                - "pad": Pad shorter data with zeros
+                - "truncate": Truncate longer data to match
+            suffix_on_dup: Suffix to add to duplicate labels. If None, raises error.
+            inplace: If True, modifies the frame in place.
+                Otherwise returns a new frame.
+
+        Returns:
+            Modified ChannelFrame (self if inplace=True, new frame otherwise).
+
+        Raises:
+            ValueError: If data length doesn't match and align="strict",
+                or if label is duplicate and suffix_on_dup is None.
+            TypeError: If data type is not supported.
+
+        Examples:
+            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> # Add a numpy array as a new channel
+            >>> new_data = np.sin(2 * np.pi * 440 * cf.time)
+            >>> cf_new = cf.add_channel(new_data, label="sine_440Hz")
+            >>> # Add another ChannelFrame's channels
+            >>> cf2 = ChannelFrame.read_wav("audio2.wav")
+            >>> cf_combined = cf.add_channel(cf2)
+        """
         # ndarray/dask/同型Frame対応
         if isinstance(data, ChannelFrame):
             if self.sampling_rate != data.sampling_rate:
@@ -988,9 +1184,7 @@ class ChannelFrame(
                 previous=self,
             )
 
-    def remove_channel(
-        self, key: Union[int, str], inplace: bool = False
-    ) -> "ChannelFrame":
+    def remove_channel(self, key: int | str, inplace: bool = False) -> "ChannelFrame":
         if isinstance(key, int):
             if not (0 <= key < self.n_channels):
                 raise IndexError(f"index {key} out of range")
@@ -1016,3 +1210,11 @@ class ChannelFrame(
                 channel_metadata=new_chmeta,
                 previous=self,
             )
+
+    def _get_dataframe_columns(self) -> list[str]:
+        """Get channel labels as DataFrame columns."""
+        return [ch.label for ch in self._channel_metadata]
+
+    def _get_dataframe_index(self) -> "pd.Index[Any]":
+        """Get time index for DataFrame."""
+        return pd.Index(self.time, name="time")

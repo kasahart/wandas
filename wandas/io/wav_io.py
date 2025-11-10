@@ -2,7 +2,7 @@
 import io
 import logging
 import os
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import numpy as np
 import requests
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def read_wav(filename: str, labels: Optional[list[str]] = None) -> "ChannelFrame":
+def read_wav(filename: str, labels: list[str] | None = None) -> "ChannelFrame":
     """
     Read a WAV file and create a ChannelFrame object.
 
@@ -67,9 +67,7 @@ def read_wav(filename: str, labels: Optional[list[str]] = None) -> "ChannelFrame
     return channel_frame
 
 
-def write_wav(
-    filename: str, target: "ChannelFrame", format: Optional[str] = None
-) -> None:
+def write_wav(filename: str, target: "ChannelFrame", format: str | None = None) -> None:
     """
     Write a ChannelFrame object to a WAV file.
 

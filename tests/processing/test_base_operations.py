@@ -151,3 +151,138 @@ class TestAudioOperation:
         # Invalid parameters should raise during initialization
         with pytest.raises(ValueError, match="Value must be non-negative"):
             _ = ValidatedOp(16000, -1)
+
+    def test_pure_parameter_default(self) -> None:
+        """Test that pure parameter defaults to True."""
+        op = self.TestOp(16000)
+        assert op.pure is True
+
+    def test_pure_parameter_explicit_true(self) -> None:
+        """Test that pure parameter can be explicitly set to True."""
+        op = self.TestOp(16000, pure=True)
+        assert op.pure is True
+
+    def test_pure_parameter_explicit_false(self) -> None:
+        """Test that pure parameter can be explicitly set to False."""
+        op = self.TestOp(16000, pure=False)
+        assert op.pure is False
+
+    def test_pure_parameter_used_in_delayed(self) -> None:
+        """Test that pure parameter is passed to dask.delayed."""
+
+        # Test with pure=True
+        op_true = self.TestOp(16000, pure=True)
+        with mock.patch("wandas.processing.base.delayed") as mock_delayed:
+            mock_delayed.return_value = lambda x: mock.MagicMock()
+            test_array = np.array([[1.0, 2.0, 3.0]])
+            op_true.process_array(test_array)
+
+            # Verify delayed was called with pure=True
+            mock_delayed.assert_called_once()
+            _, kwargs = mock_delayed.call_args
+            assert kwargs["pure"] is True
+
+        # Test with pure=False
+        op_false = self.TestOp(16000, pure=False)
+        with mock.patch("wandas.processing.base.delayed") as mock_delayed:
+            mock_delayed.return_value = lambda x: mock.MagicMock()
+            op_false.process_array(test_array)
+
+            # Verify delayed was called with pure=False
+            mock_delayed.assert_called_once()
+            _, kwargs = mock_delayed.call_args
+            assert kwargs["pure"] is False
+
+    def test_get_metadata_updates_default(self) -> None:
+        """Test that get_metadata_updates returns empty dict by default."""
+        op = self.TestOp(16000)
+        assert op.get_metadata_updates() == {}
+
+    def test_get_display_name_default(self) -> None:
+        """Test that get_display_name returns None by default."""
+        op = self.TestOp(16000)
+        assert op.get_display_name() is None
+
+    def test_process_array_not_implemented(self) -> None:
+        """Test that _process_array raises NotImplementedError if not overridden."""
+
+        class IncompleteOp(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "incomplete_op"
+
+        op = IncompleteOp(16000)
+        test_array = np.array([[1.0, 2.0, 3.0]])
+
+        with pytest.raises(NotImplementedError, match="Subclasses must implement"):
+            op._process_array(test_array)
+
+    def test_calculate_output_shape_default_implementation(self) -> None:
+        """Test default calculate_output_shape implementation."""
+        op = self.TestOp(16000)
+
+        # Test normal case
+        input_shape = (2, 100)
+        output_shape = op.calculate_output_shape(input_shape)
+        assert output_shape == input_shape
+
+    def test_calculate_output_shape_empty_input(self) -> None:
+        """Test calculate_output_shape with empty input shape."""
+
+        # Use an operation that doesn't override calculate_output_shape
+        class NoOverrideOp(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "no_override_op"
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x * 2
+
+        op = NoOverrideOp(16000)
+
+        # Test empty shape - should trigger early return path
+        empty_shape: tuple[int, ...] = ()
+        result = op.calculate_output_shape(empty_shape)
+        assert result == empty_shape
+
+    def test_calculate_output_shape_non_ndarray_output(self) -> None:
+        """Test calculate_output_shape when _process_array returns non-ndarray."""
+
+        # Use an operation that doesn't override calculate_output_shape
+        class NonArrayOp(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "non_array_op"
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                # Return a pure Python object (not an ndarray)
+                # to test fallback path
+                return "not_an_array"  # type: ignore
+
+        op = NonArrayOp(16000)
+        input_shape = (2, 100)
+        # Should fall back to returning input_shape
+        output_shape = op.calculate_output_shape(input_shape)
+        assert output_shape == input_shape
+
+    def test_calculate_output_shape_failure(self) -> None:
+        """Test calculate_output_shape when _process_array fails."""
+
+        class FailingOp(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "failing_op"
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                raise RuntimeError("Processing failed")
+
+        op = FailingOp(16000)
+
+        with pytest.raises(NotImplementedError, match="must implement"):
+            op.calculate_output_shape((2, 100))
+
+    def test_register_operation_abstract_class(self) -> None:
+        """Test that registering an abstract class raises TypeError."""
+        import abc
+
+        class AbstractOp(AudioOperation[NDArrayReal, NDArrayReal], abc.ABC):
+            name = "abstract_op"
+
+            @abc.abstractmethod
+            def abstract_method(self) -> None:
+                pass
+
+        with pytest.raises(TypeError, match="Cannot register abstract"):
+            register_operation(AbstractOp)

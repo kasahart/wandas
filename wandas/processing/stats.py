@@ -25,6 +25,10 @@ class ABS(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         super().__init__(sampling_rate)
 
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "abs"
+
     def process(self, data: DaArray) -> DaArray:
         # map_blocksを使わず、直接Daskの集約関数を使用
         return da.abs(data)  # type: ignore [unused-ignore]
@@ -49,6 +53,10 @@ class Power(AudioOperation[NDArrayReal, NDArrayReal]):
         super().__init__(sampling_rate)
         self.exp = exponent
 
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "pow"
+
     def process(self, data: DaArray) -> DaArray:
         # map_blocksを使わず、直接Daskの集約関数を使用
         return da.power(data, self.exp)  # type: ignore [unused-ignore]
@@ -59,6 +67,10 @@ class Sum(AudioOperation[NDArrayReal, NDArrayReal]):
 
     name = "sum"
 
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "sum"
+
     def process(self, data: DaArray) -> DaArray:
         # Use Dask's aggregate function directly without map_blocks
         return data.sum(axis=0, keepdims=True)
@@ -68,6 +80,10 @@ class Mean(AudioOperation[NDArrayReal, NDArrayReal]):
     """Mean calculation"""
 
     name = "mean"
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "mean"
 
     def process(self, data: DaArray) -> DaArray:
         # Use Dask's aggregate function directly without map_blocks
@@ -93,6 +109,10 @@ class ChannelDifference(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         self.other_channel = other_channel
         super().__init__(sampling_rate, other_channel=other_channel)
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "diff"
 
     def process(self, data: DaArray) -> DaArray:
         # map_blocksを使わず、直接Daskの集約関数を使用

@@ -40,7 +40,7 @@ class TestPlotStrategy(PlotStrategy[Any]):
         self,
         bf: Any,
         ax: Optional["Axes"] = None,
-        title: Optional[str] = None,
+        title: str | None = None,
         overlay: bool = False,
         **kwargs: Any,
     ) -> Union["Axes", Iterator["Axes"]]:

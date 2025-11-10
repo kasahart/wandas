@@ -8,6 +8,8 @@
     "python.analysis.typeCheckingMode": "basic",
     "python.testing.pytestArgs": [
         "tests",
+        "-n",
+        "auto",
         "--cov=wandas",
         "--cov-report",
         "xml"

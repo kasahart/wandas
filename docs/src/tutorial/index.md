@@ -104,9 +104,10 @@ print(buffer.getvalue())
 - [05_lazy_and_dask.ipynb: 遅延評価とDaskによる大規模データ処理](/tutorial/05_lazy_and_dask.ipynb)
 - [06_metadata_history.ipynb: メタデータと処理履歴の活用](/tutorial/06_metadata_history.ipynb)
 - [07_batch_processing.ipynb: 複数ファイルへの一括処理](/tutorial/07_batch_processing.ipynb)
-- [08_extending_api.ipynb: カスタム関数の追加とAPIの拡張](/tutorial/08_extending_api.ipynb)
-- [08_interoperability.ipynb: 他のライブラリとの連携](/tutorial/08_interoperability.ipynb)
-- [09_case_studies.ipynb: 実践的なユースケーススタディ](/tutorial/09_case_studies.ipynb)
+- [08_frame_dataset_usage.ipynb: FrameDataset 使用ガイド - フォルダ内の複数音声ファイルの効率的な処理](../../examples/03_frame_dataset_usage.ipynb)
+- [09_extending_api.ipynb: カスタム関数の追加とAPIの拡張](/tutorial/08_extending_api.ipynb)
+- [10_interoperability.ipynb: 他のライブラリとの連携](/tutorial/08_interoperability.ipynb)
+- [11_case_studies.ipynb: 実践的なユースケーススタディ](/tutorial/09_case_studies.ipynb)
 
 !!! tip "ヒント"
     各ノートブックは特定のトピックに焦点を当てています。興味のあるものから順に、または必要に応じて参照してください。Wandasの基本的な使い方については、このチュートリアルの冒頭部分も合わせてご覧ください。

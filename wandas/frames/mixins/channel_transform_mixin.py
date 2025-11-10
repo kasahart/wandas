@@ -2,7 +2,7 @@
 operations."""
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from ...core.base_frame import BaseFrame
 from .protocols import T_Transform
@@ -24,7 +24,7 @@ class ChannelTransformMixin:
     """
 
     def fft(
-        self: T_Transform, n_fft: Optional[int] = None, window: str = "hann"
+        self: T_Transform, n_fft: int | None = None, window: str = "hann"
     ) -> "SpectralFrame":
         """Calculate Fast Fourier Transform (FFT).
 
@@ -83,8 +83,8 @@ class ChannelTransformMixin:
 
     def welch(
         self: T_Transform,
-        n_fft: Optional[int] = None,
-        hop_length: Optional[int] = None,
+        n_fft: int | None = None,
+        hop_length: int | None = None,
         win_length: int = 2048,
         window: str = "hann",
         average: str = "mean",
@@ -145,8 +145,8 @@ class ChannelTransformMixin:
 
     def noct_spectrum(
         self: T_Transform,
-        fmin: float,
-        fmax: float,
+        fmin: float = 25,
+        fmax: float = 20000,
         n: int = 3,
         G: int = 10,  # noqa: N803
         fr: int = 1000,
@@ -154,7 +154,7 @@ class ChannelTransformMixin:
         """Calculate N-octave band spectrum.
 
         Args:
-            fmin: Minimum center frequency (Hz). Default is 20 Hz.
+            fmin: Minimum center frequency (Hz). Default is 25 Hz.
             fmax: Maximum center frequency (Hz). Default is 20000 Hz.
             n: Band division (1: octave, 3: 1/3 octave). Default is 3.
             G: Reference gain (dB). Default is 10 dB.
@@ -208,8 +208,8 @@ class ChannelTransformMixin:
     def stft(
         self: T_Transform,
         n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
+        hop_length: int | None = None,
+        win_length: int | None = None,
         window: str = "hann",
     ) -> "SpectrogramFrame":
         """Calculate Short-Time Fourier Transform.
@@ -273,8 +273,8 @@ class ChannelTransformMixin:
     def coherence(
         self: T_Transform,
         n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
+        hop_length: int | None = None,
+        win_length: int | None = None,
         window: str = "hann",
         detrend: str = "constant",
     ) -> "SpectralFrame":
@@ -352,8 +352,8 @@ class ChannelTransformMixin:
     def csd(
         self: T_Transform,
         n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
+        hop_length: int | None = None,
+        win_length: int | None = None,
         window: str = "hann",
         detrend: str = "constant",
         scaling: str = "spectrum",
@@ -436,8 +436,8 @@ class ChannelTransformMixin:
     def transfer_function(
         self: T_Transform,
         n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
+        hop_length: int | None = None,
+        win_length: int | None = None,
         window: str = "hann",
         detrend: str = "constant",
         scaling: str = "spectrum",

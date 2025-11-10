@@ -9,9 +9,7 @@
         }
     },
     "features": {
-        "ghcr.io/devcontainers/features/git:1": {},
-        "ghcr.io/dhoeric/features/hadolint:1": {}
-        // "ghcr.io/devcontainers-contrib/features/ruff:1": {}
+        "ghcr.io/devcontainers/features/git:1": {}
     },
     "customizations": {
         "vscode": {
@@ -34,7 +32,8 @@
                 "mhutchie.git-graph",
                 "ms-python.mypy-type-checker",
                 "exiasr.hadolint",
-                "ms-azuretools.vscode-docker"
+                "ms-azuretools.vscode-docker",
+                "bierner.markdown-mermaid"
             ]
         }
     },
@@ -43,7 +42,16 @@
         "UV_LINK_MODE": "copy",
         "UV_PROJECT_ENVIRONMENT": "/home/vscode/.venv"
     },
-    "postCreateCommand": "uv sync --frozen",
+    "mounts": [
+        // For Linux/macOS
+        "source=${env:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached"
+        // For Windows (uncomment if needed)
+        // "source=${env:USERPROFILE}\\.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached"
+    ],
+    // The GitHub CLI Copilot extension installation (`gh extension install github/gh-copilot`) was removed from postCreateCommand.
+    // If Copilot CLI is needed for development, please add it back. Otherwise, this is intentional.
+    // ローカル開発では全グループをインストール (test, docs, dev)
+    "postCreateCommand": "uv sync --frozen --all-groups",
     "postStartCommand": "uv run pre-commit install",
     "remoteUser": "vscode"
 }

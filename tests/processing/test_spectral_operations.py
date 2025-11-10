@@ -1,4 +1,3 @@
-from typing import Union
 from unittest import mock
 
 import dask.array as da
@@ -23,6 +22,24 @@ from wandas.processing.spectral import (
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 _da_from_array = da.from_array  # type: ignore [unused-ignore]
+
+
+class TestGetDisplayNames:
+    """Test display names for all spectral operations."""
+
+    def test_all_display_names(self) -> None:
+        """Test that all operations have appropriate display names."""
+        sr = 16000
+        assert FFT(sr).get_display_name() == "FFT"
+        assert IFFT(sr).get_display_name() == "iFFT"
+        assert STFT(sr).get_display_name() == "STFT"
+        assert ISTFT(sr).get_display_name() == "iSTFT"
+        assert Welch(sr).get_display_name() == "PS"
+        assert NOctSpectrum(sr, 24, 12600).get_display_name() == "Oct"
+        assert NOctSynthesis(sr, 24, 12600).get_display_name() == "Octs"
+        assert Coherence(sr).get_display_name() == "Coh"
+        assert CSD(sr).get_display_name() == "CSD"
+        assert TransferFunction(sr).get_display_name() == "H"
 
 
 class TestFFTOperation:
@@ -156,6 +173,48 @@ class TestFFTOperation:
         assert fft_op.n_fft == 512
         assert fft_op.window == "hamming"
 
+    def test_negative_n_fft_error_message(self) -> None:
+        """Test that negative n_fft provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            FFT(sampling_rate=44100, n_fft=-1024)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid FFT size" in error_msg
+        assert "-1024" in error_msg
+        # Check WHY
+        assert "Positive integer" in error_msg
+        # Check HOW
+        assert "Common values:" in error_msg
+        assert "2048" in error_msg
+
+    def test_zero_n_fft_error_message(self) -> None:
+        """Test that zero n_fft provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            FFT(sampling_rate=44100, n_fft=0)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid FFT size" in error_msg
+        # Check WHY
+        assert "Positive integer" in error_msg
+
+    def test_fft_with_truncation(self) -> None:
+        """Test that FFT truncates input when it exceeds n_fft."""
+        # Create signal longer than n_fft
+        long_signal = np.random.randn(2048)
+        fft_op = FFT(self.sample_rate, n_fft=1024)
+
+        result = fft_op.process_array(np.array([long_signal])).compute()
+
+        # Output should have n_fft // 2 + 1 frequency bins
+        expected_bins = 1024 // 2 + 1
+        assert result.shape == (1, expected_bins)
+
 
 class TestIFFTOperation:
     def setup_method(self) -> None:
@@ -262,6 +321,20 @@ class TestIFFTOperation:
         assert ifft_op.n_fft == 512
         assert ifft_op.window == "hamming"
 
+    def test_ifft_without_n_fft(self) -> None:
+        """Test IFFT when n_fft is None - uses input shape for calculation."""
+        # Create a frequency domain signal
+        spectrum = np.zeros(513, dtype=complex)
+        spectrum[50] = 1.0  # Single frequency component
+
+        # Initialize IFFT without n_fft
+        ifft_no_nfft = IFFT(self.sample_rate, n_fft=None)
+
+        result = ifft_no_nfft.process_array(np.array([spectrum])).compute()
+
+        # Expected output length: 2 * (input_length - 1) = 2 * (513 - 1) = 1024
+        assert result.shape == (1, 1024)
+
 
 class TestSTFTOperation:
     def setup_method(self) -> None:
@@ -271,7 +344,7 @@ class TestSTFTOperation:
         self.hop_length: int = 256
         self.win_length: int = 1024
         self.window: str = "hann"
-        self.boundary: Union[str, None] = "zeros"
+        self.boundary: str | None = "zeros"
 
         # Create a test signal (1 second sine wave at 440 Hz)
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
@@ -519,6 +592,154 @@ class TestSTFTOperation:
         assert istft_op.n_fft == 512
         assert istft_op.hop_length == 128
 
+    def test_negative_n_fft_error_message(self) -> None:
+        """Test that negative n_fft provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            STFT(sampling_rate=44100, n_fft=-2048)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid FFT size for STFT" in error_msg
+        assert "-2048" in error_msg
+        # Check WHY
+        assert "Positive integer" in error_msg
+        # Check HOW
+        assert "Common values:" in error_msg
+
+    def test_win_length_greater_than_n_fft_error_message(self) -> None:
+        """Test that win_length > n_fft provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            STFT(sampling_rate=44100, n_fft=1024, win_length=2048)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid window length for STFT" in error_msg
+        assert "win_length=2048" in error_msg
+        # Check WHY
+        assert "win_length <= n_fft" in error_msg
+        assert "1024" in error_msg
+        # Check HOW
+        assert (
+            "win_length=1024 or smaller" in error_msg
+            or "increase n_fft to 2048" in error_msg
+        )
+
+    def test_negative_hop_length_error_message(self) -> None:
+        """Test that negative hop_length provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            STFT(sampling_rate=44100, n_fft=2048, hop_length=-512)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid hop length for STFT" in error_msg
+        assert "-512" in error_msg
+        # Check WHY
+        assert "Positive integer" in error_msg
+
+    def test_hop_length_greater_than_win_length_error_message(self) -> None:
+        """Test that hop_length > win_length provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            STFT(sampling_rate=44100, n_fft=2048, win_length=1024, hop_length=2048)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid hop length for STFT" in error_msg
+        assert "hop_length=2048" in error_msg
+        # Check WHY
+        assert "hop_length <= win_length" in error_msg
+        assert "1024" in error_msg
+        # Check HOW
+        assert "would create gaps" in error_msg
+
+    def test_zero_n_fft_error_message(self) -> None:
+        """Test that zero n_fft provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            STFT(sampling_rate=44100, n_fft=0)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid FFT size for STFT" in error_msg
+        assert "0" in error_msg
+        # Check WHY
+        assert "Positive integer" in error_msg
+
+    def test_negative_win_length_error_message(self) -> None:
+        """Test that negative win_length provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            STFT(sampling_rate=44100, n_fft=2048, win_length=-1024)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid window length for STFT" in error_msg
+        assert "-1024" in error_msg
+        # Check WHY
+        assert "Positive integer" in error_msg
+
+    def test_zero_win_length_error_message(self) -> None:
+        """Test that zero win_length provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            STFT(sampling_rate=44100, n_fft=2048, win_length=0)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid window length for STFT" in error_msg
+        # Check WHY
+        assert "Positive integer" in error_msg
+
+    def test_win_length_too_small_for_default_hop_error_message(self) -> None:
+        """Test that win_length < 4 with no hop_length provides
+        helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            STFT(sampling_rate=44100, n_fft=2048, win_length=3)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Window length too small" in error_msg
+        assert "win_length=3" in error_msg
+        # Check WHY
+        assert "win_length >= 4" in error_msg
+        # Check HOW
+        assert (
+            "specify a larger win_length or provide hop_length explicitly" in error_msg
+        )
+
+    def test_istft_with_length_parameter(self) -> None:
+        """Test ISTFT with explicit length parameter for output trimming."""
+        # Create STFT data
+        stft_data = self.stft.process_array(self.signal_mono)
+
+        # Create ISTFT with specific output length
+        target_length = 8000  # Half of original signal
+        istft_with_length = ISTFT(
+            sampling_rate=self.sample_rate,
+            n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            win_length=self.win_length,
+            window=self.window,
+            length=target_length,
+        )
+
+        result = istft_with_length.process_array(stft_data).compute()
+
+        # Output should be trimmed to target_length
+        assert result.shape[1] == target_length
+
 
 class TestNOctSynthesisOperation:
     def setup_method(self) -> None:
@@ -708,6 +929,28 @@ class TestNOctSynthesisOperation:
         assert noct_op.G == 20
         assert noct_op.fr == 1000
 
+    def test_noct_synthesis_odd_length_spectrum(self) -> None:
+        """Test NOctSynthesis with odd-length spectrum (else branch coverage)."""
+        # Create spectrum with odd number of frequency bins
+        # rfft of length N produces N//2 + 1 bins
+        # For odd bins: need even N where N//2 + 1 is odd, so N//2 is even, N = 4k
+        # Example: N=52 -> 52//2 + 1 = 27 (odd)
+        fft = FFT(self.sample_rate, n_fft=None, window="hann")
+
+        # Create a signal with even length that produces odd rfft bins
+        signal_length = 52  # Will produce 27 rfft bins (odd)
+        test_signal = np.random.randn(signal_length)
+        spectrum = fft.process(_da_from_array(np.array([test_signal]))).compute()
+
+        # Verify spectrum has odd length
+        assert spectrum.shape[-1] % 2 == 1
+
+        # Process through NOctSynthesis
+        result = self.noct_synthesis.process(_da_from_array(spectrum)).compute()
+
+        # Should produce valid output
+        assert result.shape[0] == 1
+
 
 class TestWelchOperation:
     def setup_method(self) -> None:
@@ -835,6 +1078,113 @@ class TestWelchOperation:
         assert welch_op.win_length == 512
         assert welch_op.hop_length == 128
         assert welch_op.window == "hamming"
+
+    def test_negative_n_fft_error_message(self) -> None:
+        """Test that negative n_fft provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            Welch(sampling_rate=44100, n_fft=-2048)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid FFT size for Welch" in error_msg
+        assert "-2048" in error_msg
+        # Check WHY
+        assert "Positive integer" in error_msg
+        # Check HOW
+        assert "Common values:" in error_msg
+
+    def test_win_length_greater_than_n_fft_error_message(self) -> None:
+        """Test that win_length > n_fft provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            Welch(sampling_rate=44100, n_fft=1024, win_length=2048)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid window length for Welch" in error_msg
+        assert "win_length=2048" in error_msg
+        # Check WHY
+        assert "win_length <= n_fft" in error_msg
+        # Check HOW
+        assert "or increase n_fft" in error_msg
+
+    def test_hop_length_greater_than_win_length_error_message(self) -> None:
+        """Test that hop_length > win_length provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            Welch(sampling_rate=44100, n_fft=2048, win_length=1024, hop_length=2048)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid hop length for Welch" in error_msg
+        # Check WHY
+        assert "hop_length <= win_length" in error_msg
+        # Check HOW
+        assert "would create gaps" in error_msg
+
+    def test_zero_n_fft_error_message(self) -> None:
+        """Test that zero n_fft provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            Welch(sampling_rate=44100, n_fft=0)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid FFT size for Welch" in error_msg
+        assert "0" in error_msg
+        # Check WHY
+        assert "Positive integer" in error_msg
+
+    def test_negative_win_length_error_message(self) -> None:
+        """Test that negative win_length provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            Welch(sampling_rate=44100, n_fft=2048, win_length=-1024)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid window length for Welch" in error_msg
+        assert "-1024" in error_msg
+        # Check WHY
+        assert "Positive integer" in error_msg
+
+    def test_zero_win_length_error_message(self) -> None:
+        """Test that zero win_length provides helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            Welch(sampling_rate=44100, n_fft=2048, win_length=0)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Invalid window length for Welch" in error_msg
+        # Check WHY
+        assert "Positive integer" in error_msg
+
+    def test_win_length_too_small_for_default_hop_error_message(self) -> None:
+        """Test that win_length < 4 with no hop_length provides
+        helpful error message."""
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            Welch(sampling_rate=44100, n_fft=2048, win_length=3)
+
+        error_msg = str(exc_info.value)
+        # Check WHAT
+        assert "Window length too small" in error_msg
+        assert "win_length=3" in error_msg
+        # Check WHY
+        assert "win_length >= 4" in error_msg
+        # Check HOW
+        assert (
+            "specify a larger win_length or provide hop_length explicitly" in error_msg
+        )
 
 
 class TestCoherenceOperation:

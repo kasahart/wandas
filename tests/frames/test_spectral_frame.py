@@ -1,9 +1,10 @@
-from typing import Any, Optional
+from typing import Any
 from unittest import mock
 
 # filepath: wandas/core/test_spectral_frame.py
 import dask.array as da
 import numpy as np
+import pandas as pd
 import pytest
 from dask.array.core import Array as DaArray
 
@@ -23,9 +24,7 @@ def create_complex_data(shape: tuple[int, ...]) -> NDArrayComplex:
     return real_part + 1j * imag_part
 
 
-def create_dask_array(
-    data: NDArrayComplex, chunks: Optional[tuple[int, ...]]
-) -> DaArray:
+def create_dask_array(data: NDArrayComplex, chunks: tuple[int, ...] | None) -> DaArray:
     """Convert NumPy array to Dask array with specified chunks."""
     return _da_from_array(data, chunks=chunks)
 
@@ -120,6 +119,12 @@ class TestSpectralFrame:
         expected: NDArrayReal = np.angle(self.data.compute())
         np.testing.assert_allclose(phase, expected)
 
+    def test_property_unwrapped_phase(self) -> None:
+        """Test unwrapped_phase property"""
+        unwrapped_phase: NDArrayReal = self.frame.unwrapped_phase
+        expected: NDArrayReal = np.unwrap(np.angle(self.data.compute()))
+        np.testing.assert_allclose(unwrapped_phase, expected)
+
     def test_property_power(self) -> None:
         """Test power property"""
         power: NDArrayReal = self.frame.power
@@ -207,6 +212,67 @@ class TestSpectralFrame:
         expected_data: NDArrayComplex = multiply_op(self.data, scalar).compute()
         np.testing.assert_allclose(result.data, expected_data)
 
+    def test_binary_op_with_complex(self) -> None:
+        """Test _binary_op with complex number"""
+        complex_val: complex = 2.0 + 1.0j
+
+        def multiply_op(a: Any, b: Any) -> Any:
+            return a * b
+
+        symbol: str = "*"
+        result: SpectralFrame = self.frame._binary_op(complex_val, multiply_op, symbol)
+
+        assert isinstance(result, SpectralFrame)
+        assert f"complex({complex_val.real}, {complex_val.imag})" in result.label
+
+    def test_binary_op_with_numpy_array(self) -> None:
+        """Test _binary_op with numpy array"""
+        np_array: NDArrayReal = np.ones(self.shape)
+
+        def multiply_op(a: Any, b: Any) -> Any:
+            return a * b
+
+        symbol: str = "*"
+        result: SpectralFrame = self.frame._binary_op(np_array, multiply_op, symbol)
+
+        assert isinstance(result, SpectralFrame)
+        assert "ndarray" in result.label
+
+    def test_binary_op_with_dask_array(self) -> None:
+        """Test _binary_op with dask array"""
+        dask_arr: DaArray = _da_from_array(np.ones(self.shape), chunks=-1)
+
+        def multiply_op(a: Any, b: Any) -> Any:
+            return a * b
+
+        symbol: str = "*"
+        result: SpectralFrame = self.frame._binary_op(dask_arr, multiply_op, symbol)
+
+        assert isinstance(result, SpectralFrame)
+        assert "dask.array" in result.label
+
+    def test_binary_op_with_other_type(self) -> None:
+        """Test _binary_op with other type (no shape attribute)"""
+
+        class CustomType:
+            pass
+
+        custom_obj = CustomType()
+
+        def identity_op(a: Any, b: Any) -> Any:
+            return a
+
+        symbol: str = "~"
+        # type: ignore to test runtime behavior with unexpected types
+        result: SpectralFrame = self.frame._binary_op(
+            custom_obj,
+            identity_op,
+            symbol,  # type: ignore[arg-type]
+        )
+
+        assert isinstance(result, SpectralFrame)
+        assert "CustomType" in result.label
+
     def test_plot(self) -> None:
         """Test plot method"""
         with mock.patch(
@@ -220,7 +286,12 @@ class TestSpectralFrame:
             # Test with default parameters
             result: Any = self.frame.plot()
             mock_create_op.assert_called_once_with("frequency")
-            mock_plot_strategy.plot.assert_called_once_with(self.frame, ax=None)
+            # Check that plot was called with the frame and the new explicit parameters
+            call_kwargs = mock_plot_strategy.plot.call_args[1]
+            assert call_kwargs["ax"] is None
+            assert call_kwargs["title"] is None
+            assert call_kwargs["overlay"] is False
+            assert call_kwargs["Aw"] is False
             assert result is mock_ax
 
             # Reset mocks and test with custom parameters
@@ -232,10 +303,38 @@ class TestSpectralFrame:
             result = self.frame.plot("custom_plot", ax=custom_ax, **kwargs)
 
             mock_create_op.assert_called_once_with("custom_plot")
-            mock_plot_strategy.plot.assert_called_once_with(
-                self.frame, ax=custom_ax, **kwargs
-            )
+            # Verify that custom parameters are passed through
+            call_kwargs = mock_plot_strategy.plot.call_args[1]
+            assert call_kwargs["ax"] is custom_ax
+            assert call_kwargs["param1"] == "value1"
+            assert call_kwargs["param2"] == "value2"
             assert result is mock_ax
+
+    def test_plot_with_optional_parameters(self) -> None:
+        """Test plot method with optional parameters for conditional branches"""
+        with mock.patch(
+            "wandas.visualization.plotting.create_operation"
+        ) as mock_create_op:
+            mock_plot_strategy: Any = mock.MagicMock()
+            mock_create_op.return_value = mock_plot_strategy
+            mock_ax: Any = mock.MagicMock()
+            mock_plot_strategy.plot.return_value = mock_ax
+
+            # Test with all optional parameters
+            self.frame.plot(
+                xlabel="Custom X",
+                ylabel="Custom Y",
+                alpha=0.5,
+                xlim=(0, 1000),
+                ylim=(-60, 0),
+            )
+
+            call_kwargs = mock_plot_strategy.plot.call_args[1]
+            assert call_kwargs["xlabel"] == "Custom X"
+            assert call_kwargs["ylabel"] == "Custom Y"
+            assert call_kwargs["alpha"] == 0.5
+            assert call_kwargs["xlim"] == (0, 1000)
+            assert call_kwargs["ylim"] == (-60, 0)
 
     def test_plot_matrix(self) -> None:
         """Test plot_matrix method"""
@@ -466,3 +565,152 @@ class TestSpectralFrame:
 
             # 結果の検証
             assert result is mock_result
+
+    def test_to_dataframe(self) -> None:
+        """Test to_dataframe converts frame data to DataFrame with frequency index."""
+        # SpectralFrameの作成
+        spectral_frame = SpectralFrame(
+            data=self.data,
+            sampling_rate=self.sampling_rate,
+            n_fft=self.n_fft,
+            window=self.window,
+            channel_metadata=self.channel_metadata,
+        )
+
+        # DataFrame変換
+        df = spectral_frame.to_dataframe()
+
+        # DataFrameの検証
+        assert isinstance(df, pd.DataFrame)
+        assert df.shape == (self.shape[1], self.shape[0])  # (freq_bins, channels)
+        assert df.index.name == "frequency"
+        assert list(df.columns) == ["ch1", "ch2"]
+
+        # 周波数インデックスの検証
+        expected_freqs = spectral_frame.freqs
+        np.testing.assert_array_almost_equal(df.index.values, expected_freqs)
+
+    def test_to_dataframe_single_channel(self) -> None:
+        """Test to_dataframe with single channel."""
+        # 単一チャネルのデータ作成
+        single_channel_data = self.data[0:1, :]  # 最初のチャネルのみ
+        single_channel_metadata = [self.channel_metadata[0]]
+
+        spectral_frame = SpectralFrame(
+            data=single_channel_data,
+            sampling_rate=self.sampling_rate,
+            n_fft=self.n_fft,
+            window=self.window,
+            channel_metadata=single_channel_metadata,
+        )
+
+        df = spectral_frame.to_dataframe()
+
+        assert isinstance(df, pd.DataFrame)
+        assert df.shape == (self.shape[1], 1)  # (freq_bins, 1)
+        assert df.index.name == "frequency"
+        assert list(df.columns) == ["ch1"]
+
+    def test_spectral_info_includes_frequency_resolution(self) -> None:
+        """Test that info() includes frequency resolution (ΔF)."""
+        import io
+        import sys
+
+        # 標準出力をキャプチャ
+        captured_output = io.StringIO()
+        sys.stdout = captured_output
+
+        self.frame.info()
+
+        sys.stdout = sys.__stdout__
+        output = captured_output.getvalue()
+
+        # デルタFが含まれていることを確認
+        assert "Frequency resolution (ΔF):" in output
+
+        # 理論値との比較
+        expected_delta_f = self.frame.sampling_rate / self.frame.n_fft
+        assert f"{expected_delta_f:.1f} Hz" in output
+
+    def test_spectral_info_display(self) -> None:
+        """Test that info() displays spectral frame information without errors."""
+        import io
+        import sys
+
+        captured_output = io.StringIO()
+        sys.stdout = captured_output
+
+        self.frame.info()
+
+        sys.stdout = sys.__stdout__
+        output = captured_output.getvalue()
+
+        # 基本的な情報が出力されていることを確認
+        assert "SpectralFrame Information:" in output
+        assert "Channels:" in output
+        assert "Sampling rate:" in output
+        assert "FFT size:" in output
+        assert "Frequency range:" in output
+        assert "Frequency bins:" in output
+        assert "Channel labels:" in output
+
+    def test_spectral_info_values_are_correct(self) -> None:
+        """Test that info() displays correct values."""
+        import io
+        import sys
+
+        captured_output = io.StringIO()
+        sys.stdout = captured_output
+
+        self.frame.info()
+
+        sys.stdout = sys.__stdout__
+        output = captured_output.getvalue()
+
+        # 理論値の計算
+        delta_f = self.frame.sampling_rate / self.frame.n_fft
+
+        # 出力に理論値が含まれることを確認
+        assert f"Channels: {self.frame.n_channels}" in output
+        assert f"Sampling rate: {self.frame.sampling_rate} Hz" in output
+        assert f"FFT size: {self.frame.n_fft}" in output
+        assert f"Frequency resolution (ΔF): {delta_f:.1f} Hz" in output
+        assert f"Frequency bins: {len(self.frame.freqs)}" in output
+
+    def test_spectral_info_with_operation_history(self) -> None:
+        """Test info() with operation history."""
+        import io
+        import sys
+
+        # 操作履歴を持つフレームを作成
+        frame_with_ops = SpectralFrame(
+            data=self.data,
+            sampling_rate=self.sampling_rate,
+            n_fft=self.n_fft,
+            window=self.window,
+            operation_history=[
+                {"operation": "fft", "params": {}},
+                {"operation": "normalize", "params": {}},
+            ],
+            channel_metadata=self.channel_metadata,
+        )
+
+        captured_output = io.StringIO()
+        sys.stdout = captured_output
+
+        frame_with_ops.info()
+
+        sys.stdout = sys.__stdout__
+        output = captured_output.getvalue()
+
+        # 操作履歴が表示されていることを確認
+        assert "Operations Applied: 2" in output
+
+    def test_get_additional_init_kwargs(self) -> None:
+        """Test _get_additional_init_kwargs returns correct parameters"""
+        kwargs = self.frame._get_additional_init_kwargs()
+
+        assert "n_fft" in kwargs
+        assert "window" in kwargs
+        assert kwargs["n_fft"] == self.n_fft
+        assert kwargs["window"] == self.window

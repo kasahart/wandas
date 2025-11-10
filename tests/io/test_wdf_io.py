@@ -29,6 +29,12 @@ def test_save_load_roundtrip(tmp_path: Path) -> None:
     cf._channel_metadata[0].extra["sensitivity"] = 50.0
     cf._channel_metadata[1].extra["sensitivity"] = 48.5
 
+    # Add operation history
+    cf.operation_history = [
+        {"operation": "normalize", "params": {"method": "peak"}},
+        {"operation": "filter", "params": {"type": "lowpass", "cutoff": 1000}},
+    ]
+
     # Save to file
     path = tmp_path / "test_roundtrip.wdf"
     cf.save(path)
@@ -41,6 +47,14 @@ def test_save_load_roundtrip(tmp_path: Path) -> None:
     assert cf2.n_channels == 2
     assert cf2.label == "Test Frame"
     assert cf2.metadata.get("test_key") == "test_value"
+
+    # Verify operation history
+    assert len(cf2.operation_history) == 2
+    assert cf2.operation_history[0]["operation"] == "normalize"
+    assert cf2.operation_history[0]["params"]["method"] == "peak"
+    assert cf2.operation_history[1]["operation"] == "filter"
+    assert cf2.operation_history[1]["params"]["type"] == "lowpass"
+    assert cf2.operation_history[1]["params"]["cutoff"] == 1000
 
     # Verify channel data
     assert np.allclose(cf2.data, cf.data)

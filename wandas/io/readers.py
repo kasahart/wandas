@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -9,6 +9,43 @@ import soundfile as sf
 from numpy.typing import ArrayLike
 
 logger = logging.getLogger(__name__)
+
+
+class CSVFileInfoParams(TypedDict, total=False):
+    """Type definition for CSV file reader parameters in get_file_info.
+
+    Parameters
+    ----------
+    delimiter : str
+        Delimiter character. Default is ",".
+    header : Optional[int]
+        Row number to use as header. Default is 0 (first row).
+        Set to None if no header.
+    time_column : Union[int, str]
+        Index or name of the time column. Default is 0.
+    """
+
+    delimiter: str
+    header: int | None
+    time_column: int | str
+
+
+class CSVGetDataParams(TypedDict, total=False):
+    """Type definition for CSV file reader parameters in get_data.
+
+    Parameters
+    ----------
+    delimiter : str
+        Delimiter character. Default is ",".
+    header : Optional[int]
+        Row number to use as header. Default is 0.
+    time_column : Union[int, str]
+        Index or name of the time column. Default is 0.
+    """
+
+    delimiter: str
+    header: int | None
+    time_column: int | str
 
 
 class FileReader(ABC):
@@ -19,25 +56,49 @@ class FileReader(ABC):
 
     @classmethod
     @abstractmethod
-    def get_file_info(cls, path: Union[str, Path], **kwargs: Any) -> dict[str, Any]:
-        """Get basic information about the audio file."""
+    def get_file_info(cls, path: str | Path, **kwargs: Any) -> dict[str, Any]:
+        """Get basic information about the audio file.
+
+        Args:
+            path: Path to the file.
+            **kwargs: Additional parameters specific to the file reader.
+
+        Returns:
+            Dictionary containing file information including:
+            - samplerate: Sampling rate in Hz
+            - channels: Number of channels
+            - frames: Total number of frames
+            - format: File format
+            - duration: Duration in seconds
+        """
         pass
 
     @classmethod
     @abstractmethod
     def get_data(
         cls,
-        path: Union[str, Path],
+        path: str | Path,
         channels: list[int],
         start_idx: int,
         frames: int,
         **kwargs: Any,
     ) -> ArrayLike:
-        """Read audio data from the file."""
+        """Read audio data from the file.
+
+        Args:
+            path: Path to the file.
+            channels: List of channel indices to read.
+            start_idx: Starting frame index.
+            frames: Number of frames to read.
+            **kwargs: Additional parameters specific to the file reader.
+
+        Returns:
+            Array of shape (channels, frames) containing the audio data.
+        """
         pass
 
     @classmethod
-    def can_read(cls, path: Union[str, Path]) -> bool:
+    def can_read(cls, path: str | Path) -> bool:
         """Check if this reader can handle the file based on extension."""
         ext = Path(path).suffix.lower()
         return ext in cls.supported_extensions
@@ -50,7 +111,7 @@ class SoundFileReader(FileReader):
     supported_extensions = [".wav", ".flac", ".ogg", ".aiff", ".aif", ".snd"]
 
     @classmethod
-    def get_file_info(cls, path: Union[str, Path], **kwargs: Any) -> dict[str, Any]:
+    def get_file_info(cls, path: str | Path, **kwargs: Any) -> dict[str, Any]:
         """Get basic information about the audio file."""
         info = sf.info(str(path))
         return {
@@ -65,7 +126,7 @@ class SoundFileReader(FileReader):
     @classmethod
     def get_data(
         cls,
-        path: Union[str, Path],
+        path: str | Path,
         channels: list[int],
         start_idx: int,
         frames: int,
@@ -100,19 +161,62 @@ class CSVFileReader(FileReader):
     supported_extensions = [".csv"]
 
     @classmethod
-    def get_file_info(cls, path: Union[str, Path], **kwargs: Any) -> dict[str, Any]:
-        delimiter = kwargs.get("delimiter", ",")
-        header = kwargs.get("header", 0)
-        """Get basic information about the CSV file."""
+    def get_file_info(
+        cls,
+        path: str | Path,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Get basic information about the CSV file.
+
+        Parameters
+        ----------
+        path : Union[str, Path]
+            Path to the CSV file.
+        **kwargs : Any
+            Additional parameters for CSV reading. Supported parameters:
+
+            - delimiter : str, default=","
+                Delimiter character.
+            - header : Optional[int], default=0
+                Row number to use as header. Set to None if no header.
+            - time_column : Union[int, str], default=0
+                Index or name of the time column.
+
+        Returns
+        -------
+        dict[str, Any]
+            Dictionary containing file information including:
+            - samplerate: Estimated sampling rate in Hz
+            - channels: Number of data channels (excluding time column)
+            - frames: Total number of frames
+            - format: "CSV"
+            - duration: Duration in seconds (or None if cannot be calculated)
+            - ch_labels: List of channel labels
+
+        Notes
+        -----
+        This method accepts CSV-specific parameters through kwargs.
+        See CSVFileInfoParams for supported parameter types.
+        """
+        # Extract parameters with defaults
+        delimiter: str = kwargs.get("delimiter", ",")
+        header: int | None = kwargs.get("header", 0)
+        time_column: int | str = kwargs.get("time_column", 0)
+
         # Read first few lines to determine structure
         df = pd.read_csv(path, delimiter=delimiter, header=header)
 
         # Estimate sampling rate from first column (assuming it's time)
-        time_column = 0
         try:
-            time_values = np.array(df.iloc[:, time_column].values)
+            # Get time column as Series
+            if isinstance(time_column, str):
+                time_series = df[time_column]
+            else:
+                time_series = df.iloc[:, time_column]
+            time_values = np.array(time_series.values)
             if len(time_values) > 1:
-                estimated_sr = int(1 / np.mean(np.diff(time_values)))
+                # Use round() instead of int() to handle floating-point precision issues
+                estimated_sr = round(1 / np.mean(np.diff(time_values)))
             else:
                 estimated_sr = 0  # Cannot determine from single row
         except Exception:
@@ -134,20 +238,52 @@ class CSVFileReader(FileReader):
     @classmethod
     def get_data(
         cls,
-        path: Union[str, Path],
+        path: str | Path,
         channels: list[int],
         start_idx: int,
         frames: int,
         **kwargs: Any,
     ) -> ArrayLike:
-        """Read data from the CSV file."""
+        """Read data from the CSV file.
+
+        Parameters
+        ----------
+        path : Union[str, Path]
+            Path to the CSV file.
+        channels : list[int]
+            List of channel indices to read.
+        start_idx : int
+            Starting frame index.
+        frames : int
+            Number of frames to read.
+        **kwargs : Any
+            Additional parameters for CSV reading. Supported parameters:
+
+            - delimiter : str, default=","
+                Delimiter character.
+            - header : Optional[int], default=0
+                Row number to use as header.
+            - time_column : Union[int, str], default=0
+                Index or name of the time column.
+
+        Returns
+        -------
+        ArrayLike
+            Array of shape (channels, frames) containing the data.
+
+        Notes
+        -----
+        This method accepts CSV-specific parameters through kwargs.
+        See CSVGetDataParams for supported parameter types.
+        """
+        # Extract parameters with defaults
+        time_column: int | str = kwargs.get("time_column", 0)
+        delimiter: str = kwargs.get("delimiter", ",")
+        header: int | None = kwargs.get("header", 0)
+
         logger.debug(f"Reading CSV data from {path} starting at {start_idx}")
 
         # Read the CSV file
-        time_column = kwargs.get("time_column", 0)
-        delimiter = kwargs.get("delimiter", ",")
-        header = kwargs.get("header", 0)
-        # Read first few lines to determine structure
         df = pd.read_csv(path, delimiter=delimiter, header=header)
 
         # Remove time column
@@ -185,7 +321,7 @@ class CSVFileReader(FileReader):
 _file_readers = [SoundFileReader(), CSVFileReader()]
 
 
-def get_file_reader(path: Union[str, Path]) -> FileReader:
+def get_file_reader(path: str | Path) -> FileReader:
     """Get an appropriate file reader for the given path."""
     path_str = str(path)
     ext = Path(path).suffix.lower()

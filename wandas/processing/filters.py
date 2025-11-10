@@ -14,6 +14,8 @@ class HighPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
     """High-pass filter operation"""
 
     name = "highpass_filter"
+    a: NDArrayReal
+    b: NDArrayReal
 
     def __init__(self, sampling_rate: float, cutoff: float, order: int = 4):
         """
@@ -24,9 +26,15 @@ class HighPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
         sampling_rate : float
             Sampling rate (Hz)
         cutoff : float
-            Cutoff frequency (Hz)
+            Cutoff frequency (Hz). Must be between 0 and Nyquist frequency
+            (sampling_rate / 2).
         order : int, optional
             Filter order, default is 4
+
+        Raises
+        ------
+        ValueError
+            If cutoff frequency is not within valid range (0 < cutoff < Nyquist)
         """
         self.cutoff = cutoff
         self.order = order
@@ -34,9 +42,20 @@ class HighPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def validate_params(self) -> None:
         """Validate parameters"""
-        if self.cutoff <= 0 or self.cutoff >= self.sampling_rate / 2:
-            limit = self.sampling_rate / 2
-            raise ValueError(f"Cutoff frequency must be between 0 Hz and {limit} Hz")
+        nyquist = self.sampling_rate / 2
+        if self.cutoff <= 0 or self.cutoff >= nyquist:
+            raise ValueError(
+                f"Cutoff frequency out of valid range\n"
+                f"  Got: {self.cutoff} Hz\n"
+                f"  Valid range: 0 < cutoff < {nyquist} Hz (Nyquist frequency)\n"
+                f"The Nyquist frequency is half the sampling rate\n"
+                f"  ({self.sampling_rate} Hz).\n"
+                f"Filters cannot work above this limit due to aliasing.\n"
+                f"Solutions:\n"
+                f"  - Use a cutoff frequency below {nyquist} Hz\n"
+                f"  - Or increase sampling rate above {self.cutoff * 2} Hz\n"
+                f"    using resample()"
+            )
 
     def _setup_processor(self) -> None:
         """Set up high-pass filter processor"""
@@ -50,6 +69,10 @@ class HighPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         return input_shape
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "hpf"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Filter processing wrapped with @dask.delayed"""
@@ -75,9 +98,15 @@ class LowPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
         sampling_rate : float
             Sampling rate (Hz)
         cutoff : float
-            Cutoff frequency (Hz)
+            Cutoff frequency (Hz). Must be between 0 and Nyquist frequency
+            (sampling_rate / 2).
         order : int, optional
             Filter order, default is 4
+
+        Raises
+        ------
+        ValueError
+            If cutoff frequency is not within valid range (0 < cutoff < Nyquist)
         """
         self.cutoff = cutoff
         self.order = order
@@ -85,9 +114,19 @@ class LowPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def validate_params(self) -> None:
         """Validate parameters"""
-        if self.cutoff <= 0 or self.cutoff >= self.sampling_rate / 2:
+        nyquist = self.sampling_rate / 2
+        if self.cutoff <= 0 or self.cutoff >= nyquist:
             raise ValueError(
-                f"Cutoff frequency must be between 0 Hz and {self.sampling_rate / 2} Hz"
+                f"Cutoff frequency out of valid range\n"
+                f"  Got: {self.cutoff} Hz\n"
+                f"  Valid range: 0 < cutoff < {nyquist} Hz (Nyquist frequency)\n"
+                f"The Nyquist frequency is half the sampling rate\n"
+                f"  ({self.sampling_rate} Hz).\n"
+                f"Filters cannot work above this limit due to aliasing.\n"
+                f"Solutions:\n"
+                f"  - Use a cutoff frequency below {nyquist} Hz\n"
+                f"  - Or increase sampling rate above {self.cutoff * 2} Hz\n"
+                f"    using resample()"
             )
 
     def _setup_processor(self) -> None:
@@ -101,6 +140,10 @@ class LowPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         return input_shape
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "lpf"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Filter processing wrapped with @dask.delayed"""
@@ -133,11 +176,18 @@ class BandPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
         sampling_rate : float
             Sampling rate (Hz)
         low_cutoff : float
-            Lower cutoff frequency (Hz)
+            Lower cutoff frequency (Hz). Must be between 0 and Nyquist frequency.
         high_cutoff : float
-            Higher cutoff frequency (Hz)
+            Higher cutoff frequency (Hz). Must be between 0 and Nyquist frequency
+            and greater than low_cutoff.
         order : int, optional
             Filter order, default is 4
+
+        Raises
+        ------
+        ValueError
+            If either cutoff frequency is not within valid range (0 < cutoff < Nyquist),
+            or if low_cutoff >= high_cutoff
         """
         self.low_cutoff = low_cutoff
         self.high_cutoff = high_cutoff
@@ -151,16 +201,34 @@ class BandPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
         nyquist = self.sampling_rate / 2
         if self.low_cutoff <= 0 or self.low_cutoff >= nyquist:
             raise ValueError(
-                f"Lower cutoff frequency must be between 0 Hz and {nyquist} Hz"
+                f"Lower cutoff frequency out of valid range\n"
+                f"  Got: {self.low_cutoff} Hz\n"
+                f"  Valid range: 0 < cutoff < {nyquist} Hz (Nyquist frequency)\n"
+                f"The Nyquist frequency is half the sampling rate\n"
+                f"  ({self.sampling_rate} Hz).\n"
+                f"Filters cannot work above this limit due to aliasing.\n"
+                f"Use a lower cutoff frequency below {nyquist} Hz"
             )
         if self.high_cutoff <= 0 or self.high_cutoff >= nyquist:
             raise ValueError(
-                f"Higher cutoff frequency must be between 0 Hz and {nyquist} Hz"
+                f"Higher cutoff frequency out of valid range\n"
+                f"  Got: {self.high_cutoff} Hz\n"
+                f"  Valid range: 0 < cutoff < {nyquist} Hz (Nyquist frequency)\n"
+                f"The Nyquist frequency is half the sampling rate\n"
+                f"  ({self.sampling_rate} Hz).\n"
+                f"Filters cannot work above this limit due to aliasing.\n"
+                f"Use a cutoff frequency below {nyquist} Hz"
             )
         if self.low_cutoff >= self.high_cutoff:
             raise ValueError(
-                f"Lower cutoff frequency ({self.low_cutoff} Hz) must be less than "
-                f"higher cutoff frequency ({self.high_cutoff} Hz)"
+                f"Invalid bandpass filter cutoff frequencies\n"
+                f"  Lower cutoff: {self.low_cutoff} Hz\n"
+                f"  Higher cutoff: {self.high_cutoff} Hz\n"
+                f"  Problem: Lower cutoff must be less than higher cutoff\n"
+                f"A bandpass filter passes frequencies between low and high\n"
+                f"  cutoffs.\n"
+                f"Ensure low_cutoff < high_cutoff\n"
+                f"  (e.g., low_cutoff=100, high_cutoff=1000)"
             )
 
     def _setup_processor(self) -> None:
@@ -177,6 +245,10 @@ class BandPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         return input_shape
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "bpf"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Filter processing wrapped with @dask.delayed"""
@@ -204,6 +276,10 @@ class AWeighting(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         return input_shape
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "Aw"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for A-weighting filter"""

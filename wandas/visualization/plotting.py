@@ -2,7 +2,7 @@ import abc
 import inspect
 import logging
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Optional, TypeVar
 
 # Import librosa (including display)
 import librosa
@@ -50,10 +50,10 @@ class PlotStrategy(abc.ABC, Generic[TFrame]):
         self,
         bf: TFrame,
         ax: Optional["Axes"] = None,
-        title: Optional[str] = None,
+        title: str | None = None,
         overlay: bool = False,
         **kwargs: Any,
-    ) -> Union["Axes", Iterator["Axes"]]:
+    ) -> Axes | Iterator[Axes]:
         """Implementation of plotting"""
         pass
 
@@ -135,10 +135,10 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         self,
         bf: "ChannelFrame",
         ax: Optional["Axes"] = None,
-        title: Optional[str] = None,
+        title: str | None = None,
         overlay: bool = False,
         **kwargs: Any,
-    ) -> Union["Axes", Iterator["Axes"]]:
+    ) -> Axes | Iterator[Axes]:
         """Waveform plotting"""
         kwargs = kwargs or {}
         ylabel = kwargs.pop("ylabel", "Amplitude")
@@ -154,6 +154,9 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
             kwargs,
             strict_mode=True,
         )
+        # If an Axes is provided, prefer drawing into it (treat as overlay)
+        if ax is not None:
+            overlay = True
         data = bf.data
         data = _reshape_to_2d(data)
         if overlay:
@@ -180,7 +183,7 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
                 num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
             )
             # Convert axs to list if it is a single Axes object
-            if not isinstance(axs, (list, np.ndarray)):
+            if not isinstance(axs, list | np.ndarray):
                 axs = [axs]
 
             axes_list = list(axs)
@@ -228,10 +231,10 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
         self,
         bf: "SpectralFrame",
         ax: Optional["Axes"] = None,
-        title: Optional[str] = None,
+        title: str | None = None,
         overlay: bool = False,
         **kwargs: Any,
-    ) -> Union["Axes", Iterator["Axes"]]:
+    ) -> Axes | Iterator[Axes]:
         """Frequency domain plotting"""
         kwargs = kwargs or {}
         is_aw = kwargs.pop("Aw", False)
@@ -255,6 +258,9 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
         alpha = kwargs.pop("alpha", 1)
         plot_kwargs = filter_kwargs(Line2D, kwargs, strict_mode=True)
         ax_set = filter_kwargs(Axes.set, kwargs, strict_mode=True)
+        # If an Axes is provided, prefer drawing into it (treat as overlay)
+        if ax is not None:
+            overlay = True
         if overlay:
             if ax is None:
                 _, ax = plt.subplots(figsize=(10, 4))
@@ -282,7 +288,7 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
                 num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
             )
             # Convert axs to list if it is a single Axes object
-            if not isinstance(axs, (list, np.ndarray)):
+            if not isinstance(axs, list | np.ndarray):
                 axs = [axs]
 
             axes_list = list(axs)
@@ -331,10 +337,10 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
         self,
         bf: "NOctFrame",
         ax: Optional["Axes"] = None,
-        title: Optional[str] = None,
+        title: str | None = None,
         overlay: bool = False,
         **kwargs: Any,
-    ) -> Union["Axes", Iterator["Axes"]]:
+    ) -> Axes | Iterator[Axes]:
         """N-octave band analysis plotting"""
         kwargs = kwargs or {}
         is_aw = kwargs.pop("Aw", False)
@@ -351,6 +357,9 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
         alpha = kwargs.pop("alpha", 1)
         plot_kwargs = filter_kwargs(Line2D, kwargs, strict_mode=True)
         ax_set = filter_kwargs(Axes.set, kwargs, strict_mode=True)
+        # If an Axes is provided, prefer drawing into it (treat as overlay)
+        if ax is not None:
+            overlay = True
         if overlay:
             if ax is None:
                 _, ax = plt.subplots(figsize=(10, 4))
@@ -380,7 +389,7 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
                 num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
             )
             # Convert axs to list if it is a single Axes object
-            if not isinstance(axs, (list, np.ndarray)):
+            if not isinstance(axs, list | np.ndarray):
                 axs = [axs]
 
             axes_list = list(axs)
@@ -426,14 +435,16 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
         self,
         bf: "SpectrogramFrame",
         ax: Optional["Axes"] = None,
-        title: Optional[str] = None,
+        title: str | None = None,
         overlay: bool = False,
         **kwargs: Any,
-    ) -> Union["Axes", Iterator["Axes"]]:
+    ) -> Axes | Iterator[Axes]:
         """Spectrogram plotting"""
+        # Explicit overlay mode is not supported for spectrograms
         if overlay:
             raise ValueError("Overlay is not supported for SpectrogramPlotStrategy.")
 
+        # If an Axes is provided, allow drawing into it only for single-channel frames
         if ax is not None and bf.n_channels > 1:
             raise ValueError("ax must be None when n_channels > 1.")
 
@@ -551,10 +562,10 @@ class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
         self,
         bf: "ChannelFrame",
         ax: Optional["Axes"] = None,
-        title: Optional[str] = None,
+        title: str | None = None,
         overlay: bool = False,
         **kwargs: Any,
-    ) -> Union["Axes", Iterator["Axes"]]:
+    ) -> Axes | Iterator[Axes]:
         """Implementation of describe method for visualizing ChannelFrame data"""
 
         fmin = kwargs.pop("fmin", 0)
@@ -643,7 +654,7 @@ class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
         return _return_axes_iterator(fig.axes)
 
 
-class MatrixPlotStrategy(PlotStrategy[Union["SpectralFrame"]]):
+class MatrixPlotStrategy(PlotStrategy["SpectralFrame"]):
     """Strategy for displaying relationships between channels in matrix format"""
 
     name = "matrix"
@@ -653,7 +664,7 @@ class MatrixPlotStrategy(PlotStrategy[Union["SpectralFrame"]]):
         x: Any,
         y: Any,
         ax: "Axes",
-        title: Optional[str] = None,
+        title: str | None = None,
         ylabel: str = "",
         xlabel: str = "Frequency [Hz]",
         alpha: float = 0,
@@ -669,10 +680,10 @@ class MatrixPlotStrategy(PlotStrategy[Union["SpectralFrame"]]):
         self,
         bf: "SpectralFrame",
         ax: Optional["Axes"] = None,
-        title: Optional[str] = None,
+        title: str | None = None,
         overlay: bool = False,
         **kwargs: Any,
-    ) -> Union["Axes", Iterator["Axes"]]:
+    ) -> Axes | Iterator[Axes]:
         kwargs = kwargs or {}
         is_aw = kwargs.pop("Aw", False)
         if (
@@ -698,6 +709,9 @@ class MatrixPlotStrategy(PlotStrategy[Union["SpectralFrame"]]):
         plot_kwargs = filter_kwargs(Line2D, kwargs, strict_mode=True)
         ax_set = filter_kwargs(Axes.set, kwargs, strict_mode=True)
         num_channels = bf.n_channels
+        # If an Axes is provided, prefer drawing into it (treat as overlay)
+        if ax is not None:
+            overlay = True
         if overlay:
             if ax is None:
                 fig, ax = plt.subplots(1, 1, figsize=(6, 6))

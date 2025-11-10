@@ -1,8 +1,9 @@
-from typing import Any, Optional
+from typing import Any
 from unittest import mock
 
 import dask.array as da
 import numpy as np
+import pandas as pd
 import pytest
 from dask.array.core import Array as DaArray
 
@@ -20,7 +21,7 @@ def create_real_data(shape: tuple[int, ...]) -> NDArrayReal:
     return np.random.rand(*shape).astype(np.float32)
 
 
-def create_dask_array(data: NDArrayReal, chunks: Optional[tuple[int, ...]]) -> DaArray:
+def create_dask_array(data: NDArrayReal, chunks: tuple[int, ...] | None) -> DaArray:
     """Convert NumPy array to Dask array with specified chunks."""
     return _da_from_array(data, chunks=chunks)
 
@@ -217,7 +218,12 @@ class TestNOctFrame:
             # Test with default parameters
             result: Any = self.frame.plot()
             mock_create_op.assert_called_once_with("noct")
-            mock_plot_strategy.plot.assert_called_once_with(self.frame, ax=None)
+            # Check that plot was called with the frame and the new explicit parameters
+            call_kwargs = mock_plot_strategy.plot.call_args[1]
+            assert call_kwargs["ax"] is None
+            assert call_kwargs["title"] is None
+            assert call_kwargs["overlay"] is False
+            assert call_kwargs["Aw"] is False
             assert result is mock_ax
 
             # Reset mocks and test with custom parameters
@@ -229,9 +235,11 @@ class TestNOctFrame:
             result = self.frame.plot("custom_plot", ax=custom_ax, **kwargs)
 
             mock_create_op.assert_called_once_with("custom_plot")
-            mock_plot_strategy.plot.assert_called_once_with(
-                self.frame, ax=custom_ax, **kwargs
-            )
+            # Verify that custom parameters are passed through
+            call_kwargs = mock_plot_strategy.plot.call_args[1]
+            assert call_kwargs["ax"] is custom_ax
+            assert call_kwargs["param1"] == "value1"
+            assert call_kwargs["param2"] == "value2"
             assert result is mock_ax
 
     def test_get_additional_init_kwargs(self) -> None:
@@ -244,3 +252,105 @@ class TestNOctFrame:
             "fmin": self.fmin,
             "fmax": self.fmax,
         }
+
+    def test_to_dataframe(self) -> None:
+        """Test to_dataframe converts frame data to DataFrame with frequency index."""
+        # NOctFrameの作成
+        noct_frame = NOctFrame(
+            data=self.data,
+            sampling_rate=self.sampling_rate,
+            n=self.n,
+            G=self.G,
+            fr=self.fr,
+            fmin=self.fmin,
+            fmax=self.fmax,
+            channel_metadata=self.channel_metadata,
+        )
+
+        # DataFrame変換
+        df = noct_frame.to_dataframe()
+
+        # DataFrameの検証
+        assert isinstance(df, pd.DataFrame)
+        assert df.shape == (self.shape[1], self.shape[0])  # (freq_bins, channels)
+        assert df.index.name == "frequency"
+        assert list(df.columns) == ["ch1", "ch2"]
+
+        # 周波数インデックスの検証
+        expected_freqs = noct_frame.freqs
+        np.testing.assert_array_almost_equal(df.index.values, expected_freqs)
+
+    def test_to_dataframe_single_channel(self) -> None:
+        """Test to_dataframe with single channel."""
+        # 単一チャネルのデータ作成
+        single_channel_data = self.data[0:1, :]  # 最初のチャネルのみ
+        single_channel_metadata = [self.channel_metadata[0]]
+
+        noct_frame = NOctFrame(
+            data=single_channel_data,
+            sampling_rate=self.sampling_rate,
+            n=self.n,
+            G=self.G,
+            fr=self.fr,
+            fmin=self.fmin,
+            fmax=self.fmax,
+            channel_metadata=single_channel_metadata,
+        )
+
+        df = noct_frame.to_dataframe()
+
+        assert isinstance(df, pd.DataFrame)
+        assert df.shape == (self.shape[1], 1)  # (freq_bins, 1)
+        assert df.index.name == "frequency"
+        assert list(df.columns) == ["ch1"]
+
+    def test_plot_with_all_options(self) -> None:
+        """Test plot method with all optional parameters"""
+        with mock.patch(
+            "wandas.visualization.plotting.create_operation"
+        ) as mock_create_op:
+            mock_plot_strategy: Any = mock.MagicMock()
+            mock_create_op.return_value = mock_plot_strategy
+            mock_ax: Any = mock.MagicMock()
+            mock_plot_strategy.plot.return_value = mock_ax
+
+            # Test with all optional parameters
+            result = self.frame.plot(
+                plot_type="noct",
+                ax=mock_ax,
+                title="Test Title",
+                overlay=True,
+                xlabel="Frequency",
+                ylabel="Level",
+                alpha=0.5,
+                xlim=(20, 20000),
+                ylim=(0, 100),
+                Aw=True,
+                color="red",
+            )
+
+            # Verify all parameters were passed
+            call_kwargs = mock_plot_strategy.plot.call_args[1]
+            assert call_kwargs["ax"] is mock_ax
+            assert call_kwargs["title"] == "Test Title"
+            assert call_kwargs["overlay"] is True
+            assert call_kwargs["xlabel"] == "Frequency"
+            assert call_kwargs["ylabel"] == "Level"
+            assert call_kwargs["alpha"] == 0.5
+            assert call_kwargs["xlim"] == (20, 20000)
+            assert call_kwargs["ylim"] == (0, 100)
+            assert call_kwargs["Aw"] is True
+            assert call_kwargs["color"] == "red"
+            assert result is mock_ax
+
+    def test_get_dataframe_columns(self) -> None:
+        """Test _get_dataframe_columns method"""
+        columns = self.frame._get_dataframe_columns()
+        assert columns == ["ch1", "ch2"]
+
+    def test_get_dataframe_index(self) -> None:
+        """Test _get_dataframe_index method"""
+        index = self.frame._get_dataframe_index()
+        assert isinstance(index, pd.Index)
+        assert index.name == "frequency"
+        np.testing.assert_array_equal(index.values, self.frame.freqs)

@@ -1,9 +1,11 @@
 import logging
 import random
+import warnings
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Generic, Optional, TypeVar, Union, cast, overload
+from typing import Any, Generic, Optional, TypeVar, cast, overload
 
 from tqdm.auto import tqdm
 
@@ -12,7 +14,7 @@ from wandas.frames.spectrogram import SpectrogramFrame
 
 logger = logging.getLogger(__name__)
 
-FrameType = Union[ChannelFrame, SpectrogramFrame]
+FrameType = ChannelFrame | SpectrogramFrame
 F = TypeVar("F", bound=FrameType)
 F_out = TypeVar("F_out", bound=FrameType)
 
@@ -30,11 +32,11 @@ class LazyFrame(Generic[F]):
     """
 
     file_path: Path
-    frame: Optional[F] = None
+    frame: F | None = None
     is_loaded: bool = False
     load_attempted: bool = False
 
-    def ensure_loaded(self, loader: Callable[[Path], Optional[F]]) -> Optional[F]:
+    def ensure_loaded(self, loader: Callable[[Path], F | None]) -> F | None:
         """
         Ensures the frame is loaded, loading it if necessary.
 
@@ -79,13 +81,13 @@ class FrameDataset(Generic[F], ABC):
     def __init__(
         self,
         folder_path: str,
-        sampling_rate: Optional[int] = None,
-        signal_length: Optional[int] = None,
-        file_extensions: Optional[list[str]] = None,
+        sampling_rate: int | None = None,
+        signal_length: int | None = None,
+        file_extensions: list[str] | None = None,
         lazy_loading: bool = True,
         recursive: bool = False,
         source_dataset: Optional["FrameDataset[Any]"] = None,
-        transform: Optional[Callable[[Any], Optional[F]]] = None,
+        transform: Callable[[Any], F | None] | None = None,
     ):
         self.folder_path = Path(folder_path)
         if source_dataset is None and not self.folder_path.exists():
@@ -160,11 +162,11 @@ class FrameDataset(Generic[F], ABC):
         self._lazy_loading = False
 
     @abstractmethod
-    def _load_file(self, file_path: Path) -> Optional[F]:
+    def _load_file(self, file_path: Path) -> F | None:
         """Abstract method to load a frame from a file."""
         pass
 
-    def _load_from_source(self, index: int) -> Optional[F]:
+    def _load_from_source(self, index: int) -> F | None:
         """Load a frame from the source dataset and transform it if necessary."""
         if self._source_dataset is None or self._transform is None:
             return None
@@ -179,7 +181,7 @@ class FrameDataset(Generic[F], ABC):
             logger.warning(f"Failed to transform index {index}: {str(e)}")
             return None
 
-    def _ensure_loaded(self, index: int) -> Optional[F]:
+    def _ensure_loaded(self, index: int) -> F | None:
         """Ensure the frame at the given index is loaded."""
         if not (0 <= index < len(self._lazy_frames)):
             raise IndexError(
@@ -221,17 +223,107 @@ class FrameDataset(Generic[F], ABC):
         """Return the number of files in the dataset."""
         return len(self._lazy_frames)
 
-    def __getitem__(self, index: int) -> Optional[F]:
-        """Get the frame at the specified index."""
-        return self._ensure_loaded(index)
+    def get_by_label(self, label: str) -> F | None:
+        """
+        Get a frame by its label (filename).
+
+        Parameters
+        ----------
+        label : str
+            The filename (label) to search for (e.g., 'sample_1.wav').
+
+        Returns
+        -------
+        Optional[F]
+            The frame if found, otherwise None.
+
+        Examples
+        --------
+        >>> frame = dataset.get_by_label("sample_1.wav")
+        >>> if frame:
+        ...     print(frame.label)
+        """
+        # Keep for backward compatibility: return the first match but emit
+        # a DeprecationWarning recommending `get_all_by_label`.
+        all_matches = self.get_all_by_label(label)
+        if len(all_matches) > 0:
+            warnings.warn(
+                "get_by_label() returns the first matching frame and is deprecated; "
+                "use get_all_by_label() to obtain all matches.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return all_matches[0]
+        return None
+
+    def get_all_by_label(self, label: str) -> list[F]:
+        """
+        Get all frames matching the given label (filename).
+
+        Parameters
+        ----------
+        label : str
+            The filename (label) to search for (e.g., 'sample_1.wav').
+
+        Returns
+        -------
+        list[F]
+            A list of frames matching the label.
+            If none are found, returns an empty list.
+
+        Notes
+        -----
+        - Search is performed against the filename portion only (i.e. Path.name).
+        - Each matched frame will be loaded (triggering lazy load) via `_ensure_loaded`.
+        """
+        matches: list[F] = []
+        for i, lazy_frame in enumerate(self._lazy_frames):
+            if lazy_frame.file_path.name == label:
+                loaded = self._ensure_loaded(i)
+                if loaded is not None:
+                    matches.append(loaded)
+        return matches
 
     @overload
-    def apply(self, func: Callable[[F], Optional[F_out]]) -> "FrameDataset[F_out]": ...
+    def __getitem__(self, key: int) -> F | None: ...
 
     @overload
-    def apply(self, func: Callable[[F], Optional[Any]]) -> "FrameDataset[Any]": ...
+    def __getitem__(self, key: str) -> list[F]: ...
 
-    def apply(self, func: Callable[[F], Optional[Any]]) -> "FrameDataset[Any]":
+    def __getitem__(self, key: int | str) -> F | None | list[F]:
+        """
+        Get the frame by index (int) or label (str).
+
+        Parameters
+        ----------
+        key : int or str
+            Index (int) or filename/label (str).
+
+        Returns
+        -------
+        Optional[F] or list[F]
+            If `key` is an int, returns the frame or None. If `key` is a str,
+            returns a list of matching frames (may be empty).
+
+        Examples
+        --------
+        >>> frame = dataset[0]  # by index
+        >>> frames = dataset["sample_1.wav"]  # list of matches by filename
+        """
+        if isinstance(key, int):
+            return self._ensure_loaded(key)
+        if isinstance(key, str):
+            # pandas-like behaviour: return all matches for the label as a list
+            return self.get_all_by_label(key)
+        raise TypeError(f"Invalid key type: {type(key)}. Must be int or str.")
+
+    @overload
+    def apply(self, func: Callable[[F], F_out | None]) -> "FrameDataset[F_out]": ...
+
+    @overload
+    def apply(self, func: Callable[[F], Any | None]) -> "FrameDataset[Any]": ...
+
+    def apply(self, func: Callable[[F], Any | None]) -> "FrameDataset[Any]":
         """Apply a function to the entire dataset to create a new dataset."""
         new_dataset = type(self)(
             folder_path=str(self.folder_path),
@@ -251,9 +343,9 @@ class FrameDataset(Generic[F], ABC):
 
     def sample(
         self,
-        n: Optional[int] = None,
-        ratio: Optional[float] = None,
-        seed: Optional[int] = None,
+        n: int | None = None,
+        ratio: float | None = None,
+        seed: int | None = None,
     ) -> "FrameDataset[F]":
         """Get a sample from the dataset."""
         if seed is not None:
@@ -289,7 +381,7 @@ class FrameDataset(Generic[F], ABC):
 
     def get_metadata(self) -> dict[str, Any]:
         """Get metadata for the dataset."""
-        actual_sr: Optional[Union[int, float]] = self.sampling_rate
+        actual_sr: int | float | None = self.sampling_rate
         frame_type_name = "Unknown"
 
         # Count loaded frames
@@ -298,7 +390,7 @@ class FrameDataset(Generic[F], ABC):
         )
 
         # Get metadata from the first frame (if possible)
-        first_frame: Optional[F] = None
+        first_frame: F | None = None
         if len(self._lazy_frames) > 0:
             try:
                 if self._lazy_frames[0].is_loaded:
@@ -380,11 +472,11 @@ class _SampledFrameDataset(FrameDataset[F]):
                 f"{len(original_file_paths)}, indices: {sampled_indices}"
             ) from e
 
-    def _load_file(self, file_path: Path) -> Optional[F]:
+    def _load_file(self, file_path: Path) -> F | None:
         """This class does not load directly from files but from the original dataset."""  # noqa: E501
         raise NotImplementedError("_SampledFrameDataset does not load files directly.")
 
-    def _ensure_loaded(self, index: int) -> Optional[F]:
+    def _ensure_loaded(self, index: int) -> F | None:
         """
         Load the frame corresponding to the index in the sampled dataset.
         Get the frame from the original dataset.
@@ -427,12 +519,12 @@ class _SampledFrameDataset(FrameDataset[F]):
             return None
 
     @overload
-    def apply(self, func: Callable[[F], Optional[F_out]]) -> "FrameDataset[F_out]": ...
+    def apply(self, func: Callable[[F], F_out | None]) -> "FrameDataset[F_out]": ...
 
     @overload
-    def apply(self, func: Callable[[F], Optional[Any]]) -> "FrameDataset[Any]": ...
+    def apply(self, func: Callable[[F], Any | None]) -> "FrameDataset[Any]": ...
 
-    def apply(self, func: Callable[[F], Optional[Any]]) -> "FrameDataset[Any]":
+    def apply(self, func: Callable[[F], Any | None]) -> "FrameDataset[Any]":
         """
         Apply a function to the entire sampled dataset.
         Added as a new transformation to the original dataset, maintaining sampling.
@@ -452,13 +544,13 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
     def __init__(
         self,
         folder_path: str,
-        sampling_rate: Optional[int] = None,
-        signal_length: Optional[int] = None,
-        file_extensions: Optional[list[str]] = None,
+        sampling_rate: int | None = None,
+        signal_length: int | None = None,
+        file_extensions: list[str] | None = None,
         lazy_loading: bool = True,
         recursive: bool = False,
         source_dataset: Optional["FrameDataset[Any]"] = None,
-        transform: Optional[Callable[[Any], Optional[ChannelFrame]]] = None,
+        transform: Callable[[Any], ChannelFrame | None] | None = None,
     ):
         _file_extensions = file_extensions or [
             ".wav",
@@ -478,7 +570,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
             transform=transform,
         )
 
-    def _load_file(self, file_path: Path) -> Optional[ChannelFrame]:
+    def _load_file(self, file_path: Path) -> ChannelFrame | None:
         """Load an audio file and return a ChannelFrame."""
         try:
             frame = ChannelFrame.from_file(file_path)
@@ -496,7 +588,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
     def resample(self, target_sr: int) -> "ChannelFrameDataset":
         """Resample all frames in the dataset."""
 
-        def _resample_func(frame: ChannelFrame) -> Optional[ChannelFrame]:
+        def _resample_func(frame: ChannelFrame) -> ChannelFrame | None:
             if frame is None:
                 return None
             try:
@@ -511,7 +603,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
     def trim(self, start: float, end: float) -> "ChannelFrameDataset":
         """Trim all frames in the dataset."""
 
-        def _trim_func(frame: ChannelFrame) -> Optional[ChannelFrame]:
+        def _trim_func(frame: ChannelFrame) -> ChannelFrame | None:
             if frame is None:
                 return None
             try:
@@ -526,7 +618,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
     def normalize(self, **kwargs: Any) -> "ChannelFrameDataset":
         """Normalize all frames in the dataset."""
 
-        def _normalize_func(frame: ChannelFrame) -> Optional[ChannelFrame]:
+        def _normalize_func(frame: ChannelFrame) -> ChannelFrame | None:
             if frame is None:
                 return None
             try:
@@ -541,14 +633,14 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
     def stft(
         self,
         n_fft: int = 2048,
-        hop_length: Optional[int] = None,
-        win_length: Optional[int] = None,
+        hop_length: int | None = None,
+        win_length: int | None = None,
         window: str = "hann",
     ) -> "SpectrogramFrameDataset":
         """Apply STFT to all frames in the dataset."""
         _hop = hop_length or n_fft // 4
 
-        def _stft_func(frame: ChannelFrame) -> Optional[SpectrogramFrame]:
+        def _stft_func(frame: ChannelFrame) -> SpectrogramFrame | None:
             if frame is None:
                 return None
             try:
@@ -575,8 +667,8 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
     def from_folder(
         cls,
         folder_path: str,
-        sampling_rate: Optional[int] = None,
-        file_extensions: Optional[list[str]] = None,
+        sampling_rate: int | None = None,
+        file_extensions: list[str] | None = None,
         recursive: bool = False,
         lazy_loading: bool = True,
     ) -> "ChannelFrameDataset":
@@ -605,13 +697,13 @@ class SpectrogramFrameDataset(FrameDataset[SpectrogramFrame]):
     def __init__(
         self,
         folder_path: str,
-        sampling_rate: Optional[int] = None,
-        signal_length: Optional[int] = None,
-        file_extensions: Optional[list[str]] = None,
+        sampling_rate: int | None = None,
+        signal_length: int | None = None,
+        file_extensions: list[str] | None = None,
         lazy_loading: bool = True,
         recursive: bool = False,
         source_dataset: Optional["FrameDataset[Any]"] = None,
-        transform: Optional[Callable[[Any], Optional[SpectrogramFrame]]] = None,
+        transform: Callable[[Any], SpectrogramFrame | None] | None = None,
     ):
         super().__init__(
             folder_path=folder_path,
@@ -624,7 +716,7 @@ class SpectrogramFrameDataset(FrameDataset[SpectrogramFrame]):
             transform=transform,
         )
 
-    def _load_file(self, file_path: Path) -> Optional[SpectrogramFrame]:
+    def _load_file(self, file_path: Path) -> SpectrogramFrame | None:
         """Direct loading from files is not currently supported."""
         logger.warning(
             "No method defined for directly loading SpectrogramFrames. Normally "

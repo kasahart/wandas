@@ -1,12 +1,15 @@
 # spectral_frame.py
+from __future__ import annotations
+
 import logging
-from collections.abc import Iterator
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union, cast
+from collections.abc import Callable, Iterator
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import dask
 import dask.array as da
 import librosa
 import numpy as np
+import pandas as pd
 from dask.array.core import Array as DaArray
 
 from wandas.utils.types import NDArrayComplex, NDArrayReal
@@ -69,6 +72,8 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         The magnitude spectrum of the data.
     phase : NDArrayReal
         The phase spectrum in radians.
+    unwrapped_phase : NDArrayReal
+        The unwrapped phase spectrum in radians.
     power : NDArrayReal
         The power spectrum (magnitude squared).
     dB : NDArrayReal
@@ -111,11 +116,11 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         sampling_rate: float,
         n_fft: int,
         window: str = "hann",
-        label: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        operation_history: Optional[list[dict[str, Any]]] = None,
-        channel_metadata: Optional[list[ChannelMetadata]] = None,
-        previous: Optional["BaseFrame[Any]"] = None,
+        label: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        operation_history: list[dict[str, Any]] | None = None,
+        channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
+        previous: BaseFrame[Any] | None = None,
     ) -> None:
         if data.ndim == 1:
             data = data.reshape(1, -1)
@@ -158,6 +163,21 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             The phase angles of the complex spectrum in radians.
         """
         return np.angle(self.data)
+
+    @property
+    def unwrapped_phase(self) -> NDArrayReal:
+        """
+        Get the unwrapped phase spectrum.
+
+        The unwrapped phase removes discontinuities of 2π radians, providing
+        continuous phase values across frequency bins.
+
+        Returns
+        -------
+        NDArrayReal
+            The unwrapped phase angles of the complex spectrum in radians.
+        """
+        return np.unwrap(np.angle(self.data))
 
     @property
     def power(self) -> NDArrayReal:
@@ -278,12 +298,18 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
 
     def _binary_op(
         self,
-        other: Union[
-            "SpectralFrame", int, float, complex, NDArrayComplex, NDArrayReal, "DaArray"
-        ],
-        op: Callable[["DaArray", Any], "DaArray"],
+        other: (
+            SpectralFrame
+            | int
+            | float
+            | complex
+            | NDArrayComplex
+            | NDArrayReal
+            | DaArray
+        ),
+        op: Callable[[DaArray, Any], DaArray],
         symbol: str,
-    ) -> "SpectralFrame":
+    ) -> SpectralFrame:
         """
         Common implementation for binary operations.
 
@@ -337,7 +363,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             for self_ch, other_ch in zip(
                 self._channel_metadata, other._channel_metadata
             ):
-                ch = self_ch.copy(deep=True)
+                ch = self_ch.model_copy(deep=True)
                 ch["label"] = f"({self_ch['label']} {symbol} {other_ch['label']})"
                 merged_channel_metadata.append(ch)
 
@@ -361,7 +387,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             result_data = op(self._data, other)
 
             # String representation of operand for display
-            if isinstance(other, (int, float)):
+            if isinstance(other, int | float):
                 other_str = str(other)
             elif isinstance(other, complex):
                 other_str = f"complex({other.real}, {other.imag})"
@@ -395,9 +421,17 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
     def plot(
         self,
         plot_type: str = "frequency",
-        ax: Optional["Axes"] = None,
+        ax: Axes | None = None,
+        title: str | None = None,
+        overlay: bool = False,
+        xlabel: str | None = None,
+        ylabel: str | None = None,
+        alpha: float = 1.0,
+        xlim: tuple[float, float] | None = None,
+        ylim: tuple[float, float] | None = None,
+        Aw: bool = False,  # noqa: N803
         **kwargs: Any,
-    ) -> Union["Axes", Iterator["Axes"]]:
+    ) -> Axes | Iterator[Axes]:
         """
         Plot the spectral data using various visualization strategies.
 
@@ -410,21 +444,42 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             - Other types as defined by available plot strategies
         ax : matplotlib.axes.Axes, optional
             Axes to plot on. If None, creates new axes.
+        title : str, optional
+            Title for the plot. If None, uses the frame label.
+        overlay : bool, default=False
+            Whether to overlay all channels on a single plot (True)
+            or create separate subplots for each channel (False).
+        xlabel : str, optional
+            Label for the x-axis. If None, uses default "Frequency [Hz]".
+        ylabel : str, optional
+            Label for the y-axis. If None, uses default based on data type.
+        alpha : float, default=1.0
+            Transparency level for the plot lines (0.0 to 1.0).
+        xlim : tuple[float, float], optional
+            Limits for the x-axis as (min, max) tuple.
+        ylim : tuple[float, float], optional
+            Limits for the y-axis as (min, max) tuple.
+        Aw : bool, default=False
+            Whether to apply A-weighting to the data.
         **kwargs : dict
-            Additional keyword arguments passed to the plot strategy.
-            Common options include:
-            - title: Plot title
-            - xlabel, ylabel: Axis labels
-            - vmin, vmax: Value limits for plots
-            - cmap: Colormap name
-            - dB: Whether to plot in decibels
-            - Aw: Whether to apply A-weighting
+            Additional matplotlib Line2D parameters
+            (e.g., color, linewidth, linestyle).
 
         Returns
         -------
         Union[Axes, Iterator[Axes]]
             The matplotlib axes containing the plot, or an iterator of axes
             for multi-plot outputs.
+
+        Examples
+        --------
+        >>> spectrum = cf.fft()
+        >>> # Basic frequency plot
+        >>> spectrum.plot()
+        >>> # Overlay with A-weighting
+        >>> spectrum.plot(overlay=True, Aw=True)
+        >>> # Custom styling
+        >>> spectrum.plot(title="Frequency Spectrum", color="red", linewidth=2)
         """
         from wandas.visualization.plotting import create_operation
 
@@ -433,14 +488,32 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         # Get plot strategy
         plot_strategy: PlotStrategy[SpectralFrame] = create_operation(plot_type)
 
+        # Build kwargs for plot strategy
+        plot_kwargs = {
+            "title": title,
+            "overlay": overlay,
+            "Aw": Aw,
+            **kwargs,
+        }
+        if xlabel is not None:
+            plot_kwargs["xlabel"] = xlabel
+        if ylabel is not None:
+            plot_kwargs["ylabel"] = ylabel
+        if alpha != 1.0:
+            plot_kwargs["alpha"] = alpha
+        if xlim is not None:
+            plot_kwargs["xlim"] = xlim
+        if ylim is not None:
+            plot_kwargs["ylim"] = ylim
+
         # Execute plot
-        _ax = plot_strategy.plot(self, ax=ax, **kwargs)
+        _ax = plot_strategy.plot(self, ax=ax, **plot_kwargs)
 
         logger.debug("Plot rendering complete")
 
         return _ax
 
-    def ifft(self) -> "ChannelFrame":
+    def ifft(self) -> ChannelFrame:
         """
         Compute the Inverse Fast Fourier Transform (IFFT) to return to time domain.
 
@@ -494,6 +567,14 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             "window": self.window,
         }
 
+    def _get_dataframe_columns(self) -> list[str]:
+        """Get channel labels as DataFrame columns."""
+        return [ch.label for ch in self._channel_metadata]
+
+    def _get_dataframe_index(self) -> pd.Index[Any]:
+        """Get frequency index for DataFrame."""
+        return pd.Index(self.freqs, name="frequency")
+
     def noct_synthesis(
         self,
         fmin: float,
@@ -501,7 +582,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         n: int = 3,
         G: int = 10,  # noqa: N803
         fr: int = 1000,
-    ) -> "NOctFrame":
+    ) -> NOctFrame:
         """
         Synthesize N-octave band spectrum.
 
@@ -579,7 +660,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         self,
         plot_type: str = "matrix",
         **kwargs: Any,
-    ) -> Union["Axes", Iterator["Axes"]]:
+    ) -> Axes | Iterator[Axes]:
         """
         Plot channel relationships in matrix format.
 
@@ -614,3 +695,45 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         logger.debug("Plot rendering complete")
 
         return _ax
+
+    def info(self) -> None:
+        """Display comprehensive information about the SpectralFrame.
+
+        This method prints a summary of the frame's properties including:
+        - Number of channels
+        - Sampling rate
+        - FFT size
+        - Frequency range
+        - Number of frequency bins
+        - Frequency resolution (ΔF)
+        - Channel labels
+
+        This is a convenience method to view all key properties at once,
+        similar to pandas DataFrame.info().
+
+        Examples
+        --------
+        >>> spectrum = cf.fft()
+        >>> spectrum.info()
+        SpectralFrame Information:
+          Channels: 2
+          Sampling rate: 44100 Hz
+          FFT size: 2048
+          Frequency range: 0.0 - 22050.0 Hz
+          Frequency bins: 1025
+          Frequency resolution (ΔF): 21.5 Hz
+          Channel labels: ['ch0', 'ch1']
+          Operations Applied: 1
+        """
+        # Calculate frequency resolution (ΔF)
+        delta_f = self.sampling_rate / self.n_fft
+
+        print("SpectralFrame Information:")
+        print(f"  Channels: {self.n_channels}")
+        print(f"  Sampling rate: {self.sampling_rate} Hz")
+        print(f"  FFT size: {self.n_fft}")
+        print(f"  Frequency range: {self.freqs[0]:.1f} - {self.freqs[-1]:.1f} Hz")
+        print(f"  Frequency bins: {len(self.freqs)}")
+        print(f"  Frequency resolution (ΔF): {delta_f:.1f} Hz")
+        print(f"  Channel labels: {self.labels}")
+        self._print_operation_history()

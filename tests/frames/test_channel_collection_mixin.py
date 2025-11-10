@@ -2,7 +2,7 @@
 Tests for ChannelCollectionMixin
 """
 
-from typing import Any, Literal, Union
+from typing import Any, Literal
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -41,7 +41,7 @@ class ConcreteChannelCollection(ChannelCollectionMixin):
         }
         return self if inplace else MagicMock()
 
-    def remove_channel(self, key: Union[int, str], inplace: bool = False) -> Any:
+    def remove_channel(self, key: int | str, inplace: bool = False) -> Any:
         """Implementation of abstract method for testing"""
         self.remove_channel_called = True
         self.remove_channel_args = {"key": key, "inplace": inplace}

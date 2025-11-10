@@ -9,6 +9,7 @@ from typing import Any, Protocol, TypeVar, runtime_checkable
 from dask.array.core import Array as DaArray
 
 from wandas.core.metadata import ChannelMetadata
+from wandas.utils.types import NDArrayReal
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,15 @@ class BaseFrameProtocol(Protocol):
     @property
     def duration(self) -> float:
         """Returns the duration in seconds."""
+        ...
+
+    @property
+    def data(self) -> NDArrayReal:
+        """Returns the computed data as a NumPy array.
+
+        Implementations should materialize any lazy computation (e.g. Dask)
+        and return a concrete NumPy array.
+        """
         ...
 
     def label2index(self, label: str) -> int:

@@ -1,6 +1,6 @@
 """Type definitions for visualization parameters."""
 
-from typing import Any, Optional, TypedDict
+from typing import Any, TypedDict
 
 
 class WaveformConfig(TypedDict, total=False):
@@ -80,14 +80,14 @@ class DescribeParams(TypedDict, total=False):
 
     # Spectrogram parameters
     fmin: float
-    fmax: Optional[float]
+    fmax: float | None
     cmap: str
-    vmin: Optional[float]
-    vmax: Optional[float]
+    vmin: float | None
+    vmax: float | None
 
     # Axis limits
-    xlim: Optional[tuple[float, float]]
-    ylim: Optional[tuple[float, float]]
+    xlim: tuple[float, float] | None
+    ylim: tuple[float, float] | None
 
     # Weighting
     Aw: bool
