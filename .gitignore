@@ -175,3 +175,5 @@ tutorial/*
 # Ignore examples and tutorial directories completely
 examples/
 tutorial/
+
+*.html

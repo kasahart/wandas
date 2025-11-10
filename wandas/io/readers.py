@@ -215,7 +215,8 @@ class CSVFileReader(FileReader):
                 time_series = df.iloc[:, time_column]
             time_values = np.array(time_series.values)
             if len(time_values) > 1:
-                estimated_sr = int(1 / np.mean(np.diff(time_values)))
+                # Use round() instead of int() to handle floating-point precision issues
+                estimated_sr = round(1 / np.mean(np.diff(time_values)))
             else:
                 estimated_sr = 0  # Cannot determine from single row
         except Exception:
