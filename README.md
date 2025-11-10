@@ -24,6 +24,7 @@
 ## 🚀 インストール / Installation
 
 ```bash
+pip install git+https://github.com/endolith/waveform-analysis.git@master
 pip install wandas
 ```
 
