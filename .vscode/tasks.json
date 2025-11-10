@@ -42,7 +42,7 @@
         {
             "label": "Build MkDocs Documentation",
             "type": "shell",
-            "command": "cd /workspaces/wandas && mkdocs build -f docs/mkdocs.yml",
+            "command": "cd /workspaces/wandas && uv run mkdocs build -f docs/mkdocs.yml",
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
@@ -56,7 +56,7 @@
         {
             "label": "Serve MkDocs Documentation",
             "type": "shell",
-            "command": "cd /workspaces/wandas && mkdocs serve -f docs/mkdocs.yml",
+            "command": "cd /workspaces/wandas && uv run mkdocs serve -f docs/mkdocs.yml",
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",

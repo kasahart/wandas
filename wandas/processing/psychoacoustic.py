@@ -732,7 +732,7 @@ class RoughnessDwSpec(AudioOperation[NDArrayReal, NDArrayReal]):
 
         # Ensure (n_channels, n_samples)
         if x.ndim == 1:
-            x_proc = x.reshape(1, -1)
+            x_proc: NDArrayReal = x.reshape(1, -1)
         else:
             x_proc = x
 
