@@ -57,25 +57,34 @@ Repository = "https://github.com/kasahart/wandas.git"
 Issues = "https://github.com/kasahart/wandas/issues"
 
 [dependency-groups]
-dev = [
+# CI最小限（テスト・リント・型チェック）
+test = [
     "pytest>=8.3.5",
     "pytest-xdist>=3.6.1",
-    "pandas-stubs",
     "pytest-cov",
-    "wandas",
-    "pre-commit>=3.5.0",
     "mypy",
     "ruff>=0.9.9",
+    "pandas-stubs",
+]
+
+# ドキュメント生成
+docs = [
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.6.12",
     "mkdocstrings[python]>=0.29.1",
     "mkdocstrings-python>=1.16.10",
     "mkdocs-static-i18n>=1.3.0",
     "mkdocs-jupyter>=0.25.1",
-    "jupytext>=1.17.1",
-    "ipykernel>=6.29.5",
     "mkdocs-git-revision-date-localized-plugin>=1.4.5",
     "markdown-exec>=1.10.3",
+    "jupytext>=1.17.1",
+    "ipykernel>=6.29.5",
+]
+
+# 開発補助ツール（ローカル開発用）
+dev = [
+    "pre-commit>=3.5.0",
+    "wandas",
 ]
 
 [tool.uv.sources]

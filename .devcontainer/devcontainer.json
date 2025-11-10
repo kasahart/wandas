@@ -50,7 +50,8 @@
     ],
     // The GitHub CLI Copilot extension installation (`gh extension install github/gh-copilot`) was removed from postCreateCommand.
     // If Copilot CLI is needed for development, please add it back. Otherwise, this is intentional.
-    "postCreateCommand": "uv sync --frozen",
+    // ローカル開発では全グループをインストール (test, docs, dev)
+    "postCreateCommand": "uv sync --frozen --all-groups",
     "postStartCommand": "uv run pre-commit install",
     "remoteUser": "vscode"
 }
