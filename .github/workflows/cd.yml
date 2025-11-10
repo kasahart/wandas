@@ -25,7 +25,7 @@ jobs:
               run: uv python install
 
             - name: 依存関係をインストール
-              run: uv sync --all-extras --dev
+              run: uv sync --all-extras --group test
 
             - name: コード品質チェック (ruff)
               # pyproject.tomlの設定を明示的に使用
