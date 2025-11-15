@@ -846,3 +846,65 @@ class ChannelProcessingMixin:
         logger.debug(f"Setting up fade: fade_ms={fade_ms} (lazy)")
         result = self.apply_operation("fade", fade_ms=fade_ms)
         return cast(T_Processing, result)
+
+    def sharpness_din(
+        self: T_Processing,
+        weighting: str = "din",
+        field_type: str = "free",
+    ) -> T_Processing:
+        """Calculate sharpness using DIN 45692 method.
+
+        This method computes the time-varying sharpness of the signal
+        according to DIN 45692 standard, which quantifies the perceived
+        sharpness of sounds.
+
+        Args:
+            weighting: Weighting type for sharpness calculation. Default is "din".
+            field_type: Type of sound field. Options:
+                - 'free': Free field (sound from a specific direction)
+                - 'diffuse': Diffuse field (sound from all directions)
+                Default is 'free'.
+
+        Returns
+        -------
+        T_Processing
+            New ChannelFrame containing sharpness time series in acum.
+            The output sampling rate is approximately 500 Hz (2ms time steps).
+
+        Raises
+        ------
+        ValueError
+            If the signal sampling rate is not supported by the algorithm.
+
+        Examples
+        --------
+        >>> import wandas as wd
+        >>> signal = wd.read_wav("sharp_sound.wav")
+        >>> sharpness = signal.sharpness_din(weighting="din", field_type="free")
+        >>> print(f"Mean sharpness: {sharpness.data.mean():.2f} acum")
+
+        Notes
+        -----
+        - Sharpness is measured in acum (acum = 1 when the sound has the
+          same sharpness as a 2 kHz narrow-band noise at 60 dB SPL)
+        - The calculation uses MoSQITo's implementation of DIN 45692
+        - Output sampling rate is fixed at 500 Hz regardless of input rate
+        - For multi-channel signals, sharpness is calculated per channel
+
+        References
+        ----------
+        .. [1] DIN 45692:2009, "Measurement technique for the simulation of the
+               auditory sensation of sharpness"
+        """
+        logger.debug(
+            "Setting up sharpness DIN calculation with weighting=%s, "
+            "field_type=%s (lazy)",
+            weighting,
+            field_type,
+        )
+        result = self.apply_operation(
+            "sharpness_din",
+            weighting=weighting,
+            field_type=field_type,
+        )
+        return cast(T_Processing, result)
