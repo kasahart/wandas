@@ -870,7 +870,10 @@ class SharpnessDin(AudioOperation[NDArrayReal, NDArrayReal]):
             )
         if self.field_type not in ("free", "diffuse"):
             raise ValueError(
-                f"field_type must be 'free' or 'diffuse', got '{self.field_type}'"
+                f"Invalid sound field type\n"
+                f"  Got: '{self.field_type}'\n"
+                f"  Expected: 'free' or 'diffuse'\n"
+                f"Use a supported sound field type"
             )
 
     def get_metadata_updates(self) -> dict[str, Any]:
@@ -1093,7 +1096,10 @@ class SharpnessDinSt(AudioOperation[NDArrayReal, NDArrayReal]):
             )
         if self.field_type not in ("free", "diffuse"):
             raise ValueError(
-                f"field_type must be 'free' or 'diffuse', got '{self.field_type}'"
+                f"Invalid sound field type\n"
+                f"  Got: '{self.field_type}'\n"
+                f"  Expected: 'free' or 'diffuse'\n"
+                f"Use a supported sound field type"
             )
 
     def get_metadata_updates(self) -> dict[str, Any]:
