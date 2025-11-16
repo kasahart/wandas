@@ -32,6 +32,21 @@ signal.low_pass_filter(cutoff=1000).fft().plot()
 
 ![Low-pass filter results](../assets/images/low_pass_filter.png)
 
+### Tensor Conversion
+
+```python
+import wandas as wd
+
+# Create a sample signal
+signal = wd.generate_sin(freqs=[500, 1000], duration=1)
+
+# Convert to tensor
+tensor_signal = signal.to_tensor()
+
+# Display the tensor
+print(tensor_signal)
+```
+
 For detailed documentation and usage examples, see the [Tutorial](tutorial/index.md).
 
 ## Documentation Structure

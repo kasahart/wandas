@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from typing import Any, Generic, Optional, TypeVar, cast
 
+import dask.array as da
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
@@ -778,6 +779,93 @@ class BaseFrame(ABC, Generic[T]):
         >>> print(f"Shape: {data.shape}")  # (n_channels, n_samples)
         """
         return self.data
+
+    def to_tensor(self, framework: str = "torch", device: str | None = None) -> Any:
+        """
+        Convert the Dask array to a tensor in the specified framework.
+
+        Args:
+            framework: The ML framework to use ("torch" or "tensorflow").
+            device: Device to place the tensor on. For PyTorch, use "cpu",
+                "cuda", "cuda:0", etc. For TensorFlow, use "/CPU:0",
+                "/GPU:0", etc. If None, uses the default device.
+
+        Returns:
+            A tensor in the specified framework.
+
+        Raises:
+            ImportError: If the specified framework is not installed.
+            ValueError: If the framework is not supported.
+            TypeError: If self.data is not a Dask array.
+
+        Examples:
+            >>> # PyTorch tensor on CPU
+            >>> tensor = frame.to_tensor(framework="torch", device="cpu")
+            >>> # PyTorch tensor on GPU
+            >>> tensor = frame.to_tensor(framework="torch", device="cuda:0")
+            >>> # TensorFlow tensor on GPU
+            >>> tensor = frame.to_tensor(framework="tensorflow", device="/GPU:0")
+        """
+        if not isinstance(self._data, da.Array):
+            raise TypeError("self.data must be a Dask array to use to_tensor().")
+
+        # Compute the Dask array to NumPy array
+        numpy_data = self.to_numpy()
+
+        if framework == "torch":
+            try:
+                import importlib.util
+
+                if importlib.util.find_spec("torch") is None:
+                    raise ImportError(
+                        "PyTorch is not installed. Install it with `pip install torch`."
+                    )
+                import torch
+
+                # Convert NumPy array to PyTorch tensor
+                tensor = torch.from_numpy(numpy_data)
+
+                # Move to specified device if provided
+                if device is not None:
+                    tensor = tensor.to(device)
+
+                return tensor
+
+            except ImportError as e:
+                raise ImportError(
+                    "PyTorch is not installed. Install it with `pip install torch`."
+                ) from e
+
+        elif framework == "tensorflow":
+            try:
+                import importlib.util
+
+                if importlib.util.find_spec("tensorflow") is None:
+                    raise ImportError(
+                        "TensorFlow is not installed. "
+                        "Install it with `pip install tensorflow`."
+                    )
+                import tensorflow as tf
+
+                # Convert NumPy array to TensorFlow tensor
+                if device is not None:
+                    with tf.device(device):
+                        tensor = tf.convert_to_tensor(numpy_data)
+                else:
+                    tensor = tf.convert_to_tensor(numpy_data)
+
+                return tensor
+
+            except ImportError as e:
+                raise ImportError(
+                    "TensorFlow is not installed. "
+                    "Install it with `pip install tensorflow`."
+                ) from e
+
+        else:
+            raise ValueError(
+                f"Unsupported framework: {framework}. Use 'torch' or 'tensorflow'."
+            )
 
     def to_dataframe(self) -> "pd.DataFrame":
         """Convert the frame data to a pandas DataFrame.
