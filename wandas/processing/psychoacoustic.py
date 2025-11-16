@@ -865,12 +865,17 @@ class SharpnessDin(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         if self.weighting not in ("din", "aures", "bismarck", "fastl"):
             raise ValueError(
-                f"weighting must be one of 'din', 'aures', 'bismarck', 'fastl', "
-                f"got '{self.weighting}'"
+                f"Invalid weighting function\n"
+                f"  Got: '{self.weighting}'\n"
+                f"  Expected: one of 'din', 'aures', 'bismarck', 'fastl'\n"
+                f"Use a supported weighting function"
             )
         if self.field_type not in ("free", "diffuse"):
             raise ValueError(
-                f"field_type must be 'free' or 'diffuse', got '{self.field_type}'"
+                f"Invalid field type\n"
+                f"  Got: '{self.field_type}'\n"
+                f"  Expected: 'free' or 'diffuse'\n"
+                f"Use a supported field type"
             )
 
     def get_metadata_updates(self) -> dict[str, Any]:
@@ -1088,12 +1093,17 @@ class SharpnessDinSt(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         if self.weighting not in ("din", "aures", "bismarck", "fastl"):
             raise ValueError(
-                f"weighting must be one of 'din', 'aures', 'bismarck', 'fastl', "
-                f"got '{self.weighting}'"
+                f"Invalid weighting function\n"
+                f"  Got: '{self.weighting}'\n"
+                f"  Expected: one of 'din', 'aures', 'bismarck', 'fastl'\n"
+                f"Use a supported weighting function"
             )
         if self.field_type not in ("free", "diffuse"):
             raise ValueError(
-                f"field_type must be 'free' or 'diffuse', got '{self.field_type}'"
+                f"Invalid field type\n"
+                f"  Got: '{self.field_type}'\n"
+                f"  Expected: 'free' or 'diffuse'\n"
+                f"Use a supported field type"
             )
 
     def get_metadata_updates(self) -> dict[str, Any]:
