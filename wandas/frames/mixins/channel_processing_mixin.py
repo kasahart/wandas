@@ -858,12 +858,14 @@ class ChannelProcessingMixin:
         according to DIN 45692 standard, which quantifies the perceived
         sharpness of sounds.
 
-        Args:
-            weighting: Weighting type for sharpness calculation. Default is "din".
-            field_type: Type of sound field. Options:
-                - 'free': Free field (sound from a specific direction)
-                - 'diffuse': Diffuse field (sound from all directions)
-                Default is 'free'.
+        Parameters
+        ----------
+        weighting : str, default="din"
+            Weighting type for sharpness calculation.
+        field_type : str, default="free"
+            Type of sound field. Options:
+            - 'free': Free field (sound from a specific direction)
+            - 'diffuse': Diffuse field (sound from all directions)
 
         Returns
         -------
@@ -920,12 +922,14 @@ class ChannelProcessingMixin:
         according to DIN 45692 standard, which quantifies the perceived
         sharpness of stationary sounds.
 
-        Args:
-            weighting: Weighting type for sharpness calculation. Default is "din".
-            field_type: Type of sound field. Options:
-                - 'free': Free field (sound from a specific direction)
-                - 'diffuse': Diffuse field (sound from all directions)
-                Default is 'free'.
+        Parameters
+        ----------
+        weighting : str, default="din"
+            Weighting type for sharpness calculation.
+        field_type : str, default="free"
+            Type of sound field. Options:
+            - 'free': Free field (sound from a specific direction)
+            - 'diffuse': Diffuse field (sound from all directions)
 
         Returns
         -------
