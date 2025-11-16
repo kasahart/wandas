@@ -92,7 +92,7 @@ class TestToTensorPyTorch:
         try:
             importlib.util.find_spec = mock_find_spec  # type: ignore
             with pytest.raises(
-                ImportError, match="PyTorch is not installed.*pip install torch"
+                ImportError, match="(?s)PyTorch is not installed.*pip install torch"
             ):
                 self.channel_frame.to_tensor(framework="torch")
         finally:
@@ -170,7 +170,8 @@ class TestToTensorTensorFlow:
         try:
             importlib.util.find_spec = mock_find_spec  # type: ignore
             with pytest.raises(
-                ImportError, match="TensorFlow is not installed.*pip install tensorflow"
+                ImportError,
+                match="(?s)TensorFlow is not installed.*pip install tensorflow",
             ):
                 self.channel_frame.to_tensor(framework="tensorflow")
         finally:
@@ -194,7 +195,7 @@ class TestToTensorErrorHandling:
 
     def test_to_tensor_unsupported_framework(self) -> None:
         """Test to_tensor() raises ValueError for unsupported framework."""
-        with pytest.raises(ValueError, match="Unsupported framework.*jax"):
+        with pytest.raises(ValueError, match="(?s)Unsupported framework.*jax"):
             self.channel_frame.to_tensor(framework="jax")
 
     def test_to_tensor_invalid_framework_type(self) -> None:
