@@ -926,7 +926,12 @@ class SharpnessDin(AudioOperation[NDArrayReal, NDArrayReal]):
         if len(input_shape) > 0:
             estimated_time_samples = int(input_shape[-1] / (self.sampling_rate * 0.002))
         else:
-            raise ValueError("Input shape must have at least one dimension.")
+            raise ValueError(
+                f"Input shape must have at least one dimension\n"
+                f"  Got: shape with {len(input_shape)} dimensions\n"
+                f"  Expected: shape with at least 1 dimension\n"
+                f"Provide input with valid shape (e.g., (samples,) or (channels, samples))"
+            )
         return (n_channels, estimated_time_samples)
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
