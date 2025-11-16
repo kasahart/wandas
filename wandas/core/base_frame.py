@@ -6,7 +6,6 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from typing import Any, Generic, Optional, TypeVar, cast
 
-import dask.array as da
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
@@ -816,8 +815,6 @@ class BaseFrame(ABC, Generic[T]):
         >>> # TensorFlow tensor on GPU
         >>> tensor = frame.to_tensor(framework="tensorflow", device="/GPU:0")
         """
-        if not isinstance(self._data, da.Array):
-            raise TypeError("self.data must be a Dask array to use to_tensor().")
 
         # Compute the Dask array to NumPy array
         numpy_data = self.to_numpy()

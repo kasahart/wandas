@@ -1600,6 +1600,16 @@ class TestSharpnessDin:
         sharpness = SharpnessDin(self.sample_rate)
         assert sharpness.sampling_rate == self.sample_rate
 
+    def test_invalid_weighting(self) -> None:
+        """Test that invalid weighting raises ValueError."""
+        with pytest.raises(ValueError, match="Invalid weighting function"):
+            SharpnessDin(self.sample_rate, weighting="invalid")
+
+    def test_invalid_field_type(self) -> None:
+        """Test that invalid field_type raises ValueError."""
+        with pytest.raises(ValueError, match="Invalid field type"):
+            SharpnessDin(self.sample_rate, field_type="invalid")
+
     def test_operation_name(self) -> None:
         """Test that operation has correct name."""
         assert self.sharpness_op.name == "sharpness_din"
@@ -1756,6 +1766,12 @@ class TestSharpnessDin:
         # Output should have fewer time samples (downsampled)
         assert output_shape[1] < input_shape[1]
         assert output_shape[1] > 0
+
+        # Test that empty input shape raises ValueError
+        with pytest.raises(
+            ValueError, match="Input shape must have at least one dimension"
+        ):
+            self.sharpness_op.calculate_output_shape(())
 
     def test_time_axis_values(self) -> None:
         """Test that time axis is correctly calculated based on sampling rate."""
@@ -1936,6 +1952,16 @@ class TestSharpnessDinSt:
         # Default initialization
         sharpness = SharpnessDinSt(self.sample_rate)
         assert sharpness.sampling_rate == self.sample_rate
+
+    def test_invalid_weighting(self) -> None:
+        """Test that invalid weighting raises ValueError."""
+        with pytest.raises(ValueError, match="Invalid weighting function"):
+            SharpnessDinSt(self.sample_rate, weighting="invalid")
+
+    def test_invalid_field_type(self) -> None:
+        """Test that invalid field_type raises ValueError."""
+        with pytest.raises(ValueError, match="Invalid field type"):
+            SharpnessDinSt(self.sample_rate, field_type="invalid")
 
     def test_operation_name(self) -> None:
         """Test that operation has correct name."""
