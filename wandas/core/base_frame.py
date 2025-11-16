@@ -784,27 +784,36 @@ class BaseFrame(ABC, Generic[T]):
         """
         Convert the Dask array to a tensor in the specified framework.
 
-        Args:
-            framework: The ML framework to use ("torch" or "tensorflow").
-            device: Device to place the tensor on. For PyTorch, use "cpu",
-                "cuda", "cuda:0", etc. For TensorFlow, use "/CPU:0",
-                "/GPU:0", etc. If None, uses the default device.
+        Parameters
+        ----------
+        framework : str, default="torch"
+            The ML framework to use ("torch" or "tensorflow").
+        device : str or None, optional
+            Device to place the tensor on. For PyTorch, use "cpu", "cuda", "cuda:0", etc.
+            For TensorFlow, use "/CPU:0", "/GPU:0", etc. If None, uses the default device.
 
-        Returns:
+        Returns
+        -------
+        torch.Tensor or tf.Tensor
             A tensor in the specified framework.
 
-        Raises:
-            ImportError: If the specified framework is not installed.
-            ValueError: If the framework is not supported.
-            TypeError: If self.data is not a Dask array.
+        Raises
+        ------
+        ImportError
+            If the specified framework is not installed.
+        ValueError
+            If the framework is not supported.
+        TypeError
+            If self.data is not a Dask array.
 
-        Examples:
-            >>> # PyTorch tensor on CPU
-            >>> tensor = frame.to_tensor(framework="torch", device="cpu")
-            >>> # PyTorch tensor on GPU
-            >>> tensor = frame.to_tensor(framework="torch", device="cuda:0")
-            >>> # TensorFlow tensor on GPU
-            >>> tensor = frame.to_tensor(framework="tensorflow", device="/GPU:0")
+        Examples
+        --------
+        >>> # PyTorch tensor on CPU
+        >>> tensor = frame.to_tensor(framework="torch", device="cpu")
+        >>> # PyTorch tensor on GPU
+        >>> tensor = frame.to_tensor(framework="torch", device="cuda:0")
+        >>> # TensorFlow tensor on GPU
+        >>> tensor = frame.to_tensor(framework="tensorflow", device="/GPU:0")
         """
         if not isinstance(self._data, da.Array):
             raise TypeError("self.data must be a Dask array to use to_tensor().")
@@ -818,7 +827,9 @@ class BaseFrame(ABC, Generic[T]):
 
                 if importlib.util.find_spec("torch") is None:
                     raise ImportError(
-                        "PyTorch is not installed. Install it with `pip install torch`."
+                        f"PyTorch is not installed\n"
+                        f"  Required for: tensor conversion with framework='torch'\n"
+                        f"  Install with: pip install torch"
                     )
                 import torch
 
@@ -833,7 +844,9 @@ class BaseFrame(ABC, Generic[T]):
 
             except ImportError as e:
                 raise ImportError(
-                    "PyTorch is not installed. Install it with `pip install torch`."
+                    f"PyTorch is not installed\n"
+                    f"  Required for: tensor conversion with framework='torch'\n"
+                    f"  Install with: pip install torch"
                 ) from e
 
         elif framework == "tensorflow":
@@ -842,8 +855,9 @@ class BaseFrame(ABC, Generic[T]):
 
                 if importlib.util.find_spec("tensorflow") is None:
                     raise ImportError(
-                        "TensorFlow is not installed. "
-                        "Install it with `pip install tensorflow`."
+                        f"TensorFlow is not installed\n"
+                        f"  Required for: tensor conversion with framework='tensorflow'\n"
+                        f"  Install with: pip install tensorflow"
                     )
                 import tensorflow as tf
 
@@ -858,13 +872,17 @@ class BaseFrame(ABC, Generic[T]):
 
             except ImportError as e:
                 raise ImportError(
-                    "TensorFlow is not installed. "
-                    "Install it with `pip install tensorflow`."
+                    f"TensorFlow is not installed\n"
+                    f"  Required for: tensor conversion with framework='tensorflow'\n"
+                    f"  Install with: pip install tensorflow"
                 ) from e
 
         else:
             raise ValueError(
-                f"Unsupported framework: {framework}. Use 'torch' or 'tensorflow'."
+                f"Unsupported framework\n"
+                f"  Got: '{framework}'\n"
+                f"  Expected: 'torch' or 'tensorflow'\n"
+                f"Use a supported framework for tensor conversion"
             )
 
     def to_dataframe(self) -> "pd.DataFrame":
