@@ -908,3 +908,77 @@ class ChannelProcessingMixin:
             field_type=field_type,
         )
         return cast(T_Processing, result)
+
+    def sharpness_din_st(
+        self: T_Processing,
+        weighting: str = "din",
+        field_type: str = "free",
+    ) -> "NDArrayReal":
+        """Calculate steady-state sharpness using DIN 45692 method.
+
+        This method computes the steady-state sharpness of the signal
+        according to DIN 45692 standard, which quantifies the perceived
+        sharpness of stationary sounds.
+
+        Args:
+            weighting: Weighting type for sharpness calculation. Default is "din".
+            field_type: Type of sound field. Options:
+                - 'free': Free field (sound from a specific direction)
+                - 'diffuse': Diffuse field (sound from all directions)
+                Default is 'free'.
+
+        Returns
+        -------
+        NDArrayReal
+            Sharpness values in acum, one per channel. Shape: (n_channels,)
+
+        Raises
+        ------
+        ValueError
+            If the signal sampling rate is not supported by the algorithm.
+
+        Examples
+        --------
+        >>> import wandas as wd
+        >>> signal = wd.read_wav("constant_tone.wav")
+        >>> sharpness = signal.sharpness_din_st(weighting="din", field_type="free")
+        >>> print(f"Steady-state sharpness: {sharpness[0]:.2f} acum")
+
+        Notes
+        -----
+        - Sharpness is measured in acum (acum = 1 when the sound has the
+          same sharpness as a 2 kHz narrow-band noise at 60 dB SPL)
+        - The calculation uses MoSQITo's implementation of DIN 45692
+        - Output is a single value per channel, suitable for stationary signals
+        - For multi-channel signals, sharpness is calculated per channel
+
+        References
+        ----------
+        .. [1] DIN 45692:2009, "Measurement technique for the simulation of the
+               auditory sensation of sharpness"
+        """
+        from wandas.processing.psychoacoustic import SharpnessDinSt
+        from wandas.utils.types import NDArrayReal
+
+        # Create operation instance
+        operation = SharpnessDinSt(
+            self.sampling_rate, weighting=weighting, field_type=field_type
+        )
+
+        # Get data (triggers computation if lazy)
+        data = self.data
+
+        # Ensure data is 2D (n_channels, n_samples)
+        if data.ndim == 1:
+            data = data.reshape(1, -1)
+        # Process the array using the public API and materialize to NumPy
+        result = operation.process_array(data).compute()
+
+        # Squeeze to get 1D array (n_channels,)
+        sharpness_values: NDArrayReal = result.squeeze()
+
+        # Ensure it's 1D even for single channel
+        if sharpness_values.ndim == 0:
+            sharpness_values = sharpness_values.reshape(1)
+
+        return sharpness_values

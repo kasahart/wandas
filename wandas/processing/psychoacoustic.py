@@ -12,6 +12,7 @@ import numpy as np
 from mosqito.sq_metrics import loudness_zwst as loudness_zwst_mosqito
 from mosqito.sq_metrics import loudness_zwtv as loudness_zwtv_mosqito
 from mosqito.sq_metrics import roughness_dw as roughness_dw_mosqito
+from mosqito.sq_metrics import sharpness_din_st as sharpness_din_st_mosqito
 from mosqito.sq_metrics import sharpness_din_tv as sharpness_din_tv_mosqito
 
 from wandas.processing.base import AudioOperation, register_operation
@@ -990,3 +991,215 @@ class SharpnessDin(AudioOperation[NDArrayReal, NDArrayReal]):
 
 # Register the operation
 register_operation(SharpnessDin)
+
+
+class SharpnessDinSt(AudioOperation[NDArrayReal, NDArrayReal]):
+    """
+    Calculate steady-state sharpness using DIN 45692 method.
+
+    This operation computes the sharpness of stationary (steady) audio signals
+    according to the DIN 45692 standard. It uses the MoSQITo library's
+    implementation of the standardized sharpness calculation for steady signals.
+
+    Sharpness quantifies the perceived sharpness of a sound, with units
+    in acum (acum = 1 when the sound has the same sharpness as a
+    2 kHz narrow-band noise with a level of 60 dB).
+
+    Parameters
+    ----------
+    sampling_rate : float
+        Sampling rate in Hz. The signal should be sampled at a rate appropriate
+        for the analysis (typically 44100 Hz or 48000 Hz for audio).
+    weighting : str, default="din"
+        Weighting function used for the sharpness computation. Options:
+        - 'din': DIN 45692 method
+        - 'aures': Aures method
+        - 'bismarck': Bismarck method
+        - 'fastl': Fastl method
+    field_type : str, default="free"
+        Type of sound field. Options:
+        - 'free': Free field (sound arriving from a specific direction)
+        - 'diffuse': Diffuse field (sound arriving uniformly from all directions)
+
+    Attributes
+    ----------
+    name : str
+        Operation name: "sharpness_din_st"
+    weighting : str
+        The weighting function used for sharpness calculation
+    field_type : str
+        The sound field type used for calculation
+
+    Examples
+    --------
+    Calculate steady-state sharpness for a signal:
+    >>> import wandas as wd
+    >>> signal = wd.read_wav("constant_tone.wav")
+    >>> sharpness = signal.sharpness_din_st(weighting="din", field_type="free")
+    >>> print(f"Steady-state sharpness: {sharpness.data[0]:.2f} acum")
+
+    Notes
+    -----
+    - The output contains a single sharpness value in acum for each channel
+    - For mono signals, the sharpness is calculated directly
+    - For multi-channel signals, sharpness is calculated per channel
+    - The method follows DIN 45692 standard for steady-state sharpness
+    - Typical sharpness values: 0-5 acum for most sounds
+    - This method is suitable for stationary signals such as constant tones,
+      steady noise, or other unchanging sounds
+
+    References
+    ----------
+    .. [1] DIN 45692:2009, "Measurement technique for the simulation of the
+           auditory sensation of sharpness"
+    .. [2] MoSQITo documentation:
+           https://mosqito.readthedocs.io/en/latest/
+    """
+
+    name = "sharpness_din_st"
+
+    def __init__(
+        self, sampling_rate: float, weighting: str = "din", field_type: str = "free"
+    ):
+        """
+        Initialize steady-state sharpness calculation operation.
+
+        Parameters
+        ----------
+        sampling_rate : float
+            Sampling rate (Hz)
+        weighting : str, default="din"
+            Weighting function ('din', 'aures', 'bismarck', 'fastl')
+        field_type : str, default="free"
+            Type of sound field ('free' or 'diffuse')
+        """
+        self.weighting = weighting
+        self.field_type = field_type
+        super().__init__(sampling_rate, weighting=weighting, field_type=field_type)
+
+    def validate_params(self) -> None:
+        """
+        Validate parameters.
+
+        Raises
+        ------
+        ValueError
+            If weighting or field_type is invalid.
+        """
+        if self.weighting not in ("din", "aures", "bismarck", "fastl"):
+            raise ValueError(
+                f"weighting must be one of 'din', 'aures', 'bismarck', 'fastl', "
+                f"got '{self.weighting}'"
+            )
+        if self.field_type not in ("free", "diffuse"):
+            raise ValueError(
+                f"field_type must be 'free' or 'diffuse', got '{self.field_type}'"
+            )
+
+    def get_metadata_updates(self) -> dict[str, Any]:
+        """
+        Get metadata updates to apply after processing.
+
+        For steady-state sharpness, the output is a single value per channel,
+        so no sampling rate update is needed (output is scalar, not time-series).
+
+        Returns
+        -------
+        dict
+            Empty dictionary (no metadata updates needed)
+
+        Notes
+        -----
+        Unlike time-varying sharpness, steady-state sharpness produces a single
+        value, not a time series, so the sampling rate concept doesn't apply.
+        """
+        return {}
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """
+        Calculate output data shape after operation.
+
+        The steady-state sharpness calculation produces a single sharpness value
+        per channel.
+
+        Parameters
+        ----------
+        input_shape : tuple
+            Input data shape (channels, samples)
+
+        Returns
+        -------
+        tuple
+            Output data shape: (channels, 1) - one sharpness value per channel
+        """
+        n_channels = input_shape[0] if len(input_shape) > 1 else 1
+        return (n_channels, 1)
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """
+        Process array to calculate steady-state sharpness.
+
+        This method calculates the steady-state sharpness for each channel
+        of the input signal using the DIN 45692 method.
+
+        Parameters
+        ----------
+        x : NDArrayReal
+            Input signal array with shape (channels, samples) or (samples,)
+
+        Returns
+        -------
+        NDArrayReal
+            Steady-state sharpness in acum for each channel.
+            Shape: (channels, 1)
+
+        Notes
+        -----
+        The function processes each channel independently and returns
+        a single sharpness value per channel.
+        """
+        logger.debug(
+            f"Calculating steady-state sharpness for signal with shape: {x.shape}, "
+            f"weighting: {self.weighting}, field_type: {self.field_type}"
+        )
+
+        # Handle 1D input (single channel)
+        if x.ndim == 1:
+            x = x.reshape(1, -1)
+
+        n_channels = x.shape[0]
+        sharpness_results = []
+
+        for ch in range(n_channels):
+            channel_data = x[ch, :]
+
+            # Ensure channel_data is a contiguous 1D NumPy array
+            channel_data = np.asarray(channel_data).ravel()
+
+            # Call MoSQITo's sharpness_din_st function
+            # Returns: S (single sharpness value)
+            sharpness_s = sharpness_din_st_mosqito(
+                channel_data,
+                self.sampling_rate,
+                weighting=self.weighting,
+                field_type=self.field_type,
+            )
+
+            sharpness_results.append(sharpness_s)
+
+            logger.debug(
+                f"Channel {ch}: Calculated steady-state sharpness: "
+                f"{sharpness_s:.2f} acum"
+            )
+
+        # Stack results and reshape to (channels, 1)
+        result: NDArrayReal = np.array(sharpness_results).reshape(n_channels, 1)
+
+        logger.debug(
+            f"Steady-state sharpness calculation complete, output shape: {result.shape}"
+        )
+        return result
+
+
+# Register the operation
+register_operation(SharpnessDinSt)
