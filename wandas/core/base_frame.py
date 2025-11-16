@@ -789,8 +789,9 @@ class BaseFrame(ABC, Generic[T]):
         framework : str, default="torch"
             The ML framework to use ("torch" or "tensorflow").
         device : str or None, optional
-            Device to place the tensor on. For PyTorch, use "cpu", "cuda", "cuda:0", etc.
-            For TensorFlow, use "/CPU:0", "/GPU:0", etc. If None, uses the default device.
+            Device to place the tensor on. For PyTorch, use "cpu", "cuda", "cuda:0",
+            etc. For TensorFlow, use "/CPU:0", "/GPU:0", etc. If None, uses the default
+            device.
 
         Returns
         -------
@@ -827,9 +828,9 @@ class BaseFrame(ABC, Generic[T]):
 
                 if importlib.util.find_spec("torch") is None:
                     raise ImportError(
-                        f"PyTorch is not installed\n"
-                        f"  Required for: tensor conversion with framework='torch'\n"
-                        f"  Install with: pip install torch"
+                        "PyTorch is not installed\n"
+                        "  Required for: tensor conversion with framework='torch'\n"
+                        "  Install with: pip install torch"
                     )
                 import torch
 
@@ -844,9 +845,9 @@ class BaseFrame(ABC, Generic[T]):
 
             except ImportError as e:
                 raise ImportError(
-                    f"PyTorch is not installed\n"
-                    f"  Required for: tensor conversion with framework='torch'\n"
-                    f"  Install with: pip install torch"
+                    "PyTorch is not installed\n"
+                    "  Required for: tensor conversion with framework='torch'\n"
+                    "  Install with: pip install torch"
                 ) from e
 
         elif framework == "tensorflow":
@@ -855,9 +856,10 @@ class BaseFrame(ABC, Generic[T]):
 
                 if importlib.util.find_spec("tensorflow") is None:
                     raise ImportError(
-                        f"TensorFlow is not installed\n"
-                        f"  Required for: tensor conversion with framework='tensorflow'\n"
-                        f"  Install with: pip install tensorflow"
+                        "TensorFlow is not installed\n"
+                        "  Required for: tensor conversion with\n"
+                        "  framework='tensorflow'\n"
+                        "  Install with: pip install tensorflow"
                     )
                 import tensorflow as tf
 
@@ -872,9 +874,9 @@ class BaseFrame(ABC, Generic[T]):
 
             except ImportError as e:
                 raise ImportError(
-                    f"TensorFlow is not installed\n"
-                    f"  Required for: tensor conversion with framework='tensorflow'\n"
-                    f"  Install with: pip install tensorflow"
+                    "TensorFlow is not installed\n"
+                    "  Required for: tensor conversion with framework='tensorflow'\n"
+                    "  Install with: pip install tensorflow"
                 ) from e
 
         else:
