@@ -78,6 +78,17 @@ For detailed implementation standards, refer to:
 - **Tests**: `.github/instructions/tests.instructions.md` (applies to `tests/**/*.py`)
 - **Notebooks**: `.github/instructions/notebooks.instructions.md` (applies to `**/*.ipynb`)
 
+Here is a list of instruction files that contain rules for modifying or creating new code.
+These files are important for ensuring that the code is modified or created correctly.
+Please make sure to follow the rules specified in these files when working with the codebase.
+If you have not already read the file, use the `view` tool to acquire it.
+Make sure to acquire the instructions before making any changes to the code.
+| Pattern | File Path | Description |
+| ------- | --------- | ----------- |
+| tests/**/*.py | '.github/instructions/tests.instructions.md' | Test Standards for Wandas: validation approach, coverage requirements, test structure, and theoretical validation examples |
+| wandas/**/*.py | '.github/instructions/python-code.instructions.md' | Python Code Standards for Wandas: type safety, signal processing patterns, error handling, docstrings, and performance guidelines |
+| **/*.ipynb | '.github/instructions/notebooks.instructions.md' | Jupyter Notebook Standards for Wandas: documentation, code organization, visualization, and best practices |
+
 ## Common Workflows
 
 **Adding New Operations**:
