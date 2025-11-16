@@ -861,7 +861,11 @@ class ChannelProcessingMixin:
         Parameters
         ----------
         weighting : str, default="din"
-            Weighting type for sharpness calculation.
+            Weighting type for sharpness calculation. Options:
+            - 'din': DIN 45692 method
+            - 'aures': Aures method
+            - 'bismarck': Bismarck method
+            - 'fastl': Fastl method
         field_type : str, default="free"
             Type of sound field. Options:
             - 'free': Free field (sound from a specific direction)
@@ -925,7 +929,11 @@ class ChannelProcessingMixin:
         Parameters
         ----------
         weighting : str, default="din"
-            Weighting type for sharpness calculation.
+            Weighting type for sharpness calculation. Options:
+            - 'din': DIN 45692 method
+            - 'aures': Aures method
+            - 'bismarck': Bismarck method
+            - 'fastl': Fastl method
         field_type : str, default="free"
             Type of sound field. Options:
             - 'free': Free field (sound from a specific direction)
