@@ -930,7 +930,8 @@ class SharpnessDin(AudioOperation[NDArrayReal, NDArrayReal]):
                 f"Input shape must have at least one dimension\n"
                 f"  Got: shape with {len(input_shape)} dimensions\n"
                 f"  Expected: shape with at least 1 dimension\n"
-                f"Provide input with valid shape (e.g., (samples,) or (channels, samples))"
+                f"Provide input with valid shape (e.g., (samples,) or "
+                f"(channels, samples))"
             )
         return (n_channels, estimated_time_samples)
 
