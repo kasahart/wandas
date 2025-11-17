@@ -96,13 +96,6 @@ filtered.fft().plot(title="周波数スペクトル / Frequency Spectrum")
 - mypyによる静的型チェックのサポート / Static type checking with mypy
 - CIでの自動テスト・リント・型チェック / Automated CI for tests, linting and type checks
 
-### 🧰 開発者向け機能 / Developer Features
-
-- ドキュメント駆動のAPI（英語ドキュメントと例） / Documentation‑driven API (English docs and examples)
-- プリコミット・ワークフロー・品質ツールの整備 / Pre‑commit hooks and quality tooling
-- 設計ガイドラインと拡張プラン作成テンプレート / Design guidelines and plan templates for changes
-- GPU／分散環境での処理拡張を視野に入れた設計 / Designed with potential GPU/distributed extensions in mind
-
 ## 🎯 何ができるか / What You Can Do
 
 ```mermaid
@@ -174,15 +167,9 @@ data.plot(overlay=False, title="センサーデータ / Sensor Data")
 ## 📖 ドキュメント / Documentation
 
 - **[公式ドキュメントサイト](https://kasahart.github.io/wandas/)** - 詳細なAPIリファレンスとガイド
-- **[チュートリアル](tutorial/)** - 実践的な使用例
-- **[設計ドキュメント](docs/design/INDEX.md)** - アーキテクチャと設計決定
+- **[チュートリアル](learning-path/)** - 実践的な使用例
 
 ## 🛠️ 開発環境 / Development
-
-### 必要条件 / Requirements
-
-- Python 3.9+
-- NumPy, SciPy, Dask, Matplotlib
 
 ### テスト実行 / Running Tests
 
@@ -220,18 +207,6 @@ Wandasはオープンソースプロジェクトです。貢献を歓迎しま�
 2. Forkしてブランチを作成 / Fork the repository and create a branch
 3. 変更を実装し、テストを追加 / Implement changes and add tests
 4. Pull Requestを作成 / Open a Pull Request
-
-### 開発ガイドライン / Development Guidelines
-
-- [コーディング規約](docs/design/guides/coding_standards.md) / Coding standards
-- [テスト戦略](docs/design/guides/testing_strategy.md) / Testing strategy
-- [設計原則](.github/copilot-instructions.md) / Design principles
-
-## 📄 対応データ形式 / Supported Formats
-
-- **音声ファイル**: WAV (PCM, 各種サンプリングレート対応) / Audio files: WAV (PCM, various sampling rates supported)
-- **データファイル**: CSV (時間列指定可能) / Data files: CSV (with optional time column)
-- **Wandas専用**: WDF (HDF5ベース、メタデータ完全保存) / Wandas-specific: WDF (HDF5‑based, full metadata preservation)
 
 ## 🐛 バグ報告・機能リクエスト / Issues
 
