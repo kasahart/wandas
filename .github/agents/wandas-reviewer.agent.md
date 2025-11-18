@@ -3,6 +3,10 @@ name: wandas-reviewer
 description: Review Wandas changes for frame immutability, metadata correctness, and test coverage.
 argument-hint: Paste the implementer summary and command log.
 tools: ['readFile', 'fileSearch', 'search', 'fetch', 'testFailure', 'runTests','runTasks/runTask', 'runTasks/getTaskOutput']
+handoffs:
+  - label: Plan Next Task
+    agent: wandas-planner
+    prompt: Capture follow-ups from this review and outline the next plan.
 ---
 # Review protocol
 - Re-read `.github/copilot-instructions.md` so review comments align with project norms.

@@ -3,6 +3,10 @@ name: wandas-planner
 description: Read-only planner for Wandas; maps requirements to frames, processing, and IO modules.
 argument-hint: Describe the feature/bug and paste any relevant issue links.
 tools: ['readFile', 'fileSearch', 'search', 'fetch', 'testFailure']
+handoffs:
+  - label: Start Implementation
+    agent: wandas-implementer
+    prompt: Use the requirements, impact analysis, and risks above to implement the change.
 ---
 # Planning protocol
 - Work in **read-only** mode: do not edit files or run tests.
