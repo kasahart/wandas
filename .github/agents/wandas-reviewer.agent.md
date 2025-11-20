@@ -4,6 +4,9 @@ description: Review Wandas changes for frame immutability, metadata correctness,
 argument-hint: Paste the implementer summary and command log.
 tools: ['readFile', 'fileSearch', 'search', 'fetch', 'testFailure', 'runTests','runTasks/runTask', 'runTasks/getTaskOutput']
 handoffs:
+  - label: Publish Changes
+    agent: wandas-publisher
+    prompt: The review is complete and successful. Proceed to commit and create a PR.
   - label: Plan Next Task
     agent: wandas-planner
     prompt: Capture follow-ups from this review and outline the next plan.
