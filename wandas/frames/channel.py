@@ -731,12 +731,15 @@ class ChannelFrame(
     ) -> "ChannelFrame":
         """Create a ChannelFrame from an audio file.
 
+        Note:
+            The `chunk_size` parameter has been removed. ChannelFrame uses
+            channel-wise chunking by default (chunks=(1, -1)). Use `.rechunk(...)`
+            on the returned frame for custom sample-axis chunking.
+
         Args:
             path: Path to the audio file.
-            # NOTE: `chunk_size` is removed; channel-wise chunking is used by default
             start: Start time in seconds.
             end: End time in seconds.
-            ch_labels: list[str] | None = None,
             ch_labels: Labels for each channel.
             time_column: For CSV files, index or name of the time column.
                 Default is 0 (first column).
@@ -746,13 +749,9 @@ class ChannelFrame(
 
         Returns:
             A new ChannelFrame containing the loaded audio data.
+
         Raises:
-            ValueError: If channel specification is invalid.
-                (chunk_size removed). ChannelFrame uses channel-wise chunking by
-                default (chunks=(1, -1)). Use `.rechunk(...)` on the returned
-                frame for custom sample-axis chunking.
-                    (chunks=(1, -1)). Use `.rechunk(...)` on the returned frame
-                    for custom sample-axis chunking.
+            ValueError: If channel specification is invalid or file cannot be read.
                 Error message includes absolute path, current directory, and
                 troubleshooting suggestions.
 
