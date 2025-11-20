@@ -106,7 +106,8 @@ select = ["E", "F", "W", "Q", "UP", "I", "N"]
 docstring-code-format = true
 
 [tool.mypy]
-# plugins = ["pydantic.mypy"]
+plugins = ["pydantic.mypy"]
+cache_dir = ".mypy_cache"
 files = ["wandas", "tests"]
 strict = true
 pretty = true

@@ -30,7 +30,7 @@ class TestHpssHarmonic:
         percussive[impulse_locations] = 1.0
 
         self.mixed_signal: NDArrayReal = np.array([harmonic + percussive])
-        self.dask_signal: DaArray = _da_from_array(self.mixed_signal, chunks=-1)
+        self.dask_signal: DaArray = _da_from_array(self.mixed_signal, chunks=(1, -1))
 
     def test_initialization(self) -> None:
         """Test initialization with different parameters."""
@@ -105,7 +105,7 @@ class TestHpssPercussive:
         percussive[impulse_locations] = 1.0
 
         self.mixed_signal: NDArrayReal = np.array([harmonic + percussive])
-        self.dask_signal: DaArray = _da_from_array(self.mixed_signal, chunks=-1)
+        self.dask_signal: DaArray = _da_from_array(self.mixed_signal, chunks=(1, -1))
 
     def test_initialization(self) -> None:
         """Test initialization with different parameters."""
@@ -182,8 +182,8 @@ class TestAddWithSNR:
         self.noise_signal: NDArrayReal = np.array([np.random.randn(self.sample_rate)])
 
         # Convert to dask arrays
-        self.dask_clean: DaArray = _da_from_array(self.clean_signal, chunks=-1)
-        self.dask_noise: DaArray = _da_from_array(self.noise_signal, chunks=-1)
+        self.dask_clean: DaArray = _da_from_array(self.clean_signal, chunks=(1, -1))
+        self.dask_noise: DaArray = _da_from_array(self.noise_signal, chunks=(1, -1))
 
         # Initialize the operation
         self.add_with_snr = AddWithSNR(self.sample_rate, self.dask_noise, self.snr)
@@ -231,8 +231,8 @@ class TestAddWithSNR:
         )
 
         # Convert to dask arrays
-        dask_stereo_clean = _da_from_array(stereo_clean, chunks=-1)
-        dask_stereo_noise = _da_from_array(stereo_noise, chunks=-1)
+        dask_stereo_clean = _da_from_array(stereo_clean, chunks=(1, -1))
+        dask_stereo_noise = _da_from_array(stereo_noise, chunks=(1, -1))
 
         # Create operation
         add_with_snr = AddWithSNR(self.sample_rate, dask_stereo_noise, self.snr)
@@ -257,7 +257,7 @@ class TestNormalize:
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
         # Signal with max value of 2.0
         self.signal: NDArrayReal = np.array([2.0 * np.sin(2 * np.pi * 440 * t)])
-        self.dask_signal: DaArray = _da_from_array(self.signal, chunks=-1)
+        self.dask_signal: DaArray = _da_from_array(self.signal, chunks=(1, -1))
 
         # Multi-channel signal
         self.multi_channel_signal: NDArrayReal = np.array(
@@ -267,7 +267,7 @@ class TestNormalize:
             ]
         )
         self.dask_multi_channel: DaArray = _da_from_array(
-            self.multi_channel_signal, chunks=-1
+            self.multi_channel_signal, chunks=(1, -1)
         )
 
     def test_initialization(self) -> None:
@@ -347,7 +347,7 @@ class TestNormalize:
     def test_normalize_zero_signal(self) -> None:
         """Test normalization with zero signal."""
         zero_signal: NDArrayReal = np.array([[0.0] * self.sample_rate])
-        dask_zero = _da_from_array(zero_signal, chunks=-1)
+        dask_zero = _da_from_array(zero_signal, chunks=(1, -1))
 
         normalize = Normalize(self.sample_rate, norm=np.inf, axis=-1)
         result = normalize.process(dask_zero).compute()
@@ -359,7 +359,7 @@ class TestNormalize:
         """Test normalization with threshold parameter."""
         # Very small signal
         small_signal: NDArrayReal = np.array([[1e-12] * self.sample_rate])
-        dask_small = _da_from_array(small_signal, chunks=-1)
+        dask_small = _da_from_array(small_signal, chunks=(1, -1))
 
         # With threshold=1e-10, this should be treated as zero
         normalize = Normalize(self.sample_rate, norm=np.inf, axis=-1, threshold=1e-10)
@@ -371,7 +371,7 @@ class TestNormalize:
     def test_normalize_with_fill(self) -> None:
         """Test normalization with fill parameter for zero vectors."""
         zero_signal: NDArrayReal = np.array([[0.0] * self.sample_rate])
-        dask_zero = _da_from_array(zero_signal, chunks=-1)
+        dask_zero = _da_from_array(zero_signal, chunks=(1, -1))
 
         # fill=True: zero vectors are filled with uniform values that normalize to 1
         normalize = Normalize(self.sample_rate, norm=np.inf, axis=-1, fill=True)

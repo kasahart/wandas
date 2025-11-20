@@ -27,7 +27,6 @@ if TYPE_CHECKING:
 
 dask_delayed = dask.delayed  # type: ignore [unused-ignore]
 da_from_delayed = da.from_delayed  # type: ignore [unused-ignore]
-da_from_array = da.from_array  # type: ignore [unused-ignore]
 
 logger = logging.getLogger(__name__)
 

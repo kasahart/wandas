@@ -141,7 +141,7 @@ class TestBaseFrameArithmeticOperations:
         other_frame = ChannelFrame(data=other_dask, sampling_rate=44100, label="other")
 
         # Should raise ValueError
-        with pytest.raises(ValueError, match="Sampling rates do not match"):
+        with pytest.raises(ValueError, match=r"Sampling rate mismatch"):
             _ = self.channel_frame**other_frame
 
     def test_pow_operator_lazy_evaluation(self) -> None:
@@ -670,7 +670,8 @@ class TestBaseFrameInitialization:
     def test_init_with_1d_data(self) -> None:
         """Test initialization with 1D data reshapes to 2D."""
         data_1d = np.random.random(16000)
-        dask_data_1d: DaArray = _da_from_array(data_1d, chunks=-1)
+        # Use channel-wise chunks for single channel: reshape to (1, n)
+        dask_data_1d: DaArray = _da_from_array(data_1d.reshape(1, -1), chunks=(1, -1))
         frame = ChannelFrame(data=dask_data_1d, sampling_rate=self.sample_rate)
         assert frame.n_channels == 1
         assert frame.shape == (16000,)
@@ -714,7 +715,8 @@ class TestBaseFrameInitialization:
     def test_data_property_single_channel_squeezes(self) -> None:
         """Test that data property squeezes single channel."""
         data = np.random.random(16000)
-        dask_data: DaArray = _da_from_array(data, chunks=-1)
+        # Use channel-wise chunks for single channel: reshape to (1, n)
+        dask_data: DaArray = _da_from_array(data.reshape(1, -1), chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
         result_data = frame.data
         assert result_data.ndim == 1  # Squeezed

@@ -265,12 +265,12 @@ class TestChannelProcessing:
         """Test add method with SNR parameter."""
         # 別のChannelFrameを作成
         signal_data = np.random.random((2, 16000))
-        signal_dask_data = _da_from_array(signal_data, chunks=-1)
+        signal_dask_data = _da_from_array(signal_data, chunks=(1, -1))
         signal_cf = ChannelFrame(signal_dask_data, self.sample_rate, label="signal")
 
         # ノイズデータを作成
         noise_data = np.random.random((2, 16000)) * 0.1  # 小さいノイズ
-        noise_dask_data = _da_from_array(noise_data, chunks=-1)
+        noise_dask_data = _da_from_array(noise_data, chunks=(1, -1))
         noise_cf = ChannelFrame(noise_dask_data, self.sample_rate, label="noise")
 
         # SNRを指定して加算
@@ -313,7 +313,7 @@ class TestChannelProcessing:
 
         # 長さが標準フレームよりも長いフレーム（パディング必要）
         long_data = np.random.random((2, 24000))  # 1.5倍の長さ
-        long_dask_data = _da_from_array(long_data, chunks=(1, 6000))
+        long_dask_data = _da_from_array(long_data, chunks=(1, -1))
         long_cf = ChannelFrame(long_dask_data, self.sample_rate, label="long_audio")
 
         # 短いフレームを標準フレームに加算（パディングが必要）
@@ -592,7 +592,7 @@ class TestSamplingRateUpdates:
         self.sample_rate = 44100
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
         signal = np.array([0.1 * np.sin(2 * np.pi * 440 * t)])
-        self.dask_data = _da_from_array(signal, chunks=-1)
+        self.dask_data = _da_from_array(signal, chunks=(1, -1))
         self.frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate)
 
     def test_loudness_zwtv_updates_sampling_rate(self) -> None:

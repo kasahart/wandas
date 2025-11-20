@@ -1,155 +1,96 @@
-# Wandas: Waveform Analysis Data Structures
+# Copilot Instructions for the Wandas Repository
 
-## Project Overview
+These instructions are for AI coding agents (planner, implementer, reviewer) working on the Wandas codebase.
 
-Wandas is a Python library for audio signal and waveform analysis, providing pandas-like APIs for signal processing, spectral analysis, and visualization. The library focuses on type safety, method chaining, and lazy evaluation for efficient processing of large audio datasets.
+## 1. Big Picture & Architecture
+- **Purpose**: Wandas provides pandas‑like data structures and operations for waveform/signal analysis (see `README.md`).
+- **Core packages** (under `wandas/`):
+  - `frames/`: user‑facing data structures (`ChannelFrame`, `SpectralFrame`, `SpectrogramFrame`) handling axes, metadata, and `operation_history`.
+  - `processing/`: pure numerical logic for filters, spectral analysis, psychoacoustics, temporal/stats/effects; frame methods should delegate here.
+  - `io/`: I/O helpers for WAV/WDF/CSV (`wav_io.py`, `wdf_io.py`, `readers.py`) plus sample data/datasets.
+  - `visualization/`: plotting helpers returning Matplotlib `Axes` that build on frame methods (e.g. `plotting.py`).
+  - `core/`, `utils/`, `datasets/`: shared protocol types, base classes, small utilities, dataset helpers.
+- **Design goals**: immutable frame semantics, traceable `operation_history`, preserved metadata (including sampling rate and channel info), and optional Dask‑based lazy execution.
 
-**Domain**: Audio signal processing, acoustic analysis, psychoacoustics
-**Target Users**: Researchers, audio engineers, data scientists working with time-series audio data
+## 2. Development Workflow & Commands
+- **Environment**: use `uv` for all Python commands (see `pyproject.toml`).
+- **Setup**:
+  - `uv sync` to install dependencies.
+- **Tests** (or VS Code tasks with the same names):
+  - `uv run pytest -n auto` (task: `Run pytest`) for normal runs.
+  - `uv run pytest` (task: `Run pytest (serial)`) when debugging or tests are not parallel‑safe.
+  - Use `tests/` as the source of truth for frame semantics, metadata rules, I/O contracts, and lazy behavior.
+- **Type checking / lint**:
+  - `uv run mypy --config-file=pyproject.toml` (task: `Run mypy wandas tests`).
+  - `uv run ruff check wandas tests --config=pyproject.toml` (task: `Run ruff check`).
+  - `uv run ruff format wandas tests` to apply the canonical formatting.
+- **Docs**:
+  - `uv run mkdocs build -f docs/mkdocs.yml` (task: `Build MkDocs Documentation`).
+  - `uv run mkdocs serve -f docs/mkdocs.yml` (task: `Serve MkDocs Documentation`).
 
-## Core Design Principles
+## 3. Frames, Immutability, and Metadata
+- **Never mutate frames in place**: all frame operations must return new frame objects; treat underlying arrays/graphs as immutable from the API perspective.
+- **Always maintain together** when implementing frame operations:
+  - `operation_history` entries (what was done and with which parameters, in call‑order).
+  - Sampling rate, time/frequency axes, and channel labels.
+  - User/recording metadata carried from inputs to outputs, including when changing domains (time → spectral → spectrogram).
+- **Metadata update encapsulation**:
+  - Prefer helpers on frames (e.g. `_with_updated_metadata`, `replace(...)`) to update data + metadata + history atomically.
+  - Avoid scattered direct dict updates to `metadata` or `operation_history`; keep them inside frame classes or dedicated utilities in `frames/`.
+- **Dask laziness**:
+  - Preserve lazy execution where present: build Dask graphs and avoid eager `.compute()` unless required by the public API or tests.
+  - When refactoring, check spectral/roughness/spectrogram code paths to ensure you do not force computation earlier than before.
 
-1. **Pandas-like Interface**: Familiar DataFrame-style API for signal processing operations
-2. **Type Safety**: Strict mypy compliance with comprehensive type hints
-3. **Method Chaining**: Fluent API enabling intuitive multi-step processing pipelines
-4. **Lazy Evaluation**: Dask arrays for memory-efficient handling of large datasets
-5. **Immutability**: Operations return new frames, preserving original data
-6. **Traceability**: Operation history tracking in metadata for reproducibility
-7. **SOLID Principles**: Single responsibility, open-closed, Liskov substitution, interface segregation, dependency inversion
-8. **Simplicity**: KISS (Keep It Simple), DRY (Don't Repeat Yourself), YAGNI (You Aren't Gonna Need It)
+## 4. Processing API & Project‑Specific Patterns
+- **Separation of concerns**:
+  - Frame methods should be thin facades: validate inputs, manage metadata/history, and dispatch into `processing/` functions.
+  - Numerical algorithms (FFT, filters, psychoacoustic metrics, statistics, effects) should live in `processing/` modules like `filters.py`, `spectral.py`, `psychoacoustic.py`, `temporal.py`, `stats.py`, `effects.py`.
+- **Adding new operations**:
+  - First add a function in the appropriate `processing/` module.
+  - Then add a frame method in `frames/` that delegates to that function and wraps the result in a new frame with updated metadata/history.
+  - Mirror parameter naming and default values of nearby functions/methods; avoid inventing new patterns unless necessary.
+- **I/O patterns**:
+  - Use `io/wav_io.py`, `io/wdf_io.py`, and `io/readers.py` as references for how sampling rate, channels, and metadata are handled, especially for WDF/HDF5 round‑trips.
+  - Keep read/write functions thin: they should construct frames with correct axes/metadata and let frames/processing handle subsequent computation.
+- **Visualization patterns**:
+  - Plotting helpers live in `visualization/` and should return Matplotlib `Axes` objects.
+  - They should call existing frame methods (e.g. `.fft()`, `.stft()`, `.describe()`) instead of duplicating numerical logic.
+- **Usage examples**:
+  - `README.md`, `learning-path/`, and `examples/` are the canonical references for method chaining patterns (e.g. `signal.normalize().low_pass_filter(...).resample(...).fft().plot(...)`).
 
-## Technology Stack
+## 5. Testing & Design Principles
+- **Tests as spec**:
+  - When changing behavior, locate relevant tests in `tests/` and update or extend them first; tests define expectations for metadata, axes, lazy behavior, and numerical tolerances.
+- **Minimal surface (YAGNI)**:
+  - Implement the smallest API surface that satisfies existing tests and documented use cases; avoid speculative flags or configuration.
+- **Extensibility & maintainability**:
+  - Prefer small, composable helpers in `processing/` and short, chainable frame methods over large monolithic functions.
+  - Reuse existing helpers for resampling, filtering, spectral transforms, etc., instead of duplicating logic; factor out shared pieces when duplication is unavoidable.
+- **Error handling**:
+  - When raising new errors, follow a WHAT/WHY/HOW pattern in messages (what went wrong, why it matters here, how the caller can fix it).
+  - Example: `raise ValueError("Sampling rate mismatch (WHAT). Filters require matching rates to prevent phase distortion (WHY). Resample inputs to the same rate before filtering (HOW).")`
+  - **Terminal compatibility**: Use ASCII-safe formatting (e.g., "freq x time" not "freq×time", "expected: value" not "expected → value").
+  - **Multiline structure**: For complex errors with multiple pieces of information, format as:
+    ```python
+    raise ValueError(
+        f"Invalid data shape\n"
+        f"  Got: {actual_shape}\n"
+        f"  Expected: {expected_shape}\n"
+        f"Ensure input has correct dimensions before calling this method."
+    )
+    ```
+  - **Test pattern updates**: When changing error messages, update test `pytest.raises(..., match=r"pattern")` to match the first line only (e.g., `r"Invalid data shape"` not the full multiline text). This keeps tests resilient to detail changes while ensuring the core error type is caught.
+- **Edge cases to mirror**:
+  - Follow existing tests for NaN handling, multi‑channel audio, sampling‑rate changes, large Dask‑backed datasets, and psychoacoustic/spectral metrics.
 
-- **Python**: 3.9+ (type hints, dataclasses)
-- **Core Libraries**: NumPy (computation), Dask (lazy evaluation), pandas (inspiration)
-- **Signal Processing**: scipy.signal, custom FFT implementations
-- **Visualization**: matplotlib, japanize-matplotlib (Japanese text support)
-- **Quality Tools**: mypy (strict mode), ruff (linting/formatting), pytest (testing)
-
-## Key Architecture Patterns
-
-### Frame Types
-- `ChannelFrame`: Time-domain audio signals
-- `SpectralFrame`: Frequency-domain representations
-- `SpectrogramFrame`: Time-frequency representations
-- `NOctFrame`: N-octave band analysis
-- `RoughnessFrame`: Psychoacoustic roughness analysis
-
-### Operation Pattern
-Extend `AudioOperation[InputType, OutputType]` base class:
-- Use `@register_operation` decorator
-- Implement `_process_array()` method
-- Return new frames (immutability)
-- Track operations in metadata
-
-### Error Handling
-Follow 3-element pattern (WHAT/WHY/HOW):
-```python
-raise ValueError(
-    f"Parameter out of range\n"
-    f"  Got: {actual}\n"
-    f"  Expected: {expected}\n"
-    f"Use valid range to fix this error."
-)
-```
-
-For complete error handling patterns and examples, see `.github/instructions/python-code.instructions.md`.
-
-## Essential Coding Standards
-
-**Type Hints**: Required on all functions (parameters + return values)
-
-**Docstrings**: NumPy format, English, include Parameters/Returns/Raises/Examples
-
-**Testing**:
-- Target 100% coverage (minimum 90%)
-- Validate against theoretical values, not just ranges
-- Test normal cases, boundaries, errors, and metadata preservation
-- Use appropriate tolerances for floating-point comparisons
-
-**Immutability**: Never modify input data, always return new instances
-
-**Metadata**: Track operation history, preserve channel metadata
-
-## Specialized Instructions
-
-For detailed implementation standards, refer to:
-- **Python Code**: `.github/instructions/python-code.instructions.md` (applies to `wandas/**/*.py`)
-- **Tests**: `.github/instructions/tests.instructions.md` (applies to `tests/**/*.py`)
-- **Notebooks**: `.github/instructions/notebooks.instructions.md` (applies to `**/*.ipynb`)
-
-## Common Workflows
-
-**Adding New Operations**:
-1. Extend AudioOperation base class
-2. Validate parameters in `__init__`
-3. Implement `_process_array()` logic
-4. Write comprehensive tests (normal/boundary/error cases)
-5. Document with examples
-
-**Method Chaining Example**:
-```python
-result = (
-    wd.read_wav("audio.wav")
-    .normalize()
-    .low_pass_filter(cutoff=1000)
-    .resample(16000)
-)
-```
-
-## Development Workflow
-
-### Before Coding
-1. **Check existing patterns**: Review `docs/design/INDEX.md` for similar features or past design decisions
-2. **Create a plan**: Draft in `docs/design/working/plans/PLAN_<feature>.md` (gitignored, editable)
-3. **Write tests first**: Follow TDD - write failing tests before implementation
-
-### During Development
-1. **Small commits**: Use meaningful, atomic commits with conventional commit messages
-2. **Run tests frequently**: Execute `uv run pytest` after each significant change
-3. **Update metadata**: Ensure operation history tracks all transformations
-4. **Check types continuously**: Run `uv run mypy` to catch type errors early
-
-### After Implementation
-1. **Quality checks**:
-   - Tests: `uv run pytest --cov=wandas` (target 100% coverage)
-   - Types: `uv run mypy --config-file=pyproject.toml` (strict mode)
-   - Lint: `uv run ruff check wandas tests`
-2. **Documentation**: Update docstrings, API docs, and add examples if needed
-3. **Design docs**: Create summary in `docs/design/guides/` for significant design decisions
-4. **Final review**: Verify all tests pass, no regressions, backward compatibility maintained
-
-## Repository Structure
-
-- `wandas/`: Source code (frames, processing, io, utils, visualization)
-- `tests/`: Comprehensive test suite (mirrors source structure)
-- `docs/`: MkDocs documentation and design documents
-- `examples/`: Jupyter notebooks demonstrating usage
-
-## Quality Standards
-
-- All PRs require: passing tests, mypy strict mode, ruff compliance
-- Coverage target: 100% (minimum 90%)
-- Documentation: English docstrings, Japanese UI optional
-- Design decisions: Document in `docs/design/` for complex changes
-
-## Development Commands
-
-```bash
-# Run tests with coverage
-uv run pytest --cov=wandas
-
-# Type checking
-uv run mypy --config-file=pyproject.toml
-
-# Linting and formatting
-uv run ruff check wandas tests
-uv run ruff format wandas tests
-```
-
-## Additional Resources
-
-For detailed guidelines, see:
-- Testing patterns: `docs/development/error_message_guide.md`
-- Contributing workflow: Standard GitHub flow with feature branches
-- Design documents: `docs/design/INDEX.md`
+## 6. Roles: Planner / Implementer / Reviewer
+- **Planner**:
+  - Use read‑only tools to map which `frames/`, `processing/`, and `io/` modules are affected.
+  - Produce a concrete plan tied to specific files, tests to touch, and any risks around metadata consistency, Dask graphs, or performance.
+- **Implementer**:
+  - Follow the planner handoff; if assumptions change, update the plan before editing.
+  - Keep frames immutable, preserve metadata/history, and honor Dask laziness as described above.
+  - Run `pytest` plus `mypy`/`ruff` for the affected areas when feasible and record the commands used.
+- **Reviewer**:
+  - Re‑run the recorded commands (or their nearest equivalents).
+  - Verify that frame immutability and metadata rules are respected, that new APIs align with existing naming/parameter patterns, and that tests cover the main branches and edge cases discussed in the planner handoff.

@@ -773,9 +773,7 @@ class TestChannelFrame:
 
         # Test sampling rate mismatch error
         other_cf = ChannelFrame(other_dask_data, 44100, label="other_audio")
-        with pytest.raises(
-            ValueError, match="Sampling rates do not match. Cannot perform operation."
-        ):
+        with pytest.raises(ValueError, match=r"Sampling rate mismatch"):
             _ = self.channel_frame + other_cf
 
     def test_add_method(self) -> None:
@@ -783,7 +781,7 @@ class TestChannelFrame:
         # 通常の加算をテスト
         # Create another ChannelFrame
         other_data = np.random.random((2, 16000))
-        other_dask_data = _da_from_array(other_data, chunks=-1)
+        other_dask_data = _da_from_array(other_data, chunks=(1, -1))
         other_cf = ChannelFrame(other_dask_data, self.sample_rate, label="other_audio")
 
         # addメソッドを使用して加算
@@ -818,9 +816,7 @@ class TestChannelFrame:
 
         # サンプリングレートが一致しない場合のエラーをテスト
         mismatch_cf = ChannelFrame(other_dask_data, 44100, label="mismatch_audio")
-        with pytest.raises(
-            ValueError, match="Sampling rates do not match. Cannot perform operation."
-        ):
+        with pytest.raises(ValueError, match=r"Sampling rate mismatch"):
             _ = self.channel_frame.add(mismatch_cf)
 
     def test_channel_metadata_label_access(self) -> None:

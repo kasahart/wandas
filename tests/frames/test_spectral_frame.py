@@ -42,7 +42,7 @@ class TestSpectralFrame:
         self.shape: tuple[int, int] = (2, self.n_fft // 2 + 1)
         self.complex_data: NDArrayComplex = create_complex_data(self.shape)
         # 遅延実行に対応したデータ構造の使用
-        self.data: DaArray = _da_from_array(self.complex_data, chunks=-1)
+        self.data: DaArray = _da_from_array(self.complex_data, chunks=(1, -1))
 
         # Create channel metadata
         self.channel_metadata: list[ChannelMetadata] = [
@@ -83,7 +83,10 @@ class TestSpectralFrame:
         # Create 1D complex data
         shape_1d: tuple[int] = (self.n_fft // 2 + 1,)
         complex_data_1d: NDArrayComplex = create_complex_data(shape_1d)
-        data_1d: DaArray = _da_from_array(complex_data_1d, chunks=-1)
+        # reshape 1D to (1, n_freqs) and use channel-wise chunking
+        data_1d: DaArray = _da_from_array(
+            complex_data_1d.reshape(1, -1), chunks=(1, -1)
+        )
 
         # Create frame with 1D data
         frame_1d: SpectralFrame = SpectralFrame(
@@ -98,7 +101,7 @@ class TestSpectralFrame:
         # Create 3D complex data
         shape_3d: tuple[int, int, int] = (2, 3, self.n_fft // 2 + 1)
         complex_data_3d: NDArrayComplex = create_complex_data(shape_3d)
-        data_3d: DaArray = _da_from_array(complex_data_3d, chunks=-1)
+        data_3d: DaArray = _da_from_array(complex_data_3d, chunks=(1, -1, -1))
 
         # Check that creating frame with 3D data raises ValueError
         with pytest.raises(ValueError):
@@ -169,7 +172,9 @@ class TestSpectralFrame:
 
     def test_binary_op_with_spectral_frame(self) -> None:
         """Test _binary_op with another SpectralFrame"""
-        other_data: DaArray = _da_from_array(create_complex_data(self.shape), chunks=-1)
+        other_data: DaArray = _da_from_array(
+            create_complex_data(self.shape), chunks=(1, -1)
+        )
         other_frame: SpectralFrame = SpectralFrame(
             data=other_data,
             sampling_rate=self.sampling_rate,
@@ -240,7 +245,7 @@ class TestSpectralFrame:
 
     def test_binary_op_with_dask_array(self) -> None:
         """Test _binary_op with dask array"""
-        dask_arr: DaArray = _da_from_array(np.ones(self.shape), chunks=-1)
+        dask_arr: DaArray = _da_from_array(np.ones(self.shape), chunks=(1, -1))
 
         def multiply_op(a: Any, b: Any) -> Any:
             return a * b
@@ -413,7 +418,9 @@ class TestSpectralFrame:
 
     def test_mismatch_sampling_rate_error(self) -> None:
         """Test that operations with mismatched sampling rates raise ValueError"""
-        other_data: DaArray = _da_from_array(create_complex_data(self.shape), chunks=-1)
+        other_data: DaArray = _da_from_array(
+            create_complex_data(self.shape), chunks=(1, -1)
+        )
         other_frame: SpectralFrame = SpectralFrame(
             data=other_data,
             sampling_rate=22050,  # Different sampling rate

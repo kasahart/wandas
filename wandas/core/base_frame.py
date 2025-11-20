@@ -80,7 +80,26 @@ class BaseFrame(ABC, Generic[T]):
         channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
         previous: Optional["BaseFrame[Any]"] = None,
     ):
-        self._data = data.rechunk(chunks=-1)  # type: ignore [unused-ignore]
+        # Default rechunk: prefer channel-wise chunking so the 0th axis
+        # (channels) will be processed per-channel for parallelism.
+        # For (channels, samples) arrays use (1, -1). For spectrograms
+        # and higher-dim arrays (channels, ..) we preserve channel-wise
+        # first-axis chunking: (1, -1, -1, ...)
+        try:
+            if data.ndim == 1:
+                self._data = data.rechunk(chunks=-1)
+            elif data.ndim == 2:
+                self._data = data.rechunk((1, -1))
+            elif data.ndim >= 3:
+                # Build a chunk tuple with 1 for the first axis and -1 for
+                # the remaining axes. This preserves dimensionality.
+                self._data = data.rechunk(tuple([1] + [-1] * (data.ndim - 1)))
+            else:
+                self._data = data.rechunk(chunks=-1)
+        except Exception as e:
+            # Fall back to previous behavior if Dask rechunk fails.
+            logger.warning(f"Rechunk failed: {e!r}. Falling back to chunks=-1.")
+            self._data = data.rechunk(chunks=-1)  # type: ignore [unused-ignore]
         if self._data.ndim == 1:
             self._data = self._data.reshape((1, -1))
         self.sampling_rate = sampling_rate
