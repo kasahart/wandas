@@ -24,3 +24,10 @@ handoffs:
 - **Tests** – new tests cover success and edge cases; modified tests reflect the intended behavior.
 - **Quality** – mypy/ruff and key pytest commands have been run or explicitly justified.
 - **Docs** – update or reference docs/tutorials when behavior changes user-facing semantics.
+- **Error messages** – follow WHAT/GOT/EXPECTED/HOW pattern; use ASCII-safe characters (avoid ×, →); match test patterns to first line only.
+
+## Handoff Format
+When providing feedback or handing off to implementer, structure comments as:
+1. **Critical Issues**: Must fix before merge (e.g., API breaks, metadata inconsistencies, test failures).
+2. **Style/Convention Issues**: Should fix to align with project norms (e.g., error message format, naming conventions, docstring completeness).
+3. **Enhancement Suggestions**: Nice to have, can be deferred to future work (e.g., performance optimizations, additional test cases).

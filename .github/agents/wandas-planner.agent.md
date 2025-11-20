@@ -23,5 +23,8 @@ handoffs:
 - **Requirements**: short, numbered list summarizing what must change.
 - **Impact analysis**: key files/modules to touch (with reasons).
 - **Design notes**: how to preserve immutability, metadata, and Dask laziness.
-- **Test plan**: which tests to add/update in `tests/` and expected behaviors.
+- **Test plan**:
+  - Which test files to add/update in `tests/` and expected behaviors (success cases, edge cases).
+  - **Test pattern updates**: If error messages change, identify `pytest.raises(..., match=...)` patterns that need updating. Use `grep -r "old message text" tests/` to find affected tests before planning changes.
+  - List specific test functions that will need modification.
 - **Risks**: performance, API breakage, metadata/history edge cases.

@@ -69,6 +69,17 @@ These instructions are for AI coding agents (planner, implementer, reviewer) wor
 - **Error handling**:
   - When raising new errors, follow a WHAT/WHY/HOW pattern in messages (what went wrong, why it matters here, how the caller can fix it).
   - Example: `raise ValueError("Sampling rate mismatch (WHAT). Filters require matching rates to prevent phase distortion (WHY). Resample inputs to the same rate before filtering (HOW).")`
+  - **Terminal compatibility**: Use ASCII-safe formatting (e.g., "freq x time" not "freq×time", "expected: value" not "expected → value").
+  - **Multiline structure**: For complex errors with multiple pieces of information, format as:
+    ```python
+    raise ValueError(
+        f"Invalid data shape\n"
+        f"  Got: {actual_shape}\n"
+        f"  Expected: {expected_shape}\n"
+        f"Ensure input has correct dimensions before calling this method."
+    )
+    ```
+  - **Test pattern updates**: When changing error messages, update test `pytest.raises(..., match=r"pattern")` to match the first line only (e.g., `r"Invalid data shape"` not the full multiline text). This keeps tests resilient to detail changes while ensuring the core error type is caught.
 - **Edge cases to mirror**:
   - Follow existing tests for NaN handling, multi‑channel audio, sampling‑rate changes, large Dask‑backed datasets, and psychoacoustic/spectral metrics.
 
