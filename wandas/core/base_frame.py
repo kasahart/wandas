@@ -96,8 +96,9 @@ class BaseFrame(ABC, Generic[T]):
                 self._data = data.rechunk(tuple([1] + [-1] * (data.ndim - 1)))
             else:
                 self._data = data.rechunk(chunks=-1)
-        except Exception:
+        except Exception as e:
             # Fall back to previous behavior if Dask rechunk fails.
+            logger.warning(f"Rechunk failed: {e!r}. Falling back to chunks=-1.")
             self._data = data.rechunk(chunks=-1)  # type: ignore [unused-ignore]
         if self._data.ndim == 1:
             self._data = self._data.reshape((1, -1))

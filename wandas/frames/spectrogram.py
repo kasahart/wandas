@@ -877,15 +877,17 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         # spectrograms.
         if data.ndim == 1:
             raise ValueError(
-                f"Invalid data shape: {data.shape} (WHAT). Spectrograms require "
-                f"2D (freq×time) or 3D (channel×freq×time) arrays to represent "
-                f"time-frequency data (WHY). Provide a 2D or 3D array instead (HOW)."
+                f"Invalid data shape\n"
+                f"  Got: {data.shape}\n"
+                f"  Expected: 2D (freq×time) or 3D (channel×freq×time) array\n"
+                f"Provide a 2D or 3D array to represent time-frequency data."
             )
         if data.ndim >= 4:
             raise ValueError(
-                f"Invalid data shape: {data.shape} (WHAT). Spectrograms require "
-                f"2D (freq×time) or 3D (channel×freq×time) arrays to represent "
-                f"time-frequency data (WHY). Provide a 2D or 3D array instead (HOW)."
+                f"Invalid data shape\n"
+                f"  Got: {data.shape}\n"
+                f"  Expected: 2D (freq×time) or 3D (channel×freq×time) array\n"
+                f"Provide a 2D or 3D array to represent time-frequency data."
             )
         if data.ndim == 2:
             data = np.expand_dims(data, axis=0)
