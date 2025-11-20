@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 from wandas.frames.channel import ChannelFrame
+from wandas.io import wdf_io
 
 
 def test_save_load_roundtrip(tmp_path: Path) -> None:
@@ -159,3 +160,69 @@ def test_version_compatibility(tmp_path: Path) -> None:
     # Should still load but log a warning
     cf2 = ChannelFrame.load(path)
     assert cf2.n_samples == sr
+
+
+def test_save_non_serializable_op_history(tmp_path: Path) -> None:
+    """Test saving with non-JSON-serializable object in operation history."""
+    sr = 16000
+    data = np.random.randn(1, sr)
+    cf = ChannelFrame.from_numpy(data, sr)
+
+    class NonSerializable:
+        def __str__(self) -> str:
+            return "NonSerializableObj"
+
+    cf.operation_history = [{"op": "test", "param": NonSerializable()}]
+
+    path = tmp_path / "test_non_serializable.wdf"
+    # Should not raise, but fallback to string representation
+    wdf_io.save(cf, path)
+
+    # Verify it was saved as string
+    cf2 = wdf_io.load(path)
+    assert cf2.operation_history[0]["param"] == "NonSerializableObj"
+
+
+def test_load_no_channels(tmp_path: Path) -> None:
+    """Test loading a file with no channels raises ValueError."""
+    path = tmp_path / "empty_channels.wdf"
+
+    # Create a dummy HDF5 file with no channels
+    with h5py.File(path, "w") as f:
+        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["sampling_rate"] = 16000.0
+        f.create_group("channels")  # Empty group
+
+    with pytest.raises(ValueError, match="No channel data found"):
+        wdf_io.load(path)
+
+
+def test_load_json_decode_error(tmp_path: Path) -> None:
+    """Test loading with JSON decode error in operation history."""
+    path = tmp_path / "bad_json.wdf"
+
+    with h5py.File(path, "w") as f:
+        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["sampling_rate"] = 16000.0
+
+        # Add channels
+        ch_grp = f.create_group("channels")
+        c0 = ch_grp.create_group("0")
+        c0.create_dataset("data", data=np.zeros(100))
+
+        # Add bad op history
+        op_grp = f.create_group("operation_history")
+        op0 = op_grp.create_group("operation_0")
+        # Invalid JSON string
+        op0.attrs["params"] = "{bad_json"
+
+    # Should load and fallback to raw string
+    cf = wdf_io.load(path)
+    assert cf.operation_history[0]["params"] == "{bad_json"
+
+
+def test_load_file_not_found(tmp_path: Path) -> None:
+    """Test loading a non-existent file raises FileNotFoundError."""
+    path = tmp_path / "non_existent.wdf"
+    with pytest.raises(FileNotFoundError, match="File not found"):
+        wdf_io.load(path)

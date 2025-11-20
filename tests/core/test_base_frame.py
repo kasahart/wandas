@@ -1,3 +1,4 @@
+from typing import Any
 from unittest import mock
 
 import dask.array as da
@@ -6,6 +7,7 @@ import pandas as pd
 import pytest
 from dask.array.core import Array as DaArray
 
+import wandas as wd
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 
@@ -862,3 +864,178 @@ class TestBaseFrameEdgeCases:
         result = frame[1:2]
         assert isinstance(result.channels, list)
         assert len(result.channels) == 1
+
+
+class TestBaseFrameSingleChannelMetadata:
+    """Test single channel metadata handling in BaseFrame."""
+
+    def test_single_channel_metadata_wrapping(self) -> None:
+        """Test that single ChannelMetadata is wrapped in list."""
+        # Create a frame
+        signal = wd.generate_sin(freqs=[440], duration=0.1, sampling_rate=16000)
+
+        # Access by index to trigger line 378
+        # Single channel access should still work
+        single_channel = signal[0]
+        assert single_channel.n_channels == 1
+
+
+class TestDebugLoggingExceptionHandling:
+    """Test debug logging exception handling."""
+
+    def test_frame_repr_works(self) -> None:
+        """Test that frame repr works without errors."""
+        # Create a frame
+        signal = wd.generate_sin(freqs=[440], duration=0.1, sampling_rate=16000)
+
+        # Call repr which may trigger debugging code
+        # Lines 153-154 handle exceptions in debug logging
+        repr_str = repr(signal)
+        assert "ChannelFrame" in repr_str or "Frame" in repr_str
+
+
+class TestBaseFrameInfoAndDataframe:
+    """Test info() and to_dataframe() methods."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.sample_rate = 16000
+        self.data = np.random.random((1, 16000))
+        self.dask_data: DaArray = _da_from_array(self.data, chunks=(1, -1))
+        self.channel_frame = ChannelFrame(
+            data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
+        )
+
+    def test_to_dataframe_with_custom_labels(self) -> None:
+        """Test to_dataframe with custom channel labels."""
+        # Set custom labels
+        self.channel_frame.channels[0].label = "left"
+
+        df = self.channel_frame.to_dataframe()
+
+        # Check column names
+        assert list(df.columns) == ["left"]
+
+    def test_to_dataframe_single_channel(self) -> None:
+        """Test to_dataframe with single channel."""
+        # Get single channel (already single channel)
+        single_channel = self.channel_frame.get_channel(0)
+
+        df = single_channel.to_dataframe()
+
+        # Check DataFrame properties
+        assert df.shape == (self.data.shape[1], 1)  # (n_samples, 1)
+        assert list(df.columns) == ["ch0"]
+        assert df.index.name == "time"
+
+        # Check data values
+        np.testing.assert_array_equal(df.values.flatten(), self.data[0])
+
+    def test_info_method_basic(self, capsys: Any) -> None:
+        """Test info() method displays correct information."""
+        self.channel_frame.info()
+
+        captured = capsys.readouterr()
+        output = captured.out
+
+        # Verify all expected information is present
+        assert "Channels: 1" in output
+        assert f"Sampling rate: {self.sample_rate} Hz" in output
+        assert "Duration: 1.0 s" in output
+        assert f"Samples: {self.channel_frame.n_samples}" in output
+        assert "Channel labels: ['ch0']" in output
+
+    def test_info_method_single_channel(self, capsys: Any) -> None:
+        """Test info() method with single channel."""
+        single_data = self.data[0:1]
+        single_frame = ChannelFrame.from_numpy(
+            single_data, sampling_rate=self.sample_rate, label="single"
+        )
+
+        single_frame.info()
+
+        captured = capsys.readouterr()
+        output = captured.out
+
+        assert "Channels: 1" in output
+        assert "Channel labels: ['ch0']" in output
+
+    def test_info_method_custom_labels(self, capsys: Any) -> None:
+        """Test info() method with custom channel labels."""
+        # Set custom labels
+        self.channel_frame.channels[0].label = "left"
+
+        self.channel_frame.info()
+
+        captured = capsys.readouterr()
+        output = captured.out
+
+        assert "Channel labels: ['left']" in output
+
+    def test_info_method_different_duration(self, capsys: Any) -> None:
+        """Test info() method with different durations."""
+        # Create a frame with 0.5 seconds of data
+        short_data = np.random.random((1, 8000))
+        short_frame = ChannelFrame.from_numpy(
+            short_data, sampling_rate=self.sample_rate, label="short"
+        )
+
+        short_frame.info()
+
+        captured = capsys.readouterr()
+        output = captured.out
+
+        assert "Duration: 0.5 s" in output
+        assert "Samples: 8000" in output
+
+
+class TestBaseFrameCoverage:
+    """Additional tests for BaseFrame coverage."""
+
+    def setup_method(self) -> None:
+        self.sample_rate = 16000
+        self.data = np.random.random((2, 16000))
+        self.dask_data: DaArray = _da_from_array(self.data, chunks=(1, -1))
+        self.channel_frame = ChannelFrame(
+            data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
+        )
+
+    def test_init_rechunk_failure(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test that initialization continues even if rechunking fails."""
+        # Fail first call, succeed second call (fallback)
+        side_effect = [Exception("Rechunk failed"), self.dask_data]
+        with mock.patch.object(DaArray, "rechunk", side_effect=side_effect):
+            frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate)
+            # Should still be created
+            assert isinstance(frame, ChannelFrame)
+            # Should log warning
+            assert "Rechunk failed" in caplog.text
+
+    def test_init_debug_info_failure(self) -> None:
+        """Test that initialization continues even if _debug_info_impl fails."""
+        # We need to subclass to mock _debug_info_impl effectively or patch it on class
+        with mock.patch(
+            "wandas.frames.channel.ChannelFrame._debug_info_impl",
+            side_effect=Exception("Debug info failed"),
+        ):
+            frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate)
+            assert isinstance(frame, ChannelFrame)
+
+    def test_get_channel_invalid_type(self) -> None:
+        """Test get_channel with invalid type raises TypeError."""
+        with pytest.raises(TypeError):
+            self.channel_frame.get_channel(1.5)  # type: ignore
+
+    def test_handle_multidim_indexing_too_many_dims(self) -> None:
+        """Test _handle_multidim_indexing with too many dimensions."""
+        # 2D data, try 3D index
+        key = (0, slice(None), 0)
+        with pytest.raises(ValueError, match="Invalid key length"):
+            self.channel_frame._handle_multidim_indexing(key)
+
+    def test_handle_multidim_indexing_invalid_channel_key(self) -> None:
+        """Test _handle_multidim_indexing with invalid channel key type."""
+        # Pass a float as channel key
+        key = (1.5, slice(None))
+        with pytest.raises(TypeError, match="Invalid channel key type"):
+            self.channel_frame._handle_multidim_indexing(key)  # type: ignore

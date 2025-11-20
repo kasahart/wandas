@@ -191,14 +191,15 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
                 self.channel_plot(
                     bf.time, channel_data, ax_i, alpha=alpha, **plot_kwargs
                 )
+                unit_suffix = f" [{ch_meta.unit}]" if ch_meta.unit else ""
                 ax_i.set(
-                    ylabel=ylabel + f" [{ch_meta.unit}]",
+                    ylabel=f"{ylabel}{unit_suffix}",
                     title=ch_meta.label,
                     **ax_set,
                 )
 
             axes_list[-1].set(
-                xlabel="Time [s]",
+                xlabel=xlabel,
             )
             fig.suptitle(title or bf.label or "Channel Data")
 
