@@ -721,3 +721,34 @@ class TestSpectralFrame:
         assert "window" in kwargs
         assert kwargs["n_fft"] == self.n_fft
         assert kwargs["window"] == self.window
+
+
+class TestSpectralFrameCoverage:
+    """Additional tests for SpectralFrame coverage."""
+
+    def setup_method(self) -> None:
+        self.sampling_rate = 44100
+        self.n_fft = 1024
+        self.shape = (2, self.n_fft // 2 + 1)
+        self.complex_data = np.random.rand(*self.shape) + 1j * np.random.rand(
+            *self.shape
+        )
+        self.data = _da_from_array(self.complex_data, chunks=(1, -1))
+        self.frame = SpectralFrame(
+            data=self.data,
+            sampling_rate=self.sampling_rate,
+            n_fft=self.n_fft,
+        )
+
+    def test_binary_op_none_metadata_history(self) -> None:
+        """Test _binary_op when metadata and operation_history are None."""
+        # Force metadata and history to None (though init usually sets them)
+        self.frame.metadata = None  # type: ignore
+        self.frame.operation_history = None  # type: ignore
+
+        other = self.frame * 2
+
+        # Should handle None gracefully and create new dicts/lists
+        assert other.metadata is not None
+        assert other.operation_history is not None
+        assert len(other.operation_history) == 1

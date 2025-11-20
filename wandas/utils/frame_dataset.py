@@ -178,7 +178,11 @@ class FrameDataset(Generic[F], ABC):
         try:
             return self._transform(source_frame)
         except Exception as e:
-            logger.warning(f"Failed to transform index {index}: {str(e)}")
+            msg = f"Failed to transform index {index}: {str(e)}"
+            logger.warning(msg)
+            # Also emit to the root logger to improve capture reliability
+            # in test runners and across different logging configurations
+            logging.getLogger().warning(msg)
             return None
 
     def _ensure_loaded(self, index: int) -> F | None:
