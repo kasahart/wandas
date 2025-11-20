@@ -26,6 +26,6 @@ Use this prompt when adding or modifying behavior anywhere in the Wandas codebas
   - multi-channel audio and label alignment,
   - sampling rate changes,
   - lazy Dask computations and `.compute()` boundaries.
-- Error messages should follow the **WHAT/WHY/HOW** pattern (see `docs/development/error_message_guide.md` when available).
+- Error messages should follow the **WHAT/WHY/HOW** pattern.
 
 Use this prompt to stay aligned with Wandas' testing, typing, and quality expectations.
