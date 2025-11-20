@@ -738,6 +738,7 @@ class ChannelFrame(
 
         Args:
             path: Path to the audio file.
+            channel: Channel(s) to load. None loads all channels.
             start: Start time in seconds.
             end: End time in seconds.
             ch_labels: Labels for each channel.

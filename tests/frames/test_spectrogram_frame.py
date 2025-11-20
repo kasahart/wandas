@@ -69,9 +69,7 @@ class TestSpectrogramFrame:
         assert spec_3d.shape == (2, 513, 10)
 
         # 不正な次元の配列（1次元）
-        with pytest.raises(
-            ValueError, match="データは2次元または3次元である必要があります"
-        ):
+        with pytest.raises(ValueError, match=r"Invalid data dimensions"):
             data_1d: DaArray = _da_random_random(10) + 1j * _da_random_random(10)
             SpectrogramFrame(
                 data=data_1d,
@@ -81,9 +79,7 @@ class TestSpectrogramFrame:
             )
 
         # 不正な次元の配列（4次元）
-        with pytest.raises(
-            ValueError, match="データは2次元または3次元である必要があります"
-        ):
+        with pytest.raises(ValueError, match=r"Invalid data dimensions"):
             data_4d: DaArray = _da_random_random(
                 (2, 513, 10, 2)
             ) + 1j * _da_random_random((2, 513, 10, 2))
@@ -97,7 +93,7 @@ class TestSpectrogramFrame:
         # 不正な周波数ビン数
         with pytest.raises(
             ValueError,
-            match="データの形状が無効です。周波数ビン数は 513 である必要があります",
+            match=r"Invalid frequency bin count",
         ):
             data_invalid_bins: DaArray = _da_random_random(
                 (2, 400, 10)
@@ -195,24 +191,16 @@ class TestSpectrogramFrame:
         )
 
         # サンプリングレートが異なる場合、ValueErrorが発生することを確認
-        with pytest.raises(
-            ValueError, match="サンプリングレートが一致していません。演算できません。"
-        ):
+        with pytest.raises(ValueError, match=r"Sampling rate mismatch"):
             _ = spec1 + spec2
 
-        with pytest.raises(
-            ValueError, match="サンプリングレートが一致していません。演算できません。"
-        ):
+        with pytest.raises(ValueError, match=r"Sampling rate mismatch"):
             _ = spec1 - spec2
 
-        with pytest.raises(
-            ValueError, match="サンプリングレートが一致していません。演算できません。"
-        ):
+        with pytest.raises(ValueError, match=r"Sampling rate mismatch"):
             _ = spec1 * spec2
 
-        with pytest.raises(
-            ValueError, match="サンプリングレートが一致していません。演算できません。"
-        ):
+        with pytest.raises(ValueError, match=r"Sampling rate mismatch"):
             _ = spec1 / spec2
 
     def test_binary_operations_with_various_types(
@@ -270,21 +258,21 @@ class TestSpectrogramFrame:
         # 範囲外インデックス（負の値）
         with pytest.raises(
             IndexError,
-            match=r"時間インデックス -1 が範囲外です。有効範囲: 0-\d+",
+            match=r"Time index out of range",
         ):
             spec.get_frame_at(-1)
 
         # 範囲外インデックス（大きすぎる値）
         with pytest.raises(
             IndexError,
-            match=r"時間インデックス 20 が範囲外です。有効範囲: 0-\d+",
+            match=r"Time index out of range",
         ):
             spec.get_frame_at(20)  # n_frames=5 なので範囲外
 
         # 境界値テスト（n_frames と同じ値）
         with pytest.raises(
             IndexError,
-            match=r"時間インデックス 5 が範囲外です。有効範囲: 0-\d+",
+            match=r"Time index out of range",
         ):
             spec.get_frame_at(5)  # n_frames=5 なので範囲外
 
@@ -850,9 +838,7 @@ class TestSpectrogramFrame:
 
         # 1D配列（不正）
         np_data_1d = np.random.random(10) + 1j * np.random.random(10)
-        with pytest.raises(
-            ValueError, match="データは2次元または3次元である必要があります"
-        ):
+        with pytest.raises(ValueError, match=r"Invalid data shape"):
             SpectrogramFrame.from_numpy(
                 data=np_data_1d,
                 sampling_rate=44100.0,
@@ -864,9 +850,7 @@ class TestSpectrogramFrame:
         np_data_4d = np.random.random((2, 65, 10, 2)) + 1j * np.random.random(
             (2, 65, 10, 2)
         )
-        with pytest.raises(
-            ValueError, match="データは2次元または3次元である必要があります"
-        ):
+        with pytest.raises(ValueError, match=r"Invalid data shape"):
             SpectrogramFrame.from_numpy(
                 data=np_data_4d,
                 sampling_rate=44100.0,
@@ -884,7 +868,7 @@ class TestSpectrogramFrame:
         )  # 50 != 65
         with pytest.raises(
             ValueError,
-            match="データの形状が無効です。周波数ビン数は 65 である必要があります",
+            match=r"Invalid frequency bin count",
         ):
             SpectrogramFrame.from_numpy(
                 data=np_data,

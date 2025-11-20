@@ -121,11 +121,18 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
             data = da.expand_dims(data, axis=0)  # type: ignore [unused-ignore]
         elif data.ndim != 3:
             raise ValueError(
-                f"データは2次元または3次元である必要があります。形状: {data.shape}"
+                f"Invalid data dimensions\n"
+                f"  Got: {data.ndim}D array with shape {data.shape}\n"
+                f"  Expected: 2D or 3D array\n"
+                f"Spectrograms require 2D (freq x time) or "
+                f"3D (channel x freq x time) data."
             )
         if not data.shape[-2] == n_fft // 2 + 1:
             raise ValueError(
-                f"データの形状が無効です。周波数ビン数は {n_fft // 2 + 1} である必要があります。"  # noqa: E501
+                f"Invalid frequency bin count\n"
+                f"  Got: {data.shape[-2]} bins\n"
+                f"  Expected: {n_fft // 2 + 1} bins (n_fft={n_fft})\n"
+                f"Ensure data shape matches the specified n_fft parameter."
             )
 
         self.n_fft = n_fft
@@ -372,7 +379,11 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         if isinstance(other, SpectrogramFrame):
             if self.sampling_rate != other.sampling_rate:
                 raise ValueError(
-                    "サンプリングレートが一致していません。演算できません。"
+                    f"Sampling rate mismatch\n"
+                    f"  Got: {self.sampling_rate} Hz and {other.sampling_rate} Hz\n"
+                    f"  Expected: matching sampling rates\n"
+                    f"Resample one frame to match the other before "
+                    f"performing operations."
                 )
 
             result_data = op(self._data, other._data)
@@ -635,7 +646,10 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
 
         if time_idx < 0 or time_idx >= self.n_frames:
             raise IndexError(
-                f"時間インデックス {time_idx} が範囲外です。有効範囲: 0-{self.n_frames - 1}"  # noqa: E501
+                f"Time index out of range\n"
+                f"  Got: {time_idx}\n"
+                f"  Expected: 0 to {self.n_frames - 1}\n"
+                f"Use an index within the valid range for this spectrogram."
             )
 
         frame_data = self._data[..., time_idx]
@@ -879,14 +893,14 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
             raise ValueError(
                 f"Invalid data shape\n"
                 f"  Got: {data.shape}\n"
-                f"  Expected: 2D (freq×time) or 3D (channel×freq×time) array\n"
+                f"  Expected: 2D (freq, time) or 3D (channel, freq, time) array\n"
                 f"Provide a 2D or 3D array to represent time-frequency data."
             )
         if data.ndim >= 4:
             raise ValueError(
                 f"Invalid data shape\n"
                 f"  Got: {data.shape}\n"
-                f"  Expected: 2D (freq×time) or 3D (channel×freq×time) array\n"
+                f"  Expected: 2D (freq, time) or 3D (channel, freq, time) array\n"
                 f"Provide a 2D or 3D array to represent time-frequency data."
             )
         if data.ndim == 2:

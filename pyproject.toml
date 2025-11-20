@@ -107,9 +107,6 @@ docstring-code-format = true
 
 [tool.mypy]
 plugins = ["pydantic.mypy"]
-# Incremental mode disabled to ensure consistent type checking across CI and local runs,
-# avoiding cache-related false positives when pydantic models change
-incremental = false
 cache_dir = ".mypy_cache"
 files = ["wandas", "tests"]
 strict = true
