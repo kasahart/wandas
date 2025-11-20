@@ -11,7 +11,6 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import dask.array as da
 import h5py
 import numpy as np
 
@@ -19,9 +18,9 @@ if TYPE_CHECKING:
     from ..frames.channel import ChannelFrame
 
 # CoreモジュールからBaseFrameをインポート
-from ..core.base_frame import BaseFrame
+from wandas.utils.dask_helpers import da_from_array as _da_from_array
 
-da_from_array = da.from_array  # type: ignore [unused-ignore]
+from ..core.base_frame import BaseFrame
 
 logger = logging.getLogger(__name__)
 
@@ -250,7 +249,8 @@ def load(path: str | Path, *, format: str = "hdf5") -> "ChannelFrame":
             raise ValueError("No channel data found in the file")
 
         # Create a new ChannelFrame
-        dask_data = da_from_array(combined_data)
+        # Use channel-wise chunking: 1 for channel axis and -1 for samples
+        dask_data = _da_from_array(combined_data, chunks=(1, -1))
 
         cf = ChannelFrame(
             data=dask_data,

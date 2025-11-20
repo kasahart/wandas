@@ -872,8 +872,26 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
             A new SpectrogramFrame containing the NumPy data.
         """
 
+        # Normalize shape: support 2D single-channel inputs by expanding
+        # to channel-first 3D shape. Reject 1D inputs as invalid for
+        # spectrograms.
+        if data.ndim == 1:
+            raise ValueError(
+                f"データは2次元または3次元である必要があります。形状: {data.shape}"
+            )
+        if data.ndim >= 4:
+            raise ValueError(
+                f"データは2次元または3次元である必要があります。形状: {data.shape}"
+            )
+        if data.ndim == 2:
+            data = np.expand_dims(data, axis=0)
+
         # Convert NumPy array to dask array
-        dask_data = da.from_array(data)
+        # Use channel-wise chunking for spectrograms (1, -1, -1).
+        # Use shared helper to avoid mypy chunking typing issues
+        from wandas.utils.dask_helpers import da_from_array as _da_from_array
+
+        dask_data = _da_from_array(data, chunks=(1, -1, -1))
         sf = cls(
             data=dask_data,
             sampling_rate=sampling_rate,
