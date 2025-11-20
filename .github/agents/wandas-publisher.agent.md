@@ -7,6 +7,7 @@ handoffs:
   - label: Back to Planning
     agent: wandas-planner
     prompt: PR created. What is the next task?
+    send: false
 ---
 # Publishing Protocol
 - Ensure all tests passed and the reviewer has approved the changes.
@@ -26,6 +27,11 @@ handoffs:
    - Title: Use the commit message or a summary.
    - Body: Include the implementation summary and reviewer notes.
    - Reviewers: Assign if specified.
+   - **Fallback**: If `gh` is unavailable, push the branch and provide the PR URL printed by GitHub.
+5. **Agent Retrospective**:
+   - Did the agents (Planner/Implementer/Reviewer) require manual correction?
+   - If yes, create a new issue or task to update the `.github/agents/` or `instructions/` files.
+   - Refer to [agent-maintenance.prompt.md](../instructions/agent-maintenance.prompt.md) for policies on updating agents.
 
 ## Safety
 - Do not force push to shared branches.

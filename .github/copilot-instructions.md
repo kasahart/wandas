@@ -68,6 +68,7 @@ These instructions are for AI coding agents (planner, implementer, reviewer) wor
   - Reuse existing helpers for resampling, filtering, spectral transforms, etc., instead of duplicating logic; factor out shared pieces when duplication is unavoidable.
 - **Error handling**:
   - When raising new errors, follow a WHAT/WHY/HOW pattern in messages (what went wrong, why it matters here, how the caller can fix it).
+  - Example: `raise ValueError("Sampling rate mismatch (WHAT). Filters require matching rates to prevent phase distortion (WHY). Resample inputs to the same rate before filtering (HOW).")`
 - **Edge cases to mirror**:
   - Follow existing tests for NaN handling, multi‑channel audio, sampling‑rate changes, large Dask‑backed datasets, and psychoacoustic/spectral metrics.
 

@@ -7,12 +7,14 @@ handoffs:
   - label: Publish Changes
     agent: wandas-publisher
     prompt: The review is complete and successful. Proceed to commit and create a PR.
+    send: false
   - label: Plan Next Task
     agent: wandas-planner
     prompt: Capture follow-ups from this review and outline the next plan.
+    send: false
 ---
 # Review protocol
-- Re-read `.github/copilot-instructions.md` so review comments align with project norms.
+- Re-read [.github/copilot-instructions.md](../copilot-instructions.md) so review comments align with project norms.
 - Verify that frames remain immutable and metadata/`operation_history` are updated atomically.
 - Check that Dask-backed operations preserve laziness (no unnecessary `.compute()` calls).
 

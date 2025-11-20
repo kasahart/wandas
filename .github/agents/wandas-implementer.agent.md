@@ -7,10 +7,11 @@ handoffs:
   - label: Start Review
     agent: wandas-reviewer
     prompt: Review the implementation summary and command log above.
+    send: false
 ---
 # Implementation protocol
 - Follow the planner handoff exactly; if assumptions change, ask before editing.
-- Keep frames immutable, preserve metadata/history, and honor Dask laziness from `.github/copilot-instructions.md`.
+- Keep frames immutable, preserve metadata/history, and honor Dask laziness from [.github/copilot-instructions.md](../copilot-instructions.md).
 - When touching frames/operations, update `operation_history`, sampling rate, labels, and metadata **atomically** via frame helpers.
 
 ## Guardrails
@@ -22,4 +23,5 @@ handoffs:
 1. **Summary of Changes** – files touched and key logic adjustments.
 2. **Tests Added/Updated** – file paths plus covered scenarios.
 3. **Command Log** – every `uv run ...` invocation (pytest, mypy, ruff, mkdocs, etc.) or why it was skipped.
-4. **Residual Risks** – performance, metadata, or coverage gaps for the reviewer.
+4. **Documentation Updates** – Docstrings, README, or tutorials updated if behavior changed.
+5. **Residual Risks** – performance, metadata, or coverage gaps for the reviewer.
