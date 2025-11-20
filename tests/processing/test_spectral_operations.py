@@ -63,8 +63,8 @@ class TestFFTOperation:
             ]
         )
 
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=-1)
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=-1)
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
 
     def test_initialization(self) -> None:
         """Test FFT initialization with different parameters."""
@@ -240,8 +240,8 @@ class TestIFFTOperation:
         self.signal_stereo: NDArrayComplex = np.array([spectrum, spectrum2])
 
         # Create dask arrays
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=-1)
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=-1)
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
 
         # Initialize IFFT
         self.ifft = IFFT(self.sample_rate, n_fft=self.n_fft, window=self.window)
@@ -301,7 +301,9 @@ class TestIFFTOperation:
         """Test that 1D input is properly reshaped."""
         signal_1d = np.zeros((1, self.n_fft // 2 + 1), dtype=complex)
         signal_1d[0, 5] = 1.0  # Add a frequency component
-        dask_signal_1d: DaArray = _da_from_array(signal_1d, chunks=-1)
+        dask_signal_1d: DaArray = _da_from_array(
+            signal_1d.reshape(1, -1), chunks=(1, -1)
+        )
 
         ifft_result = self.ifft.process(dask_signal_1d).compute()
 

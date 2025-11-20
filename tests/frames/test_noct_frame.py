@@ -44,7 +44,7 @@ class TestNOctFrame:
         self.shape: tuple[int, int] = (2, self.n_freq_bins)
         self.real_data: NDArrayReal = create_real_data(self.shape)
         # 遅延実行に対応したデータ構造の使用
-        self.data: DaArray = _da_from_array(self.real_data, chunks=-1)
+        self.data: DaArray = _da_from_array(self.real_data, chunks=(1, -1))
 
         # Create channel metadata
         self.channel_metadata: list[ChannelMetadata] = [
@@ -95,7 +95,7 @@ class TestNOctFrame:
         # Create 1D real data
         shape_1d: tuple[int] = (self.n_freq_bins,)
         real_data_1d: NDArrayReal = create_real_data(shape_1d)
-        data_1d: DaArray = _da_from_array(real_data_1d, chunks=-1)
+        data_1d: DaArray = _da_from_array(real_data_1d.reshape(1, -1), chunks=(1, -1))
 
         frame_1d: NOctFrame = NOctFrame(
             data=data_1d,

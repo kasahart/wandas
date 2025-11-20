@@ -50,8 +50,8 @@ class TestLoudnessZwtv:
         )
 
         # Create dask arrays
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=-1)
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=-1)
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
 
         # Create operation instance
         self.loudness_op = LoudnessZwtv(self.sample_rate, field_type=self.field_type)
@@ -318,7 +318,7 @@ class TestLoudnessZwtv:
         from wandas.frames.channel import ChannelFrame
 
         # Create frame and calculate loudness
-        dask_data = _da_from_array(self.signal_mono, chunks=-1)
+        dask_data = _da_from_array(self.signal_mono, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
         loudness_frame = frame.loudness_zwtv(field_type=self.field_type)
 
@@ -355,7 +355,7 @@ class TestLoudnessZwtv:
         from wandas.frames.channel import ChannelFrame
 
         # Create frame and calculate loudness
-        dask_data = _da_from_array(self.signal_mono, chunks=-1)
+        dask_data = _da_from_array(self.signal_mono, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
         loudness_frame = frame.loudness_zwtv(field_type=self.field_type)
 
@@ -398,7 +398,7 @@ class TestLoudnessZwtvIntegration:
         # Create a simple frame
         t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
         signal = np.array([0.05 * np.sin(2 * np.pi * 1000 * t)])
-        dask_data = _da_from_array(signal, chunks=-1)
+        dask_data = _da_from_array(signal, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
         # Check method exists
@@ -443,8 +443,8 @@ class TestLoudnessZwst:
         )
 
         # Create dask arrays
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=-1)
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=-1)
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
 
         # Create operation instance
         self.loudness_op = LoudnessZwst(self.sample_rate, field_type=self.field_type)
@@ -744,7 +744,7 @@ class TestLoudnessZwstIntegration:
         # Create a simple frame
         t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
         signal = np.array([0.05 * np.sin(2 * np.pi * 1000 * t)])
-        dask_data = _da_from_array(signal, chunks=-1)
+        dask_data = _da_from_array(signal, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
         # Check method exists
@@ -758,7 +758,7 @@ class TestLoudnessZwstIntegration:
         # Create mono frame
         t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
         signal_mono = np.array([0.05 * np.sin(2 * np.pi * 1000 * t)])
-        dask_data_mono = _da_from_array(signal_mono, chunks=-1)
+        dask_data_mono = _da_from_array(signal_mono, chunks=(1, -1))
         frame_mono = ChannelFrame(data=dask_data_mono, sampling_rate=self.sample_rate)
 
         # Calculate loudness
@@ -772,7 +772,7 @@ class TestLoudnessZwstIntegration:
 
         # Create stereo frame
         signal_stereo = np.vstack([signal_mono[0], signal_mono[0] * 0.5])
-        dask_data_stereo = _da_from_array(signal_stereo, chunks=-1)
+        dask_data_stereo = _da_from_array(signal_stereo, chunks=(1, -1))
         frame_stereo = ChannelFrame(
             data=dask_data_stereo, sampling_rate=self.sample_rate
         )
@@ -800,7 +800,7 @@ class TestLoudnessZwstIntegration:
         # Create test signal
         t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
         signal = np.array([0.05 * np.sin(2 * np.pi * 1000 * t)])
-        dask_data = _da_from_array(signal, chunks=-1)
+        dask_data = _da_from_array(signal, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
         # Calculate using wandas
@@ -845,8 +845,8 @@ class TestRoughnessDw:
         )
 
         # Create dask arrays
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=-1)
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=-1)
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
 
         # Create operation instance
         self.roughness_op = RoughnessDw(self.sample_rate, overlap=self.overlap)
@@ -1066,7 +1066,7 @@ class TestRoughnessDw:
         from wandas.frames.channel import ChannelFrame
 
         # Create frame and calculate roughness
-        dask_data = _da_from_array(self.signal_mono, chunks=-1)
+        dask_data = _da_from_array(self.signal_mono, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
         roughness_frame = frame.roughness_dw(overlap=self.overlap)
 
@@ -1124,7 +1124,7 @@ class TestRoughnessDwIntegration:
         # Create a simple frame
         t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
         signal = np.array([0.1 * np.sin(2 * np.pi * 1000 * t)])
-        dask_data = _da_from_array(signal, chunks=-1)
+        dask_data = _da_from_array(signal, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
         # Check method exists
@@ -1140,7 +1140,7 @@ class TestRoughnessDwIntegration:
         carrier = np.sin(2 * np.pi * 1000 * t)
         modulation = 1 + np.sin(2 * np.pi * 70 * t)
         signal = np.array([0.1 * carrier * modulation])
-        dask_data = _da_from_array(signal, chunks=-1)
+        dask_data = _da_from_array(signal, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
         # Calculate roughness
@@ -1165,7 +1165,7 @@ class TestRoughnessDwIntegration:
         carrier = np.sin(2 * np.pi * 1000 * t)
         modulation = 1 + np.sin(2 * np.pi * 70 * t)
         signal = np.array([0.1 * carrier * modulation])
-        dask_data = _da_from_array(signal, chunks=-1)
+        dask_data = _da_from_array(signal, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
         # Calculate using wandas
@@ -1212,8 +1212,8 @@ class TestRoughnessDwSpec:
         )
 
         # Create dask arrays
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=-1)
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=-1)
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
 
         # Import operation class
         from wandas.processing.psychoacoustic import RoughnessDwSpec
@@ -1495,7 +1495,7 @@ class TestRoughnessDwSpecIntegration:
         # Create a simple frame
         t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
         signal = np.array([0.1 * np.sin(2 * np.pi * 1000 * t)])
-        dask_data = _da_from_array(signal, chunks=-1)
+        dask_data = _da_from_array(signal, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
         # Check method exists
@@ -1512,7 +1512,7 @@ class TestRoughnessDwSpecIntegration:
         carrier = np.sin(2 * np.pi * 1000 * t)
         modulation = 1 + np.sin(2 * np.pi * 70 * t)
         signal = np.array([0.1 * carrier * modulation])
-        dask_data = _da_from_array(signal, chunks=-1)
+        dask_data = _da_from_array(signal, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
         # Calculate specific roughness
@@ -1539,7 +1539,7 @@ class TestRoughnessDwSpecIntegration:
         carrier = np.sin(2 * np.pi * 1000 * t)
         modulation = 1 + np.sin(2 * np.pi * 70 * t)
         signal = np.array([0.1 * carrier * modulation])
-        dask_data = _da_from_array(signal, chunks=-1)
+        dask_data = _da_from_array(signal, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
         # Calculate using wandas
@@ -1588,8 +1588,8 @@ class TestSharpnessDin:
         )
 
         # Create dask arrays
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=-1)
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=-1)
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
 
         # Create operation instance
         self.sharpness_op = SharpnessDin(self.sample_rate)
@@ -1778,7 +1778,7 @@ class TestSharpnessDin:
         from wandas.frames.channel import ChannelFrame
 
         # Create frame and calculate sharpness
-        dask_data = _da_from_array(self.signal_mono, chunks=-1)
+        dask_data = _da_from_array(self.signal_mono, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
         sharpness_frame = frame.sharpness_din()
 
@@ -1815,7 +1815,7 @@ class TestSharpnessDin:
         from wandas.frames.channel import ChannelFrame
 
         # Create frame and calculate sharpness
-        dask_data = _da_from_array(self.signal_mono, chunks=-1)
+        dask_data = _da_from_array(self.signal_mono, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
         sharpness_frame = frame.sharpness_din()
 
@@ -1858,7 +1858,7 @@ class TestSharpnessDinIntegration:
         # Create a simple frame
         t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
         signal = np.array([0.05 * np.sin(2 * np.pi * 4000 * t)])
-        dask_data = _da_from_array(signal, chunks=-1)
+        dask_data = _da_from_array(signal, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
         # Check method exists
@@ -1872,7 +1872,7 @@ class TestSharpnessDinIntegration:
         # Create high-frequency signal
         t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
         signal = np.array([0.05 * np.sin(2 * np.pi * 4000 * t)])
-        dask_data = _da_from_array(signal, chunks=-1)
+        dask_data = _da_from_array(signal, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
         # Calculate sharpness
@@ -1895,7 +1895,7 @@ class TestSharpnessDinIntegration:
         # Create test signal
         t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
         signal = np.array([0.05 * np.sin(2 * np.pi * 4000 * t)])
-        dask_data = _da_from_array(signal, chunks=-1)
+        dask_data = _da_from_array(signal, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
         # Calculate using wandas
@@ -1941,8 +1941,8 @@ class TestSharpnessDinSt:
         )
 
         # Create dask arrays
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=-1)
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=-1)
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
 
         # Create operation instance
         self.sharpness_op = SharpnessDinSt(self.sample_rate)
@@ -2150,7 +2150,7 @@ class TestSharpnessDinStIntegration:
         # Create a simple frame
         t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
         signal = np.array([0.05 * np.sin(2 * np.pi * 4000 * t)])
-        dask_data = _da_from_array(signal, chunks=-1)
+        dask_data = _da_from_array(signal, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
         # Check method exists
@@ -2164,7 +2164,7 @@ class TestSharpnessDinStIntegration:
         # Create mono frame
         t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
         signal_mono = np.array([0.05 * np.sin(2 * np.pi * 4000 * t)])
-        dask_data_mono = _da_from_array(signal_mono, chunks=-1)
+        dask_data_mono = _da_from_array(signal_mono, chunks=(1, -1))
         frame_mono = ChannelFrame(data=dask_data_mono, sampling_rate=self.sample_rate)
 
         # Calculate sharpness
@@ -2178,7 +2178,7 @@ class TestSharpnessDinStIntegration:
 
         # Create stereo frame
         signal_stereo = np.vstack([signal_mono[0], signal_mono[0] * 0.5])
-        dask_data_stereo = _da_from_array(signal_stereo, chunks=-1)
+        dask_data_stereo = _da_from_array(signal_stereo, chunks=(1, -1))
         frame_stereo = ChannelFrame(
             data=dask_data_stereo, sampling_rate=self.sample_rate
         )
@@ -2206,7 +2206,7 @@ class TestSharpnessDinStIntegration:
         # Create test signal
         t = np.linspace(0, self.duration, int(self.sample_rate * self.duration))
         signal = np.array([0.05 * np.sin(2 * np.pi * 4000 * t)])
-        dask_data = _da_from_array(signal, chunks=-1)
+        dask_data = _da_from_array(signal, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
         # Calculate using wandas

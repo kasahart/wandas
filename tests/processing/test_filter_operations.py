@@ -213,7 +213,7 @@ class TestAWeightingOperation:
         # Single channel signal with all components
         self.signal: NDArrayReal = signal.unit_impulse(self.sample_rate).reshape(1, -1)
         # Create dask array
-        self.dask_signal: DaArray = _da_from_array(self.signal, chunks=-1)
+        self.dask_signal: DaArray = _da_from_array(self.signal, chunks=(1, -1))
 
     def test_initialization(self) -> None:
         """Test initialization with parameters."""
