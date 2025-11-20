@@ -96,7 +96,7 @@ class BaseFrame(ABC, Generic[T]):
                 self._data = data.rechunk(tuple([1] + [-1] * (data.ndim - 1)))
             else:
                 self._data = data.rechunk(chunks=-1)
-        except Exception:
+        except (ValueError, TypeError):
             # Fall back to previous behavior if Dask rechunk fails.
             self._data = data.rechunk(chunks=-1)  # type: ignore [unused-ignore]
         if self._data.ndim == 1:

@@ -93,7 +93,8 @@ class TestChannelWiseChunking:
         """Test BaseFrame auto-rechunking behavior.
 
         BaseFrame.__init__ automatically rechunks data to channel-wise format,
-        which overrides custom chunking. This test documents the current behavior.
+        which overrides custom chunking. This is the designed behavior to ensure
+        consistent channel-wise parallelism across all frames.
         """
         cf = ChannelFrame.from_numpy(np.random.rand(2, 44100), sampling_rate=44100)
 
