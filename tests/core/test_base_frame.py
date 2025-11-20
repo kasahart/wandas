@@ -141,7 +141,7 @@ class TestBaseFrameArithmeticOperations:
         other_frame = ChannelFrame(data=other_dask, sampling_rate=44100, label="other")
 
         # Should raise ValueError
-        with pytest.raises(ValueError, match="Sampling rates do not match"):
+        with pytest.raises(ValueError, match=r"Sampling rate mismatch"):
             _ = self.channel_frame**other_frame
 
     def test_pow_operator_lazy_evaluation(self) -> None:

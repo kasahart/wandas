@@ -263,7 +263,11 @@ class ChannelFrame(
         if isinstance(other, ChannelFrame):
             if self.sampling_rate != other.sampling_rate:
                 raise ValueError(
-                    "Sampling rates do not match. Cannot perform operation."
+                    f"Sampling rate mismatch\n"
+                    f"  Left operand: {self.sampling_rate} Hz\n"
+                    f"  Right operand: {other.sampling_rate} Hz\n"
+                    f"Resample one frame to match the other before performing "
+                    f"{symbol} operation."
                 )
 
             # Perform operation directly on dask array (maintaining lazy execution)
@@ -349,7 +353,10 @@ class ChannelFrame(
             # Check if sampling rates match
             if self.sampling_rate != other.sampling_rate:
                 raise ValueError(
-                    "Sampling rates do not match. Cannot perform operation."
+                    f"Sampling rate mismatch\n"
+                    f"  Signal: {self.sampling_rate} Hz\n"
+                    f"  Other: {other.sampling_rate} Hz\n"
+                    f"Resample both frames to the same rate before adding."
                 )
 
         elif isinstance(other, np.ndarray):
@@ -1107,19 +1114,31 @@ class ChannelFrame(
                             axis=1,
                         )
                 else:
-                    raise ValueError("データ長不一致: align指定を確認")
+                    raise ValueError(
+                        f"Data length mismatch\n"
+                        f"  Existing frame: {self.n_samples} samples\n"
+                        f"  Channel to add: {data.n_samples} samples\n"
+                        f"Use align='pad' or align='truncate' to handle "
+                        f"length differences."
+                    )
             else:
                 arr = data._data
             labels = [ch.label for ch in self._channel_metadata]
-            new_labels = []
-            new_metadata_list = []
+            new_labels: list[str] = []
+            new_metadata_list: list[ChannelMetadata] = []
             for chmeta in data._channel_metadata:
                 new_label = chmeta.label
                 if new_label in labels or new_label in new_labels:
                     if suffix_on_dup:
                         new_label += suffix_on_dup
                     else:
-                        raise ValueError(f"label重複: {new_label}")
+                        raise ValueError(
+                            f"Duplicate channel label\n"
+                            f"  Label: '{new_label}'\n"
+                            f"  Existing labels: {labels + new_labels}\n"
+                            f"Use suffix_on_dup parameter to automatically "
+                            f"rename duplicates."
+                        )
                 new_labels.append(new_label)
                 # Copy the entire channel_metadata and update only the label
                 new_ch_meta = chmeta.model_copy(deep=True)
@@ -1171,16 +1190,27 @@ class ChannelFrame(
                     )
                     arr = concatenate([arr, pad_arr], axis=1)
             else:
-                raise ValueError("データ長不一致: align指定を確認")
+                raise ValueError(
+                    f"Data length mismatch\n"
+                    f"  Existing frame: {self.n_samples} samples\n"
+                    f"  Channel to add: {arr.shape[1]} samples\n"
+                    f"Use align='pad' or align='truncate' to handle "
+                    f"length differences."
+                )
         labels = [ch.label for ch in self._channel_metadata]
         new_label = label or f"ch{len(labels)}"
         if new_label in labels:
             if suffix_on_dup:
                 new_label += suffix_on_dup
             else:
-                raise ValueError("label重複")
+                raise ValueError(
+                    f"Duplicate channel label\n"
+                    f"  Label: '{new_label}'\n"
+                    f"  Existing labels: {labels}\n"
+                    f"Use suffix_on_dup parameter to automatically "
+                    f"rename duplicates."
+                )
         new_data = concatenate([self._data, arr], axis=0)
-        from ..core.metadata import ChannelMetadata
 
         new_chmeta = self._channel_metadata + [ChannelMetadata(label=new_label)]
         if inplace:
