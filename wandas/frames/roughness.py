@@ -10,6 +10,7 @@ import pandas as pd
 
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
+from wandas.utils.dask_helpers import da_from_array as _da_from_array
 from wandas.utils.types import NDArrayReal
 
 if TYPE_CHECKING:
@@ -345,7 +346,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         else:
             # Scalar or array operation
             if isinstance(other, np.ndarray):
-                other = da.from_array(other, chunks=self._data.chunks)
+                other = _da_from_array(other, chunks=self._data.chunks)
 
             result_data = op(self._data, other)
 

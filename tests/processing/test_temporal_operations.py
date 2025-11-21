@@ -32,8 +32,8 @@ class TestReSampling:
             ]
         )
 
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=-1)
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=-1)
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
 
     def test_initialization(self) -> None:
         """Test initialization with different parameters."""
@@ -69,7 +69,7 @@ class TestReSampling:
         freq = 440.0  # Hz
         t_orig = np.linspace(0, 1, self.orig_sr, endpoint=False)
         signal = np.array([np.sin(2 * np.pi * freq * t_orig)])
-        dask_signal = _da_from_array(signal, chunks=-1)
+        dask_signal = _da_from_array(signal, chunks=(1, -1))
 
         # Resample
         result = self.resampler.process(dask_signal).compute()
@@ -169,8 +169,8 @@ class TestTrim:
             ]
         )
 
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=-1)
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=-1)
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
 
     def test_initialization(self) -> None:
         """Test initialization with different parameters."""
@@ -232,8 +232,8 @@ class TestRmsTrend:
             [np.sin(2 * np.pi * 440 * t) * (0.5 + 0.5 * np.sin(2 * np.pi * 5 * t))]
         )
 
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=-1)
-        self.dask_am: DaArray = _da_from_array(self.am_signal, chunks=-1)
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
+        self.dask_am: DaArray = _da_from_array(self.am_signal, chunks=(1, -1))
 
     def test_initialization(self) -> None:
         """Test initialization with different parameters."""
@@ -308,7 +308,7 @@ class TestRmsTrend:
         # Create test signal with low frequency content (which A-weighting attenuates)
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
         signal_low_freq = np.array([np.sin(2 * np.pi * 50 * t)])  # 50 Hz
-        dask_low_freq = _da_from_array(signal_low_freq, chunks=-1)
+        dask_low_freq = _da_from_array(signal_low_freq, chunks=(1, -1))
 
         result_normal = rms_normal.process(dask_low_freq).compute()
         result_aweighted = rms_aweighted.process(dask_low_freq).compute()
@@ -356,10 +356,10 @@ class TestFixLength:
         t_long = np.linspace(0, 2, int(self.sample_rate * 2), endpoint=False)
         self.long_signal: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t_long)])
 
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=-1)
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=-1)
-        self.dask_short: DaArray = _da_from_array(self.short_signal, chunks=-1)
-        self.dask_long: DaArray = _da_from_array(self.long_signal, chunks=-1)
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
+        self.dask_short: DaArray = _da_from_array(self.short_signal, chunks=(1, -1))
+        self.dask_long: DaArray = _da_from_array(self.long_signal, chunks=(1, -1))
 
     def test_initialization(self) -> None:
         """異なるパラメータでの初期化をテストします。"""

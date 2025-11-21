@@ -31,8 +31,8 @@ class TestABS:
             ]
         )
 
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=-1)
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=-1)
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
 
     def test_initialization(self) -> None:
         """Test initialization."""
@@ -83,8 +83,8 @@ class TestPowerOperation:
             ]
         )
 
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=-1)
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=-1)
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
 
     def test_initialization(self) -> None:
         """Test initialization with different exponents."""
@@ -120,7 +120,7 @@ class TestPowerOperation:
         power_recip = Power(self.sample_rate, exponent=-1.0)
         # To avoid division by zero, use a signal with no zeros
         nonzero_signal = np.array([[1.1, 2.2, 3.3], [4.4, 5.5, 6.6]])
-        nonzero_dask = _da_from_array(nonzero_signal, chunks=-1)
+        nonzero_dask = _da_from_array(nonzero_signal, chunks=(1, -1))
         result_recip = power_recip.process(nonzero_dask).compute()
         expected_recip = 1.0 / nonzero_signal
         np.testing.assert_allclose(result_recip, expected_recip)
@@ -156,9 +156,9 @@ class TestSum:
             ]
         )
 
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=-1)
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=-1)
-        self.dask_quad: DaArray = _da_from_array(self.signal_quad, chunks=-1)
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
+        self.dask_quad: DaArray = _da_from_array(self.signal_quad, chunks=(1, -1))
 
     def test_initialization(self) -> None:
         """Test initialization."""
@@ -223,9 +223,9 @@ class TestMean:
             ]
         )
 
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=-1)
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=-1)
-        self.dask_quad: DaArray = _da_from_array(self.signal_quad, chunks=-1)
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
+        self.dask_quad: DaArray = _da_from_array(self.signal_quad, chunks=(1, -1))
 
     def test_initialization(self) -> None:
         """Test initialization."""
@@ -299,9 +299,9 @@ class TestChannelDifference:
             ]
         )
 
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=-1)
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=-1)
-        self.dask_quad: DaArray = _da_from_array(self.signal_quad, chunks=-1)
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
+        self.dask_quad: DaArray = _da_from_array(self.signal_quad, chunks=(1, -1))
 
     def test_initialization(self) -> None:
         """Test initialization with different reference channels."""

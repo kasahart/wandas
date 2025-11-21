@@ -6,7 +6,7 @@ from wandas.processing.base import create_operation
 
 
 def _to_dask(arr: np.ndarray):
-    return da.from_array(arr, chunks=-1)
+    return da.from_array(arr, chunks=(1, -1))
 
 
 def test_fade_noop_when_zero():

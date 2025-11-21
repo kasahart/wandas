@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "wandas"
-version = "0.1.7"
+version = "0.1.8"
 description = "Wandas is an open source library for efficient signal analysis in Python"
 authors = [{name = "kasahart", email="kasahart66@gmail.com"}]
 maintainers = [
@@ -85,6 +85,8 @@ docs = [
 dev = [
     "pre-commit>=3.5.0",
     "wandas",
+    "torch>=2.0.0",
+    "tensorflow>=2.13.0",
 ]
 
 [tool.uv.sources]
@@ -104,7 +106,8 @@ select = ["E", "F", "W", "Q", "UP", "I", "N"]
 docstring-code-format = true
 
 [tool.mypy]
-# plugins = ["pydantic.mypy"]
+plugins = ["pydantic.mypy"]
+cache_dir = ".mypy_cache"
 files = ["wandas", "tests"]
 strict = true
 pretty = true

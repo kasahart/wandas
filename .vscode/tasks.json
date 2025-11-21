@@ -26,20 +26,6 @@
             "problemMatcher": []
         },
         {
-            "label": "Run pytest and mypy with Python 3.9",
-            "type": "shell",
-            "command": "uv venv --python=3.9 .venv-py39 && source .venv-py39/bin/activate && uv pip install -e . && uv pip install pandas pandas-stubs pytest pytest-cov mypy && python -m mypy wandas tests && python -m pytest",
-            "problemMatcher": [],
-            "presentation": {
-                "reveal": "always",
-                "panel": "new"
-            },
-            "group": {
-                "kind": "test",
-                "isDefault": false
-            }
-        },
-        {
             "label": "Build MkDocs Documentation",
             "type": "shell",
             "command": "cd /workspaces/wandas && uv run mkdocs build -f docs/mkdocs.yml",

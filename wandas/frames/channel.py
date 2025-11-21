@@ -9,11 +9,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from dask.array.core import Array as DaskArray
-from dask.array.core import concatenate, from_array
+from dask.array.core import concatenate
 from IPython.display import Audio, display
 from matplotlib.axes import Axes
 
 from wandas.utils import validate_sampling_rate
+from wandas.utils.dask_helpers import da_from_array as _da_from_array
 from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
@@ -28,7 +29,6 @@ logger = logging.getLogger(__name__)
 
 dask_delayed = dask.delayed  # type: ignore [unused-ignore]
 da_from_delayed = da.from_delayed  # type: ignore [unused-ignore]
-da_from_array = da.from_array  # type: ignore [unused-ignore]
 
 
 S = TypeVar("S", bound="BaseFrame[Any]")
@@ -263,7 +263,11 @@ class ChannelFrame(
         if isinstance(other, ChannelFrame):
             if self.sampling_rate != other.sampling_rate:
                 raise ValueError(
-                    "Sampling rates do not match. Cannot perform operation."
+                    f"Sampling rate mismatch\n"
+                    f"  Left operand: {self.sampling_rate} Hz\n"
+                    f"  Right operand: {other.sampling_rate} Hz\n"
+                    f"Resample one frame to match the other before performing "
+                    f"{symbol} operation."
                 )
 
             # Perform operation directly on dask array (maintaining lazy execution)
@@ -349,7 +353,10 @@ class ChannelFrame(
             # Check if sampling rates match
             if self.sampling_rate != other.sampling_rate:
                 raise ValueError(
-                    "Sampling rates do not match. Cannot perform operation."
+                    f"Sampling rate mismatch\n"
+                    f"  Signal: {self.sampling_rate} Hz\n"
+                    f"  Other: {other.sampling_rate} Hz\n"
+                    f"Resample both frames to the same rate before adding."
                 )
 
         elif isinstance(other, np.ndarray):
@@ -645,8 +652,10 @@ class ChannelFrame(
                 f"Data must be 1-dimensional or 2-dimensional. Shape: {data.shape}"
             )
 
-        # Convert NumPy array to dask array
-        dask_data = da_from_array(data)
+        # Convert NumPy array to dask array. Use channel-wise chunks so
+        # the 0th axis (channels) is chunked per-channel and the sample
+        # axis remains un-chunked by default.
+        dask_data = _da_from_array(data, chunks=(1, -1))
         cf = cls(
             data=dask_data,
             sampling_rate=sampling_rate,
@@ -718,7 +727,9 @@ class ChannelFrame(
         channel: int | list[int] | None = None,
         start: float | None = None,
         end: float | None = None,
-        chunk_size: int | None = None,
+        # NOTE: chunk_size removed — chunking is handled internally as
+        # channel-wise (1, -1). This simplifies the API and prevents
+        # users from accidentally breaking channel-wise parallelism.
         ch_labels: list[str] | None = None,
         # CSV-specific parameters
         time_column: int | str = 0,
@@ -727,13 +738,16 @@ class ChannelFrame(
     ) -> "ChannelFrame":
         """Create a ChannelFrame from an audio file.
 
+        Note:
+            The `chunk_size` parameter has been removed. ChannelFrame uses
+            channel-wise chunking by default (chunks=(1, -1)). Use `.rechunk(...)`
+            on the returned frame for custom sample-axis chunking.
+
         Args:
             path: Path to the audio file.
-            channel: Channel(s) to load.
+            channel: Channel(s) to load. None loads all channels.
             start: Start time in seconds.
             end: End time in seconds.
-            chunk_size: Chunk size for processing.
-                Specifies the splitting size for lazy processing.
             ch_labels: Labels for each channel.
             time_column: For CSV files, index or name of the time column.
                 Default is 0 (first column).
@@ -745,9 +759,7 @@ class ChannelFrame(
             A new ChannelFrame containing the loaded audio data.
 
         Raises:
-            ValueError: If channel specification is invalid.
-            TypeError: If channel parameter type is invalid.
-            FileNotFoundError: If the file doesn't exist at the specified path.
+            ValueError: If channel specification is invalid or file cannot be read.
                 Error message includes absolute path, current directory, and
                 troubleshooting suggestions.
 
@@ -851,16 +863,15 @@ class ChannelFrame(
         delayed_data = dask_delayed(_load_audio)()
         logger.debug("Wrapping delayed function in dask array")
 
-        # Create dask array from delayed computation
+        # Create dask array from delayed computation and ensure channel-wise
+        # chunks. The sample axis (1) uses -1 by default to avoid forcing
+        # a sample chunk length here.
         dask_array = da_from_delayed(
             delayed_data, shape=expected_shape, dtype=np.float32
         )
 
-        if chunk_size is not None:
-            if chunk_size <= 0:
-                raise ValueError("Chunk size must be a positive integer")
-            logger.debug(f"Setting chunk size: {chunk_size} for sample axis")
-            dask_array = dask_array.rechunk({0: -1, 1: chunk_size})
+        # Ensure channel-wise chunks
+        dask_array = dask_array.rechunk((1, -1))
 
         logger.debug(
             "ChannelFrame setup complete - actual file reading will occur on compute()"  # noqa: E501
@@ -1073,8 +1084,12 @@ class ChannelFrame(
                         arr = concatenate(
                             [
                                 arr,
-                                from_array(
-                                    np.zeros((arr.shape[0], pad_len), dtype=arr.dtype)
+                                _da_from_array(
+                                    np.zeros(
+                                        (arr.shape[0], pad_len),
+                                        dtype=arr.dtype,
+                                    ),
+                                    chunks=(1, -1),
                                 ),
                             ],
                             axis=1,
@@ -1088,26 +1103,42 @@ class ChannelFrame(
                         arr = concatenate(
                             [
                                 arr,
-                                from_array(
-                                    np.zeros((arr.shape[0], pad_len), dtype=arr.dtype)
+                                _da_from_array(
+                                    np.zeros(
+                                        (arr.shape[0], pad_len),
+                                        dtype=arr.dtype,
+                                    ),
+                                    chunks=(1, -1),
                                 ),
                             ],
                             axis=1,
                         )
                 else:
-                    raise ValueError("データ長不一致: align指定を確認")
+                    raise ValueError(
+                        f"Data length mismatch\n"
+                        f"  Existing frame: {self.n_samples} samples\n"
+                        f"  Channel to add: {data.n_samples} samples\n"
+                        f"Use align='pad' or align='truncate' to handle "
+                        f"length differences."
+                    )
             else:
                 arr = data._data
             labels = [ch.label for ch in self._channel_metadata]
-            new_labels = []
-            new_metadata_list = []
+            new_labels: list[str] = []
+            new_metadata_list: list[ChannelMetadata] = []
             for chmeta in data._channel_metadata:
                 new_label = chmeta.label
                 if new_label in labels or new_label in new_labels:
                     if suffix_on_dup:
                         new_label += suffix_on_dup
                     else:
-                        raise ValueError(f"label重複: {new_label}")
+                        raise ValueError(
+                            f"Duplicate channel label\n"
+                            f"  Label: '{new_label}'\n"
+                            f"  Existing labels: {labels + new_labels}\n"
+                            f"Use suffix_on_dup parameter to automatically "
+                            f"rename duplicates."
+                        )
                 new_labels.append(new_label)
                 # Copy the entire channel_metadata and update only the label
                 new_ch_meta = chmeta.model_copy(deep=True)
@@ -1131,7 +1162,7 @@ class ChannelFrame(
                     previous=self,
                 )
         if isinstance(data, np.ndarray):
-            arr = from_array(data.reshape(1, -1))
+            arr = _da_from_array(data.reshape(1, -1), chunks=(1, -1))
         elif isinstance(data, DaskArray):
             arr = data[None, ...] if data.ndim == 1 else data
             if arr.shape[0] != 1:
@@ -1142,31 +1173,44 @@ class ChannelFrame(
             if align == "pad":
                 pad_len = self.n_samples - arr.shape[1]
                 if pad_len > 0:
-                    arr = concatenate(
-                        [arr, from_array(np.zeros((1, pad_len), dtype=arr.dtype))],
-                        axis=1,
+                    pad_arr = _da_from_array(
+                        np.zeros((1, pad_len), dtype=arr.dtype),
+                        chunks=(1, -1),
                     )
+                    arr = concatenate([arr, pad_arr], axis=1)
                 else:
                     arr = arr[:, : self.n_samples]
             elif align == "truncate":
                 arr = arr[:, : self.n_samples]
                 if arr.shape[1] < self.n_samples:
                     pad_len = self.n_samples - arr.shape[1]
-                    arr = concatenate(
-                        [arr, from_array(np.zeros((1, pad_len), dtype=arr.dtype))],
-                        axis=1,
+                    pad_arr = _da_from_array(
+                        np.zeros((1, pad_len), dtype=arr.dtype),
+                        chunks=(1, -1),
                     )
+                    arr = concatenate([arr, pad_arr], axis=1)
             else:
-                raise ValueError("データ長不一致: align指定を確認")
+                raise ValueError(
+                    f"Data length mismatch\n"
+                    f"  Existing frame: {self.n_samples} samples\n"
+                    f"  Channel to add: {arr.shape[1]} samples\n"
+                    f"Use align='pad' or align='truncate' to handle "
+                    f"length differences."
+                )
         labels = [ch.label for ch in self._channel_metadata]
         new_label = label or f"ch{len(labels)}"
         if new_label in labels:
             if suffix_on_dup:
                 new_label += suffix_on_dup
             else:
-                raise ValueError("label重複")
+                raise ValueError(
+                    f"Duplicate channel label\n"
+                    f"  Label: '{new_label}'\n"
+                    f"  Existing labels: {labels}\n"
+                    f"Use suffix_on_dup parameter to automatically "
+                    f"rename duplicates."
+                )
         new_data = concatenate([self._data, arr], axis=0)
-        from ..core.metadata import ChannelMetadata
 
         new_chmeta = self._channel_metadata + [ChannelMetadata(label=new_label)]
         if inplace:

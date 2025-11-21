@@ -80,7 +80,26 @@ class BaseFrame(ABC, Generic[T]):
         channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
         previous: Optional["BaseFrame[Any]"] = None,
     ):
-        self._data = data.rechunk(chunks=-1)  # type: ignore [unused-ignore]
+        # Default rechunk: prefer channel-wise chunking so the 0th axis
+        # (channels) will be processed per-channel for parallelism.
+        # For (channels, samples) arrays use (1, -1). For spectrograms
+        # and higher-dim arrays (channels, ..) we preserve channel-wise
+        # first-axis chunking: (1, -1, -1, ...)
+        try:
+            if data.ndim == 1:
+                self._data = data.rechunk(chunks=-1)
+            elif data.ndim == 2:
+                self._data = data.rechunk((1, -1))
+            elif data.ndim >= 3:
+                # Build a chunk tuple with 1 for the first axis and -1 for
+                # the remaining axes. This preserves dimensionality.
+                self._data = data.rechunk(tuple([1] + [-1] * (data.ndim - 1)))
+            else:
+                self._data = data.rechunk(chunks=-1)
+        except Exception as e:
+            # Fall back to previous behavior if Dask rechunk fails.
+            logger.warning(f"Rechunk failed: {e!r}. Falling back to chunks=-1.")
+            self._data = data.rechunk(chunks=-1)  # type: ignore [unused-ignore]
         if self._data.ndim == 1:
             self._data = self._data.reshape((1, -1))
         self.sampling_rate = sampling_rate
@@ -778,6 +797,111 @@ class BaseFrame(ABC, Generic[T]):
         >>> print(f"Shape: {data.shape}")  # (n_channels, n_samples)
         """
         return self.data
+
+    def to_tensor(self, framework: str = "torch", device: str | None = None) -> Any:
+        """
+        Convert the Dask array to a tensor in the specified framework.
+
+        Parameters
+        ----------
+        framework : str, default="torch"
+            The ML framework to use ("torch" or "tensorflow").
+        device : str or None, optional
+            Device to place the tensor on. For PyTorch, use "cpu", "cuda", "cuda:0",
+            etc. For TensorFlow, use "/CPU:0", "/GPU:0", etc. If None, uses the default
+            device.
+
+        Returns
+        -------
+        torch.Tensor or tf.Tensor
+            A tensor in the specified framework.
+
+        Raises
+        ------
+        ImportError
+            If the specified framework is not installed.
+        ValueError
+            If the framework is not supported.
+        TypeError
+            If self.data is not a Dask array.
+
+        Examples
+        --------
+        >>> # PyTorch tensor on CPU
+        >>> tensor = frame.to_tensor(framework="torch", device="cpu")
+        >>> # PyTorch tensor on GPU
+        >>> tensor = frame.to_tensor(framework="torch", device="cuda:0")
+        >>> # TensorFlow tensor on GPU
+        >>> tensor = frame.to_tensor(framework="tensorflow", device="/GPU:0")
+        """
+
+        # Compute the Dask array to NumPy array
+        numpy_data = self.to_numpy()
+
+        if framework == "torch":
+            try:
+                import importlib.util
+
+                if importlib.util.find_spec("torch") is None:
+                    raise ImportError(
+                        "PyTorch is not installed\n"
+                        "  Required for: tensor conversion with framework='torch'\n"
+                        "  Install with: pip install torch"
+                    )
+                import torch
+
+                # Convert NumPy array to PyTorch tensor
+                tensor = torch.from_numpy(numpy_data)
+
+                # Move to specified device if provided
+                if device is not None:
+                    tensor = tensor.to(device)
+
+                return tensor
+
+            except ImportError as e:
+                raise ImportError(
+                    "PyTorch is not installed\n"
+                    "  Required for: tensor conversion with framework='torch'\n"
+                    "  Install with: pip install torch"
+                ) from e
+
+        elif framework == "tensorflow":
+            try:
+                import importlib.util
+
+                if importlib.util.find_spec("tensorflow") is None:
+                    raise ImportError(
+                        "TensorFlow is not installed\n"
+                        "  Required for: tensor conversion with\n"
+                        "  framework='tensorflow'\n"
+                        "  Install with: pip install tensorflow"
+                    )
+                import tensorflow as tf
+
+                # Convert NumPy array to TensorFlow tensor
+                if device is not None:
+                    with tf.device(device):
+                        tensor = tf.convert_to_tensor(numpy_data)
+                else:
+                    tensor = tf.convert_to_tensor(numpy_data)
+
+                return tensor
+
+            except ImportError as e:
+                raise ImportError(
+                    "TensorFlow is not installed\n"
+                    "  Required for: tensor conversion with framework='tensorflow'\n"
+                    "  Install with: pip install tensorflow"
+                ) from e
+
+        else:
+            raise ValueError(
+                f"Unsupported framework\n"
+                f"  Got: '{framework}'\n"
+                f"  Expected: 'torch' or 'tensorflow'\n"
+                f"Use a supported framework for tensor conversion"
+            )
 
     def to_dataframe(self) -> "pd.DataFrame":
         """Convert the frame data to a pandas DataFrame.
