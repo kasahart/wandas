@@ -1307,15 +1307,6 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#wandas.io.wdf_io.da_from_array" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;da_from_array
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#wandas.io.wdf_io.logger" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;logger
@@ -3888,26 +3879,6 @@ all metadata including sampling rate, channel labels, units, and frame metadata.
 
 
 
-<h4 id="wandas.io.wdf_io.da_from_array" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">da_from_array</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">from_array</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
-  </span>
-
-<a href="#wandas.io.wdf_io.da_from_array" class="headerlink" title="Permanent link">&para;</a></h4>
-
-
-    <div class="doc doc-contents ">
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
 <h4 id="wandas.io.wdf_io.logger" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span></code>
 
@@ -4107,7 +4078,8 @@ all metadata including sampling rate, channel labels, units, and frame metadata.
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/wdf_io.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 32</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 31</span>
+<span class="normal"> 32</span>
 <span class="normal"> 33</span>
 <span class="normal"> 34</span>
 <span class="normal"> 35</span>
@@ -4216,8 +4188,7 @@ all metadata including sampling rate, channel labels, units, and frame metadata.
 <span class="normal">138</span>
 <span class="normal">139</span>
 <span class="normal">140</span>
-<span class="normal">141</span>
-<span class="normal">142</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
+<span class="normal">141</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
     <span class="n">frame</span><span class="p">:</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
@@ -4474,7 +4445,8 @@ all metadata including sampling rate, channel labels, units, and frame metadata.
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/wdf_io.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">145</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">144</span>
+<span class="normal">145</span>
 <span class="normal">146</span>
 <span class="normal">147</span>
 <span class="normal">148</span>
@@ -4704,7 +4676,8 @@ all metadata including sampling rate, channel labels, units, and frame metadata.
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No channel data found in the file&quot;</span><span class="p">)</span>
 
         <span class="c1"># Create a new ChannelFrame</span>
-        <span class="n">dask_data</span> <span class="o">=</span> <span class="n">da_from_array</span><span class="p">(</span><span class="n">combined_data</span><span class="p">)</span>
+        <span class="c1"># Use channel-wise chunking: 1 for channel axis and -1 for samples</span>
+        <span class="n">dask_data</span> <span class="o">=</span> <span class="n">_da_from_array</span><span class="p">(</span><span class="n">combined_data</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
 
         <span class="n">cf</span> <span class="o">=</span> <span class="n">ChannelFrame</span><span class="p">(</span>
             <span class="n">data</span><span class="o">=</span><span class="n">dask_data</span><span class="p">,</span>
