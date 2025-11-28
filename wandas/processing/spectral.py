@@ -666,13 +666,14 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
                 "Welch operation requires a Dask array, but received a non-ndarray."
             )
 
-        # Convert power spectrum to amplitude spectrum
-        # scipy.signal.welch with scaling='spectrum' returns:
-        #   DC component (f=0): P = A^2
-        #   AC components (f>0): P = A^2/2
-        # Convert to amplitude:
-        #   DC: A = sqrt(P)
-        #   AC: A = sqrt(2*P)
+        # Convert power spectrum to amplitude spectrum for consistency with FFT/STFT.
+        # scipy.signal.welch with scaling='spectrum' returns a one-sided power spectrum
+        # where for a sine wave with amplitude A:
+        #   - DC component (f=0): P = A^2 (no factor of 2 since DC is not mirrored)
+        #   - AC components (f>0): P = A^2/2 (half power due to one-sided spectrum)
+        # To recover amplitude A:
+        #   - DC: A = sqrt(P)
+        #   - AC: A = sqrt(2*P) = sqrt(2) * sqrt(P)
         result = np.sqrt(result)  # Convert to amplitude
         result[..., 1:] *= np.sqrt(2)  # Apply factor of sqrt(2) for AC components
 
