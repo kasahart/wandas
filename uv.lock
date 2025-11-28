@@ -4419,7 +4419,9 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "mypy" },
     { name = "pre-commit" },
+    { name = "ruff" },
     { name = "tensorflow" },
     { name = "torch" },
     { name = "wandas" },
@@ -4472,7 +4474,9 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "mypy", specifier = ">=1.18.2" },
     { name = "pre-commit", specifier = ">=3.5.0" },
+    { name = "ruff", specifier = ">=0.14.4" },
     { name = "tensorflow", specifier = ">=2.13.0" },
     { name = "torch", specifier = ">=2.0.0" },
     { name = "wandas", editable = "." },

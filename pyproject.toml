@@ -89,6 +89,8 @@ dev = [
     "wandas",
     "torch>=2.0.0",
     "tensorflow>=2.13.0",
+    "mypy>=1.18.2",
+    "ruff>=0.14.4",
 ]
 
 [tool.uv.sources]
