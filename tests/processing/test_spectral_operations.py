@@ -1088,7 +1088,11 @@ class TestWelchOperation:
             average=self.average,
             axis=-1,
         )
+        # Multiply AC components (excluding DC and Nyquist) by 2 to account for one-sided spectrum,
+        # matching Wandas' amplitude convention.
         expected[..., 1:-1] *= 2
+        # Convert power spectrum to amplitude spectrum by taking the square root,
+        # as Wandas returns amplitude, not power.
         expected **= 0.5
         # Ensure shapes align and values are equal
         assert result.shape == expected.shape
