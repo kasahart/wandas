@@ -527,8 +527,10 @@ class TestSTFTOperation:
 
         stft_result = self.stft.process(cos_wave).compute()
 
-        peak_idx = np.argmax(np.abs(stft_result[0, :, 10]))
-        peak_mag = np.abs(stft_result[0, peak_idx, 10])
+        # Use the middle time frame to avoid edge effects from windowing
+        middle_frame = stft_result.shape[2] // 2
+        peak_idx = np.argmax(np.abs(stft_result[0, :, middle_frame]))
+        peak_mag = np.abs(stft_result[0, peak_idx, middle_frame])
         expected_mag = amp
         np.testing.assert_allclose(peak_mag, expected_mag, rtol=1e-10)
 
