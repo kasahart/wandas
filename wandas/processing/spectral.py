@@ -675,7 +675,7 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
         #   - DC: A = sqrt(P)
         #   - AC: A = sqrt(2*P) = sqrt(2) * sqrt(P)
         result = np.sqrt(result)  # Convert to amplitude
-        result[..., 1:] *= np.sqrt(2)  # Apply factor of sqrt(2) for AC components
+        result[..., 1:-1] *= np.sqrt(2)  # Apply factor of sqrt(2) for AC components
 
         return np.array(result)
 

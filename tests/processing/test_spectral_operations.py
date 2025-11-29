@@ -1195,7 +1195,7 @@ class TestWelchOperation:
         at frequency f should be approximately A (one-sided amplitude spectrum).
         """
         # Use a signal long enough for good frequency resolution
-        amp = 2.0
+        amp = 5.0
         freq = 1000.0
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
         sine_wave = amp * np.sin(2 * np.pi * freq * t)
@@ -1217,12 +1217,12 @@ class TestWelchOperation:
         detected_freq = freq_bins[peak_idx]
 
         # Verify peak is at the expected frequency
-        np.testing.assert_allclose(detected_freq, freq, rtol=0.05)
+        np.testing.assert_allclose(detected_freq, freq, rtol=1e-10)
 
         # Verify amplitude: for a sine wave with amplitude A,
         # the Welch output should be approximately A
         peak_amplitude = result[0, peak_idx]
-        np.testing.assert_allclose(peak_amplitude, amp, rtol=0.1)
+        np.testing.assert_allclose(peak_amplitude, amp, rtol=1e-10)
 
 
 class TestCoherenceOperation:
