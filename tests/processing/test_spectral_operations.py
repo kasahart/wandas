@@ -520,7 +520,7 @@ class TestSTFTOperation:
         np.testing.assert_allclose(stft_result, expected_stft, rtol=1e-5, atol=1e-5)
 
     def test_amplitude_scaling(self) -> None:
-        """Test that FFT amplitude scaling is correct."""
+        """Test that STFT amplitude scaling is correct."""
         amp = 2.0
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
         cos_wave = amp * np.cos(2 * np.pi * 500 * t)
