@@ -34,7 +34,7 @@ class TestGetDisplayNames:
         assert IFFT(sr).get_display_name() == "iFFT"
         assert STFT(sr).get_display_name() == "STFT"
         assert ISTFT(sr).get_display_name() == "iSTFT"
-        assert Welch(sr).get_display_name() == "PS"
+        assert Welch(sr).get_display_name() == "Welch"
         assert NOctSpectrum(sr, 24, 12600).get_display_name() == "Oct"
         assert NOctSynthesis(sr, 24, 12600).get_display_name() == "Octs"
         assert Coherence(sr).get_display_name() == "Coh"
@@ -1187,6 +1187,42 @@ class TestWelchOperation:
         assert (
             "specify a larger win_length or provide hop_length explicitly" in error_msg
         )
+
+    def test_amplitude_scaling(self) -> None:
+        """Test that Welch amplitude scaling is correct.
+
+        For a sine wave with amplitude A and frequency f, the Welch output
+        at frequency f should be approximately A (one-sided amplitude spectrum).
+        """
+        # Use a signal long enough for good frequency resolution
+        amp = 5.0
+        freq = 1000.0
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        sine_wave = amp * np.sin(2 * np.pi * freq * t)
+
+        # Create Welch with parameters that give good frequency resolution
+        welch = Welch(
+            sampling_rate=self.sample_rate,
+            n_fft=self.n_fft,
+            win_length=self.win_length,
+            hop_length=self.hop_length,
+            window=self.window,
+        )
+
+        result = welch.process_array(np.array([sine_wave])).compute()
+
+        # Find the peak frequency bin
+        freq_bins = np.fft.rfftfreq(self.n_fft, 1.0 / self.sample_rate)
+        peak_idx = np.argmax(result[0])
+        detected_freq = freq_bins[peak_idx]
+
+        # Verify peak is at the expected frequency
+        np.testing.assert_allclose(detected_freq, freq, rtol=1e-10)
+
+        # Verify amplitude: for a sine wave with amplitude A,
+        # the Welch output should be approximately A
+        peak_amplitude = result[0, peak_idx]
+        np.testing.assert_allclose(peak_amplitude, amp, rtol=1e-10)
 
 
 class TestCoherenceOperation:
