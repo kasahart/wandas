@@ -34,7 +34,7 @@ class TestGetDisplayNames:
         assert IFFT(sr).get_display_name() == "iFFT"
         assert STFT(sr).get_display_name() == "STFT"
         assert ISTFT(sr).get_display_name() == "iSTFT"
-        assert Welch(sr).get_display_name() == "PS"
+        assert Welch(sr).get_display_name() == "Welch"
         assert NOctSpectrum(sr, 24, 12600).get_display_name() == "Oct"
         assert NOctSynthesis(sr, 24, 12600).get_display_name() == "Octs"
         assert Coherence(sr).get_display_name() == "Coh"
@@ -133,7 +133,7 @@ class TestFFTOperation:
         peak_mag = np.abs(fft_result[0, peak_idx])
         expected_mag = amp
 
-        np.testing.assert_allclose(peak_mag, expected_mag, rtol=0.1)
+        np.testing.assert_allclose(peak_mag, expected_mag, rtol=1e-10)
 
     def test_delayed_execution(self) -> None:
         """Test that FFT operation uses dask's delayed execution."""
@@ -518,6 +518,21 @@ class TestSTFTOperation:
         np.testing.assert_allclose(np.abs(stft_result).max(), 4, rtol=1e-5)
         # Compare the results from the class with the directly calculated scipy result
         np.testing.assert_allclose(stft_result, expected_stft, rtol=1e-5, atol=1e-5)
+
+    def test_amplitude_scaling(self) -> None:
+        """Test that STFT amplitude scaling is correct."""
+        amp = 2.0
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        cos_wave = amp * np.cos(2 * np.pi * 500 * t)
+
+        stft_result = self.stft.process(cos_wave).compute()
+
+        # Use the middle time frame to avoid edge effects from windowing
+        middle_frame = stft_result.shape[2] // 2
+        peak_idx = np.argmax(np.abs(stft_result[0, :, middle_frame]))
+        peak_mag = np.abs(stft_result[0, peak_idx, middle_frame])
+        expected_mag = amp
+        np.testing.assert_allclose(peak_mag, expected_mag, rtol=1e-10)
 
     def test_istft_shape(self) -> None:
         """Test ISTFT output shape."""
@@ -1050,6 +1065,39 @@ class TestWelchOperation:
         # Second channel should show peak at 2000 Hz
         np.testing.assert_allclose(detected_freq_ch2, 2000.0, rtol=0.05)
 
+    def test_welch_matches_scipy(self) -> None:
+        """
+        Test that Welch operation output matches
+        SciPy's welch function with equivalent params.
+        """
+        from scipy import signal as ss
+
+        # Compute result from our Welch operation
+        result = self.welch.process_array(self.signal_stereo).compute()
+
+        # Compute expected using SciPy's welch on multi-channel input (axis=-1)
+        f, expected = ss.welch(
+            x=self.signal_stereo,
+            fs=self.sample_rate,
+            nperseg=self.win_length,
+            noverlap=self.win_length - self.hop_length,
+            nfft=self.n_fft,
+            window=self.window,
+            detrend=self.detrend,
+            scaling="spectrum",
+            average=self.average,
+            axis=-1,
+        )
+        # Multiply AC components (excluding DC and Nyquist) by 2 to account
+        # for one-sided spectrum, matching Wandas' amplitude convention.
+        expected[..., 1:-1] *= 2
+        # Convert power spectrum to amplitude spectrum by taking the square root,
+        # as Wandas returns amplitude, not power.
+        expected **= 0.5
+        # Ensure shapes align and values are equal
+        assert result.shape == expected.shape
+        np.testing.assert_allclose(result, expected, rtol=1e-6)
+
     def test_delayed_execution(self) -> None:
         """Test that Welch operation uses dask's delayed execution."""
         with mock.patch.object(DaArray, "compute") as mock_compute:
@@ -1187,6 +1235,42 @@ class TestWelchOperation:
         assert (
             "specify a larger win_length or provide hop_length explicitly" in error_msg
         )
+
+    def test_amplitude_scaling(self) -> None:
+        """Test that Welch amplitude scaling is correct.
+
+        For a sine wave with amplitude A and frequency f, the Welch output
+        at frequency f should be approximately A (one-sided amplitude spectrum).
+        """
+        # Use a signal long enough for good frequency resolution
+        amp = 5.0
+        freq = 1000.0
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        sine_wave = amp * np.sin(2 * np.pi * freq * t)
+
+        # Create Welch with parameters that give good frequency resolution
+        welch = Welch(
+            sampling_rate=self.sample_rate,
+            n_fft=self.n_fft,
+            win_length=self.win_length,
+            hop_length=self.hop_length,
+            window=self.window,
+        )
+
+        result = welch.process_array(np.array([sine_wave])).compute()
+
+        # Find the peak frequency bin
+        freq_bins = np.fft.rfftfreq(self.n_fft, 1.0 / self.sample_rate)
+        peak_idx = np.argmax(result[0])
+        detected_freq = freq_bins[peak_idx]
+
+        # Verify peak is at the expected frequency
+        np.testing.assert_allclose(detected_freq, freq, rtol=1e-10)
+
+        # Verify amplitude: for a sine wave with amplitude A,
+        # the Welch output should be approximately A
+        peak_amplitude = result[0, peak_idx]
+        np.testing.assert_allclose(peak_amplitude, amp, rtol=1e-10)
 
 
 class TestCoherenceOperation:

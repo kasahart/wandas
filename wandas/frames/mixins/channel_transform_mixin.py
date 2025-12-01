@@ -83,9 +83,9 @@ class ChannelTransformMixin:
 
     def welch(
         self: T_Transform,
-        n_fft: int | None = None,
+        n_fft: int = 2048,
         hop_length: int | None = None,
-        win_length: int = 2048,
+        win_length: int | None = None,
         window: str = "hann",
         average: str = "mean",
     ) -> "SpectralFrame":

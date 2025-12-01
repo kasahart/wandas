@@ -539,7 +539,19 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
 
 
 class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
-    """Welch"""
+    """Welch method for power spectral density estimation.
+
+    Computes the one-sided amplitude spectrum using Welch's method for
+    consistency with FFT and STFT methods. For a sine wave with amplitude A,
+    the peak value at its frequency will be approximately A.
+
+    Notes
+    -----
+    Internally uses scipy.signal.welch with scaling='spectrum' and converts
+    the power spectrum to amplitude spectrum:
+    - DC component (f=0): A = sqrt(P)
+    - AC components (f>0): A = sqrt(2*P)
+    """
 
     name = "welch"
     n_fft: int
@@ -627,10 +639,14 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def get_display_name(self) -> str:
         """Get display name for the operation for use in channel labels."""
-        return "PS"
+        return "Welch"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
-        """Create processor function for Welch operation"""
+        """Create processor function for Welch operation.
+
+        Converts power spectrum from scipy.signal.welch to one-sided
+        amplitude spectrum for consistency with FFT/STFT.
+        """
         from scipy import signal as ss
 
         _, result = ss.welch(
@@ -649,6 +665,18 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
             raise ValueError(
                 "Welch operation requires a Dask array, but received a non-ndarray."
             )
+
+        # Convert power spectrum to amplitude spectrum for consistency with FFT/STFT.
+        # scipy.signal.welch with scaling='spectrum' returns a one-sided power spectrum
+        # where for a sine wave with amplitude A:
+        #   - DC component (f=0): P = A^2 (no factor of 2 since DC is not mirrored)
+        #   - AC components (f>0): P = A^2/2 (half power due to one-sided spectrum)
+        # To recover amplitude A:
+        #   - DC: A = sqrt(P)
+        #   - AC: A = sqrt(2*P) = sqrt(2) * sqrt(P)
+        result = np.sqrt(result)  # Convert to amplitude
+        result[..., 1:-1] *= np.sqrt(2)  # Apply factor of sqrt(2) for AC components
+
         return np.array(result)
 
 

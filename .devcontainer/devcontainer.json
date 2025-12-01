@@ -14,7 +14,8 @@
     "customizations": {
         "vscode": {
             "settings": {
-                "python.pythonPath": "~/.venv/lib/python3"
+                "python.defaultInterpreterPath": "/home/vscode/.venv/bin/python",
+                "python.terminal.activateEnvironment": true
             },
             "extensions": [
                 "DavidAnson.vscode-markdownlint",
