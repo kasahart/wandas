@@ -90,6 +90,70 @@ class TestChannelProcessing:
             assert isinstance(result, ChannelFrame)
             assert isinstance(result._data, DaArray)
 
+    def test_apply_custom_function_lazy_and_correct(self) -> None:
+        """Custom apply should stay lazy until compute and return correct data."""
+
+        func = mock.MagicMock(side_effect=lambda x, offset: x + offset)
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
+        )
+
+        result = frame.apply(func, output_shape_func=lambda shape: shape, offset=1.5)
+
+        # Function should not run before compute
+        assert func.call_count == 0
+
+        computed = result.compute()
+        np.testing.assert_array_almost_equal(computed, self.data + 1.5)
+        assert func.call_count == 1
+
+    def test_apply_custom_updates_history_metadata_and_labels(self) -> None:
+        """
+        Custom apply should update history, metadata, and labels using display name.
+        """
+
+        def fancy(x: np.ndarray, bias: float = 0.0) -> np.ndarray:
+            return x + bias
+
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            metadata={"source": "test"},
+            channel_metadata=[{"label": "sig", "unit": "V", "extra": {}}],
+        )
+
+        result = frame.apply(fancy, bias=0.0)
+
+        # Operation history should record custom with params
+        last_op = result.operation_history[-1]
+        assert last_op["operation"] == "custom"
+        assert last_op["params"] == {"bias": 0.0}
+
+        # Metadata should include the new entry while preserving existing keys
+        assert frame.metadata == {"source": "test"}
+        assert result.metadata == {"source": "test", "custom": {"bias": 0.0}}
+
+        # Channel labels should use display name from callable __name__
+        assert result.labels == ["fancy(sig)"]
+
+    def test_apply_custom_label_fallback_to_custom_name(self) -> None:
+        """When callable lacks __name__, label should fall back to 'custom'."""
+
+        class CallableObj:
+            def __call__(self, x: np.ndarray) -> np.ndarray:
+                return x
+
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "sig", "unit": "", "extra": {}}],
+        )
+
+        result = frame.apply(CallableObj())
+        assert result.labels == ["custom(sig)"]
+
     def test_a_weighting(self) -> None:
         """Test a_weighting operation."""
         with mock.patch("wandas.processing.create_operation") as mock_create_op:
