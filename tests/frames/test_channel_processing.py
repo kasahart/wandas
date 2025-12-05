@@ -154,6 +154,31 @@ class TestChannelProcessing:
         result = frame.apply(CallableObj())
         assert result.labels == ["custom(sig)"]
 
+    def test_apply_with_sr_in_params(self) -> None:
+        """
+        Custom function can receive sr via params with different parameter name.
+        """
+
+        def needs_sr(x: np.ndarray, sr: float) -> np.ndarray:
+            # Use sr parameter in calculation
+            return x * (sr / 1000.0)
+
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "sig", "unit": "", "extra": {}}],
+        )
+
+        # Pass sampling rate with different parameter name to avoid conflict
+        result = frame.apply(
+            needs_sr, output_shape_func=lambda shape: shape, sr=self.sample_rate
+        )
+
+        # Verify it computed correctly
+        computed = result.compute()
+        expected = self.data * (self.sample_rate / 1000.0)
+        np.testing.assert_array_almost_equal(computed, expected)
+
     def test_a_weighting(self) -> None:
         """Test a_weighting operation."""
         with mock.patch("wandas.processing.create_operation") as mock_create_op:
