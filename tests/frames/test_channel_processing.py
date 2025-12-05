@@ -179,6 +179,28 @@ class TestChannelProcessing:
         expected = self.data * (self.sample_rate / 1000.0)
         np.testing.assert_array_almost_equal(computed, expected)
 
+    def test_apply_rejects_sampling_rate_param_with_clear_error(self) -> None:
+        """
+        When user mistakenly passes sampling_rate param, show helpful error.
+        """
+
+        def my_func(x: np.ndarray, sampling_rate: float) -> np.ndarray:
+            return x * sampling_rate
+
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "sig", "unit": "", "extra": {}}],
+        )
+
+        # Should raise clear error about parameter name conflict
+        with pytest.raises(ValueError, match="Parameter name conflict"):
+            frame.apply(
+                my_func,
+                output_shape_func=lambda shape: shape,
+                sampling_rate=self.sample_rate,
+            )
+
     def test_a_weighting(self) -> None:
         """Test a_weighting operation."""
         with mock.patch("wandas.processing.create_operation") as mock_create_op:

@@ -1,5 +1,6 @@
 import dask.array as da
 import numpy as np
+import pytest
 
 from wandas.processing.base import _OPERATION_REGISTRY, create_operation, get_operation
 from wandas.processing.custom import CustomOperation
@@ -62,3 +63,20 @@ class TestCustomOperation:
         created = create_operation("custom", 16000, func=lambda x: x)
         assert isinstance(created, CustomOperation)
         assert get_operation("custom") is CustomOperation
+
+    def test_custom_operation_rejects_sampling_rate_param(self) -> None:
+        """CustomOperation rejects sampling_rate as a parameter name.
+
+        Note: When calling CustomOperation directly with sampling_rate in kwargs,
+        Python raises TypeError before our validation can run. The ValueError
+        validation in CustomOperation.__init__ catches cases where sampling_rate
+        is nested in a dict or passed through **params from another function.
+        The main user-facing validation happens in ChannelFrame.apply().
+        """
+
+        def my_func(x: np.ndarray, sampling_rate: float) -> np.ndarray:
+            return x * sampling_rate
+
+        # Direct call raises TypeError due to Python's argument handling
+        with pytest.raises(TypeError, match="multiple values for argument"):
+            CustomOperation(16000, func=my_func, sampling_rate=44100)

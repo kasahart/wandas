@@ -49,6 +49,19 @@ class ChannelProcessingMixin:
         """
         from wandas.processing.custom import CustomOperation
 
+        # Check for conflicting parameter names early
+        if "sampling_rate" in kwargs:
+            raise ValueError(
+                "Parameter name conflict\n"
+                "  Cannot use 'sampling_rate' as a parameter name in "
+                "custom functions.\n"
+                "  The sampling rate is automatically provided by the "
+                "ChannelFrame.\n"
+                "  Please use a different parameter name "
+                "(e.g., 'sr', 'sample_rate', 'fs').\n"
+                f"  Received params: {list(kwargs.keys())}"
+            )
+
         operation = CustomOperation(
             self.sampling_rate,
             func=func,
