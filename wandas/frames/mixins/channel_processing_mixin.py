@@ -1,6 +1,7 @@
 """Module providing mixins related to signal processing."""
 
 import logging
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Union, cast
 
 from wandas.core.metadata import ChannelMetadata
@@ -29,6 +30,35 @@ class ChannelProcessingMixin:
     other time-series data, such as signal processing filters and
     transformation operations.
     """
+
+    def apply(
+        self: T_Processing,
+        func: Callable[..., Any],
+        output_shape_func: Callable[[tuple[int, ...]], tuple[int, ...]] | None = None,
+        **kwargs: Any,
+    ) -> T_Processing:
+        """Apply a custom function to the signal.
+
+        Args:
+            func: Function to apply.
+            output_shape_func: Optional function to calculate output shape.
+            **kwargs: Additional arguments for the function.
+
+        Returns:
+            New ChannelFrame.
+        """
+        from wandas.processing.custom import CustomOperation
+
+        operation = CustomOperation(
+            self.sampling_rate,
+            func=func,
+            output_shape_func=output_shape_func,
+            **kwargs,
+        )
+
+        # Explicitly cast to the generic processing frame type so mypy
+        # understands the returned value has the same frame type as `self`.
+        return cast(T_Processing, cast(Any, self)._apply_operation_instance(operation))
 
     def high_pass_filter(
         self: T_Processing, cutoff: float, order: int = 4
