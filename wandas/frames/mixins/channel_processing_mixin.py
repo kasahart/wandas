@@ -45,7 +45,7 @@ class ChannelProcessingMixin:
             **kwargs: Additional arguments for the function.
 
         Returns:
-            New ChannelFrame.
+            New frame of the same type with the custom function applied.
         """
         from wandas.processing.custom import CustomOperation
 
