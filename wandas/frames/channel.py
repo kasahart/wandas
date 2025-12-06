@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, cast
 
 import dask
 import dask.array as da
@@ -196,10 +196,32 @@ class ChannelFrame(
         # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
 
+        # _apply_operation_instance returns the same concrete frame type as
+        # `self`, but mypy can't infer that from the TypeVar `S` bound to
+        # BaseFrame. Cast explicitly to `S` to satisfy type checking.
+        # Call the implementation on the concrete ChannelFrame type and
+        # then cast back to the generic `S` so callers keeping generic
+        # typing still get the correct return type.
+        return cast(
+            S,
+            cast("ChannelFrame", self)._apply_operation_instance(
+                operation, operation_name=operation_name
+            ),
+        )
+
+    def _apply_operation_instance(
+        self: S, operation: Any, operation_name: str | None = None
+    ) -> S:
+        """Apply an instantiated operation to the frame."""
         # Apply processing to data
         processed_data = operation.process(self._data)
 
         # Update metadata
+        # Use operation name and params from the operation instance
+        if operation_name is None:
+            operation_name = getattr(operation, "name", "unknown_operation")
+        params = getattr(operation, "params", {})
+
         operation_metadata = {"operation": operation_name, "params": params}
         new_history = self.operation_history.copy()
         new_history.append(operation_metadata)
