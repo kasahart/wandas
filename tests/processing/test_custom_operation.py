@@ -64,14 +64,14 @@ class TestCustomOperation:
         assert isinstance(created, CustomOperation)
         assert get_operation("custom") is CustomOperation
 
-    def test_custom_operation_rejects_sampling_rate_param(self) -> None:
-        """CustomOperation rejects sampling_rate as a parameter name.
+    def test_custom_operation_direct_call_raises_type_error(self) -> None:
+        """Direct CustomOperation call with sampling_rate in kwargs raises TypeError.
 
         Note: When calling CustomOperation directly with sampling_rate in kwargs,
-        Python raises TypeError before our validation can run. The ValueError
-        validation in CustomOperation.__init__ catches cases where sampling_rate
-        is nested in a dict or passed through **params from another function.
-        The main user-facing validation happens in ChannelFrame.apply().
+        Python raises TypeError during argument binding, before __init__ body runs.
+        This is expected behavior and not something we can prevent at the class level.
+        The user-facing validation happens in ChannelFrame.apply(), which checks
+        kwargs before passing them to CustomOperation.
         """
 
         def my_func(x: np.ndarray, sampling_rate: float) -> np.ndarray:

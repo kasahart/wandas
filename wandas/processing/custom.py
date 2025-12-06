@@ -35,19 +35,6 @@ class CustomOperation(AudioOperation[InputArrayType, OutputArrayType]):
         **params : Any
             Additional parameters to pass to the function.
         """
-        # Check for conflicting parameter names
-        if "sampling_rate" in params:
-            raise ValueError(
-                "Parameter name conflict\n"
-                "  Cannot use 'sampling_rate' as a parameter name in "
-                "custom functions.\n"
-                "  The sampling rate is automatically provided by the "
-                "ChannelFrame.\n"
-                "  Please use a different parameter name "
-                "(e.g., 'sr', 'sample_rate', 'fs').\n"
-                f"  Received params: {list(params.keys())}"
-            )
-
         # Annotate the instance attribute so mypy knows the callable's return
         # type corresponds to OutputArrayType.
         self.func: Callable[..., OutputArrayType] = func
