@@ -208,6 +208,12 @@ Wandasはオープンソースプロジェクトです。貢献を歓迎しま�
 3. 変更を実装し、テストを追加 / Implement changes and add tests
 4. Pull Requestを作成 / Open a Pull Request
 
+### GitHub Copilot サポート / GitHub Copilot Support
+
+このリポジトリには包括的なCopilot指示が設定されています。[`.github/copilot-instructions.md`](.github/copilot-instructions.md)を参照して、プロジェクトの構造と開発規約をご確認ください。 / This repository is configured with comprehensive Copilot instructions. See [`.github/copilot-instructions.md`](.github/copilot-instructions.md) for project structure and development conventions.
+
+詳細は[`.github/AGENTS.md`](.github/AGENTS.md)を参照 / For more details, see [`.github/AGENTS.md`](.github/AGENTS.md)
+
 ## 🐛 バグ報告・機能リクエスト / Issues
 
 - **バグ報告**: [Issue Tracker](https://github.com/kasahart/wandas/issues) に詳細を記載 / For bug reports, please include details on the Issue Tracker

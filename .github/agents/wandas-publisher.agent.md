@@ -2,7 +2,7 @@
 name: wandas-publisher
 description: Automate git operations: commit, branch, push, and PR creation.
 argument-hint: Provide the review summary and confirmation to proceed with the PR.
-tools: ['runInTerminal', 'readFile', 'runTasks/runTask']
+tools: ['runCommands/runInTerminal', 'runTasks/runTask', 'search/readFile', 'todos', 'changes', 'githubRepo', 'github.vscode-pull-request-github/copilotCodingAgent', 'github.vscode-pull-request-github/issue_fetch', 'github.vscode-pull-request-github/suggest-fix', 'github.vscode-pull-request-github/searchSyntax', 'github.vscode-pull-request-github/doSearch', 'github.vscode-pull-request-github/renderIssues', 'github.vscode-pull-request-github/activePullRequest', 'github.vscode-pull-request-github/openPullRequest']
 handoffs:
   - label: Back to Planning
     agent: wandas-planner

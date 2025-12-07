@@ -90,6 +90,114 @@ class TestChannelProcessing:
             assert isinstance(result, ChannelFrame)
             assert isinstance(result._data, DaArray)
 
+    def test_apply_custom_function_lazy_and_correct(self) -> None:
+        """Custom apply should stay lazy until compute and return correct data."""
+
+        func = mock.MagicMock(side_effect=lambda x, offset: x + offset)
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
+        )
+
+        result = frame.apply(func, output_shape_func=lambda shape: shape, offset=1.5)
+
+        # Function should not run before compute
+        assert func.call_count == 0
+
+        computed = result.compute()
+        np.testing.assert_array_almost_equal(computed, self.data + 1.5)
+        assert func.call_count == 1
+
+    def test_apply_custom_updates_history_metadata_and_labels(self) -> None:
+        """
+        Custom apply should update history, metadata, and labels using display name.
+        """
+
+        def fancy(x: np.ndarray, bias: float = 0.0) -> np.ndarray:
+            return x + bias
+
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            metadata={"source": "test"},
+            channel_metadata=[{"label": "sig", "unit": "V", "extra": {}}],
+        )
+
+        result = frame.apply(fancy, bias=0.0)
+
+        # Operation history should record custom with params
+        last_op = result.operation_history[-1]
+        assert last_op["operation"] == "custom"
+        assert last_op["params"] == {"bias": 0.0}
+
+        # Metadata should include the new entry while preserving existing keys
+        assert frame.metadata == {"source": "test"}
+        assert result.metadata == {"source": "test", "custom": {"bias": 0.0}}
+
+        # Channel labels should use display name from callable __name__
+        assert result.labels == ["fancy(sig)"]
+
+    def test_apply_custom_label_fallback_to_custom_name(self) -> None:
+        """When callable lacks __name__, label should fall back to 'custom'."""
+
+        class CallableObj:
+            def __call__(self, x: np.ndarray) -> np.ndarray:
+                return x
+
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "sig", "unit": "", "extra": {}}],
+        )
+
+        result = frame.apply(CallableObj())
+        assert result.labels == ["custom(sig)"]
+
+    def test_apply_with_sr_in_params(self) -> None:
+        """
+        Custom function can receive sr via params with different parameter name.
+        """
+
+        def needs_sr(x: np.ndarray, sr: float) -> np.ndarray:
+            # Use sr parameter in calculation
+            return x * (sr / 1000.0)
+
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "sig", "unit": "", "extra": {}}],
+        )
+
+        # Pass sampling rate with different parameter name to avoid conflict
+        result = frame.apply(
+            needs_sr, output_shape_func=lambda shape: shape, sr=self.sample_rate
+        )
+
+        # Verify it computed correctly
+        computed = result.compute()
+        expected = self.data * (self.sample_rate / 1000.0)
+        np.testing.assert_array_almost_equal(computed, expected)
+
+    def test_apply_rejects_sampling_rate_param(self) -> None:
+        """apply() should reject sampling_rate in kwargs with clear error."""
+
+        def process_with_sr(x: np.ndarray, sampling_rate: float) -> np.ndarray:
+            return x * sampling_rate
+
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "sig", "unit": "V", "extra": {}}],
+        )
+
+        with pytest.raises(ValueError, match=r"Parameter name conflict"):
+            frame.apply(
+                process_with_sr,
+                output_shape_func=lambda shape: shape,
+                sampling_rate=frame.sampling_rate,
+            )
+
     def test_a_weighting(self) -> None:
         """Test a_weighting operation."""
         with mock.patch("wandas.processing.create_operation") as mock_create_op:
