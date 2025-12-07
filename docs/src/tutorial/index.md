@@ -27,7 +27,7 @@ import wandas as wd
 
 ```python
 # Load a WAV file / WAVファイルを読み込む
-url = "https://github.com/kasahart/wandas/raw/main/examples/data/summer_streets1.wav"
+url = "https://github.com/kasahart/wandas/raw/v0.1.6/examples/data/summer_streets1.wav"
 
 audio = wd.read_wav(url)
 print(f"Sampling rate / サンプリングレート: {audio.sampling_rate} Hz")
@@ -37,7 +37,7 @@ print(f"Duration / 長さ: {audio.duration} s")
 
 ```python exec="on" session="wd_demo"
 # Load a WAV file / WAVファイルを読み込む
-url = "https://github.com/kasahart/wandas/raw/main/examples/data/summer_streets1.wav"
+url = "https://github.com/kasahart/wandas/raw/v0.1.6/examples/data/summer_streets1.wav"
 
 audio = wd.read_wav(url)
 print(f"Sampling rate / サンプリングレート: {audio.sampling_rate} Hz  ")
@@ -59,7 +59,7 @@ plt.savefig(buffer, format="svg")
 print(buffer.getvalue())
 ```
 
-<audio controls src="https://github.com/kasahart/wandas/raw/main/examples/data/summer_streets1.wav"></audio>
+<audio controls src="https://github.com/kasahart/wandas/raw/v0.1.6/examples/data/summer_streets1.wav"></audio>
 
 ### 4. Basic Signal Processing / 基本的な信号処理
 
@@ -96,11 +96,11 @@ print(buffer.getvalue())
   - Design philosophy and algorithm explanations.
   - ライブラリの設計思想やアルゴリズムを理解する。
 
-## Recipes by Use Case / ユースケース別レシピ
+## Learning Path / 学習パス
 
 This section provides links to tutorial notebooks that demonstrate more detailed features and application examples of the Wandas library.
 このセクションでは、Wandasライブラリのより詳細な機能や応用例を、以下のチュートリアルノートブックを通じて学ぶことができます。
 
-- [00_setup.ipynb: Setup and basic configuration / セットアップと基本的な設定](/tutorial/00_setup.ipynb)
-- [01_io_basics.ipynb: File reading/writing and basic operations / ファイルの読み書きと基本的な操作](/tutorial/01_io_basics.ipynb)
-- [02_signal_processing_basics.ipynb: Basic signal processing / 基本的な信号処理](/tutorial/02_signal_processing_basics.ipynb)
+- [Learning Path — 00_Why Wandas (Notebook)](/learning-path/00_why_wandas.ipynb): Overview and motivation / 概要と動機付け
+- [Learning Path — 01_Getting Started (Notebook)](/learning-path/01_getting_started.ipynb): Setup and basic configuration / セットアップと基本的な設定
+- [Learning Path — 02_Working With Data (Notebook)](/learning-path/02_working_with_data.ipynb): Reading, inspecting, and simple transformations / 読み込み、検査、基本的な変換
