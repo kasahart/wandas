@@ -34,7 +34,7 @@ cf = wd.read_wav("path/to/file.wav")
 cf.describe()
 ```
 
-![Waveform and spectrogram display](../assets/images/read_wav_describe.png)
+![Waveform and spectrogram display](assets/images/read_wav_describe.png)
 
 ### Filtering / フィルタ処理
 
@@ -50,7 +50,7 @@ signal = wd.generate_sin(freqs=[5000, 1000], duration=1)
 signal.low_pass_filter(cutoff=1000).fft().plot()
 ```
 
-![Low-pass filter results](../assets/images/low_pass_filter.png)
+![Low-pass filter results](assets/images/low_pass_filter.png)
 
 For detailed documentation and usage examples, see the [Tutorial](tutorial/index.md).
 

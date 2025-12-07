@@ -57,7 +57,7 @@ class ChannelFrame(
 
         Args:
             data: Dask array containing channel data.
-            Shape should be (n_channels, n_samples).
+                Shape should be (n_channels, n_samples).
             sampling_rate: The sampling rate of the data in Hz.
                 Must be a positive value.
             label: A label for the frame.

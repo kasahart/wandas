@@ -156,8 +156,8 @@ Trueの場合、サブディレクトリを再帰的に検索します。デフ�
 
 ### Examples / 使用例
 
-For detailed examples, see the [FrameDataset Usage Guide](../../examples/03_frame_dataset_usage.ipynb) notebook.
-詳細な例については、[FrameDataset Usage Guide](../../examples/03_frame_dataset_usage.ipynb) ノートブックを参照してください。
+For detailed examples, see the `learning-path/` directory and the tutorial notebooks listed in the Tutorial section.
+詳細な例については、`learning-path/` ディレクトリとチュートリアルノートブックを参照してください。
 
 ### API Reference / APIリファレンス
 
