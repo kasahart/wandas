@@ -24,6 +24,7 @@ def _collect_nav_paths(nav):
 
 
 def test_mkdocs_nav_targets_exist():
+    """Test that all markdown files referenced in mkdocs.yml nav exist."""
     mk_path = Path("docs/mkdocs.yml")
     assert mk_path.exists(), "docs/mkdocs.yml must exist"
     raw = mk_path.read_text()
@@ -54,10 +55,16 @@ def test_mkdocs_nav_targets_exist():
                 missing.append(str(target))
 
     if missing:
-        pytest.fail("Missing nav target files: " + ", ".join(missing))
+        pytest.fail(
+            f"Missing navigation target files\n"
+            f"  Files: {', '.join(missing)}\n"
+            f"These markdown files are referenced in mkdocs.yml nav but don't exist in docs/src/.\n"
+            f"Create the missing files or remove them from the navigation."
+        )
 
 
 def test_index_images_exist():
+    """Test that all image files referenced in index.md exist."""
     index = Path("docs/src/index.md")
     assert index.exists(), "docs/src/index.md must exist"
     text = index.read_text()
@@ -77,11 +84,15 @@ def test_index_images_exist():
 
     if missing:
         pytest.fail(
-            "Missing image files referenced from index.md: " + ", ".join(missing)
+            f"Missing image files referenced from index.md\n"
+            f"  Files: {', '.join(missing)}\n"
+            f"These image files are referenced in docs/src/index.md but don't exist.\n"
+            f"Add the missing image files to the appropriate location in docs/src/."
         )
 
 
 def test_learning_path_notebooks_exist():
+    """Test that all learning-path notebooks referenced in tutorial exist."""
     # tutorial/index.md links to learning-path notebooks by absolute repo path
     lp = Path("learning-path")
     assert lp.exists(), "learning-path directory must exist in repository root"
@@ -93,4 +104,9 @@ def test_learning_path_notebooks_exist():
     ]
     missing = [str(lp / e) for e in expected if not (lp / e).exists()]
     if missing:
-        pytest.fail("Missing learning-path notebooks: " + ", ".join(missing))
+        pytest.fail(
+            f"Missing learning-path notebooks\n"
+            f"  Files: {', '.join(missing)}\n"
+            f"These notebooks are referenced in docs/src/tutorial/index.md but don't exist.\n"
+            f"Create the missing tutorial notebooks in the learning-path/ directory."
+        )
