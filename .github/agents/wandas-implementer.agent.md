@@ -2,7 +2,7 @@
 name: wandas-implementer
 description: Implement changes to Wandas with TDD, metadata diligence, and Dask-safe patterns.
 argument-hint: Paste the latest planner handoff plus any clarifications.
-tools: ['edit', 'search', 'testFailure', 'fetch', 'runTests','runTasks/runTask', 'runTasks/getTaskOutput']
+tools: ['runCommands', 'runTasks/runTask', 'runTasks/getTaskOutput', 'edit', 'runNotebooks', 'search', 'todos', 'runSubagent', 'runTests', 'usages', 'problems', 'changes', 'testFailure', 'fetch', 'githubRepo', 'ms-python.python/getPythonEnvironmentInfo']
 handoffs:
   - label: Start Review
     agent: wandas-reviewer

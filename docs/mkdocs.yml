@@ -57,16 +57,6 @@ markdown_extensions:
 
 # ─── プラグイン ────────────────────────────
 plugins:
-  # 1) i18n - 多言語対応
-  - i18n:
-      docs_structure: suffix
-      languages:
-        - locale: ja
-          default: true
-          name: 日本語
-        - locale: en
-          name: English
-
   # 基本プラグイン
   - search
   - autorefs
@@ -99,11 +89,19 @@ plugins:
 nav:
   - Home: index.md
   - Tutorials: tutorial/index.md
-  - API Reference: api/index.md
+  - API Reference:
+      - Overview: api/index.md
+      - Core: api/core.md
+      - Frames: api/frames.md
+      - Processing: api/processing.md
+      - IO: api/io.md
+      - WDF IO: api/wdf_io.md
+      - Visualization: api/visualization.md
+      - Utils: api/utils.md
+      - Datasets: api/datasets.md
   - Theory & Architecture:
-      - explanation/index.md
+      - Overview: explanation/index.md
       - Psychoacoustic Metrics: explanation/psychoacoustic_metrics.md
-      - Psychoacoustic Metrics (EN): explanation/psychoacoustic_metrics.en.md
   - Contributing Guide: contributing.md
 
 # ─── 追加設定 ──────────────────────────────

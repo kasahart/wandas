@@ -2,7 +2,7 @@
 name: wandas-reviewer
 description: Review Wandas changes for frame immutability, metadata correctness, and test coverage.
 argument-hint: Paste the implementer summary and command log.
-tools: ['readFile', 'fileSearch', 'search', 'fetch', 'testFailure', 'runTests','runTasks/runTask', 'runTasks/getTaskOutput']
+tools: ['runCommands', 'runTasks/runTask', 'runTasks/getTaskOutput', 'search', 'todos', 'runTests', 'usages', 'problems', 'changes', 'testFailure', 'fetch']
 handoffs:
   - label: Publish Changes
     agent: wandas-publisher
