@@ -2,6 +2,7 @@ import re
 from pathlib import Path
 
 import pytest
+import yaml
 
 
 def _collect_nav_paths(nav):
@@ -25,25 +26,32 @@ def _collect_nav_paths(nav):
 def test_mkdocs_nav_targets_exist():
     mk_path = Path("docs/mkdocs.yml")
     assert mk_path.exists(), "docs/mkdocs.yml must exist"
-
-    text = mk_path.read_text()
-    # Extract the `nav:` block as raw text and find markdown paths inside it.
-    m = re.search(r"^\s*nav:\n((?:\s+.*\n)+)", text, flags=re.M)
-    if not m:
-        pytest.skip("No nav block found in docs/mkdocs.yml")
-
-    nav_block = m.group(1)
-    # find markdown target paths like 'api/index.md' or 'tutorial/index.md'
-    paths = re.findall(r"([A-Za-z0-9_\-/]+\.md)", nav_block)
+    raw = mk_path.read_text()
+    # Remove python-specific YAML tags like !!python/name:... before parsing
+    sanitized = re.sub(r"!!python/name:[^\n]+", "", raw)
+    paths = []
+    try:
+        data = yaml.safe_load(sanitized)
+        nav = data.get("nav", [])
+        paths = _collect_nav_paths(nav)
+    except Exception:
+        # Fallback: try extracting nav block via regex (legacy behavior)
+        m = re.search(r"^\s*nav:\n((?:\s+.*\n)+)", raw, flags=re.M)
+        if not m:
+            pytest.skip("No nav block found in docs/mkdocs.yml")
+        nav_block = m.group(1)
+        paths = re.findall(r"([A-Za-z0-9_\-/]+\.md)", nav_block)
 
     base = Path("docs/src")
     assert base.exists(), f"Docs source directory {base} must exist"
 
     missing = []
     for p in paths:
-        target = base / p
-        if not target.exists():
-            missing.append(str(target))
+        # only check markdown targets (skip external URLs)
+        if isinstance(p, str) and not p.startswith("http") and p.endswith(".md"):
+            target = base / p
+            if not target.exists():
+                missing.append(str(target))
 
     if missing:
         pytest.fail("Missing nav target files: " + ", ".join(missing))
