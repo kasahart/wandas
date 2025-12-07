@@ -58,7 +58,8 @@ def test_mkdocs_nav_targets_exist():
         pytest.fail(
             f"Missing navigation target files\n"
             f"  Files: {', '.join(missing)}\n"
-            f"These markdown files are referenced in mkdocs.yml nav but don't exist in docs/src/.\n"
+            f"These markdown files are referenced\n"
+            f"  in mkdocs.yml nav but don't exist in docs/src/.\n"
             f"Create the missing files or remove them from the navigation."
         )
 
@@ -107,6 +108,7 @@ def test_learning_path_notebooks_exist():
         pytest.fail(
             f"Missing learning-path notebooks\n"
             f"  Files: {', '.join(missing)}\n"
-            f"These notebooks are referenced in docs/src/tutorial/index.md but don't exist.\n"
+            f"These notebooks are referenced in docs/src/tutorial/index.md\n"
+            f"  but don't exist.\n"
             f"Create the missing tutorial notebooks in the learning-path/ directory."
         )
