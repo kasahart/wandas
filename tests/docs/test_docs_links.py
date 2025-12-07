@@ -27,7 +27,7 @@ def test_mkdocs_nav_targets_exist():
     """Test that all markdown files referenced in mkdocs.yml nav exist."""
     mk_path = Path("docs/mkdocs.yml")
     assert mk_path.exists(), "docs/mkdocs.yml must exist"
-    raw = mk_path.read_text()
+    raw = mk_path.read_text(encoding="utf-8", errors="replace")
     # Remove python-specific YAML tags like !!python/name:... before parsing
     sanitized = re.sub(r"!!python/name:[^\n]+", "", raw)
     paths = []
@@ -68,7 +68,7 @@ def test_index_images_exist():
     """Test that all image files referenced in index.md exist."""
     index = Path("docs/src/index.md")
     assert index.exists(), "docs/src/index.md must exist"
-    text = index.read_text()
+    text = index.read_text(encoding="utf-8", errors="replace")
 
     # find markdown image references ![alt](path)
     imgs = re.findall(r"!\[.*?\]\(([^)]+)\)", text)
