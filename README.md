@@ -210,9 +210,9 @@ Wandasはオープンソースプロジェクトです。貢献を歓迎しま�
 
 ### GitHub Copilot サポート / GitHub Copilot Support
 
-このリポジトリには包括的なCopilot指示が設定されています。[`.github/copilot-instructions.md`](.github/copilot-instructions.md)を参照して、プロジェクトの構造と開発規約を理解してください。 / This repository is configured with comprehensive Copilot instructions. See [`.github/copilot-instructions.md`](.github/copilot-instructions.md) for project structure and development conventions.
+このリポジトリには包括的なCopilot指示が設定されています。[`.github/copilot-instructions.md`](.github/copilot-instructions.md)を参照して、プロジェクトの構造と開発規約をご確認ください。 / This repository is configured with comprehensive Copilot instructions. See [`.github/copilot-instructions.md`](.github/copilot-instructions.md) for project structure and development conventions.
 
-詳細は[`.github/README.md`](.github/README.md)を参照 / For more details, see [`.github/README.md`](.github/README.md)
+詳細は[`.github/AGENTS.md`](.github/AGENTS.md)を参照 / For more details, see [`.github/AGENTS.md`](.github/AGENTS.md)
 
 ## 🐛 バグ報告・機能リクエスト / Issues
 
