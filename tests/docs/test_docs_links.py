@@ -35,7 +35,7 @@ def test_mkdocs_nav_targets_exist():
         data = yaml.safe_load(sanitized)
         nav = data.get("nav", [])
         paths = _collect_nav_paths(nav)
-    except Exception:
+    except yaml.YAMLError:
         # Fallback: try extracting nav block via regex (legacy behavior)
         m = re.search(r"^\s*nav:\n((?:\s+.*\n)+)", raw, flags=re.M)
         if not m:
