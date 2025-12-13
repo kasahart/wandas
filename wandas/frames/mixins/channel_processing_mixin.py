@@ -162,31 +162,38 @@ class ChannelProcessingMixin:
         Parameter Routing
         -----------------
         - `**params` are forwarded to your transform function `func(...)`.
-            Use this for algorithm parameters such as `n_fft`, `hop_length`,
-            `center`, etc.
+            Use this for algorithm-specific parameters like `center`, `window`, etc.
         - `out_kwargs` are forwarded to the output frame constructor `out(...)`.
-            Use this only for output-frame initialization arguments.
+            Use this for frame initialization arguments required by the output type.
 
-        A common mistake is to pass transform-function parameters via
-        `out_kwargs`.
+        Important: Some parameters may be needed in BOTH places:
+        - SpectrogramFrame requires n_fft and hop_length in its constructor to store
+          STFT metadata for reconstruction and visualization.
+        - Your transform function may also need these parameters to compute the STFT.
+        - In this case, pass them in out_kwargs (for the constructor) and potentially
+          also in **params (if your function needs them).
+
+        A common mistake is to pass transform-function-only parameters via out_kwargs.
         Wandas will try to catch this early and may raise:
-        - `Extra out_kwargs keys`: keys not accepted by the output frame
-            constructor.
-        - `Missing required out_kwargs keys`: required constructor args not
-            provided.
+        - `Extra out_kwargs keys`: keys not accepted by the output frame constructor.
+        - `Missing required out_kwargs keys`: required constructor args not provided.
 
         Examples
         --------
         .. code-block:: python
 
-            # Good: algorithm params via **params,
-            # constructor params via out_kwargs
-            # Note: SpectrogramFrame requires n_fft and hop_length in its constructor
+            # Example: Custom STFT transform to SpectrogramFrame
+            # SpectrogramFrame constructor requires n_fft and hop_length
+            def my_stft(x: np.ndarray, center: bool) -> np.ndarray:
+                # Your STFT implementation here
+                # (n_fft/hop_length accessed from closure if needed)
+                pass
+
             spec = signal.transform(
                 my_stft,
                 out=SpectrogramFrame,
-                out_kwargs={"n_fft": 2048, "hop_length": 512},
-                center=True,  # passed to my_stft function
+                out_kwargs={"n_fft": 2048, "hop_length": 512},  # for constructor
+                center=True,  # for my_stft function
             )
         """
 
