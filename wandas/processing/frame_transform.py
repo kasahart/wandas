@@ -61,11 +61,15 @@ class FrameTransformOperation(AudioOperation[Any, Any]):
                 ch = int(input_shape[0]) if len(input_shape) >= 1 else 1
                 ch = 1 if ch <= 0 else min(ch, 1)
                 rest: list[int] = []
-                for s in input_shape[1:]:
-                    try:
+                for i, s in enumerate(input_shape[1:], start=1):
+                    if isinstance(s, (int, np.integer)):
                         si = int(s)
-                    except Exception:
-                        si = 0
+                    else:
+                        raise ValueError(
+                            f"Invalid dimension in input_shape at index {i}: {s!r}\n"
+                            f"  Expected an integer for shape inference, got {type(s).__name__}\n"
+                            "  Provide a valid input_shape or set infer_output_shape explicitly."
+                        )
                     rest.append(min(max(si, 1), 64))
                 test_shape = (ch, *rest)
 
@@ -74,7 +78,7 @@ class FrameTransformOperation(AudioOperation[Any, Any]):
         test_input = np.zeros(test_shape, dtype=np.float64)
         try:
             test_output = self._process_array(test_input)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             func_name = getattr(self.func, "__name__", None)
             if not isinstance(func_name, str):
                 func_name = "<callable>"

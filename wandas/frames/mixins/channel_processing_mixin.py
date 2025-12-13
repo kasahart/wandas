@@ -93,6 +93,63 @@ class ChannelProcessingMixin:
 
         This method is similar to `apply()`, but allows returning a different
         `BaseFrame` subclass (e.g., ChannelFrame -> SpectralFrame / SpectrogramFrame).
+        
+        Key differences from `apply()`:
+        - `transform()` requires the `out` parameter to specify the output frame type,
+          while `apply()` always returns the same frame type as the input.
+        - `transform()` supports `out_kwargs` for frame-specific constructor parameters
+          (e.g., freq_axis, time_axis for SpectrogramFrame).
+        - `transform()` allows cross-domain operations (time -> frequency, etc.).
+
+        Parameters
+        ----------
+        func : Callable[..., Any]
+            The transform function to apply. Should accept a NumPy array and return
+            a transformed NumPy array. Additional parameters can be passed via **params.
+        out : type[BaseFrame[Any]]
+            The output frame class (e.g., SpectrogramFrame, SpectralFrame).
+        out_kwargs : dict[str, Any], optional
+            Keyword arguments to pass to the output frame constructor. Use this for
+            frame-specific initialization (e.g., n_fft, hop_length for SpectrogramFrame).
+        output_shape_func : Callable[[tuple[int, ...]], tuple[int, ...]], optional
+            A function that computes the output shape from the input shape. If omitted
+            and infer_output_shape=True, Wandas will perform a dry-run inference.
+        infer_output_shape : bool, default=True
+            If True and output_shape_func is not provided, perform a dry-run on a small
+            array to infer the output shape and dtype. Set to False if your function
+            has side effects or cannot handle small test inputs.
+        infer_input_shape : tuple[int, ...], optional
+            Override the input shape used for dry-run inference. Useful if your function
+            expects specific dimensions.
+        output_dtype : np.dtype[Any] | str, optional
+            The output dtype. If omitted, inferred from the dry-run or input dtype.
+            Recommended for complex outputs (e.g., np.complex128 for FFT/STFT).
+        history_op_name : str, default="custom"
+            The operation name to record in operation_history.
+        display_name : str, optional
+            A human-readable name for the operation. If omitted, uses func.__name__
+            or history_op_name.
+        label : str, optional
+            Label for the output frame. If omitted, generates one from history_op_name.
+        channel_metadata : list[ChannelMetadata] | list[dict[str, Any]], optional
+            Channel metadata for the output frame. If omitted, copies from input.
+        **params : Any
+            Additional parameters to pass to the transform function `func`.
+
+        Returns
+        -------
+        BaseFrame[Any]
+            A new frame of type `out` with the transformed data.
+
+        Raises
+        ------
+        TypeError
+            If out_kwargs contains keys not accepted by the output frame constructor,
+            or if required constructor arguments are missing.
+        ValueError
+            If 'sampling_rate' is passed in **params (use the frame's sampling rate).
+        RuntimeError
+            If dry-run inference fails and output_shape_func is not provided.
 
         Notes
         -----
@@ -127,9 +184,7 @@ class ChannelProcessingMixin:
             spec = signal.transform(
                 my_stft,
                 out=SpectrogramFrame,
-                out_kwargs={"freq_axis": freqs, "time_axis": times},
-                n_fft=2048,
-                hop_length=512,
+                out_kwargs={"n_fft": 2048, "hop_length": 512},
                 center=True,
             )
         """
@@ -244,7 +299,9 @@ class ChannelProcessingMixin:
                         "Invalid out/out_kwargs for transform()\n"
                         f"  Out: {getattr(out, '__name__', str(out))}\n"
                         f"  Extra out_kwargs keys: {extra_keys}\n"
-                        "out_kwargs is only for the output frame constructor. "
+                        "Why this matters: out_kwargs must match the output frame "
+                        "constructor to ensure proper frame initialization.\n"
+                        "How to fix: out_kwargs is only for the output frame constructor. "
                         "Pass transform-function parameters via **params."
                         f"{allowed_hint}"
                     )
@@ -253,15 +310,24 @@ class ChannelProcessingMixin:
                         "Invalid out/out_kwargs for transform()\n"
                         f"  Out: {getattr(out, '__name__', str(out))}\n"
                         f"  Missing required out_kwargs keys: {missing_keys}\n"
-                        "Provide required initialization arguments via out_kwargs."
+                        "Why this matters: these parameters are required by the output "
+                        "frame constructor and cannot be inferred from the input.\n"
+                        "How to fix: provide required initialization arguments via out_kwargs."
                         f"{allowed_hint}"
                     )
         except TypeError:
             raise
-        except Exception:
-            # If signature inspection fails (or out uses dynamic kwargs), fall
-            # back to the normal constructor call and let Python raise TypeError.
+        except (AttributeError, ValueError):
+            # If signature inspection fails due to missing __init__ or invalid signature,
+            # fall back to the normal constructor call and let Python raise TypeError.
             pass
+        except Exception as exc:
+            logger.warning(
+                "Signature inspection failed for %r in transform(): %s\n"
+                "Falling back to constructor call. This may mask real problems.",
+                out,
+                exc,
+            )
 
         try:
             return out(
@@ -279,7 +345,10 @@ class ChannelProcessingMixin:
                 "Invalid out/out_kwargs for transform()\n"
                 f"  Out: {getattr(out, '__name__', str(out))}\n"
                 f"  out_kwargs: {sorted(out_kwargs_final.keys())}\n"
-                "Provide required initialization arguments via out_kwargs."
+                "Why this matters: the output frame constructor rejected these arguments.\n"
+                "How to fix: check the frame's __init__ signature for required parameters "
+                "and provide them via out_kwargs. Ensure transform-function parameters "
+                "are passed via **params instead."
             ) from e
 
     def high_pass_filter(

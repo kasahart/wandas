@@ -1014,9 +1014,9 @@ class TestBaseFrameSummary:
             _ = self.channel_frame.summary()
             m.assert_not_called()
 
-    def test_info_uses_summary_and_does_not_compute(self, capsys: Any) -> None:
+    def test_debug_info_uses_summary_and_does_not_compute(self, capsys: Any) -> None:
         with mock.patch.object(self.channel_frame._data, "compute") as m:
-            BaseFrame.info(self.channel_frame)
+            self.channel_frame.debug_info()
             m.assert_not_called()
 
         out = capsys.readouterr().out
