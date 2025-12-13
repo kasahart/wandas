@@ -65,7 +65,7 @@ class FrameTransformOperation(AudioOperation[Any, Any]):
                     if isinstance(s, (int, np.integer)):
                         si = int(s)
                     else:
-                        # i+1 because we're iterating over input_shape[1:]
+                        # i is position in input_shape[1:], so i+1 is position in input_shape
                         raise ValueError(
                             f"Invalid dimension in input_shape at index {i+1}: {s!r}\n"
                             f"  Expected an integer for shape inference, got {type(s).__name__}\n"
