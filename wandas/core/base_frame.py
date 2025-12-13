@@ -800,8 +800,18 @@ class BaseFrame(ABC, Generic[T]):
             "has_previous": self.previous is not None,
         }
 
-    def info(self) -> None:
-        """Print a human-friendly, non-computing summary of this frame."""
+    def debug_info(self) -> None:
+        """Print a lightweight, non-computing debug summary of this frame.
+        
+        This method provides quick diagnostic information without triggering
+        Dask computations. For type-specific information (e.g., duration,
+        samples), subclasses may provide their own info() method.
+        
+        See Also
+        --------
+        summary : Returns the same information as a dictionary.
+        ChannelFrame.info : Displays duration, samples, and channel information.
+        """
         s = self.summary()
         print(f"{s['type']}(label={s['label']!r})")
         print(f"  sampling_rate: {s['sampling_rate']}")
