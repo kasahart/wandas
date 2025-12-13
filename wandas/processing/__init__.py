@@ -21,6 +21,7 @@ from wandas.processing.filters import (
     HighPassFilter,
     LowPassFilter,
 )
+from wandas.processing.frame_transform import FrameTransformOperation
 from wandas.processing.psychoacoustic import (
     LoudnessZwst,
     LoudnessZwtv,
@@ -57,6 +58,7 @@ __all__ = [
     "create_operation",
     "get_operation",
     "register_operation",
+    "FrameTransformOperation",
     # Filters
     "AWeighting",
     "HighPassFilter",

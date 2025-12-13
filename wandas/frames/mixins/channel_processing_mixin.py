@@ -1,8 +1,11 @@
 """Module providing mixins related to signal processing."""
 
+import inspect
 import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Union, cast
+
+import numpy as np
 
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.roughness import RoughnessFrame
@@ -69,6 +72,215 @@ class ChannelProcessingMixin:
         # Explicitly cast to the generic processing frame type so mypy
         # understands the returned value has the same frame type as `self`.
         return cast(T_Processing, cast(Any, self)._apply_operation_instance(operation))
+
+    def transform(
+        self,
+        func: Callable[..., Any],
+        *,
+        out: type["BaseFrame[Any]"],
+        out_kwargs: dict[str, Any] | None = None,
+        output_shape_func: Callable[[tuple[int, ...]], tuple[int, ...]] | None = None,
+        infer_output_shape: bool = True,
+        infer_input_shape: tuple[int, ...] | None = None,
+        output_dtype: np.dtype[Any] | str | None = None,
+        history_op_name: str = "custom",
+        display_name: str | None = None,
+        label: str | None = None,
+        channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
+        **params: Any,
+    ) -> "BaseFrame[Any]":
+        """Apply a custom transform that can change the output frame type.
+
+        This method is similar to `apply()`, but allows returning a different
+        `BaseFrame` subclass (e.g., ChannelFrame -> SpectralFrame / SpectrogramFrame).
+
+        Notes
+        -----
+        - If `output_shape_func` is omitted and `infer_output_shape=True`, Wandas
+          will run the function once on a small NumPy array (dry-run) to infer
+          the output shape/dtype. This never computes the real Dask data.
+        - For FFT/STFT-like transforms that return complex values, set
+          `output_dtype=np.complex128` (recommended) or rely on dry-run inference.
+
+        Parameter Routing
+        -----------------
+        - `**params` are forwarded to your transform function `func(...)`.
+            Use this for algorithm parameters such as `n_fft`, `hop_length`,
+            `center`, etc.
+        - `out_kwargs` are forwarded to the output frame constructor `out(...)`.
+            Use this only for output-frame initialization arguments.
+
+        A common mistake is to pass transform-function parameters via
+        `out_kwargs`.
+        Wandas will try to catch this early and may raise:
+        - `Extra out_kwargs keys`: keys not accepted by the output frame
+            constructor.
+        - `Missing required out_kwargs keys`: required constructor args not
+            provided.
+
+        Examples
+        --------
+        .. code-block:: python
+
+            # Good: algorithm params via **params,
+            # constructor params via out_kwargs
+            spec = signal.transform(
+                my_stft,
+                out=SpectrogramFrame,
+                out_kwargs={"freq_axis": freqs, "time_axis": times},
+                n_fft=2048,
+                hop_length=512,
+                center=True,
+            )
+        """
+
+        # Pre-validation: keep the same conflict rule as apply()
+        if "sampling_rate" in params:
+            raise ValueError(
+                "Parameter name conflict\n"
+                "  Cannot use 'sampling_rate' as a parameter in transform().\n"
+                "  The sampling rate is taken from the frame.\n"
+                "  Suggested alternatives: 'sr', 'sample_rate', or 'fs'\n"
+                f"  Received params: {list(params.keys())}"
+            )
+
+        from wandas.processing.frame_transform import FrameTransformOperation
+
+        base_self = cast("BaseFrame[Any]", self)
+
+        op = FrameTransformOperation(
+            sampling_rate=base_self.sampling_rate,
+            func=func,
+            output_shape_func=output_shape_func,
+            infer_output_shape=infer_output_shape,
+            infer_input_shape=infer_input_shape,
+            output_dtype=output_dtype,
+            **params,
+        )
+
+        transformed_data = op.process(base_self._data)
+
+        op_params = params
+        new_history = [
+            *base_self.operation_history,
+            {"operation": history_op_name, "params": op_params},
+        ]
+        new_metadata = {**base_self.metadata, history_op_name: op_params}
+
+        _display = display_name or getattr(func, "__name__", None)
+        if not isinstance(_display, str):
+            _display = history_op_name
+
+        if channel_metadata is not None:
+            new_channel_metadata = channel_metadata
+        else:
+            new_channel_metadata = base_self._relabel_channels(
+                history_op_name, _display
+            )
+
+        out_kwargs_final = dict(out_kwargs or {})
+
+        # Validate out_kwargs against the output frame constructor signature.
+        # This prevents common mistakes such as passing transform-function params
+        # (e.g. STFT center/pad_mode) into the output frame constructor.
+        try:
+            sig = inspect.signature(out.__init__)
+            params_sig = list(sig.parameters.values())
+
+            accepts_var_kw = any(
+                p.kind == inspect.Parameter.VAR_KEYWORD for p in params_sig
+            )
+            if not accepts_var_kw:
+                allowed = {
+                    p.name
+                    for p in params_sig
+                    if p.kind
+                    in {
+                        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                        inspect.Parameter.KEYWORD_ONLY,
+                    }
+                }
+                allowed.discard("self")
+
+                # These are always provided by transform() and must not be
+                # required from out_kwargs.
+                provided_by_transform = {
+                    "data",
+                    "sampling_rate",
+                    "label",
+                    "metadata",
+                    "operation_history",
+                    "channel_metadata",
+                    "previous",
+                }
+
+                required = {
+                    p.name
+                    for p in params_sig
+                    if p.kind
+                    in {
+                        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                        inspect.Parameter.KEYWORD_ONLY,
+                    }
+                    and p.default is inspect.Parameter.empty
+                }
+                required.discard("self")
+                required -= provided_by_transform
+
+                extra_keys = sorted(set(out_kwargs_final.keys()) - allowed)
+                missing_keys = sorted(required - set(out_kwargs_final.keys()))
+
+                allowed_hint = ""
+                if allowed:
+                    allowed_sorted = sorted(allowed)
+                    shown = allowed_sorted[:12]
+                    suffix = "" if len(allowed_sorted) <= 12 else ", ..."
+                    allowed_hint = (
+                        f"\n  Allowed out_kwargs keys (partial): {shown}{suffix}"
+                    )
+
+                if extra_keys:
+                    raise TypeError(
+                        "Invalid out/out_kwargs for transform()\n"
+                        f"  Out: {getattr(out, '__name__', str(out))}\n"
+                        f"  Extra out_kwargs keys: {extra_keys}\n"
+                        "out_kwargs is only for the output frame constructor. "
+                        "Pass transform-function parameters via **params."
+                        f"{allowed_hint}"
+                    )
+                if missing_keys:
+                    raise TypeError(
+                        "Invalid out/out_kwargs for transform()\n"
+                        f"  Out: {getattr(out, '__name__', str(out))}\n"
+                        f"  Missing required out_kwargs keys: {missing_keys}\n"
+                        "Provide required initialization arguments via out_kwargs."
+                        f"{allowed_hint}"
+                    )
+        except TypeError:
+            raise
+        except Exception:
+            # If signature inspection fails (or out uses dynamic kwargs), fall
+            # back to the normal constructor call and let Python raise TypeError.
+            pass
+
+        try:
+            return out(
+                data=transformed_data,
+                sampling_rate=base_self.sampling_rate,
+                label=label or f"{history_op_name}({base_self.label})",
+                metadata=new_metadata,
+                operation_history=new_history,
+                channel_metadata=new_channel_metadata,
+                previous=base_self,
+                **out_kwargs_final,
+            )
+        except TypeError as e:
+            raise TypeError(
+                "Invalid out/out_kwargs for transform()\n"
+                f"  Out: {getattr(out, '__name__', str(out))}\n"
+                f"  out_kwargs: {sorted(out_kwargs_final.keys())}\n"
+                "Provide required initialization arguments via out_kwargs."
+            ) from e
 
     def high_pass_filter(
         self: T_Processing, cutoff: float, order: int = 4

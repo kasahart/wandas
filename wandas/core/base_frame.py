@@ -752,6 +752,70 @@ class BaseFrame(ABC, Generic[T]):
         self._debug_info_impl()
         logger.debug("=== End Debug Info ===")
 
+    def summary(self) -> dict[str, Any]:
+        """Return a lightweight, non-computing summary of this frame.
+
+        This is intended for quick debugging without forcing Dask computation.
+        It only inspects metadata and the Dask array wrapper.
+
+        Returns
+        -------
+        dict[str, Any]
+            Summary information including type, shape, dtype, labels, and
+            basic graph/chunk details.
+        """
+
+        labels_preview: list[str] = self.labels[:10]
+        if len(self.labels) > 10:
+            labels_preview.append("...")
+
+        try:
+            chunks = self._data.chunks
+        except Exception:  # pragma: no cover
+            chunks = None
+
+        try:
+            dask_layers = list(self._data.dask.layers.keys())
+        except Exception:  # pragma: no cover
+            dask_layers = None
+
+        try:
+            dask_dependencies = len(self._data.dask.dependencies)
+        except Exception:  # pragma: no cover
+            dask_dependencies = None
+
+        return {
+            "type": self.__class__.__name__,
+            "label": self.label,
+            "sampling_rate": self.sampling_rate,
+            "n_channels": self.n_channels,
+            "shape": self.shape,
+            "dtype": getattr(self._data, "dtype", None),
+            "labels": labels_preview,
+            "n_operations": len(self.operation_history),
+            "metadata_keys": sorted(self.metadata.keys()),
+            "chunks": chunks,
+            "dask_layers": dask_layers,
+            "dask_dependencies": dask_dependencies,
+            "has_previous": self.previous is not None,
+        }
+
+    def info(self) -> None:
+        """Print a human-friendly, non-computing summary of this frame."""
+        s = self.summary()
+        print(f"{s['type']}(label={s['label']!r})")
+        print(f"  sampling_rate: {s['sampling_rate']}")
+        print(f"  n_channels: {s['n_channels']}")
+        print(f"  shape: {s['shape']}")
+        print(f"  dtype: {s['dtype']}")
+        print(f"  labels: {s['labels']}")
+        print(f"  n_operations: {s['n_operations']}")
+        print(f"  metadata_keys: {s['metadata_keys']}")
+        print(f"  chunks: {s['chunks']}")
+        print(f"  dask_layers: {s['dask_layers']}")
+        print(f"  dask_dependencies: {s['dask_dependencies']}")
+        print(f"  has_previous: {s['has_previous']}")
+
     def print_operation_history(self) -> None:
         """
         Print the operation history to standard output in a readable format.

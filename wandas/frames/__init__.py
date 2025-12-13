@@ -1,6 +1,13 @@
 """Frame classes for wandas."""
 
-from wandas.frames.channel import ChannelFrame
-from wandas.frames.roughness import RoughnessFrame
+from .channel import ChannelFrame
+from .roughness import RoughnessFrame
+from .spectral import SpectralFrame
+from .spectrogram import SpectrogramFrame
 
-__all__ = ["ChannelFrame", "RoughnessFrame"]
+__all__ = [
+    "ChannelFrame",
+    "RoughnessFrame",
+    "SpectralFrame",
+    "SpectrogramFrame",
+]

@@ -6,6 +6,8 @@ import pytest
 from dask.array.core import Array as DaArray
 
 from wandas.frames.channel import ChannelFrame, ChannelMetadata
+from wandas.frames.spectral import SpectralFrame
+from wandas.frames.spectrogram import SpectrogramFrame
 
 _da_from_array = da.from_array  # type: ignore [unused-ignore]
 
@@ -196,6 +198,190 @@ class TestChannelProcessing:
                 process_with_sr,
                 output_shape_func=lambda shape: shape,
                 sampling_rate=frame.sampling_rate,
+            )
+
+    def test_transform_returns_out_frame_type(self) -> None:
+        def my_fft(x: np.ndarray, n_fft: int) -> np.ndarray:
+            return np.fft.rfft(x, n=n_fft, axis=1)
+
+        n_fft = 8
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "sig", "unit": "", "extra": {}}],
+        )
+
+        result = frame.transform(
+            my_fft,
+            out=SpectralFrame,
+            out_kwargs={"n_fft": n_fft, "window": "hann"},
+            output_shape_func=lambda s: (s[0], n_fft // 2 + 1),
+            output_dtype=np.complex128,
+            n_fft=n_fft,
+        )
+
+        assert isinstance(result, SpectralFrame)
+        assert result.sampling_rate == frame.sampling_rate
+        assert result.n_fft == n_fft
+        assert result.window == "hann"
+
+    def test_transform_is_lazy_when_output_shape_func_provided(self) -> None:
+        func = mock.MagicMock(side_effect=lambda x, gain: np.fft.rfft(x * gain, axis=1))
+
+        n_fft = 16
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "sig", "unit": "", "extra": {}}],
+        )
+
+        result = frame.transform(
+            func,
+            out=SpectralFrame,
+            out_kwargs={"n_fft": n_fft, "window": "hann"},
+            output_shape_func=lambda s: (s[0], n_fft // 2 + 1),
+            output_dtype=np.complex128,
+            gain=1.0,
+        )
+
+        assert func.call_count == 0
+        _ = result.compute()
+        assert func.call_count == 1
+
+    def test_transform_infer_output_shape_runs_func_once_on_dry_run(self) -> None:
+        func = mock.MagicMock(
+            side_effect=lambda x, n_fft: np.fft.rfft(x, n=n_fft, axis=1)
+        )
+
+        n_fft = 8
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "sig", "unit": "", "extra": {}}],
+        )
+
+        result = frame.transform(
+            func,
+            out=SpectralFrame,
+            out_kwargs={"n_fft": n_fft, "window": "hann"},
+            infer_output_shape=True,
+            n_fft=n_fft,
+        )
+
+        # dry-run inference + first delayed task construction
+        assert func.call_count == 2
+        computed = result.compute()
+        assert func.call_count == 3
+        assert computed.dtype.kind == "c"
+        assert computed.shape == (frame.n_channels, n_fft // 2 + 1)
+
+    def test_transform_updates_history_metadata_previous_and_labels(self) -> None:
+        def fancy_fft(x: np.ndarray, n_fft: int) -> np.ndarray:
+            return np.fft.rfft(x, n=n_fft, axis=1)
+
+        n_fft = 8
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            metadata={"source": "test"},
+            channel_metadata=[{"label": "sig", "unit": "V", "extra": {}}],
+        )
+
+        result = frame.transform(
+            fancy_fft,
+            out=SpectralFrame,
+            out_kwargs={"n_fft": n_fft, "window": "hann"},
+            output_shape_func=lambda s: (s[0], n_fft // 2 + 1),
+            output_dtype=np.complex128,
+            n_fft=n_fft,
+        )
+
+        assert result.previous is frame
+        assert len(result.operation_history) == len(frame.operation_history) + 1
+        assert result.operation_history[-1]["operation"] == "custom"
+        assert result.operation_history[-1]["params"] == {"n_fft": n_fft}
+        assert frame.metadata == {"source": "test"}
+        assert result.metadata == {"source": "test", "custom": {"n_fft": n_fft}}
+        assert result.labels == ["fancy_fft(sig)"]
+
+    def test_transform_requires_output_shape_when_infer_disabled(self) -> None:
+        def my_fft(x: np.ndarray, n_fft: int) -> np.ndarray:
+            return np.fft.rfft(x, n=n_fft, axis=1)
+
+        n_fft = 8
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "sig", "unit": "", "extra": {}}],
+        )
+
+        with pytest.raises(ValueError, match=r"Cannot determine output shape"):
+            frame.transform(
+                my_fft,
+                out=SpectralFrame,
+                out_kwargs={"n_fft": n_fft, "window": "hann"},
+                infer_output_shape=False,
+                n_fft=n_fft,
+            )
+
+    def test_transform_dry_run_user_exception_is_actionable(self) -> None:
+        def broken(x: np.ndarray, *, n_fft: int) -> np.ndarray:
+            raise ValueError("boom")
+
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "sig", "unit": "", "extra": {}}],
+        )
+
+        with pytest.raises(RuntimeError, match=r"Failed to infer output shape/dtype"):
+            frame.transform(
+                broken,
+                out=SpectralFrame,
+                out_kwargs={"n_fft": 8, "window": "hann"},
+                infer_output_shape=True,
+                n_fft=8,
+            )
+
+    def test_transform_missing_out_kwargs_raises(self) -> None:
+        def my_stft(x: np.ndarray) -> np.ndarray:
+            return np.zeros((x.shape[0], 3, 4), dtype=np.complex128)
+
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "sig", "unit": "", "extra": {}}],
+        )
+
+        with pytest.raises(TypeError, match=r"Invalid out/out_kwargs"):
+            frame.transform(
+                my_stft,
+                out=SpectrogramFrame,
+                output_shape_func=lambda s: (s[0], 3, 4),
+                output_dtype=np.complex128,
+            )
+
+    def test_transform_extra_out_kwargs_keys_raises(self) -> None:
+        def my_stft(x: np.ndarray) -> np.ndarray:
+            return np.zeros((x.shape[0], 3, 4), dtype=np.complex128)
+
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "sig", "unit": "", "extra": {}}],
+        )
+
+        with pytest.raises(TypeError, match=r"Extra out_kwargs keys"):
+            frame.transform(
+                my_stft,
+                out=SpectrogramFrame,
+                out_kwargs={
+                    "n_fft": 4,
+                    "hop_length": 2,
+                    "center": True,
+                },
+                output_shape_func=lambda s: (s[0], 3, 4),
+                output_dtype=np.complex128,
             )
 
     def test_a_weighting(self) -> None:
