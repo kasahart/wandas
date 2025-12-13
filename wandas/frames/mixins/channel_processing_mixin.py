@@ -181,11 +181,12 @@ class ChannelProcessingMixin:
 
             # Good: algorithm params via **params,
             # constructor params via out_kwargs
+            # Note: SpectrogramFrame requires n_fft and hop_length in its constructor
             spec = signal.transform(
                 my_stft,
                 out=SpectrogramFrame,
                 out_kwargs={"n_fft": 2048, "hop_length": 512},
-                center=True,
+                center=True,  # passed to my_stft function
             )
         """
 

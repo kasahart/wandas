@@ -61,12 +61,13 @@ class FrameTransformOperation(AudioOperation[Any, Any]):
                 ch = int(input_shape[0]) if len(input_shape) >= 1 else 1
                 ch = 1 if ch <= 0 else min(ch, 1)
                 rest: list[int] = []
-                for i, s in enumerate(input_shape[1:], start=1):
+                for i, s in enumerate(input_shape[1:]):
                     if isinstance(s, (int, np.integer)):
                         si = int(s)
                     else:
+                        # i+1 because we're iterating over input_shape[1:]
                         raise ValueError(
-                            f"Invalid dimension in input_shape at index {i}: {s!r}\n"
+                            f"Invalid dimension in input_shape at index {i+1}: {s!r}\n"
                             f"  Expected an integer for shape inference, got {type(s).__name__}\n"
                             "  Provide a valid input_shape or set infer_output_shape explicitly."
                         )
