@@ -185,9 +185,9 @@ class ChannelProcessingMixin:
             # Example: Custom STFT transform to SpectrogramFrame
             # SpectrogramFrame constructor requires n_fft and hop_length
             def my_stft(x: np.ndarray, center: bool) -> np.ndarray:
-                # Your STFT implementation here
-                # (n_fft/hop_length accessed from closure if needed)
-                pass
+                # Implementation should compute STFT using n_fft/hop_length from closure or globals
+                # For example, you might use librosa.stft or numpy.fft:
+                # return np.fft.rfft(x, n=2048)
 
             spec = signal.transform(
                 my_stft,
