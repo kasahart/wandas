@@ -170,8 +170,8 @@ class ChannelProcessingMixin:
         - SpectrogramFrame requires n_fft and hop_length in its constructor to store
           STFT metadata for reconstruction and visualization.
         - Your transform function may also need these parameters to compute the STFT.
-        - In this case, pass them in out_kwargs (for the constructor) and potentially
-          also in **params (if your function needs them).
+        - In this case, pass them in out_kwargs (for the constructor).
+        - Your transform function will also need these parameters passed via **params if it uses them.
 
         A common mistake is to pass transform-function-only parameters via out_kwargs.
         Wandas will try to catch this early and may raise:
