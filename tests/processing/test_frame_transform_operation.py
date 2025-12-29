@@ -155,8 +155,8 @@ class TestFrameTransformOperation:
         with pytest.raises(RuntimeError, match=r"Failed to infer output shape/dtype"):
             op.process(dask_data)
 
-    def test_infer_output_shape_false_uses_input_shape(self) -> None:
-        """Test that infer_output_shape=False uses input shape as output shape."""
+    def test_infer_output_shape_false_without_shape_func_raises(self) -> None:
+        """Test that infer_output_shape=False without output_shape_func raises ValueError."""
         data = np.array([[1.0, 2.0, 3.0, 4.0]])
         dask_data = _da_from_array(data, chunks=(1, -1))
 
@@ -169,9 +169,8 @@ class TestFrameTransformOperation:
             infer_output_shape=False,
         )
 
-        result = op.process(dask_data)
-        assert result.shape == data.shape
-        np.testing.assert_array_equal(result.compute(), data)
+        with pytest.raises(ValueError, match=r"Cannot determine output shape"):
+            op.process(dask_data)
 
     def test_invalid_dimension_in_input_shape_raises_value_error(self) -> None:
         """Test that invalid dimension in input_shape raises ValueError."""
