@@ -743,14 +743,42 @@ class BaseFrame(ABC, Generic[T]):
         return new_metadata
 
     def debug_info(self) -> None:
-        """Output detailed debug information"""
+        """Print and log a lightweight, non-computing debug summary of this frame.
+
+        This method is intended for quick diagnostics without triggering Dask
+        computations. It prints a human-friendly summary to stdout and also emits
+        structured debug logs via the module logger.
+
+        See Also
+        --------
+        summary : Returns the same information as a dictionary.
+        ChannelFrame.info : Displays duration, samples, and channel information.
+        """
+        s = self.summary()
+
+        # Emit debug logs (used by some tests / integrations).
         logger.debug(f"=== {self.__class__.__name__} Debug Info ===")
-        logger.debug(f"Label: {self.label}")
-        logger.debug(f"Shape: {self.shape}")
-        logger.debug(f"Sampling rate: {self.sampling_rate} Hz")
-        logger.debug(f"Operation history: {len(self.operation_history)} operations")
-        self._debug_info_impl()
+        logger.debug(f"Label: {s['label']}")
+        logger.debug(f"Sampling rate: {s['sampling_rate']} Hz")
+        logger.debug(f"Channels: {s['n_channels']}")
+        logger.debug(f"Shape: {s['shape']}")
+        logger.debug(f"Dtype: {s['dtype']}")
+        logger.debug(f"Operations: {s['n_operations']}")
         logger.debug("=== End Debug Info ===")
+
+        # Print a compact summary (used by other tests / interactive debugging).
+        print(f"{s['type']}(label={s['label']!r})")
+        print(f"  sampling_rate: {s['sampling_rate']}")
+        print(f"  n_channels: {s['n_channels']}")
+        print(f"  shape: {s['shape']}")
+        print(f"  dtype: {s['dtype']}")
+        print(f"  labels: {s['labels']}")
+        print(f"  n_operations: {s['n_operations']}")
+        print(f"  metadata_keys: {s['metadata_keys']}")
+        print(f"  chunks: {s['chunks']}")
+        print(f"  dask_layers: {s['dask_layers']}")
+        print(f"  dask_dependencies: {s['dask_dependencies']}")
+        print(f"  has_previous: {s['has_previous']}")
 
     def summary(self) -> dict[str, Any]:
         """Return a lightweight, non-computing summary of this frame.
@@ -799,32 +827,6 @@ class BaseFrame(ABC, Generic[T]):
             "dask_dependencies": dask_dependencies,
             "has_previous": self.previous is not None,
         }
-
-    def debug_info(self) -> None:
-        """Print a lightweight, non-computing debug summary of this frame.
-        
-        This method provides quick diagnostic information without triggering
-        Dask computations. For type-specific information (e.g., duration,
-        samples), subclasses may provide their own info() method.
-        
-        See Also
-        --------
-        summary : Returns the same information as a dictionary.
-        ChannelFrame.info : Displays duration, samples, and channel information.
-        """
-        s = self.summary()
-        print(f"{s['type']}(label={s['label']!r})")
-        print(f"  sampling_rate: {s['sampling_rate']}")
-        print(f"  n_channels: {s['n_channels']}")
-        print(f"  shape: {s['shape']}")
-        print(f"  dtype: {s['dtype']}")
-        print(f"  labels: {s['labels']}")
-        print(f"  n_operations: {s['n_operations']}")
-        print(f"  metadata_keys: {s['metadata_keys']}")
-        print(f"  chunks: {s['chunks']}")
-        print(f"  dask_layers: {s['dask_layers']}")
-        print(f"  dask_dependencies: {s['dask_dependencies']}")
-        print(f"  has_previous: {s['has_previous']}")
 
     def print_operation_history(self) -> None:
         """

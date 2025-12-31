@@ -49,10 +49,29 @@ class FrameTransformOperation(AudioOperation[Any, Any]):
     def _process_array(self, x: Any) -> Any:
         return self.func(x, **self.params)
 
+    def get_display_name(self) -> str:
+        func_name = getattr(self.func, "__name__", None)
+        if isinstance(func_name, str):
+            return func_name
+        return self.name
+
     def _infer_from_dry_run(
         self, input_shape: tuple[int, ...]
     ) -> tuple[tuple[int, ...], Any]:
         test_shape = self.infer_input_shape
+        if test_shape is not None:
+            validated: list[int] = []
+            for i, s in enumerate(test_shape):
+                if not isinstance(s, (int, np.integer)):
+                    raise ValueError(
+                        f"Invalid dimension in input_shape at index {i}: {s!r}\n"
+                        f"  Expected an integer for shape inference, got "
+                        f"{type(s).__name__}\n"
+                        "  Provide a valid input_shape or set infer_output_shape "
+                        "explicitly."
+                    )
+                validated.append(int(s))
+            test_shape = tuple(validated)
         if test_shape is None:
             if len(input_shape) == 0:
                 test_shape = input_shape
@@ -65,11 +84,15 @@ class FrameTransformOperation(AudioOperation[Any, Any]):
                     if isinstance(s, (int, np.integer)):
                         si = int(s)
                     else:
-                        # i is 0-based position in input_shape[1:], so original index in input_shape is i+1
+                        # i is 0-based position in input_shape[1:], so original index
+                        # in input_shape is i+1.
                         raise ValueError(
-                            f"Invalid dimension in input_shape at index {i+1}: {s!r}\n"
-                            f"  Expected an integer for shape inference, got {type(s).__name__}\n"
-                            "  Provide a valid input_shape or set infer_output_shape explicitly."
+                            "Invalid dimension in input_shape at index "
+                            f"{i + 1}: {s!r}\n"
+                            f"  Expected an integer for shape inference, got "
+                            f"{type(s).__name__}\n"
+                            "  Provide a valid input_shape or set infer_output_shape "
+                            "explicitly."
                         )
                     rest.append(min(max(si, 1), 64))
                 test_shape = (ch, *rest)

@@ -93,7 +93,7 @@ class ChannelProcessingMixin:
 
         This method is similar to `apply()`, but allows returning a different
         `BaseFrame` subclass (e.g., ChannelFrame -> SpectralFrame / SpectrogramFrame).
-        
+
         Key differences from `apply()`:
         - `transform()` requires the `out` parameter to specify the output frame type,
           while `apply()` always returns the same frame type as the input.
@@ -110,7 +110,8 @@ class ChannelProcessingMixin:
             The output frame class (e.g., SpectrogramFrame, SpectralFrame).
         out_kwargs : dict[str, Any], optional
             Keyword arguments to pass to the output frame constructor. Use this for
-            frame-specific initialization (e.g., n_fft, hop_length for SpectrogramFrame).
+            frame-specific initialization (e.g., n_fft, hop_length for
+            SpectrogramFrame).
         output_shape_func : Callable[[tuple[int, ...]], tuple[int, ...]], optional
             A function that computes the output shape from the input shape. If omitted
             and infer_output_shape=True, Wandas will perform a dry-run inference.
@@ -171,7 +172,8 @@ class ChannelProcessingMixin:
           STFT metadata for reconstruction and visualization.
         - Your transform function may also need these parameters to compute the STFT.
         - In this case, pass them in out_kwargs (for the constructor).
-        - Your transform function will also need these parameters passed via **params if it uses them.
+                - Your transform function will also need these parameters passed via
+                    **params if it uses them.
 
         A common mistake is to pass transform-function-only parameters via out_kwargs.
         Wandas will try to catch this early and may raise:
@@ -185,7 +187,8 @@ class ChannelProcessingMixin:
             # Example: Custom STFT transform to SpectrogramFrame
             # SpectrogramFrame constructor requires n_fft and hop_length
             def my_stft(x: np.ndarray, center: bool) -> np.ndarray:
-                # Implementation should compute STFT using n_fft/hop_length from closure or globals
+                # Implementation should compute STFT using n_fft/hop_length from
+                # closure or globals.
                 # For example, you might use librosa.stft or numpy.fft:
                 # return np.fft.rfft(x, n=2048)
 
@@ -309,7 +312,8 @@ class ChannelProcessingMixin:
                         f"  Extra out_kwargs keys: {extra_keys}\n"
                         "Why this matters: out_kwargs must match the output frame "
                         "constructor to ensure proper frame initialization.\n"
-                        "How to fix: out_kwargs is only for the output frame constructor. "
+                        "How to fix: out_kwargs is only for the output frame "
+                        "constructor. "
                         "Pass transform-function parameters via **params."
                         f"{allowed_hint}"
                     )
@@ -320,14 +324,16 @@ class ChannelProcessingMixin:
                         f"  Missing required out_kwargs keys: {missing_keys}\n"
                         "Why this matters: these parameters are required by the output "
                         "frame constructor and cannot be inferred from the input.\n"
-                        "How to fix: provide required initialization arguments via out_kwargs."
+                        "How to fix: provide required initialization arguments via "
+                        "out_kwargs."
                         f"{allowed_hint}"
                     )
         except TypeError:
             raise
         except (AttributeError, ValueError):
-            # If signature inspection fails due to missing __init__ or invalid signature,
-            # fall back to the normal constructor call and let Python raise TypeError.
+            # If signature inspection fails due to missing __init__ or an invalid
+            # signature, fall back to the normal constructor call and let Python
+            # raise TypeError.
             pass
         except Exception as exc:
             logger.warning(
@@ -353,10 +359,11 @@ class ChannelProcessingMixin:
                 "Invalid out/out_kwargs for transform()\n"
                 f"  Out: {getattr(out, '__name__', str(out))}\n"
                 f"  out_kwargs: {sorted(out_kwargs_final.keys())}\n"
-                "Why this matters: the output frame constructor rejected these arguments.\n"
-                "How to fix: check the frame's __init__ signature for required parameters "
-                "and provide them via out_kwargs. Ensure transform-function parameters "
-                "are passed via **params instead."
+                "Why this matters: the output frame constructor rejected these "
+                "arguments.\n"
+                "How to fix: check the frame's __init__ signature for required "
+                "parameters and provide them via out_kwargs. Ensure "
+                "transform-function parameters are passed via **params instead."
             ) from e
 
     def high_pass_filter(

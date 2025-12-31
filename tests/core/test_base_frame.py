@@ -8,7 +8,6 @@ import pytest
 from dask.array.core import Array as DaArray
 
 import wandas as wd
-from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 

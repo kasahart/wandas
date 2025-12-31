@@ -131,7 +131,7 @@ class TestFrameTransformOperation:
             sampling_rate=16000,
             func=process,
             infer_output_shape=True,
-            infer_input_shape=(1, 10),  # Custom shape for dry-run
+            infer_input_shape=data.shape,  # Custom shape for dry-run
         )
 
         result = op.process(dask_data)
@@ -156,7 +156,7 @@ class TestFrameTransformOperation:
             op.process(dask_data)
 
     def test_infer_output_shape_false_without_shape_func_raises(self) -> None:
-        """Test that infer_output_shape=False without output_shape_func raises ValueError."""
+        """Test infer_output_shape=False without output_shape_func raises ValueError."""
         data = np.array([[1.0, 2.0, 3.0, 4.0]])
         dask_data = _da_from_array(data, chunks=(1, -1))
 
