@@ -989,6 +989,41 @@ class TestBaseFrameInfoAndDataframe:
         assert "Samples: 8000" in output
 
 
+class TestBaseFrameSummary:
+    def setup_method(self) -> None:
+        self.sample_rate = 16000
+        self.data = np.random.random((1, 16000))
+        self.dask_data: DaArray = _da_from_array(self.data, chunks=(1, -1))
+        self.channel_frame = ChannelFrame(
+            data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
+        )
+
+    def test_summary_contains_expected_keys(self) -> None:
+        s = self.channel_frame.summary()
+        assert s["type"] == "ChannelFrame"
+        assert s["label"] == "test_audio"
+        assert s["sampling_rate"] == self.sample_rate
+        assert s["n_channels"] == 1
+        assert s["shape"] == self.channel_frame.shape
+        assert "metadata_keys" in s
+        assert "chunks" in s
+
+    def test_summary_does_not_compute(self) -> None:
+        with mock.patch.object(self.channel_frame._data, "compute") as m:
+            _ = self.channel_frame.summary()
+            m.assert_not_called()
+
+    def test_debug_info_uses_summary_and_does_not_compute(self, capsys: Any) -> None:
+        with mock.patch.object(self.channel_frame._data, "compute") as m:
+            self.channel_frame.debug_info()
+            m.assert_not_called()
+
+        out = capsys.readouterr().out
+        assert "ChannelFrame" in out
+        assert "sampling_rate" in out
+        assert "n_channels" in out
+
+
 class TestBaseFrameCoverage:
     """Additional tests for BaseFrame coverage."""
 
