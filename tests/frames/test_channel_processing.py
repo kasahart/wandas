@@ -353,7 +353,7 @@ class TestChannelProcessing:
             channel_metadata=[{"label": "sig", "unit": "", "extra": {}}],
         )
 
-        with pytest.raises(TypeError, match=r"Invalid out/out_kwargs"):
+        with pytest.raises(TypeError, match=r"Missing required out_kwargs keys"):
             frame.transform(
                 my_stft,
                 out=SpectrogramFrame,
