@@ -349,7 +349,9 @@ def _prepare_file_source(
         try:
             file_obj.seek(0)
         except Exception:
-            pass
+            # Some file-like objects are not seekable or may reject seek(0).
+            # In that case, continue using the current position without failing.
+            logger.debug("Could not seek to start of file-like object; continuing from current position", exc_info=True)
         return file_obj
     return str(source)
 
