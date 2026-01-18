@@ -2,7 +2,8 @@
 import io
 import logging
 import os
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, BinaryIO
 
 import numpy as np
 import requests
@@ -15,14 +16,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def read_wav(filename: str, labels: list[str] | None = None) -> "ChannelFrame":
+def read_wav(
+    filename: str | Path | bytes | bytearray | memoryview | BinaryIO,
+    labels: list[str] | None = None,
+) -> "ChannelFrame":
     """
     Read a WAV file and create a ChannelFrame object.
 
     Parameters
     ----------
-    filename : str
-        Path to the WAV file or URL to the WAV file.
+    filename : str | Path | bytes | BinaryIO
+        Path to the WAV file, URL to the WAV file, or in-memory bytes/stream.
     labels : list of str, optional
         Labels for each channel.
 
@@ -34,19 +38,40 @@ def read_wav(filename: str, labels: list[str] | None = None) -> "ChannelFrame":
     from wandas.frames.channel import ChannelFrame
 
     # ファイル名がURLかどうかを判断
-    if filename.startswith("http://") or filename.startswith("https://"):
+    if isinstance(filename, str) and (
+        filename.startswith("http://") or filename.startswith("https://")
+    ):
         # URLの場合、requestsを使用してダウンロード
-
         response = requests.get(filename)
-        file_obj = io.BytesIO(response.content)
+        file_obj: BinaryIO = io.BytesIO(response.content)
         file_label = os.path.basename(filename)
+        # メモリマッピングは使用せずに読み込む
+        sampling_rate, data = wavfile.read(file_obj)
+    elif isinstance(filename, (bytes, bytearray, memoryview)) or (
+        hasattr(filename, "read") and not isinstance(filename, (str, Path))
+    ):
+        # in-memory bytes or stream
+        if isinstance(filename, (bytes, bytearray, memoryview)):
+            file_obj = io.BytesIO(bytes(filename))
+            file_label = "in_memory"
+        else:
+            file_obj = filename
+            if hasattr(file_obj, "seek"):
+                try:
+                    file_obj.seek(0)
+                except Exception:
+                    pass
+            file_label = getattr(file_obj, "name", "in_memory")
+            if isinstance(file_label, str):
+                file_label = os.path.basename(file_label)
         # メモリマッピングは使用せずに読み込む
         sampling_rate, data = wavfile.read(file_obj)
     else:
         # ローカルファイルパスの場合
-        file_label = os.path.basename(filename)
+        file_path = str(filename)
+        file_label = os.path.basename(file_path)
         # データの読み込み（メモリマッピングを使用）
-        sampling_rate, data = wavfile.read(filename, mmap=True)
+        sampling_rate, data = wavfile.read(file_path, mmap=True)
 
     # データを(num_channels, num_samples)形状のNumPy配列に変換
     if data.ndim == 1:

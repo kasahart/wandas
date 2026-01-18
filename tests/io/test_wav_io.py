@@ -1,4 +1,5 @@
 # tests/io/test_wav_io.py
+import io
 import os
 from unittest.mock import MagicMock, patch
 
@@ -179,6 +180,30 @@ def test_read_wav_from_url():
         assert (
             channel_frame.label == "test.wav"
         )  # Filename should be extracted from URL
+
+
+def test_read_wav_bytes() -> None:
+    """
+    Test reading a WAV file from in-memory bytes.
+    """
+    sampling_rate = 32000
+    duration = 0.1
+    num_samples = int(sampling_rate * duration)
+    data_left = np.full(num_samples, 0.25, dtype=np.float32)
+    data_right = np.full(num_samples, 0.75, dtype=np.float32)
+    stereo_data = np.column_stack((data_left, data_right))
+
+    wav_buffer = io.BytesIO()
+    wavfile.write(wav_buffer, sampling_rate, stereo_data)
+    wav_bytes = wav_buffer.getvalue()
+
+    channel_frame = read_wav(wav_bytes)
+
+    assert channel_frame.sampling_rate == sampling_rate
+    assert len(channel_frame) == 2
+    computed_data = channel_frame.compute()
+    np.testing.assert_allclose(computed_data[0], data_left, rtol=1e-5)
+    np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)
 
 
 def test_write_wav(tmpdir: str):

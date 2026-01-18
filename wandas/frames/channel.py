@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, TypeVar, cast
+from typing import TYPE_CHECKING, Any, BinaryIO, Optional, TypeVar, cast
 
 import dask
 import dask.array as da
@@ -745,7 +745,7 @@ class ChannelFrame(
     @classmethod
     def from_file(
         cls,
-        path: str | Path,
+        path: str | Path | bytes | bytearray | memoryview | BinaryIO,
         channel: int | list[int] | None = None,
         start: float | None = None,
         end: float | None = None,
@@ -757,6 +757,8 @@ class ChannelFrame(
         time_column: int | str = 0,
         delimiter: str = ",",
         header: int | None = 0,
+        file_type: str | None = None,
+        source_name: str | None = None,
     ) -> "ChannelFrame":
         """Create a ChannelFrame from an audio file.
 
@@ -766,7 +768,7 @@ class ChannelFrame(
             on the returned frame for custom sample-axis chunking.
 
         Args:
-            path: Path to the audio file.
+            path: Path to the audio file or in-memory bytes/stream.
             channel: Channel(s) to load. None loads all channels.
             start: Start time in seconds.
             end: End time in seconds.
@@ -776,6 +778,8 @@ class ChannelFrame(
             delimiter: For CSV files, delimiter character. Default is ",".
             header: For CSV files, row number to use as header.
                 Default is 0 (first row). Set to None if no header.
+            file_type: File extension for in-memory data (e.g. ".wav", ".csv").
+            source_name: Optional source name for in-memory data. Used in metadata.
 
         Returns:
             A new ChannelFrame containing the loaded audio data.
@@ -797,31 +801,73 @@ class ChannelFrame(
         """
         from .channel import ChannelFrame
 
-        path = Path(path)
-        if not path.exists():
-            raise FileNotFoundError(
-                f"Audio file not found\n"
-                f"  Path: {path.absolute()}\n"
-                f"  Current directory: {Path.cwd()}\n"
-                f"Please check:\n"
-                f"  - File path is correct\n"
-                f"  - File exists at the specified location\n"
-                f"  - You have read permissions for the file"
+        is_in_memory = isinstance(path, (bytes, bytearray, memoryview)) or (
+            hasattr(path, "read") and not isinstance(path, (str, Path))
+        )
+        if is_in_memory and file_type is None:
+            raise ValueError(
+                "File type is required when the extension is missing\n"
+                "  Cannot determine format without an extension\n"
+                "  Provide file_type like '.wav' or '.csv'"
             )
 
-        # Get file reader
-        reader = get_file_reader(path)
+        normalized_file_type = None
+        if file_type is not None:
+            normalized_file_type = file_type.lower()
+            if not normalized_file_type.startswith("."):
+                normalized_file_type = f".{normalized_file_type}"
+
+        if is_in_memory:
+            if hasattr(path, "read") and not isinstance(path, (str, Path)):
+                if hasattr(path, "seek"):
+                    try:
+                        path.seek(0)
+                    except Exception:
+                        pass
+                source: bytes = path.read()
+            else:
+                if isinstance(path, (bytes, bytearray, memoryview)):
+                    source = bytes(path)
+                else:
+                    raise TypeError("Unexpected in-memory input type")
+            path_obj: Path | None = None
+            reader = get_file_reader(
+                normalized_file_type or "", file_type=normalized_file_type
+            )
+        else:
+            path_obj = Path(cast(str | Path, path))
+            if not path_obj.exists():
+                raise FileNotFoundError(
+                    f"Audio file not found\n"
+                    f"  Path: {path_obj.absolute()}\n"
+                    f"  Current directory: {Path.cwd()}\n"
+                    f"Please check:\n"
+                    f"  - File path is correct\n"
+                    f"  - File exists at the specified location\n"
+                    f"  - You have read permissions for the file"
+                )
+            reader = get_file_reader(path_obj)
 
         # Build kwargs for reader
         reader_kwargs: dict[str, Any] = {}
-        if path.suffix.lower() == ".csv":
+        if (path_obj is not None and path_obj.suffix.lower() == ".csv") or (
+            normalized_file_type == ".csv"
+        ):
             reader_kwargs["time_column"] = time_column
             reader_kwargs["delimiter"] = delimiter
             if header is not None:
                 reader_kwargs["header"] = header
 
         # Get file info
-        info = reader.get_file_info(path, **reader_kwargs)
+        source_obj: str | Path | bytes | bytearray | memoryview | BinaryIO
+        if is_in_memory:
+            source_obj = source
+        else:
+            if path_obj is None:
+                raise ValueError("Path is required when loading from file")
+            source_obj = path_obj
+
+        info = reader.get_file_info(source_obj, **reader_kwargs)
         sr = info["samplerate"]
         n_channels = info["channels"]
         n_frames = info["frames"]
@@ -859,7 +905,7 @@ class ChannelFrame(
         frames_to_read = end_idx - start_idx
 
         logger.debug(
-            f"Setting up lazy load from file={path}, frames={frames_to_read}, "
+            f"Setting up lazy load from file={path!r}, frames={frames_to_read}, "
             f"start_idx={start_idx}, end_idx={end_idx}"
         )
 
@@ -871,7 +917,11 @@ class ChannelFrame(
             logger.debug(">>> EXECUTING DELAYED LOAD <<<")
             # Use the reader to get audio data with parameters
             out = reader.get_data(
-                path, channels_to_load, start_idx, frames_to_read, **reader_kwargs
+                source_obj,
+                channels_to_load,
+                start_idx,
+                frames_to_read,
+                **reader_kwargs,
             )
             if not isinstance(out, np.ndarray):
                 raise ValueError("Unexpected data type after reading file")
@@ -899,13 +949,22 @@ class ChannelFrame(
             "ChannelFrame setup complete - actual file reading will occur on compute()"  # noqa: E501
         )
 
+        frame_label = (
+            Path(source_name).stem
+            if source_name is not None
+            else (path_obj.stem if path_obj is not None else None)
+        )
+        frame_metadata = {}
+        if path_obj is not None:
+            frame_metadata["filename"] = str(path_obj)
+        elif source_name is not None:
+            frame_metadata["filename"] = source_name
+
         cf = ChannelFrame(
             data=dask_array,
             sampling_rate=sr,
-            label=path.stem,
-            metadata={
-                "filename": str(path),
-            },
+            label=frame_label,
+            metadata=frame_metadata,
         )
         if ch_labels is not None:
             if len(ch_labels) != len(cf):
@@ -917,11 +976,15 @@ class ChannelFrame(
         return cf
 
     @classmethod
-    def read_wav(cls, filename: str, labels: list[str] | None = None) -> "ChannelFrame":
+    def read_wav(
+        cls,
+        filename: str | Path | bytes | bytearray | memoryview | BinaryIO,
+        labels: list[str] | None = None,
+    ) -> "ChannelFrame":
         """Utility method to read a WAV file.
 
         Args:
-            filename: Path to the WAV file.
+            filename: Path to the WAV file or in-memory bytes/stream.
             labels: Labels to set for each channel.
 
         Returns:

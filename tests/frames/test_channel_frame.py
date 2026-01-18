@@ -1,3 +1,4 @@
+import io
 import os
 import tempfile
 from pathlib import Path
@@ -10,6 +11,7 @@ import pytest
 import soundfile as sf
 from dask.array.core import Array as DaArray
 from matplotlib.axes import Axes
+from scipy.io import wavfile
 
 import wandas as wd
 from wandas.core.metadata import ChannelMetadata
@@ -1489,6 +1491,49 @@ class TestDescribeIntegration:
         finally:
             if os.path.exists(temp_filename):
                 os.remove(temp_filename)
+
+    def test_from_file_bytes_wav(self) -> None:
+        """Test from_file with in-memory WAV bytes."""
+        sampling_rate = 8000
+        duration = 0.1
+        num_samples = int(sampling_rate * duration)
+        data_left = np.full(num_samples, 0.25, dtype=np.float32)
+        data_right = np.full(num_samples, 0.75, dtype=np.float32)
+        stereo_data = np.column_stack((data_left, data_right))
+
+        wav_buffer = io.BytesIO()
+        wavfile.write(wav_buffer, sampling_rate, stereo_data)
+        wav_bytes = wav_buffer.getvalue()
+
+        cf = ChannelFrame.from_file(wav_bytes, file_type=".wav")
+
+        assert cf.sampling_rate == sampling_rate
+        assert cf.n_channels == 2
+        computed_data = cf.compute()
+        np.testing.assert_allclose(computed_data[0], data_left, rtol=1e-5)
+        np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)
+
+    def test_from_file_bytes_csv(self) -> None:
+        """Test from_file with in-memory CSV bytes."""
+        header = "time,value1,value2\n"
+        data = "\n".join([f"{i / 16000},{1.1},{2.2}" for i in range(160)])
+        csv_bytes = (header + data).encode()
+
+        cf = ChannelFrame.from_file(csv_bytes, file_type=".csv", time_column=0)
+
+        assert cf.sampling_rate == 16000
+        assert cf.n_channels == 2
+        assert cf.n_samples == 160
+
+        expected_data = np.loadtxt(io.BytesIO(csv_bytes), delimiter=",", skiprows=1).T
+        np.testing.assert_array_equal(cf.data, expected_data[1:])
+
+    def test_from_file_bytes_requires_file_type(self) -> None:
+        """Test in-memory data requires file_type."""
+        with pytest.raises(
+            ValueError, match="File type is required when the extension is missing"
+        ):
+            ChannelFrame.from_file(b"dummy")
 
     def test_debug_info(self) -> None:
         """Test debug_info method."""
