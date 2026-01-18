@@ -951,11 +951,20 @@ class ChannelFrame(
             "ChannelFrame setup complete - actual file reading will occur on compute()"  # noqa: E501
         )
 
-        frame_label = (
-            Path(source_name).stem
-            if source_name is not None
-            else (path_obj.stem if path_obj is not None else None)
-        )
+        if source_name is not None:
+            try:
+                frame_label = Path(source_name).stem
+            except (TypeError, ValueError, OSError):
+                logger.debug(
+                    "Using raw source_name as frame label because Path(source_name) "
+                    "failed; source_name=%r",
+                    source_name,
+                )
+                frame_label = source_name
+        elif path_obj is not None:
+            frame_label = path_obj.stem
+        else:
+            frame_label = None
         frame_metadata = {}
         if path_obj is not None:
             frame_metadata["filename"] = str(path_obj)
