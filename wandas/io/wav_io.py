@@ -59,8 +59,8 @@ def read_wav(
             if hasattr(file_obj, "seek"):
                 try:
                     file_obj.seek(0)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Failed to seek to start of file-like object: %s", exc)
             file_label = getattr(file_obj, "name", "in_memory")
             if isinstance(file_label, str):
                 file_label = os.path.basename(file_label)
