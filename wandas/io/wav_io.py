@@ -25,7 +25,7 @@ def read_wav(
 
     Parameters
     ----------
-    filename : str | Path | bytes | BinaryIO
+    filename : str | Path | bytes | bytearray | memoryview | BinaryIO
         Path to the WAV file, URL to the WAV file, or in-memory bytes/stream.
     labels : list of str, optional
         Labels for each channel.
