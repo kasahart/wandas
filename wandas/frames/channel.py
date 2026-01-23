@@ -824,8 +824,12 @@ class ChannelFrame(
                         path.seek(0)
                     except Exception as exc:
                         # Best-effort rewind: some file-like objects are not seekable.
-                        # Failure to seek is non-fatal; we still attempt to read from the current position.
-                        logger.debug("Failed to rewind file-like object before read: %r", exc)
+                        # Failure to seek is non-fatal; we still attempt to read
+                        # from the current position.
+                        logger.debug(
+                            "Failed to rewind file-like object before read: %r",
+                            exc,
+                        )
                 source: bytes = path.read()
             else:
                 if isinstance(path, (bytes, bytearray, memoryview)):

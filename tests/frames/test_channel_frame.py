@@ -1535,6 +1535,45 @@ class TestDescribeIntegration:
         ):
             ChannelFrame.from_file(b"dummy")
 
+    def test_from_file_stream_nonseekable(self) -> None:
+        """Test from_file with non-seekable in-memory stream and file_type."""
+        sampling_rate = 8000
+        duration = 0.1
+        num_samples = int(sampling_rate * duration)
+        data_left = np.full(num_samples, 0.25, dtype=np.float32)
+        data_right = np.full(num_samples, 0.75, dtype=np.float32)
+        stereo_data = np.column_stack((data_left, data_right))
+
+        wav_buffer = io.BytesIO()
+        wavfile.write(wav_buffer, sampling_rate, stereo_data)
+        wav_bytes = wav_buffer.getvalue()
+
+        class NonSeekableStream:
+            def __init__(self, data: bytes, name: str) -> None:
+                self._data = data
+                self.name = name
+
+            def read(self) -> bytes:
+                return self._data
+
+            def seek(self, *_args, **_kwargs) -> None:
+                raise OSError("seek not supported")
+
+        stream = NonSeekableStream(wav_bytes, name="memory/sample.wav")
+
+        cf = ChannelFrame.from_file(
+            stream,
+            file_type="wav",
+            source_name="source.wav",
+        )
+
+        assert cf.sampling_rate == sampling_rate
+        assert cf.n_channels == 2
+        assert cf.label == "source"
+        computed_data = cf.compute()
+        np.testing.assert_allclose(computed_data[0], data_left, rtol=1e-5)
+        np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)
+
     def test_debug_info(self) -> None:
         """Test debug_info method."""
         with mock.patch("wandas.core.base_frame.logger") as mock_logger:

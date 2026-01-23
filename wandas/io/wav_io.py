@@ -3,7 +3,7 @@ import io
 import logging
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, BinaryIO
+from typing import TYPE_CHECKING, BinaryIO, Protocol
 
 import numpy as np
 import requests
@@ -16,8 +16,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class ReadableBinary(Protocol):
+    def read(self, n: int = -1) -> bytes: ...
+
+
 def read_wav(
-    filename: str | Path | bytes | bytearray | memoryview | BinaryIO,
+    filename: str | Path | bytes | bytearray | memoryview | ReadableBinary,
     labels: list[str] | None = None,
 ) -> "ChannelFrame":
     """
@@ -25,7 +29,7 @@ def read_wav(
 
     Parameters
     ----------
-    filename : str | Path | bytes | bytearray | memoryview | BinaryIO
+    filename : str | Path | bytes | bytearray | memoryview | ReadableBinary
         Path to the WAV file, URL to the WAV file, or in-memory bytes/stream.
     labels : list of str, optional
         Labels for each channel.
@@ -37,13 +41,15 @@ def read_wav(
     """
     from wandas.frames.channel import ChannelFrame
 
+    file_obj: BinaryIO | ReadableBinary
+
     # ファイル名がURLかどうかを判断
     if isinstance(filename, str) and (
         filename.startswith("http://") or filename.startswith("https://")
     ):
         # URLの場合、requestsを使用してダウンロード
         response = requests.get(filename)
-        file_obj: BinaryIO = io.BytesIO(response.content)
+        file_obj = io.BytesIO(response.content)
         file_label = os.path.basename(filename)
         # メモリマッピングは使用せずに読み込む
         sampling_rate, data = wavfile.read(file_obj)

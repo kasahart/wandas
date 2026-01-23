@@ -76,7 +76,7 @@ class FileReader(ABC):
             - format: File format
             - duration: Duration in seconds
         """
-        pass
+        pass  # pragma: no cover
 
     @classmethod
     @abstractmethod
@@ -100,7 +100,7 @@ class FileReader(ABC):
         Returns:
             Array of shape (channels, frames) containing the audio data.
         """
-        pass
+        pass  # pragma: no cover
 
     @classmethod
     def can_read(cls, path: str | Path) -> bool:
@@ -351,7 +351,11 @@ def _prepare_file_source(
         except Exception:
             # Some file-like objects are not seekable or may reject seek(0).
             # In that case, continue using the current position without failing.
-            logger.debug("Could not seek to start of file-like object; continuing from current position", exc_info=True)
+            logger.debug(
+                "Could not seek to start of file-like object; continuing from "
+                "current position",
+                exc_info=True,
+            )
         return file_obj
     return str(source)
 
