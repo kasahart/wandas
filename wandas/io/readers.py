@@ -1,7 +1,8 @@
+import io
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any, BinaryIO, TypedDict, cast
 
 import numpy as np
 import pandas as pd
@@ -56,7 +57,11 @@ class FileReader(ABC):
 
     @classmethod
     @abstractmethod
-    def get_file_info(cls, path: str | Path, **kwargs: Any) -> dict[str, Any]:
+    def get_file_info(
+        cls,
+        path: str | Path | bytes | bytearray | memoryview | BinaryIO,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
         """Get basic information about the audio file.
 
         Args:
@@ -71,13 +76,13 @@ class FileReader(ABC):
             - format: File format
             - duration: Duration in seconds
         """
-        pass
+        pass  # pragma: no cover
 
     @classmethod
     @abstractmethod
     def get_data(
         cls,
-        path: str | Path,
+        path: str | Path | bytes | bytearray | memoryview | BinaryIO,
         channels: list[int],
         start_idx: int,
         frames: int,
@@ -95,7 +100,7 @@ class FileReader(ABC):
         Returns:
             Array of shape (channels, frames) containing the audio data.
         """
-        pass
+        pass  # pragma: no cover
 
     @classmethod
     def can_read(cls, path: str | Path) -> bool:
@@ -111,9 +116,13 @@ class SoundFileReader(FileReader):
     supported_extensions = [".wav", ".flac", ".ogg", ".aiff", ".aif", ".snd"]
 
     @classmethod
-    def get_file_info(cls, path: str | Path, **kwargs: Any) -> dict[str, Any]:
+    def get_file_info(
+        cls,
+        path: str | Path | bytes | bytearray | memoryview | BinaryIO,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
         """Get basic information about the audio file."""
-        info = sf.info(str(path))
+        info = sf.info(_prepare_file_source(path))
         return {
             "samplerate": info.samplerate,
             "channels": info.channels,
@@ -126,16 +135,16 @@ class SoundFileReader(FileReader):
     @classmethod
     def get_data(
         cls,
-        path: str | Path,
+        path: str | Path | bytes | bytearray | memoryview | BinaryIO,
         channels: list[int],
         start_idx: int,
         frames: int,
         **kwargs: Any,
     ) -> ArrayLike:
         """Read audio data from the file."""
-        logger.debug(f"Reading {frames} frames from {path} starting at {start_idx}")
+        logger.debug(f"Reading {frames} frames from {path!r} starting at {start_idx}")
 
-        with sf.SoundFile(str(path)) as f:
+        with sf.SoundFile(_prepare_file_source(path)) as f:
             if start_idx > 0:
                 f.seek(start_idx)
             data = f.read(frames=frames, dtype="float32", always_2d=True)
@@ -163,7 +172,7 @@ class CSVFileReader(FileReader):
     @classmethod
     def get_file_info(
         cls,
-        path: str | Path,
+        path: str | Path | bytes | bytearray | memoryview | BinaryIO,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Get basic information about the CSV file.
@@ -204,7 +213,7 @@ class CSVFileReader(FileReader):
         time_column: int | str = kwargs.get("time_column", 0)
 
         # Read first few lines to determine structure
-        df = pd.read_csv(path, delimiter=delimiter, header=header)
+        df = pd.read_csv(_prepare_file_source(path), delimiter=delimiter, header=header)
 
         # Estimate sampling rate from first column (assuming it's time)
         try:
@@ -238,7 +247,7 @@ class CSVFileReader(FileReader):
     @classmethod
     def get_data(
         cls,
-        path: str | Path,
+        path: str | Path | bytes | bytearray | memoryview | BinaryIO,
         channels: list[int],
         start_idx: int,
         frames: int,
@@ -281,10 +290,10 @@ class CSVFileReader(FileReader):
         delimiter: str = kwargs.get("delimiter", ",")
         header: int | None = kwargs.get("header", 0)
 
-        logger.debug(f"Reading CSV data from {path} starting at {start_idx}")
+        logger.debug(f"Reading CSV data from {path!r} starting at {start_idx}")
 
         # Read the CSV file
-        df = pd.read_csv(path, delimiter=delimiter, header=header)
+        df = pd.read_csv(_prepare_file_source(path), delimiter=delimiter, header=header)
 
         # Remove time column
         df = df.drop(
@@ -321,10 +330,52 @@ class CSVFileReader(FileReader):
 _file_readers = [SoundFileReader(), CSVFileReader()]
 
 
-def get_file_reader(path: str | Path) -> FileReader:
-    """Get an appropriate file reader for the given path."""
+def _normalize_extension(file_type: str | None) -> str | None:
+    if not file_type:
+        return None
+    ext = file_type.lower()
+    if not ext.startswith("."):
+        ext = f".{ext}"
+    return ext
+
+
+def _prepare_file_source(
+    source: str | Path | bytes | bytearray | memoryview | BinaryIO,
+) -> str | BinaryIO:
+    if isinstance(source, (bytes, bytearray, memoryview)):
+        return io.BytesIO(bytes(source))
+    if hasattr(source, "read"):
+        file_obj = cast(BinaryIO, source)
+        try:
+            file_obj.seek(0)
+        except Exception:
+            # Some file-like objects are not seekable or may reject seek(0).
+            # In that case, continue using the current position without failing.
+            logger.debug(
+                "Could not seek to start of file-like object; continuing from "
+                "current position",
+                exc_info=True,
+            )
+        return file_obj
+    return str(source)
+
+
+def get_file_reader(
+    path: str | Path | bytes | bytearray | memoryview | BinaryIO,
+    *,
+    file_type: str | None = None,
+) -> FileReader:
+    """Get an appropriate file reader for the given path or file type."""
     path_str = str(path)
-    ext = Path(path).suffix.lower()
+    ext = _normalize_extension(file_type)
+    if ext is None and isinstance(path, (str, Path)):
+        ext = Path(path).suffix.lower()
+    if not ext:
+        raise ValueError(
+            "File type is required when the extension is missing\n"
+            "  Cannot determine format without an extension\n"
+            "  Provide file_type like '.wav' or '.csv'"
+        )
 
     # Try each reader in order
     for reader in _file_readers:
