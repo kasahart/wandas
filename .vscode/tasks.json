@@ -16,7 +16,7 @@
         {
             "label": "Run pytest",
             "type": "shell",
-            "command": "uv run pytest -n auto",
+            "command": "uv run pytest -n auto --cov=wandas --cov-report=term-missing",
             "problemMatcher": []
         },
         {
