@@ -71,9 +71,7 @@ class TestHpssHarmonic:
         # around fundamental frequencies and their harmonics,
         # resulting in a more peaky spectrum
         orig_flatness = np.exp(np.mean(np.log(orig_spec + 1e-10))) / np.mean(orig_spec)
-        result_flatness = np.exp(np.mean(np.log(result_spec + 1e-10))) / np.mean(
-            result_spec
-        )
+        result_flatness = np.exp(np.mean(np.log(result_spec + 1e-10))) / np.mean(result_spec)
 
         # Lower flatness indicates more harmonic (less noise-like) content
         assert result_flatness < orig_flatness
@@ -149,9 +147,7 @@ class TestHpssPercussive:
         # For percussive content, energy should be more spread across frequencies,
         # resulting in a flatter spectrum
         orig_flatness = np.exp(np.mean(np.log(orig_spec + 1e-10))) / np.mean(orig_spec)
-        result_flatness = np.exp(np.mean(np.log(result_spec + 1e-10))) / np.mean(
-            result_spec
-        )
+        result_flatness = np.exp(np.mean(np.log(result_spec + 1e-10))) / np.mean(result_spec)
 
         # Higher flatness indicates more noise-like (less harmonic) content
         assert result_flatness > orig_flatness
@@ -220,15 +216,11 @@ class TestAddWithSNR:
         """Test with stereo signals."""
         # Create stereo clean signal
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        stereo_clean: NDArrayReal = np.array(
-            [np.sin(2 * np.pi * 440 * t), np.sin(2 * np.pi * 880 * t)]
-        )
+        stereo_clean: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t), np.sin(2 * np.pi * 880 * t)])
 
         # Create stereo noise
         np.random.seed(42)
-        stereo_noise: NDArrayReal = np.array(
-            [np.random.randn(self.sample_rate), np.random.randn(self.sample_rate)]
-        )
+        stereo_noise: NDArrayReal = np.array([np.random.randn(self.sample_rate), np.random.randn(self.sample_rate)])
 
         # Convert to dask arrays
         dask_stereo_clean = _da_from_array(stereo_clean, chunks=(1, -1))
@@ -266,9 +258,7 @@ class TestNormalize:
                 3.0 * np.sin(2 * np.pi * 880 * t),  # max = 3.0
             ]
         )
-        self.dask_multi_channel: DaArray = _da_from_array(
-            self.multi_channel_signal, chunks=(1, -1)
-        )
+        self.dask_multi_channel: DaArray = _da_from_array(self.multi_channel_signal, chunks=(1, -1))
 
     def test_initialization(self) -> None:
         """Test initialization with different parameters."""
@@ -338,9 +328,7 @@ class TestNormalize:
         # 各チャンネルの最大値は異なるはず
         # （元の信号で最大値が3.0のチャンネルは、全体の最大値で正規化される）
         # 元の比率が保たれているか確認
-        orig_ratio = np.max(np.abs(self.multi_channel_signal[0])) / np.max(
-            np.abs(self.multi_channel_signal[1])
-        )
+        orig_ratio = np.max(np.abs(self.multi_channel_signal[0])) / np.max(np.abs(self.multi_channel_signal[1]))
         result_ratio = np.max(np.abs(result[0])) / np.max(np.abs(result[1]))
         np.testing.assert_allclose(orig_ratio, result_ratio, rtol=1e-10)
 

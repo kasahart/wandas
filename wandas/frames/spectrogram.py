@@ -202,9 +202,7 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         ref = np.array([ch.ref for ch in self._channel_metadata])
         # dB変換
         # 0除算を避けるために、最大値と1e-12のいずれかを使用
-        level: NDArrayReal = 20 * np.log10(
-            np.maximum(self.magnitude / ref[..., np.newaxis, np.newaxis], 1e-12)
-        )
+        level: NDArrayReal = 20 * np.log10(np.maximum(self.magnitude / ref[..., np.newaxis, np.newaxis], 1e-12))
         return level
 
     @property
@@ -389,9 +387,7 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
             result_data = op(self._data, other._data)
 
             merged_channel_metadata = []
-            for self_ch, other_ch in zip(
-                self._channel_metadata, other._channel_metadata
-            ):
+            for self_ch, other_ch in zip(self._channel_metadata, other._channel_metadata):
                 ch = self_ch.model_copy(deep=True)
                 ch["label"] = f"({self_ch['label']} {symbol} {other_ch['label']})"
                 merged_channel_metadata.append(ch)
@@ -699,9 +695,7 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         # データに処理を適用
         time_series = operation.process(self._data)
 
-        logger.debug(
-            f"Created new ChannelFrame with operation {operation_name} added to graph"
-        )
+        logger.debug(f"Created new ChannelFrame with operation {operation_name} added to graph")
 
         # 新しいインスタンスを作成
         return ChannelFrame(
@@ -763,9 +757,7 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
 
     def _get_dataframe_index(self) -> "pd.Index[Any]":
         """DataFrame index is not supported for SpectrogramFrame."""
-        raise NotImplementedError(
-            "DataFrame index is not supported for SpectrogramFrame."
-        )
+        raise NotImplementedError("DataFrame index is not supported for SpectrogramFrame.")
 
     def to_dataframe(self) -> "pd.DataFrame":
         """DataFrame conversion is not supported for SpectrogramFrame.

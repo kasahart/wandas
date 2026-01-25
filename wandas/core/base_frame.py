@@ -112,9 +112,7 @@ class BaseFrame(ABC, Generic[T]):
 
         if channel_metadata:
             # Pydantic handles both ChannelMetadata objects and dicts
-            def _to_channel_metadata(
-                ch: ChannelMetadata | dict[str, Any], index: int
-            ) -> ChannelMetadata:
+            def _to_channel_metadata(ch: ChannelMetadata | dict[str, Any], index: int) -> ChannelMetadata:
                 if isinstance(ch, ChannelMetadata):
                     return copy.deepcopy(ch)
                 elif isinstance(ch, dict):
@@ -142,16 +140,13 @@ class BaseFrame(ABC, Generic[T]):
             ]
         else:
             self._channel_metadata = [
-                ChannelMetadata(label=f"ch{i}", unit="", extra={})
-                for i in range(self._n_channels)
+                ChannelMetadata(label=f"ch{i}", unit="", extra={}) for i in range(self._n_channels)
             ]
 
         try:
             # Display information for newer dask versions
             logger.debug(f"Dask graph layers: {list(self._data.dask.layers.keys())}")
-            logger.debug(
-                f"Dask graph dependencies: {len(self._data.dask.dependencies)}"
-            )
+            logger.debug(f"Dask graph dependencies: {len(self._data.dask.dependencies)}")
         except Exception as e:
             logger.debug(f"Dask graph visualization details unavailable: {e}")
 
@@ -179,11 +174,7 @@ class BaseFrame(ABC, Generic[T]):
 
     def get_channel(
         self: S,
-        channel_idx: int
-        | list[int]
-        | tuple[int, ...]
-        | npt.NDArray[np.int_]
-        | npt.NDArray[np.bool_],
+        channel_idx: int | list[int] | tuple[int, ...] | npt.NDArray[np.int_] | npt.NDArray[np.bool_] | None = None,
         query: QueryType | None = None,
         validate_query_keys: bool = True,
     ) -> S:
@@ -222,17 +213,11 @@ class BaseFrame(ABC, Generic[T]):
 
         def _indices_from_query(q: Any) -> list[int]:
             if isinstance(q, str):
-                return [
-                    i for i, ch in enumerate(self._channel_metadata) if ch.label == q
-                ]
+                return [i for i, ch in enumerate(self._channel_metadata) if ch.label == q]
 
             # re.Pattern compatibility
             if hasattr(q, "search") and callable(q.search):
-                return [
-                    i
-                    for i, ch in enumerate(self._channel_metadata)
-                    if q.search(ch.label)
-                ]
+                return [i for i, ch in enumerate(self._channel_metadata) if q.search(ch.label)]
 
             if callable(q):
                 return [i for i, ch in enumerate(self._channel_metadata) if bool(q(ch))]
@@ -296,6 +281,9 @@ class BaseFrame(ABC, Generic[T]):
                 raise KeyError(f"No channels match query: {query!r}")
             channel_idx_list = indices
         else:
+            if channel_idx is None:
+                raise TypeError("Either 'channel_idx' or 'query' must be provided.")
+
             if isinstance(channel_idx, int):
                 # Convert single channel to a list.
                 channel_idx_list = [channel_idx]
@@ -334,13 +322,7 @@ class BaseFrame(ABC, Generic[T]):
         | list[int]
         | list[str]
         | tuple[
-            int
-            | str
-            | slice
-            | list[int]
-            | list[str]
-            | npt.NDArray[np.int_]
-            | npt.NDArray[np.bool_],
+            int | str | slice | list[int] | list[str] | npt.NDArray[np.int_] | npt.NDArray[np.bool_],
             ...,
         ]
         | npt.NDArray[np.int_]
@@ -427,8 +409,7 @@ class BaseFrame(ABC, Generic[T]):
                 # Boolean mask
                 if len(key) != self.n_channels:
                     raise ValueError(
-                        f"Boolean mask length {len(key)} does not match "
-                        f"number of channels {self.n_channels}"
+                        f"Boolean mask length {len(key)} does not match number of channels {self.n_channels}"
                     )
                 indices = np.where(key)[0]
                 return self.get_channel(indices)
@@ -436,9 +417,7 @@ class BaseFrame(ABC, Generic[T]):
                 # Integer array
                 return self.get_channel(key)
             else:
-                raise TypeError(
-                    f"NumPy array must be of integer or boolean type, got {key.dtype}"
-                )
+                raise TypeError(f"NumPy array must be of integer or boolean type, got {key.dtype}")
 
         # Phase 1: List support (int or str)
         if isinstance(key, list):
@@ -460,8 +439,7 @@ class BaseFrame(ABC, Generic[T]):
 
             else:
                 raise TypeError(
-                    f"List must contain all str or all int, got mixed types: "
-                    f"{[type(k).__name__ for k in key]}"
+                    f"List must contain all str or all int, got mixed types: {[type(k).__name__ for k in key]}"
                 )
 
         # Tuple: multidimensional indexing
@@ -480,21 +458,12 @@ class BaseFrame(ABC, Generic[T]):
                 channel_metadata=new_channel_metadata,
             )
 
-        raise TypeError(
-            f"Invalid key type: {type(key).__name__}. "
-            f"Expected int, str, slice, list, tuple, or ndarray."
-        )
+        raise TypeError(f"Invalid key type: {type(key).__name__}. Expected int, str, slice, list, tuple, or ndarray.")
 
     def _handle_multidim_indexing(
         self: S,
         key: tuple[
-            int
-            | str
-            | slice
-            | list[int]
-            | list[str]
-            | npt.NDArray[np.int_]
-            | npt.NDArray[np.bool_],
+            int | str | slice | list[int] | list[str] | npt.NDArray[np.int_] | npt.NDArray[np.bool_],
             ...,
         ],
     ) -> S:
@@ -530,9 +499,7 @@ class BaseFrame(ABC, Generic[T]):
         elif isinstance(channel_key, int | str | slice):
             selected = self[channel_key]
         else:
-            raise TypeError(
-                f"Invalid channel key type in tuple: {type(channel_key).__name__}"
-            )
+            raise TypeError(f"Invalid channel key type in tuple: {type(channel_key).__name__}")
 
         # Apply time indexing if present
         if time_keys:
@@ -607,9 +574,7 @@ class BaseFrame(ABC, Generic[T]):
         ValueError
             If the computed result is not a NumPy array.
         """
-        logger.debug(
-            "COMPUTING DASK ARRAY - This will trigger file reading and all processing"
-        )
+        logger.debug("COMPUTING DASK ARRAY - This will trigger file reading and all processing")
         result = self._data.compute()
 
         if not isinstance(result, np.ndarray):
@@ -619,9 +584,7 @@ class BaseFrame(ABC, Generic[T]):
         return cast(T, result)
 
     @abstractmethod
-    def plot(
-        self, plot_type: str = "default", ax: Axes | None = None, **kwargs: Any
-    ) -> Axes | Iterator[Axes]:
+    def plot(self, plot_type: str = "default", ax: Axes | None = None, **kwargs: Any) -> Axes | Iterator[Axes]:
         """Plot the data"""
         pass
 
@@ -656,9 +619,7 @@ class BaseFrame(ABC, Generic[T]):
         if not isinstance(metadata, dict):
             raise TypeError("Metadata must be a dictionary")
 
-        channel_metadata = kwargs.pop(
-            "channel_metadata", copy.deepcopy(self._channel_metadata)
-        )
+        channel_metadata = kwargs.pop("channel_metadata", copy.deepcopy(self._channel_metadata))
         if not isinstance(channel_metadata, list):
             raise TypeError("Channel metadata must be a list")
 

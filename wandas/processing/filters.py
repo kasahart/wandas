@@ -192,9 +192,7 @@ class BandPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
         self.low_cutoff = low_cutoff
         self.high_cutoff = high_cutoff
         self.order = order
-        super().__init__(
-            sampling_rate, low_cutoff=low_cutoff, high_cutoff=high_cutoff, order=order
-        )
+        super().__init__(sampling_rate, low_cutoff=low_cutoff, high_cutoff=high_cutoff, order=order)
 
     def validate_params(self) -> None:
         """Validate parameters"""
@@ -238,9 +236,7 @@ class BandPassFilter(AudioOperation[NDArrayReal, NDArrayReal]):
         high_normal_cutoff = self.high_cutoff / nyquist
 
         # Precompute and save filter coefficients
-        self.b, self.a = signal.butter(
-            self.order, [low_normal_cutoff, high_normal_cutoff], btype="band"
-        )  # type: ignore [unused-ignore]
+        self.b, self.a = signal.butter(self.order, [low_normal_cutoff, high_normal_cutoff], btype="band")  # type: ignore [unused-ignore]
         logger.debug(f"Bandpass filter coefficients calculated: b={self.b}, a={self.a}")
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
@@ -291,9 +287,7 @@ class AWeighting(AudioOperation[NDArrayReal, NDArrayReal]):
             # Use the first element of the tuple
             result = result[0]
 
-        logger.debug(
-            f"A-weighting applied, returning result with shape: {result.shape}"
-        )
+        logger.debug(f"A-weighting applied, returning result with shape: {result.shape}")
         return np.array(result)
 
 

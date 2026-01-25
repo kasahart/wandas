@@ -44,9 +44,7 @@ def read_wav(
     file_obj: BinaryIO | ReadableBinary
 
     # ファイル名がURLかどうかを判断
-    if isinstance(filename, str) and (
-        filename.startswith("http://") or filename.startswith("https://")
-    ):
+    if isinstance(filename, str) and (filename.startswith("http://") or filename.startswith("https://")):
         # URLの場合、requestsを使用してダウンロード
         response = requests.get(filename)
         file_obj = io.BytesIO(response.content)

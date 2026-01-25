@@ -48,9 +48,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         # Create processor function (lazy initialization possible)
         self._setup_processor()
 
-        logger.debug(
-            f"Initialized {self.__class__.__name__} operation with params: {params}"
-        )
+        logger.debug(f"Initialized {self.__class__.__name__} operation with params: {params}")
 
     def validate_params(self) -> None:
         """Validate parameters (raises exception if invalid)"""
@@ -283,9 +281,7 @@ def get_operation(name: str) -> type[AudioOperation[Any, Any]]:
     return _OPERATION_REGISTRY[name]
 
 
-def create_operation(
-    name: str, sampling_rate: float, **params: Any
-) -> AudioOperation[Any, Any]:
+def create_operation(name: str, sampling_rate: float, **params: Any) -> AudioOperation[Any, Any]:
     """Create operation instance from name and parameters"""
     operation_class = get_operation(name)
     return operation_class(sampling_rate, **params)

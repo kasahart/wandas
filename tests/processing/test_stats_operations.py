@@ -144,9 +144,7 @@ class TestSum:
         # Create test multi-channel signals
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
         self.signal_mono: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t)])
-        self.signal_stereo: NDArrayReal = np.array(
-            [np.sin(2 * np.pi * 440 * t), np.sin(2 * np.pi * 880 * t) * 0.5]
-        )
+        self.signal_stereo: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t), np.sin(2 * np.pi * 880 * t) * 0.5])
         self.signal_quad: NDArrayReal = np.array(
             [
                 np.sin(2 * np.pi * 440 * t),
@@ -211,9 +209,7 @@ class TestMean:
         # Create test multi-channel signals
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
         self.signal_mono: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t)])
-        self.signal_stereo: NDArrayReal = np.array(
-            [np.sin(2 * np.pi * 440 * t), np.sin(2 * np.pi * 880 * t) * 0.5]
-        )
+        self.signal_stereo: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t), np.sin(2 * np.pi * 880 * t) * 0.5])
         self.signal_quad: NDArrayReal = np.array(
             [
                 np.sin(2 * np.pi * 440 * t),
@@ -276,9 +272,7 @@ class TestChannelDifference:
         """Set up test fixtures for each test."""
         self.sample_rate: int = 16000
         self.other_channel: int = 0
-        self.diff_op = ChannelDifference(
-            self.sample_rate, other_channel=self.other_channel
-        )
+        self.diff_op = ChannelDifference(self.sample_rate, other_channel=self.other_channel)
 
         # Create test multi-channel signals
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
@@ -286,8 +280,7 @@ class TestChannelDifference:
         self.signal_stereo: NDArrayReal = np.array(
             [
                 np.sin(2 * np.pi * 440 * t),
-                np.sin(2 * np.pi * 440 * t) * 0.5
-                + 0.1,  # Different amplitude and DC offset
+                np.sin(2 * np.pi * 440 * t) * 0.5 + 0.1,  # Different amplitude and DC offset
             ]
         )
         self.signal_quad: NDArrayReal = np.array(
@@ -367,9 +360,7 @@ class TestChannelDifference:
         """
         assert get_operation("channel_difference") == ChannelDifference
 
-        diff_op = create_operation(
-            "channel_difference", self.sample_rate, other_channel=1
-        )
+        diff_op = create_operation("channel_difference", self.sample_rate, other_channel=1)
         assert isinstance(diff_op, ChannelDifference)
         assert diff_op.sampling_rate == self.sample_rate
         assert diff_op.other_channel == 1

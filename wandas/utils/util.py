@@ -8,9 +8,7 @@ if TYPE_CHECKING:
     from wandas.utils.types import NDArrayReal
 
 
-def validate_sampling_rate(
-    sampling_rate: float, param_name: str = "sampling_rate"
-) -> None:
+def validate_sampling_rate(sampling_rate: float, param_name: str = "sampling_rate") -> None:
     """
     Validate that sampling rate is positive.
 
@@ -82,9 +80,7 @@ def calculate_rms(wave: "NDArrayReal") -> "NDArrayReal":
     """
     # Calculate RMS considering axis (over the last dimension)
     axis_to_use = -1 if wave.ndim > 1 else None
-    rms_values: NDArrayReal = np.sqrt(
-        np.mean(np.square(wave), axis=axis_to_use, keepdims=True)
-    )
+    rms_values: NDArrayReal = np.sqrt(np.mean(np.square(wave), axis=axis_to_use, keepdims=True))
     return rms_values
 
 
@@ -126,15 +122,11 @@ def amplitude_to_db(amplitude: "NDArrayReal", ref: float) -> "NDArrayReal":
     NDArrayReal
         Amplitude data converted to decibels.
     """
-    db: NDArrayReal = librosa.amplitude_to_db(
-        np.abs(amplitude), ref=ref, amin=1e-15, top_db=None
-    )
+    db: NDArrayReal = librosa.amplitude_to_db(np.abs(amplitude), ref=ref, amin=1e-15, top_db=None)
     return db
 
 
-def level_trigger(
-    data: "NDArrayReal", level: float, offset: int = 0, hold: int = 1
-) -> list[int]:
+def level_trigger(data: "NDArrayReal", level: float, offset: int = 0, hold: int = 1) -> list[int]:
     """
     Find points where the signal crosses the specified level from below.
 

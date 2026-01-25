@@ -94,7 +94,7 @@ wandas = { workspace = true }
 waveform-analysis = { git = "https://github.com/endolith/waveform-analysis.git", rev = "master" }
 
 [tool.ruff]
-line-length = 88
+line-length = 120
 include = ["wandas/**/*.py", "tests/**/*.py"]
 fix = true
 # 共通のruff設定はここにまとめる

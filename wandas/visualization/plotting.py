@@ -163,9 +163,7 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
             if ax is None:
                 fig, ax = plt.subplots(figsize=(10, 4))
 
-            self.channel_plot(
-                bf.time, data.T, ax, label=bf.labels, alpha=alpha, **plot_kwargs
-            )
+            self.channel_plot(bf.time, data.T, ax, label=bf.labels, alpha=alpha, **plot_kwargs)
             ax.set(
                 ylabel=ylabel,
                 title=title or bf.label or "Channel Data",
@@ -179,18 +177,14 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
             return ax
         else:
             num_channels = bf.n_channels
-            fig, axs = plt.subplots(
-                num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
-            )
+            fig, axs = plt.subplots(num_channels, 1, figsize=(10, 4 * num_channels), sharex=True)
             # Convert axs to list if it is a single Axes object
             if not isinstance(axs, list | np.ndarray):
                 axs = [axs]
 
             axes_list = list(axs)
             for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
-                self.channel_plot(
-                    bf.time, channel_data, ax_i, alpha=alpha, **plot_kwargs
-                )
+                self.channel_plot(bf.time, channel_data, ax_i, alpha=alpha, **plot_kwargs)
                 unit_suffix = f" [{ch_meta.unit}]" if ch_meta.unit else ""
                 ax_i.set(
                     ylabel=f"{ylabel}{unit_suffix}",
@@ -239,10 +233,7 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
         """Frequency domain plotting"""
         kwargs = kwargs or {}
         is_aw = kwargs.pop("Aw", False)
-        if (
-            len(bf.operation_history) > 0
-            and bf.operation_history[-1]["operation"] == "coherence"
-        ):
+        if len(bf.operation_history) > 0 and bf.operation_history[-1]["operation"] == "coherence":
             unit = ""
             data = bf.magnitude
             ylabel = kwargs.pop("ylabel", "coherence")
@@ -285,9 +276,7 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
             return ax
         else:
             num_channels = bf.n_channels
-            fig, axs = plt.subplots(
-                num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
-            )
+            fig, axs = plt.subplots(num_channels, 1, figsize=(10, 4 * num_channels), sharex=True)
             # Convert axs to list if it is a single Axes object
             if not isinstance(axs, list | np.ndarray):
                 axs = [axs]
@@ -386,9 +375,7 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
             return ax
         else:
             num_channels = bf.n_channels
-            fig, axs = plt.subplots(
-                num_channels, 1, figsize=(10, 4 * num_channels), sharex=True
-            )
+            fig, axs = plt.subplots(num_channels, 1, figsize=(10, 4 * num_channels), sharex=True)
             # Convert axs to list if it is a single Axes object
             if not isinstance(axs, list | np.ndarray):
                 axs = [axs]
@@ -495,18 +482,13 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
                     cbar.set_label(f"Spectrum level [{unit}]")
                 except (ValueError, AttributeError) as e:
                     # Handle case where img doesn't have proper colorbar properties
-                    logger.warning(
-                        f"Failed to create colorbar for spectrogram: "
-                        f"{type(e).__name__}: {e}"
-                    )
+                    logger.warning(f"Failed to create colorbar for spectrogram: {type(e).__name__}: {e}")
             return ax
 
         else:
             # Create a new figure if ax is None
             num_channels = bf.n_channels
-            fig, axs = plt.subplots(
-                num_channels, 1, figsize=(10, 5 * num_channels), sharex=True
-            )
+            fig, axs = plt.subplots(num_channels, 1, figsize=(10, 5 * num_channels), sharex=True)
             if not isinstance(fig, Figure):
                 raise ValueError("fig must be a matplotlib Figure object.")
             # Convert axs to array if it is a single Axes object
@@ -539,10 +521,7 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
                     cbar.set_label(f"Spectrum level [{unit}]")
                 except (ValueError, AttributeError) as e:
                     # Handle case where img doesn't have proper colorbar properties
-                    logger.warning(
-                        f"Failed to create colorbar for spectrogram: "
-                        f"{type(e).__name__}: {e}"
-                    )
+                    logger.warning(f"Failed to create colorbar for spectrogram: {type(e).__name__}: {e}")
                 fig.suptitle(title or "Spectrogram Data")
             plt.tight_layout()
             plt.show()
@@ -687,10 +666,7 @@ class MatrixPlotStrategy(PlotStrategy["SpectralFrame"]):
     ) -> Axes | Iterator[Axes]:
         kwargs = kwargs or {}
         is_aw = kwargs.pop("Aw", False)
-        if (
-            len(bf.operation_history) > 0
-            and bf.operation_history[-1]["operation"] == "coherence"
-        ):
+        if len(bf.operation_history) > 0 and bf.operation_history[-1]["operation"] == "coherence":
             unit = ""
             data = bf.magnitude
             ylabel = kwargs.pop("ylabel", "coherence")

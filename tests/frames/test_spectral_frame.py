@@ -64,9 +64,7 @@ class TestSpectralFrame:
     def test_initialization(self) -> None:
         """Test initialization with different parameters"""
         # Test with minimal required parameters
-        minimal_frame: SpectralFrame = SpectralFrame(
-            data=self.data, sampling_rate=self.sampling_rate, n_fft=self.n_fft
-        )
+        minimal_frame: SpectralFrame = SpectralFrame(data=self.data, sampling_rate=self.sampling_rate, n_fft=self.n_fft)
         assert minimal_frame.sampling_rate == self.sampling_rate
         assert minimal_frame.n_fft == self.n_fft
         assert minimal_frame.window == "hann"  # Default value
@@ -84,14 +82,10 @@ class TestSpectralFrame:
         shape_1d: tuple[int] = (self.n_fft // 2 + 1,)
         complex_data_1d: NDArrayComplex = create_complex_data(shape_1d)
         # reshape 1D to (1, n_freqs) and use channel-wise chunking
-        data_1d: DaArray = _da_from_array(
-            complex_data_1d.reshape(1, -1), chunks=(1, -1)
-        )
+        data_1d: DaArray = _da_from_array(complex_data_1d.reshape(1, -1), chunks=(1, -1))
 
         # Create frame with 1D data
-        frame_1d: SpectralFrame = SpectralFrame(
-            data=data_1d, sampling_rate=self.sampling_rate, n_fft=self.n_fft
-        )
+        frame_1d: SpectralFrame = SpectralFrame(data=data_1d, sampling_rate=self.sampling_rate, n_fft=self.n_fft)
 
         # Check that shape is (1, n_fft//2+1)
         assert frame_1d.shape == (self.n_fft // 2 + 1,)
@@ -105,9 +99,7 @@ class TestSpectralFrame:
 
         # Check that creating frame with 3D data raises ValueError
         with pytest.raises(ValueError):
-            SpectralFrame(
-                data=data_3d, sampling_rate=self.sampling_rate, n_fft=self.n_fft
-            )
+            SpectralFrame(data=data_3d, sampling_rate=self.sampling_rate, n_fft=self.n_fft)
 
     def test_property_magnitude(self) -> None:
         """Test magnitude property"""
@@ -139,9 +131,7 @@ class TestSpectralFrame:
         db: NDArrayReal = self.frame.dB
         mag: NDArrayReal = np.abs(self.data.compute())
         ref_values: NDArrayReal = np.array([ch.ref for ch in self.channel_metadata])
-        expected: NDArrayReal = 20 * np.log10(
-            np.maximum(mag / ref_values[:, np.newaxis], 1e-12)
-        )
+        expected: NDArrayReal = 20 * np.log10(np.maximum(mag / ref_values[:, np.newaxis], 1e-12))
         np.testing.assert_allclose(db, expected)
 
     def test_property_dba(self) -> None:
@@ -153,9 +143,7 @@ class TestSpectralFrame:
             dba: NDArrayReal = self.frame.dBA
 
             mock_a_weighting.assert_called_once()
-            np.testing.assert_array_equal(
-                mock_a_weighting.call_args[1]["frequencies"], self.frame.freqs
-            )
+            np.testing.assert_array_equal(mock_a_weighting.call_args[1]["frequencies"], self.frame.freqs)
 
             expected: NDArrayReal = self.frame.dB + mock_weights
             np.testing.assert_allclose(dba, expected)
@@ -172,9 +160,7 @@ class TestSpectralFrame:
 
     def test_binary_op_with_spectral_frame(self) -> None:
         """Test _binary_op with another SpectralFrame"""
-        other_data: DaArray = _da_from_array(
-            create_complex_data(self.shape), chunks=(1, -1)
-        )
+        other_data: DaArray = _da_from_array(create_complex_data(self.shape), chunks=(1, -1))
         other_frame: SpectralFrame = SpectralFrame(
             data=other_data,
             sampling_rate=self.sampling_rate,
@@ -280,9 +266,7 @@ class TestSpectralFrame:
 
     def test_plot(self) -> None:
         """Test plot method"""
-        with mock.patch(
-            "wandas.visualization.plotting.create_operation"
-        ) as mock_create_op:
+        with mock.patch("wandas.visualization.plotting.create_operation") as mock_create_op:
             mock_plot_strategy: Any = mock.MagicMock()
             mock_create_op.return_value = mock_plot_strategy
             mock_ax: Any = mock.MagicMock()
@@ -317,9 +301,7 @@ class TestSpectralFrame:
 
     def test_plot_with_optional_parameters(self) -> None:
         """Test plot method with optional parameters for conditional branches"""
-        with mock.patch(
-            "wandas.visualization.plotting.create_operation"
-        ) as mock_create_op:
+        with mock.patch("wandas.visualization.plotting.create_operation") as mock_create_op:
             mock_plot_strategy: Any = mock.MagicMock()
             mock_create_op.return_value = mock_plot_strategy
             mock_ax: Any = mock.MagicMock()
@@ -343,9 +325,7 @@ class TestSpectralFrame:
 
     def test_plot_matrix(self) -> None:
         """Test plot_matrix method"""
-        with mock.patch(
-            "wandas.visualization.plotting.create_operation"
-        ) as mock_create_op:
+        with mock.patch("wandas.visualization.plotting.create_operation") as mock_create_op:
             mock_plot_strategy: Any = mock.MagicMock()
             mock_create_op.return_value = mock_plot_strategy
             mock_ax: Any = mock.MagicMock()
@@ -400,9 +380,7 @@ class TestSpectralFrame:
 
             result = self.frame.ifft()
 
-            mock_create_op.assert_called_once_with(
-                "ifft", self.sampling_rate, n_fft=self.n_fft, window=self.window
-            )
+            mock_create_op.assert_called_once_with("ifft", self.sampling_rate, n_fft=self.n_fft, window=self.window)
             mock_ifft_op.process.assert_called_once_with(self.data)
 
             mock_channel_frame.assert_called_once_with(
@@ -418,9 +396,7 @@ class TestSpectralFrame:
 
     def test_mismatch_sampling_rate_error(self) -> None:
         """Test that operations with mismatched sampling rates raise ValueError"""
-        other_data: DaArray = _da_from_array(
-            create_complex_data(self.shape), chunks=(1, -1)
-        )
+        other_data: DaArray = _da_from_array(create_complex_data(self.shape), chunks=(1, -1))
         other_frame: SpectralFrame = SpectralFrame(
             data=other_data,
             sampling_rate=22050,  # Different sampling rate
@@ -428,9 +404,7 @@ class TestSpectralFrame:
             window=self.window,
         )
 
-        with pytest.raises(
-            ValueError, match="Sampling rates do not match. Cannot perform operation."
-        ):
+        with pytest.raises(ValueError, match="Sampling rates do not match. Cannot perform operation."):
 
             def add_op(a: Any, b: Any) -> Any:
                 return a + b
@@ -453,13 +427,9 @@ class TestSpectralFrame:
             ) as mock_create_new_instance:
                 operation_name: str = "test_op"
                 params: dict[str, Any] = {"param1": "value1"}
-                result: SpectralFrame = self.frame._apply_operation_impl(
-                    operation_name, **params
-                )
+                result: SpectralFrame = self.frame._apply_operation_impl(operation_name, **params)
 
-            mock_create_op.assert_called_once_with(
-                operation_name, self.sampling_rate, **params
-            )
+            mock_create_op.assert_called_once_with(operation_name, self.sampling_rate, **params)
             mock_op.process.assert_called_once_with(self.data)
 
             expected_metadata: dict[str, Any] = {
@@ -523,14 +493,10 @@ class TestSpectralFrame:
             G: int = 10  # noqa: N806
             fr: int = 1000
 
-            result = correct_sr_frame.noct_synthesis(
-                fmin=fmin, fmax=fmax, n=n, G=G, fr=fr
-            )
+            result = correct_sr_frame.noct_synthesis(fmin=fmin, fmax=fmax, n=n, G=G, fr=fr)
 
             # オペレーション作成の検証
-            mock_create_op.assert_called_once_with(
-                "noct_synthesis", 48000, fmin=fmin, fmax=fmax, n=n, G=G, fr=fr
-            )
+            mock_create_op.assert_called_once_with("noct_synthesis", 48000, fmin=fmin, fmax=fmax, n=n, G=G, fr=fr)
 
             # プロセスの呼び出し検証
             mock_noct_op.process.assert_called_once_with(correct_sr_frame._data)
@@ -730,9 +696,7 @@ class TestSpectralFrameCoverage:
         self.sampling_rate = 44100
         self.n_fft = 1024
         self.shape = (2, self.n_fft // 2 + 1)
-        self.complex_data = np.random.rand(*self.shape) + 1j * np.random.rand(
-            *self.shape
-        )
+        self.complex_data = np.random.rand(*self.shape) + 1j * np.random.rand(*self.shape)
         self.data = _da_from_array(self.complex_data, chunks=(1, -1))
         self.frame = SpectralFrame(
             data=self.data,

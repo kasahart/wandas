@@ -124,9 +124,7 @@ class TestNOctFrame:
         # 実際の実装をテスト
         db: NDArrayReal = self.frame.dB
         ref_values: NDArrayReal = np.array([ch.ref for ch in self.channel_metadata])
-        expected: NDArrayReal = 20 * np.log10(
-            np.maximum(self.real_data / ref_values[:, np.newaxis], 1e-12)
-        )
+        expected: NDArrayReal = 20 * np.log10(np.maximum(self.real_data / ref_values[:, np.newaxis], 1e-12))
         np.testing.assert_allclose(db, expected)
 
     def test_property_dba(self) -> None:
@@ -141,9 +139,7 @@ class TestNOctFrame:
 
             # librosのA_weightingが期待される引数で呼び出されたことを確認
             mock_a_weighting.assert_called_once()
-            np.testing.assert_array_equal(
-                mock_a_weighting.call_args[1]["frequencies"], self.frame.freqs
-            )
+            np.testing.assert_array_equal(mock_a_weighting.call_args[1]["frequencies"], self.frame.freqs)
 
             # 期待される結果（dB + A重み付け）と比較
             expected: NDArrayReal = self.frame.dB + mock_weights
@@ -188,9 +184,7 @@ class TestNOctFrame:
 
     def test_binary_op_not_implemented(self) -> None:
         """Test that _binary_op raises NotImplementedError"""
-        with pytest.raises(
-            NotImplementedError, match="Operation \\+ is not implemented for NOctFrame"
-        ):
+        with pytest.raises(NotImplementedError, match="Operation \\+ is not implemented for NOctFrame"):
 
             def add_op(a: Any, b: Any) -> Any:
                 return a + b
@@ -207,9 +201,7 @@ class TestNOctFrame:
 
     def test_plot(self) -> None:
         """Test plot method"""
-        with mock.patch(
-            "wandas.visualization.plotting.create_operation"
-        ) as mock_create_op:
+        with mock.patch("wandas.visualization.plotting.create_operation") as mock_create_op:
             mock_plot_strategy: Any = mock.MagicMock()
             mock_create_op.return_value = mock_plot_strategy
             mock_ax: Any = mock.MagicMock()
@@ -306,9 +298,7 @@ class TestNOctFrame:
 
     def test_plot_with_all_options(self) -> None:
         """Test plot method with all optional parameters"""
-        with mock.patch(
-            "wandas.visualization.plotting.create_operation"
-        ) as mock_create_op:
+        with mock.patch("wandas.visualization.plotting.create_operation") as mock_create_op:
             mock_plot_strategy: Any = mock.MagicMock()
             mock_create_op.return_value = mock_plot_strategy
             mock_ax: Any = mock.MagicMock()

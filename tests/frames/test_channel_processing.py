@@ -30,9 +30,7 @@ class TestChannelProcessing:
 
             # Apply filter operations
             result: ChannelFrame = self.channel_frame.high_pass_filter(cutoff=100)
-            mock_create_op.assert_called_with(
-                "highpass_filter", self.sample_rate, cutoff=100, order=4
-            )
+            mock_create_op.assert_called_with("highpass_filter", self.sample_rate, cutoff=100, order=4)
 
             # No compute should have happened
             assert isinstance(result, ChannelFrame)
@@ -47,9 +45,7 @@ class TestChannelProcessing:
 
             # Apply filter operations
             result: ChannelFrame = self.channel_frame.low_pass_filter(cutoff=5000)
-            mock_create_op.assert_called_with(
-                "lowpass_filter", self.sample_rate, cutoff=5000, order=4
-            )
+            mock_create_op.assert_called_with("lowpass_filter", self.sample_rate, cutoff=5000, order=4)
 
             # No compute should have happened
             assert isinstance(result, ChannelFrame)
@@ -63,9 +59,7 @@ class TestChannelProcessing:
             mock_create_op.return_value = mock_op
 
             # Apply band-pass filter operation
-            result: ChannelFrame = self.channel_frame.band_pass_filter(
-                low_cutoff=200, high_cutoff=5000
-            )
+            result: ChannelFrame = self.channel_frame.band_pass_filter(low_cutoff=200, high_cutoff=5000)
             mock_create_op.assert_called_with(
                 "bandpass_filter",
                 self.sample_rate,
@@ -75,9 +69,7 @@ class TestChannelProcessing:
             )
 
             # Test with custom order
-            result = self.channel_frame.band_pass_filter(
-                low_cutoff=300, high_cutoff=3000, order=6
-            )
+            result = self.channel_frame.band_pass_filter(low_cutoff=300, high_cutoff=3000, order=6)
             mock_create_op.assert_called_with(
                 "bandpass_filter",
                 self.sample_rate,
@@ -170,9 +162,7 @@ class TestChannelProcessing:
         )
 
         # Pass sampling rate with different parameter name to avoid conflict
-        result = frame.apply(
-            needs_sr, output_shape_func=lambda shape: shape, sr=self.sample_rate
-        )
+        result = frame.apply(needs_sr, output_shape_func=lambda shape: shape, sr=self.sample_rate)
 
         # Verify it computed correctly
         computed = result.compute()
@@ -433,9 +423,7 @@ class TestChannelProcessing:
 
         # 短いフレーム部分は加算され、残りは元のフレームのままであることを確認
         expected_short = self.data.copy()
-        expected_short[:, : short_data.shape[1]] = (
-            expected_short[:, : short_data.shape[1]] + short_data
-        )
+        expected_short[:, : short_data.shape[1]] = expected_short[:, : short_data.shape[1]] + short_data
         np.testing.assert_array_almost_equal(computed_short, expected_short)
 
         # 長いフレームを標準フレームに加算（切り詰めが必要）
@@ -457,9 +445,7 @@ class TestChannelProcessing:
             mock_create_op.return_value = mock_op
 
             # 通常呼び出し（1行が長くならないように分割）
-            result = self.channel_frame.rms_trend(
-                frame_length=1024, hop_length=256, dB=True, Aw=True
-            )
+            result = self.channel_frame.rms_trend(frame_length=1024, hop_length=256, dB=True, Aw=True)
             mock_create_op.assert_called_with(
                 "rms_trend",
                 self.sample_rate,
@@ -504,20 +490,14 @@ class TestChannelProcessing:
             mock_op.process.return_value = self.dask_data
             # Mock get_metadata_updates to return updated sampling rate
             hop_length = 256
-            mock_op.get_metadata_updates.return_value = {
-                "sampling_rate": self.sample_rate / hop_length
-            }
+            mock_op.get_metadata_updates.return_value = {"sampling_rate": self.sample_rate / hop_length}
             mock_create_op.return_value = mock_op
 
             result = self.channel_frame.rms_trend(frame_length=1024, hop_length=256)
-            self._check_channel_frame_attrs(
-                result, self.channel_frame, hop_length=256, op_key="rms_trend"
-            )
+            self._check_channel_frame_attrs(result, self.channel_frame, hop_length=256, op_key="rms_trend")
 
     def _check_channel_frame_attrs(self, result, base, hop_length=None, op_key=None):
-        expected_sr = (
-            base.sampling_rate / hop_length if hop_length else base.sampling_rate
-        )
+        expected_sr = base.sampling_rate / hop_length if hop_length else base.sampling_rate
         assert result.sampling_rate == expected_sr
         assert result.label == base.label
         # metadata: baseの内容が含まれていること、新しい操作分のキーが追加されていること
@@ -528,20 +508,14 @@ class TestChannelProcessing:
             assert op_key in result.metadata
         # _channel_metadata: unit="Pa"のrefが期待値通りか確認
         if hasattr(result, "_channel_metadata") and hasattr(base, "_channel_metadata"):
-            for res_meta, base_meta in zip(
-                result._channel_metadata, base._channel_metadata
-            ):
+            for res_meta, base_meta in zip(result._channel_metadata, base._channel_metadata):
                 if res_meta.unit == "Pa":
-                    assert res_meta.ref == 2e-5, (
-                        f"unit='Pa'のrefが一致しません: "
-                        f"{res_meta.ref} != {base_meta.ref}"
-                    )
+                    assert res_meta.ref == 2e-5, f"unit='Pa'のrefが一致しません: {res_meta.ref} != {base_meta.ref}"
                 # Check that labels are updated (not the same as base)
                 # Labels should now contain the operation name
                 if op_key:
                     assert base_meta.label in res_meta.label, (
-                        f"Expected base label '{base_meta.label}' to be in "
-                        f"result label '{res_meta.label}'"
+                        f"Expected base label '{base_meta.label}' to be in result label '{res_meta.label}'"
                     )
         # Note: We no longer check for exact equality of _channel_metadata
         # because labels are now updated to reflect operations
@@ -560,9 +534,7 @@ class TestChannelProcessing:
             mock_op.process.return_value = self.dask_data
             mock_create_op.return_value = mock_op
             result = self.channel_frame.high_pass_filter(cutoff=100)
-            self._check_channel_frame_attrs(
-                result, self.channel_frame, op_key="highpass_filter"
-            )
+            self._check_channel_frame_attrs(result, self.channel_frame, op_key="highpass_filter")
 
     def test_low_pass_filter_channel_frame_attributes(self) -> None:
         self.channel_frame.label = "test_label"
@@ -576,9 +548,7 @@ class TestChannelProcessing:
             mock_op.process.return_value = self.dask_data
             mock_create_op.return_value = mock_op
             result = self.channel_frame.low_pass_filter(cutoff=5000)
-            self._check_channel_frame_attrs(
-                result, self.channel_frame, op_key="lowpass_filter"
-            )
+            self._check_channel_frame_attrs(result, self.channel_frame, op_key="lowpass_filter")
 
     def test_band_pass_filter_channel_frame_attributes(self) -> None:
         self.channel_frame.label = "test_label"
@@ -591,12 +561,8 @@ class TestChannelProcessing:
             mock_op = mock.MagicMock()
             mock_op.process.return_value = self.dask_data
             mock_create_op.return_value = mock_op
-            result = self.channel_frame.band_pass_filter(
-                low_cutoff=200, high_cutoff=5000
-            )
-            self._check_channel_frame_attrs(
-                result, self.channel_frame, op_key="bandpass_filter"
-            )
+            result = self.channel_frame.band_pass_filter(low_cutoff=200, high_cutoff=5000)
+            self._check_channel_frame_attrs(result, self.channel_frame, op_key="bandpass_filter")
 
     def test_a_weighting_channel_frame_attributes(self) -> None:
         self.channel_frame.label = "test_label"
@@ -610,9 +576,7 @@ class TestChannelProcessing:
             mock_op.process.return_value = self.dask_data
             mock_create_op.return_value = mock_op
             result = self.channel_frame.a_weighting()
-            self._check_channel_frame_attrs(
-                result, self.channel_frame, op_key="a_weighting"
-            )
+            self._check_channel_frame_attrs(result, self.channel_frame, op_key="a_weighting")
 
     def test_abs_channel_frame_attributes(self) -> None:
         self.channel_frame.label = "test_label"
@@ -668,9 +632,7 @@ class TestChannelProcessing:
             mock_op.process.return_value = self.dask_data
             mock_create_op.return_value = mock_op
             result = self.channel_frame.fix_length(length=10000)
-            self._check_channel_frame_attrs(
-                result, self.channel_frame, op_key="fix_length"
-            )
+            self._check_channel_frame_attrs(result, self.channel_frame, op_key="fix_length")
 
     def test_resampling_channel_frame_attributes(self) -> None:
         self.channel_frame.label = "test_label"
@@ -687,9 +649,7 @@ class TestChannelProcessing:
             mock_op.get_metadata_updates.return_value = {"sampling_rate": target_sr}
             mock_create_op.return_value = mock_op
             result = self.channel_frame.resampling(target_sr=target_sr)
-            self._check_channel_frame_attrs(
-                result, self.channel_frame, hop_length=2, op_key="resampling"
-            )
+            self._check_channel_frame_attrs(result, self.channel_frame, hop_length=2, op_key="resampling")
 
 
 class TestSamplingRateUpdates:
@@ -748,11 +708,7 @@ class TestSamplingRateUpdates:
         """Test chained operations that update sampling rate."""
         # Chain operations: filter -> a_weighting -> rms_trend
         hop_length = 512
-        result = (
-            self.frame.low_pass_filter(cutoff=5000)
-            .a_weighting()
-            .rms_trend(hop_length=hop_length)
-        )
+        result = self.frame.low_pass_filter(cutoff=5000).a_weighting().rms_trend(hop_length=hop_length)
 
         # Final sampling rate should reflect rms_trend's update
         expected_sr = self.sample_rate / hop_length
@@ -772,9 +728,7 @@ class TestRoughnessOperations:
         # Create a signal with modulated amplitude (roughness stimuli)
         carrier_freq = 1000.0  # 1 kHz carrier
         mod_freq = 70.0  # 70 Hz modulation (creates roughness)
-        signal = np.sin(2 * np.pi * carrier_freq * t) * (
-            1 + 0.5 * np.sin(2 * np.pi * mod_freq * t)
-        )
+        signal = np.sin(2 * np.pi * carrier_freq * t) * (1 + 0.5 * np.sin(2 * np.pi * mod_freq * t))
 
         self.data: np.ndarray = signal.reshape(1, -1)  # 1 channel
         self.dask_data: DaArray = _da_from_array(self.data, chunks=(1, 4410))
@@ -794,14 +748,8 @@ class TestRoughnessOperations:
         # Check that data shape is reduced (time-varying roughness)
         # Note: mono signals are squeezed by ChannelFrame.data property to 1D
         assert result.data.ndim in (1, 2)
-        n_time_points = (
-            result.data.shape[0] if result.data.ndim == 1 else result.data.shape[1]
-        )
-        original_samples = (
-            self.frame.data.shape[0]
-            if self.frame.data.ndim == 1
-            else self.frame.data.shape[1]
-        )
+        n_time_points = result.data.shape[0] if result.data.ndim == 1 else result.data.shape[1]
+        original_samples = self.frame.data.shape[0] if self.frame.data.ndim == 1 else self.frame.data.shape[1]
         assert n_time_points < original_samples  # Reduced time points
 
         # Check that sampling rate is updated
@@ -820,15 +768,9 @@ class TestRoughnessOperations:
         result_overlap_05 = self.frame.roughness_dw(overlap=0.5)
 
         # Higher overlap should result in more time points
-        n_time_0 = (
-            result_overlap_0.data.shape[0]
-            if result_overlap_0.data.ndim == 1
-            else result_overlap_0.data.shape[1]
-        )
+        n_time_0 = result_overlap_0.data.shape[0] if result_overlap_0.data.ndim == 1 else result_overlap_0.data.shape[1]
         n_time_05 = (
-            result_overlap_05.data.shape[0]
-            if result_overlap_05.data.ndim == 1
-            else result_overlap_05.data.shape[1]
+            result_overlap_05.data.shape[0] if result_overlap_05.data.ndim == 1 else result_overlap_05.data.shape[1]
         )
         assert n_time_05 > n_time_0
 
@@ -876,12 +818,8 @@ class TestRoughnessOperations:
         assert op_name == "roughness_dw_spec"
 
         # Compare with MoSQITo direct calculation
-        computed_data = (
-            result.data.compute() if hasattr(result.data, "compute") else result.data
-        )
-        _, r_spec_direct, _, _ = roughness_dw_mosqito(
-            self.data[0], self.sample_rate, overlap=0.5
-        )
+        computed_data = result.data.compute() if hasattr(result.data, "compute") else result.data
+        _, r_spec_direct, _, _ = roughness_dw_mosqito(self.data[0], self.sample_rate, overlap=0.5)
         np.testing.assert_array_equal(
             computed_data,
             r_spec_direct,
@@ -906,11 +844,7 @@ class TestRoughnessOperations:
         roughness_spec = self.frame.roughness_dw_spec(overlap=0.5)
 
         # Time points should match
-        n_time_roughness = (
-            roughness.data.shape[0]
-            if roughness.data.ndim == 1
-            else roughness.data.shape[1]
-        )
+        n_time_roughness = roughness.data.shape[0] if roughness.data.ndim == 1 else roughness.data.shape[1]
         assert n_time_roughness == roughness_spec.n_time_points
 
         # Total roughness should approximately equal 0.25 * sum(R_spec)
@@ -920,9 +854,7 @@ class TestRoughnessOperations:
         total_direct = roughness.data
 
         # They should be close (allowing for numerical differences)
-        np.testing.assert_allclose(
-            total_direct.flatten(), total_from_spec.flatten(), rtol=0.1, atol=0.01
-        )
+        np.testing.assert_allclose(total_direct.flatten(), total_from_spec.flatten(), rtol=0.1, atol=0.01)
 
     def test_roughness_multi_channel(self) -> None:
         """Test roughness calculation with multi-channel signal."""

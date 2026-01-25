@@ -12,9 +12,7 @@ class TestSampleData:
         sampling_rate = 100
         duration = 1.0
 
-        signal = load_sample_signal(
-            frequency=frequency, sampling_rate=sampling_rate, duration=duration
-        )
+        signal = load_sample_signal(frequency=frequency, sampling_rate=sampling_rate, duration=duration)
 
         # 期待されるサンプル数 = サンプリングレート × 持続時間
         expected_samples = int(sampling_rate * duration)
@@ -24,17 +22,13 @@ class TestSampleData:
 
         # 異なる持続時間での確認
         duration_2 = 2.5
-        signal_2 = load_sample_signal(
-            frequency=frequency, sampling_rate=sampling_rate, duration=duration_2
-        )
+        signal_2 = load_sample_signal(frequency=frequency, sampling_rate=sampling_rate, duration=duration_2)
         expected_samples_2 = int(sampling_rate * duration_2)
         assert signal_2.shape == (expected_samples_2,)
 
         # 異なるサンプリングレートでの確認
         sampling_rate_2 = 44100
-        signal_3 = load_sample_signal(
-            frequency=frequency, sampling_rate=sampling_rate_2, duration=duration
-        )
+        signal_3 = load_sample_signal(frequency=frequency, sampling_rate=sampling_rate_2, duration=duration)
         expected_samples_3 = int(sampling_rate_2 * duration)
         assert signal_3.shape == (expected_samples_3,)
 
@@ -45,9 +39,7 @@ class TestSampleData:
         sampling_rate = 1000  # 1kHz (十分な解像度のために高めに設定)
         duration = 1.0
 
-        signal = load_sample_signal(
-            frequency=frequency, sampling_rate=sampling_rate, duration=duration
-        )
+        signal = load_sample_signal(frequency=frequency, sampling_rate=sampling_rate, duration=duration)
 
         # FFTを使用して周波数スペクトルを計算
         spectrum = np.abs(np.fft.rfft(signal))
@@ -62,9 +54,7 @@ class TestSampleData:
 
         # 異なる周波数でのテスト
         frequency_2 = 20.0
-        signal_2 = load_sample_signal(
-            frequency=frequency_2, sampling_rate=sampling_rate, duration=duration
-        )
+        signal_2 = load_sample_signal(frequency=frequency_2, sampling_rate=sampling_rate, duration=duration)
 
         spectrum_2 = np.abs(np.fft.rfft(signal_2))
         peak_freq_idx_2 = np.argmax(spectrum_2)
@@ -96,9 +86,7 @@ class TestSampleData:
         default_signal = load_sample_signal()
 
         # 明示的にデフォルト値を指定して生成した信号と比較
-        explicit_signal = load_sample_signal(
-            frequency=5.0, sampling_rate=100, duration=1.0
-        )
+        explicit_signal = load_sample_signal(frequency=5.0, sampling_rate=100, duration=1.0)
 
         # 両者が同じであることを確認
         np.testing.assert_array_equal(default_signal, explicit_signal)

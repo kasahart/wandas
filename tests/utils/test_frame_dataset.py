@@ -101,9 +101,7 @@ class TestLazyFrame:
         lazy_frame: LazyFrame[ChannelFrame] = LazyFrame(file_path)
 
         # モックローダー関数
-        mock_frame = ChannelFrame.from_ndarray(
-            np.array([[0.1, 0.2], [0.3, 0.4]]), 44100
-        )
+        mock_frame = ChannelFrame.from_ndarray(np.array([[0.1, 0.2], [0.3, 0.4]]), 44100)
         loader = MagicMock(return_value=mock_frame)
 
         # 初回ロード
@@ -141,10 +139,7 @@ class TestLazyFrame:
         loader.assert_called_once_with(file_path)
 
         # ログ確認
-        assert any(
-            "Failed to load file" in record.message and record.levelname == "ERROR"
-            for record in caplog.records
-        )
+        assert any("Failed to load file" in record.message and record.levelname == "ERROR" for record in caplog.records)
 
     def test_reset(self) -> None:
         """Test LazyFrame.reset method."""
@@ -152,9 +147,7 @@ class TestLazyFrame:
         lazy_frame: LazyFrame[ChannelFrame] = LazyFrame(file_path)
 
         # フレームをロード
-        mock_frame = ChannelFrame.from_ndarray(
-            np.array([[0.1, 0.2], [0.3, 0.4]]), 44100
-        )
+        mock_frame = ChannelFrame.from_ndarray(np.array([[0.1, 0.2], [0.3, 0.4]]), 44100)
         loader = MagicMock(return_value=mock_frame)
         lazy_frame.ensure_loaded(loader)
 
@@ -211,9 +204,7 @@ class TestChannelFrameDataset:
     def test_init_lazy(self, create_test_files: Path) -> None:
         """Test lazy initialization."""
         folder_path = create_test_files
-        dataset = ChannelFrameDataset(
-            str(folder_path), recursive=False, lazy_loading=True
-        )
+        dataset = ChannelFrameDataset(str(folder_path), recursive=False, lazy_loading=True)
 
         assert dataset._lazy_loading is True
         assert len(dataset) == 3  # test1.wav, test2.wav, test3.csv
@@ -249,29 +240,21 @@ class TestChannelFrameDataset:
 
         # Verify frame labels match the expected file names
         file_stems = [p.stem for p in dataset._get_file_paths()]
-        frame_labels = [
-            lf.frame.label for lf in dataset._lazy_frames if lf.frame is not None
-        ]
+        frame_labels = [lf.frame.label for lf in dataset._lazy_frames if lf.frame is not None]
         assert frame_labels == file_stems
 
     def test_init_recursive(self, create_test_files: Path) -> None:
         """Test recursive file discovery."""
         folder_path = create_test_files
-        dataset = ChannelFrameDataset(
-            str(folder_path), recursive=True, lazy_loading=True
-        )
+        dataset = ChannelFrameDataset(str(folder_path), recursive=True, lazy_loading=True)
         assert len(dataset) == 4  # Includes subdir/sub_test.wav
         assert dataset._recursive is True
-        assert Path("subdir/sub_test.wav") in [
-            p.relative_to(folder_path) for p in dataset._get_file_paths()
-        ]
+        assert Path("subdir/sub_test.wav") in [p.relative_to(folder_path) for p in dataset._get_file_paths()]
 
     def test_init_custom_extensions(self, create_test_files: Path) -> None:
         """Test custom file extensions."""
         folder_path = create_test_files
-        dataset = ChannelFrameDataset(
-            str(folder_path), file_extensions=[".csv"], lazy_loading=True
-        )
+        dataset = ChannelFrameDataset(str(folder_path), file_extensions=[".csv"], lazy_loading=True)
         assert len(dataset) == 1
         assert dataset._lazy_frames[0].file_path.name == "test3.csv"
         assert dataset.file_extensions == [".csv"]
@@ -352,16 +335,12 @@ class TestChannelFrameDataset:
         assert frame.labels == ["SensorA", "SensorB"]
         assert isinstance(frame.data, np.ndarray)
 
-    def test_load_file_resampling(
-        self, create_test_files: Path, sample_wav_data: tuple[int, NDArrayReal]
-    ) -> None:
+    def test_load_file_resampling(self, create_test_files: Path, sample_wav_data: tuple[int, NDArrayReal]) -> None:
         """Test _load_file triggers resampling when SR mismatches."""
         folder_path = create_test_files
         original_sr, _ = sample_wav_data  # Should be 16000
         target_sr = 8000
-        dataset = ChannelFrameDataset(
-            str(folder_path), sampling_rate=target_sr, lazy_loading=True
-        )
+        dataset = ChannelFrameDataset(str(folder_path), sampling_rate=target_sr, lazy_loading=True)
         wav_path = dataset._lazy_frames[0].file_path
 
         # Mock ChannelFrame.resampling to check if it's called
@@ -389,9 +368,7 @@ class TestChannelFrameDataset:
             assert isinstance(args[0], ChannelFrame)
             assert args[0].sampling_rate == original_sr
 
-    def test_load_file_error(
-        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_load_file_error(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         """Test error handling during file loading."""
         folder_path = tmp_path
         # Create a corrupted/invalid file
@@ -403,8 +380,7 @@ class TestChannelFrameDataset:
         assert result is None
         # Check logs for warning from _ensure_loaded
         assert any(
-            "Failed to load or initialize file" in record.message
-            and record.levelname == "ERROR"
+            "Failed to load or initialize file" in record.message and record.levelname == "ERROR"
             for record in caplog.records
         )
         # Ensure the frame is marked as None after failure
@@ -414,14 +390,9 @@ class TestChannelFrameDataset:
         # Test _load_all_files catching errors
         caplog.clear()
         dataset_eager = ChannelFrameDataset(str(folder_path), lazy_loading=False)
-        assert (
-            dataset_eager._lazy_frames[0].frame is None
-        )  # Should be None due to load failure
+        assert dataset_eager._lazy_frames[0].frame is None  # Should be None due to load failure
         # 新しい実装では、エラーログはERRORレベルで出力される
-        assert any(
-            "Failed to load or initialize file" in record.message
-            for record in caplog.records
-        )
+        assert any("Failed to load or initialize file" in record.message for record in caplog.records)
 
     def test_apply_lazy(self, create_test_files: Path) -> None:
         """Test lazy application of a function."""
@@ -439,9 +410,7 @@ class TestChannelFrameDataset:
         assert transformed_dataset._source_dataset is dataset
         assert transformed_dataset._transform is dummy_transform
         assert len(transformed_dataset) == len(dataset)
-        assert all(
-            not lf.is_loaded for lf in transformed_dataset._lazy_frames
-        )  # Still lazy
+        assert all(not lf.is_loaded for lf in transformed_dataset._lazy_frames)  # Still lazy
 
         # Access item to trigger transformation
         original_frame0 = dataset[0]  # Load original
@@ -459,9 +428,7 @@ class TestChannelFrameDataset:
         )
 
         # Access again, should use cache
-        with patch.object(
-            transformed_dataset, "_transform", wraps=transformed_dataset._transform
-        ) as mock_transform:
+        with patch.object(transformed_dataset, "_transform", wraps=transformed_dataset._transform) as mock_transform:
             cached_transformed = transformed_dataset[0]
             assert cached_transformed is transformed_frame0
             mock_transform.assert_not_called()
@@ -497,9 +464,7 @@ class TestChannelFrameDataset:
         expected_data = (original_frame0.compute() * 2) + 1
         np.testing.assert_allclose(final_frame0.compute(), expected_data)
 
-    def test_apply_error_in_transform(
-        self, create_test_files: Path, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_apply_error_in_transform(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
         """Test error handling when the applied function fails."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
@@ -514,10 +479,7 @@ class TestChannelFrameDataset:
         assert result is None
 
         # Check logs for warning
-        assert any(
-            "Transform failed!" in record.message and record.levelname == "WARNING"
-            for record in caplog.records
-        )
+        assert any("Transform failed!" in record.message and record.levelname == "WARNING" for record in caplog.records)
         # Ensure frame is marked as is_loaded but with frame=None
         assert transformed_dataset._lazy_frames[0].frame is None
         assert transformed_dataset._lazy_frames[0].is_loaded is True
@@ -583,14 +545,10 @@ class TestChannelFrameDataset:
         assert stft_frame.shape == expected_spec.shape
 
         # compare the actual complex STFT values
-        np.testing.assert_allclose(
-            stft_frame.compute(), expected_spec.compute(), atol=1e-6
-        )
+        np.testing.assert_allclose(stft_frame.compute(), expected_spec.compute(), atol=1e-6)
 
         # second access must hit the cache and not retrigger transform
-        with patch.object(
-            stft_dataset, "_transform", wraps=stft_dataset._transform
-        ) as mock_transform:
+        with patch.object(stft_dataset, "_transform", wraps=stft_dataset._transform) as mock_transform:
             cached = stft_dataset[0]
             assert cached is stft_frame
             mock_transform.assert_not_called()
@@ -636,9 +594,7 @@ class TestChannelFrameDataset:
         assert sampled_more._original_dataset is dataset  # type: ignore[attr-defined]
 
         # Sample from empty dataset
-        empty_ds = ChannelFrameDataset(
-            str(folder_path / "empty_subdir"), lazy_loading=True
-        )
+        empty_ds = ChannelFrameDataset(str(folder_path / "empty_subdir"), lazy_loading=True)
         sampled_empty = empty_ds.sample(n=1)
         assert len(sampled_empty) == 0
 
@@ -676,9 +632,7 @@ class TestChannelFrameDataset:
     def test_get_metadata(self, create_test_files: Path) -> None:
         """Test get_metadata method."""
         folder_path = create_test_files
-        dataset = ChannelFrameDataset(
-            str(folder_path), lazy_loading=True, sampling_rate=8000
-        )
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True, sampling_rate=8000)
 
         meta_lazy = dataset.get_metadata()
         assert meta_lazy["folder_path"] == str(folder_path)
@@ -686,9 +640,7 @@ class TestChannelFrameDataset:
         assert meta_lazy["loaded_count"] == 0
         assert meta_lazy["target_sampling_rate"] == 8000
         # Actual SR might be different until loaded, or None if load fails
-        assert (
-            meta_lazy["actual_sampling_rate"] == 8000
-        )  # Inherits target if not loaded
+        assert meta_lazy["actual_sampling_rate"] == 8000  # Inherits target if not loaded
         assert meta_lazy["lazy_loading"] is True
         assert meta_lazy["has_transform"] is False
         assert meta_lazy["frame_type"] == "Unknown"  # Not loaded yet
@@ -697,27 +649,21 @@ class TestChannelFrameDataset:
         _ = dataset[0]
         meta_loaded_one = dataset.get_metadata()
         assert meta_loaded_one["loaded_count"] == 1
-        assert (
-            meta_loaded_one["actual_sampling_rate"] == 8000
-        )  # Now reflects loaded frame (after resampling)
+        assert meta_loaded_one["actual_sampling_rate"] == 8000  # Now reflects loaded frame (after resampling)
         assert meta_loaded_one["frame_type"] == "ChannelFrame"
 
         # Test with transformation
         transformed_ds = dataset.apply(lambda f: f * 2)
         meta_transformed = transformed_ds.get_metadata()
         assert meta_transformed["has_transform"] is True
-        assert (
-            meta_transformed["loaded_count"] == 0
-        )  # Transform dataset has its own cache
+        assert meta_transformed["loaded_count"] == 0  # Transform dataset has its own cache
         assert meta_transformed["frame_type"] == "Unknown"
 
         # Load item in transformed dataset
         _ = transformed_ds[0]
         meta_transformed_loaded = transformed_ds.get_metadata()
         assert meta_transformed_loaded["loaded_count"] == 1
-        assert (
-            meta_transformed_loaded["frame_type"] == "ChannelFrame"
-        )  # Type after transform
+        assert meta_transformed_loaded["frame_type"] == "ChannelFrame"  # Type after transform
 
         # Test with eager loading
         dataset_eager = ChannelFrameDataset(str(folder_path), lazy_loading=False)
@@ -751,16 +697,12 @@ class TestChannelFrameDataset:
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
         # saveメソッドが未実装のため、NotImplementedErrorが発生することを確認
-        with pytest.raises(
-            NotImplementedError, match="The save method is not currently implemented."
-        ):
+        with pytest.raises(NotImplementedError, match="The save method is not currently implemented."):
             dataset.save(str(output_folder), filename_prefix="processed_")
 
         # SpectrogramFrameDatasetのsaveも同様に例外を発生させるか確認
         stft_dataset = dataset.stft()
-        with pytest.raises(
-            NotImplementedError, match="The save method is not currently implemented."
-        ):
+        with pytest.raises(NotImplementedError, match="The save method is not currently implemented."):
             stft_dataset.save(str(output_folder), filename_prefix="spec_")
 
 
@@ -827,9 +769,7 @@ class TestSpectrogramFrameDataset:
         assert original_spec_frame is not None
         assert transformed_spec_frame is not None
         # Verify transformation (check if data changed)
-        assert not np.allclose(
-            original_spec_frame.compute(), transformed_spec_frame.compute()
-        )
+        assert not np.allclose(original_spec_frame.compute(), transformed_spec_frame.compute())
 
     @patch("matplotlib.pyplot.show")  # Prevent plots from displaying during tests
     def test_plot(
@@ -844,9 +784,7 @@ class TestSpectrogramFrameDataset:
         stft_ds = channel_ds.stft()
 
         # Mock SpectrogramFrame.plot to check if it's called
-        with patch.object(
-            SpectrogramFrame, "plot", return_value=MagicMock(spec=Axes)
-        ) as mock_frame_plot:
+        with patch.object(SpectrogramFrame, "plot", return_value=MagicMock(spec=Axes)) as mock_frame_plot:
             stft_ds.plot(0)  # Plot the first spectrogram
             mock_frame_plot.assert_called_once()
 
@@ -868,11 +806,7 @@ class TestSpectrogramFrameDataset:
         with patch.object(SpectrogramFrame, "plot") as mock_plot_error:
             error_spec_ds.plot(0)  # Attempt to plot the failing one
             mock_plot_error.assert_not_called()
-            assert any(
-                "STFT failed" in rec.message
-                for rec in caplog.records
-                if rec.levelname == "WARNING"
-            )
+            assert any("STFT failed" in rec.message for rec in caplog.records if rec.levelname == "WARNING")
 
         # Test plot when frame has no plot method (simulate)
         caplog.clear()
@@ -881,11 +815,7 @@ class TestSpectrogramFrameDataset:
         with patch.object(SpectrogramFrame, "plot", None):
             # plotメソッドがないフレームをロードした場合のテスト
             stft_ds.plot(0)
-            assert any(
-                "Frame" in rec.message
-                for rec in caplog.records
-                if rec.levelname == "WARNING"
-            )
+            assert any("Frame" in rec.message for rec in caplog.records if rec.levelname == "WARNING")
 
         # Test error during plotting itself
         caplog.clear()
@@ -895,11 +825,7 @@ class TestSpectrogramFrameDataset:
         ) as mock_plot_runtime_error:
             stft_ds.plot(1)  # Plot second item, assume it loads ok
             mock_plot_runtime_error.assert_called_once()
-            assert any(
-                plot_error_msg in rec.message
-                for rec in caplog.records
-                if rec.levelname == "ERROR"
-            )
+            assert any(plot_error_msg in rec.message for rec in caplog.records if rec.levelname == "ERROR")
 
 
 # --- Test _SampledFrameDataset (Internal Class) ---
@@ -975,9 +901,7 @@ class TestSampledFrameDataset:
         assert sampled_frame_1 is not None
         assert original_frame_1 is not None
         assert sampled_frame_1.label == original_frame_1.label
-        np.testing.assert_array_equal(
-            sampled_frame_1.compute(), original_frame_1.compute()
-        )
+        np.testing.assert_array_equal(sampled_frame_1.compute(), original_frame_1.compute())
 
         # 範囲外のインデックスに対するエラーテスト
         with pytest.raises(IndexError):

@@ -296,11 +296,7 @@ class CSVFileReader(FileReader):
         df = pd.read_csv(_prepare_file_source(path), delimiter=delimiter, header=header)
 
         # Remove time column
-        df = df.drop(
-            columns=[time_column]
-            if isinstance(time_column, str)
-            else df.columns[time_column]
-        )
+        df = df.drop(columns=[time_column] if isinstance(time_column, str) else df.columns[time_column])
 
         # Select requested channels - adjust indices to account for time column removal
         if channels:
@@ -352,8 +348,7 @@ def _prepare_file_source(
             # Some file-like objects are not seekable or may reject seek(0).
             # In that case, continue using the current position without failing.
             logger.debug(
-                "Could not seek to start of file-like object; continuing from "
-                "current position",
+                "Could not seek to start of file-like object; continuing from current position",
                 exc_info=True,
             )
         return file_obj

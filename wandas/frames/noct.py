@@ -176,9 +176,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         ref = np.array([ch.ref for ch in self._channel_metadata])
         # Convert to dB
         # Use either the maximum value or 1e-12 to avoid division by zero
-        level: NDArrayReal = 20 * np.log10(
-            np.maximum(self.data / ref[..., np.newaxis], 1e-12)
-        )
+        level: NDArrayReal = 20 * np.log10(np.maximum(self.data / ref[..., np.newaxis], 1e-12))
         return level
 
     @property
@@ -271,9 +269,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
             Always raises this error as operations are not implemented
             for N-octave band data.
         """
-        raise NotImplementedError(
-            f"Operation {symbol} is not implemented for NOctFrame."
-        )
+        raise NotImplementedError(f"Operation {symbol} is not implemented for NOctFrame.")
         return self
 
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
@@ -281,9 +277,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         Apply operations using lazy evaluation.
         """
         # Apply operations using lazy evaluation
-        raise NotImplementedError(
-            f"Operation {operation_name} is not implemented for NOctFrame."
-        )
+        raise NotImplementedError(f"Operation {operation_name} is not implemented for NOctFrame.")
         return self
 
     def plot(

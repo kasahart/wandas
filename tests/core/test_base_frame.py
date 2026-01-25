@@ -23,9 +23,7 @@ class TestBaseFrameArithmeticOperations:
         self.sample_rate = 16000
         self.data = np.random.random((2, 16000))
         self.dask_data: DaArray = _da_from_array(self.data, chunks=(1, -1))
-        self.channel_frame = ChannelFrame(
-            data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
-        )
+        self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
     def test_pow_operator_with_scalar(self) -> None:
         """Test __pow__ operator with scalar values."""
@@ -53,9 +51,7 @@ class TestBaseFrameArithmeticOperations:
         # Create another ChannelFrame with exponent values
         exponent_data = np.full((2, 16000), 3.0)  # Raise to power of 3
         exponent_dask = _da_from_array(exponent_data, chunks=(1, -1))
-        exponent_frame = ChannelFrame(
-            data=exponent_dask, sampling_rate=self.sample_rate, label="exponent"
-        )
+        exponent_frame = ChannelFrame(data=exponent_dask, sampling_rate=self.sample_rate, label="exponent")
 
         # Apply power operation
         result = self.channel_frame**exponent_frame
@@ -156,9 +152,7 @@ class TestBaseFrameArithmeticOperations:
         assert isinstance(result._data, DaArray)
 
         # No computation should have happened yet
-        with mock.patch.object(
-            DaArray, "compute", return_value=self.data
-        ) as mock_compute:
+        with mock.patch.object(DaArray, "compute", return_value=self.data) as mock_compute:
             # Just accessing properties shouldn't trigger compute
             _ = result.sampling_rate
             _ = result.n_channels
@@ -175,9 +169,7 @@ class TestBaseFrameArithmeticOperations:
         # Test with known values
         known_data = np.array([[2.0, 3.0, 4.0], [1.0, 2.0, 3.0]])
         known_dask = _da_from_array(known_data, chunks=(1, -1))
-        known_frame = ChannelFrame(
-            data=known_dask, sampling_rate=self.sample_rate, label="known"
-        )
+        known_frame = ChannelFrame(data=known_dask, sampling_rate=self.sample_rate, label="known")
 
         # Test squaring
         squared = known_frame**2
@@ -211,6 +203,34 @@ def test_get_channel_query_by_regex() -> None:
     result = cf.get_channel(0, query=pattern)
     assert result.n_channels == 2
     assert result.labels == ["acc_x", "acc_z"]
+
+
+def test_get_channel_query_with_channel_idx_none() -> None:
+    """Ensure query selection works when channel_idx is explicitly None."""
+    sample_rate = 16000
+    data = np.random.random((3, 100))
+    dask_data: DaArray = _da_from_array(data, chunks=(1, -1))
+    cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
+    cf.channels[0].label = "acc_x"
+    cf.channels[1].label = "gyro_y"
+    cf.channels[2].label = "acc_z"
+
+    pattern = re.compile(r"acc")
+    result = cf.get_channel(channel_idx=None, query=pattern)
+    assert result.n_channels == 2
+    assert result.labels == ["acc_x", "acc_z"]
+
+
+def test_get_channel_no_args_raises() -> None:
+    """Calling get_channel with no arguments should raise a clear error."""
+    sample_rate = 16000
+    data = np.random.random((2, 20))
+    dask_data: DaArray = _da_from_array(data, chunks=(1, -1))
+    cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
+
+    with pytest.raises(TypeError, match=r"Either 'channel_idx' or 'query' must be provided."):
+        # type: ignore[arg-type]
+        cf.get_channel()
 
 
 def test_get_channel_query_by_callable() -> None:
@@ -362,9 +382,7 @@ def test_get_channel_query_dict_non_string_attr() -> None:
         # Test with positive data and zero exponent (should give 1)
         positive_data = np.abs(self.data) + 0.1  # Ensure positive
         positive_dask = _da_from_array(positive_data, chunks=(1, -1))
-        positive_frame = ChannelFrame(
-            data=positive_dask, sampling_rate=self.sample_rate, label="positive"
-        )
+        positive_frame = ChannelFrame(data=positive_dask, sampling_rate=self.sample_rate, label="positive")
 
         zero_power = positive_frame**0
         computed_zero = zero_power.compute()
@@ -417,9 +435,7 @@ def test_get_channel_query_dict_non_string_attr() -> None:
         y_data = np.cos(np.linspace(0, 4 * np.pi, 16000))
         vector_data = np.vstack([x_data, y_data])
         vector_dask = _da_from_array(vector_data, chunks=(1, -1))
-        vector_frame = ChannelFrame(
-            data=vector_dask, sampling_rate=self.sample_rate, label="vector"
-        )
+        vector_frame = ChannelFrame(data=vector_dask, sampling_rate=self.sample_rate, label="vector")
 
         # Calculate magnitude: sqrt(x**2 + y**2)
         x_squared = vector_frame[0] ** 2
@@ -510,9 +526,7 @@ class TestBaseFrameSpecialMethods:
         self.sample_rate = 16000
         self.data = np.random.random((3, 16000))
         self.dask_data: DaArray = _da_from_array(self.data, chunks=(1, -1))
-        self.channel_frame = ChannelFrame(
-            data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
-        )
+        self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
     def test_len(self) -> None:
         """Test __len__ returns number of channels."""
@@ -577,9 +591,7 @@ class TestBaseFrameErrorCases:
         self.sample_rate = 16000
         self.data = np.random.random((2, 16000))
         self.dask_data: DaArray = _da_from_array(self.data, chunks=(1, -1))
-        self.channel_frame = ChannelFrame(
-            data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
-        )
+        self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
     def test_label2index_key_error(self) -> None:
         """Test label2index raises KeyError for non-existent label."""
@@ -619,21 +631,15 @@ class TestBaseFrameUtilityMethods:
         self.sample_rate = 16000
         self.data = np.random.random((2, 16000))
         self.dask_data: DaArray = _da_from_array(self.data, chunks=(1, -1))
-        self.channel_frame = ChannelFrame(
-            data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
-        )
+        self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
-    def test_print_operation_history_empty(
-        self, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_print_operation_history_empty(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Test print_operation_history with no operations."""
         self.channel_frame.print_operation_history()
         captured = capsys.readouterr()
         assert "Operation history: <empty>" in captured.out
 
-    def test_print_operation_history_with_operations(
-        self, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_print_operation_history_with_operations(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Test print_operation_history with operations."""
         # Add some operations
         result = self.channel_frame + 1
@@ -666,9 +672,7 @@ class TestBaseFrameUtilityMethods:
     def test_visualize_graph_exception_handling(self) -> None:
         """Test visualize_graph handles exceptions gracefully."""
         # Mock visualize to raise an exception
-        with mock.patch.object(
-            DaArray, "visualize", side_effect=Exception("test error")
-        ):
+        with mock.patch.object(DaArray, "visualize", side_effect=Exception("test error")):
             result = self.channel_frame.visualize_graph()
             assert result is None  # Should return None on exception
 
@@ -764,9 +768,7 @@ class TestBaseFrameIndexing:
     def test_getitem_with_numpy_float_array_error(self) -> None:
         """Test __getitem__ with float array raises TypeError."""
         indices = np.array([0.0, 1.0])
-        with pytest.raises(
-            TypeError, match="NumPy array must be of integer or boolean type"
-        ):
+        with pytest.raises(TypeError, match="NumPy array must be of integer or boolean type"):
             _ = self.channel_frame[indices]
 
     def test_getitem_with_slice(self) -> None:
@@ -870,9 +872,7 @@ class TestBaseFrameInitialization:
         data = np.random.random((2, 16000))
         dask_data: DaArray = _da_from_array(data, chunks=(1, -1))
         metadata = {"custom_key": "custom_value"}
-        frame = ChannelFrame(
-            data=dask_data, sampling_rate=self.sample_rate, metadata=metadata
-        )
+        frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate, metadata=metadata)
         assert frame.metadata["custom_key"] == "custom_value"
 
     def test_data_property_single_channel_squeezes(self) -> None:
@@ -922,9 +922,7 @@ class TestBaseFrameRelabelChannels:
 
     def test_relabel_channels_with_display_name(self) -> None:
         """Test _relabel_channels with custom display name."""
-        new_metadata = self.channel_frame._relabel_channels(
-            "low_pass_filter", display_name="lpf"
-        )
+        new_metadata = self.channel_frame._relabel_channels("low_pass_filter", display_name="lpf")
         assert new_metadata[0].label == "lpf(left)"
         assert new_metadata[1].label == "lpf(right)"
 
@@ -937,9 +935,7 @@ class TestBaseFrameDebugMethods:
         self.sample_rate = 16000
         self.data = np.random.random((2, 16000))
         self.dask_data: DaArray = _da_from_array(self.data, chunks=(1, -1))
-        self.channel_frame = ChannelFrame(
-            data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
-        )
+        self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
     def test_debug_info(self) -> None:
         """Test debug_info method runs without error."""
@@ -1063,9 +1059,7 @@ class TestBaseFrameInfoAndDataframe:
         self.sample_rate = 16000
         self.data = np.random.random((1, 16000))
         self.dask_data: DaArray = _da_from_array(self.data, chunks=(1, -1))
-        self.channel_frame = ChannelFrame(
-            data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
-        )
+        self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
     def test_to_dataframe_with_custom_labels(self) -> None:
         """Test to_dataframe with custom channel labels."""
@@ -1109,9 +1103,7 @@ class TestBaseFrameInfoAndDataframe:
     def test_info_method_single_channel(self, capsys: Any) -> None:
         """Test info() method with single channel."""
         single_data = self.data[0:1]
-        single_frame = ChannelFrame.from_numpy(
-            single_data, sampling_rate=self.sample_rate, label="single"
-        )
+        single_frame = ChannelFrame.from_numpy(single_data, sampling_rate=self.sample_rate, label="single")
 
         single_frame.info()
 
@@ -1137,9 +1129,7 @@ class TestBaseFrameInfoAndDataframe:
         """Test info() method with different durations."""
         # Create a frame with 0.5 seconds of data
         short_data = np.random.random((1, 8000))
-        short_frame = ChannelFrame.from_numpy(
-            short_data, sampling_rate=self.sample_rate, label="short"
-        )
+        short_frame = ChannelFrame.from_numpy(short_data, sampling_rate=self.sample_rate, label="short")
 
         short_frame.info()
 
@@ -1157,9 +1147,7 @@ class TestBaseFrameCoverage:
         self.sample_rate = 16000
         self.data = np.random.random((2, 16000))
         self.dask_data: DaArray = _da_from_array(self.data, chunks=(1, -1))
-        self.channel_frame = ChannelFrame(
-            data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
-        )
+        self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
     def test_init_rechunk_failure(self, caplog: pytest.LogCaptureFixture) -> None:
         """Test that initialization continues even if rechunking fails."""

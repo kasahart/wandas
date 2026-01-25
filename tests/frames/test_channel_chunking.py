@@ -15,13 +15,9 @@ class TestChannelWiseChunking:
         cf = ChannelFrame.from_numpy(data, sampling_rate=44100)
 
         # Channel axis should be chunked as 1
-        assert cf._data.chunks[0] == (1,), (
-            f"Expected channel chunks (1,), got {cf._data.chunks[0]}"
-        )
+        assert cf._data.chunks[0] == (1,), f"Expected channel chunks (1,), got {cf._data.chunks[0]}"
         # Sample axis should be unchunked (-1 becomes full length)
-        assert cf._data.chunks[1] == (44100,), (
-            f"Expected sample chunks (44100,), got {cf._data.chunks[1]}"
-        )
+        assert cf._data.chunks[1] == (44100,), f"Expected sample chunks (44100,), got {cf._data.chunks[1]}"
 
     def test_from_numpy_stereo_channel_chunks(self):
         """Test that from_numpy creates (1, 1, ...) chunks for stereo signal."""
@@ -29,13 +25,9 @@ class TestChannelWiseChunking:
         cf = ChannelFrame.from_numpy(data, sampling_rate=44100)
 
         # Each channel should be chunked separately
-        assert cf._data.chunks[0] == (1, 1), (
-            f"Expected channel chunks (1, 1), got {cf._data.chunks[0]}"
-        )
+        assert cf._data.chunks[0] == (1, 1), f"Expected channel chunks (1, 1), got {cf._data.chunks[0]}"
         # Sample axis should be unchunked
-        assert cf._data.chunks[1] == (44100,), (
-            f"Expected sample chunks (44100,), got {cf._data.chunks[1]}"
-        )
+        assert cf._data.chunks[1] == (44100,), f"Expected sample chunks (44100,), got {cf._data.chunks[1]}"
 
     def test_from_numpy_multichannel_chunks(self):
         """Test channel-wise chunking for multi-channel signals."""
@@ -47,13 +39,10 @@ class TestChannelWiseChunking:
         # Each channel should be chunked as 1
         expected_channel_chunks = tuple([1] * n_channels)
         assert cf._data.chunks[0] == expected_channel_chunks, (
-            f"Expected channel chunks {expected_channel_chunks}, "
-            f"got {cf._data.chunks[0]}"
+            f"Expected channel chunks {expected_channel_chunks}, got {cf._data.chunks[0]}"
         )
         # Sample axis unchunked
-        assert cf._data.chunks[1] == (n_samples,), (
-            f"Expected sample chunks ({n_samples},), got {cf._data.chunks[1]}"
-        )
+        assert cf._data.chunks[1] == (n_samples,), f"Expected sample chunks ({n_samples},), got {cf._data.chunks[1]}"
 
     def test_add_channel_preserves_chunking(self):
         """Test that add_channel maintains channel-wise chunking."""
@@ -83,12 +72,8 @@ class TestChannelWiseChunking:
         cf = ChannelFrame.from_file(audio_path)
 
         # Should have channel-wise chunking before compute
-        assert cf._data.chunks[0] == (1, 1), (
-            f"Expected channel chunks (1, 1) from lazy load, got {cf._data.chunks[0]}"
-        )
-        assert cf._data.chunks[1] == (44100,), (
-            f"Expected sample chunks (44100,), got {cf._data.chunks[1]}"
-        )
+        assert cf._data.chunks[0] == (1, 1), f"Expected channel chunks (1, 1) from lazy load, got {cf._data.chunks[0]}"
+        assert cf._data.chunks[1] == (44100,), f"Expected sample chunks (44100,), got {cf._data.chunks[1]}"
 
     def test_rechunk_custom_sample_axis(self):
         """Test BaseFrame auto-rechunking behavior.
@@ -103,9 +88,7 @@ class TestChannelWiseChunking:
         rechunked_data = cf._data.rechunk((1, 16384))  # type: ignore
 
         # Verify the rechunking was applied before passing to _create_new_instance
-        assert len(rechunked_data.chunks[1]) > 1, (
-            "rechunked_data should have multiple sample chunks"
-        )
+        assert len(rechunked_data.chunks[1]) > 1, "rechunked_data should have multiple sample chunks"
 
         # Create new instance - BaseFrame will re-apply channel-wise chunking
         cf_rechunked = cf._create_new_instance(data=rechunked_data)
@@ -115,8 +98,7 @@ class TestChannelWiseChunking:
         assert cf_rechunked._data.chunks[0] == (1, 1)
         # After BaseFrame rechunking, sample axis is back to single chunk
         assert cf_rechunked._data.chunks[1] == (44100,), (
-            f"Expected sample chunks (44100,) after BaseFrame rechunk, "
-            f"got {cf_rechunked._data.chunks[1]}"
+            f"Expected sample chunks (44100,) after BaseFrame rechunk, got {cf_rechunked._data.chunks[1]}"
         )
 
     def test_binary_operations_preserve_chunking(self):
@@ -127,9 +109,7 @@ class TestChannelWiseChunking:
         cf_result = cf1 + cf2
 
         # Result should maintain channel-wise chunking
-        assert cf_result._data.chunks[0] == (1, 1), (
-            f"Expected (1, 1) after binary op, got {cf_result._data.chunks[0]}"
-        )
+        assert cf_result._data.chunks[0] == (1, 1), f"Expected (1, 1) after binary op, got {cf_result._data.chunks[0]}"
         assert cf_result._data.chunks[1] == (44100,), (
             f"Expected sample chunks (44100,), got {cf_result._data.chunks[1]}"
         )

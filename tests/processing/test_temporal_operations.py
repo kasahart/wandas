@@ -45,9 +45,7 @@ class TestReSampling:
         """Test resampling output shape."""
         # Downsample
         result = self.resampler.process(self.dask_mono).compute()
-        expected_len = int(
-            np.ceil(self.signal_mono.shape[1] * (self.target_sr / self.orig_sr))
-        )
+        expected_len = int(np.ceil(self.signal_mono.shape[1] * (self.target_sr / self.orig_sr)))
         assert result.shape == (1, expected_len)
 
         # Upsample
@@ -58,9 +56,7 @@ class TestReSampling:
 
         # Stereo
         result = self.resampler.process(self.dask_stereo).compute()
-        expected_len = int(
-            np.ceil(self.signal_stereo.shape[1] * (self.target_sr / self.orig_sr))
-        )
+        expected_len = int(np.ceil(self.signal_stereo.shape[1] * (self.target_sr / self.orig_sr)))
         assert result.shape == (2, expected_len)
 
     def test_resampling_content(self) -> None:
@@ -184,9 +180,7 @@ class TestTrim:
     def test_trim_shape(self) -> None:
         """Test trimming output shape."""
         result = self.trim.process(self.dask_mono).compute()
-        expected_samples = int(self.end_time * self.sample_rate) - int(
-            self.start_time * self.sample_rate
-        )
+        expected_samples = int(self.end_time * self.sample_rate) - int(self.start_time * self.sample_rate)
         assert result.shape == (1, expected_samples)
 
         result_stereo = self.trim.process(self.dask_stereo).compute()
@@ -220,17 +214,13 @@ class TestRmsTrend:
         self.sample_rate: int = 16000
         self.frame_length: int = 2048
         self.hop_length: int = 512
-        self.rms_trend = RmsTrend(
-            self.sample_rate, frame_length=self.frame_length, hop_length=self.hop_length
-        )
+        self.rms_trend = RmsTrend(self.sample_rate, frame_length=self.frame_length, hop_length=self.hop_length)
 
         # Create sample signal: 1 second sine wave at 440 Hz
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
         self.signal_mono: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t)])
         # Create amplitude-modulated signal
-        self.am_signal = np.array(
-            [np.sin(2 * np.pi * 440 * t) * (0.5 + 0.5 * np.sin(2 * np.pi * 5 * t))]
-        )
+        self.am_signal = np.array([np.sin(2 * np.pi * 440 * t) * (0.5 + 0.5 * np.sin(2 * np.pi * 5 * t))])
 
         self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
         self.dask_am: DaArray = _da_from_array(self.am_signal, chunks=(1, -1))
@@ -244,9 +234,7 @@ class TestRmsTrend:
         assert rms.dB is False
         assert rms.Aw is False
 
-        custom_rms = RmsTrend(
-            self.sample_rate, frame_length=1024, hop_length=256, dB=True, Aw=True
-        )
+        custom_rms = RmsTrend(self.sample_rate, frame_length=1024, hop_length=256, dB=True, Aw=True)
         assert custom_rms.frame_length == 1024
         assert custom_rms.hop_length == 256
         assert custom_rms.dB is True
@@ -320,9 +308,7 @@ class TestRmsTrend:
         """Test that RmsTrend is properly registered in the operation registry."""
         assert get_operation("rms_trend") == RmsTrend
 
-        rms_op = create_operation(
-            "rms_trend", 16000, frame_length=1024, hop_length=256, dB=True
-        )
+        rms_op = create_operation("rms_trend", 16000, frame_length=1024, hop_length=256, dB=True)
 
         assert isinstance(rms_op, RmsTrend)
         assert rms_op.frame_length == 1024
@@ -370,9 +356,7 @@ class TestFixLength:
 
         # durationで初期化
         fix_duration = FixLength(self.sample_rate, duration=self.target_duration)
-        assert fix_duration.target_length == int(
-            self.target_duration * self.sample_rate
-        )
+        assert fix_duration.target_length == int(self.target_duration * self.sample_rate)
 
         # パラメータなしの場合はエラー
         with pytest.raises(ValueError):
@@ -401,9 +385,7 @@ class TestFixLength:
         # 短い信号のパディング
         result_short = self.fix_length.process(self.dask_short).compute()
         # 元の部分は同じ
-        np.testing.assert_allclose(
-            result_short[0, : self.short_signal.shape[1]], self.short_signal[0]
-        )
+        np.testing.assert_allclose(result_short[0, : self.short_signal.shape[1]], self.short_signal[0])
         # パディング部分はゼロ
         assert np.allclose(
             result_short[0, self.short_signal.shape[1] :],
@@ -413,9 +395,7 @@ class TestFixLength:
         # 長い信号の切り詰め
         result_long = self.fix_length.process(self.dask_long).compute()
         # 保持された部分は元のデータと同じ
-        np.testing.assert_allclose(
-            result_long[0], self.long_signal[0, : self.target_length]
-        )
+        np.testing.assert_allclose(result_long[0], self.long_signal[0, : self.target_length])
 
     def test_operation_registry(self) -> None:
         """オペレーションレジストリにFixLengthが適切に登録されているかテストします。"""
@@ -453,9 +433,7 @@ class TestRmsTrendMetadataUpdates:
     def test_rms_trend_metadata_with_different_hop_length(self) -> None:
         """Test metadata updates with different hop_length values."""
         hop_length = 256
-        operation = RmsTrend(
-            sampling_rate=48000, frame_length=2048, hop_length=hop_length
-        )
+        operation = RmsTrend(sampling_rate=48000, frame_length=2048, hop_length=hop_length)
 
         updates = operation.get_metadata_updates()
 

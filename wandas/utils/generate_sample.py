@@ -35,9 +35,7 @@ def generate_sin(
         ChannelFrame object containing the sine wave(s).
     """
     # 直接、generate_sin_lazy関数を呼び出す
-    return generate_sin_lazy(
-        freqs=freqs, sampling_rate=sampling_rate, duration=duration, label=label
-    )
+    return generate_sin_lazy(freqs=freqs, sampling_rate=sampling_rate, duration=duration, label=label)
 
 
 def generate_sin_lazy(

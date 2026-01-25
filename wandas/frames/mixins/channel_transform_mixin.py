@@ -23,9 +23,7 @@ class ChannelTransformMixin:
     transformations such as FFT, STFT, and Welch method.
     """
 
-    def fft(
-        self: T_Transform, n_fft: int | None = None, window: str = "hann"
-    ) -> "SpectralFrame":
+    def fft(self: T_Transform, n_fft: int | None = None, window: str = "hann") -> "SpectralFrame":
         """Calculate Fast Fourier Transform (FFT).
 
         Args:
@@ -49,17 +47,11 @@ class ChannelTransformMixin:
         # Apply processing to data
         spectrum_data = operation.process(self._data)
 
-        logger.debug(
-            f"Created new SpectralFrame with operation {operation_name} added to graph"
-        )
+        logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
         if n_fft is None:
             is_even = spectrum_data.shape[-1] % 2 == 0
-            _n_fft = (
-                spectrum_data.shape[-1] * 2 - 2
-                if is_even
-                else spectrum_data.shape[-1] * 2 - 1
-            )
+            _n_fft = spectrum_data.shape[-1] * 2 - 2 if is_even else spectrum_data.shape[-1] * 2 - 1
         else:
             _n_fft = n_fft
 
@@ -121,9 +113,7 @@ class ChannelTransformMixin:
         # Apply processing to data
         spectrum_data = operation.process(self._data)
 
-        logger.debug(
-            f"Created new SpectralFrame with operation {operation_name} added to graph"
-        )
+        logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
         # Cast self as BaseFrame type
         base_self = cast(BaseFrame[Any], self)
@@ -177,9 +167,7 @@ class ChannelTransformMixin:
         # Apply processing to data
         spectrum_data = operation.process(self._data)
 
-        logger.debug(
-            f"Created new SpectralFrame with operation {operation_name} added to graph"
-        )
+        logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
         # Cast self as BaseFrame type
         base_self = cast(BaseFrame[Any], self)
@@ -313,9 +301,7 @@ class ChannelTransformMixin:
         # Apply processing to data
         coherence_data = operation.process(self._data)
 
-        logger.debug(
-            f"Created new SpectralFrame with operation {operation_name} added to graph"
-        )
+        logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
         # Cast self as BaseFrame type
         base_self = cast(BaseFrame[Any], self)
@@ -328,9 +314,7 @@ class ChannelTransformMixin:
                 meta.label = f"$\\gamma_{{{in_ch.label}, {out_ch.label}}}$"
                 meta.unit = ""
                 meta.ref = 1
-                meta["metadata"] = dict(
-                    in_ch=in_ch["metadata"], out_ch=out_ch["metadata"]
-                )
+                meta["metadata"] = dict(in_ch=in_ch["metadata"], out_ch=out_ch["metadata"])
                 channel_metadata.append(meta)
 
         # Create new instance
@@ -397,9 +381,7 @@ class ChannelTransformMixin:
         # Apply processing to data
         csd_data = operation.process(self._data)
 
-        logger.debug(
-            f"Created new SpectralFrame with operation {operation_name} added to graph"
-        )
+        logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
         # Cast self as BaseFrame type
         base_self = cast(BaseFrame[Any], self)
@@ -412,9 +394,7 @@ class ChannelTransformMixin:
                 meta.label = f"{operation_name}({in_ch.label}, {out_ch.label})"
                 meta.unit = ""
                 meta.ref = 1
-                meta["metadata"] = dict(
-                    in_ch=in_ch["metadata"], out_ch=out_ch["metadata"]
-                )
+                meta["metadata"] = dict(in_ch=in_ch["metadata"], out_ch=out_ch["metadata"])
                 channel_metadata.append(meta)
 
         # Create new instance
@@ -485,9 +465,7 @@ class ChannelTransformMixin:
         # Apply processing to data
         tf_data = operation.process(self._data)
 
-        logger.debug(
-            f"Created new SpectralFrame with operation {operation_name} added to graph"
-        )
+        logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
         # Cast self as BaseFrame type
         base_self = cast(BaseFrame[Any], self)
@@ -500,9 +478,7 @@ class ChannelTransformMixin:
                 meta.label = f"$H_{{{in_ch.label}, {out_ch.label}}}$"
                 meta.unit = ""
                 meta.ref = 1
-                meta["metadata"] = dict(
-                    in_ch=in_ch["metadata"], out_ch=out_ch["metadata"]
-                )
+                meta["metadata"] = dict(in_ch=in_ch["metadata"], out_ch=out_ch["metadata"])
                 channel_metadata.append(meta)
 
         # Create new instance

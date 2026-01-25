@@ -98,9 +98,7 @@ class LoudnessZwtv(AudioOperation[NDArrayReal, NDArrayReal]):
             If field_type is not 'free' or 'diffuse'
         """
         if self.field_type not in ("free", "diffuse"):
-            raise ValueError(
-                f"field_type must be 'free' or 'diffuse', got '{self.field_type}'"
-            )
+            raise ValueError(f"field_type must be 'free' or 'diffuse', got '{self.field_type}'")
 
     def get_metadata_updates(self) -> dict[str, Any]:
         """
@@ -176,10 +174,7 @@ class LoudnessZwtv(AudioOperation[NDArrayReal, NDArrayReal]):
         here but can be reconstructed based on the MoSQITo algorithm's
         behavior (typically 2ms time steps).
         """
-        logger.debug(
-            f"Calculating loudness for signal with shape: {x.shape}, "
-            f"field_type: {self.field_type}"
-        )
+        logger.debug(f"Calculating loudness for signal with shape: {x.shape}, field_type: {self.field_type}")
 
         # Handle 1D input (single channel)
         if x.ndim == 1:
@@ -197,9 +192,7 @@ class LoudnessZwtv(AudioOperation[NDArrayReal, NDArrayReal]):
             # Call MoSQITo's loudness_zwtv function
             # Returns: N (loudness), N_spec (specific loudness),
             #          bark_axis, time_axis
-            loudness_n, _, _, _ = loudness_zwtv_mosqito(
-                channel_data, self.sampling_rate, field_type=self.field_type
-            )
+            loudness_n, _, _, _ = loudness_zwtv_mosqito(channel_data, self.sampling_rate, field_type=self.field_type)
 
             loudness_results.append(loudness_n)
 
@@ -300,9 +293,7 @@ class LoudnessZwst(AudioOperation[NDArrayReal, NDArrayReal]):
             If field_type is not 'free' or 'diffuse'
         """
         if self.field_type not in ("free", "diffuse"):
-            raise ValueError(
-                f"field_type must be 'free' or 'diffuse', got '{self.field_type}'"
-            )
+            raise ValueError(f"field_type must be 'free' or 'diffuse', got '{self.field_type}'")
 
     def get_metadata_updates(self) -> dict[str, Any]:
         """
@@ -367,8 +358,7 @@ class LoudnessZwst(AudioOperation[NDArrayReal, NDArrayReal]):
         a single loudness value per channel.
         """
         logger.debug(
-            f"Calculating steady-state loudness for signal with shape: {x.shape}, "
-            f"field_type: {self.field_type}"
+            f"Calculating steady-state loudness for signal with shape: {x.shape}, field_type: {self.field_type}"
         )
 
         # Handle 1D input (single channel)
@@ -387,23 +377,16 @@ class LoudnessZwst(AudioOperation[NDArrayReal, NDArrayReal]):
             # Call MoSQITo's loudness_zwst function
             # Returns: N (single loudness value), N_spec (specific loudness),
             #          bark_axis
-            loudness_n, _, _ = loudness_zwst_mosqito(
-                channel_data, self.sampling_rate, field_type=self.field_type
-            )
+            loudness_n, _, _ = loudness_zwst_mosqito(channel_data, self.sampling_rate, field_type=self.field_type)
 
             loudness_results.append(loudness_n)
 
-            logger.debug(
-                f"Channel {ch}: Calculated steady-state loudness: "
-                f"{loudness_n:.2f} sones"
-            )
+            logger.debug(f"Channel {ch}: Calculated steady-state loudness: {loudness_n:.2f} sones")
 
         # Stack results and reshape to (channels, 1)
         result: NDArrayReal = np.array(loudness_results).reshape(n_channels, 1)
 
-        logger.debug(
-            f"Steady-state loudness calculation complete, output shape: {result.shape}"
-        )
+        logger.debug(f"Steady-state loudness calculation complete, output shape: {result.shape}")
         return result
 
 
@@ -547,9 +530,7 @@ class RoughnessDw(AudioOperation[NDArrayReal, NDArrayReal]):
         hop_samples = int(window_samples * (1 - self.overlap))
 
         if hop_samples > 0:
-            estimated_time_samples = max(
-                1, (n_samples - window_samples) // hop_samples + 1
-            )
+            estimated_time_samples = max(1, (n_samples - window_samples) // hop_samples + 1)
         else:
             estimated_time_samples = 1
 
@@ -580,10 +561,7 @@ class RoughnessDw(AudioOperation[NDArrayReal, NDArrayReal]):
         band (R_spec) is not returned by this operation but can be obtained
         using the roughness_dw_spec method.
         """
-        logger.debug(
-            f"Calculating roughness for signal with shape: {x.shape}, "
-            f"overlap: {self.overlap}"
-        )
+        logger.debug(f"Calculating roughness for signal with shape: {x.shape}, overlap: {self.overlap}")
 
         # Handle 1D input (single channel)
         if x.ndim == 1:
@@ -601,9 +579,7 @@ class RoughnessDw(AudioOperation[NDArrayReal, NDArrayReal]):
             # Call MoSQITo's roughness_dw function
             # Returns: R (total roughness), R_spec (specific roughness),
             #          bark_axis, time_axis
-            roughness_r, _, _, _ = roughness_dw_mosqito(
-                channel_data, self.sampling_rate, overlap=self.overlap
-            )
+            roughness_r, _, _, _ = roughness_dw_mosqito(channel_data, self.sampling_rate, overlap=self.overlap)
 
             # Ensure roughness_r is an array
             roughness_r = np.asarray(roughness_r)
@@ -648,43 +624,26 @@ class RoughnessDwSpec(AudioOperation[NDArrayReal, NDArrayReal]):
         # Check cache first to avoid redundant MoSQITo calls
         cache_key = (sampling_rate, overlap)
         if cache_key in RoughnessDwSpec._bark_axis_cache:
-            logger.debug(
-                f"Using cached bark_axis for sampling_rate={sampling_rate}, "
-                f"overlap={overlap}"
-            )
+            logger.debug(f"Using cached bark_axis for sampling_rate={sampling_rate}, overlap={overlap}")
             self._bark_axis: NDArrayReal = RoughnessDwSpec._bark_axis_cache[cache_key]
         else:
             # Retrieve bark_axis dynamically from MoSQITo to ensure consistency
             # Use a minimal reference signal to get the bark_axis structure
-            logger.debug(
-                f"Computing bark_axis from MoSQITo for sampling_rate={sampling_rate}, "
-                f"overlap={overlap}"
-            )
-            reference_signal = np.zeros(
-                int(sampling_rate * 0.2)
-            )  # 200ms minimal signal
+            logger.debug(f"Computing bark_axis from MoSQITo for sampling_rate={sampling_rate}, overlap={overlap}")
+            reference_signal = np.zeros(int(sampling_rate * 0.2))  # 200ms minimal signal
             try:
-                _, _, bark_axis_from_mosqito, _ = roughness_dw_mosqito(
-                    reference_signal, sampling_rate, overlap=overlap
-                )
+                _, _, bark_axis_from_mosqito, _ = roughness_dw_mosqito(reference_signal, sampling_rate, overlap=overlap)
             except Exception as e:
-                logger.error(
-                    f"Failed to retrieve bark_axis from MoSQITo's roughness_dw: {e}"
-                )
+                logger.error(f"Failed to retrieve bark_axis from MoSQITo's roughness_dw: {e}")
                 raise RuntimeError(
-                    "Could not initialize RoughnessDwSpec: error retrieving bark_axis "
-                    "from MoSQITo."
+                    "Could not initialize RoughnessDwSpec: error retrieving bark_axis from MoSQITo."
                 ) from e
             if bark_axis_from_mosqito is None or (
-                hasattr(bark_axis_from_mosqito, "__len__")
-                and len(bark_axis_from_mosqito) == 0
+                hasattr(bark_axis_from_mosqito, "__len__") and len(bark_axis_from_mosqito) == 0
             ):
-                logger.error(
-                    "MoSQITo's roughness_dw returned an empty or None bark_axis."
-                )
+                logger.error("MoSQITo's roughness_dw returned an empty or None bark_axis.")
                 raise RuntimeError(
-                    "Could not initialize RoughnessDwSpec: MoSQITo's roughness_dw "
-                    "returned an empty or None bark_axis."
+                    "Could not initialize RoughnessDwSpec: MoSQITo's roughness_dw returned an empty or None bark_axis."
                 )
             self._bark_axis = bark_axis_from_mosqito
             # Cache the result for future use
@@ -718,9 +677,7 @@ class RoughnessDwSpec(AudioOperation[NDArrayReal, NDArrayReal]):
         hop_samples = int(window_samples * (1 - self.overlap))
 
         if hop_samples > 0:
-            estimated_time_samples = max(
-                1, (n_samples - window_samples) // hop_samples + 1
-            )
+            estimated_time_samples = max(1, (n_samples - window_samples) // hop_samples + 1)
         else:
             estimated_time_samples = 1
 
@@ -748,9 +705,7 @@ class RoughnessDwSpec(AudioOperation[NDArrayReal, NDArrayReal]):
             channel_data = np.asarray(x_proc[ch]).ravel()
 
             # Call MoSQITo's roughness_dw (module-level import)
-            _, r_spec, bark_axis, _ = roughness_dw_mosqito(
-                channel_data, self.sampling_rate, overlap=self.overlap
-            )
+            _, r_spec, bark_axis, _ = roughness_dw_mosqito(channel_data, self.sampling_rate, overlap=self.overlap)
 
             r_spec_list.append(r_spec)
             if self._bark_axis is None:
@@ -835,9 +790,7 @@ class SharpnessDin(AudioOperation[NDArrayReal, NDArrayReal]):
 
     name = "sharpness_din"
 
-    def __init__(
-        self, sampling_rate: float, weighting: str = "din", field_type: str = "free"
-    ):
+    def __init__(self, sampling_rate: float, weighting: str = "din", field_type: str = "free"):
         """
         Initialize Sharpness calculation operation.
 
@@ -1069,9 +1022,7 @@ class SharpnessDinSt(AudioOperation[NDArrayReal, NDArrayReal]):
 
     name = "sharpness_din_st"
 
-    def __init__(
-        self, sampling_rate: float, weighting: str = "din", field_type: str = "free"
-    ):
+    def __init__(self, sampling_rate: float, weighting: str = "din", field_type: str = "free"):
         """
         Initialize steady-state sharpness calculation operation.
 
@@ -1203,17 +1154,12 @@ class SharpnessDinSt(AudioOperation[NDArrayReal, NDArrayReal]):
 
             sharpness_results.append(sharpness_s)
 
-            logger.debug(
-                f"Channel {ch}: Calculated steady-state sharpness: "
-                f"{sharpness_s:.2f} acum"
-            )
+            logger.debug(f"Channel {ch}: Calculated steady-state sharpness: {sharpness_s:.2f} acum")
 
         # Stack results and reshape to (channels, 1)
         result: NDArrayReal = np.array(sharpness_results).reshape(n_channels, 1)
 
-        logger.debug(
-            f"Steady-state sharpness calculation complete, output shape: {result.shape}"
-        )
+        logger.debug(f"Steady-state sharpness calculation complete, output shape: {result.shape}")
         return result
 
 
