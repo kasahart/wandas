@@ -4,6 +4,7 @@ import numbers
 import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
+from re import Pattern
 from typing import Any, Generic, Optional, TypeVar, cast
 
 import numpy as np
@@ -22,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T", NDArrayComplex, NDArrayReal)
 S = TypeVar("S", bound="BaseFrame[Any]")
+QueryType = str | Pattern[str] | Callable[["ChannelMetadata"], bool] | dict[str, Any]
 
 
 class BaseFrame(ABC, Generic[T]):
@@ -182,6 +184,8 @@ class BaseFrame(ABC, Generic[T]):
         | tuple[int, ...]
         | npt.NDArray[np.int_]
         | npt.NDArray[np.bool_],
+        query: QueryType | None = None,
+        validate_query_keys: bool = True,
     ) -> S:
         """
         Get channel(s) by index.
@@ -191,7 +195,18 @@ class BaseFrame(ABC, Generic[T]):
         channel_idx : int or sequence of int
             Single channel index or sequence of channel indices.
             Supports negative indices (e.g., -1 for the last channel).
-
+        query : str, re.Pattern, callable, or dict, optional
+            If a query is provided, use it to derive indices and ignore the positional channel_idx argument.
+            Query to select channels based on metadata. Supported types:
+            - str: exact label match
+            - re.Pattern: regex search against label
+            - callable(ChannelMetadata) -> bool: predicate on channel metadata
+            - dict: attribute equality on ChannelMetadata (values may be re.Pattern)
+        validate_query_keys : bool, default True
+            If True (default), dict queries that contain unknown keys (neither
+            model fields nor any channel `extra` keys) will raise `KeyError`.
+            Set to False to disable this strict validation and allow callers
+            to attempt matches without pre-validation.
         Returns
         -------
         S
@@ -203,18 +218,101 @@ class BaseFrame(ABC, Generic[T]):
         >>> frame.get_channel([0, 2, 3])  # Multiple channels
         >>> frame.get_channel((-1, -2))  # Last two channels
         >>> frame.get_channel(np.array([1, 2]))  # NumPy array of indices
-        """
-        if isinstance(channel_idx, int):
-            # Convert single channel to a list.
-            channel_idx_list: list[int] = [channel_idx]
+        """  # noqa: E501
+
+        def _indices_from_query(q: Any) -> list[int]:
+            if isinstance(q, str):
+                return [
+                    i for i, ch in enumerate(self._channel_metadata) if ch.label == q
+                ]
+
+            # re.Pattern compatibility
+            if hasattr(q, "search") and callable(q.search):
+                return [
+                    i
+                    for i, ch in enumerate(self._channel_metadata)
+                    if q.search(ch.label)
+                ]
+
+            if callable(q):
+                return [i for i, ch in enumerate(self._channel_metadata) if bool(q(ch))]
+
+            if isinstance(q, dict):
+                # Validate dict keys: accept model fields or keys present in any
+                # channel `extra` dict. If a key is not recognized at all,
+                # raise KeyError to surface likely user mistakes.
+                try:
+                    model_keys = set(getattr(ChannelMetadata, "model_fields").keys())
+                except Exception:
+                    # Fallback for pydantic v1
+                    model_keys = set(getattr(ChannelMetadata, "__fields__").keys())
+
+                extra_keys: set[str] = set()
+                for ch in self._channel_metadata:
+                    if isinstance(ch.extra, dict):
+                        extra_keys.update(ch.extra.keys())
+
+                allowed_keys = model_keys | extra_keys
+                unknown_keys = [k for k in q.keys() if k not in allowed_keys]
+                if unknown_keys:
+                    if validate_query_keys:
+                        names_str = ", ".join(map(str, unknown_keys))
+                        raise KeyError("Unknown channel metadata key(s): " + names_str)
+                    # If validation is disabled, skip raising and let matching
+                    # treat unknown keys as non-matching attributes.
+
+                matches: list[int] = []
+                for i, ch in enumerate(self._channel_metadata):
+                    ok = True
+                    for key, val in q.items():
+                        # Prefer attribute access, fall back to dict-like access
+                        attr = getattr(ch, key, None)
+                        if attr is None:
+                            # ChannelMetadata may support mapping-style access
+                            try:
+                                attr = ch[key]
+                            except Exception:
+                                ok = False
+                                break
+
+                        # If expected value is a regex pattern
+                        if hasattr(val, "search") and callable(val.search):
+                            if not (isinstance(attr, str) and val.search(attr)):
+                                ok = False
+                                break
+                        else:
+                            if attr != val:
+                                ok = False
+                                break
+                    if ok:
+                        matches.append(i)
+                return matches
+
+            raise TypeError(f"Unsupported query type: {type(q).__name__}")
+
+        if query is not None:
+            indices = _indices_from_query(query)
+            if not indices:
+                raise KeyError(f"No channels match query: {query!r}")
+            channel_idx_list = indices
         else:
-            channel_idx_list = list(channel_idx)
+            if isinstance(channel_idx, int):
+                # Convert single channel to a list.
+                channel_idx_list = [channel_idx]
+            else:
+                channel_idx_list = list(channel_idx)
 
         new_data = self._data[channel_idx_list]
         new_channel_metadata = [self._channel_metadata[i] for i in channel_idx_list]
+
+        # Preserve operation_history (copy for immutability) but do not
+        # append a selection operation so higher-level semantic operations
+        # (e.g., 'fade') remain the last recorded operation.
+        new_history = self.operation_history.copy() if self.operation_history else []
+
         return self._create_new_instance(
             data=new_data,
-            operation_history=self.operation_history,
+            operation_history=new_history,
             channel_metadata=new_channel_metadata,
         )
 

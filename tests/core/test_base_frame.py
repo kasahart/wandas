@@ -1,3 +1,4 @@
+import re
 from typing import Any
 from unittest import mock
 
@@ -195,6 +196,166 @@ class TestBaseFrameArithmeticOperations:
         computed_cuberoot = cuberoot_result.compute()
         expected_cuberoot = known_data ** (1.0 / 3.0)
         np.testing.assert_array_equal(computed_cuberoot, expected_cuberoot)
+
+
+def test_get_channel_query_by_regex() -> None:
+    sample_rate = 16000
+    data = np.random.random((3, 100))
+    dask_data: DaArray = _da_from_array(data, chunks=(1, -1))
+    cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
+    cf.channels[0].label = "acc_x"
+    cf.channels[1].label = "gyro_y"
+    cf.channels[2].label = "acc_z"
+
+    pattern = re.compile(r"acc")
+    result = cf.get_channel(0, query=pattern)
+    assert result.n_channels == 2
+    assert result.labels == ["acc_x", "acc_z"]
+
+
+def test_get_channel_query_by_callable() -> None:
+    sample_rate = 16000
+    data = np.random.random((2, 50))
+    dask_data: DaArray = _da_from_array(data, chunks=(1, -1))
+    cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
+    cf.channels[0].label = "left"
+    cf.channels[1].label = "right"
+
+    result = cf.get_channel(0, query=lambda ch: ch.label == "right")
+    assert result.n_channels == 1
+    assert result.labels == ["right"]
+
+
+def test_get_channel_query_by_dict_and_no_match() -> None:
+    sample_rate = 16000
+    data = np.random.random((2, 20))
+    dask_data: DaArray = _da_from_array(data, chunks=(1, -1))
+    cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
+    cf.channels[0].label = "chA"
+    cf.channels[1].label = "chB"
+
+    # dict matching on label
+    result = cf.get_channel(0, query={"label": "chB"})
+    assert result.n_channels == 1
+    assert result.labels == ["chB"]
+
+    # no match raises KeyError
+    with pytest.raises(KeyError):
+        _ = cf.get_channel(0, query={"label": "no_such"})
+
+
+def test_get_channel_query_dict_value_regex() -> None:
+    sample_rate = 16000
+    data = np.random.random((2, 20))
+    dask_data: DaArray = _da_from_array(data, chunks=(1, -1))
+    cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
+    cf.channels[0].label = "ch_alpha"
+    cf.channels[1].label = "ch_beta"
+
+    pattern = re.compile(r"alpha")
+    result = cf.get_channel(0, query={"label": pattern})
+    assert result.n_channels == 1
+    assert result.labels == ["ch_alpha"]
+
+
+def test_get_channel_query_dict_unknown_key_raises() -> None:
+    sample_rate = 16000
+    data = np.random.random((2, 20))
+    dask_data: DaArray = _da_from_array(data, chunks=(1, -1))
+    cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
+
+    # unknown key should raise KeyError
+    with pytest.raises(KeyError, match=r"Unknown channel metadata key"):
+        _ = cf.get_channel(0, query={"no_such_key": "value"})
+
+
+def test_get_channel_validate_query_keys_false_allows_unknown_key() -> None:
+    sample_rate = 16000
+    data = np.random.random((2, 20))
+    dask_data: DaArray = _da_from_array(data, chunks=(1, -1))
+    cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
+    cf.channels[0].label = "chA"
+    cf.channels[1].label = "chB"
+
+    # When validation is disabled, unknown dict keys should not cause
+    # the immediate "Unknown channel metadata key" KeyError. If nothing
+    # matches the query, a KeyError for no-match is raised instead.
+    with pytest.raises(KeyError):
+        _ = cf.get_channel(0, query={"no_such_key": "value"}, validate_query_keys=False)
+
+
+def test_get_channel_operation_history_and_immutability() -> None:
+    sample_rate = 16000
+    data = np.random.random((2, 20))
+    dask_data: DaArray = _da_from_array(data, chunks=(1, -1))
+    cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
+    cf.channels[0].label = "orig0"
+    cf.channels[1].label = "orig1"
+
+    # Snapshot original state
+    original_history = cf.operation_history.copy()
+
+    # Select a channel
+    new_cf = cf.get_channel(0)
+
+    # Returned frame must be a new instance
+    assert new_cf is not cf
+
+    # Operation history should be preserved (selection should not add an operation)
+    assert cf.operation_history == original_history
+    assert new_cf.operation_history == original_history
+
+
+def test_get_channel_query_dict_multiple_keys_and_extra_matching() -> None:
+    sample_rate = 16000
+    data = np.random.random((3, 20))
+    dask_data: DaArray = _da_from_array(data, chunks=(1, -1))
+    cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
+    cf.channels[0].label = "sensorA"
+    cf.channels[0].unit = "g"
+    cf.channels[0]["gain"] = 0.8
+
+    cf.channels[1].label = "sensorB"
+    cf.channels[1].unit = "g"
+    cf.channels[1]["gain"] = 0.9
+
+    cf.channels[2].label = "other"
+    cf.channels[2].unit = "m/s2"
+
+    # match on a model field and an extra-field together
+    result = cf.get_channel(0, query={"unit": "g", "gain": 0.8})
+    assert result.n_channels == 1
+    assert result.labels == ["sensorA"]
+
+
+def test_get_channel_query_dict_multiple_matches_preserve_order() -> None:
+    sample_rate = 16000
+    data = np.random.random((3, 20))
+    dask_data: DaArray = _da_from_array(data, chunks=(1, -1))
+    cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
+    cf.channels[0].label = "m1"
+    cf.channels[1].label = "m2"
+    cf.channels[2].label = "m3"
+
+    # all channels match this predicate; order should be preserved
+    result = cf.get_channel(0, query={"label": re.compile(r"m")})
+    assert result.n_channels == 3
+    assert result.labels == ["m1", "m2", "m3"]
+
+
+def test_get_channel_query_dict_non_string_attr() -> None:
+    sample_rate = 16000
+    data = np.random.random((2, 20))
+    dask_data: DaArray = _da_from_array(data, chunks=(1, -1))
+    cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
+    cf.channels[0].label = "a"
+    cf.channels[0].ref = 2.0
+    cf.channels[1].label = "b"
+    cf.channels[1].ref = 1.0
+
+    result = cf.get_channel(0, query={"ref": 2.0})
+    assert result.n_channels == 1
+    assert result.labels == ["a"]
 
     def test_pow_operator_with_zero_and_negative(self) -> None:
         """Test __pow__ with edge cases like zero and negative exponents."""
