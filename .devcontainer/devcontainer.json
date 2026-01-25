@@ -15,7 +15,7 @@
     "customizations": {
         "vscode": {
             "settings": {
-                "python.defaultInterpreterPath": "/home/vscode/.venv/bin/python",
+                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
                 "python.terminal.activateEnvironment": true
             },
             "extensions": [
@@ -37,7 +37,7 @@
     "containerEnv": {
         "PYTHONUNBUFFERED": "True",
         "UV_LINK_MODE": "copy",
-        "UV_PROJECT_ENVIRONMENT": "/home/vscode/.venv"
+        "UV_PROJECT_ENVIRONMENT": "${containerWorkspaceFolder}/.venv"
     },
     "mounts": [
         // For Linux/macOS
@@ -47,7 +47,7 @@
     ],
     // worktreesディレクトリはgitがroot所有で作る場合があるため、作成時にvscode所有へ揃える
     // ローカル開発では全グループをインストール (test, docs, dev)
-    "postCreateCommand": "sudo mkdir -p /workspaces/wandas.worktrees && sudo chown vscode:vscode /workspaces/wandas.worktrees && uv sync --frozen --all-groups",
+    "postCreateCommand": "sudo mkdir -p /workspaces/wandas.worktrees && sudo chown vscode:vscode /workspaces/wandas.worktrees && uv venv --allow-existing .venv && uv sync --frozen --all-groups",
     "postStartCommand": "uv run pre-commit install",
     "remoteUser": "vscode"
 }
