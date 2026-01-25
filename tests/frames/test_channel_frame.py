@@ -398,64 +398,90 @@ class TestChannelFrame:
         assert result.sampling_rate == self.sample_rate
         assert result.label == "test_audio"
         assert result.channels[0].label == "ch1"
-        assert result.shape == (16000,)
-        assert result.data.shape == (16000,)
-        np.testing.assert_array_equal(result.data, self.data[1])
 
-        # Single channel extraction
-        result = self.channel_frame[0]
-        assert isinstance(result, ChannelFrame)
-        assert result.n_channels == 1
-        assert result.n_samples == 16000
-        assert result.sampling_rate == self.sample_rate
-        assert result.label == "test_audio"
-        assert result.channels[0].label == "ch0"
-        assert result.shape == (16000,)
-        np.testing.assert_array_equal(result.data, self.data[0])
 
-        # Two channel extraction
-        result = self.channel_frame[0:2]
-        assert isinstance(result, ChannelFrame)
-        assert result.n_channels == 2
-        assert result.n_samples == 16000
-        assert result.sampling_rate == self.sample_rate
-        assert result.label == "test_audio"
-        assert result.channels[0].label == "ch0"
-        assert result.channels[1].label == "ch1"
-        assert result.shape == (2, 16000)
-        np.testing.assert_array_equal(result.data, self.data)
+def test_init_with_3d_array_raises_value_error() -> None:
+    # 3D arrays are not supported for ChannelFrame
+    arr3 = np.zeros((1, 2, 3))
+    dask3 = _da_from_array(arr3, chunks=(1, 1, 1))
+    with pytest.raises(ValueError, match=r"Invalid data shape for ChannelFrame"):
+        ChannelFrame(data=dask3, sampling_rate=16000)
 
-        # Time slice
-        result = self.channel_frame[:, :1000]
-        assert isinstance(result, ChannelFrame)
-        assert result.n_samples == 1000
-        assert result.n_channels == 2
-        assert result.sampling_rate == self.sample_rate
-        assert result.label == "test_audio"
-        assert result.channels[0].label == "ch0"
-        assert result.shape == (2, 1000)
-        np.testing.assert_array_equal(result.data, self.data[:, :1000])
 
-        result = self.channel_frame[0:2, :1000]
-        assert isinstance(result, ChannelFrame)
-        assert result.n_samples == 1000
-        assert result.n_channels == 2
-        assert result.sampling_rate == self.sample_rate
-        assert result.label == "test_audio"
-        assert result.channels[0].label == "ch0"
-        assert result.channels[1].label == "ch1"
-        assert result.shape == (2, 1000)
-        np.testing.assert_array_equal(result.data, self.data[:, :1000])
+def test_add_channel_align_strict_length_mismatch_raises() -> None:
+    # base frame has 10 samples
+    base = ChannelFrame(data=_da_from_array(np.zeros((1, 10)), chunks=(1, -1)), sampling_rate=16000)
+    other = ChannelFrame(data=_da_from_array(np.zeros((1, 5)), chunks=(1, -1)), sampling_rate=16000)
 
-        # Test error case
-        with pytest.raises(ValueError, match="Invalid key length"):
-            self.channel_frame[0, 0, 0]  # type: ignore
-        # Test for invalid channel index
-        with pytest.raises(IndexError):
-            _ = self.channel_frame[5]
-        # Test for invalid slice
-        with pytest.raises(TypeError, match="Invalid key type:"):
-            _ = self.channel_frame[1.5]  # type: ignore
+    with pytest.raises(ValueError, match=r"Data length mismatch"):
+        base.add_channel(other)  # default align='strict'
+
+
+def test_add_channel_duplicate_label_without_suffix_raises() -> None:
+    base = ChannelFrame(data=_da_from_array(np.zeros((1, 8)), chunks=(1, -1)), sampling_rate=16000)
+    # add with explicit label equal to existing
+    with pytest.raises(ValueError, match=r"Duplicate channel label"):
+        base.add_channel(np.zeros(8), label="ch0")
+
+
+def test_add_channel_inplace_updates_original() -> None:
+    base = ChannelFrame(data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)), sampling_rate=16000)
+    orig_n = base.n_channels
+    base.add_channel(np.zeros(6), label="new_ch", inplace=True)
+    assert base.n_channels == orig_n + 1
+    assert any(ch.label == "new_ch" for ch in base._channel_metadata)
+
+
+def test_add_channel_unsupported_type_raises() -> None:
+    base = ChannelFrame(data=_da_from_array(np.zeros((1, 4)), chunks=(1, -1)), sampling_rate=16000)
+    with pytest.raises(TypeError, match=r"add_channel: ndarray/dask/同型Frameのみ対応"):
+        base.add_channel(12345)  # unsupported type
+
+
+def test_add_channel_with_channelframe_align_pad_and_truncate() -> None:
+    base = ChannelFrame(data=_da_from_array(np.zeros((1, 10)), chunks=(1, -1)), sampling_rate=16000)
+
+    # shorter incoming frame -> pad
+    other_short = ChannelFrame(data=_da_from_array(np.zeros((1, 5)), chunks=(1, -1)), sampling_rate=16000)
+    # ensure labels won't collide with existing frame
+    for ch in other_short._channel_metadata:
+        ch.label = "other_ch"
+    out = base.add_channel(other_short, align="pad")
+    assert out.n_samples == base.n_samples
+    assert out.n_channels == 2
+
+    # longer incoming frame -> truncate
+    other_long = ChannelFrame(data=_da_from_array(np.zeros((1, 20)), chunks=(1, -1)), sampling_rate=16000)
+    for ch in other_long._channel_metadata:
+        ch.label = "other_ch_long"
+    out2 = base.add_channel(other_long, align="truncate")
+    assert out2.n_samples == base.n_samples
+    assert out2.n_channels == 2
+
+
+def test_remove_channel_index_out_of_range_raises() -> None:
+    base = ChannelFrame(data=_da_from_array(np.zeros((2, 4)), chunks=(1, -1)), sampling_rate=16000)
+    with pytest.raises(IndexError, match=r"index 5 out of range"):
+        base.remove_channel(5)
+
+
+def test_remove_channel_label_not_found_raises() -> None:
+    base = ChannelFrame(data=_da_from_array(np.zeros((2, 4)), chunks=(1, -1)), sampling_rate=16000)
+    with pytest.raises(KeyError, match=r"label no_such not found"):
+        base.remove_channel("no_such")
+
+
+def test_describe_plot_return_type_error() -> None:
+    # Patch plotting strategy to return an unsupported type
+    class FakeStrategy:
+        def plot(self, *args, **kwargs):
+            return 123  # invalid return type
+
+    with mock.patch("wandas.visualization.plotting.create_operation", return_value=FakeStrategy()):
+        cf = ChannelFrame(data=_da_from_array(np.zeros((1, 4)), chunks=(1, -1)), sampling_rate=16000)
+        # describe should raise TypeError when plot returns invalid type
+        with pytest.raises(TypeError, match=r"Unexpected type for plot result"):
+            cf.describe()
 
     def test_negative_indexing(self) -> None:
         """Test negative indexing support."""

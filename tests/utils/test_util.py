@@ -1,9 +1,11 @@
 # tests/core/test_util.py
+import librosa
 import numpy as np
 import pytest
 from scipy.signal.windows import tukey
 
 from wandas.utils.util import (
+    amplitude_to_db,
     calculate_desired_noise_rms,
     calculate_rms,
     cut_sig,
@@ -271,4 +273,13 @@ def test_cut_sig_invalid_points() -> None:
     expected = np.array([data[0:5] * window])
 
     result = cut_sig(data, point_list, cut_len, taper_rate, dc_cut)
+    np.testing.assert_allclose(result, expected)
+
+
+def test_amplitude_to_db_basic() -> None:
+    # Basic check that amplitude_to_db forwards to librosa with correct params
+    amp = np.array([1.0, 0.5, 0.1], dtype=float)
+    ref = 1.0
+    result = amplitude_to_db(amp, ref)
+    expected = librosa.amplitude_to_db(np.abs(amp), ref=ref, amin=1e-15, top_db=None)
     np.testing.assert_allclose(result, expected)

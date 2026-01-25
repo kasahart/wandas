@@ -88,22 +88,24 @@ class BaseFrame(ABC, Generic[T]):
         # and higher-dim arrays (channels, ..) we preserve channel-wise
         # first-axis chunking: (1, -1, -1, ...)
         try:
+            # 正規化：data が 1D の場合は (1, -1) にする
             if data.ndim == 1:
-                self._data = data.rechunk(chunks=-1)
-            elif data.ndim == 2:
-                self._data = data.rechunk((1, -1))
-            elif data.ndim >= 3:
-                # Build a chunk tuple with 1 for the first axis and -1 for
-                # the remaining axes. This preserves dimensionality.
-                self._data = data.rechunk(tuple([1] + [-1] * (data.ndim - 1)))
+                normalized = data.reshape((1, -1))
             else:
-                self._data = data.rechunk(chunks=-1)
+                normalized = data
+
+            # チャンク設定：常に先頭軸をチャネル単位にし、残りはフラット
+            if normalized.ndim >= 2:
+                chunks = tuple([1] + [-1] * (normalized.ndim - 1))
+            else:
+                chunks = tuple([-1] * normalized.ndim)
+
+            self._data = normalized.rechunk(chunks)
         except Exception as e:
             # Fall back to previous behavior if Dask rechunk fails.
             logger.warning(f"Rechunk failed: {e!r}. Falling back to chunks=-1.")
             self._data = data.rechunk(chunks=-1)  # type: ignore [unused-ignore]
-        if self._data.ndim == 1:
-            self._data = self._data.reshape((1, -1))
+
         self.sampling_rate = sampling_rate
         self.label = label or "unnamed_frame"
         self.metadata = metadata or {}

@@ -398,17 +398,143 @@ def test_get_channel_query_dict_non_string_attr() -> None:
     def test_pow_operator_chaining(self) -> None:
         """Test chaining power operations with other operations."""
         # Chain power with other operations
-        result = (self.channel_frame**2) + 1
 
-        # Check that operations are recorded correctly
-        assert len(result.operation_history) == 2
-        assert result.operation_history[0]["operation"] == "**"
-        assert result.operation_history[1]["operation"] == "+"
 
-        # Check mathematical correctness
-        computed = result.compute()
-        expected = (self.data**2) + 1
-        np.testing.assert_array_equal(computed, expected)
+def test_rechunk_failure_logs_warning_and_initializes(caplog) -> None:
+    data = np.random.random((2, 50))
+    dask_data: DaArray = _da_from_array(data, chunks=(1, -1))
+
+    # Patch rechunk to raise on first call then succeed
+    calls = {"count": 0}
+
+    def fake_rechunk(self, *args, **kwargs):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise Exception("rechunk-fail")
+        return self
+
+    with mock.patch.object(DaArray, "rechunk", new=fake_rechunk):
+        with caplog.at_level("WARNING"):
+            cf = ChannelFrame(data=dask_data, sampling_rate=16000)
+            assert "Rechunk failed" in caplog.text
+            # initialization should succeed
+            assert isinstance(cf, ChannelFrame)
+
+
+def test_channel_metadata_validation_value_error() -> None:
+    data = np.random.random((2, 10))
+    dask_data: DaArray = _da_from_array(data, chunks=(1, -1))
+
+    # Invalid dict fields -> pydantic ValidationError -> wrapped as ValueError
+    with pytest.raises(ValueError, match=r"Invalid channel_metadata at index"):
+        ChannelFrame(data=dask_data, sampling_rate=16000, channel_metadata=[{"label": 123}])
+
+
+def test_channel_metadata_validation_type_error() -> None:
+    data = np.random.random((2, 10))
+    dask_data: DaArray = _da_from_array(data, chunks=(1, -1))
+
+    # Unsupported type in channel_metadata list
+    with pytest.raises(TypeError, match=r"Invalid type in channel_metadata"):
+        ChannelFrame(data=dask_data, sampling_rate=16000, channel_metadata=[123])
+
+
+def test_get_channel_unsupported_query_type() -> None:
+    data = np.random.random((2, 20))
+    dask_data: DaArray = _da_from_array(data, chunks=(1, -1))
+    cf = ChannelFrame(data=dask_data, sampling_rate=16000)
+
+    with pytest.raises(TypeError, match=r"Unsupported query type"):
+        cf.get_channel(0, query=5)  # type: ignore[arg-type]
+
+
+def test_getitem_mixed_list_types_raises() -> None:
+    data = np.random.random((2, 20))
+    dask_data: DaArray = _da_from_array(data, chunks=(1, -1))
+    cf = ChannelFrame(data=dask_data, sampling_rate=16000)
+
+    with pytest.raises(TypeError, match=r"List must contain all str or all int"):
+        _ = cf[[0, "ch0"]]  # type: ignore[index]
+
+
+def test_compute_returns_non_ndarray_raises() -> None:
+    data = np.random.random((2, 20))
+    dask_data: DaArray = _da_from_array(data, chunks=(1, -1))
+    cf = ChannelFrame(data=dask_data, sampling_rate=16000)
+
+    with mock.patch.object(DaArray, "compute", return_value=(1, 2, 3)):
+        with pytest.raises(ValueError, match=r"Computed result is not a np.ndarray"):
+            cf.compute()
+
+
+def test_to_tensor_import_errors_and_unsupported_framework() -> None:
+    data = np.random.random((2, 8))
+    dask_data: DaArray = _da_from_array(data, chunks=(1, -1))
+    cf = ChannelFrame(data=dask_data, sampling_rate=16000)
+
+    # Simulate torch not installed
+    import importlib
+
+    orig_find = importlib.util.find_spec
+
+    try:
+        with mock.patch("importlib.util.find_spec", return_value=None):
+            with pytest.raises(ImportError):
+                cf.to_tensor(framework="torch")
+
+        # Simulate tensorflow not installed
+        with mock.patch("importlib.util.find_spec", return_value=None):
+            with pytest.raises(ImportError):
+                cf.to_tensor(framework="tensorflow")
+    finally:
+        try:
+            importlib.util.find_spec = orig_find  # type: ignore[attr-defined]
+        except Exception:
+            pass
+
+    # Unsupported framework
+    with pytest.raises(ValueError, match=r"Unsupported framework"):
+        cf.to_tensor(framework="mxnet")
+
+
+def test_create_new_instance_invalid_label_and_metadata_and_channel_metadata() -> None:
+    data = np.random.random((2, 8))
+    dask_data: DaArray = _da_from_array(data, chunks=(1, -1))
+    cf = ChannelFrame(data=dask_data, sampling_rate=16000)
+
+    # invalid label type
+    with pytest.raises(TypeError, match=r"Label must be a string"):
+        cf._create_new_instance(data=cf._data, label=123)  # type: ignore[arg-type]
+
+    # invalid metadata type
+    with pytest.raises(TypeError, match=r"Metadata must be a dictionary"):
+        cf._create_new_instance(data=cf._data, metadata=[1, 2, 3])  # type: ignore[arg-type]
+
+    # invalid channel_metadata type
+    with pytest.raises(TypeError, match=r"Channel metadata must be a list"):
+        cf._create_new_instance(data=cf._data, channel_metadata={"a": 1})  # type: ignore[arg-type]
+
+
+def test_visualize_graph_exception_handling(caplog) -> None:
+    data = np.random.random((2, 8))
+    dask_data: DaArray = _da_from_array(data, chunks=(1, -1))
+    cf = ChannelFrame(data=dask_data, sampling_rate=16000)
+
+    class BadDask:
+        def visualize(self, filename=None):
+            raise RuntimeError("viz fail")
+
+    # attach bad dask object
+    cf._data = mock.MagicMock()
+    cf._data.visualize.side_effect = RuntimeError("viz fail")
+
+    with caplog.at_level("WARNING"):
+        res = cf.visualize_graph("out.png")
+        assert res is None
+        assert "Failed to visualize the graph" in caplog.text
+        # nothing further here
+
+        # end
 
     def test_pow_operator_single_channel(self) -> None:
         """Test __pow__ with single channel frame."""

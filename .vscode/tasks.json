@@ -26,12 +26,6 @@
             "problemMatcher": []
         },
         {
-            "label": "Run pytest (serial)",
-            "type": "shell",
-            "command": "uv run pytest",
-            "problemMatcher": []
-        },
-        {
             "label": "Build MkDocs Documentation",
             "type": "shell",
             "command": "cd /workspaces/wandas && uv run mkdocs build -f docs/mkdocs.yml",
