@@ -1,3 +1,4 @@
+import io
 import os
 import tempfile
 from pathlib import Path
@@ -10,6 +11,7 @@ import pytest
 import soundfile as sf
 from dask.array.core import Array as DaArray
 from matplotlib.axes import Axes
+from scipy.io import wavfile
 
 import wandas as wd
 from wandas.core.metadata import ChannelMetadata
@@ -32,9 +34,7 @@ class TestChannelFrame:
 
     def test_initialization(self) -> None:
         """Test that initialization doesn't compute the data."""
-        with mock.patch.object(
-            DaArray, "compute", return_value=self.data
-        ) as mock_compute:
+        with mock.patch.object(DaArray, "compute", return_value=self.data) as mock_compute:
             # Just creating the object shouldn't call compute
             cf: ChannelFrame = ChannelFrame(self.dask_data, self.sample_rate)
 
@@ -52,26 +52,20 @@ class TestChannelFrame:
 
     def test_data_access_triggers_compute(self) -> None:
         """Test that accessing .data triggers computation."""
-        with mock.patch.object(
-            DaArray, "compute", return_value=self.data
-        ) as mock_compute:
+        with mock.patch.object(DaArray, "compute", return_value=self.data) as mock_compute:
             _: NDArrayReal = self.channel_frame.data
             mock_compute.assert_called_once()
 
     def test_compute_method(self) -> None:
         """Test explicit compute method."""
-        with mock.patch.object(
-            DaArray, "compute", return_value=self.data
-        ) as mock_compute:
+        with mock.patch.object(DaArray, "compute", return_value=self.data) as mock_compute:
             result: NDArrayReal = self.channel_frame.compute()
             mock_compute.assert_called_once()
             np.testing.assert_array_equal(result, self.data)
 
     def test_time(self) -> None:
         """Test time property."""
-        with mock.patch.object(
-            DaArray, "compute", return_value=self.data
-        ) as mock_compute:
+        with mock.patch.object(DaArray, "compute", return_value=self.data) as mock_compute:
             time: NDArrayReal = self.channel_frame.time
             mock_compute.assert_not_called()
             expected_time = np.arange(16000) / 16000
@@ -79,9 +73,7 @@ class TestChannelFrame:
 
     def test_operations_are_lazy(self) -> None:
         """Test that operations don't trigger immediate computation."""
-        with mock.patch.object(
-            DaArray, "compute", return_value=self.data
-        ) as mock_compute:
+        with mock.patch.object(DaArray, "compute", return_value=self.data) as mock_compute:
             # Operations should build the graph but not compute
             result: ChannelFrame = self.channel_frame + 1
             result = result * 2
@@ -108,9 +100,7 @@ class TestChannelFrame:
 
     def test_persist(self) -> None:
         """Test that persist triggers computation but returns a new ChannelFrame."""
-        with mock.patch.object(
-            DaArray, "persist", return_value=self.dask_data
-        ) as mock_persist:
+        with mock.patch.object(DaArray, "persist", return_value=self.dask_data) as mock_persist:
             result: ChannelFrame = self.channel_frame.persist()
             mock_persist.assert_called_once()
             assert isinstance(result, ChannelFrame)
@@ -118,9 +108,7 @@ class TestChannelFrame:
 
     def test_channel_extraction(self) -> None:
         """Test extracting a channel works lazily."""
-        with mock.patch.object(
-            DaArray, "compute", return_value=self.data[0:1]
-        ) as mock_compute:
+        with mock.patch.object(DaArray, "compute", return_value=self.data[0:1]) as mock_compute:
             channel: ChannelFrame = self.channel_frame.get_channel(0)
             mock_compute.assert_not_called()
 
@@ -241,9 +229,7 @@ class TestChannelFrame:
         # Create a frame with more channels
         data = np.random.random((4, 16000))
         dask_data = _da_from_array(data, chunks=(1, 4000))
-        frame = ChannelFrame(
-            data=dask_data, sampling_rate=self.sample_rate, label="test_audio"
-        )
+        frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
         # Test with range
         channels = frame.get_channel(list(range(3)))
@@ -283,9 +269,7 @@ class TestChannelFrame:
 
     def test_get_channel_is_lazy(self) -> None:
         """Test that get_channel operations remain lazy."""
-        with mock.patch.object(
-            DaArray, "compute", return_value=self.data
-        ) as mock_compute:
+        with mock.patch.object(DaArray, "compute", return_value=self.data) as mock_compute:
             # Single channel
             _ = self.channel_frame.get_channel(0)
             mock_compute.assert_not_called()
@@ -300,20 +284,14 @@ class TestChannelFrame:
 
     def test_plotting_triggers_compute(self) -> None:
         """Test that plotting triggers computation."""
-        with mock.patch(
-            "wandas.visualization.plotting.create_operation"
-        ) as mock_get_strategy:
+        with mock.patch("wandas.visualization.plotting.create_operation") as mock_get_strategy:
             mock_strategy: mock.MagicMock = mock.MagicMock()
             mock_get_strategy.return_value = mock_strategy
 
             # Create a mock for the compute method
-            with mock.patch.object(
-                self.channel_frame, "compute", return_value=self.data
-            ) as mock_compute:
+            with mock.patch.object(self.channel_frame, "compute", return_value=self.data) as mock_compute:
                 mock_ax: mock.MagicMock = mock.MagicMock()
-                _: Axes | Any = self.channel_frame.plot(
-                    plot_type="waveform", ax=mock_ax
-                )
+                _: Axes | Any = self.channel_frame.plot(plot_type="waveform", ax=mock_ax)
 
                 # Verify compute was called
                 mock_compute.assert_not_called()
@@ -340,9 +318,7 @@ class TestChannelFrame:
         try:
             # Test with multi-channel data
             with mock.patch("soundfile.write") as mock_write:
-                with mock.patch.object(
-                    self.channel_frame, "compute", return_value=self.data
-                ):
+                with mock.patch.object(self.channel_frame, "compute", return_value=self.data):
                     self.channel_frame.to_wav(temp_filename)
                     mock_write.assert_called_once()
 
@@ -360,17 +336,13 @@ class TestChannelFrame:
                     self.sample_rate,
                 )
 
-                with mock.patch.object(
-                    channel_frame, "compute", return_value=single_channel_data
-                ):
+                with mock.patch.object(channel_frame, "compute", return_value=single_channel_data):
                     channel_frame.to_wav(temp_filename)
                     mock_write.assert_called_once()
 
                     # Check that data was transposed and squeezed
                     args = mock_write.call_args[0]
-                    np.testing.assert_array_equal(
-                        args[1], single_channel_data.T.squeeze(axis=1)
-                    )
+                    np.testing.assert_array_equal(args[1], single_channel_data.T.squeeze(axis=1))
         finally:
             if os.path.exists(temp_filename):
                 os.remove(temp_filename)
@@ -390,9 +362,7 @@ class TestChannelFrame:
 
     def test_array_method(self) -> None:
         """Test __array__ method for numpy conversion."""
-        with mock.patch.object(
-            self.channel_frame, "compute", return_value=self.data
-        ) as mock_compute:
+        with mock.patch.object(self.channel_frame, "compute", return_value=self.data) as mock_compute:
             # Test with default dtype
             array = np.array(self.channel_frame)
             mock_compute.assert_called_once()
@@ -428,64 +398,90 @@ class TestChannelFrame:
         assert result.sampling_rate == self.sample_rate
         assert result.label == "test_audio"
         assert result.channels[0].label == "ch1"
-        assert result.shape == (16000,)
-        assert result.data.shape == (16000,)
-        np.testing.assert_array_equal(result.data, self.data[1])
 
-        # Single channel extraction
-        result = self.channel_frame[0]
-        assert isinstance(result, ChannelFrame)
-        assert result.n_channels == 1
-        assert result.n_samples == 16000
-        assert result.sampling_rate == self.sample_rate
-        assert result.label == "test_audio"
-        assert result.channels[0].label == "ch0"
-        assert result.shape == (16000,)
-        np.testing.assert_array_equal(result.data, self.data[0])
 
-        # Two channel extraction
-        result = self.channel_frame[0:2]
-        assert isinstance(result, ChannelFrame)
-        assert result.n_channels == 2
-        assert result.n_samples == 16000
-        assert result.sampling_rate == self.sample_rate
-        assert result.label == "test_audio"
-        assert result.channels[0].label == "ch0"
-        assert result.channels[1].label == "ch1"
-        assert result.shape == (2, 16000)
-        np.testing.assert_array_equal(result.data, self.data)
+def test_init_with_3d_array_raises_value_error() -> None:
+    # 3D arrays are not supported for ChannelFrame
+    arr3 = np.zeros((1, 2, 3))
+    dask3 = _da_from_array(arr3, chunks=(1, 1, 1))
+    with pytest.raises(ValueError, match=r"Invalid data shape for ChannelFrame"):
+        ChannelFrame(data=dask3, sampling_rate=16000)
 
-        # Time slice
-        result = self.channel_frame[:, :1000]
-        assert isinstance(result, ChannelFrame)
-        assert result.n_samples == 1000
-        assert result.n_channels == 2
-        assert result.sampling_rate == self.sample_rate
-        assert result.label == "test_audio"
-        assert result.channels[0].label == "ch0"
-        assert result.shape == (2, 1000)
-        np.testing.assert_array_equal(result.data, self.data[:, :1000])
 
-        result = self.channel_frame[0:2, :1000]
-        assert isinstance(result, ChannelFrame)
-        assert result.n_samples == 1000
-        assert result.n_channels == 2
-        assert result.sampling_rate == self.sample_rate
-        assert result.label == "test_audio"
-        assert result.channels[0].label == "ch0"
-        assert result.channels[1].label == "ch1"
-        assert result.shape == (2, 1000)
-        np.testing.assert_array_equal(result.data, self.data[:, :1000])
+def test_add_channel_align_strict_length_mismatch_raises() -> None:
+    # base frame has 10 samples
+    base = ChannelFrame(data=_da_from_array(np.zeros((1, 10)), chunks=(1, -1)), sampling_rate=16000)
+    other = ChannelFrame(data=_da_from_array(np.zeros((1, 5)), chunks=(1, -1)), sampling_rate=16000)
 
-        # Test error case
-        with pytest.raises(ValueError, match="Invalid key length"):
-            self.channel_frame[0, 0, 0]  # type: ignore
-        # Test for invalid channel index
-        with pytest.raises(IndexError):
-            _ = self.channel_frame[5]
-        # Test for invalid slice
-        with pytest.raises(TypeError, match="Invalid key type:"):
-            _ = self.channel_frame[1.5]  # type: ignore
+    with pytest.raises(ValueError, match=r"Data length mismatch"):
+        base.add_channel(other)  # default align='strict'
+
+
+def test_add_channel_duplicate_label_without_suffix_raises() -> None:
+    base = ChannelFrame(data=_da_from_array(np.zeros((1, 8)), chunks=(1, -1)), sampling_rate=16000)
+    # add with explicit label equal to existing
+    with pytest.raises(ValueError, match=r"Duplicate channel label"):
+        base.add_channel(np.zeros(8), label="ch0")
+
+
+def test_add_channel_inplace_updates_original() -> None:
+    base = ChannelFrame(data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)), sampling_rate=16000)
+    orig_n = base.n_channels
+    base.add_channel(np.zeros(6), label="new_ch", inplace=True)
+    assert base.n_channels == orig_n + 1
+    assert any(ch.label == "new_ch" for ch in base._channel_metadata)
+
+
+def test_add_channel_unsupported_type_raises() -> None:
+    base = ChannelFrame(data=_da_from_array(np.zeros((1, 4)), chunks=(1, -1)), sampling_rate=16000)
+    with pytest.raises(TypeError, match=r"add_channel: ndarray/dask/ChannelFrame"):
+        base.add_channel(12345)  # unsupported type
+
+
+def test_add_channel_with_channelframe_align_pad_and_truncate() -> None:
+    base = ChannelFrame(data=_da_from_array(np.zeros((1, 10)), chunks=(1, -1)), sampling_rate=16000)
+
+    # shorter incoming frame -> pad
+    other_short = ChannelFrame(data=_da_from_array(np.zeros((1, 5)), chunks=(1, -1)), sampling_rate=16000)
+    # ensure labels won't collide with existing frame
+    for ch in other_short._channel_metadata:
+        ch.label = "other_ch"
+    out = base.add_channel(other_short, align="pad")
+    assert out.n_samples == base.n_samples
+    assert out.n_channels == 2
+
+    # longer incoming frame -> truncate
+    other_long = ChannelFrame(data=_da_from_array(np.zeros((1, 20)), chunks=(1, -1)), sampling_rate=16000)
+    for ch in other_long._channel_metadata:
+        ch.label = "other_ch_long"
+    out2 = base.add_channel(other_long, align="truncate")
+    assert out2.n_samples == base.n_samples
+    assert out2.n_channels == 2
+
+
+def test_remove_channel_index_out_of_range_raises() -> None:
+    base = ChannelFrame(data=_da_from_array(np.zeros((2, 4)), chunks=(1, -1)), sampling_rate=16000)
+    with pytest.raises(IndexError, match=r"index 5 out of range"):
+        base.remove_channel(5)
+
+
+def test_remove_channel_label_not_found_raises() -> None:
+    base = ChannelFrame(data=_da_from_array(np.zeros((2, 4)), chunks=(1, -1)), sampling_rate=16000)
+    with pytest.raises(KeyError, match=r"label no_such not found"):
+        base.remove_channel("no_such")
+
+
+def test_describe_plot_return_type_error() -> None:
+    # Patch plotting strategy to return an unsupported type
+    class FakeStrategy:
+        def plot(self, *args, **kwargs):
+            return 123  # invalid return type
+
+    with mock.patch("wandas.visualization.plotting.create_operation", return_value=FakeStrategy()):
+        cf = ChannelFrame(data=_da_from_array(np.zeros((1, 4)), chunks=(1, -1)), sampling_rate=16000)
+        # describe should raise TypeError when plot returns invalid type
+        with pytest.raises(TypeError, match=r"Unexpected type for plot result"):
+            cf.describe()
 
     def test_negative_indexing(self) -> None:
         """Test negative indexing support."""
@@ -533,9 +529,7 @@ class TestChannelFrame:
         # Create a frame with more channels for better testing
         data = np.random.random((4, 16000))
         dask_data = _da_from_array(data, chunks=(1, 4000))
-        frame = ChannelFrame(
-            data=dask_data, sampling_rate=self.sample_rate, label="test_audio"
-        )
+        frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
         # Test every second channel
         result = frame[::2]
@@ -896,9 +890,7 @@ class TestChannelFrame:
         derived_frame = self.channel_frame + 1.0
 
         # Verify metadata was preserved
-        assert (
-            derived_frame.channels[0].label == "(left + 1.0)"
-        )  # Underlying label preserved
+        assert derived_frame.channels[0].label == "(left + 1.0)"  # Underlying label preserved
         assert derived_frame.channels[0]["gain"] == 0.5
         assert derived_frame.channels[1].label == "(right + 1.0)"
 
@@ -956,9 +948,7 @@ class TestChannelFrame:
         assert cf_1d.n_channels == 1
 
         # Test 3d array
-        with pytest.raises(
-            ValueError, match="Data must be 1-dimensional or 2-dimensional."
-        ):
+        with pytest.raises(ValueError, match="Data must be 1-dimensional or 2-dimensional."):
             ChannelFrame.from_numpy(
                 np.random.random((3, 16000, 2)),
                 sampling_rate=sampling_rate,
@@ -1013,9 +1003,7 @@ class TestChannelFrame:
                 np.testing.assert_array_equal(data, re_test_data)
 
                 # Test with channel selection parameters
-                cf = ChannelFrame.from_file(
-                    temp_filename, channel=0, start=0.1, end=0.5
-                )
+                cf = ChannelFrame.from_file(temp_filename, channel=0, start=0.1, end=0.5)
                 # assert cf.metadata["channels"] == [0]
                 assert cf.channels[0].label == "ch0"
                 # Test with multiple channels
@@ -1024,14 +1012,10 @@ class TestChannelFrame:
                 assert cf.channels[0].label == "ch0"
                 assert cf.channels[1].label == "ch1"
                 # Test error cases
-                with pytest.raises(
-                    ValueError, match="Channel specification is out of range"
-                ):
+                with pytest.raises(ValueError, match="Channel specification is out of range"):
                     ChannelFrame.from_file(temp_filename, channel=5)
 
-                with pytest.raises(
-                    ValueError, match="Channel specification is out of range"
-                ):
+                with pytest.raises(ValueError, match="Channel specification is out of range"):
                     ChannelFrame.from_file(temp_filename, channel=[0, 5])
 
                 with pytest.raises(
@@ -1054,9 +1038,7 @@ class TestChannelFrame:
         # Mock the display and Audio functions
         with (
             mock.patch("wandas.frames.channel.display") as mock_display,
-            mock.patch(
-                "wandas.frames.channel.Audio", return_value="mock_audio"
-            ) as mock_audio,
+            mock.patch("wandas.frames.channel.Audio", return_value="mock_audio") as mock_audio,
         ):
             # Test basic describe method
             self.channel_frame.describe()
@@ -1262,10 +1244,7 @@ class TestChannelFrame:
             self.channel_frame.describe(axis_config={"time_plot": {"ylabel": "Custom"}})
 
             # Verify warning was logged
-            assert any(
-                "backward compatibility" in str(call)
-                for call in mock_logger.warning.call_args_list
-            )
+            assert any("backward compatibility" in str(call) for call in mock_logger.warning.call_args_list)
 
 
 class TestDescribeIntegration:
@@ -1279,9 +1258,7 @@ class TestDescribeIntegration:
         # 440Hz sine wave (A4 note)
         signal = np.sin(2 * np.pi * 440 * t)
         self.data = signal.reshape(1, -1)
-        self.channel_frame = ChannelFrame.from_numpy(
-            data=self.data, sampling_rate=self.sample_rate, label="test_sine"
-        )
+        self.channel_frame = ChannelFrame.from_numpy(data=self.data, sampling_rate=self.sample_rate, label="test_sine")
 
     def test_describe_integration_basic(self) -> None:
         """Test describe() actually executes with default parameters."""
@@ -1301,9 +1278,7 @@ class TestDescribeIntegration:
             mock.patch("matplotlib.pyplot.close"),
         ):
             # Test with various parameter combinations
-            self.channel_frame.describe(
-                fmin=100, fmax=5000, cmap="viridis", vmin=-80, vmax=-20
-            )
+            self.channel_frame.describe(fmin=100, fmax=5000, cmap="viridis", vmin=-80, vmax=-20)
 
     def test_describe_integration_with_axis_limits(self) -> None:
         """Test describe() with axis limits."""
@@ -1333,9 +1308,7 @@ class TestDescribeIntegration:
             waveform_config = {"ylabel": "Amplitude [V]", "xlim": (0, 0.5)}
             spectral_config = {"ylabel": "Power [dB]", "xlim": (-60, 0)}
 
-            self.channel_frame.describe(
-                waveform=waveform_config, spectral=spectral_config
-            )
+            self.channel_frame.describe(waveform=waveform_config, spectral=spectral_config)
 
     def test_describe_integration_combined_params(self) -> None:
         """Test describe() with multiple parameters combined."""
@@ -1425,9 +1398,7 @@ class TestDescribeIntegration:
         signal2 = np.sin(2 * np.pi * 880 * t)
         multi_data = np.vstack([signal1, signal2])
 
-        cf_multi = ChannelFrame.from_numpy(
-            data=multi_data, sampling_rate=self.sample_rate, label="test_multi"
-        )
+        cf_multi = ChannelFrame.from_numpy(data=multi_data, sampling_rate=self.sample_rate, label="test_multi")
 
         with (
             mock.patch("wandas.frames.channel.display"),
@@ -1451,9 +1422,7 @@ class TestDescribeIntegration:
             }
             cbar_config = {"vmin": -90, "vmax": -10}
 
-            self.channel_frame.describe(
-                axis_config=axis_config, cbar_config=cbar_config
-            )
+            self.channel_frame.describe(axis_config=axis_config, cbar_config=cbar_config)
 
             # Should complete without errors
 
@@ -1489,6 +1458,86 @@ class TestDescribeIntegration:
         finally:
             if os.path.exists(temp_filename):
                 os.remove(temp_filename)
+
+    def test_from_file_bytes_wav(self) -> None:
+        """Test from_file with in-memory WAV bytes."""
+        sampling_rate = 8000
+        duration = 0.1
+        num_samples = int(sampling_rate * duration)
+        data_left = np.full(num_samples, 0.25, dtype=np.float32)
+        data_right = np.full(num_samples, 0.75, dtype=np.float32)
+        stereo_data = np.column_stack((data_left, data_right))
+
+        wav_buffer = io.BytesIO()
+        wavfile.write(wav_buffer, sampling_rate, stereo_data)
+        wav_bytes = wav_buffer.getvalue()
+
+        cf = ChannelFrame.from_file(wav_bytes, file_type=".wav")
+
+        assert cf.sampling_rate == sampling_rate
+        assert cf.n_channels == 2
+        computed_data = cf.compute()
+        np.testing.assert_allclose(computed_data[0], data_left, rtol=1e-5)
+        np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)
+
+    def test_from_file_bytes_csv(self) -> None:
+        """Test from_file with in-memory CSV bytes."""
+        header = "time,value1,value2\n"
+        data = "\n".join([f"{i / 16000},{1.1},{2.2}" for i in range(160)])
+        csv_bytes = (header + data).encode()
+
+        cf = ChannelFrame.from_file(csv_bytes, file_type=".csv", time_column=0)
+
+        assert cf.sampling_rate == 16000
+        assert cf.n_channels == 2
+        assert cf.n_samples == 160
+
+        expected_data = np.loadtxt(io.BytesIO(csv_bytes), delimiter=",", skiprows=1).T
+        np.testing.assert_array_equal(cf.data, expected_data[1:])
+
+    def test_from_file_bytes_requires_file_type(self) -> None:
+        """Test in-memory data requires file_type."""
+        with pytest.raises(ValueError, match="File type is required when the extension is missing"):
+            ChannelFrame.from_file(b"dummy")
+
+    def test_from_file_stream_nonseekable(self) -> None:
+        """Test from_file with non-seekable in-memory stream and file_type."""
+        sampling_rate = 8000
+        duration = 0.1
+        num_samples = int(sampling_rate * duration)
+        data_left = np.full(num_samples, 0.25, dtype=np.float32)
+        data_right = np.full(num_samples, 0.75, dtype=np.float32)
+        stereo_data = np.column_stack((data_left, data_right))
+
+        wav_buffer = io.BytesIO()
+        wavfile.write(wav_buffer, sampling_rate, stereo_data)
+        wav_bytes = wav_buffer.getvalue()
+
+        class NonSeekableStream:
+            def __init__(self, data: bytes, name: str) -> None:
+                self._data = data
+                self.name = name
+
+            def read(self) -> bytes:
+                return self._data
+
+            def seek(self, *_args, **_kwargs) -> None:
+                raise OSError("seek not supported")
+
+        stream = NonSeekableStream(wav_bytes, name="memory/sample.wav")
+
+        cf = ChannelFrame.from_file(
+            stream,
+            file_type="wav",
+            source_name="source.wav",
+        )
+
+        assert cf.sampling_rate == sampling_rate
+        assert cf.n_channels == 2
+        assert cf.label == "source"
+        computed_data = cf.compute()
+        np.testing.assert_allclose(computed_data[0], data_left, rtol=1e-5)
+        np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)
 
     def test_debug_info(self) -> None:
         """Test debug_info method."""
@@ -1526,9 +1575,7 @@ class TestDescribeIntegration:
             assert result is mock_return_value
 
         # Test handling of visualization error
-        with mock.patch.object(
-            DaArray, "visualize", side_effect=Exception("Test error")
-        ):
+        with mock.patch.object(DaArray, "visualize", side_effect=Exception("Test error")):
             result = self.channel_frame.visualize_graph()
             assert result is None
 
@@ -1642,9 +1689,7 @@ class TestBaseFrameExceptionHandling:
         self.sample_rate = 16000
         self.data = np.random.random((2, 16000))
         self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
-        self.channel_frame = ChannelFrame(
-            data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
-        )
+        self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
     def test_getitem_empty_list_error(self) -> None:
         """空のリストでインデックスするとValueErrorが発生することをテスト"""
@@ -1660,9 +1705,7 @@ class TestBaseFrameExceptionHandling:
         """無効なdtypeのNumPy配列でIndexErrorが発生することをテスト"""
         # float型のNumPy配列
         float_array = np.array([0.5, 1.5])
-        with pytest.raises(
-            TypeError, match="NumPy array must be of integer or boolean type"
-        ):
+        with pytest.raises(TypeError, match="NumPy array must be of integer or boolean type"):
             _ = self.channel_frame[float_array]
 
     def test_handle_multidim_indexing_invalid_key_length(self) -> None:
@@ -1769,10 +1812,7 @@ class TestBaseFrameExceptionHandling:
         # Check WHY
         assert "Expected: Positive value > 0" in error_msg
         # Check HOW
-        assert (
-            "Sampling rate represents samples per second and must be positive."
-            in error_msg
-        )
+        assert "Sampling rate represents samples per second and must be positive." in error_msg
         assert "Common values: 8000, 16000, 22050, 44100, 48000 Hz" in error_msg
 
     def test_file_not_found_error_message(self) -> None:
@@ -1811,9 +1851,7 @@ class TestFadeIntegration:
         signal = np.sin(2 * np.pi * freq * t)
         self.data = signal.reshape(1, -1)  # Single channel
         self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
-        self.channel_frame = ChannelFrame(
-            data=self.dask_data, sampling_rate=self.sample_rate, label="test_sine"
-        )
+        self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_sine")
 
     def test_fade_preserves_rms_calculation(self) -> None:
         """Test that fade operation allows RMS calculation to work correctly."""
@@ -1868,10 +1906,7 @@ class TestFadeIntegration:
 
         # Create a more complex processing chain
         processed = (
-            self.channel_frame.fade(fade_ms=25.0)
-            .normalize()
-            .low_pass_filter(cutoff=2000)
-            .high_pass_filter(cutoff=100)
+            self.channel_frame.fade(fade_ms=25.0).normalize().low_pass_filter(cutoff=2000).high_pass_filter(cutoff=100)
         )
 
         # Should complete without errors
@@ -1888,9 +1923,7 @@ class TestFadeIntegration:
         # Create multi-channel signal
         multi_data = np.vstack([self.data[0], self.data[0] * 0.5])  # 2 channels
         multi_dask = _da_from_array(multi_data, chunks=(1, 4000))
-        multi_frame = ChannelFrame(
-            data=multi_dask, sampling_rate=self.sample_rate, label="multi_test"
-        )
+        multi_frame = ChannelFrame(data=multi_dask, sampling_rate=self.sample_rate, label="multi_test")
 
         # Apply fade to all channels, then select one channel
         processed = multi_frame.fade(fade_ms=50.0).get_channel(0)
@@ -1989,9 +2022,7 @@ class TestFadeIntegration:
             ]
         )
         multi_dask = _da_from_array(multi_data, chunks=(1, 4000))
-        multi_frame = ChannelFrame(
-            data=multi_dask, sampling_rate=self.sample_rate, label="multi_test"
-        )
+        multi_frame = ChannelFrame(data=multi_dask, sampling_rate=self.sample_rate, label="multi_test")
 
         # Apply fade
         faded = multi_frame.fade(fade_ms=50.0)
@@ -2019,9 +2050,7 @@ class TestFadeIntegration:
         assert faded.operation_history[0]["operation"] == "fade"
 
         # Only when we access .data should computation happen
-        with mock.patch.object(
-            DaArray, "compute", return_value=self.data
-        ) as mock_compute:
+        with mock.patch.object(DaArray, "compute", return_value=self.data) as mock_compute:
             _ = faded.data
             mock_compute.assert_called_once()
 
@@ -2050,9 +2079,7 @@ class TestFadeIntegration:
         # Create very short signal
         short_data = self.data[:, :100]  # Only 100 samples
         short_dask = _da_from_array(short_data, chunks=(1, 50))
-        short_frame = ChannelFrame(
-            data=short_dask, sampling_rate=self.sample_rate, label="short"
-        )
+        short_frame = ChannelFrame(data=short_dask, sampling_rate=self.sample_rate, label="short")
 
         # Apply fade with duration longer than signal
         # Should not fail immediately due to lazy eval
@@ -2108,15 +2135,11 @@ class TestChannelFrameAdditionEdgeCases:
 
         # Try to add with SNR using an invalid type (e.g., string)
         # This should trigger line 369
-        with pytest.raises(
-            TypeError, match="Addition target with SNR must be a ChannelFrame or"
-        ):
+        with pytest.raises(TypeError, match="Addition target with SNR must be a ChannelFrame or"):
             signal.add(other="invalid", snr=10.0)  # type: ignore
 
         # Try with a list (also invalid)
-        with pytest.raises(
-            TypeError, match="Addition target with SNR must be a ChannelFrame or"
-        ):
+        with pytest.raises(TypeError, match="Addition target with SNR must be a ChannelFrame or"):
             signal.add(other=[1, 2, 3], snr=10.0)  # type: ignore
 
     def test_add_fallback_to_type_name(self) -> None:

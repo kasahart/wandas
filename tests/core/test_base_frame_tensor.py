@@ -18,9 +18,7 @@ class TestToTensorPyTorch:
         self.sample_rate = 16000
         self.data = np.random.random((2, 16000)).astype(np.float32)
         self.dask_data: DaArray = _da_from_array(self.data, chunks=(1, -1))
-        self.channel_frame = ChannelFrame(
-            data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
-        )
+        self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
     def test_to_tensor_pytorch_default(self) -> None:
         """Test to_tensor() with PyTorch default device."""
@@ -91,9 +89,7 @@ class TestToTensorPyTorch:
 
         try:
             importlib.util.find_spec = mock_find_spec  # type: ignore
-            with pytest.raises(
-                ImportError, match="(?s)PyTorch is not installed.*pip install torch"
-            ):
+            with pytest.raises(ImportError, match="(?s)PyTorch is not installed.*pip install torch"):
                 self.channel_frame.to_tensor(framework="torch")
         finally:
             # Restore
@@ -110,9 +106,7 @@ class TestToTensorTensorFlow:
         self.sample_rate = 16000
         self.data = np.random.random((2, 16000)).astype(np.float32)
         self.dask_data: DaArray = _da_from_array(self.data, chunks=(1, -1))
-        self.channel_frame = ChannelFrame(
-            data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
-        )
+        self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
     def test_to_tensor_tensorflow_default(self) -> None:
         """Test to_tensor() with TensorFlow default device."""
@@ -189,9 +183,7 @@ class TestToTensorErrorHandling:
         self.sample_rate = 16000
         self.data = np.random.random((2, 16000)).astype(np.float32)
         self.dask_data: DaArray = _da_from_array(self.data, chunks=(1, -1))
-        self.channel_frame = ChannelFrame(
-            data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
-        )
+        self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
     def test_to_tensor_unsupported_framework(self) -> None:
         """Test to_tensor() raises ValueError for unsupported framework."""
@@ -212,9 +204,7 @@ class TestToNumpy:
         self.sample_rate = 16000
         self.data = np.random.random((2, 16000)).astype(np.float32)
         self.dask_data: DaArray = _da_from_array(self.data, chunks=(1, -1))
-        self.channel_frame = ChannelFrame(
-            data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
-        )
+        self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
     def test_to_numpy_basic(self) -> None:
         """Test to_numpy() returns correct NumPy array."""
@@ -228,9 +218,7 @@ class TestToNumpy:
         """Test to_numpy() with single channel."""
         single_data = np.random.random((1, 16000)).astype(np.float32)
         single_dask: DaArray = _da_from_array(single_data, chunks=(1, -1))
-        single_frame = ChannelFrame(
-            data=single_dask, sampling_rate=self.sample_rate, label="single"
-        )
+        single_frame = ChannelFrame(data=single_dask, sampling_rate=self.sample_rate, label="single")
 
         result = single_frame.to_numpy()
 
@@ -243,9 +231,7 @@ class TestToNumpy:
         """Test to_numpy() with multiple channels."""
         multi_data = np.random.random((4, 16000)).astype(np.float32)
         multi_dask: DaArray = _da_from_array(multi_data, chunks=(1, -1))
-        multi_frame = ChannelFrame(
-            data=multi_dask, sampling_rate=self.sample_rate, label="multi"
-        )
+        multi_frame = ChannelFrame(data=multi_dask, sampling_rate=self.sample_rate, label="multi")
 
         result = multi_frame.to_numpy()
 
@@ -257,9 +243,7 @@ class TestToNumpy:
         """Test to_numpy() maintains data type."""
         int_data = np.random.randint(0, 100, size=(2, 16000), dtype=np.int32)
         int_dask: DaArray = _da_from_array(int_data, chunks=(1, -1))
-        int_frame = ChannelFrame(
-            data=int_dask, sampling_rate=self.sample_rate, label="int"
-        )
+        int_frame = ChannelFrame(data=int_dask, sampling_rate=self.sample_rate, label="int")
 
         result = int_frame.to_numpy()
 

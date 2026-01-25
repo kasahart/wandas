@@ -2,7 +2,7 @@
 name: wandas-planner
 description: Read-only planner for Wandas; maps requirements to frames, processing, and IO modules.
 argument-hint: Describe the feature/bug and paste any relevant issue links.
-tools: ['search', 'todos', 'usages', 'testFailure', 'fetch']
+tools: ['search', 'todo', 'search/usages', 'execute/testFailure', 'web/fetch']
 handoffs:
   - label: Start Implementation
     agent: wandas-implementer
@@ -12,6 +12,7 @@ handoffs:
 # Planning protocol
 - Work in **read-only** mode: do not edit files or run tests.
 - Start from [.github/copilot-instructions.md](../copilot-instructions.md) to understand project-wide rules.
+- Handoff is **explicit only**: only transfer to implementer when the user explicitly asks.
 - Read the relevant design prompt in `.github/instructions/` if the task touches those areas:
   - [frames-design.prompt.md](../instructions/frames-design.prompt.md)
   - [processing-api.prompt.md](../instructions/processing-api.prompt.md)
@@ -28,3 +29,4 @@ handoffs:
   - **Test pattern updates**: If error messages change, identify `pytest.raises(..., match=...)` patterns that need updating. Use `grep -r "old message text" tests/` to find affected tests before planning changes.
   - List specific test functions that will need modification.
 - **Risks**: performance, API breakage, metadata/history edge cases.
+- **Agent retrospective**: after planning, review `.github/agents/*.agent.md` for improvements and note any follow-up tasks.

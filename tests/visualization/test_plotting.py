@@ -115,9 +115,7 @@ class TestPlotting:
         self.mock_noct_frame = mock.MagicMock()
         self.mock_noct_frame.n_channels = 2
         self.mock_noct_frame.n = 3  # 1/3オクターブ
-        self.mock_noct_frame.freqs = np.array(
-            [63, 125, 250, 500, 1000, 2000, 4000, 8000]
-        )
+        self.mock_noct_frame.freqs = np.array([63, 125, 250, 500, 1000, 2000, 4000, 8000])
         self.mock_noct_frame.dB = np.random.rand(2, 8)
         self.mock_noct_frame.dBA = np.random.rand(2, 8)
         self.mock_noct_frame.labels = ["ch1", "ch2"]
@@ -131,9 +129,7 @@ class TestPlotting:
         self.mock_single_noct_frame = mock.MagicMock()
         self.mock_single_noct_frame.n_channels = 1
         self.mock_single_noct_frame.n = 3  # 1/3オクターブ
-        self.mock_single_noct_frame.freqs = np.array(
-            [63, 125, 250, 500, 1000, 2000, 4000, 8000]
-        )
+        self.mock_single_noct_frame.freqs = np.array([63, 125, 250, 500, 1000, 2000, 4000, 8000])
         self.mock_single_noct_frame.dB = np.random.rand(8)
         self.mock_single_noct_frame.dBA = np.random.rand(8)
         self.mock_single_noct_frame.labels = ["ch1"]
@@ -181,12 +177,8 @@ class TestPlotting:
         self.mock_single_coherence_spectral_frame.magnitude = np.random.rand(513)
         self.mock_single_coherence_spectral_frame.labels = ["ch1-ch1"]
         self.mock_single_coherence_spectral_frame.label = "Single Coherence Data"
-        self.mock_single_coherence_spectral_frame.operation_history = [
-            {"operation": "coherence"}
-        ]
-        self.mock_single_coherence_spectral_frame.channels = [
-            mock.MagicMock(label="ch1-ch1")
-        ]
+        self.mock_single_coherence_spectral_frame.operation_history = [{"operation": "coherence"}]
+        self.mock_single_coherence_spectral_frame.channels = [mock.MagicMock(label="ch1-ch1")]
 
         # コヒーレンスデータでのテスト
         self.mock_coherence_spectral_frame = mock.MagicMock()
@@ -200,12 +192,9 @@ class TestPlotting:
             "ch2-ch2",
         ]
         self.mock_coherence_spectral_frame.label = "Coherence Data"
-        self.mock_coherence_spectral_frame.operation_history = [
-            {"operation": "coherence"}
-        ]
+        self.mock_coherence_spectral_frame.operation_history = [{"operation": "coherence"}]
         self.mock_coherence_spectral_frame.channels = [
-            mock.MagicMock(label=label)
-            for label in self.mock_coherence_spectral_frame.labels
+            mock.MagicMock(label=label) for label in self.mock_coherence_spectral_frame.labels
         ]
 
     def teardown_method(self) -> None:
@@ -249,9 +238,7 @@ class TestPlotting:
         class AbstractStrategy(PlotStrategy[Any]):
             name = "abstract"
 
-        with pytest.raises(
-            TypeError, match="Cannot register abstract PlotStrategy class"
-        ):
+        with pytest.raises(TypeError, match="Cannot register abstract PlotStrategy class"):
             register_plot_strategy(AbstractStrategy)
 
     def test_create_operation(self) -> None:
@@ -275,9 +262,7 @@ class TestPlotting:
 
         # channel_plotのテスト
         fig, ax = plt.subplots()
-        strategy.channel_plot(
-            self.mock_channel_frame.time, self.mock_channel_frame.data[0], ax
-        )
+        strategy.channel_plot(self.mock_channel_frame.time, self.mock_channel_frame.data[0], ax)
         assert ax.get_ylabel() == "Amplitude"
 
         # 単一チャネルでのplotのテスト (overlay=True)
@@ -334,9 +319,7 @@ class TestPlotting:
 
         # channel_plotのテスト
         fig, ax = plt.subplots()
-        strategy.channel_plot(
-            self.mock_spectral_frame.freqs, self.mock_spectral_frame.dB[0], ax
-        )
+        strategy.channel_plot(self.mock_spectral_frame.freqs, self.mock_spectral_frame.dB[0], ax)
 
         # dB単位でのplotのテスト
         result = strategy.plot(self.mock_spectral_frame, overlay=True)
@@ -484,12 +467,8 @@ class TestPlotting:
         strategy = DescribePlotStrategy()
 
         # 単一チャネルのモックのstftとwelchメソッド
-        self.mock_single_channel_frame.stft.return_value = (
-            self.mock_single_spectrogram_frame
-        )
-        self.mock_single_channel_frame.welch.return_value = (
-            self.mock_single_spectral_frame
-        )
+        self.mock_single_channel_frame.stft.return_value = self.mock_single_spectrogram_frame
+        self.mock_single_channel_frame.welch.return_value = self.mock_single_spectral_frame
 
         # Matplotlibのメソッドを部分的にモック
         with (
@@ -854,9 +833,7 @@ class TestPlotting:
         from wandas.frames.channel import ChannelFrame
 
         dask_data = _da_from_array(signal.reshape(1, -1), chunks=(1, -1))
-        channel_frame = ChannelFrame(
-            data=dask_data, sampling_rate=sample_rate, label="test_channel"
-        )
+        channel_frame = ChannelFrame(data=dask_data, sampling_rate=sample_rate, label="test_channel")
 
         # STFTを実行してSpectrogramFrameを作成
         spectrogram_frame = channel_frame.stft(n_fft=512, hop_length=256)
@@ -875,9 +852,7 @@ class TestPlotting:
         # 複数チャネルのテスト用データ
         multi_signal = np.array([signal, signal * 0.5])  # 2チャネル
         multi_dask_data = _da_from_array(multi_signal, chunks=(1, -1))
-        multi_channel_frame = ChannelFrame(
-            data=multi_dask_data, sampling_rate=sample_rate, label="multi_channel_test"
-        )
+        multi_channel_frame = ChannelFrame(data=multi_dask_data, sampling_rate=sample_rate, label="multi_channel_test")
         multi_spectrogram_frame = multi_channel_frame.stft(n_fft=512, hop_length=256)
 
         # 複数チャネルでのテスト
@@ -912,9 +887,7 @@ class TestPlotting:
         from wandas.frames.channel import ChannelFrame
 
         dask_data = _da_from_array(signal.reshape(1, -1), chunks=(1, -1))
-        channel_frame = ChannelFrame(
-            data=dask_data, sampling_rate=sample_rate, label="test_channel"
-        )
+        channel_frame = ChannelFrame(data=dask_data, sampling_rate=sample_rate, label="test_channel")
 
         spectrogram_frame = channel_frame.stft(n_fft=512, hop_length=256)
 
@@ -1047,9 +1020,7 @@ class TestPlotting:
             call_args = mock_specshow.call_args
             # 正しいパラメータが渡されていることを確認
             assert "sr" in call_args[1]
-            assert (
-                call_args[1]["sr"] == self.mock_single_spectrogram_frame.sampling_rate
-            )
+            assert call_args[1]["sr"] == self.mock_single_spectrogram_frame.sampling_rate
 
         plt.close("all")
 
@@ -1242,9 +1213,7 @@ class TestPlotting:
             mock_subplots.return_value = (created_fig, mock_ax)
 
             # plotを実行
-            _ = strategy.plot(
-                self.mock_spectral_frame, overlay=True, title="Figure Condition Test"
-            )
+            _ = strategy.plot(self.mock_spectral_frame, overlay=True, title="Figure Condition Test")
 
             # ax.figure != figの条件により、tight_layoutとshowが呼び出されることを確認
             mock_tight_layout.assert_called_once()

@@ -31,9 +31,7 @@ def accepted_kwargs(func: Callable[..., Any]) -> tuple[set[str], bool]:
 
         # 明示的に定義されている引数を収集
         explicit_kwargs = {
-            p.name
-            for p in params
-            if p.kind in (Parameter.POSITIONAL_OR_KEYWORD, Parameter.KEYWORD_ONLY)
+            p.name for p in params if p.kind in (Parameter.POSITIONAL_OR_KEYWORD, Parameter.KEYWORD_ONLY)
         }
 
         # **kwargsを受け付けるかどうかのフラグ

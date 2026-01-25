@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, TypeVar, cast
+from typing import TYPE_CHECKING, Any, BinaryIO, Optional, TypeVar, cast
 
 import dask
 import dask.array as da
@@ -34,9 +34,7 @@ da_from_delayed = da.from_delayed  # type: ignore [unused-ignore]
 S = TypeVar("S", bound="BaseFrame[Any]")
 
 
-class ChannelFrame(
-    BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransformMixin
-):
+class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransformMixin):
     """Channel-based data frame for handling audio signals and time series data.
 
     This frame represents channel-based data such as audio signals and time series data,
@@ -204,14 +202,10 @@ class ChannelFrame(
         # typing still get the correct return type.
         return cast(
             S,
-            cast("ChannelFrame", self)._apply_operation_instance(
-                operation, operation_name=operation_name
-            ),
+            cast("ChannelFrame", self)._apply_operation_instance(operation, operation_name=operation_name),
         )
 
-    def _apply_operation_instance(
-        self: S, operation: Any, operation_name: str | None = None
-    ) -> S:
+    def _apply_operation_instance(self: S, operation: Any, operation_name: str | None = None) -> S:
         """Apply an instantiated operation to the frame."""
         # Apply processing to data
         processed_data = operation.process(self._data)
@@ -235,9 +229,7 @@ class ChannelFrame(
         display_name = operation.get_display_name()
         new_channel_metadata = self._relabel_channels(operation_name, display_name)
 
-        logger.debug(
-            f"Created new ChannelFrame with operation {operation_name} added to graph"
-        )
+        logger.debug(f"Created new ChannelFrame with operation {operation_name} added to graph")
 
         # Apply metadata updates (including sampling_rate if specified)
         creation_params: dict[str, Any] = {
@@ -297,9 +289,7 @@ class ChannelFrame(
 
             # Merge channel metadata
             merged_channel_metadata = []
-            for self_ch, other_ch in zip(
-                self._channel_metadata, other._channel_metadata
-            ):
+            for self_ch, other_ch in zip(self._channel_metadata, other._channel_metadata):
                 ch = self_ch.model_copy(deep=True)
                 ch["label"] = f"({self_ch['label']} {symbol} {other_ch['label']})"
                 merged_channel_metadata.append(ch)
@@ -382,16 +372,11 @@ class ChannelFrame(
                 )
 
         elif isinstance(other, np.ndarray):
-            other = ChannelFrame.from_numpy(
-                other, self.sampling_rate, label="array_data"
-            )
+            other = ChannelFrame.from_numpy(other, self.sampling_rate, label="array_data")
         elif isinstance(other, int | float):
             return self + other
         else:
-            raise TypeError(
-                "Addition target with SNR must be a ChannelFrame or "
-                f"NumPy array: {type(other)}"
-            )
+            raise TypeError(f"Addition target with SNR must be a ChannelFrame or NumPy array: {type(other)}")
 
         # If SNR is specified, adjust the length of the other signal
         if other.duration != self.duration:
@@ -600,10 +585,7 @@ class ChannelFrame(
         plot_kwargs.update(kwargs)
 
         if "axis_config" in plot_kwargs:
-            logger.warning(
-                "axis_config is retained for backward compatibility but will "
-                "be deprecated in the future."
-            )
+            logger.warning("axis_config is retained for backward compatibility but will be deprecated in the future.")
             axis_config = plot_kwargs["axis_config"]
             if "time_plot" in axis_config:
                 plot_kwargs["waveform"] = axis_config["time_plot"]
@@ -617,10 +599,7 @@ class ChannelFrame(
                     plot_kwargs["ylim"] = ylim_config
 
         if "cbar_config" in plot_kwargs:
-            logger.warning(
-                "cbar_config is retained for backward compatibility but will "
-                "be deprecated in the future."
-            )
+            logger.warning("cbar_config is retained for backward compatibility but will be deprecated in the future.")
             cbar_config = plot_kwargs["cbar_config"]
             if "vmin" in cbar_config:
                 plot_kwargs["vmin"] = cbar_config["vmin"]
@@ -670,9 +649,7 @@ class ChannelFrame(
         if data.ndim == 1:
             data = data.reshape(1, -1)
         elif data.ndim > 2:
-            raise ValueError(
-                f"Data must be 1-dimensional or 2-dimensional. Shape: {data.shape}"
-            )
+            raise ValueError(f"Data must be 1-dimensional or 2-dimensional. Shape: {data.shape}")
 
         # Convert NumPy array to dask array. Use channel-wise chunks so
         # the 0th axis (channels) is chunked per-channel and the sample
@@ -687,9 +664,7 @@ class ChannelFrame(
             cf.metadata = metadata
         if ch_labels is not None:
             if len(ch_labels) != cf.n_channels:
-                raise ValueError(
-                    "Number of channel labels does not match the number of channels"
-                )
+                raise ValueError("Number of channel labels does not match the number of channels")
             for i in range(len(ch_labels)):
                 cf._channel_metadata[i].label = ch_labels[i]
         if ch_units is not None:
@@ -697,9 +672,7 @@ class ChannelFrame(
                 ch_units = [ch_units] * cf.n_channels
 
             if len(ch_units) != cf.n_channels:
-                raise ValueError(
-                    "Number of channel units does not match the number of channels"
-                )
+                raise ValueError("Number of channel units does not match the number of channels")
             for i in range(len(ch_units)):
                 cf._channel_metadata[i].unit = ch_units[i]
 
@@ -745,7 +718,7 @@ class ChannelFrame(
     @classmethod
     def from_file(
         cls,
-        path: str | Path,
+        path: str | Path | bytes | bytearray | memoryview | BinaryIO,
         channel: int | list[int] | None = None,
         start: float | None = None,
         end: float | None = None,
@@ -757,6 +730,8 @@ class ChannelFrame(
         time_column: int | str = 0,
         delimiter: str = ",",
         header: int | None = 0,
+        file_type: str | None = None,
+        source_name: str | None = None,
     ) -> "ChannelFrame":
         """Create a ChannelFrame from an audio file.
 
@@ -766,7 +741,7 @@ class ChannelFrame(
             on the returned frame for custom sample-axis chunking.
 
         Args:
-            path: Path to the audio file.
+            path: Path to the audio file or in-memory bytes/stream.
             channel: Channel(s) to load. None loads all channels.
             start: Start time in seconds.
             end: End time in seconds.
@@ -776,6 +751,8 @@ class ChannelFrame(
             delimiter: For CSV files, delimiter character. Default is ",".
             header: For CSV files, row number to use as header.
                 Default is 0 (first row). Set to None if no header.
+            file_type: File extension for in-memory data (e.g. ".wav", ".csv").
+            source_name: Optional source name for in-memory data. Used in metadata.
 
         Returns:
             A new ChannelFrame containing the loaded audio data.
@@ -791,37 +768,79 @@ class ChannelFrame(
             >>> # Load specific channels
             >>> cf = ChannelFrame.from_file("audio.wav", channel=[0, 2])
             >>> # Load CSV file
-            >>> cf = ChannelFrame.from_file(
-            ...     "data.csv", time_column=0, delimiter=",", header=0
-            ... )
+            >>> cf = ChannelFrame.from_file("data.csv", time_column=0, delimiter=",", header=0)
         """
         from .channel import ChannelFrame
 
-        path = Path(path)
-        if not path.exists():
-            raise FileNotFoundError(
-                f"Audio file not found\n"
-                f"  Path: {path.absolute()}\n"
-                f"  Current directory: {Path.cwd()}\n"
-                f"Please check:\n"
-                f"  - File path is correct\n"
-                f"  - File exists at the specified location\n"
-                f"  - You have read permissions for the file"
+        is_in_memory = isinstance(path, (bytes, bytearray, memoryview)) or (
+            hasattr(path, "read") and not isinstance(path, (str, Path))
+        )
+        if is_in_memory and file_type is None:
+            raise ValueError(
+                "File type is required when the extension is missing\n"
+                "  Cannot determine format without an extension\n"
+                "  Provide file_type like '.wav' or '.csv'"
             )
 
-        # Get file reader
-        reader = get_file_reader(path)
+        normalized_file_type = None
+        if file_type is not None:
+            normalized_file_type = file_type.lower()
+            if not normalized_file_type.startswith("."):
+                normalized_file_type = f".{normalized_file_type}"
+
+        if is_in_memory:
+            if hasattr(path, "read") and not isinstance(path, (str, Path)):
+                if hasattr(path, "seek"):
+                    try:
+                        path.seek(0)
+                    except Exception as exc:
+                        # Best-effort rewind: some file-like objects are not seekable.
+                        # Failure to seek is non-fatal; we still attempt to read
+                        # from the current position.
+                        logger.debug(
+                            "Failed to rewind file-like object before read: %r",
+                            exc,
+                        )
+                source: bytes = path.read()
+            else:
+                if isinstance(path, (bytes, bytearray, memoryview)):
+                    source = bytes(path)
+                else:
+                    raise TypeError("Unexpected in-memory input type")
+            path_obj: Path | None = None
+            reader = get_file_reader(normalized_file_type or "", file_type=normalized_file_type)
+        else:
+            path_obj = Path(cast(str | Path, path))
+            if not path_obj.exists():
+                raise FileNotFoundError(
+                    f"Audio file not found\n"
+                    f"  Path: {path_obj.absolute()}\n"
+                    f"  Current directory: {Path.cwd()}\n"
+                    f"Please check:\n"
+                    f"  - File path is correct\n"
+                    f"  - File exists at the specified location\n"
+                    f"  - You have read permissions for the file"
+                )
+            reader = get_file_reader(path_obj)
 
         # Build kwargs for reader
         reader_kwargs: dict[str, Any] = {}
-        if path.suffix.lower() == ".csv":
+        if (path_obj is not None and path_obj.suffix.lower() == ".csv") or (normalized_file_type == ".csv"):
             reader_kwargs["time_column"] = time_column
             reader_kwargs["delimiter"] = delimiter
             if header is not None:
                 reader_kwargs["header"] = header
 
         # Get file info
-        info = reader.get_file_info(path, **reader_kwargs)
+        source_obj: str | Path | bytes | bytearray | memoryview | BinaryIO
+        if is_in_memory:
+            source_obj = source
+        else:
+            if path_obj is None:
+                raise ValueError("Path is required when loading from file")
+            source_obj = path_obj
+
+        info = reader.get_file_info(source_obj, **reader_kwargs)
         sr = info["samplerate"]
         n_channels = info["channels"]
         n_frames = info["frames"]
@@ -859,7 +878,7 @@ class ChannelFrame(
         frames_to_read = end_idx - start_idx
 
         logger.debug(
-            f"Setting up lazy load from file={path}, frames={frames_to_read}, "
+            f"Setting up lazy load from file={path!r}, frames={frames_to_read}, "
             f"start_idx={start_idx}, end_idx={end_idx}"
         )
 
@@ -871,15 +890,17 @@ class ChannelFrame(
             logger.debug(">>> EXECUTING DELAYED LOAD <<<")
             # Use the reader to get audio data with parameters
             out = reader.get_data(
-                path, channels_to_load, start_idx, frames_to_read, **reader_kwargs
+                source_obj,
+                channels_to_load,
+                start_idx,
+                frames_to_read,
+                **reader_kwargs,
             )
             if not isinstance(out, np.ndarray):
                 raise ValueError("Unexpected data type after reading file")
             return out
 
-        logger.debug(
-            f"Creating delayed dask task with expected shape: {expected_shape}"
-        )
+        logger.debug(f"Creating delayed dask task with expected shape: {expected_shape}")
 
         # Create delayed operation
         delayed_data = dask_delayed(_load_audio)()
@@ -888,9 +909,7 @@ class ChannelFrame(
         # Create dask array from delayed computation and ensure channel-wise
         # chunks. The sample axis (1) uses -1 by default to avoid forcing
         # a sample chunk length here.
-        dask_array = da_from_delayed(
-            delayed_data, shape=expected_shape, dtype=np.float32
-        )
+        dask_array = da_from_delayed(delayed_data, shape=expected_shape, dtype=np.float32)
 
         # Ensure channel-wise chunks
         dask_array = dask_array.rechunk((1, -1))
@@ -899,13 +918,30 @@ class ChannelFrame(
             "ChannelFrame setup complete - actual file reading will occur on compute()"  # noqa: E501
         )
 
+        if source_name is not None:
+            try:
+                frame_label = Path(source_name).stem
+            except (TypeError, ValueError, OSError):
+                logger.debug(
+                    "Using raw source_name as frame label because Path(source_name) failed; source_name=%r",
+                    source_name,
+                )
+                frame_label = source_name
+        elif path_obj is not None:
+            frame_label = path_obj.stem
+        else:
+            frame_label = None
+        frame_metadata = {}
+        if path_obj is not None:
+            frame_metadata["filename"] = str(path_obj)
+        elif source_name is not None:
+            frame_metadata["filename"] = source_name
+
         cf = ChannelFrame(
             data=dask_array,
             sampling_rate=sr,
-            label=path.stem,
-            metadata={
-                "filename": str(path),
-            },
+            label=frame_label,
+            metadata=frame_metadata,
         )
         if ch_labels is not None:
             if len(ch_labels) != len(cf):
@@ -917,11 +953,15 @@ class ChannelFrame(
         return cf
 
     @classmethod
-    def read_wav(cls, filename: str, labels: list[str] | None = None) -> "ChannelFrame":
+    def read_wav(
+        cls,
+        filename: str | Path | bytes | bytearray | memoryview | BinaryIO,
+        labels: list[str] | None = None,
+    ) -> "ChannelFrame":
         """Utility method to read a WAV file.
 
         Args:
-            filename: Path to the WAV file.
+            filename: Path to the WAV file or in-memory bytes/stream.
             labels: Labels to set for each channel.
 
         Returns:
@@ -1190,7 +1230,7 @@ class ChannelFrame(
             if arr.shape[0] != 1:
                 arr = arr.reshape((1, -1))
         else:
-            raise TypeError("add_channel: ndarray/dask/同型Frameのみ対応")
+            raise TypeError("add_channel: ndarray/dask/ChannelFrame")
         if arr.shape[1] != self.n_samples:
             if align == "pad":
                 pad_len = self.n_samples - arr.shape[1]

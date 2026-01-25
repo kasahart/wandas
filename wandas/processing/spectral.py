@@ -120,9 +120,7 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
     n_fft: int | None
     window: str
 
-    def __init__(
-        self, sampling_rate: float, n_fft: int | None = None, window: str = "hann"
-    ):
+    def __init__(self, sampling_rate: float, n_fft: int | None = None, window: str = "hann"):
         """
         Initialize FFT operation
 
@@ -201,9 +199,7 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
     n_fft: int | None
     window: str
 
-    def __init__(
-        self, sampling_rate: float, n_fft: int | None = None, window: str = "hann"
-    ):
+    def __init__(self, sampling_rate: float, n_fft: int | None = None, window: str = "hann"):
         """
         Initialize IFFT operation
 
@@ -300,16 +296,12 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
             If n_fft is not positive, win_length > n_fft, or hop_length is invalid
         """
         # Validate and compute parameters
-        actual_win_length, actual_hop_length = _validate_spectral_params(
-            n_fft, win_length, hop_length, "STFT"
-        )
+        actual_win_length, actual_hop_length = _validate_spectral_params(n_fft, win_length, hop_length, "STFT")
 
         self.n_fft = n_fft
         self.win_length = actual_win_length
         self.hop_length = actual_hop_length
-        self.noverlap = (
-            self.win_length - self.hop_length if hop_length is not None else None
-        )
+        self.noverlap = self.win_length - self.hop_length if hop_length is not None else None
         self.window = window
 
         self.SFT = ShortTimeFFT(
@@ -403,9 +395,7 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
             If n_fft is not positive, win_length > n_fft, or hop_length is invalid
         """
         # Validate and compute parameters
-        actual_win_length, actual_hop_length = _validate_spectral_params(
-            n_fft, win_length, hop_length, "ISTFT"
-        )
+        actual_win_length, actual_hop_length = _validate_spectral_params(n_fft, win_length, hop_length, "ISTFT")
 
         self.n_fft = n_fft
         self.win_length = actual_win_length
@@ -513,9 +503,7 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
     def _process_array(self, x: NDArrayComplex) -> NDArrayReal:
         """
         Apply SciPy ISTFT processing to multiple channels at once using ShortTimeFFT"""
-        logger.debug(
-            f"Applying SciPy ISTFT (ShortTimeFFT) to array with shape: {x.shape}"
-        )
+        logger.debug(f"Applying SciPy ISTFT (ShortTimeFFT) to array with shape: {x.shape}")
 
         # Convert 2D input to 3D (assume single channel)
         if x.ndim == 2:
@@ -532,9 +520,7 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         if self.length is not None:
             result = result[..., : self.length]
 
-        logger.debug(
-            f"ShortTimeFFT applied, returning result with shape: {result.shape}"
-        )
+        logger.debug(f"ShortTimeFFT applied, returning result with shape: {result.shape}")
         return result
 
 
@@ -597,16 +583,12 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
             If n_fft, win_length, or hop_length are invalid
         """
         # Validate and compute parameters
-        actual_win_length, actual_hop_length = _validate_spectral_params(
-            n_fft, win_length, hop_length, "Welch method"
-        )
+        actual_win_length, actual_hop_length = _validate_spectral_params(n_fft, win_length, hop_length, "Welch method")
 
         self.n_fft = n_fft
         self.win_length = actual_win_length
         self.hop_length = actual_hop_length
-        self.noverlap = (
-            self.win_length - self.hop_length if hop_length is not None else None
-        )
+        self.noverlap = self.win_length - self.hop_length if hop_length is not None else None
         self.window = window
         self.average = average
         self.detrend = detrend
@@ -662,9 +644,7 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
 
         if not isinstance(x, np.ndarray):
             # Trigger computation for Dask array
-            raise ValueError(
-                "Welch operation requires a Dask array, but received a non-ndarray."
-            )
+            raise ValueError("Welch operation requires a Dask array, but received a non-ndarray.")
 
         # Convert power spectrum to amplitude spectrum for consistency with FFT/STFT.
         # scipy.signal.welch with scaling='spectrum' returns a one-sided power spectrum
@@ -734,9 +714,7 @@ class NOctSpectrum(AudioOperation[NDArrayReal, NDArrayReal]):
             Output data shape
         """
         # Calculate output shape for octave spectrum
-        _, fpref = _center_freq(
-            fmin=self.fmin, fmax=self.fmax, n=self.n, G=self.G, fr=self.fr
-        )
+        _, fpref = _center_freq(fmin=self.fmin, fmax=self.fmax, n=self.n, G=self.G, fr=self.fr)
         return (input_shape[0], fpref.shape[0])
 
     def get_display_name(self) -> str:
@@ -819,9 +797,7 @@ class NOctSynthesis(AudioOperation[NDArrayReal, NDArrayReal]):
             Output data shape
         """
         # Calculate output shape for octave spectrum
-        _, fpref = _center_freq(
-            fmin=self.fmin, fmax=self.fmax, n=self.n, G=self.G, fr=self.fr
-        )
+        _, fpref = _center_freq(fmin=self.fmin, fmax=self.fmax, n=self.n, G=self.G, fr=self.fr)
         return (input_shape[0], fpref.shape[0])
 
     def get_display_name(self) -> str:
@@ -848,9 +824,7 @@ class NOctSynthesis(AudioOperation[NDArrayReal, NDArrayReal]):
             fr=self.fr,
         )
         result = result.T
-        logger.debug(
-            f"NoctSynthesis applied, returning result with shape: {result.shape}"
-        )
+        logger.debug(f"NoctSynthesis applied, returning result with shape: {result.shape}")
         return np.array(result)
 
 
@@ -892,9 +866,7 @@ class Coherence(AudioOperation[NDArrayReal, NDArrayReal]):
             If n_fft is not positive, win_length > n_fft, or hop_length is invalid
         """
         # Validate and compute parameters
-        actual_win_length, actual_hop_length = _validate_spectral_params(
-            n_fft, win_length, hop_length, "Coherence"
-        )
+        actual_win_length, actual_hop_length = _validate_spectral_params(n_fft, win_length, hop_length, "Coherence")
 
         self.n_fft = n_fft
         self.win_length = actual_win_length
@@ -999,9 +971,7 @@ class CSD(AudioOperation[NDArrayReal, NDArrayComplex]):
             If n_fft is not positive, win_length > n_fft, or hop_length is invalid
         """
         # Validate and compute parameters
-        actual_win_length, actual_hop_length = _validate_spectral_params(
-            n_fft, win_length, hop_length, "CSD"
-        )
+        actual_win_length, actual_hop_length = _validate_spectral_params(n_fft, win_length, hop_length, "CSD")
 
         self.n_fft = n_fft
         self.win_length = actual_win_length
@@ -1063,9 +1033,7 @@ class CSD(AudioOperation[NDArrayReal, NDArrayComplex]):
         )
 
         # Reshape result to (n_channels * n_channels, n_freqs)
-        result: NDArrayComplex = csd_result.transpose(1, 0, 2).reshape(
-            -1, csd_result.shape[-1]
-        )
+        result: NDArrayComplex = csd_result.transpose(1, 0, 2).reshape(-1, csd_result.shape[-1])
 
         logger.debug(f"CSD estimation applied, result shape: {result.shape}")
         return result
@@ -1161,9 +1129,7 @@ class TransferFunction(AudioOperation[NDArrayReal, NDArrayComplex]):
 
     def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
         """Processor function for transfer function estimation operation"""
-        logger.debug(
-            f"Applying transfer function estimation to array with shape: {x.shape}"
-        )
+        logger.debug(f"Applying transfer function estimation to array with shape: {x.shape}")
         from scipy import signal as ss
 
         # Calculate cross-spectral density between all channels
@@ -1201,9 +1167,7 @@ class TransferFunction(AudioOperation[NDArrayReal, NDArrayComplex]):
         h_f = p_yx / p_xx[np.newaxis, :, :]
         result: NDArrayComplex = h_f.transpose(1, 0, 2).reshape(-1, h_f.shape[-1])
 
-        logger.debug(
-            f"Transfer function estimation applied, result shape: {result.shape}"
-        )
+        logger.debug(f"Transfer function estimation applied, result shape: {result.shape}")
         return result
 
 

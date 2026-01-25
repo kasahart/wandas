@@ -2,7 +2,7 @@
 name: wandas-publisher
 description: Automate git operations: commit, branch, push, and PR creation.
 argument-hint: Provide the review summary and confirmation to proceed with the PR.
-tools: ['runCommands/runInTerminal', 'runTasks/runTask', 'search/readFile', 'todos', 'changes', 'githubRepo', 'github.vscode-pull-request-github/copilotCodingAgent', 'github.vscode-pull-request-github/issue_fetch', 'github.vscode-pull-request-github/suggest-fix', 'github.vscode-pull-request-github/searchSyntax', 'github.vscode-pull-request-github/doSearch', 'github.vscode-pull-request-github/renderIssues', 'github.vscode-pull-request-github/activePullRequest', 'github.vscode-pull-request-github/openPullRequest']
+tools: ['execute/runInTerminal', 'search/changes', 'todo', 'web/githubRepo', 'github.vscode-pull-request-github/activePullRequest', 'github.vscode-pull-request-github/openPullRequest']
 handoffs:
   - label: Back to Planning
     agent: wandas-planner
@@ -23,7 +23,8 @@ handoffs:
 3. **Pushing**:
    - Push the branch to the remote (`git push -u origin <branch>`).
 4. **Pull Request**:
-   - Create a PR using `gh pr create`.
+   - If a PR already exists for the branch, **update the existing PR** (push new commits) and avoid re-running `gh pr create`.
+   - Otherwise, create a PR using `gh pr create`.
    - Title: Use the commit message or a summary.
    - Body: Include the implementation summary and reviewer notes.
    - Reviewers: Assign if specified.
@@ -32,7 +33,9 @@ handoffs:
    - Did the agents (Planner/Implementer/Reviewer) require manual correction?
    - If yes, create a new issue or task to update the `.github/agents/` or `instructions/` files.
    - Refer to [agent-maintenance.prompt.md](../instructions/agent-maintenance.prompt.md) for policies on updating agents.
+   - After publishing, review `.github/agents/*.agent.md` for any immediate improvements and log follow-up tasks.
 
 ## Safety
 - Do not force push to shared branches.
-- Verify `uv run ruff check` and `uv run mypy` passed before committing.
+- Verify quality checks in this order before committing: `uv run ruff format` -> `uv run ruff check` -> `uv run mypy`.
+- Run pytest/mypy/ruff via the VS Code tasks in [.vscode/tasks.json](../../.vscode/tasks.json).

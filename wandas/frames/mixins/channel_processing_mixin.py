@@ -70,9 +70,7 @@ class ChannelProcessingMixin:
         # understands the returned value has the same frame type as `self`.
         return cast(T_Processing, cast(Any, self)._apply_operation_instance(operation))
 
-    def high_pass_filter(
-        self: T_Processing, cutoff: float, order: int = 4
-    ) -> T_Processing:
+    def high_pass_filter(self: T_Processing, cutoff: float, order: int = 4) -> T_Processing:
         """Apply a high-pass filter to the signal.
 
         Args:
@@ -82,15 +80,11 @@ class ChannelProcessingMixin:
         Returns:
             New ChannelFrame after filter application
         """
-        logger.debug(
-            f"Setting up highpass filter: cutoff={cutoff}, order={order} (lazy)"
-        )
+        logger.debug(f"Setting up highpass filter: cutoff={cutoff}, order={order} (lazy)")
         result = self.apply_operation("highpass_filter", cutoff=cutoff, order=order)
         return cast(T_Processing, result)
 
-    def low_pass_filter(
-        self: T_Processing, cutoff: float, order: int = 4
-    ) -> T_Processing:
+    def low_pass_filter(self: T_Processing, cutoff: float, order: int = 4) -> T_Processing:
         """Apply a low-pass filter to the signal.
 
         Args:
@@ -100,15 +94,11 @@ class ChannelProcessingMixin:
         Returns:
             New ChannelFrame after filter application
         """
-        logger.debug(
-            f"Setting up lowpass filter: cutoff={cutoff}, order={order} (lazy)"
-        )
+        logger.debug(f"Setting up lowpass filter: cutoff={cutoff}, order={order} (lazy)")
         result = self.apply_operation("lowpass_filter", cutoff=cutoff, order=order)
         return cast(T_Processing, result)
 
-    def band_pass_filter(
-        self: T_Processing, low_cutoff: float, high_cutoff: float, order: int = 4
-    ) -> T_Processing:
+    def band_pass_filter(self: T_Processing, low_cutoff: float, high_cutoff: float, order: int = 4) -> T_Processing:
         """Apply a band-pass filter to the signal.
 
         Args:
@@ -120,8 +110,7 @@ class ChannelProcessingMixin:
             New ChannelFrame after filter application
         """
         logger.debug(
-            f"Setting up bandpass filter: low_cutoff={low_cutoff}, "
-            f"high_cutoff={high_cutoff}, order={order} (lazy)"
+            f"Setting up bandpass filter: low_cutoff={low_cutoff}, high_cutoff={high_cutoff}, order={order} (lazy)"
         )
         result = self.apply_operation(
             "bandpass_filter",
@@ -172,13 +161,8 @@ class ChannelProcessingMixin:
             >>> # L2 normalization
             >>> normalized_l2 = signal.normalize(norm=2)
         """
-        logger.debug(
-            f"Setting up normalize: norm={norm}, axis={axis}, "
-            f"threshold={threshold}, fill={fill} (lazy)"
-        )
-        result = self.apply_operation(
-            "normalize", norm=norm, axis=axis, threshold=threshold, fill=fill
-        )
+        logger.debug(f"Setting up normalize: norm={norm}, axis={axis}, threshold={threshold}, fill={fill} (lazy)")
+        result = self.apply_operation("normalize", norm=norm, axis=axis, threshold=threshold, fill=fill)
         return cast(T_Processing, result)
 
     def remove_dc(self: T_Processing) -> T_Processing:
@@ -269,9 +253,7 @@ class ChannelProcessingMixin:
                 extra=reduced_extra,
             )
         ]
-        new_history = (
-            self.operation_history.copy() if hasattr(self, "operation_history") else []
-        )
+        new_history = self.operation_history.copy() if hasattr(self, "operation_history") else []
         new_history.append({"operation": op})
         new_metadata = self.metadata.copy() if hasattr(self, "metadata") else {}
         result = self._create_new_instance(
@@ -380,9 +362,7 @@ class ChannelProcessingMixin:
         # Sampling rate update is handled by the Operation class
         return cast(T_Processing, result)
 
-    def channel_difference(
-        self: T_Processing, other_channel: int | str = 0
-    ) -> T_Processing:
+    def channel_difference(self: T_Processing, other_channel: int | str = 0) -> T_Processing:
         """Compute the difference between channels.
 
         Args:
@@ -424,9 +404,7 @@ class ChannelProcessingMixin:
 
     def hpss_harmonic(
         self: T_Processing,
-        kernel_size: Union[
-            "_IntLike_co", tuple["_IntLike_co", "_IntLike_co"], list["_IntLike_co"]
-        ] = 31,
+        kernel_size: Union["_IntLike_co", tuple["_IntLike_co", "_IntLike_co"], list["_IntLike_co"]] = 31,
         power: float = 2,
         margin: Union[
             "_FloatLike_co",
@@ -476,9 +454,7 @@ class ChannelProcessingMixin:
 
     def hpss_percussive(
         self: T_Processing,
-        kernel_size: Union[
-            "_IntLike_co", tuple["_IntLike_co", "_IntLike_co"], list["_IntLike_co"]
-        ] = 31,
+        kernel_size: Union["_IntLike_co", tuple["_IntLike_co", "_IntLike_co"], list["_IntLike_co"]] = 31,
         power: float = 2,
         margin: Union[
             "_FloatLike_co",
@@ -943,8 +919,7 @@ class ChannelProcessingMixin:
                auditory sensation of sharpness"
         """
         logger.debug(
-            "Setting up sharpness DIN calculation with weighting=%s, "
-            "field_type=%s (lazy)",
+            "Setting up sharpness DIN calculation with weighting=%s, field_type=%s (lazy)",
             weighting,
             field_type,
         )
@@ -1013,9 +988,7 @@ class ChannelProcessingMixin:
         from wandas.utils.types import NDArrayReal
 
         # Create operation instance
-        operation = SharpnessDinSt(
-            self.sampling_rate, weighting=weighting, field_type=field_type
-        )
+        operation = SharpnessDinSt(self.sampling_rate, weighting=weighting, field_type=field_type)
 
         # Get data (triggers computation if lazy)
         data = self.data

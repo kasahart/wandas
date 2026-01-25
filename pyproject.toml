@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "wandas"
-version = "0.1.10"
+version = "0.1.11"
 description = "Wandas is an open source library for efficient signal analysis in Python"
 authors = [{name = "kasahart", email="kasahart66@gmail.com"}]
 maintainers = [
@@ -94,7 +94,7 @@ wandas = { workspace = true }
 waveform-analysis = { git = "https://github.com/endolith/waveform-analysis.git", rev = "master" }
 
 [tool.ruff]
-line-length = 88
+line-length = 120
 include = ["wandas/**/*.py", "tests/**/*.py"]
 fix = true
 # 共通のruff設定はここにまとめる

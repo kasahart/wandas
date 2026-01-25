@@ -8,9 +8,7 @@ def test_generate_sin_single_frequency() -> None:
     freq = 1000.0
     sampling_rate = 16000
     duration = 1.0
-    signal = generate_sin(
-        freqs=freq, sampling_rate=sampling_rate, duration=duration, label="Test Signal"
-    )
+    signal = generate_sin(freqs=freq, sampling_rate=sampling_rate, duration=duration, label="Test Signal")
 
     assert isinstance(signal, ChannelFrame)
     assert signal.label == "Test Signal"
@@ -28,9 +26,7 @@ def test_generate_sin_multiple_frequencies() -> None:
     freqs = [500.0, 800.0, 1000.0]
     sampling_rate = 16000
     duration = 1.0
-    signal = generate_sin(
-        freqs=freqs, sampling_rate=sampling_rate, duration=duration, label="Test Signal"
-    )
+    signal = generate_sin(freqs=freqs, sampling_rate=sampling_rate, duration=duration, label="Test Signal")
 
     assert isinstance(signal, ChannelFrame)
     assert signal.label == "Test Signal"

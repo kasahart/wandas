@@ -1,4 +1,5 @@
 # tests/io/test_wav_io.py
+import io
 import os
 from unittest.mock import MagicMock, patch
 
@@ -24,12 +25,8 @@ def create_test_wav(tmpdir: str) -> str:
     duration = 1.0  # 1秒
 
     # 左右に振幅差をつけた直流データを生成
-    data_left = (
-        np.ones(int(sampling_rate * duration)) * 0.5
-    )  # 左チャンネル (直流信号、振幅0.5)
-    data_right = np.ones(
-        int(sampling_rate * duration)
-    )  # 右チャンネル (直流信号、振幅1.0)
+    data_left = np.ones(int(sampling_rate * duration)) * 0.5  # 左チャンネル (直流信号、振幅0.5)
+    data_right = np.ones(int(sampling_rate * duration))  # 右チャンネル (直流信号、振幅1.0)
 
     stereo_data = np.column_stack((data_left, data_right))
 
@@ -176,9 +173,61 @@ def test_read_wav_from_url():
         computed_data = channel_frame.compute()
         np.testing.assert_allclose(computed_data[0][0], 0.5, rtol=1e-5)
         np.testing.assert_allclose(computed_data[1][0], 1.0, rtol=1e-5)
-        assert (
-            channel_frame.label == "test.wav"
-        )  # Filename should be extracted from URL
+        assert channel_frame.label == "test.wav"  # Filename should be extracted from URL
+
+
+def test_read_wav_bytes() -> None:
+    """
+    Test reading a WAV file from in-memory bytes.
+    """
+    sampling_rate = 32000
+    duration = 0.1
+    num_samples = int(sampling_rate * duration)
+    data_left = np.full(num_samples, 0.25, dtype=np.float32)
+    data_right = np.full(num_samples, 0.75, dtype=np.float32)
+    stereo_data = np.column_stack((data_left, data_right))
+
+    wav_buffer = io.BytesIO()
+    wavfile.write(wav_buffer, sampling_rate, stereo_data)
+    wav_bytes = wav_buffer.getvalue()
+
+    channel_frame = read_wav(wav_bytes)
+
+    assert channel_frame.sampling_rate == sampling_rate
+    assert len(channel_frame) == 2
+    computed_data = channel_frame.compute()
+    np.testing.assert_allclose(computed_data[0], data_left, rtol=1e-5)
+    np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)
+
+
+def test_read_wav_stream_nonseekable() -> None:
+    """Test reading a WAV file from a non-seekable stream."""
+    sampling_rate = 22050
+    data = np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32)
+
+    class NonSeekableStream:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+        def read(self, *_args, **_kwargs) -> bytes:
+            return b"dummy"
+
+        def seek(self, *_args, **_kwargs) -> None:
+            raise OSError("seek not supported")
+
+    stream = NonSeekableStream(name="dir/my_audio.wav")
+
+    with patch(
+        "wandas.io.wav_io.wavfile.read",
+        return_value=(sampling_rate, data),
+    ) as mock_read:
+        channel_frame = read_wav(stream)
+
+    mock_read.assert_called_once_with(stream)
+    assert channel_frame.sampling_rate == sampling_rate
+    assert channel_frame.label == "my_audio.wav"
+    computed_data = channel_frame.compute()
+    np.testing.assert_allclose(computed_data, data.T)
 
 
 def test_write_wav(tmpdir: str):
@@ -219,6 +268,48 @@ def test_write_wav(tmpdir: str):
     computed_data = new_frame.compute()
 
     np.testing.assert_allclose(computed_data, wav_data.T, rtol=1e-2)
+
+
+def test_write_wav_mono_squeezes_data() -> None:
+    """Test mono data is squeezed before writing."""
+    sampling_rate = 8000
+    num_samples = 100
+    data = np.full((1, num_samples), 0.5, dtype=float)
+
+    channel_frame = ChannelFrame.from_numpy(
+        data=data,
+        sampling_rate=sampling_rate,
+        label="mono_frame",
+        ch_labels=["Mono"],
+    )
+
+    with patch("wandas.io.wav_io.sf.write") as mock_write:
+        write_wav("dummy.wav", channel_frame)
+
+    args, kwargs = mock_write.call_args
+    written_data = args[1]
+    assert written_data.ndim == 1
+    assert kwargs.get("subtype") == "FLOAT"
+
+
+def test_write_wav_nonfloat_branch() -> None:
+    """Test non-FLOAT branch when data range exceeds 1."""
+    sampling_rate = 8000
+    num_samples = 100
+    data = np.full((2, num_samples), 1.5, dtype=np.float32)
+
+    channel_frame = ChannelFrame.from_numpy(
+        data=data,
+        sampling_rate=sampling_rate,
+        label="loud_frame",
+        ch_labels=["Left", "Right"],
+    )
+
+    with patch("wandas.io.wav_io.sf.write") as mock_write:
+        write_wav("dummy.wav", channel_frame)
+
+    _, kwargs = mock_write.call_args
+    assert "subtype" not in kwargs
 
 
 def test_write_wav_invalid_input():
