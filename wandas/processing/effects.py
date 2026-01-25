@@ -46,9 +46,7 @@ class HpssHarmonic(AudioOperation[NDArrayReal, NDArrayReal]):
         """Create processor function for HPSS Harmonic"""
         logger.debug(f"Applying HPSS Harmonic to array with shape: {x.shape}")
         result: NDArrayReal = effects.harmonic(x, **self.kwargs)
-        logger.debug(
-            f"HPSS Harmonic applied, returning result with shape: {result.shape}"
-        )
+        logger.debug(f"HPSS Harmonic applied, returning result with shape: {result.shape}")
         return result
 
 
@@ -84,9 +82,7 @@ class HpssPercussive(AudioOperation[NDArrayReal, NDArrayReal]):
         """Create processor function for HPSS Percussive"""
         logger.debug(f"Applying HPSS Percussive to array with shape: {x.shape}")
         result: NDArrayReal = effects.percussive(x, **self.kwargs)
-        logger.debug(
-            f"HPSS Percussive applied, returning result with shape: {result.shape}"
-        )
+        logger.debug(f"HPSS Percussive applied, returning result with shape: {result.shape}")
         return result
 
 
@@ -166,16 +162,13 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
                 f"Typical values: 0.0 (no threshold), 1e-10 (small threshold)"
             )
 
-        super().__init__(
-            sampling_rate, norm=norm, axis=axis, threshold=threshold, fill=fill
-        )
+        super().__init__(sampling_rate, norm=norm, axis=axis, threshold=threshold, fill=fill)
         self.norm = norm
         self.axis = axis
         self.threshold = threshold
         self.fill = fill
         logger.debug(
-            f"Initialized Normalize operation with norm={norm}, "
-            f"axis={axis}, threshold={threshold}, fill={fill}"
+            f"Initialized Normalize operation with norm={norm}, axis={axis}, threshold={threshold}, fill={fill}"
         )
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
@@ -200,19 +193,14 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Perform normalization processing"""
-        logger.debug(
-            f"Applying normalization to array with shape: {x.shape}, "
-            f"norm={self.norm}, axis={self.axis}"
-        )
+        logger.debug(f"Applying normalization to array with shape: {x.shape}, norm={self.norm}, axis={self.axis}")
 
         # Apply librosa.util.normalize
         result: NDArrayReal = librosa_util.normalize(
             x, norm=self.norm, axis=self.axis, threshold=self.threshold, fill=self.fill
         )
 
-        logger.debug(
-            f"Normalization applied, returning result with shape: {result.shape}"
-        )
+        logger.debug(f"Normalization applied, returning result with shape: {result.shape}")
         return result
 
 
@@ -413,9 +401,7 @@ class Fade(AudioOperation[NDArrayReal, NDArrayReal]):
             return arr
 
         if 2 * self.fade_len >= n_samples:
-            raise ValueError(
-                "Fade length too long: 2*fade_ms must be less than signal length"
-            )
+            raise ValueError("Fade length too long: 2*fade_ms must be less than signal length")
 
         # Calculate Tukey window alpha parameter
         alpha = self.calculate_tukey_alpha(self.fade_len, n_samples)

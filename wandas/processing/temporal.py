@@ -80,9 +80,7 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for resampling operation"""
         logger.debug(f"Applying resampling to array with shape: {x.shape}")
-        result: NDArrayReal = librosa.resample(
-            x, orig_sr=self.sampling_rate, target_sr=self.target_sr
-        )
+        result: NDArrayReal = librosa.resample(x, orig_sr=self.sampling_rate, target_sr=self.target_sr)
         logger.debug(f"Resampling applied, returning result with shape: {result.shape}")
         return result
 
@@ -115,9 +113,7 @@ class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
         self.end = end
         self.start_sample = int(start * sampling_rate)
         self.end_sample = int(end * sampling_rate)
-        logger.debug(
-            f"Initialized Trim operation with start: {self.start}, end: {self.end}"
-        )
+        logger.debug(f"Initialized Trim operation with start: {self.start}, end: {self.end}")
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
@@ -325,15 +321,13 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
                 raise ValueError("A_weighting returned an unexpected type.")
 
         # Calculate RMS
-        result: NDArrayReal = librosa.feature.rms(
-            y=x, frame_length=self.frame_length, hop_length=self.hop_length
-        )[..., 0, :]
+        result: NDArrayReal = librosa.feature.rms(y=x, frame_length=self.frame_length, hop_length=self.hop_length)[
+            ..., 0, :
+        ]
 
         if self.dB:
             # Convert to dB
-            result = 20 * np.log10(
-                np.maximum(result / self.ref[..., np.newaxis], 1e-12)
-            )
+            result = 20 * np.log10(np.maximum(result / self.ref[..., np.newaxis], 1e-12))
         #
         logger.debug(f"RMS applied, returning result with shape: {result.shape}")
         return result

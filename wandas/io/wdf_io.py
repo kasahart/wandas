@@ -58,15 +58,11 @@ def save(
 
     # Check if file exists
     if path.exists() and not overwrite:
-        raise FileExistsError(
-            f"File {path} already exists. Set overwrite=True to overwrite."
-        )
+        raise FileExistsError(f"File {path} already exists. Set overwrite=True to overwrite.")
 
     # Currently only HDF5 is supported
     if format.lower() != "hdf5":
-        raise NotImplementedError(
-            f"Format {format} not supported. Only 'hdf5' is currently implemented."
-        )
+        raise NotImplementedError(f"Format {format} not supported. Only 'hdf5' is currently implemented.")
 
     # Compute data arrays (this triggers actual computation)
     logger.info("Computing data arrays for saving...")
@@ -89,9 +85,7 @@ def save(
         channels_grp = f.create_group("channels")
 
         # Store each channel
-        for i, (channel_data, ch_meta) in enumerate(
-            zip(computed_data, frame._channel_metadata)
-        ):
+        for i, (channel_data, ch_meta) in enumerate(zip(computed_data, frame._channel_metadata)):
             ch_grp = channels_grp.create_group(f"{i}")
 
             # Store channel data
@@ -122,9 +116,7 @@ def save(
                         try:
                             op_sub_grp.attrs[k] = json.dumps(v)
                         except (TypeError, OverflowError) as e:
-                            logger.warning(
-                                f"Could not serialize operation key '{k}': {e}"
-                            )
+                            logger.warning(f"Could not serialize operation key '{k}': {e}")
                             op_sub_grp.attrs[k] = str(v)
 
         # Store frame metadata
@@ -237,9 +229,7 @@ def load(path: str | Path, *, format: str = "hdf5") -> "ChannelFrame":
                     ch_extra = json.loads(ch_group.attrs["metadata_json"])
 
                 # Create ChannelMetadata object
-                channel_metadata = ChannelMetadata(
-                    label=label, unit=unit, extra=ch_extra
-                )
+                channel_metadata = ChannelMetadata(label=label, unit=unit, extra=ch_extra)
                 channel_metadata_list.append(channel_metadata)
 
         # Stack channel data into a single array

@@ -18,9 +18,7 @@ generate_sin = generate_sample.generate_sin_lazy
 __all__ = ["read_wav", "read_csv", "from_ndarray", "generate_sin"]
 
 
-def setup_wandas_logging(
-    level: str | int = "INFO", add_handler: bool = True
-) -> logging.Logger:
+def setup_wandas_logging(level: str | int = "INFO", add_handler: bool = True) -> logging.Logger:
     """
     Utility function to set up logging for the wandas library.
 
@@ -52,9 +50,7 @@ def setup_wandas_logging(
     # Optionally add a handler
     if add_handler and not logger.handlers:
         handler = logging.StreamHandler()
-        handler.setFormatter(
-            logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
         logger.addHandler(handler)
 
     return logger

@@ -25,12 +25,8 @@ def create_test_wav(tmpdir: str) -> str:
     duration = 1.0  # 1秒
 
     # 左右に振幅差をつけた直流データを生成
-    data_left = (
-        np.ones(int(sampling_rate * duration)) * 0.5
-    )  # 左チャンネル (直流信号、振幅0.5)
-    data_right = np.ones(
-        int(sampling_rate * duration)
-    )  # 右チャンネル (直流信号、振幅1.0)
+    data_left = np.ones(int(sampling_rate * duration)) * 0.5  # 左チャンネル (直流信号、振幅0.5)
+    data_right = np.ones(int(sampling_rate * duration))  # 右チャンネル (直流信号、振幅1.0)
 
     stereo_data = np.column_stack((data_left, data_right))
 
@@ -177,9 +173,7 @@ def test_read_wav_from_url():
         computed_data = channel_frame.compute()
         np.testing.assert_allclose(computed_data[0][0], 0.5, rtol=1e-5)
         np.testing.assert_allclose(computed_data[1][0], 1.0, rtol=1e-5)
-        assert (
-            channel_frame.label == "test.wav"
-        )  # Filename should be extracted from URL
+        assert channel_frame.label == "test.wav"  # Filename should be extracted from URL
 
 
 def test_read_wav_bytes() -> None:

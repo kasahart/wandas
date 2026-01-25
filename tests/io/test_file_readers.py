@@ -40,9 +40,7 @@ class TestSoundFileReader:
 
         re_test_data, _ = sf.read(self.test_file)
         # Store expected data for tests
-        self.expected_data: NDArrayReal = (
-            re_test_data.T
-        )  # Transpose to get (channels, samples)
+        self.expected_data: NDArrayReal = re_test_data.T  # Transpose to get (channels, samples)
         self.sample_rate: int = sample_rate
         self.n_samples: int = samples
         self.n_channels: int = 2
@@ -53,9 +51,7 @@ class TestSoundFileReader:
 
     def test_get_data_full_file(self) -> None:
         """Test reading the entire audio file."""
-        data = self.reader.get_data(
-            self.test_file, channels=[0, 1], start_idx=0, frames=self.n_samples
-        )
+        data = self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=self.n_samples)
 
         assert isinstance(data, np.ndarray)
         assert data.shape == (self.n_channels, self.n_samples)
@@ -63,9 +59,7 @@ class TestSoundFileReader:
 
     def test_get_data_single_channel(self) -> None:
         """Test reading a single channel."""
-        data = self.reader.get_data(
-            self.test_file, channels=[0], start_idx=0, frames=self.n_samples
-        )
+        data = self.reader.get_data(self.test_file, channels=[0], start_idx=0, frames=self.n_samples)
 
         assert isinstance(data, np.ndarray)
         assert data.shape == (1, self.n_samples)
@@ -88,9 +82,7 @@ class TestSoundFileReader:
     def test_get_data_frame_limit_small(self) -> None:
         """Test reading with a specified number of frames."""
         frames: int = 2000
-        data = self.reader.get_data(
-            self.test_file, channels=[0, 1], start_idx=0, frames=frames
-        )
+        data = self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=frames)
 
         assert isinstance(data, np.ndarray)
         assert data.shape == (self.n_channels, frames)
@@ -99,27 +91,19 @@ class TestSoundFileReader:
     def test_get_data_file_not_found(self) -> None:
         """Test error handling when file doesn't exist."""
         with pytest.raises(RuntimeError):
-            self.reader.get_data(
-                "nonexistent_file.wav", channels=[0], start_idx=0, frames=1000
-            )
+            self.reader.get_data("nonexistent_file.wav", channels=[0], start_idx=0, frames=1000)
 
-    def test_get_data_unexpected_array_type(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_get_data_unexpected_array_type(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test error when unexpected data type is returned."""
         monkeypatch.setattr(readers.np, "ndarray", tuple)
 
         with pytest.raises(ValueError, match="Unexpected data type after reading file"):
-            self.reader.get_data(
-                self.test_file, channels=[0, 1], start_idx=0, frames=self.n_samples
-            )
+            self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=self.n_samples)
 
     def test_get_data_with_offset(self) -> None:
         """Test reading with a start offset."""
         offset: int = 200
-        data = self.reader.get_data(
-            self.test_file, channels=[0, 1], start_idx=offset, frames=self.n_samples
-        )
+        data = self.reader.get_data(self.test_file, channels=[0, 1], start_idx=offset, frames=self.n_samples)
 
         assert isinstance(data, np.ndarray)
         assert data.shape == (self.n_channels, self.n_samples - offset)
@@ -128,9 +112,7 @@ class TestSoundFileReader:
     def test_get_data_frame_limit(self) -> None:
         """Test reading with a specified number of frames."""
         frames: int = 500
-        data = self.reader.get_data(
-            self.test_file, channels=[0, 1], start_idx=0, frames=frames
-        )
+        data = self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=frames)
 
         assert isinstance(data, np.ndarray)
         assert data.shape == (self.n_channels, frames)
@@ -139,9 +121,7 @@ class TestSoundFileReader:
     def test_get_data_invalid_channels(self) -> None:
         """Test error handling with invalid channel indices."""
         with pytest.raises(IndexError):
-            self.reader.get_data(
-                self.test_file, channels=[10], start_idx=0, frames=self.n_samples
-            )
+            self.reader.get_data(self.test_file, channels=[10], start_idx=0, frames=self.n_samples)
 
 
 class TestCSVFileReader:
@@ -167,9 +147,7 @@ class TestCSVFileReader:
         df.to_csv(self.test_file, index=False)
 
         # Store expected data for tests
-        self.expected_data: NDArrayReal = (
-            data_values.T
-        )  # Transpose to get (channels, samples)
+        self.expected_data: NDArrayReal = data_values.T  # Transpose to get (channels, samples)
         self.n_samples: int = n_rows
         self.n_channels: int = 3
 
@@ -280,9 +258,7 @@ class TestCSVFileReader:
 
     def test_get_data_full_file(self) -> None:
         """Test reading the entire CSV file."""
-        data = self.reader.get_data(
-            self.test_file, channels=[], start_idx=0, frames=self.n_samples
-        )
+        data = self.reader.get_data(self.test_file, channels=[], start_idx=0, frames=self.n_samples)
 
         assert isinstance(data, np.ndarray)
         assert data.shape == (self.n_channels, self.n_samples)
@@ -294,9 +270,7 @@ class TestCSVFileReader:
             0,
             2,
         ]  # First and third data channels (after time column removed)
-        data = self.reader.get_data(
-            self.test_file, channels=channels, start_idx=0, frames=self.n_samples
-        )
+        data = self.reader.get_data(self.test_file, channels=channels, start_idx=0, frames=self.n_samples)
 
         assert isinstance(data, np.ndarray)
         assert data.shape == (len(channels), self.n_samples)
@@ -305,26 +279,18 @@ class TestCSVFileReader:
     def test_get_data_channel_out_of_range(self) -> None:
         """Test error when requesting out-of-range channels."""
         with pytest.raises(ValueError, match="Requested channels"):
-            self.reader.get_data(
-                self.test_file, channels=[99], start_idx=0, frames=self.n_samples
-            )
+            self.reader.get_data(self.test_file, channels=[99], start_idx=0, frames=self.n_samples)
 
-    def test_get_data_unexpected_array_type(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_get_data_unexpected_array_type(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test error when unexpected data type is returned."""
 
         class FakeValues:
             T = [[1.0, 2.0], [3.0, 4.0]]
 
-        monkeypatch.setattr(
-            pd.DataFrame, "values", property(lambda _self: FakeValues())
-        )
+        monkeypatch.setattr(pd.DataFrame, "values", property(lambda _self: FakeValues()))
 
         with pytest.raises(ValueError, match="Unexpected data type after reading file"):
-            self.reader.get_data(
-                self.test_file, channels=[0, 1], start_idx=0, frames=self.n_samples
-            )
+            self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=self.n_samples)
 
 
 class TestFileReaderHelpers:
@@ -354,9 +320,7 @@ class TestGetFileReader:
     def test_get_file_reader_wav(self) -> None:
         """Test getting reader for WAV file."""
 
-        with mock.patch(
-            "pathlib.Path.suffix", new_callable=mock.PropertyMock
-        ) as mock_suffix:
+        with mock.patch("pathlib.Path.suffix", new_callable=mock.PropertyMock) as mock_suffix:
             mock_suffix.return_value = ".wav"
             reader: FileReader = get_file_reader(self.wav_path)
             assert isinstance(reader, SoundFileReader)
@@ -364,9 +328,7 @@ class TestGetFileReader:
     def test_get_file_reader_csv(self) -> None:
         """Test getting reader for CSV file."""
 
-        with mock.patch(
-            "pathlib.Path.suffix", new_callable=mock.PropertyMock
-        ) as mock_suffix:
+        with mock.patch("pathlib.Path.suffix", new_callable=mock.PropertyMock) as mock_suffix:
             mock_suffix.return_value = ".csv"
             reader: FileReader = get_file_reader(self.csv_path)
             assert isinstance(reader, CSVFileReader)
@@ -374,9 +336,7 @@ class TestGetFileReader:
     def test_get_file_reader_unsupported(self) -> None:
         """Test error when no suitable reader found."""
 
-        with mock.patch(
-            "pathlib.Path.suffix", new_callable=mock.PropertyMock
-        ) as mock_suffix:
+        with mock.patch("pathlib.Path.suffix", new_callable=mock.PropertyMock) as mock_suffix:
             mock_suffix.return_value = ".xyz"
             with pytest.raises(ValueError, match="No suitable file reader found"):
                 get_file_reader(self.unsupported_path)
@@ -386,9 +346,7 @@ class TestGetFileReader:
         assert isinstance(reader, SoundFileReader)
 
     def test_get_file_reader_requires_file_type_for_in_memory(self) -> None:
-        with pytest.raises(
-            ValueError, match="File type is required when the extension is missing"
-        ):
+        with pytest.raises(ValueError, match="File type is required when the extension is missing"):
             get_file_reader(b"in-memory")
 
 
@@ -410,9 +368,7 @@ class TestRegisterFileReader:
         assert len(_file_readers) == original_count + 1
 
         # Verify the new reader can be retrieved
-        with mock.patch(
-            "pathlib.Path.suffix", new_callable=mock.PropertyMock
-        ) as mock_suffix:
+        with mock.patch("pathlib.Path.suffix", new_callable=mock.PropertyMock) as mock_suffix:
             mock_suffix.return_value = ".custom"
             reader = get_file_reader("test.custom")
             assert isinstance(reader, CustomFileReader)

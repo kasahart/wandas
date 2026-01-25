@@ -3,9 +3,7 @@ import numpy as np
 from wandas.utils.types import NDArrayReal
 
 
-def load_sample_signal(
-    frequency: float = 5.0, sampling_rate: int = 100, duration: float = 1.0
-) -> NDArrayReal:
+def load_sample_signal(frequency: float = 5.0, sampling_rate: int = 100, duration: float = 1.0) -> NDArrayReal:
     """
     Generate a sample sine wave signal.
 

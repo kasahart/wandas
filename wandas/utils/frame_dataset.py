@@ -122,9 +122,7 @@ class FrameDataset(Generic[F], ABC):
         # Inherit other properties
         self.sampling_rate = self.sampling_rate or self._source_dataset.sampling_rate
         self.signal_length = self.signal_length or self._source_dataset.signal_length
-        self.file_extensions = (
-            self.file_extensions or self._source_dataset.file_extensions
-        )
+        self.file_extensions = self.file_extensions or self._source_dataset.file_extensions
         self._recursive = self._source_dataset._recursive
         self.folder_path = self._source_dataset.folder_path
 
@@ -139,9 +137,7 @@ class FrameDataset(Generic[F], ABC):
         file_paths = []
         for ext in self.file_extensions:
             pattern = f"**/*{ext}" if self._recursive else f"*{ext}"
-            file_paths.extend(
-                sorted(p for p in self.folder_path.glob(pattern) if p.is_file())
-            )
+            file_paths.extend(sorted(p for p in self.folder_path.glob(pattern) if p.is_file()))
 
         # Remove duplicates and sort
         file_paths = sorted(list(set(file_paths)))
@@ -156,9 +152,7 @@ class FrameDataset(Generic[F], ABC):
                 self._ensure_loaded(i)
             except Exception as e:
                 filepath = self._lazy_frames[i].file_path
-                logger.warning(
-                    f"Failed to load/transform index {i} ({filepath}): {str(e)}"
-                )
+                logger.warning(f"Failed to load/transform index {i} ({filepath}): {str(e)}")
         self._lazy_loading = False
 
     @abstractmethod
@@ -188,9 +182,7 @@ class FrameDataset(Generic[F], ABC):
     def _ensure_loaded(self, index: int) -> F | None:
         """Ensure the frame at the given index is loaded."""
         if not (0 <= index < len(self._lazy_frames)):
-            raise IndexError(
-                f"Index {index} is out of range (0-{len(self._lazy_frames) - 1})"
-            )
+            raise IndexError(f"Index {index} is out of range (0-{len(self._lazy_frames) - 1})")
 
         lazy_frame = self._lazy_frames[index]
 
@@ -211,9 +203,7 @@ class FrameDataset(Generic[F], ABC):
                 return lazy_frame.ensure_loaded(self._load_file)
         except Exception as e:
             f_path = lazy_frame.file_path
-            logger.error(
-                f"Failed to load or initialize index {index} ({f_path}): {str(e)}"
-            )
+            logger.error(f"Failed to load or initialize index {index} ({f_path}): {str(e)}")
             lazy_frame.frame = None
             lazy_frame.is_loaded = True
             lazy_frame.load_attempted = True
@@ -389,9 +379,7 @@ class FrameDataset(Generic[F], ABC):
         frame_type_name = "Unknown"
 
         # Count loaded frames
-        loaded_count = sum(
-            1 for lazy_frame in self._lazy_frames if lazy_frame.is_loaded
-        )
+        loaded_count = sum(1 for lazy_frame in self._lazy_frames if lazy_frame.is_loaded)
 
         # Get metadata from the first frame (if possible)
         first_frame: F | None = None
@@ -401,14 +389,10 @@ class FrameDataset(Generic[F], ABC):
                     first_frame = self._lazy_frames[0].frame
 
                 if first_frame:
-                    actual_sr = getattr(
-                        first_frame, "sampling_rate", self.sampling_rate
-                    )
+                    actual_sr = getattr(first_frame, "sampling_rate", self.sampling_rate)
                     frame_type_name = type(first_frame).__name__
             except Exception as e:
-                logger.warning(
-                    f"Error accessing the first frame during metadata retrieval: {e}"
-                )
+                logger.warning(f"Error accessing the first frame during metadata retrieval: {e}")
 
         return {
             "folder_path": str(self.folder_path),
@@ -464,9 +448,7 @@ class _SampledFrameDataset(FrameDataset[F]):
         original_file_paths = original_dataset._get_file_paths()
         try:
             sampled_file_paths = [original_file_paths[i] for i in sampled_indices]
-            self._lazy_frames = [
-                LazyFrame(file_path) for file_path in sampled_file_paths
-            ]
+            self._lazy_frames = [LazyFrame(file_path) for file_path in sampled_file_paths]
         except IndexError as e:
             logger.error("Sampled indices are out of range for the original dataset")
             logger.error(f"  Original dataset file count: {len(original_file_paths)}")
@@ -487,10 +469,7 @@ class _SampledFrameDataset(FrameDataset[F]):
         """
         # Check index range
         if not (0 <= index < len(self._lazy_frames)):
-            raise IndexError(
-                f"Index {index} is out of range for the sampled dataset "
-                f"(0-{len(self._lazy_frames) - 1})"
-            )
+            raise IndexError(f"Index {index} is out of range for the sampled dataset (0-{len(self._lazy_frames) - 1})")
 
         lazy_frame = self._lazy_frames[index]
 
@@ -514,8 +493,7 @@ class _SampledFrameDataset(FrameDataset[F]):
 
         except Exception as e:
             logger.error(
-                "Error loading frame in sampled dataset "
-                f"(index {index}, original index {original_index}): {str(e)}"
+                f"Error loading frame in sampled dataset (index {index}, original index {original_index}): {str(e)}"
             )
             lazy_frame.frame = None
             lazy_frame.is_loaded = True
@@ -677,11 +655,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         lazy_loading: bool = True,
     ) -> "ChannelFrameDataset":
         """Class method to create a ChannelFrameDataset from a folder."""
-        extensions = (
-            file_extensions
-            if file_extensions is not None
-            else [".wav", ".mp3", ".flac", ".csv"]
-        )
+        extensions = file_extensions if file_extensions is not None else [".wav", ".mp3", ".flac", ".csv"]
 
         return cls(
             folder_path,
@@ -726,9 +700,7 @@ class SpectrogramFrameDataset(FrameDataset[SpectrogramFrame]):
             "No method defined for directly loading SpectrogramFrames. Normally "
             "created from ChannelFrameDataset.stft()."
         )
-        raise NotImplementedError(
-            "No method defined for directly loading SpectrogramFrames"
-        )
+        raise NotImplementedError("No method defined for directly loading SpectrogramFrames")
 
     def plot(self, index: int, **kwargs: Any) -> None:
         """Plot the spectrogram at the specified index."""
@@ -736,9 +708,7 @@ class SpectrogramFrameDataset(FrameDataset[SpectrogramFrame]):
             frame = self._ensure_loaded(index)
 
             if frame is None:
-                logger.warning(
-                    f"Cannot plot index {index} as it failed to load/transform."
-                )
+                logger.warning(f"Cannot plot index {index} as it failed to load/transform.")
                 return
 
             plot_method = getattr(frame, "plot", None)
@@ -746,8 +716,7 @@ class SpectrogramFrameDataset(FrameDataset[SpectrogramFrame]):
                 plot_method(**kwargs)
             else:
                 logger.warning(
-                    f"Frame (index {index}, type {type(frame).__name__}) does not "
-                    f"have a plot method implemented."
+                    f"Frame (index {index}, type {type(frame).__name__}) does not have a plot method implemented."
                 )
         except Exception as e:
             logger.error(f"An error occurred while plotting index {index}: {e}")

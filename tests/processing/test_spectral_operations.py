@@ -52,9 +52,7 @@ class TestFFTOperation:
 
         self.freq: float = 500
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        self.signal_mono: NDArrayReal = (
-            np.array([np.sin(2 * np.pi * self.freq * t)]) * 4
-        )
+        self.signal_mono: NDArrayReal = np.array([np.sin(2 * np.pi * self.freq * t)]) * 4
 
         self.signal_stereo: NDArrayReal = np.array(
             [
@@ -301,9 +299,7 @@ class TestIFFTOperation:
         """Test that 1D input is properly reshaped."""
         signal_1d = np.zeros((1, self.n_fft // 2 + 1), dtype=complex)
         signal_1d[0, 5] = 1.0  # Add a frequency component
-        dask_signal_1d: DaArray = _da_from_array(
-            signal_1d.reshape(1, -1), chunks=(1, -1)
-        )
+        dask_signal_1d: DaArray = _da_from_array(signal_1d.reshape(1, -1), chunks=(1, -1))
 
         ifft_result = self.ifft.process(dask_signal_1d).compute()
 
@@ -314,9 +310,7 @@ class TestIFFTOperation:
         """Test that IFFT is properly registered in the operation registry."""
         assert get_operation("ifft") == IFFT
 
-        ifft_op = create_operation(
-            "ifft", self.sample_rate, n_fft=512, window="hamming"
-        )
+        ifft_op = create_operation("ifft", self.sample_rate, n_fft=512, window="hamming")
 
         assert isinstance(ifft_op, IFFT)
         assert ifft_op.sampling_rate == self.sample_rate
@@ -351,9 +345,7 @@ class TestSTFTOperation:
         # Create a test signal (1 second sine wave at 440 Hz)
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
         self.signal_mono: NDArrayReal = np.array([np.sin(2 * np.pi * 1000 * t)]) * 4
-        self.signal_stereo: NDArrayReal = np.array(
-            [np.sin(2 * np.pi * 1000 * t), np.sin(2 * np.pi * 2000 * t)]
-        )
+        self.signal_stereo: NDArrayReal = np.array([np.sin(2 * np.pi * 1000 * t), np.sin(2 * np.pi * 2000 * t)])
 
         # Create dask arrays
         self.dask_mono: DaArray = _da_from_array(self.signal_mono)
@@ -435,9 +427,7 @@ class TestSTFTOperation:
         stft_result = self.stft.process_array(self.signal_mono).compute()
 
         # Check the shape of the result
-        assert stft_result.ndim == 3, (
-            "Output should be 3D (channels, frequencies, time)"
-        )
+        assert stft_result.ndim == 3, "Output should be 3D (channels, frequencies, time)"
 
         # Expected shape: (channels, frequencies, time frames)
         sft = ScipySTFT(
@@ -452,9 +442,7 @@ class TestSTFTOperation:
         expected_n_frames = sft.t(self.signal_mono.shape[-1]).shape[0]
 
         expected_shape = (expected_n_channels, expected_n_freqs, expected_n_frames)
-        assert stft_result.shape == expected_shape, (
-            f"Expected {expected_shape}, got {stft_result.shape}"
-        )
+        assert stft_result.shape == expected_shape, f"Expected {expected_shape}, got {stft_result.shape}"
 
     def test_stft_shape_stereo(self) -> None:
         """Test STFT output shape for stereo signal."""
@@ -464,9 +452,7 @@ class TestSTFTOperation:
         # Process the stereo signal
         stft_result = self.stft.process_array(self.signal_stereo).compute()
 
-        assert stft_result.ndim == 3, (
-            "Output should be 3D (channels, frequencies, time)"
-        )
+        assert stft_result.ndim == 3, "Output should be 3D (channels, frequencies, time)"
 
         # Expected shape: (channels, frequencies, time frames)
         sft = ScipySTFT(
@@ -481,18 +467,14 @@ class TestSTFTOperation:
         expected_n_frames = sft.t(self.signal_mono.shape[-1]).shape[0]
 
         expected_shape = (expected_n_channels, expected_n_freqs, expected_n_frames)
-        assert stft_result.shape == expected_shape, (
-            f"Expected {expected_shape}, got {stft_result.shape}"
-        )
+        assert stft_result.shape == expected_shape, f"Expected {expected_shape}, got {stft_result.shape}"
 
     def test_stft_content(self) -> None:
         """Test STFT content correctness."""
         # Process the mono signal using the class under test
         stft_result = self.stft.process(self.dask_mono).compute()
 
-        assert stft_result.ndim == 3, (
-            "Output should be 3D (channels, frequencies, time)"
-        )
+        assert stft_result.ndim == 3, "Output should be 3D (channels, frequencies, time)"
 
         # Calculate the expected STFT using scipy.signal.ShortTimeFFT directly
         from scipy.signal import ShortTimeFFT as ScipySTFT
@@ -569,9 +551,7 @@ class TestSTFTOperation:
 
     def test_1d_input_handling(self) -> None:
         """Test that 1D input is properly reshaped to (1, samples)."""
-        signal_1d = np.sin(
-            2 * np.pi * 440 * np.linspace(0, 1, self.sample_rate, endpoint=False)
-        )
+        signal_1d = np.sin(2 * np.pi * 440 * np.linspace(0, 1, self.sample_rate, endpoint=False))
 
         stft_result = self.stft.process_array(signal_1d).compute()
 
@@ -597,9 +577,7 @@ class TestSTFTOperation:
         assert get_operation("istft") == ISTFT
 
         stft_op = create_operation("stft", self.sample_rate, n_fft=512, hop_length=128)
-        istft_op = create_operation(
-            "istft", self.sample_rate, n_fft=512, hop_length=128
-        )
+        istft_op = create_operation("istft", self.sample_rate, n_fft=512, hop_length=128)
 
         assert isinstance(stft_op, STFT)
         assert stft_op.n_fft == 512
@@ -640,10 +618,7 @@ class TestSTFTOperation:
         assert "win_length <= n_fft" in error_msg
         assert "1024" in error_msg
         # Check HOW
-        assert (
-            "win_length=1024 or smaller" in error_msg
-            or "increase n_fft to 2048" in error_msg
-        )
+        assert "win_length=1024 or smaller" in error_msg or "increase n_fft to 2048" in error_msg
 
     def test_negative_hop_length_error_message(self) -> None:
         """Test that negative hop_length provides helpful error message."""
@@ -732,9 +707,7 @@ class TestSTFTOperation:
         # Check WHY
         assert "win_length >= 4" in error_msg
         # Check HOW
-        assert (
-            "specify a larger win_length or provide hop_length explicitly" in error_msg
-        )
+        assert "specify a larger win_length or provide hop_length explicitly" in error_msg
 
     def test_istft_with_length_parameter(self) -> None:
         """Test ISTFT with explicit length parameter for output trimming."""
@@ -790,9 +763,7 @@ class TestNOctSynthesisOperation:
         pink_noise /= np.abs(pink_noise).max()  # Normalize
 
         self.signal_mono: NDArrayReal = np.array([pink_noise])
-        self.signal_stereo: NDArrayReal = np.array(
-            [pink_noise, white_noise / np.abs(white_noise).max()]
-        )
+        self.signal_stereo: NDArrayReal = np.array([pink_noise, white_noise / np.abs(white_noise).max()])
 
         # Create dask arrays
         self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, 1000))
@@ -898,12 +869,8 @@ class TestNOctSynthesisOperation:
         assert result.shape == (2, expected_signal_ch1.shape[1])
 
         # 各チャンネルの結果が外部ライブラリの結果と一致するか確認
-        np.testing.assert_allclose(
-            result[0], expected_signal_ch1[0], rtol=1e-5, atol=1e-5
-        )
-        np.testing.assert_allclose(
-            result[1], expected_signal_ch2[0], rtol=1e-5, atol=1e-5
-        )
+        np.testing.assert_allclose(result[0], expected_signal_ch1[0], rtol=1e-5, atol=1e-5)
+        np.testing.assert_allclose(result[1], expected_signal_ch2[0], rtol=1e-5, atol=1e-5)
 
         # ピンクノイズと白色ノイズのチャンネルで異なる結果が出ることを確認
         # 完全に異なるスペクトルから合成したので、結果も異なるはず
@@ -994,9 +961,7 @@ class TestWelchOperation:
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
         self.freq = 1000.0
         self.signal_mono: NDArrayReal = np.array([np.sin(2 * np.pi * self.freq * t)])
-        self.signal_stereo: NDArrayReal = np.array(
-            [np.sin(2 * np.pi * self.freq * t), np.sin(2 * np.pi * 2000 * t)]
-        )
+        self.signal_stereo: NDArrayReal = np.array([np.sin(2 * np.pi * self.freq * t), np.sin(2 * np.pi * 2000 * t)])
 
         # Create dask arrays
         self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, 1000))
@@ -1232,9 +1197,7 @@ class TestWelchOperation:
         # Check WHY
         assert "win_length >= 4" in error_msg
         # Check HOW
-        assert (
-            "specify a larger win_length or provide hop_length explicitly" in error_msg
-        )
+        assert "specify a larger win_length or provide hop_length explicitly" in error_msg
 
     def test_amplitude_scaling(self) -> None:
         """Test that Welch amplitude scaling is correct.
@@ -1286,9 +1249,7 @@ class TestCoherenceOperation:
         # Create test signals with different frequencies
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
         # 2つのチャンネルを持つ信号：1つは1000Hz、もう1つは関連する1100Hz
-        self.signal_stereo: NDArrayReal = np.array(
-            [np.sin(2 * np.pi * 1000 * t), np.sin(2 * np.pi * 1100 * t)]
-        )
+        self.signal_stereo: NDArrayReal = np.array([np.sin(2 * np.pi * 1000 * t), np.sin(2 * np.pi * 1100 * t)])
         # 3チャンネルの信号（1つはノイズ）
         noise = np.random.randn(self.sample_rate) * 0.1
         self.signal_multi: NDArrayReal = np.array(
@@ -1444,9 +1405,7 @@ class TestCSDOperation:
         # Create test signals with different frequencies
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
         # 2つのチャンネルを持つ信号：1つは1000Hz、もう1つは関連する1100Hz
-        self.signal_stereo: NDArrayReal = np.array(
-            [np.sin(2 * np.pi * 1000 * t), np.sin(2 * np.pi * 1100 * t)]
-        )
+        self.signal_stereo: NDArrayReal = np.array([np.sin(2 * np.pi * 1000 * t), np.sin(2 * np.pi * 1100 * t)])
         # 3チャンネルの信号（1つはノイズ）
         noise = np.random.randn(self.sample_rate) * 0.1
         self.signal_multi: NDArrayReal = np.array(
@@ -1545,9 +1504,7 @@ class TestCSDOperation:
             average=self.average,
         )
 
-        expected_result = csd_expected.transpose(1, 0, 2).reshape(
-            -1, csd_expected.shape[-1]
-        )
+        expected_result = csd_expected.transpose(1, 0, 2).reshape(-1, csd_expected.shape[-1])
         np.testing.assert_allclose(result, expected_result, rtol=1e-6)
 
         # CSD of a signal with itself should be real and positive
@@ -1618,9 +1575,7 @@ class TestTransferFunctionOperation:
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
         # 入力信号と出力信号のペアを作成（簡単な線形システムをシミュレート）
         input_signal = np.sin(2 * np.pi * 1000 * t)
-        output_signal = 2 * input_signal + 0.1 * np.random.randn(
-            len(t)
-        )  # ゲイン2と少しのノイズ
+        output_signal = 2 * input_signal + 0.1 * np.random.randn(len(t))  # ゲイン2と少しのノイズ
 
         self.signal_stereo: NDArrayReal = np.array([input_signal, output_signal])
 
@@ -1837,9 +1792,7 @@ class TestNOctSpectrumOperation:
         pink_noise /= np.abs(pink_noise).max()  # Normalize
 
         self.signal_mono: NDArrayReal = np.array([pink_noise])
-        self.signal_stereo: NDArrayReal = np.array(
-            [pink_noise, white_noise / np.abs(white_noise).max()]
-        )
+        self.signal_stereo: NDArrayReal = np.array([pink_noise, white_noise / np.abs(white_noise).max()])
 
         # Create dask arrays
         self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
@@ -1885,9 +1838,7 @@ class TestNOctSpectrumOperation:
         np.testing.assert_allclose(result[0], expected_spectrum, rtol=1e-6)
 
         # 周波数帯域数が適切かチェック
-        _, center_freqs = _center_freq(
-            fmin=self.fmin, fmax=self.fmax, n=self.n, G=self.G, fr=self.fr
-        )
+        _, center_freqs = _center_freq(fmin=self.fmin, fmax=self.fmax, n=self.n, G=self.G, fr=self.fr)
         assert result.shape[1] == len(center_freqs)
 
     def test_noct_spectrum_stereo(self) -> None:

@@ -19,12 +19,8 @@ class TestRoughnessFrame:
         self.overlap = 0.5
 
         # Create mock specific roughness data
-        self.data_mono = da.from_array(
-            np.random.random((self.n_bark, self.n_time)), chunks=(47, 5)
-        )
-        self.data_stereo = da.from_array(
-            np.random.random((2, self.n_bark, self.n_time)), chunks=(1, 47, 5)
-        )
+        self.data_mono = da.from_array(np.random.random((self.n_bark, self.n_time)), chunks=(47, 5))
+        self.data_stereo = da.from_array(np.random.random((2, self.n_bark, self.n_time)), chunks=(1, 47, 5))
 
         # Create bark axis (0.5 to 23.5 Bark)
         self.bark_axis = np.linspace(0.5, 23.5, self.n_bark)
@@ -69,9 +65,7 @@ class TestRoughnessFrame:
             )
 
         # Wrong number of Bark bands should fail
-        wrong_bark_data = da.from_array(
-            np.random.random((30, self.n_time)), chunks=(15, 5)
-        )
+        wrong_bark_data = da.from_array(np.random.random((30, self.n_time)), chunks=(15, 5))
         with pytest.raises(ValueError, match="Expected 47 Bark bands"):
             RoughnessFrame(
                 data=wrong_bark_data,
@@ -289,9 +283,7 @@ class TestRoughnessFrame:
             bark_axis=self.bark_axis,
             overlap=self.overlap,
         )
-        with pytest.raises(
-            NotImplementedError, match="DataFrame index is not supported"
-        ):
+        with pytest.raises(NotImplementedError, match="DataFrame index is not supported"):
             frame._get_dataframe_index()
 
     def test_apply_operation_not_implemented(self) -> None:
@@ -368,9 +360,7 @@ class TestRoughnessFrame:
             overlap=self.overlap,
         )
         # Create data with different time dimension
-        different_time_data = da.from_array(
-            np.random.random((self.n_bark, 5)), chunks=(47, 5)
-        )
+        different_time_data = da.from_array(np.random.random((self.n_bark, 5)), chunks=(47, 5))
         frame2 = RoughnessFrame(
             data=different_time_data,
             sampling_rate=self.sampling_rate,

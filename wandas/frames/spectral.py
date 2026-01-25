@@ -124,9 +124,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         if data.ndim == 1:
             data = data.reshape(1, -1)
         elif data.ndim > 2:
-            raise ValueError(
-                f"Data must be 1-dimensional or 2-dimensional. Shape: {data.shape}"
-            )
+            raise ValueError(f"Data must be 1-dimensional or 2-dimensional. Shape: {data.shape}")
         self.n_fft = n_fft
         self.window = window
         super().__init__(
@@ -205,9 +203,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         """
         mag: NDArrayReal = self.magnitude
         ref_values: NDArrayReal = np.array([ch.ref for ch in self._channel_metadata])
-        level: NDArrayReal = 20 * np.log10(
-            np.maximum(mag / ref_values[:, np.newaxis], 1e-12)
-        )
+        level: NDArrayReal = 20 * np.log10(np.maximum(mag / ref_values[:, np.newaxis], 1e-12))
 
         return level
 
@@ -286,9 +282,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         new_metadata = {**self.metadata}
         new_metadata[operation_name] = params
 
-        logger.debug(
-            f"Created new ChannelFrame with operation {operation_name} added to graph"
-        )
+        logger.debug(f"Created new ChannelFrame with operation {operation_name} added to graph")
         return self._create_new_instance(
             data=processed_data,
             metadata=new_metadata,
@@ -297,15 +291,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
 
     def _binary_op(
         self,
-        other: (
-            SpectralFrame
-            | int
-            | float
-            | complex
-            | NDArrayComplex
-            | NDArrayReal
-            | DaArray
-        ),
+        other: (SpectralFrame | int | float | complex | NDArrayComplex | NDArrayReal | DaArray),
         op: Callable[[DaArray, Any], DaArray],
         symbol: str,
     ) -> SpectralFrame:
@@ -350,18 +336,14 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         # Check if other is a ChannelFrame - improved type checking
         if isinstance(other, SpectralFrame):
             if self.sampling_rate != other.sampling_rate:
-                raise ValueError(
-                    "Sampling rates do not match. Cannot perform operation."
-                )
+                raise ValueError("Sampling rates do not match. Cannot perform operation.")
 
             # Directly operate on dask arrays (maintaining lazy execution)
             result_data = op(self._data, other._data)
 
             # Combine channel metadata
             merged_channel_metadata = []
-            for self_ch, other_ch in zip(
-                self._channel_metadata, other._channel_metadata
-            ):
+            for self_ch, other_ch in zip(self._channel_metadata, other._channel_metadata):
                 ch = self_ch.model_copy(deep=True)
                 ch["label"] = f"({self_ch['label']} {symbol} {other_ch['label']})"
                 merged_channel_metadata.append(ch)
@@ -538,9 +520,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         # Apply processing to data
         time_series = operation.process(self._data)
 
-        logger.debug(
-            f"Created new SpectralFrame with operation {operation_name} added to graph"
-        )
+        logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
         # Create new instance
         return ChannelFrame(
@@ -613,9 +593,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             If the sampling rate is not 48000 Hz, which is required for this operation.
         """
         if self.sampling_rate != 48000:
-            raise ValueError(
-                "noct_synthesis can only be used with a sampling rate of 48000 Hz."
-            )
+            raise ValueError("noct_synthesis can only be used with a sampling rate of 48000 Hz.")
         from ..processing import NOctSynthesis
         from .noct import NOctFrame
 
@@ -630,9 +608,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         # Apply processing to data
         spectrum_data = operation.process(self._data)
 
-        logger.debug(
-            f"Created new SpectralFrame with operation {operation_name} added to graph"
-        )
+        logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
         return NOctFrame(
             data=spectrum_data,

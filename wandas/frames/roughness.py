@@ -122,16 +122,11 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         """Initialize a RoughnessFrame."""
         # Validate dimensions
         if data.ndim not in (2, 3):
-            raise ValueError(
-                f"Data must be 2D or 3D (mono or multi-channel), got {data.ndim}D"
-            )
+            raise ValueError(f"Data must be 2D or 3D (mono or multi-channel), got {data.ndim}D")
 
         # Validate Bark bands
         if data.shape[-2] != 47:
-            raise ValueError(
-                f"Expected 47 Bark bands, got {data.shape[-2]} "
-                f"(data shape: {data.shape})"
-            )
+            raise ValueError(f"Expected 47 Bark bands, got {data.shape[-2]} (data shape: {data.shape})")
 
         if len(bark_axis) != 47:
             raise ValueError(f"bark_axis must have 47 elements, got {len(bark_axis)}")
@@ -267,9 +262,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
 
     def _get_dataframe_index(self) -> "pd.Index[Any]":
         """DataFrame index is not supported for RoughnessFrame."""
-        raise NotImplementedError(
-            "DataFrame index is not supported for RoughnessFrame."
-        )
+        raise NotImplementedError("DataFrame index is not supported for RoughnessFrame.")
 
     def to_dataframe(self) -> "pd.DataFrame":
         """DataFrame conversion is not supported for RoughnessFrame.
@@ -282,9 +275,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         NotImplementedError
             Always raised as DataFrame conversion is not supported.
         """
-        raise NotImplementedError(
-            "DataFrame conversion is not supported for RoughnessFrame."
-        )
+        raise NotImplementedError("DataFrame conversion is not supported for RoughnessFrame.")
 
     def _binary_op(
         self,
@@ -318,30 +309,21 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
 
         # Handle metadata and operation_history
         metadata = self.metadata.copy() if self.metadata else {}
-        operation_history = (
-            self.operation_history.copy() if self.operation_history else []
-        )
+        operation_history = self.operation_history.copy() if self.operation_history else []
 
         # Check if other is a RoughnessFrame
         if isinstance(other, RoughnessFrame):
             if self.sampling_rate != other.sampling_rate:
-                raise ValueError(
-                    f"Sampling rates do not match: {self.sampling_rate} vs "
-                    f"{other.sampling_rate}"
-                )
+                raise ValueError(f"Sampling rates do not match: {self.sampling_rate} vs {other.sampling_rate}")
 
             if self._data.shape != other._data.shape:
-                raise ValueError(
-                    f"Shape mismatch: {self._data.shape} vs {other._data.shape}"
-                )
+                raise ValueError(f"Shape mismatch: {self._data.shape} vs {other._data.shape}")
 
             # Apply operation
             result_data = op(self._data, other._data)
 
             # Update operation history
-            operation_history.append(
-                {"name": f"binary_op_{symbol}", "params": {"other": "RoughnessFrame"}}
-            )
+            operation_history.append({"name": f"binary_op_{symbol}", "params": {"other": "RoughnessFrame"}})
 
         else:
             # Scalar or array operation
@@ -350,9 +332,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
 
             result_data = op(self._data, other)
 
-            operation_history.append(
-                {"name": f"binary_op_{symbol}", "params": {"other": str(type(other))}}
-            )
+            operation_history.append({"name": f"binary_op_{symbol}", "params": {"other": str(type(other))}})
 
         # Create new instance
         return RoughnessFrame(
@@ -367,9 +347,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             previous=self,
         )
 
-    def _apply_operation_impl(
-        self, operation_name: str, **params: Any
-    ) -> "RoughnessFrame":
+    def _apply_operation_impl(self, operation_name: str, **params: Any) -> "RoughnessFrame":
         """
         Implementation of operation application.
 

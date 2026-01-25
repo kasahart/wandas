@@ -10,7 +10,7 @@
         {
             "label": "Run ruff check",
             "type": "shell",
-            "command": "uv run ruff check --fix wandas tests --config=pyproject.toml",
+            "command": "uv run ruff check --fix wandas tests --config=pyproject.toml -v",
             "problemMatcher": []
         },
         {

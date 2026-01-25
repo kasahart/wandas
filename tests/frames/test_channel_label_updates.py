@@ -166,9 +166,7 @@ class TestChainedOperationLabels:
             channel_metadata=[{"label": "raw", "unit": "", "extra": {}}],
         )
 
-        result = (
-            frame.normalize().high_pass_filter(cutoff=100).low_pass_filter(cutoff=1000)
-        )
+        result = frame.normalize().high_pass_filter(cutoff=100).low_pass_filter(cutoff=1000)
 
         assert result.labels == ["lpf(hpf(norm(raw)))"]
 
@@ -177,9 +175,7 @@ class TestChainedOperationLabels:
         frame = ChannelFrame(
             data=self.dask_data,
             sampling_rate=self.sample_rate,
-            channel_metadata=[
-                {"label": "ch0", "unit": "Pa", "extra": {"sensor_id": 123}}
-            ],
+            channel_metadata=[{"label": "ch0", "unit": "Pa", "extra": {"sensor_id": 123}}],
         )
 
         result = frame.normalize().low_pass_filter(cutoff=1000)
@@ -282,11 +278,7 @@ class TestEdgeCases:
         frame = ChannelFrame(
             data=self.dask_data,
             sampling_rate=self.sample_rate,
-            channel_metadata=[
-                ChannelMetadata(
-                    label="ch0", unit="Pa", ref=2e-5, extra={"calibration": 1.0}
-                )
-            ],
+            channel_metadata=[ChannelMetadata(label="ch0", unit="Pa", ref=2e-5, extra={"calibration": 1.0})],
         )
 
         result = frame.normalize()

@@ -28,18 +28,14 @@ class TestChannelMetadata:
 
     def test_getitem_main_fields(self) -> None:
         """Test dictionary-like access for main fields"""
-        metadata: ChannelMetadata = ChannelMetadata(
-            label="test_label", unit="Hz", ref=0.5
-        )
+        metadata: ChannelMetadata = ChannelMetadata(label="test_label", unit="Hz", ref=0.5)
         assert metadata["label"] == "test_label"
         assert metadata["unit"] == "Hz"
         assert metadata["ref"] == 0.5
 
     def test_getitem_extra_field(self) -> None:
         """Test dictionary-like access for extra fields"""
-        metadata: ChannelMetadata = ChannelMetadata(
-            extra={"source": "microphone", "calibrated": True}
-        )
+        metadata: ChannelMetadata = ChannelMetadata(extra={"source": "microphone", "calibrated": True})
         assert metadata["source"] == "microphone"
         assert metadata["calibrated"] is True
         # Non-existent key should return None

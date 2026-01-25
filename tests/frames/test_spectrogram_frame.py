@@ -18,9 +18,7 @@ _da_random_random = da.random.random  # type: ignore [unused-ignore]
 def sample_spectrogram() -> SpectrogramFrame:
     """スペクトログラムのサンプルデータを生成するフィクスチャ"""
     # 形状: (channels=2, freq_bins=513, time_frames=10)
-    complex_data: DaArray = _da_random_random((2, 65, 5)) + 1j * _da_random_random(
-        (2, 65, 5)
-    )
+    complex_data: DaArray = _da_random_random((2, 65, 5)) + 1j * _da_random_random((2, 65, 5))
 
     # メタデータの設定
     channel_metadata: list[ChannelMetadata] = [
@@ -45,9 +43,7 @@ class TestSpectrogramFrame:
     def test_spectrogram_init(self) -> None:
         """SpectrogramFrameの初期化テスト"""
         # 2D配列から初期化（単一チャネル）
-        data_2d: DaArray = _da_random_random((513, 10)) + 1j * _da_random_random(
-            (513, 10)
-        )
+        data_2d: DaArray = _da_random_random((513, 10)) + 1j * _da_random_random((513, 10))
         spec_2d: SpectrogramFrame = SpectrogramFrame(
             data=data_2d,
             sampling_rate=44100.0,
@@ -57,9 +53,7 @@ class TestSpectrogramFrame:
         assert spec_2d.shape == (513, 10)
 
         # 3D配列から初期化（複数チャネル）
-        data_3d: DaArray = _da_random_random((2, 513, 10)) + 1j * _da_random_random(
-            (2, 513, 10)
-        )
+        data_3d: DaArray = _da_random_random((2, 513, 10)) + 1j * _da_random_random((2, 513, 10))
         spec_3d: SpectrogramFrame = SpectrogramFrame(
             data=data_3d,
             sampling_rate=44100.0,
@@ -80,9 +74,7 @@ class TestSpectrogramFrame:
 
         # 不正な次元の配列（4次元）
         with pytest.raises(ValueError, match=r"Invalid data dimensions"):
-            data_4d: DaArray = _da_random_random(
-                (2, 513, 10, 2)
-            ) + 1j * _da_random_random((2, 513, 10, 2))
+            data_4d: DaArray = _da_random_random((2, 513, 10, 2)) + 1j * _da_random_random((2, 513, 10, 2))
             SpectrogramFrame(
                 data=data_4d,
                 sampling_rate=44100.0,
@@ -95,9 +87,7 @@ class TestSpectrogramFrame:
             ValueError,
             match=r"Invalid frequency bin count",
         ):
-            data_invalid_bins: DaArray = _da_random_random(
-                (2, 400, 10)
-            ) + 1j * _da_random_random((2, 400, 10))
+            data_invalid_bins: DaArray = _da_random_random((2, 400, 10)) + 1j * _da_random_random((2, 400, 10))
             SpectrogramFrame(
                 data=data_invalid_bins,
                 sampling_rate=44100.0,
@@ -169,9 +159,7 @@ class TestSpectrogramFrame:
         assert_array_almost_equal((spec_mult.data), (spec.data * 2.0))
         assert_array_almost_equal((spec_div.data), (spec.data / 2.0))
 
-    def test_binary_operations_sampling_rate_mismatch(
-        self, sample_spectrogram: SpectrogramFrame
-    ) -> None:
+    def test_binary_operations_sampling_rate_mismatch(self, sample_spectrogram: SpectrogramFrame) -> None:
         """
         サンプリングレートが異なるSpectrogramFrame同士の演算で
         例外が発生することをテスト
@@ -179,9 +167,7 @@ class TestSpectrogramFrame:
         spec1: SpectrogramFrame = sample_spectrogram
 
         # 異なるサンプリングレートのSpectrogramFrameを作成
-        complex_data: DaArray = _da_random_random((2, 65, 5)) + 1j * _da_random_random(
-            (2, 65, 5)
-        )
+        complex_data: DaArray = _da_random_random((2, 65, 5)) + 1j * _da_random_random((2, 65, 5))
         spec2: SpectrogramFrame = SpectrogramFrame(
             data=complex_data,
             sampling_rate=48000.0,  # 異なるサンプリングレート
@@ -203,9 +189,7 @@ class TestSpectrogramFrame:
         with pytest.raises(ValueError, match=r"Sampling rate mismatch"):
             _ = spec1 / spec2
 
-    def test_binary_operations_with_various_types(
-        self, sample_spectrogram: SpectrogramFrame
-    ) -> None:
+    def test_binary_operations_with_various_types(self, sample_spectrogram: SpectrogramFrame) -> None:
         """様々な型との二項演算をテスト"""
         import numpy as np
 
@@ -308,9 +292,7 @@ class TestSpectrogramFrame:
 
         # PlotStrategy をモック
         class MockPlotStrategy:
-            def plot(
-                self, frame: SpectrogramFrame, ax: Any | None = None, **kwargs: Any
-            ) -> None:
+            def plot(self, frame: SpectrogramFrame, ax: Any | None = None, **kwargs: Any) -> None:
                 return None
 
         # create_operation 関数をモック
@@ -320,17 +302,13 @@ class TestSpectrogramFrame:
         # モックを適用
         import wandas.visualization.plotting
 
-        monkeypatch.setattr(
-            wandas.visualization.plotting, "create_operation", mock_create_operation
-        )
+        monkeypatch.setattr(wandas.visualization.plotting, "create_operation", mock_create_operation)
 
         # プロット機能をテスト
         result: Any | None = sample_spectrogram.plot(plot_type="spectrogram")
         assert result is None
 
-    def test_get_additional_init_kwargs(
-        self, sample_spectrogram: SpectrogramFrame
-    ) -> None:
+    def test_get_additional_init_kwargs(self, sample_spectrogram: SpectrogramFrame) -> None:
         """_get_additional_init_kwargs メソッドのテスト"""
         spec: SpectrogramFrame = sample_spectrogram
 
@@ -390,9 +368,7 @@ class TestSpectrogramFrame:
         assert plot_args["ax"] == mock_ax
         assert plot_args["Aw"] is True
 
-    def test_apply_operation_impl(
-        self, sample_spectrogram: SpectrogramFrame, monkeypatch: Any
-    ) -> None:
+    def test_apply_operation_impl(self, sample_spectrogram: SpectrogramFrame, monkeypatch: Any) -> None:
         """_apply_operation_impl メソッドのテスト"""
 
         # 処理済みデータのサンプル作成
@@ -410,9 +386,7 @@ class TestSpectrogramFrame:
         mock_op = MockOperation()
 
         # create_operation 関数をモック
-        def mock_create_operation(
-            operation_name: str, sampling_rate: float, **params: Any
-        ) -> MockOperation:
+        def mock_create_operation(operation_name: str, sampling_rate: float, **params: Any) -> MockOperation:
             assert operation_name == "test_operation"
             assert sampling_rate == sample_spectrogram.sampling_rate
             assert params == {"param1": 10, "param2": "test"}
@@ -431,22 +405,16 @@ class TestSpectrogramFrame:
         original_create_new_instance = sample_spectrogram._create_new_instance
         create_new_instance_called = False
 
-        def mock_create_new_instance(
-            self: SpectrogramFrame, **kwargs: Any
-        ) -> SpectrogramFrame:
+        def mock_create_new_instance(self: SpectrogramFrame, **kwargs: Any) -> SpectrogramFrame:
             nonlocal create_new_instance_called
             create_new_instance_called = True
             return original_create_new_instance(**kwargs)
 
-        monkeypatch.setattr(
-            SpectrogramFrame, "_create_new_instance", mock_create_new_instance
-        )
+        monkeypatch.setattr(SpectrogramFrame, "_create_new_instance", mock_create_new_instance)
 
         # メソッドを実行（注: 実装には pass があるので、
         # 実際は test_fix_apply_operation_impl も作成すべき）
-        result = sample_spectrogram._apply_operation_impl(
-            "test_operation", param1=10, param2="test"
-        )
+        result = sample_spectrogram._apply_operation_impl("test_operation", param1=10, param2="test")
 
         # プロセスが呼び出されたことを確認
         assert mock_op.called
@@ -469,16 +437,12 @@ class TestSpectrogramFrame:
         # データが正しく更新されていることを確認
         assert_array_equal(result.data, processed_data)
 
-    def test_fix_apply_operation_impl(
-        self, sample_spectrogram: SpectrogramFrame, monkeypatch: Any
-    ) -> None:
+    def test_fix_apply_operation_impl(self, sample_spectrogram: SpectrogramFrame, monkeypatch: Any) -> None:
         """_apply_operation_impl メソッドの修正版テスト（pass 文を削除した場合）"""
 
         # 実装内の pass 文が削除されることを想定したテスト
         # SpectrogramFrame._apply_operation_impl のコピーから pass 文を削除
-        def fixed_apply_operation_impl(
-            self: SpectrogramFrame, operation_name: str, **params: Any
-        ) -> SpectrogramFrame:
+        def fixed_apply_operation_impl(self: SpectrogramFrame, operation_name: str, **params: Any) -> SpectrogramFrame:
             from wandas.processing import create_operation
 
             operation = create_operation(operation_name, self.sampling_rate, **params)
@@ -497,9 +461,7 @@ class TestSpectrogramFrame:
             )
 
         # モックを適用
-        monkeypatch.setattr(
-            SpectrogramFrame, "_apply_operation_impl", fixed_apply_operation_impl
-        )
+        monkeypatch.setattr(SpectrogramFrame, "_apply_operation_impl", fixed_apply_operation_impl)
 
         # 処理済みデータのサンプル作成
         processed_data = sample_spectrogram._data + 1.0
@@ -510,9 +472,7 @@ class TestSpectrogramFrame:
                 return processed_data
 
         # create_operation 関数をモック
-        def mock_create_operation(
-            operation_name: str, sampling_rate: float, **params: Any
-        ) -> MockOperation:
+        def mock_create_operation(operation_name: str, sampling_rate: float, **params: Any) -> MockOperation:
             return MockOperation()
 
         # モックを適用
@@ -525,9 +485,7 @@ class TestSpectrogramFrame:
         )
 
         # テスト実行
-        result = sample_spectrogram._apply_operation_impl(
-            "test_operation", param1=10, param2="test"
-        )
+        result = sample_spectrogram._apply_operation_impl("test_operation", param1=10, param2="test")
 
         # 結果の検証
         assert isinstance(result, SpectrogramFrame)
@@ -616,9 +574,7 @@ class TestSpectrogramFrame:
         # previousが正しく設定されていることを確認
         assert abs_spec.previous == spec
 
-    def test_abs_preserves_magnitude_property(
-        self, sample_spectrogram: SpectrogramFrame
-    ) -> None:
+    def test_abs_preserves_magnitude_property(self, sample_spectrogram: SpectrogramFrame) -> None:
         """abs()メソッドの結果がmagnitudeプロパティと一致することを確認"""
         spec: SpectrogramFrame = sample_spectrogram
 
@@ -847,9 +803,7 @@ class TestSpectrogramFrame:
             )
 
         # 4D配列（不正）
-        np_data_4d = np.random.random((2, 65, 10, 2)) + 1j * np.random.random(
-            (2, 65, 10, 2)
-        )
+        np_data_4d = np.random.random((2, 65, 10, 2)) + 1j * np.random.random((2, 65, 10, 2))
         with pytest.raises(ValueError, match=r"Invalid data shape"):
             SpectrogramFrame.from_numpy(
                 data=np_data_4d,
@@ -863,9 +817,7 @@ class TestSpectrogramFrame:
         import numpy as np
 
         # 周波数ビン数がn_fft//2+1と一致しない配列
-        np_data = np.random.random((2, 50, 10)) + 1j * np.random.random(
-            (2, 50, 10)
-        )  # 50 != 65
+        np_data = np.random.random((2, 50, 10)) + 1j * np.random.random((2, 50, 10))  # 50 != 65
         with pytest.raises(
             ValueError,
             match=r"Invalid frequency bin count",
@@ -901,9 +853,7 @@ class TestSpectrogramFrame:
         # 元のNumPy配列とdask配列のデータ型が一致することを確認
         assert spec_frame._data.dtype == np_data.dtype
 
-    def test_spectrogram_info_display(
-        self, sample_spectrogram: SpectrogramFrame
-    ) -> None:
+    def test_spectrogram_info_display(self, sample_spectrogram: SpectrogramFrame) -> None:
         """Test that info() displays spectrogram information without errors."""
         # info()メソッドがエラーなく実行できることを確認
         import io
@@ -925,9 +875,7 @@ class TestSpectrogramFrame:
         assert "Frequency resolution (ΔF):" in output
         assert "Time resolution (ΔT):" in output
 
-    def test_spectrogram_info_values_are_correct(
-        self, sample_spectrogram: SpectrogramFrame
-    ) -> None:
+    def test_spectrogram_info_values_are_correct(self, sample_spectrogram: SpectrogramFrame) -> None:
         """Test that info() displays correct values."""
         import io
         import sys
@@ -942,14 +890,8 @@ class TestSpectrogramFrame:
 
         # 理論値の計算
         delta_f = sample_spectrogram.sampling_rate / sample_spectrogram.n_fft
-        delta_t = (
-            sample_spectrogram.hop_length / sample_spectrogram.sampling_rate * 1000
-        )
-        total_duration = (
-            sample_spectrogram.n_frames
-            * sample_spectrogram.hop_length
-            / sample_spectrogram.sampling_rate
-        )
+        delta_t = sample_spectrogram.hop_length / sample_spectrogram.sampling_rate * 1000
+        total_duration = sample_spectrogram.n_frames * sample_spectrogram.hop_length / sample_spectrogram.sampling_rate
 
         # 出力に理論値が含まれることを確認
         assert f"{delta_f:.1f} Hz" in output
@@ -962,9 +904,7 @@ class TestSpectrogramFrame:
     def test_spectrogram_info_with_multichannel(self) -> None:
         """Test info() with multi-channel spectrogram."""
         # 4チャンネルのスペクトログラムを作成
-        complex_data: DaArray = _da_random_random((4, 65, 10)) + 1j * _da_random_random(
-            (4, 65, 10)
-        )
+        complex_data: DaArray = _da_random_random((4, 65, 10)) + 1j * _da_random_random((4, 65, 10))
 
         channel_metadata: list[ChannelMetadata] = [
             ChannelMetadata(label=f"ch{i}", unit="Pa", ref=1.0) for i in range(4)
@@ -995,9 +935,7 @@ class TestSpectrogramFrame:
         assert "['ch0', 'ch1', 'ch2', 'ch3']" in output
         assert "Window: hamming" in output
 
-    def test_spectrogram_info_with_operations(
-        self, sample_spectrogram: SpectrogramFrame
-    ) -> None:
+    def test_spectrogram_info_with_operations(self, sample_spectrogram: SpectrogramFrame) -> None:
         """Test info() shows operation history count."""
         import io
         import sys

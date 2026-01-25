@@ -87,6 +87,34 @@ plt.savefig(buffer, format="svg")
 print(buffer.getvalue())
 ```
 
+### Channel selection with `query` / チャンネル選択（`query` 引数）
+
+`get_channel` can select channels using a `query` argument based on metadata instead of indices or labels. Supported queries:
+`get_channel` はインデックスやラベルの代わりにメタデータを用いた `query` 引数でチャネルを選択できます。サポートされるクエリ:
+
+- `str`: Exact match for labels / ラベルの完全一致
+- `re.Pattern`: Regular expression search on labels / ラベルに対する正規表現検索
+- `callable(ChannelMetadata) -> bool`: Metadata predicate / メタデータ述語
+- `dict`: Match against attributes of `ChannelMetadata` (can use regex for values) / `ChannelMetadata` の属性に対する一致（値に正規表現を使うことも可能）
+
+Example / 例:
+
+```python
+import re
+
+# Get channel with label containing "acc" / ラベルに "acc" を含むチャネルを取得
+cf.get_channel(0, query=re.compile(r"acc"))
+
+# Get channel with unit 'g' using metadata predicate / メタデータ述語で取得（単位が g のチャネル）
+cf.get_channel(0, query=lambda ch: ch.unit == 'g')
+
+# Dict specification: match on model field and channel.extra key / dict 指定: model フィールド と channel.extra のキーでマッチ
+cf.get_channel(0, query={"unit": "g", "gain": 0.8})
+```
+
+Note: Keys specified in dict are only allowed for model fields of `ChannelMetadata` (pydantic) or existing keys in the channel's `extra`. Passing unknown keys will raise a `KeyError`.
+注意: dict で指定するキーは `ChannelMetadata` のモデルフィールド（pydantic）または既に存在するチャネルの `extra` キーのみ許容されます。不明なキーを渡すと `KeyError` が発生します。
+
 ## Next Steps / 次のステップ
 
 - [API Reference / APIリファレンス](../api/index.md)

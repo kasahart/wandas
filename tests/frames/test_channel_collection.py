@@ -192,12 +192,8 @@ class TestChannelFrameCollection:
             "operator": "Bob",
         }
 
-        cf1 = ChannelFrame.from_numpy(
-            arr1, sampling_rate=1000, ch_labels=["A"], metadata=metadata1
-        )
-        cf2 = ChannelFrame.from_numpy(
-            arr2, sampling_rate=1000, ch_labels=["B"], metadata=metadata2
-        )
+        cf1 = ChannelFrame.from_numpy(arr1, sampling_rate=1000, ch_labels=["A"], metadata=metadata1)
+        cf2 = ChannelFrame.from_numpy(arr2, sampling_rate=1000, ch_labels=["B"], metadata=metadata2)
 
         # add_channelでChannelFrameを追加
         cf3 = cf1.add_channel(cf2)
@@ -221,27 +217,21 @@ class TestChannelFrameCollection:
         arr3 = np.arange(16, 24)
 
         # 元のフレーム: すべてのChannelMetadataプロパティを設定
-        cf1 = ChannelFrame.from_numpy(
-            arr1, sampling_rate=1000, ch_labels=["original"], ch_units="Pa"
-        )
+        cf1 = ChannelFrame.from_numpy(arr1, sampling_rate=1000, ch_labels=["original"], ch_units="Pa")
         cf1._channel_metadata[0].ref = 20e-6  # 手動でref設定
         cf1._channel_metadata[0].extra["sensor_id"] = "SN001"
         cf1._channel_metadata[0].extra["location"] = "front"
         cf1._channel_metadata[0].extra["calibration_factor"] = 1.02
 
         # 追加するフレーム1: 異なる設定
-        cf2 = ChannelFrame.from_numpy(
-            arr2, sampling_rate=1000, ch_labels=["added1"], ch_units="V"
-        )
+        cf2 = ChannelFrame.from_numpy(arr2, sampling_rate=1000, ch_labels=["added1"], ch_units="V")
         cf2._channel_metadata[0].ref = 1.0  # V基準
         cf2._channel_metadata[0].extra["sensor_id"] = "SN002"
         cf2._channel_metadata[0].extra["location"] = "back"
         cf2._channel_metadata[0].extra["gain"] = 2.5
 
         # 追加するフレーム2: さらに異なる設定
-        cf3 = ChannelFrame.from_numpy(
-            arr3, sampling_rate=1000, ch_labels=["added2"], ch_units="m/s^2"
-        )
+        cf3 = ChannelFrame.from_numpy(arr3, sampling_rate=1000, ch_labels=["added2"], ch_units="m/s^2")
         cf3._channel_metadata[0].ref = 1e-6  # 加速度基準
         cf3._channel_metadata[0].extra["sensor_id"] = "SN003"
         cf3._channel_metadata[0].extra["location"] = "top"
@@ -282,12 +272,8 @@ class TestChannelFrameCollection:
         arr1 = np.arange(8)
         arr2 = np.arange(8, 16)
 
-        cf1 = ChannelFrame.from_numpy(
-            arr1, sampling_rate=1000, ch_labels=["A"], ch_units="Pa"
-        )
-        cf2 = ChannelFrame.from_numpy(
-            arr2, sampling_rate=1000, ch_labels=["B"], ch_units="V"
-        )
+        cf1 = ChannelFrame.from_numpy(arr1, sampling_rate=1000, ch_labels=["A"], ch_units="Pa")
+        cf2 = ChannelFrame.from_numpy(arr2, sampling_rate=1000, ch_labels=["B"], ch_units="V")
 
         cf3 = cf1.add_channel(cf2)
 
@@ -336,9 +322,7 @@ class TestChannelFrameCollection:
         cf1._channel_metadata[0].ref = 20e-6
         cf1._channel_metadata[0].extra["info"] = "test"
 
-        cf2 = ChannelFrame.from_numpy(
-            arr2, sampling_rate=1000, ch_labels=["added"], ch_units="V"
-        )
+        cf2 = ChannelFrame.from_numpy(arr2, sampling_rate=1000, ch_labels=["added"], ch_units="V")
         cf2._channel_metadata[0].ref = 1.0
         cf2._channel_metadata[0].extra["other"] = "info"
 

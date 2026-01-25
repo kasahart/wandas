@@ -42,9 +42,7 @@ class TestChannelTransform:
             result = self.channel_frame.fft(n_fft=4096, window="hamming")
 
             # オペレーションが正しく作成されたか確認
-            mock_create_op.assert_called_with(
-                "fft", self.sample_rate, n_fft=4096, window="hamming"
-            )
+            mock_create_op.assert_called_with("fft", self.sample_rate, n_fft=4096, window="hamming")
 
             # processメソッドが呼び出されたか確認
             mock_fft.process.assert_called_once_with(self.channel_frame._data)
@@ -189,9 +187,7 @@ class TestChannelTransform:
             # noct_spectrumを呼び出す
             fmin, fmax, n = 20, 20000, 3
             G, fr = 10, 1000  # noqa: N806
-            result = self.channel_frame.noct_spectrum(
-                fmin=fmin, fmax=fmax, n=n, G=G, fr=fr
-            )
+            result = self.channel_frame.noct_spectrum(fmin=fmin, fmax=fmax, n=n, G=G, fr=fr)
 
             # オペレーションが正しく作成されたか確認
             mock_create_op.assert_called_with(
@@ -238,9 +234,7 @@ class TestChannelTransform:
         hop_length = 128
 
         # ChannelFrameメソッドを使用してCSDを計算
-        csd_frame = cf.csd(
-            n_fft=n_fft, win_length=win_length, hop_length=hop_length, window="hamming"
-        )
+        csd_frame = cf.csd(n_fft=n_fft, win_length=win_length, hop_length=hop_length, window="hamming")
 
         # 実際のデータを取得するために計算
         csd_data = csd_frame.compute()
@@ -294,9 +288,7 @@ class TestChannelTransform:
         # 出力信号（100Hzでゲイン2.0、200Hzでゲイン1.5を持つ）
         # より現実的にするためにノイズを追加
         output_sig = (
-            2 * np.sin(2 * np.pi * 100 * t)
-            + 0.75 * np.sin(2 * np.pi * 200 * t)
-            + 0.05 * np.random.randn(len(t))
+            2 * np.sin(2 * np.pi * 100 * t) + 0.75 * np.sin(2 * np.pi * 200 * t) + 0.05 * np.random.randn(len(t))
         )
 
         # 2チャンネル信号を作成
@@ -311,9 +303,7 @@ class TestChannelTransform:
         hop_length = 128
 
         # ChannelFrameメソッドを使用して伝達関数を計算
-        tf_frame = cf.transfer_function(
-            n_fft=n_fft, win_length=win_length, hop_length=hop_length, window="hamming"
-        )
+        tf_frame = cf.transfer_function(n_fft=n_fft, win_length=win_length, hop_length=hop_length, window="hamming")
 
         # 実際のデータを取得するために計算
         tf_data = tf_frame.compute()
@@ -361,11 +351,7 @@ class TestChannelTransform:
 
         # 関連性のある2つの信号を作成
         sig1 = np.sin(2 * np.pi * 100 * t) + 0.5 * np.sin(2 * np.pi * 200 * t)
-        sig2 = (
-            0.7 * np.sin(2 * np.pi * 100 * t)
-            + 0.4 * np.sin(2 * np.pi * 200 * t)
-            + 0.3 * np.sin(2 * np.pi * 300 * t)
-        )
+        sig2 = 0.7 * np.sin(2 * np.pi * 100 * t) + 0.4 * np.sin(2 * np.pi * 200 * t) + 0.3 * np.sin(2 * np.pi * 300 * t)
 
         # 2チャンネル信号を作成
         sigs = np.array([sig1, sig2])
@@ -379,9 +365,7 @@ class TestChannelTransform:
         hop_length = 128
 
         # ChannelFrameメソッドを使用してコヒーレンスを計算
-        coherence_frame = cf.coherence(
-            n_fft=n_fft, win_length=win_length, hop_length=hop_length, window="hamming"
-        )
+        coherence_frame = cf.coherence(n_fft=n_fft, win_length=win_length, hop_length=hop_length, window="hamming")
 
         # 実際のデータを取得するために計算
         coherence_data = coherence_frame.compute()
@@ -400,12 +384,8 @@ class TestChannelTransform:
         assert np.all(coherence_data <= 1.001)  # 許容誤差を追加
 
         # 自己コヒーレンスは1.0に近いはず
-        assert np.isclose(
-            coherence_data[0, idx_100hz], 1.0, rtol=1e-5
-        )  # チャンネル0自己コヒーレンス
-        assert np.isclose(
-            coherence_data[3, idx_100hz], 1.0, rtol=1e-5
-        )  # チャンネル1自己コヒーレンス
+        assert np.isclose(coherence_data[0, idx_100hz], 1.0, rtol=1e-5)  # チャンネル0自己コヒーレンス
+        assert np.isclose(coherence_data[3, idx_100hz], 1.0, rtol=1e-5)  # チャンネル1自己コヒーレンス
 
         # チャンネル間のコヒーレンスを100Hzと300Hzで確認
         # 100Hzでは両方の信号に成分があるので高いコヒーレンス
@@ -494,19 +474,13 @@ class TestChannelTransform:
             )
 
             assert predicted_shape[-1] == actual_n_samples, (
-                f"Config {config}: "
-                f"Predicted samples {predicted_shape[-1]} != "
-                f"n_samples {actual_n_samples}"
+                f"Config {config}: Predicted samples {predicted_shape[-1]} != n_samples {actual_n_samples}"
             )
 
             assert actual_shape[-1] == actual_n_samples, (
-                f"Config {config}: "
-                f"actual_data.shape[-1] ({actual_shape[-1]}) != "
-                f"n_samples ({actual_n_samples})"
+                f"Config {config}: actual_data.shape[-1] ({actual_shape[-1]}) != n_samples ({actual_n_samples})"
             )
 
             print(
-                f"✓ Config {config}: "
-                f"predicted={predicted_shape}, actual={actual_shape}, "
-                f"n_samples={actual_n_samples}"
+                f"✓ Config {config}: predicted={predicted_shape}, actual={actual_shape}, n_samples={actual_n_samples}"
             )

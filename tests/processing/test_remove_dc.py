@@ -120,9 +120,7 @@ class TestRemoveDC:
         sampling_rate = 1000
         signal_data = np.random.randn(1, 1000) + 2.0
 
-        signal = wd.from_numpy(
-            data=signal_data, sampling_rate=sampling_rate, ch_labels=["Test"]
-        )
+        signal = wd.from_numpy(data=signal_data, sampling_rate=sampling_rate, ch_labels=["Test"])
 
         clean_signal = signal.remove_dc()
 
@@ -179,9 +177,7 @@ class TestRemoveDC:
         time = np.linspace(0, duration, int(duration * sampling_rate))
 
         # Signal with DC offset and high-frequency noise
-        signal_data = (
-            2.0 + np.sin(2 * np.pi * 50 * time) + 0.1 * np.random.randn(len(time))
-        )
+        signal_data = 2.0 + np.sin(2 * np.pi * 50 * time) + 0.1 * np.random.randn(len(time))
 
         signal = wd.from_numpy(
             data=signal_data.reshape(1, -1),
@@ -195,6 +191,4 @@ class TestRemoveDC:
         # Check that both operations are in history
         assert len(processed.operation_history) >= 2
         assert any(op["operation"] == "remove_dc" for op in processed.operation_history)
-        assert any(
-            op["operation"] == "lowpass_filter" for op in processed.operation_history
-        )
+        assert any(op["operation"] == "lowpass_filter" for op in processed.operation_history)

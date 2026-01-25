@@ -38,9 +38,7 @@ class TestOperationRegistry:
         class TestOperation(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "test_register_op"
 
-            def calculate_output_shape(
-                self, input_shape: tuple[int, ...]
-            ) -> tuple[int, ...]:
+            def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
                 return input_shape
 
             def _process_array(self, x: NDArrayReal) -> NDArrayReal:
@@ -61,9 +59,7 @@ class TestOperationRegistry:
         class InvalidClass:
             pass
 
-        with pytest.raises(
-            TypeError, match="Strategy class must inherit from AudioOperation."
-        ):
+        with pytest.raises(TypeError, match="Strategy class must inherit from AudioOperation."):
             register_operation(InvalidClass)  # type: ignore [unused-ignore]
 
     def test_create_operation_with_different_types(self) -> None:
@@ -90,9 +86,7 @@ class TestAudioOperation:
             def _process_array(self, x: NDArrayReal) -> NDArrayReal:
                 return x * 2
 
-            def calculate_output_shape(
-                self, input_shape: tuple[int, ...]
-            ) -> tuple[int, ...]:
+            def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
                 return input_shape
 
         self.TestOp = TestOp
@@ -143,9 +137,7 @@ class TestAudioOperation:
             def _process_array(self, x: NDArrayReal) -> NDArrayReal:
                 return x
 
-            def calculate_output_shape(
-                self, input_shape: tuple[int, ...]
-            ) -> tuple[int, ...]:
+            def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
                 return input_shape
 
         # Invalid parameters should raise during initialization

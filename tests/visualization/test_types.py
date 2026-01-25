@@ -437,9 +437,7 @@ class TestTypedDictIntegration:
         for freq in [440, 880, 1320]:
             t = np.linspace(0, 1, 16000)
             signal = np.sin(2 * np.pi * freq * t)
-            cf = ws.ChannelFrame.from_numpy(
-                data=signal.reshape(1, -1), sampling_rate=16000, label=f"{freq}Hz"
-            )
+            cf = ws.ChannelFrame.from_numpy(data=signal.reshape(1, -1), sampling_rate=16000, label=f"{freq}Hz")
             signals.append(cf)
 
         # Single config for all signals

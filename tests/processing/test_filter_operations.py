@@ -26,9 +26,7 @@ class TestHighPassFilter:
         self.sample_rate: int = 16000
         self.cutoff: float = 500.0
         self.order: int = 4
-        self.hpf: HighPassFilter = HighPassFilter(
-            self.sample_rate, self.cutoff, self.order
-        )
+        self.hpf: HighPassFilter = HighPassFilter(self.sample_rate, self.cutoff, self.order)
 
         # Create sample data with low and high frequency components
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)  # 1 second of audio
@@ -72,12 +70,8 @@ class TestHighPassFilter:
         high_idx = np.argmin(np.abs(freq_bins - self.high_freq))
 
         # Low frequency should be attenuated, high frequency mostly preserved
-        assert (
-            fft_filtered[low_idx] < 0.1 * fft_original[low_idx]
-        )  # At least 90% attenuation
-        assert (
-            fft_filtered[high_idx] > 0.9 * fft_original[high_idx]
-        )  # At most 10% attenuation
+        assert fft_filtered[low_idx] < 0.1 * fft_original[low_idx]  # At least 90% attenuation
+        assert fft_filtered[high_idx] > 0.9 * fft_original[high_idx]  # At most 10% attenuation
 
     def test_invalid_cutoff_frequency(self) -> None:
         """Test that invalid cutoff frequencies raise ValueError."""
@@ -115,9 +109,7 @@ class TestLowPassFilter:
         self.sample_rate: int = 16000
         self.cutoff: float = 500.0
         self.order: int = 4
-        self.lpf: LowPassFilter = LowPassFilter(
-            self.sample_rate, self.cutoff, self.order
-        )
+        self.lpf: LowPassFilter = LowPassFilter(self.sample_rate, self.cutoff, self.order)
 
         # Create sample data with low and high frequency components
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)  # 1 second of audio
@@ -161,12 +153,8 @@ class TestLowPassFilter:
         high_idx = np.argmin(np.abs(freq_bins - self.high_freq))
 
         # Low frequency should be preserved, high frequency attenuated
-        assert (
-            fft_filtered[low_idx] > 0.9 * fft_original[low_idx]
-        )  # At most 10% attenuation
-        assert (
-            fft_filtered[high_idx] < 0.1 * fft_original[high_idx]
-        )  # At least 90% attenuation
+        assert fft_filtered[low_idx] > 0.9 * fft_original[low_idx]  # At most 10% attenuation
+        assert fft_filtered[high_idx] < 0.1 * fft_original[high_idx]  # At least 90% attenuation
 
     def test_invalid_cutoff_frequency(self) -> None:
         """Test that invalid cutoff frequencies raise ValueError."""
@@ -246,10 +234,7 @@ class TestAWeightingOperation:
         assert int(20 * np.log10(fft_filtered[mid_idx] / fft_original[mid_idx])) == 0
 
         # High frequency should be somewhat attenuated 小数点1桁まで確認。
-        assert (
-            int(20 * np.log10(fft_filtered[high_idx] / fft_original[high_idx]) * 10)
-            == -2.5 * 10
-        )
+        assert int(20 * np.log10(fft_filtered[high_idx] / fft_original[high_idx]) * 10) == -2.5 * 10
 
     def test_process(self) -> None:
         """Test the process method with Dask array."""
@@ -263,9 +248,7 @@ class TestAWeightingOperation:
         computed_result = result.compute()
         assert computed_result.shape == self.signal.shape
 
-        with mock.patch.object(
-            DaArray, "compute", return_value=self.signal
-        ) as mock_compute:
+        with mock.patch.object(DaArray, "compute", return_value=self.signal) as mock_compute:
             # Just creating the object shouldn't call compute
             # Verify compute hasn't been called
 
@@ -296,9 +279,7 @@ class TestBandPassFilter:
         self.low_cutoff: float = 300.0
         self.high_cutoff: float = 1000.0
         self.order: int = 4
-        self.bpf: BandPassFilter = BandPassFilter(
-            self.sample_rate, self.low_cutoff, self.high_cutoff, self.order
-        )
+        self.bpf: BandPassFilter = BandPassFilter(self.sample_rate, self.low_cutoff, self.high_cutoff, self.order)
 
         # Create sample data with low, mid, and high frequency components
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)  # 1 second of audio
@@ -313,9 +294,7 @@ class TestBandPassFilter:
         above_band_signal = np.sin(2 * np.pi * self.above_band_freq * t)
 
         # Single channel signal with all components
-        self.signal: NDArrayReal = np.array(
-            [below_band_signal + in_band_signal + above_band_signal]
-        )
+        self.signal: NDArrayReal = np.array([below_band_signal + in_band_signal + above_band_signal])
 
         # Create dask array
         self.dask_signal: DaArray = _da_from_array(self.signal, chunks=(1, 500))
@@ -329,9 +308,7 @@ class TestBandPassFilter:
         assert bpf.order == 4  # Default value
 
         custom_order = 6
-        bpf = BandPassFilter(
-            self.sample_rate, self.low_cutoff, self.high_cutoff, order=custom_order
-        )
+        bpf = BandPassFilter(self.sample_rate, self.low_cutoff, self.high_cutoff, order=custom_order)
         assert bpf.order == custom_order
 
     def test_filter_effect(self) -> None:
@@ -351,19 +328,13 @@ class TestBandPassFilter:
         above_idx = np.argmin(np.abs(freq_bins - self.above_band_freq))
 
         # Below band frequency should be attenuated
-        assert (
-            fft_filtered[below_idx] < 0.1 * fft_original[below_idx]
-        )  # At least 90% attenuation
+        assert fft_filtered[below_idx] < 0.1 * fft_original[below_idx]  # At least 90% attenuation
 
         # In-band frequency should be preserved
-        assert (
-            fft_filtered[in_idx] > 0.9 * fft_original[in_idx]
-        )  # At most 10% attenuation
+        assert fft_filtered[in_idx] > 0.9 * fft_original[in_idx]  # At most 10% attenuation
 
         # Above band frequency should be attenuated
-        assert (
-            fft_filtered[above_idx] < 0.1 * fft_original[above_idx]
-        )  # At least 90% attenuation
+        assert fft_filtered[above_idx] < 0.1 * fft_original[above_idx]  # At least 90% attenuation
 
     def test_invalid_cutoff_frequencies(self) -> None:
         """Test that invalid cutoff frequencies raise ValueError."""

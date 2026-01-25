@@ -80,11 +80,7 @@ def test_formatter():
 
     # フォーマッターのフォーマット文字列をチェック
     formatter = handler.formatter
-    format_str = (
-        formatter._style._fmt
-        if formatter is not None and hasattr(formatter, "_style")
-        else str(formatter)
-    )
+    format_str = formatter._style._fmt if formatter is not None and hasattr(formatter, "_style") else str(formatter)
     assert "%(asctime)s" in format_str
     assert "%(name)s" in format_str
     assert "%(levelname)s" in format_str
