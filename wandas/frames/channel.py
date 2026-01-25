@@ -1230,7 +1230,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             if arr.shape[0] != 1:
                 arr = arr.reshape((1, -1))
         else:
-            raise TypeError("add_channel: ndarray/dask/同型Frameのみ対応")
+            raise TypeError("add_channel: ndarray/dask/ChannelFrame")
         if arr.shape[1] != self.n_samples:
             if align == "pad":
                 pad_len = self.n_samples - arr.shape[1]

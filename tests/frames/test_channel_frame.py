@@ -434,7 +434,7 @@ def test_add_channel_inplace_updates_original() -> None:
 
 def test_add_channel_unsupported_type_raises() -> None:
     base = ChannelFrame(data=_da_from_array(np.zeros((1, 4)), chunks=(1, -1)), sampling_rate=16000)
-    with pytest.raises(TypeError, match=r"add_channel: ndarray/dask/同型Frameのみ対応"):
+    with pytest.raises(TypeError, match=r"add_channel: ndarray/dask/ChannelFrame"):
         base.add_channel(12345)  # unsupported type
 
 
