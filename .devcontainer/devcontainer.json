@@ -16,7 +16,11 @@
         "vscode": {
             "settings": {
                 "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
-                "python.terminal.activateEnvironment": true
+                "python.terminal.activateEnvironment": true,
+                "terminal.integrated.env.linux": {
+                    "UV_PROJECT_ENVIRONMENT": "${containerWorkspaceFolder}/.venv"
+                },
+                "ruff.configuration": "${containerWorkspaceFolder}/pyproject.toml"
             },
             "extensions": [
                 "DavidAnson.vscode-markdownlint",
@@ -37,7 +41,7 @@
     "containerEnv": {
         "PYTHONUNBUFFERED": "True",
         "UV_LINK_MODE": "copy",
-        "UV_PROJECT_ENVIRONMENT": "${containerWorkspaceFolder}/.venv"
+        "UV_PROJECT_ENVIRONMENT": "${containerWorkspaceFolder}/.venv",
     },
     "mounts": [
         // For Linux/macOS

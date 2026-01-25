@@ -2,6 +2,12 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "Create Virtual Environment",
+            "type": "shell",
+            "command": "uv venv --allow-existing .venv && uv sync --frozen --all-groups",
+            "problemMatcher": []
+        },
+        {
             "label": "Run ruff check",
             "type": "shell",
             "command": "uv run ruff check --fix wandas tests --config=pyproject.toml",
