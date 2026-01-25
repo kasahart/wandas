@@ -15,7 +15,8 @@ These instructions are for AI coding agents (planner, implementer, reviewer) wor
 ## 2. Development Workflow & Commands
 - **Environment**: use `uv` for all Python commands (see `pyproject.toml`).
 - **Setup**:
-  - `uv sync` to install dependencies.
+  - If a `.venv` virtual environment is missing, run the VS Code task "Create Virtual Environment" (see `.vscode/tasks.json`) which executes:
+    - `uv venv --allow-existing .venv && uv sync --frozen --all-groups`
 - **Tests** (or VS Code tasks with the same names):
   - `uv run pytest -n auto` (task: `Run pytest`) for normal runs.
   - `uv run pytest` (task: `Run pytest (serial)`) when debugging or tests are not parallel‑safe.
