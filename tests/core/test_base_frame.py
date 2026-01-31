@@ -785,15 +785,21 @@ class TestBaseFrameUtilityMethods:
 
     def test_visualize_graph_with_filename(self) -> None:
         """Test visualize_graph with custom filename."""
-        result = self.channel_frame.visualize_graph(filename="test_graph.png")
-        # Result can be Image, Widget, or None depending on environment
-        assert result is not None
+        with mock.patch.object(DaArray, "visualize") as mock_visualize:
+            mock_return_value = mock.MagicMock()
+            mock_visualize.return_value = mock_return_value
+            result = self.channel_frame.visualize_graph(filename="test_graph.png")
+            # Result is the mocked return value
+            assert result is mock_return_value
 
     def test_visualize_graph_without_filename(self) -> None:
         """Test visualize_graph without filename (auto-generated)."""
-        result = self.channel_frame.visualize_graph()
-        # Result can be Image, Widget, or None depending on environment
-        assert result is not None
+        with mock.patch.object(DaArray, "visualize") as mock_visualize:
+            mock_return_value = mock.MagicMock()
+            mock_visualize.return_value = mock_return_value
+            result = self.channel_frame.visualize_graph()
+            # Result is the mocked return value
+            assert result is mock_return_value
 
     def test_visualize_graph_exception_handling(self) -> None:
         """Test visualize_graph handles exceptions gracefully."""
