@@ -11,7 +11,6 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from dask.array.core import Array as DaArray
-from IPython.display import Image as IPythonImage
 from matplotlib.axes import Axes
 from pydantic import ValidationError
 
@@ -646,7 +645,7 @@ class BaseFrame(ABC, Generic[T]):
             return result.astype(dtype)
         return result
 
-    def visualize_graph(self, filename: str | None = None) -> IPythonImage | None:
+    def visualize_graph(self, filename: str | None = None) -> Any:
         """
         Visualize the computation graph and save it to a file.
 
@@ -664,7 +663,7 @@ class BaseFrame(ABC, Generic[T]):
 
         Returns
         -------
-        IPython.display.Image or None
+        Image or SVG or Any or None
             In Jupyter environments: Returns an IPython.display.Image object
             that can be displayed inline.
             In other environments: Returns None after saving the graph to file.
