@@ -41,12 +41,20 @@ import wandas as wd
 
 # WAVファイルを読み込んで解析 / Load and analyze WAV file
 signal = wd.read_wav("audio.wav")
-signal.describe()  # 信号の概要を表示 / Display signal overview
-
-# フィルタリングと可視化 / Filtering and visualization
-filtered = signal.low_pass_filter(cutoff=1000)
-filtered.fft().plot(title="周波数スペクトル / Frequency Spectrum")
+signal.describe()  # 信号の時系列信号・パワースペクトル・スペクトログラムを表示 / Display time series, power spectrum, and spectrogram
 ```
+
+![cf.describe](https://github.com/kasahart/wandas/blob/main/images/read_wav_describe.png?raw=true)
+
+```python
+# Example of applying a low-pass filter and plotting its FFT
+# ローパスフィルタを適用し、そのFFTをプロットする例
+signal = wd.generate_sin(freqs=[5000, 1000], duration=1, sampling_rate=44100)
+filtered_signal = signal.low_pass_filter(cutoff=1000)
+filtered_signal.fft().plot(title="FFT of Low-pass Filtered Signal")
+```
+
+![signal.low_pass_filter](https://github.com/kasahart/wandas/blob/main/images/low_pass_filter.png?raw=true)
 
 ## ✨ 主な機能 / Key Features
 
@@ -68,7 +76,7 @@ filtered.fft().plot(title="周波数スペクトル / Frequency Spectrum")
 
 - Matplotlibとシームレスに統合 / Seamless integration with Matplotlib
 - `.plot()` による即時表示（Axes返却） / Immediate plotting via .plot() (returns Axes)
-- `.describe()` でメタデータ／統計の要約表示 / .describe() for metadata and summary statistics
+- `.describe()` で時系列信号・パワースペクトル・スペクトログラム表示 / .describe() for time series, power spectrum, and spectrogram summaries
 - カスタマイズ可能なプロットオプション（カラーブラインド対応） / Customizable plot options (color‑blind friendly)
 
 ### ⚡ 効率的な大規模データ処理 / Efficient Large Data Handling
