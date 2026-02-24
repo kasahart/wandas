@@ -5,7 +5,10 @@ import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from re import Pattern
-from typing import Any, Generic, Optional, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
+
+if TYPE_CHECKING:
+    from IPython.display import Image as IPythonImage
 
 import numpy as np
 import numpy.typing as npt
@@ -17,6 +20,18 @@ from pydantic import ValidationError
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 from .metadata import ChannelMetadata
+
+# IPython display types for visualize_graph return type
+# TYPE_CHECKING ブロック内では型エイリアスとして定義し、実行時は Any とする
+if TYPE_CHECKING:
+    from typing import TypeAlias
+
+    from IPython.display import Image as IPythonImage
+
+    VisualizeReturnType: TypeAlias = IPythonImage | None
+else:
+    # 実行時は Any として扱い、mypy のエラーを回避
+    VisualizeReturnType = Any
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +84,7 @@ class BaseFrame(ABC, Generic[T]):
     metadata: dict[str, Any]
     operation_history: list[dict[str, Any]]
     _channel_metadata: list[ChannelMetadata]
-    _previous: Optional["BaseFrame[Any]"]
+    _previous: "BaseFrame[Any] | None"
 
     def __init__(
         self,
@@ -79,7 +94,7 @@ class BaseFrame(ABC, Generic[T]):
         metadata: dict[str, Any] | None = None,
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
-        previous: Optional["BaseFrame[Any]"] = None,
+        previous: "BaseFrame[Any] | None" = None,
     ):
         # Default rechunk: prefer channel-wise chunking so the 0th axis
         # (channels) will be processed per-channel for parallelism.
@@ -167,7 +182,7 @@ class BaseFrame(ABC, Generic[T]):
         return self._channel_metadata
 
     @property
-    def previous(self) -> Optional["BaseFrame[Any]"]:
+    def previous(self) -> "BaseFrame[Any] | None":
         """
         Returns the previous frame.
         """
@@ -645,7 +660,7 @@ class BaseFrame(ABC, Generic[T]):
             return result.astype(dtype)
         return result
 
-    def visualize_graph(self, filename: str | None = None) -> Any:
+    def visualize_graph(self, filename: str | None = None) -> VisualizeReturnType:
         """
         Visualize the computation graph and save it to a file.
 
@@ -663,11 +678,10 @@ class BaseFrame(ABC, Generic[T]):
 
         Returns
         -------
-        Image or SVG or Any or None
+        IPython.display.Image or None
             In Jupyter environments: Returns an IPython.display.Image object
             that can be displayed inline.
             In other environments: Returns None after saving the graph to file.
-            Returns None if visualization fails.
 
         Notes
         -----
