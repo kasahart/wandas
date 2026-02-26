@@ -1189,7 +1189,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             new_labels: list[str] = []
             new_metadata_list: list[ChannelMetadata] = []
             for chmeta in data._channel_metadata:
-                new_label = chmeta.label
+                if label is not None:
+                    new_label = f"{label}_{chmeta.label}"
+                else:
+                    new_label = chmeta.label
                 if new_label in labels or new_label in new_labels:
                     if suffix_on_dup:
                         new_label += suffix_on_dup
@@ -1309,6 +1312,86 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         else:
             return ChannelFrame(
                 data=new_data,
+                sampling_rate=self.sampling_rate,
+                label=self.label,
+                metadata=self.metadata,
+                operation_history=self.operation_history,
+                channel_metadata=new_chmeta,
+                previous=self,
+            )
+
+    def rename_channels(
+        self,
+        mapping: dict[int | str, str],
+        inplace: bool = False,
+    ) -> "ChannelFrame":
+        """Rename channels using a mapping dictionary.
+
+        Args:
+            mapping: Dictionary mapping old names to new names.
+                Keys can be:
+                - int: channel index (e.g., {0: "left"})
+                - str: channel label (e.g., {"old_name": "new_name"})
+            inplace: If True, modifies the frame in place.
+
+        Returns:
+            Modified ChannelFrame (self if inplace=True, new frame otherwise).
+
+        Raises:
+            KeyError: If a key in mapping doesn't exist.
+            ValueError: If duplicate labels would be created.
+
+        Examples:
+            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> # Rename by index
+            >>> cf_renamed = cf.rename_channels({0: "left", 1: "right"})
+            >>> # Rename by label
+            >>> cf_renamed = cf.rename_channels({"ch0": "vocals"})
+        """
+        labels = [ch.label for ch in self._channel_metadata]
+        new_labels = labels.copy()
+
+        # Resolve all keys to their target labels and validate
+        resolved_mappings: list[tuple[int, str]] = []
+        for old_key, new_label in mapping.items():
+            if isinstance(old_key, int):
+                # Index-based rename
+                if not (0 <= old_key < self.n_channels):
+                    raise KeyError(
+                        f"Channel index out of range\n  Index: {old_key}\n  Total channels: {self.n_channels}"
+                    )
+                resolved_mappings.append((old_key, new_label))
+            else:
+                # Label-based rename
+                if old_key not in labels:
+                    raise KeyError(f"Channel label not found\n  Label: '{old_key}'\n  Existing labels: {labels}")
+                idx = labels.index(old_key)
+                resolved_mappings.append((idx, new_label))
+
+        # Apply mappings and check for duplicates
+        for idx, new_label in resolved_mappings:
+            if new_label in labels or new_label in [lbl for i, lbl in resolved_mappings if i != idx]:
+                raise ValueError(
+                    f"Duplicate channel label after rename\n"
+                    f"  New label: '{new_label}'\n"
+                    f"  Existing labels: {labels}\n"
+                    "Ensure new labels are unique."
+                )
+            new_labels[idx] = new_label
+
+        # Create updated channel_metadata list
+        new_chmeta = []
+        for i, ch_meta in enumerate(self._channel_metadata):
+            new_ch_meta = ch_meta.model_copy(deep=True)
+            new_ch_meta.label = new_labels[i]
+            new_chmeta.append(new_ch_meta)
+
+        if inplace:
+            self._channel_metadata = new_chmeta
+            return self
+        else:
+            return ChannelFrame(
+                data=self._data,
                 sampling_rate=self.sampling_rate,
                 label=self.label,
                 metadata=self.metadata,

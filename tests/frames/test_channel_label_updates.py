@@ -8,6 +8,7 @@ of processing pipelines.
 
 import dask.array as da
 import numpy as np
+import pytest
 
 from wandas.frames.channel import ChannelFrame
 
@@ -340,3 +341,218 @@ class TestBackwardCompatibility:
 
         assert result.previous is frame
         assert result.previous.labels == ["ch0", "ch1"]
+
+
+class TestAddChannelWithLabelPrefix:
+    """Test add_channel with label prefix for ChannelFrame input."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.sample_rate: float = 16000
+        self.data: np.ndarray = np.random.random((2, 16000))
+        self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
+
+    def test_add_channel_frame_with_label_prefix(self) -> None:
+        """Test that label parameter adds prefix to ChannelFrame channel labels."""
+        frame1 = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[
+                {"label": "left", "unit": "", "extra": {}},
+                {"label": "right", "unit": "", "extra": {}},
+            ],
+        )
+
+        # Create another frame to add (same structure)
+        frame2 = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[
+                {"label": "left", "unit": "", "extra": {}},
+                {"label": "right", "unit": "", "extra": {}},
+            ],
+        )
+
+        # Add with label prefix
+        result = frame1.add_channel(frame2, label="ref")
+
+        # Existing channels should remain unchanged
+        assert len(result.labels) == 4
+        assert result.labels[0] == "left"
+        assert result.labels[1] == "right"
+        # New channels should have prefix applied
+        assert result.labels[2] == "ref_left"
+        assert result.labels[3] == "ref_right"
+
+    def test_add_channel_frame_without_label_prefix(self) -> None:
+        """Test that without label parameter, original labels are used."""
+        frame1 = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[
+                {"label": "left", "unit": "", "extra": {}},
+                {"label": "right", "unit": "", "extra": {}},
+            ],
+        )
+
+        frame2 = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[
+                {"label": "vocals", "unit": "", "extra": {}},
+                {"label": "instrumental", "unit": "", "extra": {}},
+            ],
+        )
+
+        result = frame1.add_channel(frame2)  # No label parameter
+
+        assert result.labels == ["left", "right", "vocals", "instrumental"]
+
+    def test_add_channel_frame_with_label_prefix_and_suffix_on_dup(self) -> None:
+        """Test label prefix with suffix_on_dup for handling duplicates."""
+        frame1 = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
+        )
+
+        frame2 = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
+        )
+
+        # With label prefix, should not conflict
+        result = frame1.add_channel(frame2, label="ref")
+        assert result.labels == ["ch0", "ref_ch0"]
+
+        # Without label, would conflict and use suffix_on_dup
+        result2 = frame1.add_channel(frame2, suffix_on_dup="_dup")
+        assert result2.labels == ["ch0", "ch0_dup"]
+
+
+class TestRenameChannels:
+    """Test rename_channels method."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.sample_rate: float = 16000
+        self.data: np.ndarray = np.random.random((2, 16000))
+        self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
+
+    def test_rename_channels_by_index(self) -> None:
+        """Test renaming channels using index keys."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[
+                {"label": "ch0", "unit": "", "extra": {}},
+                {"label": "ch1", "unit": "", "extra": {}},
+            ],
+        )
+
+        result = frame.rename_channels({0: "left", 1: "right"})
+
+        assert result.labels == ["left", "right"]
+
+    def test_rename_channels_by_label(self) -> None:
+        """Test renaming channels using label keys."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[
+                {"label": "ch0", "unit": "", "extra": {}},
+                {"label": "ch1", "unit": "", "extra": {}},
+            ],
+        )
+
+        result = frame.rename_channels({"ch0": "left", "ch1": "right"})
+
+        assert result.labels == ["left", "right"]
+
+    def test_rename_channels_partial(self) -> None:
+        """Test renaming only some channels."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[
+                {"label": "ch0", "unit": "", "extra": {}},
+                {"label": "ch1", "unit": "", "extra": {}},
+            ],
+        )
+
+        result = frame.rename_channels({0: "left"})  # Only rename first channel
+
+        assert result.labels == ["left", "ch1"]
+
+    def test_rename_channels_inplace(self) -> None:
+        """Test renaming channels with inplace=True."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[
+                {"label": "ch0", "unit": "", "extra": {}},
+                {"label": "ch1", "unit": "", "extra": {}},
+            ],
+        )
+
+        result = frame.rename_channels({0: "left", 1: "right"}, inplace=True)
+
+        assert result is frame
+        assert frame.labels == ["left", "right"]
+
+    def test_rename_channels_nonexistent_index_error(self) -> None:
+        """Test error when renaming non-existent index."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
+        )
+
+        with pytest.raises(KeyError):
+            frame.rename_channels({5: "invalid"})
+
+    def test_rename_channels_nonexistent_label_error(self) -> None:
+        """Test error when renaming non-existent label."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
+        )
+
+        with pytest.raises(KeyError):
+            frame.rename_channels({"nonexistent": "new_label"})
+
+    def test_rename_channels_duplicate_error(self) -> None:
+        """Test error when rename would create duplicate labels."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}, {"label": "ch1", "unit": "", "extra": {}}],
+        )
+
+        with pytest.raises(ValueError):
+            frame.rename_channels({"ch0": "ch1"})  # Would create duplicate
+
+    def test_rename_channels_preserves_metadata(self) -> None:
+        """Test that rename_channels preserves channel metadata."""
+        from wandas.core.metadata import ChannelMetadata
+
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[
+                ChannelMetadata(label="ch0", unit="Pa", ref=2e-5, extra={"calibration": 1.0}),
+                ChannelMetadata(label="ch1", unit="V", ref=1.0, extra={"gain": 10}),
+            ],
+        )
+
+        result = frame.rename_channels({0: "left", 1: "right"})
+
+        assert result.labels == ["left", "right"]
+        # Metadata should be preserved
+        assert result.channels[0].unit == "Pa"
+        assert result.channels[0].ref == 2e-5
+        assert result.channels[0].extra == {"calibration": 1.0}
+        assert result.channels[1].unit == "V"
+        assert result.channels[1].extra == {"gain": 10}
