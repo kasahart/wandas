@@ -12,6 +12,7 @@ from dask.array.core import Array as DaskArray
 from dask.array.core import concatenate
 from IPython.display import Audio, display
 from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 
 from wandas.utils import validate_sampling_rate
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
@@ -512,7 +513,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         spectral: dict[str, Any] | None = None,
         image_save: str | Path | None = None,
         **kwargs: Any,
-    ) -> None:
+    ) -> list[Figure] | None:
         """Display visual and audio representation of the frame.
 
         This method creates a comprehensive visualization with three plots:
@@ -552,6 +553,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 - axis_config: Old configuration format (use waveform/spectral instead)
                 - cbar_config: Old colorbar configuration (use vmin/vmax instead)
 
+        Returns:
+            None (default). When `is_close=False`, returns a list of matplotlib Figure
+            objects created for each channel. The list length equals the number of
+            channels in the frame.
+
         Examples:
             >>> cf = ChannelFrame.read_wav("audio.wav")
             >>> # Basic usage
@@ -574,6 +580,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>>
             >>> # Save the figure to a file
             >>> cf.describe(image_save="output.png")
+            >>>
+            >>> # Get Figure objects for further manipulation (is_close=False)
+            >>> figures = cf.describe(is_close=False)
+            >>> fig = figures[0]
+            >>> fig.savefig("custom_output.png")  # Custom save with modifications
         """
         # Prepare kwargs with explicit parameters
         plot_kwargs: dict[str, Any] = {
@@ -613,6 +624,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             if "vmax" in cbar_config:
                 plot_kwargs["vmax"] = cbar_config["vmax"]
 
+        figures: list[Figure] = []
+
         for ch in self:
             ax: Axes
             _ax = ch.plot("describe", title=f"{ch.label} {ch.labels[0]}", **plot_kwargs)
@@ -624,16 +637,27 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 raise TypeError(
                     f"Unexpected type for plot result: {type(_ax)}. Expected Axes or Iterator[Axes]."  # noqa: E501
                 )
+            # Extract figure from axes (existing pattern)
+            fig = getattr(ax, "figure", None)
+
+            if fig is not None and not is_close:
+                figures.append(fig)
+
             # Save image before closing if requested
-            if image_save is not None:
-                fig = getattr(ax, "figure", None)
-                if fig is not None:
-                    fig.savefig(image_save, bbox_inches="tight")
-            # display関数とAudioクラスを使用
-            display(ax.figure)
-            if is_close:
-                plt.close(getattr(ax, "figure", None))
+            if image_save is not None and fig is not None:
+                fig.savefig(image_save, bbox_inches="tight")
+
+            display(fig)
+            if is_close and fig is not None:
+                plt.close(fig)
+
+            # Save audio for last channel only (existing behavior)
             display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))
+
+        # Return figures only when is_close=False
+        if is_close:
+            return None
+        return figures
 
     @classmethod
     def from_numpy(
