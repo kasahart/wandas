@@ -74,8 +74,8 @@ def read_wav(
         # ローカルファイルパスの場合
         file_path = str(filename)
         file_label = os.path.basename(file_path)
-        # データの読み込み（メモリマッピングを使用）
-        sampling_rate, data = wavfile.read(file_path, mmap=True)
+        # データの読み込み（メモリマッピング不使用で統一）
+        sampling_rate, data = wavfile.read(file_path)
 
     # データを(num_channels, num_samples)形状のNumPy配列に変換
     if data.ndim == 1:
