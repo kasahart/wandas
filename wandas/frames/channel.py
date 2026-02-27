@@ -510,6 +510,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         Aw: bool = False,  # noqa: N803
         waveform: dict[str, Any] | None = None,
         spectral: dict[str, Any] | None = None,
+        image_save: str | Path | None = None,
         **kwargs: Any,
     ) -> None:
         """Display visual and audio representation of the frame.
@@ -544,6 +545,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 Can include 'xlabel', 'ylabel', 'xlim', 'ylim'.
             spectral: Additional configuration dict for spectral subplot.
                 Can include 'xlabel', 'ylabel', 'xlim', 'ylim'.
+            image_save: Path to save the figure as an image file. If provided,
+                the figure will be saved before closing. File format is determined
+                from the extension (e.g., '.png', '.jpg', '.pdf'). Default: None.
             **kwargs: Deprecated parameters for backward compatibility only.
                 - axis_config: Old configuration format (use waveform/spectral instead)
                 - cbar_config: Old colorbar configuration (use vmin/vmax instead)
@@ -567,6 +571,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>>
             >>> # Custom waveform subplot settings
             >>> cf.describe(waveform={"ylabel": "Custom Label"})
+            >>>
+            >>> # Save the figure to a file
+            >>> cf.describe(image_save="output.png")
         """
         # Prepare kwargs with explicit parameters
         plot_kwargs: dict[str, Any] = {
@@ -617,6 +624,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 raise TypeError(
                     f"Unexpected type for plot result: {type(_ax)}. Expected Axes or Iterator[Axes]."  # noqa: E501
                 )
+            # Save image before closing if requested
+            if image_save is not None:
+                fig = getattr(ax, "figure", None)
+                if fig is not None:
+                    fig.savefig(image_save, bbox_inches="tight")
             # display関数とAudioクラスを使用
             display(ax.figure)
             if is_close:

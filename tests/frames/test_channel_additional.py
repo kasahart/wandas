@@ -206,3 +206,34 @@ def test_remove_channel_errors_and_inplace():
     # inplace True
     cf.remove_channel(0, inplace=True)
     assert cf.n_channels == 1
+
+
+def test_describe_image_save(tmp_path):
+    """Test that image_save parameter saves the figure to file."""
+    # Use larger data for STFT operation (at least 10000 samples)
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    # Test saving as PNG
+    png_path = tmp_path / "test_output.png"
+    cf.describe(image_save=str(png_path))
+    assert png_path.exists()
+    assert png_path.stat().st_size > 0
+
+    # Test saving with Path object
+    jpg_path = tmp_path / "test_output.jpg"
+    cf.describe(image_save=jpg_path)
+    assert jpg_path.exists()
+    assert jpg_path.stat().st_size > 0
+
+
+def test_describe_image_save_default_none(tmp_path):
+    """Test that default image_save=None does not create any file."""
+    # Use larger data for STFT operation (at least 10000 samples)
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    # Call describe without image_save (default is None)
+    cf.describe()
+
+    # No file should be created by default behavior
