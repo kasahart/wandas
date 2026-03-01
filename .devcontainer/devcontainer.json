@@ -15,12 +15,12 @@
     "customizations": {
         "vscode": {
             "settings": {
-                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
+                "python.defaultInterpreterPath": "/workspaces/wandas/.venv/bin/python",
                 "python.terminal.activateEnvironment": true,
                 "terminal.integrated.env.linux": {
-                    "UV_PROJECT_ENVIRONMENT": "${containerWorkspaceFolder}/.venv"
+                    "UV_PROJECT_ENVIRONMENT": "/workspaces/wandas/.venv"
                 },
-                "ruff.configuration": "${containerWorkspaceFolder}/pyproject.toml"
+                "ruff.configuration": "/workspaces/wandas/pyproject.toml"
             },
             "extensions": [
                 "DavidAnson.vscode-markdownlint",
@@ -53,5 +53,10 @@
     // ローカル開発では全グループをインストール (test, docs, dev)
     "postCreateCommand": "sudo mkdir -p /workspaces/wandas.worktrees && sudo chown vscode:vscode /workspaces/wandas.worktrees && uv venv --allow-existing .venv && uv sync --frozen --all-groups",
     "postStartCommand": "uv run pre-commit install",
-    "remoteUser": "vscode"
+    "remoteUser": "vscode",
+    "runArgs": [
+        // Requires Docker Engine 20.10+ (host-gateway support).
+        // Enables host.docker.internal inside the devcontainer (needed for GitHub Copilot background mode).
+        "--add-host=host.docker.internal:host-gateway"
+    ]
 }
