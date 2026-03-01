@@ -651,7 +651,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             if is_close and fig is not None:
                 plt.close(fig)
 
-            # Save audio for last channel only (existing behavior)
+            # Play audio for each channel
             display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))
 
         # Return figures only when is_close=False
