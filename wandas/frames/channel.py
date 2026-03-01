@@ -1151,7 +1151,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 - dask array (1D or 2D)
                 - ChannelFrame (channels will be added)
             label: Label for the new channel. If None, generates a default label.
-                Ignored when data is a ChannelFrame (uses its channel labels).
+                When data is a ChannelFrame, acts as a prefix: each channel in
+                the input frame is renamed to ``"{label}_{original_label}"``.
+                If None (the default), the original channel labels are used as-is.
             align: How to handle length mismatches:
                 - "strict": Raise error if lengths don't match
                 - "pad": Pad shorter data with zeros
@@ -1232,7 +1234,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             new_labels: list[str] = []
             new_metadata_list: list[ChannelMetadata] = []
             for chmeta in data._channel_metadata:
-                new_label = chmeta.label
+                if label is not None:
+                    new_label = f"{label}_{chmeta.label}"
+                else:
+                    new_label = chmeta.label
                 if new_label in labels or new_label in new_labels:
                     if suffix_on_dup:
                         new_label += suffix_on_dup
@@ -1352,6 +1357,109 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         else:
             return ChannelFrame(
                 data=new_data,
+                sampling_rate=self.sampling_rate,
+                label=self.label,
+                metadata=self.metadata,
+                operation_history=self.operation_history,
+                channel_metadata=new_chmeta,
+                previous=self,
+            )
+
+    def rename_channels(
+        self,
+        mapping: dict[int | str, str],
+        inplace: bool = False,
+    ) -> "ChannelFrame":
+        """Rename channels using a mapping dictionary.
+
+        Args:
+            mapping: Dictionary mapping old names to new names.
+                Keys can be:
+                - int: channel index (e.g., {0: "left"})
+                - str: channel label (e.g., {"old_name": "new_name"})
+            inplace: If True, modifies the frame in place.
+
+        Returns:
+            Modified ChannelFrame (self if inplace=True, new frame otherwise).
+
+        Raises:
+            KeyError: If a key in mapping doesn't exist.
+            ValueError: If duplicate labels would be created.
+
+        Examples:
+            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> # Rename by index
+            >>> cf_renamed = cf.rename_channels({0: "left", 1: "right"})
+            >>> # Rename by label
+            >>> cf_renamed = cf.rename_channels({"ch0": "vocals"})
+        """
+        labels = [ch.label for ch in self._channel_metadata]
+        new_labels = labels.copy()
+
+        # Resolve all keys to their target labels and validate
+        resolved_mappings: list[tuple[int, str]] = []
+        for old_key, new_label in mapping.items():
+            if isinstance(old_key, int):
+                # Index-based rename
+                if not (0 <= old_key < self.n_channels):
+                    raise KeyError(
+                        f"Channel index out of range\n  Index: {old_key}\n  Total channels: {self.n_channels}"
+                    )
+                resolved_mappings.append((old_key, new_label))
+            else:
+                # Label-based rename
+                if old_key not in labels:
+                    raise KeyError(f"Channel label not found\n  Label: '{old_key}'\n  Existing labels: {labels}")
+                idx = labels.index(old_key)
+                resolved_mappings.append((idx, new_label))
+
+        # Detect duplicate target indices in mapping
+        seen_indices: dict[int, str] = {}
+        for idx, new_label in resolved_mappings:
+            if idx in seen_indices:
+                prev_label = seen_indices[idx]
+                raise ValueError(
+                    "Duplicate channel rename mapping for the same index\n"
+                    f"  Channel index: {idx}\n"
+                    f"  Original label: '{labels[idx]}'\n"
+                    f"  First new label: '{prev_label}'\n"
+                    f"  Second new label: '{new_label}'\n"
+                    "Provide at most one new label per channel index in mapping."
+                )
+            seen_indices[idx] = new_label
+        # Apply mappings
+        for idx, new_label in resolved_mappings:
+            new_labels[idx] = new_label
+
+        # Check for duplicate labels after all renames have been applied
+        if len(set(new_labels)) != len(new_labels):
+            # Identify duplicates for a more informative error
+            seen: set[str] = set()
+            duplicates: set[str] = set()
+            for lbl in new_labels:
+                if lbl in seen:
+                    duplicates.add(lbl)
+                else:
+                    seen.add(lbl)
+            raise ValueError(
+                "Duplicate channel label after rename\n"
+                f"  Final labels: {new_labels}\n"
+                f"  Duplicates: {sorted(duplicates)}\n"
+                "Ensure new channel labels are unique."
+            )
+        # Create updated channel_metadata list
+        new_chmeta = []
+        for i, ch_meta in enumerate(self._channel_metadata):
+            new_ch_meta = ch_meta.model_copy(deep=True)
+            new_ch_meta.label = new_labels[i]
+            new_chmeta.append(new_ch_meta)
+
+        if inplace:
+            self._channel_metadata = new_chmeta
+            return self
+        else:
+            return ChannelFrame(
+                data=self._data,
                 sampling_rate=self.sampling_rate,
                 label=self.label,
                 metadata=self.metadata,
