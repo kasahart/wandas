@@ -1,9 +1,9 @@
 {
     "editor.formatOnSave": true,
     "terminal.integrated.env.linux": {
-        "UV_PROJECT_ENVIRONMENT": "${workspaceFolder}/.venv"
+        "UV_PROJECT_ENVIRONMENT": "/workspaces/wandas/.venv"
     },
-    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+    "python.defaultInterpreterPath": "/workspaces/wandas/.venv/bin/python",
     "files.insertFinalNewline": true,
     "files.trimFinalNewlines": true,
     "files.trimTrailingWhitespace": true,
@@ -48,5 +48,8 @@
     ],
     "ruff.organizeImports": true,
     "ruff.fixAll": true,
-    "ruff.configuration": "${workspaceFolder}/pyproject.toml"
+    "ruff.configuration": "${workspaceFolder}/pyproject.toml",
+    "chat.tools.terminal.autoApprove": {
+        "/workspaces/wandas/.venv/bin/python": true
+    }
 }
