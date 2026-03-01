@@ -548,7 +548,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 Can include 'xlabel', 'ylabel', 'xlim', 'ylim'.
             image_save: Path to save the figure as an image file. If provided,
                 the figure will be saved before closing. File format is determined
-                from the extension (e.g., '.png', '.jpg', '.pdf'). Default: None.
+                from the extension (e.g., '.png', '.jpg', '.pdf'). For multi-channel
+                frames, the channel index is appended to the filename stem
+                (e.g., 'output_0.png', 'output_1.png'). Default: None.
             **kwargs: Deprecated parameters for backward compatibility only.
                 - axis_config: Old configuration format (use waveform/spectral instead)
                 - cbar_config: Old colorbar configuration (use vmin/vmax instead)
@@ -626,7 +628,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         figures: list[Figure] = []
 
-        for ch in self:
+        for ch_idx, ch in enumerate(self):
             ax: Axes
             _ax = ch.plot("describe", title=f"{ch.label} {ch.labels[0]}", **plot_kwargs)
             if isinstance(_ax, Iterator):
@@ -645,7 +647,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
             # Save image before closing if requested
             if image_save is not None and fig is not None:
-                fig.savefig(image_save, bbox_inches="tight")
+                if self.n_channels > 1:
+                    save_path = Path(image_save)
+                    ch_path = save_path.parent / f"{save_path.stem}_{ch_idx}{save_path.suffix}"
+                    fig.savefig(ch_path, bbox_inches="tight")
+                else:
+                    fig.savefig(image_save, bbox_inches="tight")
 
             display(fig)
             if is_close and fig is not None:
