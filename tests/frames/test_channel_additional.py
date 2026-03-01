@@ -218,6 +218,27 @@ def test_describe_image_save_jpg(tmp_path):
     assert jpg_path.stat().st_size > 0
 
 
+def test_describe_image_save(tmp_path):
+    """Test that image_save parameter saves figure as PNG."""
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    png_path = tmp_path / "test_output.png"
+    cf.describe(image_save=str(png_path))
+    assert png_path.exists()
+    assert png_path.stat().st_size > 0
+
+
+def test_describe_image_save_default_none(tmp_path):
+    """Test that image_save=None (default) does not create any files."""
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    cf.describe()
+
+    assert list(tmp_path.iterdir()) == []
+
+
 def test_describe_image_save_pdf(tmp_path):
     """Test that image_save parameter saves figure as PDF."""
     arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
@@ -239,10 +260,12 @@ def test_describe_image_save_with_path_object(tmp_path):
 
     assert png_path.exists()
     assert isinstance(result, list)
+    for fig in result:
+        plt.close(fig)
 
 
 def test_describe_image_save_with_multi_channel(tmp_path):
-    """Test image_save works with multi-channel data."""
+    """Test image_save generates per-channel files for multi-channel data."""
     arr = np.zeros((3, 10000))
     for i in range(3):
         arr[i] = np.sin(2 * np.pi * (440 + i * 100) * np.arange(10000) / 44100)
@@ -252,8 +275,12 @@ def test_describe_image_save_with_multi_channel(tmp_path):
     png_path = tmp_path / "test.png"
     result = cf.describe(image_save=str(png_path), is_close=False)
 
-    assert png_path.exists()
+    for i in range(3):
+        ch_path = tmp_path / f"test_{i}.png"
+        assert ch_path.exists(), f"Expected per-channel file {ch_path} to exist"
     assert len(result) == 3
+    for fig in result:
+        plt.close(fig)
 
 
 def test_describe_return_figures_is_close_false(tmp_path):
@@ -271,6 +298,7 @@ def test_describe_return_figures_is_close_false(tmp_path):
 
     for fig in result:
         assert isinstance(fig, Figure)
+        plt.close(fig)
 
 
 def test_describe_return_none_is_close_true(tmp_path):
@@ -295,6 +323,8 @@ def test_describe_return_figures_is_close_false_multi_channel(tmp_path):
 
     assert isinstance(result, list)
     assert len(result) == 5
+    for fig in result:
+        plt.close(fig)
 
 
 def test_describe_return_figures_with_image_save(tmp_path):
@@ -308,6 +338,8 @@ def test_describe_return_figures_with_image_save(tmp_path):
     assert png_path.exists()
     assert png_path.stat().st_size > 0
     assert isinstance(result, list)
+    for fig in result:
+        plt.close(fig)
 
 
 def test_describe_return_type_annotation():
@@ -335,6 +367,8 @@ def test_describe_figures_can_be_saved(tmp_path):
 
     assert output_path.exists()
     assert output_path.stat().st_size > 0
+    for fig in figures:
+        plt.close(fig)
 
 
 def test_describe_figures_are_not_closed(tmp_path):
@@ -345,6 +379,8 @@ def test_describe_figures_are_not_closed(tmp_path):
     figures = cf.describe(is_close=False)
 
     assert len(figures[0].axes) > 0
+    for fig in figures:
+        plt.close(fig)
 
 
 def test_describe_axis_config_deprecated(tmp_path, caplog):
@@ -355,7 +391,7 @@ def test_describe_axis_config_deprecated(tmp_path, caplog):
     cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
 
     with caplog.at_level(logging.WARNING):
-        cf.describe(is_close=False, axis_config={"time_plot": {"xlabel": "Time"}})
+        cf.describe(is_close=True, axis_config={"time_plot": {"xlabel": "Time"}})
         assert any("deprecated" in record.message.lower() for record in caplog.records)
 
 
