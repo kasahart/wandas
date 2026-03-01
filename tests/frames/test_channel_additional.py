@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
@@ -127,8 +128,6 @@ def test_describe_axis_and_cbar_and_unexpected_plot(monkeypatch):
 
     called = {}
 
-    import matplotlib.pyplot as plt
-
     class FakePlot:
         def __init__(self):
             pass
@@ -206,3 +205,313 @@ def test_remove_channel_errors_and_inplace():
     # inplace True
     cf.remove_channel(0, inplace=True)
     assert cf.n_channels == 1
+
+
+def test_describe_image_save_jpg(tmp_path):
+    """Test that image_save parameter saves figure as JPG."""
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    jpg_path = tmp_path / "test_output.jpg"
+    cf.describe(image_save=str(jpg_path))
+    assert jpg_path.exists()
+    assert jpg_path.stat().st_size > 0
+
+
+def test_describe_image_save(tmp_path):
+    """Test that image_save parameter saves figure as PNG."""
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    png_path = tmp_path / "test_output.png"
+    cf.describe(image_save=str(png_path))
+    assert png_path.exists()
+    assert png_path.stat().st_size > 0
+
+
+def test_describe_image_save_default_none(tmp_path):
+    """Test that image_save=None (default) does not create any files."""
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    cf.describe()
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_describe_image_save_pdf(tmp_path):
+    """Test that image_save parameter saves figure as PDF."""
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    pdf_path = tmp_path / "test_output.pdf"
+    cf.describe(image_save=str(pdf_path))
+    assert pdf_path.exists()
+    assert pdf_path.stat().st_size > 0
+
+
+def test_describe_image_save_with_path_object(tmp_path):
+    """Test image_save with Path object instead of string."""
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    png_path = tmp_path / "test.png"
+    result = cf.describe(image_save=png_path, is_close=False)
+
+    assert png_path.exists()
+    assert isinstance(result, list)
+    for fig in result:
+        plt.close(fig)
+
+
+def test_describe_image_save_with_multi_channel(tmp_path):
+    """Test image_save generates per-channel files for multi-channel data."""
+    arr = np.zeros((3, 10000))
+    for i in range(3):
+        arr[i] = np.sin(2 * np.pi * (440 + i * 100) * np.arange(10000) / 44100)
+
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    png_path = tmp_path / "test.png"
+    result = cf.describe(image_save=str(png_path), is_close=False)
+
+    for i in range(3):
+        ch_path = tmp_path / f"test_{i}.png"
+        assert ch_path.exists(), f"Expected per-channel file {ch_path} to exist"
+    assert len(result) == 3
+    for fig in result:
+        plt.close(fig)
+
+
+def test_describe_return_figures_is_close_false(tmp_path):
+    """Test that describe returns list[Figure] when is_close=False."""
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    result = cf.describe(is_close=False)
+
+    assert result is not None
+    assert isinstance(result, list)
+    assert len(result) == 1
+
+    from matplotlib.figure import Figure
+
+    for fig in result:
+        assert isinstance(fig, Figure)
+        plt.close(fig)
+
+
+def test_describe_return_none_is_close_true(tmp_path):
+    """Test that describe returns None when is_close=True (default)."""
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    result = cf.describe(is_close=True)
+
+    assert result is None
+
+
+def test_describe_return_figures_is_close_false_multi_channel(tmp_path):
+    """Test that describe returns multiple figures for multi-channel data."""
+    arr = np.zeros((5, 10000))
+    for i in range(5):
+        arr[i] = np.sin(2 * np.pi * (440 + i * 100) * np.arange(10000) / 44100)
+
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    result = cf.describe(is_close=False)
+
+    assert isinstance(result, list)
+    assert len(result) == 5
+    for fig in result:
+        plt.close(fig)
+
+
+def test_describe_return_figures_with_image_save(tmp_path):
+    """Test that image_save works correctly when is_close=False."""
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    png_path = tmp_path / "test_output.png"
+    result = cf.describe(image_save=str(png_path), is_close=False)
+
+    assert png_path.exists()
+    assert png_path.stat().st_size > 0
+    assert isinstance(result, list)
+    for fig in result:
+        plt.close(fig)
+
+
+def test_describe_return_type_annotation():
+    """Test that describe return type annotation is correct."""
+    import inspect
+
+    from wandas.frames.channel import ChannelFrame
+
+    sig = inspect.signature(ChannelFrame.describe)
+    return_annotation = str(sig.return_annotation)
+
+    assert "list" in return_annotation or "List" in return_annotation
+    assert "Figure" in return_annotation
+
+
+def test_describe_figures_can_be_saved(tmp_path):
+    """Test that returned figures can be saved with custom modifications."""
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    figures = cf.describe(is_close=False)
+
+    output_path = tmp_path / "custom_output.png"
+    figures[0].savefig(str(output_path), bbox_inches="tight")
+
+    assert output_path.exists()
+    assert output_path.stat().st_size > 0
+    for fig in figures:
+        plt.close(fig)
+
+
+def test_describe_figures_are_not_closed(tmp_path):
+    """Test that figures returned with is_close=False are not closed."""
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    figures = cf.describe(is_close=False)
+
+    assert len(figures[0].axes) > 0
+    for fig in figures:
+        plt.close(fig)
+
+
+def test_describe_axis_config_deprecated(tmp_path, caplog):
+    """Test that axis_config parameter triggers deprecation warning."""
+    import logging
+
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    with caplog.at_level(logging.WARNING):
+        cf.describe(is_close=True, axis_config={"time_plot": {"xlabel": "Time"}})
+        assert any("deprecated" in record.message.lower() for record in caplog.records)
+
+
+def test_describe_cbar_config_deprecated(tmp_path, caplog):
+    """Test that cbar_config parameter triggers deprecation warning."""
+    import logging
+
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    with caplog.at_level(logging.WARNING):
+        cf.describe(is_close=False, cbar_config={"vmin": -80})
+        assert any("deprecated" in record.message.lower() for record in caplog.records)
+
+
+def test_describe_all_parameters(tmp_path):
+    """Test describe with all parameters specified."""
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    result = cf.describe(
+        normalize=True,
+        is_close=False,
+        fmin=0,
+        fmax=None,
+        cmap="viridis",
+        vmin=-80,
+        vmax=-20,
+        xlim=(0, 1),
+        ylim=(0, 5000),
+        Aw=True,
+        waveform={"xlabel": "Time (s)", "ylabel": "Amplitude"},
+        spectral={"ylabel": "dB"},
+    )
+
+    assert isinstance(result, list)
+    assert len(result) == 1
+
+
+def test_describe_minimal_parameters(tmp_path):
+    """Test describe with minimal parameters."""
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    result = cf.describe(is_close=False)
+
+    assert isinstance(result, list)
+
+
+def test_describe_fmin_fmax_parameters(tmp_path):
+    """Test fmin and fmax frequency range parameters."""
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    result = cf.describe(is_close=False, fmin=100, fmax=5000)
+
+    assert isinstance(result, list)
+
+
+def test_describe_cmap_vmin_vmax_parameters(tmp_path):
+    """Test colormap and color scale parameters."""
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    result = cf.describe(is_close=False, cmap="plasma", vmin=-90, vmax=-30)
+
+    assert isinstance(result, list)
+
+
+def test_describe_xlim_ylim_parameters(tmp_path):
+    """Test time and frequency axis limit parameters."""
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    result = cf.describe(is_close=False, xlim=(0.5, 2), ylim=(100, 3000))
+
+    assert isinstance(result, list)
+
+
+def test_describe_aw_weighting(tmp_path):
+    """Test A-weighting parameter."""
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    result = cf.describe(is_close=False, Aw=True)
+
+    assert isinstance(result, list)
+
+
+def test_describe_waveform_spectral_config(tmp_path):
+    """Test waveform and spectral subplot configuration."""
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    result = cf.describe(
+        is_close=False,
+        waveform={"xlabel": "Time", "ylabel": "Signal"},
+        spectral={"ylabel": "Magnitude"},
+    )
+
+    assert isinstance(result, list)
+
+
+def test_describe_normalize_false(tmp_path):
+    """Test normalize=False parameter."""
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    result = cf.describe(is_close=False, normalize=False)
+
+    assert isinstance(result, list)
+
+
+def test_describe_figures_have_correct_structure(tmp_path):
+    """Test that returned figures have the expected subplot structure."""
+    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
+    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+
+    figures = cf.describe(is_close=False)
+
+    fig = figures[0]
+    assert hasattr(fig, "axes")
+    assert len(fig.axes) >= 2

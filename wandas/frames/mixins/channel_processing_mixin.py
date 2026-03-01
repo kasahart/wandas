@@ -559,7 +559,7 @@ class ChannelProcessingMixin:
         # Sampling rate update is handled by the Operation class
         return cast(T_Processing, result)
 
-    def loudness_zwst(self: T_Processing, field_type: str = "free") -> "NDArrayReal":
+    def loudness_zwst(self: ProcessingFrameProtocol, field_type: str = "free") -> "NDArrayReal":
         """
         Calculate steady-state loudness using Zwicker method (ISO 532-1:2017).
 
@@ -708,7 +708,7 @@ class ChannelProcessingMixin:
         result = self.apply_operation("roughness_dw", overlap=overlap)
         return cast(T_Processing, result)
 
-    def roughness_dw_spec(self: T_Processing, overlap: float = 0.5) -> "RoughnessFrame":
+    def roughness_dw_spec(self: ProcessingFrameProtocol, overlap: float = 0.5) -> "RoughnessFrame":
         """Calculate specific roughness with Bark-band frequency information.
 
         This method returns detailed roughness analysis data organized by
@@ -931,7 +931,7 @@ class ChannelProcessingMixin:
         return cast(T_Processing, result)
 
     def sharpness_din_st(
-        self: T_Processing,
+        self: ProcessingFrameProtocol,
         weighting: str = "din",
         field_type: str = "free",
     ) -> "NDArrayReal":
