@@ -7,9 +7,6 @@ from collections.abc import Callable, Iterator
 from re import Pattern
 from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
 
-if TYPE_CHECKING:
-    from IPython.display import Image as IPythonImage
-
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
