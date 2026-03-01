@@ -800,6 +800,13 @@ class TestBaseFrameUtilityMethods:
             result = self.channel_frame.visualize_graph()
             # Result is the mocked return value
             assert result is mock_return_value
+            # Ensure visualize was called once with an auto-generated filename
+            mock_visualize.assert_called_once()
+            call_kwargs = mock_visualize.call_args.kwargs
+            assert "filename" in call_kwargs
+            filename = call_kwargs["filename"]
+            assert isinstance(filename, str)
+            assert re.match(r"^graph_.*\.png$", filename) is not None
 
     def test_visualize_graph_exception_handling(self) -> None:
         """Test visualize_graph handles exceptions gracefully."""
