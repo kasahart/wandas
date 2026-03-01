@@ -1368,6 +1368,20 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 idx = labels.index(old_key)
                 resolved_mappings.append((idx, new_label))
 
+        # Detect duplicate target indices in mapping
+        seen_indices: dict[int, str] = {}
+        for idx, new_label in resolved_mappings:
+            if idx in seen_indices:
+                prev_label = seen_indices[idx]
+                raise ValueError(
+                    "Duplicate channel rename mapping for the same index\n"
+                    f"  Channel index: {idx}\n"
+                    f"  Original label: '{labels[idx]}'\n"
+                    f"  First new label: '{prev_label}'\n"
+                    f"  Second new label: '{new_label}'\n"
+                    "Provide at most one new label per channel index in mapping."
+                )
+            seen_indices[idx] = new_label
         # Apply mappings
         for idx, new_label in resolved_mappings:
             new_labels[idx] = new_label
