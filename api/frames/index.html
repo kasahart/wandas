@@ -811,6 +811,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#wandas.frames.channel.ChannelFrame.rename_channels" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;rename_channels
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3296,6 +3305,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#wandas.frames.channel.ChannelFrame.rename_channels" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;rename_channels
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5326,8 +5344,7 @@ with each channel containing data samples in the time domain.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">  37</span>
-<span class="normal">  38</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">  38</span>
 <span class="normal">  39</span>
 <span class="normal">  40</span>
 <span class="normal">  41</span>
@@ -6615,7 +6632,159 @@ with each channel containing data samples in the time domain.</p>
 <span class="normal">1323</span>
 <span class="normal">1324</span>
 <span class="normal">1325</span>
-<span class="normal">1326</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelFrame</span><span class="p">(</span><span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">],</span> <span class="n">ChannelProcessingMixin</span><span class="p">,</span> <span class="n">ChannelTransformMixin</span><span class="p">):</span>
+<span class="normal">1326</span>
+<span class="normal">1327</span>
+<span class="normal">1328</span>
+<span class="normal">1329</span>
+<span class="normal">1330</span>
+<span class="normal">1331</span>
+<span class="normal">1332</span>
+<span class="normal">1333</span>
+<span class="normal">1334</span>
+<span class="normal">1335</span>
+<span class="normal">1336</span>
+<span class="normal">1337</span>
+<span class="normal">1338</span>
+<span class="normal">1339</span>
+<span class="normal">1340</span>
+<span class="normal">1341</span>
+<span class="normal">1342</span>
+<span class="normal">1343</span>
+<span class="normal">1344</span>
+<span class="normal">1345</span>
+<span class="normal">1346</span>
+<span class="normal">1347</span>
+<span class="normal">1348</span>
+<span class="normal">1349</span>
+<span class="normal">1350</span>
+<span class="normal">1351</span>
+<span class="normal">1352</span>
+<span class="normal">1353</span>
+<span class="normal">1354</span>
+<span class="normal">1355</span>
+<span class="normal">1356</span>
+<span class="normal">1357</span>
+<span class="normal">1358</span>
+<span class="normal">1359</span>
+<span class="normal">1360</span>
+<span class="normal">1361</span>
+<span class="normal">1362</span>
+<span class="normal">1363</span>
+<span class="normal">1364</span>
+<span class="normal">1365</span>
+<span class="normal">1366</span>
+<span class="normal">1367</span>
+<span class="normal">1368</span>
+<span class="normal">1369</span>
+<span class="normal">1370</span>
+<span class="normal">1371</span>
+<span class="normal">1372</span>
+<span class="normal">1373</span>
+<span class="normal">1374</span>
+<span class="normal">1375</span>
+<span class="normal">1376</span>
+<span class="normal">1377</span>
+<span class="normal">1378</span>
+<span class="normal">1379</span>
+<span class="normal">1380</span>
+<span class="normal">1381</span>
+<span class="normal">1382</span>
+<span class="normal">1383</span>
+<span class="normal">1384</span>
+<span class="normal">1385</span>
+<span class="normal">1386</span>
+<span class="normal">1387</span>
+<span class="normal">1388</span>
+<span class="normal">1389</span>
+<span class="normal">1390</span>
+<span class="normal">1391</span>
+<span class="normal">1392</span>
+<span class="normal">1393</span>
+<span class="normal">1394</span>
+<span class="normal">1395</span>
+<span class="normal">1396</span>
+<span class="normal">1397</span>
+<span class="normal">1398</span>
+<span class="normal">1399</span>
+<span class="normal">1400</span>
+<span class="normal">1401</span>
+<span class="normal">1402</span>
+<span class="normal">1403</span>
+<span class="normal">1404</span>
+<span class="normal">1405</span>
+<span class="normal">1406</span>
+<span class="normal">1407</span>
+<span class="normal">1408</span>
+<span class="normal">1409</span>
+<span class="normal">1410</span>
+<span class="normal">1411</span>
+<span class="normal">1412</span>
+<span class="normal">1413</span>
+<span class="normal">1414</span>
+<span class="normal">1415</span>
+<span class="normal">1416</span>
+<span class="normal">1417</span>
+<span class="normal">1418</span>
+<span class="normal">1419</span>
+<span class="normal">1420</span>
+<span class="normal">1421</span>
+<span class="normal">1422</span>
+<span class="normal">1423</span>
+<span class="normal">1424</span>
+<span class="normal">1425</span>
+<span class="normal">1426</span>
+<span class="normal">1427</span>
+<span class="normal">1428</span>
+<span class="normal">1429</span>
+<span class="normal">1430</span>
+<span class="normal">1431</span>
+<span class="normal">1432</span>
+<span class="normal">1433</span>
+<span class="normal">1434</span>
+<span class="normal">1435</span>
+<span class="normal">1436</span>
+<span class="normal">1437</span>
+<span class="normal">1438</span>
+<span class="normal">1439</span>
+<span class="normal">1440</span>
+<span class="normal">1441</span>
+<span class="normal">1442</span>
+<span class="normal">1443</span>
+<span class="normal">1444</span>
+<span class="normal">1445</span>
+<span class="normal">1446</span>
+<span class="normal">1447</span>
+<span class="normal">1448</span>
+<span class="normal">1449</span>
+<span class="normal">1450</span>
+<span class="normal">1451</span>
+<span class="normal">1452</span>
+<span class="normal">1453</span>
+<span class="normal">1454</span>
+<span class="normal">1455</span>
+<span class="normal">1456</span>
+<span class="normal">1457</span>
+<span class="normal">1458</span>
+<span class="normal">1459</span>
+<span class="normal">1460</span>
+<span class="normal">1461</span>
+<span class="normal">1462</span>
+<span class="normal">1463</span>
+<span class="normal">1464</span>
+<span class="normal">1465</span>
+<span class="normal">1466</span>
+<span class="normal">1467</span>
+<span class="normal">1468</span>
+<span class="normal">1469</span>
+<span class="normal">1470</span>
+<span class="normal">1471</span>
+<span class="normal">1472</span>
+<span class="normal">1473</span>
+<span class="normal">1474</span>
+<span class="normal">1475</span>
+<span class="normal">1476</span>
+<span class="normal">1477</span>
+<span class="normal">1478</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelFrame</span><span class="p">(</span><span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">],</span> <span class="n">ChannelProcessingMixin</span><span class="p">,</span> <span class="n">ChannelTransformMixin</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Channel-based data frame for handling audio signals and time series data.</span>
 
 <span class="sd">    This frame represents channel-based data such as audio signals and time series data,</span>
@@ -7091,8 +7260,9 @@ with each channel containing data samples in the time domain.</p>
         <span class="n">Aw</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>  <span class="c1"># noqa: N803</span>
         <span class="n">waveform</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">spectral</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">image_save</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Figure</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Display visual and audio representation of the frame.</span>
 
 <span class="sd">        This method creates a comprehensive visualization with three plots:</span>
@@ -7125,9 +7295,19 @@ with each channel containing data samples in the time domain.</p>
 <span class="sd">                Can include &#39;xlabel&#39;, &#39;ylabel&#39;, &#39;xlim&#39;, &#39;ylim&#39;.</span>
 <span class="sd">            spectral: Additional configuration dict for spectral subplot.</span>
 <span class="sd">                Can include &#39;xlabel&#39;, &#39;ylabel&#39;, &#39;xlim&#39;, &#39;ylim&#39;.</span>
+<span class="sd">            image_save: Path to save the figure as an image file. If provided,</span>
+<span class="sd">                the figure will be saved before closing. File format is determined</span>
+<span class="sd">                from the extension (e.g., &#39;.png&#39;, &#39;.jpg&#39;, &#39;.pdf&#39;). For multi-channel</span>
+<span class="sd">                frames, the channel index is appended to the filename stem</span>
+<span class="sd">                (e.g., &#39;output_0.png&#39;, &#39;output_1.png&#39;). Default: None.</span>
 <span class="sd">            **kwargs: Deprecated parameters for backward compatibility only.</span>
 <span class="sd">                - axis_config: Old configuration format (use waveform/spectral instead)</span>
 <span class="sd">                - cbar_config: Old colorbar configuration (use vmin/vmax instead)</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            None (default). When `is_close=False`, returns a list of matplotlib Figure</span>
+<span class="sd">            objects created for each channel. The list length equals the number of</span>
+<span class="sd">            channels in the frame.</span>
 
 <span class="sd">        Examples:</span>
 <span class="sd">            &gt;&gt;&gt; cf = ChannelFrame.read_wav(&quot;audio.wav&quot;)</span>
@@ -7148,6 +7328,14 @@ with each channel containing data samples in the time domain.</p>
 <span class="sd">            &gt;&gt;&gt;</span>
 <span class="sd">            &gt;&gt;&gt; # Custom waveform subplot settings</span>
 <span class="sd">            &gt;&gt;&gt; cf.describe(waveform={&quot;ylabel&quot;: &quot;Custom Label&quot;})</span>
+<span class="sd">            &gt;&gt;&gt;</span>
+<span class="sd">            &gt;&gt;&gt; # Save the figure to a file</span>
+<span class="sd">            &gt;&gt;&gt; cf.describe(image_save=&quot;output.png&quot;)</span>
+<span class="sd">            &gt;&gt;&gt;</span>
+<span class="sd">            &gt;&gt;&gt; # Get Figure objects for further manipulation (is_close=False)</span>
+<span class="sd">            &gt;&gt;&gt; figures = cf.describe(is_close=False)</span>
+<span class="sd">            &gt;&gt;&gt; fig = figures[0]</span>
+<span class="sd">            &gt;&gt;&gt; fig.savefig(&quot;custom_output.png&quot;)  # Custom save with modifications</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Prepare kwargs with explicit parameters</span>
         <span class="n">plot_kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
@@ -7187,7 +7375,9 @@ with each channel containing data samples in the time domain.</p>
             <span class="k">if</span> <span class="s2">&quot;vmax&quot;</span> <span class="ow">in</span> <span class="n">cbar_config</span><span class="p">:</span>
                 <span class="n">plot_kwargs</span><span class="p">[</span><span class="s2">&quot;vmax&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cbar_config</span><span class="p">[</span><span class="s2">&quot;vmax&quot;</span><span class="p">]</span>
 
-        <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+        <span class="n">figures</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Figure</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">ch_idx</span><span class="p">,</span> <span class="n">ch</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
             <span class="n">ax</span><span class="p">:</span> <span class="n">Axes</span>
             <span class="n">_ax</span> <span class="o">=</span> <span class="n">ch</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="s2">&quot;describe&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ch</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">ch</span><span class="o">.</span><span class="n">labels</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">plot_kwargs</span><span class="p">)</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">_ax</span><span class="p">,</span> <span class="n">Iterator</span><span class="p">):</span>
@@ -7198,11 +7388,33 @@ with each channel containing data samples in the time domain.</p>
                 <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;Unexpected type for plot result: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">_ax</span><span class="p">)</span><span class="si">}</span><span class="s2">. Expected Axes or Iterator[Axes].&quot;</span>  <span class="c1"># noqa: E501</span>
                 <span class="p">)</span>
-            <span class="c1"># display関数とAudioクラスを使用</span>
-            <span class="n">display</span><span class="p">(</span><span class="n">ax</span><span class="o">.</span><span class="n">figure</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">is_close</span><span class="p">:</span>
-                <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="s2">&quot;figure&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+            <span class="c1"># Extract figure from axes (existing pattern)</span>
+            <span class="n">fig</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="s2">&quot;figure&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">fig</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">is_close</span><span class="p">:</span>
+                <span class="n">figures</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+
+            <span class="c1"># Save image before closing if requested</span>
+            <span class="k">if</span> <span class="n">image_save</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">fig</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_channels</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">save_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">image_save</span><span class="p">)</span>
+                    <span class="n">ch_path</span> <span class="o">=</span> <span class="n">save_path</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">save_path</span><span class="o">.</span><span class="n">stem</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">ch_idx</span><span class="si">}{</span><span class="n">save_path</span><span class="o">.</span><span class="n">suffix</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">ch_path</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">image_save</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">fig</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">display</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">is_close</span> <span class="ow">and</span> <span class="n">fig</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+
+            <span class="c1"># Play audio for each channel</span>
             <span class="n">display</span><span class="p">(</span><span class="n">Audio</span><span class="p">(</span><span class="n">ch</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">rate</span><span class="o">=</span><span class="n">ch</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="n">normalize</span><span class="o">=</span><span class="n">normalize</span><span class="p">))</span>
+
+        <span class="c1"># Return figures only when is_close=False</span>
+        <span class="k">if</span> <span class="n">is_close</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">figures</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">from_numpy</span><span class="p">(</span>
@@ -7689,7 +7901,9 @@ with each channel containing data samples in the time domain.</p>
 <span class="sd">                - dask array (1D or 2D)</span>
 <span class="sd">                - ChannelFrame (channels will be added)</span>
 <span class="sd">            label: Label for the new channel. If None, generates a default label.</span>
-<span class="sd">                Ignored when data is a ChannelFrame (uses its channel labels).</span>
+<span class="sd">                When data is a ChannelFrame, acts as a prefix: each channel in</span>
+<span class="sd">                the input frame is renamed to ``&quot;{label}_{original_label}&quot;``.</span>
+<span class="sd">                If None (the default), the original channel labels are used as-is.</span>
 <span class="sd">            align: How to handle length mismatches:</span>
 <span class="sd">                - &quot;strict&quot;: Raise error if lengths don&#39;t match</span>
 <span class="sd">                - &quot;pad&quot;: Pad shorter data with zeros</span>
@@ -7770,7 +7984,10 @@ with each channel containing data samples in the time domain.</p>
             <span class="n">new_labels</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="n">new_metadata_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ChannelMetadata</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="k">for</span> <span class="n">chmeta</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">_channel_metadata</span><span class="p">:</span>
-                <span class="n">new_label</span> <span class="o">=</span> <span class="n">chmeta</span><span class="o">.</span><span class="n">label</span>
+                <span class="k">if</span> <span class="n">label</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">new_label</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">chmeta</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">new_label</span> <span class="o">=</span> <span class="n">chmeta</span><span class="o">.</span><span class="n">label</span>
                 <span class="k">if</span> <span class="n">new_label</span> <span class="ow">in</span> <span class="n">labels</span> <span class="ow">or</span> <span class="n">new_label</span> <span class="ow">in</span> <span class="n">new_labels</span><span class="p">:</span>
                     <span class="k">if</span> <span class="n">suffix_on_dup</span><span class="p">:</span>
                         <span class="n">new_label</span> <span class="o">+=</span> <span class="n">suffix_on_dup</span>
@@ -7890,6 +8107,109 @@ with each channel containing data samples in the time domain.</p>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">ChannelFrame</span><span class="p">(</span>
                 <span class="n">data</span><span class="o">=</span><span class="n">new_data</span><span class="p">,</span>
+                <span class="n">sampling_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span>
+                <span class="n">label</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="p">,</span>
+                <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+                <span class="n">operation_history</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">operation_history</span><span class="p">,</span>
+                <span class="n">channel_metadata</span><span class="o">=</span><span class="n">new_chmeta</span><span class="p">,</span>
+                <span class="n">previous</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">rename_channels</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">mapping</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+        <span class="n">inplace</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Rename channels using a mapping dictionary.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            mapping: Dictionary mapping old names to new names.</span>
+<span class="sd">                Keys can be:</span>
+<span class="sd">                - int: channel index (e.g., {0: &quot;left&quot;})</span>
+<span class="sd">                - str: channel label (e.g., {&quot;old_name&quot;: &quot;new_name&quot;})</span>
+<span class="sd">            inplace: If True, modifies the frame in place.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Modified ChannelFrame (self if inplace=True, new frame otherwise).</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            KeyError: If a key in mapping doesn&#39;t exist.</span>
+<span class="sd">            ValueError: If duplicate labels would be created.</span>
+
+<span class="sd">        Examples:</span>
+<span class="sd">            &gt;&gt;&gt; cf = ChannelFrame.read_wav(&quot;audio.wav&quot;)</span>
+<span class="sd">            &gt;&gt;&gt; # Rename by index</span>
+<span class="sd">            &gt;&gt;&gt; cf_renamed = cf.rename_channels({0: &quot;left&quot;, 1: &quot;right&quot;})</span>
+<span class="sd">            &gt;&gt;&gt; # Rename by label</span>
+<span class="sd">            &gt;&gt;&gt; cf_renamed = cf.rename_channels({&quot;ch0&quot;: &quot;vocals&quot;})</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="n">ch</span><span class="o">.</span><span class="n">label</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_channel_metadata</span><span class="p">]</span>
+        <span class="n">new_labels</span> <span class="o">=</span> <span class="n">labels</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="c1"># Resolve all keys to their target labels and validate</span>
+        <span class="n">resolved_mappings</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">old_key</span><span class="p">,</span> <span class="n">new_label</span> <span class="ow">in</span> <span class="n">mapping</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">old_key</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+                <span class="c1"># Index-based rename</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">old_key</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_channels</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Channel index out of range</span><span class="se">\n</span><span class="s2">  Index: </span><span class="si">{</span><span class="n">old_key</span><span class="si">}</span><span class="se">\n</span><span class="s2">  Total channels: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_channels</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="p">)</span>
+                <span class="n">resolved_mappings</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">old_key</span><span class="p">,</span> <span class="n">new_label</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Label-based rename</span>
+                <span class="k">if</span> <span class="n">old_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">labels</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Channel label not found</span><span class="se">\n</span><span class="s2">  Label: &#39;</span><span class="si">{</span><span class="n">old_key</span><span class="si">}</span><span class="s2">&#39;</span><span class="se">\n</span><span class="s2">  Existing labels: </span><span class="si">{</span><span class="n">labels</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">idx</span> <span class="o">=</span> <span class="n">labels</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">old_key</span><span class="p">)</span>
+                <span class="n">resolved_mappings</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">idx</span><span class="p">,</span> <span class="n">new_label</span><span class="p">))</span>
+
+        <span class="c1"># Detect duplicate target indices in mapping</span>
+        <span class="n">seen_indices</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">new_label</span> <span class="ow">in</span> <span class="n">resolved_mappings</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">seen_indices</span><span class="p">:</span>
+                <span class="n">prev_label</span> <span class="o">=</span> <span class="n">seen_indices</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;Duplicate channel rename mapping for the same index</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;  Channel index: </span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;  Original label: &#39;</span><span class="si">{</span><span class="n">labels</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="si">}</span><span class="s2">&#39;</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;  First new label: &#39;</span><span class="si">{</span><span class="n">prev_label</span><span class="si">}</span><span class="s2">&#39;</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;  Second new label: &#39;</span><span class="si">{</span><span class="n">new_label</span><span class="si">}</span><span class="s2">&#39;</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="s2">&quot;Provide at most one new label per channel index in mapping.&quot;</span>
+                <span class="p">)</span>
+            <span class="n">seen_indices</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_label</span>
+        <span class="c1"># Apply mappings</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">new_label</span> <span class="ow">in</span> <span class="n">resolved_mappings</span><span class="p">:</span>
+            <span class="n">new_labels</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_label</span>
+
+        <span class="c1"># Check for duplicate labels after all renames have been applied</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">new_labels</span><span class="p">))</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_labels</span><span class="p">):</span>
+            <span class="c1"># Identify duplicates for a more informative error</span>
+            <span class="n">seen</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+            <span class="n">duplicates</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">lbl</span> <span class="ow">in</span> <span class="n">new_labels</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">lbl</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+                    <span class="n">duplicates</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">lbl</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">lbl</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Duplicate channel label after rename</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;  Final labels: </span><span class="si">{</span><span class="n">new_labels</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;  Duplicates: </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">duplicates</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="s2">&quot;Ensure new channel labels are unique.&quot;</span>
+            <span class="p">)</span>
+        <span class="c1"># Create updated channel_metadata list</span>
+        <span class="n">new_chmeta</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ch_meta</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_channel_metadata</span><span class="p">):</span>
+            <span class="n">new_ch_meta</span> <span class="o">=</span> <span class="n">ch_meta</span><span class="o">.</span><span class="n">model_copy</span><span class="p">(</span><span class="n">deep</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">new_ch_meta</span><span class="o">.</span><span class="n">label</span> <span class="o">=</span> <span class="n">new_labels</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">new_chmeta</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_ch_meta</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">inplace</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_channel_metadata</span> <span class="o">=</span> <span class="n">new_chmeta</span>
+            <span class="k">return</span> <span class="bp">self</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ChannelFrame</span><span class="p">(</span>
+                <span class="n">data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">,</span>
                 <span class="n">sampling_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span>
                 <span class="n">label</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="p">,</span>
                 <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
@@ -8258,8 +8578,7 @@ sampling_rate is not positive.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">44</span>
-<span class="normal">45</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">45</span>
 <span class="normal">46</span>
 <span class="normal">47</span>
 <span class="normal">48</span>
@@ -8310,7 +8629,8 @@ sampling_rate is not positive.</p>
 <span class="normal">93</span>
 <span class="normal">94</span>
 <span class="normal">95</span>
-<span class="normal">96</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal">96</span>
+<span class="normal">97</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">DaskArray</span><span class="p">,</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -8407,8 +8727,7 @@ Channel labels: ['ch0', 'ch1']</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">159</span>
-<span class="normal">160</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">160</span>
 <span class="normal">161</span>
 <span class="normal">162</span>
 <span class="normal">163</span>
@@ -8436,7 +8755,8 @@ Channel labels: ['ch0', 'ch1']</p>
 <span class="normal">185</span>
 <span class="normal">186</span>
 <span class="normal">187</span>
-<span class="normal">188</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">188</span>
+<span class="normal">189</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Display comprehensive information about the ChannelFrame.</span>
 
 <span class="sd">    This method prints a summary of the frame&#39;s properties including:</span>
@@ -8566,8 +8886,7 @@ self is treated as the signal, and other as the noise.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">343</span>
-<span class="normal">344</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">344</span>
 <span class="normal">345</span>
 <span class="normal">346</span>
 <span class="normal">347</span>
@@ -8610,7 +8929,8 @@ self is treated as the signal, and other as the noise.</p>
 <span class="normal">384</span>
 <span class="normal">385</span>
 <span class="normal">386</span>
-<span class="normal">387</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">add</span><span class="p">(</span>
+<span class="normal">387</span>
+<span class="normal">388</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">add</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">other</span><span class="p">:</span> <span class="s2">&quot;ChannelFrame | int | float | NDArrayReal&quot;</span><span class="p">,</span>
     <span class="n">snr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -8889,8 +9209,7 @@ These are passed to the underlying matplotlib plot functions.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">389</span>
-<span class="normal">390</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">390</span>
 <span class="normal">391</span>
 <span class="normal">392</span>
 <span class="normal">393</span>
@@ -8960,7 +9279,8 @@ These are passed to the underlying matplotlib plot functions.</p>
 <span class="normal">457</span>
 <span class="normal">458</span>
 <span class="normal">459</span>
-<span class="normal">460</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span>
+<span class="normal">460</span>
+<span class="normal">461</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">plot_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;waveform&quot;</span><span class="p">,</span>
     <span class="n">ax</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;Axes&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -9185,8 +9505,7 @@ alpha, xlim, ylim, and matplotlib Line2D parameters.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">462</span>
-<span class="normal">463</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">463</span>
 <span class="normal">464</span>
 <span class="normal">465</span>
 <span class="normal">466</span>
@@ -9219,7 +9538,8 @@ alpha, xlim, ylim, and matplotlib Line2D parameters.</p>
 <span class="normal">493</span>
 <span class="normal">494</span>
 <span class="normal">495</span>
-<span class="normal">496</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rms_plot</span><span class="p">(</span>
+<span class="normal">496</span>
+<span class="normal">497</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rms_plot</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">ax</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;Axes&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -9264,7 +9584,7 @@ alpha, xlim, ylim, and matplotlib Line2D parameters.</p>
 
 
 <h4 id="wandas.frames.channel.ChannelFrame.describe" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">describe</span><span class="p">(</span><span class="n">normalize</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">is_close</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">fmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">fmax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;jet&#39;</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ylim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">Aw</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">waveform</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">spectral</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">describe</span><span class="p">(</span><span class="n">normalize</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">is_close</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">fmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">fmax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;jet&#39;</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ylim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">Aw</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">waveform</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">spectral</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">image_save</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
 
 <a href="#wandas.frames.channel.ChannelFrame.describe" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -9495,6 +9815,26 @@ Can include 'xlabel', 'ylabel', 'xlim', 'ylim'.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
+                <code>image_save</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | <span title="pathlib.Path">Path</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Path to save the figure as an image file. If provided,
+the figure will be saved before closing. File format is determined
+from the extension (e.g., '.png', '.jpg', '.pdf'). For multi-channel
+frames, the channel index is appended to the filename stem
+(e.g., 'output_0.png', 'output_1.png'). Default: None.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
                 <code>**kwargs</code>
             </td>
             <td>
@@ -9509,6 +9849,49 @@ Can include 'xlabel', 'ylabel', 'xlim', 'ylim'.</p>
             </td>
             <td>
                   <code>{}</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="list">list</span>[<span title="matplotlib.figure.Figure">Figure</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>None (default). When <code>is_close=False</code>, returns a list of matplotlib Figure</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="list">list</span>[<span title="matplotlib.figure.Figure">Figure</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>objects created for each channel. The list length equals the number of</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="list">list</span>[<span title="matplotlib.figure.Figure">Figure</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>channels in the frame.</p>
+              </div>
             </td>
           </tr>
       </tbody>
@@ -9534,13 +9917,20 @@ Can include 'xlabel', 'ylabel', 'xlim', 'ylim'.</p>
 <span class="gp">&gt;&gt;&gt;</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># Custom waveform subplot settings</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">cf</span><span class="o">.</span><span class="n">describe</span><span class="p">(</span><span class="n">waveform</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;ylabel&quot;</span><span class="p">:</span> <span class="s2">&quot;Custom Label&quot;</span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Save the figure to a file</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">cf</span><span class="o">.</span><span class="n">describe</span><span class="p">(</span><span class="n">image_save</span><span class="o">=</span><span class="s2">&quot;output.png&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Get Figure objects for further manipulation (is_close=False)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">figures</span> <span class="o">=</span> <span class="n">cf</span><span class="o">.</span><span class="n">describe</span><span class="p">(</span><span class="n">is_close</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">fig</span> <span class="o">=</span> <span class="n">figures</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;custom_output.png&quot;</span><span class="p">)</span>  <span class="c1"># Custom save with modifications</span>
 </code></pre></div>
 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">498</span>
-<span class="normal">499</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">499</span>
 <span class="normal">500</span>
 <span class="normal">501</span>
 <span class="normal">502</span>
@@ -9665,7 +10055,51 @@ Can include 'xlabel', 'ylabel', 'xlim', 'ylim'.</p>
 <span class="normal">621</span>
 <span class="normal">622</span>
 <span class="normal">623</span>
-<span class="normal">624</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">describe</span><span class="p">(</span>
+<span class="normal">624</span>
+<span class="normal">625</span>
+<span class="normal">626</span>
+<span class="normal">627</span>
+<span class="normal">628</span>
+<span class="normal">629</span>
+<span class="normal">630</span>
+<span class="normal">631</span>
+<span class="normal">632</span>
+<span class="normal">633</span>
+<span class="normal">634</span>
+<span class="normal">635</span>
+<span class="normal">636</span>
+<span class="normal">637</span>
+<span class="normal">638</span>
+<span class="normal">639</span>
+<span class="normal">640</span>
+<span class="normal">641</span>
+<span class="normal">642</span>
+<span class="normal">643</span>
+<span class="normal">644</span>
+<span class="normal">645</span>
+<span class="normal">646</span>
+<span class="normal">647</span>
+<span class="normal">648</span>
+<span class="normal">649</span>
+<span class="normal">650</span>
+<span class="normal">651</span>
+<span class="normal">652</span>
+<span class="normal">653</span>
+<span class="normal">654</span>
+<span class="normal">655</span>
+<span class="normal">656</span>
+<span class="normal">657</span>
+<span class="normal">658</span>
+<span class="normal">659</span>
+<span class="normal">660</span>
+<span class="normal">661</span>
+<span class="normal">662</span>
+<span class="normal">663</span>
+<span class="normal">664</span>
+<span class="normal">665</span>
+<span class="normal">666</span>
+<span class="normal">667</span>
+<span class="normal">668</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">describe</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">normalize</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="n">is_close</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
@@ -9680,8 +10114,9 @@ Can include 'xlabel', 'ylabel', 'xlim', 'ylim'.</p>
     <span class="n">Aw</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>  <span class="c1"># noqa: N803</span>
     <span class="n">waveform</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">spectral</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">image_save</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Figure</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Display visual and audio representation of the frame.</span>
 
 <span class="sd">    This method creates a comprehensive visualization with three plots:</span>
@@ -9714,9 +10149,19 @@ Can include 'xlabel', 'ylabel', 'xlim', 'ylim'.</p>
 <span class="sd">            Can include &#39;xlabel&#39;, &#39;ylabel&#39;, &#39;xlim&#39;, &#39;ylim&#39;.</span>
 <span class="sd">        spectral: Additional configuration dict for spectral subplot.</span>
 <span class="sd">            Can include &#39;xlabel&#39;, &#39;ylabel&#39;, &#39;xlim&#39;, &#39;ylim&#39;.</span>
+<span class="sd">        image_save: Path to save the figure as an image file. If provided,</span>
+<span class="sd">            the figure will be saved before closing. File format is determined</span>
+<span class="sd">            from the extension (e.g., &#39;.png&#39;, &#39;.jpg&#39;, &#39;.pdf&#39;). For multi-channel</span>
+<span class="sd">            frames, the channel index is appended to the filename stem</span>
+<span class="sd">            (e.g., &#39;output_0.png&#39;, &#39;output_1.png&#39;). Default: None.</span>
 <span class="sd">        **kwargs: Deprecated parameters for backward compatibility only.</span>
 <span class="sd">            - axis_config: Old configuration format (use waveform/spectral instead)</span>
 <span class="sd">            - cbar_config: Old colorbar configuration (use vmin/vmax instead)</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        None (default). When `is_close=False`, returns a list of matplotlib Figure</span>
+<span class="sd">        objects created for each channel. The list length equals the number of</span>
+<span class="sd">        channels in the frame.</span>
 
 <span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; cf = ChannelFrame.read_wav(&quot;audio.wav&quot;)</span>
@@ -9737,6 +10182,14 @@ Can include 'xlabel', 'ylabel', 'xlim', 'ylim'.</p>
 <span class="sd">        &gt;&gt;&gt;</span>
 <span class="sd">        &gt;&gt;&gt; # Custom waveform subplot settings</span>
 <span class="sd">        &gt;&gt;&gt; cf.describe(waveform={&quot;ylabel&quot;: &quot;Custom Label&quot;})</span>
+<span class="sd">        &gt;&gt;&gt;</span>
+<span class="sd">        &gt;&gt;&gt; # Save the figure to a file</span>
+<span class="sd">        &gt;&gt;&gt; cf.describe(image_save=&quot;output.png&quot;)</span>
+<span class="sd">        &gt;&gt;&gt;</span>
+<span class="sd">        &gt;&gt;&gt; # Get Figure objects for further manipulation (is_close=False)</span>
+<span class="sd">        &gt;&gt;&gt; figures = cf.describe(is_close=False)</span>
+<span class="sd">        &gt;&gt;&gt; fig = figures[0]</span>
+<span class="sd">        &gt;&gt;&gt; fig.savefig(&quot;custom_output.png&quot;)  # Custom save with modifications</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># Prepare kwargs with explicit parameters</span>
     <span class="n">plot_kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
@@ -9776,7 +10229,9 @@ Can include 'xlabel', 'ylabel', 'xlim', 'ylim'.</p>
         <span class="k">if</span> <span class="s2">&quot;vmax&quot;</span> <span class="ow">in</span> <span class="n">cbar_config</span><span class="p">:</span>
             <span class="n">plot_kwargs</span><span class="p">[</span><span class="s2">&quot;vmax&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cbar_config</span><span class="p">[</span><span class="s2">&quot;vmax&quot;</span><span class="p">]</span>
 
-    <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+    <span class="n">figures</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Figure</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">ch_idx</span><span class="p">,</span> <span class="n">ch</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">ax</span><span class="p">:</span> <span class="n">Axes</span>
         <span class="n">_ax</span> <span class="o">=</span> <span class="n">ch</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="s2">&quot;describe&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ch</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">ch</span><span class="o">.</span><span class="n">labels</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">plot_kwargs</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">_ax</span><span class="p">,</span> <span class="n">Iterator</span><span class="p">):</span>
@@ -9787,11 +10242,33 @@ Can include 'xlabel', 'ylabel', 'xlim', 'ylim'.</p>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;Unexpected type for plot result: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">_ax</span><span class="p">)</span><span class="si">}</span><span class="s2">. Expected Axes or Iterator[Axes].&quot;</span>  <span class="c1"># noqa: E501</span>
             <span class="p">)</span>
-        <span class="c1"># display関数とAudioクラスを使用</span>
-        <span class="n">display</span><span class="p">(</span><span class="n">ax</span><span class="o">.</span><span class="n">figure</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">is_close</span><span class="p">:</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="s2">&quot;figure&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+        <span class="c1"># Extract figure from axes (existing pattern)</span>
+        <span class="n">fig</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="s2">&quot;figure&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">fig</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">is_close</span><span class="p">:</span>
+            <span class="n">figures</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+
+        <span class="c1"># Save image before closing if requested</span>
+        <span class="k">if</span> <span class="n">image_save</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">fig</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_channels</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">save_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">image_save</span><span class="p">)</span>
+                <span class="n">ch_path</span> <span class="o">=</span> <span class="n">save_path</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">save_path</span><span class="o">.</span><span class="n">stem</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">ch_idx</span><span class="si">}{</span><span class="n">save_path</span><span class="o">.</span><span class="n">suffix</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">ch_path</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">image_save</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">fig</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">display</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">is_close</span> <span class="ow">and</span> <span class="n">fig</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+
+        <span class="c1"># Play audio for each channel</span>
         <span class="n">display</span><span class="p">(</span><span class="n">Audio</span><span class="p">(</span><span class="n">ch</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">rate</span><span class="o">=</span><span class="n">ch</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="n">normalize</span><span class="o">=</span><span class="n">normalize</span><span class="p">))</span>
+
+    <span class="c1"># Return figures only when is_close=False</span>
+    <span class="k">if</span> <span class="n">is_close</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">figures</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -9956,51 +10433,7 @@ Can include 'xlabel', 'ylabel', 'xlim', 'ylim'.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">626</span>
-<span class="normal">627</span>
-<span class="normal">628</span>
-<span class="normal">629</span>
-<span class="normal">630</span>
-<span class="normal">631</span>
-<span class="normal">632</span>
-<span class="normal">633</span>
-<span class="normal">634</span>
-<span class="normal">635</span>
-<span class="normal">636</span>
-<span class="normal">637</span>
-<span class="normal">638</span>
-<span class="normal">639</span>
-<span class="normal">640</span>
-<span class="normal">641</span>
-<span class="normal">642</span>
-<span class="normal">643</span>
-<span class="normal">644</span>
-<span class="normal">645</span>
-<span class="normal">646</span>
-<span class="normal">647</span>
-<span class="normal">648</span>
-<span class="normal">649</span>
-<span class="normal">650</span>
-<span class="normal">651</span>
-<span class="normal">652</span>
-<span class="normal">653</span>
-<span class="normal">654</span>
-<span class="normal">655</span>
-<span class="normal">656</span>
-<span class="normal">657</span>
-<span class="normal">658</span>
-<span class="normal">659</span>
-<span class="normal">660</span>
-<span class="normal">661</span>
-<span class="normal">662</span>
-<span class="normal">663</span>
-<span class="normal">664</span>
-<span class="normal">665</span>
-<span class="normal">666</span>
-<span class="normal">667</span>
-<span class="normal">668</span>
-<span class="normal">669</span>
-<span class="normal">670</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">670</span>
 <span class="normal">671</span>
 <span class="normal">672</span>
 <span class="normal">673</span>
@@ -10009,7 +10442,51 @@ Can include 'xlabel', 'ylabel', 'xlim', 'ylim'.</p>
 <span class="normal">676</span>
 <span class="normal">677</span>
 <span class="normal">678</span>
-<span class="normal">679</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">679</span>
+<span class="normal">680</span>
+<span class="normal">681</span>
+<span class="normal">682</span>
+<span class="normal">683</span>
+<span class="normal">684</span>
+<span class="normal">685</span>
+<span class="normal">686</span>
+<span class="normal">687</span>
+<span class="normal">688</span>
+<span class="normal">689</span>
+<span class="normal">690</span>
+<span class="normal">691</span>
+<span class="normal">692</span>
+<span class="normal">693</span>
+<span class="normal">694</span>
+<span class="normal">695</span>
+<span class="normal">696</span>
+<span class="normal">697</span>
+<span class="normal">698</span>
+<span class="normal">699</span>
+<span class="normal">700</span>
+<span class="normal">701</span>
+<span class="normal">702</span>
+<span class="normal">703</span>
+<span class="normal">704</span>
+<span class="normal">705</span>
+<span class="normal">706</span>
+<span class="normal">707</span>
+<span class="normal">708</span>
+<span class="normal">709</span>
+<span class="normal">710</span>
+<span class="normal">711</span>
+<span class="normal">712</span>
+<span class="normal">713</span>
+<span class="normal">714</span>
+<span class="normal">715</span>
+<span class="normal">716</span>
+<span class="normal">717</span>
+<span class="normal">718</span>
+<span class="normal">719</span>
+<span class="normal">720</span>
+<span class="normal">721</span>
+<span class="normal">722</span>
+<span class="normal">723</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">from_numpy</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">NDArrayReal</span><span class="p">,</span>
@@ -10228,42 +10705,42 @@ Can include 'xlabel', 'ylabel', 'xlim', 'ylim'.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">681</span>
-<span class="normal">682</span>
-<span class="normal">683</span>
-<span class="normal">684</span>
-<span class="normal">685</span>
-<span class="normal">686</span>
-<span class="normal">687</span>
-<span class="normal">688</span>
-<span class="normal">689</span>
-<span class="normal">690</span>
-<span class="normal">691</span>
-<span class="normal">692</span>
-<span class="normal">693</span>
-<span class="normal">694</span>
-<span class="normal">695</span>
-<span class="normal">696</span>
-<span class="normal">697</span>
-<span class="normal">698</span>
-<span class="normal">699</span>
-<span class="normal">700</span>
-<span class="normal">701</span>
-<span class="normal">702</span>
-<span class="normal">703</span>
-<span class="normal">704</span>
-<span class="normal">705</span>
-<span class="normal">706</span>
-<span class="normal">707</span>
-<span class="normal">708</span>
-<span class="normal">709</span>
-<span class="normal">710</span>
-<span class="normal">711</span>
-<span class="normal">712</span>
-<span class="normal">713</span>
-<span class="normal">714</span>
-<span class="normal">715</span>
-<span class="normal">716</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">725</span>
+<span class="normal">726</span>
+<span class="normal">727</span>
+<span class="normal">728</span>
+<span class="normal">729</span>
+<span class="normal">730</span>
+<span class="normal">731</span>
+<span class="normal">732</span>
+<span class="normal">733</span>
+<span class="normal">734</span>
+<span class="normal">735</span>
+<span class="normal">736</span>
+<span class="normal">737</span>
+<span class="normal">738</span>
+<span class="normal">739</span>
+<span class="normal">740</span>
+<span class="normal">741</span>
+<span class="normal">742</span>
+<span class="normal">743</span>
+<span class="normal">744</span>
+<span class="normal">745</span>
+<span class="normal">746</span>
+<span class="normal">747</span>
+<span class="normal">748</span>
+<span class="normal">749</span>
+<span class="normal">750</span>
+<span class="normal">751</span>
+<span class="normal">752</span>
+<span class="normal">753</span>
+<span class="normal">754</span>
+<span class="normal">755</span>
+<span class="normal">756</span>
+<span class="normal">757</span>
+<span class="normal">758</span>
+<span class="normal">759</span>
+<span class="normal">760</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">from_ndarray</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">array</span><span class="p">:</span> <span class="n">NDArrayReal</span><span class="p">,</span>
@@ -10567,51 +11044,7 @@ troubleshooting suggestions.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">718</span>
-<span class="normal">719</span>
-<span class="normal">720</span>
-<span class="normal">721</span>
-<span class="normal">722</span>
-<span class="normal">723</span>
-<span class="normal">724</span>
-<span class="normal">725</span>
-<span class="normal">726</span>
-<span class="normal">727</span>
-<span class="normal">728</span>
-<span class="normal">729</span>
-<span class="normal">730</span>
-<span class="normal">731</span>
-<span class="normal">732</span>
-<span class="normal">733</span>
-<span class="normal">734</span>
-<span class="normal">735</span>
-<span class="normal">736</span>
-<span class="normal">737</span>
-<span class="normal">738</span>
-<span class="normal">739</span>
-<span class="normal">740</span>
-<span class="normal">741</span>
-<span class="normal">742</span>
-<span class="normal">743</span>
-<span class="normal">744</span>
-<span class="normal">745</span>
-<span class="normal">746</span>
-<span class="normal">747</span>
-<span class="normal">748</span>
-<span class="normal">749</span>
-<span class="normal">750</span>
-<span class="normal">751</span>
-<span class="normal">752</span>
-<span class="normal">753</span>
-<span class="normal">754</span>
-<span class="normal">755</span>
-<span class="normal">756</span>
-<span class="normal">757</span>
-<span class="normal">758</span>
-<span class="normal">759</span>
-<span class="normal">760</span>
-<span class="normal">761</span>
-<span class="normal">762</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">762</span>
 <span class="normal">763</span>
 <span class="normal">764</span>
 <span class="normal">765</span>
@@ -10802,7 +11235,51 @@ troubleshooting suggestions.</p>
 <span class="normal">950</span>
 <span class="normal">951</span>
 <span class="normal">952</span>
-<span class="normal">953</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">953</span>
+<span class="normal">954</span>
+<span class="normal">955</span>
+<span class="normal">956</span>
+<span class="normal">957</span>
+<span class="normal">958</span>
+<span class="normal">959</span>
+<span class="normal">960</span>
+<span class="normal">961</span>
+<span class="normal">962</span>
+<span class="normal">963</span>
+<span class="normal">964</span>
+<span class="normal">965</span>
+<span class="normal">966</span>
+<span class="normal">967</span>
+<span class="normal">968</span>
+<span class="normal">969</span>
+<span class="normal">970</span>
+<span class="normal">971</span>
+<span class="normal">972</span>
+<span class="normal">973</span>
+<span class="normal">974</span>
+<span class="normal">975</span>
+<span class="normal">976</span>
+<span class="normal">977</span>
+<span class="normal">978</span>
+<span class="normal">979</span>
+<span class="normal">980</span>
+<span class="normal">981</span>
+<span class="normal">982</span>
+<span class="normal">983</span>
+<span class="normal">984</span>
+<span class="normal">985</span>
+<span class="normal">986</span>
+<span class="normal">987</span>
+<span class="normal">988</span>
+<span class="normal">989</span>
+<span class="normal">990</span>
+<span class="normal">991</span>
+<span class="normal">992</span>
+<span class="normal">993</span>
+<span class="normal">994</span>
+<span class="normal">995</span>
+<span class="normal">996</span>
+<span class="normal">997</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">from_file</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
@@ -11134,25 +11611,25 @@ troubleshooting suggestions.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">955</span>
-<span class="normal">956</span>
-<span class="normal">957</span>
-<span class="normal">958</span>
-<span class="normal">959</span>
-<span class="normal">960</span>
-<span class="normal">961</span>
-<span class="normal">962</span>
-<span class="normal">963</span>
-<span class="normal">964</span>
-<span class="normal">965</span>
-<span class="normal">966</span>
-<span class="normal">967</span>
-<span class="normal">968</span>
-<span class="normal">969</span>
-<span class="normal">970</span>
-<span class="normal">971</span>
-<span class="normal">972</span>
-<span class="normal">973</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 999</span>
+<span class="normal">1000</span>
+<span class="normal">1001</span>
+<span class="normal">1002</span>
+<span class="normal">1003</span>
+<span class="normal">1004</span>
+<span class="normal">1005</span>
+<span class="normal">1006</span>
+<span class="normal">1007</span>
+<span class="normal">1008</span>
+<span class="normal">1009</span>
+<span class="normal">1010</span>
+<span class="normal">1011</span>
+<span class="normal">1012</span>
+<span class="normal">1013</span>
+<span class="normal">1014</span>
+<span class="normal">1015</span>
+<span class="normal">1016</span>
+<span class="normal">1017</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">read_wav</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
@@ -11325,45 +11802,45 @@ troubleshooting suggestions.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 975</span>
-<span class="normal"> 976</span>
-<span class="normal"> 977</span>
-<span class="normal"> 978</span>
-<span class="normal"> 979</span>
-<span class="normal"> 980</span>
-<span class="normal"> 981</span>
-<span class="normal"> 982</span>
-<span class="normal"> 983</span>
-<span class="normal"> 984</span>
-<span class="normal"> 985</span>
-<span class="normal"> 986</span>
-<span class="normal"> 987</span>
-<span class="normal"> 988</span>
-<span class="normal"> 989</span>
-<span class="normal"> 990</span>
-<span class="normal"> 991</span>
-<span class="normal"> 992</span>
-<span class="normal"> 993</span>
-<span class="normal"> 994</span>
-<span class="normal"> 995</span>
-<span class="normal"> 996</span>
-<span class="normal"> 997</span>
-<span class="normal"> 998</span>
-<span class="normal"> 999</span>
-<span class="normal">1000</span>
-<span class="normal">1001</span>
-<span class="normal">1002</span>
-<span class="normal">1003</span>
-<span class="normal">1004</span>
-<span class="normal">1005</span>
-<span class="normal">1006</span>
-<span class="normal">1007</span>
-<span class="normal">1008</span>
-<span class="normal">1009</span>
-<span class="normal">1010</span>
-<span class="normal">1011</span>
-<span class="normal">1012</span>
-<span class="normal">1013</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1019</span>
+<span class="normal">1020</span>
+<span class="normal">1021</span>
+<span class="normal">1022</span>
+<span class="normal">1023</span>
+<span class="normal">1024</span>
+<span class="normal">1025</span>
+<span class="normal">1026</span>
+<span class="normal">1027</span>
+<span class="normal">1028</span>
+<span class="normal">1029</span>
+<span class="normal">1030</span>
+<span class="normal">1031</span>
+<span class="normal">1032</span>
+<span class="normal">1033</span>
+<span class="normal">1034</span>
+<span class="normal">1035</span>
+<span class="normal">1036</span>
+<span class="normal">1037</span>
+<span class="normal">1038</span>
+<span class="normal">1039</span>
+<span class="normal">1040</span>
+<span class="normal">1041</span>
+<span class="normal">1042</span>
+<span class="normal">1043</span>
+<span class="normal">1044</span>
+<span class="normal">1045</span>
+<span class="normal">1046</span>
+<span class="normal">1047</span>
+<span class="normal">1048</span>
+<span class="normal">1049</span>
+<span class="normal">1050</span>
+<span class="normal">1051</span>
+<span class="normal">1052</span>
+<span class="normal">1053</span>
+<span class="normal">1054</span>
+<span class="normal">1055</span>
+<span class="normal">1056</span>
+<span class="normal">1057</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">read_csv</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
@@ -11471,16 +11948,16 @@ troubleshooting suggestions.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1015</span>
-<span class="normal">1016</span>
-<span class="normal">1017</span>
-<span class="normal">1018</span>
-<span class="normal">1019</span>
-<span class="normal">1020</span>
-<span class="normal">1021</span>
-<span class="normal">1022</span>
-<span class="normal">1023</span>
-<span class="normal">1024</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_wav</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1059</span>
+<span class="normal">1060</span>
+<span class="normal">1061</span>
+<span class="normal">1062</span>
+<span class="normal">1063</span>
+<span class="normal">1064</span>
+<span class="normal">1065</span>
+<span class="normal">1066</span>
+<span class="normal">1067</span>
+<span class="normal">1068</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_wav</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Save the audio data to a WAV file.</span>
 
 <span class="sd">    Args:</span>
@@ -11654,45 +12131,45 @@ cf.save("audio_analysis.wdf")</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1026</span>
-<span class="normal">1027</span>
-<span class="normal">1028</span>
-<span class="normal">1029</span>
-<span class="normal">1030</span>
-<span class="normal">1031</span>
-<span class="normal">1032</span>
-<span class="normal">1033</span>
-<span class="normal">1034</span>
-<span class="normal">1035</span>
-<span class="normal">1036</span>
-<span class="normal">1037</span>
-<span class="normal">1038</span>
-<span class="normal">1039</span>
-<span class="normal">1040</span>
-<span class="normal">1041</span>
-<span class="normal">1042</span>
-<span class="normal">1043</span>
-<span class="normal">1044</span>
-<span class="normal">1045</span>
-<span class="normal">1046</span>
-<span class="normal">1047</span>
-<span class="normal">1048</span>
-<span class="normal">1049</span>
-<span class="normal">1050</span>
-<span class="normal">1051</span>
-<span class="normal">1052</span>
-<span class="normal">1053</span>
-<span class="normal">1054</span>
-<span class="normal">1055</span>
-<span class="normal">1056</span>
-<span class="normal">1057</span>
-<span class="normal">1058</span>
-<span class="normal">1059</span>
-<span class="normal">1060</span>
-<span class="normal">1061</span>
-<span class="normal">1062</span>
-<span class="normal">1063</span>
-<span class="normal">1064</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1070</span>
+<span class="normal">1071</span>
+<span class="normal">1072</span>
+<span class="normal">1073</span>
+<span class="normal">1074</span>
+<span class="normal">1075</span>
+<span class="normal">1076</span>
+<span class="normal">1077</span>
+<span class="normal">1078</span>
+<span class="normal">1079</span>
+<span class="normal">1080</span>
+<span class="normal">1081</span>
+<span class="normal">1082</span>
+<span class="normal">1083</span>
+<span class="normal">1084</span>
+<span class="normal">1085</span>
+<span class="normal">1086</span>
+<span class="normal">1087</span>
+<span class="normal">1088</span>
+<span class="normal">1089</span>
+<span class="normal">1090</span>
+<span class="normal">1091</span>
+<span class="normal">1092</span>
+<span class="normal">1093</span>
+<span class="normal">1094</span>
+<span class="normal">1095</span>
+<span class="normal">1096</span>
+<span class="normal">1097</span>
+<span class="normal">1098</span>
+<span class="normal">1099</span>
+<span class="normal">1100</span>
+<span class="normal">1101</span>
+<span class="normal">1102</span>
+<span class="normal">1103</span>
+<span class="normal">1104</span>
+<span class="normal">1105</span>
+<span class="normal">1106</span>
+<span class="normal">1107</span>
+<span class="normal">1108</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
@@ -11873,30 +12350,30 @@ metadata, labels, and units.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1066</span>
-<span class="normal">1067</span>
-<span class="normal">1068</span>
-<span class="normal">1069</span>
-<span class="normal">1070</span>
-<span class="normal">1071</span>
-<span class="normal">1072</span>
-<span class="normal">1073</span>
-<span class="normal">1074</span>
-<span class="normal">1075</span>
-<span class="normal">1076</span>
-<span class="normal">1077</span>
-<span class="normal">1078</span>
-<span class="normal">1079</span>
-<span class="normal">1080</span>
-<span class="normal">1081</span>
-<span class="normal">1082</span>
-<span class="normal">1083</span>
-<span class="normal">1084</span>
-<span class="normal">1085</span>
-<span class="normal">1086</span>
-<span class="normal">1087</span>
-<span class="normal">1088</span>
-<span class="normal">1089</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1110</span>
+<span class="normal">1111</span>
+<span class="normal">1112</span>
+<span class="normal">1113</span>
+<span class="normal">1114</span>
+<span class="normal">1115</span>
+<span class="normal">1116</span>
+<span class="normal">1117</span>
+<span class="normal">1118</span>
+<span class="normal">1119</span>
+<span class="normal">1120</span>
+<span class="normal">1121</span>
+<span class="normal">1122</span>
+<span class="normal">1123</span>
+<span class="normal">1124</span>
+<span class="normal">1125</span>
+<span class="normal">1126</span>
+<span class="normal">1127</span>
+<span class="normal">1128</span>
+<span class="normal">1129</span>
+<span class="normal">1130</span>
+<span class="normal">1131</span>
+<span class="normal">1132</span>
+<span class="normal">1133</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hdf5&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a ChannelFrame from a WDF (Wandas Data File) file.</span>
 
@@ -11980,7 +12457,9 @@ metadata, labels, and units.</p>
             <td>
               <div class="doc-md-description">
                 <p>Label for the new channel. If None, generates a default label.
-Ignored when data is a ChannelFrame (uses its channel labels).</p>
+When data is a ChannelFrame, acts as a prefix: each channel in
+the input frame is renamed to <code>"{label}_{original_label}"</code>.
+If None (the default), the original channel labels are used as-is.</p>
               </div>
             </td>
             <td>
@@ -12113,51 +12592,7 @@ or if label is duplicate and suffix_on_dup is None.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1095</span>
-<span class="normal">1096</span>
-<span class="normal">1097</span>
-<span class="normal">1098</span>
-<span class="normal">1099</span>
-<span class="normal">1100</span>
-<span class="normal">1101</span>
-<span class="normal">1102</span>
-<span class="normal">1103</span>
-<span class="normal">1104</span>
-<span class="normal">1105</span>
-<span class="normal">1106</span>
-<span class="normal">1107</span>
-<span class="normal">1108</span>
-<span class="normal">1109</span>
-<span class="normal">1110</span>
-<span class="normal">1111</span>
-<span class="normal">1112</span>
-<span class="normal">1113</span>
-<span class="normal">1114</span>
-<span class="normal">1115</span>
-<span class="normal">1116</span>
-<span class="normal">1117</span>
-<span class="normal">1118</span>
-<span class="normal">1119</span>
-<span class="normal">1120</span>
-<span class="normal">1121</span>
-<span class="normal">1122</span>
-<span class="normal">1123</span>
-<span class="normal">1124</span>
-<span class="normal">1125</span>
-<span class="normal">1126</span>
-<span class="normal">1127</span>
-<span class="normal">1128</span>
-<span class="normal">1129</span>
-<span class="normal">1130</span>
-<span class="normal">1131</span>
-<span class="normal">1132</span>
-<span class="normal">1133</span>
-<span class="normal">1134</span>
-<span class="normal">1135</span>
-<span class="normal">1136</span>
-<span class="normal">1137</span>
-<span class="normal">1138</span>
-<span class="normal">1139</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1139</span>
 <span class="normal">1140</span>
 <span class="normal">1141</span>
 <span class="normal">1142</span>
@@ -12309,7 +12744,56 @@ or if label is duplicate and suffix_on_dup is None.</p>
 <span class="normal">1288</span>
 <span class="normal">1289</span>
 <span class="normal">1290</span>
-<span class="normal">1291</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">add_channel</span><span class="p">(</span>
+<span class="normal">1291</span>
+<span class="normal">1292</span>
+<span class="normal">1293</span>
+<span class="normal">1294</span>
+<span class="normal">1295</span>
+<span class="normal">1296</span>
+<span class="normal">1297</span>
+<span class="normal">1298</span>
+<span class="normal">1299</span>
+<span class="normal">1300</span>
+<span class="normal">1301</span>
+<span class="normal">1302</span>
+<span class="normal">1303</span>
+<span class="normal">1304</span>
+<span class="normal">1305</span>
+<span class="normal">1306</span>
+<span class="normal">1307</span>
+<span class="normal">1308</span>
+<span class="normal">1309</span>
+<span class="normal">1310</span>
+<span class="normal">1311</span>
+<span class="normal">1312</span>
+<span class="normal">1313</span>
+<span class="normal">1314</span>
+<span class="normal">1315</span>
+<span class="normal">1316</span>
+<span class="normal">1317</span>
+<span class="normal">1318</span>
+<span class="normal">1319</span>
+<span class="normal">1320</span>
+<span class="normal">1321</span>
+<span class="normal">1322</span>
+<span class="normal">1323</span>
+<span class="normal">1324</span>
+<span class="normal">1325</span>
+<span class="normal">1326</span>
+<span class="normal">1327</span>
+<span class="normal">1328</span>
+<span class="normal">1329</span>
+<span class="normal">1330</span>
+<span class="normal">1331</span>
+<span class="normal">1332</span>
+<span class="normal">1333</span>
+<span class="normal">1334</span>
+<span class="normal">1335</span>
+<span class="normal">1336</span>
+<span class="normal">1337</span>
+<span class="normal">1338</span>
+<span class="normal">1339</span>
+<span class="normal">1340</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">add_channel</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">data</span><span class="p">:</span> <span class="s2">&quot;np.ndarray[Any, Any] | DaskArray | ChannelFrame&quot;</span><span class="p">,</span>
     <span class="n">label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -12325,7 +12809,9 @@ or if label is duplicate and suffix_on_dup is None.</p>
 <span class="sd">            - dask array (1D or 2D)</span>
 <span class="sd">            - ChannelFrame (channels will be added)</span>
 <span class="sd">        label: Label for the new channel. If None, generates a default label.</span>
-<span class="sd">            Ignored when data is a ChannelFrame (uses its channel labels).</span>
+<span class="sd">            When data is a ChannelFrame, acts as a prefix: each channel in</span>
+<span class="sd">            the input frame is renamed to ``&quot;{label}_{original_label}&quot;``.</span>
+<span class="sd">            If None (the default), the original channel labels are used as-is.</span>
 <span class="sd">        align: How to handle length mismatches:</span>
 <span class="sd">            - &quot;strict&quot;: Raise error if lengths don&#39;t match</span>
 <span class="sd">            - &quot;pad&quot;: Pad shorter data with zeros</span>
@@ -12406,7 +12892,10 @@ or if label is duplicate and suffix_on_dup is None.</p>
         <span class="n">new_labels</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">new_metadata_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ChannelMetadata</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">chmeta</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">_channel_metadata</span><span class="p">:</span>
-            <span class="n">new_label</span> <span class="o">=</span> <span class="n">chmeta</span><span class="o">.</span><span class="n">label</span>
+            <span class="k">if</span> <span class="n">label</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">new_label</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">chmeta</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">new_label</span> <span class="o">=</span> <span class="n">chmeta</span><span class="o">.</span><span class="n">label</span>
             <span class="k">if</span> <span class="n">new_label</span> <span class="ow">in</span> <span class="n">labels</span> <span class="ow">or</span> <span class="n">new_label</span> <span class="ow">in</span> <span class="n">new_labels</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">suffix_on_dup</span><span class="p">:</span>
                     <span class="n">new_label</span> <span class="o">+=</span> <span class="n">suffix_on_dup</span>
@@ -12526,32 +13015,32 @@ or if label is duplicate and suffix_on_dup is None.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1293</span>
-<span class="normal">1294</span>
-<span class="normal">1295</span>
-<span class="normal">1296</span>
-<span class="normal">1297</span>
-<span class="normal">1298</span>
-<span class="normal">1299</span>
-<span class="normal">1300</span>
-<span class="normal">1301</span>
-<span class="normal">1302</span>
-<span class="normal">1303</span>
-<span class="normal">1304</span>
-<span class="normal">1305</span>
-<span class="normal">1306</span>
-<span class="normal">1307</span>
-<span class="normal">1308</span>
-<span class="normal">1309</span>
-<span class="normal">1310</span>
-<span class="normal">1311</span>
-<span class="normal">1312</span>
-<span class="normal">1313</span>
-<span class="normal">1314</span>
-<span class="normal">1315</span>
-<span class="normal">1316</span>
-<span class="normal">1317</span>
-<span class="normal">1318</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">remove_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span> <span class="n">inplace</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1342</span>
+<span class="normal">1343</span>
+<span class="normal">1344</span>
+<span class="normal">1345</span>
+<span class="normal">1346</span>
+<span class="normal">1347</span>
+<span class="normal">1348</span>
+<span class="normal">1349</span>
+<span class="normal">1350</span>
+<span class="normal">1351</span>
+<span class="normal">1352</span>
+<span class="normal">1353</span>
+<span class="normal">1354</span>
+<span class="normal">1355</span>
+<span class="normal">1356</span>
+<span class="normal">1357</span>
+<span class="normal">1358</span>
+<span class="normal">1359</span>
+<span class="normal">1360</span>
+<span class="normal">1361</span>
+<span class="normal">1362</span>
+<span class="normal">1363</span>
+<span class="normal">1364</span>
+<span class="normal">1365</span>
+<span class="normal">1366</span>
+<span class="normal">1367</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">remove_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span> <span class="n">inplace</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">key</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_channels</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">IndexError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;index </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> out of range&quot;</span><span class="p">)</span>
@@ -12570,6 +13059,346 @@ or if label is duplicate and suffix_on_dup is None.</p>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">ChannelFrame</span><span class="p">(</span>
             <span class="n">data</span><span class="o">=</span><span class="n">new_data</span><span class="p">,</span>
+            <span class="n">sampling_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span>
+            <span class="n">label</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+            <span class="n">operation_history</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">operation_history</span><span class="p">,</span>
+            <span class="n">channel_metadata</span><span class="o">=</span><span class="n">new_chmeta</span><span class="p">,</span>
+            <span class="n">previous</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span>
+        <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="wandas.frames.channel.ChannelFrame.rename_channels" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">rename_channels</span><span class="p">(</span><span class="n">mapping</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+
+<a href="#wandas.frames.channel.ChannelFrame.rename_channels" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Rename channels using a mapping dictionary.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>mapping</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span>[<span title="int">int</span> | <span title="str">str</span>, <span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Dictionary mapping old names to new names.
+Keys can be:
+- int: channel index (e.g., {0: "left"})
+- str: channel label (e.g., {"old_name": "new_name"})</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>inplace</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If True, modifies the frame in place.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="            wandas.frames.channel.ChannelFrame" href="#wandas.frames.channel.ChannelFrame">ChannelFrame</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Modified ChannelFrame (self if inplace=True, new frame otherwise).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="KeyError">KeyError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If a key in mapping doesn't exist.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If duplicate labels would be created.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">cf</span> <span class="o">=</span> <span class="n">ChannelFrame</span><span class="o">.</span><span class="n">read_wav</span><span class="p">(</span><span class="s2">&quot;audio.wav&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Rename by index</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">cf_renamed</span> <span class="o">=</span> <span class="n">cf</span><span class="o">.</span><span class="n">rename_channels</span><span class="p">({</span><span class="mi">0</span><span class="p">:</span> <span class="s2">&quot;left&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span> <span class="s2">&quot;right&quot;</span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Rename by label</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">cf_renamed</span> <span class="o">=</span> <span class="n">cf</span><span class="o">.</span><span class="n">rename_channels</span><span class="p">({</span><span class="s2">&quot;ch0&quot;</span><span class="p">:</span> <span class="s2">&quot;vocals&quot;</span><span class="p">})</span>
+</code></pre></div>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>wandas/frames/channel.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1369</span>
+<span class="normal">1370</span>
+<span class="normal">1371</span>
+<span class="normal">1372</span>
+<span class="normal">1373</span>
+<span class="normal">1374</span>
+<span class="normal">1375</span>
+<span class="normal">1376</span>
+<span class="normal">1377</span>
+<span class="normal">1378</span>
+<span class="normal">1379</span>
+<span class="normal">1380</span>
+<span class="normal">1381</span>
+<span class="normal">1382</span>
+<span class="normal">1383</span>
+<span class="normal">1384</span>
+<span class="normal">1385</span>
+<span class="normal">1386</span>
+<span class="normal">1387</span>
+<span class="normal">1388</span>
+<span class="normal">1389</span>
+<span class="normal">1390</span>
+<span class="normal">1391</span>
+<span class="normal">1392</span>
+<span class="normal">1393</span>
+<span class="normal">1394</span>
+<span class="normal">1395</span>
+<span class="normal">1396</span>
+<span class="normal">1397</span>
+<span class="normal">1398</span>
+<span class="normal">1399</span>
+<span class="normal">1400</span>
+<span class="normal">1401</span>
+<span class="normal">1402</span>
+<span class="normal">1403</span>
+<span class="normal">1404</span>
+<span class="normal">1405</span>
+<span class="normal">1406</span>
+<span class="normal">1407</span>
+<span class="normal">1408</span>
+<span class="normal">1409</span>
+<span class="normal">1410</span>
+<span class="normal">1411</span>
+<span class="normal">1412</span>
+<span class="normal">1413</span>
+<span class="normal">1414</span>
+<span class="normal">1415</span>
+<span class="normal">1416</span>
+<span class="normal">1417</span>
+<span class="normal">1418</span>
+<span class="normal">1419</span>
+<span class="normal">1420</span>
+<span class="normal">1421</span>
+<span class="normal">1422</span>
+<span class="normal">1423</span>
+<span class="normal">1424</span>
+<span class="normal">1425</span>
+<span class="normal">1426</span>
+<span class="normal">1427</span>
+<span class="normal">1428</span>
+<span class="normal">1429</span>
+<span class="normal">1430</span>
+<span class="normal">1431</span>
+<span class="normal">1432</span>
+<span class="normal">1433</span>
+<span class="normal">1434</span>
+<span class="normal">1435</span>
+<span class="normal">1436</span>
+<span class="normal">1437</span>
+<span class="normal">1438</span>
+<span class="normal">1439</span>
+<span class="normal">1440</span>
+<span class="normal">1441</span>
+<span class="normal">1442</span>
+<span class="normal">1443</span>
+<span class="normal">1444</span>
+<span class="normal">1445</span>
+<span class="normal">1446</span>
+<span class="normal">1447</span>
+<span class="normal">1448</span>
+<span class="normal">1449</span>
+<span class="normal">1450</span>
+<span class="normal">1451</span>
+<span class="normal">1452</span>
+<span class="normal">1453</span>
+<span class="normal">1454</span>
+<span class="normal">1455</span>
+<span class="normal">1456</span>
+<span class="normal">1457</span>
+<span class="normal">1458</span>
+<span class="normal">1459</span>
+<span class="normal">1460</span>
+<span class="normal">1461</span>
+<span class="normal">1462</span>
+<span class="normal">1463</span>
+<span class="normal">1464</span>
+<span class="normal">1465</span>
+<span class="normal">1466</span>
+<span class="normal">1467</span>
+<span class="normal">1468</span>
+<span class="normal">1469</span>
+<span class="normal">1470</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rename_channels</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">,</span>
+    <span class="n">mapping</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+    <span class="n">inplace</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Rename channels using a mapping dictionary.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        mapping: Dictionary mapping old names to new names.</span>
+<span class="sd">            Keys can be:</span>
+<span class="sd">            - int: channel index (e.g., {0: &quot;left&quot;})</span>
+<span class="sd">            - str: channel label (e.g., {&quot;old_name&quot;: &quot;new_name&quot;})</span>
+<span class="sd">        inplace: If True, modifies the frame in place.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Modified ChannelFrame (self if inplace=True, new frame otherwise).</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        KeyError: If a key in mapping doesn&#39;t exist.</span>
+<span class="sd">        ValueError: If duplicate labels would be created.</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; cf = ChannelFrame.read_wav(&quot;audio.wav&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; # Rename by index</span>
+<span class="sd">        &gt;&gt;&gt; cf_renamed = cf.rename_channels({0: &quot;left&quot;, 1: &quot;right&quot;})</span>
+<span class="sd">        &gt;&gt;&gt; # Rename by label</span>
+<span class="sd">        &gt;&gt;&gt; cf_renamed = cf.rename_channels({&quot;ch0&quot;: &quot;vocals&quot;})</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="n">ch</span><span class="o">.</span><span class="n">label</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_channel_metadata</span><span class="p">]</span>
+    <span class="n">new_labels</span> <span class="o">=</span> <span class="n">labels</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Resolve all keys to their target labels and validate</span>
+    <span class="n">resolved_mappings</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">old_key</span><span class="p">,</span> <span class="n">new_label</span> <span class="ow">in</span> <span class="n">mapping</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">old_key</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="c1"># Index-based rename</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">old_key</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_channels</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Channel index out of range</span><span class="se">\n</span><span class="s2">  Index: </span><span class="si">{</span><span class="n">old_key</span><span class="si">}</span><span class="se">\n</span><span class="s2">  Total channels: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_channels</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+            <span class="n">resolved_mappings</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">old_key</span><span class="p">,</span> <span class="n">new_label</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Label-based rename</span>
+            <span class="k">if</span> <span class="n">old_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">labels</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Channel label not found</span><span class="se">\n</span><span class="s2">  Label: &#39;</span><span class="si">{</span><span class="n">old_key</span><span class="si">}</span><span class="s2">&#39;</span><span class="se">\n</span><span class="s2">  Existing labels: </span><span class="si">{</span><span class="n">labels</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">labels</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">old_key</span><span class="p">)</span>
+            <span class="n">resolved_mappings</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">idx</span><span class="p">,</span> <span class="n">new_label</span><span class="p">))</span>
+
+    <span class="c1"># Detect duplicate target indices in mapping</span>
+    <span class="n">seen_indices</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">new_label</span> <span class="ow">in</span> <span class="n">resolved_mappings</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">seen_indices</span><span class="p">:</span>
+            <span class="n">prev_label</span> <span class="o">=</span> <span class="n">seen_indices</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Duplicate channel rename mapping for the same index</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;  Channel index: </span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;  Original label: &#39;</span><span class="si">{</span><span class="n">labels</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="si">}</span><span class="s2">&#39;</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;  First new label: &#39;</span><span class="si">{</span><span class="n">prev_label</span><span class="si">}</span><span class="s2">&#39;</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;  Second new label: &#39;</span><span class="si">{</span><span class="n">new_label</span><span class="si">}</span><span class="s2">&#39;</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="s2">&quot;Provide at most one new label per channel index in mapping.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">seen_indices</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_label</span>
+    <span class="c1"># Apply mappings</span>
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">new_label</span> <span class="ow">in</span> <span class="n">resolved_mappings</span><span class="p">:</span>
+        <span class="n">new_labels</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_label</span>
+
+    <span class="c1"># Check for duplicate labels after all renames have been applied</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">new_labels</span><span class="p">))</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_labels</span><span class="p">):</span>
+        <span class="c1"># Identify duplicates for a more informative error</span>
+        <span class="n">seen</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="n">duplicates</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">lbl</span> <span class="ow">in</span> <span class="n">new_labels</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">lbl</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+                <span class="n">duplicates</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">lbl</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">lbl</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Duplicate channel label after rename</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;  Final labels: </span><span class="si">{</span><span class="n">new_labels</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;  Duplicates: </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">duplicates</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="s2">&quot;Ensure new channel labels are unique.&quot;</span>
+        <span class="p">)</span>
+    <span class="c1"># Create updated channel_metadata list</span>
+    <span class="n">new_chmeta</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ch_meta</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_channel_metadata</span><span class="p">):</span>
+        <span class="n">new_ch_meta</span> <span class="o">=</span> <span class="n">ch_meta</span><span class="o">.</span><span class="n">model_copy</span><span class="p">(</span><span class="n">deep</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">new_ch_meta</span><span class="o">.</span><span class="n">label</span> <span class="o">=</span> <span class="n">new_labels</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">new_chmeta</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_ch_meta</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">inplace</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_channel_metadata</span> <span class="o">=</span> <span class="n">new_chmeta</span>
+        <span class="k">return</span> <span class="bp">self</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">ChannelFrame</span><span class="p">(</span>
+            <span class="n">data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">,</span>
             <span class="n">sampling_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span>
             <span class="n">label</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="p">,</span>
             <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
@@ -21998,7 +22827,7 @@ transformation operations.</p>
         <span class="c1"># Sampling rate update is handled by the Operation class</span>
         <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">T_Processing</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">loudness_zwst</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span> <span class="n">field_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">loudness_zwst</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">ProcessingFrameProtocol</span><span class="p">,</span> <span class="n">field_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Calculate steady-state loudness using Zwicker method (ISO 532-1:2017).</span>
 
@@ -22147,7 +22976,7 @@ transformation operations.</p>
         <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply_operation</span><span class="p">(</span><span class="s2">&quot;roughness_dw&quot;</span><span class="p">,</span> <span class="n">overlap</span><span class="o">=</span><span class="n">overlap</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">T_Processing</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">roughness_dw_spec</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span> <span class="n">overlap</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;RoughnessFrame&quot;</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">roughness_dw_spec</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">ProcessingFrameProtocol</span><span class="p">,</span> <span class="n">overlap</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;RoughnessFrame&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate specific roughness with Bark-band frequency information.</span>
 
 <span class="sd">        This method returns detailed roughness analysis data organized by</span>
@@ -22370,7 +23199,7 @@ transformation operations.</p>
         <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">T_Processing</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">sharpness_din_st</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span>
+        <span class="bp">self</span><span class="p">:</span> <span class="n">ProcessingFrameProtocol</span><span class="p">,</span>
         <span class="n">weighting</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;din&quot;</span><span class="p">,</span>
         <span class="n">field_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">:</span>
@@ -25474,7 +26303,7 @@ Part 1: Zwicker method"</p>
 <span class="normal">634</span>
 <span class="normal">635</span>
 <span class="normal">636</span>
-<span class="normal">637</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">loudness_zwst</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span> <span class="n">field_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">:</span>
+<span class="normal">637</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">loudness_zwst</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">ProcessingFrameProtocol</span><span class="p">,</span> <span class="n">field_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Calculate steady-state loudness using Zwicker method (ISO 532-1:2017).</span>
 
@@ -26133,7 +26962,7 @@ Implementation of an optimized model." Acustica, 83, 113-123.</p>
 <span class="normal">822</span>
 <span class="normal">823</span>
 <span class="normal">824</span>
-<span class="normal">825</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">roughness_dw_spec</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span> <span class="n">overlap</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;RoughnessFrame&quot;</span><span class="p">:</span>
+<span class="normal">825</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">roughness_dw_spec</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">ProcessingFrameProtocol</span><span class="p">,</span> <span class="n">overlap</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;RoughnessFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate specific roughness with Bark-band frequency information.</span>
 
 <span class="sd">    This method returns detailed roughness analysis data organized by</span>
@@ -26787,7 +27616,7 @@ print(f"Steady-state sharpness: {sharpness[0]:.2f} acum")</p>
 <span class="normal">1007</span>
 <span class="normal">1008</span>
 <span class="normal">1009</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">sharpness_din_st</span><span class="p">(</span>
-    <span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span>
+    <span class="bp">self</span><span class="p">:</span> <span class="n">ProcessingFrameProtocol</span><span class="p">,</span>
     <span class="n">weighting</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;din&quot;</span><span class="p">,</span>
     <span class="n">field_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">:</span>
@@ -27392,7 +28221,7 @@ transformations such as FFT, STFT, and Welch method.</p>
 <span class="sd">    transformations such as FFT, STFT, and Welch method.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">fft</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">T_Transform</span><span class="p">,</span> <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SpectralFrame&quot;</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fft</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span> <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SpectralFrame&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate Fast Fourier Transform (FFT).</span>
 
 <span class="sd">        Args:</span>
@@ -27443,7 +28272,7 @@ transformations such as FFT, STFT, and Welch method.</p>
         <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">welch</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">:</span> <span class="n">T_Transform</span><span class="p">,</span>
+        <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
         <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
         <span class="n">hop_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -27503,7 +28332,7 @@ transformations such as FFT, STFT, and Welch method.</p>
         <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">noct_spectrum</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">:</span> <span class="n">T_Transform</span><span class="p">,</span>
+        <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
         <span class="n">fmin</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">25</span><span class="p">,</span>
         <span class="n">fmax</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">20000</span><span class="p">,</span>
         <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
@@ -27563,7 +28392,7 @@ transformations such as FFT, STFT, and Welch method.</p>
         <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">stft</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">:</span> <span class="n">T_Transform</span><span class="p">,</span>
+        <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
         <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
         <span class="n">hop_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -27628,7 +28457,7 @@ transformations such as FFT, STFT, and Welch method.</p>
         <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">coherence</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">:</span> <span class="n">T_Transform</span><span class="p">,</span>
+        <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
         <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
         <span class="n">hop_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -27703,7 +28532,7 @@ transformations such as FFT, STFT, and Welch method.</p>
         <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">csd</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">:</span> <span class="n">T_Transform</span><span class="p">,</span>
+        <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
         <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
         <span class="n">hop_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -27783,7 +28612,7 @@ transformations such as FFT, STFT, and Welch method.</p>
         <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">transfer_function</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">:</span> <span class="n">T_Transform</span><span class="p">,</span>
+        <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
         <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
         <span class="n">hop_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -28016,7 +28845,7 @@ length.</p>
 <span class="normal">71</span>
 <span class="normal">72</span>
 <span class="normal">73</span>
-<span class="normal">74</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">fft</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">T_Transform</span><span class="p">,</span> <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SpectralFrame&quot;</span><span class="p">:</span>
+<span class="normal">74</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">fft</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span> <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SpectralFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate Fast Fourier Transform (FFT).</span>
 
 <span class="sd">    Args:</span>
@@ -28265,7 +29094,7 @@ Default is n_fft//4.</p>
 <span class="normal">132</span>
 <span class="normal">133</span>
 <span class="normal">134</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">welch</span><span class="p">(</span>
-    <span class="bp">self</span><span class="p">:</span> <span class="n">T_Transform</span><span class="p">,</span>
+    <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
     <span class="n">hop_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -28522,7 +29351,7 @@ Default is n_fft//4.</p>
 <span class="normal">192</span>
 <span class="normal">193</span>
 <span class="normal">194</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">noct_spectrum</span><span class="p">(</span>
-    <span class="bp">self</span><span class="p">:</span> <span class="n">T_Transform</span><span class="p">,</span>
+    <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">fmin</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">25</span><span class="p">,</span>
     <span class="n">fmax</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">20000</span><span class="p">,</span>
     <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
@@ -28769,7 +29598,7 @@ Default is n_fft//4.</p>
 <span class="normal">257</span>
 <span class="normal">258</span>
 <span class="normal">259</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">stft</span><span class="p">(</span>
-    <span class="bp">self</span><span class="p">:</span> <span class="n">T_Transform</span><span class="p">,</span>
+    <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
     <span class="n">hop_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -29047,7 +29876,7 @@ Default is n_fft//4.</p>
 <span class="normal">332</span>
 <span class="normal">333</span>
 <span class="normal">334</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">coherence</span><span class="p">(</span>
-    <span class="bp">self</span><span class="p">:</span> <span class="n">T_Transform</span><span class="p">,</span>
+    <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
     <span class="n">hop_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -29372,7 +30201,7 @@ Default is n_fft//4.</p>
 <span class="normal">412</span>
 <span class="normal">413</span>
 <span class="normal">414</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">csd</span><span class="p">(</span>
-    <span class="bp">self</span><span class="p">:</span> <span class="n">T_Transform</span><span class="p">,</span>
+    <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
     <span class="n">hop_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -29709,7 +30538,7 @@ Default is n_fft//4.</p>
 <span class="normal">496</span>
 <span class="normal">497</span>
 <span class="normal">498</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">transfer_function</span><span class="p">(</span>
-    <span class="bp">self</span><span class="p">:</span> <span class="n">T_Transform</span><span class="p">,</span>
+    <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
     <span class="n">hop_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>

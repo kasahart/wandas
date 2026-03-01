@@ -4912,8 +4912,8 @@ labels : list of str, optional
         <span class="c1"># ローカルファイルパスの場合</span>
         <span class="n">file_path</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
         <span class="n">file_label</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span>
-        <span class="c1"># データの読み込み（メモリマッピングを使用）</span>
-        <span class="n">sampling_rate</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">wavfile</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="n">mmap</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># データの読み込み（メモリマッピング不使用で統一）</span>
+        <span class="n">sampling_rate</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">wavfile</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span>
 
     <span class="c1"># データを(num_channels, num_samples)形状のNumPy配列に変換</span>
     <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
