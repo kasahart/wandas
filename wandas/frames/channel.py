@@ -654,7 +654,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 else:
                     fig.savefig(image_save, bbox_inches="tight")
 
-            display(fig)
+            if fig is not None:
+                display(fig)
             if is_close and fig is not None:
                 plt.close(fig)
 
