@@ -5,7 +5,7 @@ import logging
 from typing import TYPE_CHECKING, Any, cast
 
 from ...core.base_frame import BaseFrame
-from .protocols import T_Transform
+from .protocols import TransformFrameProtocol
 
 if TYPE_CHECKING:
     from wandas.frames.noct import NOctFrame
@@ -23,7 +23,7 @@ class ChannelTransformMixin:
     transformations such as FFT, STFT, and Welch method.
     """
 
-    def fft(self: T_Transform, n_fft: int | None = None, window: str = "hann") -> "SpectralFrame":
+    def fft(self: TransformFrameProtocol, n_fft: int | None = None, window: str = "hann") -> "SpectralFrame":
         """Calculate Fast Fourier Transform (FFT).
 
         Args:
@@ -74,7 +74,7 @@ class ChannelTransformMixin:
         )
 
     def welch(
-        self: T_Transform,
+        self: TransformFrameProtocol,
         n_fft: int = 2048,
         hop_length: int | None = None,
         win_length: int | None = None,
@@ -134,7 +134,7 @@ class ChannelTransformMixin:
         )
 
     def noct_spectrum(
-        self: T_Transform,
+        self: TransformFrameProtocol,
         fmin: float = 25,
         fmax: float = 20000,
         n: int = 3,
@@ -194,7 +194,7 @@ class ChannelTransformMixin:
         )
 
     def stft(
-        self: T_Transform,
+        self: TransformFrameProtocol,
         n_fft: int = 2048,
         hop_length: int | None = None,
         win_length: int | None = None,
@@ -259,7 +259,7 @@ class ChannelTransformMixin:
         )
 
     def coherence(
-        self: T_Transform,
+        self: TransformFrameProtocol,
         n_fft: int = 2048,
         hop_length: int | None = None,
         win_length: int | None = None,
@@ -334,7 +334,7 @@ class ChannelTransformMixin:
         )
 
     def csd(
-        self: T_Transform,
+        self: TransformFrameProtocol,
         n_fft: int = 2048,
         hop_length: int | None = None,
         win_length: int | None = None,
@@ -414,7 +414,7 @@ class ChannelTransformMixin:
         )
 
     def transfer_function(
-        self: T_Transform,
+        self: TransformFrameProtocol,
         n_fft: int = 2048,
         hop_length: int | None = None,
         win_length: int | None = None,
