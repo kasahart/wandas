@@ -791,8 +791,8 @@ class TestBaseFrameUtilityMethods:
             result = self.channel_frame.visualize_graph(filename="test_graph.png")
             # Result is the mocked return value
             assert result is mock_return_value
-            # Ensure the filename was forwarded to _data.visualize
-            mock_visualize.assert_called_with(filename="test_graph.png")
+            # Ensure the filename was forwarded to _data.visualize exactly once
+            mock_visualize.assert_called_once_with(filename="test_graph.png")
 
     def test_visualize_graph_without_filename(self) -> None:
         """Test visualize_graph without filename (auto-generated)."""
