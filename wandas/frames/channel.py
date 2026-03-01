@@ -1368,17 +1368,26 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 idx = labels.index(old_key)
                 resolved_mappings.append((idx, new_label))
 
-        # Apply mappings and check for duplicates
+        # Apply mappings
         for idx, new_label in resolved_mappings:
-            if new_label in labels or new_label in [lbl for i, lbl in resolved_mappings if i != idx]:
-                raise ValueError(
-                    f"Duplicate channel label after rename\n"
-                    f"  New label: '{new_label}'\n"
-                    f"  Existing labels: {labels}\n"
-                    "Ensure new labels are unique."
-                )
             new_labels[idx] = new_label
 
+        # Check for duplicate labels after all renames have been applied
+        if len(set(new_labels)) != len(new_labels):
+            # Identify duplicates for a more informative error
+            seen: set[str] = set()
+            duplicates: set[str] = set()
+            for lbl in new_labels:
+                if lbl in seen:
+                    duplicates.add(lbl)
+                else:
+                    seen.add(lbl)
+            raise ValueError(
+                "Duplicate channel label after rename\n"
+                f"  Final labels: {new_labels}\n"
+                f"  Duplicates: {sorted(duplicates)}\n"
+                "Ensure new channel labels are unique."
+            )
         # Create updated channel_metadata list
         new_chmeta = []
         for i, ch_meta in enumerate(self._channel_metadata):
