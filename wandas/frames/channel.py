@@ -1108,7 +1108,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 - dask array (1D or 2D)
                 - ChannelFrame (channels will be added)
             label: Label for the new channel. If None, generates a default label.
-                Ignored when data is a ChannelFrame (uses its channel labels).
+                When data is a ChannelFrame, acts as a prefix: each channel in
+                the input frame is renamed to ``"{label}_{original_label}"``.
+                If None (the default), the original channel labels are used as-is.
             align: How to handle length mismatches:
                 - "strict": Raise error if lengths don't match
                 - "pad": Pad shorter data with zeros

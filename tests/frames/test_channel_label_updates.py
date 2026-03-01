@@ -556,3 +556,48 @@ class TestRenameChannels:
         assert result.channels[0].extra == {"calibration": 1.0}
         assert result.channels[1].unit == "V"
         assert result.channels[1].extra == {"gain": 10}
+
+    def test_rename_channels_noop_succeeds(self) -> None:
+        """Test that renaming a channel to its current label (no-op) succeeds."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[
+                {"label": "ch0", "unit": "", "extra": {}},
+                {"label": "ch1", "unit": "", "extra": {}},
+            ],
+        )
+
+        result = frame.rename_channels({0: "ch0"})
+
+        assert result.labels == ["ch0", "ch1"]
+
+    def test_rename_channels_swap_succeeds(self) -> None:
+        """Test that swapping two channel labels succeeds without duplicate error."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[
+                {"label": "ch0", "unit": "", "extra": {}},
+                {"label": "ch1", "unit": "", "extra": {}},
+            ],
+        )
+
+        result = frame.rename_channels({0: "ch1", 1: "ch0"})
+
+        assert result.labels == ["ch1", "ch0"]
+
+    def test_rename_channels_mixed_key_duplicate_index_error(self) -> None:
+        """Test error when both an int index and a string label target the same channel."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[
+                {"label": "ch0", "unit": "", "extra": {}},
+                {"label": "ch1", "unit": "", "extra": {}},
+            ],
+        )
+
+        # Index 0 and label "ch0" both refer to channel 0 — ambiguous mapping
+        with pytest.raises(ValueError):
+            frame.rename_channels({0: "a", "ch0": "b"})
