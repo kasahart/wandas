@@ -190,7 +190,14 @@ def load(path: str | Path, *, format: str = "hdf5") -> "ChannelFrame":
             frame_metadata.update(json.loads(meta_json))
             source_file = f["meta"].attrs.get("source_file", None)
             if source_file is not None:
-                frame_metadata.source_file = str(source_file)
+                if isinstance(source_file, (bytes, np.bytes_)):
+                    try:
+                        decoded_source_file = source_file.decode("utf-8")
+                    except Exception:
+                        decoded_source_file = str(source_file)
+                    frame_metadata.source_file = decoded_source_file
+                else:
+                    frame_metadata.source_file = str(source_file)
 
         # Load operation history
         operation_history = []
