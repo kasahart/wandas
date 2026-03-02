@@ -9,7 +9,7 @@ import pandas as pd
 from dask.array.core import Array as DaArray
 
 from wandas.core.base_frame import BaseFrame
-from wandas.core.metadata import ChannelMetadata
+from wandas.core.metadata import ChannelMetadata, FrameMetadata
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 if TYPE_CHECKING:
@@ -366,9 +366,7 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         """
         logger.debug(f"Setting up {symbol} operation (lazy)")
 
-        metadata = {}
-        if self.metadata is not None:
-            metadata = self.metadata.copy()
+        metadata: FrameMetadata = self.metadata.copy() if self.metadata is not None else FrameMetadata()
 
         operation_history = []
         if self.operation_history is not None:

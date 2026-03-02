@@ -19,7 +19,7 @@ from wandas.utils.dask_helpers import da_from_array as _da_from_array
 from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
-from ..core.metadata import ChannelMetadata
+from ..core.metadata import ChannelMetadata, FrameMetadata
 from ..io.readers import get_file_reader
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
 
@@ -266,9 +266,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         logger.debug(f"Setting up {symbol} operation (lazy)")
 
         # Handle potentially None metadata and operation_history
-        metadata = {}
-        if self.metadata is not None:
-            metadata = self.metadata.copy()
+        metadata: FrameMetadata = self.metadata.copy() if self.metadata is not None else FrameMetadata()
 
         operation_history = []
         if self.operation_history is not None:
@@ -673,7 +671,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         data: NDArrayReal,
         sampling_rate: float,
         label: str | None = None,
-        metadata: dict[str, Any] | None = None,
+        metadata: "FrameMetadata | dict[str, Any] | None" = None,
         ch_labels: list[str] | None = None,
         ch_units: list[str] | str | None = None,
     ) -> "ChannelFrame":
@@ -703,9 +701,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             data=dask_data,
             sampling_rate=sampling_rate,
             label=label or "numpy_data",
+            metadata=metadata,
         )
-        if metadata is not None:
-            cf.metadata = metadata
         if ch_labels is not None:
             if len(ch_labels) != cf.n_channels:
                 raise ValueError("Number of channel labels does not match the number of channels")
@@ -730,7 +727,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         labels: list[str] | None = None,
         unit: list[str] | str | None = None,
         frame_label: str | None = None,
-        metadata: dict[str, Any] | None = None,
+        metadata: "FrameMetadata | dict[str, Any] | None" = None,
     ) -> "ChannelFrame":
         """Create a ChannelFrame from a NumPy array.
 
@@ -975,17 +972,17 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             frame_label = path_obj.stem
         else:
             frame_label = None
-        frame_metadata = {}
+        source_file: str | None = None
         if path_obj is not None:
-            frame_metadata["filename"] = str(path_obj)
+            source_file = str(path_obj.resolve())
         elif source_name is not None:
-            frame_metadata["filename"] = source_name
+            source_file = source_name
 
         cf = ChannelFrame(
             data=dask_array,
             sampling_rate=sr,
             label=frame_label,
-            metadata=frame_metadata,
+            metadata=FrameMetadata(source_file=source_file),
         )
         if ch_labels is not None:
             if len(ch_labels) != len(cf):

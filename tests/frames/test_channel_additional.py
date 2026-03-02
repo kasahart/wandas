@@ -83,7 +83,7 @@ def test_from_file_in_memory_and_source_name_and_ch_labels_and_header_and_csv_kw
     )
     assert isinstance(cf, ChannelFrame)
     assert cf.sampling_rate == 44100
-    assert cf.metadata.get("filename") == "my_file.wav"
+    assert cf.metadata.source_file == "my_file.wav"
     assert cf.labels == ["L", "R"]
     assert cap.get("time_column") == 1
     assert cap.get("delimiter") == ";"

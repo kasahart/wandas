@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
 
 from ..core.base_frame import BaseFrame
+from ..core.metadata import FrameMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +110,7 @@ def save(
                 op_sub_grp = op_grp.create_group(f"operation_{i}")
                 for k, v in op.items():
                     # Store simple attributes directly
-                    if isinstance(v, str | int | float | bool | np.number):
+                    if isinstance(v, (str, int, float, bool, np.number)):
                         op_sub_grp.attrs[k] = v
                     else:
                         # For complex types, serialize to JSON
@@ -120,14 +121,20 @@ def save(
                             op_sub_grp.attrs[k] = str(v)
 
         # Store frame metadata
-        if frame.metadata:
+        dict_is_nonempty = bool(frame.metadata)
+        has_source_file = isinstance(frame.metadata, FrameMetadata) and frame.metadata.source_file is not None
+        if dict_is_nonempty or has_source_file:
             meta_grp = f.create_group("meta")
-            # Store metadata as JSON
-            meta_grp.attrs["json"] = json.dumps(frame.metadata)
+            # Store metadata dict content as JSON
+            meta_grp.attrs["json"] = json.dumps(dict(frame.metadata))
+
+            # Store source_file separately if present
+            if has_source_file:
+                meta_grp.attrs["source_file"] = frame.metadata.source_file
 
             # Also store individual metadata items as attributes for compatibility
             for k, v in frame.metadata.items():
-                if isinstance(v, str | int | float | bool | np.number):
+                if isinstance(v, (str, int, float, bool, np.number)):
                     meta_grp.attrs[k] = v
 
     logger.info(f"Frame saved to {path}")
@@ -177,10 +184,20 @@ def load(path: str | Path, *, format: str = "hdf5") -> "ChannelFrame":
         frame_label = f.attrs.get("label", "")
 
         # Get frame metadata
-        frame_metadata = {}
+        frame_metadata = FrameMetadata()
         if "meta" in f:
             meta_json = f["meta"].attrs.get("json", "{}")
-            frame_metadata = json.loads(meta_json)
+            frame_metadata.update(json.loads(meta_json))
+            source_file = f["meta"].attrs.get("source_file", None)
+            if source_file is not None:
+                if isinstance(source_file, (bytes, np.bytes_)):
+                    try:
+                        decoded_source_file = source_file.decode("utf-8")
+                    except (UnicodeDecodeError, AttributeError):
+                        decoded_source_file = str(source_file)
+                    frame_metadata.source_file = decoded_source_file
+                else:
+                    frame_metadata.source_file = str(source_file)
 
         # Load operation history
         operation_history = []
