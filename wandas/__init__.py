@@ -6,6 +6,7 @@ from importlib.metadata import version
 from .frames.channel import ChannelFrame
 from .io import wav_io
 from .utils import generate_sample
+from .utils.frame_dataset import ChannelFrameDataset
 
 __version__ = version(__package__ or "wandas")
 read_wav = wav_io.read_wav
@@ -15,7 +16,8 @@ from_numpy = ChannelFrame.from_numpy
 from_ndarray = from_numpy
 
 generate_sin = generate_sample.generate_sin_lazy
-__all__ = ["read_wav", "read_csv", "from_ndarray", "generate_sin"]
+from_folder = ChannelFrameDataset.from_folder
+__all__ = ["read_wav", "read_csv", "from_ndarray", "generate_sin", "from_folder", "ChannelFrameDataset"]
 
 
 def setup_wandas_logging(level: str | int = "INFO", add_handler: bool = True) -> logging.Logger:
