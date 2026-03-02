@@ -74,7 +74,7 @@ def read_wav(
                 raw_name_str = os.fspath(raw_name)
                 base_name = os.path.basename(raw_name_str)
                 file_label = base_name or "in_memory"
-                if file_label != "in_memory":
+                if base_name:
                     source_file = raw_name_str
             else:
                 file_label = "in_memory"

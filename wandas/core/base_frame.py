@@ -54,8 +54,8 @@ class BaseFrame(ABC, Generic[T]):
     label : str, optional
         A label for the frame. If not provided, defaults to "unnamed_frame".
     metadata : FrameMetadata | dict, optional
-        Additional metadata for the frame. Dicts are converted to
-        :class:`~wandas.core.metadata.FrameMetadata` automatically.
+        Additional metadata for the frame. Plain dicts are automatically
+        converted to FrameMetadata.
     operation_history : list[dict], optional
         History of operations performed on this frame.
     channel_metadata : list[ChannelMetadata | dict], optional
@@ -71,8 +71,7 @@ class BaseFrame(ABC, Generic[T]):
     label : str
         The label of the frame.
     metadata : FrameMetadata
-        Frame-level metadata, including the source file path when the frame
-        was loaded from a file.
+        Additional metadata for the frame.
     operation_history : list[dict]
         History of operations performed on this frame.
     """

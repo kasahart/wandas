@@ -112,7 +112,7 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
         win_length: int | None = None,
         window: str = "hann",
         label: str | None = None,
-        metadata: dict[str, Any] | None = None,
+        metadata: "FrameMetadata | dict[str, Any] | None" = None,
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
         previous: Optional["BaseFrame[Any]"] = None,

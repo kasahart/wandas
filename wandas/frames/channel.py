@@ -47,7 +47,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         data: DaskArray,
         sampling_rate: float,
         label: str | None = None,
-        metadata: dict[str, Any] | None = None,
+        metadata: "FrameMetadata | dict[str, Any] | None" = None,
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
         previous: Optional["BaseFrame[Any]"] = None,
@@ -655,6 +655,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             if fig is not None:
                 display(fig)
             if is_close and fig is not None:
+                fig.clf()  # Clear the figure to free memory
                 plt.close(fig)
 
             # Play audio for each channel
