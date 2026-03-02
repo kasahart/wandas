@@ -13,6 +13,8 @@ from scipy.io import wavfile
 if TYPE_CHECKING:
     from ..frames.channel import ChannelFrame
 
+from ..core.metadata import FrameMetadata
+
 logger = logging.getLogger(__name__)
 
 
@@ -42,6 +44,7 @@ def read_wav(
     from wandas.frames.channel import ChannelFrame
 
     file_obj: BinaryIO | ReadableBinary
+    source_file: str | None = None
 
     # ファイル名がURLかどうかを判断
     if isinstance(filename, str) and (filename.startswith("http://") or filename.startswith("https://")):
@@ -49,6 +52,7 @@ def read_wav(
         response = requests.get(filename)
         file_obj = io.BytesIO(response.content)
         file_label = os.path.basename(filename)
+        source_file = filename
         # メモリマッピングは使用せずに読み込む
         sampling_rate, data = wavfile.read(file_obj)
     elif isinstance(filename, (bytes, bytearray, memoryview)) or (
@@ -68,12 +72,15 @@ def read_wav(
             file_label = getattr(file_obj, "name", "in_memory")
             if isinstance(file_label, str):
                 file_label = os.path.basename(file_label)
+            if file_label != "in_memory":
+                source_file = file_label
         # メモリマッピングは使用せずに読み込む
         sampling_rate, data = wavfile.read(file_obj)
     else:
         # ローカルファイルパスの場合
         file_path = str(filename)
         file_label = os.path.basename(file_path)
+        source_file = file_path
         # データの読み込み（メモリマッピング不使用で統一）
         sampling_rate, data = wavfile.read(file_path)
 
@@ -90,6 +97,7 @@ def read_wav(
         data=data,
         sampling_rate=sampling_rate,
         label=file_label,
+        metadata=FrameMetadata(source_file=source_file),
         ch_labels=labels,
     )
 
