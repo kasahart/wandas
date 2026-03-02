@@ -728,7 +728,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         labels: list[str] | None = None,
         unit: list[str] | str | None = None,
         frame_label: str | None = None,
-        metadata: dict[str, Any] | None = None,
+        metadata: "FrameMetadata | dict[str, Any] | None" = None,
     ) -> "ChannelFrame":
         """Create a ChannelFrame from a NumPy array.
 
