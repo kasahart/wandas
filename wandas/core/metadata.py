@@ -86,7 +86,7 @@ class ChannelMetadata(BaseModel):
         return root_model
 
 
-class FrameMetadata(dict):  # type: ignore[type-arg]
+class FrameMetadata(dict[str, Any]):
     """
     Frame-level metadata with explicit source file tracking.
 
