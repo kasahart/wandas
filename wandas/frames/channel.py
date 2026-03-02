@@ -703,9 +703,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             data=dask_data,
             sampling_rate=sampling_rate,
             label=label or "numpy_data",
+            metadata=metadata,
         )
-        if metadata is not None:
-            cf.metadata = metadata
         if ch_labels is not None:
             if len(ch_labels) != cf.n_channels:
                 raise ValueError("Number of channel labels does not match the number of channels")
@@ -977,7 +976,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             frame_label = None
         source_file: str | None = None
         if path_obj is not None:
-            source_file = str(path_obj)
+            source_file = str(path_obj.resolve())
         elif source_name is not None:
             source_file = source_name
 

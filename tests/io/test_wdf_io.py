@@ -226,3 +226,45 @@ def test_load_file_not_found(tmp_path: Path) -> None:
     path = tmp_path / "non_existent.wdf"
     with pytest.raises(FileNotFoundError, match="File not found"):
         wdf_io.load(path)
+
+
+def test_source_file_roundtrip(tmp_path: Path) -> None:
+    """Test that source_file in FrameMetadata survives a save/load round-trip."""
+    from wandas.core.metadata import FrameMetadata
+
+    sr = 16000
+    data = np.random.randn(1, sr)
+    source = "/data/recordings/audio.wav"
+    cf = ChannelFrame.from_numpy(
+        data,
+        sr,
+        metadata=FrameMetadata({"key": "val"}, source_file=source),
+    )
+    assert isinstance(cf.metadata, FrameMetadata)
+    assert cf.metadata.source_file == source
+
+    path = tmp_path / "test_source_file.wdf"
+    cf.save(path)
+
+    cf2 = ChannelFrame.load(path)
+    assert isinstance(cf2.metadata, FrameMetadata)
+    assert cf2.metadata.source_file == source
+    assert cf2.metadata.get("key") == "val"
+
+
+def test_source_file_none_roundtrip(tmp_path: Path) -> None:
+    """Test round-trip when source_file is None."""
+    from wandas.core.metadata import FrameMetadata
+
+    sr = 16000
+    data = np.random.randn(1, sr)
+    cf = ChannelFrame.from_numpy(data, sr, metadata=FrameMetadata({"only": "dict"}))
+    assert cf.metadata.source_file is None
+
+    path = tmp_path / "test_no_source_file.wdf"
+    cf.save(path)
+
+    cf2 = ChannelFrame.load(path)
+    assert isinstance(cf2.metadata, FrameMetadata)
+    assert cf2.metadata.source_file is None
+    assert cf2.metadata.get("only") == "dict"

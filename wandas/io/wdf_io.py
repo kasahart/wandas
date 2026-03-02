@@ -130,11 +130,11 @@ def save(
 
             # Store source_file separately if present
             if has_source_file:
-                meta_grp.attrs["source_file"] = frame.metadata.source_file  # type: ignore[union-attr]
+                meta_grp.attrs["source_file"] = frame.metadata.source_file
 
             # Also store individual metadata items as attributes for compatibility
             for k, v in frame.metadata.items():
-                if isinstance(v, str | int | float | bool | np.number):
+                if isinstance(v, (str, int, float, bool, np.number)):
                     meta_grp.attrs[k] = v
 
     logger.info(f"Frame saved to {path}")
