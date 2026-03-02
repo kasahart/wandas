@@ -110,7 +110,7 @@ def save(
                 op_sub_grp = op_grp.create_group(f"operation_{i}")
                 for k, v in op.items():
                     # Store simple attributes directly
-                    if isinstance(v, str | int | float | bool | np.number):
+                    if isinstance(v, (str, int, float, bool, np.number)):
                         op_sub_grp.attrs[k] = v
                     else:
                         # For complex types, serialize to JSON

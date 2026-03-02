@@ -69,12 +69,15 @@ def read_wav(
                     file_obj.seek(0)
                 except Exception as exc:
                     logger.debug("Failed to seek to start of file-like object: %s", exc)
-            file_label = getattr(file_obj, "name", "in_memory")
-            raw_name = file_label
-            if isinstance(file_label, str):
-                file_label = os.path.basename(file_label)
-            if file_label != "in_memory":
-                source_file = raw_name if isinstance(raw_name, str) else file_label
+            raw_name = getattr(file_obj, "name", None)
+            if isinstance(raw_name, (str, os.PathLike)):
+                raw_name_str = os.fspath(raw_name)
+                base_name = os.path.basename(raw_name_str)
+                file_label = base_name or "in_memory"
+                if file_label != "in_memory":
+                    source_file = raw_name_str
+            else:
+                file_label = "in_memory"
         # メモリマッピングは使用せずに読み込む
         sampling_rate, data = wavfile.read(file_obj)
     else:

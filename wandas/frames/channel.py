@@ -266,9 +266,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         logger.debug(f"Setting up {symbol} operation (lazy)")
 
         # Handle potentially None metadata and operation_history
-        metadata = {}
-        if self.metadata is not None:
-            metadata = self.metadata.copy()
+        metadata: FrameMetadata = self.metadata.copy() if self.metadata is not None else FrameMetadata()
 
         operation_history = []
         if self.operation_history is not None:
