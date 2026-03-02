@@ -15,7 +15,7 @@ from dask.array.core import Array as DaArray
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 from ..core.base_frame import BaseFrame
-from ..core.metadata import ChannelMetadata, FrameMetadata
+from ..core.metadata import ChannelMetadata
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -325,7 +325,9 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         logger.debug(f"Setting up {symbol} operation (lazy)")
 
         # Handle potentially None metadata and operation_history
-        metadata: FrameMetadata = self.metadata.copy() if self.metadata is not None else FrameMetadata()
+        metadata = {}
+        if self.metadata is not None:
+            metadata = self.metadata.copy()
 
         operation_history = []
         if self.operation_history is not None:
