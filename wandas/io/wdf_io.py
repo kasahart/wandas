@@ -193,7 +193,7 @@ def load(path: str | Path, *, format: str = "hdf5") -> "ChannelFrame":
                 if isinstance(source_file, (bytes, np.bytes_)):
                     try:
                         decoded_source_file = source_file.decode("utf-8")
-                    except Exception:
+                    except (UnicodeDecodeError, AttributeError):
                         decoded_source_file = str(source_file)
                     frame_metadata.source_file = decoded_source_file
                 else:
