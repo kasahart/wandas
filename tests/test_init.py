@@ -117,3 +117,16 @@ def test_from_folder_same_as_class_method(tmp_path: Path) -> None:
     assert type(ds1) is type(ds2)
     assert ds1.sampling_rate == ds2.sampling_rate
     assert len(ds1) == len(ds2)
+
+
+def test_channel_frame_dataset_attr() -> None:
+    """wandas.ChannelFrameDataset が __getattr__ 経由でアクセスできることを確認"""
+    from wandas.utils.frame_dataset import ChannelFrameDataset
+
+    assert wandas.ChannelFrameDataset is ChannelFrameDataset
+
+
+def test_unknown_attr_raises() -> None:
+    """存在しない属性へのアクセスが AttributeError を送出することを確認"""
+    with pytest.raises(AttributeError, match="has no attribute"):
+        _ = wandas.no_such_attribute  # type: ignore[attr-defined]

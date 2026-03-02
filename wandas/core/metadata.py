@@ -1,8 +1,63 @@
+import copy as _copy
 from typing import Any
 
 from pydantic import BaseModel, Field  # Direct import from pydantic
 
 from wandas.utils.util import unit_to_ref
+
+
+class FrameMetadata(dict[str, Any]):
+    """
+    Frame-level metadata with explicit source file tracking.
+
+    Behaves like a regular dict for backward compatibility while also
+    storing the path or name of the file the frame was loaded from.
+
+    Parameters
+    ----------
+    *args : Any
+        Positional arguments forwarded to :class:`dict`.
+    source_file : str | None, optional
+        Path or name of the source file.
+    **kwargs : Any
+        Keyword arguments forwarded to :class:`dict`.
+
+    Examples
+    --------
+    >>> meta = FrameMetadata({"gain": 0.5}, source_file="audio.wav")
+    >>> meta.source_file
+    'audio.wav'
+    >>> meta["gain"]
+    0.5
+    """
+
+    source_file: str | None
+
+    def __init__(
+        self,
+        *args: Any,
+        source_file: str | None = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.source_file = source_file
+
+    def copy(self) -> "FrameMetadata":
+        """Return a shallow copy that preserves *source_file*."""
+        result = FrameMetadata(super().copy())
+        result.source_file = self.source_file
+        return result
+
+    def __copy__(self) -> "FrameMetadata":
+        return self.copy()
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "FrameMetadata":
+        result = FrameMetadata(_copy.deepcopy(dict(self), memo))
+        result.source_file = _copy.deepcopy(self.source_file, memo)
+        return result
+
+    def __repr__(self) -> str:
+        return f"FrameMetadata({dict.__repr__(self)}, source_file={self.source_file!r})"
 
 
 class ChannelMetadata(BaseModel):
