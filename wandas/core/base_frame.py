@@ -16,7 +16,7 @@ from pydantic import ValidationError
 
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
-from .metadata import ChannelMetadata
+from .metadata import ChannelMetadata, FrameMetadata
 
 # IPython display types for visualize_graph return type
 # TYPE_CHECKING ブロック内では型エイリアスとして定義し、実行時は Any とする
@@ -53,8 +53,9 @@ class BaseFrame(ABC, Generic[T]):
         The sampling rate of the signal in Hz.
     label : str, optional
         A label for the frame. If not provided, defaults to "unnamed_frame".
-    metadata : dict, optional
-        Additional metadata for the frame.
+    metadata : FrameMetadata | dict, optional
+        Additional metadata for the frame. Plain dicts are automatically
+        converted to FrameMetadata.
     operation_history : list[dict], optional
         History of operations performed on this frame.
     channel_metadata : list[ChannelMetadata | dict], optional
@@ -69,7 +70,7 @@ class BaseFrame(ABC, Generic[T]):
         The sampling rate of the signal in Hz.
     label : str
         The label of the frame.
-    metadata : dict
+    metadata : FrameMetadata
         Additional metadata for the frame.
     operation_history : list[dict]
         History of operations performed on this frame.
@@ -78,7 +79,7 @@ class BaseFrame(ABC, Generic[T]):
     _data: DaArray
     sampling_rate: float
     label: str
-    metadata: dict[str, Any]
+    metadata: FrameMetadata
     operation_history: list[dict[str, Any]]
     _channel_metadata: list[ChannelMetadata]
     _previous: "BaseFrame[Any] | None"
@@ -88,7 +89,7 @@ class BaseFrame(ABC, Generic[T]):
         data: DaArray,
         sampling_rate: float,
         label: str | None = None,
-        metadata: dict[str, Any] | None = None,
+        metadata: "FrameMetadata | dict[str, Any] | None" = None,
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
         previous: "BaseFrame[Any] | None" = None,
@@ -119,7 +120,12 @@ class BaseFrame(ABC, Generic[T]):
 
         self.sampling_rate = sampling_rate
         self.label = label or "unnamed_frame"
-        self.metadata = metadata or {}
+        if isinstance(metadata, FrameMetadata):
+            self.metadata = metadata
+        elif metadata is not None:
+            self.metadata = FrameMetadata(metadata)
+        else:
+            self.metadata = FrameMetadata()
         self.operation_history = operation_history or []
         self._previous = previous
 
@@ -629,8 +635,8 @@ class BaseFrame(ABC, Generic[T]):
             raise TypeError("Label must be a string")
 
         metadata = kwargs.pop("metadata", copy.deepcopy(self.metadata))
-        if not isinstance(metadata, dict):
-            raise TypeError("Metadata must be a dictionary")
+        if not isinstance(metadata, (dict, FrameMetadata)):
+            raise TypeError("Metadata must be a dictionary or FrameMetadata")
 
         channel_metadata = kwargs.pop("channel_metadata", copy.deepcopy(self._channel_metadata))
         if not isinstance(channel_metadata, list):
