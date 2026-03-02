@@ -1,6 +1,9 @@
 import logging
+from pathlib import Path
 
+import numpy as np
 import pytest
+import soundfile as sf
 
 import wandas
 
@@ -85,3 +88,32 @@ def test_formatter():
     assert "%(name)s" in format_str
     assert "%(levelname)s" in format_str
     assert "%(message)s" in format_str
+
+
+def test_from_folder(tmp_path: Path) -> None:
+    """wd.from_folder が ChannelFrameDataset を返すことを確認"""
+    from wandas.utils.frame_dataset import ChannelFrameDataset
+
+    # Create a minimal WAV file for the dataset
+    sr = 16000
+    data = np.zeros((sr, 1), dtype=np.float32)
+    sf.write(str(tmp_path / "test.wav"), data, sr)
+
+    dataset = wandas.from_folder(str(tmp_path), file_extensions=[".wav"])
+    assert isinstance(dataset, ChannelFrameDataset)
+    assert len(dataset) == 1
+
+
+def test_from_folder_same_as_class_method(tmp_path: Path) -> None:
+    """wd.from_folder が ChannelFrameDataset.from_folder と同じ結果を返すことを確認"""
+    from wandas.utils.frame_dataset import ChannelFrameDataset
+
+    sr = 16000
+    data = np.zeros((sr, 1), dtype=np.float32)
+    sf.write(str(tmp_path / "test.wav"), data, sr)
+
+    ds1 = wandas.from_folder(str(tmp_path), sampling_rate=8000, file_extensions=[".wav"])
+    ds2 = ChannelFrameDataset.from_folder(str(tmp_path), sampling_rate=8000, file_extensions=[".wav"])
+    assert type(ds1) is type(ds2)
+    assert ds1.sampling_rate == ds2.sampling_rate
+    assert len(ds1) == len(ds2)
