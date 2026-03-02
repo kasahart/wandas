@@ -656,6 +656,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
             display(fig)
             if is_close and fig is not None:
+                fig.clf()  # Clear the figure to free memory
                 plt.close(fig)
 
             # Play audio for each channel
