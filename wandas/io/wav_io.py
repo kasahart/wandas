@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, BinaryIO, Protocol
 import numpy as np
 import requests
 import soundfile as sf
-from scipy.io import wavfile
 
 if TYPE_CHECKING:
     from ..frames.channel import ChannelFrame
@@ -54,7 +53,7 @@ def read_wav(
         file_label = os.path.basename(filename)
         source_file = filename
         # メモリマッピングは使用せずに読み込む
-        sampling_rate, data = wavfile.read(file_obj)
+        data, sampling_rate = sf.read(file_obj, dtype="float32", always_2d=True)
     elif isinstance(filename, (bytes, bytearray, memoryview)) or (
         hasattr(filename, "read") and not isinstance(filename, (str, Path))
     ):
@@ -63,13 +62,7 @@ def read_wav(
             file_obj = io.BytesIO(bytes(filename))
             file_label = "in_memory"
         else:
-            file_obj = filename
-            if hasattr(file_obj, "seek"):
-                try:
-                    file_obj.seek(0)
-                except Exception as exc:
-                    logger.debug("Failed to seek to start of file-like object: %s", exc)
-            raw_name = getattr(file_obj, "name", None)
+            raw_name = getattr(filename, "name", None)
             if isinstance(raw_name, (str, os.PathLike)):
                 raw_name_str = os.fspath(raw_name)
                 base_name = os.path.basename(raw_name_str)
@@ -78,23 +71,27 @@ def read_wav(
                     source_file = raw_name_str
             else:
                 file_label = "in_memory"
+            seekable = False
+            if hasattr(filename, "seek"):
+                try:
+                    filename.seek(0)
+                    seekable = True
+                except Exception as exc:
+                    logger.debug("Failed to seek to start of file-like object: %s", exc)
+            file_obj = filename if seekable else io.BytesIO(filename.read())
         # メモリマッピングは使用せずに読み込む
-        sampling_rate, data = wavfile.read(file_obj)
+        data, sampling_rate = sf.read(file_obj, dtype="float32", always_2d=True)
     else:
         # ローカルファイルパスの場合
         file_path = str(filename)
         file_label = os.path.basename(file_path)
         source_file = file_path
         # データの読み込み（メモリマッピング不使用で統一）
-        sampling_rate, data = wavfile.read(file_path)
+        data, sampling_rate = sf.read(file_path, dtype="float32", always_2d=True)
 
     # データを(num_channels, num_samples)形状のNumPy配列に変換
-    if data.ndim == 1:
-        # モノラル：(samples,) -> (1, samples)
-        data = np.expand_dims(data, axis=0)
-    else:
-        # ステレオ：(samples, channels) -> (channels, samples)
-        data = data.T
+    # always_2d=True ensures (samples, channels); transpose to (channels, samples)
+    data = data.T
 
     # NumPy配列からChannelFrameを作成
     channel_frame = ChannelFrame.from_numpy(
