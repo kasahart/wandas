@@ -1539,6 +1539,57 @@ class TestDescribeIntegration:
         np.testing.assert_allclose(computed_data[0], data_left, rtol=1e-5)
         np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)
 
+    def test_from_file_wav_normalize_false(self, tmp_path: Path) -> None:
+        """Test that from_file returns raw int16 data by default (normalize=False)."""
+        filepath = tmp_path / "int16.wav"
+        sampling_rate = 16000
+        num_samples = 100
+        int16_data = np.column_stack(
+            [np.full(num_samples, 16384, dtype=np.int16), np.full(num_samples, -16384, dtype=np.int16)]
+        )
+        wavfile.write(str(filepath), sampling_rate, int16_data)
+
+        cf = ChannelFrame.from_file(filepath)
+        computed = cf.compute()
+
+        np.testing.assert_array_equal(computed[0], np.full(num_samples, 16384, dtype=np.int16))
+        np.testing.assert_array_equal(computed[1], np.full(num_samples, -16384, dtype=np.int16))
+        assert computed.dtype == np.int16
+
+    def test_from_file_wav_normalize_true(self, tmp_path: Path) -> None:
+        """Test that from_file normalizes to float32 when normalize=True."""
+        filepath = tmp_path / "int16_norm.wav"
+        sampling_rate = 16000
+        num_samples = 100
+        int16_data = np.column_stack(
+            [np.full(num_samples, 16384, dtype=np.int16), np.full(num_samples, -16384, dtype=np.int16)]
+        )
+        wavfile.write(str(filepath), sampling_rate, int16_data)
+
+        cf = ChannelFrame.from_file(filepath, normalize=True)
+        computed = cf.compute()
+
+        np.testing.assert_allclose(computed[0], 0.5, rtol=1e-4)
+        np.testing.assert_allclose(computed[1], -0.5, rtol=1e-4)
+        assert computed.dtype == np.float32
+
+    def test_read_wav_normalize_true(self, tmp_path: Path) -> None:
+        """Test that read_wav normalizes to float32 when normalize=True."""
+        filepath = tmp_path / "int16_norm.wav"
+        sampling_rate = 16000
+        num_samples = 100
+        int16_data = np.column_stack(
+            [np.full(num_samples, 16384, dtype=np.int16), np.full(num_samples, -16384, dtype=np.int16)]
+        )
+        wavfile.write(str(filepath), sampling_rate, int16_data)
+
+        cf = ChannelFrame.read_wav(str(filepath), normalize=True)
+        computed = cf.compute()
+
+        np.testing.assert_allclose(computed[0], 0.5, rtol=1e-4)
+        np.testing.assert_allclose(computed[1], -0.5, rtol=1e-4)
+        assert computed.dtype == np.float32
+
     def test_debug_info(self) -> None:
         """Test debug_info method."""
         with mock.patch("wandas.core.base_frame.logger") as mock_logger:
@@ -1550,7 +1601,9 @@ class TestDescribeIntegration:
         with mock.patch.object(ChannelFrame, "from_file") as mock_from_file:
             mock_from_file.return_value = self.channel_frame
             result = ChannelFrame.read_wav("test.wav", labels=["left", "right"])
-            mock_from_file.assert_called_with("test.wav", ch_labels=["left", "right"])
+            mock_from_file.assert_called_with(
+                "test.wav", ch_labels=["left", "right"], normalize=False, file_type=None
+            )
             assert result is self.channel_frame
 
     def test_visualize_graph(self) -> None:

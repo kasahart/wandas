@@ -20,7 +20,7 @@ from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
 from ..core.metadata import ChannelMetadata, FrameMetadata
-from ..io.readers import get_file_reader
+from ..io.readers import _WAV_SUBTYPE_TO_NUMPY_DTYPE, get_file_reader
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
 
 if TYPE_CHECKING:
@@ -774,6 +774,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         header: int | None = 0,
         file_type: str | None = None,
         source_name: str | None = None,
+        normalize: bool = False,
     ) -> "ChannelFrame":
         """Create a ChannelFrame from an audio file.
 
@@ -795,6 +796,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 Default is 0 (first row). Set to None if no header.
             file_type: File extension for in-memory data (e.g. ".wav", ".csv").
             source_name: Optional source name for in-memory data. Used in metadata.
+            normalize: For WAV files only. When False (default), return raw integer
+                samples as produced by scipy.io.wavfile.read (e.g. int16 for 16-bit
+                PCM). When True, normalize to float32 in [-1.0, 1.0].
 
         Returns:
             A new ChannelFrame containing the loaded audio data.
@@ -805,8 +809,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 troubleshooting suggestions.
 
         Examples:
-            >>> # Load WAV file
+            >>> # Load WAV file (raw integer samples by default)
             >>> cf = ChannelFrame.from_file("audio.wav")
+            >>> # Load WAV file normalized to float32 [-1.0, 1.0]
+            >>> cf = ChannelFrame.from_file("audio.wav", normalize=True)
             >>> # Load specific channels
             >>> cf = ChannelFrame.from_file("audio.wav", channel=[0, 2])
             >>> # Load CSV file
@@ -867,11 +873,16 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         # Build kwargs for reader
         reader_kwargs: dict[str, Any] = {}
+        is_wav_file = (path_obj is not None and path_obj.suffix.lower() == ".wav") or (
+            normalized_file_type == ".wav"
+        )
         if (path_obj is not None and path_obj.suffix.lower() == ".csv") or (normalized_file_type == ".csv"):
             reader_kwargs["time_column"] = time_column
             reader_kwargs["delimiter"] = delimiter
             if header is not None:
                 reader_kwargs["header"] = header
+        if is_wav_file:
+            reader_kwargs["normalize"] = normalize
 
         # Get file info
         source_obj: str | Path | bytes | bytearray | memoryview | BinaryIO
@@ -951,7 +962,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         # Create dask array from delayed computation and ensure channel-wise
         # chunks. The sample axis (1) uses -1 by default to avoid forcing
         # a sample chunk length here.
-        dask_array = da_from_delayed(delayed_data, shape=expected_shape, dtype=np.float32)
+        if is_wav_file and not normalize:
+            subtype = info.get("subtype", "PCM_16")
+            data_dtype: type = _WAV_SUBTYPE_TO_NUMPY_DTYPE.get(subtype, np.int16)
+        else:
+            data_dtype = np.float32
+        dask_array = da_from_delayed(delayed_data, shape=expected_shape, dtype=data_dtype)
 
         # Ensure channel-wise chunks
         dask_array = dask_array.rechunk((1, -1))
@@ -999,19 +1015,31 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         cls,
         filename: str | Path | bytes | bytearray | memoryview | BinaryIO,
         labels: list[str] | None = None,
+        normalize: bool = False,
     ) -> "ChannelFrame":
         """Utility method to read a WAV file.
 
         Args:
             filename: Path to the WAV file or in-memory bytes/stream.
             labels: Labels to set for each channel.
+            normalize: When False (default), return raw integer samples as
+                produced by scipy.io.wavfile.read (e.g. int16 for 16-bit PCM).
+                When True, normalize to float32 in [-1.0, 1.0].
 
         Returns:
             A new ChannelFrame containing the data (lazy loading).
         """
         from .channel import ChannelFrame
 
-        cf = ChannelFrame.from_file(filename, ch_labels=labels)
+        is_in_memory = isinstance(filename, (bytes, bytearray, memoryview)) or (
+            hasattr(filename, "read") and not isinstance(filename, (str, Path))
+        )
+        cf = ChannelFrame.from_file(
+            filename,
+            ch_labels=labels,
+            normalize=normalize,
+            file_type=".wav" if is_in_memory else None,
+        )
         return cf
 
     @classmethod

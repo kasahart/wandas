@@ -1,7 +1,7 @@
 # tests/io/test_wav_io.py
 import io
 import os
-from unittest.mock import ANY, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -218,33 +218,51 @@ def test_read_wav_stream_nonseekable() -> None:
     stream = NonSeekableStream(name="dir/my_audio.wav")
 
     with patch(
-        "wandas.io.wav_io.sf.read",
-        return_value=(data, sampling_rate),
+        "wandas.io.wav_io.wavfile.read",
+        return_value=(sampling_rate, data),
     ) as mock_read:
         channel_frame = read_wav(stream)
 
-    mock_read.assert_called_once_with(ANY, dtype="float32", always_2d=True)
+    mock_read.assert_called_once()
     assert channel_frame.sampling_rate == sampling_rate
     assert channel_frame.label == "my_audio.wav"
     computed_data = channel_frame.compute()
     np.testing.assert_allclose(computed_data, data.T)
 
 
-def test_read_wav_int16_normalized(tmpdir: str) -> None:
-    """Test that int16 WAV data is normalized to float32 [-1.0, 1.0].
+def test_read_wav_int16_raw(tmpdir: str) -> None:
+    """Test that int16 WAV data is returned as raw int16 by default.
 
-    Verifies consistency with ChannelFrameDataset.from_folder (SoundFileReader).
+    The default normalize=False returns scipy's raw integer samples.
     """
     filepath = os.path.join(tmpdir, "int16_test.wav")
     sampling_rate = 16000
     num_samples = 100
-    # Create int16 stereo data: half of max positive/negative values
+    int16_left = np.full(num_samples, 16384, dtype=np.int16)
+    int16_right = np.full(num_samples, -16384, dtype=np.int16)
+    stereo_data = np.column_stack((int16_left, int16_right))
+    wavfile.write(filepath, sampling_rate, stereo_data)
+
+    channel_frame = read_wav(filepath)
+    computed_data = channel_frame.compute()
+
+    # Raw int16 values are returned unchanged
+    np.testing.assert_array_equal(computed_data[0], int16_left)
+    np.testing.assert_array_equal(computed_data[1], int16_right)
+    assert computed_data.dtype == np.int16
+
+
+def test_read_wav_int16_normalized(tmpdir: str) -> None:
+    """Test that int16 WAV data is normalized to float32 [-1.0, 1.0] with normalize=True."""
+    filepath = os.path.join(tmpdir, "int16_norm_test.wav")
+    sampling_rate = 16000
+    num_samples = 100
     int16_left = np.full(num_samples, 16384, dtype=np.int16)  # ≈ 0.5 after normalization
     int16_right = np.full(num_samples, -16384, dtype=np.int16)  # ≈ -0.5 after normalization
     stereo_data = np.column_stack((int16_left, int16_right))
     wavfile.write(filepath, sampling_rate, stereo_data)
 
-    channel_frame = read_wav(filepath)
+    channel_frame = read_wav(filepath, normalize=True)
     computed_data = channel_frame.compute()
 
     # After normalization (dividing by 32768), values should be ≈ [0.5, -0.5]
