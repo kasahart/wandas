@@ -355,6 +355,26 @@ def test_write_wav_nonfloat_branch() -> None:
     assert "subtype" not in kwargs
 
 
+def test_write_wav_float32_normalized() -> None:
+    """Test that float32 data with values in [-1, 1] uses FLOAT subtype."""
+    sampling_rate = 8000
+    num_samples = 100
+    data = np.full((2, num_samples), 0.5, dtype=np.float32)
+
+    channel_frame = ChannelFrame.from_numpy(
+        data=data,
+        sampling_rate=sampling_rate,
+        label="float32_frame",
+        ch_labels=["Left", "Right"],
+    )
+
+    with patch("wandas.io.wav_io.sf.write") as mock_write:
+        write_wav("dummy.wav", channel_frame)
+
+    _, kwargs = mock_write.call_args
+    assert kwargs.get("subtype") == "FLOAT"
+
+
 def test_write_wav_invalid_input():
     """
     Test that write_wav raises an error when given invalid input.
