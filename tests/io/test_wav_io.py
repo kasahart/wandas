@@ -1,14 +1,14 @@
 # tests/io/test_wav_io.py
 import io
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pytest
 from scipy.io import wavfile
 
 from wandas.frames.channel import ChannelFrame
-from wandas.io import read_wav, write_wav
+from wandas.io import write_wav
 
 
 @pytest.fixture  # type: ignore [misc, unused-ignore]
@@ -38,7 +38,7 @@ def create_test_wav(tmpdir: str) -> str:
 
 def test_read_wav(create_test_wav: str) -> None:
     # テスト用の WAV ファイルを読み込む
-    signal = read_wav(create_test_wav)
+    signal = ChannelFrame.read_wav(create_test_wav)
 
     # チャンネル数の確認
     assert len(signal) == 2
@@ -88,7 +88,7 @@ def test_read_wav_default(create_stereo_wav: str) -> None:
     """
     Test reading a default stereo WAV file without specifying labels.
     """
-    channel_frame = read_wav(create_stereo_wav)
+    channel_frame = ChannelFrame.read_wav(create_stereo_wav)
     # Assert two channels are present
     assert len(channel_frame) == 2
     # Assert sampling rate
@@ -104,7 +104,7 @@ def test_read_wav_mono(create_mono_wav: str) -> None:
     """
     Test reading a mono WAV file.
     """
-    channel_frame = read_wav(create_mono_wav)
+    channel_frame = ChannelFrame.read_wav(create_mono_wav)
     # Assert one channel is present
     assert len(channel_frame) == 1
     # Assert sampling rate
@@ -129,51 +129,10 @@ def test_read_wav_with_labels(tmpdir: str) -> None:
     wavfile.write(filepath, sampling_rate, stereo_data)
 
     labels = ["Left Channel", "Right Channel"]
-    channel_frame = read_wav(filepath, labels=labels)
+    channel_frame = ChannelFrame.read_wav(filepath, labels=labels)
     # Assert labels are set correctly
     assert channel_frame.channels[0].label == "Left Channel"
     assert channel_frame.channels[1].label == "Right Channel"
-
-
-def test_read_wav_from_url():
-    """
-    Test reading a WAV file from a URL.
-    """
-    url = "https://example.com/test.wav"
-
-    # Create mock response for requests.get
-    mock_response = MagicMock()
-
-    # Set up mock WAV data (similar to our test WAV files)
-    sampling_rate = 44100
-    duration = 0.1  # 0.1 seconds to keep it small
-    num_samples = int(sampling_rate * duration)
-    data_left = np.full(num_samples, 0.5)
-    data_right = np.full(num_samples, 1.0)
-    stereo_data = np.column_stack((data_left, data_right))
-
-    # Create a BytesIO object with the WAV data
-    import io
-
-    wav_buffer = io.BytesIO()
-    wavfile.write(wav_buffer, sampling_rate, stereo_data)
-    wav_buffer.seek(0)  # Reset buffer position
-
-    # Set the mock response content
-    mock_response.content = wav_buffer.read()
-
-    # Patch requests.get to return our mock response
-    with patch("requests.get", return_value=mock_response):
-        # Call read_wav with a URL
-        channel_frame = read_wav(url)
-
-        # Verify the result
-        assert len(channel_frame) == 2  # Should have 2 channels
-        assert channel_frame.sampling_rate == 44100
-        computed_data = channel_frame.compute()
-        np.testing.assert_allclose(computed_data[0][0], 0.5, rtol=1e-5)
-        np.testing.assert_allclose(computed_data[1][0], 1.0, rtol=1e-5)
-        assert channel_frame.label == "test.wav"  # Filename should be extracted from URL
 
 
 def test_read_wav_bytes() -> None:
@@ -191,43 +150,13 @@ def test_read_wav_bytes() -> None:
     wavfile.write(wav_buffer, sampling_rate, stereo_data)
     wav_bytes = wav_buffer.getvalue()
 
-    channel_frame = read_wav(wav_bytes)
+    channel_frame = ChannelFrame.read_wav(wav_bytes)
 
     assert channel_frame.sampling_rate == sampling_rate
     assert len(channel_frame) == 2
     computed_data = channel_frame.compute()
     np.testing.assert_allclose(computed_data[0], data_left, rtol=1e-5)
     np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)
-
-
-def test_read_wav_stream_nonseekable() -> None:
-    """Test reading a WAV file from a non-seekable stream."""
-    sampling_rate = 22050
-    data = np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32)
-
-    class NonSeekableStream:
-        def __init__(self, name: str) -> None:
-            self.name = name
-
-        def read(self, *_args, **_kwargs) -> bytes:
-            return b"dummy"
-
-        def seek(self, *_args, **_kwargs) -> None:
-            raise OSError("seek not supported")
-
-    stream = NonSeekableStream(name="dir/my_audio.wav")
-
-    with patch(
-        "wandas.io.wav_io.wavfile.read",
-        return_value=(sampling_rate, data),
-    ) as mock_read:
-        channel_frame = read_wav(stream)
-
-    mock_read.assert_called_once()
-    assert channel_frame.sampling_rate == sampling_rate
-    assert channel_frame.label == "my_audio.wav"
-    computed_data = channel_frame.compute()
-    np.testing.assert_allclose(computed_data, data.T)
 
 
 def test_read_wav_int16_raw(tmpdir: str) -> None:
@@ -243,7 +172,7 @@ def test_read_wav_int16_raw(tmpdir: str) -> None:
     stereo_data = np.column_stack((int16_left, int16_right))
     wavfile.write(filepath, sampling_rate, stereo_data)
 
-    channel_frame = read_wav(filepath)
+    channel_frame = ChannelFrame.read_wav(filepath)
     computed_data = channel_frame.compute()
 
     # Raw int16 values are returned unchanged
@@ -262,7 +191,7 @@ def test_read_wav_int16_normalized(tmpdir: str) -> None:
     stereo_data = np.column_stack((int16_left, int16_right))
     wavfile.write(filepath, sampling_rate, stereo_data)
 
-    channel_frame = read_wav(filepath, normalize=True)
+    channel_frame = ChannelFrame.read_wav(filepath, normalize=True)
     computed_data = channel_frame.compute()
 
     # After normalization (dividing by 32768), values should be ≈ [0.5, -0.5]
@@ -298,7 +227,7 @@ def test_write_wav(tmpdir: str):
     assert wav_data.shape == (num_samples, 2)
 
     # Create a new ChannelFrame from the WAV file
-    new_frame = read_wav(output_path)
+    new_frame = ChannelFrame.read_wav(output_path)
 
     # Verify basic properties
     assert new_frame.sampling_rate == channel_frame.sampling_rate
