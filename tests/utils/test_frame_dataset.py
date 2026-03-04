@@ -1070,20 +1070,29 @@ class TestFrameDatasetGetItemStringKey:
         assert isinstance(frames[0], ChannelFrame)
         assert frames[0].label == "test1"
 
-    def test_getitem_string_key_multiple_matches(self, create_test_files: Path) -> None:
-        """Test __getitem__ with string key returns multiple matches."""
-        folder_path = create_test_files
-        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+    def test_getitem_string_key_multiple_matches(self, tmp_path: Path) -> None:
+        """Test __getitem__ with string key returns multiple matches for duplicate filenames."""
+        # Create a directory structure with duplicate filenames in different subfolders
+        root = tmp_path / "multi_match_dataset"
+        sub1 = root / "sub1"
+        sub2 = root / "sub2"
+        sub1.mkdir(parents=True, exist_ok=True)
+        sub2.mkdir(parents=True, exist_ok=True)
 
-        # Access frames first to ensure they load properly
-        _ = dataset[0]  # test1.wav
-        _ = dataset[2]  # test3.csv
+        samplerate = 8000
+        data = np.zeros(samplerate, dtype=np.float32)
 
-        # Get by stem (without extension) - should match multiple files with same name pattern
-        # For this test, we use the full filename which matches exactly once
-        frames = dataset["test1.wav"]
+        file_name = "duplicate.wav"
+        sf.write(sub1 / file_name, data, samplerate)
+        sf.write(sub2 / file_name, data, samplerate)
+
+        dataset = ChannelFrameDataset(str(root), lazy_loading=True, recursive=True)
+
+        # String key should return all matches with the same Path.name across subfolders
+        frames = dataset[file_name]
         assert isinstance(frames, list)
-        assert len(frames) == 1
+        assert len(frames) == 2
+        assert all(isinstance(f, ChannelFrame) for f in frames)
 
 
 class TestFrameDatasetInitializeFromSource:
@@ -1354,31 +1363,48 @@ class TestFrameDatasetInitializeFromSourceEdgeCases:
 class TestFrameDatasetLoadAllFilesErrorHandling:
     """Tests for _load_all_files() error handling during eager loading."""
 
-    def test_load_all_files_error_handling(self, tmp_path: Path) -> None:
+    def test_load_all_files_error_handling(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         """Test that errors during eager loading are caught and logged.
 
         This covers lines 153-155 in frame_dataset.py where we catch exceptions
         and log warnings while continuing to process other files.
+        Patches _ensure_loaded to raise for the first index while allowing others to proceed.
         """
-        import logging as stdlib_logging
+        sr = 8000
+        t = np.linspace(0, 0.01, int(sr * 0.01), endpoint=False)
+        signal = (0.1 * np.sin(2 * np.pi * 440 * t)).astype(np.float32)
 
-        # Set up logging capture
-        logger = stdlib_logging.getLogger("wandas.utils.frame_dataset")
-        handler = stdlib_logging.StreamHandler()
-        logger.addHandler(handler)
-        logger.setLevel(stdlib_logging.WARNING)
+        file1 = tmp_path / "file1.wav"
+        file2 = tmp_path / "file2.wav"
+        sf.write(file1, signal, sr)
+        sf.write(file2, signal, sr)
 
-        try:
-            # Create an invalid/corrupted file
-            invalid_file = tmp_path / "invalid.wav"
-            invalid_file.write_text("this is not a wav file")
+        original_ensure_loaded = ChannelFrameDataset._ensure_loaded
 
-            dataset = ChannelFrameDataset(str(tmp_path), lazy_loading=False)
+        def _ensure_loaded_side_effect(self: ChannelFrameDataset, index: int) -> None:
+            if index == 0:
+                raise RuntimeError("Simulated load error for index 0")
+            return original_ensure_loaded(self, index)
 
-            # Verify the frame was set to None due to load failure
-            assert dataset._lazy_frames[0].frame is None
-        finally:
-            logger.removeHandler(handler)
+        with patch.object(
+            ChannelFrameDataset,
+            "_ensure_loaded",
+            autospec=True,
+            side_effect=_ensure_loaded_side_effect,
+        ):
+            with caplog.at_level(logging.WARNING, logger="wandas.utils.frame_dataset"):
+                dataset = ChannelFrameDataset(str(tmp_path), lazy_loading=False)
+
+        warning_records = [
+            record
+            for record in caplog.records
+            if record.levelno == logging.WARNING and record.name == "wandas.utils.frame_dataset"
+        ]
+        assert warning_records, "Expected a warning log from _load_all_files error handling"
+
+        assert len(dataset._lazy_frames) == 2
+        loaded_frames = [lf for lf in dataset._lazy_frames if lf.frame is not None]
+        assert loaded_frames, "Expected at least one successfully loaded frame despite an earlier error"
 
 
 class TestFrameDatasetLoadFromSourceEdgeCases:
@@ -1427,57 +1453,56 @@ class TestFrameDatasetLoadFromSourceEdgeCases:
         """Test _load_from_source succeeds when conditions are met.
 
         This covers the success path in lines 168-173 of frame_dataset.py.
+        Uses ChannelFrameDataset so that the identity transform returning a ChannelFrame
+        matches the expected frame type.
         """
         folder_path = create_test_files
-        channel_ds = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        source_ds = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
-        # Create a simple transform that returns None (to avoid STFT complexity)
         def identity_transform(frame: ChannelFrame) -> ChannelFrame | None:
             return frame  # Return the same frame
 
-        spec_ds = SpectrogramFrameDataset(
+        target_ds = ChannelFrameDataset(
             str(folder_path),
-            source_dataset=channel_ds,
+            source_dataset=source_ds,
             transform=identity_transform,
         )
 
-        result = spec_ds._load_from_source(0)
+        result = target_ds._load_from_source(0)
         assert result is not None
+        assert isinstance(result, ChannelFrame)
 
 
 class TestFrameDatasetEnsureLoadedExceptionHandling:
     """Tests for _ensure_loaded() exception handling."""
 
-    def test_ensure_loaded_exception_handling(self, tmp_path: Path) -> None:
+    def test_ensure_loaded_exception_handling(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """Test that exceptions in _ensure_loaded are caught and logged.
 
         This covers lines 204-210 in frame_dataset.py where we handle exceptions.
         """
-        import logging as stdlib_logging
+        # Create a corrupted file that will fail to load
+        invalid_file = tmp_path / "invalid.wav"
+        invalid_file.write_text("this is not a wav file")
 
-        # Set up logging capture
-        logger = stdlib_logging.getLogger("wandas.utils.frame_dataset")
-        handler = stdlib_logging.StreamHandler()
-        logger.addHandler(handler)
-        logger.setLevel(stdlib_logging.ERROR)
-
-        try:
-            # Create a corrupted file that will fail to load
-            invalid_file = tmp_path / "invalid.wav"
-            invalid_file.write_text("this is not a wav file")
-
+        with caplog.at_level(logging.ERROR, logger="wandas.utils.frame_dataset"):
             dataset = ChannelFrameDataset(str(tmp_path), lazy_loading=True)
 
             # Access the frame - should handle exception gracefully
             result = dataset._ensure_loaded(0)
             assert result is None
 
-            # Verify the frame state was updated correctly
-            assert dataset._lazy_frames[0].frame is None
-            assert dataset._lazy_frames[0].is_loaded is True
-            assert dataset._lazy_frames[0].load_attempted is True
-        finally:
-            logger.removeHandler(handler)
+        # Verify the frame state was updated correctly
+        assert dataset._lazy_frames[0].frame is None
+        assert dataset._lazy_frames[0].is_loaded is True
+        assert dataset._lazy_frames[0].load_attempted is True
+
+        assert any(
+            record.name == "wandas.utils.frame_dataset" and record.levelno >= logging.ERROR
+            for record in caplog.records
+        )
 
 
 class TestFrameDatasetSampleElseBranch:
@@ -1514,61 +1539,61 @@ class TestFrameDatasetSampleElseBranch:
 class TestGetMetadataExceptionHandling:
     """Tests for get_metadata() exception handling."""
 
-    def test_get_metadata_exception_on_first_frame(self, create_test_files: Path) -> None:
+    def test_get_metadata_exception_on_first_frame(
+        self, create_test_files: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """Test that exceptions accessing first frame are caught and logged.
 
         This covers lines 394-395 in frame_dataset.py where we catch exceptions.
-        We need to trigger the exception path by having a loaded frame with an issue.
+        We inject a frame whose sampling_rate access raises to trigger the warning path.
         """
-        import logging as stdlib_logging
-
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
         # First access the frame to mark it as loaded
         _ = dataset[0]
 
-        # Set up logging capture for warning level
-        logger = stdlib_logging.getLogger("wandas.utils.frame_dataset")
-        handler = stdlib_logging.StreamHandler()
-        logger.addHandler(handler)
-        logger.setLevel(stdlib_logging.WARNING)
+        class BadFrame:
+            """Test stub that deliberately raises on sampling_rate to trigger exception handling."""
 
-        try:
-            # Now get metadata - should work fine since first frame is loaded
+            @property
+            def sampling_rate(self) -> float:  # type: ignore[override]
+                raise RuntimeError("sampling_rate access failed")
+
+        dataset._lazy_frames[0].frame = BadFrame()  # type: ignore[assignment]
+
+        with caplog.at_level(logging.WARNING, logger="wandas.utils.frame_dataset"):
             meta = dataset.get_metadata()
-            assert "folder_path" in meta
-        finally:
-            logger.removeHandler(handler)
+
+        assert isinstance(meta, dict)
+        assert "folder_path" in meta
+
+        warning_records = [
+            record
+            for record in caplog.records
+            if record.levelno == logging.WARNING and record.name == "wandas.utils.frame_dataset"
+        ]
+        assert warning_records
 
 
 class TestSampledFrameDatasetEnsureLoadedExceptionHandling:
     """Tests for _SampledFrameDataset._ensure_loaded() exception handling."""
 
-    def test_sampled_ensure_loaded_exception_handling(self, create_test_files: Path) -> None:
+    def test_sampled_ensure_loaded_exception_handling(
+        self, create_test_files: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """Test that exceptions in sampled dataset loading are caught and logged.
 
         This covers lines 494-501 in frame_dataset.py where we handle exceptions.
         We mock the class method to ensure the exception is raised during access.
         """
-        import logging as stdlib_logging
-
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
         # Create a sampled dataset normally first
         sampled_ds = dataset.sample(n=2, seed=42)
 
-        # Set up logging capture for error level
-        logger = stdlib_logging.getLogger("wandas.utils.frame_dataset")
-        handler = stdlib_logging.StreamHandler()
-        logger.addHandler(handler)
-        logger.setLevel(stdlib_logging.ERROR)
-
-        try:
-            # Mock the class method to raise exception on access (this is needed because
-            # the sampled dataset stores a reference to original_dataset, and we need
-            # to mock at the class level for the patch to work correctly)
+        with caplog.at_level(logging.ERROR, logger="wandas.utils.frame_dataset"):
             with patch.object(type(dataset), "__getitem__", side_effect=RuntimeError("Access error")):
                 # Reset the lazy frame state before triggering load
                 sampled_ds._lazy_frames[0].reset()
@@ -1580,8 +1605,6 @@ class TestSampledFrameDatasetEnsureLoadedExceptionHandling:
                 assert sampled_ds._lazy_frames[0].frame is None
                 assert sampled_ds._lazy_frames[0].is_loaded is True
                 assert sampled_ds._lazy_frames[0].load_attempted is True
-        finally:
-            logger.removeHandler(handler)
 
 
 class TestChannelFrameDatasetTransformNoneChecks:
@@ -1710,82 +1733,103 @@ class TestChannelFrameDatasetStftNoneCheck:
 class TestGetMetadataExceptionPath:
     """Tests for get_metadata() exception path."""
 
-    def test_get_metadata_exception_path(self, create_test_files: Path) -> None:
+    def test_get_metadata_exception_path(
+        self, create_test_files: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """Test that exceptions accessing first frame trigger the warning log.
 
         This covers lines 394-395 in frame_dataset.py where we catch exceptions and log warnings.
-        We need to simulate a scenario where an exception occurs when accessing the first frame's metadata.
+        We inject a frame whose sampling_rate access raises to deterministically trigger the path.
         """
-        import logging as stdlib_logging
-
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
-        # Access frames to load them
-        _ = dataset[0]
+        # Load the first frame so it is marked as loaded
+        real_frame = dataset[0]
 
-        # Set up logging capture for warning level
-        logger = stdlib_logging.getLogger("wandas.utils.frame_dataset")
-        handler = stdlib_logging.StreamHandler()
-        logger.addHandler(handler)
-        logger.setLevel(stdlib_logging.WARNING)
+        class FaultyFrame:
+            """Test proxy that delegates most attributes to a real frame but
+            raises RuntimeError when sampling_rate is accessed, to trigger the
+            exception path in FrameDataset.get_metadata."""
 
-        try:
-            # Get metadata - should work fine since first frame is loaded
+            def __init__(self, base: ChannelFrame) -> None:
+                self._base = base
+
+            @property
+            def sampling_rate(self) -> float:  # type: ignore[override]
+                raise RuntimeError("Failed to access sampling_rate")
+
+            def __getattr__(self, name: str):  # type: ignore[override]
+                return getattr(self._base, name)
+
+        dataset._lazy_frames[0].frame = FaultyFrame(real_frame)  # type: ignore[assignment]
+
+        with caplog.at_level(logging.WARNING, logger="wandas.utils.frame_dataset"):
             meta = dataset.get_metadata()
-            assert "folder_path" in meta
-            assert meta["loaded_count"] >= 1
-        finally:
-            logger.removeHandler(handler)
+
+        assert any(record.levelno == logging.WARNING for record in caplog.records)
+        assert isinstance(meta, dict)
+        assert "folder_path" in meta
+        assert meta["loaded_count"] >= 1
 
 
 class TestFrameDatasetLoadAllFilesEdgeCases:
     """Tests for _load_all_files() edge cases."""
 
-    def test_load_all_files_exception_handling(self, tmp_path: Path) -> None:
+    def test_load_all_files_exception_handling(
+        self,
+        tmp_path: Path,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
         """Test that errors during eager loading are caught and logged.
 
         This covers lines 153-155 in frame_dataset.py where we catch exceptions
         and log warnings while continuing to process other files.
+        Patches _ensure_loaded to raise for a specific index to reliably trigger
+        the outer except block in _load_all_files.
         """
-        import logging as stdlib_logging
+        sample_rate = 8000
+        duration_samples = sample_rate // 10
+        data = np.zeros(duration_samples, dtype=np.float32)
 
-        # Set up logging capture for warning level
-        logger = stdlib_logging.getLogger("wandas.utils.frame_dataset")
-        handler = stdlib_logging.StreamHandler()
-        logger.addHandler(handler)
-        logger.setLevel(stdlib_logging.WARNING)
+        num_files = 3
+        for i in range(num_files):
+            sf.write(tmp_path / f"file_{i}.wav", data, sample_rate)
 
-        try:
-            # Create an invalid/corrupted file that will fail to load
-            invalid_file = tmp_path / "invalid.wav"
-            invalid_file.write_text("this is not a wav file")
+        original_ensure_loaded = ChannelFrameDataset._ensure_loaded
 
-            dataset = ChannelFrameDataset(str(tmp_path), lazy_loading=False)
+        def _ensure_loaded_side_effect(self: ChannelFrameDataset, index: int) -> None:
+            if index == 1:
+                raise RuntimeError("synthetic load error for testing")
+            return original_ensure_loaded(self, index)
 
-            # Verify the frame was set to None due to load failure
-            assert len(dataset._lazy_frames) == 1
-            assert dataset._lazy_frames[0].frame is None
-        finally:
-            logger.removeHandler(handler)
+        with patch.object(
+            ChannelFrameDataset,
+            "_ensure_loaded",
+            side_effect=_ensure_loaded_side_effect,
+            autospec=True,
+        ):
+            with caplog.at_level(logging.WARNING, logger="wandas.utils.frame_dataset"):
+                dataset = ChannelFrameDataset(str(tmp_path), lazy_loading=False)
+
+        assert len(dataset._lazy_frames) == num_files
+
+        warnings_from_logger = [
+            record
+            for record in caplog.records
+            if record.levelno == logging.WARNING and record.name == "wandas.utils.frame_dataset"
+        ]
+        assert warnings_from_logger, "Expected a warning from _load_all_files error handling"
 
 
 class TestSampleElseBranch:
-    """Tests for sample() method else branch (line 367)."""
+    """Tests for sample() method when both n and ratio are provided."""
 
-    def test_sample_else_branch_n_and_ratio_both_provided(self, create_test_files: Path) -> None:
-        """Test that when both n and ratio are provided but neither matches conditions, else branch is used.
+    def test_sample_n_takes_precedence_over_ratio(self, create_test_files: Path) -> None:
+        """Test that when both n and ratio are provided, n is used and ratio is ignored.
 
-        This covers line 367 in frame_dataset.py where n = 1.
-        However, looking at the code logic:
-        - if n is None and ratio is None: use default formula (line 360-361)
-        - elif n is None and ratio is not None: use ratio (line 362-363)
-        - elif n is not None: use n (line 364-365) - this catches when n IS provided
-        - else: n = 1 (line 367) - this can never be reached because if we get here,
-          it means both conditions above were false, which means n is not None.
-
-        Actually line 367 is an unreachable branch given the current logic.
-        We'll verify this by testing that when n is provided, it's used correctly.
+        This indirectly confirms that the elif `n is not None` branch is taken
+        and the final else branch is not used in this scenario.
         """
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
@@ -1793,9 +1837,6 @@ class TestSampleElseBranch:
         # When both n and ratio are provided, the elif n is not None branch (line 364-365) is used
         sampled = dataset.sample(n=2, ratio=0.5, seed=42)
         assert len(sampled) == 2  # Uses n value, not ratio
-
-        # The else branch at line 367 would only be reached if somehow both conditions failed
-        # but that's impossible given the logic flow. This test documents the expected behavior.
 
 
 # --- Test ChannelFrameDataset Normalize Edge Cases ---
@@ -1871,17 +1912,20 @@ class TestChannelFrameDatasetNormalizeEdgeCases:
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
-        # Create a transform that raises an exception with known kwargs
-        def failing_normalize_with_kwargs(frame: ChannelFrame) -> ChannelFrame | None:
-            if frame is not None:
-                raise ValueError("Test error")
-            return None
+        # Known kwargs to verify they appear in the log message
+        kwargs = {"norm": 2, "axis": 1}
 
-        normalized_ds = dataset.apply(failing_normalize_with_kwargs)
-        _ = normalized_ds[0]  # Trigger the transform
+        caplog.set_level(logging.WARNING)
+
+        with patch.object(ChannelFrame, "normalize", side_effect=ValueError("Test error")):
+            normalized_ds = dataset.normalize(**kwargs)
+            _ = normalized_ds[0]  # Trigger normalization and error handling
 
         assert any(
-            "Failed to transform" in record.message and record.levelname == "WARNING" for record in caplog.records
+            "Normalization error" in record.message
+            and "norm" in record.message
+            and record.levelname == "WARNING"
+            for record in caplog.records
         )
 
 
@@ -2045,17 +2089,20 @@ class TestSpectrogramFrameDatasetExceptionEdgeCases:
         """Test plot handles None frame gracefully.
 
         This covers lines 710-712 in frame_dataset.py where a None frame is handled.
+        Force STFT to fail so the frame at index 0 is deterministically None.
         """
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
-        stft_ds = dataset.stft()
 
-        # Access an index that may have failed to transform
-        result = stft_ds[0]
-        if result is None:
-            # If frame failed, plot should handle it gracefully
-            stft_ds.plot(0)  # Should not raise exception
-            assert any("Cannot plot" in record.message and record.levelname == "WARNING" for record in caplog.records)
+        with patch.object(ChannelFrame, "stft", side_effect=RuntimeError("forced STFT failure")):
+            stft_ds = dataset.stft()
+            result = stft_ds[0]  # Access inside the patch so lazy load uses patched stft
+
+        assert result is None
+
+        caplog.set_level(logging.WARNING)
+        stft_ds.plot(0)  # Should not raise exception
+        assert any("Cannot plot" in record.message and record.levelname == "WARNING" for record in caplog.records)
 
     def test_plot_with_no_plot_method(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
         """Test plot handles frame without plot method gracefully.
@@ -2067,9 +2114,12 @@ class TestSpectrogramFrameDatasetExceptionEdgeCases:
         stft_ds = dataset.stft()
 
         result = stft_ds[0]
-        if result is not None:
-            # If frame has a plot method, it should work
-            pass  # Test passes if no exception
+        assert result is not None
+
+        with patch.object(type(result), "plot", None):
+            with caplog.at_level(logging.WARNING):
+                stft_ds.plot(0)  # Should not raise, but log a warning
+        assert any("does not have a plot method" in record.message and record.levelname == "WARNING" for record in caplog.records)
 
 
 # --- Test LazyFrame Exception Edge Cases ---
