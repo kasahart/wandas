@@ -155,7 +155,7 @@ class SoundFileReader(FileReader):
         if not normalize:
             # Use scipy to return raw integer samples (no normalization).
             source = _prepare_file_source(path)
-            sr, raw = wavfile.read(source)
+            _sr, raw = wavfile.read(source)
             if raw.ndim == 1:
                 raw = np.expand_dims(raw, axis=0)  # mono: (1, samples)
             else:
