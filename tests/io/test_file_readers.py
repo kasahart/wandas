@@ -51,9 +51,7 @@ class TestSoundFileReader:
 
     def test_get_data_full_file(self) -> None:
         """Test reading the entire audio file."""
-        data = self.reader.get_data(
-            self.test_file, channels=[0, 1], start_idx=0, frames=self.n_samples, normalize=True
-        )
+        data = self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=self.n_samples, normalize=True)
 
         assert isinstance(data, np.ndarray)
         assert data.shape == (self.n_channels, self.n_samples)
@@ -61,9 +59,7 @@ class TestSoundFileReader:
 
     def test_get_data_single_channel(self) -> None:
         """Test reading a single channel."""
-        data = self.reader.get_data(
-            self.test_file, channels=[0], start_idx=0, frames=self.n_samples, normalize=True
-        )
+        data = self.reader.get_data(self.test_file, channels=[0], start_idx=0, frames=self.n_samples, normalize=True)
 
         assert isinstance(data, np.ndarray)
         assert data.shape == (1, self.n_samples)
@@ -87,9 +83,7 @@ class TestSoundFileReader:
     def test_get_data_frame_limit_small(self) -> None:
         """Test reading with a specified number of frames."""
         frames: int = 2000
-        data = self.reader.get_data(
-            self.test_file, channels=[0, 1], start_idx=0, frames=frames, normalize=True
-        )
+        data = self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=frames, normalize=True)
 
         assert isinstance(data, np.ndarray)
         assert data.shape == (self.n_channels, frames)
@@ -121,9 +115,7 @@ class TestSoundFileReader:
     def test_get_data_frame_limit(self) -> None:
         """Test reading with a specified number of frames."""
         frames: int = 500
-        data = self.reader.get_data(
-            self.test_file, channels=[0, 1], start_idx=0, frames=frames, normalize=True
-        )
+        data = self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=frames, normalize=True)
 
         assert isinstance(data, np.ndarray)
         assert data.shape == (self.n_channels, frames)

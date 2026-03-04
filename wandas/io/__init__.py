@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 def read_wav(
     path: str | Path | bytes | bytearray | memoryview | BinaryIO,
     **kwargs: Any,
-) -> "ChannelFrame":
+) -> ChannelFrame:
     """Read a WAV file and return a ChannelFrame.
 
     .. deprecated::

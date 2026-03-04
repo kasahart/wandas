@@ -874,9 +874,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         # Build kwargs for reader
         reader_kwargs: dict[str, Any] = {}
-        is_wav_file = (path_obj is not None and path_obj.suffix.lower() == ".wav") or (
-            normalized_file_type == ".wav"
-        )
+        is_wav_file = (path_obj is not None and path_obj.suffix.lower() == ".wav") or (normalized_file_type == ".wav")
         if (path_obj is not None and path_obj.suffix.lower() == ".csv") or (normalized_file_type == ".csv"):
             reader_kwargs["time_column"] = time_column
             reader_kwargs["delimiter"] = delimiter
@@ -1031,9 +1029,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         is_in_memory = isinstance(filename, (bytes, bytearray, memoryview)) or (
             hasattr(filename, "read") and not isinstance(filename, (str, Path))
         )
-        )
         source_name: str | None = None
         if is_in_memory and hasattr(filename, "read") and not isinstance(filename, (str, Path)):
+            source_name = getattr(filename, "name", None)
         cf = ChannelFrame.from_file(
             filename,
             ch_labels=labels,

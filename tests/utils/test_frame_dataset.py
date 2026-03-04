@@ -1477,9 +1477,7 @@ class TestFrameDatasetLoadFromSourceEdgeCases:
 class TestFrameDatasetEnsureLoadedExceptionHandling:
     """Tests for _ensure_loaded() exception handling."""
 
-    def test_ensure_loaded_exception_handling(
-        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_ensure_loaded_exception_handling(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         """Test that exceptions in _ensure_loaded are caught and logged.
 
         We handle exceptions.
@@ -1501,8 +1499,7 @@ class TestFrameDatasetEnsureLoadedExceptionHandling:
         assert dataset._lazy_frames[0].load_attempted is True
 
         assert any(
-            record.name == "wandas.utils.frame_dataset" and record.levelno >= logging.ERROR
-            for record in caplog.records
+            record.name == "wandas.utils.frame_dataset" and record.levelno >= logging.ERROR for record in caplog.records
         )
 
 
@@ -1733,9 +1730,7 @@ class TestChannelFrameDatasetStftNoneCheck:
 class TestGetMetadataExceptionPath:
     """Tests for get_metadata() exception path."""
 
-    def test_get_metadata_exception_path(
-        self, create_test_files: Path, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_get_metadata_exception_path(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
         """Test that exceptions accessing first frame trigger the warning log.
 
         We catch exceptions and log warnings.
@@ -1922,9 +1917,7 @@ class TestChannelFrameDatasetNormalizeEdgeCases:
             _ = normalized_ds[0]  # Trigger normalization and error handling
 
         assert any(
-            "Normalization error" in record.message
-            and "norm" in record.message
-            and record.levelname == "WARNING"
+            "Normalization error" in record.message and "norm" in record.message and record.levelname == "WARNING"
             for record in caplog.records
         )
 
@@ -2105,10 +2098,8 @@ class TestSpectrogramFrameDatasetExceptionEdgeCases:
 
             # If frame failed, plot should handle it gracefully and log a warning.
             stft_ds.plot(0)  # Should not raise exception
-        assert any(
-            "Cannot plot" in record.message and record.levelname == "WARNING"
-            for record in caplog.records
-        )
+        assert any("Cannot plot" in record.message and record.levelname == "WARNING" for record in caplog.records)
+
     def test_plot_with_no_plot_method(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
         """Test plot handles frame without plot method gracefully.
 
