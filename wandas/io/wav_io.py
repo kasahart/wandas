@@ -39,7 +39,7 @@ def write_wav(filename: str, target: "ChannelFrame", format: str | None = None) 
     data = data.T
     if data.shape[1] == 1:
         data = data.squeeze(axis=1)
-    if np.issubdtype(data.dtype, np.floating) and max([np.abs(data.max()), np.abs(data.min())]) < 1:
+    if np.issubdtype(data.dtype, np.floating) and np.max(np.abs(data)) <= 1:
         sf.write(
             str(filename),
             data,

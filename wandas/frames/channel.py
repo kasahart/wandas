@@ -1031,9 +1031,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         is_in_memory = isinstance(filename, (bytes, bytearray, memoryview)) or (
             hasattr(filename, "read") and not isinstance(filename, (str, Path))
         )
+        )
         source_name: str | None = None
         if is_in_memory and hasattr(filename, "read") and not isinstance(filename, (str, Path)):
-            source_name = getattr(filename, "name", None)
         cf = ChannelFrame.from_file(
             filename,
             ch_labels=labels,
