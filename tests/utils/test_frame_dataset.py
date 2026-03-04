@@ -2093,17 +2093,23 @@ class TestSpectrogramFrameDatasetExceptionEdgeCases:
         """
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
-
+        caplog.set_level(logging.WARNING)
+        folder_path = create_test_files
+        # Force STFT to fail so that the resulting frame at index 0 is None.
         with patch.object(ChannelFrame, "stft", side_effect=RuntimeError("forced STFT failure")):
+            dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
             stft_ds = dataset.stft()
-            result = stft_ds[0]  # Access inside the patch so lazy load uses patched stft
 
+        # Access an index that failed to transform
+        result = stft_ds[0]
         assert result is None
 
-        caplog.set_level(logging.WARNING)
+        # If frame failed, plot should handle it gracefully and log a warning.
         stft_ds.plot(0)  # Should not raise exception
-        assert any("Cannot plot" in record.message and record.levelname == "WARNING" for record in caplog.records)
-
+        assert any(
+            "Cannot plot" in record.message and record.levelname == "WARNING"
+            for record in caplog.records
+        )
     def test_plot_with_no_plot_method(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
         """Test plot handles frame without plot method gracefully.
 
