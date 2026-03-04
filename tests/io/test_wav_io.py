@@ -232,9 +232,10 @@ def test_read_wav_stream_nonseekable() -> None:
 
 
 def test_read_wav_int16_raw(tmpdir: str) -> None:
-    """Test that int16 WAV data is returned as raw int16 by default.
+    """Test that int16 WAV data is returned cast to float32 by default.
 
-    The default normalize=False returns scipy's raw integer samples.
+    The default normalize=False returns scipy's raw integer samples cast to float32.
+    The integer values are preserved in magnitude (e.g. 16384 becomes 16384.0).
     """
     filepath = os.path.join(tmpdir, "int16_test.wav")
     sampling_rate = 16000
@@ -247,10 +248,10 @@ def test_read_wav_int16_raw(tmpdir: str) -> None:
     channel_frame = ChannelFrame.read_wav(filepath)
     computed_data = channel_frame.compute()
 
-    # Raw int16 values are returned unchanged
-    np.testing.assert_array_equal(computed_data[0], int16_left)
-    np.testing.assert_array_equal(computed_data[1], int16_right)
-    assert computed_data.dtype == np.int16
+    # Raw int16 values are cast to float32 (magnitudes preserved)
+    np.testing.assert_array_equal(computed_data[0], int16_left.astype(np.float32))
+    np.testing.assert_array_equal(computed_data[1], int16_right.astype(np.float32))
+    assert computed_data.dtype == np.float32
 
 
 def test_read_wav_int16_normalized(tmpdir: str) -> None:

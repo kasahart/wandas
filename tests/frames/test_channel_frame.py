@@ -1540,7 +1540,7 @@ class TestDescribeIntegration:
         np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)
 
     def test_from_file_wav_normalize_false(self, tmp_path: Path) -> None:
-        """Test that from_file returns raw int16 data by default (normalize=False)."""
+        """Test that from_file returns int16 data cast to float32 by default (normalize=False)."""
         filepath = tmp_path / "int16.wav"
         sampling_rate = 16000
         num_samples = 100
@@ -1552,9 +1552,9 @@ class TestDescribeIntegration:
         cf = ChannelFrame.from_file(filepath)
         computed = cf.compute()
 
-        np.testing.assert_array_equal(computed[0], np.full(num_samples, 16384, dtype=np.int16))
-        np.testing.assert_array_equal(computed[1], np.full(num_samples, -16384, dtype=np.int16))
-        assert computed.dtype == np.int16
+        np.testing.assert_array_equal(computed[0], np.full(num_samples, 16384, dtype=np.float32))
+        np.testing.assert_array_equal(computed[1], np.full(num_samples, -16384, dtype=np.float32))
+        assert computed.dtype == np.float32
 
     def test_from_file_wav_normalize_true(self, tmp_path: Path) -> None:
         """Test that from_file normalizes to float32 when normalize=True."""
