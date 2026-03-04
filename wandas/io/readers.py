@@ -163,8 +163,15 @@ class SoundFileReader(FileReader):
                 raw = np.expand_dims(raw, axis=0)  # mono: (1, samples)
             else:
                 raw = raw.T  # stereo: (channels, samples)
-            raw = raw[channels]
-            result: ArrayLike = raw[:, start_idx : start_idx + frames].astype(np.float32)
+
+            # Only reindex channels when the requested selection is not the identity.
+            if channels != list(range(raw.shape[0])):
+                raw = raw[channels]
+
+            result: ArrayLike = raw[:, start_idx : start_idx + frames].astype(
+                np.float32,
+                copy=False,
+            )
             if not isinstance(result, np.ndarray):
                 raise ValueError("Unexpected data type after reading file")
             logger.debug(f"File read complete (raw), returning data with shape {result.shape}")
