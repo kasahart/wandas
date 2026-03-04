@@ -48,6 +48,9 @@ jobs:
           MPLBACKEND: ${{ matrix.os == 'windows-latest' && 'Agg' || '' }}
         run: uv run pytest --cov=wandas --cov-report=xml -vv
 
+      - name: Test Notebooks
+        run: /workspaces/wandas/.venv/bin/jupyter nbconvert --execute /workspaces/wandas/learning-path/*.ipynb
+
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5 # 最新バージョンを使用
         with:

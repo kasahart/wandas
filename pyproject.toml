@@ -65,6 +65,7 @@ test = [
     "mypy",
     "ruff>=0.9.9",
     "pandas-stubs",
+    "jupyter"
 ]
 
 # ドキュメント生成

@@ -49,6 +49,12 @@
                 "panel": "shared"
             },
             "isBackground": true
+        },
+        {
+            "label": "Test all notebooks in learning-path",
+            "type": "shell",
+            "command": "/workspaces/wandas/.venv/bin/jupyter nbconvert --to notebook --execute /workspaces/wandas/learning-path/*.ipynb",
+            "problemMatcher": []
         }
     ]
 }
