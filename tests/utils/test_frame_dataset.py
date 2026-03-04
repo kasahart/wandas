@@ -2158,13 +2158,14 @@ class TestLazyFrameExceptionEdgeCases:
 class TestFrameDatasetConstructorExceptionEdgeCases:
     """Tests for exception edge cases in FrameDataset constructor."""
 
-    def test_init_with_nonexistent_folder(self) -> None:
+    def test_init_with_nonexistent_folder(self, tmp_path: Path) -> None:
         """Test that initializing with a non-existent folder raises FileNotFoundError.
 
         This covers line 93-94 in frame_dataset.py where folder existence is checked.
         """
+        nonexistent_folder = tmp_path / "does_not_exist"
         with pytest.raises(FileNotFoundError, match="Folder does not exist"):
-            ChannelFrameDataset("/nonexistent/path/that/does/not/exist")
+            ChannelFrameDataset(str(nonexistent_folder))
 
     def test_init_with_empty_folder(self, tmp_path: Path) -> None:
         """Test that initializing with an empty folder works correctly.
