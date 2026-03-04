@@ -2125,7 +2125,10 @@ class TestSpectrogramFrameDatasetExceptionEdgeCases:
         with patch.object(type(result), "plot", None):
             with caplog.at_level(logging.WARNING):
                 stft_ds.plot(0)  # Should not raise, but log a warning
-        assert any("does not have a plot method" in record.message and record.levelname == "WARNING" for record in caplog.records)
+        assert any(
+            "does not have a plot method" in record.message and record.levelname == "WARNING"
+            for record in caplog.records
+        )
 
 
 # --- Test LazyFrame Exception Edge Cases ---
