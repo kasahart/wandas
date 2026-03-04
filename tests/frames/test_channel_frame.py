@@ -1602,7 +1602,42 @@ class TestDescribeIntegration:
             mock_from_file.return_value = self.channel_frame
             result = ChannelFrame.read_wav("test.wav", labels=["left", "right"])
             mock_from_file.assert_called_with(
-                "test.wav", ch_labels=["left", "right"], normalize=False, file_type=None
+                "test.wav", ch_labels=["left", "right"], normalize=False, file_type=None, source_name=None
+            )
+            assert result is self.channel_frame
+
+    def test_read_wav_stream_source_name(self) -> None:
+        """Test that read_wav propagates source_name from a file-like object's .name attribute."""
+        with mock.patch.object(ChannelFrame, "from_file") as mock_from_file:
+            mock_from_file.return_value = self.channel_frame
+
+            stream = mock.MagicMock()
+            stream.read = mock.MagicMock(return_value=b"")
+            stream.name = "path/to/audio.wav"
+
+            result = ChannelFrame.read_wav(stream)
+            mock_from_file.assert_called_with(
+                stream,
+                ch_labels=None,
+                normalize=False,
+                file_type=".wav",
+                source_name="path/to/audio.wav",
+            )
+            assert result is self.channel_frame
+
+    def test_read_wav_stream_without_name(self) -> None:
+        """Test that read_wav passes source_name=None when file-like has no .name."""
+        with mock.patch.object(ChannelFrame, "from_file") as mock_from_file:
+            mock_from_file.return_value = self.channel_frame
+
+            stream = mock.MagicMock(spec=["read"])
+            result = ChannelFrame.read_wav(stream)
+            mock_from_file.assert_called_with(
+                stream,
+                ch_labels=None,
+                normalize=False,
+                file_type=".wav",
+                source_name=None,
             )
             assert result is self.channel_frame
 
