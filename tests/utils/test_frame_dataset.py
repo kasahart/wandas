@@ -2100,12 +2100,12 @@ class TestSpectrogramFrameDatasetExceptionEdgeCases:
             dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
             stft_ds = dataset.stft()
 
-        # Access an index that failed to transform
-        result = stft_ds[0]
-        assert result is None
+            # Access an index that failed to transform
+            result = stft_ds[0]
+            assert result is None
 
-        # If frame failed, plot should handle it gracefully and log a warning.
-        stft_ds.plot(0)  # Should not raise exception
+            # If frame failed, plot should handle it gracefully and log a warning.
+            stft_ds.plot(0)  # Should not raise exception
         assert any(
             "Cannot plot" in record.message and record.levelname == "WARNING"
             for record in caplog.records
