@@ -1807,6 +1807,7 @@ class TestFrameDatasetLoadAllFilesEdgeCases:
             ChannelFrameDataset,
             "_ensure_loaded",
             side_effect=_ensure_loaded_side_effect,
+            autospec=True,
         ):
             with caplog.at_level(logging.WARNING, logger="wandas.utils.frame_dataset"):
                 dataset = ChannelFrameDataset(str(tmp_path), lazy_loading=False)
