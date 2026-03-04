@@ -20,7 +20,7 @@ from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
 from ..core.metadata import ChannelMetadata, FrameMetadata
-from ..io.readers import _WAV_SUBTYPE_TO_NUMPY_DTYPE, get_file_reader
+from ..io.readers import get_file_reader
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
 
 if TYPE_CHECKING:
@@ -962,12 +962,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         # Create dask array from delayed computation and ensure channel-wise
         # chunks. The sample axis (1) uses -1 by default to avoid forcing
         # a sample chunk length here.
-        if is_wav_file and not normalize:
-            subtype = info.get("subtype", "PCM_16")
-            data_dtype: type = _WAV_SUBTYPE_TO_NUMPY_DTYPE.get(subtype, np.int16)
-        else:
-            data_dtype = np.float32
-        dask_array = da_from_delayed(delayed_data, shape=expected_shape, dtype=data_dtype)
+        dask_array = da_from_delayed(delayed_data, shape=expected_shape, dtype=np.float32)
 
         # Ensure channel-wise chunks
         dask_array = dask_array.rechunk((1, -1))

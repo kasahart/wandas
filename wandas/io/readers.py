@@ -12,17 +12,6 @@ from scipy.io import wavfile
 
 logger = logging.getLogger(__name__)
 
-# Maps soundfile subtype strings to the numpy dtype returned by scipy.io.wavfile.read
-_WAV_SUBTYPE_TO_NUMPY_DTYPE: dict[str, type] = {
-    "PCM_S8": np.int8,
-    "PCM_16": np.int16,
-    "PCM_24": np.int32,  # scipy zero-pads 24-bit to int32
-    "PCM_32": np.int32,
-    "PCM_U8": np.uint8,
-    "FLOAT": np.float32,
-    "DOUBLE": np.float64,
-}
-
 
 class CSVFileInfoParams(TypedDict, total=False):
     """Type definition for CSV file reader parameters in get_file_info.
@@ -151,15 +140,15 @@ class SoundFileReader(FileReader):
         channels: list[int],
         start_idx: int,
         frames: int,
-        normalize: bool = True,
+        normalize: bool = False,
         **kwargs: Any,
     ) -> ArrayLike:
         """Read audio data from the file.
 
         Args:
-            normalize: When True (default), return float32 data normalized to
-                [-1.0, 1.0] via soundfile. When False, return raw integer data
+            normalize: When False (default), return raw integer data
                 as produced by scipy.io.wavfile.read (e.g. int16 for 16-bit PCM).
+                When True, return float32 data normalized to [-1.0, 1.0] via soundfile.
         """
         logger.debug(f"Reading {frames} frames from {path!r} starting at {start_idx}")
 
