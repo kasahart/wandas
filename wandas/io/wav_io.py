@@ -1,111 +1,14 @@
 # wandas/io/wav_io.py
-import io
 import logging
-import os
-from pathlib import Path
-from typing import TYPE_CHECKING, BinaryIO, Protocol
+from typing import TYPE_CHECKING
 
 import numpy as np
-import requests
 import soundfile as sf
-from scipy.io import wavfile
 
 if TYPE_CHECKING:
     from ..frames.channel import ChannelFrame
 
-from ..core.metadata import FrameMetadata
-
 logger = logging.getLogger(__name__)
-
-
-class ReadableBinary(Protocol):
-    def read(self, n: int = -1) -> bytes: ...
-
-
-def read_wav(
-    filename: str | Path | bytes | bytearray | memoryview | ReadableBinary,
-    labels: list[str] | None = None,
-) -> "ChannelFrame":
-    """
-    Read a WAV file and create a ChannelFrame object.
-
-    Parameters
-    ----------
-    filename : str | Path | bytes | bytearray | memoryview | ReadableBinary
-        Path to the WAV file, URL to the WAV file, or in-memory bytes/stream.
-    labels : list of str, optional
-        Labels for each channel.
-
-    Returns
-    -------
-    ChannelFrame
-        ChannelFrame object containing the audio data.
-    """
-    from wandas.frames.channel import ChannelFrame
-
-    file_obj: BinaryIO | ReadableBinary
-    source_file: str | None = None
-
-    # ファイル名がURLかどうかを判断
-    if isinstance(filename, str) and (filename.startswith("http://") or filename.startswith("https://")):
-        # URLの場合、requestsを使用してダウンロード
-        response = requests.get(filename)
-        file_obj = io.BytesIO(response.content)
-        file_label = os.path.basename(filename)
-        source_file = filename
-        # メモリマッピングは使用せずに読み込む
-        sampling_rate, data = wavfile.read(file_obj)
-    elif isinstance(filename, (bytes, bytearray, memoryview)) or (
-        hasattr(filename, "read") and not isinstance(filename, (str, Path))
-    ):
-        # in-memory bytes or stream
-        if isinstance(filename, (bytes, bytearray, memoryview)):
-            file_obj = io.BytesIO(bytes(filename))
-            file_label = "in_memory"
-        else:
-            file_obj = filename
-            if hasattr(file_obj, "seek"):
-                try:
-                    file_obj.seek(0)
-                except Exception as exc:
-                    logger.debug("Failed to seek to start of file-like object: %s", exc)
-            raw_name = getattr(file_obj, "name", None)
-            if isinstance(raw_name, (str, os.PathLike)):
-                raw_name_str = os.fspath(raw_name)
-                base_name = os.path.basename(raw_name_str)
-                file_label = base_name or "in_memory"
-                if base_name:
-                    source_file = raw_name_str
-            else:
-                file_label = "in_memory"
-        # メモリマッピングは使用せずに読み込む
-        sampling_rate, data = wavfile.read(file_obj)
-    else:
-        # ローカルファイルパスの場合
-        file_path = str(filename)
-        file_label = os.path.basename(file_path)
-        source_file = file_path
-        # データの読み込み（メモリマッピング不使用で統一）
-        sampling_rate, data = wavfile.read(file_path)
-
-    # データを(num_channels, num_samples)形状のNumPy配列に変換
-    if data.ndim == 1:
-        # モノラル：(samples,) -> (1, samples)
-        data = np.expand_dims(data, axis=0)
-    else:
-        # ステレオ：(samples, channels) -> (channels, samples)
-        data = data.T
-
-    # NumPy配列からChannelFrameを作成
-    channel_frame = ChannelFrame.from_numpy(
-        data=data,
-        sampling_rate=sampling_rate,
-        label=file_label,
-        metadata=FrameMetadata(source_file=source_file),
-        ch_labels=labels,
-    )
-
-    return channel_frame
 
 
 def write_wav(filename: str, target: "ChannelFrame", format: str | None = None) -> None:
@@ -136,7 +39,7 @@ def write_wav(filename: str, target: "ChannelFrame", format: str | None = None) 
     data = data.T
     if data.shape[1] == 1:
         data = data.squeeze(axis=1)
-    if data.dtype == float and max([np.abs(data.max()), np.abs(data.min())]) < 1:
+    if np.issubdtype(data.dtype, np.floating) and np.max(np.abs(data)) <= 1:
         sf.write(
             str(filename),
             data,

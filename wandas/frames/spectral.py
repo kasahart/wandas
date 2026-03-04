@@ -116,7 +116,7 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         n_fft: int,
         window: str = "hann",
         label: str | None = None,
-        metadata: "FrameMetadata | dict[str, Any] | None" = None,
+        metadata: FrameMetadata | dict[str, Any] | None = None,
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
         previous: BaseFrame[Any] | None = None,

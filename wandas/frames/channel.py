@@ -774,6 +774,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         header: int | None = 0,
         file_type: str | None = None,
         source_name: str | None = None,
+        normalize: bool = False,
     ) -> "ChannelFrame":
         """Create a ChannelFrame from an audio file.
 
@@ -795,6 +796,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 Default is 0 (first row). Set to None if no header.
             file_type: File extension for in-memory data (e.g. ".wav", ".csv").
             source_name: Optional source name for in-memory data. Used in metadata.
+            normalize: For WAV file paths only. When False (default), return raw
+                integer PCM samples cast to float32 (magnitudes preserved, e.g.
+                16384 stays 16384.0). When True, normalize to float32 in [-1.0, 1.0].
+                Non-WAV formats and in-memory sources always use soundfile (normalized).
 
         Returns:
             A new ChannelFrame containing the loaded audio data.
@@ -805,8 +810,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 troubleshooting suggestions.
 
         Examples:
-            >>> # Load WAV file
+            >>> # Load WAV file (raw integer samples cast to float32 by default)
             >>> cf = ChannelFrame.from_file("audio.wav")
+            >>> # Load WAV file normalized to float32 [-1.0, 1.0]
+            >>> cf = ChannelFrame.from_file("audio.wav", normalize=True)
             >>> # Load specific channels
             >>> cf = ChannelFrame.from_file("audio.wav", channel=[0, 2])
             >>> # Load CSV file
@@ -867,11 +874,14 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         # Build kwargs for reader
         reader_kwargs: dict[str, Any] = {}
+        is_wav_file = (path_obj is not None and path_obj.suffix.lower() == ".wav") or (normalized_file_type == ".wav")
         if (path_obj is not None and path_obj.suffix.lower() == ".csv") or (normalized_file_type == ".csv"):
             reader_kwargs["time_column"] = time_column
             reader_kwargs["delimiter"] = delimiter
             if header is not None:
                 reader_kwargs["header"] = header
+        if is_wav_file:
+            reader_kwargs["normalize"] = normalize
 
         # Get file info
         source_obj: str | Path | bytes | bytearray | memoryview | BinaryIO
@@ -999,19 +1009,36 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         cls,
         filename: str | Path | bytes | bytearray | memoryview | BinaryIO,
         labels: list[str] | None = None,
+        normalize: bool = False,
     ) -> "ChannelFrame":
         """Utility method to read a WAV file.
 
         Args:
             filename: Path to the WAV file or in-memory bytes/stream.
             labels: Labels to set for each channel.
+            normalize: When False (default) and the source is a WAV file path,
+                return raw integer PCM samples cast to float32 (magnitudes preserved).
+                For in-memory sources, always uses soundfile (normalized float32).
+                When True, normalize to float32 in [-1.0, 1.0].
 
         Returns:
             A new ChannelFrame containing the data (lazy loading).
         """
         from .channel import ChannelFrame
 
-        cf = ChannelFrame.from_file(filename, ch_labels=labels)
+        is_in_memory = isinstance(filename, (bytes, bytearray, memoryview)) or (
+            hasattr(filename, "read") and not isinstance(filename, (str, Path))
+        )
+        source_name: str | None = None
+        if is_in_memory and hasattr(filename, "read") and not isinstance(filename, (str, Path)):
+            source_name = getattr(filename, "name", None)
+        cf = ChannelFrame.from_file(
+            filename,
+            ch_labels=labels,
+            normalize=normalize,
+            file_type=".wav" if is_in_memory else None,
+            source_name=source_name,
+        )
         return cf
 
     @classmethod

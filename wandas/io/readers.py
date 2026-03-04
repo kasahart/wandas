@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import soundfile as sf
 from numpy.typing import ArrayLike
+from scipy.io import wavfile
 
 logger = logging.getLogger(__name__)
 
@@ -139,10 +140,42 @@ class SoundFileReader(FileReader):
         channels: list[int],
         start_idx: int,
         frames: int,
+        normalize: bool = False,
         **kwargs: Any,
     ) -> ArrayLike:
-        """Read audio data from the file."""
+        """Read audio data from the file.
+
+        Args:
+            normalize: When False (default) and the source is a WAV file path,
+                return raw integer PCM samples cast to float32 via
+                scipy.io.wavfile.read. For non-WAV formats or in-memory sources,
+                always uses soundfile (returning float32 normalized to [-1.0, 1.0]).
+                When True, return float32 data normalized to [-1.0, 1.0] via soundfile.
+        """
         logger.debug(f"Reading {frames} frames from {path!r} starting at {start_idx}")
+
+        is_wav = isinstance(path, (str, Path)) and Path(path).suffix.lower() == ".wav"
+        if not normalize and is_wav:
+            # Use scipy to return raw integer samples (no normalization), cast to float32.
+            source = _prepare_file_source(path)
+            _sr, raw = wavfile.read(source)
+            if raw.ndim == 1:
+                raw = np.expand_dims(raw, axis=0)  # mono: (1, samples)
+            else:
+                raw = raw.T  # stereo: (channels, samples)
+
+            # Only reindex channels when the requested selection is not the identity.
+            if channels != list(range(raw.shape[0])):
+                raw = raw[channels]
+
+            result: ArrayLike = raw[:, start_idx : start_idx + frames].astype(
+                np.float32,
+                copy=False,
+            )
+            if not isinstance(result, np.ndarray):
+                raise ValueError("Unexpected data type after reading file")
+            logger.debug(f"File read complete (raw), returning data with shape {result.shape}")
+            return result
 
         with sf.SoundFile(_prepare_file_source(path)) as f:
             if start_idx > 0:
@@ -150,11 +183,10 @@ class SoundFileReader(FileReader):
             data = f.read(frames=frames, dtype="float32", always_2d=True)
 
             # Select requested channels
-            if len(channels) < f.channels:
-                data = data[:, channels]
+            data = data[:, channels]
 
             # Transpose to get (channels, samples) format
-            result: ArrayLike = data.T
+            result = data.T
             if not isinstance(result, np.ndarray):
                 raise ValueError("Unexpected data type after reading file")
 
