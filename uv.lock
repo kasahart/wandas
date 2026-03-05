@@ -4389,7 +4389,7 @@ wheels = [
 
 [[package]]
 name = "wandas"
-version = "0.1.14"
+version = "0.1.15"
 source = { editable = "." }
 dependencies = [
     { name = "cattrs" },
