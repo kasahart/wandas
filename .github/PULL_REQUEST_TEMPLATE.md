@@ -3,7 +3,7 @@
 <!-- A clear and concise description of what this PR does and why.
      このPRが何をするものか、なぜ必要かを明確・簡潔に説明してください。 -->
 
-Closes #<!-- issue number -->
+<!-- Closes #<issue-number> / 関連Issue: #<issue-number> -->
 
 ---
 
