@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation / ドキュメント
+    url: https://kasahart.github.io/wandas/
+    about: Check the official documentation before opening an issue. / Issueを開く前に公式ドキュメントをご確認ください。
+  - name: Discussions / ディスカッション
+    url: https://github.com/kasahart/wandas/discussions
+    about: For questions and general discussion. / 質問や一般的な議論はこちらをご利用ください。
