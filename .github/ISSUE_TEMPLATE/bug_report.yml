@@ -1,5 +1,5 @@
-name: Bug Report
-description: Report a bug or unexpected behavior in Wandas
+name: Bug Report / バグ報告
+description: Report a bug or unexpected behavior in Wandas / Wandasのバグや予期しない動作を報告する
 title: "[Bug]: "
 labels: ["bug"]
 body:

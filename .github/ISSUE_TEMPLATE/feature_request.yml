@@ -1,5 +1,5 @@
-name: Feature Request
-description: Suggest a new feature or enhancement for Wandas
+name: Feature Request / 機能リクエスト
+description: Suggest a new feature or enhancement for Wandas / Wandasへの新機能・改善を提案する
 title: "[Feature]: "
 labels: ["enhancement"]
 body:
