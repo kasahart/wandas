@@ -89,6 +89,9 @@ dev = [
     "tensorflow>=2.13.0",
 ]
 
+[tool.hatch.metadata]
+allow-direct-references = true
+
 [tool.uv.sources]
 wandas = { workspace = true }
 
