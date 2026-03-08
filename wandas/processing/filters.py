@@ -2,9 +2,9 @@ import logging
 
 import numpy as np
 from scipy import signal
-from waveform_analysis import A_weight
 
 from wandas.processing.base import AudioOperation, register_operation
+from wandas.processing.weighting import A_weight
 from wandas.utils.types import NDArrayReal
 
 logger = logging.getLogger(__name__)
