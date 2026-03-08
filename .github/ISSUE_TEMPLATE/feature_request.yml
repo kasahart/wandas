@@ -1,0 +1,63 @@
+name: Feature Request / 機能リクエスト
+description: Suggest a new feature or enhancement for Wandas / Wandasへの新機能・改善を提案する
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting a new feature! Please describe your idea clearly so we can understand the use case.
+
+        新機能のご提案ありがとうございます。ユースケースが伝わるよう、アイデアを明確に記入してください。
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / Background / 問題・背景
+      description: Is your feature request related to a problem? Please describe. / この機能リクエストは何らかの問題に関連していますか？説明してください。
+      placeholder: |
+        I find it difficult to... / ...が難しいと感じています。
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution / 提案する解決策
+      description: "Describe the solution you'd like. Provide a Python code example if possible (syntax highlighting is enabled). / 希望するソリューションを説明してください。可能であればPythonコード例を記入してください（シンタックスハイライトが有効です）。"
+      render: python
+      placeholder: |
+        # Example of how the new API might look:
+        import wandas as wd
+
+        signal = wd.read_wav("audio.wav")
+        result = signal.new_method(...)
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered / 検討した代替案
+      description: Describe any alternative solutions or features you've considered. / 検討した代替ソリューションや機能があれば記入してください。
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected Area / 対象領域
+      description: Which part of the codebase does this feature relate to? / この機能はどのモジュールに関連しますか？
+      options:
+        - "frames/ (ChannelFrame, SpectralFrame, SpectrogramFrame)"
+        - "processing/ (filters, spectral, psychoacoustics, stats, effects)"
+        - "io/ (WAV, WDF, CSV)"
+        - "visualization/ (plotting)"
+        - "datasets/ (sample data)"
+        - "Other / その他"
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context / 補足情報
+      description: Any other context, references, or examples that may help. / その他の補足情報、参考資料、関連例など。

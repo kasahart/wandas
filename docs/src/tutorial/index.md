@@ -6,7 +6,6 @@ This tutorial will teach you the basics of the Wandas library in 5 minutes.
 ## Installation / インストール
 
 ```bash
-pip install git+https://github.com/endolith/waveform-analysis.git@master
 pip install wandas
 ```
 

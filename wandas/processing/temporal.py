@@ -3,9 +3,9 @@ from typing import Any
 
 import librosa
 import numpy as np
-from waveform_analysis import A_weight
 
 from wandas.processing.base import AudioOperation, register_operation
+from wandas.processing.weighting import A_weight
 from wandas.utils import validate_sampling_rate
 from wandas.utils.types import NDArrayReal
 
