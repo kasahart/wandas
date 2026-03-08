@@ -58,8 +58,11 @@ def ABC_weighting(curve: str = "A") -> tuple[NDArrayReal, NDArrayReal, float]:  
     k : float
         Gain of the analog filter, normalized to 0 dB at 1 kHz.
     """
-    if curve not in "ABC":
-        raise ValueError("Curve type not understood")
+    allowed_curves = {"A", "B", "C"}
+    if curve not in allowed_curves:
+        raise ValueError(
+            f"Curve type not understood: {curve!r}. Expected one of {sorted(allowed_curves)}."
+        )
 
     # ANSI S1.4-1983 C weighting
     #    2 poles on the real axis at "20.6 Hz" HPF
