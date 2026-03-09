@@ -8,6 +8,7 @@ from wandas.processing.temporal import (
     FixLength,
     ReSampling,
     RmsTrend,
+    SoundLevel,
     Trim,
 )
 from wandas.utils.types import NDArrayReal
@@ -411,6 +412,66 @@ class TestFixLength:
         fix_op2 = create_operation("fix_length", 16000, duration=0.75)
         assert isinstance(fix_op2, FixLength)
         assert fix_op2.target_length == int(0.75 * 16000)
+
+
+class TestSoundLevel:
+    def setup_method(self) -> None:
+        """Set up test fixtures for each test."""
+        self.sample_rate: int = 16000
+        t = np.linspace(0, 2, 2 * self.sample_rate, endpoint=False)
+        self.low_freq_signal: NDArrayReal = np.array([np.sin(2 * np.pi * 50 * t)])
+        stepped_amplitude = np.where(t < 1.0, 0.2, 1.0)
+        self.step_signal: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t) * stepped_amplitude])
+        self.dask_low_freq: DaArray = _da_from_array(self.low_freq_signal, chunks=(1, -1))
+        self.dask_step: DaArray = _da_from_array(self.step_signal, chunks=(1, -1))
+
+    def test_initialization(self) -> None:
+        """Test initialization with different parameters."""
+        op = SoundLevel(self.sample_rate, freq_weighting="A", time_weighting="Fast", ref=2e-5)
+        assert op.sampling_rate == self.sample_rate
+        assert op.freq_weighting == "A"
+        assert op.time_weighting == "Fast"
+
+    def test_sound_level_shape(self) -> None:
+        """Test that sound level preserves input shape."""
+        op = SoundLevel(self.sample_rate, ref=1.0)
+        result = op.process(self.dask_low_freq).compute()
+        assert result.shape == self.low_freq_signal.shape
+
+    def test_a_and_c_weighting_reduce_low_frequency_level(self) -> None:
+        """Test that frequency weighting attenuates low-frequency content."""
+        level_z = SoundLevel(self.sample_rate, ref=1.0, freq_weighting="Z", time_weighting="Fast")
+        level_c = SoundLevel(self.sample_rate, ref=1.0, freq_weighting="C", time_weighting="Fast")
+        level_a = SoundLevel(self.sample_rate, ref=1.0, freq_weighting="A", time_weighting="Fast")
+
+        result_z = level_z.process(self.dask_low_freq).compute()
+        result_c = level_c.process(self.dask_low_freq).compute()
+        result_a = level_a.process(self.dask_low_freq).compute()
+
+        tail = slice(result_z.shape[-1] // 2, None)
+        assert float(np.mean(result_a[..., tail])) < float(np.mean(result_c[..., tail])) < float(
+            np.mean(result_z[..., tail])
+        )
+
+    def test_slow_weighting_is_smoother_than_fast(self) -> None:
+        """Test that Slow weighting produces a smoother trend than Fast."""
+        level_fast = SoundLevel(self.sample_rate, ref=1.0, time_weighting="Fast")
+        level_slow = SoundLevel(self.sample_rate, ref=1.0, time_weighting="Slow")
+
+        fast = level_fast.process(self.dask_step).compute()
+        slow = level_slow.process(self.dask_step).compute()
+
+        assert float(np.std(np.diff(slow, axis=-1))) < float(np.std(np.diff(fast, axis=-1)))
+
+    def test_operation_registry(self) -> None:
+        """Test that SoundLevel is properly registered in the operation registry."""
+        assert get_operation("sound_level") == SoundLevel
+
+        sound_level_op = create_operation("sound_level", 16000, freq_weighting="A", time_weighting="Slow", ref=2e-5)
+
+        assert isinstance(sound_level_op, SoundLevel)
+        assert sound_level_op.freq_weighting == "A"
+        assert sound_level_op.time_weighting == "Slow"
 
 
 # Register FixLength in the operation registry (if not done in __init__.py)
