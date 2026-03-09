@@ -9,16 +9,31 @@ import librosa
 import numpy as np
 import pandas as pd
 from dask.array.core import Array as DaArray
-from mosqito.sound_level_meter.noct_spectrum._center_freq import _center_freq
 
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
 from wandas.utils.types import NDArrayReal
 
+try:
+    from mosqito.sound_level_meter.noct_spectrum._center_freq import _center_freq
+
+    _MOSQITO_AVAILABLE = True
+except ImportError:
+    _MOSQITO_AVAILABLE = False
+
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
     from wandas.visualization.plotting import PlotStrategy
+
+
+def _require_mosqito() -> None:
+    """Raise ImportError with installation instructions if mosqito is not installed."""
+    if not _MOSQITO_AVAILABLE:
+        raise ImportError(
+            "mosqito is required for N-octave frequency operations but is not installed.\n"
+            'Install it with: pip install "wandas[analysis]"'
+        )
 
 
 dask_delayed = dask.delayed  # type: ignore [unused-ignore]
@@ -233,6 +248,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
             If the center frequencies cannot be calculated or the result
             is not a numpy array.
         """
+        _require_mosqito()
         _, freqs = _center_freq(
             fmax=self.fmax,
             fmin=self.fmin,

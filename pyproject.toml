@@ -35,7 +35,6 @@ dependencies = [
     "scipy>=1.13.0",
     "matplotlib>=3.9.0",
     "librosa",
-    "mosqito",
     "ipykernel",
     "ipywidgets",
     "cattrs",
@@ -49,6 +48,11 @@ dependencies = [
     "requests>=2.32.3",
     "types-requests>=2.32.0.20250328",
     "pandas",
+]
+
+[project.optional-dependencies]
+analysis = [
+    "mosqito",
 ]
 
 [project.urls]

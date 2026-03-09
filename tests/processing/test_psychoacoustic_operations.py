@@ -4,10 +4,6 @@ import dask.array as da
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
-from mosqito.sq_metrics import loudness_zwst, loudness_zwtv
-from mosqito.sq_metrics import roughness_dw as roughness_dw_mosqito
-from mosqito.sq_metrics import sharpness_din_st as sharpness_din_st_mosqito
-from mosqito.sq_metrics import sharpness_din_tv as sharpness_din_tv_mosqito
 
 from wandas.processing.base import create_operation, get_operation
 from wandas.processing.psychoacoustic import (
@@ -18,6 +14,18 @@ from wandas.processing.psychoacoustic import (
     SharpnessDinSt,
 )
 from wandas.utils.types import NDArrayReal
+
+try:
+    from mosqito.sq_metrics import loudness_zwst, loudness_zwtv
+    from mosqito.sq_metrics import roughness_dw as roughness_dw_mosqito
+    from mosqito.sq_metrics import sharpness_din_st as sharpness_din_st_mosqito
+    from mosqito.sq_metrics import sharpness_din_tv as sharpness_din_tv_mosqito
+
+    _MOSQITO_AVAILABLE = True
+except ImportError:
+    _MOSQITO_AVAILABLE = False
+
+pytestmark = pytest.mark.skipif(not _MOSQITO_AVAILABLE, reason="mosqito not installed")
 
 _da_from_array = da.from_array  # type: ignore [unused-ignore]
 

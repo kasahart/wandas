@@ -1,15 +1,30 @@
 import logging
 
 import numpy as np
-from mosqito.sound_level_meter import noct_spectrum, noct_synthesis
-from mosqito.sound_level_meter.noct_spectrum._center_freq import _center_freq
 from scipy.signal import ShortTimeFFT
 from scipy.signal.windows import get_window
 
 from wandas.processing.base import AudioOperation, register_operation
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
+try:
+    from mosqito.sound_level_meter import noct_spectrum, noct_synthesis
+    from mosqito.sound_level_meter.noct_spectrum._center_freq import _center_freq
+
+    _MOSQITO_AVAILABLE = True
+except ImportError:
+    _MOSQITO_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
+
+
+def _require_mosqito() -> None:
+    """Raise ImportError with installation instructions if mosqito is not installed."""
+    if not _MOSQITO_AVAILABLE:
+        raise ImportError(
+            "mosqito is required for N-octave spectrum operations but is not installed.\n"
+            'Install it with: pip install "wandas[analysis]"'
+        )
 
 
 def _validate_spectral_params(
@@ -693,6 +708,7 @@ class NOctSpectrum(AudioOperation[NDArrayReal, NDArrayReal]):
             Reference frequency, default is 1000
         """
         super().__init__(sampling_rate, fmin=fmin, fmax=fmax, n=n, G=G, fr=fr)
+        _require_mosqito()
         self.fmin = fmin
         self.fmax = fmax
         self.n = n
@@ -775,6 +791,7 @@ class NOctSynthesis(AudioOperation[NDArrayReal, NDArrayReal]):
             Reference frequency, default is 1000
         """
         super().__init__(sampling_rate, fmin=fmin, fmax=fmax, n=n, G=G, fr=fr)
+        _require_mosqito()
 
         self.fmin = fmin
         self.fmax = fmax
