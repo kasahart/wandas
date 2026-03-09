@@ -449,9 +449,13 @@ class TestSoundLevel:
         result_a = level_a.process(self.dask_low_freq).compute()
 
         tail = slice(result_z.shape[-1] // 2, None)
-        assert float(np.mean(result_a[..., tail])) < float(np.mean(result_c[..., tail])) < float(
-            np.mean(result_z[..., tail])
-        )
+        mean_z = float(np.mean(result_z[..., tail]))
+        mean_c = float(np.mean(result_c[..., tail]))
+        mean_a = float(np.mean(result_a[..., tail]))
+
+        assert mean_a < mean_c < mean_z
+        assert mean_z - mean_c > 1.0
+        assert mean_c - mean_a > 10.0
 
     def test_slow_weighting_is_smoother_than_fast(self) -> None:
         """Test that Slow weighting produces a smoother trend than Fast."""
