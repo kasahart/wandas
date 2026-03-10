@@ -11,7 +11,7 @@ try:
     import mosqito  # noqa: F401
 
     _MOSQITO_AVAILABLE = True
-except ImportError:
+except ModuleNotFoundError:
     _MOSQITO_AVAILABLE = False
 
 _da_from_array = da.from_array  # type: ignore [unused-ignore]

@@ -12,7 +12,7 @@ try:
     from mosqito.sound_level_meter.noct_spectrum._center_freq import _center_freq
 
     _MOSQITO_AVAILABLE = True
-except ImportError:
+except ModuleNotFoundError:
     _MOSQITO_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
