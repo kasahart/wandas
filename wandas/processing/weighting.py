@@ -129,7 +129,40 @@ def A_weighting(fs: float, output: str = "ba") -> Any:  # noqa: N802
         - 'zpk': tuple of (z, p, k) zeros/poles/gain
         - 'sos': second-order sections array
     """
-    z, p, k = ABC_weighting("A")
+    return frequency_weighting(fs, curve="A", output=output)
+
+
+def frequency_weighting(fs: float, curve: str = "A", output: str = "ba") -> Any:
+    """
+    Design a digital frequency-weighting filter.
+
+    Parameters
+    ----------
+    fs : float
+        Sampling frequency
+    curve : {'A', 'B', 'C', 'Z'}, optional
+        Frequency weighting curve. ``'Z'`` returns unity gain.
+    output : {'ba', 'zpk', 'sos'}, optional
+        Type of output: numerator/denominator, pole-zero-gain, or SOS.
+
+    Returns
+    -------
+    Any
+        Filter representation requested by ``output``.
+    """
+    normalized_curve = curve.upper()
+
+    if normalized_curve == "Z":
+        if output == "zpk":
+            return np.array([]), np.array([]), 1.0
+        elif output in {"ba", "tf"}:
+            return np.array([1.0]), np.array([1.0])
+        elif output == "sos":
+            return np.array([[1.0, 0.0, 0.0, 1.0, 0.0, 0.0]])
+        else:
+            raise ValueError(f"'{output}' is not a valid output form.")
+
+    z, p, k = ABC_weighting(normalized_curve)
 
     # Use the bilinear transformation to get the digital filter.
     z_d, p_d, k_d = bilinear_zpk(z, p, k, fs)
@@ -160,5 +193,26 @@ def A_weight(signal: NDArrayReal, fs: float) -> NDArrayReal:  # noqa: N802
     NDArrayReal
         A-weighted signal
     """
-    sos = A_weighting(fs, output="sos")
+    return frequency_weight(signal, fs, curve="A")
+
+
+def frequency_weight(signal: NDArrayReal, fs: float, curve: str = "A") -> NDArrayReal:
+    """
+    Apply a digital frequency-weighting filter to a signal.
+
+    Parameters
+    ----------
+    signal : array_like
+        Input signal, with time as dimension.
+    fs : float
+        Sampling frequency.
+    curve : {'A', 'B', 'C', 'Z'}, optional
+        Frequency weighting curve. ``'Z'`` returns the signal unchanged.
+
+    Returns
+    -------
+    NDArrayReal
+        Frequency-weighted signal.
+    """
+    sos = frequency_weighting(fs, curve=curve, output="sos")
     return np.asarray(sosfilt(sos, signal))

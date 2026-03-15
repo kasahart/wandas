@@ -3,13 +3,15 @@ from typing import Any
 
 import librosa
 import numpy as np
+from scipy.signal import lfilter
 
 from wandas.processing.base import AudioOperation, register_operation
-from wandas.processing.weighting import A_weight
+from wandas.processing.weighting import A_weight, frequency_weight
 from wandas.utils import validate_sampling_rate
 from wandas.utils.types import NDArrayReal
 
 logger = logging.getLogger(__name__)
+MIN_SOUND_LEVEL_POWER_RATIO = 1e-20
 
 
 class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -333,6 +335,112 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         return result
 
 
+class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
+    """Time-varying sound pressure level with frequency and time weighting."""
+
+    name = "sound_level"
+
+    def __init__(
+        self,
+        sampling_rate: float,
+        ref: list[float] | float = 1.0,
+        freq_weighting: str | None = "Z",
+        time_weighting: str = "Fast",
+    ) -> None:
+        validate_sampling_rate(sampling_rate)
+        self.ref = np.atleast_1d(np.asarray(ref, dtype=float))
+        if np.any(self.ref <= 0):
+            raise ValueError(
+                "Invalid sound level reference\n"
+                f"  Got: {self.ref.tolist()}\n"
+                "  Expected: Positive reference values\n"
+                "Sound pressure level requires a positive reference pressure."
+            )
+        self.freq_weighting = self._normalize_freq_weighting(freq_weighting)
+        self.time_weighting = self._normalize_time_weighting(time_weighting)
+        super().__init__(
+            sampling_rate,
+            ref=self.ref,
+            freq_weighting=self.freq_weighting,
+            time_weighting=self.time_weighting,
+        )
+
+    @staticmethod
+    def _normalize_freq_weighting(freq_weighting: str | None) -> str:
+        normalized = "Z" if freq_weighting is None else str(freq_weighting).upper()
+        if normalized not in {"A", "C", "Z"}:
+            raise ValueError(
+                "Invalid frequency weighting\n"
+                f"  Got: {freq_weighting!r}\n"
+                "  Expected: 'A', 'C', or 'Z'\n"
+                "Choose a supported IEC-style weighting curve before calculating sound level."
+            )
+        return normalized
+
+    @staticmethod
+    def _normalize_time_weighting(time_weighting: str) -> str:
+        normalized = str(time_weighting).strip().upper()
+        if normalized in {"F", "FAST"}:
+            return "Fast"
+        if normalized in {"S", "SLOW"}:
+            return "Slow"
+        raise ValueError(
+            "Invalid time weighting\n"
+            f"  Got: {time_weighting!r}\n"
+            "  Expected: 'Fast' or 'Slow'\n"
+            "Choose a supported sound level meter time constant before calculating sound level."
+        )
+
+    @property
+    def time_constant(self) -> float:
+        """Return the RC time constant in seconds."""
+        return 0.125 if self.time_weighting == "Fast" else 1.0
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """Sound level keeps the same channel and sample dimensions."""
+        return input_shape
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return f"L{self.freq_weighting}{self.time_weighting[0]}"
+
+    def _reference_squared(self, n_channels: int) -> NDArrayReal:
+        """Return squared reference pressure for each channel."""
+        if self.ref.size == 1:
+            ref = np.repeat(self.ref, n_channels)
+        elif self.ref.size == n_channels:
+            ref = self.ref
+        else:
+            raise ValueError(
+                "Reference count mismatch\n"
+                f"  Got: {self.ref.size} reference values for {n_channels} channels\n"
+                "  Expected: One shared reference or one reference per channel\n"
+                "Provide ref as a scalar or a list matching the number of channels."
+            )
+        return np.asarray(np.square(ref), dtype=np.float64)
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """Create processor function for sound level calculation."""
+        logger.debug(
+            "Applying sound level to array with shape %s using %s/%s weighting",
+            x.shape,
+            self.freq_weighting,
+            self.time_weighting,
+        )
+        x_f64 = x if x.dtype == np.float64 else np.asarray(x, dtype=np.float64)
+        weighted = frequency_weight(x_f64, self.sampling_rate, curve=self.freq_weighting)
+        squared = np.square(weighted)
+        alpha = float(np.exp(-1.0 / (self.sampling_rate * self.time_constant)))
+        smoothed = lfilter([1.0 - alpha], [1.0, -alpha], squared, axis=-1)
+        ref_squared_broadcast = self._reference_squared(smoothed.shape[0])[:, np.newaxis]
+        result = np.asarray(
+            10.0 * np.log10(np.maximum(smoothed / ref_squared_broadcast, MIN_SOUND_LEVEL_POWER_RATIO)),
+            dtype=np.float64,
+        )
+        logger.debug(f"Sound level applied, returning result with shape: {result.shape}")
+        return result
+
+
 # Register all operations
-for op_class in [ReSampling, Trim, RmsTrend, FixLength]:
+for op_class in [ReSampling, Trim, RmsTrend, FixLength, SoundLevel]:
     register_operation(op_class)
