@@ -3,7 +3,7 @@
 Use this prompt when modifying `.github/agents/` or `.github/instructions/` files, or when creating new custom agents.
 
 ## Core Principle: Keep Agents Connected
-- **Linkage Rule**: If you create a new instruction file (e.g., `instructions/new-topic.prompt.md`), you **must** update the relevant agent file (e.g., `wandas-planner.agent.md`) to reference it using a Markdown link.
+- **Linkage Rule**: If you create a new instruction file (e.g., `instructions/new-topic.instructions.md`), you **must** update the relevant agent file (e.g., `wandas-planner.agent.md`) to reference it using a Markdown link.
   - *Why*: Agents do not automatically see new files. Explicit links are required for context retrieval.
 - **Handoff Rule**: If you create a new agent, ensure it is reachable via `handoffs` from an existing agent, and that it can hand off to the next logical step.
 
@@ -15,7 +15,7 @@ Use this prompt when modifying `.github/agents/` or `.github/instructions/` file
 ## Retrospective Workflow
 When the `wandas-publisher` agent triggers a retrospective:
 1. **Identify Friction**: Where did the agent misunderstand the task? (e.g., "Planner didn't know about the new I/O format").
-2. **Update Instructions**: Clarify the relevant `.prompt.md` file.
+2. **Update Instructions**: Clarify the relevant `.instructions.md` file.
 3. **Update Context**: If the agent missed a file entirely, add a link in its `.agent.md` file.
 4. **Verify**: Ensure the new instructions don't contradict `copilot-instructions.md`.
 

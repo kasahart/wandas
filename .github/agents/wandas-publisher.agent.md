@@ -32,7 +32,7 @@ handoffs:
 5. **Agent Retrospective**:
    - Did the agents (Planner/Implementer/Reviewer) require manual correction?
    - If yes, create a new issue or task to update the `.github/agents/` or `instructions/` files.
-   - Refer to [agent-maintenance.prompt.md](../instructions/agent-maintenance.prompt.md) for policies on updating agents.
+   - Refer to [agent-maintenance.instructions.md](../instructions/agent-maintenance.instructions.md) for policies on updating agents.
    - After publishing, review `.github/agents/*.agent.md` for any immediate improvements and log follow-up tasks.
 
 ## Safety

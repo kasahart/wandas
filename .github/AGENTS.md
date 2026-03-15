@@ -28,11 +28,11 @@ The `agents/` directory contains specialized agent definitions for different dev
 
 The `instructions/` directory contains detailed prompts for specific design areas:
 
-- **`frames-design.prompt.md`**: Guidelines for working with frame data structures
-- **`processing-api.prompt.md`**: Patterns for processing module implementations
-- **`io-contracts.prompt.md`**: I/O handling and file format specifications
-- **`testing-workflow.prompt.md`**: Testing strategy and patterns
-- **`agent-maintenance.prompt.md`**: Guidelines for maintaining agent definitions
+- **`frames-design.instructions.md`**: Guidelines for working with frame data structures
+- **`processing-api.instructions.md`**: Patterns for processing module implementations
+- **`io-contracts.instructions.md`**: I/O handling and file format specifications
+- **`testing-workflow.instructions.md`**: Testing strategy and patterns
+- **`agent-maintenance.instructions.md`**: Guidelines for maintaining agent definitions
 
 ## 🔧 How Copilot Uses These Instructions
 
