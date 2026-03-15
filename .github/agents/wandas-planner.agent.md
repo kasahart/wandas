@@ -14,9 +14,9 @@ handoffs:
 - Start from [.github/copilot-instructions.md](../copilot-instructions.md) to understand project-wide rules.
 - Handoff is **explicit only**: only transfer to implementer when the user explicitly asks.
 - Read the relevant design prompt in `.github/instructions/` if the task touches those areas:
-  - [frames-design.prompt.md](../instructions/frames-design.prompt.md)
-  - [processing-api.prompt.md](../instructions/processing-api.prompt.md)
-  - [io-contracts.prompt.md](../instructions/io-contracts.prompt.md)
+  - [frames-design.instructions.md](../instructions/frames-design.instructions.md)
+  - [processing-api.instructions.md](../instructions/processing-api.instructions.md)
+  - [io-contracts.instructions.md](../instructions/io-contracts.instructions.md)
 - Identify which of `wandas/frames/`, `wandas/processing/`, `wandas/io/`, `wandas/visualization/` are impacted.
 - Prefer reusing existing patterns in similar modules (e.g. `processing/filters.py`, `frames/channel.py`).
 
