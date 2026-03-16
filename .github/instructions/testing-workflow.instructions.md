@@ -1,3 +1,6 @@
+---
+description: "TDD workflow and quality check commands (pytest, mypy, ruff, mkdocs)"
+---
 # Wandas Testing & Quality Prompt
 
 Use this prompt when adding or modifying behavior anywhere in the Wandas codebase.
@@ -14,6 +17,8 @@ Use this prompt when adding or modifying behavior anywhere in the Wandas codebas
 - Prefer **TDD** for non-trivial changes:
   - write or update tests in `tests/` first,
   - then implement the minimal change to satisfy them.
+- When writing or modifying tests, follow the **test grand policy**:
+  - [test-grand-policy.instructions.md](test-grand-policy.instructions.md) — 4 pillars & signal processing test pyramid
 - When changing behavior, identify and update relevant tests:
   - frame semantics, metadata, and operation history,
   - I/O contracts (WAV/WDF/CSV round-trips),
