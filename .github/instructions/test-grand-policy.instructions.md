@@ -104,12 +104,12 @@ from unittest import mock
 from dask.array.core import Array as DaArray
 
 def test_operation_stays_lazy(channel_frame):
-    with mock.patch.object(DaArray, "compute", wraps=channel_frame._data.compute) as mock_compute:
+    with mock.patch.object(DaArray, "compute") as mock_compute:
         result = channel_frame.low_pass_filter(cutoff=1000)
         # Operation setup must NOT trigger compute
         mock_compute.assert_not_called()
-        # Explicit compute triggers evaluation
-        _ = result.data
+    # Explicit compute triggers evaluation outside the mock context
+    _ = result.data
 ```
 
 ### Checklist
@@ -381,7 +381,7 @@ np.testing.assert_allclose(result, expected, atol=0.0001)  # Why this tolerance?
 ---
 
 ## Cross-References
-- [frames-design.prompt.md](frames-design.prompt.md) — Frame immutability and metadata rules
-- [processing-api.prompt.md](processing-api.prompt.md) — Processing layer responsibilities
-- [io-contracts.prompt.md](io-contracts.prompt.md) — I/O metadata preservation contracts
-- [testing-workflow.prompt.md](testing-workflow.prompt.md) — TDD workflow and quality commands
+- [frames-design.instructions.md](frames-design.instructions.md) — Frame immutability and metadata rules
+- [processing-api.instructions.md](processing-api.instructions.md) — Processing layer responsibilities
+- [io-contracts.instructions.md](io-contracts.instructions.md) — I/O metadata preservation contracts
+- [testing-workflow.instructions.md](testing-workflow.instructions.md) — TDD workflow and quality commands

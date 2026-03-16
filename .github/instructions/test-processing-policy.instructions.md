@@ -282,4 +282,4 @@ np.testing.assert_allclose(result, expected, rtol=1e-6)
 
 ## Cross-References
 - [test-grand-policy.instructions.md](test-grand-policy.instructions.md) — 4 pillars and test pyramid
-- [processing-api.prompt.md](processing-api.prompt.md) — Processing layer architecture
+- [processing-api.instructions.md](processing-api.instructions.md) — Processing layer architecture

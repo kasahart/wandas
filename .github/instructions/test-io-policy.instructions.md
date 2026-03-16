@@ -32,11 +32,11 @@ def known_signal_frame():
 
 @pytest.fixture
 def create_test_wav(tmp_path):
-    """Factory fixture for creating WAV files with configurable parameters."""
-    def _create(sr=44100, n_channels=1, n_samples=44100, bit_depth=16):
+    """Factory fixture for creating int16 PCM WAV files."""
+    def _create(sr=44100, n_channels=1, n_samples=44100):
         import scipy.io.wavfile as wav
         data = np.random.default_rng(42).integers(
-            -2**(bit_depth-1), 2**(bit_depth-1),
+            -(2**15), 2**15,
             size=(n_samples, n_channels), dtype=np.int16
         )
         if n_channels == 1:
@@ -94,12 +94,12 @@ def test_wdf_roundtrip_preserves_everything(known_signal_frame, tmp_path):
 
 ## WAV I/O Tests
 
-### PCM Precision Tests
-WAV ファイルではビット深度による量子化誤差を考慮すること。
+### Float Round-Trip Tests
+`ChannelFrame.to_wav` writes float data as IEEE FLOAT subtype (not PCM), so round-trips for float32 data in `[-1, 1]` should have near-exact fidelity.
 
 ```python
-def test_wav_write_read_preserves_data(tmp_path):
-    """WAV round-trip must preserve data within quantization tolerance."""
+def test_wav_float_write_read_preserves_data(tmp_path):
+    """WAV float round-trip must preserve data with near-exact fidelity."""
     sr = 44100
     data = np.sin(2 * np.pi * 440 * np.arange(sr) / sr).astype(np.float32)
     cf = ChannelFrame.from_numpy(data, sampling_rate=sr)
@@ -108,19 +108,34 @@ def test_wav_write_read_preserves_data(tmp_path):
     cf.to_wav(path)
     loaded = ChannelFrame.read_wav(str(path), normalize=True)
 
-    # WAV quantization introduces small errors
+    # Float WAV round-trip: near-exact fidelity (no PCM quantization)
     np.testing.assert_allclose(
-        loaded.data, cf.data / np.max(np.abs(cf.data)),
-        atol=1e-4,  # 16-bit PCM quantization tolerance
+        loaded.data, cf.data,
+        atol=1e-6,  # Float32 precision tolerance
     )
     assert loaded.sampling_rate == sr
+```
+
+### PCM Round-Trip Tests
+When testing PCM files (e.g., written by `scipy.io.wavfile.write` with int16), load with `normalize=False` to compare raw integer samples, or account for quantization when using `normalize=True`.
+
+```python
+def test_wav_pcm_read_roundtrip(tmp_path, create_test_wav):
+    """PCM WAV read must recover original integer samples (normalize=False)."""
+    import scipy.io.wavfile as wav
+
+    wav_path = create_test_wav()
+    _, expected = wav.read(str(wav_path))
+
+    cf = ChannelFrame.read_wav(str(wav_path), normalize=False)
+    np.testing.assert_array_equal(cf.data[0].astype(np.int16), expected)
 ```
 
 ### Normalization Modes
 ```python
 def test_wav_read_raw_vs_normalized(tmp_path, create_test_wav):
     """Raw read preserves integer magnitudes; normalized read scales to [-1, 1]."""
-    wav_path = create_test_wav(bit_depth=16)
+    wav_path = create_test_wav()
 
     raw = ChannelFrame.read_wav(str(wav_path), normalize=False)
     normalized = ChannelFrame.read_wav(str(wav_path), normalize=True)
@@ -133,14 +148,16 @@ def test_wav_read_raw_vs_normalized(tmp_path, create_test_wav):
 
 ### Stereo/Mono Channel Layout
 ```python
-def test_wav_stereo_channel_count(create_stereo_wav):
+def test_wav_stereo_channel_count(create_test_wav):
     """Stereo WAV must produce 2-channel ChannelFrame."""
-    cf = ChannelFrame.read_wav(str(create_stereo_wav))
+    wav_path = create_test_wav(n_channels=2)
+    cf = ChannelFrame.read_wav(str(wav_path))
     assert cf.n_channels == 2
 
-def test_wav_mono_channel_count(create_mono_wav):
+def test_wav_mono_channel_count(create_test_wav):
     """Mono WAV must produce 1-channel ChannelFrame."""
-    cf = ChannelFrame.read_wav(str(create_mono_wav))
+    wav_path = create_test_wav(n_channels=1)
+    cf = ChannelFrame.read_wav(str(wav_path))
     assert cf.n_channels == 1
 ```
 
@@ -264,7 +281,8 @@ def test_wav_lazy_loading(create_test_wav):
     """WAV read must return a Dask-backed frame without loading data immediately."""
     from dask.array.core import Array as DaArray
 
-    cf = ChannelFrame.read_wav(str(create_test_wav))
+    wav_path = create_test_wav()
+    cf = ChannelFrame.read_wav(str(wav_path))
     assert isinstance(cf._data, DaArray)
     # Data not yet in memory until .compute() or .data access
 ```
@@ -273,4 +291,4 @@ def test_wav_lazy_loading(create_test_wav):
 
 ## Cross-References
 - [test-grand-policy.instructions.md](test-grand-policy.instructions.md) — 4 pillars and test pyramid
-- [io-contracts.prompt.md](io-contracts.prompt.md) — I/O metadata preservation contracts
+- [io-contracts.instructions.md](io-contracts.instructions.md) — I/O metadata preservation contracts
