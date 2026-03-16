@@ -22,11 +22,12 @@ from wandas.frames.channel import ChannelFrame
 
 @pytest.fixture
 def channel_frame():
-    """Standard 2-channel frame for general testing."""
+    """Standard 2-channel frame using deterministic sine waves (not random)."""
     sr = 16000
-    n_samples = 16000  # 1 second
-    data = np.random.default_rng(42).standard_normal((2, n_samples)).astype(np.float32)
-    return ChannelFrame.from_numpy(data, sampling_rate=sr, ch_labels=["ch0", "ch1"])
+    t = np.arange(sr) / sr
+    ch0 = np.sin(2 * np.pi * 440 * t).astype(np.float32)
+    ch1 = np.sin(2 * np.pi * 880 * t).astype(np.float32)
+    return ChannelFrame.from_numpy(np.stack([ch0, ch1]), sampling_rate=sr, ch_labels=["ch0", "ch1"])
 
 
 @pytest.fixture
@@ -35,18 +36,9 @@ def mono_frame():
     sr = 16000
     data = np.sin(2 * np.pi * 440 * np.arange(sr) / sr).astype(np.float32)
     return ChannelFrame.from_numpy(data, sampling_rate=sr, label="mono_440Hz")
-
-
-@pytest.fixture
-def stereo_frame():
-    """2-channel frame with different frequencies per channel."""
-    sr = 16000
-    t = np.arange(sr) / sr
-    ch0 = np.sin(2 * np.pi * 440 * t).astype(np.float32)
-    ch1 = np.sin(2 * np.pi * 880 * t).astype(np.float32)
-    data = np.stack([ch0, ch1])
-    return ChannelFrame.from_numpy(data, sampling_rate=sr, ch_labels=["440Hz", "880Hz"])
 ```
+
+> **Note**: Use deterministic signals (sine/impulse) rather than random data. For structural/immutability tests where content doesn't matter, seeded RNG (`np.random.default_rng(42)`) is acceptable, but prefer sines for consistency with the grand policy.
 
 ---
 
@@ -76,53 +68,34 @@ def stereo_frame():
 
 ## Required Test Categories per Frame Operation
 
-新しい Frame メソッドを追加する場合、以下のテストカテゴリを必ず含めること:
+新しい Frame メソッドを追加する場合、以下の 4 カテゴリを必ず含めること:
 
-### 1. Immutability Test
+**1. Immutability** — 元のフレームが変更されないこと:
 ```python
-def test_{method}_immutability(channel_frame):
-    """Operation must not mutate the original frame."""
-    original_data = channel_frame.data.copy()
-    original_history_len = len(channel_frame.operation_history)
-
-    result = channel_frame.{method}(...)
-
-    assert result is not channel_frame
-    np.testing.assert_array_equal(channel_frame.data, original_data)
-    assert len(channel_frame.operation_history) == original_history_len
+original_data = channel_frame.data.copy()
+result = channel_frame.{method}(...)
+assert result is not channel_frame
+np.testing.assert_array_equal(channel_frame.data, original_data)
 ```
 
-### 2. Metadata Propagation Test
+**2. Metadata Propagation** — サンプリングレートと history が正しく更新されること:
 ```python
-def test_{method}_metadata(channel_frame):
-    """Operation must correctly update metadata and operation_history."""
-    result = channel_frame.{method}(...)
-
-    # Sampling rate rule: preserved unless resampling
-    assert result.sampling_rate == channel_frame.sampling_rate
-    # Channel count rule: preserved unless explicitly adding/removing
-    assert result.n_channels == channel_frame.n_channels
-    # History rule: exactly one new entry
-    assert len(result.operation_history) == len(channel_frame.operation_history) + 1
-    assert result.operation_history[-1]["operation"] == "{method}"
+result = channel_frame.{method}(...)
+assert result.sampling_rate == channel_frame.sampling_rate
+assert len(result.operation_history) == len(channel_frame.operation_history) + 1
 ```
 
-### 3. Lazy Evaluation Test
+**3. Lazy Evaluation** — Dask 配列が保持されること:
 ```python
-def test_{method}_lazy(channel_frame):
-    """Operation must preserve Dask lazy evaluation."""
-    from dask.array.core import Array as DaArray
-    result = channel_frame.{method}(...)
-    assert isinstance(result._data, DaArray)
+from dask.array.core import Array as DaArray
+result = channel_frame.{method}(...)
+assert isinstance(result._data, DaArray)
 ```
 
-### 4. Chaining Test
+**4. Chaining** — チェーン呼び出しに対応していること:
 ```python
-def test_{method}_chainable(channel_frame):
-    """Operation result must support further method chaining."""
-    result = channel_frame.{method}(...).normalize()
-    assert isinstance(result, ChannelFrame)
-    assert len(result.operation_history) >= 2
+result = channel_frame.{method}(...).normalize()
+assert isinstance(result, ChannelFrame)
 ```
 
 ---
@@ -133,17 +106,10 @@ def test_{method}_chainable(channel_frame):
 
 ```python
 def test_fft_domain_transition(channel_frame):
-    """Time -> Frequency domain transition."""
     spectral = channel_frame.fft()
-
-    # Return type must change
     assert isinstance(spectral, SpectralFrame)
-    # Frequency bins = N/2 + 1
-    assert spectral.n_samples == channel_frame.n_samples // 2 + 1
-    # Sampling rate carried forward
+    assert spectral.n_samples == channel_frame.n_samples // 2 + 1  # N/2 + 1 bins
     assert spectral.sampling_rate == channel_frame.sampling_rate
-    # Operation history tracks the transition
-    assert spectral.operation_history[-1]["operation"] == "fft"
 ```
 
 ---
@@ -152,25 +118,15 @@ def test_fft_domain_transition(channel_frame):
 
 マルチチャンネル操作のテストで特に注意すべき点:
 
+- `add_channel` 後のラベルと data の順序が一致すること
+- 重複ラベルは `ValueError` になること
+- 長さが違うデータを追加した場合は `ValueError` になること
+
 ```python
 def test_add_channel_label_alignment(channel_frame):
-    """Channel labels must stay aligned with data after add_channel."""
-    new_data = np.ones((1, channel_frame.n_samples))
-    result = channel_frame.add_channel(new_data, label="c")
-
+    result = channel_frame.add_channel(np.ones((1, channel_frame.n_samples)), label="c")
     assert result.n_channels == channel_frame.n_channels + 1
     assert result.labels[-1] == "c"
-    np.testing.assert_array_equal(result.data[-1], np.ones(channel_frame.n_samples))
-
-def test_add_channel_duplicate_label_raises(channel_frame):
-    """Duplicate labels must be rejected unless suffix_on_dup is set."""
-    with pytest.raises(ValueError, match=r"Duplicate channel label"):
-        channel_frame.add_channel(np.zeros(channel_frame.n_samples), label=channel_frame.labels[0])
-
-def test_add_channel_length_mismatch_strict(channel_frame):
-    """Length mismatch with align='strict' must raise."""
-    with pytest.raises(ValueError, match=r"Data length mismatch"):
-        channel_frame.add_channel(np.zeros(50))  # Different length
 ```
 
 ---

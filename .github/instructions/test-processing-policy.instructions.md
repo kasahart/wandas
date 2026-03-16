@@ -91,47 +91,28 @@ def impulse_16k_dask():
 ## Filter Tests: Frequency Domain Verification
 
 フィルタテストでは、時間領域の波形ではなく **周波数領域での減衰量** を検証すること。
+また、Wrapper Equivalence として SciPy の `filtfilt(b, a, x)` と比較すること（実装が `filtfilt(b, a, x, axis=1)` を使用するため）。
 
 ```python
-# GOOD: Frequency-domain verification of filter behavior
 def test_low_pass_attenuates_high_frequencies(dual_tone_16k_dask):
-    """Low-pass filter must attenuate frequencies above cutoff."""
     dask_signal, sr = dual_tone_16k_dask
-    signal_np = dask_signal.compute()[0]
-    cutoff = 500  # Hz
-
-    lpf = LowPassFilter(sampling_rate=sr, cutoff=cutoff)
+    lpf = LowPassFilter(sampling_rate=sr, cutoff=500)
     result = lpf.process(dask_signal).compute()
 
-    # FFT of result
-    spectrum = np.abs(np.fft.rfft(result[0]))
-    freqs = np.fft.rfftfreq(len(signal_np), 1 / sr)
+    spectrum_out = np.abs(np.fft.rfft(result[0]))
+    freqs = np.fft.rfftfreq(dask_signal.shape[1], 1 / sr)
+    spectrum_in = np.abs(np.fft.rfft(dask_signal.compute()[0]))
 
-    # 50 Hz component should be preserved (within 3 dB)
-    idx_50 = np.argmin(np.abs(freqs - 50))
-    idx_1000 = np.argmin(np.abs(freqs - 1000))
-
-    original_spectrum = np.abs(np.fft.rfft(signal_np))
-    ratio_50 = spectrum[idx_50] / original_spectrum[idx_50]
-    ratio_1000 = spectrum[idx_1000] / original_spectrum[idx_1000]
-
-    assert ratio_50 > 0.7  # Passband: minimal attenuation
-    assert ratio_1000 < 0.1  # Stopband: significant attenuation
+    # 50 Hz preserved; 1000 Hz attenuated
+    assert spectrum_out[np.argmin(np.abs(freqs - 50))] / spectrum_in[np.argmin(np.abs(freqs - 50))] > 0.7
+    assert spectrum_out[np.argmin(np.abs(freqs - 1000))] / spectrum_in[np.argmin(np.abs(freqs - 1000))] < 0.1
 ```
 
 ### Filter Edge Cases
 ```python
 def test_filter_cutoff_at_nyquist_raises():
-    """Cutoff at or above Nyquist frequency must raise ValueError."""
-    sr = 16000
-    with pytest.raises(ValueError, match=r"cutoff"):
-        LowPassFilter(sampling_rate=sr, cutoff=sr / 2)
-
-def test_filter_cutoff_zero_raises():
-    """Zero cutoff frequency must raise ValueError."""
-    sr = 16000
-    with pytest.raises(ValueError, match=r"cutoff"):
-        LowPassFilter(sampling_rate=sr, cutoff=0)
+    with pytest.raises(ValueError):
+        LowPassFilter(sampling_rate=16000, cutoff=8000)  # Nyquist
 ```
 
 ---
@@ -139,39 +120,21 @@ def test_filter_cutoff_zero_raises():
 ## Spectral Tests: Known-Signal Verification
 
 FFT/STFT テストでは、解析的に予測可能な信号を使用すること。
+注意: クラス名は `FFT` および `STFT`（`FFTOperation` / `STFTOperation` ではない）。
 
 ```python
-# GOOD: FFT peak detection with known sine
 def test_fft_peak_frequency(sine_1khz_48k_dask):
-    """FFT of pure sine must show peak at the sine frequency."""
     dask_signal, sr = sine_1khz_48k_dask
-    n_samples = sr  # 1 second
-    freq = 1000.0
-
-    fft_op = FFTOperation(sampling_rate=sr, n_fft=n_samples)
+    fft_op = FFT(sampling_rate=sr, n_fft=sr)  # n_fft=sr → 1 Hz per bin
     result = fft_op.process(dask_signal).compute()
+    peak_bin = np.argmax(np.abs(result[0]))
+    assert abs(peak_bin - 1000) < 1  # 1 kHz sine → peak at bin 1000
 
-    magnitudes = np.abs(result[0])
-    peak_bin = np.argmax(magnitudes)
-    freq_resolution = sr / n_samples
-    detected_freq = peak_bin * freq_resolution
-
-    assert abs(detected_freq - freq) < freq_resolution  # Within 1 bin
-
-# GOOD: STFT output shape verification
-def test_stft_output_shape():
-    """STFT output shape must match theoretical dimensions."""
-    sr = 16000
-    n_samples = 16000
-    n_fft = 1024
-    hop_length = 512
-    signal = np.zeros((1, n_samples), dtype=np.float32)
-    dask_signal = _da_from_array(signal, chunks=(1, -1))
-
-    stft_op = STFTOperation(sampling_rate=sr, n_fft=n_fft, hop_length=hop_length)
+def test_stft_output_shape(sine_1khz_48k_dask):
+    dask_signal, sr = sine_1khz_48k_dask
+    stft_op = STFT(sampling_rate=sr, n_fft=1024, hop_length=512)
     result = stft_op.process(dask_signal).compute()
-
-    assert result.shape[1] == n_fft // 2 + 1  # Frequency bins
+    assert result.shape[1] == 1024 // 2 + 1  # Frequency bins
 ```
 
 ---
@@ -179,79 +142,54 @@ def test_stft_output_shape():
 ## Psychoacoustic Tests: MoSQITo Reference Verification
 
 心理音響テストでは、MoSQITo ライブラリとの等価性を検証すること。
+標準信号: SR=48000 Hz、70 dB SPL、1 kHz、1秒以上（Slow 時定数の安定化に必要）。
 
 ```python
-# GOOD: MoSQITo reference comparison
 from mosqito.sq_metrics import loudness_zwtv
 
 def test_loudness_matches_mosqito(calibrated_sine_1khz_70dB_dask):
-    """Wandas loudness must match MoSQITo implementation."""
     dask_signal, sr = calibrated_sine_1khz_70dB_dask
     signal_np = dask_signal.compute()[0]
-
-    # MoSQITo reference
     n_mosqito, _, _, _ = loudness_zwtv(signal_np, sr, field_type="free")
 
-    # Wandas computation
     loudness_op = LoudnessZwtv(sampling_rate=sr, field_type="free")
     result = loudness_op.process(dask_signal).compute()
 
-    # Perceptual metrics: 1% relative tolerance
-    np.testing.assert_allclose(
-        result.mean(), n_mosqito.mean(),
-        rtol=0.01,  # Psychoacoustic model approximation tolerance
-    )
+    np.testing.assert_allclose(result.mean(), n_mosqito.mean(), rtol=0.01)  # 1% tolerance
 ```
-
-### Psychoacoustic Test Signal Standards
-心理音響テストで使用する信号の標準:
-
-| Parameter | Value | Rationale |
-|-----------|-------|-----------|
-| Sampling rate | 48000 Hz | MoSQITo/IEC 規格標準 |
-| Reference pressure | 2e-5 Pa | 音響学標準基準値 |
-| Test level | 70 dB SPL | 聴覚の線形応答領域 |
-| Test frequency | 1000 Hz | A 特性の 0 dB 基準点 |
-| Duration | >= 1.0 s | Slow 時定数の安定化に必要 |
 
 ---
 
 ## A-Weighting Tests: Known Frequency Response
 
 ```python
-def test_a_weighting_at_reference_frequencies(sine_1khz_48k_dask):
-    """A-weighting must match standard values at key frequencies."""
+def test_a_weighting_at_1khz(sine_1khz_48k_dask):
     dask_signal, sr = sine_1khz_48k_dask
     signal_np = dask_signal.compute()[0]
+    result = AWeighting(sampling_rate=sr).process(dask_signal).compute()
 
-    aw = AWeighting(sampling_rate=sr)
-    result = aw.process(dask_signal).compute()
-
-    # At 1 kHz, A-weighting should have ~0 dB gain
     rms_in = np.sqrt(np.mean(signal_np**2))
     rms_out = np.sqrt(np.mean(result[0]**2))
     gain_db = 20 * np.log10(rms_out / rms_in)
-
-    assert abs(gain_db - 0.0) < 0.5  # Within 0.5 dB at 1 kHz reference
+    assert abs(gain_db) < 0.5  # A-weighting is ~0 dB at 1 kHz
 ```
 
 ---
 
 ## Operation Registration & Display Name Tests
 
+注意: `create_operation` のキーは **レジストリ名**（例: `"lowpass_filter"`）でメソッド名（`"low_pass_filter"`）とは異なる。
+`LowPassFilter.get_display_name()` は `"lpf"` を返す（パラメータは含まない）。
+
 ```python
-def test_operation_registered():
-    """Operation must be discoverable via create_operation."""
+def test_lowpass_filter_registered():
     from wandas.processing import create_operation
-    op = create_operation("low_pass_filter", sampling_rate=16000, cutoff=1000)
+    op = create_operation("lowpass_filter", sampling_rate=16000, cutoff=1000)
     assert op is not None
 
-def test_display_name_format():
-    """Display name must follow convention: 'OpName(key_param=value)'."""
+def test_lowpass_display_name():
     op = LowPassFilter(sampling_rate=16000, cutoff=1000)
-    name = op.get_display_name()
-    assert "LPF" in name or "low_pass" in name.lower()
-    assert "1000" in name
+    assert op.get_display_name() == "lpf"
 ```
 
 ---
@@ -260,22 +198,14 @@ def test_display_name_format():
 
 ```python
 # BAD: Testing filter in time domain only
-def test_filter_bad():
-    result = lpf.process(signal)
-    assert result is not None  # Tells us nothing about filter quality
+assert result is not None  # Tells us nothing about filter quality
 
-# BAD: Comparing against self-computed reference (circular logic)
-expected = my_low_pass(signal, cutoff)  # Your own code is not an "authority"
+# BAD: Circular reference — own code is not an "authority"
+expected = my_low_pass(signal, cutoff)
 np.testing.assert_allclose(result, expected)
 
 # BAD: Psychoacoustic test without MoSQITo reference
-def test_loudness_bad():
-    result = loudness_op.process(signal)
-    assert result.mean() > 0  # Says nothing about correctness
-
-# GOOD: Use scipy/librosa/mosqito as external authority
-expected = scipy.signal.sosfilt(sos, signal)  # External reference
-np.testing.assert_allclose(result, expected, rtol=1e-6)
+assert result.mean() > 0  # Says nothing about correctness
 ```
 
 ---
