@@ -220,4 +220,4 @@ def cleanup_plots():
 
 ## Cross-References
 - [test-grand-policy.instructions.md](test-grand-policy.instructions.md) — 4 pillars and test pyramid
-- [frames-design.prompt.md](frames-design.prompt.md) — Frame method behavior that plots depend on
+- [frames-design.instructions.md](frames-design.instructions.md) — Frame method behavior that plots depend on
