@@ -1,3 +1,7 @@
+---
+description: "Processing layer: pure numerical logic for filters, spectral analysis, psychoacoustics, and effects"
+applyTo: "wandas/processing/**"
+---
 # Wandas Processing API Prompt
 
 Use this prompt when working on `wandas/processing/` or adding new signal processing operations.

@@ -1,3 +1,7 @@
+---
+description: "I/O contracts: data fidelity, metadata round-trip, and format-specific rules for WAV, WDF, and CSV"
+applyTo: "wandas/io/**"
+---
 # Wandas I/O Contracts Prompt
 
 Use this prompt when working on `wandas/io/` or anything that reads/writes external data (WAV, WDF, CSV, sample data).

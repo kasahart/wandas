@@ -1,3 +1,7 @@
+---
+description: "Frame architecture: immutability, metadata propagation, and operation_history rules for ChannelFrame, SpectralFrame, and SpectrogramFrame"
+applyTo: "wandas/frames/**"
+---
 # Wandas Frames Design Prompt
 
 Use this prompt when working on `wandas/frames/` or any code that manipulates `ChannelFrame`, `SpectralFrame`, or `SpectrogramFrame`.

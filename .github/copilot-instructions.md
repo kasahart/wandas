@@ -95,3 +95,8 @@ These instructions are for AI coding agents (planner, implementer, reviewer) wor
 - **Reviewer**:
   - Re‑run the recorded commands (or their nearest equivalents).
   - Verify that frame immutability and metadata rules are respected, that new APIs align with existing naming/parameter patterns, and that tests cover the main branches and edge cases discussed in the planner handoff.
+
+## 7. Test Documentation Reference
+
+For comprehensive testing guidance, refer to:
+- **`.github/instructions/test-grand-policy.instructions.md`** — Auto-applied test policy (4 pillars + pyramid) when editing `tests/**` files
