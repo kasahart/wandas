@@ -1,3 +1,7 @@
+---
+description: "Agent maintenance: rules for creating/updating agent, instruction, and prompt files"
+applyTo: ".github/agents/**"
+---
 # Agent Maintenance & Evolution Prompt
 
 Use this prompt when modifying `.github/agents/` or `.github/instructions/` files, or when creating new custom agents.
@@ -6,6 +10,29 @@ Use this prompt when modifying `.github/agents/` or `.github/instructions/` file
 - **Linkage Rule**: If you create a new instruction file (e.g., `instructions/new-topic.instructions.md`), you **must** update the relevant agent file (e.g., `wandas-planner.agent.md`) to reference it using a Markdown link.
   - *Why*: Agents do not automatically see new files. Explicit links are required for context retrieval.
 - **Handoff Rule**: If you create a new agent, ensure it is reachable via `handoffs` from an existing agent, and that it can hand off to the next logical step.
+- **Automation Rule**: If a workflow is intended to continue automatically after a handoff button is selected, set `handoffs.send: true` and avoid body text that restricts handoff to explicit user approval unless that approval gate is intentionally required.
+- **applyTo-based instructions**: Files ending in **`.instructions.md`** support `applyTo` frontmatter
+  for path-specific auto-injection. Use this for policies that should automatically apply when
+  editing specific file patterns.
+- **Custom prompts**: Files ending in **`.prompt.md`** support `name`, `description`, `model`, `tools`,
+  `argument-hint` frontmatter. Use this for manually-invoked prompts.
+
+## Current Instruction Files
+
+### Auto-applied Instruction Files (.github/instructions/)
+
+| File | applyTo | Purpose |
+|------|---------|---------|
+| `testing-workflow.instructions.md` | (none) | General TDD workflow |
+| `frames-design.instructions.md` | `wandas/frames/**` | Frame architecture |
+| `processing-api.instructions.md` | `wandas/processing/**` | Processing layer |
+| `io-contracts.instructions.md` | `wandas/io/**` | I/O contracts |
+| `agent-maintenance.instructions.md` | `.github/agents/**` | This file |
+| `test-grand-policy.instructions.md` | `tests/**` | Test quality: 4 pillars + pyramid |
+| `test-frames-policy.instructions.md` | `tests/frames/**` | Frame test patterns |
+| `test-processing-policy.instructions.md` | `tests/processing/**` | Processing test patterns |
+| `test-io-policy.instructions.md` | `tests/io/**` | I/O test patterns |
+| `test-visualization-policy.instructions.md` | `tests/visualization/**` | Visualization test patterns |
 
 ## Staying Current
 - **Check Documentation**: Custom Agent features evolve rapidly. Before making structural changes, check the official docs:

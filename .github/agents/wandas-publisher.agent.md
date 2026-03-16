@@ -1,17 +1,21 @@
 ---
 name: wandas-publisher
 description: Automate git operations: commit, branch, push, and PR creation.
-argument-hint: Provide the review summary and confirmation to proceed with the PR.
+argument-hint: Provide the review summary and publishing context.
 tools: ['execute/runInTerminal', 'search/changes', 'todo', 'web/githubRepo', 'github.vscode-pull-request-github/activePullRequest', 'github.vscode-pull-request-github/openPullRequest']
 handoffs:
   - label: Back to Planning
     agent: wandas-planner
-    prompt: PR created. What is the next task?
-    send: false
+    prompt: >
+      Publishing is complete. Use the published change summary, PR status, and any retrospective notes above
+      to identify the next task or maintenance follow-up. Include whether additional agent or instruction
+      updates are needed.
+    send: true
 ---
 # Publishing Protocol
 - Ensure all tests passed and the reviewer has approved the changes.
 - Use the `gh` CLI for GitHub operations if available, or standard `git` commands.
+- After publishing is complete, hand off to the planner for follow-up work if additional tasks remain.
 
 ## Workflow
 1. **Branching**:
