@@ -423,8 +423,8 @@ class TestSoundLevel:
         self.duration_seconds: float = 8.0
         self.amplitude: float = 1.0
         t = np.linspace(0, self.duration_seconds, int(self.duration_seconds * self.sample_rate), endpoint=False)
-        self.low_freq_hz: float = 50.0
-        self.low_freq_signal: NDArrayReal = np.array([self.amplitude * np.sin(2 * np.pi * self.low_freq_hz * t)])
+        self.low_freq: float = 50.0
+        self.low_freq_signal: NDArrayReal = np.array([self.amplitude * np.sin(2 * np.pi * self.low_freq * t)])
         self.dask_low_freq: DaArray = _da_from_array(self.low_freq_signal, chunks=(1, -1))
 
         self.step_start = self.sample_rate
@@ -451,7 +451,8 @@ class TestSoundLevel:
         """Test weighted sound level against theoretical steady-state power."""
         if expected_gain is None:
             sos = frequency_weighting(self.sample_rate, curve=curve, output="sos")
-            _, response = scipy_signal.sosfreqz(sos, worN=[2 * np.pi * self.low_freq_hz / self.sample_rate])
+            normalized_frequency = 2 * np.pi * self.low_freq / self.sample_rate
+            _, response = scipy_signal.sosfreqz(sos, worN=[normalized_frequency])
             expected_gain = float(np.abs(response[0]))
 
         operation = SoundLevel(self.sample_rate, ref=1.0, freq_weighting=curve, time_weighting="Fast")
