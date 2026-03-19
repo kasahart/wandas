@@ -15,60 +15,21 @@ Processing テストは「数値計算の正確性」と「音響物理学の妥
 ## Common Fixtures for Processing Tests
 
 Processing 層の fixture は `(DaskArray, int)` タプルを返す（`_dask` suffix で命名）。
-Frame を経由しない純粋な数値検証に使用する。
+Frame を経由しない純粋な数値検証に使用する。`wandas.utils.dask_helpers.da_from_array` で `chunks=(1, -1)` の channel-wise chunks を作成すること。
 
-```python
-import numpy as np
-import pytest
-from wandas.utils.dask_helpers import da_from_array as _da_from_array
+以下の標準 fixture を `conftest.py` に定義すること:
 
-
-@pytest.fixture
-def sine_1khz_48k_dask():
-    """1 kHz sine at 48 kHz SR — standard psychoacoustic test signal."""
-    sr = 48000
-    t = np.arange(sr) / sr
-    data = np.sin(2 * np.pi * 1000 * t).astype(np.float32)
-    return _da_from_array(data.reshape(1, -1), chunks=(1, -1)), sr
-
-
-@pytest.fixture
-def calibrated_sine_1khz_70dB_dask():
-    """1 kHz sine at 70 dB SPL — standard IEC psychoacoustic test signal."""
-    sr = 48000
-    p_ref = 2e-5  # Pa
-    level_db = 70
-    amplitude = p_ref * 10 ** (level_db / 20) * np.sqrt(2)
-    t = np.arange(sr) / sr
-    data = (amplitude * np.sin(2 * np.pi * 1000 * t)).astype(np.float32)
-    return _da_from_array(data.reshape(1, -1), chunks=(1, -1)), sr
-
-
-@pytest.fixture
-def dual_tone_16k_dask():
-    """50 Hz + 1000 Hz at 16 kHz SR — standard filter test signal."""
-    sr = 16000
-    t = np.arange(sr) / sr
-    low = np.sin(2 * np.pi * 50 * t)
-    high = np.sin(2 * np.pi * 1000 * t)
-    data = (low + high).astype(np.float32)
-    return _da_from_array(data.reshape(1, -1), chunks=(1, -1)), sr
-
-
-@pytest.fixture
-def impulse_16k_dask():
-    """Unit impulse — useful for filter impulse response testing."""
-    sr = 16000
-    data = np.zeros(sr, dtype=np.float32)
-    data[0] = 1.0
-    return _da_from_array(data.reshape(1, -1), chunks=(1, -1)), sr
-```
+- **`sine_1khz_48k_dask`**: 1 kHz 純音（SR=48000 Hz、1秒）。心理音響テストの標準信号。
+- **`calibrated_sine_1khz_70dB_dask`**: 70 dB SPL の 1 kHz 純音（SR=48000 Hz）。IEC 規格準拠の心理音響テスト用。振幅は `p_ref=2e-5 Pa` から `amplitude = p_ref * 10**(70/20) * sqrt(2)` で計算する。
+- **`dual_tone_16k_dask`**: 50 Hz + 1000 Hz の合成音（SR=16000 Hz）。フィルタの通過・遮断特性の検証に使用。
+- **`impulse_16k_dask`**: 単位インパルス（SR=16000 Hz）。フィルタのインパルス応答検証に使用。
 
 ---
 
 ## Processing Module Test Strategy
 
 ### AudioOperation 基底クラス
+以下の動作を検証すること:
 - `__init__` でのパラメータバリデーション（WHAT/WHY/HOW エラーメッセージ）
 - `process()` が DaskArray を受け取り DaskArray を返すこと
 - `get_metadata_updates()` が正しい dict を返すこと
@@ -91,51 +52,26 @@ def impulse_16k_dask():
 ## Filter Tests: Frequency Domain Verification
 
 フィルタテストでは、時間領域の波形ではなく **周波数領域での減衰量** を検証すること。
-また、Wrapper Equivalence として SciPy の `filtfilt(b, a, x)` と比較すること（実装が `filtfilt(b, a, x, axis=1)` を使用するため）。
+`dual_tone_16k_dask` fixture を使い、フィルタ適用後の FFT スペクトルを取得して以下を検証する:
 
-```python
-def test_low_pass_attenuates_high_frequencies(dual_tone_16k_dask):
-    dask_signal, sr = dual_tone_16k_dask
-    lpf = LowPassFilter(sampling_rate=sr, cutoff=500)
-    result = lpf.process(dask_signal).compute()
+- カットオフ以下の成分（例: 50 Hz）の振幅比が 0.7 以上（通過帯域：大きく減衰しない）
+- カットオフ以上の成分（例: 1000 Hz）の振幅比が 0.1 以下（阻止帯域：十分に減衰する）
 
-    spectrum_out = np.abs(np.fft.rfft(result[0]))
-    freqs = np.fft.rfftfreq(dask_signal.shape[1], 1 / sr)
-    spectrum_in = np.abs(np.fft.rfft(dask_signal.compute()[0]))
-
-    # 50 Hz preserved; 1000 Hz attenuated
-    assert spectrum_out[np.argmin(np.abs(freqs - 50))] / spectrum_in[np.argmin(np.abs(freqs - 50))] > 0.7
-    assert spectrum_out[np.argmin(np.abs(freqs - 1000))] / spectrum_in[np.argmin(np.abs(freqs - 1000))] < 0.1
-```
+また、Wrapper Equivalence として `scipy.signal.filtfilt(b, a, x)` と比較すること。`LowPassFilter` の実装は `scipy.signal.butter(order, cutoff/nyquist, btype="low")` で係数を生成し `scipy.signal.filtfilt(b, a, x, axis=1)` で適用するため、同じ呼び出しと完全一致する。
 
 ### Filter Edge Cases
-```python
-def test_filter_cutoff_at_nyquist_raises():
-    with pytest.raises(ValueError):
-        LowPassFilter(sampling_rate=16000, cutoff=8000)  # Nyquist
-```
+- カットオフ周波数が 0 以下、または Nyquist 周波数（`sampling_rate / 2`）以上の場合に `ValueError` が送出されることを検証すること。
 
 ---
 
 ## Spectral Tests: Known-Signal Verification
 
 FFT/STFT テストでは、解析的に予測可能な信号を使用すること。
+
 注意: クラス名は `FFT` および `STFT`（`FFTOperation` / `STFTOperation` ではない）。
 
-```python
-def test_fft_peak_frequency(sine_1khz_48k_dask):
-    dask_signal, sr = sine_1khz_48k_dask
-    fft_op = FFT(sampling_rate=sr, n_fft=sr)  # n_fft=sr → 1 Hz per bin
-    result = fft_op.process(dask_signal).compute()
-    peak_bin = np.argmax(np.abs(result[0]))
-    assert abs(peak_bin - 1000) < 1  # 1 kHz sine → peak at bin 1000
-
-def test_stft_output_shape(sine_1khz_48k_dask):
-    dask_signal, sr = sine_1khz_48k_dask
-    stft_op = STFT(sampling_rate=sr, n_fft=1024, hop_length=512)
-    result = stft_op.process(dask_signal).compute()
-    assert result.shape[1] == 1024 // 2 + 1  # Frequency bins
-```
+- **FFT ピーク検証**: `n_fft=sr`（1 Hz/bin）で 1 kHz 純音の FFT を計算し、ピークビンが 1000 ±1 の範囲内にあることを検証する。
+- **STFT shape 検証**: `n_fft=1024` の STFT を計算し、周波数軸のビン数が `1024 // 2 + 1 = 513` であることを検証する。
 
 ---
 
@@ -144,69 +80,30 @@ def test_stft_output_shape(sine_1khz_48k_dask):
 心理音響テストでは、MoSQITo ライブラリとの等価性を検証すること。
 標準信号: SR=48000 Hz、70 dB SPL、1 kHz、1秒以上（Slow 時定数の安定化に必要）。
 
-```python
-from mosqito.sq_metrics import loudness_zwtv
-
-def test_loudness_matches_mosqito(calibrated_sine_1khz_70dB_dask):
-    dask_signal, sr = calibrated_sine_1khz_70dB_dask
-    signal_np = dask_signal.compute()[0]
-    n_mosqito, _, _, _ = loudness_zwtv(signal_np, sr, field_type="free")
-
-    loudness_op = LoudnessZwtv(sampling_rate=sr, field_type="free")
-    result = loudness_op.process(dask_signal).compute()
-
-    np.testing.assert_allclose(result.mean(), n_mosqito.mean(), rtol=0.01)  # 1% tolerance
-```
+`calibrated_sine_1khz_70dB_dask` fixture を使い、MoSQITo の `loudness_zwtv` 等を直接呼び出した結果の平均値と Wandas の演算結果の平均値が `rtol=0.01`（1%）以内で一致することを検証する。
 
 ---
 
 ## A-Weighting Tests: Known Frequency Response
 
-```python
-def test_a_weighting_at_1khz(sine_1khz_48k_dask):
-    dask_signal, sr = sine_1khz_48k_dask
-    signal_np = dask_signal.compute()[0]
-    result = AWeighting(sampling_rate=sr).process(dask_signal).compute()
-
-    rms_in = np.sqrt(np.mean(signal_np**2))
-    rms_out = np.sqrt(np.mean(result[0]**2))
-    gain_db = 20 * np.log10(rms_out / rms_in)
-    assert abs(gain_db) < 0.5  # A-weighting is ~0 dB at 1 kHz
-```
+`sine_1khz_48k_dask` fixture（1 kHz 純音）に A 特性フィルタを適用し、入出力の RMS 比を dB 換算したゲインが ±0.5 dB 以内であることを検証すること（A 特性は 1 kHz で 0 dB と定義される）。
 
 ---
 
 ## Operation Registration & Display Name Tests
 
-注意: `create_operation` のキーは **レジストリ名**（例: `"lowpass_filter"`）でメソッド名（`"low_pass_filter"`）とは異なる。
-`LowPassFilter.get_display_name()` は `"lpf"` を返す（パラメータは含まない）。
-
-```python
-def test_lowpass_filter_registered():
-    from wandas.processing import create_operation
-    op = create_operation("lowpass_filter", sampling_rate=16000, cutoff=1000)
-    assert op is not None
-
-def test_lowpass_display_name():
-    op = LowPassFilter(sampling_rate=16000, cutoff=1000)
-    assert op.get_display_name() == "lpf"
-```
+- `create_operation` のキーは **レジストリ名**（例: `"lowpass_filter"`）であり、フレームメソッド名（`"low_pass_filter"`）とは異なる。`create_operation("lowpass_filter", ...)` が `None` 以外を返すことを検証すること。
+- `LowPassFilter.get_display_name()` は `"lpf"` を返す（パラメータは含まない）。
 
 ---
 
 ## Anti-Patterns Specific to Processing Tests
 
-```python
-# BAD: Testing filter in time domain only
-assert result is not None  # Tells us nothing about filter quality
+以下のパターンは Processing テストの価値を損なうため避けること:
 
-# BAD: Circular reference — own code is not an "authority"
-expected = my_low_pass(signal, cutoff)
-np.testing.assert_allclose(result, expected)
-
-# BAD: Psychoacoustic test without MoSQITo reference
-assert result.mean() > 0  # Says nothing about correctness
-```
+- **時間領域のみの検証**: フィルタ結果を時間領域で `assert result is not None` のみ検証しても、フィルタの品質は何も保証しない。必ず周波数領域で減衰量を検証すること。
+- **自己参照的な期待値**: 自前で実装した関数で期待値を計算するのは「自己採点」に等しく、バグを検出できない。SciPy・librosa・MoSQITo 等の外部ライブラリを「権威」として使用すること。
+- **心理音響テストの MoSQITo 比較省略**: `result.mean() > 0` のような検証は正しさを保証しない。必ず MoSQITo の参照実装と数値比較すること。
 
 ---
 
