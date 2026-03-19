@@ -428,7 +428,10 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
             self.time_weighting,
         )
         x_f64 = x if x.dtype == np.float64 else np.asarray(x, dtype=np.float64)
-        weighted = frequency_weight(x_f64, self.sampling_rate, curve=self.freq_weighting)
+        if self.freq_weighting == "Z":
+            weighted = x_f64
+        else:
+            weighted = frequency_weight(x_f64, self.sampling_rate, curve=self.freq_weighting)
         squared = np.square(weighted)
         alpha = float(np.exp(-1.0 / (self.sampling_rate * self.time_constant)))
         smoothed = lfilter([1.0 - alpha], [1.0, -alpha], squared, axis=-1)
