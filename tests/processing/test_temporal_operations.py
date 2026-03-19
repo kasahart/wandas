@@ -2,6 +2,7 @@ import dask.array as da
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
+from scipy import signal as scipy_signal
 
 from wandas.processing.base import create_operation, get_operation, register_operation
 from wandas.processing.temporal import (
@@ -11,6 +12,7 @@ from wandas.processing.temporal import (
     SoundLevel,
     Trim,
 )
+from wandas.processing.weighting import frequency_weighting
 from wandas.utils.types import NDArrayReal
 
 _da_from_array = da.from_array  # type: ignore [unused-ignore]
@@ -418,11 +420,17 @@ class TestSoundLevel:
     def setup_method(self) -> None:
         """Set up test fixtures for each test."""
         self.sample_rate: int = 16000
-        t = np.linspace(0, 2, 2 * self.sample_rate, endpoint=False)
-        self.low_freq_signal: NDArrayReal = np.array([np.sin(2 * np.pi * 50 * t)])
-        stepped_amplitude = np.where(t < 1.0, 0.2, 1.0)
-        self.step_signal: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t) * stepped_amplitude])
+        self.duration_seconds: float = 8.0
+        self.amplitude: float = 1.0
+        t = np.linspace(0, self.duration_seconds, int(self.duration_seconds * self.sample_rate), endpoint=False)
+        self.low_freq_hz: float = 50.0
+        self.low_freq_signal: NDArrayReal = np.array([self.amplitude * np.sin(2 * np.pi * self.low_freq_hz * t)])
         self.dask_low_freq: DaArray = _da_from_array(self.low_freq_signal, chunks=(1, -1))
+
+        self.step_start = self.sample_rate
+        self.step_amplitude: float = 0.5
+        self.step_signal: NDArrayReal = np.zeros((1, 4 * self.sample_rate), dtype=np.float64)
+        self.step_signal[0, self.step_start :] = self.step_amplitude
         self.dask_step: DaArray = _da_from_array(self.step_signal, chunks=(1, -1))
 
     def test_initialization(self) -> None:
@@ -438,34 +446,45 @@ class TestSoundLevel:
         result = op.process(self.dask_low_freq).compute()
         assert result.shape == self.low_freq_signal.shape
 
-    def test_a_and_c_weighting_reduce_low_frequency_level(self) -> None:
-        """Test that frequency weighting attenuates low-frequency content."""
-        level_z = SoundLevel(self.sample_rate, ref=1.0, freq_weighting="Z", time_weighting="Fast")
-        level_c = SoundLevel(self.sample_rate, ref=1.0, freq_weighting="C", time_weighting="Fast")
-        level_a = SoundLevel(self.sample_rate, ref=1.0, freq_weighting="A", time_weighting="Fast")
+    @pytest.mark.parametrize(("curve", "expected_gain"), [("Z", 1.0), ("A", None), ("C", None)])
+    def test_sound_level_matches_theoretical_weighted_power(self, curve: str, expected_gain: float | None) -> None:
+        """Test weighted sound level against theoretical steady-state power."""
+        if expected_gain is None:
+            sos = frequency_weighting(self.sample_rate, curve=curve, output="sos")
+            _, response = scipy_signal.sosfreqz(sos, worN=[2 * np.pi * self.low_freq_hz / self.sample_rate])
+            expected_gain = float(np.abs(response[0]))
 
-        result_z = level_z.process(self.dask_low_freq).compute()
-        result_c = level_c.process(self.dask_low_freq).compute()
-        result_a = level_a.process(self.dask_low_freq).compute()
+        operation = SoundLevel(self.sample_rate, ref=1.0, freq_weighting=curve, time_weighting="Fast")
+        result = operation.process(self.dask_low_freq).compute()
 
-        tail = slice(result_z.shape[-1] // 2, None)
-        mean_z = float(np.mean(result_z[..., tail]))
-        mean_c = float(np.mean(result_c[..., tail]))
-        mean_a = float(np.mean(result_a[..., tail]))
+        tail = slice(result.shape[-1] // 2, None)
+        power_ratio = np.power(10.0, result[..., tail] / 10.0)
+        expected_power_ratio = (self.amplitude**2) * (expected_gain**2) / 2.0
 
-        assert mean_a < mean_c < mean_z
-        assert mean_z - mean_c > 1.0
-        assert mean_c - mean_a > 10.0
+        np.testing.assert_allclose(
+            np.mean(power_ratio, axis=-1),
+            np.array([expected_power_ratio]),
+            rtol=5e-5,
+            atol=0.0,
+        )
 
-    def test_slow_weighting_is_smoother_than_fast(self) -> None:
-        """Test that Slow weighting produces a smoother trend than Fast."""
-        level_fast = SoundLevel(self.sample_rate, ref=1.0, time_weighting="Fast")
-        level_slow = SoundLevel(self.sample_rate, ref=1.0, time_weighting="Slow")
+    @pytest.mark.parametrize(("time_weighting", "tau"), [("Fast", 0.125), ("Slow", 1.0)])
+    def test_time_weighting_matches_theoretical_rc_formula(self, time_weighting: str, tau: float) -> None:
+        """Test time weighting against the exact discrete-time RC step response."""
+        operation = SoundLevel(self.sample_rate, ref=1.0, freq_weighting="Z", time_weighting=time_weighting)
+        result = operation.process(self.dask_step).compute()
 
-        fast = level_fast.process(self.dask_step).compute()
-        slow = level_slow.process(self.dask_step).compute()
+        power_ratio = np.power(10.0, result / 10.0)
+        alpha = np.exp(-1.0 / (self.sample_rate * tau))
+        n = np.arange(self.step_signal.shape[-1] - self.step_start, dtype=np.float64)
+        expected = (self.step_amplitude**2) * (1.0 - np.power(alpha, n + 1.0))
 
-        assert float(np.std(np.diff(slow, axis=-1))) < float(np.std(np.diff(fast, axis=-1)))
+        np.testing.assert_allclose(
+            power_ratio[0, self.step_start :],
+            expected,
+            rtol=1e-6,
+            atol=0.0,
+        )
 
     def test_operation_registry(self) -> None:
         """Test that SoundLevel is properly registered in the operation registry."""

@@ -140,8 +140,8 @@ def frequency_weighting(fs: float, curve: str = "A", output: str = "ba") -> Any:
     ----------
     fs : float
         Sampling frequency
-    curve : {'A', 'B', 'C', 'Z'}, optional
-        Frequency weighting curve. ``'Z'`` returns unity gain.
+    curve : {'A', 'B', 'C'}, optional
+        Frequency weighting curve.
     output : {'ba', 'zpk', 'sos'}, optional
         Type of output: numerator/denominator, pole-zero-gain, or SOS.
 
@@ -150,17 +150,12 @@ def frequency_weighting(fs: float, curve: str = "A", output: str = "ba") -> Any:
     Any
         Filter representation requested by ``output``.
     """
-    normalized_curve = curve.upper()
-
-    if normalized_curve == "Z":
-        if output == "zpk":
-            return np.array([]), np.array([]), 1.0
-        elif output in {"ba", "tf"}:
-            return np.array([1.0]), np.array([1.0])
-        elif output == "sos":
-            return np.array([[1.0, 0.0, 0.0, 1.0, 0.0, 0.0]])
-        else:
-            raise ValueError(f"'{output}' is not a valid output form.")
+    normalized_curve = str(curve).upper()
+    allowed_curves = {"A", "B", "C"}
+    if normalized_curve not in allowed_curves:
+        raise ValueError(
+            f"Curve type not understood: {curve!r}. Expected one of {sorted(allowed_curves)}."
+        )
 
     z, p, k = ABC_weighting(normalized_curve)
 
@@ -206,8 +201,8 @@ def frequency_weight(signal: NDArrayReal, fs: float, curve: str = "A") -> NDArra
         Input signal, with time as dimension.
     fs : float
         Sampling frequency.
-    curve : {'A', 'B', 'C', 'Z'}, optional
-        Frequency weighting curve. ``'Z'`` returns the signal unchanged.
+    curve : {'A', 'B', 'C'}, optional
+        Frequency weighting curve.
 
     Returns
     -------
