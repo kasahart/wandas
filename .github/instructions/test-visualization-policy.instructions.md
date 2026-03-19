@@ -16,8 +16,8 @@ Visualization テストは「プロット生成の正しさ」と「フレーム
 
 `conftest.py` に以下の fixture を定義すること。非インタラクティブバックエンド（`matplotlib.use("Agg")`）をインポート前に設定すること。
 
-- **`channel_frame`**: プロットテスト用の標準モノラルフレーム（440 Hz 正弦波、SR=16000 Hz、label="test_signal"）。
-- **`stereo_frame`**: マルチチャンネルプロットテスト用の 2 チャンネルフレーム（440 Hz と 880 Hz の正弦波、SR=16000 Hz、ch_labels=`["440Hz", "880Hz"]`）。
+- **`channel_frame`**: プロットテスト用の標準モノラルフレーム。解析解が既知の決定論的信号を使用する。
+- **`stereo_frame`**: マルチチャンネルプロットテスト用のフレーム。解析解が既知の決定論的信号を使用する。
 - **`cleanup_plots`（autouse=True）**: 各テスト後に全 Figure のクリア（`fig.clf()`）と `plt.close("all")` を実行するクリーンアップ fixture。メモリリーク防止のためすべてのテストに自動適用すること。
 
 ---
