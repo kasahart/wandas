@@ -14,46 +14,11 @@ Visualization テストは「プロット生成の正しさ」と「フレーム
 
 ## Common Fixtures for Visualization Tests
 
-```python
-import matplotlib
-matplotlib.use("Agg")  # Must be set before importing pyplot
-import matplotlib.pyplot as plt
-import numpy as np
-import pytest
-from wandas.frames.channel import ChannelFrame
+`conftest.py` に以下の fixture を定義すること。非インタラクティブバックエンド（`matplotlib.use("Agg")`）をインポート前に設定すること。
 
-
-@pytest.fixture
-def channel_frame():
-    """Standard mono frame for plot testing (440 Hz sine)."""
-    sr = 16000
-    t = np.arange(sr) / sr
-    data = np.sin(2 * np.pi * 440 * t).astype(np.float32)
-    return ChannelFrame.from_numpy(data, sampling_rate=sr, label="test_signal")
-
-
-@pytest.fixture
-def stereo_frame():
-    """2-channel frame for multi-channel plot testing."""
-    sr = 16000
-    t = np.arange(sr) / sr
-    ch0 = np.sin(2 * np.pi * 440 * t).astype(np.float32)
-    ch1 = np.sin(2 * np.pi * 880 * t).astype(np.float32)
-    return ChannelFrame.from_numpy(
-        np.stack([ch0, ch1]), sampling_rate=sr,
-        ch_labels=["440Hz", "880Hz"],
-    )
-
-
-@pytest.fixture(autouse=True)
-def cleanup_plots():
-    """Ensure all matplotlib figures are properly cleaned up after each test."""
-    yield
-    for fig_num in plt.get_fignums():
-        fig = plt.figure(fig_num)
-        fig.clf()
-    plt.close("all")
-```
+- **`channel_frame`**: プロットテスト用の標準モノラルフレーム。解析解が既知の決定論的信号を使用する。
+- **`stereo_frame`**: マルチチャンネルプロットテスト用のフレーム。解析解が既知の決定論的信号を使用する。
+- **`cleanup_plots`（autouse=True）**: 各テスト後に全 Figure のクリア（`fig.clf()`）と `plt.close("all")` を実行するクリーンアップ fixture。メモリリーク防止のためすべてのテストに自動適用すること。
 
 ---
 
@@ -66,7 +31,7 @@ def cleanup_plots():
 - Axes オブジェクトが返されること
 - 正しい数のサブプロットが生成されること（チャンネル数に対応）
 - 軸ラベル、タイトル、凡例が設定されていること
-- overlay=True/False で挙動が変わること
+- `overlay=True/False` で挙動が変わること
 
 **Do NOT Test (Processing/Frame の責任):**
 - プロットされるデータの数値的正確性（これは Processing テストで担保）
@@ -77,144 +42,51 @@ def cleanup_plots():
 
 ## PlotStrategy Dispatch Tests
 
-```python
-from wandas.visualization.plotting import create_operation
+`wandas.visualization.plotting.create_operation` を使ってプロット戦略の dispatch を検証すること:
 
-def test_waveform_strategy_dispatch():
-    """'waveform' must dispatch to WaveformPlotStrategy."""
-    strategy = create_operation("waveform")
-    assert strategy is not None
-    assert hasattr(strategy, "plot")
-
-def test_unknown_strategy_raises():
-    """Unknown plot type must raise a clear error."""
-    with pytest.raises((ValueError, KeyError)):
-        create_operation("nonexistent_plot_type")
-
-def test_all_registered_strategies():
-    """All documented plot types must be dispatchable."""
-    for plot_type in ["waveform", "frequency", "spectrogram", "describe"]:
-        strategy = create_operation(plot_type)
-        assert strategy is not None
-```
+- `"waveform"` を渡すと `plot` メソッドを持つ Strategy オブジェクトが返ること
+- `"frequency"`, `"spectrogram"`, `"describe"` 等の登録済みプロット種別がすべて dispatch できること
+- 未登録の文字列を渡すと `ValueError` が送出されること
 
 ---
 
 ## Axes Return Type Tests
 
-```python
-import matplotlib
-matplotlib.use("Agg")  # Non-interactive backend for testing
-import matplotlib.pyplot as plt
-from collections.abc import Iterator
-from matplotlib.axes import Axes
+Matplotlib の非インタラクティブバックエンド（Agg）を使用してテストすること:
 
-def test_plot_returns_axes(channel_frame):
-    """plot() must return an Axes object."""
-    result = channel_frame.plot()
-    assert isinstance(result, (Axes, Iterator))
-
-def test_plot_overlay_single_axes(stereo_frame):
-    """overlay=True must produce a single Axes with all channels."""
-    ax = stereo_frame.plot(overlay=True)
-    assert isinstance(ax, Axes)
-    # Multiple lines on the same axes
-    assert len(ax.get_lines()) >= stereo_frame.n_channels
-
-def test_plot_separate_subplots(stereo_frame):
-    """overlay=False must produce separate subplots per channel."""
-    result = stereo_frame.plot(overlay=False)
-    # Result should be iterable for multi-channel
-    if hasattr(result, "__iter__"):
-        axes_list = list(result)
-        assert len(axes_list) == stereo_frame.n_channels
-```
+- `channel_frame.plot()` が `matplotlib.axes.Axes` または `Iterator` を返すこと
+- `stereo_frame.plot(overlay=True)` が単一の `Axes` を返し、そこに `n_channels` 本以上のラインが描画されていること
+- `stereo_frame.plot(overlay=False)` が複数のサブプロットを生成し、チャンネル数に対応した `Axes` の数を持つこと
 
 ---
 
 ## Describe Method Tests
 
-`describe()` は複合プロットメソッドであり、特別な検証が必要。
+`describe()` は複合プロットメソッドであり、特別な検証が必要:
 
-```python
-def test_describe_returns_figures(channel_frame):
-    """describe(is_close=False) must return list of Figure objects."""
-    figures = channel_frame.describe(is_close=False)
-    assert figures is not None
-    assert len(figures) == channel_frame.n_channels
-    for fig in figures:
-        assert isinstance(fig, plt.Figure)
-
-def test_describe_closes_figures_by_default(channel_frame):
-    """describe(is_close=True) must return None and close figures."""
-    result = channel_frame.describe(is_close=True)
-    assert result is None
-
-def test_describe_image_save(channel_frame, tmp_path):
-    """describe(image_save=path) must save the figure to disk."""
-    path = tmp_path / "test.png"
-    channel_frame.describe(image_save=str(path))
-    assert path.exists()
-
-def test_describe_multichannel_image_save(stereo_frame, tmp_path):
-    """Multi-channel describe must save with channel index suffix."""
-    path = tmp_path / "test.png"
-    stereo_frame.describe(image_save=str(path))
-    # Should create test_0.png, test_1.png
-    for i in range(stereo_frame.n_channels):
-        expected = tmp_path / f"test_{i}.png"
-        assert expected.exists()
-```
+- `describe(is_close=False)` が `plt.Figure` オブジェクトのリストを返し、件数がチャンネル数と一致すること
+- `describe(is_close=True)` が `None` を返し、Figure が閉じられること（デフォルト動作）
+- `describe(image_save=path)` が指定パスにファイルを保存すること
+- マルチチャンネルの場合、ファイル名にチャンネルインデックスのサフィックスが付与されること（例: `test_0.png`, `test_1.png`）
 
 ---
 
 ## Plot Parameter Forwarding Tests
 
-```python
-def test_plot_custom_title(channel_frame):
-    """Custom title must be set on the axes."""
-    ax = channel_frame.plot(overlay=True, title="Custom Title")
-    assert ax.get_title() == "Custom Title"
+以下のパラメータがプロット結果に正しく反映されることを検証すること:
 
-def test_plot_custom_labels(channel_frame):
-    """Custom xlabel/ylabel must be set on the axes."""
-    ax = channel_frame.plot(overlay=True, xlabel="Time [s]", ylabel="Amplitude")
-    assert ax.get_xlabel() == "Time [s]"
-    assert ax.get_ylabel() == "Amplitude"
-
-def test_plot_xlim_ylim(channel_frame):
-    """xlim/ylim must be forwarded to the axes."""
-    ax = channel_frame.plot(overlay=True, xlim=(0, 0.5), ylim=(-1, 1))
-    assert ax.get_xlim() == pytest.approx((0, 0.5), abs=0.01)
-    assert ax.get_ylim() == pytest.approx((-1, 1), abs=0.01)
-```
+- `title`: `ax.get_title()` が指定した文字列と一致すること
+- `xlabel` / `ylabel`: `ax.get_xlabel()` / `ax.get_ylabel()` が指定した文字列と一致すること
+- `xlim` / `ylim`: `ax.get_xlim()` / `ax.get_ylim()` が指定した範囲と `pytest.approx` で一致すること
 
 ---
 
 ## Memory Leak Prevention
 
-Visualization テストでは `fig.clf()` で Figure 内部状態をクリアした後、
-`plt.close()` でウィンドウを閉じること。`plt.close("all")` のみでは不十分。
+Visualization テストでは Figure のメモリリークを防ぐため:
 
-```python
-# GOOD: fig.clf() + plt.close() の組み合わせ
-def test_plot_cleanup(channel_frame):
-    ax = channel_frame.plot()
-    # ... assertions ...
-    fig = ax.get_figure()
-    fig.clf()
-    plt.close(fig)
-
-# BEST: autouse fixture で全テストに自動適用
-@pytest.fixture(autouse=True)
-def cleanup_plots():
-    """Ensure all matplotlib figures are properly cleaned up after each test."""
-    yield
-    for fig_num in plt.get_fignums():
-        fig = plt.figure(fig_num)
-        fig.clf()
-    plt.close("all")
-```
+- 個別テストで Figure を取得した場合は `fig.clf()` で内部状態をクリアし、その後 `plt.close(fig)` でウィンドウを閉じること。`plt.close("all")` のみでは内部状態がクリアされず不十分。
+- `autouse=True` の `cleanup_plots` fixture を使用することで、すべてのテストに自動的にクリーンアップを適用できる（推奨）。
 
 ---
 
