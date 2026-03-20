@@ -27,7 +27,7 @@ from wandas.processing.spectral import (
     Welch,
 )
 from wandas.processing.stats import ABS, ChannelDifference, Mean, Power, Sum
-from wandas.processing.temporal import FixLength, ReSampling, RmsTrend, Trim
+from wandas.processing.temporal import FixLength, ReSampling, RmsTrend, SoundLevel, Trim
 
 
 class TestFilterDisplayNames:
@@ -221,3 +221,18 @@ class TestStatsDisplayNames:
         """Test that ChannelDifference returns 'diff' as display name."""
         op = ChannelDifference(sampling_rate=44100, other_channel=0)
         assert op.get_display_name() == "diff"
+
+    def test_sound_level_display_name_laf(self) -> None:
+        """Test that SoundLevel returns 'LAF' for A-weighting Fast in dB mode."""
+        op = SoundLevel(sampling_rate=44100, time_constant="F", weighting="A", dB=True)
+        assert op.get_display_name() == "LAF"
+
+    def test_sound_level_display_name_las(self) -> None:
+        """Test that SoundLevel returns 'LAS' for A-weighting Slow in dB mode."""
+        op = SoundLevel(sampling_rate=44100, time_constant="S", weighting="A", dB=True)
+        assert op.get_display_name() == "LAS"
+
+    def test_sound_level_display_name_linear(self) -> None:
+        """Test that SoundLevel returns 'level_AF' in linear mode."""
+        op = SoundLevel(sampling_rate=44100, time_constant="F", weighting="A", dB=False)
+        assert op.get_display_name() == "level_AF"

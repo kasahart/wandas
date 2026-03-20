@@ -8,6 +8,7 @@ from wandas.processing.temporal import (
     FixLength,
     ReSampling,
     RmsTrend,
+    SoundLevel,
     Trim,
 )
 from wandas.utils.types import NDArrayReal
@@ -439,3 +440,180 @@ class TestRmsTrendMetadataUpdates:
 
         expected_sr = 48000 / hop_length
         assert np.isclose(updates["sampling_rate"], expected_sr)
+
+
+class TestSoundLevel:
+    def setup_method(self) -> None:
+        """Set up test fixtures for each test."""
+        self.sample_rate: int = 44100
+        # 1 second of 1 kHz sine wave at amplitude 1 Pa
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        self.signal_mono: NDArrayReal = np.array([np.sin(2 * np.pi * 1000 * t)])
+        self.signal_stereo: NDArrayReal = np.array(
+            [
+                np.sin(2 * np.pi * 1000 * t),
+                np.sin(2 * np.pi * 500 * t),
+            ]
+        )
+        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
+        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
+
+    def test_initialization_fast(self) -> None:
+        """Test initialization with Fast time constant string."""
+        op = SoundLevel(self.sample_rate, time_constant="F")
+        assert op.tau == 0.125
+        assert op.tc_label == "F"
+        assert op.weighting == "A"
+        assert op.dB is True
+
+    def test_initialization_slow(self) -> None:
+        """Test initialization with Slow time constant string."""
+        op = SoundLevel(self.sample_rate, time_constant="S")
+        assert op.tau == 1.0
+        assert op.tc_label == "S"
+
+    def test_initialization_custom_tau(self) -> None:
+        """Test initialization with custom float time constant."""
+        op = SoundLevel(self.sample_rate, time_constant=0.5)
+        assert op.tau == 0.5
+        assert op.tc_label == "0.500s"
+
+    def test_initialization_z_weighting(self) -> None:
+        """Test initialization with Z (flat) weighting."""
+        op = SoundLevel(self.sample_rate, weighting="Z")
+        assert op.weighting == "Z"
+
+    def test_invalid_time_constant_string(self) -> None:
+        """Test that invalid time constant string raises ValueError."""
+        with pytest.raises(ValueError, match="Unknown time constant"):
+            SoundLevel(self.sample_rate, time_constant="X")
+
+    def test_invalid_time_constant_negative(self) -> None:
+        """Test that non-positive float time constant raises ValueError."""
+        with pytest.raises(ValueError, match="time_constant must be positive"):
+            SoundLevel(self.sample_rate, time_constant=-0.1)
+
+    def test_invalid_weighting(self) -> None:
+        """Test that invalid weighting raises ValueError."""
+        with pytest.raises(ValueError, match="Unknown weighting"):
+            SoundLevel(self.sample_rate, weighting="X")
+
+    def test_output_shape_no_hop(self) -> None:
+        """Test output shape without downsampling."""
+        op = SoundLevel(self.sample_rate, hop_length=1)
+        result = op.process(self.dask_mono).compute()
+        assert result.shape == self.signal_mono.shape
+
+    def test_output_shape_with_hop(self) -> None:
+        """Test output shape with downsampling."""
+        hop = 512
+        op = SoundLevel(self.sample_rate, hop_length=hop)
+        result = op.process(self.dask_mono).compute()
+        expected_len = int(np.ceil(self.signal_mono.shape[-1] / hop))
+        assert result.shape == (1, expected_len)
+
+    def test_output_shape_stereo(self) -> None:
+        """Test output shape for stereo input."""
+        op = SoundLevel(self.sample_rate, hop_length=1)
+        result = op.process(self.dask_stereo).compute()
+        assert result.shape == self.signal_stereo.shape
+
+    def test_db_output_range(self) -> None:
+        """Test that dB output has reasonable values for 1 Pa sine wave."""
+        # Use 5 seconds to allow Slow (1s) time constant to settle
+        t = np.linspace(0, 5, 5 * self.sample_rate, endpoint=False)
+        signal = np.array([np.sin(2 * np.pi * 1000 * t)])
+        dask_signal = _da_from_array(signal, chunks=(1, -1))
+
+        op = SoundLevel(self.sample_rate, time_constant="S", dB=True, ref=2e-5)
+        result = op.process(dask_signal).compute()
+        # After settling (last 20% of 5 s signal), level should be near expected
+        settled = result[0, 4 * result.shape[-1] // 5 :]
+        # 1 kHz sine at amplitude 1 Pa: A-weighting ~0 dB at 1 kHz, RMS = 1/sqrt(2)
+        expected_db = 20 * np.log10((1 / np.sqrt(2)) / 2e-5)
+        np.testing.assert_allclose(np.mean(settled), expected_db, atol=2.0)
+
+    def test_linear_output(self) -> None:
+        """Test linear (non-dB) output."""
+        # Use 5 seconds for Slow time constant to settle
+        t = np.linspace(0, 5, 5 * self.sample_rate, endpoint=False)
+        signal = np.array([np.sin(2 * np.pi * 1000 * t)])
+        dask_signal = _da_from_array(signal, chunks=(1, -1))
+
+        op = SoundLevel(self.sample_rate, time_constant="S", dB=False, weighting="Z", ref=1.0)
+        result = op.process(dask_signal).compute()
+        # Should be near 1/sqrt(2) after settling
+        settled = result[0, 4 * result.shape[-1] // 5 :]
+        np.testing.assert_allclose(np.mean(settled), 1 / np.sqrt(2), atol=0.05)
+
+    def test_a_weighting_attenuates_low_freq(self) -> None:
+        """Test that A-weighting attenuates low frequencies."""
+        t = np.linspace(0, 2, 2 * self.sample_rate, endpoint=False)
+        low_freq_signal = np.array([np.sin(2 * np.pi * 50 * t)])
+        dask_low = _da_from_array(low_freq_signal, chunks=(1, -1))
+
+        op_a = SoundLevel(self.sample_rate, weighting="A", time_constant="S", dB=False)
+        op_z = SoundLevel(self.sample_rate, weighting="Z", time_constant="S", dB=False)
+
+        result_a = op_a.process(dask_low).compute()
+        result_z = op_z.process(dask_low).compute()
+
+        # A-weighting should attenuate 50 Hz
+        assert np.mean(result_a) < np.mean(result_z)
+
+    def test_fast_settles_faster_than_slow(self) -> None:
+        """Test that Fast time constant settles faster than Slow."""
+        # Signal switches from 0 to 1 at t=0
+        t = np.linspace(0, 2, 2 * self.sample_rate, endpoint=False)
+        step = np.array([np.sin(2 * np.pi * 1000 * t)])
+        dask_step = _da_from_array(step, chunks=(1, -1))
+
+        op_fast = SoundLevel(self.sample_rate, time_constant="F", dB=False, weighting="Z")
+        op_slow = SoundLevel(self.sample_rate, time_constant="S", dB=False, weighting="Z")
+
+        result_fast = op_fast.process(dask_step).compute()
+        result_slow = op_slow.process(dask_step).compute()
+
+        # At 0.25 s (2 * Fast tau), Fast should be closer to steady state
+        idx_quarter = self.sample_rate // 4
+        # Fast should have higher value early on (closer to settled RMS)
+        assert result_fast[0, idx_quarter] > result_slow[0, idx_quarter]
+
+    def test_metadata_updates(self) -> None:
+        """Test that metadata is updated correctly."""
+        hop = 100
+        op = SoundLevel(self.sample_rate, hop_length=hop)
+        updates = op.get_metadata_updates()
+        assert "sampling_rate" in updates
+        np.testing.assert_allclose(updates["sampling_rate"], self.sample_rate / hop)
+
+    def test_operation_registry(self) -> None:
+        """Test that SoundLevel is properly registered in the operation registry."""
+        assert get_operation("sound_level") == SoundLevel
+        op = create_operation("sound_level", self.sample_rate, time_constant="F", weighting="A")
+        assert isinstance(op, SoundLevel)
+        assert op.tau == 0.125
+        assert op.weighting == "A"
+
+    def test_calculate_output_shape(self) -> None:
+        """Test calculate_output_shape directly."""
+        op = SoundLevel(self.sample_rate, hop_length=1)
+        assert op.calculate_output_shape((2, 44100)) == (2, 44100)
+
+        op_hop = SoundLevel(self.sample_rate, hop_length=441)
+        assert op_hop.calculate_output_shape((2, 44100)) == (2, 100)
+
+    def test_display_name_db_fast(self) -> None:
+        """Test display name for dB Fast A-weighting."""
+        op = SoundLevel(self.sample_rate, time_constant="F", weighting="A", dB=True)
+        assert op.get_display_name() == "LAF"
+
+    def test_display_name_db_slow(self) -> None:
+        """Test display name for dB Slow A-weighting."""
+        op = SoundLevel(self.sample_rate, time_constant="S", weighting="A", dB=True)
+        assert op.get_display_name() == "LAS"
+
+    def test_display_name_linear(self) -> None:
+        """Test display name for linear output."""
+        op = SoundLevel(self.sample_rate, time_constant="F", weighting="A", dB=False)
+        assert op.get_display_name() == "level_AF"

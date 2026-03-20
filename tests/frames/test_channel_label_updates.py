@@ -601,3 +601,84 @@ class TestRenameChannels:
         # Index 0 and label "ch0" both refer to channel 0 — ambiguous mapping
         with pytest.raises(ValueError):
             frame.rename_channels({0: "a", "ch0": "b"})
+
+
+class TestSoundLevelLabelUpdates:
+    """Test channel label updates for the sound_level operation."""
+
+    def setup_method(self) -> None:
+        self.sample_rate: float = 44100
+        # 1 second of 1 kHz sine wave
+        t = np.linspace(0, 1, int(self.sample_rate), endpoint=False)
+        data = np.array(
+            [np.sin(2 * np.pi * 1000 * t), np.sin(2 * np.pi * 500 * t)]
+        )
+        self.dask_data = da.from_array(data, chunks=(1, -1))  # type: ignore [unused-ignore]
+
+    def test_sound_level_laf_label(self) -> None:
+        """Test that sound_level with dB=True uses LAF-style label."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[
+                {"label": "mic", "unit": "Pa", "extra": {}},
+                {"label": "ref", "unit": "Pa", "extra": {}},
+            ],
+        )
+
+        result = frame.sound_level(time_constant="F", weighting="A", dB=True)
+
+        assert result.labels == ["LAF(mic)", "LAF(ref)"]
+
+    def test_sound_level_las_label(self) -> None:
+        """Test that sound_level with Slow time constant uses LAS label."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[
+                {"label": "ch0", "unit": "", "extra": {}},
+                {"label": "ch1", "unit": "", "extra": {}},
+            ],
+        )
+
+        result = frame.sound_level(time_constant="S", weighting="A", dB=True)
+
+        assert result.labels == ["LAS(ch0)", "LAS(ch1)"]
+
+    def test_sound_level_linear_label(self) -> None:
+        """Test that sound_level with dB=False uses level_AF-style label."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[
+                {"label": "ch0", "unit": "", "extra": {}},
+                {"label": "ch1", "unit": "", "extra": {}},
+            ],
+        )
+
+        result = frame.sound_level(time_constant="F", weighting="A", dB=False)
+
+        assert result.labels == ["level_AF(ch0)", "level_AF(ch1)"]
+
+    def test_sound_level_sampling_rate_unchanged_hop1(self) -> None:
+        """Test that sampling rate is unchanged with hop_length=1."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+        )
+
+        result = frame.sound_level(hop_length=1)
+
+        assert result.sampling_rate == self.sample_rate
+
+    def test_sound_level_sampling_rate_with_hop(self) -> None:
+        """Test that sampling rate is updated correctly with hop_length > 1."""
+        hop = 441
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+        )
+
+        result = frame.sound_level(hop_length=hop)
+
+        assert np.isclose(result.sampling_rate, self.sample_rate / hop)

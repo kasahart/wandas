@@ -1,11 +1,12 @@
 import logging
-from typing import Any
+from typing import Any, ClassVar
 
 import librosa
 import numpy as np
+from scipy.signal import bilinear_zpk, lfilter, sosfilt, zpk2sos
 
 from wandas.processing.base import AudioOperation, register_operation
-from wandas.processing.weighting import A_weight
+from wandas.processing.weighting import A_weight, ABC_weighting
 from wandas.utils import validate_sampling_rate
 from wandas.utils.types import NDArrayReal
 
@@ -333,6 +334,165 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         return result
 
 
+class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
+    """Time-weighted sound level measurement (IEC 61672-1).
+
+    Computes the time-weighted sound pressure level by applying
+    frequency weighting and exponential moving average averaging.
+    """
+
+    name = "sound_level"
+
+    TIME_CONSTANTS: ClassVar[dict[str, float]] = {
+        "F": 0.125,  # Fast: 125 ms
+        "S": 1.000,  # Slow: 1000 ms
+    }
+
+    def __init__(
+        self,
+        sampling_rate: float,
+        time_constant: float | str = "F",
+        weighting: str = "A",
+        hop_length: int = 1,
+        ref: list[float] | float = 1.0,
+        dB: bool = True,  # noqa: N803
+    ) -> None:
+        """
+        Initialize SoundLevel operation.
+
+        Parameters
+        ----------
+        sampling_rate : float
+            Sampling rate (Hz)
+        time_constant : float or str
+            Exponential averaging time constant. Use "F" for Fast (125 ms),
+            "S" for Slow (1000 ms), or a positive float in seconds.
+        weighting : str
+            Frequency weighting: "A", "B", "C", or "Z" (no weighting).
+        hop_length : int
+            Output downsampling factor. Default is 1 (no downsampling).
+        ref : float or list of float
+            Reference value(s) for dB calculation.
+        dB : bool
+            Whether to convert output to decibels. Default is True.
+        """
+        if isinstance(time_constant, str):
+            tc_str = time_constant.upper()
+            if tc_str not in self.TIME_CONSTANTS:
+                raise ValueError(
+                    f"Unknown time constant: {time_constant!r}.\n"
+                    f"  Supported string values: {sorted(self.TIME_CONSTANTS.keys())}\n"
+                    f"Use 'F' (Fast, 125 ms), 'S' (Slow, 1000 ms), or a float in seconds."
+                )
+            self.tau: float = self.TIME_CONSTANTS[tc_str]
+            self.tc_label: str = tc_str
+        else:
+            self.tau = float(time_constant)
+            if self.tau <= 0:
+                raise ValueError(
+                    f"time_constant must be positive, got {time_constant}.\n"
+                    f"Use a positive float in seconds, e.g., 0.125 for Fast or 1.0 for Slow."
+                )
+            self.tc_label = f"{self.tau:.3f}s"
+
+        weighting = weighting.upper()
+        if weighting not in {"A", "B", "C", "Z"}:
+            raise ValueError(
+                f"Unknown weighting: {weighting!r}.\n"
+                f"  Supported values: 'A', 'B', 'C', 'Z' (no weighting)."
+            )
+        self.weighting: str = weighting
+        self.hop_length: int = hop_length
+        self.dB: bool = dB
+        self.ref: NDArrayReal = np.atleast_1d(np.asarray(ref, dtype=np.float64))
+        self.alpha: float = 1.0 - float(np.exp(-1.0 / (self.tau * sampling_rate)))
+
+        super().__init__(
+            sampling_rate,
+            time_constant=self.tau,
+            weighting=self.weighting,
+            hop_length=hop_length,
+            ref=self.ref.tolist(),
+            dB=dB,
+        )
+
+    def get_metadata_updates(self) -> dict[str, Any]:
+        """
+        Update sampling rate based on hop length.
+
+        Returns
+        -------
+        dict
+            Metadata updates with new sampling rate.
+        """
+        new_sr = self.sampling_rate / self.hop_length
+        return {"sampling_rate": new_sr}
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """
+        Calculate output data shape after operation.
+
+        Parameters
+        ----------
+        input_shape : tuple
+            Input data shape (channels, samples)
+
+        Returns
+        -------
+        tuple
+            Output data shape (channels, output_samples)
+        """
+        n_out = int(np.ceil(input_shape[-1] / self.hop_length))
+        return (*input_shape[:-1], n_out)
+
+    def get_display_name(self) -> str:
+        """Get display name for use in channel labels.
+
+        Returns LAF-style labels (e.g. "LAF", "LAS") when dB=True,
+        or "level_AF" style when dB=False.
+        """
+        if self.dB:
+            return f"L{self.weighting}{self.tc_label}"
+        return f"level_{self.weighting}{self.tc_label}"
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        """Apply frequency weighting and exponential time averaging."""
+        logger.debug(f"Applying SoundLevel to array with shape: {x.shape}")
+
+        # Apply frequency weighting.
+        # Convert to float64 explicitly: input x may be float32 (Dask default) and
+        # sosfilt preserves float32, but subsequent lfilter/sqrt require float64 precision.
+        if self.weighting != "Z":
+            z, p, k = ABC_weighting(self.weighting)
+            z_d, p_d, k_d = bilinear_zpk(z, p, k, self.sampling_rate)
+            sos = zpk2sos(z_d, p_d, k_d)
+            x_w: NDArrayReal = np.asarray(sosfilt(sos, x), dtype=np.float64)
+        else:
+            x_w = np.asarray(x, dtype=np.float64)
+
+        # Square the signal (instantaneous power)
+        power = x_w**2
+
+        # Exponential moving average: y[n] = alpha*x[n]^2 + (1-alpha)*y[n-1]
+        # Transfer function: b=[alpha], a=[1, -(1-alpha)]
+        alpha = self.alpha
+        y: NDArrayReal = np.asarray(lfilter([alpha], [1.0, -(1.0 - alpha)], power, axis=-1))
+
+        # RMS level: sqrt of time-averaged squared signal
+        level: NDArrayReal = np.sqrt(np.maximum(y, 0.0))
+
+        # Convert to dB if requested
+        if self.dB:
+            level = 20.0 * np.log10(np.maximum(level / self.ref[..., np.newaxis], 1e-12))
+
+        # Downsample by hop_length
+        if self.hop_length > 1:
+            level = level[..., ::self.hop_length]
+
+        logger.debug(f"SoundLevel applied, returning result with shape: {level.shape}")
+        return level
+
+
 # Register all operations
-for op_class in [ReSampling, Trim, RmsTrend, FixLength]:
+for op_class in [ReSampling, Trim, RmsTrend, FixLength, SoundLevel]:
     register_operation(op_class)

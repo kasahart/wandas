@@ -362,6 +362,50 @@ class ChannelProcessingMixin:
         # Sampling rate update is handled by the Operation class
         return cast(T_Processing, result)
 
+    def sound_level(
+        self: T_Processing,
+        time_constant: float | str = "F",
+        weighting: str = "A",
+        hop_length: int = 1,
+        dB: bool = True,  # noqa: N803
+    ) -> T_Processing:
+        """Compute the time-weighted sound level (IEC 61672-1).
+
+        Applies frequency weighting and exponential time averaging to compute
+        the time-weighted sound pressure level, following IEC 61672-1.
+
+        Args:
+            time_constant: Exponential averaging time constant. Use "F" for
+                Fast (125 ms), "S" for Slow (1000 ms), or a positive float
+                in seconds. Default is "F".
+            weighting: Frequency weighting type: "A", "B", "C", or "Z"
+                (no weighting). Default is "A".
+            hop_length: Output downsampling factor. Default is 1 (no
+                downsampling).
+            dB: Whether to return values in decibels. Default is True.
+
+        Returns:
+            New ChannelFrame containing the time-weighted sound level.
+            Channel labels follow LAF-style notation when dB=True
+            (e.g., "LAF" for A-weighting with Fast time constant).
+        """
+        frame = cast(ProcessingFrameProtocol, self)
+
+        ref_values: list[float] | float = 1.0
+        if hasattr(frame, "_channel_metadata") and frame._channel_metadata:
+            ref_values = [ch.ref for ch in frame._channel_metadata]
+
+        result = self.apply_operation(
+            "sound_level",
+            time_constant=time_constant,
+            weighting=weighting,
+            hop_length=hop_length,
+            ref=ref_values,
+            dB=dB,
+        )
+
+        return cast(T_Processing, result)
+
     def channel_difference(self: T_Processing, other_channel: int | str = 0) -> T_Processing:
         """Compute the difference between channels.
 

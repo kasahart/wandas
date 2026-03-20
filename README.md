@@ -62,6 +62,7 @@ filtered_signal.fft().plot(title="FFT of Low-pass Filtered Signal")
 - **フィルタリング / Filtering**: ローパス、ハイパス、バンドパス、A特性フィルタ / Low‑pass, High‑pass, Band‑pass, A‑weighting filters
 - **周波数解析 / Frequency Analysis**: FFT、STFT、Welch法、コヒーレンス、伝達関数 / FFT, STFT, Welch, coherence, transfer functions
 - **時間周波数解析 / Time‑Frequency Analysis**: スペクトログラム生成と解析 / Spectrogram generation and analysis
+- **時間重み付け音圧レベル / Time‑Weighted Sound Level**: IEC 61672‑1 準拠の A 特性 Fast/Slow 時定数音圧レベル (`LAF` / `LAS`) / IEC 61672‑1 compliant A‑weighted Fast/Slow time‑constant sound level
 - **心理音響 / Psychoacoustics**: ラウドネス、粗さなどの聴覚指標 / Loudness, roughness and other perceptual metrics
 
 ### 📊 pandasライクなデータ構造 / Pandas‑like Data Structures
@@ -117,6 +118,7 @@ mindmap
       正規化/トリミング / Normalization/Trimming
       リサンプリング / Resampling
       エフェクト適用 / Effects application
+      A特性音圧レベル / A-weighted Sound Level
     📊 Frequency Analysis
       FFT/STFT / FFT/STFT
       Welch法 / Welch method
@@ -161,6 +163,22 @@ spectrum.plot(title="処理済み信号のスペクトル / Processed Signal Spe
 # 時間周波数解析 / Time-frequency analysis
 spectrogram = signal.stft(n_fft=2048, hop_length=512)
 spectrogram.plot(cmap='viridis', title="スペクトログラム / Spectrogram")
+```
+
+### A特性時間重み付け音圧レベル / A-Weighted Time-Weighted Sound Level
+
+```python
+# IEC 61672-1 準拠の Fast (LAF) / Slow (LAS) 時定数で A 特性音圧レベルを計算
+# Compute A-weighted sound level with Fast (LAF) / Slow (LAS) time constants per IEC 61672-1
+signal = wd.read_wav("audio.wav")
+
+# LAF: Fast 時定数 (125 ms), hop_length=480 → 100 Hz 出力レート
+laf = signal.sound_level(time_constant="F", weighting="A", hop_length=480, dB=True)
+
+# LAS: Slow 時定数 (1000 ms)
+las = signal.sound_level(time_constant="S", weighting="A", hop_length=480, dB=True)
+
+laf.plot(title="LAF (A-weighted Fast Sound Level)")
 ```
 
 ### CSVデータ処理 / CSV Data Processing
