@@ -27,7 +27,7 @@ from wandas.processing.spectral import (
     Welch,
 )
 from wandas.processing.stats import ABS, ChannelDifference, Mean, Power, Sum
-from wandas.processing.temporal import FixLength, ReSampling, RmsTrend, Trim
+from wandas.processing.temporal import FixLength, ReSampling, RmsTrend, SoundLevel, Trim
 
 
 class TestFilterDisplayNames:
@@ -192,6 +192,16 @@ class TestTemporalDisplayNames:
         """Test that RmsTrend returns 'RMS' as display name."""
         op = RmsTrend(sampling_rate=44100)
         assert op.get_display_name() == "RMS"
+
+    def test_sound_level_display_name(self) -> None:
+        """Test that SoundLevel returns weighting-aware display names."""
+        op = SoundLevel(sampling_rate=44100, freq_weighting="A", time_weighting="Fast", dB=True)
+        assert op.get_display_name() == "LAF"
+
+    def test_sound_level_linear_display_name(self) -> None:
+        """Test that linear SoundLevel returns RMS-aware display names."""
+        op = SoundLevel(sampling_rate=44100, freq_weighting="A", time_weighting="Fast", dB=False)
+        assert op.get_display_name() == "AFRMS"
 
 
 class TestStatsDisplayNames:

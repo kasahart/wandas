@@ -207,6 +207,60 @@ class TestChannelProcessing:
             mock_create_op.assert_called_with("a_weighting", self.sample_rate)
             assert isinstance(result, ChannelFrame)
 
+    def test_sound_level(self) -> None:
+        """Test sound_level operation."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[
+                {"label": "mic_left", "unit": "Pa", "extra": {}},
+                {"label": "mic_right", "unit": "Pa", "extra": {}},
+            ],
+        )
+
+        with mock.patch("wandas.processing.create_operation") as mock_create_op:
+            mock_op = mock.MagicMock()
+            mock_op.process.return_value = self.dask_data
+            mock_create_op.return_value = mock_op
+
+            result = frame.sound_level(freq_weighting="A", time_weighting="Fast")
+            mock_create_op.assert_called_with(
+                "sound_level",
+                self.sample_rate,
+                freq_weighting="A",
+                time_weighting="Fast",
+                dB=False,
+                ref=[2e-5, 2e-5],
+            )
+            assert isinstance(result, ChannelFrame)
+
+    def test_sound_level_db_output(self) -> None:
+        """Test sound_level operation with dB output enabled."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[
+                {"label": "mic_left", "unit": "Pa", "extra": {}},
+                {"label": "mic_right", "unit": "Pa", "extra": {}},
+            ],
+        )
+
+        with mock.patch("wandas.processing.create_operation") as mock_create_op:
+            mock_op = mock.MagicMock()
+            mock_op.process.return_value = self.dask_data
+            mock_create_op.return_value = mock_op
+
+            result = frame.sound_level(freq_weighting="A", time_weighting="Fast", dB=True)
+            mock_create_op.assert_called_with(
+                "sound_level",
+                self.sample_rate,
+                freq_weighting="A",
+                time_weighting="Fast",
+                dB=True,
+                ref=[2e-5, 2e-5],
+            )
+            assert isinstance(result, ChannelFrame)
+
     def test_abs(self) -> None:
         """Test abs method."""
         with mock.patch("wandas.processing.create_operation") as mock_create_op:

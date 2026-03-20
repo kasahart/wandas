@@ -362,6 +362,40 @@ class ChannelProcessingMixin:
         # Sampling rate update is handled by the Operation class
         return cast(T_Processing, result)
 
+    def sound_level(
+        self: T_Processing,
+        freq_weighting: str | None = "Z",
+        time_weighting: str = "Fast",
+        dB: bool = False,  # noqa: N803
+    ) -> T_Processing:
+        """Compute a time-weighted RMS trend or sound pressure level.
+
+        Args:
+            freq_weighting: Frequency weighting curve. Supported values are
+                ``"A"``, ``"C"``, and ``"Z"``. ``None`` is treated as ``"Z"``.
+            time_weighting: Time weighting characteristic. Supported values are
+                ``"Fast"`` (125 ms) and ``"Slow"`` (1 s).
+            dB: When ``True``, return sound level in dB relative to the channel
+                reference. When ``False``, return the time-weighted RMS signal.
+
+        Returns:
+            New ChannelFrame containing the weighted time series.
+        """
+        frame = cast(ProcessingFrameProtocol, self)
+
+        ref_values = []
+        if hasattr(frame, "_channel_metadata") and frame._channel_metadata:
+            ref_values = [ch.ref for ch in frame._channel_metadata]
+
+        result = self.apply_operation(
+            "sound_level",
+            freq_weighting=freq_weighting,
+            time_weighting=time_weighting,
+            dB=dB,
+            ref=ref_values,
+        )
+        return cast(T_Processing, result)
+
     def channel_difference(self: T_Processing, other_channel: int | str = 0) -> T_Processing:
         """Compute the difference between channels.
 

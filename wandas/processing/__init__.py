@@ -47,6 +47,7 @@ from wandas.processing.stats import (
 from wandas.processing.temporal import (
     ReSampling,
     RmsTrend,
+    SoundLevel,
     Trim,
 )
 
@@ -75,6 +76,7 @@ __all__ = [
     # Temporal
     "ReSampling",
     "RmsTrend",
+    "SoundLevel",
     "Trim",
     # Effects
     "AddWithSNR",

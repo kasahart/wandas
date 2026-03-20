@@ -36,7 +36,7 @@ from scipy import signal
 from scipy.interpolate import interp1d
 
 # This package must first be installed with `pip install -e .` or similar
-from wandas.processing.weighting import A_weight, A_weighting, ABC_weighting
+from wandas.processing.weighting import A_weight, A_weighting, ABC_weighting, frequency_weight, frequency_weighting
 
 # It will plot things for sanity-checking if MPL is installed
 try:
@@ -430,6 +430,27 @@ class TestAWeight:
         levels = func(frequencies)
         assert all(np.less_equal(levels, responses["A"] + upper_limits))
         assert all(np.greater_equal(levels, responses["A"] + lower_limits))
+
+
+class TestFrequencyWeighting:
+    def test_invalid_curve_rejects_z(self):
+        with pytest.raises(ValueError, match=r"Curve type not understood"):
+            frequency_weighting(fs=48000, curve="Z")
+
+    def test_b_curve_design(self):
+        sos = frequency_weighting(fs=48000, curve="B", output="sos")
+        assert sos.shape[1] == 6
+
+
+class TestFrequencyWeight:
+    def test_invalid_curve_rejects_z(self):
+        with pytest.raises(ValueError, match=r"Curve type not understood"):
+            frequency_weight(np.ones(16), fs=48000, curve="Z")
+
+    def test_b_curve_application_preserves_shape(self):
+        signal_in = np.ones((1, 32))
+        signal_out = frequency_weight(signal_in, fs=48000, curve="B")
+        assert signal_out.shape == signal_in.shape
 
 
 if __name__ == "__main__":
