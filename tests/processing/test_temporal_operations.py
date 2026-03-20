@@ -458,8 +458,8 @@ class TestSoundLevel:
         # 1. Obtain the theoretical gain (absolute value of the transfer function)
         if expected_gain is None:
             sos = frequency_weighting(self.sample_rate, curve=curve, output="sos")
-            _, response = scipy_signal.freqz_sos(sos, worN=[self.low_freq], fs=self.sample_rate)
-            expected_gain = float(np.abs(response[0]))
+            _, response = scipy_signal.freqz_sos(sos, worN=self.low_freq, fs=self.sample_rate)
+            expected_gain = float(np.abs(np.asarray(response)).item())
 
         # 2. Calculate the theoretical expected power
         # P = (A * G / sqrt(2))^2  => squared RMS of a sine wave
@@ -490,8 +490,8 @@ class TestSoundLevel:
         # 1. Obtain the theoretical gain (absolute value of the transfer function)
         if expected_gain is None:
             sos = frequency_weighting(self.sample_rate, curve=curve, output="sos")
-            _, response = scipy_signal.freqz_sos(sos, worN=[self.low_freq], fs=self.sample_rate)
-            expected_gain = float(np.abs(response[0]))
+            _, response = scipy_signal.freqz_sos(sos, worN=self.low_freq, fs=self.sample_rate)
+            expected_gain = float(np.abs(np.asarray(response)).item())
 
         # 2. Calculate the theoretical expected power of the weighted sine wave
         expected_rms = (self.amplitude * expected_gain) / np.sqrt(2.0)
