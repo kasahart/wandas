@@ -4,90 +4,90 @@ applyTo: "tests/frames/**"
 ---
 # Wandas Test Policy: Frames (`tests/frames/`)
 
-Frame テストは「データ構造としての正しさ」と「ドメイン横断時のメタデータ整合性」を検証する層です。
-Frames は Wandas の public API の中核であり、ユーザーが直接操作するオブジェクトです。
+Frame tests verify **data structure correctness** and **metadata consistency across domain transitions**.
+Frames are at the core of Wandas' public API and are the objects users directly manipulate.
 
-**前提**: このファイルは [test-grand-policy.instructions.md](test-grand-policy.instructions.md) と同時に適用されます。
-Grand Policy の 4 つの柱を遵守したうえで、以下の追加ガイドラインに従ってください。
+**Prerequisite**: This file is applied together with [test-grand-policy.instructions.md](test-grand-policy.instructions.md).
+Follow the 4 pillars of the Grand Policy, then apply the additional guidelines below.
 
 ---
 
 ## Common Fixtures for Frame Tests
 
-`conftest.py` に以下の fixture を定義すること。信号は乱数ではなく決定論的な信号を使用すること。
+Define the following fixtures in `conftest.py`. Use deterministic signals rather than random data.
 
-- **`channel_frame`**: 標準的な複数チャンネルフレーム。解析解が既知の決定論的信号を使用する。
-- **`mono_frame`**: 単チャンネルフレーム。解析解が既知の決定論的信号を使用する。
+- **`channel_frame`**: Standard multi-channel frame. Use deterministic signals with known analytical solutions.
+- **`mono_frame`**: Single-channel frame. Use deterministic signals with known analytical solutions.
 
-不変性・構造テストで信号内容が関係ない場合は、シード固定乱数も許容されるが、決定論的信号を優先すること。
+Seeded random data is acceptable for immutability/structural tests where signal content is irrelevant, but deterministic signals are preferred.
 
 ---
 
 ## Frame Types & Their Test Concerns
 
-### ChannelFrame (時間領域)
-- **不変性**: 全演算で返り値が元のインスタンスと異なること、元データが変化していないことを検証する
-- **チャンネル操作**: `add_channel`, `remove_channel`, `rename_channels` 後のラベルと data の整合性を検証する
-- **スライシング**: int / slice / bool mask / label-based インデックスで正しいチャンネルが返ることを検証する
-- **Dask laziness**: 演算後の `_data` が `DaskArray` インスタンスであることを検証する
+### ChannelFrame (time domain)
+- **Immutability**: Verify that the return value differs from the original instance and that original data is unchanged for all operations
+- **Channel operations**: Verify label and data consistency after `add_channel`, `remove_channel`, `rename_channels`
+- **Slicing**: Verify that correct channels are returned for int / slice / bool mask / label-based indexing
+- **Dask laziness**: Verify that `_data` is a `DaskArray` instance after operations
 
-### SpectralFrame (周波数領域)
-- **Complex data 型**: `.data` が複素数配列であることを検証する
-- **Derived properties**: `magnitude`, `phase`, `power`, `dB`, `dBA` が数学的に正しいことを検証する
-- **周波数軸**: `frequency` 配列が Nyquist 周波数まで正しく構成されていることを検証する
+### SpectralFrame (frequency domain)
+- **Complex data type**: Verify that `.data` is a complex array
+- **Derived properties**: Verify that `magnitude`, `phase`, `power`, `dB`, `dBA` are mathematically correct
+- **Frequency axis**: Verify that the `frequency` array is correctly constructed up to the Nyquist frequency
 
-### SpectrogramFrame (時間-周波数領域)
-- **3 次元性**: shape が `(n_channels, n_freq_bins, n_time_frames)` であることを検証する
-- **ISTFT round-trip**: 逆変換で元の時間領域信号が `atol=1e-6` 以内で復元できることを検証する
-- **時間軸・周波数軸**: 両軸のメタデータが正確であることを検証する
+### SpectrogramFrame (time-frequency domain)
+- **3D shape**: Verify that shape is `(n_channels, n_freq_bins, n_time_frames)`
+- **ISTFT round-trip**: Verify that the original time-domain signal can be recovered within `atol=1e-6` by the inverse transform
+- **Time and frequency axes**: Verify that metadata for both axes is accurate
 
-### RoughnessFrame, NOctFrame (特殊解析)
-- **MoSQITo 等価性**: Wandas は MoSQITo をラップしているため、外部ライブラリとの結果が完全に一致することを検証する
-- **物理量メタデータ**: 単位（sone, asper 等）が正しく設定されていることを検証する
+### RoughnessFrame, NOctFrame (specialized analysis)
+- **MoSQITo equivalence**: Since Wandas wraps MoSQITo, verify that results match the external library exactly
+- **Physical quantity metadata**: Verify that units (sone, asper, etc.) are correctly set
 
 ---
 
 ## Required Test Categories per Frame Operation
 
-新しい Frame メソッドを追加する場合、以下の 4 カテゴリを必ず含めること:
+When adding a new Frame method, always include the following 4 categories:
 
-**1. Immutability** — 元のフレームが変更されないこと:
-演算前に元データをコピーし、演算後に元インスタンスのデータが変化していないこと、かつ返り値が新しいインスタンスであることを `assert result is not channel_frame` で検証すること。
+**1. Immutability** — the original frame must not be modified:
+Copy the original data before the operation, then verify with `assert result is not channel_frame` that the original instance's data has not changed and that the return value is a new instance.
 
-**2. Metadata Propagation** — サンプリングレートと history が正しく更新されること:
-演算後のサンプリングレートが保持されていることを検証すること。履歴を記録する設計のメソッドでは `operation_history` の件数がちょうど 1 件増加していることを検証し、チャンネル集合を変更するだけの構造的操作（`add_channel` / `remove_channel` / `rename_channels` など）では `operation_history` が変化していないことを検証すること。
+**2. Metadata Propagation** — sampling rate and history are correctly updated:
+Verify that the sampling rate is preserved after the operation. For methods designed to record history, verify that the `operation_history` count increases by exactly 1. For structural operations that only modify the channel collection (`add_channel` / `remove_channel` / `rename_channels`, etc.), verify that `operation_history` remains unchanged.
 
-**3. Lazy Evaluation** — Dask 配列が保持されること:
-演算後の `result._data` が `dask.array.core.Array` のインスタンスであることを検証すること。
+**3. Lazy Evaluation** — Dask array is preserved:
+Verify that `result._data` is an instance of `dask.array.core.Array` after the operation.
 
-**4. Chaining** — チェーン呼び出しに対応していること:
-演算結果に続けて `.normalize()` 等を呼び出せること、返り値の型が `ChannelFrame` であることを検証すること。
+**4. Chaining** — supports chained calls:
+Verify that subsequent calls like `.normalize()` can be made on the operation result, and that the return type is `ChannelFrame`.
 
 ---
 
 ## Domain Transition Test Patterns
 
-ドメインが変わる処理（`fft()`, `stft()`, `loudness()` 等）では追加の検証が必要:
+Domain-changing operations (`fft()`, `stft()`, `loudness()`, etc.) require additional verification:
 
-- 返り値の型が正しいフレーム型（`SpectralFrame` 等）に変換されていることを検証する
-- 周波数ビン数が理論値（FFT の場合 N/2+1）と一致することを検証する
-- サンプリングレートが正しく引き継がれていることを検証する
+- Verify that the return value type is converted to the correct frame type (e.g., `SpectralFrame`)
+- Verify that the frequency bin count matches the theoretical value (N/2+1 for FFT)
+- Verify that the sampling rate is correctly inherited
 
 ---
 
 ## Channel Collection Test Patterns
 
-マルチチャンネル操作のテストで特に注意すべき点:
+Key considerations for multi-channel operation tests:
 
-- `add_channel` 後のラベルと data の順序が一致すること
-- 重複ラベルは `ValueError` になること
-- 長さが違うデータを追加した場合は `ValueError` になること
+- Label and data order must be consistent after `add_channel`
+- Duplicate labels must raise `ValueError`
+- Adding data with different length must raise `ValueError`
 
 ---
 
 ## Indexing Test Matrix
 
-ChannelFrame のインデックスアクセスはテストカバレッジが重要:
+Test coverage for ChannelFrame index access is important:
 
 | Index Type | Example | Expected Behavior |
 |-----------|---------|-------------------|
