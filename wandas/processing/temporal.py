@@ -336,7 +336,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
-    """Time-varying sound pressure level with frequency and time weighting."""
+    """Time-weighted RMS or sound level with frequency and time weighting."""
 
     name = "sound_level"
 
@@ -346,6 +346,7 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
         ref: list[float] | float = 1.0,
         freq_weighting: str | None = "Z",
         time_weighting: str = "Fast",
+        dB: bool = False,  # noqa: N803
     ) -> None:
         validate_sampling_rate(sampling_rate)
         self.ref = np.atleast_1d(np.asarray(ref, dtype=float))
@@ -358,11 +359,13 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
             )
         self.freq_weighting = self._normalize_freq_weighting(freq_weighting)
         self.time_weighting = self._normalize_time_weighting(time_weighting)
+        self.dB = dB
         super().__init__(
             sampling_rate,
             ref=self.ref,
             freq_weighting=self.freq_weighting,
             time_weighting=self.time_weighting,
+            dB=dB,
         )
 
     @staticmethod
@@ -402,7 +405,9 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def get_display_name(self) -> str:
         """Get display name for the operation for use in channel labels."""
-        return f"L{self.freq_weighting}{self.time_weighting[0]}"
+        if self.dB:
+            return f"L{self.freq_weighting}{self.time_weighting[0]}"
+        return f"{self.freq_weighting}{self.time_weighting[0]}RMS"
 
     def _reference_squared(self, n_channels: int) -> NDArrayReal:
         """Return squared reference pressure for each channel."""
@@ -435,11 +440,14 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
         squared = np.square(weighted)
         alpha = float(np.exp(-1.0 / (self.sampling_rate * self.time_constant)))
         smoothed = lfilter([1.0 - alpha], [1.0, -alpha], squared, axis=-1)
-        ref_squared_broadcast = self._reference_squared(smoothed.shape[0])[:, np.newaxis]
-        result = np.asarray(
-            10.0 * np.log10(np.maximum(smoothed / ref_squared_broadcast, MIN_SOUND_LEVEL_POWER_RATIO)),
-            dtype=np.float64,
-        )
+        if self.dB:
+            ref_squared_broadcast = self._reference_squared(smoothed.shape[0])[:, np.newaxis]
+            result = np.asarray(
+                10.0 * np.log10(np.maximum(smoothed / ref_squared_broadcast, MIN_SOUND_LEVEL_POWER_RATIO)),
+                dtype=np.float64,
+            )
+        else:
+            result = np.asarray(np.sqrt(smoothed), dtype=np.float64)
         logger.debug(f"Sound level applied, returning result with shape: {result.shape}")
         return result
 

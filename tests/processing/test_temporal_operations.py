@@ -421,7 +421,7 @@ class TestSoundLevel:
         """Set up test fixtures for each test."""
         self.sample_rate: int = 16000
         self.duration_seconds: float = 8.0
-        self.amplitude: float = 1.0
+        self.amplitude: float = 2.0
         t = np.linspace(0, self.duration_seconds, int(self.duration_seconds * self.sample_rate), endpoint=False)
         self.low_freq: float = 50.0
         self.low_freq_signal: NDArrayReal = np.array([self.amplitude * np.sin(2 * np.pi * self.low_freq * t)])
@@ -435,10 +435,16 @@ class TestSoundLevel:
 
     def test_initialization(self) -> None:
         """Test initialization with different parameters."""
-        op = SoundLevel(self.sample_rate, freq_weighting="A", time_weighting="Fast", ref=2e-5)
+        op = SoundLevel(self.sample_rate, freq_weighting="A", time_weighting="Fast", ref=2e-5, dB=True)
         assert op.sampling_rate == self.sample_rate
         assert op.freq_weighting == "A"
         assert op.time_weighting == "Fast"
+        assert op.dB is True
+
+    def test_initialization_defaults_to_linear_rms_output(self) -> None:
+        """Test that sound level defaults to linear time-weighted RMS output."""
+        op = SoundLevel(self.sample_rate, ref=2e-5)
+        assert op.dB is False
 
     def test_sound_level_shape(self) -> None:
         """Test that sound level preserves input shape."""
@@ -449,40 +455,88 @@ class TestSoundLevel:
     @pytest.mark.parametrize(("curve", "expected_gain"), [("Z", 1.0), ("A", None), ("C", None)])
     def test_sound_level_matches_theoretical_weighted_power(self, curve: str, expected_gain: float | None) -> None:
         """Test weighted sound level against theoretical steady-state power."""
+        # 1. Obtain the theoretical gain (absolute value of the transfer function)
         if expected_gain is None:
             sos = frequency_weighting(self.sample_rate, curve=curve, output="sos")
-            normalized_frequency = 2 * np.pi * self.low_freq / self.sample_rate
-            _, response = scipy_signal.sosfreqz(sos, worN=[normalized_frequency])
+            _, response = scipy_signal.freqz_sos(sos, worN=[self.low_freq], fs=self.sample_rate)
             expected_gain = float(np.abs(response[0]))
 
-        operation = SoundLevel(self.sample_rate, ref=1.0, freq_weighting=curve, time_weighting="Fast")
-        result = operation.process(self.dask_low_freq).compute()
+        # 2. Calculate the theoretical expected power
+        # P = (A * G / sqrt(2))^2  => squared RMS of a sine wave
+        expected_rms = (self.amplitude * expected_gain) / np.sqrt(2.0)
+        expected_power = expected_rms**2
 
-        tail = slice(result.shape[-1] // 2, None)
-        power_ratio = np.power(10.0, result[..., tail] / 10.0)
-        expected_power_ratio = (self.amplitude**2) * (expected_gain**2) / 2.0
+        # 3. Process signal and convert dB back to linear power
+        operation = SoundLevel(self.sample_rate, ref=1.0, freq_weighting=curve, time_weighting="Fast", dB=True)
+        result_db = operation.process(self.dask_low_freq).compute()
 
+        # Extract steady-state power from the latter half of the result
+        steady_state_db = result_db[..., result_db.shape[-1] // 2 :]
+        measured_power = np.mean(10.0 ** (steady_state_db / 10.0))
+
+        # 4. Verification
         np.testing.assert_allclose(
-            np.mean(power_ratio, axis=-1),
-            np.array([expected_power_ratio]),
-            rtol=5e-5,
+            measured_power,
+            expected_power,
+            rtol=1e-6,
+            atol=0.0,
+        )
+
+    @pytest.mark.parametrize(("curve", "expected_gain"), [("Z", 1.0), ("A", None), ("C", None)])
+    def test_sound_level_linear_output_matches_theoretical_weighted_rms(
+        self, curve: str, expected_gain: float | None
+    ) -> None:
+        """Test linear output against theoretical time-weighted RMS."""
+        # 1. Obtain the theoretical gain (absolute value of the transfer function)
+        if expected_gain is None:
+            sos = frequency_weighting(self.sample_rate, curve=curve, output="sos")
+            _, response = scipy_signal.freqz_sos(sos, worN=[self.low_freq], fs=self.sample_rate)
+            expected_gain = float(np.abs(response[0]))
+
+        # 2. Calculate the theoretical expected power of the weighted sine wave
+        expected_rms = (self.amplitude * expected_gain) / np.sqrt(2.0)
+        expected_power = expected_rms**2
+
+        # 3. Process signal using linear output and extract the steady-state region
+        operation = SoundLevel(self.sample_rate, ref=1.0, freq_weighting=curve, time_weighting="Fast", dB=False)
+        result_rms = operation.process(self.dask_low_freq).compute()
+        steady_state_rms = result_rms[..., result_rms.shape[-1] // 2 :]
+        measured_power = np.mean(np.square(steady_state_rms))
+
+        # 4. Verification
+        np.testing.assert_allclose(
+            measured_power,
+            expected_power,
+            rtol=1e-6,
             atol=0.0,
         )
 
     @pytest.mark.parametrize(("time_weighting", "tau"), [("Fast", 0.125), ("Slow", 1.0)])
     def test_time_weighting_matches_theoretical_rc_formula(self, time_weighting: str, tau: float) -> None:
-        """Test time weighting against the exact discrete-time RC step response."""
-        operation = SoundLevel(self.sample_rate, ref=1.0, freq_weighting="Z", time_weighting=time_weighting)
-        result = operation.process(self.dask_step).compute()
+        """
+        Test if the time weighting (Fast/Slow) correctly follows the
+        theoretical discrete-time RC step response.
+        """
+        # 1. Setup the sound level operation with Z-weighting (flat)
+        operation = SoundLevel(self.sample_rate, ref=1.0, freq_weighting="Z", time_weighting=time_weighting, dB=True)
+        result_db = operation.process(self.dask_step).compute()
 
-        power_ratio = np.power(10.0, result / 10.0)
+        # 2. Linearize: convert dB output back to power ratio
+        measured_power = 10.0 ** (result_db / 10.0)
+
+        # 3. Calculate theoretical parameters
         alpha = np.exp(-1.0 / (self.sample_rate * tau))
-        n = np.arange(self.step_signal.shape[-1] - self.step_start, dtype=np.float64)
-        expected = (self.step_amplitude**2) * (1.0 - np.power(alpha, n + 1.0))
+        num_samples = self.step_signal.shape[-1] - self.step_start
+        n = np.arange(num_samples, dtype=np.float64)
 
+        # 4. Generate the expected step response curve
+        input_power = self.step_amplitude**2
+        expected_power = input_power * (1.0 - alpha ** (n + 1.0))
+
+        # 5. Verify that the measured power curve matches the theoretical RC response
         np.testing.assert_allclose(
-            power_ratio[0, self.step_start :],
-            expected,
+            measured_power[0, self.step_start :],
+            expected_power,
             rtol=1e-6,
             atol=0.0,
         )
@@ -491,11 +545,14 @@ class TestSoundLevel:
         """Test that SoundLevel is properly registered in the operation registry."""
         assert get_operation("sound_level") == SoundLevel
 
-        sound_level_op = create_operation("sound_level", 16000, freq_weighting="A", time_weighting="Slow", ref=2e-5)
+        sound_level_op = create_operation(
+            "sound_level", 16000, freq_weighting="A", time_weighting="Slow", ref=2e-5, dB=True
+        )
 
         assert isinstance(sound_level_op, SoundLevel)
         assert sound_level_op.freq_weighting == "A"
         assert sound_level_op.time_weighting == "Slow"
+        assert sound_level_op.dB is True
 
 
 # Register FixLength in the operation registry (if not done in __init__.py)
