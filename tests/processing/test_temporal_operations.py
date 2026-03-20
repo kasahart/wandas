@@ -491,9 +491,7 @@ class TestSoundLevel:
         )
 
     @pytest.mark.parametrize(("curve", "expected_gain"), [("Z", 1.0), ("A", None), ("C", None)])
-    def test_sound_level_linear_output_matches_theoretical_weighted_rms(
-        self, curve: str, expected_gain: float | None
-    ) -> None:
+    def test_linear_output_matches_theoretical_weighted_rms(self, curve: str, expected_gain: float | None) -> None:
         """Test linear output against theoretical time-weighted RMS."""
         # 1. Obtain the theoretical gain (absolute value of the transfer function)
         if expected_gain is None:
