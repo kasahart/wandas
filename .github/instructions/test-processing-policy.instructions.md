@@ -4,103 +4,103 @@ applyTo: "tests/processing/**"
 ---
 # Wandas Test Policy: Processing (`tests/processing/`)
 
-Processing テストは「数値計算の正確性」と「音響物理学の妥当性」を検証する層です。
-`wandas/processing/` は純粋な数値ロジック層であり、frame のメタデータを扱いません。
-このテストでは「数値が物理的に正しいか」と「外部権威との一致」に集中します。
+Processing tests verify **numerical computation accuracy** and **acoustic physics validity**.
+`wandas/processing/` is a pure numerical logic layer that does not handle frame metadata.
+These tests focus on **whether numbers are physically correct** and **agreement with external authorities**.
 
-**前提**: このファイルは [test-grand-policy.instructions.md](test-grand-policy.instructions.md) と同時に適用されます。
+**Prerequisite**: This file is applied together with [test-grand-policy.instructions.md](test-grand-policy.instructions.md).
 
 ---
 
 ## Common Fixtures for Processing Tests
 
-Processing 層の fixture は `(DaskArray, int)` タプルを返す（`_dask` suffix で命名）。
-Frame を経由しない純粋な数値検証に使用する。`wandas.utils.dask_helpers.da_from_array` で `chunks=(1, -1)` の channel-wise chunks を作成すること。
+Processing-layer fixtures return `(DaskArray, int)` tuples (named with `_dask` suffix).
+Used for pure numerical verification without going through frames. Create channel-wise chunks of `chunks=(1, -1)` with `wandas.utils.dask_helpers.da_from_array`.
 
-以下の標準 fixture を `conftest.py` に定義すること:
+Define the following standard fixtures in `conftest.py`:
 
-- **`sine_1khz_48k_dask`**: 1 kHz 純音（SR=48000 Hz、1秒）。心理音響テストの標準信号。
-- **`calibrated_sine_1khz_70dB_dask`**: 70 dB SPL の 1 kHz 純音（SR=48000 Hz）。IEC 規格準拠の心理音響テスト用。振幅は `p_ref=2e-5 Pa` から `amplitude = p_ref * 10**(70/20) * sqrt(2)` で計算する。
-- **`dual_tone_16k_dask`**: 50 Hz + 1000 Hz の合成音（SR=16000 Hz）。フィルタの通過・遮断特性の検証に使用。
-- **`impulse_16k_dask`**: 単位インパルス（SR=16000 Hz）。フィルタのインパルス応答検証に使用。
+- **`sine_1khz_48k_dask`**: 1 kHz pure tone (SR=48000 Hz, 1 second). Standard signal for psychoacoustic tests.
+- **`calibrated_sine_1khz_70dB_dask`**: 1 kHz pure tone at 70 dB SPL (SR=48000 Hz). For IEC-compliant psychoacoustic tests. Compute amplitude from `p_ref=2e-5 Pa` as `amplitude = p_ref * 10**(70/20) * sqrt(2)`.
+- **`dual_tone_16k_dask`**: Composite tone of 50 Hz + 1000 Hz (SR=16000 Hz). Used to verify filter pass/stop characteristics.
+- **`impulse_16k_dask`**: Unit impulse (SR=16000 Hz). Used to verify filter impulse responses.
 
 ---
 
 ## Processing Module Test Strategy
 
-### AudioOperation 基底クラス
-以下の動作を検証すること:
-- `__init__` でのパラメータバリデーション（WHAT/WHY/HOW エラーメッセージ）
-- `process()` が DaskArray を受け取り DaskArray を返すこと
-- `get_metadata_updates()` が正しい dict を返すこと
-- `get_display_name()` がフォーマット通りの文字列を返すこと
+### AudioOperation Base Class
+Verify the following behavior:
+- Parameter validation in `__init__` (WHAT/WHY/HOW error messages)
+- `process()` accepts a DaskArray and returns a DaskArray
+- `get_metadata_updates()` returns the correct dict
+- `get_display_name()` returns a correctly formatted string
 
 ### Per-Module Requirements
 
 | Module | Reference Library | Key Verification |
 |--------|------------------|-----------------|
-| `filters.py` | `scipy.signal` | 周波数応答特性、遮断特性 |
-| `spectral.py` | `scipy.signal`, `librosa` | FFT ピーク位置、STFT shape |
-| `psychoacoustic.py` | `mosqito` | ラウドネス/ラフネス/シャープネス値 |
-| `weighting.py` | `scipy.signal` | A/C 特性の周波数応答 |
-| `temporal.py` | `numpy` | RMS, ゼロクロス率等の統計量 |
-| `stats.py` | `numpy`, `scipy.stats` | 統計量の正確性 |
-| `effects.py` | なし（理論値で検証） | フェード、クリッピング等 |
+| `filters.py` | `scipy.signal` | Frequency response characteristics, stopband attenuation |
+| `spectral.py` | `scipy.signal`, `librosa` | FFT peak position, STFT shape |
+| `psychoacoustic.py` | `mosqito` | Loudness/roughness/sharpness values |
+| `weighting.py` | `scipy.signal` | A/C weighting frequency response |
+| `temporal.py` | `numpy` | RMS, zero-crossing rate, and other statistics |
+| `stats.py` | `numpy`, `scipy.stats` | Statistical accuracy |
+| `effects.py` | None (verify against theoretical values) | Fade, clipping, etc. |
 
 ---
 
 ## Filter Tests: Frequency Domain Verification
 
-フィルタテストでは、時間領域の波形ではなく **周波数領域での減衰量** を検証すること。
-フィルタ適用後の FFT スペクトルを取得し、各周波数成分の振幅比が設計上の理論値と相対誤差 1E-6 以内で一致することを検証する。
+For filter tests, verify **attenuation in the frequency domain** rather than time-domain waveforms.
+Obtain the FFT spectrum after applying the filter, and verify that the amplitude ratio of each frequency component matches the designed theoretical value within a relative error of 1E-6.
 
-また、Wrapper Equivalence として `scipy.signal.filtfilt(b, a, x)` と比較すること。`LowPassFilter` の実装は `scipy.signal.butter(order, cutoff/nyquist, btype="low")` で係数を生成し `scipy.signal.filtfilt(b, a, x, axis=1)` で適用するため、同じ呼び出しと完全一致する。
+Also compare against `scipy.signal.filtfilt(b, a, x)` as Wrapper Equivalence. Since `LowPassFilter` generates coefficients with `scipy.signal.butter(order, cutoff/nyquist, btype="low")` and applies them with `scipy.signal.filtfilt(b, a, x, axis=1)`, the same call yields an exact match.
 
 ### Filter Edge Cases
-- カットオフ周波数が 0 以下、または Nyquist 周波数（`sampling_rate / 2`）以上の場合に `ValueError` が送出されることを検証すること。
+- Verify that a `ValueError` is raised when the cutoff frequency is ≤ 0 or ≥ the Nyquist frequency (`sampling_rate / 2`).
 
 ---
 
 ## Spectral Tests: Known-Signal Verification
 
-FFT/STFT テストでは、解析的に予測可能な信号を使用すること。
+Use analytically predictable signals for FFT/STFT tests.
 
-注意: クラス名は `FFT` および `STFT`（`FFTOperation` / `STFTOperation` ではない）。
+Note: Class names are `FFT` and `STFT` (not `FFTOperation` / `STFTOperation`).
 
-- **FFT ピーク検証**: `n_fft=sr`（1 Hz/bin）で 1 kHz 純音の FFT を計算し、ピークビンが 1000 ±1 の範囲内にあることを検証する。
-- **STFT shape 検証**: `n_fft=1024` の STFT を計算し、周波数軸のビン数が `1024 // 2 + 1 = 513` であることを検証する。
+- **FFT peak verification**: Compute the FFT of a 1 kHz pure tone with `n_fft=sr` (1 Hz/bin) and verify that the peak bin is within 1000 ±1.
+- **STFT shape verification**: Compute STFT with `n_fft=1024` and verify that the number of frequency bins is `1024 // 2 + 1 = 513`.
 
 ---
 
 ## Psychoacoustic Tests: MoSQITo Reference Verification
 
-Wandas は MoSQITo をラップしているため、心理音響演算の結果は MoSQITo の参照実装と **完全に一致** しなければならない。
-IEC 規格に準拠した校正済み信号（既知の音圧レベル、1秒以上）を使い、Wandas の演算結果と MoSQITo の `loudness_zwtv` 等を直接呼び出した結果が完全一致することを検証する。
+Since Wandas wraps MoSQITo, psychoacoustic computation results must **exactly match** the MoSQITo reference implementation.
+Use IEC-compliant calibrated signals (known sound pressure level, 1 second or more) and verify that Wandas computation results exactly match the results of direct calls to MoSQITo's `loudness_zwtv`, etc.
 
 ---
 
 ## A-Weighting Tests: Known Frequency Response
 
-A 特性フィルタは 1 kHz で 0 dB と定義されている。テストでは「理論値」を周波数応答として定義し、以下のいずれかの手順で検証すること:
+The A-weighting filter is defined as 0 dB at 1 kHz. Tests should define the "theoretical value" as the frequency response, and verify using one of the following approaches:
 
-- `A_weighting(fs, output="sos")` から得た係数に対して `scipy.signal.sosfreqz`/`freqz` 等で周波数応答を計算し、そのゲインと理論 A 特性曲線が十分小さい誤差（例: 相対誤差 1e-6 程度）で一致することを確認する。
-- 既知の周波数の純音を入力信号として用いる場合は、`sosfilt` が因果フィルタであることに注意し、立ち上がり過渡を含む区間を評価から除外したうえで入出力の RMS 比を dB 換算し、理論周波数応答と十分小さい誤差で一致することを確認する（評価区間の取り方と許容誤差をテスト内で明示すること）。
+- Compute the frequency response from coefficients obtained via `A_weighting(fs, output="sos")` using `scipy.signal.sosfreqz`/`freqz`, and verify that the gain matches the theoretical A-weighting curve within sufficiently small error (e.g., relative error ~1e-6).
+- When using a known-frequency pure tone as the input signal, note that `sosfilt` is a causal filter; exclude the transient rise period from evaluation, compute the RMS ratio of input and output in dB, and verify it matches the theoretical frequency response within sufficiently small error (explicitly document the evaluation window and tolerance in the test).
 ---
 
 ## Operation Registration & Display Name Tests
 
-- `create_operation` のキーは **レジストリ名**（例: `"lowpass_filter"`）であり、フレームメソッド名（`"low_pass_filter"`）とは異なる。`create_operation("lowpass_filter", ...)` が `None` 以外を返すことを検証すること。
-- `LowPassFilter.get_display_name()` は `"lpf"` を返す（パラメータは含まない）。
+- The key for `create_operation` is the **registry name** (e.g., `"lowpass_filter"`), which differs from the frame method name (`"low_pass_filter"`). Verify that `create_operation("lowpass_filter", ...)` returns something other than `None`.
+- `LowPassFilter.get_display_name()` returns `"lpf"` (no parameters included).
 
 ---
 
 ## Anti-Patterns Specific to Processing Tests
 
-以下のパターンは Processing テストの価値を損なうため避けること:
+Avoid the following patterns as they undermine the value of Processing tests:
 
-- **時間領域のみの検証**: フィルタ結果を時間領域で `assert result is not None` のみ検証しても、フィルタの品質は何も保証しない。必ず周波数領域で減衰量を検証すること。
-- **自己参照的な期待値**: 自前で実装した関数で期待値を計算するのは「自己採点」に等しく、バグを検出できない。SciPy・librosa・MoSQITo 等の外部ライブラリを「権威」として使用すること。
-- **心理音響テストの MoSQITo 比較省略**: `result.mean() > 0` のような検証は正しさを保証しない。必ず MoSQITo の参照実装と数値比較すること。
+- **Time-domain-only verification**: Verifying filter results only with `assert result is not None` in the time domain guarantees nothing about filter quality. Always verify attenuation in the frequency domain.
+- **Self-referential expected values**: Computing expected values with your own implementation is equivalent to "grading your own homework" and cannot detect bugs. Use external libraries (SciPy, librosa, MoSQITo, etc.) as the "authority".
+- **Skipping MoSQITo comparison in psychoacoustic tests**: Verification like `result.mean() > 0` does not guarantee correctness. Always compare numerically against the MoSQITo reference implementation.
 
 ---
 
