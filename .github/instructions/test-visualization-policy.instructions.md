@@ -46,7 +46,7 @@ Visualization テストは「プロット生成の正しさ」と「フレーム
 
 - `"waveform"` を渡すと `plot` メソッドを持つ Strategy オブジェクトが返ること
 - `"frequency"`, `"spectrogram"`, `"describe"` 等の登録済みプロット種別がすべて dispatch できること
-- 未登録の文字列を渡すと `ValueError` または `KeyError` が送出されること
+- 未登録の文字列を渡すと `ValueError` が送出されること
 
 ---
 
