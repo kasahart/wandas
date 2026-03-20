@@ -446,6 +446,12 @@ class TestSoundLevel:
         op = SoundLevel(self.sample_rate, ref=2e-5)
         assert op.dB is False
 
+        explicit_linear = SoundLevel(self.sample_rate, ref=2e-5, dB=False)
+        default_result = op.process(self.dask_low_freq).compute()
+        explicit_result = explicit_linear.process(self.dask_low_freq).compute()
+
+        np.testing.assert_allclose(default_result, explicit_result)
+
     def test_sound_level_shape(self) -> None:
         """Test that sound level preserves input shape."""
         op = SoundLevel(self.sample_rate, ref=1.0)
