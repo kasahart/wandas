@@ -421,6 +421,8 @@ class TestSoundLevel:
         """Set up test fixtures for each test."""
         self.sample_rate: int = 16000
         self.duration_seconds: float = 8.0
+        # Use amplitude 2.0 so squaring changes the magnitude and theoretical checks
+        # can catch power/RMS mistakes more easily than with amplitude 1.0.
         self.amplitude: float = 2.0
         t = np.linspace(0, self.duration_seconds, int(self.duration_seconds * self.sample_rate), endpoint=False)
         self.low_freq: float = 50.0
