@@ -600,6 +600,34 @@ class TestPlotting:
 
         plt.close("all")  # すべての図を閉じる
 
+    def test_noct_plot_custom_label(self) -> None:
+        """ユーザー指定のlabelがNOctPlotStrategyで適用されることを確認するテスト"""
+        from wandas.visualization.plotting import NOctPlotStrategy
+
+        strategy = NOctPlotStrategy()
+
+        # overlay=True でカスタムラベルが凡例に反映されることを確認
+        result = strategy.plot(self.mock_noct_frame, overlay=True, label="My Custom Label")
+        assert isinstance(result, Axes)
+        legend = result.get_legend()
+        assert legend is not None
+        legend_texts = [t.get_text() for t in legend.get_texts()]
+        assert "My Custom Label" in legend_texts
+
+        plt.close("all")
+
+        # overlay=False でカスタムラベルが各チャネルの凡例に反映されることを確認
+        result = strategy.plot(self.mock_noct_frame, overlay=False, label="Custom Ch Label")
+        assert isinstance(result, Iterator)
+        axes_list = list(result)
+        for ax_i in axes_list:
+            legend = ax_i.get_legend()
+            assert legend is not None
+            legend_texts = [t.get_text() for t in legend.get_texts()]
+            assert "Custom Ch Label" in legend_texts
+
+        plt.close("all")
+
     def test_matrix_plot_strategy(self) -> None:
         """MatrixPlotStrategyのテスト"""
         from wandas.visualization.plotting import MatrixPlotStrategy
