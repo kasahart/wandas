@@ -21,7 +21,9 @@ try:
     from mosqito.sq_metrics import sharpness_din_tv as sharpness_din_tv_mosqito
 
     _MOSQITO_AVAILABLE = True
-except ImportError:
+except ModuleNotFoundError as exc:
+    if exc.name != "mosqito" and not (exc.name and exc.name.startswith("mosqito.")):
+        raise
     _MOSQITO_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
