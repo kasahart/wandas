@@ -271,6 +271,14 @@ def register_operation(operation_class: type) -> None:
     if inspect.isabstract(operation_class):
         raise TypeError("Cannot register abstract AudioOperation class.")
 
+    existing = _OPERATION_REGISTRY.get(operation_class.name)
+    if (
+        existing is not None
+        and existing.__module__ == operation_class.__module__
+        and existing.__qualname__ == operation_class.__qualname__
+    ):
+        return
+
     _OPERATION_REGISTRY[operation_class.name] = operation_class
 
 

@@ -9,33 +9,21 @@ import logging
 from typing import Any
 
 import numpy as np
+from mosqito.sq_metrics import loudness_zwst as loudness_zwst_mosqito
+from mosqito.sq_metrics import loudness_zwtv as loudness_zwtv_mosqito
+from mosqito.sq_metrics import roughness_dw as roughness_dw_mosqito
+from mosqito.sq_metrics import sharpness_din_st as sharpness_din_st_mosqito
+from mosqito.sq_metrics import sharpness_din_tv as sharpness_din_tv_mosqito
 
-from wandas.processing.base import AudioOperation, register_operation
+from wandas.processing.base import AudioOperation, get_operation, register_operation
 from wandas.utils.types import NDArrayReal
-
-try:
-    from mosqito.sq_metrics import loudness_zwst as loudness_zwst_mosqito
-    from mosqito.sq_metrics import loudness_zwtv as loudness_zwtv_mosqito
-    from mosqito.sq_metrics import roughness_dw as roughness_dw_mosqito
-    from mosqito.sq_metrics import sharpness_din_st as sharpness_din_st_mosqito
-    from mosqito.sq_metrics import sharpness_din_tv as sharpness_din_tv_mosqito
-
-    _MOSQITO_AVAILABLE = True
-except ModuleNotFoundError as exc:
-    if exc.name != "mosqito" and not (exc.name and exc.name.startswith("mosqito.")):
-        raise
-    _MOSQITO_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
 
-def _require_mosqito() -> None:
-    """Raise ImportError with installation instructions if mosqito is not installed."""
-    if not _MOSQITO_AVAILABLE:
-        raise ImportError(
-            "mosqito is required for psychoacoustic metrics but is not installed.\n"
-            'Install it with: pip install "wandas[analysis]"'
-        )
+def _register_canonical(operation_class: type[AudioOperation[Any, Any]]) -> None:
+    register_operation(operation_class)
+    globals()[operation_class.__name__] = get_operation(operation_class.name)
 
 
 class LoudnessZwtv(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -192,7 +180,6 @@ class LoudnessZwtv(AudioOperation[NDArrayReal, NDArrayReal]):
         behavior (typically 2ms time steps).
         """
         logger.debug(f"Calculating loudness for signal with shape: {x.shape}, field_type: {self.field_type}")
-        _require_mosqito()
 
         # Handle 1D input (single channel)
         if x.ndim == 1:
@@ -228,7 +215,7 @@ class LoudnessZwtv(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 # Register the operation
-register_operation(LoudnessZwtv)
+_register_canonical(LoudnessZwtv)
 
 
 class LoudnessZwst(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -378,7 +365,6 @@ class LoudnessZwst(AudioOperation[NDArrayReal, NDArrayReal]):
         logger.debug(
             f"Calculating steady-state loudness for signal with shape: {x.shape}, field_type: {self.field_type}"
         )
-        _require_mosqito()
 
         # Handle 1D input (single channel)
         if x.ndim == 1:
@@ -410,7 +396,7 @@ class LoudnessZwst(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 # Register the operation
-register_operation(LoudnessZwst)
+_register_canonical(LoudnessZwst)
 
 
 class RoughnessDw(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -581,7 +567,6 @@ class RoughnessDw(AudioOperation[NDArrayReal, NDArrayReal]):
         using the roughness_dw_spec method.
         """
         logger.debug(f"Calculating roughness for signal with shape: {x.shape}, overlap: {self.overlap}")
-        _require_mosqito()
 
         # Handle 1D input (single channel)
         if x.ndim == 1:
@@ -620,7 +605,7 @@ class RoughnessDw(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 # Register the operation
-register_operation(RoughnessDw)
+_register_canonical(RoughnessDw)
 
 
 class RoughnessDwSpec(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -639,7 +624,6 @@ class RoughnessDwSpec(AudioOperation[NDArrayReal, NDArrayReal]):
     _bark_axis_cache: dict[tuple[float, float], NDArrayReal] = {}
 
     def __init__(self, sampling_rate: float, overlap: float = 0.5) -> None:
-        _require_mosqito()
         self.overlap = overlap
         self.validate_params()
         # Check cache first to avoid redundant MoSQITo calls
@@ -745,7 +729,7 @@ class RoughnessDwSpec(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 # Register the operation
-register_operation(RoughnessDwSpec)
+_register_canonical(RoughnessDwSpec)
 
 
 class SharpnessDin(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -935,7 +919,6 @@ class SharpnessDin(AudioOperation[NDArrayReal, NDArrayReal]):
         behavior (typically 2ms time steps).
         """
         logger.debug(f"Calculating sharpness for signal with shape: {x.shape}")
-        _require_mosqito()
 
         # Handle 1D input (single channel)
         if x.ndim == 1:
@@ -976,7 +959,7 @@ class SharpnessDin(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 # Register the operation
-register_operation(SharpnessDin)
+_register_canonical(SharpnessDin)
 
 
 class SharpnessDinSt(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -1151,7 +1134,6 @@ class SharpnessDinSt(AudioOperation[NDArrayReal, NDArrayReal]):
             f"Calculating steady-state sharpness for signal with shape: {x.shape}, "
             f"weighting: {self.weighting}, field_type: {self.field_type}"
         )
-        _require_mosqito()
 
         # Handle 1D input (single channel)
         if x.ndim == 1:
@@ -1187,4 +1169,4 @@ class SharpnessDinSt(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 # Register the operation
-register_operation(SharpnessDinSt)
+_register_canonical(SharpnessDinSt)
