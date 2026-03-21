@@ -679,3 +679,80 @@ class TestRmsTrendMetadataUpdates:
 
         expected_sr = 48000 / hop_length
         assert np.isclose(updates["sampling_rate"], expected_sr)
+
+
+class TestTemporalHelperMethods:
+    """Target helper methods and edge branches for temporal operations."""
+
+    def test_resampling_helper_methods(self) -> None:
+        """Resampling helper methods should report output metadata consistently."""
+        operation = ReSampling(44100, 22050)
+
+        assert operation.get_metadata_updates() == {"sampling_rate": 22050}
+        assert operation.calculate_output_shape((2, 441)) == (2, 221)
+        assert operation.get_display_name() == "rs"
+
+    def test_trim_helper_methods_cap_output_length_to_input(self) -> None:
+        """Trim should cap the output length when end exceeds the input length."""
+        operation = Trim(1000, start=0.1, end=2.0)
+
+        assert operation.calculate_output_shape((2, 500)) == (2, 400)
+        assert operation.get_display_name() == "trim"
+
+    def test_fix_length_helper_methods(self) -> None:
+        """FixLength helper methods should expose target length metadata."""
+        operation = FixLength(16000, duration=0.25)
+
+        assert operation.target_length == 4000
+        assert operation.calculate_output_shape((2, 16000)) == (2, 4000)
+        assert operation.get_display_name() == "fix"
+
+    def test_rms_trend_helper_methods(self) -> None:
+        """RmsTrend helper methods should report derived sampling information."""
+        operation = RmsTrend(16000, frame_length=512, hop_length=128, dB=True)
+
+        assert operation.get_display_name() == "RMS"
+        assert operation.get_metadata_updates() == {"sampling_rate": 125.0}
+        assert operation.calculate_output_shape((2, 16000)) == (2, 126)
+
+    def test_sound_level_helper_methods_and_reference_validation(self) -> None:
+        """SoundLevel helper methods should validate references and expose helpers."""
+        linear_operation = SoundLevel(
+            16000,
+            ref=1.0,
+            freq_weighting=None,
+            time_weighting="fast",
+            dB=False,
+        )
+        db_operation = SoundLevel(
+            16000,
+            ref=[1.0, 2.0],
+            freq_weighting="c",
+            time_weighting="s",
+            dB=True,
+        )
+
+        assert linear_operation.calculate_output_shape((2, 16)) == (2, 16)
+        assert linear_operation.time_constant == 0.125
+        assert linear_operation.get_display_name() == "ZFRMS"
+        assert np.array_equal(linear_operation._reference_squared(2), np.array([1.0, 1.0]))
+        assert linear_operation._output_dtype(np.dtype(np.float32)) == np.dtype(np.float32)
+        assert linear_operation._output_dtype(np.dtype(np.int16)) == np.dtype(np.float64)
+
+        assert db_operation.time_weighting == "Slow"
+        assert db_operation.freq_weighting == "C"
+        assert db_operation.time_constant == 1.0
+        assert db_operation.get_display_name() == "LCS"
+        assert np.array_equal(db_operation._reference_squared(2), np.array([1.0, 4.0]))
+
+        with pytest.raises(ValueError, match="Reference count mismatch"):
+            db_operation._reference_squared(3)
+
+        with pytest.raises(ValueError, match="Invalid sound level reference"):
+            SoundLevel(16000, ref=0.0)
+
+        with pytest.raises(ValueError, match="Invalid frequency weighting"):
+            SoundLevel(16000, ref=1.0, freq_weighting="B")
+
+        with pytest.raises(ValueError, match="Invalid time weighting"):
+            SoundLevel(16000, ref=1.0, time_weighting="Medium")

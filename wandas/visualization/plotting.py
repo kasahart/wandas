@@ -218,10 +218,6 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
                 xlabel=xlabel,
                 **ax_set,
             )
-            if ax is None:
-                fig.suptitle(title or bf.label or None)
-                plt.tight_layout()
-                plt.show()
             return ax
         else:
             num_channels = bf.n_channels
@@ -326,9 +322,6 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
                 title=title or bf.label or "Channel Data",
                 **ax_set,
             )
-            if ax is None:
-                plt.tight_layout()
-                plt.show()
             return ax
         else:
             num_channels = bf.n_channels
@@ -426,9 +419,6 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
                 title=actual_title,
                 **ax_set,
             )
-            if ax is None:
-                plt.tight_layout()
-                plt.show()
             return ax
         else:
             num_channels = bf.n_channels
@@ -801,8 +791,6 @@ class MatrixPlotStrategy(PlotStrategy["SpectralFrame"]):
             plt.tight_layout()
             plt.show()
             return _return_axes_iterator(fig.axes)
-
-        raise NotImplementedError()
 
 
 # Maintain mapping of plot types to corresponding classes
