@@ -513,7 +513,8 @@ class TestSoundLevel:
 
         result_da = float32_operation.process(dask_f32)
         result = result_da.compute()
-        reference = float64_reference.process(self.dask_low_freq).compute()
+        # Use the same underlying samples as the float32 path, but cast to float64
+        reference = float64_reference.process(dask_f32.astype(np.float64)).compute()
 
         assert float32_operation.freq_weighting == "Z"
         assert float32_operation.time_weighting == "Slow"
