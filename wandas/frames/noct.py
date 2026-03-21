@@ -9,10 +9,10 @@ import librosa
 import numpy as np
 import pandas as pd
 from dask.array.core import Array as DaArray
+from mosqito.sound_level_meter.noct_spectrum._center_freq import _center_freq
 
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
-from wandas.utils.noct import center_freq as _center_freq
 from wandas.utils.types import NDArrayReal
 
 if TYPE_CHECKING:

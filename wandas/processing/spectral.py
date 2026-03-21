@@ -2,11 +2,11 @@ import logging
 
 import numpy as np
 from mosqito.sound_level_meter import noct_spectrum, noct_synthesis
+from mosqito.sound_level_meter.noct_spectrum._center_freq import _center_freq
 from scipy.signal import ShortTimeFFT
 from scipy.signal.windows import get_window
 
 from wandas.processing.base import AudioOperation, register_operation
-from wandas.utils.noct import center_freq as _center_freq
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 logger = logging.getLogger(__name__)
