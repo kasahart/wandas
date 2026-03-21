@@ -384,7 +384,9 @@ class ChannelProcessingMixin:
         frame = cast(ProcessingFrameProtocol, self)
 
         ref_values: list[float] = []
-        if hasattr(frame, "_channel_metadata") and frame._channel_metadata:
+        if hasattr(frame, "_channel_metadata") and frame._channel_metadata and any(
+            ch.unit or ch.ref != 1.0 for ch in frame._channel_metadata
+        ):
             ref_values = [ch.ref for ch in frame._channel_metadata]
 
         result = self.apply_operation(

@@ -1,8 +1,11 @@
 import logging
-from typing import Any
+from typing import Any, Union
 
+import dask.array as da
 import librosa
 import numpy as np
+from dask.array.core import Array as DaskArray
+from dask.delayed import delayed
 from scipy.signal import lfilter
 
 from wandas.processing.base import AudioOperation, register_operation
@@ -403,6 +406,15 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
         """Sound level keeps the same channel and sample dimensions."""
         return input_shape
 
+    @staticmethod
+    def _output_dtype(
+        input_dtype: np.dtype[Any],
+    ) -> Union[np.dtype[np.float32], np.dtype[np.float64]]:
+        """Return the floating output dtype for the given input dtype."""
+        if np.dtype(input_dtype) == np.dtype(np.float32):
+            return np.dtype(np.float32)
+        return np.dtype(np.float64)
+
     def get_display_name(self) -> str:
         """Get display name for the operation for use in channel labels."""
         if self.dB:
@@ -432,14 +444,15 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
             self.freq_weighting,
             self.time_weighting,
         )
-        input_dtype = x.dtype
-        x_f64 = x if x.dtype == np.float64 else np.asarray(x, dtype=np.float64)
+        output_dtype = self._output_dtype(x.dtype)
+        working_dtype = np.float32 if output_dtype == np.dtype(np.float32) else np.float64
+        weighted_input = x if x.dtype == working_dtype else np.asarray(x, dtype=working_dtype)
         if self.freq_weighting == "Z":
-            weighted = x_f64
+            weighted = weighted_input
         else:
-            weighted = frequency_weight(x_f64, self.sampling_rate, curve=self.freq_weighting)
+            weighted = frequency_weight(weighted_input, self.sampling_rate, curve=self.freq_weighting)
         squared = np.square(weighted)
-        alpha = float(np.exp(-1.0 / (self.sampling_rate * self.time_constant)))
+        alpha = np.asarray(np.exp(-1.0 / (self.sampling_rate * self.time_constant)), dtype=working_dtype).item()
         smoothed = lfilter([1.0 - alpha], [1.0, -alpha], squared, axis=-1)
         if self.dB:
             ref_squared_broadcast = self._reference_squared(smoothed.shape[0])[:, np.newaxis]
@@ -447,7 +460,15 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
         else:
             result = np.sqrt(smoothed)
         logger.debug(f"Sound level applied, returning result with shape: {result.shape}")
-        return np.asarray(result, dtype=input_dtype)
+        return np.asarray(result, dtype=output_dtype)
+
+    def process(self, data: DaskArray) -> DaskArray:
+        """Execute sound level with floating output dtype metadata."""
+        logger.debug("Adding delayed sound level operation to computation graph")
+        wrapper = self._create_named_wrapper()
+        delayed_result = delayed(wrapper, pure=self.pure)(data)
+        output_shape = self.calculate_output_shape(data.shape)
+        return da.from_delayed(delayed_result, shape=output_shape, dtype=self._output_dtype(data.dtype))
 
 
 # Register all operations

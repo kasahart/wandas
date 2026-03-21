@@ -460,6 +460,38 @@ class TestSoundLevel:
         result = op.process(self.dask_low_freq).compute()
         assert result.shape == self.low_freq_signal.shape
 
+    def test_integer_input_returns_float64_and_matches_float_input_values(self) -> None:
+        """Integer input should produce float output without truncation."""
+        signal_int = np.array([[0, 1000, -1000, 500, -500, 250, -250]], dtype=np.int16)
+        signal_float = signal_int.astype(np.float64)
+        dask_int = _da_from_array(signal_int, chunks=(1, -1))
+        dask_float = _da_from_array(signal_float, chunks=(1, -1))
+
+        operation = SoundLevel(self.sample_rate, ref=1.0, freq_weighting="Z", time_weighting="Fast", dB=False)
+
+        int_result_da = operation.process(dask_int)
+        float_result_da = operation.process(dask_float)
+
+        assert int_result_da.dtype == np.float64
+
+        int_result = int_result_da.compute()
+        float_result = float_result_da.compute()
+
+        assert int_result.dtype == np.float64
+        np.testing.assert_allclose(int_result, float_result)
+
+    def test_float32_input_preserves_float32_output_dtype(self) -> None:
+        """float32 input should keep float32 output metadata and computed dtype."""
+        signal_f32 = self.low_freq_signal.astype(np.float32)
+        dask_f32 = _da_from_array(signal_f32, chunks=(1, -1))
+        operation = SoundLevel(self.sample_rate, ref=1.0, freq_weighting="Z", time_weighting="Fast", dB=False)
+
+        result_da = operation.process(dask_f32)
+        result = result_da.compute()
+
+        assert result_da.dtype == np.float32
+        assert result.dtype == np.float32
+
     @pytest.mark.parametrize(("curve", "expected_gain"), [("Z", 1.0), ("A", None), ("C", None)])
     def test_sound_level_matches_theoretical_weighted_power(self, curve: str, expected_gain: float | None) -> None:
         """Test weighted sound level against theoretical steady-state power."""

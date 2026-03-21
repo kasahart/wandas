@@ -65,7 +65,12 @@ def _return_axes_iterator(axes_list: Any) -> Iterator[Axes]:
     return iter(axes_list)
 
 
-def _resolve_channel_label(label: "str | Sequence[str] | None", ch_meta: "ChannelMetadata", channel_index: int) -> str:
+def _resolve_channel_label(
+    label: "str | Sequence[str] | None",
+    ch_meta: "ChannelMetadata",
+    channel_index: int,
+    n_channels: int,
+) -> str:
     """Resolve the label for a single channel in the non-overlay (per-subplot) path.
 
     Parameters
@@ -79,6 +84,9 @@ def _resolve_channel_label(label: "str | Sequence[str] | None", ch_meta: "Channe
         Metadata for the current channel (provides the default label).
     channel_index : int
         Zero-based index of the current channel in the frame.
+    n_channels : int
+        Total number of channels in the frame. Used to validate per-channel
+        label sequences before indexing.
 
     Returns
     -------
@@ -90,6 +98,13 @@ def _resolve_channel_label(label: "str | Sequence[str] | None", ch_meta: "Channe
     if isinstance(label, str):
         return label
     if isinstance(label, Sequence):
+        if len(label) != n_channels:
+            raise ValueError(
+                "Channel label count mismatch\n"
+                f"  Got: {len(label)} labels for {n_channels} channels\n"
+                "  Expected: One label per channel in non-overlay mode\n"
+                "Provide label as a single string for all channels or a sequence matching the channel count."
+            )
         return str(label[channel_index])
     return str(label)
 
@@ -221,7 +236,7 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
                     bf.time,
                     channel_data,
                     ax_i,
-                    label=_resolve_channel_label(label, ch_meta, ch_idx),
+                    label=_resolve_channel_label(label, ch_meta, ch_idx, num_channels),
                     alpha=alpha,
                     **plot_kwargs,
                 )
@@ -328,7 +343,7 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
                     bf.freqs,
                     channel_data,
                     ax_i,
-                    label=_resolve_channel_label(label, ch_meta, ch_idx),
+                    label=_resolve_channel_label(label, ch_meta, ch_idx, num_channels),
                     alpha=alpha,
                     **plot_kwargs,
                 )
@@ -428,7 +443,7 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
                     bf.freqs,
                     channel_data,
                     ax_i,
-                    label=_resolve_channel_label(label, ch_meta, ch_idx),
+                    label=_resolve_channel_label(label, ch_meta, ch_idx, num_channels),
                     alpha=alpha,
                     **plot_kwargs,
                 )
