@@ -628,6 +628,58 @@ class TestPlotting:
 
         plt.close("all")
 
+    def test_waveform_plot_custom_label(self) -> None:
+        """ユーザー指定のlabelがWaveformPlotStrategyで適用されることを確認するテスト"""
+        strategy = WaveformPlotStrategy()
+
+        # overlay=True でカスタムラベルが凡例に反映されることを確認
+        result = strategy.plot(self.mock_channel_frame, overlay=True, label="My Waveform Label")
+        assert isinstance(result, Axes)
+        legend = result.get_legend()
+        assert legend is not None
+        legend_texts = [t.get_text() for t in legend.get_texts()]
+        assert "My Waveform Label" in legend_texts
+
+        plt.close("all")
+
+        # overlay=False でカスタムラベルが各チャネルの凡例に反映されることを確認
+        result = strategy.plot(self.mock_channel_frame, overlay=False, label="Custom Waveform Label")
+        assert isinstance(result, Iterator)
+        axes_list = list(result)
+        for ax_i in axes_list:
+            legend = ax_i.get_legend()
+            assert legend is not None
+            legend_texts = [t.get_text() for t in legend.get_texts()]
+            assert "Custom Waveform Label" in legend_texts
+
+        plt.close("all")
+
+    def test_frequency_plot_custom_label(self) -> None:
+        """ユーザー指定のlabelがFrequencyPlotStrategyで適用されることを確認するテスト"""
+        strategy = FrequencyPlotStrategy()
+
+        # overlay=True でカスタムラベルが凡例に反映されることを確認
+        result = strategy.plot(self.mock_spectral_frame, overlay=True, label="My Frequency Label")
+        assert isinstance(result, Axes)
+        legend = result.get_legend()
+        assert legend is not None
+        legend_texts = [t.get_text() for t in legend.get_texts()]
+        assert "My Frequency Label" in legend_texts
+
+        plt.close("all")
+
+        # overlay=False でカスタムラベルが各チャネルの凡例に反映されることを確認
+        result = strategy.plot(self.mock_spectral_frame, overlay=False, label="Custom Frequency Label")
+        assert isinstance(result, Iterator)
+        axes_list = list(result)
+        for ax_i in axes_list:
+            legend = ax_i.get_legend()
+            assert legend is not None
+            legend_texts = [t.get_text() for t in legend.get_texts()]
+            assert "Custom Frequency Label" in legend_texts
+
+        plt.close("all")
+
     def test_matrix_plot_strategy(self) -> None:
         """MatrixPlotStrategyのテスト"""
         from wandas.visualization.plotting import MatrixPlotStrategy
