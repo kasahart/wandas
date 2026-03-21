@@ -4,7 +4,7 @@ applyTo: ".github/agents/**"
 ---
 # Agent Maintenance & Evolution Prompt
 
-Use this prompt when modifying `.github/agents/` or `.github/instructions/` files, or when creating new custom agents.
+Use this prompt when modifying `.github/agents/` files, when creating new custom agents, or as manual guidance for related `.github/instructions/` maintenance.
 
 ## Core Principle: Keep Agents Connected
 - **Linkage Rule**: If you create a new instruction file (e.g., `instructions/new-topic.instructions.md`), you **must** update the relevant agent file (e.g., `wandas-planner.agent.md`) to reference it using a Markdown link.
@@ -17,9 +17,11 @@ Use this prompt when modifying `.github/agents/` or `.github/instructions/` file
 - **Custom prompts**: Files ending in **`.prompt.md`** support `name`, `description`, `model`, `tools`,
   `argument-hint` frontmatter. Use this for manually-invoked prompts.
 
-## Current Instruction Files
+## Current Active Instruction Files
 
-### Auto-applied Instruction Files (.github/instructions/)
+### Active `.instructions.md` Files (.github/instructions/)
+
+Only the `.instructions.md` files in this directory are live agent guidance. Archived review notes should live outside `.github/instructions/` so they are not presented as active instructions.
 
 | File | applyTo | Purpose |
 |------|---------|---------|
@@ -47,7 +49,9 @@ When the `wandas-publisher` agent triggers a retrospective:
 4. **Verify**: Ensure the new instructions don't contradict `copilot-instructions.md`.
 
 ## Implementation Mode for Agent Updates
-- **Who**: Use the `wandas-implementer` agent, but explicitly state "I am updating agent configurations" in the prompt.
+- **Who**: Use the full `wandas-planner` -> `wandas-implementer` -> `wandas-reviewer` flow for substantive or multi-file customization updates, and explicitly state "I am updating agent configurations" in the implementation prompt.
+- **Narrow exception**: A low-risk fix to one existing `.github/` customization file may be edited directly when it is only a wording, link, or YAML/frontmatter correction and does not change tools, handoffs, roles, or workflow semantics.
+- **Docs validation**: Reserve `Build MkDocs Documentation` for changes to `docs/`, `src/`, `README.md`, or other MkDocs-backed user-facing markdown. For `.github/` customization-only work, validate by reading the modified Markdown/YAML, checking problems, and verifying linked paths instead.
 - **Verification**: Since you cannot "test" an agent change with `pytest`, you must:
   1. Read the modified `.agent.md` file to verify syntax.
   2. Check that all file paths in links are valid (use `ls` or `fileSearch`).

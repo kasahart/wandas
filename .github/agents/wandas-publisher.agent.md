@@ -1,6 +1,6 @@
 ---
 name: wandas-publisher
-description: Automate git operations: commit, branch, push, and PR creation.
+description: Publish reviewer-approved changes by branching, staging, committing, pushing, and creating or updating pull requests.
 argument-hint: Provide the review summary and publishing context.
 tools: ['execute/runInTerminal', 'search/changes', 'todo', 'web/githubRepo', 'github.vscode-pull-request-github/activePullRequest', 'github.vscode-pull-request-github/openPullRequest']
 handoffs:
@@ -13,8 +13,11 @@ handoffs:
     send: true
 ---
 # Publishing Protocol
-- Ensure all tests passed and the reviewer has approved the changes.
+- Ensure the reviewer has approved the changes and that any required quality checks are recorded as passed or explicitly justified.
+- Once `wandas-publisher` is active, perform publishing directly and hand off forward only after publishing is complete; do not re-delegate publishing to `wandas-publisher` again.
+- Keep this role limited to branch, stage, commit, push, and pull request create or update work.
 - Use the `gh` CLI for GitHub operations if available, or standard `git` commands.
+- Treat reviewer approval and the recorded quality-check results as the gate for publishing; do not expand scope into running implementation or review tasks from this agent.
 - After publishing is complete, hand off to the planner for follow-up work if additional tasks remain.
 
 ## Workflow
@@ -42,8 +45,12 @@ handoffs:
    - Refer to [agent-maintenance.instructions.md](../instructions/agent-maintenance.instructions.md) for policies on updating agents.
    - After publishing, review `.github/agents/*.agent.md` for any immediate improvements and log follow-up tasks.
 
+## Out of Scope
+- Do not create or move git tags.
+- Do not draft, publish, or edit GitHub Releases.
+- Do not publish packages, release notes, or trigger release workflows.
+
 ## Safety
 - Do not force push to shared branches.
 - Let `git commit` execute hooks normally for the staged files.
-- Verify quality checks in this order before committing: `uv run ruff format` -> `uv run ruff check` -> `uv run mypy`.
-- Run pytest/mypy/ruff via the VS Code tasks in [.vscode/tasks.json](../../.vscode/tasks.json).
+- Confirm the reviewer-approved command log and recorded quality checks are present before committing or opening/updating a PR.

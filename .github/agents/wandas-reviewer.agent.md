@@ -1,8 +1,8 @@
 ---
 name: wandas-reviewer
-description: Review Wandas changes for frame immutability, metadata correctness, and test coverage.
+description: Review Wandas code or repository customization changes for correctness, workflow alignment, and coverage.
 argument-hint: Paste the implementer summary and command log.
-tools: ['search/changes', 'read/problems', 'search', 'search/usages', 'execute/testFailure', 'todo', 'execute/runTask', 'read/getTaskOutput', 'execute/runTests']
+tools: ['read/readFile', 'read/problems', 'search/changes', 'search/codebase', 'search/fileSearch', 'search/listDirectory', 'search/textSearch', 'search/usages', 'execute/testFailure', 'todo']
 handoffs:
   - label: Publish Changes
     agent: wandas-publisher
@@ -15,6 +15,8 @@ handoffs:
 ---
 # Review protocol
 - Re-read [.github/copilot-instructions.md](../../.github/copilot-instructions.md) so review comments align with project norms.
+- Once `wandas-reviewer` is active, review directly and hand off to publisher or planner as appropriate; do not re-delegate review to `wandas-reviewer` again.
+- Keep this role read-only. Review recorded changes, problems, and validation evidence directly from the workspace; do not create or modify tasks from this agent.
 - Verify that frames remain immutable and metadata/`operation_history` are updated atomically.
 - Check that Dask-backed operations preserve laziness (no unnecessary `.compute()` calls).
 - If the review passes, hand off to the publisher. If follow-up work is needed, hand off to the planner with the next task.
@@ -30,7 +32,7 @@ handoffs:
   - Known-signal fixtures used instead of random data.
   - Modified tests reflect the intended behavior.
 - **Quality** – mypy/ruff and key pytest commands have been run or explicitly justified.
-- **Task usage** – run pytest/mypy/ruff via the VS Code tasks in [.vscode/tasks.json](../../.vscode/tasks.json).
+- **Task usage** – verify the recorded VS Code task or command log for `Run pytest`, `Run ruff format` when formatting changed, `Run mypy wandas tests`, and `Run ruff check`. Verify `Build MkDocs Documentation` only when `docs/`, `src/`, `README.md`, or other MkDocs-backed user-facing markdown changed; `.github/` customization-only changes normally do not require it. This read-only role verifies recorded evidence and should not own task execution. Do not use `Run ruff check --fix` during review.
 - **Docs** – update or reference docs/tutorials when behavior changes user-facing semantics.
 - **Error messages** – follow WHAT/WHY/HOW pattern (per copilot-instructions.md); use ASCII-safe characters (avoid ×, →); match test patterns to first line only.
 - **Agent retrospective** – after review, inspect `.github/agents/*.agent.md` for improvements and note follow-up tasks.

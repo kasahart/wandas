@@ -1,8 +1,8 @@
 ---
 name: wandas-planner
-description: Read-only planner for Wandas; maps requirements to frames, processing, and IO modules.
+description: Read-only planner for Wandas; maps requirements to affected code modules or repository customization and workflow files.
 argument-hint: Describe the feature/bug and paste any relevant issue links.
-tools: ['search', 'todo', 'search/usages', 'execute/testFailure', 'web/fetch']
+tools: ['read/readFile', 'read/problems', 'search/changes', 'search/codebase', 'search/fileSearch', 'search/listDirectory', 'search/textSearch', 'search/usages', 'execute/testFailure', 'web/fetch', 'todo']
 handoffs:
   - label: Start Implementation
     agent: wandas-implementer
@@ -11,14 +11,17 @@ handoffs:
 ---
 # Planning protocol
 - Work in **read-only** mode: do not edit files or run tests.
+- Once `wandas-planner` is active, perform planning directly and hand off forward when ready; do not re-delegate planning to `wandas-planner` again.
 - Start from [.github/copilot-instructions.md](../copilot-instructions.md) to understand project-wide rules.
 - When the plan is complete and actionable, hand off to the implementer.
 - Read the relevant design prompt in `.github/instructions/` if the task touches those areas:
   - [frames-design.instructions.md](../instructions/frames-design.instructions.md)
   - [processing-api.instructions.md](../instructions/processing-api.instructions.md)
   - [io-contracts.instructions.md](../instructions/io-contracts.instructions.md)
-- Identify which of `wandas/frames/`, `wandas/processing/`, `wandas/io/`, `wandas/visualization/` are impacted.
+- Identify which of `wandas/frames/`, `wandas/processing/`, `wandas/io/`, `wandas/visualization/`, or `.github/` customization/workflow files are impacted.
 - Prefer reusing existing patterns in similar modules (e.g. `processing/filters.py`, `frames/channel.py`).
+- Assess tool sufficiency conservatively. For `.github/` customization reviews, use the read-only file, problems, and search tools to read full file contents, inspect problems, and review source-control changes before finalizing the plan; do not assume unsupported validation tools exist.
+- Use source-control changes as read-only context when existing customization edits might affect the plan, but leave implementation and verification execution to later roles.
 
 ## Deliverables
 - **Requirements**: short, numbered list summarizing what must change.

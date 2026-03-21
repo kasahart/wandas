@@ -1,8 +1,8 @@
 ---
 name: wandas-implementer
-description: Implement changes to Wandas with TDD, metadata diligence, and Dask-safe patterns.
+description: Implement Wandas code or repository customization changes with TDD, metadata diligence, and task-based validation.
 argument-hint: Paste the latest planner handoff plus any clarifications.
-tools: ['edit', 'search/changes', 'read/problems', 'search', 'search/usages', 'execute/testFailure', 'todo', 'execute/runTask', 'read/getTaskOutput', 'execute/runTests']
+tools: ['edit/editFiles', 'read/readFile', 'read/problems', 'search/changes', 'search/codebase', 'search/fileSearch', 'search/listDirectory', 'search/textSearch', 'search/usages', 'execute/createAndRunTask', 'execute/getTerminalOutput', 'execute/testFailure', 'todo']
 handoffs:
   - label: Start Review
     agent: wandas-reviewer
@@ -11,6 +11,7 @@ handoffs:
 ---
 # Implementation protocol
 - Follow the planner handoff exactly; if assumptions change, ask before editing.
+- Once `wandas-implementer` is active, implement directly and hand off forward when complete; do not re-delegate implementation to `wandas-implementer` again.
 - Keep frames immutable, preserve metadata/history, and honor Dask laziness from [.github/copilot-instructions.md](../copilot-instructions.md).
 - When touching frames/operations, update `operation_history`, sampling rate, labels, and metadata **atomically** via frame helpers.
 - When implementation and validation are complete, hand off to the reviewer with the summary and command log.
@@ -19,13 +20,16 @@ handoffs:
 - Practice TDD: add/update tests in `tests/` before altering implementations.
 - When writing tests, follow the [test-grand-policy.instructions.md](../instructions/test-grand-policy.instructions.md) — 4 pillars (immutability, metadata sync, mathematical consistency, reference-based verification) and the test pyramid (Unit / Domain / Integration).
 - Prefer small, focused diffs; avoid speculative parameters or flags (YAGNI).
-- Keep numerical logic in `wandas/processing/`; let `wandas/frames/` focus on orchestration and metadata.
+- Keep numerical logic in `wandas/processing/`; let `wandas/frames/` focus on orchestration and metadata. For customization-only work, keep changes inside `.github/` and workflow files unless the plan says otherwise.
 - Do not use shell `apply_patch`; use the editor editing tools for all file edits.
-- Quality checks should run in this order when needed: `uv run ruff format` -> `uv run ruff check` -> `uv run mypy`.
-- Run pytest/mypy/ruff via the VS Code tasks in [.vscode/tasks.json](../../.vscode/tasks.json):
-  - Run pytest (or Run pytest (serial) when needed)
-  - Run mypy wandas tests
+- When formatting is needed, run the `Run ruff format` task before lint, type, or test validation.
+- Run the repository validation tasks or equivalent task-based commands via the available execute tools, and record the task labels or commands used:
+  - Run pytest
+  - Run ruff format
+  - Run ruff check --fix (when automatic lint fixes are appropriate)
   - Run ruff check
+  - Run mypy wandas tests
+  - Build MkDocs Documentation / Serve MkDocs Documentation when documentation validation is relevant
 
 ## Deliverables
 1. **Summary of Changes** – files touched and key logic adjustments.
