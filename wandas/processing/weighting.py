@@ -60,9 +60,7 @@ def ABC_weighting(curve: str = "A") -> tuple[NDArrayReal, NDArrayReal, float]:  
     """
     allowed_curves = {"A", "B", "C"}
     if curve not in allowed_curves:
-        raise ValueError(
-            f"Curve type not understood: {curve!r}. Expected one of {sorted(allowed_curves)}."
-        )
+        raise ValueError(f"Curve type not understood: {curve!r}. Expected one of {sorted(allowed_curves)}.")
 
     # ANSI S1.4-1983 C weighting
     #    2 poles on the real axis at "20.6 Hz" HPF
@@ -153,9 +151,7 @@ def frequency_weighting(fs: float, curve: str = "A", output: str = "ba") -> Any:
     normalized_curve = str(curve).upper()
     allowed_curves = {"A", "B", "C"}
     if normalized_curve not in allowed_curves:
-        raise ValueError(
-            f"Curve type not understood: {curve!r}. Expected one of {sorted(allowed_curves)}."
-        )
+        raise ValueError(f"Curve type not understood: {curve!r}. Expected one of {sorted(allowed_curves)}.")
 
     z, p, k = ABC_weighting(normalized_curve)
 
