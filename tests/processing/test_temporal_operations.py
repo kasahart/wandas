@@ -2,14 +2,17 @@ import dask.array as da
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
+from scipy import signal as scipy_signal
 
 from wandas.processing.base import create_operation, get_operation, register_operation
 from wandas.processing.temporal import (
     FixLength,
     ReSampling,
     RmsTrend,
+    SoundLevel,
     Trim,
 )
+from wandas.processing.weighting import frequency_weighting
 from wandas.utils.types import NDArrayReal
 
 _da_from_array = da.from_array  # type: ignore [unused-ignore]
@@ -411,6 +414,151 @@ class TestFixLength:
         fix_op2 = create_operation("fix_length", 16000, duration=0.75)
         assert isinstance(fix_op2, FixLength)
         assert fix_op2.target_length == int(0.75 * 16000)
+
+
+class TestSoundLevel:
+    def setup_method(self) -> None:
+        """Set up test fixtures for each test."""
+        self.sample_rate: int = 16000
+        self.duration_seconds: float = 8.0
+        # Use amplitude 2.0 so squaring changes the magnitude and theoretical checks
+        # can catch power/RMS mistakes more easily than with amplitude 1.0.
+        self.amplitude: float = 2.0
+        t = np.linspace(0, self.duration_seconds, int(self.duration_seconds * self.sample_rate), endpoint=False)
+        self.low_freq: float = 50.0
+        self.low_freq_signal: NDArrayReal = np.array([self.amplitude * np.sin(2 * np.pi * self.low_freq * t)])
+        self.dask_low_freq: DaArray = _da_from_array(self.low_freq_signal, chunks=(1, -1))
+
+        self.step_start = self.sample_rate
+        self.step_amplitude: float = 0.5
+        self.step_signal: NDArrayReal = np.zeros((1, 4 * self.sample_rate), dtype=np.float64)
+        self.step_signal[0, self.step_start :] = self.step_amplitude
+        self.dask_step: DaArray = _da_from_array(self.step_signal, chunks=(1, -1))
+
+    def test_initialization(self) -> None:
+        """Test initialization with different parameters."""
+        op = SoundLevel(self.sample_rate, freq_weighting="A", time_weighting="Fast", ref=2e-5, dB=True)
+        assert op.sampling_rate == self.sample_rate
+        assert op.freq_weighting == "A"
+        assert op.time_weighting == "Fast"
+        assert op.dB is True
+
+    def test_initialization_defaults_to_linear_rms_output(self) -> None:
+        """Test that sound level defaults to linear time-weighted RMS output."""
+        op = SoundLevel(self.sample_rate, ref=2e-5)
+        assert op.dB is False
+
+        explicit_linear = SoundLevel(self.sample_rate, ref=2e-5, dB=False)
+        default_result = op.process(self.dask_low_freq).compute()
+        explicit_result = explicit_linear.process(self.dask_low_freq).compute()
+
+        np.testing.assert_allclose(default_result, explicit_result)
+
+    def test_sound_level_shape(self) -> None:
+        """Test that sound level preserves input shape."""
+        op = SoundLevel(self.sample_rate, ref=1.0)
+        result = op.process(self.dask_low_freq).compute()
+        assert result.shape == self.low_freq_signal.shape
+
+    @pytest.mark.parametrize(("curve", "expected_gain"), [("Z", 1.0), ("A", None), ("C", None)])
+    def test_sound_level_matches_theoretical_weighted_power(self, curve: str, expected_gain: float | None) -> None:
+        """Test weighted sound level against theoretical steady-state power."""
+        # 1. Obtain the theoretical gain (absolute value of the transfer function)
+        if expected_gain is None:
+            sos = frequency_weighting(self.sample_rate, curve=curve, output="sos")
+            _, response = scipy_signal.freqz_sos(sos, worN=self.low_freq, fs=self.sample_rate)
+            expected_gain = float(np.abs(np.asarray(response)).item())
+
+        # 2. Calculate the theoretical expected power
+        # P = (A * G / sqrt(2))^2  => squared RMS of a sine wave
+        expected_rms = (self.amplitude * expected_gain) / np.sqrt(2.0)
+        expected_power = expected_rms**2
+
+        # 3. Process signal and convert dB back to linear power
+        operation = SoundLevel(self.sample_rate, ref=1.0, freq_weighting=curve, time_weighting="Fast", dB=True)
+        result_db = operation.process(self.dask_low_freq).compute()
+
+        # Extract steady-state power from the latter half of the result
+        steady_state_db = result_db[..., result_db.shape[-1] // 2 :]
+        measured_power = np.mean(10.0 ** (steady_state_db / 10.0))
+
+        # 4. Verification
+        np.testing.assert_allclose(
+            measured_power,
+            expected_power,
+            rtol=1e-6,
+            atol=0.0,
+        )
+
+    @pytest.mark.parametrize(("curve", "expected_gain"), [("Z", 1.0), ("A", None), ("C", None)])
+    def test_linear_output_matches_theoretical_weighted_rms(self, curve: str, expected_gain: float | None) -> None:
+        """Test linear output against theoretical time-weighted RMS."""
+        # 1. Obtain the theoretical gain (absolute value of the transfer function)
+        if expected_gain is None:
+            sos = frequency_weighting(self.sample_rate, curve=curve, output="sos")
+            _, response = scipy_signal.freqz_sos(sos, worN=self.low_freq, fs=self.sample_rate)
+            expected_gain = float(np.abs(np.asarray(response)).item())
+
+        # 2. Calculate the theoretical expected power of the weighted sine wave
+        expected_rms = (self.amplitude * expected_gain) / np.sqrt(2.0)
+        expected_power = expected_rms**2
+
+        # 3. Process signal using linear output and extract the steady-state region
+        operation = SoundLevel(self.sample_rate, ref=1.0, freq_weighting=curve, time_weighting="Fast", dB=False)
+        result_rms = operation.process(self.dask_low_freq).compute()
+        steady_state_rms = result_rms[..., result_rms.shape[-1] // 2 :]
+        measured_power = np.mean(np.square(steady_state_rms))
+
+        # 4. Verification
+        np.testing.assert_allclose(
+            measured_power,
+            expected_power,
+            rtol=1e-6,
+            atol=0.0,
+        )
+
+    @pytest.mark.parametrize(("time_weighting", "tau"), [("Fast", 0.125), ("Slow", 1.0)])
+    def test_time_weighting_matches_theoretical_rc_formula(self, time_weighting: str, tau: float) -> None:
+        """
+        Test if the time weighting (Fast/Slow) correctly follows the
+        theoretical discrete-time RC step response.
+        """
+        # 1. Setup the sound level operation with Z-weighting (flat)
+        operation = SoundLevel(self.sample_rate, ref=1.0, freq_weighting="Z", time_weighting=time_weighting, dB=True)
+        result_db = operation.process(self.dask_step).compute()
+
+        # 2. Linearize: convert dB output back to power ratio
+        measured_power = 10.0 ** (result_db / 10.0)
+
+        # 3. Calculate theoretical parameters
+        alpha = np.exp(-1.0 / (self.sample_rate * tau))
+        num_samples = self.step_signal.shape[-1] - self.step_start
+        n = np.arange(num_samples, dtype=np.float64)
+
+        # 4. Generate the expected step response curve
+        input_power = self.step_amplitude**2
+        expected_power = input_power * (1.0 - alpha ** (n + 1.0))
+
+        # 5. Verify that the measured power curve matches the theoretical RC response
+        np.testing.assert_allclose(
+            measured_power[0, self.step_start :],
+            expected_power,
+            rtol=1e-6,
+            atol=0.0,
+        )
+
+    def test_operation_registry(self) -> None:
+        """Test that SoundLevel is properly registered in the operation registry."""
+        assert get_operation("sound_level") == SoundLevel
+
+        sound_level_op = create_operation(
+            "sound_level", 16000, freq_weighting="A", time_weighting="Slow", ref=2e-5, dB=True
+        )
+
+        assert isinstance(sound_level_op, SoundLevel)
+        assert sound_level_op.freq_weighting == "A"
+        assert sound_level_op.time_weighting == "Slow"
+        assert sound_level_op.dB is True
 
 
 # Register FixLength in the operation registry (if not done in __init__.py)

@@ -107,6 +107,36 @@ class TestChannelLabelUpdates:
 
         assert result.labels == ["Aw(audio_left)", "Aw(audio_right)"]
 
+    def test_sound_level_updates_labels(self) -> None:
+        """Test that sound_level operation updates channel labels."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[
+                {"label": "audio_left", "unit": "Pa", "extra": {}},
+                {"label": "audio_right", "unit": "Pa", "extra": {}},
+            ],
+        )
+
+        result = frame.sound_level(freq_weighting="A", time_weighting="Fast", dB=True)
+
+        assert result.labels == ["LAF(audio_left)", "LAF(audio_right)"]
+
+    def test_sound_level_linear_output_updates_labels(self) -> None:
+        """Test that linear sound_level output uses RMS-aware labels."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[
+                {"label": "audio_left", "unit": "Pa", "extra": {}},
+                {"label": "audio_right", "unit": "Pa", "extra": {}},
+            ],
+        )
+
+        result = frame.sound_level(freq_weighting="A", time_weighting="Fast", dB=False)
+
+        assert result.labels == ["AFRMS(audio_left)", "AFRMS(audio_right)"]
+
     def test_abs_updates_labels(self) -> None:
         """Test that abs operation updates channel labels."""
         frame = ChannelFrame(

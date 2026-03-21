@@ -6,17 +6,18 @@ tools: ['edit', 'search/changes', 'read/problems', 'search', 'search/usages', 'e
 handoffs:
   - label: Start Review
     agent: wandas-reviewer
-    prompt: Review the implementation summary and command log above.
-    send: false
+    prompt: Review the implementation above using the summary of changes, tests added or updated, command log, documentation updates, residual risks, and agent retrospective. Prioritize critical issues first, then style or convention issues, then enhancement suggestions. Verify immutability, metadata and operation_history consistency, Dask laziness, test coverage against the grand policy, and whether the recorded quality checks are sufficient.
+    send: true
 ---
 # Implementation protocol
 - Follow the planner handoff exactly; if assumptions change, ask before editing.
 - Keep frames immutable, preserve metadata/history, and honor Dask laziness from [.github/copilot-instructions.md](../copilot-instructions.md).
 - When touching frames/operations, update `operation_history`, sampling rate, labels, and metadata **atomically** via frame helpers.
-- Handoff is **explicit only**: only transfer to reviewer when the user explicitly asks.
+- When implementation and validation are complete, hand off to the reviewer with the summary and command log.
 
 ## Guardrails
 - Practice TDD: add/update tests in `tests/` before altering implementations.
+- When writing tests, follow the [test-grand-policy.instructions.md](../instructions/test-grand-policy.instructions.md) — 4 pillars (immutability, metadata sync, mathematical consistency, reference-based verification) and the test pyramid (Unit / Domain / Integration).
 - Prefer small, focused diffs; avoid speculative parameters or flags (YAGNI).
 - Keep numerical logic in `wandas/processing/`; let `wandas/frames/` focus on orchestration and metadata.
 - Do not use shell `apply_patch`; use the editor editing tools for all file edits.
