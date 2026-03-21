@@ -8,7 +8,7 @@ import pytest
 from dask.array.core import Array as DaArray
 
 from wandas.core.metadata import ChannelMetadata
-from wandas.frames.noct import NOctFrame
+from wandas.frames.noct import NOctFrame, _center_freq
 from wandas.utils.types import NDArrayReal
 
 # Reference to dask array functions
@@ -39,8 +39,8 @@ class TestNOctFrame:
         self.fmax: float = 20000.0
 
         # NOctFrameデータ形状: (channels, frequency_bins)
-        # 適当な周波数ビン数を定義（_center_freqの結果に依存するので、実際は計算が必要）
-        self.n_freq_bins: int = 30  # 仮の値
+        _, center_freqs = _center_freq(fmin=self.fmin, fmax=self.fmax, n=self.n, G=self.G, fr=self.fr)
+        self.n_freq_bins = len(center_freqs)
         self.shape: tuple[int, int] = (2, self.n_freq_bins)
         self.real_data: NDArrayReal = create_real_data(self.shape)
         # 遅延実行に対応したデータ構造の使用

@@ -4,6 +4,8 @@ import dask.array as da
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
+from mosqito.sound_level_meter import noct_spectrum, noct_synthesis
+from mosqito.sound_level_meter.noct_spectrum._center_freq import _center_freq
 
 from wandas.processing.base import create_operation, get_operation
 from wandas.processing.spectral import (
@@ -19,14 +21,6 @@ from wandas.processing.spectral import (
     Welch,
 )
 from wandas.utils.types import NDArrayComplex, NDArrayReal
-
-try:
-    from mosqito.sound_level_meter import noct_spectrum, noct_synthesis
-    from mosqito.sound_level_meter.noct_spectrum._center_freq import _center_freq
-
-    _MOSQITO_AVAILABLE = True
-except ModuleNotFoundError:
-    _MOSQITO_AVAILABLE = False
 
 _da_from_array = da.from_array  # type: ignore [unused-ignore]
 
@@ -738,7 +732,6 @@ class TestSTFTOperation:
         assert result.shape[1] == target_length
 
 
-@pytest.mark.skipif(not _MOSQITO_AVAILABLE, reason="mosqito not installed")
 class TestNOctSynthesisOperation:
     def setup_method(self) -> None:
         """Set up test fixtures for each test."""
@@ -1774,7 +1767,6 @@ class TestTransferFunctionOperation:
         assert tf_op.average == "median"
 
 
-@pytest.mark.skipif(not _MOSQITO_AVAILABLE, reason="mosqito not installed")
 class TestNOctSpectrumOperation:
     def setup_method(self) -> None:
         """Set up test fixtures for each test."""
