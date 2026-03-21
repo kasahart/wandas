@@ -85,6 +85,10 @@ These instructions are for AI coding agents (planner, implementer, reviewer) wor
   - Follow existing tests for NaN handling, multi‑channel audio, sampling‑rate changes, large Dask‑backed datasets, and psychoacoustic/spectral metrics.
 
 ## 6. Roles: Planner / Implementer / Reviewer
+- **Delegation requirement**:
+  - When the custom agents are available, agents must route substantive repository work through `wandas-planner`, `wandas-implementer`, and `wandas-reviewer` instead of performing that work directly.
+  - The top-level agent must not bypass that Planner / Implementer / Reviewer flow for edits, test execution, validation, or other substantive repository work.
+  - Narrow exceptions: trivial read-only guidance (for example, answering a simple repository question without changing files) and explicit planning-only requests may be handled without delegation.
 - **Planner**:
   - Use read‑only tools to map which `frames/`, `processing/`, and `io/` modules are affected.
   - Produce a concrete plan tied to specific files, tests to touch, and any risks around metadata consistency, Dask graphs, or performance.
