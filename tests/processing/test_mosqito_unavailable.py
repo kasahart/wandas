@@ -16,15 +16,6 @@ import pytest
 import wandas.frames.noct as noct_module
 import wandas.processing.psychoacoustic as psychoacoustic_module
 import wandas.processing.spectral as spectral_module
-from wandas.processing.psychoacoustic import (
-    LoudnessZwst,
-    LoudnessZwtv,
-    RoughnessDw,
-    RoughnessDwSpec,
-    SharpnessDin,
-    SharpnessDinSt,
-)
-from wandas.processing.spectral import NOctSpectrum, NOctSynthesis
 
 _da_from_array = da.from_array  # type: ignore [unused-ignore]
 
@@ -34,6 +25,14 @@ _MODULES_UNDER_TEST = (
     psychoacoustic_module,
     noct_module,
 )
+
+
+def _psychoacoustic_class(name: str) -> type:
+    return getattr(psychoacoustic_module, name)
+
+
+def _spectral_class(name: str) -> type:
+    return getattr(spectral_module, name)
 
 
 def _reload_with_import_error(
@@ -73,7 +72,7 @@ class TestPsychoacousticUnavailable:
     def test_loudness_zwtv_raises(self, mosqito_unavailable: None) -> None:
         t = np.linspace(0, 0.1, int(48000 * 0.1))
         signal = np.array([np.sin(2 * np.pi * 1000 * t)])
-        op = LoudnessZwtv(48000)
+        op = _psychoacoustic_class("LoudnessZwtv")(48000)
         dask_signal = _da_from_array(signal)
         with pytest.raises(ImportError, match=_INSTALL_HINT):
             op.process(dask_signal).compute()
@@ -81,7 +80,7 @@ class TestPsychoacousticUnavailable:
     def test_loudness_zwst_raises(self, mosqito_unavailable: None) -> None:
         t = np.linspace(0, 0.1, int(48000 * 0.1))
         signal = np.array([np.sin(2 * np.pi * 1000 * t)])
-        op = LoudnessZwst(48000)
+        op = _psychoacoustic_class("LoudnessZwst")(48000)
         dask_signal = _da_from_array(signal)
         with pytest.raises(ImportError, match=_INSTALL_HINT):
             op.process(dask_signal).compute()
@@ -89,19 +88,19 @@ class TestPsychoacousticUnavailable:
     def test_roughness_dw_raises(self, mosqito_unavailable: None) -> None:
         t = np.linspace(0, 1.0, int(44100 * 1.0))
         signal = np.array([np.sin(2 * np.pi * 1000 * t)])
-        op = RoughnessDw(44100)
+        op = _psychoacoustic_class("RoughnessDw")(44100)
         dask_signal = _da_from_array(signal)
         with pytest.raises(ImportError, match=_INSTALL_HINT):
             op.process(dask_signal).compute()
 
     def test_roughness_dw_spec_raises(self, mosqito_unavailable: None) -> None:
         with pytest.raises(ImportError, match=_INSTALL_HINT):
-            RoughnessDwSpec(44100)
+            _psychoacoustic_class("RoughnessDwSpec")(44100)
 
     def test_sharpness_din_raises(self, mosqito_unavailable: None) -> None:
         t = np.linspace(0, 0.1, int(48000 * 0.1))
         signal = np.array([np.sin(2 * np.pi * 1000 * t)])
-        op = SharpnessDin(48000)
+        op = _psychoacoustic_class("SharpnessDin")(48000)
         dask_signal = _da_from_array(signal)
         with pytest.raises(ImportError, match=_INSTALL_HINT):
             op.process(dask_signal).compute()
@@ -109,7 +108,7 @@ class TestPsychoacousticUnavailable:
     def test_sharpness_din_st_raises(self, mosqito_unavailable: None) -> None:
         t = np.linspace(0, 0.1, int(48000 * 0.1))
         signal = np.array([np.sin(2 * np.pi * 1000 * t)])
-        op = SharpnessDinSt(48000)
+        op = _psychoacoustic_class("SharpnessDinSt")(48000)
         dask_signal = _da_from_array(signal)
         with pytest.raises(ImportError, match=_INSTALL_HINT):
             op.process(dask_signal).compute()
@@ -120,11 +119,11 @@ class TestSpectralUnavailable:
 
     def test_noct_spectrum_raises(self, mosqito_unavailable: None) -> None:
         with pytest.raises(ImportError, match=_INSTALL_HINT):
-            NOctSpectrum(48000, fmin=20.0, fmax=20000.0)
+            _spectral_class("NOctSpectrum")(48000, fmin=20.0, fmax=20000.0)
 
     def test_noct_synthesis_raises(self, mosqito_unavailable: None) -> None:
         with pytest.raises(ImportError, match=_INSTALL_HINT):
-            NOctSynthesis(48000, fmin=20.0, fmax=20000.0)
+            _spectral_class("NOctSynthesis")(48000, fmin=20.0, fmax=20000.0)
 
 
 class TestNOctFrameUnavailable:

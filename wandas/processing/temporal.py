@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Union
+from typing import Any
 
 import dask.array as da
 import librosa
@@ -409,7 +409,7 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
     @staticmethod
     def _output_dtype(
         input_dtype: np.dtype[Any],
-    ) -> Union[np.dtype[np.float32], np.dtype[np.float64]]:
+    ) -> np.dtype[np.float32] | np.dtype[np.float64]:
         """Return the floating output dtype for the given input dtype."""
         if np.dtype(input_dtype) == np.dtype(np.float32):
             return np.dtype(np.float32)
@@ -445,14 +445,13 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
             self.time_weighting,
         )
         output_dtype = self._output_dtype(x.dtype)
-        working_dtype = np.float32 if output_dtype == np.dtype(np.float32) else np.float64
-        weighted_input = x if x.dtype == working_dtype else np.asarray(x, dtype=working_dtype)
+        weighted_input = x if x.dtype == np.float64 else np.asarray(x, dtype=np.float64)
         if self.freq_weighting == "Z":
             weighted = weighted_input
         else:
             weighted = frequency_weight(weighted_input, self.sampling_rate, curve=self.freq_weighting)
         squared = np.square(weighted)
-        alpha = np.asarray(np.exp(-1.0 / (self.sampling_rate * self.time_constant)), dtype=working_dtype).item()
+        alpha = np.asarray(np.exp(-1.0 / (self.sampling_rate * self.time_constant)), dtype=np.float64).item()
         smoothed = lfilter([1.0 - alpha], [1.0, -alpha], squared, axis=-1)
         if self.dB:
             ref_squared_broadcast = self._reference_squared(smoothed.shape[0])[:, np.newaxis]

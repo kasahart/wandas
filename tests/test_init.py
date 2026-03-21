@@ -12,12 +12,20 @@ import wandas
 def reset_logger():
     """各テストの前にロガーのハンドラーをリセット"""
     logger = logging.getLogger("wandas")
+    original_level = logger.level
+    original_disabled = logger.disabled
+    original_propagate = logger.propagate
+    original_handlers = logger.handlers[:]
     for handler in logger.handlers[:]:
         logger.removeHandler(handler)
     yield
-    # テスト後も同様にリセット
     for handler in logger.handlers[:]:
         logger.removeHandler(handler)
+    logger.setLevel(original_level)
+    logger.disabled = original_disabled
+    logger.propagate = original_propagate
+    for handler in original_handlers:
+        logger.addHandler(handler)
 
 
 def test_default_settings():
