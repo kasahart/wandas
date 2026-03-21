@@ -60,6 +60,7 @@ filtered_signal.fft().plot(title="FFT of Low-pass Filtered Signal")
 ### 🎵 包括的な信号処理 / Comprehensive Signal Processing
 
 - **フィルタリング / Filtering**: ローパス、ハイパス、バンドパス、A特性フィルタ / Low‑pass, High‑pass, Band‑pass, A‑weighting filters
+- **音圧レベル解析 / Sound Level Analysis**: A/C/Z特性・Fast/Slow時定数による音圧レベル計算（LAF, LAS等） / Sound pressure level with A/C/Z weighting and Fast/Slow time constants (LAF, LAS, etc.)
 - **周波数解析 / Frequency Analysis**: FFT、STFT、Welch法、コヒーレンス、伝達関数 / FFT, STFT, Welch, coherence, transfer functions
 - **時間周波数解析 / Time‑Frequency Analysis**: スペクトログラム生成と解析 / Spectrogram generation and analysis
 - **心理音響 / Psychoacoustics**: ラウドネス、粗さなどの聴覚指標 / Loudness, roughness and other perceptual metrics
@@ -117,6 +118,7 @@ mindmap
       正規化/トリミング / Normalization/Trimming
       リサンプリング / Resampling
       エフェクト適用 / Effects application
+      A特性音圧レベル / A-weighted level
     📊 Frequency Analysis
       FFT/STFT / FFT/STFT
       Welch法 / Welch method
