@@ -1379,8 +1379,10 @@ class TestPlotting:
         )
 
         channel_meta = mock.MagicMock(label="default", unit=None)
+        unlabeled_channel_meta = mock.MagicMock(label=None, unit=None)
 
         assert _resolve_channel_label(None, channel_meta, 0, 2) == "default"
+        assert _resolve_channel_label(None, unlabeled_channel_meta, 0, 2) == "None"
         assert _resolve_channel_label("shared", channel_meta, 0, 2) == "shared"
         assert _resolve_channel_label(["left", "right"], channel_meta, 1, 2) == "right"
         assert _resolve_channel_label(123, channel_meta, 0, 2) == "123"
@@ -1398,10 +1400,12 @@ class TestPlotting:
         assert _reshape_spectrogram_data(spectrogram_2d).shape == (1, 2, 3)
         assert _reshape_spectrogram_data(spectrogram_3d).shape == (1, 3, 4)
 
+        dummy_strategy = mock.MagicMock()
         assert (
-            PlotStrategy.channel_plot(object(), None, None, mock.MagicMock()) is None
+            PlotStrategy.channel_plot(dummy_strategy, None, None, mock.MagicMock())
+            is None
         )
-        assert PlotStrategy.plot(object(), mock.MagicMock()) is None
+        assert PlotStrategy.plot(dummy_strategy, mock.MagicMock()) is None
         assert (
             SpectrogramPlotStrategy().channel_plot(None, None, mock.MagicMock())
             is None

@@ -736,6 +736,7 @@ class TestTemporalHelperMethods:
         assert linear_operation.time_constant == 0.125
         assert linear_operation.get_display_name() == "ZFRMS"
         assert np.array_equal(linear_operation._reference_squared(2), np.array([1.0, 1.0]))
+        assert np.array_equal(SoundLevel(16000, ref=[1.0])._reference_squared(1), np.array([1.0]))
         assert linear_operation._output_dtype(np.dtype(np.float32)) == np.dtype(np.float32)
         assert linear_operation._output_dtype(np.dtype(np.int16)) == np.dtype(np.float64)
 
