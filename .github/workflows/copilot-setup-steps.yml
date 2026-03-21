@@ -19,3 +19,9 @@ jobs:
 
       - name: 依存関係をインストール
         run: uv sync --frozen --all-extras --group test
+
+      - name: pre-commit をインストール
+        run: |
+          uv tool install pre-commit
+          uv tool run pre-commit install --install-hooks
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"

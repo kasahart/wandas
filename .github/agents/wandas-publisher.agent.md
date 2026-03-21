@@ -22,8 +22,11 @@ handoffs:
    - Check the current branch.
    - If on `main`, create a new feature branch with a descriptive name (e.g., `feat/topic` or `fix/issue`).
 2. **Committing**:
-   - Stage relevant files (`git add`).
-   - Create a conventional commit message (e.g., `feat: add new filter`, `fix: resolve metadata bug`).
+    - Stage relevant files (`git add`).
+    - Run `pre-commit run --all-files` and fix any reported issues before committing.
+    - If hooks rewrite files, restage them before committing.
+    - Do not bypass Git hooks (for example, do not use `git commit --no-verify`).
+    - Create a conventional commit message (e.g., `feat: add new filter`, `fix: resolve metadata bug`).
 3. **Pushing**:
    - Push the branch to the remote (`git push -u origin <branch>`).
 4. **Pull Request**:
@@ -41,5 +44,6 @@ handoffs:
 
 ## Safety
 - Do not force push to shared branches.
+- Run `pre-commit run --all-files` before committing and let `git commit` execute hooks normally.
 - Verify quality checks in this order before committing: `uv run ruff format` -> `uv run ruff check` -> `uv run mypy`.
 - Run pytest/mypy/ruff via the VS Code tasks in [.vscode/tasks.json](../../.vscode/tasks.json).
