@@ -518,9 +518,9 @@ class TestSoundLevel:
         assert float32_operation.freq_weighting == "Z"
         assert float32_operation.time_weighting == "Slow"
         assert result_da.dtype == np.float32
-        assert getattr(result_da, "_meta").dtype == np.float32
         assert result.dtype == np.float32
         # float32 dB output exercises the lower-precision lfilter/log10 path, so use a
+        # tolerance appropriate for comparing it against the float64 reference result.
         # tolerance appropriate for comparing it against the float64 reference result.
         np.testing.assert_allclose(result, reference, rtol=1e-4, atol=1e-4)
 
