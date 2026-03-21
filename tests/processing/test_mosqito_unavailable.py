@@ -4,6 +4,11 @@ These tests are always run (not skipped) and verify that the correct
 ImportError with install instructions is raised when mosqito is unavailable.
 """
 
+import builtins
+import importlib
+from collections.abc import Callable
+from types import ModuleType
+
 import dask.array as da
 import numpy as np
 import pytest
@@ -24,6 +29,34 @@ from wandas.processing.spectral import NOctSpectrum, NOctSynthesis
 _da_from_array = da.from_array  # type: ignore [unused-ignore]
 
 _INSTALL_HINT = r'pip install "wandas\[analysis\]"'
+_MODULES_UNDER_TEST = (
+    spectral_module,
+    psychoacoustic_module,
+    noct_module,
+)
+
+
+def _reload_with_import_error(
+    monkeypatch: pytest.MonkeyPatch,
+    module: ModuleType,
+    error_factory: Callable[[str], ImportError],
+) -> ModuleType:
+    """Reload a module while forcing mosqito imports to raise a custom error."""
+    original_import = builtins.__import__
+
+    def fake_import(
+        name: str,
+        globalns: dict[str, object] | None = None,
+        localns: dict[str, object] | None = None,
+        fromlist: tuple[str, ...] = (),
+        level: int = 0,
+    ) -> object:
+        if name == "mosqito" or name.startswith("mosqito."):
+            raise error_factory(name)
+        return original_import(name, globalns, localns, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    return importlib.reload(module)
 
 
 @pytest.fixture()
@@ -113,3 +146,87 @@ class TestNOctFrameUnavailable:
         )
         with pytest.raises(ImportError, match=_INSTALL_HINT):
             _ = frame.freqs
+
+
+class TestMosqitoImportGuard:
+    """Verify only missing mosqito imports are treated as optional."""
+
+    @pytest.mark.parametrize("module", _MODULES_UNDER_TEST, ids=lambda module: module.__name__)
+    def test_missing_top_level_mosqito_is_treated_as_unavailable(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        module: ModuleType,
+    ) -> None:
+        try:
+            with monkeypatch.context() as m:
+                reloaded = _reload_with_import_error(
+                    m,
+                    module,
+                    lambda _name: ModuleNotFoundError("No module named 'mosqito'", name="mosqito"),
+                )
+                assert reloaded._MOSQITO_AVAILABLE is False
+                with pytest.raises(ImportError, match=_INSTALL_HINT):
+                    reloaded._require_mosqito()
+        finally:
+            importlib.reload(module)
+
+    @pytest.mark.parametrize("module", _MODULES_UNDER_TEST, ids=lambda module: module.__name__)
+    def test_missing_mosqito_submodule_is_treated_as_unavailable(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        module: ModuleType,
+    ) -> None:
+        missing_name = "mosqito.sound_level_meter.noct_spectrum._center_freq"
+
+        try:
+            with monkeypatch.context() as m:
+                reloaded = _reload_with_import_error(
+                    m,
+                    module,
+                    lambda _name: ModuleNotFoundError(
+                        f"No module named '{missing_name}'",
+                        name=missing_name,
+                    ),
+                )
+                assert reloaded._MOSQITO_AVAILABLE is False
+                with pytest.raises(ImportError, match=_INSTALL_HINT):
+                    reloaded._require_mosqito()
+        finally:
+            importlib.reload(module)
+
+    @pytest.mark.parametrize("module", _MODULES_UNDER_TEST, ids=lambda module: module.__name__)
+    def test_unrelated_module_not_found_error_propagates(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        module: ModuleType,
+    ) -> None:
+        try:
+            with monkeypatch.context() as m:
+                with pytest.raises(ModuleNotFoundError, match="totally_unrelated_dependency"):
+                    _reload_with_import_error(
+                        m,
+                        module,
+                        lambda _name: ModuleNotFoundError(
+                            "No module named 'totally_unrelated_dependency'",
+                            name="totally_unrelated_dependency",
+                        ),
+                    )
+        finally:
+            importlib.reload(module)
+
+    @pytest.mark.parametrize("module", _MODULES_UNDER_TEST, ids=lambda module: module.__name__)
+    def test_plain_import_error_propagates(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        module: ModuleType,
+    ) -> None:
+        try:
+            with monkeypatch.context() as m:
+                with pytest.raises(ImportError, match="broken optional dependency import"):
+                    _reload_with_import_error(
+                        m,
+                        module,
+                        lambda _name: ImportError("broken optional dependency import"),
+                    )
+        finally:
+            importlib.reload(module)

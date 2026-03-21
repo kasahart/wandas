@@ -261,6 +261,39 @@ class TestChannelProcessing:
             )
             assert isinstance(result, ChannelFrame)
 
+    @pytest.mark.parametrize("channel_metadata", [None, []])
+    def test_sound_level_db_without_explicit_channel_metadata_omits_ref(
+        self,
+        channel_metadata: list[dict[str, object]] | None,
+    ) -> None:
+        """sound_level(dB=True) should omit ref when channel metadata is absent or empty."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=channel_metadata,
+        )
+        recorded_calls: list[dict[str, object]] = []
+
+        from wandas.processing import create_operation as _real_create_operation
+
+        def record_create_operation(name: str, sampling_rate: float, **kwargs: object) -> object:
+            recorded_calls.append({"name": name, "sampling_rate": sampling_rate, "kwargs": kwargs})
+            return _real_create_operation(name, sampling_rate, **kwargs)
+
+        with mock.patch("wandas.processing.create_operation", side_effect=record_create_operation):
+            result = frame.sound_level(dB=True)
+            computed = result.compute()
+
+        assert len(recorded_calls) == 1
+        assert recorded_calls[0]["name"] == "sound_level"
+        assert recorded_calls[0]["sampling_rate"] == self.sample_rate
+        assert recorded_calls[0]["kwargs"] == {
+            "freq_weighting": "Z",
+            "time_weighting": "Fast",
+            "dB": True,
+        }
+        assert computed.shape == self.data.shape
+
     def test_abs(self) -> None:
         """Test abs method."""
         with mock.patch("wandas.processing.create_operation") as mock_create_op:
