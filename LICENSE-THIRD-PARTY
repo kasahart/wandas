@@ -7,8 +7,8 @@ This file contains license notices for third-party components used by Wandas.
 
 MoSQITo
 -------
-MoSQITo is an optional dependency used for psychoacoustic metrics
-(loudness, roughness, sharpness). Install it with: pip install "wandas[analysis]"
+MoSQITo is a dependency used for psychoacoustic metrics
+(loudness, roughness, sharpness).
 
 Homepage: https://github.com/Eomys/MoSQITo
 
