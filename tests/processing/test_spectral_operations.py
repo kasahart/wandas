@@ -1243,6 +1243,12 @@ class TestWelchOperation:
         peak_amplitude = result[0, peak_idx]
         np.testing.assert_allclose(peak_amplitude, amp, rtol=1e-10)
 
+    def test_welch_non_ndarray_raises(self) -> None:
+        """Test that passing a non-ndarray to _process_array raises ValueError."""
+        welch = Welch(sampling_rate=self.sample_rate, n_fft=self.n_fft)
+        with pytest.raises(ValueError, match="Welch operation requires"):
+            welch._process_array([0.0] * 100)  # type: ignore[arg-type]
+
 
 class TestCoherenceOperation:
     def setup_method(self) -> None:

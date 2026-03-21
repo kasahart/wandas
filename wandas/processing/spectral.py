@@ -648,6 +648,9 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         from scipy import signal as ss
 
+        if not isinstance(x, np.ndarray):
+            raise ValueError("Welch operation requires a numpy ndarray, but received a non-ndarray.")
+
         _, result = ss.welch(
             x,
             nperseg=self.win_length,
@@ -658,10 +661,6 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
             detrend=self.detrend,
             scaling="spectrum",
         )
-
-        if not isinstance(x, np.ndarray):
-            # Trigger computation for Dask array
-            raise ValueError("Welch operation requires a Dask array, but received a non-ndarray.")
 
         # Convert power spectrum to amplitude spectrum for consistency with FFT/STFT.
         # scipy.signal.welch with scaling='spectrum' returns a one-sided power spectrum
