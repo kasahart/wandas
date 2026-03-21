@@ -2,6 +2,7 @@ from unittest import mock
 
 import dask.array as da
 import numpy as np
+import pytest
 from dask.array.core import Array as DaArray
 from mosqito.sound_level_meter import noct_spectrum, noct_synthesis
 from mosqito.sound_level_meter.noct_spectrum._center_freq import _center_freq
@@ -1234,6 +1235,12 @@ class TestWelchOperation:
         # the Welch output should be approximately A
         peak_amplitude = result[0, peak_idx]
         np.testing.assert_allclose(peak_amplitude, amp, rtol=1e-10)
+
+    def test_welch_non_ndarray_raises(self) -> None:
+        """Test that passing a non-ndarray to _process_array raises ValueError."""
+        welch = Welch(sampling_rate=self.sample_rate, n_fft=self.n_fft)
+        with pytest.raises(ValueError, match="Welch operation requires"):
+            welch._process_array([0.0] * 100)  # type: ignore[arg-type]
 
 
 class TestCoherenceOperation:

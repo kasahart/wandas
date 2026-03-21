@@ -1,3 +1,5 @@
+from unittest import mock
+
 import dask.array as da
 import numpy as np
 import pytest
@@ -314,6 +316,31 @@ class TestRmsTrend:
         assert rms_op.frame_length == 1024
         assert rms_op.hop_length == 256
         assert rms_op.dB is True
+
+    def test_a_weighting_returns_tuple(self) -> None:
+        """Test that A_weight returning a tuple uses the first element."""
+        rms = RmsTrend(self.sample_rate, Aw=True)
+        arr = self.signal_mono.copy()
+        # Mock A_weight to return a tuple (array, None)
+        tuple_result = (arr, None)
+        with mock.patch("wandas.processing.temporal.A_weight", return_value=tuple_result):
+            result = rms._process_array(arr)
+        assert result.shape[0] == 1
+        assert result.ndim == 2
+
+    def test_a_weighting_returns_unexpected_type(self) -> None:
+        """Test that A_weight returning an unexpected type raises ValueError."""
+        rms = RmsTrend(self.sample_rate, Aw=True)
+        arr = self.signal_mono.copy()
+        with mock.patch("wandas.processing.temporal.A_weight", return_value=42):
+            with pytest.raises(ValueError, match="A_weighting returned an unexpected type"):
+                rms._process_array(arr)
+
+    def test_ref_as_list(self) -> None:
+        """Test that ref provided as a list is converted to a numpy array."""
+        rms = RmsTrend(self.sample_rate, dB=True, ref=[1.0])
+        assert isinstance(rms.ref, np.ndarray)
+        assert rms.ref.shape == (1,)
 
 
 class TestFixLength:

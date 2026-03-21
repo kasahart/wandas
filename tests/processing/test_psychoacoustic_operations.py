@@ -1315,6 +1315,18 @@ class TestRoughnessDwSpec:
         # Results should be identical
         np.testing.assert_array_equal(result1, result2)
 
+    def test_bark_axis_none_guard(self) -> None:
+        """Test that _bark_axis is populated from MoSQITo when it is None."""
+        from wandas.processing.psychoacoustic import RoughnessDwSpec
+
+        op = RoughnessDwSpec(self.sample_rate, overlap=self.overlap)
+        # Force _bark_axis to None to exercise the guard in _process_array
+        op._bark_axis = None  # type: ignore[assignment]
+        result = op._process_array(self.signal_mono)
+        # After processing, _bark_axis should have been set from MoSQITo
+        assert op._bark_axis is not None
+        assert result.shape[0] == 47  # 47 Bark bands (mono → (n_bark, n_time))
+
     def test_bark_axis_caching(self) -> None:
         """Test that bark_axis is cached to avoid redundant MoSQITo calls."""
         from wandas.processing.psychoacoustic import RoughnessDwSpec
