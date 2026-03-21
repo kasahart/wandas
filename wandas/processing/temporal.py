@@ -432,6 +432,7 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
             self.freq_weighting,
             self.time_weighting,
         )
+        input_dtype = x.dtype
         x_f64 = x if x.dtype == np.float64 else np.asarray(x, dtype=np.float64)
         if self.freq_weighting == "Z":
             weighted = x_f64
@@ -442,14 +443,11 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
         smoothed = lfilter([1.0 - alpha], [1.0, -alpha], squared, axis=-1)
         if self.dB:
             ref_squared_broadcast = self._reference_squared(smoothed.shape[0])[:, np.newaxis]
-            result = np.asarray(
-                10.0 * np.log10(np.maximum(smoothed / ref_squared_broadcast, MIN_SOUND_LEVEL_POWER_RATIO)),
-                dtype=np.float64,
-            )
+            result = 10.0 * np.log10(np.maximum(smoothed / ref_squared_broadcast, MIN_SOUND_LEVEL_POWER_RATIO))
         else:
-            result = np.asarray(np.sqrt(smoothed), dtype=np.float64)
+            result = np.sqrt(smoothed)
         logger.debug(f"Sound level applied, returning result with shape: {result.shape}")
-        return result
+        return np.asarray(result, dtype=input_dtype)
 
 
 # Register all operations

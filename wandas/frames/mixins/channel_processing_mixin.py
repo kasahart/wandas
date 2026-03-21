@@ -383,7 +383,7 @@ class ChannelProcessingMixin:
         """
         frame = cast(ProcessingFrameProtocol, self)
 
-        ref_values = []
+        ref_values: list[float] = []
         if hasattr(frame, "_channel_metadata") and frame._channel_metadata:
             ref_values = [ch.ref for ch in frame._channel_metadata]
 
@@ -392,7 +392,7 @@ class ChannelProcessingMixin:
             freq_weighting=freq_weighting,
             time_weighting=time_weighting,
             dB=dB,
-            ref=ref_values,
+            **({"ref": ref_values} if ref_values else {}),
         )
         return cast(T_Processing, result)
 

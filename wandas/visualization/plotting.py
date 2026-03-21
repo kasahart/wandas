@@ -1,7 +1,7 @@
 import abc
 import inspect
 import logging
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Optional, TypeVar
 
 # Import librosa (including display)
@@ -25,6 +25,7 @@ from matplotlib.lines import Line2D
 
 if TYPE_CHECKING:
     from wandas.core.base_frame import BaseFrame
+    from wandas.core.metadata import ChannelMetadata
     from wandas.frames.channel import ChannelFrame
     from wandas.frames.noct import NOctFrame
     from wandas.frames.spectral import SpectralFrame
@@ -62,6 +63,35 @@ class PlotStrategy(abc.ABC, Generic[TFrame]):
 def _return_axes_iterator(axes_list: Any) -> Iterator[Axes]:
     """Helper to convert fig.axes to Iterator[Axes] with proper typing"""
     return iter(axes_list)
+
+
+def _resolve_channel_label(label: "str | Sequence[str] | None", ch_meta: "ChannelMetadata", channel_index: int) -> str:
+    """Resolve the label for a single channel in the non-overlay (per-subplot) path.
+
+    Parameters
+    ----------
+    label : str | Sequence[str] | None
+        User-supplied label override.  When a sequence is given its element at
+        *channel_index* is used; when a plain string is given that string is
+        used for every channel; when ``None`` the channel metadata label is
+        used.
+    ch_meta : ChannelMetadata
+        Metadata for the current channel (provides the default label).
+    channel_index : int
+        Zero-based index of the current channel in the frame.
+
+    Returns
+    -------
+    str
+        The resolved label string.
+    """
+    if label is None:
+        return str(ch_meta.label)
+    if isinstance(label, str):
+        return label
+    if isinstance(label, Sequence):
+        return str(label[channel_index])
+    return str(label)
 
 
 def _reshape_to_2d(data: Any) -> Any:
@@ -186,12 +216,12 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
                 axs = [axs]
 
             axes_list = list(axs)
-            for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
+            for ch_idx, (ax_i, channel_data, ch_meta) in enumerate(zip(axes_list, data, bf.channels)):
                 self.channel_plot(
                     bf.time,
                     channel_data,
                     ax_i,
-                    label=label if label is not None else ch_meta.label,
+                    label=_resolve_channel_label(label, ch_meta, ch_idx),
                     alpha=alpha,
                     **plot_kwargs,
                 )
@@ -293,12 +323,12 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
                 axs = [axs]
 
             axes_list = list(axs)
-            for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
+            for ch_idx, (ax_i, channel_data, ch_meta) in enumerate(zip(axes_list, data, bf.channels)):
                 self.channel_plot(
                     bf.freqs,
                     channel_data,
                     ax_i,
-                    label=label if label is not None else ch_meta.label,
+                    label=_resolve_channel_label(label, ch_meta, ch_idx),
                     alpha=alpha,
                     **plot_kwargs,
                 )
@@ -393,12 +423,12 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
                 axs = [axs]
 
             axes_list = list(axs)
-            for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
+            for ch_idx, (ax_i, channel_data, ch_meta) in enumerate(zip(axes_list, data, bf.channels)):
                 self.channel_plot(
                     bf.freqs,
                     channel_data,
                     ax_i,
-                    label=label if label is not None else ch_meta.label,
+                    label=_resolve_channel_label(label, ch_meta, ch_idx),
                     alpha=alpha,
                     **plot_kwargs,
                 )
