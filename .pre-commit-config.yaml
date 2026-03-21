@@ -8,7 +8,7 @@ repos:
         name: ruff check
         description: "Run 'ruff check' for extremely fast Python linting"
         entry: uv run ruff check --config=pyproject.toml
-        args: [--fix, wandas, tests]
+        args: [--fix]
         language: system
         types: [python]
 
@@ -16,7 +16,6 @@ repos:
         name: ruff format
         description: "Run 'ruff format' for extremely fast Python formatting"
         entry: uv run ruff format --config=pyproject.toml
-        args: [wandas, tests]
         language: system
         types: [python]
 
