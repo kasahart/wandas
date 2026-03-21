@@ -144,6 +144,7 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         ylabel = kwargs.pop("ylabel", "Amplitude")
         xlabel = kwargs.pop("xlabel", "Time [s]")
         alpha = kwargs.pop("alpha", 1)
+        label = kwargs.pop("label", None)
         plot_kwargs = filter_kwargs(
             Line2D,
             kwargs,
@@ -163,7 +164,9 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
             if ax is None:
                 fig, ax = plt.subplots(figsize=(10, 4))
 
-            self.channel_plot(bf.time, data.T, ax, label=bf.labels, alpha=alpha, **plot_kwargs)
+            self.channel_plot(
+                bf.time, data.T, ax, label=label if label is not None else bf.labels, alpha=alpha, **plot_kwargs
+            )
             ax.set(
                 ylabel=ylabel,
                 title=title or bf.label or "Channel Data",
@@ -184,7 +187,14 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
 
             axes_list = list(axs)
             for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
-                self.channel_plot(bf.time, channel_data, ax_i, alpha=alpha, **plot_kwargs)
+                self.channel_plot(
+                    bf.time,
+                    channel_data,
+                    ax_i,
+                    label=label if label is not None else ch_meta.label,
+                    alpha=alpha,
+                    **plot_kwargs,
+                )
                 unit_suffix = f" [{ch_meta.unit}]" if ch_meta.unit else ""
                 ax_i.set(
                     ylabel=f"{ylabel}{unit_suffix}",
@@ -248,6 +258,7 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
         data = _reshape_to_2d(data)
         xlabel = kwargs.pop("xlabel", "Frequency [Hz]")
         alpha = kwargs.pop("alpha", 1)
+        label = kwargs.pop("label", None)
         plot_kwargs = filter_kwargs(Line2D, kwargs, strict_mode=True)
         ax_set = filter_kwargs(Axes.set, kwargs, strict_mode=True)
         # If an Axes is provided, prefer drawing into it (treat as overlay)
@@ -260,7 +271,7 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
                 bf.freqs,
                 data.T,
                 ax,
-                label=bf.labels,
+                label=label if label is not None else bf.labels,
                 alpha=alpha,
                 **plot_kwargs,
             )
@@ -287,7 +298,7 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
                     bf.freqs,
                     channel_data,
                     ax_i,
-                    label=ch_meta.label,
+                    label=label if label is not None else ch_meta.label,
                     alpha=alpha,
                     **plot_kwargs,
                 )
@@ -345,6 +356,7 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
         ylabel = kwargs.pop("ylabel", f"Spectrum level [{unit}]")
         xlabel = kwargs.pop("xlabel", "Center frequency [Hz]")
         alpha = kwargs.pop("alpha", 1)
+        label = kwargs.pop("label", None)
         plot_kwargs = filter_kwargs(Line2D, kwargs, strict_mode=True)
         ax_set = filter_kwargs(Axes.set, kwargs, strict_mode=True)
         # If an Axes is provided, prefer drawing into it (treat as overlay)
@@ -357,7 +369,7 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
                 bf.freqs,
                 data.T,
                 ax,
-                label=bf.labels,
+                label=label if label is not None else bf.labels,
                 alpha=alpha,
                 **plot_kwargs,
             )
@@ -386,7 +398,7 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
                     bf.freqs,
                     channel_data,
                     ax_i,
-                    label=ch_meta.label,
+                    label=label if label is not None else ch_meta.label,
                     alpha=alpha,
                     **plot_kwargs,
                 )
