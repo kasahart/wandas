@@ -492,6 +492,38 @@ class TestSoundLevel:
         assert result_da.dtype == np.float32
         assert result.dtype == np.float32
 
+    def test_float32_db_output_with_none_weighting_and_slow_alias_preserves_float32_dtype(self) -> None:
+        """float32 dB output should normalize aliases and keep float32 Dask metadata."""
+        signal_f32 = self.low_freq_signal.astype(np.float32)
+        dask_f32 = _da_from_array(signal_f32, chunks=(1, -1))
+        float32_operation = SoundLevel(
+            self.sample_rate,
+            ref=1.0,
+            freq_weighting=None,
+            time_weighting="s",
+            dB=True,
+        )
+        float64_reference = SoundLevel(
+            self.sample_rate,
+            ref=1.0,
+            freq_weighting="Z",
+            time_weighting="Slow",
+            dB=True,
+        )
+
+        result_da = float32_operation.process(dask_f32)
+        result = result_da.compute()
+        reference = float64_reference.process(self.dask_low_freq).compute()
+
+        assert float32_operation.freq_weighting == "Z"
+        assert float32_operation.time_weighting == "Slow"
+        assert result_da.dtype == np.float32
+        assert getattr(result_da, "_meta").dtype == np.float32
+        assert result.dtype == np.float32
+        # float32 dB output exercises the lower-precision lfilter/log10 path, so use a
+        # tolerance appropriate for comparing it against the float64 reference result.
+        np.testing.assert_allclose(result, reference, rtol=1e-4, atol=1e-4)
+
     @pytest.mark.parametrize(("curve", "expected_gain"), [("Z", 1.0), ("A", None), ("C", None)])
     def test_sound_level_matches_theoretical_weighted_power(self, curve: str, expected_gain: float | None) -> None:
         """Test weighted sound level against theoretical steady-state power."""
