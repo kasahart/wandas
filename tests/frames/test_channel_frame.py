@@ -1828,9 +1828,8 @@ class TestChannelFrameRMS:
         """RMS of A*sin(2πft) must equal A / sqrt(2)."""
         result = self.cf_stereo.rms
         expected = np.array([1.0 / np.sqrt(2), 2.0 / np.sqrt(2)])
-        # 440 Hz at 16 kHz SR completes 27.5 cycles (non-integer); non-coherent sampling
-        # introduces spectral leakage with error ~1/N ≈ 6e-5, so rtol=1e-3 is appropriate.
-        np.testing.assert_allclose(result, expected, rtol=1e-3)
+        # 440 Hz at 16 kHz SR produces 440 integer cycles; rtol=1e-6 for standard float64 precision.
+        np.testing.assert_allclose(result, expected, rtol=1e-6)
 
     def test_rms_dc_signal_equals_amplitude(self) -> None:
         """RMS of a constant (DC) signal must equal its absolute amplitude."""
@@ -2452,9 +2451,8 @@ class TestChannelFrameCrestFactor:
         """Crest factor of A*sin(2πft) must equal sqrt(2) for any amplitude A."""
         result = self.cf_stereo.crest_factor
         expected = np.array([np.sqrt(2), np.sqrt(2)])
-        # 440 Hz at 16 kHz SR completes 27.5 cycles (non-integer); non-coherent sampling
-        # introduces spectral leakage with error ~1/N ≈ 6e-5, so rtol=1e-3 is appropriate.
-        np.testing.assert_allclose(result, expected, rtol=1e-3)
+        # 440 Hz at 16 kHz SR produces 440 integer cycles; rtol=1e-6 for standard float64 precision.
+        np.testing.assert_allclose(result, expected, rtol=1e-6)
 
     def test_crest_factor_dc_signal_equals_one(self) -> None:
         """Crest factor of a constant (DC) signal must be 1.0."""
@@ -2464,14 +2462,19 @@ class TestChannelFrameCrestFactor:
         # Constant signal: peak == |amplitude| == RMS, so ratio == 1.0 exactly.
         np.testing.assert_allclose(result, [1.0, 1.0], rtol=1e-10)
 
-    def test_crest_factor_zero_signal_is_nan(self) -> None:
-        """Crest factor of an all-zero signal must be NaN (avoid division by zero)."""
+    def test_crest_factor_zero_signal_is_one(self) -> None:
+        """Crest factor of an all-zero signal must be 1.0 (no division by zero)."""
+        import warnings
+
         zero_data: NDArrayReal = np.zeros((2, 1000))
         cf_zero = ChannelFrame.from_numpy(zero_data, sampling_rate=self.sample_rate)
-        result = cf_zero.crest_factor
-        # Both channels are all-zeros → RMS == 0 → crest_factor returns NaN.
+        # Computing crest_factor on a zero-RMS channel must not emit RuntimeWarnings.
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            result = cf_zero.crest_factor
+        # Both channels are all-zeros → RMS == 0 → crest_factor returns 1.0.
         assert result.shape == (2,)
-        assert np.all(np.isnan(result)), f"Expected all NaN, got {result}"
+        np.testing.assert_array_equal(result, [1.0, 1.0])
 
     def test_crest_factor_known_values(self) -> None:
         """Crest factor matches explicit numpy reference calculation."""

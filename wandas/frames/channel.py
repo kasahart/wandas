@@ -186,12 +186,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         where ``x[i]`` is the sample array for channel ``i``.
 
         For a pure sine wave the crest factor equals sqrt(2) ≈ 1.414.
-        Channels with zero RMS (all-zero signals) return NaN to avoid
-        division by zero.
+        Channels with zero RMS (all-zero signals) return 1.0 (defined by
+        convention; no division by zero is performed).
 
         Returns:
             NDArrayReal of shape ``(n_channels,)`` containing the crest factor
-            for each channel.  All-zero channels yield NaN.
+            for each channel.  All-zero channels yield 1.0.
 
         Examples:
             >>> cf = ChannelFrame.read_wav("audio.wav")
@@ -200,10 +200,16 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> # Select channels with crest factor above threshold
             >>> impulsive_channels = cf[cf.crest_factor > 3.0]
         """
-        peak = da.max(da.abs(self._data), axis=1)
-        rms_vals = da.sqrt((self._data**2).mean(axis=1))
-        # Return NaN when RMS is 0 (all-zero channel) to avoid division by zero.
-        crest = da.where(rms_vals == 0, np.nan, peak / rms_vals)
+        # Cast to float to avoid integer overflow in abs/squaring (e.g. int16(-32768)).
+        data = self._data
+        if not np.issubdtype(data.dtype, np.floating):
+            data = data.astype(np.float64)
+        peak = da.max(da.abs(data), axis=1)
+        rms_vals = da.sqrt((data**2).mean(axis=1))
+        # Use a safe denominator so the division never sees a zero RMS value,
+        # then replace the result for zero-RMS channels with 1.0 by convention.
+        safe_rms = da.where(rms_vals == 0, 1.0, rms_vals)
+        crest = da.where(rms_vals != 0, peak / safe_rms, 1.0)
         return np.array(crest.compute())
 
     def info(self) -> None:
