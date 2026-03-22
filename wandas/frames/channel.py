@@ -142,8 +142,20 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
     def rms(self) -> NDArrayReal:
         """Calculate RMS (Root Mean Square) value for each channel.
 
+        This is a scalar reduction: it computes one value per channel and
+        triggers immediate computation of the underlying Dask graph.  The
+        result is a plain NumPy array and does **not** produce a new frame,
+        so no operation history is recorded.
+
+        The RMS is defined as::
+
+            rms[i] = sqrt(mean(x[i] ** 2))
+
+        where ``x[i]`` is the sample array for channel ``i``.
+
         Returns:
-            Array of RMS values, one per channel.
+            NDArrayReal of shape ``(n_channels,)`` containing the RMS value
+            for each channel.
 
         Examples:
             >>> cf = ChannelFrame.read_wav("audio.wav")
@@ -152,10 +164,53 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> # Select channels with RMS > threshold
             >>> active_channels = cf[cf.rms > 0.5]
         """
-        # Convert to a concrete NumPy ndarray to satisfy numpy.mean typing
-        # and to ensure dask arrays are materialized for this operation.
+        # Compute RMS per channel.  axis=1 is the sample axis for data of
+        # shape (channels, samples).  .compute() materialises the Dask graph
+        # and np.array() ensures the result is a concrete NumPy ndarray.
         rms_values = da.sqrt((self._data**2).mean(axis=1))
         return np.array(rms_values.compute())
+
+    @property
+    def crest_factor(self) -> NDArrayReal:
+        """Calculate the crest factor (peak-to-RMS ratio) for each channel.
+
+        This is a scalar reduction: it computes one value per channel and
+        triggers immediate computation of the underlying Dask graph.  The
+        result is a plain NumPy array and does **not** produce a new frame,
+        so no operation history is recorded.
+
+        The crest factor is defined as::
+
+            crest_factor[i] = max(|x[i]|) / sqrt(mean(x[i] ** 2))
+
+        where ``x[i]`` is the sample array for channel ``i``.
+
+        For a pure sine wave the crest factor equals sqrt(2) ≈ 1.414.
+        Channels with zero RMS (all-zero signals) return 1.0 (defined by
+        convention; no division by zero is performed).
+
+        Returns:
+            NDArrayReal of shape ``(n_channels,)`` containing the crest factor
+            for each channel.  All-zero channels yield 1.0.
+
+        Examples:
+            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> cf_values = cf.crest_factor
+            >>> print(f"Crest factors: {cf_values}")
+            >>> # Select channels with crest factor above threshold
+            >>> impulsive_channels = cf[cf.crest_factor > 3.0]
+        """
+        # Cast to float to avoid integer overflow in abs/squaring (e.g. int16(-32768)).
+        data = self._data
+        if not np.issubdtype(data.dtype, np.floating):
+            data = data.astype(np.float64)
+        peak = da.max(da.abs(data), axis=1)
+        rms_vals = da.sqrt((data**2).mean(axis=1))
+        # Use a safe denominator so the division never sees a zero RMS value,
+        # then replace the result for zero-RMS channels with 1.0 by convention.
+        safe_rms = da.where(rms_vals == 0, 1.0, rms_vals)
+        crest = da.where(rms_vals != 0, peak / safe_rms, 1.0)
+        return np.array(crest.compute())
 
     def info(self) -> None:
         """Display comprehensive information about the ChannelFrame.
