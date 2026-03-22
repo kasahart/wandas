@@ -142,8 +142,20 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
     def rms(self) -> NDArrayReal:
         """Calculate RMS (Root Mean Square) value for each channel.
 
+        This is a scalar reduction: it computes one value per channel and
+        triggers immediate computation of the underlying Dask graph.  The
+        result is a plain NumPy array and does **not** produce a new frame,
+        so no operation history is recorded.
+
+        The RMS is defined as::
+
+            rms[i] = sqrt(mean(x[i] ** 2))
+
+        where ``x[i]`` is the sample array for channel ``i``.
+
         Returns:
-            Array of RMS values, one per channel.
+            NDArrayReal of shape ``(n_channels,)`` containing the RMS value
+            for each channel.
 
         Examples:
             >>> cf = ChannelFrame.read_wav("audio.wav")
@@ -152,8 +164,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> # Select channels with RMS > threshold
             >>> active_channels = cf[cf.rms > 0.5]
         """
-        # Convert to a concrete NumPy ndarray to satisfy numpy.mean typing
-        # and to ensure dask arrays are materialized for this operation.
+        # Compute RMS per channel.  axis=1 is the sample axis for data of
+        # shape (channels, samples).  .compute() materialises the Dask graph
+        # and np.array() ensures the result is a concrete NumPy ndarray.
         rms_values = da.sqrt((self._data**2).mean(axis=1))
         return np.array(rms_values.compute())
 

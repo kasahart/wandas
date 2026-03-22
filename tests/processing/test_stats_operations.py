@@ -422,13 +422,17 @@ class TestCrestFactor:
         """Crest factor of a pure sine wave must equal sqrt(2)."""
         result = self.cf_op.process(self.dask_mono).compute()
         expected = np.sqrt(2)
+        # 440 Hz at 16 kHz SR completes 27.5 cycles (non-integer); non-coherent sampling
+        # introduces spectral leakage with error ~1/N ≈ 6e-5, so rtol=1e-3 is appropriate.
         np.testing.assert_allclose(result[0, 0], expected, rtol=1e-3)
 
     def test_stereo_sine_wave_crest_factors(self) -> None:
         """Each channel of a stereo sine wave must have crest factor sqrt(2)."""
         result = self.cf_op.process(self.dask_stereo).compute()
         expected = np.sqrt(2)
-        # Both channels are scaled sines → same crest factor regardless of amplitude
+        # Both channels are scaled sines → same crest factor regardless of amplitude.
+        # 440 Hz at 16 kHz SR completes 27.5 cycles (non-integer); non-coherent sampling
+        # introduces spectral leakage with error ~1/N ≈ 6e-5, so rtol=1e-3 is appropriate.
         np.testing.assert_allclose(result[:, 0], [expected, expected], rtol=1e-3)
 
     def test_dc_signal_crest_factor(self) -> None:

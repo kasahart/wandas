@@ -1769,6 +1769,131 @@ class TestDescribeIntegration:
         assert np.all(top_rms >= 2.0)  # Channels with RMS 3.0 and 2.0
 
 
+class TestChannelFrameRMS:
+    """Focused 4-pillar tests for ChannelFrame.rms property."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.sample_rate = 16000
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        # Pure sine waves with known RMS = amplitude / sqrt(2)
+        sine_ch0: NDArrayReal = np.sin(2 * np.pi * 440 * t).astype(np.float64)
+        sine_ch1: NDArrayReal = (2.0 * np.sin(2 * np.pi * 440 * t)).astype(np.float64)
+        self.stereo_data: NDArrayReal = np.array([sine_ch0, sine_ch1])
+        self.cf_stereo = ChannelFrame.from_numpy(self.stereo_data, sampling_rate=self.sample_rate)
+
+    # ------------------------------------------------------------------
+    # Pillar 1 – Immutability: computing rms must not modify the frame
+    # ------------------------------------------------------------------
+
+    def test_rms_does_not_mutate_data(self) -> None:
+        """Computing rms must leave the underlying frame data unchanged."""
+        original = self.stereo_data.copy()
+        _ = self.cf_stereo.rms
+        np.testing.assert_array_equal(self.cf_stereo.compute(), original)
+
+    def test_rms_does_not_mutate_operation_history(self) -> None:
+        """Computing rms must not append to operation_history."""
+        history_before = list(self.cf_stereo.operation_history)
+        _ = self.cf_stereo.rms
+        assert self.cf_stereo.operation_history == history_before
+
+    # ------------------------------------------------------------------
+    # Pillar 2 – Metadata sync: return type and shape
+    # ------------------------------------------------------------------
+
+    def test_rms_returns_numpy_array(self) -> None:
+        """rms must return a concrete numpy ndarray (not a dask array)."""
+        result = self.cf_stereo.rms
+        assert isinstance(result, np.ndarray), f"Expected np.ndarray, got {type(result)}"
+
+    def test_rms_shape_stereo(self) -> None:
+        """rms of a 2-channel frame must have shape (2,)."""
+        result = self.cf_stereo.rms
+        assert result.shape == (2,), f"Expected (2,), got {result.shape}"
+
+    def test_rms_shape_mono(self) -> None:
+        """rms of a 1-channel frame must have shape (1,)."""
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        mono_data: NDArrayReal = np.sin(2 * np.pi * 440 * t).reshape(1, -1).astype(np.float64)
+        cf_mono = ChannelFrame.from_numpy(mono_data, sampling_rate=self.sample_rate)
+        result = cf_mono.rms
+        assert result.shape == (1,), f"Expected (1,), got {result.shape}"
+
+    # ------------------------------------------------------------------
+    # Pillar 3 – Mathematical consistency: known reference values
+    # ------------------------------------------------------------------
+
+    def test_rms_sine_wave_equals_amplitude_over_sqrt2(self) -> None:
+        """RMS of A*sin(2πft) must equal A / sqrt(2)."""
+        result = self.cf_stereo.rms
+        expected = np.array([1.0 / np.sqrt(2), 2.0 / np.sqrt(2)])
+        # 440 Hz at 16 kHz SR completes 27.5 cycles (non-integer); non-coherent sampling
+        # introduces spectral leakage with error ~1/N ≈ 6e-5, so rtol=1e-3 is appropriate.
+        np.testing.assert_allclose(result, expected, rtol=1e-3)
+
+    def test_rms_dc_signal_equals_amplitude(self) -> None:
+        """RMS of a constant (DC) signal must equal its absolute amplitude."""
+        dc_data: NDArrayReal = np.array([[3.0] * 1000, [-5.0] * 1000])
+        cf_dc = ChannelFrame.from_numpy(dc_data, sampling_rate=self.sample_rate)
+        result = cf_dc.rms
+        # Constant signal; no rounding error beyond float64 machine precision.
+        np.testing.assert_allclose(result, [3.0, 5.0], rtol=1e-10)
+
+    def test_rms_zero_signal_is_zero(self) -> None:
+        """RMS of an all-zero signal must be 0."""
+        zero_data: NDArrayReal = np.zeros((2, 1000))
+        cf_zero = ChannelFrame.from_numpy(zero_data, sampling_rate=self.sample_rate)
+        result = cf_zero.rms
+        # Exact zero input; allow for float64 subnormal rounding floor.
+        np.testing.assert_allclose(result, [0.0, 0.0], atol=1e-15)
+
+    def test_rms_mixed_samples(self) -> None:
+        """RMS of [1, 2, 3, 4] must equal sqrt(mean([1,4,9,16])) = sqrt(7.5)."""
+        data: NDArrayReal = np.array([[1.0, 2.0, 3.0, 4.0]])
+        cf = ChannelFrame.from_numpy(data, sampling_rate=100)
+        result = cf.rms
+        expected = np.sqrt(np.mean(np.array([1.0, 4.0, 9.0, 16.0])))
+        # Exact rational inputs; float64 precision gives near bit-identical result.
+        np.testing.assert_allclose(result, [expected], rtol=1e-10)
+
+    # ------------------------------------------------------------------
+    # Pillar 4 – Reference-based verification: boolean channel selection
+    # ------------------------------------------------------------------
+
+    def test_rms_boolean_indexing_filters_channels(self) -> None:
+        """Boolean mask from rms must correctly select channels."""
+        data: NDArrayReal = np.array([[1.0] * 1000, [2.0] * 1000, [3.0] * 1000])
+        cf = ChannelFrame.from_numpy(data, sampling_rate=self.sample_rate)
+
+        mask = cf.rms > 1.5
+        expected_mask = np.array([False, True, True])
+        np.testing.assert_array_equal(mask, expected_mask)
+
+        filtered = cf[mask]
+        assert filtered.n_channels == 2
+        # Constant-signal DC channels; float64 precision gives near bit-identical result.
+        np.testing.assert_allclose(filtered.rms, [2.0, 3.0], rtol=1e-10)
+
+    def test_rms_matches_numpy_reference(self) -> None:
+        """rms must match the explicit numpy reference calculation."""
+        rng = np.random.default_rng(42)
+        data: NDArrayReal = rng.standard_normal((3, 8000)).astype(np.float64)
+        cf = ChannelFrame.from_numpy(data, sampling_rate=self.sample_rate)
+
+        result = cf.rms
+        reference = np.sqrt(np.mean(data**2, axis=1))
+        # Same algorithm and dtype; results should be bit-identical (rtol=1e-10 guards rounding).
+        np.testing.assert_allclose(result, reference, rtol=1e-10)
+
+    def test_rms_n_channel_consistency(self) -> None:
+        """len(cf.rms) must equal cf.n_channels for any frame."""
+        for n_channels in [1, 3, 5]:
+            data: NDArrayReal = np.ones((n_channels, 500))
+            cf = ChannelFrame.from_numpy(data, sampling_rate=self.sample_rate)
+            assert len(cf.rms) == cf.n_channels
+
+
 class TestBaseFrameExceptionHandling:
     """BaseFrameの例外処理をテスト（ChannelFrameを通じて間接的にテスト）"""
 
