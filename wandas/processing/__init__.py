@@ -40,6 +40,7 @@ from wandas.processing.spectral import (
 from wandas.processing.stats import (
     ABS,
     ChannelDifference,
+    CrestFactor,
     Mean,
     Power,
     Sum,
@@ -85,6 +86,7 @@ __all__ = [
     # Stats
     "ABS",
     "ChannelDifference",
+    "CrestFactor",
     "Mean",
     "Power",
     "Sum",
