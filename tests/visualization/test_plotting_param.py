@@ -25,7 +25,7 @@ class DummyFrame:
         self.dBA = np.random.randn(2, 10)
         self.magnitude = np.abs(self.dB)
         self.operation_history = [dict(operation="spectrum")]
-        self.channels = [type("Ch", (), {"label": label})() for label in self.labels]
+        self.channels = [type("Ch", (), {"label": label, "unit": ""})() for label in self.labels]
         self.n = 3
 
 
@@ -52,6 +52,31 @@ def test_plot_parametrize(strategy, kwargs, label):
         ax = strat.plot(frame, overlay=True, **kwargs)
     assert ax.get_xlabel() == kwargs["xlabel"]
     assert ax.get_ylabel() == kwargs["ylabel"]
+
+
+@pytest.mark.parametrize("strategy_cls", [WaveformPlotStrategy, FrequencyPlotStrategy, NOctPlotStrategy])
+def test_non_overlay_label_sequence_uses_per_channel_labels(strategy_cls):
+    frame = DummyFrame()
+    axes = list(strategy_cls().plot(frame, overlay=False, label=["left", "right"]))
+
+    legend_labels = [ax.get_legend().get_texts()[0].get_text() for ax in axes]
+    assert legend_labels == ["left", "right"]
+
+
+@pytest.mark.parametrize("strategy_cls", [WaveformPlotStrategy, FrequencyPlotStrategy, NOctPlotStrategy])
+def test_non_overlay_label_sequence_length_mismatch_raises_clear_error(strategy_cls):
+    frame = DummyFrame()
+
+    with pytest.raises(ValueError) as exc_info:
+        strategy_cls().plot(frame, overlay=False, label=["only_one"])
+
+    error_message = str(exc_info.value)
+    assert error_message.splitlines()[0] == "Channel label count mismatch"
+    assert "Got: 1 labels for 2 channels" in error_message
+    assert "Expected: One label per channel in non-overlay mode" in error_message
+    assert (
+        "Provide label as a single string for all channels or a sequence matching the channel count." in error_message
+    )
 
 
 class TestReshapeHelperIntegration:

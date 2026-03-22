@@ -1,6 +1,6 @@
 # Copilot Instructions for the Wandas Repository
 
-These instructions are for AI coding agents (planner, implementer, reviewer) working on the Wandas codebase.
+These instructions are for Wandas custom agents. For substantive implementation, validation, and review work, the default workflow is `wandas-planner` -> `wandas-implementer` -> `wandas-reviewer`; use `wandas-publisher` only after review for PR publication handoff. GitHub Release drafting and tag-driven release publication stay in GitHub Actions.
 
 ## 1. Big Picture & Architecture
 - **Purpose**: Wandas provides pandas‑like data structures and operations for waveform/signal analysis (see `README.md`).
@@ -18,13 +18,13 @@ These instructions are for AI coding agents (planner, implementer, reviewer) wor
   - If a `.venv` virtual environment is missing, run the VS Code task "Create Virtual Environment" (see `.vscode/tasks.json`) which executes:
     - `uv venv --allow-existing .venv && uv sync --frozen --all-groups`
 - **Tests** (or VS Code tasks with the same names):
-  - `uv run pytest -n auto` (task: `Run pytest`) for normal runs.
-  - `uv run pytest` (task: `Run pytest (serial)`) when debugging or tests are not parallel‑safe.
+  - `uv run pytest -n auto --cov=wandas --cov-report=term-missing` (task: `Run pytest`) for repository test runs.
   - Use `tests/` as the source of truth for frame semantics, metadata rules, I/O contracts, and lazy behavior.
 - **Type checking / lint**:
   - `uv run mypy --config-file=pyproject.toml` (task: `Run mypy wandas tests`).
-  - `uv run ruff check wandas tests --config=pyproject.toml` (task: `Run ruff check`).
-  - `uv run ruff format wandas tests` to apply the canonical formatting.
+  - `uv run ruff format wandas tests` (task: `Run ruff format`).
+  - `uv run ruff check wandas tests --config=pyproject.toml -v` (task: `Run ruff check`) for non-mutating lint validation.
+  - `uv run ruff check --fix wandas tests --config=pyproject.toml -v` (task: `Run ruff check --fix`) when automatic lint fixes are desired.
 - **Docs**:
   - `uv run mkdocs build -f docs/mkdocs.yml` (task: `Build MkDocs Documentation`).
   - `uv run mkdocs serve -f docs/mkdocs.yml` (task: `Serve MkDocs Documentation`).
@@ -84,14 +84,28 @@ These instructions are for AI coding agents (planner, implementer, reviewer) wor
 - **Edge cases to mirror**:
   - Follow existing tests for NaN handling, multi‑channel audio, sampling‑rate changes, large Dask‑backed datasets, and psychoacoustic/spectral metrics.
 
-## 6. Roles: Planner / Implementer / Reviewer
+## 6. Workflow Roles: Planner / Implementer / Reviewer / Publisher
+- **Delegation requirement**:
+  - When the custom agents are available, the top-level/default agent must orchestrate substantive implementation, validation, and review work through `wandas-planner`, `wandas-implementer`, and `wandas-reviewer` instead of performing that work directly.
+  - This orchestration rule applies to the top-level agent choosing which role to invoke. Once a role-specific custom agent is already active, it should perform its own role directly and hand off forward; it should not re-delegate that same role to itself.
+  - Use `wandas-publisher` only after reviewer approval for publish-stage handoff work such as branching, staging, committing, pushing, and pull-request updates.
+  - Release drafting and publication remain in GitHub Actions via `.github/workflows/release-drafter.yml`, `.github/release-drafter.yml`, and the tag-driven path in `.github/workflows/cd.yml`.
+  - Narrow exceptions: trivial read-only guidance (for example, answering a simple repository question without changing files), explicit planning-only requests, and low-risk single-file customization maintenance in one existing `.github/` customization file when the change is limited to wording, links, or YAML/frontmatter fixes and does not alter tools, handoffs, roles, or workflow semantics.
+  - Substantive repository work, quality-check execution, and multi-file customization changes still require the full Planner / Implementer / Reviewer pipeline.
 - **Planner**:
-  - Use read‑only tools to map which `frames/`, `processing/`, and `io/` modules are affected.
+  - Use read‑only tools to map which code modules or repository customization/workflow files are affected.
   - Produce a concrete plan tied to specific files, tests to touch, and any risks around metadata consistency, Dask graphs, or performance.
 - **Implementer**:
   - Follow the planner handoff; if assumptions change, update the plan before editing.
   - Keep frames immutable, preserve metadata/history, and honor Dask laziness as described above.
-  - Run `pytest` plus `mypy`/`ruff` for the affected areas when feasible and record the commands used.
+  - Run the relevant VS Code tasks when they exist, and record the task names plus any direct `uv run ...` commands that were needed.
+  - Run `Build MkDocs Documentation` only when `docs/`, `src/`, `README.md`, or other MkDocs-backed user-facing markdown changed; `.github/` customization-only changes normally do not require it.
 - **Reviewer**:
-  - Re‑run the recorded commands (or their nearest equivalents).
+  - Keep review read-only and verify the recorded validation evidence, problems, and changed files directly from the workspace instead of owning task execution.
+  - Confirm non-mutating validation evidence such as `Run ruff check`; do not use `Run ruff check --fix` during review.
   - Verify that frame immutability and metadata rules are respected, that new APIs align with existing naming/parameter patterns, and that tests cover the main branches and edge cases discussed in the planner handoff.
+
+## 7. Test Documentation Reference
+
+For comprehensive testing guidance, refer to:
+- **`.github/instructions/test-grand-policy.instructions.md`** — Auto-applied test policy (4 pillars + pyramid) when editing `tests/**` files

@@ -1,254 +1,101 @@
 # Wandas
 
-<h1 align="center">
-    <img src="https://github.com/kasahart/wandas/blob/main/images/logo.png?raw=true" alt="Wandas logo" width="300"/>
-</h1>
+![Wandas logo](https://github.com/kasahart/wandas/blob/main/images/logo.png?raw=true)
 
-<p align="center">
-    <strong>Data Structures for Waveform Analysis</strong><br>
-    Pythonによる効率的な信号解析のためのオープンソースライブラリ
-</p>
+[![PyPI](https://img.shields.io/pypi/v/wandas)](https://pypi.org/project/wandas/)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/wandas)](https://pypi.org/project/wandas/)
+[![CI](https://github.com/kasahart/wandas/actions/workflows/ci.yml/badge.svg)](https://github.com/kasahart/wandas/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/kasahart/wandas/graph/badge.svg?token=53NPNQQZZ8)](https://codecov.io/gh/kasahart/wandas)
+[![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/kasahart/wandas/blob/main/LICENSE)
+[![Python Version](https://img.shields.io/pypi/pyversions/wandas)](https://pypi.org/project/wandas/)
 
-<p align="center">
-    <a href="https://pypi.org/project/wandas/"><img src="https://img.shields.io/pypi/v/wandas" alt="PyPI"></a>
-    <a href="https://pypi.org/project/wandas/"><img src="https://img.shields.io/pypi/dm/wandas" alt="PyPI Downloads"></a>
-    <a href="https://github.com/kasahart/wandas/actions/workflows/ci.yml"><img src="https://github.com/kasahart/wandas/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-    <a href="https://codecov.io/gh/kasahart/wandas"><img src="https://codecov.io/gh/kasahart/wandas/graph/badge.svg?token=53NPNQQZZ8" alt="codecov"></a>
-    <a href="https://github.com/kasahart/wandas/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License"></a>
-    <a href="https://pypi.org/project/wandas/"><img src="https://img.shields.io/pypi/pyversions/wandas" alt="Python Version"></a>
+Data structures for waveform analysis.
+Python で波形・信号データを扱うためのデータ構造ライブラリです。
 
-</p>
+Wandas brings pandas-like workflows to time-domain, spectral, and spectrogram analysis.
+WAV や CSV を読み込み、メタデータを保ちながら、可視化や周波数解析まで一貫して進められます。
 
----
+## Hero / ヒーロー
 
-## 🚀 インストール / Installation
+Wandas is an open-source Python library for signal and waveform analysis with chainable, frame-based APIs.
+Wandas は、メソッドチェーンしやすいフレーム指向 API で信号解析を進められる、オープンソースの Python ライブラリです。
+
+It helps you move from raw data to inspection, filtering, spectral analysis, and plotting without losing context such as sampling rate, channel labels, and metadata.
+サンプリング周波数、チャネル名、付随メタデータを保ちながら、読み込みから確認、フィルタリング、周波数解析、可視化までつなげられます。
+
+## Why Wandas / なぜ Wandas か
+
+- Work with waveform data using familiar, pandas-like objects instead of ad hoc NumPy arrays.
+  NumPy 配列を都度組み合わせる代わりに、pandas ライクなオブジェクトで波形データを扱えます。
+- Keep metadata, channel information, and operation history attached as analysis grows.
+  解析が進んでも、メタデータ、チャネル情報、処理履歴を一緒に保てます。
+- Move smoothly between time-domain, spectral, and spectrogram views with a consistent API.
+  時間領域、周波数領域、スペクトログラムを一貫した API で行き来できます。
+- Use built-in plotting and summary helpers to inspect signals quickly.
+  組み込みの可視化と要約機能で、信号をすぐに確認できます。
+- Scale to larger data with Dask-backed lazy execution where available.
+  必要に応じて Dask ベースの遅延実行で大きなデータにも対応できます。
+
+## Quick Start / クイックスタート
+
+Install from PyPI:
+PyPI からインストールします。
 
 ```bash
 pip install wandas
 ```
 
-または開発版 / Or development version:
-
-```bash
-pip install git+https://github.com/kasahart/wandas.git
-```
-
-## 📖 クイックスタート / Quick Start
+Then load a WAV file and inspect it in one short path:
+次に、WAV ファイルを読み込んで、そのまま確認できます。
 
 ```python
 import wandas as wd
 
-# WAVファイルを読み込んで解析 / Load and analyze WAV file
+# Load a WAV file and inspect it.
+# WAV ファイルを読み込んで確認する。
 signal = wd.read_wav("audio.wav")
-signal.describe()  # 信号の時系列信号・パワースペクトル・スペクトログラムを表示 / Display time series, power spectrum, and spectrogram
+signal.describe()
 ```
+
+`describe()` gives you a quick visual summary of the waveform, spectrum, and spectrogram.
+`describe()` で、波形、スペクトル、スペクトログラムをまとめて素早く確認できます。
 
 ![cf.describe](https://github.com/kasahart/wandas/blob/main/images/read_wav_describe.png?raw=true)
 
-```python
-# Example of applying a low-pass filter and plotting its FFT
-# ローパスフィルタを適用し、そのFFTをプロットする例
-signal = wd.generate_sin(freqs=[5000, 1000], duration=1, sampling_rate=44100)
-filtered_signal = signal.low_pass_filter(cutoff=1000)
-filtered_signal.fft().plot(title="FFT of Low-pass Filtered Signal")
-```
+## What You Can Do / できること
 
-![signal.low_pass_filter](https://github.com/kasahart/wandas/blob/main/images/low_pass_filter.png?raw=true)
+- Read waveform and sensor data from formats such as WAV, CSV, and WDF.
+  WAV、CSV、WDF などから波形やセンサーデータを読み込めます。
+- Filter, resample, normalize, and summarize signals with method chaining.
+  フィルタ、リサンプリング、正規化、要約をメソッドチェーンで進められます。
+- Run FFT, STFT, Welch, coherence, transfer-function, and octave-style analyses.
+  FFT、STFT、Welch、コヒーレンス、伝達関数、オクターブ系解析を実行できます。
+- Compute psychoacoustic metrics such as loudness and roughness.
+  ラウドネスや粗さなどの心理音響指標を扱えます。
+- Plot waveforms, spectra, and spectrograms directly with Matplotlib-friendly APIs.
+  波形、スペクトル、スペクトログラムを Matplotlib と親和性の高い API で描画できます。
 
-## ✨ 主な機能 / Key Features
+## Learn More / 次に読む
 
-### 🎵 包括的な信号処理 / Comprehensive Signal Processing
+- [Documentation](https://kasahart.github.io/wandas/) - Guides, API reference, and examples.
+  [公式ドキュメント](https://kasahart.github.io/wandas/) - ガイド、API リファレンス、使用例。
+- [Learning Path](https://github.com/kasahart/wandas/tree/main/learning-path/) - Notebook-based walkthroughs.
+  [Learning Path](https://github.com/kasahart/wandas/tree/main/learning-path/) - Notebook ベースのステップ別チュートリアル。
+- [Examples](https://github.com/kasahart/wandas/tree/main/examples/) - Small runnable scripts and sample data.
+  [examples](https://github.com/kasahart/wandas/tree/main/examples/) - 小さな実行例とサンプルデータ。
 
-- **フィルタリング / Filtering**: ローパス、ハイパス、バンドパス、A特性フィルタ / Low‑pass, High‑pass, Band‑pass, A‑weighting filters
-- **周波数解析 / Frequency Analysis**: FFT、STFT、Welch法、コヒーレンス、伝達関数 / FFT, STFT, Welch, coherence, transfer functions
-- **時間周波数解析 / Time‑Frequency Analysis**: スペクトログラム生成と解析 / Spectrogram generation and analysis
-- **心理音響 / Psychoacoustics**: ラウドネス、粗さなどの聴覚指標 / Loudness, roughness and other perceptual metrics
+## Contributing / 貢献
 
-### 📊 pandasライクなデータ構造 / Pandas‑like Data Structures
+Contributions are welcome.
+貢献を歓迎します。
 
-- **ChannelFrame**: 時間領域データ（サンプル、チャネル、メタデータを保持） / Time‑domain frame (samples, channels, metadata)
-- **SpectralFrame**: 周波数領域データ（スペクトル表現） / Frequency‑domain frame (spectrum representations)
-- **SpectrogramFrame**: 時間周波数データ（STFT/スペクトログラム） / Time‑frequency frame (STFT / spectrograms)
-- **メソッドチェーン / Method chaining**: 直感的で連結可能な処理フロー / Intuitive, chainable processing API
+For setup, quality checks, documentation rules, and pull request workflow, see [docs/src/contributing.md](https://kasahart.github.io/wandas/contributing/).
+開発環境セットアップ、品質チェック、ドキュメント規約、プルリクエスト手順は [docs/src/contributing.md](https://kasahart.github.io/wandas/contributing/) を参照してください。
 
-### 🎨 可視化統合 / Visualization Integration
+If you want to report a bug or propose an idea, please use the [Issue Tracker](https://github.com/kasahart/wandas/issues).
+バグ報告や機能提案は [Issue Tracker](https://github.com/kasahart/wandas/issues) を利用してください。
 
-- Matplotlibとシームレスに統合 / Seamless integration with Matplotlib
-- `.plot()` による即時表示（Axes返却） / Immediate plotting via .plot() (returns Axes)
-- `.describe()` で時系列信号・パワースペクトル・スペクトログラム表示 / .describe() for time series, power spectrum, and spectrogram summaries
-- カスタマイズ可能なプロットオプション（カラーブラインド対応） / Customizable plot options (color‑blind friendly)
+## License / ライセンス
 
-### ⚡ 効率的な大規模データ処理 / Efficient Large Data Handling
-
-- Daskを用いた遅延評価 / Lazy evaluation using Dask
-- メモリ効率的なチャンク処理と並列化 / Memory‑efficient chunking and parallelism
-- 不要な compute() を避ける設計 / Designed to avoid unnecessary compute() calls
-
-### 🔧 柔軟なI/O / Flexible I/O
-
-- WAV / CSV の読み書き対応 / Read/write WAV and CSV
-- WDF（HDF5ベース）でメタデータを完全保存 / WDF (HDF5‑based) with full metadata preservation
-- NumPy / Dask配列からの直接生成 / Create directly from NumPy / Dask arrays
-
-### 📈 拡張性 / Extensibility
-
-- プラグイン／AudioOperationベースでカスタム処理を追加可能 / Plugin/custom operations via AudioOperation base
-- 処理履歴（operation_history）とメタデータの完全トレーサビリティ / Full traceability with operation_history and metadata
-- オープンソースで継続的に機能拡張可能 / Open‑source and continuously extensible
-- APIと型ヒントで拡張しやすい設計 / Extension‑friendly design with clear typing
-
-### ✅ テスト・品質 / Testing & Quality
-
-- pytestベースのテストスイート（高いカバレッジを目指す） / pytest‑based test suite (aiming for high coverage)
-- mypyによる静的型チェックのサポート / Static type checking with mypy
-- CIでの自動テスト・リント・型チェック / Automated CI for tests, linting and type checks
-
-## 🎯 何ができるか / What You Can Do
-
-```mermaid
-mindmap
-  root((🎵 Wandas<br/>Signal Processing))
-    📥 Data I/O
-      WAV/CSV読み書き / WAV/CSV I/O
-      WDF形式保存 / WDF format saving
-      NumPy連携 / NumPy integration
-    🔧 Signal Processing
-      フィルタリング / Filtering
-      正規化/トリミング / Normalization/Trimming
-      リサンプリング / Resampling
-      エフェクト適用 / Effects application
-    📊 Frequency Analysis
-      FFT/STFT / FFT/STFT
-      Welch法 / Welch method
-      コヒーレンス / Coherence
-      オクターブ分析 / Octave analysis
-    🎼 Time-Frequency
-      スペクトログラム / Spectrograms
-    🧠 Psychoacoustics
-      ラウドネス / Loudness
-      粗さ / Roughness
-    📈 Visualization
-      Matplotlib統合 / Matplotlib integration
-      オーディオ再生 / Audio playback
-```
-
-## 📚 使用例 / Usage Examples
-
-### 基本的な信号処理 / Basic Signal Processing
-
-```python
-import wandas as wd
-
-# サンプル信号生成 / Generate sample signal
-signal = wd.generate_sin(freqs=[440, 880], duration=2.0, sampling_rate=44100)
-
-# メソッドチェーンでの処理 / Method chaining processing
-processed = (
-    signal
-    .normalize()                    # 正規化 / Normalization
-    .low_pass_filter(cutoff=1000)   # ローパスフィルタ / Low-pass filter
-    .resample(target_rate=22050)    # リサンプリング / Resampling
-)
-
-# FFT解析と可視化 / FFT analysis and visualization
-spectrum = processed.fft()
-spectrum.plot(title="処理済み信号のスペクトル / Processed Signal Spectrum")
-```
-
-### スペクトログラム分析 / Spectrogram Analysis
-
-```python
-# 時間周波数解析 / Time-frequency analysis
-spectrogram = signal.stft(n_fft=2048, hop_length=512)
-spectrogram.plot(cmap='viridis', title="スペクトログラム / Spectrogram")
-```
-
-### CSVデータ処理 / CSV Data Processing
-
-```python
-# CSVファイルからデータ読み込み / Load data from CSV file
-data = wd.read_csv("sensor_data.csv", time_column="Time")
-data.plot(overlay=False, title="センサーデータ / Sensor Data")
-```
-
-## 📖 ドキュメント / Documentation
-
-- **[公式ドキュメントサイト](https://kasahart.github.io/wandas/)** - 詳細なAPIリファレンスとガイド
-- **[チュートリアル](learning-path/)** - 実践的な使用例
-
-## 🛠️ 開発環境 / Development
-
-### テスト実行 / Running Tests
-
-```bash
-# 依存関係インストール / Install dependencies
-uv sync
-
-# テスト実行 / Run tests
-uv run pytest
-
-# カバレッジレポート / Coverage report
-uv run pytest --cov=wandas --cov-report=html
-```
-
-### 品質チェック / Quality Checks
-
-```bash
-# 型チェック / Type checking
-uv run mypy --config-file=pyproject.toml
-
-# リント / Linting
-uv run ruff check wandas tests
-
-# フォーマット / Formatting
-uv run ruff format wandas tests
-```
-
-## 🤝 貢献 / Contributing
-
-Wandasはオープンソースプロジェクトです。貢献を歓迎します！ / Wandas is an open-source project. Contributions are welcome!
-
-### 貢献方法 / How to Contribute
-
-1. Issueで問題を報告または機能リクエスト / Report issues or feature requests via Issues
-2. Forkしてブランチを作成 / Fork the repository and create a branch
-3. 変更を実装し、テストを追加 / Implement changes and add tests
-4. Pull Requestを作成 / Open a Pull Request
-
-### GitHub Copilot サポート / GitHub Copilot Support
-
-このリポジトリには包括的なCopilot指示が設定されています。[`.github/copilot-instructions.md`](.github/copilot-instructions.md)を参照して、プロジェクトの構造と開発規約をご確認ください。 / This repository is configured with comprehensive Copilot instructions. See [`.github/copilot-instructions.md`](.github/copilot-instructions.md) for project structure and development conventions.
-
-詳細は[`.github/AGENTS.md`](.github/AGENTS.md)を参照 / For more details, see [`.github/AGENTS.md`](.github/AGENTS.md)
-
-## 🐛 バグ報告・機能リクエスト / Issues
-
-- **バグ報告**: [Issue Tracker](https://github.com/kasahart/wandas/issues) に詳細を記載 / For bug reports, please include details on the Issue Tracker
-- **機能リクエスト**: 新機能の提案も歓迎します / Feature requests are also welcome
-
-## 📋 依存関係とライセンス / Dependencies & License
-
-### 主要依存関係 / Core Dependencies
-
-- **NumPy** (BSD 3-Clause) - 配列演算 / Array operations
-- **SciPy** (BSD 3-Clause) - 信号処理アルゴリズム / Signal processing algorithms
-- **Dask** (BSD 3-Clause) - 遅延評価・並列処理 / Lazy evaluation and parallel processing
-- **Matplotlib** (PSF) - 可視化 / Visualization
-- **Librosa** (ISC) - 音声処理ユーティリティ / Audio processing utilities
-- **h5py** (BSD 3-Clause) - HDF5ファイルサポート / HDF5 file support
-
-### 専門ライブラリ / Specialized Libraries
-
-- **Mosqito** (GPL-3.0) - 心理音響指標 / Psychoacoustic metrics
-- **japanize-matplotlib** (MIT) - 日本語フォントサポート / Japanese font support for Matplotlib
-
-### ライセンス / License
-
-このプロジェクトは [MIT License](LICENSE) の下で公開されています。 / This project is licensed under the [MIT License](LICENSE).
-
----
-
-<p align="center">
-    <strong>Wandas で効率的な信号解析を体験しましょう！</strong><br>
-    <em>Experience efficient signal analysis with Wandas!</em>
-</p>
+Released under the [MIT License](https://github.com/kasahart/wandas/blob/main/LICENSE).
+このプロジェクトは [MIT License](https://github.com/kasahart/wandas/blob/main/LICENSE) の下で公開されています。

@@ -1,3 +1,5 @@
+# Pull Request
+
 ## Description / 説明
 
 <!-- A clear and concise description of what this PR does and why.
@@ -25,19 +27,22 @@
 
 <!-- List the key changes made in this PR. / 主な変更点をリストアップしてください。 -->
 
-- 
-- 
+-
+-
 
 ---
 
 ## Testing / テスト
 
 <!-- Describe how you tested your changes. / 変更をどのようにテストしたかを説明してください。 -->
+<!-- Check the items that actually apply, and explain skipped checks below. -->
 
-- [ ] Existing tests pass (`uv run pytest -n auto`, or `uv run pytest` for serial execution when debugging) / 既存のテストが通ること
+- [ ] Existing tests pass (`Run pytest` task / `uv run pytest -n auto --cov=wandas --cov-report=term-missing`) / 既存のテストが通ること
+- [ ] Formatting applied (`Run ruff format` task / `uv run ruff format wandas tests`) / フォーマットを適用したこと
 - [ ] New tests added for the changes / 変更に対応するテストを追加した
-- [ ] Type checks pass (`uv run mypy --config-file=pyproject.toml`) / 型チェックが通ること
-- [ ] Lint checks pass (`uv run ruff check wandas tests`) / Lintチェックが通ること
+- [ ] Type checks pass (`Run mypy wandas tests` task / `uv run mypy --config-file=pyproject.toml`) / 型チェックが通ること
+- [ ] Lint checks pass (`Run ruff check` task / `uv run ruff check wandas tests --config=pyproject.toml -v`) / Lintチェックが通ること
+- [ ] Documentation build checked when `docs/`, `src/`, `README.md`, or other MkDocs-backed user-facing markdown changed (`Build MkDocs Documentation` task / `uv run mkdocs build -f docs/mkdocs.yml`) / `docs/`、`src/`、`README.md`、または MkDocs 対象のユーザー向け Markdown を変更した場合にドキュメントビルドを確認した
 
 ---
 

@@ -60,9 +60,7 @@ def ABC_weighting(curve: str = "A") -> tuple[NDArrayReal, NDArrayReal, float]:  
     """
     allowed_curves = {"A", "B", "C"}
     if curve not in allowed_curves:
-        raise ValueError(
-            f"Curve type not understood: {curve!r}. Expected one of {sorted(allowed_curves)}."
-        )
+        raise ValueError(f"Curve type not understood: {curve!r}. Expected one of {sorted(allowed_curves)}.")
 
     # ANSI S1.4-1983 C weighting
     #    2 poles on the real axis at "20.6 Hz" HPF
@@ -129,7 +127,33 @@ def A_weighting(fs: float, output: str = "ba") -> Any:  # noqa: N802
         - 'zpk': tuple of (z, p, k) zeros/poles/gain
         - 'sos': second-order sections array
     """
-    z, p, k = ABC_weighting("A")
+    return frequency_weighting(fs, curve="A", output=output)
+
+
+def frequency_weighting(fs: float, curve: str = "A", output: str = "ba") -> Any:
+    """
+    Design a digital frequency-weighting filter.
+
+    Parameters
+    ----------
+    fs : float
+        Sampling frequency
+    curve : {'A', 'B', 'C'}, optional
+        Frequency weighting curve.
+    output : {'ba', 'zpk', 'sos'}, optional
+        Type of output: numerator/denominator, pole-zero-gain, or SOS.
+
+    Returns
+    -------
+    Any
+        Filter representation requested by ``output``.
+    """
+    normalized_curve = str(curve).upper()
+    allowed_curves = {"A", "B", "C"}
+    if normalized_curve not in allowed_curves:
+        raise ValueError(f"Curve type not understood: {curve!r}. Expected one of {sorted(allowed_curves)}.")
+
+    z, p, k = ABC_weighting(normalized_curve)
 
     # Use the bilinear transformation to get the digital filter.
     z_d, p_d, k_d = bilinear_zpk(z, p, k, fs)
@@ -160,5 +184,26 @@ def A_weight(signal: NDArrayReal, fs: float) -> NDArrayReal:  # noqa: N802
     NDArrayReal
         A-weighted signal
     """
-    sos = A_weighting(fs, output="sos")
+    return frequency_weight(signal, fs, curve="A")
+
+
+def frequency_weight(signal: NDArrayReal, fs: float, curve: str = "A") -> NDArrayReal:
+    """
+    Apply a digital frequency-weighting filter to a signal.
+
+    Parameters
+    ----------
+    signal : array_like
+        Input signal, with time as dimension.
+    fs : float
+        Sampling frequency.
+    curve : {'A', 'B', 'C'}, optional
+        Frequency weighting curve.
+
+    Returns
+    -------
+    NDArrayReal
+        Frequency-weighted signal.
+    """
+    sos = frequency_weighting(fs, curve=curve, output="sos")
     return np.asarray(sosfilt(sos, signal))

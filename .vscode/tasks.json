@@ -8,7 +8,19 @@
             "problemMatcher": []
         },
         {
+            "label": "Run ruff format",
+            "type": "shell",
+            "command": "uv run ruff format wandas tests",
+            "problemMatcher": []
+        },
+        {
             "label": "Run ruff check",
+            "type": "shell",
+            "command": "uv run ruff check wandas tests --config=pyproject.toml -v",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run ruff check --fix",
             "type": "shell",
             "command": "uv run ruff check --fix wandas tests --config=pyproject.toml -v",
             "problemMatcher": []

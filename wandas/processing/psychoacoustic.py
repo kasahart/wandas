@@ -15,10 +15,15 @@ from mosqito.sq_metrics import roughness_dw as roughness_dw_mosqito
 from mosqito.sq_metrics import sharpness_din_st as sharpness_din_st_mosqito
 from mosqito.sq_metrics import sharpness_din_tv as sharpness_din_tv_mosqito
 
-from wandas.processing.base import AudioOperation, register_operation
+from wandas.processing.base import AudioOperation, get_operation, register_operation
 from wandas.utils.types import NDArrayReal
 
 logger = logging.getLogger(__name__)
+
+
+def _register_canonical(operation_class: type[AudioOperation[Any, Any]]) -> None:
+    register_operation(operation_class)
+    globals()[operation_class.__name__] = get_operation(operation_class.name)
 
 
 class LoudnessZwtv(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -210,7 +215,7 @@ class LoudnessZwtv(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 # Register the operation
-register_operation(LoudnessZwtv)
+_register_canonical(LoudnessZwtv)
 
 
 class LoudnessZwst(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -391,7 +396,7 @@ class LoudnessZwst(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 # Register the operation
-register_operation(LoudnessZwst)
+_register_canonical(LoudnessZwst)
 
 
 class RoughnessDw(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -600,7 +605,7 @@ class RoughnessDw(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 # Register the operation
-register_operation(RoughnessDw)
+_register_canonical(RoughnessDw)
 
 
 class RoughnessDwSpec(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -724,7 +729,7 @@ class RoughnessDwSpec(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 # Register the operation
-register_operation(RoughnessDwSpec)
+_register_canonical(RoughnessDwSpec)
 
 
 class SharpnessDin(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -954,7 +959,7 @@ class SharpnessDin(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 # Register the operation
-register_operation(SharpnessDin)
+_register_canonical(SharpnessDin)
 
 
 class SharpnessDinSt(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -1164,4 +1169,4 @@ class SharpnessDinSt(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 # Register the operation
-register_operation(SharpnessDinSt)
+_register_canonical(SharpnessDinSt)

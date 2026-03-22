@@ -270,7 +270,6 @@ class NOctFrame(BaseFrame[NDArrayReal]):
             for N-octave band data.
         """
         raise NotImplementedError(f"Operation {symbol} is not implemented for NOctFrame.")
-        return self
 
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
         """
@@ -278,7 +277,6 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         """
         # Apply operations using lazy evaluation
         raise NotImplementedError(f"Operation {operation_name} is not implemented for NOctFrame.")
-        return self
 
     def plot(
         self,

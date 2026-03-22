@@ -1,7 +1,7 @@
 import abc
 import inspect
 import logging
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Optional, TypeVar
 
 # Import librosa (including display)
@@ -25,6 +25,7 @@ from matplotlib.lines import Line2D
 
 if TYPE_CHECKING:
     from wandas.core.base_frame import BaseFrame
+    from wandas.core.metadata import ChannelMetadata
     from wandas.frames.channel import ChannelFrame
     from wandas.frames.noct import NOctFrame
     from wandas.frames.spectral import SpectralFrame
@@ -62,6 +63,50 @@ class PlotStrategy(abc.ABC, Generic[TFrame]):
 def _return_axes_iterator(axes_list: Any) -> Iterator[Axes]:
     """Helper to convert fig.axes to Iterator[Axes] with proper typing"""
     return iter(axes_list)
+
+
+def _resolve_channel_label(
+    label: "str | Sequence[str] | None",
+    ch_meta: "ChannelMetadata",
+    channel_index: int,
+    n_channels: int,
+) -> str:
+    """Resolve the label for a single channel in the non-overlay (per-subplot) path.
+
+    Parameters
+    ----------
+    label : str | Sequence[str] | None
+        User-supplied label override.  When a sequence is given its element at
+        *channel_index* is used; when a plain string is given that string is
+        used for every channel; when ``None`` the channel metadata label is
+        used.
+    ch_meta : ChannelMetadata
+        Metadata for the current channel (provides the default label).
+    channel_index : int
+        Zero-based index of the current channel in the frame.
+    n_channels : int
+        Total number of channels in the frame. Used to validate per-channel
+        label sequences before indexing.
+
+    Returns
+    -------
+    str
+        The resolved label string.
+    """
+    if label is None:
+        return str(ch_meta.label)
+    if isinstance(label, str):
+        return label
+    if isinstance(label, Sequence):
+        if len(label) != n_channels:
+            raise ValueError(
+                "Channel label count mismatch\n"
+                f"  Got: {len(label)} labels for {n_channels} channels\n"
+                "  Expected: One label per channel in non-overlay mode\n"
+                "Provide label as a single string for all channels or a sequence matching the channel count."
+            )
+        return str(label[channel_index])
+    return str(label)
 
 
 def _reshape_to_2d(data: Any) -> Any:
@@ -144,6 +189,7 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         ylabel = kwargs.pop("ylabel", "Amplitude")
         xlabel = kwargs.pop("xlabel", "Time [s]")
         alpha = kwargs.pop("alpha", 1)
+        label = kwargs.pop("label", None)
         plot_kwargs = filter_kwargs(
             Line2D,
             kwargs,
@@ -163,17 +209,15 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
             if ax is None:
                 fig, ax = plt.subplots(figsize=(10, 4))
 
-            self.channel_plot(bf.time, data.T, ax, label=bf.labels, alpha=alpha, **plot_kwargs)
+            self.channel_plot(
+                bf.time, data.T, ax, label=label if label is not None else bf.labels, alpha=alpha, **plot_kwargs
+            )
             ax.set(
                 ylabel=ylabel,
                 title=title or bf.label or "Channel Data",
                 xlabel=xlabel,
                 **ax_set,
             )
-            if ax is None:
-                fig.suptitle(title or bf.label or None)
-                plt.tight_layout()
-                plt.show()
             return ax
         else:
             num_channels = bf.n_channels
@@ -183,8 +227,15 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
                 axs = [axs]
 
             axes_list = list(axs)
-            for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
-                self.channel_plot(bf.time, channel_data, ax_i, alpha=alpha, **plot_kwargs)
+            for ch_idx, (ax_i, channel_data, ch_meta) in enumerate(zip(axes_list, data, bf.channels)):
+                self.channel_plot(
+                    bf.time,
+                    channel_data,
+                    ax_i,
+                    label=_resolve_channel_label(label, ch_meta, ch_idx, num_channels),
+                    alpha=alpha,
+                    **plot_kwargs,
+                )
                 unit_suffix = f" [{ch_meta.unit}]" if ch_meta.unit else ""
                 ax_i.set(
                     ylabel=f"{ylabel}{unit_suffix}",
@@ -248,6 +299,7 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
         data = _reshape_to_2d(data)
         xlabel = kwargs.pop("xlabel", "Frequency [Hz]")
         alpha = kwargs.pop("alpha", 1)
+        label = kwargs.pop("label", None)
         plot_kwargs = filter_kwargs(Line2D, kwargs, strict_mode=True)
         ax_set = filter_kwargs(Axes.set, kwargs, strict_mode=True)
         # If an Axes is provided, prefer drawing into it (treat as overlay)
@@ -260,7 +312,7 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
                 bf.freqs,
                 data.T,
                 ax,
-                label=bf.labels,
+                label=label if label is not None else bf.labels,
                 alpha=alpha,
                 **plot_kwargs,
             )
@@ -270,9 +322,6 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
                 title=title or bf.label or "Channel Data",
                 **ax_set,
             )
-            if ax is None:
-                plt.tight_layout()
-                plt.show()
             return ax
         else:
             num_channels = bf.n_channels
@@ -282,12 +331,12 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
                 axs = [axs]
 
             axes_list = list(axs)
-            for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
+            for ch_idx, (ax_i, channel_data, ch_meta) in enumerate(zip(axes_list, data, bf.channels)):
                 self.channel_plot(
                     bf.freqs,
                     channel_data,
                     ax_i,
-                    label=ch_meta.label,
+                    label=_resolve_channel_label(label, ch_meta, ch_idx, num_channels),
                     alpha=alpha,
                     **plot_kwargs,
                 )
@@ -345,6 +394,7 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
         ylabel = kwargs.pop("ylabel", f"Spectrum level [{unit}]")
         xlabel = kwargs.pop("xlabel", "Center frequency [Hz]")
         alpha = kwargs.pop("alpha", 1)
+        label = kwargs.pop("label", None)
         plot_kwargs = filter_kwargs(Line2D, kwargs, strict_mode=True)
         ax_set = filter_kwargs(Axes.set, kwargs, strict_mode=True)
         # If an Axes is provided, prefer drawing into it (treat as overlay)
@@ -357,7 +407,7 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
                 bf.freqs,
                 data.T,
                 ax,
-                label=bf.labels,
+                label=label if label is not None else bf.labels,
                 alpha=alpha,
                 **plot_kwargs,
             )
@@ -369,9 +419,6 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
                 title=actual_title,
                 **ax_set,
             )
-            if ax is None:
-                plt.tight_layout()
-                plt.show()
             return ax
         else:
             num_channels = bf.n_channels
@@ -381,12 +428,12 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
                 axs = [axs]
 
             axes_list = list(axs)
-            for ax_i, channel_data, ch_meta in zip(axes_list, data, bf.channels):
+            for ch_idx, (ax_i, channel_data, ch_meta) in enumerate(zip(axes_list, data, bf.channels)):
                 self.channel_plot(
                     bf.freqs,
                     channel_data,
                     ax_i,
-                    label=ch_meta.label,
+                    label=_resolve_channel_label(label, ch_meta, ch_idx, num_channels),
                     alpha=alpha,
                     **plot_kwargs,
                 )
@@ -744,8 +791,6 @@ class MatrixPlotStrategy(PlotStrategy["SpectralFrame"]):
             plt.tight_layout()
             plt.show()
             return _return_axes_iterator(fig.axes)
-
-        raise NotImplementedError()
 
 
 # Maintain mapping of plot types to corresponding classes

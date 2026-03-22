@@ -9,6 +9,7 @@ from mosqito.sq_metrics import roughness_dw as roughness_dw_mosqito
 from mosqito.sq_metrics import sharpness_din_st as sharpness_din_st_mosqito
 from mosqito.sq_metrics import sharpness_din_tv as sharpness_din_tv_mosqito
 
+import wandas.processing.psychoacoustic as psychoacoustic_module
 from wandas.processing.base import create_operation, get_operation
 from wandas.processing.psychoacoustic import (
     LoudnessZwst,
@@ -20,6 +21,10 @@ from wandas.processing.psychoacoustic import (
 from wandas.utils.types import NDArrayReal
 
 _da_from_array = da.from_array  # type: ignore [unused-ignore]
+
+
+def _psychoacoustic_class(name: str) -> type:
+    return getattr(psychoacoustic_module, name)
 
 
 class TestLoudnessZwtv:
@@ -77,13 +82,13 @@ class TestLoudnessZwtv:
     def test_operation_registration(self) -> None:
         """Test that operation is properly registered."""
         op_class = get_operation("loudness_zwtv")
-        assert op_class == LoudnessZwtv
+        assert op_class is _psychoacoustic_class("LoudnessZwtv")
 
     def test_create_operation(self) -> None:
         """Test creating operation via create_operation function."""
         op = create_operation("loudness_zwtv", self.sample_rate, field_type="diffuse")
-        assert isinstance(op, LoudnessZwtv)
-        assert op.field_type == "diffuse"
+        assert type(op) is _psychoacoustic_class("LoudnessZwtv")
+        assert getattr(op, "field_type") == "diffuse"
 
     def test_mono_signal_shape(self) -> None:
         """Test loudness calculation output shape for mono signal."""
@@ -350,7 +355,7 @@ class TestLoudnessZwtvIntegration:
         from wandas.processing.base import _OPERATION_REGISTRY
 
         assert "loudness_zwtv" in _OPERATION_REGISTRY
-        assert _OPERATION_REGISTRY["loudness_zwtv"] == LoudnessZwtv
+        assert _OPERATION_REGISTRY["loudness_zwtv"] is _psychoacoustic_class("LoudnessZwtv")
 
     def test_channel_frame_loudness_method_exists(self) -> None:
         """Test that ChannelFrame has loudness_zwtv method."""
@@ -431,13 +436,13 @@ class TestLoudnessZwst:
     def test_operation_registration(self) -> None:
         """Test that operation is properly registered."""
         op_class = get_operation("loudness_zwst")
-        assert op_class == LoudnessZwst
+        assert op_class is _psychoacoustic_class("LoudnessZwst")
 
     def test_create_operation(self) -> None:
         """Test creating operation via create_operation function."""
         op = create_operation("loudness_zwst", self.sample_rate, field_type="diffuse")
-        assert isinstance(op, LoudnessZwst)
-        assert op.field_type == "diffuse"
+        assert type(op) is _psychoacoustic_class("LoudnessZwst")
+        assert getattr(op, "field_type") == "diffuse"
 
     def test_mono_signal_shape(self) -> None:
         """Test steady-state loudness calculation output shape for mono signal."""
@@ -662,7 +667,7 @@ class TestLoudnessZwstIntegration:
         from wandas.processing.base import _OPERATION_REGISTRY
 
         assert "loudness_zwst" in _OPERATION_REGISTRY
-        assert _OPERATION_REGISTRY["loudness_zwst"] == LoudnessZwst
+        assert _OPERATION_REGISTRY["loudness_zwst"] is _psychoacoustic_class("LoudnessZwst")
 
     def test_channel_frame_loudness_method_exists(self) -> None:
         """Test that ChannelFrame has loudness_zwst method."""
@@ -802,13 +807,13 @@ class TestRoughnessDw:
     def test_operation_registration(self) -> None:
         """Test that operation is properly registered."""
         op_class = get_operation("roughness_dw")
-        assert op_class == RoughnessDw
+        assert op_class is _psychoacoustic_class("RoughnessDw")
 
     def test_create_operation(self) -> None:
         """Test creating operation via create_operation function."""
         op = create_operation("roughness_dw", self.sample_rate, overlap=0.75)
-        assert isinstance(op, RoughnessDw)
-        assert op.overlap == 0.75
+        assert type(op) is _psychoacoustic_class("RoughnessDw")
+        assert getattr(op, "overlap") == 0.75
 
     def test_mono_signal_shape(self) -> None:
         """Test roughness calculation output shape for mono signal."""
@@ -1021,7 +1026,7 @@ class TestRoughnessDwIntegration:
         from wandas.processing.base import _OPERATION_REGISTRY
 
         assert "roughness_dw" in _OPERATION_REGISTRY
-        assert _OPERATION_REGISTRY["roughness_dw"] == RoughnessDw
+        assert _OPERATION_REGISTRY["roughness_dw"] is _psychoacoustic_class("RoughnessDw")
 
     def test_channel_frame_roughness_method_exists(self) -> None:
         """Test that ChannelFrame has roughness_dw method."""
@@ -1152,17 +1157,13 @@ class TestRoughnessDwSpec:
     def test_operation_registration(self) -> None:
         """Test that operation is properly registered."""
         op_class = get_operation("roughness_dw_spec")
-        from wandas.processing.psychoacoustic import RoughnessDwSpec
-
-        assert op_class == RoughnessDwSpec
+        assert op_class is _psychoacoustic_class("RoughnessDwSpec")
 
     def test_create_operation(self) -> None:
         """Test creating operation via create_operation function."""
         op = create_operation("roughness_dw_spec", self.sample_rate, overlap=0.75)
-        from wandas.processing.psychoacoustic import RoughnessDwSpec
-
-        assert isinstance(op, RoughnessDwSpec)
-        assert op.overlap == 0.75
+        assert type(op) is _psychoacoustic_class("RoughnessDwSpec")
+        assert getattr(op, "overlap") == 0.75
 
     def test_mono_signal_shape(self) -> None:
         """Test roughness_spec calculation output shape for mono signal."""
@@ -1315,6 +1316,18 @@ class TestRoughnessDwSpec:
         # Results should be identical
         np.testing.assert_array_equal(result1, result2)
 
+    def test_bark_axis_none_guard(self) -> None:
+        """Test that _bark_axis is populated from MoSQITo when it is None."""
+        from wandas.processing.psychoacoustic import RoughnessDwSpec
+
+        op = RoughnessDwSpec(self.sample_rate, overlap=self.overlap)
+        # Force _bark_axis to None to exercise the guard in _process_array
+        op._bark_axis = None  # type: ignore[assignment]
+        result = op._process_array(self.signal_mono)
+        # After processing, _bark_axis should have been set from MoSQITo
+        assert op._bark_axis is not None
+        assert result.shape[0] == 47  # 47 Bark bands (mono → (n_bark, n_time))
+
     def test_bark_axis_caching(self) -> None:
         """Test that bark_axis is cached to avoid redundant MoSQITo calls."""
         from wandas.processing.psychoacoustic import RoughnessDwSpec
@@ -1371,10 +1384,9 @@ class TestRoughnessDwSpecIntegration:
     def test_roughness_spec_in_operation_registry(self) -> None:
         """Test that roughness_dw_spec operation is in registry."""
         from wandas.processing.base import _OPERATION_REGISTRY
-        from wandas.processing.psychoacoustic import RoughnessDwSpec
 
         assert "roughness_dw_spec" in _OPERATION_REGISTRY
-        assert _OPERATION_REGISTRY["roughness_dw_spec"] == RoughnessDwSpec
+        assert _OPERATION_REGISTRY["roughness_dw_spec"] is _psychoacoustic_class("RoughnessDwSpec")
 
     def test_channel_frame_roughness_spec_method_exists(self) -> None:
         """Test that ChannelFrame has roughness_dw_spec method."""
@@ -1501,12 +1513,12 @@ class TestSharpnessDin:
     def test_operation_registration(self) -> None:
         """Test that operation is properly registered."""
         op_class = get_operation("sharpness_din")
-        assert op_class == SharpnessDin
+        assert op_class is _psychoacoustic_class("SharpnessDin")
 
     def test_create_operation(self) -> None:
         """Test creating operation via create_operation function."""
         op = create_operation("sharpness_din", self.sample_rate)
-        assert isinstance(op, SharpnessDin)
+        assert type(op) is _psychoacoustic_class("SharpnessDin")
 
     def test_mono_signal_shape(self) -> None:
         """Test sharpness calculation output shape for mono signal."""
@@ -1720,7 +1732,7 @@ class TestSharpnessDinIntegration:
         from wandas.processing.base import _OPERATION_REGISTRY
 
         assert "sharpness_din" in _OPERATION_REGISTRY
-        assert _OPERATION_REGISTRY["sharpness_din"] == SharpnessDin
+        assert _OPERATION_REGISTRY["sharpness_din"] is _psychoacoustic_class("SharpnessDin")
 
     def test_channel_frame_sharpness_method_exists(self) -> None:
         """Test that ChannelFrame has sharpness_din method."""
@@ -1837,12 +1849,12 @@ class TestSharpnessDinSt:
     def test_operation_registration(self) -> None:
         """Test that operation is properly registered."""
         op_class = get_operation("sharpness_din_st")
-        assert op_class == SharpnessDinSt
+        assert op_class is _psychoacoustic_class("SharpnessDinSt")
 
     def test_create_operation(self) -> None:
         """Test creating operation via create_operation function."""
         op = create_operation("sharpness_din_st", self.sample_rate)
-        assert isinstance(op, SharpnessDinSt)
+        assert type(op) is _psychoacoustic_class("SharpnessDinSt")
 
     def test_mono_signal_shape(self) -> None:
         """Test steady-state sharpness calculation output shape for mono signal."""
@@ -2006,7 +2018,7 @@ class TestSharpnessDinStIntegration:
         from wandas.processing.base import _OPERATION_REGISTRY
 
         assert "sharpness_din_st" in _OPERATION_REGISTRY
-        assert _OPERATION_REGISTRY["sharpness_din_st"] == SharpnessDinSt
+        assert _OPERATION_REGISTRY["sharpness_din_st"] is _psychoacoustic_class("SharpnessDinSt")
 
     def test_channel_frame_sharpness_st_method_exists(self) -> None:
         """Test that ChannelFrame has sharpness_din_st method."""

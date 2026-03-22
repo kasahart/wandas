@@ -1,4 +1,6 @@
+import types
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any, Optional, Union
 from unittest import mock
 
@@ -17,6 +19,7 @@ import wandas as wd
 from wandas.visualization.plotting import (
     DescribePlotStrategy,
     FrequencyPlotStrategy,
+    MatrixPlotStrategy,
     PlotStrategy,
     SpectrogramPlotStrategy,
     WaveformPlotStrategy,
@@ -600,6 +603,86 @@ class TestPlotting:
 
         plt.close("all")  # すべての図を閉じる
 
+    def test_noct_plot_custom_label(self) -> None:
+        """ユーザー指定のlabelがNOctPlotStrategyで適用されることを確認するテスト"""
+        from wandas.visualization.plotting import NOctPlotStrategy
+
+        strategy = NOctPlotStrategy()
+
+        # overlay=True でカスタムラベルが凡例に反映されることを確認
+        result = strategy.plot(self.mock_noct_frame, overlay=True, label="My Custom Label")
+        assert isinstance(result, Axes)
+        legend = result.get_legend()
+        assert legend is not None
+        legend_texts = [t.get_text() for t in legend.get_texts()]
+        assert "My Custom Label" in legend_texts
+
+        plt.close("all")
+
+        # overlay=False でカスタムラベルが各チャネルの凡例に反映されることを確認
+        result = strategy.plot(self.mock_noct_frame, overlay=False, label="Custom Ch Label")
+        assert isinstance(result, Iterator)
+        axes_list = list(result)
+        for ax_i in axes_list:
+            legend = ax_i.get_legend()
+            assert legend is not None
+            legend_texts = [t.get_text() for t in legend.get_texts()]
+            assert "Custom Ch Label" in legend_texts
+
+        plt.close("all")
+
+    def test_waveform_plot_custom_label(self) -> None:
+        """ユーザー指定のlabelがWaveformPlotStrategyで適用されることを確認するテスト"""
+        strategy = WaveformPlotStrategy()
+
+        # overlay=True でカスタムラベルが凡例に反映されることを確認
+        result = strategy.plot(self.mock_channel_frame, overlay=True, label="My Waveform Label")
+        assert isinstance(result, Axes)
+        legend = result.get_legend()
+        assert legend is not None
+        legend_texts = [t.get_text() for t in legend.get_texts()]
+        assert "My Waveform Label" in legend_texts
+
+        plt.close("all")
+
+        # overlay=False でカスタムラベルが各チャネルの凡例に反映されることを確認
+        result = strategy.plot(self.mock_channel_frame, overlay=False, label="Custom Waveform Label")
+        assert isinstance(result, Iterator)
+        axes_list = list(result)
+        for ax_i in axes_list:
+            legend = ax_i.get_legend()
+            assert legend is not None
+            legend_texts = [t.get_text() for t in legend.get_texts()]
+            assert "Custom Waveform Label" in legend_texts
+
+        plt.close("all")
+
+    def test_frequency_plot_custom_label(self) -> None:
+        """ユーザー指定のlabelがFrequencyPlotStrategyで適用されることを確認するテスト"""
+        strategy = FrequencyPlotStrategy()
+
+        # overlay=True でカスタムラベルが凡例に反映されることを確認
+        result = strategy.plot(self.mock_spectral_frame, overlay=True, label="My Frequency Label")
+        assert isinstance(result, Axes)
+        legend = result.get_legend()
+        assert legend is not None
+        legend_texts = [t.get_text() for t in legend.get_texts()]
+        assert "My Frequency Label" in legend_texts
+
+        plt.close("all")
+
+        # overlay=False でカスタムラベルが各チャネルの凡例に反映されることを確認
+        result = strategy.plot(self.mock_spectral_frame, overlay=False, label="Custom Frequency Label")
+        assert isinstance(result, Iterator)
+        axes_list = list(result)
+        for ax_i in axes_list:
+            legend = ax_i.get_legend()
+            assert legend is not None
+            legend_texts = [t.get_text() for t in legend.get_texts()]
+            assert "Custom Frequency Label" in legend_texts
+
+        plt.close("all")
+
     def test_matrix_plot_strategy(self) -> None:
         """MatrixPlotStrategyのテスト"""
         from wandas.visualization.plotting import MatrixPlotStrategy
@@ -1118,8 +1201,6 @@ class TestPlotting:
 
     def test_matrix_plot_strategy_detailed_behavior(self) -> None:
         """MatrixPlotStrategyの詳細な動作のテスト（選択されたコード部分）"""
-        from wandas.visualization.plotting import MatrixPlotStrategy
-
         strategy = MatrixPlotStrategy()
 
         # ax_setパラメータが正しく適用されることをテスト
@@ -1289,6 +1370,141 @@ class TestPlotting:
             assert call_kwargs["xscale"] == "log"
 
         plt.close("all")
+
+    def test_plotting_helper_functions_and_noop_methods(self) -> None:
+        """Helper utilities and explicit no-op methods should be covered directly."""
+        from wandas.core.metadata import ChannelMetadata
+        from wandas.visualization.plotting import (
+            _reshape_spectrogram_data,
+            _reshape_to_2d,
+            _resolve_channel_label,
+        )
+
+        channel_meta = ChannelMetadata(label="default")
+        unlabeled_channel_meta = ChannelMetadata()
+
+        assert _resolve_channel_label(None, channel_meta, 0, 2) == "default"
+        assert _resolve_channel_label(None, unlabeled_channel_meta, 0, 2) == ""
+        assert _resolve_channel_label("shared", channel_meta, 0, 2) == "shared"
+        assert _resolve_channel_label(["left", "right"], channel_meta, 1, 2) == "right"
+        assert _resolve_channel_label(123, channel_meta, 0, 2) == "123"
+        with pytest.raises(ValueError, match="Channel label count mismatch"):
+            _resolve_channel_label(["only-one"], channel_meta, 0, 2)
+
+        one_dimensional = np.arange(4)
+        two_dimensional = np.arange(6).reshape(2, 3)
+        spectrogram_2d = np.arange(6).reshape(2, 3)
+        spectrogram_3d = np.arange(12).reshape(1, 3, 4)
+
+        assert _reshape_to_2d(one_dimensional).shape == (1, 4)
+        assert _reshape_to_2d(two_dimensional).shape == (2, 3)
+        assert _reshape_spectrogram_data(one_dimensional).shape == (1, 4, 1)
+        assert _reshape_spectrogram_data(spectrogram_2d).shape == (1, 2, 3)
+        assert _reshape_spectrogram_data(spectrogram_3d).shape == (1, 3, 4)
+
+        dummy_strategy = mock.MagicMock()
+        assert (
+            PlotStrategy.channel_plot(dummy_strategy, None, None, mock.MagicMock())
+            is None
+        )
+        assert PlotStrategy.plot(dummy_strategy, mock.MagicMock()) is None
+        assert (
+            SpectrogramPlotStrategy().channel_plot(None, None, mock.MagicMock())
+            is None
+        )
+        assert DescribePlotStrategy().channel_plot(None, None, mock.MagicMock()) is None
+
+    def test_plotting_module_fallback_import_path(self) -> None:
+        """Fallback import should use librosa.display when direct import fails."""
+        import wandas.visualization.plotting as plotting_module
+
+        isolated_module = types.ModuleType("wandas.visualization.plotting_fallback_test")
+        isolated_module.__file__ = plotting_module.__file__
+        isolated_module.__package__ = "wandas.visualization"
+        plotting_source = Path(plotting_module.__file__).read_text(encoding="utf-8")
+        real_import = __import__
+
+        def import_side_effect(
+            name: str,
+            globals_: dict[str, Any] | None = None,
+            locals_: dict[str, Any] | None = None,
+            fromlist: tuple[str, ...] | None = (),
+            level: int = 0,
+        ) -> Any:
+            if name == "librosa" and fromlist and "display" in fromlist:
+                raise ImportError("forced display import failure")
+            return real_import(name, globals_, locals_, fromlist, level)
+
+        with mock.patch("builtins.__import__", side_effect=import_side_effect):
+            exec(compile(plotting_source, plotting_module.__file__, "exec"), isolated_module.__dict__)
+
+        assert isolated_module.display is isolated_module.librosa.display
+
+    def test_spectrogram_plot_strategy_colorbar_error_paths(self) -> None:
+        """Spectrogram plotting should swallow colorbar creation errors for both paths."""
+        strategy = SpectrogramPlotStrategy()
+
+        fig_single, ax_single = plt.subplots()
+        with (
+            mock.patch("librosa.display.specshow", return_value=mock.MagicMock()),
+            mock.patch.object(
+                fig_single,
+                "colorbar",
+                side_effect=ValueError("bad colorbar"),
+            ),
+            mock.patch("wandas.visualization.plotting.logger.warning") as mock_warning,
+        ):
+            result = strategy.plot(self.mock_single_spectrogram_frame, ax=ax_single)
+            assert result is ax_single
+            mock_warning.assert_called_once()
+
+        plt.close(fig_single)
+
+        fig_multi, axs_multi = plt.subplots(2, 1)
+        with (
+            mock.patch("matplotlib.pyplot.subplots", return_value=(fig_multi, axs_multi)),
+            mock.patch("librosa.display.specshow", return_value=mock.MagicMock()),
+            mock.patch.object(
+                fig_multi,
+                "colorbar",
+                side_effect=AttributeError("missing colorbar"),
+            ),
+            mock.patch("wandas.visualization.plotting.logger.warning") as mock_warning,
+            mock.patch("matplotlib.pyplot.show"),
+        ):
+            result = strategy.plot(self.mock_spectrogram_frame)
+            assert isinstance(result, Iterator)
+            assert mock_warning.call_count == 2
+
+        plt.close(fig_multi)
+
+    def test_spectrogram_plot_strategy_invalid_figure_type_raises(self) -> None:
+        """Spectrogram plotting should reject patched subplots that do not return a Figure."""
+        strategy = SpectrogramPlotStrategy()
+        mock_ax = mock.MagicMock(spec=Axes)
+
+        with mock.patch(
+            "matplotlib.pyplot.subplots",
+            return_value=("not-a-figure", np.array([mock_ax])),
+        ):
+            with pytest.raises(ValueError, match="fig must be a matplotlib Figure object"):
+                strategy.plot(self.mock_single_spectrogram_frame)
+
+    def test_matrix_plot_strategy_handles_list_axes_container(self) -> None:
+        """Matrix plotting should flatten list-based axes containers."""
+        strategy = MatrixPlotStrategy()
+        fig, axs = plt.subplots(2, 2)
+
+        with (
+            mock.patch("matplotlib.pyplot.subplots", return_value=(fig, axs.tolist())),
+            mock.patch("matplotlib.pyplot.tight_layout"),
+            mock.patch("matplotlib.pyplot.show"),
+        ):
+            result = strategy.plot(self.mock_coherence_spectral_frame)
+            axes_list = list(result)
+
+        assert len(axes_list) == 4
+        plt.close(fig)
 
 
 class TestChannelFramePlotParameters:

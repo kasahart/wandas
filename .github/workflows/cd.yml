@@ -1,5 +1,8 @@
 name: Deploy on Tag
 
+# Tag-driven package publication and GitHub Release publication live here rather
+# than in the publisher agent.
+
 on:
     push:
         tags:
@@ -37,7 +40,7 @@ jobs:
 
             - name: テスト実行 (pytest)
               # pytestは自動的にpyproject.tomlを検出します
-              run: uv run pytest
+              run: uv run pytest -n auto
 
             - name: Build a binary wheel and a source tarball
               run: uv build

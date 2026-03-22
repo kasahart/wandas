@@ -1,15 +1,20 @@
+from unittest import mock
+
 import dask.array as da
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
+from scipy import signal as scipy_signal
 
 from wandas.processing.base import create_operation, get_operation, register_operation
 from wandas.processing.temporal import (
     FixLength,
     ReSampling,
     RmsTrend,
+    SoundLevel,
     Trim,
 )
+from wandas.processing.weighting import frequency_weighting
 from wandas.utils.types import NDArrayReal
 
 _da_from_array = da.from_array  # type: ignore [unused-ignore]
@@ -315,6 +320,31 @@ class TestRmsTrend:
         assert rms_op.hop_length == 256
         assert rms_op.dB is True
 
+    def test_a_weighting_returns_tuple(self) -> None:
+        """Test that A_weight returning a tuple uses the first element."""
+        rms = RmsTrend(self.sample_rate, Aw=True)
+        arr = self.signal_mono.copy()
+        # Mock A_weight to return a tuple (array, None)
+        tuple_result = (arr, None)
+        with mock.patch("wandas.processing.temporal.A_weight", return_value=tuple_result):
+            result = rms._process_array(arr)
+        assert result.shape[0] == 1
+        assert result.ndim == 2
+
+    def test_a_weighting_returns_unexpected_type(self) -> None:
+        """Test that A_weight returning an unexpected type raises ValueError."""
+        rms = RmsTrend(self.sample_rate, Aw=True)
+        arr = self.signal_mono.copy()
+        with mock.patch("wandas.processing.temporal.A_weight", return_value=42):
+            with pytest.raises(ValueError, match="A_weighting returned an unexpected type"):
+                rms._process_array(arr)
+
+    def test_ref_as_list(self) -> None:
+        """Test that ref provided as a list is converted to a numpy array."""
+        rms = RmsTrend(self.sample_rate, dB=True, ref=[1.0])
+        assert isinstance(rms.ref, np.ndarray)
+        assert rms.ref.shape == (1,)
+
 
 class TestFixLength:
     def setup_method(self) -> None:
@@ -413,6 +443,216 @@ class TestFixLength:
         assert fix_op2.target_length == int(0.75 * 16000)
 
 
+class TestSoundLevel:
+    def setup_method(self) -> None:
+        """Set up test fixtures for each test."""
+        self.sample_rate: int = 16000
+        self.duration_seconds: float = 8.0
+        # Use amplitude 2.0 so squaring changes the magnitude and theoretical checks
+        # can catch power/RMS mistakes more easily than with amplitude 1.0.
+        self.amplitude: float = 2.0
+        t = np.linspace(0, self.duration_seconds, int(self.duration_seconds * self.sample_rate), endpoint=False)
+        self.low_freq: float = 50.0
+        self.low_freq_signal: NDArrayReal = np.array([self.amplitude * np.sin(2 * np.pi * self.low_freq * t)])
+        self.dask_low_freq: DaArray = _da_from_array(self.low_freq_signal, chunks=(1, -1))
+
+        self.step_start = self.sample_rate
+        self.step_amplitude: float = 0.5
+        self.step_signal: NDArrayReal = np.zeros((1, 4 * self.sample_rate), dtype=np.float64)
+        self.step_signal[0, self.step_start :] = self.step_amplitude
+        self.dask_step: DaArray = _da_from_array(self.step_signal, chunks=(1, -1))
+
+    def test_initialization(self) -> None:
+        """Test initialization with different parameters."""
+        op = SoundLevel(self.sample_rate, freq_weighting="A", time_weighting="Fast", ref=2e-5, dB=True)
+        assert op.sampling_rate == self.sample_rate
+        assert op.freq_weighting == "A"
+        assert op.time_weighting == "Fast"
+        assert op.dB is True
+
+    def test_initialization_defaults_to_linear_rms_output(self) -> None:
+        """Test that sound level defaults to linear time-weighted RMS output."""
+        op = SoundLevel(self.sample_rate, ref=2e-5)
+        assert op.dB is False
+
+        explicit_linear = SoundLevel(self.sample_rate, ref=2e-5, dB=False)
+        default_result = op.process(self.dask_low_freq).compute()
+        explicit_result = explicit_linear.process(self.dask_low_freq).compute()
+
+        np.testing.assert_allclose(default_result, explicit_result)
+
+    def test_sound_level_shape(self) -> None:
+        """Test that sound level preserves input shape."""
+        op = SoundLevel(self.sample_rate, ref=1.0)
+        result = op.process(self.dask_low_freq).compute()
+        assert result.shape == self.low_freq_signal.shape
+
+    def test_integer_input_returns_float64_and_matches_float_input_values(self) -> None:
+        """Integer input should produce float output without truncation."""
+        signal_int = np.array([[0, 1000, -1000, 500, -500, 250, -250]], dtype=np.int16)
+        signal_float = signal_int.astype(np.float64)
+        dask_int = _da_from_array(signal_int, chunks=(1, -1))
+        dask_float = _da_from_array(signal_float, chunks=(1, -1))
+
+        operation = SoundLevel(self.sample_rate, ref=1.0, freq_weighting="Z", time_weighting="Fast", dB=False)
+
+        int_result_da = operation.process(dask_int)
+        float_result_da = operation.process(dask_float)
+
+        assert int_result_da.dtype == np.float64
+
+        int_result = int_result_da.compute()
+        float_result = float_result_da.compute()
+
+        assert int_result.dtype == np.float64
+        np.testing.assert_allclose(int_result, float_result)
+
+    def test_float32_input_preserves_float32_output_dtype(self) -> None:
+        """float32 input should keep float32 output metadata and computed dtype."""
+        signal_f32 = self.low_freq_signal.astype(np.float32)
+        dask_f32 = _da_from_array(signal_f32, chunks=(1, -1))
+        operation = SoundLevel(self.sample_rate, ref=1.0, freq_weighting="Z", time_weighting="Fast", dB=False)
+
+        result_da = operation.process(dask_f32)
+        result = result_da.compute()
+
+        assert result_da.dtype == np.float32
+        assert result.dtype == np.float32
+
+    def test_float32_db_output_with_none_weighting_and_slow_alias_preserves_float32_dtype(self) -> None:
+        """float32 dB output should normalize aliases and keep float32 Dask metadata."""
+        signal_f32 = self.low_freq_signal.astype(np.float32)
+        dask_f32 = _da_from_array(signal_f32, chunks=(1, -1))
+        float32_operation = SoundLevel(
+            self.sample_rate,
+            ref=1.0,
+            freq_weighting=None,
+            time_weighting="s",
+            dB=True,
+        )
+        float64_reference = SoundLevel(
+            self.sample_rate,
+            ref=1.0,
+            freq_weighting="Z",
+            time_weighting="Slow",
+            dB=True,
+        )
+
+        result_da = float32_operation.process(dask_f32)
+        result = result_da.compute()
+        # Use the same underlying samples as the float32 path, but cast to float64
+        reference = float64_reference.process(dask_f32.astype(np.float64)).compute()
+
+        assert float32_operation.freq_weighting == "Z"
+        assert float32_operation.time_weighting == "Slow"
+        assert result_da.dtype == np.float32
+        assert result.dtype == np.float32
+        # float32 dB output exercises the lower-precision lfilter/log10 path, so use a
+        # tolerance appropriate for comparing it against the float64 reference result.
+        # tolerance appropriate for comparing it against the float64 reference result.
+        np.testing.assert_allclose(result, reference, rtol=1e-4, atol=1e-4)
+
+    @pytest.mark.parametrize(("curve", "expected_gain"), [("Z", 1.0), ("A", None), ("C", None)])
+    def test_sound_level_matches_theoretical_weighted_power(self, curve: str, expected_gain: float | None) -> None:
+        """Test weighted sound level against theoretical steady-state power."""
+        # 1. Obtain the theoretical gain (absolute value of the transfer function)
+        if expected_gain is None:
+            sos = frequency_weighting(self.sample_rate, curve=curve, output="sos")
+            _, response = scipy_signal.freqz_sos(sos, worN=self.low_freq, fs=self.sample_rate)
+            expected_gain = float(np.abs(np.asarray(response)).item())
+
+        # 2. Calculate the theoretical expected power
+        # P = (A * G / sqrt(2))^2  => squared RMS of a sine wave
+        expected_rms = (self.amplitude * expected_gain) / np.sqrt(2.0)
+        expected_power = expected_rms**2
+
+        # 3. Process signal and convert dB back to linear power
+        operation = SoundLevel(self.sample_rate, ref=1.0, freq_weighting=curve, time_weighting="Fast", dB=True)
+        result_db = operation.process(self.dask_low_freq).compute()
+
+        # Extract steady-state power from the latter half of the result
+        steady_state_db = result_db[..., result_db.shape[-1] // 2 :]
+        measured_power = np.mean(10.0 ** (steady_state_db / 10.0))
+
+        # 4. Verification
+        np.testing.assert_allclose(
+            measured_power,
+            expected_power,
+            rtol=1e-6,
+            atol=0.0,
+        )
+
+    @pytest.mark.parametrize(("curve", "expected_gain"), [("Z", 1.0), ("A", None), ("C", None)])
+    def test_linear_output_matches_theoretical_weighted_rms(self, curve: str, expected_gain: float | None) -> None:
+        """Test linear output against theoretical time-weighted RMS."""
+        # 1. Obtain the theoretical gain (absolute value of the transfer function)
+        if expected_gain is None:
+            sos = frequency_weighting(self.sample_rate, curve=curve, output="sos")
+            _, response = scipy_signal.freqz_sos(sos, worN=self.low_freq, fs=self.sample_rate)
+            expected_gain = float(np.abs(np.asarray(response)).item())
+
+        # 2. Calculate the theoretical expected power of the weighted sine wave
+        expected_rms = (self.amplitude * expected_gain) / np.sqrt(2.0)
+        expected_power = expected_rms**2
+
+        # 3. Process signal using linear output and extract the steady-state region
+        operation = SoundLevel(self.sample_rate, ref=1.0, freq_weighting=curve, time_weighting="Fast", dB=False)
+        result_rms = operation.process(self.dask_low_freq).compute()
+        steady_state_rms = result_rms[..., result_rms.shape[-1] // 2 :]
+        measured_power = np.mean(np.square(steady_state_rms))
+
+        # 4. Verification
+        np.testing.assert_allclose(
+            measured_power,
+            expected_power,
+            rtol=1e-6,
+            atol=0.0,
+        )
+
+    @pytest.mark.parametrize(("time_weighting", "tau"), [("Fast", 0.125), ("Slow", 1.0)])
+    def test_time_weighting_matches_theoretical_rc_formula(self, time_weighting: str, tau: float) -> None:
+        """
+        Test if the time weighting (Fast/Slow) correctly follows the
+        theoretical discrete-time RC step response.
+        """
+        # 1. Setup the sound level operation with Z-weighting (flat)
+        operation = SoundLevel(self.sample_rate, ref=1.0, freq_weighting="Z", time_weighting=time_weighting, dB=True)
+        result_db = operation.process(self.dask_step).compute()
+
+        # 2. Linearize: convert dB output back to power ratio
+        measured_power = 10.0 ** (result_db / 10.0)
+
+        # 3. Calculate theoretical parameters
+        alpha = np.exp(-1.0 / (self.sample_rate * tau))
+        num_samples = self.step_signal.shape[-1] - self.step_start
+        n = np.arange(num_samples, dtype=np.float64)
+
+        # 4. Generate the expected step response curve
+        input_power = self.step_amplitude**2
+        expected_power = input_power * (1.0 - alpha ** (n + 1.0))
+
+        # 5. Verify that the measured power curve matches the theoretical RC response
+        np.testing.assert_allclose(
+            measured_power[0, self.step_start :],
+            expected_power,
+            rtol=1e-6,
+            atol=0.0,
+        )
+
+    def test_operation_registry(self) -> None:
+        """Test that SoundLevel is properly registered in the operation registry."""
+        assert get_operation("sound_level") == SoundLevel
+
+        sound_level_op = create_operation(
+            "sound_level", 16000, freq_weighting="A", time_weighting="Slow", ref=2e-5, dB=True
+        )
+
+        assert isinstance(sound_level_op, SoundLevel)
+        assert sound_level_op.freq_weighting == "A"
+        assert sound_level_op.time_weighting == "Slow"
+        assert sound_level_op.dB is True
+
+
 # Register FixLength in the operation registry (if not done in __init__.py)
 register_operation(FixLength)
 
@@ -439,3 +679,81 @@ class TestRmsTrendMetadataUpdates:
 
         expected_sr = 48000 / hop_length
         assert np.isclose(updates["sampling_rate"], expected_sr)
+
+
+class TestTemporalHelperMethods:
+    """Target helper methods and edge branches for temporal operations."""
+
+    def test_resampling_helper_methods(self) -> None:
+        """Resampling helper methods should report output metadata consistently."""
+        operation = ReSampling(44100, 22050)
+
+        assert operation.get_metadata_updates() == {"sampling_rate": 22050}
+        assert operation.calculate_output_shape((2, 441)) == (2, 221)
+        assert operation.get_display_name() == "rs"
+
+    def test_trim_helper_methods_cap_output_length_to_input(self) -> None:
+        """Trim should cap the output length when end exceeds the input length."""
+        operation = Trim(1000, start=0.1, end=2.0)
+
+        assert operation.calculate_output_shape((2, 500)) == (2, 400)
+        assert operation.get_display_name() == "trim"
+
+    def test_fix_length_helper_methods(self) -> None:
+        """FixLength helper methods should expose target length metadata."""
+        operation = FixLength(16000, duration=0.25)
+
+        assert operation.target_length == 4000
+        assert operation.calculate_output_shape((2, 16000)) == (2, 4000)
+        assert operation.get_display_name() == "fix"
+
+    def test_rms_trend_helper_methods(self) -> None:
+        """RmsTrend helper methods should report derived sampling information."""
+        operation = RmsTrend(16000, frame_length=512, hop_length=128, dB=True)
+
+        assert operation.get_display_name() == "RMS"
+        assert operation.get_metadata_updates() == {"sampling_rate": 125.0}
+        assert operation.calculate_output_shape((2, 16000)) == (2, 126)
+
+    def test_sound_level_helper_methods_and_reference_validation(self) -> None:
+        """SoundLevel helper methods should validate references and expose helpers."""
+        linear_operation = SoundLevel(
+            16000,
+            ref=1.0,
+            freq_weighting=None,
+            time_weighting="fast",
+            dB=False,
+        )
+        db_operation = SoundLevel(
+            16000,
+            ref=[1.0, 2.0],
+            freq_weighting="c",
+            time_weighting="s",
+            dB=True,
+        )
+
+        assert linear_operation.calculate_output_shape((2, 16)) == (2, 16)
+        assert linear_operation.time_constant == 0.125
+        assert linear_operation.get_display_name() == "ZFRMS"
+        assert np.array_equal(linear_operation._reference_squared(2), np.array([1.0, 1.0]))
+        assert np.array_equal(SoundLevel(16000, ref=[1.0])._reference_squared(1), np.array([1.0]))
+        assert linear_operation._output_dtype(np.dtype(np.float32)) == np.dtype(np.float32)
+        assert linear_operation._output_dtype(np.dtype(np.int16)) == np.dtype(np.float64)
+
+        assert db_operation.time_weighting == "Slow"
+        assert db_operation.freq_weighting == "C"
+        assert db_operation.time_constant == 1.0
+        assert db_operation.get_display_name() == "LCS"
+        assert np.array_equal(db_operation._reference_squared(2), np.array([1.0, 4.0]))
+
+        with pytest.raises(ValueError, match="Reference count mismatch"):
+            db_operation._reference_squared(3)
+
+        with pytest.raises(ValueError, match="Invalid sound level reference"):
+            SoundLevel(16000, ref=0.0)
+
+        with pytest.raises(ValueError, match="Invalid frequency weighting"):
+            SoundLevel(16000, ref=1.0, freq_weighting="B")
+
+        with pytest.raises(ValueError, match="Invalid time weighting"):
+            SoundLevel(16000, ref=1.0, time_weighting="Medium")

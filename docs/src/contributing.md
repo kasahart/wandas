@@ -12,24 +12,26 @@ This project uses `uv` for package management.
    リポジトリをクローンします。
 2. Install dependencies:
    依存関係をインストールします:
-   ```bash
-   uv sync
-   ```
+
+  ```bash
+  uv sync --frozen --all-groups
+  ```
 
 ## Running Tests / テストの実行
 
 Tests are located in the `tests/` directory.
 `tests/` ディレクトリにテストがあります。
 
-- Run all tests (parallel):
-  全テストの実行 (並列):
+- Preferred VS Code task:
+  推奨 VS Code タスク:
+
+  - `Run pytest`
+
+- Run all tests (parallel with coverage):
+  全テストの実行 (カバレッジ付き並列):
+
   ```bash
-  uv run pytest -n auto
-  ```
-- Run tests serially (for debugging):
-  シリアル実行 (デバッグ時など):
-  ```bash
-  uv run pytest
+  uv run pytest -n auto --cov=wandas --cov-report=term-missing
   ```
 
 ## Code Quality Checks / コード品質チェック
@@ -39,18 +41,50 @@ Please perform the following checks before submitting a pull request.
 
 - Type check (mypy):
   型チェック (mypy):
+
+  Preferred VS Code task:
+  推奨 VS Code タスク:
+
+  - `Run mypy wandas tests`
+
   ```bash
   uv run mypy --config-file=pyproject.toml
   ```
-- Lint (ruff):
-  リント (ruff):
-  ```bash
-  uv run ruff check wandas tests --config=pyproject.toml
-  ```
+
 - Format (ruff):
   フォーマット (ruff):
+
+  Preferred VS Code task:
+  推奨 VS Code タスク:
+
+  - `Run ruff format`
+
   ```bash
   uv run ruff format wandas tests
+  ```
+
+- Lint (ruff):
+  リント (ruff):
+
+  Preferred VS Code task:
+  推奨 VS Code タスク:
+
+  - `Run ruff check`
+
+  ```bash
+  uv run ruff check wandas tests --config=pyproject.toml -v
+  ```
+
+- Lint with auto-fix (ruff, implementer/publisher only when intended):
+  自動修正付きリント (ruff, implementer/publisher が意図的に使う場合のみ):
+
+  Preferred VS Code task:
+  推奨 VS Code タスク:
+
+  - `Run ruff check --fix`
+
+  ```bash
+  uv run ruff check --fix wandas tests --config=pyproject.toml -v
   ```
 
 ## Building Documentation / ドキュメントのビルド
@@ -60,11 +94,14 @@ Documentation is built with MkDocs.
 
 - Build:
   ビルド:
+
   ```bash
   uv run mkdocs build -f docs/mkdocs.yml
   ```
+
 - Serve locally:
   ローカルサーバー起動:
+
   ```bash
   uv run mkdocs serve -f docs/mkdocs.yml
   ```
@@ -77,6 +114,7 @@ All documentation is maintained in a bilingual format (English / Japanese) withi
 すべてのドキュメントは、単一ファイル内でバイリンガル形式（英語/日本語）で管理されています。
 
 **Important / 重要**:
+
 - When updating documentation, **always update both languages simultaneously**.
   ドキュメントを更新する際は、**必ず両言語を同時に更新してください**。
 - Follow the established format: English text followed by Japanese translation.
@@ -85,6 +123,7 @@ All documentation is maintained in a bilingual format (English / Japanese) withi
   コード例では、適切な場合にバイリンガルコメントを使用してください。
 
 **Format example / 形式の例**:
+
 ```markdown
 ## Section Title / セクションタイトル
 

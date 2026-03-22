@@ -13,34 +13,41 @@ This repository is configured with comprehensive GitHub Copilot instructions to 
   - Documents development workflow and commands (testing, linting, type checking)
   - Establishes design principles (immutability, metadata preservation, Dask laziness)
   - Defines error handling patterns and testing expectations
-  - Specifies role-based guidelines for planners, implementers, and reviewers
+  - Specifies role-based guidelines for planners, implementers, reviewers, and PR-only publication handoff
 
 ### Custom Agents
 
 The `agents/` directory contains specialized agent definitions for different development tasks:
 
-- **`wandas-planner.agent.md`**: Read-only planning agent that maps requirements to affected modules
+- **`wandas-planner.agent.md`**: Read-only planning agent that maps requirements to affected modules or `.github/` customization and workflow files
 - **`wandas-implementer.agent.md`**: Implementation agent focused on TDD and metadata preservation
-- **`wandas-reviewer.agent.md`**: Review agent that validates frame immutability and test coverage
-- **`wandas-publisher.agent.md`**: Publishing agent for git operations and PR creation
+- **`wandas-reviewer.agent.md`**: Read-only review agent that verifies changed files, recorded validation evidence, and workflow alignment
+- **`wandas-publisher.agent.md`**: PR-only publishing agent for branch, stage, commit, push, and pull request create or update
 
-### Additional Instructions
+### Active Instructions
 
-The `instructions/` directory contains detailed prompts for specific design areas:
+The `instructions/` directory contains the active `.instructions.md` guidance files used by agents:
 
-- **`frames-design.prompt.md`**: Guidelines for working with frame data structures
-- **`processing-api.prompt.md`**: Patterns for processing module implementations
-- **`io-contracts.prompt.md`**: I/O handling and file format specifications
-- **`testing-workflow.prompt.md`**: Testing strategy and patterns
-- **`agent-maintenance.prompt.md`**: Guidelines for maintaining agent definitions
+- **`frames-design.instructions.md`**: Guidelines for working with frame data structures
+- **`processing-api.instructions.md`**: Patterns for processing module implementations
+- **`io-contracts.instructions.md`**: I/O handling and file format specifications
+- **`testing-workflow.instructions.md`**: Testing strategy and patterns
+- **`agent-maintenance.instructions.md`**: Guidelines for maintaining agent definitions
+- **`test-grand-policy.instructions.md`**: Cross-cutting test quality policy
+- **`test-frames-policy.instructions.md`**: Frame-specific test patterns
+- **`test-processing-policy.instructions.md`**: Processing-layer test patterns
+- **`test-io-policy.instructions.md`**: I/O test patterns
+- **`test-visualization-policy.instructions.md`**: Visualization test patterns
+
+Archived review notes are kept outside `instructions/` so they do not present as live agent guidance.
 
 ## 🔧 How Copilot Uses These Instructions
 
 When working with this repository:
 
 1. **Copilot coding agents** automatically read `copilot-instructions.md` to understand project conventions
-2. **Custom agents** can be invoked for specialized tasks (planning, implementation, review)
-3. **Instruction prompts** provide deeper guidance for specific areas of the codebase
+2. **Custom agents** can be invoked for specialized tasks (planning, implementation, review, PR publication)
+3. **Active instruction files** provide deeper guidance for specific areas of the codebase
 
 ## 📝 Maintaining Copilot Instructions
 
@@ -48,7 +55,7 @@ When updating the codebase architecture or development workflow:
 
 1. Update `copilot-instructions.md` if project-wide conventions change
 2. Update specific agent definitions if role responsibilities evolve
-3. Add or update instruction prompts when introducing new design patterns
+3. Add or update active `.instructions.md` files when introducing new design patterns
 4. Keep examples in sync with actual code patterns in the repository
 
 ## 🚀 For Contributors
@@ -61,10 +68,13 @@ These instructions help ensure consistent code quality and adherence to project 
 - Maintain immutability, metadata preservation, and lazy evaluation principles
 
 For more information on using Copilot instructions, see:
+
 - [GitHub Copilot documentation](https://docs.github.com/en/copilot)
 - [Best practices for Copilot coding agent in your repository](https://gh.io/copilot-coding-agent-tips)
 
 ## 📁 Other Files in This Directory
 
 - **`workflows/`**: GitHub Actions workflows for CI/CD
-- **`release-drafter.yml`**: Configuration for automated release notes
+- **`workflows/release-drafter.yml`**: GitHub Actions workflow that updates GitHub Release drafts from merged PR data
+- **`release-drafter.yml`**: Release Drafter configuration consumed by the workflow above
+- **`workflows/cd.yml`**: Tag-driven package publication and GitHub Release workflow

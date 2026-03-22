@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "wandas"
-version = "0.1.16"
+version = "0.1.17"
 description = "Wandas is an open source library for efficient signal analysis in Python"
 authors = [{name = "kasahart", email="kasahart66@gmail.com"}]
 maintainers = [
@@ -13,6 +13,7 @@ maintainers = [
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
+license-files = ["LICENSE", "LICENSE-THIRD-PARTY"]
 classifiers = [
     'Development Status :: 2 - Pre-Alpha',
     'Intended Audience :: Science/Research',
@@ -35,7 +36,6 @@ dependencies = [
     "scipy>=1.13.0",
     "matplotlib>=3.9.0",
     "librosa",
-    "mosqito",
     "ipykernel",
     "ipywidgets",
     "cattrs",
@@ -49,6 +49,7 @@ dependencies = [
     "requests>=2.32.3",
     "types-requests>=2.32.0.20250328",
     "pandas",
+    "mosqito",
 ]
 
 [project.urls]
@@ -94,7 +95,6 @@ wandas = { workspace = true }
 [tool.ruff]
 line-length = 120
 include = ["wandas/**/*.py", "tests/**/*.py"]
-fix = true
 # 共通のruff設定はここにまとめる
 
 [tool.ruff.lint]
@@ -128,10 +128,11 @@ python_functions = "test_*"
 norecursedirs = ["scripts"]
 
 [tool.vscode.tasks]
-ruff-check = { command = "uv run ruff check wandas tests", label = "Run ruff check" }
-mypy = { command = "uv run mypy", label = "Run mypy wandas tests" }
-pytest = { command = "uv run pytest", label = "Run pytest" }
-pytest-parallel = { command = "uv run pytest -n auto", label = "Run pytest (parallel)" }
+ruff-format = { command = "uv run ruff format wandas tests", label = "Run ruff format" }
+ruff-check = { command = "uv run ruff check wandas tests --config=pyproject.toml -v", label = "Run ruff check" }
+ruff-check-fix = { command = "uv run ruff check --fix wandas tests --config=pyproject.toml -v", label = "Run ruff check --fix" }
+mypy = { command = "uv run mypy --config-file=pyproject.toml", label = "Run mypy wandas tests" }
+pytest = { command = "uv run pytest -n auto --cov=wandas --cov-report=term-missing", label = "Run pytest" }
 
 [tool.pre-commit]
 use-uv = true
