@@ -1,5 +1,6 @@
-import importlib
 from collections.abc import Iterator
+from pathlib import Path
+import types
 from typing import Any, Optional, Union
 from unittest import mock
 
@@ -1372,17 +1373,18 @@ class TestPlotting:
 
     def test_plotting_helper_functions_and_noop_methods(self) -> None:
         """Helper utilities and explicit no-op methods should be covered directly."""
+        from wandas.core.metadata import ChannelMetadata
         from wandas.visualization.plotting import (
             _resolve_channel_label,
             _reshape_spectrogram_data,
             _reshape_to_2d,
         )
 
-        channel_meta = mock.MagicMock(label="default", unit=None)
-        unlabeled_channel_meta = mock.MagicMock(label=None, unit=None)
+        channel_meta = ChannelMetadata(label="default")
+        unlabeled_channel_meta = ChannelMetadata()
 
         assert _resolve_channel_label(None, channel_meta, 0, 2) == "default"
-        assert _resolve_channel_label(None, unlabeled_channel_meta, 0, 2) == "None"
+        assert _resolve_channel_label(None, unlabeled_channel_meta, 0, 2) == ""
         assert _resolve_channel_label("shared", channel_meta, 0, 2) == "shared"
         assert _resolve_channel_label(["left", "right"], channel_meta, 1, 2) == "right"
         assert _resolve_channel_label(123, channel_meta, 0, 2) == "123"
@@ -1416,6 +1418,10 @@ class TestPlotting:
         """Fallback import should use librosa.display when direct import fails."""
         import wandas.visualization.plotting as plotting_module
 
+        isolated_module = types.ModuleType("wandas.visualization.plotting_fallback_test")
+        isolated_module.__file__ = plotting_module.__file__
+        isolated_module.__package__ = "wandas.visualization"
+        plotting_source = Path(plotting_module.__file__).read_text(encoding="utf-8")
         real_import = __import__
 
         def import_side_effect(
@@ -1430,10 +1436,9 @@ class TestPlotting:
             return real_import(name, globals_dict, locals_dict, fromlist, level)
 
         with mock.patch("builtins.__import__", side_effect=import_side_effect):
-            reloaded = importlib.reload(plotting_module)
+            exec(compile(plotting_source, plotting_module.__file__, "exec"), isolated_module.__dict__)
 
-        assert reloaded.display is reloaded.librosa.display
-        importlib.reload(plotting_module)
+        assert isolated_module.display is isolated_module.librosa.display
 
     def test_spectrogram_plot_strategy_colorbar_error_paths(self) -> None:
         """Spectrogram plotting should swallow colorbar creation errors for both paths."""
