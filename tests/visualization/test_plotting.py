@@ -1,6 +1,6 @@
+import types
 from collections.abc import Iterator
 from pathlib import Path
-import types
 from typing import Any, Optional, Union
 from unittest import mock
 
@@ -1375,9 +1375,9 @@ class TestPlotting:
         """Helper utilities and explicit no-op methods should be covered directly."""
         from wandas.core.metadata import ChannelMetadata
         from wandas.visualization.plotting import (
-            _resolve_channel_label,
             _reshape_spectrogram_data,
             _reshape_to_2d,
+            _resolve_channel_label,
         )
 
         channel_meta = ChannelMetadata(label="default")
@@ -1426,14 +1426,14 @@ class TestPlotting:
 
         def import_side_effect(
             name: str,
-            globals_dict: dict[str, Any] | None = None,
-            locals_dict: dict[str, Any] | None = None,
-            fromlist: tuple[str, ...] = (),
+            globals_: dict[str, Any] | None = None,
+            locals_: dict[str, Any] | None = None,
+            fromlist: tuple[str, ...] | None = (),
             level: int = 0,
         ) -> Any:
-            if name == "librosa" and "display" in fromlist:
+            if name == "librosa" and fromlist and "display" in fromlist:
                 raise ImportError("forced display import failure")
-            return real_import(name, globals_dict, locals_dict, fromlist, level)
+            return real_import(name, globals_, locals_, fromlist, level)
 
         with mock.patch("builtins.__import__", side_effect=import_side_effect):
             exec(compile(plotting_source, plotting_module.__file__, "exec"), isolated_module.__dict__)
