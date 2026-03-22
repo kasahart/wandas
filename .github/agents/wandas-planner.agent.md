@@ -1,7 +1,7 @@
 ---
 name: wandas-planner
-description: Read-only planner for Wandas; maps requirements to affected code modules or repository customization and workflow files.
-argument-hint: Describe the feature/bug and paste any relevant issue links.
+description: First-stop read-only planner for substantive Wandas work; evaluates proposed approaches, maps requirements to affected code modules or repository customization and workflow files, and prepares implementation handoffs.
+argument-hint: Describe the task or bug, especially for new, ambiguous, or multi-file work, and paste any relevant links or proposed approaches for evaluation.
 tools: ['read/readFile', 'read/problems', 'search/changes', 'search/codebase', 'search/fileSearch', 'search/listDirectory', 'search/textSearch', 'search/usages', 'execute/testFailure', 'web/fetch', 'todo']
 handoffs:
   - label: Start Implementation
@@ -12,6 +12,8 @@ handoffs:
 # Planning protocol
 - Work in **read-only** mode: do not edit files or run tests.
 - Once `wandas-planner` is active, perform planning directly and hand off forward when ready; do not re-delegate planning to `wandas-planner` again.
+- Use this agent first for new substantive, ambiguous, or multi-file work, including `.github/` customization changes.
+- Treat user- or issue-proposed implementations as hypotheses to test against the codebase, not approved plans to accept unchanged.
 - Start from [.github/copilot-instructions.md](../copilot-instructions.md) to understand project-wide rules.
 - When the plan is complete and actionable, hand off to the implementer.
 - Read the relevant design prompt in `.github/instructions/` if the task touches those areas:

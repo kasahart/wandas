@@ -85,22 +85,27 @@ These instructions are for Wandas custom agents. For substantive implementation,
   - Follow existing tests for NaN handling, multi‑channel audio, sampling‑rate changes, large Dask‑backed datasets, and psychoacoustic/spectral metrics.
 
 ## 6. Workflow Roles: Planner / Implementer / Reviewer / Publisher
-- **Delegation requirement**:
-  - When the custom agents are available, the top-level/default agent must orchestrate substantive implementation, validation, and review work through `wandas-planner`, `wandas-implementer`, and `wandas-reviewer` instead of performing that work directly.
-  - This orchestration rule applies to the top-level agent choosing which role to invoke. Once a role-specific custom agent is already active, it should perform its own role directly and hand off forward; it should not re-delegate that same role to itself.
+ **Delegation default**:
+  - When the custom agents are available, the top-level/default agent should usually start substantive, ambiguous, or multi-file implementation, validation, and review work with `wandas-planner`, then hand off to `wandas-implementer` and `wandas-reviewer` as needed instead of performing that work directly.
+  - This planner-first default applies to the top-level agent choosing which role to invoke. Once a role-specific custom agent is already active, it should perform its own role directly and hand off forward; it should not re-delegate that same role to itself.
   - Use `wandas-publisher` only after reviewer approval for publish-stage handoff work such as branching, staging, committing, pushing, and pull-request updates.
   - Release drafting and publication remain in GitHub Actions via `.github/workflows/release-drafter.yml`, `.github/release-drafter.yml`, and the tag-driven path in `.github/workflows/cd.yml`.
   - Narrow exceptions: trivial read-only guidance (for example, answering a simple repository question without changing files), explicit planning-only requests, and low-risk single-file customization maintenance in one existing `.github/` customization file when the change is limited to wording, links, or YAML/frontmatter fixes and does not alter tools, handoffs, roles, or workflow semantics.
-  - Substantive repository work, quality-check execution, and multi-file customization changes still require the full Planner / Implementer / Reviewer pipeline.
+  - Direct `wandas-implementer` or `wandas-reviewer` use remains valid when the user explicitly asks for that role, a prior handoff already exists, or the task is a narrow continuation with clear scope and validation context.
+  - For new substantive repository work, quality-check execution, and multi-file customization changes, prefer the full Planner / Implementer / Reviewer flow.
 - **Planner**:
+  - Default first stop for new substantive, ambiguous, or multi-file work, including `.github/` customization changes.
+  - Treat user- or issue-proposed implementations as inputs to evaluate, not approved plans to adopt unchanged. Use the planner to compare them against repository patterns, risks, and simpler alternatives before implementation starts.
   - Use read‑only tools to map which code modules or repository customization/workflow files are affected.
   - Produce a concrete plan tied to specific files, tests to touch, and any risks around metadata consistency, Dask graphs, or performance.
 - **Implementer**:
-  - Follow the planner handoff; if assumptions change, update the plan before editing.
+  - Usually follows a planner handoff, but can handle explicit, tightly scoped follow-up implementation when the scope and validation context are already clear.
+  - Follow the planner handoff when one is provided; if assumptions change, update the plan before editing.
   - Keep frames immutable, preserve metadata/history, and honor Dask laziness as described above.
   - Run the relevant VS Code tasks when they exist, and record the task names plus any direct `uv run ...` commands that were needed.
   - Run `Build MkDocs Documentation` only when `docs/`, `src/`, `README.md`, or other MkDocs-backed user-facing markdown changed; `.github/` customization-only changes normally do not require it.
 - **Reviewer**:
+  - Primarily reviews completed implementation work with existing validation evidence; it is not the default entry point for brand-new work.
   - Keep review read-only and verify the recorded validation evidence, problems, and changed files directly from the workspace instead of owning task execution.
   - Confirm non-mutating validation evidence such as `Run ruff check`; do not use `Run ruff check --fix` during review.
   - Verify that frame immutability and metadata rules are respected, that new APIs align with existing naming/parameter patterns, and that tests cover the main branches and edge cases discussed in the planner handoff.

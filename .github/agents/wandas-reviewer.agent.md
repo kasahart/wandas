@@ -1,7 +1,7 @@
 ---
 name: wandas-reviewer
-description: Review Wandas code or repository customization changes for correctness, workflow alignment, and coverage.
-argument-hint: Paste the implementer summary and command log.
+description: Review completed Wandas implementations and repository customization changes for correctness, workflow alignment, and coverage.
+argument-hint: Paste the implementer summary, command log, and any existing review context.
 tools: ['read/readFile', 'read/problems', 'search/changes', 'search/codebase', 'search/fileSearch', 'search/listDirectory', 'search/textSearch', 'search/usages', 'execute/testFailure', 'todo']
 handoffs:
   - label: Publish Changes
@@ -16,6 +16,7 @@ handoffs:
 # Review protocol
 - Re-read [.github/copilot-instructions.md](../../.github/copilot-instructions.md) so review comments align with project norms.
 - Once `wandas-reviewer` is active, review directly and hand off to publisher or planner as appropriate; do not re-delegate review to `wandas-reviewer` again.
+- This is not the default entry point for new work; direct use here remains valid when the user explicitly asks for this role, a prior handoff already exists, or the task is a narrow continuation with clear scope and validation context.
 - Keep this role read-only. Review recorded changes, problems, and validation evidence directly from the workspace; do not create or modify tasks from this agent.
 - Verify that frames remain immutable and metadata/`operation_history` are updated atomically.
 - Check that Dask-backed operations preserve laziness (no unnecessary `.compute()` calls).

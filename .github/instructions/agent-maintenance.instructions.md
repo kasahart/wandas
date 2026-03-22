@@ -50,6 +50,7 @@ When the `wandas-publisher` agent triggers a retrospective:
 
 ## Implementation Mode for Agent Updates
 - **Who**: Use the full `wandas-planner` -> `wandas-implementer` -> `wandas-reviewer` flow for substantive or multi-file customization updates, and explicitly state "I am updating agent configurations" in the implementation prompt.
+- **Discovery wording**: For multi-agent workflows, keep the planner framed as the preferred first-stop discovery agent, and describe user- or issue-proposed implementations as inputs to evaluate rather than approved plans to adopt unchanged.
 - **Narrow exception**: A low-risk fix to one existing `.github/` customization file may be edited directly when it is only a wording, link, or YAML/frontmatter correction and does not change tools, handoffs, roles, or workflow semantics.
 - **Docs validation**: Reserve `Build MkDocs Documentation` for changes to `docs/`, `src/`, `README.md`, or other MkDocs-backed user-facing markdown. For `.github/` customization-only work, validate by reading the modified Markdown/YAML, checking problems, and verifying linked paths instead.
 - **Verification**: Since you cannot "test" an agent change with `pytest`, you must:
