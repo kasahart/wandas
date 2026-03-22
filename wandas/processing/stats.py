@@ -1,6 +1,7 @@
 import logging
 
 import dask.array as da
+import numpy as np
 from dask.array.core import Array as DaArray
 
 from wandas.processing.base import AudioOperation, register_operation
@@ -120,6 +121,41 @@ class ChannelDifference(AudioOperation[NDArrayReal, NDArrayReal]):
         return result
 
 
+class CrestFactor(AudioOperation[NDArrayReal, NDArrayReal]):
+    """Crest factor (peak-to-RMS ratio) calculation per channel.
+
+    The crest factor is defined as ``max(|x|) / RMS(x)`` for each channel.
+    When the input signal is silent (all zeros), the RMS is zero and division
+    would produce a ZeroDivisionError; in that case ``nan`` is returned for
+    the affected channel.
+    """
+
+    name = "crest_factor"
+
+    def get_display_name(self) -> str:
+        """Get display name for the operation for use in channel labels."""
+        return "crest_factor"
+
+    def process(self, data: DaArray) -> DaArray:
+        """Compute per-channel crest factor.
+
+        Parameters
+        ----------
+        data : DaArray
+            Input array with shape ``(n_channels, n_samples)``.
+
+        Returns
+        -------
+        DaArray
+            Array with shape ``(n_channels, 1)`` containing the crest factor
+            for each channel.  Channels where RMS is zero receive ``nan``.
+        """
+        peak = da.abs(data).max(axis=1, keepdims=True)
+        rms = da.sqrt((data**2).mean(axis=1, keepdims=True))
+        result: DaArray = da.where(rms < 1e-10, np.nan, peak / rms)
+        return result
+
+
 # Register all operations
-for op_class in [ABS, Power, Sum, Mean, ChannelDifference]:
+for op_class in [ABS, Power, Sum, Mean, ChannelDifference, CrestFactor]:
     register_operation(op_class)
