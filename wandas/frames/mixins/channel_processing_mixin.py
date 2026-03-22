@@ -216,30 +216,6 @@ class ChannelProcessingMixin:
         result = self.apply_operation("abs")
         return cast(T_Processing, result)
 
-    def crest_factor(self: T_Processing) -> T_Processing:
-        """Compute the crest factor (peak-to-RMS ratio) for each channel.
-
-        The crest factor is the ratio of the peak amplitude to the root-mean-square
-        (RMS) amplitude of the signal:
-
-            crest_factor = max(|x|) / RMS(x)
-
-        For a pure sine wave the crest factor is sqrt(2) ≈ 1.414.  Channels
-        with zero RMS (all-zero signals) return NaN.
-
-        Returns:
-            New ChannelFrame of shape (channels, 1) containing the crest factor
-            for each channel.
-
-        Examples:
-            >>> import wandas as wd
-            >>> signal = wd.read_wav("audio.wav")
-            >>> cf = signal.crest_factor()
-            >>> cf.data  # one scalar per channel
-        """
-        result = self.apply_operation("crest_factor")
-        return cast(T_Processing, result)
-
     def power(self: T_Processing, exponent: float = 2.0) -> T_Processing:
         """Compute the power of the signal.
 

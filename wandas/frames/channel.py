@@ -170,6 +170,42 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         rms_values = da.sqrt((self._data**2).mean(axis=1))
         return np.array(rms_values.compute())
 
+    @property
+    def crest_factor(self) -> NDArrayReal:
+        """Calculate the crest factor (peak-to-RMS ratio) for each channel.
+
+        This is a scalar reduction: it computes one value per channel and
+        triggers immediate computation of the underlying Dask graph.  The
+        result is a plain NumPy array and does **not** produce a new frame,
+        so no operation history is recorded.
+
+        The crest factor is defined as::
+
+            crest_factor[i] = max(|x[i]|) / sqrt(mean(x[i] ** 2))
+
+        where ``x[i]`` is the sample array for channel ``i``.
+
+        For a pure sine wave the crest factor equals sqrt(2) ≈ 1.414.
+        Channels with zero RMS (all-zero signals) return NaN to avoid
+        division by zero.
+
+        Returns:
+            NDArrayReal of shape ``(n_channels,)`` containing the crest factor
+            for each channel.  All-zero channels yield NaN.
+
+        Examples:
+            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> cf_values = cf.crest_factor
+            >>> print(f"Crest factors: {cf_values}")
+            >>> # Select channels with crest factor above threshold
+            >>> impulsive_channels = cf[cf.crest_factor > 3.0]
+        """
+        peak = da.max(da.abs(self._data), axis=1)
+        rms_vals = da.sqrt((self._data**2).mean(axis=1))
+        # Return NaN when RMS is 0 (all-zero channel) to avoid division by zero.
+        crest = da.where(rms_vals == 0, np.nan, peak / rms_vals)
+        return np.array(crest.compute())
+
     def info(self) -> None:
         """Display comprehensive information about the ChannelFrame.
 

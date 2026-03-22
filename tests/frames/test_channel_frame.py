@@ -2391,3 +2391,126 @@ class TestIteratorHandlingInDescribe:
         except Exception as e:
             # If there's an error, it's not coverage-related
             pytest.skip(f"describe() failed: {e}")
+
+
+class TestChannelFrameCrestFactor:
+    """Focused 4-pillar tests for ChannelFrame.crest_factor property."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.sample_rate = 16000
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        # Pure sine waves – crest factor = amplitude / (amplitude / sqrt(2)) = sqrt(2)
+        sine_ch0: NDArrayReal = np.sin(2 * np.pi * 440 * t).astype(np.float64)
+        sine_ch1: NDArrayReal = (2.0 * np.sin(2 * np.pi * 440 * t)).astype(np.float64)
+        self.stereo_data: NDArrayReal = np.array([sine_ch0, sine_ch1])
+        self.cf_stereo = ChannelFrame.from_numpy(self.stereo_data, sampling_rate=self.sample_rate)
+
+    # ------------------------------------------------------------------
+    # Pillar 1 – Immutability: computing crest_factor must not modify the frame
+    # ------------------------------------------------------------------
+
+    def test_crest_factor_does_not_mutate_data(self) -> None:
+        """Computing crest_factor must leave the underlying frame data unchanged."""
+        original = self.stereo_data.copy()
+        _ = self.cf_stereo.crest_factor
+        np.testing.assert_array_equal(self.cf_stereo.compute(), original)
+
+    def test_crest_factor_does_not_mutate_operation_history(self) -> None:
+        """Computing crest_factor must not append to operation_history."""
+        history_before = list(self.cf_stereo.operation_history)
+        _ = self.cf_stereo.crest_factor
+        assert self.cf_stereo.operation_history == history_before
+
+    # ------------------------------------------------------------------
+    # Pillar 2 – Metadata sync: return type and shape
+    # ------------------------------------------------------------------
+
+    def test_crest_factor_returns_numpy_array(self) -> None:
+        """crest_factor must return a concrete numpy ndarray (not a dask array)."""
+        result = self.cf_stereo.crest_factor
+        assert isinstance(result, np.ndarray), f"Expected np.ndarray, got {type(result)}"
+
+    def test_crest_factor_shape_stereo(self) -> None:
+        """crest_factor of a 2-channel frame must have shape (2,)."""
+        result = self.cf_stereo.crest_factor
+        assert result.shape == (2,), f"Expected (2,), got {result.shape}"
+
+    def test_crest_factor_shape_mono(self) -> None:
+        """crest_factor of a 1-channel frame must have shape (1,)."""
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        mono_data: NDArrayReal = np.sin(2 * np.pi * 440 * t).reshape(1, -1).astype(np.float64)
+        cf_mono = ChannelFrame.from_numpy(mono_data, sampling_rate=self.sample_rate)
+        result = cf_mono.crest_factor
+        assert result.shape == (1,), f"Expected (1,), got {result.shape}"
+
+    # ------------------------------------------------------------------
+    # Pillar 3 – Mathematical consistency: known reference values
+    # ------------------------------------------------------------------
+
+    def test_crest_factor_sine_wave_equals_sqrt2(self) -> None:
+        """Crest factor of A*sin(2πft) must equal sqrt(2) for any amplitude A."""
+        result = self.cf_stereo.crest_factor
+        expected = np.array([np.sqrt(2), np.sqrt(2)])
+        # 440 Hz at 16 kHz SR completes 27.5 cycles (non-integer); non-coherent sampling
+        # introduces spectral leakage with error ~1/N ≈ 6e-5, so rtol=1e-3 is appropriate.
+        np.testing.assert_allclose(result, expected, rtol=1e-3)
+
+    def test_crest_factor_dc_signal_equals_one(self) -> None:
+        """Crest factor of a constant (DC) signal must be 1.0."""
+        dc_data: NDArrayReal = np.array([[3.0] * 1000, [-5.0] * 1000])
+        cf_dc = ChannelFrame.from_numpy(dc_data, sampling_rate=self.sample_rate)
+        result = cf_dc.crest_factor
+        # Constant signal: peak == |amplitude| == RMS, so ratio == 1.0 exactly.
+        np.testing.assert_allclose(result, [1.0, 1.0], rtol=1e-10)
+
+    def test_crest_factor_zero_signal_is_nan(self) -> None:
+        """Crest factor of an all-zero signal must be NaN (avoid division by zero)."""
+        zero_data: NDArrayReal = np.zeros((2, 1000))
+        cf_zero = ChannelFrame.from_numpy(zero_data, sampling_rate=self.sample_rate)
+        result = cf_zero.crest_factor
+        # Both channels are all-zeros → RMS == 0 → crest_factor returns NaN.
+        assert result.shape == (2,)
+        assert np.all(np.isnan(result)), f"Expected all NaN, got {result}"
+
+    def test_crest_factor_known_values(self) -> None:
+        """Crest factor matches explicit numpy reference calculation."""
+        rng = np.random.default_rng(0)
+        data: NDArrayReal = rng.standard_normal((3, 8000)).astype(np.float64)
+        cf = ChannelFrame.from_numpy(data, sampling_rate=self.sample_rate)
+
+        result = cf.crest_factor
+        peak = np.max(np.abs(data), axis=1)
+        rms_ref = np.sqrt(np.mean(data**2, axis=1))
+        reference = peak / rms_ref
+        # Same algorithm and dtype; results should be bit-identical (rtol=1e-10 guards rounding).
+        np.testing.assert_allclose(result, reference, rtol=1e-10)
+
+    # ------------------------------------------------------------------
+    # Pillar 4 – Reference-based verification: boolean channel selection
+    # ------------------------------------------------------------------
+
+    def test_crest_factor_boolean_indexing_filters_channels(self) -> None:
+        """Boolean mask from crest_factor must correctly select channels."""
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        # sine (CF≈√2≈1.414), DC 1.0 (CF=1.0), DC square (CF=1.0)
+        sine: NDArrayReal = np.sin(2 * np.pi * 440 * t).astype(np.float64)
+        dc_one: NDArrayReal = np.ones(self.sample_rate, dtype=np.float64)
+        data: NDArrayReal = np.array([sine, dc_one])
+        cf = ChannelFrame.from_numpy(data, sampling_rate=self.sample_rate)
+
+        mask = cf.crest_factor > 1.1
+        # Only the sine channel should have CF > 1.1
+        assert mask.shape == (2,)
+        assert bool(mask[0]) is True
+        assert bool(mask[1]) is False
+
+        filtered = cf[mask]
+        assert filtered.n_channels == 1
+
+    def test_crest_factor_n_channel_consistency(self) -> None:
+        """len(cf.crest_factor) must equal cf.n_channels for any frame."""
+        for n_channels in [1, 3, 5]:
+            data: NDArrayReal = np.ones((n_channels, 500))
+            cf = ChannelFrame.from_numpy(data, sampling_rate=self.sample_rate)
+            assert len(cf.crest_factor) == cf.n_channels
