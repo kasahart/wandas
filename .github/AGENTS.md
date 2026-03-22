@@ -19,9 +19,9 @@ This repository is configured with comprehensive GitHub Copilot instructions to 
 
 The `agents/` directory contains specialized agent definitions for different development tasks:
 
-- **`wandas-planner.agent.md`**: Read-only planning agent that maps requirements to affected modules or `.github/` customization and workflow files
-- **`wandas-implementer.agent.md`**: Implementation agent focused on TDD and metadata preservation
-- **`wandas-reviewer.agent.md`**: Read-only review agent that verifies changed files, recorded validation evidence, and workflow alignment
+- **`wandas-planner.agent.md`**: Preferred first-stop read-only planning agent for substantive work that maps requirements to affected modules or `.github/` customization and workflow files
+- **`wandas-implementer.agent.md`**: Implementation agent for approved plans or direct, clearly scoped follow-up work when the role request, prior handoff, or validation context is already clear
+- **`wandas-reviewer.agent.md`**: Read-only review agent for completed implementations or direct review requests when the role request, prior handoff, or validation context is already clear
 - **`wandas-publisher.agent.md`**: PR-only publishing agent for branch, stage, commit, push, and pull request create or update
 
 ### Active Instructions

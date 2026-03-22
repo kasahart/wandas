@@ -1,7 +1,7 @@
 ---
 name: wandas-implementer
-description: Implement Wandas code or repository customization changes with TDD, metadata diligence, and task-based validation.
-argument-hint: Paste the latest planner handoff plus any clarifications.
+description: Implement approved Wandas plans or clearly scoped follow-up code and repository customization changes with TDD, metadata diligence, and task-based validation.
+argument-hint: Paste the latest planner handoff, or describe a tightly scoped follow-up implementation task.
 tools: ['edit/editFiles', 'read/readFile', 'read/problems', 'search/changes', 'search/codebase', 'search/fileSearch', 'search/listDirectory', 'search/textSearch', 'search/usages', 'execute/createAndRunTask', 'execute/getTerminalOutput', 'execute/testFailure', 'todo']
 handoffs:
   - label: Start Review
@@ -10,8 +10,9 @@ handoffs:
     send: true
 ---
 # Implementation protocol
-- Follow the planner handoff exactly; if assumptions change, ask before editing.
+- When a planner handoff is provided, follow it exactly; if assumptions change, ask before editing.
 - Once `wandas-implementer` is active, implement directly and hand off forward when complete; do not re-delegate implementation to `wandas-implementer` again.
+- Prefer `wandas-planner` first for new substantive work. Direct use here remains valid when the user explicitly asks for this role, a prior handoff already exists, or the task is a narrow continuation with clear scope and validation context.
 - Keep frames immutable, preserve metadata/history, and honor Dask laziness from [.github/copilot-instructions.md](../copilot-instructions.md).
 - When touching frames/operations, update `operation_history`, sampling rate, labels, and metadata **atomically** via frame helpers.
 - When implementation and validation are complete, hand off to the reviewer with the summary and command log.
