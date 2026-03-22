@@ -6,6 +6,7 @@ from wandas.processing.base import create_operation, get_operation
 from wandas.processing.stats import (
     ABS,
     ChannelDifference,
+    CrestFactor,
     Mean,
     Power,
     Sum,
@@ -364,3 +365,137 @@ class TestChannelDifference:
         assert isinstance(diff_op, ChannelDifference)
         assert diff_op.sampling_rate == self.sample_rate
         assert diff_op.other_channel == 1
+
+
+class TestCrestFactor:
+    def setup_method(self) -> None:
+        """Set up test fixtures for each test."""
+        self.sample_rate: int = 16000
+        self.cf_op = CrestFactor(self.sample_rate)
+
+        # Pure sine wave: crest factor == sqrt(2) analytically
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        self.signal_sine: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t)])
+        self.signal_stereo: NDArrayReal = np.array(
+            [
+                np.sin(2 * np.pi * 440 * t),
+                np.sin(2 * np.pi * 880 * t) * 0.5,
+            ]
+        )
+        # Silent signal (all zeros) -> crest factor is undefined (nan)
+        self.signal_silent: NDArrayReal = np.zeros((1, self.sample_rate))
+
+        self.dask_sine: DaArray = da.from_array(self.signal_sine, chunks=(1, -1))
+        self.dask_stereo: DaArray = da.from_array(self.signal_stereo, chunks=(1, -1))
+        self.dask_silent: DaArray = da.from_array(self.signal_silent, chunks=(1, -1))
+
+    def test_initialization(self) -> None:
+        """Test initialization."""
+        cf_op = CrestFactor(self.sample_rate)
+        assert cf_op.sampling_rate == self.sample_rate
+
+    def test_output_shape(self) -> None:
+        """Test that output shape is (n_channels, 1)."""
+        result_mono = self.cf_op.process(self.dask_sine).compute()
+        assert result_mono.shape == (1, 1)
+
+        result_stereo = self.cf_op.process(self.dask_stereo).compute()
+        assert result_stereo.shape == (2, 1)
+
+    def test_sine_wave_crest_factor(self) -> None:
+        """Crest factor of a pure sine is analytically sqrt(2)."""
+        result = self.cf_op.process(self.dask_sine).compute()
+        np.testing.assert_allclose(result[0, 0], np.sqrt(2), rtol=1e-5)
+
+    def test_stereo_crest_factor(self) -> None:
+        """Each channel of a stereo sine signal should have crest factor sqrt(2)."""
+        result = self.cf_op.process(self.dask_stereo).compute()
+        np.testing.assert_allclose(result[:, 0], np.full(2, np.sqrt(2)), rtol=1e-5)
+
+    def test_dc_signal_crest_factor(self) -> None:
+        """Crest factor of a constant DC signal is 1.0 (peak == RMS)."""
+        dc_signal: NDArrayReal = np.ones((1, self.sample_rate)) * 3.0
+        dask_dc: DaArray = da.from_array(dc_signal, chunks=(1, -1))
+        result = self.cf_op.process(dask_dc).compute()
+        np.testing.assert_allclose(result[0, 0], 1.0, rtol=1e-6)
+
+    def test_silent_input_returns_nan(self) -> None:
+        """Silent (all-zero) input must return nan rather than raise ZeroDivisionError."""
+        result = self.cf_op.process(self.dask_silent).compute()
+        assert result.shape == (1, 1)
+        assert np.isnan(result[0, 0])
+
+    def test_mixed_silent_and_active_channels(self) -> None:
+        """Channels with signal return a value; silent channels return nan."""
+        mixed: NDArrayReal = np.vstack([self.signal_sine, self.signal_silent])
+        dask_mixed: DaArray = da.from_array(mixed, chunks=(1, -1))
+        result = self.cf_op.process(dask_mixed).compute()
+        assert result.shape == (2, 1)
+        np.testing.assert_allclose(result[0, 0], np.sqrt(2), rtol=1e-5)
+        assert np.isnan(result[1, 0])
+
+    def test_display_name(self) -> None:
+        """Test display name."""
+        assert self.cf_op.get_display_name() == "crest_factor"
+
+    def test_operation_registry(self) -> None:
+        """Test that CrestFactor is properly registered in the operation registry."""
+        assert get_operation("crest_factor") == CrestFactor
+
+        cf_op = create_operation("crest_factor", self.sample_rate)
+        assert isinstance(cf_op, CrestFactor)
+        assert cf_op.sampling_rate == self.sample_rate
+
+
+class TestCrestFactorFrameMethod:
+    """Integration tests for ChannelFrame.crest_factor()."""
+
+    def setup_method(self) -> None:
+        from wandas.frames.channel import ChannelFrame
+
+        self.sample_rate = 16000
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        sine = np.sin(2 * np.pi * 440 * t)
+        zeros = np.zeros(self.sample_rate)
+
+        self.frame_sine = ChannelFrame.from_numpy(sine.reshape(1, -1), sampling_rate=self.sample_rate)
+        self.frame_stereo = ChannelFrame.from_numpy(np.vstack([sine, sine * 0.5]), sampling_rate=self.sample_rate)
+        self.frame_silent = ChannelFrame.from_numpy(zeros.reshape(1, -1), sampling_rate=self.sample_rate)
+
+    def test_returns_channel_frame(self) -> None:
+        from wandas.frames.channel import ChannelFrame
+
+        result = self.frame_sine.crest_factor()
+        assert isinstance(result, ChannelFrame)
+
+    def test_shape_one_sample_per_channel(self) -> None:
+        result = self.frame_stereo.crest_factor()
+        assert result.n_channels == 2
+        assert result.n_samples == 1
+
+    def test_sine_value(self) -> None:
+        result = self.frame_sine.crest_factor()
+        data = result._data.compute()
+        np.testing.assert_allclose(data[0, 0], np.sqrt(2), rtol=1e-5)
+
+    def test_silent_frame_returns_nan(self) -> None:
+        result = self.frame_silent.crest_factor()
+        data = result._data.compute()
+        assert np.isnan(data[0, 0])
+
+    def test_immutability(self) -> None:
+        """Original frame must not be modified."""
+        original_data = self.frame_sine._data.compute().copy()
+        _ = self.frame_sine.crest_factor()
+        np.testing.assert_array_equal(self.frame_sine._data.compute(), original_data)
+
+    def test_operation_history(self) -> None:
+        """crest_factor must be recorded in operation_history."""
+        result = self.frame_sine.crest_factor()
+        assert len(result.operation_history) == len(self.frame_sine.operation_history) + 1
+        assert result.operation_history[-1]["operation"] == "crest_factor"
+
+    def test_lazy_evaluation(self) -> None:
+        """Result data must remain a Dask array."""
+        result = self.frame_sine.crest_factor()
+        assert isinstance(result._data, da.Array)

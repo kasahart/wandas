@@ -417,6 +417,24 @@ class ChannelProcessingMixin:
         result = self.apply_operation("channel_difference", other_channel=other_channel)
         return cast(T_Processing, result)
 
+    def crest_factor(self: T_Processing) -> T_Processing:
+        """Compute the crest factor (peak-to-RMS ratio) for each channel.
+
+        The crest factor is defined as ``max(|x|) / RMS(x)``.  It is a
+        measure of how extreme the peaks in a signal are relative to its
+        average energy.
+
+        For silent channels (all-zero input) the RMS is zero, so the crest
+        factor is undefined.  In that case ``nan`` is returned for the
+        affected channel rather than raising a ``ZeroDivisionError``.
+
+        Returns:
+            New ChannelFrame with shape ``(n_channels, 1)`` containing the
+            crest factor for each channel.  Silent channels have ``nan``.
+        """
+        result = self.apply_operation("crest_factor")
+        return cast(T_Processing, result)
+
     def resampling(
         self: T_Processing,
         target_sr: float,
