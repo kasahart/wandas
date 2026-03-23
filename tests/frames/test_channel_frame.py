@@ -1769,6 +1769,140 @@ class TestDescribeIntegration:
         assert np.all(top_rms >= 2.0)  # Channels with RMS 3.0 and 2.0
 
 
+class TestChannelFrameRMS:
+    """Focused 4-pillar tests for ChannelFrame.rms property."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.sample_rate = 16000
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        # Pure sine waves with known RMS = amplitude / sqrt(2)
+        sine_ch0: NDArrayReal = np.sin(2 * np.pi * 440 * t).astype(np.float64)
+        sine_ch1: NDArrayReal = (2.0 * np.sin(2 * np.pi * 440 * t)).astype(np.float64)
+        self.stereo_data: NDArrayReal = np.array([sine_ch0, sine_ch1])
+        self.cf_stereo = ChannelFrame.from_numpy(self.stereo_data, sampling_rate=self.sample_rate)
+
+    # ------------------------------------------------------------------
+    # Pillar 1 – Immutability: computing rms must not modify the frame
+    # ------------------------------------------------------------------
+
+    def test_rms_does_not_mutate_data(self) -> None:
+        """Computing rms must leave the underlying frame data unchanged."""
+        original = self.stereo_data.copy()
+        _ = self.cf_stereo.rms
+        np.testing.assert_array_equal(self.cf_stereo.compute(), original)
+
+    def test_rms_does_not_mutate_operation_history(self) -> None:
+        """Computing rms must not append to operation_history."""
+        history_before = list(self.cf_stereo.operation_history)
+        _ = self.cf_stereo.rms
+        assert self.cf_stereo.operation_history == history_before
+
+    # ------------------------------------------------------------------
+    # Pillar 2 – Metadata sync: return type and shape
+    # ------------------------------------------------------------------
+
+    def test_rms_returns_numpy_array(self) -> None:
+        """rms must return a concrete numpy ndarray (not a dask array)."""
+        result = self.cf_stereo.rms
+        assert isinstance(result, np.ndarray), f"Expected np.ndarray, got {type(result)}"
+
+    def test_rms_shape_stereo(self) -> None:
+        """rms of a 2-channel frame must have shape (2,)."""
+        result = self.cf_stereo.rms
+        assert result.shape == (2,), f"Expected (2,), got {result.shape}"
+
+    def test_rms_shape_mono(self) -> None:
+        """rms of a 1-channel frame must have shape (1,)."""
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        mono_data: NDArrayReal = np.sin(2 * np.pi * 440 * t).reshape(1, -1).astype(np.float64)
+        cf_mono = ChannelFrame.from_numpy(mono_data, sampling_rate=self.sample_rate)
+        result = cf_mono.rms
+        assert result.shape == (1,), f"Expected (1,), got {result.shape}"
+
+    # ------------------------------------------------------------------
+    # Pillar 3 – Mathematical consistency: known reference values
+    # ------------------------------------------------------------------
+
+    def test_rms_sine_wave_equals_amplitude_over_sqrt2(self) -> None:
+        """RMS of A*sin(2πft) must equal A / sqrt(2)."""
+        result = self.cf_stereo.rms
+        expected = np.array([1.0 / np.sqrt(2), 2.0 / np.sqrt(2)])
+        # 440 Hz at 16 kHz SR produces 440 integer cycles; rtol=1e-6 for standard float64 precision.
+        np.testing.assert_allclose(result, expected, rtol=1e-6)
+
+    def test_rms_dc_signal_equals_amplitude(self) -> None:
+        """RMS of a constant (DC) signal must equal its absolute amplitude."""
+        dc_data: NDArrayReal = np.array([[3.0] * 1000, [-5.0] * 1000])
+        cf_dc = ChannelFrame.from_numpy(dc_data, sampling_rate=self.sample_rate)
+        result = cf_dc.rms
+        # Constant signal; no rounding error beyond float64 machine precision.
+        np.testing.assert_allclose(result, [3.0, 5.0], rtol=1e-10)
+
+    def test_rms_zero_signal_is_zero(self) -> None:
+        """RMS of an all-zero signal must be 0."""
+        zero_data: NDArrayReal = np.zeros((2, 1000))
+        cf_zero = ChannelFrame.from_numpy(zero_data, sampling_rate=self.sample_rate)
+        result = cf_zero.rms
+        # Exact zero input; allow for float64 subnormal rounding floor.
+        np.testing.assert_allclose(result, [0.0, 0.0], atol=1e-15)
+
+    def test_rms_integer_input_matches_float64_reference(self) -> None:
+        """RMS must cast integer input to float64 before squaring."""
+        int_data: NDArrayReal = np.array([[-32768, 0], [30000, -30000]], dtype=np.int16)
+        cf_int = ChannelFrame.from_numpy(int_data, sampling_rate=self.sample_rate)
+
+        result = cf_int.rms
+        reference = np.sqrt(np.mean(int_data.astype(np.float64) ** 2, axis=1))
+
+        np.testing.assert_allclose(result, reference, rtol=1e-12)
+
+    def test_rms_mixed_samples(self) -> None:
+        """RMS of [1, 2, 3, 4] must equal sqrt(mean([1,4,9,16])) = sqrt(7.5)."""
+        data: NDArrayReal = np.array([[1.0, 2.0, 3.0, 4.0]])
+        cf = ChannelFrame.from_numpy(data, sampling_rate=100)
+        result = cf.rms
+        expected = np.sqrt(np.mean(np.array([1.0, 4.0, 9.0, 16.0])))
+        # Exact rational inputs; float64 precision gives near bit-identical result.
+        np.testing.assert_allclose(result, [expected], rtol=1e-10)
+
+    # ------------------------------------------------------------------
+    # Pillar 4 – Reference-based verification: boolean channel selection
+    # ------------------------------------------------------------------
+
+    def test_rms_boolean_indexing_filters_channels(self) -> None:
+        """Boolean mask from rms must correctly select channels."""
+        data: NDArrayReal = np.array([[1.0] * 1000, [2.0] * 1000, [3.0] * 1000])
+        cf = ChannelFrame.from_numpy(data, sampling_rate=self.sample_rate)
+
+        mask = cf.rms > 1.5
+        expected_mask = np.array([False, True, True])
+        np.testing.assert_array_equal(mask, expected_mask)
+
+        filtered = cf[mask]
+        assert filtered.n_channels == 2
+        # Constant-signal DC channels; float64 precision gives near bit-identical result.
+        np.testing.assert_allclose(filtered.rms, [2.0, 3.0], rtol=1e-10)
+
+    def test_rms_matches_numpy_reference(self) -> None:
+        """rms must match the explicit numpy reference calculation."""
+        rng = np.random.default_rng(42)
+        data: NDArrayReal = rng.standard_normal((3, 8000)).astype(np.float64)
+        cf = ChannelFrame.from_numpy(data, sampling_rate=self.sample_rate)
+
+        result = cf.rms
+        reference = np.sqrt(np.mean(data**2, axis=1))
+        # Same algorithm and dtype; results should be bit-identical (rtol=1e-10 guards rounding).
+        np.testing.assert_allclose(result, reference, rtol=1e-10)
+
+    def test_rms_n_channel_consistency(self) -> None:
+        """len(cf.rms) must equal cf.n_channels for any frame."""
+        for n_channels in [1, 3, 5]:
+            data: NDArrayReal = np.ones((n_channels, 500))
+            cf = ChannelFrame.from_numpy(data, sampling_rate=self.sample_rate)
+            assert len(cf.rms) == cf.n_channels
+
+
 class TestBaseFrameExceptionHandling:
     """BaseFrameの例外処理をテスト（ChannelFrameを通じて間接的にテスト）"""
 
@@ -2266,3 +2400,143 @@ class TestIteratorHandlingInDescribe:
         except Exception as e:
             # If there's an error, it's not coverage-related
             pytest.skip(f"describe() failed: {e}")
+
+
+class TestChannelFrameCrestFactor:
+    """Focused 4-pillar tests for ChannelFrame.crest_factor property."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.sample_rate = 16000
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        # Pure sine waves – crest factor = amplitude / (amplitude / sqrt(2)) = sqrt(2)
+        sine_ch0: NDArrayReal = np.sin(2 * np.pi * 440 * t).astype(np.float64)
+        sine_ch1: NDArrayReal = (2.0 * np.sin(2 * np.pi * 440 * t)).astype(np.float64)
+        self.stereo_data: NDArrayReal = np.array([sine_ch0, sine_ch1])
+        self.cf_stereo = ChannelFrame.from_numpy(self.stereo_data, sampling_rate=self.sample_rate)
+
+    # ------------------------------------------------------------------
+    # Pillar 1 – Immutability: computing crest_factor must not modify the frame
+    # ------------------------------------------------------------------
+
+    def test_crest_factor_does_not_mutate_data(self) -> None:
+        """Computing crest_factor must leave the underlying frame data unchanged."""
+        original = self.stereo_data.copy()
+        _ = self.cf_stereo.crest_factor
+        np.testing.assert_array_equal(self.cf_stereo.compute(), original)
+
+    def test_crest_factor_does_not_mutate_operation_history(self) -> None:
+        """Computing crest_factor must not append to operation_history."""
+        history_before = list(self.cf_stereo.operation_history)
+        _ = self.cf_stereo.crest_factor
+        assert self.cf_stereo.operation_history == history_before
+
+    # ------------------------------------------------------------------
+    # Pillar 2 – Metadata sync: return type and shape
+    # ------------------------------------------------------------------
+
+    def test_crest_factor_returns_numpy_array(self) -> None:
+        """crest_factor must return a concrete numpy ndarray (not a dask array)."""
+        result = self.cf_stereo.crest_factor
+        assert isinstance(result, np.ndarray), f"Expected np.ndarray, got {type(result)}"
+
+    def test_crest_factor_shape_stereo(self) -> None:
+        """crest_factor of a 2-channel frame must have shape (2,)."""
+        result = self.cf_stereo.crest_factor
+        assert result.shape == (2,), f"Expected (2,), got {result.shape}"
+
+    def test_crest_factor_shape_mono(self) -> None:
+        """crest_factor of a 1-channel frame must have shape (1,)."""
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        mono_data: NDArrayReal = np.sin(2 * np.pi * 440 * t).reshape(1, -1).astype(np.float64)
+        cf_mono = ChannelFrame.from_numpy(mono_data, sampling_rate=self.sample_rate)
+        result = cf_mono.crest_factor
+        assert result.shape == (1,), f"Expected (1,), got {result.shape}"
+
+    # ------------------------------------------------------------------
+    # Pillar 3 – Mathematical consistency: known reference values
+    # ------------------------------------------------------------------
+
+    def test_crest_factor_sine_wave_equals_sqrt2(self) -> None:
+        """Crest factor of A*sin(2πft) must equal sqrt(2) for any amplitude A."""
+        result = self.cf_stereo.crest_factor
+        expected = np.array([np.sqrt(2), np.sqrt(2)])
+        # 440 Hz at 16 kHz SR produces 440 integer cycles; rtol=1e-6 for standard float64 precision.
+        np.testing.assert_allclose(result, expected, rtol=1e-6)
+
+    def test_crest_factor_dc_signal_equals_one(self) -> None:
+        """Crest factor of a constant (DC) signal must be 1.0."""
+        dc_data: NDArrayReal = np.array([[3.0] * 1000, [-5.0] * 1000])
+        cf_dc = ChannelFrame.from_numpy(dc_data, sampling_rate=self.sample_rate)
+        result = cf_dc.crest_factor
+        # Constant signal: peak == |amplitude| == RMS, so ratio == 1.0 exactly.
+        np.testing.assert_allclose(result, [1.0, 1.0], rtol=1e-10)
+
+    def test_crest_factor_zero_signal_is_one(self) -> None:
+        """Crest factor of an all-zero signal must be 1.0 (no division by zero)."""
+        import warnings
+
+        zero_data: NDArrayReal = np.zeros((2, 1000))
+        cf_zero = ChannelFrame.from_numpy(zero_data, sampling_rate=self.sample_rate)
+        # Computing crest_factor on a zero-RMS channel must not emit RuntimeWarnings.
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            result = cf_zero.crest_factor
+        # Both channels are all-zeros → RMS == 0 → crest_factor returns 1.0.
+        assert result.shape == (2,)
+        np.testing.assert_array_equal(result, [1.0, 1.0])
+
+    def test_crest_factor_known_values(self) -> None:
+        """Crest factor matches explicit numpy reference calculation."""
+        rng = np.random.default_rng(0)
+        data: NDArrayReal = rng.standard_normal((3, 8000)).astype(np.float64)
+        cf = ChannelFrame.from_numpy(data, sampling_rate=self.sample_rate)
+
+        result = cf.crest_factor
+        peak = np.max(np.abs(data), axis=1)
+        rms_ref = np.sqrt(np.mean(data**2, axis=1))
+        reference = peak / rms_ref
+        # Same algorithm and dtype; results should be bit-identical (rtol=1e-10 guards rounding).
+        np.testing.assert_allclose(result, reference, rtol=1e-10)
+
+    def test_crest_factor_integer_input_matches_float64_reference(self) -> None:
+        """crest_factor must cast integer input to float64 before abs/squaring."""
+        int_data: NDArrayReal = np.array([[-32768, 0], [30000, -30000]], dtype=np.int16)
+        cf_int = ChannelFrame.from_numpy(int_data, sampling_rate=self.sample_rate)
+
+        result = cf_int.crest_factor
+        float_data = int_data.astype(np.float64)
+        peak = np.max(np.abs(float_data), axis=1)
+        rms_ref = np.sqrt(np.mean(float_data**2, axis=1))
+        reference = peak / rms_ref
+
+        np.testing.assert_allclose(result, reference, rtol=1e-12)
+
+    # ------------------------------------------------------------------
+    # Pillar 4 – Reference-based verification: boolean channel selection
+    # ------------------------------------------------------------------
+
+    def test_crest_factor_boolean_indexing_filters_channels(self) -> None:
+        """Boolean mask from crest_factor must correctly select channels."""
+        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        # Two channels: sine (CF≈√2≈1.414) and DC 1.0 (CF=1.0)
+        sine: NDArrayReal = np.sin(2 * np.pi * 440 * t).astype(np.float64)
+        dc_one: NDArrayReal = np.ones(self.sample_rate, dtype=np.float64)
+        data: NDArrayReal = np.array([sine, dc_one])
+        cf = ChannelFrame.from_numpy(data, sampling_rate=self.sample_rate)
+
+        mask = cf.crest_factor > 1.1
+        # Only the sine channel should have CF > 1.1
+        assert mask.shape == (2,)
+        assert bool(mask[0]) is True
+        assert bool(mask[1]) is False
+
+        filtered = cf[mask]
+        assert filtered.n_channels == 1
+
+    def test_crest_factor_n_channel_consistency(self) -> None:
+        """len(cf.crest_factor) must equal cf.n_channels for any frame."""
+        for n_channels in [1, 3, 5]:
+            data: NDArrayReal = np.ones((n_channels, 500))
+            cf = ChannelFrame.from_numpy(data, sampling_rate=self.sample_rate)
+            assert len(cf.crest_factor) == cf.n_channels
