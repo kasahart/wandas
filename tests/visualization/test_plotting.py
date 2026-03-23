@@ -1403,15 +1403,9 @@ class TestPlotting:
         assert _reshape_spectrogram_data(spectrogram_3d).shape == (1, 3, 4)
 
         dummy_strategy = mock.MagicMock()
-        assert (
-            PlotStrategy.channel_plot(dummy_strategy, None, None, mock.MagicMock())
-            is None
-        )
+        assert PlotStrategy.channel_plot(dummy_strategy, None, None, mock.MagicMock()) is None
         assert PlotStrategy.plot(dummy_strategy, mock.MagicMock()) is None
-        assert (
-            SpectrogramPlotStrategy().channel_plot(None, None, mock.MagicMock())
-            is None
-        )
+        assert SpectrogramPlotStrategy().channel_plot(None, None, mock.MagicMock()) is None
         assert DescribePlotStrategy().channel_plot(None, None, mock.MagicMock()) is None
 
     def test_plotting_module_fallback_import_path(self) -> None:
