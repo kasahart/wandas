@@ -170,24 +170,33 @@ def load(path: str | Path, *, format: str = "hdf5") -> "ChannelFrame":
         raise NotImplementedError(f"Format '{format}' is not supported")
 
     # Detect and handle URL paths — download to memory before HDF5 open.
-    _h5_source: str | Path | io.BytesIO
-    _h5_kwargs: dict[str, object] = {}
+    h5_source: str | Path | io.BytesIO
+    h5_kwargs: dict[str, object] = {}
     if isinstance(path, str) and (path.startswith("http://") or path.startswith("https://")):
+        import urllib.error
         import urllib.request
 
         logger.debug(f"Downloading WDF from URL: {path}")
-        with urllib.request.urlopen(path) as _resp:
-            _h5_source = io.BytesIO(_resp.read())
-        _h5_kwargs = {"driver": "fileobj"}
+        try:
+            with urllib.request.urlopen(path) as _resp:
+                h5_source = io.BytesIO(_resp.read())
+        except (urllib.error.URLError, urllib.error.HTTPError) as exc:
+            raise OSError(
+                f"Failed to download WDF file from URL\n"
+                f"  URL: {path}\n"
+                f"  Error: {exc}\n"
+                f"Verify the URL is accessible and try again."
+            ) from exc
+        h5_kwargs = {"driver": "fileobj"}
     else:
         path = Path(path)
         if not path.exists():
             raise FileNotFoundError(f"File not found: {path}")
-        _h5_source = path
+        h5_source = path
 
-    logger.debug(f"Loading ChannelFrame from {_h5_source!r}")
+    logger.debug(f"Loading ChannelFrame from {h5_source!r}")
 
-    with h5py.File(_h5_source, "r", **_h5_kwargs) as f:
+    with h5py.File(h5_source, "r", **h5_kwargs) as f:
         # Check format version for compatibility
         version = f.attrs.get("version", "unknown")
         if version != WDF_FORMAT_VERSION:

@@ -280,7 +280,7 @@ def test_load_wdf_from_url(tmp_path: Path) -> None:
 
     # Create a valid WDF file in a temp path and read its bytes.
     sr = 8000
-    data = np.random.randn(2, sr).astype(np.float32)
+    data = np.random.default_rng(42).standard_normal((2, sr)).astype(np.float32)
     cf = ChannelFrame.from_numpy(data, sr, label="URL Test", ch_labels=["A", "B"])
     wdf_path = tmp_path / "test_url.wdf"
     cf.save(wdf_path)

@@ -829,14 +829,26 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         # Detect and handle URL paths — download to bytes before any path logic.
         if isinstance(path, str) and (path.startswith("http://") or path.startswith("https://")):
+            import urllib.error
+            import urllib.parse
             import urllib.request
             from pathlib import PurePosixPath
 
-            url_ext = PurePosixPath(path.split("?")[0]).suffix.lower() or None
+            _url = path  # keep original URL string for error messages
+            url_path_part = urllib.parse.urlparse(_url).path
+            url_ext = PurePosixPath(url_path_part).suffix.lower() or None
             if file_type is None and url_ext:
                 file_type = url_ext
-            with urllib.request.urlopen(path) as _resp:
-                path = _resp.read()  # bytes — picked up by is_in_memory below
+            try:
+                with urllib.request.urlopen(_url) as _resp:
+                    path = _resp.read()  # bytes — picked up by is_in_memory below
+            except (urllib.error.URLError, urllib.error.HTTPError) as exc:
+                raise OSError(
+                    f"Failed to download audio from URL\n"
+                    f"  URL: {_url}\n"
+                    f"  Error: {exc}\n"
+                    f"Verify the URL is accessible and try again."
+                ) from exc
 
         is_in_memory = isinstance(path, (bytes, bytearray, memoryview)) or (
             hasattr(path, "read") and not isinstance(path, (str, Path))
