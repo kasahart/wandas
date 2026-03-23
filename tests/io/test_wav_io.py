@@ -234,6 +234,9 @@ def test_from_file_url_wav() -> None:
     computed = channel_frame.compute()
     np.testing.assert_allclose(computed[0], data_left, rtol=1e-5)
     np.testing.assert_allclose(computed[1], data_right, rtol=1e-5)
+    # URL should be recorded as the source for provenance
+    assert channel_frame.metadata.source_file == url
+    assert channel_frame.label == "sample"
 
 
 def test_from_file_url_http_scheme() -> None:

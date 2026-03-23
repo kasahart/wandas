@@ -853,6 +853,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                     f"  Error: {exc}\n"
                     f"Verify the URL is accessible and try again."
                 ) from exc
+            # Preserve URL as provenance when no explicit source_name was given.
+            if source_name is None:
+                source_name = _url
 
         is_in_memory = isinstance(path, (bytes, bytearray, memoryview)) or (
             hasattr(path, "read") and not isinstance(path, (str, Path))
