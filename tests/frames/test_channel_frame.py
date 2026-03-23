@@ -1847,6 +1847,16 @@ class TestChannelFrameRMS:
         # Exact zero input; allow for float64 subnormal rounding floor.
         np.testing.assert_allclose(result, [0.0, 0.0], atol=1e-15)
 
+    def test_rms_integer_input_matches_float64_reference(self) -> None:
+        """RMS must cast integer input to float64 before squaring."""
+        int_data: NDArrayReal = np.array([[-32768, 0], [30000, -30000]], dtype=np.int16)
+        cf_int = ChannelFrame.from_numpy(int_data, sampling_rate=self.sample_rate)
+
+        result = cf_int.rms
+        reference = np.sqrt(np.mean(int_data.astype(np.float64) ** 2, axis=1))
+
+        np.testing.assert_allclose(result, reference, rtol=1e-12)
+
     def test_rms_mixed_samples(self) -> None:
         """RMS of [1, 2, 3, 4] must equal sqrt(mean([1,4,9,16])) = sqrt(7.5)."""
         data: NDArrayReal = np.array([[1.0, 2.0, 3.0, 4.0]])
@@ -2488,6 +2498,19 @@ class TestChannelFrameCrestFactor:
         reference = peak / rms_ref
         # Same algorithm and dtype; results should be bit-identical (rtol=1e-10 guards rounding).
         np.testing.assert_allclose(result, reference, rtol=1e-10)
+
+    def test_crest_factor_integer_input_matches_float64_reference(self) -> None:
+        """crest_factor must cast integer input to float64 before abs/squaring."""
+        int_data: NDArrayReal = np.array([[-32768, 0], [30000, -30000]], dtype=np.int16)
+        cf_int = ChannelFrame.from_numpy(int_data, sampling_rate=self.sample_rate)
+
+        result = cf_int.crest_factor
+        float_data = int_data.astype(np.float64)
+        peak = np.max(np.abs(float_data), axis=1)
+        rms_ref = np.sqrt(np.mean(float_data**2, axis=1))
+        reference = peak / rms_ref
+
+        np.testing.assert_allclose(result, reference, rtol=1e-12)
 
     # ------------------------------------------------------------------
     # Pillar 4 – Reference-based verification: boolean channel selection
