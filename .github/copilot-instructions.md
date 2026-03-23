@@ -113,4 +113,4 @@ These instructions are for Wandas custom agents. For substantive implementation,
 ## 7. Test Documentation Reference
 
 For comprehensive testing guidance, refer to:
-- **`.github/instructions/test-grand-policy.instructions.md`** — Auto-applied test policy (4 pillars + pyramid) when editing `tests/**` files
+- **`.github/instructions/test-grand-policy.instructions.md`** — Auto-applied test policy (4 pillars + pyramid) when editing `tests/**` files, including coverage-aware testing guidance for touched code paths

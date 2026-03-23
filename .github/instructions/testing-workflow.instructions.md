@@ -27,6 +27,10 @@ Use this prompt when adding or modifying behavior anywhere in the Wandas codebas
   - frame semantics, metadata, and operation history,
   - I/O contracts (WAV/WDF/CSV round-trips),
   - Dask-backed large data behavior.
+- Treat `Run pytest` coverage output as part of the definition of done for behavior changes:
+  - capture the `--cov=wandas --cov-report=term-missing` result before and after implementation when coverage risk is non-trivial,
+  - do not hand off silent coverage regressions on touched code paths,
+  - if coverage drops or `term-missing` shows new uncovered lines, add focused tests for the changed branches, edge cases, and error handling paths or call out the gap explicitly as a warning.
 - Keep a short command log of what you ran (pytest, mypy, ruff, mkdocs) to aid reviewers.
 
 ## Edge cases & quality
