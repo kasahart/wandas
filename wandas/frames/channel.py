@@ -167,7 +167,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         # Compute RMS per channel.  axis=1 is the sample axis for data of
         # shape (channels, samples).  .compute() materialises the Dask graph
         # and np.array() ensures the result is a concrete NumPy ndarray.
-        rms_values = da.sqrt((self._data**2).mean(axis=1))
+        # Cast to float to avoid integer overflow when squaring (e.g. int16).
+        data = self._data
+        if not np.issubdtype(data.dtype, np.floating):
+            data = data.astype(np.float64)
+        rms_values = da.sqrt((data**2).mean(axis=1))
         return np.array(rms_values.compute())
 
     @property
@@ -185,9 +189,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         where ``x[i]`` is the sample array for channel ``i``.
 
-        For a pure sine wave the crest factor equals sqrt(2) ≈ 1.414.
-        Channels with zero RMS (all-zero signals) return 1.0 (defined by
-        convention; no division by zero is performed).
+        For a pure sine wave the theoretical continuous-time crest factor is
+        sqrt(2) ≈ 1.414; in discrete-time this implementation typically
+        yields a value close to this, and exactly equal only when the sampled
+        waveform contains its true peaks. Channels with zero RMS (all-zero
+        signals) return 1.0 (defined by convention; no division by zero is
+        performed).
 
         Returns:
             NDArrayReal of shape ``(n_channels,)`` containing the crest factor
