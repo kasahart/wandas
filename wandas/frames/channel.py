@@ -775,6 +775,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         file_type: str | None = None,
         source_name: str | None = None,
         normalize: bool = False,
+        timeout: float = 10.0,
     ) -> "ChannelFrame":
         """Create a ChannelFrame from an audio file or URL.
 
@@ -800,10 +801,13 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             file_type: File extension for in-memory data or URLs without a
                 recognisable extension (e.g. ".wav", ".csv").
             source_name: Optional source name for in-memory data. Used in metadata.
-            normalize: For WAV file paths only. When False (default), return raw
-                integer PCM samples cast to float32 (magnitudes preserved, e.g.
-                16384 stays 16384.0). When True, normalize to float32 in [-1.0, 1.0].
-                Non-WAV formats and in-memory sources always use soundfile (normalized).
+            normalize: When False (default) and the effective file type is WAV
+                (local path or URL), return raw integer PCM samples cast to float32
+                (magnitudes preserved, e.g. 16384 stays 16384.0). When True,
+                normalize to float32 in [-1.0, 1.0]. Non-WAV formats always use
+                soundfile (normalized).
+            timeout: Timeout in seconds for HTTP/HTTPS URL downloads. Default is
+                10.0 seconds. Has no effect for local files or in-memory data.
 
         Returns:
             A new ChannelFrame containing the loaded audio data.
@@ -840,9 +844,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             if file_type is None and url_ext:
                 file_type = url_ext
             try:
-                with urllib.request.urlopen(_url) as _resp:
+                with urllib.request.urlopen(_url, timeout=timeout) as _resp:
                     path = _resp.read()  # bytes — picked up by is_in_memory below
-            except (urllib.error.URLError, urllib.error.HTTPError) as exc:
+            except urllib.error.URLError as exc:
                 raise OSError(
                     f"Failed to download audio from URL\n"
                     f"  URL: {_url}\n"

@@ -228,7 +228,7 @@ def test_from_file_url_wav() -> None:
     with patch("urllib.request.urlopen", return_value=mock_resp) as mock_urlopen:
         channel_frame = ChannelFrame.from_file(url)
 
-    mock_urlopen.assert_called_once_with(url)
+    mock_urlopen.assert_called_once_with(url, timeout=10.0)
     assert channel_frame.sampling_rate == sampling_rate
     assert len(channel_frame) == 2
     computed = channel_frame.compute()
@@ -282,6 +282,20 @@ def test_from_file_url_with_query_string() -> None:
 
     assert channel_frame.sampling_rate == sampling_rate
     assert len(channel_frame) == 1
+
+
+def test_from_file_url_download_failure() -> None:
+    """Test that a URL download failure raises OSError with a clear message."""
+    import urllib.error
+
+    url = "https://example.com/audio/sample.wav"
+
+    with patch(
+        "urllib.request.urlopen",
+        side_effect=urllib.error.URLError("connection refused"),
+    ):
+        with pytest.raises(OSError, match=r"Failed to download audio from URL"):
+            ChannelFrame.from_file(url)
 
 
 def test_read_wav_stream_nonseekable() -> None:

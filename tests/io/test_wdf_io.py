@@ -296,10 +296,25 @@ def test_load_wdf_from_url(tmp_path: Path) -> None:
     with patch("urllib.request.urlopen", return_value=mock_resp) as mock_urlopen:
         cf2 = wdf_io.load(url)
 
-    mock_urlopen.assert_called_once_with(url)
+    mock_urlopen.assert_called_once_with(url, timeout=10.0)
     assert cf2.sampling_rate == sr
     assert cf2.n_channels == 2
     assert cf2.label == "URL Test"
     assert cf2._channel_metadata[0].label == "A"
     assert cf2._channel_metadata[1].label == "B"
     np.testing.assert_allclose(cf2.compute(), data, rtol=1e-5)
+
+
+def test_load_wdf_from_url_download_failure() -> None:
+    """Test that a URL download failure raises OSError with a clear message."""
+    import urllib.error
+    from unittest.mock import patch
+
+    url = "https://example.com/data/missing.wdf"
+
+    with patch(
+        "urllib.request.urlopen",
+        side_effect=urllib.error.URLError("connection refused"),
+    ):
+        with pytest.raises(OSError, match=r"Failed to download WDF file from URL"):
+            wdf_io.load(url)

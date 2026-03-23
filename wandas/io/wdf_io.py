@@ -141,7 +141,7 @@ def save(
     logger.info(f"Frame saved to {path}")
 
 
-def load(path: str | Path, *, format: str = "hdf5") -> "ChannelFrame":
+def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "ChannelFrame":
     """Load a ChannelFrame object from a WDF (Wandas Data File) file or URL.
 
     Args:
@@ -149,6 +149,8 @@ def load(path: str | Path, *, format: str = "hdf5") -> "ChannelFrame":
             a remote WDF file. When a URL is given the file is downloaded in
             full before opening.
         format: Format of the file. Currently only "hdf5" is supported.
+        timeout: Timeout in seconds for HTTP/HTTPS URL downloads. Default is
+            10.0 seconds. Has no effect for local file paths.
 
     Returns:
         A new ChannelFrame object with data and metadata loaded from the file.
@@ -178,9 +180,9 @@ def load(path: str | Path, *, format: str = "hdf5") -> "ChannelFrame":
 
         logger.debug(f"Downloading WDF from URL: {path}")
         try:
-            with urllib.request.urlopen(path) as _resp:
+            with urllib.request.urlopen(path, timeout=timeout) as _resp:
                 h5_source = io.BytesIO(_resp.read())
-        except (urllib.error.URLError, urllib.error.HTTPError) as exc:
+        except urllib.error.URLError as exc:
             raise OSError(
                 f"Failed to download WDF file from URL\n"
                 f"  URL: {path}\n"
