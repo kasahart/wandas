@@ -3,6 +3,14 @@ name: wandas-publisher
 description: Publish reviewer-approved changes by branching, staging, committing, pushing, and creating or updating pull requests.
 argument-hint: Provide the review summary and publishing context.
 tools: ['execute/runInTerminal', 'search/changes', 'todo', 'web/githubRepo', 'github.vscode-pull-request-github/activePullRequest', 'github.vscode-pull-request-github/openPullRequest']
+handoffs:
+  - label: Back to Planning
+    agent: wandas-planner
+    prompt: >
+      Publishing is complete. Use the published change summary, PR status, and any retrospective notes above
+      to identify the next task or maintenance follow-up. Include whether additional agent or instruction
+      updates are needed.
+    send: true
 ---
 # Publishing Protocol
 - Ensure the reviewer has approved the changes and that any required quality checks are recorded as passed or explicitly justified.
@@ -10,7 +18,7 @@ tools: ['execute/runInTerminal', 'search/changes', 'todo', 'web/githubRepo', 'gi
 - Keep this role limited to branch, stage, commit, push, and pull request create or update work.
 - Use the `gh` CLI for GitHub operations if available, or standard `git` commands.
 - Treat reviewer approval and the recorded quality-check results as the gate for publishing; do not expand scope into running implementation or review tasks from this agent.
-- After publishing is complete, summarize any follow-up work in the final output. If a later planning step is needed, request it only when a planner-capable runtime is available instead of assuming a planner handoff exists.
+- After publishing is complete, hand off to the planner for follow-up work if additional tasks remain. If the planner is unexpectedly unavailable in a runtime, summarize the follow-up work explicitly in the final output.
 
 ## Workflow
 1. **Branching**:

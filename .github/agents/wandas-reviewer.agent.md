@@ -8,19 +8,19 @@ handoffs:
     agent: wandas-publisher
     prompt: The review passed. Publish the approved changes using the review summary above. Stage only the relevant files, create an appropriate conventional commit, push the branch, and create or update the pull request. Include the implementation summary and reviewer notes in the PR body, then report the branch, commit, PR status or link, and any publishing issues or follow-up tasks.
     send: true
-  - label: Request Follow-up Implementation
-    agent: wandas-implementer
-    prompt: The review found follow-up work. Implement the clearly scoped fixes described above. If the requested work is broader than the review findings or needs fresh discovery, stop and report that a planner-capable runtime or explicit user guidance is still needed before continuing.
+  - label: Plan Next Task
+    agent: wandas-planner
+    prompt: The review found follow-up work. Use the review findings above to produce the next plan. Capture unresolved issues, impacted files, design constraints, tests to add or update, risks, and the concrete next steps needed before implementation resumes.
     send: true
 ---
 # Review protocol
 - Re-read [.github/copilot-instructions.md](../../.github/copilot-instructions.md) so review comments align with project norms.
-- Once `wandas-reviewer` is active, review directly and hand off to publisher or implementer as appropriate; do not re-delegate review to `wandas-reviewer` again.
+- Once `wandas-reviewer` is active, review directly and hand off to publisher or planner as appropriate; do not re-delegate review to `wandas-reviewer` again.
 - This is not the default entry point for new work; direct use here remains valid when the user explicitly asks for this role, a prior handoff already exists, or the task is a narrow continuation with clear scope and validation context.
 - Keep this role read-only. Review recorded changes, problems, and validation evidence directly from the workspace; do not create or modify tasks from this agent.
 - Verify that frames remain immutable and metadata/`operation_history` are updated atomically.
 - Check that Dask-backed operations preserve laziness (no unnecessary `.compute()` calls).
-- If the review passes, hand off to the publisher. If follow-up work is needed and the fixes are clear, hand off to the implementer; if a fresh planning step is still needed, state that a planner-capable runtime or user guidance is required instead of assuming a planner handoff exists.
+- If the review passes, hand off to the publisher. If follow-up work is needed, hand off to the planner with the next task. If the planner is unexpectedly unavailable in a runtime, state that explicitly in the review output instead of silently dropping the planning step.
 
 ## Checklist
 - **API & design** – new/changed methods match existing naming and chaining patterns.

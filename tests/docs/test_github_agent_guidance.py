@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import yaml
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GITHUB_DIR = REPO_ROOT / ".github"
 
@@ -47,8 +49,17 @@ def test_agent_docs_define_fallback_when_planner_is_unavailable() -> None:
 
     assert "If `wandas-planner` is not exposed in the current runtime" in copilot_text
     assert "planner is unavailable in the current runtime" in implementer_text
-    assert "agent: wandas-planner" not in reviewer_text
-    assert "agent: wandas-planner" not in publisher_text
-    assert "planner-capable runtime or user guidance is required" in reviewer_text
-    assert "planner-capable runtime is available" in publisher_text
+    assert "If the planner is unexpectedly unavailable in a runtime" in reviewer_text
+    assert "If the planner is unexpectedly unavailable in a runtime" in publisher_text
     assert "Runtime Availability Rule" in maintenance_text
+
+
+def test_all_agent_frontmatter_is_valid_yaml() -> None:
+    """Every custom agent file should have parseable YAML frontmatter."""
+    for path in sorted((GITHUB_DIR / "agents").glob("*.agent.md")):
+        text = path.read_text(encoding="utf-8")
+        assert text.startswith("---\n")
+        _, frontmatter, _ = text.split("---", 2)
+        data = yaml.safe_load(frontmatter)
+        assert isinstance(data, dict), path.name
+        assert data["name"].startswith("wandas-"), path.name
