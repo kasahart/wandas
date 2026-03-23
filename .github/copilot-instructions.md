@@ -1,6 +1,6 @@
 # Copilot Instructions for the Wandas Repository
 
-These instructions are for Wandas custom agents. For substantive implementation, validation, and review work, the default workflow is `wandas-planner` -> `wandas-implementer` -> `wandas-reviewer`; use `wandas-publisher` only after review for PR publication handoff. GitHub Release drafting and tag-driven release publication stay in GitHub Actions.
+These instructions are for Wandas custom agents. When `wandas-planner` is exposed in the current runtime, the default workflow for substantive implementation, validation, and review work is `wandas-planner` -> `wandas-implementer` -> `wandas-reviewer`; use `wandas-publisher` only after review for PR publication handoff. If the planner is not exposed, fall back to `wandas-implementer` for clearly scoped implementation follow-up and `wandas-reviewer` for read-only review, and call out the planner availability gap in the handoff or summary. GitHub Release drafting and tag-driven release publication stay in GitHub Actions.
 
 ## 1. Big Picture & Architecture
 - **Purpose**: Wandas provides pandas‑like data structures and operations for waveform/signal analysis (see `README.md`).
@@ -86,13 +86,14 @@ These instructions are for Wandas custom agents. For substantive implementation,
 
 ## 6. Workflow Roles: Planner / Implementer / Reviewer / Publisher
  **Delegation default**:
-  - When the custom agents are available, the top-level/default agent should usually start substantive, ambiguous, or multi-file implementation, validation, and review work with `wandas-planner`, then hand off to `wandas-implementer` and `wandas-reviewer` as needed instead of performing that work directly.
+  - When the custom agents are available and `wandas-planner` is exposed in the current runtime, the top-level/default agent should usually start substantive, ambiguous, or multi-file implementation, validation, and review work with `wandas-planner`, then hand off to `wandas-implementer` and `wandas-reviewer` as needed instead of performing that work directly.
   - This planner-first default applies to the top-level agent choosing which role to invoke. Once a role-specific custom agent is already active, it should perform its own role directly and hand off forward; it should not re-delegate that same role to itself.
+  - If `wandas-planner` is not exposed in the current runtime, do not block on the missing handoff. Use `wandas-implementer` for clearly scoped follow-up work, use `wandas-reviewer` for read-only review, and explicitly note that the planner was unavailable.
   - Use `wandas-publisher` only after reviewer approval for publish-stage handoff work such as branching, staging, committing, pushing, and pull-request updates.
   - Release drafting and publication remain in GitHub Actions via `.github/workflows/release-drafter.yml`, `.github/release-drafter.yml`, and the tag-driven path in `.github/workflows/cd.yml`.
   - Narrow exceptions: trivial read-only guidance (for example, answering a simple repository question without changing files), explicit planning-only requests, and low-risk single-file customization maintenance in one existing `.github/` customization file when the change is limited to wording, links, or YAML/frontmatter fixes and does not alter tools, handoffs, roles, or workflow semantics.
-  - Direct `wandas-implementer` or `wandas-reviewer` use remains valid when the user explicitly asks for that role, a prior handoff already exists, or the task is a narrow continuation with clear scope and validation context.
-  - For new substantive repository work, quality-check execution, and multi-file customization changes, prefer the full Planner / Implementer / Reviewer flow.
+  - Direct `wandas-implementer` or `wandas-reviewer` use remains valid when the user explicitly asks for that role, a prior handoff already exists, the planner is unavailable in the current runtime, or the task is a narrow continuation with clear scope and validation context.
+  - For new substantive repository work, quality-check execution, and multi-file customization changes, prefer the full Planner / Implementer / Reviewer flow whenever the planner is exposed.
 - **Planner**:
   - Default first stop for new substantive, ambiguous, or multi-file work, including `.github/` customization changes.
   - Treat user- or issue-proposed implementations as inputs to evaluate, not approved plans to adopt unchanged. Use the planner to compare them against repository patterns, risks, and simpler alternatives before implementation starts.
