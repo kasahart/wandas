@@ -2496,7 +2496,7 @@ class TestChannelFrameCrestFactor:
     def test_crest_factor_boolean_indexing_filters_channels(self) -> None:
         """Boolean mask from crest_factor must correctly select channels."""
         t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        # sine (CF≈√2≈1.414), DC 1.0 (CF=1.0), DC square (CF=1.0)
+        # Two channels: sine (CF≈√2≈1.414) and DC 1.0 (CF=1.0)
         sine: NDArrayReal = np.sin(2 * np.pi * 440 * t).astype(np.float64)
         dc_one: NDArrayReal = np.ones(self.sample_rate, dtype=np.float64)
         data: NDArrayReal = np.array([sine, dc_one])
