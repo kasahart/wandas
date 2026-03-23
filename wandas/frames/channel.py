@@ -837,8 +837,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         file_type: str | None = None,
         source_name: str | None = None,
         normalize: bool = False,
+        timeout: float = 10.0,
     ) -> "ChannelFrame":
-        """Create a ChannelFrame from an audio file.
+        """Create a ChannelFrame from an audio file or URL.
 
         Note:
             The `chunk_size` parameter has been removed. ChannelFrame uses
@@ -846,7 +847,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             on the returned frame for custom sample-axis chunking.
 
         Args:
-            path: Path to the audio file or in-memory bytes/stream.
+            path: Path to the audio file, in-memory bytes/stream, or an HTTP/HTTPS
+                URL. When a URL is given it is downloaded in full before processing.
+                The file extension is inferred from the URL path; supply `file_type`
+                explicitly when the URL has no recognisable extension.
             channel: Channel(s) to load. None loads all channels.
             start: Start time in seconds.
             end: End time in seconds.
@@ -856,12 +860,16 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             delimiter: For CSV files, delimiter character. Default is ",".
             header: For CSV files, row number to use as header.
                 Default is 0 (first row). Set to None if no header.
-            file_type: File extension for in-memory data (e.g. ".wav", ".csv").
+            file_type: File extension for in-memory data or URLs without a
+                recognisable extension (e.g. ".wav", ".csv").
             source_name: Optional source name for in-memory data. Used in metadata.
-            normalize: For WAV file paths only. When False (default), return raw
-                integer PCM samples cast to float32 (magnitudes preserved, e.g.
-                16384 stays 16384.0). When True, normalize to float32 in [-1.0, 1.0].
-                Non-WAV formats and in-memory sources always use soundfile (normalized).
+            normalize: When False (default) and the effective file type is WAV
+                (local path or URL), return raw integer PCM samples cast to float32
+                (magnitudes preserved, e.g. 16384 stays 16384.0). When True,
+                normalize to float32 in [-1.0, 1.0]. Non-WAV formats always use
+                soundfile (normalized).
+            timeout: Timeout in seconds for HTTP/HTTPS URL downloads. Default is
+                10.0 seconds. Has no effect for local files or in-memory data.
 
         Returns:
             A new ChannelFrame containing the loaded audio data.
@@ -880,8 +888,36 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> cf = ChannelFrame.from_file("audio.wav", channel=[0, 2])
             >>> # Load CSV file
             >>> cf = ChannelFrame.from_file("data.csv", time_column=0, delimiter=",", header=0)
+            >>> # Load from a URL
+            >>> cf = ChannelFrame.from_file("https://example.com/audio.wav")
         """
         from .channel import ChannelFrame
+
+        # Detect and handle URL paths — download to bytes before any path logic.
+        if isinstance(path, str) and (path.startswith("http://") or path.startswith("https://")):
+            import urllib.error
+            import urllib.parse
+            import urllib.request
+            from pathlib import PurePosixPath
+
+            _url = path  # keep original URL string for error messages
+            url_path_part = urllib.parse.urlparse(_url).path
+            url_ext = PurePosixPath(url_path_part).suffix.lower() or None
+            if file_type is None and url_ext:
+                file_type = url_ext
+            try:
+                with urllib.request.urlopen(_url, timeout=timeout) as _resp:
+                    path = _resp.read()  # bytes — picked up by is_in_memory below
+            except urllib.error.URLError as exc:
+                raise OSError(
+                    f"Failed to download audio from URL\n"
+                    f"  URL: {_url}\n"
+                    f"  Error: {exc}\n"
+                    f"Verify the URL is accessible and try again."
+                ) from exc
+            # Preserve URL as provenance when no explicit source_name was given.
+            if source_name is None:
+                source_name = _url
 
         is_in_memory = isinstance(path, (bytes, bytearray, memoryview)) or (
             hasattr(path, "read") and not isinstance(path, (str, Path))
