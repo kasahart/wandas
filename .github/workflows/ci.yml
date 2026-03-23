@@ -11,6 +11,60 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  lint:
+    name: Lint and Type Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: uv をセットアップ
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          version: "latest"
+
+      - name: Python 3.12 をインストール
+        run: uv python install 3.12
+
+      - name: 依存関係をインストール (testグループのみ)
+        run: uv sync --all-extras --group test
+
+      - name: フォーマットチェック (ruff format)
+        run: uv run ruff format --check wandas tests
+
+      - name: Lintチェック (ruff check)
+        run: uv run ruff check wandas tests
+
+      - name: 型チェック (mypy)
+        run: uv run mypy wandas tests
+
+  docs:
+      name: Build Documentation
+      runs-on: ubuntu-latest
+      timeout-minutes: 5
+      steps:
+        - name: チェックアウト
+          uses: actions/checkout@v4
+
+        - name: uv をセットアップ
+          uses: astral-sh/setup-uv@v5
+          with:
+            enable-cache: true
+            version: "latest"
+
+        - name: Python 3.12 をインストール
+          run: uv python install 3.12
+
+        - name: 依存関係をインストール (docsグループのみ)
+          # ドキュメント構築に必要なパッケージ群のみを分離してインストール
+          run: uv sync --all-extras --group docs
+
+        - name: ドキュメントのビルドテスト (MkDocs)
+          # --strictフラグにより、警告（リンク切れやパースエラー）をエラーとして扱いCIを落とす
+          run: uv run mkdocs build -f docs/mkdocs.yml --strict
+
   test:
     name: Test on ${{ matrix.os }} / Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
@@ -27,6 +81,7 @@ jobs:
       - name: uv をインストール
         uses: astral-sh/setup-uv@v5
         with:
+          enable-cache: true
           version: "latest"
           python-version: ${{ matrix.python-version }}
 
@@ -34,21 +89,14 @@ jobs:
         # testグループのみインストールしてCI実行時間を短縮
         run: uv sync --all-extras --group test
 
-      - name: フォーマットチェック (ruff)
-        # pyproject.tomlの設定を明示的に使用
-        run: uv run ruff check wandas tests --config=pyproject.toml
-
-      - name: 型チェック (mypy)
-        # pyproject.tomlの設定を明示的に使用
-        run: uv run mypy --config-file=pyproject.toml
-
       - name: テスト実行とカバレッジレポート生成 (pytest)
         # Windowsの場合のみ MPLBACKEND を設定
         env:
           MPLBACKEND: ${{ matrix.os == 'windows-latest' && 'Agg' || '' }}
-        run: uv run pytest -n auto --cov=wandas --cov-report=xml -vv
+        run: uv run pytest -n auto -vv
 
       - name: Upload coverage reports to Codecov
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         uses: codecov/codecov-action@v5 # 最新バージョンを使用
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
