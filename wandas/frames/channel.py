@@ -776,7 +776,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         source_name: str | None = None,
         normalize: bool = False,
     ) -> "ChannelFrame":
-        """Create a ChannelFrame from an audio file.
+        """Create a ChannelFrame from an audio file or URL.
 
         Note:
             The `chunk_size` parameter has been removed. ChannelFrame uses
@@ -784,7 +784,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             on the returned frame for custom sample-axis chunking.
 
         Args:
-            path: Path to the audio file or in-memory bytes/stream.
+            path: Path to the audio file, in-memory bytes/stream, or an HTTP/HTTPS
+                URL. When a URL is given it is downloaded in full before processing.
+                The file extension is inferred from the URL path; supply `file_type`
+                explicitly when the URL has no recognisable extension.
             channel: Channel(s) to load. None loads all channels.
             start: Start time in seconds.
             end: End time in seconds.
@@ -794,7 +797,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             delimiter: For CSV files, delimiter character. Default is ",".
             header: For CSV files, row number to use as header.
                 Default is 0 (first row). Set to None if no header.
-            file_type: File extension for in-memory data (e.g. ".wav", ".csv").
+            file_type: File extension for in-memory data or URLs without a
+                recognisable extension (e.g. ".wav", ".csv").
             source_name: Optional source name for in-memory data. Used in metadata.
             normalize: For WAV file paths only. When False (default), return raw
                 integer PCM samples cast to float32 (magnitudes preserved, e.g.
@@ -818,8 +822,21 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> cf = ChannelFrame.from_file("audio.wav", channel=[0, 2])
             >>> # Load CSV file
             >>> cf = ChannelFrame.from_file("data.csv", time_column=0, delimiter=",", header=0)
+            >>> # Load from a URL
+            >>> cf = ChannelFrame.from_file("https://example.com/audio.wav")
         """
         from .channel import ChannelFrame
+
+        # Detect and handle URL paths — download to bytes before any path logic.
+        if isinstance(path, str) and (path.startswith("http://") or path.startswith("https://")):
+            import urllib.request
+            from pathlib import PurePosixPath
+
+            url_ext = PurePosixPath(path.split("?")[0]).suffix.lower() or None
+            if file_type is None and url_ext:
+                file_type = url_ext
+            with urllib.request.urlopen(path) as _resp:
+                path = _resp.read()  # bytes — picked up by is_in_memory below
 
         is_in_memory = isinstance(path, (bytes, bytearray, memoryview)) or (
             hasattr(path, "read") and not isinstance(path, (str, Path))

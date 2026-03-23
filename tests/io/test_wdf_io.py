@@ -268,3 +268,38 @@ def test_source_file_none_roundtrip(tmp_path: Path) -> None:
     assert isinstance(cf2.metadata, FrameMetadata)
     assert cf2.metadata.source_file is None
     assert cf2.metadata.get("only") == "dict"
+
+
+def test_load_wdf_from_url(tmp_path: Path) -> None:
+    """Test that wdf_io.load can download a WDF file from a URL.
+
+    urllib.request.urlopen is mocked so no real network call is made.
+    The in-memory WDF bytes are served as if fetched from http://example.com.
+    """
+    from unittest.mock import MagicMock, patch
+
+    # Create a valid WDF file in a temp path and read its bytes.
+    sr = 8000
+    data = np.random.randn(2, sr).astype(np.float32)
+    cf = ChannelFrame.from_numpy(data, sr, label="URL Test", ch_labels=["A", "B"])
+    wdf_path = tmp_path / "test_url.wdf"
+    cf.save(wdf_path)
+    wdf_bytes = wdf_path.read_bytes()
+
+    # Mock urlopen to return the WDF bytes.
+    mock_resp = MagicMock()
+    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+    mock_resp.__exit__ = MagicMock(return_value=False)
+    mock_resp.read = MagicMock(return_value=wdf_bytes)
+
+    url = "https://example.com/data/test_url.wdf"
+    with patch("urllib.request.urlopen", return_value=mock_resp) as mock_urlopen:
+        cf2 = wdf_io.load(url)
+
+    mock_urlopen.assert_called_once_with(url)
+    assert cf2.sampling_rate == sr
+    assert cf2.n_channels == 2
+    assert cf2.label == "URL Test"
+    assert cf2._channel_metadata[0].label == "A"
+    assert cf2._channel_metadata[1].label == "B"
+    np.testing.assert_allclose(cf2.compute(), data, rtol=1e-5)
