@@ -2,6 +2,7 @@
 
 import numpy as np
 
+from wandas.processing.cepstral import Cepstrum, Lifter, SpectralEnvelope
 from wandas.processing.effects import (
     AddWithSNR,
     Fade,
@@ -132,6 +133,25 @@ class TestSpectralDisplayNames:
             detrend="constant",
         )
         assert op.get_display_name() == "H"
+
+
+class TestCepstralDisplayNames:
+    """Test display names for cepstral operations."""
+
+    def test_cepstrum_display_name(self) -> None:
+        """Test that Cepstrum returns 'ceps' as display name."""
+        op = Cepstrum(sampling_rate=44100)
+        assert op.get_display_name() == "ceps"
+
+    def test_lifter_display_name(self) -> None:
+        """Test that Lifter returns 'lifter' as display name."""
+        op = Lifter(sampling_rate=44100, cutoff=0.002)
+        assert op.get_display_name() == "lifter"
+
+    def test_spectral_envelope_display_name(self) -> None:
+        """Test that SpectralEnvelope returns 'env' as display name."""
+        op = SpectralEnvelope(sampling_rate=44100)
+        assert op.get_display_name() == "env"
 
 
 class TestEffectDisplayNames:

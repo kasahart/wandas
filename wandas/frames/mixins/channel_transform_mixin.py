@@ -8,6 +8,7 @@ from ...core.base_frame import BaseFrame
 from .protocols import TransformFrameProtocol
 
 if TYPE_CHECKING:
+    from wandas.frames.cepstral import CepstralFrame
     from wandas.frames.noct import NOctFrame
     from wandas.frames.spectral import SpectralFrame
     from wandas.frames.spectrogram import SpectrogramFrame
@@ -50,7 +51,7 @@ class ChannelTransformMixin:
     """Mixin providing methods related to frequency transformations.
 
     This mixin provides operations related to frequency analysis and
-    transformations such as FFT, STFT, and Welch method.
+    transformations such as FFT, STFT, Welch method, and cepstrum analysis.
     """
 
     @property
@@ -110,6 +111,40 @@ class ChannelTransformMixin:
                 {"operation": operation_name, "params": params},
             ],
             channel_metadata=channel_metadata,
+            previous=self._as_base_frame,
+        )
+
+    def cepstrum(
+        self: TransformFrameProtocol,
+        n_fft: int | None = None,
+        window: str = "hann",
+        floor: float = 1e-12,
+    ) -> "CepstralFrame":
+        """Calculate the real cepstrum of the signal."""
+        from wandas.frames.cepstral import CepstralFrame
+        from wandas.processing import Cepstrum, create_operation
+
+        params = {"n_fft": n_fft, "window": window, "floor": floor}
+        operation_name = "cepstrum"
+        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
+
+        operation = cast("Cepstrum", create_operation(operation_name, self.sampling_rate, **params))
+        cepstrum_data = operation.process(self._data)
+        resolved_n_fft = int(cepstrum_data.shape[-1])
+        resolved_params = {"n_fft": resolved_n_fft, "window": window, "floor": floor}
+
+        return CepstralFrame(
+            data=cepstrum_data,
+            sampling_rate=self.sampling_rate,
+            n_fft=resolved_n_fft,
+            window=window,
+            label=f"cepstrum({self.label})",
+            metadata=self.metadata.merged(**resolved_params),
+            operation_history=[
+                *self.operation_history,
+                {"operation": operation_name, "params": resolved_params},
+            ],
+            channel_metadata=self._as_base_frame._relabel_channels(operation_name, operation.get_display_name()),
             previous=self._as_base_frame,
         )
 
