@@ -68,6 +68,7 @@ class TestCepstralOperations:
 
         result = SpectralEnvelope(sr, n_fft=1024).process_array(cepstrum).compute()
 
+        # Zero cepstrum -> log spectrum of 0 -> exp(0) = 1 across all bins.
         np.testing.assert_allclose(result.real, np.ones((1, 513)), atol=1e-12)
         np.testing.assert_allclose(result.imag, np.zeros((1, 513)), atol=1e-12)
 

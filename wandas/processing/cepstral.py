@@ -86,6 +86,7 @@ class Cepstrum(AudioOperation[NDArrayReal, NDArrayReal]):
         work = np.asarray(x, dtype=np.float64)
         win = get_window(self.window, work.shape[-1])
         spectrum = np.fft.rfft(work * win, n=target_length, axis=-1)
+        # Real cepstrum: inverse FFT of the log-magnitude spectrum.
         log_magnitude = np.log(np.maximum(np.abs(spectrum), self.floor))
         result = np.fft.irfft(log_magnitude, n=target_length, axis=-1)
         return np.asarray(result, dtype=_real_output_dtype(np.dtype(x.dtype)))
