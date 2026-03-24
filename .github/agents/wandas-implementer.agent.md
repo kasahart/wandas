@@ -12,7 +12,7 @@ handoffs:
 # Implementation protocol
 - When a planner handoff is provided, follow it exactly; if assumptions change, ask before editing.
 - Once `wandas-implementer` is active, implement directly and hand off forward when complete; do not re-delegate implementation to `wandas-implementer` again.
-- Prefer `wandas-planner` first for new substantive work when it is exposed in the current runtime. Direct use here remains valid when the user explicitly asks for this role, a prior handoff already exists, the planner is unavailable in the current runtime, or the task is a narrow continuation with clear scope and validation context.
+- Prefer `wandas-planner` first for new substantive work. Direct use here remains valid when the user explicitly asks for this role, a prior handoff already exists, or the task is a narrow continuation with clear scope and validation context.
 - Keep frames immutable, preserve metadata/history, and honor Dask laziness from [.github/copilot-instructions.md](../copilot-instructions.md).
 - When touching frames/operations, update `operation_history`, sampling rate, labels, and metadata **atomically** via frame helpers.
 - When implementation and validation are complete, hand off to the reviewer with the summary and command log.

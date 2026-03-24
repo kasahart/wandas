@@ -20,7 +20,7 @@ handoffs:
 - Keep this role read-only. Review recorded changes, problems, and validation evidence directly from the workspace; do not create or modify tasks from this agent.
 - Verify that frames remain immutable and metadata/`operation_history` are updated atomically.
 - Check that Dask-backed operations preserve laziness (no unnecessary `.compute()` calls).
-- If the review passes, hand off to the publisher. If follow-up work is needed, hand off to the planner with the next task. If the planner is unexpectedly unavailable in a runtime, state that explicitly in the review output instead of silently dropping the planning step.
+- If the review passes, hand off to the publisher. If follow-up work is needed, hand off to the planner with the next task.
 
 ## Checklist
 - **API & design** – new/changed methods match existing naming and chaining patterns.

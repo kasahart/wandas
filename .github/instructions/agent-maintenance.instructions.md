@@ -10,7 +10,6 @@ Use this prompt when modifying `.github/agents/` files, when creating new custom
 - **Linkage Rule**: If you create a new instruction file (e.g., `instructions/new-topic.instructions.md`), you **must** update the relevant agent file (e.g., `wandas-planner.agent.md`) to reference it using a Markdown link.
   - *Why*: Agents do not automatically see new files. Explicit links are required for context retrieval.
 - **Handoff Rule**: If you create a new agent, ensure it is reachable via `handoffs` from an existing agent, and that it can hand off to the next logical step.
-- **Runtime Availability Rule**: Compare the `.github/agents/*.agent.md` files with the custom agents actually exposed in the current runtime. If an agent is documented in the repo but not exposed, update the surrounding guidance and dependent handoffs so the remaining agents still have a usable fallback path.
 - **Automation Rule**: If a workflow is intended to continue automatically after a handoff button is selected, set `handoffs.send: true` and avoid body text that restricts handoff to explicit user approval unless that approval gate is intentionally required.
 - **applyTo-based instructions**: Files ending in **`.instructions.md`** support `applyTo` frontmatter
   for path-specific auto-injection. Use this for policies that should automatically apply when
@@ -51,7 +50,6 @@ When the `wandas-publisher` agent triggers a retrospective:
 
 ## Implementation Mode for Agent Updates
 - **Who**: Use the full `wandas-planner` -> `wandas-implementer` -> `wandas-reviewer` flow for substantive or multi-file customization updates, and explicitly state "I am updating agent configurations" in the implementation prompt.
-- **Planner fallback**: If `wandas-planner` is not exposed in the current runtime, keep the planner-first wording as the preferred workflow in repo docs, but update implementer/reviewer/publisher guidance so they do not depend on a broken planner-only handoff.
 - **Discovery wording**: For multi-agent workflows, keep the planner framed as the preferred first-stop discovery agent, and describe user- or issue-proposed implementations as inputs to evaluate rather than approved plans to adopt unchanged.
 - **Narrow exception**: A low-risk fix to one existing `.github/` customization file may be edited directly when it is only a wording, link, or YAML/frontmatter correction and does not change tools, handoffs, roles, or workflow semantics.
 - **Docs validation**: Reserve `Build MkDocs Documentation` for changes to `docs/`, `src/`, `README.md`, or other MkDocs-backed user-facing markdown. For `.github/` customization-only work, validate by reading the modified Markdown/YAML, checking problems, and verifying linked paths instead.

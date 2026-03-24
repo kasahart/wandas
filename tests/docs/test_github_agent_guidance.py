@@ -39,19 +39,21 @@ def test_agent_docs_reference_coverage_guidance() -> None:
     assert "coverage-aware testing guidance for touched code paths" in copilot_text
 
 
-def test_agent_docs_define_fallback_when_planner_is_unavailable() -> None:
-    """Agent docs should stay usable when the planner is not exposed in a runtime."""
+def test_agent_docs_keep_planner_first_workflow() -> None:
+    """Agent docs should consistently describe planner-first workflow."""
     copilot_text = _read("copilot-instructions.md")
     implementer_text = _read("agents/wandas-implementer.agent.md")
     reviewer_text = _read("agents/wandas-reviewer.agent.md")
     publisher_text = _read("agents/wandas-publisher.agent.md")
     maintenance_text = _read("instructions/agent-maintenance.instructions.md")
 
-    assert "If `wandas-planner` is not exposed in the current runtime" in copilot_text
-    assert "planner is unavailable in the current runtime" in implementer_text
-    assert "If the planner is unexpectedly unavailable in a runtime" in reviewer_text
-    assert "If the planner is unexpectedly unavailable in a runtime" in publisher_text
-    assert "Runtime Availability Rule" in maintenance_text
+    assert "default workflow is `wandas-planner` -> `wandas-implementer` -> `wandas-reviewer`" in copilot_text
+    assert "Prefer `wandas-planner` first for new substantive work." in implementer_text
+    assert "hand off to the planner with the next task." in reviewer_text
+    assert "hand off to the planner for follow-up work if additional tasks remain." in publisher_text
+    assert (
+        "**Who**: Use the full `wandas-planner` -> `wandas-implementer` -> `wandas-reviewer` flow" in maintenance_text
+    )
 
 
 def test_all_agent_frontmatter_is_valid_yaml() -> None:

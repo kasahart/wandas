@@ -19,7 +19,7 @@ This repository is configured with comprehensive GitHub Copilot instructions to 
 
 The `agents/` directory contains specialized agent definitions for different development tasks:
 
-- **`wandas-planner.agent.md`**: Preferred first-stop read-only planning agent for substantive work that maps requirements to affected modules or `.github/` customization and workflow files when this agent is exposed in the current runtime
+- **`wandas-planner.agent.md`**: Preferred first-stop read-only planning agent for substantive work that maps requirements to affected modules or `.github/` customization and workflow files
 - **`wandas-implementer.agent.md`**: Implementation agent for approved plans or direct, clearly scoped follow-up work when the role request, prior handoff, or validation context is already clear
 - **`wandas-reviewer.agent.md`**: Read-only review agent for completed implementations or direct review requests when the role request, prior handoff, or validation context is already clear
 - **`wandas-publisher.agent.md`**: PR-only publishing agent for branch, stage, commit, push, and pull request create or update
@@ -46,7 +46,7 @@ Archived review notes are kept outside `instructions/` so they do not present as
 When working with this repository:
 
 1. **Copilot coding agents** automatically read `copilot-instructions.md` to understand project conventions
-2. **Custom agents** can be invoked for specialized tasks (planning, implementation, review, PR publication); first check which agents are actually exposed in the current runtime before requiring a planner-first workflow
+2. **Custom agents** can be invoked for specialized tasks (planning, implementation, review, PR publication)
 3. **Active instruction files** provide deeper guidance for specific areas of the codebase
 
 ## 📝 Maintaining Copilot Instructions
