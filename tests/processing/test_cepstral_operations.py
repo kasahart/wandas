@@ -31,7 +31,22 @@ class TestCepstralOperations:
 
         result = Cepstrum(sr, n_fft=1024, window="boxcar").process_array(signal).compute()
 
+        # Impulse -> flat spectrum with magnitude 1 -> log(1) = 0 -> zero cepstrum.
         np.testing.assert_allclose(result, np.zeros_like(result), atol=1e-12)
+
+    def test_cepstrum_matches_direct_real_cepstrum_reference(self) -> None:
+        sr = 16000
+        n_fft = 1024
+        t = np.arange(n_fft) / sr
+        signal = np.array([np.sin(2 * np.pi * 200 * t) + 0.5 * np.sin(2 * np.pi * 400 * t)], dtype=np.float64)
+
+        result = Cepstrum(sr, n_fft=n_fft, window="boxcar").process_array(signal).compute()
+
+        reference_spectrum = np.fft.rfft(signal, n=n_fft, axis=-1)
+        reference_log_magnitude = np.log(np.maximum(np.abs(reference_spectrum), 1e-12))
+        reference = np.fft.irfft(reference_log_magnitude, n=n_fft, axis=-1)
+
+        np.testing.assert_allclose(result, reference, atol=1e-12)
 
     def test_lifter_low_mode_keeps_low_and_mirrored_quefrencies(self) -> None:
         sr = 1000
@@ -53,6 +68,7 @@ class TestCepstralOperations:
 
         result = SpectralEnvelope(sr, n_fft=1024).process_array(cepstrum).compute()
 
+        # Zero cepstrum -> log spectrum of 0 -> exp(0) = 1 across all bins.
         np.testing.assert_allclose(result.real, np.ones((1, 513)), atol=1e-12)
         np.testing.assert_allclose(result.imag, np.zeros((1, 513)), atol=1e-12)
 

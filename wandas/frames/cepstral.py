@@ -158,7 +158,7 @@ class CepstralFrame(SpectralFrame):
 
     def info(self) -> None:
         """Display cepstral-domain information."""
-        delta_q = 1.0 / self.sampling_rate
+        quefrency_resolution = 1.0 / self.sampling_rate
 
         print("CepstralFrame Information:")
         print(f"  Channels: {self.n_channels}")
@@ -166,6 +166,6 @@ class CepstralFrame(SpectralFrame):
         print(f"  FFT size: {self.n_fft}")
         print(f"  Quefrency range: {self.quefrencies[0]:.6f} - {self.quefrencies[-1]:.6f} s")
         print(f"  Quefrency bins: {len(self.quefrencies)}")
-        print(f"  Quefrency resolution (ΔQ): {delta_q:.6f} s")
+        print(f"  Quefrency resolution (delta_Q): {quefrency_resolution:.6f} s")
         print(f"  Channel labels: {self.labels}")
         self._print_operation_history()

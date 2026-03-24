@@ -49,7 +49,7 @@ class TestCepstralFrame:
         assert result.operation_history[-1] == {"operation": "spectral_envelope", "params": {"n_fft": self.n_fft}}
         np.testing.assert_allclose(result.compute().real, np.ones((2, self.n_fft // 2 + 1)))
 
-    def test_cepstrum_lifter_and_envelope_preserve_frame_metadata_source_file(self) -> None:
+    def test_cepstral_workflow_preserves_source_file_metadata(self) -> None:
         frame = ChannelFrame.from_numpy(
             np.ones((1, 1024), dtype=np.float64),
             self.sampling_rate,
@@ -66,6 +66,9 @@ class TestCepstralFrame:
         assert cepstrum.metadata.source_file == "speech.wav"
         assert low_ceps.metadata.source_file == "speech.wav"
         assert envelope.metadata.source_file == "speech.wav"
+        assert cepstrum.operation_history[-1]["operation"] == "cepstrum"
+        assert low_ceps.operation_history[-1] == {"operation": "lifter", "params": {"cutoff": 0.001, "mode": "low"}}
+        assert envelope.operation_history[-1] == {"operation": "spectral_envelope", "params": {"n_fft": 1024}}
 
     def test_ifft_on_cepstral_frame_raises_not_implemented(self) -> None:
         with pytest.raises(NotImplementedError, match=r"IFFT is not supported for cepstral data"):
