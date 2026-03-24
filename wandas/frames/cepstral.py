@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, cast
+from collections.abc import Iterator
+from typing import TYPE_CHECKING, Any, cast
 
 import pandas as pd
 from dask.array.core import Array as DaArray
@@ -10,6 +11,11 @@ from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata, FrameMetadata
 from wandas.frames.spectral import SpectralFrame
 from wandas.utils.types import NDArrayReal
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+
+    from wandas.frames.channel import ChannelFrame
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +54,11 @@ class CepstralFrame(SpectralFrame):
 
         return np.arange(self.n_fft) / self.sampling_rate
 
+    @property
+    def freqs(self) -> NDArrayReal:
+        """Alias the plotting axis to quefrency values in seconds."""
+        return self.quefrencies
+
     def lifter(self, cutoff: float, mode: str = "low") -> CepstralFrame:
         """Apply low-pass or high-pass liftering in the quefrency domain."""
         return self.apply_operation("lifter", cutoff=cutoff, mode=mode)
@@ -68,7 +79,8 @@ class CepstralFrame(SpectralFrame):
             *self.operation_history,
             {"operation": operation_name, "params": params},
         ]
-        new_metadata = {**self.metadata, operation_name: params}
+        new_metadata = self.metadata.copy()
+        new_metadata[operation_name] = params
 
         return SpectralFrame(
             data=envelope_data,
@@ -93,7 +105,8 @@ class CepstralFrame(SpectralFrame):
         operation_metadata = {"operation": operation_name, "params": params}
         new_history = self.operation_history.copy()
         new_history.append(operation_metadata)
-        new_metadata = {**self.metadata, operation_name: params}
+        new_metadata = self.metadata.copy()
+        new_metadata[operation_name] = params
 
         creation_params: dict[str, Any] = {
             "data": processed_data,
@@ -107,3 +120,52 @@ class CepstralFrame(SpectralFrame):
     def _get_dataframe_index(self) -> pd.Index[Any]:
         """Get quefrency index for DataFrame conversion."""
         return pd.Index(self.quefrencies, name="quefrency")
+
+    def plot(
+        self,
+        plot_type: str = "frequency",
+        ax: Axes | None = None,
+        title: str | None = None,
+        overlay: bool = False,
+        xlabel: str | None = None,
+        ylabel: str | None = None,
+        alpha: float = 1.0,
+        xlim: tuple[float, float] | None = None,
+        ylim: tuple[float, float] | None = None,
+        Aw: bool = False,  # noqa: N803
+        **kwargs: Any,
+    ) -> Axes | Iterator[Axes]:
+        """Plot cepstral data using quefrency-aware axis labeling."""
+        return super().plot(
+            plot_type=plot_type,
+            ax=ax,
+            title=title,
+            overlay=overlay,
+            xlabel=xlabel or "Quefrency [s]",
+            ylabel=ylabel or "Cepstrum",
+            alpha=alpha,
+            xlim=xlim,
+            ylim=ylim,
+            Aw=Aw,
+            **kwargs,
+        )
+
+    def ifft(self) -> ChannelFrame:
+        """IFFT is not defined for cepstral data."""
+        raise NotImplementedError(
+            "IFFT is not supported for cepstral data. Use to_spectral_envelope() to reconstruct a smooth spectrum."
+        )
+
+    def info(self) -> None:
+        """Display cepstral-domain information."""
+        delta_q = 1.0 / self.sampling_rate
+
+        print("CepstralFrame Information:")
+        print(f"  Channels: {self.n_channels}")
+        print(f"  Sampling rate: {self.sampling_rate} Hz")
+        print(f"  FFT size: {self.n_fft}")
+        print(f"  Quefrency range: {self.quefrencies[0]:.6f} - {self.quefrencies[-1]:.6f} s")
+        print(f"  Quefrency bins: {len(self.quefrencies)}")
+        print(f"  Quefrency resolution (ΔQ): {delta_q:.6f} s")
+        print(f"  Channel labels: {self.labels}")
+        self._print_operation_history()

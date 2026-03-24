@@ -44,6 +44,10 @@ class ChannelTransformMixin:
 
         resolved_n_fft = int(cepstrum_data.shape[-1])
         base_self = cast(BaseFrame[Any], self)
+        new_metadata = self.metadata.copy()
+        new_metadata["window"] = window
+        new_metadata["n_fft"] = resolved_n_fft
+        new_metadata["floor"] = floor
 
         return CepstralFrame(
             data=cepstrum_data,
@@ -51,7 +55,7 @@ class ChannelTransformMixin:
             n_fft=resolved_n_fft,
             window=window,
             label=f"cepstrum({self.label})",
-            metadata={**self.metadata, "window": window, "n_fft": resolved_n_fft, "floor": floor},
+            metadata=new_metadata,
             operation_history=[
                 *self.operation_history,
                 {"operation": operation_name, "params": {"n_fft": resolved_n_fft, "window": window, "floor": floor}},
