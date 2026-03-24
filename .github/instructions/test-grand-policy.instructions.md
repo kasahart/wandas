@@ -212,6 +212,21 @@ Avoid the following patterns as they undermine test reliability:
 
 ---
 
+## Coverage-Aware Testing
+
+The 4 pillars and the test pyramid are also the repository's coverage planning tools.
+
+- Before implementing, identify which touched modules, branches, and metadata transitions are at risk of becoming newly uncovered.
+- After running `uv run pytest -n auto --cov=wandas --cov-report=term-missing`, inspect the touched files in the coverage report and add focused tests for:
+  - the main success path,
+  - validation and error branches,
+  - metadata/history updates,
+  - lazy Dask paths or domain-transition paths when they apply.
+- Treat coverage regressions on changed code as a warning that must be resolved or explicitly documented for review.
+- If a localized coverage gap cannot be closed in the same change, record the missing lines and the follow-up test idea in the implementation handoff so reviewers can evaluate the risk.
+
+---
+
 ## Cross-References
 - [frames-design.instructions.md](frames-design.instructions.md) — Frame immutability and metadata rules
 - [processing-api.instructions.md](processing-api.instructions.md) — Processing layer responsibilities

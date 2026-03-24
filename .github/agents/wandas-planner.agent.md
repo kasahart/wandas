@@ -6,7 +6,12 @@ tools: ['read/readFile', 'read/problems', 'search/changes', 'search/codebase', '
 handoffs:
   - label: Start Implementation
     agent: wandas-implementer
-    prompt: Implement the approved plan above. Use the requirements, impact analysis, design notes, test plan, and risks as the source of truth. Preserve frame immutability, metadata and operation_history updates, and Dask laziness. Follow TDD where applicable, run the relevant quality checks, and finish with the required deliverables: summary of changes, tests added or updated, command log, documentation updates, residual risks, and agent retrospective.
+    prompt: >
+      Implement the approved plan above. Use the requirements, impact analysis, design notes,
+      test plan, and risks as the source of truth. Preserve frame immutability, metadata and
+      operation_history updates, and Dask laziness. Follow TDD where applicable, run the relevant
+      quality checks, and finish with the required deliverables: summary of changes, tests added
+      or updated, command log, documentation updates, residual risks, and agent retrospective.
     send: true
 ---
 # Planning protocol

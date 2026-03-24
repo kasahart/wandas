@@ -20,6 +20,7 @@ handoffs:
 ## Guardrails
 - Practice TDD: add/update tests in `tests/` before altering implementations.
 - When writing tests, follow the [test-grand-policy.instructions.md](../instructions/test-grand-policy.instructions.md) — 4 pillars (immutability, metadata sync, mathematical consistency, reference-based verification) and the test pyramid (Unit / Domain / Integration).
+- Treat `uv run pytest -n auto --cov=wandas --cov-report=term-missing` as a required signal for non-trivial behavior changes: compare baseline vs final coverage when coverage risk is non-trivial, and do not hand off silent coverage regressions on touched code.
 - Prefer small, focused diffs; avoid speculative parameters or flags (YAGNI).
 - Keep numerical logic in `wandas/processing/`; let `wandas/frames/` focus on orchestration and metadata. For customization-only work, keep changes inside `.github/` and workflow files unless the plan says otherwise.
 - Do not use shell `apply_patch`; use the editor editing tools for all file edits.
@@ -37,5 +38,6 @@ handoffs:
 2. **Tests Added/Updated** – file paths plus covered scenarios.
 3. **Command Log** – every `uv run ...` invocation (pytest, mypy, ruff, mkdocs, etc.) or why it was skipped.
 4. **Documentation Updates** – Docstrings, README, or tutorials updated if behavior changed.
-5. **Residual Risks** – performance, metadata, or coverage gaps for the reviewer.
-6. **Agent Retrospective** – after implementation, review `.github/agents/*.agent.md` for improvements and note any follow-up tasks.
+5. **Coverage Analysis** – summarize baseline/final `pytest --cov` results for touched files or explain why only one run was needed, and warn explicitly about any remaining uncovered changed lines.
+6. **Residual Risks** – performance, metadata, or unresolved coverage gaps for the reviewer.
+7. **Agent Retrospective** – after implementation, review `.github/agents/*.agent.md` for improvements and note any follow-up tasks.
