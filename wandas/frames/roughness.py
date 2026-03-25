@@ -348,29 +348,6 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         )
 
     def _apply_operation_impl(self, operation_name: str, **params: Any) -> "RoughnessFrame":
-        """
-        Implementation of operation application.
-
-        Note: RoughnessFrame is typically a terminal node in processing chains.
-        Most operations are not directly applicable to spectral roughness data.
-
-        Parameters
-        ----------
-        operation_name : str
-            Name of the operation to apply.
-        **params : Any
-            Operation parameters.
-
-        Returns
-        -------
-        RoughnessFrame
-            A new RoughnessFrame with the operation applied.
-
-        Raises
-        ------
-        NotImplementedError
-            As most operations are not applicable to roughness spectrograms.
-        """
         raise NotImplementedError(
             f"Operation '{operation_name}' is not supported for RoughnessFrame. "
             "RoughnessFrame is typically a terminal node in the processing chain."

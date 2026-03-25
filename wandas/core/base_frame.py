@@ -612,13 +612,15 @@ class BaseFrame(ABC, Generic[T]):
         persisted_data = self._data.persist()
         return self._create_new_instance(data=persisted_data)
 
-    @abstractmethod
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
+        """Return additional keyword arguments for ``_create_new_instance``.
+
+        Subclasses that require extra constructor parameters (e.g. ``n_fft``,
+        ``hop_length``) should override this method.  The default returns an
+        empty dict, which is correct for frames with no extra init args
+        (e.g. ``ChannelFrame``).
         """
-        Abstract method for derived classes to provide
-        additional initialization arguments.
-        """
-        pass
+        return {}
 
     def _create_new_instance(self: S, data: DaArray, **kwargs: Any) -> S:
         """
@@ -717,17 +719,87 @@ class BaseFrame(ABC, Generic[T]):
             logger.warning(f"Failed to visualize the graph: {e}")
             return None
 
-    @abstractmethod
     def _binary_op(
         self: S,
-        other: S | int | float | NDArrayReal | DaArray,
+        other: S | int | float | complex | NDArrayReal | DaArray,
         op: Callable[[DaArray, Any], DaArray],
         symbol: str,
     ) -> S:
-        """Basic implementation of binary operations"""
-        # Basic logic
-        # Actual implementation is left to derived classes
-        pass
+        """Default implementation of binary operations using dask's lazy evaluation.
+
+        Handles both frame-frame and frame-scalar/array operations with
+        metadata propagation and history tracking.  Uses
+        ``_create_new_instance`` so that subclass-specific constructor
+        parameters are automatically forwarded.
+
+        Subclasses may override this entirely (e.g. ``RoughnessFrame``).
+        """
+        logger.debug(f"Setting up {symbol} operation (lazy)")
+
+        metadata: FrameMetadata = self.metadata.copy() if self.metadata is not None else FrameMetadata()
+        operation_history: list[dict[str, Any]] = self.operation_history.copy() if self.operation_history else []
+
+        # Same-type frame operation
+        if isinstance(other, type(self)):
+            if self.sampling_rate != other.sampling_rate:
+                raise ValueError(
+                    f"Sampling rate mismatch\n"
+                    f"  Left operand: {self.sampling_rate} Hz\n"
+                    f"  Right operand: {other.sampling_rate} Hz\n"
+                    f"Resample one frame to match the other before performing "
+                    f"{symbol} operation."
+                )
+
+            result_data = op(self._data, other._data)
+
+            merged_channel_metadata: list[ChannelMetadata] = []
+            for self_ch, other_ch in zip(self._channel_metadata, other._channel_metadata):
+                ch = self_ch.model_copy(deep=True)
+                ch["label"] = f"({self_ch['label']} {symbol} {other_ch['label']})"
+                merged_channel_metadata.append(ch)
+
+            operation_history.append({"operation": symbol, "with": other.label})
+
+            return self._create_new_instance(
+                data=result_data,
+                label=f"({self.label} {symbol} {other.label})",
+                metadata=metadata,
+                operation_history=operation_history,
+                channel_metadata=merged_channel_metadata,
+            )
+
+        # Scalar or array operand
+        result_data = op(self._data, other)
+        other_str = self._format_operand_str(other)
+
+        updated_channel_metadata: list[ChannelMetadata] = []
+        for self_ch in self._channel_metadata:
+            ch = self_ch.model_copy(deep=True)
+            ch["label"] = f"({self_ch.label} {symbol} {other_str})"
+            updated_channel_metadata.append(ch)
+
+        operation_history.append({"operation": symbol, "with": other_str})
+
+        return self._create_new_instance(
+            data=result_data,
+            label=f"({self.label} {symbol} {other_str})",
+            metadata=metadata,
+            operation_history=operation_history,
+            channel_metadata=updated_channel_metadata,
+        )
+
+    @staticmethod
+    def _format_operand_str(other: object) -> str:
+        """Return a short display string for a binary operand."""
+        if isinstance(other, int | float):
+            return str(other)
+        if isinstance(other, complex):
+            return f"complex({other.real}, {other.imag})"
+        if isinstance(other, np.ndarray):
+            return f"ndarray{other.shape}"
+        if hasattr(other, "shape"):
+            return f"dask.array{other.shape}"
+        return str(type(other).__name__)
 
     def __add__(self: S, other: S | int | float | NDArrayReal) -> S:
         """Addition operator"""
@@ -768,10 +840,102 @@ class BaseFrame(ABC, Generic[T]):
         # Apply the operation through abstract method
         return self._apply_operation_impl(operation_name, **params)
 
-    @abstractmethod
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
-        """Implementation of operation application"""
-        pass
+        """Default implementation of operation application.
+
+        Creates the named operation, applies it to the data, and returns
+        a new frame with updated metadata and operation history.
+        Derived classes may override this to add extra behaviour
+        (e.g. channel relabelling).
+        """
+        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
+        from wandas.processing import create_operation
+
+        operation = create_operation(operation_name, self.sampling_rate, **params)
+        processed_data = operation.process(self._data)
+
+        operation_metadata = {"operation": operation_name, "params": params}
+        new_history = self.operation_history.copy()
+        new_history.append(operation_metadata)
+        new_metadata = {**self.metadata}
+        new_metadata[operation_name] = params
+
+        return self._create_new_instance(
+            data=processed_data,
+            metadata=new_metadata,
+            operation_history=new_history,
+        )
+
+    def _apply_operation_instance(
+        self: S,
+        operation: Any,
+        operation_name: str | None = None,
+        output_frame_class: type | None = None,
+        output_frame_kwargs: dict[str, Any] | None = None,
+    ) -> S:
+        """Apply an already-instantiated operation to the frame.
+
+        This method processes data through the operation, updates metadata,
+        operation history, and channel labels atomically.  It is the
+        entry-point used by ``ChannelProcessingMixin`` and by
+        ``ChannelFrame._apply_operation_impl``.
+
+        Parameters
+        ----------
+        operation : AudioOperation
+            Instantiated operation to apply.
+        operation_name : str, optional
+            Override for the operation name in history.
+        output_frame_class : type, optional
+            If provided, the result is wrapped in this frame class instead
+            of the same type as ``self``.  Enables domain transitions
+            (e.g. ChannelFrame -> SpectralFrame) from ``apply()``.
+        output_frame_kwargs : dict, optional
+            Extra constructor keyword arguments required by *output_frame_class*
+            (e.g. ``{"n_fft": 1024, "window": "hann"}``).
+        """
+        processed_data = operation.process(self._data)
+
+        if operation_name is None:
+            operation_name = getattr(operation, "name", "unknown_operation")
+        params = getattr(operation, "params", {})
+
+        operation_metadata = {"operation": operation_name, "params": params}
+        new_history = self.operation_history.copy()
+        new_history.append(operation_metadata)
+        new_metadata = {**self.metadata}
+        new_metadata[operation_name] = params
+
+        metadata_updates = operation.get_metadata_updates()
+
+        display_name = operation.get_display_name()
+        new_channel_metadata = self._relabel_channels(operation_name, display_name)
+
+        if output_frame_class is not None:
+            # Domain transition: build a different frame type
+            kw: dict[str, Any] = {
+                "data": processed_data,
+                "sampling_rate": metadata_updates.pop("sampling_rate", self.sampling_rate),
+                "label": self.label,
+                "metadata": new_metadata,
+                "operation_history": new_history,
+                "channel_metadata": new_channel_metadata,
+                "previous": self,
+            }
+            kw.update(metadata_updates)
+            if output_frame_kwargs:
+                kw.update(output_frame_kwargs)
+            return cast(S, output_frame_class(**kw))
+
+        creation_params: dict[str, Any] = {
+            "data": processed_data,
+            "metadata": new_metadata,
+            "operation_history": new_history,
+            "channel_metadata": new_channel_metadata,
+        }
+        creation_params.update(metadata_updates)
+
+        return self._create_new_instance(**creation_params)
 
     def _relabel_channels(
         self,

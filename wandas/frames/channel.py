@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO, Optional, TypeVar, cast
 
@@ -254,152 +254,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
         from ..processing import create_operation
 
-        # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
-
-        # _apply_operation_instance returns the same concrete frame type as
-        # `self`, but mypy can't infer that from the TypeVar `S` bound to
-        # BaseFrame. Cast explicitly to `S` to satisfy type checking.
-        # Call the implementation on the concrete ChannelFrame type and
-        # then cast back to the generic `S` so callers keeping generic
-        # typing still get the correct return type.
-        return cast(
-            S,
-            cast("ChannelFrame", self)._apply_operation_instance(operation, operation_name=operation_name),
-        )
-
-    def _apply_operation_instance(self: S, operation: Any, operation_name: str | None = None) -> S:
-        """Apply an instantiated operation to the frame."""
-        # Apply processing to data
-        processed_data = operation.process(self._data)
-
-        # Update metadata
-        # Use operation name and params from the operation instance
-        if operation_name is None:
-            operation_name = getattr(operation, "name", "unknown_operation")
-        params = getattr(operation, "params", {})
-
-        operation_metadata = {"operation": operation_name, "params": params}
-        new_history = self.operation_history.copy()
-        new_history.append(operation_metadata)
-        new_metadata = {**self.metadata}
-        new_metadata[operation_name] = params
-
-        # Get metadata updates from operation
-        metadata_updates = operation.get_metadata_updates()
-
-        # Update channel labels to reflect the operation
-        display_name = operation.get_display_name()
-        new_channel_metadata = self._relabel_channels(operation_name, display_name)
-
-        logger.debug(f"Created new ChannelFrame with operation {operation_name} added to graph")
-
-        # Apply metadata updates (including sampling_rate if specified)
-        creation_params: dict[str, Any] = {
-            "data": processed_data,
-            "metadata": new_metadata,
-            "operation_history": new_history,
-            "channel_metadata": new_channel_metadata,
-        }
-        creation_params.update(metadata_updates)
-
-        return self._create_new_instance(**creation_params)
-
-    def _binary_op(
-        self,
-        other: "ChannelFrame | int | float | NDArrayReal | DaskArray",
-        op: Callable[["DaskArray", Any], "DaskArray"],
-        symbol: str,
-    ) -> "ChannelFrame":
-        """
-        Common implementation for binary operations
-        - utilizing dask's lazy evaluation.
-
-        Args:
-            other: Right operand for the operation.
-            op: Function to execute the operation (e.g., lambda a, b: a + b).
-            symbol: Symbolic representation of the operation (e.g., '+').
-
-        Returns:
-            A new channel containing the operation result (lazy execution).
-        """
-        from .channel import ChannelFrame
-
-        logger.debug(f"Setting up {symbol} operation (lazy)")
-
-        # Handle potentially None metadata and operation_history
-        metadata: FrameMetadata = self.metadata.copy() if self.metadata is not None else FrameMetadata()
-
-        operation_history = []
-        if self.operation_history is not None:
-            operation_history = self.operation_history.copy()
-
-        # Check if other is a ChannelFrame - improved type checking
-        if isinstance(other, ChannelFrame):
-            if self.sampling_rate != other.sampling_rate:
-                raise ValueError(
-                    f"Sampling rate mismatch\n"
-                    f"  Left operand: {self.sampling_rate} Hz\n"
-                    f"  Right operand: {other.sampling_rate} Hz\n"
-                    f"Resample one frame to match the other before performing "
-                    f"{symbol} operation."
-                )
-
-            # Perform operation directly on dask array (maintaining lazy execution)
-            result_data = op(self._data, other._data)
-
-            # Merge channel metadata
-            merged_channel_metadata = []
-            for self_ch, other_ch in zip(self._channel_metadata, other._channel_metadata):
-                ch = self_ch.model_copy(deep=True)
-                ch["label"] = f"({self_ch['label']} {symbol} {other_ch['label']})"
-                merged_channel_metadata.append(ch)
-
-            operation_history.append({"operation": symbol, "with": other.label})
-
-            return ChannelFrame(
-                data=result_data,
-                sampling_rate=self.sampling_rate,
-                label=f"({self.label} {symbol} {other.label})",
-                metadata=metadata,
-                operation_history=operation_history,
-                channel_metadata=merged_channel_metadata,
-                previous=self,
-            )
-
-        # Perform operation with scalar, NumPy array, or other types
-        else:
-            # Apply operation directly on dask array (maintaining lazy execution)
-            result_data = op(self._data, other)
-
-            # Operand display string
-            if isinstance(other, int | float):
-                other_str = str(other)
-            elif isinstance(other, np.ndarray):
-                other_str = f"ndarray{other.shape}"
-            elif hasattr(other, "shape"):  # Check for dask.array.Array
-                other_str = f"dask.array{other.shape}"
-            else:
-                other_str = str(type(other).__name__)
-
-            # Update channel metadata
-            updated_channel_metadata: list[ChannelMetadata] = []
-            for self_ch in self._channel_metadata:
-                ch = self_ch.model_copy(deep=True)
-                ch["label"] = f"({self_ch.label} {symbol} {other_str})"
-                updated_channel_metadata.append(ch)
-
-            operation_history.append({"operation": symbol, "with": other_str})
-
-            return ChannelFrame(
-                data=result_data,
-                sampling_rate=self.sampling_rate,
-                label=f"({self.label} {symbol} {other_str})",
-                metadata=metadata,
-                operation_history=operation_history,
-                channel_metadata=updated_channel_metadata,
-                previous=self,
-            )
+        return self._apply_operation_instance(operation, operation_name=operation_name)
 
     def add(
         self,
@@ -1254,10 +1110,6 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         from ..io.wdf_io import load as wdf_load
 
         return wdf_load(path, format=format)
-
-    def _get_additional_init_kwargs(self) -> dict[str, Any]:
-        """Provide additional initialization arguments required for ChannelFrame."""
-        return {}
 
     def add_channel(
         self,
