@@ -35,6 +35,8 @@ class ChannelProcessingMixin:
         self: T_Processing,
         func: Callable[..., Any],
         output_shape_func: Callable[[tuple[int, ...]], tuple[int, ...]] | None = None,
+        output_frame_class: type | None = None,
+        output_frame_kwargs: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> T_Processing:
         """Apply a custom function to the signal.
@@ -42,10 +44,16 @@ class ChannelProcessingMixin:
         Args:
             func: Function to apply.
             output_shape_func: Optional function to calculate output shape.
+            output_frame_class: Optional frame class for the output.  When
+                provided, the result is wrapped in this class instead of the
+                caller's type, enabling domain transitions (e.g.
+                ``ChannelFrame`` -> ``SpectralFrame``).
+            output_frame_kwargs: Extra constructor keyword arguments required
+                by *output_frame_class* (e.g. ``{"n_fft": 1024}``).
             **kwargs: Additional arguments for the function.
 
         Returns:
-            New frame of the same type with the custom function applied.
+            New frame with the custom function applied.
         """
         from wandas.processing.custom import CustomOperation
 
@@ -68,7 +76,14 @@ class ChannelProcessingMixin:
 
         # Explicitly cast to the generic processing frame type so mypy
         # understands the returned value has the same frame type as `self`.
-        return cast(T_Processing, cast(Any, self)._apply_operation_instance(operation))
+        return cast(
+            T_Processing,
+            cast(Any, self)._apply_operation_instance(
+                operation,
+                output_frame_class=output_frame_class,
+                output_frame_kwargs=output_frame_kwargs,
+            ),
+        )
 
     def high_pass_filter(self: T_Processing, cutoff: float, order: int = 4) -> T_Processing:
         """Apply a high-pass filter to the signal.

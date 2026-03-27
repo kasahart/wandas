@@ -1,6 +1,6 @@
 import logging
-from collections.abc import Callable, Iterator
-from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast
+from collections.abc import Iterator
+from typing import TYPE_CHECKING, Any, Optional, Union, cast
 
 import dask.array as da
 import librosa
@@ -10,6 +10,7 @@ from dask.array.core import Array as DaArray
 
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata, FrameMetadata
+from wandas.frames.mixins.spectral_properties_mixin import SpectralPropertiesMixin
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 if TYPE_CHECKING:
@@ -21,10 +22,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-S = TypeVar("S", bound="BaseFrame[Any]")
 
-
-class SpectrogramFrame(BaseFrame[NDArrayComplex]):
+class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     """
     Class for handling time-frequency domain data (spectrograms).
 
@@ -281,164 +280,6 @@ class SpectrogramFrame(BaseFrame[NDArrayComplex]):
             Array of time values corresponding to each time frame.
         """
         return np.arange(self.n_frames) * self.hop_length / self.sampling_rate
-
-    def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
-        """
-        Implementation of operation application for spectrogram data.
-
-        This internal method handles the application of various operations to
-        spectrogram data, maintaining lazy evaluation through dask.
-
-        Parameters
-        ----------
-        operation_name : str
-            Name of the operation to apply.
-        **params : Any
-            Parameters for the operation.
-
-        Returns
-        -------
-        S
-            A new instance with the operation applied.
-        """
-        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-        from wandas.processing import create_operation
-
-        operation = create_operation(operation_name, self.sampling_rate, **params)
-        processed_data = operation.process(self._data)
-
-        operation_metadata = {"operation": operation_name, "params": params}
-        new_history = self.operation_history.copy()
-        new_history.append(operation_metadata)
-        new_metadata = {**self.metadata}
-        new_metadata[operation_name] = params
-
-        logger.debug(
-            f"Created new SpectrogramFrame with operation {operation_name} added to graph"  # noqa: E501
-        )
-        return self._create_new_instance(
-            data=processed_data,
-            metadata=new_metadata,
-            operation_history=new_history,
-        )
-
-    def _binary_op(
-        self,
-        other: Union[
-            "SpectrogramFrame",
-            int,
-            float,
-            complex,
-            NDArrayComplex,
-            NDArrayReal,
-            "DaArray",
-        ],
-        op: Callable[["DaArray", Any], "DaArray"],
-        symbol: str,
-    ) -> "SpectrogramFrame":
-        """
-        Common implementation for binary operations.
-
-        This method handles binary operations between
-        SpectrogramFrames and various types
-        of operands, maintaining lazy evaluation through dask arrays.
-
-        Parameters
-        ----------
-        other : Union[SpectrogramFrame, int, float, complex,
-            NDArrayComplex, NDArrayReal, DaArray]
-            The right operand of the operation.
-        op : callable
-            Function to execute the operation (e.g., lambda a, b: a + b)
-        symbol : str
-            String representation of the operation (e.g., '+')
-
-        Returns
-        -------
-        SpectrogramFrame
-            A new SpectrogramFrame containing the result of the operation.
-
-        Raises
-        ------
-        ValueError
-            If attempting to operate with a SpectrogramFrame
-            with a different sampling rate.
-        """
-        logger.debug(f"Setting up {symbol} operation (lazy)")
-
-        metadata: FrameMetadata = self.metadata.copy() if self.metadata is not None else FrameMetadata()
-
-        operation_history = []
-        if self.operation_history is not None:
-            operation_history = self.operation_history.copy()
-
-        if isinstance(other, SpectrogramFrame):
-            if self.sampling_rate != other.sampling_rate:
-                raise ValueError(
-                    f"Sampling rate mismatch\n"
-                    f"  Got: {self.sampling_rate} Hz and {other.sampling_rate} Hz\n"
-                    f"  Expected: matching sampling rates\n"
-                    f"Resample one frame to match the other before "
-                    f"performing operations."
-                )
-
-            result_data = op(self._data, other._data)
-
-            merged_channel_metadata = []
-            for self_ch, other_ch in zip(self._channel_metadata, other._channel_metadata):
-                ch = self_ch.model_copy(deep=True)
-                ch["label"] = f"({self_ch['label']} {symbol} {other_ch['label']})"
-                merged_channel_metadata.append(ch)
-
-            operation_history.append({"operation": symbol, "with": other.label})
-
-            return SpectrogramFrame(
-                data=result_data,
-                sampling_rate=self.sampling_rate,
-                n_fft=self.n_fft,
-                hop_length=self.hop_length,
-                win_length=self.win_length,
-                window=self.window,
-                label=f"({self.label} {symbol} {other.label})",
-                metadata=metadata,
-                operation_history=operation_history,
-                channel_metadata=merged_channel_metadata,
-                previous=self,
-            )
-        else:
-            result_data = op(self._data, other)
-
-            if isinstance(other, int | float):
-                other_str = str(other)
-            elif isinstance(other, complex):
-                other_str = f"complex({other.real}, {other.imag})"
-            elif isinstance(other, np.ndarray):
-                other_str = f"ndarray{other.shape}"
-            elif hasattr(other, "shape"):
-                other_str = f"dask.array{other.shape}"
-            else:
-                other_str = str(type(other).__name__)
-
-            updated_channel_metadata: list[ChannelMetadata] = []
-            for self_ch in self._channel_metadata:
-                ch = self_ch.model_copy(deep=True)
-                ch["label"] = f"({self_ch.label} {symbol} {other_str})"
-                updated_channel_metadata.append(ch)
-
-            operation_history.append({"operation": symbol, "with": other_str})
-
-            return SpectrogramFrame(
-                data=result_data,
-                sampling_rate=self.sampling_rate,
-                n_fft=self.n_fft,
-                hop_length=self.hop_length,
-                win_length=self.win_length,
-                window=self.window,
-                label=f"({self.label} {symbol} {other_str})",
-                metadata=metadata,
-                operation_history=operation_history,
-                channel_metadata=updated_channel_metadata,
-            )
 
     def plot(
         self,

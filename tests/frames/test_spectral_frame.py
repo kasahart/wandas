@@ -404,7 +404,7 @@ class TestSpectralFrame:
             window=self.window,
         )
 
-        with pytest.raises(ValueError, match="Sampling rates do not match. Cannot perform operation."):
+        with pytest.raises(ValueError, match=r"Sampling rate mismatch"):
 
             def add_op(a: Any, b: Any) -> Any:
                 return a + b

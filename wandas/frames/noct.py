@@ -251,31 +251,9 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         op: Callable[[DaArray, Any], DaArray],
         symbol: str,
     ) -> S:
-        """
-        Binary operations are not currently supported for N-octave band data.
-
-        Parameters
-        ----------
-        other : Union[S, int, float, NDArrayReal, DaArray]
-            The right operand of the operation.
-        op : callable
-            Function to execute the operation.
-        symbol : str
-            String representation of the operation (e.g., '+', '-', '*', '/').
-
-        Raises
-        ------
-        NotImplementedError
-            Always raises this error as operations are not implemented
-            for N-octave band data.
-        """
         raise NotImplementedError(f"Operation {symbol} is not implemented for NOctFrame.")
 
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
-        """
-        Apply operations using lazy evaluation.
-        """
-        # Apply operations using lazy evaluation
         raise NotImplementedError(f"Operation {operation_name} is not implemented for NOctFrame.")
 
     def plot(
