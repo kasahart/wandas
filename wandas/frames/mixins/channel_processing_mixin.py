@@ -712,7 +712,7 @@ class ChannelProcessingMixin:
         from wandas.processing.psychoacoustic import LoudnessZwst
 
         operation = LoudnessZwst(self.sampling_rate, field_type=field_type)
-        return self._compute_scalar_metric(operation.name)
+        return self._compute_scalar_metric(operation)
 
     def roughness_dw(self: T_Processing, overlap: float = 0.5) -> T_Processing:
         """Calculate time-varying roughness using Daniel and Weber method.
@@ -1065,4 +1065,4 @@ class ChannelProcessingMixin:
         from wandas.processing.psychoacoustic import SharpnessDinSt
 
         operation = SharpnessDinSt(self.sampling_rate, weighting=weighting, field_type=field_type)
-        return self._compute_scalar_metric(operation.name)
+        return self._compute_scalar_metric(operation)

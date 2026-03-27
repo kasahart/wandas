@@ -266,9 +266,13 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         """Implementation of channel plotting"""
         if label is not None:
             kwargs["label"] = label
+        if alpha is not None:
+            kwargs["alpha"] = alpha
         ax.plot(x, y, **kwargs)
         ax.set_ylabel("Amplitude")
         ax.grid(True)
+        if label is not None:
+            ax.legend()
 
     def plot(
         self,
@@ -328,8 +332,12 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
         """Implementation of channel plotting"""
         if label is not None:
             kwargs["label"] = label
+        if alpha is not None and alpha != 1.0:
+            kwargs["alpha"] = alpha
         ax.plot(x, y, **kwargs)
         ax.grid(True)
+        if label is not None:
+            ax.legend()
 
     def plot(
         self,
@@ -395,8 +403,12 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
         """Implementation of channel plotting"""
         if label is not None:
             kwargs["label"] = label
+        if alpha is not None and alpha != 1.0:
+            kwargs["alpha"] = alpha
         ax.step(x, y, **kwargs)
         ax.grid(True)
+        if label is not None:
+            ax.legend()
 
     def plot(
         self,
@@ -695,8 +707,27 @@ class MatrixPlotStrategy(PlotStrategy["SpectralFrame"]):
         alpha: float = 1.0,
         **kwargs: Any,
     ) -> None:
-        ax.plot(x, y, **kwargs)
+        # Work on a local copy to avoid mutating caller-provided kwargs
+        plot_kwargs = dict(kwargs)
+
+        # Extract axes settings from kwargs copy
+        title = plot_kwargs.pop("title", None)
+        ylabel = plot_kwargs.pop("ylabel", None)
+        xlabel = plot_kwargs.pop("xlabel", "Frequency [Hz]")
+
+        if label is not None:
+            plot_kwargs["label"] = label
+        if alpha is not None and alpha != 1.0:
+            plot_kwargs["alpha"] = alpha
+        ax.plot(x, y, **plot_kwargs)
         ax.grid(True)
+        if title is not None:
+            ax.set_title(title)
+        if ylabel is not None:
+            ax.set_ylabel(ylabel)
+        ax.set_xlabel(xlabel)
+        if label is not None:
+            ax.legend()
 
     def plot(
         self,
