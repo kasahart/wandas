@@ -31,11 +31,10 @@ def test_from_numpy_label_and_unit_mismatch():
         ChannelFrame.from_numpy(arr, sampling_rate=100, ch_units=["u1"])
 
 
-def test_from_ndarray_deprecation_warning(caplog):
+def test_from_ndarray_deprecation_warning():
     arr = np.arange(6).reshape(2, 3)
-    with caplog.at_level("WARNING"):
+    with pytest.warns(DeprecationWarning, match="deprecated"):
         cf = ChannelFrame.from_ndarray(arr, sampling_rate=100, frame_label="f")
-    assert "deprecated" in caplog.text
     assert isinstance(cf, ChannelFrame)
 
 

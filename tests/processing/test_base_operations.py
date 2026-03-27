@@ -216,54 +216,21 @@ class TestAudioOperation:
         output_shape = op.calculate_output_shape(input_shape)
         assert output_shape == input_shape
 
-    def test_calculate_output_shape_empty_input(self) -> None:
-        """Test calculate_output_shape with empty input shape."""
+    def test_calculate_output_shape_default_returns_input(self) -> None:
+        """Test default calculate_output_shape returns input_shape unchanged."""
 
-        # Use an operation that doesn't override calculate_output_shape
-        class NoOverrideOp(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "no_override_op"
+        class SimpleOp(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "simple_op"
 
             def _process_array(self, x: NDArrayReal) -> NDArrayReal:
                 return x * 2
 
-        op = NoOverrideOp(16000)
+        op = SimpleOp(16000)
 
-        # Test empty shape - should trigger early return path
-        empty_shape: tuple[int, ...] = ()
-        result = op.calculate_output_shape(empty_shape)
-        assert result == empty_shape
-
-    def test_calculate_output_shape_non_ndarray_output(self) -> None:
-        """Test calculate_output_shape when _process_array returns non-ndarray."""
-
-        # Use an operation that doesn't override calculate_output_shape
-        class NonArrayOp(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "non_array_op"
-
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
-                # Return a pure Python object (not an ndarray)
-                # to test fallback path
-                return "not_an_array"  # type: ignore
-
-        op = NonArrayOp(16000)
-        input_shape = (2, 100)
-        # Should fall back to returning input_shape
-        output_shape = op.calculate_output_shape(input_shape)
-        assert output_shape == input_shape
-
-    def test_calculate_output_shape_failure(self) -> None:
-        """Test calculate_output_shape when _process_array fails."""
-
-        class FailingOp(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "failing_op"
-
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
-                raise RuntimeError("Processing failed")
-
-        op = FailingOp(16000)
-
-        with pytest.raises(NotImplementedError, match="must implement"):
-            op.calculate_output_shape((2, 100))
+        # Default always returns input_shape, regardless of actual processing
+        assert op.calculate_output_shape(()) == ()
+        assert op.calculate_output_shape((2, 100)) == (2, 100)
+        assert op.calculate_output_shape((1, 1025)) == (1, 1025)
 
     def test_register_operation_abstract_class(self) -> None:
         """Test that registering an abstract class raises TypeError."""

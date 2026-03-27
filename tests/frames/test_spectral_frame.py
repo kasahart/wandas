@@ -704,15 +704,14 @@ class TestSpectralFrameCoverage:
             n_fft=self.n_fft,
         )
 
-    def test_binary_op_none_metadata_history(self) -> None:
-        """Test _binary_op when metadata and operation_history are None."""
-        # Force metadata and history to None (though init usually sets them)
-        self.frame.metadata = None  # type: ignore
-        self.frame.operation_history = None  # type: ignore
+    def test_binary_op_empty_metadata_history(self) -> None:
+        """Test _binary_op when metadata and operation_history are empty."""
+        # Start with default-initialized (empty) metadata and history
+        assert self.frame.operation_history == []
 
         other = self.frame * 2
 
-        # Should handle None gracefully and create new dicts/lists
+        # Should produce valid metadata and a single history entry
         assert other.metadata is not None
         assert other.operation_history is not None
         assert len(other.operation_history) == 1

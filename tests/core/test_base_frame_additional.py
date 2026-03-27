@@ -25,12 +25,8 @@ class DummyFrame(BaseFrame[np.ndarray]):
         return self._create_new_instance(data=self._data)
 
     def _apply_operation_impl(self, operation_name: str, **params):
-        new_history = self.operation_history.copy() if self.operation_history else []
-        new_history.append({"operation": operation_name, **params})
+        new_history = [*self.operation_history, {"operation": operation_name, **params}]
         return self._create_new_instance(data=self._data, operation_history=new_history)
-
-    def _get_dataframe_columns(self) -> list[str]:
-        return [ch.label for ch in self._channel_metadata]
 
     def _get_dataframe_index(self) -> pd.Index:
         # index should be length of samples
