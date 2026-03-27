@@ -141,3 +141,8 @@ use-uv = true
 ruff-check = { args = ["--fix", "wandas", "tests"] }
 ruff-format = { args = ["wandas", "tests"] }
 mypy = { require-serial = true }
+
+[tool.ruff.lint.per-file-ignores]
+# N802/N803を無視するファイルを指定
+"wandas/**/*.py" = ["N802", "N803"]
+"tests/**/*.py" = ["N802", "N803"]

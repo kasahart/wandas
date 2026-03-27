@@ -23,23 +23,23 @@ def accepted_kwargs(func: Callable[..., Any]) -> tuple[set[str], bool]:
         - set[str]: Set of explicit keyword argument names accepted by func.
         - bool: Whether the function accepts variable keyword arguments (**kwargs).
     """
-    # モックオブジェクトの場合は空セットと無制限フラグを返す
+    # Return empty set and unlimited flag for mock objects
     if hasattr(func, "__module__") and func.__module__ == "unittest.mock":
         return set(), True
     try:
         params = signature(func).parameters.values()
 
-        # 明示的に定義されている引数を収集
+        # Collect explicitly defined arguments
         explicit_kwargs = {
             p.name for p in params if p.kind in (Parameter.POSITIONAL_OR_KEYWORD, Parameter.KEYWORD_ONLY)
         }
 
-        # **kwargsを受け付けるかどうかのフラグ
+        # Flag for whether the function accepts **kwargs
         has_var_kwargs = any(p.kind is Parameter.VAR_KEYWORD for p in params)
 
         return explicit_kwargs, has_var_kwargs
     except (ValueError, TypeError):
-        # シグネチャを取得できない場合は空セットと無制限フラグを返す
+        # Return empty set and unlimited flag when signature cannot be obtained
         return set(), True
 
 
@@ -69,14 +69,14 @@ def filter_kwargs(
     """
     explicit_params, accepts_var_kwargs = accepted_kwargs(func)
 
-    # **kwargsを受け付けない場合、または strict_mode が True の場合は、
-    # 明示的なパラメータのみをフィルタリング
+    # When **kwargs is not accepted or strict_mode is True,
+    # filter to only explicitly defined parameters
     if not accepts_var_kwargs or strict_mode:
         filtered = {k: v for k, v in kwargs.items() if k in explicit_params}
         return filtered
 
-    # **kwargsを受け付ける場合（strict_modeがFalseの場合）は全キーを許可
-    # ただし、明示的に定義されていないキーには警告を出す
+    # When **kwargs is accepted (strict_mode is False), allow all keys
+    # but warn for keys not explicitly defined
     unknown = set(kwargs) - explicit_params
     if unknown:
         warnings.warn(

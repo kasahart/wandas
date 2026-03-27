@@ -5,8 +5,6 @@ import logging
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any, cast
 
-import dask
-import dask.array as da
 import numpy as np
 import pandas as pd
 from dask.array.core import Array as DaArray
@@ -24,9 +22,6 @@ if TYPE_CHECKING:
     from .channel import ChannelFrame
     from .noct import NOctFrame
 
-
-dask_delayed = dask.delayed  # type: ignore [unused-ignore]
-da_from_delayed = da.from_delayed  # type: ignore [unused-ignore]
 
 logger = logging.getLogger(__name__)
 
@@ -104,14 +99,14 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     - The class maintains the processing history and metadata through all operations.
     """
 
-    n_fft: int
+    n_fft: int | None
     window: str
 
     def __init__(
         self,
         data: DaArray,
         sampling_rate: float,
-        n_fft: int,
+        n_fft: int | None = None,
         window: str = "hann",
         label: str | None = None,
         metadata: FrameMetadata | dict[str, Any] | None = None,
@@ -151,18 +146,6 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         return np.unwrap(np.angle(self.data))
 
     @property
-    def _n_channels(self) -> int:
-        """
-        Get the number of channels in the data.
-
-        Returns
-        -------
-        int
-            The number of channels.
-        """
-        return int(self._data.shape[-2])
-
-    @property
     def freqs(self) -> NDArrayReal:
         """
         Get the frequency axis values in Hz.
@@ -172,7 +155,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         NDArrayReal
             Array of frequency values corresponding to each frequency bin.
         """
-        return np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
+        return np.fft.rfftfreq(self.n_fft or self._data.shape[-1], 1.0 / self.sampling_rate)
 
     def plot(
         self,
@@ -321,10 +304,6 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             "window": self.window,
         }
 
-    def _get_dataframe_columns(self) -> list[str]:
-        """Get channel labels as DataFrame columns."""
-        return [ch.label for ch in self._channel_metadata]
-
     def _get_dataframe_index(self) -> pd.Index[Any]:
         """Get frequency index for DataFrame."""
         return pd.Index(self.freqs, name="frequency")
@@ -394,7 +373,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             G=G,
             fr=fr,
             label=f"1/{n}Oct of {self.label}",
-            metadata={**self.metadata, **params},
+            metadata=self.metadata.merged(**params),
             operation_history=[
                 *self.operation_history,
                 {
@@ -476,7 +455,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
           Operations Applied: 1
         """
         # Calculate frequency resolution (ΔF)
-        delta_f = self.sampling_rate / self.n_fft
+        delta_f = self.sampling_rate / (self.n_fft or 1)
 
         print("SpectralFrame Information:")
         print(f"  Channels: {self.n_channels}")

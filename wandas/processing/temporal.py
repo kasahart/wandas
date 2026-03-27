@@ -4,7 +4,7 @@ from typing import Any
 import dask.array as da
 import librosa
 import numpy as np
-from dask.array.core import Array as DaskArray
+from dask.array.core import Array as DaArray
 from dask.delayed import delayed
 from scipy.signal import lfilter
 
@@ -12,6 +12,7 @@ from wandas.processing.base import AudioOperation, register_operation
 from wandas.processing.weighting import A_weight, frequency_weight
 from wandas.utils import validate_sampling_rate
 from wandas.utils.types import NDArrayReal
+from wandas.utils.util import DB_FLOOR
 
 logger = logging.getLogger(__name__)
 MIN_SOUND_LEVEL_POWER_RATIO = 1e-20
@@ -21,6 +22,7 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
     """Resampling operation"""
 
     name = "resampling"
+    _display = "rs"
 
     def __init__(self, sampling_rate: float, target_sr: float):
         """
@@ -78,10 +80,6 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
         n_samples = int(np.ceil(input_shape[-1] * ratio))
         return (*input_shape[:-1], n_samples)
 
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "rs"
-
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for resampling operation"""
         logger.debug(f"Applying resampling to array with shape: {x.shape}")
@@ -94,6 +92,7 @@ class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
     """Trimming operation"""
 
     name = "trim"
+    _display = "trim"
 
     def __init__(
         self,
@@ -140,10 +139,6 @@ class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
         n_samples = end_sample - self.start_sample
         return (*input_shape[:-1], n_samples)
 
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "trim"
-
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for trimming operation"""
         logger.debug(f"Applying trim to array with shape: {x.shape}")
@@ -154,9 +149,10 @@ class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 class FixLength(AudioOperation[NDArrayReal, NDArrayReal]):
-    """信号の長さを指定された長さに調整する操作"""
+    """Operation to adjust signal length to a specified length."""
 
     name = "fix_length"
+    _display = "fix"
 
     def __init__(
         self,
@@ -179,8 +175,7 @@ class FixLength(AudioOperation[NDArrayReal, NDArrayReal]):
         if length is None:
             if duration is None:
                 raise ValueError("Either length or duration must be provided.")
-            else:
-                length = int(duration * sampling_rate)
+            length = int(duration * sampling_rate)
         self.target_length = length
 
         super().__init__(sampling_rate, target_length=self.target_length)
@@ -201,10 +196,6 @@ class FixLength(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         return (*input_shape[:-1], self.target_length)
 
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "fix"
-
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for padding operation"""
         logger.debug(f"Applying padding to array with shape: {x.shape}")
@@ -222,6 +213,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
     """RMS calculation"""
 
     name = "rms_trend"
+    _display = "RMS"
     frame_length: int
     hop_length: int
     Aw: bool
@@ -232,8 +224,8 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         frame_length: int = 2048,
         hop_length: int = 512,
         ref: list[float] | float = 1.0,
-        dB: bool = False,  # noqa: N803
-        Aw: bool = False,  # noqa: N803
+        dB: bool = False,
+        Aw: bool = False,
     ) -> None:
         """
         Initialize RMS calculation
@@ -305,10 +297,6 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         ).shape[-1]
         return (*input_shape[:-1], n_frames)
 
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "RMS"
-
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for RMS calculation"""
         logger.debug(f"Applying RMS to array with shape: {x.shape}")
@@ -317,7 +305,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
             # Apply A-weighting
             _x = A_weight(x, self.sampling_rate)
             if isinstance(_x, np.ndarray):
-                # A_weightがタプルを返す場合、最初の要素を使用
+                # Use the first element if A_weight returns a tuple
                 x = _x
             elif isinstance(_x, tuple):
                 # Use the first element if A_weight returns a tuple
@@ -332,8 +320,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
 
         if self.dB:
             # Convert to dB
-            result = 20 * np.log10(np.maximum(result / self.ref[..., np.newaxis], 1e-12))
-        #
+            result = 20 * np.log10(np.maximum(result / self.ref[..., np.newaxis], DB_FLOOR))
         logger.debug(f"RMS applied, returning result with shape: {result.shape}")
         return result
 
@@ -349,7 +336,7 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
         ref: list[float] | float = 1.0,
         freq_weighting: str | None = "Z",
         time_weighting: str = "Fast",
-        dB: bool = False,  # noqa: N803
+        dB: bool = False,
     ) -> None:
         validate_sampling_rate(sampling_rate)
         self.ref = np.atleast_1d(np.asarray(ref, dtype=float))
@@ -401,10 +388,6 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
     def time_constant(self) -> float:
         """Return the RC time constant in seconds."""
         return 0.125 if self.time_weighting == "Fast" else 1.0
-
-    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        """Sound level keeps the same channel and sample dimensions."""
-        return input_shape
 
     @staticmethod
     def _output_dtype(
@@ -461,7 +444,7 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
         logger.debug(f"Sound level applied, returning result with shape: {result.shape}")
         return np.asarray(result, dtype=output_dtype)
 
-    def process(self, data: DaskArray) -> DaskArray:
+    def process(self, data: DaArray) -> DaArray:
         """Execute sound level with floating output dtype metadata."""
         logger.debug("Adding delayed sound level operation to computation graph")
         wrapper = self._create_named_wrapper()

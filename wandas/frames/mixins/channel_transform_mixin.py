@@ -16,12 +16,90 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _build_cross_channel_metadata(
+    channel_metadata: list[Any],
+    operation_name: str,
+    label_template: str,
+) -> list[Any]:
+    """Build channel metadata for cross-channel operations (coherence, csd, tf).
+
+    Parameters
+    ----------
+    channel_metadata : list
+        Input channel metadata list.
+    operation_name : str
+        Operation name for the metadata dict key.
+    label_template : str
+        Format string with ``{in_label}`` and ``{out_label}`` placeholders.
+    """
+    from wandas.core.metadata import ChannelMetadata
+
+    result = []
+    for in_ch in channel_metadata:
+        for out_ch in channel_metadata:
+            meta = ChannelMetadata()
+            meta.label = label_template.format(in_label=in_ch.label, out_label=out_ch.label)
+            meta.unit = ""
+            meta.ref = 1
+            meta["metadata"] = {"in_ch": in_ch["metadata"], "out_ch": out_ch["metadata"]}
+            result.append(meta)
+    return result
+
+
 class ChannelTransformMixin:
     """Mixin providing methods related to frequency transformations.
 
     This mixin provides operations related to frequency analysis and
     transformations such as FFT, STFT, and Welch method.
     """
+
+    @property
+    def _as_base_frame(self: TransformFrameProtocol) -> "BaseFrame[Any]":
+        """Cast self to BaseFrame for use as ``previous`` in new frames."""
+        return cast(BaseFrame[Any], self)
+
+    def _cross_channel_spectral_transform(
+        self: TransformFrameProtocol,
+        operation_name: str,
+        label_prefix: str,
+        label_template: str,
+        **params: Any,
+    ) -> "SpectralFrame":
+        """Shared implementation for cross-channel spectral transforms.
+
+        Used by ``coherence``, ``csd``, and ``transfer_function``.
+        """
+        from wandas.processing import create_operation
+
+        from ..spectral import SpectralFrame
+
+        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
+
+        operation = create_operation(operation_name, self.sampling_rate, **params)
+        result_data = operation.process(self._data)
+
+        logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
+
+        channel_metadata = _build_cross_channel_metadata(
+            self._channel_metadata,
+            operation_name,
+            label_template,
+        )
+
+        return SpectralFrame(
+            data=result_data,
+            sampling_rate=self.sampling_rate,
+            n_fft=operation.n_fft,
+            window=operation.window,
+            label=f"{label_prefix} {self.label}",
+            metadata=self.metadata.merged(**params),
+            operation_history=[
+                *self.operation_history,
+                {"operation": operation_name, "params": params},
+            ],
+            channel_metadata=channel_metadata,
+            previous=self._as_base_frame,
+        )
 
     def fft(self: TransformFrameProtocol, n_fft: int | None = None, window: str = "hann") -> "SpectralFrame":
         """Calculate Fast Fourier Transform (FFT).
@@ -55,22 +133,19 @@ class ChannelTransformMixin:
         else:
             _n_fft = n_fft
 
-        # Cast self as BaseFrame type
-        base_self = cast(BaseFrame[Any], self)
-
         return SpectralFrame(
             data=spectrum_data,
             sampling_rate=self.sampling_rate,
             n_fft=_n_fft,
             window=operation.window,
             label=f"Spectrum of {self.label}",
-            metadata={**self.metadata, "window": window, "n_fft": _n_fft},
+            metadata=self.metadata.merged(window=window, n_fft=_n_fft),
             operation_history=[
                 *self.operation_history,
                 {"operation": "fft", "params": {"n_fft": _n_fft, "window": window}},
             ],
             channel_metadata=self._channel_metadata,
-            previous=base_self,
+            previous=self._as_base_frame,
         )
 
     def welch(
@@ -97,13 +172,13 @@ class ChannelTransformMixin:
         from wandas.frames.spectral import SpectralFrame
         from wandas.processing import Welch, create_operation
 
-        params = dict(
-            n_fft=n_fft or win_length,
-            hop_length=hop_length,
-            win_length=win_length,
-            window=window,
-            average=average,
-        )
+        params = {
+            "n_fft": n_fft or win_length,
+            "hop_length": hop_length,
+            "win_length": win_length,
+            "window": window,
+            "average": average,
+        }
         operation_name = "welch"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
 
@@ -115,22 +190,19 @@ class ChannelTransformMixin:
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
-        # Cast self as BaseFrame type
-        base_self = cast(BaseFrame[Any], self)
-
         return SpectralFrame(
             data=spectrum_data,
             sampling_rate=self.sampling_rate,
             n_fft=operation.n_fft,
             window=operation.window,
             label=f"Spectrum of {self.label}",
-            metadata={**self.metadata, **params},
+            metadata=self.metadata.merged(**params),
             operation_history=[
                 *self.operation_history,
                 {"operation": "welch", "params": params},
             ],
             channel_metadata=self._channel_metadata,
-            previous=base_self,
+            previous=self._as_base_frame,
         )
 
     def noct_spectrum(
@@ -169,9 +241,6 @@ class ChannelTransformMixin:
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
-        # Cast self as BaseFrame type
-        base_self = cast(BaseFrame[Any], self)
-
         return NOctFrame(
             data=spectrum_data,
             sampling_rate=self.sampling_rate,
@@ -181,7 +250,7 @@ class ChannelTransformMixin:
             G=G,
             fr=fr,
             label=f"1/{n}Oct of {self.label}",
-            metadata={**self.metadata, **params},
+            metadata=self.metadata.merged(**params),
             operation_history=[
                 *self.operation_history,
                 {
@@ -190,7 +259,7 @@ class ChannelTransformMixin:
                 },
             ],
             channel_metadata=self._channel_metadata,
-            previous=base_self,
+            previous=self._as_base_frame,
         )
 
     def stft(
@@ -236,12 +305,7 @@ class ChannelTransformMixin:
         # Apply processing to data
         spectrogram_data = operation.process(self._data)
 
-        logger.debug(
-            f"Created new SpectrogramFrame with operation {operation_name} added to graph"  # noqa: E501
-        )
-
-        # Cast self as BaseFrame type
-        base_self = cast(BaseFrame[Any], self)
+        logger.debug(f"Created new SpectrogramFrame with operation {operation_name} added to graph")
 
         # Create new instance
         return SpectrogramFrame(
@@ -255,7 +319,7 @@ class ChannelTransformMixin:
             metadata=self.metadata,
             operation_history=self.operation_history,
             channel_metadata=self._channel_metadata,
-            previous=base_self,
+            previous=self._as_base_frame,
         )
 
     def coherence(
@@ -279,58 +343,15 @@ class ChannelTransformMixin:
         Returns:
             SpectralFrame containing magnitude squared coherence
         """
-        from wandas.core.metadata import ChannelMetadata
-        from wandas.processing import Coherence, create_operation
-
-        from ..spectral import SpectralFrame
-
-        params = {
-            "n_fft": n_fft,
-            "hop_length": hop_length,
-            "win_length": win_length,
-            "window": window,
-            "detrend": detrend,
-        }
-        operation_name = "coherence"
-        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-
-        # Create operation instance
-        operation = create_operation(operation_name, self.sampling_rate, **params)
-        operation = cast("Coherence", operation)
-
-        # Apply processing to data
-        coherence_data = operation.process(self._data)
-
-        logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
-
-        # Cast self as BaseFrame type
-        base_self = cast(BaseFrame[Any], self)
-
-        # Create new channel metadata
-        channel_metadata = []
-        for in_ch in self._channel_metadata:
-            for out_ch in self._channel_metadata:
-                meta = ChannelMetadata()
-                meta.label = f"$\\gamma_{{{in_ch.label}, {out_ch.label}}}$"
-                meta.unit = ""
-                meta.ref = 1
-                meta["metadata"] = dict(in_ch=in_ch["metadata"], out_ch=out_ch["metadata"])
-                channel_metadata.append(meta)
-
-        # Create new instance
-        return SpectralFrame(
-            data=coherence_data,
-            sampling_rate=self.sampling_rate,
-            n_fft=operation.n_fft,
-            window=operation.window,
-            label=f"Coherence of {self.label}",
-            metadata={**self.metadata, **params},
-            operation_history=[
-                *self.operation_history,
-                {"operation": operation_name, "params": params},
-            ],
-            channel_metadata=channel_metadata,
-            previous=base_self,
+        return self._cross_channel_spectral_transform(
+            "coherence",
+            "Coherence of",
+            "$\\gamma_{{{in_label}, {out_label}}}$",
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            detrend=detrend,
         )
 
     def csd(
@@ -358,59 +379,17 @@ class ChannelTransformMixin:
         Returns:
             SpectralFrame containing cross-spectral density matrix
         """
-        from wandas.core.metadata import ChannelMetadata
-        from wandas.frames.spectral import SpectralFrame
-        from wandas.processing import CSD, create_operation
-
-        params = {
-            "n_fft": n_fft,
-            "hop_length": hop_length,
-            "win_length": win_length,
-            "window": window,
-            "detrend": detrend,
-            "scaling": scaling,
-            "average": average,
-        }
-        operation_name = "csd"
-        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-
-        # Create operation instance
-        operation = create_operation(operation_name, self.sampling_rate, **params)
-        operation = cast("CSD", operation)
-
-        # Apply processing to data
-        csd_data = operation.process(self._data)
-
-        logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
-
-        # Cast self as BaseFrame type
-        base_self = cast(BaseFrame[Any], self)
-
-        # Create new channel metadata
-        channel_metadata = []
-        for in_ch in self._channel_metadata:
-            for out_ch in self._channel_metadata:
-                meta = ChannelMetadata()
-                meta.label = f"{operation_name}({in_ch.label}, {out_ch.label})"
-                meta.unit = ""
-                meta.ref = 1
-                meta["metadata"] = dict(in_ch=in_ch["metadata"], out_ch=out_ch["metadata"])
-                channel_metadata.append(meta)
-
-        # Create new instance
-        return SpectralFrame(
-            data=csd_data,
-            sampling_rate=self.sampling_rate,
-            n_fft=operation.n_fft,
-            window=operation.window,
-            label=f"$C_{{{in_ch.label}, {out_ch.label}}}$",
-            metadata={**self.metadata, **params},
-            operation_history=[
-                *self.operation_history,
-                {"operation": operation_name, "params": params},
-            ],
-            channel_metadata=channel_metadata,
-            previous=base_self,
+        return self._cross_channel_spectral_transform(
+            "csd",
+            "CSD of",
+            "csd({in_label}, {out_label})",
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            detrend=detrend,
+            scaling=scaling,
+            average=average,
         )
 
     def transfer_function(
@@ -442,57 +421,15 @@ class ChannelTransformMixin:
         Returns:
             SpectralFrame containing transfer function matrix
         """
-        from wandas.core.metadata import ChannelMetadata
-        from wandas.frames.spectral import SpectralFrame
-        from wandas.processing import TransferFunction, create_operation
-
-        params = {
-            "n_fft": n_fft,
-            "hop_length": hop_length,
-            "win_length": win_length,
-            "window": window,
-            "detrend": detrend,
-            "scaling": scaling,
-            "average": average,
-        }
-        operation_name = "transfer_function"
-        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-
-        # Create operation instance
-        operation = create_operation(operation_name, self.sampling_rate, **params)
-        operation = cast("TransferFunction", operation)
-
-        # Apply processing to data
-        tf_data = operation.process(self._data)
-
-        logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
-
-        # Cast self as BaseFrame type
-        base_self = cast(BaseFrame[Any], self)
-
-        # Create new channel metadata
-        channel_metadata = []
-        for in_ch in self._channel_metadata:
-            for out_ch in self._channel_metadata:
-                meta = ChannelMetadata()
-                meta.label = f"$H_{{{in_ch.label}, {out_ch.label}}}$"
-                meta.unit = ""
-                meta.ref = 1
-                meta["metadata"] = dict(in_ch=in_ch["metadata"], out_ch=out_ch["metadata"])
-                channel_metadata.append(meta)
-
-        # Create new instance
-        return SpectralFrame(
-            data=tf_data,
-            sampling_rate=self.sampling_rate,
-            n_fft=operation.n_fft,
-            window=operation.window,
-            label=f"Transfer function of {self.label}",
-            metadata={**self.metadata, **params},
-            operation_history=[
-                *self.operation_history,
-                {"operation": operation_name, "params": params},
-            ],
-            channel_metadata=channel_metadata,
-            previous=base_self,
+        return self._cross_channel_spectral_transform(
+            "transfer_function",
+            "Transfer function of",
+            "$H_{{{in_label}, {out_label}}}$",
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            detrend=detrend,
+            scaling=scaling,
+            average=average,
         )

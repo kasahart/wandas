@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 import numpy as np
 from mosqito.sound_level_meter import noct_spectrum, noct_synthesis
@@ -117,6 +118,7 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
     """FFT (Fast Fourier Transform) operation"""
 
     name = "fft"
+    _display = "FFT"
     n_fft: int | None
     window: str
 
@@ -155,27 +157,23 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
-        操作後の出力データの形状を計算します
+        Calculate output data shape after the operation.
 
         Parameters
         ----------
         input_shape : tuple
-            入力データの形状 (channels, samples)
+            Input data shape (channels, samples).
 
         Returns
         -------
         tuple
-            出力データの形状 (channels, freqs)
+            Output data shape (channels, freqs).
         """
         n_freqs = self.n_fft // 2 + 1 if self.n_fft else input_shape[-1] // 2 + 1
         return (*input_shape[:-1], n_freqs)
 
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "FFT"
-
     def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
-        """FFT操作のプロセッサ関数を作成"""
+        """Apply FFT to the input array."""
         from scipy.signal import get_window
 
         if self.n_fft is not None and x.shape[-1] > self.n_fft:
@@ -186,7 +184,7 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         x = x * win
         result: NDArrayComplex = np.fft.rfft(x, n=self.n_fft, axis=-1)
         result[..., 1:-1] *= 2.0
-        # 窓関数補正
+        # Window function scaling correction
         scaling_factor = np.sum(win)
         result = result / scaling_factor
         return result
@@ -196,6 +194,7 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
     """IFFT (Inverse Fast Fourier Transform) operation"""
 
     name = "ifft"
+    _display = "iFFT"
     n_fft: int | None
     window: str
 
@@ -233,10 +232,6 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         n_samples = 2 * (input_shape[-1] - 1) if self.n_fft is None else self.n_fft
         return (*input_shape[:-1], n_samples)
 
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "iFFT"
-
     def _process_array(self, x: NDArrayComplex) -> NDArrayReal:
         """Create processor function for IFFT operation"""
         logger.debug(f"Applying IFFT to array with shape: {x.shape}")
@@ -265,6 +260,7 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
     """Short-Time Fourier Transform operation"""
 
     name = "stft"
+    _display = "STFT"
 
     def __init__(
         self,
@@ -301,7 +297,6 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         self.n_fft = n_fft
         self.win_length = actual_win_length
         self.hop_length = actual_hop_length
-        self.noverlap = self.win_length - self.hop_length if hop_length is not None else None
         self.window = window
 
         self.SFT = ShortTimeFFT(
@@ -338,10 +333,6 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         n_t = len(self.SFT.t(n_samples))
         return (input_shape[0], n_f, n_t)
 
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "STFT"
-
     def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
         """Apply SciPy STFT processing to multiple channels at once"""
         logger.debug(f"Applying SciPy STFT to array with shape: {x.shape}")
@@ -361,6 +352,7 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
     """Inverse Short-Time Fourier Transform operation"""
 
     name = "istft"
+    _display = "iSTFT"
 
     def __init__(
         self,
@@ -478,7 +470,7 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         n_channels = input_shape[0]
         n_frames = input_shape[-1]  # time_frames
 
-        # SciPy ShortTimeFFT の計算式に従う
+        # Follow SciPy ShortTimeFFT formula
         # See: https://github.com/scipy/scipy/blob/main/scipy/signal/_short_time_fft.py
         q_max = n_frames + self.SFT.p_min
         k_max = (q_max - 1) * self.SFT.hop + self.SFT.m_num - self.SFT.m_num_mid
@@ -495,10 +487,6 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         output_samples = k1 - k0
 
         return (n_channels, output_samples)
-
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "iSTFT"
 
     def _process_array(self, x: NDArrayComplex) -> NDArrayReal:
         """
@@ -540,6 +528,7 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
     """
 
     name = "welch"
+    _display = "Welch"
     n_fft: int
     window: str
     hop_length: int | None
@@ -619,10 +608,6 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
         n_freqs = self.n_fft // 2 + 1
         return (*input_shape[:-1], n_freqs)
 
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "Welch"
-
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for Welch operation.
 
@@ -659,10 +644,14 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
         return np.array(result)
 
 
-class NOctSpectrum(AudioOperation[NDArrayReal, NDArrayReal]):
-    """N-octave spectrum operation"""
+class _NOctBase(AudioOperation[NDArrayReal, NDArrayReal]):
+    """Shared base for N-octave band operations (spectrum and synthesis).
 
-    name = "noct_spectrum"
+    Handles common parameter storage and output shape calculation
+    for operations on fractional octave bands.
+    """
+
+    _display: str  # set by subclasses
 
     def __init__(
         self,
@@ -670,55 +659,26 @@ class NOctSpectrum(AudioOperation[NDArrayReal, NDArrayReal]):
         fmin: float,
         fmax: float,
         n: int = 3,
-        G: int = 10,  # noqa: N803
+        G: int = 10,
         fr: int = 1000,
     ):
-        """
-        Initialize N-octave spectrum
-
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        fmin : float
-            Minimum frequency (Hz)
-        fmax : float
-            Maximum frequency (Hz)
-        n : int, optional
-            Number of octave divisions, default is 3
-        G : int, optional
-            Reference level, default is 10
-        fr : int, optional
-            Reference frequency, default is 1000
-        """
-        super().__init__(sampling_rate, fmin=fmin, fmax=fmax, n=n, G=G, fr=fr)
         self.fmin = fmin
         self.fmax = fmax
         self.n = n
         self.G = G
         self.fr = fr
+        super().__init__(sampling_rate, fmin=fmin, fmax=fmax, n=n, G=G, fr=fr)
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        """
-        Calculate output data shape after operation
-
-        Parameters
-        ----------
-        input_shape : tuple
-            Input data shape
-
-        Returns
-        -------
-        tuple
-            Output data shape
-        """
-        # Calculate output shape for octave spectrum
         _, fpref = _center_freq(fmin=self.fmin, fmax=self.fmax, n=self.n, G=self.G, fr=self.fr)
         return (input_shape[0], fpref.shape[0])
 
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "Oct"
+
+class NOctSpectrum(_NOctBase):
+    """N-octave spectrum operation"""
+
+    name = "noct_spectrum"
+    _display = "Oct"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for octave spectrum"""
@@ -732,86 +692,23 @@ class NOctSpectrum(AudioOperation[NDArrayReal, NDArrayReal]):
             G=self.G,
             fr=self.fr,
         )
-        if spec.ndim == 1:
-            # Add channel dimension for 1D
-            spec = np.expand_dims(spec, axis=0)
-        else:
-            spec = spec.T
+        spec = np.expand_dims(spec, axis=0) if spec.ndim == 1 else spec.T
         logger.debug(f"NoctSpectrum applied, returning result with shape: {spec.shape}")
         return np.array(spec)
 
 
-class NOctSynthesis(AudioOperation[NDArrayReal, NDArrayReal]):
+class NOctSynthesis(_NOctBase):
     """Octave synthesis operation"""
 
     name = "noct_synthesis"
-
-    def __init__(
-        self,
-        sampling_rate: float,
-        fmin: float,
-        fmax: float,
-        n: int = 3,
-        G: int = 10,  # noqa: N803
-        fr: int = 1000,
-    ):
-        """
-        Initialize octave synthesis
-
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        fmin : float
-            Minimum frequency (Hz)
-        fmax : float
-            Maximum frequency (Hz)
-        n : int, optional
-            Number of octave divisions, default is 3
-        G : int, optional
-            Reference level, default is 10
-        fr : int, optional
-            Reference frequency, default is 1000
-        """
-        super().__init__(sampling_rate, fmin=fmin, fmax=fmax, n=n, G=G, fr=fr)
-
-        self.fmin = fmin
-        self.fmax = fmax
-        self.n = n
-        self.G = G
-        self.fr = fr
-
-    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        """
-        Calculate output data shape after operation
-
-        Parameters
-        ----------
-        input_shape : tuple
-            Input data shape
-
-        Returns
-        -------
-        tuple
-            Output data shape
-        """
-        # Calculate output shape for octave spectrum
-        _, fpref = _center_freq(fmin=self.fmin, fmax=self.fmax, n=self.n, G=self.G, fr=self.fr)
-        return (input_shape[0], fpref.shape[0])
-
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "Octs"
+    _display = "Octs"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for octave synthesis"""
         logger.debug(f"Applying NoctSynthesis to array with shape: {x.shape}")
         # Calculate n from shape[-1]
         n = x.shape[-1]  # Calculate n from shape[-1]
-        if n % 2 == 0:
-            n = n * 2 - 1
-        else:
-            n = (n - 1) * 2
+        n = n * 2 - 1 if n % 2 == 0 else (n - 1) * 2
         freqs = np.fft.rfftfreq(n, d=1 / self.sampling_rate)
         result, _ = noct_synthesis(
             spectrum=np.abs(x).T,
@@ -827,10 +724,15 @@ class NOctSynthesis(AudioOperation[NDArrayReal, NDArrayReal]):
         return np.array(result)
 
 
-class Coherence(AudioOperation[NDArrayReal, NDArrayReal]):
-    """Coherence estimation operation"""
+class _CrossSpectralBase(AudioOperation[NDArrayReal, NDArrayReal]):
+    """Shared base for cross-spectral operations (coherence, CSD, transfer function).
 
-    name = "coherence"
+    Handles common parameter validation, storage, and output shape calculation
+    for operations that produce (n_channels * n_channels, n_freqs) output.
+    """
+
+    _method_label: str  # human-readable label for _validate_spectral_params
+    _display: str  # set by subclasses
 
     def __init__(
         self,
@@ -840,36 +742,15 @@ class Coherence(AudioOperation[NDArrayReal, NDArrayReal]):
         win_length: int | None = None,
         window: str = "hann",
         detrend: str = "constant",
+        **extra_kwargs: Any,
     ):
-        """
-        Initialize coherence estimation operation
-
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        n_fft : int
-            FFT size, default is 2048
-        hop_length : int, optional
-            Number of samples between frames. Default is win_length // 4
-        win_length : int, optional
-            Window length. Default is n_fft
-        window : str
-            Window function, default is 'hann'
-        detrend : str
-            Type of detrend, default is 'constant'
-
-        Raises
-        ------
-        ValueError
-            If n_fft is not positive, win_length > n_fft, or hop_length is invalid
-        """
-        # Validate and compute parameters
-        actual_win_length, actual_hop_length = _validate_spectral_params(n_fft, win_length, hop_length, "Coherence")
-
+        actual_win_length, actual_hop_length = _validate_spectral_params(
+            n_fft, win_length, hop_length, self._method_label
+        )
         self.n_fft = n_fft
         self.win_length = actual_win_length
         self.hop_length = actual_hop_length
+        self.noverlap = self.win_length - self.hop_length
         self.window = window
         self.detrend = detrend
         super().__init__(
@@ -879,29 +760,21 @@ class Coherence(AudioOperation[NDArrayReal, NDArrayReal]):
             win_length=self.win_length,
             window=window,
             detrend=detrend,
+            **extra_kwargs,
         )
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        """
-        Calculate output data shape after operation
-
-        Parameters
-        ----------
-        input_shape : tuple
-            Input data shape (channels, samples)
-
-        Returns
-        -------
-        tuple
-            Output data shape (channels * channels, freqs)
-        """
         n_channels = input_shape[0]
-        n_freqs = self.n_fft // 2 + 1
+        n_freqs = (self.n_fft or input_shape[-1]) // 2 + 1
         return (n_channels * n_channels, n_freqs)
 
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "Coh"
+
+class Coherence(_CrossSpectralBase):
+    """Coherence estimation operation"""
+
+    name = "coherence"
+    _method_label = "Coherence"
+    _display = "Coh"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Processor function for coherence estimation operation"""
@@ -913,7 +786,7 @@ class Coherence(AudioOperation[NDArrayReal, NDArrayReal]):
             y=x[np.newaxis, :],
             fs=self.sampling_rate,
             nperseg=self.win_length,
-            noverlap=self.win_length - self.hop_length,
+            noverlap=self.noverlap,
             nfft=self.n_fft,
             window=self.window,
             detrend=self.detrend,
@@ -926,10 +799,12 @@ class Coherence(AudioOperation[NDArrayReal, NDArrayReal]):
         return result
 
 
-class CSD(AudioOperation[NDArrayReal, NDArrayComplex]):
-    """Cross-spectral density estimation operation"""
+class _ScaledCrossSpectralBase(_CrossSpectralBase):
+    """Cross-spectral base that adds scaling and averaging parameters.
 
-    name = "csd"
+    Used by CSD and TransferFunction which share the same extended
+    parameter set on top of the common cross-spectral parameters.
+    """
 
     def __init__(
         self,
@@ -942,75 +817,26 @@ class CSD(AudioOperation[NDArrayReal, NDArrayComplex]):
         scaling: str = "spectrum",
         average: str = "mean",
     ):
-        """
-        Initialize cross-spectral density estimation operation
-
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        n_fft : int
-            FFT size, default is 2048
-        hop_length : int, optional
-            Number of samples between frames. Default is win_length // 4
-        win_length : int, optional
-            Window length. Default is n_fft
-        window : str
-            Window function, default is 'hann'
-        detrend : str
-            Type of detrend, default is 'constant'
-        scaling : str
-            Type of scaling, default is 'spectrum'
-        average : str
-            Method of averaging, default is 'mean'
-
-        Raises
-        ------
-        ValueError
-            If n_fft is not positive, win_length > n_fft, or hop_length is invalid
-        """
-        # Validate and compute parameters
-        actual_win_length, actual_hop_length = _validate_spectral_params(n_fft, win_length, hop_length, "CSD")
-
-        self.n_fft = n_fft
-        self.win_length = actual_win_length
-        self.hop_length = actual_hop_length
-        self.window = window
-        self.detrend = detrend
         self.scaling = scaling
         self.average = average
         super().__init__(
             sampling_rate,
             n_fft=n_fft,
-            hop_length=self.hop_length,
-            win_length=self.win_length,
+            hop_length=hop_length,
+            win_length=win_length,
             window=window,
             detrend=detrend,
             scaling=scaling,
             average=average,
         )
 
-    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        """
-        Calculate output data shape after operation
 
-        Parameters
-        ----------
-        input_shape : tuple
-            Input data shape (channels, samples)
+class CSD(_ScaledCrossSpectralBase):
+    """Cross-spectral density estimation operation"""
 
-        Returns
-        -------
-        tuple
-            Output data shape (channels * channels, freqs)
-        """
-        n_channels = input_shape[0]
-        n_freqs = self.n_fft // 2 + 1
-        return (n_channels * n_channels, n_freqs)
-
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "CSD"
+    name = "csd"
+    _method_label = "CSD"
+    _display = "CSD"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
         """Processor function for cross-spectral density estimation operation"""
@@ -1023,7 +849,7 @@ class CSD(AudioOperation[NDArrayReal, NDArrayComplex]):
             y=x[np.newaxis, :],
             fs=self.sampling_rate,
             nperseg=self.win_length,
-            noverlap=self.win_length - self.hop_length,
+            noverlap=self.noverlap,
             nfft=self.n_fft,
             window=self.window,
             detrend=self.detrend,
@@ -1038,93 +864,12 @@ class CSD(AudioOperation[NDArrayReal, NDArrayComplex]):
         return result
 
 
-class TransferFunction(AudioOperation[NDArrayReal, NDArrayComplex]):
+class TransferFunction(_ScaledCrossSpectralBase):
     """Transfer function estimation operation"""
 
     name = "transfer_function"
-
-    def __init__(
-        self,
-        sampling_rate: float,
-        n_fft: int = 2048,
-        hop_length: int | None = None,
-        win_length: int | None = None,
-        window: str = "hann",
-        detrend: str = "constant",
-        scaling: str = "spectrum",
-        average: str = "mean",
-    ):
-        """
-        Initialize transfer function estimation operation
-
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        n_fft : int
-            FFT size, default is 2048
-        hop_length : int, optional
-            Number of samples between frames. Default is win_length // 4
-        win_length : int, optional
-            Window length. Default is n_fft
-        window : str
-            Window function, default is 'hann'
-        detrend : str
-            Type of detrend, default is 'constant'
-        scaling : str
-            Type of scaling, default is 'spectrum'
-        average : str
-            Method of averaging, default is 'mean'
-
-        Raises
-        ------
-        ValueError
-            If n_fft is not positive, win_length > n_fft, or hop_length is invalid
-        """
-        # Validate and compute parameters
-        actual_win_length, actual_hop_length = _validate_spectral_params(
-            n_fft, win_length, hop_length, "Transfer function"
-        )
-
-        self.n_fft = n_fft
-        self.win_length = actual_win_length
-        self.hop_length = actual_hop_length
-        self.window = window
-        self.detrend = detrend
-        self.scaling = scaling
-        self.average = average
-        super().__init__(
-            sampling_rate,
-            n_fft=n_fft,
-            hop_length=self.hop_length,
-            win_length=self.win_length,
-            window=window,
-            detrend=detrend,
-            scaling=scaling,
-            average=average,
-        )
-
-    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        """
-        Calculate output data shape after operation
-
-        Parameters
-        ----------
-        input_shape : tuple
-            Input data shape (channels, samples)
-
-        Returns
-        -------
-        tuple
-            Output data shape (channels * channels, freqs)
-        """
-        n_channels = input_shape[0]
-        n_freqs = self.n_fft // 2 + 1
-        return (n_channels * n_channels, n_freqs)
-
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "H"
+    _method_label = "Transfer function"
+    _display = "H"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
         """Processor function for transfer function estimation operation"""
@@ -1132,12 +877,12 @@ class TransferFunction(AudioOperation[NDArrayReal, NDArrayComplex]):
         from scipy import signal as ss
 
         # Calculate cross-spectral density between all channels
-        f, p_yx = ss.csd(
+        _f, p_yx = ss.csd(
             x=x[:, np.newaxis, :],
             y=x[np.newaxis, :, :],
             fs=self.sampling_rate,
             nperseg=self.win_length,
-            noverlap=self.win_length - self.hop_length,
+            noverlap=self.noverlap,
             nfft=self.n_fft,
             window=self.window,
             detrend=self.detrend,
@@ -1148,11 +893,11 @@ class TransferFunction(AudioOperation[NDArrayReal, NDArrayComplex]):
         # p_yx shape: (num_channels, num_channels, num_frequencies)
 
         # Calculate power spectral density for each channel
-        f, p_xx = ss.welch(
+        _f, p_xx = ss.welch(
             x=x,
             fs=self.sampling_rate,
             nperseg=self.win_length,
-            noverlap=self.win_length - self.hop_length,
+            noverlap=self.noverlap,
             nfft=self.n_fft,
             window=self.window,
             detrend=self.detrend,

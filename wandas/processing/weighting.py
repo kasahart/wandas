@@ -38,7 +38,7 @@ from scipy.signal import bilinear_zpk, freqs, sosfilt, zpk2sos, zpk2tf
 from wandas.utils.types import NDArrayReal
 
 
-def ABC_weighting(curve: str = "A") -> tuple[NDArrayReal, NDArrayReal, float]:  # noqa: N802
+def ABC_weighting(curve: str = "A") -> tuple[NDArrayReal, NDArrayReal, float]:
     """
     Design of an analog weighting filter with A, B, or C curve.
 
@@ -103,7 +103,7 @@ def ABC_weighting(curve: str = "A") -> tuple[NDArrayReal, NDArrayReal, float]:  
     return np.array(z), np.array(p), k
 
 
-def A_weighting(fs: float, output: str = "ba") -> Any:  # noqa: N802
+def A_weighting(fs: float, output: str = "ba") -> Any:
     """
     Design of a digital A-weighting filter.
 
@@ -160,15 +160,14 @@ def frequency_weighting(fs: float, curve: str = "A", output: str = "ba") -> Any:
 
     if output == "zpk":
         return z_d, p_d, k_d
-    elif output in {"ba", "tf"}:
+    if output in {"ba", "tf"}:
         return zpk2tf(z_d, p_d, k_d)
-    elif output == "sos":
+    if output == "sos":
         return zpk2sos(z_d, p_d, k_d)
-    else:
-        raise ValueError(f"'{output}' is not a valid output form.")
+    raise ValueError(f"'{output}' is not a valid output form.")
 
 
-def A_weight(signal: NDArrayReal, fs: float) -> NDArrayReal:  # noqa: N802
+def A_weight(signal: NDArrayReal, fs: float) -> NDArrayReal:
     """
     Return the given signal after passing through a digital A-weighting filter.
 

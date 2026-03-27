@@ -1,10 +1,8 @@
 # spectral_frame.py
 import logging
 from collections.abc import Callable, Iterator
-from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, TypeVar
 
-import dask
-import dask.array as da
 import librosa
 import numpy as np
 import pandas as pd
@@ -14,15 +12,13 @@ from mosqito.sound_level_meter.noct_spectrum._center_freq import _center_freq
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
 from wandas.utils.types import NDArrayReal
+from wandas.utils.util import ref_weighted_dB
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
     from wandas.visualization.plotting import PlotStrategy
 
-
-dask_delayed = dask.delayed  # type: ignore [unused-ignore]
-da_from_delayed = da.from_delayed  # type: ignore [unused-ignore]
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +128,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         metadata: dict[str, Any] | None = None,
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
-        previous: Optional["BaseFrame[Any]"] = None,
+        previous: "BaseFrame[Any] | None" = None,
     ) -> None:
         """
         Initialize a NOctFrame instance.
@@ -172,12 +168,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
             The spectrum in decibels. Shape matches the input data shape:
             (channels, frequency_bins).
         """
-        # Collect dB reference values from _channel_metadata
-        ref = np.array([ch.ref for ch in self._channel_metadata])
-        # Convert to dB
-        # Use either the maximum value or 1e-12 to avoid division by zero
-        level: NDArrayReal = 20 * np.log10(np.maximum(self.data / ref[..., np.newaxis], 1e-12))
-        return level
+        return ref_weighted_dB(self.data, self._channel_metadata, self._data.ndim)
 
     @property
     def dBA(self) -> NDArrayReal:  # noqa: N802
@@ -200,18 +191,6 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         # Collect dB reference values from _channel_metadata
         weighted: NDArrayReal = librosa.A_weighting(frequencies=self.freqs, min_db=None)
         return self.dB + weighted
-
-    @property
-    def _n_channels(self) -> int:
-        """
-        Get the number of channels in the data.
-
-        Returns
-        -------
-        int
-            The number of channels in the N-octave band data.
-        """
-        return int(self._data.shape[-2])
 
     @property
     def freqs(self) -> NDArrayReal:
@@ -242,12 +221,11 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         )
         if isinstance(freqs, np.ndarray):
             return freqs
-        else:
-            raise ValueError("freqs is not numpy array.")
+        raise ValueError("freqs is not numpy array.")
 
     def _binary_op(
         self: S,
-        other: S | int | float | NDArrayReal | DaArray,
+        other: S | float | NDArrayReal | DaArray,
         op: Callable[[DaArray, Any], DaArray],
         symbol: str,
     ) -> S:
@@ -259,7 +237,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
     def plot(
         self,
         plot_type: str = "noct",
-        ax: Optional["Axes"] = None,
+        ax: "Axes | None" = None,
         title: str | None = None,
         overlay: bool = False,
         xlabel: str | None = None,
@@ -269,7 +247,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         ylim: tuple[float, float] | None = None,
         Aw: bool = False,  # noqa: N803
         **kwargs: Any,
-    ) -> Union["Axes", Iterator["Axes"]]:
+    ) -> "Axes | Iterator[Axes]":
         """
         Plot the N-octave band data using various visualization strategies.
 
@@ -377,10 +355,6 @@ class NOctFrame(BaseFrame[NDArrayReal]):
             "fmin": self.fmin,
             "fmax": self.fmax,
         }
-
-    def _get_dataframe_columns(self) -> list[str]:
-        """Get channel labels as DataFrame columns."""
-        return [ch.label for ch in self._channel_metadata]
 
     def _get_dataframe_index(self) -> "pd.Index[Any]":
         """Get frequency index for DataFrame."""

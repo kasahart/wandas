@@ -14,82 +14,45 @@ from wandas.utils.types import NDArrayReal
 logger = logging.getLogger(__name__)
 
 
-class HpssHarmonic(AudioOperation[NDArrayReal, NDArrayReal]):
+class _HpssBase(AudioOperation[NDArrayReal, NDArrayReal]):
+    """Shared base for HPSS harmonic/percussive extraction."""
+
+    _extract_func: str  # "harmonic" or "percussive" — set by subclasses
+    _display: str  # set by subclasses
+
+    def __init__(self, sampling_rate: float, **kwargs: Any):
+        self.kwargs = kwargs
+        super().__init__(sampling_rate, **kwargs)
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        logger.debug(f"Applying HPSS {self._extract_func} to array with shape: {x.shape}")
+        func = getattr(effects, self._extract_func)
+        result: NDArrayReal = func(x, **self.kwargs)
+        logger.debug(f"HPSS {self._extract_func} applied, returning result with shape: {result.shape}")
+        return result
+
+
+class HpssHarmonic(_HpssBase):
     """HPSS Harmonic operation"""
 
     name = "hpss_harmonic"
-
-    def __init__(
-        self,
-        sampling_rate: float,
-        **kwargs: Any,
-    ):
-        """
-        Initialize HPSS Harmonic
-
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        """
-        self.kwargs = kwargs
-        super().__init__(sampling_rate, **kwargs)
-
-    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        return input_shape
-
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "Hrm"
-
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
-        """Create processor function for HPSS Harmonic"""
-        logger.debug(f"Applying HPSS Harmonic to array with shape: {x.shape}")
-        result: NDArrayReal = effects.harmonic(x, **self.kwargs)
-        logger.debug(f"HPSS Harmonic applied, returning result with shape: {result.shape}")
-        return result
+    _extract_func = "harmonic"
+    _display = "Hrm"
 
 
-class HpssPercussive(AudioOperation[NDArrayReal, NDArrayReal]):
+class HpssPercussive(_HpssBase):
     """HPSS Percussive operation"""
 
     name = "hpss_percussive"
-
-    def __init__(
-        self,
-        sampling_rate: float,
-        **kwargs: Any,
-    ):
-        """
-        Initialize HPSS Percussive
-
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        """
-        self.kwargs = kwargs
-        super().__init__(sampling_rate, **kwargs)
-
-    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        return input_shape
-
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "Prc"
-
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
-        """Create processor function for HPSS Percussive"""
-        logger.debug(f"Applying HPSS Percussive to array with shape: {x.shape}")
-        result: NDArrayReal = effects.percussive(x, **self.kwargs)
-        logger.debug(f"HPSS Percussive applied, returning result with shape: {result.shape}")
-        return result
+    _extract_func = "percussive"
+    _display = "Prc"
 
 
 class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
     """Signal normalization operation using librosa.util.normalize"""
 
     name = "normalize"
+    _display = "norm"
 
     def __init__(
         self,
@@ -171,26 +134,6 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
             f"Initialized Normalize operation with norm={norm}, axis={axis}, threshold={threshold}, fill={fill}"
         )
 
-    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        """
-        Calculate output data shape after operation
-
-        Parameters
-        ----------
-        input_shape : tuple
-            Input data shape
-
-        Returns
-        -------
-        tuple
-            Output data shape (same as input)
-        """
-        return input_shape
-
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "norm"
-
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Perform normalization processing"""
         logger.debug(f"Applying normalization to array with shape: {x.shape}, norm={self.norm}, axis={self.axis}")
@@ -212,6 +155,7 @@ class RemoveDC(AudioOperation[NDArrayReal, NDArrayReal]):
     """
 
     name = "remove_dc"
+    _display = "dcRM"
 
     def __init__(self, sampling_rate: float):
         """Initialize DC removal operation.
@@ -223,25 +167,6 @@ class RemoveDC(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         super().__init__(sampling_rate)
         logger.debug("Initialized RemoveDC operation")
-
-    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        """Calculate output data shape after operation.
-
-        Parameters
-        ----------
-        input_shape : tuple
-            Input data shape
-
-        Returns
-        -------
-        tuple
-            Output data shape (same as input)
-        """
-        return input_shape
-
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "dcRM"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Perform DC removal processing.
@@ -270,6 +195,7 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
     """Addition operation considering SNR"""
 
     name = "add_with_snr"
+    _display = "+SNR"
 
     def __init__(self, sampling_rate: float, other: DaArray, snr: float = 1.0):
         """
@@ -289,26 +215,6 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
         self.other = other
         self.snr = snr
         logger.debug(f"Initialized AddWithSNR operation with SNR: {snr} dB")
-
-    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        """
-        Calculate output data shape after operation
-
-        Parameters
-        ----------
-        input_shape : tuple
-            Input data shape
-
-        Returns
-        -------
-        tuple
-            Output data shape (same as input)
-        """
-        return input_shape
-
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "+SNR"
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Perform addition processing considering SNR"""
@@ -339,23 +245,17 @@ class Fade(AudioOperation[NDArrayReal, NDArrayReal]):
     """
 
     name = "fade"
+    _display = "fade"
 
     def __init__(self, sampling_rate: float, fade_ms: float = 50) -> None:
         self.fade_ms = float(fade_ms)
         # Precompute fade length in samples at construction time
-        self.fade_len = int(round(self.fade_ms * float(sampling_rate) / 1000.0))
+        self.fade_len = round(self.fade_ms * float(sampling_rate) / 1000.0)
         super().__init__(sampling_rate, fade_ms=fade_ms)
 
     def validate_params(self) -> None:
         if self.fade_ms < 0:
             raise ValueError("fade_ms must be non-negative")
-
-    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        return input_shape
-
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "fade"
 
     @staticmethod
     def calculate_tukey_alpha(fade_len: int, n_samples: int) -> float:

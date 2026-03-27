@@ -2,7 +2,7 @@ import io
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, BinaryIO, TypedDict, cast
+from typing import Any, BinaryIO, ClassVar, TypedDict, cast
 
 import numpy as np
 import pandas as pd
@@ -54,7 +54,7 @@ class FileReader(ABC):
     """Base class for audio file readers."""
 
     # Class attribute for supported file extensions
-    supported_extensions: list[str] = []
+    supported_extensions: ClassVar[list[str]] = []
 
     @classmethod
     @abstractmethod
@@ -77,7 +77,7 @@ class FileReader(ABC):
             - format: File format
             - duration: Duration in seconds
         """
-        pass  # pragma: no cover
+        # pragma: no cover
 
     @classmethod
     @abstractmethod
@@ -101,7 +101,7 @@ class FileReader(ABC):
         Returns:
             Array of shape (channels, frames) containing the audio data.
         """
-        pass  # pragma: no cover
+        # pragma: no cover
 
     @classmethod
     def can_read(cls, path: str | Path) -> bool:
@@ -114,7 +114,7 @@ class SoundFileReader(FileReader):
     """Audio file reader using SoundFile library."""
 
     # SoundFile supported formats
-    supported_extensions = [".wav", ".flac", ".ogg", ".aiff", ".aif", ".snd"]
+    supported_extensions: ClassVar[list[str]] = [".wav", ".flac", ".ogg", ".aiff", ".aif", ".snd"]
 
     @classmethod
     def get_file_info(
@@ -159,10 +159,7 @@ class SoundFileReader(FileReader):
             # Use scipy to return raw integer samples (no normalization), cast to float32.
             source = _prepare_file_source(path)
             _sr, raw = wavfile.read(source)
-            if raw.ndim == 1:
-                raw = np.expand_dims(raw, axis=0)  # mono: (1, samples)
-            else:
-                raw = raw.T  # stereo: (channels, samples)
+            raw = np.expand_dims(raw, axis=0) if raw.ndim == 1 else raw.T
 
             # Only reindex channels when the requested selection is not the identity.
             if channels != list(range(raw.shape[0])):
@@ -199,7 +196,7 @@ class CSVFileReader(FileReader):
     """CSV file reader for time series data."""
 
     # CSV supported formats
-    supported_extensions = [".csv"]
+    supported_extensions: ClassVar[list[str]] = [".csv"]
 
     @classmethod
     def get_file_info(
@@ -250,10 +247,7 @@ class CSVFileReader(FileReader):
         # Estimate sampling rate from first column (assuming it's time)
         try:
             # Get time column as Series
-            if isinstance(time_column, str):
-                time_series = df[time_column]
-            else:
-                time_series = df.iloc[:, time_column]
+            time_series = df[time_column] if isinstance(time_column, str) else df.iloc[:, time_column]
             time_values = np.array(time_series.values)
             if len(time_values) > 1:
                 # Use round() instead of int() to handle floating-point precision issues
@@ -334,8 +328,8 @@ class CSVFileReader(FileReader):
         if channels:
             try:
                 data_df = df.iloc[:, channels]
-            except IndexError:
-                raise ValueError(f"Requested channels {channels} out of range")
+            except IndexError as e:
+                raise ValueError(f"Requested channels {channels} out of range") from e
         else:
             data_df = df
 
