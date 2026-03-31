@@ -119,7 +119,7 @@ class TestChannelCollectionMixin:
 
         # Test each valid align option
         for align_option in ["strict", "pad", "truncate"]:
-            collection.add_channel(data, label="test_channel", align=align_option)  # type: ignore
+            collection.add_channel(data, label="test_channel", align=align_option)  # ty: ignore[invalid-argument-type]
             assert collection.add_channel_args["align"] == align_option
 
     def test_add_channel_with_metadata(self) -> None:

@@ -31,7 +31,7 @@ from wandas.visualization.plotting import (
 # Matplotlibのインタラクティブモードをオフにする
 plt.ioff()
 
-_da_from_array = da.from_array  # type: ignore [unused-ignore]
+_da_from_array = da.from_array
 
 
 # テスト用のプロット戦略クラス
@@ -40,7 +40,7 @@ class TestPlotStrategy(PlotStrategy[Any]):
 
     name = "test_strategy"
 
-    def channel_plot(self, x: Any, y: Any, ax: "Axes", **kwargs: Any) -> None:
+    def channel_plot(self, x: Any, y: Any, ax: "Axes", label: str | None = None, alpha: float = 1.0) -> None:
         pass
 
     def plot(
@@ -290,8 +290,10 @@ class TestPlotting:
         )
         assert ax.get_ylabel() == "Amplitude"
         # 凡例が表示されていることを確認
-        assert len(ax.get_legend().get_texts()) > 0
-        assert ax.get_legend().get_texts()[0].get_text() == "Test Single Channel"
+        legend = ax.get_legend()
+        assert legend is not None
+        assert len(legend.get_texts()) > 0
+        assert legend.get_texts()[0].get_text() == "Test Single Channel"
 
         # 単一チャネルでのplotのテスト (overlay=True)
         result = strategy.plot(self.mock_single_channel_frame, overlay=True)
@@ -350,8 +352,10 @@ class TestPlotting:
         )
         # assert ax.get_ylabel() == "Level [dB]"
         # 凡例が表示されていることを確認
-        assert len(ax.get_legend().get_texts()) > 0
-        assert ax.get_legend().get_texts()[0].get_text() == "Test Single Frequency"
+        legend = ax.get_legend()
+        assert legend is not None
+        assert len(legend.get_texts()) > 0
+        assert legend.get_texts()[0].get_text() == "Test Single Frequency"
 
         # 単一チャネルでdB単位でのplotのテスト (overlay=True)
         result = strategy.plot(self.mock_single_spectral_frame, overlay=True)
@@ -530,7 +534,9 @@ class TestPlotting:
         )
         # stepプロットが使われ、グリッドと凡例が表示されていることを確認
         assert len(ax.xaxis.get_gridlines()) > 0  # グリッドが表示されていることを確認
-        assert len(ax.get_legend().get_texts()) > 0  # 凡例が表示されていることを確認
+        legend = ax.get_legend()
+        assert legend is not None
+        assert len(legend.get_texts()) > 0  # 凡例が表示されていることを確認
 
         # 単一チャネルでのplotのテスト (overlay=True)
         result = strategy.plot(self.mock_noct_frame, overlay=True)
@@ -570,8 +576,10 @@ class TestPlotting:
         )
         # プロットの特性を確認
         assert len(ax.xaxis.get_gridlines()) > 0  # グリッドが表示されていることを確認
-        assert len(ax.get_legend().get_texts()) > 0  # 凡例が表示されていることを確認
-        assert ax.get_legend().get_texts()[0].get_text() == "Test Single NOct"
+        legend = ax.get_legend()
+        assert legend is not None
+        assert len(legend.get_texts()) > 0  # 凡例が表示されていることを確認
+        assert legend.get_texts()[0].get_text() == "Test Single NOct"
 
         # 単一チャネルでのplotのテスト (overlay=True)
         result = strategy.plot(self.mock_single_noct_frame, overlay=True)
@@ -1387,7 +1395,7 @@ class TestPlotting:
         assert _resolve_channel_label(None, unlabeled_channel_meta, 0, 2) == ""
         assert _resolve_channel_label("shared", channel_meta, 0, 2) == "shared"
         assert _resolve_channel_label(["left", "right"], channel_meta, 1, 2) == "right"
-        assert _resolve_channel_label(123, channel_meta, 0, 2) == "123"
+        assert _resolve_channel_label(123, channel_meta, 0, 2) == "123"  # ty: ignore[invalid-argument-type]
         with pytest.raises(ValueError, match="Channel label count mismatch"):
             _resolve_channel_label(["only-one"], channel_meta, 0, 2)
 
@@ -1495,7 +1503,10 @@ class TestPlotting:
             mock.patch("matplotlib.pyplot.show"),
         ):
             result = strategy.plot(self.mock_coherence_spectral_frame)
-            axes_list = list(result)
+            if isinstance(result, Axes):
+                axes_list = [result]
+            else:
+                axes_list = list(result)
 
         assert len(axes_list) == 4
         plt.close(fig)
@@ -1505,7 +1516,7 @@ class TestChannelFramePlotParameters:
     """Test plot parameter combinations for complete coverage."""
 
     def _get_axes_list(self, result: Axes | Iterator[Axes]) -> list[Axes]:
-        if isinstance(result, Iterator):
+        if not isinstance(result, Axes):
             return list(result)
         return [result]
 

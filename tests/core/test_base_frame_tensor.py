@@ -7,7 +7,7 @@ from dask.array.core import Array as DaArray
 
 from wandas.frames.channel import ChannelFrame
 
-_da_from_array = da.from_array  # type: ignore [unused-ignore]
+_da_from_array = da.from_array
 
 
 class TestToTensorPyTorch:
@@ -73,13 +73,14 @@ class TestToTensorPyTorch:
 
     def test_to_tensor_pytorch_not_installed(self) -> None:
         """Test to_tensor() raises ImportError when PyTorch is not installed."""
+        import importlib.machinery
         import importlib.util
         import sys
 
         # Mock that torch is not available
         original_find_spec = importlib.util.find_spec
 
-        def mock_find_spec(name: str) -> None:
+        def mock_find_spec(name: str) -> importlib.machinery.ModuleSpec | None:
             if name == "torch":
                 return None
             return original_find_spec(name)
@@ -88,12 +89,12 @@ class TestToTensorPyTorch:
         torch_module = sys.modules.pop("torch", None)
 
         try:
-            importlib.util.find_spec = mock_find_spec  # type: ignore
+            importlib.util.find_spec = mock_find_spec  # ty: ignore[invalid-assignment]
             with pytest.raises(ImportError, match="(?s)PyTorch is not installed.*pip install torch"):
                 self.channel_frame.to_tensor(framework="torch")
         finally:
             # Restore
-            importlib.util.find_spec = original_find_spec  # type: ignore
+            importlib.util.find_spec = original_find_spec
             if torch_module is not None:
                 sys.modules["torch"] = torch_module
 
@@ -147,13 +148,14 @@ class TestToTensorTensorFlow:
 
     def test_to_tensor_tensorflow_not_installed(self) -> None:
         """Test to_tensor() raises ImportError when TensorFlow is not installed."""
+        import importlib.machinery
         import importlib.util
         import sys
 
         # Mock that tensorflow is not available
         original_find_spec = importlib.util.find_spec
 
-        def mock_find_spec(name: str) -> None:
+        def mock_find_spec(name: str) -> importlib.machinery.ModuleSpec | None:
             if name == "tensorflow":
                 return None
             return original_find_spec(name)
@@ -162,7 +164,7 @@ class TestToTensorTensorFlow:
         tf_module = sys.modules.pop("tensorflow", None)
 
         try:
-            importlib.util.find_spec = mock_find_spec  # type: ignore
+            importlib.util.find_spec = mock_find_spec  # ty: ignore[invalid-assignment]
             with pytest.raises(
                 ImportError,
                 match="(?s)TensorFlow is not installed.*pip install tensorflow",
@@ -170,7 +172,7 @@ class TestToTensorTensorFlow:
                 self.channel_frame.to_tensor(framework="tensorflow")
         finally:
             # Restore
-            importlib.util.find_spec = original_find_spec  # type: ignore
+            importlib.util.find_spec = original_find_spec
             if tf_module is not None:
                 sys.modules["tensorflow"] = tf_module
 

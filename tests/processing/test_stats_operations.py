@@ -12,7 +12,7 @@ from wandas.processing.stats import (
 )
 from wandas.utils.types import NDArrayReal
 
-_da_from_array = da.from_array  # type: ignore [unused-ignore]
+_da_from_array = da.from_array
 
 
 class TestABS:

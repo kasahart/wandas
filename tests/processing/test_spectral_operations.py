@@ -22,7 +22,7 @@ from wandas.processing.spectral import (
 )
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
-_da_from_array = da.from_array  # type: ignore [unused-ignore]
+_da_from_array = da.from_array
 
 
 class TestGetDisplayNames:
@@ -1240,7 +1240,7 @@ class TestWelchOperation:
         """Test that passing a non-ndarray to _process_array raises ValueError."""
         welch = Welch(sampling_rate=self.sample_rate, n_fft=self.n_fft)
         with pytest.raises(ValueError, match="Welch operation requires"):
-            welch._process_array([0.0] * 100)  # type: ignore[arg-type]
+            welch._process_array([0.0] * 100)  # ty: ignore[invalid-argument-type]
 
 
 class TestCoherenceOperation:

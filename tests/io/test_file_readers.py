@@ -55,7 +55,7 @@ class TestSoundFileReader:
 
         assert isinstance(data, np.ndarray)
         assert data.shape == (self.n_channels, self.n_samples)
-        np.testing.assert_allclose(data, self.expected_data)
+        np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data))
 
     def test_get_data_single_channel(self) -> None:
         """Test reading a single channel."""
@@ -63,7 +63,7 @@ class TestSoundFileReader:
 
         assert isinstance(data, np.ndarray)
         assert data.shape == (1, self.n_samples)
-        np.testing.assert_allclose(data, self.expected_data[0:1])
+        np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data[0:1]))
 
     def test_get_data_with_offset_small(self) -> None:
         """Test reading with a start offset."""
@@ -78,7 +78,7 @@ class TestSoundFileReader:
 
         assert isinstance(data, np.ndarray)
         assert data.shape == (self.n_channels, self.n_samples - offset)
-        np.testing.assert_allclose(data, self.expected_data[:, offset:])
+        np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data[:, offset:]))
 
     def test_get_data_frame_limit_small(self) -> None:
         """Test reading with a specified number of frames."""
@@ -87,7 +87,7 @@ class TestSoundFileReader:
 
         assert isinstance(data, np.ndarray)
         assert data.shape == (self.n_channels, frames)
-        np.testing.assert_allclose(data, self.expected_data[:, :frames])
+        np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data[:, :frames]))
 
     def test_get_data_file_not_found(self) -> None:
         """Test error handling when file doesn't exist."""
@@ -110,7 +110,7 @@ class TestSoundFileReader:
 
         assert isinstance(data, np.ndarray)
         assert data.shape == (self.n_channels, self.n_samples - offset)
-        np.testing.assert_allclose(data, self.expected_data[:, offset:])
+        np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data[:, offset:]))
 
     def test_get_data_frame_limit(self) -> None:
         """Test reading with a specified number of frames."""
@@ -119,7 +119,7 @@ class TestSoundFileReader:
 
         assert isinstance(data, np.ndarray)
         assert data.shape == (self.n_channels, frames)
-        np.testing.assert_allclose(data, self.expected_data[:, :frames])
+        np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data[:, :frames]))
 
     def test_get_data_invalid_channels(self) -> None:
         """Test error handling with invalid channel indices."""
@@ -265,7 +265,7 @@ class TestCSVFileReader:
 
         assert isinstance(data, np.ndarray)
         assert data.shape == (self.n_channels, self.n_samples)
-        np.testing.assert_allclose(data, self.expected_data)
+        np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data))
 
     def test_get_data_subset_channels(self) -> None:
         """Test reading a subset of channels."""
@@ -277,7 +277,7 @@ class TestCSVFileReader:
 
         assert isinstance(data, np.ndarray)
         assert data.shape == (len(channels), self.n_samples)
-        np.testing.assert_allclose(data, self.expected_data[channels])
+        np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data[channels]))
 
     def test_get_data_channel_out_of_range(self) -> None:
         """Test error when requesting out-of-range channels."""

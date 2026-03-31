@@ -11,10 +11,10 @@ from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 # Reference to dask array functions
-_da_random_random = da.random.random  # type: ignore [unused-ignore]
+_da_random_random = da.random.random
 
 
-@pytest.fixture  # type: ignore [misc, unused-ignore]
+@pytest.fixture
 def sample_spectrogram() -> SpectrogramFrame:
     """スペクトログラムのサンプルデータを生成するフィクスチャ"""
     # 形状: (channels=2, freq_bins=513, time_frames=10)
@@ -196,8 +196,8 @@ class TestSpectrogramFrame:
         spec: SpectrogramFrame = sample_spectrogram
 
         # complex型との演算
-        complex_val = 1.0 + 2.0j
-        spec_complex: SpectrogramFrame = spec + complex_val
+        complex_val: complex = 1.0 + 2.0j
+        spec_complex: SpectrogramFrame = spec._binary_op(complex_val, lambda x, y: x + y, "+")
         assert "complex(1.0, 2.0)" in spec_complex.label
         assert_array_almost_equal(spec_complex.data, spec.data + complex_val)
 
