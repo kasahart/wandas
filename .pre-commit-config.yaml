@@ -19,13 +19,13 @@ repos:
         language: system
         types: [python]
 
-# mypy
+# ty
   - repo: local
     hooks:
-      - id: mypy
-        name: mypy
-        description: "Run 'mypy' for Python linting using settings from pyproject.toml"
-        entry: uv run mypy --config-file=pyproject.toml
+      - id: ty
+        name: ty
+        description: "Run 'ty' for Python type checking using settings from pyproject.toml"
+        entry: uv run ty check
         language: system
         types: [python]
         require_serial: true

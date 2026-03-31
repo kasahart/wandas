@@ -116,7 +116,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         previous: "BaseFrame[Any] | None" = None,
     ) -> None:
         if data.ndim == 2:
-            data = da.expand_dims(data, axis=0)  # type: ignore [unused-ignore]
+            data = da.expand_dims(data, axis=0)
         elif data.ndim != 3:
             raise ValueError(
                 f"Invalid data dimensions\n"
@@ -292,7 +292,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             plot_kwargs["ylim"] = ylim
 
         # Execute plot
-        _ax = plot_strategy.plot(self, ax=ax, **plot_kwargs)
+        _ax = plot_strategy.plot(self, ax=ax, overlay=False, **plot_kwargs)
 
         logger.debug("Plot rendering complete")
 
@@ -641,7 +641,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
         # Convert NumPy array to dask array
         # Use channel-wise chunking for spectrograms (1, -1, -1).
-        # Use shared helper to avoid mypy chunking typing issues
+        # Use shared helper to avoid chunking typing issues
         from wandas.utils.dask_helpers import da_from_array as _da_from_array
 
         dask_data = _da_from_array(data, chunks=(1, -1, -1))

@@ -80,7 +80,7 @@ def filter_kwargs(
     unknown = set(kwargs) - explicit_params
     if unknown:
         warnings.warn(
-            f"Implicit kwargs for {func.__name__}: {unknown}",
+            f"Implicit kwargs for {getattr(func, '__name__', repr(func))}: {unknown}",
             UserWarning,
             stacklevel=2,
         )

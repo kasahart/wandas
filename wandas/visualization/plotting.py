@@ -11,10 +11,10 @@ from wandas.utils.introspection import filter_kwargs
 
 try:
     # Avoid error due to librosa.display not being explicitly exported
-    from librosa import display  # type: ignore
+    from librosa import display
 except ImportError:
     # fallback
-    display = librosa.display  # type: ignore
+    display = librosa.display
 
 import matplotlib.pyplot as plt
 import numpy as np

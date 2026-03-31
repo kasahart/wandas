@@ -10,7 +10,7 @@ from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 logger = logging.getLogger(__name__)
 
-_da_from_delayed = da.from_delayed  # type: ignore [unused-ignore]
+_da_from_delayed = da.from_delayed
 
 # Define TypeVars for input and output array types
 InputArrayType = TypeVar("InputArrayType", NDArrayReal, NDArrayComplex)
@@ -105,7 +105,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         variable).  Subclasses with dynamic display names can still
         override this method.
         """
-        return getattr(self, "_display", None)  # type: ignore [no-any-return, unused-ignore]
+        return getattr(self, "_display", None)
 
     def _process_array(self, x: InputArrayType) -> OutputArrayType:
         """Processing function (implemented by subclasses)"""
@@ -129,12 +129,12 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         operation_wrapper.__name__ = self.name
         return operation_wrapper
 
-    def _delayed(self, data: InputArrayType) -> Any:
+    def _delayed(self, data: Any) -> Any:
         """Create a ``dask.delayed`` result for *data* using the named wrapper."""
         wrapper = self._create_named_wrapper()
         return delayed(wrapper, pure=self.pure)(data)
 
-    def process_array(self, x: InputArrayType) -> Any:
+    def process_array(self, x: Any) -> Any:
         """
         Processing function wrapped with @dask.delayed.
 

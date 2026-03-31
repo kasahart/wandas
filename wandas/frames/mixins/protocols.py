@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class OperationProtocol(Protocol):
     """Protocol defining the interface expected by _compute_scalar_metric."""
 
-    def process_array(self, data: Any) -> Any: ...
+    def process_array(self, x: Any) -> Any: ...
 
 
 T_Base = TypeVar("T_Base", bound="BaseFrameProtocol")
@@ -96,8 +96,8 @@ class ProcessingFrameProtocol(BaseFrameProtocol, Protocol):
     def _updated_metadata_and_history(
         self,
         operation_name: str,
-        **operation_params: Any,
-    ) -> tuple[dict[str, Any], list[dict[str, Any]]]: ...
+        params: dict[str, Any],
+    ) -> tuple[FrameMetadata, list[dict[str, Any]]]: ...
 
     def _get_ref_values(self, *, require_non_default: bool = False) -> list[float]: ...
 

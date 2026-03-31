@@ -4,9 +4,9 @@ import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-import dask.array as da
 import numpy as np
 import pandas as pd
+from dask.array.core import Array as DaArray
 
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
@@ -109,7 +109,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
 
     def __init__(
         self,
-        data: da.Array,
+        data: DaArray,
         sampling_rate: float,
         bark_axis: NDArrayReal,
         overlap: float,
@@ -275,8 +275,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
 
     def _binary_op(
         self,
-        other: "RoughnessFrame | int | float | NDArrayReal | da.Array",
-        op: "Callable[[da.Array, Any], da.Array]",
+        other: "RoughnessFrame | complex | NDArrayReal | DaArray",
+        op: Callable[[DaArray, Any], DaArray],
         symbol: str,
     ) -> "RoughnessFrame":
         """
