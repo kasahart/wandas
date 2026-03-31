@@ -37,8 +37,8 @@ jobs:
       - name: Lintチェック (ruff check)
         run: uv run ruff check wandas tests
 
-      - name: 型チェック (mypy)
-        run: uv run mypy wandas tests
+      - name: 型チェック (ty)
+        run: uv run ty check wandas tests
 
   docs:
       name: Build Documentation
