@@ -1,5 +1,5 @@
 ---
-description: "TDD workflow and quality check commands (pytest, mypy, ruff, mkdocs)"
+description: "TDD workflow and quality check commands (pytest, ty, ruff, mkdocs)"
 ---
 # Wandas Testing & Quality Prompt
 
@@ -9,7 +9,7 @@ Use this prompt when adding or modifying behavior anywhere in the Wandas codebas
 - Use `uv` for all commands, and prefer VS Code tasks when they exist:
   - `Create Virtual Environment` – `uv venv --allow-existing .venv && uv sync --frozen --all-groups`
   - `Run pytest` – `uv run pytest -n auto --cov=wandas --cov-report=term-missing`
-  - `Run mypy wandas tests` – `uv run mypy --config-file=pyproject.toml`
+  - `Run ty (red-knot) check` – `uv run ty check wandas tests`
   - `Run ruff format` – `uv run ruff format wandas tests`
   - `Run ruff check` – `uv run ruff check wandas tests --config=pyproject.toml -v`
   - `Run ruff check --fix` – `uv run ruff check --fix wandas tests --config=pyproject.toml -v`
@@ -31,7 +31,7 @@ Use this prompt when adding or modifying behavior anywhere in the Wandas codebas
   - capture the `--cov=wandas --cov-report=term-missing` result before and after implementation when coverage risk is non-trivial,
   - do not hand off silent coverage regressions on touched code paths,
   - if coverage drops or `term-missing` shows new uncovered lines, add focused tests for the changed branches, edge cases, and error handling paths or call out the gap explicitly as a warning.
-- Keep a short command log of what you ran (pytest, mypy, ruff, mkdocs) to aid reviewers.
+- Keep a short command log of what you ran (pytest, ty, ruff, mkdocs) to aid reviewers.
 
 ## Edge cases & quality
 - Look at existing tests for how the project handles:

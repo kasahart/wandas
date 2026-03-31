@@ -17,8 +17,8 @@ This approach had several drawbacks:
    - **非効率な並列性**: チャンネルごとに並列化できる操作を単一のタスクとして扱うことを強制するもので、Daskの潜在能力を活用できていませんでした。
 2. **API Ambiguity**: The `ChannelFrame.from_file` method exposed a `chunk_size` parameter that allowed users to fragment the data arbitrarily, potentially breaking channel-wise assumptions.
    - **APIの曖昧さ**: `ChannelFrame.from_file` メソッドは `chunk_size` パラメータを公開しており、ユーザーがデータを任意に断片化することを許可していましたが、これによりチャンネル単位の前提が崩れる可能性がありました。
-3. **Type Safety Issues**: Direct calls to `da.from_array` caused friction with static type checkers (mypy) due to strict type stubs for the `chunks` parameter.
-   - **型安全性の問題**: `da.from_array` を直接呼び出すと、`chunks` パラメータに対する厳密な型スタブのため、静的型チェッカー（mypy）との摩擦が生じていました。
+3. **Type Safety Issues**: Direct calls to `da.from_array` caused friction with static type checkers due to strict type stubs for the `chunks` parameter.
+   - **型安全性の問題**: `da.from_array` を直接呼び出すと、`chunks` パラメータに対する厳密な型スタブのため、静的型チェッカーとの摩擦が生じていました。
 
 ## Decisions / 決定事項
 
@@ -51,8 +51,8 @@ We introduced a centralized helper `wandas.utils.dask_helpers.da_from_array`.
 
 - **Rationale**: To isolate type-checking suppressions and ensure consistent Dask array instantiation patterns.
   - **理由**: 型チェックの抑制を分離し、一貫したDask配列のインスタンス化パターンを保証するため。
-- **Implementation**: A thin wrapper around `dask.array.from_array` that accepts `Any` for the chunks parameter, resolving mypy conflicts.
-  - **実装**: `chunks` パラメータに `Any` を受け入れる `dask.array.from_array` の薄いラッパーで、mypyの競合を解決します。
+- **Implementation**: A thin wrapper around `dask.array.from_array` that accepts `Any` for the chunks parameter, resolving type checker conflicts.
+  - **実装**: `chunks` パラメータに `Any` を受け入れる `dask.array.from_array` の薄いラッパーで、型チェッカーの競合を解決します。
 
 ### 4. Maintain Single Delayed Operations for Processing (Default) / 処理における単一遅延操作の維持（デフォルト）
 
@@ -91,8 +91,8 @@ This ensures that even if a user (or an internal method) provides a Dask array w
   - **メモリ効率**: 単一チャンネルの処理において、データセット全体をメモリにロードする必要がなくなります。
 - **Consistency**: All frame types (Time, Spectral, Spectrogram) now follow the same structural rules.
   - **一貫性**: すべてのフレームタイプ（時間、スペクトル、スペクトログラム）が同じ構造ルールに従うようになります。
-- **Type Safety**: The codebase is now compliant with strict mypy settings without scattered `# type: ignore` comments.
-  - **型安全性**: コードベースは、散在する `# type: ignore` コメントなしで厳密なmypy設定に準拠するようになります。
+- **Type Safety**: The codebase is now compliant with strict type checking settings without scattered suppression comments.
+  - **型安全性**: コードベースは、散在する `# type: ignore` コメントなしで厳密な型チェック設定に準拠するようになります。
 
 ### Negative / Risks / ネガティブな影響・リスク
 
@@ -110,5 +110,5 @@ The design is validated by:
    - **ユニットテスト**: 具体的には `tests/frames/test_channel_chunking.py` で、作成されたフレームのチャンク構造をアサートします。
 2. **Integration Tests**: Verifying that WDF I/O round-trips preserve the chunk structure.
    - **統合テスト**: WDF I/Oのラウンドトリップがチャンク構造を維持していることを検証します。
-3. **Static Analysis**: Passing `mypy` with `pydantic` plugin enabled.
-   - **静的解析**: `pydantic` プラグインを有効にした状態で `mypy` を通過すること。
+3. **Static Analysis**: Passing `ty check` with strict settings.
+   - **静的解析**: 厳密な設定で `ty check` を通過すること。
