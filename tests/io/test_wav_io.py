@@ -197,6 +197,110 @@ def test_read_wav_from_url() -> None:
     np.testing.assert_allclose(computed_data[1][0], 1.0, rtol=1e-5)
 
 
+def test_from_file_url_wav() -> None:
+    """
+    Test that ChannelFrame.from_file transparently downloads a WAV URL.
+
+    urllib.request.urlopen is mocked so no real network call is made.
+    The test verifies that:
+    - The URL is passed to urlopen
+    - The returned bytes are read as a WAV ChannelFrame
+    - Sampling rate and channel data are correct
+    """
+    url = "https://example.com/audio/sample.wav"
+
+    sampling_rate = 22050
+    num_samples = 100
+    data_left = np.full(num_samples, 0.3, dtype=np.float32)
+    data_right = np.full(num_samples, 0.7, dtype=np.float32)
+    stereo_data = np.column_stack((data_left, data_right))
+
+    wav_buffer = io.BytesIO()
+    wavfile.write(wav_buffer, sampling_rate, stereo_data)
+    wav_bytes = wav_buffer.getvalue()
+
+    # Build a mock response context manager that returns the WAV bytes
+    mock_resp = MagicMock()
+    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+    mock_resp.__exit__ = MagicMock(return_value=False)
+    mock_resp.read = MagicMock(return_value=wav_bytes)
+
+    with patch("urllib.request.urlopen", return_value=mock_resp) as mock_urlopen:
+        channel_frame = ChannelFrame.from_file(url)
+
+    mock_urlopen.assert_called_once_with(url, timeout=10.0)
+    assert channel_frame.sampling_rate == sampling_rate
+    assert len(channel_frame) == 2
+    computed = channel_frame.compute()
+    np.testing.assert_allclose(computed[0], data_left, rtol=1e-5)
+    np.testing.assert_allclose(computed[1], data_right, rtol=1e-5)
+    # URL should be recorded as the source for provenance
+    assert channel_frame.metadata.source_file == url
+    assert channel_frame.label == "sample"
+
+
+def test_from_file_url_http_scheme() -> None:
+    """Test that plain http:// URLs are also handled by from_file."""
+    url = "http://example.com/audio/sample.wav"
+
+    sampling_rate = 8000
+    num_samples = 50
+    mono_data = np.full(num_samples, 0.5, dtype=np.float32)
+
+    wav_buffer = io.BytesIO()
+    wavfile.write(wav_buffer, sampling_rate, mono_data)
+    wav_bytes = wav_buffer.getvalue()
+
+    mock_resp = MagicMock()
+    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+    mock_resp.__exit__ = MagicMock(return_value=False)
+    mock_resp.read = MagicMock(return_value=wav_bytes)
+
+    with patch("urllib.request.urlopen", return_value=mock_resp):
+        channel_frame = ChannelFrame.from_file(url)
+
+    assert channel_frame.sampling_rate == sampling_rate
+    assert len(channel_frame) == 1
+
+
+def test_from_file_url_with_query_string() -> None:
+    """Test that URL query strings don't break extension inference."""
+    url = "https://example.com/audio/sample.wav?token=abc123&foo=bar"
+
+    sampling_rate = 16000
+    num_samples = 50
+    mono_data = np.full(num_samples, 0.4, dtype=np.float32)
+
+    wav_buffer = io.BytesIO()
+    wavfile.write(wav_buffer, sampling_rate, mono_data)
+    wav_bytes = wav_buffer.getvalue()
+
+    mock_resp = MagicMock()
+    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+    mock_resp.__exit__ = MagicMock(return_value=False)
+    mock_resp.read = MagicMock(return_value=wav_bytes)
+
+    with patch("urllib.request.urlopen", return_value=mock_resp):
+        channel_frame = ChannelFrame.from_file(url)
+
+    assert channel_frame.sampling_rate == sampling_rate
+    assert len(channel_frame) == 1
+
+
+def test_from_file_url_download_failure() -> None:
+    """Test that a URL download failure raises OSError with a clear message."""
+    import urllib.error
+
+    url = "https://example.com/audio/sample.wav"
+
+    with patch(
+        "urllib.request.urlopen",
+        side_effect=urllib.error.URLError("connection refused"),
+    ):
+        with pytest.raises(OSError, match=r"Failed to download audio from URL"):
+            ChannelFrame.from_file(url)
+
+
 def test_read_wav_stream_nonseekable() -> None:
     """Test reading a WAV file from a non-seekable stream via ChannelFrame.read_wav."""
     sampling_rate = 22050

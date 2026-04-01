@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO, Optional, TypeVar, cast
 
@@ -142,8 +142,20 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
     def rms(self) -> NDArrayReal:
         """Calculate RMS (Root Mean Square) value for each channel.
 
+        This is a scalar reduction: it computes one value per channel and
+        triggers immediate computation of the underlying Dask graph.  The
+        result is a plain NumPy array and does **not** produce a new frame,
+        so no operation history is recorded.
+
+        The RMS is defined as::
+
+            rms[i] = sqrt(mean(x[i] ** 2))
+
+        where ``x[i]`` is the sample array for channel ``i``.
+
         Returns:
-            Array of RMS values, one per channel.
+            NDArrayReal of shape ``(n_channels,)`` containing the RMS value
+            for each channel.
 
         Examples:
             >>> cf = ChannelFrame.read_wav("audio.wav")
@@ -152,10 +164,60 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> # Select channels with RMS > threshold
             >>> active_channels = cf[cf.rms > 0.5]
         """
-        # Convert to a concrete NumPy ndarray to satisfy numpy.mean typing
-        # and to ensure dask arrays are materialized for this operation.
-        rms_values = da.sqrt((self._data**2).mean(axis=1))
+        # Compute RMS per channel.  axis=1 is the sample axis for data of
+        # shape (channels, samples).  .compute() materialises the Dask graph
+        # and np.array() ensures the result is a concrete NumPy ndarray.
+        # Cast to float to avoid integer overflow when squaring (e.g. int16).
+        data = self._data
+        if not np.issubdtype(data.dtype, np.floating):
+            data = data.astype(np.float64)
+        rms_values = da.sqrt((data**2).mean(axis=1))
         return np.array(rms_values.compute())
+
+    @property
+    def crest_factor(self) -> NDArrayReal:
+        """Calculate the crest factor (peak-to-RMS ratio) for each channel.
+
+        This is a scalar reduction: it computes one value per channel and
+        triggers immediate computation of the underlying Dask graph.  The
+        result is a plain NumPy array and does **not** produce a new frame,
+        so no operation history is recorded.
+
+        The crest factor is defined as::
+
+            crest_factor[i] = max(|x[i]|) / sqrt(mean(x[i] ** 2))
+
+        where ``x[i]`` is the sample array for channel ``i``.
+
+        For a pure sine wave the theoretical continuous-time crest factor is
+        sqrt(2) ≈ 1.414; in discrete-time this implementation typically
+        yields a value close to this, and exactly equal only when the sampled
+        waveform contains its true peaks. Channels with zero RMS (all-zero
+        signals) return 1.0 (defined by convention; no division by zero is
+        performed).
+
+        Returns:
+            NDArrayReal of shape ``(n_channels,)`` containing the crest factor
+            for each channel.  All-zero channels yield 1.0.
+
+        Examples:
+            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> cf_values = cf.crest_factor
+            >>> print(f"Crest factors: {cf_values}")
+            >>> # Select channels with crest factor above threshold
+            >>> impulsive_channels = cf[cf.crest_factor > 3.0]
+        """
+        # Cast to float to avoid integer overflow in abs/squaring (e.g. int16(-32768)).
+        data = self._data
+        if not np.issubdtype(data.dtype, np.floating):
+            data = data.astype(np.float64)
+        peak = da.max(da.abs(data), axis=1)
+        rms_vals = da.sqrt((data**2).mean(axis=1))
+        # Use a safe denominator so the division never sees a zero RMS value,
+        # then replace the result for zero-RMS channels with 1.0 by convention.
+        safe_rms = da.where(rms_vals == 0, 1.0, rms_vals)
+        crest = da.where(rms_vals != 0, peak / safe_rms, 1.0)
+        return np.array(crest.compute())
 
     def info(self) -> None:
         """Display comprehensive information about the ChannelFrame.
@@ -192,152 +254,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
         from ..processing import create_operation
 
-        # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
-
-        # _apply_operation_instance returns the same concrete frame type as
-        # `self`, but mypy can't infer that from the TypeVar `S` bound to
-        # BaseFrame. Cast explicitly to `S` to satisfy type checking.
-        # Call the implementation on the concrete ChannelFrame type and
-        # then cast back to the generic `S` so callers keeping generic
-        # typing still get the correct return type.
-        return cast(
-            S,
-            cast("ChannelFrame", self)._apply_operation_instance(operation, operation_name=operation_name),
-        )
-
-    def _apply_operation_instance(self: S, operation: Any, operation_name: str | None = None) -> S:
-        """Apply an instantiated operation to the frame."""
-        # Apply processing to data
-        processed_data = operation.process(self._data)
-
-        # Update metadata
-        # Use operation name and params from the operation instance
-        if operation_name is None:
-            operation_name = getattr(operation, "name", "unknown_operation")
-        params = getattr(operation, "params", {})
-
-        operation_metadata = {"operation": operation_name, "params": params}
-        new_history = self.operation_history.copy()
-        new_history.append(operation_metadata)
-        new_metadata = {**self.metadata}
-        new_metadata[operation_name] = params
-
-        # Get metadata updates from operation
-        metadata_updates = operation.get_metadata_updates()
-
-        # Update channel labels to reflect the operation
-        display_name = operation.get_display_name()
-        new_channel_metadata = self._relabel_channels(operation_name, display_name)
-
-        logger.debug(f"Created new ChannelFrame with operation {operation_name} added to graph")
-
-        # Apply metadata updates (including sampling_rate if specified)
-        creation_params: dict[str, Any] = {
-            "data": processed_data,
-            "metadata": new_metadata,
-            "operation_history": new_history,
-            "channel_metadata": new_channel_metadata,
-        }
-        creation_params.update(metadata_updates)
-
-        return self._create_new_instance(**creation_params)
-
-    def _binary_op(
-        self,
-        other: "ChannelFrame | int | float | NDArrayReal | DaskArray",
-        op: Callable[["DaskArray", Any], "DaskArray"],
-        symbol: str,
-    ) -> "ChannelFrame":
-        """
-        Common implementation for binary operations
-        - utilizing dask's lazy evaluation.
-
-        Args:
-            other: Right operand for the operation.
-            op: Function to execute the operation (e.g., lambda a, b: a + b).
-            symbol: Symbolic representation of the operation (e.g., '+').
-
-        Returns:
-            A new channel containing the operation result (lazy execution).
-        """
-        from .channel import ChannelFrame
-
-        logger.debug(f"Setting up {symbol} operation (lazy)")
-
-        # Handle potentially None metadata and operation_history
-        metadata: FrameMetadata = self.metadata.copy() if self.metadata is not None else FrameMetadata()
-
-        operation_history = []
-        if self.operation_history is not None:
-            operation_history = self.operation_history.copy()
-
-        # Check if other is a ChannelFrame - improved type checking
-        if isinstance(other, ChannelFrame):
-            if self.sampling_rate != other.sampling_rate:
-                raise ValueError(
-                    f"Sampling rate mismatch\n"
-                    f"  Left operand: {self.sampling_rate} Hz\n"
-                    f"  Right operand: {other.sampling_rate} Hz\n"
-                    f"Resample one frame to match the other before performing "
-                    f"{symbol} operation."
-                )
-
-            # Perform operation directly on dask array (maintaining lazy execution)
-            result_data = op(self._data, other._data)
-
-            # Merge channel metadata
-            merged_channel_metadata = []
-            for self_ch, other_ch in zip(self._channel_metadata, other._channel_metadata):
-                ch = self_ch.model_copy(deep=True)
-                ch["label"] = f"({self_ch['label']} {symbol} {other_ch['label']})"
-                merged_channel_metadata.append(ch)
-
-            operation_history.append({"operation": symbol, "with": other.label})
-
-            return ChannelFrame(
-                data=result_data,
-                sampling_rate=self.sampling_rate,
-                label=f"({self.label} {symbol} {other.label})",
-                metadata=metadata,
-                operation_history=operation_history,
-                channel_metadata=merged_channel_metadata,
-                previous=self,
-            )
-
-        # Perform operation with scalar, NumPy array, or other types
-        else:
-            # Apply operation directly on dask array (maintaining lazy execution)
-            result_data = op(self._data, other)
-
-            # Operand display string
-            if isinstance(other, int | float):
-                other_str = str(other)
-            elif isinstance(other, np.ndarray):
-                other_str = f"ndarray{other.shape}"
-            elif hasattr(other, "shape"):  # Check for dask.array.Array
-                other_str = f"dask.array{other.shape}"
-            else:
-                other_str = str(type(other).__name__)
-
-            # Update channel metadata
-            updated_channel_metadata: list[ChannelMetadata] = []
-            for self_ch in self._channel_metadata:
-                ch = self_ch.model_copy(deep=True)
-                ch["label"] = f"({self_ch.label} {symbol} {other_str})"
-                updated_channel_metadata.append(ch)
-
-            operation_history.append({"operation": symbol, "with": other_str})
-
-            return ChannelFrame(
-                data=result_data,
-                sampling_rate=self.sampling_rate,
-                label=f"({self.label} {symbol} {other_str})",
-                metadata=metadata,
-                operation_history=operation_history,
-                channel_metadata=updated_channel_metadata,
-                previous=self,
-            )
+        return self._apply_operation_instance(operation, operation_name=operation_name)
 
     def add(
         self,
@@ -775,8 +693,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         file_type: str | None = None,
         source_name: str | None = None,
         normalize: bool = False,
+        timeout: float = 10.0,
     ) -> "ChannelFrame":
-        """Create a ChannelFrame from an audio file.
+        """Create a ChannelFrame from an audio file or URL.
 
         Note:
             The `chunk_size` parameter has been removed. ChannelFrame uses
@@ -784,7 +703,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             on the returned frame for custom sample-axis chunking.
 
         Args:
-            path: Path to the audio file or in-memory bytes/stream.
+            path: Path to the audio file, in-memory bytes/stream, or an HTTP/HTTPS
+                URL. When a URL is given it is downloaded in full before processing.
+                The file extension is inferred from the URL path; supply `file_type`
+                explicitly when the URL has no recognisable extension.
             channel: Channel(s) to load. None loads all channels.
             start: Start time in seconds.
             end: End time in seconds.
@@ -794,12 +716,16 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             delimiter: For CSV files, delimiter character. Default is ",".
             header: For CSV files, row number to use as header.
                 Default is 0 (first row). Set to None if no header.
-            file_type: File extension for in-memory data (e.g. ".wav", ".csv").
+            file_type: File extension for in-memory data or URLs without a
+                recognisable extension (e.g. ".wav", ".csv").
             source_name: Optional source name for in-memory data. Used in metadata.
-            normalize: For WAV file paths only. When False (default), return raw
-                integer PCM samples cast to float32 (magnitudes preserved, e.g.
-                16384 stays 16384.0). When True, normalize to float32 in [-1.0, 1.0].
-                Non-WAV formats and in-memory sources always use soundfile (normalized).
+            normalize: When False (default) and the effective file type is WAV
+                (local path or URL), return raw integer PCM samples cast to float32
+                (magnitudes preserved, e.g. 16384 stays 16384.0). When True,
+                normalize to float32 in [-1.0, 1.0]. Non-WAV formats always use
+                soundfile (normalized).
+            timeout: Timeout in seconds for HTTP/HTTPS URL downloads. Default is
+                10.0 seconds. Has no effect for local files or in-memory data.
 
         Returns:
             A new ChannelFrame containing the loaded audio data.
@@ -818,8 +744,36 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> cf = ChannelFrame.from_file("audio.wav", channel=[0, 2])
             >>> # Load CSV file
             >>> cf = ChannelFrame.from_file("data.csv", time_column=0, delimiter=",", header=0)
+            >>> # Load from a URL
+            >>> cf = ChannelFrame.from_file("https://example.com/audio.wav")
         """
         from .channel import ChannelFrame
+
+        # Detect and handle URL paths — download to bytes before any path logic.
+        if isinstance(path, str) and (path.startswith("http://") or path.startswith("https://")):
+            import urllib.error
+            import urllib.parse
+            import urllib.request
+            from pathlib import PurePosixPath
+
+            _url = path  # keep original URL string for error messages
+            url_path_part = urllib.parse.urlparse(_url).path
+            url_ext = PurePosixPath(url_path_part).suffix.lower() or None
+            if file_type is None and url_ext:
+                file_type = url_ext
+            try:
+                with urllib.request.urlopen(_url, timeout=timeout) as _resp:
+                    path = _resp.read()  # bytes — picked up by is_in_memory below
+            except urllib.error.URLError as exc:
+                raise OSError(
+                    f"Failed to download audio from URL\n"
+                    f"  URL: {_url}\n"
+                    f"  Error: {exc}\n"
+                    f"Verify the URL is accessible and try again."
+                ) from exc
+            # Preserve URL as provenance when no explicit source_name was given.
+            if source_name is None:
+                source_name = _url
 
         is_in_memory = isinstance(path, (bytes, bytearray, memoryview)) or (
             hasattr(path, "read") and not isinstance(path, (str, Path))
@@ -1156,10 +1110,6 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         from ..io.wdf_io import load as wdf_load
 
         return wdf_load(path, format=format)
-
-    def _get_additional_init_kwargs(self) -> dict[str, Any]:
-        """Provide additional initialization arguments required for ChannelFrame."""
-        return {}
 
     def add_channel(
         self,

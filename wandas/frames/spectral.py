@@ -2,12 +2,11 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Iterator
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from collections.abc import Iterator
+from typing import TYPE_CHECKING, Any, cast
 
 import dask
 import dask.array as da
-import librosa
 import numpy as np
 import pandas as pd
 from dask.array.core import Array as DaArray
@@ -16,6 +15,7 @@ from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 from ..core.base_frame import BaseFrame
 from ..core.metadata import ChannelMetadata, FrameMetadata
+from .mixins.spectral_properties_mixin import SpectralPropertiesMixin
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -30,10 +30,8 @@ da_from_delayed = da.from_delayed  # type: ignore [unused-ignore]
 
 logger = logging.getLogger(__name__)
 
-S = TypeVar("S", bound="BaseFrame[Any]")
 
-
-class SpectralFrame(BaseFrame[NDArrayComplex]):
+class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     """
     Class for handling frequency-domain signal data.
 
@@ -138,30 +136,6 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
         )
 
     @property
-    def magnitude(self) -> NDArrayReal:
-        """
-        Get the magnitude spectrum.
-
-        Returns
-        -------
-        NDArrayReal
-            The absolute values of the complex spectrum.
-        """
-        return np.abs(self.data)
-
-    @property
-    def phase(self) -> NDArrayReal:
-        """
-        Get the phase spectrum.
-
-        Returns
-        -------
-        NDArrayReal
-            The phase angles of the complex spectrum in radians.
-        """
-        return np.angle(self.data)
-
-    @property
     def unwrapped_phase(self) -> NDArrayReal:
         """
         Get the unwrapped phase spectrum.
@@ -175,53 +149,6 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             The unwrapped phase angles of the complex spectrum in radians.
         """
         return np.unwrap(np.angle(self.data))
-
-    @property
-    def power(self) -> NDArrayReal:
-        """
-        Get the power spectrum.
-
-        Returns
-        -------
-        NDArrayReal
-            The squared magnitude spectrum.
-        """
-        return self.magnitude**2
-
-    @property
-    def dB(self) -> NDArrayReal:  # noqa: N802
-        """
-        Get the spectrum in decibels.
-
-        The reference values are taken from channel metadata. If no reference
-        is specified, uses 1.0.
-
-        Returns
-        -------
-        NDArrayReal
-            The spectrum in dB relative to channel references.
-        """
-        mag: NDArrayReal = self.magnitude
-        ref_values: NDArrayReal = np.array([ch.ref for ch in self._channel_metadata])
-        level: NDArrayReal = 20 * np.log10(np.maximum(mag / ref_values[:, np.newaxis], 1e-12))
-
-        return level
-
-    @property
-    def dBA(self) -> NDArrayReal:  # noqa: N802
-        """
-        Get the A-weighted spectrum in decibels.
-
-        Applies A-weighting filter to the spectrum for better correlation with
-        perceived loudness.
-
-        Returns
-        -------
-        NDArrayReal
-            The A-weighted spectrum in dB.
-        """
-        weighted: NDArrayReal = librosa.A_weighting(frequencies=self.freqs, min_db=None)
-        return self.dB + weighted
 
     @property
     def _n_channels(self) -> int:
@@ -246,156 +173,6 @@ class SpectralFrame(BaseFrame[NDArrayComplex]):
             Array of frequency values corresponding to each frequency bin.
         """
         return np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
-
-    def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
-        """
-        Implementation of operation application for spectral data.
-
-        This internal method handles the application of various operations to
-        spectral data, maintaining lazy evaluation through dask.
-
-        Parameters
-        ----------
-        operation_name : str
-            Name of the operation to apply.
-        **params : Any
-            Parameters for the operation.
-
-        Returns
-        -------
-        S
-            A new instance with the operation applied.
-        """
-        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-        from ..processing import create_operation
-
-        # Create operation instance
-        operation = create_operation(operation_name, self.sampling_rate, **params)
-
-        # Apply processing to data
-        processed_data = operation.process(self._data)
-
-        # Update metadata
-        operation_metadata = {"operation": operation_name, "params": params}
-        new_history = self.operation_history.copy()
-        new_history.append(operation_metadata)
-        new_metadata = {**self.metadata}
-        new_metadata[operation_name] = params
-
-        logger.debug(f"Created new ChannelFrame with operation {operation_name} added to graph")
-        return self._create_new_instance(
-            data=processed_data,
-            metadata=new_metadata,
-            operation_history=new_history,
-        )
-
-    def _binary_op(
-        self,
-        other: (SpectralFrame | int | float | complex | NDArrayComplex | NDArrayReal | DaArray),
-        op: Callable[[DaArray, Any], DaArray],
-        symbol: str,
-    ) -> SpectralFrame:
-        """
-        Common implementation for binary operations.
-
-        This method handles binary operations between SpectralFrames and various types
-        of operands, maintaining lazy evaluation through dask arrays.
-
-        Parameters
-        ----------
-        other : Union[SpectralFrame, int, float, complex,
-                        NDArrayComplex, NDArrayReal, DaArray]
-            The right operand of the operation.
-        op : callable
-            Function to execute the operation (e.g., lambda a, b: a + b)
-        symbol : str
-            String representation of the operation (e.g., '+')
-
-        Returns
-        -------
-        SpectralFrame
-            A new SpectralFrame containing the result of the operation.
-
-        Raises
-        ------
-        ValueError
-            If attempting to operate with a SpectralFrame
-            with a different sampling rate.
-        """
-        logger.debug(f"Setting up {symbol} operation (lazy)")
-
-        # Handle potentially None metadata and operation_history
-        metadata: FrameMetadata = self.metadata.copy() if self.metadata is not None else FrameMetadata()
-
-        operation_history = []
-        if self.operation_history is not None:
-            operation_history = self.operation_history.copy()
-
-        # Check if other is a ChannelFrame - improved type checking
-        if isinstance(other, SpectralFrame):
-            if self.sampling_rate != other.sampling_rate:
-                raise ValueError("Sampling rates do not match. Cannot perform operation.")
-
-            # Directly operate on dask arrays (maintaining lazy execution)
-            result_data = op(self._data, other._data)
-
-            # Combine channel metadata
-            merged_channel_metadata = []
-            for self_ch, other_ch in zip(self._channel_metadata, other._channel_metadata):
-                ch = self_ch.model_copy(deep=True)
-                ch["label"] = f"({self_ch['label']} {symbol} {other_ch['label']})"
-                merged_channel_metadata.append(ch)
-
-            operation_history.append({"operation": symbol, "with": other.label})
-
-            return SpectralFrame(
-                data=result_data,
-                sampling_rate=self.sampling_rate,
-                n_fft=self.n_fft,
-                window=self.window,
-                label=f"({self.label} {symbol} {other.label})",
-                metadata=metadata,
-                operation_history=operation_history,
-                channel_metadata=merged_channel_metadata,
-                previous=self,
-            )
-
-        # Operation with scalar, NumPy array, or other types
-        else:
-            # Apply operation directly to dask array (maintaining lazy execution)
-            result_data = op(self._data, other)
-
-            # String representation of operand for display
-            if isinstance(other, int | float):
-                other_str = str(other)
-            elif isinstance(other, complex):
-                other_str = f"complex({other.real}, {other.imag})"
-            elif isinstance(other, np.ndarray):
-                other_str = f"ndarray{other.shape}"
-            elif hasattr(other, "shape"):  # Check for dask.array.Array
-                other_str = f"dask.array{other.shape}"
-            else:
-                other_str = str(type(other).__name__)
-
-            # Update channel metadata
-            updated_channel_metadata: list[ChannelMetadata] = []
-            for self_ch in self._channel_metadata:
-                ch = self_ch.model_copy(deep=True)
-                ch["label"] = f"({self_ch.label} {symbol} {other_str})"
-                updated_channel_metadata.append(ch)
-
-            operation_history.append({"operation": symbol, "with": other_str})
-
-            return SpectralFrame(
-                data=result_data,
-                sampling_rate=self.sampling_rate,
-                n_fft=self.n_fft,
-                window=self.window,
-                label=f"({self.label} {symbol} {other_str})",
-                metadata=metadata,
-                operation_history=operation_history,
-                channel_metadata=updated_channel_metadata,
-            )
 
     def plot(
         self,

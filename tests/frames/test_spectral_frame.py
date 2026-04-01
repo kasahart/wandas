@@ -81,8 +81,7 @@ class TestSpectralFrame:
         # Create 1D complex data
         shape_1d: tuple[int] = (self.n_fft // 2 + 1,)
         complex_data_1d: NDArrayComplex = create_complex_data(shape_1d)
-        # reshape 1D to (1, n_freqs) and use channel-wise chunking
-        data_1d: DaArray = _da_from_array(complex_data_1d.reshape(1, -1), chunks=(1, -1))
+        data_1d: DaArray = _da_from_array(complex_data_1d, chunks=(-1,))
 
         # Create frame with 1D data
         frame_1d: SpectralFrame = SpectralFrame(data=data_1d, sampling_rate=self.sampling_rate, n_fft=self.n_fft)
@@ -404,7 +403,7 @@ class TestSpectralFrame:
             window=self.window,
         )
 
-        with pytest.raises(ValueError, match="Sampling rates do not match. Cannot perform operation."):
+        with pytest.raises(ValueError, match=r"Sampling rate mismatch"):
 
             def add_op(a: Any, b: Any) -> Any:
                 return a + b
