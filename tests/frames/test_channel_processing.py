@@ -6,6 +6,7 @@ import pytest
 from dask.array.core import Array as DaArray
 
 from wandas.frames.channel import ChannelFrame, ChannelMetadata
+from wandas.frames.spectral import SpectralFrame
 
 _da_from_array = da.from_array  # type: ignore [unused-ignore]
 
@@ -186,6 +187,61 @@ class TestChannelProcessing:
                 process_with_sr,
                 output_shape_func=lambda shape: shape,
                 sampling_rate=frame.sampling_rate,
+            )
+
+    def test_apply_domain_transition_returns_requested_frame(self) -> None:
+        """apply() should support domain transitions with output_frame_class."""
+
+        def rfft_transform(x: np.ndarray) -> np.ndarray:
+            return np.fft.rfft(x, axis=-1)
+
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            metadata={"source": "test"},
+            channel_metadata=[{"label": "sig0", "unit": "V", "extra": {}}, {"label": "sig1", "unit": "V", "extra": {}}],
+            label="time_signal",
+        )
+
+        result = frame.apply(
+            rfft_transform,
+            output_shape_func=lambda shape: (shape[0], shape[1] // 2 + 1),
+            output_frame_class=SpectralFrame,
+            output_frame_kwargs={"n_fft": self.data.shape[1], "window": "hann"},
+        )
+
+        assert isinstance(result, SpectralFrame)
+        assert result.previous is frame
+        assert result.sampling_rate == frame.sampling_rate
+        assert result.n_fft == self.data.shape[1]
+        assert result.window == "hann"
+        assert result.label == frame.label
+        assert result.labels == ["rfft_transform(sig0)", "rfft_transform(sig1)"]
+        assert result.metadata == {"source": "test", "custom": {}}
+        assert result.operation_history[-1] == {"operation": "custom", "params": {}}
+        assert result.shape == (2, self.data.shape[1] // 2 + 1)
+
+        computed = result.compute()
+        expected = np.fft.rfft(self.data, axis=-1)
+        np.testing.assert_allclose(computed, expected)
+
+    def test_apply_domain_transition_rejects_invalid_output_frame_class(self) -> None:
+        """apply() should raise a targeted error for invalid output_frame_class."""
+
+        def identity(x: np.ndarray) -> np.ndarray:
+            return x
+
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "sig", "unit": "", "extra": {}}],
+        )
+
+        with pytest.raises(TypeError, match=r"Invalid output_frame_class"):
+            frame.apply(
+                identity,
+                output_shape_func=lambda shape: shape,
+                output_frame_class=dict,
             )
 
     def test_a_weighting(self) -> None:

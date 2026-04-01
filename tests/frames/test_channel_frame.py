@@ -769,6 +769,24 @@ def test_describe_plot_return_type_error() -> None:
         with pytest.raises(ValueError, match=r"Sampling rate mismatch"):
             _ = self.channel_frame + other_cf
 
+    def test_binary_op_with_mismatched_channel_count_raises_error(self) -> None:
+        """Frame-frame binary ops should reject mismatched channel counts."""
+        other_data = np.random.default_rng(42).random((1, 16000))
+        other_dask_data = _da_from_array(other_data, chunks=(1, 4000))
+        other_cf = ChannelFrame(other_dask_data, self.sample_rate, label="mono_audio")
+
+        with pytest.raises(ValueError, match=r"Channel count mismatch"):
+            _ = self.channel_frame + other_cf
+
+    def test_binary_op_with_mismatched_shape_raises_error(self) -> None:
+        """Frame-frame binary ops should reject shape broadcasting."""
+        other_data = np.random.default_rng(42).random((2, 1))
+        other_dask_data = _da_from_array(other_data, chunks=(1, 1))
+        other_cf = ChannelFrame(other_dask_data, self.sample_rate, label="short_audio")
+
+        with pytest.raises(ValueError, match=r"Frame shape mismatch"):
+            _ = self.channel_frame + other_cf
+
     def test_add_method(self) -> None:
         """Test add method for adding signals."""
         # 通常の加算をテスト

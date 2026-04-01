@@ -3,7 +3,6 @@ from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any, Optional, Union, cast
 
 import dask.array as da
-import librosa
 import numpy as np
 import pandas as pd
 from dask.array.core import Array as DaArray
@@ -147,79 +146,6 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_metadata=channel_metadata,
             previous=previous,
         )
-
-    @property
-    def magnitude(self) -> NDArrayReal:
-        """
-        Get the magnitude spectrogram.
-
-        Returns
-        -------
-        NDArrayReal
-            The absolute values of the complex spectrogram.
-        """
-        return np.abs(self.data)
-
-    @property
-    def phase(self) -> NDArrayReal:
-        """
-        Get the phase spectrogram.
-
-        Returns
-        -------
-        NDArrayReal
-            The phase angles of the complex spectrogram in radians.
-        """
-        return np.angle(self.data)
-
-    @property
-    def power(self) -> NDArrayReal:
-        """
-        Get the power spectrogram.
-
-        Returns
-        -------
-        NDArrayReal
-            The squared magnitude of the complex spectrogram.
-        """
-        return np.abs(self.data) ** 2
-
-    @property
-    def dB(self) -> NDArrayReal:  # noqa: N802
-        """
-        Get the spectrogram in decibels relative to each channel's reference value.
-
-        The reference value for each channel is specified in its metadata.
-        A minimum value of -120 dB is enforced to avoid numerical issues.
-
-        Returns
-        -------
-        NDArrayReal
-            The spectrogram in decibels.
-        """
-        # dB規定値を_channel_metadataから収集
-        ref = np.array([ch.ref for ch in self._channel_metadata])
-        # dB変換
-        # 0除算を避けるために、最大値と1e-12のいずれかを使用
-        level: NDArrayReal = 20 * np.log10(np.maximum(self.magnitude / ref[..., np.newaxis, np.newaxis], 1e-12))
-        return level
-
-    @property
-    def dBA(self) -> NDArrayReal:  # noqa: N802
-        """
-        Get the A-weighted spectrogram in decibels.
-
-        A-weighting applies a frequency-dependent weighting filter that approximates
-        the human ear's response. This is particularly useful for analyzing noise
-        and acoustic measurements.
-
-        Returns
-        -------
-        NDArrayReal
-            The A-weighted spectrogram in decibels.
-        """
-        weighted: NDArrayReal = librosa.A_weighting(frequencies=self.freqs, min_db=None)
-        return self.dB + weighted[:, np.newaxis]  # 周波数軸に沿ってブロードキャスト
 
     @property
     def _n_channels(self) -> int:

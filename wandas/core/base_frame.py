@@ -749,6 +749,25 @@ class BaseFrame(ABC, Generic[T]):
                     f"Resample one frame to match the other before performing "
                     f"{symbol} operation."
                 )
+            if self.n_channels != other.n_channels:
+                raise ValueError(
+                    f"Channel count mismatch\n"
+                    f"  Left operand: {self.n_channels} channels\n"
+                    f"  Right operand: {other.n_channels} channels\n"
+                    f"Binary frame operations require matching channel counts to keep "
+                    f"channel metadata aligned.\n"
+                    f"Select, duplicate, or remove channels so both operands match "
+                    f"before performing {symbol} operation."
+                )
+            if self.shape != other.shape:
+                raise ValueError(
+                    f"Frame shape mismatch\n"
+                    f"  Left operand: {self.shape}\n"
+                    f"  Right operand: {other.shape}\n"
+                    f"Binary frame operations require identical shapes to avoid "
+                    f"unintended broadcasting.\n"
+                    f"Align the frame shapes before performing {symbol} operation."
+                )
 
             result_data = op(self._data, other._data)
 
@@ -912,6 +931,15 @@ class BaseFrame(ABC, Generic[T]):
         new_channel_metadata = self._relabel_channels(operation_name, display_name)
 
         if output_frame_class is not None:
+            if not isinstance(output_frame_class, type) or not issubclass(output_frame_class, BaseFrame):
+                raise TypeError(
+                    "Invalid output_frame_class\n"
+                    f"  Got: {output_frame_class!r}\n"
+                    f"  Expected: a BaseFrame subclass\n"
+                    f"Pass a compatible Wandas frame class such as "
+                    f"SpectralFrame or SpectrogramFrame."
+                )
+
             # Domain transition: build a different frame type
             kw: dict[str, Any] = {
                 "data": processed_data,
@@ -925,7 +953,18 @@ class BaseFrame(ABC, Generic[T]):
             kw.update(metadata_updates)
             if output_frame_kwargs:
                 kw.update(output_frame_kwargs)
-            return cast(S, output_frame_class(**kw))
+            try:
+                return cast(S, output_frame_class(**kw))
+            except TypeError as exc:
+                provided_kwargs = ", ".join(sorted(kw)) or "none"
+                raise TypeError(
+                    "Invalid output_frame_class constructor\n"
+                    f"  Frame class: {output_frame_class.__name__}\n"
+                    f"  Provided keyword arguments: {provided_kwargs}\n"
+                    f"Ensure output_frame_class accepts these parameters and "
+                    f"use output_frame_kwargs to supply any required "
+                    f"domain-specific constructor arguments."
+                ) from exc
 
         creation_params: dict[str, Any] = {
             "data": processed_data,
