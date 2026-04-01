@@ -87,7 +87,7 @@ class TestChannelFrameCollection:
         arr = np.arange(8)
         cf = ChannelFrame.from_numpy(arr, sampling_rate=1000, ch_labels=["A"])
         with pytest.raises(TypeError):
-            cf.add_channel("not_array")
+            cf.add_channel("not_array")  # ty: ignore[invalid-argument-type]
 
     def test_remove_channel_index(self):
         arr = np.arange(16).reshape(2, 8)

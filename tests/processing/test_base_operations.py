@@ -14,7 +14,7 @@ from wandas.processing.base import (
 )
 from wandas.utils.types import NDArrayReal
 
-_da_from_array = da.from_array  # type: ignore [unused-ignore]
+_da_from_array = da.from_array
 
 
 class TestOperationRegistry:
@@ -60,7 +60,7 @@ class TestOperationRegistry:
             pass
 
         with pytest.raises(TypeError, match="Strategy class must inherit from AudioOperation."):
-            register_operation(InvalidClass)  # type: ignore [unused-ignore]
+            register_operation(InvalidClass)
 
     def test_create_operation_with_different_types(self) -> None:
         """Test creating operations of different types."""

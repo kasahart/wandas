@@ -225,7 +225,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
 
     def _binary_op(
         self: S,
-        other: S | float | NDArrayReal | DaArray,
+        other: S | complex | NDArrayReal | DaArray,
         op: Callable[[DaArray, Any], DaArray],
         symbol: str,
     ) -> S:

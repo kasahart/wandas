@@ -258,7 +258,7 @@ class CSVFileReader(FileReader):
             estimated_sr = 0  # Default if can't calculate
 
         frames = df.shape[0]
-        duration = frames / estimated_sr if estimated_sr > 0 else None
+        duration = frames / estimated_sr if estimated_sr else None
 
         # Return file info
         return {

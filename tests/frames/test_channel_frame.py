@@ -2,7 +2,7 @@ import io
 import os
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO, cast
 from unittest import mock
 
 import dask.array as da
@@ -18,7 +18,7 @@ from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.utils.types import NDArrayReal
 
-_da_from_array = da.from_array  # type: ignore [unused-ignore]
+_da_from_array = da.from_array
 
 
 class TestChannelFrame:
@@ -435,7 +435,7 @@ def test_add_channel_inplace_updates_original() -> None:
 def test_add_channel_unsupported_type_raises() -> None:
     base = ChannelFrame(data=_da_from_array(np.zeros((1, 4)), chunks=(1, -1)), sampling_rate=16000)
     with pytest.raises(TypeError, match=r"add_channel: ndarray/dask/ChannelFrame"):
-        base.add_channel(12345)  # unsupported type
+        base.add_channel(12345)  # unsupported type  # ty: ignore[invalid-argument-type]
 
 
 def test_add_channel_with_channelframe_align_pad_and_truncate() -> None:
@@ -643,7 +643,7 @@ def test_describe_plot_return_type_error() -> None:
 
         # Test invalid list content (mixed types)
         with pytest.raises(TypeError, match="List must contain all str or all int"):
-            _ = self.channel_frame[[0, "ch1"]]  # type: ignore
+            _ = self.channel_frame[[0, "ch1"]]  # ty: ignore[arg-type]  # intentional mixed-type list for negative test
 
     def test_label_list_indexing(self) -> None:
         """Test list of labels indexing."""
@@ -1022,7 +1022,7 @@ def test_describe_plot_return_type_error() -> None:
                     TypeError,
                     match="channel must be int, list, or None",
                 ):
-                    ChannelFrame.from_file(temp_filename, channel="invalid")  # type: ignore
+                    ChannelFrame.from_file(temp_filename, channel="invalid")  # ty: ignore[invalid-argument-type]
 
                 # Test file not found
                 with pytest.raises(FileNotFoundError):
@@ -1334,26 +1334,20 @@ class TestDescribeIntegration:
 
     def test_describe_integration_typeddict_params(self) -> None:
         """Test describe() using TypedDict configuration."""
-        from wandas.visualization.types import DescribeParams
-
-        # Create configuration using TypedDict
-        config: DescribeParams = {
-            "fmin": 100,
-            "fmax": 5000,
-            "cmap": "viridis",
-            "Aw": True,
-            "vmin": -80,
-            "vmax": -20,
-            "normalize": False,
-        }
-
         with (
             mock.patch("wandas.frames.channel.display"),
             mock.patch("wandas.frames.channel.Audio"),
             mock.patch("matplotlib.pyplot.close"),
         ):
-            # Expand TypedDict as kwargs
-            self.channel_frame.describe(**config)
+            self.channel_frame.describe(
+                fmin=100,
+                fmax=5000,
+                cmap="viridis",
+                Aw=True,
+                vmin=-80,
+                vmax=-20,
+                normalize=False,
+            )
 
     def test_describe_integration_plot_is_created(self) -> None:
         """Test that describe() actually creates plots."""
@@ -1527,7 +1521,7 @@ class TestDescribeIntegration:
         stream = NonSeekableStream(wav_bytes, name="memory/sample.wav")
 
         cf = ChannelFrame.from_file(
-            stream,
+            cast(BinaryIO, stream),
             file_type="wav",
             source_name="source.wav",
         )
@@ -1921,7 +1915,7 @@ class TestBaseFrameExceptionHandling:
     def test_getitem_mixed_type_list_error(self) -> None:
         """混合型のリストでインデックスするとTypeErrorが発生することをテスト"""
         with pytest.raises(TypeError, match="List must contain all str or all int"):
-            _ = self.channel_frame[[0, "ch1"]]  # type: ignore
+            _ = self.channel_frame[[0, "ch1"]]  # ty: ignore[invalid-argument-type]
 
     def test_getitem_invalid_numpy_dtype_error(self) -> None:
         """無効なdtypeのNumPy配列でIndexErrorが発生することをテスト"""
@@ -1940,7 +1934,7 @@ class TestBaseFrameExceptionHandling:
         """多次元インデックスで無効なチャネルキー型のテスト"""
         # 浮動小数点数は無効なチャネルキー
         with pytest.raises(TypeError, match="Invalid channel key type in tuple"):
-            _ = self.channel_frame[1.5, :]  # type: ignore
+            _ = self.channel_frame[1.5, :]  # ty: ignore[invalid-argument-type]
 
     def test_label2index_key_error(self) -> None:
         """存在しないラベルでKeyErrorが発生することをテスト"""
@@ -1960,7 +1954,7 @@ class TestBaseFrameExceptionHandling:
         with pytest.raises(TypeError, match="Label must be a string"):
             self.channel_frame._create_new_instance(
                 data=self.dask_data,
-                label=123,  # type: ignore
+                label=123,
             )
 
     def test_create_new_instance_invalid_metadata_type(self) -> None:
@@ -1968,7 +1962,7 @@ class TestBaseFrameExceptionHandling:
         with pytest.raises(TypeError, match="Metadata must be a dictionary"):
             self.channel_frame._create_new_instance(
                 data=self.dask_data,
-                metadata="invalid",  # type: ignore
+                metadata="invalid",
             )
 
     def test_create_new_instance_invalid_channel_metadata_type(self) -> None:
@@ -1976,7 +1970,7 @@ class TestBaseFrameExceptionHandling:
         with pytest.raises(TypeError, match="Channel metadata must be a list"):
             self.channel_frame._create_new_instance(
                 data=self.dask_data,
-                channel_metadata="invalid",  # type: ignore
+                channel_metadata="invalid",
             )
 
     def test_compute_non_ndarray_result(self) -> None:
@@ -2358,11 +2352,11 @@ class TestChannelFrameAdditionEdgeCases:
         # Try to add with SNR using an invalid type (e.g., string)
         # This should trigger line 369
         with pytest.raises(TypeError, match="Addition target with SNR must be a ChannelFrame or"):
-            signal.add(other="invalid", snr=10.0)  # type: ignore
+            signal.add(other="invalid", snr=10.0)  # ty: ignore[invalid-argument-type]
 
         # Try with a list (also invalid)
         with pytest.raises(TypeError, match="Addition target with SNR must be a ChannelFrame or"):
-            signal.add(other=[1, 2, 3], snr=10.0)  # type: ignore
+            signal.add(other=[1, 2, 3], snr=10.0)  # ty: ignore[invalid-argument-type]
 
     def test_add_fallback_to_type_name(self) -> None:
         """Test addition with unrecognized type shows type name."""

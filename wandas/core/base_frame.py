@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
     VisualizeReturnType: TypeAlias = IPythonImage | None
 else:
-    # Use Any at runtime to avoid mypy errors
+    # Use Any at runtime to avoid type checker errors
     VisualizeReturnType = Any
 
 logger = logging.getLogger(__name__)
@@ -113,7 +113,7 @@ class BaseFrame(ABC, Generic[T]):
         except Exception as e:
             # Fall back to previous behavior if Dask rechunk fails.
             logger.warning(f"Rechunk failed: {e!r}. Falling back to chunks=-1.")
-            self._data = data.rechunk(chunks=-1)  # type: ignore [unused-ignore]
+            self._data = data.rechunk(chunks=-1)
 
         self.sampling_rate = sampling_rate
         self.label = label or "unnamed_frame"
@@ -394,11 +394,11 @@ class BaseFrame(ABC, Generic[T]):
                     raise ValueError(
                         f"Boolean mask length {len(key)} does not match number of channels {self.n_channels}"
                     )
-                indices = np.where(key)[0]
+                indices = np.where(cast(npt.NDArray[np.bool_], key))[0]
                 return self.get_channel(indices)
             if np.issubdtype(key.dtype, np.integer):
                 # Integer array
-                return self.get_channel(key)
+                return self.get_channel(cast(npt.NDArray[np.int_], key))
             raise TypeError(f"NumPy array must be of integer or boolean type, got {key.dtype}")
 
         # Phase 1: List support (int or str)
@@ -408,7 +408,7 @@ class BaseFrame(ABC, Generic[T]):
 
             # Check if all elements are strings
             if all(isinstance(k, str) for k in key):
-                # Multiple labels - type narrowing for mypy
+                # Multiple labels - type narrowing for type checker
                 str_list = cast(list[str], key)
                 indices_from_labels = [self.label2index(label) for label in str_list]
                 return self.get_channel(indices_from_labels)
@@ -528,7 +528,7 @@ class BaseFrame(ABC, Generic[T]):
         """
         data = self.compute()
         if self.n_channels == 1:
-            return data.squeeze(axis=0)
+            return cast(T, data.squeeze(axis=0))
         return data
 
     @property

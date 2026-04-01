@@ -113,7 +113,7 @@ class ChannelProcessingMixin:
             **kwargs,
         )
 
-        # Explicitly cast to the generic processing frame type so mypy
+        # Explicitly cast to the generic processing frame type so the type checker
         # understands the returned value has the same frame type as `self`.
         return cast(
             T_Processing,
@@ -304,7 +304,7 @@ class ChannelProcessingMixin:
                 extra=reduced_extra,
             )
         ]
-        new_metadata, new_history = self._updated_metadata_and_history(op, {})  # type: ignore [call-arg]
+        new_metadata, new_history = self._updated_metadata_and_history(op, {})
         result = self._create_new_instance(
             data=reduced_data,
             metadata=new_metadata,

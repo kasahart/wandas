@@ -3,7 +3,7 @@ from typing import Any
 
 import numpy as np
 from dask.array.core import Array as DaArray
-from librosa import effects  # type: ignore[attr-defined]
+from librosa import effects
 from librosa import util as librosa_util
 from scipy.signal import windows as sp_windows
 

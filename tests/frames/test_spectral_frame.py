@@ -13,7 +13,7 @@ from wandas.frames.spectral import SpectralFrame
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 # Reference to dask array functions
-_da_from_array = da.from_array  # type: ignore [unused-ignore]
+_da_from_array = da.from_array
 
 
 # Helper function to create complex test data
@@ -254,11 +254,10 @@ class TestSpectralFrame:
             return a
 
         symbol: str = "~"
-        # type: ignore to test runtime behavior with unexpected types
         result: SpectralFrame = self.frame._binary_op(
-            custom_obj,
+            custom_obj,  # ty: ignore[invalid-argument-type]
             identity_op,
-            symbol,  # type: ignore[arg-type]
+            symbol,
         )
 
         assert isinstance(result, SpectralFrame)
@@ -602,6 +601,7 @@ class TestSpectralFrame:
         assert "Frequency resolution (ΔF):" in output
 
         # 理論値との比較
+        assert self.frame.n_fft is not None
         expected_delta_f = self.frame.sampling_rate / self.frame.n_fft
         assert f"{expected_delta_f:.1f} Hz" in output
 
@@ -641,6 +641,7 @@ class TestSpectralFrame:
         output = captured_output.getvalue()
 
         # 理論値の計算
+        assert self.frame.n_fft is not None
         delta_f = self.frame.sampling_rate / self.frame.n_fft
 
         # 出力に理論値が含まれることを確認

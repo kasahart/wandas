@@ -559,7 +559,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
                     f"Resampling file {file_path.name} ({frame.sampling_rate} Hz) to "
                     f"dataset rate ({self.sampling_rate} Hz)."
                 )
-                frame = frame.resampling(target_sr=self.sampling_rate)  # type: ignore [misc]
+                frame = frame.resampling(target_sr=self.sampling_rate)
             return frame
         except Exception as e:
             logger.error(f"Failed to load or initialize file {file_path}: {e!s}")
@@ -572,7 +572,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
             if frame is None:
                 return None
             try:
-                return frame.resampling(target_sr=target_sr)  # type: ignore [misc]
+                return frame.resampling(target_sr=target_sr)
             except Exception as e:
                 logger.warning(f"Resampling error (target_sr={target_sr}): {e}")
                 return None
@@ -587,7 +587,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
             if frame is None:
                 return None
             try:
-                return frame.trim(start=start, end=end)  # type: ignore [misc]
+                return frame.trim(start=start, end=end)
             except Exception as e:
                 logger.warning(f"Trimming error (start={start}, end={end}): {e}")
                 return None
@@ -602,7 +602,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
             if frame is None:
                 return None
             try:
-                return frame.normalize(**kwargs)  # type: ignore [misc]
+                return frame.normalize(**kwargs)
             except Exception as e:
                 logger.warning(f"Normalization error ({kwargs}): {e}")
                 return None

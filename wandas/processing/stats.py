@@ -28,7 +28,7 @@ class ABS(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def process(self, data: DaArray) -> DaArray:
         # Use Dask's aggregate function directly without map_blocks
-        return da.abs(data)  # type: ignore [unused-ignore]
+        return da.abs(data)
 
 
 class Power(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -53,7 +53,7 @@ class Power(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def process(self, data: DaArray) -> DaArray:
         # Use Dask's aggregate function directly without map_blocks
-        return da.power(data, self.exp)  # type: ignore [unused-ignore]
+        return da.power(data, self.exp)
 
 
 class Sum(AudioOperation[NDArrayReal, NDArrayReal]):

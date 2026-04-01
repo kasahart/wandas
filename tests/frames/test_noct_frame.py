@@ -12,7 +12,7 @@ from wandas.frames.noct import NOctFrame, _center_freq
 from wandas.utils.types import NDArrayReal
 
 # Reference to dask array functions
-_da_from_array = da.from_array  # type: ignore [unused-ignore]
+_da_from_array = da.from_array
 
 
 # Helper function to create test data

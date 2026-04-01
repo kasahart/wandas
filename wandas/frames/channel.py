@@ -29,8 +29,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-dask_delayed = dask.delayed  # type: ignore [unused-ignore]
-da_from_delayed = da.from_delayed  # type: ignore [unused-ignore]
+dask_delayed = dask.delayed
+da_from_delayed = da.from_delayed
 
 
 S = TypeVar("S", bound="BaseFrame[Any]")
@@ -467,7 +467,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 )
 
         elif isinstance(other, np.ndarray):
-            other = ChannelFrame.from_numpy(other, self.sampling_rate, label="array_data")
+            other = ChannelFrame.from_numpy(cast(NDArrayReal, other), self.sampling_rate, label="array_data")
         elif isinstance(other, int | float):
             return self + other
         else:
@@ -475,7 +475,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         # If SNR is specified, adjust the length of the other signal
         if other.duration != self.duration:
-            other = other.fix_length(length=self.n_samples)  # type: ignore [misc]
+            other = other.fix_length(length=self.n_samples)
 
         if snr is None:
             return self + other
@@ -587,7 +587,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         """
         kwargs = kwargs or {}
         ylabel = kwargs.pop("ylabel", "RMS")
-        rms_ch: ChannelFrame = self.rms_trend(Aw=Aw, dB=True)  # type: ignore [misc]
+        rms_ch: ChannelFrame = self.rms_trend(Aw=Aw, dB=True)
         return rms_ch.plot(ax=ax, ylabel=ylabel, title=title, overlay=overlay, **kwargs)
 
     @staticmethod
@@ -727,12 +727,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         figures: list[Figure] = []
 
         for ch_idx, ch in enumerate(self):
-            ax: Axes
             _ax = ch.plot("describe", title=f"{ch.label} {ch.labels[0]}", **plot_kwargs)
-            if isinstance(_ax, Iterator):
-                ax = next(iter(_ax))
-            elif isinstance(_ax, Axes):
+            if isinstance(_ax, Axes):
                 ax = _ax
+            elif isinstance(_ax, Iterator):
+                ax = cast(Axes, next(_ax))
             else:
                 raise TypeError(f"Unexpected type for plot result: {type(_ax)}. Expected Axes or Iterator[Axes].")
             # Extract figure from axes (existing pattern)

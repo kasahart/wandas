@@ -22,12 +22,12 @@ from wandas.utils.frame_dataset import (
 )
 from wandas.utils.types import NDArrayReal
 
-_da_from_array = da.from_array  # type: ignore [unused-ignore]
+_da_from_array = da.from_array
 
 # --- Test Fixtures ---
 
 
-@pytest.fixture  # type: ignore [misc, unused-ignore]
+@pytest.fixture
 def sample_wav_data() -> tuple[int, NDArrayReal]:
     """Generate sample WAV data."""
     sampling_rate = 16000
@@ -38,7 +38,7 @@ def sample_wav_data() -> tuple[int, NDArrayReal]:
     return sampling_rate, data
 
 
-@pytest.fixture  # type: ignore [misc, unused-ignore]
+@pytest.fixture
 def sample_csv_data() -> tuple[int, pd.DataFrame]:
     """Generate sample CSV data."""
     sampling_rate = 100
@@ -51,7 +51,7 @@ def sample_csv_data() -> tuple[int, pd.DataFrame]:
     return sampling_rate, df
 
 
-@pytest.fixture  # type: ignore [misc, unused-ignore]
+@pytest.fixture
 def create_test_files(
     tmp_path: Path,
     sample_wav_data: tuple[int, NDArrayReal],
@@ -174,7 +174,7 @@ class TestFrameDatasetABC:
     def test_frame_dataset_cannot_instantiate(self) -> None:
         """Verify FrameDataset ABC cannot be instantiated directly."""
         with pytest.raises(TypeError, match="Can't instantiate abstract class"):
-            FrameDataset("/some/path")  # type: ignore [abstract]  # 抽象クラスは直接インスタンス化できない
+            FrameDataset("/some/path")  # 抽象クラスは直接インスタンス化できない
 
     def test_abstract_methods_must_be_implemented(self, tmp_path: Path) -> None:
         """Test that abstract methods must be implemented in subclasses."""
@@ -185,7 +185,7 @@ class TestFrameDatasetABC:
 
         # Pythonのバージョンによって例外メッセージが違うので、部分一致で確認
         with pytest.raises(TypeError, match="abstract class"):
-            IncompleteFrameDataset(str(tmp_path))  # type: ignore [abstract]
+            IncompleteFrameDataset(str(tmp_path))
 
         # テスト用のサブクラスを作成し、抽象メソッドを実装
         class MinimalFrameDataset(FrameDataset[ChannelFrame]):
@@ -583,17 +583,17 @@ class TestChannelFrameDataset:
         # Sample default (10% or min 1)
         sampled_def = dataset.sample(seed=42)
         assert len(sampled_def) == max(1, int(n_total * 0.1))
-        assert sampled_def._original_dataset is dataset  # type: ignore[attr-defined]
+        assert sampled_def._original_dataset is dataset
 
         # Sample all
         sampled_all = dataset.sample(n=n_total)
         assert len(sampled_all) == n_total
-        assert sampled_all._original_dataset is dataset  # type: ignore[attr-defined]
+        assert sampled_all._original_dataset is dataset
 
         # Sample more than available
         sampled_more = dataset.sample(n=n_total + 1)
         assert len(sampled_more) == n_total
-        assert sampled_more._original_dataset is dataset  # type: ignore[attr-defined]
+        assert sampled_more._original_dataset is dataset
 
         # Sample from empty dataset
         empty_ds = ChannelFrameDataset(str(folder_path / "empty_subdir"), lazy_loading=True)
@@ -606,7 +606,7 @@ class TestChannelFrameDataset:
         assert all(not lf.is_loaded for lf in sampled_lazy._lazy_frames)
 
         # Access item in sampled dataset
-        original_index = sampled_lazy._original_indices[0]  # type: ignore[attr-defined]
+        original_index = sampled_lazy._original_indices[0]
         original_frame = dataset[original_index]  # Ensure original is loaded
         sampled_frame = sampled_lazy[0]  # Trigger load via sampled dataset
         assert isinstance(sampled_frame, ChannelFrame)
@@ -938,7 +938,7 @@ class TestSampledFrameDataset:
         assert all(not lf.is_loaded for lf in transformed_sampled._lazy_frames)
 
         # 元のフレームを取得
-        original_index = sampled_ds._original_indices[0]  # type: ignore[attr-defined]
+        original_index = getattr(sampled_ds, "_original_indices")[0]
         original_frame = dataset[original_index]
 
         # サンプリングされたフレームを取得
@@ -1332,11 +1332,11 @@ class TestFrameDatasetGetItemTypeError:
 
         # Test with float key
         with pytest.raises(TypeError, match="Invalid key type.*float"):
-            _ = dataset[1.5]  # type: ignore [index]
+            _ = dataset[1.5]  # ty: ignore[invalid-argument-type]
 
         # Test with tuple key
         with pytest.raises(TypeError, match="Invalid key type.*tuple"):
-            _ = dataset[(0, 1)]  # type: ignore [index]
+            _ = dataset[(0, 1)]  # ty: ignore[invalid-argument-type]
 
 
 class TestFrameDatasetInitializeFromSourceEdgeCases:
@@ -1385,7 +1385,7 @@ class TestFrameDatasetLoadAllFilesErrorHandling:
         def _ensure_loaded_side_effect(self: ChannelFrameDataset, index: int) -> None:
             if index == 0:
                 raise RuntimeError("Simulated load error for index 0")
-            return original_ensure_loaded(self, index)
+            original_ensure_loaded(self, index)
 
         with patch.object(
             ChannelFrameDataset,
@@ -1554,10 +1554,10 @@ class TestGetMetadataExceptionHandling:
             """Test stub that deliberately raises on sampling_rate to trigger exception handling."""
 
             @property
-            def sampling_rate(self) -> float:  # type: ignore[override]
+            def sampling_rate(self) -> float:
                 raise RuntimeError("sampling_rate access failed")
 
-        dataset._lazy_frames[0].frame = BadFrame()  # type: ignore[assignment]
+        dataset._lazy_frames[0].frame = BadFrame()  # ty: ignore[invalid-assignment]
 
         with caplog.at_level(logging.WARNING, logger="wandas.utils.frame_dataset"):
             meta = dataset.get_metadata()
@@ -1751,13 +1751,13 @@ class TestGetMetadataExceptionPath:
                 self._base = base
 
             @property
-            def sampling_rate(self) -> float:  # type: ignore[override]
+            def sampling_rate(self) -> float:
                 raise RuntimeError("Failed to access sampling_rate")
 
-            def __getattr__(self, name: str):  # type: ignore[override]
+            def __getattr__(self, name: str):
                 return getattr(self._base, name)
 
-        dataset._lazy_frames[0].frame = FaultyFrame(real_frame)  # type: ignore[assignment]
+        dataset._lazy_frames[0].frame = FaultyFrame(real_frame)  # ty: ignore[invalid-assignment, invalid-argument-type]
 
         with caplog.at_level(logging.WARNING, logger="wandas.utils.frame_dataset"):
             meta = dataset.get_metadata()
@@ -1796,7 +1796,7 @@ class TestFrameDatasetLoadAllFilesEdgeCases:
         def _ensure_loaded_side_effect(self: ChannelFrameDataset, index: int) -> None:
             if index == 1:
                 raise RuntimeError("synthetic load error for testing")
-            return original_ensure_loaded(self, index)
+            original_ensure_loaded(self, index)
 
         with patch.object(
             ChannelFrameDataset,

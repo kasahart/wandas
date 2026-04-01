@@ -140,20 +140,7 @@ class _SteadyStateBase(AudioOperation[NDArrayReal, NDArrayReal]):
         return (n_channels, 1)
 
 
-class _LoudnessParamsMixin:
-    """Shared __init__ and validation for Zwicker loudness operations (time-varying & steady-state)."""
-
-    field_type: str
-
-    def _init_loudness_params(self, sampling_rate: float, field_type: str = "free") -> None:
-        self.field_type = field_type
-        super().__init__(sampling_rate, field_type=field_type)  # type: ignore[call-arg]
-
-    def validate_params(self) -> None:
-        _validate_field_type(self.field_type)
-
-
-class LoudnessZwtv(_LoudnessParamsMixin, _ZwickerTimeVaryingBase):
+class LoudnessZwtv(_ZwickerTimeVaryingBase):
     """
     Calculate time-varying loudness using Zwicker method (ISO 532-1:2017).
 
@@ -207,7 +194,11 @@ class LoudnessZwtv(_LoudnessParamsMixin, _ZwickerTimeVaryingBase):
     name = "loudness_zwtv"
 
     def __init__(self, sampling_rate: float, field_type: str = "free"):
-        self._init_loudness_params(sampling_rate, field_type)
+        self.field_type = field_type
+        super().__init__(sampling_rate, field_type=field_type)
+
+    def validate_params(self) -> None:
+        _validate_field_type(self.field_type)
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """
@@ -228,7 +219,7 @@ class LoudnessZwtv(_LoudnessParamsMixin, _ZwickerTimeVaryingBase):
 
         def _compute(ch: NDArrayReal) -> NDArrayReal:
             loudness_n, _, _, _ = loudness_zwtv_mosqito(ch, self.sampling_rate, field_type=self.field_type)
-            return loudness_n  # type: ignore [no-any-return]
+            return loudness_n
 
         return _process_per_channel(x, _compute)
 
@@ -237,7 +228,7 @@ class LoudnessZwtv(_LoudnessParamsMixin, _ZwickerTimeVaryingBase):
 _register_canonical(LoudnessZwtv)
 
 
-class LoudnessZwst(_LoudnessParamsMixin, _SteadyStateBase):
+class LoudnessZwst(_SteadyStateBase):
     """
     Calculate steady-state loudness using Zwicker method (ISO 532-1:2017).
 
@@ -294,7 +285,11 @@ class LoudnessZwst(_LoudnessParamsMixin, _SteadyStateBase):
     name = "loudness_zwst"
 
     def __init__(self, sampling_rate: float, field_type: str = "free"):
-        self._init_loudness_params(sampling_rate, field_type)
+        self.field_type = field_type
+        super().__init__(sampling_rate, field_type=field_type)
+
+    def validate_params(self) -> None:
+        _validate_field_type(self.field_type)
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """
@@ -575,22 +570,7 @@ class RoughnessDwSpec(_RoughnessBase):
 _register_canonical(RoughnessDwSpec)
 
 
-class _SharpnessParamsMixin:
-    """Shared __init__ and validation for sharpness operations (DIN time-varying & steady-state)."""
-
-    weighting: str
-    field_type: str
-
-    def _init_sharpness_params(self, sampling_rate: float, weighting: str = "din", field_type: str = "free") -> None:
-        self.weighting = weighting
-        self.field_type = field_type
-        super().__init__(sampling_rate, weighting=weighting, field_type=field_type)  # type: ignore[call-arg]
-
-    def validate_params(self) -> None:
-        _validate_sharpness_params(self.weighting, self.field_type)
-
-
-class SharpnessDin(_SharpnessParamsMixin, _ZwickerTimeVaryingBase):
+class SharpnessDin(_ZwickerTimeVaryingBase):
     """
     Calculate time-varying sharpness using DIN 45692 method.
 
@@ -654,7 +634,12 @@ class SharpnessDin(_SharpnessParamsMixin, _ZwickerTimeVaryingBase):
     name = "sharpness_din"
 
     def __init__(self, sampling_rate: float, weighting: str = "din", field_type: str = "free"):
-        self._init_sharpness_params(sampling_rate, weighting, field_type)
+        self.weighting = weighting
+        self.field_type = field_type
+        super().__init__(sampling_rate, weighting=weighting, field_type=field_type)
+
+    def validate_params(self) -> None:
+        _validate_sharpness_params(self.weighting, self.field_type)
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """
@@ -681,7 +666,7 @@ class SharpnessDin(_SharpnessParamsMixin, _ZwickerTimeVaryingBase):
                 field_type=self.field_type,
                 skip=0,
             )
-            return sharpness_s  # type: ignore [no-any-return]
+            return sharpness_s
 
         return _process_per_channel(x, _compute)
 
@@ -690,7 +675,7 @@ class SharpnessDin(_SharpnessParamsMixin, _ZwickerTimeVaryingBase):
 _register_canonical(SharpnessDin)
 
 
-class SharpnessDinSt(_SharpnessParamsMixin, _SteadyStateBase):
+class SharpnessDinSt(_SteadyStateBase):
     """
     Calculate steady-state sharpness using DIN 45692 method.
 
@@ -756,7 +741,12 @@ class SharpnessDinSt(_SharpnessParamsMixin, _SteadyStateBase):
     name = "sharpness_din_st"
 
     def __init__(self, sampling_rate: float, weighting: str = "din", field_type: str = "free"):
-        self._init_sharpness_params(sampling_rate, weighting, field_type)
+        self.weighting = weighting
+        self.field_type = field_type
+        super().__init__(sampling_rate, weighting=weighting, field_type=field_type)
+
+    def validate_params(self) -> None:
+        _validate_sharpness_params(self.weighting, self.field_type)
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """

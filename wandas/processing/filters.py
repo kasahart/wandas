@@ -61,7 +61,7 @@ class _ButterworthFilter(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def _setup_processor(self) -> None:
         normal_cutoff = self.cutoff / (0.5 * self.sampling_rate)
-        self.b, self.a = signal.butter(self.order, normal_cutoff, btype=self._btype)  # type: ignore [unused-ignore]
+        self.b, self.a = signal.butter(self.order, normal_cutoff, btype=self._btype)
         logger.debug(f"{self._display} filter coefficients calculated: b={self.b}, a={self.a}")
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
@@ -151,7 +151,7 @@ class BandPassFilter(_ButterworthFilter):
         high_normal_cutoff = self.high_cutoff / nyquist
 
         # Precompute and save filter coefficients
-        self.b, self.a = signal.butter(self.order, [low_normal_cutoff, high_normal_cutoff], btype="band")  # type: ignore [unused-ignore]
+        self.b, self.a = signal.butter(self.order, [low_normal_cutoff, high_normal_cutoff], btype="band")
         logger.debug(f"Bandpass filter coefficients calculated: b={self.b}, a={self.a}")
 
 

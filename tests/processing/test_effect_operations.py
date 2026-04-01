@@ -11,7 +11,7 @@ from wandas.processing.effects import (
 )
 from wandas.utils.types import NDArrayReal
 
-_da_from_array = da.from_array  # type: ignore [unused-ignore]
+_da_from_array = da.from_array
 
 
 class TestHpssHarmonic:
@@ -389,7 +389,7 @@ class TestNormalize:
         import pytest
 
         with pytest.raises(ValueError) as exc_info:
-            Normalize(sampling_rate=44100, norm="invalid")  # type: ignore[arg-type]
+            Normalize(sampling_rate=44100, norm="invalid")  # ty: ignore[invalid-argument-type]
 
         error_msg = str(exc_info.value)
         # Check WHAT

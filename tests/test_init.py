@@ -137,4 +137,4 @@ def test_channel_frame_dataset_attr() -> None:
 def test_unknown_attr_raises() -> None:
     """存在しない属性へのアクセスが AttributeError を送出することを確認"""
     with pytest.raises(AttributeError, match="has no attribute"):
-        _ = wandas.no_such_attribute  # type: ignore[attr-defined]
+        _ = wandas.no_such_attribute

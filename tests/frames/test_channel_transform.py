@@ -9,7 +9,7 @@ from wandas.frames.noct import NOctFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 
-_da_from_array = da.from_array  # type: ignore [unused-ignore]
+_da_from_array = da.from_array
 
 
 class TestChannelTransform:
