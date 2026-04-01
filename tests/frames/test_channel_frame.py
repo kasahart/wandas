@@ -643,7 +643,7 @@ def test_describe_plot_return_type_error() -> None:
 
         # Test invalid list content (mixed types)
         with pytest.raises(TypeError, match="List must contain all str or all int"):
-            _ = self.channel_frame[[0, "ch1"]]
+            _ = self.channel_frame[[0, "ch1"]]  # ty: ignore[arg-type]  # intentional mixed-type list for negative test
 
     def test_label_list_indexing(self) -> None:
         """Test list of labels indexing."""
