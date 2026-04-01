@@ -220,6 +220,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         xlim: tuple[float, float] | None = None,
         ylim: tuple[float, float] | None = None,
         Aw: bool = False,  # noqa: N803
+        overlay: bool = False,
         **kwargs: Any,
     ) -> "Axes | Iterator[Axes]":
         """
@@ -249,6 +250,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             Frequency axis limits as (min_freq, max_freq) in Hz.
         Aw : bool, default=False
             Whether to apply A-weighting to the spectrogram.
+        overlay : bool, default=False
+            Whether to overlay channels on a single axes.
         **kwargs : dict
             Additional keyword arguments passed to librosa.display.specshow().
 
@@ -292,7 +295,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             plot_kwargs["ylim"] = ylim
 
         # Execute plot
-        _ax = plot_strategy.plot(self, ax=ax, overlay=False, **plot_kwargs)
+        _ax = plot_strategy.plot(self, ax=ax, overlay=overlay, **plot_kwargs)
 
         logger.debug("Plot rendering complete")
 
