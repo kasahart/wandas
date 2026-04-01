@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 
+from wandas.core.metadata import FrameMetadata
 from wandas.frames.channel import ChannelFrame, ChannelMetadata
 from wandas.frames.spectral import SpectralFrame
 
@@ -195,10 +196,14 @@ class TestChannelProcessing:
         def rfft_transform(x: np.ndarray) -> np.ndarray:
             return np.fft.rfft(x, axis=-1)
 
+        metadata = FrameMetadata({"source": "test"}, source_file="input.wav")
+        operation_history = [{"operation": "normalize", "params": {"method": "peak"}}]
+
         frame = ChannelFrame(
             data=self.dask_data,
             sampling_rate=self.sample_rate,
-            metadata={"source": "test"},
+            metadata=metadata,
+            operation_history=operation_history,
             channel_metadata=[{"label": "sig0", "unit": "V", "extra": {}}, {"label": "sig1", "unit": "V", "extra": {}}],
             label="time_signal",
         )
@@ -216,9 +221,16 @@ class TestChannelProcessing:
         assert result.n_fft == self.data.shape[1]
         assert result.window == "hann"
         assert result.label == frame.label
+        assert frame.labels == ["sig0", "sig1"]
         assert result.labels == ["rfft_transform(sig0)", "rfft_transform(sig1)"]
         assert result.metadata == {"source": "test", "custom": {}}
-        assert result.operation_history[-1] == {"operation": "custom", "params": {}}
+        assert result.metadata.source_file == "input.wav"
+        assert frame.metadata.source_file == "input.wav"
+        assert frame.operation_history == operation_history
+        assert result.operation_history == [
+            {"operation": "normalize", "params": {"method": "peak"}},
+            {"operation": "custom", "params": {}},
+        ]
         assert result.shape == (2, self.data.shape[1] // 2 + 1)
 
         computed = result.compute()

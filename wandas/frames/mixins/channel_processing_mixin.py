@@ -2,13 +2,15 @@
 
 import logging
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Union, cast, overload
+from typing import TYPE_CHECKING, Any, TypeVar, Union, cast, overload
 
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.roughness import RoughnessFrame
 from wandas.processing import create_operation
 
 from .protocols import ProcessingFrameProtocol, T_Processing
+
+T_OutputFrame = TypeVar("T_OutputFrame")
 
 if TYPE_CHECKING:
     from librosa._typing import (
@@ -42,23 +44,23 @@ class ChannelProcessingMixin:
         **kwargs: Any,
     ) -> T_Processing: ...
 
-    # Overload 2: domain transition — output_frame_class determines the actual
-    # type at runtime, so Any is the narrowest sound annotation we can give here.
+    # Overload 2: domain transition — output_frame_class determines the return
+    # type statically via T_OutputFrame.
     @overload
     def apply(
         self: T_Processing,
         func: Callable[..., Any],
         output_shape_func: Callable[[tuple[int, ...]], tuple[int, ...]] | None = ...,
-        output_frame_class: type = ...,
+        output_frame_class: type[T_OutputFrame] = ...,
         output_frame_kwargs: dict[str, Any] | None = ...,
         **kwargs: Any,
-    ) -> Any: ...
+    ) -> T_OutputFrame: ...
 
     def apply(
         self: T_Processing,
         func: Callable[..., Any],
         output_shape_func: Callable[[tuple[int, ...]], tuple[int, ...]] | None = None,
-        output_frame_class: type | None = None,
+        output_frame_class: type[T_OutputFrame] | None = None,
         output_frame_kwargs: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> Any:
