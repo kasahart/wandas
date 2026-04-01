@@ -4,6 +4,7 @@ import dask.array as da
 import numpy as np
 from dask.array.core import Array as DaArray
 
+from wandas.frames.cepstral import CepstralFrame
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.noct import NOctFrame
 from wandas.frames.spectral import SpectralFrame
@@ -51,6 +52,35 @@ class TestChannelTransform:
             assert isinstance(result, SpectralFrame)
             assert result.n_fft == 4096
             assert result.window == "hann"
+            assert result.previous is self.channel_frame
+
+    def test_cepstrum_transform(self) -> None:
+        """Test cepstrum method for lazy transformation to quefrency domain."""
+        from wandas.processing import Cepstrum
+
+        with mock.patch("wandas.processing.create_operation") as mock_create_op:
+            mock_cepstrum = mock.MagicMock(spec=Cepstrum)
+            mock_data = mock.MagicMock(spec=DaArray)
+            mock_data.ndim = 2
+            mock_data.shape = (2, 4096)
+            mock_cepstrum.process.return_value = mock_data
+            mock_cepstrum.get_display_name.return_value = "ceps"
+            mock_create_op.return_value = mock_cepstrum
+
+            result = self.channel_frame.cepstrum(n_fft=4096, window="hamming", floor=1e-10)
+
+            mock_create_op.assert_called_with(
+                "cepstrum",
+                self.sample_rate,
+                n_fft=4096,
+                window="hamming",
+                floor=1e-10,
+            )
+            mock_cepstrum.process.assert_called_once_with(self.channel_frame._data)
+
+            assert isinstance(result, CepstralFrame)
+            assert result.n_fft == 4096
+            assert result.window == "hamming"
             assert result.previous is self.channel_frame
 
     def test_welch_transform(self) -> None:

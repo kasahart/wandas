@@ -8,6 +8,7 @@ from ...core.base_frame import BaseFrame
 from .protocols import TransformFrameProtocol
 
 if TYPE_CHECKING:
+    from wandas.frames.cepstral import CepstralFrame
     from wandas.frames.noct import NOctFrame
     from wandas.frames.spectral import SpectralFrame
     from wandas.frames.spectrogram import SpectrogramFrame
@@ -20,8 +21,48 @@ class ChannelTransformMixin:
     """Mixin providing methods related to frequency transformations.
 
     This mixin provides operations related to frequency analysis and
-    transformations such as FFT, STFT, and Welch method.
+    transformations such as FFT, STFT, Welch method, and cepstrum analysis.
     """
+
+    def cepstrum(
+        self: TransformFrameProtocol,
+        n_fft: int | None = None,
+        window: str = "hann",
+        floor: float = 1e-12,
+    ) -> "CepstralFrame":
+        """Calculate the real cepstrum of the signal."""
+        from wandas.frames.cepstral import CepstralFrame
+        from wandas.processing import Cepstrum, create_operation
+
+        params = {"n_fft": n_fft, "window": window, "floor": floor}
+        operation_name = "cepstrum"
+        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
+
+        operation = create_operation(operation_name, self.sampling_rate, **params)
+        operation = cast("Cepstrum", operation)
+        cepstrum_data = operation.process(self._data)
+
+        resolved_n_fft = int(cepstrum_data.shape[-1])
+        base_self = cast(BaseFrame[Any], self)
+        new_metadata = self.metadata.copy()
+        new_metadata["window"] = window
+        new_metadata["n_fft"] = resolved_n_fft
+        new_metadata["floor"] = floor
+
+        return CepstralFrame(
+            data=cepstrum_data,
+            sampling_rate=self.sampling_rate,
+            n_fft=resolved_n_fft,
+            window=window,
+            label=f"cepstrum({self.label})",
+            metadata=new_metadata,
+            operation_history=[
+                *self.operation_history,
+                {"operation": operation_name, "params": {"n_fft": resolved_n_fft, "window": window, "floor": floor}},
+            ],
+            channel_metadata=base_self._relabel_channels(operation_name, operation.get_display_name()),
+            previous=base_self,
+        )
 
     def fft(self: TransformFrameProtocol, n_fft: int | None = None, window: str = "hann") -> "SpectralFrame":
         """Calculate Fast Fourier Transform (FFT).

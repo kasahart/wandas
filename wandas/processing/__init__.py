@@ -11,6 +11,11 @@ from wandas.processing.base import (
     get_operation,
     register_operation,
 )
+from wandas.processing.cepstral import (
+    Cepstrum,
+    Lifter,
+    SpectralEnvelope,
+)
 from wandas.processing.effects import (
     AddWithSNR,
     HpssHarmonic,
@@ -58,6 +63,10 @@ __all__ = [
     "create_operation",
     "get_operation",
     "register_operation",
+    # Cepstral
+    "Cepstrum",
+    "Lifter",
+    "SpectralEnvelope",
     # Filters
     "AWeighting",
     "HighPassFilter",
