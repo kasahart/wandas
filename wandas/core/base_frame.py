@@ -5,7 +5,7 @@ import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from re import Pattern
-from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast, overload
 
 import numpy as np
 import numpy.typing as npt
@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T", NDArrayComplex, NDArrayReal)
 S = TypeVar("S", bound="BaseFrame[Any]")
+S_Out = TypeVar("S_Out", bound="BaseFrame[Any]")
 QueryType = str | Pattern[str] | Callable[["ChannelMetadata"], bool] | dict[str, Any]
 
 
@@ -885,13 +886,31 @@ class BaseFrame(ABC, Generic[T]):
             operation_history=new_history,
         )
 
+    @overload
     def _apply_operation_instance(
         self: S,
         operation: Any,
         operation_name: str | None = None,
-        output_frame_class: type | None = None,
+        output_frame_class: None = None,
         output_frame_kwargs: dict[str, Any] | None = None,
-    ) -> S:
+    ) -> S: ...
+
+    @overload
+    def _apply_operation_instance(
+        self: S,
+        operation: Any,
+        operation_name: str | None = None,
+        output_frame_class: type[S_Out] = ...,
+        output_frame_kwargs: dict[str, Any] | None = None,
+    ) -> S_Out: ...
+
+    def _apply_operation_instance(
+        self: S,
+        operation: Any,
+        operation_name: str | None = None,
+        output_frame_class: type[S_Out] | None = None,
+        output_frame_kwargs: dict[str, Any] | None = None,
+    ) -> S | S_Out:
         """Apply an already-instantiated operation to the frame.
 
         This method processes data through the operation, updates metadata,
@@ -954,7 +973,7 @@ class BaseFrame(ABC, Generic[T]):
             if output_frame_kwargs:
                 kw.update(output_frame_kwargs)
             try:
-                return cast(S, output_frame_class(**kw))
+                return output_frame_class(**kw)
             except TypeError as exc:
                 provided_kwargs = ", ".join(sorted(kw)) or "none"
                 raise TypeError(
