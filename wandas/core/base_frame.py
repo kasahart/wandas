@@ -857,7 +857,7 @@ class BaseFrame(ABC, Generic[T]):
         operation_metadata = {"operation": operation_name, "params": params}
         new_history = self.operation_history.copy()
         new_history.append(operation_metadata)
-        new_metadata = {**self.metadata}
+        new_metadata = self.metadata.copy()
         new_metadata[operation_name] = params
 
         return self._create_new_instance(
@@ -903,7 +903,7 @@ class BaseFrame(ABC, Generic[T]):
         operation_metadata = {"operation": operation_name, "params": params}
         new_history = self.operation_history.copy()
         new_history.append(operation_metadata)
-        new_metadata = {**self.metadata}
+        new_metadata = self.metadata.copy()
         new_metadata[operation_name] = params
 
         metadata_updates = operation.get_metadata_updates()

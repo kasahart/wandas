@@ -2,7 +2,7 @@
 
 import logging
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Union, cast
+from typing import TYPE_CHECKING, Any, Union, cast, overload
 
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.roughness import RoughnessFrame
@@ -31,6 +31,29 @@ class ChannelProcessingMixin:
     transformation operations.
     """
 
+    # Overload 1: no domain transition — return type matches caller's frame type.
+    @overload
+    def apply(
+        self: T_Processing,
+        func: Callable[..., Any],
+        output_shape_func: Callable[[tuple[int, ...]], tuple[int, ...]] | None = ...,
+        output_frame_class: None = ...,
+        output_frame_kwargs: dict[str, Any] | None = ...,
+        **kwargs: Any,
+    ) -> T_Processing: ...
+
+    # Overload 2: domain transition — output_frame_class determines the actual
+    # type at runtime, so Any is the narrowest sound annotation we can give here.
+    @overload
+    def apply(
+        self: T_Processing,
+        func: Callable[..., Any],
+        output_shape_func: Callable[[tuple[int, ...]], tuple[int, ...]] | None = ...,
+        output_frame_class: type = ...,
+        output_frame_kwargs: dict[str, Any] | None = ...,
+        **kwargs: Any,
+    ) -> Any: ...
+
     def apply(
         self: T_Processing,
         func: Callable[..., Any],
@@ -38,7 +61,7 @@ class ChannelProcessingMixin:
         output_frame_class: type | None = None,
         output_frame_kwargs: dict[str, Any] | None = None,
         **kwargs: Any,
-    ) -> T_Processing:
+    ) -> Any:
         """Apply a custom function to the signal.
 
         Args:
@@ -74,15 +97,10 @@ class ChannelProcessingMixin:
             **kwargs,
         )
 
-        # Explicitly cast to the generic processing frame type so mypy
-        # understands the returned value has the same frame type as `self`.
-        return cast(
-            T_Processing,
-            cast(Any, self)._apply_operation_instance(
-                operation,
-                output_frame_class=output_frame_class,
-                output_frame_kwargs=output_frame_kwargs,
-            ),
+        return cast(Any, self)._apply_operation_instance(
+            operation,
+            output_frame_class=output_frame_class,
+            output_frame_kwargs=output_frame_kwargs,
         )
 
     def high_pass_filter(self: T_Processing, cutoff: float, order: int = 4) -> T_Processing:
