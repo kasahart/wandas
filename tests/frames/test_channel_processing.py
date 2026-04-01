@@ -8,6 +8,7 @@ from dask.array.core import Array as DaArray
 from wandas.core.metadata import FrameMetadata
 from wandas.frames.channel import ChannelFrame, ChannelMetadata
 from wandas.frames.spectral import SpectralFrame
+from wandas.utils.util import calculate_rms
 
 _da_from_array = da.from_array  # type: ignore [unused-ignore]
 
@@ -555,6 +556,68 @@ class TestChannelProcessing:
         neg_computed = neg_result.compute()
         assert isinstance(neg_computed, np.ndarray)
         assert neg_computed.shape == (2, 16000)
+
+    def test_add_with_snr_numpy_array(self) -> None:
+        """add(..., snr=...) should accept NumPy array inputs via ChannelFrame coercion."""
+        signal_data = np.ones((2, 16000), dtype=np.float64)
+        signal_cf = ChannelFrame(_da_from_array(signal_data, chunks=(1, -1)), self.sample_rate, label="signal")
+        noise_data = np.full((2, 16000), 0.1, dtype=np.float64)
+        snr_db = 6.0
+
+        result = signal_cf.add(noise_data, snr=snr_db)
+
+        assert isinstance(result, ChannelFrame)
+        assert result.sampling_rate == self.sample_rate
+        assert result.n_channels == 2
+        assert result.n_samples == 16000
+        assert len(result.operation_history) > len(signal_cf.operation_history)
+        computed = result.compute()
+        added_noise = computed - signal_data
+        added_noise_rms = calculate_rms(added_noise)
+
+        assert np.all(added_noise_rms > 0)
+        actual_snr = 20 * np.log10(calculate_rms(signal_data) / added_noise_rms)
+
+        np.testing.assert_allclose(actual_snr, np.full_like(actual_snr, snr_db), atol=1e-3)
+
+    def test_add_with_snr_scalar_returns_direct_addition(self) -> None:
+        """Scalar inputs should follow the direct-addition branch even when snr is provided."""
+        scalar_value = 0.25
+
+        result = self.channel_frame.add(scalar_value, snr=12.0)
+
+        assert isinstance(result, ChannelFrame)
+        np.testing.assert_allclose(result.compute(), self.data + scalar_value)
+        assert result.operation_history[-1] == {"operation": "+", "with": str(scalar_value)}
+        assert "snr" not in result.operation_history[-1]
+
+    def test_add_with_snr_invalid_type_raises_type_error(self) -> None:
+        """Unsupported add(..., snr=...) inputs should raise a targeted TypeError."""
+        with pytest.raises(TypeError, match=r"Addition target with SNR"):
+            self.channel_frame.add(other=[1, 2, 3], snr=6.0)  # type: ignore[arg-type]
+
+    def test_add_with_snr_short_numpy_array_is_fixed_to_signal_length(self) -> None:
+        """NumPy inputs with mismatched length should be resized before SNR addition."""
+        signal_data = np.ones((2, 16000), dtype=np.float64)
+        signal_cf = ChannelFrame(_da_from_array(signal_data, chunks=(1, -1)), self.sample_rate, label="signal")
+        short_noise = np.full((2, 8000), 0.1, dtype=np.float64)
+        snr_db = 3.0
+
+        result = signal_cf.add(short_noise, snr=snr_db)
+
+        assert isinstance(result, ChannelFrame)
+        assert result.n_samples == signal_cf.n_samples
+
+        computed = result.compute()
+        added_noise = computed - signal_data
+        added_noise_rms = calculate_rms(added_noise)
+
+        assert np.all(added_noise_rms > 0)
+        actual_snr = 20 * np.log10(calculate_rms(signal_data) / added_noise_rms)
+
+        np.testing.assert_allclose(actual_snr, np.full_like(actual_snr, snr_db), atol=1e-3)
+        assert np.all(computed[:, :8000] > 1.0)
+        np.testing.assert_allclose(computed[:, 8000:], 1.0)
 
     def test_add_with_different_lengths(self) -> None:
         """異なる長さの信号を加算するテスト。"""

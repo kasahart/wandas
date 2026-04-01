@@ -1614,6 +1614,18 @@ class TestDescribeIntegration:
             self.channel_frame.debug_info()
             assert mock_logger.debug.call_count >= 6  # At least 6 debug messages
 
+    def test_info_prints_basic_metadata(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """info() should print core frame metadata and labels."""
+        self.channel_frame.info()
+
+        captured = capsys.readouterr().out
+
+        assert "ChannelFrame Information:" in captured
+        assert f"Channels: {self.channel_frame.n_channels}" in captured
+        assert f"Sampling rate: {self.channel_frame.sampling_rate} Hz" in captured
+        assert f"Samples: {self.channel_frame.n_samples}" in captured
+        assert f"Channel labels: {self.channel_frame.labels}" in captured
+
     def test_read_wav_class_method(self) -> None:
         """Test read_wav class method."""
         with mock.patch.object(ChannelFrame, "from_file") as mock_from_file:
