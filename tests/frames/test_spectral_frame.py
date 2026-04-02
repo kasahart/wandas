@@ -81,6 +81,8 @@ class TestSpectralFrame:
         # Create 1D complex data
         shape_1d: tuple[int] = (self.n_fft // 2 + 1,)
         complex_data_1d: NDArrayComplex = create_complex_data(shape_1d)
+        # Use a single frequency-axis chunk because the input is 1-D before the
+        # frame reshapes it into the standard single-channel 2-D representation.
         data_1d: DaArray = _da_from_array(complex_data_1d, chunks=(-1,))
 
         # Create frame with 1D data

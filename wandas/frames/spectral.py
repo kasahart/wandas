@@ -44,7 +44,9 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     sampling_rate : float
         The sampling rate of the original time-domain signal in Hz.
     n_fft : int
-        The FFT size used to generate this spectral data. Required.
+        Required. The FFT size used to generate this spectral data. Must be a
+        positive integer and must be the same FFT size that was used to create
+        the spectrum (for example, 512 or 1024).
     window : str, default="hann"
         The window function used in the FFT.
     label : str, optional
@@ -146,18 +148,6 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         return np.unwrap(np.angle(self.data))
 
     @property
-    def _n_channels(self) -> int:
-        """
-        Get the number of channels in the data.
-
-        Returns
-        -------
-        int
-            The number of channels.
-        """
-        return int(self._data.shape[-2])
-
-    @property
     def freqs(self) -> NDArrayReal:
         """
         Get the frequency axis values in Hz.
@@ -166,6 +156,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         -------
         NDArrayReal
             Array of frequency values corresponding to each frequency bin.
+
         """
         return np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
 

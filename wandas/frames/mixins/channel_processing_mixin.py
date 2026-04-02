@@ -94,7 +94,6 @@ class ChannelProcessingMixin:
         output_frame_kwargs: dict[str, Any] | None = ...,
         **kwargs: Any,
     ) -> T_OutputFrame: ...
-
     def apply(
         self: T_Processing,
         func: Callable[..., Any],
@@ -138,15 +137,10 @@ class ChannelProcessingMixin:
             **kwargs,
         )
 
-        # Explicitly cast to the generic processing frame type so the type checker
-        # understands the returned value has the same frame type as `self`.
-        return cast(
-            T_Processing,
-            cast(Any, self)._apply_operation_instance(
-                operation,
-                output_frame_class=output_frame_class,
-                output_frame_kwargs=output_frame_kwargs,
-            ),
+        return cast(Any, self)._apply_operation_instance(
+            operation,
+            output_frame_class=output_frame_class,
+            output_frame_kwargs=output_frame_kwargs,
         )
 
     def high_pass_filter(self: T_Processing, cutoff: float, order: int = 4) -> T_Processing:
