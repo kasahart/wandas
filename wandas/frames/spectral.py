@@ -44,9 +44,9 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     sampling_rate : float
         The sampling rate of the original time-domain signal in Hz.
     n_fft : int
-        The FFT size used to generate this spectral data. Use practical FFT
-        sizes such as 512 or 1024 that match the transform used to create the
-        spectrum.
+        Required. The FFT size used to generate this spectral data. Must be a
+        positive integer and must be the same FFT size that was used to create
+        the spectrum (for example, 512 or 1024).
     window : str, default="hann"
         The window function used in the FFT.
     label : str, optional
