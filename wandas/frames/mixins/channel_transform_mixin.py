@@ -87,11 +87,20 @@ class ChannelTransformMixin:
         )
 
         n_fft = operation.n_fft
-        if n_fft is not None and not isinstance(n_fft, int):
-            raise TypeError(
-                f"Operation '{operation_name}' must provide an integer n_fft "
-                f"or None to create a SpectralFrame, but got {type(n_fft).__name__}."
-            )
+        if n_fft is not None:
+            # Explicitly reject bool, since bool is a subclass of int and would be
+            # interpreted as 0/1, leading to invalid FFT sizes like 1.
+            if isinstance(n_fft, bool) or not isinstance(n_fft, int):
+                raise TypeError(
+                    f"Operation '{operation_name}' must provide an integer n_fft "
+                    f"or None to create a SpectralFrame, but got {type(n_fft).__name__}."
+                )
+            # Enforce that n_fft is a positive integer to avoid silent misuse.
+            if n_fft <= 0:
+                raise ValueError(
+                    f"Operation '{operation_name}' must provide a positive n_fft "
+                    f"to create a SpectralFrame, but got {n_fft}."
+                )
 
         return SpectralFrame(
             data=result_data,
