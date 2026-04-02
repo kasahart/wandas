@@ -1,11 +1,47 @@
-from typing import TYPE_CHECKING
+from typing import Any
 
 import librosa
 import numpy as np
 from scipy.signal.windows import tukey
 
-if TYPE_CHECKING:
-    from wandas.utils.types import NDArrayReal
+from wandas.utils.types import NDArrayReal
+
+# Minimum amplitude ratio used in dB conversions to avoid log10(0).
+DB_FLOOR = 1e-12
+
+# Reference sound pressure for Pa-based channels (20 uPa, ISO 226).
+PA_REFERENCE = 2e-5
+
+# Minimum amplitude for librosa.amplitude_to_db to avoid log10(0).
+DB_AMIN = 1e-15
+
+
+def ref_weighted_dB(
+    data: NDArrayReal,
+    channel_metadata: list[Any],
+    ndim: int,
+) -> NDArrayReal:
+    """Compute dB level relative to per-channel reference values.
+
+    Parameters
+    ----------
+    data : NDArrayReal
+        Non-negative amplitude data (already absolute-valued if complex).
+    channel_metadata : list
+        Objects with a ``.ref`` attribute (one per channel).
+    ndim : int
+        Number of dimensions in the underlying dask array.
+
+    Returns
+    -------
+    NDArrayReal
+        Decibel values: ``20 * log10(max(data / ref, DB_FLOOR))``
+    """
+    ref = np.array([ch.ref for ch in channel_metadata])
+    extra_dims = ndim - 1
+    ref_shape = ref.reshape((-1,) + (1,) * extra_dims)
+    level: NDArrayReal = 20 * np.log10(np.maximum(data / ref_shape, DB_FLOOR))
+    return level
 
 
 def validate_sampling_rate(sampling_rate: float, param_name: str = "sampling_rate") -> None:
@@ -56,10 +92,9 @@ def unit_to_ref(unit: str) -> float:
         For other units, returns 1.0.
     """
     if unit == "Pa":
-        return 2e-5
+        return PA_REFERENCE
 
-    else:
-        return 1.0
+    return 1.0
 
 
 def calculate_rms(wave: "NDArrayReal") -> "NDArrayReal":
@@ -122,7 +157,7 @@ def amplitude_to_db(amplitude: "NDArrayReal", ref: float) -> "NDArrayReal":
     NDArrayReal
         Amplitude data converted to decibels.
     """
-    db: NDArrayReal = librosa.amplitude_to_db(np.abs(amplitude), ref=ref, amin=1e-15, top_db=None)
+    db: NDArrayReal = librosa.amplitude_to_db(np.abs(amplitude), ref=ref, amin=DB_AMIN, top_db=None)
     return db
 
 
@@ -154,7 +189,7 @@ def level_trigger(data: "NDArrayReal", level: float, offset: int = 0, hold: int 
     level_point = level_point[(level_point + hold) < sig_len]
 
     if len(level_point) == 0:
-        return list()
+        return []
 
     last_point = level_point[0]
     trig_point.append(last_point + offset)

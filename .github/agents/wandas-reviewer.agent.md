@@ -32,8 +32,8 @@ handoffs:
   - Tolerances explicitly specified with rationale comments.
   - Known-signal fixtures used instead of random data.
   - Modified tests reflect the intended behavior.
-- **Quality** – mypy/ruff and key pytest commands have been run or explicitly justified.
-- **Task usage** – verify the recorded VS Code task or command log for `Run pytest`, `Run ruff format` when formatting changed, `Run mypy wandas tests`, and `Run ruff check`. Verify `Build MkDocs Documentation` only when `docs/`, `src/`, `README.md`, or other MkDocs-backed user-facing markdown changed; `.github/` customization-only changes normally do not require it. This read-only role verifies recorded evidence and should not own task execution. Do not use `Run ruff check --fix` during review.
+- **Quality** – ty/ruff and key pytest commands have been run or explicitly justified.
+- **Task usage** – verify the recorded VS Code task or command log for `Run pytest`, `Run ruff format` when formatting changed, `Run ty (red-knot) check`, and `Run ruff check`. Verify `Build MkDocs Documentation` only when `docs/`, `src/`, `README.md`, or other MkDocs-backed user-facing markdown changed; `.github/` customization-only changes normally do not require it. This read-only role verifies recorded evidence and should not own task execution. Do not use `Run ruff check --fix` during review.
 - **Docs** – update or reference docs/tutorials when behavior changes user-facing semantics.
 - **Error messages** – follow WHAT/WHY/HOW pattern (per copilot-instructions.md); use ASCII-safe characters (avoid ×, →); match test patterns to first line only.
 - **Agent retrospective** – after review, inspect `.github/agents/*.agent.md` for improvements and note follow-up tasks.

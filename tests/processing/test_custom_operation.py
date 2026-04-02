@@ -5,7 +5,7 @@ import pytest
 from wandas.processing.base import _OPERATION_REGISTRY, create_operation, get_operation
 from wandas.processing.custom import CustomOperation
 
-_da_from_array = da.from_array  # type: ignore [unused-ignore]
+_da_from_array = da.from_array
 
 
 class TestCustomOperation:
@@ -79,4 +79,4 @@ class TestCustomOperation:
 
         # Direct call raises TypeError due to Python's argument handling
         with pytest.raises(TypeError, match="multiple values for argument"):
-            CustomOperation(16000, func=my_func, sampling_rate=44100)
+            CustomOperation(16000, func=my_func, sampling_rate=44100)  # ty: ignore[parameter-already-assigned]

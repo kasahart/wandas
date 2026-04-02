@@ -352,7 +352,7 @@ class TestABCWeighting:
 class TestAWeighting:
     def test_invalid_params(self):
         with pytest.raises((ValueError, TypeError)):
-            A_weighting(fs="spam")
+            A_weighting(fs="spam")  # ty: ignore[invalid-argument-type]
 
         with pytest.raises(ValueError):
             A_weighting(fs=10000, output="eggs")

@@ -2,11 +2,11 @@
 
 import logging
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any
 
-import dask.array as da
 import numpy as np
 import pandas as pd
+from dask.array.core import Array as DaArray
 
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
@@ -109,7 +109,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
 
     def __init__(
         self,
-        data: da.Array,
+        data: DaArray,
         sampling_rate: float,
         bark_axis: NDArrayReal,
         overlap: float,
@@ -117,7 +117,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         metadata: dict[str, Any] | None = None,
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
-        previous: Optional["BaseFrame[Any]"] = None,
+        previous: "BaseFrame[Any] | None" = None,
     ) -> None:
         """Initialize a RoughnessFrame."""
         # Validate dimensions
@@ -256,10 +256,6 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             "overlap": self._overlap,
         }
 
-    def _get_dataframe_columns(self) -> list[str]:
-        """Get channel labels as DataFrame columns."""
-        return [ch.label for ch in self._channel_metadata]
-
     def _get_dataframe_index(self) -> "pd.Index[Any]":
         """DataFrame index is not supported for RoughnessFrame."""
         raise NotImplementedError("DataFrame index is not supported for RoughnessFrame.")
@@ -279,8 +275,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
 
     def _binary_op(
         self,
-        other: Union["RoughnessFrame", int, float, NDArrayReal, da.Array],
-        op: "Callable[[da.Array, Any], da.Array]",
+        other: "RoughnessFrame | complex | NDArrayReal | DaArray",
+        op: Callable[[DaArray, Any], DaArray],
         symbol: str,
     ) -> "RoughnessFrame":
         """
@@ -307,9 +303,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         """
         logger.debug(f"Setting up {symbol} operation (lazy)")
 
-        # Handle metadata and operation_history
-        metadata = self.metadata.copy() if self.metadata else {}
-        operation_history = self.operation_history.copy() if self.operation_history else []
+        metadata = self.metadata.copy()
+        operation_history = [*self.operation_history]
 
         # Check if other is a RoughnessFrame
         if isinstance(other, RoughnessFrame):
@@ -356,7 +351,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
     def plot(
         self,
         plot_type: str = "heatmap",
-        ax: Optional["Axes"] = None,
+        ax: "Axes | None" = None,
         title: str | None = None,
         cmap: str = "viridis",
         vmin: float | None = None,
@@ -411,12 +406,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         # self._data is Dask array, self.data is computed NumPy array
         computed_data = self.compute()
 
-        if computed_data.ndim == 2:
-            # Mono: (47, n_time)
-            data_to_plot = computed_data
-        else:
-            # Multi-channel: (n_channels, 47, n_time) -> average to (47, n_time)
-            data_to_plot = computed_data.mean(axis=0)
+        # Select data to plot (first channel for mono, mean for multi-channel)
+        data_to_plot = computed_data if computed_data.ndim == 2 else computed_data.mean(axis=0)
 
         # Create heatmap
         im = ax.pcolormesh(

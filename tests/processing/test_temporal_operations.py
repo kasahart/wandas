@@ -17,7 +17,7 @@ from wandas.processing.temporal import (
 from wandas.processing.weighting import frequency_weighting
 from wandas.utils.types import NDArrayReal
 
-_da_from_array = da.from_array  # type: ignore [unused-ignore]
+_da_from_array = da.from_array
 
 
 class TestReSampling:

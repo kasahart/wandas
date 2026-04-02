@@ -48,6 +48,12 @@ class FrameMetadata(dict[str, Any]):
         result.source_file = self.source_file
         return result
 
+    def merged(self, **kwargs: Any) -> "FrameMetadata":
+        """Return a copy with additional key-value pairs merged in."""
+        result = self.copy()
+        result.update(kwargs)
+        return result
+
     def __copy__(self) -> "FrameMetadata":
         return self.copy()
 
@@ -73,7 +79,7 @@ class ChannelMetadata(BaseModel):
 
     def __init__(self, **data: Any):
         super().__init__(**data)
-        # unitが指定されていてrefがデフォルト値ならunit_to_refで自動設定
+        # Auto-set ref via unit_to_ref when unit is specified and ref is at default
         if self.unit and ("ref" not in data or data.get("ref", 1.0) == 1.0):
             self.ref = unit_to_ref(self.unit)
 
@@ -84,57 +90,50 @@ class ChannelMetadata(BaseModel):
         if name == "unit" and value and isinstance(value, str):
             super().__setattr__("ref", unit_to_ref(value))
 
-    @property
-    def label_value(self) -> str:
-        """Get the label value"""
-        return self.label
-
-    @property
-    def unit_value(self) -> str:
-        """Get the unit value"""
-        return self.unit
-
-    @property
-    def ref_value(self) -> float:
-        """Get the ref value"""
-        return self.ref
-
-    @property
-    def extra_data(self) -> dict[str, Any]:
-        """Get the extra metadata dictionary"""
-        return self.extra
+    _MODEL_FIELDS = frozenset({"label", "unit", "ref", "extra"})
 
     def __getitem__(self, key: str) -> Any:
         """Provide dictionary-like behavior"""
-        if key == "label":
-            return self.label
-        elif key == "unit":
-            return self.unit
-        elif key == "ref":
-            return self.ref
-        else:
-            return self.extra.get(key)
+        if key in self._MODEL_FIELDS:
+            return getattr(self, key)
+        return self.extra.get(key)
 
     def __setitem__(self, key: str, value: Any) -> None:
         """Provide dictionary-like behavior"""
-        if key == "label":
-            self.label = value
+        if key in ("label", "ref"):
+            setattr(self, key, value)
         elif key == "unit":
             self.unit = value
             self.ref = unit_to_ref(value)
-        elif key == "ref":
-            self.ref = value
         else:
             self.extra[key] = value
 
+    def matches_query(self, query: dict[str, Any]) -> bool:
+        """Check whether this channel matches all key-value pairs in *query*.
+
+        Values may be literals (compared with ``==``) or compiled regex
+        patterns (matched via ``.search()`` against string attributes).
+        """
+        for key, expected in query.items():
+            actual = getattr(self, key, None)
+            if actual is None:
+                # Fall back to extra dict
+                actual = self.extra.get(key)
+                if actual is None:
+                    return False
+
+            if hasattr(expected, "search") and callable(expected.search):
+                if not (isinstance(actual, str) and expected.search(actual)):
+                    return False
+            elif actual != expected:
+                return False
+        return True
+
     def to_json(self) -> str:
         """Convert to JSON format"""
-        json_data: str = self.model_dump_json(indent=4)
-        return json_data
+        return self.model_dump_json(indent=4)
 
     @classmethod
     def from_json(cls, json_data: str) -> "ChannelMetadata":
         """Convert from JSON format"""
-        root_model: ChannelMetadata = ChannelMetadata.model_validate_json(json_data)
-
-        return root_model
+        return cls.model_validate_json(json_data)

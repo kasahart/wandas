@@ -2,7 +2,7 @@
 
 import logging
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, TypeVar, Union, cast, overload
+from typing import TYPE_CHECKING, Any, TypeVar, cast, overload
 
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.roughness import RoughnessFrame
@@ -32,6 +32,45 @@ class ChannelProcessingMixin:
     other time-series data, such as signal processing filters and
     transformation operations.
     """
+
+    def _get_ref_values(
+        self: ProcessingFrameProtocol,
+        *,
+        require_non_default: bool = False,
+    ) -> list[float]:
+        """Extract per-channel reference values from channel metadata.
+
+        Parameters
+        ----------
+        require_non_default : bool
+            When ``True``, return an empty list unless at least one channel
+            has a non-empty ``unit`` or a ``ref`` that differs from 1.0.
+        """
+        if not hasattr(self, "_channel_metadata") or not self._channel_metadata:
+            return []
+        if require_non_default and not any(ch.unit or ch.ref != 1.0 for ch in self._channel_metadata):
+            return []
+        return [ch.ref for ch in self._channel_metadata]
+
+    def _compute_scalar_metric(
+        self: ProcessingFrameProtocol,
+        operation: Any,
+    ) -> "NDArrayReal":
+        """Run *operation* per-channel and return a 1-D NumPy result.
+
+        Shared post-processing logic for steady-state metrics that return one
+        scalar per channel (e.g. ``loudness_zwst``, ``sharpness_din_st``).
+        """
+        from wandas.utils.types import NDArrayReal
+
+        data = self.data
+        if data.ndim == 1:
+            data = data.reshape(1, -1)
+        result = operation.process_array(data).compute()
+        values: NDArrayReal = result.squeeze()
+        if values.ndim == 0:
+            values = values.reshape(1)
+        return values
 
     # Overload 1: no domain transition — return type matches caller's frame type.
     @overload
@@ -99,10 +138,15 @@ class ChannelProcessingMixin:
             **kwargs,
         )
 
-        return cast(Any, self)._apply_operation_instance(
-            operation,
-            output_frame_class=output_frame_class,
-            output_frame_kwargs=output_frame_kwargs,
+        # Explicitly cast to the generic processing frame type so the type checker
+        # understands the returned value has the same frame type as `self`.
+        return cast(
+            T_Processing,
+            cast(Any, self)._apply_operation_instance(
+                operation,
+                output_frame_class=output_frame_class,
+                output_frame_kwargs=output_frame_kwargs,
+            ),
         )
 
     def high_pass_filter(self: T_Processing, cutoff: float, order: int = 4) -> T_Processing:
@@ -275,10 +319,7 @@ class ChannelProcessingMixin:
             raise ValueError(f"Unsupported reduction operation: {op}")
 
         units = [ch.unit for ch in self._channel_metadata]
-        if all(u == units[0] for u in units):
-            reduced_unit = units[0]
-        else:
-            reduced_unit = ""
+        reduced_unit = units[0] if all(u == units[0] for u in units) else ""
 
         reduced_extra = {"source_extras": [ch.extra for ch in self._channel_metadata]}
         new_channel_metadata = [
@@ -288,9 +329,7 @@ class ChannelProcessingMixin:
                 extra=reduced_extra,
             )
         ]
-        new_history = self.operation_history.copy() if hasattr(self, "operation_history") else []
-        new_history.append({"operation": op})
-        new_metadata = self.metadata.copy() if hasattr(self, "metadata") else {}
+        new_metadata, new_history = self._updated_metadata_and_history(op, {})
         result = self._create_new_instance(
             data=reduced_data,
             metadata=new_metadata,
@@ -378,12 +417,7 @@ class ChannelProcessingMixin:
             New ChannelFrame containing the RMS trend
         """
         # Access _channel_metadata to retrieve reference values
-        frame = cast(ProcessingFrameProtocol, self)
-
-        # Ensure _channel_metadata exists before referencing
-        ref_values = []
-        if hasattr(frame, "_channel_metadata") and frame._channel_metadata:
-            ref_values = [ch.ref for ch in frame._channel_metadata]
+        ref_values = cast(ProcessingFrameProtocol, self)._get_ref_values()
 
         result = self.apply_operation(
             "rms_trend",
@@ -416,15 +450,9 @@ class ChannelProcessingMixin:
         Returns:
             New ChannelFrame containing the weighted time series.
         """
-        frame = cast(ProcessingFrameProtocol, self)
-
-        ref_values: list[float] = []
-        if (
-            hasattr(frame, "_channel_metadata")
-            and frame._channel_metadata
-            and any(ch.unit or ch.ref != 1.0 for ch in frame._channel_metadata)
-        ):
-            ref_values = [ch.ref for ch in frame._channel_metadata]
+        ref_values = cast(ProcessingFrameProtocol, self)._get_ref_values(
+            require_non_default=True,
+        )
 
         result = self.apply_operation(
             "sound_level",
@@ -445,9 +473,8 @@ class ChannelProcessingMixin:
             New ChannelFrame containing the channel difference
         """
         # label2index is a method of BaseFrame
-        if isinstance(other_channel, str):
-            if hasattr(self, "label2index"):
-                other_channel = self.label2index(other_channel)
+        if isinstance(other_channel, str) and hasattr(self, "label2index"):
+            other_channel = self.label2index(other_channel)
 
         result = self.apply_operation("channel_difference", other_channel=other_channel)
         return cast(T_Processing, result)
@@ -475,15 +502,39 @@ class ChannelProcessingMixin:
             ),
         )
 
+    def _hpss(
+        self: T_Processing,
+        operation_name: str,
+        kernel_size: "_IntLike_co | tuple[_IntLike_co, _IntLike_co] | list[_IntLike_co]" = 31,
+        power: float = 2,
+        margin: "_FloatLike_co | tuple[_FloatLike_co, _FloatLike_co] | list[_FloatLike_co]" = 1,
+        n_fft: int = 2048,
+        hop_length: int | None = None,
+        win_length: int | None = None,
+        window: "_WindowSpec" = "hann",
+        center: bool = True,
+        pad_mode: "_PadModeSTFT" = "constant",
+    ) -> T_Processing:
+        """Shared implementation for HPSS harmonic/percussive extraction."""
+        result = self.apply_operation(
+            operation_name,
+            kernel_size=kernel_size,
+            power=power,
+            margin=margin,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            center=center,
+            pad_mode=pad_mode,
+        )
+        return cast(T_Processing, result)
+
     def hpss_harmonic(
         self: T_Processing,
-        kernel_size: Union["_IntLike_co", tuple["_IntLike_co", "_IntLike_co"], list["_IntLike_co"]] = 31,
+        kernel_size: "_IntLike_co | tuple[_IntLike_co, _IntLike_co] | list[_IntLike_co]" = 31,
         power: float = 2,
-        margin: Union[
-            "_FloatLike_co",
-            tuple["_FloatLike_co", "_FloatLike_co"],
-            list["_FloatLike_co"],
-        ] = 1,
+        margin: "_FloatLike_co | tuple[_FloatLike_co, _FloatLike_co] | list[_FloatLike_co]" = 1,
         n_fft: int = 2048,
         hop_length: int | None = None,
         win_length: int | None = None,
@@ -511,29 +562,27 @@ class ChannelProcessingMixin:
         Returns:
             A new ChannelFrame containing the harmonic components.
         """
-        result = self.apply_operation(
-            "hpss_harmonic",
-            kernel_size=kernel_size,
-            power=power,
-            margin=margin,
-            n_fft=n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
-            window=window,
-            center=center,
-            pad_mode=pad_mode,
+        return cast(
+            T_Processing,
+            self._hpss(
+                "hpss_harmonic",
+                kernel_size=kernel_size,
+                power=power,
+                margin=margin,
+                n_fft=n_fft,
+                hop_length=hop_length,
+                win_length=win_length,
+                window=window,
+                center=center,
+                pad_mode=pad_mode,
+            ),
         )
-        return cast(T_Processing, result)
 
     def hpss_percussive(
         self: T_Processing,
-        kernel_size: Union["_IntLike_co", tuple["_IntLike_co", "_IntLike_co"], list["_IntLike_co"]] = 31,
+        kernel_size: "_IntLike_co | tuple[_IntLike_co, _IntLike_co] | list[_IntLike_co]" = 31,
         power: float = 2,
-        margin: Union[
-            "_FloatLike_co",
-            tuple["_FloatLike_co", "_FloatLike_co"],
-            list["_FloatLike_co"],
-        ] = 1,
+        margin: "_FloatLike_co | tuple[_FloatLike_co, _FloatLike_co] | list[_FloatLike_co]" = 1,
         n_fft: int = 2048,
         hop_length: int | None = None,
         win_length: int | None = None,
@@ -555,19 +604,21 @@ class ChannelProcessingMixin:
         Returns:
             A new ChannelFrame containing the harmonic components.
         """
-        result = self.apply_operation(
-            "hpss_percussive",
-            kernel_size=kernel_size,
-            power=power,
-            margin=margin,
-            n_fft=n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
-            window=window,
-            center=center,
-            pad_mode=pad_mode,
+        return cast(
+            T_Processing,
+            self._hpss(
+                "hpss_percussive",
+                kernel_size=kernel_size,
+                power=power,
+                margin=margin,
+                n_fft=n_fft,
+                hop_length=hop_length,
+                win_length=win_length,
+                window=window,
+                center=center,
+                pad_mode=pad_mode,
+            ),
         )
-        return cast(T_Processing, result)
 
     def loudness_zwtv(self: T_Processing, field_type: str = "free") -> T_Processing:
         """
@@ -683,31 +734,10 @@ class ChannelProcessingMixin:
             ISO 532-1:2017, "Acoustics — Methods for calculating loudness —
             Part 1: Zwicker method"
         """
-        # Treat self as a ProcessingFrameProtocol so mypy understands
-        # where sampling_rate and data come from.
         from wandas.processing.psychoacoustic import LoudnessZwst
-        from wandas.utils.types import NDArrayReal
 
-        # Create operation instance
         operation = LoudnessZwst(self.sampling_rate, field_type=field_type)
-
-        # Get data (triggers computation if lazy)
-        data = self.data
-
-        # Ensure data is 2D (n_channels, n_samples)
-        if data.ndim == 1:
-            data = data.reshape(1, -1)
-        # Process the array using the public API and materialize to NumPy
-        result = operation.process_array(data).compute()
-
-        # Squeeze to get 1D array (n_channels,)
-        loudness_values: NDArrayReal = result.squeeze()
-
-        # Ensure it's 1D even for single channel
-        if loudness_values.ndim == 0:
-            loudness_values = loudness_values.reshape(1)
-
-        return loudness_values
+        return self._compute_scalar_metric(operation)
 
     def roughness_dw(self: T_Processing, overlap: float = 0.5) -> T_Processing:
         """Calculate time-varying roughness using Daniel and Weber method.
@@ -863,7 +893,7 @@ class ChannelProcessingMixin:
         metadata_updates = operation.get_metadata_updates()
 
         # Build metadata and history
-        new_metadata = {**self.metadata, **params}
+        new_metadata = self.metadata.merged(**params)
         new_history = [
             *self.operation_history,
             {"operation": operation_name, "params": params},
@@ -1058,25 +1088,6 @@ class ChannelProcessingMixin:
                auditory sensation of sharpness"
         """
         from wandas.processing.psychoacoustic import SharpnessDinSt
-        from wandas.utils.types import NDArrayReal
 
-        # Create operation instance
         operation = SharpnessDinSt(self.sampling_rate, weighting=weighting, field_type=field_type)
-
-        # Get data (triggers computation if lazy)
-        data = self.data
-
-        # Ensure data is 2D (n_channels, n_samples)
-        if data.ndim == 1:
-            data = data.reshape(1, -1)
-        # Process the array using the public API and materialize to NumPy
-        result = operation.process_array(data).compute()
-
-        # Squeeze to get 1D array (n_channels,)
-        sharpness_values: NDArrayReal = result.squeeze()
-
-        # Ensure it's 1D even for single channel
-        if sharpness_values.ndim == 0:
-            sharpness_values = sharpness_values.reshape(1)
-
-        return sharpness_values
+        return self._compute_scalar_metric(operation)

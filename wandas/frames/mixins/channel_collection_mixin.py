@@ -3,13 +3,10 @@ ChannelCollectionMixin: Common functionality for adding/removing channels in
 ChannelFrame
 """
 
-from typing import TYPE_CHECKING, Any, Literal, TypeVar
+from typing import Any, Literal, TypeVar
 
 import dask.array as da
 import numpy as np
-
-if TYPE_CHECKING:
-    pass
 
 T = TypeVar("T", bound="ChannelCollectionMixin")
 

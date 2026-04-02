@@ -234,20 +234,20 @@ class TestChannelMetadata:
             extra={"source": "microphone", "calibrated": True},
         )
 
-        # Test property getters
-        assert metadata.label_value == "test_label"
-        assert metadata.unit_value == "Pa"
-        assert metadata.ref_value == 0.5
-        assert metadata.extra_data == {"source": "microphone", "calibrated": True}
+        # Test direct field access
+        assert metadata.label == "test_label"
+        assert metadata.unit == "Pa"
+        assert metadata.ref == 0.5
+        assert metadata.extra == {"source": "microphone", "calibrated": True}
 
     def test_property_methods_default_values(self) -> None:
         """Test property getter methods with default values"""
         metadata: ChannelMetadata = ChannelMetadata()
 
-        assert metadata.label_value == ""
-        assert metadata.unit_value == ""
-        assert metadata.ref_value == 1.0
-        assert metadata.extra_data == {}
+        assert metadata.label == ""
+        assert metadata.unit == ""
+        assert metadata.ref == 1.0
+        assert metadata.extra == {}
 
     def test_property_methods_after_modification(self) -> None:
         """Test property getter methods after modifying values"""
@@ -259,10 +259,10 @@ class TestChannelMetadata:
         metadata.ref = 0.75
         metadata.extra["new_key"] = "new_value"
 
-        assert metadata.label_value == "modified_label"
-        assert metadata.unit_value == "Hz"
-        assert metadata.ref_value == 0.75
-        assert metadata.extra_data["new_key"] == "new_value"
+        assert metadata.label == "modified_label"
+        assert metadata.unit == "Hz"
+        assert metadata.ref == 0.75
+        assert metadata.extra["new_key"] == "new_value"
 
 
 class TestFrameMetadata:

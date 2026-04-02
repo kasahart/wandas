@@ -18,7 +18,7 @@ import numpy as np
 if TYPE_CHECKING:
     from ..frames.channel import ChannelFrame
 
-# CoreモジュールからBaseFrameをインポート
+# Import BaseFrame from core module
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
 
 from ..core.base_frame import BaseFrame
@@ -26,8 +26,21 @@ from ..core.metadata import FrameMetadata
 
 logger = logging.getLogger(__name__)
 
-# バージョン管理のための定数
+# Constants for version management
 WDF_FORMAT_VERSION = "0.1"
+
+
+def _decode_hdf5_str(value: object) -> str:
+    """Decode an HDF5 attribute value to a Python string.
+
+    HDF5 may return ``bytes``, ``numpy.bytes_``, or plain ``str``.
+    """
+    if isinstance(value, (bytes, np.bytes_)):
+        try:
+            return value.decode("utf-8")
+        except (UnicodeDecodeError, AttributeError):
+            return str(value)
+    return str(value)
 
 
 def save(
@@ -87,7 +100,7 @@ def save(
         channels_grp = f.create_group("channels")
 
         # Store each channel
-        for i, (channel_data, ch_meta) in enumerate(zip(computed_data, frame._channel_metadata)):
+        for i, (channel_data, ch_meta) in enumerate(zip(computed_data, frame._channel_metadata, strict=True)):
             ch_grp = channels_grp.create_group(f"{i}")
 
             # Store channel data
@@ -174,7 +187,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
     # Detect and handle URL paths — download to memory before HDF5 open.
     h5_source: str | Path | io.BytesIO
     h5_kwargs: dict[str, object] = {}
-    if isinstance(path, str) and (path.startswith("http://") or path.startswith("https://")):
+    if isinstance(path, str) and path.startswith(("http://", "https://")):
         import urllib.error
         import urllib.request
 
@@ -202,9 +215,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
         # Check format version for compatibility
         version = f.attrs.get("version", "unknown")
         if version != WDF_FORMAT_VERSION:
-            logger.warning(
-                f"File format version mismatch: file={version}, current={WDF_FORMAT_VERSION}"  # noqa: E501
-            )
+            logger.warning(f"File format version mismatch: file={version}, current={WDF_FORMAT_VERSION}")
 
         # Get global attributes
         sampling_rate = float(f.attrs["sampling_rate"])
@@ -215,26 +226,18 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
         if "meta" in f:
             meta_json = f["meta"].attrs.get("json", "{}")
             if isinstance(meta_json, (bytes, np.bytes_)):
-                try:
-                    meta_json = meta_json.decode("utf-8")
-                except (UnicodeDecodeError, AttributeError):
-                    meta_json = str(meta_json)
+                meta_json = _decode_hdf5_str(meta_json)
             frame_metadata.update(json.loads(meta_json))
             source_file = f["meta"].attrs.get("source_file", None)
             if source_file is not None:
-                if isinstance(source_file, (bytes, np.bytes_)):
-                    try:
-                        source_file = source_file.decode("utf-8")
-                    except (UnicodeDecodeError, AttributeError):
-                        source_file = str(source_file)
-                frame_metadata.source_file = str(source_file)
+                frame_metadata.source_file = _decode_hdf5_str(source_file)
 
         # Load operation history
         operation_history = []
         if "operation_history" in f:
             op_grp = f["operation_history"]
             # Sort operation indices numerically
-            op_indices = sorted([int(key.split("_")[1]) for key in op_grp.keys()])
+            op_indices = sorted([int(key.split("_")[1]) for key in op_grp])
 
             for idx in op_indices:
                 op_sub_grp = op_grp[f"operation_{idx}"]
@@ -255,7 +258,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
         if "channels" in f:
             channels_group = f["channels"]
             # Sort channel indices numerically
-            channel_indices = sorted([int(key) for key in channels_group.keys()])
+            channel_indices = sorted([int(key) for key in channels_group])
 
             for idx in channel_indices:
                 ch_group = channels_group[f"{idx}"]
@@ -298,7 +301,5 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
             channel_metadata=channel_metadata_list,
         )
 
-        logger.debug(
-            f"ChannelFrame loaded from {path}: {len(cf)} channels, {cf.n_samples} samples"  # noqa: E501
-        )
+        logger.debug(f"ChannelFrame loaded from {path}: {len(cf)} channels, {cf.n_samples} samples")
         return cf

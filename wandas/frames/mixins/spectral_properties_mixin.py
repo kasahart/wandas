@@ -12,6 +12,7 @@ import librosa
 import numpy as np
 
 from wandas.utils.types import NDArrayReal
+from wandas.utils.util import ref_weighted_dB
 
 
 class SpectralPropertiesMixin:
@@ -46,13 +47,7 @@ class SpectralPropertiesMixin:
     def dB(self: Any) -> NDArrayReal:  # noqa: N802
         """Decibel level relative to per-channel reference values."""
         mag: NDArrayReal = np.abs(self.data)
-        ref = np.array([ch.ref for ch in self._channel_metadata])
-        # ndim == 2  -> SpectralFrame  (channels, freq)       => ref[:, newaxis]
-        # ndim == 3  -> SpectrogramFrame (channels, freq, time) => ref[:, newaxis, newaxis]
-        extra_dims = self._data.ndim - 1  # number of trailing axes after channels
-        ref_shape = ref.reshape((-1,) + (1,) * extra_dims)
-        level: NDArrayReal = 20 * np.log10(np.maximum(mag / ref_shape, 1e-12))
-        return level
+        return ref_weighted_dB(mag, self._channel_metadata, self._data.ndim)
 
     @property
     def dBA(self: Any) -> NDArrayReal:  # noqa: N802

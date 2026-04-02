@@ -12,7 +12,7 @@ import pytest
 
 from wandas.frames.channel import ChannelFrame
 
-_da_from_array = da.from_array  # type: ignore [unused-ignore]
+_da_from_array = da.from_array
 
 
 class TestChannelLabelUpdates:

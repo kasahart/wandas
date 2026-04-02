@@ -348,7 +348,7 @@ class TestTypedDictIntegration:
         }
 
         # Cast to TypedDict
-        params: DescribeParams = json_data  # type: ignore
+        params: DescribeParams = json_data  # ty: ignore[invalid-assignment]
 
         assert params["fmin"] == 100
         assert params["fmax"] == 5000
@@ -369,7 +369,7 @@ class TestTypedDictIntegration:
             "vmin": -80,
         }
 
-        result: DescribeParams = {**base, **update}  # type: ignore
+        result: DescribeParams = {**base, **update}
 
         assert result["fmin"] == 20  # preserved
         assert result["Aw"] is True  # added
@@ -403,7 +403,7 @@ class TestTypedDictIntegration:
             mock.patch("matplotlib.pyplot.close"),
         ):
             # This should work without errors
-            cf.describe(**config)  # type: ignore
+            cf.describe(**config)  # ty: ignore[invalid-argument-type]
 
     def test_typeddict_parameter_validation(self) -> None:
         """Test that TypedDict helps catch parameter errors."""
@@ -457,7 +457,7 @@ class TestTypedDictIntegration:
         ):
             # Apply same config to all signals
             for signal in signals:
-                signal.describe(**shared_config)  # type: ignore
+                signal.describe(**shared_config)
 
         # All completed successfully
         assert len(signals) == 3
@@ -502,8 +502,8 @@ class TestTypedDictIntegration:
             mock.patch("matplotlib.pyplot.close"),
         ):
             # Test all variants
-            cf.describe(**base_config)  # type: ignore
-            cf.describe(**acoustic_config)  # type: ignore
-            cf.describe(**dark_config)  # type: ignore
+            cf.describe(**base_config)  # ty: ignore[invalid-argument-type]
+            cf.describe(**acoustic_config)  # ty: ignore[invalid-argument-type]
+            cf.describe(**dark_config)  # ty: ignore[invalid-argument-type]
 
         # All variants executed successfully

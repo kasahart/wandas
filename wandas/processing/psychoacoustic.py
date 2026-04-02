@@ -6,7 +6,8 @@ including loudness calculation using standardized methods.
 """
 
 import logging
-from typing import Any
+from collections.abc import Callable
+from typing import Any, ClassVar, overload
 
 import numpy as np
 from mosqito.sq_metrics import loudness_zwst as loudness_zwst_mosqito
@@ -21,12 +22,125 @@ from wandas.utils.types import NDArrayReal
 logger = logging.getLogger(__name__)
 
 
+@overload
+def _process_per_channel(
+    x: NDArrayReal,
+    func: Callable[[NDArrayReal], float],
+    *,
+    scalar: bool = True,
+) -> NDArrayReal: ...
+
+
+@overload
+def _process_per_channel(
+    x: NDArrayReal,
+    func: Callable[[NDArrayReal], NDArrayReal],
+    *,
+    scalar: bool = False,
+) -> NDArrayReal: ...
+
+
+def _process_per_channel(
+    x: NDArrayReal,
+    func: Callable[[NDArrayReal], NDArrayReal | float],
+    *,
+    scalar: bool = False,
+) -> NDArrayReal:
+    """Run *func* on each channel of *x* and collect results.
+
+    Parameters
+    ----------
+    x : NDArrayReal
+        Input array, shape ``(channels, samples)`` or ``(samples,)``.
+    func : callable
+        ``func(channel_1d) -> result``. *result* is a 1-D array for
+        time-varying metrics or a scalar for steady-state metrics.
+    scalar : bool
+        If ``True`` each *func* return is a scalar and results are
+        stacked into shape ``(channels, 1)``.  Otherwise results are
+        ``np.stack``-ed along axis 0.
+    """
+    if x.ndim == 1:
+        x = x.reshape(1, -1)
+
+    n_channels = x.shape[0]
+    results: list[Any] = []
+
+    for ch in range(n_channels):
+        channel_data = np.asarray(x[ch, :]).ravel()
+        results.append(func(channel_data))
+
+    if scalar:
+        out: NDArrayReal = np.array(results).reshape(n_channels, 1)
+        return out
+    return np.stack(results, axis=0)
+
+
+def _validate_field_type(field_type: str) -> None:
+    """Raise ``ValueError`` if *field_type* is not 'free' or 'diffuse'."""
+    if field_type not in ("free", "diffuse"):
+        raise ValueError(f"field_type must be 'free' or 'diffuse', got '{field_type}'")
+
+
+_VALID_SHARPNESS_WEIGHTINGS = ("din", "aures", "bismarck", "fastl")
+
+
+def _validate_sharpness_params(weighting: str, field_type: str) -> None:
+    """Validate sharpness weighting and field_type."""
+    if weighting not in _VALID_SHARPNESS_WEIGHTINGS:
+        raise ValueError(
+            f"Invalid weighting function\n"
+            f"  Got: '{weighting}'\n"
+            f"  Expected: one of {', '.join(repr(w) for w in _VALID_SHARPNESS_WEIGHTINGS)}\n"
+            f"Use a supported weighting function"
+        )
+    if field_type not in ("free", "diffuse"):
+        raise ValueError(
+            f"Invalid field type\n  Got: '{field_type}'\n  Expected: 'free' or 'diffuse'\nUse a supported field type"
+        )
+
+
 def _register_canonical(operation_class: type[AudioOperation[Any, Any]]) -> None:
     register_operation(operation_class)
     globals()[operation_class.__name__] = get_operation(operation_class.name)
 
 
-class LoudnessZwtv(AudioOperation[NDArrayReal, NDArrayReal]):
+class _ZwickerTimeVaryingBase(AudioOperation[NDArrayReal, NDArrayReal]):
+    """Shared base for Zwicker time-varying metrics (loudness, sharpness).
+
+    These operations share:
+    - output sampling rate of 500 Hz (~2 ms time steps)
+    - identical output shape estimation
+    """
+
+    def get_metadata_updates(self) -> dict[str, Any]:
+        """Return new sampling rate of 500 Hz for ~2 ms time steps."""
+        return {"sampling_rate": 500.0}
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        if len(input_shape) == 0:
+            raise ValueError("Input shape must have at least one dimension")
+        n_channels = input_shape[0] if len(input_shape) > 1 else 1
+        estimated_time_samples = int(input_shape[-1] / (self.sampling_rate * 0.002))
+        return (n_channels, estimated_time_samples)
+
+
+class _SteadyStateBase(AudioOperation[NDArrayReal, NDArrayReal]):
+    """Shared base for steady-state psychoacoustic metrics.
+
+    These operations return one scalar per channel (shape ``(n_channels, 1)``)
+    and do not change the sampling rate.
+    """
+
+    def get_metadata_updates(self) -> dict[str, Any]:
+        return {}
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        n_channels = input_shape[0] if len(input_shape) > 1 else 1
+        return (n_channels, 1)
+
+
+class LoudnessZwtv(_ZwickerTimeVaryingBase):
     """
     Calculate time-varying loudness using Zwicker method (ISO 532-1:2017).
 
@@ -80,86 +194,15 @@ class LoudnessZwtv(AudioOperation[NDArrayReal, NDArrayReal]):
     name = "loudness_zwtv"
 
     def __init__(self, sampling_rate: float, field_type: str = "free"):
-        """
-        Initialize Loudness calculation operation.
-
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        field_type : str, default="free"
-            Type of sound field ('free' or 'diffuse')
-        """
         self.field_type = field_type
         super().__init__(sampling_rate, field_type=field_type)
 
     def validate_params(self) -> None:
-        """
-        Validate parameters.
-
-        Raises
-        ------
-        ValueError
-            If field_type is not 'free' or 'diffuse'
-        """
-        if self.field_type not in ("free", "diffuse"):
-            raise ValueError(f"field_type must be 'free' or 'diffuse', got '{self.field_type}'")
-
-    def get_metadata_updates(self) -> dict[str, Any]:
-        """
-        Update sampling rate based on MoSQITo's time resolution.
-
-        The Zwicker method uses approximately 2ms time steps,
-        which corresponds to 500 Hz sampling rate, independent of
-        the input sampling rate.
-
-        Returns
-        -------
-        dict
-            Metadata updates with new sampling rate
-
-        Notes
-        -----
-        All necessary parameters are provided at initialization.
-        The output sampling rate is always 500 Hz regardless of input.
-        """
-        return {"sampling_rate": 500.0}
-
-    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        """
-        Calculate output data shape after operation.
-
-        The loudness calculation produces a time-varying output where the time
-        resolution depends on the algorithm's internal processing. The exact
-        output length is determined dynamically by the loudness_zwtv function.
-
-        Parameters
-        ----------
-        input_shape : tuple
-            Input data shape (channels, samples)
-
-        Returns
-        -------
-        tuple
-            Output data shape. For loudness, we return a placeholder shape
-            since the actual length is determined by the algorithm.
-            The shape will be (channels, time_samples) where time_samples
-            depends on the input length and algorithm parameters.
-        """
-        # Return a placeholder shape - the actual shape will be determined
-        # after processing since loudness_zwtv determines the time resolution
-        # For now, we estimate based on typical behavior (approx 2ms time steps)
-        n_channels = input_shape[0] if len(input_shape) > 1 else 1
-        # Rough estimate: one loudness value per 2ms (0.002s)
-        estimated_time_samples = int(input_shape[-1] / (self.sampling_rate * 0.002))
-        return (n_channels, estimated_time_samples)
+        _validate_field_type(self.field_type)
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """
         Process array to calculate loudness.
-
-        This method calculates the time-varying loudness for each channel
-        of the input signal using the Zwicker method.
 
         Parameters
         ----------
@@ -171,54 +214,21 @@ class LoudnessZwtv(AudioOperation[NDArrayReal, NDArrayReal]):
         NDArrayReal
             Time-varying loudness in sones for each channel.
             Shape: (channels, time_samples)
-
-        Notes
-        -----
-        The function processes each channel independently and returns
-        the loudness values. The time axis information is not returned
-        here but can be reconstructed based on the MoSQITo algorithm's
-        behavior (typically 2ms time steps).
         """
         logger.debug(f"Calculating loudness for signal with shape: {x.shape}, field_type: {self.field_type}")
 
-        # Handle 1D input (single channel)
-        if x.ndim == 1:
-            x = x.reshape(1, -1)
+        def _compute(ch: NDArrayReal) -> NDArrayReal:
+            loudness_n, _, _, _ = loudness_zwtv_mosqito(ch, self.sampling_rate, field_type=self.field_type)
+            return loudness_n
 
-        n_channels = x.shape[0]
-        loudness_results = []
-
-        for ch in range(n_channels):
-            channel_data = x[ch, :]
-
-            # Ensure channel_data is a contiguous 1D NumPy array
-            channel_data = np.asarray(channel_data).ravel()
-
-            # Call MoSQITo's loudness_zwtv function
-            # Returns: N (loudness), N_spec (specific loudness),
-            #          bark_axis, time_axis
-            loudness_n, _, _, _ = loudness_zwtv_mosqito(channel_data, self.sampling_rate, field_type=self.field_type)
-
-            loudness_results.append(loudness_n)
-
-            logger.debug(
-                f"Channel {ch}: Calculated loudness with "
-                f"{len(loudness_n)} time points, "
-                f"max loudness: {np.max(loudness_n):.2f} sones"
-            )
-
-        # Stack results
-        result: NDArrayReal = np.stack(loudness_results, axis=0)
-
-        logger.debug(f"Loudness calculation complete, output shape: {result.shape}")
-        return result
+        return _process_per_channel(x, _compute)
 
 
 # Register the operation
 _register_canonical(LoudnessZwtv)
 
 
-class LoudnessZwst(AudioOperation[NDArrayReal, NDArrayReal]):
+class LoudnessZwst(_SteadyStateBase):
     """
     Calculate steady-state loudness using Zwicker method (ISO 532-1:2017).
 
@@ -275,76 +285,15 @@ class LoudnessZwst(AudioOperation[NDArrayReal, NDArrayReal]):
     name = "loudness_zwst"
 
     def __init__(self, sampling_rate: float, field_type: str = "free"):
-        """
-        Initialize steady-state loudness calculation operation.
-
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        field_type : str, default="free"
-            Type of sound field ('free' or 'diffuse')
-        """
         self.field_type = field_type
         super().__init__(sampling_rate, field_type=field_type)
 
     def validate_params(self) -> None:
-        """
-        Validate parameters.
-
-        Raises
-        ------
-        ValueError
-            If field_type is not 'free' or 'diffuse'
-        """
-        if self.field_type not in ("free", "diffuse"):
-            raise ValueError(f"field_type must be 'free' or 'diffuse', got '{self.field_type}'")
-
-    def get_metadata_updates(self) -> dict[str, Any]:
-        """
-        Get metadata updates to apply after processing.
-
-        For steady-state loudness, the output is a single value per channel,
-        so no sampling rate update is needed (output is scalar, not time-series).
-
-        Returns
-        -------
-        dict
-            Empty dictionary (no metadata updates needed)
-
-        Notes
-        -----
-        Unlike time-varying loudness, steady-state loudness produces a single
-        value, not a time series, so the sampling rate concept doesn't apply.
-        """
-        return {}
-
-    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        """
-        Calculate output data shape after operation.
-
-        The steady-state loudness calculation produces a single loudness value
-        per channel.
-
-        Parameters
-        ----------
-        input_shape : tuple
-            Input data shape (channels, samples)
-
-        Returns
-        -------
-        tuple
-            Output data shape: (channels, 1) - one loudness value per channel
-        """
-        n_channels = input_shape[0] if len(input_shape) > 1 else 1
-        return (n_channels, 1)
+        _validate_field_type(self.field_type)
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """
         Process array to calculate steady-state loudness.
-
-        This method calculates the steady-state loudness for each channel
-        of the input signal using the Zwicker method.
 
         Parameters
         ----------
@@ -356,50 +305,59 @@ class LoudnessZwst(AudioOperation[NDArrayReal, NDArrayReal]):
         NDArrayReal
             Steady-state loudness in sones for each channel.
             Shape: (channels, 1)
-
-        Notes
-        -----
-        The function processes each channel independently and returns
-        a single loudness value per channel.
         """
         logger.debug(
             f"Calculating steady-state loudness for signal with shape: {x.shape}, field_type: {self.field_type}"
         )
 
-        # Handle 1D input (single channel)
-        if x.ndim == 1:
-            x = x.reshape(1, -1)
+        def _compute(ch: NDArrayReal) -> float:
+            loudness_n, _, _ = loudness_zwst_mosqito(ch, self.sampling_rate, field_type=self.field_type)
+            return float(loudness_n)
 
-        n_channels = x.shape[0]
-        loudness_results = []
-
-        for ch in range(n_channels):
-            channel_data = x[ch, :]
-
-            # Ensure channel_data is a contiguous 1D NumPy array
-            channel_data = np.asarray(channel_data).ravel()
-
-            # Call MoSQITo's loudness_zwst function
-            # Returns: N (single loudness value), N_spec (specific loudness),
-            #          bark_axis
-            loudness_n, _, _ = loudness_zwst_mosqito(channel_data, self.sampling_rate, field_type=self.field_type)
-
-            loudness_results.append(loudness_n)
-
-            logger.debug(f"Channel {ch}: Calculated steady-state loudness: {loudness_n:.2f} sones")
-
-        # Stack results and reshape to (channels, 1)
-        result: NDArrayReal = np.array(loudness_results).reshape(n_channels, 1)
-
-        logger.debug(f"Steady-state loudness calculation complete, output shape: {result.shape}")
-        return result
+        return _process_per_channel(x, _compute, scalar=True)
 
 
 # Register the operation
 _register_canonical(LoudnessZwst)
 
 
-class RoughnessDw(AudioOperation[NDArrayReal, NDArrayReal]):
+class _RoughnessBase(AudioOperation[NDArrayReal, NDArrayReal]):
+    """Shared base for Daniel-Weber roughness operations.
+
+    Provides common parameter validation, output estimation helpers,
+    and metadata updates for the 200 ms analysis window used by roughness_dw.
+    """
+
+    _WINDOW_DURATION = 0.2  # 200 ms analysis window
+    overlap: float  # Set by subclass __init__
+
+    def validate_params(self) -> None:
+        """Validate overlap is in [0.0, 1.0]."""
+        if not 0.0 <= self.overlap <= 1.0:
+            raise ValueError(f"overlap must be in [0.0, 1.0], got {self.overlap}")
+
+    def _output_sampling_rate(self) -> float:
+        """Compute output sampling rate from window duration and overlap."""
+        hop_duration = self._WINDOW_DURATION * (1 - self.overlap)
+        return 1.0 / hop_duration if hop_duration > 0 else 5.0
+
+    def _estimated_time_samples(self, n_samples: int) -> int:
+        """Estimate output time-axis length for *n_samples* input."""
+        window_samples = int(self._WINDOW_DURATION * self.sampling_rate)
+        hop_samples = int(window_samples * (1 - self.overlap))
+        if hop_samples > 0:
+            return max(1, (n_samples - window_samples) // hop_samples + 1)
+        return 1
+
+    def get_metadata_updates(self) -> dict[str, Any]:
+        return {"sampling_rate": self._output_sampling_rate()}
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        n_channels = input_shape[0] if len(input_shape) > 1 else 1
+        return (n_channels, self._estimated_time_samples(input_shape[-1]))
+
+
+class RoughnessDw(_RoughnessBase):
     """
     Calculate time-varying roughness using Daniel and Weber method.
 
@@ -474,79 +432,9 @@ class RoughnessDw(AudioOperation[NDArrayReal, NDArrayReal]):
         self.overlap = overlap
         super().__init__(sampling_rate, overlap=overlap)
 
-    def validate_params(self) -> None:
-        """
-        Validate parameters.
-
-        Raises
-        ------
-        ValueError
-            If overlap is not in [0.0, 1.0]
-        """
-        if not 0.0 <= self.overlap <= 1.0:
-            raise ValueError(f"overlap must be in [0.0, 1.0], got {self.overlap}")
-
-    def get_metadata_updates(self) -> dict[str, Any]:
-        """
-        Update sampling rate based on overlap and window size.
-
-        The Daniel & Weber method uses 200ms windows. The output
-        sampling rate depends on the overlap:
-        - overlap=0.0: hop=200ms → fs=5 Hz
-        - overlap=0.5: hop=100ms → fs=10 Hz
-        - overlap=0.75: hop=50ms → fs=20 Hz
-
-        Returns
-        -------
-        dict
-            Metadata updates with new sampling rate
-
-        Notes
-        -----
-        The output sampling rate is approximately 1 / (0.2 * (1 - overlap)) Hz.
-        """
-        window_duration = 0.2  # 200ms window
-        hop_duration = window_duration * (1 - self.overlap)
-        output_sampling_rate = 1.0 / hop_duration if hop_duration > 0 else 5.0
-        return {"sampling_rate": output_sampling_rate}
-
-    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        """
-        Calculate output data shape after operation.
-
-        The roughness calculation produces a time-varying output where the
-        number of time points depends on the signal length and overlap.
-
-        Parameters
-        ----------
-        input_shape : tuple
-            Input data shape (channels, samples)
-
-        Returns
-        -------
-        tuple
-            Output data shape (channels, time_samples)
-        """
-        n_channels = input_shape[0] if len(input_shape) > 1 else 1
-        n_samples = input_shape[-1]
-
-        # Estimate output length based on window size and overlap
-        window_samples = int(0.2 * self.sampling_rate)  # 200ms
-        hop_samples = int(window_samples * (1 - self.overlap))
-
-        if hop_samples > 0:
-            estimated_time_samples = max(1, (n_samples - window_samples) // hop_samples + 1)
-        else:
-            estimated_time_samples = 1
-
-        return (n_channels, estimated_time_samples)
-
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """
         Process array to calculate roughness.
-
-        This method calculates the time-varying roughness for each channel
-        of the input signal using the Daniel and Weber method.
 
         Parameters
         ----------
@@ -558,57 +446,21 @@ class RoughnessDw(AudioOperation[NDArrayReal, NDArrayReal]):
         NDArrayReal
             Time-varying roughness in asper for each channel.
             Shape: (channels, time_samples)
-
-        Notes
-        -----
-        The function processes each channel independently and returns
-        the total roughness values (R). The specific roughness per Bark
-        band (R_spec) is not returned by this operation but can be obtained
-        using the roughness_dw_spec method.
         """
         logger.debug(f"Calculating roughness for signal with shape: {x.shape}, overlap: {self.overlap}")
 
-        # Handle 1D input (single channel)
-        if x.ndim == 1:
-            x = x.reshape(1, -1)
+        def _compute(ch: NDArrayReal) -> NDArrayReal:
+            roughness_r, _, _, _ = roughness_dw_mosqito(ch, self.sampling_rate, overlap=self.overlap)
+            return np.asarray(roughness_r)
 
-        n_channels = x.shape[0]
-        roughness_results = []
-
-        for ch in range(n_channels):
-            channel_data = x[ch, :]
-
-            # Ensure channel_data is a contiguous 1D NumPy array
-            channel_data = np.asarray(channel_data).ravel()
-
-            # Call MoSQITo's roughness_dw function
-            # Returns: R (total roughness), R_spec (specific roughness),
-            #          bark_axis, time_axis
-            roughness_r, _, _, _ = roughness_dw_mosqito(channel_data, self.sampling_rate, overlap=self.overlap)
-
-            # Ensure roughness_r is an array
-            roughness_r = np.asarray(roughness_r)
-
-            roughness_results.append(roughness_r)
-
-            logger.debug(
-                f"Channel {ch}: Calculated roughness with "
-                f"{len(roughness_r)} time points, "
-                f"max roughness: {np.max(roughness_r):.2f} asper"
-            )
-
-        # Stack results
-        result: NDArrayReal = np.stack(roughness_results, axis=0)
-
-        logger.debug(f"Roughness calculation complete, output shape: {result.shape}")
-        return result
+        return _process_per_channel(x, _compute)
 
 
 # Register the operation
 _register_canonical(RoughnessDw)
 
 
-class RoughnessDwSpec(AudioOperation[NDArrayReal, NDArrayReal]):
+class RoughnessDwSpec(_RoughnessBase):
     """Specific roughness (R_spec) operation.
 
     Computes per-Bark-band specific roughness over time using MoSQITo's
@@ -621,7 +473,7 @@ class RoughnessDwSpec(AudioOperation[NDArrayReal, NDArrayReal]):
 
     name = "roughness_dw_spec"
     # Class-level cache: {(sampling_rate, overlap): bark_axis}
-    _bark_axis_cache: dict[tuple[float, float], NDArrayReal] = {}
+    _bark_axis_cache: ClassVar[dict[tuple[float, float], NDArrayReal]] = {}
 
     def __init__(self, sampling_rate: float, overlap: float = 0.5) -> None:
         self.overlap = overlap
@@ -659,16 +511,8 @@ class RoughnessDwSpec(AudioOperation[NDArrayReal, NDArrayReal]):
     def bark_axis(self) -> NDArrayReal:
         return self._bark_axis
 
-    def validate_params(self) -> None:
-        if not 0.0 <= self.overlap <= 1.0:
-            raise ValueError(f"overlap must be in [0.0, 1.0], got {self.overlap}")
-
     def get_metadata_updates(self) -> dict[str, Any]:
-        window_duration = 0.2
-        hop_duration = window_duration * (1 - self.overlap)
-        output_sampling_rate = 1.0 / hop_duration if hop_duration > 0 else 5.0
-
-        return {"sampling_rate": output_sampling_rate, "bark_axis": self._bark_axis}
+        return {"sampling_rate": self._output_sampling_rate(), "bark_axis": self._bark_axis}
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         n_bark_bands = len(self._bark_axis)
@@ -678,13 +522,7 @@ class RoughnessDwSpec(AudioOperation[NDArrayReal, NDArrayReal]):
         else:
             n_channels, n_samples = input_shape[:2]
 
-        window_samples = int(0.2 * self.sampling_rate)
-        hop_samples = int(window_samples * (1 - self.overlap))
-
-        if hop_samples > 0:
-            estimated_time_samples = max(1, (n_samples - window_samples) // hop_samples + 1)
-        else:
-            estimated_time_samples = 1
+        estimated_time_samples = self._estimated_time_samples(n_samples)
 
         if n_channels == 1:
             return (n_bark_bands, estimated_time_samples)
@@ -732,7 +570,7 @@ class RoughnessDwSpec(AudioOperation[NDArrayReal, NDArrayReal]):
 _register_canonical(RoughnessDwSpec)
 
 
-class SharpnessDin(AudioOperation[NDArrayReal, NDArrayReal]):
+class SharpnessDin(_ZwickerTimeVaryingBase):
     """
     Calculate time-varying sharpness using DIN 45692 method.
 
@@ -796,109 +634,16 @@ class SharpnessDin(AudioOperation[NDArrayReal, NDArrayReal]):
     name = "sharpness_din"
 
     def __init__(self, sampling_rate: float, weighting: str = "din", field_type: str = "free"):
-        """
-        Initialize Sharpness calculation operation.
-
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        weighting : str, default="din"
-            Weighting function ('din', 'aures', 'bismarck', 'fastl')
-        field_type : str, default="free"
-            Type of sound field ('free' or 'diffuse')
-        """
         self.weighting = weighting
         self.field_type = field_type
         super().__init__(sampling_rate, weighting=weighting, field_type=field_type)
 
     def validate_params(self) -> None:
-        """
-        Validate parameters.
-
-        Raises
-        ------
-        ValueError
-            If weighting or field_type is invalid.
-        """
-        if self.weighting not in ("din", "aures", "bismarck", "fastl"):
-            raise ValueError(
-                f"Invalid weighting function\n"
-                f"  Got: '{self.weighting}'\n"
-                f"  Expected: one of 'din', 'aures', 'bismarck', 'fastl'\n"
-                f"Use a supported weighting function"
-            )
-        if self.field_type not in ("free", "diffuse"):
-            raise ValueError(
-                f"Invalid field type\n"
-                f"  Got: '{self.field_type}'\n"
-                f"  Expected: 'free' or 'diffuse'\n"
-                f"Use a supported field type"
-            )
-
-    def get_metadata_updates(self) -> dict[str, Any]:
-        """
-        Update sampling rate based on DIN 45692 time resolution.
-
-        The DIN 45692 method uses approximately 2ms time steps,
-        which corresponds to 500 Hz sampling rate, independent of
-        the input sampling rate.
-
-        Returns
-        -------
-        dict
-            Metadata updates with new sampling rate
-
-        Notes
-        -----
-        All necessary parameters are provided at initialization.
-        The output sampling rate is always 500 Hz regardless of input.
-        """
-        return {"sampling_rate": 500.0}
-
-    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        """
-        Calculate output data shape after operation.
-
-        The sharpness calculation produces a time-varying output where the time
-        resolution depends on the algorithm's internal processing. The exact
-        output length is determined dynamically by the sharpness_din_tv function.
-
-        Parameters
-        ----------
-        input_shape : tuple
-            Input data shape (channels, samples)
-
-        Returns
-        -------
-        tuple
-            Output data shape. For sharpness, we return a placeholder shape
-            since the actual length is determined by the algorithm.
-            The shape will be (channels, time_samples) where time_samples
-            depends on the input length and algorithm parameters.
-        """
-        # Return a placeholder shape - the actual shape will be determined
-        # after processing since sharpness_din_tv determines the time resolution
-        # For now, we estimate based on typical behavior (approx 2ms time steps)
-        n_channels = input_shape[0] if len(input_shape) > 1 else 1
-        if len(input_shape) > 0:
-            estimated_time_samples = int(input_shape[-1] / (self.sampling_rate * 0.002))
-        else:
-            raise ValueError(
-                f"Input shape must have at least one dimension\n"
-                f"  Got: shape with {len(input_shape)} dimensions\n"
-                f"  Expected: shape with at least 1 dimension\n"
-                f"Provide input with valid shape (e.g., (samples,) or "
-                f"(channels, samples))"
-            )
-        return (n_channels, estimated_time_samples)
+        _validate_sharpness_params(self.weighting, self.field_type)
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """
         Process array to calculate sharpness.
-
-        This method calculates the time-varying sharpness for each channel
-        of the input signal using the DIN 45692 method.
 
         Parameters
         ----------
@@ -910,59 +655,27 @@ class SharpnessDin(AudioOperation[NDArrayReal, NDArrayReal]):
         NDArrayReal
             Time-varying sharpness in acum for each channel.
             Shape: (channels, time_samples)
-
-        Notes
-        -----
-        The function processes each channel independently and returns
-        the sharpness values. The time axis information is not returned
-        here but can be reconstructed based on the MoSQITo algorithm's
-        behavior (typically 2ms time steps).
         """
         logger.debug(f"Calculating sharpness for signal with shape: {x.shape}")
 
-        # Handle 1D input (single channel)
-        if x.ndim == 1:
-            x = x.reshape(1, -1)
-
-        n_channels = x.shape[0]
-        sharpness_results = []
-
-        for ch in range(n_channels):
-            channel_data = x[ch, :]
-
-            # Ensure channel_data is a contiguous 1D NumPy array
-            channel_data = np.asarray(channel_data).ravel()
-
-            # Call MoSQITo's sharpness_din_tv function
-            # Returns: S (sharpness), time_axis
+        def _compute(ch: NDArrayReal) -> NDArrayReal:
             sharpness_s, _ = sharpness_din_tv_mosqito(
-                channel_data,
+                ch,
                 self.sampling_rate,
                 weighting=self.weighting,
                 field_type=self.field_type,
                 skip=0,
             )
+            return sharpness_s
 
-            sharpness_results.append(sharpness_s)
-
-            logger.debug(
-                f"Channel {ch}: Calculated sharpness with "
-                f"{len(sharpness_s)} time points, "
-                f"max sharpness: {np.max(sharpness_s):.2f} acum"
-            )
-
-        # Stack results
-        result: NDArrayReal = np.stack(sharpness_results, axis=0)
-
-        logger.debug(f"Sharpness calculation complete, output shape: {result.shape}")
-        return result
+        return _process_per_channel(x, _compute)
 
 
 # Register the operation
 _register_canonical(SharpnessDin)
 
 
-class SharpnessDinSt(AudioOperation[NDArrayReal, NDArrayReal]):
+class SharpnessDinSt(_SteadyStateBase):
     """
     Calculate steady-state sharpness using DIN 45692 method.
 
@@ -1028,91 +741,16 @@ class SharpnessDinSt(AudioOperation[NDArrayReal, NDArrayReal]):
     name = "sharpness_din_st"
 
     def __init__(self, sampling_rate: float, weighting: str = "din", field_type: str = "free"):
-        """
-        Initialize steady-state sharpness calculation operation.
-
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        weighting : str, default="din"
-            Weighting function ('din', 'aures', 'bismarck', 'fastl')
-        field_type : str, default="free"
-            Type of sound field ('free' or 'diffuse')
-        """
         self.weighting = weighting
         self.field_type = field_type
         super().__init__(sampling_rate, weighting=weighting, field_type=field_type)
 
     def validate_params(self) -> None:
-        """
-        Validate parameters.
-
-        Raises
-        ------
-        ValueError
-            If weighting or field_type is invalid.
-        """
-        if self.weighting not in ("din", "aures", "bismarck", "fastl"):
-            raise ValueError(
-                f"Invalid weighting function\n"
-                f"  Got: '{self.weighting}'\n"
-                f"  Expected: one of 'din', 'aures', 'bismarck', 'fastl'\n"
-                f"Use a supported weighting function"
-            )
-        if self.field_type not in ("free", "diffuse"):
-            raise ValueError(
-                f"Invalid field type\n"
-                f"  Got: '{self.field_type}'\n"
-                f"  Expected: 'free' or 'diffuse'\n"
-                f"Use a supported field type"
-            )
-
-    def get_metadata_updates(self) -> dict[str, Any]:
-        """
-        Get metadata updates to apply after processing.
-
-        For steady-state sharpness, the output is a single value per channel,
-        so no sampling rate update is needed (output is scalar, not time-series).
-
-        Returns
-        -------
-        dict
-            Empty dictionary (no metadata updates needed)
-
-        Notes
-        -----
-        Unlike time-varying sharpness, steady-state sharpness produces a single
-        value, not a time series, so the sampling rate concept doesn't apply.
-        """
-        return {}
-
-    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        """
-        Calculate output data shape after operation.
-
-        The steady-state sharpness calculation produces a single sharpness value
-        per channel.
-
-        Parameters
-        ----------
-        input_shape : tuple
-            Input data shape (channels, samples)
-
-        Returns
-        -------
-        tuple
-            Output data shape: (channels, 1) - one sharpness value per channel
-        """
-        n_channels = input_shape[0] if len(input_shape) > 1 else 1
-        return (n_channels, 1)
+        _validate_sharpness_params(self.weighting, self.field_type)
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """
         Process array to calculate steady-state sharpness.
-
-        This method calculates the steady-state sharpness for each channel
-        of the input signal using the DIN 45692 method.
 
         Parameters
         ----------
@@ -1124,48 +762,23 @@ class SharpnessDinSt(AudioOperation[NDArrayReal, NDArrayReal]):
         NDArrayReal
             Steady-state sharpness in acum for each channel.
             Shape: (channels, 1)
-
-        Notes
-        -----
-        The function processes each channel independently and returns
-        a single sharpness value per channel.
         """
         logger.debug(
             f"Calculating steady-state sharpness for signal with shape: {x.shape}, "
             f"weighting: {self.weighting}, field_type: {self.field_type}"
         )
 
-        # Handle 1D input (single channel)
-        if x.ndim == 1:
-            x = x.reshape(1, -1)
-
-        n_channels = x.shape[0]
-        sharpness_results = []
-
-        for ch in range(n_channels):
-            channel_data = x[ch, :]
-
-            # Ensure channel_data is a contiguous 1D NumPy array
-            channel_data = np.asarray(channel_data).ravel()
-
-            # Call MoSQITo's sharpness_din_st function
-            # Returns: S (single sharpness value)
-            sharpness_s = sharpness_din_st_mosqito(
-                channel_data,
-                self.sampling_rate,
-                weighting=self.weighting,
-                field_type=self.field_type,
+        def _compute(ch: NDArrayReal) -> float:
+            return float(
+                sharpness_din_st_mosqito(
+                    ch,
+                    self.sampling_rate,
+                    weighting=self.weighting,
+                    field_type=self.field_type,
+                )
             )
 
-            sharpness_results.append(sharpness_s)
-
-            logger.debug(f"Channel {ch}: Calculated steady-state sharpness: {sharpness_s:.2f} acum")
-
-        # Stack results and reshape to (channels, 1)
-        result: NDArrayReal = np.array(sharpness_results).reshape(n_channels, 1)
-
-        logger.debug(f"Steady-state sharpness calculation complete, output shape: {result.shape}")
-        return result
+        return _process_per_channel(x, _compute, scalar=True)
 
 
 # Register the operation

@@ -1,14 +1,15 @@
 import logging
+import warnings
 from collections.abc import Iterator
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, BinaryIO, Optional, TypeVar, cast
+from typing import TYPE_CHECKING, Any, BinaryIO, TypeVar, cast
 
 import dask
 import dask.array as da
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from dask.array.core import Array as DaskArray
+from dask.array.core import Array as DaArray
 from dask.array.core import concatenate
 from IPython.display import Audio, display
 from matplotlib.axes import Axes
@@ -28,11 +29,147 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-dask_delayed = dask.delayed  # type: ignore [unused-ignore]
-da_from_delayed = da.from_delayed  # type: ignore [unused-ignore]
+dask_delayed = dask.delayed
+da_from_delayed = da.from_delayed
 
 
 S = TypeVar("S", bound="BaseFrame[Any]")
+
+
+def _align_to_length(arr: DaArray, target_len: int, align: str, source_len: int) -> DaArray:
+    """Pad or truncate *arr* along axis=1 to *target_len* samples.
+
+    Raises ``ValueError`` when *align* is ``"strict"`` and lengths differ.
+    """
+    if arr.shape[1] == target_len:
+        return arr
+    if align not in ("pad", "truncate"):
+        raise ValueError(
+            f"Data length mismatch\n"
+            f"  Existing frame: {target_len} samples\n"
+            f"  Channel to add: {source_len} samples\n"
+            f"Use align='pad' or align='truncate' to handle "
+            f"length differences."
+        )
+    # Both modes: truncate if longer, pad if shorter
+    arr = arr[:, :target_len]
+    diff = target_len - arr.shape[1]
+    if diff > 0:
+        pad = _da_from_array(
+            np.zeros((arr.shape[0], diff), dtype=arr.dtype),
+            chunks=(1, -1),
+        )
+        return concatenate([arr, pad], axis=1)
+    return arr
+
+
+def _resolve_channels(channel: int | list[int] | None, n_channels: int) -> list[int]:
+    """Normalise a channel specification into a validated list of indices."""
+    if channel is None:
+        return list(range(n_channels))
+    if isinstance(channel, int):
+        if channel < 0 or channel >= n_channels:
+            raise ValueError(f"Channel specification is out of range: {channel} (valid range: 0-{n_channels - 1})")
+        return [channel]
+    if isinstance(channel, (list, tuple)):
+        for ch in channel:
+            if ch < 0 or ch >= n_channels:
+                raise ValueError(f"Channel specification is out of range: {ch} (valid range: 0-{n_channels - 1})")
+        return list(channel)
+    raise TypeError("channel must be int, list, or None")
+
+
+def _download_url(
+    url: str,
+    file_type: str | None,
+    source_name: str | None,
+    timeout: float,
+) -> tuple[bytes, str | None, str | None]:
+    """Download *url* and return ``(bytes, file_type, source_name)``."""
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+    from pathlib import PurePosixPath
+
+    url_path_part = urllib.parse.urlparse(url).path
+    url_ext = PurePosixPath(url_path_part).suffix.lower() or None
+    if file_type is None and url_ext:
+        file_type = url_ext
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as resp:
+            data: bytes = resp.read()
+    except urllib.error.URLError as exc:
+        raise OSError(
+            f"Failed to download audio from URL\n"
+            f"  URL: {url}\n"
+            f"  Error: {exc}\n"
+            f"Verify the URL is accessible and try again."
+        ) from exc
+    if source_name is None:
+        source_name = url
+    return data, file_type, source_name
+
+
+def _is_file_like(obj: object) -> bool:
+    """Return True if *obj* looks like a readable file-like object (not a path)."""
+    return hasattr(obj, "read") and not isinstance(obj, (str, Path))
+
+
+def _resolve_source(
+    path: str | Path | bytes | bytearray | memoryview | BinaryIO,
+    file_type: str | None,
+) -> tuple[Any, Path | None, Any, str | None]:
+    """Resolve *path* into ``(source_obj, path_obj, reader, normalized_file_type)``.
+
+    Handles in-memory buffers, file-like objects, and filesystem paths.
+    """
+
+    is_in_memory = isinstance(path, (bytes, bytearray, memoryview)) or _is_file_like(path)
+    if is_in_memory and file_type is None:
+        raise ValueError(
+            "File type is required when the extension is missing\n"
+            "  Cannot determine format without an extension\n"
+            "  Provide file_type like '.wav' or '.csv'"
+        )
+
+    normalized_file_type: str | None = None
+    if file_type is not None:
+        normalized_file_type = file_type.lower()
+        if not normalized_file_type.startswith("."):
+            normalized_file_type = f".{normalized_file_type}"
+
+    if is_in_memory:
+        if _is_file_like(path):
+            file_obj = cast(BinaryIO, path)
+            if hasattr(file_obj, "seek"):
+                try:
+                    file_obj.seek(0)
+                except Exception as exc:
+                    logger.debug(
+                        "Failed to rewind file-like object before read: %r",
+                        exc,
+                    )
+            source: bytes = file_obj.read()
+        elif isinstance(path, (bytes, bytearray, memoryview)):
+            source = bytes(path)
+        else:
+            raise TypeError("Unexpected in-memory input type")
+        reader = get_file_reader(normalized_file_type or "", file_type=normalized_file_type)
+        return source, None, reader, normalized_file_type
+
+    path_obj = Path(cast(str | Path, path))
+    if not path_obj.exists():
+        raise FileNotFoundError(
+            f"Audio file not found\n"
+            f"  Path: {path_obj.absolute()}\n"
+            f"  Current directory: {Path.cwd()}\n"
+            f"Please check:\n"
+            f"  - File path is correct\n"
+            f"  - File exists at the specified location\n"
+            f"  - You have read permissions for the file"
+        )
+    reader = get_file_reader(path_obj)
+    return path_obj, path_obj, reader, normalized_file_type
 
 
 class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransformMixin):
@@ -44,13 +181,13 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
     def __init__(
         self,
-        data: DaskArray,
+        data: DaArray,
         sampling_rate: float,
         label: str | None = None,
         metadata: "FrameMetadata | dict[str, Any] | None" = None,
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
-        previous: Optional["BaseFrame[Any]"] = None,
+        previous: "BaseFrame[Any] | None" = None,
     ) -> None:
         """Initialize a ChannelFrame.
 
@@ -96,10 +233,46 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             previous=previous,
         )
 
-    @property
-    def _n_channels(self) -> int:
-        """Returns the number of channels."""
-        return int(self._data.shape[-2])
+    def _set_channel_labels(self, ch_labels: list[str]) -> None:
+        """Overwrite channel labels after construction.
+
+        Raises ``ValueError`` if the list length does not match ``n_channels``.
+        """
+        if len(ch_labels) != self.n_channels:
+            raise ValueError("Number of channel labels does not match the number of channels")
+        for i, lbl in enumerate(ch_labels):
+            self._channel_metadata[i].label = lbl
+
+    def _set_channel_units(self, ch_units: list[str]) -> None:
+        """Overwrite channel units after construction.
+
+        Raises ``ValueError`` if the list length does not match ``n_channels``.
+        """
+        if len(ch_units) != self.n_channels:
+            raise ValueError("Number of channel units does not match the number of channels")
+        for i, unit in enumerate(ch_units):
+            self._channel_metadata[i].unit = unit
+
+    def _finalize_channel_update(
+        self,
+        new_data: DaArray,
+        new_chmeta: list[ChannelMetadata],
+        inplace: bool,
+    ) -> "ChannelFrame":
+        """Apply *new_data* and *new_chmeta* either in-place or as a new frame."""
+        if inplace:
+            self._data = new_data
+            self._channel_metadata = new_chmeta
+            return self
+        return ChannelFrame(
+            data=new_data,
+            sampling_rate=self.sampling_rate,
+            label=self.label,
+            metadata=self.metadata,
+            operation_history=self.operation_history,
+            channel_metadata=new_chmeta,
+            previous=self,
+        )
 
     @property
     def time(self) -> NDArrayReal:
@@ -139,6 +312,17 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         return self.n_samples / self.sampling_rate
 
     @property
+    def _float_data(self) -> DaArray:
+        """Return data cast to float64 if not already floating-point.
+
+        Prevents integer overflow when squaring (e.g. int16 samples).
+        """
+        data = self._data
+        if not np.issubdtype(data.dtype, np.floating):
+            return data.astype(np.float64)
+        return data
+
+    @property
     def rms(self) -> NDArrayReal:
         """Calculate RMS (Root Mean Square) value for each channel.
 
@@ -167,10 +351,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         # Compute RMS per channel.  axis=1 is the sample axis for data of
         # shape (channels, samples).  .compute() materialises the Dask graph
         # and np.array() ensures the result is a concrete NumPy ndarray.
-        # Cast to float to avoid integer overflow when squaring (e.g. int16).
-        data = self._data
-        if not np.issubdtype(data.dtype, np.floating):
-            data = data.astype(np.float64)
+        data = self._float_data
         rms_values = da.sqrt((data**2).mean(axis=1))
         return np.array(rms_values.compute())
 
@@ -207,10 +388,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> # Select channels with crest factor above threshold
             >>> impulsive_channels = cf[cf.crest_factor > 3.0]
         """
-        # Cast to float to avoid integer overflow in abs/squaring (e.g. int16(-32768)).
-        data = self._data
-        if not np.issubdtype(data.dtype, np.floating):
-            data = data.astype(np.float64)
+        data = self._float_data
         peak = da.max(da.abs(data), axis=1)
         rms_vals = da.sqrt((data**2).mean(axis=1))
         # Use a safe denominator so the division never sees a zero RMS value,
@@ -289,7 +467,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 )
 
         elif isinstance(other, np.ndarray):
-            other = ChannelFrame.from_numpy(other, self.sampling_rate, label="array_data")
+            other = ChannelFrame.from_numpy(cast(NDArrayReal, other), self.sampling_rate, label="array_data")
         elif isinstance(other, int | float):
             return self + other
         else:
@@ -306,7 +484,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
     def plot(
         self,
         plot_type: str = "waveform",
-        ax: Optional["Axes"] = None,
+        ax: "Axes | None" = None,
         title: str | None = None,
         overlay: bool = False,
         xlabel: str | None = None,
@@ -378,7 +556,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
     def rms_plot(
         self,
-        ax: Optional["Axes"] = None,
+        ax: "Axes | None" = None,
         title: str | None = None,
         overlay: bool = True,
         Aw: bool = False,  # noqa: N803
@@ -411,6 +589,30 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         ylabel = kwargs.pop("ylabel", "RMS")
         rms_ch: ChannelFrame = self.rms_trend(Aw=Aw, dB=True)
         return rms_ch.plot(ax=ax, ylabel=ylabel, title=title, overlay=overlay, **kwargs)
+
+    @staticmethod
+    def _apply_deprecated_describe_kwargs(plot_kwargs: dict[str, Any]) -> None:
+        """Migrate deprecated ``axis_config`` / ``cbar_config`` into *plot_kwargs*."""
+        if "axis_config" in plot_kwargs:
+            logger.warning("axis_config is retained for backward compatibility but will be deprecated in the future.")
+            axis_config = plot_kwargs["axis_config"]
+            if "time_plot" in axis_config:
+                plot_kwargs["waveform"] = axis_config["time_plot"]
+            if "freq_plot" in axis_config:
+                if "xlim" in axis_config["freq_plot"]:
+                    vlim = axis_config["freq_plot"]["xlim"]
+                    plot_kwargs["vmin"] = vlim[0]
+                    plot_kwargs["vmax"] = vlim[1]
+                if "ylim" in axis_config["freq_plot"]:
+                    plot_kwargs["ylim"] = axis_config["freq_plot"]["ylim"]
+
+        if "cbar_config" in plot_kwargs:
+            logger.warning("cbar_config is retained for backward compatibility but will be deprecated in the future.")
+            cbar_config = plot_kwargs["cbar_config"]
+            if "vmin" in cbar_config:
+                plot_kwargs["vmin"] = cbar_config["vmin"]
+            if "vmax" in cbar_config:
+                plot_kwargs["vmax"] = cbar_config["vmax"]
 
     def describe(
         self,
@@ -520,41 +722,18 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         # Merge with additional kwargs
         plot_kwargs.update(kwargs)
 
-        if "axis_config" in plot_kwargs:
-            logger.warning("axis_config is retained for backward compatibility but will be deprecated in the future.")
-            axis_config = plot_kwargs["axis_config"]
-            if "time_plot" in axis_config:
-                plot_kwargs["waveform"] = axis_config["time_plot"]
-            if "freq_plot" in axis_config:
-                if "xlim" in axis_config["freq_plot"]:
-                    vlim = axis_config["freq_plot"]["xlim"]
-                    plot_kwargs["vmin"] = vlim[0]
-                    plot_kwargs["vmax"] = vlim[1]
-                if "ylim" in axis_config["freq_plot"]:
-                    ylim_config = axis_config["freq_plot"]["ylim"]
-                    plot_kwargs["ylim"] = ylim_config
-
-        if "cbar_config" in plot_kwargs:
-            logger.warning("cbar_config is retained for backward compatibility but will be deprecated in the future.")
-            cbar_config = plot_kwargs["cbar_config"]
-            if "vmin" in cbar_config:
-                plot_kwargs["vmin"] = cbar_config["vmin"]
-            if "vmax" in cbar_config:
-                plot_kwargs["vmax"] = cbar_config["vmax"]
+        self._apply_deprecated_describe_kwargs(plot_kwargs)
 
         figures: list[Figure] = []
 
         for ch_idx, ch in enumerate(self):
-            ax: Axes
             _ax = ch.plot("describe", title=f"{ch.label} {ch.labels[0]}", **plot_kwargs)
-            if isinstance(_ax, Iterator):
-                ax = next(iter(_ax))
-            elif isinstance(_ax, Axes):
+            if isinstance(_ax, Axes):
                 ax = _ax
+            elif isinstance(_ax, Iterator):
+                ax = cast(Axes, next(_ax))
             else:
-                raise TypeError(
-                    f"Unexpected type for plot result: {type(_ax)}. Expected Axes or Iterator[Axes]."  # noqa: E501
-                )
+                raise TypeError(f"Unexpected type for plot result: {type(_ax)}. Expected Axes or Iterator[Axes].")
             # Extract figure from axes (existing pattern)
             fig = getattr(ax, "figure", None)
 
@@ -623,18 +802,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             metadata=metadata,
         )
         if ch_labels is not None:
-            if len(ch_labels) != cf.n_channels:
-                raise ValueError("Number of channel labels does not match the number of channels")
-            for i in range(len(ch_labels)):
-                cf._channel_metadata[i].label = ch_labels[i]
+            cf._set_channel_labels(ch_labels)
         if ch_units is not None:
             if isinstance(ch_units, str):
                 ch_units = [ch_units] * cf.n_channels
-
-            if len(ch_units) != cf.n_channels:
-                raise ValueError("Number of channel units does not match the number of channels")
-            for i in range(len(ch_units)):
-                cf._channel_metadata[i].unit = ch_units[i]
+            cf._set_channel_units(ch_units)
 
         return cf
 
@@ -663,9 +835,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         Returns:
             A new ChannelFrame containing the data.
         """
-        # Redirect to from_numpy for compatibility
-        # However, from_ndarray is deprecated
-        logger.warning("from_ndarray is deprecated. Use from_numpy instead.")
+        warnings.warn(
+            "from_ndarray is deprecated. Use from_numpy instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return cls.from_numpy(
             data=array,
             sampling_rate=sampling_rate,
@@ -750,81 +924,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         from .channel import ChannelFrame
 
         # Detect and handle URL paths — download to bytes before any path logic.
-        if isinstance(path, str) and (path.startswith("http://") or path.startswith("https://")):
-            import urllib.error
-            import urllib.parse
-            import urllib.request
-            from pathlib import PurePosixPath
+        if isinstance(path, str) and path.startswith(("http://", "https://")):
+            path, file_type, source_name = _download_url(path, file_type, source_name, timeout)
 
-            _url = path  # keep original URL string for error messages
-            url_path_part = urllib.parse.urlparse(_url).path
-            url_ext = PurePosixPath(url_path_part).suffix.lower() or None
-            if file_type is None and url_ext:
-                file_type = url_ext
-            try:
-                with urllib.request.urlopen(_url, timeout=timeout) as _resp:
-                    path = _resp.read()  # bytes — picked up by is_in_memory below
-            except urllib.error.URLError as exc:
-                raise OSError(
-                    f"Failed to download audio from URL\n"
-                    f"  URL: {_url}\n"
-                    f"  Error: {exc}\n"
-                    f"Verify the URL is accessible and try again."
-                ) from exc
-            # Preserve URL as provenance when no explicit source_name was given.
-            if source_name is None:
-                source_name = _url
-
-        is_in_memory = isinstance(path, (bytes, bytearray, memoryview)) or (
-            hasattr(path, "read") and not isinstance(path, (str, Path))
-        )
-        if is_in_memory and file_type is None:
-            raise ValueError(
-                "File type is required when the extension is missing\n"
-                "  Cannot determine format without an extension\n"
-                "  Provide file_type like '.wav' or '.csv'"
-            )
-
-        normalized_file_type = None
-        if file_type is not None:
-            normalized_file_type = file_type.lower()
-            if not normalized_file_type.startswith("."):
-                normalized_file_type = f".{normalized_file_type}"
-
-        if is_in_memory:
-            if hasattr(path, "read") and not isinstance(path, (str, Path)):
-                if hasattr(path, "seek"):
-                    try:
-                        path.seek(0)
-                    except Exception as exc:
-                        # Best-effort rewind: some file-like objects are not seekable.
-                        # Failure to seek is non-fatal; we still attempt to read
-                        # from the current position.
-                        logger.debug(
-                            "Failed to rewind file-like object before read: %r",
-                            exc,
-                        )
-                source: bytes = path.read()
-            else:
-                if isinstance(path, (bytes, bytearray, memoryview)):
-                    source = bytes(path)
-                else:
-                    raise TypeError("Unexpected in-memory input type")
-            path_obj: Path | None = None
-            reader = get_file_reader(normalized_file_type or "", file_type=normalized_file_type)
-        else:
-            path_obj = Path(cast(str | Path, path))
-            if not path_obj.exists():
-                raise FileNotFoundError(
-                    f"Audio file not found\n"
-                    f"  Path: {path_obj.absolute()}\n"
-                    f"  Current directory: {Path.cwd()}\n"
-                    f"Please check:\n"
-                    f"  - File path is correct\n"
-                    f"  - File exists at the specified location\n"
-                    f"  - You have read permissions for the file"
-                )
-            reader = get_file_reader(path_obj)
+        source_obj, path_obj, reader, normalized_file_type = _resolve_source(path, file_type)
 
         # Build kwargs for reader
         reader_kwargs: dict[str, Any] = {}
@@ -837,15 +940,6 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         if is_wav_file:
             reader_kwargs["normalize"] = normalize
 
-        # Get file info
-        source_obj: str | Path | bytes | bytearray | memoryview | BinaryIO
-        if is_in_memory:
-            source_obj = source
-        else:
-            if path_obj is None:
-                raise ValueError("Path is required when loading from file")
-            source_obj = path_obj
-
         info = reader.get_file_info(source_obj, **reader_kwargs)
         sr = info["samplerate"]
         n_channels = info["channels"]
@@ -855,28 +949,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         logger.debug(f"File info: sr={sr}, channels={n_channels}, frames={n_frames}")
 
         # Channel selection processing
-        all_channels = list(range(n_channels))
-
-        if channel is None:
-            channels_to_load = all_channels
-            logger.debug(f"Will load all channels: {channels_to_load}")
-        elif isinstance(channel, int):
-            if channel < 0 or channel >= n_channels:
-                raise ValueError(
-                    f"Channel specification is out of range: {channel} (valid range: 0-{n_channels - 1})"  # noqa: E501
-                )
-            channels_to_load = [channel]
-            logger.debug(f"Will load single channel: {channel}")
-        elif isinstance(channel, list | tuple):
-            for ch in channel:
-                if ch < 0 or ch >= n_channels:
-                    raise ValueError(
-                        f"Channel specification is out of range: {ch} (valid range: 0-{n_channels - 1})"  # noqa: E501
-                    )
-            channels_to_load = list(channel)
-            logger.debug(f"Will load specific channels: {channels_to_load}")
-        else:
-            raise TypeError("channel must be int, list, or None")
+        channels_to_load = _resolve_channels(channel, n_channels)
 
         # Index calculation
         start_idx = 0 if start is None else max(0, int(start * sr))
@@ -920,9 +993,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         # Ensure channel-wise chunks
         dask_array = dask_array.rechunk((1, -1))
 
-        logger.debug(
-            "ChannelFrame setup complete - actual file reading will occur on compute()"  # noqa: E501
-        )
+        logger.debug("ChannelFrame setup complete - actual file reading will occur on compute()")
 
         if source_name is not None:
             try:
@@ -950,12 +1021,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             metadata=FrameMetadata(source_file=source_file),
         )
         if ch_labels is not None:
-            if len(ch_labels) != len(cf):
-                raise ValueError(
-                    "Number of channel labels does not match the number of specified channels"  # noqa: E501
-                )
-            for i in range(len(ch_labels)):
-                cf._channel_metadata[i].label = ch_labels[i]
+            cf._set_channel_labels(ch_labels)
         return cf
 
     @classmethod
@@ -980,11 +1046,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         """
         from .channel import ChannelFrame
 
-        is_in_memory = isinstance(filename, (bytes, bytearray, memoryview)) or (
-            hasattr(filename, "read") and not isinstance(filename, (str, Path))
-        )
+        is_in_memory = isinstance(filename, (bytes, bytearray, memoryview)) or _is_file_like(filename)
         source_name: str | None = None
-        if is_in_memory and hasattr(filename, "read") and not isinstance(filename, (str, Path)):
+        if is_in_memory and _is_file_like(filename):
             source_name = getattr(filename, "name", None)
         cf = ChannelFrame.from_file(
             filename,
@@ -1113,7 +1177,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
     def add_channel(
         self,
-        data: "np.ndarray[Any, Any] | DaskArray | ChannelFrame",
+        data: "np.ndarray[Any, Any] | DaArray | ChannelFrame",
         label: str | None = None,
         align: str = "strict",
         suffix_on_dup: str | None = None,
@@ -1155,65 +1219,16 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> cf2 = ChannelFrame.read_wav("audio2.wav")
             >>> cf_combined = cf.add_channel(cf2)
         """
-        # ndarray/dask/同型Frame対応
+        # Handle ndarray/dask/same-type Frame
         if isinstance(data, ChannelFrame):
             if self.sampling_rate != data.sampling_rate:
-                raise ValueError("sampling_rate不一致")
-            if data.n_samples != self.n_samples:
-                if align == "pad":
-                    pad_len = self.n_samples - data.n_samples
-                    arr = data._data
-                    if pad_len > 0:
-                        arr = concatenate(
-                            [
-                                arr,
-                                _da_from_array(
-                                    np.zeros(
-                                        (arr.shape[0], pad_len),
-                                        dtype=arr.dtype,
-                                    ),
-                                    chunks=(1, -1),
-                                ),
-                            ],
-                            axis=1,
-                        )
-                    else:
-                        arr = arr[:, : self.n_samples]
-                elif align == "truncate":
-                    arr = data._data[:, : self.n_samples]
-                    if arr.shape[1] < self.n_samples:
-                        pad_len = self.n_samples - arr.shape[1]
-                        arr = concatenate(
-                            [
-                                arr,
-                                _da_from_array(
-                                    np.zeros(
-                                        (arr.shape[0], pad_len),
-                                        dtype=arr.dtype,
-                                    ),
-                                    chunks=(1, -1),
-                                ),
-                            ],
-                            axis=1,
-                        )
-                else:
-                    raise ValueError(
-                        f"Data length mismatch\n"
-                        f"  Existing frame: {self.n_samples} samples\n"
-                        f"  Channel to add: {data.n_samples} samples\n"
-                        f"Use align='pad' or align='truncate' to handle "
-                        f"length differences."
-                    )
-            else:
-                arr = data._data
-            labels = [ch.label for ch in self._channel_metadata]
+                raise ValueError("sampling_rate mismatch")
+            arr = _align_to_length(data._data, self.n_samples, align, data.n_samples)
+            labels = self.labels
             new_labels: list[str] = []
             new_metadata_list: list[ChannelMetadata] = []
             for chmeta in data._channel_metadata:
-                if label is not None:
-                    new_label = f"{label}_{chmeta.label}"
-                else:
-                    new_label = chmeta.label
+                new_label = f"{label}_{chmeta.label}" if label is not None else chmeta.label
                 if new_label in labels or new_label in new_labels:
                     if suffix_on_dup:
                         new_label += suffix_on_dup
@@ -1233,57 +1248,17 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             new_data = concatenate([self._data, arr], axis=0)
 
             new_chmeta = self._channel_metadata + new_metadata_list
-            if inplace:
-                self._data = new_data
-                self._channel_metadata = new_chmeta
-                return self
-            else:
-                return ChannelFrame(
-                    data=new_data,
-                    sampling_rate=self.sampling_rate,
-                    label=self.label,
-                    metadata=self.metadata,
-                    operation_history=self.operation_history,
-                    channel_metadata=new_chmeta,
-                    previous=self,
-                )
+            return self._finalize_channel_update(new_data, new_chmeta, inplace)
         if isinstance(data, np.ndarray):
             arr = _da_from_array(data.reshape(1, -1), chunks=(1, -1))
-        elif isinstance(data, DaskArray):
+        elif isinstance(data, DaArray):
             arr = data[None, ...] if data.ndim == 1 else data
             if arr.shape[0] != 1:
                 arr = arr.reshape((1, -1))
         else:
             raise TypeError("add_channel: ndarray/dask/ChannelFrame")
-        if arr.shape[1] != self.n_samples:
-            if align == "pad":
-                pad_len = self.n_samples - arr.shape[1]
-                if pad_len > 0:
-                    pad_arr = _da_from_array(
-                        np.zeros((1, pad_len), dtype=arr.dtype),
-                        chunks=(1, -1),
-                    )
-                    arr = concatenate([arr, pad_arr], axis=1)
-                else:
-                    arr = arr[:, : self.n_samples]
-            elif align == "truncate":
-                arr = arr[:, : self.n_samples]
-                if arr.shape[1] < self.n_samples:
-                    pad_len = self.n_samples - arr.shape[1]
-                    pad_arr = _da_from_array(
-                        np.zeros((1, pad_len), dtype=arr.dtype),
-                        chunks=(1, -1),
-                    )
-                    arr = concatenate([arr, pad_arr], axis=1)
-            else:
-                raise ValueError(
-                    f"Data length mismatch\n"
-                    f"  Existing frame: {self.n_samples} samples\n"
-                    f"  Channel to add: {arr.shape[1]} samples\n"
-                    f"Use align='pad' or align='truncate' to handle "
-                    f"length differences."
-                )
-        labels = [ch.label for ch in self._channel_metadata]
+        arr = _align_to_length(arr, self.n_samples, align, arr.shape[1])
+        labels = self.labels
         new_label = label or f"ch{len(labels)}"
         if new_label in labels:
             if suffix_on_dup:
@@ -1298,21 +1273,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 )
         new_data = concatenate([self._data, arr], axis=0)
 
-        new_chmeta = self._channel_metadata + [ChannelMetadata(label=new_label)]
-        if inplace:
-            self._data = new_data
-            self._channel_metadata = new_chmeta
-            return self
-        else:
-            return ChannelFrame(
-                data=new_data,
-                sampling_rate=self.sampling_rate,
-                label=self.label,
-                metadata=self.metadata,
-                operation_history=self.operation_history,
-                channel_metadata=new_chmeta,
-                previous=self,
-            )
+        new_chmeta = [*self._channel_metadata, ChannelMetadata(label=new_label)]
+        return self._finalize_channel_update(new_data, new_chmeta, inplace)
 
     def remove_channel(self, key: int | str, inplace: bool = False) -> "ChannelFrame":
         if isinstance(key, int):
@@ -1320,26 +1282,13 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 raise IndexError(f"index {key} out of range")
             idx = key
         else:
-            labels = [ch.label for ch in self._channel_metadata]
+            labels = self.labels
             if key not in labels:
                 raise KeyError(f"label {key} not found")
             idx = labels.index(key)
         new_data = self._data[[i for i in range(self.n_channels) if i != idx], :]
         new_chmeta = [ch for i, ch in enumerate(self._channel_metadata) if i != idx]
-        if inplace:
-            self._data = new_data
-            self._channel_metadata = new_chmeta
-            return self
-        else:
-            return ChannelFrame(
-                data=new_data,
-                sampling_rate=self.sampling_rate,
-                label=self.label,
-                metadata=self.metadata,
-                operation_history=self.operation_history,
-                channel_metadata=new_chmeta,
-                previous=self,
-            )
+        return self._finalize_channel_update(new_data, new_chmeta, inplace)
 
     def rename_channels(
         self,
@@ -1369,7 +1318,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> # Rename by label
             >>> cf_renamed = cf.rename_channels({"ch0": "vocals"})
         """
-        labels = [ch.label for ch in self._channel_metadata]
+        labels = self.labels
         new_labels = labels.copy()
 
         # Resolve all keys to their target labels and validate
@@ -1433,20 +1382,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         if inplace:
             self._channel_metadata = new_chmeta
             return self
-        else:
-            return ChannelFrame(
-                data=self._data,
-                sampling_rate=self.sampling_rate,
-                label=self.label,
-                metadata=self.metadata,
-                operation_history=self.operation_history,
-                channel_metadata=new_chmeta,
-                previous=self,
-            )
-
-    def _get_dataframe_columns(self) -> list[str]:
-        """Get channel labels as DataFrame columns."""
-        return [ch.label for ch in self._channel_metadata]
+        return self._finalize_channel_update(self._data, new_chmeta, inplace=False)
 
     def _get_dataframe_index(self) -> "pd.Index[Any]":
         """Get time index for DataFrame."""

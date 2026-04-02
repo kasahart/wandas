@@ -20,7 +20,7 @@ from wandas.processing.psychoacoustic import (
 )
 from wandas.utils.types import NDArrayReal
 
-_da_from_array = da.from_array  # type: ignore [unused-ignore]
+_da_from_array = da.from_array
 
 
 def _psychoacoustic_class(name: str) -> type:
@@ -1322,7 +1322,7 @@ class TestRoughnessDwSpec:
 
         op = RoughnessDwSpec(self.sample_rate, overlap=self.overlap)
         # Force _bark_axis to None to exercise the guard in _process_array
-        op._bark_axis = None  # type: ignore[assignment]
+        op._bark_axis = None  # ty: ignore[invalid-assignment]
         result = op._process_array(self.signal_mono)
         # After processing, _bark_axis should have been set from MoSQITo
         assert op._bark_axis is not None

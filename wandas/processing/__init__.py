@@ -51,7 +51,7 @@ from wandas.processing.temporal import (
     Trim,
 )
 
-__all__ = [
+__all__ = [  # noqa: RUF022  # intentionally grouped by category
     # Base
     "AudioOperation",
     "_OPERATION_REGISTRY",

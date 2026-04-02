@@ -12,7 +12,7 @@ import wandas as wd
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 
-_da_from_array = da.from_array  # type: ignore [unused-ignore]
+_da_from_array = da.from_array
 
 
 class TestBaseFrameArithmeticOperations:
@@ -229,7 +229,6 @@ def test_get_channel_no_args_raises() -> None:
     cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
 
     with pytest.raises(TypeError, match=r"Either 'channel_idx' or 'query' must be provided."):
-        # type: ignore[arg-type]
         cf.get_channel()
 
 
@@ -436,7 +435,7 @@ def test_channel_metadata_validation_type_error() -> None:
 
     # Unsupported type in channel_metadata list
     with pytest.raises(TypeError, match=r"Invalid type in channel_metadata"):
-        ChannelFrame(data=dask_data, sampling_rate=16000, channel_metadata=[123])
+        ChannelFrame(data=dask_data, sampling_rate=16000, channel_metadata=[123])  # ty: ignore[invalid-argument-type]
 
 
 def test_get_channel_unsupported_query_type() -> None:
@@ -445,7 +444,7 @@ def test_get_channel_unsupported_query_type() -> None:
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
 
     with pytest.raises(TypeError, match=r"Unsupported query type"):
-        cf.get_channel(0, query=5)  # type: ignore[arg-type]
+        cf.get_channel(0, query=5)  # ty: ignore[invalid-argument-type]
 
 
 def test_getitem_mixed_list_types_raises() -> None:
@@ -454,7 +453,7 @@ def test_getitem_mixed_list_types_raises() -> None:
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
 
     with pytest.raises(TypeError, match=r"List must contain all str or all int"):
-        _ = cf[[0, "ch0"]]  # type: ignore[index]
+        _ = cf[[0, "ch0"]]  # ty: ignore[invalid-argument-type]
 
 
 def test_compute_returns_non_ndarray_raises() -> None:
@@ -474,6 +473,7 @@ def test_to_tensor_import_errors_and_unsupported_framework() -> None:
 
     # Simulate torch not installed
     import importlib
+    import importlib.util
 
     orig_find = importlib.util.find_spec
 
@@ -488,7 +488,7 @@ def test_to_tensor_import_errors_and_unsupported_framework() -> None:
                 cf.to_tensor(framework="tensorflow")
     finally:
         try:
-            importlib.util.find_spec = orig_find  # type: ignore[attr-defined]
+            importlib.util.find_spec = orig_find
         except Exception:
             pass
 
@@ -504,15 +504,15 @@ def test_create_new_instance_invalid_label_and_metadata_and_channel_metadata() -
 
     # invalid label type
     with pytest.raises(TypeError, match=r"Label must be a string"):
-        cf._create_new_instance(data=cf._data, label=123)  # type: ignore[arg-type]
+        cf._create_new_instance(data=cf._data, label=123)
 
     # invalid metadata type
     with pytest.raises(TypeError, match=r"Metadata must be a dictionary"):
-        cf._create_new_instance(data=cf._data, metadata=[1, 2, 3])  # type: ignore[arg-type]
+        cf._create_new_instance(data=cf._data, metadata=[1, 2, 3])
 
     # invalid channel_metadata type
     with pytest.raises(TypeError, match=r"Channel metadata must be a list"):
-        cf._create_new_instance(data=cf._data, channel_metadata={"a": 1})  # type: ignore[arg-type]
+        cf._create_new_instance(data=cf._data, channel_metadata={"a": 1})
 
 
 def test_visualize_graph_exception_handling(caplog) -> None:
@@ -640,7 +640,7 @@ class TestBaseFrameChannelMetadata:
             ChannelFrame(
                 data=self.dask_data,
                 sampling_rate=self.sample_rate,
-                channel_metadata=invalid_metadata,  # type: ignore
+                channel_metadata=invalid_metadata,  # ty: ignore[invalid-argument-type]
             )
 
 
@@ -729,7 +729,7 @@ class TestBaseFrameErrorCases:
         with pytest.raises(TypeError, match="Label must be a string"):
             self.channel_frame._create_new_instance(
                 data=self.dask_data,
-                label=123,  # type: ignore
+                label=123,
             )
 
     def test_create_new_instance_invalid_metadata_type(self) -> None:
@@ -737,7 +737,7 @@ class TestBaseFrameErrorCases:
         with pytest.raises(TypeError, match="Metadata must be a dictionary"):
             self.channel_frame._create_new_instance(
                 data=self.dask_data,
-                metadata="invalid",  # type: ignore
+                metadata="invalid",
             )
 
     def test_create_new_instance_invalid_channel_metadata_type(self) -> None:
@@ -745,7 +745,7 @@ class TestBaseFrameErrorCases:
         with pytest.raises(TypeError, match="Channel metadata must be a list"):
             self.channel_frame._create_new_instance(
                 data=self.dask_data,
-                channel_metadata="invalid",  # type: ignore
+                channel_metadata="invalid",
             )
 
 
@@ -884,7 +884,7 @@ class TestBaseFrameIndexing:
     def test_getitem_with_mixed_list_error(self) -> None:
         """Test __getitem__ with mixed type list raises TypeError."""
         with pytest.raises(TypeError, match="List must contain all str or all int"):
-            _ = self.channel_frame[["ch0", 1]]  # type: ignore
+            _ = self.channel_frame[["ch0", 1]]  # ty: ignore[invalid-argument-type]
 
     def test_getitem_with_numpy_integer_array(self) -> None:
         """Test __getitem__ with NumPy integer array."""
@@ -941,7 +941,7 @@ class TestBaseFrameIndexing:
     def test_getitem_with_invalid_key_type(self) -> None:
         """Test __getitem__ with invalid key type raises TypeError."""
         with pytest.raises(TypeError, match="Invalid key type"):
-            _ = self.channel_frame[{"key": "value"}]  # type: ignore
+            _ = self.channel_frame[{"key": "value"}]  # ty: ignore[invalid-argument-type]
 
     def test_getitem_with_tuple_string_and_time(self) -> None:
         """Test __getitem__ with string label and time slice."""
@@ -1105,7 +1105,7 @@ class TestBaseFrameEdgeCases:
         dask_data: DaArray = _da_from_array(data, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
         with pytest.raises(TypeError, match="Invalid channel key type in tuple"):
-            _ = frame[{"invalid": "key"}, 100:200]  # type: ignore
+            _ = frame[{"invalid": "key"}, 100:200]  # ty: ignore[invalid-argument-type]
 
     def test_compute_invalid_result_type(self) -> None:
         """Test compute() with invalid result type raises ValueError."""
@@ -1314,7 +1314,7 @@ class TestBaseFrameCoverage:
     def test_get_channel_invalid_type(self) -> None:
         """Test get_channel with invalid type raises TypeError."""
         with pytest.raises(TypeError):
-            self.channel_frame.get_channel(1.5)  # type: ignore
+            self.channel_frame.get_channel(1.5)  # ty: ignore[invalid-argument-type]
 
     def test_handle_multidim_indexing_too_many_dims(self) -> None:
         """Test _handle_multidim_indexing with too many dimensions."""
@@ -1328,4 +1328,4 @@ class TestBaseFrameCoverage:
         # Pass a float as channel key
         key = (1.5, slice(None))
         with pytest.raises(TypeError, match="Invalid channel key type"):
-            self.channel_frame._handle_multidim_indexing(key)  # type: ignore
+            self.channel_frame._handle_multidim_indexing(key)  # ty: ignore[invalid-argument-type]

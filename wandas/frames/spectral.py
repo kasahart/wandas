@@ -5,8 +5,6 @@ import logging
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any, cast
 
-import dask
-import dask.array as da
 import numpy as np
 import pandas as pd
 from dask.array.core import Array as DaArray
@@ -24,9 +22,6 @@ if TYPE_CHECKING:
     from .channel import ChannelFrame
     from .noct import NOctFrame
 
-
-dask_delayed = dask.delayed  # type: ignore [unused-ignore]
-da_from_delayed = da.from_delayed  # type: ignore [unused-ignore]
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +44,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     sampling_rate : float
         The sampling rate of the original time-domain signal in Hz.
     n_fft : int
-        The FFT size used to generate this spectral data.
+        The FFT size used to generate this spectral data. Required.
     window : str, default="hann"
         The window function used in the FFT.
     label : str, optional
@@ -321,10 +316,6 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             "window": self.window,
         }
 
-    def _get_dataframe_columns(self) -> list[str]:
-        """Get channel labels as DataFrame columns."""
-        return [ch.label for ch in self._channel_metadata]
-
     def _get_dataframe_index(self) -> pd.Index[Any]:
         """Get frequency index for DataFrame."""
         return pd.Index(self.freqs, name="frequency")
@@ -394,7 +385,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             G=G,
             fr=fr,
             label=f"1/{n}Oct of {self.label}",
-            metadata={**self.metadata, **params},
+            metadata=self.metadata.merged(**params),
             operation_history=[
                 *self.operation_history,
                 {
