@@ -87,10 +87,10 @@ class ChannelTransformMixin:
         )
 
         n_fft = operation.n_fft
-        if not isinstance(n_fft, int):
+        if n_fft is not None and not isinstance(n_fft, int):
             raise TypeError(
                 f"Operation '{operation_name}' must provide an integer n_fft "
-                f"to create a SpectralFrame, but got {type(n_fft).__name__}."
+                f"or None to create a SpectralFrame, but got {type(n_fft).__name__}."
             )
 
         return SpectralFrame(

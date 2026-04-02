@@ -694,8 +694,6 @@ class BaseFrame(ABC, Generic[T]):
 
         metadata: FrameMetadata = self.metadata.copy() if self.metadata is not None else FrameMetadata()
         operation_history: list[dict[str, Any]] = self.operation_history.copy() if self.operation_history else []
-
-        # Same-type frame operation
         if isinstance(other, type(self)):
             if self.sampling_rate != other.sampling_rate:
                 raise ValueError(
@@ -726,32 +724,19 @@ class BaseFrame(ABC, Generic[T]):
                 )
 
             result_data = op(self._data, other._data)
+            other_str = other.label
+            other_labels = [ch.label for ch in other._channel_metadata]
+        else:
+            result_data = op(self._data, other)
+            other_str = self._format_operand_str(other)
+            other_labels = [other_str] * self.n_channels
 
-            merged_channel_metadata: list[ChannelMetadata] = []
-            for self_ch, other_ch in zip(self._channel_metadata, other._channel_metadata):
-                ch = self_ch.model_copy(deep=True)
-                ch["label"] = f"({self_ch['label']} {symbol} {other_ch['label']})"
-                merged_channel_metadata.append(ch)
-
-            operation_history.append({"operation": symbol, "with": other.label})
-
-            return self._create_new_instance(
-                data=result_data,
-                label=f"({self.label} {symbol} {other.label})",
-                metadata=metadata,
-                operation_history=operation_history,
-                channel_metadata=merged_channel_metadata,
-            )
-
-        # Scalar or array operand
-        result_data = op(self._data, other)
-        other_str = self._format_operand_str(other)
-
-        updated_channel_metadata: list[ChannelMetadata] = []
-        for self_ch in self._channel_metadata:
+        # Build merged channel metadata
+        new_channel_metadata: list[ChannelMetadata] = []
+        for self_ch, other_label in zip(self._channel_metadata, other_labels, strict=True):
             ch = self_ch.model_copy(deep=True)
-            ch["label"] = f"({self_ch.label} {symbol} {other_str})"
-            updated_channel_metadata.append(ch)
+            ch.label = f"({self_ch.label} {symbol} {other_label})"
+            new_channel_metadata.append(ch)
 
         operation_history.append({"operation": symbol, "with": other_str})
 
@@ -760,7 +745,7 @@ class BaseFrame(ABC, Generic[T]):
             label=f"({self.label} {symbol} {other_str})",
             metadata=metadata,
             operation_history=operation_history,
-            channel_metadata=updated_channel_metadata,
+            channel_metadata=new_channel_metadata,
         )
 
     @staticmethod
@@ -922,7 +907,6 @@ class BaseFrame(ABC, Generic[T]):
                     f"Pass a compatible Wandas frame class such as "
                     f"SpectralFrame or SpectrogramFrame."
                 )
-
             # Domain transition: build a different frame type
             kw: dict[str, Any] = {
                 "data": processed_data,

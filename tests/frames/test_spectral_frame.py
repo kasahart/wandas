@@ -81,6 +81,8 @@ class TestSpectralFrame:
         # Create 1D complex data
         shape_1d: tuple[int] = (self.n_fft // 2 + 1,)
         complex_data_1d: NDArrayComplex = create_complex_data(shape_1d)
+        # Use a single frequency-axis chunk because the input is 1-D before the
+        # frame reshapes it into the standard single-channel 2-D representation.
         data_1d: DaArray = _da_from_array(complex_data_1d, chunks=(-1,))
 
         # Create frame with 1D data
@@ -155,6 +157,20 @@ class TestSpectralFrame:
         """Test freqs property"""
         freqs: NDArrayReal = self.frame.freqs
         expected: NDArrayReal = np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
+        np.testing.assert_allclose(freqs, expected)
+
+    def test_property_freqs_when_n_fft_is_none(self) -> None:
+        """Test freqs property infers the FFT size from the bin count."""
+        spectral_frame = SpectralFrame(
+            data=self.data,
+            sampling_rate=self.sampling_rate,
+            n_fft=None,
+        )
+
+        freqs = spectral_frame.freqs
+
+        assert len(freqs) == self.data.shape[-1]
+        expected = np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
         np.testing.assert_allclose(freqs, expected)
 
     def test_binary_op_with_spectral_frame(self) -> None:
@@ -560,6 +576,22 @@ class TestSpectralFrame:
         # 周波数インデックスの検証
         expected_freqs = spectral_frame.freqs
         np.testing.assert_array_almost_equal(df.index.values, expected_freqs)
+
+    def test_to_dataframe_when_n_fft_is_none(self) -> None:
+        """Test to_dataframe infers the frequency index when n_fft is omitted."""
+        spectral_frame = SpectralFrame(
+            data=self.data,
+            sampling_rate=self.sampling_rate,
+            n_fft=None,
+            label="test_spectrum",
+            channel_metadata=self.channel_metadata,
+        )
+
+        df = spectral_frame.to_dataframe()
+
+        assert isinstance(df, pd.DataFrame)
+        assert len(df.index) == self.data.shape[-1]
+        np.testing.assert_allclose(df.index.values, spectral_frame.freqs)
 
     def test_to_dataframe_single_channel(self) -> None:
         """Test to_dataframe with single channel."""
