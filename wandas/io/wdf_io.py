@@ -181,7 +181,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
     from ..core.metadata import ChannelMetadata
     from ..frames.channel import ChannelFrame
 
-    if format != "hdf5":
+    if format.lower() != "hdf5":
         raise NotImplementedError(f"Format '{format}' is not supported")
 
     # Detect and handle URL paths — download to memory before HDF5 open.

@@ -7,6 +7,8 @@ from dask.array.core import Array as DaArray
 
 from wandas.core.metadata import FrameMetadata
 from wandas.frames.channel import ChannelFrame, ChannelMetadata
+from wandas.frames.spectral import SpectralFrame
+from wandas.utils.util import calculate_rms
 
 _da_from_array = da.from_array
 
@@ -187,6 +189,72 @@ class TestChannelProcessing:
                 process_with_sr,
                 output_shape_func=lambda shape: shape,
                 sampling_rate=frame.sampling_rate,
+            )
+
+    def test_apply_domain_transition_returns_requested_frame(self) -> None:
+        """apply() should support domain transitions with output_frame_class."""
+
+        def rfft_transform(x: np.ndarray) -> np.ndarray:
+            return np.fft.rfft(x, axis=-1)
+
+        metadata = FrameMetadata({"source": "test"}, source_file="input.wav")
+        operation_history = [{"operation": "normalize", "params": {"method": "peak"}}]
+
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            metadata=metadata,
+            operation_history=operation_history,
+            channel_metadata=[{"label": "sig0", "unit": "V", "extra": {}}, {"label": "sig1", "unit": "V", "extra": {}}],
+            label="time_signal",
+        )
+
+        result = frame.apply(
+            rfft_transform,
+            output_shape_func=lambda shape: (shape[0], shape[1] // 2 + 1),
+            output_frame_class=SpectralFrame,
+            output_frame_kwargs={"n_fft": self.data.shape[1], "window": "hann"},
+        )
+
+        assert isinstance(result, SpectralFrame)
+        assert result.previous is frame
+        assert result.sampling_rate == frame.sampling_rate
+        assert result.n_fft == self.data.shape[1]
+        assert result.window == "hann"
+        assert result.label == frame.label
+        assert frame.labels == ["sig0", "sig1"]
+        assert result.labels == ["rfft_transform(sig0)", "rfft_transform(sig1)"]
+        assert result.metadata == {"source": "test", "custom": {}}
+        assert result.metadata.source_file == "input.wav"
+        assert frame.metadata.source_file == "input.wav"
+        assert frame.operation_history == operation_history
+        assert result.operation_history == [
+            {"operation": "normalize", "params": {"method": "peak"}},
+            {"operation": "custom", "params": {}},
+        ]
+        assert result.shape == (2, self.data.shape[1] // 2 + 1)
+
+        computed = result.compute()
+        expected = np.fft.rfft(self.data, axis=-1)
+        np.testing.assert_allclose(computed, expected)
+
+    def test_apply_domain_transition_rejects_invalid_output_frame_class(self) -> None:
+        """apply() should raise a targeted error for invalid output_frame_class."""
+
+        def identity(x: np.ndarray) -> np.ndarray:
+            return x
+
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "sig", "unit": "", "extra": {}}],
+        )
+
+        with pytest.raises(TypeError, match=r"Invalid output_frame_class"):
+            frame.apply(
+                identity,
+                output_shape_func=lambda shape: shape,
+                output_frame_class=dict,
             )
 
     def test_a_weighting(self) -> None:
@@ -488,6 +556,68 @@ class TestChannelProcessing:
         neg_computed = neg_result.compute()
         assert isinstance(neg_computed, np.ndarray)
         assert neg_computed.shape == (2, 16000)
+
+    def test_add_with_snr_numpy_array(self) -> None:
+        """add(..., snr=...) should accept NumPy array inputs via ChannelFrame coercion."""
+        signal_data = np.ones((2, 16000), dtype=np.float64)
+        signal_cf = ChannelFrame(_da_from_array(signal_data, chunks=(1, -1)), self.sample_rate, label="signal")
+        noise_data = np.full((2, 16000), 0.1, dtype=np.float64)
+        snr_db = 6.0
+
+        result = signal_cf.add(noise_data, snr=snr_db)
+
+        assert isinstance(result, ChannelFrame)
+        assert result.sampling_rate == self.sample_rate
+        assert result.n_channels == 2
+        assert result.n_samples == 16000
+        assert len(result.operation_history) > len(signal_cf.operation_history)
+        computed = result.compute()
+        added_noise = computed - signal_data
+        added_noise_rms = calculate_rms(added_noise)
+
+        assert np.all(added_noise_rms > 0)
+        actual_snr = 20 * np.log10(calculate_rms(signal_data) / added_noise_rms)
+
+        np.testing.assert_allclose(actual_snr, np.full_like(actual_snr, snr_db), atol=1e-3)
+
+    def test_add_with_snr_scalar_returns_direct_addition(self) -> None:
+        """Scalar inputs should follow the direct-addition branch even when snr is provided."""
+        scalar_value = 0.25
+
+        result = self.channel_frame.add(scalar_value, snr=12.0)
+
+        assert isinstance(result, ChannelFrame)
+        np.testing.assert_allclose(result.compute(), self.data + scalar_value)
+        assert result.operation_history[-1] == {"operation": "+", "with": str(scalar_value)}
+        assert "snr" not in result.operation_history[-1]
+
+    def test_add_with_snr_invalid_type_raises_type_error(self) -> None:
+        """Unsupported add(..., snr=...) inputs should raise a targeted TypeError."""
+        with pytest.raises(TypeError, match=r"Addition target with SNR"):
+            self.channel_frame.add(other=[1, 2, 3], snr=6.0)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+
+    def test_add_with_snr_short_numpy_array_is_fixed_to_signal_length(self) -> None:
+        """NumPy inputs with mismatched length should be resized before SNR addition."""
+        signal_data = np.ones((2, 16000), dtype=np.float64)
+        signal_cf = ChannelFrame(_da_from_array(signal_data, chunks=(1, -1)), self.sample_rate, label="signal")
+        short_noise = np.full((2, 8000), 0.1, dtype=np.float64)
+        snr_db = 3.0
+
+        result = signal_cf.add(short_noise, snr=snr_db)
+
+        assert isinstance(result, ChannelFrame)
+        assert result.n_samples == signal_cf.n_samples
+
+        computed = result.compute()
+        added_noise = computed - signal_data
+        added_noise_rms = calculate_rms(added_noise)
+
+        assert np.all(added_noise_rms > 0)
+        actual_snr = 20 * np.log10(calculate_rms(signal_data) / added_noise_rms)
+
+        np.testing.assert_allclose(actual_snr, np.full_like(actual_snr, snr_db), atol=1e-3)
+        assert np.all(computed[:, :8000] > 1.0)
+        np.testing.assert_allclose(computed[:, 8000:], 1.0)
 
     def test_add_with_different_lengths(self) -> None:
         """異なる長さの信号を加算するテスト。"""

@@ -733,6 +733,7 @@ class _CrossSpectralBase(AudioOperation[NDArrayReal, NDArrayReal]):
 
     _method_label: str  # human-readable label for _validate_spectral_params
     _display: str  # set by subclasses
+    n_fft: int
 
     def __init__(
         self,

@@ -5,7 +5,7 @@ import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from re import Pattern
-from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast, overload
 
 import numpy as np
 import numpy.typing as npt
@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T", NDArrayComplex, NDArrayReal)
 S = TypeVar("S", bound="BaseFrame[Any]")
+S_Out = TypeVar("S_Out", bound="BaseFrame[Any]")
 QueryType = str | Pattern[str] | Callable[["ChannelMetadata"], bool] | dict[str, Any]
 
 
@@ -676,7 +677,7 @@ class BaseFrame(ABC, Generic[T]):
 
     def _binary_op(
         self: S,
-        other: S | complex | NDArrayReal | DaArray,
+        other: S | int | float | complex | NDArrayReal | DaArray,
         op: Callable[[DaArray, Any], DaArray],
         symbol: str,
     ) -> S:
@@ -691,10 +692,8 @@ class BaseFrame(ABC, Generic[T]):
         """
         logger.debug(f"Setting up {symbol} operation (lazy)")
 
-        metadata = self.metadata.copy()
-        operation_history = [*self.operation_history]
-
-        # Determine operand data and string representations
+        metadata: FrameMetadata = self.metadata.copy() if self.metadata is not None else FrameMetadata()
+        operation_history: list[dict[str, Any]] = self.operation_history.copy() if self.operation_history else []
         if isinstance(other, type(self)):
             if self.sampling_rate != other.sampling_rate:
                 raise ValueError(
@@ -704,6 +703,26 @@ class BaseFrame(ABC, Generic[T]):
                     f"Resample one frame to match the other before performing "
                     f"{symbol} operation."
                 )
+            if self.n_channels != other.n_channels:
+                raise ValueError(
+                    f"Channel count mismatch\n"
+                    f"  Left operand: {self.n_channels} channels\n"
+                    f"  Right operand: {other.n_channels} channels\n"
+                    f"Binary frame operations require matching channel counts to keep "
+                    f"channel metadata aligned.\n"
+                    f"Select, duplicate, or remove channels so both operands match "
+                    f"before performing {symbol} operation."
+                )
+            if self.shape != other.shape:
+                raise ValueError(
+                    f"Frame shape mismatch\n"
+                    f"  Left operand: {self.shape}\n"
+                    f"  Right operand: {other.shape}\n"
+                    f"Binary frame operations require identical shapes to avoid "
+                    f"unintended broadcasting.\n"
+                    f"Align the frame shapes before performing {symbol} operation."
+                )
+
             result_data = op(self._data, other._data)
             other_str = other.label
             other_labels = [ch.label for ch in other._channel_metadata]
@@ -820,13 +839,31 @@ class BaseFrame(ABC, Generic[T]):
             operation_history=new_history,
         )
 
+    @overload
     def _apply_operation_instance(
         self: S,
         operation: Any,
         operation_name: str | None = None,
-        output_frame_class: type | None = None,
+        output_frame_class: None = None,
         output_frame_kwargs: dict[str, Any] | None = None,
-    ) -> S:
+    ) -> S: ...
+
+    @overload
+    def _apply_operation_instance(
+        self: S,
+        operation: Any,
+        operation_name: str | None = None,
+        output_frame_class: type[S_Out] = ...,
+        output_frame_kwargs: dict[str, Any] | None = None,
+    ) -> S_Out: ...
+
+    def _apply_operation_instance(
+        self: S,
+        operation: Any,
+        operation_name: str | None = None,
+        output_frame_class: type[S_Out] | None = None,
+        output_frame_kwargs: dict[str, Any] | None = None,
+    ) -> S | S_Out:
         """Apply an already-instantiated operation to the frame.
 
         This method processes data through the operation, updates metadata,
@@ -862,6 +899,14 @@ class BaseFrame(ABC, Generic[T]):
         new_channel_metadata = self._relabel_channels(operation_name, display_name)
 
         if output_frame_class is not None:
+            if not isinstance(output_frame_class, type) or not issubclass(output_frame_class, BaseFrame):
+                raise TypeError(
+                    "Invalid output_frame_class\n"
+                    f"  Got: {output_frame_class!r}\n"
+                    f"  Expected: a BaseFrame subclass\n"
+                    f"Pass a compatible Wandas frame class such as "
+                    f"SpectralFrame or SpectrogramFrame."
+                )
             # Domain transition: build a different frame type
             kw: dict[str, Any] = {
                 "data": processed_data,
@@ -875,7 +920,18 @@ class BaseFrame(ABC, Generic[T]):
             kw.update(metadata_updates)
             if output_frame_kwargs:
                 kw.update(output_frame_kwargs)
-            return cast(S, output_frame_class(**kw))
+            try:
+                return output_frame_class(**kw)
+            except TypeError as exc:
+                provided_kwargs = ", ".join(sorted(kw)) or "none"
+                raise TypeError(
+                    "Invalid output_frame_class constructor\n"
+                    f"  Frame class: {output_frame_class.__name__}\n"
+                    f"  Provided keyword arguments: {provided_kwargs}\n"
+                    f"Ensure output_frame_class accepts these parameters and "
+                    f"use output_frame_kwargs to supply any required "
+                    f"domain-specific constructor arguments."
+                ) from exc
 
         creation_params: dict[str, Any] = {
             "data": processed_data,

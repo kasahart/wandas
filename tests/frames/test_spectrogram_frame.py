@@ -1,10 +1,13 @@
 from typing import Any
 
 import dask.array as da
+import matplotlib.pyplot as plt
 import pytest
 from dask.array.core import Array as DaArray
+from matplotlib.figure import Figure
 from numpy.testing import assert_array_almost_equal, assert_array_equal
 
+import wandas.visualization.plotting as plotting_module
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
@@ -300,13 +303,45 @@ class TestSpectrogramFrame:
             return MockPlotStrategy()
 
         # モックを適用
-        import wandas.visualization.plotting
-
-        monkeypatch.setattr(wandas.visualization.plotting, "create_operation", mock_create_operation)
+        monkeypatch.setattr(plotting_module, "create_operation", mock_create_operation)
 
         # プロット機能をテスト
         result: Any | None = sample_spectrogram.plot(plot_type="spectrogram")
         assert result is None
+
+    def test_plot_forwards_xlim_and_ylim(self, sample_spectrogram: SpectrogramFrame, monkeypatch: Any) -> None:
+        """plot() should pass xlim and ylim through to the plot strategy."""
+
+        captured: dict[str, Any] = {}
+        figure = Figure()
+        expected_ax = figure.subplots()
+
+        class MockPlotStrategy:
+            def plot(self, frame: SpectrogramFrame, ax: Any | None = None, **kwargs: Any) -> Any:
+                captured.update(kwargs)
+                return expected_ax
+
+        def mock_create_operation(plot_type: str) -> MockPlotStrategy:
+            return MockPlotStrategy()
+
+        import wandas.visualization.plotting
+
+        monkeypatch.setattr(wandas.visualization.plotting, "create_operation", mock_create_operation)
+
+        try:
+            result = sample_spectrogram.plot(
+                plot_type="spectrogram",
+                xlim=(0.1, 0.2),
+                ylim=(100.0, 1000.0),
+            )
+
+            assert result is expected_ax
+            assert captured["xlim"] == (0.1, 0.2)
+            assert captured["ylim"] == (100.0, 1000.0)
+        finally:
+            expected_ax.cla()
+            figure.clf()
+            plt.close(figure)
 
     def test_get_additional_init_kwargs(self, sample_spectrogram: SpectrogramFrame) -> None:
         """_get_additional_init_kwargs メソッドのテスト"""
@@ -328,6 +363,12 @@ class TestSpectrogramFrame:
         assert additional_kwargs["hop_length"] == spec.hop_length
         assert additional_kwargs["win_length"] == spec.win_length
         assert additional_kwargs["window"] == spec.window
+
+    def test_get_dataframe_columns_returns_channel_labels(self, sample_spectrogram: SpectrogramFrame) -> None:
+        """_get_dataframe_columns should reflect channel labels."""
+        spec: SpectrogramFrame = sample_spectrogram
+
+        assert spec._get_dataframe_columns() == ["ch1", "ch2"]
 
     def test_plot_Aw(  # noqa: N802
         self, sample_spectrogram: SpectrogramFrame, monkeypatch: Any
