@@ -458,7 +458,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
           Operations Applied: 1
         """
         # Calculate frequency resolution (ΔF)
-        delta_f = self.sampling_rate / (self.n_fft or 1)
+        delta_f = self.sampling_rate / self.n_fft
 
         print("SpectralFrame Information:")
         print(f"  Channels: {self.n_channels}")
