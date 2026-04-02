@@ -14,7 +14,7 @@ def test_add_unsupported_type_and_sampling_rate_mismatch():
     a = make_cf(np.arange(6).reshape(2, 3), sr=100)
     # unsupported type
     with pytest.raises(TypeError, match=r"Addition target with SNR must be a ChannelFrame or NumPy array"):
-        a.add("bad")
+        a.add("bad")  # ty: ignore[invalid-argument-type]
 
     # sampling rate mismatch
     b = ChannelFrame.from_numpy(np.arange(6).reshape(2, 3), sampling_rate=200)
@@ -31,11 +31,10 @@ def test_from_numpy_label_and_unit_mismatch():
         ChannelFrame.from_numpy(arr, sampling_rate=100, ch_units=["u1"])
 
 
-def test_from_ndarray_deprecation_warning(caplog):
+def test_from_ndarray_deprecation_warning():
     arr = np.arange(6).reshape(2, 3)
-    with caplog.at_level("WARNING"):
+    with pytest.warns(DeprecationWarning, match="deprecated"):
         cf = ChannelFrame.from_ndarray(arr, sampling_rate=100, frame_label="f")
-    assert "deprecated" in caplog.text
     assert isinstance(cf, ChannelFrame)
 
 
@@ -111,7 +110,7 @@ def test_from_file_channel_out_of_range_and_invalid_type(monkeypatch):
         ChannelFrame.from_file(b"data", file_type=".wav", channel=5)
 
     with pytest.raises(TypeError, match=r"channel must be int, list, or None"):
-        ChannelFrame.from_file(b"data", file_type=".wav", channel="a")
+        ChannelFrame.from_file(b"data", file_type=".wav", channel="a")  # ty: ignore[invalid-argument-type]
 
 
 def test_from_file_label_mismatch_raises(monkeypatch):
@@ -274,6 +273,7 @@ def test_describe_image_save_with_multi_channel(tmp_path):
 
     png_path = tmp_path / "test.png"
     result = cf.describe(image_save=str(png_path), is_close=False)
+    assert result is not None
 
     for i in range(3):
         ch_path = tmp_path / f"test_{i}.png"
@@ -361,6 +361,7 @@ def test_describe_figures_can_be_saved(tmp_path):
     cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
 
     figures = cf.describe(is_close=False)
+    assert figures is not None
 
     output_path = tmp_path / "custom_output.png"
     figures[0].savefig(str(output_path), bbox_inches="tight")
@@ -377,6 +378,7 @@ def test_describe_figures_are_not_closed(tmp_path):
     cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
 
     figures = cf.describe(is_close=False)
+    assert figures is not None
 
     assert len(figures[0].axes) > 0
     for fig in figures:
@@ -511,6 +513,7 @@ def test_describe_figures_have_correct_structure(tmp_path):
     cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
 
     figures = cf.describe(is_close=False)
+    assert figures is not None
 
     fig = figures[0]
     assert hasattr(fig, "axes")

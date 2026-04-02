@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "wandas"
-version = "0.1.18"
+version = "0.2.0"
 description = "Wandas is an open source library for efficient signal analysis in Python"
 authors = [{name = "kasahart", email="kasahart66@gmail.com"}]
 maintainers = [
@@ -62,8 +62,8 @@ test = [
     "pytest>=8.3.5",
     "pytest-xdist>=3.6.1",
     "pytest-cov",
-    "mypy",
     "ruff>=0.9.9",
+    "ty>=0.0.26",
     "pandas-stubs",
 ]
 
@@ -103,21 +103,10 @@ select = ["E", "F", "W", "Q", "UP", "I", "N"]
 [tool.ruff.format]
 docstring-code-format = true
 
-[tool.mypy]
-plugins = ["pydantic.mypy"]
-cache_dir = ".mypy_cache"
-files = ["wandas", "tests"]
-strict = true
-pretty = true
-ignore_missing_imports = true
-
-# scipy, dask, librosa, IPython, matplotlibモジュールをmypyの型チェックから除外する設定
-[[tool.mypy.overrides]]
-module = ["scipy.*", "dask.*", "librosa.*", "IPython.*", "matplotlib.*", "requests.*","tests.*","dask", "dask.array", "dask.array.*"]
-ignore_errors = true
-disallow_untyped_decorators = false
-ignore_missing_imports = true
-follow_imports = "skip"
+[tool.ty]
+# すべてのルールをデフォルト (error) で適用。
+# 意図的な型エラー (テスト内の pytest.raises 等) は行単位の
+# `# ty: ignore[rule-name]` コメントで個別に抑制する。
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -127,17 +116,15 @@ python_classes = "Test*"
 python_functions = "test_*"
 norecursedirs = ["scripts"]
 
-[tool.vscode.tasks]
-ruff-format = { command = "uv run ruff format wandas tests", label = "Run ruff format" }
-ruff-check = { command = "uv run ruff check wandas tests --config=pyproject.toml -v", label = "Run ruff check" }
-ruff-check-fix = { command = "uv run ruff check --fix wandas tests --config=pyproject.toml -v", label = "Run ruff check --fix" }
-mypy = { command = "uv run mypy --config-file=pyproject.toml", label = "Run mypy wandas tests" }
-pytest = { command = "uv run pytest -n auto --cov=wandas --cov-report=term-missing", label = "Run pytest" }
-
 [tool.pre-commit]
 use-uv = true
 
 [tool.pre-commit.hooks]
 ruff-check = { args = ["--fix", "wandas", "tests"] }
 ruff-format = { args = ["wandas", "tests"] }
-mypy = { require-serial = true }
+ty = { require-serial = true, args = ["check", "wandas", "tests"] }
+
+[tool.ruff.lint.per-file-ignores]
+# N802/N803を無視するファイルを指定
+"wandas/**/*.py" = ["N802", "N803"]
+"tests/**/*.py" = ["N802", "N803"]

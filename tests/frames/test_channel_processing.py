@@ -10,7 +10,7 @@ from wandas.frames.channel import ChannelFrame, ChannelMetadata
 from wandas.frames.spectral import SpectralFrame
 from wandas.utils.util import calculate_rms
 
-_da_from_array = da.from_array  # type: ignore [unused-ignore]
+_da_from_array = da.from_array
 
 
 class TestChannelProcessing:
@@ -594,7 +594,7 @@ class TestChannelProcessing:
     def test_add_with_snr_invalid_type_raises_type_error(self) -> None:
         """Unsupported add(..., snr=...) inputs should raise a targeted TypeError."""
         with pytest.raises(TypeError, match=r"Addition target with SNR"):
-            self.channel_frame.add(other=[1, 2, 3], snr=6.0)  # type: ignore[arg-type]
+            self.channel_frame.add(other=[1, 2, 3], snr=6.0)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
     def test_add_with_snr_short_numpy_array_is_fixed_to_signal_length(self) -> None:
         """NumPy inputs with mismatched length should be resized before SNR addition."""
@@ -697,7 +697,7 @@ class TestChannelProcessing:
         """rms_trend後のChannelFrame属性を確認するテスト"""
         # 事前に属性をセット
         self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = {"foo": "bar"}
+        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
         self.channel_frame._channel_metadata = [
             ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
             ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
@@ -742,7 +742,7 @@ class TestChannelProcessing:
 
     def test_high_pass_filter_channel_frame_attributes(self) -> None:
         self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = {"foo": "bar"}
+        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
         self.channel_frame._channel_metadata = [
             ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
             ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
@@ -756,7 +756,7 @@ class TestChannelProcessing:
 
     def test_low_pass_filter_channel_frame_attributes(self) -> None:
         self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = {"foo": "bar"}
+        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
         self.channel_frame._channel_metadata = [
             ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
             ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
@@ -770,7 +770,7 @@ class TestChannelProcessing:
 
     def test_band_pass_filter_channel_frame_attributes(self) -> None:
         self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = {"foo": "bar"}
+        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
         self.channel_frame._channel_metadata = [
             ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
             ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
@@ -784,7 +784,7 @@ class TestChannelProcessing:
 
     def test_a_weighting_channel_frame_attributes(self) -> None:
         self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = {"foo": "bar"}
+        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
         self.channel_frame._channel_metadata = [
             ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
             ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
@@ -798,7 +798,7 @@ class TestChannelProcessing:
 
     def test_abs_channel_frame_attributes(self) -> None:
         self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = {"foo": "bar"}
+        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
         self.channel_frame._channel_metadata = [
             ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
             ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
@@ -812,7 +812,7 @@ class TestChannelProcessing:
 
     def test_power_channel_frame_attributes(self) -> None:
         self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = {"foo": "bar"}
+        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
         self.channel_frame._channel_metadata = [
             ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
             ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
@@ -826,7 +826,7 @@ class TestChannelProcessing:
 
     def test_trim_channel_frame_attributes(self) -> None:
         self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = {"foo": "bar"}
+        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
         self.channel_frame._channel_metadata = [
             ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
             ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
@@ -840,7 +840,7 @@ class TestChannelProcessing:
 
     def test_fix_length_channel_frame_attributes(self) -> None:
         self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = {"foo": "bar"}
+        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
         self.channel_frame._channel_metadata = [
             ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
             ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
@@ -854,7 +854,7 @@ class TestChannelProcessing:
 
     def test_resampling_channel_frame_attributes(self) -> None:
         self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = {"foo": "bar"}
+        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
         self.channel_frame._channel_metadata = [
             ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
             ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
@@ -1036,7 +1036,7 @@ class TestRoughnessOperations:
         assert op_name == "roughness_dw_spec"
 
         # Compare with MoSQITo direct calculation
-        computed_data = result.data.compute() if hasattr(result.data, "compute") else result.data
+        computed_data = result.compute()
         _, r_spec_direct, _, _ = roughness_dw_mosqito(self.data[0], self.sample_rate, overlap=0.5)
         np.testing.assert_array_equal(
             computed_data,

@@ -26,9 +26,9 @@
             "problemMatcher": []
         },
         {
-            "label": "Run mypy wandas tests",
+            "label": "Run ty (red-knot) check",
             "type": "shell",
-            "command": "uv run mypy --config-file=pyproject.toml",
+            "command": "uv run ty check wandas tests",
             "problemMatcher": []
         },
         {

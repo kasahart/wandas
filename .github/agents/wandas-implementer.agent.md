@@ -30,13 +30,13 @@ handoffs:
   - Run ruff format
   - Run ruff check --fix (when automatic lint fixes are appropriate)
   - Run ruff check
-  - Run mypy wandas tests
+  - Run ty (red-knot) check
   - Build MkDocs Documentation / Serve MkDocs Documentation when documentation validation is relevant
 
 ## Deliverables
 1. **Summary of Changes** – files touched and key logic adjustments.
 2. **Tests Added/Updated** – file paths plus covered scenarios.
-3. **Command Log** – every `uv run ...` invocation (pytest, mypy, ruff, mkdocs, etc.) or why it was skipped.
+3. **Command Log** – every `uv run ...` invocation (pytest, ty, ruff, mkdocs, etc.) or why it was skipped.
 4. **Documentation Updates** – Docstrings, README, or tutorials updated if behavior changed.
 5. **Coverage Analysis** – summarize baseline/final `pytest --cov` results for touched files or explain why only one run was needed, and warn explicitly about any remaining uncovered changed lines.
 6. **Residual Risks** – performance, metadata, or unresolved coverage gaps for the reviewer.

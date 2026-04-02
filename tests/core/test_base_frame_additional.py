@@ -25,12 +25,8 @@ class DummyFrame(BaseFrame[np.ndarray]):
         return self._create_new_instance(data=self._data)
 
     def _apply_operation_impl(self, operation_name: str, **params):
-        new_history = self.operation_history.copy() if self.operation_history else []
-        new_history.append({"operation": operation_name, **params})
+        new_history = [*self.operation_history, {"operation": operation_name, **params}]
         return self._create_new_instance(data=self._data, operation_history=new_history)
-
-    def _get_dataframe_columns(self) -> list[str]:
-        return [ch.label for ch in self._channel_metadata]
 
     def _get_dataframe_index(self) -> pd.Index:
         # index should be length of samples
@@ -134,7 +130,7 @@ def test_getitem_mixed_list_types_explicit():
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(TypeError, match=r"List must contain all str or all int"):
-        _ = f[[0, "ch0"]]
+        _ = f[[0, "ch0"]]  # ty: ignore[invalid-argument-type]
 
 
 def test_handle_multidim_indexing_invalid_key_length():
@@ -165,7 +161,7 @@ def test_compute_non_numpy_raises():
         def compute(self):
             return [1, 2, 3]
 
-    f._data = Bad()
+    f._data = Bad()  # ty: ignore[invalid-assignment]
     with pytest.raises(ValueError, match=r"Computed result is not a np.ndarray"):
         f.compute()
 
@@ -178,7 +174,7 @@ def test_visualize_graph_failure_logs_and_returns_none(caplog):
         def visualize(self, filename=None):
             raise RuntimeError("no graphviz")
 
-    f._data = BadVis()
+    f._data = BadVis()  # ty: ignore[invalid-assignment]
 
     with caplog.at_level("WARNING"):
         res = f.visualize_graph()
@@ -289,7 +285,7 @@ def test_relabel_and_create_new_instance_and_persist_and_type_checks():
             return _np.zeros(self.shape)
 
     p = Persister()
-    f._data = p
+    f._data = p  # ty: ignore[invalid-assignment]
     newf = f.persist()
     assert newf._data is p
 
@@ -365,10 +361,15 @@ def test_to_tensor_torch_and_tensorflow_success(monkeypatch):
     import sys
 
     # Fake torch (module-like)
+    class FakeDevice:
+        def __init__(self) -> None:
+            self.type: str = "cpu"
+            self.index: int | None = None
+
     class FakeTorchTensor:
         def __init__(self, arr):
             self._arr = arr
-            self.device = type("D", (), {"type": "cpu", "index": None})()
+            self.device = FakeDevice()
 
         def to(self, device):
             # device may be 'cpu', 'cuda', 'cuda:0' etc.

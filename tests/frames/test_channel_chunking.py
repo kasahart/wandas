@@ -85,7 +85,7 @@ class TestChannelWiseChunking:
         cf = ChannelFrame.from_numpy(np.random.rand(2, 44100), sampling_rate=44100)
 
         # Try to rechunk sample axis to smaller chunks
-        rechunked_data = cf._data.rechunk((1, 16384))  # type: ignore
+        rechunked_data = cf._data.rechunk((1, 16384))
 
         # Verify the rechunking was applied before passing to _create_new_instance
         assert len(rechunked_data.chunks[1]) > 1, "rechunked_data should have multiple sample chunks"

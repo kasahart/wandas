@@ -19,7 +19,7 @@ from wandas.utils.types import NDArrayComplex, NDArrayReal
 from .metadata import ChannelMetadata, FrameMetadata
 
 # IPython display types for visualize_graph return type
-# TYPE_CHECKING ブロック内では型エイリアスとして定義し、実行時は Any とする
+# Define as type alias under TYPE_CHECKING; use Any at runtime
 if TYPE_CHECKING:
     from typing import TypeAlias
 
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
     VisualizeReturnType: TypeAlias = IPythonImage | None
 else:
-    # 実行時は Any として扱い、mypy のエラーを回避
+    # Use Any at runtime to avoid type checker errors
     VisualizeReturnType = Any
 
 logger = logging.getLogger(__name__)
@@ -101,13 +101,10 @@ class BaseFrame(ABC, Generic[T]):
         # and higher-dim arrays (channels, ..) we preserve channel-wise
         # first-axis chunking: (1, -1, -1, ...)
         try:
-            # 正規化：data が 1D の場合は (1, -1) にする
-            if data.ndim == 1:
-                normalized = data.reshape((1, -1))
-            else:
-                normalized = data
+            # Normalize: reshape 1D data to (1, -1)
+            normalized = data.reshape((1, -1)) if data.ndim == 1 else data
 
-            # チャンク設定：常に先頭軸をチャネル単位にし、残りはフラット
+            # Chunking: channel-wise on first axis, flat on the rest
             if normalized.ndim >= 2:
                 chunks = tuple([1] + [-1] * (normalized.ndim - 1))
             else:
@@ -117,7 +114,7 @@ class BaseFrame(ABC, Generic[T]):
         except Exception as e:
             # Fall back to previous behavior if Dask rechunk fails.
             logger.warning(f"Rechunk failed: {e!r}. Falling back to chunks=-1.")
-            self._data = data.rechunk(chunks=-1)  # type: ignore [unused-ignore]
+            self._data = data.rechunk(chunks=-1)
 
         self.sampling_rate = sampling_rate
         self.label = label or "unnamed_frame"
@@ -135,7 +132,7 @@ class BaseFrame(ABC, Generic[T]):
             def _to_channel_metadata(ch: ChannelMetadata | dict[str, Any], index: int) -> ChannelMetadata:
                 if isinstance(ch, ChannelMetadata):
                     return copy.deepcopy(ch)
-                elif isinstance(ch, dict):
+                if isinstance(ch, dict):
                     try:
                         return ChannelMetadata(**ch)
                     except ValidationError as e:
@@ -171,9 +168,14 @@ class BaseFrame(ABC, Generic[T]):
             logger.debug(f"Dask graph visualization details unavailable: {e}")
 
     @property
-    @abstractmethod
     def _n_channels(self) -> int:
-        """Returns the number of channels."""
+        """Returns the number of channels.
+
+        Default assumes the channel axis is at position -2.
+        Subclasses with different data layouts (e.g. SpectrogramFrame,
+        RoughnessFrame) should override this.
+        """
+        return int(self._data.shape[-2])
 
     @property
     def n_channels(self) -> int:
@@ -229,7 +231,7 @@ class BaseFrame(ABC, Generic[T]):
         >>> frame.get_channel([0, 2, 3])  # Multiple channels
         >>> frame.get_channel((-1, -2))  # Last two channels
         >>> frame.get_channel(np.array([1, 2]))  # NumPy array of indices
-        """  # noqa: E501
+        """
 
         def _indices_from_query(q: Any) -> list[int]:
             if isinstance(q, str):
@@ -243,55 +245,21 @@ class BaseFrame(ABC, Generic[T]):
                 return [i for i, ch in enumerate(self._channel_metadata) if bool(q(ch))]
 
             if isinstance(q, dict):
-                # Validate dict keys: accept model fields or keys present in any
-                # channel `extra` dict. If a key is not recognized at all,
-                # raise KeyError to surface likely user mistakes.
-                try:
-                    model_keys = set(getattr(ChannelMetadata, "model_fields").keys())
-                except Exception:
-                    # Fallback for pydantic v1
-                    model_keys = set(getattr(ChannelMetadata, "__fields__").keys())
+                # Validate dict keys against known model fields + extra keys.
+                if validate_query_keys:
+                    model_keys = set(ChannelMetadata.model_fields.keys())
 
-                extra_keys: set[str] = set()
-                for ch in self._channel_metadata:
-                    if isinstance(ch.extra, dict):
-                        extra_keys.update(ch.extra.keys())
+                    extra_keys: set[str] = set()
+                    for ch in self._channel_metadata:
+                        if isinstance(ch.extra, dict):
+                            extra_keys.update(ch.extra.keys())
 
-                allowed_keys = model_keys | extra_keys
-                unknown_keys = [k for k in q.keys() if k not in allowed_keys]
-                if unknown_keys:
-                    if validate_query_keys:
+                    unknown_keys = [k for k in q if k not in model_keys | extra_keys]
+                    if unknown_keys:
                         names_str = ", ".join(map(str, unknown_keys))
                         raise KeyError("Unknown channel metadata key(s): " + names_str)
-                    # If validation is disabled, skip raising and let matching
-                    # treat unknown keys as non-matching attributes.
 
-                matches: list[int] = []
-                for i, ch in enumerate(self._channel_metadata):
-                    ok = True
-                    for key, val in q.items():
-                        # Prefer attribute access, fall back to dict-like access
-                        attr = getattr(ch, key, None)
-                        if attr is None:
-                            # ChannelMetadata may support mapping-style access
-                            try:
-                                attr = ch[key]
-                            except Exception:
-                                ok = False
-                                break
-
-                        # If expected value is a regex pattern
-                        if hasattr(val, "search") and callable(val.search):
-                            if not (isinstance(attr, str) and val.search(attr)):
-                                ok = False
-                                break
-                        else:
-                            if attr != val:
-                                ok = False
-                                break
-                    if ok:
-                        matches.append(i)
-                return matches
+                return [i for i, ch in enumerate(self._channel_metadata) if ch.matches_query(q)]
 
             raise TypeError(f"Unsupported query type: {type(q).__name__}")
 
@@ -304,11 +272,7 @@ class BaseFrame(ABC, Generic[T]):
             if channel_idx is None:
                 raise TypeError("Either 'channel_idx' or 'query' must be provided.")
 
-            if isinstance(channel_idx, int):
-                # Convert single channel to a list.
-                channel_idx_list = [channel_idx]
-            else:
-                channel_idx_list = list(channel_idx)
+            channel_idx_list = [channel_idx] if isinstance(channel_idx, int) else list(channel_idx)
 
         new_data = self._data[channel_idx_list]
         new_channel_metadata = [self._channel_metadata[i] for i in channel_idx_list]
@@ -316,7 +280,7 @@ class BaseFrame(ABC, Generic[T]):
         # Preserve operation_history (copy for immutability) but do not
         # append a selection operation so higher-level semantic operations
         # (e.g., 'fade') remain the last recorded operation.
-        new_history = self.operation_history.copy() if self.operation_history else []
+        new_history = [*self.operation_history]
 
         return self._create_new_instance(
             data=new_data,
@@ -425,19 +389,18 @@ class BaseFrame(ABC, Generic[T]):
 
         # Phase 2: NumPy array support (bool mask and int array)
         if isinstance(key, np.ndarray):
-            if key.dtype == bool or key.dtype == np.bool_:
+            if key.dtype in (bool, np.bool_):
                 # Boolean mask
                 if len(key) != self.n_channels:
                     raise ValueError(
                         f"Boolean mask length {len(key)} does not match number of channels {self.n_channels}"
                     )
-                indices = np.where(key)[0]
+                indices = np.where(cast(npt.NDArray[np.bool_], key))[0]
                 return self.get_channel(indices)
-            elif np.issubdtype(key.dtype, np.integer):
+            if np.issubdtype(key.dtype, np.integer):
                 # Integer array
-                return self.get_channel(key)
-            else:
-                raise TypeError(f"NumPy array must be of integer or boolean type, got {key.dtype}")
+                return self.get_channel(cast(npt.NDArray[np.int_], key))
+            raise TypeError(f"NumPy array must be of integer or boolean type, got {key.dtype}")
 
         # Phase 1: List support (int or str)
         if isinstance(key, list):
@@ -446,21 +409,18 @@ class BaseFrame(ABC, Generic[T]):
 
             # Check if all elements are strings
             if all(isinstance(k, str) for k in key):
-                # Multiple labels - type narrowing for mypy
+                # Multiple labels - type narrowing for type checker
                 str_list = cast(list[str], key)
                 indices_from_labels = [self.label2index(label) for label in str_list]
                 return self.get_channel(indices_from_labels)
 
             # Check if all elements are integers
-            elif all(isinstance(k, int | np.integer) for k in key):
+            if all(isinstance(k, int | np.integer) for k in key):
                 # Multiple indices - convert to list[int] for type safety
                 int_list = [int(k) for k in key]
                 return self.get_channel(int_list)
 
-            else:
-                raise TypeError(
-                    f"List must contain all str or all int, got mixed types: {[type(k).__name__ for k in key]}"
-                )
+            raise TypeError(f"List must contain all str or all int, got mixed types: {[type(k).__name__ for k in key]}")
 
         # Tuple: multidimensional indexing
         if isinstance(key, tuple):
@@ -514,16 +474,14 @@ class BaseFrame(ABC, Generic[T]):
         time_keys = key[1:] if len(key) > 1 else ()
 
         # Select channels first (recursively call __getitem__)
-        if isinstance(channel_key, list | np.ndarray):
-            selected = self[channel_key]
-        elif isinstance(channel_key, int | str | slice):
+        if isinstance(channel_key, list | np.ndarray | int | str | slice):
             selected = self[channel_key]
         else:
             raise TypeError(f"Invalid channel key type in tuple: {type(channel_key).__name__}")
 
         # Apply time indexing if present
         if time_keys:
-            new_data = selected._data[(slice(None),) + time_keys]
+            new_data = selected._data[(slice(None),) + time_keys]  # noqa: RUF005
             return selected._create_new_instance(
                 data=new_data,
                 operation_history=selected.operation_history,
@@ -571,7 +529,7 @@ class BaseFrame(ABC, Generic[T]):
         """
         data = self.compute()
         if self.n_channels == 1:
-            return data.squeeze(axis=0)
+            return cast(T, data.squeeze(axis=0))
         return data
 
     @property
@@ -606,7 +564,6 @@ class BaseFrame(ABC, Generic[T]):
     @abstractmethod
     def plot(self, plot_type: str = "default", ax: Axes | None = None, **kwargs: Any) -> Axes | Iterator[Axes]:
         """Plot the data"""
-        pass
 
     def persist(self: S) -> S:
         """Persist the data in memory"""
@@ -630,8 +587,6 @@ class BaseFrame(ABC, Generic[T]):
         """
 
         sampling_rate = kwargs.pop("sampling_rate", self.sampling_rate)
-        # if not isinstance(sampling_rate, int):
-        #     raise TypeError("Sampling rate must be an integer")
 
         label = kwargs.pop("label", self.label)
         if not isinstance(label, str):
@@ -821,23 +776,23 @@ class BaseFrame(ABC, Generic[T]):
             return f"dask.array{other.shape}"
         return str(type(other).__name__)
 
-    def __add__(self: S, other: S | int | float | NDArrayReal) -> S:
+    def __add__(self: S, other: S | float | NDArrayReal) -> S:
         """Addition operator"""
         return self._binary_op(other, lambda x, y: x + y, "+")
 
-    def __sub__(self: S, other: S | int | float | NDArrayReal) -> S:
+    def __sub__(self: S, other: S | float | NDArrayReal) -> S:
         """Subtraction operator"""
         return self._binary_op(other, lambda x, y: x - y, "-")
 
-    def __mul__(self: S, other: S | int | float | NDArrayReal) -> S:
+    def __mul__(self: S, other: S | float | NDArrayReal) -> S:
         """Multiplication operator"""
         return self._binary_op(other, lambda x, y: x * y, "*")
 
-    def __truediv__(self: S, other: S | int | float | NDArrayReal) -> S:
+    def __truediv__(self: S, other: S | float | NDArrayReal) -> S:
         """Division operator"""
         return self._binary_op(other, lambda x, y: x / y, "/")
 
-    def __pow__(self: S, other: S | int | float | NDArrayReal) -> S:
+    def __pow__(self: S, other: S | float | NDArrayReal) -> S:
         """Power operator"""
         return self._binary_op(other, lambda x, y: x**y, "**")
 
@@ -860,6 +815,23 @@ class BaseFrame(ABC, Generic[T]):
         # Apply the operation through abstract method
         return self._apply_operation_impl(operation_name, **params)
 
+    def _updated_metadata_and_history(
+        self,
+        operation_name: str,
+        params: dict[str, Any],
+    ) -> tuple[FrameMetadata, list[dict[str, Any]]]:
+        """Build new metadata dict and operation history after an operation.
+
+        Returns
+        -------
+        tuple[FrameMetadata, list[dict[str, Any]]]
+            (new_metadata, new_history) ready to pass to ``_create_new_instance``.
+        """
+        new_metadata = self.metadata.copy()
+        new_metadata[operation_name] = params
+        new_history = [*self.operation_history, {"operation": operation_name, "params": params}]
+        return new_metadata, new_history
+
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
         """Default implementation of operation application.
 
@@ -874,11 +846,7 @@ class BaseFrame(ABC, Generic[T]):
         operation = create_operation(operation_name, self.sampling_rate, **params)
         processed_data = operation.process(self._data)
 
-        operation_metadata = {"operation": operation_name, "params": params}
-        new_history = self.operation_history.copy()
-        new_history.append(operation_metadata)
-        new_metadata = self.metadata.copy()
-        new_metadata[operation_name] = params
+        new_metadata, new_history = self._updated_metadata_and_history(operation_name, params)
 
         return self._create_new_instance(
             data=processed_data,
@@ -938,11 +906,7 @@ class BaseFrame(ABC, Generic[T]):
             operation_name = getattr(operation, "name", "unknown_operation")
         params = getattr(operation, "params", {})
 
-        operation_metadata = {"operation": operation_name, "params": params}
-        new_history = self.operation_history.copy()
-        new_history.append(operation_metadata)
-        new_metadata = self.metadata.copy()
-        new_metadata[operation_name] = params
+        new_metadata, new_history = self._updated_metadata_and_history(operation_name, params)
 
         metadata_updates = operation.get_metadata_updates()
 
@@ -1238,19 +1202,18 @@ class BaseFrame(ABC, Generic[T]):
 
         return df
 
-    @abstractmethod
     def _get_dataframe_columns(self) -> list[str]:
         """Get column names for DataFrame.
 
-        This method should be implemented by subclasses to provide
-        appropriate column names for the DataFrame.
+        Returns channel labels by default. Override in subclasses
+        if different column names are needed.
 
         Returns
         -------
         list[str]
             List of column names.
         """
-        pass
+        return self.labels
 
     @abstractmethod
     def _get_dataframe_index(self) -> "pd.Index[Any]":
@@ -1264,11 +1227,9 @@ class BaseFrame(ABC, Generic[T]):
         pd.Index
             Index for the DataFrame.
         """
-        pass
 
     def _debug_info_impl(self) -> None:
         """Implement derived class-specific debug information"""
-        pass
 
     def _print_operation_history(self) -> None:
         """Print the operation history information.

@@ -35,7 +35,7 @@ class CustomOperation(AudioOperation[InputArrayType, OutputArrayType]):
         **params : Any
             Additional parameters to pass to the function.
         """
-        # Annotate the instance attribute so mypy knows the callable's return
+        # Annotate the instance attribute so the type checker knows the callable's return
         # type corresponds to OutputArrayType.
         self.func: Callable[..., OutputArrayType] = func
         self.output_shape_func = output_shape_func

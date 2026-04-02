@@ -1,6 +1,7 @@
 # tests/io/test_wav_io.py
 import io
 import os
+from typing import BinaryIO, cast
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -11,7 +12,7 @@ from wandas.frames.channel import ChannelFrame
 from wandas.io import write_wav
 
 
-@pytest.fixture  # type: ignore [misc, unused-ignore]
+@pytest.fixture
 def create_test_wav(tmpdir: str) -> str:
     """
     テスト用の一時的な WAV ファイルを作成するフィクスチャ。
@@ -52,7 +53,7 @@ def test_read_wav(create_test_wav: str) -> None:
     assert np.allclose(computed_data[1], 1.0)
 
 
-@pytest.fixture  # type: ignore [misc, unused-ignore]
+@pytest.fixture
 def create_stereo_wav(tmpdir: str) -> str:
     """
     Create a temporary stereo WAV file for testing.
@@ -69,7 +70,7 @@ def create_stereo_wav(tmpdir: str) -> str:
     return filepath
 
 
-@pytest.fixture  # type: ignore [misc, unused-ignore]
+@pytest.fixture
 def create_mono_wav(tmpdir: str) -> str:
     """
     Create a temporary mono WAV file for testing.
@@ -326,7 +327,7 @@ def test_read_wav_stream_nonseekable() -> None:
 
     stream = NonSeekableStream(content=wav_bytes, name="dir/my_audio.wav")
 
-    channel_frame = ChannelFrame.read_wav(stream)
+    channel_frame = ChannelFrame.read_wav(cast(BinaryIO, stream))
 
     assert channel_frame.sampling_rate == sampling_rate
     assert len(channel_frame) == 2
@@ -484,4 +485,4 @@ def test_write_wav_invalid_input():
     Test that write_wav raises an error when given invalid input.
     """
     with pytest.raises(ValueError, match="target must be a ChannelFrame object."):
-        write_wav("test.wav", "not_a_channel_frame")
+        write_wav("test.wav", "not_a_channel_frame")  # ty: ignore[invalid-argument-type]

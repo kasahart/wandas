@@ -34,9 +34,8 @@ jobs:
               # pyproject.tomlの設定を明示的に使用
               run: uv run ruff check wandas tests --config=pyproject.toml
 
-            - name: 型チェック (mypy)
-              # pyproject.tomlの設定を明示的に使用
-              run: uv run mypy --config-file=pyproject.toml
+            - name: 型チェック (ty)
+              run: uv run ty check wandas tests
 
             - name: テスト実行 (pytest)
               # pytestは自動的にpyproject.tomlを検出します
