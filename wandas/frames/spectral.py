@@ -43,10 +43,10 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
           reshaped to (1, frequency_bins)
     sampling_rate : float
         The sampling rate of the original time-domain signal in Hz.
-    n_fft : int, optional
-        The FFT size used to generate this spectral data. When omitted or set
-        to ``None``, it is inferred from the number of frequency bins using the
-        smallest even FFT size consistent with the data shape.
+    n_fft : int
+        The FFT size used to generate this spectral data. Use practical FFT
+        sizes such as 512 or 1024 that match the transform used to create the
+        spectrum.
     window : str, default="hann"
         The window function used in the FFT.
     label : str, optional
@@ -101,14 +101,14 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     - The class maintains the processing history and metadata through all operations.
     """
 
-    n_fft: int | None
+    n_fft: int
     window: str
 
     def __init__(
         self,
         data: DaArray,
         sampling_rate: float,
-        n_fft: int | None = None,
+        n_fft: int,
         window: str = "hann",
         label: str | None = None,
         metadata: FrameMetadata | dict[str, Any] | None = None,
@@ -157,15 +157,8 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         NDArrayReal
             Array of frequency values corresponding to each frequency bin.
 
-        Notes
-        -----
-        When ``n_fft`` is unavailable, the frequency axis is inferred from the
-        number of bins using the smallest even FFT size that matches the
-        observed ``rfft`` output shape.
         """
-        n_bins = int(self._data.shape[-1])
-        inferred_n_fft = max(1, 2 * (n_bins - 1))
-        return np.fft.rfftfreq(self.n_fft or inferred_n_fft, 1.0 / self.sampling_rate)
+        return np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
 
     def plot(
         self,
