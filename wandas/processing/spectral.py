@@ -733,6 +733,7 @@ class _CrossSpectralBase(AudioOperation[NDArrayReal, NDArrayReal]):
 
     _method_label: str  # human-readable label for _validate_spectral_params
     _display: str  # set by subclasses
+    n_fft: int
 
     def __init__(
         self,
@@ -765,7 +766,7 @@ class _CrossSpectralBase(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         n_channels = input_shape[0]
-        n_freqs = (self.n_fft or input_shape[-1]) // 2 + 1
+        n_freqs = self.n_fft // 2 + 1
         return (n_channels * n_channels, n_freqs)
 
 

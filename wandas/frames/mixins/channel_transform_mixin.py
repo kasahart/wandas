@@ -86,10 +86,17 @@ class ChannelTransformMixin:
             label_template,
         )
 
+        n_fft = operation.n_fft
+        if not isinstance(n_fft, int):
+            raise TypeError(
+                f"Operation '{operation_name}' must provide an integer n_fft "
+                f"to create a SpectralFrame, but got {type(n_fft).__name__}."
+            )
+
         return SpectralFrame(
             data=result_data,
             sampling_rate=self.sampling_rate,
-            n_fft=operation.n_fft,
+            n_fft=n_fft,
             window=operation.window,
             label=f"{label_prefix} {self.label}",
             metadata=self.metadata.merged(**params),

@@ -583,7 +583,7 @@ class TestChannelFrameDataset:
         # Sample default (10% or min 1)
         sampled_def = dataset.sample(seed=42)
         assert len(sampled_def) == max(1, int(n_total * 0.1))
-        assert sampled_def._original_dataset is dataset  # ty: ignore[unresolved-attribute]
+        assert sampled_def._original_dataset is dataset
 
         # Sample all
         sampled_all = dataset.sample(n=n_total)
