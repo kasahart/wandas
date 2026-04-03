@@ -2246,3 +2246,102 @@ class TestSampledFrameDatasetExceptionEdgeCases:
         result = sampled_ds[0]
 
         assert result is not None  # Should load successfully
+
+
+# --- Coverage gap tests for frame_dataset.py ---
+
+
+class TestFrameDatasetCoverageGaps:
+    """Tests targeting uncovered lines in frame_dataset.py."""
+
+    def test_initialize_from_source_with_none_source(self, create_test_files: Path) -> None:
+        """_initialize_from_source returns early when source_dataset is None (line 116)."""
+        dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
+        # Force None and call directly — the guard at line 115 returns immediately
+        dataset._source_dataset = None
+        original_frames = list(dataset._lazy_frames)
+        dataset._initialize_from_source()
+        # Nothing should change
+        assert dataset._lazy_frames == original_frames
+
+    def test_load_from_source_none_source_frame(self, create_test_files: Path) -> None:
+        """_load_from_source returns None when source returns None (line 169)."""
+        dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
+        derived = dataset.resample(target_sr=8000)
+
+        with patch.object(dataset, "_ensure_loaded", return_value=None):
+            result = derived._load_from_source(0)
+        assert result is None
+
+    def test_ensure_loaded_exception_path(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """_ensure_loaded catches exceptions, logs an error, and returns None (lines 202-208)."""
+        dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
+
+        with patch.object(
+            dataset._lazy_frames[0],
+            "ensure_loaded",
+            side_effect=OSError("corrupted file"),
+        ):
+            import logging
+
+            with caplog.at_level(logging.ERROR):
+                result = dataset._ensure_loaded(0)
+
+        assert result is None
+        assert dataset._lazy_frames[0].is_loaded is True
+        assert dataset._lazy_frames[0].frame is None
+
+    def test_sample_with_both_n_and_ratio_uses_n(self, create_test_files: Path) -> None:
+        """sample() with n provided alongside ratio uses n (else branch)."""
+        dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
+        # When n is provided (regardless of ratio), the else branch applies
+        sampled = dataset.sample(n=1, ratio=0.99, seed=0)
+        assert len(sampled) == 1
+
+    def test_resample_inner_none_frame(self, create_test_files: Path) -> None:
+        """resample inner function returns None when frame is None (line 573)."""
+        dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
+        resampled = dataset.resample(target_sr=8000)
+        assert resampled._transform is not None
+        result = resampled._transform(None)  # ty: ignore[invalid-argument-type]
+        assert result is None
+
+    def test_trim_inner_none_frame(self, create_test_files: Path) -> None:
+        """trim inner function returns None when frame is None (line 588)."""
+        dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
+        trimmed = dataset.trim(start=0.0, end=0.5)
+        assert trimmed._transform is not None
+        result = trimmed._transform(None)  # ty: ignore[invalid-argument-type]
+        assert result is None
+
+    def test_trim_inner_exception_returns_none(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """trim inner function catches exceptions and returns None (lines 591-593)."""
+        import logging
+
+        dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
+        trimmed = dataset.trim(start=0.0, end=0.5)
+        assert trimmed._transform is not None
+
+        class _RaisingFrame:
+            def trim(self, **kwargs):
+                raise ValueError("trim failed")
+
+        with caplog.at_level(logging.WARNING):
+            result = trimmed._transform(_RaisingFrame())  # ty: ignore[invalid-argument-type]
+        assert result is None
+
+    def test_normalize_inner_none_frame(self, create_test_files: Path) -> None:
+        """normalize inner function returns None when frame is None (line 603)."""
+        dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
+        normalized = dataset.normalize()
+        assert normalized._transform is not None
+        result = normalized._transform(None)  # ty: ignore[invalid-argument-type]
+        assert result is None
+
+    def test_stft_inner_none_frame(self, create_test_files: Path) -> None:
+        """stft inner function returns None when frame is None (line 625)."""
+        dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
+        stft_ds = dataset.stft()
+        assert stft_ds._transform is not None
+        result = stft_ds._transform(None)  # ty: ignore[invalid-argument-type]
+        assert result is None

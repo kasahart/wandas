@@ -1,5 +1,7 @@
 """Tests for psychoacoustic processing operations."""
 
+from unittest.mock import patch
+
 import dask.array as da
 import numpy as np
 import pytest
@@ -15,6 +17,7 @@ from wandas.processing.psychoacoustic import (
     LoudnessZwst,
     LoudnessZwtv,
     RoughnessDw,
+    RoughnessDwSpec,
     SharpnessDin,
     SharpnessDinSt,
 )
@@ -2092,3 +2095,63 @@ class TestSharpnessDinStIntegration:
 
         # Results should match
         np.testing.assert_allclose(sharpness_wandas[0], s_direct, rtol=1e-10)
+
+
+# --- Coverage gap tests for psychoacoustic.py ---
+
+
+class TestRoughnessBaseCoverageGaps:
+    """Tests targeting uncovered lines in _RoughnessBase and RoughnessDwSpec."""
+
+    def test_estimated_time_samples_hop_zero(self) -> None:
+        """_estimated_time_samples returns 1 when hop_samples == 0 (line 350).
+
+        overlap=1.0 makes (1 - overlap) == 0, so hop_samples rounds to 0.
+        """
+        # Use a unique sampling rate to avoid cache collision
+        sr = 99991.0
+        # Clear cache to avoid stale state
+        RoughnessDwSpec._bark_axis_cache.pop((sr, 1.0), None)
+
+        # Create a mock roughness operation using a real RoughnessDw (which uses _RoughnessBase)
+        roughness_dw = RoughnessDw(sampling_rate=sr, overlap=1.0)
+        result = roughness_dw._estimated_time_samples(n_samples=int(sr * 0.2))
+        assert result == 1
+
+    def test_roughness_dw_spec_init_mosqito_raises(self) -> None:
+        """RoughnessDwSpec.__init__ raises RuntimeError when mosqito fails (lines 493-495)."""
+        unique_sr = 99997.0
+        RoughnessDwSpec._bark_axis_cache.pop((unique_sr, 0.5), None)
+
+        with patch(
+            "wandas.processing.psychoacoustic.roughness_dw_mosqito",
+            side_effect=RuntimeError("mosqito internal error"),
+        ):
+            with pytest.raises(RuntimeError, match="Could not initialize RoughnessDwSpec"):
+                RoughnessDwSpec(sampling_rate=unique_sr, overlap=0.5)
+
+    def test_roughness_dw_spec_init_empty_bark_axis(self) -> None:
+        """RoughnessDwSpec.__init__ raises RuntimeError when bark_axis is empty (lines 501-502)."""
+        unique_sr = 99993.0
+        RoughnessDwSpec._bark_axis_cache.pop((unique_sr, 0.5), None)
+
+        # Return an empty array as bark_axis
+        with patch(
+            "wandas.processing.psychoacoustic.roughness_dw_mosqito",
+            return_value=(None, None, np.array([]), None),
+        ):
+            with pytest.raises(RuntimeError, match="empty or None bark_axis"):
+                RoughnessDwSpec(sampling_rate=unique_sr, overlap=0.5)
+
+    def test_roughness_dw_spec_calculate_output_shape_1d_input(self) -> None:
+        """calculate_output_shape handles 1D input shape (lines 520-521)."""
+        sr = 48000.0
+        # Ensure cached so we don't need mosqito
+        if (sr, 0.5) not in RoughnessDwSpec._bark_axis_cache:
+            RoughnessDwSpec(sampling_rate=sr, overlap=0.5)
+        op = RoughnessDwSpec(sampling_rate=sr, overlap=0.5)
+        n_samples = int(sr * 1.0)
+        shape = op.calculate_output_shape((n_samples,))
+        # For 1D input, n_channels=1, output is (n_bark_bands, estimated_time_samples)
+        assert len(shape) == 2
+        assert shape[0] == len(op.bark_axis)

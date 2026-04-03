@@ -1,9 +1,10 @@
+import dask.array as da
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
 import wandas.frames.channel as channel_mod
-from wandas.frames.channel import ChannelFrame
+from wandas.frames.channel import ChannelFrame, _resolve_channels
 
 
 def make_cf(arr: np.ndarray, sr: int = 100) -> ChannelFrame:
@@ -518,3 +519,75 @@ def test_describe_figures_have_correct_structure(tmp_path):
     fig = figures[0]
     assert hasattr(fig, "axes")
     assert len(fig.axes) >= 2
+
+
+# --- Tests for _resolve_channels (channel.py lines 73, 75-78) ---
+
+
+def test_resolve_channels_valid_int():
+    """_resolve_channels with a valid int returns [channel] (line 73)."""
+    result = _resolve_channels(1, 3)
+    assert result == [1]
+
+
+def test_resolve_channels_valid_list():
+    """_resolve_channels with a valid list returns list(channel) (lines 75-78)."""
+    result = _resolve_channels([0, 2], 3)
+    assert result == [0, 2]
+
+
+def test_resolve_channels_valid_tuple():
+    """_resolve_channels with a valid tuple returns list(channel) (lines 75-78)."""
+    result = _resolve_channels((1, 2), 3)  # ty: ignore[invalid-argument-type]
+    assert result == [1, 2]
+
+
+def test_resolve_channels_list_out_of_range():
+    """_resolve_channels raises for out-of-range items in a list (lines 75-77)."""
+    with pytest.raises(ValueError, match="Channel specification is out of range"):
+        _resolve_channels([0, 5], 3)
+
+
+# --- Test for from_numpy with 3D data (channel.py line 792) ---
+
+
+def test_from_numpy_3d_data_raises():
+    """from_numpy with 3D data should raise ValueError (line 792)."""
+    data_3d = np.random.random((2, 4, 100))
+    with pytest.raises(ValueError, match="Data must be 1-dimensional or 2-dimensional"):
+        ChannelFrame.from_numpy(data_3d, sampling_rate=1000)
+
+
+# --- Test for source_name that fails Path() (channel.py lines 1001-1006) ---
+
+
+def test_from_file_source_name_path_failure(monkeypatch):
+    """When Path(source_name) raises, source_name is used as-is for the label (lines 1001-1006)."""
+    fake = FakeReader(sr=100, channels=1, frames=4)
+    monkeypatch.setattr(channel_mod, "get_file_reader", lambda *args, **kwargs: fake)
+
+    # Path() can raise on certain exotic values; simulate by monkeypatching Path.stem
+    original_path_cls = channel_mod.Path
+
+    class BadPath:
+        def __init__(self, s):
+            raise ValueError("bad path")
+
+    monkeypatch.setattr(channel_mod, "Path", BadPath)
+    cf = ChannelFrame.from_file(b"data", file_type=".wav", source_name="raw::label")
+    # The label falls back to the raw source_name string
+    assert cf.label == "raw::label"
+    monkeypatch.setattr(channel_mod, "Path", original_path_cls)
+
+
+# --- Test for add_channel with 2D dask array needing reshape (channel.py line 1257) ---
+
+
+def test_add_channel_dask_2d_multichannel_reshape():
+    """add_channel with a 2D dask array whose shape[0] != 1 triggers reshape (line 1257)."""
+    base = ChannelFrame.from_numpy(np.zeros((1, 20)), sampling_rate=100)
+    # Create a 2D dask array with shape (2, 10) - NOT (1, N)
+    arr_2d = da.from_array(np.ones((2, 10)), chunks=(2, 10))
+    # Reshape to (1, 20) and add as one channel; use truncate to handle length
+    result = base.add_channel(arr_2d, label="new_ch", align="truncate")
+    assert result.n_channels == 2

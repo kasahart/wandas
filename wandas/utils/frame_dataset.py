@@ -355,14 +355,13 @@ class FrameDataset(Generic[F], ABC):
             )
 
         # Determine sample size
-        if n is None and ratio is None:
-            n = max(1, min(10, int(total * 0.1)))
-        elif n is None and ratio is not None:
-            n = max(1, int(total * ratio))
-        elif n is not None:
-            n = max(1, n)
+        if n is None:
+            if ratio is None:
+                n = max(1, min(10, int(total * 0.1)))
+            else:
+                n = max(1, int(total * ratio))
         else:
-            n = 1
+            n = max(1, n)
 
         n = min(n, total)
 

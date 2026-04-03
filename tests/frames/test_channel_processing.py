@@ -1096,3 +1096,36 @@ class TestRoughnessOperations:
         assert roughness_spec.data.ndim == 3
         assert roughness_spec.data.shape[0] == 2  # 2 channels
         assert roughness_spec.data.shape[1] == 47  # 47 Bark bands
+
+
+# --- Tests for channel_processing_mixin coverage gaps ---
+
+
+def test_get_ref_values_empty_channel_metadata() -> None:
+    """_get_ref_values returns [] when _channel_metadata is empty (line 50)."""
+    cf = ChannelFrame.from_numpy(np.random.random((2, 100)), sampling_rate=1000)
+    cf._channel_metadata = []  # force empty
+    result = cf._get_ref_values()
+    assert result == []
+
+
+def test_reduce_channels_unsupported_op_raises() -> None:
+    """_reduce_channels raises ValueError for unsupported operation (line 313)."""
+    cf = ChannelFrame.from_numpy(np.random.random((2, 100)), sampling_rate=1000)
+    with pytest.raises(ValueError, match="Unsupported reduction operation"):
+        cf._reduce_channels("median")  # ty: ignore[call-non-callable]
+
+
+def test_roughness_dw_spec_missing_bark_axis() -> None:
+    """roughness_dw_spec raises ValueError when bark_axis is absent from metadata (line 899)."""
+    from unittest.mock import MagicMock
+
+    cf = ChannelFrame.from_numpy(np.random.random((1, 100)), sampling_rate=48000)
+
+    mock_op = MagicMock()
+    mock_op.process.return_value = _da_from_array(np.random.random((47, 10)), chunks=(47, 10))
+    mock_op.get_metadata_updates.return_value = {"sampling_rate": 100.0}  # no bark_axis key
+
+    with mock.patch("wandas.frames.mixins.channel_processing_mixin.create_operation", return_value=mock_op):
+        with pytest.raises(ValueError, match="bark_axis"):
+            cf.roughness_dw_spec()

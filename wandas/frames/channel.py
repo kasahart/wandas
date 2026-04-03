@@ -150,10 +150,8 @@ def _resolve_source(
                         exc,
                     )
             source: bytes = file_obj.read()
-        elif isinstance(path, (bytes, bytearray, memoryview)):
-            source = bytes(path)
         else:
-            raise TypeError("Unexpected in-memory input type")
+            source = bytes(cast(bytes | bytearray | memoryview, path))
         reader = get_file_reader(normalized_file_type or "", file_type=normalized_file_type)
         return source, None, reader, normalized_file_type
 

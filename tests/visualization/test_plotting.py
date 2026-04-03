@@ -1619,3 +1619,19 @@ class TestChannelFramePlotParameters:
             if "tight_layout" in str(e) or "_NoValueType" in str(e):
                 pytest.skip(f"Plot failed due to matplotlib issue: {e}")
             raise
+
+
+def test_spectrogram_plot_single_channel_axs_conversion() -> None:
+    """SpectrogramPlotStrategy with 1 channel converts scalar Axes to array (line 547)."""
+    sr = 16000
+    n_fft = 512
+    hop = n_fft // 4
+    data = np.random.random((1, sr))  # single channel
+    cf = wd.ChannelFrame.from_numpy(data, sampling_rate=sr)
+    spec = cf.stft(n_fft=n_fft, hop_length=hop)
+
+    strategy = SpectrogramPlotStrategy()
+    # ax=None triggers the new-figure path; single channel → plt.subplots returns plain Axes → line 547
+    ax = strategy.plot(spec)
+    assert ax is not None
+    plt.close("all")

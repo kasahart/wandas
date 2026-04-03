@@ -318,3 +318,38 @@ def test_load_wdf_from_url_download_failure() -> None:
     ):
         with pytest.raises(OSError, match=r"Failed to download WDF file from URL"):
             wdf_io.load(url)
+
+
+def test_decode_hdf5_str_invalid_utf8() -> None:
+    """_decode_hdf5_str falls back to str() for non-UTF-8 bytes (lines 39-42)."""
+    from wandas.io.wdf_io import _decode_hdf5_str
+
+    invalid_bytes = b"\xff\xfe"
+    result = _decode_hdf5_str(invalid_bytes)
+    # Should return str() fallback rather than raising
+    assert isinstance(result, str)
+    assert result == str(invalid_bytes)
+
+
+def test_load_wdf_meta_json_as_bytes(tmp_path: Path) -> None:
+    """Loading a WDF file where meta JSON is stored as numpy.bytes_ triggers line 229."""
+    sr = 16000
+    data = np.random.default_rng(0).standard_normal((1, sr)).astype(np.float32)
+    # metadata= ensures the save function creates a "meta" HDF5 group
+    cf = ChannelFrame.from_numpy(data, sr, label="BytesTest", metadata={"key": "val"})
+    wdf_path = tmp_path / "bytes_meta.wdf"
+    cf.save(wdf_path)
+
+    # Rewrite the meta JSON attribute as numpy.bytes_ — h5py stores and returns this
+    # as numpy.bytes_, which triggers the isinstance(meta_json, (bytes, np.bytes_)) branch
+    with h5py.File(wdf_path, "r+") as f:
+        if "meta" in f:
+            meta_json_str = f["meta"].attrs.get("json", "{}")
+            if isinstance(meta_json_str, str):
+                del f["meta"].attrs["json"]
+                f["meta"].attrs["json"] = np.bytes_(meta_json_str.encode("utf-8"))
+
+    # Load should succeed even when meta_json is numpy.bytes_
+    loaded = wdf_io.load(wdf_path)
+    assert loaded.sampling_rate == sr
+    assert loaded.n_channels == 1

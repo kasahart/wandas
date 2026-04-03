@@ -2,6 +2,7 @@ from unittest import mock
 
 import dask.array as da
 import numpy as np
+import pytest
 from dask.array.core import Array as DaArray
 
 from wandas.frames.channel import ChannelFrame
@@ -484,3 +485,38 @@ class TestChannelTransform:
             print(
                 f"✓ Config {config}: predicted={predicted_shape}, actual={actual_shape}, n_samples={actual_n_samples}"
             )
+
+
+# --- Tests for _cross_channel_spectral_transform n_fft validation (lines 91, 96) ---
+
+
+def test_cross_channel_spectral_transform_n_fft_not_int():
+    """TypeError is raised when the operation returns a non-int n_fft (line 91)."""
+    from unittest.mock import MagicMock, patch
+
+    data = np.random.random((2, 1024))
+    cf = ChannelFrame.from_numpy(data, sampling_rate=1000)
+
+    mock_op = MagicMock()
+    mock_op.process.return_value = _da_from_array(np.random.random((3, 513)), chunks=(3, 513))
+    mock_op.n_fft = "not_an_int"  # non-int value
+
+    with patch("wandas.processing.create_operation", return_value=mock_op):
+        with pytest.raises(TypeError, match="must provide a positive integer n_fft"):
+            cf.coherence()
+
+
+def test_cross_channel_spectral_transform_n_fft_non_positive():
+    """ValueError is raised when the operation returns n_fft <= 0 (line 96)."""
+    from unittest.mock import MagicMock, patch
+
+    data = np.random.random((2, 1024))
+    cf = ChannelFrame.from_numpy(data, sampling_rate=1000)
+
+    mock_op = MagicMock()
+    mock_op.process.return_value = _da_from_array(np.random.random((3, 513)), chunks=(3, 513))
+    mock_op.n_fft = 0  # non-positive int
+
+    with patch("wandas.processing.create_operation", return_value=mock_op):
+        with pytest.raises(ValueError, match="must provide a positive integer n_fft"):
+            cf.coherence()
