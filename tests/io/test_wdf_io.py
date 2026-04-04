@@ -68,13 +68,13 @@ def test_save_load_roundtrip(tmp_path: Path) -> None:
     cf2 = ChannelFrame.load(path)
 
     # Verify basic properties
-    assert cf2.sampling_rate == sr
-    assert cf2.n_channels == 2
-    assert cf2.label == "Test Frame"
-    assert cf2.metadata.get("test_key") == "test_value"
+    assert cf2.sampling_rate == sr, f"Sampling rate mismatch: {cf2.sampling_rate} != {sr}"
+    assert cf2.n_channels == 2, f"Channel count mismatch: {cf2.n_channels} != 2"
+    assert cf2.label == "Test Frame", f"Label mismatch: {cf2.label}"
+    assert cf2.metadata.get("test_key") == "test_value", "Custom metadata key not preserved"
 
     # Verify operation history
-    assert len(cf2.operation_history) == 2
+    assert len(cf2.operation_history) == 2, f"Expected 2 history entries, got {len(cf2.operation_history)}"
     assert cf2.operation_history[0]["operation"] == "normalize"
     assert cf2.operation_history[0]["params"]["method"] == "peak"
     assert cf2.operation_history[1]["operation"] == "filter"
