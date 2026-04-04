@@ -636,48 +636,56 @@ class TestChannelFrameDataset:
         expected_data = original_frame.compute() * 2
         np.testing.assert_allclose(final_frame.compute(), expected_data)
 
-    def test_get_metadata(self, create_test_files: Path) -> None:
-        """Test get_metadata method."""
+    def test_get_metadata_lazy_unloaded_state(self, create_test_files: Path) -> None:
+        """Metadata reflects unloaded state for lazy dataset."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True, sampling_rate=8000)
 
-        meta_lazy = dataset.get_metadata()
-        assert meta_lazy["folder_path"] == str(folder_path)
-        assert meta_lazy["file_count"] == 3
-        assert meta_lazy["loaded_count"] == 0
-        assert meta_lazy["target_sampling_rate"] == 8000
-        # Actual SR might be different until loaded, or None if load fails
-        assert meta_lazy["actual_sampling_rate"] == 8000  # Inherits target if not loaded
-        assert meta_lazy["lazy_loading"] is True
-        assert meta_lazy["has_transform"] is False
-        assert meta_lazy["frame_type"] == "Unknown"  # Not loaded yet
+        meta = dataset.get_metadata()
+        assert meta["folder_path"] == str(folder_path)
+        assert meta["file_count"] == 3
+        assert meta["loaded_count"] == 0
+        assert meta["target_sampling_rate"] == 8000
+        assert meta["actual_sampling_rate"] == 8000  # Inherits target when unloaded
+        assert meta["lazy_loading"] is True
+        assert meta["has_transform"] is False
+        assert meta["frame_type"] == "Unknown"  # Not loaded yet
 
-        # Load one item
+    def test_get_metadata_after_loading_one_item(self, create_test_files: Path) -> None:
+        """Metadata updates after loading a single item."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True, sampling_rate=8000)
         _ = dataset[0]
-        meta_loaded_one = dataset.get_metadata()
-        assert meta_loaded_one["loaded_count"] == 1
-        assert meta_loaded_one["actual_sampling_rate"] == 8000  # Now reflects loaded frame (after resampling)
-        assert meta_loaded_one["frame_type"] == "ChannelFrame"
 
-        # Test with transformation
-        transformed_ds = dataset.apply(lambda f: f * 2)
-        meta_transformed = transformed_ds.get_metadata()
-        assert meta_transformed["has_transform"] is True
-        assert meta_transformed["loaded_count"] == 0  # Transform dataset has its own cache
-        assert meta_transformed["frame_type"] == "Unknown"
+        meta = dataset.get_metadata()
+        assert meta["loaded_count"] == 1
+        assert meta["actual_sampling_rate"] == 8000
+        assert meta["frame_type"] == "ChannelFrame"
 
-        # Load item in transformed dataset
-        _ = transformed_ds[0]
-        meta_transformed_loaded = transformed_ds.get_metadata()
-        assert meta_transformed_loaded["loaded_count"] == 1
-        assert meta_transformed_loaded["frame_type"] == "ChannelFrame"  # Type after transform
+    def test_get_metadata_with_transform(self, create_test_files: Path) -> None:
+        """Transformed dataset metadata reflects transform state."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True, sampling_rate=8000)
+        transformed = dataset.apply(lambda f: f * 2)
 
-        # Test with eager loading
-        dataset_eager = ChannelFrameDataset(str(folder_path), lazy_loading=False)
-        meta_eager = dataset_eager.get_metadata()
-        assert meta_eager["lazy_loading"] is False
-        assert meta_eager["loaded_count"] == 3
-        assert meta_eager["frame_type"] == "ChannelFrame"
+        meta = transformed.get_metadata()
+        assert meta["has_transform"] is True
+        assert meta["loaded_count"] == 0
+
+        _ = transformed[0]
+        meta_loaded = transformed.get_metadata()
+        assert meta_loaded["loaded_count"] == 1
+        assert meta_loaded["frame_type"] == "ChannelFrame"
+
+    def test_get_metadata_eager_loading(self, create_test_files: Path) -> None:
+        """Eager-loaded dataset metadata shows all frames loaded."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=False)
+
+        meta = dataset.get_metadata()
+        assert meta["lazy_loading"] is False
+        assert meta["loaded_count"] == 3
+        assert meta["frame_type"] == "ChannelFrame"
 
     def test_from_folder(self, create_test_files: Path) -> None:
         """Test the from_folder class method."""
