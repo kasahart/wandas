@@ -9,6 +9,7 @@ from wandas.processing.effects import (
     HpssPercussive,
     Normalize,
 )
+from wandas.utils import util
 from wandas.utils.dask_helpers import da_from_array
 
 _SR = 16000
@@ -200,8 +201,6 @@ class TestAddWithSNR:
 
         clean = dask_input.compute()
         result = op.process(dask_input).compute()
-
-        from wandas.utils import util
 
         clean_power = util.calculate_rms(clean) ** 2
         noise_component = result - clean
