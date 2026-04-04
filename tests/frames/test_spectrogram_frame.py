@@ -142,6 +142,9 @@ class TestSpectrogramFrame:
         # スカラー演算
         spec_plus_1: SpectrogramFrame = spec + 1.0
         assert spec_plus_1.label == f"({spec.label} + 1.0)"
+        # Pillar 1: immutability and Dask laziness
+        assert spec_plus_1 is not spec
+        assert isinstance(spec_plus_1._data, DaArray)
 
         # 実データの比較確認
         result: NDArrayComplex = spec_plus_1.data
