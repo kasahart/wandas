@@ -127,6 +127,7 @@ class TestSpectrogramFrame:
         assert dba.shape == (2, 65, 5)
 
         # magnitude と power の関係を確認
+        # Direct algebraic relation — decimal=6 (default, float64 precision)
         assert_array_almost_equal(power, magnitude**2)
 
         # 周波数・時間軸の確認
@@ -149,6 +150,7 @@ class TestSpectrogramFrame:
         # 実データの比較確認
         result: NDArrayComplex = spec_plus_1.data
         expected: NDArrayComplex = spec.data + 1.0
+        # Scalar arithmetic — decimal=6 (default, exact match expected)
         assert_array_almost_equal(result, expected)
 
         # 同種データ間の演算
@@ -161,6 +163,7 @@ class TestSpectrogramFrame:
         spec_div: SpectrogramFrame = spec / 2.0
 
         # 各演算結果の検証
+        # Scalar arithmetic — decimal=6 (default, exact match expected)
         assert_array_almost_equal((spec_minus.data), (spec.data - 0.5))
         assert_array_almost_equal((spec_mult.data), (spec.data * 2.0))
         assert_array_almost_equal((spec_div.data), (spec.data / 2.0))
