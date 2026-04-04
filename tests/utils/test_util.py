@@ -150,127 +150,95 @@ class TestCalculateDesiredNoiseRms:
         np.testing.assert_allclose(result, expected)  # Analytical: irrational but deterministic
 
 
-def test_level_trigger_basic() -> None:
-    # Data with upward crossings
-    data = np.array([0.0, 0.2, 0.6, 0.4, 0.7, 0.3, 0.9, 0.1])
-    threshold = 0.5
-    # np.sign(data - threshold) -> [-1, -1, 1, -1, 1, -1, 1, -1]
-    # diff -> [0, 2, -2, 2, -2, 2, -2] -> indices with diff > 0: [1, 3, 5]
-    # For hold=1: expected triggers = [1, 3, 5]
-    expected = [1, 3, 5]
-    result = level_trigger(data, threshold)
-    assert result == expected, f"Expected {expected} but got {result}"
+class TestLevelTrigger:
+    """Test suite for level_trigger — detects upward threshold crossings."""
+
+    def test_trigger_basic_upward_crossings(self) -> None:
+        data = np.array([0.0, 0.2, 0.6, 0.4, 0.7, 0.3, 0.9, 0.1])
+        threshold = 0.5
+        # sign(data - 0.5) transitions from -1 to +1 at indices 1, 3, 5
+        expected = [1, 3, 5]
+        result = level_trigger(data, threshold)
+        assert result == expected
+
+    def test_trigger_with_offset_shifts_indices(self) -> None:
+        data = np.array([0.0, 0.2, 0.6, 0.4, 0.7, 0.3, 0.9, 0.1])
+        threshold = 0.5
+        offset = 10
+        expected = [11, 13, 15]  # Each trigger index shifted by offset
+        result = level_trigger(data, threshold, offset=offset)
+        assert result == expected
+
+    def test_trigger_with_hold_suppresses_close_events(self) -> None:
+        data = np.array([0.0, 0.2, 0.6, 0.4, 0.7, 0.3, 0.9, 0.1])
+        threshold = 0.5
+        hold = 2  # Minimum samples between triggers
+        # Raw triggers: [1, 3, 5]; hold=2 suppresses index 3 (1+2 >= 3)
+        expected = [1, 5]
+        result = level_trigger(data, threshold, hold=hold)
+        assert result == expected
+
+    def test_trigger_no_crossing_returns_empty(self) -> None:
+        data = np.array([0.0, 0.1, 0.2, 0.3])
+        threshold = 1.0  # All values below threshold
+        result = level_trigger(data, threshold)
+        assert len(result) == 0
 
 
-def test_level_trigger_with_offset() -> None:
-    data = np.array([0.0, 0.2, 0.6, 0.4, 0.7, 0.3, 0.9, 0.1])
-    threshold = 0.5
-    offset = 10
-    # Expected triggers with offset: [1+10, 3+10, 5+10] = [11, 13, 15]
-    expected = [11, 13, 15]
-    result = level_trigger(data, threshold, offset=offset)
-    assert result == expected, f"Expected {expected} but got {result}"
+class TestCutSig:
+    """Test suite for cut_sig — segment extraction with windowing."""
+
+    def test_cut_basic_valid_and_invalid_points(self) -> None:
+        data = np.arange(20, dtype=float)
+        cut_len = 5
+        taper_rate = 0  # Rectangular window (all ones)
+        point_list = [-3, 0, 10, 15, 18]  # -3 and 18 invalid (out of bounds)
+        window = tukey(cut_len, taper_rate)
+        expected = np.array([data[p : p + cut_len] * window for p in [0, 10, 15]])
+
+        result = cut_sig(data, point_list, cut_len, taper_rate, dc_cut=False)
+        np.testing.assert_allclose(result, expected)  # Wrapper equivalence: same window applied
+
+    def test_cut_dc_removal_subtracts_segment_mean(self) -> None:
+        data = np.arange(20, dtype=float) + 10.0  # DC offset of 10
+        cut_len = 4
+        taper_rate = 0
+        point_list = [2, 8, 14]
+        window = tukey(cut_len, taper_rate)
+        expected = np.array([(data[p : p + cut_len] - data[p : p + cut_len].mean()) * window for p in point_list])
+
+        result = cut_sig(data, point_list, cut_len, taper_rate, dc_cut=True)
+        np.testing.assert_allclose(result, expected)  # Wrapper equivalence: mean removal + windowing
+
+    def test_cut_nonzero_taper_applies_tukey_window(self) -> None:
+        data = np.linspace(0, 1, 30)
+        cut_len = 6
+        taper_rate = 0.5  # Tukey window with 50% taper
+        point_list = [0, 12, 24]  # 24+6=30, all valid
+        window = tukey(cut_len, taper_rate)
+        expected = np.array([data[p : p + cut_len] * window for p in point_list])
+
+        result = cut_sig(data, point_list, cut_len, taper_rate, dc_cut=False)
+        np.testing.assert_allclose(result, expected)  # Wrapper equivalence: Tukey window
+
+    def test_cut_invalid_points_dropped_silently(self) -> None:
+        data = np.arange(10, dtype=float)
+        cut_len = 5
+        taper_rate = 0
+        point_list = [0, 6, -2]  # 6+5=11>10 and -2 invalid; only 0 valid
+        window = tukey(cut_len, taper_rate)
+        expected = np.array([data[0:5] * window])
+
+        result = cut_sig(data, point_list, cut_len, taper_rate, dc_cut=False)
+        np.testing.assert_allclose(result, expected)
 
 
-def test_level_trigger_with_hold() -> None:
-    data = np.array([0.0, 0.2, 0.6, 0.4, 0.7, 0.3, 0.9, 0.1])
-    threshold = 0.5
-    hold = 2
-    # With hold=2:
-    # level_point initially: [1, 3, 5]
-    # last_point starts as 1, then only 5 qualifies since (1+2)<5.
-    # Expected triggers = [1, 5]
-    expected = [1, 5]
-    result = level_trigger(data, threshold, hold=hold)
-    assert result == expected, f"Expected {expected} but got {result}"
+class TestAmplitudeToDb:
+    """Test suite for amplitude_to_db — Pillar 4: wrapper equivalence with librosa."""
 
-
-def test_level_trigger_no_crossing() -> None:
-    # Data with no upward crossing above the threshold.
-    data = np.array([0.0, 0.1, 0.2, 0.3])
-    threshold = 1.0
-    result = level_trigger(data, threshold)
-
-    assert len(result) == 0, "Expected no triggers"
-
-
-def test_cut_sig_basic() -> None:
-    # Create data array and define parameters.
-    data = np.arange(20, dtype=float)
-    cut_len = 5
-    taper_rate = 0  # rectangular window (ones)
-    dc_cut = False
-    # Define point_list with valid and invalid indices.
-    point_list = [-3, 0, 10, 15, 18]  # -3 and 18 are invalid: 18+5 > 20
-    # Expected valid indices: 0, 10, 15.
-    expected = []
-    window = tukey(cut_len, taper_rate)  # should be ones when taper_rate is 0
-    for p in [0, 10, 15]:
-        segment = data[p : p + cut_len] * window
-        expected.append(segment)
-    expected_array = np.array(expected)
-
-    result = cut_sig(data, point_list, cut_len, taper_rate, dc_cut)
-    np.testing.assert_allclose(result, expected_array)
-
-
-def test_cut_sig_dc_cut() -> None:
-    # Create data array with a DC offset.
-    data = np.arange(20, dtype=float) + 10.0
-    cut_len = 4
-    taper_rate = 0  # window is ones when taper_rate is 0
-    dc_cut = True
-    point_list = [2, 8, 14]  # all valid; 14+4=18 <=20
-    expected = []
-    window = tukey(cut_len, taper_rate)
-    for p in point_list:
-        segment = data[p : p + cut_len]
-        # subtract mean from the segment
-        segment_dc = segment - segment.mean()
-        expected.append(segment_dc * window)
-    expected_array = np.array(expected)
-
-    result = cut_sig(data, point_list, cut_len, taper_rate, dc_cut)
-    np.testing.assert_allclose(result, expected_array)
-
-
-def test_cut_sig_taper_rate() -> None:
-    # Test with a nonzero taper_rate.
-    data = np.linspace(0, 1, 30)
-    cut_len = 6
-    taper_rate = 0.5  # non-rectangular window
-    dc_cut = False
-    point_list = [0, 12, 24]  # 24+6=30, valid indices
-    expected = []
-    window = tukey(cut_len, taper_rate)
-    for p in point_list:
-        segment = data[p : p + cut_len] * window
-        expected.append(segment)
-    expected_array = np.array(expected)
-
-    result = cut_sig(data, point_list, cut_len, taper_rate, dc_cut)
-    np.testing.assert_allclose(result, expected_array)
-
-
-def test_cut_sig_invalid_points() -> None:
-    # Points that do not yield a complete segment should be dropped.
-    data = np.arange(10, dtype=float)
-    cut_len = 5
-    taper_rate = 0
-    dc_cut = False
-    # Valid point: only 0, since 6 is invalid (6+5=11>10)
-    point_list = [0, 6, -2]
-    window = tukey(cut_len, taper_rate)
-    expected = np.array([data[0:5] * window])
-
-    result = cut_sig(data, point_list, cut_len, taper_rate, dc_cut)
-    np.testing.assert_allclose(result, expected)
-
-
-def test_amplitude_to_db_basic() -> None:
-    # Basic check that amplitude_to_db forwards to librosa with correct params
-    amp = np.array([1.0, 0.5, 0.1], dtype=float)
-    ref = 1.0
-    result = amplitude_to_db(amp, ref)
-    expected = librosa.amplitude_to_db(np.abs(amp), ref=ref, amin=1e-15, top_db=None)
-    np.testing.assert_allclose(result, expected)
+    def test_amplitude_to_db_matches_librosa(self) -> None:
+        amp = np.array([1.0, 0.5, 0.1], dtype=float)
+        ref = 1.0
+        result = amplitude_to_db(amp, ref)
+        expected = librosa.amplitude_to_db(np.abs(amp), ref=ref, amin=1e-15, top_db=None)
+        np.testing.assert_allclose(result, expected)  # Wrapper equivalence: same librosa call
