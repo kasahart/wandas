@@ -195,7 +195,7 @@ class TestBaseFrameArithmeticOperations:
 
 def test_get_channel_query_by_regex() -> None:
     sample_rate = 16000
-    data = np.random.random((3, 100))
+    data = np.linspace(0.1, 1.0, 300).reshape(3, 100)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
     cf.channels[0].label = "acc_x"
@@ -211,7 +211,7 @@ def test_get_channel_query_by_regex() -> None:
 def test_get_channel_query_with_channel_idx_none() -> None:
     """Ensure query selection works when channel_idx is explicitly None."""
     sample_rate = 16000
-    data = np.random.random((3, 100))
+    data = np.linspace(0.1, 1.0, 300).reshape(3, 100)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
     cf.channels[0].label = "acc_x"
@@ -227,7 +227,7 @@ def test_get_channel_query_with_channel_idx_none() -> None:
 def test_get_channel_no_args_raises() -> None:
     """Calling get_channel with no arguments should raise a clear error."""
     sample_rate = 16000
-    data = np.random.random((2, 20))
+    data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
 
@@ -237,7 +237,7 @@ def test_get_channel_no_args_raises() -> None:
 
 def test_get_channel_query_by_callable() -> None:
     sample_rate = 16000
-    data = np.random.random((2, 50))
+    data = np.linspace(0.1, 1.0, 100).reshape(2, 50)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
     cf.channels[0].label = "left"
@@ -250,7 +250,7 @@ def test_get_channel_query_by_callable() -> None:
 
 def test_get_channel_query_by_dict_and_no_match() -> None:
     sample_rate = 16000
-    data = np.random.random((2, 20))
+    data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
     cf.channels[0].label = "chA"
@@ -268,7 +268,7 @@ def test_get_channel_query_by_dict_and_no_match() -> None:
 
 def test_get_channel_query_dict_value_regex() -> None:
     sample_rate = 16000
-    data = np.random.random((2, 20))
+    data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
     cf.channels[0].label = "ch_alpha"
@@ -282,7 +282,7 @@ def test_get_channel_query_dict_value_regex() -> None:
 
 def test_get_channel_query_dict_unknown_key_raises() -> None:
     sample_rate = 16000
-    data = np.random.random((2, 20))
+    data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
 
@@ -293,7 +293,7 @@ def test_get_channel_query_dict_unknown_key_raises() -> None:
 
 def test_get_channel_validate_query_keys_false_allows_unknown_key() -> None:
     sample_rate = 16000
-    data = np.random.random((2, 20))
+    data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
     cf.channels[0].label = "chA"
@@ -308,7 +308,7 @@ def test_get_channel_validate_query_keys_false_allows_unknown_key() -> None:
 
 def test_get_channel_operation_history_and_immutability() -> None:
     sample_rate = 16000
-    data = np.random.random((2, 20))
+    data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
     cf.channels[0].label = "orig0"
@@ -330,7 +330,7 @@ def test_get_channel_operation_history_and_immutability() -> None:
 
 def test_get_channel_query_dict_multiple_keys_and_extra_matching() -> None:
     sample_rate = 16000
-    data = np.random.random((3, 20))
+    data = np.linspace(0.1, 1.0, 60).reshape(3, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
     cf.channels[0].label = "sensorA"
@@ -352,7 +352,7 @@ def test_get_channel_query_dict_multiple_keys_and_extra_matching() -> None:
 
 def test_get_channel_query_dict_multiple_matches_preserve_order() -> None:
     sample_rate = 16000
-    data = np.random.random((3, 20))
+    data = np.linspace(0.1, 1.0, 60).reshape(3, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
     cf.channels[0].label = "m1"
@@ -367,7 +367,7 @@ def test_get_channel_query_dict_multiple_matches_preserve_order() -> None:
 
 def test_get_channel_query_dict_non_string_attr() -> None:
     sample_rate = 16000
-    data = np.random.random((2, 20))
+    data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
     cf.channels[0].label = "a"
@@ -403,7 +403,7 @@ def test_get_channel_query_dict_non_string_attr() -> None:
 
 
 def test_rechunk_failure_logs_warning_and_initializes(caplog) -> None:
-    data = np.random.random((2, 50))
+    data = np.linspace(0.1, 1.0, 100).reshape(2, 50)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
 
     # Patch rechunk to raise on first call then succeed
@@ -424,7 +424,7 @@ def test_rechunk_failure_logs_warning_and_initializes(caplog) -> None:
 
 
 def test_channel_metadata_validation_value_error() -> None:
-    data = np.random.random((2, 10))
+    data = np.linspace(0.1, 1.0, 20).reshape(2, 10)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
 
     # Invalid dict fields -> pydantic ValidationError -> wrapped as ValueError
@@ -433,7 +433,7 @@ def test_channel_metadata_validation_value_error() -> None:
 
 
 def test_channel_metadata_validation_type_error() -> None:
-    data = np.random.random((2, 10))
+    data = np.linspace(0.1, 1.0, 20).reshape(2, 10)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
 
     # Unsupported type in channel_metadata list
@@ -442,7 +442,7 @@ def test_channel_metadata_validation_type_error() -> None:
 
 
 def test_get_channel_unsupported_query_type() -> None:
-    data = np.random.random((2, 20))
+    data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
 
@@ -451,7 +451,7 @@ def test_get_channel_unsupported_query_type() -> None:
 
 
 def test_getitem_mixed_list_types_raises() -> None:
-    data = np.random.random((2, 20))
+    data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
 
@@ -460,7 +460,7 @@ def test_getitem_mixed_list_types_raises() -> None:
 
 
 def test_compute_returns_non_ndarray_raises() -> None:
-    data = np.random.random((2, 20))
+    data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
 
@@ -470,7 +470,7 @@ def test_compute_returns_non_ndarray_raises() -> None:
 
 
 def test_to_tensor_import_errors_and_unsupported_framework() -> None:
-    data = np.random.random((2, 8))
+    data = np.linspace(0.1, 1.0, 16).reshape(2, 8)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
 
@@ -501,7 +501,7 @@ def test_to_tensor_import_errors_and_unsupported_framework() -> None:
 
 
 def test_create_new_instance_invalid_label_and_metadata_and_channel_metadata() -> None:
-    data = np.random.random((2, 8))
+    data = np.linspace(0.1, 1.0, 16).reshape(2, 8)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
 
@@ -519,7 +519,7 @@ def test_create_new_instance_invalid_label_and_metadata_and_channel_metadata() -
 
 
 def test_visualize_graph_exception_handling(caplog) -> None:
-    data = np.random.random((2, 8))
+    data = np.linspace(0.1, 1.0, 16).reshape(2, 8)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
 
@@ -585,7 +585,7 @@ class TestBaseFrameChannelMetadata:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.sample_rate = 16000
-        self.data = np.random.random((2, 16000))
+        self.data = np.linspace(0.1, 1.0, 32000).reshape(2, 16000)
         self.dask_data: DaArray = da_from_array(self.data, chunks=(1, -1))
 
     def test_channel_metadata_with_dict(self) -> None:
@@ -653,7 +653,7 @@ class TestBaseFrameSpecialMethods:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.sample_rate = 16000
-        self.data = np.random.random((3, 16000))
+        self.data = np.linspace(0.1, 1.0, 48000).reshape(3, 16000)
         self.dask_data: DaArray = da_from_array(self.data, chunks=(1, -1))
         self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
@@ -718,7 +718,7 @@ class TestBaseFrameErrorCases:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.sample_rate = 16000
-        self.data = np.random.random((2, 16000))
+        self.data = np.linspace(0.1, 1.0, 32000).reshape(2, 16000)
         self.dask_data: DaArray = da_from_array(self.data, chunks=(1, -1))
         self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
@@ -758,7 +758,7 @@ class TestBaseFrameUtilityMethods:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.sample_rate = 16000
-        self.data = np.random.random((2, 16000))
+        self.data = np.linspace(0.1, 1.0, 32000).reshape(2, 16000)
         self.dask_data: DaArray = da_from_array(self.data, chunks=(1, -1))
         self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
@@ -844,7 +844,7 @@ class TestBaseFrameIndexing:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.sample_rate = 16000
-        self.data = np.random.random((4, 16000))
+        self.data = np.linspace(0.1, 1.0, 64000).reshape(4, 16000)
         self.dask_data: DaArray = da_from_array(self.data, chunks=(1, -1))
         metadata_objs = [
             ChannelMetadata(label="ch0", unit="V", extra={}),
@@ -978,7 +978,7 @@ class TestBaseFrameInitialization:
 
     def test_init_with_1d_data(self) -> None:
         """Test initialization with 1D data reshapes to 2D."""
-        data_1d = np.random.random(16000)
+        data_1d = np.linspace(0.1, 1.0, 16000)
         # Use channel-wise chunks for single channel: reshape to (1, n)
         dask_data_1d: DaArray = da_from_array(data_1d.reshape(1, -1), chunks=(1, -1))
         frame = ChannelFrame(data=dask_data_1d, sampling_rate=self.sample_rate)
@@ -990,7 +990,7 @@ class TestBaseFrameInitialization:
 
     def test_init_without_channel_metadata(self) -> None:
         """Test that default channel metadata is created."""
-        data = np.random.random((3, 16000))
+        data = np.linspace(0.1, 1.0, 48000).reshape(3, 16000)
         dask_data: DaArray = da_from_array(data, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
         assert len(frame.channels) == 3
@@ -1000,7 +1000,7 @@ class TestBaseFrameInitialization:
 
     def test_init_with_operation_history(self) -> None:
         """Test initialization with operation history."""
-        data = np.random.random((2, 16000))
+        data = np.linspace(0.1, 1.0, 32000).reshape(2, 16000)
         dask_data: DaArray = da_from_array(data, chunks=(1, -1))
         history = [{"operation": "test", "param": "value"}]
         frame = ChannelFrame(
@@ -1013,7 +1013,7 @@ class TestBaseFrameInitialization:
 
     def test_init_with_metadata(self) -> None:
         """Test initialization with custom metadata."""
-        data = np.random.random((2, 16000))
+        data = np.linspace(0.1, 1.0, 32000).reshape(2, 16000)
         dask_data: DaArray = da_from_array(data, chunks=(1, -1))
         metadata = {"custom_key": "custom_value"}
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate, metadata=metadata)
@@ -1021,7 +1021,7 @@ class TestBaseFrameInitialization:
 
     def test_data_property_single_channel_squeezes(self) -> None:
         """Test that data property squeezes single channel."""
-        data = np.random.random(16000)
+        data = np.linspace(0.1, 1.0, 16000)
         # Use channel-wise chunks for single channel: reshape to (1, n)
         dask_data: DaArray = da_from_array(data.reshape(1, -1), chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
@@ -1031,7 +1031,7 @@ class TestBaseFrameInitialization:
 
     def test_data_property_multi_channel_not_squeezed(self) -> None:
         """Test that data property doesn't squeeze multi-channel."""
-        data = np.random.random((3, 16000))
+        data = np.linspace(0.1, 1.0, 48000).reshape(3, 16000)
         dask_data: DaArray = da_from_array(data, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
         result_data = frame.data
@@ -1045,7 +1045,7 @@ class TestBaseFrameRelabelChannels:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.sample_rate = 16000
-        self.data = np.random.random((2, 16000))
+        self.data = np.linspace(0.1, 1.0, 32000).reshape(2, 16000)
         self.dask_data: DaArray = da_from_array(self.data, chunks=(1, -1))
         metadata_objs = [
             ChannelMetadata(label="left", unit="V", extra={}),
@@ -1077,7 +1077,7 @@ class TestBaseFrameDebugMethods:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.sample_rate = 16000
-        self.data = np.random.random((2, 16000))
+        self.data = np.linspace(0.1, 1.0, 32000).reshape(2, 16000)
         self.dask_data: DaArray = da_from_array(self.data, chunks=(1, -1))
         self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
@@ -1104,7 +1104,7 @@ class TestBaseFrameEdgeCases:
 
     def test_getitem_with_tuple_invalid_channel_key_type(self) -> None:
         """Test __getitem__ tuple with invalid channel key type."""
-        data = np.random.random((2, 16000))
+        data = np.linspace(0.1, 1.0, 32000).reshape(2, 16000)
         dask_data: DaArray = da_from_array(data, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
         with pytest.raises(TypeError, match="Invalid channel key type in tuple"):
@@ -1113,7 +1113,7 @@ class TestBaseFrameEdgeCases:
     def test_compute_invalid_result_type(self) -> None:
         """Test compute() with invalid result type raises ValueError."""
         # Create a mock that returns non-ndarray
-        data = np.random.random((2, 16000))
+        data = np.linspace(0.1, 1.0, 32000).reshape(2, 16000)
         dask_data: DaArray = da_from_array(data, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
@@ -1123,7 +1123,7 @@ class TestBaseFrameEdgeCases:
 
     def test_slice_returns_single_channel_as_list(self) -> None:
         """Test that slicing a single channel still returns metadata as list."""
-        data = np.random.random((3, 16000))
+        data = np.linspace(0.1, 1.0, 48000).reshape(3, 16000)
         dask_data: DaArray = da_from_array(data, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
@@ -1134,7 +1134,7 @@ class TestBaseFrameEdgeCases:
 
     def test_multidim_indexing_with_array_channels(self) -> None:
         """Test multidimensional indexing with array of channels."""
-        data = np.random.random((4, 16000))
+        data = np.linspace(0.1, 1.0, 64000).reshape(4, 16000)
         dask_data: DaArray = da_from_array(data, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
@@ -1146,7 +1146,7 @@ class TestBaseFrameEdgeCases:
 
     def test_multidim_indexing_channel_only(self) -> None:
         """Test multidimensional indexing with only channel selection (no time)."""
-        data = np.random.random((4, 16000))
+        data = np.linspace(0.1, 1.0, 64000).reshape(4, 16000)
         dask_data: DaArray = da_from_array(data, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
@@ -1157,7 +1157,7 @@ class TestBaseFrameEdgeCases:
 
     def test_slice_single_channel_converts_to_list(self) -> None:
         """Test that slicing returning single ChannelMetadata converts to list."""
-        data = np.random.random((3, 16000))
+        data = np.linspace(0.1, 1.0, 48000).reshape(3, 16000)
         dask_data: DaArray = da_from_array(data, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
@@ -1201,7 +1201,7 @@ class TestBaseFrameInfoAndDataframe:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.sample_rate = 16000
-        self.data = np.random.random((1, 16000))
+        self.data = np.linspace(0.1, 1.0, 16000).reshape(1, 16000)
         self.dask_data: DaArray = da_from_array(self.data, chunks=(1, -1))
         self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
@@ -1272,7 +1272,7 @@ class TestBaseFrameInfoAndDataframe:
     def test_info_method_different_duration(self, capsys: Any) -> None:
         """Test info() method with different durations."""
         # Create a frame with 0.5 seconds of data
-        short_data = np.random.random((1, 8000))
+        short_data = np.linspace(0.1, 1.0, 8000).reshape(1, 8000)
         short_frame = ChannelFrame.from_numpy(short_data, sampling_rate=self.sample_rate, label="short")
 
         short_frame.info()
@@ -1289,7 +1289,7 @@ class TestBaseFrameCoverage:
 
     def setup_method(self) -> None:
         self.sample_rate = 16000
-        self.data = np.random.random((2, 16000))
+        self.data = np.linspace(0.1, 1.0, 32000).reshape(2, 16000)
         self.dask_data: DaArray = da_from_array(self.data, chunks=(1, -1))
         self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
