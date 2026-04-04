@@ -199,28 +199,22 @@ class TestFrameDatasetABC:
 
 
 class TestChannelFrameDataset:
-    def test_init_lazy(self, create_test_files: Path) -> None:
-        """Test lazy initialization."""
+    def test_init_lazy_defers_loading(self, create_test_files: Path) -> None:
+        """Lazy initialization defers all file loading."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), recursive=False, lazy_loading=True)
 
         assert dataset._lazy_loading is True
         assert len(dataset) == 3  # test1.wav, test2.wav, test3.csv
-        # LazyFrameの確認 - すべてロードされていない
         assert len(dataset._lazy_frames) == 3
         assert all(not lf.is_loaded for lf in dataset._lazy_frames)
         assert all(lf.frame is None for lf in dataset._lazy_frames)
         assert dataset.folder_path == folder_path
-        assert dataset.file_extensions == [
-            ".wav",
-            ".mp3",
-            ".flac",
-            ".csv",
-        ]  # Default from from_folder via __init__
+        assert dataset.file_extensions == [".wav", ".mp3", ".flac", ".csv"]  # Default extensions
         assert dataset._recursive is False
 
-    def test_init_eager(self, create_test_files: Path) -> None:
-        """Test eager initialization."""
+    def test_init_eager_loads_all_frames(self, create_test_files: Path) -> None:
+        """Eager initialization loads all frames immediately."""
         folder_path = create_test_files
 
         # Initialize with eager loading
