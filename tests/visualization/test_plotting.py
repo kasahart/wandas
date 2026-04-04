@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Any
 from unittest import mock
 
-import dask.array as da
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
@@ -15,6 +14,7 @@ from matplotlib.figure import Figure
 import wandas as wd
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
+from wandas.utils.dask_helpers import da_from_array
 from wandas.visualization.plotting import (
     DescribePlotStrategy,
     FrequencyPlotStrategy,
@@ -32,8 +32,6 @@ from wandas.visualization.plotting import (
     get_plot_strategy,
     register_plot_strategy,
 )
-
-_da_from_array = da.from_array
 
 # ---------------------------------------------------------------------------
 # Module-level constants — eliminate magic numbers
@@ -867,7 +865,7 @@ class TestPlotting:
         n_samples = int(sample_rate * duration)
         t = np.linspace(0, duration, n_samples, endpoint=False)
         signal = np.sin(2 * np.pi * freq_hz * t)
-        dask_data = _da_from_array(signal.reshape(1, -1), chunks=(1, -1))
+        dask_data = da_from_array(signal.reshape(1, -1), chunks=(1, -1))
         cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate, label=label)
         return cf, cf.stft(n_fft=n_fft, hop_length=hop_length)
 
@@ -900,7 +898,7 @@ class TestPlotting:
         t = np.linspace(0, 0.1, n_samples, endpoint=False)
         signal = np.sin(2 * np.pi * 440.0 * t)
         multi_signal = np.array([signal, signal * 0.5])
-        multi_dask_data = _da_from_array(multi_signal, chunks=(1, -1))
+        multi_dask_data = da_from_array(multi_signal, chunks=(1, -1))
         multi_channel_frame = ChannelFrame(data=multi_dask_data, sampling_rate=sample_rate, label="multi_channel_test")
         multi_spectrogram_frame = multi_channel_frame.stft(n_fft=n_fft, hop_length=hop_length)
 
