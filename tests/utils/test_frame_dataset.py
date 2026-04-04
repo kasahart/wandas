@@ -690,7 +690,7 @@ class TestChannelFrameDataset:
         assert meta["frame_type"] == "ChannelFrame"
 
     def test_from_folder_creates_dataset_with_options(self, create_test_files: Path) -> None:
-        """from_folder class method creates dataset with specified options."""
+        """From_folder class method creates dataset with specified options."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset.from_folder(
             str(folder_path),
@@ -708,7 +708,7 @@ class TestChannelFrameDataset:
         assert all(isinstance(lf.frame, ChannelFrame) for lf in dataset._lazy_frames)
 
     def test_save_raises_not_implemented(self, create_test_files: Path, tmp_path: Path) -> None:
-        """save method raises NotImplementedError for both dataset types."""
+        """Save method raises NotImplementedError for both dataset types."""
         folder_path = create_test_files
         output_folder = tmp_path / "output"
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
@@ -796,7 +796,7 @@ class TestSpectrogramFrameDataset:
         mock_show: MagicMock,
         create_test_files: Path,
     ) -> None:
-        """plot() delegates to SpectrogramFrame.plot."""
+        """Plot() delegates to SpectrogramFrame.plot."""
         folder_path = create_test_files
         channel_ds = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         stft_ds = channel_ds.stft()
@@ -812,7 +812,7 @@ class TestSpectrogramFrameDataset:
         create_test_files: Path,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """plot() logs warning when transform fails."""
+        """Plot() logs warning when transform fails."""
         folder_path = create_test_files
         channel_ds = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
@@ -839,7 +839,7 @@ class TestSpectrogramFrameDataset:
         create_test_files: Path,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """plot() logs warning when frame has no plot method."""
+        """Plot() logs warning when frame has no plot method."""
         folder_path = create_test_files
         channel_ds = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         stft_ds = channel_ds.stft()
@@ -855,7 +855,7 @@ class TestSpectrogramFrameDataset:
         create_test_files: Path,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """plot() logs error when plotting raises RuntimeError."""
+        """Plot() logs error when plotting raises RuntimeError."""
         folder_path = create_test_files
         channel_ds = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         stft_ds = channel_ds.stft()
@@ -1051,7 +1051,7 @@ class TestLazyFrameEdgeCases:
     """Additional edge case tests for LazyFrame."""
 
     def test_ensure_loaded_already_loaded_without_load_attempt(self) -> None:
-        """ensure_loaded returns cached frame when is_loaded=True but load_attempted=False.
+        """Ensure_loaded returns cached frame when is_loaded=True but load_attempted=False.
 
         This exercises the early return path in LazyFrame.ensure_loaded when the frame is
         already loaded but no load has been attempted yet.
@@ -1081,7 +1081,7 @@ class TestFrameDatasetGetByLabel:
     """Tests for get_by_label method (deprecated)."""
 
     def test_get_by_label_deprecation_warning(self, create_test_files: Path) -> None:
-        """get_by_label emits DeprecationWarning and returns first match."""
+        """Get_by_label emits DeprecationWarning and returns first match."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
@@ -1095,7 +1095,7 @@ class TestFrameDatasetGetByLabel:
         assert result.label == "test1"
 
     def test_get_by_label_no_match(self, create_test_files: Path) -> None:
-        """get_by_label returns None when no match found."""
+        """Get_by_label returns None when no match found."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
@@ -1152,7 +1152,7 @@ class TestFrameDatasetInitializeFromSource:
     """Tests for _initialize_from_source property inheritance."""
 
     def test_initialize_from_source_property_inheritance(self, create_test_files: Path) -> None:
-        """properties are inherited from source_dataset when not explicitly provided.
+        """Properties are inherited from source_dataset when not explicitly provided.
 
         Properties are conditionally inherited.
         """
@@ -1177,7 +1177,7 @@ class TestFrameDatasetInitializeFromSource:
         assert transformed_ds.folder_path == base_ds.folder_path
 
     def test_initialize_from_source_explicit_override(self, create_test_files: Path) -> None:
-        """explicit parameters override inherited values."""
+        """Explicit parameters override inherited values."""
         folder_path = create_test_files
 
         # Create base dataset with specific settings
@@ -1212,7 +1212,7 @@ class TestFrameDatasetSampleEdgeCases:
     """Tests for sample() method edge cases."""
 
     def test_sample_ratio_greater_than_one(self, create_test_files: Path) -> None:
-        """sample with ratio > 1.0 caps at total.
+        """Sample with ratio > 1.0 caps at total.
 
         N is capped at total.
         """
@@ -1226,7 +1226,7 @@ class TestFrameDatasetSampleEdgeCases:
         assert len(sampled) == n_total  # Should be capped at total
 
     def test_sample_ratio_exactly_one(self, create_test_files: Path) -> None:
-        """sample with ratio = 1.0 returns all items."""
+        """Sample with ratio = 1.0 returns all items."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         n_total = len(dataset)
@@ -1236,7 +1236,7 @@ class TestFrameDatasetSampleEdgeCases:
         assert len(sampled) == n_total
 
     def test_sample_ratio_small_value(self, create_test_files: Path) -> None:
-        """sample with small ratio returns at least 1 item."""
+        """Sample with small ratio returns at least 1 item."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
@@ -1250,7 +1250,7 @@ class TestSpectrogramFrameDatasetPlotEdgeCases:
     """Tests for SpectrogramFrameDataset.plot() edge cases."""
 
     def test_plot_when_frame_is_none(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """plot returns early when _ensure_loaded returns None.
+        """Plot returns early when _ensure_loaded returns None.
 
         We check if frame is None.
         """
@@ -1275,7 +1275,7 @@ class TestSpectrogramFrameDatasetPlotEdgeCases:
     def test_plot_when_frame_has_no_plot_method(
         self, create_test_files: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """plot logs warning when frame has no plot method.
+        """Plot logs warning when frame has no plot method.
 
         We check for plot method.
         """
@@ -1297,7 +1297,7 @@ class TestGetMetadataEdgeCases:
     """Tests for get_metadata() edge cases."""
 
     def test_get_metadata_with_sampled_dataset(self, create_test_files: Path) -> None:
-        """get_metadata correctly identifies sampled dataset.
+        """Get_metadata correctly identifies sampled dataset.
 
         Is_sampled is checked.
         """
@@ -1314,7 +1314,7 @@ class TestChannelFrameDatasetTransformEdgeCases:
     """Tests for ChannelFrameDataset transform methods edge cases."""
 
     def test_resample_with_none_frame(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """resample handles None frames gracefully.
+        """Resample handles None frames gracefully.
 
         We check if frame is None.
         """
@@ -1333,7 +1333,7 @@ class TestChannelFrameDatasetTransformEdgeCases:
         assert result is None
 
     def test_trim_with_none_frame(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """trim handles None frames gracefully.
+        """Trim handles None frames gracefully.
 
         We check if frame is None.
         """
@@ -1352,7 +1352,7 @@ class TestChannelFrameDatasetTransformEdgeCases:
         assert result is None
 
     def test_normalize_with_none_frame(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """normalize handles None frames gracefully.
+        """Normalize handles None frames gracefully.
 
         We check if frame is None.
         """
@@ -1417,7 +1417,7 @@ class TestFrameDatasetLoadAllFilesErrorHandling:
     """Tests for _load_all_files() error handling during eager loading."""
 
     def test_load_all_files_error_handling(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """errors during eager loading are caught and logged.
+        """Errors during eager loading are caught and logged.
 
         Errors during eager loading are caught and logged as warnings while
         continuing to process other files.
@@ -1530,7 +1530,7 @@ class TestFrameDatasetEnsureLoadedExceptionHandling:
     """Tests for _ensure_loaded() exception handling."""
 
     def test_ensure_loaded_exception_handling(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """exceptions in _ensure_loaded are caught and logged.
+        """Exceptions in _ensure_loaded are caught and logged.
 
         We handle exceptions.
         """
@@ -1559,7 +1559,7 @@ class TestFrameDatasetSampleElseBranch:
     """Tests for sample() method else branch."""
 
     def test_sample_else_branch_n_and_ratio_both_none(self, create_test_files: Path) -> None:
-        """sample default behavior when both n and ratio are None.
+        """Sample default behavior when both n and ratio are None.
 
         We use the default formula.
         """
@@ -1573,7 +1573,7 @@ class TestFrameDatasetSampleElseBranch:
         assert len(sampled) == expected_n
 
     def test_sample_else_branch_explicit_values(self, create_test_files: Path) -> None:
-        """sample with both n and ratio provided uses the elif branch.
+        """Sample with both n and ratio provided uses the elif branch.
 
         When both n and ratio are provided, the first matching condition (n is not None) is used.
         """
@@ -1591,7 +1591,7 @@ class TestGetMetadataExceptionHandling:
     def test_get_metadata_exception_on_first_frame(
         self, create_test_files: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """exceptions accessing first frame are caught and logged.
+        """Exceptions accessing first frame are caught and logged.
 
         We catch exceptions.
         We inject a frame whose sampling_rate access raises to trigger the warning path.
@@ -1603,7 +1603,7 @@ class TestGetMetadataExceptionHandling:
         _ = dataset[0]
 
         class BadFrame:
-            """stub that deliberately raises on sampling_rate to trigger exception handling."""
+            """Stub that deliberately raises on sampling_rate to trigger exception handling."""
 
             @property
             def sampling_rate(self) -> float:
@@ -1631,7 +1631,7 @@ class TestSampledFrameDatasetEnsureLoadedExceptionHandling:
     def test_sampled_ensure_loaded_exception_handling(
         self, create_test_files: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """exceptions in sampled dataset loading are caught and logged.
+        """Exceptions in sampled dataset loading are caught and logged.
 
         We handle exceptions.
         We mock the class method to ensure the exception is raised during access.
@@ -1660,7 +1660,7 @@ class TestChannelFrameDatasetTransformNoneChecks:
     """Tests for ChannelFrameDataset transform methods handling None frames."""
 
     def test_resample_none_frame_in_transform(self, create_test_files: Path) -> None:
-        """resample handles None frame input correctly.
+        """Resample handles None frame input correctly.
 
         We check if frame is None.
         """
@@ -1710,7 +1710,7 @@ class TestChannelFrameDatasetTrimNoneCheck:
     """Tests for ChannelFrameDataset.trim() handling of None frames."""
 
     def test_trim_none_frame_in_transform(self, create_test_files: Path) -> None:
-        """trim handles None frame input correctly.
+        """Trim handles None frame input correctly.
 
         We check if frame is None.
         """
@@ -1733,7 +1733,7 @@ class TestChannelFrameDatasetNormalizeNoneCheck:
     """Tests for ChannelFrameDataset.normalize() handling of None frames."""
 
     def test_normalize_none_frame_in_transform(self, create_test_files: Path) -> None:
-        """normalize handles None frame input correctly.
+        """Normalize handles None frame input correctly.
 
         We check if frame is None.
         """
@@ -1756,7 +1756,7 @@ class TestChannelFrameDatasetStftNoneCheck:
     """Tests for ChannelFrameDataset.stft() handling of None frames."""
 
     def test_stft_none_frame_in_transform(self, create_test_files: Path) -> None:
-        """stft handles None frame input correctly.
+        """Stft handles None frame input correctly.
 
         We check if frame is None.
         """
@@ -1783,7 +1783,7 @@ class TestGetMetadataExceptionPath:
     """Tests for get_metadata() exception path."""
 
     def test_get_metadata_exception_path(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """exceptions accessing first frame trigger the warning log.
+        """Exceptions accessing first frame trigger the warning log.
 
         We catch exceptions and log warnings.
         We inject a frame whose sampling_rate access raises to deterministically trigger the path.
@@ -1795,7 +1795,7 @@ class TestGetMetadataExceptionPath:
         real_frame = dataset[0]
 
         class FaultyFrame:
-            """proxy that delegates most attributes to a real frame but
+            """Proxy that delegates most attributes to a real frame but
             raises RuntimeError when sampling_rate is accessed, to trigger the
             exception path in FrameDataset.get_metadata."""
 
@@ -1828,7 +1828,7 @@ class TestFrameDatasetLoadAllFilesEdgeCases:
         tmp_path: Path,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """errors during eager loading are caught and logged.
+        """Errors during eager loading are caught and logged.
 
         Errors during eager loading are caught and logged as warnings while
         continuing to process other files.
@@ -1873,7 +1873,7 @@ class TestSampleElseBranch:
     """Tests for sample() method when both n and ratio are provided."""
 
     def test_sample_n_takes_precedence_over_ratio(self, create_test_files: Path) -> None:
-        """when both n and ratio are provided, n is used and ratio is ignored.
+        """When both n and ratio are provided, n is used and ratio is ignored.
 
         This indirectly confirms that the elif `n is not None` branch is taken
         and the final else branch is not used in this scenario.
@@ -1893,7 +1893,7 @@ class TestChannelFrameDatasetNormalizeEdgeCases:
     """Tests for normalize() method edge cases and exception handling."""
 
     def test_normalize_with_various_kwargs(self, create_test_files: Path) -> None:
-        """normalize with different normalization kwargs.
+        """Normalize with different normalization kwargs.
 
         Normalize handles various kwargs.
         """
@@ -1908,7 +1908,7 @@ class TestChannelFrameDatasetNormalizeEdgeCases:
         assert isinstance(result, ChannelFrame)
 
     def test_normalize_with_l2_norm(self, create_test_files: Path) -> None:
-        """normalize with L2 norm."""
+        """Normalize with L2 norm."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
@@ -1919,7 +1919,7 @@ class TestChannelFrameDatasetNormalizeEdgeCases:
         assert isinstance(result, ChannelFrame)
 
     def test_normalize_with_axis_parameter(self, create_test_files: Path) -> None:
-        """normalize with axis parameter."""
+        """Normalize with axis parameter."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
@@ -1930,7 +1930,7 @@ class TestChannelFrameDatasetNormalizeEdgeCases:
         assert isinstance(result, ChannelFrame)
 
     def test_normalize_exception_in_transform(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """normalize handles exceptions in frame.normalize() gracefully.
+        """Normalize handles exceptions in frame.normalize() gracefully.
 
         Normalization errors are caught.
         """
@@ -1952,7 +1952,7 @@ class TestChannelFrameDatasetNormalizeEdgeCases:
         )
 
     def test_normalize_kwargs_logging(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """normalize logs kwargs when an error occurs.
+        """Normalize logs kwargs when an error occurs.
 
         Kwargs are included in the log message.
         """
@@ -1981,7 +1981,7 @@ class TestChannelFrameDatasetResampleEdgeCases:
     """Tests for resample() method edge cases and exception handling."""
 
     def test_resample_with_valid_target_sr(self, create_test_files: Path) -> None:
-        """resample with a valid target sampling rate.
+        """Resample with a valid target sampling rate.
 
         Resample handles normal operation.
         """
@@ -1997,7 +1997,7 @@ class TestChannelFrameDatasetResampleEdgeCases:
         assert result.sampling_rate == 22050
 
     def test_resample_with_different_target_sr(self, create_test_files: Path) -> None:
-        """resample with various target sampling rates."""
+        """Resample with various target sampling rates."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
@@ -2011,7 +2011,7 @@ class TestChannelFrameDatasetResampleEdgeCases:
             assert result.sampling_rate == target_sr
 
     def test_resample_exception_in_transform(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """resample handles exceptions in frame.resampling() gracefully.
+        """Resample handles exceptions in frame.resampling() gracefully.
 
         Resampling errors are caught.
         """
@@ -2033,7 +2033,7 @@ class TestChannelFrameDatasetResampleEdgeCases:
         )
 
     def test_resample_with_zero_target_sr(self, create_test_files: Path) -> None:
-        """resample with invalid target_sr=0.
+        """Resample with invalid target_sr=0.
 
         An invalid target_sr causes an error.
         """
@@ -2054,7 +2054,7 @@ class TestChannelFrameDatasetExceptionEdgeCases:
     """Tests for exception edge cases in ChannelFrameDataset methods."""
 
     def test_normalize_with_invalid_kwargs(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """normalize handles invalid kwargs gracefully.
+        """Normalize handles invalid kwargs gracefully.
 
         Invalid kwargs cause an error.
         """
@@ -2069,7 +2069,7 @@ class TestChannelFrameDatasetExceptionEdgeCases:
             assert result is None  # Should fail due to mocked exception and return None
 
     def test_resample_with_negative_target_sr(self, create_test_files: Path) -> None:
-        """resample with negative target sampling rate.
+        """Resample with negative target sampling rate.
 
         A negative sr causes an error.
         """
@@ -2130,7 +2130,7 @@ class TestSpectrogramFrameDatasetExceptionEdgeCases:
     """Tests for exception edge cases in SpectrogramFrameDataset methods."""
 
     def test_plot_with_frame_none(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """plot handles None frame gracefully.
+        """Plot handles None frame gracefully.
 
         A None frame is handled.
         Force STFT to fail so the frame at index 0 is deterministically None.
@@ -2153,7 +2153,7 @@ class TestSpectrogramFrameDatasetExceptionEdgeCases:
         assert any("Cannot plot" in record.message and record.levelname == "WARNING" for record in caplog.records)
 
     def test_plot_with_no_plot_method(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """plot handles frame without plot method gracefully.
+        """Plot handles frame without plot method gracefully.
 
         Frames without plot are handled.
         """
@@ -2180,7 +2180,7 @@ class TestLazyFrameExceptionEdgeCases:
     """Tests for exception edge cases in LazyFrame class."""
 
     def test_ensure_loaded_with_multiple_exceptions(self, tmp_path: Path) -> None:
-        """ensure_loaded handles multiple exception scenarios.
+        """Ensure_loaded handles multiple exception scenarios.
 
         Exceptions during loading are handled.
         """
@@ -2204,7 +2204,7 @@ class TestFrameDatasetConstructorExceptionEdgeCases:
     """Tests for exception edge cases in FrameDataset constructor."""
 
     def test_init_with_nonexistent_folder(self, tmp_path: Path) -> None:
-        """initializing with a non-existent folder raises FileNotFoundError.
+        """Initializing with a non-existent folder raises FileNotFoundError.
 
         Folder existence is checked.
         """
@@ -2213,7 +2213,7 @@ class TestFrameDatasetConstructorExceptionEdgeCases:
             ChannelFrameDataset(str(nonexistent_folder))
 
     def test_init_with_empty_folder(self, tmp_path: Path) -> None:
-        """initializing with an empty folder works correctly."""
+        """Initializing with an empty folder works correctly."""
         dataset = ChannelFrameDataset(str(tmp_path), lazy_loading=True)
         assert len(dataset) == 0
 
@@ -2225,7 +2225,7 @@ class TestApplyExceptionEdgeCases:
     """Tests for exception edge cases in the apply() method."""
 
     def test_apply_with_transform_that_raises(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """apply handles transforms that raise exceptions.
+        """Apply handles transforms that raise exceptions.
 
         Transform errors are caught.
         """
@@ -2244,7 +2244,7 @@ class TestApplyExceptionEdgeCases:
         )
 
     def test_apply_with_transform_that_returns_none(self, create_test_files: Path) -> None:
-        """apply handles transforms that return None.
+        """Apply handles transforms that return None.
 
         Transform returns None.
         """
@@ -2267,7 +2267,7 @@ class TestSampledFrameDatasetExceptionEdgeCases:
     """Tests for exception edge cases in _SampledFrameDataset class."""
 
     def test_sample_with_out_of_range_indices(self, create_test_files: Path) -> None:
-        """sampled dataset raises IndexError with out-of-range indices.
+        """Sampled dataset raises IndexError with out-of-range indices.
 
         Out-of-range indices are caught.
         """
@@ -2286,7 +2286,7 @@ class TestSampledFrameDatasetExceptionEdgeCases:
     def test_sampled_ensure_loaded_with_source_exception(
         self, create_test_files: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """sampled dataset handles exceptions when loading from source.
+        """Sampled dataset handles exceptions when loading from source.
 
         Exception handling occurs.
         """
@@ -2344,14 +2344,14 @@ class TestFrameDatasetCoverageGaps:
         assert dataset._lazy_frames[0].frame is None
 
     def test_sample_with_both_n_and_ratio_uses_n(self, create_test_files: Path) -> None:
-        """sample() with n provided alongside ratio uses n (else branch)."""
+        """Sample() with n provided alongside ratio uses n (else branch)."""
         dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
         # When n is provided (regardless of ratio), the else branch applies
         sampled = dataset.sample(n=1, ratio=0.99, seed=0)
         assert len(sampled) == 1
 
     def test_resample_inner_none_frame(self, create_test_files: Path) -> None:
-        """resample inner function returns None when frame is None (line 573)."""
+        """Resample inner function returns None when frame is None (line 573)."""
         dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
         resampled = dataset.resample(target_sr=8000)
         assert resampled._transform is not None
@@ -2359,7 +2359,7 @@ class TestFrameDatasetCoverageGaps:
         assert result is None
 
     def test_trim_inner_none_frame(self, create_test_files: Path) -> None:
-        """trim inner function returns None when frame is None (line 588)."""
+        """Trim inner function returns None when frame is None (line 588)."""
         dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
         trimmed = dataset.trim(start=0.0, end=0.5)
         assert trimmed._transform is not None
@@ -2367,7 +2367,7 @@ class TestFrameDatasetCoverageGaps:
         assert result is None
 
     def test_trim_inner_exception_returns_none(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """trim inner function catches exceptions and returns None (lines 591-593)."""
+        """Trim inner function catches exceptions and returns None (lines 591-593)."""
         import logging
 
         dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
@@ -2383,7 +2383,7 @@ class TestFrameDatasetCoverageGaps:
         assert result is None
 
     def test_normalize_inner_none_frame(self, create_test_files: Path) -> None:
-        """normalize inner function returns None when frame is None (line 603)."""
+        """Normalize inner function returns None when frame is None (line 603)."""
         dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
         normalized = dataset.normalize()
         assert normalized._transform is not None
@@ -2391,7 +2391,7 @@ class TestFrameDatasetCoverageGaps:
         assert result is None
 
     def test_stft_inner_none_frame(self, create_test_files: Path) -> None:
-        """stft inner function returns None when frame is None (line 625)."""
+        """Stft inner function returns None when frame is None (line 625)."""
         dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
         stft_ds = dataset.stft()
         assert stft_ds._transform is not None
