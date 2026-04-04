@@ -724,29 +724,29 @@ class TestBaseFrameErrorCases:
         self.dask_data: DaArray = da_from_array(self.data, chunks=(1, -1))
         self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
-    def test_label2index_key_error(self) -> None:
+    def test_label2index_nonexistent_label_raises_key_error(self) -> None:
         """Test label2index raises KeyError for non-existent label."""
         with pytest.raises(KeyError, match="Channel label 'nonexistent' not found"):
             self.channel_frame.label2index("nonexistent")
 
-    def test_create_new_instance_invalid_label_type(self) -> None:
-        """Test _create_new_instance raises TypeError for invalid label."""
+    def test_create_new_instance_int_label_raises_type_error(self) -> None:
+        """Test _create_new_instance raises TypeError for non-string label."""
         with pytest.raises(TypeError, match="Label must be a string"):
             self.channel_frame._create_new_instance(
                 data=self.dask_data,
                 label=123,
             )
 
-    def test_create_new_instance_invalid_metadata_type(self) -> None:
-        """Test _create_new_instance raises TypeError for invalid metadata."""
+    def test_create_new_instance_string_metadata_raises_type_error(self) -> None:
+        """Test _create_new_instance raises TypeError for non-dict metadata."""
         with pytest.raises(TypeError, match="Metadata must be a dictionary"):
             self.channel_frame._create_new_instance(
                 data=self.dask_data,
                 metadata="invalid",
             )
 
-    def test_create_new_instance_invalid_channel_metadata_type(self) -> None:
-        """Test _create_new_instance raises TypeError for invalid channel_metadata."""
+    def test_create_new_instance_string_channel_metadata_raises_type_error(self) -> None:
+        """Test _create_new_instance raises TypeError for non-list channel_metadata."""
         with pytest.raises(TypeError, match="Channel metadata must be a list"):
             self.channel_frame._create_new_instance(
                 data=self.dask_data,
