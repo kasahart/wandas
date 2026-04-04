@@ -3,6 +3,7 @@
 import dask.array as da
 import numpy as np
 import pytest
+from dask.array.core import Array as DaArray
 
 from wandas.frames.roughness import RoughnessFrame
 
@@ -302,11 +303,15 @@ class TestRoughnessFrame:
         )
 
         # Test addition with scalar
+        original_data = frame.data.copy()
         result = frame + 1.0
+        assert result is not frame  # Pillar 1: immutability
+        assert isinstance(result._data, DaArray)  # Pillar 1: Dask laziness
         assert isinstance(result, RoughnessFrame)
         assert result.sampling_rate == frame.sampling_rate
         assert result.overlap == frame.overlap
-        assert np.allclose(result.data, frame.data + 1.0)
+        assert np.allclose(result.data, original_data + 1.0)
+        assert np.allclose(frame.data, original_data)  # Pillar 1: original unchanged
 
     def test_binary_op_with_roughness_frame(self) -> None:
         """Test binary operations between RoughnessFrame instances."""
@@ -324,9 +329,14 @@ class TestRoughnessFrame:
         )
 
         # Test addition
+        original_data1 = frame1.data.copy()
         result = frame1 + frame2
+        assert result is not frame1  # Pillar 1: immutability
+        assert result is not frame2
+        assert isinstance(result._data, DaArray)  # Pillar 1: Dask laziness
         assert isinstance(result, RoughnessFrame)
-        assert np.allclose(result.data, frame1.data + frame2.data)
+        assert np.allclose(result.data, original_data1 + frame2.data)
+        assert np.allclose(frame1.data, original_data1)  # Pillar 1: original unchanged
 
     def test_binary_op_sampling_rate_mismatch(self) -> None:
         """Test binary operation raises error on sampling rate mismatch."""
@@ -376,9 +386,13 @@ class TestRoughnessFrame:
         )
         # Add numpy array
         array = np.ones((_N_BARK, _N_TIME))
+        original_data = frame.data.copy()
         result = frame + array
+        assert result is not frame  # Pillar 1: immutability
+        assert isinstance(result._data, DaArray)  # Pillar 1: Dask laziness
         assert isinstance(result, RoughnessFrame)
-        assert np.allclose(result.data, frame.data + array)
+        assert np.allclose(result.data, original_data + array)
+        assert np.allclose(frame.data, original_data)  # Pillar 1: original unchanged
 
     def test_get_additional_init_kwargs(self) -> None:
         """Test _get_additional_init_kwargs returns correct parameters."""
