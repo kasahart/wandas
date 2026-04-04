@@ -22,7 +22,8 @@ class TestRemoveDC:
         signal = wd.from_numpy(data=signal_data.reshape(1, -1), sampling_rate=_SR, ch_labels=["DC Signal"])
         clean_signal = signal.remove_dc()
 
-        assert np.allclose(clean_signal.data.mean(), 0.0, atol=1e-10)
+        # atol=1e-10: DC removal yields near-zero mean (float64 precision)
+        np.testing.assert_allclose(clean_signal.data.mean(), 0.0, atol=1e-10)
 
     def test_remove_dc_zero_mean_signal_unchanged(self) -> None:
         """Signal already at zero mean remains unchanged.
@@ -108,7 +109,8 @@ class TestRemoveDC:
         clean_signal = signal.remove_dc()
 
         for i in range(3):
-            assert np.allclose(clean_signal.data[i].mean(), 0.0, atol=1e-10)
+            # atol=1e-10: per-channel DC removal yields near-zero mean (float64 precision)
+            np.testing.assert_allclose(clean_signal.data[i].mean(), 0.0, atol=1e-10)
 
     # -- Layer 3: Numerical verification -----------------------------------
 
@@ -124,7 +126,8 @@ class TestRemoveDC:
         signal = wd.from_numpy(data=signal_data.reshape(1, -1), sampling_rate=_SR, ch_labels=["Signal with DC"])
         clean_signal = signal.remove_dc()
 
-        assert np.allclose(clean_signal.data.mean(), 0.0, atol=1e-10)
+        # atol=1e-10: DC removal yields near-zero mean (float64 precision)
+        np.testing.assert_allclose(clean_signal.data.mean(), 0.0, atol=1e-10)
         expected_rms = 1.0 / np.sqrt(2)
         np.testing.assert_allclose(clean_signal.rms[0], expected_rms, rtol=0.01)
 
