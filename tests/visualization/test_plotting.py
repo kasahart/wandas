@@ -903,27 +903,25 @@ class TestPlotting:
             assert call_args[1]["cmap"] == "viridis"
 
     def test_spectrogram_plot_strategy_basic_functionality(self) -> None:
-        """SpectrogramPlotStrategyの基本機能テスト（mockなし）"""
+        """SpectrogramPlotStrategy: real data, single- and multi-channel axes labels."""
         strategy = SpectrogramPlotStrategy()
 
-        # テスト用の実データを作成
-        sample_rate: float = 44100
-        duration: float = 0.1  # 短時間のテストデータ
+        # Deterministic 440 Hz sine — analytically predictable
+        sample_rate = 44100
+        duration = 0.1  # 100 ms
+        n_fft = 512  # → N/2+1 = 257 freq bins
+        hop_length = 256
         n_samples = int(sample_rate * duration)
-        t = np.linspace(0, duration, n_samples)
-        # シンプルなサイン波
-        signal = np.sin(2 * np.pi * 440.0 * t)  # 440Hz
+        t = np.linspace(0, duration, n_samples, endpoint=False)
+        signal = np.sin(2 * np.pi * 440.0 * t)
 
-        # ChannelFrameを作成
         from wandas.frames.channel import ChannelFrame
 
         dask_data = _da_from_array(signal.reshape(1, -1), chunks=(1, -1))
         channel_frame = ChannelFrame(data=dask_data, sampling_rate=sample_rate, label="test_channel")
+        spectrogram_frame = channel_frame.stft(n_fft=n_fft, hop_length=hop_length)
 
-        # STFTを実行してSpectrogramFrameを作成
-        spectrogram_frame = channel_frame.stft(n_fft=512, hop_length=256)
-
-        # 単一チャネルでのテスト
+        # --- Single channel with explicit ax ---
         fig, ax = plt.subplots()
         result = strategy.plot(spectrogram_frame, ax=ax)
 
@@ -934,11 +932,11 @@ class TestPlotting:
 
         plt.close(fig)
 
-        # 複数チャネルのテスト用データ
-        multi_signal = np.array([signal, signal * 0.5])  # 2チャネル
+        # --- Multi-channel: 2 channels ---
+        multi_signal = np.array([signal, signal * 0.5])
         multi_dask_data = _da_from_array(multi_signal, chunks=(1, -1))
         multi_channel_frame = ChannelFrame(data=multi_dask_data, sampling_rate=sample_rate, label="multi_channel_test")
-        multi_spectrogram_frame = multi_channel_frame.stft(n_fft=512, hop_length=256)
+        multi_spectrogram_frame = multi_channel_frame.stft(n_fft=n_fft, hop_length=hop_length)
 
         # 複数チャネルでのテスト
         result = strategy.plot(multi_spectrogram_frame)
