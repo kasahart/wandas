@@ -154,20 +154,8 @@ def stereo_sine_440_880hz_dask() -> tuple[DaArray, int]:
 
 
 # ---------------------------------------------------------------------------
-# Impulse fixture  (unit impulse for filter impulse response verification)
+# Impulse fixtures (high sample rate for A-weighting verification)
 # ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-def impulse_dask() -> tuple[DaArray, int]:
-    """Unit impulse, sr=16000, 1 s duration.
-
-    Used to verify filter impulse responses and A-weighting frequency response.
-    """
-    sr = 16000
-    data = np.zeros((1, sr))
-    data[0, 0] = 1.0
-    return da_from_array(data, chunks=(1, -1)), sr
 
 
 @pytest.fixture
