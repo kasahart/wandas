@@ -793,8 +793,8 @@ class TestTemporalHelperMethods:
         assert linear_operation.calculate_output_shape((2, 16)) == (2, 16)
         assert linear_operation.time_constant == 0.125
         assert linear_operation.get_display_name() == "ZFRMS"
-        assert np.array_equal(linear_operation._reference_squared(2), np.array([1.0, 1.0]))
-        assert np.array_equal(SoundLevel(16000, ref=[1.0])._reference_squared(1), np.array([1.0]))
+        np.testing.assert_array_equal(linear_operation._reference_squared(2), np.array([1.0, 1.0]))
+        np.testing.assert_array_equal(SoundLevel(16000, ref=[1.0])._reference_squared(1), np.array([1.0]))
         assert linear_operation._output_dtype(np.dtype(np.float32)) == np.dtype(np.float32)
         assert linear_operation._output_dtype(np.dtype(np.int16)) == np.dtype(np.float64)
 
@@ -802,7 +802,7 @@ class TestTemporalHelperMethods:
         assert db_operation.freq_weighting == "C"
         assert db_operation.time_constant == 1.0
         assert db_operation.get_display_name() == "LCS"
-        assert np.array_equal(db_operation._reference_squared(2), np.array([1.0, 4.0]))
+        np.testing.assert_array_equal(db_operation._reference_squared(2), np.array([1.0, 4.0]))
 
         with pytest.raises(ValueError, match="Reference count mismatch"):
             db_operation._reference_squared(3)
