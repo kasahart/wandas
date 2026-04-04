@@ -84,15 +84,17 @@ def test_get_channel_query_regex_and_callable():
     f = make_frame(arr)
     import re as _re
 
-    # regex
+    # regex query returns matching channel with Dask preserved
     res = f.get_channel(query=_re.compile(r"ch0"))
     assert len(res) == 1
     assert res.labels == ["ch0"]
+    assert isinstance(res._data, da.Array)
 
-    # callable
+    # callable query returns matching channel with Dask preserved
     res2 = f.get_channel(query=lambda ch: ch.label == "ch1")
     assert len(res2) == 1
     assert res2.labels == ["ch1"]
+    assert isinstance(res2._data, da.Array)
 
 
 def test_get_channel_query_dict_regex_value():
