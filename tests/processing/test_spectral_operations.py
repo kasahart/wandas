@@ -372,6 +372,7 @@ class TestSTFTOperation:
     # -- Layer 1: Unit tests -----------------------------------------------
 
     def test_stft_init_default_params(self) -> None:
+        """STFT default parameters: n_fft=2048, hop=512, win=2048, hann."""
         stft = STFT(_SR)
         assert stft.sampling_rate == _SR
         assert stft.n_fft == 2048
@@ -380,6 +381,7 @@ class TestSTFTOperation:
         assert stft.window == "hann"
 
     def test_stft_init_custom_params(self) -> None:
+        """STFT stores custom n_fft, hop_length, win_length, window."""
         stft = STFT(_SR, n_fft=1024, hop_length=256, win_length=512, window="hamming")
         assert stft.n_fft == 1024
         assert stft.hop_length == 256
@@ -387,6 +389,7 @@ class TestSTFTOperation:
         assert stft.window == "hamming"
 
     def test_istft_init_default_params(self) -> None:
+        """ISTFT default parameters match STFT; length defaults to None."""
         istft = ISTFT(_SR)
         assert istft.sampling_rate == _SR
         assert istft.n_fft == 2048
@@ -396,6 +399,7 @@ class TestSTFTOperation:
         assert istft.length is None
 
     def test_istft_init_custom_params(self) -> None:
+        """ISTFT stores custom params including explicit length."""
         istft = ISTFT(_SR, n_fft=1024, hop_length=256, win_length=512, window="hamming", length=16000)
         assert istft.n_fft == 1024
         assert istft.hop_length == 256
@@ -404,6 +408,7 @@ class TestSTFTOperation:
         assert istft.length == 16000
 
     def test_stft_registry_returns_correct_class(self) -> None:
+        """'stft' and 'istft' registry keys create correct instances."""
         assert get_operation("stft") == STFT
         assert get_operation("istft") == ISTFT
         stft_op = create_operation("stft", _SR, n_fft=512, hop_length=128)
@@ -414,6 +419,7 @@ class TestSTFTOperation:
         assert istft_op.n_fft == 512
 
     def test_stft_negative_n_fft_raises(self) -> None:
+        """Negative n_fft raises ValueError with WHAT/WHY/HOW message."""
         with pytest.raises(ValueError) as exc_info:
             STFT(sampling_rate=44100, n_fft=-2048)
         error_msg = str(exc_info.value)
@@ -422,10 +428,12 @@ class TestSTFTOperation:
         assert "Positive integer" in error_msg
 
     def test_stft_zero_n_fft_raises(self) -> None:
+        """Zero n_fft raises ValueError."""
         with pytest.raises(ValueError, match="Invalid FFT size for STFT"):
             STFT(sampling_rate=44100, n_fft=0)
 
     def test_stft_win_length_greater_than_n_fft_raises(self) -> None:
+        """win_length > n_fft raises ValueError with constraint message."""
         with pytest.raises(ValueError) as exc_info:
             STFT(sampling_rate=44100, n_fft=1024, win_length=2048)
         error_msg = str(exc_info.value)
@@ -434,6 +442,7 @@ class TestSTFTOperation:
         assert "win_length <= n_fft" in error_msg
 
     def test_stft_negative_hop_length_raises(self) -> None:
+        """Negative hop_length raises ValueError with WHAT/WHY/HOW message."""
         with pytest.raises(ValueError) as exc_info:
             STFT(sampling_rate=44100, n_fft=2048, hop_length=-512)
         error_msg = str(exc_info.value)
@@ -442,6 +451,7 @@ class TestSTFTOperation:
         assert "Positive integer" in error_msg
 
     def test_stft_hop_length_greater_than_win_length_raises(self) -> None:
+        """hop_length > win_length raises ValueError (would create gaps)."""
         with pytest.raises(ValueError) as exc_info:
             STFT(sampling_rate=44100, n_fft=2048, win_length=1024, hop_length=2048)
         error_msg = str(exc_info.value)
@@ -451,6 +461,7 @@ class TestSTFTOperation:
         assert "would create gaps" in error_msg
 
     def test_stft_negative_win_length_raises(self) -> None:
+        """Negative win_length raises ValueError."""
         with pytest.raises(ValueError) as exc_info:
             STFT(sampling_rate=44100, n_fft=2048, win_length=-1024)
         error_msg = str(exc_info.value)
@@ -458,10 +469,12 @@ class TestSTFTOperation:
         assert "Positive integer" in error_msg
 
     def test_stft_zero_win_length_raises(self) -> None:
+        """Zero win_length raises ValueError."""
         with pytest.raises(ValueError, match="Invalid window length for STFT"):
             STFT(sampling_rate=44100, n_fft=2048, win_length=0)
 
     def test_stft_win_length_too_small_raises(self) -> None:
+        """win_length < 4 raises ValueError (insufficient for windowing)."""
         with pytest.raises(ValueError) as exc_info:
             STFT(sampling_rate=44100, n_fft=2048, win_length=3)
         error_msg = str(exc_info.value)
