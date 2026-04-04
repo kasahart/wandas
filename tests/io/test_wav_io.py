@@ -4,12 +4,24 @@ import os
 from typing import BinaryIO, cast
 from unittest.mock import MagicMock, patch
 
+import dask.array
 import numpy as np
 import pytest
 from scipy.io import wavfile
 
 from wandas.frames.channel import ChannelFrame
 from wandas.io import write_wav
+
+
+def test_read_wav_lazy_loading(create_test_wav) -> None:
+    """Verify WAV load produces a Dask array (Pillar 1: lazy evaluation).
+
+    After loading a WAV file, cf._data must be a dask.array.core.Array
+    instance, confirming data is not eagerly loaded into memory.
+    """
+    wav_path = create_test_wav(sr=16000, n_channels=2, n_samples=1600)
+    cf = ChannelFrame.read_wav(str(wav_path))
+    assert isinstance(cf._data, dask.array.core.Array), f"Expected Dask array after WAV load, got {type(cf._data)}"
 
 
 def test_read_wav_stereo_dc_signal(tmp_path) -> None:
