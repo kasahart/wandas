@@ -955,32 +955,27 @@ class TestPlotting:
             assert ax.get_ylabel() == "Frequency [Hz]"
 
     def test_spectrogram_plot_strategy_dba_mode(self) -> None:
-        """SpectrogramPlotStrategyのdBAモードテスト（mockなし）"""
+        """SpectrogramPlotStrategy: dBA mode with real data returns same Axes."""
         strategy = SpectrogramPlotStrategy()
 
-        # 実際のデータでdBAモードをテスト
-        sample_rate: float = 44100
-        duration: float = 0.1
+        # Deterministic 1 kHz sine — analytically predictable
+        sample_rate = 44100
+        duration = 0.1  # 100 ms
+        n_fft = 512
+        hop_length = 256
         n_samples = int(sample_rate * duration)
-        t = np.linspace(0, duration, n_samples)
-        signal = np.sin(2 * np.pi * 1000.0 * t)  # 1kHz
+        t = np.linspace(0, duration, n_samples, endpoint=False)
+        signal = np.sin(2 * np.pi * 1000.0 * t)
 
         from wandas.frames.channel import ChannelFrame
 
         dask_data = _da_from_array(signal.reshape(1, -1), chunks=(1, -1))
         channel_frame = ChannelFrame(data=dask_data, sampling_rate=sample_rate, label="test_channel")
+        spectrogram_frame = channel_frame.stft(n_fft=n_fft, hop_length=hop_length)
 
-        spectrogram_frame = channel_frame.stft(n_fft=512, hop_length=256)
-
-        # dBAモードでプロット
         fig, ax = plt.subplots()
         result = strategy.plot(spectrogram_frame, ax=ax, Aw=True)
-
         assert result is ax
-        # カラーバーラベルにdBAが含まれていることを期待
-        # （実際のカラーバーの検証は視覚的確認が必要）
-
-        plt.close(fig)
 
     def test_describe_plot_strategy_edge_cases(self) -> None:
         """DescribePlotStrategyのエッジケースのテスト"""
