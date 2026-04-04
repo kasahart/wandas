@@ -62,8 +62,12 @@ class TestChannelFrameCollection:
         cf1 = ChannelFrame.from_numpy(arr1, sampling_rate=1000, ch_labels=["A"])
         cf2 = ChannelFrame.from_numpy(arr2, sampling_rate=1000, ch_labels=["B"])
         cf3 = cf1.add_channel(cf2)
+        assert cf3 is not cf1  # Pillar 1: immutability
+        assert cf1.n_channels == 1  # Pillar 1: original unchanged
         assert cf3.n_channels == 2
         assert [ch.label for ch in cf3._channel_metadata] == ["A", "B"]
+        # Pillar 2: sampling rate preserved
+        assert cf3.sampling_rate == cf1.sampling_rate
 
     def test_add_channel_frame_label_dup(self):
         arr1 = np.arange(8)
