@@ -1,82 +1,97 @@
-import dask.array as da
 import numpy as np
+import pytest
+from dask.array.core import Array as DaArray
 from scipy.signal import windows as sp_windows
 
 from wandas.processing.base import create_operation
+from wandas.processing.effects import Fade
+from wandas.utils.dask_helpers import da_from_array
+
+_SR: int = 1000
 
 
-def _to_dask(arr: np.ndarray):
-    return da.from_array(arr, chunks=(1, -1))
+class TestFade:
+    """Fade operation: Layer 1 + Layer 2 + Layer 3 (scipy Tukey reference)."""
 
+    # -- Layer 1: Unit tests -----------------------------------------------
 
-def test_fade_noop_when_zero():
-    sr = 1000
-    n = 100
-    sig = np.ones((1, n), dtype=float)
-    dsig = _to_dask(sig)
+    def test_fade_noop_when_fade_ms_zero(self) -> None:
+        """Zero fade_ms produces identity output."""
+        sig = np.ones((1, 100), dtype=float)
+        dsig = da_from_array(sig, chunks=(1, -1))
 
-    op = create_operation("fade", sr, fade_ms=0.0)
-    out = op.process(dsig).compute()
+        op = create_operation("fade", _SR, fade_ms=0.0)
+        out = op.process(dsig).compute()
 
-    assert out.shape == sig.shape
-    assert np.allclose(out, sig)
+        assert out.shape == sig.shape
+        np.testing.assert_array_equal(out, sig)
 
+    def test_fade_too_long_raises_error(self) -> None:
+        """Fade length >= half signal length raises ValueError."""
+        sig = np.ones((1, 100), dtype=float)
+        dsig = da_from_array(sig, chunks=(1, -1))
 
-def test_fade_tukey_matches_expected_single_channel():
-    sr = 1000
-    n = 200
-    # choose fade_ms such that fade_len is 20 samples
-    fade_len = 20
-    fade_ms = fade_len * 1000.0 / sr
+        # fade_len = 50, 2*50 >= 100 → error
+        op = create_operation("fade", _SR, fade_ms=50.0)
+        with pytest.raises(ValueError):
+            op.process(dsig).compute()
 
-    sig = np.ones((1, n), dtype=float)
-    dsig = _to_dask(sig)
+    # -- Layer 2: Domain (shape + immutability) ----------------------------
 
-    op = create_operation("fade", sr, fade_ms=fade_ms)
-    out = op.process(dsig).compute()
+    def test_fade_preserves_immutability_and_dask_type(self) -> None:
+        """Input unchanged after fade; result is DaArray."""
+        sig = np.ones((1, 200), dtype=float)
+        dsig = da_from_array(sig, chunks=(1, -1))
+        input_copy = sig.copy()
 
-    # expected tukey window using Fade's static method
-    from wandas.processing.effects import Fade
+        op = create_operation("fade", _SR, fade_ms=20.0)
+        result_da = op.process(dsig)
 
-    alpha = Fade.calculate_tukey_alpha(fade_len, n)
-    expected = sp_windows.tukey(n, alpha=alpha)
+        # Pillar 1: immutability
+        assert result_da is not dsig
+        np.testing.assert_array_equal(dsig.compute(), input_copy)
+        assert isinstance(result_da, DaArray)
 
-    assert out.shape == sig.shape
-    np.testing.assert_allclose(out[0], expected, rtol=1e-10, atol=1e-12)
+    def test_fade_preserves_multichannel_shape(self) -> None:
+        """Multi-channel signal preserves (channels, samples) shape."""
+        n = 512
+        fade_ms = 32 * 1000.0 / 8000
+        sig = np.vstack(
+            [
+                np.ones(n, dtype=float),
+                np.linspace(0.0, 1.0, n, dtype=float),
+            ]
+        )
+        dsig = da_from_array(sig, chunks=(1, -1))
 
+        op = create_operation("fade", 8000, fade_ms=fade_ms)
+        out = op.process(dsig).compute()
+        assert out.shape == sig.shape
 
-def test_fade_preserves_multi_channel_shape():
-    sr = 8000
-    n = 512
-    fade_len = 32
-    fade_ms = fade_len * 1000.0 / sr
+    # -- Layer 3: scipy Tukey reference ------------------------------------
 
-    sig = np.vstack(
-        [
-            np.ones(n, dtype=float),
-            np.linspace(0.0, 1.0, n, dtype=float),
-        ]
-    )
-    dsig = _to_dask(sig)
+    def test_fade_tukey_matches_scipy_reference(self) -> None:
+        """Single-channel fade matches scipy.signal.windows.tukey.
 
-    op = create_operation("fade", sr, fade_ms=fade_ms)
-    out = op.process(dsig).compute()
+        Tolerance: rtol=1e-10, atol=1e-12 — float64 window multiplication.
+        """
+        n = 200
+        fade_len = 20
+        fade_ms = fade_len * 1000.0 / _SR
 
-    assert out.shape == sig.shape
+        sig = np.ones((1, n), dtype=float)
+        dsig = da_from_array(sig, chunks=(1, -1))
 
+        op = create_operation("fade", _SR, fade_ms=fade_ms)
+        out = op.process(dsig).compute()
 
-def test_fade_too_long_raises():
-    sr = 1000
-    n = 100
-    # fade_len such that 2*fade_len >= n
-    fade_len = 50
-    fade_ms = fade_len * 1000.0 / sr
+        alpha = Fade.calculate_tukey_alpha(fade_len, n)
+        expected = sp_windows.tukey(n, alpha=alpha)
 
-    sig = np.ones((1, n), dtype=float)
-    dsig = _to_dask(sig)
-
-    op = create_operation("fade", sr, fade_ms=fade_ms)
-    import pytest
-
-    with pytest.raises(ValueError):
-        op.process(dsig).compute()
+        assert out.shape == sig.shape
+        np.testing.assert_allclose(
+            out[0],
+            expected,
+            rtol=1e-10,
+            atol=1e-12,  # float64 window multiplication precision
+        )
