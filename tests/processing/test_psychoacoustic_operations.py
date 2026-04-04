@@ -144,11 +144,10 @@ class TestLoudnessZwtv:
         loudness_op = LoudnessZwtv(_SR, field_type="free")
         result = loudness_op.process_array(signal_stereo).compute()
 
-        # Compare with MoSQITo direct calculation for each channel
+        # MoSQITo wrapper — exact match expected (same algorithm)
         n_ch1_direct, _, _, _ = loudness_zwtv(signal_stereo[0], _SR, field_type="free")
         n_ch2_direct, _, _, _ = loudness_zwtv(signal_stereo[1], _SR, field_type="free")
 
-        # Results should match MoSQITo exactly
         np.testing.assert_array_equal(result[0], n_ch1_direct)
         np.testing.assert_array_equal(result[1], n_ch2_direct)
 
@@ -158,7 +157,7 @@ class TestLoudnessZwtv:
         op = LoudnessZwtv(_SR, field_type="free")
         result = op.process_array(signal_mono).compute()
 
-        # Calculate using MoSQITo directly for comparison
+        # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _, _ = loudness_zwtv(signal_mono[0], _SR, field_type="free")
 
         # Results should match exactly
@@ -193,11 +192,10 @@ class TestLoudnessZwtv:
         loudness_diffuse = LoudnessZwtv(_SR, field_type="diffuse")
         result_diffuse = loudness_diffuse.process_array(signal_mono).compute()
 
-        # Compare with MoSQITo direct calculation
+        # MoSQITo wrapper — exact match expected (same algorithm)
         n_free_direct, _, _, _ = loudness_zwtv(signal_mono[0], _SR, field_type="free")
         n_diffuse_direct, _, _, _ = loudness_zwtv(signal_mono[0], _SR, field_type="diffuse")
 
-        # Results should match MoSQITo exactly
         np.testing.assert_array_equal(result_free[0], n_free_direct)
         np.testing.assert_array_equal(result_diffuse[0], n_diffuse_direct)
 
@@ -219,11 +217,10 @@ class TestLoudnessZwtv:
         loudness_low = op.process_array(signal_low).compute()
         loudness_high = op.process_array(signal_high).compute()
 
-        # Compare with MoSQITo direct calculation
+        # MoSQITo wrapper — exact match expected (same algorithm)
         n_low_direct, _, _, _ = loudness_zwtv(signal_low[0], _SR, field_type="free")
         n_high_direct, _, _, _ = loudness_zwtv(signal_high[0], _SR, field_type="free")
 
-        # Results should match MoSQITo exactly
         np.testing.assert_array_equal(loudness_low[0], n_low_direct)
         np.testing.assert_array_equal(loudness_high[0], n_high_direct)
 
@@ -236,10 +233,9 @@ class TestLoudnessZwtv:
 
         result = op.process_array(silence).compute()
 
-        # Compare with MoSQITo direct calculation
+        # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _, _ = loudness_zwtv(silence[0], _SR, field_type="free")
 
-        # Results should match MoSQITo exactly
         np.testing.assert_array_equal(result[0], n_direct)
 
     def test_white_noise_loudness(self) -> None:
@@ -252,10 +248,9 @@ class TestLoudnessZwtv:
 
         result = op.process_array(noise).compute()
 
-        # Compare with MoSQITo direct calculation
+        # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _, _ = loudness_zwtv(noise[0], _SR, field_type="free")
 
-        # Results should match MoSQITo exactly
         np.testing.assert_array_equal(result[0], n_direct)
 
     def test_process_with_dask(self) -> None:
@@ -285,7 +280,6 @@ class TestLoudnessZwtv:
         n_ch1_direct, _, _, _ = loudness_zwtv(signal_ch1, _SR, field_type="free")
         n_ch2_direct, _, _, _ = loudness_zwtv(signal_ch2, _SR, field_type="free")
 
-        # Results should match MoSQITo exactly for each channel
         np.testing.assert_array_equal(result[0], n_ch1_direct)
         np.testing.assert_array_equal(result[1], n_ch2_direct)
 
@@ -331,7 +325,7 @@ class TestLoudnessZwtv:
         op = LoudnessZwtv(_SR, field_type="free")
         result = op.process_array(signal_mono).compute()
 
-        # Compare with MoSQITo direct calculation
+        # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _, _ = loudness_zwtv(signal_mono[0], _SR, field_type="free")
 
         # Time resolution should match exactly
@@ -491,11 +485,10 @@ class TestLoudnessZwst:
         assert result.shape[0] == 2  # 2 channels
         assert result.shape[1] == 1  # Single loudness value per channel
 
-        # Compare with MoSQITo direct calculation for each channel
+        # MoSQITo wrapper — exact match expected (same algorithm)
         n_ch1_direct, _, _ = loudness_zwst(signal_stereo[0], _SR, field_type="free")
         n_ch2_direct, _, _ = loudness_zwst(signal_stereo[1], _SR, field_type="free")
 
-        # Results should match MoSQITo exactly
         np.testing.assert_allclose(result[0, 0], n_ch1_direct, rtol=1e-10)
         np.testing.assert_allclose(result[1, 0], n_ch2_direct, rtol=1e-10)
 
@@ -505,7 +498,7 @@ class TestLoudnessZwst:
         op = LoudnessZwst(_SR, field_type="free")
         result = op.process_array(signal_mono).compute()
 
-        # Calculate using MoSQITo directly for comparison
+        # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _ = loudness_zwst(signal_mono[0], _SR, field_type="free")
 
         # Results should match exactly
@@ -546,11 +539,10 @@ class TestLoudnessZwst:
         loudness_diffuse = LoudnessZwst(_SR, field_type="diffuse")
         result_diffuse = loudness_diffuse.process_array(signal_mono).compute()
 
-        # Compare with MoSQITo direct calculation
+        # MoSQITo wrapper — exact match expected (same algorithm)
         n_free_direct, _, _ = loudness_zwst(signal_mono[0], _SR, field_type="free")
         n_diffuse_direct, _, _ = loudness_zwst(signal_mono[0], _SR, field_type="diffuse")
 
-        # Results should match MoSQITo exactly
         np.testing.assert_allclose(result_free[0, 0], n_free_direct, rtol=1e-10)
         np.testing.assert_allclose(result_diffuse[0, 0], n_diffuse_direct, rtol=1e-10)
 
@@ -572,11 +564,10 @@ class TestLoudnessZwst:
         loudness_low = op.process_array(signal_low).compute()
         loudness_high = op.process_array(signal_high).compute()
 
-        # Compare with MoSQITo direct calculation
+        # MoSQITo wrapper — exact match expected (same algorithm)
         n_low_direct, _, _ = loudness_zwst(signal_low[0], _SR, field_type="free")
         n_high_direct, _, _ = loudness_zwst(signal_high[0], _SR, field_type="free")
 
-        # Results should match MoSQITo exactly
         np.testing.assert_allclose(loudness_low[0, 0], n_low_direct, rtol=1e-10)
         np.testing.assert_allclose(loudness_high[0, 0], n_high_direct, rtol=1e-10)
 
@@ -592,10 +583,9 @@ class TestLoudnessZwst:
 
         result = op.process_array(silence).compute()
 
-        # Compare with MoSQITo direct calculation
+        # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _ = loudness_zwst(silence[0], _SR, field_type="free")
 
-        # Results should match MoSQITo exactly
         np.testing.assert_allclose(result[0, 0], n_direct, rtol=1e-10)
 
     def test_white_noise_loudness(self) -> None:
@@ -608,10 +598,9 @@ class TestLoudnessZwst:
 
         result = op.process_array(noise).compute()
 
-        # Compare with MoSQITo direct calculation
+        # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _ = loudness_zwst(noise[0], _SR, field_type="free")
 
-        # Results should match MoSQITo exactly
         np.testing.assert_allclose(result[0, 0], n_direct, rtol=1e-10)
 
     def test_process_with_dask(self) -> None:
@@ -641,7 +630,6 @@ class TestLoudnessZwst:
         n_ch1_direct, _, _ = loudness_zwst(signal_ch1, _SR, field_type="free")
         n_ch2_direct, _, _ = loudness_zwst(signal_ch2, _SR, field_type="free")
 
-        # Results should match MoSQITo exactly for each channel
         np.testing.assert_allclose(result[0, 0], n_ch1_direct, rtol=1e-10)
         np.testing.assert_allclose(result[1, 0], n_ch2_direct, rtol=1e-10)
 
@@ -776,7 +764,7 @@ class TestLoudnessZwstIntegration:
         # Calculate using wandas
         loudness_wandas = frame.loudness_zwst(field_type="free")
 
-        # Calculate using MoSQITo directly
+        # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _ = loudness_zwst(signal[0], _SR, field_type="free")
 
         # Results should match
@@ -855,7 +843,6 @@ class TestRoughnessDw:
         # MoSQITo wrapper — exact match expected (same algorithm)
         r_direct, _, _, _ = roughness_dw_mosqito(signal_mono[0], _SR, overlap=overlap)
 
-        # Results should match MoSQITo exactly
         np.testing.assert_array_equal(
             our_result[0],
             r_direct,
@@ -869,11 +856,10 @@ class TestRoughnessDw:
         overlap = 0.5
         result = op.process_array(signal_stereo).compute()
 
-        # Compare with MoSQITo direct calculation for each channel
+        # MoSQITo wrapper — exact match expected (same algorithm)
         r_ch1_direct, _, _, _ = roughness_dw_mosqito(signal_stereo[0], _SR, overlap=overlap)
         r_ch2_direct, _, _, _ = roughness_dw_mosqito(signal_stereo[1], _SR, overlap=overlap)
 
-        # Results should match MoSQITo exactly
         np.testing.assert_array_equal(result[0], r_ch1_direct)
         np.testing.assert_array_equal(result[1], r_ch2_direct)
 
@@ -904,7 +890,7 @@ class TestRoughnessDw:
         # For our AM signal, roughness should be detectable (> 0)
         assert np.max(result) > 0
 
-        # Compare with MoSQITo direct calculation
+        # MoSQITo wrapper — exact match expected (same algorithm)
         r_direct, _, _, _ = roughness_dw_mosqito(signal_mono[0], _SR, overlap=overlap)
 
         # Verify it matches MoSQITo
@@ -919,10 +905,9 @@ class TestRoughnessDw:
 
         result = op.process_array(silence).compute()
 
-        # Compare with MoSQITo direct calculation
+        # MoSQITo wrapper — exact match expected (same algorithm)
         r_direct, _, _, _ = roughness_dw_mosqito(silence[0], _SR, overlap=overlap)
 
-        # Results should match MoSQITo exactly
         np.testing.assert_array_equal(result[0], r_direct)
 
         # Roughness should be very low for silence
@@ -950,7 +935,6 @@ class TestRoughnessDw:
         r_ch1_direct, _, _, _ = roughness_dw_mosqito(signal_stereo[0], _SR, overlap=overlap)
         r_ch2_direct, _, _, _ = roughness_dw_mosqito(signal_stereo[1], _SR, overlap=overlap)
 
-        # Results should match MoSQITo exactly for each channel
         np.testing.assert_array_equal(result[0], r_ch1_direct)
         np.testing.assert_array_equal(result[1], r_ch2_direct)
 
@@ -1120,7 +1104,7 @@ class TestRoughnessDwIntegration:
             roughness_frame._data.compute() if hasattr(roughness_frame._data, "compute") else roughness_frame._data
         )
 
-        # Calculate using MoSQITo directly
+        # MoSQITo wrapper — exact match expected (same algorithm)
         r_direct, _, _, _ = roughness_dw_mosqito(signal[0], _SR, overlap=0.5)
 
         # Results should match (roughness_wandas_data is 2D: (n_channels, n_time))
@@ -1202,7 +1186,6 @@ class TestRoughnessDwSpec:
         # MoSQITo wrapper — exact match expected (same algorithm)
         _, r_spec_direct, _, _ = roughness_dw_mosqito(signal_mono[0], _SR, overlap=overlap)
 
-        # Results should match MoSQITo exactly
         np.testing.assert_array_equal(
             our_result,
             r_spec_direct,
@@ -1216,11 +1199,10 @@ class TestRoughnessDwSpec:
         overlap = 0.5
         result = op.process_array(signal_stereo).compute()
 
-        # Compare with MoSQITo direct calculation for each channel
+        # MoSQITo wrapper — exact match expected (same algorithm)
         _, r_spec_ch1_direct, _, _ = roughness_dw_mosqito(signal_stereo[0], _SR, overlap=overlap)
         _, r_spec_ch2_direct, _, _ = roughness_dw_mosqito(signal_stereo[1], _SR, overlap=overlap)
 
-        # Results should match MoSQITo exactly
         np.testing.assert_array_equal(result[0], r_spec_ch1_direct)
         np.testing.assert_array_equal(result[1], r_spec_ch2_direct)
 
@@ -1301,10 +1283,9 @@ class TestRoughnessDwSpec:
 
         result = op.process_array(silence).compute()
 
-        # Compare with MoSQITo direct calculation
+        # MoSQITo wrapper — exact match expected (same algorithm)
         _, r_spec_direct, _, _ = roughness_dw_mosqito(silence[0], _SR, overlap=overlap)
 
-        # Results should match MoSQITo exactly
         np.testing.assert_array_equal(result, r_spec_direct)
 
         # Specific roughness should be very low for silence
@@ -1478,7 +1459,7 @@ class TestRoughnessDwSpecIntegration:
             else roughness_spec_frame._data
         )
 
-        # Calculate using MoSQITo directly
+        # MoSQITo wrapper — exact match expected (same algorithm)
         _, r_spec_direct, _, _ = roughness_dw_mosqito(signal[0], _SR, overlap=0.5)
 
         # Results should match
@@ -1550,7 +1531,6 @@ class TestSharpnessDin:
         # MoSQITo wrapper — exact match expected (same algorithm)
         s_direct, _ = sharpness_din_tv_mosqito(signal_mono[0], _SR)
 
-        # Results should match MoSQITo exactly
         np.testing.assert_array_equal(
             our_result[0],
             s_direct,
@@ -1563,11 +1543,10 @@ class TestSharpnessDin:
         op = SharpnessDin(_SR)
         result = op.process_array(signal_stereo).compute()
 
-        # Compare with MoSQITo direct calculation for each channel
+        # MoSQITo wrapper — exact match expected (same algorithm)
         s_ch1_direct, _ = sharpness_din_tv_mosqito(signal_stereo[0], _SR)
         s_ch2_direct, _ = sharpness_din_tv_mosqito(signal_stereo[1], _SR)
 
-        # Results should match MoSQITo exactly
         np.testing.assert_array_equal(result[0], s_ch1_direct)
         np.testing.assert_array_equal(result[1], s_ch2_direct)
 
@@ -1583,7 +1562,7 @@ class TestSharpnessDin:
         # For our high-frequency signal, sharpness should be detectable (> 0)
         assert np.max(result) > 0
 
-        # Compare with MoSQITo direct calculation
+        # MoSQITo wrapper — exact match expected (same algorithm)
         s_direct, _ = sharpness_din_tv_mosqito(signal_mono[0], _SR)
 
         # Verify it matches MoSQITo
@@ -1597,10 +1576,9 @@ class TestSharpnessDin:
 
         result = op.process_array(silence).compute()
 
-        # Compare with MoSQITo direct calculation
+        # MoSQITo wrapper — exact match expected (same algorithm)
         s_direct, _ = sharpness_din_tv_mosqito(silence[0], _SR)
 
-        # Results should match MoSQITo exactly
         np.testing.assert_array_equal(result[0], s_direct)
 
         # Sharpness should be very low for silence
@@ -1626,7 +1604,6 @@ class TestSharpnessDin:
         s_ch1_direct, _ = sharpness_din_tv_mosqito(signal_stereo[0], _SR)
         s_ch2_direct, _ = sharpness_din_tv_mosqito(signal_stereo[1], _SR)
 
-        # Results should match MoSQITo exactly for each channel
         np.testing.assert_array_equal(result[0], s_ch1_direct)
         np.testing.assert_array_equal(result[1], s_ch2_direct)
 
@@ -1808,7 +1785,7 @@ class TestSharpnessDinIntegration:
             sharpness_frame._data.compute() if hasattr(sharpness_frame._data, "compute") else sharpness_frame._data
         )
 
-        # Calculate using MoSQITo directly
+        # MoSQITo wrapper — exact match expected (same algorithm)
         s_direct, _ = sharpness_din_tv_mosqito(signal[0], _SR)
 
         # Results should match (sharpness_wandas_data is 2D: (n_channels, n_time))
@@ -1894,11 +1871,10 @@ class TestSharpnessDinSt:
         op = SharpnessDinSt(_SR)
         result = op.process_array(signal_stereo).compute()
 
-        # Compare with MoSQITo direct calculation for each channel
+        # MoSQITo wrapper — exact match expected (same algorithm)
         s_ch1_direct = sharpness_din_st_mosqito(signal_stereo[0], _SR)
         s_ch2_direct = sharpness_din_st_mosqito(signal_stereo[1], _SR)
 
-        # Results should match MoSQITo exactly
         np.testing.assert_allclose(result[0, 0], s_ch1_direct, rtol=1e-10)
         np.testing.assert_allclose(result[1, 0], s_ch2_direct, rtol=1e-10)
 
@@ -1914,7 +1890,7 @@ class TestSharpnessDinSt:
         # For our high-frequency signal, sharpness should be detectable (> 0)
         assert np.max(result) > 0
 
-        # Compare with MoSQITo direct calculation
+        # MoSQITo wrapper — exact match expected (same algorithm)
         s_direct = sharpness_din_st_mosqito(signal_mono[0], _SR)
 
         # Verify it matches MoSQITo
@@ -1928,10 +1904,9 @@ class TestSharpnessDinSt:
 
         result = op.process_array(silence).compute()
 
-        # Compare with MoSQITo direct calculation
+        # MoSQITo wrapper — exact match expected (same algorithm)
         s_direct = sharpness_din_st_mosqito(silence[0], _SR)
 
-        # Results should match MoSQITo exactly
         np.testing.assert_allclose(result[0, 0], s_direct, rtol=1e-10)
 
         # Sharpness should be very low for silence (or NaN for zero loudness)
@@ -1961,7 +1936,6 @@ class TestSharpnessDinSt:
         s_ch1_direct = sharpness_din_st_mosqito(signal_stereo[0], _SR)
         s_ch2_direct = sharpness_din_st_mosqito(signal_stereo[1], _SR)
 
-        # Results should match MoSQITo exactly for each channel
         np.testing.assert_allclose(result[0, 0], s_ch1_direct, rtol=1e-10)
         np.testing.assert_allclose(result[1, 0], s_ch2_direct, rtol=1e-10)
 
@@ -2096,7 +2070,7 @@ class TestSharpnessDinStIntegration:
         # Calculate using wandas
         sharpness_wandas = frame.sharpness_din_st(field_type="free")
 
-        # Calculate using MoSQITo directly
+        # MoSQITo wrapper — exact match expected (same algorithm)
         s_direct = sharpness_din_st_mosqito(signal[0], _SR)
 
         # Results should match
