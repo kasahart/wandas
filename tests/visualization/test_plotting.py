@@ -893,7 +893,7 @@ class TestPlotting:
 
         # コヒーレンス操作履歴を持つフレームでのテスト
         self.mock_spectral_frame.operation_history = [{"operation": "coherence"}]
-        self.mock_spectral_frame.magnitude = np.random.rand(2, 513)
+        self.mock_spectral_frame.magnitude = np.abs(self.mock_spectral_frame.dB)
 
         result = strategy.plot(self.mock_spectral_frame, overlay=True)
         assert isinstance(result, Axes)
@@ -1117,7 +1117,7 @@ class TestPlotting:
         empty_label_frame = mock.MagicMock()
         empty_label_frame.n_channels = 1
         empty_label_frame.time = np.linspace(0, 1, 1000)
-        empty_label_frame.data = np.random.rand(1000)
+        empty_label_frame.data = np.sin(np.linspace(0, 2 * np.pi, 1000))
         empty_label_frame.labels = [""]
         empty_label_frame.label = ""
         empty_label_frame.channels = [mock.MagicMock(label="")]
@@ -1161,7 +1161,7 @@ class TestPlotting:
 
         self.mock_channel_frame.channels = [channel_with_unit]
         self.mock_channel_frame.n_channels = 1
-        self.mock_channel_frame.data = np.random.rand(1, 1000)
+        self.mock_channel_frame.data = np.sin(np.linspace(0, 2 * np.pi, 1000)).reshape(1, -1)
 
         strategy = WaveformPlotStrategy()
         result = strategy.plot(self.mock_channel_frame, overlay=False)
@@ -1209,7 +1209,7 @@ class TestPlotting:
             {"operation": "fft"},
             {"operation": "coherence"},  # 最後の操作がcoherence
         ]
-        self.mock_spectral_frame.magnitude = np.random.rand(2, 513)
+        self.mock_spectral_frame.magnitude = np.abs(self.mock_spectral_frame.dB)
 
         result = strategy.plot(self.mock_spectral_frame, overlay=True)
         assert isinstance(result, Axes)
@@ -1663,7 +1663,9 @@ def test_spectrogram_plot_single_channel_axs_conversion() -> None:
     sr = 16000
     n_fft = 512
     hop = n_fft // 4
-    data = np.random.random((1, sr))  # single channel
+    # Deterministic chirp signal — no randomness
+    t = np.linspace(0, 1, sr, endpoint=False)
+    data = np.sin(2 * np.pi * 440 * t).reshape(1, -1)  # single channel
     cf = wd.ChannelFrame.from_numpy(data, sampling_rate=sr)
     spec = cf.stft(n_fft=n_fft, hop_length=hop)
 
