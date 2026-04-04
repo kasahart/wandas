@@ -1130,10 +1130,10 @@ class TestPlotting:
         result = _return_axes_iterator(mock_axes)
         assert isinstance(result, Iterator)
 
-        # Retrieve elements from iterator
+        # Retrieve elements from iterator — identity preserved
         axes_list = list(result)
         assert len(axes_list) == 3
-        assert all(isinstance(ax, mock.MagicMock) for ax in axes_list)
+        assert axes_list == mock_axes  # exact same objects in order
 
     def test_matrix_plot_strategy_detailed_behavior(self) -> None:
         """Test detailed MatrixPlotStrategy behavior."""
