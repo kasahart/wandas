@@ -669,12 +669,9 @@ class TestPlotting:
             legend_texts = [t.get_text() for t in legend.get_texts()]
             assert "Per-Ch Label" in legend_texts
 
-    def test_matrix_plot_strategy(self) -> None:
-        """Test MatrixPlotStrategy."""
-
+    def test_matrix_plot_strategy_channel_plot(self) -> None:
+        """Verify MatrixPlotStrategy.channel_plot sets xlabel, ylabel, title, and grid."""
         strategy = MatrixPlotStrategy()
-
-        # Test channel_plot
         fig, ax = plt.subplots()
         strategy.channel_plot(
             self.mock_coherence_spectral_frame.freqs,
@@ -684,56 +681,38 @@ class TestPlotting:
             ylabel="Test Label",
         )
 
-        # Verify labels and title are set correctly
         assert ax.get_xlabel() == "Frequency [Hz]"
         assert ax.get_ylabel() == "Test Label"
         assert ax.get_title() == "Test Channel"
-        # Verify grid is displayed
         assert len(ax.xaxis.get_gridlines()) > 0
 
-        # Test plot with normal frequency data
+    def test_matrix_plot_strategy_coherence(self) -> None:
+        """Verify MatrixPlotStrategy.plot returns per-channel axes with coherence labels."""
+        strategy = MatrixPlotStrategy()
         result = strategy.plot(self.mock_coherence_spectral_frame)
 
-        # Verify result is an Iterator of Axes
         assert isinstance(result, Iterator)
         axes_list = list(result)
         assert len(axes_list) == self.mock_coherence_spectral_frame.n_channels
 
-        # Verify axis labels and titles
         for i, ax in enumerate(axes_list):
             assert ax.get_xlabel() == "Frequency [Hz]"
-            assert "coherence" in ax.get_ylabel()
+            assert "coherence" in ax.get_ylabel().lower()
             assert self.mock_coherence_spectral_frame.labels[i] in ax.get_title()
 
-        # Test with A-weighted data (Aw=True)
+    def test_matrix_plot_strategy_aw(self) -> None:
+        """Verify MatrixPlotStrategy.plot with Aw=True produces A-weighted labels."""
+        strategy = MatrixPlotStrategy()
         result = strategy.plot(self.mock_spectral_frame, Aw=True)
 
-        # Verify result is an Iterator of Axes
         assert isinstance(result, Iterator)
         axes_list = list(result)
         assert len(axes_list) == 4
 
-        # Verify axis labels and titles (A-weighted)
         for i, ax in enumerate(axes_list[:2]):
             assert ax.get_xlabel() == "Frequency [Hz]"
             assert "dBA" in ax.get_ylabel() or "A-weighted" in ax.get_ylabel()
             assert self.mock_spectral_frame.labels[i] in ax.get_title()
-
-        # Test with coherence data
-
-        result = strategy.plot(self.mock_coherence_spectral_frame)
-
-        # Verify result is an Iterator of Axes
-        assert isinstance(result, Iterator)
-        axes_list = list(result)
-        assert len(axes_list) == self.mock_coherence_spectral_frame.n_channels
-
-        # Verify axis labels and titles (coherence)
-        for i, ax in enumerate(axes_list):
-            assert ax.get_xlabel() == "Frequency [Hz]"
-            # Verify y-axis label contains "coherence"
-            assert "coherence" in ax.get_ylabel().lower()
-            assert self.mock_coherence_spectral_frame.labels[i] in ax.get_title()
 
     def test_single_channel_matrix_plot_strategy(self) -> None:
         """Test single-channel MatrixPlotStrategy."""
