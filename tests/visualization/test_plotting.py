@@ -352,7 +352,6 @@ class TestPlotting:
         assert axes_list[0].get_title() == "ch1"
         # suptitleを確認
         assert axes_list[0].figure.get_suptitle() == "Custom Title"
-        plt.close("all")  # すべての図を閉じる
 
     def test_frequency_plot_strategy(self) -> None:
         """FrequencyPlotStrategyのテスト"""
@@ -419,8 +418,6 @@ class TestPlotting:
         assert axes_list[0].get_title() == "ch1"
         assert axes_list[0].figure.get_suptitle() == "Custom Title"
 
-        plt.close("all")  # すべての図を閉じる
-
     def test_spectrogram_plot_strategy(self) -> None:
         """SpectrogramPlotStrategyのテスト"""
         strategy = SpectrogramPlotStrategy()
@@ -458,7 +455,6 @@ class TestPlotting:
             assert ax.get_ylabel() == "Frequency [Hz]"
 
         # すべての図をクローズ
-        plt.close("all")
 
     def test_describe_plot_strategy(self) -> None:
         """DescribePlotStrategyのテスト"""
@@ -552,8 +548,6 @@ class TestPlotting:
             # mock_ax1.set_title.assert_called()
             # mock_ax2.set_title.assert_called()
 
-            plt.close("all")  # すべての図を閉じる
-
     def test_noct_plot_strategy(self) -> None:
         """NOctPlotStrategyのテスト"""
         from wandas.visualization.plotting import NOctPlotStrategy
@@ -645,8 +639,6 @@ class TestPlotting:
         assert axes_list[0].get_title() == "ch1"
         assert axes_list[0].figure.get_suptitle() == "Custom NOct Title"
 
-        plt.close("all")  # すべての図を閉じる
-
     def test_noct_plot_custom_label(self) -> None:
         """ユーザー指定のlabelがNOctPlotStrategyで適用されることを確認するテスト"""
         from wandas.visualization.plotting import NOctPlotStrategy
@@ -661,8 +653,6 @@ class TestPlotting:
         legend_texts = [t.get_text() for t in legend.get_texts()]
         assert "My Custom Label" in legend_texts
 
-        plt.close("all")
-
         # overlay=False でカスタムラベルが各チャネルの凡例に反映されることを確認
         result = strategy.plot(self.mock_noct_frame, overlay=False, label="Custom Ch Label")
         assert isinstance(result, Iterator)
@@ -672,8 +662,6 @@ class TestPlotting:
             assert legend is not None
             legend_texts = [t.get_text() for t in legend.get_texts()]
             assert "Custom Ch Label" in legend_texts
-
-        plt.close("all")
 
     def test_waveform_plot_custom_label(self) -> None:
         """ユーザー指定のlabelがWaveformPlotStrategyで適用されることを確認するテスト"""
@@ -687,8 +675,6 @@ class TestPlotting:
         legend_texts = [t.get_text() for t in legend.get_texts()]
         assert "My Waveform Label" in legend_texts
 
-        plt.close("all")
-
         # overlay=False でカスタムラベルが各チャネルの凡例に反映されることを確認
         result = strategy.plot(self.mock_channel_frame, overlay=False, label="Custom Waveform Label")
         assert isinstance(result, Iterator)
@@ -698,8 +684,6 @@ class TestPlotting:
             assert legend is not None
             legend_texts = [t.get_text() for t in legend.get_texts()]
             assert "Custom Waveform Label" in legend_texts
-
-        plt.close("all")
 
     def test_frequency_plot_custom_label(self) -> None:
         """ユーザー指定のlabelがFrequencyPlotStrategyで適用されることを確認するテスト"""
@@ -713,8 +697,6 @@ class TestPlotting:
         legend_texts = [t.get_text() for t in legend.get_texts()]
         assert "My Frequency Label" in legend_texts
 
-        plt.close("all")
-
         # overlay=False でカスタムラベルが各チャネルの凡例に反映されることを確認
         result = strategy.plot(self.mock_spectral_frame, overlay=False, label="Custom Frequency Label")
         assert isinstance(result, Iterator)
@@ -724,8 +706,6 @@ class TestPlotting:
             assert legend is not None
             legend_texts = [t.get_text() for t in legend.get_texts()]
             assert "Custom Frequency Label" in legend_texts
-
-        plt.close("all")
 
     def test_matrix_plot_strategy(self) -> None:
         """MatrixPlotStrategyのテスト"""
@@ -764,8 +744,6 @@ class TestPlotting:
             assert "coherence" in ax.get_ylabel()
             assert self.mock_coherence_spectral_frame.labels[i] in ax.get_title()
 
-        plt.close("all")  # すべての図をクローズ
-
         # A特性重み付けデータでのテスト (Aw=True)
         result = strategy.plot(self.mock_spectral_frame, Aw=True)
 
@@ -779,8 +757,6 @@ class TestPlotting:
             assert ax.get_xlabel() == "Frequency [Hz]"
             assert "dBA" in ax.get_ylabel() or "A-weighted" in ax.get_ylabel()
             assert self.mock_spectral_frame.labels[i] in ax.get_title()
-
-        plt.close("all")  # すべての図をクローズ
 
         # コヒーレンスデータでのテスト
 
@@ -797,8 +773,6 @@ class TestPlotting:
             # y軸ラベルに「coherence」が含まれることを確認
             assert "coherence" in ax.get_ylabel().lower()
             assert self.mock_coherence_spectral_frame.labels[i] in ax.get_title()
-
-        plt.close("all")  # すべての図をクローズ
 
     def test_single_channel_matrix_plot_strategy(self) -> None:
         """単一チャネル用のMatrixPlotStrategyのテスト"""
@@ -854,8 +828,6 @@ class TestPlotting:
         assert "Custom Y Units" in axes_list[0].get_ylabel()
         assert axes_list[0].figure.get_suptitle() == "Custom Matrix Title"
 
-        plt.close("all")  # すべての図をクローズ
-
     def test_waveform_plot_strategy_edge_cases(self) -> None:
         """WaveformPlotStrategyのエッジケースのテスト"""
         strategy = WaveformPlotStrategy()
@@ -883,8 +855,6 @@ class TestPlotting:
         )
         assert result is external_ax
         assert result.get_title() == "External Ax Test"
-
-        plt.close("all")
 
     def test_frequency_plot_strategy_edge_cases(self) -> None:
         """FrequencyPlotStrategyのエッジケースのテスト"""
@@ -914,8 +884,6 @@ class TestPlotting:
         assert result.get_xlabel() == "Custom Frequency"
         assert result.get_ylabel() == "Custom Level"
 
-        plt.close("all")
-
     def test_spectrogram_plot_strategy_edge_cases(self) -> None:
         """SpectrogramPlotStrategyのエッジケースのテスト"""
         strategy = SpectrogramPlotStrategy()
@@ -941,8 +909,6 @@ class TestPlotting:
             call_args = mock_specshow.call_args
             assert "cmap" in call_args[1]
             assert call_args[1]["cmap"] == "viridis"
-
-        plt.close("all")
 
     def test_spectrogram_plot_strategy_basic_functionality(self) -> None:
         """SpectrogramPlotStrategyの基本機能テスト（mockなし）"""
@@ -997,8 +963,6 @@ class TestPlotting:
         for ax in main_axes:
             assert ax.get_xlabel() == "Time [s]"
             assert ax.get_ylabel() == "Frequency [Hz]"
-
-        plt.close("all")
 
     def test_spectrogram_plot_strategy_dba_mode(self) -> None:
         """SpectrogramPlotStrategyのdBAモードテスト（mockなし）"""
@@ -1091,8 +1055,6 @@ class TestPlotting:
         )
         assert result is external_ax
 
-        plt.close("all")
-
     def test_plot_strategy_kwargs_filtering(self) -> None:
         """プロット戦略でのkwargs フィルタリングのテスト"""
         strategy = WaveformPlotStrategy()
@@ -1107,8 +1069,6 @@ class TestPlotting:
             xlim=(0, 1),
         )
         assert isinstance(result, Axes)
-
-        plt.close("all")
 
     def test_plot_with_empty_labels(self) -> None:
         """ラベルが空の場合のテスト"""
@@ -1126,8 +1086,6 @@ class TestPlotting:
         assert isinstance(result, Axes)
         # デフォルトタイトルが使用されることを確認
         assert "Channel Data" in result.get_title()
-
-        plt.close("all")
 
     def test_spectrogram_2d_data_handling(self) -> None:
         """スペクトログラムの2Dデータ処理のテスト"""
@@ -1149,8 +1107,6 @@ class TestPlotting:
             assert "sr" in call_args[1]
             assert call_args[1]["sr"] == self.mock_single_spectrogram_frame.sampling_rate
 
-        plt.close("all")
-
     def test_channel_metadata_access(self) -> None:
         """チャネルメタデータアクセスのテスト"""
         # unitプロパティを持つチャネルメタデータ
@@ -1169,8 +1125,6 @@ class TestPlotting:
         axes_list = list(result)
         # unitがy軸ラベルに含まれることを確認
         assert "V" in axes_list[0].get_ylabel()
-
-        plt.close("all")
 
     def test_noct_strategy_with_different_n_values(self) -> None:
         """異なるN値でのNOctPlotStrategyのテスト"""
@@ -1197,8 +1151,6 @@ class TestPlotting:
         # labelを復元
         self.mock_noct_frame.label = original_label
 
-        plt.close("all")
-
     def test_multiple_operations_history(self) -> None:
         """複数の操作履歴を持つフレームのテスト"""
         strategy = FrequencyPlotStrategy()
@@ -1213,8 +1165,6 @@ class TestPlotting:
         result = strategy.plot(self.mock_spectral_frame, overlay=True)
         assert isinstance(result, Axes)
         assert "coherence" in result.get_ylabel()
-
-        plt.close("all")
 
     def test_error_handling_in_describe_plot(self) -> None:
         """DescribePlotでのエラーハンドリングのテスト"""
@@ -1412,8 +1362,6 @@ class TestPlotting:
             assert call_kwargs["xlim"] == (10, 10000)
             assert call_kwargs["ylim"] == (0, 1)
             assert call_kwargs["xscale"] == "log"
-
-        plt.close("all")
 
     def test_plotting_helper_functions_and_noop_methods(self) -> None:
         """Helper utilities and explicit no-op methods should be covered directly."""
@@ -1672,4 +1620,3 @@ def test_spectrogram_plot_single_channel_axs_conversion() -> None:
     # ax=None triggers the new-figure path; single channel → plt.subplots returns plain Axes → line 547
     ax = strategy.plot(spec)
     assert ax is not None
-    plt.close("all")
