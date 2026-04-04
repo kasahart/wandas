@@ -181,7 +181,7 @@ def test_save_wdf_no_extension_adds_wdf_suffix(tmp_path: Path) -> None:
     cf.save(path)
 
     # Should have added .wdf extension
-    assert (tmp_path / "test_file.wdf").exists()
+    assert (tmp_path / "test_file.wdf").exists(), ".wdf extension must be auto-appended"
 
 
 def test_save_load_unsupported_format_raises_not_implemented() -> None:
