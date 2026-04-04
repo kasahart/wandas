@@ -112,12 +112,14 @@ def test_calculate_rms_single_value() -> None:
     np.testing.assert_almost_equal(result, expected)
 
 
-def test_calculate_rms_random() -> None:
-    np.random.seed(0)
-    wave = np.random.rand(100).astype(float)
-    expected = np.sqrt(np.mean(np.square(wave)))
+def test_calculate_rms_known_sine() -> None:
+    """RMS of a full-period sine wave is 1/sqrt(2) analytically."""
+    n_samples = 1000
+    t = np.linspace(0, 2 * np.pi, n_samples, endpoint=False)
+    wave = np.sin(t)
+    expected = 1.0 / np.sqrt(2)  # Analytical RMS of sin(t) over full period
     result = calculate_rms(wave)
-    np.testing.assert_almost_equal(result, expected)
+    np.testing.assert_allclose(result, expected, rtol=1e-3)  # Discrete approximation tolerance
 
 
 def test_calculate_desired_noise_rms_basic() -> None:
