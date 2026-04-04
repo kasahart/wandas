@@ -370,14 +370,19 @@ class TestPlotting:
         # Test plot in dB units
         result = strategy.plot(self.mock_spectral_frame, overlay=True)
         assert isinstance(result, Axes)
+        assert result.get_xlabel() == "Frequency [Hz]"
+        assert result.get_ylabel() == "Spectrum level [dB]"
 
         # Test plot in dBA units
         result = strategy.plot(self.mock_spectral_frame, overlay=True, Aw=True)
         assert isinstance(result, Axes)
+        assert result.get_ylabel() == "Spectrum level [dBA]"
 
         # Test plot with multiple channels
         result = strategy.plot(self.mock_spectral_frame, overlay=False)
         assert isinstance(result, Iterator)
+        axes_list = list(result)
+        assert len(axes_list) == self.mock_spectral_frame.n_channels
 
     def test_single_channel_frequency_plot_strategy(self) -> None:
         """Test single-channel FrequencyPlotStrategy."""
