@@ -392,13 +392,12 @@ class TestChannelFrameDataset:
         # In current implementation, error logs are emitted at ERROR level
         assert any("Failed to load or initialize file" in record.message for record in caplog.records)
 
-    def test_apply_lazy_defers_transform(self, create_test_files: Path) -> None:
-        """Lazy apply defers transform until item access."""
+    def test_apply_lazy_creates_untriggered_dataset(self, create_test_files: Path) -> None:
+        """Lazy apply creates new dataset without triggering loading."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
         def dummy_transform(frame: ChannelFrame) -> ChannelFrame:
-            # Simple transform: reverse data
             return frame._create_new_instance(data=frame._data[:, ::-1])
 
         transformed_dataset = dataset.apply(dummy_transform)
@@ -408,16 +407,24 @@ class TestChannelFrameDataset:
         assert transformed_dataset._source_dataset is dataset
         assert transformed_dataset._transform is dummy_transform
         assert len(transformed_dataset) == len(dataset)
-        assert all(not lf.is_loaded for lf in transformed_dataset._lazy_frames)  # Still lazy
+        assert all(not lf.is_loaded for lf in transformed_dataset._lazy_frames)
 
-        # Access item to trigger transformation
-        original_frame0 = dataset[0]  # Load original
-        transformed_frame0 = transformed_dataset[0]  # Load and transform
+    def test_apply_lazy_transforms_on_access(self, create_test_files: Path) -> None:
+        """Lazy apply applies transform when item is accessed."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+
+        def dummy_transform(frame: ChannelFrame) -> ChannelFrame:
+            return frame._create_new_instance(data=frame._data[:, ::-1])
+
+        transformed_dataset = dataset.apply(dummy_transform)
+
+        original_frame0 = dataset[0]
+        transformed_frame0 = transformed_dataset[0]
 
         assert isinstance(transformed_frame0, ChannelFrame)
         assert transformed_dataset._lazy_frames[0].is_loaded is True
         assert transformed_dataset._lazy_frames[0].frame is transformed_frame0
-        # Verify transformation was applied (compare computed data)
         assert transformed_frame0 is not None
         assert original_frame0 is not None
         np.testing.assert_allclose(
@@ -425,10 +432,20 @@ class TestChannelFrameDataset:
             original_frame0.compute()[:, ::-1],
         )
 
-        # Access again, should use cache
+    def test_apply_lazy_caches_transformed_frame(self, create_test_files: Path) -> None:
+        """Lazy apply caches transformed frame on second access."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+
+        def dummy_transform(frame: ChannelFrame) -> ChannelFrame:
+            return frame._create_new_instance(data=frame._data[:, ::-1])
+
+        transformed_dataset = dataset.apply(dummy_transform)
+        first_access = transformed_dataset[0]
+
         with patch.object(transformed_dataset, "_transform", wraps=transformed_dataset._transform) as mock_transform:
-            cached_transformed = transformed_dataset[0]
-            assert cached_transformed is transformed_frame0
+            cached = transformed_dataset[0]
+            assert cached is first_access
             mock_transform.assert_not_called()
 
     def test_apply_chaining_composes_transforms(self, create_test_files: Path) -> None:
