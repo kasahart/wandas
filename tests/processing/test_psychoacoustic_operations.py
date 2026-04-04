@@ -455,7 +455,6 @@ class TestLoudnessZwst:
 
     def test_operation_name(self) -> None:
         """Test that operation has correct name."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _loudness_signal()
         op = LoudnessZwst(_SR, field_type="free")
         assert op.name == "loudness_zwst"
 
