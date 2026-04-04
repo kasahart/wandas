@@ -126,6 +126,7 @@ class TestNOctFrame:
         db: NDArrayReal = self.frame.dB
         ref_values: NDArrayReal = np.array([ch.ref for ch in self.channel_metadata])
         expected: NDArrayReal = 20 * np.log10(np.maximum(self.real_data / ref_values[:, np.newaxis], 1e-12))
+        # Direct numpy equivalent — default rtol=1e-7 (exact match expected)
         np.testing.assert_allclose(db, expected)
 
     def test_property_dba(self) -> None:
@@ -144,6 +145,7 @@ class TestNOctFrame:
 
             # 期待される結果（dB + A重み付け）と比較
             expected: NDArrayReal = self.frame.dB + mock_weights
+            # Direct numpy equivalent — default rtol=1e-7 (exact match expected)
             np.testing.assert_allclose(dba, expected)
 
     def test_property_n_channels(self) -> None:
