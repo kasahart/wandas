@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 from wandas.core.base_frame import BaseFrame
+from wandas.utils.dask_helpers import da_from_array
 
 
 class DummyFrame(BaseFrame[np.ndarray]):
@@ -39,14 +40,14 @@ class DummyFrame(BaseFrame[np.ndarray]):
 
 def make_frame(arr: np.ndarray | da.Array, **kwargs) -> DummyFrame:
     if isinstance(arr, np.ndarray):
-        darr = da.from_array(arr, chunks=arr.shape)
+        darr = da_from_array(arr, chunks=arr.shape)
     else:
         darr = arr
     return DummyFrame(darr, sampling_rate=100.0, **kwargs)
 
 
 def test_rechunk_fallback_logs_warning(caplog):
-    arr = da.from_array(np.arange(6).reshape(2, 3), chunks=(2, 3))
+    arr = da_from_array(np.arange(6).reshape(2, 3), chunks=(2, 3))
     original = arr.rechunk
     state = {"called": False}
 
@@ -56,7 +57,7 @@ def test_rechunk_fallback_logs_warning(caplog):
             raise RuntimeError("boom")
         return original(chunks, **kwargs)
 
-    arr.rechunk = bad_rechunk
+    arr.rechunk = bad_rechunk  # ty: ignore[invalid-assignment]
 
     with caplog.at_level("WARNING"):
         f = make_frame(arr)
