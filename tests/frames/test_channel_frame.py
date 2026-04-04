@@ -20,15 +20,25 @@ from wandas.utils.types import NDArrayReal
 
 _da_from_array = da.from_array
 
+# --- Module-level deterministic test constants ---
+_SAMPLE_RATE: int = 16000
+_rng = np.random.default_rng(42)
+_DATA_2CH: NDArrayReal = _rng.random((2, 16000))  # 2 channels, 1 second
+_DASK_2CH: DaArray = _da_from_array(_DATA_2CH, chunks=(1, 4000))
+
+# Stereo sine fixture shared by RMS and CrestFactor test classes
+_t = np.linspace(0, 1, int(_SAMPLE_RATE), endpoint=False)
+_SINE_CH0: NDArrayReal = np.sin(2 * np.pi * 440 * _t).astype(np.float64)
+_SINE_CH1: NDArrayReal = (2.0 * np.sin(2 * np.pi * 440 * _t)).astype(np.float64)
+_STEREO_SINE: NDArrayReal = np.array([_SINE_CH0, _SINE_CH1])
+
 
 class TestChannelFrame:
     def setup_method(self) -> None:
         """Set up test fixtures for each test."""
-        # Deterministic data with fixed seed for reproducibility (Grand Policy anti-pattern: no random data)
-        self.sample_rate: float = 16000
-        rng = np.random.default_rng(42)
-        self.data: NDArrayReal = rng.random((2, 16000))  # 2 channels, 1 second
-        self.dask_data: DaArray = _da_from_array(self.data, chunks=(1, 4000))
+        self.sample_rate: float = _SAMPLE_RATE
+        self.data: NDArrayReal = _DATA_2CH
+        self.dask_data: DaArray = _DASK_2CH
         self.channel_frame: ChannelFrame = ChannelFrame(
             data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
         )
@@ -1271,12 +1281,8 @@ class TestDescribeIntegration:
 
     def setup_method(self) -> None:
         """Set up test fixtures."""
-        # Create a simple test signal
-        self.sample_rate = 16000
-        t = np.linspace(0, 1, self.sample_rate)
-        # 440Hz sine wave (A4 note)
-        signal = np.sin(2 * np.pi * 440 * t)
-        self.data = signal.reshape(1, -1)
+        self.sample_rate = _SAMPLE_RATE
+        self.data = _SINE_CH0.reshape(1, -1)  # 440Hz sine, single channel
         self.channel_frame = ChannelFrame.from_numpy(data=self.data, sampling_rate=self.sample_rate, label="test_sine")
 
     def test_describe_integration_basic(self) -> None:
@@ -1799,12 +1805,8 @@ class TestChannelFrameRMS:
 
     def setup_method(self) -> None:
         """Set up test fixtures."""
-        self.sample_rate = 16000
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        # Pure sine waves with known RMS = amplitude / sqrt(2)
-        sine_ch0: NDArrayReal = np.sin(2 * np.pi * 440 * t).astype(np.float64)
-        sine_ch1: NDArrayReal = (2.0 * np.sin(2 * np.pi * 440 * t)).astype(np.float64)
-        self.stereo_data: NDArrayReal = np.array([sine_ch0, sine_ch1])
+        self.sample_rate = _SAMPLE_RATE
+        self.stereo_data: NDArrayReal = _STEREO_SINE
         self.cf_stereo = ChannelFrame.from_numpy(self.stereo_data, sampling_rate=self.sample_rate)
 
     # ------------------------------------------------------------------
@@ -1933,9 +1935,9 @@ class TestBaseFrameExceptionHandling:
 
     def setup_method(self) -> None:
         """テストフィクスチャのセットアップ"""
-        self.sample_rate = 16000
-        self.data = np.random.default_rng(42).random((2, 16000))
-        self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
+        self.sample_rate = _SAMPLE_RATE
+        self.data = _DATA_2CH
+        self.dask_data = _DASK_2CH
         self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
     def test_getitem_empty_list_error(self) -> None:
@@ -2087,16 +2089,8 @@ class TestFadeIntegration:
 
     def setup_method(self) -> None:
         """Set up test fixtures for fade integration tests."""
-        # Create a test signal with known properties
-        self.sample_rate = 16000
-        duration = 1.0  # 1 second
-        n_samples = int(self.sample_rate * duration)
-        t = np.linspace(0, duration, n_samples, endpoint=False)
-
-        # Create a sine wave with amplitude 1.0
-        freq = 440  # Hz
-        signal = np.sin(2 * np.pi * freq * t)
-        self.data = signal.reshape(1, -1)  # Single channel
+        self.sample_rate = _SAMPLE_RATE
+        self.data = _SINE_CH0.reshape(1, -1)  # Single channel, 440Hz sine
         self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
         self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_sine")
 
@@ -2432,12 +2426,8 @@ class TestChannelFrameCrestFactor:
 
     def setup_method(self) -> None:
         """Set up test fixtures."""
-        self.sample_rate = 16000
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        # Pure sine waves – crest factor = amplitude / (amplitude / sqrt(2)) = sqrt(2)
-        sine_ch0: NDArrayReal = np.sin(2 * np.pi * 440 * t).astype(np.float64)
-        sine_ch1: NDArrayReal = (2.0 * np.sin(2 * np.pi * 440 * t)).astype(np.float64)
-        self.stereo_data: NDArrayReal = np.array([sine_ch0, sine_ch1])
+        self.sample_rate = _SAMPLE_RATE
+        self.stereo_data: NDArrayReal = _STEREO_SINE
         self.cf_stereo = ChannelFrame.from_numpy(self.stereo_data, sampling_rate=self.sample_rate)
 
     # ------------------------------------------------------------------
