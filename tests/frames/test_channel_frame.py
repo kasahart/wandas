@@ -458,16 +458,23 @@ def test_add_channel_with_channelframe_align_pad_and_truncate() -> None:
     for ch in other_short._channel_metadata:
         ch.label = "other_ch"
     out = base.add_channel(other_short, align="pad")
+    assert out is not base  # Pillar 1: immutability
     assert out.n_samples == base.n_samples
     assert out.n_channels == 2
+    assert base.n_channels == 1  # Pillar 1: original unchanged
+    # Pillar 2: structural op leaves history unchanged
+    assert len(out.operation_history) == len(base.operation_history)
 
     # longer incoming frame -> truncate
     other_long = ChannelFrame(data=_da_from_array(np.zeros((1, 20)), chunks=(1, -1)), sampling_rate=16000)
     for ch in other_long._channel_metadata:
         ch.label = "other_ch_long"
     out2 = base.add_channel(other_long, align="truncate")
+    assert out2 is not base  # Pillar 1: immutability
     assert out2.n_samples == base.n_samples
     assert out2.n_channels == 2
+    # Pillar 2: structural op leaves history unchanged
+    assert len(out2.operation_history) == len(base.operation_history)
 
 
 def test_remove_channel_index_out_of_range_raises() -> None:
