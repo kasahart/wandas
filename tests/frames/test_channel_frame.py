@@ -228,7 +228,7 @@ class TestChannelFrame:
     def test_get_channel_with_range(self) -> None:
         """Test get_channel with range object."""
         # Create a frame with more channels
-        data = np.random.random((4, 16000))
+        data = np.random.default_rng(42).random((4, 16000))
         dask_data = _da_from_array(data, chunks=(1, 4000))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
@@ -302,7 +302,7 @@ class TestChannelFrame:
 
     def test_initialization_with_1d_data(self) -> None:
         """Test initialization with 1D data."""
-        data_1d = np.random.random(16000)
+        data_1d = np.random.default_rng(42).random(16000)
         dask_data_1d = _da_from_array(data_1d, chunks=4000)
 
         cf = ChannelFrame(dask_data_1d, self.sample_rate)
@@ -528,7 +528,7 @@ def test_describe_plot_return_type_error() -> None:
     def test_step_slicing(self) -> None:
         """Test slicing with step parameter."""
         # Create a frame with more channels for better testing
-        data = np.random.random((4, 16000))
+        data = np.random.default_rng(42).random((4, 16000))
         dask_data = _da_from_array(data, chunks=(1, 4000))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
@@ -747,7 +747,7 @@ def test_describe_plot_return_type_error() -> None:
     def test_binary_op_with_channel_frame(self) -> None:
         """Test binary operations with another ChannelFrame."""
         # Create another ChannelFrame
-        other_data = np.random.random((2, 16000))
+        other_data = np.random.default_rng(42).random((2, 16000))
         other_dask_data = _da_from_array(other_data, chunks=(1, 4000))
         other_cf = ChannelFrame(other_dask_data, self.sample_rate, label="other_audio")
 
@@ -792,7 +792,7 @@ def test_describe_plot_return_type_error() -> None:
         """Test add method for adding signals."""
         # 通常の加算をテスト
         # Create another ChannelFrame
-        other_data = np.random.random((2, 16000))
+        other_data = np.random.default_rng(42).random((2, 16000))
         other_dask_data = _da_from_array(other_data, chunks=(1, -1))
         other_cf = ChannelFrame(other_dask_data, self.sample_rate, label="other_audio")
 
@@ -819,7 +819,7 @@ def test_describe_plot_return_type_error() -> None:
         np.testing.assert_array_almost_equal(computed, expected)
 
         # NumPy配列との加算をテスト
-        array_value = np.random.random((2, 16000))
+        array_value = np.random.default_rng(42).random((2, 16000))
         result = self.channel_frame.add(array_value)
         assert isinstance(result, ChannelFrame)
         computed = result.compute()
@@ -921,7 +921,7 @@ def test_describe_plot_return_type_error() -> None:
     def test_from_numpy(self) -> None:
         """Test from_numpy method."""
         # Create a random array
-        data = np.random.random((2, 16000))
+        data = np.random.default_rng(42).random((2, 16000))
         sampling_rate = 16000
         label = "test_audio"
         ch_labels = ["left", "right"]
@@ -960,7 +960,7 @@ def test_describe_plot_return_type_error() -> None:
         assert cf.metadata["device"] == "microphone"
 
         # Test ndim=1
-        data_1d = np.random.random(16000)
+        data_1d = np.random.default_rng(42).random(16000)
         cf_1d = ChannelFrame.from_numpy(data_1d, sampling_rate=sampling_rate)
         # Check properties
         assert cf_1d.shape == (16000,)
@@ -969,7 +969,7 @@ def test_describe_plot_return_type_error() -> None:
         # Test 3d array
         with pytest.raises(ValueError, match="Data must be 1-dimensional or 2-dimensional."):
             ChannelFrame.from_numpy(
-                np.random.random((3, 16000, 2)),
+                np.random.default_rng(42).random((3, 16000, 2)),
                 sampling_rate=sampling_rate,
             )
 
@@ -978,13 +978,13 @@ def test_describe_plot_return_type_error() -> None:
         # Create a temporary WAV file
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
             temp_filename: str = temp_file.name
-            sf.write(temp_filename, np.random.random((16000, 2)), 16000)
+            sf.write(temp_filename, np.random.default_rng(42).random((16000, 2)), 16000)
         re_test_data, _ = sf.read(temp_filename)
         re_test_data = re_test_data.T
         try:
             # Create mock array and patch from_delayed to return it
             mock_dask_array = mock.MagicMock(spec=DaArray)
-            mock_data = np.random.random((2, 16000))
+            mock_data = np.random.default_rng(42).random((2, 16000))
             mock_dask_array.compute.return_value = mock_data
             mock_dask_array.shape = (2, 16000)
             # Add ndim property to the mock
@@ -1934,7 +1934,7 @@ class TestBaseFrameExceptionHandling:
     def setup_method(self) -> None:
         """テストフィクスチャのセットアップ"""
         self.sample_rate = 16000
-        self.data = np.random.random((2, 16000))
+        self.data = np.random.default_rng(42).random((2, 16000))
         self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
         self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
@@ -2014,7 +2014,7 @@ class TestBaseFrameExceptionHandling:
     # Error Message Tests (Phase 1 Improvements)
     def test_invalid_data_shape_error_message(self) -> None:
         """Test that invalid data shape provides helpful error message."""
-        data_3d = np.random.random((2, 3, 4))  # 3D array
+        data_3d = np.random.default_rng(42).random((2, 3, 4))  # 3D array
         dask_data_3d = _da_from_array(data_3d)
 
         with pytest.raises(ValueError) as exc_info:
@@ -2347,7 +2347,7 @@ class TestChannelFrameValidation:
     def test_channel_labels_count_mismatch(self) -> None:
         """Test error when channel label count doesn't match channels."""
         # Create multi-channel data
-        data = np.random.random((2, 1000))
+        data = np.random.default_rng(42).random((2, 1000))
 
         # Try to create frame with wrong number of labels
         # This should trigger line 668
@@ -2361,7 +2361,7 @@ class TestChannelFrameValidation:
     def test_channel_units_count_mismatch(self) -> None:
         """Test error when channel unit count doesn't match channels."""
         # Create multi-channel data
-        data = np.random.random((2, 1000))
+        data = np.random.default_rng(42).random((2, 1000))
 
         # Try to create frame with wrong number of units
         # This should trigger line 678
