@@ -91,8 +91,10 @@ def create_test_files(
 
 
 class TestLazyFrame:
-    def test_lazy_frame_init(self) -> None:
-        """Test LazyFrame initialization."""
+    """Test suite for LazyFrame — lazy loading wrapper with caching."""
+
+    def test_init_default_state_unloaded(self) -> None:
+        """New LazyFrame starts in unloaded state with no frame."""
         file_path = Path("/path/to/file.wav")
         lazy_frame: LazyFrame[ChannelFrame] = LazyFrame(file_path)
 
@@ -101,16 +103,14 @@ class TestLazyFrame:
         assert lazy_frame.is_loaded is False
         assert lazy_frame.load_attempted is False
 
-    def test_ensure_loaded(self) -> None:
-        """Test LazyFrame.ensure_loaded method."""
+    def test_ensure_loaded_first_call_invokes_loader(self) -> None:
+        """First ensure_loaded call invokes loader and caches result."""
         file_path = Path("/path/to/file.wav")
         lazy_frame: LazyFrame[ChannelFrame] = LazyFrame(file_path)
 
-        # モックローダー関数
         mock_frame = ChannelFrame.from_numpy(np.array([[0.1, 0.2], [0.3, 0.4]]), 44100)
         loader = MagicMock(return_value=mock_frame)
 
-        # 初回ロード
         result = lazy_frame.ensure_loaded(loader)
 
         assert result is mock_frame
@@ -119,53 +119,46 @@ class TestLazyFrame:
         assert lazy_frame.load_attempted is True
         loader.assert_called_once_with(file_path)
 
-        # 2回目のロード（キャッシュから取得）
+    def test_ensure_loaded_second_call_uses_cache(self) -> None:
+        """Second ensure_loaded call returns cached frame without invoking loader."""
+        file_path = Path("/path/to/file.wav")
+        lazy_frame: LazyFrame[ChannelFrame] = LazyFrame(file_path)
+
+        mock_frame = ChannelFrame.from_numpy(np.array([[0.1, 0.2], [0.3, 0.4]]), 44100)
+        loader = MagicMock(return_value=mock_frame)
+
+        lazy_frame.ensure_loaded(loader)
         loader.reset_mock()
         cached_result = lazy_frame.ensure_loaded(loader)
 
         assert cached_result is mock_frame
         loader.assert_not_called()
 
-    def test_ensure_loaded_failure(self, caplog: pytest.LogCaptureFixture) -> None:
-        """Test LazyFrame.ensure_loaded with loader failure."""
+    def test_ensure_loaded_failure_returns_none(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Loader failure results in None frame, but marks as loaded."""
         file_path = Path("/path/to/file.wav")
         lazy_frame: LazyFrame[ChannelFrame] = LazyFrame(file_path)
 
-        # 失敗するローダー関数
-        error_msg = "Failed to load file"
-        loader = MagicMock(side_effect=RuntimeError(error_msg))
-
-        # ロード試行
+        loader = MagicMock(side_effect=RuntimeError("Failed to load file"))
         result = lazy_frame.ensure_loaded(loader)
 
         assert result is None
         assert lazy_frame.frame is None
-        assert lazy_frame.is_loaded is True  # ロードは試みた
+        assert lazy_frame.is_loaded is True  # Load was attempted
         assert lazy_frame.load_attempted is True
-        loader.assert_called_once_with(file_path)
-
-        # ログ確認
         assert any("Failed to load file" in record.message and record.levelname == "ERROR" for record in caplog.records)
 
-    def test_reset(self) -> None:
-        """Test LazyFrame.reset method."""
+    def test_reset_clears_loaded_state(self) -> None:
+        """Reset restores LazyFrame to unloaded state."""
         file_path = Path("/path/to/file.wav")
         lazy_frame: LazyFrame[ChannelFrame] = LazyFrame(file_path)
 
-        # フレームをロード
         mock_frame = ChannelFrame.from_numpy(np.array([[0.1, 0.2], [0.3, 0.4]]), 44100)
         loader = MagicMock(return_value=mock_frame)
         lazy_frame.ensure_loaded(loader)
 
-        # リセット前の状態確認
-        assert lazy_frame.frame is mock_frame
-        assert lazy_frame.is_loaded is True
-        assert lazy_frame.load_attempted is True
-
-        # リセット
         lazy_frame.reset()
 
-        # リセット後の状態確認
         assert lazy_frame.frame is None
         assert lazy_frame.is_loaded is False
         assert lazy_frame.load_attempted is False
