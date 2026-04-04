@@ -112,7 +112,6 @@ class TestLoudnessZwtv:
 
     def test_operation_name(self) -> None:
         """Test that operation has correct name."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _loudness_signal()
         op = LoudnessZwtv(_SR, field_type="free")
         assert op.name == "loudness_zwtv"
 
@@ -129,7 +128,7 @@ class TestLoudnessZwtv:
 
     def test_mono_signal_shape(self) -> None:
         """Test loudness calculation output shape for mono signal."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _loudness_signal()
+        signal_mono, _, _, _ = _loudness_signal()
         op = LoudnessZwtv(_SR, field_type="free")
         result = op.process_array(signal_mono).compute()
 
@@ -141,8 +140,7 @@ class TestLoudnessZwtv:
 
     def test_stereo_signal_shape(self) -> None:
         """Test loudness calculation output shape for stereo signal."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _loudness_signal()
-        LoudnessZwtv(_SR, field_type="free")
+        _, signal_stereo, _, _ = _loudness_signal()
         loudness_op = LoudnessZwtv(_SR, field_type="free")
         result = loudness_op.process_array(signal_stereo).compute()
 
@@ -156,7 +154,7 @@ class TestLoudnessZwtv:
 
     def test_loudness_values_range(self) -> None:
         """Test that loudness values match MoSQITo output."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _loudness_signal()
+        signal_mono, _, _, _ = _loudness_signal()
         op = LoudnessZwtv(_SR, field_type="free")
         result = op.process_array(signal_mono).compute()
 
@@ -173,15 +171,12 @@ class TestLoudnessZwtv:
         This is the key test to ensure our integration is correct by comparing
         the output with direct MoSQITo calculation.
         """
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _loudness_signal()
+        signal_mono, _, _, _ = _loudness_signal()
         op = LoudnessZwtv(_SR, field_type="free")
-        # Calculate using our operation
         our_result = op.process_array(signal_mono).compute()
 
-        # Calculate using MoSQITo directly
+        # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _, _ = loudness_zwtv(signal_mono[0], _SR, field_type="free")
-
-        # Results should be very close (allowing for small numerical differences)
         np.testing.assert_array_equal(
             our_result[0],
             n_direct,
@@ -190,9 +185,7 @@ class TestLoudnessZwtv:
 
     def test_free_vs_diffuse_field(self) -> None:
         """Test that free field and diffuse field give different results."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _loudness_signal()
-        LoudnessZwtv(_SR, field_type="free")
-        # Calculate with free field
+        signal_mono, _, _, _ = _loudness_signal()
         loudness_free = LoudnessZwtv(_SR, field_type="free")
         result_free = loudness_free.process_array(signal_mono).compute()
 
@@ -210,7 +203,6 @@ class TestLoudnessZwtv:
 
     def test_amplitude_dependency(self) -> None:
         """Test that loudness increases with amplitude."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _loudness_signal()
         op = LoudnessZwtv(_SR, field_type="free")
         duration = 0.1
         # Create signals with different amplitudes
@@ -237,7 +229,6 @@ class TestLoudnessZwtv:
 
     def test_silence_produces_low_loudness(self) -> None:
         """Test that silence produces near-zero loudness."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _loudness_signal()
         op = LoudnessZwtv(_SR, field_type="free")
         duration = 0.1
         # Create silent signal
@@ -253,7 +244,6 @@ class TestLoudnessZwtv:
 
     def test_white_noise_loudness(self) -> None:
         """Test loudness calculation with white noise."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _loudness_signal()
         op = LoudnessZwtv(_SR, field_type="free")
         duration = 0.1
         # Generate white noise at moderate level
@@ -270,19 +260,16 @@ class TestLoudnessZwtv:
 
     def test_process_with_dask(self) -> None:
         """Test that process method works with dask arrays."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _loudness_signal()
+        signal_mono, _, _, dask_mono = _loudness_signal()
         op = LoudnessZwtv(_SR, field_type="free")
         result = op.process(dask_mono).compute()
 
-        # Compare with MoSQITo direct calculation
+        # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _, _ = loudness_zwtv(signal_mono[0], _SR, field_type="free")
-
-        # Results should match MoSQITo exactly
         np.testing.assert_array_equal(result[0], n_direct)
 
     def test_multi_channel_independence(self) -> None:
         """Test that each channel is processed independently."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _loudness_signal()
         op = LoudnessZwtv(_SR, field_type="free")
         duration = 0.1
         # Create signal with different content in each channel
@@ -304,7 +291,6 @@ class TestLoudnessZwtv:
 
     def test_calculate_output_shape(self) -> None:
         """Test calculate_output_shape method."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _loudness_signal()
         op = LoudnessZwtv(_SR, field_type="free")
         input_shape = (1, 48000)  # 1 channel, 1 second at 48kHz
         output_shape = op.calculate_output_shape(input_shape)
@@ -317,7 +303,6 @@ class TestLoudnessZwtv:
 
     def test_1d_input_handling(self) -> None:
         """Test that 1D input is properly handled."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _loudness_signal()
         op = LoudnessZwtv(_SR, field_type="free")
         duration = 0.1
         # Create 1D signal
@@ -332,7 +317,7 @@ class TestLoudnessZwtv:
 
     def test_consistency_across_calls(self) -> None:
         """Test that repeated calls with same input produce same output."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _loudness_signal()
+        signal_mono, _, _, _ = _loudness_signal()
         op = LoudnessZwtv(_SR, field_type="free")
         result1 = op.process_array(signal_mono).compute()
         result2 = op.process_array(signal_mono).compute()
@@ -342,7 +327,7 @@ class TestLoudnessZwtv:
 
     def test_time_resolution(self) -> None:
         """Test that time resolution matches MoSQITo output."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _loudness_signal()
+        signal_mono, _, _, _ = _loudness_signal()
         op = LoudnessZwtv(_SR, field_type="free")
         result = op.process_array(signal_mono).compute()
 
@@ -354,8 +339,7 @@ class TestLoudnessZwtv:
 
     def test_time_axis_values(self) -> None:
         """Test that time axis is correctly calculated based on sampling rate."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _loudness_signal()
-        LoudnessZwtv(_SR, field_type="free")
+        signal_mono, _, _, _ = _loudness_signal()
         from wandas.frames.channel import ChannelFrame
 
         # Create frame and calculate loudness
@@ -390,8 +374,7 @@ class TestLoudnessZwtv:
 
     def test_plot_method_exists_and_works(self) -> None:
         """Test that loudness ChannelFrame can be plotted."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _loudness_signal()
-        LoudnessZwtv(_SR, field_type="free")
+        signal_mono, _, _, _ = _loudness_signal()
         import matplotlib.pyplot as plt
 
         from wandas.frames.channel import ChannelFrame
