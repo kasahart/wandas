@@ -208,18 +208,21 @@ class TestSpectrogramFrame:
         complex_val: complex = 1.0 + 2.0j
         spec_complex: SpectrogramFrame = spec._binary_op(complex_val, lambda x, y: x + y, "+")
         assert "complex(1.0, 2.0)" in spec_complex.label
+        # Complex addition — decimal=6 default (exact match expected)
         assert_array_almost_equal(spec_complex.data, spec.data + complex_val)
 
         # numpy配列との演算
         np_array = np.ones((2, 65, 5), dtype=complex)
         spec_np: SpectrogramFrame = spec * np_array
         assert "ndarray(2, 65, 5)" in spec_np.label
+        # Array multiplication — decimal=6 default (exact match expected)
         assert_array_almost_equal(spec_np.data, spec.data * np_array)
 
         # dask配列との演算
         da_array: DaArray = da.ones((2, 65, 5), dtype=complex)
         spec_da: SpectrogramFrame = spec - da_array
         assert "dask.array(2, 65, 5)" in spec_da.label
+        # Dask array subtraction — decimal=6 default (exact match expected)
         assert_array_almost_equal(spec_da.data, spec.data - da_array)
 
         # その他の型（カスタムオブジェクト）との演算でelse節をカバー
@@ -238,6 +241,7 @@ class TestSpectrogramFrame:
         spec_custom: SpectrogramFrame = spec + custom_obj
         # カスタムオブジェクトの型名がラベルに含まれることを確認
         assert "CustomNumber" in spec_custom.label
+        # Custom object addition — decimal=6 default (exact match expected)
         assert_array_almost_equal(spec_custom.data, spec.data + custom_obj.value)
 
     def test_get_frame_at(self, sample_spectrogram: SpectrogramFrame) -> None:
@@ -300,6 +304,7 @@ class TestSpectrogramFrame:
         assert channel_frame_istft.sampling_rate == spec.sampling_rate
 
         # データが同じであることを確認
+        # Same ISTFT algorithm — decimal=6 default (alias, results identical)
         assert_array_almost_equal(channel_frame_istft.data, channel_frame_to.data)
 
     def test_plot(self, sample_spectrogram: SpectrogramFrame, monkeypatch: Any) -> None:
@@ -577,6 +582,7 @@ class TestSpectrogramFrame:
         for i in range(min(5, spec.n_freq_bins)):
             # dBA = dB + A_weight であることを確認
             expected_dba = db_values[0, i, 0] + mock_a_weights[i]
+            # dBA = dB + A_weight — decimal=6 default (direct addition)
             assert_array_almost_equal(dba_values[0, i, 0], expected_dba)
 
         # 形状が同じであることを確認
@@ -610,6 +616,7 @@ class TestSpectrogramFrame:
         # データが絶対値になっていることを確認
         original_magnitude = np.abs(spec.data)
         abs_magnitude = np.abs(abs_spec.data)
+        # |abs(complex)| == |complex| — decimal=6 default (algebraic identity)
         assert_array_almost_equal(abs_magnitude, original_magnitude)
 
         # 操作履歴に "abs" が追加されていることを確認
@@ -638,6 +645,7 @@ class TestSpectrogramFrame:
         original_magnitude = spec.magnitude
         abs_magnitude = abs_spec.magnitude
 
+        # magnitude idempotent after abs — decimal=6 default (algebraic)
         assert_array_almost_equal(abs_magnitude, original_magnitude)
 
     def test_abs_lazy_evaluation(self, sample_spectrogram: SpectrogramFrame) -> None:
