@@ -311,10 +311,14 @@ class TestPlotting:
         # Test plot with single channel (overlay=True)
         result = strategy.plot(self.mock_channel_frame, overlay=True)
         assert isinstance(result, Axes)
+        assert result.get_xlabel() == "Time [s]"
+        assert result.get_ylabel() == "Amplitude"
 
         # Test plot with multiple channels (overlay=False)
         result = strategy.plot(self.mock_channel_frame, overlay=False)
         assert isinstance(result, Iterator)
+        axes_list = list(result)
+        assert len(axes_list) == self.mock_channel_frame.n_channels
 
     def test_single_channel_waveform_plot_strategy(self) -> None:
         """Test single-channel WaveformPlotStrategy."""
