@@ -9,6 +9,7 @@ of processing pipelines.
 import dask.array as da
 import numpy as np
 import pytest
+from dask.array.core import Array as DaArray
 
 from wandas.frames.channel import ChannelFrame
 
@@ -42,6 +43,8 @@ class TestChannelLabelUpdates:
 
         # Verify labels are updated (using display name "norm")
         assert result.labels == ["norm(ch0)", "norm(ch1)"]
+        # Pillar 1: Dask laziness preserved
+        assert isinstance(result._data, DaArray)
         # Verify original frame is unchanged
         assert frame.labels == ["ch0", "ch1"]
 
@@ -60,6 +63,7 @@ class TestChannelLabelUpdates:
         result = frame.low_pass_filter(cutoff=1000)
 
         assert result.labels == ["lpf(acc_x)", "lpf(acc_y)"]
+        assert isinstance(result._data, DaArray)  # Dask laziness preserved
 
     def test_high_pass_filter_updates_labels(self) -> None:
         """Test that high_pass_filter updates channel labels."""
@@ -78,6 +82,7 @@ class TestChannelLabelUpdates:
             "hpf(signal_a)",
             "hpf(signal_b)",
         ]
+        assert isinstance(result._data, DaArray)  # Dask laziness preserved
 
     def test_band_pass_filter_updates_labels(self) -> None:
         """Test that band_pass_filter updates channel labels."""
@@ -184,6 +189,7 @@ class TestChainedOperationLabels:
         result = frame.normalize().low_pass_filter(cutoff=1000)
 
         assert result.labels == ["lpf(norm(ch0))"]
+        assert isinstance(result._data, DaArray)  # Dask laziness preserved
 
     def test_triple_chained_operations(self) -> None:
         """Test three operations chained together."""
