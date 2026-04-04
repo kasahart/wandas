@@ -130,16 +130,17 @@ class TestCSVFileReader:
         """Test basic functionality of get_file_info method."""
         info = self.reader.get_file_info(self.test_file)
 
-        # Check if all expected keys are present
-        expected_keys = ["samplerate", "channels", "frames", "format", "duration"]
-        for key in expected_keys:
-            assert key in info
+        # Verify all expected keys and values explicitly (no magic loops)
+        assert "samplerate" in info, "Missing 'samplerate' key"
+        assert "channels" in info, "Missing 'channels' key"
+        assert "frames" in info, "Missing 'frames' key"
+        assert "format" in info, "Missing 'format' key"
+        assert "duration" in info, "Missing 'duration' key"
 
-        # Check specific values
         assert info["format"] == "CSV"
         assert info["channels"] == self.N_CHANNELS
-        assert info["frames"] == 1000
-        assert info["duration"] == 1
+        assert info["frames"] == self.N_ROWS
+        assert info["duration"] == 1  # 1000 rows / 1000 Hz = 1 second
 
     def test_get_file_info_samplerate_calculation(self) -> None:
         """Test samplerate estimation from evenly spaced time values."""
