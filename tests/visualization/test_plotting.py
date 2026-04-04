@@ -1489,112 +1489,75 @@ class TestPlotting:
 
 
 class TestChannelFramePlotParameters:
-    """Test plot parameter combinations for complete coverage."""
+    """Test plot parameter forwarding for ChannelFrame.plot().
 
-    def _get_axes_list(self, result: Axes | Iterator[Axes]) -> list[Axes]:
+    Visualization policy: verify that xlabel, ylabel, xlim, ylim, alpha
+    are correctly reflected in the returned Axes.
+    """
+
+    # Deterministic signal constants
+    _FREQ_HZ = 440
+    _DURATION = 0.1  # 100 ms — short but sufficient for parameter tests
+    _SR = 16_000
+
+    def _make_signal(self) -> wd.ChannelFrame:
+        return wd.generate_sin(
+            freqs=[self._FREQ_HZ],
+            duration=self._DURATION,
+            sampling_rate=self._SR,
+        )
+
+    @staticmethod
+    def _get_axes_list(result: Axes | Iterator[Axes]) -> list[Axes]:
         if not isinstance(result, Axes):
             return list(result)
         return [result]
 
-    def test_plot_with_xlabel(self) -> None:
-        """Test plot with custom xlabel."""
-        signal = wd.generate_sin(freqs=[440], duration=0.1, sampling_rate=16000)
+    def test_plot_forwards_xlabel(self) -> None:
+        """Custom xlabel must appear on the returned Axes."""
+        res = self._make_signal().plot(xlabel="Custom X Label")
+        ax = self._get_axes_list(res)[0]
+        assert ax.get_xlabel() == "Custom X Label"
 
-        # This should trigger line 438
-        # plot() returns an iterator of axes
-        try:
-            res = signal.plot(xlabel="Custom X Label")
-            ax_list = self._get_axes_list(res)
-            assert len(ax_list) > 0
-            assert isinstance(ax_list[0], Axes)
-            assert ax_list[0].get_xlabel() == "Custom X Label"
-        except Exception as e:
-            # If plot fails due to matplotlib issues, skip the test
-            # The important thing is the code path was exercised
-            if "tight_layout" in str(e) or "_NoValueType" in str(e):
-                pytest.skip(f"Plot failed due to matplotlib issue: {e}")
-            raise
+    def test_plot_forwards_ylabel(self) -> None:
+        """Custom ylabel must appear on the returned Axes."""
+        res = self._make_signal().plot(ylabel="Custom Y Label")
+        ax = self._get_axes_list(res)[0]
+        assert ax.get_ylabel() == "Custom Y Label"
 
-    def test_plot_with_ylabel(self) -> None:
-        """Test plot with custom ylabel."""
-        signal = wd.generate_sin(freqs=[440], duration=0.1, sampling_rate=16000)
+    def test_plot_forwards_alpha(self) -> None:
+        """Custom alpha must be applied to drawn Line2D objects."""
+        res = self._make_signal().plot(alpha=0.5)
+        ax = self._get_axes_list(res)[0]
+        lines = ax.get_lines()
+        assert len(lines) >= 1, "At least one line should be drawn"
+        assert lines[0].get_alpha() == 0.5
 
-        # This should trigger line 440
-        try:
-            res = signal.plot(ylabel="Custom Y Label")
-            ax_list = self._get_axes_list(res)
-            assert len(ax_list) > 0
-            assert isinstance(ax_list[0], Axes)
-            assert ax_list[0].get_ylabel() == "Custom Y Label"
-        except Exception as e:
-            if "tight_layout" in str(e) or "_NoValueType" in str(e):
-                pytest.skip(f"Plot failed due to matplotlib issue: {e}")
-            raise
+    def test_plot_forwards_xlim(self) -> None:
+        """Custom xlim must be set on the returned Axes."""
+        res = self._make_signal().plot(xlim=(0.0, 0.05))
+        ax = self._get_axes_list(res)[0]
+        assert ax.get_xlim() == pytest.approx((0.0, 0.05))
 
-    def test_plot_with_alpha(self) -> None:
-        """Test plot with custom alpha value."""
-        signal = wd.generate_sin(freqs=[440], duration=0.1, sampling_rate=16000)
+    def test_plot_forwards_combined_parameters(self) -> None:
+        """Multiple parameters applied together must all be reflected."""
+        res = self._make_signal().plot(
+            xlabel="Time",
+            ylabel="Amplitude",
+            alpha=0.7,
+            xlim=(0.0, 0.05),
+            ylim=(-1.0, 1.0),
+        )
+        ax = self._get_axes_list(res)[0]
 
-        # This should trigger line 442 (alpha != 1.0)
-        try:
-            res = signal.plot(alpha=0.5)
-            ax_list = self._get_axes_list(res)
-            assert len(ax_list) > 0
-            assert isinstance(ax_list[0], Axes)
-            # Check alpha on the first line
-            lines = ax_list[0].get_lines()
-            if lines:
-                assert lines[0].get_alpha() == 0.5
-        except Exception as e:
-            if "tight_layout" in str(e) or "_NoValueType" in str(e):
-                pytest.skip(f"Plot failed due to matplotlib issue: {e}")
-            raise
+        assert ax.get_xlabel() == "Time"
+        assert ax.get_ylabel() == "Amplitude"
+        assert ax.get_xlim() == pytest.approx((0.0, 0.05))
+        assert ax.get_ylim() == pytest.approx((-1.0, 1.0))
 
-    def test_plot_with_xlim(self) -> None:
-        """Test plot with custom xlim."""
-        signal = wd.generate_sin(freqs=[440], duration=0.1, sampling_rate=16000)
-
-        # This should trigger line 444
-        try:
-            res = signal.plot(xlim=(0.0, 0.05))
-            ax_list = self._get_axes_list(res)
-            assert len(ax_list) > 0
-            assert isinstance(ax_list[0], Axes)
-            assert ax_list[0].get_xlim() == (0.0, 0.05)
-        except Exception as e:
-            if "tight_layout" in str(e) or "_NoValueType" in str(e):
-                pytest.skip(f"Plot failed due to matplotlib issue: {e}")
-            raise
-
-    def test_plot_with_combined_parameters(self) -> None:
-        """Test plot with multiple optional parameters."""
-        signal = wd.generate_sin(freqs=[440], duration=0.1, sampling_rate=16000)
-
-        # Test multiple parameters at once
-        try:
-            res = signal.plot(
-                xlabel="Time",
-                ylabel="Amplitude",
-                alpha=0.7,
-                xlim=(0.0, 0.05),
-                ylim=(-1.0, 1.0),
-            )
-            ax_list = self._get_axes_list(res)
-            assert len(ax_list) > 0
-            assert isinstance(ax_list[0], Axes)
-
-            assert ax_list[0].get_xlabel() == "Time"
-            assert ax_list[0].get_ylabel() == "Amplitude"
-            assert ax_list[0].get_xlim() == (0.0, 0.05)
-            assert ax_list[0].get_ylim() == (-1.0, 1.0)
-
-            lines = ax_list[0].get_lines()
-            if lines:
-                assert lines[0].get_alpha() == 0.7
-        except Exception as e:
-            if "tight_layout" in str(e) or "_NoValueType" in str(e):
-                pytest.skip(f"Plot failed due to matplotlib issue: {e}")
-            raise
+        lines = ax.get_lines()
+        if lines:
+            assert lines[0].get_alpha() == 0.7
 
 
 def test_spectrogram_plot_single_channel_axs_conversion() -> None:
