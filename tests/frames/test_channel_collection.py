@@ -51,6 +51,8 @@ class TestChannelFrameCollection:
         cf = ChannelFrame.from_numpy(arr, sampling_rate=1000, ch_labels=["A"])
         dask_ch = da.ones(8, chunks=8)
         cf2 = cf.add_channel(dask_ch, label="B")
+        assert cf2 is not cf  # Pillar 1: immutability
+        assert cf.n_channels == 1  # Pillar 1: original unchanged
         assert cf2.n_channels == 2
         assert [ch.label for ch in cf2._channel_metadata] == ["A", "B"]
 
@@ -103,6 +105,8 @@ class TestChannelFrameCollection:
         arr = np.arange(16).reshape(2, 8)
         cf = ChannelFrame.from_numpy(arr, sampling_rate=1000, ch_labels=["L", "R"])
         cf2 = cf.remove_channel(0)
+        assert cf2 is not cf  # Pillar 1: immutability
+        assert cf.n_channels == 2  # Pillar 1: original unchanged
         assert cf2.n_channels == 1
         assert cf2._channel_metadata[0].label == "R"
 
@@ -110,6 +114,8 @@ class TestChannelFrameCollection:
         arr = np.arange(16).reshape(2, 8)
         cf = ChannelFrame.from_numpy(arr, sampling_rate=1000, ch_labels=["L", "R"])
         cf2 = cf.remove_channel("L")
+        assert cf2 is not cf  # Pillar 1: immutability
+        assert cf.n_channels == 2  # Pillar 1: original unchanged
         assert cf2.n_channels == 1
         assert cf2._channel_metadata[0].label == "R"
 
