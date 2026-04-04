@@ -1,6 +1,5 @@
 from unittest import mock
 
-import dask.array as da
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
@@ -15,566 +14,636 @@ from wandas.processing.temporal import (
     Trim,
 )
 from wandas.processing.weighting import frequency_weighting
+from wandas.utils.dask_helpers import da_from_array
 from wandas.utils.types import NDArrayReal
 
-_da_from_array = da.from_array
+_SR: int = 16000
 
 
 class TestReSampling:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.orig_sr: int = 16000
-        self.target_sr: int = 8000
-        self.resampler = ReSampling(self.orig_sr, self.target_sr)
+    """ReSampling operation: Layer 1 + Layer 2 + Layer 3 (scipy reference)."""
 
-        # Create sample signal: 1 second sine wave at 440 Hz
-        t = np.linspace(0, 1, self.orig_sr, endpoint=False)
-        self.signal_mono: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t)])
-        self.signal_stereo: NDArrayReal = np.array(
-            [
-                np.sin(2 * np.pi * 440 * t),
-                np.sin(2 * np.pi * 880 * t),
-            ]
-        )
+    _ORIG_SR: int = _SR
+    _TARGET_SR: int = 8000
 
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
+    # -- Layer 1: Unit tests -----------------------------------------------
 
-    def test_initialization(self) -> None:
-        """Test initialization with different parameters."""
-        resampler = ReSampling(self.orig_sr, self.target_sr)
-        assert resampler.sampling_rate == self.orig_sr
-        assert resampler.target_sr == self.target_sr
+    def test_resampling_init_stores_rates(self) -> None:
+        """Test ReSampling stores source and target sampling rates."""
+        r = ReSampling(self._ORIG_SR, self._TARGET_SR)
+        assert r.sampling_rate == self._ORIG_SR
+        assert r.target_sr == self._TARGET_SR
 
-    def test_resampling_shape(self) -> None:
-        """Test resampling output shape."""
-        # Downsample
-        result = self.resampler.process(self.dask_mono).compute()
-        expected_len = int(np.ceil(self.signal_mono.shape[1] * (self.target_sr / self.orig_sr)))
-        assert result.shape == (1, expected_len)
-
-        # Upsample
-        upsampler = ReSampling(self.orig_sr, self.orig_sr * 2)
-        result = upsampler.process(self.dask_mono).compute()
-        expected_len = int(np.ceil(self.signal_mono.shape[1] * 2))
-        assert result.shape == (1, expected_len)
-
-        # Stereo
-        result = self.resampler.process(self.dask_stereo).compute()
-        expected_len = int(np.ceil(self.signal_stereo.shape[1] * (self.target_sr / self.orig_sr)))
-        assert result.shape == (2, expected_len)
-
-    def test_resampling_content(self) -> None:
-        """Test resampled content frequency preservation."""
-        # Create test signal with a specific frequency
-        freq = 440.0  # Hz
-        t_orig = np.linspace(0, 1, self.orig_sr, endpoint=False)
-        signal = np.array([np.sin(2 * np.pi * freq * t_orig)])
-        dask_signal = _da_from_array(signal, chunks=(1, -1))
-
-        # Resample
-        result = self.resampler.process(dask_signal).compute()
-
-        # Check if frequency is preserved
-        peak_freq_orig = self._get_peak_frequency(signal[0], self.orig_sr)
-        peak_freq_resampled = self._get_peak_frequency(result[0], self.target_sr)
-
-        # Allow a small difference due to interpolation
-        np.testing.assert_allclose(peak_freq_orig, peak_freq_resampled, rtol=0.1)
-
-    def _get_peak_frequency(self, signal: NDArrayReal, sr: int) -> float:
-        """Get the peak frequency from a signal."""
-        n = len(signal)
-        fft_result = np.abs(np.fft.rfft(signal))
-        freqs = np.fft.rfftfreq(n, 1 / sr)
-        peak_idx = np.argmax(fft_result)
-        return float(freqs[peak_idx])
-
-    def test_operation_registry(self) -> None:
-        """Test that ReSampling is properly registered in the operation registry."""
+    def test_resampling_registry_returns_correct_class(self) -> None:
+        """Test that ReSampling is registered as 'resampling'."""
         assert get_operation("resampling") == ReSampling
+        r = create_operation("resampling", 16000, target_sr=22050)
+        assert isinstance(r, ReSampling)
+        assert r.sampling_rate == 16000
+        assert r.target_sr == 22050
 
-        resampling_op = create_operation("resampling", 16000, target_sr=22050)
-
-        assert isinstance(resampling_op, ReSampling)
-        assert resampling_op.sampling_rate == 16000
-        assert resampling_op.target_sr == 22050
-
-    def test_negative_source_sampling_rate_error_message(self) -> None:
-        """Test that negative source sampling rate provides helpful error message."""
+    def test_resampling_negative_source_sr_raises(self) -> None:
+        """Test negative source sampling rate provides WHAT/WHY/HOW error."""
         with pytest.raises(ValueError) as exc_info:
             ReSampling(sampling_rate=-44100, target_sr=22050)
-
         error_msg = str(exc_info.value)
-        # Check WHAT
         assert "Invalid source sampling rate" in error_msg
         assert "-44100" in error_msg
-        # Check WHY
         assert "Positive value" in error_msg
-        # Check HOW
         assert "Common values:" in error_msg
-        assert "44100" in error_msg
 
-    def test_zero_source_sampling_rate_error_message(self) -> None:
-        """Test that zero source sampling rate provides helpful error message."""
-        with pytest.raises(ValueError) as exc_info:
+    def test_resampling_zero_source_sr_raises(self) -> None:
+        """Test zero source sampling rate raises error."""
+        with pytest.raises(ValueError, match="Invalid source sampling rate"):
             ReSampling(sampling_rate=0, target_sr=22050)
 
-        error_msg = str(exc_info.value)
-        # Check WHAT
-        assert "Invalid source sampling rate" in error_msg
-        # Check WHY
-        assert "Positive value" in error_msg
-
-    def test_negative_target_sampling_rate_error_message(self) -> None:
-        """Test that negative target sampling rate provides helpful error message."""
+    def test_resampling_negative_target_sr_raises(self) -> None:
+        """Test negative target sampling rate provides WHAT/WHY/HOW error."""
         with pytest.raises(ValueError) as exc_info:
             ReSampling(sampling_rate=44100, target_sr=-22050)
-
         error_msg = str(exc_info.value)
-        # Check WHAT
         assert "Invalid target sampling rate" in error_msg
         assert "-22050" in error_msg
-        # Check WHY
         assert "Positive value" in error_msg
-        # Check HOW
-        assert "Common values:" in error_msg
 
-    def test_zero_target_sampling_rate_error_message(self) -> None:
-        """Test that zero target sampling rate provides helpful error message."""
-        with pytest.raises(ValueError) as exc_info:
+    def test_resampling_zero_target_sr_raises(self) -> None:
+        """Test zero target sampling rate raises error."""
+        with pytest.raises(ValueError, match="Invalid target sampling rate"):
             ReSampling(sampling_rate=44100, target_sr=0)
 
-        error_msg = str(exc_info.value)
-        # Check WHAT
-        assert "Invalid target sampling rate" in error_msg
-        # Check WHY
-        assert "Positive value" in error_msg
+    # -- Layer 2: Domain (shape + immutability) ----------------------------
+
+    def test_resampling_preserves_immutability_and_dask_type(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
+        """Input unchanged after resampling; result is DaArray."""
+        dask_input, sr = pure_sine_440hz_dask
+        resampler = ReSampling(sr, self._TARGET_SR)
+        input_copy = dask_input.compute().copy()
+
+        result_da = resampler.process(dask_input)
+
+        # Pillar 1: immutability
+        assert result_da is not dask_input
+        np.testing.assert_array_equal(dask_input.compute(), input_copy)
+        assert isinstance(result_da, DaArray)
+
+    def test_resampling_downsample_shape_mono(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
+        """Downsample 16 kHz -> 8 kHz halves sample count for mono."""
+        dask_input, sr = pure_sine_440hz_dask
+        resampler = ReSampling(sr, self._TARGET_SR)
+
+        result = resampler.process(dask_input).compute()
+        expected_len = int(np.ceil(dask_input.shape[1] * (self._TARGET_SR / sr)))
+        assert result.shape == (1, expected_len)
+
+    def test_resampling_upsample_shape_mono(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
+        """Upsample 16 kHz -> 32 kHz doubles sample count."""
+        dask_input, sr = pure_sine_440hz_dask
+        upsampler = ReSampling(sr, sr * 2)
+
+        result = upsampler.process(dask_input).compute()
+        expected_len = int(np.ceil(dask_input.shape[1] * 2))
+        assert result.shape == (1, expected_len)
+
+    def test_resampling_stereo_shape(self, stereo_sine_440_880hz_dask: tuple[DaArray, int]) -> None:
+        """Stereo resampling preserves channel count."""
+        dask_input, sr = stereo_sine_440_880hz_dask
+        resampler = ReSampling(sr, self._TARGET_SR)
+
+        result = resampler.process(dask_input).compute()
+        expected_len = int(np.ceil(dask_input.shape[1] * (self._TARGET_SR / sr)))
+        assert result.shape == (2, expected_len)
+
+    # -- Layer 3: Frequency preservation -----------------------------------
+
+    def test_resampling_preserves_peak_frequency(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
+        """Peak frequency preserved after resampling (FFT verification).
+
+        Tolerance: rtol=0.1 — FFT bin resolution difference between rates.
+        """
+        dask_input, sr = pure_sine_440hz_dask
+        resampler = ReSampling(sr, self._TARGET_SR)
+
+        result = resampler.process(dask_input).compute()
+
+        # Measure peak frequency in both signals
+        orig = dask_input.compute()[0]
+        peak_orig = self._peak_freq(orig, sr)
+        peak_resampled = self._peak_freq(result[0], self._TARGET_SR)
+
+        np.testing.assert_allclose(
+            peak_orig,
+            peak_resampled,
+            rtol=0.1,  # FFT bin resolution difference between 16 kHz and 8 kHz
+        )
+
+    @staticmethod
+    def _peak_freq(signal: NDArrayReal, sr: int) -> float:
+        """Get the dominant frequency from FFT."""
+        fft_result = np.abs(np.fft.rfft(signal))
+        freqs = np.fft.rfftfreq(len(signal), 1 / sr)
+        return float(freqs[np.argmax(fft_result)])
 
 
 class TestTrim:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 16000
-        self.start_time: float = 0.1  # seconds
-        self.end_time: float = 0.5  # seconds
-        self.trim = Trim(self.sample_rate, self.start_time, self.end_time)
+    """Trim operation: Layer 1 + Layer 2 + Layer 3 (slice equivalence)."""
 
-        # Create sample signal: 1 second sine wave at 440 Hz
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        self.signal_mono: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t)])
-        self.signal_stereo: NDArrayReal = np.array(
-            [
-                np.sin(2 * np.pi * 440 * t),
-                np.sin(2 * np.pi * 880 * t),
-            ]
-        )
+    _START: float = 0.1
+    _END: float = 0.5
 
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
+    # -- Layer 1: Unit tests -----------------------------------------------
 
-    def test_initialization(self) -> None:
-        """Test initialization with different parameters."""
-        trim = Trim(self.sample_rate, self.start_time, self.end_time)
-        assert trim.sampling_rate == self.sample_rate
-        assert trim.start == self.start_time
-        assert trim.end == self.end_time
-        assert trim.start_sample == int(self.start_time * self.sample_rate)
-        assert trim.end_sample == int(self.end_time * self.sample_rate)
+    def test_trim_init_stores_params(self) -> None:
+        """Test Trim stores start/end times and derived sample indices."""
+        trim = Trim(_SR, self._START, self._END)
+        assert trim.sampling_rate == _SR
+        assert trim.start == self._START
+        assert trim.end == self._END
+        assert trim.start_sample == int(self._START * _SR)
+        assert trim.end_sample == int(self._END * _SR)
 
-    def test_trim_shape(self) -> None:
-        """Test trimming output shape."""
-        result = self.trim.process(self.dask_mono).compute()
-        expected_samples = int(self.end_time * self.sample_rate) - int(self.start_time * self.sample_rate)
+    def test_trim_registry_returns_correct_class(self) -> None:
+        """Test that Trim is registered as 'trim'."""
+        assert get_operation("trim") == Trim
+        t = create_operation("trim", 16000, start=0.2, end=0.8)
+        assert isinstance(t, Trim)
+        assert t.start == 0.2
+        assert t.end == 0.8
+
+    # -- Layer 2: Domain (shape + immutability) ----------------------------
+
+    def test_trim_preserves_immutability_and_dask_type(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
+        """Input unchanged after trimming; result is DaArray."""
+        dask_input, sr = pure_sine_440hz_dask
+        trim = Trim(sr, self._START, self._END)
+        input_copy = dask_input.compute().copy()
+
+        result_da = trim.process(dask_input)
+
+        assert result_da is not dask_input
+        np.testing.assert_array_equal(dask_input.compute(), input_copy)
+        assert isinstance(result_da, DaArray)
+
+    def test_trim_shape_mono(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
+        """Trimmed mono shape matches expected sample range."""
+        dask_input, sr = pure_sine_440hz_dask
+        trim = Trim(sr, self._START, self._END)
+
+        result = trim.process(dask_input).compute()
+        expected_samples = int(self._END * sr) - int(self._START * sr)
         assert result.shape == (1, expected_samples)
 
-        result_stereo = self.trim.process(self.dask_stereo).compute()
-        assert result_stereo.shape == (2, expected_samples)
+    def test_trim_shape_stereo(self, stereo_sine_440_880hz_dask: tuple[DaArray, int]) -> None:
+        """Trimmed stereo preserves channel count."""
+        dask_input, sr = stereo_sine_440_880hz_dask
+        trim = Trim(sr, self._START, self._END)
 
-    def test_trim_content(self) -> None:
-        """Test trimming preserves signal content."""
-        result = self.trim.process(self.dask_mono).compute()
+        result = trim.process(dask_input).compute()
+        expected_samples = int(self._END * sr) - int(self._START * sr)
+        assert result.shape == (2, expected_samples)
 
-        start_idx = int(self.start_time * self.sample_rate)
-        end_idx = int(self.end_time * self.sample_rate)
-        expected = self.signal_mono[:, start_idx:end_idx]
+    # -- Layer 3: Slice equivalence ----------------------------------------
 
-        np.testing.assert_allclose(result, expected)
+    def test_trim_content_matches_numpy_slice(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
+        """Trimmed result equals direct numpy slice (exact, no tolerance).
 
-    def test_operation_registry(self) -> None:
-        """Test that Trim is properly registered in the operation registry."""
-        assert get_operation("trim") == Trim
+        Tolerance: none — slicing is exact, no numerical transformation.
+        """
+        dask_input, sr = pure_sine_440hz_dask
+        trim = Trim(sr, self._START, self._END)
 
-        trim_op = create_operation("trim", 16000, start=0.2, end=0.8)
+        result = trim.process(dask_input).compute()
 
-        assert isinstance(trim_op, Trim)
-        assert trim_op.sampling_rate == 16000
-        assert trim_op.start == 0.2
-        assert trim_op.end == 0.8
+        start_idx = int(self._START * sr)
+        end_idx = int(self._END * sr)
+        expected = dask_input.compute()[:, start_idx:end_idx]
+        np.testing.assert_array_equal(result, expected)
 
 
 class TestRmsTrend:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 16000
-        self.frame_length: int = 2048
-        self.hop_length: int = 512
-        self.rms_trend = RmsTrend(self.sample_rate, frame_length=self.frame_length, hop_length=self.hop_length)
+    """RmsTrend operation: Layer 1 + Layer 2 + Layer 3 (librosa reference)."""
 
-        # Create sample signal: 1 second sine wave at 440 Hz
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        self.signal_mono: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t)])
-        # Create amplitude-modulated signal
-        self.am_signal = np.array([np.sin(2 * np.pi * 440 * t) * (0.5 + 0.5 * np.sin(2 * np.pi * 5 * t))])
+    _FRAME: int = 2048
+    _HOP: int = 512
 
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
-        self.dask_am: DaArray = _da_from_array(self.am_signal, chunks=(1, -1))
+    # -- Layer 1: Unit tests -----------------------------------------------
 
-    def test_initialization(self) -> None:
-        """Test initialization with different parameters."""
-        rms = RmsTrend(self.sample_rate)
-        assert rms.sampling_rate == self.sample_rate
-        assert rms.frame_length == 2048  # Default value
-        assert rms.hop_length == 512  # Default value
+    def test_rms_trend_init_default_params(self) -> None:
+        """Test RmsTrend default parameters."""
+        rms = RmsTrend(_SR)
+        assert rms.sampling_rate == _SR
+        assert rms.frame_length == 2048
+        assert rms.hop_length == 512
         assert rms.dB is False
         assert rms.Aw is False
 
-        custom_rms = RmsTrend(self.sample_rate, frame_length=1024, hop_length=256, dB=True, Aw=True)
-        assert custom_rms.frame_length == 1024
-        assert custom_rms.hop_length == 256
-        assert custom_rms.dB is True
-        assert custom_rms.Aw is True
+    def test_rms_trend_init_custom_params(self) -> None:
+        """Test RmsTrend stores custom parameters."""
+        rms = RmsTrend(_SR, frame_length=1024, hop_length=256, dB=True, Aw=True)
+        assert rms.frame_length == 1024
+        assert rms.hop_length == 256
+        assert rms.dB is True
+        assert rms.Aw is True
 
-    def test_rms_shape(self) -> None:
-        """Test RMS calculation output shape."""
-        result = self.rms_trend.process(self.dask_mono).compute()
-
-        # Expected number of frames
-        import librosa
-
-        expected_frames = librosa.feature.rms(
-            y=self.signal_mono,
-            frame_length=self.frame_length,
-            hop_length=self.hop_length,
-        ).shape[-1]
-
-        assert result.shape == (1, expected_frames)
-
-    def test_rms_content(self) -> None:
-        """Test RMS content correctness."""
-        # For a constant amplitude sine wave, RMS should be consistent
-        result = self.rms_trend.process(self.dask_mono).compute()
-        expected_rms = 1 / np.sqrt(2)  # For a sine wave with amplitude 1
-        np.testing.assert_allclose(np.mean(result), expected_rms, rtol=0.1)
-
-        # For AM signal, RMS should vary
-        result_am = self.rms_trend.process(self.dask_am).compute()
-        assert np.std(result_am) > 0.1 * np.mean(result_am)
-
-    def test_db_conversion(self) -> None:
-        """Test dB conversion."""
-        rms_db = RmsTrend(self.sample_rate, dB=True, ref=1.0)
-        result = rms_db.process(self.dask_mono).compute()
-
-        # Expected RMS value in dB
-        expected_rms_linear = 1 / np.sqrt(2)
-        expected_rms_db = 20 * np.log10(expected_rms_linear)
-
-        np.testing.assert_allclose(np.mean(result), expected_rms_db, rtol=0.1)
-
-    def test_db_conversion_with_ref(self) -> None:
-        """Test dB conversion with custom ref value."""
-        # RMS値は1/sqrt(2)
-        rms_value = 1 / np.sqrt(2)
-        # ref=0.5 で dB変換
-        rms_db = RmsTrend(self.sample_rate, dB=True, ref=0.5)
-        result = rms_db.process(self.dask_mono).compute()
-        # 期待されるdB値
-        expected_rms_db = 20 * np.log10(rms_value / 0.5)
-        np.testing.assert_allclose(np.mean(result), expected_rms_db, rtol=0.1)
-
-    def test_a_weighting(self) -> None:
-        """Test A-weighting effect on RMS."""
-        rms_normal = RmsTrend(self.sample_rate)
-        rms_aweighted = RmsTrend(self.sample_rate, Aw=True)
-
-        # Create test signal with low frequency content (which A-weighting attenuates)
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        signal_low_freq = np.array([np.sin(2 * np.pi * 50 * t)])  # 50 Hz
-        dask_low_freq = _da_from_array(signal_low_freq, chunks=(1, -1))
-
-        result_normal = rms_normal.process(dask_low_freq).compute()
-        result_aweighted = rms_aweighted.process(dask_low_freq).compute()
-
-        # A-weighting should attenuate low frequencies
-        assert np.mean(result_aweighted) < np.mean(result_normal)
-
-    def test_operation_registry(self) -> None:
-        """Test that RmsTrend is properly registered in the operation registry."""
+    def test_rms_trend_registry_returns_correct_class(self) -> None:
+        """Test that RmsTrend is registered as 'rms_trend'."""
         assert get_operation("rms_trend") == RmsTrend
-
         rms_op = create_operation("rms_trend", 16000, frame_length=1024, hop_length=256, dB=True)
-
         assert isinstance(rms_op, RmsTrend)
         assert rms_op.frame_length == 1024
         assert rms_op.hop_length == 256
         assert rms_op.dB is True
 
-    def test_a_weighting_returns_tuple(self) -> None:
-        """Test that A_weight returning a tuple uses the first element."""
-        rms = RmsTrend(self.sample_rate, Aw=True)
-        arr = self.signal_mono.copy()
-        # Mock A_weight to return a tuple (array, None)
+    def test_rms_trend_ref_as_list_converts_to_ndarray(self) -> None:
+        """Test that ref provided as a list is converted to numpy array."""
+        rms = RmsTrend(_SR, dB=True, ref=[1.0])
+        assert isinstance(rms.ref, np.ndarray)
+        assert rms.ref.shape == (1,)
+
+    # -- Layer 2: Domain (shape + immutability) ----------------------------
+
+    def test_rms_trend_preserves_immutability_and_dask_type(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
+        """Input unchanged after RMS computation; result is DaArray."""
+        dask_input, sr = pure_sine_440hz_dask
+        rms = RmsTrend(sr, frame_length=self._FRAME, hop_length=self._HOP)
+        input_copy = dask_input.compute().copy()
+
+        result_da = rms.process(dask_input)
+
+        assert result_da is not dask_input
+        np.testing.assert_array_equal(dask_input.compute(), input_copy)
+        assert isinstance(result_da, DaArray)
+
+    def test_rms_trend_output_shape_matches_librosa(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
+        """Output frame count matches librosa.feature.rms reference."""
+        import librosa
+
+        dask_input, sr = pure_sine_440hz_dask
+        rms = RmsTrend(sr, frame_length=self._FRAME, hop_length=self._HOP)
+        result = rms.process(dask_input).compute()
+
+        expected_frames = librosa.feature.rms(
+            y=dask_input.compute(),
+            frame_length=self._FRAME,
+            hop_length=self._HOP,
+        ).shape[-1]
+        assert result.shape == (1, expected_frames)
+
+    # -- Layer 3: Numerical verification -----------------------------------
+
+    def test_rms_trend_sine_wave_matches_theoretical_rms(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
+        """Steady-state sine RMS approaches 1/sqrt(2).
+
+        Tolerance: rtol=0.1 — windowed RMS frames have boundary effects.
+        """
+        dask_input, sr = pure_sine_440hz_dask
+        rms = RmsTrend(sr, frame_length=self._FRAME, hop_length=self._HOP)
+        result = rms.process(dask_input).compute()
+
+        expected_rms = 1 / np.sqrt(2)  # Theoretical RMS for amplitude-1 sine
+        np.testing.assert_allclose(
+            np.mean(result),
+            expected_rms,
+            rtol=0.1,  # Boundary frames pull the mean slightly
+        )
+
+    def test_rms_trend_am_signal_has_high_variance(self) -> None:
+        """Amplitude-modulated signal produces RMS with high variance."""
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        am = np.array([np.sin(2 * np.pi * 440 * t) * (0.5 + 0.5 * np.sin(2 * np.pi * 5 * t))])
+        dask_am = da_from_array(am, chunks=(1, -1))
+        rms = RmsTrend(_SR, frame_length=self._FRAME, hop_length=self._HOP)
+
+        result = rms.process(dask_am).compute()
+        # AM modulation should create significant RMS variation
+        assert np.std(result) > 0.1 * np.mean(result)
+
+    def test_rms_trend_db_conversion_matches_formula(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
+        """dB output matches 20*log10(RMS/ref).
+
+        Tolerance: rtol=0.1 — windowed boundary effects.
+        """
+        dask_input, sr = pure_sine_440hz_dask
+        rms_db = RmsTrend(sr, dB=True, ref=1.0)
+        result = rms_db.process(dask_input).compute()
+
+        expected_rms_linear = 1 / np.sqrt(2)
+        expected_rms_db = 20 * np.log10(expected_rms_linear)
+        np.testing.assert_allclose(
+            np.mean(result),
+            expected_rms_db,
+            rtol=0.1,
+        )
+
+    def test_rms_trend_db_with_custom_ref(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
+        """dB output with custom ref matches 20*log10(RMS/ref).
+
+        Tolerance: rtol=0.1 — windowed boundary effects.
+        """
+        dask_input, sr = pure_sine_440hz_dask
+        rms_db = RmsTrend(sr, dB=True, ref=0.5)
+        result = rms_db.process(dask_input).compute()
+
+        rms_value = 1 / np.sqrt(2)
+        expected_rms_db = 20 * np.log10(rms_value / 0.5)
+        np.testing.assert_allclose(
+            np.mean(result),
+            expected_rms_db,
+            rtol=0.1,
+        )
+
+    def test_rms_trend_a_weighting_attenuates_low_freq(self) -> None:
+        """A-weighting attenuates 50 Hz RMS compared to unweighted."""
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        low_freq = np.array([np.sin(2 * np.pi * 50 * t)])
+        dask_low = da_from_array(low_freq, chunks=(1, -1))
+
+        rms_normal = RmsTrend(_SR)
+        rms_aw = RmsTrend(_SR, Aw=True)
+
+        result_normal = rms_normal.process(dask_low).compute()
+        result_aw = rms_aw.process(dask_low).compute()
+
+        assert np.mean(result_aw) < np.mean(result_normal)
+
+    def test_rms_trend_a_weighting_tuple_return(self) -> None:
+        """A_weight returning a tuple uses the first element."""
+        rms = RmsTrend(_SR, Aw=True)
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        arr = np.array([np.sin(2 * np.pi * 440 * t)])
         tuple_result = (arr, None)
         with mock.patch("wandas.processing.temporal.A_weight", return_value=tuple_result):
             result = rms._process_array(arr)
         assert result.shape[0] == 1
         assert result.ndim == 2
 
-    def test_a_weighting_returns_unexpected_type(self) -> None:
-        """Test that A_weight returning an unexpected type raises ValueError."""
-        rms = RmsTrend(self.sample_rate, Aw=True)
-        arr = self.signal_mono.copy()
+    def test_rms_trend_a_weighting_unexpected_type_raises(self) -> None:
+        """A_weight returning unexpected type raises ValueError."""
+        rms = RmsTrend(_SR, Aw=True)
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        arr = np.array([np.sin(2 * np.pi * 440 * t)])
         with mock.patch("wandas.processing.temporal.A_weight", return_value=42):
             with pytest.raises(ValueError, match="A_weighting returned an unexpected type"):
                 rms._process_array(arr)
 
-    def test_ref_as_list(self) -> None:
-        """Test that ref provided as a list is converted to a numpy array."""
-        rms = RmsTrend(self.sample_rate, dB=True, ref=[1.0])
-        assert isinstance(rms.ref, np.ndarray)
-        assert rms.ref.shape == (1,)
-
 
 class TestFixLength:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 16000
-        self.target_length: int = 8000  # サンプル単位での目標長
-        self.target_duration: float = 0.5  # 秒単位での目標長
-        self.fix_length = FixLength(self.sample_rate, length=self.target_length)
+    """FixLength operation: Layer 1 + Layer 2 + Layer 3 (pad/truncate verification)."""
 
-        # 1秒のサイン波（440Hz）のサンプル信号を作成
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        self.signal_mono: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t)])
-        self.signal_stereo: NDArrayReal = np.array(
-            [
-                np.sin(2 * np.pi * 440 * t),
-                np.sin(2 * np.pi * 880 * t),
-            ]
-        )
+    _TARGET: int = 8000
 
-        # 短い信号（目標長より短い）
-        t_short = np.linspace(0, 0.25, int(self.sample_rate * 0.25), endpoint=False)
-        self.short_signal: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t_short)])
+    # -- Layer 1: Unit tests -----------------------------------------------
 
-        # 長い信号（目標長より長い）
-        t_long = np.linspace(0, 2, int(self.sample_rate * 2), endpoint=False)
-        self.long_signal: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t_long)])
+    def test_fix_length_init_with_length(self) -> None:
+        """Test FixLength stores target length from samples."""
+        fl = FixLength(_SR, length=self._TARGET)
+        assert fl.sampling_rate == _SR
+        assert fl.target_length == self._TARGET
 
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
-        self.dask_short: DaArray = _da_from_array(self.short_signal, chunks=(1, -1))
-        self.dask_long: DaArray = _da_from_array(self.long_signal, chunks=(1, -1))
+    def test_fix_length_init_with_duration(self) -> None:
+        """Test FixLength computes target length from duration."""
+        fl = FixLength(_SR, duration=0.5)
+        assert fl.target_length == int(0.5 * _SR)
 
-    def test_initialization(self) -> None:
-        """異なるパラメータでの初期化をテストします。"""
-        # lengthで初期化
-        fix_length = FixLength(self.sample_rate, length=self.target_length)
-        assert fix_length.sampling_rate == self.sample_rate
-        assert fix_length.target_length == self.target_length
-
-        # durationで初期化
-        fix_duration = FixLength(self.sample_rate, duration=self.target_duration)
-        assert fix_duration.target_length == int(self.target_duration * self.sample_rate)
-
-        # パラメータなしの場合はエラー
+    def test_fix_length_init_no_param_raises(self) -> None:
+        """Test FixLength without length or duration raises ValueError."""
         with pytest.raises(ValueError):
-            FixLength(self.sample_rate)
+            FixLength(_SR)
 
-    def test_fix_length_shape(self) -> None:
-        """出力形状をテストします。"""
-        # 標準のモノラル信号
-        result = self.fix_length.process(self.dask_mono).compute()
-        assert result.shape == (1, self.target_length)
+    def test_fix_length_registry_returns_correct_class(self) -> None:
+        """Test that FixLength is registered as 'fix_length'."""
+        assert get_operation("fix_length") == FixLength
+        fl = create_operation("fix_length", 16000, length=12000)
+        assert isinstance(fl, FixLength)
+        assert fl.target_length == 12000
 
-        # ステレオ信号
-        result_stereo = self.fix_length.process(self.dask_stereo).compute()
-        assert result_stereo.shape == (2, self.target_length)
+        fl2 = create_operation("fix_length", 16000, duration=0.75)
+        assert isinstance(fl2, FixLength)
+        assert fl2.target_length == int(0.75 * 16000)
 
-        # 短い信号（パディングが必要）
-        result_short = self.fix_length.process(self.dask_short).compute()
-        assert result_short.shape == (1, self.target_length)
+    # -- Layer 2: Domain (shape + immutability) ----------------------------
 
-        # 長い信号（切り詰めが必要）
-        result_long = self.fix_length.process(self.dask_long).compute()
-        assert result_long.shape == (1, self.target_length)
+    def test_fix_length_preserves_immutability_and_dask_type(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
+        """Input unchanged after fix_length; result is DaArray."""
+        dask_input, sr = pure_sine_440hz_dask
+        fl = FixLength(sr, length=self._TARGET)
+        input_copy = dask_input.compute().copy()
 
-    def test_fix_length_content(self) -> None:
-        """処理内容をテストします。"""
-        # 短い信号のパディング
-        result_short = self.fix_length.process(self.dask_short).compute()
-        # 元の部分は同じ
-        np.testing.assert_allclose(result_short[0, : self.short_signal.shape[1]], self.short_signal[0])
-        # パディング部分はゼロ
-        assert np.allclose(
-            result_short[0, self.short_signal.shape[1] :],
-            np.zeros(self.target_length - self.short_signal.shape[1]),
+        result_da = fl.process(dask_input)
+
+        assert result_da is not dask_input
+        np.testing.assert_array_equal(dask_input.compute(), input_copy)
+        assert isinstance(result_da, DaArray)
+
+    def test_fix_length_mono_shape(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
+        """Mono output shape matches target length."""
+        dask_input, sr = pure_sine_440hz_dask
+        fl = FixLength(sr, length=self._TARGET)
+        result = fl.process(dask_input).compute()
+        assert result.shape == (1, self._TARGET)
+
+    def test_fix_length_stereo_shape(self, stereo_sine_440_880hz_dask: tuple[DaArray, int]) -> None:
+        """Stereo output shape preserves channels and matches target."""
+        dask_input, sr = stereo_sine_440_880hz_dask
+        fl = FixLength(sr, length=self._TARGET)
+        result = fl.process(dask_input).compute()
+        assert result.shape == (2, self._TARGET)
+
+    def test_fix_length_short_signal_padded(self) -> None:
+        """Short signal zero-padded to target length."""
+        t_short = np.linspace(0, 0.25, int(_SR * 0.25), endpoint=False)
+        short_sig = np.array([np.sin(2 * np.pi * 440 * t_short)])
+        dask_short = da_from_array(short_sig, chunks=(1, -1))
+        fl = FixLength(_SR, length=self._TARGET)
+
+        result = fl.process(dask_short).compute()
+        assert result.shape == (1, self._TARGET)
+
+    def test_fix_length_long_signal_truncated(self) -> None:
+        """Long signal truncated to target length."""
+        t_long = np.linspace(0, 2, int(_SR * 2), endpoint=False)
+        long_sig = np.array([np.sin(2 * np.pi * 440 * t_long)])
+        dask_long = da_from_array(long_sig, chunks=(1, -1))
+        fl = FixLength(_SR, length=self._TARGET)
+
+        result = fl.process(dask_long).compute()
+        assert result.shape == (1, self._TARGET)
+
+    # -- Layer 3: Content verification -------------------------------------
+
+    def test_fix_length_padding_content_exact(self) -> None:
+        """Padded short signal: original preserved, padding is zero.
+
+        Tolerance: none — slice + zero-pad is exact.
+        """
+        t_short = np.linspace(0, 0.25, int(_SR * 0.25), endpoint=False)
+        short_sig = np.array([np.sin(2 * np.pi * 440 * t_short)])
+        dask_short = da_from_array(short_sig, chunks=(1, -1))
+        fl = FixLength(_SR, length=self._TARGET)
+
+        result = fl.process(dask_short).compute()
+
+        # Original part preserved exactly
+        np.testing.assert_allclose(result[0, : short_sig.shape[1]], short_sig[0])
+        # Padding is zero
+        np.testing.assert_array_equal(
+            result[0, short_sig.shape[1] :],
+            np.zeros(self._TARGET - short_sig.shape[1]),
         )
 
-        # 長い信号の切り詰め
-        result_long = self.fix_length.process(self.dask_long).compute()
-        # 保持された部分は元のデータと同じ
-        np.testing.assert_allclose(result_long[0], self.long_signal[0, : self.target_length])
+    def test_fix_length_truncation_content_exact(self) -> None:
+        """Truncated long signal matches numpy slice (exact).
 
-    def test_operation_registry(self) -> None:
-        """オペレーションレジストリにFixLengthが適切に登録されているかテストします。"""
-        assert get_operation("fix_length") == FixLength
+        Tolerance: none — slicing is exact.
+        """
+        t_long = np.linspace(0, 2, int(_SR * 2), endpoint=False)
+        long_sig = np.array([np.sin(2 * np.pi * 440 * t_long)])
+        dask_long = da_from_array(long_sig, chunks=(1, -1))
+        fl = FixLength(_SR, length=self._TARGET)
 
-        # lengthで作成
-        fix_op = create_operation("fix_length", 16000, length=12000)
-        assert isinstance(fix_op, FixLength)
-        assert fix_op.sampling_rate == 16000
-        assert fix_op.target_length == 12000
-
-        # durationで作成
-        fix_op2 = create_operation("fix_length", 16000, duration=0.75)
-        assert isinstance(fix_op2, FixLength)
-        assert fix_op2.target_length == int(0.75 * 16000)
+        result = fl.process(dask_long).compute()
+        np.testing.assert_allclose(result[0], long_sig[0, : self._TARGET])
 
 
 class TestSoundLevel:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 16000
-        self.duration_seconds: float = 8.0
-        # Use amplitude 2.0 so squaring changes the magnitude and theoretical checks
-        # can catch power/RMS mistakes more easily than with amplitude 1.0.
-        self.amplitude: float = 2.0
-        t = np.linspace(0, self.duration_seconds, int(self.duration_seconds * self.sample_rate), endpoint=False)
-        self.low_freq: float = 50.0
-        self.low_freq_signal: NDArrayReal = np.array([self.amplitude * np.sin(2 * np.pi * self.low_freq * t)])
-        self.dask_low_freq: DaArray = _da_from_array(self.low_freq_signal, chunks=(1, -1))
+    """SoundLevel operation: Layer 1 + Layer 2 + Layer 3 (theoretical RC + weighted power)."""
 
-        self.step_start = self.sample_rate
-        self.step_amplitude: float = 0.5
-        self.step_signal: NDArrayReal = np.zeros((1, 4 * self.sample_rate), dtype=np.float64)
-        self.step_signal[0, self.step_start :] = self.step_amplitude
-        self.dask_step: DaArray = _da_from_array(self.step_signal, chunks=(1, -1))
+    _DURATION: float = 8.0
+    _AMPLITUDE: float = 2.0
+    _LOW_FREQ: float = 50.0
 
-    def test_initialization(self) -> None:
-        """Test initialization with different parameters."""
-        op = SoundLevel(self.sample_rate, freq_weighting="A", time_weighting="Fast", ref=2e-5, dB=True)
-        assert op.sampling_rate == self.sample_rate
+    # -- Layer 1: Unit tests -----------------------------------------------
+
+    def test_sound_level_init_stores_params(self) -> None:
+        """Test SoundLevel stores freq/time weighting and dB flag."""
+        op = SoundLevel(_SR, freq_weighting="A", time_weighting="Fast", ref=2e-5, dB=True)
+        assert op.sampling_rate == _SR
         assert op.freq_weighting == "A"
         assert op.time_weighting == "Fast"
         assert op.dB is True
 
-    def test_initialization_defaults_to_linear_rms_output(self) -> None:
-        """Test that sound level defaults to linear time-weighted RMS output."""
-        op = SoundLevel(self.sample_rate, ref=2e-5)
+    def test_sound_level_defaults_to_linear(self) -> None:
+        """Test SoundLevel defaults to linear (dB=False) output."""
+        op = SoundLevel(_SR, ref=2e-5)
         assert op.dB is False
 
-        explicit_linear = SoundLevel(self.sample_rate, ref=2e-5, dB=False)
-        default_result = op.process(self.dask_low_freq).compute()
-        explicit_result = explicit_linear.process(self.dask_low_freq).compute()
+    def test_sound_level_registry_returns_correct_class(self) -> None:
+        """Test that SoundLevel is registered as 'sound_level'."""
+        assert get_operation("sound_level") == SoundLevel
+        op = create_operation("sound_level", 16000, freq_weighting="A", time_weighting="Slow", ref=2e-5, dB=True)
+        assert isinstance(op, SoundLevel)
+        assert op.freq_weighting == "A"
+        assert op.time_weighting == "Slow"
+        assert op.dB is True
 
-        np.testing.assert_allclose(default_result, explicit_result)
+    # -- Layer 2: Domain (shape + dtype + immutability) --------------------
 
-    def test_sound_level_shape(self) -> None:
-        """Test that sound level preserves input shape."""
-        op = SoundLevel(self.sample_rate, ref=1.0)
-        result = op.process(self.dask_low_freq).compute()
-        assert result.shape == self.low_freq_signal.shape
+    def test_sound_level_preserves_shape(self) -> None:
+        """Output shape matches input shape."""
+        t = np.linspace(0, self._DURATION, int(self._DURATION * _SR), endpoint=False)
+        sig = np.array([self._AMPLITUDE * np.sin(2 * np.pi * self._LOW_FREQ * t)])
+        dask_sig = da_from_array(sig, chunks=(1, -1))
 
-    def test_integer_input_returns_float64_and_matches_float_input_values(self) -> None:
-        """Integer input should produce float output without truncation."""
+        op = SoundLevel(_SR, ref=1.0)
+        result = op.process(dask_sig).compute()
+        assert result.shape == sig.shape
+
+    def test_sound_level_linear_default_matches_explicit(self) -> None:
+        """Default (dB=False) equals explicit linear output."""
+        t = np.linspace(0, self._DURATION, int(self._DURATION * _SR), endpoint=False)
+        sig = np.array([self._AMPLITUDE * np.sin(2 * np.pi * self._LOW_FREQ * t)])
+        dask_sig = da_from_array(sig, chunks=(1, -1))
+
+        default_op = SoundLevel(_SR, ref=2e-5)
+        explicit_op = SoundLevel(_SR, ref=2e-5, dB=False)
+        np.testing.assert_allclose(
+            default_op.process(dask_sig).compute(),
+            explicit_op.process(dask_sig).compute(),
+        )
+
+    def test_sound_level_int_input_returns_float64(self) -> None:
+        """Integer input produces float64 output."""
         signal_int = np.array([[0, 1000, -1000, 500, -500, 250, -250]], dtype=np.int16)
         signal_float = signal_int.astype(np.float64)
-        dask_int = _da_from_array(signal_int, chunks=(1, -1))
-        dask_float = _da_from_array(signal_float, chunks=(1, -1))
+        dask_int = da_from_array(signal_int, chunks=(1, -1))
+        dask_float = da_from_array(signal_float, chunks=(1, -1))
 
-        operation = SoundLevel(self.sample_rate, ref=1.0, freq_weighting="Z", time_weighting="Fast", dB=False)
+        op = SoundLevel(_SR, ref=1.0, freq_weighting="Z", time_weighting="Fast", dB=False)
 
-        int_result_da = operation.process(dask_int)
-        float_result_da = operation.process(dask_float)
+        int_result_da = op.process(dask_int)
+        float_result_da = op.process(dask_float)
 
         assert int_result_da.dtype == np.float64
-
         int_result = int_result_da.compute()
         float_result = float_result_da.compute()
-
         assert int_result.dtype == np.float64
         np.testing.assert_allclose(int_result, float_result)
 
-    def test_float32_input_preserves_float32_output_dtype(self) -> None:
-        """float32 input should keep float32 output metadata and computed dtype."""
-        signal_f32 = self.low_freq_signal.astype(np.float32)
-        dask_f32 = _da_from_array(signal_f32, chunks=(1, -1))
-        operation = SoundLevel(self.sample_rate, ref=1.0, freq_weighting="Z", time_weighting="Fast", dB=False)
+    def test_sound_level_float32_preserves_dtype(self) -> None:
+        """float32 input keeps float32 output."""
+        t = np.linspace(0, self._DURATION, int(self._DURATION * _SR), endpoint=False)
+        sig_f32 = (self._AMPLITUDE * np.sin(2 * np.pi * self._LOW_FREQ * t)).astype(np.float32).reshape(1, -1)
+        dask_f32 = da_from_array(sig_f32, chunks=(1, -1))
 
-        result_da = operation.process(dask_f32)
+        op = SoundLevel(_SR, ref=1.0, freq_weighting="Z", time_weighting="Fast", dB=False)
+        result_da = op.process(dask_f32)
         result = result_da.compute()
 
         assert result_da.dtype == np.float32
         assert result.dtype == np.float32
 
-    def test_float32_db_output_with_none_weighting_and_slow_alias_preserves_float32_dtype(self) -> None:
-        """float32 dB output should normalize aliases and keep float32 Dask metadata."""
-        signal_f32 = self.low_freq_signal.astype(np.float32)
-        dask_f32 = _da_from_array(signal_f32, chunks=(1, -1))
-        float32_operation = SoundLevel(
-            self.sample_rate,
-            ref=1.0,
-            freq_weighting=None,
-            time_weighting="s",
-            dB=True,
-        )
-        float64_reference = SoundLevel(
-            self.sample_rate,
-            ref=1.0,
-            freq_weighting="Z",
-            time_weighting="Slow",
-            dB=True,
-        )
+    def test_sound_level_float32_db_preserves_dtype_and_aliases(self) -> None:
+        """float32 dB output normalizes aliases and preserves float32 dtype.
 
-        result_da = float32_operation.process(dask_f32)
+        Tolerance: rtol=1e-4, atol=1e-4 — float32 lfilter/log10 precision.
+        """
+        t = np.linspace(0, self._DURATION, int(self._DURATION * _SR), endpoint=False)
+        sig_f32 = (self._AMPLITUDE * np.sin(2 * np.pi * self._LOW_FREQ * t)).astype(np.float32).reshape(1, -1)
+        dask_f32 = da_from_array(sig_f32, chunks=(1, -1))
+
+        f32_op = SoundLevel(_SR, ref=1.0, freq_weighting=None, time_weighting="s", dB=True)
+        f64_ref = SoundLevel(_SR, ref=1.0, freq_weighting="Z", time_weighting="Slow", dB=True)
+
+        result_da = f32_op.process(dask_f32)
         result = result_da.compute()
-        # Use the same underlying samples as the float32 path, but cast to float64
-        reference = float64_reference.process(dask_f32.astype(np.float64)).compute()
+        reference = f64_ref.process(dask_f32.astype(np.float64)).compute()
 
-        assert float32_operation.freq_weighting == "Z"
-        assert float32_operation.time_weighting == "Slow"
+        assert f32_op.freq_weighting == "Z"
+        assert f32_op.time_weighting == "Slow"
         assert result_da.dtype == np.float32
         assert result.dtype == np.float32
-        # float32 dB output exercises the lower-precision lfilter/log10 path, so use a
-        # tolerance appropriate for comparing it against the float64 reference result.
-        # tolerance appropriate for comparing it against the float64 reference result.
-        np.testing.assert_allclose(result, reference, rtol=1e-4, atol=1e-4)
+        np.testing.assert_allclose(
+            result,
+            reference,
+            rtol=1e-4,
+            atol=1e-4,  # float32 precision limits
+        )
+
+    # -- Layer 3: Theoretical verification ---------------------------------
 
     @pytest.mark.parametrize(("curve", "expected_gain"), [("Z", 1.0), ("A", None), ("C", None)])
-    def test_sound_level_matches_theoretical_weighted_power(self, curve: str, expected_gain: float | None) -> None:
-        """Test weighted sound level against theoretical steady-state power."""
-        # 1. Obtain the theoretical gain (absolute value of the transfer function)
+    def test_sound_level_db_matches_theoretical_weighted_power(self, curve: str, expected_gain: float | None) -> None:
+        """Steady-state dB output matches theoretical (A*G/sqrt(2))^2.
+
+        Tolerance: rtol=1e-6 — float64 IIR filter steady state.
+        """
+        t = np.linspace(0, self._DURATION, int(self._DURATION * _SR), endpoint=False)
+        sig = np.array([self._AMPLITUDE * np.sin(2 * np.pi * self._LOW_FREQ * t)])
+        dask_sig = da_from_array(sig, chunks=(1, -1))
+
         if expected_gain is None:
-            sos = frequency_weighting(self.sample_rate, curve=curve, output="sos")
-            _, response = scipy_signal.freqz_sos(sos, worN=self.low_freq, fs=self.sample_rate)
+            sos = frequency_weighting(_SR, curve=curve, output="sos")
+            _, response = scipy_signal.freqz_sos(sos, worN=self._LOW_FREQ, fs=_SR)
             expected_gain = float(np.abs(np.asarray(response)).item())
 
-        # 2. Calculate the theoretical expected power
-        # P = (A * G / sqrt(2))^2  => squared RMS of a sine wave
-        expected_rms = (self.amplitude * expected_gain) / np.sqrt(2.0)
+        expected_rms = (self._AMPLITUDE * expected_gain) / np.sqrt(2.0)
         expected_power = expected_rms**2
 
-        # 3. Process signal and convert dB back to linear power
-        operation = SoundLevel(self.sample_rate, ref=1.0, freq_weighting=curve, time_weighting="Fast", dB=True)
-        result_db = operation.process(self.dask_low_freq).compute()
+        op = SoundLevel(_SR, ref=1.0, freq_weighting=curve, time_weighting="Fast", dB=True)
+        result_db = op.process(dask_sig).compute()
 
-        # Extract steady-state power from the latter half of the result
         steady_state_db = result_db[..., result_db.shape[-1] // 2 :]
         measured_power = np.mean(10.0 ** (steady_state_db / 10.0))
 
-        # 4. Verification
         np.testing.assert_allclose(
             measured_power,
             expected_power,
@@ -583,25 +652,28 @@ class TestSoundLevel:
         )
 
     @pytest.mark.parametrize(("curve", "expected_gain"), [("Z", 1.0), ("A", None), ("C", None)])
-    def test_linear_output_matches_theoretical_weighted_rms(self, curve: str, expected_gain: float | None) -> None:
-        """Test linear output against theoretical time-weighted RMS."""
-        # 1. Obtain the theoretical gain (absolute value of the transfer function)
+    def test_sound_level_linear_matches_theoretical_weighted_rms(self, curve: str, expected_gain: float | None) -> None:
+        """Linear output matches theoretical time-weighted RMS.
+
+        Tolerance: rtol=1e-6 — float64 IIR filter steady state.
+        """
+        t = np.linspace(0, self._DURATION, int(self._DURATION * _SR), endpoint=False)
+        sig = np.array([self._AMPLITUDE * np.sin(2 * np.pi * self._LOW_FREQ * t)])
+        dask_sig = da_from_array(sig, chunks=(1, -1))
+
         if expected_gain is None:
-            sos = frequency_weighting(self.sample_rate, curve=curve, output="sos")
-            _, response = scipy_signal.freqz_sos(sos, worN=self.low_freq, fs=self.sample_rate)
+            sos = frequency_weighting(_SR, curve=curve, output="sos")
+            _, response = scipy_signal.freqz_sos(sos, worN=self._LOW_FREQ, fs=_SR)
             expected_gain = float(np.abs(np.asarray(response)).item())
 
-        # 2. Calculate the theoretical expected power of the weighted sine wave
-        expected_rms = (self.amplitude * expected_gain) / np.sqrt(2.0)
+        expected_rms = (self._AMPLITUDE * expected_gain) / np.sqrt(2.0)
         expected_power = expected_rms**2
 
-        # 3. Process signal using linear output and extract the steady-state region
-        operation = SoundLevel(self.sample_rate, ref=1.0, freq_weighting=curve, time_weighting="Fast", dB=False)
-        result_rms = operation.process(self.dask_low_freq).compute()
+        op = SoundLevel(_SR, ref=1.0, freq_weighting=curve, time_weighting="Fast", dB=False)
+        result_rms = op.process(dask_sig).compute()
         steady_state_rms = result_rms[..., result_rms.shape[-1] // 2 :]
         measured_power = np.mean(np.square(steady_state_rms))
 
-        # 4. Verification
         np.testing.assert_allclose(
             measured_power,
             expected_power,
@@ -610,47 +682,33 @@ class TestSoundLevel:
         )
 
     @pytest.mark.parametrize(("time_weighting", "tau"), [("Fast", 0.125), ("Slow", 1.0)])
-    def test_time_weighting_matches_theoretical_rc_formula(self, time_weighting: str, tau: float) -> None:
-        """
-        Test if the time weighting (Fast/Slow) correctly follows the
-        theoretical discrete-time RC step response.
-        """
-        # 1. Setup the sound level operation with Z-weighting (flat)
-        operation = SoundLevel(self.sample_rate, ref=1.0, freq_weighting="Z", time_weighting=time_weighting, dB=True)
-        result_db = operation.process(self.dask_step).compute()
+    def test_sound_level_rc_step_response_matches_theory(self, time_weighting: str, tau: float) -> None:
+        """Time weighting follows theoretical discrete-time RC step response.
 
-        # 2. Linearize: convert dB output back to power ratio
+        Tolerance: rtol=1e-6 — float64 exponential filter precision.
+        """
+        step_start = _SR
+        step_amplitude = 0.5
+        step_signal: NDArrayReal = np.zeros((1, 4 * _SR), dtype=np.float64)
+        step_signal[0, step_start:] = step_amplitude
+        dask_step = da_from_array(step_signal, chunks=(1, -1))
+
+        op = SoundLevel(_SR, ref=1.0, freq_weighting="Z", time_weighting=time_weighting, dB=True)
+        result_db = op.process(dask_step).compute()
+
         measured_power = 10.0 ** (result_db / 10.0)
-
-        # 3. Calculate theoretical parameters
-        alpha = np.exp(-1.0 / (self.sample_rate * tau))
-        num_samples = self.step_signal.shape[-1] - self.step_start
+        alpha = np.exp(-1.0 / (_SR * tau))
+        num_samples = step_signal.shape[-1] - step_start
         n = np.arange(num_samples, dtype=np.float64)
-
-        # 4. Generate the expected step response curve
-        input_power = self.step_amplitude**2
+        input_power = step_amplitude**2
         expected_power = input_power * (1.0 - alpha ** (n + 1.0))
 
-        # 5. Verify that the measured power curve matches the theoretical RC response
         np.testing.assert_allclose(
-            measured_power[0, self.step_start :],
+            measured_power[0, step_start:],
             expected_power,
             rtol=1e-6,
             atol=0.0,
         )
-
-    def test_operation_registry(self) -> None:
-        """Test that SoundLevel is properly registered in the operation registry."""
-        assert get_operation("sound_level") == SoundLevel
-
-        sound_level_op = create_operation(
-            "sound_level", 16000, freq_weighting="A", time_weighting="Slow", ref=2e-5, dB=True
-        )
-
-        assert isinstance(sound_level_op, SoundLevel)
-        assert sound_level_op.freq_weighting == "A"
-        assert sound_level_op.time_weighting == "Slow"
-        assert sound_level_op.dB is True
 
 
 # Register FixLength in the operation registry (if not done in __init__.py)
