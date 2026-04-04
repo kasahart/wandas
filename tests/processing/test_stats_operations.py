@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from dask.array.core import Array as DaArray
 
 from wandas.processing.base import create_operation, get_operation
@@ -128,6 +129,7 @@ class TestPowerOperation:
         # Same algorithm, exact match expected
         np.testing.assert_allclose(result, expected)
 
+    @pytest.mark.filterwarnings("ignore:invalid value encountered in:RuntimeWarning")
     def test_power_sqrt_matches_numpy(self, stereo_sine_440_880hz_dask: tuple[DaArray, int]) -> None:
         """Power(0.5) must match np.sqrt for the same input (fractional exponent)."""
         dask_input, sr = stereo_sine_440_880hz_dask
