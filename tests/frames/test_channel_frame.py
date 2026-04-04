@@ -1732,6 +1732,7 @@ class TestDescribeIntegration:
 
         # For a constant signal, RMS equals the absolute value
         expected_rms = np.array([2.0, 3.0])
+        # Constant signal: RMS == |value| — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(rms_values, expected_rms)
 
     def test_rms_property_with_sine_wave(self) -> None:
@@ -1759,6 +1760,7 @@ class TestDescribeIntegration:
 
         # Expected RMS for sine wave: amplitude / sqrt(2)
         expected_rms = np.array([amp1 / np.sqrt(2), amp2 / np.sqrt(2)])
+        # Sine RMS = A/sqrt(2); decimal=5 for non-integer-cycle spectral leakage
         np.testing.assert_array_almost_equal(rms_values, expected_rms, decimal=5)
 
     def test_rms_property_single_channel(self) -> None:
@@ -1772,6 +1774,7 @@ class TestDescribeIntegration:
 
         # Calculate expected RMS: sqrt(mean([1, 4, 9, 16]))
         expected_rms = np.sqrt(np.mean([1.0, 4.0, 9.0, 16.0]))
+        # Known values: sqrt(mean(x^2)) — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(rms_values, [expected_rms])
 
     def test_rms_property_indexing(self) -> None:
