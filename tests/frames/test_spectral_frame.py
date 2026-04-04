@@ -17,10 +17,14 @@ _da_from_array = da.from_array
 
 
 # Helper function to create complex test data
-def create_complex_data(shape: tuple[int, ...]) -> NDArrayComplex:
-    """Create complex test data with the given shape."""
-    real_part = np.random.rand(*shape)
-    imag_part = np.random.rand(*shape)
+def create_complex_data(shape: tuple[int, ...], seed: int = 42) -> NDArrayComplex:
+    """Create deterministic complex test data with the given shape.
+
+    Uses a fixed seed so results are reproducible across runs.
+    """
+    rng = np.random.default_rng(seed)
+    real_part = rng.random(shape)
+    imag_part = rng.random(shape)
     return real_part + 1j * imag_part
 
 
@@ -665,7 +669,8 @@ class TestSpectralFrameCoverage:
         self.sampling_rate = 44100
         self.n_fft = 1024
         self.shape = (2, self.n_fft // 2 + 1)
-        self.complex_data = np.random.rand(*self.shape) + 1j * np.random.rand(*self.shape)
+        rng = np.random.default_rng(99)  # deterministic seed for reproducibility
+        self.complex_data = rng.random(self.shape) + 1j * rng.random(self.shape)
         self.data = _da_from_array(self.complex_data, chunks=(1, -1))
         self.frame = SpectralFrame(
             data=self.data,
