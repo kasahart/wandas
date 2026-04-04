@@ -12,7 +12,7 @@ from wandas.processing.effects import (
 from wandas.utils import util
 from wandas.utils.dask_helpers import da_from_array
 
-_SR = 16000
+_SR: int = 16000
 
 
 class TestHpssHarmonic:

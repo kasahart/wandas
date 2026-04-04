@@ -16,7 +16,7 @@ from wandas.processing.filters import (
 # ---------------------------------------------------------------------------
 # Constants shared across filter tests
 # ---------------------------------------------------------------------------
-_SR = 16000
+_SR: int = 16000
 _CUTOFF_HPF = 500.0
 _ORDER = 4
 _LOW_FREQ = 50.0  # below typical cutoff — must be attenuated by HPF/LPF
