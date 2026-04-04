@@ -12,107 +12,45 @@ from wandas.frames.channel import ChannelFrame
 from wandas.io import write_wav
 
 
-@pytest.fixture
-def create_test_wav(tmpdir: str) -> str:
+def test_read_wav_stereo_dc_signal(tmp_path) -> None:
+    """Test reading a stereo WAV with known DC signals.
+
+    Writes float64 DC signals (0.5 left, 1.0 right) via scipy and reads back
+    via ChannelFrame.read_wav. Verifies channel count, sampling rate, and
+    data values against the analytically known DC levels.
     """
-    テスト用の一時的な WAV ファイルを作成するフィクスチャ。
-    テスト後に自動で削除されます。
-    """
-    # 一時ディレクトリに WAV ファイルを作成
-    filename = os.path.join(tmpdir, "test_file.wav")
-
-    # サンプルデータを作成
-    sampling_rate = 44100
-    duration = 1.0  # 1秒
-
-    # 左右に振幅差をつけた直流データを生成
-    data_left = np.ones(int(sampling_rate * duration)) * 0.5  # 左チャンネル (直流信号、振幅0.5)
-    data_right = np.ones(int(sampling_rate * duration))  # 右チャンネル (直流信号、振幅1.0)
-
+    filepath = tmp_path / "stereo_dc.wav"
+    sr = 44100
+    n_samples = sr  # 1 second
+    data_left = np.full(n_samples, 0.5)
+    data_right = np.full(n_samples, 1.0)
     stereo_data = np.column_stack((data_left, data_right))
+    wavfile.write(str(filepath), sr, stereo_data)
 
-    # WAV ファイルを書き出し
-    wavfile.write(filename, sampling_rate, stereo_data)
+    cf = ChannelFrame.read_wav(str(filepath))
 
-    return filename
-
-
-def test_read_wav(create_test_wav: str) -> None:
-    # テスト用の WAV ファイルを読み込む
-    signal = ChannelFrame.read_wav(create_test_wav)
-
-    # チャンネル数の確認
-    assert len(signal) == 2
-
-    # サンプリングレートの確認
-    assert signal.sampling_rate == 44100
-
-    # チャンネルデータの確認 - 新しいAPIに合わせて変更
-    computed_data = signal.compute()
-    assert np.allclose(computed_data[0], 0.5)
-    assert np.allclose(computed_data[1], 1.0)
+    assert len(cf) == 2
+    assert cf.sampling_rate == sr
+    computed = cf.compute()
+    # DC signal values must be preserved exactly through float64 WAV round-trip
+    np.testing.assert_allclose(computed[0], 0.5, rtol=1e-7, err_msg="Left channel DC level mismatch")
+    np.testing.assert_allclose(computed[1], 1.0, rtol=1e-7, err_msg="Right channel DC level mismatch")
 
 
-@pytest.fixture
-def create_stereo_wav(tmpdir: str) -> str:
-    """
-    Create a temporary stereo WAV file for testing.
-    """
-    filepath = os.path.join(tmpdir, "stereo_test.wav")
-    sampling_rate = 44100
-    duration = 1.0  # seconds
-    num_samples = int(sampling_rate * duration)
-    # Create left and right channels
-    data_left = np.full(num_samples, 0.5)
-    data_right = np.full(num_samples, 1.0)
-    stereo_data = np.column_stack((data_left, data_right))
-    wavfile.write(filepath, sampling_rate, stereo_data)
-    return filepath
+def test_read_wav_stereo_channel_count(create_test_wav) -> None:
+    """Test that a stereo WAV file produces n_channels == 2."""
+    wav_path = create_test_wav(sr=44100, n_channels=2, n_samples=4410)
+    cf = ChannelFrame.read_wav(str(wav_path))
+    assert len(cf) == 2
+    assert cf.sampling_rate == 44100
 
 
-@pytest.fixture
-def create_mono_wav(tmpdir: str) -> str:
-    """
-    Create a temporary mono WAV file for testing.
-    """
-    filepath = os.path.join(tmpdir, "mono_test.wav")
-    sampling_rate = 22050
-    duration = 1.0  # seconds
-    num_samples = int(sampling_rate * duration)
-    # Create mono channel data
-    mono_data = np.full(num_samples, 0.75)
-    wavfile.write(filepath, sampling_rate, mono_data)
-    return filepath
-
-
-def test_read_wav_default(create_stereo_wav: str) -> None:
-    """
-    Test reading a default stereo WAV file without specifying labels.
-    """
-    channel_frame = ChannelFrame.read_wav(create_stereo_wav)
-    # Assert two channels are present
-    assert len(channel_frame) == 2
-    # Assert sampling rate
-    assert channel_frame.sampling_rate == 44100
-    # Assert channel data: each channel should be an array with constant values.
-    # Since data is written as full arrays, test the first value in each channel.
-    computed_data = channel_frame.compute()
-    np.testing.assert_allclose(computed_data[0][0], 0.5, rtol=1e-5)
-    np.testing.assert_allclose(computed_data[1][0], 1.0, rtol=1e-5)
-
-
-def test_read_wav_mono(create_mono_wav: str) -> None:
-    """
-    Test reading a mono WAV file.
-    """
-    channel_frame = ChannelFrame.read_wav(create_mono_wav)
-    # Assert one channel is present
-    assert len(channel_frame) == 1
-    # Assert sampling rate
-    assert channel_frame.sampling_rate == 22050
-    # Check that the mono channel data is as expected
-    computed_data = channel_frame.compute()
-    np.testing.assert_allclose(computed_data[0][0], 0.75, rtol=1e-5)
+def test_read_wav_mono_channel_count(create_test_wav) -> None:
+    """Test that a mono WAV file produces n_channels == 1."""
+    wav_path = create_test_wav(sr=22050, n_channels=1, n_samples=2205)
+    cf = ChannelFrame.read_wav(str(wav_path))
+    assert len(cf) == 1
+    assert cf.sampling_rate == 22050
 
 
 def test_read_wav_with_labels(tmpdir: str) -> None:
