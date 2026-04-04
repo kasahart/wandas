@@ -661,13 +661,20 @@ class TestBaseFrameSpecialMethods:
         """Test __len__ returns number of channels."""
         assert len(self.channel_frame) == 3
 
-    def test_iter(self) -> None:
-        """Test __iter__ yields individual channels."""
+    def test_iter_yields_individual_channels(self) -> None:
+        """Test __iter__ yields individual channel ChannelFrames preserving Dask laziness."""
+        original_data = self.channel_frame._data.compute().copy()
+
         channels = list(self.channel_frame)
         assert len(channels) == 3
         for ch in channels:
             assert isinstance(ch, ChannelFrame)
             assert ch.n_channels == 1
+            # Pillar 1: Each iterated channel preserves Dask laziness
+            assert isinstance(ch._data, DaArray)
+
+        # Pillar 1: Original unchanged after iteration
+        np.testing.assert_array_equal(self.channel_frame._data.compute(), original_data)
 
     def test_array_no_dtype(self) -> None:
         """Test __array__ implicit conversion to NumPy array."""
@@ -680,7 +687,8 @@ class TestBaseFrameSpecialMethods:
         """Test __array__ with dtype conversion."""
         arr = np.array(self.channel_frame, dtype=np.float32)
         assert arr.dtype == np.float32
-        np.testing.assert_array_almost_equal(arr, self.data.astype(np.float32))
+        # float64→float32 conversion tolerance
+        np.testing.assert_allclose(arr, self.data.astype(np.float32), rtol=1e-6)
 
     def test_to_numpy(self) -> None:
         """Test to_numpy method."""
