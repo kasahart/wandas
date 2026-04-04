@@ -11,7 +11,6 @@ import soundfile as sf
 import wandas.io.readers as readers
 from wandas.io.readers import (
     CSVFileReader,
-    FileReader,
     SoundFileReader,
     _file_readers,
     _normalize_extension,
@@ -303,35 +302,20 @@ class TestFileReaderHelpers:
 
 
 class TestGetFileReader:
-    def setup_method(self) -> None:
-        """Set up test fixtures."""
-        self.wav_path: str = "test.wav"
-        self.csv_path: str = "test.csv"
-        self.unsupported_path: str = "test.xyz"
-
     def test_get_file_reader_wav(self) -> None:
-        """Test getting reader for WAV file."""
-
-        with mock.patch("pathlib.Path.suffix", new_callable=mock.PropertyMock) as mock_suffix:
-            mock_suffix.return_value = ".wav"
-            reader: FileReader = get_file_reader(self.wav_path)
-            assert isinstance(reader, SoundFileReader)
+        """WAV extension dispatches to SoundFileReader."""
+        reader = get_file_reader("test.wav")
+        assert isinstance(reader, SoundFileReader)
 
     def test_get_file_reader_csv(self) -> None:
-        """Test getting reader for CSV file."""
+        """CSV extension dispatches to CSVFileReader."""
+        reader = get_file_reader("test.csv")
+        assert isinstance(reader, CSVFileReader)
 
-        with mock.patch("pathlib.Path.suffix", new_callable=mock.PropertyMock) as mock_suffix:
-            mock_suffix.return_value = ".csv"
-            reader: FileReader = get_file_reader(self.csv_path)
-            assert isinstance(reader, CSVFileReader)
-
-    def test_get_file_reader_unsupported(self) -> None:
-        """Test error when no suitable reader found."""
-
-        with mock.patch("pathlib.Path.suffix", new_callable=mock.PropertyMock) as mock_suffix:
-            mock_suffix.return_value = ".xyz"
-            with pytest.raises(ValueError, match="No suitable file reader found"):
-                get_file_reader(self.unsupported_path)
+    def test_get_file_reader_unsupported_raises_error(self) -> None:
+        """Unsupported extension raises ValueError."""
+        with pytest.raises(ValueError, match="No suitable file reader found"):
+            get_file_reader("test.xyz")
 
     def test_get_file_reader_file_type_normalization(self) -> None:
         reader = get_file_reader("ignored", file_type="wav")
