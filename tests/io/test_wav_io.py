@@ -103,16 +103,16 @@ def test_read_wav_stereo_channel_count(create_test_wav) -> None:
     """Test that a stereo WAV file produces n_channels == 2."""
     wav_path = create_test_wav(sr=44100, n_channels=2, n_samples=4410)
     cf = ChannelFrame.read_wav(str(wav_path))
-    assert len(cf) == 2
-    assert cf.sampling_rate == 44100
+    assert len(cf) == 2, f"Expected 2 channels, got {len(cf)}"
+    assert cf.sampling_rate == 44100, f"SR mismatch: {cf.sampling_rate}"
 
 
 def test_read_wav_mono_channel_count(create_test_wav) -> None:
     """Test that a mono WAV file produces n_channels == 1."""
     wav_path = create_test_wav(sr=22050, n_channels=1, n_samples=2205)
     cf = ChannelFrame.read_wav(str(wav_path))
-    assert len(cf) == 1
-    assert cf.sampling_rate == 22050
+    assert len(cf) == 1, f"Expected 1 channel, got {len(cf)}"
+    assert cf.sampling_rate == 22050, f"SR mismatch: {cf.sampling_rate}"
 
 
 def test_read_wav_custom_labels_propagated(tmp_path) -> None:
