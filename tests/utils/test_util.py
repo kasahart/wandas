@@ -82,74 +82,72 @@ class TestValidateSamplingRate:
         assert "Positive value > 0" in error_msg
 
 
-def test_calculate_rms_zeros() -> None:
-    wave = np.zeros(10, dtype=float)
-    expected = 0.0
-    result = calculate_rms(wave)
-    np.testing.assert_allclose(result, expected, atol=1e-15)  # Exact zero input yields exact zero
+class TestCalculateRms:
+    """Test suite for calculate_rms function — Pillar 4: theoretical value verification."""
+
+    def test_rms_zeros_returns_zero(self) -> None:
+        wave = np.zeros(10, dtype=float)
+        result = calculate_rms(wave)
+        np.testing.assert_allclose(result, 0.0, atol=1e-15)  # Exact zero input yields exact zero
+
+    def test_rms_positive_values_matches_formula(self) -> None:
+        wave = np.array([3, 4], dtype=float)
+        expected = np.sqrt((9 + 16) / 2)  # RMS = sqrt((3^2 + 4^2) / 2) = sqrt(12.5)
+        result = calculate_rms(wave)
+        np.testing.assert_allclose(result, expected)  # Exact match: simple integer arithmetic
+
+    def test_rms_negative_values_sign_independent(self) -> None:
+        wave = np.array([-3, -4], dtype=float)
+        expected = np.sqrt((9 + 16) / 2)  # RMS is sign-independent: same as [3, 4]
+        result = calculate_rms(wave)
+        np.testing.assert_allclose(result, expected)  # Exact match: simple integer arithmetic
+
+    def test_rms_single_value_equals_absolute(self) -> None:
+        wave = np.array([5], dtype=float)
+        expected = 5.0  # RMS of a single value equals its absolute value
+        result = calculate_rms(wave)
+        np.testing.assert_allclose(result, expected)  # Exact match: single-element trivial case
+
+    def test_rms_full_period_sine_matches_analytical(self) -> None:
+        """RMS of a full-period sine wave is 1/sqrt(2) analytically."""
+        n_samples = 1000
+        t = np.linspace(0, 2 * np.pi, n_samples, endpoint=False)
+        wave = np.sin(t)
+        expected = 1.0 / np.sqrt(2)  # Analytical RMS of sin(t) over full period
+        result = calculate_rms(wave)
+        np.testing.assert_allclose(result, expected, rtol=1e-3)  # Discrete approximation tolerance
 
 
-def test_calculate_rms_positive() -> None:
-    wave = np.array([3, 4], dtype=float)
-    expected = np.sqrt((9 + 16) / 2)  # RMS = sqrt((3^2 + 4^2) / 2) = sqrt(12.5)
-    result = calculate_rms(wave)
-    np.testing.assert_allclose(result, expected)  # Exact match: simple integer arithmetic
+class TestCalculateDesiredNoiseRms:
+    """Test suite for calculate_desired_noise_rms — Pillar 4: theoretical value verification."""
 
+    def test_noise_rms_20db_snr_returns_tenth(self) -> None:
+        clean_rms = np.array(1.0)
+        snr = 20.0
+        expected = 0.1  # noise_rms = clean_rms / 10^(snr/20) = 1.0 / 10^1 = 0.1
+        result = calculate_desired_noise_rms(clean_rms, snr)
+        np.testing.assert_allclose(result, expected)  # Analytical: exact power-of-10 division
 
-def test_calculate_rms_negative() -> None:
-    wave = np.array([-3, -4], dtype=float)
-    expected = np.sqrt((9 + 16) / 2)  # RMS is sign-independent: same as [3, 4]
-    result = calculate_rms(wave)
-    np.testing.assert_allclose(result, expected)  # Exact match: simple integer arithmetic
+    def test_noise_rms_zero_snr_equals_clean(self) -> None:
+        clean_rms = np.array(0.5)
+        snr = 0.0
+        expected = 0.5  # At 0 dB SNR, noise_rms = clean_rms / 10^0 = clean_rms
+        result = calculate_desired_noise_rms(clean_rms, snr)
+        np.testing.assert_allclose(result, expected)  # Analytical: division by unity
 
+    def test_noise_rms_negative_snr_amplifies(self) -> None:
+        clean_rms = np.array(1.0)
+        snr = -20.0
+        expected = 10.0  # noise_rms = 1.0 / 10^(-1) = 10.0 (noise louder than signal)
+        result = calculate_desired_noise_rms(clean_rms, snr)
+        np.testing.assert_allclose(result, expected)  # Analytical: exact power-of-10 multiplication
 
-def test_calculate_rms_single_value() -> None:
-    wave = np.array([5], dtype=float)
-    expected = 5.0  # RMS of a single value equals its absolute value
-    result = calculate_rms(wave)
-    np.testing.assert_allclose(result, expected)  # Exact match: single-element trivial case
-
-
-def test_calculate_rms_known_sine() -> None:
-    """RMS of a full-period sine wave is 1/sqrt(2) analytically."""
-    n_samples = 1000
-    t = np.linspace(0, 2 * np.pi, n_samples, endpoint=False)
-    wave = np.sin(t)
-    expected = 1.0 / np.sqrt(2)  # Analytical RMS of sin(t) over full period
-    result = calculate_rms(wave)
-    np.testing.assert_allclose(result, expected, rtol=1e-3)  # Discrete approximation tolerance
-
-
-def test_calculate_desired_noise_rms_basic() -> None:
-    clean_rms = np.array(1.0)
-    snr = 20.0
-    expected = 0.1  # noise_rms = clean_rms / 10^(snr/20) = 1.0 / 10^1 = 0.1
-    result = calculate_desired_noise_rms(clean_rms, snr)
-    np.testing.assert_allclose(result, expected)  # Analytical: exact power-of-10 division
-
-
-def test_calculate_desired_noise_rms_snr_zero() -> None:
-    clean_rms = np.array(0.5)
-    snr = 0.0
-    expected = 0.5  # At 0 dB SNR, noise_rms = clean_rms / 10^0 = clean_rms
-    result = calculate_desired_noise_rms(clean_rms, snr)
-    np.testing.assert_allclose(result, expected)  # Analytical: division by unity
-
-
-def test_calculate_desired_noise_rms_negative_snr() -> None:
-    clean_rms = np.array(1.0)
-    snr = -20.0
-    expected = 10.0  # noise_rms = 1.0 / 10^(-1) = 10.0 (noise louder than signal)
-    result = calculate_desired_noise_rms(clean_rms, snr)
-    np.testing.assert_allclose(result, expected)  # Analytical: exact power-of-10 multiplication
-
-
-def test_calculate_desired_noise_rms_fractional() -> None:
-    clean_rms = np.array(2.0)
-    snr = 10.0
-    expected = 2.0 / np.sqrt(10)  # noise_rms = 2.0 / 10^0.5 = 2.0 / sqrt(10)
-    result = calculate_desired_noise_rms(clean_rms, snr)
-    np.testing.assert_allclose(result, expected)  # Analytical: irrational but deterministic
+    def test_noise_rms_fractional_snr_matches_formula(self) -> None:
+        clean_rms = np.array(2.0)
+        snr = 10.0
+        expected = 2.0 / np.sqrt(10)  # noise_rms = 2.0 / 10^0.5 = 2.0 / sqrt(10)
+        result = calculate_desired_noise_rms(clean_rms, snr)
+        np.testing.assert_allclose(result, expected)  # Analytical: irrational but deterministic
 
 
 def test_level_trigger_basic() -> None:
