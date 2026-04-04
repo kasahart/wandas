@@ -303,7 +303,9 @@ class TestIFFTOperation:
         dask_in = da_from_array(spectrum.reshape(1, -1), chunks=(1, -1))
         ifft = IFFT(_SR, n_fft=self._N_FFT, window=self._WINDOW)
 
-        result = ifft.process(dask_in).compute()
+        result_da = ifft.process(dask_in)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
         assert result.ndim == 2
         assert result.shape[0] == 1
 
@@ -559,7 +561,9 @@ class TestSTFTOperation:
 
         sig, dask_sig = self._make_mono()
         stft = self._stft()
-        result = stft.process(dask_sig).compute()
+        result_da = stft.process(dask_sig)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
 
         sft = ScipySTFT(
             win=get_window(self._WINDOW, self._WIN_LEN),
@@ -583,7 +587,9 @@ class TestSTFTOperation:
         amp = 2.0
         t = np.linspace(0, 1, _SR, endpoint=False)
         cos_wave = amp * np.cos(2 * np.pi * 500 * t)
-        result = self._stft().process(cos_wave).compute()
+        result_da = self._stft().process(cos_wave)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
 
         middle_frame = result.shape[2] // 2
         peak_idx = np.argmax(np.abs(result[0, :, middle_frame]))
@@ -704,7 +710,9 @@ class TestNOctSynthesisOperation:
         test_signal = rng.standard_normal(52)
         spectrum = fft.process(da_from_array(np.array([test_signal]), chunks=(1, -1))).compute()
         assert spectrum.shape[-1] % 2 == 1
-        result = self._op().process(da_from_array(spectrum, chunks=(1, -1))).compute()
+        result_da = self._op().process(da_from_array(spectrum, chunks=(1, -1)))
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
         assert result.shape[0] == 1
 
     # -- Layer 3: Numerical verification (mosqito reference) ----------------
@@ -717,7 +725,9 @@ class TestNOctSynthesisOperation:
 
         fft = FFT(self._NOCT_SR, n_fft=None, window="hann")
         spectrum = fft.process(dask_sig).compute()
-        result = self._op().process(spectrum).compute()
+        result_da = self._op().process(spectrum)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
 
         n = spectrum.shape[-1]
         n = n * 2 - 1 if n % 2 == 0 else (n - 1) * 2
@@ -747,7 +757,9 @@ class TestNOctSynthesisOperation:
 
         fft = FFT(self._NOCT_SR, n_fft=None, window="hann")
         spectrum = fft.process(dask_sig).compute()
-        result = self._op().process(spectrum).compute()
+        result_da = self._op().process(spectrum)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
 
         n = spectrum.shape[-1]
         n = n * 2 - 1 if n % 2 == 0 else (n - 1) * 2
@@ -1574,7 +1586,9 @@ class TestNOctSpectrumOperation:
         sig = np.array([pink])
         dask_sig = da_from_array(sig, chunks=(1, -1))
 
-        result = self._op().process(dask_sig).compute()
+        result_da = self._op().process(dask_sig)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
 
         expected_spectrum, _ = noct_spectrum(
             sig=sig.T,
@@ -1606,7 +1620,9 @@ class TestNOctSpectrumOperation:
         sig = np.array([pink, white])
         dask_sig = da_from_array(sig, chunks=(2, -1))
 
-        result = self._op().process(dask_sig).compute()
+        result_da = self._op().process(dask_sig)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
 
         exp_ch1, _ = noct_spectrum(
             sig=sig[0:1].T,
