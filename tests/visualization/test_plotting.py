@@ -23,6 +23,7 @@ from wandas.visualization.plotting import (
     PlotStrategy,
     SpectrogramPlotStrategy,
     WaveformPlotStrategy,
+    _plot_strategies,
     _reshape_spectrogram_data,
     _reshape_to_2d,
     _resolve_channel_label,
@@ -74,8 +75,6 @@ class TestPlotting:
     def setup_method(self) -> None:
         """Set up mock frames before each test."""
         # Save existing strategy registry for restoration after each test
-        from wandas.visualization.plotting import _plot_strategies
-
         self.original_strategies = _plot_strategies.copy()
 
         # Create mock frames with deterministic data (no np.random)
@@ -247,8 +246,6 @@ class TestPlotting:
     def teardown_method(self) -> None:
         """Restore strategy registry after each test.
         Figure cleanup is handled by the conftest.py cleanup_plots fixture."""
-        from wandas.visualization.plotting import _plot_strategies
-
         _plot_strategies.clear()
         _plot_strategies.update(self.original_strategies)
 
