@@ -162,9 +162,9 @@ class TestCSVFileReader:
         # Get file info
         info = self.reader.get_file_info(temp_file)
 
-        # Check the estimated sample rate (should be close to 100Hz)
-        assert info["samplerate"] == 100
-        assert info["channels"] == 2
+        # Estimated sample rate should be 100Hz from 0.01s intervals
+        assert info["samplerate"] == 100, f"Expected 100Hz, got {info['samplerate']}"
+        assert info["channels"] == 2, f"Expected 2 channels, got {info['channels']}"
 
     def test_get_file_info_time_column_string(self) -> None:
         """Test samplerate estimation using a named time column."""
@@ -183,8 +183,8 @@ class TestCSVFileReader:
 
         info = self.reader.get_file_info(temp_file, time_column="time")
 
-        assert info["samplerate"] == 100
-        assert info["channels"] == 2
+        assert info["samplerate"] == 100, f"Expected 100Hz, got {info['samplerate']}"
+        assert info["channels"] == 2, f"Expected 2 channels, got {info['channels']}"
 
     def test_get_file_info_single_row(self) -> None:
         """
