@@ -146,7 +146,9 @@ class TestPowerOperation:
         dask_input = da_from_array(nonzero, chunks=(1, -1))
         power_op = Power(_SR, exponent=-1.0)
 
-        result = power_op.process(dask_input).compute()
+        result_da = power_op.process(dask_input)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
         expected = 1.0 / nonzero
         # Same algorithm, exact match expected
         np.testing.assert_allclose(result, expected)
@@ -333,7 +335,9 @@ class TestChannelDifference:
         dask_input = da_from_array(quad, chunks=(1, -1))
         diff_op = ChannelDifference(_SR, other_channel=0)
 
-        result = diff_op.process(dask_input).compute()
+        result_da = diff_op.process(dask_input)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
         expected = quad - quad[0]
         np.testing.assert_allclose(result, expected)  # Same algorithm, exact match
 
@@ -356,7 +360,9 @@ class TestChannelDifference:
         dask_input = da_from_array(quad, chunks=(1, -1))
         diff_op = ChannelDifference(_SR, other_channel=2)
 
-        result = diff_op.process(dask_input).compute()
+        result_da = diff_op.process(dask_input)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
         expected = quad - quad[2]
         np.testing.assert_allclose(result, expected)
 
