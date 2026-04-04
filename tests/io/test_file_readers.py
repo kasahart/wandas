@@ -238,6 +238,15 @@ class TestCSVFileReader:
         assert data.shape == (self.N_CHANNELS, self.N_ROWS)
         np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data))
 
+    def test_csv_channel_count_equals_data_columns_minus_time(self) -> None:
+        """CSV channel count = number of data columns excluding time column (I/O Policy).
+
+        A CSV with columns [time, ch1, ch2, ch3] must report 3 channels.
+        """
+        info = self.reader.get_file_info(self.test_file)
+        # 4 total columns - 1 time column = 3 data channels
+        assert info["channels"] == 3, "Channel count must equal data columns minus time column"
+
     def test_get_data_subset_channels(self) -> None:
         """Test reading a subset of channels."""
         channels: list[int] = [
