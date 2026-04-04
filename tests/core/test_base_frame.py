@@ -1103,18 +1103,23 @@ class TestBaseFrameDebugMethods:
         self.dask_data: DaArray = da_from_array(self.data, chunks=(1, -1))
         self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
-    def test_debug_info_runs_without_error(self) -> None:
-        """Test debug_info method runs without error."""
-        # This method logs debug info, just ensure it doesn't crash
+    def test_debug_info_returns_without_error(self) -> None:
+        """Test debug_info method completes without error and frame remains valid."""
         self.channel_frame.debug_info()
+        # Verify frame is still usable after debug_info
+        assert self.channel_frame.n_channels == 2
+        assert isinstance(self.channel_frame._data, DaArray)
 
-    def test_print_operation_history_internal_method_runs(self) -> None:
-        """Test _print_operation_history internal method."""
+    def test_print_operation_history_empty_and_nonempty(self) -> None:
+        """Test _print_operation_history with empty and non-empty history."""
         # Test with empty history
         self.channel_frame._print_operation_history()
+        assert len(self.channel_frame.operation_history) == 0
+
         # Add operations and test again
         result = self.channel_frame + 1
         result._print_operation_history()
+        assert len(result.operation_history) == 1
 
 
 class TestBaseFrameEdgeCases:
