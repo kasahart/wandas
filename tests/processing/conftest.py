@@ -11,79 +11,8 @@ from dask.array.core import Array as DaArray
 from wandas.utils.dask_helpers import da_from_array
 
 # ---------------------------------------------------------------------------
-# Standard fixtures (per test-processing-policy.instructions.md)
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-def sine_1khz_48k_dask() -> tuple[DaArray, int]:
-    """1 kHz pure tone, 1 s, sr=48000.
-
-    Standard signal for psychoacoustic tests.
-    FFT peak at bin 1000 when n_fft=sr (1 Hz/bin).
-    """
-    sr = 48000
-    t = np.linspace(0, 1, sr, endpoint=False)
-    data = np.sin(2 * np.pi * 1000 * t).reshape(1, -1)
-    return da_from_array(data, chunks=(1, -1)), sr
-
-
-@pytest.fixture
-def calibrated_sine_1khz_70dB_dask() -> tuple[DaArray, int]:
-    """1 kHz pure tone at 70 dB SPL, 1 s, sr=48000.
-
-    IEC-compliant psychoacoustic test signal.
-    Amplitude = p_ref * 10^(70/20) * sqrt(2) where p_ref = 2e-5 Pa.
-    """
-    sr = 48000
-    p_ref = 2e-5  # Pa, reference sound pressure
-    amplitude = p_ref * 10 ** (70 / 20) * np.sqrt(2)
-    t = np.linspace(0, 1, sr, endpoint=False)
-    data = (amplitude * np.sin(2 * np.pi * 1000 * t)).reshape(1, -1)
-    return da_from_array(data, chunks=(1, -1)), sr
-
-
-@pytest.fixture
-def dual_tone_16k_dask() -> tuple[DaArray, int]:
-    """Composite tone: 50 Hz + 1000 Hz, 1 s, sr=16000.
-
-    Used to verify filter pass/stop characteristics.
-    Equivalent to composite_50hz_1khz_dask; aliased for policy compliance.
-    """
-    sr = 16000
-    t = np.linspace(0, 1, sr, endpoint=False)
-    data = (np.sin(2 * np.pi * 50 * t) + np.sin(2 * np.pi * 1000 * t)).reshape(1, -1)
-    return da_from_array(data, chunks=(1, -1)), sr
-
-
-@pytest.fixture
-def impulse_16k_dask() -> tuple[DaArray, int]:
-    """Unit impulse, sr=16000, 1 s duration.
-
-    Used to verify filter impulse responses.
-    Single sample at t=0 with value 1.0, rest zeros.
-    """
-    sr = 16000
-    data = np.zeros((1, sr))
-    data[0, 0] = 1.0
-    return da_from_array(data, chunks=(1, -1)), sr
-
-
-# ---------------------------------------------------------------------------
 # Pure-tone fixtures  (single frequency, FFT peak analytically predictable)
 # ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-def pure_sine_1khz_dask() -> tuple[DaArray, int]:
-    """1 kHz pure sine, 1 s, sr=16000.
-
-    FFT peak at bin index = freq * N / sr = 1000 * 16000 / 16000 = 1000.
-    """
-    sr = 16000
-    t = np.linspace(0, 1, sr, endpoint=False)
-    data = np.sin(2 * np.pi * 1000 * t).reshape(1, -1)
-    return da_from_array(data, chunks=(1, -1)), sr
 
 
 @pytest.fixture
@@ -168,23 +97,6 @@ def impulse_highsr_dask() -> tuple[DaArray, int]:
     from scipy.signal import unit_impulse
 
     data = unit_impulse(sr).reshape(1, -1)
-    return da_from_array(data, chunks=(1, -1)), sr
-
-
-# ---------------------------------------------------------------------------
-# DC offset fixture
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-def dc_offset_with_sine_dask() -> tuple[DaArray, int]:
-    """Signal with DC offset (2.0) + 50 Hz sine, 1 s, sr=1000.
-
-    Mean of signal should be ~2.0 before DC removal.
-    """
-    sr = 1000
-    t = np.linspace(0, 1, sr, endpoint=False)
-    data = (2.0 + np.sin(2 * np.pi * 50 * t)).reshape(1, -1)
     return da_from_array(data, chunks=(1, -1)), sr
 
 
