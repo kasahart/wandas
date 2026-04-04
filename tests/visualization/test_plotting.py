@@ -125,13 +125,18 @@ class TestPlotting:
             mock.MagicMock(label="ch1"),
         ]
 
-        # NOctFrameのモック
+        # NOctFrameのモック — 決定論的データ
+        _noct_freqs = np.array([63, 125, 250, 500, 1000, 2000, 4000, 8000])
+        _n_noct_bins = len(_noct_freqs)
+        _noct_ch0 = np.linspace(40, 80, _n_noct_bins)  # monotonic dB values
+        _noct_ch1 = np.linspace(35, 75, _n_noct_bins)
+
         self.mock_noct_frame = mock.MagicMock()
         self.mock_noct_frame.n_channels = 2
         self.mock_noct_frame.n = 3  # 1/3オクターブ
-        self.mock_noct_frame.freqs = np.array([63, 125, 250, 500, 1000, 2000, 4000, 8000])
-        self.mock_noct_frame.dB = np.random.rand(2, 8)
-        self.mock_noct_frame.dBA = np.random.rand(2, 8)
+        self.mock_noct_frame.freqs = _noct_freqs
+        self.mock_noct_frame.dB = np.stack([_noct_ch0, _noct_ch1], axis=0)
+        self.mock_noct_frame.dBA = np.stack([_noct_ch0 * 0.9, _noct_ch1 * 0.9], axis=0)
         self.mock_noct_frame.labels = ["ch1", "ch2"]
         self.mock_noct_frame.label = "Test NOct"
         self.mock_noct_frame.channels = [
@@ -143,9 +148,9 @@ class TestPlotting:
         self.mock_single_noct_frame = mock.MagicMock()
         self.mock_single_noct_frame.n_channels = 1
         self.mock_single_noct_frame.n = 3  # 1/3オクターブ
-        self.mock_single_noct_frame.freqs = np.array([63, 125, 250, 500, 1000, 2000, 4000, 8000])
-        self.mock_single_noct_frame.dB = np.random.rand(8)
-        self.mock_single_noct_frame.dBA = np.random.rand(8)
+        self.mock_single_noct_frame.freqs = _noct_freqs
+        self.mock_single_noct_frame.dB = _noct_ch0
+        self.mock_single_noct_frame.dBA = _noct_ch0 * 0.9
         self.mock_single_noct_frame.labels = ["ch1"]
         self.mock_single_noct_frame.label = "Test Single NOct"
         self.mock_single_noct_frame.channels = [
