@@ -159,8 +159,8 @@ class TestEffectDisplayNames:
         import dask.array as da
         import numpy as np
 
-        # Create a dummy noise signal as dask array
-        noise = da.from_array(np.random.randn(1, 1000), chunks=(1, 1000))
+        # Deterministic dummy noise signal (values irrelevant for display name test)
+        noise = da.from_array(np.ones((1, 1000)), chunks=(1, 1000))
         op = AddWithSNR(sampling_rate=44100, other=noise, snr=10.0)
         assert op.get_display_name() == "+SNR"
 
