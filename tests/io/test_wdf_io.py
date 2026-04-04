@@ -158,15 +158,16 @@ def test_save_wdf_existing_file_overwrite_false_raises_file_exists(tmp_path: Pat
     cf = ChannelFrame.from_numpy(data, sr)
 
     path = tmp_path / "test_exists.wdf"
-    # First save
     cf.save(path)
+    assert path.exists(), "First save must create the file"
 
-    # Second save without overwrite should fail
+    # Second save without overwrite should fail (I/O Policy: overwrite protection)
     with pytest.raises(FileExistsError):
         cf.save(path, overwrite=False)
 
-    # Second save with overwrite should succeed
+    # Second save with overwrite=True should succeed
     cf.save(path, overwrite=True)
+    assert path.exists(), "Overwrite must keep the file"
 
 
 def test_save_wdf_no_extension_adds_wdf_suffix(tmp_path: Path) -> None:
