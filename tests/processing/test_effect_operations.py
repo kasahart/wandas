@@ -388,11 +388,11 @@ class TestNormalize:
         assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
         result = result_da.compute()
 
-        # Global max should be 1.0
+        # Global max should be 1.0 after normalization
         np.testing.assert_allclose(
             np.max(np.abs(result)),
             1.0,
-            rtol=1e-10,
+            rtol=1e-10,  # float64 normalization division precision
         )
 
         # Inter-channel ratio preserved
