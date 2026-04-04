@@ -778,12 +778,14 @@ class TestBaseFrameUtilityMethods:
         assert "1: +" in captured.out
         assert "2: *" in captured.out
 
-    def test_persist(self) -> None:
-        """Test persist method."""
+    def test_persist_returns_new_instance_with_dask(self) -> None:
+        """Test persist method returns new ChannelFrame with Dask data."""
         persisted = self.channel_frame.persist()
         assert isinstance(persisted, ChannelFrame)
+        assert persisted is not self.channel_frame
         assert persisted.sampling_rate == self.sample_rate
         assert persisted.n_channels == 2
+        assert isinstance(persisted._data, DaArray)
 
     def test_visualize_graph_with_filename(self) -> None:
         """Test visualize_graph with custom filename."""
@@ -819,11 +821,13 @@ class TestBaseFrameUtilityMethods:
             result = self.channel_frame.visualize_graph()
             assert result is None  # Should return None on exception
 
-    def test_previous_property(self) -> None:
-        """Test previous property."""
+    def test_previous_property_tracks_lineage(self) -> None:
+        """Test previous property tracks operation lineage."""
         assert self.channel_frame.previous is None
         result = self.channel_frame + 1
         assert result.previous is self.channel_frame
+        # Pillar 1: Dask preserved in chained result
+        assert isinstance(result._data, DaArray)
 
     def test_n_channels_property(self) -> None:
         """Test n_channels property."""
