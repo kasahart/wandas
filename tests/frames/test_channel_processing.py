@@ -114,6 +114,7 @@ class TestChannelProcessing:
         assert func.call_count == 0
 
         computed = result.compute()
+        # Custom apply: scalar addition — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(computed, self.data + 1.5)
         assert func.call_count == 1
 
@@ -183,6 +184,7 @@ class TestChannelProcessing:
         # Verify it computed correctly
         computed = result.compute()
         expected = self.data * (self.sample_rate / 1000.0)
+        # map_blocks scalar multiply — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(computed, expected)
 
     def test_apply_rejects_sampling_rate_param(self) -> None:
@@ -249,6 +251,7 @@ class TestChannelProcessing:
 
         computed = result.compute()
         expected = np.fft.rfft(self.data, axis=-1)
+        # Same np.fft.rfft algorithm — default rtol=1e-7 (exact match)
         np.testing.assert_allclose(computed, expected)
 
     def test_apply_domain_transition_rejects_invalid_output_frame_class(self) -> None:
@@ -409,6 +412,7 @@ class TestChannelProcessing:
         sum_cf = self.channel_frame.sum()
         sum_data = sum_cf.compute()
         expected_sum = self.data.sum(axis=-2, keepdims=True)
+        # Direct numpy sum — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(sum_data, expected_sum)
 
     def test_mean_methods(self) -> None:
@@ -429,6 +433,7 @@ class TestChannelProcessing:
         mean_cf = self.channel_frame.mean()
         mean_data = mean_cf.compute()
         expected_mean = self.data.mean(axis=-2, keepdims=True)
+        # Direct numpy mean — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(mean_data, expected_mean)
 
     def test_channel_difference(self) -> None:
@@ -449,12 +454,14 @@ class TestChannelProcessing:
         diff_cf = self.channel_frame.channel_difference(other_channel=0)
         computed = diff_cf.compute()
         expected = self.data - self.data[0:1]
+        # Element-wise subtraction — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(computed, expected)
 
         # Test that channel_difference with other_channel=0 works correctly
         diff_cf = self.channel_frame.channel_difference(other_channel="ch0")
         computed = diff_cf.compute()
         expected = self.data - self.data[0:1]
+        # Element-wise subtraction — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(computed, expected)
 
         # Test invalid channel index
