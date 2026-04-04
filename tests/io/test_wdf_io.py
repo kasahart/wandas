@@ -2,12 +2,35 @@
 
 from pathlib import Path
 
+import dask.array
 import h5py
 import numpy as np
 import pytest
 
 from wandas.frames.channel import ChannelFrame
 from wandas.io import wdf_io
+
+
+def test_wdf_roundtrip_known_signal(known_signal_frame, tmp_path: Path) -> None:
+    """WDF round-trip with known_signal_frame: data, SR, labels preserved (I/O Policy).
+
+    WDF is Wandas' native format — full metadata round-trip is mandatory.
+    Uses assert_allclose with rtol=1e-6 for format conversion tolerance.
+    """
+    path = tmp_path / "known_signal.wdf"
+    known_signal_frame.save(path)
+
+    loaded = ChannelFrame.load(path)
+
+    # Verify numerical data (rtol=1e-6: WDF HDF5 round-trip tolerance)
+    np.testing.assert_allclose(loaded.compute(), known_signal_frame.compute(), rtol=1e-6)
+    # Verify sampling rate
+    assert loaded.sampling_rate == known_signal_frame.sampling_rate
+    # Verify channel labels
+    assert loaded._channel_metadata[0].label == "left"
+    assert loaded._channel_metadata[1].label == "right"
+    # Verify Dask lazy loading (Pillar 1)
+    assert isinstance(loaded._data, dask.array.core.Array)
 
 
 def test_save_load_roundtrip(tmp_path: Path) -> None:
