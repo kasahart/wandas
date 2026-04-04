@@ -519,12 +519,12 @@ class TestChannelProcessing:
     def test_add_with_snr(self) -> None:
         """Test add method with SNR parameter."""
         # 別のChannelFrameを作成
-        signal_data = np.random.random((2, 16000))
+        signal_data = np.random.default_rng(42).random((2, 16000))
         signal_dask_data = _da_from_array(signal_data, chunks=(1, -1))
         signal_cf = ChannelFrame(signal_dask_data, self.sample_rate, label="signal")
 
         # ノイズデータを作成
-        noise_data = np.random.random((2, 16000)) * 0.1  # 小さいノイズ
+        noise_data = np.random.default_rng(42).random((2, 16000)) * 0.1  # 小さいノイズ
         noise_dask_data = _da_from_array(noise_data, chunks=(1, -1))
         noise_cf = ChannelFrame(noise_dask_data, self.sample_rate, label="noise")
 
@@ -624,12 +624,12 @@ class TestChannelProcessing:
         """異なる長さの信号を加算するテスト。"""
         # 標準の長さのフレーム（self.channel_frame）
         # 長さが標準フレームよりも短いフレーム（切り詰め必要）
-        short_data = np.random.random((2, 8000))  # 半分の長さ
+        short_data = np.random.default_rng(42).random((2, 8000))  # 半分の長さ
         short_dask_data = _da_from_array(short_data, chunks=(1, 2000))
         short_cf = ChannelFrame(short_dask_data, self.sample_rate, label="short_audio")
 
         # 長さが標準フレームよりも長いフレーム（パディング必要）
-        long_data = np.random.random((2, 24000))  # 1.5倍の長さ
+        long_data = np.random.default_rng(42).random((2, 24000))  # 1.5倍の長さ
         long_dask_data = _da_from_array(long_data, chunks=(1, -1))
         long_cf = ChannelFrame(long_dask_data, self.sample_rate, label="long_audio")
 
@@ -1104,7 +1104,7 @@ class TestRoughnessOperations:
 
 def test_get_ref_values_empty_channel_metadata() -> None:
     """_get_ref_values returns [] when _channel_metadata is empty (line 50)."""
-    cf = ChannelFrame.from_numpy(np.random.random((2, 100)), sampling_rate=1000)
+    cf = ChannelFrame.from_numpy(np.random.default_rng(42).random((2, 100)), sampling_rate=1000)
     cf._channel_metadata = []  # force empty
     result = cf._get_ref_values()
     assert result == []
@@ -1112,7 +1112,7 @@ def test_get_ref_values_empty_channel_metadata() -> None:
 
 def test_reduce_channels_unsupported_op_raises() -> None:
     """_reduce_channels raises ValueError for unsupported operation (line 313)."""
-    cf = ChannelFrame.from_numpy(np.random.random((2, 100)), sampling_rate=1000)
+    cf = ChannelFrame.from_numpy(np.random.default_rng(42).random((2, 100)), sampling_rate=1000)
     with pytest.raises(ValueError, match="Unsupported reduction operation"):
         cf._reduce_channels("median")  # ty: ignore[call-non-callable]
 
@@ -1121,10 +1121,10 @@ def test_roughness_dw_spec_missing_bark_axis() -> None:
     """roughness_dw_spec raises ValueError when bark_axis is absent from metadata (line 899)."""
     from unittest.mock import MagicMock
 
-    cf = ChannelFrame.from_numpy(np.random.random((1, 100)), sampling_rate=48000)
+    cf = ChannelFrame.from_numpy(np.random.default_rng(42).random((1, 100)), sampling_rate=48000)
 
     mock_op = MagicMock()
-    mock_op.process.return_value = _da_from_array(np.random.random((47, 10)), chunks=(47, 10))
+    mock_op.process.return_value = _da_from_array(np.random.default_rng(42).random((47, 10)), chunks=(47, 10))
     mock_op.get_metadata_updates.return_value = {"sampling_rate": 100.0}  # no bark_axis key
 
     with mock.patch("wandas.frames.mixins.channel_processing_mixin.create_operation", return_value=mock_op):
