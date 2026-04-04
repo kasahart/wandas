@@ -698,7 +698,7 @@ class TestSpectrogramFrame:
         import numpy as np
 
         # 2D NumPy配列の作成（単一チャネル）
-        np_data = np.random.random((65, 10)) + 1j * np.random.random((65, 10))
+        np_data = np.random.default_rng(42).random((65, 10)) + 1j * np.random.default_rng(42).random((65, 10))
         sampling_rate = 44100.0
         n_fft = 128
         hop_length = 64
@@ -736,7 +736,7 @@ class TestSpectrogramFrame:
         import numpy as np
 
         # 3D NumPy配列の作成（複数チャネル）
-        np_data = np.random.random((2, 65, 10)) + 1j * np.random.random((2, 65, 10))
+        np_data = np.random.default_rng(42).random((2, 65, 10)) + 1j * np.random.default_rng(42).random((2, 65, 10))
         sampling_rate = 44100.0
         n_fft = 128
         hop_length = 64
@@ -773,7 +773,7 @@ class TestSpectrogramFrame:
         import numpy as np
 
         # テストデータの作成
-        np_data = np.random.random((2, 65, 5)) + 1j * np.random.random((2, 65, 5))
+        np_data = np.random.default_rng(42).random((2, 65, 5)) + 1j * np.random.default_rng(42).random((2, 65, 5))
         sampling_rate = 48000.0
         n_fft = 128
         hop_length = 64
@@ -818,7 +818,7 @@ class TestSpectrogramFrame:
         import numpy as np
 
         # ラベルを指定せずにSpectrogramFrameを作成
-        np_data = np.random.random((65, 10)) + 1j * np.random.random((65, 10))
+        np_data = np.random.default_rng(42).random((65, 10)) + 1j * np.random.default_rng(42).random((65, 10))
         spec_frame = SpectrogramFrame.from_numpy(
             data=np_data,
             sampling_rate=44100.0,
@@ -834,7 +834,7 @@ class TestSpectrogramFrame:
         import numpy as np
 
         # 1D配列（不正）
-        np_data_1d = np.random.random(10) + 1j * np.random.random(10)
+        np_data_1d = np.random.default_rng(42).random(10) + 1j * np.random.default_rng(42).random(10)
         with pytest.raises(ValueError, match=r"Invalid data shape"):
             SpectrogramFrame.from_numpy(
                 data=np_data_1d,
@@ -844,7 +844,9 @@ class TestSpectrogramFrame:
             )
 
         # 4D配列（不正）
-        np_data_4d = np.random.random((2, 65, 10, 2)) + 1j * np.random.random((2, 65, 10, 2))
+        np_data_4d = np.random.default_rng(42).random((2, 65, 10, 2)) + 1j * np.random.default_rng(42).random(
+            (2, 65, 10, 2)
+        )
         with pytest.raises(ValueError, match=r"Invalid data shape"):
             SpectrogramFrame.from_numpy(
                 data=np_data_4d,
@@ -858,7 +860,9 @@ class TestSpectrogramFrame:
         import numpy as np
 
         # 周波数ビン数がn_fft//2+1と一致しない配列
-        np_data = np.random.random((2, 50, 10)) + 1j * np.random.random((2, 50, 10))  # 50 != 65
+        np_data = np.random.default_rng(42).random((2, 50, 10)) + 1j * np.random.default_rng(42).random(
+            (2, 50, 10)
+        )  # 50 != 65
         with pytest.raises(
             ValueError,
             match=r"Invalid frequency bin count",
@@ -875,7 +879,7 @@ class TestSpectrogramFrame:
         import numpy as np
 
         # NumPy配列の作成
-        np_data = np.random.random((2, 65, 10)) + 1j * np.random.random((2, 65, 10))
+        np_data = np.random.default_rng(42).random((2, 65, 10)) + 1j * np.random.default_rng(42).random((2, 65, 10))
 
         # from_numpyでSpectrogramFrameを作成
         spec_frame = SpectrogramFrame.from_numpy(

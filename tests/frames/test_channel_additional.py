@@ -553,7 +553,7 @@ def test_resolve_channels_list_out_of_range():
 
 def test_from_numpy_3d_data_raises():
     """from_numpy with 3D data should raise ValueError (line 792)."""
-    data_3d = np.random.random((2, 4, 100))
+    data_3d = np.random.default_rng(42).random((2, 4, 100))
     with pytest.raises(ValueError, match="Data must be 1-dimensional or 2-dimensional"):
         ChannelFrame.from_numpy(data_3d, sampling_rate=1000)
 

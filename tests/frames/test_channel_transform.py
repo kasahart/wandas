@@ -289,7 +289,9 @@ class TestChannelTransform:
         # 出力信号（100Hzでゲイン2.0、200Hzでゲイン1.5を持つ）
         # より現実的にするためにノイズを追加
         output_sig = (
-            2 * np.sin(2 * np.pi * 100 * t) + 0.75 * np.sin(2 * np.pi * 200 * t) + 0.05 * np.random.randn(len(t))
+            2 * np.sin(2 * np.pi * 100 * t)
+            + 0.75 * np.sin(2 * np.pi * 200 * t)
+            + 0.05 * np.random.default_rng(42).standard_normal(len(t))
         )
 
         # 2チャンネル信号を作成
