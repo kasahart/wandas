@@ -594,6 +594,7 @@ class TestSoundLevel:
         int_result = int_result_da.compute()
         float_result = float_result_da.compute()
         assert int_result.dtype == np.float64
+        # Default tolerance: same algorithm, different input dtypes (int16 vs float64)
         np.testing.assert_allclose(int_result, float_result)
 
     def test_sound_level_float32_preserves_dtype(self) -> None:
@@ -744,6 +745,7 @@ class TestRmsTrendMetadataUpdates:
 
         assert "sampling_rate" in updates
         expected_sr = 44100 / 512
+        # Default tolerance: exact integer division (sampling_rate / hop_length)
         np.testing.assert_allclose(updates["sampling_rate"], expected_sr)
 
     def test_rms_trend_metadata_with_different_hop_length(self) -> None:
@@ -754,6 +756,7 @@ class TestRmsTrendMetadataUpdates:
         updates = operation.get_metadata_updates()
 
         expected_sr = 48000 / hop_length
+        # Default tolerance: exact integer division (sampling_rate / hop_length)
         np.testing.assert_allclose(updates["sampling_rate"], expected_sr)
 
 
