@@ -1508,7 +1508,6 @@ class TestSharpnessDin:
 
     def test_operation_name(self) -> None:
         """Test that operation has correct name."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
         op = SharpnessDin(_SR)
         assert op.name == "sharpness_din"
 
@@ -1524,7 +1523,7 @@ class TestSharpnessDin:
 
     def test_mono_signal_shape(self) -> None:
         """Test sharpness calculation output shape for mono signal."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
+        signal_mono, _, _, _ = _sharpness_signal()
         op = SharpnessDin(_SR)
         result = op.process_array(signal_mono).compute()
 
@@ -1534,7 +1533,7 @@ class TestSharpnessDin:
 
     def test_stereo_signal_shape(self) -> None:
         """Test sharpness calculation output shape for stereo signal."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
+        _, signal_stereo, _, _ = _sharpness_signal()
         op = SharpnessDin(_SR)
         result = op.process_array(signal_stereo).compute()
 
@@ -1545,12 +1544,11 @@ class TestSharpnessDin:
 
     def test_comparison_with_mosqito_direct(self) -> None:
         """Test that values match MoSQITo direct calculation."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
+        signal_mono, _, _, _ = _sharpness_signal()
         op = SharpnessDin(_SR)
-        # Calculate using our operation
         our_result = op.process_array(signal_mono).compute()
 
-        # Calculate using MoSQITo directly
+        # MoSQITo wrapper — exact match expected (same algorithm)
         s_direct, _ = sharpness_din_tv_mosqito(signal_mono[0], _SR)
 
         # Results should match MoSQITo exactly
@@ -1562,7 +1560,7 @@ class TestSharpnessDin:
 
     def test_stereo_matches_mosqito(self) -> None:
         """Test stereo signal matches MoSQITo for each channel."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
+        _, signal_stereo, _, _ = _sharpness_signal()
         op = SharpnessDin(_SR)
         result = op.process_array(signal_stereo).compute()
 
@@ -1576,7 +1574,7 @@ class TestSharpnessDin:
 
     def test_sharpness_values_range(self) -> None:
         """Test that sharpness values are in reasonable range."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
+        signal_mono, _, _, _ = _sharpness_signal()
         op = SharpnessDin(_SR)
         result = op.process_array(signal_mono).compute()
 
@@ -1594,7 +1592,6 @@ class TestSharpnessDin:
 
     def test_silence_produces_low_sharpness(self) -> None:
         """Test that silence produces near-zero sharpness."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
         op = SharpnessDin(_SR)
         duration = 0.1
         silence = np.zeros((1, int(_SR * duration)))
@@ -1612,19 +1609,17 @@ class TestSharpnessDin:
 
     def test_process_with_dask(self) -> None:
         """Test that process method works with dask arrays."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
+        signal_mono, _, dask_mono, _ = _sharpness_signal()
         op = SharpnessDin(_SR)
         result = op.process(dask_mono).compute()
 
-        # Compare with MoSQITo direct calculation
+        # MoSQITo wrapper — exact match expected (same algorithm)
         s_direct, _ = sharpness_din_tv_mosqito(signal_mono[0], _SR)
-
-        # Results should match MoSQITo exactly
         np.testing.assert_array_equal(result[0], s_direct)
 
     def test_multi_channel_independence(self) -> None:
         """Test that each channel is processed independently."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
+        _, signal_stereo, _, _ = _sharpness_signal()
         op = SharpnessDin(_SR)
         result = op.process_array(signal_stereo).compute()
 
@@ -1638,7 +1633,6 @@ class TestSharpnessDin:
 
     def test_1d_input_handling(self) -> None:
         """Test that 1D input is properly handled."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
         op = SharpnessDin(_SR)
         duration = 0.1
         # Create 1D signal
@@ -1653,7 +1647,7 @@ class TestSharpnessDin:
 
     def test_consistency_across_calls(self) -> None:
         """Test that repeated calls with same input produce same output."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
+        signal_mono, _, _, _ = _sharpness_signal()
         op = SharpnessDin(_SR)
         result1 = op.process_array(signal_mono).compute()
         result2 = op.process_array(signal_mono).compute()
@@ -1663,7 +1657,6 @@ class TestSharpnessDin:
 
     def test_sampling_rate_metadata(self) -> None:
         """Test that output sampling rate is correctly calculated."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
         op = SharpnessDin(_SR)
         metadata_updates = op.get_metadata_updates()
 
@@ -1672,7 +1665,6 @@ class TestSharpnessDin:
 
     def test_calculate_output_shape(self) -> None:
         """Test calculate_output_shape method."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
         op = SharpnessDin(_SR)
         input_shape = (1, 48000)  # 1 channel, 1 second at 48kHz
         output_shape = op.calculate_output_shape(input_shape)
@@ -1689,8 +1681,7 @@ class TestSharpnessDin:
 
     def test_time_axis_values(self) -> None:
         """Test that time axis is correctly calculated based on sampling rate."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
-        SharpnessDin(_SR)
+        signal_mono, _, _, _ = _sharpness_signal()
         from wandas.frames.channel import ChannelFrame
 
         # Create frame and calculate sharpness
@@ -1725,8 +1716,7 @@ class TestSharpnessDin:
 
     def test_plot_method_exists_and_works(self) -> None:
         """Test that sharpness ChannelFrame can be plotted."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
-        SharpnessDin(_SR)
+        signal_mono, _, _, _ = _sharpness_signal()
         import matplotlib.pyplot as plt
 
         from wandas.frames.channel import ChannelFrame
@@ -1847,7 +1837,6 @@ class TestSharpnessDinSt:
 
     def test_operation_name(self) -> None:
         """Test that operation has correct name."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
         op = SharpnessDinSt(_SR)
         assert op.name == "sharpness_din_st"
 
@@ -1863,7 +1852,7 @@ class TestSharpnessDinSt:
 
     def test_mono_signal_shape(self) -> None:
         """Test steady-state sharpness calculation output shape for mono signal."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
+        signal_mono, _, _, _ = _sharpness_signal()
         op = SharpnessDinSt(_SR)
         result = op.process_array(signal_mono).compute()
 
@@ -1874,7 +1863,7 @@ class TestSharpnessDinSt:
 
     def test_stereo_signal_shape(self) -> None:
         """Test steady-state sharpness calculation output shape for stereo signal."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
+        _, signal_stereo, _, _ = _sharpness_signal()
         op = SharpnessDinSt(_SR)
         result = op.process_array(signal_stereo).compute()
 
@@ -1885,12 +1874,11 @@ class TestSharpnessDinSt:
 
     def test_comparison_with_mosqito_direct(self) -> None:
         """Test that values match MoSQITo direct calculation."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
+        signal_mono, _, _, _ = _sharpness_signal()
         op = SharpnessDinSt(_SR)
-        # Calculate using our operation
         our_result = op.process_array(signal_mono).compute()
 
-        # Calculate using MoSQITo directly
+        # MoSQITo wrapper — exact match expected (same algorithm)
         s_direct = sharpness_din_st_mosqito(signal_mono[0], _SR)
 
         # Results should match exactly
@@ -1903,7 +1891,7 @@ class TestSharpnessDinSt:
 
     def test_stereo_matches_mosqito(self) -> None:
         """Test stereo signal matches MoSQITo for each channel."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
+        _, signal_stereo, _, _ = _sharpness_signal()
         op = SharpnessDinSt(_SR)
         result = op.process_array(signal_stereo).compute()
 
@@ -1917,7 +1905,7 @@ class TestSharpnessDinSt:
 
     def test_sharpness_values_range(self) -> None:
         """Test that sharpness values are in reasonable range."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
+        signal_mono, _, _, _ = _sharpness_signal()
         op = SharpnessDinSt(_SR)
         result = op.process_array(signal_mono).compute()
 
@@ -1935,7 +1923,6 @@ class TestSharpnessDinSt:
 
     def test_silence_produces_low_sharpness(self) -> None:
         """Test that silence produces near-zero sharpness."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
         op = SharpnessDinSt(_SR)
         duration = 0.1
         silence = np.zeros((1, int(_SR * duration)))
@@ -1957,19 +1944,17 @@ class TestSharpnessDinSt:
 
     def test_process_with_dask(self) -> None:
         """Test that process method works with dask arrays."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
+        signal_mono, _, dask_mono, _ = _sharpness_signal()
         op = SharpnessDinSt(_SR)
         result = op.process(dask_mono).compute()
 
-        # Compare with MoSQITo direct calculation
+        # MoSQITo wrapper — exact match expected (same algorithm)
         s_direct = sharpness_din_st_mosqito(signal_mono[0], _SR)
-
-        # Results should match MoSQITo exactly
         np.testing.assert_allclose(result[0, 0], s_direct, rtol=1e-10)
 
     def test_multi_channel_independence(self) -> None:
         """Test that each channel is processed independently."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
+        _, signal_stereo, _, _ = _sharpness_signal()
         op = SharpnessDinSt(_SR)
         result = op.process_array(signal_stereo).compute()
 
@@ -1983,7 +1968,6 @@ class TestSharpnessDinSt:
 
     def test_calculate_output_shape(self) -> None:
         """Test calculate_output_shape method."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
         op = SharpnessDinSt(_SR)
         input_shape = (1, 48000)  # 1 channel, 1 second at 48kHz
         output_shape = op.calculate_output_shape(input_shape)
@@ -2000,7 +1984,6 @@ class TestSharpnessDinSt:
 
     def test_1d_input_handling(self) -> None:
         """Test that 1D input is properly handled."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
         op = SharpnessDinSt(_SR)
         duration = 0.1
         # Create 1D signal
@@ -2016,7 +1999,7 @@ class TestSharpnessDinSt:
 
     def test_consistency_across_calls(self) -> None:
         """Test that repeated calls with same input produce same output."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _sharpness_signal()
+        signal_mono, _, _, _ = _sharpness_signal()
         op = SharpnessDinSt(_SR)
         result1 = op.process_array(signal_mono).compute()
         result2 = op.process_array(signal_mono).compute()
