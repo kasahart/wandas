@@ -307,16 +307,19 @@ def test_get_channel_selection_preserves_history_and_immutability() -> None:
 
     # Snapshot original state
     original_history = cf.operation_history.copy()
+    original_data = cf._data.compute().copy()
 
-    # Select a channel
     new_cf = cf.get_channel(0)
 
-    # Returned frame must be a new instance
+    # Pillar 1: New instance, original unchanged
     assert new_cf is not cf
+    np.testing.assert_array_equal(cf._data.compute(), original_data)
+    assert isinstance(new_cf._data, DaArray)
 
-    # Operation history should be preserved (selection should not add an operation)
+    # Pillar 2: History preserved (structural operation, no history added)
     assert cf.operation_history == original_history
     assert new_cf.operation_history == original_history
+    assert new_cf.sampling_rate == sample_rate
 
 
 def test_get_channel_dict_query_multiple_keys_returns_intersection() -> None:
