@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from dask.array.core import Array as DaArray
 
 from wandas.processing.base import _OPERATION_REGISTRY, create_operation, get_operation
 from wandas.processing.custom import CustomOperation
@@ -16,7 +17,9 @@ class TestCustomOperation:
 
         op = CustomOperation(16000, func=scale_add, gain=2.0)
 
-        result = op.process(dask_data).compute()
+        result_da = op.process(dask_data)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
         np.testing.assert_array_equal(result, scale_add(data, gain=2.0))
 
     def test_custom_operation_output_shape_func_overrides(self) -> None:
