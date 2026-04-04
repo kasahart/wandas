@@ -43,10 +43,11 @@ class TestChannelLabelUpdates:
 
         # Verify labels are updated (using display name "norm")
         assert result.labels == ["norm(ch0)", "norm(ch1)"]
-        # Pillar 1: Dask laziness preserved
-        assert isinstance(result._data, DaArray)
-        # Verify original frame is unchanged
+        # Pillar 1: immutability — new instance, original unchanged
+        assert result is not frame
+        assert isinstance(result._data, DaArray)  # Dask laziness preserved
         assert frame.labels == ["ch0", "ch1"]
+        assert frame.sampling_rate == _SAMPLE_RATE
 
     def test_low_pass_filter_updates_labels(self) -> None:
         """Test that low_pass_filter updates channel labels."""
