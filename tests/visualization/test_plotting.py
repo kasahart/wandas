@@ -95,11 +95,17 @@ class TestPlotting:
             mock.MagicMock(label="ch1"),
         ]
 
+        # スペクトルフレームモック — 決定論的データ
+        _n_freq_bins = 513  # n_fft=1024 → N/2+1
+        _freqs = np.linspace(0, 22050, _n_freq_bins)
+        _spec_ch0 = np.sin(np.linspace(0, np.pi, _n_freq_bins))
+        _spec_ch1 = np.cos(np.linspace(0, np.pi, _n_freq_bins))
+
         self.mock_spectral_frame = mock.MagicMock()
         self.mock_spectral_frame.n_channels = 2
-        self.mock_spectral_frame.freqs = np.linspace(0, 22050, 513)
-        self.mock_spectral_frame.dB = np.random.rand(2, 513)
-        self.mock_spectral_frame.dBA = np.random.rand(2, 513)
+        self.mock_spectral_frame.freqs = _freqs
+        self.mock_spectral_frame.dB = np.stack([_spec_ch0, _spec_ch1], axis=0)
+        self.mock_spectral_frame.dBA = np.stack([_spec_ch0 * 0.8, _spec_ch1 * 0.8], axis=0)
         self.mock_spectral_frame.labels = ["ch1", "ch2"]
         self.mock_spectral_frame.label = "Test Spectral"
         self.mock_spectral_frame.channels = [
@@ -110,9 +116,9 @@ class TestPlotting:
         # 単一チャネル用のモックスペクトルフレーム
         self.mock_single_spectral_frame = mock.MagicMock()
         self.mock_single_spectral_frame.n_channels = 1
-        self.mock_single_spectral_frame.freqs = np.linspace(0, 22050, 513)
-        self.mock_single_spectral_frame.dB = np.random.rand(513)
-        self.mock_single_spectral_frame.dBA = np.random.rand(513)
+        self.mock_single_spectral_frame.freqs = _freqs
+        self.mock_single_spectral_frame.dB = _spec_ch0
+        self.mock_single_spectral_frame.dBA = _spec_ch0 * 0.8
         self.mock_single_spectral_frame.labels = ["ch1"]
         self.mock_single_spectral_frame.label = "Test Single Spectral"
         self.mock_single_spectral_frame.channels = [
