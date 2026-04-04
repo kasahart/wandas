@@ -12,9 +12,10 @@ from wandas.io import wdf_io
 
 def test_save_load_roundtrip(tmp_path: Path) -> None:
     """Test saving and loading a ChannelFrame with full metadata preservation."""
-    # Create test data
+    # Seeded RNG for reproducibility (Grand Policy: no random data)
+    rng = np.random.default_rng(42)
     sr = 48000
-    data = np.random.randn(2, sr)
+    data = rng.standard_normal((2, sr))
 
     # Create ChannelFrame with metadata
     cf = ChannelFrame.from_numpy(
@@ -57,7 +58,7 @@ def test_save_load_roundtrip(tmp_path: Path) -> None:
     assert cf2.operation_history[1]["params"]["type"] == "lowpass"
     assert cf2.operation_history[1]["params"]["cutoff"] == 1000
 
-    # Verify channel data
+    # Verify channel data — same algorithm, same data: exact match expected
     assert np.allclose(cf2.data, cf.data)
 
     # Verify channel metadata
