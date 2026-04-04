@@ -598,6 +598,7 @@ class TestChannelProcessing:
         assert np.all(added_noise_rms > 0)
         actual_snr = 20 * np.log10(calculate_rms(signal_data) / added_noise_rms)
 
+        # atol=1e-3: SNR estimation from computed noise has small float64 rounding
         np.testing.assert_allclose(actual_snr, np.full_like(actual_snr, snr_db), atol=1e-3)
 
     def test_add_with_snr_scalar_returns_direct_addition(self) -> None:
@@ -607,6 +608,7 @@ class TestChannelProcessing:
         result = self.channel_frame.add(scalar_value, snr=12.0)
 
         assert isinstance(result, ChannelFrame)
+        # Scalar broadcast addition — default rtol (exact match expected)
         np.testing.assert_allclose(result.compute(), self.data + scalar_value)
         assert result.operation_history[-1] == {"operation": "+", "with": str(scalar_value)}
         assert "snr" not in result.operation_history[-1]
@@ -664,6 +666,7 @@ class TestChannelProcessing:
         # 短いフレーム部分は加算され、残りは元のフレームのままであることを確認
         expected_short = self.data.copy()
         expected_short[:, : short_data.shape[1]] = expected_short[:, : short_data.shape[1]] + short_data
+        # Pad + add — decimal=6 default (exact element-wise arithmetic)
         np.testing.assert_array_almost_equal(computed_short, expected_short)
 
         # 長いフレームを標準フレームに加算（切り詰めが必要）
@@ -675,6 +678,7 @@ class TestChannelProcessing:
 
         # 元のフレームと同じ長さだけ長いフレームを切り詰めて加算されることを確認
         expected_long = self.data + long_data[:, : self.data.shape[1]]
+        # Truncate + add — decimal=6 default (exact element-wise arithmetic)
         np.testing.assert_array_almost_equal(computed_long, expected_long)
 
     def test_rms_trend(self) -> None:
