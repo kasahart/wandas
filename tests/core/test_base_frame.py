@@ -1143,39 +1143,40 @@ class TestBaseFrameEdgeCases:
             with pytest.raises(ValueError, match="Computed result is not a np.ndarray"):
                 frame.compute()
 
-    def test_slice_returns_single_channel_as_list(self) -> None:
+    def test_slice_single_channel_returns_metadata_as_list(self) -> None:
         """Test that slicing a single channel still returns metadata as list."""
         data = np.linspace(0.1, 1.0, 48000).reshape(3, 16000)
         dask_data: DaArray = da_from_array(data, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
-        # Slice to get single channel
         result = frame[1:2]
         assert isinstance(result.channels, list)
         assert len(result.channels) == 1
+        assert isinstance(result._data, DaArray)
+        assert result is not frame
 
-    def test_multidim_indexing_with_array_channels(self) -> None:
-        """Test multidimensional indexing with array of channels."""
+    def test_multidim_indexing_array_channels_preserves_dask(self) -> None:
+        """Test multidimensional indexing with array of channels preserves Dask."""
         data = np.linspace(0.1, 1.0, 64000).reshape(4, 16000)
         dask_data: DaArray = da_from_array(data, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
-        # Use numpy array for channel selection with time slice
         indices = np.array([0, 2])
         result = frame[indices, 100:200]
         assert result.n_channels == 2
         assert result.n_samples == 100
+        assert isinstance(result._data, DaArray)
 
-    def test_multidim_indexing_channel_only(self) -> None:
-        """Test multidimensional indexing with only channel selection (no time)."""
+    def test_multidim_indexing_channel_only_preserves_dask(self) -> None:
+        """Test multidimensional indexing with only channel selection preserves Dask."""
         data = np.linspace(0.1, 1.0, 64000).reshape(4, 16000)
         dask_data: DaArray = da_from_array(data, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
-        # Tuple with only channel selection (time_keys will be empty)
         result = frame[(0,)]
         assert result.n_channels == 1
         assert result.n_samples == 16000
+        assert isinstance(result._data, DaArray)
 
     def test_slice_single_channel_converts_to_list(self) -> None:
         """Test that slicing returning single ChannelMetadata converts to list."""
