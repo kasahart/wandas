@@ -1067,15 +1067,18 @@ class TestPlotting:
 
         self.mock_channel_frame.channels = [channel_with_unit]
         self.mock_channel_frame.n_channels = 1
-        self.mock_channel_frame.data = np.sin(np.linspace(0, 2 * np.pi, 1000)).reshape(1, -1)
+        self.mock_channel_frame.data = np.sin(np.linspace(0, 2 * np.pi, _N_SAMPLES)).reshape(1, -1)
 
         strategy = WaveformPlotStrategy()
         result = strategy.plot(self.mock_channel_frame, overlay=False)
 
         assert isinstance(result, Iterator)
         axes_list = list(result)
+        assert len(axes_list) == 1
         # Verify unit is included in y-axis label
         assert "V" in axes_list[0].get_ylabel()
+        # Verify channel label appears in the plot title
+        assert axes_list[0].get_title() == "Test Channel"
 
     def test_noct_strategy_with_different_n_values(self) -> None:
         """Test NOctPlotStrategy with different N values."""
