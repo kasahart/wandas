@@ -365,13 +365,15 @@ def test_write_wav_roundtrip_preserves_shape_and_sr(tmp_path) -> None:
 
     # Verify via scipy directly
     read_sr, wav_data = wavfile.read(str(output_path))
-    assert read_sr == sr
-    assert wav_data.shape == (n_samples, 2)
+    assert read_sr == sr, f"Sampling rate mismatch: {read_sr} != {sr}"
+    assert wav_data.shape == (n_samples, 2), f"WAV shape mismatch: {wav_data.shape}"
 
     # Verify via ChannelFrame round-trip
     loaded = ChannelFrame.read_wav(str(output_path))
-    assert loaded.sampling_rate == sr
-    assert loaded.shape == cf.shape
+    assert loaded.sampling_rate == sr, f"Loaded SR mismatch: {loaded.sampling_rate}"
+    assert loaded.shape == cf.shape, f"Shape mismatch: {loaded.shape} != {cf.shape}"
+    # Verify Dask lazy loading (Pillar 1)
+    assert isinstance(loaded._data, dask.array.core.Array), "WAV load must produce Dask array"
 
     computed = loaded.compute()
     # rtol=1e-2: WAV format may involve float->PCM->float conversion
