@@ -103,66 +103,64 @@ def test_read_wav_custom_labels_propagated(tmp_path) -> None:
     assert cf.channels[1].label == "Right Channel"
 
 
-def test_read_wav_bytes() -> None:
+def test_read_wav_bytes_dc_signal() -> None:
+    """Test reading a WAV from in-memory bytes with known DC signal.
+
+    Uses float32 DC signals to verify byte-based read path preserves
+    sample values. rtol=1e-5 for float32 precision tolerance.
     """
-    Test reading a WAV file from in-memory bytes.
-    """
-    sampling_rate = 32000
-    duration = 0.1
-    num_samples = int(sampling_rate * duration)
-    data_left = np.full(num_samples, 0.25, dtype=np.float32)
-    data_right = np.full(num_samples, 0.75, dtype=np.float32)
+    sr = 32000
+    n_samples = 3200  # 0.1 seconds
+    data_left = np.full(n_samples, 0.25, dtype=np.float32)
+    data_right = np.full(n_samples, 0.75, dtype=np.float32)
     stereo_data = np.column_stack((data_left, data_right))
 
     wav_buffer = io.BytesIO()
-    wavfile.write(wav_buffer, sampling_rate, stereo_data)
+    wavfile.write(wav_buffer, sr, stereo_data)
     wav_bytes = wav_buffer.getvalue()
 
-    channel_frame = ChannelFrame.read_wav(wav_bytes)
+    cf = ChannelFrame.read_wav(wav_bytes)
 
-    assert channel_frame.sampling_rate == sampling_rate
-    assert len(channel_frame) == 2
-    computed_data = channel_frame.compute()
-    np.testing.assert_allclose(computed_data[0], data_left, rtol=1e-5)
-    np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)
+    assert cf.sampling_rate == sr
+    assert len(cf) == 2
+    computed = cf.compute()
+    # Float32 DC signal: rtol=1e-5 accounts for float32 precision
+    np.testing.assert_allclose(computed[0], data_left, rtol=1e-5)
+    np.testing.assert_allclose(computed[1], data_right, rtol=1e-5)
 
 
-def test_read_wav_from_url() -> None:
-    """
-    Test reading a WAV file from a URL via ChannelFrame.read_wav.
+def test_read_wav_from_url_via_requests_mock() -> None:
+    """Test reading WAV bytes obtained from a mocked HTTP response.
 
-    Downloads the WAV content (mocked here) and passes the bytes to
-    ChannelFrame.read_wav, which is the expected usage pattern when
-    loading from a URL.
+    Simulates downloading WAV content via requests.get and passing bytes
+    to ChannelFrame.read_wav. Verifies all sample values, not just [0].
     """
     url = "https://example.com/test.wav"
-
-    sampling_rate = 44100
-    duration = 0.1  # 0.1 seconds to keep it small
-    num_samples = int(sampling_rate * duration)
-    data_left = np.full(num_samples, 0.5)
-    data_right = np.full(num_samples, 1.0)
+    sr = 44100
+    n_samples = 4410  # 0.1 seconds
+    data_left = np.full(n_samples, 0.5, dtype=np.float32)
+    data_right = np.full(n_samples, 1.0, dtype=np.float32)
     stereo_data = np.column_stack((data_left, data_right))
 
     wav_buffer = io.BytesIO()
-    wavfile.write(wav_buffer, sampling_rate, stereo_data)
+    wavfile.write(wav_buffer, sr, stereo_data)
     wav_bytes = wav_buffer.getvalue()
 
-    # Simulate downloading the URL content then reading via ChannelFrame.read_wav
     mock_response = MagicMock()
     mock_response.content = wav_bytes
     with patch("requests.get", return_value=mock_response) as mock_get:
         import requests
 
         response = requests.get(url)
-        channel_frame = ChannelFrame.read_wav(response.content)
+        cf = ChannelFrame.read_wav(response.content)
 
     mock_get.assert_called_once_with(url)
-    assert len(channel_frame) == 2
-    assert channel_frame.sampling_rate == 44100
-    computed_data = channel_frame.compute()
-    np.testing.assert_allclose(computed_data[0][0], 0.5, rtol=1e-5)
-    np.testing.assert_allclose(computed_data[1][0], 1.0, rtol=1e-5)
+    assert len(cf) == 2
+    assert cf.sampling_rate == sr
+    computed = cf.compute()
+    # Verify all samples, not just first element (rtol=1e-5 for float32)
+    np.testing.assert_allclose(computed[0], data_left, rtol=1e-5)
+    np.testing.assert_allclose(computed[1], data_right, rtol=1e-5)
 
 
 def test_from_file_url_wav() -> None:
