@@ -157,16 +157,24 @@ class TestPlotting:
             mock.MagicMock(label="ch1"),
         ]
 
+        # スペクトログラムフレームモック — 決定論的データ
+        _n_spec_freq = 513  # n_fft=1024 → N/2+1
+        _n_spec_time = 10
+        _spec_grid = np.outer(
+            np.sin(np.linspace(0, np.pi, _n_spec_freq)),
+            np.linspace(0.5, 1.0, _n_spec_time),
+        )  # (513, 10) deterministic
+
         self.mock_spectrogram_frame = mock.MagicMock()
         self.mock_spectrogram_frame.n_channels = 2
-        self.mock_spectrogram_frame.n_freq_bins = 513
-        self.mock_spectrogram_frame.shape = (2, 513, 10)
+        self.mock_spectrogram_frame.n_freq_bins = _n_spec_freq
+        self.mock_spectrogram_frame.shape = (2, _n_spec_freq, _n_spec_time)
         self.mock_spectrogram_frame.sampling_rate = 44100
         self.mock_spectrogram_frame.n_fft = 1024
         self.mock_spectrogram_frame.hop_length = 512
         self.mock_spectrogram_frame.win_length = 1024
-        self.mock_spectrogram_frame.dB = np.random.rand(2, 513, 10)
-        self.mock_spectrogram_frame.dBA = np.random.rand(2, 513, 10)
+        self.mock_spectrogram_frame.dB = np.stack([_spec_grid, _spec_grid * 0.8], axis=0)
+        self.mock_spectrogram_frame.dBA = np.stack([_spec_grid * 0.9, _spec_grid * 0.7], axis=0)
         self.mock_spectrogram_frame.channels = [
             mock.MagicMock(label="ch1"),
             mock.MagicMock(label="ch2"),
@@ -176,14 +184,14 @@ class TestPlotting:
         # スペクトログラムテスト用に単一チャネルバージョンも作成
         self.mock_single_spectrogram_frame = mock.MagicMock()
         self.mock_single_spectrogram_frame.n_channels = 1
-        self.mock_single_spectrogram_frame.n_freq_bins = 513
-        self.mock_single_spectrogram_frame.shape = (513, 10)
+        self.mock_single_spectrogram_frame.n_freq_bins = _n_spec_freq
+        self.mock_single_spectrogram_frame.shape = (_n_spec_freq, _n_spec_time)
         self.mock_single_spectrogram_frame.sampling_rate = 44100
         self.mock_single_spectrogram_frame.n_fft = 1024
         self.mock_single_spectrogram_frame.hop_length = 512
         self.mock_single_spectrogram_frame.win_length = 1024
-        self.mock_single_spectrogram_frame.dB = np.random.rand(513, 10)
-        self.mock_single_spectrogram_frame.dBA = np.random.rand(513, 10)
+        self.mock_single_spectrogram_frame.dB = _spec_grid
+        self.mock_single_spectrogram_frame.dBA = _spec_grid * 0.9
         self.mock_single_spectrogram_frame.channels = [
             mock.MagicMock(label="ch1"),
         ]
