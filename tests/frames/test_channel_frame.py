@@ -764,6 +764,9 @@ def test_describe_plot_return_type_error() -> None:
         # Add the two ChannelFrames
         result = self.channel_frame + other_cf
 
+        # Pillar 1: immutability and Dask laziness
+        assert result is not self.channel_frame
+        assert isinstance(result._data, DaArray)
         # Check result properties
         assert isinstance(result, ChannelFrame)
         assert result.sampling_rate == self.sample_rate
@@ -809,6 +812,8 @@ def test_describe_plot_return_type_error() -> None:
         # addメソッドを使用して加算
         result = self.channel_frame.add(other_cf)
 
+        # Pillar 1: immutability
+        assert result is not self.channel_frame
         # Check result properties
         assert isinstance(result, ChannelFrame)
         assert result.sampling_rate == self.sample_rate
