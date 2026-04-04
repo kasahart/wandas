@@ -1,5 +1,4 @@
 import io
-import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -102,37 +101,30 @@ class TestSoundFileReader:
 
 
 class TestCSVFileReader:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.reader: CSVFileReader = CSVFileReader()
+    # Constants for the standard CSV test file
+    N_ROWS: int = 1000
+    N_CHANNELS: int = 3
 
-        # Create a temporary CSV file for testing
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.test_file: Path = Path(self.temp_dir.name) / "test_data.csv"
+    @pytest.fixture(autouse=True)
+    def _setup_csv(self, tmp_path: Path) -> None:
+        """Create a standard CSV file using seeded RNG (Grand Policy)."""
+        self.reader = CSVFileReader()
+        self.tmp_path = tmp_path
+        self.test_file = tmp_path / "test_data.csv"
 
-        # Create sample data: time column + 3 data columns, 1000 rows
         # Seeded RNG for reproducibility (Grand Policy: no unseeded random data)
         rng = np.random.default_rng(99)
-        n_rows: int = 1000
         sample_rate: int = 1000
-        time_values: NDArrayReal = np.arange(n_rows) / sample_rate  # 1kHz sample rate
-        data_values: NDArrayReal = rng.random((n_rows, 3))
+        time_values: NDArrayReal = np.arange(self.N_ROWS) / sample_rate  # 1kHz
+        data_values: NDArrayReal = rng.random((self.N_ROWS, self.N_CHANNELS))
 
-        # Create DataFrame and save to CSV
         df: pd.DataFrame = pd.DataFrame(
             np.column_stack([time_values, data_values]),
             columns=["time", "ch1", "ch2", "ch3"],
         )
         df.to_csv(self.test_file, index=False)
 
-        # Store expected data for tests
-        self.expected_data: NDArrayReal = data_values.T  # Transpose to get (channels, samples)
-        self.n_samples: int = n_rows
-        self.n_channels: int = 3
-
-    def teardown_method(self) -> None:
-        """Clean up after tests."""
-        self.temp_dir.cleanup()
+        self.expected_data: NDArrayReal = data_values.T  # (channels, samples)
 
     def test_get_file_info_basic(self) -> None:
         """Test basic functionality of get_file_info method."""
@@ -145,14 +137,14 @@ class TestCSVFileReader:
 
         # Check specific values
         assert info["format"] == "CSV"
-        assert info["channels"] == self.n_channels
+        assert info["channels"] == self.N_CHANNELS
         assert info["frames"] == 1000
         assert info["duration"] == 1
 
     def test_get_file_info_samplerate_calculation(self) -> None:
         """Test samplerate estimation from evenly spaced time values."""
         # Create a CSV with consistent time intervals for precise samplerate calculation
-        temp_file = Path(self.temp_dir.name) / "even_intervals.csv"
+        temp_file = self.tmp_path / "even_intervals.csv"
 
         # Create data with exact time intervals (0.01 seconds = 100Hz sample rate)
         rng = np.random.default_rng(10)
@@ -175,7 +167,7 @@ class TestCSVFileReader:
 
     def test_get_file_info_time_column_string(self) -> None:
         """Test samplerate estimation using a named time column."""
-        temp_file = Path(self.temp_dir.name) / "time_column_name.csv"
+        temp_file = self.tmp_path / "time_column_name.csv"
 
         rng = np.random.default_rng(11)
         n_rows = 50
@@ -199,7 +191,7 @@ class TestCSVFileReader:
         (can't calculate samplerate)
         """
         # Create a CSV with only one row
-        temp_file = Path(self.temp_dir.name) / "single_row.csv"
+        temp_file = self.tmp_path / "single_row.csv"
 
         df = pd.DataFrame([[0.0, 0.5, 0.3]], columns=["time", "ch1", "ch2"])
         df.to_csv(temp_file, index=False)
@@ -216,7 +208,7 @@ class TestCSVFileReader:
     def test_get_file_info_no_time_column(self) -> None:
         """Test behavior with a CSV file that has non-numeric first column."""
         # Create a CSV with string first column
-        temp_file = Path(self.temp_dir.name) / "no_time_column.csv"
+        temp_file = self.tmp_path / "no_time_column.csv"
 
         rng = np.random.default_rng(12)
         n_rows = 50
@@ -240,10 +232,10 @@ class TestCSVFileReader:
 
     def test_get_data_full_file(self) -> None:
         """Test reading the entire CSV file."""
-        data = self.reader.get_data(self.test_file, channels=[], start_idx=0, frames=self.n_samples)
+        data = self.reader.get_data(self.test_file, channels=[], start_idx=0, frames=self.N_ROWS)
 
         assert isinstance(data, np.ndarray)
-        assert data.shape == (self.n_channels, self.n_samples)
+        assert data.shape == (self.N_CHANNELS, self.N_ROWS)
         np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data))
 
     def test_get_data_subset_channels(self) -> None:
@@ -252,16 +244,16 @@ class TestCSVFileReader:
             0,
             2,
         ]  # First and third data channels (after time column removed)
-        data = self.reader.get_data(self.test_file, channels=channels, start_idx=0, frames=self.n_samples)
+        data = self.reader.get_data(self.test_file, channels=channels, start_idx=0, frames=self.N_ROWS)
 
         assert isinstance(data, np.ndarray)
-        assert data.shape == (len(channels), self.n_samples)
+        assert data.shape == (len(channels), self.N_ROWS)
         np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data[channels]))
 
     def test_get_data_channel_out_of_range(self) -> None:
         """Test error when requesting out-of-range channels."""
         with pytest.raises(ValueError, match="Requested channels"):
-            self.reader.get_data(self.test_file, channels=[99], start_idx=0, frames=self.n_samples)
+            self.reader.get_data(self.test_file, channels=[99], start_idx=0, frames=self.N_ROWS)
 
     def test_get_data_unexpected_array_type(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test error when unexpected data type is returned."""
@@ -272,7 +264,7 @@ class TestCSVFileReader:
         monkeypatch.setattr(pd.DataFrame, "values", property(lambda _self: FakeValues()))
 
         with pytest.raises(ValueError, match="Unexpected data type after reading file"):
-            self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=self.n_samples)
+            self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=self.N_ROWS)
 
 
 class TestFileReaderHelpers:
