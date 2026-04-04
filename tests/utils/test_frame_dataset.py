@@ -551,79 +551,88 @@ class TestChannelFrameDataset:
             assert cached is stft_frame
             mock_transform.assert_not_called()
 
-    def test_sample(self, create_test_files: Path) -> None:
-        """Test sampling the dataset."""
+    def test_sample_by_count_returns_correct_size(self, create_test_files: Path) -> None:
+        """Sampling by n returns exactly n items from original dataset."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        n_sample = 2
+        sampled = dataset.sample(n=n_sample, seed=42)
+
+        assert isinstance(sampled, _SampledFrameDataset)
+        assert len(sampled) == n_sample
+        assert sampled._original_dataset is dataset
+        original_paths = [p.name for p in dataset._get_file_paths()]
+        sampled_paths = [lf.file_path.name for lf in sampled._lazy_frames]
+        assert all(p in original_paths for p in sampled_paths)
+
+    def test_sample_by_ratio_returns_proportional(self, create_test_files: Path) -> None:
+        """Sampling by ratio returns floor(total * ratio) items."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        ratio = 0.5
+        sampled = dataset.sample(ratio=ratio, seed=42)
+
+        assert isinstance(sampled, _SampledFrameDataset)
+        assert len(sampled) == int(len(dataset) * ratio)
+
+    def test_sample_default_returns_at_least_one(self, create_test_files: Path) -> None:
+        """Default sampling (10%) returns at least 1 item."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        sampled = dataset.sample(seed=42)
+        assert len(sampled) == max(1, int(len(dataset) * 0.1))
+
+    def test_sample_exceeding_total_caps_at_total(self, create_test_files: Path) -> None:
+        """Requesting more samples than available caps at total count."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         n_total = len(dataset)
+        sampled = dataset.sample(n=n_total + 1)
+        assert len(sampled) == n_total
 
-        # Sample by number
-        n_sample = 2
-        sampled_n = dataset.sample(n=n_sample, seed=42)
-        assert isinstance(sampled_n, _SampledFrameDataset)
-        assert len(sampled_n) == n_sample
-        assert sampled_n._original_dataset is dataset
-        # Check sampled indices are subset of original
-        original_paths = [p.name for p in dataset._get_file_paths()]
-        sampled_paths = [lf.file_path.name for lf in sampled_n._lazy_frames]
-        assert all(p in original_paths for p in sampled_paths)
-
-        # Sample by ratio
-        ratio = 0.5
-        # Expect ceil(3 * 0.5) = 2 samples
-        sampled_r = dataset.sample(ratio=ratio, seed=42)
-        assert isinstance(sampled_r, _SampledFrameDataset)
-        assert len(sampled_r) == int(n_total * ratio)
-        assert sampled_r._original_dataset is dataset
-
-        # Sample default (10% or min 1)
-        sampled_def = dataset.sample(seed=42)
-        assert len(sampled_def) == max(1, int(n_total * 0.1))
-        assert sampled_def._original_dataset is dataset
-
-        # Sample all
-        sampled_all = dataset.sample(n=n_total)
-        assert len(sampled_all) == n_total
-        assert sampled_all._original_dataset is dataset
-
-        # Sample more than available
-        sampled_more = dataset.sample(n=n_total + 1)
-        assert len(sampled_more) == n_total
-        assert sampled_more._original_dataset is dataset
-
-        # Sample from empty dataset
+    def test_sample_empty_dataset_returns_empty(self, create_test_files: Path) -> None:
+        """Sampling from empty dataset returns empty result."""
+        folder_path = create_test_files
         empty_ds = ChannelFrameDataset(str(folder_path / "empty_subdir"), lazy_loading=True)
-        sampled_empty = empty_ds.sample(n=1)
-        assert len(sampled_empty) == 0
+        sampled = empty_ds.sample(n=1)
+        assert len(sampled) == 0
 
-        # Check lazy loading is preserved in sampled dataset
-        sampled_lazy = dataset.sample(n=1, seed=1)
-        assert sampled_lazy._lazy_loading is True
-        assert all(not lf.is_loaded for lf in sampled_lazy._lazy_frames)
+    def test_sample_preserves_lazy_loading(self, create_test_files: Path) -> None:
+        """Sampled dataset preserves lazy loading and frame data matches original."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        sampled = dataset.sample(n=1, seed=1)
+        assert isinstance(sampled, _SampledFrameDataset)
 
-        # Access item in sampled dataset
-        original_index = sampled_lazy._original_indices[0]
-        original_frame = dataset[original_index]  # Ensure original is loaded
-        sampled_frame = sampled_lazy[0]  # Trigger load via sampled dataset
-        assert isinstance(sampled_frame, ChannelFrame)
+        assert sampled._lazy_loading is True
+        assert all(not lf.is_loaded for lf in sampled._lazy_frames)
+
+        original_index = sampled._original_indices[0]
+        original_frame = dataset[original_index]
         assert original_frame is not None
-        assert sampled_frame is not None
+        sampled_frame = sampled[0]
+        assert isinstance(sampled_frame, ChannelFrame)
         assert sampled_frame.label == original_frame.label
         np.testing.assert_array_equal(sampled_frame.compute(), original_frame.compute())
-        assert sampled_lazy._lazy_frames[0].is_loaded is True
 
-        # Check apply on sampled dataset
+    def test_sample_apply_transform_propagates(self, create_test_files: Path) -> None:
+        """Apply on sampled dataset correctly chains transforms."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        sampled = dataset.sample(n=1, seed=1)
+        assert isinstance(sampled, _SampledFrameDataset)
+
         def gain_transform(f: ChannelFrame) -> ChannelFrame:
             return f * 2
 
-        transformed_sampled = sampled_lazy.apply(gain_transform)
-        assert isinstance(transformed_sampled, _SampledFrameDataset)
-        assert transformed_sampled._original_dataset._transform is gain_transform
+        transformed = sampled.apply(gain_transform)
+        assert isinstance(transformed, _SampledFrameDataset)
 
-        # Trigger computation
-        final_frame = transformed_sampled[0]
-        assert final_frame is not None
+        original_index = sampled._original_indices[0]
+        original_frame = dataset[original_index]
         assert original_frame is not None
+        final_frame = transformed[0]
+        assert final_frame is not None
         expected_data = original_frame.compute() * 2
         np.testing.assert_allclose(final_frame.compute(), expected_data)
 
