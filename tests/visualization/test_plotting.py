@@ -1112,7 +1112,10 @@ class TestPlotting:
 
         result = strategy.plot(self.mock_spectral_frame, overlay=True)
         assert isinstance(result, Axes)
+        # Last operation is coherence — ylabel must reflect it
         assert "coherence" in result.get_ylabel()
+        # Frequency axis label must still be present
+        assert result.get_xlabel() == "Frequency [Hz]"
 
     def test_error_handling_in_describe_plot(self) -> None:
         """Test error handling in DescribePlot."""
