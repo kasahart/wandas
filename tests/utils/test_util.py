@@ -213,3 +213,16 @@ class TestAmplitudeToDb:
         result = amplitude_to_db(amp, ref)
         expected = librosa.amplitude_to_db(np.abs(amp), ref=ref, amin=1e-15, top_db=None)
         np.testing.assert_allclose(result, expected)  # Wrapper equivalence: same librosa call
+
+    def test_amplitude_to_db_unity_returns_zero(self) -> None:
+        """Amplitude of 1.0 relative to ref=1.0 is 0 dB by definition."""
+        amp = np.array([1.0])
+        result = amplitude_to_db(amp, ref=1.0)
+        np.testing.assert_allclose(result, 0.0, atol=1e-10)  # Theoretical: 20*log10(1) = 0
+
+    def test_amplitude_to_db_half_returns_minus_6db(self) -> None:
+        """Halving amplitude corresponds to approximately -6.02 dB."""
+        amp = np.array([0.5])
+        result = amplitude_to_db(amp, ref=1.0)
+        expected_db = 20 * np.log10(0.5)  # -6.0206 dB
+        np.testing.assert_allclose(result, expected_db, rtol=1e-6)  # Theoretical: 20*log10(0.5)
