@@ -427,6 +427,7 @@ class TestChannelFrameDataset:
         assert transformed_dataset._lazy_frames[0].frame is transformed_frame0
         assert transformed_frame0 is not None
         assert original_frame0 is not None
+        # Same algorithm (data reversal), exact match expected
         np.testing.assert_allclose(
             transformed_frame0.compute(),
             original_frame0.compute()[:, ::-1],
@@ -477,6 +478,7 @@ class TestChannelFrameDataset:
         assert final_frame0 is not None
 
         expected_data = (original_frame0.compute() * 2) + 1
+        # Same algorithm (elementwise ops), exact match expected
         np.testing.assert_allclose(final_frame0.compute(), expected_data)
 
     def test_apply_failing_transform_returns_none_and_logs(
@@ -670,6 +672,7 @@ class TestChannelFrameDataset:
         final_frame = transformed[0]
         assert final_frame is not None
         expected_data = original_frame.compute() * 2
+        # Same algorithm (elementwise mul), exact match expected
         np.testing.assert_allclose(final_frame.compute(), expected_data)
 
     def test_get_metadata_lazy_unloaded_state(self, create_test_files: Path) -> None:
@@ -1042,6 +1045,7 @@ class TestSampledFrameDataset:
         final_frame = transformed_sampled[0]
         assert final_frame is not None
         expected_data = original_frame.compute() * 3
+        # Same algorithm (elementwise mul), exact match expected
         np.testing.assert_allclose(
             final_frame.compute(),
             expected_data,
