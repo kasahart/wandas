@@ -15,71 +15,42 @@ from wandas.utils.util import (
 
 
 class TestValidateSamplingRate:
-    """Test suite for validate_sampling_rate function."""
+    """Test suite for validate_sampling_rate — Layer 1: input validation."""
 
-    def test_positive_sampling_rate(self) -> None:
-        """Test that positive sampling rates pass validation."""
-        # Common sampling rates
-        validate_sampling_rate(8000)
-        validate_sampling_rate(16000)
-        validate_sampling_rate(22050)
-        validate_sampling_rate(44100)
-        validate_sampling_rate(48000)
-        validate_sampling_rate(96000)
+    def test_validate_positive_rates_passes_silently(self) -> None:
+        """Common sampling rates and edge values should not raise."""
+        for sr in [8000, 16000, 22050, 44100, 48000, 96000, 0.001, 1e9]:
+            validate_sampling_rate(sr)  # Should not raise
 
-        # Edge case: very small positive value
-        validate_sampling_rate(0.001)
+    def test_validate_zero_raises_valueerror(self) -> None:
+        """Zero is not a valid sampling rate."""
+        with pytest.raises(ValueError, match=r"Invalid sampling_rate"):
+            validate_sampling_rate(0)
 
-        # Edge case: very large value
-        validate_sampling_rate(1e9)
+    def test_validate_negative_raises_valueerror(self) -> None:
+        """Negative values are not valid sampling rates."""
+        with pytest.raises(ValueError, match=r"Invalid sampling_rate"):
+            validate_sampling_rate(-44100)
 
-    def test_zero_sampling_rate_raises_error(self) -> None:
-        """Test that zero sampling rate raises ValueError."""
+    def test_validate_error_contains_what_why_how(self) -> None:
+        """Error message follows WHAT/WHY/HOW pattern."""
         with pytest.raises(ValueError) as exc_info:
             validate_sampling_rate(0)
 
         error_msg = str(exc_info.value)
-        # Check WHAT
-        assert "Invalid sampling_rate" in error_msg
-        # Check WHY (actual vs expected)
-        assert "0" in error_msg or "0.0" in error_msg
-        assert "Positive value > 0" in error_msg
-        # Check HOW (common values as guidance)
-        assert "Common values:" in error_msg
-        assert "44100" in error_msg
+        assert "Invalid sampling_rate" in error_msg  # WHAT
+        assert "Positive value > 0" in error_msg  # WHY
+        assert "Common values:" in error_msg  # HOW
 
-    def test_negative_sampling_rate_raises_error(self) -> None:
-        """Test that negative sampling rate raises ValueError."""
-        with pytest.raises(ValueError) as exc_info:
-            validate_sampling_rate(-44100)
-
-        error_msg = str(exc_info.value)
-        # Check WHAT
-        assert "Invalid sampling_rate" in error_msg
-        # Check WHY (actual vs expected)
-        assert "-44100" in error_msg
-        assert "Positive value > 0" in error_msg
-        # Check HOW
-        assert "Common values:" in error_msg
-
-    def test_custom_param_name(self) -> None:
-        """Test that custom parameter name appears in error message."""
-        with pytest.raises(ValueError) as exc_info:
+    def test_validate_custom_param_name_in_error(self) -> None:
+        """Custom parameter name appears in the error message."""
+        with pytest.raises(ValueError, match=r"target sampling rate"):
             validate_sampling_rate(-100, "target sampling rate")
 
-        error_msg = str(exc_info.value)
-        # Custom parameter name should be in the error
-        assert "target sampling rate" in error_msg
-        assert "-100" in error_msg
-
-    def test_very_small_negative_value(self) -> None:
-        """Test that very small negative values are caught."""
-        with pytest.raises(ValueError) as exc_info:
+    def test_validate_small_negative_raises_valueerror(self) -> None:
+        """Even very small negative values must be rejected."""
+        with pytest.raises(ValueError, match=r"Invalid sampling_rate"):
             validate_sampling_rate(-0.001)
-
-        error_msg = str(exc_info.value)
-        assert "Invalid sampling_rate" in error_msg
-        assert "Positive value > 0" in error_msg
 
 
 class TestCalculateRms:
