@@ -23,6 +23,9 @@ from wandas.visualization.plotting import (
     PlotStrategy,
     SpectrogramPlotStrategy,
     WaveformPlotStrategy,
+    _reshape_spectrogram_data,
+    _reshape_to_2d,
+    _resolve_channel_label,
     _return_axes_iterator,
     create_operation,
     get_plot_strategy,
@@ -1288,12 +1291,6 @@ class TestPlotting:
 
     def test_plotting_helper_functions_and_noop_methods(self) -> None:
         """Helper utilities and explicit no-op methods should be covered directly."""
-        from wandas.visualization.plotting import (
-            _reshape_spectrogram_data,
-            _reshape_to_2d,
-            _resolve_channel_label,
-        )
-
         channel_meta = ChannelMetadata(label="default")
         unlabeled_channel_meta = ChannelMetadata()
 
