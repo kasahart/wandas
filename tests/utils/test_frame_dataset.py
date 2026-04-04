@@ -297,8 +297,8 @@ class TestChannelFrameDataset:
         with pytest.raises(IndexError):
             _ = dataset[-1]  # Negative indexing not supported by this logic
 
-    def test_load_file_wav(self, create_test_files: Path) -> None:
-        """Test _load_file method for WAV."""
+    def test_load_file_wav_returns_channel_frame(self, create_test_files: Path) -> None:
+        """WAV file loading returns ChannelFrame with correct metadata."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         wav_path = dataset._lazy_frames[0].file_path  # test1.wav
@@ -310,8 +310,8 @@ class TestChannelFrameDataset:
         assert frame.n_channels == 2
         assert isinstance(frame.data, np.ndarray)
 
-    def test_load_file_csv(self, create_test_files: Path) -> None:
-        """Test _load_file method for CSV."""
+    def test_load_file_csv_returns_channel_frame(self, create_test_files: Path) -> None:
+        """CSV file loading returns ChannelFrame with correct metadata."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         csv_path = dataset._lazy_frames[2].file_path  # test3.csv
@@ -327,8 +327,10 @@ class TestChannelFrameDataset:
         assert frame.labels == ["SensorA", "SensorB"]
         assert isinstance(frame.data, np.ndarray)
 
-    def test_load_file_resampling(self, create_test_files: Path, sample_wav_data: tuple[int, NDArrayReal]) -> None:
-        """Test _load_file triggers resampling when SR mismatches."""
+    def test_load_file_mismatched_sr_triggers_resampling(
+        self, create_test_files: Path, sample_wav_data: tuple[int, NDArrayReal]
+    ) -> None:
+        """Loading file with mismatched sampling rate triggers resampling."""
         folder_path = create_test_files
         original_sr, _ = sample_wav_data  # Should be 16000
         target_sr = 8000
@@ -360,8 +362,10 @@ class TestChannelFrameDataset:
             assert isinstance(args[0], ChannelFrame)
             assert args[0].sampling_rate == original_sr
 
-    def test_load_file_error(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """Test error handling during file loading."""
+    def test_load_file_corrupted_returns_none_and_logs_error(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Loading corrupted file returns None and logs error."""
         folder_path = tmp_path
         # Create a corrupted/invalid file
         invalid_file = folder_path / "invalid.wav"
@@ -386,8 +390,8 @@ class TestChannelFrameDataset:
         # 新しい実装では、エラーログはERRORレベルで出力される
         assert any("Failed to load or initialize file" in record.message for record in caplog.records)
 
-    def test_apply_lazy(self, create_test_files: Path) -> None:
-        """Test lazy application of a function."""
+    def test_apply_lazy_defers_transform(self, create_test_files: Path) -> None:
+        """Lazy apply defers transform until item access."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
@@ -425,8 +429,8 @@ class TestChannelFrameDataset:
             assert cached_transformed is transformed_frame0
             mock_transform.assert_not_called()
 
-    def test_apply_chaining(self, create_test_files: Path) -> None:
-        """Test chaining apply calls."""
+    def test_apply_chaining_composes_transforms(self, create_test_files: Path) -> None:
+        """Chained apply calls compose transforms correctly."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
@@ -456,8 +460,10 @@ class TestChannelFrameDataset:
         expected_data = (original_frame0.compute() * 2) + 1
         np.testing.assert_allclose(final_frame0.compute(), expected_data)
 
-    def test_apply_error_in_transform(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """Test error handling when the applied function fails."""
+    def test_apply_failing_transform_returns_none_and_logs(
+        self, create_test_files: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Failing transform returns None and logs warning."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
@@ -476,8 +482,8 @@ class TestChannelFrameDataset:
         assert transformed_dataset._lazy_frames[0].frame is None
         assert transformed_dataset._lazy_frames[0].is_loaded is True
 
-    def test_resample_trim_normalize(self, create_test_files: Path) -> None:
-        """Test resample, trim, normalize methods (which use apply)."""
+    def test_resample_and_trim_via_apply_produces_correct_output(self, create_test_files: Path) -> None:
+        """Resample and trim via apply produce correct sampling rate and duration."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         target_sr = 8000
@@ -506,8 +512,8 @@ class TestChannelFrameDataset:
         assert trimmed_frame0.duration == pytest.approx(expected_duration)
         assert trimmed_frame0.n_samples == expected_samples
 
-    def test_stft_lazy(self, create_test_files: Path) -> None:
-        """Test lazy STFT using the ChannelFrame.stft result as ground truth."""
+    def test_stft_lazy_matches_direct_stft(self, create_test_files: Path) -> None:
+        """Lazy STFT matches direct ChannelFrame.stft result."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         n_fft = 512
@@ -681,8 +687,8 @@ class TestChannelFrameDataset:
         assert meta["loaded_count"] == 3
         assert meta["frame_type"] == "ChannelFrame"
 
-    def test_from_folder(self, create_test_files: Path) -> None:
-        """Test the from_folder class method."""
+    def test_from_folder_creates_dataset_with_options(self, create_test_files: Path) -> None:
+        """from_folder class method creates dataset with specified options."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset.from_folder(
             str(folder_path),
@@ -699,8 +705,8 @@ class TestChannelFrameDataset:
         assert len(dataset) == 3  # Only wav files, including subdir
         assert all(isinstance(lf.frame, ChannelFrame) for lf in dataset._lazy_frames)
 
-    def test_save(self, create_test_files: Path, tmp_path: Path) -> None:
-        """Test save method raises NotImplementedError."""
+    def test_save_raises_not_implemented(self, create_test_files: Path, tmp_path: Path) -> None:
+        """save method raises NotImplementedError for both dataset types."""
         folder_path = create_test_files
         output_folder = tmp_path / "output"
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
