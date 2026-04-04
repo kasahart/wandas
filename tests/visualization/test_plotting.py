@@ -1054,8 +1054,9 @@ class TestPlotting:
             mock_specshow.assert_called_once()
             call_args = mock_specshow.call_args
             # Verify correct parameters were passed
-            assert "sr" in call_args[1]
             assert call_args[1]["sr"] == self.mock_single_spectrogram_frame.sampling_rate
+            assert call_args[1]["hop_length"] == self.mock_single_spectrogram_frame.hop_length
+            assert call_args[1]["n_fft"] == self.mock_single_spectrogram_frame.n_fft
 
     def test_channel_metadata_access(self) -> None:
         """Test channel metadata access."""
