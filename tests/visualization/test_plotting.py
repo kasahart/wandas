@@ -994,19 +994,20 @@ class TestPlotting:
         assert result is external_ax
 
     def test_plot_strategy_kwargs_filtering(self) -> None:
-        """Test kwargs filtering in plot strategies."""
+        """Test kwargs filtering in plot strategies — valid params applied, invalid ignored."""
         strategy = WaveformPlotStrategy()
 
-        # Test with invalid kwargs
         result = strategy.plot(
             self.mock_channel_frame,
             overlay=True,
             color="blue",
             linewidth=2,
-            invalid_param="should_be_ignored",  # Invalid parameter (should be filtered out)
+            invalid_param="should_be_ignored",  # Invalid parameter filtered out
             xlim=(0, 1),
         )
         assert isinstance(result, Axes)
+        # Valid xlim must be applied
+        assert result.get_xlim() == pytest.approx((0, 1))
 
     def test_plot_with_empty_labels(self) -> None:
         """Test behavior when label is empty."""
