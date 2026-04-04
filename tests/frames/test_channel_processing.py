@@ -37,12 +37,15 @@ class TestChannelProcessing:
             mock_create_op.return_value = mock_op
 
             # Apply filter operations
+            original_history_len = len(self.channel_frame.operation_history)
             result: ChannelFrame = self.channel_frame.high_pass_filter(cutoff=100)
             mock_create_op.assert_called_with("highpass_filter", self.sample_rate, cutoff=100, order=4)
 
-            # No compute should have happened
+            assert result is not self.channel_frame  # Pillar 1: immutability
             assert isinstance(result, ChannelFrame)
             assert isinstance(result._data, DaArray)
+            # Pillar 2: operation_history grows by 1
+            assert len(result.operation_history) == original_history_len + 1
 
     def test_low_pass_filter(self) -> None:
         """Test low_pass_filter operation."""
@@ -52,12 +55,15 @@ class TestChannelProcessing:
             mock_create_op.return_value = mock_op
 
             # Apply filter operations
+            original_history_len = len(self.channel_frame.operation_history)
             result: ChannelFrame = self.channel_frame.low_pass_filter(cutoff=5000)
             mock_create_op.assert_called_with("lowpass_filter", self.sample_rate, cutoff=5000, order=4)
 
-            # No compute should have happened
+            assert result is not self.channel_frame  # Pillar 1: immutability
             assert isinstance(result, ChannelFrame)
             assert isinstance(result._data, DaArray)
+            # Pillar 2: operation_history grows by 1
+            assert len(result.operation_history) == original_history_len + 1
 
     def test_band_pass_filter(self) -> None:
         """Test band_pass_filter operation."""
@@ -86,9 +92,11 @@ class TestChannelProcessing:
                 order=6,
             )
 
-            # No compute should have happened
+            assert result is not self.channel_frame  # Pillar 1: immutability
             assert isinstance(result, ChannelFrame)
             assert isinstance(result._data, DaArray)
+            # Pillar 2: operation_history grows by 1
+            assert len(result.operation_history) == len(self.channel_frame.operation_history) + 1
 
     def test_apply_custom_function_lazy_and_correct(self) -> None:
         """Custom apply should stay lazy until compute and return correct data."""
