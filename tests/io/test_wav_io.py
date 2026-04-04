@@ -262,16 +262,13 @@ def test_from_file_nonexistent_path_raises_file_not_found(tmp_path) -> None:
 
 
 def test_read_wav_stream_nonseekable() -> None:
-    """Test reading a WAV file from a non-seekable stream via ChannelFrame.read_wav."""
-    sampling_rate = 22050
-    num_samples = 100
-    data_left = np.full(num_samples, 0.1, dtype=np.float32)
-    data_right = np.full(num_samples, 0.3, dtype=np.float32)
+    """Test reading WAV from a non-seekable stream preserves data (Pillar 4)."""
+    sr = 22050
+    n_samples = 100
+    data_left = np.full(n_samples, 0.1, dtype=np.float32)
+    data_right = np.full(n_samples, 0.3, dtype=np.float32)
     stereo_data = np.column_stack((data_left, data_right))
-
-    wav_buffer = io.BytesIO()
-    wavfile.write(wav_buffer, sampling_rate, stereo_data)
-    wav_bytes = wav_buffer.getvalue()
+    wav_bytes = _make_wav_bytes(sr, stereo_data)
 
     class NonSeekableStream:
         def __init__(self, content: bytes, name: str) -> None:
@@ -285,14 +282,14 @@ def test_read_wav_stream_nonseekable() -> None:
             raise OSError("seek not supported")
 
     stream = NonSeekableStream(content=wav_bytes, name="dir/my_audio.wav")
+    cf = ChannelFrame.read_wav(cast(BinaryIO, stream))
 
-    channel_frame = ChannelFrame.read_wav(cast(BinaryIO, stream))
-
-    assert channel_frame.sampling_rate == sampling_rate
-    assert len(channel_frame) == 2
-    computed_data = channel_frame.compute()
-    np.testing.assert_allclose(computed_data[0], data_left, rtol=1e-5)
-    np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)
+    assert cf.sampling_rate == sr
+    assert len(cf) == 2
+    computed = cf.compute()
+    # Float32 DC signal: rtol=1e-5 for float32 precision
+    np.testing.assert_allclose(computed[0], data_left, rtol=1e-5)
+    np.testing.assert_allclose(computed[1], data_right, rtol=1e-5)
 
 
 def test_read_wav_int16_pcm_raw_values_preserved(tmp_path) -> None:
