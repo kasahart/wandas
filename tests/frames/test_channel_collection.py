@@ -30,9 +30,15 @@ class TestChannelFrameCollection:
         with pytest.raises(ValueError):
             cf.add_channel(np.arange(6), label="B", align="strict")
         cf2 = cf.add_channel(np.arange(6), label="B", align="pad")
+        assert cf2 is not cf  # Pillar 1: immutability
         assert cf2._data.shape == (2, 8)
+        # Pillar 2: structural op leaves history unchanged
+        assert len(cf2.operation_history) == len(cf.operation_history)
         cf3 = cf.add_channel(np.arange(10), label="C", align="truncate")
+        assert cf3 is not cf  # Pillar 1: immutability
         assert cf3._data.shape == (2, 8)
+        # Pillar 2: structural op leaves history unchanged
+        assert len(cf3.operation_history) == len(cf.operation_history)
         with pytest.raises(ValueError):
             cf.add_channel(np.arange(8), label="A")
         cf4 = cf.add_channel(np.arange(8), label="A", suffix_on_dup="_dup")
