@@ -73,9 +73,9 @@ def test_save_load_roundtrip(tmp_path: Path) -> None:
 
 def test_save_with_dtype_conversion(tmp_path: Path) -> None:
     """Test saving with dtype conversion."""
-    # Create test data with float64
+    rng = np.random.default_rng(1)
     sr = 44100
-    data = np.random.randn(1, sr).astype(np.float64)
+    data = rng.standard_normal((1, sr)).astype(np.float64)
     cf = ChannelFrame.from_numpy(data, sr)
 
     # Save with float32 dtype
@@ -89,8 +89,9 @@ def test_save_with_dtype_conversion(tmp_path: Path) -> None:
 
 def test_save_without_compression(tmp_path: Path) -> None:
     """Test saving without compression."""
+    rng = np.random.default_rng(2)
     sr = 22050
-    data = np.random.randn(1, sr)
+    data = rng.standard_normal((1, sr))
     cf = ChannelFrame.from_numpy(data, sr)
 
     path = tmp_path / "test_no_compress.wdf"
@@ -103,8 +104,9 @@ def test_save_without_compression(tmp_path: Path) -> None:
 
 def test_file_exists_error(tmp_path: Path) -> None:
     """Test that attempting to overwrite without overwrite=True raises an error."""
+    rng = np.random.default_rng(3)
     sr = 8000
-    data = np.random.randn(1, sr)
+    data = rng.standard_normal((1, sr))
     cf = ChannelFrame.from_numpy(data, sr)
 
     path = tmp_path / "test_exists.wdf"
@@ -121,8 +123,9 @@ def test_file_exists_error(tmp_path: Path) -> None:
 
 def test_wdf_extension_added(tmp_path: Path) -> None:
     """Test that .wdf extension is automatically added."""
+    rng = np.random.default_rng(4)
     sr = 16000
-    data = np.random.randn(1, sr)
+    data = rng.standard_normal((1, sr))
     cf = ChannelFrame.from_numpy(data, sr)
 
     path = tmp_path / "test_file"  # No extension
@@ -134,8 +137,9 @@ def test_wdf_extension_added(tmp_path: Path) -> None:
 
 def test_unsupported_format() -> None:
     """Test that unsupported formats raise NotImplementedError."""
+    rng = np.random.default_rng(5)
     sr = 16000
-    data = np.random.randn(1, sr)
+    data = rng.standard_normal((1, sr))
     cf = ChannelFrame.from_numpy(data, sr)
 
     with pytest.raises(NotImplementedError):
@@ -147,8 +151,9 @@ def test_unsupported_format() -> None:
 
 def test_version_compatibility(tmp_path: Path) -> None:
     """Test version handling in WDF files."""
+    rng = np.random.default_rng(6)
     sr = 8000
-    data = np.random.randn(1, sr)
+    data = rng.standard_normal((1, sr))
     cf = ChannelFrame.from_numpy(data, sr)
 
     path = tmp_path / "test_version.wdf"
@@ -165,8 +170,9 @@ def test_version_compatibility(tmp_path: Path) -> None:
 
 def test_save_non_serializable_op_history(tmp_path: Path) -> None:
     """Test saving with non-JSON-serializable object in operation history."""
+    rng = np.random.default_rng(7)
     sr = 16000
-    data = np.random.randn(1, sr)
+    data = rng.standard_normal((1, sr))
     cf = ChannelFrame.from_numpy(data, sr)
 
     class NonSerializable:
@@ -233,8 +239,9 @@ def test_source_file_roundtrip(tmp_path: Path) -> None:
     """Test that source_file in FrameMetadata survives a save/load round-trip."""
     from wandas.core.metadata import FrameMetadata
 
+    rng = np.random.default_rng(8)
     sr = 16000
-    data = np.random.randn(1, sr)
+    data = rng.standard_normal((1, sr))
     source = "/data/recordings/audio.wav"
     cf = ChannelFrame.from_numpy(
         data,
@@ -257,8 +264,9 @@ def test_source_file_none_roundtrip(tmp_path: Path) -> None:
     """Test round-trip when source_file is None."""
     from wandas.core.metadata import FrameMetadata
 
+    rng = np.random.default_rng(9)
     sr = 16000
-    data = np.random.randn(1, sr)
+    data = rng.standard_normal((1, sr))
     cf = ChannelFrame.from_numpy(data, sr, metadata=FrameMetadata({"only": "dict"}))
     assert cf.metadata.source_file is None
 
