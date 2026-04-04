@@ -304,46 +304,52 @@ def test_read_wav_stream_nonseekable() -> None:
     np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)
 
 
-def test_read_wav_int16_raw(tmpdir: str) -> None:
-    """Test that int16 WAV data is returned cast to float32 by default.
+def test_read_wav_int16_pcm_raw_values_preserved(tmp_path) -> None:
+    """PCM round-trip: int16 WAV values preserved as float32 (Pillar 4).
 
-    The default normalize=False returns scipy's raw integer samples cast to float32.
-    The integer values are preserved in magnitude (e.g. 16384 becomes 16384.0).
+    When normalize=False (default), scipy's raw int16 samples are cast to
+    float32 with magnitudes preserved (e.g. 16384 -> 16384.0).
+    Exact match expected since this is a dtype cast, not a transform.
     """
-    filepath = os.path.join(tmpdir, "int16_test.wav")
-    sampling_rate = 16000
-    num_samples = 100
-    int16_left = np.full(num_samples, 16384, dtype=np.int16)
-    int16_right = np.full(num_samples, -16384, dtype=np.int16)
+    filepath = tmp_path / "int16_test.wav"
+    sr = 16000
+    n_samples = 100
+    int16_left = np.full(n_samples, 16384, dtype=np.int16)
+    int16_right = np.full(n_samples, -16384, dtype=np.int16)
     stereo_data = np.column_stack((int16_left, int16_right))
-    wavfile.write(filepath, sampling_rate, stereo_data)
+    wavfile.write(str(filepath), sr, stereo_data)
 
-    channel_frame = ChannelFrame.read_wav(filepath)
-    computed_data = channel_frame.compute()
+    cf = ChannelFrame.read_wav(str(filepath))
+    computed = cf.compute()
 
-    # Raw int16 values are cast to float32 (magnitudes preserved)
-    np.testing.assert_array_equal(computed_data[0], int16_left.astype(np.float32))
-    np.testing.assert_array_equal(computed_data[1], int16_right.astype(np.float32))
-    assert computed_data.dtype == np.float32
+    # Exact match: raw int16 values cast to float32 (same algorithm, no transform)
+    np.testing.assert_array_equal(computed[0], int16_left.astype(np.float32))
+    np.testing.assert_array_equal(computed[1], int16_right.astype(np.float32))
+    assert computed.dtype == np.float32
 
 
-def test_read_wav_int16_normalized(tmpdir: str) -> None:
-    """Test that int16 WAV data is normalized to float32 [-1.0, 1.0] with normalize=True."""
-    filepath = os.path.join(tmpdir, "int16_norm_test.wav")
-    sampling_rate = 16000
-    num_samples = 100
-    int16_left = np.full(num_samples, 16384, dtype=np.int16)  # ≈ 0.5 after normalization
-    int16_right = np.full(num_samples, -16384, dtype=np.int16)  # ≈ -0.5 after normalization
+def test_read_wav_int16_normalized_to_float_range(tmp_path) -> None:
+    """PCM normalization: int16 16384 -> 0.5 after dividing by 32768 (Pillar 4).
+
+    With normalize=True, int16 samples are divided by 32768 to produce
+    float32 values in [-1.0, 1.0]. 16384/32768 = 0.5 exactly.
+    Tolerance: rtol=1e-4 accounts for float32 precision.
+    """
+    filepath = tmp_path / "int16_norm_test.wav"
+    sr = 16000
+    n_samples = 100
+    int16_left = np.full(n_samples, 16384, dtype=np.int16)
+    int16_right = np.full(n_samples, -16384, dtype=np.int16)
     stereo_data = np.column_stack((int16_left, int16_right))
-    wavfile.write(filepath, sampling_rate, stereo_data)
+    wavfile.write(str(filepath), sr, stereo_data)
 
-    channel_frame = ChannelFrame.read_wav(filepath, normalize=True)
-    computed_data = channel_frame.compute()
+    cf = ChannelFrame.read_wav(str(filepath), normalize=True)
+    computed = cf.compute()
 
-    # After normalization (dividing by 32768), values should be ≈ [0.5, -0.5]
-    np.testing.assert_allclose(computed_data[0], 0.5, rtol=1e-4)
-    np.testing.assert_allclose(computed_data[1], -0.5, rtol=1e-4)
-    assert computed_data.dtype == np.float32
+    # Theoretical: 16384 / 32768 = 0.5 exactly; rtol=1e-4 for float32 rounding
+    np.testing.assert_allclose(computed[0], 0.5, rtol=1e-4)
+    np.testing.assert_allclose(computed[1], -0.5, rtol=1e-4)
+    assert computed.dtype == np.float32
 
 
 def test_write_wav(tmpdir: str):
