@@ -1,4 +1,4 @@
-# tests/core/test_util.py
+# tests/utils/test_util.py
 import librosa
 import numpy as np
 import pytest
