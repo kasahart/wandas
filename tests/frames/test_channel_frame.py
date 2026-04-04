@@ -1496,8 +1496,8 @@ class TestDescribeIntegration:
         assert cf.sampling_rate == sampling_rate
         assert cf.n_channels == 2
         computed_data = cf.compute()
-        np.testing.assert_allclose(computed_data[0], data_left, rtol=1e-5)
-        np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)
+        np.testing.assert_allclose(computed_data[0], data_left, rtol=1e-5)  # int16->float32 normalization rounding
+        np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)  # int16->float32 normalization rounding
 
     def test_from_file_bytes_csv(self) -> None:
         """Test from_file with in-memory CSV bytes."""
@@ -1555,8 +1555,8 @@ class TestDescribeIntegration:
         assert cf.n_channels == 2
         assert cf.label == "source"
         computed_data = cf.compute()
-        np.testing.assert_allclose(computed_data[0], data_left, rtol=1e-5)
-        np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)
+        np.testing.assert_allclose(computed_data[0], data_left, rtol=1e-5)  # int16->float32 normalization rounding
+        np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)  # int16->float32 normalization rounding
 
     def test_from_file_wav_normalize_false(self, tmp_path: Path) -> None:
         """Test that from_file returns int16 data cast to float32 by default (normalize=False)."""
@@ -1588,8 +1588,8 @@ class TestDescribeIntegration:
         cf = ChannelFrame.from_file(filepath, normalize=True)
         computed = cf.compute()
 
-        np.testing.assert_allclose(computed[0], 0.5, rtol=1e-4)
-        np.testing.assert_allclose(computed[1], -0.5, rtol=1e-4)
+        np.testing.assert_allclose(computed[0], 0.5, rtol=1e-4)  # int16 quantization: 16384/32768 ~= 0.5
+        np.testing.assert_allclose(computed[1], -0.5, rtol=1e-4)  # int16 quantization: 16384/32768 ~= 0.5
         assert computed.dtype == np.float32
 
     def test_read_wav_normalize_true(self, tmp_path: Path) -> None:
@@ -1605,8 +1605,8 @@ class TestDescribeIntegration:
         cf = ChannelFrame.read_wav(str(filepath), normalize=True)
         computed = cf.compute()
 
-        np.testing.assert_allclose(computed[0], 0.5, rtol=1e-4)
-        np.testing.assert_allclose(computed[1], -0.5, rtol=1e-4)
+        np.testing.assert_allclose(computed[0], 0.5, rtol=1e-4)  # int16 quantization: 16384/32768 ~= 0.5
+        np.testing.assert_allclose(computed[1], -0.5, rtol=1e-4)  # int16 quantization: 16384/32768 ~= 0.5
         assert computed.dtype == np.float32
 
     def test_debug_info(self) -> None:
@@ -1856,7 +1856,7 @@ class TestChannelFrameRMS:
         result = self.cf_stereo.rms
         expected = np.array([1.0 / np.sqrt(2), 2.0 / np.sqrt(2)])
         # 440 Hz at 16 kHz SR produces 440 integer cycles; rtol=1e-6 for standard float64 precision.
-        np.testing.assert_allclose(result, expected, rtol=1e-6)
+        np.testing.assert_allclose(result, expected, rtol=1e-6)  # Pure sine RMS = amplitude / sqrt(2)
 
     def test_rms_dc_signal_equals_amplitude(self) -> None:
         """RMS of a constant (DC) signal must equal its absolute amplitude."""
@@ -1864,7 +1864,7 @@ class TestChannelFrameRMS:
         cf_dc = ChannelFrame.from_numpy(dc_data, sampling_rate=self.sample_rate)
         result = cf_dc.rms
         # Constant signal; no rounding error beyond float64 machine precision.
-        np.testing.assert_allclose(result, [3.0, 5.0], rtol=1e-10)
+        np.testing.assert_allclose(result, [3.0, 5.0], rtol=1e-10)  # Exact: RMS of constant signal equals the constant
 
     def test_rms_zero_signal_is_zero(self) -> None:
         """RMS of an all-zero signal must be 0."""
@@ -1872,7 +1872,7 @@ class TestChannelFrameRMS:
         cf_zero = ChannelFrame.from_numpy(zero_data, sampling_rate=self.sample_rate)
         result = cf_zero.rms
         # Exact zero input; allow for float64 subnormal rounding floor.
-        np.testing.assert_allclose(result, [0.0, 0.0], atol=1e-15)
+        np.testing.assert_allclose(result, [0.0, 0.0], atol=1e-15)  # Near-zero: RMS of all-zeros signal
 
     def test_rms_integer_input_matches_float64_reference(self) -> None:
         """RMS must cast integer input to float64 before squaring."""
@@ -1882,7 +1882,7 @@ class TestChannelFrameRMS:
         result = cf_int.rms
         reference = np.sqrt(np.mean(int_data.astype(np.float64) ** 2, axis=1))
 
-        np.testing.assert_allclose(result, reference, rtol=1e-12)
+        np.testing.assert_allclose(result, reference, rtol=1e-12)  # Reference: direct np.sqrt(mean(x**2))
 
     def test_rms_mixed_samples(self) -> None:
         """RMS of [1, 2, 3, 4] must equal sqrt(mean([1,4,9,16])) = sqrt(7.5)."""
@@ -1891,7 +1891,7 @@ class TestChannelFrameRMS:
         result = cf.rms
         expected = np.sqrt(np.mean(np.array([1.0, 4.0, 9.0, 16.0])))
         # Exact rational inputs; float64 precision gives near bit-identical result.
-        np.testing.assert_allclose(result, [expected], rtol=1e-10)
+        np.testing.assert_allclose(result, [expected], rtol=1e-10)  # Single-channel pure sine RMS
 
     # ------------------------------------------------------------------
     # Pillar 4 – Reference-based verification: boolean channel selection
@@ -1909,7 +1909,7 @@ class TestChannelFrameRMS:
         filtered = cf[mask]
         assert filtered.n_channels == 2
         # Constant-signal DC channels; float64 precision gives near bit-identical result.
-        np.testing.assert_allclose(filtered.rms, [2.0, 3.0], rtol=1e-10)
+        np.testing.assert_allclose(filtered.rms, [2.0, 3.0], rtol=1e-10)  # Exact: RMS of constant signal
 
     def test_rms_matches_numpy_reference(self) -> None:
         """rms must match the explicit numpy reference calculation."""
@@ -1920,7 +1920,7 @@ class TestChannelFrameRMS:
         result = cf.rms
         reference = np.sqrt(np.mean(data**2, axis=1))
         # Same algorithm and dtype; results should be bit-identical (rtol=1e-10 guards rounding).
-        np.testing.assert_allclose(result, reference, rtol=1e-10)
+        np.testing.assert_allclose(result, reference, rtol=1e-10)  # Reference: direct np.sqrt(mean(x**2))
 
     def test_rms_n_channel_consistency(self) -> None:
         """len(cf.rms) must equal cf.n_channels for any frame."""
@@ -2477,7 +2477,7 @@ class TestChannelFrameCrestFactor:
         result = self.cf_stereo.crest_factor
         expected = np.array([np.sqrt(2), np.sqrt(2)])
         # 440 Hz at 16 kHz SR produces 440 integer cycles; rtol=1e-6 for standard float64 precision.
-        np.testing.assert_allclose(result, expected, rtol=1e-6)
+        np.testing.assert_allclose(result, expected, rtol=1e-6)  # Pure sine RMS = amplitude / sqrt(2)
 
     def test_crest_factor_dc_signal_equals_one(self) -> None:
         """Crest factor of a constant (DC) signal must be 1.0."""
@@ -2485,7 +2485,7 @@ class TestChannelFrameCrestFactor:
         cf_dc = ChannelFrame.from_numpy(dc_data, sampling_rate=self.sample_rate)
         result = cf_dc.crest_factor
         # Constant signal: peak == |amplitude| == RMS, so ratio == 1.0 exactly.
-        np.testing.assert_allclose(result, [1.0, 1.0], rtol=1e-10)
+        np.testing.assert_allclose(result, [1.0, 1.0], rtol=1e-10)  # Exact: crest factor of constant signal = 1.0
 
     def test_crest_factor_zero_signal_is_one(self) -> None:
         """Crest factor of an all-zero signal must be 1.0 (no division by zero)."""
@@ -2512,7 +2512,7 @@ class TestChannelFrameCrestFactor:
         rms_ref = np.sqrt(np.mean(data**2, axis=1))
         reference = peak / rms_ref
         # Same algorithm and dtype; results should be bit-identical (rtol=1e-10 guards rounding).
-        np.testing.assert_allclose(result, reference, rtol=1e-10)
+        np.testing.assert_allclose(result, reference, rtol=1e-10)  # Reference: direct np.sqrt(mean(x**2))
 
     def test_crest_factor_integer_input_matches_float64_reference(self) -> None:
         """crest_factor must cast integer input to float64 before abs/squaring."""
@@ -2525,7 +2525,7 @@ class TestChannelFrameCrestFactor:
         rms_ref = np.sqrt(np.mean(float_data**2, axis=1))
         reference = peak / rms_ref
 
-        np.testing.assert_allclose(result, reference, rtol=1e-12)
+        np.testing.assert_allclose(result, reference, rtol=1e-12)  # Reference: direct np.sqrt(mean(x**2))
 
     # ------------------------------------------------------------------
     # Pillar 4 – Reference-based verification: boolean channel selection

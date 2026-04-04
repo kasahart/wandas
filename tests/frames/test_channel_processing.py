@@ -620,9 +620,11 @@ class TestChannelProcessing:
         assert np.all(added_noise_rms > 0)
         actual_snr = 20 * np.log10(calculate_rms(signal_data) / added_noise_rms)
 
-        np.testing.assert_allclose(actual_snr, np.full_like(actual_snr, snr_db), atol=1e-3)
+        np.testing.assert_allclose(
+            actual_snr, np.full_like(actual_snr, snr_db), atol=1e-3
+        )  # SNR estimation noise floor
         assert np.all(computed[:, :8000] > 1.0)
-        np.testing.assert_allclose(computed[:, 8000:], 1.0)
+        np.testing.assert_allclose(computed[:, 8000:], 1.0)  # Exact: zero-padded region unchanged
 
     def test_add_with_different_lengths(self) -> None:
         """異なる長さの信号を加算するテスト。"""
@@ -1054,7 +1056,9 @@ class TestRoughnessOperations:
         total_direct = roughness.data
 
         # They should be close (allowing for numerical differences)
-        np.testing.assert_allclose(total_direct.flatten(), total_from_spec.flatten(), rtol=0.1, atol=0.01)
+        np.testing.assert_allclose(
+            total_direct.flatten(), total_from_spec.flatten(), rtol=0.1, atol=0.01
+        )  # Welch PSD estimation variance vs direct computation
 
     def test_roughness_multi_channel(self) -> None:
         """Test roughness calculation with multi-channel signal."""
