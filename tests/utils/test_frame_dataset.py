@@ -501,29 +501,34 @@ class TestChannelFrameDataset:
         assert transformed_dataset._lazy_frames[0].frame is None
         assert transformed_dataset._lazy_frames[0].is_loaded is True
 
-    def test_resample_and_trim_via_apply_produces_correct_output(self, create_test_files: Path) -> None:
-        """Resample and trim via apply produce correct sampling rate and duration."""
+    def test_resample_via_apply_changes_sampling_rate(self, create_test_files: Path) -> None:
+        """Resample via apply produces correct sampling rate."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         target_sr = 8000
 
-        # Resample
         resampled_ds = dataset.resample(target_sr)
         assert isinstance(resampled_ds, ChannelFrameDataset)
         assert resampled_ds._lazy_loading is True
         assert resampled_ds._source_dataset is dataset
         assert resampled_ds._transform is not None
-        # Trigger and check SR
+
         resampled_frame0 = resampled_ds[0]
         assert resampled_frame0 is not None
         assert resampled_frame0.sampling_rate == target_sr
 
-        # Trim (apply on resampled)
+    def test_trim_via_apply_produces_correct_duration(self, create_test_files: Path) -> None:
+        """Trim via apply produces correct duration and sample count."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        target_sr = 8000
+
+        resampled_ds = dataset.resample(target_sr)
         trimmed_ds = resampled_ds.trim(start=0.1, end=0.5)
         assert isinstance(trimmed_ds, ChannelFrameDataset)
         assert trimmed_ds._lazy_loading is True
         assert trimmed_ds._source_dataset is resampled_ds
-        # Trigger and check duration/samples
+
         trimmed_frame0 = trimmed_ds[0]
         assert trimmed_frame0 is not None
         expected_duration = 0.5 - 0.1
