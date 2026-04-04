@@ -584,19 +584,10 @@ class TestSpectralFrame:
         assert df.index.name == "frequency"
         assert list(df.columns) == ["ch1"]
 
-    def test_spectral_info_includes_frequency_resolution(self) -> None:
+    def test_spectral_info_includes_frequency_resolution(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Test that info() includes frequency resolution (ΔF)."""
-        import io
-        import sys
-
-        # 標準出力をキャプチャ
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
-
         self.frame.info()
-
-        sys.stdout = sys.__stdout__
-        output = captured_output.getvalue()
+        output = capsys.readouterr().out
 
         # デルタFが含まれていることを確認
         assert "Frequency resolution (ΔF):" in output
@@ -606,18 +597,10 @@ class TestSpectralFrame:
         expected_delta_f = self.frame.sampling_rate / self.frame.n_fft
         assert f"{expected_delta_f:.1f} Hz" in output
 
-    def test_spectral_info_display(self) -> None:
+    def test_spectral_info_display(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Test that info() displays spectral frame information without errors."""
-        import io
-        import sys
-
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
-
         self.frame.info()
-
-        sys.stdout = sys.__stdout__
-        output = captured_output.getvalue()
+        output = capsys.readouterr().out
 
         # 基本的な情報が出力されていることを確認
         assert "SpectralFrame Information:" in output
@@ -628,18 +611,10 @@ class TestSpectralFrame:
         assert "Frequency bins:" in output
         assert "Channel labels:" in output
 
-    def test_spectral_info_values_are_correct(self) -> None:
+    def test_spectral_info_values_are_correct(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Test that info() displays correct values."""
-        import io
-        import sys
-
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
-
         self.frame.info()
-
-        sys.stdout = sys.__stdout__
-        output = captured_output.getvalue()
+        output = capsys.readouterr().out
 
         # 理論値の計算
         assert self.frame.n_fft is not None
@@ -652,11 +627,8 @@ class TestSpectralFrame:
         assert f"Frequency resolution (ΔF): {delta_f:.1f} Hz" in output
         assert f"Frequency bins: {len(self.frame.freqs)}" in output
 
-    def test_spectral_info_with_operation_history(self) -> None:
+    def test_spectral_info_with_operation_history(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Test info() with operation history."""
-        import io
-        import sys
-
         # 操作履歴を持つフレームを作成
         frame_with_ops = SpectralFrame(
             data=self.data,
@@ -670,13 +642,8 @@ class TestSpectralFrame:
             channel_metadata=self.channel_metadata,
         )
 
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
-
         frame_with_ops.info()
-
-        sys.stdout = sys.__stdout__
-        output = captured_output.getvalue()
+        output = capsys.readouterr().out
 
         # 操作履歴が表示されていることを確認
         assert "Operations Applied: 2" in output
