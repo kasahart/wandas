@@ -168,32 +168,31 @@ class TestLazyFrame:
 
 
 class TestFrameDatasetABC:
-    def test_frame_dataset_cannot_instantiate(self) -> None:
-        """Verify FrameDataset ABC cannot be instantiated directly."""
+    """Test suite for FrameDataset abstract base class — Layer 1: type checking."""
+
+    def test_instantiate_abc_directly_raises_typeerror(self) -> None:
+        """FrameDataset ABC cannot be instantiated directly."""
         with pytest.raises(TypeError, match="Can't instantiate abstract class"):
-            FrameDataset("/some/path")  # 抽象クラスは直接インスタンス化できない
+            FrameDataset("/some/path")
 
-    def test_abstract_methods_must_be_implemented(self, tmp_path: Path) -> None:
-        """Test that abstract methods must be implemented in subclasses."""
+    def test_incomplete_subclass_raises_typeerror(self, tmp_path: Path) -> None:
+        """Subclass without _load_file implementation cannot be instantiated."""
 
-        # テスト用のサブクラスを作成し、抽象メソッドを実装していない
         class IncompleteFrameDataset(FrameDataset[ChannelFrame]):
             pass
 
-        # Pythonのバージョンによって例外メッセージが違うので、部分一致で確認
         with pytest.raises(TypeError, match="abstract class"):
             IncompleteFrameDataset(str(tmp_path))
 
-        # テスト用のサブクラスを作成し、抽象メソッドを実装
+    def test_complete_subclass_instantiates_successfully(self, tmp_path: Path) -> None:
+        """Subclass with _load_file properly implemented can be instantiated."""
+
         class MinimalFrameDataset(FrameDataset[ChannelFrame]):
             def _load_file(self, file_path: Path) -> ChannelFrame | None:
                 return ChannelFrame.from_numpy(np.zeros((2, 10)), 44100)
 
-        # これは例外を投げない
-        try:
-            MinimalFrameDataset(str(tmp_path), lazy_loading=True)
-        except TypeError:
-            pytest.fail("正しく実装されたサブクラスがインスタンス化に失敗しました")
+        dataset = MinimalFrameDataset(str(tmp_path), lazy_loading=True)
+        assert dataset is not None
 
 
 # --- Test ChannelFrameDataset ---
