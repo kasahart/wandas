@@ -1077,14 +1077,17 @@ class TestBaseFrameRelabelChannels:
         )
 
     def test_relabel_channels_appends_operation_name(self) -> None:
-        """Test _relabel_channels with operation name."""
+        """Test _relabel_channels with operation name preserves metadata integrity."""
+        original_labels = [ch.label for ch in self.channel_frame.channels]
         new_metadata = self.channel_frame._relabel_channels("normalize")
         assert len(new_metadata) == 2
         assert new_metadata[0].label == "normalize(left)"
         assert new_metadata[1].label == "normalize(right)"
+        # Original frame labels unchanged (immutability)
+        assert [ch.label for ch in self.channel_frame.channels] == original_labels
 
-    def test_relabel_channels_with_display_name(self) -> None:
-        """Test _relabel_channels with custom display name."""
+    def test_relabel_channels_with_display_name_uses_alias(self) -> None:
+        """Test _relabel_channels with custom display name wraps labels correctly."""
         new_metadata = self.channel_frame._relabel_channels("low_pass_filter", display_name="lpf")
         assert new_metadata[0].label == "lpf(left)"
         assert new_metadata[1].label == "lpf(right)"
