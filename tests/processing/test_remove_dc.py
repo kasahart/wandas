@@ -73,6 +73,7 @@ class TestRemoveDC:
         np.testing.assert_array_equal(signal.data, original_data)
 
     def test_remove_dc_preserves_shape(self) -> None:
+        """Multi-channel remove_dc preserves (channels, samples) shape."""
         n_channels = 4
         rng = np.random.default_rng(42)
         signal_data = rng.standard_normal((n_channels, 2000)) + 5.0
@@ -99,6 +100,7 @@ class TestRemoveDC:
         assert clean_signal.operation_history[-1]["operation"] == "remove_dc"
 
     def test_remove_dc_multi_channel_each_zero_mean(self) -> None:
+        """Each channel has near-zero mean after DC removal."""
         t = np.linspace(0, 1, _SR, endpoint=False)
         signal_data = np.array(
             [
