@@ -44,16 +44,16 @@ class TestSoundFileReader:
         """Test reading the entire audio file."""
         data = self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=self.N_SAMPLES, normalize=True)
 
-        assert isinstance(data, np.ndarray)
-        assert data.shape == (self.N_CHANNELS, self.N_SAMPLES)
+        assert isinstance(data, np.ndarray), f"Expected ndarray, got {type(data)}"
+        assert data.shape == (self.N_CHANNELS, self.N_SAMPLES), f"Shape mismatch: {data.shape}"
         np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data))
 
     def test_get_data_single_channel(self) -> None:
         """Test reading a single channel."""
         data = self.reader.get_data(self.test_file, channels=[0], start_idx=0, frames=self.N_SAMPLES, normalize=True)
 
-        assert isinstance(data, np.ndarray)
-        assert data.shape == (1, self.N_SAMPLES)
+        assert isinstance(data, np.ndarray), f"Expected ndarray, got {type(data)}"
+        assert data.shape == (1, self.N_SAMPLES), f"Shape mismatch: {data.shape}"
         np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data[0:1]))
 
     @pytest.mark.parametrize("offset", [200, 1000], ids=["offset_200", "offset_1000"])
@@ -67,8 +67,8 @@ class TestSoundFileReader:
             normalize=True,
         )
 
-        assert isinstance(data, np.ndarray)
-        assert data.shape == (self.N_CHANNELS, self.N_SAMPLES - offset)
+        assert isinstance(data, np.ndarray), f"Expected ndarray, got {type(data)}"
+        assert data.shape == (self.N_CHANNELS, self.N_SAMPLES - offset), f"Shape mismatch: {data.shape}"
         # Exact match: same reader, same file, data slice comparison
         np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data[:, offset:]))
 
@@ -77,8 +77,8 @@ class TestSoundFileReader:
         """Test reading with various frame limits returns correct shape and data."""
         data = self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=frames, normalize=True)
 
-        assert isinstance(data, np.ndarray)
-        assert data.shape == (self.N_CHANNELS, frames)
+        assert isinstance(data, np.ndarray), f"Expected ndarray, got {type(data)}"
+        assert data.shape == (self.N_CHANNELS, frames), f"Shape mismatch: {data.shape}"
         # Exact match: same reader, same file, frame-limited comparison
         np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data[:, :frames]))
 
@@ -235,8 +235,8 @@ class TestCSVFileReader:
         """Test reading the entire CSV file."""
         data = self.reader.get_data(self.test_file, channels=[], start_idx=0, frames=self.N_ROWS)
 
-        assert isinstance(data, np.ndarray)
-        assert data.shape == (self.N_CHANNELS, self.N_ROWS)
+        assert isinstance(data, np.ndarray), f"Expected ndarray, got {type(data)}"
+        assert data.shape == (self.N_CHANNELS, self.N_ROWS), f"Shape mismatch: {data.shape}"
         np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data))
 
     def test_csv_channel_count_equals_data_columns_minus_time(self) -> None:
@@ -256,8 +256,8 @@ class TestCSVFileReader:
         ]  # First and third data channels (after time column removed)
         data = self.reader.get_data(self.test_file, channels=channels, start_idx=0, frames=self.N_ROWS)
 
-        assert isinstance(data, np.ndarray)
-        assert data.shape == (len(channels), self.N_ROWS)
+        assert isinstance(data, np.ndarray), f"Expected ndarray, got {type(data)}"
+        assert data.shape == (len(channels), self.N_ROWS), f"Shape mismatch: {data.shape}"
         np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data[channels]))
 
     def test_get_data_channel_out_of_range(self) -> None:
