@@ -183,6 +183,9 @@ class TestSpectralFrame:
         symbol: str = "+"
         result: SpectralFrame = self.frame._binary_op(other_frame, add_op, symbol)
 
+        # Pillar 1: immutability and Dask laziness
+        assert result is not self.frame
+        assert isinstance(result._data, DaArray)
         assert isinstance(result, SpectralFrame)
         assert result.sampling_rate == _SAMPLING_RATE
         assert result.n_fft == _N_FFT
@@ -203,6 +206,9 @@ class TestSpectralFrame:
         symbol: str = "*"
         result: SpectralFrame = self.frame._binary_op(scalar, multiply_op, symbol)
 
+        # Pillar 1: immutability and Dask laziness
+        assert result is not self.frame
+        assert isinstance(result._data, DaArray)
         assert isinstance(result, SpectralFrame)
         assert result.label == f"({self.frame.label} {symbol} {scalar})"
 
