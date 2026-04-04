@@ -741,134 +741,111 @@ class TestChannelProcessing:
         assert len(result.operation_history) == len(base.operation_history) + 1
         assert result.previous is base
 
-    def test_high_pass_filter_channel_frame_attributes(self) -> None:
+    def _setup_metadata_and_mock(self):
+        """Configure channel_frame with standard test metadata and return a mock context.
+
+        Reduces boilerplate in *_channel_frame_attributes tests.
+        Returns the mock create_operation patcher (as context manager).
+        """
         self.channel_frame.label = "test_label"
         self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
         self.channel_frame._channel_metadata = [
             ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
             ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
         ]
-        with mock.patch("wandas.processing.create_operation") as mock_create_op:
-            mock_op = mock.MagicMock()
-            mock_op.process.return_value = self.dask_data
-            mock_create_op.return_value = mock_op
+
+    def _mock_create_op(self, metadata_updates=None):
+        """Return a context manager that patches create_operation with a mock op."""
+        patcher = mock.patch("wandas.processing.create_operation")
+        mock_create_op = patcher.start()
+        mock_op = mock.MagicMock()
+        mock_op.process.return_value = self.dask_data
+        if metadata_updates:
+            mock_op.get_metadata_updates.return_value = metadata_updates
+        mock_create_op.return_value = mock_op
+        return patcher
+
+    def test_high_pass_filter_channel_frame_attributes(self) -> None:
+        self._setup_metadata_and_mock()
+        patcher = self._mock_create_op()
+        try:
             result = self.channel_frame.high_pass_filter(cutoff=100)
             self._check_channel_frame_attrs(result, self.channel_frame, op_key="highpass_filter")
+        finally:
+            patcher.stop()
 
     def test_low_pass_filter_channel_frame_attributes(self) -> None:
-        self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
-        self.channel_frame._channel_metadata = [
-            ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
-            ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
-        ]
-        with mock.patch("wandas.processing.create_operation") as mock_create_op:
-            mock_op = mock.MagicMock()
-            mock_op.process.return_value = self.dask_data
-            mock_create_op.return_value = mock_op
+        self._setup_metadata_and_mock()
+        patcher = self._mock_create_op()
+        try:
             result = self.channel_frame.low_pass_filter(cutoff=5000)
             self._check_channel_frame_attrs(result, self.channel_frame, op_key="lowpass_filter")
+        finally:
+            patcher.stop()
 
     def test_band_pass_filter_channel_frame_attributes(self) -> None:
-        self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
-        self.channel_frame._channel_metadata = [
-            ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
-            ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
-        ]
-        with mock.patch("wandas.processing.create_operation") as mock_create_op:
-            mock_op = mock.MagicMock()
-            mock_op.process.return_value = self.dask_data
-            mock_create_op.return_value = mock_op
+        self._setup_metadata_and_mock()
+        patcher = self._mock_create_op()
+        try:
             result = self.channel_frame.band_pass_filter(low_cutoff=200, high_cutoff=5000)
             self._check_channel_frame_attrs(result, self.channel_frame, op_key="bandpass_filter")
+        finally:
+            patcher.stop()
 
     def test_a_weighting_channel_frame_attributes(self) -> None:
-        self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
-        self.channel_frame._channel_metadata = [
-            ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
-            ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
-        ]
-        with mock.patch("wandas.processing.create_operation") as mock_create_op:
-            mock_op = mock.MagicMock()
-            mock_op.process.return_value = self.dask_data
-            mock_create_op.return_value = mock_op
+        self._setup_metadata_and_mock()
+        patcher = self._mock_create_op()
+        try:
             result = self.channel_frame.a_weighting()
             self._check_channel_frame_attrs(result, self.channel_frame, op_key="a_weighting")
+        finally:
+            patcher.stop()
 
     def test_abs_channel_frame_attributes(self) -> None:
-        self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
-        self.channel_frame._channel_metadata = [
-            ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
-            ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
-        ]
-        with mock.patch("wandas.processing.create_operation") as mock_create_op:
-            mock_op = mock.MagicMock()
-            mock_op.process.return_value = self.dask_data
-            mock_create_op.return_value = mock_op
+        self._setup_metadata_and_mock()
+        patcher = self._mock_create_op()
+        try:
             result = self.channel_frame.abs()
             self._check_channel_frame_attrs(result, self.channel_frame, op_key="abs")
+        finally:
+            patcher.stop()
 
     def test_power_channel_frame_attributes(self) -> None:
-        self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
-        self.channel_frame._channel_metadata = [
-            ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
-            ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
-        ]
-        with mock.patch("wandas.processing.create_operation") as mock_create_op:
-            mock_op = mock.MagicMock()
-            mock_op.process.return_value = self.dask_data
-            mock_create_op.return_value = mock_op
+        self._setup_metadata_and_mock()
+        patcher = self._mock_create_op()
+        try:
             result = self.channel_frame.power(exponent=2.0)
             self._check_channel_frame_attrs(result, self.channel_frame, op_key="power")
+        finally:
+            patcher.stop()
 
     def test_trim_channel_frame_attributes(self) -> None:
-        self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
-        self.channel_frame._channel_metadata = [
-            ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
-            ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
-        ]
-        with mock.patch("wandas.processing.create_operation") as mock_create_op:
-            mock_op = mock.MagicMock()
-            mock_op.process.return_value = self.dask_data
-            mock_create_op.return_value = mock_op
+        self._setup_metadata_and_mock()
+        patcher = self._mock_create_op()
+        try:
             result = self.channel_frame.trim(start=0.1, end=0.5)
             self._check_channel_frame_attrs(result, self.channel_frame, op_key="trim")
+        finally:
+            patcher.stop()
 
     def test_fix_length_channel_frame_attributes(self) -> None:
-        self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
-        self.channel_frame._channel_metadata = [
-            ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
-            ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
-        ]
-        with mock.patch("wandas.processing.create_operation") as mock_create_op:
-            mock_op = mock.MagicMock()
-            mock_op.process.return_value = self.dask_data
-            mock_create_op.return_value = mock_op
+        self._setup_metadata_and_mock()
+        patcher = self._mock_create_op()
+        try:
             result = self.channel_frame.fix_length(length=10000)
             self._check_channel_frame_attrs(result, self.channel_frame, op_key="fix_length")
+        finally:
+            patcher.stop()
 
     def test_resampling_channel_frame_attributes(self) -> None:
-        self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
-        self.channel_frame._channel_metadata = [
-            ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
-            ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
-        ]
-        with mock.patch("wandas.processing.create_operation") as mock_create_op:
-            mock_op = mock.MagicMock()
-            mock_op.process.return_value = self.dask_data
-            # Mock get_metadata_updates to return target sampling rate
-            target_sr = 8000
-            mock_op.get_metadata_updates.return_value = {"sampling_rate": target_sr}
-            mock_create_op.return_value = mock_op
+        self._setup_metadata_and_mock()
+        target_sr = 8000
+        patcher = self._mock_create_op(metadata_updates={"sampling_rate": target_sr})
+        try:
             result = self.channel_frame.resampling(target_sr=target_sr)
             self._check_channel_frame_attrs(result, self.channel_frame, hop_length=2, op_key="resampling")
+        finally:
+            patcher.stop()
 
 
 class TestSamplingRateUpdates:
