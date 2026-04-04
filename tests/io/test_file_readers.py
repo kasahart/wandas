@@ -21,48 +21,40 @@ from wandas.utils.types import NDArrayReal
 
 
 class TestSoundFileReader:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.reader: SoundFileReader = SoundFileReader()
+    # Constants for the standard test audio file
+    SAMPLE_RATE: int = 16000
+    DURATION: float = 0.5
+    N_SAMPLES: int = int(SAMPLE_RATE * DURATION)
+    N_CHANNELS: int = 2
 
-        # Create a temporary wav file for testing
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.test_file: Path = Path(self.temp_dir.name) / "test_audio.wav"
+    @pytest.fixture(autouse=True)
+    def _setup_wav(self, tmp_path: Path) -> None:
+        """Create a standard stereo WAV file using seeded RNG (Grand Policy)."""
+        self.reader = SoundFileReader()
+        self.test_file = tmp_path / "test_audio.wav"
 
-        # Create sample audio data: 2 channels, 0.5 seconds at 16kHz
         # Seeded RNG for reproducibility (Grand Policy: no unseeded random data)
         rng = np.random.default_rng(42)
-        sample_rate: int = 16000
-        duration: float = 0.5
-        samples: int = int(sample_rate * duration)
-        test_data: NDArrayReal = rng.random((samples, 2)).astype(np.float32)
-        sf.write(self.test_file, test_data, sample_rate)
+        test_data: NDArrayReal = rng.random((self.N_SAMPLES, self.N_CHANNELS)).astype(np.float32)
+        sf.write(self.test_file, test_data, self.SAMPLE_RATE)
 
         re_test_data, _ = sf.read(self.test_file)
-        # Store expected data for tests
-        self.expected_data: NDArrayReal = re_test_data.T  # Transpose to get (channels, samples)
-        self.sample_rate: int = sample_rate
-        self.n_samples: int = samples
-        self.n_channels: int = 2
-
-    def teardown_method(self) -> None:
-        """Clean up after tests."""
-        self.temp_dir.cleanup()
+        self.expected_data: NDArrayReal = re_test_data.T  # (channels, samples)
 
     def test_get_data_full_file(self) -> None:
         """Test reading the entire audio file."""
-        data = self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=self.n_samples, normalize=True)
+        data = self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=self.N_SAMPLES, normalize=True)
 
         assert isinstance(data, np.ndarray)
-        assert data.shape == (self.n_channels, self.n_samples)
+        assert data.shape == (self.N_CHANNELS, self.N_SAMPLES)
         np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data))
 
     def test_get_data_single_channel(self) -> None:
         """Test reading a single channel."""
-        data = self.reader.get_data(self.test_file, channels=[0], start_idx=0, frames=self.n_samples, normalize=True)
+        data = self.reader.get_data(self.test_file, channels=[0], start_idx=0, frames=self.N_SAMPLES, normalize=True)
 
         assert isinstance(data, np.ndarray)
-        assert data.shape == (1, self.n_samples)
+        assert data.shape == (1, self.N_SAMPLES)
         np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data[0:1]))
 
     @pytest.mark.parametrize("offset", [200, 1000], ids=["offset_200", "offset_1000"])
@@ -72,12 +64,12 @@ class TestSoundFileReader:
             self.test_file,
             channels=[0, 1],
             start_idx=offset,
-            frames=self.n_samples - offset,
+            frames=self.N_SAMPLES - offset,
             normalize=True,
         )
 
         assert isinstance(data, np.ndarray)
-        assert data.shape == (self.n_channels, self.n_samples - offset)
+        assert data.shape == (self.N_CHANNELS, self.N_SAMPLES - offset)
         # Exact match: same reader, same file, data slice comparison
         np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data[:, offset:]))
 
@@ -87,7 +79,7 @@ class TestSoundFileReader:
         data = self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=frames, normalize=True)
 
         assert isinstance(data, np.ndarray)
-        assert data.shape == (self.n_channels, frames)
+        assert data.shape == (self.N_CHANNELS, frames)
         # Exact match: same reader, same file, frame-limited comparison
         np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data[:, :frames]))
 
@@ -101,12 +93,12 @@ class TestSoundFileReader:
         monkeypatch.setattr(readers.np, "ndarray", tuple)
 
         with pytest.raises(ValueError, match="Unexpected data type after reading file"):
-            self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=self.n_samples)
+            self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=self.N_SAMPLES)
 
     def test_get_data_invalid_channels(self) -> None:
         """Test error handling with invalid channel indices."""
         with pytest.raises(IndexError):
-            self.reader.get_data(self.test_file, channels=[10], start_idx=0, frames=self.n_samples)
+            self.reader.get_data(self.test_file, channels=[10], start_idx=0, frames=self.N_SAMPLES)
 
 
 class TestCSVFileReader:
