@@ -119,7 +119,7 @@ def test_wdf_operation_history_roundtrip(known_signal_frame, tmp_path: Path) -> 
     assert loaded.operation_history[1]["params"]["order"] == 4
 
 
-def test_save_with_dtype_conversion(tmp_path: Path) -> None:
+def test_save_wdf_dtype_float32_converts_stored_data(tmp_path: Path) -> None:
     """Test saving with dtype conversion."""
     rng = np.random.default_rng(1)
     sr = 44100
@@ -135,7 +135,7 @@ def test_save_with_dtype_conversion(tmp_path: Path) -> None:
         assert f["channels/0/data"].dtype == np.dtype("float32")
 
 
-def test_save_without_compression(tmp_path: Path) -> None:
+def test_save_wdf_no_compression_stores_uncompressed(tmp_path: Path) -> None:
     """Test saving without compression."""
     rng = np.random.default_rng(2)
     sr = 22050
@@ -150,7 +150,7 @@ def test_save_without_compression(tmp_path: Path) -> None:
         assert f["channels/0/data"].compression is None
 
 
-def test_file_exists_error(tmp_path: Path) -> None:
+def test_save_wdf_existing_file_overwrite_false_raises_file_exists(tmp_path: Path) -> None:
     """Test that attempting to overwrite without overwrite=True raises an error."""
     rng = np.random.default_rng(3)
     sr = 8000
@@ -169,7 +169,7 @@ def test_file_exists_error(tmp_path: Path) -> None:
     cf.save(path, overwrite=True)
 
 
-def test_wdf_extension_added(tmp_path: Path) -> None:
+def test_save_wdf_no_extension_adds_wdf_suffix(tmp_path: Path) -> None:
     """Test that .wdf extension is automatically added."""
     rng = np.random.default_rng(4)
     sr = 16000
@@ -183,7 +183,7 @@ def test_wdf_extension_added(tmp_path: Path) -> None:
     assert (tmp_path / "test_file.wdf").exists()
 
 
-def test_unsupported_format() -> None:
+def test_save_load_unsupported_format_raises_not_implemented() -> None:
     """Test that unsupported formats raise NotImplementedError."""
     rng = np.random.default_rng(5)
     sr = 16000
@@ -197,7 +197,7 @@ def test_unsupported_format() -> None:
         ChannelFrame.load("test.wdf", format="unsupported")
 
 
-def test_version_compatibility(tmp_path: Path) -> None:
+def test_load_wdf_modified_version_still_loads(tmp_path: Path) -> None:
     """Test version handling in WDF files."""
     rng = np.random.default_rng(6)
     sr = 8000
