@@ -677,6 +677,7 @@ class TestNOctSynthesisOperation:
     # -- Layer 2: Domain (immutability + lazy + shapes) ---------------------
 
     def test_preserves_immutability_and_dask_type(self) -> None:
+        """Pillar 1: input data unchanged after NOctSynthesis; result is new instance."""
         pink, _ = self._make_pink_noise()
         sig = np.array([pink])
         dask_sig = da_from_array(sig, chunks=(1, 1000))
@@ -693,6 +694,7 @@ class TestNOctSynthesisOperation:
         assert result is not spectrum
 
     def test_delayed_execution_not_computed_early(self) -> None:
+        """Pillar 1: Dask lazy evaluation preserved; no premature compute()."""
         pink, _ = self._make_pink_noise()
         sig = np.array([pink])
         dask_sig = da_from_array(sig, chunks=(1, 1000))
@@ -1537,6 +1539,7 @@ class TestNOctSpectrumOperation:
     # -- Layer 1: Unit tests -----------------------------------------------
 
     def test_init_stores_all_params(self) -> None:
+        """All constructor parameters are stored as attributes."""
         op = self._op()
         assert op.sampling_rate == self._NOCT_SR
         assert op.fmin == self._FMIN
@@ -1546,6 +1549,7 @@ class TestNOctSpectrumOperation:
         assert op.fr == self._FR
 
     def test_registry_returns_correct_class(self) -> None:
+        """'noct_spectrum' registry key creates NOctSpectrum instance."""
         assert get_operation("noct_spectrum") == NOctSpectrum
         op = create_operation(
             "noct_spectrum",
@@ -1562,6 +1566,7 @@ class TestNOctSpectrumOperation:
     # -- Layer 2: Domain (immutability + lazy + shapes) ---------------------
 
     def test_preserves_immutability_and_dask_type(self) -> None:
+        """Pillar 1: input data unchanged after NOctSpectrum; result is DaskArray."""
         pink, _ = self._make_pink_noise()
         sig = np.array([pink])
         dask_sig = da_from_array(sig, chunks=(1, -1))
@@ -1573,6 +1578,7 @@ class TestNOctSpectrumOperation:
         assert isinstance(result, DaArray)
 
     def test_delayed_execution_not_computed_early(self) -> None:
+        """Pillar 1: Dask lazy evaluation preserved; no premature compute()."""
         pink, _ = self._make_pink_noise()
         dask_sig = da_from_array(np.array([pink]), chunks=(1, -1))
         with mock.patch.object(DaArray, "compute") as mock_compute:
