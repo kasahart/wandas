@@ -790,32 +790,37 @@ class TestSpectrogramFrameDataset:
         # Verify transformation (check if data changed)
         assert not np.allclose(original_spec_frame.compute(), transformed_spec_frame.compute())
 
-    @patch("matplotlib.pyplot.show")  # Prevent plots from displaying during tests
+    @patch("matplotlib.pyplot.show")
     def test_plot_delegates_to_frame_plot(
+        self,
+        mock_show: MagicMock,
+        create_test_files: Path,
+    ) -> None:
+        """plot() delegates to SpectrogramFrame.plot."""
+        folder_path = create_test_files
+        channel_ds = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        stft_ds = channel_ds.stft()
+
+        with patch.object(SpectrogramFrame, "plot", return_value=MagicMock(spec=Axes)) as mock_frame_plot:
+            stft_ds.plot(0)
+            mock_frame_plot.assert_called_once()
+
+    @patch("matplotlib.pyplot.show")
+    def test_plot_transform_error_logs_warning(
         self,
         mock_show: MagicMock,
         create_test_files: Path,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """Test plotting from SpectrogramFrameDataset."""
+        """plot() logs warning when transform fails."""
         folder_path = create_test_files
         channel_ds = ChannelFrameDataset(str(folder_path), lazy_loading=True)
-        stft_ds = channel_ds.stft()
-
-        # Mock SpectrogramFrame.plot to check if it's called
-        with patch.object(SpectrogramFrame, "plot", return_value=MagicMock(spec=Axes)) as mock_frame_plot:
-            stft_ds.plot(0)  # Plot the first spectrogram
-            mock_frame_plot.assert_called_once()
-
-        # Test plot with load/transform error
-        caplog.clear()
 
         def failing_stft(frame: ChannelFrame) -> SpectrogramFrame:
             if frame.label == "test1":
                 raise ValueError("STFT failed")
             return frame.stft()
 
-        # Need to wrap this in a SpectrogramFrameDataset manually for plot method
         error_spec_ds = SpectrogramFrameDataset(
             folder_path=str(folder_path),
             source_dataset=channel_ds,
@@ -823,26 +828,43 @@ class TestSpectrogramFrameDataset:
         )
 
         with patch.object(SpectrogramFrame, "plot") as mock_plot_error:
-            error_spec_ds.plot(0)  # Attempt to plot the failing one
+            error_spec_ds.plot(0)
             mock_plot_error.assert_not_called()
             assert any("STFT failed" in rec.message for rec in caplog.records if rec.levelname == "WARNING")
 
-        # Test plot when frame has no plot method (simulate)
-        caplog.clear()
+    @patch("matplotlib.pyplot.show")
+    def test_plot_no_plot_method_logs_warning(
+        self,
+        mock_show: MagicMock,
+        create_test_files: Path,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """plot() logs warning when frame has no plot method."""
+        folder_path = create_test_files
+        channel_ds = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        stft_ds = channel_ds.stft()
 
-        # Define a class without plot method
         with patch.object(SpectrogramFrame, "plot", None):
-            # Test when loaded frame has no plot method
             stft_ds.plot(0)
             assert any("Frame" in rec.message for rec in caplog.records if rec.levelname == "WARNING")
 
-        # Test error during plotting itself
-        caplog.clear()
+    @patch("matplotlib.pyplot.show")
+    def test_plot_runtime_error_logs_error(
+        self,
+        mock_show: MagicMock,
+        create_test_files: Path,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """plot() logs error when plotting raises RuntimeError."""
+        folder_path = create_test_files
+        channel_ds = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        stft_ds = channel_ds.stft()
+
         plot_error_msg = "The save method is not currently implemented."
         with patch.object(
             SpectrogramFrame, "plot", side_effect=RuntimeError(plot_error_msg)
         ) as mock_plot_runtime_error:
-            stft_ds.plot(1)  # Plot second item, assume it loads ok
+            stft_ds.plot(1)
             mock_plot_runtime_error.assert_called_once()
             assert any(plot_error_msg in rec.message for rec in caplog.records if rec.levelname == "ERROR")
 
