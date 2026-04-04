@@ -230,8 +230,8 @@ def test_load_wdf_modified_version_still_loads(tmp_path: Path) -> None:
     assert cf2.n_samples == sr, f"Expected {sr} samples after version-modified load, got {cf2.n_samples}"
 
 
-def test_save_non_serializable_op_history(tmp_path: Path) -> None:
-    """Test saving with non-JSON-serializable object in operation history."""
+def test_save_wdf_non_serializable_op_history_falls_back_to_string(tmp_path: Path) -> None:
+    """Non-JSON-serializable op history params fallback to str representation."""
     rng = np.random.default_rng(7)
     sr = 16000
     data = rng.standard_normal((1, sr))
@@ -247,9 +247,9 @@ def test_save_non_serializable_op_history(tmp_path: Path) -> None:
     # Should not raise, but fallback to string representation
     wdf_io.save(cf, path)
 
-    # Verify it was saved as string
+    # Verify it was saved as string fallback
     cf2 = wdf_io.load(path)
-    assert cf2.operation_history[0]["param"] == "NonSerializableObj"
+    assert cf2.operation_history[0]["param"] == "NonSerializableObj", "Non-serializable must fallback to str()"
 
 
 def test_load_no_channels(tmp_path: Path) -> None:
