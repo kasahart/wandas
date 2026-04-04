@@ -360,11 +360,13 @@ def test_load_wdf_from_url(tmp_path: Path) -> None:
         cf2 = wdf_io.load(url)
 
     mock_fn.assert_called_once_with(url, timeout=10.0)
-    assert cf2.sampling_rate == sr
-    assert cf2.n_channels == 2
-    assert cf2.label == "URL Test"
-    assert cf2._channel_metadata[0].label == "A"
-    assert cf2._channel_metadata[1].label == "B"
+    assert cf2.sampling_rate == sr, f"SR mismatch: {cf2.sampling_rate}"
+    assert cf2.n_channels == 2, f"Channel count mismatch: {cf2.n_channels}"
+    assert cf2.label == "URL Test", f"Label mismatch: {cf2.label}"
+    assert cf2._channel_metadata[0].label == "A", "Channel 0 label not preserved"
+    assert cf2._channel_metadata[1].label == "B", "Channel 1 label not preserved"
+    # Verify Dask lazy loading from URL path (Pillar 1)
+    assert isinstance(cf2._data, dask.array.core.Array), "URL WDF load must produce Dask array"
     # Float32 HDF5 round-trip: rtol=1e-5 for float32 precision
     np.testing.assert_allclose(cf2.compute(), data, rtol=1e-5)
 
