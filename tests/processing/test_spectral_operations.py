@@ -5,6 +5,9 @@ import pytest
 from dask.array.core import Array as DaArray
 from mosqito.sound_level_meter import noct_spectrum, noct_synthesis
 from mosqito.sound_level_meter.noct_spectrum._center_freq import _center_freq
+from scipy import signal as ss
+from scipy.signal import ShortTimeFFT as ScipySTFT
+from scipy.signal import get_window
 
 from wandas.processing.base import create_operation, get_operation
 from wandas.processing.spectral import (
@@ -170,7 +173,6 @@ class TestFFTOperation:
 
         Tolerance: rtol=1e-10 — float64 precision.
         """
-        from scipy.signal import get_window
 
         amp = 2.0
         t = np.linspace(0, 1, _SR, endpoint=False)
@@ -480,8 +482,6 @@ class TestSTFTOperation:
 
     def test_stft_shape_mono_matches_scipy(self) -> None:
         """STFT output shape matches scipy ShortTimeFFT for mono."""
-        from scipy.signal import ShortTimeFFT as ScipySTFT
-        from scipy.signal import get_window
 
         sig, _ = self._make_mono()
         stft = self._stft()
@@ -500,8 +500,6 @@ class TestSTFTOperation:
 
     def test_stft_shape_stereo_matches_scipy(self) -> None:
         """STFT output shape matches scipy ShortTimeFFT for stereo."""
-        from scipy.signal import ShortTimeFFT as ScipySTFT
-        from scipy.signal import get_window
 
         sig, _ = self._make_stereo()
         stft = self._stft()
@@ -558,8 +556,6 @@ class TestSTFTOperation:
 
         Tolerance: rtol=1e-5, atol=1e-5 — window scaling and padding.
         """
-        from scipy.signal import ShortTimeFFT as ScipySTFT
-        from scipy.signal import get_window
 
         sig, dask_sig = self._make_mono()
         stft = self._stft()
@@ -972,7 +968,6 @@ class TestWelchOperation:
 
         Tolerance: rtol=1e-6 — float64 precision.
         """
-        from scipy import signal as ss
 
         sig, _ = self._make_stereo()
         result = self._op().process_array(sig).compute()
@@ -1124,7 +1119,6 @@ class TestCoherenceOperation:
 
         Tolerance: rtol=1e-6.
         """
-        from scipy import signal as ss
 
         sig, _ = self._make_stereo()
         result = self._op().process_array(sig).compute()
@@ -1279,7 +1273,6 @@ class TestCSDOperation:
 
         Tolerance: rtol=1e-6.
         """
-        from scipy import signal as ss
 
         sig, _ = self._make_stereo()
         result = self._op().process_array(sig).compute()
@@ -1459,7 +1452,6 @@ class TestTransferFunctionOperation:
 
         Tolerance: rtol=1e-6 — float64 precision.
         """
-        from scipy import signal as ss
 
         sig, _ = self._make_stereo()
         result = self._op().process_array(sig).compute()
