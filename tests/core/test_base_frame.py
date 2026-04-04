@@ -1316,18 +1316,16 @@ class TestBaseFrameCoverage:
         self.dask_data: DaArray = da_from_array(self.data, chunks=(1, -1))
         self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
-    def test_init_rechunk_failure(self, caplog: pytest.LogCaptureFixture) -> None:
+    def test_init_rechunk_failure_logs_warning_and_creates(self, caplog: pytest.LogCaptureFixture) -> None:
         """Test that initialization continues even if rechunking fails."""
-        # Fail first call, succeed second call (fallback)
         side_effect = [Exception("Rechunk failed"), self.dask_data]
         with mock.patch.object(DaArray, "rechunk", side_effect=side_effect):
             frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate)
-            # Should still be created
             assert isinstance(frame, ChannelFrame)
-            # Should log warning
+            assert isinstance(frame._data, DaArray)
             assert "Rechunk failed" in caplog.text
 
-    def test_init_debug_info_failure(self) -> None:
+    def test_init_debug_info_failure_still_creates(self) -> None:
         """Test that initialization continues even if _debug_info_impl fails."""
         # We need to subclass to mock _debug_info_impl effectively or patch it on class
         with mock.patch(
@@ -1337,21 +1335,19 @@ class TestBaseFrameCoverage:
             frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate)
             assert isinstance(frame, ChannelFrame)
 
-    def test_get_channel_invalid_type(self) -> None:
-        """Test get_channel with invalid type raises TypeError."""
+    def test_get_channel_float_index_raises_type_error(self) -> None:
+        """Test get_channel with float index raises TypeError."""
         with pytest.raises(TypeError):
             self.channel_frame.get_channel(1.5)  # ty: ignore[invalid-argument-type]
 
-    def test_handle_multidim_indexing_too_many_dims(self) -> None:
-        """Test _handle_multidim_indexing with too many dimensions."""
-        # 2D data, try 3D index
+    def test_handle_multidim_indexing_3d_index_raises_value_error(self) -> None:
+        """Test _handle_multidim_indexing with 3D index on 2D data raises ValueError."""
         key = (0, slice(None), 0)
         with pytest.raises(ValueError, match="Invalid key length"):
             self.channel_frame._handle_multidim_indexing(key)
 
-    def test_handle_multidim_indexing_invalid_channel_key(self) -> None:
-        """Test _handle_multidim_indexing with invalid channel key type."""
-        # Pass a float as channel key
+    def test_handle_multidim_indexing_float_channel_key_raises_type_error(self) -> None:
+        """Test _handle_multidim_indexing with float channel key raises TypeError."""
         key = (1.5, slice(None))
         with pytest.raises(TypeError, match="Invalid channel key type"):
             self.channel_frame._handle_multidim_indexing(key)  # ty: ignore[invalid-argument-type]
