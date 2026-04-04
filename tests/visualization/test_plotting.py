@@ -966,6 +966,10 @@ class TestPlotting:
 
             assert isinstance(result, Iterator)
 
+            # Verify stft and welch were invoked
+            self.mock_channel_frame.stft.assert_called_once()
+            self.mock_channel_frame.welch.assert_called_once()
+
     def test_matrix_plot_strategy_overlay_mode(self) -> None:
         """Test MatrixPlotStrategy overlay mode."""
 
