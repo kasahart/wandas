@@ -322,6 +322,7 @@ class TestChannelTransform:
         # 入力から出力への伝達関数（インデックス1は入力->出力）
         # 主要周波数でのゲインがほぼ正確かチェック
         h_in_to_out = tf_data[1]
+        # rtol=0.2: Welch PSD estimation variance in transfer function
         assert np.isclose(np.abs(h_in_to_out[idx_100hz]), 2.0, rtol=0.2)
         assert np.isclose(np.abs(h_in_to_out[idx_200hz]), 1.5, rtol=0.2)
 
