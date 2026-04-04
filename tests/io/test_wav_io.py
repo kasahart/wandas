@@ -146,8 +146,8 @@ def test_read_wav_bytes_dc_signal() -> None:
 
     cf = ChannelFrame.read_wav(wav_bytes)
 
-    assert cf.sampling_rate == sr
-    assert len(cf) == 2
+    assert cf.sampling_rate == sr, f"SR mismatch: {cf.sampling_rate}"
+    assert len(cf) == 2, f"Expected 2 channels, got {len(cf)}"
     computed = cf.compute()
     # Float32 DC signal: rtol=1e-5 accounts for float32 precision
     np.testing.assert_allclose(computed[0], data_left, rtol=1e-5)
@@ -177,8 +177,8 @@ def test_read_wav_from_url_via_requests_mock() -> None:
         cf = ChannelFrame.read_wav(response.content)
 
     mock_get.assert_called_once_with(url)
-    assert len(cf) == 2
-    assert cf.sampling_rate == sr
+    assert len(cf) == 2, f"Expected 2 channels, got {len(cf)}"
+    assert cf.sampling_rate == sr, f"SR mismatch: {cf.sampling_rate}"
     computed = cf.compute()
     # Verify all samples, not just first element (rtol=1e-5 for float32)
     np.testing.assert_allclose(computed[0], data_left, rtol=1e-5)
@@ -202,14 +202,14 @@ def test_from_file_url_wav() -> None:
         cf = ChannelFrame.from_file(url)
 
     mock_fn.assert_called_once_with(url, timeout=10.0)
-    assert cf.sampling_rate == sr
-    assert len(cf) == 2
+    assert cf.sampling_rate == sr, f"SR mismatch: {cf.sampling_rate}"
+    assert len(cf) == 2, f"Expected 2 channels, got {len(cf)}"
     computed = cf.compute()
     # Float32 DC signal: rtol=1e-5 for float32 precision
     np.testing.assert_allclose(computed[0], data_left, rtol=1e-5)
     np.testing.assert_allclose(computed[1], data_right, rtol=1e-5)
     # Provenance metadata (Pillar 2)
-    assert cf.metadata.source_file == url
+    assert cf.metadata.source_file == url, "source_file metadata not preserved"
     assert cf.label == "sample"
 
 
