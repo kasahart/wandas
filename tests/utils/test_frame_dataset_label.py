@@ -35,7 +35,7 @@ class TestDatasetLabelAccess:
     """Test suite for label-based dataset access — duplicate filename handling."""
 
     def test_get_all_by_label_duplicate_returns_both(self, dup_label_dataset: ChannelFrameDataset) -> None:
-        """get_all_by_label returns all frames matching the filename."""
+        """Get_all_by_label returns all frames matching the filename."""
         matches = dup_label_dataset.get_all_by_label("dup.wav")
         assert isinstance(matches, list)
         assert len(matches) == 2
