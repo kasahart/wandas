@@ -17,10 +17,10 @@ from wandas.processing.filters import (
 # Constants shared across filter tests
 # ---------------------------------------------------------------------------
 _SR: int = 16000
-_CUTOFF_HPF = 500.0
-_ORDER = 4
-_LOW_FREQ = 50.0  # below typical cutoff — must be attenuated by HPF/LPF
-_HIGH_FREQ = 1000.0  # above typical cutoff — must be preserved by HPF
+_CUTOFF_HPF: float = 500.0
+_ORDER: int = 4
+_LOW_FREQ: float = 50.0  # below typical cutoff — must be attenuated by HPF/LPF
+_HIGH_FREQ: float = 1000.0  # above typical cutoff — must be preserved by HPF
 
 
 class TestHighPassFilter:
