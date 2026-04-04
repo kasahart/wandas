@@ -94,6 +94,28 @@ def test_save_load_roundtrip(tmp_path: Path) -> None:
     assert cf2._channel_metadata[1].extra.get("sensitivity") == 48.5
 
 
+def test_wdf_operation_history_roundtrip(known_signal_frame, tmp_path: Path) -> None:
+    """WDF round-trip preserves operation_history entries (Pillar 2: metadata sync).
+
+    Verifies that operation names and parameters survive HDF5 serialization.
+    """
+    known_signal_frame.operation_history = [
+        {"operation": "normalize", "params": {"method": "peak"}},
+        {"operation": "lowpass_filter", "params": {"cutoff": 1000, "order": 4}},
+    ]
+    path = tmp_path / "op_history.wdf"
+    known_signal_frame.save(path)
+
+    loaded = ChannelFrame.load(path)
+
+    assert len(loaded.operation_history) == 2
+    assert loaded.operation_history[0]["operation"] == "normalize"
+    assert loaded.operation_history[0]["params"]["method"] == "peak"
+    assert loaded.operation_history[1]["operation"] == "lowpass_filter"
+    assert loaded.operation_history[1]["params"]["cutoff"] == 1000
+    assert loaded.operation_history[1]["params"]["order"] == 4
+
+
 def test_save_with_dtype_conversion(tmp_path: Path) -> None:
     """Test saving with dtype conversion."""
     rng = np.random.default_rng(1)
