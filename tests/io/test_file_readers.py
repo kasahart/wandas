@@ -32,10 +32,12 @@ class TestSoundFileReader:
         self.test_file: Path = Path(self.temp_dir.name) / "test_audio.wav"
 
         # Create sample audio data: 2 channels, 0.5 seconds at 16kHz
+        # Seeded RNG for reproducibility (Grand Policy: no unseeded random data)
+        rng = np.random.default_rng(42)
         sample_rate: int = 16000
         duration: float = 0.5
         samples: int = int(sample_rate * duration)
-        test_data: NDArrayReal = np.random.random((samples, 2)).astype(np.float32)
+        test_data: NDArrayReal = rng.random((samples, 2)).astype(np.float32)
         sf.write(self.test_file, test_data, sample_rate)
 
         re_test_data, _ = sf.read(self.test_file)
@@ -137,10 +139,12 @@ class TestCSVFileReader:
         self.test_file: Path = Path(self.temp_dir.name) / "test_data.csv"
 
         # Create sample data: time column + 3 data columns, 1000 rows
+        # Seeded RNG for reproducibility (Grand Policy: no unseeded random data)
+        rng = np.random.default_rng(99)
         n_rows: int = 1000
         sample_rate: int = 1000
         time_values: NDArrayReal = np.arange(n_rows) / sample_rate  # 1kHz sample rate
-        data_values: NDArrayReal = np.random.random((n_rows, 3))
+        data_values: NDArrayReal = rng.random((n_rows, 3))
 
         # Create DataFrame and save to CSV
         df: pd.DataFrame = pd.DataFrame(
@@ -179,9 +183,10 @@ class TestCSVFileReader:
         temp_file = Path(self.temp_dir.name) / "even_intervals.csv"
 
         # Create data with exact time intervals (0.01 seconds = 100Hz sample rate)
+        rng = np.random.default_rng(10)
         n_rows = 100
         time_values = np.arange(0, n_rows * 0.01, 0.01)  # 100Hz sampling
-        data_values = np.random.random((n_rows, 2))
+        data_values = rng.random((n_rows, 2))
 
         df = pd.DataFrame(
             np.column_stack([time_values, data_values]),
@@ -200,9 +205,10 @@ class TestCSVFileReader:
         """Test samplerate estimation using a named time column."""
         temp_file = Path(self.temp_dir.name) / "time_column_name.csv"
 
+        rng = np.random.default_rng(11)
         n_rows = 50
         time_values = np.arange(0, n_rows * 0.01, 0.01)
-        data_values = np.random.random((n_rows, 2))
+        data_values = rng.random((n_rows, 2))
 
         df = pd.DataFrame(
             np.column_stack([time_values, data_values]),
@@ -240,8 +246,9 @@ class TestCSVFileReader:
         # Create a CSV with string first column
         temp_file = Path(self.temp_dir.name) / "no_time_column.csv"
 
+        rng = np.random.default_rng(12)
         n_rows = 50
-        data_values = np.random.random((n_rows, 2))
+        data_values = rng.random((n_rows, 2))
         labels = [f"label_{i}" for i in range(n_rows)]
 
         df = pd.DataFrame(
