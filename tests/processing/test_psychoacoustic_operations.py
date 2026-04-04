@@ -1,4 +1,9 @@
-"""Tests for psychoacoustic processing operations."""
+"""Tests for psychoacoustic processing operations.
+
+Tolerance convention:
+  - assert_array_equal: exact match (same MoSQITo call path, identical result)
+  - rtol=1e-10: near-exact match (MoSQITo wrapper, float64 precision guard)
+"""
 
 from unittest.mock import patch
 
