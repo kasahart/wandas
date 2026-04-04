@@ -2314,7 +2314,7 @@ class TestFrameDatasetCoverageGaps:
         dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
         resampled = dataset.resample(target_sr=8000)
         assert resampled._transform is not None
-        result = resampled._transform(None)  # ty: ignore[invalid-argument-type]
+        result = resampled._transform(None)
         assert result is None
 
     def test_trim_inner_none_frame(self, create_test_files: Path) -> None:
@@ -2322,7 +2322,7 @@ class TestFrameDatasetCoverageGaps:
         dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
         trimmed = dataset.trim(start=0.0, end=0.5)
         assert trimmed._transform is not None
-        result = trimmed._transform(None)  # ty: ignore[invalid-argument-type]
+        result = trimmed._transform(None)
         assert result is None
 
     def test_trim_inner_exception_returns_none(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
@@ -2338,7 +2338,7 @@ class TestFrameDatasetCoverageGaps:
                 raise ValueError("trim failed")
 
         with caplog.at_level(logging.WARNING):
-            result = trimmed._transform(_RaisingFrame())  # ty: ignore[invalid-argument-type]
+            result = trimmed._transform(_RaisingFrame())
         assert result is None
 
     def test_normalize_inner_none_frame(self, create_test_files: Path) -> None:
@@ -2346,7 +2346,7 @@ class TestFrameDatasetCoverageGaps:
         dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
         normalized = dataset.normalize()
         assert normalized._transform is not None
-        result = normalized._transform(None)  # ty: ignore[invalid-argument-type]
+        result = normalized._transform(None)
         assert result is None
 
     def test_stft_inner_none_frame(self, create_test_files: Path) -> None:
@@ -2354,5 +2354,5 @@ class TestFrameDatasetCoverageGaps:
         dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
         stft_ds = dataset.stft()
         assert stft_ds._transform is not None
-        result = stft_ds._transform(None)  # ty: ignore[invalid-argument-type]
+        result = stft_ds._transform(None)
         assert result is None
