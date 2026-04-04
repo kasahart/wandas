@@ -369,71 +369,51 @@ def test_write_wav_roundtrip_preserves_shape_and_sr(tmp_path) -> None:
     np.testing.assert_allclose(computed, wav_data.T, rtol=1e-2)
 
 
-def test_write_wav_mono_squeezes_data() -> None:
-    """Test mono data is squeezed before writing."""
-    sampling_rate = 8000
-    num_samples = 100
-    data = np.full((1, num_samples), 0.5, dtype=float)
-
-    channel_frame = ChannelFrame.from_numpy(
-        data=data,
-        sampling_rate=sampling_rate,
-        label="mono_frame",
-        ch_labels=["Mono"],
-    )
+def test_write_wav_mono_squeezes_to_1d() -> None:
+    """Mono WAV write: data is squeezed to 1D before writing (FLOAT subtype)."""
+    sr = 8000
+    n_samples = 100
+    data = np.full((1, n_samples), 0.5, dtype=float)
+    cf = ChannelFrame.from_numpy(data=data, sampling_rate=sr, label="mono_frame", ch_labels=["Mono"])
 
     with patch("wandas.io.wav_io.sf.write") as mock_write:
-        write_wav("dummy.wav", channel_frame)
+        write_wav("dummy.wav", cf)
 
     args, kwargs = mock_write.call_args
     written_data = args[1]
-    assert written_data.ndim == 1
+    assert written_data.ndim == 1, "Mono data must be squeezed to 1D"
     assert kwargs.get("subtype") == "FLOAT"
 
 
-def test_write_wav_nonfloat_branch() -> None:
-    """Test non-FLOAT branch when data range exceeds 1."""
-    sampling_rate = 8000
-    num_samples = 100
-    data = np.full((2, num_samples), 1.5, dtype=np.float32)
-
-    channel_frame = ChannelFrame.from_numpy(
-        data=data,
-        sampling_rate=sampling_rate,
-        label="loud_frame",
-        ch_labels=["Left", "Right"],
-    )
+def test_write_wav_nonfloat_branch_when_exceeds_unit_range() -> None:
+    """Data with max(abs) > 1 should NOT use FLOAT subtype."""
+    sr = 8000
+    n_samples = 100
+    data = np.full((2, n_samples), 1.5, dtype=np.float32)
+    cf = ChannelFrame.from_numpy(data=data, sampling_rate=sr, label="loud_frame", ch_labels=["Left", "Right"])
 
     with patch("wandas.io.wav_io.sf.write") as mock_write:
-        write_wav("dummy.wav", channel_frame)
+        write_wav("dummy.wav", cf)
 
     _, kwargs = mock_write.call_args
-    assert "subtype" not in kwargs
+    assert "subtype" not in kwargs, "Data exceeding [-1,1] should not use FLOAT subtype"
 
 
-def test_write_wav_float32_normalized() -> None:
-    """Test that float32 data with values in [-1, 1] uses FLOAT subtype."""
-    sampling_rate = 8000
-    num_samples = 100
-    data = np.full((2, num_samples), 0.5, dtype=np.float32)
-
-    channel_frame = ChannelFrame.from_numpy(
-        data=data,
-        sampling_rate=sampling_rate,
-        label="float32_frame",
-        ch_labels=["Left", "Right"],
-    )
+def test_write_wav_float32_within_unit_range_uses_float_subtype() -> None:
+    """Float32 data with max(abs) <= 1 uses IEEE FLOAT subtype."""
+    sr = 8000
+    n_samples = 100
+    data = np.full((2, n_samples), 0.5, dtype=np.float32)
+    cf = ChannelFrame.from_numpy(data=data, sampling_rate=sr, label="float32_frame", ch_labels=["Left", "Right"])
 
     with patch("wandas.io.wav_io.sf.write") as mock_write:
-        write_wav("dummy.wav", channel_frame)
+        write_wav("dummy.wav", cf)
 
     _, kwargs = mock_write.call_args
     assert kwargs.get("subtype") == "FLOAT"
 
 
-def test_write_wav_invalid_input():
-    """
-    Test that write_wav raises an error when given invalid input.
-    """
+def test_write_wav_invalid_input_raises_value_error() -> None:
+    """write_wav with non-ChannelFrame input raises ValueError."""
     with pytest.raises(ValueError, match="target must be a ChannelFrame object."):
         write_wav("test.wav", "not_a_channel_frame")  # ty: ignore[invalid-argument-type]
