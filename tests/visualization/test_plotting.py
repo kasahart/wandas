@@ -197,21 +197,34 @@ class TestPlotting:
         ]
         self.mock_single_spectrogram_frame.label = "Test Single Spectrogram"
 
+        # コヒーレンスデータ — 決定論的（0~1の正弦波パターン）
+        _coh_single = 0.5 + 0.5 * np.sin(np.linspace(0, 2 * np.pi, _n_freq_bins))
+
         # 単一チャネルのコヒーレンスデータ（自己相関）
         self.mock_single_coherence_spectral_frame = mock.MagicMock()
         self.mock_single_coherence_spectral_frame.n_channels = 1
-        self.mock_single_coherence_spectral_frame.freqs = self.mock_spectral_frame.freqs
-        self.mock_single_coherence_spectral_frame.magnitude = np.random.rand(513)
+        self.mock_single_coherence_spectral_frame.freqs = _freqs
+        self.mock_single_coherence_spectral_frame.magnitude = _coh_single
         self.mock_single_coherence_spectral_frame.labels = ["ch1-ch1"]
         self.mock_single_coherence_spectral_frame.label = "Single Coherence Data"
         self.mock_single_coherence_spectral_frame.operation_history = [{"operation": "coherence"}]
         self.mock_single_coherence_spectral_frame.channels = [mock.MagicMock(label="ch1-ch1")]
 
-        # コヒーレンスデータでのテスト
+        # 4チャネルのコヒーレンスデータ
+        _coh_4ch = np.stack(
+            [
+                _coh_single,
+                np.roll(_coh_single, 128),
+                np.roll(_coh_single, 256),
+                np.roll(_coh_single, 384),
+            ],
+            axis=0,
+        )
+
         self.mock_coherence_spectral_frame = mock.MagicMock()
         self.mock_coherence_spectral_frame.n_channels = 4
-        self.mock_coherence_spectral_frame.freqs = self.mock_spectral_frame.freqs
-        self.mock_coherence_spectral_frame.magnitude = np.random.rand(4, 513)
+        self.mock_coherence_spectral_frame.freqs = _freqs
+        self.mock_coherence_spectral_frame.magnitude = _coh_4ch
         self.mock_coherence_spectral_frame.labels = [
             "ch1-ch1",
             "ch1-ch2",
