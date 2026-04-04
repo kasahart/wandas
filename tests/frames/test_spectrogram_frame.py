@@ -894,19 +894,12 @@ class TestSpectrogramFrame:
         # 元のNumPy配列とdask配列のデータ型が一致することを確認
         assert spec_frame._data.dtype == np_data.dtype
 
-    def test_spectrogram_info_display(self, sample_spectrogram: SpectrogramFrame) -> None:
+    def test_spectrogram_info_display(
+        self, sample_spectrogram: SpectrogramFrame, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """Test that info() displays spectrogram information without errors."""
-        # info()メソッドがエラーなく実行できることを確認
-        import io
-        import sys
-
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
-
         sample_spectrogram.info()
-
-        sys.stdout = sys.__stdout__
-        output = captured_output.getvalue()
+        output = capsys.readouterr().out
 
         # 基本的な情報が出力されていることを確認
         assert "SpectrogramFrame Information:" in output
@@ -916,18 +909,12 @@ class TestSpectrogramFrame:
         assert "Frequency resolution (ΔF):" in output
         assert "Time resolution (ΔT):" in output
 
-    def test_spectrogram_info_values_are_correct(self, sample_spectrogram: SpectrogramFrame) -> None:
+    def test_spectrogram_info_values_are_correct(
+        self, sample_spectrogram: SpectrogramFrame, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """Test that info() displays correct values."""
-        import io
-        import sys
-
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
-
         sample_spectrogram.info()
-
-        sys.stdout = sys.__stdout__
-        output = captured_output.getvalue()
+        output = capsys.readouterr().out
 
         # 理論値の計算
         delta_f = sample_spectrogram.sampling_rate / sample_spectrogram.n_fft
@@ -942,7 +929,7 @@ class TestSpectrogramFrame:
         assert f"FFT size: {sample_spectrogram.n_fft}" in output
         assert f"Hop length: {sample_spectrogram.hop_length} samples" in output
 
-    def test_spectrogram_info_with_multichannel(self) -> None:
+    def test_spectrogram_info_with_multichannel(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Test info() with multi-channel spectrogram."""
         # 4チャンネルのスペクトログラムを作成
         complex_data: DaArray = _da_random_random((4, 65, 10)) + 1j * _da_random_random((4, 65, 10))
@@ -960,35 +947,21 @@ class TestSpectrogramFrame:
             channel_metadata=channel_metadata,
         )
 
-        import io
-        import sys
-
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
-
         spec.info()
-
-        sys.stdout = sys.__stdout__
-        output = captured_output.getvalue()
+        output = capsys.readouterr().out
 
         # マルチチャンネルでもエラーなく動作することを確認
         assert "Channels: 4" in output
         assert "['ch0', 'ch1', 'ch2', 'ch3']" in output
         assert "Window: hamming" in output
 
-    def test_spectrogram_info_with_operations(self, sample_spectrogram: SpectrogramFrame) -> None:
+    def test_spectrogram_info_with_operations(
+        self, sample_spectrogram: SpectrogramFrame, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """Test info() shows operation history count."""
-        import io
-        import sys
-
         # 操作履歴がない場合
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
-
         sample_spectrogram.info()
-
-        sys.stdout = sys.__stdout__
-        output = captured_output.getvalue()
+        output = capsys.readouterr().out
 
         # 初期状態では操作履歴がNone
         assert "Operations Applied: None" in output or "Operations Applied: 0" in output
@@ -996,13 +969,8 @@ class TestSpectrogramFrame:
         # 操作を追加（absメソッドを使用）
         spec_with_ops = sample_spectrogram.abs()
 
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
-
         spec_with_ops.info()
-
-        sys.stdout = sys.__stdout__
-        output = captured_output.getvalue()
+        output = capsys.readouterr().out
 
         # 操作履歴が記録されていることを確認
         assert "Operations Applied: 1" in output
