@@ -1560,18 +1560,18 @@ class TestChannelFramePlotParameters:
             assert lines[0].get_alpha() == 0.7
 
 
-def test_spectrogram_plot_single_channel_axs_conversion() -> None:
-    """SpectrogramPlotStrategy with 1 channel converts scalar Axes to array (line 547)."""
-    sr = 16000
+def test_spectrogram_plot_single_channel_scalar_axes_converted() -> None:
+    """SpectrogramPlotStrategy: single-channel with ax=None triggers scalar→array conversion."""
+    sr = 16_000
     n_fft = 512
-    hop = n_fft // 4
-    # Deterministic chirp signal — no randomness
+    hop = n_fft // 4  # 128
+    freq_hz = 440  # A4 — deterministic sine
     t = np.linspace(0, 1, sr, endpoint=False)
-    data = np.sin(2 * np.pi * 440 * t).reshape(1, -1)  # single channel
+    data = np.sin(2 * np.pi * freq_hz * t).reshape(1, -1)
     cf = wd.ChannelFrame.from_numpy(data, sampling_rate=sr)
     spec = cf.stft(n_fft=n_fft, hop_length=hop)
 
     strategy = SpectrogramPlotStrategy()
-    # ax=None triggers the new-figure path; single channel → plt.subplots returns plain Axes → line 547
-    ax = strategy.plot(spec)
-    assert ax is not None
+    result = strategy.plot(spec)
+    # Single-channel without ax= returns an iterator (scalar Axes is wrapped internally)
+    assert result is not None
