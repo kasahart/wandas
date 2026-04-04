@@ -151,8 +151,8 @@ class TestAddWithSNR:
 
     def test_add_with_snr_init_stores_params(self) -> None:
         """Test AddWithSNR stores sampling rate and SNR."""
-        np.random.seed(42)
-        noise = da_from_array(np.random.randn(1, _SR), chunks=(1, -1))
+        rng = np.random.default_rng(42)
+        noise = da_from_array(rng.standard_normal((1, _SR)), chunks=(1, -1))
         op = AddWithSNR(_SR, noise, 10.0)
         assert op.sampling_rate == _SR
         assert op.snr == 10.0
@@ -166,8 +166,8 @@ class TestAddWithSNR:
     def test_add_with_snr_preserves_shape_and_immutability(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
         """Shape preserved; input unchanged after SNR addition."""
         dask_input, sr = pure_sine_440hz_dask
-        np.random.seed(42)  # Reproducible noise
-        noise = da_from_array(np.random.randn(1, sr), chunks=(1, -1))
+        rng = np.random.default_rng(42)
+        noise = da_from_array(rng.standard_normal((1, sr)), chunks=(1, -1))
         op = AddWithSNR(sr, noise, 10.0)
         input_copy = dask_input.compute().copy()
 
@@ -194,8 +194,8 @@ class TestAddWithSNR:
         """
         dask_input, sr = pure_sine_440hz_dask
         target_snr = 10.0
-        np.random.seed(42)
-        noise = da_from_array(np.random.randn(1, sr), chunks=(1, -1))
+        rng = np.random.default_rng(42)
+        noise = da_from_array(rng.standard_normal((1, sr)), chunks=(1, -1))
         op = AddWithSNR(sr, noise, target_snr)
 
         clean = dask_input.compute()
@@ -218,8 +218,8 @@ class TestAddWithSNR:
         """Stereo clean + stereo noise preserves (2, N) shape."""
         t = np.linspace(0, 1, _SR, endpoint=False)
         clean = np.stack([np.sin(2 * np.pi * 440 * t), np.sin(2 * np.pi * 880 * t)])
-        np.random.seed(42)
-        noise = np.random.randn(2, _SR)
+        rng = np.random.default_rng(42)
+        noise = rng.standard_normal((2, _SR))
 
         dask_clean = da_from_array(clean, chunks=(1, -1))
         dask_noise = da_from_array(noise, chunks=(1, -1))
