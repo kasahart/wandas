@@ -65,25 +65,20 @@ def test_read_wav_mono_channel_count(create_test_wav) -> None:
     assert cf.sampling_rate == 22050
 
 
-def test_read_wav_with_labels(tmpdir: str) -> None:
-    """
-    Test reading a stereo WAV file and verifying provided labels are used.
-    """
-    filepath = os.path.join(tmpdir, "stereo_label_test.wav")
-    sampling_rate = 48000
-    duration = 1.0  # seconds
-    num_samples = int(sampling_rate * duration)
-    # Create stereo data
-    data_left = np.full(num_samples, 0.3)
-    data_right = np.full(num_samples, 0.8)
+def test_read_wav_custom_labels_propagated(tmp_path) -> None:
+    """Test that user-provided labels are correctly assigned to channels (Pillar 2)."""
+    filepath = tmp_path / "stereo_label_test.wav"
+    sr = 48000
+    n_samples = sr  # 1 second
+    data_left = np.full(n_samples, 0.3)
+    data_right = np.full(n_samples, 0.8)
     stereo_data = np.column_stack((data_left, data_right))
-    wavfile.write(filepath, sampling_rate, stereo_data)
+    wavfile.write(str(filepath), sr, stereo_data)
 
     labels = ["Left Channel", "Right Channel"]
-    channel_frame = ChannelFrame.read_wav(filepath, labels=labels)
-    # Assert labels are set correctly
-    assert channel_frame.channels[0].label == "Left Channel"
-    assert channel_frame.channels[1].label == "Right Channel"
+    cf = ChannelFrame.read_wav(str(filepath), labels=labels)
+    assert cf.channels[0].label == "Left Channel"
+    assert cf.channels[1].label == "Right Channel"
 
 
 def test_read_wav_bytes() -> None:
