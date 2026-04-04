@@ -50,7 +50,14 @@ def test_wav_float_roundtrip(known_signal_frame, tmp_path) -> None:
     (windowing/format conversion tolerance).
     """
     wav_path = tmp_path / "float_roundtrip.wav"
+    # Capture original data before write to verify immutability (Pillar 1)
+    original_data = known_signal_frame.compute().copy()
     known_signal_frame.to_wav(str(wav_path))
+
+    # Verify original frame is unchanged after write (Pillar 1: side-effect free)
+    np.testing.assert_array_equal(
+        known_signal_frame.compute(), original_data, err_msg="to_wav must not mutate original frame data"
+    )
 
     loaded = ChannelFrame.read_wav(str(wav_path), normalize=True)
 
