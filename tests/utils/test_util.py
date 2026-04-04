@@ -86,30 +86,28 @@ def test_calculate_rms_zeros() -> None:
     wave = np.zeros(10, dtype=float)
     expected = 0.0
     result = calculate_rms(wave)
-    np.testing.assert_almost_equal(result, expected)
+    np.testing.assert_allclose(result, expected, atol=1e-15)  # Exact zero input yields exact zero
 
 
 def test_calculate_rms_positive() -> None:
     wave = np.array([3, 4], dtype=float)
-    # RMS = sqrt((9 + 16) / 2) = sqrt(25/2)
-    expected = np.sqrt((9 + 16) / 2)
+    expected = np.sqrt((9 + 16) / 2)  # RMS = sqrt((3^2 + 4^2) / 2) = sqrt(12.5)
     result = calculate_rms(wave)
-    np.testing.assert_almost_equal(result, expected)
+    np.testing.assert_allclose(result, expected)  # Exact match: simple integer arithmetic
 
 
 def test_calculate_rms_negative() -> None:
     wave = np.array([-3, -4], dtype=float)
-    # RMS should be the same as for positive values
-    expected = np.sqrt((9 + 16) / 2)
+    expected = np.sqrt((9 + 16) / 2)  # RMS is sign-independent: same as [3, 4]
     result = calculate_rms(wave)
-    np.testing.assert_almost_equal(result, expected)
+    np.testing.assert_allclose(result, expected)  # Exact match: simple integer arithmetic
 
 
 def test_calculate_rms_single_value() -> None:
     wave = np.array([5], dtype=float)
-    expected = 5.0
+    expected = 5.0  # RMS of a single value equals its absolute value
     result = calculate_rms(wave)
-    np.testing.assert_almost_equal(result, expected)
+    np.testing.assert_allclose(result, expected)  # Exact match: single-element trivial case
 
 
 def test_calculate_rms_known_sine() -> None:
@@ -123,42 +121,35 @@ def test_calculate_rms_known_sine() -> None:
 
 
 def test_calculate_desired_noise_rms_basic() -> None:
-    # For a clean_rms of 1.0 and snr of 20 dB:
-    # a = 20/20 = 1, so noise_rms = 1.0 / 10**1 = 0.1
-    clean_rms = np.array(1.0)  # floatをndarrayに変換
+    clean_rms = np.array(1.0)
     snr = 20.0
-    expected = 0.1
+    expected = 0.1  # noise_rms = clean_rms / 10^(snr/20) = 1.0 / 10^1 = 0.1
     result = calculate_desired_noise_rms(clean_rms, snr)
-    np.testing.assert_almost_equal(result, expected)
+    np.testing.assert_allclose(result, expected)  # Analytical: exact power-of-10 division
 
 
 def test_calculate_desired_noise_rms_snr_zero() -> None:
-    # For snr = 0 dB, a = 0 and noise_rms should equal clean_rms.
-    clean_rms = np.array(0.5)  # floatをndarrayに変換
+    clean_rms = np.array(0.5)
     snr = 0.0
-    expected = 0.5
+    expected = 0.5  # At 0 dB SNR, noise_rms = clean_rms / 10^0 = clean_rms
     result = calculate_desired_noise_rms(clean_rms, snr)
-    np.testing.assert_almost_equal(result, expected)
+    np.testing.assert_allclose(result, expected)  # Analytical: division by unity
 
 
 def test_calculate_desired_noise_rms_negative_snr() -> None:
-    # For a negative snr, e.g., snr = -20 dB:
-    # a = -20/20 = -1, so noise_rms = clean_rms / 10**(-1) = clean_rms * 10.
-    clean_rms = np.array(1.0)  # floatをndarrayに変換
+    clean_rms = np.array(1.0)
     snr = -20.0
-    expected = 10.0
+    expected = 10.0  # noise_rms = 1.0 / 10^(-1) = 10.0 (noise louder than signal)
     result = calculate_desired_noise_rms(clean_rms, snr)
-    np.testing.assert_almost_equal(result, expected)
+    np.testing.assert_allclose(result, expected)  # Analytical: exact power-of-10 multiplication
 
 
 def test_calculate_desired_noise_rms_fractional() -> None:
-    # For a fractional snr, e.g., snr = 10 dB:
-    # a = 10/20 = 0.5, so noise_rms = clean_rms / 10**0.5 = clean_rms / sqrt(10).
-    clean_rms = np.array(2.0)  # floatをndarrayに変換
+    clean_rms = np.array(2.0)
     snr = 10.0
-    expected = 2.0 / np.sqrt(10)
+    expected = 2.0 / np.sqrt(10)  # noise_rms = 2.0 / 10^0.5 = 2.0 / sqrt(10)
     result = calculate_desired_noise_rms(clean_rms, snr)
-    np.testing.assert_almost_equal(result, expected)
+    np.testing.assert_allclose(result, expected)  # Analytical: irrational but deterministic
 
 
 def test_level_trigger_basic() -> None:
