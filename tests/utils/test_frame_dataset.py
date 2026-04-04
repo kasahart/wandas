@@ -29,12 +29,15 @@ _da_from_array = da.from_array
 
 @pytest.fixture
 def sample_wav_data() -> tuple[int, NDArrayReal]:
-    """Generate sample WAV data."""
+    """Generate deterministic WAV data — 2-channel sine waves at known frequencies."""
     sampling_rate = 16000
     duration = 1.0
     n_samples = int(sampling_rate * duration)
-    # Create stereo data (2 channels)
-    data = np.random.uniform(-0.5, 0.5, size=(n_samples, 2)).astype(np.float32)
+    t = np.linspace(0, duration, n_samples, endpoint=False)
+    # Channel 1: 440 Hz sine, Channel 2: 880 Hz sine — analytically predictable
+    ch1 = (0.5 * np.sin(2 * np.pi * 440 * t)).astype(np.float32)
+    ch2 = (0.5 * np.sin(2 * np.pi * 880 * t)).astype(np.float32)
+    data = np.column_stack([ch1, ch2])
     return sampling_rate, data
 
 
