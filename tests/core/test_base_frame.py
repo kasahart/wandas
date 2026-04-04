@@ -930,25 +930,30 @@ class TestBaseFrameIndexing:
         with pytest.raises(TypeError, match="NumPy array must be of integer or boolean type"):
             _ = self.channel_frame[indices]
 
-    def test_getitem_with_slice(self) -> None:
-        """Test __getitem__ with slice."""
+    def test_getitem_with_slice_preserves_dask(self) -> None:
+        """Test __getitem__ with slice preserves Dask laziness."""
         result = self.channel_frame[1:3]
+        assert result is not self.channel_frame
         assert result.n_channels == 2
+        assert isinstance(result._data, DaArray)
         np.testing.assert_array_equal(result.compute(), self.data[1:3])
 
-    def test_getitem_with_tuple_channel_and_time(self) -> None:
+    def test_getitem_with_tuple_channel_and_time_preserves_dask(self) -> None:
         """Test __getitem__ with tuple for multidimensional indexing."""
-        # Select channel 0, samples 100:200
         result = self.channel_frame[0, 100:200]
+        assert result is not self.channel_frame
         assert result.n_channels == 1
         assert result.n_samples == 100
+        assert isinstance(result._data, DaArray)
         np.testing.assert_array_equal(result.compute(), self.data[0:1, 100:200])
 
-    def test_getitem_with_tuple_list_and_time(self) -> None:
+    def test_getitem_with_tuple_list_and_time_preserves_dask(self) -> None:
         """Test __getitem__ with list of channels and time slice."""
         result = self.channel_frame[[0, 2], ::2]
+        assert result is not self.channel_frame
         assert result.n_channels == 2
         assert result.n_samples == 8000  # Every 2nd sample
+        assert isinstance(result._data, DaArray)
         np.testing.assert_array_equal(result.compute(), self.data[[0, 2], ::2])
 
     def test_getitem_with_tuple_invalid_length(self) -> None:
