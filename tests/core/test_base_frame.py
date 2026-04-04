@@ -184,7 +184,7 @@ class TestBaseFrameArithmeticOperations:
         np.testing.assert_array_equal(cuberoot_result.compute(), known_data ** (1.0 / 3.0))  # Exact match
 
 
-def test_get_channel_query_by_regex() -> None:
+def test_get_channel_regex_query_returns_matching_channels() -> None:
     sample_rate = 16000
     data = np.linspace(0.1, 1.0, 300).reshape(3, 100)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
@@ -199,7 +199,7 @@ def test_get_channel_query_by_regex() -> None:
     assert result.labels == ["acc_x", "acc_z"]
 
 
-def test_get_channel_query_with_channel_idx_none() -> None:
+def test_get_channel_query_channel_idx_none_returns_matches() -> None:
     """Ensure query selection works when channel_idx is explicitly None."""
     sample_rate = 16000
     data = np.linspace(0.1, 1.0, 300).reshape(3, 100)
@@ -215,7 +215,7 @@ def test_get_channel_query_with_channel_idx_none() -> None:
     assert result.labels == ["acc_x", "acc_z"]
 
 
-def test_get_channel_no_args_raises() -> None:
+def test_get_channel_no_args_raises_type_error() -> None:
     """Calling get_channel with no arguments should raise a clear error."""
     sample_rate = 16000
     data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
@@ -226,7 +226,7 @@ def test_get_channel_no_args_raises() -> None:
         cf.get_channel()
 
 
-def test_get_channel_query_by_callable() -> None:
+def test_get_channel_callable_query_returns_matching_channel() -> None:
     sample_rate = 16000
     data = np.linspace(0.1, 1.0, 100).reshape(2, 50)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
@@ -239,7 +239,7 @@ def test_get_channel_query_by_callable() -> None:
     assert result.labels == ["right"]
 
 
-def test_get_channel_query_by_dict_and_no_match() -> None:
+def test_get_channel_dict_query_no_match_raises_key_error() -> None:
     sample_rate = 16000
     data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
@@ -257,7 +257,7 @@ def test_get_channel_query_by_dict_and_no_match() -> None:
         _ = cf.get_channel(0, query={"label": "no_such"})
 
 
-def test_get_channel_query_dict_value_regex() -> None:
+def test_get_channel_dict_query_regex_value_returns_match() -> None:
     sample_rate = 16000
     data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
@@ -271,7 +271,7 @@ def test_get_channel_query_dict_value_regex() -> None:
     assert result.labels == ["ch_alpha"]
 
 
-def test_get_channel_query_dict_unknown_key_raises() -> None:
+def test_get_channel_dict_query_unknown_key_raises_key_error() -> None:
     sample_rate = 16000
     data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
@@ -282,7 +282,7 @@ def test_get_channel_query_dict_unknown_key_raises() -> None:
         _ = cf.get_channel(0, query={"no_such_key": "value"})
 
 
-def test_get_channel_validate_query_keys_false_allows_unknown_key() -> None:
+def test_get_channel_validate_false_unknown_key_raises_no_match() -> None:
     sample_rate = 16000
     data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
@@ -297,7 +297,7 @@ def test_get_channel_validate_query_keys_false_allows_unknown_key() -> None:
         _ = cf.get_channel(0, query={"no_such_key": "value"}, validate_query_keys=False)
 
 
-def test_get_channel_operation_history_and_immutability() -> None:
+def test_get_channel_selection_preserves_history_and_immutability() -> None:
     sample_rate = 16000
     data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
@@ -319,7 +319,7 @@ def test_get_channel_operation_history_and_immutability() -> None:
     assert new_cf.operation_history == original_history
 
 
-def test_get_channel_query_dict_multiple_keys_and_extra_matching() -> None:
+def test_get_channel_dict_query_multiple_keys_returns_intersection() -> None:
     sample_rate = 16000
     data = np.linspace(0.1, 1.0, 60).reshape(3, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
@@ -341,7 +341,7 @@ def test_get_channel_query_dict_multiple_keys_and_extra_matching() -> None:
     assert result.labels == ["sensorA"]
 
 
-def test_get_channel_query_dict_multiple_matches_preserve_order() -> None:
+def test_get_channel_dict_query_multiple_matches_preserves_order() -> None:
     sample_rate = 16000
     data = np.linspace(0.1, 1.0, 60).reshape(3, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
@@ -356,7 +356,7 @@ def test_get_channel_query_dict_multiple_matches_preserve_order() -> None:
     assert result.labels == ["m1", "m2", "m3"]
 
 
-def test_get_channel_query_dict_non_string_attr() -> None:
+def test_get_channel_dict_query_numeric_attr_returns_match() -> None:
     sample_rate = 16000
     data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
@@ -393,7 +393,7 @@ def test_get_channel_query_dict_non_string_attr() -> None:
         # Chain power with other operations
 
 
-def test_rechunk_failure_logs_warning_and_initializes(caplog) -> None:
+def test_init_rechunk_failure_logs_warning_and_succeeds(caplog) -> None:
     data = np.linspace(0.1, 1.0, 100).reshape(2, 50)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
 
@@ -414,7 +414,7 @@ def test_rechunk_failure_logs_warning_and_initializes(caplog) -> None:
             assert isinstance(cf, ChannelFrame)
 
 
-def test_channel_metadata_validation_value_error() -> None:
+def test_init_invalid_channel_metadata_dict_raises_value_error() -> None:
     data = np.linspace(0.1, 1.0, 20).reshape(2, 10)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
 
@@ -423,7 +423,7 @@ def test_channel_metadata_validation_value_error() -> None:
         ChannelFrame(data=dask_data, sampling_rate=16000, channel_metadata=[{"label": 123}])
 
 
-def test_channel_metadata_validation_type_error() -> None:
+def test_init_invalid_channel_metadata_type_raises_type_error() -> None:
     data = np.linspace(0.1, 1.0, 20).reshape(2, 10)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
 
@@ -432,7 +432,7 @@ def test_channel_metadata_validation_type_error() -> None:
         ChannelFrame(data=dask_data, sampling_rate=16000, channel_metadata=[123])  # ty: ignore[invalid-argument-type]
 
 
-def test_get_channel_unsupported_query_type() -> None:
+def test_get_channel_unsupported_query_type_raises_type_error() -> None:
     data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
@@ -441,7 +441,7 @@ def test_get_channel_unsupported_query_type() -> None:
         cf.get_channel(0, query=5)  # ty: ignore[invalid-argument-type]
 
 
-def test_getitem_mixed_list_types_raises() -> None:
+def test_getitem_mixed_list_types_raises_type_error() -> None:
     data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
@@ -450,7 +450,7 @@ def test_getitem_mixed_list_types_raises() -> None:
         _ = cf[[0, "ch0"]]  # ty: ignore[invalid-argument-type]
 
 
-def test_compute_returns_non_ndarray_raises() -> None:
+def test_compute_non_ndarray_result_raises_value_error() -> None:
     data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
@@ -460,7 +460,7 @@ def test_compute_returns_non_ndarray_raises() -> None:
             cf.compute()
 
 
-def test_to_tensor_import_errors_and_unsupported_framework() -> None:
+def test_to_tensor_missing_libs_and_unsupported_framework_raises() -> None:
     data = np.linspace(0.1, 1.0, 16).reshape(2, 8)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
@@ -491,7 +491,7 @@ def test_to_tensor_import_errors_and_unsupported_framework() -> None:
         cf.to_tensor(framework="mxnet")
 
 
-def test_create_new_instance_invalid_label_and_metadata_and_channel_metadata() -> None:
+def test_create_new_instance_invalid_types_raises_errors() -> None:
     data = np.linspace(0.1, 1.0, 16).reshape(2, 8)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
@@ -509,7 +509,7 @@ def test_create_new_instance_invalid_label_and_metadata_and_channel_metadata() -
         cf._create_new_instance(data=cf._data, channel_metadata={"a": 1})
 
 
-def test_visualize_graph_exception_handling(caplog) -> None:
+def test_visualize_graph_exception_returns_none_and_logs(caplog) -> None:
     data = np.linspace(0.1, 1.0, 16).reshape(2, 8)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
