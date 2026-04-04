@@ -1156,7 +1156,6 @@ class TestRoughnessDwSpec:
 
     def test_operation_name(self) -> None:
         """Test that operation has correct name."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _roughness_spec_signal()
         op = RoughnessDwSpec(_SR, overlap=0.5)
         assert op.name == "roughness_dw_spec"
 
@@ -1173,7 +1172,7 @@ class TestRoughnessDwSpec:
 
     def test_mono_signal_shape(self) -> None:
         """Test roughness_spec calculation output shape for mono signal."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _roughness_spec_signal()
+        signal_mono, _, _, _ = _roughness_spec_signal()
         op = RoughnessDwSpec(_SR, overlap=0.5)
         result = op.process_array(signal_mono).compute()
 
@@ -1184,7 +1183,7 @@ class TestRoughnessDwSpec:
 
     def test_stereo_signal_shape(self) -> None:
         """Test roughness_spec calculation output shape for stereo signal."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _roughness_spec_signal()
+        _, signal_stereo, _, _ = _roughness_spec_signal()
         op = RoughnessDwSpec(_SR, overlap=0.5)
         result = op.process_array(signal_stereo).compute()
 
@@ -1196,13 +1195,12 @@ class TestRoughnessDwSpec:
 
     def test_comparison_with_mosqito_direct_mono(self) -> None:
         """Test that specific roughness values match MoSQITo direct calculation."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _roughness_spec_signal()
+        signal_mono, _, _, _ = _roughness_spec_signal()
         op = RoughnessDwSpec(_SR, overlap=0.5)
         overlap = 0.5
-        # Calculate using our operation
         our_result = op.process_array(signal_mono).compute()
 
-        # Calculate using MoSQITo directly
+        # MoSQITo wrapper — exact match expected (same algorithm)
         _, r_spec_direct, _, _ = roughness_dw_mosqito(signal_mono[0], _SR, overlap=overlap)
 
         # Results should match MoSQITo exactly
@@ -1214,7 +1212,7 @@ class TestRoughnessDwSpec:
 
     def test_comparison_with_mosqito_direct_stereo(self) -> None:
         """Test that stereo specific roughness matches MoSQITo for each channel."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _roughness_spec_signal()
+        _, signal_stereo, _, _ = _roughness_spec_signal()
         op = RoughnessDwSpec(_SR, overlap=0.5)
         overlap = 0.5
         result = op.process_array(signal_stereo).compute()
@@ -1229,7 +1227,6 @@ class TestRoughnessDwSpec:
 
     def test_bark_axis_values(self) -> None:
         """Test that bark_axis has correct values."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _roughness_spec_signal()
         op = RoughnessDwSpec(_SR, overlap=0.5)
         bark_axis = op.bark_axis
 
@@ -1240,13 +1237,12 @@ class TestRoughnessDwSpec:
 
     def test_bark_axis_matches_mosqito(self) -> None:
         """Test that bark_axis matches MoSQITo bark_axis exactly."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _roughness_spec_signal()
+        signal_mono, _, _, _ = _roughness_spec_signal()
         op = RoughnessDwSpec(_SR, overlap=0.5)
         overlap = 0.5
-        # Get bark_axis from our operation
         bark_axis_wandas = op.bark_axis
 
-        # Get bark_axis from MoSQITo directly
+        # MoSQITo wrapper — exact match expected (same bark axis)
         _, _, bark_axis_mosqito, _ = roughness_dw_mosqito(signal_mono[0], _SR, overlap=overlap)
 
         # Results should match exactly
@@ -1258,7 +1254,7 @@ class TestRoughnessDwSpec:
 
     def test_integration_with_total_roughness(self) -> None:
         """Test that integrating specific roughness gives total roughness."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _roughness_spec_signal()
+        signal_mono, _, _, _ = _roughness_spec_signal()
         op = RoughnessDwSpec(_SR, overlap=0.5)
         overlap = 0.5
         # Calculate specific roughness
@@ -1280,7 +1276,6 @@ class TestRoughnessDwSpec:
 
     def test_metadata_updates(self) -> None:
         """Test that metadata updates include sampling rate and bark_axis."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _roughness_spec_signal()
         op = RoughnessDwSpec(_SR, overlap=0.5)
         overlap = 0.5
         metadata_updates = op.get_metadata_updates()
@@ -1300,7 +1295,6 @@ class TestRoughnessDwSpec:
 
     def test_silence_produces_low_specific_roughness(self) -> None:
         """Test that silence produces near-zero specific roughness."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _roughness_spec_signal()
         op = RoughnessDwSpec(_SR, overlap=0.5)
         duration = 0.5
         overlap = 0.5
@@ -1319,20 +1313,17 @@ class TestRoughnessDwSpec:
 
     def test_process_with_dask(self) -> None:
         """Test that process method works with dask arrays."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _roughness_spec_signal()
+        signal_mono, _, dask_mono, _ = _roughness_spec_signal()
         op = RoughnessDwSpec(_SR, overlap=0.5)
         overlap = 0.5
         result = op.process(dask_mono).compute()
 
-        # Compare with MoSQITo direct calculation
+        # MoSQITo wrapper — exact match expected (same algorithm)
         _, r_spec_direct, _, _ = roughness_dw_mosqito(signal_mono[0], _SR, overlap=overlap)
-
-        # Results should match MoSQITo exactly
         np.testing.assert_array_equal(result, r_spec_direct)
 
     def test_1d_input_handling(self) -> None:
         """Test that 1D input is properly handled."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _roughness_spec_signal()
         op = RoughnessDwSpec(_SR, overlap=0.5)
         duration = 0.5
         # Create 1D signal
@@ -1347,7 +1338,7 @@ class TestRoughnessDwSpec:
 
     def test_consistency_across_calls(self) -> None:
         """Test that repeated calls with same input produce same output."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _roughness_spec_signal()
+        signal_mono, _, _, _ = _roughness_spec_signal()
         op = RoughnessDwSpec(_SR, overlap=0.5)
         result1 = op.process_array(signal_mono).compute()
         result2 = op.process_array(signal_mono).compute()
@@ -1357,8 +1348,7 @@ class TestRoughnessDwSpec:
 
     def test_bark_axis_none_guard(self) -> None:
         """Test that _bark_axis is populated from MoSQITo when it is None."""
-        signal_mono, signal_stereo, dask_mono, dask_stereo = _roughness_spec_signal()
-
+        signal_mono, _, _, _ = _roughness_spec_signal()
         op = RoughnessDwSpec(_SR, overlap=0.5)
         # Force _bark_axis to None to exercise the guard in _process_array
         op._bark_axis = None  # ty: ignore[invalid-assignment]
