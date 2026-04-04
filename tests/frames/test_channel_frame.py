@@ -24,9 +24,10 @@ _da_from_array = da.from_array
 class TestChannelFrame:
     def setup_method(self) -> None:
         """Set up test fixtures for each test."""
-        # Create a simple dask array for testing
+        # Deterministic data with fixed seed for reproducibility (Grand Policy anti-pattern: no random data)
         self.sample_rate: float = 16000
-        self.data: NDArrayReal = np.random.random((2, 16000))  # 2 channels, 1 second
+        rng = np.random.default_rng(42)
+        self.data: NDArrayReal = rng.random((2, 16000))  # 2 channels, 1 second
         self.dask_data: DaArray = _da_from_array(self.data, chunks=(1, 4000))
         self.channel_frame: ChannelFrame = ChannelFrame(
             data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
