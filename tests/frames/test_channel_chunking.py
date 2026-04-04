@@ -69,6 +69,11 @@ class TestChannelWiseChunking:
 
         cf_with_added = cf.add_channel(new_channel_data, label="new_ch")
 
+        # Pillar 1: add_channel returns new frame, original unchanged
+        assert cf_with_added is not cf
+        assert cf.n_channels == 2
+        assert isinstance(cf_with_added._data, da.core.Array)  # Dask laziness preserved
+
         # Should now have 3 channels, each chunked as 1
         assert cf_with_added._data.chunks[0] == (1, 1, 1), (
             f"Expected (1, 1, 1) after add_channel, got {cf_with_added._data.chunks[0]}"
