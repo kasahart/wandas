@@ -410,7 +410,7 @@ class TestFixLength:
 
     def test_fix_length_init_no_param_raises(self) -> None:
         """Test FixLength without length or duration raises ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Either length or duration must be provided"):
             FixLength(_SR)
 
     def test_fix_length_registry_returns_correct_class(self) -> None:

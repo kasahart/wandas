@@ -42,12 +42,12 @@ class TestHighPassFilter:
 
     def test_highpass_cutoff_zero_raises_error(self) -> None:
         """Test that cutoff=0 is rejected."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Cutoff frequency out of valid range"):
             HighPassFilter(_SR, 0)
 
     def test_highpass_cutoff_above_nyquist_raises_error(self) -> None:
         """Test that cutoff above Nyquist is rejected."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Cutoff frequency out of valid range"):
             HighPassFilter(_SR, _SR / 2 + 1)
 
     def test_highpass_cutoff_above_nyquist_error_message_what_why_how(self) -> None:
@@ -141,12 +141,12 @@ class TestLowPassFilter:
 
     def test_lowpass_cutoff_zero_raises_error(self) -> None:
         """Test that cutoff=0 is rejected."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Cutoff frequency out of valid range"):
             LowPassFilter(_SR, 0)
 
     def test_lowpass_cutoff_above_nyquist_raises_error(self) -> None:
         """Test that cutoff above Nyquist is rejected."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Cutoff frequency out of valid range"):
             LowPassFilter(_SR, _SR / 2 + 1)
 
     def test_lowpass_cutoff_above_nyquist_error_message_what_why_how(self) -> None:
@@ -335,17 +335,17 @@ class TestBandPassFilter:
 
     def test_bandpass_low_cutoff_zero_raises_error(self) -> None:
         """Test that low_cutoff=0 is rejected."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Lower cutoff frequency out of valid range"):
             BandPassFilter(_SR, 0, self._BPF_HIGH)
 
     def test_bandpass_high_cutoff_above_nyquist_raises_error(self) -> None:
         """Test that high_cutoff above Nyquist is rejected."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Higher cutoff frequency out of valid range"):
             BandPassFilter(_SR, self._BPF_LOW, _SR / 2 + 1)
 
     def test_bandpass_inverted_cutoffs_raises_error(self) -> None:
         """Test that low > high cutoff is rejected."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Invalid bandpass filter cutoff frequencies"):
             BandPassFilter(_SR, 1000, 500)
 
     def test_bandpass_inverted_cutoffs_error_message_what_why_how(self) -> None:

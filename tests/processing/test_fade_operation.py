@@ -33,7 +33,7 @@ class TestFade:
 
         # fade_len = 50, 2*50 >= 100 → error
         op = create_operation("fade", _SR, fade_ms=50.0)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Fade length too long"):
             op.process(dsig).compute()
 
     # -- Layer 2: Domain (shape + immutability) ----------------------------
