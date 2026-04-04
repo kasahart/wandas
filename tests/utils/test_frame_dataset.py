@@ -732,7 +732,7 @@ class TestSpectrogramFrameDataset:
         """Test that _load_file raises NotImplementedError."""
         # Create a dummy file that might look like a spectrogram source
         dummy_spec_file = tmp_path / "spec.npy"
-        np.save(dummy_spec_file, np.random.rand(1, 10, 5))
+        np.save(dummy_spec_file, np.zeros((1, 10, 5)))  # Deterministic zeros instead of random
 
         # Initialize directly (not the typical way)
         spec_ds = SpectrogramFrameDataset(str(tmp_path), file_extensions=[".npy"])
