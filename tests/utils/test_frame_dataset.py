@@ -106,7 +106,7 @@ class TestLazyFrame:
         lazy_frame: LazyFrame[ChannelFrame] = LazyFrame(file_path)
 
         # モックローダー関数
-        mock_frame = ChannelFrame.from_ndarray(np.array([[0.1, 0.2], [0.3, 0.4]]), 44100)
+        mock_frame = ChannelFrame.from_numpy(np.array([[0.1, 0.2], [0.3, 0.4]]), 44100)
         loader = MagicMock(return_value=mock_frame)
 
         # 初回ロード
@@ -152,7 +152,7 @@ class TestLazyFrame:
         lazy_frame: LazyFrame[ChannelFrame] = LazyFrame(file_path)
 
         # フレームをロード
-        mock_frame = ChannelFrame.from_ndarray(np.array([[0.1, 0.2], [0.3, 0.4]]), 44100)
+        mock_frame = ChannelFrame.from_numpy(np.array([[0.1, 0.2], [0.3, 0.4]]), 44100)
         loader = MagicMock(return_value=mock_frame)
         lazy_frame.ensure_loaded(loader)
 
