@@ -310,6 +310,23 @@ class TestDescribeParams:
 class TestTypedDictIntegration:
     """Integration tests for TypedDict usage patterns."""
 
+    # -- helpers ---------------------------------------------------------------
+
+    _SR = 16000
+    _DURATION_S = 1.0
+
+    @staticmethod
+    def _make_channel_frame(freq: float = 440, label: str | None = None) -> ws.ChannelFrame:
+        """Create a deterministic mono sine ChannelFrame."""
+        t = np.linspace(0, TestTypedDictIntegration._DURATION_S, TestTypedDictIntegration._SR, endpoint=False)
+        data = np.sin(2 * np.pi * freq * t).reshape(1, -1)
+        kw: dict[str, Any] = {"data": data, "sampling_rate": TestTypedDictIntegration._SR}
+        if label is not None:
+            kw["label"] = label
+        return ws.ChannelFrame.from_numpy(**kw)
+
+    # -- tests -----------------------------------------------------------------
+
     def test_nested_config_construction(self) -> None:
         """Test building complex nested configurations."""
         waveform: WaveformConfig = {
@@ -381,10 +398,7 @@ class TestTypedDictIntegration:
 
     def test_typeddict_with_real_channelframe(self) -> None:
         """Test TypedDict parameters with actual ChannelFrame instance."""
-        # Create test signal
-        t = np.linspace(0, 1, 16000)
-        signal = np.sin(2 * np.pi * 440 * t)
-        cf = ws.ChannelFrame.from_numpy(data=signal.reshape(1, -1), sampling_rate=16000)
+        cf = self._make_channel_frame(freq=440)
 
         # Create config with TypedDict
         config: DescribeParams = {
@@ -424,13 +438,7 @@ class TestTypedDictIntegration:
 
     def test_typeddict_reusability(self) -> None:
         """Test reusing TypedDict configurations across multiple calls."""
-        # Create multiple signals
-        signals = []
-        for freq in [440, 880, 1320]:
-            t = np.linspace(0, 1, 16000)
-            signal = np.sin(2 * np.pi * freq * t)
-            cf = ws.ChannelFrame.from_numpy(data=signal.reshape(1, -1), sampling_rate=16000, label=f"{freq}Hz")
-            signals.append(cf)
+        signals = [self._make_channel_frame(freq=f, label=f"{f}Hz") for f in (440, 880, 1320)]
 
         # Single config for all signals
         shared_config: DescribeParams = {
@@ -449,17 +457,14 @@ class TestTypedDictIntegration:
         ):
             # Apply same config to all signals
             for signal in signals:
-                signal.describe(**shared_config)
+                signal.describe(**shared_config)  # ty: ignore[invalid-argument-type]
 
         # All completed successfully
         assert len(signals) == 3
 
     def test_typeddict_config_variants(self) -> None:
         """Test creating config variants from base configuration."""
-        # Create test signal
-        t = np.linspace(0, 1, 16000)
-        signal = np.sin(2 * np.pi * 440 * t)
-        cf = ws.ChannelFrame.from_numpy(data=signal.reshape(1, -1), sampling_rate=16000)
+        cf = self._make_channel_frame(freq=440)
 
         # Base configuration
         base_config: DescribeParams = {
