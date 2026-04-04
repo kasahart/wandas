@@ -235,41 +235,41 @@ class TestChannelFrameDataset:
         frame_labels = [lf.frame.label for lf in dataset._lazy_frames if lf.frame is not None]
         assert frame_labels == file_stems
 
-    def test_init_recursive(self, create_test_files: Path) -> None:
-        """Test recursive file discovery."""
+    def test_init_recursive_finds_subdir_files(self, create_test_files: Path) -> None:
+        """Recursive mode discovers files in subdirectories."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), recursive=True, lazy_loading=True)
         assert len(dataset) == 4  # Includes subdir/sub_test.wav
         assert dataset._recursive is True
         assert Path("subdir/sub_test.wav") in [p.relative_to(folder_path) for p in dataset._get_file_paths()]
 
-    def test_init_custom_extensions(self, create_test_files: Path) -> None:
-        """Test custom file extensions."""
+    def test_init_custom_extensions_filters_files(self, create_test_files: Path) -> None:
+        """Custom extensions filter to only matching files."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), file_extensions=[".csv"], lazy_loading=True)
         assert len(dataset) == 1
         assert dataset._lazy_frames[0].file_path.name == "test3.csv"
         assert dataset.file_extensions == [".csv"]
 
-    def test_init_no_files(self, tmp_path: Path) -> None:
-        """Test initialization with a folder containing no matching files."""
+    def test_init_empty_folder_returns_zero_length(self, tmp_path: Path) -> None:
+        """Empty folder produces zero-length dataset."""
         dataset = ChannelFrameDataset(str(tmp_path), lazy_loading=True)
         assert len(dataset) == 0
         assert len(dataset._lazy_frames) == 0
 
-    def test_init_folder_not_found(self) -> None:
-        """Test initialization with a non-existent folder."""
+    def test_init_nonexistent_folder_raises_error(self) -> None:
+        """Non-existent folder raises FileNotFoundError."""
         with pytest.raises(FileNotFoundError):
             ChannelFrameDataset("non_existent_folder")
 
-    def test_len(self, create_test_files: Path) -> None:
-        """Test __len__ method."""
+    def test_len_returns_file_count(self, create_test_files: Path) -> None:
+        """__len__ returns the number of discovered files."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         assert len(dataset) == 3
 
-    def test_getitem_lazy(self, create_test_files: Path) -> None:
-        """Test __getitem__ with lazy loading."""
+    def test_getitem_lazy_triggers_load_and_caches(self, create_test_files: Path) -> None:
+        """Lazy __getitem__ triggers load on first access and caches."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
@@ -288,8 +288,8 @@ class TestChannelFrameDataset:
             assert frame0_cached is frame0
             mock_load_again.assert_not_called()
 
-    def test_getitem_index_error(self, create_test_files: Path) -> None:
-        """Test __getitem__ with out-of-bounds index."""
+    def test_getitem_out_of_range_raises_indexerror(self, create_test_files: Path) -> None:
+        """Out-of-bounds index raises IndexError."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         with pytest.raises(IndexError):
