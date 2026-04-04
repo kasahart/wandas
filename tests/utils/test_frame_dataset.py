@@ -43,11 +43,12 @@ def sample_wav_data() -> tuple[int, NDArrayReal]:
 
 @pytest.fixture
 def sample_csv_data() -> tuple[int, pd.DataFrame]:
-    """Generate sample CSV data."""
-    sampling_rate = 100
-    duration = 1.0
+    """Generate deterministic CSV data — 2-channel sensor signals at known frequencies."""
+    sampling_rate = 100  # 100 Hz — typical for sensor data (accelerometer, etc.)
+    duration = 1.0  # 1 second
     n_samples = int(sampling_rate * duration)
     time_col = np.linspace(0, duration, n_samples, endpoint=False)
+    # Analytically predictable: 5 Hz sine and 10 Hz cosine
     ch1_data = np.sin(2 * np.pi * 5 * time_col)  # 5 Hz sine wave
     ch2_data = np.cos(2 * np.pi * 10 * time_col)  # 10 Hz cosine wave
     df = pd.DataFrame({"time": time_col, "SensorA": ch1_data, "SensorB": ch2_data})
