@@ -1567,4 +1567,6 @@ def test_spectrogram_plot_single_channel_scalar_axes_converted() -> None:
     strategy = SpectrogramPlotStrategy()
     result = strategy.plot(spec)
     # Single-channel without ax= returns an iterator (scalar Axes is wrapped internally)
-    assert result is not None
+    assert isinstance(result, Iterator)
+    axes_list = list(result)
+    assert len(axes_list) >= 1  # at least 1 axis for single channel
