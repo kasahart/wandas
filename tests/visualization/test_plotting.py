@@ -902,24 +902,39 @@ class TestPlotting:
             assert "cmap" in call_args[1]
             assert call_args[1]["cmap"] == "viridis"
 
+    @staticmethod
+    def _make_spectrogram(
+        freq_hz: float = 440.0,
+        sample_rate: int = 44100,
+        duration: float = 0.1,
+        n_fft: int = 512,
+        hop_length: int = 256,
+        label: str = "test_channel",
+    ):
+        """Create a real SpectrogramFrame from a deterministic sine.
+
+        Used by integration-level tests that need actual STFT data.
+        """
+        from wandas.frames.channel import ChannelFrame
+
+        n_samples = int(sample_rate * duration)
+        t = np.linspace(0, duration, n_samples, endpoint=False)
+        signal = np.sin(2 * np.pi * freq_hz * t)
+        dask_data = _da_from_array(signal.reshape(1, -1), chunks=(1, -1))
+        cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate, label=label)
+        return cf, cf.stft(n_fft=n_fft, hop_length=hop_length)
+
     def test_spectrogram_plot_strategy_basic_functionality(self) -> None:
         """SpectrogramPlotStrategy: real data, single- and multi-channel axes labels."""
         strategy = SpectrogramPlotStrategy()
 
         # Deterministic 440 Hz sine — analytically predictable
         sample_rate = 44100
-        duration = 0.1  # 100 ms
-        n_fft = 512  # → N/2+1 = 257 freq bins
+        n_fft = 512  # -> N/2+1 = 257 freq bins
         hop_length = 256
-        n_samples = int(sample_rate * duration)
-        t = np.linspace(0, duration, n_samples, endpoint=False)
-        signal = np.sin(2 * np.pi * 440.0 * t)
-
-        from wandas.frames.channel import ChannelFrame
-
-        dask_data = _da_from_array(signal.reshape(1, -1), chunks=(1, -1))
-        channel_frame = ChannelFrame(data=dask_data, sampling_rate=sample_rate, label="test_channel")
-        spectrogram_frame = channel_frame.stft(n_fft=n_fft, hop_length=hop_length)
+        _, spectrogram_frame = self._make_spectrogram(
+            freq_hz=440.0, sample_rate=sample_rate, n_fft=n_fft, hop_length=hop_length
+        )
 
         # --- Single channel with explicit ax ---
         fig, ax = plt.subplots()
@@ -933,6 +948,11 @@ class TestPlotting:
         plt.close(fig)
 
         # --- Multi-channel: 2 channels ---
+        from wandas.frames.channel import ChannelFrame
+
+        n_samples = int(sample_rate * 0.1)
+        t = np.linspace(0, 0.1, n_samples, endpoint=False)
+        signal = np.sin(2 * np.pi * 440.0 * t)
         multi_signal = np.array([signal, signal * 0.5])
         multi_dask_data = _da_from_array(multi_signal, chunks=(1, -1))
         multi_channel_frame = ChannelFrame(data=multi_dask_data, sampling_rate=sample_rate, label="multi_channel_test")
@@ -959,19 +979,7 @@ class TestPlotting:
         strategy = SpectrogramPlotStrategy()
 
         # Deterministic 1 kHz sine — analytically predictable
-        sample_rate = 44100
-        duration = 0.1  # 100 ms
-        n_fft = 512
-        hop_length = 256
-        n_samples = int(sample_rate * duration)
-        t = np.linspace(0, duration, n_samples, endpoint=False)
-        signal = np.sin(2 * np.pi * 1000.0 * t)
-
-        from wandas.frames.channel import ChannelFrame
-
-        dask_data = _da_from_array(signal.reshape(1, -1), chunks=(1, -1))
-        channel_frame = ChannelFrame(data=dask_data, sampling_rate=sample_rate, label="test_channel")
-        spectrogram_frame = channel_frame.stft(n_fft=n_fft, hop_length=hop_length)
+        _, spectrogram_frame = self._make_spectrogram(freq_hz=1000.0)
 
         fig, ax = plt.subplots()
         result = strategy.plot(spectrogram_frame, ax=ax, Aw=True)
