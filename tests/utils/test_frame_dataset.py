@@ -531,14 +531,13 @@ class TestChannelFrameDataset:
         assert trimmed_frame0.duration == pytest.approx(expected_duration)
         assert trimmed_frame0.n_samples == expected_samples
 
-    def test_stft_lazy_matches_direct_stft(self, create_test_files: Path) -> None:
-        """Lazy STFT matches direct ChannelFrame.stft result."""
+    def test_stft_lazy_creates_correct_structure(self, create_test_files: Path) -> None:
+        """Lazy STFT creates SpectrogramFrameDataset with correct state."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         n_fft = 512
         hop_length = 128
 
-        # create the SpectrogramFrameDataset lazily
         stft_dataset = dataset.stft(n_fft=n_fft, hop_length=hop_length)
         assert isinstance(stft_dataset, SpectrogramFrameDataset)
         assert stft_dataset._lazy_loading is True
@@ -546,28 +545,41 @@ class TestChannelFrameDataset:
         assert len(stft_dataset) == len(dataset)
         assert all(not lf.is_loaded for lf in stft_dataset._lazy_frames)
 
-        # compute expected spectrogram from the already‐loaded ChannelFrame
+    def test_stft_lazy_matches_direct_stft(self, create_test_files: Path) -> None:
+        """Lazy STFT result matches direct ChannelFrame.stft output."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        n_fft = 512
+        hop_length = 128
+
+        stft_dataset = dataset.stft(n_fft=n_fft, hop_length=hop_length)
+
         original_frame = dataset[0]
         assert original_frame is not None
         expected_spec = original_frame.stft(n_fft=n_fft, hop_length=hop_length)
 
-        # now load the spectrogram from the dataset under test
         stft_frame = stft_dataset[0]
         assert isinstance(stft_frame, SpectrogramFrame)
         assert stft_frame.n_fft == n_fft
         assert stft_frame.hop_length == hop_length
         assert stft_frame.sampling_rate == original_frame.sampling_rate
-
-        # compare shapes
         assert stft_frame.shape == expected_spec.shape
+        # Wrapper equivalence: same STFT algorithm, exact match within float tolerance
+        np.testing.assert_allclose(
+            stft_frame.compute(), expected_spec.compute(), atol=1e-6
+        )  # Windowing/overlap tolerance
 
-        # compare the actual complex STFT values
-        np.testing.assert_allclose(stft_frame.compute(), expected_spec.compute(), atol=1e-6)
+    def test_stft_lazy_caches_result(self, create_test_files: Path) -> None:
+        """Lazy STFT caches result on second access."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
-        # second access must hit the cache and not retrigger transform
+        stft_dataset = dataset.stft(n_fft=512, hop_length=128)
+        first_access = stft_dataset[0]
+
         with patch.object(stft_dataset, "_transform", wraps=stft_dataset._transform) as mock_transform:
             cached = stft_dataset[0]
-            assert cached is stft_frame
+            assert cached is first_access
             mock_transform.assert_not_called()
 
     def test_sample_by_count_returns_correct_size(self, create_test_files: Path) -> None:
