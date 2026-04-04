@@ -744,7 +744,7 @@ class TestRmsTrendMetadataUpdates:
 
         assert "sampling_rate" in updates
         expected_sr = 44100 / 512
-        assert np.isclose(updates["sampling_rate"], expected_sr)
+        np.testing.assert_allclose(updates["sampling_rate"], expected_sr)
 
     def test_rms_trend_metadata_with_different_hop_length(self) -> None:
         """Test metadata updates with different hop_length values."""
@@ -754,7 +754,7 @@ class TestRmsTrendMetadataUpdates:
         updates = operation.get_metadata_updates()
 
         expected_sr = 48000 / hop_length
-        assert np.isclose(updates["sampling_rate"], expected_sr)
+        np.testing.assert_allclose(updates["sampling_rate"], expected_sr)
 
 
 class TestTemporalHelperMethods:

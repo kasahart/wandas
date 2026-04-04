@@ -196,6 +196,7 @@ class TestFFTOperation:
 
         peak_idx = np.argmax(np.abs(fft_result[0]))
         peak_mag = np.abs(fft_result[0, peak_idx])
+        # float64 FFT precision — single-bin peak amplitude
         np.testing.assert_allclose(peak_mag, amp, rtol=1e-10)
 
     def test_fft_window_function_changes_result(self) -> None:
@@ -1139,8 +1140,8 @@ class TestCoherenceOperation:
         assert np.all(result <= 1.000001)
 
         # Self-coherence ~1
-        assert np.isclose(result[0, :].mean(), 1.0)
-        assert np.isclose(result[3, :].mean(), 1.0)
+        np.testing.assert_allclose(result[0, :].mean(), 1.0, atol=1e-10)
+        np.testing.assert_allclose(result[3, :].mean(), 1.0, atol=1e-10)
 
         # Cross-coherence between 0 and 1
         cross = np.mean(result[1, :])
@@ -1448,16 +1449,17 @@ class TestTransferFunctionOperation:
         idx_1000 = np.argmin(np.abs(freq_bins - 1000))
 
         h_in_to_out = result[1, idx_1000]  # ch0 -> ch1
-        assert np.isclose(np.abs(h_in_to_out), 2.0, rtol=0.2)
+        # rtol=0.2: spectral leakage at non-exact FFT bin boundaries
+        np.testing.assert_allclose(np.abs(h_in_to_out), 2.0, rtol=0.2)
 
         h_self_in = result[0, idx_1000]  # ch0 -> ch0
-        assert np.isclose(np.abs(h_self_in), 1.0, rtol=0.2)
+        np.testing.assert_allclose(np.abs(h_self_in), 1.0, rtol=0.2)
 
         h_self_out = result[3, idx_1000]  # ch1 -> ch1
-        assert np.isclose(np.abs(h_self_out), 1.0, rtol=0.2)
+        np.testing.assert_allclose(np.abs(h_self_out), 1.0, rtol=0.2)
 
         h_out_to_in = result[2, idx_1000]  # ch1 -> ch0
-        assert np.isclose(np.abs(h_out_to_in), 0.5, rtol=0.2)
+        np.testing.assert_allclose(np.abs(h_out_to_in), 0.5, rtol=0.2)
 
     def test_content_matches_scipy_csd_welch_ratio(self) -> None:
         """Transfer function H = P_yx / P_xx matches manual scipy computation.
