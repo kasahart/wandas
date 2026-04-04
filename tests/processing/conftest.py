@@ -139,3 +139,25 @@ def dc_offset_with_sine_dask() -> tuple[DaArray, int]:
     t = np.linspace(0, 1, sr, endpoint=False)
     data = (2.0 + np.sin(2 * np.pi * 50 * t)).reshape(1, -1)
     return da_from_array(data, chunks=(1, -1)), sr
+
+
+# ---------------------------------------------------------------------------
+# Mixed harmonic+percussive fixture (for HPSS tests)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def mixed_harmonic_percussive_dask() -> tuple[DaArray, int]:
+    """Mixed signal: 440 Hz + 880 Hz harmonics + periodic impulses, 1 s, sr=16000.
+
+    Harmonic part: sin(440t) + 0.5*sin(880t)
+    Percussive part: unit impulses every sr/8 samples.
+    """
+    sr = 16000
+    t = np.linspace(0, 1, sr, endpoint=False)
+    harmonic = np.sin(2 * np.pi * 440 * t) + 0.5 * np.sin(2 * np.pi * 880 * t)
+    percussive = np.zeros_like(t)
+    impulse_locs = np.arange(0, sr, sr // 8)
+    percussive[impulse_locs] = 1.0
+    data = (harmonic + percussive).reshape(1, -1)
+    return da_from_array(data, chunks=(1, -1)), sr
