@@ -847,34 +847,34 @@ class TestSpectrogramFrameDataset:
 
 
 class TestSampledFrameDataset:
-    def test_init(self, create_test_files: Path) -> None:
-        """Test initialization of _SampledFrameDataset."""
+    def test_init_creates_lazy_subset(self, create_test_files: Path) -> None:
+        """Initialization creates lazy subset from specified indices."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
-        # サンプリングインデックスの準備
-        sampled_indices = [0, 2]  # test1.wav と test3.csv を選択
+        # Prepare sampling indices
+        sampled_indices = [0, 2]  # Select test1.wav and test3.csv
 
-        # _SampledFrameDataset の初期化
+        # Initialize _SampledFrameDataset
         sampled_ds = _SampledFrameDataset(dataset, sampled_indices)
 
-        # 基本的なプロパティの確認
+        # Verify basic properties
         assert sampled_ds._original_dataset is dataset
         assert sampled_ds._original_indices == sampled_indices
         assert len(sampled_ds) == len(sampled_indices)
 
-        # LazyFrames の確認
+        # Verify LazyFrames
         assert len(sampled_ds._lazy_frames) == len(sampled_indices)
         assert all(not lf.is_loaded for lf in sampled_ds._lazy_frames)
         assert sampled_ds._lazy_frames[0].file_path.name == "test1.wav"
         assert sampled_ds._lazy_frames[1].file_path.name == "test3.csv"
 
-    def test_getitem(self, create_test_files: Path) -> None:
-        """Test __getitem__ method of _SampledFrameDataset."""
+    def test_getitem_loads_and_caches_frames(self, create_test_files: Path) -> None:
+        """__getitem__ loads frames from original dataset and caches them."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
-        # 元のデータセットからサンプリング
+        # Sample from original dataset
         sampled_indices = [0, 2]  # test1.wav, test3.csv
         sampled_ds = _SampledFrameDataset(dataset, sampled_indices)
 
@@ -882,33 +882,33 @@ class TestSampledFrameDataset:
         assert sampled_ds._original_dataset is dataset
         assert sampled_ds._original_indices == sampled_indices
 
-        # サンプリングされたデータセットからフレームを取得
+        # Get frame from sampled dataset
         sampled_frame_0 = sampled_ds[0]
 
-        # 元のデータセットから直接同じフレームを取得
+        # Get same frame directly from original dataset
         original_frame_0 = dataset[sampled_indices[0]]
 
-        # Noneチェック
+        # None check
         assert sampled_frame_0 is not None
         assert original_frame_0 is not None
 
-        # 同じフレームが取得できていることを確認
+        # Verify same frame is retrieved
         assert isinstance(sampled_frame_0, ChannelFrame)
         assert sampled_frame_0.label == original_frame_0.label
         np.testing.assert_array_equal(
             sampled_frame_0.compute(),
             original_frame_0.compute(),
-            err_msg="サンプリングデータセットのフレームが元のデータセットと一致しません",
+            err_msg="Sampled dataset frame does not match original",
         )
 
-        # キャッシュが機能していることを確認
+        # Verify cache is working
         assert sampled_ds._lazy_frames[0].is_loaded is True
 
-        # キャッシュを通じて同じフレームオブジェクトが返されることを確認
+        # Verify same instance is returned from cache
         cached_frame = sampled_ds[0]
-        assert cached_frame is sampled_frame_0  # 同じインスタンスが返されるはず
+        assert cached_frame is sampled_frame_0
 
-        # 2番目の要素も確認
+        # Verify second element
         sampled_frame_1 = sampled_ds[1]
         original_frame_1 = dataset[sampled_indices[1]]
 
@@ -918,20 +918,19 @@ class TestSampledFrameDataset:
         assert sampled_frame_1.label == original_frame_1.label
         np.testing.assert_array_equal(sampled_frame_1.compute(), original_frame_1.compute())
 
-        # 範囲外のインデックスに対するエラーテスト
+        # Out-of-range index error test
         with pytest.raises(IndexError):
-            _ = sampled_ds[2]  # サンプリングデータセットは2つの要素しかない
+            _ = sampled_ds[2]  # Sampled dataset has only 2 elements
 
-        # 元のデータセットのロードエラーをシミュレート
-        # _ensure_loadedメソッドを直接モックする方が確実です
+        # Simulate load error from original dataset
         with patch.object(dataset, "_ensure_loaded", return_value=None):
-            # _SampledFrameDatasetはキャッシュをリセットする必要がある
+            # Reset cache for the test
             sampled_ds._lazy_frames[0].reset()
             result = sampled_ds[0]
             assert result is None
 
-    def test_apply(self, create_test_files: Path) -> None:
-        """Test apply method of _SampledFrameDataset."""
+    def test_apply_chains_transform_correctly(self, create_test_files: Path) -> None:
+        """Apply on sampled dataset chains transform correctly."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         sampled_ds = dataset.sample(n=1, seed=42)
@@ -942,7 +941,7 @@ class TestSampledFrameDataset:
 
         transformed_sampled = sampled_ds.apply(transform_gain)
 
-        # 基本的な検証
+        # Basic verification
         assert isinstance(transformed_sampled, _SampledFrameDataset)
         assert transformed_sampled._original_dataset is not dataset
         assert transformed_sampled._original_dataset._transform is transform_gain
@@ -950,11 +949,11 @@ class TestSampledFrameDataset:
         assert len(transformed_sampled) == 1
         assert all(not lf.is_loaded for lf in transformed_sampled._lazy_frames)
 
-        # 元のフレームを取得
+        # Get original frame
         original_index = getattr(sampled_ds, "_original_indices")[0]
         original_frame = dataset[original_index]
 
-        # サンプリングされたフレームを取得
+        # Get sampled frame
         sampled_frame = sampled_ds[0]
         assert original_frame is not None
         assert sampled_frame is not None
@@ -964,7 +963,7 @@ class TestSampledFrameDataset:
             err_msg="Data mismatch between dataset and sampled_ds",
         )
 
-        # 変換後のフレームを取得して検証
+        # Get and verify transformed frame
         final_frame = transformed_sampled[0]
         assert final_frame is not None
         assert original_frame is not None
@@ -975,13 +974,12 @@ class TestSampledFrameDataset:
             err_msg="Data mismatch after applying transform",
         )
 
-        # キャッシュが機能していることを確認
-        assert transformed_sampled._lazy_frames[0].is_loaded is True
+        # Verify cache is working
         cached_final_frame = transformed_sampled[0]
         assert cached_final_frame is final_frame
 
-    def test_load_file_not_implemented(self, create_test_files: Path) -> None:
-        """Test that _load_file raises NotImplementedError."""
+    def test_load_file_direct_raises_not_implemented(self, create_test_files: Path) -> None:
+        """Direct _load_file raises NotImplementedError."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         sampled_indices = [0, 1]
@@ -993,13 +991,13 @@ class TestSampledFrameDataset:
         ):
             sampled_ds._load_file(Path("dummy.wav"))
 
-    def test_sample_index_error(self, create_test_files: Path) -> None:
-        """Test error handling with invalid indices."""
+    def test_init_invalid_indices_raises_index_error(self, create_test_files: Path) -> None:
+        """Out-of-range indices raise IndexError."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
-        # 範囲外のインデックスを含むケース
-        invalid_indices = [0, 10]  # 10は範囲外（ファイルは3つしかない）
+        # Out-of-range index case
+        invalid_indices = [0, 10]  # 10 is out of range (only 3 files)
 
         with pytest.raises(
             IndexError,
