@@ -27,10 +27,20 @@ from wandas.visualization.plotting import (
 
 _da_from_array = da.from_array
 
+# ---------------------------------------------------------------------------
+# Module-level constants — eliminate magic numbers
+# ---------------------------------------------------------------------------
+_N_SAMPLES = 1000  # common sample count for mock data
+_N_FREQ_BINS = 513  # n_fft=1024 → N/2+1
+_N_SPEC_TIME = 10  # spectrogram time frames
+_SR_CD = 44100  # CD-quality sampling rate
+_N_FFT = 1024
+_HOP_LENGTH = 512
+_WIN_LENGTH = 1024
 
-# テスト用のプロット戦略クラス
+
 class TestPlotStrategy(PlotStrategy[Any]):
-    """テスト用のプロット戦略"""
+    """Stub PlotStrategy for registry tests."""
 
     name = "test_strategy"
 
@@ -62,8 +72,7 @@ class TestPlotting:
         self.original_strategies = _plot_strategies.copy()
 
         # モックフレームの作成 — 決定論的データ（np.random禁止）
-        _n_samples = 1000
-        _t = np.linspace(0, 1, _n_samples, endpoint=False)
+        _t = np.linspace(0, 1, _N_SAMPLES, endpoint=False)
         _ch0 = np.sin(2 * np.pi * 100 * _t)  # 100 Hz pure sine
         _ch1 = np.cos(2 * np.pi * 200 * _t)  # 200 Hz pure cosine
 
@@ -90,10 +99,9 @@ class TestPlotting:
         ]
 
         # スペクトルフレームモック — 決定論的データ
-        _n_freq_bins = 513  # n_fft=1024 → N/2+1
-        _freqs = np.linspace(0, 22050, _n_freq_bins)
-        _spec_ch0 = np.sin(np.linspace(0, np.pi, _n_freq_bins))
-        _spec_ch1 = np.cos(np.linspace(0, np.pi, _n_freq_bins))
+        _freqs = np.linspace(0, 22050, _N_FREQ_BINS)
+        _spec_ch0 = np.sin(np.linspace(0, np.pi, _N_FREQ_BINS))
+        _spec_ch1 = np.cos(np.linspace(0, np.pi, _N_FREQ_BINS))
 
         self.mock_spectral_frame = mock.MagicMock()
         self.mock_spectral_frame.n_channels = 2
@@ -152,21 +160,19 @@ class TestPlotting:
         ]
 
         # スペクトログラムフレームモック — 決定論的データ
-        _n_spec_freq = 513  # n_fft=1024 → N/2+1
-        _n_spec_time = 10
         _spec_grid = np.outer(
-            np.sin(np.linspace(0, np.pi, _n_spec_freq)),
-            np.linspace(0.5, 1.0, _n_spec_time),
-        )  # (513, 10) deterministic
+            np.sin(np.linspace(0, np.pi, _N_FREQ_BINS)),
+            np.linspace(0.5, 1.0, _N_SPEC_TIME),
+        )  # (_N_FREQ_BINS, _N_SPEC_TIME) deterministic
 
         self.mock_spectrogram_frame = mock.MagicMock()
         self.mock_spectrogram_frame.n_channels = 2
-        self.mock_spectrogram_frame.n_freq_bins = _n_spec_freq
-        self.mock_spectrogram_frame.shape = (2, _n_spec_freq, _n_spec_time)
-        self.mock_spectrogram_frame.sampling_rate = 44100
-        self.mock_spectrogram_frame.n_fft = 1024
-        self.mock_spectrogram_frame.hop_length = 512
-        self.mock_spectrogram_frame.win_length = 1024
+        self.mock_spectrogram_frame.n_freq_bins = _N_FREQ_BINS
+        self.mock_spectrogram_frame.shape = (2, _N_FREQ_BINS, _N_SPEC_TIME)
+        self.mock_spectrogram_frame.sampling_rate = _SR_CD
+        self.mock_spectrogram_frame.n_fft = _N_FFT
+        self.mock_spectrogram_frame.hop_length = _HOP_LENGTH
+        self.mock_spectrogram_frame.win_length = _WIN_LENGTH
         self.mock_spectrogram_frame.dB = np.stack([_spec_grid, _spec_grid * 0.8], axis=0)
         self.mock_spectrogram_frame.dBA = np.stack([_spec_grid * 0.9, _spec_grid * 0.7], axis=0)
         self.mock_spectrogram_frame.channels = [
@@ -178,12 +184,12 @@ class TestPlotting:
         # スペクトログラムテスト用に単一チャネルバージョンも作成
         self.mock_single_spectrogram_frame = mock.MagicMock()
         self.mock_single_spectrogram_frame.n_channels = 1
-        self.mock_single_spectrogram_frame.n_freq_bins = _n_spec_freq
-        self.mock_single_spectrogram_frame.shape = (_n_spec_freq, _n_spec_time)
-        self.mock_single_spectrogram_frame.sampling_rate = 44100
-        self.mock_single_spectrogram_frame.n_fft = 1024
-        self.mock_single_spectrogram_frame.hop_length = 512
-        self.mock_single_spectrogram_frame.win_length = 1024
+        self.mock_single_spectrogram_frame.n_freq_bins = _N_FREQ_BINS
+        self.mock_single_spectrogram_frame.shape = (_N_FREQ_BINS, _N_SPEC_TIME)
+        self.mock_single_spectrogram_frame.sampling_rate = _SR_CD
+        self.mock_single_spectrogram_frame.n_fft = _N_FFT
+        self.mock_single_spectrogram_frame.hop_length = _HOP_LENGTH
+        self.mock_single_spectrogram_frame.win_length = _WIN_LENGTH
         self.mock_single_spectrogram_frame.dB = _spec_grid
         self.mock_single_spectrogram_frame.dBA = _spec_grid * 0.9
         self.mock_single_spectrogram_frame.channels = [
@@ -192,7 +198,7 @@ class TestPlotting:
         self.mock_single_spectrogram_frame.label = "Test Single Spectrogram"
 
         # コヒーレンスデータ — 決定論的（0~1の正弦波パターン）
-        _coh_single = 0.5 + 0.5 * np.sin(np.linspace(0, 2 * np.pi, _n_freq_bins))
+        _coh_single = 0.5 + 0.5 * np.sin(np.linspace(0, 2 * np.pi, _N_FREQ_BINS))
 
         # 単一チャネルのコヒーレンスデータ（自己相関）
         self.mock_single_coherence_spectral_frame = mock.MagicMock()
