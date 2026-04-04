@@ -313,7 +313,9 @@ class TestRmsTrend:
         dask_am = da_from_array(am, chunks=(1, -1))
         rms = RmsTrend(_SR, frame_length=self._FRAME, hop_length=self._HOP)
 
-        result = rms.process(dask_am).compute()
+        result_da = rms.process(dask_am)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
         # AM modulation should create significant RMS variation
         assert np.std(result) > 0.1 * np.mean(result)
 
@@ -360,10 +362,12 @@ class TestRmsTrend:
         rms_normal = RmsTrend(_SR)
         rms_aw = RmsTrend(_SR, Aw=True)
 
-        result_normal = rms_normal.process(dask_low).compute()
-        result_aw = rms_aw.process(dask_low).compute()
+        result_normal = rms_normal.process(dask_low)
+        result_aw = rms_aw.process(dask_low)
+        assert isinstance(result_normal, DaArray)  # Pillar 1: Dask graph preserved
+        assert isinstance(result_aw, DaArray)
 
-        assert np.mean(result_aw) < np.mean(result_normal)
+        assert np.mean(result_aw.compute()) < np.mean(result_normal.compute())
 
     def test_rms_trend_a_weighting_tuple_return(self) -> None:
         """A_weight returning a tuple uses the first element."""
@@ -455,7 +459,9 @@ class TestFixLength:
         dask_short = da_from_array(short_sig, chunks=(1, -1))
         fl = FixLength(_SR, length=self._TARGET)
 
-        result = fl.process(dask_short).compute()
+        result_da = fl.process(dask_short)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
         assert result.shape == (1, self._TARGET)
 
     def test_fix_length_long_signal_truncated(self) -> None:
@@ -465,7 +471,9 @@ class TestFixLength:
         dask_long = da_from_array(long_sig, chunks=(1, -1))
         fl = FixLength(_SR, length=self._TARGET)
 
-        result = fl.process(dask_long).compute()
+        result_da = fl.process(dask_long)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
         assert result.shape == (1, self._TARGET)
 
     # -- Layer 3: Content verification -------------------------------------
@@ -480,7 +488,9 @@ class TestFixLength:
         dask_short = da_from_array(short_sig, chunks=(1, -1))
         fl = FixLength(_SR, length=self._TARGET)
 
-        result = fl.process(dask_short).compute()
+        result_da = fl.process(dask_short)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
 
         # Original part preserved exactly
         np.testing.assert_allclose(result[0, : short_sig.shape[1]], short_sig[0])
@@ -500,7 +510,9 @@ class TestFixLength:
         dask_long = da_from_array(long_sig, chunks=(1, -1))
         fl = FixLength(_SR, length=self._TARGET)
 
-        result = fl.process(dask_long).compute()
+        result_da = fl.process(dask_long)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
         np.testing.assert_allclose(result[0], long_sig[0, : self._TARGET])
 
 
@@ -544,7 +556,9 @@ class TestSoundLevel:
         dask_sig = da_from_array(sig, chunks=(1, -1))
 
         op = SoundLevel(_SR, ref=1.0)
-        result = op.process(dask_sig).compute()
+        result_da = op.process(dask_sig)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
         assert result.shape == sig.shape
 
     def test_sound_level_linear_default_matches_explicit(self) -> None:
@@ -555,9 +569,13 @@ class TestSoundLevel:
 
         default_op = SoundLevel(_SR, ref=2e-5)
         explicit_op = SoundLevel(_SR, ref=2e-5, dB=False)
+        default_da = default_op.process(dask_sig)
+        explicit_da = explicit_op.process(dask_sig)
+        assert isinstance(default_da, DaArray)  # Pillar 1: Dask graph preserved
+        assert isinstance(explicit_da, DaArray)
         np.testing.assert_allclose(
-            default_op.process(dask_sig).compute(),
-            explicit_op.process(dask_sig).compute(),
+            default_da.compute(),
+            explicit_da.compute(),
         )
 
     def test_sound_level_int_input_returns_float64(self) -> None:
