@@ -18,7 +18,7 @@ class TestChannelTransform:
         """Set up test fixtures for each test."""
         # Create a simple dask array for testing
         self.sample_rate: float = 16000
-        self.data: np.ndarray = np.random.random((2, 16000))  # 2 channels, 1 second
+        self.data: np.ndarray = np.random.default_rng(42).random((2, 16000))  # 2 channels, 1 second
         self.dask_data: DaArray = _da_from_array(self.data, chunks=(1, 4000))
         self.channel_frame: ChannelFrame = ChannelFrame(
             data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
@@ -494,11 +494,11 @@ def test_cross_channel_spectral_transform_n_fft_not_int():
     """TypeError is raised when the operation returns a non-int n_fft (line 91)."""
     from unittest.mock import MagicMock, patch
 
-    data = np.random.random((2, 1024))
+    data = np.random.default_rng(42).random((2, 1024))
     cf = ChannelFrame.from_numpy(data, sampling_rate=1000)
 
     mock_op = MagicMock()
-    mock_op.process.return_value = _da_from_array(np.random.random((3, 513)), chunks=(3, 513))
+    mock_op.process.return_value = _da_from_array(np.random.default_rng(42).random((3, 513)), chunks=(3, 513))
     mock_op.n_fft = "not_an_int"  # non-int value
 
     with patch("wandas.processing.create_operation", return_value=mock_op):
@@ -510,11 +510,11 @@ def test_cross_channel_spectral_transform_n_fft_non_positive():
     """ValueError is raised when the operation returns n_fft <= 0 (line 96)."""
     from unittest.mock import MagicMock, patch
 
-    data = np.random.random((2, 1024))
+    data = np.random.default_rng(42).random((2, 1024))
     cf = ChannelFrame.from_numpy(data, sampling_rate=1000)
 
     mock_op = MagicMock()
-    mock_op.process.return_value = _da_from_array(np.random.random((3, 513)), chunks=(3, 513))
+    mock_op.process.return_value = _da_from_array(np.random.default_rng(42).random((3, 513)), chunks=(3, 513))
     mock_op.n_fft = 0  # non-positive int
 
     with patch("wandas.processing.create_operation", return_value=mock_op):

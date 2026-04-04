@@ -21,7 +21,7 @@ class TestChannelLabelUpdates:
     def setup_method(self) -> None:
         """Set up test fixtures for each test."""
         self.sample_rate: float = 16000
-        self.data: np.ndarray = np.random.random((2, 16000))  # 2 channels, 1 second
+        self.data: np.ndarray = np.random.default_rng(42).random((2, 16000))  # 2 channels, 1 second
         self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
 
     def test_normalize_updates_channel_labels(self) -> None:
@@ -174,7 +174,7 @@ class TestChainedOperationLabels:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.sample_rate: float = 16000
-        self.data: np.ndarray = np.random.random((1, 16000))  # 1 channel
+        self.data: np.ndarray = np.random.default_rng(42).random((1, 16000))  # 1 channel
         self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
 
     def test_chained_operations_nest_labels(self) -> None:
@@ -224,7 +224,7 @@ class TestBinaryOperationLabelCompatibility:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.sample_rate: float = 16000
-        self.data: np.ndarray = np.random.random((1, 16000))
+        self.data: np.ndarray = np.random.default_rng(42).random((1, 16000))
         self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
 
     def test_binary_op_with_processed_frame(self) -> None:
@@ -274,7 +274,7 @@ class TestEdgeCases:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.sample_rate: float = 16000
-        self.data: np.ndarray = np.random.random((1, 16000))
+        self.data: np.ndarray = np.random.default_rng(42).random((1, 16000))
         self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
 
     def test_operation_on_single_channel(self) -> None:
@@ -329,7 +329,7 @@ class TestBackwardCompatibility:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.sample_rate: float = 16000
-        self.data: np.ndarray = np.random.random((2, 16000))
+        self.data: np.ndarray = np.random.default_rng(42).random((2, 16000))
         self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
 
     def test_default_channel_labels_still_work(self) -> None:
@@ -379,7 +379,7 @@ class TestAddChannelWithLabelPrefix:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.sample_rate: float = 16000
-        self.data: np.ndarray = np.random.random((2, 16000))
+        self.data: np.ndarray = np.random.default_rng(42).random((2, 16000))
         self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
 
     def test_add_channel_frame_with_label_prefix(self) -> None:
@@ -467,7 +467,7 @@ class TestRenameChannels:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.sample_rate: float = 16000
-        self.data: np.ndarray = np.random.random((2, 16000))
+        self.data: np.ndarray = np.random.default_rng(42).random((2, 16000))
         self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
 
     def test_rename_channels_by_index(self) -> None:

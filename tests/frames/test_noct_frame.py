@@ -18,7 +18,7 @@ _da_from_array = da.from_array
 # Helper function to create test data
 def create_real_data(shape: tuple[int, ...]) -> NDArrayReal:
     """Create real test data with the given shape."""
-    return np.random.rand(*shape).astype(np.float32)
+    return np.random.default_rng(42).random(shape).astype(np.float32)
 
 
 def create_dask_array(data: NDArrayReal, chunks: tuple[int, ...] | None) -> DaArray:
