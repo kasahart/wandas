@@ -11,7 +11,9 @@ from mosqito.sq_metrics import sharpness_din_st as sharpness_din_st_mosqito
 from mosqito.sq_metrics import sharpness_din_tv as sharpness_din_tv_mosqito
 
 import wandas.processing.psychoacoustic as psychoacoustic_module
-from wandas.processing.base import create_operation, get_operation
+from wandas.frames.channel import ChannelFrame
+from wandas.frames.roughness import RoughnessFrame
+from wandas.processing.base import _OPERATION_REGISTRY, create_operation, get_operation
 from wandas.processing.psychoacoustic import (
     LoudnessZwst,
     LoudnessZwtv,
@@ -334,7 +336,6 @@ class TestLoudnessZwtv:
     def test_time_axis_values(self) -> None:
         """Test that time axis is correctly calculated based on sampling rate."""
         signal_mono, _, _, _ = _loudness_signal()
-        from wandas.frames.channel import ChannelFrame
 
         # Create frame and calculate loudness
         dask_data = da_from_array(signal_mono, chunks=(1, -1))
@@ -371,8 +372,6 @@ class TestLoudnessZwtv:
         signal_mono, _, _, _ = _loudness_signal()
         import matplotlib.pyplot as plt
 
-        from wandas.frames.channel import ChannelFrame
-
         # Create frame and calculate loudness
         dask_data = da_from_array(signal_mono, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=_SR)
@@ -398,7 +397,6 @@ class TestLoudnessZwtvIntegration:
 
     def test_loudness_in_operation_registry(self) -> None:
         """Test that loudness operation is in registry."""
-        from wandas.processing.base import _OPERATION_REGISTRY
 
         assert "loudness_zwtv" in _OPERATION_REGISTRY
         assert _OPERATION_REGISTRY["loudness_zwtv"] is _psychoacoustic_class("LoudnessZwtv")
@@ -406,7 +404,6 @@ class TestLoudnessZwtvIntegration:
     def test_channel_frame_loudness_method_exists(self) -> None:
         """Test that ChannelFrame has loudness_zwtv method."""
         duration = 0.1
-        from wandas.frames.channel import ChannelFrame
 
         # Create a simple frame
         t = np.linspace(0, duration, int(_SR * duration))
@@ -689,7 +686,6 @@ class TestLoudnessZwstIntegration:
 
     def test_loudness_in_operation_registry(self) -> None:
         """Test that loudness operation is in registry."""
-        from wandas.processing.base import _OPERATION_REGISTRY
 
         assert "loudness_zwst" in _OPERATION_REGISTRY
         assert _OPERATION_REGISTRY["loudness_zwst"] is _psychoacoustic_class("LoudnessZwst")
@@ -697,7 +693,6 @@ class TestLoudnessZwstIntegration:
     def test_channel_frame_loudness_method_exists(self) -> None:
         """Test that ChannelFrame has loudness_zwst method."""
         duration = 0.1
-        from wandas.frames.channel import ChannelFrame
 
         # Create a simple frame
         t = np.linspace(0, duration, int(_SR * duration))
@@ -712,7 +707,6 @@ class TestLoudnessZwstIntegration:
     def test_channel_frame_loudness_returns_ndarray(self) -> None:
         """Test that ChannelFrame.loudness_zwst() returns NDArrayReal."""
         duration = 0.1
-        from wandas.frames.channel import ChannelFrame
 
         # Create mono frame
         t = np.linspace(0, duration, int(_SR * duration))
@@ -753,7 +747,6 @@ class TestLoudnessZwstIntegration:
     def test_channel_frame_loudness_matches_mosqito(self) -> None:
         """Test that ChannelFrame.loudness_zwst() matches direct MoSQITo call."""
         duration = 0.1
-        from wandas.frames.channel import ChannelFrame
 
         # Create test signal
         t = np.linspace(0, duration, int(_SR * duration))
@@ -996,7 +989,6 @@ class TestRoughnessDw:
         """Test that time axis is correctly calculated based on sampling rate."""
         signal_mono, _, _, _ = _roughness_signal()
         overlap = 0.5
-        from wandas.frames.channel import ChannelFrame
 
         # Create frame and calculate roughness
         dask_data = da_from_array(signal_mono, chunks=(1, -1))
@@ -1037,7 +1029,6 @@ class TestRoughnessDwIntegration:
 
     def test_roughness_in_operation_registry(self) -> None:
         """Test that roughness operation is in registry."""
-        from wandas.processing.base import _OPERATION_REGISTRY
 
         assert "roughness_dw" in _OPERATION_REGISTRY
         assert _OPERATION_REGISTRY["roughness_dw"] is _psychoacoustic_class("RoughnessDw")
@@ -1045,7 +1036,6 @@ class TestRoughnessDwIntegration:
     def test_channel_frame_roughness_method_exists(self) -> None:
         """Test that ChannelFrame has roughness_dw method."""
         duration = 0.5
-        from wandas.frames.channel import ChannelFrame
 
         # Create a simple frame
         t = np.linspace(0, duration, int(_SR * duration))
@@ -1060,7 +1050,6 @@ class TestRoughnessDwIntegration:
     def test_channel_frame_roughness_returns_channelframe(self) -> None:
         """Test that ChannelFrame.roughness_dw() returns ChannelFrame."""
         duration = 0.5
-        from wandas.frames.channel import ChannelFrame
 
         # Create AM modulated signal
         t = np.linspace(0, duration, int(_SR * duration))
@@ -1086,7 +1075,6 @@ class TestRoughnessDwIntegration:
     def test_channel_frame_roughness_matches_mosqito(self) -> None:
         """Test that ChannelFrame.roughness_dw() matches direct MoSQITo call."""
         duration = 0.5
-        from wandas.frames.channel import ChannelFrame
 
         # Create AM modulated signal
         t = np.linspace(0, duration, int(_SR * duration))
@@ -1116,7 +1104,6 @@ class TestRoughnessDwSpec:
 
     def test_initialization(self) -> None:
         """Test RoughnessDwSpec initialization with different parameters."""
-        from wandas.processing.psychoacoustic import RoughnessDwSpec
 
         # Default initialization
         roughness_spec = RoughnessDwSpec(_SR)
@@ -1129,7 +1116,6 @@ class TestRoughnessDwSpec:
 
     def test_invalid_overlap(self) -> None:
         """Test that invalid overlap raises ValueError."""
-        from wandas.processing.psychoacoustic import RoughnessDwSpec
 
         with pytest.raises(ValueError, match="overlap must be in"):
             RoughnessDwSpec(_SR, overlap=1.5)
@@ -1387,7 +1373,6 @@ class TestRoughnessDwSpecIntegration:
 
     def test_roughness_spec_in_operation_registry(self) -> None:
         """Test that roughness_dw_spec operation is in registry."""
-        from wandas.processing.base import _OPERATION_REGISTRY
 
         assert "roughness_dw_spec" in _OPERATION_REGISTRY
         assert _OPERATION_REGISTRY["roughness_dw_spec"] is _psychoacoustic_class("RoughnessDwSpec")
@@ -1395,7 +1380,6 @@ class TestRoughnessDwSpecIntegration:
     def test_channel_frame_roughness_spec_method_exists(self) -> None:
         """Test that ChannelFrame has roughness_dw_spec method."""
         duration = 0.5
-        from wandas.frames.channel import ChannelFrame
 
         # Create a simple frame
         t = np.linspace(0, duration, int(_SR * duration))
@@ -1410,8 +1394,6 @@ class TestRoughnessDwSpecIntegration:
     def test_channel_frame_roughness_spec_returns_roughness_frame(self) -> None:
         """Test that ChannelFrame.roughness_dw_spec() returns RoughnessFrame."""
         duration = 0.5
-        from wandas.frames.channel import ChannelFrame
-        from wandas.frames.roughness import RoughnessFrame
 
         # Create AM modulated signal
         t = np.linspace(0, duration, int(_SR * duration))
@@ -1439,7 +1421,6 @@ class TestRoughnessDwSpecIntegration:
     def test_channel_frame_roughness_spec_matches_mosqito(self) -> None:
         """Test that ChannelFrame.roughness_dw_spec() matches direct MoSQITo call."""
         duration = 0.5
-        from wandas.frames.channel import ChannelFrame
 
         # Create AM modulated signal
         t = np.linspace(0, duration, int(_SR * duration))
@@ -1658,7 +1639,6 @@ class TestSharpnessDin:
     def test_time_axis_values(self) -> None:
         """Test that time axis is correctly calculated based on sampling rate."""
         signal_mono, _, _, _ = _sharpness_signal()
-        from wandas.frames.channel import ChannelFrame
 
         # Create frame and calculate sharpness
         dask_data = da_from_array(signal_mono, chunks=(1, -1))
@@ -1695,8 +1675,6 @@ class TestSharpnessDin:
         signal_mono, _, _, _ = _sharpness_signal()
         import matplotlib.pyplot as plt
 
-        from wandas.frames.channel import ChannelFrame
-
         # Create frame and calculate sharpness
         dask_data = da_from_array(signal_mono, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=_SR)
@@ -1722,7 +1700,6 @@ class TestSharpnessDinIntegration:
 
     def test_sharpness_in_operation_registry(self) -> None:
         """Test that sharpness operation is in registry."""
-        from wandas.processing.base import _OPERATION_REGISTRY
 
         assert "sharpness_din" in _OPERATION_REGISTRY
         assert _OPERATION_REGISTRY["sharpness_din"] is _psychoacoustic_class("SharpnessDin")
@@ -1730,7 +1707,6 @@ class TestSharpnessDinIntegration:
     def test_channel_frame_sharpness_method_exists(self) -> None:
         """Test that ChannelFrame has sharpness_din method."""
         duration = 0.1
-        from wandas.frames.channel import ChannelFrame
 
         # Create a simple frame
         t = np.linspace(0, duration, int(_SR * duration))
@@ -1745,7 +1721,6 @@ class TestSharpnessDinIntegration:
     def test_channel_frame_sharpness_returns_channel_frame(self) -> None:
         """Test that ChannelFrame.sharpness_din() returns ChannelFrame."""
         duration = 0.1
-        from wandas.frames.channel import ChannelFrame
 
         # Create high-frequency signal
         t = np.linspace(0, duration, int(_SR * duration))
@@ -1769,7 +1744,6 @@ class TestSharpnessDinIntegration:
     def test_channel_frame_sharpness_matches_mosqito(self) -> None:
         """Test that ChannelFrame.sharpness_din() matches direct MoSQITo call."""
         duration = 0.1
-        from wandas.frames.channel import ChannelFrame
 
         # Create test signal
         t = np.linspace(0, duration, int(_SR * duration))
@@ -1995,7 +1969,6 @@ class TestSharpnessDinStIntegration:
 
     def test_sharpness_st_in_operation_registry(self) -> None:
         """Test that sharpness_din_st operation is in registry."""
-        from wandas.processing.base import _OPERATION_REGISTRY
 
         assert "sharpness_din_st" in _OPERATION_REGISTRY
         assert _OPERATION_REGISTRY["sharpness_din_st"] is _psychoacoustic_class("SharpnessDinSt")
@@ -2003,7 +1976,6 @@ class TestSharpnessDinStIntegration:
     def test_channel_frame_sharpness_st_method_exists(self) -> None:
         """Test that ChannelFrame has sharpness_din_st method."""
         duration = 0.1
-        from wandas.frames.channel import ChannelFrame
 
         # Create a simple frame
         t = np.linspace(0, duration, int(_SR * duration))
@@ -2018,7 +1990,6 @@ class TestSharpnessDinStIntegration:
     def test_channel_frame_sharpness_st_returns_ndarray(self) -> None:
         """Test that ChannelFrame.sharpness_din_st() returns NDArrayReal."""
         duration = 0.1
-        from wandas.frames.channel import ChannelFrame
 
         # Create mono frame
         t = np.linspace(0, duration, int(_SR * duration))
@@ -2059,7 +2030,6 @@ class TestSharpnessDinStIntegration:
     def test_channel_frame_sharpness_st_matches_mosqito(self) -> None:
         """Test that ChannelFrame.sharpness_din_st() matches direct MoSQITo call."""
         duration = 0.1
-        from wandas.frames.channel import ChannelFrame
 
         # Create test signal
         t = np.linspace(0, duration, int(_SR * duration))
