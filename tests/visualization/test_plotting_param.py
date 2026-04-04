@@ -1,8 +1,6 @@
-import matplotlib
 import numpy as np
 import pytest
 
-matplotlib.use("Agg")  # GUIなし環境用
 from wandas.visualization.plotting import (
     FrequencyPlotStrategy,
     MatrixPlotStrategy,
