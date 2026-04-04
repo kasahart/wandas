@@ -380,7 +380,7 @@ def test_write_wav_roundtrip_preserves_shape_and_sr(tmp_path) -> None:
     np.testing.assert_allclose(computed, wav_data.T, rtol=1e-2)
 
 
-def test_write_wav_mono_squeezes_to_1d() -> None:
+def test_write_wav_mono_data_squeezed_to_1d() -> None:
     """Mono WAV write: data is squeezed to 1D before writing (FLOAT subtype)."""
     sr = 8000
     n_samples = 100
@@ -396,7 +396,7 @@ def test_write_wav_mono_squeezes_to_1d() -> None:
     assert kwargs.get("subtype") == "FLOAT"
 
 
-def test_write_wav_nonfloat_branch_when_exceeds_unit_range() -> None:
+def test_write_wav_data_exceeds_unit_range_no_float_subtype() -> None:
     """Data with max(abs) > 1 should NOT use FLOAT subtype."""
     sr = 8000
     n_samples = 100
