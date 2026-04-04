@@ -19,88 +19,113 @@ from wandas.utils.types import NDArrayReal
 
 _da_from_array = da.from_array
 
+# ---------------------------------------------------------------------------
+# Constants shared across filter tests
+# ---------------------------------------------------------------------------
+_SR = 16000
+_CUTOFF_HPF = 500.0
+_ORDER = 4
+_LOW_FREQ = 50.0  # below typical cutoff — must be attenuated by HPF/LPF
+_HIGH_FREQ = 1000.0  # above typical cutoff — must be preserved by HPF
+
 
 class TestHighPassFilter:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 16000
-        self.cutoff: float = 500.0
-        self.order: int = 4
-        self.hpf: HighPassFilter = HighPassFilter(self.sample_rate, self.cutoff, self.order)
+    """High-pass filter: Layer 1 (unit) + Layer 2 (domain) + Layer 3 (wrapper)."""
 
-        # Create sample data with low and high frequency components
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)  # 1 second of audio
+    # -- Layer 1: Unit tests (input validation) ----------------------------
 
-        # 50 Hz component (below cutoff) and 200 Hz component (above cutoff)
-        self.low_freq: float = 50.0
-        self.high_freq: float = 1000.0
-        low_freq_signal = np.sin(2 * np.pi * self.low_freq * t)
-        high_freq_signal = np.sin(2 * np.pi * self.high_freq * t)
+    def test_highpass_init_default_order_is_four(self) -> None:
+        """Test HPF default order parameter."""
+        hpf = HighPassFilter(_SR, _CUTOFF_HPF)
+        assert hpf.sampling_rate == _SR
+        assert hpf.cutoff == _CUTOFF_HPF
+        assert hpf.order == 4  # documented default
 
-        # Single channel signal with both components
-        self.signal: NDArrayReal = np.array([low_freq_signal + high_freq_signal])
+    def test_highpass_init_custom_order_stored(self) -> None:
+        """Test HPF stores custom order."""
+        hpf = HighPassFilter(_SR, _CUTOFF_HPF, order=6)
+        assert hpf.order == 6
 
-        # Create dask array
-        self.dask_signal: DaArray = _da_from_array(self.signal, chunks=(1, 500))
-
-    def test_initialization(self) -> None:
-        """Test initialization with different parameters."""
-        hpf = HighPassFilter(self.sample_rate, self.cutoff)
-        assert hpf.sampling_rate == self.sample_rate
-        assert hpf.cutoff == self.cutoff
-        assert hpf.order == 4  # Default value
-
-        custom_order = 6
-        hpf = HighPassFilter(self.sample_rate, self.cutoff, order=custom_order)
-        assert hpf.order == custom_order
-
-    def test_filter_effect(self) -> None:
-        """Test that the filter attenuates frequencies below cutoff."""
-        # process_arrayの代わりにprocessメソッドを使用
-        result: NDArrayReal = self.hpf.process(self.dask_signal).compute()
-
-        # Calculate FFT to check frequency content
-        fft_original = np.abs(np.fft.rfft(self.signal[0]))
-        fft_filtered = np.abs(np.fft.rfft(result[0]))
-
-        freq_bins = np.fft.rfftfreq(len(self.signal[0]), 1 / self.sample_rate)
-
-        # Find indices closest to our test frequencies
-        low_idx = np.argmin(np.abs(freq_bins - self.low_freq))
-        high_idx = np.argmin(np.abs(freq_bins - self.high_freq))
-
-        # Low frequency should be attenuated, high frequency mostly preserved
-        assert fft_filtered[low_idx] < 0.1 * fft_original[low_idx]  # At least 90% attenuation
-        assert fft_filtered[high_idx] > 0.9 * fft_original[high_idx]  # At most 10% attenuation
-
-    def test_invalid_cutoff_frequency(self) -> None:
-        """Test that invalid cutoff frequencies raise ValueError."""
-        # Cutoff too low
+    def test_highpass_cutoff_zero_raises_error(self) -> None:
+        """Test that cutoff=0 is rejected."""
         with pytest.raises(ValueError):
-            HighPassFilter(self.sample_rate, 0)
+            HighPassFilter(_SR, 0)
 
-        # Cutoff too high (above Nyquist)
+    def test_highpass_cutoff_above_nyquist_raises_error(self) -> None:
+        """Test that cutoff above Nyquist is rejected."""
         with pytest.raises(ValueError):
-            HighPassFilter(self.sample_rate, self.sample_rate / 2 + 1)
+            HighPassFilter(_SR, _SR / 2 + 1)
 
-    def test_cutoff_too_high_error_message(self) -> None:
-        """Test that cutoff above Nyquist provides helpful error message."""
-        invalid_cutoff = 10000.0  # Above Nyquist for 16kHz sample rate
-        nyquist = self.sample_rate / 2
+    def test_highpass_cutoff_above_nyquist_error_message_what_why_how(self) -> None:
+        """Test WHAT/WHY/HOW structure of cutoff error message."""
+        invalid_cutoff = 10000.0
+        nyquist = _SR / 2
 
         with pytest.raises(ValueError) as exc_info:
-            HighPassFilter(self.sample_rate, invalid_cutoff)
+            HighPassFilter(_SR, invalid_cutoff)
 
         error_msg = str(exc_info.value)
-        # Check WHAT
+        # WHAT
         assert "Cutoff frequency out of valid range" in error_msg
         assert f"{invalid_cutoff}" in error_msg
-        # Check WHY
+        # WHY
         assert "Nyquist" in error_msg
         assert f"{nyquist}" in error_msg
         # Check HOW
         assert "Solutions:" in error_msg
         assert "resample" in error_msg.lower()
+
+    # -- Layer 2: Domain tests (physics) -----------------------------------
+
+    def test_highpass_composite_attenuates_below_cutoff(self, composite_50hz_1khz_dask: tuple[DaArray, int]) -> None:
+        """50 Hz component (below 500 Hz cutoff) must be attenuated >20 dB."""
+        dask_input, sr = composite_50hz_1khz_dask
+        hpf = HighPassFilter(sr, _CUTOFF_HPF, _ORDER)
+        input_copy = dask_input.compute().copy()
+
+        # Act
+        result_da = hpf.process(dask_input)
+
+        # Assert 1: Immutability — input unchanged
+        assert result_da is not dask_input
+        np.testing.assert_array_equal(dask_input.compute(), input_copy)
+
+        # Assert 2: Dask graph preserved
+        assert isinstance(result_da, DaArray)
+
+        # Assert 3: Value — frequency-domain verification
+        result = result_da.compute()
+        fft_orig = np.abs(np.fft.rfft(input_copy[0]))
+        fft_filt = np.abs(np.fft.rfft(result[0]))
+        freq_bins = np.fft.rfftfreq(sr, 1 / sr)
+
+        low_idx = np.argmin(np.abs(freq_bins - _LOW_FREQ))
+        high_idx = np.argmin(np.abs(freq_bins - _HIGH_FREQ))
+
+        # 50 Hz (below cutoff): >20 dB attenuation (ratio < 0.1)
+        assert fft_filt[low_idx] < 0.1 * fft_orig[low_idx], (
+            "HPF must attenuate 50 Hz component by >20 dB (4th-order Butterworth)"
+        )
+        # 1000 Hz (above cutoff): <1 dB attenuation (ratio > 0.89)
+        assert fft_filt[high_idx] > 0.89 * fft_orig[high_idx], "HPF must preserve 1000 Hz component within 1 dB"
+
+    # -- Layer 3: Integration test (wrapper equivalence) --------------------
+
+    def test_highpass_matches_scipy_filtfilt(self, composite_50hz_1khz_dask: tuple[DaArray, int]) -> None:
+        """HPF result must exactly match direct scipy.signal.filtfilt call."""
+        dask_input, sr = composite_50hz_1khz_dask
+        hpf = HighPassFilter(sr, _CUTOFF_HPF, _ORDER)
+
+        result = hpf.process(dask_input).compute()
+
+        # Reference: same Butterworth coefficients + filtfilt
+        nyquist = sr / 2
+        b, a = signal.butter(_ORDER, _CUTOFF_HPF / nyquist, btype="high")
+        raw_input = dask_input.compute()
+        expected = signal.filtfilt(b, a, raw_input, axis=1)
+
+        # Same algorithm, exact numeric result expected
+        np.testing.assert_allclose(result, expected)
 
 
 class TestLowPassFilter:
