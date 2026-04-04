@@ -316,7 +316,7 @@ def test_read_wav_int16_pcm_raw_values_preserved(tmp_path) -> None:
     # Exact match: raw int16 values cast to float32 (same algorithm, no transform)
     np.testing.assert_array_equal(computed[0], int16_left.astype(np.float32))
     np.testing.assert_array_equal(computed[1], int16_right.astype(np.float32))
-    assert computed.dtype == np.float32
+    assert computed.dtype == np.float32, f"Expected float32, got {computed.dtype}"
 
 
 def test_read_wav_int16_normalized_to_float_range(tmp_path) -> None:
@@ -340,7 +340,7 @@ def test_read_wav_int16_normalized_to_float_range(tmp_path) -> None:
     # Theoretical: 16384 / 32768 = 0.5 exactly; rtol=1e-4 for float32 rounding
     np.testing.assert_allclose(computed[0], 0.5, rtol=1e-4)
     np.testing.assert_allclose(computed[1], -0.5, rtol=1e-4)
-    assert computed.dtype == np.float32
+    assert computed.dtype == np.float32, f"Expected float32, got {computed.dtype}"
 
 
 def test_write_wav_roundtrip_preserves_shape_and_sr(tmp_path) -> None:
