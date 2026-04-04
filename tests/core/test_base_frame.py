@@ -991,20 +991,20 @@ class TestBaseFrameInitialization:
         """Set up test fixtures."""
         self.sample_rate = 16000
 
-    def test_init_with_1d_data(self) -> None:
-        """Test initialization with 1D data reshapes to 2D."""
+    def test_init_with_1d_data_reshapes_to_2d(self) -> None:
+        """Test initialization with 1D data reshapes to 2D with Dask preserved."""
         data_1d = np.linspace(0.1, 1.0, 16000)
-        # Use channel-wise chunks for single channel: reshape to (1, n)
         dask_data_1d: DaArray = da_from_array(data_1d.reshape(1, -1), chunks=(1, -1))
         frame = ChannelFrame(data=dask_data_1d, sampling_rate=self.sample_rate)
         assert frame.n_channels == 1
         assert frame.shape == (16000,)
-        # Ensure internal data is 2D
         assert frame._data.ndim == 2
         assert frame._data.shape == (1, 16000)
+        # Pillar 1: Internal data remains Dask
+        assert isinstance(frame._data, DaArray)
 
-    def test_init_without_channel_metadata(self) -> None:
-        """Test that default channel metadata is created."""
+    def test_init_without_channel_metadata_creates_defaults(self) -> None:
+        """Test that default channel metadata is created with correct labels."""
         data = np.linspace(0.1, 1.0, 48000).reshape(3, 16000)
         dask_data: DaArray = da_from_array(data, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
@@ -1012,6 +1012,7 @@ class TestBaseFrameInitialization:
         assert frame.channels[0].label == "ch0"
         assert frame.channels[1].label == "ch1"
         assert frame.channels[2].label == "ch2"
+        assert isinstance(frame._data, DaArray)
 
     def test_init_with_operation_history(self) -> None:
         """Test initialization with operation history."""
