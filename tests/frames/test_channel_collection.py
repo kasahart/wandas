@@ -10,9 +10,13 @@ class TestChannelFrameCollection:
         cf = ChannelFrame.from_numpy(arr, sampling_rate=1000, ch_labels=["L", "R"])
         new_ch = np.ones(8)
         cf2 = cf.add_channel(new_ch, label="mono")
+        assert cf2 is not cf  # Pillar 1: immutability
+        assert cf.n_channels == 2  # Pillar 1: original unchanged
         assert cf2.n_channels == 3
         assert [ch.label for ch in cf2._channel_metadata] == ["L", "R", "mono"]
         cf3 = cf2.remove_channel("R")
+        assert cf3 is not cf2  # Pillar 1: immutability
+        assert cf2.n_channels == 3  # Pillar 1: original unchanged
         assert cf3.n_channels == 2
         assert [ch.label for ch in cf3._channel_metadata] == ["L", "mono"]
         cf2.add_channel(np.zeros(8), label="zero", inplace=True)
