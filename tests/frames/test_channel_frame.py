@@ -392,6 +392,8 @@ class TestChannelFrame:
 
         # Slice all channels
         result = self.channel_frame["ch0"]
+        assert result is not self.channel_frame  # Pillar 1: immutability
+        assert isinstance(result._data, DaArray)  # Pillar 1: Dask laziness
         assert isinstance(result, ChannelFrame)
         assert result.n_channels == 1
         assert result.n_samples == 16000
@@ -403,6 +405,7 @@ class TestChannelFrame:
         np.testing.assert_array_equal(result.data, self.data[0])
 
         result = self.channel_frame["ch1"]
+        assert result is not self.channel_frame  # Pillar 1: immutability
         assert isinstance(result, ChannelFrame)
         assert result.n_channels == 1
         assert result.n_samples == 16000
