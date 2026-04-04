@@ -325,22 +325,21 @@ def test_source_file_none_roundtrip(tmp_path: Path) -> None:
 
 
 def test_load_wdf_from_url(tmp_path: Path) -> None:
-    """Test that wdf_io.load can download a WDF file from a URL.
+    """Test WDF load from mocked URL preserves data and metadata (Pillar 2, 4).
 
-    urllib.request.urlopen is mocked so no real network call is made.
-    The in-memory WDF bytes are served as if fetched from http://example.com.
+    Verifies urlopen is called, numerical data matches (rtol=1e-5 for float32),
+    and label/channel metadata survives the URL download path.
     """
     from unittest.mock import MagicMock, patch
 
-    # Create a valid WDF file in a temp path and read its bytes.
+    rng = np.random.default_rng(42)
     sr = 8000
-    data = np.random.default_rng(42).standard_normal((2, sr)).astype(np.float32)
+    data = rng.standard_normal((2, sr)).astype(np.float32)
     cf = ChannelFrame.from_numpy(data, sr, label="URL Test", ch_labels=["A", "B"])
     wdf_path = tmp_path / "test_url.wdf"
     cf.save(wdf_path)
     wdf_bytes = wdf_path.read_bytes()
 
-    # Mock urlopen to return the WDF bytes.
     mock_resp = MagicMock()
     mock_resp.__enter__ = MagicMock(return_value=mock_resp)
     mock_resp.__exit__ = MagicMock(return_value=False)
@@ -356,6 +355,7 @@ def test_load_wdf_from_url(tmp_path: Path) -> None:
     assert cf2.label == "URL Test"
     assert cf2._channel_metadata[0].label == "A"
     assert cf2._channel_metadata[1].label == "B"
+    # Float32 HDF5 round-trip: rtol=1e-5 for float32 precision
     np.testing.assert_allclose(cf2.compute(), data, rtol=1e-5)
 
 
