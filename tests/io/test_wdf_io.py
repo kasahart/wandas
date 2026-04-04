@@ -84,6 +84,9 @@ def test_save_load_roundtrip(tmp_path: Path) -> None:
     # Verify channel data — HDF5 round-trip with same dtype: exact match expected
     np.testing.assert_array_equal(cf2.data, cf.data)
 
+    # Verify Dask lazy loading preserved after WDF load (Pillar 1)
+    assert isinstance(cf2._data, dask.array.core.Array), "WDF load must produce Dask array"
+
     # Verify channel metadata
     assert cf2._channel_metadata[0].label == "Left"
     assert cf2._channel_metadata[0].unit == "Pa"
