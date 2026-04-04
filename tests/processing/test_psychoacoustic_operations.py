@@ -243,8 +243,8 @@ class TestLoudnessZwtv:
         op = LoudnessZwtv(_SR, field_type="free")
         duration = 0.1
         # Generate white noise at moderate level
-        np.random.seed(42)
-        noise = np.random.normal(0, 0.02, (1, int(_SR * duration)))
+        rng = np.random.default_rng(42)
+        noise = rng.normal(0, 0.02, (1, int(_SR * duration)))
 
         result = op.process_array(noise).compute()
 
@@ -593,8 +593,8 @@ class TestLoudnessZwst:
         op = LoudnessZwst(_SR, field_type="free")
         duration = 0.1
         # Generate white noise at moderate level
-        np.random.seed(42)
-        noise = np.random.normal(0, 0.02, (1, int(_SR * duration)))
+        rng = np.random.default_rng(42)
+        noise = rng.normal(0, 0.02, (1, int(_SR * duration)))
 
         result = op.process_array(noise).compute()
 

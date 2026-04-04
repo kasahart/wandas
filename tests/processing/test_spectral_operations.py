@@ -134,7 +134,7 @@ class TestFFTOperation:
 
     def test_fft_truncation_longer_than_n_fft(self) -> None:
         """FFT truncates signal longer than n_fft."""
-        long_signal = np.random.randn(2048)
+        long_signal = np.random.default_rng(42).standard_normal(2048)
         fft_op = FFT(_SR, n_fft=1024)
         result = fft_op.process_array(np.array([long_signal])).compute()
         assert result.shape == (1, 1024 // 2 + 1)
