@@ -1,5 +1,6 @@
 """Tests for visualization type definitions."""
 
+from contextlib import contextmanager
 from typing import Any
 from unittest import mock
 
@@ -11,6 +12,20 @@ from wandas.visualization.types import (
     SpectralConfig,
     WaveformConfig,
 )
+
+
+@contextmanager
+def _suppress_display():
+    """Patch display / Audio / plt.close to avoid GUI side-effects in tests.
+
+    Yields the mock_display object so callers can assert call counts.
+    """
+    with (
+        mock.patch("wandas.frames.channel.display") as mock_display,
+        mock.patch("wandas.frames.channel.Audio"),
+        mock.patch("matplotlib.pyplot.close"),
+    ):
+        yield mock_display
 
 
 class TestWaveformConfig:
@@ -409,11 +424,7 @@ class TestTypedDictIntegration:
         }
 
         # Mock display to avoid showing plots in tests
-        with (
-            mock.patch("wandas.frames.channel.display") as mock_display,
-            mock.patch("wandas.frames.channel.Audio"),
-            mock.patch("matplotlib.pyplot.close"),
-        ):
+        with _suppress_display() as mock_display:
             cf.describe(**config)  # ty: ignore[invalid-argument-type]
 
         # describe() must trigger display at least once
@@ -452,11 +463,7 @@ class TestTypedDictIntegration:
             "vmax": -20,
         }
 
-        with (
-            mock.patch("wandas.frames.channel.display") as mock_display,
-            mock.patch("wandas.frames.channel.Audio"),
-            mock.patch("matplotlib.pyplot.close"),
-        ):
+        with _suppress_display() as mock_display:
             # Apply same config to all signals
             for signal in signals:
                 signal.describe(**shared_config)  # ty: ignore[invalid-argument-type]
@@ -489,11 +496,7 @@ class TestTypedDictIntegration:
             "cmap": "magma",
         }
 
-        with (
-            mock.patch("wandas.frames.channel.display") as mock_display,
-            mock.patch("wandas.frames.channel.Audio"),
-            mock.patch("matplotlib.pyplot.close"),
-        ):
+        with _suppress_display() as mock_display:
             # Test all variants
             cf.describe(**base_config)  # ty: ignore[invalid-argument-type]
             cf.describe(**acoustic_config)  # ty: ignore[invalid-argument-type]
