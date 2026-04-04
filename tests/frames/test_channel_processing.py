@@ -12,15 +12,19 @@ from wandas.utils.util import calculate_rms
 
 _da_from_array = da.from_array
 
+# --- Module-level deterministic test data ---
+_SAMPLE_RATE: int = 16000
+_rng = np.random.default_rng(42)
+_DATA_2CH: np.ndarray = _rng.random((2, 16000))  # 2 channels, 1 second
+_DASK_2CH: DaArray = _da_from_array(_DATA_2CH, chunks=(1, 4000))
+
 
 class TestChannelProcessing:
     def setup_method(self) -> None:
         """Set up test fixtures for each test."""
-        # Deterministic data with fixed seed for reproducibility (Grand Policy anti-pattern: no random data)
-        self.sample_rate: float = 16000
-        rng = np.random.default_rng(42)
-        self.data: np.ndarray = rng.random((2, 16000))  # 2 channels, 1 second
-        self.dask_data: DaArray = _da_from_array(self.data, chunks=(1, 4000))
+        self.sample_rate: float = _SAMPLE_RATE
+        self.data: np.ndarray = _DATA_2CH
+        self.dask_data: DaArray = _DASK_2CH
         self.channel_frame: ChannelFrame = ChannelFrame(
             data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
         )
