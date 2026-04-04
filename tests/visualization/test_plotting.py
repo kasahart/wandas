@@ -1062,11 +1062,9 @@ class TestPlotting:
 
     def test_noct_strategy_with_different_n_values(self) -> None:
         """Test NOctPlotStrategy with different N values."""
-
         strategy = NOctPlotStrategy()
 
-        # Temporarily save label and set to None
-        original_label = self.mock_noct_frame.label
+        # Use a frame with label=None to verify auto-generated title
         self.mock_noct_frame.label = None
 
         # Test with n=1 (1-octave)
@@ -1080,9 +1078,6 @@ class TestPlotting:
         result = strategy.plot(self.mock_noct_frame, overlay=True)
         assert isinstance(result, Axes)
         assert "1/12-Octave Spectrum" in result.get_title()
-
-        # Restore label
-        self.mock_noct_frame.label = original_label
 
     def test_multiple_operations_history(self) -> None:
         """Test frame with multiple operation history entries."""
