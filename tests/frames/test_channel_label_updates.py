@@ -14,21 +14,23 @@ from wandas.frames.channel import ChannelFrame
 
 _da_from_array = da.from_array
 
+# --- Module-level deterministic test data (signal content irrelevant for label tests) ---
+_SAMPLE_RATE: float = 16000
+_rng = np.random.default_rng(42)
+_DATA_2CH: np.ndarray = _rng.random((2, 16000))  # 2 channels, 1 second
+_DATA_1CH: np.ndarray = _rng.random((1, 16000))  # 1 channel, 1 second
+_DASK_2CH = _da_from_array(_DATA_2CH, chunks=(1, 4000))
+_DASK_1CH = _da_from_array(_DATA_1CH, chunks=(1, 4000))
+
 
 class TestChannelLabelUpdates:
     """Test channel label updates for unary operations."""
 
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: float = 16000
-        self.data: np.ndarray = np.random.default_rng(42).random((2, 16000))  # 2 channels, 1 second
-        self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
-
     def test_normalize_updates_channel_labels(self) -> None:
         """Test that normalize operation updates channel labels."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             label="test_audio",
             channel_metadata=[
                 {"label": "ch0", "unit": "", "extra": {}},
@@ -46,8 +48,8 @@ class TestChannelLabelUpdates:
     def test_low_pass_filter_updates_labels(self) -> None:
         """Test that low_pass_filter updates channel labels."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             label="test_audio",
             channel_metadata=[
                 {"label": "acc_x", "unit": "m/s^2", "extra": {}},
@@ -62,8 +64,8 @@ class TestChannelLabelUpdates:
     def test_high_pass_filter_updates_labels(self) -> None:
         """Test that high_pass_filter updates channel labels."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[
                 {"label": "signal_a", "unit": "V", "extra": {}},
                 {"label": "signal_b", "unit": "V", "extra": {}},
@@ -80,8 +82,8 @@ class TestChannelLabelUpdates:
     def test_band_pass_filter_updates_labels(self) -> None:
         """Test that band_pass_filter updates channel labels."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[
                 {"label": "mic1", "unit": "Pa", "extra": {}},
                 {"label": "mic2", "unit": "Pa", "extra": {}},
@@ -95,8 +97,8 @@ class TestChannelLabelUpdates:
     def test_a_weighting_updates_labels(self) -> None:
         """Test that a_weighting updates channel labels."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[
                 {"label": "audio_left", "unit": "Pa", "extra": {}},
                 {"label": "audio_right", "unit": "Pa", "extra": {}},
@@ -110,8 +112,8 @@ class TestChannelLabelUpdates:
     def test_sound_level_updates_labels(self) -> None:
         """Test that sound_level operation updates channel labels."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[
                 {"label": "audio_left", "unit": "Pa", "extra": {}},
                 {"label": "audio_right", "unit": "Pa", "extra": {}},
@@ -125,8 +127,8 @@ class TestChannelLabelUpdates:
     def test_sound_level_linear_output_updates_labels(self) -> None:
         """Test that linear sound_level output uses RMS-aware labels."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[
                 {"label": "audio_left", "unit": "Pa", "extra": {}},
                 {"label": "audio_right", "unit": "Pa", "extra": {}},
@@ -140,8 +142,8 @@ class TestChannelLabelUpdates:
     def test_abs_updates_labels(self) -> None:
         """Test that abs operation updates channel labels."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[
                 {"label": "ch0", "unit": "", "extra": {}},
                 {"label": "ch1", "unit": "", "extra": {}},
@@ -155,8 +157,8 @@ class TestChannelLabelUpdates:
     def test_power_updates_labels(self) -> None:
         """Test that power operation updates channel labels."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[
                 {"label": "signal", "unit": "V", "extra": {}},
                 {"label": "reference", "unit": "V", "extra": {}},
@@ -171,17 +173,11 @@ class TestChannelLabelUpdates:
 class TestChainedOperationLabels:
     """Test label updates for chained operations."""
 
-    def setup_method(self) -> None:
-        """Set up test fixtures."""
-        self.sample_rate: float = 16000
-        self.data: np.ndarray = np.random.default_rng(42).random((1, 16000))  # 1 channel
-        self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
-
     def test_chained_operations_nest_labels(self) -> None:
         """Test that chained operations properly nest labels."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_1CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
         )
 
@@ -192,8 +188,8 @@ class TestChainedOperationLabels:
     def test_triple_chained_operations(self) -> None:
         """Test three operations chained together."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_1CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[{"label": "raw", "unit": "", "extra": {}}],
         )
 
@@ -204,8 +200,8 @@ class TestChainedOperationLabels:
     def test_chained_operations_preserve_metadata(self) -> None:
         """Test that chained operations preserve non-label metadata."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_1CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[{"label": "ch0", "unit": "Pa", "extra": {"sensor_id": 123}}],
         )
 
@@ -221,23 +217,17 @@ class TestChainedOperationLabels:
 class TestBinaryOperationLabelCompatibility:
     """Test that updated labels work with binary operations."""
 
-    def setup_method(self) -> None:
-        """Set up test fixtures."""
-        self.sample_rate: float = 16000
-        self.data: np.ndarray = np.random.default_rng(42).random((1, 16000))
-        self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
-
     def test_binary_op_with_processed_frame(self) -> None:
         """Test binary operation with a frame that has updated labels."""
         frame1 = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_1CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
         ).normalize()
 
         frame2 = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_1CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
         )
 
@@ -250,14 +240,14 @@ class TestBinaryOperationLabelCompatibility:
     def test_add_two_processed_frames(self) -> None:
         """Test adding two frames with different processing."""
         frame1 = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_1CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
         ).normalize()
 
         frame2 = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_1CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
         ).low_pass_filter(cutoff=1000)
 
@@ -271,17 +261,11 @@ class TestBinaryOperationLabelCompatibility:
 class TestEdgeCases:
     """Test edge cases for label updates."""
 
-    def setup_method(self) -> None:
-        """Set up test fixtures."""
-        self.sample_rate: float = 16000
-        self.data: np.ndarray = np.random.default_rng(42).random((1, 16000))
-        self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
-
     def test_operation_on_single_channel(self) -> None:
         """Test operations on single-channel frame."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_1CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[{"label": "mono", "unit": "", "extra": {}}],
         )
 
@@ -293,8 +277,8 @@ class TestEdgeCases:
     def test_operation_with_special_characters_in_label(self) -> None:
         """Test that special characters in labels are handled correctly."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_1CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[{"label": "sensor-1_output", "unit": "", "extra": {}}],
         )
 
@@ -307,8 +291,8 @@ class TestEdgeCases:
         from wandas.core.metadata import ChannelMetadata
 
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_1CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[ChannelMetadata(label="ch0", unit="Pa", ref=2e-5, extra={"calibration": 1.0})],
         )
 
@@ -326,17 +310,11 @@ class TestEdgeCases:
 class TestBackwardCompatibility:
     """Test backward compatibility with existing code."""
 
-    def setup_method(self) -> None:
-        """Set up test fixtures."""
-        self.sample_rate: float = 16000
-        self.data: np.ndarray = np.random.default_rng(42).random((2, 16000))
-        self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
-
     def test_default_channel_labels_still_work(self) -> None:
         """Test that default channel labels (ch0, ch1, ...) still work."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
         )
 
         # Default labels should be ch0, ch1
@@ -349,8 +327,8 @@ class TestBackwardCompatibility:
     def test_operation_history_still_tracked(self) -> None:
         """Test that operation history is still tracked correctly."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
         )
 
         result = frame.normalize().low_pass_filter(cutoff=1000)
@@ -363,8 +341,8 @@ class TestBackwardCompatibility:
     def test_previous_reference_maintained(self) -> None:
         """Test that the previous frame reference is maintained."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
         )
 
         result = frame.normalize()
@@ -376,17 +354,11 @@ class TestBackwardCompatibility:
 class TestAddChannelWithLabelPrefix:
     """Test add_channel with label prefix for ChannelFrame input."""
 
-    def setup_method(self) -> None:
-        """Set up test fixtures."""
-        self.sample_rate: float = 16000
-        self.data: np.ndarray = np.random.default_rng(42).random((2, 16000))
-        self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
-
     def test_add_channel_frame_with_label_prefix(self) -> None:
         """Test that label parameter adds prefix to ChannelFrame channel labels."""
         frame1 = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[
                 {"label": "left", "unit": "", "extra": {}},
                 {"label": "right", "unit": "", "extra": {}},
@@ -395,8 +367,8 @@ class TestAddChannelWithLabelPrefix:
 
         # Create another frame to add (same structure)
         frame2 = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[
                 {"label": "left", "unit": "", "extra": {}},
                 {"label": "right", "unit": "", "extra": {}},
@@ -417,8 +389,8 @@ class TestAddChannelWithLabelPrefix:
     def test_add_channel_frame_without_label_prefix(self) -> None:
         """Test that without label parameter, original labels are used."""
         frame1 = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[
                 {"label": "left", "unit": "", "extra": {}},
                 {"label": "right", "unit": "", "extra": {}},
@@ -426,8 +398,8 @@ class TestAddChannelWithLabelPrefix:
         )
 
         frame2 = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[
                 {"label": "vocals", "unit": "", "extra": {}},
                 {"label": "instrumental", "unit": "", "extra": {}},
@@ -441,14 +413,14 @@ class TestAddChannelWithLabelPrefix:
     def test_add_channel_frame_with_label_prefix_and_suffix_on_dup(self) -> None:
         """Test label prefix with suffix_on_dup for handling duplicates."""
         frame1 = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
         )
 
         frame2 = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
         )
 
@@ -464,17 +436,11 @@ class TestAddChannelWithLabelPrefix:
 class TestRenameChannels:
     """Test rename_channels method."""
 
-    def setup_method(self) -> None:
-        """Set up test fixtures."""
-        self.sample_rate: float = 16000
-        self.data: np.ndarray = np.random.default_rng(42).random((2, 16000))
-        self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
-
     def test_rename_channels_by_index(self) -> None:
         """Test renaming channels using index keys."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[
                 {"label": "ch0", "unit": "", "extra": {}},
                 {"label": "ch1", "unit": "", "extra": {}},
@@ -488,8 +454,8 @@ class TestRenameChannels:
     def test_rename_channels_by_label(self) -> None:
         """Test renaming channels using label keys."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[
                 {"label": "ch0", "unit": "", "extra": {}},
                 {"label": "ch1", "unit": "", "extra": {}},
@@ -503,8 +469,8 @@ class TestRenameChannels:
     def test_rename_channels_partial(self) -> None:
         """Test renaming only some channels."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[
                 {"label": "ch0", "unit": "", "extra": {}},
                 {"label": "ch1", "unit": "", "extra": {}},
@@ -518,8 +484,8 @@ class TestRenameChannels:
     def test_rename_channels_inplace(self) -> None:
         """Test renaming channels with inplace=True."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[
                 {"label": "ch0", "unit": "", "extra": {}},
                 {"label": "ch1", "unit": "", "extra": {}},
@@ -534,8 +500,8 @@ class TestRenameChannels:
     def test_rename_channels_nonexistent_index_error(self) -> None:
         """Test error when renaming non-existent index."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
         )
 
@@ -545,8 +511,8 @@ class TestRenameChannels:
     def test_rename_channels_nonexistent_label_error(self) -> None:
         """Test error when renaming non-existent label."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
         )
 
@@ -556,8 +522,8 @@ class TestRenameChannels:
     def test_rename_channels_duplicate_error(self) -> None:
         """Test error when rename would create duplicate labels."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}, {"label": "ch1", "unit": "", "extra": {}}],
         )
 
@@ -569,8 +535,8 @@ class TestRenameChannels:
         from wandas.core.metadata import ChannelMetadata
 
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[
                 ChannelMetadata(label="ch0", unit="Pa", ref=2e-5, extra={"calibration": 1.0}),
                 ChannelMetadata(label="ch1", unit="V", ref=1.0, extra={"gain": 10}),
@@ -590,8 +556,8 @@ class TestRenameChannels:
     def test_rename_channels_noop_succeeds(self) -> None:
         """Test that renaming a channel to its current label (no-op) succeeds."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[
                 {"label": "ch0", "unit": "", "extra": {}},
                 {"label": "ch1", "unit": "", "extra": {}},
@@ -605,8 +571,8 @@ class TestRenameChannels:
     def test_rename_channels_swap_succeeds(self) -> None:
         """Test that swapping two channel labels succeeds without duplicate error."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[
                 {"label": "ch0", "unit": "", "extra": {}},
                 {"label": "ch1", "unit": "", "extra": {}},
@@ -620,8 +586,8 @@ class TestRenameChannels:
     def test_rename_channels_mixed_key_duplicate_index_error(self) -> None:
         """Test error when both an int index and a string label target the same channel."""
         frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
+            data=_DASK_2CH,
+            sampling_rate=_SAMPLE_RATE,
             channel_metadata=[
                 {"label": "ch0", "unit": "", "extra": {}},
                 {"label": "ch1", "unit": "", "extra": {}},
