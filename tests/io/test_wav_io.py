@@ -133,10 +133,7 @@ def test_read_wav_bytes_dc_signal() -> None:
     data_left = np.full(n_samples, 0.25, dtype=np.float32)
     data_right = np.full(n_samples, 0.75, dtype=np.float32)
     stereo_data = np.column_stack((data_left, data_right))
-
-    wav_buffer = io.BytesIO()
-    wavfile.write(wav_buffer, sr, stereo_data)
-    wav_bytes = wav_buffer.getvalue()
+    wav_bytes = _make_wav_bytes(sr, stereo_data)
 
     cf = ChannelFrame.read_wav(wav_bytes)
 
@@ -160,10 +157,7 @@ def test_read_wav_from_url_via_requests_mock() -> None:
     data_left = np.full(n_samples, 0.5, dtype=np.float32)
     data_right = np.full(n_samples, 1.0, dtype=np.float32)
     stereo_data = np.column_stack((data_left, data_right))
-
-    wav_buffer = io.BytesIO()
-    wavfile.write(wav_buffer, sr, stereo_data)
-    wav_bytes = wav_buffer.getvalue()
+    wav_bytes = _make_wav_bytes(sr, stereo_data)
 
     mock_response = MagicMock()
     mock_response.content = wav_bytes
