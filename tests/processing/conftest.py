@@ -7,6 +7,7 @@ following the Grand Policy fixture naming convention (_dask suffix).
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
+from scipy.signal import unit_impulse
 
 from wandas.utils.dask_helpers import da_from_array
 
@@ -94,8 +95,6 @@ def impulse_highsr_dask() -> tuple[DaArray, int]:
     High sr needed to accurately capture A-weighting curve up to 20 kHz.
     """
     sr = 300000
-    from scipy.signal import unit_impulse
-
     data = unit_impulse(sr).reshape(1, -1)
     return da_from_array(data, chunks=(1, -1)), sr
 
