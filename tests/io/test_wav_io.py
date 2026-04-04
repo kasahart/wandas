@@ -1,5 +1,6 @@
 # tests/io/test_wav_io.py
 import io
+from contextlib import contextmanager
 from typing import BinaryIO, cast
 from unittest.mock import MagicMock, patch
 
@@ -10,6 +11,24 @@ from scipy.io import wavfile
 
 from wandas.frames.channel import ChannelFrame
 from wandas.io import write_wav
+
+
+def _make_wav_bytes(sr: int, data: np.ndarray) -> bytes:
+    """Create in-memory WAV bytes from sample data (samples x channels)."""
+    buf = io.BytesIO()
+    wavfile.write(buf, sr, data)
+    return buf.getvalue()
+
+
+@contextmanager
+def _mock_urlopen(wav_bytes: bytes):
+    """Context manager that mocks urllib.request.urlopen to return wav_bytes."""
+    mock_resp = MagicMock()
+    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+    mock_resp.__exit__ = MagicMock(return_value=False)
+    mock_resp.read = MagicMock(return_value=wav_bytes)
+    with patch("urllib.request.urlopen", return_value=mock_resp) as mock_fn:
+        yield mock_fn
 
 
 def test_read_wav_lazy_loading(create_test_wav) -> None:
@@ -164,93 +183,61 @@ def test_read_wav_from_url_via_requests_mock() -> None:
 
 
 def test_from_file_url_wav() -> None:
-    """
-    Test that ChannelFrame.from_file transparently downloads a WAV URL.
+    """Test from_file with HTTPS WAV URL: data, SR, provenance metadata (Pillar 2).
 
-    urllib.request.urlopen is mocked so no real network call is made.
-    The test verifies that:
-    - The URL is passed to urlopen
-    - The returned bytes are read as a WAV ChannelFrame
-    - Sampling rate and channel data are correct
+    Verifies urlopen is called, data matches, and source_file/label are set.
     """
     url = "https://example.com/audio/sample.wav"
-
-    sampling_rate = 22050
-    num_samples = 100
-    data_left = np.full(num_samples, 0.3, dtype=np.float32)
-    data_right = np.full(num_samples, 0.7, dtype=np.float32)
+    sr = 22050
+    n_samples = 100
+    data_left = np.full(n_samples, 0.3, dtype=np.float32)
+    data_right = np.full(n_samples, 0.7, dtype=np.float32)
     stereo_data = np.column_stack((data_left, data_right))
+    wav_bytes = _make_wav_bytes(sr, stereo_data)
 
-    wav_buffer = io.BytesIO()
-    wavfile.write(wav_buffer, sampling_rate, stereo_data)
-    wav_bytes = wav_buffer.getvalue()
+    with _mock_urlopen(wav_bytes) as mock_fn:
+        cf = ChannelFrame.from_file(url)
 
-    # Build a mock response context manager that returns the WAV bytes
-    mock_resp = MagicMock()
-    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-    mock_resp.__exit__ = MagicMock(return_value=False)
-    mock_resp.read = MagicMock(return_value=wav_bytes)
-
-    with patch("urllib.request.urlopen", return_value=mock_resp) as mock_urlopen:
-        channel_frame = ChannelFrame.from_file(url)
-
-    mock_urlopen.assert_called_once_with(url, timeout=10.0)
-    assert channel_frame.sampling_rate == sampling_rate
-    assert len(channel_frame) == 2
-    computed = channel_frame.compute()
+    mock_fn.assert_called_once_with(url, timeout=10.0)
+    assert cf.sampling_rate == sr
+    assert len(cf) == 2
+    computed = cf.compute()
+    # Float32 DC signal: rtol=1e-5 for float32 precision
     np.testing.assert_allclose(computed[0], data_left, rtol=1e-5)
     np.testing.assert_allclose(computed[1], data_right, rtol=1e-5)
-    # URL should be recorded as the source for provenance
-    assert channel_frame.metadata.source_file == url
-    assert channel_frame.label == "sample"
+    # Provenance metadata (Pillar 2)
+    assert cf.metadata.source_file == url
+    assert cf.label == "sample"
 
 
 def test_from_file_url_http_scheme() -> None:
     """Test that plain http:// URLs are also handled by from_file."""
     url = "http://example.com/audio/sample.wav"
+    sr = 8000
+    n_samples = 50
+    mono_data = np.full(n_samples, 0.5, dtype=np.float32)
+    wav_bytes = _make_wav_bytes(sr, mono_data)
 
-    sampling_rate = 8000
-    num_samples = 50
-    mono_data = np.full(num_samples, 0.5, dtype=np.float32)
+    with _mock_urlopen(wav_bytes):
+        cf = ChannelFrame.from_file(url)
 
-    wav_buffer = io.BytesIO()
-    wavfile.write(wav_buffer, sampling_rate, mono_data)
-    wav_bytes = wav_buffer.getvalue()
-
-    mock_resp = MagicMock()
-    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-    mock_resp.__exit__ = MagicMock(return_value=False)
-    mock_resp.read = MagicMock(return_value=wav_bytes)
-
-    with patch("urllib.request.urlopen", return_value=mock_resp):
-        channel_frame = ChannelFrame.from_file(url)
-
-    assert channel_frame.sampling_rate == sampling_rate
-    assert len(channel_frame) == 1
+    assert cf.sampling_rate == sr
+    assert len(cf) == 1
 
 
 def test_from_file_url_with_query_string() -> None:
     """Test that URL query strings don't break extension inference."""
     url = "https://example.com/audio/sample.wav?token=abc123&foo=bar"
+    sr = 16000
+    n_samples = 50
+    mono_data = np.full(n_samples, 0.4, dtype=np.float32)
+    wav_bytes = _make_wav_bytes(sr, mono_data)
 
-    sampling_rate = 16000
-    num_samples = 50
-    mono_data = np.full(num_samples, 0.4, dtype=np.float32)
+    with _mock_urlopen(wav_bytes):
+        cf = ChannelFrame.from_file(url)
 
-    wav_buffer = io.BytesIO()
-    wavfile.write(wav_buffer, sampling_rate, mono_data)
-    wav_bytes = wav_buffer.getvalue()
-
-    mock_resp = MagicMock()
-    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-    mock_resp.__exit__ = MagicMock(return_value=False)
-    mock_resp.read = MagicMock(return_value=wav_bytes)
-
-    with patch("urllib.request.urlopen", return_value=mock_resp):
-        channel_frame = ChannelFrame.from_file(url)
-
-    assert channel_frame.sampling_rate == sampling_rate
-    assert len(channel_frame) == 1
+    assert cf.sampling_rate == sr
+    assert len(cf) == 1
 
 
 def test_from_file_url_download_failure() -> None:
