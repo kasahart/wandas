@@ -127,8 +127,8 @@ def test_read_wav_custom_labels_propagated(tmp_path) -> None:
 
     labels = ["Left Channel", "Right Channel"]
     cf = ChannelFrame.read_wav(str(filepath), labels=labels)
-    assert cf.channels[0].label == "Left Channel"
-    assert cf.channels[1].label == "Right Channel"
+    assert cf.channels[0].label == "Left Channel", f"Label mismatch: {cf.channels[0].label}"
+    assert cf.channels[1].label == "Right Channel", f"Label mismatch: {cf.channels[1].label}"
 
 
 def test_read_wav_bytes_dc_signal() -> None:
