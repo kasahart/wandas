@@ -388,7 +388,7 @@ def test_get_channel_dict_query_numeric_attr_returns_match() -> None:
         expected_negative = positive_data ** (-1)
         np.testing.assert_array_equal(computed_negative, expected_negative)
 
-    def test_pow_operator_chaining(self) -> None:
+    def test_pow_operator_chaining_returns_channel_frame(self) -> None:
         """Test chaining power operations with other operations."""
         # Chain power with other operations
 
@@ -530,7 +530,7 @@ def test_visualize_graph_exception_returns_none_and_logs(caplog) -> None:
 
         # end
 
-    def test_pow_operator_single_channel(self) -> None:
+    def test_pow_operator_single_channel_correct_result(self) -> None:
         """Test __pow__ with single channel frame."""
         # Get single channel
         single_channel = self.channel_frame.get_channel(0)
@@ -548,7 +548,7 @@ def test_visualize_graph_exception_returns_none_and_logs(caplog) -> None:
         expected = self.data[0:1] ** 3
         np.testing.assert_array_equal(computed, expected)
 
-    def test_pow_operator_complex_expressions(self) -> None:
+    def test_pow_operator_complex_expression_magnitude(self) -> None:
         """Test __pow__ in complex mathematical expressions."""
         # Test expression like: sqrt(x**2 + y**2) for magnitude calculation
         x_data = np.sin(np.linspace(0, 4 * np.pi, 16000))
@@ -611,7 +611,7 @@ class TestBaseFrameChannelMetadata:
         assert frame.channels[0]["gain"] == 0.8
         assert frame.channels[1].label == "right"
 
-    def test_channel_metadata_validation_error(self) -> None:
+    def test_channel_metadata_invalid_dict_raises_value_error(self) -> None:
         """Test that invalid dict raises ValueError with validation error."""
         invalid_metadata = [
             {"label": "ch0", "unit": "V", "extra": {}},
@@ -624,7 +624,7 @@ class TestBaseFrameChannelMetadata:
                 channel_metadata=invalid_metadata,
             )
 
-    def test_channel_metadata_type_error(self) -> None:
+    def test_channel_metadata_invalid_type_raises_type_error(self) -> None:
         """Test that invalid type raises TypeError."""
         invalid_metadata = [
             {"label": "ch0", "unit": "V", "extra": {}},
@@ -648,7 +648,7 @@ class TestBaseFrameSpecialMethods:
         self.dask_data: DaArray = da_from_array(self.data, chunks=(1, -1))
         self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
-    def test_len(self) -> None:
+    def test_len_returns_channel_count(self) -> None:
         """Test __len__ returns number of channels."""
         assert len(self.channel_frame) == 3
 
@@ -667,7 +667,7 @@ class TestBaseFrameSpecialMethods:
         # Pillar 1: Original unchanged after iteration
         np.testing.assert_array_equal(self.channel_frame._data.compute(), original_data)
 
-    def test_array_no_dtype(self) -> None:
+    def test_array_no_dtype_returns_ndarray(self) -> None:
         """Test __array__ implicit conversion to NumPy array."""
         arr = np.array(self.channel_frame)
         assert isinstance(arr, np.ndarray)
@@ -681,20 +681,20 @@ class TestBaseFrameSpecialMethods:
         # float64→float32 conversion tolerance
         np.testing.assert_allclose(arr, self.data.astype(np.float32), rtol=1e-6)
 
-    def test_to_numpy(self) -> None:
+    def test_to_numpy_returns_correct_array(self) -> None:
         """Test to_numpy method."""
         arr = self.channel_frame.to_numpy()
         assert isinstance(arr, np.ndarray)
         np.testing.assert_array_equal(arr, self.channel_frame.data)
 
-    def test_to_dataframe(self) -> None:
+    def test_to_dataframe_returns_correct_shape(self) -> None:
         """Test to_dataframe method."""
         df = self.channel_frame.to_dataframe()
         assert isinstance(df, pd.DataFrame)
         assert df.shape[0] == 16000  # n_samples
         assert df.shape[1] == 3  # n_channels
 
-    def test_labels_property(self) -> None:
+    def test_labels_property_returns_string_list(self) -> None:
         """Test labels property returns list of channel labels."""
         labels = self.channel_frame.labels
         assert isinstance(labels, list)
@@ -829,11 +829,11 @@ class TestBaseFrameUtilityMethods:
         # Pillar 1: Dask preserved in chained result
         assert isinstance(result._data, DaArray)
 
-    def test_n_channels_property(self) -> None:
+    def test_n_channels_property_returns_correct_count(self) -> None:
         """Test n_channels property."""
         assert self.channel_frame.n_channels == 2
 
-    def test_channels_property(self) -> None:
+    def test_channels_property_returns_metadata_list(self) -> None:
         """Test channels property."""
         channels = self.channel_frame.channels
         assert isinstance(channels, list)
@@ -1072,7 +1072,7 @@ class TestBaseFrameRelabelChannels:
             channel_metadata=metadata_objs,
         )
 
-    def test_relabel_channels_basic(self) -> None:
+    def test_relabel_channels_appends_operation_name(self) -> None:
         """Test _relabel_channels with operation name."""
         new_metadata = self.channel_frame._relabel_channels("normalize")
         assert len(new_metadata) == 2
@@ -1096,12 +1096,12 @@ class TestBaseFrameDebugMethods:
         self.dask_data: DaArray = da_from_array(self.data, chunks=(1, -1))
         self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
-    def test_debug_info(self) -> None:
+    def test_debug_info_runs_without_error(self) -> None:
         """Test debug_info method runs without error."""
         # This method logs debug info, just ensure it doesn't crash
         self.channel_frame.debug_info()
 
-    def test_print_operation_history_method(self) -> None:
+    def test_print_operation_history_internal_method_runs(self) -> None:
         """Test _print_operation_history internal method."""
         # Test with empty history
         self.channel_frame._print_operation_history()
