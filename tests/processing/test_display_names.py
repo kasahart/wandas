@@ -1,5 +1,7 @@
 """Tests for display names in all audio operations."""
 
+import numpy as np
+
 from wandas.processing.effects import (
     AddWithSNR,
     Fade,
@@ -156,11 +158,10 @@ class TestEffectDisplayNames:
 
     def test_add_with_snr_display_name(self) -> None:
         """Test that AddWithSNR returns '+SNR' as display name."""
-        import dask.array as da
-        import numpy as np
+        from wandas.utils.dask_helpers import da_from_array
 
         # Deterministic dummy noise signal (values irrelevant for display name test)
-        noise = da.from_array(np.ones((1, 1000)), chunks=(1, 1000))
+        noise = da_from_array(np.ones((1, 1000)), chunks=(1, 1000))
         op = AddWithSNR(sampling_rate=44100, other=noise, snr=10.0)
         assert op.get_display_name() == "+SNR"
 
