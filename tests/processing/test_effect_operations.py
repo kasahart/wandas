@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from dask.array.core import Array as DaArray
 
 from wandas.processing.base import create_operation, get_operation
@@ -256,8 +257,6 @@ class TestNormalize:
 
     def test_normalize_invalid_norm_raises_error(self) -> None:
         """Test that invalid norm type provides WHAT/WHY/HOW error."""
-        import pytest
-
         with pytest.raises(ValueError) as exc_info:
             Normalize(sampling_rate=44100, norm="invalid")  # ty: ignore[invalid-argument-type]
 
@@ -430,8 +429,6 @@ class TestNormalize:
 
     def test_negative_norm_error_message(self) -> None:
         """Test that negative norm (except -np.inf) provides helpful error message."""
-        import pytest
-
         with pytest.raises(ValueError) as exc_info:
             Normalize(sampling_rate=44100, norm=-2)
 
@@ -446,8 +443,6 @@ class TestNormalize:
 
     def test_negative_threshold_error_message(self) -> None:
         """Test that negative threshold provides helpful error message."""
-        import pytest
-
         with pytest.raises(ValueError) as exc_info:
             Normalize(sampling_rate=44100, threshold=-0.5)
 
