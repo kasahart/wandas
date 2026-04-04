@@ -868,23 +868,30 @@ class TestBaseFrameIndexing:
         )
 
     def test_getitem_with_string_label(self) -> None:
-        """Test __getitem__ with string label."""
+        """Test __getitem__ with string label returns new instance with Dask preserved."""
         result = self.channel_frame["ch1"]
         assert isinstance(result, ChannelFrame)
+        assert result is not self.channel_frame
         assert result.n_channels == 1
         assert result.channels[0].label == "ch1"
+        # Pillar 1: Dask laziness preserved
+        assert isinstance(result._data, DaArray)
 
     def test_getitem_with_list_of_strings(self) -> None:
         """Test __getitem__ with list of string labels."""
         result = self.channel_frame[["ch0", "ch2"]]
+        assert result is not self.channel_frame
         assert result.n_channels == 2
         assert result.channels[0].label == "ch0"
         assert result.channels[1].label == "ch2"
+        assert isinstance(result._data, DaArray)
 
     def test_getitem_with_list_of_ints(self) -> None:
-        """Test __getitem__ with list of integers."""
+        """Test __getitem__ with list of integers preserves data and Dask."""
         result = self.channel_frame[[0, 2, 3]]
+        assert result is not self.channel_frame
         assert result.n_channels == 3
+        assert isinstance(result._data, DaArray)
         np.testing.assert_array_equal(result.compute(), self.data[[0, 2, 3]])
 
     def test_getitem_with_empty_list_error(self) -> None:
