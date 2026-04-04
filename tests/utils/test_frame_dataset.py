@@ -970,8 +970,8 @@ class TestSampledFrameDataset:
             result = sampled_ds[0]
             assert result is None
 
-    def test_apply_chains_transform_correctly(self, create_test_files: Path) -> None:
-        """Apply on sampled dataset chains transform correctly."""
+    def test_apply_creates_correct_chain_structure(self, create_test_files: Path) -> None:
+        """Apply on sampled dataset creates correct dataset chain structure."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         sampled_ds = dataset.sample(n=1, seed=42)
@@ -982,7 +982,6 @@ class TestSampledFrameDataset:
 
         transformed_sampled = sampled_ds.apply(transform_gain)
 
-        # Basic verification
         assert isinstance(transformed_sampled, _SampledFrameDataset)
         assert transformed_sampled._original_dataset is not dataset
         assert transformed_sampled._original_dataset._transform is transform_gain
@@ -990,24 +989,24 @@ class TestSampledFrameDataset:
         assert len(transformed_sampled) == 1
         assert all(not lf.is_loaded for lf in transformed_sampled._lazy_frames)
 
-        # Get original frame
+    def test_apply_transform_produces_correct_output(self, create_test_files: Path) -> None:
+        """Apply transform on sampled dataset produces numerically correct output."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        sampled_ds = dataset.sample(n=1, seed=42)
+
+        def transform_gain(f: ChannelFrame) -> ChannelFrame:
+            assert f is not None, "Input frame to transform_gain is None"
+            return f * 3
+
+        transformed_sampled = sampled_ds.apply(transform_gain)
+
         original_index = getattr(sampled_ds, "_original_indices")[0]
         original_frame = dataset[original_index]
-
-        # Get sampled frame
-        sampled_frame = sampled_ds[0]
         assert original_frame is not None
-        assert sampled_frame is not None
-        np.testing.assert_allclose(
-            sampled_frame.compute(),
-            original_frame.compute(),
-            err_msg="Data mismatch between dataset and sampled_ds",
-        )
 
-        # Get and verify transformed frame
         final_frame = transformed_sampled[0]
         assert final_frame is not None
-        assert original_frame is not None
         expected_data = original_frame.compute() * 3
         np.testing.assert_allclose(
             final_frame.compute(),
@@ -1015,9 +1014,17 @@ class TestSampledFrameDataset:
             err_msg="Data mismatch after applying transform",
         )
 
-        # Verify cache is working
-        cached_final_frame = transformed_sampled[0]
-        assert cached_final_frame is final_frame
+    def test_apply_transform_caches_result(self, create_test_files: Path) -> None:
+        """Transformed sampled dataset caches result on second access."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        sampled_ds = dataset.sample(n=1, seed=42)
+
+        transformed_sampled = sampled_ds.apply(lambda f: f * 3)
+
+        first_access = transformed_sampled[0]
+        cached_access = transformed_sampled[0]
+        assert cached_access is first_access
 
     def test_load_file_direct_raises_not_implemented(self, create_test_files: Path) -> None:
         """Direct _load_file raises NotImplementedError."""
