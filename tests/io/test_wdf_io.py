@@ -227,7 +227,7 @@ def test_load_wdf_modified_version_still_loads(tmp_path: Path) -> None:
 
     # Should still load but log a warning
     cf2 = ChannelFrame.load(path)
-    assert cf2.n_samples == sr
+    assert cf2.n_samples == sr, f"Expected {sr} samples after version-modified load, got {cf2.n_samples}"
 
 
 def test_save_non_serializable_op_history(tmp_path: Path) -> None:
