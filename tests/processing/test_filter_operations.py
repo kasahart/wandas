@@ -1,22 +1,17 @@
 from unittest import mock
 
-import dask.array as da
 import numpy as np
 import pytest
 import scipy.signal as signal
 from dask.array.core import Array as DaArray
 
 from wandas.processing.base import create_operation, get_operation
-
-# インポートパスを修正 (filter → filters)
 from wandas.processing.filters import (
     AWeighting,
     BandPassFilter,
     HighPassFilter,
     LowPassFilter,
 )
-
-_da_from_array = da.from_array
 
 # ---------------------------------------------------------------------------
 # Constants shared across filter tests
