@@ -89,6 +89,7 @@ class TestAudioOperation:
         return _TestOp
 
     def test_process_doubles_input(self) -> None:
+        """process() applies _process_array and returns correct DaskArray result."""
         test_op_cls = self._make_test_op_class()
         op = test_op_cls(16000)
         data = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
@@ -100,6 +101,7 @@ class TestAudioOperation:
         np.testing.assert_array_equal(result.compute(), data * 2)
 
     def test_process_preserves_immutability(self) -> None:
+        """Pillar 1: process() does not mutate the input DaskArray."""
         test_op_cls = self._make_test_op_class()
         op = test_op_cls(16000)
         data = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
@@ -111,6 +113,7 @@ class TestAudioOperation:
         np.testing.assert_array_equal(dask_data.compute(), data_copy)
 
     def test_delayed_execution_not_computed_early(self) -> None:
+        """Pillar 1: process() preserves Dask lazy evaluation; no premature compute()."""
         test_op_cls = self._make_test_op_class()
         op = test_op_cls(16000)
         data = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
@@ -123,6 +126,8 @@ class TestAudioOperation:
             mock_compute.assert_called_once()
 
     def test_validate_params_raises_on_invalid(self) -> None:
+        """validate_params() raises ValueError for invalid parameters in __init__."""
+
         class ValidatedOp(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "validated_op"
 
@@ -144,18 +149,22 @@ class TestAudioOperation:
             _ = ValidatedOp(16000, -1)
 
     def test_pure_parameter_default_true(self) -> None:
+        """Default pure parameter is True."""
         test_op_cls = self._make_test_op_class()
         assert test_op_cls(16000).pure is True
 
     def test_pure_parameter_explicit_true(self) -> None:
+        """Explicit pure=True is stored correctly."""
         test_op_cls = self._make_test_op_class()
         assert test_op_cls(16000, pure=True).pure is True
 
     def test_pure_parameter_explicit_false(self) -> None:
+        """Explicit pure=False is stored correctly."""
         test_op_cls = self._make_test_op_class()
         assert test_op_cls(16000, pure=False).pure is False
 
     def test_pure_parameter_forwarded_to_delayed(self) -> None:
+        """pure parameter is forwarded to dask.delayed() call."""
         test_op_cls = self._make_test_op_class()
         test_array = np.array([[1.0, 2.0, 3.0]])
 
@@ -168,14 +177,18 @@ class TestAudioOperation:
                 assert kwargs["pure"] is pure_val
 
     def test_get_metadata_updates_returns_empty_dict(self) -> None:
+        """Base class get_metadata_updates() returns empty dict by default."""
         test_op_cls = self._make_test_op_class()
         assert test_op_cls(16000).get_metadata_updates() == {}
 
     def test_get_display_name_returns_none(self) -> None:
+        """Base class get_display_name() returns None by default."""
         test_op_cls = self._make_test_op_class()
         assert test_op_cls(16000).get_display_name() is None
 
     def test_process_array_not_implemented_raises(self) -> None:
+        """Calling _process_array on base class raises NotImplementedError."""
+
         class IncompleteOp(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "incomplete_op"
 
@@ -184,6 +197,8 @@ class TestAudioOperation:
             op._process_array(np.array([[1.0, 2.0, 3.0]]))
 
     def test_calculate_output_shape_default_returns_input(self) -> None:
+        """Default calculate_output_shape() returns input shape unchanged."""
+
         class SimpleOp(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "simple_op"
 
@@ -196,6 +211,8 @@ class TestAudioOperation:
         assert op.calculate_output_shape((1, 1025)) == (1, 1025)
 
     def test_register_abstract_class_raises(self) -> None:
+        """Registering an abstract AudioOperation subclass raises TypeError."""
+
         class AbstractOp(AudioOperation[NDArrayReal, NDArrayReal], abc.ABC):
             name = "abstract_op"
 
