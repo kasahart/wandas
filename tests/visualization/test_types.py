@@ -1,7 +1,11 @@
 """Tests for visualization type definitions."""
 
 from typing import Any
+from unittest import mock
 
+import numpy as np
+
+import wandas as ws
 from wandas.visualization.types import (
     DescribeParams,
     SpectralConfig,
@@ -377,12 +381,6 @@ class TestTypedDictIntegration:
 
     def test_typeddict_with_real_channelframe(self) -> None:
         """Test TypedDict parameters with actual ChannelFrame instance."""
-        from unittest import mock
-
-        import numpy as np
-
-        import wandas as ws
-
         # Create test signal
         t = np.linspace(0, 1, 16000)
         signal = np.sin(2 * np.pi * 440 * t)
@@ -426,12 +424,6 @@ class TestTypedDictIntegration:
 
     def test_typeddict_reusability(self) -> None:
         """Test reusing TypedDict configurations across multiple calls."""
-        from unittest import mock
-
-        import numpy as np
-
-        import wandas as ws
-
         # Create multiple signals
         signals = []
         for freq in [440, 880, 1320]:
@@ -464,12 +456,6 @@ class TestTypedDictIntegration:
 
     def test_typeddict_config_variants(self) -> None:
         """Test creating config variants from base configuration."""
-        from unittest import mock
-
-        import numpy as np
-
-        import wandas as ws
-
         # Create test signal
         t = np.linspace(0, 1, 16000)
         signal = np.sin(2 * np.pi * 440 * t)
