@@ -5,9 +5,6 @@ from typing import Any, Optional, Union
 from unittest import mock
 
 import dask.array as da
-import matplotlib
-
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
@@ -27,9 +24,6 @@ from wandas.visualization.plotting import (
     get_plot_strategy,
     register_plot_strategy,
 )
-
-# Matplotlibのインタラクティブモードをオフにする
-plt.ioff()
 
 _da_from_array = da.from_array
 
