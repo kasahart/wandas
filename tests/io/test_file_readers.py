@@ -1,7 +1,6 @@
 import io
 import tempfile
 from pathlib import Path
-from unittest import mock
 
 import numpy as np
 import pandas as pd
@@ -327,24 +326,15 @@ class TestGetFileReader:
 
 
 class TestRegisterFileReader:
-    def test_register_file_reader(self) -> None:
-        """Test registering a new file reader."""
+    def test_register_custom_reader_adds_to_registry(self) -> None:
+        """Registering a custom reader makes it retrievable by extension."""
 
-        # Create a custom reader class
         class CustomFileReader(SoundFileReader):
             supported_extensions: list[str] = [".custom"]
 
-        # Get the original count of readers
         original_count: int = len(_file_readers)
-
-        # Register the new reader
         register_file_reader(CustomFileReader)
 
-        # Verify reader was added
         assert len(_file_readers) == original_count + 1
-
-        # Verify the new reader can be retrieved
-        with mock.patch("pathlib.Path.suffix", new_callable=mock.PropertyMock) as mock_suffix:
-            mock_suffix.return_value = ".custom"
-            reader = get_file_reader("test.custom")
-            assert isinstance(reader, CustomFileReader)
+        reader = get_file_reader("test.custom")
+        assert isinstance(reader, CustomFileReader)
