@@ -264,7 +264,9 @@ class TestLoudnessZwtv:
         """Test that process method works with dask arrays."""
         signal_mono, _, _, dask_mono = _loudness_signal()
         op = LoudnessZwtv(_SR, field_type="free")
-        result = op.process(dask_mono).compute()
+        result_da = op.process(dask_mono)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _, _ = loudness_zwtv(signal_mono[0], _SR, field_type="free")
@@ -609,7 +611,9 @@ class TestLoudnessZwst:
         """Test that process method works with dask arrays."""
         signal_mono, _, _, dask_mono = _loudness_signal()
         op = LoudnessZwst(_SR, field_type="free")
-        result = op.process(dask_mono).compute()
+        result_da = op.process(dask_mono)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _ = loudness_zwst(signal_mono[0], _SR, field_type="free")
@@ -916,7 +920,9 @@ class TestRoughnessDw:
         signal_mono, _, _, dask_mono = _roughness_signal()
         op = RoughnessDw(_SR, overlap=0.5)
         overlap = 0.5
-        result = op.process(dask_mono).compute()
+        result_da = op.process(dask_mono)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         r_direct, _, _, _ = roughness_dw_mosqito(signal_mono[0], _SR, overlap=overlap)
@@ -1287,7 +1293,9 @@ class TestRoughnessDwSpec:
         signal_mono, _, dask_mono, _ = _roughness_spec_signal()
         op = RoughnessDwSpec(_SR, overlap=0.5)
         overlap = 0.5
-        result = op.process(dask_mono).compute()
+        result_da = op.process(dask_mono)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         _, r_spec_direct, _, _ = roughness_dw_mosqito(signal_mono[0], _SR, overlap=overlap)
@@ -1574,7 +1582,9 @@ class TestSharpnessDin:
         """Test that process method works with dask arrays."""
         signal_mono, _, dask_mono, _ = _sharpness_signal()
         op = SharpnessDin(_SR)
-        result = op.process(dask_mono).compute()
+        result_da = op.process(dask_mono)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         s_direct, _ = sharpness_din_tv_mosqito(signal_mono[0], _SR)
@@ -1899,7 +1909,9 @@ class TestSharpnessDinSt:
         """Test that process method works with dask arrays."""
         signal_mono, _, dask_mono, _ = _sharpness_signal()
         op = SharpnessDinSt(_SR)
-        result = op.process(dask_mono).compute()
+        result_da = op.process(dask_mono)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         s_direct = sharpness_din_st_mosqito(signal_mono[0], _SR)
