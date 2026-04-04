@@ -112,24 +112,28 @@ class TestSpectralFrame:
         magnitude: NDArrayReal = self.frame.magnitude
         # 結果を評価するために .compute() を呼び出している
         expected: NDArrayReal = np.abs(self.data.compute())
+        # Direct numpy equivalent — default rtol=1e-7 (exact match expected)
         np.testing.assert_allclose(magnitude, expected)
 
     def test_property_phase(self) -> None:
         """Test phase property"""
         phase: NDArrayReal = self.frame.phase
         expected: NDArrayReal = np.angle(self.data.compute())
+        # Direct numpy equivalent — default rtol=1e-7 (exact match expected)
         np.testing.assert_allclose(phase, expected)
 
     def test_property_unwrapped_phase(self) -> None:
         """Test unwrapped_phase property"""
         unwrapped_phase: NDArrayReal = self.frame.unwrapped_phase
         expected: NDArrayReal = np.unwrap(np.angle(self.data.compute()))
+        # Direct numpy equivalent — default rtol=1e-7 (exact match expected)
         np.testing.assert_allclose(unwrapped_phase, expected)
 
     def test_property_power(self) -> None:
         """Test power property"""
         power: NDArrayReal = self.frame.power
         expected: NDArrayReal = np.abs(self.data.compute()) ** 2
+        # Direct numpy equivalent — default rtol=1e-7 (exact match expected)
         np.testing.assert_allclose(power, expected)
 
     def test_property_db(self) -> None:
@@ -138,6 +142,7 @@ class TestSpectralFrame:
         mag: NDArrayReal = np.abs(self.data.compute())
         ref_values: NDArrayReal = np.array([ch.ref for ch in self.channel_metadata])
         expected: NDArrayReal = 20 * np.log10(np.maximum(mag / ref_values[:, np.newaxis], 1e-12))
+        # Direct numpy equivalent — default rtol=1e-7 (exact match expected)
         np.testing.assert_allclose(db, expected)
 
     def test_property_dba(self) -> None:
@@ -162,6 +167,7 @@ class TestSpectralFrame:
         """Test freqs property"""
         freqs: NDArrayReal = self.frame.freqs
         expected: NDArrayReal = np.fft.rfftfreq(_N_FFT, 1.0 / _SAMPLING_RATE)
+        # Frequency axis from np.fft.rfftfreq — default rtol (exact match)
         np.testing.assert_allclose(freqs, expected)
 
     def test_binary_op_with_spectral_frame(self) -> None:
