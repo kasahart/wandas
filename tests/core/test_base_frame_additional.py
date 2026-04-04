@@ -328,13 +328,20 @@ def test_get_channel_query_matches_extra_key():
 def test_len_and_iter_and_getitem_single_channel():
     arr = np.arange(12).reshape(3, 4)
     f = make_frame(arr)
+    original_data = f._data.compute().copy()
+
     assert len(f) == 3
     items = list(iter(f))
     assert len(items) == 3
-    # each iterated item should be a single-channel frame
+    # Each iterated item: single-channel, Dask preserved, new instance
     for i, chf in enumerate(items):
+        assert chf is not f
         assert chf.n_channels == 1
         assert chf.labels == [f"ch{i}"]
+        assert isinstance(chf._data, da.Array)
+
+    # Pillar 1: Iteration does not mutate original
+    np.testing.assert_array_equal(f._data.compute(), original_data)
 
 
 def test_debug_info_logs_and__print_operation_history(capsys, caplog):
