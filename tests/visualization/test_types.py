@@ -410,12 +410,14 @@ class TestTypedDictIntegration:
 
         # Mock display to avoid showing plots in tests
         with (
-            mock.patch("wandas.frames.channel.display"),
+            mock.patch("wandas.frames.channel.display") as mock_display,
             mock.patch("wandas.frames.channel.Audio"),
             mock.patch("matplotlib.pyplot.close"),
         ):
-            # This should work without errors
             cf.describe(**config)  # ty: ignore[invalid-argument-type]
+
+        # describe() must trigger display at least once
+        assert mock_display.call_count >= 1
 
     def test_typeddict_parameter_validation(self) -> None:
         """Test that TypedDict helps catch parameter errors."""
