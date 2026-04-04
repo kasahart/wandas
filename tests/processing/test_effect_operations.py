@@ -224,7 +224,9 @@ class TestAddWithSNR:
         dask_noise = da_from_array(noise, chunks=(1, -1))
         op = AddWithSNR(_SR, dask_noise, 10.0)
 
-        result = op.process(dask_clean).compute()
+        result_da = op.process(dask_clean)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
         assert result.shape == clean.shape
 
 
@@ -298,7 +300,9 @@ class TestNormalize:
         dask_sig = da_from_array(sig, chunks=(1, -1))
         normalize = Normalize(_SR, norm=np.inf, axis=-1)
 
-        result = normalize.process(dask_sig).compute()
+        result_da = normalize.process(dask_sig)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
         max_val = np.max(np.abs(result))
         np.testing.assert_allclose(
             max_val,
@@ -316,7 +320,9 @@ class TestNormalize:
         dask_sig = da_from_array(sig, chunks=(1, -1))
         normalize = Normalize(_SR, norm=1, axis=-1)
 
-        result = normalize.process(dask_sig).compute()
+        result_da = normalize.process(dask_sig)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
         l1 = np.sum(np.abs(result), axis=-1)
         np.testing.assert_allclose(
             l1,
@@ -334,7 +340,9 @@ class TestNormalize:
         dask_sig = da_from_array(sig, chunks=(1, -1))
         normalize = Normalize(_SR, norm=2, axis=-1)
 
-        result = normalize.process(dask_sig).compute()
+        result_da = normalize.process(dask_sig)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
         l2 = np.sqrt(np.sum(result**2, axis=-1))
         np.testing.assert_allclose(
             l2,
@@ -354,7 +362,9 @@ class TestNormalize:
         dask_multi = da_from_array(multi, chunks=(1, -1))
         normalize = Normalize(_SR, norm=np.inf, axis=-1)
 
-        result = normalize.process(dask_multi).compute()
+        result_da = normalize.process(dask_multi)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
         for ch in range(result.shape[0]):
             np.testing.assert_allclose(
                 np.max(np.abs(result[ch])),
@@ -374,7 +384,9 @@ class TestNormalize:
         dask_multi = da_from_array(multi, chunks=(1, -1))
         normalize = Normalize(_SR, norm=np.inf, axis=None)
 
-        result = normalize.process(dask_multi).compute()
+        result_da = normalize.process(dask_multi)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
 
         # Global max should be 1.0
         np.testing.assert_allclose(
@@ -398,7 +410,9 @@ class TestNormalize:
         dask_zero = da_from_array(zero, chunks=(1, -1))
         normalize = Normalize(_SR, norm=np.inf, axis=-1)
 
-        result = normalize.process(dask_zero).compute()
+        result_da = normalize.process(dask_zero)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
         np.testing.assert_allclose(result, 0.0)
 
     def test_normalize_threshold_prevents_amplification(self) -> None:
@@ -408,7 +422,9 @@ class TestNormalize:
 
         # threshold=1e-10 means signals with max < 1e-10 are left as-is
         normalize = Normalize(_SR, norm=np.inf, axis=-1, threshold=1e-10)
-        result = normalize.process(dask_small).compute()
+        result_da = normalize.process(dask_small)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
         assert np.max(np.abs(result)) < 1.0
 
     def test_normalize_fill_true_makes_zero_nonzero(self) -> None:
@@ -417,7 +433,9 @@ class TestNormalize:
         dask_zero = da_from_array(zero, chunks=(1, -1))
         normalize = Normalize(_SR, norm=np.inf, axis=-1, fill=True)
 
-        result = normalize.process(dask_zero).compute()
+        result_da = normalize.process(dask_zero)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
         assert result.shape == zero.shape
         assert not np.allclose(result, 0.0)
         np.testing.assert_allclose(
