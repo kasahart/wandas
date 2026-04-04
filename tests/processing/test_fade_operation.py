@@ -21,7 +21,9 @@ class TestFade:
         dsig = da_from_array(sig, chunks=(1, -1))
 
         op = create_operation("fade", _SR, fade_ms=0.0)
-        out = op.process(dsig).compute()
+        out_da = op.process(dsig)
+        assert isinstance(out_da, DaArray)  # Pillar 1: Dask graph preserved
+        out = out_da.compute()
 
         assert out.shape == sig.shape
         np.testing.assert_array_equal(out, sig)
@@ -65,7 +67,9 @@ class TestFade:
         dsig = da_from_array(sig, chunks=(1, -1))
 
         op = create_operation("fade", 8000, fade_ms=fade_ms)
-        out = op.process(dsig).compute()
+        out_da = op.process(dsig)
+        assert isinstance(out_da, DaArray)  # Pillar 1: Dask graph preserved
+        out = out_da.compute()
         assert out.shape == sig.shape
 
     # -- Layer 3: scipy Tukey reference ------------------------------------
@@ -83,7 +87,9 @@ class TestFade:
         dsig = da_from_array(sig, chunks=(1, -1))
 
         op = create_operation("fade", _SR, fade_ms=fade_ms)
-        out = op.process(dsig).compute()
+        out_da = op.process(dsig)
+        assert isinstance(out_da, DaArray)  # Pillar 1: Dask graph preserved
+        out = out_da.compute()
 
         alpha = Fade.calculate_tukey_alpha(fade_len, n)
         expected = sp_windows.tukey(n, alpha=alpha)
