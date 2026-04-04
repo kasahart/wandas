@@ -1,3 +1,4 @@
+import abc
 from unittest import mock
 
 import numpy as np
@@ -11,6 +12,7 @@ from wandas.processing.base import (
     get_operation,
     register_operation,
 )
+from wandas.processing.filters import HighPassFilter
 from wandas.utils.dask_helpers import da_from_array
 from wandas.utils.types import NDArrayReal
 
@@ -64,7 +66,6 @@ class TestOperationRegistry:
         """Test creating operations of different types."""
         # Create a highpass filter operation
         hpf_op = create_operation("highpass_filter", 16000, cutoff=150.0, order=6)
-        from wandas.processing.filters import HighPassFilter
 
         assert isinstance(hpf_op, HighPassFilter)
         assert hpf_op.cutoff == 150.0
@@ -195,8 +196,6 @@ class TestAudioOperation:
         assert op.calculate_output_shape((1, 1025)) == (1, 1025)
 
     def test_register_abstract_class_raises(self) -> None:
-        import abc
-
         class AbstractOp(AudioOperation[NDArrayReal, NDArrayReal], abc.ABC):
             name = "abstract_op"
 
