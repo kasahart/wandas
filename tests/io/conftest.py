@@ -22,6 +22,9 @@ def known_signal_frame() -> ChannelFrame:
     rng = np.random.default_rng(42)
     sr = 44100
     data = rng.standard_normal((2, sr)).astype(np.float64)
+    # Normalize to [-0.9, 0.9] to ensure FLOAT WAV subtype is used in round-trips
+    max_abs = np.max(np.abs(data))
+    data = data / max_abs * 0.9
     return ChannelFrame.from_numpy(
         data,
         sampling_rate=sr,

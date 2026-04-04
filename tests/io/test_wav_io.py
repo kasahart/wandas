@@ -24,6 +24,29 @@ def test_read_wav_lazy_loading(create_test_wav) -> None:
     assert isinstance(cf._data, dask.array.core.Array), f"Expected Dask array after WAV load, got {type(cf._data)}"
 
 
+def test_wav_float_roundtrip(known_signal_frame, tmp_path) -> None:
+    """Float WAV round-trip: write -> read -> compare (I/O Policy requirement).
+
+    ChannelFrame.to_wav writes IEEE FLOAT when max(abs(data)) <= 1.
+    Reading back with normalize=True should recover data within atol=1e-6
+    (windowing/format conversion tolerance).
+    """
+    wav_path = tmp_path / "float_roundtrip.wav"
+    known_signal_frame.to_wav(str(wav_path))
+
+    loaded = ChannelFrame.read_wav(str(wav_path), normalize=True)
+
+    assert loaded.sampling_rate == known_signal_frame.sampling_rate
+    assert loaded.n_channels == known_signal_frame.n_channels
+    # Float WAV preserves data with high fidelity (atol=1e-6 for format conversion)
+    np.testing.assert_allclose(
+        loaded.compute(),
+        known_signal_frame.compute(),
+        atol=1e-6,
+        err_msg="Float WAV round-trip data mismatch",
+    )
+
+
 def test_read_wav_stereo_dc_signal(tmp_path) -> None:
     """Test reading a stereo WAV with known DC signals.
 
