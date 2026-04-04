@@ -46,7 +46,7 @@ def make_frame(arr: np.ndarray | da.Array, **kwargs) -> DummyFrame:
     return DummyFrame(darr, sampling_rate=100.0, **kwargs)
 
 
-def test_rechunk_fallback_logs_warning(caplog):
+def test_rechunk_failure_fallback_logs_warning(caplog):
     arr = da_from_array(np.arange(6).reshape(2, 3), chunks=(2, 3))
     original = arr.rechunk
     state = {"called": False}
@@ -65,21 +65,21 @@ def test_rechunk_fallback_logs_warning(caplog):
     assert hasattr(f, "_data")
 
 
-def test_get_channel_query_no_match_raises():
+def test_get_channel_query_no_match_raises_key_error():
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(KeyError, match=r"No channels match query"):
         f.get_channel(query="nope")
 
 
-def test_get_channel_query_unknown_key_raises():
+def test_get_channel_query_unknown_key_raises_key_error():
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(KeyError, match=r"Unknown channel metadata key\(s\): unknown"):
         f.get_channel(query={"unknown": "x"})
 
 
-def test_get_channel_query_regex_and_callable():
+def test_get_channel_query_regex_and_callable_returns_matches():
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     import re as _re
@@ -97,7 +97,7 @@ def test_get_channel_query_regex_and_callable():
     assert isinstance(res2._data, da.Array)
 
 
-def test_get_channel_query_dict_regex_value():
+def test_get_channel_dict_query_regex_value_returns_matches():
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     import re as _re
@@ -106,7 +106,7 @@ def test_get_channel_query_dict_regex_value():
     assert len(res) == 2
 
 
-def test_getitem_boolean_mask_length_mismatch():
+def test_getitem_boolean_mask_wrong_length_raises_value_error():
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     mask = np.array([True])
@@ -114,7 +114,7 @@ def test_getitem_boolean_mask_length_mismatch():
         _ = f[mask]
 
 
-def test_getitem_numpy_array_wrong_dtype():
+def test_getitem_numpy_float_array_raises_type_error():
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     a = np.array([0.1, 1.0])
@@ -122,41 +122,41 @@ def test_getitem_numpy_array_wrong_dtype():
         _ = f[a]
 
 
-def test_getitem_empty_list_and_mixed_list_types():
+def test_getitem_empty_list_raises_value_error():
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(ValueError, match=r"Cannot index with an empty list"):
         _ = f[[]]  # empty list index triggers ValueError
 
 
-def test_getitem_mixed_list_types_explicit():
+def test_getitem_mixed_list_types_raises_type_error():
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(TypeError, match=r"List must contain all str or all int"):
         _ = f[[0, "ch0"]]  # ty: ignore[invalid-argument-type]
 
 
-def test_handle_multidim_indexing_invalid_key_length():
+def test_multidim_indexing_invalid_key_length_raises_value_error():
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(ValueError, match=r"Invalid key length"):
         _ = f[(0, slice(None), slice(None))]
 
 
-def test_label2index_keyerror():
+def test_label2index_nonexistent_label_raises_key_error():
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(KeyError, match=r"Channel label 'nope' not found"):
         f.label2index("nope")
 
 
-def test_shape_single_channel():
+def test_shape_single_channel_returns_1d():
     arr = np.arange(3)
     f = make_frame(arr)
     assert f.shape == (3,)
 
 
-def test_compute_non_numpy_raises():
+def test_compute_non_ndarray_result_raises_value_error():
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
 
@@ -169,7 +169,7 @@ def test_compute_non_numpy_raises():
         f.compute()
 
 
-def test_visualize_graph_failure_logs_and_returns_none(caplog):
+def test_visualize_graph_failure_logs_warning_returns_none(caplog):
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
 
@@ -185,14 +185,14 @@ def test_visualize_graph_failure_logs_and_returns_none(caplog):
     assert "Failed to visualize the graph" in caplog.text
 
 
-def test_to_tensor_unsupported_framework():
+def test_to_tensor_unsupported_framework_raises_value_error():
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(ValueError, match=r"Unsupported framework"):
         f.to_tensor(framework="mxnet")
 
 
-def test_to_tensor_missing_torch(monkeypatch):
+def test_to_tensor_torch_not_installed_raises_import_error(monkeypatch):
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     import importlib.util as iu
@@ -202,7 +202,7 @@ def test_to_tensor_missing_torch(monkeypatch):
         f.to_tensor(framework="torch")
 
 
-def test_to_tensor_missing_tf(monkeypatch):
+def test_to_tensor_tensorflow_not_installed_raises_import_error(monkeypatch):
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     import importlib.util as iu
@@ -212,7 +212,7 @@ def test_to_tensor_missing_tf(monkeypatch):
         f.to_tensor(framework="tensorflow")
 
 
-def test_to_dataframe_single_and_multi():
+def test_to_dataframe_single_and_multi_channel_shapes():
     # single channel
     arr1 = np.arange(3)
     f1 = make_frame(arr1)
@@ -228,14 +228,14 @@ def test_to_dataframe_single_and_multi():
     assert df2.shape == (4, 3)
 
 
-def test_array_protocol_dtype():
+def test_array_protocol_dtype_conversion_preserves_type():
     arr = np.arange(6).reshape(2, 3).astype(np.float64)
     f = make_frame(arr)
     a = f.__array__(dtype=np.float32)
     assert a.dtype == np.float32
 
 
-def test_print_operation_history_empty_and_nonempty(capsys):
+def test_print_operation_history_empty_and_populated_output(capsys):
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     f.operation_history = []
@@ -251,7 +251,7 @@ def test_print_operation_history_empty_and_nonempty(capsys):
     assert "2: filter {'cutoff': 1000}" in out2
 
 
-def test_relabel_and_create_new_instance_and_persist_and_type_checks():
+def test_relabel_create_instance_persist_type_validation():
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
 
@@ -293,7 +293,7 @@ def test_relabel_and_create_new_instance_and_persist_and_type_checks():
     assert newf._data is p
 
 
-def test_channel_metadata_invalid_types_and_validation():
+def test_channel_metadata_invalid_types_raises_errors():
     arr = np.arange(6).reshape(2, 3)
     # invalid dict value that fails pydantic validation (ref must be float)
     with pytest.raises(ValueError, match=r"Invalid channel_metadata at index 0"):
@@ -304,14 +304,14 @@ def test_channel_metadata_invalid_types_and_validation():
         make_frame(arr, channel_metadata=[123])
 
 
-def test_get_channel_query_unknown_key_no_validate_raises_no_match():
+def test_get_channel_query_no_validate_unknown_key_raises_no_match():
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(KeyError, match=r"No channels match query"):
         f.get_channel(query={"unknown": "x"}, validate_query_keys=False)
 
 
-def test_get_channel_query_matches_extra_key():
+def test_get_channel_query_extra_key_match_returns_channel():
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(
         arr,
@@ -325,7 +325,7 @@ def test_get_channel_query_matches_extra_key():
     assert res.labels == ["a"]
 
 
-def test_len_and_iter_and_getitem_single_channel():
+def test_len_iter_getitem_single_channel_correctness():
     arr = np.arange(12).reshape(3, 4)
     f = make_frame(arr)
     original_data = f._data.compute().copy()
@@ -344,7 +344,7 @@ def test_len_and_iter_and_getitem_single_channel():
     np.testing.assert_array_equal(f._data.compute(), original_data)
 
 
-def test_debug_info_logs_and__print_operation_history(capsys, caplog):
+def test_debug_info_and_print_operation_history_output(capsys, caplog):
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with caplog.at_level("DEBUG"):
@@ -363,7 +363,7 @@ def test_debug_info_logs_and__print_operation_history(capsys, caplog):
     assert "Operations Applied: 2" in out2
 
 
-def test_to_tensor_torch_and_tensorflow_success(monkeypatch):
+def test_to_tensor_torch_and_tensorflow_fake_modules_succeed(monkeypatch):
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
 
