@@ -46,6 +46,7 @@ class DummyFrame:
     ],
 )
 def test_plot_parametrize(strategy, kwargs, label):
+    """Verify xlabel, ylabel, and alpha forwarding across all plot strategies."""
     frame = DummyFrame()
     strat = strategy()
     if strategy is MatrixPlotStrategy:
@@ -59,6 +60,7 @@ def test_plot_parametrize(strategy, kwargs, label):
 
 @pytest.mark.parametrize("strategy_cls", [WaveformPlotStrategy, FrequencyPlotStrategy, NOctPlotStrategy])
 def test_non_overlay_label_sequence_uses_per_channel_labels(strategy_cls):
+    """Non-overlay mode applies per-channel labels from a sequence."""
     frame = DummyFrame()
     axes = list(strategy_cls().plot(frame, overlay=False, label=["left", "right"]))
 
@@ -68,6 +70,7 @@ def test_non_overlay_label_sequence_uses_per_channel_labels(strategy_cls):
 
 @pytest.mark.parametrize("strategy_cls", [WaveformPlotStrategy, FrequencyPlotStrategy, NOctPlotStrategy])
 def test_non_overlay_label_sequence_length_mismatch_raises_clear_error(strategy_cls):
+    """Label sequence length != channel count raises ValueError with structured message."""
     frame = DummyFrame()
 
     with pytest.raises(ValueError) as exc_info:
