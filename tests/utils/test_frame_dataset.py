@@ -10,13 +10,13 @@ import pytest
 import soundfile as sf
 from matplotlib.axes import Axes
 
-# テスト対象のクラスをインポート
+# Import classes under test
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.utils.frame_dataset import (
     ChannelFrameDataset,
     FrameDataset,
-    LazyFrame,  # 新しいクラスをインポート
+    LazyFrame,  # Import new class
     SpectrogramFrameDataset,
     _SampledFrameDataset,
 )
@@ -381,13 +381,13 @@ class TestChannelFrameDataset:
         )
         # Ensure the frame is marked as None after failure
         assert dataset._lazy_frames[0].frame is None
-        assert dataset._lazy_frames[0].is_loaded is True  # ロードは試みた
+        assert dataset._lazy_frames[0].is_loaded is True  # Load was attempted
 
         # Test _load_all_files catching errors
         caplog.clear()
         dataset_eager = ChannelFrameDataset(str(folder_path), lazy_loading=False)
         assert dataset_eager._lazy_frames[0].frame is None  # Should be None due to load failure
-        # 新しい実装では、エラーログはERRORレベルで出力される
+        # In current implementation, error logs are emitted at ERROR level
         assert any("Failed to load or initialize file" in record.message for record in caplog.records)
 
     def test_apply_lazy_defers_transform(self, create_test_files: Path) -> None:
@@ -472,7 +472,7 @@ class TestChannelFrameDataset:
 
         transformed_dataset = dataset.apply(failing_transform)
 
-        # 新しい実装では例外はキャッチされてNoneが返される
+        # In current implementation, exception is caught and None is returned
         result = transformed_dataset[0]
         assert result is None
 
@@ -711,11 +711,11 @@ class TestChannelFrameDataset:
         output_folder = tmp_path / "output"
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
-        # saveメソッドが未実装のため、NotImplementedErrorが発生することを確認
+        # save method is not implemented, verify NotImplementedError is raised
         with pytest.raises(NotImplementedError, match="The save method is not currently implemented."):
             dataset.save(str(output_folder), filename_prefix="processed_")
 
-        # SpectrogramFrameDatasetのsaveも同様に例外を発生させるか確認
+        # Verify SpectrogramFrameDataset save also raises
         stft_dataset = dataset.stft()
         with pytest.raises(NotImplementedError, match="The save method is not currently implemented."):
             stft_dataset.save(str(output_folder), filename_prefix="spec_")
@@ -747,16 +747,16 @@ class TestSpectrogramFrameDataset:
         # Initialize directly (not the typical way)
         spec_ds = SpectrogramFrameDataset(str(tmp_path), file_extensions=[".npy"])
 
-        # 現在の実装では、_load_fileは例外を投げるが、
-        # _ensure_loadedでそれがキャッチされる
-        # 直接_load_fileを呼び出して例外を確認
+        # Current implementation: _load_file raises exception,
+        # but _ensure_loaded catches it.
+        # Call _load_file directly to verify exception
         with pytest.raises(
             NotImplementedError,
             match="No method defined for directly loading SpectrogramFrames",
         ):
             spec_ds._load_file(dummy_spec_file)
 
-        # __getitem__経由では例外はキャッチされてNoneが返される
+        # Via __getitem__, exception is caught and None is returned
         result = spec_ds[0]
         assert result is None
 
@@ -767,7 +767,7 @@ class TestSpectrogramFrameDataset:
         stft_ds = channel_ds.stft()
 
         def spec_transform(spec_frame: SpectrogramFrame) -> SpectrogramFrame:
-            # より単純な変換関数（amplitude_to_dbは実装されていない可能性があるため）
+            # Simple transform function (amplitude_to_db may not be implemented)
             return spec_frame + 1
 
         transformed_spec_ds = stft_ds.apply(spec_transform)
@@ -826,9 +826,9 @@ class TestSpectrogramFrameDataset:
         # Test plot when frame has no plot method (simulate)
         caplog.clear()
 
-        # plotがないクラスを定義
+        # Define a class without plot method
         with patch.object(SpectrogramFrame, "plot", None):
-            # plotメソッドがないフレームをロードした場合のテスト
+            # Test when loaded frame has no plot method
             stft_ds.plot(0)
             assert any("Frame" in rec.message for rec in caplog.records if rec.levelname == "WARNING")
 
