@@ -1,7 +1,7 @@
 import types
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 from unittest import mock
 
 import dask.array as da
@@ -54,11 +54,11 @@ class TestPlotStrategy(PlotStrategy[Any]):
     def plot(
         self,
         bf: Any,
-        ax: Optional["Axes"] = None,
+        ax: Axes | None = None,
         title: str | None = None,
         overlay: bool = False,
         **kwargs: Any,
-    ) -> Union["Axes", Iterator["Axes"]]:
+    ) -> Axes | Iterator[Axes]:
         if ax is None:
             fig, created_ax = plt.subplots()
             return created_ax
