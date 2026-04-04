@@ -385,7 +385,6 @@ class TestPlotting:
             ax,
             label="Test Single Frequency",
         )
-        # assert ax.get_ylabel() == "Level [dB]"
         # 凡例が表示されていることを確認
         legend = ax.get_legend()
         assert legend is not None
@@ -543,10 +542,6 @@ class TestPlotting:
             # 単一チャネルでもstftメソッドとwelchメソッドが呼び出されることを確認
             self.mock_single_channel_frame.stft.assert_called_once()
             self.mock_single_channel_frame.welch.assert_called_once()
-
-            # # タイトルが設定されていることを確認
-            # mock_ax1.set_title.assert_called()
-            # mock_ax2.set_title.assert_called()
 
     def test_noct_plot_strategy(self) -> None:
         """NOctPlotStrategyのテスト"""
@@ -795,9 +790,6 @@ class TestPlotting:
         assert ax.get_xlabel() == "Frequency [Hz]"
         assert ax.get_ylabel() == "Magnitude"
         assert ax.get_title() == "Single Coherence Test"
-        # 凡例が表示されていることを確認
-        # assert len(ax.get_legend().get_texts()) > 0
-        # assert ax.get_legend().get_texts()[0].get_text() == "ch1-ch1"
         # グリッドが表示されていることを確認
         assert len(ax.xaxis.get_gridlines()) > 0
 
