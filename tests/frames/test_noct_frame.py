@@ -74,6 +74,7 @@ class TestNOctFrame:
             sampling_rate=_SAMPLING_RATE,
         )
         assert minimal_frame.sampling_rate == _SAMPLING_RATE
+        assert isinstance(minimal_frame._data, DaArray)  # Dask laziness preserved
         assert minimal_frame.n == 3  # Default value
         assert minimal_frame.G == 10  # Default value
         assert minimal_frame.fr == 1000  # Default value
