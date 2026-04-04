@@ -1,17 +1,15 @@
-import dask.array as da
 import numpy as np
 import pytest
 
 from wandas.processing.base import _OPERATION_REGISTRY, create_operation, get_operation
 from wandas.processing.custom import CustomOperation
-
-_da_from_array = da.from_array
+from wandas.utils.dask_helpers import da_from_array
 
 
 class TestCustomOperation:
     def test_custom_operation_applies_func_and_params(self) -> None:
         data = np.array([[1.0, 2.0, 3.0]])
-        dask_data = _da_from_array(data, chunks=(1, -1))
+        dask_data = da_from_array(data, chunks=(1, -1))
 
         def scale_add(x: np.ndarray, gain: float) -> np.ndarray:
             return x * gain + 1.0
@@ -23,7 +21,7 @@ class TestCustomOperation:
 
     def test_custom_operation_output_shape_func_overrides(self) -> None:
         data = np.arange(8.0).reshape(1, 8)
-        dask_data = _da_from_array(data, chunks=(1, -1))
+        dask_data = da_from_array(data, chunks=(1, -1))
 
         def halve_samples(x: np.ndarray) -> np.ndarray:
             return x[:, ::2]
