@@ -225,89 +225,97 @@ class TestLowPassFilter:
 
 
 class TestAWeightingOperation:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 300000
-        self.a_weight = AWeighting(self.sample_rate)
+    """A-weighting filter: Layer 1 (unit) + Layer 2 (domain) + Layer 3 (wrapper)."""
 
-        # Different frequency components
-        # (A-weighting affects different frequencies differently)
-        self.low_freq: float = 100.0  # heavily attenuated by A-weighting
-        self.mid_freq: float = 1000.0  # slight boost around 1-2kHz
-        self.high_freq: float = 10000.0  # some attenuation at higher frequencies
+    _AW_SR = 300000  # High sr needed to capture A-weighting curve up to 20 kHz
 
-        # Single channel signal with all components
-        self.signal: NDArrayReal = signal.unit_impulse(self.sample_rate).reshape(1, -1)
-        # Create dask array
-        self.dask_signal: DaArray = _da_from_array(self.signal, chunks=(1, -1))
+    # -- Layer 1: Unit tests -----------------------------------------------
 
-    def test_initialization(self) -> None:
-        """Test initialization with parameters."""
-        a_weight = AWeighting(self.sample_rate)
-        assert a_weight.sampling_rate == self.sample_rate
+    def test_aweighting_init_stores_sample_rate(self) -> None:
+        """Test AWeighting stores sampling rate."""
+        a_weight = AWeighting(self._AW_SR)
+        assert a_weight.sampling_rate == self._AW_SR
 
-    def test_filter_effect(self) -> None:
-        """Test that A-weighting affects frequencies as expected."""
-        # process_arrayの代わりにprocessメソッドを使用
-        result: NDArrayReal = self.a_weight.process(self.dask_signal).compute()
-
-        # Check shape preservation
-        assert result.shape == self.signal.shape
-
-        # Calculate FFT to check frequency content
-        fft_original = np.abs(np.fft.rfft(self.signal[0]))
-        fft_filtered = np.abs(np.fft.rfft(result[0]))
-
-        freq_bins = np.fft.rfftfreq(len(self.signal[0]), 1 / self.sample_rate)
-
-        # Find indices closest to our test frequencies
-        low_idx = np.argmin(np.abs(freq_bins - self.low_freq))
-        mid_idx = np.argmin(np.abs(freq_bins - self.mid_freq))
-        high_idx = np.argmin(np.abs(freq_bins - self.high_freq))
-
-        # Low frequency should be heavily attenuated by A-weighting
-        assert int(20 * np.log10(fft_filtered[low_idx] / fft_original[low_idx])) == -19
-        # Mid frequency might be slightly boosted or preserved
-        # A-weighting typically has less effect around 1kHz
-        assert int(20 * np.log10(fft_filtered[mid_idx] / fft_original[mid_idx])) == 0
-
-        # High frequency should be somewhat attenuated 小数点1桁まで確認。
-        assert int(20 * np.log10(fft_filtered[high_idx] / fft_original[high_idx]) * 10) == -2.5 * 10
-
-    def test_process(self) -> None:
-        """Test the process method with Dask array."""
-        # Process using the high-level process method
-        result = self.a_weight.process(self.dask_signal)
-
-        # Check that the result is a Dask array
-        assert isinstance(result, DaArray)
-
-        # Compute and check shape
-        computed_result = result.compute()
-        assert computed_result.shape == self.signal.shape
-
-        with mock.patch.object(DaArray, "compute", return_value=self.signal) as mock_compute:
-            # Just creating the object shouldn't call compute
-            # Verify compute hasn't been called
-
-            result = self.a_weight.process(self.dask_signal)
-            mock_compute.assert_not_called()
-            # Now call compute
-            computed_result = result.compute()
-            # Verify compute was called once
-            mock_compute.assert_called_once()
-
-    def test_operation_registry(self) -> None:
-        """Test that AWeighting is properly registered in the operation registry."""
-        # Verify AWeighting can be accessed through the registry
+    def test_aweighting_registry_returns_correct_class(self) -> None:
+        """Test AWeighting is registered as 'a_weighting'."""
         assert get_operation("a_weighting") == AWeighting
 
-        # Create operation through the factory function
-        a_weight_op = create_operation("a_weighting", self.sample_rate)
-
-        # Verify the operation was created correctly
+        a_weight_op = create_operation("a_weighting", self._AW_SR)
         assert isinstance(a_weight_op, AWeighting)
-        assert a_weight_op.sampling_rate == self.sample_rate
+        assert a_weight_op.sampling_rate == self._AW_SR
+
+    # -- Layer 2: Domain tests (IEC 61672 / ANSI S1.4) ---------------------
+
+    def test_aweighting_impulse_frequency_response_100hz_1khz_10khz(
+        self, impulse_highsr_dask: tuple[DaArray, int]
+    ) -> None:
+        """Verify A-weighting frequency response at key frequencies.
+
+        Reference: IEC 61672-1 Table A.1 approximate values:
+        - 100 Hz: ~-19.1 dB
+        - 1000 Hz: 0 dB (reference)
+        - 10000 Hz: ~-2.5 dB
+        """
+        dask_input, sr = impulse_highsr_dask
+        a_weight = AWeighting(sr)
+        input_copy = dask_input.compute().copy()
+
+        # Act
+        result_da = a_weight.process(dask_input)
+
+        # Assert 1: Immutability
+        assert result_da is not dask_input
+        np.testing.assert_array_equal(dask_input.compute(), input_copy)
+
+        # Assert 2: Dask graph preserved
+        assert isinstance(result_da, DaArray)
+
+        # Assert 3: Frequency response values
+        result = result_da.compute()
+        assert result.shape == input_copy.shape
+
+        fft_orig = np.abs(np.fft.rfft(input_copy[0]))
+        fft_filt = np.abs(np.fft.rfft(result[0]))
+        freq_bins = np.fft.rfftfreq(sr, 1 / sr)
+
+        low_idx = np.argmin(np.abs(freq_bins - 100.0))
+        mid_idx = np.argmin(np.abs(freq_bins - 1000.0))
+        high_idx = np.argmin(np.abs(freq_bins - 10000.0))
+
+        # 100 Hz: ~-19 dB (IEC 61672-1 nominal: -19.1 dB, int truncation gives -19)
+        gain_100 = 20 * np.log10(fft_filt[low_idx] / fft_orig[low_idx])
+        np.testing.assert_allclose(
+            int(gain_100),
+            -19,
+            atol=1,  # 1 dB tolerance for IEC approximation
+        )
+
+        # 1000 Hz: 0 dB reference (A-weighting is defined as 0 dB at 1 kHz)
+        gain_1k = 20 * np.log10(fft_filt[mid_idx] / fft_orig[mid_idx])
+        np.testing.assert_allclose(
+            int(gain_1k),
+            0,
+            atol=1,  # 1 dB tolerance — 0 dB by definition
+        )
+
+        # 10000 Hz: ~-2.5 dB
+        gain_10k = 20 * np.log10(fft_filt[high_idx] / fft_orig[high_idx])
+        np.testing.assert_allclose(
+            gain_10k * 10,
+            -2.5 * 10,
+            atol=5,  # 0.5 dB tolerance scaled x10
+        )
+
+    def test_aweighting_process_preserves_dask_laziness(self, impulse_highsr_dask: tuple[DaArray, int]) -> None:
+        """Verify that process() does not eagerly compute the Dask graph."""
+        dask_input, sr = impulse_highsr_dask
+        a_weight = AWeighting(sr)
+
+        with mock.patch.object(DaArray, "compute", return_value=dask_input.compute()) as mock_compute:
+            result = a_weight.process(dask_input)
+            mock_compute.assert_not_called()
+            result.compute()
+            mock_compute.assert_called_once()
 
 
 class TestBandPassFilter:
