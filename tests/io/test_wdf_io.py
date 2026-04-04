@@ -1,6 +1,8 @@
 """Tests for WDF (Wandas Data File) I/O functionality."""
 
+from contextlib import contextmanager
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import dask.array
 import h5py
@@ -9,6 +11,17 @@ import pytest
 
 from wandas.frames.channel import ChannelFrame
 from wandas.io import wdf_io
+
+
+@contextmanager
+def _mock_urlopen(content_bytes: bytes):
+    """Context manager that mocks urllib.request.urlopen to return content_bytes."""
+    mock_resp = MagicMock()
+    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+    mock_resp.__exit__ = MagicMock(return_value=False)
+    mock_resp.read = MagicMock(return_value=content_bytes)
+    with patch("urllib.request.urlopen", return_value=mock_resp) as mock_fn:
+        yield mock_fn
 
 
 def test_wdf_roundtrip_known_signal(known_signal_frame, tmp_path: Path) -> None:
@@ -334,8 +347,6 @@ def test_load_wdf_from_url(tmp_path: Path) -> None:
     Verifies urlopen is called, numerical data matches (rtol=1e-5 for float32),
     and label/channel metadata survives the URL download path.
     """
-    from unittest.mock import MagicMock, patch
-
     rng = np.random.default_rng(42)
     sr = 8000
     data = rng.standard_normal((2, sr)).astype(np.float32)
@@ -344,16 +355,11 @@ def test_load_wdf_from_url(tmp_path: Path) -> None:
     cf.save(wdf_path)
     wdf_bytes = wdf_path.read_bytes()
 
-    mock_resp = MagicMock()
-    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-    mock_resp.__exit__ = MagicMock(return_value=False)
-    mock_resp.read = MagicMock(return_value=wdf_bytes)
-
     url = "https://example.com/data/test_url.wdf"
-    with patch("urllib.request.urlopen", return_value=mock_resp) as mock_urlopen:
+    with _mock_urlopen(wdf_bytes) as mock_fn:
         cf2 = wdf_io.load(url)
 
-    mock_urlopen.assert_called_once_with(url, timeout=10.0)
+    mock_fn.assert_called_once_with(url, timeout=10.0)
     assert cf2.sampling_rate == sr
     assert cf2.n_channels == 2
     assert cf2.label == "URL Test"
@@ -366,7 +372,6 @@ def test_load_wdf_from_url(tmp_path: Path) -> None:
 def test_load_wdf_from_url_download_failure() -> None:
     """Test that a URL download failure raises OSError with a clear message."""
     import urllib.error
-    from unittest.mock import patch
 
     url = "https://example.com/data/missing.wdf"
 
