@@ -926,6 +926,9 @@ class TestPlotting:
         fig, ax = plt.subplots()
         result = strategy.plot(spectrogram_frame, ax=ax, Aw=True)
         assert result is ax
+        # dBA mode should label the axes
+        assert result.get_xlabel() == "Time [s]"
+        assert result.get_ylabel() == "Frequency [Hz]"
 
     def test_describe_plot_strategy_edge_cases(self) -> None:
         """Test DescribePlotStrategy edge cases."""
