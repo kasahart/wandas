@@ -12,17 +12,17 @@ from wandas.frames.spectrogram import SpectrogramFrame
 
 _da_from_array = da.from_array
 
+# --- Module-level deterministic test data ---
+_SAMPLE_RATE: float = 16000
+_rng = np.random.default_rng(42)
+_DATA: np.ndarray = _rng.random((2, 16000))  # 2 channels, 1 second
+_DASK_DATA: DaArray = _da_from_array(_DATA, chunks=(1, 4000))
+
 
 class TestChannelTransform:
     def setup_method(self) -> None:
         """Set up test fixtures for each test."""
-        # Create a simple dask array for testing
-        self.sample_rate: float = 16000
-        self.data: np.ndarray = np.random.default_rng(42).random((2, 16000))  # 2 channels, 1 second
-        self.dask_data: DaArray = _da_from_array(self.data, chunks=(1, 4000))
-        self.channel_frame: ChannelFrame = ChannelFrame(
-            data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
-        )
+        self.channel_frame: ChannelFrame = ChannelFrame(data=_DASK_DATA, sampling_rate=_SAMPLE_RATE, label="test_audio")
 
     def test_fft_transform(self) -> None:
         """Test fft method for lazy transformation to frequency domain."""
@@ -43,7 +43,7 @@ class TestChannelTransform:
             result = self.channel_frame.fft(n_fft=4096, window="hamming")
 
             # オペレーションが正しく作成されたか確認
-            mock_create_op.assert_called_with("fft", self.sample_rate, n_fft=4096, window="hamming")
+            mock_create_op.assert_called_with("fft", _SAMPLE_RATE, n_fft=4096, window="hamming")
 
             # processメソッドが呼び出されたか確認
             mock_fft.process.assert_called_once_with(self.channel_frame._data)
@@ -87,7 +87,7 @@ class TestChannelTransform:
             # オペレーションが正しく作成されたか確認
             mock_create_op.assert_called_with(
                 "welch",
-                self.sample_rate,
+                _SAMPLE_RATE,
                 n_fft=2048,
                 hop_length=256,
                 win_length=1024,
@@ -123,7 +123,7 @@ class TestChannelTransform:
             # デフォルトパラメータの確認
             mock_create_op.assert_called_with(
                 "stft",
-                self.sample_rate,
+                _SAMPLE_RATE,
                 n_fft=2048,
                 hop_length=512,  # n_fft//4
                 win_length=2048,
@@ -160,7 +160,7 @@ class TestChannelTransform:
 
             mock_create_op.assert_called_with(
                 "stft",
-                self.sample_rate,
+                _SAMPLE_RATE,
                 n_fft=1024,
                 hop_length=256,
                 win_length=1024,
@@ -193,7 +193,7 @@ class TestChannelTransform:
             # オペレーションが正しく作成されたか確認
             mock_create_op.assert_called_with(
                 "noct_spectrum",
-                self.sample_rate,
+                _SAMPLE_RATE,
                 fmin=fmin,
                 fmax=fmax,
                 n=n,
