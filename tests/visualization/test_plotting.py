@@ -67,11 +67,16 @@ class TestPlotting:
 
         self.original_strategies = _plot_strategies.copy()
 
-        # モックフレームの作成
+        # モックフレームの作成 — 決定論的データ（np.random禁止）
+        _n_samples = 1000
+        _t = np.linspace(0, 1, _n_samples, endpoint=False)
+        _ch0 = np.sin(2 * np.pi * 100 * _t)  # 100 Hz pure sine
+        _ch1 = np.cos(2 * np.pi * 200 * _t)  # 200 Hz pure cosine
+
         self.mock_channel_frame = mock.MagicMock()
         self.mock_channel_frame.n_channels = 2
-        self.mock_channel_frame.time = np.linspace(0, 1, 1000)
-        self.mock_channel_frame.data = np.random.rand(2, 1000)
+        self.mock_channel_frame.time = _t
+        self.mock_channel_frame.data = np.stack([_ch0, _ch1], axis=0)
         self.mock_channel_frame.labels = ["ch1", "ch2"]
         self.mock_channel_frame.label = "Test Channel"
         self.mock_channel_frame.channels = [
@@ -82,8 +87,8 @@ class TestPlotting:
         # 単一チャネル用のモックチャネルフレーム
         self.mock_single_channel_frame = mock.MagicMock()
         self.mock_single_channel_frame.n_channels = 1
-        self.mock_single_channel_frame.time = np.linspace(0, 1, 1000)
-        self.mock_single_channel_frame.data = np.random.rand(1000)
+        self.mock_single_channel_frame.time = _t
+        self.mock_single_channel_frame.data = _ch0
         self.mock_single_channel_frame.labels = ["ch1"]
         self.mock_single_channel_frame.label = "Test Single Channel"
         self.mock_single_channel_frame.channels = [
