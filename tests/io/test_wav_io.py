@@ -269,6 +269,13 @@ def test_from_file_url_download_failure() -> None:
             ChannelFrame.from_file(url)
 
 
+def test_from_file_nonexistent_path_raises_file_not_found(tmp_path) -> None:
+    """Verify from_file raises FileNotFoundError for non-existent path (I/O Policy)."""
+    nonexistent = tmp_path / "does_not_exist.wav"
+    with pytest.raises(FileNotFoundError):
+        ChannelFrame.from_file(str(nonexistent))
+
+
 def test_read_wav_stream_nonseekable() -> None:
     """Test reading a WAV file from a non-seekable stream via ChannelFrame.read_wav."""
     sampling_rate = 22050
