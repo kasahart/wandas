@@ -107,6 +107,7 @@ class TestChannelFrame:
         # Compute and check results
         computed: NDArrayReal = result.compute()
         expected: NDArrayReal = (self.data + 1) * 2
+        # Scalar arithmetic on float64 — decimal=6 default (exact match expected)
         np.testing.assert_array_almost_equal(computed, expected)
 
     def test_persist(self) -> None:
@@ -786,6 +787,7 @@ def test_describe_plot_return_type_error() -> None:
         # Check computation results
         computed = result.compute()
         expected = self.data + other_data
+        # Element-wise addition — decimal=6 default (exact match expected)
         np.testing.assert_array_almost_equal(computed, expected)
 
         # Test sampling rate mismatch error
@@ -833,6 +835,7 @@ def test_describe_plot_return_type_error() -> None:
         # 実際の計算結果を確認
         computed = result.compute()
         expected = self.data + other_data
+        # Element-wise addition — decimal=6 default (exact match expected)
         np.testing.assert_array_almost_equal(computed, expected)
 
         # スカラー値との加算をテスト
@@ -841,6 +844,7 @@ def test_describe_plot_return_type_error() -> None:
         assert isinstance(result, ChannelFrame)
         computed = result.compute()
         expected = self.data + scalar_value
+        # Scalar broadcast addition — decimal=6 default (exact match expected)
         np.testing.assert_array_almost_equal(computed, expected)
 
         # NumPy配列との加算をテスト
@@ -849,6 +853,7 @@ def test_describe_plot_return_type_error() -> None:
         assert isinstance(result, ChannelFrame)
         computed = result.compute()
         expected = self.data + array_value
+        # Array addition — decimal=6 default (exact match expected)
         np.testing.assert_array_almost_equal(computed, expected)
 
         # サンプリングレートが一致しない場合のエラーをテスト
