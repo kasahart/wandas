@@ -49,10 +49,13 @@ class TestChannelTransform:
             mock_fft.process.assert_called_once_with(self.channel_frame._data)
 
             # 結果が正しい型か確認
+            assert result is not self.channel_frame  # Pillar 1: immutability
             assert isinstance(result, SpectralFrame)
             assert result.n_fft == 4096
             assert result.window == "hann"
             assert result.previous is self.channel_frame
+            # Pillar 2: domain transition preserves sampling rate
+            assert result.sampling_rate == self.channel_frame.sampling_rate
 
     def test_welch_transform(self) -> None:
         """
@@ -134,11 +137,14 @@ class TestChannelTransform:
             mock_stft.process.assert_called_once_with(self.channel_frame._data)
 
             # 結果が正しい型か確認
+            assert result is not self.channel_frame  # Pillar 1: immutability
             assert isinstance(result, SpectrogramFrame)
             assert result.n_fft == 2048
             assert result.hop_length == 512
             assert result.win_length == 2048
             assert result.window == "hann"
+            # Pillar 2: domain transition preserves sampling rate
+            assert result.sampling_rate == self.channel_frame.sampling_rate
 
             # カスタムパラメータでテスト
             mock_create_op.reset_mock()
