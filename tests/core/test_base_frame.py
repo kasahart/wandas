@@ -124,18 +124,21 @@ class TestBaseFrameArithmeticOperations:
 
     def test_pow_operator_preserves_metadata(self) -> None:
         """Test that __pow__ preserves channel metadata and labels."""
-        # Set custom metadata
         self.channel_frame.channels[0].label = "left"
         self.channel_frame.channels[0]["gain"] = 0.8
         self.channel_frame.metadata["test_key"] = "test_value"
 
-        # Apply power operation
         result = self.channel_frame**2
 
-        # Check metadata preservation
+        # Pillar 1: New instance
+        assert result is not self.channel_frame
+        assert isinstance(result._data, DaArray)
+
+        # Pillar 2: Metadata preserved/transformed correctly
         assert result.channels[0].label == "(left ** 2)"
-        assert result.channels[0]["gain"] == 0.8  # Arbitrary metadata preserved
+        assert result.channels[0]["gain"] == 0.8
         assert result.metadata["test_key"] == "test_value"
+        assert result.sampling_rate == self.sample_rate
 
     def test_pow_operator_sampling_rate_mismatch_raises_error(self) -> None:
         """Test __pow__ with mismatched sampling rates raises error."""
@@ -159,30 +162,26 @@ class TestBaseFrameArithmeticOperations:
         _ = result.operation_history
         assert isinstance(result._data, DaArray)  # Still lazy after metadata access
 
-    def test_pow_operator_mathematical_correctness(self) -> None:
-        """Test mathematical correctness of power operations."""
-        # Test with known values
+    def test_pow_operator_mathematical_correctness_known_values(self) -> None:
+        """Test mathematical correctness of power operations with analytically known values."""
         known_data = np.array([[2.0, 3.0, 4.0], [1.0, 2.0, 3.0]])
         known_dask = da_from_array(known_data, chunks=(1, -1))
         known_frame = ChannelFrame(data=known_dask, sampling_rate=self.sample_rate, label="known")
 
-        # Test squaring
+        # Squaring: 2^2=4, 3^2=9, 4^2=16, ...
         squared = known_frame**2
-        computed_squared = squared.compute()
-        expected_squared = known_data**2
-        np.testing.assert_array_equal(computed_squared, expected_squared)
+        assert isinstance(squared._data, DaArray)
+        np.testing.assert_array_equal(squared.compute(), known_data**2)  # Exact match, same algorithm
 
-        # Test square root (power of 0.5)
+        # Square root: sqrt(4)=2, sqrt(9)=3, ...
         sqrt_result = known_frame**0.5
-        computed_sqrt = sqrt_result.compute()
-        expected_sqrt = np.sqrt(known_data)
-        np.testing.assert_array_equal(computed_sqrt, expected_sqrt)
+        assert isinstance(sqrt_result._data, DaArray)
+        np.testing.assert_array_equal(sqrt_result.compute(), np.sqrt(known_data))  # Exact match
 
-        # Test cube root (power of 1/3)
+        # Cube root: 8^(1/3)=2, 27^(1/3)=3, ...
         cuberoot_result = known_frame ** (1.0 / 3.0)
-        computed_cuberoot = cuberoot_result.compute()
-        expected_cuberoot = known_data ** (1.0 / 3.0)
-        np.testing.assert_array_equal(computed_cuberoot, expected_cuberoot)
+        assert isinstance(cuberoot_result._data, DaArray)
+        np.testing.assert_array_equal(cuberoot_result.compute(), known_data ** (1.0 / 3.0))  # Exact match
 
 
 def test_get_channel_query_by_regex() -> None:
