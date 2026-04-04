@@ -193,7 +193,7 @@ class TestFrameDatasetABC:
         # テスト用のサブクラスを作成し、抽象メソッドを実装
         class MinimalFrameDataset(FrameDataset[ChannelFrame]):
             def _load_file(self, file_path: Path) -> ChannelFrame | None:
-                return ChannelFrame.from_ndarray(np.zeros((10, 2)), 44100)
+                return ChannelFrame.from_numpy(np.zeros((2, 10)), 44100)
 
         # これは例外を投げない
         try:
