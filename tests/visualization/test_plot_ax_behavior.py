@@ -4,10 +4,6 @@ Visualization policy: Axes Return Type Tests — verify that when an external
 Axes is passed to plot(), it is used as‑is instead of creating a new figure.
 """
 
-import matplotlib
-
-matplotlib.use("Agg")
-
 import matplotlib.pyplot as plt
 
 import wandas as wd

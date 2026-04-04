@@ -451,7 +451,7 @@ class TestTypedDictIntegration:
         }
 
         with (
-            mock.patch("wandas.frames.channel.display"),
+            mock.patch("wandas.frames.channel.display") as mock_display,
             mock.patch("wandas.frames.channel.Audio"),
             mock.patch("matplotlib.pyplot.close"),
         ):
@@ -459,8 +459,8 @@ class TestTypedDictIntegration:
             for signal in signals:
                 signal.describe(**shared_config)  # ty: ignore[invalid-argument-type]
 
-        # All completed successfully
-        assert len(signals) == 3
+        # describe() triggers display for each signal
+        assert mock_display.call_count >= len(signals)
 
     def test_typeddict_config_variants(self) -> None:
         """Test creating config variants from base configuration."""
@@ -488,7 +488,7 @@ class TestTypedDictIntegration:
         }
 
         with (
-            mock.patch("wandas.frames.channel.display"),
+            mock.patch("wandas.frames.channel.display") as mock_display,
             mock.patch("wandas.frames.channel.Audio"),
             mock.patch("matplotlib.pyplot.close"),
         ):
@@ -497,4 +497,5 @@ class TestTypedDictIntegration:
             cf.describe(**acoustic_config)  # ty: ignore[invalid-argument-type]
             cf.describe(**dark_config)  # ty: ignore[invalid-argument-type]
 
-        # All variants executed successfully
+        # 3 describe() calls each trigger at least one display
+        assert mock_display.call_count >= 3
