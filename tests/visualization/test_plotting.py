@@ -847,11 +847,12 @@ class TestPlotting:
             )
 
             assert result is ax
-            # Verify dBA units are used
+            # Verify dBA units and custom color params forwarded to specshow
             mock_specshow.assert_called_once()
             call_args = mock_specshow.call_args
-            assert "cmap" in call_args[1]
             assert call_args[1]["cmap"] == "viridis"
+            assert call_args[1]["vmin"] == -100
+            assert call_args[1]["vmax"] == 0
 
     @staticmethod
     def _make_spectrogram(
