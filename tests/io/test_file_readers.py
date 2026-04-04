@@ -67,9 +67,9 @@ class TestSoundFileReader:
         assert data.shape == (1, self.n_samples)
         np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data[0:1]))
 
-    def test_get_data_with_offset_small(self) -> None:
-        """Test reading with a start offset."""
-        offset: int = 1000
+    @pytest.mark.parametrize("offset", [200, 1000], ids=["offset_200", "offset_1000"])
+    def test_get_data_with_offset(self, offset: int) -> None:
+        """Test reading with various start offsets preserves data slice."""
         data = self.reader.get_data(
             self.test_file,
             channels=[0, 1],
@@ -80,15 +80,17 @@ class TestSoundFileReader:
 
         assert isinstance(data, np.ndarray)
         assert data.shape == (self.n_channels, self.n_samples - offset)
+        # Exact match: same reader, same file, data slice comparison
         np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data[:, offset:]))
 
-    def test_get_data_frame_limit_small(self) -> None:
-        """Test reading with a specified number of frames."""
-        frames: int = 2000
+    @pytest.mark.parametrize("frames", [500, 2000], ids=["frames_500", "frames_2000"])
+    def test_get_data_frame_limit(self, frames: int) -> None:
+        """Test reading with various frame limits returns correct shape and data."""
         data = self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=frames, normalize=True)
 
         assert isinstance(data, np.ndarray)
         assert data.shape == (self.n_channels, frames)
+        # Exact match: same reader, same file, frame-limited comparison
         np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data[:, :frames]))
 
     def test_get_data_file_not_found(self) -> None:
@@ -102,26 +104,6 @@ class TestSoundFileReader:
 
         with pytest.raises(ValueError, match="Unexpected data type after reading file"):
             self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=self.n_samples)
-
-    def test_get_data_with_offset(self) -> None:
-        """Test reading with a start offset."""
-        offset: int = 200
-        data = self.reader.get_data(
-            self.test_file, channels=[0, 1], start_idx=offset, frames=self.n_samples, normalize=True
-        )
-
-        assert isinstance(data, np.ndarray)
-        assert data.shape == (self.n_channels, self.n_samples - offset)
-        np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data[:, offset:]))
-
-    def test_get_data_frame_limit(self) -> None:
-        """Test reading with a specified number of frames."""
-        frames: int = 500
-        data = self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=frames, normalize=True)
-
-        assert isinstance(data, np.ndarray)
-        assert data.shape == (self.n_channels, frames)
-        np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data[:, :frames]))
 
     def test_get_data_invalid_channels(self) -> None:
         """Test error handling with invalid channel indices."""
