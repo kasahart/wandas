@@ -745,6 +745,7 @@ class TestNOctSynthesisOperation:
         expected_signal = expected_signal.T
 
         assert result.shape == expected_signal.shape
+        # Wrapper equivalence: same MoSQITo noct_synthesis call; default tolerance
         np.testing.assert_allclose(result[0], expected_signal[0])
 
     def test_stereo_matches_mosqito_per_channel(self) -> None:
@@ -1001,6 +1002,7 @@ class TestWelchOperation:
         expected **= 0.5
 
         assert result.shape == expected.shape
+        # rtol=1e-6: wrapper equivalence — same scipy.signal.welch algorithm
         np.testing.assert_allclose(result, expected, rtol=1e-6)
 
     def test_amplitude_scaling_sine_wave(self) -> None:
@@ -1158,6 +1160,7 @@ class TestCoherenceOperation:
             detrend=self._DETREND,
         )
         expected = coh.reshape(-1, coh.shape[-1])
+        # rtol=1e-6: wrapper equivalence — same scipy.signal.coherence algorithm
         np.testing.assert_allclose(result, expected, rtol=1e-6)
 
 
@@ -1497,6 +1500,7 @@ class TestTransferFunctionOperation:
         )
         h_f = p_yx / p_xx[np.newaxis, :, :]
         expected = h_f.transpose(1, 0, 2).reshape(-1, h_f.shape[-1])
+        # rtol=1e-6: wrapper equivalence — same scipy CSD/PSD ratio computation
         np.testing.assert_allclose(result, expected, rtol=1e-6)
 
 
@@ -1646,6 +1650,7 @@ class TestNOctSpectrumOperation:
         )
 
         assert result.shape == (2, exp_ch1.shape[0])
+        # rtol=1e-6: wrapper equivalence — same MoSQITo noct_spectrum call per channel
         np.testing.assert_allclose(result[0], exp_ch1, rtol=1e-6)
         np.testing.assert_allclose(result[1], exp_ch2, rtol=1e-6)
         assert not np.allclose(result[0], result[1])
