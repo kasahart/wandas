@@ -310,6 +310,7 @@ class TestRoughnessFrame:
         assert isinstance(result, RoughnessFrame)
         assert result.sampling_rate == frame.sampling_rate
         assert result.overlap == frame.overlap
+        # Scalar addition — np.allclose default tol (exact match expected)
         assert np.allclose(result.data, original_data + 1.0)
         assert np.allclose(frame.data, original_data)  # Pillar 1: original unchanged
 
@@ -335,6 +336,7 @@ class TestRoughnessFrame:
         assert result is not frame2
         assert isinstance(result._data, DaArray)  # Pillar 1: Dask laziness
         assert isinstance(result, RoughnessFrame)
+        # Element-wise addition — np.allclose default tol (exact match expected)
         assert np.allclose(result.data, original_data1 + frame2.data)
         assert np.allclose(frame1.data, original_data1)  # Pillar 1: original unchanged
 
@@ -391,6 +393,7 @@ class TestRoughnessFrame:
         assert result is not frame  # Pillar 1: immutability
         assert isinstance(result._data, DaArray)  # Pillar 1: Dask laziness
         assert isinstance(result, RoughnessFrame)
+        # Array addition — np.allclose default tol (exact match expected)
         assert np.allclose(result.data, original_data + array)
         assert np.allclose(frame.data, original_data)  # Pillar 1: original unchanged
 
