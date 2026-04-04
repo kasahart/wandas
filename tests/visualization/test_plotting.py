@@ -636,72 +636,38 @@ class TestPlotting:
         assert axes_list[0].get_title() == "ch1"
         assert axes_list[0].figure.get_suptitle() == "Custom NOct Title"
 
-    def test_noct_plot_custom_label(self) -> None:
-        """Test that user-specified labels are applied in NOctPlotStrategy."""
+    @pytest.mark.parametrize(
+        "strategy_cls,frame_attr",
+        [
+            (NOctPlotStrategy, "mock_noct_frame"),
+            (WaveformPlotStrategy, "mock_channel_frame"),
+            (FrequencyPlotStrategy, "mock_spectral_frame"),
+        ],
+        ids=["noct", "waveform", "frequency"],
+    )
+    def test_custom_label_overlay_and_per_channel(self, strategy_cls: type, frame_attr: str) -> None:
+        """Verify user-specified labels appear in overlay and per-channel legends."""
+        frame = getattr(self, frame_attr)
+        strategy = strategy_cls()
 
-        strategy = NOctPlotStrategy()
-
-        # Verify custom labels appear in legend with overlay=True
-        result = strategy.plot(self.mock_noct_frame, overlay=True, label="My Custom Label")
+        # overlay=True: single Axes with custom label in legend
+        result = strategy.plot(frame, overlay=True, label="Overlay Label")
         assert isinstance(result, Axes)
         legend = result.get_legend()
         assert legend is not None
         legend_texts = [t.get_text() for t in legend.get_texts()]
-        assert "My Custom Label" in legend_texts
+        assert "Overlay Label" in legend_texts
 
-        # Verify custom labels appear in per-channel legends with overlay=False
-        result = strategy.plot(self.mock_noct_frame, overlay=False, label="Custom Ch Label")
+        # overlay=False: per-channel Axes each with custom label in legend
+        result = strategy.plot(frame, overlay=False, label="Per-Ch Label")
         assert isinstance(result, Iterator)
         axes_list = list(result)
         for ax_i in axes_list:
+            assert isinstance(ax_i, Axes)
             legend = ax_i.get_legend()
             assert legend is not None
             legend_texts = [t.get_text() for t in legend.get_texts()]
-            assert "Custom Ch Label" in legend_texts
-
-    def test_waveform_plot_custom_label(self) -> None:
-        """Test that user-specified labels are applied in WaveformPlotStrategy."""
-        strategy = WaveformPlotStrategy()
-
-        # Verify custom labels appear in legend with overlay=True
-        result = strategy.plot(self.mock_channel_frame, overlay=True, label="My Waveform Label")
-        assert isinstance(result, Axes)
-        legend = result.get_legend()
-        assert legend is not None
-        legend_texts = [t.get_text() for t in legend.get_texts()]
-        assert "My Waveform Label" in legend_texts
-
-        # Verify custom labels appear in per-channel legends with overlay=False
-        result = strategy.plot(self.mock_channel_frame, overlay=False, label="Custom Waveform Label")
-        assert isinstance(result, Iterator)
-        axes_list = list(result)
-        for ax_i in axes_list:
-            legend = ax_i.get_legend()
-            assert legend is not None
-            legend_texts = [t.get_text() for t in legend.get_texts()]
-            assert "Custom Waveform Label" in legend_texts
-
-    def test_frequency_plot_custom_label(self) -> None:
-        """Test that user-specified labels are applied in FrequencyPlotStrategy."""
-        strategy = FrequencyPlotStrategy()
-
-        # Verify custom labels appear in legend with overlay=True
-        result = strategy.plot(self.mock_spectral_frame, overlay=True, label="My Frequency Label")
-        assert isinstance(result, Axes)
-        legend = result.get_legend()
-        assert legend is not None
-        legend_texts = [t.get_text() for t in legend.get_texts()]
-        assert "My Frequency Label" in legend_texts
-
-        # Verify custom labels appear in per-channel legends with overlay=False
-        result = strategy.plot(self.mock_spectral_frame, overlay=False, label="Custom Frequency Label")
-        assert isinstance(result, Iterator)
-        axes_list = list(result)
-        for ax_i in axes_list:
-            legend = ax_i.get_legend()
-            assert legend is not None
-            legend_texts = [t.get_text() for t in legend.get_texts()]
-            assert "Custom Frequency Label" in legend_texts
+            assert "Per-Ch Label" in legend_texts
 
     def test_matrix_plot_strategy(self) -> None:
         """Test MatrixPlotStrategy."""
