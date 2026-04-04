@@ -362,6 +362,7 @@ class TestLoudnessZwtv:
             time_steps = np.diff(time_wandas)
             expected_step = 1.0 / expected_sampling_rate
 
+            # rtol=1e-10: float64 division precision (1/sampling_rate)
             np.testing.assert_allclose(
                 time_steps,
                 expected_step,
@@ -1022,6 +1023,7 @@ class TestRoughnessDw:
             time_steps = np.diff(time_wandas)
             expected_step = 1.0 / expected_sampling_rate
 
+            # rtol=1e-10: float64 division precision (1/sampling_rate)
             np.testing.assert_allclose(
                 time_steps,
                 expected_step,
@@ -1673,6 +1675,7 @@ class TestSharpnessDin:
             time_steps = np.diff(time_wandas)
             expected_step = 1.0 / expected_sampling_rate
 
+            # rtol=1e-10: float64 division precision (1/sampling_rate)
             np.testing.assert_allclose(
                 time_steps,
                 expected_step,
