@@ -30,6 +30,7 @@ from wandas.processing.spectral import (
 )
 from wandas.processing.stats import ABS, ChannelDifference, Mean, Power, Sum
 from wandas.processing.temporal import FixLength, ReSampling, RmsTrend, SoundLevel, Trim
+from wandas.utils.dask_helpers import da_from_array
 
 
 class TestFilterDisplayNames:
@@ -158,7 +159,6 @@ class TestEffectDisplayNames:
 
     def test_add_with_snr_display_name(self) -> None:
         """Test that AddWithSNR returns '+SNR' as display name."""
-        from wandas.utils.dask_helpers import da_from_array
 
         # Deterministic dummy noise signal (values irrelevant for display name test)
         noise = da_from_array(np.ones((1, 1000)), chunks=(1, 1000))

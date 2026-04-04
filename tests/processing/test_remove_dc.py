@@ -3,6 +3,7 @@
 import numpy as np
 
 import wandas as wd
+from wandas.processing import create_operation
 
 _SR: int = 1000
 
@@ -39,7 +40,6 @@ class TestRemoveDC:
 
     def test_remove_dc_direct_operation_1d(self) -> None:
         """RemoveDC operation on 1D array subtracts mean."""
-        from wandas.processing import create_operation
 
         op = create_operation("remove_dc", sampling_rate=_SR)
         data_1d = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
@@ -48,7 +48,6 @@ class TestRemoveDC:
 
     def test_remove_dc_direct_operation_2d(self) -> None:
         """RemoveDC operation on 2D array subtracts per-channel mean."""
-        from wandas.processing import create_operation
 
         op = create_operation("remove_dc", sampling_rate=_SR)
         data_2d = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
