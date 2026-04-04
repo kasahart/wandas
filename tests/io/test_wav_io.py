@@ -204,6 +204,8 @@ def test_from_file_url_wav() -> None:
     mock_fn.assert_called_once_with(url, timeout=10.0)
     assert cf.sampling_rate == sr, f"SR mismatch: {cf.sampling_rate}"
     assert len(cf) == 2, f"Expected 2 channels, got {len(cf)}"
+    # Verify Dask lazy loading from URL path (Pillar 1)
+    assert isinstance(cf._data, dask.array.core.Array), "URL load must produce Dask array"
     computed = cf.compute()
     # Float32 DC signal: rtol=1e-5 for float32 precision
     np.testing.assert_allclose(computed[0], data_left, rtol=1e-5)
