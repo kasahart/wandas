@@ -897,30 +897,19 @@ class TestSampledFrameDataset:
         assert sampled_ds._lazy_frames[0].file_path.name == "test1.wav"
         assert sampled_ds._lazy_frames[1].file_path.name == "test3.csv"
 
-    def test_getitem_loads_and_caches_frames(self, create_test_files: Path) -> None:
-        """__getitem__ loads frames from original dataset and caches them."""
+    def test_getitem_loads_frame_matching_original(self, create_test_files: Path) -> None:
+        """__getitem__ loads frame identical to original dataset's frame."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
-        # Sample from original dataset
         sampled_indices = [0, 2]  # test1.wav, test3.csv
         sampled_ds = _SampledFrameDataset(dataset, sampled_indices)
 
-        assert isinstance(sampled_ds, _SampledFrameDataset)
-        assert sampled_ds._original_dataset is dataset
-        assert sampled_ds._original_indices == sampled_indices
-
-        # Get frame from sampled dataset
         sampled_frame_0 = sampled_ds[0]
-
-        # Get same frame directly from original dataset
         original_frame_0 = dataset[sampled_indices[0]]
 
-        # None check
         assert sampled_frame_0 is not None
         assert original_frame_0 is not None
-
-        # Verify same frame is retrieved
         assert isinstance(sampled_frame_0, ChannelFrame)
         assert sampled_frame_0.label == original_frame_0.label
         np.testing.assert_array_equal(
@@ -929,30 +918,54 @@ class TestSampledFrameDataset:
             err_msg="Sampled dataset frame does not match original",
         )
 
-        # Verify cache is working
+    def test_getitem_caches_loaded_frame(self, create_test_files: Path) -> None:
+        """__getitem__ returns cached instance on second access."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+
+        sampled_ds = _SampledFrameDataset(dataset, [0, 2])
+
+        first_access = sampled_ds[0]
         assert sampled_ds._lazy_frames[0].is_loaded is True
+        second_access = sampled_ds[0]
+        assert second_access is first_access
 
-        # Verify same instance is returned from cache
-        cached_frame = sampled_ds[0]
-        assert cached_frame is sampled_frame_0
+    def test_getitem_multiple_indices_load_correctly(self, create_test_files: Path) -> None:
+        """__getitem__ loads correct frames for all sampled indices."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
-        # Verify second element
+        sampled_indices = [0, 2]
+        sampled_ds = _SampledFrameDataset(dataset, sampled_indices)
+
         sampled_frame_1 = sampled_ds[1]
         original_frame_1 = dataset[sampled_indices[1]]
 
-        assert isinstance(sampled_frame_1, ChannelFrame)
         assert sampled_frame_1 is not None
         assert original_frame_1 is not None
+        assert isinstance(sampled_frame_1, ChannelFrame)
         assert sampled_frame_1.label == original_frame_1.label
         np.testing.assert_array_equal(sampled_frame_1.compute(), original_frame_1.compute())
 
-        # Out-of-range index error test
+    def test_getitem_out_of_range_raises_indexerror(self, create_test_files: Path) -> None:
+        """__getitem__ with out-of-range index raises IndexError."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+
+        sampled_ds = _SampledFrameDataset(dataset, [0, 2])
+
         with pytest.raises(IndexError):
             _ = sampled_ds[2]  # Sampled dataset has only 2 elements
 
-        # Simulate load error from original dataset
+    def test_getitem_original_load_failure_returns_none(self, create_test_files: Path) -> None:
+        """__getitem__ returns None when original dataset fails to load."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+
+        sampled_ds = _SampledFrameDataset(dataset, [0, 2])
+        _ = sampled_ds[0]  # Load first to populate cache
+
         with patch.object(dataset, "_ensure_loaded", return_value=None):
-            # Reset cache for the test
             sampled_ds._lazy_frames[0].reset()
             result = sampled_ds[0]
             assert result is None
