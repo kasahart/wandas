@@ -15,7 +15,6 @@ from wandas.processing.filters import (
     HighPassFilter,
     LowPassFilter,
 )
-from wandas.utils.types import NDArrayReal
 
 _da_from_array = da.from_array
 
@@ -319,117 +318,122 @@ class TestAWeightingOperation:
 
 
 class TestBandPassFilter:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 16000
-        self.low_cutoff: float = 300.0
-        self.high_cutoff: float = 1000.0
-        self.order: int = 4
-        self.bpf: BandPassFilter = BandPassFilter(self.sample_rate, self.low_cutoff, self.high_cutoff, self.order)
+    """Bandpass filter: Layer 1 (unit) + Layer 2 (domain) + Layer 3 (wrapper)."""
 
-        # Create sample data with low, mid, and high frequency components
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)  # 1 second of audio
+    _BPF_LOW = 300.0
+    _BPF_HIGH = 1000.0
 
-        # 100 Hz (below band), 500 Hz (in band), 1500 Hz (above band)
-        self.below_band_freq: float = 100.0
-        self.in_band_freq: float = 500.0
-        self.above_band_freq: float = 1500.0
+    # -- Layer 1: Unit tests ------------------------------------------------
 
-        below_band_signal = np.sin(2 * np.pi * self.below_band_freq * t)
-        in_band_signal = np.sin(2 * np.pi * self.in_band_freq * t)
-        above_band_signal = np.sin(2 * np.pi * self.above_band_freq * t)
+    def test_bandpass_init_default_order_is_four(self) -> None:
+        """Test BPF default order parameter."""
+        bpf = BandPassFilter(_SR, self._BPF_LOW, self._BPF_HIGH)
+        assert bpf.sampling_rate == _SR
+        assert bpf.low_cutoff == self._BPF_LOW
+        assert bpf.high_cutoff == self._BPF_HIGH
+        assert bpf.order == 4  # documented default
 
-        # Single channel signal with all components
-        self.signal: NDArrayReal = np.array([below_band_signal + in_band_signal + above_band_signal])
+    def test_bandpass_init_custom_order_stored(self) -> None:
+        """Test BPF stores custom order."""
+        bpf = BandPassFilter(_SR, self._BPF_LOW, self._BPF_HIGH, order=6)
+        assert bpf.order == 6
 
-        # Create dask array
-        self.dask_signal: DaArray = _da_from_array(self.signal, chunks=(1, 500))
-
-    def test_initialization(self) -> None:
-        """Test initialization with different parameters."""
-        bpf = BandPassFilter(self.sample_rate, self.low_cutoff, self.high_cutoff)
-        assert bpf.sampling_rate == self.sample_rate
-        assert bpf.low_cutoff == self.low_cutoff
-        assert bpf.high_cutoff == self.high_cutoff
-        assert bpf.order == 4  # Default value
-
-        custom_order = 6
-        bpf = BandPassFilter(self.sample_rate, self.low_cutoff, self.high_cutoff, order=custom_order)
-        assert bpf.order == custom_order
-
-    def test_filter_effect(self) -> None:
-        """Test the band-pass filter frequency response."""
-        # processメソッドを使用してフィルタリング
-        result: NDArrayReal = self.bpf.process(self.dask_signal).compute()
-
-        # Calculate FFT to check frequency content
-        fft_original = np.abs(np.fft.rfft(self.signal[0]))
-        fft_filtered = np.abs(np.fft.rfft(result[0]))
-
-        freq_bins = np.fft.rfftfreq(len(self.signal[0]), 1 / self.sample_rate)
-
-        # Find indices closest to our test frequencies
-        below_idx = np.argmin(np.abs(freq_bins - self.below_band_freq))
-        in_idx = np.argmin(np.abs(freq_bins - self.in_band_freq))
-        above_idx = np.argmin(np.abs(freq_bins - self.above_band_freq))
-
-        # Below band frequency should be attenuated
-        assert fft_filtered[below_idx] < 0.1 * fft_original[below_idx]  # At least 90% attenuation
-
-        # In-band frequency should be preserved
-        assert fft_filtered[in_idx] > 0.9 * fft_original[in_idx]  # At most 10% attenuation
-
-        # Above band frequency should be attenuated
-        assert fft_filtered[above_idx] < 0.1 * fft_original[above_idx]  # At least 90% attenuation
-
-    def test_invalid_cutoff_frequencies(self) -> None:
-        """Test that invalid cutoff frequencies raise ValueError."""
-        # Low cutoff too low
+    def test_bandpass_low_cutoff_zero_raises_error(self) -> None:
+        """Test that low_cutoff=0 is rejected."""
         with pytest.raises(ValueError):
-            BandPassFilter(self.sample_rate, 0, self.high_cutoff)
+            BandPassFilter(_SR, 0, self._BPF_HIGH)
 
-        # High cutoff too high (above Nyquist)
+    def test_bandpass_high_cutoff_above_nyquist_raises_error(self) -> None:
+        """Test that high_cutoff above Nyquist is rejected."""
         with pytest.raises(ValueError):
-            BandPassFilter(self.sample_rate, self.low_cutoff, self.sample_rate / 2 + 1)
+            BandPassFilter(_SR, self._BPF_LOW, _SR / 2 + 1)
 
-        # Low cutoff higher than high cutoff
+    def test_bandpass_inverted_cutoffs_raises_error(self) -> None:
+        """Test that low > high cutoff is rejected."""
         with pytest.raises(ValueError):
-            BandPassFilter(self.sample_rate, 1000, 500)
+            BandPassFilter(_SR, 1000, 500)
 
-    def test_invalid_cutoff_order_error_message(self) -> None:
-        """Test that inverted cutoff frequencies provide helpful error message."""
-        low = 1000.0
-        high = 500.0
+    def test_bandpass_inverted_cutoffs_error_message_what_why_how(self) -> None:
+        """Test WHAT/WHY/HOW structure of inverted cutoff error."""
+        low, high = 1000.0, 500.0
 
         with pytest.raises(ValueError) as exc_info:
-            BandPassFilter(self.sample_rate, low, high)
+            BandPassFilter(_SR, low, high)
 
         error_msg = str(exc_info.value)
-        # Check WHAT
         assert "Invalid bandpass filter" in error_msg
         assert f"{low}" in error_msg
         assert f"{high}" in error_msg
-        # Check WHY
         assert "Lower cutoff must be less than higher cutoff" in error_msg
-        # Check HOW
         assert "bandpass filter passes frequencies between" in error_msg
         assert "low_cutoff < high_cutoff" in error_msg
 
-    def test_operation_registry(self) -> None:
-        """Test that BandPassFilter is properly registered in the operation registry."""
-        # Verify BandPassFilter can be accessed through the registry
+    def test_bandpass_registry_returns_correct_class(self) -> None:
+        """Test BandPassFilter is registered as 'bandpass_filter'."""
         assert get_operation("bandpass_filter") == BandPassFilter
 
-        # Create operation through the factory function
         bpf_op = create_operation(
             "bandpass_filter",
-            self.sample_rate,
-            low_cutoff=self.low_cutoff,
-            high_cutoff=self.high_cutoff,
+            _SR,
+            low_cutoff=self._BPF_LOW,
+            high_cutoff=self._BPF_HIGH,
         )
-
-        # Verify the operation was created correctly
         assert isinstance(bpf_op, BandPassFilter)
-        assert bpf_op.sampling_rate == self.sample_rate
-        assert bpf_op.low_cutoff == self.low_cutoff
-        assert bpf_op.high_cutoff == self.high_cutoff
+        assert bpf_op.sampling_rate == _SR
+        assert bpf_op.low_cutoff == self._BPF_LOW
+        assert bpf_op.high_cutoff == self._BPF_HIGH
+
+    # -- Layer 2: Domain tests (physics) -----------------------------------
+
+    def test_bandpass_composite_passes_inband_attenuates_outband(
+        self, composite_100_500_1500hz_dask: tuple[DaArray, int]
+    ) -> None:
+        """500 Hz (in-band) preserved; 100 Hz and 1500 Hz (out-of-band) attenuated >20 dB."""
+        dask_input, sr = composite_100_500_1500hz_dask
+        bpf = BandPassFilter(sr, self._BPF_LOW, self._BPF_HIGH, _ORDER)
+        input_copy = dask_input.compute().copy()
+
+        # Act
+        result_da = bpf.process(dask_input)
+
+        # Assert 1: Immutability
+        assert result_da is not dask_input
+        np.testing.assert_array_equal(dask_input.compute(), input_copy)
+
+        # Assert 2: Dask graph preserved
+        assert isinstance(result_da, DaArray)
+
+        # Assert 3: Value — frequency-domain verification
+        result = result_da.compute()
+        fft_orig = np.abs(np.fft.rfft(input_copy[0]))
+        fft_filt = np.abs(np.fft.rfft(result[0]))
+        freq_bins = np.fft.rfftfreq(sr, 1 / sr)
+
+        below_idx = np.argmin(np.abs(freq_bins - 100.0))
+        in_idx = np.argmin(np.abs(freq_bins - 500.0))
+        above_idx = np.argmin(np.abs(freq_bins - 1500.0))
+
+        # 100 Hz (below band): >20 dB attenuation
+        assert fft_filt[below_idx] < 0.1 * fft_orig[below_idx], "BPF must attenuate 100 Hz (below band) by >20 dB"
+        # 500 Hz (in-band): preserved within 1 dB
+        assert fft_filt[in_idx] > 0.89 * fft_orig[in_idx], "BPF must preserve 500 Hz (in-band) within 1 dB"
+        # 1500 Hz (above band): >20 dB attenuation
+        assert fft_filt[above_idx] < 0.1 * fft_orig[above_idx], "BPF must attenuate 1500 Hz (above band) by >20 dB"
+
+    # -- Layer 3: Integration test (wrapper equivalence) --------------------
+
+    def test_bandpass_matches_scipy_filtfilt(self, composite_100_500_1500hz_dask: tuple[DaArray, int]) -> None:
+        """BPF result must exactly match direct scipy.signal.filtfilt call."""
+        dask_input, sr = composite_100_500_1500hz_dask
+        bpf = BandPassFilter(sr, self._BPF_LOW, self._BPF_HIGH, _ORDER)
+
+        result = bpf.process(dask_input).compute()
+
+        # Reference: same Butterworth coefficients + filtfilt
+        nyquist = sr / 2
+        b, a = signal.butter(_ORDER, [self._BPF_LOW / nyquist, self._BPF_HIGH / nyquist], btype="band")
+        raw_input = dask_input.compute()
+        expected = signal.filtfilt(b, a, raw_input, axis=1)
+
+        # Same algorithm, exact numeric result expected
+        np.testing.assert_allclose(result, expected)
