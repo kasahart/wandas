@@ -1009,8 +1009,8 @@ class TestPlotting:
         # Create a mock frame with an empty label
         empty_label_frame = mock.MagicMock()
         empty_label_frame.n_channels = 1
-        empty_label_frame.time = np.linspace(0, 1, 1000)
-        empty_label_frame.data = np.sin(np.linspace(0, 2 * np.pi, 1000))
+        empty_label_frame.time = np.linspace(0, 1, _N_SAMPLES)
+        empty_label_frame.data = np.sin(np.linspace(0, 2 * np.pi, _N_SAMPLES))
         empty_label_frame.labels = [""]
         empty_label_frame.label = ""
         empty_label_frame.channels = [mock.MagicMock(label="")]
