@@ -1,6 +1,5 @@
 # tests/io/test_wav_io.py
 import io
-import os
 from typing import BinaryIO, cast
 from unittest.mock import MagicMock, patch
 
@@ -352,44 +351,39 @@ def test_read_wav_int16_normalized_to_float_range(tmp_path) -> None:
     assert computed.dtype == np.float32
 
 
-def test_write_wav(tmpdir: str):
-    """
-    Test writing a ChannelFrame to a WAV file.
-    """
-    # Create a simple ChannelFrame
-    sampling_rate = 44100
-    duration = 0.1  # seconds
-    num_samples = int(sampling_rate * duration)
-    data = np.array([np.full(num_samples, 0.5), np.full(num_samples, 0.8)])
+def test_write_wav_roundtrip_preserves_shape_and_sr(tmp_path) -> None:
+    """Write/read WAV round-trip: shape and sampling rate are preserved.
 
-    channel_frame = ChannelFrame.from_numpy(
+    Uses DC signals (0.5, 0.8) within [-1, 1] to trigger IEEE FLOAT subtype.
+    rtol=1e-2 accounts for potential PCM quantization if FLOAT is not used.
+    """
+    sr = 44100
+    n_samples = 4410  # 0.1 seconds
+    data = np.array([np.full(n_samples, 0.5), np.full(n_samples, 0.8)])
+
+    cf = ChannelFrame.from_numpy(
         data=data,
-        sampling_rate=sampling_rate,
+        sampling_rate=sr,
         label="test_frame",
         ch_labels=["Left", "Right"],
     )
 
-    # Write to WAV file
-    output_path = os.path.join(tmpdir, "output_test.wav")
-    write_wav(output_path, channel_frame)
+    output_path = tmp_path / "output_test.wav"
+    write_wav(str(output_path), cf)
 
-    # Verify the file was written correctly by reading it back
-    sr, wav_data = wavfile.read(output_path)
-    assert sr == sampling_rate
-    assert wav_data.shape == (num_samples, 2)
+    # Verify via scipy directly
+    read_sr, wav_data = wavfile.read(str(output_path))
+    assert read_sr == sr
+    assert wav_data.shape == (n_samples, 2)
 
-    # Create a new ChannelFrame from the WAV file
-    new_frame = ChannelFrame.read_wav(output_path)
+    # Verify via ChannelFrame round-trip
+    loaded = ChannelFrame.read_wav(str(output_path))
+    assert loaded.sampling_rate == sr
+    assert loaded.shape == cf.shape
 
-    # Verify basic properties
-    assert new_frame.sampling_rate == channel_frame.sampling_rate
-    assert new_frame.shape == channel_frame.shape
-
-    # WAV書き込みでは浮動小数点数が整数にスケーリングされるため、
-    # 相対的な関係を検証する（第1チャンネルと第2チャンネルの比率）
-    computed_data = new_frame.compute()
-
-    np.testing.assert_allclose(computed_data, wav_data.T, rtol=1e-2)
+    computed = loaded.compute()
+    # rtol=1e-2: WAV format may involve float->PCM->float conversion
+    np.testing.assert_allclose(computed, wav_data.T, rtol=1e-2)
 
 
 def test_write_wav_mono_squeezes_data() -> None:
