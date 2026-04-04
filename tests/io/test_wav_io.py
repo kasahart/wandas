@@ -84,6 +84,8 @@ def test_read_wav_stereo_dc_signal(tmp_path) -> None:
 
     assert len(cf) == 2
     assert cf.sampling_rate == sr
+    # Verify Dask lazy loading (Pillar 1)
+    assert isinstance(cf._data, dask.array.core.Array), "WAV load must produce Dask array"
     computed = cf.compute()
     # DC signal values must be preserved exactly through float64 WAV round-trip
     np.testing.assert_allclose(computed[0], 0.5, rtol=1e-7, err_msg="Left channel DC level mismatch")
