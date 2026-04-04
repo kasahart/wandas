@@ -199,6 +199,8 @@ class TestFrameDatasetABC:
 
 
 class TestChannelFrameDataset:
+    """Test suite for ChannelFrameDataset — init, load, apply, sample, metadata."""
+
     def test_init_lazy_defers_loading(self, create_test_files: Path) -> None:
         """Lazy initialization defers all file loading."""
         folder_path = create_test_files
@@ -725,6 +727,8 @@ class TestChannelFrameDataset:
 
 
 class TestSpectrogramFrameDataset:
+    """Test suite for SpectrogramFrameDataset — lazy STFT, apply, plot."""
+
     def test_init_lazy_via_stft(self, create_test_files: Path) -> None:
         """SpectrogramFrameDataset created via stft() is lazy with correct state."""
         folder_path = create_test_files
@@ -847,6 +851,8 @@ class TestSpectrogramFrameDataset:
 
 
 class TestSampledFrameDataset:
+    """Test suite for _SampledFrameDataset — init, getitem, apply, load."""
+
     def test_init_creates_lazy_subset(self, create_test_files: Path) -> None:
         """Initialization creates lazy subset from specified indices."""
         folder_path = create_test_files
