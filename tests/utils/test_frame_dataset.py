@@ -725,8 +725,8 @@ class TestChannelFrameDataset:
 
 
 class TestSpectrogramFrameDataset:
-    def test_init_lazy(self, create_test_files: Path) -> None:
-        """Test initialization (typically via ChannelFrameDataset.stft)."""
+    def test_init_lazy_via_stft(self, create_test_files: Path) -> None:
+        """SpectrogramFrameDataset created via stft() is lazy with correct state."""
         folder_path = create_test_files
         channel_ds = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         stft_ds = channel_ds.stft()  # Creates SpectrogramFrameDataset
@@ -738,8 +738,8 @@ class TestSpectrogramFrameDataset:
         assert len(stft_ds) == len(channel_ds)
         assert all(not lf.is_loaded for lf in stft_ds._lazy_frames)
 
-    def test_load_file_not_implemented(self, tmp_path: Path) -> None:
-        """Test that _load_file raises NotImplementedError."""
+    def test_load_file_direct_raises_not_implemented(self, tmp_path: Path) -> None:
+        """Direct _load_file raises NotImplementedError."""
         # Create a dummy file that might look like a spectrogram source
         dummy_spec_file = tmp_path / "spec.npy"
         np.save(dummy_spec_file, np.zeros((1, 10, 5)))  # Deterministic zeros instead of random
@@ -760,8 +760,8 @@ class TestSpectrogramFrameDataset:
         result = spec_ds[0]
         assert result is None
 
-    def test_apply(self, create_test_files: Path) -> None:
-        """Test apply on SpectrogramFrameDataset."""
+    def test_apply_transform_produces_different_output(self, create_test_files: Path) -> None:
+        """Apply on SpectrogramFrameDataset produces transformed output."""
         folder_path = create_test_files
         channel_ds = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         stft_ds = channel_ds.stft()
@@ -787,7 +787,7 @@ class TestSpectrogramFrameDataset:
         assert not np.allclose(original_spec_frame.compute(), transformed_spec_frame.compute())
 
     @patch("matplotlib.pyplot.show")  # Prevent plots from displaying during tests
-    def test_plot(
+    def test_plot_delegates_to_frame_plot(
         self,
         mock_show: MagicMock,
         create_test_files: Path,
