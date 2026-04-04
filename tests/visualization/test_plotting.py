@@ -238,13 +238,12 @@ class TestPlotting:
         ]
 
     def teardown_method(self) -> None:
-        """各テスト後の後処理"""
-        # 元の戦略を復元
+        """各テスト後の後処理 — 戦略レジストリの復元のみ。
+        図のクリーンアップはconftest.pyのcleanup_plotsフィクスチャが担当。"""
         from wandas.visualization.plotting import _plot_strategies
 
         _plot_strategies.clear()
         _plot_strategies.update(self.original_strategies)
-        plt.close("all")  # すべての図を閉じる
 
     def test_plot_strategy_registry(self) -> None:
         """プロット戦略登録機能のテスト"""
