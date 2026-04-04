@@ -201,10 +201,10 @@ class TestCSVFileReader:
         info = self.reader.get_file_info(temp_file)
 
         # Check that samplerate is 0 (can't calculate from single row)
-        assert info["samplerate"] == 0
-        assert info["channels"] == 2
+        assert info["samplerate"] == 0, "Single-row CSV must report samplerate=0"
+        assert info["channels"] == 2, f"Expected 2 channels, got {info['channels']}"
         assert info["format"] == "CSV"
-        assert info["duration"] is None
+        assert info["duration"] is None, "Single-row CSV duration must be None"
 
     def test_get_file_info_no_time_column(self) -> None:
         """Test behavior with a CSV file that has non-numeric first column."""
@@ -227,8 +227,8 @@ class TestCSVFileReader:
         info = self.reader.get_file_info(temp_file)
 
         # Check that samplerate is 0 (can't calculate from non-numeric column)
-        assert info["samplerate"] == 0
-        assert info["channels"] == 2
+        assert info["samplerate"] == 0, "Non-numeric first column must report samplerate=0"
+        assert info["channels"] == 2, f"Expected 2 channels, got {info['channels']}"
         assert info["format"] == "CSV"
 
     def test_get_data_full_file(self) -> None:
