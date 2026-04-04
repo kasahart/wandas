@@ -1,5 +1,6 @@
 from unittest import mock
 
+import librosa
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
@@ -275,7 +276,6 @@ class TestRmsTrend:
 
     def test_rms_trend_output_shape_matches_librosa(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
         """Output frame count matches librosa.feature.rms reference."""
-        import librosa
 
         dask_input, sr = pure_sine_440hz_dask
         rms = RmsTrend(sr, frame_length=self._FRAME, hop_length=self._HOP)
