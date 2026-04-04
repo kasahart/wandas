@@ -48,6 +48,9 @@ class TestChannelLabelUpdates:
         assert isinstance(result._data, DaArray)  # Dask laziness preserved
         assert frame.labels == ["ch0", "ch1"]
         assert frame.sampling_rate == _SAMPLE_RATE
+        # Pillar 2: operation_history grows by 1
+        assert len(result.operation_history) == 1
+        assert result.operation_history[0]["operation"] == "normalize"
 
     def test_low_pass_filter_updates_labels(self) -> None:
         """Test that low_pass_filter updates channel labels."""
@@ -457,6 +460,8 @@ class TestRenameChannels:
         result = frame.rename_channels({0: "left", 1: "right"})
 
         assert result.labels == ["left", "right"]
+        # Pillar 2: structural operation — history unchanged
+        assert len(result.operation_history) == 0
 
     def test_rename_channels_by_label(self) -> None:
         """Test renaming channels using label keys."""
