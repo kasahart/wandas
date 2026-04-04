@@ -206,6 +206,7 @@ class TestFFTOperation:
 
         assert not np.allclose(rect_result, hann_result)
         # Both should detect the same peak amplitude (~4.0)
+        # rtol=0.1: Hann window spreads energy via spectral leakage; peak amplitude approximate
         np.testing.assert_allclose(np.abs(rect_result).max(), 4, rtol=0.1)
         np.testing.assert_allclose(np.abs(hann_result).max(), 4, rtol=0.1)
 
@@ -327,6 +328,7 @@ class TestIFFTOperation:
         fft_of_result = np.fft.rfft(result[0])
         peak_idx = np.argmax(np.abs(fft_of_result))
         detected_freq = freq_bins[peak_idx]
+        # rtol=0.1: IFFT round-trip with windowing introduces spectral leakage
         np.testing.assert_allclose(detected_freq, f0, rtol=0.1)
 
 
@@ -775,6 +777,7 @@ class TestNOctSynthesisOperation:
         )
 
         assert result.shape == (2, exp_ch1.T.shape[1])
+        # rtol/atol=1e-5: MoSQITo wrapper with window scaling rounding
         np.testing.assert_allclose(result[0], exp_ch1.T[0], rtol=1e-5, atol=1e-5)
         np.testing.assert_allclose(result[1], exp_ch2.T[0], rtol=1e-5, atol=1e-5)
         assert not np.allclose(result[0], result[1])
@@ -954,6 +957,10 @@ class TestWelchOperation:
         np.testing.assert_allclose(detected_freq, 1000.0, rtol=0.05)
 
     def test_stereo_second_channel_peak_at_2khz(self) -> None:
+        """Welch PSD peak at 2 kHz for stereo second channel.
+
+        Tolerance: rtol=0.05 — frequency bin resolution.
+        """
         sig, _ = self._make_stereo()
         result = self._op().process_array(sig).compute()
         freq_bins = np.fft.rfftfreq(self._N_FFT, 1.0 / _SR)

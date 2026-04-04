@@ -34,6 +34,7 @@ class TestRemoveDC:
         signal = wd.from_numpy(data=signal_data.reshape(1, -1), sampling_rate=_SR, ch_labels=["Zero Mean"])
         clean_signal = signal.remove_dc()
 
+        # atol=1e-10: zero-mean signal should be unchanged after DC removal (float64 precision)
         np.testing.assert_allclose(clean_signal.data, signal.data, atol=1e-10)
 
     def test_remove_dc_direct_operation_1d(self) -> None:
