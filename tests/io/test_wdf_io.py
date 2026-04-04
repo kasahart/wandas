@@ -81,8 +81,8 @@ def test_save_load_roundtrip(tmp_path: Path) -> None:
     assert cf2.operation_history[1]["params"]["type"] == "lowpass"
     assert cf2.operation_history[1]["params"]["cutoff"] == 1000
 
-    # Verify channel data — same algorithm, same data: exact match expected
-    assert np.allclose(cf2.data, cf.data)
+    # Verify channel data — HDF5 round-trip with same dtype: exact match expected
+    np.testing.assert_array_equal(cf2.data, cf.data)
 
     # Verify channel metadata
     assert cf2._channel_metadata[0].label == "Left"
