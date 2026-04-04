@@ -13,13 +13,17 @@ from matplotlib.collections import QuadMesh
 from matplotlib.figure import Figure
 
 import wandas as wd
+from wandas.core.metadata import ChannelMetadata
+from wandas.frames.channel import ChannelFrame
 from wandas.visualization.plotting import (
     DescribePlotStrategy,
     FrequencyPlotStrategy,
     MatrixPlotStrategy,
+    NOctPlotStrategy,
     PlotStrategy,
     SpectrogramPlotStrategy,
     WaveformPlotStrategy,
+    _return_axes_iterator,
     create_operation,
     get_plot_strategy,
     register_plot_strategy,
@@ -545,7 +549,6 @@ class TestPlotting:
 
     def test_noct_plot_strategy(self) -> None:
         """Test NOctPlotStrategy."""
-        from wandas.visualization.plotting import NOctPlotStrategy
 
         strategy = NOctPlotStrategy()
 
@@ -587,7 +590,6 @@ class TestPlotting:
 
     def test_single_channel_noct_plot_strategy(self) -> None:
         """Test single-channel NOctPlotStrategy."""
-        from wandas.visualization.plotting import NOctPlotStrategy
 
         strategy = NOctPlotStrategy()
 
@@ -636,7 +638,6 @@ class TestPlotting:
 
     def test_noct_plot_custom_label(self) -> None:
         """Test that user-specified labels are applied in NOctPlotStrategy."""
-        from wandas.visualization.plotting import NOctPlotStrategy
 
         strategy = NOctPlotStrategy()
 
@@ -704,7 +705,6 @@ class TestPlotting:
 
     def test_matrix_plot_strategy(self) -> None:
         """Test MatrixPlotStrategy."""
-        from wandas.visualization.plotting import MatrixPlotStrategy
 
         strategy = MatrixPlotStrategy()
 
@@ -771,7 +771,6 @@ class TestPlotting:
 
     def test_single_channel_matrix_plot_strategy(self) -> None:
         """Test single-channel MatrixPlotStrategy."""
-        from wandas.visualization.plotting import MatrixPlotStrategy
 
         strategy = MatrixPlotStrategy()
 
@@ -915,7 +914,6 @@ class TestPlotting:
 
         Used by integration-level tests that need actual STFT data.
         """
-        from wandas.frames.channel import ChannelFrame
 
         n_samples = int(sample_rate * duration)
         t = np.linspace(0, duration, n_samples, endpoint=False)
@@ -948,7 +946,6 @@ class TestPlotting:
         plt.close(fig)
 
         # --- Multi-channel: 2 channels ---
-        from wandas.frames.channel import ChannelFrame
 
         n_samples = int(sample_rate * 0.1)
         t = np.linspace(0, 0.1, n_samples, endpoint=False)
@@ -1026,7 +1023,6 @@ class TestPlotting:
 
     def test_matrix_plot_strategy_overlay_mode(self) -> None:
         """Test MatrixPlotStrategy overlay mode."""
-        from wandas.visualization.plotting import MatrixPlotStrategy
 
         strategy = MatrixPlotStrategy()
 
@@ -1121,7 +1117,6 @@ class TestPlotting:
 
     def test_noct_strategy_with_different_n_values(self) -> None:
         """Test NOctPlotStrategy with different N values."""
-        from wandas.visualization.plotting import NOctPlotStrategy
 
         strategy = NOctPlotStrategy()
 
@@ -1172,7 +1167,6 @@ class TestPlotting:
 
     def test_return_axes_iterator_helper(self) -> None:
         """Test _return_axes_iterator helper function."""
-        from wandas.visualization.plotting import _return_axes_iterator
 
         # Create mock axes list
         mock_axes = [mock.MagicMock(spec=Axes) for _ in range(3)]
@@ -1228,7 +1222,6 @@ class TestPlotting:
 
     def test_matrix_plot_strategy_external_axes_behavior(self) -> None:
         """Test MatrixPlotStrategy behavior with external axes."""
-        from wandas.visualization.plotting import MatrixPlotStrategy
 
         strategy = MatrixPlotStrategy()
 
@@ -1264,7 +1257,6 @@ class TestPlotting:
 
     def test_matrix_plot_strategy_figure_condition(self) -> None:
         """Test MatrixPlotStrategy figure conditional branching."""
-        from wandas.visualization.plotting import MatrixPlotStrategy
 
         strategy = MatrixPlotStrategy()
 
@@ -1289,7 +1281,6 @@ class TestPlotting:
 
     def test_matrix_plot_strategy_suptitle_fallback(self) -> None:
         """Test MatrixPlotStrategy suptitle fallback behavior."""
-        from wandas.visualization.plotting import MatrixPlotStrategy
 
         strategy = MatrixPlotStrategy()
 
@@ -1319,7 +1310,6 @@ class TestPlotting:
 
     def test_matrix_plot_strategy_coherence_data_ax_set(self) -> None:
         """Test MatrixPlotStrategy ax_set handling with coherence data."""
-        from wandas.visualization.plotting import MatrixPlotStrategy
 
         strategy = MatrixPlotStrategy()
 
@@ -1358,7 +1348,6 @@ class TestPlotting:
 
     def test_plotting_helper_functions_and_noop_methods(self) -> None:
         """Helper utilities and explicit no-op methods should be covered directly."""
-        from wandas.core.metadata import ChannelMetadata
         from wandas.visualization.plotting import (
             _reshape_spectrogram_data,
             _reshape_to_2d,
