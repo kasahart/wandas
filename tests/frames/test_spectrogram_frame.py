@@ -282,6 +282,9 @@ class TestSpectrogramFrame:
         # istftメソッドを呼び出し
         channel_frame_istft: Any = spec.istft()
 
+        # Pillar 1: immutability — result is a new instance
+        assert channel_frame_istft is not spec
+
         # to_channel_frameメソッドを呼び出し
         channel_frame_to: Any = spec.to_channel_frame()
 
@@ -289,6 +292,9 @@ class TestSpectrogramFrame:
         assert channel_frame_istft.sampling_rate == channel_frame_to.sampling_rate
         assert channel_frame_istft._n_channels == channel_frame_to._n_channels
         assert channel_frame_istft.shape == channel_frame_to.shape
+
+        # Pillar 2: sampling rate inherited from spectrogram
+        assert channel_frame_istft.sampling_rate == spec.sampling_rate
 
         # データが同じであることを確認
         assert_array_almost_equal(channel_frame_istft.data, channel_frame_to.data)
