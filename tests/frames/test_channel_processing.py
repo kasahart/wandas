@@ -767,10 +767,10 @@ class TestChannelProcessing:
         assert result.previous is base
 
     def _setup_metadata_and_mock(self):
-        """Configure channel_frame with standard test metadata and return a mock context.
+        """Configure ``self.channel_frame`` with standard test metadata.
 
-        Reduces boilerplate in *_channel_frame_attributes tests.
-        Returns the mock create_operation patcher (as context manager).
+        Reduces boilerplate in ``*_channel_frame_attributes`` tests by setting
+        the frame label, metadata, and channel metadata in place.
         """
         self.channel_frame.label = "test_label"
         self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
