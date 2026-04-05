@@ -1198,29 +1198,26 @@ class TestBaseFrameEdgeCases:
 class TestBaseFrameSingleChannelMetadata:
     """Test single channel metadata handling in BaseFrame."""
 
-    def test_single_channel_metadata_wrapping(self) -> None:
-        """Test that single ChannelMetadata is wrapped in list."""
-        # Create a frame
+    def test_single_channel_access_wraps_metadata_in_list(self) -> None:
+        """Test that accessing single channel wraps ChannelMetadata in list."""
         signal = wd.generate_sin(freqs=[440], duration=0.1, sampling_rate=16000)
 
-        # Access by index to trigger line 378
-        # Single channel access should still work
         single_channel = signal[0]
         assert single_channel.n_channels == 1
+        assert isinstance(single_channel.channels, list)
+        assert isinstance(single_channel._data, DaArray)
 
 
 class TestDebugLoggingExceptionHandling:
     """Test debug logging exception handling."""
 
-    def test_frame_repr_works(self) -> None:
-        """Test that frame repr works without errors."""
-        # Create a frame
+    def test_frame_repr_contains_class_name(self) -> None:
+        """Test that frame repr contains the class name and basic info."""
         signal = wd.generate_sin(freqs=[440], duration=0.1, sampling_rate=16000)
 
-        # Call repr which may trigger debugging code
-        # Lines 153-154 handle exceptions in debug logging
         repr_str = repr(signal)
-        assert "ChannelFrame" in repr_str or "Frame" in repr_str
+        assert "ChannelFrame" in repr_str
+        assert isinstance(signal._data, DaArray)
 
 
 class TestBaseFrameInfoAndDataframe:
