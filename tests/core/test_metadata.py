@@ -8,15 +8,15 @@ from wandas.utils.util import unit_to_ref
 
 
 class TestChannelMetadata:
-    def test_init_default_values(self) -> None:
-        """Test initialization with default values"""
+    def test_init_default_values_empty_strings_and_dict(self) -> None:
+        """Test initialization with default values returns empty strings and dict."""
         metadata: ChannelMetadata = ChannelMetadata()
         assert metadata.label == ""
         assert metadata.unit == ""
         assert metadata.extra == {}
 
-    def test_init_custom_values(self) -> None:
-        """Test initialization with custom values"""
+    def test_init_custom_values_preserves_all_fields(self) -> None:
+        """Test initialization with custom values preserves all fields."""
         metadata: ChannelMetadata = ChannelMetadata(
             label="test_label",
             unit="Hz",
@@ -26,23 +26,23 @@ class TestChannelMetadata:
         assert metadata.unit == "Hz"
         assert metadata.extra == {"source": "microphone", "calibrated": True}
 
-    def test_getitem_main_fields(self) -> None:
-        """Test dictionary-like access for main fields"""
+    def test_getitem_main_fields_returns_correct_values(self) -> None:
+        """Test dictionary-like access for main fields returns correct values."""
         metadata: ChannelMetadata = ChannelMetadata(label="test_label", unit="Hz", ref=0.5)
         assert metadata["label"] == "test_label"
         assert metadata["unit"] == "Hz"
         assert metadata["ref"] == 0.5
 
-    def test_getitem_extra_field(self) -> None:
-        """Test dictionary-like access for extra fields"""
+    def test_getitem_extra_field_returns_value_or_none(self) -> None:
+        """Test dictionary-like access for extra fields returns value or None."""
         metadata: ChannelMetadata = ChannelMetadata(extra={"source": "microphone", "calibrated": True})
         assert metadata["source"] == "microphone"
         assert metadata["calibrated"] is True
         # Non-existent key should return None
         assert metadata["nonexistent"] is None
 
-    def test_setitem_main_fields(self) -> None:
-        """Test dictionary-like assignment for main fields"""
+    def test_setitem_main_fields_updates_values(self) -> None:
+        """Test dictionary-like assignment for main fields updates values."""
         metadata: ChannelMetadata = ChannelMetadata()
         metadata["label"] = "new_label"
         metadata["unit"] = "dB"
@@ -51,8 +51,8 @@ class TestChannelMetadata:
         assert metadata.unit == "dB"
         assert metadata.ref == 0.75
 
-    def test_setitem_extra_fields(self) -> None:
-        """Test dictionary-like assignment for extra fields"""
+    def test_setitem_extra_fields_stores_in_extra_dict(self) -> None:
+        """Test dictionary-like assignment for extra fields stores in extra dict."""
         metadata: ChannelMetadata = ChannelMetadata()
         metadata["source"] = "microphone"
         metadata["calibrated"] = True
