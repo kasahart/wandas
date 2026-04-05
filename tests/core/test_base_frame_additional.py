@@ -212,20 +212,22 @@ def test_to_tensor_tensorflow_not_installed_raises_import_error(monkeypatch):
         f.to_tensor(framework="tensorflow")
 
 
-def test_to_dataframe_single_and_multi_channel_shapes():
-    # single channel
-    arr1 = np.arange(3)
-    f1 = make_frame(arr1)
-    df1 = f1.to_dataframe()
-    assert isinstance(df1, pd.DataFrame)
-    assert df1.shape == (3, 1)
+def test_to_dataframe_single_channel_correct_shape():
+    """Test to_dataframe for single channel returns correct shape."""
+    arr = np.arange(3)
+    f = make_frame(arr)
+    df = f.to_dataframe()
+    assert isinstance(df, pd.DataFrame)
+    assert df.shape == (3, 1)
 
-    # multi channel
-    arr2 = np.arange(12).reshape(3, 4)
-    f2 = make_frame(arr2)
-    df2 = f2.to_dataframe()
-    assert isinstance(df2, pd.DataFrame)
-    assert df2.shape == (4, 3)
+
+def test_to_dataframe_multi_channel_correct_shape():
+    """Test to_dataframe for multi channel returns correct shape."""
+    arr = np.arange(12).reshape(3, 4)
+    f = make_frame(arr)
+    df = f.to_dataframe()
+    assert isinstance(df, pd.DataFrame)
+    assert df.shape == (4, 3)
 
 
 def test_array_protocol_dtype_conversion_preserves_type():
