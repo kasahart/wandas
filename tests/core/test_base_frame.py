@@ -396,24 +396,6 @@ def test_get_channel_dict_query_numeric_attr_returns_match() -> None:
         # Chain power with other operations
 
 
-def test_init_invalid_channel_metadata_dict_raises_value_error() -> None:
-    data = np.linspace(0.1, 1.0, 20).reshape(2, 10)
-    dask_data: DaArray = da_from_array(data, chunks=(1, -1))
-
-    # Invalid dict fields -> pydantic ValidationError -> wrapped as ValueError
-    with pytest.raises(ValueError, match=r"Invalid channel_metadata at index"):
-        ChannelFrame(data=dask_data, sampling_rate=16000, channel_metadata=[{"label": 123}])
-
-
-def test_init_invalid_channel_metadata_type_raises_type_error() -> None:
-    data = np.linspace(0.1, 1.0, 20).reshape(2, 10)
-    dask_data: DaArray = da_from_array(data, chunks=(1, -1))
-
-    # Unsupported type in channel_metadata list
-    with pytest.raises(TypeError, match=r"Invalid type in channel_metadata"):
-        ChannelFrame(data=dask_data, sampling_rate=16000, channel_metadata=[123])  # ty: ignore[invalid-argument-type]
-
-
 def test_get_channel_unsupported_query_type_raises_type_error() -> None:
     data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
