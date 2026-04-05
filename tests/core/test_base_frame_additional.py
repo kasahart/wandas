@@ -47,6 +47,7 @@ def make_frame(arr: np.ndarray | da.Array, **kwargs) -> DummyFrame:
 
 
 def test_rechunk_failure_fallback_logs_warning(caplog):
+    """Test rechunk failure during init logs warning and falls back."""
     arr = da_from_array(np.arange(6).reshape(2, 3), chunks=(2, 3))
     original = arr.rechunk
     state = {"called": False}
@@ -66,6 +67,7 @@ def test_rechunk_failure_fallback_logs_warning(caplog):
 
 
 def test_get_channel_query_no_match_raises_key_error():
+    """Test get_channel with unmatched query raises KeyError."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(KeyError, match=r"No channels match query"):
@@ -73,6 +75,7 @@ def test_get_channel_query_no_match_raises_key_error():
 
 
 def test_get_channel_query_unknown_key_raises_key_error():
+    """Test get_channel with unknown dict key raises KeyError."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(KeyError, match=r"Unknown channel metadata key\(s\): unknown"):
@@ -80,6 +83,7 @@ def test_get_channel_query_unknown_key_raises_key_error():
 
 
 def test_get_channel_query_regex_and_callable_returns_matches():
+    """Test get_channel with regex and callable queries returns matches."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     import re as _re
@@ -110,6 +114,7 @@ def test_get_channel_dict_query_regex_value_returns_matches():
 
 
 def test_getitem_boolean_mask_wrong_length_raises_value_error():
+    """Test boolean mask with wrong length raises ValueError."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     mask = np.array([True])
@@ -118,6 +123,7 @@ def test_getitem_boolean_mask_wrong_length_raises_value_error():
 
 
 def test_getitem_numpy_float_array_raises_type_error():
+    """Test numpy float array indexing raises TypeError."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     a = np.array([0.1, 1.0])
@@ -126,6 +132,7 @@ def test_getitem_numpy_float_array_raises_type_error():
 
 
 def test_getitem_empty_list_raises_value_error():
+    """Test empty list indexing raises ValueError."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(ValueError, match=r"Cannot index with an empty list"):
@@ -133,6 +140,7 @@ def test_getitem_empty_list_raises_value_error():
 
 
 def test_getitem_mixed_list_types_raises_type_error():
+    """Test mixed int/str list indexing raises TypeError."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(TypeError, match=r"List must contain all str or all int"):
@@ -140,6 +148,7 @@ def test_getitem_mixed_list_types_raises_type_error():
 
 
 def test_multidim_indexing_invalid_key_length_raises_value_error():
+    """Test tuple indexing with wrong length raises ValueError."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(ValueError, match=r"Invalid key length"):
@@ -147,6 +156,7 @@ def test_multidim_indexing_invalid_key_length_raises_value_error():
 
 
 def test_label2index_nonexistent_label_raises_key_error():
+    """Test label2index with nonexistent label raises KeyError."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(KeyError, match=r"Channel label 'nope' not found"):
@@ -154,12 +164,14 @@ def test_label2index_nonexistent_label_raises_key_error():
 
 
 def test_shape_single_channel_returns_1d():
+    """Test shape property for single channel returns 1D shape."""
     arr = np.arange(3)
     f = make_frame(arr)
     assert f.shape == (3,)
 
 
 def test_compute_non_ndarray_result_raises_value_error():
+    """Test compute raising ValueError when result is not ndarray."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
 
