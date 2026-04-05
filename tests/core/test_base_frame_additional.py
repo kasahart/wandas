@@ -310,13 +310,16 @@ def test_persist_returns_persisted_data():
     assert newf._data is p
 
 
-def test_channel_metadata_invalid_types_raises_errors():
+def test_channel_metadata_invalid_dict_raises_value_error():
+    """Test invalid dict value in channel_metadata raises ValueError."""
     arr = np.arange(6).reshape(2, 3)
-    # invalid dict value that fails pydantic validation (ref must be float)
     with pytest.raises(ValueError, match=r"Invalid channel_metadata at index 0"):
         make_frame(arr, channel_metadata=[{"label": "x", "ref": "bad"}])
 
-    # invalid type in channel_metadata list
+
+def test_channel_metadata_invalid_type_raises_type_error():
+    """Test invalid type in channel_metadata list raises TypeError."""
+    arr = np.arange(6).reshape(2, 3)
     with pytest.raises(TypeError, match=r"Invalid type in channel_metadata at index 0"):
         make_frame(arr, channel_metadata=[123])
 
