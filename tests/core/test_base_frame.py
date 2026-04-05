@@ -448,33 +448,34 @@ def test_getitem_mixed_list_types_raises_type_error() -> None:
         _ = cf[[0, "ch0"]]  # ty: ignore[invalid-argument-type]
 
 
-def test_to_tensor_missing_libs_and_unsupported_framework_raises() -> None:
+def test_to_tensor_torch_missing_raises_import_error() -> None:
+    """Test to_tensor raises ImportError when torch is not installed."""
     data = np.linspace(0.1, 1.0, 16).reshape(2, 8)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
 
-    # Simulate torch not installed
-    import importlib
-    import importlib.util
+    with mock.patch("importlib.util.find_spec", return_value=None):
+        with pytest.raises(ImportError):
+            cf.to_tensor(framework="torch")
 
-    orig_find = importlib.util.find_spec
 
-    try:
-        with mock.patch("importlib.util.find_spec", return_value=None):
-            with pytest.raises(ImportError):
-                cf.to_tensor(framework="torch")
+def test_to_tensor_tensorflow_missing_raises_import_error() -> None:
+    """Test to_tensor raises ImportError when tensorflow is not installed."""
+    data = np.linspace(0.1, 1.0, 16).reshape(2, 8)
+    dask_data: DaArray = da_from_array(data, chunks=(1, -1))
+    cf = ChannelFrame(data=dask_data, sampling_rate=16000)
 
-        # Simulate tensorflow not installed
-        with mock.patch("importlib.util.find_spec", return_value=None):
-            with pytest.raises(ImportError):
-                cf.to_tensor(framework="tensorflow")
-    finally:
-        try:
-            importlib.util.find_spec = orig_find
-        except Exception:
-            pass
+    with mock.patch("importlib.util.find_spec", return_value=None):
+        with pytest.raises(ImportError):
+            cf.to_tensor(framework="tensorflow")
 
-    # Unsupported framework
+
+def test_to_tensor_unsupported_framework_raises_value_error() -> None:
+    """Test to_tensor raises ValueError for unsupported framework name."""
+    data = np.linspace(0.1, 1.0, 16).reshape(2, 8)
+    dask_data: DaArray = da_from_array(data, chunks=(1, -1))
+    cf = ChannelFrame(data=dask_data, sampling_rate=16000)
+
     with pytest.raises(ValueError, match=r"Unsupported framework"):
         cf.to_tensor(framework="mxnet")
 
