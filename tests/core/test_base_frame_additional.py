@@ -98,12 +98,15 @@ def test_get_channel_query_regex_and_callable_returns_matches():
 
 
 def test_get_channel_dict_query_regex_value_returns_matches():
+    """Test get_channel with regex dict query returns matching channels."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     import re as _re
 
     res = f.get_channel(query={"label": _re.compile(r"ch")})
     assert len(res) == 2
+    assert isinstance(res._data, da.Array)
+    assert res is not f
 
 
 def test_getitem_boolean_mask_wrong_length_raises_value_error():
