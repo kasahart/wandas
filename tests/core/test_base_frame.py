@@ -407,36 +407,6 @@ def test_get_channel_dict_query_numeric_attr_returns_match() -> None:
     assert result.n_channels == 1
     assert result.labels == ["a"]
 
-    def test_pow_operator_with_zero_and_negative(self) -> None:
-        """Test __pow__ with edge cases like zero and negative exponents."""
-        # Test with positive data and zero exponent (should give 1)
-        positive_data = np.abs(self.data) + 0.1  # Ensure positive
-        positive_dask = da_from_array(positive_data, chunks=(1, -1))
-        positive_frame = ChannelFrame(data=positive_dask, sampling_rate=self.sample_rate, label="positive")
-
-        zero_power = positive_frame**0
-        computed_zero = zero_power.compute()
-        expected_zero = np.ones_like(positive_data)
-        np.testing.assert_array_equal(computed_zero, expected_zero)
-
-        # Test with negative exponent
-        negative_power = positive_frame ** (-1)
-        computed_negative = negative_power.compute()
-        expected_negative = positive_data ** (-1)
-        np.testing.assert_array_equal(computed_negative, expected_negative)
-
-    def test_pow_operator_chaining_preserves_type_and_dask(self) -> None:
-        """Test chaining power operations preserves ChannelFrame type and Dask."""
-        positive_data = np.abs(self.data) + 0.1
-        positive_dask = da_from_array(positive_data, chunks=(1, -1))
-        positive_frame = ChannelFrame(data=positive_dask, sampling_rate=self.sample_rate, label="positive")
-
-        # Chain: (x^2)^0.5 == x for positive data
-        result = (positive_frame**2) ** 0.5
-        assert isinstance(result, ChannelFrame)
-        assert isinstance(result._data, DaArray)
-        np.testing.assert_allclose(result.compute(), positive_data, rtol=1e-7)  # Float64 round-trip precision
-
 
 def test_get_channel_unsupported_query_type_raises_type_error() -> None:
     data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
