@@ -185,6 +185,7 @@ def test_compute_non_ndarray_result_raises_value_error():
 
 
 def test_visualize_graph_failure_logs_warning_returns_none(caplog):
+    """Test visualize_graph logs warning and returns None on failure."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
 
@@ -201,6 +202,7 @@ def test_visualize_graph_failure_logs_warning_returns_none(caplog):
 
 
 def test_to_tensor_unsupported_framework_raises_value_error():
+    """Test to_tensor raises ValueError for unsupported framework."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(ValueError, match=r"Unsupported framework"):
@@ -208,6 +210,7 @@ def test_to_tensor_unsupported_framework_raises_value_error():
 
 
 def test_to_tensor_torch_not_installed_raises_import_error(monkeypatch):
+    """Test to_tensor raises ImportError when torch is not installed."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     import importlib.util as iu
@@ -218,6 +221,7 @@ def test_to_tensor_torch_not_installed_raises_import_error(monkeypatch):
 
 
 def test_to_tensor_tensorflow_not_installed_raises_import_error(monkeypatch):
+    """Test to_tensor raises ImportError when tensorflow is not installed."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     import importlib.util as iu
@@ -246,6 +250,7 @@ def test_to_dataframe_multi_channel_correct_shape():
 
 
 def test_array_protocol_dtype_conversion_preserves_type():
+    """Test __array__ with dtype converts to requested type."""
     arr = np.arange(6).reshape(2, 3).astype(np.float64)
     f = make_frame(arr)
     a = f.__array__(dtype=np.float32)
@@ -348,6 +353,7 @@ def test_channel_metadata_invalid_type_raises_type_error():
 
 
 def test_get_channel_query_no_validate_unknown_key_raises_no_match():
+    """Test get_channel with validate_query_keys=False and unknown key raises no match."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(KeyError, match=r"No channels match query"):
@@ -429,6 +435,7 @@ def test_print_operation_history_populated_shows_count(capsys):
 
 
 def test_to_tensor_torch_and_tensorflow_fake_modules_succeed(monkeypatch):
+    """Test to_tensor succeeds with fake torch and tensorflow modules."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
 
