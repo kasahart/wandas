@@ -251,25 +251,42 @@ def test_print_operation_history_empty_and_populated_output(capsys):
     assert "2: filter {'cutoff': 1000}" in out2
 
 
-def test_relabel_create_instance_persist_type_validation():
+def test_relabel_channels_adds_prefix_to_labels():
+    """Test _relabel_channels adds operation prefix to all channel labels."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
-
-    # relabel
     new_meta = f._relabel_channels("norm")
     assert all(m.label.startswith("norm(") for m in new_meta)
 
-    # create new instance type checks
+
+def test_create_new_instance_invalid_label_raises_type_error():
+    """Test _create_new_instance raises TypeError for non-string label."""
+    arr = np.arange(6).reshape(2, 3)
+    f = make_frame(arr)
     with pytest.raises(TypeError, match=r"Label must be a string"):
         f._create_new_instance(data=f._data, label=123)
 
+
+def test_create_new_instance_invalid_metadata_raises_type_error():
+    """Test _create_new_instance raises TypeError for non-dict metadata."""
+    arr = np.arange(6).reshape(2, 3)
+    f = make_frame(arr)
     with pytest.raises(TypeError, match=r"Metadata must be a dictionary"):
         f._create_new_instance(data=f._data, metadata=123)
 
+
+def test_create_new_instance_invalid_channel_metadata_raises_type_error():
+    """Test _create_new_instance raises TypeError for non-list channel_metadata."""
+    arr = np.arange(6).reshape(2, 3)
+    f = make_frame(arr)
     with pytest.raises(TypeError, match=r"Channel metadata must be a list"):
         f._create_new_instance(data=f._data, channel_metadata=123)
 
-    # persist
+
+def test_persist_returns_persisted_data():
+    """Test persist() calls persist on internal data."""
+    arr = np.arange(6).reshape(2, 3)
+    f = make_frame(arr)
 
     class Persister:
         def __init__(self):
