@@ -370,23 +370,33 @@ def test_iter_yields_single_channel_dask_frames():
     np.testing.assert_array_equal(f._data.compute(), original_data)
 
 
-def test_debug_info_and_print_operation_history_output(capsys, caplog):
+def test_debug_info_logs_debug_output(caplog):
+    """Test debug_info logs expected debug output."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with caplog.at_level("DEBUG"):
         f.debug_info()
     assert "Debug Info" in caplog.text or f"=== {f.__class__.__name__} Debug Info ===" in caplog.text
 
-    # _print_operation_history prints None and count
+
+def test_print_operation_history_empty_shows_none(capsys):
+    """Test _print_operation_history shows 'None' for empty history."""
+    arr = np.arange(6).reshape(2, 3)
+    f = make_frame(arr)
     f.operation_history = []
     f._print_operation_history()
     out = capsys.readouterr().out
     assert "Operations Applied: None" in out
 
+
+def test_print_operation_history_populated_shows_count(capsys):
+    """Test _print_operation_history shows correct count for populated history."""
+    arr = np.arange(6).reshape(2, 3)
+    f = make_frame(arr)
     f.operation_history = [{"operation": "a"}, {"operation": "b"}]
     f._print_operation_history()
-    out2 = capsys.readouterr().out
-    assert "Operations Applied: 2" in out2
+    out = capsys.readouterr().out
+    assert "Operations Applied: 2" in out
 
 
 def test_to_tensor_torch_and_tensorflow_fake_modules_succeed(monkeypatch):
