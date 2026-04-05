@@ -58,8 +58,8 @@ class TestChannelMetadata:
         metadata["calibrated"] = True
         assert metadata.extra == {"source": "microphone", "calibrated": True}
 
-    def test_ref_auto_set_when_unit_specified(self) -> None:
-        """Test that ref is automatically set when unit is specified"""
+    def test_ref_auto_set_pa_unit_sets_2e5(self) -> None:
+        """Test that ref is automatically set based on unit (Pa -> 2e-5)."""
         # Case 1: Initialize with unit "Pa" should set ref to 2e-5
         metadata: ChannelMetadata = ChannelMetadata(unit="Pa")
         assert metadata.unit == "Pa"
@@ -101,8 +101,8 @@ class TestChannelMetadata:
             assert metadata5.unit == unit
             assert metadata5.ref == expected_ref
 
-    def test_to_json(self) -> None:
-        """Test serialization to JSON"""
+    def test_to_json_serializes_all_fields(self) -> None:
+        """Test serialization to JSON includes all fields."""
         metadata: ChannelMetadata = ChannelMetadata(
             label="test_label",
             unit="Hz",
@@ -116,8 +116,8 @@ class TestChannelMetadata:
         assert parsed["extra"]["source"] == "microphone"
         assert parsed["extra"]["calibrated"] is True
 
-    def test_from_json(self) -> None:
-        """Test deserialization from JSON"""
+    def test_from_json_deserializes_all_fields(self) -> None:
+        """Test deserialization from JSON restores all fields."""
         json_data: str = """
         {
             "label": "test_label",
@@ -136,8 +136,8 @@ class TestChannelMetadata:
         assert metadata.extra["calibrated"] is True
         assert metadata.extra["notes"] == "Test recording"
 
-    def test_copy(self) -> None:
-        """Test deep copying of metadata"""
+    def test_copy_deep_independent_from_original(self) -> None:
+        """Test deep copy is independent from original."""
         metadata: ChannelMetadata = ChannelMetadata(
             label="test_label",
             unit="Hz",
@@ -158,8 +158,8 @@ class TestChannelMetadata:
         assert copy_mata.label == "test_label"
         assert "new_key" not in copy_mata.extra
 
-    def test_unicode_and_special_chars(self) -> None:
-        """Test handling of Unicode and special characters"""
+    def test_unicode_and_special_chars_roundtrip(self) -> None:
+        """Test Unicode and special characters survive JSON round-trip."""
         metadata: ChannelMetadata = ChannelMetadata(
             label="测试标签",  # Chinese characters
             unit="°C",  # Degree symbol
@@ -174,8 +174,8 @@ class TestChannelMetadata:
         assert deserialized.unit == "°C"
         assert deserialized.extra["note"] == "Special chars: !@#$%^&*()"
 
-    def test_nested_extra_data(self) -> None:
-        """Test handling of nested structures in extra field"""
+    def test_nested_extra_data_roundtrip(self) -> None:
+        """Test nested structures in extra field survive JSON round-trip."""
         nested_data: dict[str, Any] = {
             "config": {"sampling": {"rate": 44100, "bits": 24}},
             "tags": ["audio", "speech", "raw"],
