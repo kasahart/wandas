@@ -340,6 +340,7 @@ def test_get_channel_query_no_validate_unknown_key_raises_no_match():
 
 
 def test_get_channel_query_extra_key_match_returns_channel():
+    """Test get_channel with extra key query returns matching channel."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(
         arr,
@@ -348,9 +349,14 @@ def test_get_channel_query_extra_key_match_returns_channel():
             {"label": "b", "extra": {"foo": "baz"}},
         ],
     )
+    original_data = f._data.compute().copy()
     res = f.get_channel(query={"foo": "bar"})
     assert len(res) == 1
     assert res.labels == ["a"]
+    assert isinstance(res._data, da.Array)
+    # Pillar 1: Immutability
+    assert res is not f
+    np.testing.assert_array_equal(f._data.compute(), original_data)
 
 
 def test_len_returns_channel_count():
