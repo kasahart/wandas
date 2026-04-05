@@ -425,9 +425,17 @@ def test_get_channel_dict_query_numeric_attr_returns_match() -> None:
         expected_negative = positive_data ** (-1)
         np.testing.assert_array_equal(computed_negative, expected_negative)
 
-    def test_pow_operator_chaining_returns_channel_frame(self) -> None:
-        """Test chaining power operations with other operations."""
-        # Chain power with other operations
+    def test_pow_operator_chaining_preserves_type_and_dask(self) -> None:
+        """Test chaining power operations preserves ChannelFrame type and Dask."""
+        positive_data = np.abs(self.data) + 0.1
+        positive_dask = da_from_array(positive_data, chunks=(1, -1))
+        positive_frame = ChannelFrame(data=positive_dask, sampling_rate=self.sample_rate, label="positive")
+
+        # Chain: (x^2)^0.5 == x for positive data
+        result = (positive_frame**2) ** 0.5
+        assert isinstance(result, ChannelFrame)
+        assert isinstance(result._data, DaArray)
+        np.testing.assert_allclose(result.compute(), positive_data, rtol=1e-7)  # Float64 round-trip precision
 
 
 def test_get_channel_unsupported_query_type_raises_type_error() -> None:
