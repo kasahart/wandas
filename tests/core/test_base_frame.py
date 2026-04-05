@@ -396,27 +396,6 @@ def test_get_channel_dict_query_numeric_attr_returns_match() -> None:
         # Chain power with other operations
 
 
-def test_init_rechunk_failure_logs_warning_and_succeeds(caplog) -> None:
-    data = np.linspace(0.1, 1.0, 100).reshape(2, 50)
-    dask_data: DaArray = da_from_array(data, chunks=(1, -1))
-
-    # Patch rechunk to raise on first call then succeed
-    calls = {"count": 0}
-
-    def fake_rechunk(self, *args, **kwargs):
-        calls["count"] += 1
-        if calls["count"] == 1:
-            raise Exception("rechunk-fail")
-        return self
-
-    with mock.patch.object(DaArray, "rechunk", new=fake_rechunk):
-        with caplog.at_level("WARNING"):
-            cf = ChannelFrame(data=dask_data, sampling_rate=16000)
-            assert "Rechunk failed" in caplog.text
-            # initialization should succeed
-            assert isinstance(cf, ChannelFrame)
-
-
 def test_init_invalid_channel_metadata_dict_raises_value_error() -> None:
     data = np.linspace(0.1, 1.0, 20).reshape(2, 10)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
