@@ -1230,33 +1230,27 @@ class TestBaseFrameInfoAndDataframe:
         self.dask_data: DaArray = da_from_array(self.data, chunks=(1, -1))
         self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
-    def test_to_dataframe_with_custom_labels(self) -> None:
-        """Test to_dataframe with custom channel labels."""
-        # Set custom labels
+    def test_to_dataframe_custom_labels_uses_label_as_column(self) -> None:
+        """Test to_dataframe uses custom channel labels as column names."""
         self.channel_frame.channels[0].label = "left"
 
         df = self.channel_frame.to_dataframe()
 
-        # Check column names
         assert list(df.columns) == ["left"]
 
-    def test_to_dataframe_single_channel(self) -> None:
-        """Test to_dataframe with single channel."""
-        # Get single channel (already single channel)
+    def test_to_dataframe_single_channel_correct_shape_and_values(self) -> None:
+        """Test to_dataframe with single channel returns correct shape and data."""
         single_channel = self.channel_frame.get_channel(0)
 
         df = single_channel.to_dataframe()
 
-        # Check DataFrame properties
         assert df.shape == (self.data.shape[1], 1)  # (n_samples, 1)
         assert list(df.columns) == ["ch0"]
         assert df.index.name == "time"
-
-        # Check data values
         np.testing.assert_array_equal(df.values.flatten(), self.data[0])
 
-    def test_info_method_basic(self, capsys: Any) -> None:
-        """Test info() method displays correct information."""
+    def test_info_displays_channels_rate_duration(self, capsys: Any) -> None:
+        """Test info() method displays channels, rate, and duration."""
         self.channel_frame.info()
 
         captured = capsys.readouterr()
@@ -1269,8 +1263,8 @@ class TestBaseFrameInfoAndDataframe:
         assert f"Samples: {self.channel_frame.n_samples}" in output
         assert "Channel labels: ['ch0']" in output
 
-    def test_info_method_single_channel(self, capsys: Any) -> None:
-        """Test info() method with single channel."""
+    def test_info_single_channel_shows_correct_count(self, capsys: Any) -> None:
+        """Test info() with single channel shows correct channel count."""
         single_data = self.data[0:1]
         single_frame = ChannelFrame.from_numpy(single_data, sampling_rate=self.sample_rate, label="single")
 
@@ -1282,8 +1276,8 @@ class TestBaseFrameInfoAndDataframe:
         assert "Channels: 1" in output
         assert "Channel labels: ['ch0']" in output
 
-    def test_info_method_custom_labels(self, capsys: Any) -> None:
-        """Test info() method with custom channel labels."""
+    def test_info_custom_labels_shown_in_output(self, capsys: Any) -> None:
+        """Test info() shows custom channel labels in output."""
         # Set custom labels
         self.channel_frame.channels[0].label = "left"
 
@@ -1294,8 +1288,8 @@ class TestBaseFrameInfoAndDataframe:
 
         assert "Channel labels: ['left']" in output
 
-    def test_info_method_different_duration(self, capsys: Any) -> None:
-        """Test info() method with different durations."""
+    def test_info_half_second_frame_shows_correct_duration(self, capsys: Any) -> None:
+        """Test info() with 0.5s frame shows correct duration."""
         # Create a frame with 0.5 seconds of data
         short_data = np.linspace(0.1, 1.0, 8000).reshape(1, 8000)
         short_frame = ChannelFrame.from_numpy(short_data, sampling_rate=self.sample_rate, label="short")
