@@ -235,7 +235,8 @@ def test_array_protocol_dtype_conversion_preserves_type():
     assert a.dtype == np.float32
 
 
-def test_print_operation_history_empty_and_populated_output(capsys):
+def test_print_operation_history_empty_shows_empty_label(capsys):
+    """Test print_operation_history shows '<empty>' for empty history."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     f.operation_history = []
@@ -243,12 +244,17 @@ def test_print_operation_history_empty_and_populated_output(capsys):
     out = capsys.readouterr().out
     assert "Operation history: <empty>" in out
 
+
+def test_print_operation_history_populated_shows_indexed_entries(capsys):
+    """Test print_operation_history shows indexed entries for populated history."""
+    arr = np.arange(6).reshape(2, 3)
+    f = make_frame(arr)
     f.operation_history = [{"operation": "normalize"}, {"name": "filter", "cutoff": 1000}]
     f.print_operation_history()
-    out2 = capsys.readouterr().out
-    assert "Operation history (2):" in out2
-    assert "1: normalize {}" in out2
-    assert "2: filter {'cutoff': 1000}" in out2
+    out = capsys.readouterr().out
+    assert "Operation history (2):" in out
+    assert "1: normalize {}" in out
+    assert "2: filter {'cutoff': 1000}" in out
 
 
 def test_relabel_channels_adds_prefix_to_labels():
