@@ -9,6 +9,7 @@ import pytest
 from dask.array.core import Array as DaArray
 
 from wandas.core.metadata import ChannelMetadata
+from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
@@ -699,3 +700,92 @@ class TestSpectralFrameCoverage:
         assert other.metadata is not None
         assert other.operation_history is not None
         assert len(other.operation_history) == 1
+
+
+class TestSpectralFrameNumericalVerification:
+    """Pillar 3 & 4: Numerical verification using known signals (non-mocked)."""
+
+    def test_fft_ifft_preserves_frequency_content(self, channel_frame: ChannelFrame) -> None:
+        """FFT->IFFT preserves frequency content (peak detection round-trip).
+
+        Note: wandas FFT applies spectral-analysis scaling (window + normalization),
+        so FFT->IFFT is NOT an amplitude-preserving round-trip. Instead, verify
+        that frequency content is preserved through the transform pair.
+        Tolerance: ±1 FFT bin — spectral leakage at bin boundaries.
+        """
+        spectral = channel_frame.fft(n_fft=2048)
+        recovered = spectral.ifft()
+
+        # Verify the 440 Hz component is still the dominant frequency in channel 0
+        recovered_data = recovered.data
+        fft_of_recovered = np.fft.rfft(recovered_data[0])
+        freqs = np.fft.rfftfreq(len(recovered_data[0]), 1.0 / channel_frame.sampling_rate)
+        peak_freq = freqs[np.argmax(np.abs(fft_of_recovered))]
+        bin_resolution = freqs[1] - freqs[0]
+        assert abs(peak_freq - 440.0) <= bin_resolution, f"Expected 440 Hz peak after FFT->IFFT, got {peak_freq:.1f} Hz"
+
+    def test_spectral_data_is_complex(self, channel_frame: ChannelFrame) -> None:
+        """SpectralFrame data must be complex-typed.
+
+        Pillar 3: Data types are correct (complex for spectral).
+        """
+        spectral = channel_frame.fft()
+        assert np.iscomplexobj(spectral.data), "SpectralFrame data must be complex-typed"
+
+    def test_ifft_returns_real_data(self, channel_frame: ChannelFrame) -> None:
+        """IFFT result must be real-typed.
+
+        Pillar 3: Data types are correct (real for time).
+        """
+        spectral = channel_frame.fft()
+        recovered = spectral.ifft()
+        assert np.isrealobj(recovered.data), "IFFT result must be real-typed"
+
+    def test_fft_shape_matches_theoretical_bins(self, channel_frame: ChannelFrame) -> None:
+        """FFT output frequency bins = n_fft // 2 + 1.
+
+        Pillar 3: Output shapes match theoretical values.
+        Uses 2-channel channel_frame to test multi-channel shape.
+        """
+        n_fft = 2048
+        spectral = channel_frame.fft(n_fft=n_fft)
+        expected_freq_bins = n_fft // 2 + 1  # Theoretical: real FFT produces N/2+1 bins
+        # 2-channel frame: shape is (n_channels, n_freq_bins)
+        assert spectral.shape == (2, expected_freq_bins), (
+            f"Expected (2, {expected_freq_bins}) for n_fft={n_fft}, got {spectral.shape}"
+        )
+
+    def test_fft_peak_at_known_frequency(self, mono_frame: ChannelFrame) -> None:
+        """FFT of 440 Hz sine peaks at 440 Hz bin.
+
+        Pillar 4: Known-signal theoretical value verification.
+        Tolerance: ±1 FFT bin — spectral leakage at bin boundaries.
+        """
+        spectral = mono_frame.fft(n_fft=2048)
+        magnitude = spectral.magnitude
+        # mono_frame produces 1D spectral shape (n_freq_bins,)
+        peak_idx = np.argmax(magnitude)
+        freqs = spectral.freqs
+        detected_freq = freqs[peak_idx]
+
+        # ±1 bin tolerance for spectral leakage at bin boundaries
+        bin_resolution = freqs[1] - freqs[0]
+        assert abs(detected_freq - 440.0) <= bin_resolution, f"Expected peak near 440 Hz, got {detected_freq:.1f} Hz"
+
+    def test_fft_cross_rate_operations_raise_error(self) -> None:
+        """Operations between SpectralFrames with different sampling rates raise ValueError.
+
+        Pillar 3: Sampling rate constraint enforcement.
+        """
+        from wandas.frames.spectral import SpectralFrame
+
+        n_fft = 1024
+        shape = (1, n_fft // 2 + 1)
+        data1 = da.from_array(np.ones(shape, dtype=complex), chunks=(1, -1))
+        data2 = da.from_array(np.ones(shape, dtype=complex), chunks=(1, -1))
+
+        frame1 = SpectralFrame(data=data1, sampling_rate=44100, n_fft=n_fft)
+        frame2 = SpectralFrame(data=data2, sampling_rate=22050, n_fft=n_fft)
+
+        with pytest.raises(ValueError, match=r"Sampling rate mismatch"):
+            _ = frame1 + frame2

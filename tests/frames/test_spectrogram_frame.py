@@ -2,6 +2,7 @@ from typing import Any
 
 import dask.array as da
 import matplotlib.pyplot as plt
+import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 from matplotlib.figure import Figure
@@ -9,6 +10,7 @@ from numpy.testing import assert_array_almost_equal, assert_array_equal
 
 import wandas.visualization.plotting as plotting_module
 from wandas.core.metadata import ChannelMetadata
+from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.utils.types import NDArrayComplex, NDArrayReal
@@ -111,7 +113,7 @@ class TestSpectrogramFrame:
         # データ関連プロパティ
         assert spec._n_channels == 2
         assert spec.n_frames == 5
-        assert spec.n_freq_bins == 65
+        assert spec.n_freq_bins == 65  # n_fft // 2 + 1 = 128 // 2 + 1 = 65
 
         # 各種変換プロパティ
         magnitude: NDArrayReal = spec.magnitude
@@ -998,3 +1000,49 @@ class TestSpectrogramFrame:
 
         # 操作履歴が記録されていることを確認
         assert "Operations Applied: 1" in output
+
+
+class TestSpectrogramFrameNumericalVerification:
+    """Pillar 3 & 4: Numerical verification using known signals (non-mocked)."""
+
+    def test_stft_istft_roundtrip_recovers_original(self, channel_frame: ChannelFrame) -> None:
+        """STFT->ISTFT round-trip recovers original within tolerance.
+
+        Pillar 3: Domain round-trip fidelity.
+        Tolerance: rtol=1e-6, atol=1e-5 -- windowed overlap-add introduces small errors.
+        Boundary: 16 samples trimmed from each end for edge effects.
+        """
+        original_data = channel_frame.data.copy()
+        n_fft = 1024
+        spectrogram = channel_frame.stft(n_fft=n_fft, hop_length=256)
+        recovered = spectrogram.istft()
+
+        # Trim to match lengths (ISTFT may produce slightly different length)
+        min_len = min(recovered.data.shape[-1], original_data.shape[-1])
+        # Boundary trimming: 16 samples from each end for edge effects
+        np.testing.assert_allclose(
+            recovered.data[..., 16 : min_len - 16],
+            original_data[..., 16 : min_len - 16],
+            rtol=1e-6,
+            atol=1e-5,  # Windowed overlap-add introduces small errors
+        )
+
+    def test_spectrogram_data_is_complex(self, channel_frame: ChannelFrame) -> None:
+        """SpectrogramFrame data must be complex-typed.
+
+        Pillar 3: Data types are correct (complex for spectral).
+        """
+        spectrogram = channel_frame.stft(n_fft=1024, hop_length=256)
+        assert np.iscomplexobj(spectrogram.data), "SpectrogramFrame data must be complex-typed"
+
+    def test_spectrogram_freq_bins_match_theoretical(self, channel_frame: ChannelFrame) -> None:
+        """Number of frequency bins = n_fft // 2 + 1.
+
+        Pillar 3: Output shapes match theoretical values.
+        """
+        n_fft = 1024
+        spectrogram = channel_frame.stft(n_fft=n_fft, hop_length=256)
+        expected_freq_bins = n_fft // 2 + 1  # Theoretical: real STFT produces N/2+1 bins
+        assert spectrogram.n_freq_bins == expected_freq_bins, (
+            f"Expected {expected_freq_bins} frequency bins for n_fft={n_fft}, got {spectrogram.n_freq_bins}"
+        )

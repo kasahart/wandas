@@ -56,3 +56,23 @@ def mono_frame() -> ChannelFrame:
     """Single-channel frame with a deterministic 440 Hz sinusoid."""
     data = _sine(440.0).reshape(1, -1)
     return ChannelFrame.from_numpy(data, sampling_rate=SAMPLE_RATE)
+
+
+@pytest.fixture
+def composite_frame() -> ChannelFrame:
+    """Composite-tone: 100 Hz + 500 Hz + 1500 Hz for filter tests."""
+    data = np.stack(
+        [
+            _sine(100.0) + _sine(500.0) + _sine(1500.0),
+            _sine(200.0) + _sine(1000.0),
+        ]
+    )
+    return ChannelFrame.from_numpy(data, sampling_rate=SAMPLE_RATE)
+
+
+@pytest.fixture
+def impulse_frame() -> ChannelFrame:
+    """Unit impulse for filter impulse response tests."""
+    data = np.zeros((1, N_SAMPLES))
+    data[0, 0] = 1.0
+    return ChannelFrame.from_numpy(data, sampling_rate=SAMPLE_RATE)

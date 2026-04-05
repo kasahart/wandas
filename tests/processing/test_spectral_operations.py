@@ -336,6 +336,30 @@ class TestIFFTOperation:
         # rtol=0.1: IFFT round-trip with windowing introduces spectral leakage
         np.testing.assert_allclose(detected_freq, f0, rtol=0.1)
 
+    def test_fft_ifft_roundtrip_preserves_frequency(self) -> None:
+        """FFT->IFFT round-trip preserves frequency content.
+
+        Note: wandas FFT applies spectral-analysis scaling (window + normalization),
+        so FFT->IFFT is NOT an amplitude-preserving round-trip. Instead, verify
+        that the dominant frequency is preserved through the transform pair.
+        Tolerance: ±1 FFT bin — spectral leakage at bin boundaries.
+        """
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        original = np.array([np.sin(2 * np.pi * 500 * t)])
+
+        fft = FFT(_SR, n_fft=self._N_FFT, window=self._WINDOW)
+        ifft = IFFT(_SR, n_fft=self._N_FFT, window=self._WINDOW)
+
+        spectrum = fft.process_array(original)
+        recovered = ifft.process_array(spectrum).compute()
+
+        # Verify frequency is preserved (not amplitude, due to analysis scaling)
+        fft_of_recovered = np.fft.rfft(recovered[0])
+        freq_bins = np.fft.rfftfreq(recovered.shape[1], 1.0 / _SR)
+        peak_freq = freq_bins[np.argmax(np.abs(fft_of_recovered))]
+        # ±1 bin tolerance for spectral leakage at bin boundaries
+        assert abs(peak_freq - 500.0) <= freq_bins[1], f"Expected 500 Hz peak after FFT->IFFT, got {peak_freq:.1f} Hz"
+
 
 class TestSTFTOperation:
     """STFT/ISTFT operations: Layer 1 + Layer 2 + Layer 3 (scipy ShortTimeFFT reference)."""

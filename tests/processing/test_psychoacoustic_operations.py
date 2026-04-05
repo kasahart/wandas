@@ -494,8 +494,16 @@ class TestLoudnessZwst:
         n_ch1_direct, _, _ = loudness_zwst(signal_stereo[0], _SR, field_type="free")
         n_ch2_direct, _, _ = loudness_zwst(signal_stereo[1], _SR, field_type="free")
 
-        np.testing.assert_allclose(result[0, 0], n_ch1_direct, rtol=1e-10)
-        np.testing.assert_allclose(result[1, 0], n_ch2_direct, rtol=1e-10)
+        np.testing.assert_allclose(
+            result[0, 0],
+            n_ch1_direct,
+            rtol=1e-10,
+        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
+        np.testing.assert_allclose(
+            result[1, 0],
+            n_ch2_direct,
+            rtol=1e-10,
+        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
 
     def test_loudness_values_range(self) -> None:
         """Test that loudness values match MoSQITo output."""
@@ -548,8 +556,16 @@ class TestLoudnessZwst:
         n_free_direct, _, _ = loudness_zwst(signal_mono[0], _SR, field_type="free")
         n_diffuse_direct, _, _ = loudness_zwst(signal_mono[0], _SR, field_type="diffuse")
 
-        np.testing.assert_allclose(result_free[0, 0], n_free_direct, rtol=1e-10)
-        np.testing.assert_allclose(result_diffuse[0, 0], n_diffuse_direct, rtol=1e-10)
+        np.testing.assert_allclose(
+            result_free[0, 0],
+            n_free_direct,
+            rtol=1e-10,
+        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
+        np.testing.assert_allclose(
+            result_diffuse[0, 0],
+            n_diffuse_direct,
+            rtol=1e-10,
+        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
 
     def test_amplitude_dependency(self) -> None:
         """Test that loudness increases with amplitude."""
@@ -573,8 +589,16 @@ class TestLoudnessZwst:
         n_low_direct, _, _ = loudness_zwst(signal_low[0], _SR, field_type="free")
         n_high_direct, _, _ = loudness_zwst(signal_high[0], _SR, field_type="free")
 
-        np.testing.assert_allclose(loudness_low[0, 0], n_low_direct, rtol=1e-10)
-        np.testing.assert_allclose(loudness_high[0, 0], n_high_direct, rtol=1e-10)
+        np.testing.assert_allclose(
+            loudness_low[0, 0],
+            n_low_direct,
+            rtol=1e-10,
+        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
+        np.testing.assert_allclose(
+            loudness_high[0, 0],
+            n_high_direct,
+            rtol=1e-10,
+        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
 
         # Higher amplitude should produce higher loudness
         assert loudness_high[0, 0] > loudness_low[0, 0]
@@ -591,7 +615,11 @@ class TestLoudnessZwst:
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _ = loudness_zwst(silence[0], _SR, field_type="free")
 
-        np.testing.assert_allclose(result[0, 0], n_direct, rtol=1e-10)
+        np.testing.assert_allclose(
+            result[0, 0],
+            n_direct,
+            rtol=1e-10,
+        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
 
     def test_white_noise_loudness(self) -> None:
         """Test loudness calculation with white noise."""
@@ -606,7 +634,11 @@ class TestLoudnessZwst:
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _ = loudness_zwst(noise[0], _SR, field_type="free")
 
-        np.testing.assert_allclose(result[0, 0], n_direct, rtol=1e-10)
+        np.testing.assert_allclose(
+            result[0, 0],
+            n_direct,
+            rtol=1e-10,
+        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
 
     def test_process_with_dask(self) -> None:
         """Test that process method works with dask arrays."""
@@ -618,7 +650,11 @@ class TestLoudnessZwst:
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _ = loudness_zwst(signal_mono[0], _SR, field_type="free")
-        np.testing.assert_allclose(result[0, 0], n_direct, rtol=1e-10)
+        np.testing.assert_allclose(
+            result[0, 0],
+            n_direct,
+            rtol=1e-10,
+        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
 
     def test_multi_channel_independence(self) -> None:
         """Test that each channel is processed independently."""
@@ -637,8 +673,16 @@ class TestLoudnessZwst:
         n_ch1_direct, _, _ = loudness_zwst(signal_ch1, _SR, field_type="free")
         n_ch2_direct, _, _ = loudness_zwst(signal_ch2, _SR, field_type="free")
 
-        np.testing.assert_allclose(result[0, 0], n_ch1_direct, rtol=1e-10)
-        np.testing.assert_allclose(result[1, 0], n_ch2_direct, rtol=1e-10)
+        np.testing.assert_allclose(
+            result[0, 0],
+            n_ch1_direct,
+            rtol=1e-10,
+        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
+        np.testing.assert_allclose(
+            result[1, 0],
+            n_ch2_direct,
+            rtol=1e-10,
+        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
 
     def test_calculate_output_shape(self) -> None:
         """Test calculate_output_shape method."""
@@ -771,7 +815,11 @@ class TestLoudnessZwstIntegration:
         n_direct, _, _ = loudness_zwst(signal[0], _SR, field_type="free")
 
         # Results should match
-        np.testing.assert_allclose(loudness_wandas[0], n_direct, rtol=1e-10)
+        np.testing.assert_allclose(
+            loudness_wandas[0],
+            n_direct,
+            rtol=1e-10,
+        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
 
 
 class TestRoughnessDw:
@@ -1867,8 +1915,16 @@ class TestSharpnessDinSt:
         s_ch1_direct = sharpness_din_st_mosqito(signal_stereo[0], _SR)
         s_ch2_direct = sharpness_din_st_mosqito(signal_stereo[1], _SR)
 
-        np.testing.assert_allclose(result[0, 0], s_ch1_direct, rtol=1e-10)
-        np.testing.assert_allclose(result[1, 0], s_ch2_direct, rtol=1e-10)
+        np.testing.assert_allclose(
+            result[0, 0],
+            s_ch1_direct,
+            rtol=1e-10,
+        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
+        np.testing.assert_allclose(
+            result[1, 0],
+            s_ch2_direct,
+            rtol=1e-10,
+        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
 
     def test_sharpness_values_range(self) -> None:
         """Test that sharpness values are in reasonable range."""
@@ -1886,7 +1942,11 @@ class TestSharpnessDinSt:
         s_direct = sharpness_din_st_mosqito(signal_mono[0], _SR)
 
         # Verify it matches MoSQITo
-        np.testing.assert_allclose(result[0, 0], s_direct, rtol=1e-10)
+        np.testing.assert_allclose(
+            result[0, 0],
+            s_direct,
+            rtol=1e-10,
+        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
 
     def test_silence_produces_low_sharpness(self) -> None:
         """Test that silence produces near-zero sharpness."""
@@ -1899,7 +1959,11 @@ class TestSharpnessDinSt:
         # MoSQITo wrapper — exact match expected (same algorithm)
         s_direct = sharpness_din_st_mosqito(silence[0], _SR)
 
-        np.testing.assert_allclose(result[0, 0], s_direct, rtol=1e-10)
+        np.testing.assert_allclose(
+            result[0, 0],
+            s_direct,
+            rtol=1e-10,
+        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
 
         # Sharpness should be very low for silence (or NaN for zero loudness)
         # MoSQITo returns NaN for silence due to division by zero in loudness
@@ -1918,7 +1982,11 @@ class TestSharpnessDinSt:
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         s_direct = sharpness_din_st_mosqito(signal_mono[0], _SR)
-        np.testing.assert_allclose(result[0, 0], s_direct, rtol=1e-10)
+        np.testing.assert_allclose(
+            result[0, 0],
+            s_direct,
+            rtol=1e-10,
+        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
 
     def test_multi_channel_independence(self) -> None:
         """Test that each channel is processed independently."""
@@ -1930,8 +1998,16 @@ class TestSharpnessDinSt:
         s_ch1_direct = sharpness_din_st_mosqito(signal_stereo[0], _SR)
         s_ch2_direct = sharpness_din_st_mosqito(signal_stereo[1], _SR)
 
-        np.testing.assert_allclose(result[0, 0], s_ch1_direct, rtol=1e-10)
-        np.testing.assert_allclose(result[1, 0], s_ch2_direct, rtol=1e-10)
+        np.testing.assert_allclose(
+            result[0, 0],
+            s_ch1_direct,
+            rtol=1e-10,
+        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
+        np.testing.assert_allclose(
+            result[1, 0],
+            s_ch2_direct,
+            rtol=1e-10,
+        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
 
     def test_calculate_output_shape(self) -> None:
         """Test calculate_output_shape method."""
@@ -2064,7 +2140,11 @@ class TestSharpnessDinStIntegration:
         s_direct = sharpness_din_st_mosqito(signal[0], _SR)
 
         # Results should match
-        np.testing.assert_allclose(sharpness_wandas[0], s_direct, rtol=1e-10)
+        np.testing.assert_allclose(
+            sharpness_wandas[0],
+            s_direct,
+            rtol=1e-10,
+        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
 
 
 # --- Coverage gap tests for psychoacoustic.py ---
