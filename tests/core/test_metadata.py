@@ -189,8 +189,8 @@ class TestChannelMetadata:
         assert deserialized.extra["config"]["sampling"]["bits"] == 24
         assert deserialized.extra["tags"] == ["audio", "speech", "raw"]
 
-    def test_getitem_ref_field(self) -> None:
-        """Test dictionary-like access for ref field"""
+    def test_getitem_ref_returns_correct_value(self) -> None:
+        """Test dictionary-like access for ref field returns correct value."""
         # Case 1: Initialize with custom ref value
         metadata: ChannelMetadata = ChannelMetadata(ref=0.25)
         assert metadata["ref"] == 0.25
@@ -205,8 +205,8 @@ class TestChannelMetadata:
         metadata3: ChannelMetadata = ChannelMetadata()
         assert metadata3["ref"] == 1.0  # Default value
 
-    def test_setitem_ref_field(self) -> None:
-        """Test dictionary-like assignment for ref field"""
+    def test_setitem_ref_field_updates_ref(self) -> None:
+        """Test dictionary-like assignment for ref field updates ref."""
         # Case 1: Set ref directly
         metadata: ChannelMetadata = ChannelMetadata()
         metadata["ref"] = 0.5
@@ -225,8 +225,8 @@ class TestChannelMetadata:
         metadata3["unit"] = "Pa"  # Setting unit should override ref
         assert metadata3.ref == 2e-5  # Should be updated based on unit
 
-    def test_property_methods(self) -> None:
-        """Test property getter methods"""
+    def test_property_getters_return_correct_values(self) -> None:
+        """Test property getter methods return correct values."""
         metadata: ChannelMetadata = ChannelMetadata(
             label="test_label",
             unit="Pa",
@@ -240,8 +240,8 @@ class TestChannelMetadata:
         assert metadata.ref == 0.5
         assert metadata.extra == {"source": "microphone", "calibrated": True}
 
-    def test_property_methods_default_values(self) -> None:
-        """Test property getter methods with default values"""
+    def test_property_getters_default_values(self) -> None:
+        """Test property getter methods return correct default values."""
         metadata: ChannelMetadata = ChannelMetadata()
 
         assert metadata.label == ""
@@ -249,8 +249,8 @@ class TestChannelMetadata:
         assert metadata.ref == 1.0
         assert metadata.extra == {}
 
-    def test_property_methods_after_modification(self) -> None:
-        """Test property getter methods after modifying values"""
+    def test_property_getters_after_modification(self) -> None:
+        """Test property getters reflect modifications."""
         metadata: ChannelMetadata = ChannelMetadata()
 
         # Modify values and check properties
