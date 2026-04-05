@@ -4,8 +4,6 @@ from typing import Any
 from wandas.core.metadata import ChannelMetadata, FrameMetadata
 from wandas.utils.util import unit_to_ref
 
-# filepath: wandas/core/test_channel_metadata.py
-
 
 class TestChannelMetadata:
     def test_init_default_values_empty_strings_and_dict(self) -> None:
