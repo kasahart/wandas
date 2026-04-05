@@ -345,15 +345,21 @@ def test_get_channel_query_extra_key_match_returns_channel():
     assert res.labels == ["a"]
 
 
-def test_len_iter_getitem_single_channel_correctness():
+def test_len_returns_channel_count():
+    """Test len() returns number of channels."""
+    arr = np.arange(12).reshape(3, 4)
+    f = make_frame(arr)
+    assert len(f) == 3
+
+
+def test_iter_yields_single_channel_dask_frames():
+    """Test iterating yields single-channel Dask-backed frames."""
     arr = np.arange(12).reshape(3, 4)
     f = make_frame(arr)
     original_data = f._data.compute().copy()
 
-    assert len(f) == 3
     items = list(iter(f))
     assert len(items) == 3
-    # Each iterated item: single-channel, Dask preserved, new instance
     for i, chf in enumerate(items):
         assert chf is not f
         assert chf.n_channels == 1
