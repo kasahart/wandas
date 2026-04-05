@@ -582,8 +582,8 @@ class TestBaseFrameChannelMetadata:
         self.data = np.linspace(0.1, 1.0, 32000).reshape(2, 16000)
         self.dask_data: DaArray = da_from_array(self.data, chunks=(1, -1))
 
-    def test_channel_metadata_with_dict(self) -> None:
-        """Test initialization with dict channel metadata."""
+    def test_channel_metadata_dict_sets_labels_and_units(self) -> None:
+        """Test initialization with dict channel metadata sets labels and units."""
         metadata_dicts = [
             {"label": "ch0", "unit": "V", "extra": {}},
             {"label": "ch1", "unit": "A", "extra": {}},
@@ -597,9 +597,10 @@ class TestBaseFrameChannelMetadata:
         assert frame.channels[0].unit == "V"
         assert frame.channels[1].label == "ch1"
         assert frame.channels[1].unit == "A"
+        assert isinstance(frame._data, DaArray)
 
-    def test_channel_metadata_with_channel_metadata_objects(self) -> None:
-        """Test initialization with ChannelMetadata objects."""
+    def test_channel_metadata_objects_preserve_extra_fields(self) -> None:
+        """Test initialization with ChannelMetadata objects preserves extra fields."""
         metadata_objs = [
             ChannelMetadata(label="left", unit="Pa", extra={"gain": 0.8}),
             ChannelMetadata(label="right", unit="Pa", extra={"gain": 0.9}),
@@ -613,9 +614,10 @@ class TestBaseFrameChannelMetadata:
         assert frame.channels[0].unit == "Pa"
         assert frame.channels[0]["gain"] == 0.8
         assert frame.channels[1].label == "right"
+        assert isinstance(frame._data, DaArray)
 
-    def test_channel_metadata_invalid_dict_raises_value_error(self) -> None:
-        """Test that invalid dict raises ValueError with validation error."""
+    def test_channel_metadata_invalid_label_type_raises_value_error(self) -> None:
+        """Test that dict with non-string label raises ValueError."""
         invalid_metadata = [
             {"label": "ch0", "unit": "V", "extra": {}},
             {"label": 123, "unit": "A", "extra": {}},  # Invalid: label must be str
@@ -627,8 +629,8 @@ class TestBaseFrameChannelMetadata:
                 channel_metadata=invalid_metadata,
             )
 
-    def test_channel_metadata_invalid_type_raises_type_error(self) -> None:
-        """Test that invalid type raises TypeError."""
+    def test_channel_metadata_string_element_raises_type_error(self) -> None:
+        """Test that string element in channel_metadata raises TypeError."""
         invalid_metadata = [
             {"label": "ch0", "unit": "V", "extra": {}},
             "invalid_string",  # Invalid: must be dict or ChannelMetadata
