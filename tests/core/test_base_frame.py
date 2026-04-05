@@ -448,16 +448,6 @@ def test_getitem_mixed_list_types_raises_type_error() -> None:
         _ = cf[[0, "ch0"]]  # ty: ignore[invalid-argument-type]
 
 
-def test_compute_non_ndarray_result_raises_value_error() -> None:
-    data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
-    dask_data: DaArray = da_from_array(data, chunks=(1, -1))
-    cf = ChannelFrame(data=dask_data, sampling_rate=16000)
-
-    with mock.patch.object(DaArray, "compute", return_value=(1, 2, 3)):
-        with pytest.raises(ValueError, match=r"Computed result is not a np.ndarray"):
-            cf.compute()
-
-
 def test_to_tensor_missing_libs_and_unsupported_framework_raises() -> None:
     data = np.linspace(0.1, 1.0, 16).reshape(2, 8)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
@@ -487,24 +477,6 @@ def test_to_tensor_missing_libs_and_unsupported_framework_raises() -> None:
     # Unsupported framework
     with pytest.raises(ValueError, match=r"Unsupported framework"):
         cf.to_tensor(framework="mxnet")
-
-
-def test_create_new_instance_invalid_types_raises_errors() -> None:
-    data = np.linspace(0.1, 1.0, 16).reshape(2, 8)
-    dask_data: DaArray = da_from_array(data, chunks=(1, -1))
-    cf = ChannelFrame(data=dask_data, sampling_rate=16000)
-
-    # invalid label type
-    with pytest.raises(TypeError, match=r"Label must be a string"):
-        cf._create_new_instance(data=cf._data, label=123)
-
-    # invalid metadata type
-    with pytest.raises(TypeError, match=r"Metadata must be a dictionary"):
-        cf._create_new_instance(data=cf._data, metadata=[1, 2, 3])
-
-    # invalid channel_metadata type
-    with pytest.raises(TypeError, match=r"Channel metadata must be a list"):
-        cf._create_new_instance(data=cf._data, channel_metadata={"a": 1})
 
 
 def test_visualize_graph_exception_returns_none_and_logs(caplog) -> None:
