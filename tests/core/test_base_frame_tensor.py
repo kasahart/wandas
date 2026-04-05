@@ -206,7 +206,7 @@ class TestToNumpy:
         self.dask_data: DaArray = da_from_array(self.data, chunks=(1, -1))
         self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
-    def test_to_numpy_basic(self) -> None:
+    def test_to_numpy_returns_correct_shape_and_values(self) -> None:
         """Test to_numpy() returns correct NumPy array."""
         result = self.channel_frame.to_numpy()
 
@@ -214,7 +214,7 @@ class TestToNumpy:
         assert result.shape == self.data.shape
         np.testing.assert_allclose(result, self.data, rtol=1e-6)  # float32 precision tolerance
 
-    def test_to_numpy_single_channel(self) -> None:
+    def test_to_numpy_single_channel_squeezes_to_1d(self) -> None:
         """Test to_numpy() with single channel."""
         single_data = np.linspace(0.1, 1.0, 16000, dtype=np.float32).reshape(1, 16000)
         single_dask: DaArray = da_from_array(single_data, chunks=(1, -1))
@@ -227,7 +227,7 @@ class TestToNumpy:
         assert result.ndim == 1
         assert result.shape == (16000,)
 
-    def test_to_numpy_multi_channel(self) -> None:
+    def test_to_numpy_multi_channel_preserves_2d(self) -> None:
         """Test to_numpy() with multiple channels."""
         multi_data = np.linspace(0.1, 1.0, 64000, dtype=np.float32).reshape(4, 16000)
         multi_dask: DaArray = da_from_array(multi_data, chunks=(1, -1))
@@ -239,7 +239,7 @@ class TestToNumpy:
         assert result.shape == (4, 16000)
         np.testing.assert_allclose(result, multi_data, rtol=1e-6)  # float32 precision tolerance
 
-    def test_to_numpy_maintains_dtype(self) -> None:
+    def test_to_numpy_int32_dtype_preserved(self) -> None:
         """Test to_numpy() maintains data type."""
         int_data = np.arange(32000, dtype=np.int32).reshape(2, 16000) % 100
         int_dask: DaArray = da_from_array(int_data, chunks=(1, -1))
