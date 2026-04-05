@@ -18,7 +18,7 @@ class TestToTensorPyTorch:
         self.dask_data: DaArray = da_from_array(self.data, chunks=(1, -1))
         self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
-    def test_to_tensor_pytorch_default(self) -> None:
+    def test_to_tensor_pytorch_default_cpu_correct_shape(self) -> None:
         """Test to_tensor() with PyTorch default device."""
         pytest.importorskip("torch")
         import torch
@@ -29,7 +29,7 @@ class TestToTensorPyTorch:
         assert tensor.shape == self.data.shape
         np.testing.assert_allclose(tensor.cpu().numpy(), self.data, rtol=1e-6)  # float32 precision tolerance
 
-    def test_to_tensor_pytorch_cpu(self) -> None:
+    def test_to_tensor_pytorch_cpu_explicit_correct_values(self) -> None:
         """Test to_tensor() with PyTorch CPU device."""
         pytest.importorskip("torch")
         import torch
@@ -41,7 +41,7 @@ class TestToTensorPyTorch:
         assert tensor.shape == self.data.shape
         np.testing.assert_allclose(tensor.cpu().numpy(), self.data, rtol=1e-6)  # float32 precision tolerance
 
-    def test_to_tensor_pytorch_cuda_if_available(self) -> None:
+    def test_to_tensor_pytorch_cuda_skips_if_unavailable(self) -> None:
         """Test to_tensor() with PyTorch CUDA device if available."""
         torch = pytest.importorskip("torch")
 
@@ -55,7 +55,7 @@ class TestToTensorPyTorch:
         assert tensor.shape == self.data.shape
         np.testing.assert_allclose(tensor.cpu().numpy(), self.data, rtol=1e-6)  # float32 precision tolerance
 
-    def test_to_tensor_pytorch_specific_cuda_device(self) -> None:
+    def test_to_tensor_pytorch_cuda_device_index_preserved(self) -> None:
         """Test to_tensor() with specific PyTorch CUDA device if available."""
         torch = pytest.importorskip("torch")
 
@@ -69,7 +69,7 @@ class TestToTensorPyTorch:
         assert tensor.device.index == 0
         assert tensor.shape == self.data.shape
 
-    def test_to_tensor_pytorch_not_installed(self) -> None:
+    def test_to_tensor_pytorch_missing_raises_import_error(self) -> None:
         """Test to_tensor() raises ImportError when PyTorch is not installed."""
         import importlib.machinery
         import importlib.util
@@ -107,7 +107,7 @@ class TestToTensorTensorFlow:
         self.dask_data: DaArray = da_from_array(self.data, chunks=(1, -1))
         self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
-    def test_to_tensor_tensorflow_default(self) -> None:
+    def test_to_tensor_tensorflow_default_correct_shape(self) -> None:
         """Test to_tensor() with TensorFlow default device."""
         pytest.importorskip("tensorflow")
         import tensorflow as tf
@@ -118,7 +118,7 @@ class TestToTensorTensorFlow:
         assert tensor.shape == self.data.shape
         np.testing.assert_allclose(tensor.numpy(), self.data, rtol=1e-6)  # float32 precision tolerance
 
-    def test_to_tensor_tensorflow_cpu(self) -> None:
+    def test_to_tensor_tensorflow_cpu_explicit_correct_values(self) -> None:
         """Test to_tensor() with TensorFlow CPU device."""
         pytest.importorskip("tensorflow")
         import tensorflow as tf
@@ -129,7 +129,7 @@ class TestToTensorTensorFlow:
         assert tensor.shape == self.data.shape
         np.testing.assert_allclose(tensor.numpy(), self.data, rtol=1e-6)  # float32 precision tolerance
 
-    def test_to_tensor_tensorflow_gpu_if_available(self) -> None:
+    def test_to_tensor_tensorflow_gpu_skips_if_unavailable(self) -> None:
         """Test to_tensor() with TensorFlow GPU device if available."""
         tf = pytest.importorskip("tensorflow")
 
@@ -144,7 +144,7 @@ class TestToTensorTensorFlow:
         assert tensor.shape == self.data.shape
         np.testing.assert_allclose(tensor.numpy(), self.data, rtol=1e-6)  # float32 precision tolerance
 
-    def test_to_tensor_tensorflow_not_installed(self) -> None:
+    def test_to_tensor_tensorflow_missing_raises_import_error(self) -> None:
         """Test to_tensor() raises ImportError when TensorFlow is not installed."""
         import importlib.machinery
         import importlib.util
@@ -185,12 +185,12 @@ class TestToTensorErrorHandling:
         self.dask_data: DaArray = da_from_array(self.data, chunks=(1, -1))
         self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
-    def test_to_tensor_unsupported_framework(self) -> None:
+    def test_to_tensor_unsupported_framework_raises_value_error(self) -> None:
         """Test to_tensor() raises ValueError for unsupported framework."""
         with pytest.raises(ValueError, match="(?s)Unsupported framework.*jax"):
             self.channel_frame.to_tensor(framework="jax")
 
-    def test_to_tensor_invalid_framework_type(self) -> None:
+    def test_to_tensor_invalid_framework_string_raises_value_error(self) -> None:
         """Test to_tensor() with invalid framework type."""
         with pytest.raises(ValueError, match="Unsupported framework"):
             self.channel_frame.to_tensor(framework="invalid")
