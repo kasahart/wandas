@@ -183,6 +183,40 @@ class TestBaseFrameArithmeticOperations:
         assert isinstance(cuberoot_result._data, DaArray)
         np.testing.assert_array_equal(cuberoot_result.compute(), known_data ** (1.0 / 3.0))  # Exact match
 
+    def test_pow_operator_single_channel_correct_result(self) -> None:
+        """Test __pow__ with single channel returns correct result."""
+        single_channel = self.channel_frame.get_channel(0)
+        result = single_channel**3
+
+        assert isinstance(result, ChannelFrame)
+        assert result.n_channels == 1
+        assert result.sampling_rate == self.sample_rate
+        assert isinstance(result._data, DaArray)
+
+        computed = result.compute()
+        expected = self.data[0:1] ** 3
+        np.testing.assert_array_equal(computed, expected)
+
+    def test_pow_operator_complex_expression_magnitude(self) -> None:
+        """Test __pow__ in magnitude calculation: sqrt(x^2 + y^2) == 1 for sin/cos."""
+        # sin^2(t) + cos^2(t) = 1 — analytically predictable
+        x_data = np.sin(np.linspace(0, 4 * np.pi, 16000))
+        y_data = np.cos(np.linspace(0, 4 * np.pi, 16000))
+        vector_data = np.vstack([x_data, y_data])
+        vector_dask = da_from_array(vector_data, chunks=(1, -1))
+        vector_frame = ChannelFrame(data=vector_dask, sampling_rate=self.sample_rate, label="vector")
+
+        x_squared = vector_frame[0] ** 2
+        y_squared = vector_frame[1] ** 2
+        sum_squares = x_squared + y_squared
+        magnitude = sum_squares**0.5
+
+        assert isinstance(magnitude, ChannelFrame)
+        assert isinstance(magnitude._data, DaArray)
+        computed_magnitude = magnitude.compute()
+        expected_magnitude = np.sqrt(x_data**2 + y_data**2)
+        np.testing.assert_array_equal(computed_magnitude.squeeze(), expected_magnitude)
+
 
 def test_get_channel_regex_query_returns_matching_channels() -> None:
     sample_rate = 16000
@@ -478,11 +512,6 @@ def test_visualize_graph_exception_returns_none_and_logs(caplog) -> None:
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
 
-    class BadDask:
-        def visualize(self, filename=None):
-            raise RuntimeError("viz fail")
-
-    # attach bad dask object
     cf._data = mock.MagicMock()
     cf._data.visualize.side_effect = RuntimeError("viz fail")
 
@@ -490,48 +519,6 @@ def test_visualize_graph_exception_returns_none_and_logs(caplog) -> None:
         res = cf.visualize_graph("out.png")
         assert res is None
         assert "Failed to visualize the graph" in caplog.text
-        # nothing further here
-
-        # end
-
-    def test_pow_operator_single_channel_correct_result(self) -> None:
-        """Test __pow__ with single channel frame."""
-        # Get single channel
-        single_channel = self.channel_frame.get_channel(0)
-
-        # Apply power operation
-        result = single_channel**3
-
-        # Check result
-        assert isinstance(result, ChannelFrame)
-        assert result.n_channels == 1
-        assert result.sampling_rate == self.sample_rate
-
-        # Check computation
-        computed = result.compute()
-        expected = self.data[0:1] ** 3
-        np.testing.assert_array_equal(computed, expected)
-
-    def test_pow_operator_complex_expression_magnitude(self) -> None:
-        """Test __pow__ in complex mathematical expressions."""
-        # Test expression like: sqrt(x**2 + y**2) for magnitude calculation
-        x_data = np.sin(np.linspace(0, 4 * np.pi, 16000))
-        y_data = np.cos(np.linspace(0, 4 * np.pi, 16000))
-        vector_data = np.vstack([x_data, y_data])
-        vector_dask = da_from_array(vector_data, chunks=(1, -1))
-        vector_frame = ChannelFrame(data=vector_dask, sampling_rate=self.sample_rate, label="vector")
-
-        # Calculate magnitude: sqrt(x**2 + y**2)
-        x_squared = vector_frame[0] ** 2
-        y_squared = vector_frame[1] ** 2
-        sum_squares = x_squared + y_squared
-        magnitude = sum_squares**0.5  # Using power of 0.5 instead of sqrt
-
-        # Check result
-        assert isinstance(magnitude, ChannelFrame)
-        computed_magnitude = magnitude.compute()
-        expected_magnitude = np.sqrt(x_data**2 + y_data**2)
-        np.testing.assert_array_equal(computed_magnitude.squeeze(), expected_magnitude)
 
 
 class TestBaseFrameChannelMetadata:
