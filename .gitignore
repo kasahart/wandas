@@ -175,3 +175,9 @@ examples/
 tutorial/
 
 *.html
+
+# Local/agent-specific settings
+.claude/settings.json
+
+# Accidental notebooks (keep repo clean)
+learning-path/06_skill_validation.ipynb
