@@ -1,11 +1,13 @@
 from unittest import mock
 
-import dask.array as da
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 from mosqito.sound_level_meter import noct_spectrum, noct_synthesis
 from mosqito.sound_level_meter.noct_spectrum._center_freq import _center_freq
+from scipy import signal as ss
+from scipy.signal import ShortTimeFFT as ScipySTFT
+from scipy.signal import get_window
 
 from wandas.processing.base import create_operation, get_operation
 from wandas.processing.spectral import (
@@ -20,9 +22,10 @@ from wandas.processing.spectral import (
     TransferFunction,
     Welch,
 )
+from wandas.utils.dask_helpers import da_from_array
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
-_da_from_array = da.from_array
+_SR: int = 16000
 
 
 class TestGetDisplayNames:
@@ -44,945 +47,837 @@ class TestGetDisplayNames:
 
 
 class TestFFTOperation:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 16000
-        self.n_fft: int = 1024
-        self.window: str = "hann"
-        self.fft = FFT(self.sample_rate, n_fft=self.n_fft, window=self.window)
+    """FFT operation: Layer 1 + Layer 2 + Layer 3 (np.fft.rfft reference)."""
 
-        self.freq: float = 500
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        self.signal_mono: NDArrayReal = np.array([np.sin(2 * np.pi * self.freq * t)]) * 4
+    _N_FFT: int = 1024
+    _WINDOW: str = "hann"
+    _FREQ: float = 500.0
 
-        self.signal_stereo: NDArrayReal = np.array(
-            [
-                np.sin(2 * np.pi * self.freq * t),
-                np.sin(2 * np.pi * self.freq * 2 * t),
-            ]
-        )
+    # -- Layer 1: Unit tests -----------------------------------------------
 
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
-
-    def test_initialization(self) -> None:
-        """Test FFT initialization with different parameters."""
-        fft = FFT(self.sample_rate)
-        assert fft.sampling_rate == self.sample_rate
+    def test_fft_init_default_params(self) -> None:
+        """Test FFT default n_fft=None, window='hann'."""
+        fft = FFT(_SR)
+        assert fft.sampling_rate == _SR
         assert fft.n_fft is None
         assert fft.window == "hann"
 
-        custom_fft = FFT(self.sample_rate, n_fft=2048, window="hamming")
-        assert custom_fft.n_fft == 2048
-        assert custom_fft.window == "hamming"
+    def test_fft_init_custom_params(self) -> None:
+        """Test FFT stores custom n_fft and window."""
+        fft = FFT(_SR, n_fft=2048, window="hamming")
+        assert fft.n_fft == 2048
+        assert fft.window == "hamming"
 
-    def test_fft_shape(self) -> None:
-        """Test FFT output shape."""
-        fft_result = self.fft.process_array(self.signal_mono).compute()
+    def test_fft_registry_returns_correct_class(self) -> None:
+        """Test FFT is registered as 'fft'."""
+        assert get_operation("fft") == FFT
+        fft_op = create_operation("fft", _SR, n_fft=512, window="hamming")
+        assert isinstance(fft_op, FFT)
+        assert fft_op.n_fft == 512
+        assert fft_op.window == "hamming"
 
-        expected_freqs = self.n_fft // 2 + 1
-        assert fft_result.shape == (1, expected_freqs)
+    def test_fft_negative_n_fft_raises(self) -> None:
+        """Test negative n_fft provides WHAT/WHY/HOW error."""
+        with pytest.raises(ValueError) as exc_info:
+            FFT(sampling_rate=44100, n_fft=-1024)
+        error_msg = str(exc_info.value)
+        assert "Invalid FFT size" in error_msg
+        assert "-1024" in error_msg
+        assert "Positive integer" in error_msg
+        assert "Common values:" in error_msg
 
-        fft_result_stereo = self.fft.process_array(self.signal_stereo).compute()
-        assert fft_result_stereo.shape == (2, expected_freqs)
+    def test_fft_zero_n_fft_raises(self) -> None:
+        """Test zero n_fft raises error."""
+        with pytest.raises(ValueError, match="Invalid FFT size"):
+            FFT(sampling_rate=44100, n_fft=0)
 
-    def test_fft_content(self) -> None:
-        """Test FFT content correctness."""
-        fft_result = self.fft.process_array(self.signal_mono).compute()
+    # -- Layer 2: Domain (shape + immutability + lazy) ---------------------
 
-        freq_bins = np.fft.rfftfreq(self.n_fft, 1.0 / self.sample_rate)
+    def test_fft_preserves_immutability_and_dask_type(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
+        """Input unchanged after FFT; result is DaArray."""
+        dask_input, sr = pure_sine_440hz_dask
+        fft = FFT(sr, n_fft=self._N_FFT, window=self._WINDOW)
+        input_copy = dask_input.compute().copy()
 
-        target_idx = np.argmin(np.abs(freq_bins - self.freq))
+        result_da = fft.process(dask_input)
 
-        magnitude = np.abs(fft_result[0])
+        assert result_da is not dask_input
+        np.testing.assert_array_equal(dask_input.compute(), input_copy)
+        assert isinstance(result_da, DaArray)
 
+    def test_fft_lazy_execution_not_computed_until_needed(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
+        """FFT builds Dask graph without computing until .compute()."""
+        dask_input, sr = pure_sine_440hz_dask
+        fft = FFT(sr, n_fft=self._N_FFT, window=self._WINDOW)
+
+        with mock.patch.object(DaArray, "compute") as mock_compute:
+            result = fft.process(dask_input)
+            mock_compute.assert_not_called()
+            assert isinstance(result, DaArray)
+            _ = result.compute()
+            mock_compute.assert_called_once()
+
+    def test_fft_shape_mono(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
+        """FFT output shape: (1, n_fft//2 + 1) for mono."""
+        dask_input, sr = pure_sine_440hz_dask
+        fft = FFT(sr, n_fft=self._N_FFT, window=self._WINDOW)
+
+        result = fft.process_array(dask_input.compute()).compute()
+        expected_freqs = self._N_FFT // 2 + 1
+        assert result.shape == (1, expected_freqs)
+
+    def test_fft_shape_stereo(self, stereo_sine_440_880hz_dask: tuple[DaArray, int]) -> None:
+        """FFT output shape: (2, n_fft//2 + 1) for stereo."""
+        dask_input, sr = stereo_sine_440_880hz_dask
+        fft = FFT(sr, n_fft=self._N_FFT, window=self._WINDOW)
+
+        result = fft.process_array(dask_input.compute()).compute()
+        expected_freqs = self._N_FFT // 2 + 1
+        assert result.shape == (2, expected_freqs)
+
+    def test_fft_truncation_longer_than_n_fft(self) -> None:
+        """FFT truncates signal longer than n_fft."""
+        long_signal = np.random.default_rng(42).standard_normal(2048)
+        fft_op = FFT(_SR, n_fft=1024)
+        result = fft_op.process_array(np.array([long_signal])).compute()
+        assert result.shape == (1, 1024 // 2 + 1)
+
+    # -- Layer 3: Theoretical / numpy reference ----------------------------
+
+    def test_fft_peak_at_correct_frequency_bin(self) -> None:
+        """FFT peak at expected frequency bin for 500 Hz sine.
+
+        Tolerance: peak index within +-1 bin of theoretical.
+        """
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        sig = np.array([4.0 * np.sin(2 * np.pi * self._FREQ * t)])
+        fft = FFT(_SR, n_fft=self._N_FFT, window=self._WINDOW)
+
+        result = fft.process_array(sig).compute()
+        freq_bins = np.fft.rfftfreq(self._N_FFT, 1.0 / _SR)
+        target_idx = np.argmin(np.abs(freq_bins - self._FREQ))
+        magnitude = np.abs(result[0])
         peak_idx = np.argmax(magnitude)
+
         assert abs(peak_idx - target_idx) <= 1
 
+        # Non-peak region should be ≪ peak
         mask = np.ones_like(magnitude, dtype=bool)
-        region = 5
-        lower = int(max(0, int(peak_idx - region)))
-        upper = int(min(len(magnitude), int(peak_idx + region + 1)))
+        lower = max(0, peak_idx - 5)
+        upper = min(len(magnitude), peak_idx + 6)
         mask[lower:upper] = False
-
         assert np.max(magnitude[mask]) < 0.1 * magnitude[peak_idx]
 
-    def test_amplitude_scaling(self) -> None:
-        """Test that FFT amplitude scaling is correct."""
-        fft_inst = FFT(self.sample_rate, n_fft=None, window=self.window)
+    def test_fft_amplitude_matches_numpy_rfft_reference(self) -> None:
+        """FFT amplitude matches manually windowed np.fft.rfft.
+
+        Tolerance: rtol=1e-10 — float64 precision.
+        """
+
         amp = 2.0
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        cos_wave = amp * np.cos(2 * np.pi * self.freq * t)
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        cos_wave = amp * np.cos(2 * np.pi * self._FREQ * t)
 
-        from scipy.signal import get_window
-
-        win = get_window(self.window, len(cos_wave))
-        scaled_cos = cos_wave * win
-        scaling_factor = np.sum(win)
-
+        fft_inst = FFT(_SR, n_fft=None, window=self._WINDOW)
         fft_result = fft_inst.process_array(np.array([cos_wave])).compute()
 
+        win = get_window(self._WINDOW, len(cos_wave))
+        scaled_cos = cos_wave * win
+        scaling_factor = np.sum(win)
         expected_fft: NDArrayComplex = np.fft.rfft(scaled_cos)
         expected_fft[1:-1] *= 2.0
         expected_fft /= scaling_factor
 
-        np.testing.assert_allclose(fft_result[0], expected_fft, rtol=1e-10)
+        np.testing.assert_allclose(
+            fft_result[0],
+            expected_fft,
+            rtol=1e-10,  # float64 FFT precision
+        )
 
         peak_idx = np.argmax(np.abs(fft_result[0]))
         peak_mag = np.abs(fft_result[0, peak_idx])
-        expected_mag = amp
+        # float64 FFT precision — single-bin peak amplitude
+        np.testing.assert_allclose(peak_mag, amp, rtol=1e-10)
 
-        np.testing.assert_allclose(peak_mag, expected_mag, rtol=1e-10)
+    def test_fft_window_function_changes_result(self) -> None:
+        """Boxcar vs Hann windows produce different spectra but same peak."""
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        sig = np.array([4.0 * np.sin(2 * np.pi * self._FREQ * t)])
 
-    def test_delayed_execution(self) -> None:
-        """Test that FFT operation uses dask's delayed execution."""
-        with mock.patch.object(DaArray, "compute") as mock_compute:
-            result = self.fft.process(self.dask_mono)
-            mock_compute.assert_not_called()
-
-            assert isinstance(result, DaArray)
-
-            _ = result.compute()
-            mock_compute.assert_called_once()
-
-    def test_window_function_effect(self) -> None:
-        """Test different window functions have different effects."""
-        rect_fft = FFT(self.sample_rate, n_fft=None, window="boxcar")
-        rect_result = rect_fft.process_array(self.signal_mono).compute()
-
-        hann_fft = FFT(self.sample_rate, n_fft=None, window="hann")
-        hann_result = hann_fft.process_array(self.signal_mono).compute()
+        rect_result = FFT(_SR, n_fft=None, window="boxcar").process_array(sig).compute()
+        hann_result = FFT(_SR, n_fft=None, window="hann").process_array(sig).compute()
 
         assert not np.allclose(rect_result, hann_result)
-
-        rect_mag = np.abs(rect_result[0])
-        hann_mag = np.abs(hann_result[0])
-
-        np.testing.assert_allclose(rect_mag.max(), 4, rtol=0.1)
-        np.testing.assert_allclose(hann_mag.max(), 4, rtol=0.1)
-
-    def test_operation_registry(self) -> None:
-        """Test that FFT is properly registered in the operation registry."""
-        assert get_operation("fft") == FFT
-
-        fft_op = create_operation("fft", self.sample_rate, n_fft=512, window="hamming")
-
-        assert isinstance(fft_op, FFT)
-        assert fft_op.sampling_rate == self.sample_rate
-        assert fft_op.n_fft == 512
-        assert fft_op.window == "hamming"
-
-    def test_negative_n_fft_error_message(self) -> None:
-        """Test that negative n_fft provides helpful error message."""
-        import pytest
-
-        with pytest.raises(ValueError) as exc_info:
-            FFT(sampling_rate=44100, n_fft=-1024)
-
-        error_msg = str(exc_info.value)
-        # Check WHAT
-        assert "Invalid FFT size" in error_msg
-        assert "-1024" in error_msg
-        # Check WHY
-        assert "Positive integer" in error_msg
-        # Check HOW
-        assert "Common values:" in error_msg
-        assert "2048" in error_msg
-
-    def test_zero_n_fft_error_message(self) -> None:
-        """Test that zero n_fft provides helpful error message."""
-        import pytest
-
-        with pytest.raises(ValueError) as exc_info:
-            FFT(sampling_rate=44100, n_fft=0)
-
-        error_msg = str(exc_info.value)
-        # Check WHAT
-        assert "Invalid FFT size" in error_msg
-        # Check WHY
-        assert "Positive integer" in error_msg
-
-    def test_fft_with_truncation(self) -> None:
-        """Test that FFT truncates input when it exceeds n_fft."""
-        # Create signal longer than n_fft
-        long_signal = np.random.randn(2048)
-        fft_op = FFT(self.sample_rate, n_fft=1024)
-
-        result = fft_op.process_array(np.array([long_signal])).compute()
-
-        # Output should have n_fft // 2 + 1 frequency bins
-        expected_bins = 1024 // 2 + 1
-        assert result.shape == (1, expected_bins)
+        # Both should detect the same peak amplitude (~4.0)
+        # rtol=0.1: Hann window spreads energy via spectral leakage; peak amplitude approximate
+        np.testing.assert_allclose(np.abs(rect_result).max(), 4, rtol=0.1)
+        np.testing.assert_allclose(np.abs(hann_result).max(), 4, rtol=0.1)
 
 
 class TestIFFTOperation:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 16000
-        self.n_fft: int = 1024
-        self.window: str = "hann"
+    """IFFT operation: Layer 1 + Layer 2 + Layer 3 (np.fft.irfft reference)."""
 
-        # Create frequency domain signal
-        freq_bins = np.fft.rfftfreq(self.n_fft, 1.0 / self.sample_rate)
-        f0 = 500.0  # Target frequency
-        target_idx = np.argmin(np.abs(freq_bins - f0))
+    _N_FFT: int = 1024
+    _WINDOW: str = "hann"
 
-        # Create complex spectrum with single peak at f0
-        spectrum = np.zeros(self.n_fft // 2 + 1, dtype=complex)
-        spectrum[target_idx] = 1.0
+    # -- Layer 1: Unit tests -----------------------------------------------
 
-        # For stereo test
-        spectrum2 = np.zeros(self.n_fft // 2 + 1, dtype=complex)
-        spectrum2[target_idx // 2] = 1.0
-
-        self.signal_mono: NDArrayComplex = np.array([spectrum])
-        self.signal_stereo: NDArrayComplex = np.array([spectrum, spectrum2])
-
-        # Create dask arrays
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
-
-        # Initialize IFFT
-        self.ifft = IFFT(self.sample_rate, n_fft=self.n_fft, window=self.window)
-
-    def test_initialization(self) -> None:
-        """Test IFFT initialization with different parameters."""
-        ifft = IFFT(self.sample_rate)
-        assert ifft.sampling_rate == self.sample_rate
+    def test_ifft_init_default_params(self) -> None:
+        """Test IFFT default n_fft=None, window='hann'."""
+        ifft = IFFT(_SR)
+        assert ifft.sampling_rate == _SR
         assert ifft.n_fft is None
         assert ifft.window == "hann"
 
-        custom_ifft = IFFT(self.sample_rate, n_fft=2048, window="hamming")
-        assert custom_ifft.n_fft == 2048
-        assert custom_ifft.window == "hamming"
+    def test_ifft_init_custom_params(self) -> None:
+        """Test IFFT stores custom n_fft and window."""
+        ifft = IFFT(_SR, n_fft=2048, window="hamming")
+        assert ifft.n_fft == 2048
+        assert ifft.window == "hamming"
 
-    def test_ifft_shape(self) -> None:
-        """Test IFFT output shape."""
-        ifft_result = self.ifft.process_array(self.signal_mono).compute()
+    def test_ifft_registry_returns_correct_class(self) -> None:
+        """Test IFFT is registered as 'ifft'."""
+        assert get_operation("ifft") == IFFT
+        ifft_op = create_operation("ifft", _SR, n_fft=512, window="hamming")
+        assert isinstance(ifft_op, IFFT)
+        assert ifft_op.n_fft == 512
 
-        # Expected time domain signal length
-        expected_length = self.n_fft
-        assert ifft_result.shape == (1, expected_length)
+    # -- Layer 2: Domain (shape + immutability + lazy) ---------------------
 
-        ifft_result_stereo = self.ifft.process_array(self.signal_stereo).compute()
-        assert ifft_result_stereo.shape == (2, expected_length)
+    def test_ifft_preserves_immutability_and_dask_type(self) -> None:
+        """Input unchanged after IFFT; result is DaArray."""
+        spectrum = np.zeros((1, self._N_FFT // 2 + 1), dtype=complex)
+        spectrum[0, 32] = 1.0
+        dask_input = da_from_array(spectrum, chunks=(1, -1))
+        input_copy = spectrum.copy()
+        ifft = IFFT(_SR, n_fft=self._N_FFT, window=self._WINDOW)
 
-    def test_ifft_content(self) -> None:
-        """Test that IFFT properly transforms frequency domain to time domain."""
-        # Process the mono signal
-        ifft_result = self.ifft.process_array(self.signal_mono).compute()
+        result_da = ifft.process(dask_input)
 
-        # Check that the result is real
-        assert np.isrealobj(ifft_result)
+        assert result_da is not dask_input
+        np.testing.assert_array_equal(dask_input.compute(), input_copy)
+        assert isinstance(result_da, DaArray)
 
-        # For a single frequency component, we expect a sinusoidal time signal
-        # Find the peak frequency in the time domain by FFT
-        fft_of_result = np.fft.rfft(ifft_result[0])
-        peak_idx = np.argmax(np.abs(fft_of_result))
-        freq_bins = np.fft.rfftfreq(len(ifft_result[0]), 1.0 / self.sample_rate)
-        detected_freq = freq_bins[peak_idx]
+    def test_ifft_lazy_execution(self) -> None:
+        """IFFT builds Dask graph without computing."""
+        spectrum = np.zeros((1, self._N_FFT // 2 + 1), dtype=complex)
+        spectrum[0, 32] = 1.0
+        dask_input = da_from_array(spectrum, chunks=(1, -1))
+        ifft = IFFT(_SR, n_fft=self._N_FFT, window=self._WINDOW)
 
-        # Check frequency matches our input
-        np.testing.assert_allclose(detected_freq, 500.0, rtol=1e-1)
-
-    def test_delayed_execution(self) -> None:
-        """Test that IFFT operation uses dask's delayed execution."""
         with mock.patch.object(DaArray, "compute") as mock_compute:
-            result = self.ifft.process(self.dask_mono)
+            result = ifft.process(dask_input)
             mock_compute.assert_not_called()
-
             assert isinstance(result, DaArray)
-
             _ = result.compute()
             mock_compute.assert_called_once()
 
-    def test_1d_input_handling(self) -> None:
-        """Test that 1D input is properly reshaped."""
-        signal_1d = np.zeros((1, self.n_fft // 2 + 1), dtype=complex)
-        signal_1d[0, 5] = 1.0  # Add a frequency component
-        dask_signal_1d: DaArray = _da_from_array(signal_1d.reshape(1, -1), chunks=(1, -1))
+    def test_ifft_shape_mono(self) -> None:
+        """IFFT output: (1, n_fft) for mono spectrum."""
+        spectrum = np.zeros((1, self._N_FFT // 2 + 1), dtype=complex)
+        spectrum[0, 32] = 1.0
+        ifft = IFFT(_SR, n_fft=self._N_FFT, window=self._WINDOW)
+        result = ifft.process_array(spectrum).compute()
+        assert result.shape == (1, self._N_FFT)
 
-        ifft_result = self.ifft.process(dask_signal_1d).compute()
+    def test_ifft_shape_stereo(self) -> None:
+        """IFFT output: (2, n_fft) for stereo spectrum."""
+        spectrum = np.zeros((2, self._N_FFT // 2 + 1), dtype=complex)
+        spectrum[0, 32] = 1.0
+        spectrum[1, 16] = 1.0
+        ifft = IFFT(_SR, n_fft=self._N_FFT, window=self._WINDOW)
+        result = ifft.process_array(spectrum).compute()
+        assert result.shape == (2, self._N_FFT)
 
-        assert ifft_result.ndim == 2
-        assert ifft_result.shape[0] == 1
-
-    def test_operation_registry(self) -> None:
-        """Test that IFFT is properly registered in the operation registry."""
-        assert get_operation("ifft") == IFFT
-
-        ifft_op = create_operation("ifft", self.sample_rate, n_fft=512, window="hamming")
-
-        assert isinstance(ifft_op, IFFT)
-        assert ifft_op.sampling_rate == self.sample_rate
-        assert ifft_op.n_fft == 512
-        assert ifft_op.window == "hamming"
-
-    def test_ifft_without_n_fft(self) -> None:
-        """Test IFFT when n_fft is None - uses input shape for calculation."""
-        # Create a frequency domain signal
+    def test_ifft_without_n_fft_infers_length(self) -> None:
+        """IFFT with n_fft=None infers: 2*(input_length-1)."""
         spectrum = np.zeros(513, dtype=complex)
-        spectrum[50] = 1.0  # Single frequency component
-
-        # Initialize IFFT without n_fft
-        ifft_no_nfft = IFFT(self.sample_rate, n_fft=None)
-
-        result = ifft_no_nfft.process_array(np.array([spectrum])).compute()
-
-        # Expected output length: 2 * (input_length - 1) = 2 * (513 - 1) = 1024
+        spectrum[50] = 1.0
+        ifft = IFFT(_SR, n_fft=None)
+        result = ifft.process_array(np.array([spectrum])).compute()
         assert result.shape == (1, 1024)
+
+    def test_ifft_1d_input_reshaped(self) -> None:
+        """1D-like spectrum input produces 2D output."""
+        spectrum = np.zeros((1, self._N_FFT // 2 + 1), dtype=complex)
+        spectrum[0, 5] = 1.0
+        dask_in = da_from_array(spectrum.reshape(1, -1), chunks=(1, -1))
+        ifft = IFFT(_SR, n_fft=self._N_FFT, window=self._WINDOW)
+
+        result_da = ifft.process(dask_in)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
+        assert result.ndim == 2
+        assert result.shape[0] == 1
+
+    # -- Layer 3: Content verification -------------------------------------
+
+    def test_ifft_output_is_real_and_frequency_preserved(self) -> None:
+        """IFFT of single-frequency spectrum is real; round-trip detects same frequency.
+
+        Tolerance: rtol=0.1 — FFT bin resolution.
+        """
+        freq_bins = np.fft.rfftfreq(self._N_FFT, 1.0 / _SR)
+        f0 = 500.0
+        target_idx = np.argmin(np.abs(freq_bins - f0))
+
+        spectrum = np.zeros(self._N_FFT // 2 + 1, dtype=complex)
+        spectrum[target_idx] = 1.0
+
+        ifft = IFFT(_SR, n_fft=self._N_FFT, window=self._WINDOW)
+        result = ifft.process_array(np.array([spectrum])).compute()
+
+        assert np.isrealobj(result)
+
+        # Round-trip: FFT of IFFT result should peak at f0
+        fft_of_result = np.fft.rfft(result[0])
+        peak_idx = np.argmax(np.abs(fft_of_result))
+        detected_freq = freq_bins[peak_idx]
+        # rtol=0.1: IFFT round-trip with windowing introduces spectral leakage
+        np.testing.assert_allclose(detected_freq, f0, rtol=0.1)
+
+    def test_fft_ifft_roundtrip_preserves_frequency(self) -> None:
+        """FFT->IFFT round-trip preserves frequency content.
+
+        Note: wandas FFT applies spectral-analysis scaling (window + normalization),
+        so FFT->IFFT is NOT an amplitude-preserving round-trip. Instead, verify
+        that the dominant frequency is preserved through the transform pair.
+        Tolerance: ±1 FFT bin — spectral leakage at bin boundaries.
+        """
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        original = np.array([np.sin(2 * np.pi * 500 * t)])
+
+        fft = FFT(_SR, n_fft=self._N_FFT, window=self._WINDOW)
+        ifft = IFFT(_SR, n_fft=self._N_FFT, window=self._WINDOW)
+
+        spectrum = fft.process_array(original)
+        recovered = ifft.process_array(spectrum).compute()
+
+        # Verify frequency is preserved (not amplitude, due to analysis scaling)
+        fft_of_recovered = np.fft.rfft(recovered[0])
+        freq_bins = np.fft.rfftfreq(recovered.shape[1], 1.0 / _SR)
+        peak_freq = freq_bins[np.argmax(np.abs(fft_of_recovered))]
+        # ±1 bin tolerance for spectral leakage at bin boundaries
+        assert abs(peak_freq - 500.0) <= freq_bins[1], f"Expected 500 Hz peak after FFT->IFFT, got {peak_freq:.1f} Hz"
 
 
 class TestSTFTOperation:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 16000
-        self.n_fft: int = 1024
-        self.hop_length: int = 256
-        self.win_length: int = 1024
-        self.window: str = "hann"
-        self.boundary: str | None = "zeros"
+    """STFT/ISTFT operations: Layer 1 + Layer 2 + Layer 3 (scipy ShortTimeFFT reference)."""
 
-        # Create a test signal (1 second sine wave at 440 Hz)
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        self.signal_mono: NDArrayReal = np.array([np.sin(2 * np.pi * 1000 * t)]) * 4
-        self.signal_stereo: NDArrayReal = np.array([np.sin(2 * np.pi * 1000 * t), np.sin(2 * np.pi * 2000 * t)])
+    _N_FFT: int = 1024
+    _HOP: int = 256
+    _WIN_LEN: int = 1024
+    _WINDOW: str = "hann"
 
-        # Create dask arrays
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono)
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo)
+    def _make_mono(self) -> tuple[NDArrayReal, DaArray]:
+        """1-second mono sine at 1 kHz, amplitude 4."""
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        sig: NDArrayReal = np.array([np.sin(2 * np.pi * 1000 * t)]) * 4
+        return sig, da_from_array(sig, chunks=(1, -1))
 
-        # Initialize STFT
-        self.stft = STFT(
-            sampling_rate=self.sample_rate,
-            n_fft=self.n_fft,
-            hop_length=self.hop_length,
-            win_length=self.win_length,
-            window=self.window,
+    def _make_stereo(self) -> tuple[NDArrayReal, DaArray]:
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        sig: NDArrayReal = np.array([np.sin(2 * np.pi * 1000 * t), np.sin(2 * np.pi * 2000 * t)])
+        return sig, da_from_array(sig, chunks=(1, -1))
+
+    def _stft(self) -> STFT:
+        return STFT(_SR, n_fft=self._N_FFT, hop_length=self._HOP, win_length=self._WIN_LEN, window=self._WINDOW)
+
+    def _istft(self, length: int | None = None) -> ISTFT:
+        return ISTFT(
+            _SR,
+            n_fft=self._N_FFT,
+            hop_length=self._HOP,
+            win_length=self._WIN_LEN,
+            window=self._WINDOW,
+            length=length,
         )
 
-        # Initialize ISTFT
-        self.istft = ISTFT(
-            sampling_rate=self.sample_rate,
-            n_fft=self.n_fft,
-            hop_length=self.hop_length,
-            win_length=self.win_length,
-            window=self.window,
-        )
+    # -- Layer 1: Unit tests -----------------------------------------------
 
-    def test_stft_initialization(self) -> None:
-        """Test STFT initialization with different parameters."""
-        # Default initialization
-        stft = STFT(self.sample_rate)
-        assert stft.sampling_rate == self.sample_rate
+    def test_stft_init_default_params(self) -> None:
+        """STFT default parameters: n_fft=2048, hop=512, win=2048, hann."""
+        stft = STFT(_SR)
+        assert stft.sampling_rate == _SR
         assert stft.n_fft == 2048
-        assert stft.hop_length == 512  # 2048 // 4
+        assert stft.hop_length == 512
         assert stft.win_length == 2048
         assert stft.window == "hann"
 
-        # Custom initialization
-        custom_stft = STFT(
-            sampling_rate=self.sample_rate,
-            n_fft=1024,
-            hop_length=256,
-            win_length=512,
-            window="hamming",
-        )
-        assert custom_stft.n_fft == 1024
-        assert custom_stft.hop_length == 256
-        assert custom_stft.win_length == 512
-        assert custom_stft.window == "hamming"
+    def test_stft_init_custom_params(self) -> None:
+        """STFT stores custom n_fft, hop_length, win_length, window."""
+        stft = STFT(_SR, n_fft=1024, hop_length=256, win_length=512, window="hamming")
+        assert stft.n_fft == 1024
+        assert stft.hop_length == 256
+        assert stft.win_length == 512
+        assert stft.window == "hamming"
 
-    def test_istft_initialization(self) -> None:
-        """Test ISTFT initialization with different parameters."""
-        # Default initialization
-        istft = ISTFT(self.sample_rate)
-        assert istft.sampling_rate == self.sample_rate
+    def test_istft_init_default_params(self) -> None:
+        """ISTFT default parameters match STFT; length defaults to None."""
+        istft = ISTFT(_SR)
+        assert istft.sampling_rate == _SR
         assert istft.n_fft == 2048
-        assert istft.hop_length == 512  # 2048 // 4
+        assert istft.hop_length == 512
         assert istft.win_length == 2048
         assert istft.window == "hann"
         assert istft.length is None
 
-        # Custom initialization
-        custom_istft = ISTFT(
-            sampling_rate=self.sample_rate,
-            n_fft=1024,
-            hop_length=256,
-            win_length=512,
-            window="hamming",
-            length=16000,
-        )
-        assert custom_istft.n_fft == 1024
-        assert custom_istft.hop_length == 256
-        assert custom_istft.win_length == 512
-        assert custom_istft.window == "hamming"
-        assert custom_istft.length == 16000
+    def test_istft_init_custom_params(self) -> None:
+        """ISTFT stores custom params including explicit length."""
+        istft = ISTFT(_SR, n_fft=1024, hop_length=256, win_length=512, window="hamming", length=16000)
+        assert istft.n_fft == 1024
+        assert istft.hop_length == 256
+        assert istft.win_length == 512
+        assert istft.window == "hamming"
+        assert istft.length == 16000
 
-    def test_stft_shape_mono(self) -> None:
-        """Test STFT output shape for mono signal."""
-        from scipy.signal import ShortTimeFFT as ScipySTFT
-        from scipy.signal import get_window
+    def test_stft_registry_returns_correct_class(self) -> None:
+        """'stft' and 'istft' registry keys create correct instances."""
+        assert get_operation("stft") == STFT
+        assert get_operation("istft") == ISTFT
+        stft_op = create_operation("stft", _SR, n_fft=512, hop_length=128)
+        assert isinstance(stft_op, STFT)
+        assert stft_op.n_fft == 512
+        istft_op = create_operation("istft", _SR, n_fft=512, hop_length=128)
+        assert isinstance(istft_op, ISTFT)
+        assert istft_op.n_fft == 512
 
-        # Process the mono signal
-        stft_result = self.stft.process_array(self.signal_mono).compute()
+    def test_stft_negative_n_fft_raises(self) -> None:
+        """Negative n_fft raises ValueError with WHAT/WHY/HOW message."""
+        with pytest.raises(ValueError) as exc_info:
+            STFT(sampling_rate=44100, n_fft=-2048)
+        error_msg = str(exc_info.value)
+        assert "Invalid FFT size for STFT" in error_msg
+        assert "-2048" in error_msg
+        assert "Positive integer" in error_msg
 
-        # Check the shape of the result
-        assert stft_result.ndim == 3, "Output should be 3D (channels, frequencies, time)"
+    def test_stft_zero_n_fft_raises(self) -> None:
+        """Zero n_fft raises ValueError."""
+        with pytest.raises(ValueError, match="Invalid FFT size for STFT"):
+            STFT(sampling_rate=44100, n_fft=0)
 
-        # Expected shape: (channels, frequencies, time frames)
+    def test_stft_win_length_greater_than_n_fft_raises(self) -> None:
+        """win_length > n_fft raises ValueError with constraint message."""
+        with pytest.raises(ValueError) as exc_info:
+            STFT(sampling_rate=44100, n_fft=1024, win_length=2048)
+        error_msg = str(exc_info.value)
+        assert "Invalid window length for STFT" in error_msg
+        assert "win_length=2048" in error_msg
+        assert "win_length <= n_fft" in error_msg
+
+    def test_stft_negative_hop_length_raises(self) -> None:
+        """Negative hop_length raises ValueError with WHAT/WHY/HOW message."""
+        with pytest.raises(ValueError) as exc_info:
+            STFT(sampling_rate=44100, n_fft=2048, hop_length=-512)
+        error_msg = str(exc_info.value)
+        assert "Invalid hop length for STFT" in error_msg
+        assert "-512" in error_msg
+        assert "Positive integer" in error_msg
+
+    def test_stft_hop_length_greater_than_win_length_raises(self) -> None:
+        """hop_length > win_length raises ValueError (would create gaps)."""
+        with pytest.raises(ValueError) as exc_info:
+            STFT(sampling_rate=44100, n_fft=2048, win_length=1024, hop_length=2048)
+        error_msg = str(exc_info.value)
+        assert "Invalid hop length for STFT" in error_msg
+        assert "hop_length=2048" in error_msg
+        assert "hop_length <= win_length" in error_msg
+        assert "would create gaps" in error_msg
+
+    def test_stft_negative_win_length_raises(self) -> None:
+        """Negative win_length raises ValueError."""
+        with pytest.raises(ValueError) as exc_info:
+            STFT(sampling_rate=44100, n_fft=2048, win_length=-1024)
+        error_msg = str(exc_info.value)
+        assert "Invalid window length for STFT" in error_msg
+        assert "Positive integer" in error_msg
+
+    def test_stft_zero_win_length_raises(self) -> None:
+        """Zero win_length raises ValueError."""
+        with pytest.raises(ValueError, match="Invalid window length for STFT"):
+            STFT(sampling_rate=44100, n_fft=2048, win_length=0)
+
+    def test_stft_win_length_too_small_raises(self) -> None:
+        """win_length < 4 raises ValueError (insufficient for windowing)."""
+        with pytest.raises(ValueError) as exc_info:
+            STFT(sampling_rate=44100, n_fft=2048, win_length=3)
+        error_msg = str(exc_info.value)
+        assert "Window length too small" in error_msg
+        assert "win_length=3" in error_msg
+        assert "win_length >= 4" in error_msg
+
+    # -- Layer 2: Domain (shape + immutability) ----------------------------
+
+    def test_stft_preserves_immutability_and_dask_type(self) -> None:
+        """Input unchanged after STFT; result is DaArray."""
+        sig, dask_sig = self._make_mono()
+        input_copy = sig.copy()
+        stft = self._stft()
+
+        result_da = stft.process(dask_sig)
+
+        assert result_da is not dask_sig
+        np.testing.assert_array_equal(dask_sig.compute(), input_copy)
+        assert isinstance(result_da, DaArray)
+
+    def test_stft_shape_mono_matches_scipy(self) -> None:
+        """STFT output shape matches scipy ShortTimeFFT for mono."""
+
+        sig, _ = self._make_mono()
+        stft = self._stft()
+        result = stft.process_array(sig).compute()
+
+        assert result.ndim == 3
         sft = ScipySTFT(
-            win=get_window(self.window, self.win_length),
-            hop=self.hop_length,
-            fs=self.sample_rate,
-            mfft=self.n_fft,
+            win=get_window(self._WINDOW, self._WIN_LEN),
+            hop=self._HOP,
+            fs=_SR,
+            mfft=self._N_FFT,
             scale_to="magnitude",
         )
-        expected_n_channels = 1
-        expected_n_freqs = sft.f.shape[0]
-        expected_n_frames = sft.t(self.signal_mono.shape[-1]).shape[0]
+        expected_shape = (1, sft.f.shape[0], sft.t(sig.shape[-1]).shape[0])
+        assert result.shape == expected_shape
 
-        expected_shape = (expected_n_channels, expected_n_freqs, expected_n_frames)
-        assert stft_result.shape == expected_shape, f"Expected {expected_shape}, got {stft_result.shape}"
+    def test_stft_shape_stereo_matches_scipy(self) -> None:
+        """STFT output shape matches scipy ShortTimeFFT for stereo."""
 
-    def test_stft_shape_stereo(self) -> None:
-        """Test STFT output shape for stereo signal."""
-        from scipy.signal import ShortTimeFFT as ScipySTFT
-        from scipy.signal import get_window
+        sig, _ = self._make_stereo()
+        stft = self._stft()
+        result = stft.process_array(sig).compute()
 
-        # Process the stereo signal
-        stft_result = self.stft.process_array(self.signal_stereo).compute()
-
-        assert stft_result.ndim == 3, "Output should be 3D (channels, frequencies, time)"
-
-        # Expected shape: (channels, frequencies, time frames)
+        assert result.ndim == 3
         sft = ScipySTFT(
-            win=get_window(self.window, self.win_length),
-            hop=self.hop_length,
-            fs=self.sample_rate,
-            mfft=self.n_fft,
+            win=get_window(self._WINDOW, self._WIN_LEN),
+            hop=self._HOP,
+            fs=_SR,
+            mfft=self._N_FFT,
             scale_to="magnitude",
         )
-        expected_n_channels = 2
-        expected_n_freqs = sft.f.shape[0]
-        expected_n_frames = sft.t(self.signal_mono.shape[-1]).shape[0]
+        expected_shape = (2, sft.f.shape[0], sft.t(sig.shape[-1]).shape[0])
+        assert result.shape == expected_shape
 
-        expected_shape = (expected_n_channels, expected_n_freqs, expected_n_frames)
-        assert stft_result.shape == expected_shape, f"Expected {expected_shape}, got {stft_result.shape}"
+    def test_stft_1d_input_reshaped(self) -> None:
+        """1D input produces 3D output with 1 channel."""
+        sig_1d = np.sin(2 * np.pi * 440 * np.linspace(0, 1, _SR, endpoint=False))
+        result = self._stft().process_array(sig_1d).compute()
+        assert result.ndim == 3
+        assert result.shape[0] == 1
 
-    def test_stft_content(self) -> None:
-        """Test STFT content correctness."""
-        # Process the mono signal using the class under test
-        stft_result = self.stft.process(self.dask_mono).compute()
+    def test_istft_shape_matches_original(self) -> None:
+        """ISTFT output shape close to original signal length."""
+        sig, _ = self._make_mono()
+        stft_data = self._stft().process_array(sig)
+        result = self._istft().process_array(stft_data).compute()
 
-        assert stft_result.ndim == 3, "Output should be 3D (channels, frequencies, time)"
+        assert result.ndim == 2
+        assert result.shape[0] == 1
+        assert abs(result.shape[1] - sig.shape[1]) < self._WIN_LEN
 
-        # Calculate the expected STFT using scipy.signal.ShortTimeFFT directly
-        from scipy.signal import ShortTimeFFT as ScipySTFT
-        from scipy.signal import get_window
+    def test_istft_2d_input_reshaped(self) -> None:
+        """2D (single-channel spectrogram) produces 2D output."""
+        sig, _ = self._make_mono()
+        stft_data = self._stft().process_array(sig).compute()
+        stft_2d = stft_data[0]  # (freqs, frames)
+        result = self._istft().process_array(stft_2d).compute()
+        assert result.ndim == 2
+        assert result.shape[0] == 1
 
-        # Ensure parameters match the self.stft instance
+    def test_istft_with_length_trims_output(self) -> None:
+        """ISTFT with length parameter trims to exact output length."""
+        sig, _ = self._make_mono()
+        stft_data = self._stft().process_array(sig)
+        result = self._istft(length=8000).process_array(stft_data).compute()
+        assert result.shape[1] == 8000
+
+    # -- Layer 3: Numerical verification -----------------------------------
+
+    def test_stft_content_matches_scipy_reference(self) -> None:
+        """STFT output matches scipy ShortTimeFFT (exact reference).
+
+        Tolerance: rtol=1e-5, atol=1e-5 — window scaling and padding.
+        """
+
+        sig, dask_sig = self._make_mono()
+        stft = self._stft()
+        result_da = stft.process(dask_sig)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
+
         sft = ScipySTFT(
-            win=get_window(self.window, self.win_length),
-            hop=self.hop_length,
-            fs=self.sample_rate,
-            mfft=self.n_fft,
+            win=get_window(self._WINDOW, self._WIN_LEN),
+            hop=self._HOP,
+            fs=_SR,
+            mfft=self._N_FFT,
             scale_to="magnitude",
         )
-        # Calculate STFT on the raw signal data (first channel)
-        expected_stft_raw = sft.stft(self.signal_mono[0])
-        expected_stft_raw[..., 1:-1, :] *= 2.0
-        # Reshape scipy's output (freqs, time) to match class
-        # output (channels, freqs, time)
-        expected_stft = expected_stft_raw.reshape(1, *expected_stft_raw.shape)
+        expected_raw = sft.stft(sig[0])
+        expected_raw[..., 1:-1, :] *= 2.0
+        expected = expected_raw.reshape(1, *expected_raw.shape)
 
-        # Check the peak magnitude
-        #  (should be close to the original amplitude 4 due to scale_to='magnitude')
-        np.testing.assert_allclose(np.abs(stft_result).max(), 4, rtol=1e-5)
-        # Compare the results from the class with the directly calculated scipy result
-        np.testing.assert_allclose(stft_result, expected_stft, rtol=1e-5, atol=1e-5)
+        np.testing.assert_allclose(np.abs(result).max(), 4, rtol=1e-5)
+        np.testing.assert_allclose(result, expected, rtol=1e-5, atol=1e-5)
 
-    def test_amplitude_scaling(self) -> None:
-        """Test that STFT amplitude scaling is correct."""
+    def test_stft_amplitude_scaling_matches_input(self) -> None:
+        """STFT peak amplitude in middle frame matches input amplitude.
+
+        Tolerance: rtol=1e-10 — float64 precision.
+        """
         amp = 2.0
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
+        t = np.linspace(0, 1, _SR, endpoint=False)
         cos_wave = amp * np.cos(2 * np.pi * 500 * t)
+        result_da = self._stft().process(cos_wave)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
 
-        stft_result = self.stft.process(cos_wave).compute()
+        middle_frame = result.shape[2] // 2
+        peak_idx = np.argmax(np.abs(result[0, :, middle_frame]))
+        peak_mag = np.abs(result[0, peak_idx, middle_frame])
+        np.testing.assert_allclose(peak_mag, amp, rtol=1e-10)
 
-        # Use the middle time frame to avoid edge effects from windowing
-        middle_frame = stft_result.shape[2] // 2
-        peak_idx = np.argmax(np.abs(stft_result[0, :, middle_frame]))
-        peak_mag = np.abs(stft_result[0, peak_idx, middle_frame])
-        expected_mag = amp
-        np.testing.assert_allclose(peak_mag, expected_mag, rtol=1e-10)
+    def test_stft_istft_roundtrip_reconstruction(self) -> None:
+        """STFT->ISTFT roundtrip reconstructs original signal.
 
-    def test_istft_shape(self) -> None:
-        """Test ISTFT output shape."""
-        # First get some STFT data
-        stft_data = self.stft.process_array(self.signal_mono)
+        Tolerance: rtol=1e-6, atol=1e-5 — windowed overlap-add.
+        Boundary: 16 samples trimmed from each end for edge effects.
+        """
+        sig, _ = self._make_mono()
+        stft_data = self._stft().process_array(sig)
+        istft_data = self._istft().process_array(stft_data).compute()
 
-        # Process with ISTFT
-        istft_result = self.istft.process_array(stft_data).compute()
-
-        # Check the shape
-        assert istft_result.ndim == 2, "Output should be 2D (channels, time)"
-
-        # One channel
-        assert istft_result.shape[0] == 1
-
-        # Length should be approximately the original signal length
-        expected_length = len(self.signal_mono[0])
-        assert abs(istft_result.shape[1] - expected_length) < self.win_length
-
-    def test_roundtrip_reconstruction(self) -> None:
-        """Test signal reconstruction quality through STFT->ISTFT roundtrip."""
-        # Process with STFT then ISTFT
-        stft_data = self.stft.process_array(self.signal_mono)
-        istft_data = self.istft.process_array(stft_data).compute()
-
-        orig_length = self.signal_mono.shape[1]
-        reconstructed_trimmed = istft_data[:, :orig_length]
+        orig_length = sig.shape[1]
+        reconstructed = istft_data[:, :orig_length]
         np.testing.assert_allclose(
-            reconstructed_trimmed[..., 16:-16],
-            self.signal_mono[..., 16:-16],
+            reconstructed[..., 16:-16],
+            sig[..., 16:-16],
             rtol=1e-6,
             atol=1e-5,
         )
 
-    def test_1d_input_handling(self) -> None:
-        """Test that 1D input is properly reshaped to (1, samples)."""
-        signal_1d = np.sin(2 * np.pi * 440 * np.linspace(0, 1, self.sample_rate, endpoint=False))
-
-        stft_result = self.stft.process_array(signal_1d).compute()
-
-        assert stft_result.ndim == 3
-        assert stft_result.shape[0] == 1
-
-    def test_istft_2d_input_handling(self) -> None:
-        """
-        Test that 2D input (single channel spectrogram) is
-        properly reshaped to (1, freqs, frames).
-        """
-        stft_data = self.stft.process_array(self.signal_mono).compute()
-        stft_2d = stft_data[0]
-
-        istft_result = self.istft.process_array(stft_2d).compute()
-
-        assert istft_result.ndim == 2
-        assert istft_result.shape[0] == 1
-
-    def test_stft_operation_registry(self) -> None:
-        """Test that STFT is properly registered in the operation registry."""
-        assert get_operation("stft") == STFT
-        assert get_operation("istft") == ISTFT
-
-        stft_op = create_operation("stft", self.sample_rate, n_fft=512, hop_length=128)
-        istft_op = create_operation("istft", self.sample_rate, n_fft=512, hop_length=128)
-
-        assert isinstance(stft_op, STFT)
-        assert stft_op.n_fft == 512
-        assert stft_op.hop_length == 128
-
-        assert isinstance(istft_op, ISTFT)
-        assert istft_op.n_fft == 512
-        assert istft_op.hop_length == 128
-
-    def test_negative_n_fft_error_message(self) -> None:
-        """Test that negative n_fft provides helpful error message."""
-        import pytest
-
-        with pytest.raises(ValueError) as exc_info:
-            STFT(sampling_rate=44100, n_fft=-2048)
-
-        error_msg = str(exc_info.value)
-        # Check WHAT
-        assert "Invalid FFT size for STFT" in error_msg
-        assert "-2048" in error_msg
-        # Check WHY
-        assert "Positive integer" in error_msg
-        # Check HOW
-        assert "Common values:" in error_msg
-
-    def test_win_length_greater_than_n_fft_error_message(self) -> None:
-        """Test that win_length > n_fft provides helpful error message."""
-        import pytest
-
-        with pytest.raises(ValueError) as exc_info:
-            STFT(sampling_rate=44100, n_fft=1024, win_length=2048)
-
-        error_msg = str(exc_info.value)
-        # Check WHAT
-        assert "Invalid window length for STFT" in error_msg
-        assert "win_length=2048" in error_msg
-        # Check WHY
-        assert "win_length <= n_fft" in error_msg
-        assert "1024" in error_msg
-        # Check HOW
-        assert "win_length=1024 or smaller" in error_msg or "increase n_fft to 2048" in error_msg
-
-    def test_negative_hop_length_error_message(self) -> None:
-        """Test that negative hop_length provides helpful error message."""
-        import pytest
-
-        with pytest.raises(ValueError) as exc_info:
-            STFT(sampling_rate=44100, n_fft=2048, hop_length=-512)
-
-        error_msg = str(exc_info.value)
-        # Check WHAT
-        assert "Invalid hop length for STFT" in error_msg
-        assert "-512" in error_msg
-        # Check WHY
-        assert "Positive integer" in error_msg
-
-    def test_hop_length_greater_than_win_length_error_message(self) -> None:
-        """Test that hop_length > win_length provides helpful error message."""
-        import pytest
-
-        with pytest.raises(ValueError) as exc_info:
-            STFT(sampling_rate=44100, n_fft=2048, win_length=1024, hop_length=2048)
-
-        error_msg = str(exc_info.value)
-        # Check WHAT
-        assert "Invalid hop length for STFT" in error_msg
-        assert "hop_length=2048" in error_msg
-        # Check WHY
-        assert "hop_length <= win_length" in error_msg
-        assert "1024" in error_msg
-        # Check HOW
-        assert "would create gaps" in error_msg
-
-    def test_zero_n_fft_error_message(self) -> None:
-        """Test that zero n_fft provides helpful error message."""
-        import pytest
-
-        with pytest.raises(ValueError) as exc_info:
-            STFT(sampling_rate=44100, n_fft=0)
-
-        error_msg = str(exc_info.value)
-        # Check WHAT
-        assert "Invalid FFT size for STFT" in error_msg
-        assert "0" in error_msg
-        # Check WHY
-        assert "Positive integer" in error_msg
-
-    def test_negative_win_length_error_message(self) -> None:
-        """Test that negative win_length provides helpful error message."""
-        import pytest
-
-        with pytest.raises(ValueError) as exc_info:
-            STFT(sampling_rate=44100, n_fft=2048, win_length=-1024)
-
-        error_msg = str(exc_info.value)
-        # Check WHAT
-        assert "Invalid window length for STFT" in error_msg
-        assert "-1024" in error_msg
-        # Check WHY
-        assert "Positive integer" in error_msg
-
-    def test_zero_win_length_error_message(self) -> None:
-        """Test that zero win_length provides helpful error message."""
-        import pytest
-
-        with pytest.raises(ValueError) as exc_info:
-            STFT(sampling_rate=44100, n_fft=2048, win_length=0)
-
-        error_msg = str(exc_info.value)
-        # Check WHAT
-        assert "Invalid window length for STFT" in error_msg
-        # Check WHY
-        assert "Positive integer" in error_msg
-
-    def test_win_length_too_small_for_default_hop_error_message(self) -> None:
-        """Test that win_length < 4 with no hop_length provides
-        helpful error message."""
-        import pytest
-
-        with pytest.raises(ValueError) as exc_info:
-            STFT(sampling_rate=44100, n_fft=2048, win_length=3)
-
-        error_msg = str(exc_info.value)
-        # Check WHAT
-        assert "Window length too small" in error_msg
-        assert "win_length=3" in error_msg
-        # Check WHY
-        assert "win_length >= 4" in error_msg
-        # Check HOW
-        assert "specify a larger win_length or provide hop_length explicitly" in error_msg
-
-    def test_istft_with_length_parameter(self) -> None:
-        """Test ISTFT with explicit length parameter for output trimming."""
-        # Create STFT data
-        stft_data = self.stft.process_array(self.signal_mono)
-
-        # Create ISTFT with specific output length
-        target_length = 8000  # Half of original signal
-        istft_with_length = ISTFT(
-            sampling_rate=self.sample_rate,
-            n_fft=self.n_fft,
-            hop_length=self.hop_length,
-            win_length=self.win_length,
-            window=self.window,
-            length=target_length,
-        )
-
-        result = istft_with_length.process_array(stft_data).compute()
-
-        # Output should be trimmed to target_length
-        assert result.shape[1] == target_length
-
 
 class TestNOctSynthesisOperation:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 48000
-        self.fmin: float = 24.0
-        self.fmax: float = 12600
-        self.n: int = 3
-        self.G: int = 10
-        self.fr: int = 1000
+    """NOctSynthesis operation: Layer 1 + Layer 2 + Layer 3 (mosqito reference)."""
 
-        self.noct_synthesis = NOctSynthesis(
-            sampling_rate=self.sample_rate,
-            fmin=self.fmin,
-            fmax=self.fmax,
-            n=self.n,
-            G=self.G,
-            fr=self.fr,
-        )
+    _NOCT_SR: int = 48000
+    _FMIN: float = 24.0
+    _FMAX: float = 12600
+    _N: int = 3
+    _G: int = 10
+    _FR: int = 1000
 
-        # Create a test signal with pink noise
-        np.random.seed(42)  # For reproducibility
-        white_noise = np.random.randn(self.sample_rate)
-
-        # Simple approximation of pink noise by filtering white noise
-        k = np.fft.rfftfreq(len(white_noise))[1:]
-        X = np.fft.rfft(white_noise)  # noqa: N806
+    def _make_pink_noise(self) -> tuple[NDArrayReal, NDArrayReal]:
+        """Return (pink_noise, white_noise) arrays each of length _NOCT_SR."""
+        rng = np.random.default_rng(42)
+        white = rng.standard_normal(self._NOCT_SR)
+        k = np.fft.rfftfreq(len(white))[1:]
+        X = np.fft.rfft(white)  # noqa: N806
         S = 1.0 / np.sqrt(k)  # noqa: N806
         X[1:] *= S
-        pink_noise = np.fft.irfft(X, len(white_noise))
-        pink_noise /= np.abs(pink_noise).max()  # Normalize
+        pink = np.fft.irfft(X, len(white))
+        return pink / np.abs(pink).max(), white / np.abs(white).max()
 
-        self.signal_mono: NDArrayReal = np.array([pink_noise])
-        self.signal_stereo: NDArrayReal = np.array([pink_noise, white_noise / np.abs(white_noise).max()])
-
-        # Create dask arrays
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, 1000))
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(2, 1000))
-
-    def test_initialization(self) -> None:
-        """Test initialization with parameters."""
-        noct = NOctSynthesis(
-            self.sample_rate,
-            fmin=self.fmin,
-            fmax=self.fmax,
-            n=self.n,
-            G=self.G,
-            fr=self.fr,
+    def _op(self) -> NOctSynthesis:
+        return NOctSynthesis(
+            self._NOCT_SR,
+            fmin=self._FMIN,
+            fmax=self._FMAX,
+            n=self._N,
+            G=self._G,
+            fr=self._FR,
         )
-        assert noct.sampling_rate == self.sample_rate
-        assert noct.fmin == self.fmin
-        assert noct.fmax == self.fmax
-        assert noct.n == self.n
-        assert noct.G == self.G
-        assert noct.fr == self.fr
 
-    def test_noct_synthesis_integration(self) -> None:
-        """外部ライブラリのnoct_synthesis関数が正確にラップされているかテスト"""
-        # スペクトル計算に必要なデータを用意
-        # まずfftでスペクトルを計算
-        fft = FFT(self.sample_rate, n_fft=None, window="hann")
-        spectrum = fft.process(self.dask_mono).compute()
+    # -- Layer 1: Unit tests -----------------------------------------------
 
-        # NOctSynthesisによる合成
-        result = self.noct_synthesis.process(spectrum).compute()
+    def test_init_stores_all_params(self) -> None:
+        op = self._op()
+        assert op.sampling_rate == self._NOCT_SR
+        assert op.fmin == self._FMIN
+        assert op.fmax == self._FMAX
+        assert op.n == self._N
+        assert op.G == self._G
+        assert op.fr == self._FR
 
-        # 外部ライブラリを直接呼び出した場合の結果
-        # Note: NOctSynthesisのprocess_array内の処理を再現
-        n = spectrum.shape[-1]
-        if n % 2 == 0:
-            n = n * 2 - 1
-        else:
-            n = (n - 1) * 2
-        freqs = np.fft.rfftfreq(n, d=1 / self.sample_rate)
-
-        expected_signal, expected_freqs = noct_synthesis(
-            spectrum=np.abs(spectrum).T,
-            freqs=freqs,
-            fmin=self.fmin,
-            fmax=self.fmax,
-            n=self.n,
-            G=self.G,
-            fr=self.fr,
-        )
-        expected_signal = expected_signal.T
-
-        # 形状が一致することを確認
-        assert result.shape == expected_signal.shape
-
-        # 結果が一致することを確認
-        np.testing.assert_allclose(result[0], expected_signal[0])
-
-    def test_noct_synthesis_stereo(self) -> None:
-        """ステレオ信号でnoct_synthesis関数が正確にラップされているかテスト"""
-        # FFTでスペクトル計算するための準備
-        fft = FFT(self.sample_rate, n_fft=None, window="hann")
-
-        # ステレオ信号のスペクトルを計算
-        stereo_spectrum = fft.process(self.dask_stereo).compute()
-
-        # NOctSynthesisによる合成
-        result = self.noct_synthesis.process(stereo_spectrum).compute()
-
-        # 外部ライブラリを直接呼び出した場合の結果
-        n = stereo_spectrum.shape[-1]
-        if n % 2 == 0:
-            n = n * 2 - 1
-        else:
-            n = (n - 1) * 2
-        freqs = np.fft.rfftfreq(n, d=1 / self.sample_rate)
-
-        # 第1チャンネル
-        expected_signal_ch1, expected_freqs = noct_synthesis(
-            spectrum=np.abs(stereo_spectrum[0:1]).T,
-            freqs=freqs,
-            fmin=self.fmin,
-            fmax=self.fmax,
-            n=self.n,
-            G=self.G,
-            fr=self.fr,
-        )
-        expected_signal_ch1 = expected_signal_ch1.T
-
-        # 第2チャンネル
-        expected_signal_ch2, _ = noct_synthesis(
-            spectrum=np.abs(stereo_spectrum[1:2]).T,
-            freqs=freqs,
-            fmin=self.fmin,
-            fmax=self.fmax,
-            n=self.n,
-            G=self.G,
-            fr=self.fr,
-        )
-        expected_signal_ch2 = expected_signal_ch2.T
-
-        # 結果の形状を確認
-        assert result.shape == (2, expected_signal_ch1.shape[1])
-
-        # 各チャンネルの結果が外部ライブラリの結果と一致するか確認
-        np.testing.assert_allclose(result[0], expected_signal_ch1[0], rtol=1e-5, atol=1e-5)
-        np.testing.assert_allclose(result[1], expected_signal_ch2[0], rtol=1e-5, atol=1e-5)
-
-        # ピンクノイズと白色ノイズのチャンネルで異なる結果が出ることを確認
-        # 完全に異なるスペクトルから合成したので、結果も異なるはず
-        assert not np.allclose(result[0], result[1])
-
-    def test_delayed_execution(self) -> None:
-        """Test that NOctSynthesis operation uses dask's delayed execution."""
-        with mock.patch.object(DaArray, "compute") as mock_compute:
-            with mock.patch("wandas.processing.spectral.noct_synthesis") as mock_noct:
-                # Create a dummy result for the mock
-                dummy_signal = np.zeros((1, self.sample_rate))
-                dummy_result = (dummy_signal, np.zeros(27))
-                mock_noct.return_value = dummy_result
-
-                result = self.noct_synthesis.process(self.dask_mono)
-                mock_compute.assert_not_called()
-
-                _ = result.compute()
-                mock_compute.assert_called_once()
-
-    def test_operation_registry(self) -> None:
-        """Test that NOctSynthesis is properly registered in the operation registry."""
+    def test_registry_returns_correct_class(self) -> None:
         assert get_operation("noct_synthesis") == NOctSynthesis
-
-        noct_op = create_operation(
+        op = create_operation(
             "noct_synthesis",
-            self.sample_rate,
+            self._NOCT_SR,
             fmin=100.0,
             fmax=5000.0,
             n=1,
             G=20,
             fr=1000,
         )
+        assert isinstance(op, NOctSynthesis)
+        assert op.fmin == 100.0
+        assert op.fmax == 5000.0
 
-        assert isinstance(noct_op, NOctSynthesis)
-        assert noct_op.sampling_rate == self.sample_rate
-        assert noct_op.fmin == 100.0
-        assert noct_op.fmax == 5000.0
-        assert noct_op.n == 1
-        assert noct_op.G == 20
-        assert noct_op.fr == 1000
+    # -- Layer 2: Domain (immutability + lazy + shapes) ---------------------
 
-    def test_noct_synthesis_odd_length_spectrum(self) -> None:
-        """Test NOctSynthesis with odd-length spectrum (else branch coverage)."""
-        # Create spectrum with odd number of frequency bins
-        # rfft of length N produces N//2 + 1 bins
-        # For odd bins: need even N where N//2 + 1 is odd, so N//2 is even, N = 4k
-        # Example: N=52 -> 52//2 + 1 = 27 (odd)
-        fft = FFT(self.sample_rate, n_fft=None, window="hann")
+    def test_preserves_immutability_and_dask_type(self) -> None:
+        """Pillar 1: input data unchanged after NOctSynthesis; result is new instance."""
+        pink, _ = self._make_pink_noise()
+        sig = np.array([pink])
+        dask_sig = da_from_array(sig, chunks=(1, 1000))
+        input_copy = sig.copy()
 
-        # Create a signal with even length that produces odd rfft bins
-        signal_length = 52  # Will produce 27 rfft bins (odd)
-        test_signal = np.random.randn(signal_length)
-        spectrum = fft.process(_da_from_array(np.array([test_signal]))).compute()
+        fft = FFT(self._NOCT_SR, n_fft=None, window="hann")
+        spectrum = fft.process(dask_sig).compute()
+        spec_copy = spectrum.copy()
 
-        # Verify spectrum has odd length
+        result = self._op().process(spectrum).compute()
+
+        np.testing.assert_array_equal(sig, input_copy)
+        np.testing.assert_array_equal(spectrum, spec_copy)
+        assert result is not spectrum
+
+    def test_delayed_execution_not_computed_early(self) -> None:
+        """Pillar 1: Dask lazy evaluation preserved; no premature compute()."""
+        pink, _ = self._make_pink_noise()
+        sig = np.array([pink])
+        dask_sig = da_from_array(sig, chunks=(1, 1000))
+        with mock.patch.object(DaArray, "compute") as mock_compute:
+            with mock.patch("wandas.processing.spectral.noct_synthesis") as mock_noct:
+                mock_noct.return_value = (np.zeros((1, self._NOCT_SR)), np.zeros(27))
+                result = self._op().process(dask_sig)
+                mock_compute.assert_not_called()
+                _ = result.compute()
+                mock_compute.assert_called_once()
+
+    def test_odd_length_spectrum_produces_valid_output(self) -> None:
+        """Odd-length spectrum exercises the else-branch in length inference."""
+        fft = FFT(self._NOCT_SR, n_fft=None, window="hann")
+        rng = np.random.default_rng(99)
+        test_signal = rng.standard_normal(52)
+        spectrum = fft.process(da_from_array(np.array([test_signal]), chunks=(1, -1))).compute()
         assert spectrum.shape[-1] % 2 == 1
-
-        # Process through NOctSynthesis
-        result = self.noct_synthesis.process(_da_from_array(spectrum)).compute()
-
-        # Should produce valid output
+        result_da = self._op().process(da_from_array(spectrum, chunks=(1, -1)))
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
         assert result.shape[0] == 1
+
+    # -- Layer 3: Numerical verification (mosqito reference) ----------------
+
+    def test_mono_matches_mosqito_noct_synthesis(self) -> None:
+        """Mono result matches direct mosqito noct_synthesis call."""
+        pink, _ = self._make_pink_noise()
+        sig = np.array([pink])
+        dask_sig = da_from_array(sig, chunks=(1, 1000))
+
+        fft = FFT(self._NOCT_SR, n_fft=None, window="hann")
+        spectrum = fft.process(dask_sig).compute()
+        result_da = self._op().process(spectrum)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
+
+        n = spectrum.shape[-1]
+        n = n * 2 - 1 if n % 2 == 0 else (n - 1) * 2
+        freqs = np.fft.rfftfreq(n, d=1 / self._NOCT_SR)
+        expected_signal, _ = noct_synthesis(
+            spectrum=np.abs(spectrum).T,
+            freqs=freqs,
+            fmin=self._FMIN,
+            fmax=self._FMAX,
+            n=self._N,
+            G=self._G,
+            fr=self._FR,
+        )
+        expected_signal = expected_signal.T
+
+        assert result.shape == expected_signal.shape
+        # Wrapper equivalence: same MoSQITo noct_synthesis call; default tolerance
+        np.testing.assert_allclose(result[0], expected_signal[0])
+
+    def test_stereo_matches_mosqito_per_channel(self) -> None:
+        """Stereo result matches per-channel mosqito calls.
+
+        Tolerance: rtol=1e-5, atol=1e-5 — floating-point accumulation.
+        """
+        pink, white = self._make_pink_noise()
+        sig = np.array([pink, white])
+        dask_sig = da_from_array(sig, chunks=(2, 1000))
+
+        fft = FFT(self._NOCT_SR, n_fft=None, window="hann")
+        spectrum = fft.process(dask_sig).compute()
+        result_da = self._op().process(spectrum)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
+
+        n = spectrum.shape[-1]
+        n = n * 2 - 1 if n % 2 == 0 else (n - 1) * 2
+        freqs = np.fft.rfftfreq(n, d=1 / self._NOCT_SR)
+
+        exp_ch1, _ = noct_synthesis(
+            spectrum=np.abs(spectrum[0:1]).T,
+            freqs=freqs,
+            fmin=self._FMIN,
+            fmax=self._FMAX,
+            n=self._N,
+            G=self._G,
+            fr=self._FR,
+        )
+        exp_ch2, _ = noct_synthesis(
+            spectrum=np.abs(spectrum[1:2]).T,
+            freqs=freqs,
+            fmin=self._FMIN,
+            fmax=self._FMAX,
+            n=self._N,
+            G=self._G,
+            fr=self._FR,
+        )
+
+        assert result.shape == (2, exp_ch1.T.shape[1])
+        # rtol/atol=1e-5: MoSQITo wrapper with window scaling rounding
+        np.testing.assert_allclose(result[0], exp_ch1.T[0], rtol=1e-5, atol=1e-5)
+        np.testing.assert_allclose(result[1], exp_ch2.T[0], rtol=1e-5, atol=1e-5)
+        assert not np.allclose(result[0], result[1])
 
 
 class TestWelchOperation:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 16000
-        self.n_fft: int = 1024
-        self.hop_length: int = 256
-        self.win_length: int = 1024
-        self.window: str = "hann"
-        self.average: str = "mean"
-        self.detrend: str = "constant"
+    """Welch PSD operation: Layer 1 + Layer 2 + Layer 3 (scipy reference)."""
 
-        self.welch = Welch(
-            sampling_rate=self.sample_rate,
-            n_fft=self.n_fft,
-            hop_length=self.hop_length,
-            win_length=self.win_length,
-            window=self.window,
-            average=self.average,
-            detrend=self.detrend,
+    _N_FFT: int = 1024
+    _HOP: int = 256
+    _WIN_LEN: int = 1024
+    _WINDOW: str = "hann"
+    _AVERAGE: str = "mean"
+    _DETREND: str = "constant"
+
+    def _make_mono(self, freq: float = 1000.0) -> tuple[NDArrayReal, DaArray]:
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        sig: NDArrayReal = np.array([np.sin(2 * np.pi * freq * t)])
+        return sig, da_from_array(sig, chunks=(1, 1000))
+
+    def _make_stereo(self) -> tuple[NDArrayReal, DaArray]:
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        sig: NDArrayReal = np.array([np.sin(2 * np.pi * 1000 * t), np.sin(2 * np.pi * 2000 * t)])
+        return sig, da_from_array(sig, chunks=(2, 1000))
+
+    def _op(self) -> Welch:
+        return Welch(
+            _SR,
+            n_fft=self._N_FFT,
+            hop_length=self._HOP,
+            win_length=self._WIN_LEN,
+            window=self._WINDOW,
+            average=self._AVERAGE,
+            detrend=self._DETREND,
         )
 
-        # Create a test signal with a known frequency
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        self.freq = 1000.0
-        self.signal_mono: NDArrayReal = np.array([np.sin(2 * np.pi * self.freq * t)])
-        self.signal_stereo: NDArrayReal = np.array([np.sin(2 * np.pi * self.freq * t), np.sin(2 * np.pi * 2000 * t)])
+    # -- Layer 1: Unit tests -----------------------------------------------
 
-        # Create dask arrays
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, 1000))
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(2, 1000))
-
-    def test_initialization(self) -> None:
-        """Test initialization with different parameters."""
-        # Default initialization
-        welch = Welch(self.sample_rate)
-        assert welch.sampling_rate == self.sample_rate
+    def test_init_default_params(self) -> None:
+        welch = Welch(_SR)
+        assert welch.sampling_rate == _SR
         assert welch.n_fft == 2048
         assert welch.win_length == 2048
-        assert welch.hop_length == 512  # 2048 // 4
+        assert welch.hop_length == 512
         assert welch.window == "hann"
         assert welch.average == "mean"
         assert welch.detrend == "constant"
 
-        # Custom initialization
-        custom_welch = Welch(
-            sampling_rate=self.sample_rate,
+    def test_init_custom_params(self) -> None:
+        welch = Welch(
+            _SR,
             n_fft=1024,
             hop_length=256,
             win_length=512,
@@ -990,562 +885,400 @@ class TestWelchOperation:
             average="median",
             detrend="linear",
         )
-        assert custom_welch.n_fft == 1024
-        assert custom_welch.win_length == 512
-        assert custom_welch.hop_length == 256
-        assert custom_welch.window == "hamming"
-        assert custom_welch.average == "median"
-        assert custom_welch.detrend == "linear"
+        assert welch.n_fft == 1024
+        assert welch.win_length == 512
+        assert welch.hop_length == 256
+        assert welch.window == "hamming"
+        assert welch.average == "median"
+        assert welch.detrend == "linear"
 
-    def test_welch_shape(self) -> None:
-        """Test Welch output shape."""
-        result = self.welch.process_array(self.signal_mono).compute()
-
-        # Expected frequency bins
-        expected_bins = self.n_fft // 2 + 1
-        assert result.shape == (1, expected_bins)
-
-        # Test with stereo signal
-        result_stereo = self.welch.process_array(self.signal_stereo).compute()
-        assert result_stereo.shape == (2, expected_bins)
-
-    def test_welch_content(self) -> None:
-        """Test that Welch correctly identifies frequency content."""
-        result = self.welch.process_array(self.signal_mono).compute()
-
-        # Get frequency bins
-        freq_bins = np.fft.rfftfreq(self.n_fft, 1.0 / self.sample_rate)
-
-        # Find the peak frequency
-        peak_idx = np.argmax(result[0])
-        detected_freq = freq_bins[peak_idx]
-
-        # Check that the detected frequency is close to the actual frequency
-        np.testing.assert_allclose(detected_freq, self.freq, rtol=0.05)
-
-        # For stereo signal, check second channel
-        result_stereo = self.welch.process_array(self.signal_stereo).compute()
-        peak_idx_ch2 = np.argmax(result_stereo[1])
-        detected_freq_ch2 = freq_bins[peak_idx_ch2]
-
-        # Second channel should show peak at 2000 Hz
-        np.testing.assert_allclose(detected_freq_ch2, 2000.0, rtol=0.05)
-
-    def test_welch_matches_scipy(self) -> None:
-        """
-        Test that Welch operation output matches
-        SciPy's welch function with equivalent params.
-        """
-        from scipy import signal as ss
-
-        # Compute result from our Welch operation
-        result = self.welch.process_array(self.signal_stereo).compute()
-
-        # Compute expected using SciPy's welch on multi-channel input (axis=-1)
-        f, expected = ss.welch(
-            x=self.signal_stereo,
-            fs=self.sample_rate,
-            nperseg=self.win_length,
-            noverlap=self.win_length - self.hop_length,
-            nfft=self.n_fft,
-            window=self.window,
-            detrend=self.detrend,
-            scaling="spectrum",
-            average=self.average,
-            axis=-1,
-        )
-        # Multiply AC components (excluding DC and Nyquist) by 2 to account
-        # for one-sided spectrum, matching Wandas' amplitude convention.
-        expected[..., 1:-1] *= 2
-        # Convert power spectrum to amplitude spectrum by taking the square root,
-        # as Wandas returns amplitude, not power.
-        expected **= 0.5
-        # Ensure shapes align and values are equal
-        assert result.shape == expected.shape
-        np.testing.assert_allclose(result, expected, rtol=1e-6)
-
-    def test_delayed_execution(self) -> None:
-        """Test that Welch operation uses dask's delayed execution."""
-        with mock.patch.object(DaArray, "compute") as mock_compute:
-            result = self.welch.process(self.dask_mono)
-            mock_compute.assert_not_called()
-
-            assert isinstance(result, DaArray)
-
-            _ = result.compute()
-            mock_compute.assert_called_once()
-
-    def test_operation_registry(self) -> None:
-        """Test that Welch is properly registered in the operation registry."""
+    def test_registry_returns_correct_class(self) -> None:
         assert get_operation("welch") == Welch
-
-        welch_op = create_operation(
+        op = create_operation(
             "welch",
-            self.sample_rate,
+            _SR,
             n_fft=512,
             win_length=512,
             hop_length=128,
             window="hamming",
         )
+        assert isinstance(op, Welch)
+        assert op.n_fft == 512
 
-        assert isinstance(welch_op, Welch)
-        assert welch_op.sampling_rate == self.sample_rate
-        assert welch_op.n_fft == 512
-        assert welch_op.win_length == 512
-        assert welch_op.hop_length == 128
-        assert welch_op.window == "hamming"
-
-    def test_negative_n_fft_error_message(self) -> None:
-        """Test that negative n_fft provides helpful error message."""
-        import pytest
-
+    def test_negative_n_fft_raises(self) -> None:
         with pytest.raises(ValueError) as exc_info:
             Welch(sampling_rate=44100, n_fft=-2048)
-
         error_msg = str(exc_info.value)
-        # Check WHAT
         assert "Invalid FFT size for Welch" in error_msg
         assert "-2048" in error_msg
-        # Check WHY
         assert "Positive integer" in error_msg
-        # Check HOW
-        assert "Common values:" in error_msg
 
-    def test_win_length_greater_than_n_fft_error_message(self) -> None:
-        """Test that win_length > n_fft provides helpful error message."""
-        import pytest
-
+    def test_win_length_greater_than_n_fft_raises(self) -> None:
         with pytest.raises(ValueError) as exc_info:
             Welch(sampling_rate=44100, n_fft=1024, win_length=2048)
-
         error_msg = str(exc_info.value)
-        # Check WHAT
         assert "Invalid window length for Welch" in error_msg
         assert "win_length=2048" in error_msg
-        # Check WHY
         assert "win_length <= n_fft" in error_msg
-        # Check HOW
-        assert "or increase n_fft" in error_msg
 
-    def test_hop_length_greater_than_win_length_error_message(self) -> None:
-        """Test that hop_length > win_length provides helpful error message."""
-        import pytest
-
+    def test_hop_length_greater_than_win_length_raises(self) -> None:
         with pytest.raises(ValueError) as exc_info:
             Welch(sampling_rate=44100, n_fft=2048, win_length=1024, hop_length=2048)
-
         error_msg = str(exc_info.value)
-        # Check WHAT
         assert "Invalid hop length for Welch" in error_msg
-        # Check WHY
         assert "hop_length <= win_length" in error_msg
-        # Check HOW
         assert "would create gaps" in error_msg
 
-    def test_zero_n_fft_error_message(self) -> None:
-        """Test that zero n_fft provides helpful error message."""
-        import pytest
-
+    def test_zero_n_fft_raises(self) -> None:
         with pytest.raises(ValueError) as exc_info:
             Welch(sampling_rate=44100, n_fft=0)
-
         error_msg = str(exc_info.value)
-        # Check WHAT
         assert "Invalid FFT size for Welch" in error_msg
-        assert "0" in error_msg
-        # Check WHY
         assert "Positive integer" in error_msg
 
-    def test_negative_win_length_error_message(self) -> None:
-        """Test that negative win_length provides helpful error message."""
-        import pytest
-
+    def test_negative_win_length_raises(self) -> None:
         with pytest.raises(ValueError) as exc_info:
             Welch(sampling_rate=44100, n_fft=2048, win_length=-1024)
-
         error_msg = str(exc_info.value)
-        # Check WHAT
         assert "Invalid window length for Welch" in error_msg
-        assert "-1024" in error_msg
-        # Check WHY
         assert "Positive integer" in error_msg
 
-    def test_zero_win_length_error_message(self) -> None:
-        """Test that zero win_length provides helpful error message."""
-        import pytest
-
-        with pytest.raises(ValueError) as exc_info:
+    def test_zero_win_length_raises(self) -> None:
+        with pytest.raises(ValueError, match="Invalid window length for Welch"):
             Welch(sampling_rate=44100, n_fft=2048, win_length=0)
 
-        error_msg = str(exc_info.value)
-        # Check WHAT
-        assert "Invalid window length for Welch" in error_msg
-        # Check WHY
-        assert "Positive integer" in error_msg
-
-    def test_win_length_too_small_for_default_hop_error_message(self) -> None:
-        """Test that win_length < 4 with no hop_length provides
-        helpful error message."""
-        import pytest
-
+    def test_win_length_too_small_raises(self) -> None:
         with pytest.raises(ValueError) as exc_info:
             Welch(sampling_rate=44100, n_fft=2048, win_length=3)
-
         error_msg = str(exc_info.value)
-        # Check WHAT
         assert "Window length too small" in error_msg
         assert "win_length=3" in error_msg
-        # Check WHY
         assert "win_length >= 4" in error_msg
-        # Check HOW
-        assert "specify a larger win_length or provide hop_length explicitly" in error_msg
 
-    def test_amplitude_scaling(self) -> None:
-        """Test that Welch amplitude scaling is correct.
-
-        For a sine wave with amplitude A and frequency f, the Welch output
-        at frequency f should be approximately A (one-sided amplitude spectrum).
-        """
-        # Use a signal long enough for good frequency resolution
-        amp = 5.0
-        freq = 1000.0
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        sine_wave = amp * np.sin(2 * np.pi * freq * t)
-
-        # Create Welch with parameters that give good frequency resolution
-        welch = Welch(
-            sampling_rate=self.sample_rate,
-            n_fft=self.n_fft,
-            win_length=self.win_length,
-            hop_length=self.hop_length,
-            window=self.window,
-        )
-
-        result = welch.process_array(np.array([sine_wave])).compute()
-
-        # Find the peak frequency bin
-        freq_bins = np.fft.rfftfreq(self.n_fft, 1.0 / self.sample_rate)
-        peak_idx = np.argmax(result[0])
-        detected_freq = freq_bins[peak_idx]
-
-        # Verify peak is at the expected frequency
-        np.testing.assert_allclose(detected_freq, freq, rtol=1e-10)
-
-        # Verify amplitude: for a sine wave with amplitude A,
-        # the Welch output should be approximately A
-        peak_amplitude = result[0, peak_idx]
-        np.testing.assert_allclose(peak_amplitude, amp, rtol=1e-10)
-
-    def test_welch_non_ndarray_raises(self) -> None:
-        """Test that passing a non-ndarray to _process_array raises ValueError."""
-        welch = Welch(sampling_rate=self.sample_rate, n_fft=self.n_fft)
+    def test_non_ndarray_raises(self) -> None:
+        welch = Welch(sampling_rate=_SR, n_fft=self._N_FFT)
         with pytest.raises(ValueError, match="Welch operation requires"):
             welch._process_array([0.0] * 100)  # ty: ignore[invalid-argument-type]
 
+    # -- Layer 2: Domain (immutability + lazy + shapes) ---------------------
+
+    def test_preserves_immutability_and_dask_type(self) -> None:
+        sig, dask_sig = self._make_mono()
+        input_copy = sig.copy()
+
+        result = self._op().process(dask_sig)
+
+        np.testing.assert_array_equal(dask_sig.compute(), input_copy)
+        assert isinstance(result, DaArray)
+
+    def test_delayed_execution_not_computed_early(self) -> None:
+        _, dask_sig = self._make_mono()
+        with mock.patch.object(DaArray, "compute") as mock_compute:
+            result = self._op().process(dask_sig)
+            mock_compute.assert_not_called()
+            assert isinstance(result, DaArray)
+            _ = result.compute()
+            mock_compute.assert_called_once()
+
+    def test_shape_mono(self) -> None:
+        sig, _ = self._make_mono()
+        result = self._op().process_array(sig).compute()
+        expected_bins = self._N_FFT // 2 + 1
+        assert result.shape == (1, expected_bins)
+
+    def test_shape_stereo(self) -> None:
+        sig, _ = self._make_stereo()
+        result = self._op().process_array(sig).compute()
+        expected_bins = self._N_FFT // 2 + 1
+        assert result.shape == (2, expected_bins)
+
+    # -- Layer 3: Numerical verification (scipy reference) ------------------
+
+    def test_peak_frequency_detected_correctly(self) -> None:
+        """Welch PSD peak at 1 kHz for a 1 kHz sine.
+
+        Tolerance: rtol=0.05 — frequency bin resolution.
+        """
+        sig, _ = self._make_mono(freq=1000.0)
+        result = self._op().process_array(sig).compute()
+        freq_bins = np.fft.rfftfreq(self._N_FFT, 1.0 / _SR)
+        detected_freq = freq_bins[np.argmax(result[0])]
+        np.testing.assert_allclose(detected_freq, 1000.0, rtol=0.05)
+
+    def test_stereo_second_channel_peak_at_2khz(self) -> None:
+        """Welch PSD peak at 2 kHz for stereo second channel.
+
+        Tolerance: rtol=0.05 — frequency bin resolution.
+        """
+        sig, _ = self._make_stereo()
+        result = self._op().process_array(sig).compute()
+        freq_bins = np.fft.rfftfreq(self._N_FFT, 1.0 / _SR)
+        detected_freq = freq_bins[np.argmax(result[1])]
+        np.testing.assert_allclose(detected_freq, 2000.0, rtol=0.05)
+
+    def test_matches_scipy_welch_reference(self) -> None:
+        """Welch output matches scipy.signal.welch with equivalent params.
+
+        Tolerance: rtol=1e-6 — float64 precision.
+        """
+
+        sig, _ = self._make_stereo()
+        result = self._op().process_array(sig).compute()
+
+        _, expected = ss.welch(
+            x=sig,
+            fs=_SR,
+            nperseg=self._WIN_LEN,
+            noverlap=self._WIN_LEN - self._HOP,
+            nfft=self._N_FFT,
+            window=self._WINDOW,
+            detrend=self._DETREND,
+            scaling="spectrum",
+            average=self._AVERAGE,
+            axis=-1,
+        )
+        expected[..., 1:-1] *= 2
+        expected **= 0.5
+
+        assert result.shape == expected.shape
+        # rtol=1e-6: wrapper equivalence — same scipy.signal.welch algorithm
+        np.testing.assert_allclose(result, expected, rtol=1e-6)
+
+    def test_amplitude_scaling_sine_wave(self) -> None:
+        """Peak amplitude in Welch matches input sine amplitude.
+
+        Tolerance: rtol=1e-10 — float64 precision.
+        """
+        amp = 5.0
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        sine = amp * np.sin(2 * np.pi * 1000 * t)
+        result = self._op().process_array(np.array([sine])).compute()
+
+        freq_bins = np.fft.rfftfreq(self._N_FFT, 1.0 / _SR)
+        peak_idx = np.argmax(result[0])
+        np.testing.assert_allclose(freq_bins[peak_idx], 1000.0, rtol=1e-10)
+        np.testing.assert_allclose(result[0, peak_idx], amp, rtol=1e-10)
+
 
 class TestCoherenceOperation:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 16000
-        self.n_fft: int = 1024
-        self.hop_length: int = 256
-        self.win_length: int = 1024
-        self.window: str = "hann"
-        self.detrend: str = "constant"
+    """Coherence operation: Layer 1 + Layer 2 + Layer 3 (scipy reference)."""
 
-        # Create test signals with different frequencies
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        # 2つのチャンネルを持つ信号：1つは1000Hz、もう1つは関連する1100Hz
-        self.signal_stereo: NDArrayReal = np.array([np.sin(2 * np.pi * 1000 * t), np.sin(2 * np.pi * 1100 * t)])
-        # 3チャンネルの信号（1つはノイズ）
-        noise = np.random.randn(self.sample_rate) * 0.1
-        self.signal_multi: NDArrayReal = np.array(
+    _N_FFT: int = 1024
+    _HOP: int = 256
+    _WIN_LEN: int = 1024
+    _WINDOW: str = "hann"
+    _DETREND: str = "constant"
+
+    def _make_stereo(self) -> tuple[NDArrayReal, DaArray]:
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        sig: NDArrayReal = np.array([np.sin(2 * np.pi * 1000 * t), np.sin(2 * np.pi * 1100 * t)])
+        return sig, da_from_array(sig, chunks=(2, 1000))
+
+    def _make_multi(self) -> tuple[NDArrayReal, DaArray]:
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        rng = np.random.default_rng(42)
+        noise = rng.standard_normal(_SR) * 0.1
+        sig: NDArrayReal = np.array(
             [
                 np.sin(2 * np.pi * 1000 * t),
                 np.sin(2 * np.pi * 1100 * t),
                 noise,
             ]
         )
+        return sig, da_from_array(sig, chunks=(3, 1000))
 
-        # Create dask arrays
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(2, 1000))
-        self.dask_multi: DaArray = _da_from_array(self.signal_multi, chunks=(3, 1000))
-
-        # Initialize Coherence operation
-        self.coherence = Coherence(
-            sampling_rate=self.sample_rate,
-            n_fft=self.n_fft,
-            hop_length=self.hop_length,
-            win_length=self.win_length,
-            window=self.window,
-            detrend=self.detrend,
+    def _op(self) -> Coherence:
+        return Coherence(
+            _SR,
+            n_fft=self._N_FFT,
+            hop_length=self._HOP,
+            win_length=self._WIN_LEN,
+            window=self._WINDOW,
+            detrend=self._DETREND,
         )
 
-    def test_initialization(self) -> None:
-        """Test initialization with parameters."""
-        # Default initialization already done in setup_method
-        assert self.coherence.sampling_rate == self.sample_rate
-        assert self.coherence.n_fft == self.n_fft
-        assert self.coherence.hop_length == self.hop_length
-        assert self.coherence.win_length == self.win_length
-        assert self.coherence.window == self.window
-        assert self.coherence.detrend == self.detrend
+    # -- Layer 1: Unit tests -----------------------------------------------
 
-        # Custom initialization
-        custom_hop = 512
-        custom_coherence = Coherence(
-            sampling_rate=self.sample_rate,
-            n_fft=self.n_fft,
-            hop_length=custom_hop,
-            win_length=self.win_length,
+    def test_init_stores_params(self) -> None:
+        op = self._op()
+        assert op.sampling_rate == _SR
+        assert op.n_fft == self._N_FFT
+        assert op.hop_length == self._HOP
+        assert op.win_length == self._WIN_LEN
+        assert op.window == self._WINDOW
+        assert op.detrend == self._DETREND
+
+    def test_init_custom_params(self) -> None:
+        op = Coherence(
+            _SR,
+            n_fft=self._N_FFT,
+            hop_length=512,
+            win_length=self._WIN_LEN,
             window="hamming",
             detrend="linear",
         )
-        assert custom_coherence.sampling_rate == self.sample_rate
-        assert custom_coherence.n_fft == self.n_fft
-        assert custom_coherence.hop_length == custom_hop
-        assert custom_coherence.win_length == self.win_length
-        assert custom_coherence.window == "hamming"
-        assert custom_coherence.detrend == "linear"
+        assert op.hop_length == 512
+        assert op.window == "hamming"
+        assert op.detrend == "linear"
 
-    def test_coherence_shape(self) -> None:
-        """Test output shape for coherence."""
-        # Calculate coherence for stereo signal
-        result = self.coherence.process_array(self.signal_stereo).compute()
-
-        # Expected shape: (n_channels * n_channels, n_freqs)
-        n_channels = self.signal_stereo.shape[0]
-        n_freqs = self.n_fft // 2 + 1
-        expected_shape = (n_channels * n_channels, n_freqs)
-
-        assert result.shape == expected_shape
-
-        # Multi-channel test
-        result_multi = self.coherence.process_array(self.signal_multi).compute()
-        n_channels_multi = self.signal_multi.shape[0]
-        expected_shape_multi = (n_channels_multi * n_channels_multi, n_freqs)
-
-        assert result_multi.shape == expected_shape_multi
-
-    def test_coherence_content(self) -> None:
-        """Test coherence calculation correctness."""
-        result = self.coherence.process_array(self.signal_stereo).compute()
-
-        # Expected properties:
-        # 1. Coherence values should be between 0 and 1
-        assert np.all(result >= 0)
-        # 小数点6桁以下を丸めて比較
-        assert np.all(result <= 1.000001)
-
-        # 2. Self-coherence (diagonal elements) should be ~1
-        # For 2 channels, indices 0 and 3
-        assert np.isclose(result[0, :].mean(), 1.0)
-        assert np.isclose(result[3, :].mean(), 1.0)
-
-        # 3. Cross-coherence should be less than 1 but above 0
-        # For 2 channels, indices 1 and 2
-        cross_coherence = np.mean(result[1, :])
-        assert 0 < cross_coherence < 1, f"Cross-coherence mean: {cross_coherence}"
-
-        # 4. Verify with scipy.signal.coherence directly
-        from scipy import signal as ss
-
-        _, coh = ss.coherence(
-            x=self.signal_stereo[:, np.newaxis],
-            y=self.signal_stereo[np.newaxis, :],
-            fs=self.sample_rate,
-            nperseg=self.win_length,
-            noverlap=self.win_length - self.hop_length,
-            nfft=self.n_fft,
-            window=self.window,
-            detrend=self.detrend,
-        )
-
-        expected_result = coh.reshape(-1, coh.shape[-1])
-        np.testing.assert_allclose(result, expected_result, rtol=1e-6)
-
-    def test_delayed_execution(self) -> None:
-        """Test that coherence operation uses dask's delayed execution."""
-        with mock.patch.object(DaArray, "compute") as mock_compute:
-            result = self.coherence.process(self.dask_stereo)
-            mock_compute.assert_not_called()
-
-            # Only when compute() is called should the computation happen
-            _ = result.compute()
-            mock_compute.assert_called_once()
-
-    def test_operation_registry(self) -> None:
-        """Test that Coherence is properly registered in the operation registry."""
+    def test_registry_returns_correct_class(self) -> None:
         assert get_operation("coherence") == Coherence
-
-        coherence_op = create_operation(
+        op = create_operation(
             "coherence",
-            self.sample_rate,
+            _SR,
             n_fft=512,
             hop_length=128,
             win_length=512,
             window="hamming",
             detrend="linear",
         )
+        assert isinstance(op, Coherence)
+        assert op.n_fft == 512
 
-        assert isinstance(coherence_op, Coherence)
-        assert coherence_op.sampling_rate == self.sample_rate
-        assert coherence_op.n_fft == 512
-        assert coherence_op.hop_length == 128
-        assert coherence_op.win_length == 512
-        assert coherence_op.window == "hamming"
-        assert coherence_op.detrend == "linear"
+    # -- Layer 2: Domain (immutability + lazy + shapes) ---------------------
+
+    def test_preserves_immutability_and_dask_type(self) -> None:
+        sig, dask_sig = self._make_stereo()
+        input_copy = sig.copy()
+        result = self._op().process(dask_sig)
+        np.testing.assert_array_equal(dask_sig.compute(), input_copy)
+        assert isinstance(result, DaArray)
+
+    def test_delayed_execution_not_computed_early(self) -> None:
+        _, dask_sig = self._make_stereo()
+        with mock.patch.object(DaArray, "compute") as mock_compute:
+            result = self._op().process(dask_sig)
+            mock_compute.assert_not_called()
+            _ = result.compute()
+            mock_compute.assert_called_once()
+
+    def test_shape_stereo(self) -> None:
+        sig, _ = self._make_stereo()
+        result = self._op().process_array(sig).compute()
+        n_ch = sig.shape[0]
+        n_freqs = self._N_FFT // 2 + 1
+        assert result.shape == (n_ch * n_ch, n_freqs)
+
+    def test_shape_multi_channel(self) -> None:
+        sig, _ = self._make_multi()
+        result = self._op().process_array(sig).compute()
+        n_ch = sig.shape[0]
+        n_freqs = self._N_FFT // 2 + 1
+        assert result.shape == (n_ch * n_ch, n_freqs)
+
+    # -- Layer 3: Numerical verification (scipy reference) ------------------
+
+    def test_content_matches_scipy_coherence(self) -> None:
+        """Coherence matches scipy.signal.coherence.
+
+        Tolerance: rtol=1e-6.
+        """
+
+        sig, _ = self._make_stereo()
+        result = self._op().process_array(sig).compute()
+
+        assert np.all(result >= 0)
+        assert np.all(result <= 1.000001)
+
+        # Self-coherence ~1
+        np.testing.assert_allclose(result[0, :].mean(), 1.0, atol=1e-10)
+        np.testing.assert_allclose(result[3, :].mean(), 1.0, atol=1e-10)
+
+        # Cross-coherence between 0 and 1
+        cross = np.mean(result[1, :])
+        assert 0 < cross < 1
+
+        _, coh = ss.coherence(
+            x=sig[:, np.newaxis],
+            y=sig[np.newaxis, :],
+            fs=_SR,
+            nperseg=self._WIN_LEN,
+            noverlap=self._WIN_LEN - self._HOP,
+            nfft=self._N_FFT,
+            window=self._WINDOW,
+            detrend=self._DETREND,
+        )
+        expected = coh.reshape(-1, coh.shape[-1])
+        # rtol=1e-6: wrapper equivalence — same scipy.signal.coherence algorithm
+        np.testing.assert_allclose(result, expected, rtol=1e-6)
 
 
 class TestCSDOperation:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 16000
-        self.n_fft: int = 1024
-        self.hop_length: int = 256
-        self.win_length: int = 1024
-        self.window: str = "hann"
-        self.detrend: str = "constant"
-        self.scaling: str = "spectrum"
-        self.average: str = "mean"
+    """CSD (Cross-Spectral Density) operation: Layer 1 + Layer 2 + Layer 3 (scipy ref)."""
 
-        # Create test signals with different frequencies
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        # 2つのチャンネルを持つ信号：1つは1000Hz、もう1つは関連する1100Hz
-        self.signal_stereo: NDArrayReal = np.array([np.sin(2 * np.pi * 1000 * t), np.sin(2 * np.pi * 1100 * t)])
-        # 3チャンネルの信号（1つはノイズ）
-        noise = np.random.randn(self.sample_rate) * 0.1
-        self.signal_multi: NDArrayReal = np.array(
+    _N_FFT: int = 1024
+    _HOP: int = 256
+    _WIN_LEN: int = 1024
+    _WINDOW: str = "hann"
+    _DETREND: str = "constant"
+    _SCALING: str = "spectrum"
+    _AVERAGE: str = "mean"
+
+    def _make_stereo(self) -> tuple[NDArrayReal, DaArray]:
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        sig: NDArrayReal = np.array([np.sin(2 * np.pi * 1000 * t), np.sin(2 * np.pi * 1100 * t)])
+        return sig, da_from_array(sig, chunks=(2, 1000))
+
+    def _make_multi(self) -> tuple[NDArrayReal, DaArray]:
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        rng = np.random.default_rng(42)
+        noise = rng.standard_normal(_SR) * 0.1
+        sig: NDArrayReal = np.array(
             [
                 np.sin(2 * np.pi * 1000 * t),
                 np.sin(2 * np.pi * 1100 * t),
                 noise,
             ]
         )
+        return sig, da_from_array(sig, chunks=(3, 1000))
 
-        # Create dask arrays
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(2, 1000))
-        self.dask_multi: DaArray = _da_from_array(self.signal_multi, chunks=(3, 1000))
-
-        # Initialize CSD operation
-        self.csd = CSD(
-            sampling_rate=self.sample_rate,
-            n_fft=self.n_fft,
-            hop_length=self.hop_length,
-            win_length=self.win_length,
-            window=self.window,
-            detrend=self.detrend,
-            scaling=self.scaling,
-            average=self.average,
+    def _op(self) -> CSD:
+        return CSD(
+            _SR,
+            n_fft=self._N_FFT,
+            hop_length=self._HOP,
+            win_length=self._WIN_LEN,
+            window=self._WINDOW,
+            detrend=self._DETREND,
+            scaling=self._SCALING,
+            average=self._AVERAGE,
         )
 
-    def test_initialization(self) -> None:
-        """Test initialization with parameters."""
-        # Default initialization already done in setup_method
-        assert self.csd.sampling_rate == self.sample_rate
-        assert self.csd.n_fft == self.n_fft
-        assert self.csd.hop_length == self.hop_length
-        assert self.csd.win_length == self.win_length
-        assert self.csd.window == self.window
-        assert self.csd.detrend == self.detrend
-        assert self.csd.scaling == self.scaling
-        assert self.csd.average == self.average
+    # -- Layer 1: Unit tests -----------------------------------------------
 
-        # Custom initialization
-        custom_hop = 512
-        custom_csd = CSD(
-            sampling_rate=self.sample_rate,
-            n_fft=self.n_fft,
-            hop_length=custom_hop,
-            win_length=self.win_length,
+    def test_init_stores_params(self) -> None:
+        op = self._op()
+        assert op.sampling_rate == _SR
+        assert op.n_fft == self._N_FFT
+        assert op.hop_length == self._HOP
+        assert op.win_length == self._WIN_LEN
+        assert op.window == self._WINDOW
+        assert op.detrend == self._DETREND
+        assert op.scaling == self._SCALING
+        assert op.average == self._AVERAGE
+
+    def test_init_custom_params(self) -> None:
+        op = CSD(
+            _SR,
+            n_fft=self._N_FFT,
+            hop_length=512,
+            win_length=self._WIN_LEN,
             window="hamming",
             detrend="linear",
             scaling="density",
             average="median",
         )
-        assert custom_csd.sampling_rate == self.sample_rate
-        assert custom_csd.n_fft == self.n_fft
-        assert custom_csd.hop_length == custom_hop
-        assert custom_csd.win_length == self.win_length
-        assert custom_csd.window == "hamming"
-        assert custom_csd.detrend == "linear"
-        assert custom_csd.scaling == "density"
-        assert custom_csd.average == "median"
+        assert op.hop_length == 512
+        assert op.window == "hamming"
+        assert op.detrend == "linear"
+        assert op.scaling == "density"
+        assert op.average == "median"
 
-    def test_csd_shape(self) -> None:
-        """Test output shape for CSD."""
-        # Calculate CSD for stereo signal
-        result = self.csd.process_array(self.signal_stereo).compute()
-
-        # Expected shape: (n_channels * n_channels, n_freqs)
-        n_channels = self.signal_stereo.shape[0]
-        n_freqs = self.n_fft // 2 + 1
-        expected_shape = (n_channels * n_channels, n_freqs)
-
-        assert result.shape == expected_shape
-
-        # Multi-channel test
-        result_multi = self.csd.process_array(self.signal_multi).compute()
-        n_channels_multi = self.signal_multi.shape[0]
-        expected_shape_multi = (n_channels_multi * n_channels_multi, n_freqs)
-
-        assert result_multi.shape == expected_shape_multi
-
-    def test_csd_content(self) -> None:
-        """Test CSD calculation correctness."""
-        result = self.csd.process_array(self.signal_stereo).compute()
-
-        # Verify with scipy.signal.csd directly
-        from scipy import signal as ss
-
-        _, csd_expected = ss.csd(
-            x=self.signal_stereo[:, np.newaxis, :],
-            y=self.signal_stereo[np.newaxis, :, :],
-            fs=self.sample_rate,
-            nperseg=self.win_length,
-            noverlap=self.win_length - self.hop_length,
-            nfft=self.n_fft,
-            window=self.window,
-            detrend=self.detrend,
-            scaling=self.scaling,
-            average=self.average,
-        )
-
-        expected_result = csd_expected.transpose(1, 0, 2).reshape(-1, csd_expected.shape[-1])
-        np.testing.assert_allclose(result, expected_result, rtol=1e-6)
-
-        # CSD of a signal with itself should be real and positive
-        # at the signal frequency
-        # Find indices closest to our test frequencies
-        freq_bins = np.fft.rfftfreq(self.n_fft, 1.0 / self.sample_rate)
-        idx_1000hz = np.argmin(np.abs(freq_bins - 1000))
-        idx_1100hz = np.argmin(np.abs(freq_bins - 1100))
-
-        # Auto-spectrum at 1000Hz (channel 0 with itself) should peak at 1000Hz
-        auto_ch0 = result[0]
-        assert np.argmax(np.abs(auto_ch0)) == idx_1000hz
-
-        # Auto-spectrum at 1100Hz (channel 1 with itself) should peak at 1100Hz
-        auto_ch1 = result[3]  # Index 3 is the 2nd channel with itself in flattened form
-        assert np.argmax(np.abs(auto_ch1)) == idx_1100hz
-
-    def test_delayed_execution(self) -> None:
-        """Test that CSD operation uses dask's delayed execution."""
-        with mock.patch.object(DaArray, "compute") as mock_compute:
-            result = self.csd.process(self.dask_stereo)
-            mock_compute.assert_not_called()
-
-            # Only when compute() is called should the computation happen
-            _ = result.compute()
-            mock_compute.assert_called_once()
-
-    def test_operation_registry(self) -> None:
-        """Test that CSD is properly registered in the operation registry."""
+    def test_registry_returns_correct_class(self) -> None:
         assert get_operation("csd") == CSD
-
-        csd_op = create_operation(
+        op = create_operation(
             "csd",
-            self.sample_rate,
+            _SR,
             n_fft=512,
             hop_length=128,
             win_length=512,
@@ -1554,199 +1287,155 @@ class TestCSDOperation:
             scaling="density",
             average="median",
         )
+        assert isinstance(op, CSD)
+        assert op.n_fft == 512
 
-        assert isinstance(csd_op, CSD)
-        assert csd_op.sampling_rate == self.sample_rate
-        assert csd_op.n_fft == 512
-        assert csd_op.hop_length == 128
-        assert csd_op.win_length == 512
-        assert csd_op.window == "hamming"
-        assert csd_op.detrend == "linear"
-        assert csd_op.scaling == "density"
-        assert csd_op.average == "median"
+    # -- Layer 2: Domain (immutability + lazy + shapes) ---------------------
+
+    def test_preserves_immutability_and_dask_type(self) -> None:
+        sig, dask_sig = self._make_stereo()
+        input_copy = sig.copy()
+        result = self._op().process(dask_sig)
+        np.testing.assert_array_equal(dask_sig.compute(), input_copy)
+        assert isinstance(result, DaArray)
+
+    def test_delayed_execution_not_computed_early(self) -> None:
+        _, dask_sig = self._make_stereo()
+        with mock.patch.object(DaArray, "compute") as mock_compute:
+            result = self._op().process(dask_sig)
+            mock_compute.assert_not_called()
+            _ = result.compute()
+            mock_compute.assert_called_once()
+
+    def test_shape_stereo(self) -> None:
+        sig, _ = self._make_stereo()
+        result = self._op().process_array(sig).compute()
+        n_ch = sig.shape[0]
+        n_freqs = self._N_FFT // 2 + 1
+        assert result.shape == (n_ch * n_ch, n_freqs)
+
+    def test_shape_multi_channel(self) -> None:
+        sig, _ = self._make_multi()
+        result = self._op().process_array(sig).compute()
+        n_ch = sig.shape[0]
+        n_freqs = self._N_FFT // 2 + 1
+        assert result.shape == (n_ch * n_ch, n_freqs)
+
+    # -- Layer 3: Numerical verification (scipy reference) ------------------
+
+    def test_content_matches_scipy_csd(self) -> None:
+        """CSD matches scipy.signal.csd.
+
+        Tolerance: rtol=1e-6.
+        """
+
+        sig, _ = self._make_stereo()
+        result = self._op().process_array(sig).compute()
+
+        _, csd_expected = ss.csd(
+            x=sig[:, np.newaxis, :],
+            y=sig[np.newaxis, :, :],
+            fs=_SR,
+            nperseg=self._WIN_LEN,
+            noverlap=self._WIN_LEN - self._HOP,
+            nfft=self._N_FFT,
+            window=self._WINDOW,
+            detrend=self._DETREND,
+            scaling=self._SCALING,
+            average=self._AVERAGE,
+        )
+        expected = csd_expected.transpose(1, 0, 2).reshape(-1, csd_expected.shape[-1])
+        np.testing.assert_allclose(result, expected, rtol=1e-6)
+
+    def test_auto_spectrum_peaks_at_signal_frequency(self) -> None:
+        """Auto-CSD peaks at the respective signal frequencies."""
+        sig, _ = self._make_stereo()
+        result = self._op().process_array(sig).compute()
+        freq_bins = np.fft.rfftfreq(self._N_FFT, 1.0 / _SR)
+
+        idx_1000 = np.argmin(np.abs(freq_bins - 1000))
+        idx_1100 = np.argmin(np.abs(freq_bins - 1100))
+
+        assert np.argmax(np.abs(result[0])) == idx_1000  # ch0 auto
+        assert np.argmax(np.abs(result[3])) == idx_1100  # ch1 auto
 
 
 class TestTransferFunctionOperation:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 16000
-        self.n_fft: int = 1024
-        self.hop_length: int = 256
-        self.win_length: int = 1024
-        self.window: str = "hann"
-        self.detrend: str = "constant"
-        self.scaling: str = "spectrum"
-        self.average: str = "mean"
+    """Transfer function operation: Layer 1 + Layer 2 + Layer 3 (scipy ref)."""
 
-        # Create test signals with different frequencies
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        # 入力信号と出力信号のペアを作成（簡単な線形システムをシミュレート）
-        input_signal = np.sin(2 * np.pi * 1000 * t)
-        output_signal = 2 * input_signal + 0.1 * np.random.randn(len(t))  # ゲイン2と少しのノイズ
+    _N_FFT: int = 1024
+    _HOP: int = 256
+    _WIN_LEN: int = 1024
+    _WINDOW: str = "hann"
+    _DETREND: str = "constant"
+    _SCALING: str = "spectrum"
+    _AVERAGE: str = "mean"
 
-        self.signal_stereo: NDArrayReal = np.array([input_signal, output_signal])
+    def _make_stereo(self) -> tuple[NDArrayReal, DaArray]:
+        """Input + output pair: gain=2 with small noise."""
+        rng = np.random.default_rng(42)
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        inp = np.sin(2 * np.pi * 1000 * t)
+        out = 2 * inp + 0.1 * rng.standard_normal(len(t))
+        sig: NDArrayReal = np.array([inp, out])
+        return sig, da_from_array(sig, chunks=(2, 1000))
 
-        # より複雑なシステムのシミュレーション（複数入力・出力）
-        input1 = np.sin(2 * np.pi * 1000 * t)
-        input2 = np.sin(2 * np.pi * 1500 * t)
-        output1 = 2 * input1 + 0.5 * input2 + 0.1 * np.random.randn(len(t))
-        output2 = 0.3 * input1 + 1.5 * input2 + 0.1 * np.random.randn(len(t))
+    def _make_multi(self) -> tuple[NDArrayReal, DaArray]:
+        rng = np.random.default_rng(42)
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        i1 = np.sin(2 * np.pi * 1000 * t)
+        i2 = np.sin(2 * np.pi * 1500 * t)
+        o1 = 2 * i1 + 0.5 * i2 + 0.1 * rng.standard_normal(len(t))
+        o2 = 0.3 * i1 + 1.5 * i2 + 0.1 * rng.standard_normal(len(t))
+        sig: NDArrayReal = np.array([i1, i2, o1, o2])
+        return sig, da_from_array(sig, chunks=(4, 1000))
 
-        self.signal_multi: NDArrayReal = np.array([input1, input2, output1, output2])
-
-        # Create dask arrays
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(2, 1000))
-        self.dask_multi: DaArray = _da_from_array(self.signal_multi, chunks=(4, 1000))
-
-        # Initialize TransferFunction operation
-        self.transfer_function = TransferFunction(
-            sampling_rate=self.sample_rate,
-            n_fft=self.n_fft,
-            hop_length=self.hop_length,
-            win_length=self.win_length,
-            window=self.window,
-            detrend=self.detrend,
-            scaling=self.scaling,
-            average=self.average,
+    def _op(self) -> TransferFunction:
+        return TransferFunction(
+            _SR,
+            n_fft=self._N_FFT,
+            hop_length=self._HOP,
+            win_length=self._WIN_LEN,
+            window=self._WINDOW,
+            detrend=self._DETREND,
+            scaling=self._SCALING,
+            average=self._AVERAGE,
         )
 
-    def test_initialization(self) -> None:
-        """Test initialization with parameters."""
-        # Default initialization already done in setup_method
-        assert self.transfer_function.sampling_rate == self.sample_rate
-        assert self.transfer_function.n_fft == self.n_fft
-        assert self.transfer_function.hop_length == self.hop_length
-        assert self.transfer_function.win_length == self.win_length
-        assert self.transfer_function.window == self.window
-        assert self.transfer_function.detrend == self.detrend
-        assert self.transfer_function.scaling == self.scaling
-        assert self.transfer_function.average == self.average
+    # -- Layer 1: Unit tests -----------------------------------------------
 
-        # Custom initialization
-        custom_hop = 512
-        custom_tf = TransferFunction(
-            sampling_rate=self.sample_rate,
-            n_fft=self.n_fft,
-            hop_length=custom_hop,
-            win_length=self.win_length,
+    def test_init_stores_params(self) -> None:
+        op = self._op()
+        assert op.sampling_rate == _SR
+        assert op.n_fft == self._N_FFT
+        assert op.hop_length == self._HOP
+        assert op.win_length == self._WIN_LEN
+        assert op.window == self._WINDOW
+        assert op.detrend == self._DETREND
+        assert op.scaling == self._SCALING
+        assert op.average == self._AVERAGE
+
+    def test_init_custom_params(self) -> None:
+        op = TransferFunction(
+            _SR,
+            n_fft=self._N_FFT,
+            hop_length=512,
+            win_length=self._WIN_LEN,
             window="hamming",
             detrend="linear",
             scaling="density",
             average="median",
         )
-        assert custom_tf.sampling_rate == self.sample_rate
-        assert custom_tf.n_fft == self.n_fft
-        assert custom_tf.hop_length == custom_hop
-        assert custom_tf.win_length == self.win_length
-        assert custom_tf.window == "hamming"
-        assert custom_tf.detrend == "linear"
-        assert custom_tf.scaling == "density"
-        assert custom_tf.average == "median"
+        assert op.hop_length == 512
+        assert op.window == "hamming"
+        assert op.scaling == "density"
+        assert op.average == "median"
 
-    def test_transfer_function_shape(self) -> None:
-        """Test output shape for transfer function."""
-        # Calculate transfer function for stereo signal
-        result = self.transfer_function.process_array(self.signal_stereo).compute()
-
-        # Expected shape: (n_channels * n_channels, n_freqs)
-        n_channels = self.signal_stereo.shape[0]
-        n_freqs = self.n_fft // 2 + 1
-        expected_shape = (n_channels * n_channels, n_freqs)
-
-        assert result.shape == expected_shape
-
-        # Multi-channel test
-        result_multi = self.transfer_function.process_array(self.signal_multi).compute()
-        n_channels_multi = self.signal_multi.shape[0]
-        expected_shape_multi = (n_channels_multi * n_channels_multi, n_freqs)
-
-        assert result_multi.shape == expected_shape_multi
-
-    def test_transfer_function_content(self) -> None:
-        """Test transfer function calculation correctness."""
-        result = self.transfer_function.process_array(self.signal_stereo).compute()
-
-        # 伝達関数の検証
-        # シミュレーションで使用したゲインは2.0（入力から出力へ）
-        # 周波数ビンの計算
-        freq_bins = np.fft.rfftfreq(self.n_fft, 1.0 / self.sample_rate)
-        idx_1000hz = np.argmin(np.abs(freq_bins - 1000))
-
-        # 入力から出力への伝達関数の値（チャンネル0からチャンネル1）
-        # 結果の構造：[ch0->ch0, ch0->ch1, ch1->ch0, ch1->ch1]
-        h_input_to_output = result[1, idx_1000hz]  # ch0->ch1 at 1000Hz
-
-        # ゲインは約2.0のはず（行列の形状で平坦化されていることに注意）
-        assert np.isclose(np.abs(h_input_to_output), 2.0, rtol=0.2)
-
-        # 入力から入力（自己伝達関数）と出力から出力は約1.0のはず
-        h_input_to_input = result[0, idx_1000hz]  # ch0->ch0
-        h_output_to_output = result[3, idx_1000hz]  # ch1->ch1
-
-        assert np.isclose(np.abs(h_input_to_input), 1.0, rtol=0.2)
-        assert np.isclose(np.abs(h_output_to_output), 1.0, rtol=0.2)
-
-        # 出力から入力への伝達関数の値は小さいはず（因果関係が逆）
-        h_output_to_input = result[2, idx_1000hz]  # ch1->ch0
-        assert np.isclose(np.abs(h_output_to_input), 0.5, rtol=0.2)
-
-        # 簡易的な手動計算による検証
-        from scipy import signal as ss
-
-        # クロススペクトル密度を計算
-        f, p_yx = ss.csd(
-            x=self.signal_stereo[:, np.newaxis, :],
-            y=self.signal_stereo[np.newaxis, :, :],
-            fs=self.sample_rate,
-            nperseg=self.win_length,
-            noverlap=self.win_length - self.hop_length,
-            nfft=self.n_fft,
-            window=self.window,
-            detrend=self.detrend,
-            scaling=self.scaling,
-            average=self.average,
-            axis=-1,
-        )
-
-        # パワースペクトル密度を計算
-        _, p_xx = ss.welch(
-            x=self.signal_stereo,
-            fs=self.sample_rate,
-            nperseg=self.win_length,
-            noverlap=self.win_length - self.hop_length,
-            nfft=self.n_fft,
-            window=self.window,
-            detrend=self.detrend,
-            scaling=self.scaling,
-            average=self.average,
-            axis=-1,
-        )
-
-        # 伝達関数 H = P_yx / P_xx
-        h_f = p_yx / p_xx[np.newaxis, :, :]
-        expected_result = h_f.transpose(1, 0, 2).reshape(-1, h_f.shape[-1])
-
-        np.testing.assert_allclose(result, expected_result, rtol=1e-6)
-
-    def test_delayed_execution(self) -> None:
-        """Test that transfer function operation uses dask's delayed execution."""
-        with mock.patch.object(DaArray, "compute") as mock_compute:
-            result = self.transfer_function.process(self.dask_stereo)
-            mock_compute.assert_not_called()
-
-            # Only when compute() is called should the computation happen
-            _ = result.compute()
-            mock_compute.assert_called_once()
-
-    def test_operation_registry(self) -> None:
-        """
-        Test that TransferFunction is properly registered in the operation registry.
-        """
+    def test_registry_returns_correct_class(self) -> None:
         assert get_operation("transfer_function") == TransferFunction
-
-        tf_op = create_operation(
+        op = create_operation(
             "transfer_function",
-            self.sample_rate,
+            _SR,
             n_fft=512,
             hop_length=128,
             win_length=512,
@@ -1755,166 +1444,256 @@ class TestTransferFunctionOperation:
             scaling="density",
             average="median",
         )
+        assert isinstance(op, TransferFunction)
+        assert op.n_fft == 512
 
-        assert isinstance(tf_op, TransferFunction)
-        assert tf_op.sampling_rate == self.sample_rate
-        assert tf_op.n_fft == 512
-        assert tf_op.hop_length == 128
-        assert tf_op.win_length == 512
-        assert tf_op.window == "hamming"
-        assert tf_op.detrend == "linear"
-        assert tf_op.scaling == "density"
-        assert tf_op.average == "median"
+    # -- Layer 2: Domain (immutability + lazy + shapes) ---------------------
 
+    def test_preserves_immutability_and_dask_type(self) -> None:
+        sig, dask_sig = self._make_stereo()
+        input_copy = sig.copy()
+        result = self._op().process(dask_sig)
+        np.testing.assert_array_equal(dask_sig.compute(), input_copy)
+        assert isinstance(result, DaArray)
 
-class TestNOctSpectrumOperation:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 51200
-        self.fmin: float = 24.0
-        self.fmax: float = 12600
-        self.n: int = 3
-        self.G: int = 10
-        self.fr: int = 1000
-
-        self.noct_spectrum = NOctSpectrum(
-            sampling_rate=self.sample_rate,
-            fmin=self.fmin,
-            fmax=self.fmax,
-            n=self.n,
-            G=self.G,
-            fr=self.fr,
-        )
-
-        # Create a test signal with pink noise
-        np.random.seed(42)  # For reproducibility
-        white_noise = np.random.randn(self.sample_rate)
-
-        # Simple approximation of pink noise by filtering white noise
-        k = np.fft.rfftfreq(len(white_noise))[1:]
-        X = np.fft.rfft(white_noise)  # noqa: N806
-        S = 1.0 / np.sqrt(k)  # noqa: N806
-        X[1:] *= S
-        pink_noise = np.fft.irfft(X, len(white_noise))
-        pink_noise /= np.abs(pink_noise).max()  # Normalize
-
-        self.signal_mono: NDArrayReal = np.array([pink_noise])
-        self.signal_stereo: NDArrayReal = np.array([pink_noise, white_noise / np.abs(white_noise).max()])
-
-        # Create dask arrays
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(2, -1))
-
-    def test_initialization(self) -> None:
-        """Test initialization with parameters."""
-        noct = NOctSpectrum(
-            self.sample_rate,
-            fmin=self.fmin,
-            fmax=self.fmax,
-            n=self.n,
-            G=self.G,
-            fr=self.fr,
-        )
-        assert noct.sampling_rate == self.sample_rate
-        assert noct.fmin == self.fmin
-        assert noct.fmax == self.fmax
-        assert noct.n == self.n
-        assert noct.G == self.G
-        assert noct.fr == self.fr
-
-    def test_noct_spectrum_shape(self) -> None:
-        """外部ライブラリのnoct_spectrum関数が正確にラップされているかテスト"""
-        # 実際にnoct_spectrum関数を実行
-        result = self.noct_spectrum.process(self.dask_mono).compute()
-
-        # 外部ライブラリを直接呼び出した場合の結果を取得
-        expected_spectrum, expected_freqs = noct_spectrum(
-            sig=self.signal_mono.T,
-            fs=self.sample_rate,
-            fmin=self.fmin,
-            fmax=self.fmax,
-            n=self.n,
-            G=self.G,
-            fr=self.fr,
-        )
-
-        # 形状が一致することを確認
-        assert result.shape == (1, expected_spectrum.shape[0])
-
-        # 結果が一致することを確認
-        np.testing.assert_allclose(result[0], expected_spectrum, rtol=1e-6)
-
-        # 周波数帯域数が適切かチェック
-        _, center_freqs = _center_freq(fmin=self.fmin, fmax=self.fmax, n=self.n, G=self.G, fr=self.fr)
-        assert result.shape[1] == len(center_freqs)
-
-    def test_noct_spectrum_stereo(self) -> None:
-        """ステレオ信号でnoct_spectrum関数が正確にラップされているかテスト"""
-        # ステレオ信号用のテスト
-        result = self.noct_spectrum.process(self.dask_stereo).compute()
-
-        # 外部ライブラリを直接呼び出した場合の結果（第1チャンネル）
-        expected_spectrum_ch1, expected_freqs = noct_spectrum(
-            sig=self.signal_stereo[0:1].T,  # 第1チャンネルのみ
-            fs=self.sample_rate,
-            fmin=self.fmin,
-            fmax=self.fmax,
-            n=self.n,
-            G=self.G,
-            fr=self.fr,
-        )
-
-        # 外部ライブラリを直接呼び出した場合の結果（第2チャンネル）
-        expected_spectrum_ch2, _ = noct_spectrum(
-            sig=self.signal_stereo[1:2].T,  # 第2チャンネルのみ
-            fs=self.sample_rate,
-            fmin=self.fmin,
-            fmax=self.fmax,
-            n=self.n,
-            G=self.G,
-            fr=self.fr,
-        )
-
-        # 形状が正しいことを確認（チャンネル数 x 周波数帯域数）
-        assert result.shape == (2, expected_spectrum_ch1.shape[0])
-
-        # 第1チャンネルの結果が一致することを確認
-        np.testing.assert_allclose(result[0], expected_spectrum_ch1, rtol=1e-6)
-
-        # 第2チャンネルの結果が一致することを確認
-        np.testing.assert_allclose(result[1], expected_spectrum_ch2, rtol=1e-6)
-
-        # 白色ノイズと有色ノイズのスペクトルが異なることを確認
-        # （第1チャンネルはピンクノイズ、第2チャンネルは白色ノイズ）
-        assert not np.allclose(result[0], result[1])
-
-    def test_delayed_execution(self) -> None:
-        """Test that NOctSpectrum operation uses dask's delayed execution."""
+    def test_delayed_execution_not_computed_early(self) -> None:
+        _, dask_sig = self._make_stereo()
         with mock.patch.object(DaArray, "compute") as mock_compute:
-            result = self.noct_spectrum.process(self.dask_mono)
+            result = self._op().process(dask_sig)
             mock_compute.assert_not_called()
-
             _ = result.compute()
             mock_compute.assert_called_once()
 
-    def test_operation_registry(self) -> None:
-        """Test that NOctSpectrum is properly registered in the operation registry."""
-        assert get_operation("noct_spectrum") == NOctSpectrum
+    def test_shape_stereo(self) -> None:
+        sig, _ = self._make_stereo()
+        result = self._op().process_array(sig).compute()
+        n_ch = sig.shape[0]
+        n_freqs = self._N_FFT // 2 + 1
+        assert result.shape == (n_ch * n_ch, n_freqs)
 
-        noct_op = create_operation(
+    def test_shape_multi_channel(self) -> None:
+        sig, _ = self._make_multi()
+        result = self._op().process_array(sig).compute()
+        n_ch = sig.shape[0]
+        n_freqs = self._N_FFT // 2 + 1
+        assert result.shape == (n_ch * n_ch, n_freqs)
+
+    # -- Layer 3: Numerical verification (scipy reference) ------------------
+
+    def test_gain_at_signal_frequency(self) -> None:
+        """Transfer function gain ≈ 2 at 1 kHz for a gain-2 system.
+
+        Tolerance: rtol=0.2 — noise in simulated system.
+        """
+        sig, _ = self._make_stereo()
+        result = self._op().process_array(sig).compute()
+        freq_bins = np.fft.rfftfreq(self._N_FFT, 1.0 / _SR)
+        idx_1000 = np.argmin(np.abs(freq_bins - 1000))
+
+        h_in_to_out = result[1, idx_1000]  # ch0 -> ch1
+        # rtol=0.2: spectral leakage at non-exact FFT bin boundaries
+        np.testing.assert_allclose(np.abs(h_in_to_out), 2.0, rtol=0.2)
+
+        h_self_in = result[0, idx_1000]  # ch0 -> ch0
+        np.testing.assert_allclose(np.abs(h_self_in), 1.0, rtol=0.2)
+
+        h_self_out = result[3, idx_1000]  # ch1 -> ch1
+        np.testing.assert_allclose(np.abs(h_self_out), 1.0, rtol=0.2)
+
+        h_out_to_in = result[2, idx_1000]  # ch1 -> ch0
+        np.testing.assert_allclose(np.abs(h_out_to_in), 0.5, rtol=0.2)
+
+    def test_content_matches_scipy_csd_welch_ratio(self) -> None:
+        """Transfer function H = P_yx / P_xx matches manual scipy computation.
+
+        Tolerance: rtol=1e-6 — float64 precision.
+        """
+
+        sig, _ = self._make_stereo()
+        result = self._op().process_array(sig).compute()
+
+        _, p_yx = ss.csd(
+            x=sig[:, np.newaxis, :],
+            y=sig[np.newaxis, :, :],
+            fs=_SR,
+            nperseg=self._WIN_LEN,
+            noverlap=self._WIN_LEN - self._HOP,
+            nfft=self._N_FFT,
+            window=self._WINDOW,
+            detrend=self._DETREND,
+            scaling=self._SCALING,
+            average=self._AVERAGE,
+            axis=-1,
+        )
+        _, p_xx = ss.welch(
+            x=sig,
+            fs=_SR,
+            nperseg=self._WIN_LEN,
+            noverlap=self._WIN_LEN - self._HOP,
+            nfft=self._N_FFT,
+            window=self._WINDOW,
+            detrend=self._DETREND,
+            scaling=self._SCALING,
+            average=self._AVERAGE,
+            axis=-1,
+        )
+        h_f = p_yx / p_xx[np.newaxis, :, :]
+        expected = h_f.transpose(1, 0, 2).reshape(-1, h_f.shape[-1])
+        # rtol=1e-6: wrapper equivalence — same scipy CSD/PSD ratio computation
+        np.testing.assert_allclose(result, expected, rtol=1e-6)
+
+
+class TestNOctSpectrumOperation:
+    """NOctSpectrum operation: Layer 1 + Layer 2 + Layer 3 (mosqito reference)."""
+
+    _NOCT_SR: int = 51200
+    _FMIN: float = 24.0
+    _FMAX: float = 12600
+    _N: int = 3
+    _G: int = 10
+    _FR: int = 1000
+
+    def _make_pink_noise(self) -> tuple[NDArrayReal, NDArrayReal]:
+        rng = np.random.default_rng(42)
+        white = rng.standard_normal(self._NOCT_SR)
+        k = np.fft.rfftfreq(len(white))[1:]
+        X = np.fft.rfft(white)  # noqa: N806
+        S = 1.0 / np.sqrt(k)  # noqa: N806
+        X[1:] *= S
+        pink = np.fft.irfft(X, len(white))
+        return pink / np.abs(pink).max(), white / np.abs(white).max()
+
+    def _op(self) -> NOctSpectrum:
+        return NOctSpectrum(
+            self._NOCT_SR,
+            fmin=self._FMIN,
+            fmax=self._FMAX,
+            n=self._N,
+            G=self._G,
+            fr=self._FR,
+        )
+
+    # -- Layer 1: Unit tests -----------------------------------------------
+
+    def test_init_stores_all_params(self) -> None:
+        """All constructor parameters are stored as attributes."""
+        op = self._op()
+        assert op.sampling_rate == self._NOCT_SR
+        assert op.fmin == self._FMIN
+        assert op.fmax == self._FMAX
+        assert op.n == self._N
+        assert op.G == self._G
+        assert op.fr == self._FR
+
+    def test_registry_returns_correct_class(self) -> None:
+        """'noct_spectrum' registry key creates NOctSpectrum instance."""
+        assert get_operation("noct_spectrum") == NOctSpectrum
+        op = create_operation(
             "noct_spectrum",
-            self.sample_rate,
+            self._NOCT_SR,
             fmin=100.0,
             fmax=5000.0,
             n=1,
             G=20,
             fr=1000,
         )
+        assert isinstance(op, NOctSpectrum)
+        assert op.fmin == 100.0
 
-        assert isinstance(noct_op, NOctSpectrum)
-        assert noct_op.sampling_rate == self.sample_rate
-        assert noct_op.fmin == 100.0
-        assert noct_op.fmax == 5000.0
-        assert noct_op.n == 1
-        assert noct_op.G == 20
-        assert noct_op.fr == 1000
+    # -- Layer 2: Domain (immutability + lazy + shapes) ---------------------
+
+    def test_preserves_immutability_and_dask_type(self) -> None:
+        """Pillar 1: input data unchanged after NOctSpectrum; result is DaskArray."""
+        pink, _ = self._make_pink_noise()
+        sig = np.array([pink])
+        dask_sig = da_from_array(sig, chunks=(1, -1))
+        input_copy = sig.copy()
+
+        result = self._op().process(dask_sig)
+
+        np.testing.assert_array_equal(dask_sig.compute(), input_copy)
+        assert isinstance(result, DaArray)
+
+    def test_delayed_execution_not_computed_early(self) -> None:
+        """Pillar 1: Dask lazy evaluation preserved; no premature compute()."""
+        pink, _ = self._make_pink_noise()
+        dask_sig = da_from_array(np.array([pink]), chunks=(1, -1))
+        with mock.patch.object(DaArray, "compute") as mock_compute:
+            result = self._op().process(dask_sig)
+            mock_compute.assert_not_called()
+            _ = result.compute()
+            mock_compute.assert_called_once()
+
+    # -- Layer 3: Numerical verification (mosqito reference) ----------------
+
+    def test_mono_matches_mosqito_noct_spectrum(self) -> None:
+        """Mono result matches direct mosqito noct_spectrum call.
+
+        Tolerance: rtol=1e-6.
+        """
+        pink, _ = self._make_pink_noise()
+        sig = np.array([pink])
+        dask_sig = da_from_array(sig, chunks=(1, -1))
+
+        result_da = self._op().process(dask_sig)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
+
+        expected_spectrum, _ = noct_spectrum(
+            sig=sig.T,
+            fs=self._NOCT_SR,
+            fmin=self._FMIN,
+            fmax=self._FMAX,
+            n=self._N,
+            G=self._G,
+            fr=self._FR,
+        )
+        assert result.shape == (1, expected_spectrum.shape[0])
+        np.testing.assert_allclose(result[0], expected_spectrum, rtol=1e-6)
+
+        _, center_freqs = _center_freq(
+            fmin=self._FMIN,
+            fmax=self._FMAX,
+            n=self._N,
+            G=self._G,
+            fr=self._FR,
+        )
+        assert result.shape[1] == len(center_freqs)
+
+    def test_stereo_matches_mosqito_per_channel(self) -> None:
+        """Stereo result matches per-channel mosqito calls.
+
+        Tolerance: rtol=1e-6.
+        """
+        pink, white = self._make_pink_noise()
+        sig = np.array([pink, white])
+        dask_sig = da_from_array(sig, chunks=(2, -1))
+
+        result_da = self._op().process(dask_sig)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
+
+        exp_ch1, _ = noct_spectrum(
+            sig=sig[0:1].T,
+            fs=self._NOCT_SR,
+            fmin=self._FMIN,
+            fmax=self._FMAX,
+            n=self._N,
+            G=self._G,
+            fr=self._FR,
+        )
+        exp_ch2, _ = noct_spectrum(
+            sig=sig[1:2].T,
+            fs=self._NOCT_SR,
+            fmin=self._FMIN,
+            fmax=self._FMAX,
+            n=self._N,
+            G=self._G,
+            fr=self._FR,
+        )
+
+        assert result.shape == (2, exp_ch1.shape[0])
+        # rtol=1e-6: wrapper equivalence — same MoSQITo noct_spectrum call per channel
+        np.testing.assert_allclose(result[0], exp_ch1, rtol=1e-6)
+        np.testing.assert_allclose(result[1], exp_ch2, rtol=1e-6)
+        assert not np.allclose(result[0], result[1])

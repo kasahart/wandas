@@ -170,13 +170,21 @@ def test_add_channel_pad_truncate_and_duplicate_label_behavior():
         base.add_channel(short, align="strict")
 
     # pad (short has different label so no duplicate label error)
+    original_n_channels = base.n_channels
     padded = base.add_channel(short, align="pad")
+    assert padded is not base  # Pillar 1: immutability
     assert padded.n_channels == 3
+    assert base.n_channels == original_n_channels  # Pillar 1: original unchanged
+    # Pillar 2: structural op leaves history unchanged
+    assert len(padded.operation_history) == len(base.operation_history)
 
     # truncate (use different label)
     long = ChannelFrame.from_numpy(np.arange(20).reshape(1, 20), sampling_rate=100, ch_labels=["long1"])
     truncated = base.add_channel(long, align="truncate")
+    assert truncated is not base  # Pillar 1: immutability
     assert truncated.n_channels == 3
+    # Pillar 2: structural op leaves history unchanged
+    assert len(truncated.operation_history) == len(base.operation_history)
 
     # duplicate label without suffix
     with pytest.raises(ValueError, match=r"Duplicate channel label"):
@@ -201,7 +209,11 @@ def test_remove_channel_errors_and_inplace():
         cf.remove_channel("nope")
 
     cf2 = cf.remove_channel(0, inplace=False)
+    assert cf2 is not cf  # Pillar 1: immutability
     assert cf2.n_channels == 1
+    assert cf.n_channels == 2  # Pillar 1: original unchanged
+    # Pillar 2: structural op leaves history unchanged
+    assert len(cf2.operation_history) == len(cf.operation_history)
     # inplace True
     cf.remove_channel(0, inplace=True)
     assert cf.n_channels == 1
@@ -553,7 +565,7 @@ def test_resolve_channels_list_out_of_range():
 
 def test_from_numpy_3d_data_raises():
     """from_numpy with 3D data should raise ValueError (line 792)."""
-    data_3d = np.random.random((2, 4, 100))
+    data_3d = np.random.default_rng(42).random((2, 4, 100))
     with pytest.raises(ValueError, match="Data must be 1-dimensional or 2-dimensional"):
         ChannelFrame.from_numpy(data_3d, sampling_rate=1000)
 
@@ -590,4 +602,6 @@ def test_add_channel_dask_2d_multichannel_reshape():
     arr_2d = da.from_array(np.ones((2, 10)), chunks=(2, 10))
     # Reshape to (1, 20) and add as one channel; use truncate to handle length
     result = base.add_channel(arr_2d, label="new_ch", align="truncate")
+    assert result is not base  # Pillar 1: immutability
     assert result.n_channels == 2
+    assert base.n_channels == 1  # Pillar 1: original unchanged

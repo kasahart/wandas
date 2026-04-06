@@ -1,29 +1,32 @@
-import dask.array as da
 import numpy as np
 import pytest
+from dask.array.core import Array as DaArray
 
 from wandas.processing.base import _OPERATION_REGISTRY, create_operation, get_operation
 from wandas.processing.custom import CustomOperation
-
-_da_from_array = da.from_array
+from wandas.utils.dask_helpers import da_from_array
 
 
 class TestCustomOperation:
     def test_custom_operation_applies_func_and_params(self) -> None:
+        """CustomOperation applies user function with kwargs to input array."""
         data = np.array([[1.0, 2.0, 3.0]])
-        dask_data = _da_from_array(data, chunks=(1, -1))
+        dask_data = da_from_array(data, chunks=(1, -1))
 
         def scale_add(x: np.ndarray, gain: float) -> np.ndarray:
             return x * gain + 1.0
 
         op = CustomOperation(16000, func=scale_add, gain=2.0)
 
-        result = op.process(dask_data).compute()
+        result_da = op.process(dask_data)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
         np.testing.assert_array_equal(result, scale_add(data, gain=2.0))
 
     def test_custom_operation_output_shape_func_overrides(self) -> None:
+        """output_shape_func overrides default shape inference for Dask graph."""
         data = np.arange(8.0).reshape(1, 8)
-        dask_data = _da_from_array(data, chunks=(1, -1))
+        dask_data = da_from_array(data, chunks=(1, -1))
 
         def halve_samples(x: np.ndarray) -> np.ndarray:
             return x[:, ::2]
@@ -42,6 +45,8 @@ class TestCustomOperation:
         np.testing.assert_array_equal(processed.compute(), halve_samples(data))
 
     def test_get_display_name_uses_func_name(self) -> None:
+        """get_display_name() returns the function's __name__ attribute."""
+
         def my_func(x: np.ndarray) -> np.ndarray:
             return x
 
@@ -49,6 +54,8 @@ class TestCustomOperation:
         assert op.get_display_name() == "my_func"
 
     def test_get_display_name_fallback_to_custom(self) -> None:
+        """get_display_name() falls back to 'custom' for callable objects."""
+
         class CallableObj:
             def __call__(self, x: np.ndarray) -> np.ndarray:
                 return x
@@ -57,6 +64,7 @@ class TestCustomOperation:
         assert op.get_display_name() == "custom"
 
     def test_custom_operation_registered(self) -> None:
+        """CustomOperation is registered in the operation registry."""
         # Ensure registration side effect ran on import
         assert _OPERATION_REGISTRY.get("custom") is CustomOperation
 

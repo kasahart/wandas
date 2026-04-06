@@ -4,19 +4,17 @@ from typing import Any
 from wandas.core.metadata import ChannelMetadata, FrameMetadata
 from wandas.utils.util import unit_to_ref
 
-# filepath: wandas/core/test_channel_metadata.py
-
 
 class TestChannelMetadata:
-    def test_init_default_values(self) -> None:
-        """Test initialization with default values"""
+    def test_init_default_values_empty_strings_and_dict(self) -> None:
+        """Test initialization with default values returns empty strings and dict."""
         metadata: ChannelMetadata = ChannelMetadata()
         assert metadata.label == ""
         assert metadata.unit == ""
         assert metadata.extra == {}
 
-    def test_init_custom_values(self) -> None:
-        """Test initialization with custom values"""
+    def test_init_custom_values_preserves_all_fields(self) -> None:
+        """Test initialization with custom values preserves all fields."""
         metadata: ChannelMetadata = ChannelMetadata(
             label="test_label",
             unit="Hz",
@@ -26,23 +24,23 @@ class TestChannelMetadata:
         assert metadata.unit == "Hz"
         assert metadata.extra == {"source": "microphone", "calibrated": True}
 
-    def test_getitem_main_fields(self) -> None:
-        """Test dictionary-like access for main fields"""
+    def test_getitem_main_fields_returns_correct_values(self) -> None:
+        """Test dictionary-like access for main fields returns correct values."""
         metadata: ChannelMetadata = ChannelMetadata(label="test_label", unit="Hz", ref=0.5)
         assert metadata["label"] == "test_label"
         assert metadata["unit"] == "Hz"
         assert metadata["ref"] == 0.5
 
-    def test_getitem_extra_field(self) -> None:
-        """Test dictionary-like access for extra fields"""
+    def test_getitem_extra_field_returns_value_or_none(self) -> None:
+        """Test dictionary-like access for extra fields returns value or None."""
         metadata: ChannelMetadata = ChannelMetadata(extra={"source": "microphone", "calibrated": True})
         assert metadata["source"] == "microphone"
         assert metadata["calibrated"] is True
         # Non-existent key should return None
         assert metadata["nonexistent"] is None
 
-    def test_setitem_main_fields(self) -> None:
-        """Test dictionary-like assignment for main fields"""
+    def test_setitem_main_fields_updates_values(self) -> None:
+        """Test dictionary-like assignment for main fields updates values."""
         metadata: ChannelMetadata = ChannelMetadata()
         metadata["label"] = "new_label"
         metadata["unit"] = "dB"
@@ -51,15 +49,15 @@ class TestChannelMetadata:
         assert metadata.unit == "dB"
         assert metadata.ref == 0.75
 
-    def test_setitem_extra_fields(self) -> None:
-        """Test dictionary-like assignment for extra fields"""
+    def test_setitem_extra_fields_stores_in_extra_dict(self) -> None:
+        """Test dictionary-like assignment for extra fields stores in extra dict."""
         metadata: ChannelMetadata = ChannelMetadata()
         metadata["source"] = "microphone"
         metadata["calibrated"] = True
         assert metadata.extra == {"source": "microphone", "calibrated": True}
 
-    def test_ref_auto_set_when_unit_specified(self) -> None:
-        """Test that ref is automatically set when unit is specified"""
+    def test_ref_auto_set_pa_unit_sets_2e5(self) -> None:
+        """Test that ref is automatically set based on unit (Pa -> 2e-5)."""
         # Case 1: Initialize with unit "Pa" should set ref to 2e-5
         metadata: ChannelMetadata = ChannelMetadata(unit="Pa")
         assert metadata.unit == "Pa"
@@ -101,8 +99,8 @@ class TestChannelMetadata:
             assert metadata5.unit == unit
             assert metadata5.ref == expected_ref
 
-    def test_to_json(self) -> None:
-        """Test serialization to JSON"""
+    def test_to_json_serializes_all_fields(self) -> None:
+        """Test serialization to JSON includes all fields."""
         metadata: ChannelMetadata = ChannelMetadata(
             label="test_label",
             unit="Hz",
@@ -116,8 +114,8 @@ class TestChannelMetadata:
         assert parsed["extra"]["source"] == "microphone"
         assert parsed["extra"]["calibrated"] is True
 
-    def test_from_json(self) -> None:
-        """Test deserialization from JSON"""
+    def test_from_json_deserializes_all_fields(self) -> None:
+        """Test deserialization from JSON restores all fields."""
         json_data: str = """
         {
             "label": "test_label",
@@ -136,8 +134,8 @@ class TestChannelMetadata:
         assert metadata.extra["calibrated"] is True
         assert metadata.extra["notes"] == "Test recording"
 
-    def test_copy(self) -> None:
-        """Test deep copying of metadata"""
+    def test_copy_deep_independent_from_original(self) -> None:
+        """Test deep copy is independent from original."""
         metadata: ChannelMetadata = ChannelMetadata(
             label="test_label",
             unit="Hz",
@@ -158,8 +156,8 @@ class TestChannelMetadata:
         assert copy_mata.label == "test_label"
         assert "new_key" not in copy_mata.extra
 
-    def test_unicode_and_special_chars(self) -> None:
-        """Test handling of Unicode and special characters"""
+    def test_unicode_and_special_chars_roundtrip(self) -> None:
+        """Test Unicode and special characters survive JSON round-trip."""
         metadata: ChannelMetadata = ChannelMetadata(
             label="测试标签",  # Chinese characters
             unit="°C",  # Degree symbol
@@ -174,8 +172,8 @@ class TestChannelMetadata:
         assert deserialized.unit == "°C"
         assert deserialized.extra["note"] == "Special chars: !@#$%^&*()"
 
-    def test_nested_extra_data(self) -> None:
-        """Test handling of nested structures in extra field"""
+    def test_nested_extra_data_roundtrip(self) -> None:
+        """Test nested structures in extra field survive JSON round-trip."""
         nested_data: dict[str, Any] = {
             "config": {"sampling": {"rate": 44100, "bits": 24}},
             "tags": ["audio", "speech", "raw"],
@@ -189,8 +187,8 @@ class TestChannelMetadata:
         assert deserialized.extra["config"]["sampling"]["bits"] == 24
         assert deserialized.extra["tags"] == ["audio", "speech", "raw"]
 
-    def test_getitem_ref_field(self) -> None:
-        """Test dictionary-like access for ref field"""
+    def test_getitem_ref_returns_correct_value(self) -> None:
+        """Test dictionary-like access for ref field returns correct value."""
         # Case 1: Initialize with custom ref value
         metadata: ChannelMetadata = ChannelMetadata(ref=0.25)
         assert metadata["ref"] == 0.25
@@ -205,8 +203,8 @@ class TestChannelMetadata:
         metadata3: ChannelMetadata = ChannelMetadata()
         assert metadata3["ref"] == 1.0  # Default value
 
-    def test_setitem_ref_field(self) -> None:
-        """Test dictionary-like assignment for ref field"""
+    def test_setitem_ref_field_updates_ref(self) -> None:
+        """Test dictionary-like assignment for ref field updates ref."""
         # Case 1: Set ref directly
         metadata: ChannelMetadata = ChannelMetadata()
         metadata["ref"] = 0.5
@@ -225,8 +223,8 @@ class TestChannelMetadata:
         metadata3["unit"] = "Pa"  # Setting unit should override ref
         assert metadata3.ref == 2e-5  # Should be updated based on unit
 
-    def test_property_methods(self) -> None:
-        """Test property getter methods"""
+    def test_property_getters_return_correct_values(self) -> None:
+        """Test property getter methods return correct values."""
         metadata: ChannelMetadata = ChannelMetadata(
             label="test_label",
             unit="Pa",
@@ -240,8 +238,8 @@ class TestChannelMetadata:
         assert metadata.ref == 0.5
         assert metadata.extra == {"source": "microphone", "calibrated": True}
 
-    def test_property_methods_default_values(self) -> None:
-        """Test property getter methods with default values"""
+    def test_property_getters_default_values(self) -> None:
+        """Test property getter methods return correct default values."""
         metadata: ChannelMetadata = ChannelMetadata()
 
         assert metadata.label == ""
@@ -249,8 +247,8 @@ class TestChannelMetadata:
         assert metadata.ref == 1.0
         assert metadata.extra == {}
 
-    def test_property_methods_after_modification(self) -> None:
-        """Test property getter methods after modifying values"""
+    def test_property_getters_after_modification(self) -> None:
+        """Test property getters reflect modifications."""
         metadata: ChannelMetadata = ChannelMetadata()
 
         # Modify values and check properties
@@ -268,24 +266,24 @@ class TestChannelMetadata:
 class TestFrameMetadata:
     """Tests for FrameMetadata."""
 
-    def test_init_default(self) -> None:
-        """Empty FrameMetadata behaves like an empty dict."""
+    def test_init_default_empty_dict_no_source(self) -> None:
+        """Empty FrameMetadata behaves like an empty dict with no source."""
         meta = FrameMetadata()
         assert meta.source_file is None
         assert dict(meta) == {}
 
-    def test_init_with_source_file(self) -> None:
+    def test_init_source_file_preserved(self) -> None:
         meta = FrameMetadata(source_file="audio.wav")
         assert meta.source_file == "audio.wav"
         assert dict(meta) == {}
 
-    def test_init_with_dict_content(self) -> None:
+    def test_init_dict_content_and_source_file(self) -> None:
         meta = FrameMetadata({"gain": 0.5, "device": "mic"}, source_file="test.wav")
         assert meta.source_file == "test.wav"
         assert meta["gain"] == 0.5
         assert meta["device"] == "mic"
 
-    def test_dict_operations(self) -> None:
+    def test_dict_operations_setitem_contains_get(self) -> None:
         meta = FrameMetadata({"a": 1})
         meta["b"] = 2
         assert "a" in meta
@@ -294,11 +292,11 @@ class TestFrameMetadata:
         assert meta.get("missing") is None
         assert list(meta.items()) == [("a", 1), ("b", 2)]
 
-    def test_equality_with_dict(self) -> None:
+    def test_equality_compares_dict_content_only(self) -> None:
         meta = FrameMetadata({"x": 10}, source_file="file.wav")
         assert meta == {"x": 10}
 
-    def test_copy_preserves_source_file(self) -> None:
+    def test_copy_preserves_source_file_independent(self) -> None:
         meta = FrameMetadata({"key": "val"}, source_file="orig.wav")
         copied = meta.copy()
         assert isinstance(copied, FrameMetadata)
@@ -308,7 +306,7 @@ class TestFrameMetadata:
         copied["key"] = "changed"
         assert meta["key"] == "val"
 
-    def test_deepcopy_preserves_source_file(self) -> None:
+    def test_deepcopy_preserves_source_file_independent(self) -> None:
         import copy
 
         meta = FrameMetadata({"nested": {"n": 1}}, source_file="deep.wav")
@@ -320,23 +318,23 @@ class TestFrameMetadata:
         cloned["nested"]["n"] = 99
         assert meta["nested"]["n"] == 1
 
-    def test_json_serializable(self) -> None:
+    def test_json_serializable_dict_portion(self) -> None:
         meta = FrameMetadata({"rate": 44100}, source_file="audio.wav")
         # json.dumps should only serialize the dict portion
         data = json.loads(json.dumps(dict(meta)))
         assert data == {"rate": 44100}
 
-    def test_repr(self) -> None:
+    def test_repr_contains_class_name_and_source(self) -> None:
         meta = FrameMetadata({"k": 1}, source_file="f.wav")
         r = repr(meta)
         assert "FrameMetadata" in r
         assert "f.wav" in r
 
-    def test_bool_empty(self) -> None:
+    def test_bool_empty_is_falsy_nonempty_is_truthy(self) -> None:
         assert not FrameMetadata()
         assert FrameMetadata({"a": 1})
 
-    def test_unpack_operator(self) -> None:
+    def test_unpack_operator_merges_with_dict(self) -> None:
         meta = FrameMetadata({"a": 1, "b": 2}, source_file="s.wav")
         merged = {**meta, "c": 3}
         assert merged == {"a": 1, "b": 2, "c": 3}

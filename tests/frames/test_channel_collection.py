@@ -10,9 +10,13 @@ class TestChannelFrameCollection:
         cf = ChannelFrame.from_numpy(arr, sampling_rate=1000, ch_labels=["L", "R"])
         new_ch = np.ones(8)
         cf2 = cf.add_channel(new_ch, label="mono")
+        assert cf2 is not cf  # Pillar 1: immutability
+        assert cf.n_channels == 2  # Pillar 1: original unchanged
         assert cf2.n_channels == 3
         assert [ch.label for ch in cf2._channel_metadata] == ["L", "R", "mono"]
         cf3 = cf2.remove_channel("R")
+        assert cf3 is not cf2  # Pillar 1: immutability
+        assert cf2.n_channels == 3  # Pillar 1: original unchanged
         assert cf3.n_channels == 2
         assert [ch.label for ch in cf3._channel_metadata] == ["L", "mono"]
         cf2.add_channel(np.zeros(8), label="zero", inplace=True)
@@ -26,9 +30,15 @@ class TestChannelFrameCollection:
         with pytest.raises(ValueError):
             cf.add_channel(np.arange(6), label="B", align="strict")
         cf2 = cf.add_channel(np.arange(6), label="B", align="pad")
+        assert cf2 is not cf  # Pillar 1: immutability
         assert cf2._data.shape == (2, 8)
+        # Pillar 2: structural op leaves history unchanged
+        assert len(cf2.operation_history) == len(cf.operation_history)
         cf3 = cf.add_channel(np.arange(10), label="C", align="truncate")
+        assert cf3 is not cf  # Pillar 1: immutability
         assert cf3._data.shape == (2, 8)
+        # Pillar 2: structural op leaves history unchanged
+        assert len(cf3.operation_history) == len(cf.operation_history)
         with pytest.raises(ValueError):
             cf.add_channel(np.arange(8), label="A")
         cf4 = cf.add_channel(np.arange(8), label="A", suffix_on_dup="_dup")
@@ -41,6 +51,8 @@ class TestChannelFrameCollection:
         cf = ChannelFrame.from_numpy(arr, sampling_rate=1000, ch_labels=["A"])
         dask_ch = da.ones(8, chunks=8)
         cf2 = cf.add_channel(dask_ch, label="B")
+        assert cf2 is not cf  # Pillar 1: immutability
+        assert cf.n_channels == 1  # Pillar 1: original unchanged
         assert cf2.n_channels == 2
         assert [ch.label for ch in cf2._channel_metadata] == ["A", "B"]
 
@@ -50,8 +62,12 @@ class TestChannelFrameCollection:
         cf1 = ChannelFrame.from_numpy(arr1, sampling_rate=1000, ch_labels=["A"])
         cf2 = ChannelFrame.from_numpy(arr2, sampling_rate=1000, ch_labels=["B"])
         cf3 = cf1.add_channel(cf2)
+        assert cf3 is not cf1  # Pillar 1: immutability
+        assert cf1.n_channels == 1  # Pillar 1: original unchanged
         assert cf3.n_channels == 2
         assert [ch.label for ch in cf3._channel_metadata] == ["A", "B"]
+        # Pillar 2: sampling rate preserved
+        assert cf3.sampling_rate == cf1.sampling_rate
 
     def test_add_channel_frame_label_dup(self):
         arr1 = np.arange(8)
@@ -93,6 +109,8 @@ class TestChannelFrameCollection:
         arr = np.arange(16).reshape(2, 8)
         cf = ChannelFrame.from_numpy(arr, sampling_rate=1000, ch_labels=["L", "R"])
         cf2 = cf.remove_channel(0)
+        assert cf2 is not cf  # Pillar 1: immutability
+        assert cf.n_channels == 2  # Pillar 1: original unchanged
         assert cf2.n_channels == 1
         assert cf2._channel_metadata[0].label == "R"
 
@@ -100,6 +118,8 @@ class TestChannelFrameCollection:
         arr = np.arange(16).reshape(2, 8)
         cf = ChannelFrame.from_numpy(arr, sampling_rate=1000, ch_labels=["L", "R"])
         cf2 = cf.remove_channel("L")
+        assert cf2 is not cf  # Pillar 1: immutability
+        assert cf.n_channels == 2  # Pillar 1: original unchanged
         assert cf2.n_channels == 1
         assert cf2._channel_metadata[0].label == "R"
 

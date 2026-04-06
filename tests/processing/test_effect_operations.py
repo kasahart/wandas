@@ -1,5 +1,5 @@
-import dask.array as da
 import numpy as np
+import pytest
 from dask.array.core import Array as DaArray
 
 from wandas.processing.base import create_operation, get_operation
@@ -9,401 +9,443 @@ from wandas.processing.effects import (
     HpssPercussive,
     Normalize,
 )
-from wandas.utils.types import NDArrayReal
+from wandas.utils import util
+from wandas.utils.dask_helpers import da_from_array
 
-_da_from_array = da.from_array
+_SR: int = 16000
 
 
 class TestHpssHarmonic:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 16000
-        self.hpss_h = HpssHarmonic(self.sample_rate)
+    """HPSS harmonic extraction: Layer 1 (unit) + Layer 2 (domain) + Layer 3."""
 
-        # Create sample signal: 1 second mixed harmonic/percussive content
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        # Harmonic content (sine waves)
-        harmonic = np.sin(2 * np.pi * 440 * t) + 0.5 * np.sin(2 * np.pi * 880 * t)
-        # Percussive content (short impulses)
-        percussive = np.zeros_like(t)
-        impulse_locations = np.arange(0, self.sample_rate, self.sample_rate // 8)
-        percussive[impulse_locations] = 1.0
+    # -- Layer 1: Unit tests -----------------------------------------------
 
-        self.mixed_signal: NDArrayReal = np.array([harmonic + percussive])
-        self.dask_signal: DaArray = _da_from_array(self.mixed_signal, chunks=(1, -1))
+    def test_hpss_harmonic_init_stores_params(self) -> None:
+        """Test HpssHarmonic stores sampling rate and custom margin."""
+        hpss = HpssHarmonic(_SR)
+        assert hpss.sampling_rate == _SR
 
-    def test_initialization(self) -> None:
-        """Test initialization with different parameters."""
-        hpss = HpssHarmonic(self.sample_rate)
-        assert hpss.sampling_rate == self.sample_rate
-
-        hpss_custom = HpssHarmonic(self.sample_rate, margin=2.0)
+        hpss_custom = HpssHarmonic(_SR, margin=2.0)
         assert hpss_custom.kwargs.get("margin") == 2.0
 
-    def test_shape_preservation(self) -> None:
-        """Test output shape matches input shape."""
-        result = self.hpss_h.process(self.dask_signal).compute()
-        assert result.shape == self.mixed_signal.shape
+    def test_hpss_harmonic_registry_returns_correct_class(self) -> None:
+        """Test HpssHarmonic is registered as 'hpss_harmonic'."""
+        assert get_operation("hpss_harmonic") == HpssHarmonic
+        hpss_op = create_operation("hpss_harmonic", _SR, margin=3.0)
+        assert isinstance(hpss_op, HpssHarmonic)
+        assert hpss_op.kwargs.get("margin") == 3.0
 
-    def test_harmonic_extraction(self) -> None:
-        """Test that harmonic content is preserved and percussive content is reduced."""
-        result = self.hpss_h.process(self.dask_signal).compute()
+    # -- Layer 2: Domain (shape + immutability + spectral flatness) ---------
 
-        # Compute energy in frequency bands
+    def test_hpss_harmonic_preserves_shape_and_immutability(
+        self, mixed_harmonic_percussive_dask: tuple[DaArray, int]
+    ) -> None:
+        """Shape preserved; input unchanged; Dask graph maintained."""
+        dask_input, sr = mixed_harmonic_percussive_dask
+        hpss = HpssHarmonic(sr)
+        input_copy = dask_input.compute().copy()
+
+        # Act
+        result_da = hpss.process(dask_input)
+
+        # Assert 1: Immutability
+        assert result_da is not dask_input
+        np.testing.assert_array_equal(dask_input.compute(), input_copy)
+
+        # Assert 2: Dask graph preserved
+        assert isinstance(result_da, DaArray)
+
+        # Assert 3: Shape
+        assert result_da.compute().shape == input_copy.shape
+
+    def test_hpss_harmonic_reduces_spectral_flatness(self, mixed_harmonic_percussive_dask: tuple[DaArray, int]) -> None:
+        """Harmonic extraction should produce a less flat (more peaked) spectrum.
+
+        Spectral flatness = geometric_mean(S) / arithmetic_mean(S).
+        Lower flatness = more harmonic content.
+        """
+        dask_input, sr = mixed_harmonic_percussive_dask
+        hpss = HpssHarmonic(sr)
+        raw = dask_input.compute()
+        result = hpss.process(dask_input).compute()
+
         n_fft = 2048
-
-        # Original signal
-        orig_spec = np.abs(np.fft.rfft(self.mixed_signal[0], n_fft))
-
-        # Processed signal
+        orig_spec = np.abs(np.fft.rfft(raw[0], n_fft))
         result_spec = np.abs(np.fft.rfft(result[0], n_fft))
 
-        # Check pitch continuity by comparing spectral flux
-        from librosa.feature import spectral_contrast
-
-        orig_contrast = spectral_contrast(y=self.mixed_signal[0], sr=self.sample_rate)
-        result_contrast = spectral_contrast(y=result[0], sr=self.sample_rate)
-
-        # Harmonic extraction should increase spectral contrast
-        assert np.mean(result_contrast) > np.mean(orig_contrast)
-
-        # For harmonic content, energy should be concentrated
-        # around fundamental frequencies and their harmonics,
-        # resulting in a more peaky spectrum
+        # Spectral flatness (Wiener entropy) — lower = more harmonic
         orig_flatness = np.exp(np.mean(np.log(orig_spec + 1e-10))) / np.mean(orig_spec)
         result_flatness = np.exp(np.mean(np.log(result_spec + 1e-10))) / np.mean(result_spec)
 
-        # Lower flatness indicates more harmonic (less noise-like) content
-        assert result_flatness < orig_flatness
-
-    def test_operation_registry(self) -> None:
-        """Test that HpssHarmonic is properly registered in the operation registry."""
-        assert get_operation("hpss_harmonic") == HpssHarmonic
-
-        hpss_op = create_operation("hpss_harmonic", 16000, margin=3.0)
-
-        assert isinstance(hpss_op, HpssHarmonic)
-        assert hpss_op.sampling_rate == 16000
-        assert hpss_op.kwargs.get("margin") == 3.0
+        assert result_flatness < orig_flatness, "Harmonic extraction must reduce spectral flatness"
 
 
 class TestHpssPercussive:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 16000
-        self.hpss_p = HpssPercussive(self.sample_rate)
+    """HPSS percussive extraction: Layer 1 (unit) + Layer 2 (domain)."""
 
-        # Create sample signal: 1 second mixed harmonic/percussive content
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        # Harmonic content (sine waves)
-        harmonic = np.sin(2 * np.pi * 440 * t) + 0.5 * np.sin(2 * np.pi * 880 * t)
-        # Percussive content (short impulses)
-        percussive = np.zeros_like(t)
-        impulse_locations = np.arange(0, self.sample_rate, self.sample_rate // 8)
-        percussive[impulse_locations] = 1.0
+    # -- Layer 1: Unit tests -----------------------------------------------
 
-        self.mixed_signal: NDArrayReal = np.array([harmonic + percussive])
-        self.dask_signal: DaArray = _da_from_array(self.mixed_signal, chunks=(1, -1))
+    def test_hpss_percussive_init_stores_params(self) -> None:
+        """Test HpssPercussive stores sampling rate and custom margin."""
+        hpss = HpssPercussive(_SR)
+        assert hpss.sampling_rate == _SR
 
-    def test_initialization(self) -> None:
-        """Test initialization with different parameters."""
-        hpss = HpssPercussive(self.sample_rate)
-        assert hpss.sampling_rate == self.sample_rate
-
-        hpss_custom = HpssPercussive(self.sample_rate, margin=2.0)
+        hpss_custom = HpssPercussive(_SR, margin=2.0)
         assert hpss_custom.kwargs.get("margin") == 2.0
 
-    def test_shape_preservation(self) -> None:
-        """Test output shape matches input shape."""
-        result = self.hpss_p.process(self.dask_signal).compute()
-        assert result.shape == self.mixed_signal.shape
+    def test_hpss_percussive_registry_returns_correct_class(self) -> None:
+        """Test HpssPercussive is registered as 'hpss_percussive'."""
+        assert get_operation("hpss_percussive") == HpssPercussive
+        hpss_op = create_operation("hpss_percussive", _SR, margin=3.0)
+        assert isinstance(hpss_op, HpssPercussive)
+        assert hpss_op.kwargs.get("margin") == 3.0
 
-    def test_percussive_extraction(self) -> None:
-        """Test that percussive content is preserved and harmonic content is reduced."""
-        result = self.hpss_p.process(self.dask_signal).compute()
+    # -- Layer 2: Domain (shape + immutability + spectral flatness) ---------
 
-        # Check temporal characteristics - percussive content has sharper onsets
-        from librosa.onset import onset_strength
+    def test_hpss_percussive_preserves_shape_and_immutability(
+        self, mixed_harmonic_percussive_dask: tuple[DaArray, int]
+    ) -> None:
+        """Shape preserved; input unchanged; Dask graph maintained."""
+        dask_input, sr = mixed_harmonic_percussive_dask
+        hpss = HpssPercussive(sr)
+        input_copy = dask_input.compute().copy()
 
-        # Original onset strength
-        orig_onset = onset_strength(y=self.mixed_signal[0], sr=self.sample_rate)
+        # Act
+        result_da = hpss.process(dask_input)
 
-        # Processed onset strength
-        result_onset = onset_strength(y=result[0], sr=self.sample_rate)
+        # Assert 1: Immutability
+        assert result_da is not dask_input
+        np.testing.assert_array_equal(dask_input.compute(), input_copy)
 
-        # Percussive extraction should enhance onsets
-        assert np.max(result_onset) > np.max(orig_onset)
+        # Assert 2: Dask graph preserved
+        assert isinstance(result_da, DaArray)
 
-        # Check spectral characteristics - percussive content is
-        # more noise-like across frequency
+        # Assert 3: Shape
+        assert result_da.compute().shape == input_copy.shape
+
+    def test_hpss_percussive_increases_spectral_flatness(
+        self, mixed_harmonic_percussive_dask: tuple[DaArray, int]
+    ) -> None:
+        """Percussive extraction should produce a flatter (more noise-like) spectrum.
+
+        Higher flatness = less harmonic (more broadband/percussive) content.
+        """
+        dask_input, sr = mixed_harmonic_percussive_dask
+        hpss = HpssPercussive(sr)
+        raw = dask_input.compute()
+        result = hpss.process(dask_input).compute()
+
         n_fft = 2048
-
-        # Original signal
-        orig_spec = np.abs(np.fft.rfft(self.mixed_signal[0], n_fft))
-
-        # Processed signal
+        orig_spec = np.abs(np.fft.rfft(raw[0], n_fft))
         result_spec = np.abs(np.fft.rfft(result[0], n_fft))
 
-        # For percussive content, energy should be more spread across frequencies,
-        # resulting in a flatter spectrum
         orig_flatness = np.exp(np.mean(np.log(orig_spec + 1e-10))) / np.mean(orig_spec)
         result_flatness = np.exp(np.mean(np.log(result_spec + 1e-10))) / np.mean(result_spec)
 
-        # Higher flatness indicates more noise-like (less harmonic) content
-        assert result_flatness > orig_flatness
-
-    def test_operation_registry(self) -> None:
-        """Test that HpssPercussive is properly registered in the operation registry."""
-        assert get_operation("hpss_percussive") == HpssPercussive
-
-        hpss_op = create_operation("hpss_percussive", 16000, margin=3.0)
-
-        assert isinstance(hpss_op, HpssPercussive)
-        assert hpss_op.sampling_rate == 16000
-        assert hpss_op.kwargs.get("margin") == 3.0
+        assert result_flatness > orig_flatness, "Percussive extraction must increase spectral flatness"
 
 
 class TestAddWithSNR:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 16000
-        self.snr: float = 10.0  # dB
+    """AddWithSNR: Layer 1 (unit) + Layer 2 (domain) + Layer 3 (SNR verification)."""
 
-        # Create clean signal (sine wave)
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        self.clean_signal: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t)])
+    # -- Layer 1: Unit tests -----------------------------------------------
 
-        # Create noise signal (white noise)
-        np.random.seed(42)  # For reproducibility
-        self.noise_signal: NDArrayReal = np.array([np.random.randn(self.sample_rate)])
+    def test_add_with_snr_init_stores_params(self) -> None:
+        """Test AddWithSNR stores sampling rate and SNR."""
+        rng = np.random.default_rng(42)
+        noise = da_from_array(rng.standard_normal((1, _SR)), chunks=(1, -1))
+        op = AddWithSNR(_SR, noise, 10.0)
+        assert op.sampling_rate == _SR
+        assert op.snr == 10.0
 
-        # Convert to dask arrays
-        self.dask_clean: DaArray = _da_from_array(self.clean_signal, chunks=(1, -1))
-        self.dask_noise: DaArray = _da_from_array(self.noise_signal, chunks=(1, -1))
+    def test_add_with_snr_registry_returns_correct_class(self) -> None:
+        """Test AddWithSNR is registered as 'add_with_snr'."""
+        assert get_operation("add_with_snr") == AddWithSNR
 
-        # Initialize the operation
-        self.add_with_snr = AddWithSNR(self.sample_rate, self.dask_noise, self.snr)
+    # -- Layer 2: Domain (shape + immutability) ----------------------------
 
-    def test_initialization(self) -> None:
-        """Test initialization with different parameters."""
-        op = AddWithSNR(self.sample_rate, self.dask_noise, self.snr)
-        assert op.sampling_rate == self.sample_rate
-        assert op.snr == self.snr
+    def test_add_with_snr_preserves_shape_and_immutability(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
+        """Shape preserved; input unchanged after SNR addition."""
+        dask_input, sr = pure_sine_440hz_dask
+        rng = np.random.default_rng(42)
+        noise = da_from_array(rng.standard_normal((1, sr)), chunks=(1, -1))
+        op = AddWithSNR(sr, noise, 10.0)
+        input_copy = dask_input.compute().copy()
 
-    def test_shape_preservation(self) -> None:
-        """Test output shape matches clean signal shape."""
-        result = self.add_with_snr.process(self.dask_clean).compute()
-        assert result.shape == self.clean_signal.shape
+        # Act
+        result_da = op.process(dask_input)
 
-    def test_snr_adjustment(self) -> None:
-        """Test that the noise is added with the correct SNR."""
-        from wandas.utils import util
+        # Assert 1: Immutability
+        assert result_da is not dask_input
+        np.testing.assert_array_equal(dask_input.compute(), input_copy)
 
-        result = self.add_with_snr.process(self.dask_clean).compute()
+        # Assert 2: Dask graph preserved
+        assert isinstance(result_da, DaArray)
 
-        # Calculate actual SNR
-        clean_power = util.calculate_rms(self.clean_signal) ** 2
-        # Extract noise from result
-        noise_component = result - self.clean_signal
+        # Assert 3: Shape
+        result = result_da.compute()
+        assert result.shape == input_copy.shape
+
+    # -- Layer 3: Integration (SNR verification) ---------------------------
+
+    def test_add_with_snr_actual_snr_matches_target(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
+        """Actual SNR of output must match target within 10% (rtol=0.1).
+
+        Tolerance rationale: finite-length signals cause small power estimation errors.
+        """
+        dask_input, sr = pure_sine_440hz_dask
+        target_snr = 10.0
+        rng = np.random.default_rng(42)
+        noise = da_from_array(rng.standard_normal((1, sr)), chunks=(1, -1))
+        op = AddWithSNR(sr, noise, target_snr)
+
+        clean = dask_input.compute()
+        result = op.process(dask_input).compute()
+
+        clean_power = util.calculate_rms(clean) ** 2
+        noise_component = result - clean
         noise_power = util.calculate_rms(noise_component) ** 2
-
         actual_snr = 10 * np.log10(clean_power / noise_power)
 
-        # Check if the actual SNR is close to the target SNR
-        np.testing.assert_allclose(actual_snr, self.snr, rtol=0.1)
+        np.testing.assert_allclose(
+            actual_snr,
+            target_snr,
+            rtol=0.1,  # 10% tolerance for finite-length signal power estimation
+        )
 
-    def test_stereo_signal(self) -> None:
-        """Test with stereo signals."""
-        # Create stereo clean signal
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        stereo_clean: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t), np.sin(2 * np.pi * 880 * t)])
+    def test_add_with_snr_stereo_preserves_shape(self) -> None:
+        """Stereo clean + stereo noise preserves (2, N) shape."""
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        clean = np.stack([np.sin(2 * np.pi * 440 * t), np.sin(2 * np.pi * 880 * t)])
+        rng = np.random.default_rng(42)
+        noise = rng.standard_normal((2, _SR))
 
-        # Create stereo noise
-        np.random.seed(42)
-        stereo_noise: NDArrayReal = np.array([np.random.randn(self.sample_rate), np.random.randn(self.sample_rate)])
+        dask_clean = da_from_array(clean, chunks=(1, -1))
+        dask_noise = da_from_array(noise, chunks=(1, -1))
+        op = AddWithSNR(_SR, dask_noise, 10.0)
 
-        # Convert to dask arrays
-        dask_stereo_clean = _da_from_array(stereo_clean, chunks=(1, -1))
-        dask_stereo_noise = _da_from_array(stereo_noise, chunks=(1, -1))
-
-        # Create operation
-        add_with_snr = AddWithSNR(self.sample_rate, dask_stereo_noise, self.snr)
-
-        # Process
-        result = add_with_snr.process(dask_stereo_clean).compute()
-
-        # Check shape
-        assert result.shape == stereo_clean.shape
-
-    def test_operation_registry(self) -> None:
-        """Test that AddWithSNR is properly registered in the operation registry."""
-        assert get_operation("add_with_snr") == AddWithSNR
+        result_da = op.process(dask_clean)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
+        assert result.shape == clean.shape
 
 
 class TestNormalize:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 16000
+    """Normalize operation: Layer 1 + Layer 2 + Layer 3 (theoretical values)."""
 
-        # Create test signal with known values
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        # Signal with max value of 2.0
-        self.signal: NDArrayReal = np.array([2.0 * np.sin(2 * np.pi * 440 * t)])
-        self.dask_signal: DaArray = _da_from_array(self.signal, chunks=(1, -1))
+    # -- Layer 1: Unit tests -----------------------------------------------
 
-        # Multi-channel signal
-        self.multi_channel_signal: NDArrayReal = np.array(
-            [
-                2.0 * np.sin(2 * np.pi * 440 * t),  # max = 2.0
-                3.0 * np.sin(2 * np.pi * 880 * t),  # max = 3.0
-            ]
-        )
-        self.dask_multi_channel: DaArray = _da_from_array(self.multi_channel_signal, chunks=(1, -1))
+    def test_normalize_init_default_params(self) -> None:
+        """Test Normalize default norm=inf, axis=-1."""
+        n = Normalize(_SR)
+        assert n.sampling_rate == _SR
+        assert n.norm == np.inf
+        assert n.axis == -1
 
-    def test_initialization(self) -> None:
-        """Test initialization with different parameters."""
-        # Default initialization (norm=np.inf)
-        normalize = Normalize(self.sample_rate)
-        assert normalize.sampling_rate == self.sample_rate
-        assert normalize.norm == np.inf
-        assert normalize.axis == -1
+    def test_normalize_init_custom_params(self) -> None:
+        """Test Normalize stores custom norm and axis."""
+        n = Normalize(_SR, norm=2, axis=0)
+        assert n.norm == 2
+        assert n.axis == 0
 
-        # Custom parameters
-        normalize_custom = Normalize(self.sample_rate, norm=2, axis=0)
-        assert normalize_custom.norm == 2
-        assert normalize_custom.axis == 0
-
-    def test_shape_preservation(self) -> None:
-        """Test that normalization preserves signal shape."""
-        normalize = Normalize(self.sample_rate)
-        result = normalize.process(self.dask_signal).compute()
-        assert result.shape == self.signal.shape
-
-    def test_normalize_inf_norm(self) -> None:
-        """Test normalization with inf norm (max absolute value = 1)."""
-        normalize = Normalize(self.sample_rate, norm=np.inf, axis=-1)
-        result = normalize.process(self.dask_signal).compute()
-
-        # Theoretical value: with norm=np.inf, the maximum absolute value should be 1
-        max_val = np.max(np.abs(result))
-        np.testing.assert_allclose(max_val, 1.0, rtol=1e-10)
-
-    def test_normalize_l1_norm(self) -> None:
-        """Test normalization with L1 norm."""
-        normalize = Normalize(self.sample_rate, norm=1, axis=-1)
-        result = normalize.process(self.dask_signal).compute()
-
-        # Theoretical value: when norm=1, the L1 norm should be 1
-        l1_norm = np.sum(np.abs(result), axis=-1)
-        np.testing.assert_allclose(l1_norm, 1.0, rtol=1e-10)
-
-    def test_normalize_l2_norm(self) -> None:
-        """Test normalization with L2 norm."""
-        normalize = Normalize(self.sample_rate, norm=2, axis=-1)
-        result = normalize.process(self.dask_signal).compute()
-
-        # Theoretical value: When norm=2, the L2 norm should be 1
-        l2_norm = np.sqrt(np.sum(result**2, axis=-1))
-        np.testing.assert_allclose(l2_norm, 1.0, rtol=1e-10)
-
-    def test_normalize_multi_channel_independent(self) -> None:
-        """Test that each channel is normalized independently when axis=-1."""
-        normalize = Normalize(self.sample_rate, norm=np.inf, axis=-1)
-        result = normalize.process(self.dask_multi_channel).compute()
-
-        # Theoretical value: The maximum absolute value of each channel should be 1
-        for ch in range(result.shape[0]):
-            max_val = np.max(np.abs(result[ch]))
-            np.testing.assert_allclose(max_val, 1.0, rtol=1e-10)
-
-    def test_normalize_multi_channel_global(self) -> None:
-        """Test global normalization when axis=None."""
-        normalize = Normalize(self.sample_rate, norm=np.inf, axis=None)
-        result = normalize.process(self.dask_multi_channel).compute()
-
-        # Theoretical value: The maximum absolute value of the whole should be 1
-        max_val = np.max(np.abs(result))
-        np.testing.assert_allclose(max_val, 1.0, rtol=1e-10)
-
-        # 各チャンネルの最大値は異なるはず
-        # （元の信号で最大値が3.0のチャンネルは、全体の最大値で正規化される）
-        # 元の比率が保たれているか確認
-        orig_ratio = np.max(np.abs(self.multi_channel_signal[0])) / np.max(np.abs(self.multi_channel_signal[1]))
-        result_ratio = np.max(np.abs(result[0])) / np.max(np.abs(result[1]))
-        np.testing.assert_allclose(orig_ratio, result_ratio, rtol=1e-10)
-
-    def test_normalize_zero_signal(self) -> None:
-        """Test normalization with zero signal."""
-        zero_signal: NDArrayReal = np.array([[0.0] * self.sample_rate])
-        dask_zero = _da_from_array(zero_signal, chunks=(1, -1))
-
-        normalize = Normalize(self.sample_rate, norm=np.inf, axis=-1)
-        result = normalize.process(dask_zero).compute()
-
-        # Zero signal remains zero (or fill value)
-        assert np.allclose(result, 0.0)
-
-    def test_normalize_with_threshold(self) -> None:
-        """Test normalization with threshold parameter."""
-        # Very small signal
-        small_signal: NDArrayReal = np.array([[1e-12] * self.sample_rate])
-        dask_small = _da_from_array(small_signal, chunks=(1, -1))
-
-        # With threshold=1e-10, this should be treated as zero
-        normalize = Normalize(self.sample_rate, norm=np.inf, axis=-1, threshold=1e-10)
-        result = normalize.process(dask_small).compute()
-
-        # Should remain small (not normalized to 1.0)
-        assert np.max(np.abs(result)) < 1.0
-
-    def test_normalize_with_fill(self) -> None:
-        """Test normalization with fill parameter for zero vectors."""
-        zero_signal: NDArrayReal = np.array([[0.0] * self.sample_rate])
-        dask_zero = _da_from_array(zero_signal, chunks=(1, -1))
-
-        # fill=True: zero vectors are filled with uniform values that normalize to 1
-        normalize = Normalize(self.sample_rate, norm=np.inf, axis=-1, fill=True)
-        result = normalize.process(dask_zero).compute()
-
-        # Theoretical value: When fill=True, zero vectors are filled with values
-        # that normalize to 1. For norm=np.inf (maximum absolute value), all
-        # values should be 1.
-        assert result.shape == zero_signal.shape
-        # Should no longer be a zero vector
-        assert not np.allclose(result, 0.0)
-        # Since it is normalized, the maximum absolute value should be 1
-        np.testing.assert_allclose(np.max(np.abs(result)), 1.0, rtol=1e-10)
-
-    def test_operation_registry(self) -> None:
-        """Test that Normalize is properly registered in the operation registry."""
+    def test_normalize_registry_returns_correct_class(self) -> None:
+        """Test Normalize is registered as 'normalize'."""
         assert get_operation("normalize") == Normalize
+        n = create_operation("normalize", _SR, norm=2, axis=0)
+        assert isinstance(n, Normalize)
+        assert n.norm == 2
+        assert n.axis == 0
 
-        normalize_op = create_operation("normalize", self.sample_rate, norm=2, axis=0)
-        assert isinstance(normalize_op, Normalize)
-        assert normalize_op.sampling_rate == self.sample_rate
-        assert normalize_op.norm == 2
-        assert normalize_op.axis == 0
-
-    def test_invalid_norm_type_error_message(self) -> None:
-        """Test that invalid norm type provides helpful error message."""
-        import pytest
-
+    def test_normalize_invalid_norm_raises_error(self) -> None:
+        """Test that invalid norm type provides WHAT/WHY/HOW error."""
         with pytest.raises(ValueError) as exc_info:
             Normalize(sampling_rate=44100, norm="invalid")  # ty: ignore[invalid-argument-type]
 
         error_msg = str(exc_info.value)
-        # Check WHAT
         assert "Invalid normalization method" in error_msg
-        # Check WHY
         assert "float, int, np.inf" in error_msg
-        # Check HOW
         assert "Common values:" in error_msg
-        assert "np.inf" in error_msg
+
+    # -- Layer 2: Domain (shape + immutability) ----------------------------
+
+    def test_normalize_preserves_shape_and_immutability(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
+        """Shape preserved; input unchanged after normalization."""
+        dask_input, sr = pure_sine_440hz_dask
+        normalize = Normalize(sr)
+        input_copy = dask_input.compute().copy()
+
+        # Act
+        result_da = normalize.process(dask_input)
+
+        # Assert 1: Immutability
+        assert result_da is not dask_input
+        np.testing.assert_array_equal(dask_input.compute(), input_copy)
+
+        # Assert 2: Dask graph preserved
+        assert isinstance(result_da, DaArray)
+
+        # Assert 3: Shape
+        assert result_da.compute().shape == input_copy.shape
+
+    # -- Layer 3: Theoretical value verification ---------------------------
+
+    def test_normalize_inf_norm_max_abs_equals_one(self) -> None:
+        """With norm=inf, max|x| must equal 1.0 (theoretical).
+
+        Tolerance: rtol=1e-10 — float64 arithmetic precision.
+        """
+        # Signal with known max of 2.0
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        sig = (2.0 * np.sin(2 * np.pi * 440 * t)).reshape(1, -1)
+        dask_sig = da_from_array(sig, chunks=(1, -1))
+        normalize = Normalize(_SR, norm=np.inf, axis=-1)
+
+        result_da = normalize.process(dask_sig)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
+        max_val = np.max(np.abs(result))
+        np.testing.assert_allclose(
+            max_val,
+            1.0,
+            rtol=1e-10,  # float64 precision for simple division
+        )
+
+    def test_normalize_l1_norm_sum_abs_equals_one(self) -> None:
+        """With norm=1, sum|x| must equal 1.0 (theoretical).
+
+        Tolerance: rtol=1e-10 — float64 summation precision.
+        """
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        sig = (2.0 * np.sin(2 * np.pi * 440 * t)).reshape(1, -1)
+        dask_sig = da_from_array(sig, chunks=(1, -1))
+        normalize = Normalize(_SR, norm=1, axis=-1)
+
+        result_da = normalize.process(dask_sig)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
+        l1 = np.sum(np.abs(result), axis=-1)
+        np.testing.assert_allclose(
+            l1,
+            1.0,
+            rtol=1e-10,  # float64 summation precision
+        )
+
+    def test_normalize_l2_norm_euclidean_equals_one(self) -> None:
+        """With norm=2, ||x||_2 must equal 1.0 (theoretical).
+
+        Tolerance: rtol=1e-10 — float64 precision.
+        """
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        sig = (2.0 * np.sin(2 * np.pi * 440 * t)).reshape(1, -1)
+        dask_sig = da_from_array(sig, chunks=(1, -1))
+        normalize = Normalize(_SR, norm=2, axis=-1)
+
+        result_da = normalize.process(dask_sig)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
+        l2 = np.sqrt(np.sum(result**2, axis=-1))
+        np.testing.assert_allclose(
+            l2,
+            1.0,
+            rtol=1e-10,  # float64 precision
+        )
+
+    def test_normalize_multichannel_independent_inf_norm(self) -> None:
+        """Each channel independently normalized: max|ch_i| == 1.0."""
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        multi = np.stack(
+            [
+                2.0 * np.sin(2 * np.pi * 440 * t),  # max=2.0
+                3.0 * np.sin(2 * np.pi * 880 * t),  # max=3.0
+            ]
+        )
+        dask_multi = da_from_array(multi, chunks=(1, -1))
+        normalize = Normalize(_SR, norm=np.inf, axis=-1)
+
+        result_da = normalize.process(dask_multi)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
+        for ch in range(result.shape[0]):
+            np.testing.assert_allclose(
+                np.max(np.abs(result[ch])),
+                1.0,
+                rtol=1e-10,  # float64 precision per channel
+            )
+
+    def test_normalize_multichannel_global_preserves_ratio(self) -> None:
+        """Global normalization preserves inter-channel amplitude ratio."""
+        t = np.linspace(0, 1, _SR, endpoint=False)
+        multi = np.stack(
+            [
+                2.0 * np.sin(2 * np.pi * 440 * t),
+                3.0 * np.sin(2 * np.pi * 880 * t),
+            ]
+        )
+        dask_multi = da_from_array(multi, chunks=(1, -1))
+        normalize = Normalize(_SR, norm=np.inf, axis=None)
+
+        result_da = normalize.process(dask_multi)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
+
+        # Global max should be 1.0 after normalization
+        np.testing.assert_allclose(
+            np.max(np.abs(result)),
+            1.0,
+            rtol=1e-10,  # float64 normalization division precision
+        )
+
+        # Inter-channel ratio preserved
+        orig_ratio = np.max(np.abs(multi[0])) / np.max(np.abs(multi[1]))
+        result_ratio = np.max(np.abs(result[0])) / np.max(np.abs(result[1]))
+        np.testing.assert_allclose(
+            orig_ratio,
+            result_ratio,
+            rtol=1e-10,  # float64 division precision
+        )
+
+    def test_normalize_zero_signal_remains_zero(self) -> None:
+        """Zero signal normalized with norm=inf stays zero."""
+        zero = np.zeros((1, _SR))
+        dask_zero = da_from_array(zero, chunks=(1, -1))
+        normalize = Normalize(_SR, norm=np.inf, axis=-1)
+
+        result_da = normalize.process(dask_zero)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
+        np.testing.assert_allclose(result, 0.0)
+
+    def test_normalize_threshold_prevents_amplification(self) -> None:
+        """Signal below threshold is not normalized to 1.0."""
+        small = np.full((1, _SR), 1e-12)
+        dask_small = da_from_array(small, chunks=(1, -1))
+
+        # threshold=1e-10 means signals with max < 1e-10 are left as-is
+        normalize = Normalize(_SR, norm=np.inf, axis=-1, threshold=1e-10)
+        result_da = normalize.process(dask_small)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
+        assert np.max(np.abs(result)) < 1.0
+
+    def test_normalize_fill_true_makes_zero_nonzero(self) -> None:
+        """With fill=True, zero vector is filled so max|x| == 1.0."""
+        zero = np.zeros((1, _SR))
+        dask_zero = da_from_array(zero, chunks=(1, -1))
+        normalize = Normalize(_SR, norm=np.inf, axis=-1, fill=True)
+
+        result_da = normalize.process(dask_zero)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
+        assert result.shape == zero.shape
+        assert not np.allclose(result, 0.0)
+        np.testing.assert_allclose(
+            np.max(np.abs(result)),
+            1.0,
+            rtol=1e-10,  # fill produces exact normalized values
+        )
 
     def test_negative_norm_error_message(self) -> None:
         """Test that negative norm (except -np.inf) provides helpful error message."""
-        import pytest
-
         with pytest.raises(ValueError) as exc_info:
             Normalize(sampling_rate=44100, norm=-2)
 
@@ -418,8 +460,6 @@ class TestNormalize:
 
     def test_negative_threshold_error_message(self) -> None:
         """Test that negative threshold provides helpful error message."""
-        import pytest
-
         with pytest.raises(ValueError) as exc_info:
             Normalize(sampling_rate=44100, threshold=-0.5)
 

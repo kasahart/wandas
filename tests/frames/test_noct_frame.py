@@ -14,11 +14,22 @@ from wandas.utils.types import NDArrayReal
 # Reference to dask array functions
 _da_from_array = da.from_array
 
+# --- Module-level deterministic NOct constants ---
+_SAMPLING_RATE: int = 44100
+_N: int = 3  # 1/3 octave
+_G: int = 10
+_FR: int = 1000
+_FMIN: float = 20.0
+_FMAX: float = 20000.0
+_, _CENTER_FREQS = _center_freq(fmin=_FMIN, fmax=_FMAX, n=_N, G=_G, fr=_FR)
+_N_FREQ_BINS: int = len(_CENTER_FREQS)
+_SHAPE: tuple[int, int] = (2, _N_FREQ_BINS)
+
 
 # Helper function to create test data
 def create_real_data(shape: tuple[int, ...]) -> NDArrayReal:
     """Create real test data with the given shape."""
-    return np.random.rand(*shape).astype(np.float32)
+    return np.random.default_rng(42).random(shape).astype(np.float32)
 
 
 def create_dask_array(data: NDArrayReal, chunks: tuple[int, ...] | None) -> DaArray:
@@ -31,18 +42,7 @@ class TestNOctFrame:
 
     def setup_method(self) -> None:
         """Set up test fixtures for each test"""
-        self.sampling_rate: int = 44100
-        self.n: int = 3  # 1/3 octave
-        self.G: int = 10
-        self.fr: int = 1000
-        self.fmin: float = 20.0
-        self.fmax: float = 20000.0
-
-        # NOctFrameデータ形状: (channels, frequency_bins)
-        _, center_freqs = _center_freq(fmin=self.fmin, fmax=self.fmax, n=self.n, G=self.G, fr=self.fr)
-        self.n_freq_bins = len(center_freqs)
-        self.shape: tuple[int, int] = (2, self.n_freq_bins)
-        self.real_data: NDArrayReal = create_real_data(self.shape)
+        self.real_data: NDArrayReal = create_real_data(_SHAPE)
         # 遅延実行に対応したデータ構造の使用
         self.data: DaArray = _da_from_array(self.real_data, chunks=(1, -1))
 
@@ -55,12 +55,12 @@ class TestNOctFrame:
         # Create NOctFrame instance
         self.frame: NOctFrame = NOctFrame(
             data=self.data,
-            sampling_rate=self.sampling_rate,
-            fmin=self.fmin,
-            fmax=self.fmax,
-            n=self.n,
-            G=self.G,
-            fr=self.fr,
+            sampling_rate=_SAMPLING_RATE,
+            fmin=_FMIN,
+            fmax=_FMAX,
+            n=_N,
+            G=_G,
+            fr=_FR,
             label="test_frame",
             metadata={"test": "metadata"},
             channel_metadata=self.channel_metadata,
@@ -71,9 +71,10 @@ class TestNOctFrame:
         # Test with minimal required parameters
         minimal_frame: NOctFrame = NOctFrame(
             data=self.data,
-            sampling_rate=self.sampling_rate,
+            sampling_rate=_SAMPLING_RATE,
         )
-        assert minimal_frame.sampling_rate == self.sampling_rate
+        assert minimal_frame.sampling_rate == _SAMPLING_RATE
+        assert isinstance(minimal_frame._data, DaArray)  # Dask laziness preserved
         assert minimal_frame.n == 3  # Default value
         assert minimal_frame.G == 10  # Default value
         assert minimal_frame.fr == 1000  # Default value
@@ -81,33 +82,33 @@ class TestNOctFrame:
         assert minimal_frame.fmax == 0  # Default value
 
         # Test with all parameters
-        assert self.frame.sampling_rate == self.sampling_rate
-        assert self.frame.n == self.n
-        assert self.frame.G == self.G
-        assert self.frame.fr == self.fr
-        assert self.frame.fmin == self.fmin
-        assert self.frame.fmax == self.fmax
+        assert self.frame.sampling_rate == _SAMPLING_RATE
+        assert self.frame.n == _N
+        assert self.frame.G == _G
+        assert self.frame.fr == _FR
+        assert self.frame.fmin == _FMIN
+        assert self.frame.fmax == _FMAX
         assert self.frame.label == "test_frame"
         assert self.frame.metadata == {"test": "metadata"}
 
     def test_reshape_1d_data(self) -> None:
         """Test that 1D data is reshaped to 2D"""
         # Create 1D real data
-        shape_1d: tuple[int] = (self.n_freq_bins,)
+        shape_1d: tuple[int] = (_N_FREQ_BINS,)
         real_data_1d: NDArrayReal = create_real_data(shape_1d)
         data_1d: DaArray = _da_from_array(real_data_1d.reshape(1, -1), chunks=(1, -1))
 
         frame_1d: NOctFrame = NOctFrame(
             data=data_1d,
-            sampling_rate=self.sampling_rate,
+            sampling_rate=_SAMPLING_RATE,
         )
         assert frame_1d.n_channels == 1
-        assert frame_1d.shape == (self.n_freq_bins,)
+        assert frame_1d.shape == (_N_FREQ_BINS,)
 
     # def test_reject_high_dim_data(self) -> None:
     #     """Test that >2D data raises ValueError"""
     #     # Create 3D real data
-    #     shape_3d: tuple[int, int, int] = (2, 3, self.n_freq_bins)
+    #     shape_3d: tuple[int, int, int] = (2, 3, _N_FREQ_BINS)
     #     real_data_3d: NDArrayReal = create_real_data(shape_3d)
     #     data_3d: DaArray = _da_from_array(real_data_3d, chunks=-1)
 
@@ -115,7 +116,7 @@ class TestNOctFrame:
     #     with pytest.raises(ValueError):
     #         NOctFrame(
     #             data=data_3d,
-    #             sampling_rate=self.sampling_rate,
+    #             sampling_rate=_SAMPLING_RATE,
     #         )
 
     def test_property_db(self) -> None:
@@ -125,6 +126,7 @@ class TestNOctFrame:
         db: NDArrayReal = self.frame.dB
         ref_values: NDArrayReal = np.array([ch.ref for ch in self.channel_metadata])
         expected: NDArrayReal = 20 * np.log10(np.maximum(self.real_data / ref_values[:, np.newaxis], 1e-12))
+        # Direct numpy equivalent — default rtol=1e-7 (exact match expected)
         np.testing.assert_allclose(db, expected)
 
     def test_property_dba(self) -> None:
@@ -143,6 +145,7 @@ class TestNOctFrame:
 
             # 期待される結果（dB + A重み付け）と比較
             expected: NDArrayReal = self.frame.dB + mock_weights
+            # Direct numpy equivalent — default rtol=1e-7 (exact match expected)
             np.testing.assert_allclose(dba, expected)
 
     def test_property_n_channels(self) -> None:
@@ -162,11 +165,11 @@ class TestNOctFrame:
 
             # _center_freqが期待される引数で呼び出されたことを確認
             mock_center_freq.assert_called_once_with(
-                fmax=self.fmax,
-                fmin=self.fmin,
-                n=self.n,
-                G=self.G,
-                fr=self.fr,
+                fmax=_FMAX,
+                fmin=_FMIN,
+                n=_N,
+                G=_G,
+                fr=_FR,
             )
 
             # 返される値が期待通りであることを確認
@@ -238,11 +241,11 @@ class TestNOctFrame:
         """Test _get_additional_init_kwargs method"""
         additional_kwargs = self.frame._get_additional_init_kwargs()
         assert additional_kwargs == {
-            "n": self.n,
-            "G": self.G,
-            "fr": self.fr,
-            "fmin": self.fmin,
-            "fmax": self.fmax,
+            "n": _N,
+            "G": _G,
+            "fr": _FR,
+            "fmin": _FMIN,
+            "fmax": _FMAX,
         }
 
     def test_to_dataframe(self) -> None:
@@ -250,12 +253,12 @@ class TestNOctFrame:
         # NOctFrameの作成
         noct_frame = NOctFrame(
             data=self.data,
-            sampling_rate=self.sampling_rate,
-            n=self.n,
-            G=self.G,
-            fr=self.fr,
-            fmin=self.fmin,
-            fmax=self.fmax,
+            sampling_rate=_SAMPLING_RATE,
+            n=_N,
+            G=_G,
+            fr=_FR,
+            fmin=_FMIN,
+            fmax=_FMAX,
             channel_metadata=self.channel_metadata,
         )
 
@@ -264,7 +267,7 @@ class TestNOctFrame:
 
         # DataFrameの検証
         assert isinstance(df, pd.DataFrame)
-        assert df.shape == (self.shape[1], self.shape[0])  # (freq_bins, channels)
+        assert df.shape == (_SHAPE[1], _SHAPE[0])  # (freq_bins, channels)
         assert df.index.name == "frequency"
         assert list(df.columns) == ["ch1", "ch2"]
 
@@ -280,19 +283,19 @@ class TestNOctFrame:
 
         noct_frame = NOctFrame(
             data=single_channel_data,
-            sampling_rate=self.sampling_rate,
-            n=self.n,
-            G=self.G,
-            fr=self.fr,
-            fmin=self.fmin,
-            fmax=self.fmax,
+            sampling_rate=_SAMPLING_RATE,
+            n=_N,
+            G=_G,
+            fr=_FR,
+            fmin=_FMIN,
+            fmax=_FMAX,
             channel_metadata=single_channel_metadata,
         )
 
         df = noct_frame.to_dataframe()
 
         assert isinstance(df, pd.DataFrame)
-        assert df.shape == (self.shape[1], 1)  # (freq_bins, 1)
+        assert df.shape == (_SHAPE[1], 1)  # (freq_bins, 1)
         assert df.index.name == "frequency"
         assert list(df.columns) == ["ch1"]
 

@@ -12,14 +12,19 @@ from wandas.utils.util import calculate_rms
 
 _da_from_array = da.from_array
 
+# --- Module-level deterministic test data ---
+_SAMPLE_RATE: int = 16000
+_rng = np.random.default_rng(42)
+_DATA_2CH: np.ndarray = _rng.random((2, 16000))  # 2 channels, 1 second
+_DASK_2CH: DaArray = _da_from_array(_DATA_2CH, chunks=(1, 4000))
+
 
 class TestChannelProcessing:
     def setup_method(self) -> None:
         """Set up test fixtures for each test."""
-        # Create a simple dask array for testing
-        self.sample_rate: float = 16000
-        self.data: np.ndarray = np.random.random((2, 16000))  # 2 channels, 1 second
-        self.dask_data: DaArray = _da_from_array(self.data, chunks=(1, 4000))
+        self.sample_rate: float = _SAMPLE_RATE
+        self.data: np.ndarray = _DATA_2CH
+        self.dask_data: DaArray = _DASK_2CH
         self.channel_frame: ChannelFrame = ChannelFrame(
             data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
         )
@@ -32,12 +37,15 @@ class TestChannelProcessing:
             mock_create_op.return_value = mock_op
 
             # Apply filter operations
+            original_history_len = len(self.channel_frame.operation_history)
             result: ChannelFrame = self.channel_frame.high_pass_filter(cutoff=100)
             mock_create_op.assert_called_with("highpass_filter", self.sample_rate, cutoff=100, order=4)
 
-            # No compute should have happened
+            assert result is not self.channel_frame  # Pillar 1: immutability
             assert isinstance(result, ChannelFrame)
             assert isinstance(result._data, DaArray)
+            # Pillar 2: operation_history grows by 1
+            assert len(result.operation_history) == original_history_len + 1
 
     def test_low_pass_filter(self) -> None:
         """Test low_pass_filter operation."""
@@ -47,12 +55,15 @@ class TestChannelProcessing:
             mock_create_op.return_value = mock_op
 
             # Apply filter operations
+            original_history_len = len(self.channel_frame.operation_history)
             result: ChannelFrame = self.channel_frame.low_pass_filter(cutoff=5000)
             mock_create_op.assert_called_with("lowpass_filter", self.sample_rate, cutoff=5000, order=4)
 
-            # No compute should have happened
+            assert result is not self.channel_frame  # Pillar 1: immutability
             assert isinstance(result, ChannelFrame)
             assert isinstance(result._data, DaArray)
+            # Pillar 2: operation_history grows by 1
+            assert len(result.operation_history) == original_history_len + 1
 
     def test_band_pass_filter(self) -> None:
         """Test band_pass_filter operation."""
@@ -81,9 +92,11 @@ class TestChannelProcessing:
                 order=6,
             )
 
-            # No compute should have happened
+            assert result is not self.channel_frame  # Pillar 1: immutability
             assert isinstance(result, ChannelFrame)
             assert isinstance(result._data, DaArray)
+            # Pillar 2: operation_history grows by 1
+            assert len(result.operation_history) == len(self.channel_frame.operation_history) + 1
 
     def test_apply_custom_function_lazy_and_correct(self) -> None:
         """Custom apply should stay lazy until compute and return correct data."""
@@ -101,6 +114,7 @@ class TestChannelProcessing:
         assert func.call_count == 0
 
         computed = result.compute()
+        # Custom apply: scalar addition — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(computed, self.data + 1.5)
         assert func.call_count == 1
 
@@ -170,6 +184,7 @@ class TestChannelProcessing:
         # Verify it computed correctly
         computed = result.compute()
         expected = self.data * (self.sample_rate / 1000.0)
+        # map_blocks scalar multiply — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(computed, expected)
 
     def test_apply_rejects_sampling_rate_param(self) -> None:
@@ -236,6 +251,7 @@ class TestChannelProcessing:
 
         computed = result.compute()
         expected = np.fft.rfft(self.data, axis=-1)
+        # Same np.fft.rfft algorithm — default rtol=1e-7 (exact match)
         np.testing.assert_allclose(computed, expected)
 
     def test_apply_domain_transition_rejects_invalid_output_frame_class(self) -> None:
@@ -396,6 +412,7 @@ class TestChannelProcessing:
         sum_cf = self.channel_frame.sum()
         sum_data = sum_cf.compute()
         expected_sum = self.data.sum(axis=-2, keepdims=True)
+        # Direct numpy sum — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(sum_data, expected_sum)
 
     def test_mean_methods(self) -> None:
@@ -416,6 +433,7 @@ class TestChannelProcessing:
         mean_cf = self.channel_frame.mean()
         mean_data = mean_cf.compute()
         expected_mean = self.data.mean(axis=-2, keepdims=True)
+        # Direct numpy mean — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(mean_data, expected_mean)
 
     def test_channel_difference(self) -> None:
@@ -436,12 +454,14 @@ class TestChannelProcessing:
         diff_cf = self.channel_frame.channel_difference(other_channel=0)
         computed = diff_cf.compute()
         expected = self.data - self.data[0:1]
+        # Element-wise subtraction — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(computed, expected)
 
         # Test that channel_difference with other_channel=0 works correctly
         diff_cf = self.channel_frame.channel_difference(other_channel="ch0")
         computed = diff_cf.compute()
         expected = self.data - self.data[0:1]
+        # Element-wise subtraction — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(computed, expected)
 
         # Test invalid channel index
@@ -518,12 +538,12 @@ class TestChannelProcessing:
     def test_add_with_snr(self) -> None:
         """Test add method with SNR parameter."""
         # 別のChannelFrameを作成
-        signal_data = np.random.random((2, 16000))
+        signal_data = np.random.default_rng(42).random((2, 16000))
         signal_dask_data = _da_from_array(signal_data, chunks=(1, -1))
         signal_cf = ChannelFrame(signal_dask_data, self.sample_rate, label="signal")
 
         # ノイズデータを作成
-        noise_data = np.random.random((2, 16000)) * 0.1  # 小さいノイズ
+        noise_data = np.random.default_rng(42).random((2, 16000)) * 0.1  # 小さいノイズ
         noise_dask_data = _da_from_array(noise_data, chunks=(1, -1))
         noise_cf = ChannelFrame(noise_dask_data, self.sample_rate, label="noise")
 
@@ -578,6 +598,7 @@ class TestChannelProcessing:
         assert np.all(added_noise_rms > 0)
         actual_snr = 20 * np.log10(calculate_rms(signal_data) / added_noise_rms)
 
+        # atol=1e-3: SNR estimation from computed noise has small float64 rounding
         np.testing.assert_allclose(actual_snr, np.full_like(actual_snr, snr_db), atol=1e-3)
 
     def test_add_with_snr_scalar_returns_direct_addition(self) -> None:
@@ -587,6 +608,7 @@ class TestChannelProcessing:
         result = self.channel_frame.add(scalar_value, snr=12.0)
 
         assert isinstance(result, ChannelFrame)
+        # Scalar broadcast addition — default rtol (exact match expected)
         np.testing.assert_allclose(result.compute(), self.data + scalar_value)
         assert result.operation_history[-1] == {"operation": "+", "with": str(scalar_value)}
         assert "snr" not in result.operation_history[-1]
@@ -615,20 +637,22 @@ class TestChannelProcessing:
         assert np.all(added_noise_rms > 0)
         actual_snr = 20 * np.log10(calculate_rms(signal_data) / added_noise_rms)
 
-        np.testing.assert_allclose(actual_snr, np.full_like(actual_snr, snr_db), atol=1e-3)
+        np.testing.assert_allclose(
+            actual_snr, np.full_like(actual_snr, snr_db), atol=1e-3
+        )  # SNR estimation noise floor
         assert np.all(computed[:, :8000] > 1.0)
-        np.testing.assert_allclose(computed[:, 8000:], 1.0)
+        np.testing.assert_allclose(computed[:, 8000:], 1.0)  # Exact: zero-padded region unchanged
 
     def test_add_with_different_lengths(self) -> None:
         """異なる長さの信号を加算するテスト。"""
         # 標準の長さのフレーム（self.channel_frame）
         # 長さが標準フレームよりも短いフレーム（切り詰め必要）
-        short_data = np.random.random((2, 8000))  # 半分の長さ
+        short_data = np.random.default_rng(42).random((2, 8000))  # 半分の長さ
         short_dask_data = _da_from_array(short_data, chunks=(1, 2000))
         short_cf = ChannelFrame(short_dask_data, self.sample_rate, label="short_audio")
 
         # 長さが標準フレームよりも長いフレーム（パディング必要）
-        long_data = np.random.random((2, 24000))  # 1.5倍の長さ
+        long_data = np.random.default_rng(42).random((2, 24000))  # 1.5倍の長さ
         long_dask_data = _da_from_array(long_data, chunks=(1, -1))
         long_cf = ChannelFrame(long_dask_data, self.sample_rate, label="long_audio")
 
@@ -642,6 +666,7 @@ class TestChannelProcessing:
         # 短いフレーム部分は加算され、残りは元のフレームのままであることを確認
         expected_short = self.data.copy()
         expected_short[:, : short_data.shape[1]] = expected_short[:, : short_data.shape[1]] + short_data
+        # Pad + add — decimal=6 default (exact element-wise arithmetic)
         np.testing.assert_array_almost_equal(computed_short, expected_short)
 
         # 長いフレームを標準フレームに加算（切り詰めが必要）
@@ -653,6 +678,7 @@ class TestChannelProcessing:
 
         # 元のフレームと同じ長さだけ長いフレームを切り詰めて加算されることを確認
         expected_long = self.data + long_data[:, : self.data.shape[1]]
+        # Truncate + add — decimal=6 default (exact element-wise arithmetic)
         np.testing.assert_array_almost_equal(computed_long, expected_long)
 
     def test_rms_trend(self) -> None:
@@ -740,134 +766,111 @@ class TestChannelProcessing:
         assert len(result.operation_history) == len(base.operation_history) + 1
         assert result.previous is base
 
-    def test_high_pass_filter_channel_frame_attributes(self) -> None:
+    def _setup_metadata_and_mock(self):
+        """Configure ``self.channel_frame`` with standard test metadata.
+
+        Reduces boilerplate in ``*_channel_frame_attributes`` tests by setting
+        the frame label, metadata, and channel metadata in place.
+        """
         self.channel_frame.label = "test_label"
         self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
         self.channel_frame._channel_metadata = [
             ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
             ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
         ]
-        with mock.patch("wandas.processing.create_operation") as mock_create_op:
-            mock_op = mock.MagicMock()
-            mock_op.process.return_value = self.dask_data
-            mock_create_op.return_value = mock_op
+
+    def _mock_create_op(self, metadata_updates=None):
+        """Return a context manager that patches create_operation with a mock op."""
+        patcher = mock.patch("wandas.processing.create_operation")
+        mock_create_op = patcher.start()
+        mock_op = mock.MagicMock()
+        mock_op.process.return_value = self.dask_data
+        if metadata_updates:
+            mock_op.get_metadata_updates.return_value = metadata_updates
+        mock_create_op.return_value = mock_op
+        return patcher
+
+    def test_high_pass_filter_channel_frame_attributes(self) -> None:
+        self._setup_metadata_and_mock()
+        patcher = self._mock_create_op()
+        try:
             result = self.channel_frame.high_pass_filter(cutoff=100)
             self._check_channel_frame_attrs(result, self.channel_frame, op_key="highpass_filter")
+        finally:
+            patcher.stop()
 
     def test_low_pass_filter_channel_frame_attributes(self) -> None:
-        self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
-        self.channel_frame._channel_metadata = [
-            ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
-            ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
-        ]
-        with mock.patch("wandas.processing.create_operation") as mock_create_op:
-            mock_op = mock.MagicMock()
-            mock_op.process.return_value = self.dask_data
-            mock_create_op.return_value = mock_op
+        self._setup_metadata_and_mock()
+        patcher = self._mock_create_op()
+        try:
             result = self.channel_frame.low_pass_filter(cutoff=5000)
             self._check_channel_frame_attrs(result, self.channel_frame, op_key="lowpass_filter")
+        finally:
+            patcher.stop()
 
     def test_band_pass_filter_channel_frame_attributes(self) -> None:
-        self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
-        self.channel_frame._channel_metadata = [
-            ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
-            ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
-        ]
-        with mock.patch("wandas.processing.create_operation") as mock_create_op:
-            mock_op = mock.MagicMock()
-            mock_op.process.return_value = self.dask_data
-            mock_create_op.return_value = mock_op
+        self._setup_metadata_and_mock()
+        patcher = self._mock_create_op()
+        try:
             result = self.channel_frame.band_pass_filter(low_cutoff=200, high_cutoff=5000)
             self._check_channel_frame_attrs(result, self.channel_frame, op_key="bandpass_filter")
+        finally:
+            patcher.stop()
 
     def test_a_weighting_channel_frame_attributes(self) -> None:
-        self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
-        self.channel_frame._channel_metadata = [
-            ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
-            ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
-        ]
-        with mock.patch("wandas.processing.create_operation") as mock_create_op:
-            mock_op = mock.MagicMock()
-            mock_op.process.return_value = self.dask_data
-            mock_create_op.return_value = mock_op
+        self._setup_metadata_and_mock()
+        patcher = self._mock_create_op()
+        try:
             result = self.channel_frame.a_weighting()
             self._check_channel_frame_attrs(result, self.channel_frame, op_key="a_weighting")
+        finally:
+            patcher.stop()
 
     def test_abs_channel_frame_attributes(self) -> None:
-        self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
-        self.channel_frame._channel_metadata = [
-            ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
-            ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
-        ]
-        with mock.patch("wandas.processing.create_operation") as mock_create_op:
-            mock_op = mock.MagicMock()
-            mock_op.process.return_value = self.dask_data
-            mock_create_op.return_value = mock_op
+        self._setup_metadata_and_mock()
+        patcher = self._mock_create_op()
+        try:
             result = self.channel_frame.abs()
             self._check_channel_frame_attrs(result, self.channel_frame, op_key="abs")
+        finally:
+            patcher.stop()
 
     def test_power_channel_frame_attributes(self) -> None:
-        self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
-        self.channel_frame._channel_metadata = [
-            ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
-            ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
-        ]
-        with mock.patch("wandas.processing.create_operation") as mock_create_op:
-            mock_op = mock.MagicMock()
-            mock_op.process.return_value = self.dask_data
-            mock_create_op.return_value = mock_op
+        self._setup_metadata_and_mock()
+        patcher = self._mock_create_op()
+        try:
             result = self.channel_frame.power(exponent=2.0)
             self._check_channel_frame_attrs(result, self.channel_frame, op_key="power")
+        finally:
+            patcher.stop()
 
     def test_trim_channel_frame_attributes(self) -> None:
-        self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
-        self.channel_frame._channel_metadata = [
-            ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
-            ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
-        ]
-        with mock.patch("wandas.processing.create_operation") as mock_create_op:
-            mock_op = mock.MagicMock()
-            mock_op.process.return_value = self.dask_data
-            mock_create_op.return_value = mock_op
+        self._setup_metadata_and_mock()
+        patcher = self._mock_create_op()
+        try:
             result = self.channel_frame.trim(start=0.1, end=0.5)
             self._check_channel_frame_attrs(result, self.channel_frame, op_key="trim")
+        finally:
+            patcher.stop()
 
     def test_fix_length_channel_frame_attributes(self) -> None:
-        self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
-        self.channel_frame._channel_metadata = [
-            ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
-            ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
-        ]
-        with mock.patch("wandas.processing.create_operation") as mock_create_op:
-            mock_op = mock.MagicMock()
-            mock_op.process.return_value = self.dask_data
-            mock_create_op.return_value = mock_op
+        self._setup_metadata_and_mock()
+        patcher = self._mock_create_op()
+        try:
             result = self.channel_frame.fix_length(length=10000)
             self._check_channel_frame_attrs(result, self.channel_frame, op_key="fix_length")
+        finally:
+            patcher.stop()
 
     def test_resampling_channel_frame_attributes(self) -> None:
-        self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
-        self.channel_frame._channel_metadata = [
-            ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
-            ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
-        ]
-        with mock.patch("wandas.processing.create_operation") as mock_create_op:
-            mock_op = mock.MagicMock()
-            mock_op.process.return_value = self.dask_data
-            # Mock get_metadata_updates to return target sampling rate
-            target_sr = 8000
-            mock_op.get_metadata_updates.return_value = {"sampling_rate": target_sr}
-            mock_create_op.return_value = mock_op
+        self._setup_metadata_and_mock()
+        target_sr = 8000
+        patcher = self._mock_create_op(metadata_updates={"sampling_rate": target_sr})
+        try:
             result = self.channel_frame.resampling(target_sr=target_sr)
             self._check_channel_frame_attrs(result, self.channel_frame, hop_length=2, op_key="resampling")
+        finally:
+            patcher.stop()
 
 
 class TestSamplingRateUpdates:
@@ -1072,7 +1075,9 @@ class TestRoughnessOperations:
         total_direct = roughness.data
 
         # They should be close (allowing for numerical differences)
-        np.testing.assert_allclose(total_direct.flatten(), total_from_spec.flatten(), rtol=0.1, atol=0.01)
+        np.testing.assert_allclose(
+            total_direct.flatten(), total_from_spec.flatten(), rtol=0.1, atol=0.01
+        )  # Welch PSD estimation variance vs direct computation
 
     def test_roughness_multi_channel(self) -> None:
         """Test roughness calculation with multi-channel signal."""
@@ -1103,7 +1108,7 @@ class TestRoughnessOperations:
 
 def test_get_ref_values_empty_channel_metadata() -> None:
     """_get_ref_values returns [] when _channel_metadata is empty (line 50)."""
-    cf = ChannelFrame.from_numpy(np.random.random((2, 100)), sampling_rate=1000)
+    cf = ChannelFrame.from_numpy(np.random.default_rng(42).random((2, 100)), sampling_rate=1000)
     cf._channel_metadata = []  # force empty
     result = cf._get_ref_values()
     assert result == []
@@ -1111,7 +1116,7 @@ def test_get_ref_values_empty_channel_metadata() -> None:
 
 def test_reduce_channels_unsupported_op_raises() -> None:
     """_reduce_channels raises ValueError for unsupported operation (line 313)."""
-    cf = ChannelFrame.from_numpy(np.random.random((2, 100)), sampling_rate=1000)
+    cf = ChannelFrame.from_numpy(np.random.default_rng(42).random((2, 100)), sampling_rate=1000)
     with pytest.raises(ValueError, match="Unsupported reduction operation"):
         cf._reduce_channels("median")  # ty: ignore[call-non-callable]
 
@@ -1120,10 +1125,10 @@ def test_roughness_dw_spec_missing_bark_axis() -> None:
     """roughness_dw_spec raises ValueError when bark_axis is absent from metadata (line 899)."""
     from unittest.mock import MagicMock
 
-    cf = ChannelFrame.from_numpy(np.random.random((1, 100)), sampling_rate=48000)
+    cf = ChannelFrame.from_numpy(np.random.default_rng(42).random((1, 100)), sampling_rate=48000)
 
     mock_op = MagicMock()
-    mock_op.process.return_value = _da_from_array(np.random.random((47, 10)), chunks=(47, 10))
+    mock_op.process.return_value = _da_from_array(np.random.default_rng(42).random((47, 10)), chunks=(47, 10))
     mock_op.get_metadata_updates.return_value = {"sampling_rate": 100.0}  # no bark_axis key
 
     with mock.patch("wandas.frames.mixins.channel_processing_mixin.create_operation", return_value=mock_op):

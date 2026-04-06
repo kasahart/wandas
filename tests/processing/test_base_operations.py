@@ -1,6 +1,6 @@
+import abc
 from unittest import mock
 
-import dask.array as da
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
@@ -12,9 +12,9 @@ from wandas.processing.base import (
     get_operation,
     register_operation,
 )
+from wandas.processing.filters import HighPassFilter
+from wandas.utils.dask_helpers import da_from_array
 from wandas.utils.types import NDArrayReal
-
-_da_from_array = da.from_array
 
 
 class TestOperationRegistry:
@@ -66,7 +66,6 @@ class TestOperationRegistry:
         """Test creating operations of different types."""
         # Create a highpass filter operation
         hpf_op = create_operation("highpass_filter", 16000, cutoff=150.0, order=6)
-        from wandas.processing.filters import HighPassFilter
 
         assert isinstance(hpf_op, HighPassFilter)
         assert hpf_op.cutoff == 150.0
@@ -76,11 +75,9 @@ class TestOperationRegistry:
 class TestAudioOperation:
     """Test AudioOperation base class."""
 
-    def setup_method(self) -> None:
-        """Set up test fixtures."""
-
-        # Create a simple test implementation
-        class TestOp(AudioOperation[NDArrayReal, NDArrayReal]):
+    @staticmethod
+    def _make_test_op_class() -> type:
+        class _TestOp(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "test_op"
 
             def _process_array(self, x: NDArrayReal) -> NDArrayReal:
@@ -89,40 +86,48 @@ class TestAudioOperation:
             def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
                 return input_shape
 
-        self.TestOp = TestOp
-        self.op = TestOp(16000)
-        self.data = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
-        # 修正: DaArray.from_array を da.from_array に変更
-        self.dask_data = _da_from_array(self.data, chunks=(1, -1))
+        return _TestOp
 
-    def test_process(self) -> None:
-        """Test the process method."""
-        # Process the data
-        result = self.op.process(self.dask_data)
+    def test_process_doubles_input(self) -> None:
+        """process() applies _process_array and returns correct DaskArray result."""
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000)
+        data = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        dask_data = da_from_array(data, chunks=(1, -1))
 
-        # Check that the result is a Dask array
+        result = op.process(dask_data)
+
         assert isinstance(result, DaArray)
+        np.testing.assert_array_equal(result.compute(), data * 2)
 
-        # Compute and check the result
-        computed = result.compute()
-        expected = self.data * 2
-        np.testing.assert_array_equal(computed, expected)
+    def test_process_preserves_immutability(self) -> None:
+        """Pillar 1: process() does not mutate the input DaskArray."""
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000)
+        data = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        dask_data = da_from_array(data, chunks=(1, -1))
+        data_copy = data.copy()
 
-    def test_delayed_execution(self) -> None:
-        """Test that processing is delayed until compute is called."""
+        _ = op.process(dask_data).compute()
+
+        np.testing.assert_array_equal(dask_data.compute(), data_copy)
+
+    def test_delayed_execution_not_computed_early(self) -> None:
+        """Pillar 1: process() preserves Dask lazy evaluation; no premature compute()."""
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000)
+        data = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        dask_data = da_from_array(data, chunks=(1, -1))
+
         with mock.patch.object(DaArray, "compute") as mock_compute:
-            # Just processing shouldn't trigger computation
-            result = self.op.process(self.dask_data)
+            result = op.process(dask_data)
             mock_compute.assert_not_called()
-
-            # Only when compute() is called
             _ = result.compute()
             mock_compute.assert_called_once()
 
-    def test_validate_params(self) -> None:
-        """Test parameter validation."""
+    def test_validate_params_raises_on_invalid(self) -> None:
+        """validate_params() raises ValueError for invalid parameters in __init__."""
 
-        # Create a subclass with parameter validation
         class ValidatedOp(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "validated_op"
 
@@ -140,84 +145,59 @@ class TestAudioOperation:
             def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
                 return input_shape
 
-        # Invalid parameters should raise during initialization
         with pytest.raises(ValueError, match="Value must be non-negative"):
             _ = ValidatedOp(16000, -1)
 
-    def test_pure_parameter_default(self) -> None:
-        """Test that pure parameter defaults to True."""
-        op = self.TestOp(16000)
-        assert op.pure is True
+    def test_pure_parameter_default_true(self) -> None:
+        """Default pure parameter is True."""
+        test_op_cls = self._make_test_op_class()
+        assert test_op_cls(16000).pure is True
 
     def test_pure_parameter_explicit_true(self) -> None:
-        """Test that pure parameter can be explicitly set to True."""
-        op = self.TestOp(16000, pure=True)
-        assert op.pure is True
+        """Explicit pure=True is stored correctly."""
+        test_op_cls = self._make_test_op_class()
+        assert test_op_cls(16000, pure=True).pure is True
 
     def test_pure_parameter_explicit_false(self) -> None:
-        """Test that pure parameter can be explicitly set to False."""
-        op = self.TestOp(16000, pure=False)
-        assert op.pure is False
+        """Explicit pure=False is stored correctly."""
+        test_op_cls = self._make_test_op_class()
+        assert test_op_cls(16000, pure=False).pure is False
 
-    def test_pure_parameter_used_in_delayed(self) -> None:
-        """Test that pure parameter is passed to dask.delayed."""
+    def test_pure_parameter_forwarded_to_delayed(self) -> None:
+        """pure parameter is forwarded to dask.delayed() call."""
+        test_op_cls = self._make_test_op_class()
+        test_array = np.array([[1.0, 2.0, 3.0]])
 
-        # Test with pure=True
-        op_true = self.TestOp(16000, pure=True)
-        with mock.patch("wandas.processing.base.delayed") as mock_delayed:
-            mock_delayed.return_value = lambda x: mock.MagicMock()
-            test_array = np.array([[1.0, 2.0, 3.0]])
-            op_true.process_array(test_array)
+        for pure_val in (True, False):
+            op = test_op_cls(16000, pure=pure_val)
+            with mock.patch("wandas.processing.base.delayed") as mock_delayed:
+                mock_delayed.return_value = lambda x: mock.MagicMock()
+                op.process_array(test_array)
+                _, kwargs = mock_delayed.call_args
+                assert kwargs["pure"] is pure_val
 
-            # Verify delayed was called with pure=True
-            mock_delayed.assert_called_once()
-            _, kwargs = mock_delayed.call_args
-            assert kwargs["pure"] is True
+    def test_get_metadata_updates_returns_empty_dict(self) -> None:
+        """Base class get_metadata_updates() returns empty dict by default."""
+        test_op_cls = self._make_test_op_class()
+        assert test_op_cls(16000).get_metadata_updates() == {}
 
-        # Test with pure=False
-        op_false = self.TestOp(16000, pure=False)
-        with mock.patch("wandas.processing.base.delayed") as mock_delayed:
-            mock_delayed.return_value = lambda x: mock.MagicMock()
-            op_false.process_array(test_array)
+    def test_get_display_name_returns_none(self) -> None:
+        """Base class get_display_name() returns None by default."""
+        test_op_cls = self._make_test_op_class()
+        assert test_op_cls(16000).get_display_name() is None
 
-            # Verify delayed was called with pure=False
-            mock_delayed.assert_called_once()
-            _, kwargs = mock_delayed.call_args
-            assert kwargs["pure"] is False
-
-    def test_get_metadata_updates_default(self) -> None:
-        """Test that get_metadata_updates returns empty dict by default."""
-        op = self.TestOp(16000)
-        assert op.get_metadata_updates() == {}
-
-    def test_get_display_name_default(self) -> None:
-        """Test that get_display_name returns None by default."""
-        op = self.TestOp(16000)
-        assert op.get_display_name() is None
-
-    def test_process_array_not_implemented(self) -> None:
-        """Test that _process_array raises NotImplementedError if not overridden."""
+    def test_process_array_not_implemented_raises(self) -> None:
+        """Calling _process_array on base class raises NotImplementedError."""
 
         class IncompleteOp(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "incomplete_op"
 
         op = IncompleteOp(16000)
-        test_array = np.array([[1.0, 2.0, 3.0]])
-
         with pytest.raises(NotImplementedError, match="Subclasses must implement"):
-            op._process_array(test_array)
-
-    def test_calculate_output_shape_default_implementation(self) -> None:
-        """Test default calculate_output_shape implementation."""
-        op = self.TestOp(16000)
-
-        # Test normal case
-        input_shape = (2, 100)
-        output_shape = op.calculate_output_shape(input_shape)
-        assert output_shape == input_shape
+            op._process_array(np.array([[1.0, 2.0, 3.0]]))
 
     def test_calculate_output_shape_default_returns_input(self) -> None:
-        """Test default calculate_output_shape returns input_shape unchanged."""
+        """Default calculate_output_shape() returns input shape unchanged."""
 
         class SimpleOp(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "simple_op"
@@ -226,15 +206,12 @@ class TestAudioOperation:
                 return x * 2
 
         op = SimpleOp(16000)
-
-        # Default always returns input_shape, regardless of actual processing
         assert op.calculate_output_shape(()) == ()
         assert op.calculate_output_shape((2, 100)) == (2, 100)
         assert op.calculate_output_shape((1, 1025)) == (1, 1025)
 
-    def test_register_operation_abstract_class(self) -> None:
-        """Test that registering an abstract class raises TypeError."""
-        import abc
+    def test_register_abstract_class_raises(self) -> None:
+        """Registering an abstract AudioOperation subclass raises TypeError."""
 
         class AbstractOp(AudioOperation[NDArrayReal, NDArrayReal], abc.ABC):
             name = "abstract_op"

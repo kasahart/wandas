@@ -1,12 +1,31 @@
 """Tests for visualization type definitions."""
 
+from contextlib import contextmanager
 from typing import Any
+from unittest import mock
 
+import numpy as np
+
+import wandas as ws
 from wandas.visualization.types import (
     DescribeParams,
     SpectralConfig,
     WaveformConfig,
 )
+
+
+@contextmanager
+def _suppress_display():
+    """Patch display / Audio / plt.close to avoid GUI side-effects in tests.
+
+    Yields the mock_display object so callers can assert call counts.
+    """
+    with (
+        mock.patch("wandas.frames.channel.display") as mock_display,
+        mock.patch("wandas.frames.channel.Audio"),
+        mock.patch("matplotlib.pyplot.close"),
+    ):
+        yield mock_display
 
 
 class TestWaveformConfig:
@@ -306,6 +325,23 @@ class TestDescribeParams:
 class TestTypedDictIntegration:
     """Integration tests for TypedDict usage patterns."""
 
+    # -- helpers ---------------------------------------------------------------
+
+    _SR = 16000
+    _DURATION_S = 1.0
+
+    @staticmethod
+    def _make_channel_frame(freq: float = 440, label: str | None = None) -> ws.ChannelFrame:
+        """Create a deterministic mono sine ChannelFrame."""
+        t = np.linspace(0, TestTypedDictIntegration._DURATION_S, TestTypedDictIntegration._SR, endpoint=False)
+        data = np.sin(2 * np.pi * freq * t).reshape(1, -1)
+        kw: dict[str, Any] = {"data": data, "sampling_rate": TestTypedDictIntegration._SR}
+        if label is not None:
+            kw["label"] = label
+        return ws.ChannelFrame.from_numpy(**kw)
+
+    # -- tests -----------------------------------------------------------------
+
     def test_nested_config_construction(self) -> None:
         """Test building complex nested configurations."""
         waveform: WaveformConfig = {
@@ -377,16 +413,7 @@ class TestTypedDictIntegration:
 
     def test_typeddict_with_real_channelframe(self) -> None:
         """Test TypedDict parameters with actual ChannelFrame instance."""
-        from unittest import mock
-
-        import numpy as np
-
-        import wandas as ws
-
-        # Create test signal
-        t = np.linspace(0, 1, 16000)
-        signal = np.sin(2 * np.pi * 440 * t)
-        cf = ws.ChannelFrame.from_numpy(data=signal.reshape(1, -1), sampling_rate=16000)
+        cf = self._make_channel_frame(freq=440)
 
         # Create config with TypedDict
         config: DescribeParams = {
@@ -397,13 +424,11 @@ class TestTypedDictIntegration:
         }
 
         # Mock display to avoid showing plots in tests
-        with (
-            mock.patch("wandas.frames.channel.display"),
-            mock.patch("wandas.frames.channel.Audio"),
-            mock.patch("matplotlib.pyplot.close"),
-        ):
-            # This should work without errors
+        with _suppress_display() as mock_display:
             cf.describe(**config)  # ty: ignore[invalid-argument-type]
+
+        # describe() must trigger display at least once
+        assert mock_display.call_count >= 1
 
     def test_typeddict_parameter_validation(self) -> None:
         """Test that TypedDict helps catch parameter errors."""
@@ -426,19 +451,7 @@ class TestTypedDictIntegration:
 
     def test_typeddict_reusability(self) -> None:
         """Test reusing TypedDict configurations across multiple calls."""
-        from unittest import mock
-
-        import numpy as np
-
-        import wandas as ws
-
-        # Create multiple signals
-        signals = []
-        for freq in [440, 880, 1320]:
-            t = np.linspace(0, 1, 16000)
-            signal = np.sin(2 * np.pi * freq * t)
-            cf = ws.ChannelFrame.from_numpy(data=signal.reshape(1, -1), sampling_rate=16000, label=f"{freq}Hz")
-            signals.append(cf)
+        signals = [self._make_channel_frame(freq=f, label=f"{f}Hz") for f in (440, 880, 1320)]
 
         # Single config for all signals
         shared_config: DescribeParams = {
@@ -450,30 +463,17 @@ class TestTypedDictIntegration:
             "vmax": -20,
         }
 
-        with (
-            mock.patch("wandas.frames.channel.display"),
-            mock.patch("wandas.frames.channel.Audio"),
-            mock.patch("matplotlib.pyplot.close"),
-        ):
+        with _suppress_display() as mock_display:
             # Apply same config to all signals
             for signal in signals:
-                signal.describe(**shared_config)
+                signal.describe(**shared_config)  # ty: ignore[invalid-argument-type]
 
-        # All completed successfully
-        assert len(signals) == 3
+        # describe() triggers display for each signal
+        assert mock_display.call_count >= len(signals)
 
     def test_typeddict_config_variants(self) -> None:
         """Test creating config variants from base configuration."""
-        from unittest import mock
-
-        import numpy as np
-
-        import wandas as ws
-
-        # Create test signal
-        t = np.linspace(0, 1, 16000)
-        signal = np.sin(2 * np.pi * 440 * t)
-        cf = ws.ChannelFrame.from_numpy(data=signal.reshape(1, -1), sampling_rate=16000)
+        cf = self._make_channel_frame(freq=440)
 
         # Base configuration
         base_config: DescribeParams = {
@@ -496,14 +496,11 @@ class TestTypedDictIntegration:
             "cmap": "magma",
         }
 
-        with (
-            mock.patch("wandas.frames.channel.display"),
-            mock.patch("wandas.frames.channel.Audio"),
-            mock.patch("matplotlib.pyplot.close"),
-        ):
+        with _suppress_display() as mock_display:
             # Test all variants
             cf.describe(**base_config)  # ty: ignore[invalid-argument-type]
             cf.describe(**acoustic_config)  # ty: ignore[invalid-argument-type]
             cf.describe(**dark_config)  # ty: ignore[invalid-argument-type]
 
-        # All variants executed successfully
+        # 3 describe() calls each trigger at least one display
+        assert mock_display.call_count >= 3

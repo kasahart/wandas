@@ -2,6 +2,7 @@ from typing import Any
 
 import dask.array as da
 import matplotlib.pyplot as plt
+import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 from matplotlib.figure import Figure
@@ -9,6 +10,7 @@ from numpy.testing import assert_array_almost_equal, assert_array_equal
 
 import wandas.visualization.plotting as plotting_module
 from wandas.core.metadata import ChannelMetadata
+from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.utils.types import NDArrayComplex, NDArrayReal
@@ -111,7 +113,7 @@ class TestSpectrogramFrame:
         # データ関連プロパティ
         assert spec._n_channels == 2
         assert spec.n_frames == 5
-        assert spec.n_freq_bins == 65
+        assert spec.n_freq_bins == 65  # n_fft // 2 + 1 = 128 // 2 + 1 = 65
 
         # 各種変換プロパティ
         magnitude: NDArrayReal = spec.magnitude
@@ -127,6 +129,7 @@ class TestSpectrogramFrame:
         assert dba.shape == (2, 65, 5)
 
         # magnitude と power の関係を確認
+        # Direct algebraic relation — decimal=6 (default, float64 precision)
         assert_array_almost_equal(power, magnitude**2)
 
         # 周波数・時間軸の確認
@@ -142,10 +145,14 @@ class TestSpectrogramFrame:
         # スカラー演算
         spec_plus_1: SpectrogramFrame = spec + 1.0
         assert spec_plus_1.label == f"({spec.label} + 1.0)"
+        # Pillar 1: immutability and Dask laziness
+        assert spec_plus_1 is not spec
+        assert isinstance(spec_plus_1._data, DaArray)
 
         # 実データの比較確認
         result: NDArrayComplex = spec_plus_1.data
         expected: NDArrayComplex = spec.data + 1.0
+        # Scalar arithmetic — decimal=6 (default, exact match expected)
         assert_array_almost_equal(result, expected)
 
         # 同種データ間の演算
@@ -158,6 +165,7 @@ class TestSpectrogramFrame:
         spec_div: SpectrogramFrame = spec / 2.0
 
         # 各演算結果の検証
+        # Scalar arithmetic — decimal=6 (default, exact match expected)
         assert_array_almost_equal((spec_minus.data), (spec.data - 0.5))
         assert_array_almost_equal((spec_mult.data), (spec.data * 2.0))
         assert_array_almost_equal((spec_div.data), (spec.data / 2.0))
@@ -202,18 +210,21 @@ class TestSpectrogramFrame:
         complex_val: complex = 1.0 + 2.0j
         spec_complex: SpectrogramFrame = spec._binary_op(complex_val, lambda x, y: x + y, "+")
         assert "complex(1.0, 2.0)" in spec_complex.label
+        # Complex addition — decimal=6 default (exact match expected)
         assert_array_almost_equal(spec_complex.data, spec.data + complex_val)
 
         # numpy配列との演算
         np_array = np.ones((2, 65, 5), dtype=complex)
         spec_np: SpectrogramFrame = spec * np_array
         assert "ndarray(2, 65, 5)" in spec_np.label
+        # Array multiplication — decimal=6 default (exact match expected)
         assert_array_almost_equal(spec_np.data, spec.data * np_array)
 
         # dask配列との演算
         da_array: DaArray = da.ones((2, 65, 5), dtype=complex)
         spec_da: SpectrogramFrame = spec - da_array
         assert "dask.array(2, 65, 5)" in spec_da.label
+        # Dask array subtraction — decimal=6 default (exact match expected)
         assert_array_almost_equal(spec_da.data, spec.data - da_array)
 
         # その他の型（カスタムオブジェクト）との演算でelse節をカバー
@@ -232,6 +243,7 @@ class TestSpectrogramFrame:
         spec_custom: SpectrogramFrame = spec + custom_obj
         # カスタムオブジェクトの型名がラベルに含まれることを確認
         assert "CustomNumber" in spec_custom.label
+        # Custom object addition — decimal=6 default (exact match expected)
         assert_array_almost_equal(spec_custom.data, spec.data + custom_obj.value)
 
     def test_get_frame_at(self, sample_spectrogram: SpectrogramFrame) -> None:
@@ -279,6 +291,9 @@ class TestSpectrogramFrame:
         # istftメソッドを呼び出し
         channel_frame_istft: Any = spec.istft()
 
+        # Pillar 1: immutability — result is a new instance
+        assert channel_frame_istft is not spec
+
         # to_channel_frameメソッドを呼び出し
         channel_frame_to: Any = spec.to_channel_frame()
 
@@ -287,7 +302,11 @@ class TestSpectrogramFrame:
         assert channel_frame_istft._n_channels == channel_frame_to._n_channels
         assert channel_frame_istft.shape == channel_frame_to.shape
 
+        # Pillar 2: sampling rate inherited from spectrogram
+        assert channel_frame_istft.sampling_rate == spec.sampling_rate
+
         # データが同じであることを確認
+        # Same ISTFT algorithm — decimal=6 default (alias, results identical)
         assert_array_almost_equal(channel_frame_istft.data, channel_frame_to.data)
 
     def test_plot(self, sample_spectrogram: SpectrogramFrame, monkeypatch: Any) -> None:
@@ -565,6 +584,7 @@ class TestSpectrogramFrame:
         for i in range(min(5, spec.n_freq_bins)):
             # dBA = dB + A_weight であることを確認
             expected_dba = db_values[0, i, 0] + mock_a_weights[i]
+            # dBA = dB + A_weight — decimal=6 default (direct addition)
             assert_array_almost_equal(dba_values[0, i, 0], expected_dba)
 
         # 形状が同じであることを確認
@@ -598,6 +618,7 @@ class TestSpectrogramFrame:
         # データが絶対値になっていることを確認
         original_magnitude = np.abs(spec.data)
         abs_magnitude = np.abs(abs_spec.data)
+        # |abs(complex)| == |complex| — decimal=6 default (algebraic identity)
         assert_array_almost_equal(abs_magnitude, original_magnitude)
 
         # 操作履歴に "abs" が追加されていることを確認
@@ -626,6 +647,7 @@ class TestSpectrogramFrame:
         original_magnitude = spec.magnitude
         abs_magnitude = abs_spec.magnitude
 
+        # magnitude idempotent after abs — decimal=6 default (algebraic)
         assert_array_almost_equal(abs_magnitude, original_magnitude)
 
     def test_abs_lazy_evaluation(self, sample_spectrogram: SpectrogramFrame) -> None:
@@ -698,7 +720,7 @@ class TestSpectrogramFrame:
         import numpy as np
 
         # 2D NumPy配列の作成（単一チャネル）
-        np_data = np.random.random((65, 10)) + 1j * np.random.random((65, 10))
+        np_data = np.random.default_rng(42).random((65, 10)) + 1j * np.random.default_rng(42).random((65, 10))
         sampling_rate = 44100.0
         n_fft = 128
         hop_length = 64
@@ -736,7 +758,7 @@ class TestSpectrogramFrame:
         import numpy as np
 
         # 3D NumPy配列の作成（複数チャネル）
-        np_data = np.random.random((2, 65, 10)) + 1j * np.random.random((2, 65, 10))
+        np_data = np.random.default_rng(42).random((2, 65, 10)) + 1j * np.random.default_rng(42).random((2, 65, 10))
         sampling_rate = 44100.0
         n_fft = 128
         hop_length = 64
@@ -773,7 +795,7 @@ class TestSpectrogramFrame:
         import numpy as np
 
         # テストデータの作成
-        np_data = np.random.random((2, 65, 5)) + 1j * np.random.random((2, 65, 5))
+        np_data = np.random.default_rng(42).random((2, 65, 5)) + 1j * np.random.default_rng(42).random((2, 65, 5))
         sampling_rate = 48000.0
         n_fft = 128
         hop_length = 64
@@ -818,7 +840,7 @@ class TestSpectrogramFrame:
         import numpy as np
 
         # ラベルを指定せずにSpectrogramFrameを作成
-        np_data = np.random.random((65, 10)) + 1j * np.random.random((65, 10))
+        np_data = np.random.default_rng(42).random((65, 10)) + 1j * np.random.default_rng(42).random((65, 10))
         spec_frame = SpectrogramFrame.from_numpy(
             data=np_data,
             sampling_rate=44100.0,
@@ -834,7 +856,7 @@ class TestSpectrogramFrame:
         import numpy as np
 
         # 1D配列（不正）
-        np_data_1d = np.random.random(10) + 1j * np.random.random(10)
+        np_data_1d = np.random.default_rng(42).random(10) + 1j * np.random.default_rng(42).random(10)
         with pytest.raises(ValueError, match=r"Invalid data shape"):
             SpectrogramFrame.from_numpy(
                 data=np_data_1d,
@@ -844,7 +866,9 @@ class TestSpectrogramFrame:
             )
 
         # 4D配列（不正）
-        np_data_4d = np.random.random((2, 65, 10, 2)) + 1j * np.random.random((2, 65, 10, 2))
+        np_data_4d = np.random.default_rng(42).random((2, 65, 10, 2)) + 1j * np.random.default_rng(42).random(
+            (2, 65, 10, 2)
+        )
         with pytest.raises(ValueError, match=r"Invalid data shape"):
             SpectrogramFrame.from_numpy(
                 data=np_data_4d,
@@ -858,7 +882,9 @@ class TestSpectrogramFrame:
         import numpy as np
 
         # 周波数ビン数がn_fft//2+1と一致しない配列
-        np_data = np.random.random((2, 50, 10)) + 1j * np.random.random((2, 50, 10))  # 50 != 65
+        np_data = np.random.default_rng(42).random((2, 50, 10)) + 1j * np.random.default_rng(42).random(
+            (2, 50, 10)
+        )  # 50 != 65
         with pytest.raises(
             ValueError,
             match=r"Invalid frequency bin count",
@@ -875,7 +901,7 @@ class TestSpectrogramFrame:
         import numpy as np
 
         # NumPy配列の作成
-        np_data = np.random.random((2, 65, 10)) + 1j * np.random.random((2, 65, 10))
+        np_data = np.random.default_rng(42).random((2, 65, 10)) + 1j * np.random.default_rng(42).random((2, 65, 10))
 
         # from_numpyでSpectrogramFrameを作成
         spec_frame = SpectrogramFrame.from_numpy(
@@ -894,19 +920,12 @@ class TestSpectrogramFrame:
         # 元のNumPy配列とdask配列のデータ型が一致することを確認
         assert spec_frame._data.dtype == np_data.dtype
 
-    def test_spectrogram_info_display(self, sample_spectrogram: SpectrogramFrame) -> None:
+    def test_spectrogram_info_display(
+        self, sample_spectrogram: SpectrogramFrame, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """Test that info() displays spectrogram information without errors."""
-        # info()メソッドがエラーなく実行できることを確認
-        import io
-        import sys
-
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
-
         sample_spectrogram.info()
-
-        sys.stdout = sys.__stdout__
-        output = captured_output.getvalue()
+        output = capsys.readouterr().out
 
         # 基本的な情報が出力されていることを確認
         assert "SpectrogramFrame Information:" in output
@@ -916,18 +935,12 @@ class TestSpectrogramFrame:
         assert "Frequency resolution (ΔF):" in output
         assert "Time resolution (ΔT):" in output
 
-    def test_spectrogram_info_values_are_correct(self, sample_spectrogram: SpectrogramFrame) -> None:
+    def test_spectrogram_info_values_are_correct(
+        self, sample_spectrogram: SpectrogramFrame, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """Test that info() displays correct values."""
-        import io
-        import sys
-
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
-
         sample_spectrogram.info()
-
-        sys.stdout = sys.__stdout__
-        output = captured_output.getvalue()
+        output = capsys.readouterr().out
 
         # 理論値の計算
         delta_f = sample_spectrogram.sampling_rate / sample_spectrogram.n_fft
@@ -942,7 +955,7 @@ class TestSpectrogramFrame:
         assert f"FFT size: {sample_spectrogram.n_fft}" in output
         assert f"Hop length: {sample_spectrogram.hop_length} samples" in output
 
-    def test_spectrogram_info_with_multichannel(self) -> None:
+    def test_spectrogram_info_with_multichannel(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Test info() with multi-channel spectrogram."""
         # 4チャンネルのスペクトログラムを作成
         complex_data: DaArray = _da_random_random((4, 65, 10)) + 1j * _da_random_random((4, 65, 10))
@@ -960,35 +973,21 @@ class TestSpectrogramFrame:
             channel_metadata=channel_metadata,
         )
 
-        import io
-        import sys
-
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
-
         spec.info()
-
-        sys.stdout = sys.__stdout__
-        output = captured_output.getvalue()
+        output = capsys.readouterr().out
 
         # マルチチャンネルでもエラーなく動作することを確認
         assert "Channels: 4" in output
         assert "['ch0', 'ch1', 'ch2', 'ch3']" in output
         assert "Window: hamming" in output
 
-    def test_spectrogram_info_with_operations(self, sample_spectrogram: SpectrogramFrame) -> None:
+    def test_spectrogram_info_with_operations(
+        self, sample_spectrogram: SpectrogramFrame, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """Test info() shows operation history count."""
-        import io
-        import sys
-
         # 操作履歴がない場合
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
-
         sample_spectrogram.info()
-
-        sys.stdout = sys.__stdout__
-        output = captured_output.getvalue()
+        output = capsys.readouterr().out
 
         # 初期状態では操作履歴がNone
         assert "Operations Applied: None" in output or "Operations Applied: 0" in output
@@ -996,13 +995,54 @@ class TestSpectrogramFrame:
         # 操作を追加（absメソッドを使用）
         spec_with_ops = sample_spectrogram.abs()
 
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
-
         spec_with_ops.info()
-
-        sys.stdout = sys.__stdout__
-        output = captured_output.getvalue()
+        output = capsys.readouterr().out
 
         # 操作履歴が記録されていることを確認
         assert "Operations Applied: 1" in output
+
+
+class TestSpectrogramFrameNumericalVerification:
+    """Pillar 3 & 4: Numerical verification using known signals (non-mocked)."""
+
+    def test_stft_istft_roundtrip_recovers_original(self, channel_frame: ChannelFrame) -> None:
+        """STFT->ISTFT round-trip recovers original within tolerance.
+
+        Pillar 3: Domain round-trip fidelity.
+        Tolerance: rtol=1e-6, atol=1e-5 -- windowed overlap-add introduces small errors.
+        Boundary: 16 samples trimmed from each end for edge effects.
+        """
+        original_data = channel_frame.data.copy()
+        n_fft = 1024
+        spectrogram = channel_frame.stft(n_fft=n_fft, hop_length=256)
+        recovered = spectrogram.istft()
+
+        # Trim to match lengths (ISTFT may produce slightly different length)
+        min_len = min(recovered.data.shape[-1], original_data.shape[-1])
+        # Boundary trimming: 16 samples from each end for edge effects
+        np.testing.assert_allclose(
+            recovered.data[..., 16 : min_len - 16],
+            original_data[..., 16 : min_len - 16],
+            rtol=1e-6,
+            atol=1e-5,  # Windowed overlap-add introduces small errors
+        )
+
+    def test_spectrogram_data_is_complex(self, channel_frame: ChannelFrame) -> None:
+        """SpectrogramFrame data must be complex-typed.
+
+        Pillar 3: Data types are correct (complex for spectral).
+        """
+        spectrogram = channel_frame.stft(n_fft=1024, hop_length=256)
+        assert np.iscomplexobj(spectrogram.data), "SpectrogramFrame data must be complex-typed"
+
+    def test_spectrogram_freq_bins_match_theoretical(self, channel_frame: ChannelFrame) -> None:
+        """Number of frequency bins = n_fft // 2 + 1.
+
+        Pillar 3: Output shapes match theoretical values.
+        """
+        n_fft = 1024
+        spectrogram = channel_frame.stft(n_fft=n_fft, hop_length=256)
+        expected_freq_bins = n_fft // 2 + 1  # Theoretical: real STFT produces N/2+1 bins
+        assert spectrogram.n_freq_bins == expected_freq_bins, (
+            f"Expected {expected_freq_bins} frequency bins for n_fft={n_fft}, got {spectrogram.n_freq_bins}"
+        )
