@@ -17,6 +17,24 @@ This project uses `uv` for package management.
   uv sync --frozen --all-groups
   ```
 
+## Branch Naming Policy / ブランチ命名ポリシー
+
+The repository allows the following branch names. For normal contribution work, please create your branch with one of the prefixed patterns listed below.
+このリポジトリでは以下のブランチ名を許可します。通常のコントリビューション作業では、以下のプレフィックス付きパターンのいずれかでブランチを作成してください。
+
+- `main`
+- `feat/*`
+- `fix/*`
+- `refactor/*`
+- `chore/*`
+- `release/v0.x.x`
+
+`main` is the always-releasable base branch and should not be used as the working branch for regular changes.
+`main` は常にリリース可能なベースブランチであり、通常の変更作業用ブランチとしては使用しないでください。
+
+Examples: `feat/add-plot-export`, `fix/axis-label-bug`, `release/v0.3.1`
+例: `feat/add-plot-export`、`fix/axis-label-bug`、`release/v0.3.1`
+
 ## Running Tests / テストの実行
 
 Tests are located in the `tests/` directory.
