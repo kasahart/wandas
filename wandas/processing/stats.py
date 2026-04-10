@@ -13,6 +13,7 @@ class ABS(AudioOperation[NDArrayReal, NDArrayReal]):
     """Absolute value operation"""
 
     name = "abs"
+    _display = "abs"
 
     def __init__(self, sampling_rate: float):
         """
@@ -25,19 +26,16 @@ class ABS(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         super().__init__(sampling_rate)
 
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "abs"
-
     def process(self, data: DaArray) -> DaArray:
-        # map_blocksを使わず、直接Daskの集約関数を使用
-        return da.abs(data)  # type: ignore [unused-ignore]
+        # Use Dask's aggregate function directly without map_blocks
+        return da.abs(data)
 
 
 class Power(AudioOperation[NDArrayReal, NDArrayReal]):
     """Power operation"""
 
     name = "power"
+    _display = "pow"
 
     def __init__(self, sampling_rate: float, exponent: float):
         """
@@ -53,23 +51,16 @@ class Power(AudioOperation[NDArrayReal, NDArrayReal]):
         super().__init__(sampling_rate)
         self.exp = exponent
 
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "pow"
-
     def process(self, data: DaArray) -> DaArray:
-        # map_blocksを使わず、直接Daskの集約関数を使用
-        return da.power(data, self.exp)  # type: ignore [unused-ignore]
+        # Use Dask's aggregate function directly without map_blocks
+        return da.power(data, self.exp)
 
 
 class Sum(AudioOperation[NDArrayReal, NDArrayReal]):
     """Sum calculation"""
 
     name = "sum"
-
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "sum"
+    _display = "sum"
 
     def process(self, data: DaArray) -> DaArray:
         # Use Dask's aggregate function directly without map_blocks
@@ -80,10 +71,7 @@ class Mean(AudioOperation[NDArrayReal, NDArrayReal]):
     """Mean calculation"""
 
     name = "mean"
-
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "mean"
+    _display = "mean"
 
     def process(self, data: DaArray) -> DaArray:
         # Use Dask's aggregate function directly without map_blocks
@@ -94,6 +82,7 @@ class ChannelDifference(AudioOperation[NDArrayReal, NDArrayReal]):
     """Channel difference calculation operation"""
 
     name = "channel_difference"
+    _display = "diff"
     other_channel: int
 
     def __init__(self, sampling_rate: float, other_channel: int = 0):
@@ -110,12 +99,8 @@ class ChannelDifference(AudioOperation[NDArrayReal, NDArrayReal]):
         self.other_channel = other_channel
         super().__init__(sampling_rate, other_channel=other_channel)
 
-    def get_display_name(self) -> str:
-        """Get display name for the operation for use in channel labels."""
-        return "diff"
-
     def process(self, data: DaArray) -> DaArray:
-        # map_blocksを使わず、直接Daskの集約関数を使用
+        # Use Dask's aggregate function directly without map_blocks
         result = data - data[self.other_channel]
         return result
 

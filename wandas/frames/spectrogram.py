@@ -1,6 +1,6 @@
 import logging
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, Any, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import dask.array as da
 import numpy as np
@@ -113,10 +113,10 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         metadata: "FrameMetadata | dict[str, Any] | None" = None,
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
-        previous: Optional["BaseFrame[Any]"] = None,
+        previous: "BaseFrame[Any] | None" = None,
     ) -> None:
         if data.ndim == 2:
-            data = da.expand_dims(data, axis=0)  # type: ignore [unused-ignore]
+            data = da.expand_dims(data, axis=0)
         elif data.ndim != 3:
             raise ValueError(
                 f"Invalid data dimensions\n"
@@ -210,7 +210,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     def plot(
         self,
         plot_type: str = "spectrogram",
-        ax: Optional["Axes"] = None,
+        ax: "Axes | None" = None,
         title: str | None = None,
         cmap: str = "jet",
         vmin: float | None = None,
@@ -220,8 +220,9 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         xlim: tuple[float, float] | None = None,
         ylim: tuple[float, float] | None = None,
         Aw: bool = False,  # noqa: N803
+        overlay: bool = False,
         **kwargs: Any,
-    ) -> Union["Axes", Iterator["Axes"]]:
+    ) -> "Axes | Iterator[Axes]":
         """
         Plot the spectrogram using various visualization strategies.
 
@@ -249,6 +250,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             Frequency axis limits as (min_freq, max_freq) in Hz.
         Aw : bool, default=False
             Whether to apply A-weighting to the spectrogram.
+        overlay : bool, default=False
+            Whether to overlay channels on a single axes.
         **kwargs : dict
             Additional keyword arguments passed to librosa.display.specshow().
 
@@ -272,7 +275,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
         logger.debug(f"Plotting audio with plot_type={plot_type} (will compute now)")
 
-        # プロット戦略を取得
+        # Get plot strategy
         plot_strategy: PlotStrategy[SpectrogramFrame] = create_operation(plot_type)
 
         # Build kwargs for plot strategy
@@ -291,8 +294,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         if ylim is not None:
             plot_kwargs["ylim"] = ylim
 
-        # プロット実行
-        _ax = plot_strategy.plot(self, ax=ax, **plot_kwargs)
+        # Execute plot
+        _ax = plot_strategy.plot(self, ax=ax, overlay=overlay, **plot_kwargs)
 
         logger.debug("Plot rendering complete")
 
@@ -301,9 +304,9 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     def plot_Aw(  # noqa: N802
         self,
         plot_type: str = "spectrogram",
-        ax: Optional["Axes"] = None,
+        ax: "Axes | None" = None,
         **kwargs: Any,
-    ) -> Union["Axes", Iterator["Axes"]]:
+    ) -> "Axes | Iterator[Axes]":
         """
         Plot the A-weighted spectrogram.
 
@@ -358,30 +361,17 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """
         logger.debug("Computing absolute value (magnitude) of spectrogram")
 
-        # Compute the absolute value using dask for lazy evaluation
         magnitude_data = da.absolute(self._data)
 
-        # Update operation history
-        operation_metadata = {"operation": "abs", "params": {}}
-        new_history = self.operation_history.copy()
-        new_history.append(operation_metadata)
-        new_metadata = {**self.metadata}
-        new_metadata["abs"] = {}
+        new_metadata, new_history = self._updated_metadata_and_history("abs", {})
 
         logger.debug("Created new SpectrogramFrame with abs operation added to graph")
 
-        return SpectrogramFrame(
+        return self._create_new_instance(
             data=magnitude_data,
-            sampling_rate=self.sampling_rate,
-            n_fft=self.n_fft,
-            hop_length=self.hop_length,
-            win_length=self.win_length,
-            window=self.window,
             label=f"abs({self.label})",
             metadata=new_metadata,
             operation_history=new_history,
-            channel_metadata=self._channel_metadata,
-            previous=self,
         )
 
     def get_frame_at(self, time_idx: int) -> "SpectralFrame":
@@ -454,15 +444,15 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         operation_name = "istft"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
 
-        # 操作インスタンスを作成
+        # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("ISTFT", operation)
-        # データに処理を適用
+        # Apply processing to data
         time_series = operation.process(self._data)
 
         logger.debug(f"Created new ChannelFrame with operation {operation_name} added to graph")
 
-        # 新しいインスタンスを作成
+        # Create new instance
         return ChannelFrame(
             data=time_series,
             sampling_rate=self.sampling_rate,
@@ -515,10 +505,6 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             "win_length": self.win_length,
             "window": self.window,
         }
-
-    def _get_dataframe_columns(self) -> list[str]:
-        """Get channel labels as DataFrame columns."""
-        return [ch.label for ch in self._channel_metadata]
 
     def _get_dataframe_index(self) -> "pd.Index[Any]":
         """DataFrame index is not supported for SpectrogramFrame."""
@@ -620,7 +606,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         metadata: dict[str, Any] | None = None,
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
-        previous: Optional["BaseFrame[Any]"] = None,
+        previous: "BaseFrame[Any] | None" = None,
     ) -> "SpectrogramFrame":
         """Create a SpectrogramFrame from a NumPy array.
 
@@ -646,14 +632,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         # Normalize shape: support 2D single-channel inputs by expanding
         # to channel-first 3D shape. Reject 1D inputs as invalid for
         # spectrograms.
-        if data.ndim == 1:
-            raise ValueError(
-                f"Invalid data shape\n"
-                f"  Got: {data.shape}\n"
-                f"  Expected: 2D (freq, time) or 3D (channel, freq, time) array\n"
-                f"Provide a 2D or 3D array to represent time-frequency data."
-            )
-        if data.ndim >= 4:
+        if data.ndim not in (2, 3):
             raise ValueError(
                 f"Invalid data shape\n"
                 f"  Got: {data.shape}\n"
@@ -665,7 +644,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
         # Convert NumPy array to dask array
         # Use channel-wise chunking for spectrograms (1, -1, -1).
-        # Use shared helper to avoid mypy chunking typing issues
+        # Use shared helper to avoid chunking typing issues
         from wandas.utils.dask_helpers import da_from_array as _da_from_array
 
         dask_data = _da_from_array(data, chunks=(1, -1, -1))

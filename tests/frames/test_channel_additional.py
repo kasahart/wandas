@@ -1,9 +1,10 @@
+import dask.array as da
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
 import wandas.frames.channel as channel_mod
-from wandas.frames.channel import ChannelFrame
+from wandas.frames.channel import ChannelFrame, _resolve_channels
 
 
 def make_cf(arr: np.ndarray, sr: int = 100) -> ChannelFrame:
@@ -14,7 +15,7 @@ def test_add_unsupported_type_and_sampling_rate_mismatch():
     a = make_cf(np.arange(6).reshape(2, 3), sr=100)
     # unsupported type
     with pytest.raises(TypeError, match=r"Addition target with SNR must be a ChannelFrame or NumPy array"):
-        a.add("bad")
+        a.add("bad")  # ty: ignore[invalid-argument-type]
 
     # sampling rate mismatch
     b = ChannelFrame.from_numpy(np.arange(6).reshape(2, 3), sampling_rate=200)
@@ -31,11 +32,10 @@ def test_from_numpy_label_and_unit_mismatch():
         ChannelFrame.from_numpy(arr, sampling_rate=100, ch_units=["u1"])
 
 
-def test_from_ndarray_deprecation_warning(caplog):
+def test_from_ndarray_deprecation_warning():
     arr = np.arange(6).reshape(2, 3)
-    with caplog.at_level("WARNING"):
+    with pytest.warns(DeprecationWarning, match="deprecated"):
         cf = ChannelFrame.from_ndarray(arr, sampling_rate=100, frame_label="f")
-    assert "deprecated" in caplog.text
     assert isinstance(cf, ChannelFrame)
 
 
@@ -111,7 +111,7 @@ def test_from_file_channel_out_of_range_and_invalid_type(monkeypatch):
         ChannelFrame.from_file(b"data", file_type=".wav", channel=5)
 
     with pytest.raises(TypeError, match=r"channel must be int, list, or None"):
-        ChannelFrame.from_file(b"data", file_type=".wav", channel="a")
+        ChannelFrame.from_file(b"data", file_type=".wav", channel="a")  # ty: ignore[invalid-argument-type]
 
 
 def test_from_file_label_mismatch_raises(monkeypatch):
@@ -170,13 +170,21 @@ def test_add_channel_pad_truncate_and_duplicate_label_behavior():
         base.add_channel(short, align="strict")
 
     # pad (short has different label so no duplicate label error)
+    original_n_channels = base.n_channels
     padded = base.add_channel(short, align="pad")
+    assert padded is not base  # Pillar 1: immutability
     assert padded.n_channels == 3
+    assert base.n_channels == original_n_channels  # Pillar 1: original unchanged
+    # Pillar 2: structural op leaves history unchanged
+    assert len(padded.operation_history) == len(base.operation_history)
 
     # truncate (use different label)
     long = ChannelFrame.from_numpy(np.arange(20).reshape(1, 20), sampling_rate=100, ch_labels=["long1"])
     truncated = base.add_channel(long, align="truncate")
+    assert truncated is not base  # Pillar 1: immutability
     assert truncated.n_channels == 3
+    # Pillar 2: structural op leaves history unchanged
+    assert len(truncated.operation_history) == len(base.operation_history)
 
     # duplicate label without suffix
     with pytest.raises(ValueError, match=r"Duplicate channel label"):
@@ -201,7 +209,11 @@ def test_remove_channel_errors_and_inplace():
         cf.remove_channel("nope")
 
     cf2 = cf.remove_channel(0, inplace=False)
+    assert cf2 is not cf  # Pillar 1: immutability
     assert cf2.n_channels == 1
+    assert cf.n_channels == 2  # Pillar 1: original unchanged
+    # Pillar 2: structural op leaves history unchanged
+    assert len(cf2.operation_history) == len(cf.operation_history)
     # inplace True
     cf.remove_channel(0, inplace=True)
     assert cf.n_channels == 1
@@ -274,6 +286,7 @@ def test_describe_image_save_with_multi_channel(tmp_path):
 
     png_path = tmp_path / "test.png"
     result = cf.describe(image_save=str(png_path), is_close=False)
+    assert result is not None
 
     for i in range(3):
         ch_path = tmp_path / f"test_{i}.png"
@@ -361,6 +374,7 @@ def test_describe_figures_can_be_saved(tmp_path):
     cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
 
     figures = cf.describe(is_close=False)
+    assert figures is not None
 
     output_path = tmp_path / "custom_output.png"
     figures[0].savefig(str(output_path), bbox_inches="tight")
@@ -377,6 +391,7 @@ def test_describe_figures_are_not_closed(tmp_path):
     cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
 
     figures = cf.describe(is_close=False)
+    assert figures is not None
 
     assert len(figures[0].axes) > 0
     for fig in figures:
@@ -511,7 +526,82 @@ def test_describe_figures_have_correct_structure(tmp_path):
     cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
 
     figures = cf.describe(is_close=False)
+    assert figures is not None
 
     fig = figures[0]
     assert hasattr(fig, "axes")
     assert len(fig.axes) >= 2
+
+
+# --- Tests for _resolve_channels (channel.py lines 73, 75-78) ---
+
+
+def test_resolve_channels_valid_int():
+    """_resolve_channels with a valid int returns [channel] (line 73)."""
+    result = _resolve_channels(1, 3)
+    assert result == [1]
+
+
+def test_resolve_channels_valid_list():
+    """_resolve_channels with a valid list returns list(channel) (lines 75-78)."""
+    result = _resolve_channels([0, 2], 3)
+    assert result == [0, 2]
+
+
+def test_resolve_channels_valid_tuple():
+    """_resolve_channels with a valid tuple returns list(channel) (lines 75-78)."""
+    result = _resolve_channels((1, 2), 3)  # ty: ignore[invalid-argument-type]
+    assert result == [1, 2]
+
+
+def test_resolve_channels_list_out_of_range():
+    """_resolve_channels raises for out-of-range items in a list (lines 75-77)."""
+    with pytest.raises(ValueError, match="Channel specification is out of range"):
+        _resolve_channels([0, 5], 3)
+
+
+# --- Test for from_numpy with 3D data (channel.py line 792) ---
+
+
+def test_from_numpy_3d_data_raises():
+    """from_numpy with 3D data should raise ValueError (line 792)."""
+    data_3d = np.random.default_rng(42).random((2, 4, 100))
+    with pytest.raises(ValueError, match="Data must be 1-dimensional or 2-dimensional"):
+        ChannelFrame.from_numpy(data_3d, sampling_rate=1000)
+
+
+# --- Test for source_name that fails Path() (channel.py lines 1001-1006) ---
+
+
+def test_from_file_source_name_path_failure(monkeypatch):
+    """When Path(source_name) raises, source_name is used as-is for the label (lines 1001-1006)."""
+    fake = FakeReader(sr=100, channels=1, frames=4)
+    monkeypatch.setattr(channel_mod, "get_file_reader", lambda *args, **kwargs: fake)
+
+    # Path() can raise on certain exotic values; simulate by monkeypatching Path.stem
+    original_path_cls = channel_mod.Path
+
+    class BadPath:
+        def __init__(self, s):
+            raise ValueError("bad path")
+
+    monkeypatch.setattr(channel_mod, "Path", BadPath)
+    cf = ChannelFrame.from_file(b"data", file_type=".wav", source_name="raw::label")
+    # The label falls back to the raw source_name string
+    assert cf.label == "raw::label"
+    monkeypatch.setattr(channel_mod, "Path", original_path_cls)
+
+
+# --- Test for add_channel with 2D dask array needing reshape (channel.py line 1257) ---
+
+
+def test_add_channel_dask_2d_multichannel_reshape():
+    """add_channel with a 2D dask array whose shape[0] != 1 triggers reshape (line 1257)."""
+    base = ChannelFrame.from_numpy(np.zeros((1, 20)), sampling_rate=100)
+    # Create a 2D dask array with shape (2, 10) - NOT (1, N)
+    arr_2d = da.from_array(np.ones((2, 10)), chunks=(2, 10))
+    # Reshape to (1, 20) and add as one channel; use truncate to handle length
+    result = base.add_channel(arr_2d, label="new_ch", align="truncate")
+    assert result is not base  # Pillar 1: immutability
+    assert result.n_channels == 2
+    assert base.n_channels == 1  # Pillar 1: original unchanged

@@ -10,48 +10,52 @@ import pytest
 import soundfile as sf
 from matplotlib.axes import Axes
 
-# テスト対象のクラスをインポート
+# Import classes under test
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.utils.frame_dataset import (
     ChannelFrameDataset,
     FrameDataset,
-    LazyFrame,  # 新しいクラスをインポート
+    LazyFrame,  # Import new class
     SpectrogramFrameDataset,
     _SampledFrameDataset,
 )
 from wandas.utils.types import NDArrayReal
 
-_da_from_array = da.from_array  # type: ignore [unused-ignore]
+_da_from_array = da.from_array
 
 # --- Test Fixtures ---
 
 
-@pytest.fixture  # type: ignore [misc, unused-ignore]
+@pytest.fixture
 def sample_wav_data() -> tuple[int, NDArrayReal]:
-    """Generate sample WAV data."""
+    """Generate deterministic WAV data — 2-channel sine waves at known frequencies."""
     sampling_rate = 16000
     duration = 1.0
     n_samples = int(sampling_rate * duration)
-    # Create stereo data (2 channels)
-    data = np.random.uniform(-0.5, 0.5, size=(n_samples, 2)).astype(np.float32)
+    t = np.linspace(0, duration, n_samples, endpoint=False)
+    # Channel 1: 440 Hz sine, Channel 2: 880 Hz sine — analytically predictable
+    ch1 = (0.5 * np.sin(2 * np.pi * 440 * t)).astype(np.float32)
+    ch2 = (0.5 * np.sin(2 * np.pi * 880 * t)).astype(np.float32)
+    data = np.column_stack([ch1, ch2])
     return sampling_rate, data
 
 
-@pytest.fixture  # type: ignore [misc, unused-ignore]
+@pytest.fixture
 def sample_csv_data() -> tuple[int, pd.DataFrame]:
-    """Generate sample CSV data."""
-    sampling_rate = 100
-    duration = 1.0
+    """Generate deterministic CSV data — 2-channel sensor signals at known frequencies."""
+    sampling_rate = 100  # 100 Hz — typical for sensor data (accelerometer, etc.)
+    duration = 1.0  # 1 second
     n_samples = int(sampling_rate * duration)
     time_col = np.linspace(0, duration, n_samples, endpoint=False)
+    # Analytically predictable: 5 Hz sine and 10 Hz cosine
     ch1_data = np.sin(2 * np.pi * 5 * time_col)  # 5 Hz sine wave
     ch2_data = np.cos(2 * np.pi * 10 * time_col)  # 10 Hz cosine wave
     df = pd.DataFrame({"time": time_col, "SensorA": ch1_data, "SensorB": ch2_data})
     return sampling_rate, df
 
 
-@pytest.fixture  # type: ignore [misc, unused-ignore]
+@pytest.fixture
 def create_test_files(
     tmp_path: Path,
     sample_wav_data: tuple[int, NDArrayReal],
@@ -87,8 +91,10 @@ def create_test_files(
 
 
 class TestLazyFrame:
-    def test_lazy_frame_init(self) -> None:
-        """Test LazyFrame initialization."""
+    """Test suite for LazyFrame — lazy loading wrapper with caching."""
+
+    def test_init_default_state_unloaded(self) -> None:
+        """New LazyFrame starts in unloaded state with no frame."""
         file_path = Path("/path/to/file.wav")
         lazy_frame: LazyFrame[ChannelFrame] = LazyFrame(file_path)
 
@@ -97,16 +103,14 @@ class TestLazyFrame:
         assert lazy_frame.is_loaded is False
         assert lazy_frame.load_attempted is False
 
-    def test_ensure_loaded(self) -> None:
-        """Test LazyFrame.ensure_loaded method."""
+    def test_ensure_loaded_first_call_invokes_loader(self) -> None:
+        """First ensure_loaded call invokes loader and caches result."""
         file_path = Path("/path/to/file.wav")
         lazy_frame: LazyFrame[ChannelFrame] = LazyFrame(file_path)
 
-        # モックローダー関数
-        mock_frame = ChannelFrame.from_ndarray(np.array([[0.1, 0.2], [0.3, 0.4]]), 44100)
+        mock_frame = ChannelFrame.from_numpy(np.array([[0.1, 0.2], [0.3, 0.4]]), 44100)
         loader = MagicMock(return_value=mock_frame)
 
-        # 初回ロード
         result = lazy_frame.ensure_loaded(loader)
 
         assert result is mock_frame
@@ -115,53 +119,46 @@ class TestLazyFrame:
         assert lazy_frame.load_attempted is True
         loader.assert_called_once_with(file_path)
 
-        # 2回目のロード（キャッシュから取得）
+    def test_ensure_loaded_second_call_uses_cache(self) -> None:
+        """Second ensure_loaded call returns cached frame without invoking loader."""
+        file_path = Path("/path/to/file.wav")
+        lazy_frame: LazyFrame[ChannelFrame] = LazyFrame(file_path)
+
+        mock_frame = ChannelFrame.from_numpy(np.array([[0.1, 0.2], [0.3, 0.4]]), 44100)
+        loader = MagicMock(return_value=mock_frame)
+
+        lazy_frame.ensure_loaded(loader)
         loader.reset_mock()
         cached_result = lazy_frame.ensure_loaded(loader)
 
         assert cached_result is mock_frame
         loader.assert_not_called()
 
-    def test_ensure_loaded_failure(self, caplog: pytest.LogCaptureFixture) -> None:
-        """Test LazyFrame.ensure_loaded with loader failure."""
+    def test_ensure_loaded_failure_returns_none(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Loader failure results in None frame, but marks as loaded."""
         file_path = Path("/path/to/file.wav")
         lazy_frame: LazyFrame[ChannelFrame] = LazyFrame(file_path)
 
-        # 失敗するローダー関数
-        error_msg = "Failed to load file"
-        loader = MagicMock(side_effect=RuntimeError(error_msg))
-
-        # ロード試行
+        loader = MagicMock(side_effect=RuntimeError("Failed to load file"))
         result = lazy_frame.ensure_loaded(loader)
 
         assert result is None
         assert lazy_frame.frame is None
-        assert lazy_frame.is_loaded is True  # ロードは試みた
+        assert lazy_frame.is_loaded is True  # Load was attempted
         assert lazy_frame.load_attempted is True
-        loader.assert_called_once_with(file_path)
-
-        # ログ確認
         assert any("Failed to load file" in record.message and record.levelname == "ERROR" for record in caplog.records)
 
-    def test_reset(self) -> None:
-        """Test LazyFrame.reset method."""
+    def test_reset_clears_loaded_state(self) -> None:
+        """Reset restores LazyFrame to unloaded state."""
         file_path = Path("/path/to/file.wav")
         lazy_frame: LazyFrame[ChannelFrame] = LazyFrame(file_path)
 
-        # フレームをロード
-        mock_frame = ChannelFrame.from_ndarray(np.array([[0.1, 0.2], [0.3, 0.4]]), 44100)
+        mock_frame = ChannelFrame.from_numpy(np.array([[0.1, 0.2], [0.3, 0.4]]), 44100)
         loader = MagicMock(return_value=mock_frame)
         lazy_frame.ensure_loaded(loader)
 
-        # リセット前の状態確認
-        assert lazy_frame.frame is mock_frame
-        assert lazy_frame.is_loaded is True
-        assert lazy_frame.load_attempted is True
-
-        # リセット
         lazy_frame.reset()
 
-        # リセット後の状態確認
         assert lazy_frame.frame is None
         assert lazy_frame.is_loaded is False
         assert lazy_frame.load_attempted is False
@@ -171,60 +168,55 @@ class TestLazyFrame:
 
 
 class TestFrameDatasetABC:
-    def test_frame_dataset_cannot_instantiate(self) -> None:
-        """Verify FrameDataset ABC cannot be instantiated directly."""
+    """Test suite for FrameDataset abstract base class — Layer 1: type checking."""
+
+    def test_instantiate_abc_directly_raises_typeerror(self) -> None:
+        """FrameDataset ABC cannot be instantiated directly."""
         with pytest.raises(TypeError, match="Can't instantiate abstract class"):
-            FrameDataset("/some/path")  # type: ignore [abstract]  # 抽象クラスは直接インスタンス化できない
+            FrameDataset("/some/path")
 
-    def test_abstract_methods_must_be_implemented(self, tmp_path: Path) -> None:
-        """Test that abstract methods must be implemented in subclasses."""
+    def test_incomplete_subclass_raises_typeerror(self, tmp_path: Path) -> None:
+        """Subclass without _load_file implementation cannot be instantiated."""
 
-        # テスト用のサブクラスを作成し、抽象メソッドを実装していない
         class IncompleteFrameDataset(FrameDataset[ChannelFrame]):
             pass
 
-        # Pythonのバージョンによって例外メッセージが違うので、部分一致で確認
         with pytest.raises(TypeError, match="abstract class"):
-            IncompleteFrameDataset(str(tmp_path))  # type: ignore [abstract]
+            IncompleteFrameDataset(str(tmp_path))
 
-        # テスト用のサブクラスを作成し、抽象メソッドを実装
+    def test_complete_subclass_instantiates_successfully(self, tmp_path: Path) -> None:
+        """Subclass with _load_file properly implemented can be instantiated."""
+
         class MinimalFrameDataset(FrameDataset[ChannelFrame]):
             def _load_file(self, file_path: Path) -> ChannelFrame | None:
-                return ChannelFrame.from_ndarray(np.zeros((10, 2)), 44100)
+                return ChannelFrame.from_numpy(np.zeros((2, 10)), 44100)
 
-        # これは例外を投げない
-        try:
-            MinimalFrameDataset(str(tmp_path), lazy_loading=True)
-        except TypeError:
-            pytest.fail("正しく実装されたサブクラスがインスタンス化に失敗しました")
+        dataset = MinimalFrameDataset(str(tmp_path), lazy_loading=True)
+        assert dataset is not None
 
 
 # --- Test ChannelFrameDataset ---
 
 
 class TestChannelFrameDataset:
-    def test_init_lazy(self, create_test_files: Path) -> None:
-        """Test lazy initialization."""
+    """Test suite for ChannelFrameDataset — init, load, apply, sample, metadata."""
+
+    def test_init_lazy_defers_loading(self, create_test_files: Path) -> None:
+        """Lazy initialization defers all file loading."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), recursive=False, lazy_loading=True)
 
         assert dataset._lazy_loading is True
         assert len(dataset) == 3  # test1.wav, test2.wav, test3.csv
-        # LazyFrameの確認 - すべてロードされていない
         assert len(dataset._lazy_frames) == 3
         assert all(not lf.is_loaded for lf in dataset._lazy_frames)
         assert all(lf.frame is None for lf in dataset._lazy_frames)
         assert dataset.folder_path == folder_path
-        assert dataset.file_extensions == [
-            ".wav",
-            ".mp3",
-            ".flac",
-            ".csv",
-        ]  # Default from from_folder via __init__
+        assert dataset.file_extensions == [".wav", ".mp3", ".flac", ".csv"]  # Default extensions
         assert dataset._recursive is False
 
-    def test_init_eager(self, create_test_files: Path) -> None:
-        """Test eager initialization."""
+    def test_init_eager_loads_all_frames(self, create_test_files: Path) -> None:
+        """Eager initialization loads all frames immediately."""
         folder_path = create_test_files
 
         # Initialize with eager loading
@@ -245,41 +237,41 @@ class TestChannelFrameDataset:
         frame_labels = [lf.frame.label for lf in dataset._lazy_frames if lf.frame is not None]
         assert frame_labels == file_stems
 
-    def test_init_recursive(self, create_test_files: Path) -> None:
-        """Test recursive file discovery."""
+    def test_init_recursive_finds_subdir_files(self, create_test_files: Path) -> None:
+        """Recursive mode discovers files in subdirectories."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), recursive=True, lazy_loading=True)
         assert len(dataset) == 4  # Includes subdir/sub_test.wav
         assert dataset._recursive is True
         assert Path("subdir/sub_test.wav") in [p.relative_to(folder_path) for p in dataset._get_file_paths()]
 
-    def test_init_custom_extensions(self, create_test_files: Path) -> None:
-        """Test custom file extensions."""
+    def test_init_custom_extensions_filters_files(self, create_test_files: Path) -> None:
+        """Custom extensions filter to only matching files."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), file_extensions=[".csv"], lazy_loading=True)
         assert len(dataset) == 1
         assert dataset._lazy_frames[0].file_path.name == "test3.csv"
         assert dataset.file_extensions == [".csv"]
 
-    def test_init_no_files(self, tmp_path: Path) -> None:
-        """Test initialization with a folder containing no matching files."""
+    def test_init_empty_folder_returns_zero_length(self, tmp_path: Path) -> None:
+        """Empty folder produces zero-length dataset."""
         dataset = ChannelFrameDataset(str(tmp_path), lazy_loading=True)
         assert len(dataset) == 0
         assert len(dataset._lazy_frames) == 0
 
-    def test_init_folder_not_found(self) -> None:
-        """Test initialization with a non-existent folder."""
+    def test_init_nonexistent_folder_raises_error(self) -> None:
+        """Non-existent folder raises FileNotFoundError."""
         with pytest.raises(FileNotFoundError):
             ChannelFrameDataset("non_existent_folder")
 
-    def test_len(self, create_test_files: Path) -> None:
-        """Test __len__ method."""
+    def test_len_returns_file_count(self, create_test_files: Path) -> None:
+        """__len__ returns the number of discovered files."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         assert len(dataset) == 3
 
-    def test_getitem_lazy(self, create_test_files: Path) -> None:
-        """Test __getitem__ with lazy loading."""
+    def test_getitem_lazy_triggers_load_and_caches(self, create_test_files: Path) -> None:
+        """Lazy __getitem__ triggers load on first access and caches."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
@@ -298,8 +290,8 @@ class TestChannelFrameDataset:
             assert frame0_cached is frame0
             mock_load_again.assert_not_called()
 
-    def test_getitem_index_error(self, create_test_files: Path) -> None:
-        """Test __getitem__ with out-of-bounds index."""
+    def test_getitem_out_of_range_raises_indexerror(self, create_test_files: Path) -> None:
+        """Out-of-bounds index raises IndexError."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         with pytest.raises(IndexError):
@@ -307,8 +299,8 @@ class TestChannelFrameDataset:
         with pytest.raises(IndexError):
             _ = dataset[-1]  # Negative indexing not supported by this logic
 
-    def test_load_file_wav(self, create_test_files: Path) -> None:
-        """Test _load_file method for WAV."""
+    def test_load_file_wav_returns_channel_frame(self, create_test_files: Path) -> None:
+        """WAV file loading returns ChannelFrame with correct metadata."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         wav_path = dataset._lazy_frames[0].file_path  # test1.wav
@@ -320,8 +312,8 @@ class TestChannelFrameDataset:
         assert frame.n_channels == 2
         assert isinstance(frame.data, np.ndarray)
 
-    def test_load_file_csv(self, create_test_files: Path) -> None:
-        """Test _load_file method for CSV."""
+    def test_load_file_csv_returns_channel_frame(self, create_test_files: Path) -> None:
+        """CSV file loading returns ChannelFrame with correct metadata."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         csv_path = dataset._lazy_frames[2].file_path  # test3.csv
@@ -337,8 +329,10 @@ class TestChannelFrameDataset:
         assert frame.labels == ["SensorA", "SensorB"]
         assert isinstance(frame.data, np.ndarray)
 
-    def test_load_file_resampling(self, create_test_files: Path, sample_wav_data: tuple[int, NDArrayReal]) -> None:
-        """Test _load_file triggers resampling when SR mismatches."""
+    def test_load_file_mismatched_sr_triggers_resampling(
+        self, create_test_files: Path, sample_wav_data: tuple[int, NDArrayReal]
+    ) -> None:
+        """Loading file with mismatched sampling rate triggers resampling."""
         folder_path = create_test_files
         original_sr, _ = sample_wav_data  # Should be 16000
         target_sr = 8000
@@ -370,8 +364,10 @@ class TestChannelFrameDataset:
             assert isinstance(args[0], ChannelFrame)
             assert args[0].sampling_rate == original_sr
 
-    def test_load_file_error(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """Test error handling during file loading."""
+    def test_load_file_corrupted_returns_none_and_logs_error(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Loading corrupted file returns None and logs error."""
         folder_path = tmp_path
         # Create a corrupted/invalid file
         invalid_file = folder_path / "invalid.wav"
@@ -387,22 +383,21 @@ class TestChannelFrameDataset:
         )
         # Ensure the frame is marked as None after failure
         assert dataset._lazy_frames[0].frame is None
-        assert dataset._lazy_frames[0].is_loaded is True  # ロードは試みた
+        assert dataset._lazy_frames[0].is_loaded is True  # Load was attempted
 
         # Test _load_all_files catching errors
         caplog.clear()
         dataset_eager = ChannelFrameDataset(str(folder_path), lazy_loading=False)
         assert dataset_eager._lazy_frames[0].frame is None  # Should be None due to load failure
-        # 新しい実装では、エラーログはERRORレベルで出力される
+        # In current implementation, error logs are emitted at ERROR level
         assert any("Failed to load or initialize file" in record.message for record in caplog.records)
 
-    def test_apply_lazy(self, create_test_files: Path) -> None:
-        """Test lazy application of a function."""
+    def test_apply_lazy_creates_untriggered_dataset(self, create_test_files: Path) -> None:
+        """Lazy apply creates new dataset without triggering loading."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
         def dummy_transform(frame: ChannelFrame) -> ChannelFrame:
-            # Simple transform: reverse data
             return frame._create_new_instance(data=frame._data[:, ::-1])
 
         transformed_dataset = dataset.apply(dummy_transform)
@@ -412,31 +407,50 @@ class TestChannelFrameDataset:
         assert transformed_dataset._source_dataset is dataset
         assert transformed_dataset._transform is dummy_transform
         assert len(transformed_dataset) == len(dataset)
-        assert all(not lf.is_loaded for lf in transformed_dataset._lazy_frames)  # Still lazy
+        assert all(not lf.is_loaded for lf in transformed_dataset._lazy_frames)
 
-        # Access item to trigger transformation
-        original_frame0 = dataset[0]  # Load original
-        transformed_frame0 = transformed_dataset[0]  # Load and transform
+    def test_apply_lazy_transforms_on_access(self, create_test_files: Path) -> None:
+        """Lazy apply applies transform when item is accessed."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+
+        def dummy_transform(frame: ChannelFrame) -> ChannelFrame:
+            return frame._create_new_instance(data=frame._data[:, ::-1])
+
+        transformed_dataset = dataset.apply(dummy_transform)
+
+        original_frame0 = dataset[0]
+        transformed_frame0 = transformed_dataset[0]
 
         assert isinstance(transformed_frame0, ChannelFrame)
         assert transformed_dataset._lazy_frames[0].is_loaded is True
         assert transformed_dataset._lazy_frames[0].frame is transformed_frame0
-        # Verify transformation was applied (compare computed data)
         assert transformed_frame0 is not None
         assert original_frame0 is not None
+        # Same algorithm (data reversal), exact match expected
         np.testing.assert_allclose(
             transformed_frame0.compute(),
             original_frame0.compute()[:, ::-1],
         )
 
-        # Access again, should use cache
+    def test_apply_lazy_caches_transformed_frame(self, create_test_files: Path) -> None:
+        """Lazy apply caches transformed frame on second access."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+
+        def dummy_transform(frame: ChannelFrame) -> ChannelFrame:
+            return frame._create_new_instance(data=frame._data[:, ::-1])
+
+        transformed_dataset = dataset.apply(dummy_transform)
+        first_access = transformed_dataset[0]
+
         with patch.object(transformed_dataset, "_transform", wraps=transformed_dataset._transform) as mock_transform:
-            cached_transformed = transformed_dataset[0]
-            assert cached_transformed is transformed_frame0
+            cached = transformed_dataset[0]
+            assert cached is first_access
             mock_transform.assert_not_called()
 
-    def test_apply_chaining(self, create_test_files: Path) -> None:
-        """Test chaining apply calls."""
+    def test_apply_chaining_composes_transforms(self, create_test_files: Path) -> None:
+        """Chained apply calls compose transforms correctly."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
@@ -464,10 +478,13 @@ class TestChannelFrameDataset:
         assert final_frame0 is not None
 
         expected_data = (original_frame0.compute() * 2) + 1
+        # Same algorithm (elementwise ops), exact match expected
         np.testing.assert_allclose(final_frame0.compute(), expected_data)
 
-    def test_apply_error_in_transform(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """Test error handling when the applied function fails."""
+    def test_apply_failing_transform_returns_none_and_logs(
+        self, create_test_files: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Failing transform returns None and logs warning."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
@@ -476,7 +493,7 @@ class TestChannelFrameDataset:
 
         transformed_dataset = dataset.apply(failing_transform)
 
-        # 新しい実装では例外はキャッチされてNoneが返される
+        # In current implementation, exception is caught and None is returned
         result = transformed_dataset[0]
         assert result is None
 
@@ -486,29 +503,34 @@ class TestChannelFrameDataset:
         assert transformed_dataset._lazy_frames[0].frame is None
         assert transformed_dataset._lazy_frames[0].is_loaded is True
 
-    def test_resample_trim_normalize(self, create_test_files: Path) -> None:
-        """Test resample, trim, normalize methods (which use apply)."""
+    def test_resample_via_apply_changes_sampling_rate(self, create_test_files: Path) -> None:
+        """Resample via apply produces correct sampling rate."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         target_sr = 8000
 
-        # Resample
         resampled_ds = dataset.resample(target_sr)
         assert isinstance(resampled_ds, ChannelFrameDataset)
         assert resampled_ds._lazy_loading is True
         assert resampled_ds._source_dataset is dataset
         assert resampled_ds._transform is not None
-        # Trigger and check SR
+
         resampled_frame0 = resampled_ds[0]
         assert resampled_frame0 is not None
         assert resampled_frame0.sampling_rate == target_sr
 
-        # Trim (apply on resampled)
+    def test_trim_via_apply_produces_correct_duration(self, create_test_files: Path) -> None:
+        """Trim via apply produces correct duration and sample count."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        target_sr = 8000
+
+        resampled_ds = dataset.resample(target_sr)
         trimmed_ds = resampled_ds.trim(start=0.1, end=0.5)
         assert isinstance(trimmed_ds, ChannelFrameDataset)
         assert trimmed_ds._lazy_loading is True
         assert trimmed_ds._source_dataset is resampled_ds
-        # Trigger and check duration/samples
+
         trimmed_frame0 = trimmed_ds[0]
         assert trimmed_frame0 is not None
         expected_duration = 0.5 - 0.1
@@ -516,14 +538,13 @@ class TestChannelFrameDataset:
         assert trimmed_frame0.duration == pytest.approx(expected_duration)
         assert trimmed_frame0.n_samples == expected_samples
 
-    def test_stft_lazy(self, create_test_files: Path) -> None:
-        """Test lazy STFT using the ChannelFrame.stft result as ground truth."""
+    def test_stft_lazy_creates_correct_structure(self, create_test_files: Path) -> None:
+        """Lazy STFT creates SpectrogramFrameDataset with correct state."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         n_fft = 512
         hop_length = 128
 
-        # create the SpectrogramFrameDataset lazily
         stft_dataset = dataset.stft(n_fft=n_fft, hop_length=hop_length)
         assert isinstance(stft_dataset, SpectrogramFrameDataset)
         assert stft_dataset._lazy_loading is True
@@ -531,151 +552,182 @@ class TestChannelFrameDataset:
         assert len(stft_dataset) == len(dataset)
         assert all(not lf.is_loaded for lf in stft_dataset._lazy_frames)
 
-        # compute expected spectrogram from the already‐loaded ChannelFrame
+    def test_stft_lazy_matches_direct_stft(self, create_test_files: Path) -> None:
+        """Lazy STFT result matches direct ChannelFrame.stft output."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        n_fft = 512
+        hop_length = 128
+
+        stft_dataset = dataset.stft(n_fft=n_fft, hop_length=hop_length)
+
         original_frame = dataset[0]
         assert original_frame is not None
         expected_spec = original_frame.stft(n_fft=n_fft, hop_length=hop_length)
 
-        # now load the spectrogram from the dataset under test
         stft_frame = stft_dataset[0]
         assert isinstance(stft_frame, SpectrogramFrame)
         assert stft_frame.n_fft == n_fft
         assert stft_frame.hop_length == hop_length
         assert stft_frame.sampling_rate == original_frame.sampling_rate
-
-        # compare shapes
         assert stft_frame.shape == expected_spec.shape
+        # Wrapper equivalence: same STFT algorithm, exact match within float tolerance
+        np.testing.assert_allclose(
+            stft_frame.compute(), expected_spec.compute(), atol=1e-6
+        )  # Windowing/overlap tolerance
 
-        # compare the actual complex STFT values
-        np.testing.assert_allclose(stft_frame.compute(), expected_spec.compute(), atol=1e-6)
+    def test_stft_lazy_caches_result(self, create_test_files: Path) -> None:
+        """Lazy STFT caches result on second access."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
-        # second access must hit the cache and not retrigger transform
+        stft_dataset = dataset.stft(n_fft=512, hop_length=128)
+        first_access = stft_dataset[0]
+
         with patch.object(stft_dataset, "_transform", wraps=stft_dataset._transform) as mock_transform:
             cached = stft_dataset[0]
-            assert cached is stft_frame
+            assert cached is first_access
             mock_transform.assert_not_called()
 
-    def test_sample(self, create_test_files: Path) -> None:
-        """Test sampling the dataset."""
+    def test_sample_by_count_returns_correct_size(self, create_test_files: Path) -> None:
+        """Sampling by n returns exactly n items from original dataset."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        n_sample = 2
+        sampled = dataset.sample(n=n_sample, seed=42)
+
+        assert isinstance(sampled, _SampledFrameDataset)
+        assert len(sampled) == n_sample
+        assert sampled._original_dataset is dataset
+        original_paths = [p.name for p in dataset._get_file_paths()]
+        sampled_paths = [lf.file_path.name for lf in sampled._lazy_frames]
+        assert all(p in original_paths for p in sampled_paths)
+
+    def test_sample_by_ratio_returns_proportional(self, create_test_files: Path) -> None:
+        """Sampling by ratio returns floor(total * ratio) items."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        ratio = 0.5
+        sampled = dataset.sample(ratio=ratio, seed=42)
+
+        assert isinstance(sampled, _SampledFrameDataset)
+        assert len(sampled) == int(len(dataset) * ratio)
+
+    def test_sample_default_returns_at_least_one(self, create_test_files: Path) -> None:
+        """Default sampling (10%) returns at least 1 item."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        sampled = dataset.sample(seed=42)
+        assert len(sampled) == max(1, int(len(dataset) * 0.1))
+
+    def test_sample_exceeding_total_caps_at_total(self, create_test_files: Path) -> None:
+        """Requesting more samples than available caps at total count."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         n_total = len(dataset)
+        sampled = dataset.sample(n=n_total + 1)
+        assert len(sampled) == n_total
 
-        # Sample by number
-        n_sample = 2
-        sampled_n = dataset.sample(n=n_sample, seed=42)
-        assert isinstance(sampled_n, _SampledFrameDataset)
-        assert len(sampled_n) == n_sample
-        assert sampled_n._original_dataset is dataset
-        # Check sampled indices are subset of original
-        original_paths = [p.name for p in dataset._get_file_paths()]
-        sampled_paths = [lf.file_path.name for lf in sampled_n._lazy_frames]
-        assert all(p in original_paths for p in sampled_paths)
-
-        # Sample by ratio
-        ratio = 0.5
-        # Expect ceil(3 * 0.5) = 2 samples
-        sampled_r = dataset.sample(ratio=ratio, seed=42)
-        assert isinstance(sampled_r, _SampledFrameDataset)
-        assert len(sampled_r) == int(n_total * ratio)
-        assert sampled_r._original_dataset is dataset
-
-        # Sample default (10% or min 1)
-        sampled_def = dataset.sample(seed=42)
-        assert len(sampled_def) == max(1, int(n_total * 0.1))
-        assert sampled_def._original_dataset is dataset  # type: ignore[attr-defined]
-
-        # Sample all
-        sampled_all = dataset.sample(n=n_total)
-        assert len(sampled_all) == n_total
-        assert sampled_all._original_dataset is dataset  # type: ignore[attr-defined]
-
-        # Sample more than available
-        sampled_more = dataset.sample(n=n_total + 1)
-        assert len(sampled_more) == n_total
-        assert sampled_more._original_dataset is dataset  # type: ignore[attr-defined]
-
-        # Sample from empty dataset
+    def test_sample_empty_dataset_returns_empty(self, create_test_files: Path) -> None:
+        """Sampling from empty dataset returns empty result."""
+        folder_path = create_test_files
         empty_ds = ChannelFrameDataset(str(folder_path / "empty_subdir"), lazy_loading=True)
-        sampled_empty = empty_ds.sample(n=1)
-        assert len(sampled_empty) == 0
+        sampled = empty_ds.sample(n=1)
+        assert len(sampled) == 0
 
-        # Check lazy loading is preserved in sampled dataset
-        sampled_lazy = dataset.sample(n=1, seed=1)
-        assert sampled_lazy._lazy_loading is True
-        assert all(not lf.is_loaded for lf in sampled_lazy._lazy_frames)
+    def test_sample_preserves_lazy_loading(self, create_test_files: Path) -> None:
+        """Sampled dataset preserves lazy loading and frame data matches original."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        sampled = dataset.sample(n=1, seed=1)
+        assert isinstance(sampled, _SampledFrameDataset)
 
-        # Access item in sampled dataset
-        original_index = sampled_lazy._original_indices[0]  # type: ignore[attr-defined]
-        original_frame = dataset[original_index]  # Ensure original is loaded
-        sampled_frame = sampled_lazy[0]  # Trigger load via sampled dataset
-        assert isinstance(sampled_frame, ChannelFrame)
+        assert sampled._lazy_loading is True
+        assert all(not lf.is_loaded for lf in sampled._lazy_frames)
+
+        original_index = sampled._original_indices[0]
+        original_frame = dataset[original_index]
         assert original_frame is not None
-        assert sampled_frame is not None
+        sampled_frame = sampled[0]
+        assert isinstance(sampled_frame, ChannelFrame)
         assert sampled_frame.label == original_frame.label
         np.testing.assert_array_equal(sampled_frame.compute(), original_frame.compute())
-        assert sampled_lazy._lazy_frames[0].is_loaded is True
 
-        # Check apply on sampled dataset
+    def test_sample_apply_transform_propagates(self, create_test_files: Path) -> None:
+        """Apply on sampled dataset correctly chains transforms."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        sampled = dataset.sample(n=1, seed=1)
+        assert isinstance(sampled, _SampledFrameDataset)
+
         def gain_transform(f: ChannelFrame) -> ChannelFrame:
             return f * 2
 
-        transformed_sampled = sampled_lazy.apply(gain_transform)
-        assert isinstance(transformed_sampled, _SampledFrameDataset)
-        assert transformed_sampled._original_dataset._transform is gain_transform
+        transformed = sampled.apply(gain_transform)
+        assert isinstance(transformed, _SampledFrameDataset)
 
-        # Trigger computation
-        final_frame = transformed_sampled[0]
-        assert final_frame is not None
+        original_index = sampled._original_indices[0]
+        original_frame = dataset[original_index]
         assert original_frame is not None
+        final_frame = transformed[0]
+        assert final_frame is not None
         expected_data = original_frame.compute() * 2
+        # Same algorithm (elementwise mul), exact match expected
         np.testing.assert_allclose(final_frame.compute(), expected_data)
 
-    def test_get_metadata(self, create_test_files: Path) -> None:
-        """Test get_metadata method."""
+    def test_get_metadata_lazy_unloaded_state(self, create_test_files: Path) -> None:
+        """Metadata reflects unloaded state for lazy dataset."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True, sampling_rate=8000)
 
-        meta_lazy = dataset.get_metadata()
-        assert meta_lazy["folder_path"] == str(folder_path)
-        assert meta_lazy["file_count"] == 3
-        assert meta_lazy["loaded_count"] == 0
-        assert meta_lazy["target_sampling_rate"] == 8000
-        # Actual SR might be different until loaded, or None if load fails
-        assert meta_lazy["actual_sampling_rate"] == 8000  # Inherits target if not loaded
-        assert meta_lazy["lazy_loading"] is True
-        assert meta_lazy["has_transform"] is False
-        assert meta_lazy["frame_type"] == "Unknown"  # Not loaded yet
+        meta = dataset.get_metadata()
+        assert meta["folder_path"] == str(folder_path)
+        assert meta["file_count"] == 3
+        assert meta["loaded_count"] == 0
+        assert meta["target_sampling_rate"] == 8000
+        assert meta["actual_sampling_rate"] == 8000  # Inherits target when unloaded
+        assert meta["lazy_loading"] is True
+        assert meta["has_transform"] is False
+        assert meta["frame_type"] == "Unknown"  # Not loaded yet
 
-        # Load one item
+    def test_get_metadata_after_loading_one_item(self, create_test_files: Path) -> None:
+        """Metadata updates after loading a single item."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True, sampling_rate=8000)
         _ = dataset[0]
-        meta_loaded_one = dataset.get_metadata()
-        assert meta_loaded_one["loaded_count"] == 1
-        assert meta_loaded_one["actual_sampling_rate"] == 8000  # Now reflects loaded frame (after resampling)
-        assert meta_loaded_one["frame_type"] == "ChannelFrame"
 
-        # Test with transformation
-        transformed_ds = dataset.apply(lambda f: f * 2)
-        meta_transformed = transformed_ds.get_metadata()
-        assert meta_transformed["has_transform"] is True
-        assert meta_transformed["loaded_count"] == 0  # Transform dataset has its own cache
-        assert meta_transformed["frame_type"] == "Unknown"
+        meta = dataset.get_metadata()
+        assert meta["loaded_count"] == 1
+        assert meta["actual_sampling_rate"] == 8000
+        assert meta["frame_type"] == "ChannelFrame"
 
-        # Load item in transformed dataset
-        _ = transformed_ds[0]
-        meta_transformed_loaded = transformed_ds.get_metadata()
-        assert meta_transformed_loaded["loaded_count"] == 1
-        assert meta_transformed_loaded["frame_type"] == "ChannelFrame"  # Type after transform
+    def test_get_metadata_with_transform(self, create_test_files: Path) -> None:
+        """Transformed dataset metadata reflects transform state."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True, sampling_rate=8000)
+        transformed = dataset.apply(lambda f: f * 2)
 
-        # Test with eager loading
-        dataset_eager = ChannelFrameDataset(str(folder_path), lazy_loading=False)
-        meta_eager = dataset_eager.get_metadata()
-        assert meta_eager["lazy_loading"] is False
-        assert meta_eager["loaded_count"] == 3
-        assert meta_eager["frame_type"] == "ChannelFrame"
+        meta = transformed.get_metadata()
+        assert meta["has_transform"] is True
+        assert meta["loaded_count"] == 0
 
-    def test_from_folder(self, create_test_files: Path) -> None:
-        """Test the from_folder class method."""
+        _ = transformed[0]
+        meta_loaded = transformed.get_metadata()
+        assert meta_loaded["loaded_count"] == 1
+        assert meta_loaded["frame_type"] == "ChannelFrame"
+
+    def test_get_metadata_eager_loading(self, create_test_files: Path) -> None:
+        """Eager-loaded dataset metadata shows all frames loaded."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=False)
+
+        meta = dataset.get_metadata()
+        assert meta["lazy_loading"] is False
+        assert meta["loaded_count"] == 3
+        assert meta["frame_type"] == "ChannelFrame"
+
+    def test_from_folder_creates_dataset_with_options(self, create_test_files: Path) -> None:
+        """From_folder class method creates dataset with specified options."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset.from_folder(
             str(folder_path),
@@ -692,17 +744,17 @@ class TestChannelFrameDataset:
         assert len(dataset) == 3  # Only wav files, including subdir
         assert all(isinstance(lf.frame, ChannelFrame) for lf in dataset._lazy_frames)
 
-    def test_save(self, create_test_files: Path, tmp_path: Path) -> None:
-        """Test save method raises NotImplementedError."""
+    def test_save_raises_not_implemented(self, create_test_files: Path, tmp_path: Path) -> None:
+        """Save method raises NotImplementedError for both dataset types."""
         folder_path = create_test_files
         output_folder = tmp_path / "output"
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
-        # saveメソッドが未実装のため、NotImplementedErrorが発生することを確認
+        # save method is not implemented, verify NotImplementedError is raised
         with pytest.raises(NotImplementedError, match="The save method is not currently implemented."):
             dataset.save(str(output_folder), filename_prefix="processed_")
 
-        # SpectrogramFrameDatasetのsaveも同様に例外を発生させるか確認
+        # Verify SpectrogramFrameDataset save also raises
         stft_dataset = dataset.stft()
         with pytest.raises(NotImplementedError, match="The save method is not currently implemented."):
             stft_dataset.save(str(output_folder), filename_prefix="spec_")
@@ -712,8 +764,10 @@ class TestChannelFrameDataset:
 
 
 class TestSpectrogramFrameDataset:
-    def test_init_lazy(self, create_test_files: Path) -> None:
-        """Test initialization (typically via ChannelFrameDataset.stft)."""
+    """Test suite for SpectrogramFrameDataset — lazy STFT, apply, plot."""
+
+    def test_init_lazy_via_stft(self, create_test_files: Path) -> None:
+        """SpectrogramFrameDataset created via stft() is lazy with correct state."""
         folder_path = create_test_files
         channel_ds = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         stft_ds = channel_ds.stft()  # Creates SpectrogramFrameDataset
@@ -725,36 +779,36 @@ class TestSpectrogramFrameDataset:
         assert len(stft_ds) == len(channel_ds)
         assert all(not lf.is_loaded for lf in stft_ds._lazy_frames)
 
-    def test_load_file_not_implemented(self, tmp_path: Path) -> None:
-        """Test that _load_file raises NotImplementedError."""
+    def test_load_file_direct_raises_not_implemented(self, tmp_path: Path) -> None:
+        """Direct _load_file raises NotImplementedError."""
         # Create a dummy file that might look like a spectrogram source
         dummy_spec_file = tmp_path / "spec.npy"
-        np.save(dummy_spec_file, np.random.rand(1, 10, 5))
+        np.save(dummy_spec_file, np.zeros((1, 10, 5)))  # Deterministic zeros instead of random
 
         # Initialize directly (not the typical way)
         spec_ds = SpectrogramFrameDataset(str(tmp_path), file_extensions=[".npy"])
 
-        # 現在の実装では、_load_fileは例外を投げるが、
-        # _ensure_loadedでそれがキャッチされる
-        # 直接_load_fileを呼び出して例外を確認
+        # Current implementation: _load_file raises exception,
+        # but _ensure_loaded catches it.
+        # Call _load_file directly to verify exception
         with pytest.raises(
             NotImplementedError,
             match="No method defined for directly loading SpectrogramFrames",
         ):
             spec_ds._load_file(dummy_spec_file)
 
-        # __getitem__経由では例外はキャッチされてNoneが返される
+        # Via __getitem__, exception is caught and None is returned
         result = spec_ds[0]
         assert result is None
 
-    def test_apply(self, create_test_files: Path) -> None:
-        """Test apply on SpectrogramFrameDataset."""
+    def test_apply_transform_produces_different_output(self, create_test_files: Path) -> None:
+        """Apply on SpectrogramFrameDataset produces transformed output."""
         folder_path = create_test_files
         channel_ds = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         stft_ds = channel_ds.stft()
 
         def spec_transform(spec_frame: SpectrogramFrame) -> SpectrogramFrame:
-            # より単純な変換関数（amplitude_to_dbは実装されていない可能性があるため）
+            # Simple transform function (amplitude_to_db may not be implemented)
             return spec_frame + 1
 
         transformed_spec_ds = stft_ds.apply(spec_transform)
@@ -773,32 +827,37 @@ class TestSpectrogramFrameDataset:
         # Verify transformation (check if data changed)
         assert not np.allclose(original_spec_frame.compute(), transformed_spec_frame.compute())
 
-    @patch("matplotlib.pyplot.show")  # Prevent plots from displaying during tests
-    def test_plot(
+    @patch("matplotlib.pyplot.show")
+    def test_plot_delegates_to_frame_plot(
+        self,
+        mock_show: MagicMock,
+        create_test_files: Path,
+    ) -> None:
+        """Plot() delegates to SpectrogramFrame.plot."""
+        folder_path = create_test_files
+        channel_ds = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        stft_ds = channel_ds.stft()
+
+        with patch.object(SpectrogramFrame, "plot", return_value=MagicMock(spec=Axes)) as mock_frame_plot:
+            stft_ds.plot(0)
+            mock_frame_plot.assert_called_once()
+
+    @patch("matplotlib.pyplot.show")
+    def test_plot_transform_error_logs_warning(
         self,
         mock_show: MagicMock,
         create_test_files: Path,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """Test plotting from SpectrogramFrameDataset."""
+        """Plot() logs warning when transform fails."""
         folder_path = create_test_files
         channel_ds = ChannelFrameDataset(str(folder_path), lazy_loading=True)
-        stft_ds = channel_ds.stft()
-
-        # Mock SpectrogramFrame.plot to check if it's called
-        with patch.object(SpectrogramFrame, "plot", return_value=MagicMock(spec=Axes)) as mock_frame_plot:
-            stft_ds.plot(0)  # Plot the first spectrogram
-            mock_frame_plot.assert_called_once()
-
-        # Test plot with load/transform error
-        caplog.clear()
 
         def failing_stft(frame: ChannelFrame) -> SpectrogramFrame:
             if frame.label == "test1":
                 raise ValueError("STFT failed")
             return frame.stft()
 
-        # Need to wrap this in a SpectrogramFrameDataset manually for plot method
         error_spec_ds = SpectrogramFrameDataset(
             folder_path=str(folder_path),
             source_dataset=channel_ds,
@@ -806,26 +865,43 @@ class TestSpectrogramFrameDataset:
         )
 
         with patch.object(SpectrogramFrame, "plot") as mock_plot_error:
-            error_spec_ds.plot(0)  # Attempt to plot the failing one
+            error_spec_ds.plot(0)
             mock_plot_error.assert_not_called()
             assert any("STFT failed" in rec.message for rec in caplog.records if rec.levelname == "WARNING")
 
-        # Test plot when frame has no plot method (simulate)
-        caplog.clear()
+    @patch("matplotlib.pyplot.show")
+    def test_plot_no_plot_method_logs_warning(
+        self,
+        mock_show: MagicMock,
+        create_test_files: Path,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Plot() logs warning when frame has no plot method."""
+        folder_path = create_test_files
+        channel_ds = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        stft_ds = channel_ds.stft()
 
-        # plotがないクラスを定義
         with patch.object(SpectrogramFrame, "plot", None):
-            # plotメソッドがないフレームをロードした場合のテスト
             stft_ds.plot(0)
             assert any("Frame" in rec.message for rec in caplog.records if rec.levelname == "WARNING")
 
-        # Test error during plotting itself
-        caplog.clear()
+    @patch("matplotlib.pyplot.show")
+    def test_plot_runtime_error_logs_error(
+        self,
+        mock_show: MagicMock,
+        create_test_files: Path,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Plot() logs error when plotting raises RuntimeError."""
+        folder_path = create_test_files
+        channel_ds = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        stft_ds = channel_ds.stft()
+
         plot_error_msg = "The save method is not currently implemented."
         with patch.object(
             SpectrogramFrame, "plot", side_effect=RuntimeError(plot_error_msg)
         ) as mock_plot_runtime_error:
-            stft_ds.plot(1)  # Plot second item, assume it loads ok
+            stft_ds.plot(1)
             mock_plot_runtime_error.assert_called_once()
             assert any(plot_error_msg in rec.message for rec in caplog.records if rec.levelname == "ERROR")
 
@@ -834,91 +910,105 @@ class TestSpectrogramFrameDataset:
 
 
 class TestSampledFrameDataset:
-    def test_init(self, create_test_files: Path) -> None:
-        """Test initialization of _SampledFrameDataset."""
+    """Test suite for _SampledFrameDataset — init, getitem, apply, load."""
+
+    def test_init_creates_lazy_subset(self, create_test_files: Path) -> None:
+        """Initialization creates lazy subset from specified indices."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
-        # サンプリングインデックスの準備
-        sampled_indices = [0, 2]  # test1.wav と test3.csv を選択
+        # Prepare sampling indices
+        sampled_indices = [0, 2]  # Select test1.wav and test3.csv
 
-        # _SampledFrameDataset の初期化
+        # Initialize _SampledFrameDataset
         sampled_ds = _SampledFrameDataset(dataset, sampled_indices)
 
-        # 基本的なプロパティの確認
+        # Verify basic properties
         assert sampled_ds._original_dataset is dataset
         assert sampled_ds._original_indices == sampled_indices
         assert len(sampled_ds) == len(sampled_indices)
 
-        # LazyFrames の確認
+        # Verify LazyFrames
         assert len(sampled_ds._lazy_frames) == len(sampled_indices)
         assert all(not lf.is_loaded for lf in sampled_ds._lazy_frames)
         assert sampled_ds._lazy_frames[0].file_path.name == "test1.wav"
         assert sampled_ds._lazy_frames[1].file_path.name == "test3.csv"
 
-    def test_getitem(self, create_test_files: Path) -> None:
-        """Test __getitem__ method of _SampledFrameDataset."""
+    def test_getitem_loads_frame_matching_original(self, create_test_files: Path) -> None:
+        """__getitem__ loads frame identical to original dataset's frame."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
-        # 元のデータセットからサンプリング
         sampled_indices = [0, 2]  # test1.wav, test3.csv
         sampled_ds = _SampledFrameDataset(dataset, sampled_indices)
 
-        assert isinstance(sampled_ds, _SampledFrameDataset)
-        assert sampled_ds._original_dataset is dataset
-        assert sampled_ds._original_indices == sampled_indices
-
-        # サンプリングされたデータセットからフレームを取得
         sampled_frame_0 = sampled_ds[0]
-
-        # 元のデータセットから直接同じフレームを取得
         original_frame_0 = dataset[sampled_indices[0]]
 
-        # Noneチェック
         assert sampled_frame_0 is not None
         assert original_frame_0 is not None
-
-        # 同じフレームが取得できていることを確認
         assert isinstance(sampled_frame_0, ChannelFrame)
         assert sampled_frame_0.label == original_frame_0.label
         np.testing.assert_array_equal(
             sampled_frame_0.compute(),
             original_frame_0.compute(),
-            err_msg="サンプリングデータセットのフレームが元のデータセットと一致しません",
+            err_msg="Sampled dataset frame does not match original",
         )
 
-        # キャッシュが機能していることを確認
+    def test_getitem_caches_loaded_frame(self, create_test_files: Path) -> None:
+        """__getitem__ returns cached instance on second access."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+
+        sampled_ds = _SampledFrameDataset(dataset, [0, 2])
+
+        first_access = sampled_ds[0]
         assert sampled_ds._lazy_frames[0].is_loaded is True
+        second_access = sampled_ds[0]
+        assert second_access is first_access
 
-        # キャッシュを通じて同じフレームオブジェクトが返されることを確認
-        cached_frame = sampled_ds[0]
-        assert cached_frame is sampled_frame_0  # 同じインスタンスが返されるはず
+    def test_getitem_multiple_indices_load_correctly(self, create_test_files: Path) -> None:
+        """__getitem__ loads correct frames for all sampled indices."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
-        # 2番目の要素も確認
+        sampled_indices = [0, 2]
+        sampled_ds = _SampledFrameDataset(dataset, sampled_indices)
+
         sampled_frame_1 = sampled_ds[1]
         original_frame_1 = dataset[sampled_indices[1]]
 
-        assert isinstance(sampled_frame_1, ChannelFrame)
         assert sampled_frame_1 is not None
         assert original_frame_1 is not None
+        assert isinstance(sampled_frame_1, ChannelFrame)
         assert sampled_frame_1.label == original_frame_1.label
         np.testing.assert_array_equal(sampled_frame_1.compute(), original_frame_1.compute())
 
-        # 範囲外のインデックスに対するエラーテスト
-        with pytest.raises(IndexError):
-            _ = sampled_ds[2]  # サンプリングデータセットは2つの要素しかない
+    def test_getitem_out_of_range_raises_indexerror(self, create_test_files: Path) -> None:
+        """__getitem__ with out-of-range index raises IndexError."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
-        # 元のデータセットのロードエラーをシミュレート
-        # _ensure_loadedメソッドを直接モックする方が確実です
+        sampled_ds = _SampledFrameDataset(dataset, [0, 2])
+
+        with pytest.raises(IndexError):
+            _ = sampled_ds[2]  # Sampled dataset has only 2 elements
+
+    def test_getitem_original_load_failure_returns_none(self, create_test_files: Path) -> None:
+        """__getitem__ returns None when original dataset fails to load."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+
+        sampled_ds = _SampledFrameDataset(dataset, [0, 2])
+        _ = sampled_ds[0]  # Load first to populate cache
+
         with patch.object(dataset, "_ensure_loaded", return_value=None):
-            # _SampledFrameDatasetはキャッシュをリセットする必要がある
             sampled_ds._lazy_frames[0].reset()
             result = sampled_ds[0]
             assert result is None
 
-    def test_apply(self, create_test_files: Path) -> None:
-        """Test apply method of _SampledFrameDataset."""
+    def test_apply_creates_correct_chain_structure(self, create_test_files: Path) -> None:
+        """Apply on sampled dataset creates correct dataset chain structure."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         sampled_ds = dataset.sample(n=1, seed=42)
@@ -929,7 +1019,6 @@ class TestSampledFrameDataset:
 
         transformed_sampled = sampled_ds.apply(transform_gain)
 
-        # 基本的な検証
         assert isinstance(transformed_sampled, _SampledFrameDataset)
         assert transformed_sampled._original_dataset is not dataset
         assert transformed_sampled._original_dataset._transform is transform_gain
@@ -937,38 +1026,46 @@ class TestSampledFrameDataset:
         assert len(transformed_sampled) == 1
         assert all(not lf.is_loaded for lf in transformed_sampled._lazy_frames)
 
-        # 元のフレームを取得
-        original_index = sampled_ds._original_indices[0]  # type: ignore[attr-defined]
+    def test_apply_transform_produces_correct_output(self, create_test_files: Path) -> None:
+        """Apply transform on sampled dataset produces numerically correct output."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        sampled_ds = dataset.sample(n=1, seed=42)
+
+        def transform_gain(f: ChannelFrame) -> ChannelFrame:
+            assert f is not None, "Input frame to transform_gain is None"
+            return f * 3
+
+        transformed_sampled = sampled_ds.apply(transform_gain)
+
+        original_index = getattr(sampled_ds, "_original_indices")[0]
         original_frame = dataset[original_index]
-
-        # サンプリングされたフレームを取得
-        sampled_frame = sampled_ds[0]
         assert original_frame is not None
-        assert sampled_frame is not None
-        np.testing.assert_allclose(
-            sampled_frame.compute(),
-            original_frame.compute(),
-            err_msg="Data mismatch between dataset and sampled_ds",
-        )
 
-        # 変換後のフレームを取得して検証
         final_frame = transformed_sampled[0]
         assert final_frame is not None
-        assert original_frame is not None
         expected_data = original_frame.compute() * 3
+        # Same algorithm (elementwise mul), exact match expected
         np.testing.assert_allclose(
             final_frame.compute(),
             expected_data,
             err_msg="Data mismatch after applying transform",
         )
 
-        # キャッシュが機能していることを確認
-        assert transformed_sampled._lazy_frames[0].is_loaded is True
-        cached_final_frame = transformed_sampled[0]
-        assert cached_final_frame is final_frame
+    def test_apply_transform_caches_result(self, create_test_files: Path) -> None:
+        """Transformed sampled dataset caches result on second access."""
+        folder_path = create_test_files
+        dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
+        sampled_ds = dataset.sample(n=1, seed=42)
 
-    def test_load_file_not_implemented(self, create_test_files: Path) -> None:
-        """Test that _load_file raises NotImplementedError."""
+        transformed_sampled = sampled_ds.apply(lambda f: f * 3)
+
+        first_access = transformed_sampled[0]
+        cached_access = transformed_sampled[0]
+        assert cached_access is first_access
+
+    def test_load_file_direct_raises_not_implemented(self, create_test_files: Path) -> None:
+        """Direct _load_file raises NotImplementedError."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         sampled_indices = [0, 1]
@@ -980,13 +1077,13 @@ class TestSampledFrameDataset:
         ):
             sampled_ds._load_file(Path("dummy.wav"))
 
-    def test_sample_index_error(self, create_test_files: Path) -> None:
-        """Test error handling with invalid indices."""
+    def test_init_invalid_indices_raises_index_error(self, create_test_files: Path) -> None:
+        """Out-of-range indices raise IndexError."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
-        # 範囲外のインデックスを含むケース
-        invalid_indices = [0, 10]  # 10は範囲外（ファイルは3つしかない）
+        # Out-of-range index case
+        invalid_indices = [0, 10]  # 10 is out of range (only 3 files)
 
         with pytest.raises(
             IndexError,
@@ -999,7 +1096,7 @@ class TestLazyFrameEdgeCases:
     """Additional edge case tests for LazyFrame."""
 
     def test_ensure_loaded_already_loaded_without_load_attempt(self) -> None:
-        """Test ensure_loaded returns cached frame when is_loaded=True but load_attempted=False.
+        """Ensure_loaded returns cached frame when is_loaded=True but load_attempted=False.
 
         This exercises the early return path in LazyFrame.ensure_loaded when the frame is
         already loaded but no load has been attempted yet.
@@ -1029,7 +1126,7 @@ class TestFrameDatasetGetByLabel:
     """Tests for get_by_label method (deprecated)."""
 
     def test_get_by_label_deprecation_warning(self, create_test_files: Path) -> None:
-        """Test get_by_label emits DeprecationWarning and returns first match."""
+        """Get_by_label emits DeprecationWarning and returns first match."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
@@ -1043,7 +1140,7 @@ class TestFrameDatasetGetByLabel:
         assert result.label == "test1"
 
     def test_get_by_label_no_match(self, create_test_files: Path) -> None:
-        """Test get_by_label returns None when no match found."""
+        """Get_by_label returns None when no match found."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
@@ -1060,7 +1157,7 @@ class TestFrameDatasetGetItemStringKey:
     """Tests for __getitem__ with string key."""
 
     def test_getitem_string_key_single_match(self, create_test_files: Path) -> None:
-        """Test __getitem__ with string key returns list of matches."""
+        """__getitem__ with string key returns list of matches."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
@@ -1072,7 +1169,7 @@ class TestFrameDatasetGetItemStringKey:
         assert frames[0].label == "test1"
 
     def test_getitem_string_key_multiple_matches(self, tmp_path: Path) -> None:
-        """Test __getitem__ with string key returns multiple matches for duplicate filenames."""
+        """__getitem__ with string key returns multiple matches for duplicate filenames."""
         # Create a directory structure with duplicate filenames in different subfolders
         root = tmp_path / "multi_match_dataset"
         sub1 = root / "sub1"
@@ -1100,7 +1197,7 @@ class TestFrameDatasetInitializeFromSource:
     """Tests for _initialize_from_source property inheritance."""
 
     def test_initialize_from_source_property_inheritance(self, create_test_files: Path) -> None:
-        """Test that properties are inherited from source_dataset when not explicitly provided.
+        """Properties are inherited from source_dataset when not explicitly provided.
 
         Properties are conditionally inherited.
         """
@@ -1125,7 +1222,7 @@ class TestFrameDatasetInitializeFromSource:
         assert transformed_ds.folder_path == base_ds.folder_path
 
     def test_initialize_from_source_explicit_override(self, create_test_files: Path) -> None:
-        """Test that explicit parameters override inherited values."""
+        """Explicit parameters override inherited values."""
         folder_path = create_test_files
 
         # Create base dataset with specific settings
@@ -1160,7 +1257,7 @@ class TestFrameDatasetSampleEdgeCases:
     """Tests for sample() method edge cases."""
 
     def test_sample_ratio_greater_than_one(self, create_test_files: Path) -> None:
-        """Test sample with ratio > 1.0 caps at total.
+        """Sample with ratio > 1.0 caps at total.
 
         N is capped at total.
         """
@@ -1174,7 +1271,7 @@ class TestFrameDatasetSampleEdgeCases:
         assert len(sampled) == n_total  # Should be capped at total
 
     def test_sample_ratio_exactly_one(self, create_test_files: Path) -> None:
-        """Test sample with ratio = 1.0 returns all items."""
+        """Sample with ratio = 1.0 returns all items."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         n_total = len(dataset)
@@ -1184,7 +1281,7 @@ class TestFrameDatasetSampleEdgeCases:
         assert len(sampled) == n_total
 
     def test_sample_ratio_small_value(self, create_test_files: Path) -> None:
-        """Test sample with small ratio returns at least 1 item."""
+        """Sample with small ratio returns at least 1 item."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
@@ -1198,7 +1295,7 @@ class TestSpectrogramFrameDatasetPlotEdgeCases:
     """Tests for SpectrogramFrameDataset.plot() edge cases."""
 
     def test_plot_when_frame_is_none(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """Test plot returns early when _ensure_loaded returns None.
+        """Plot returns early when _ensure_loaded returns None.
 
         We check if frame is None.
         """
@@ -1223,7 +1320,7 @@ class TestSpectrogramFrameDatasetPlotEdgeCases:
     def test_plot_when_frame_has_no_plot_method(
         self, create_test_files: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """Test plot logs warning when frame has no plot method.
+        """Plot logs warning when frame has no plot method.
 
         We check for plot method.
         """
@@ -1245,7 +1342,7 @@ class TestGetMetadataEdgeCases:
     """Tests for get_metadata() edge cases."""
 
     def test_get_metadata_with_sampled_dataset(self, create_test_files: Path) -> None:
-        """Test get_metadata correctly identifies sampled dataset.
+        """Get_metadata correctly identifies sampled dataset.
 
         Is_sampled is checked.
         """
@@ -1262,7 +1359,7 @@ class TestChannelFrameDatasetTransformEdgeCases:
     """Tests for ChannelFrameDataset transform methods edge cases."""
 
     def test_resample_with_none_frame(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """Test resample handles None frames gracefully.
+        """Resample handles None frames gracefully.
 
         We check if frame is None.
         """
@@ -1281,7 +1378,7 @@ class TestChannelFrameDatasetTransformEdgeCases:
         assert result is None
 
     def test_trim_with_none_frame(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """Test trim handles None frames gracefully.
+        """Trim handles None frames gracefully.
 
         We check if frame is None.
         """
@@ -1300,7 +1397,7 @@ class TestChannelFrameDatasetTransformEdgeCases:
         assert result is None
 
     def test_normalize_with_none_frame(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """Test normalize handles None frames gracefully.
+        """Normalize handles None frames gracefully.
 
         We check if frame is None.
         """
@@ -1323,7 +1420,7 @@ class TestFrameDatasetGetItemTypeError:
     """Tests for __getitem__ TypeError case."""
 
     def test_getitem_invalid_type_raises_error(self, create_test_files: Path) -> None:
-        """Test __getitem__ raises TypeError for invalid key types.
+        """__getitem__ raises TypeError for invalid key types.
 
         We raise TypeError.
         """
@@ -1332,18 +1429,18 @@ class TestFrameDatasetGetItemTypeError:
 
         # Test with float key
         with pytest.raises(TypeError, match="Invalid key type.*float"):
-            _ = dataset[1.5]  # type: ignore [index]
+            _ = dataset[1.5]  # ty: ignore[invalid-argument-type]
 
         # Test with tuple key
         with pytest.raises(TypeError, match="Invalid key type.*tuple"):
-            _ = dataset[(0, 1)]  # type: ignore [index]
+            _ = dataset[(0, 1)]  # ty: ignore[invalid-argument-type]
 
 
 class TestFrameDatasetInitializeFromSourceEdgeCases:
     """Tests for _initialize_from_source() edge cases."""
 
     def test_initialize_from_source_with_none_source(self, tmp_path: Path) -> None:
-        """Test _initialize_from_source returns early when source_dataset is None.
+        """_initialize_from_source returns early when source_dataset is None.
 
         We return early if no source.
         """
@@ -1365,7 +1462,7 @@ class TestFrameDatasetLoadAllFilesErrorHandling:
     """Tests for _load_all_files() error handling during eager loading."""
 
     def test_load_all_files_error_handling(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """Test that errors during eager loading are caught and logged.
+        """Errors during eager loading are caught and logged.
 
         Errors during eager loading are caught and logged as warnings while
         continuing to process other files.
@@ -1385,7 +1482,7 @@ class TestFrameDatasetLoadAllFilesErrorHandling:
         def _ensure_loaded_side_effect(self: ChannelFrameDataset, index: int) -> None:
             if index == 0:
                 raise RuntimeError("Simulated load error for index 0")
-            return original_ensure_loaded(self, index)
+            original_ensure_loaded(self, index)
 
         with patch.object(
             ChannelFrameDataset,
@@ -1412,7 +1509,7 @@ class TestFrameDatasetLoadFromSourceEdgeCases:
     """Tests for _load_from_source() edge cases."""
 
     def test_load_from_source_no_transform(self, create_test_files: Path) -> None:
-        """Test _load_from_source returns None when no transform is set.
+        """_load_from_source returns None when no transform is set.
 
         We return None if no transform.
         """
@@ -1430,7 +1527,7 @@ class TestFrameDatasetLoadFromSourceEdgeCases:
         assert result is None
 
     def test_load_from_source_no_source_frame(self, create_test_files: Path) -> None:
-        """Test _load_from_source returns None when source frame is None.
+        """_load_from_source returns None when source frame is None.
 
         We return None if source frame failed to load.
         """
@@ -1451,7 +1548,7 @@ class TestFrameDatasetLoadFromSourceEdgeCases:
         assert result is None
 
     def test_load_from_source_success(self, create_test_files: Path) -> None:
-        """Test _load_from_source succeeds when conditions are met.
+        """_load_from_source succeeds when conditions are met.
 
         This covers the success path.
         Uses ChannelFrameDataset so that the identity transform returning a ChannelFrame
@@ -1478,7 +1575,7 @@ class TestFrameDatasetEnsureLoadedExceptionHandling:
     """Tests for _ensure_loaded() exception handling."""
 
     def test_ensure_loaded_exception_handling(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """Test that exceptions in _ensure_loaded are caught and logged.
+        """Exceptions in _ensure_loaded are caught and logged.
 
         We handle exceptions.
         """
@@ -1507,7 +1604,7 @@ class TestFrameDatasetSampleElseBranch:
     """Tests for sample() method else branch."""
 
     def test_sample_else_branch_n_and_ratio_both_none(self, create_test_files: Path) -> None:
-        """Test sample default behavior when both n and ratio are None.
+        """Sample default behavior when both n and ratio are None.
 
         We use the default formula.
         """
@@ -1521,7 +1618,7 @@ class TestFrameDatasetSampleElseBranch:
         assert len(sampled) == expected_n
 
     def test_sample_else_branch_explicit_values(self, create_test_files: Path) -> None:
-        """Test sample with both n and ratio provided uses the elif branch.
+        """Sample with both n and ratio provided uses the elif branch.
 
         When both n and ratio are provided, the first matching condition (n is not None) is used.
         """
@@ -1539,7 +1636,7 @@ class TestGetMetadataExceptionHandling:
     def test_get_metadata_exception_on_first_frame(
         self, create_test_files: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """Test that exceptions accessing first frame are caught and logged.
+        """Exceptions accessing first frame are caught and logged.
 
         We catch exceptions.
         We inject a frame whose sampling_rate access raises to trigger the warning path.
@@ -1551,13 +1648,13 @@ class TestGetMetadataExceptionHandling:
         _ = dataset[0]
 
         class BadFrame:
-            """Test stub that deliberately raises on sampling_rate to trigger exception handling."""
+            """Stub that deliberately raises on sampling_rate to trigger exception handling."""
 
             @property
-            def sampling_rate(self) -> float:  # type: ignore[override]
+            def sampling_rate(self) -> float:
                 raise RuntimeError("sampling_rate access failed")
 
-        dataset._lazy_frames[0].frame = BadFrame()  # type: ignore[assignment]
+        dataset._lazy_frames[0].frame = BadFrame()  # ty: ignore[invalid-assignment]
 
         with caplog.at_level(logging.WARNING, logger="wandas.utils.frame_dataset"):
             meta = dataset.get_metadata()
@@ -1579,7 +1676,7 @@ class TestSampledFrameDatasetEnsureLoadedExceptionHandling:
     def test_sampled_ensure_loaded_exception_handling(
         self, create_test_files: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """Test that exceptions in sampled dataset loading are caught and logged.
+        """Exceptions in sampled dataset loading are caught and logged.
 
         We handle exceptions.
         We mock the class method to ensure the exception is raised during access.
@@ -1608,7 +1705,7 @@ class TestChannelFrameDatasetTransformNoneChecks:
     """Tests for ChannelFrameDataset transform methods handling None frames."""
 
     def test_resample_none_frame_in_transform(self, create_test_files: Path) -> None:
-        """Test resample handles None frame input correctly.
+        """Resample handles None frame input correctly.
 
         We check if frame is None.
         """
@@ -1627,7 +1724,7 @@ class TestChannelFrameDatasetTransformNoneChecks:
         assert result is None
 
     def test_stft_exception_in_transform(self, create_test_files: Path) -> None:
-        """Test STFT handles exceptions in the transform function.
+        """STFT handles exceptions in the transform function.
 
         We catch exceptions and return None.
         """
@@ -1658,7 +1755,7 @@ class TestChannelFrameDatasetTrimNoneCheck:
     """Tests for ChannelFrameDataset.trim() handling of None frames."""
 
     def test_trim_none_frame_in_transform(self, create_test_files: Path) -> None:
-        """Test trim handles None frame input correctly.
+        """Trim handles None frame input correctly.
 
         We check if frame is None.
         """
@@ -1681,7 +1778,7 @@ class TestChannelFrameDatasetNormalizeNoneCheck:
     """Tests for ChannelFrameDataset.normalize() handling of None frames."""
 
     def test_normalize_none_frame_in_transform(self, create_test_files: Path) -> None:
-        """Test normalize handles None frame input correctly.
+        """Normalize handles None frame input correctly.
 
         We check if frame is None.
         """
@@ -1704,7 +1801,7 @@ class TestChannelFrameDatasetStftNoneCheck:
     """Tests for ChannelFrameDataset.stft() handling of None frames."""
 
     def test_stft_none_frame_in_transform(self, create_test_files: Path) -> None:
-        """Test stft handles None frame input correctly.
+        """Stft handles None frame input correctly.
 
         We check if frame is None.
         """
@@ -1731,7 +1828,7 @@ class TestGetMetadataExceptionPath:
     """Tests for get_metadata() exception path."""
 
     def test_get_metadata_exception_path(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """Test that exceptions accessing first frame trigger the warning log.
+        """Exceptions accessing first frame trigger the warning log.
 
         We catch exceptions and log warnings.
         We inject a frame whose sampling_rate access raises to deterministically trigger the path.
@@ -1743,7 +1840,7 @@ class TestGetMetadataExceptionPath:
         real_frame = dataset[0]
 
         class FaultyFrame:
-            """Test proxy that delegates most attributes to a real frame but
+            """Proxy that delegates most attributes to a real frame but
             raises RuntimeError when sampling_rate is accessed, to trigger the
             exception path in FrameDataset.get_metadata."""
 
@@ -1751,13 +1848,13 @@ class TestGetMetadataExceptionPath:
                 self._base = base
 
             @property
-            def sampling_rate(self) -> float:  # type: ignore[override]
+            def sampling_rate(self) -> float:
                 raise RuntimeError("Failed to access sampling_rate")
 
-            def __getattr__(self, name: str):  # type: ignore[override]
+            def __getattr__(self, name: str):
                 return getattr(self._base, name)
 
-        dataset._lazy_frames[0].frame = FaultyFrame(real_frame)  # type: ignore[assignment]
+        dataset._lazy_frames[0].frame = FaultyFrame(real_frame)  # ty: ignore[invalid-assignment, invalid-argument-type]
 
         with caplog.at_level(logging.WARNING, logger="wandas.utils.frame_dataset"):
             meta = dataset.get_metadata()
@@ -1776,7 +1873,7 @@ class TestFrameDatasetLoadAllFilesEdgeCases:
         tmp_path: Path,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """Test that errors during eager loading are caught and logged.
+        """Errors during eager loading are caught and logged.
 
         Errors during eager loading are caught and logged as warnings while
         continuing to process other files.
@@ -1796,7 +1893,7 @@ class TestFrameDatasetLoadAllFilesEdgeCases:
         def _ensure_loaded_side_effect(self: ChannelFrameDataset, index: int) -> None:
             if index == 1:
                 raise RuntimeError("synthetic load error for testing")
-            return original_ensure_loaded(self, index)
+            original_ensure_loaded(self, index)
 
         with patch.object(
             ChannelFrameDataset,
@@ -1821,7 +1918,7 @@ class TestSampleElseBranch:
     """Tests for sample() method when both n and ratio are provided."""
 
     def test_sample_n_takes_precedence_over_ratio(self, create_test_files: Path) -> None:
-        """Test that when both n and ratio are provided, n is used and ratio is ignored.
+        """When both n and ratio are provided, n is used and ratio is ignored.
 
         This indirectly confirms that the elif `n is not None` branch is taken
         and the final else branch is not used in this scenario.
@@ -1841,7 +1938,7 @@ class TestChannelFrameDatasetNormalizeEdgeCases:
     """Tests for normalize() method edge cases and exception handling."""
 
     def test_normalize_with_various_kwargs(self, create_test_files: Path) -> None:
-        """Test normalize with different normalization kwargs.
+        """Normalize with different normalization kwargs.
 
         Normalize handles various kwargs.
         """
@@ -1856,7 +1953,7 @@ class TestChannelFrameDatasetNormalizeEdgeCases:
         assert isinstance(result, ChannelFrame)
 
     def test_normalize_with_l2_norm(self, create_test_files: Path) -> None:
-        """Test normalize with L2 norm."""
+        """Normalize with L2 norm."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
@@ -1867,7 +1964,7 @@ class TestChannelFrameDatasetNormalizeEdgeCases:
         assert isinstance(result, ChannelFrame)
 
     def test_normalize_with_axis_parameter(self, create_test_files: Path) -> None:
-        """Test normalize with axis parameter."""
+        """Normalize with axis parameter."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
@@ -1878,7 +1975,7 @@ class TestChannelFrameDatasetNormalizeEdgeCases:
         assert isinstance(result, ChannelFrame)
 
     def test_normalize_exception_in_transform(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """Test normalize handles exceptions in frame.normalize() gracefully.
+        """Normalize handles exceptions in frame.normalize() gracefully.
 
         Normalization errors are caught.
         """
@@ -1900,7 +1997,7 @@ class TestChannelFrameDatasetNormalizeEdgeCases:
         )
 
     def test_normalize_kwargs_logging(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """Test that normalize logs kwargs when an error occurs.
+        """Normalize logs kwargs when an error occurs.
 
         Kwargs are included in the log message.
         """
@@ -1929,7 +2026,7 @@ class TestChannelFrameDatasetResampleEdgeCases:
     """Tests for resample() method edge cases and exception handling."""
 
     def test_resample_with_valid_target_sr(self, create_test_files: Path) -> None:
-        """Test resample with a valid target sampling rate.
+        """Resample with a valid target sampling rate.
 
         Resample handles normal operation.
         """
@@ -1945,7 +2042,7 @@ class TestChannelFrameDatasetResampleEdgeCases:
         assert result.sampling_rate == 22050
 
     def test_resample_with_different_target_sr(self, create_test_files: Path) -> None:
-        """Test resample with various target sampling rates."""
+        """Resample with various target sampling rates."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
@@ -1959,7 +2056,7 @@ class TestChannelFrameDatasetResampleEdgeCases:
             assert result.sampling_rate == target_sr
 
     def test_resample_exception_in_transform(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """Test resample handles exceptions in frame.resampling() gracefully.
+        """Resample handles exceptions in frame.resampling() gracefully.
 
         Resampling errors are caught.
         """
@@ -1981,7 +2078,7 @@ class TestChannelFrameDatasetResampleEdgeCases:
         )
 
     def test_resample_with_zero_target_sr(self, create_test_files: Path) -> None:
-        """Test resample with invalid target_sr=0.
+        """Resample with invalid target_sr=0.
 
         An invalid target_sr causes an error.
         """
@@ -2002,7 +2099,7 @@ class TestChannelFrameDatasetExceptionEdgeCases:
     """Tests for exception edge cases in ChannelFrameDataset methods."""
 
     def test_normalize_with_invalid_kwargs(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """Test normalize handles invalid kwargs gracefully.
+        """Normalize handles invalid kwargs gracefully.
 
         Invalid kwargs cause an error.
         """
@@ -2017,7 +2114,7 @@ class TestChannelFrameDatasetExceptionEdgeCases:
             assert result is None  # Should fail due to mocked exception and return None
 
     def test_resample_with_negative_target_sr(self, create_test_files: Path) -> None:
-        """Test resample with negative target sampling rate.
+        """Resample with negative target sampling rate.
 
         A negative sr causes an error.
         """
@@ -2031,7 +2128,7 @@ class TestChannelFrameDatasetExceptionEdgeCases:
         assert result is None  # Should fail and return None due to exception handling
 
     def test_stft_with_invalid_n_fft(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """Test STFT handles invalid parameters gracefully.
+        """STFT handles invalid parameters gracefully.
 
         STFT errors are caught.
         """
@@ -2046,7 +2143,7 @@ class TestChannelFrameDatasetExceptionEdgeCases:
             assert result is None  # Should fail due to mocked exception and return None
 
     def test_stft_exception_in_frame_transform(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """Test STFT handles exceptions raised by frame.stft() directly.
+        """STFT handles exceptions raised by frame.stft() directly.
 
         Frame.stft() raises an exception during transform.
 
@@ -2078,7 +2175,7 @@ class TestSpectrogramFrameDatasetExceptionEdgeCases:
     """Tests for exception edge cases in SpectrogramFrameDataset methods."""
 
     def test_plot_with_frame_none(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """Test plot handles None frame gracefully.
+        """Plot handles None frame gracefully.
 
         A None frame is handled.
         Force STFT to fail so the frame at index 0 is deterministically None.
@@ -2101,7 +2198,7 @@ class TestSpectrogramFrameDatasetExceptionEdgeCases:
         assert any("Cannot plot" in record.message and record.levelname == "WARNING" for record in caplog.records)
 
     def test_plot_with_no_plot_method(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """Test plot handles frame without plot method gracefully.
+        """Plot handles frame without plot method gracefully.
 
         Frames without plot are handled.
         """
@@ -2128,7 +2225,7 @@ class TestLazyFrameExceptionEdgeCases:
     """Tests for exception edge cases in LazyFrame class."""
 
     def test_ensure_loaded_with_multiple_exceptions(self, tmp_path: Path) -> None:
-        """Test ensure_loaded handles multiple exception scenarios.
+        """Ensure_loaded handles multiple exception scenarios.
 
         Exceptions during loading are handled.
         """
@@ -2152,7 +2249,7 @@ class TestFrameDatasetConstructorExceptionEdgeCases:
     """Tests for exception edge cases in FrameDataset constructor."""
 
     def test_init_with_nonexistent_folder(self, tmp_path: Path) -> None:
-        """Test that initializing with a non-existent folder raises FileNotFoundError.
+        """Initializing with a non-existent folder raises FileNotFoundError.
 
         Folder existence is checked.
         """
@@ -2161,7 +2258,7 @@ class TestFrameDatasetConstructorExceptionEdgeCases:
             ChannelFrameDataset(str(nonexistent_folder))
 
     def test_init_with_empty_folder(self, tmp_path: Path) -> None:
-        """Test that initializing with an empty folder works correctly."""
+        """Initializing with an empty folder works correctly."""
         dataset = ChannelFrameDataset(str(tmp_path), lazy_loading=True)
         assert len(dataset) == 0
 
@@ -2173,7 +2270,7 @@ class TestApplyExceptionEdgeCases:
     """Tests for exception edge cases in the apply() method."""
 
     def test_apply_with_transform_that_raises(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """Test apply handles transforms that raise exceptions.
+        """Apply handles transforms that raise exceptions.
 
         Transform errors are caught.
         """
@@ -2192,7 +2289,7 @@ class TestApplyExceptionEdgeCases:
         )
 
     def test_apply_with_transform_that_returns_none(self, create_test_files: Path) -> None:
-        """Test apply handles transforms that return None.
+        """Apply handles transforms that return None.
 
         Transform returns None.
         """
@@ -2215,7 +2312,7 @@ class TestSampledFrameDatasetExceptionEdgeCases:
     """Tests for exception edge cases in _SampledFrameDataset class."""
 
     def test_sample_with_out_of_range_indices(self, create_test_files: Path) -> None:
-        """Test that sampled dataset raises IndexError with out-of-range indices.
+        """Sampled dataset raises IndexError with out-of-range indices.
 
         Out-of-range indices are caught.
         """
@@ -2234,7 +2331,7 @@ class TestSampledFrameDatasetExceptionEdgeCases:
     def test_sampled_ensure_loaded_with_source_exception(
         self, create_test_files: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """Test sampled dataset handles exceptions when loading from source.
+        """Sampled dataset handles exceptions when loading from source.
 
         Exception handling occurs.
         """
@@ -2246,3 +2343,102 @@ class TestSampledFrameDatasetExceptionEdgeCases:
         result = sampled_ds[0]
 
         assert result is not None  # Should load successfully
+
+
+# --- Coverage gap tests for frame_dataset.py ---
+
+
+class TestFrameDatasetCoverageGaps:
+    """Tests targeting uncovered lines in frame_dataset.py."""
+
+    def test_initialize_from_source_with_none_source(self, create_test_files: Path) -> None:
+        """_initialize_from_source returns early when source_dataset is None (line 116)."""
+        dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
+        # Force None and call directly — the guard at line 115 returns immediately
+        dataset._source_dataset = None
+        original_frames = list(dataset._lazy_frames)
+        dataset._initialize_from_source()
+        # Nothing should change
+        assert dataset._lazy_frames == original_frames
+
+    def test_load_from_source_none_source_frame(self, create_test_files: Path) -> None:
+        """_load_from_source returns None when source returns None (line 169)."""
+        dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
+        derived = dataset.resample(target_sr=8000)
+
+        with patch.object(dataset, "_ensure_loaded", return_value=None):
+            result = derived._load_from_source(0)
+        assert result is None
+
+    def test_ensure_loaded_exception_path(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """_ensure_loaded catches exceptions, logs an error, and returns None (lines 202-208)."""
+        dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
+
+        with patch.object(
+            dataset._lazy_frames[0],
+            "ensure_loaded",
+            side_effect=OSError("corrupted file"),
+        ):
+            import logging
+
+            with caplog.at_level(logging.ERROR):
+                result = dataset._ensure_loaded(0)
+
+        assert result is None
+        assert dataset._lazy_frames[0].is_loaded is True
+        assert dataset._lazy_frames[0].frame is None
+
+    def test_sample_with_both_n_and_ratio_uses_n(self, create_test_files: Path) -> None:
+        """Sample() with n provided alongside ratio uses n (else branch)."""
+        dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
+        # When n is provided (regardless of ratio), the else branch applies
+        sampled = dataset.sample(n=1, ratio=0.99, seed=0)
+        assert len(sampled) == 1
+
+    def test_resample_inner_none_frame(self, create_test_files: Path) -> None:
+        """Resample inner function returns None when frame is None (line 573)."""
+        dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
+        resampled = dataset.resample(target_sr=8000)
+        assert resampled._transform is not None
+        result = resampled._transform(None)
+        assert result is None
+
+    def test_trim_inner_none_frame(self, create_test_files: Path) -> None:
+        """Trim inner function returns None when frame is None (line 588)."""
+        dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
+        trimmed = dataset.trim(start=0.0, end=0.5)
+        assert trimmed._transform is not None
+        result = trimmed._transform(None)
+        assert result is None
+
+    def test_trim_inner_exception_returns_none(self, create_test_files: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Trim inner function catches exceptions and returns None (lines 591-593)."""
+        import logging
+
+        dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
+        trimmed = dataset.trim(start=0.0, end=0.5)
+        assert trimmed._transform is not None
+
+        class _RaisingFrame:
+            def trim(self, **kwargs):
+                raise ValueError("trim failed")
+
+        with caplog.at_level(logging.WARNING):
+            result = trimmed._transform(_RaisingFrame())
+        assert result is None
+
+    def test_normalize_inner_none_frame(self, create_test_files: Path) -> None:
+        """Normalize inner function returns None when frame is None (line 603)."""
+        dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
+        normalized = dataset.normalize()
+        assert normalized._transform is not None
+        result = normalized._transform(None)
+        assert result is None
+
+    def test_stft_inner_none_frame(self, create_test_files: Path) -> None:
+        """Stft inner function returns None when frame is None (line 625)."""
+        dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
+        stft_ds = dataset.stft()
+        assert stft_ds._transform is not None
+        result = stft_ds._transform(None)
+        assert result is None

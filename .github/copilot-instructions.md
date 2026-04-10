@@ -21,7 +21,7 @@ These instructions are for Wandas custom agents. For substantive implementation,
   - `uv run pytest -n auto --cov=wandas --cov-report=term-missing` (task: `Run pytest`) for repository test runs.
   - Use `tests/` as the source of truth for frame semantics, metadata rules, I/O contracts, and lazy behavior.
 - **Type checking / lint**:
-  - `uv run mypy --config-file=pyproject.toml` (task: `Run mypy wandas tests`).
+  - `uv run ty check wandas tests` (task: `Run ty (red-knot) check`).
   - `uv run ruff format wandas tests` (task: `Run ruff format`).
   - `uv run ruff check wandas tests --config=pyproject.toml -v` (task: `Run ruff check`) for non-mutating lint validation.
   - `uv run ruff check --fix wandas tests --config=pyproject.toml -v` (task: `Run ruff check --fix`) when automatic lint fixes are desired.

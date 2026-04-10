@@ -1,5 +1,5 @@
-import dask.array as da
 import numpy as np
+import pytest
 from dask.array.core import Array as DaArray
 
 from wandas.processing.base import create_operation, get_operation
@@ -10,357 +10,363 @@ from wandas.processing.stats import (
     Power,
     Sum,
 )
-from wandas.utils.types import NDArrayReal
+from wandas.utils.dask_helpers import da_from_array
 
-_da_from_array = da.from_array  # type: ignore [unused-ignore]
+_SR: int = 16000
 
 
 class TestABS:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 16000
-        self.abs_op = ABS(self.sample_rate)
+    """ABS operation: Layer 1 (unit) + Layer 2 (domain) + Layer 3 (numpy equivalence)."""
 
-        # Create test signal with positive and negative values
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        self.signal_mono: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t)])
-        self.signal_stereo: NDArrayReal = np.array(
-            [
-                np.sin(2 * np.pi * 440 * t),
-                np.sin(2 * np.pi * 440 * t + np.pi),  # phase-shifted by pi (negative)
-            ]
-        )
+    # -- Layer 1: Unit tests -----------------------------------------------
 
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
+    def test_abs_init_stores_sample_rate(self) -> None:
+        """Test ABS stores sampling rate."""
+        abs_op = ABS(_SR)
+        assert abs_op.sampling_rate == _SR
 
-    def test_initialization(self) -> None:
-        """Test initialization."""
-        abs_op = ABS(self.sample_rate)
-        assert abs_op.sampling_rate == self.sample_rate
+    def test_abs_registry_returns_correct_class(self) -> None:
+        """Test ABS is registered as 'abs'."""
+        assert get_operation("abs") == ABS
+        abs_op = create_operation("abs", _SR)
+        assert isinstance(abs_op, ABS)
 
-    def test_shape_preservation(self) -> None:
-        """Test that output shape matches input shape."""
-        result = self.abs_op.process(self.dask_mono).compute()
-        assert result.shape == self.signal_mono.shape
+    # -- Layer 2: Domain (shape + immutability) ----------------------------
 
-        result_stereo = self.abs_op.process(self.dask_stereo).compute()
-        assert result_stereo.shape == self.signal_stereo.shape
+    def test_abs_mono_preserves_shape_and_immutability(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
+        """Mono signal shape preserved; input unchanged."""
+        dask_input, sr = pure_sine_440hz_dask
+        abs_op = ABS(sr)
+        input_copy = dask_input.compute().copy()
 
-    def test_abs_values(self) -> None:
-        """Test that negative values become positive."""
-        result = self.abs_op.process(self.dask_stereo).compute()
+        # Act
+        result_da = abs_op.process(dask_input)
 
-        # All values should be non-negative
+        # Assert 1: Immutability
+        assert result_da is not dask_input
+        np.testing.assert_array_equal(dask_input.compute(), input_copy)
+
+        # Assert 2: Dask graph preserved
+        assert isinstance(result_da, DaArray)
+
+        # Assert 3: Shape
+        result = result_da.compute()
+        assert result.shape == input_copy.shape
+
+    def test_abs_stereo_preserves_shape(self, stereo_sine_440_880hz_dask: tuple[DaArray, int]) -> None:
+        """Stereo signal shape preserved."""
+        dask_input, sr = stereo_sine_440_880hz_dask
+        abs_op = ABS(sr)
+        result = abs_op.process(dask_input).compute()
+        assert result.shape == dask_input.compute().shape
+
+    # -- Layer 3: Integration (numpy equivalence) --------------------------
+
+    def test_abs_stereo_matches_numpy_abs(self, stereo_sine_440_880hz_dask: tuple[DaArray, int]) -> None:
+        """ABS result must exactly match np.abs (wrapper equivalence)."""
+        dask_input, sr = stereo_sine_440_880hz_dask
+        abs_op = ABS(sr)
+
+        result = abs_op.process(dask_input).compute()
+        raw = dask_input.compute()
+
+        # All values non-negative
         assert np.all(result >= 0)
 
-        # Verify that the content is the absolute value
-        np.testing.assert_allclose(result, np.abs(self.signal_stereo))
-
-    def test_operation_registry(self) -> None:
-        """Test that ABS is properly registered in the operation registry."""
-        assert get_operation("abs") == ABS
-
-        abs_op = create_operation("abs", self.sample_rate)
-        assert isinstance(abs_op, ABS)
-        assert abs_op.sampling_rate == self.sample_rate
+        # Exact match with numpy — same algorithm
+        np.testing.assert_allclose(result, np.abs(raw))
 
 
 class TestPowerOperation:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 16000
-        self.exponent: float = 2.0
-        self.power_op = Power(self.sample_rate, exponent=self.exponent)
+    """Power operation: Layer 1 (unit) + Layer 2 (domain) + Layer 3 (numpy equivalence)."""
 
-        # Create test signal
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        self.signal_mono: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t)])
-        self.signal_stereo: NDArrayReal = np.array(
-            [
-                np.sin(2 * np.pi * 440 * t),
-                np.sin(2 * np.pi * 880 * t) * 0.5,  # Half amplitude
-            ]
-        )
+    # -- Layer 1: Unit tests -----------------------------------------------
 
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
-
-    def test_initialization(self) -> None:
-        """Test initialization with different exponents."""
-        power_op = Power(self.sample_rate, exponent=3.0)
-        assert power_op.sampling_rate == self.sample_rate
+    def test_power_init_stores_exponent(self) -> None:
+        """Test Power stores custom exponent."""
+        power_op = Power(_SR, exponent=3.0)
+        assert power_op.sampling_rate == _SR
         assert power_op.exp == 3.0
 
-    def test_shape_preservation(self) -> None:
-        """Test that output shape matches input shape."""
-        result = self.power_op.process(self.dask_mono).compute()
-        assert result.shape == self.signal_mono.shape
+    def test_power_registry_returns_correct_class(self) -> None:
+        """Test Power is registered as 'power'."""
+        assert get_operation("power") == Power
+        power_op = create_operation("power", _SR, exponent=3.0)
+        assert isinstance(power_op, Power)
+        assert power_op.exp == 3.0
 
-        result_stereo = self.power_op.process(self.dask_stereo).compute()
-        assert result_stereo.shape == self.signal_stereo.shape
+    # -- Layer 2: Domain (shape + immutability) ----------------------------
 
-    def test_power_values(self) -> None:
-        """Test that values are raised to the correct power."""
-        result = self.power_op.process(self.dask_stereo).compute()
+    def test_power_mono_preserves_shape_and_immutability(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
+        """Mono signal shape preserved; input unchanged after power=2."""
+        dask_input, sr = pure_sine_440hz_dask
+        power_op = Power(sr, exponent=2.0)
+        input_copy = dask_input.compute().copy()
 
-        # Verify the result is correct
-        expected = np.power(self.signal_stereo, self.exponent)
+        # Act
+        result_da = power_op.process(dask_input)
+
+        # Assert 1: Immutability
+        assert result_da is not dask_input
+        np.testing.assert_array_equal(dask_input.compute(), input_copy)
+
+        # Assert 2: Dask graph preserved
+        assert isinstance(result_da, DaArray)
+
+        # Assert 3: Shape
+        result = result_da.compute()
+        assert result.shape == input_copy.shape
+
+    # -- Layer 3: Integration (numpy equivalence) --------------------------
+
+    def test_power_stereo_squared_matches_numpy(self, stereo_sine_440_880hz_dask: tuple[DaArray, int]) -> None:
+        """Power(2.0) must exactly match np.power(x, 2.0)."""
+        dask_input, sr = stereo_sine_440_880hz_dask
+        power_op = Power(sr, exponent=2.0)
+
+        result = power_op.process(dask_input).compute()
+        expected = np.power(dask_input.compute(), 2.0)
+        # Same algorithm, exact match expected
         np.testing.assert_allclose(result, expected)
 
-    def test_different_exponents(self) -> None:
-        """Test with different exponent values."""
-        # Test with fractional exponent
-        power_sqrt = Power(self.sample_rate, exponent=0.5)
-        result_sqrt = power_sqrt.process(self.dask_stereo).compute()
-        expected_sqrt = np.sqrt(self.signal_stereo)
-        np.testing.assert_allclose(result_sqrt, expected_sqrt)
+    @pytest.mark.filterwarnings("ignore:invalid value encountered in:RuntimeWarning")
+    def test_power_sqrt_matches_numpy(self, stereo_sine_440_880hz_dask: tuple[DaArray, int]) -> None:
+        """Power(0.5) must match np.sqrt for the same input (fractional exponent)."""
+        dask_input, sr = stereo_sine_440_880hz_dask
+        power_op = Power(sr, exponent=0.5)
 
-        # Test with negative exponent
-        power_recip = Power(self.sample_rate, exponent=-1.0)
-        # To avoid division by zero, use a signal with no zeros
-        nonzero_signal = np.array([[1.1, 2.2, 3.3], [4.4, 5.5, 6.6]])
-        nonzero_dask = _da_from_array(nonzero_signal, chunks=(1, -1))
-        result_recip = power_recip.process(nonzero_dask).compute()
-        expected_recip = 1.0 / nonzero_signal
-        np.testing.assert_allclose(result_recip, expected_recip)
+        result = power_op.process(dask_input).compute()
+        expected = np.sqrt(dask_input.compute())
+        # sqrt of negative values yields NaN — same behavior expected
+        np.testing.assert_allclose(result, expected)
 
-    def test_operation_registry(self) -> None:
-        """Test that Power is properly registered in the operation registry."""
-        assert get_operation("power") == Power
+    def test_power_reciprocal_matches_numpy(self) -> None:
+        """Power(-1.0) must match 1/x for nonzero input."""
+        nonzero = np.array([[1.1, 2.2, 3.3], [4.4, 5.5, 6.6]])
+        dask_input = da_from_array(nonzero, chunks=(1, -1))
+        power_op = Power(_SR, exponent=-1.0)
 
-        power_op = create_operation("power", self.sample_rate, exponent=3.0)
-        assert isinstance(power_op, Power)
-        assert power_op.sampling_rate == self.sample_rate
-        assert power_op.exp == 3.0
+        result_da = power_op.process(dask_input)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
+        expected = 1.0 / nonzero
+        # Same algorithm, exact match expected
+        np.testing.assert_allclose(result, expected)
 
 
 class TestSum:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 16000
-        self.sum_op = Sum(self.sample_rate)
+    """Sum operation: Layer 1 (unit) + Layer 2 (domain) + Layer 3 (numpy equivalence)."""
 
-        # Create test multi-channel signals
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        self.signal_mono: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t)])
-        self.signal_stereo: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t), np.sin(2 * np.pi * 880 * t) * 0.5])
-        self.signal_quad: NDArrayReal = np.array(
-            [
-                np.sin(2 * np.pi * 440 * t),
-                np.sin(2 * np.pi * 880 * t) * 0.5,
-                np.sin(2 * np.pi * 1320 * t) * 0.25,
-                np.sin(2 * np.pi * 1760 * t) * 0.125,
-            ]
-        )
+    # -- Layer 1: Unit tests -----------------------------------------------
 
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
-        self.dask_quad: DaArray = _da_from_array(self.signal_quad, chunks=(1, -1))
+    def test_sum_init_stores_sample_rate(self) -> None:
+        """Test Sum stores sampling rate."""
+        sum_op = Sum(_SR)
+        assert sum_op.sampling_rate == _SR
 
-    def test_initialization(self) -> None:
-        """Test initialization."""
-        sum_op = Sum(self.sample_rate)
-        assert sum_op.sampling_rate == self.sample_rate
-
-    def test_shape_change(self) -> None:
-        """Test that output has the expected shape (1, samples)."""
-        # Mono input should remain same shape
-        result_mono = self.sum_op.process(self.dask_mono).compute()
-        assert result_mono.shape == self.signal_mono.shape
-
-        # Multi-channel input should be summed to mono
-        result_stereo = self.sum_op.process(self.dask_stereo).compute()
-        assert result_stereo.shape == (1, self.signal_stereo.shape[1])
-
-        result_quad = self.sum_op.process(self.dask_quad).compute()
-        assert result_quad.shape == (1, self.signal_quad.shape[1])
-
-    def test_sum_values(self) -> None:
-        """Test that channels are properly summed."""
-        # For mono, output should be identical to input
-        result_mono = self.sum_op.process(self.dask_mono).compute()
-        np.testing.assert_allclose(result_mono, self.signal_mono)
-
-        # For multi-channel, output should be sum of channels
-        result_stereo = self.sum_op.process(self.dask_stereo).compute()
-        expected_stereo = np.sum(self.signal_stereo, axis=0, keepdims=True)
-        np.testing.assert_allclose(result_stereo, expected_stereo)
-
-        result_quad = self.sum_op.process(self.dask_quad).compute()
-        expected_quad = np.sum(self.signal_quad, axis=0, keepdims=True)
-        np.testing.assert_allclose(result_quad, expected_quad)
-
-    def test_operation_registry(self) -> None:
-        """Test that Sum is properly registered in the operation registry."""
+    def test_sum_registry_returns_correct_class(self) -> None:
+        """Test Sum is registered as 'sum'."""
         assert get_operation("sum") == Sum
-
-        sum_op = create_operation("sum", self.sample_rate)
+        sum_op = create_operation("sum", _SR)
         assert isinstance(sum_op, Sum)
-        assert sum_op.sampling_rate == self.sample_rate
+
+    # -- Layer 2: Domain (shape reduction + immutability) -------------------
+
+    def test_sum_mono_identity_and_immutability(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
+        """Mono summed with itself should be identity; input unchanged."""
+        dask_input, sr = pure_sine_440hz_dask
+        sum_op = Sum(sr)
+        input_copy = dask_input.compute().copy()
+
+        # Act
+        result_da = sum_op.process(dask_input)
+
+        # Assert 1: Immutability
+        assert result_da is not dask_input
+        np.testing.assert_array_equal(dask_input.compute(), input_copy)
+
+        # Assert 2: Dask graph preserved
+        assert isinstance(result_da, DaArray)
+
+        # Assert 3: Mono identity
+        result = result_da.compute()
+        assert result.shape == input_copy.shape
+        np.testing.assert_allclose(result, input_copy)  # Same algorithm, exact match
+
+    def test_sum_stereo_reduces_to_mono(self, stereo_sine_440_880hz_dask: tuple[DaArray, int]) -> None:
+        """Stereo signal summed to (1, samples)."""
+        dask_input, sr = stereo_sine_440_880hz_dask
+        sum_op = Sum(sr)
+        raw = dask_input.compute()
+
+        result = sum_op.process(dask_input).compute()
+        assert result.shape == (1, raw.shape[1])
+
+    # -- Layer 3: Integration (numpy equivalence) --------------------------
+
+    def test_sum_multichannel_matches_numpy_sum(self, stereo_sine_440_880hz_dask: tuple[DaArray, int]) -> None:
+        """Sum must match np.sum(axis=0, keepdims=True)."""
+        dask_input, sr = stereo_sine_440_880hz_dask
+        sum_op = Sum(sr)
+
+        result = sum_op.process(dask_input).compute()
+        expected = np.sum(dask_input.compute(), axis=0, keepdims=True)
+        np.testing.assert_allclose(result, expected)  # Same algorithm, exact match
 
 
 class TestMean:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 16000
-        self.mean_op = Mean(self.sample_rate)
+    """Mean operation: Layer 1 (unit) + Layer 2 (domain) + Layer 3 (numpy equivalence)."""
 
-        # Create test multi-channel signals
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        self.signal_mono: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t)])
-        self.signal_stereo: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t), np.sin(2 * np.pi * 880 * t) * 0.5])
-        self.signal_quad: NDArrayReal = np.array(
-            [
-                np.sin(2 * np.pi * 440 * t),
-                np.sin(2 * np.pi * 880 * t) * 0.5,
-                np.sin(2 * np.pi * 1320 * t) * 0.25,
-                np.sin(2 * np.pi * 1760 * t) * 0.125,
-            ]
-        )
+    # -- Layer 1: Unit tests -----------------------------------------------
 
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
-        self.dask_quad: DaArray = _da_from_array(self.signal_quad, chunks=(1, -1))
+    def test_mean_init_stores_sample_rate(self) -> None:
+        """Test Mean stores sampling rate."""
+        mean_op = Mean(_SR)
+        assert mean_op.sampling_rate == _SR
 
-    def test_initialization(self) -> None:
-        """Test initialization."""
-        mean_op = Mean(self.sample_rate)
-        assert mean_op.sampling_rate == self.sample_rate
-
-    def test_shape_change(self) -> None:
-        """Test that output has the expected shape (1, samples)."""
-        # Mono input should remain same shape
-        result_mono = self.mean_op.process(self.dask_mono).compute()
-        assert result_mono.shape == self.signal_mono.shape
-
-        # Multi-channel input should be averaged to mono
-        result_stereo = self.mean_op.process(self.dask_stereo).compute()
-        assert result_stereo.shape == (1, self.signal_stereo.shape[1])
-
-        result_quad = self.mean_op.process(self.dask_quad).compute()
-        assert result_quad.shape == (1, self.signal_quad.shape[1])
-
-    def test_mean_values(self) -> None:
-        """Test that channels are properly averaged."""
-        # For mono, output should be identical to input
-        result_mono = self.mean_op.process(self.dask_mono).compute()
-        np.testing.assert_allclose(result_mono, self.signal_mono)
-
-        # For multi-channel, output should be mean of channels
-        result_stereo = self.mean_op.process(self.dask_stereo).compute()
-        expected_stereo = self.signal_stereo.mean(axis=0, keepdims=True)
-
-        np.testing.assert_allclose(result_stereo, expected_stereo)
-
-        result_quad = self.mean_op.process(self.dask_quad).compute()
-        expected_quad = self.dask_quad.mean(axis=0, keepdims=True)
-
-        np.testing.assert_allclose(result_quad, expected_quad)
-
-    def test_operation_registry(self) -> None:
-        """Test that Mean is properly registered in the operation registry."""
+    def test_mean_registry_returns_correct_class(self) -> None:
+        """Test Mean is registered as 'mean'."""
         assert get_operation("mean") == Mean
-
-        mean_op = create_operation("mean", self.sample_rate)
+        mean_op = create_operation("mean", _SR)
         assert isinstance(mean_op, Mean)
-        assert mean_op.sampling_rate == self.sample_rate
+
+    # -- Layer 2: Domain (shape + immutability) ----------------------------
+
+    def test_mean_mono_identity_and_immutability(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
+        """Mono mean is identity; input unchanged."""
+        dask_input, sr = pure_sine_440hz_dask
+        mean_op = Mean(sr)
+        input_copy = dask_input.compute().copy()
+
+        # Act
+        result_da = mean_op.process(dask_input)
+
+        # Assert 1: Immutability
+        assert result_da is not dask_input
+        np.testing.assert_array_equal(dask_input.compute(), input_copy)
+
+        # Assert 2: Dask graph preserved
+        assert isinstance(result_da, DaArray)
+
+        # Assert 3: Mono identity
+        result = result_da.compute()
+        assert result.shape == input_copy.shape
+        np.testing.assert_allclose(result, input_copy)
+
+    def test_mean_stereo_reduces_to_mono(self, stereo_sine_440_880hz_dask: tuple[DaArray, int]) -> None:
+        """Stereo mean reduces to (1, samples)."""
+        dask_input, sr = stereo_sine_440_880hz_dask
+        mean_op = Mean(sr)
+        raw = dask_input.compute()
+
+        result = mean_op.process(dask_input).compute()
+        assert result.shape == (1, raw.shape[1])
+
+    # -- Layer 3: Integration (numpy equivalence) --------------------------
+
+    def test_mean_multichannel_matches_numpy_mean(self, stereo_sine_440_880hz_dask: tuple[DaArray, int]) -> None:
+        """Mean must match np.mean(axis=0, keepdims=True)."""
+        dask_input, sr = stereo_sine_440_880hz_dask
+        mean_op = Mean(sr)
+
+        result = mean_op.process(dask_input).compute()
+        expected = dask_input.compute().mean(axis=0, keepdims=True)
+        np.testing.assert_allclose(result, expected)  # Same algorithm, exact match
 
 
 class TestChannelDifference:
-    def setup_method(self) -> None:
-        """Set up test fixtures for each test."""
-        self.sample_rate: int = 16000
-        self.other_channel: int = 0
-        self.diff_op = ChannelDifference(self.sample_rate, other_channel=self.other_channel)
+    """ChannelDifference operation: Layer 1 + Layer 2 + Layer 3."""
 
-        # Create test multi-channel signals
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        self.signal_mono: NDArrayReal = np.array([np.sin(2 * np.pi * 440 * t)])
-        self.signal_stereo: NDArrayReal = np.array(
-            [
-                np.sin(2 * np.pi * 440 * t),
-                np.sin(2 * np.pi * 440 * t) * 0.5 + 0.1,  # Different amplitude and DC offset
-            ]
-        )
-        self.signal_quad: NDArrayReal = np.array(
-            [
-                np.ones(self.sample_rate),  # Reference channel (all ones)
-                np.zeros(self.sample_rate),  # All zeros
-                np.ones(self.sample_rate) * 2,  # All twos
-                np.ones(self.sample_rate) * -1,  # All negative ones
-            ]
-        )
+    # -- Layer 1: Unit tests -----------------------------------------------
 
-        self.dask_mono: DaArray = _da_from_array(self.signal_mono, chunks=(1, -1))
-        self.dask_stereo: DaArray = _da_from_array(self.signal_stereo, chunks=(1, -1))
-        self.dask_quad: DaArray = _da_from_array(self.signal_quad, chunks=(1, -1))
-
-    def test_initialization(self) -> None:
-        """Test initialization with different reference channels."""
-        diff_op = ChannelDifference(self.sample_rate, other_channel=1)
-        assert diff_op.sampling_rate == self.sample_rate
+    def test_channel_diff_init_stores_reference_channel(self) -> None:
+        """Test ChannelDifference stores other_channel."""
+        diff_op = ChannelDifference(_SR, other_channel=1)
+        assert diff_op.sampling_rate == _SR
         assert diff_op.other_channel == 1
 
-    def test_shape_preservation(self) -> None:
-        """Test that output shape matches input shape."""
-        result = self.diff_op.process(self.dask_stereo).compute()
-        assert result.shape == self.signal_stereo.shape
-
-        result_quad = self.diff_op.process(self.dask_quad).compute()
-        assert result_quad.shape == self.signal_quad.shape
-
-    def test_difference_values(self) -> None:
-        """Test that channel differences are correctly calculated."""
-        result = self.diff_op.process(self.dask_stereo).compute()
-
-        # Difference with reference channel (channel 0)
-        expected = self.signal_stereo - self.signal_stereo[self.other_channel]
-        np.testing.assert_allclose(result, expected)
-
-        # First channel (diff with itself) should be zeros
-        np.testing.assert_allclose(result[0], np.zeros_like(result[0]))
-
-        # Test with quad-channel signal
-        result_quad = self.diff_op.process(self.dask_quad).compute()
-        expected_quad = self.signal_quad - self.signal_quad[self.other_channel]
-        np.testing.assert_allclose(result_quad, expected_quad)
-
-        # With reference channel 0 (all ones), the differences should be:
-        # Channel 0: All zeros (1-1)
-        # Channel 1: All negative ones (0-1)
-        # Channel 2: All ones (2-1)
-        # Channel 3: All negative twos (-1-1)
-        np.testing.assert_allclose(result_quad[0], np.zeros_like(result_quad[0]))
-        np.testing.assert_allclose(result_quad[1], -np.ones_like(result_quad[1]))
-        np.testing.assert_allclose(result_quad[2], np.ones_like(result_quad[2]))
-        np.testing.assert_allclose(result_quad[3], -2 * np.ones_like(result_quad[3]))
-
-    def test_different_reference_channel(self) -> None:
-        """Test with a different reference channel."""
-        diff_op2 = ChannelDifference(self.sample_rate, other_channel=2)
-        result = diff_op2.process(self.dask_quad).compute()
-
-        # With reference channel 2 (all twos), the differences should be:
-        # Channel 0: All negative ones (1-2)
-        # Channel 1: All negative twos (0-2)
-        # Channel 2: All zeros (2-2)
-        # Channel 3: All negative threes (-1-2)
-        expected = self.signal_quad - self.signal_quad[2]
-        np.testing.assert_allclose(result, expected)
-
-        np.testing.assert_allclose(result[0], -np.ones_like(result[0]))
-        np.testing.assert_allclose(result[1], -2 * np.ones_like(result[1]))
-        np.testing.assert_allclose(result[2], np.zeros_like(result[2]))
-        np.testing.assert_allclose(result[3], -3 * np.ones_like(result[3]))
-
-    def test_operation_registry(self) -> None:
-        """
-        Test that ChannelDifference is properly registered in the operation registry.
-        """
+    def test_channel_diff_registry_returns_correct_class(self) -> None:
+        """Test ChannelDifference is registered as 'channel_difference'."""
         assert get_operation("channel_difference") == ChannelDifference
-
-        diff_op = create_operation("channel_difference", self.sample_rate, other_channel=1)
+        diff_op = create_operation("channel_difference", _SR, other_channel=1)
         assert isinstance(diff_op, ChannelDifference)
-        assert diff_op.sampling_rate == self.sample_rate
         assert diff_op.other_channel == 1
+
+    # -- Layer 2: Domain (shape + immutability) ----------------------------
+
+    def test_channel_diff_stereo_preserves_shape_and_immutability(
+        self, stereo_sine_440_880hz_dask: tuple[DaArray, int]
+    ) -> None:
+        """Stereo difference preserves shape; input unchanged."""
+        dask_input, sr = stereo_sine_440_880hz_dask
+        diff_op = ChannelDifference(sr, other_channel=0)
+        input_copy = dask_input.compute().copy()
+
+        # Act
+        result_da = diff_op.process(dask_input)
+
+        # Assert 1: Immutability
+        assert result_da is not dask_input
+        np.testing.assert_array_equal(dask_input.compute(), input_copy)
+
+        # Assert 2: Dask graph preserved
+        assert isinstance(result_da, DaArray)
+
+        # Assert 3: Shape
+        result = result_da.compute()
+        assert result.shape == input_copy.shape
+
+    # -- Layer 3: Integration (numpy equivalence) --------------------------
+
+    def test_channel_diff_quad_ref0_matches_numpy_broadcast(self) -> None:
+        """ChannelDifference(ref=0) must match manual subtraction.
+
+        Quad-channel: [ones, zeros, twos, neg-ones].
+        Expected diffs: [0, -1, 1, -2].
+        """
+        quad = np.array(
+            [
+                np.ones(_SR),  # ch0: reference
+                np.zeros(_SR),  # ch1
+                np.ones(_SR) * 2,  # ch2
+                np.ones(_SR) * -1,  # ch3
+            ]
+        )
+        dask_input = da_from_array(quad, chunks=(1, -1))
+        diff_op = ChannelDifference(_SR, other_channel=0)
+
+        result_da = diff_op.process(dask_input)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
+        expected = quad - quad[0]
+        np.testing.assert_allclose(result, expected)  # Same algorithm, exact match
+
+        # Spot-check specific channels for clarity
+        np.testing.assert_allclose(result[0], np.zeros(_SR))  # 1 - 1 = 0
+        np.testing.assert_allclose(result[1], -np.ones(_SR))  # 0 - 1 = -1
+        np.testing.assert_allclose(result[2], np.ones(_SR))  # 2 - 1 = 1
+        np.testing.assert_allclose(result[3], -2 * np.ones(_SR))  # -1 - 1 = -2
+
+    def test_channel_diff_quad_ref2_matches_numpy_broadcast(self) -> None:
+        """ChannelDifference(ref=2) with same quad signal."""
+        quad = np.array(
+            [
+                np.ones(_SR),
+                np.zeros(_SR),
+                np.ones(_SR) * 2,
+                np.ones(_SR) * -1,
+            ]
+        )
+        dask_input = da_from_array(quad, chunks=(1, -1))
+        diff_op = ChannelDifference(_SR, other_channel=2)
+
+        result_da = diff_op.process(dask_input)
+        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
+        result = result_da.compute()
+        expected = quad - quad[2]
+        np.testing.assert_allclose(result, expected)
+
+        np.testing.assert_allclose(result[0], -np.ones(_SR))  # 1 - 2 = -1
+        np.testing.assert_allclose(result[1], -2 * np.ones(_SR))  # 0 - 2 = -2
+        np.testing.assert_allclose(result[2], np.zeros(_SR))  # 2 - 2 = 0
+        np.testing.assert_allclose(result[3], -3 * np.ones(_SR))  # -1 - 2 = -3

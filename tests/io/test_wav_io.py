@@ -1,8 +1,10 @@
 # tests/io/test_wav_io.py
 import io
-import os
+from contextlib import contextmanager
+from typing import BinaryIO, cast
 from unittest.mock import MagicMock, patch
 
+import dask.array
 import numpy as np
 import pytest
 from scipy.io import wavfile
@@ -11,280 +13,236 @@ from wandas.frames.channel import ChannelFrame
 from wandas.io import write_wav
 
 
-@pytest.fixture  # type: ignore [misc, unused-ignore]
-def create_test_wav(tmpdir: str) -> str:
+def _make_wav_bytes(sr: int, data: np.ndarray) -> bytes:
+    """Create in-memory WAV bytes from sample data (samples x channels)."""
+    buf = io.BytesIO()
+    wavfile.write(buf, sr, data)
+    return buf.getvalue()
+
+
+@contextmanager
+def _mock_urlopen(wav_bytes: bytes):
+    """Context manager that mocks urllib.request.urlopen to return wav_bytes."""
+    mock_resp = MagicMock()
+    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+    mock_resp.__exit__ = MagicMock(return_value=False)
+    mock_resp.read = MagicMock(return_value=wav_bytes)
+    with patch("urllib.request.urlopen", return_value=mock_resp) as mock_fn:
+        yield mock_fn
+
+
+def test_read_wav_lazy_loading(create_test_wav) -> None:
+    """Verify WAV load produces a Dask array (Pillar 1: lazy evaluation).
+
+    After loading a WAV file, cf._data must be a dask.array.core.Array
+    instance, confirming data is not eagerly loaded into memory.
     """
-    テスト用の一時的な WAV ファイルを作成するフィクスチャ。
-    テスト後に自動で削除されます。
+    wav_path = create_test_wav(sr=16000, n_channels=2, n_samples=1600)
+    cf = ChannelFrame.read_wav(str(wav_path))
+    assert isinstance(cf._data, dask.array.core.Array), f"Expected Dask array after WAV load, got {type(cf._data)}"
+
+
+def test_wav_float_roundtrip(known_signal_frame, tmp_path) -> None:
+    """Float WAV round-trip: write -> read -> compare (I/O Policy requirement).
+
+    ChannelFrame.to_wav writes IEEE FLOAT when max(abs(data)) <= 1.
+    Reading back with normalize=True should recover data within atol=1e-6
+    (windowing/format conversion tolerance).
     """
-    # 一時ディレクトリに WAV ファイルを作成
-    filename = os.path.join(tmpdir, "test_file.wav")
+    wav_path = tmp_path / "float_roundtrip.wav"
+    # Capture original data before write to verify immutability (Pillar 1)
+    original_data = known_signal_frame.compute().copy()
+    known_signal_frame.to_wav(str(wav_path))
 
-    # サンプルデータを作成
-    sampling_rate = 44100
-    duration = 1.0  # 1秒
+    # Verify original frame is unchanged after write (Pillar 1: side-effect free)
+    np.testing.assert_array_equal(
+        known_signal_frame.compute(), original_data, err_msg="to_wav must not mutate original frame data"
+    )
 
-    # 左右に振幅差をつけた直流データを生成
-    data_left = np.ones(int(sampling_rate * duration)) * 0.5  # 左チャンネル (直流信号、振幅0.5)
-    data_right = np.ones(int(sampling_rate * duration))  # 右チャンネル (直流信号、振幅1.0)
+    loaded = ChannelFrame.read_wav(str(wav_path), normalize=True)
 
+    assert loaded.sampling_rate == known_signal_frame.sampling_rate
+    assert loaded.n_channels == known_signal_frame.n_channels
+    # Float WAV preserves data with high fidelity (atol=1e-6 for format conversion)
+    np.testing.assert_allclose(
+        loaded.compute(),
+        known_signal_frame.compute(),
+        atol=1e-6,
+        err_msg="Float WAV round-trip data mismatch",
+    )
+
+
+def test_read_wav_stereo_dc_signal(tmp_path) -> None:
+    """Test reading a stereo WAV with known DC signals.
+
+    Writes float64 DC signals (0.5 left, 1.0 right) via scipy and reads back
+    via ChannelFrame.read_wav. Verifies channel count, sampling rate, and
+    data values against the analytically known DC levels.
+    """
+    filepath = tmp_path / "stereo_dc.wav"
+    sr = 44100
+    n_samples = sr  # 1 second
+    data_left = np.full(n_samples, 0.5)
+    data_right = np.full(n_samples, 1.0)
     stereo_data = np.column_stack((data_left, data_right))
+    wavfile.write(str(filepath), sr, stereo_data)
 
-    # WAV ファイルを書き出し
-    wavfile.write(filename, sampling_rate, stereo_data)
+    cf = ChannelFrame.read_wav(str(filepath))
 
-    return filename
-
-
-def test_read_wav(create_test_wav: str) -> None:
-    # テスト用の WAV ファイルを読み込む
-    signal = ChannelFrame.read_wav(create_test_wav)
-
-    # チャンネル数の確認
-    assert len(signal) == 2
-
-    # サンプリングレートの確認
-    assert signal.sampling_rate == 44100
-
-    # チャンネルデータの確認 - 新しいAPIに合わせて変更
-    computed_data = signal.compute()
-    assert np.allclose(computed_data[0], 0.5)
-    assert np.allclose(computed_data[1], 1.0)
+    assert len(cf) == 2
+    assert cf.sampling_rate == sr
+    # Verify Dask lazy loading (Pillar 1)
+    assert isinstance(cf._data, dask.array.core.Array), "WAV load must produce Dask array"
+    computed = cf.compute()
+    # DC signal values must be preserved exactly through float64 WAV round-trip
+    np.testing.assert_allclose(computed[0], 0.5, rtol=1e-7, err_msg="Left channel DC level mismatch")
+    np.testing.assert_allclose(computed[1], 1.0, rtol=1e-7, err_msg="Right channel DC level mismatch")
 
 
-@pytest.fixture  # type: ignore [misc, unused-ignore]
-def create_stereo_wav(tmpdir: str) -> str:
-    """
-    Create a temporary stereo WAV file for testing.
-    """
-    filepath = os.path.join(tmpdir, "stereo_test.wav")
-    sampling_rate = 44100
-    duration = 1.0  # seconds
-    num_samples = int(sampling_rate * duration)
-    # Create left and right channels
-    data_left = np.full(num_samples, 0.5)
-    data_right = np.full(num_samples, 1.0)
+def test_read_wav_stereo_channel_count(create_test_wav) -> None:
+    """Test that a stereo WAV file produces n_channels == 2."""
+    wav_path = create_test_wav(sr=44100, n_channels=2, n_samples=4410)
+    cf = ChannelFrame.read_wav(str(wav_path))
+    assert len(cf) == 2, f"Expected 2 channels, got {len(cf)}"
+    assert cf.sampling_rate == 44100, f"SR mismatch: {cf.sampling_rate}"
+
+
+def test_read_wav_mono_channel_count(create_test_wav) -> None:
+    """Test that a mono WAV file produces n_channels == 1."""
+    wav_path = create_test_wav(sr=22050, n_channels=1, n_samples=2205)
+    cf = ChannelFrame.read_wav(str(wav_path))
+    assert len(cf) == 1, f"Expected 1 channel, got {len(cf)}"
+    assert cf.sampling_rate == 22050, f"SR mismatch: {cf.sampling_rate}"
+
+
+def test_read_wav_custom_labels_propagated(tmp_path) -> None:
+    """Test that user-provided labels are correctly assigned to channels (Pillar 2)."""
+    filepath = tmp_path / "stereo_label_test.wav"
+    sr = 48000
+    n_samples = sr  # 1 second
+    data_left = np.full(n_samples, 0.3)
+    data_right = np.full(n_samples, 0.8)
     stereo_data = np.column_stack((data_left, data_right))
-    wavfile.write(filepath, sampling_rate, stereo_data)
-    return filepath
-
-
-@pytest.fixture  # type: ignore [misc, unused-ignore]
-def create_mono_wav(tmpdir: str) -> str:
-    """
-    Create a temporary mono WAV file for testing.
-    """
-    filepath = os.path.join(tmpdir, "mono_test.wav")
-    sampling_rate = 22050
-    duration = 1.0  # seconds
-    num_samples = int(sampling_rate * duration)
-    # Create mono channel data
-    mono_data = np.full(num_samples, 0.75)
-    wavfile.write(filepath, sampling_rate, mono_data)
-    return filepath
-
-
-def test_read_wav_default(create_stereo_wav: str) -> None:
-    """
-    Test reading a default stereo WAV file without specifying labels.
-    """
-    channel_frame = ChannelFrame.read_wav(create_stereo_wav)
-    # Assert two channels are present
-    assert len(channel_frame) == 2
-    # Assert sampling rate
-    assert channel_frame.sampling_rate == 44100
-    # Assert channel data: each channel should be an array with constant values.
-    # Since data is written as full arrays, test the first value in each channel.
-    computed_data = channel_frame.compute()
-    np.testing.assert_allclose(computed_data[0][0], 0.5, rtol=1e-5)
-    np.testing.assert_allclose(computed_data[1][0], 1.0, rtol=1e-5)
-
-
-def test_read_wav_mono(create_mono_wav: str) -> None:
-    """
-    Test reading a mono WAV file.
-    """
-    channel_frame = ChannelFrame.read_wav(create_mono_wav)
-    # Assert one channel is present
-    assert len(channel_frame) == 1
-    # Assert sampling rate
-    assert channel_frame.sampling_rate == 22050
-    # Check that the mono channel data is as expected
-    computed_data = channel_frame.compute()
-    np.testing.assert_allclose(computed_data[0][0], 0.75, rtol=1e-5)
-
-
-def test_read_wav_with_labels(tmpdir: str) -> None:
-    """
-    Test reading a stereo WAV file and verifying provided labels are used.
-    """
-    filepath = os.path.join(tmpdir, "stereo_label_test.wav")
-    sampling_rate = 48000
-    duration = 1.0  # seconds
-    num_samples = int(sampling_rate * duration)
-    # Create stereo data
-    data_left = np.full(num_samples, 0.3)
-    data_right = np.full(num_samples, 0.8)
-    stereo_data = np.column_stack((data_left, data_right))
-    wavfile.write(filepath, sampling_rate, stereo_data)
+    wavfile.write(str(filepath), sr, stereo_data)
 
     labels = ["Left Channel", "Right Channel"]
-    channel_frame = ChannelFrame.read_wav(filepath, labels=labels)
-    # Assert labels are set correctly
-    assert channel_frame.channels[0].label == "Left Channel"
-    assert channel_frame.channels[1].label == "Right Channel"
+    cf = ChannelFrame.read_wav(str(filepath), labels=labels)
+    assert cf.channels[0].label == "Left Channel", f"Label mismatch: {cf.channels[0].label}"
+    assert cf.channels[1].label == "Right Channel", f"Label mismatch: {cf.channels[1].label}"
 
 
-def test_read_wav_bytes() -> None:
+def test_read_wav_bytes_dc_signal() -> None:
+    """Test reading a WAV from in-memory bytes with known DC signal.
+
+    Uses float32 DC signals to verify byte-based read path preserves
+    sample values. rtol=1e-5 for float32 precision tolerance.
     """
-    Test reading a WAV file from in-memory bytes.
-    """
-    sampling_rate = 32000
-    duration = 0.1
-    num_samples = int(sampling_rate * duration)
-    data_left = np.full(num_samples, 0.25, dtype=np.float32)
-    data_right = np.full(num_samples, 0.75, dtype=np.float32)
+    sr = 32000
+    n_samples = 3200  # 0.1 seconds
+    data_left = np.full(n_samples, 0.25, dtype=np.float32)
+    data_right = np.full(n_samples, 0.75, dtype=np.float32)
     stereo_data = np.column_stack((data_left, data_right))
+    wav_bytes = _make_wav_bytes(sr, stereo_data)
 
-    wav_buffer = io.BytesIO()
-    wavfile.write(wav_buffer, sampling_rate, stereo_data)
-    wav_bytes = wav_buffer.getvalue()
+    cf = ChannelFrame.read_wav(wav_bytes)
 
-    channel_frame = ChannelFrame.read_wav(wav_bytes)
-
-    assert channel_frame.sampling_rate == sampling_rate
-    assert len(channel_frame) == 2
-    computed_data = channel_frame.compute()
-    np.testing.assert_allclose(computed_data[0], data_left, rtol=1e-5)
-    np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)
+    assert cf.sampling_rate == sr, f"SR mismatch: {cf.sampling_rate}"
+    assert len(cf) == 2, f"Expected 2 channels, got {len(cf)}"
+    computed = cf.compute()
+    # Float32 DC signal: rtol=1e-5 accounts for float32 precision
+    np.testing.assert_allclose(computed[0], data_left, rtol=1e-5)
+    np.testing.assert_allclose(computed[1], data_right, rtol=1e-5)
 
 
-def test_read_wav_from_url() -> None:
-    """
-    Test reading a WAV file from a URL via ChannelFrame.read_wav.
+def test_read_wav_from_url_via_requests_mock() -> None:
+    """Test reading WAV bytes obtained from a mocked HTTP response.
 
-    Downloads the WAV content (mocked here) and passes the bytes to
-    ChannelFrame.read_wav, which is the expected usage pattern when
-    loading from a URL.
+    Simulates downloading WAV content via requests.get and passing bytes
+    to ChannelFrame.read_wav. Verifies all sample values, not just [0].
     """
     url = "https://example.com/test.wav"
-
-    sampling_rate = 44100
-    duration = 0.1  # 0.1 seconds to keep it small
-    num_samples = int(sampling_rate * duration)
-    data_left = np.full(num_samples, 0.5)
-    data_right = np.full(num_samples, 1.0)
+    sr = 44100
+    n_samples = 4410  # 0.1 seconds
+    data_left = np.full(n_samples, 0.5, dtype=np.float32)
+    data_right = np.full(n_samples, 1.0, dtype=np.float32)
     stereo_data = np.column_stack((data_left, data_right))
+    wav_bytes = _make_wav_bytes(sr, stereo_data)
 
-    wav_buffer = io.BytesIO()
-    wavfile.write(wav_buffer, sampling_rate, stereo_data)
-    wav_bytes = wav_buffer.getvalue()
-
-    # Simulate downloading the URL content then reading via ChannelFrame.read_wav
     mock_response = MagicMock()
     mock_response.content = wav_bytes
     with patch("requests.get", return_value=mock_response) as mock_get:
         import requests
 
         response = requests.get(url)
-        channel_frame = ChannelFrame.read_wav(response.content)
+        cf = ChannelFrame.read_wav(response.content)
 
     mock_get.assert_called_once_with(url)
-    assert len(channel_frame) == 2
-    assert channel_frame.sampling_rate == 44100
-    computed_data = channel_frame.compute()
-    np.testing.assert_allclose(computed_data[0][0], 0.5, rtol=1e-5)
-    np.testing.assert_allclose(computed_data[1][0], 1.0, rtol=1e-5)
+    assert len(cf) == 2, f"Expected 2 channels, got {len(cf)}"
+    assert cf.sampling_rate == sr, f"SR mismatch: {cf.sampling_rate}"
+    computed = cf.compute()
+    # Verify all samples, not just first element (rtol=1e-5 for float32)
+    np.testing.assert_allclose(computed[0], data_left, rtol=1e-5)
+    np.testing.assert_allclose(computed[1], data_right, rtol=1e-5)
 
 
 def test_from_file_url_wav() -> None:
-    """
-    Test that ChannelFrame.from_file transparently downloads a WAV URL.
+    """Test from_file with HTTPS WAV URL: data, SR, provenance metadata (Pillar 2).
 
-    urllib.request.urlopen is mocked so no real network call is made.
-    The test verifies that:
-    - The URL is passed to urlopen
-    - The returned bytes are read as a WAV ChannelFrame
-    - Sampling rate and channel data are correct
+    Verifies urlopen is called, data matches, and source_file/label are set.
     """
     url = "https://example.com/audio/sample.wav"
-
-    sampling_rate = 22050
-    num_samples = 100
-    data_left = np.full(num_samples, 0.3, dtype=np.float32)
-    data_right = np.full(num_samples, 0.7, dtype=np.float32)
+    sr = 22050
+    n_samples = 100
+    data_left = np.full(n_samples, 0.3, dtype=np.float32)
+    data_right = np.full(n_samples, 0.7, dtype=np.float32)
     stereo_data = np.column_stack((data_left, data_right))
+    wav_bytes = _make_wav_bytes(sr, stereo_data)
 
-    wav_buffer = io.BytesIO()
-    wavfile.write(wav_buffer, sampling_rate, stereo_data)
-    wav_bytes = wav_buffer.getvalue()
+    with _mock_urlopen(wav_bytes) as mock_fn:
+        cf = ChannelFrame.from_file(url)
 
-    # Build a mock response context manager that returns the WAV bytes
-    mock_resp = MagicMock()
-    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-    mock_resp.__exit__ = MagicMock(return_value=False)
-    mock_resp.read = MagicMock(return_value=wav_bytes)
-
-    with patch("urllib.request.urlopen", return_value=mock_resp) as mock_urlopen:
-        channel_frame = ChannelFrame.from_file(url)
-
-    mock_urlopen.assert_called_once_with(url, timeout=10.0)
-    assert channel_frame.sampling_rate == sampling_rate
-    assert len(channel_frame) == 2
-    computed = channel_frame.compute()
+    mock_fn.assert_called_once_with(url, timeout=10.0)
+    assert cf.sampling_rate == sr, f"SR mismatch: {cf.sampling_rate}"
+    assert len(cf) == 2, f"Expected 2 channels, got {len(cf)}"
+    # Verify Dask lazy loading from URL path (Pillar 1)
+    assert isinstance(cf._data, dask.array.core.Array), "URL load must produce Dask array"
+    computed = cf.compute()
+    # Float32 DC signal: rtol=1e-5 for float32 precision
     np.testing.assert_allclose(computed[0], data_left, rtol=1e-5)
     np.testing.assert_allclose(computed[1], data_right, rtol=1e-5)
-    # URL should be recorded as the source for provenance
-    assert channel_frame.metadata.source_file == url
-    assert channel_frame.label == "sample"
+    # Provenance metadata (Pillar 2)
+    assert cf.metadata.source_file == url, "source_file metadata not preserved"
+    assert cf.label == "sample"
 
 
 def test_from_file_url_http_scheme() -> None:
     """Test that plain http:// URLs are also handled by from_file."""
     url = "http://example.com/audio/sample.wav"
+    sr = 8000
+    n_samples = 50
+    mono_data = np.full(n_samples, 0.5, dtype=np.float32)
+    wav_bytes = _make_wav_bytes(sr, mono_data)
 
-    sampling_rate = 8000
-    num_samples = 50
-    mono_data = np.full(num_samples, 0.5, dtype=np.float32)
+    with _mock_urlopen(wav_bytes):
+        cf = ChannelFrame.from_file(url)
 
-    wav_buffer = io.BytesIO()
-    wavfile.write(wav_buffer, sampling_rate, mono_data)
-    wav_bytes = wav_buffer.getvalue()
-
-    mock_resp = MagicMock()
-    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-    mock_resp.__exit__ = MagicMock(return_value=False)
-    mock_resp.read = MagicMock(return_value=wav_bytes)
-
-    with patch("urllib.request.urlopen", return_value=mock_resp):
-        channel_frame = ChannelFrame.from_file(url)
-
-    assert channel_frame.sampling_rate == sampling_rate
-    assert len(channel_frame) == 1
+    assert cf.sampling_rate == sr
+    assert len(cf) == 1
 
 
 def test_from_file_url_with_query_string() -> None:
     """Test that URL query strings don't break extension inference."""
     url = "https://example.com/audio/sample.wav?token=abc123&foo=bar"
+    sr = 16000
+    n_samples = 50
+    mono_data = np.full(n_samples, 0.4, dtype=np.float32)
+    wav_bytes = _make_wav_bytes(sr, mono_data)
 
-    sampling_rate = 16000
-    num_samples = 50
-    mono_data = np.full(num_samples, 0.4, dtype=np.float32)
+    with _mock_urlopen(wav_bytes):
+        cf = ChannelFrame.from_file(url)
 
-    wav_buffer = io.BytesIO()
-    wavfile.write(wav_buffer, sampling_rate, mono_data)
-    wav_bytes = wav_buffer.getvalue()
-
-    mock_resp = MagicMock()
-    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-    mock_resp.__exit__ = MagicMock(return_value=False)
-    mock_resp.read = MagicMock(return_value=wav_bytes)
-
-    with patch("urllib.request.urlopen", return_value=mock_resp):
-        channel_frame = ChannelFrame.from_file(url)
-
-    assert channel_frame.sampling_rate == sampling_rate
-    assert len(channel_frame) == 1
+    assert cf.sampling_rate == sr
+    assert len(cf) == 1
 
 
 def test_from_file_url_download_failure() -> None:
@@ -301,17 +259,21 @@ def test_from_file_url_download_failure() -> None:
             ChannelFrame.from_file(url)
 
 
-def test_read_wav_stream_nonseekable() -> None:
-    """Test reading a WAV file from a non-seekable stream via ChannelFrame.read_wav."""
-    sampling_rate = 22050
-    num_samples = 100
-    data_left = np.full(num_samples, 0.1, dtype=np.float32)
-    data_right = np.full(num_samples, 0.3, dtype=np.float32)
-    stereo_data = np.column_stack((data_left, data_right))
+def test_from_file_nonexistent_path_raises_file_not_found(tmp_path) -> None:
+    """Verify from_file raises FileNotFoundError for non-existent path (I/O Policy)."""
+    nonexistent = tmp_path / "does_not_exist.wav"
+    with pytest.raises(FileNotFoundError):
+        ChannelFrame.from_file(str(nonexistent))
 
-    wav_buffer = io.BytesIO()
-    wavfile.write(wav_buffer, sampling_rate, stereo_data)
-    wav_bytes = wav_buffer.getvalue()
+
+def test_read_wav_stream_nonseekable() -> None:
+    """Test reading WAV from a non-seekable stream preserves data (Pillar 4)."""
+    sr = 22050
+    n_samples = 100
+    data_left = np.full(n_samples, 0.1, dtype=np.float32)
+    data_right = np.full(n_samples, 0.3, dtype=np.float32)
+    stereo_data = np.column_stack((data_left, data_right))
+    wav_bytes = _make_wav_bytes(sr, stereo_data)
 
     class NonSeekableStream:
         def __init__(self, content: bytes, name: str) -> None:
@@ -325,163 +287,146 @@ def test_read_wav_stream_nonseekable() -> None:
             raise OSError("seek not supported")
 
     stream = NonSeekableStream(content=wav_bytes, name="dir/my_audio.wav")
+    cf = ChannelFrame.read_wav(cast(BinaryIO, stream))
 
-    channel_frame = ChannelFrame.read_wav(stream)
+    assert cf.sampling_rate == sr, f"SR mismatch: {cf.sampling_rate}"
+    assert len(cf) == 2, f"Expected 2 channels, got {len(cf)}"
+    computed = cf.compute()
+    # Float32 DC signal: rtol=1e-5 for float32 precision
+    np.testing.assert_allclose(computed[0], data_left, rtol=1e-5)
+    np.testing.assert_allclose(computed[1], data_right, rtol=1e-5)
 
-    assert channel_frame.sampling_rate == sampling_rate
-    assert len(channel_frame) == 2
-    computed_data = channel_frame.compute()
-    np.testing.assert_allclose(computed_data[0], data_left, rtol=1e-5)
-    np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)
 
+def test_read_wav_int16_pcm_raw_values_preserved(tmp_path) -> None:
+    """PCM round-trip: int16 WAV values preserved as float32 (Pillar 4).
 
-def test_read_wav_int16_raw(tmpdir: str) -> None:
-    """Test that int16 WAV data is returned cast to float32 by default.
-
-    The default normalize=False returns scipy's raw integer samples cast to float32.
-    The integer values are preserved in magnitude (e.g. 16384 becomes 16384.0).
+    When normalize=False (default), scipy's raw int16 samples are cast to
+    float32 with magnitudes preserved (e.g. 16384 -> 16384.0).
+    Exact match expected since this is a dtype cast, not a transform.
     """
-    filepath = os.path.join(tmpdir, "int16_test.wav")
-    sampling_rate = 16000
-    num_samples = 100
-    int16_left = np.full(num_samples, 16384, dtype=np.int16)
-    int16_right = np.full(num_samples, -16384, dtype=np.int16)
+    filepath = tmp_path / "int16_test.wav"
+    sr = 16000
+    n_samples = 100
+    int16_left = np.full(n_samples, 16384, dtype=np.int16)
+    int16_right = np.full(n_samples, -16384, dtype=np.int16)
     stereo_data = np.column_stack((int16_left, int16_right))
-    wavfile.write(filepath, sampling_rate, stereo_data)
+    wavfile.write(str(filepath), sr, stereo_data)
 
-    channel_frame = ChannelFrame.read_wav(filepath)
-    computed_data = channel_frame.compute()
+    cf = ChannelFrame.read_wav(str(filepath))
+    computed = cf.compute()
 
-    # Raw int16 values are cast to float32 (magnitudes preserved)
-    np.testing.assert_array_equal(computed_data[0], int16_left.astype(np.float32))
-    np.testing.assert_array_equal(computed_data[1], int16_right.astype(np.float32))
-    assert computed_data.dtype == np.float32
+    # Exact match: raw int16 values cast to float32 (same algorithm, no transform)
+    np.testing.assert_array_equal(computed[0], int16_left.astype(np.float32))
+    np.testing.assert_array_equal(computed[1], int16_right.astype(np.float32))
+    assert computed.dtype == np.float32, f"Expected float32, got {computed.dtype}"
 
 
-def test_read_wav_int16_normalized(tmpdir: str) -> None:
-    """Test that int16 WAV data is normalized to float32 [-1.0, 1.0] with normalize=True."""
-    filepath = os.path.join(tmpdir, "int16_norm_test.wav")
-    sampling_rate = 16000
-    num_samples = 100
-    int16_left = np.full(num_samples, 16384, dtype=np.int16)  # ≈ 0.5 after normalization
-    int16_right = np.full(num_samples, -16384, dtype=np.int16)  # ≈ -0.5 after normalization
+def test_read_wav_int16_normalized_to_float_range(tmp_path) -> None:
+    """PCM normalization: int16 16384 -> 0.5 after dividing by 32768 (Pillar 4).
+
+    With normalize=True, int16 samples are divided by 32768 to produce
+    float32 values in [-1.0, 1.0]. 16384/32768 = 0.5 exactly.
+    Tolerance: rtol=1e-4 accounts for float32 precision.
+    """
+    filepath = tmp_path / "int16_norm_test.wav"
+    sr = 16000
+    n_samples = 100
+    int16_left = np.full(n_samples, 16384, dtype=np.int16)
+    int16_right = np.full(n_samples, -16384, dtype=np.int16)
     stereo_data = np.column_stack((int16_left, int16_right))
-    wavfile.write(filepath, sampling_rate, stereo_data)
+    wavfile.write(str(filepath), sr, stereo_data)
 
-    channel_frame = ChannelFrame.read_wav(filepath, normalize=True)
-    computed_data = channel_frame.compute()
+    cf = ChannelFrame.read_wav(str(filepath), normalize=True)
+    computed = cf.compute()
 
-    # After normalization (dividing by 32768), values should be ≈ [0.5, -0.5]
-    np.testing.assert_allclose(computed_data[0], 0.5, rtol=1e-4)
-    np.testing.assert_allclose(computed_data[1], -0.5, rtol=1e-4)
-    assert computed_data.dtype == np.float32
+    # Theoretical: 16384 / 32768 = 0.5 exactly; rtol=1e-4 for float32 rounding
+    np.testing.assert_allclose(computed[0], 0.5, rtol=1e-4)
+    np.testing.assert_allclose(computed[1], -0.5, rtol=1e-4)
+    assert computed.dtype == np.float32, f"Expected float32, got {computed.dtype}"
 
 
-def test_write_wav(tmpdir: str):
+def test_write_wav_roundtrip_preserves_shape_and_sr(tmp_path) -> None:
+    """Write/read WAV round-trip: shape and sampling rate are preserved.
+
+    Uses DC signals (0.5, 0.8) within [-1, 1] to trigger IEEE FLOAT subtype.
+    rtol=1e-2 accounts for potential PCM quantization if FLOAT is not used.
     """
-    Test writing a ChannelFrame to a WAV file.
-    """
-    # Create a simple ChannelFrame
-    sampling_rate = 44100
-    duration = 0.1  # seconds
-    num_samples = int(sampling_rate * duration)
-    data = np.array([np.full(num_samples, 0.5), np.full(num_samples, 0.8)])
+    sr = 44100
+    n_samples = 4410  # 0.1 seconds
+    data = np.array([np.full(n_samples, 0.5), np.full(n_samples, 0.8)])
 
-    channel_frame = ChannelFrame.from_numpy(
+    cf = ChannelFrame.from_numpy(
         data=data,
-        sampling_rate=sampling_rate,
+        sampling_rate=sr,
         label="test_frame",
         ch_labels=["Left", "Right"],
     )
 
-    # Write to WAV file
-    output_path = os.path.join(tmpdir, "output_test.wav")
-    write_wav(output_path, channel_frame)
+    output_path = tmp_path / "output_test.wav"
+    write_wav(str(output_path), cf)
 
-    # Verify the file was written correctly by reading it back
-    sr, wav_data = wavfile.read(output_path)
-    assert sr == sampling_rate
-    assert wav_data.shape == (num_samples, 2)
+    # Verify via scipy directly
+    read_sr, wav_data = wavfile.read(str(output_path))
+    assert read_sr == sr, f"Sampling rate mismatch: {read_sr} != {sr}"
+    assert wav_data.shape == (n_samples, 2), f"WAV shape mismatch: {wav_data.shape}"
 
-    # Create a new ChannelFrame from the WAV file
-    new_frame = ChannelFrame.read_wav(output_path)
+    # Verify via ChannelFrame round-trip
+    loaded = ChannelFrame.read_wav(str(output_path))
+    assert loaded.sampling_rate == sr, f"Loaded SR mismatch: {loaded.sampling_rate}"
+    assert loaded.shape == cf.shape, f"Shape mismatch: {loaded.shape} != {cf.shape}"
+    # Verify Dask lazy loading (Pillar 1)
+    assert isinstance(loaded._data, dask.array.core.Array), "WAV load must produce Dask array"
 
-    # Verify basic properties
-    assert new_frame.sampling_rate == channel_frame.sampling_rate
-    assert new_frame.shape == channel_frame.shape
-
-    # WAV書き込みでは浮動小数点数が整数にスケーリングされるため、
-    # 相対的な関係を検証する（第1チャンネルと第2チャンネルの比率）
-    computed_data = new_frame.compute()
-
-    np.testing.assert_allclose(computed_data, wav_data.T, rtol=1e-2)
+    computed = loaded.compute()
+    # rtol=1e-2: WAV format may involve float->PCM->float conversion
+    np.testing.assert_allclose(computed, wav_data.T, rtol=1e-2)
 
 
-def test_write_wav_mono_squeezes_data() -> None:
-    """Test mono data is squeezed before writing."""
-    sampling_rate = 8000
-    num_samples = 100
-    data = np.full((1, num_samples), 0.5, dtype=float)
-
-    channel_frame = ChannelFrame.from_numpy(
-        data=data,
-        sampling_rate=sampling_rate,
-        label="mono_frame",
-        ch_labels=["Mono"],
-    )
+def test_write_wav_mono_data_squeezed_to_1d() -> None:
+    """Mono WAV write: data is squeezed to 1D before writing (FLOAT subtype)."""
+    sr = 8000
+    n_samples = 100
+    data = np.full((1, n_samples), 0.5, dtype=float)
+    cf = ChannelFrame.from_numpy(data=data, sampling_rate=sr, label="mono_frame", ch_labels=["Mono"])
 
     with patch("wandas.io.wav_io.sf.write") as mock_write:
-        write_wav("dummy.wav", channel_frame)
+        write_wav("dummy.wav", cf)
 
     args, kwargs = mock_write.call_args
     written_data = args[1]
-    assert written_data.ndim == 1
+    assert written_data.ndim == 1, "Mono data must be squeezed to 1D"
     assert kwargs.get("subtype") == "FLOAT"
 
 
-def test_write_wav_nonfloat_branch() -> None:
-    """Test non-FLOAT branch when data range exceeds 1."""
-    sampling_rate = 8000
-    num_samples = 100
-    data = np.full((2, num_samples), 1.5, dtype=np.float32)
-
-    channel_frame = ChannelFrame.from_numpy(
-        data=data,
-        sampling_rate=sampling_rate,
-        label="loud_frame",
-        ch_labels=["Left", "Right"],
-    )
+def test_write_wav_data_exceeds_unit_range_no_float_subtype() -> None:
+    """Data with max(abs) > 1 should NOT use FLOAT subtype."""
+    sr = 8000
+    n_samples = 100
+    data = np.full((2, n_samples), 1.5, dtype=np.float32)
+    cf = ChannelFrame.from_numpy(data=data, sampling_rate=sr, label="loud_frame", ch_labels=["Left", "Right"])
 
     with patch("wandas.io.wav_io.sf.write") as mock_write:
-        write_wav("dummy.wav", channel_frame)
+        write_wav("dummy.wav", cf)
 
     _, kwargs = mock_write.call_args
-    assert "subtype" not in kwargs
+    assert "subtype" not in kwargs, "Data exceeding [-1,1] should not use FLOAT subtype"
 
 
-def test_write_wav_float32_normalized() -> None:
-    """Test that float32 data with values in [-1, 1] uses FLOAT subtype."""
-    sampling_rate = 8000
-    num_samples = 100
-    data = np.full((2, num_samples), 0.5, dtype=np.float32)
-
-    channel_frame = ChannelFrame.from_numpy(
-        data=data,
-        sampling_rate=sampling_rate,
-        label="float32_frame",
-        ch_labels=["Left", "Right"],
-    )
+def test_write_wav_float32_within_unit_range_uses_float_subtype() -> None:
+    """Float32 data with max(abs) <= 1 uses IEEE FLOAT subtype."""
+    sr = 8000
+    n_samples = 100
+    data = np.full((2, n_samples), 0.5, dtype=np.float32)
+    cf = ChannelFrame.from_numpy(data=data, sampling_rate=sr, label="float32_frame", ch_labels=["Left", "Right"])
 
     with patch("wandas.io.wav_io.sf.write") as mock_write:
-        write_wav("dummy.wav", channel_frame)
+        write_wav("dummy.wav", cf)
 
     _, kwargs = mock_write.call_args
     assert kwargs.get("subtype") == "FLOAT"
 
 
-def test_write_wav_invalid_input():
-    """
-    Test that write_wav raises an error when given invalid input.
-    """
+def test_write_wav_invalid_input_raises_value_error() -> None:
+    """write_wav with non-ChannelFrame input raises ValueError."""
     with pytest.raises(ValueError, match="target must be a ChannelFrame object."):
-        write_wav("test.wav", "not_a_channel_frame")
+        write_wav("test.wav", "not_a_channel_frame")  # ty: ignore[invalid-argument-type]

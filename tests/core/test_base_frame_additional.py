@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 from wandas.core.base_frame import BaseFrame
+from wandas.utils.dask_helpers import da_from_array
 
 
 class DummyFrame(BaseFrame[np.ndarray]):
@@ -25,12 +26,8 @@ class DummyFrame(BaseFrame[np.ndarray]):
         return self._create_new_instance(data=self._data)
 
     def _apply_operation_impl(self, operation_name: str, **params):
-        new_history = self.operation_history.copy() if self.operation_history else []
-        new_history.append({"operation": operation_name, **params})
+        new_history = [*self.operation_history, {"operation": operation_name, **params}]
         return self._create_new_instance(data=self._data, operation_history=new_history)
-
-    def _get_dataframe_columns(self) -> list[str]:
-        return [ch.label for ch in self._channel_metadata]
 
     def _get_dataframe_index(self) -> pd.Index:
         # index should be length of samples
@@ -43,14 +40,15 @@ class DummyFrame(BaseFrame[np.ndarray]):
 
 def make_frame(arr: np.ndarray | da.Array, **kwargs) -> DummyFrame:
     if isinstance(arr, np.ndarray):
-        darr = da.from_array(arr, chunks=arr.shape)
+        darr = da_from_array(arr, chunks=arr.shape)
     else:
         darr = arr
     return DummyFrame(darr, sampling_rate=100.0, **kwargs)
 
 
-def test_rechunk_fallback_logs_warning(caplog):
-    arr = da.from_array(np.arange(6).reshape(2, 3), chunks=(2, 3))
+def test_rechunk_failure_fallback_logs_warning(caplog):
+    """Test rechunk failure during init logs warning and falls back."""
+    arr = da_from_array(np.arange(6).reshape(2, 3), chunks=(2, 3))
     original = arr.rechunk
     state = {"called": False}
 
@@ -60,7 +58,7 @@ def test_rechunk_fallback_logs_warning(caplog):
             raise RuntimeError("boom")
         return original(chunks, **kwargs)
 
-    arr.rechunk = bad_rechunk
+    arr.rechunk = bad_rechunk  # ty: ignore[invalid-assignment]
 
     with caplog.at_level("WARNING"):
         f = make_frame(arr)
@@ -68,46 +66,55 @@ def test_rechunk_fallback_logs_warning(caplog):
     assert hasattr(f, "_data")
 
 
-def test_get_channel_query_no_match_raises():
+def test_get_channel_query_no_match_raises_key_error():
+    """Test get_channel with unmatched query raises KeyError."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(KeyError, match=r"No channels match query"):
         f.get_channel(query="nope")
 
 
-def test_get_channel_query_unknown_key_raises():
+def test_get_channel_query_unknown_key_raises_key_error():
+    """Test get_channel with unknown dict key raises KeyError."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(KeyError, match=r"Unknown channel metadata key\(s\): unknown"):
         f.get_channel(query={"unknown": "x"})
 
 
-def test_get_channel_query_regex_and_callable():
+def test_get_channel_query_regex_and_callable_returns_matches():
+    """Test get_channel with regex and callable queries returns matches."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     import re as _re
 
-    # regex
+    # regex query returns matching channel with Dask preserved
     res = f.get_channel(query=_re.compile(r"ch0"))
     assert len(res) == 1
     assert res.labels == ["ch0"]
+    assert isinstance(res._data, da.Array)
 
-    # callable
+    # callable query returns matching channel with Dask preserved
     res2 = f.get_channel(query=lambda ch: ch.label == "ch1")
     assert len(res2) == 1
     assert res2.labels == ["ch1"]
+    assert isinstance(res2._data, da.Array)
 
 
-def test_get_channel_query_dict_regex_value():
+def test_get_channel_dict_query_regex_value_returns_matches():
+    """Test get_channel with regex dict query returns matching channels."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     import re as _re
 
     res = f.get_channel(query={"label": _re.compile(r"ch")})
     assert len(res) == 2
+    assert isinstance(res._data, da.Array)
+    assert res is not f
 
 
-def test_getitem_boolean_mask_length_mismatch():
+def test_getitem_boolean_mask_wrong_length_raises_value_error():
+    """Test boolean mask with wrong length raises ValueError."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     mask = np.array([True])
@@ -115,7 +122,8 @@ def test_getitem_boolean_mask_length_mismatch():
         _ = f[mask]
 
 
-def test_getitem_numpy_array_wrong_dtype():
+def test_getitem_numpy_float_array_raises_type_error():
+    """Test numpy float array indexing raises TypeError."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     a = np.array([0.1, 1.0])
@@ -123,41 +131,47 @@ def test_getitem_numpy_array_wrong_dtype():
         _ = f[a]
 
 
-def test_getitem_empty_list_and_mixed_list_types():
+def test_getitem_empty_list_raises_value_error():
+    """Test empty list indexing raises ValueError."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(ValueError, match=r"Cannot index with an empty list"):
         _ = f[[]]  # empty list index triggers ValueError
 
 
-def test_getitem_mixed_list_types_explicit():
+def test_getitem_mixed_list_types_raises_type_error():
+    """Test mixed int/str list indexing raises TypeError."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(TypeError, match=r"List must contain all str or all int"):
-        _ = f[[0, "ch0"]]
+        _ = f[[0, "ch0"]]  # ty: ignore[invalid-argument-type]
 
 
-def test_handle_multidim_indexing_invalid_key_length():
+def test_multidim_indexing_invalid_key_length_raises_value_error():
+    """Test tuple indexing with wrong length raises ValueError."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(ValueError, match=r"Invalid key length"):
         _ = f[(0, slice(None), slice(None))]
 
 
-def test_label2index_keyerror():
+def test_label2index_nonexistent_label_raises_key_error():
+    """Test label2index with nonexistent label raises KeyError."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(KeyError, match=r"Channel label 'nope' not found"):
         f.label2index("nope")
 
 
-def test_shape_single_channel():
+def test_shape_single_channel_returns_1d():
+    """Test shape property for single channel returns 1D shape."""
     arr = np.arange(3)
     f = make_frame(arr)
     assert f.shape == (3,)
 
 
-def test_compute_non_numpy_raises():
+def test_compute_non_ndarray_result_raises_value_error():
+    """Test compute raising ValueError when result is not ndarray."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
 
@@ -165,12 +179,13 @@ def test_compute_non_numpy_raises():
         def compute(self):
             return [1, 2, 3]
 
-    f._data = Bad()
+    f._data = Bad()  # ty: ignore[invalid-assignment]
     with pytest.raises(ValueError, match=r"Computed result is not a np.ndarray"):
         f.compute()
 
 
-def test_visualize_graph_failure_logs_and_returns_none(caplog):
+def test_visualize_graph_failure_logs_warning_returns_none(caplog):
+    """Test visualize_graph logs warning and returns None on failure."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
 
@@ -178,7 +193,7 @@ def test_visualize_graph_failure_logs_and_returns_none(caplog):
         def visualize(self, filename=None):
             raise RuntimeError("no graphviz")
 
-    f._data = BadVis()
+    f._data = BadVis()  # ty: ignore[invalid-assignment]
 
     with caplog.at_level("WARNING"):
         res = f.visualize_graph()
@@ -186,14 +201,16 @@ def test_visualize_graph_failure_logs_and_returns_none(caplog):
     assert "Failed to visualize the graph" in caplog.text
 
 
-def test_to_tensor_unsupported_framework():
+def test_to_tensor_unsupported_framework_raises_value_error():
+    """Test to_tensor raises ValueError for unsupported framework."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(ValueError, match=r"Unsupported framework"):
         f.to_tensor(framework="mxnet")
 
 
-def test_to_tensor_missing_torch(monkeypatch):
+def test_to_tensor_torch_not_installed_raises_import_error(monkeypatch):
+    """Test to_tensor raises ImportError when torch is not installed."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     import importlib.util as iu
@@ -203,7 +220,8 @@ def test_to_tensor_missing_torch(monkeypatch):
         f.to_tensor(framework="torch")
 
 
-def test_to_tensor_missing_tf(monkeypatch):
+def test_to_tensor_tensorflow_not_installed_raises_import_error(monkeypatch):
+    """Test to_tensor raises ImportError when tensorflow is not installed."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     import importlib.util as iu
@@ -213,30 +231,34 @@ def test_to_tensor_missing_tf(monkeypatch):
         f.to_tensor(framework="tensorflow")
 
 
-def test_to_dataframe_single_and_multi():
-    # single channel
-    arr1 = np.arange(3)
-    f1 = make_frame(arr1)
-    df1 = f1.to_dataframe()
-    assert isinstance(df1, pd.DataFrame)
-    assert df1.shape == (3, 1)
-
-    # multi channel
-    arr2 = np.arange(12).reshape(3, 4)
-    f2 = make_frame(arr2)
-    df2 = f2.to_dataframe()
-    assert isinstance(df2, pd.DataFrame)
-    assert df2.shape == (4, 3)
+def test_to_dataframe_single_channel_correct_shape():
+    """Test to_dataframe for single channel returns correct shape."""
+    arr = np.arange(3)
+    f = make_frame(arr)
+    df = f.to_dataframe()
+    assert isinstance(df, pd.DataFrame)
+    assert df.shape == (3, 1)
 
 
-def test_array_protocol_dtype():
+def test_to_dataframe_multi_channel_correct_shape():
+    """Test to_dataframe for multi channel returns correct shape."""
+    arr = np.arange(12).reshape(3, 4)
+    f = make_frame(arr)
+    df = f.to_dataframe()
+    assert isinstance(df, pd.DataFrame)
+    assert df.shape == (4, 3)
+
+
+def test_array_protocol_dtype_conversion_preserves_type():
+    """Test __array__ with dtype converts to requested type."""
     arr = np.arange(6).reshape(2, 3).astype(np.float64)
     f = make_frame(arr)
     a = f.__array__(dtype=np.float32)
     assert a.dtype == np.float32
 
 
-def test_print_operation_history_empty_and_nonempty(capsys):
+def test_print_operation_history_empty_shows_empty_label(capsys):
+    """Test print_operation_history shows '<empty>' for empty history."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     f.operation_history = []
@@ -244,33 +266,55 @@ def test_print_operation_history_empty_and_nonempty(capsys):
     out = capsys.readouterr().out
     assert "Operation history: <empty>" in out
 
-    f.operation_history = [{"operation": "normalize"}, {"name": "filter", "cutoff": 1000}]
-    f.print_operation_history()
-    out2 = capsys.readouterr().out
-    assert "Operation history (2):" in out2
-    assert "1: normalize {}" in out2
-    assert "2: filter {'cutoff': 1000}" in out2
 
-
-def test_relabel_and_create_new_instance_and_persist_and_type_checks():
+def test_print_operation_history_populated_shows_indexed_entries(capsys):
+    """Test print_operation_history shows indexed entries for populated history."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
+    f.operation_history = [{"operation": "normalize"}, {"name": "filter", "cutoff": 1000}]
+    f.print_operation_history()
+    out = capsys.readouterr().out
+    assert "Operation history (2):" in out
+    assert "1: normalize {}" in out
+    assert "2: filter {'cutoff': 1000}" in out
 
-    # relabel
+
+def test_relabel_channels_adds_prefix_to_labels():
+    """Test _relabel_channels adds operation prefix to all channel labels."""
+    arr = np.arange(6).reshape(2, 3)
+    f = make_frame(arr)
     new_meta = f._relabel_channels("norm")
     assert all(m.label.startswith("norm(") for m in new_meta)
 
-    # create new instance type checks
+
+def test_create_new_instance_invalid_label_raises_type_error():
+    """Test _create_new_instance raises TypeError for non-string label."""
+    arr = np.arange(6).reshape(2, 3)
+    f = make_frame(arr)
     with pytest.raises(TypeError, match=r"Label must be a string"):
         f._create_new_instance(data=f._data, label=123)
 
+
+def test_create_new_instance_invalid_metadata_raises_type_error():
+    """Test _create_new_instance raises TypeError for non-dict metadata."""
+    arr = np.arange(6).reshape(2, 3)
+    f = make_frame(arr)
     with pytest.raises(TypeError, match=r"Metadata must be a dictionary"):
         f._create_new_instance(data=f._data, metadata=123)
 
+
+def test_create_new_instance_invalid_channel_metadata_raises_type_error():
+    """Test _create_new_instance raises TypeError for non-list channel_metadata."""
+    arr = np.arange(6).reshape(2, 3)
+    f = make_frame(arr)
     with pytest.raises(TypeError, match=r"Channel metadata must be a list"):
         f._create_new_instance(data=f._data, channel_metadata=123)
 
-    # persist
+
+def test_persist_returns_persisted_data():
+    """Test persist() calls persist on internal data."""
+    arr = np.arange(6).reshape(2, 3)
+    f = make_frame(arr)
 
     class Persister:
         def __init__(self):
@@ -289,30 +333,35 @@ def test_relabel_and_create_new_instance_and_persist_and_type_checks():
             return _np.zeros(self.shape)
 
     p = Persister()
-    f._data = p
+    f._data = p  # ty: ignore[invalid-assignment]
     newf = f.persist()
     assert newf._data is p
 
 
-def test_channel_metadata_invalid_types_and_validation():
+def test_channel_metadata_invalid_dict_raises_value_error():
+    """Test invalid dict value in channel_metadata raises ValueError."""
     arr = np.arange(6).reshape(2, 3)
-    # invalid dict value that fails pydantic validation (ref must be float)
     with pytest.raises(ValueError, match=r"Invalid channel_metadata at index 0"):
         make_frame(arr, channel_metadata=[{"label": "x", "ref": "bad"}])
 
-    # invalid type in channel_metadata list
+
+def test_channel_metadata_invalid_type_raises_type_error():
+    """Test invalid type in channel_metadata list raises TypeError."""
+    arr = np.arange(6).reshape(2, 3)
     with pytest.raises(TypeError, match=r"Invalid type in channel_metadata at index 0"):
         make_frame(arr, channel_metadata=[123])
 
 
-def test_get_channel_query_unknown_key_no_validate_raises_no_match():
+def test_get_channel_query_no_validate_unknown_key_raises_no_match():
+    """Test get_channel with validate_query_keys=False and unknown key raises no match."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with pytest.raises(KeyError, match=r"No channels match query"):
         f.get_channel(query={"unknown": "x"}, validate_query_keys=False)
 
 
-def test_get_channel_query_matches_extra_key():
+def test_get_channel_query_extra_key_match_returns_channel():
+    """Test get_channel with extra key query returns matching channel."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(
         arr,
@@ -321,43 +370,72 @@ def test_get_channel_query_matches_extra_key():
             {"label": "b", "extra": {"foo": "baz"}},
         ],
     )
+    original_data = f._data.compute().copy()
     res = f.get_channel(query={"foo": "bar"})
     assert len(res) == 1
     assert res.labels == ["a"]
+    assert isinstance(res._data, da.Array)
+    # Pillar 1: Immutability
+    assert res is not f
+    np.testing.assert_array_equal(f._data.compute(), original_data)
 
 
-def test_len_and_iter_and_getitem_single_channel():
+def test_len_returns_channel_count():
+    """Test len() returns number of channels."""
     arr = np.arange(12).reshape(3, 4)
     f = make_frame(arr)
     assert len(f) == 3
+
+
+def test_iter_yields_single_channel_dask_frames():
+    """Test iterating yields single-channel Dask-backed frames."""
+    arr = np.arange(12).reshape(3, 4)
+    f = make_frame(arr)
+    original_data = f._data.compute().copy()
+
     items = list(iter(f))
     assert len(items) == 3
-    # each iterated item should be a single-channel frame
     for i, chf in enumerate(items):
+        assert chf is not f
         assert chf.n_channels == 1
         assert chf.labels == [f"ch{i}"]
+        assert isinstance(chf._data, da.Array)
+
+    # Pillar 1: Iteration does not mutate original
+    np.testing.assert_array_equal(f._data.compute(), original_data)
 
 
-def test_debug_info_logs_and__print_operation_history(capsys, caplog):
+def test_debug_info_logs_debug_output(caplog):
+    """Test debug_info logs expected debug output."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     with caplog.at_level("DEBUG"):
         f.debug_info()
     assert "Debug Info" in caplog.text or f"=== {f.__class__.__name__} Debug Info ===" in caplog.text
 
-    # _print_operation_history prints None and count
+
+def test_print_operation_history_empty_shows_none(capsys):
+    """Test _print_operation_history shows 'None' for empty history."""
+    arr = np.arange(6).reshape(2, 3)
+    f = make_frame(arr)
     f.operation_history = []
     f._print_operation_history()
     out = capsys.readouterr().out
     assert "Operations Applied: None" in out
 
+
+def test_print_operation_history_populated_shows_count(capsys):
+    """Test _print_operation_history shows correct count for populated history."""
+    arr = np.arange(6).reshape(2, 3)
+    f = make_frame(arr)
     f.operation_history = [{"operation": "a"}, {"operation": "b"}]
     f._print_operation_history()
-    out2 = capsys.readouterr().out
-    assert "Operations Applied: 2" in out2
+    out = capsys.readouterr().out
+    assert "Operations Applied: 2" in out
 
 
-def test_to_tensor_torch_and_tensorflow_success(monkeypatch):
+def test_to_tensor_torch_and_tensorflow_fake_modules_succeed(monkeypatch):
+    """Test to_tensor succeeds with fake torch and tensorflow modules."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
 
@@ -365,10 +443,15 @@ def test_to_tensor_torch_and_tensorflow_success(monkeypatch):
     import sys
 
     # Fake torch (module-like)
+    class FakeDevice:
+        def __init__(self) -> None:
+            self.type: str = "cpu"
+            self.index: int | None = None
+
     class FakeTorchTensor:
         def __init__(self, arr):
             self._arr = arr
-            self.device = type("D", (), {"type": "cpu", "index": None})()
+            self.device = FakeDevice()
 
         def to(self, device):
             # device may be 'cpu', 'cuda', 'cuda:0' etc.

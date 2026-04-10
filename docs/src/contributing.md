@@ -39,16 +39,16 @@ Tests are located in the `tests/` directory.
 Please perform the following checks before submitting a pull request.
 プルリクエストを送る前に、以下のチェックを行ってください。
 
-- Type check (mypy):
-  型チェック (mypy):
+- Type check (ty):
+  型チェック (ty):
 
   Preferred VS Code task:
   推奨 VS Code タスク:
 
-  - `Run mypy wandas tests`
+  - `Run ty (red-knot) check`
 
   ```bash
-  uv run mypy --config-file=pyproject.toml
+  uv run ty check wandas tests
   ```
 
 - Format (ruff):

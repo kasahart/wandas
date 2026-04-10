@@ -143,10 +143,8 @@ venv.bak/
 # Design documents (temporary working files)
 docs/design/working/
 
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
+# ty
+.ty_cache/
 
 # Pyre type checker
 .pyre/
@@ -177,3 +175,9 @@ examples/
 tutorial/
 
 *.html
+
+# Local/agent-specific settings
+.claude/settings.json
+
+# Accidental notebooks (keep repo clean)
+learning-path/06_skill_validation.ipynb

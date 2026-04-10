@@ -1,13 +1,9 @@
 import types
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 from unittest import mock
 
-import dask.array as da
-import matplotlib
-
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
@@ -16,41 +12,55 @@ from matplotlib.collections import QuadMesh
 from matplotlib.figure import Figure
 
 import wandas as wd
+from wandas.core.metadata import ChannelMetadata
+from wandas.frames.channel import ChannelFrame
+from wandas.utils.dask_helpers import da_from_array
 from wandas.visualization.plotting import (
     DescribePlotStrategy,
     FrequencyPlotStrategy,
     MatrixPlotStrategy,
+    NOctPlotStrategy,
     PlotStrategy,
     SpectrogramPlotStrategy,
     WaveformPlotStrategy,
+    _plot_strategies,
+    _reshape_spectrogram_data,
+    _reshape_to_2d,
+    _resolve_channel_label,
+    _return_axes_iterator,
     create_operation,
     get_plot_strategy,
     register_plot_strategy,
 )
 
-# Matplotlibのインタラクティブモードをオフにする
-plt.ioff()
+# ---------------------------------------------------------------------------
+# Module-level constants — eliminate magic numbers
+# ---------------------------------------------------------------------------
+_N_SAMPLES = 1000  # common sample count for mock data
+_N_FREQ_BINS = 513  # n_fft=1024 → N/2+1
+_N_SPEC_TIME = 10  # spectrogram time frames
+_SR_CD = 44100  # CD-quality sampling rate
+_N_FFT = 1024
+_HOP_LENGTH = 512
+_WIN_LENGTH = 1024
 
-_da_from_array = da.from_array  # type: ignore [unused-ignore]
 
-
-# テスト用のプロット戦略クラス
 class TestPlotStrategy(PlotStrategy[Any]):
-    """テスト用のプロット戦略"""
+    """Stub PlotStrategy for registry tests."""
 
     name = "test_strategy"
 
-    def channel_plot(self, x: Any, y: Any, ax: "Axes", **kwargs: Any) -> None:
+    def channel_plot(self, x: Any, y: Any, ax: "Axes", label: str | None = None, alpha: float = 1.0) -> None:
         pass
 
     def plot(
         self,
         bf: Any,
-        ax: Optional["Axes"] = None,
+        ax: Axes | None = None,
         title: str | None = None,
         overlay: bool = False,
         **kwargs: Any,
-    ) -> Union["Axes", Iterator["Axes"]]:
+    ) -> Axes | Iterator[Axes]:
         if ax is None:
             fig, created_ax = plt.subplots()
             return created_ax
@@ -58,20 +68,22 @@ class TestPlotStrategy(PlotStrategy[Any]):
 
 
 class TestPlotting:
-    """プロット機能のテストクラス"""
+    """Test class for plotting functionality."""
 
     def setup_method(self) -> None:
-        """各テストの前に実行"""
-        # 既存の登録を一時的に保存
-        from wandas.visualization.plotting import _plot_strategies
-
+        """Set up mock frames before each test."""
+        # Save existing strategy registry for restoration after each test
         self.original_strategies = _plot_strategies.copy()
 
-        # モックフレームの作成
+        # Create mock frames with deterministic data (no np.random)
+        _t = np.linspace(0, 1, _N_SAMPLES, endpoint=False)
+        _ch0 = np.sin(2 * np.pi * 100 * _t)  # 100 Hz pure sine
+        _ch1 = np.cos(2 * np.pi * 200 * _t)  # 200 Hz pure cosine
+
         self.mock_channel_frame = mock.MagicMock()
         self.mock_channel_frame.n_channels = 2
-        self.mock_channel_frame.time = np.linspace(0, 1, 1000)
-        self.mock_channel_frame.data = np.random.rand(2, 1000)
+        self.mock_channel_frame.time = _t
+        self.mock_channel_frame.data = np.stack([_ch0, _ch1], axis=0)
         self.mock_channel_frame.labels = ["ch1", "ch2"]
         self.mock_channel_frame.label = "Test Channel"
         self.mock_channel_frame.channels = [
@@ -79,22 +91,27 @@ class TestPlotting:
             mock.MagicMock(label="ch2"),
         ]
 
-        # 単一チャネル用のモックチャネルフレーム
+        # Single-channel mock channel frame
         self.mock_single_channel_frame = mock.MagicMock()
         self.mock_single_channel_frame.n_channels = 1
-        self.mock_single_channel_frame.time = np.linspace(0, 1, 1000)
-        self.mock_single_channel_frame.data = np.random.rand(1000)
+        self.mock_single_channel_frame.time = _t
+        self.mock_single_channel_frame.data = _ch0
         self.mock_single_channel_frame.labels = ["ch1"]
         self.mock_single_channel_frame.label = "Test Single Channel"
         self.mock_single_channel_frame.channels = [
             mock.MagicMock(label="ch1"),
         ]
 
+        # Spectral frame mock -- deterministic data
+        _freqs = np.linspace(0, 22050, _N_FREQ_BINS)
+        _spec_ch0 = np.sin(np.linspace(0, np.pi, _N_FREQ_BINS))
+        _spec_ch1 = np.cos(np.linspace(0, np.pi, _N_FREQ_BINS))
+
         self.mock_spectral_frame = mock.MagicMock()
         self.mock_spectral_frame.n_channels = 2
-        self.mock_spectral_frame.freqs = np.linspace(0, 22050, 513)
-        self.mock_spectral_frame.dB = np.random.rand(2, 513)
-        self.mock_spectral_frame.dBA = np.random.rand(2, 513)
+        self.mock_spectral_frame.freqs = _freqs
+        self.mock_spectral_frame.dB = np.stack([_spec_ch0, _spec_ch1], axis=0)
+        self.mock_spectral_frame.dBA = np.stack([_spec_ch0 * 0.8, _spec_ch1 * 0.8], axis=0)
         self.mock_spectral_frame.labels = ["ch1", "ch2"]
         self.mock_spectral_frame.label = "Test Spectral"
         self.mock_spectral_frame.channels = [
@@ -102,25 +119,30 @@ class TestPlotting:
             mock.MagicMock(label="ch2"),
         ]
 
-        # 単一チャネル用のモックスペクトルフレーム
+        # Single-channel mock spectral frame
         self.mock_single_spectral_frame = mock.MagicMock()
         self.mock_single_spectral_frame.n_channels = 1
-        self.mock_single_spectral_frame.freqs = np.linspace(0, 22050, 513)
-        self.mock_single_spectral_frame.dB = np.random.rand(513)
-        self.mock_single_spectral_frame.dBA = np.random.rand(513)
+        self.mock_single_spectral_frame.freqs = _freqs
+        self.mock_single_spectral_frame.dB = _spec_ch0
+        self.mock_single_spectral_frame.dBA = _spec_ch0 * 0.8
         self.mock_single_spectral_frame.labels = ["ch1"]
         self.mock_single_spectral_frame.label = "Test Single Spectral"
         self.mock_single_spectral_frame.channels = [
             mock.MagicMock(label="ch1"),
         ]
 
-        # NOctFrameのモック
+        # NOctFrame mock -- deterministic data
+        _noct_freqs = np.array([63, 125, 250, 500, 1000, 2000, 4000, 8000])
+        _n_noct_bins = len(_noct_freqs)
+        _noct_ch0 = np.linspace(40, 80, _n_noct_bins)  # monotonic dB values
+        _noct_ch1 = np.linspace(35, 75, _n_noct_bins)
+
         self.mock_noct_frame = mock.MagicMock()
         self.mock_noct_frame.n_channels = 2
-        self.mock_noct_frame.n = 3  # 1/3オクターブ
-        self.mock_noct_frame.freqs = np.array([63, 125, 250, 500, 1000, 2000, 4000, 8000])
-        self.mock_noct_frame.dB = np.random.rand(2, 8)
-        self.mock_noct_frame.dBA = np.random.rand(2, 8)
+        self.mock_noct_frame.n = 3  # 1/3-octave
+        self.mock_noct_frame.freqs = _noct_freqs
+        self.mock_noct_frame.dB = np.stack([_noct_ch0, _noct_ch1], axis=0)
+        self.mock_noct_frame.dBA = np.stack([_noct_ch0 * 0.9, _noct_ch1 * 0.9], axis=0)
         self.mock_noct_frame.labels = ["ch1", "ch2"]
         self.mock_noct_frame.label = "Test NOct"
         self.mock_noct_frame.channels = [
@@ -128,66 +150,85 @@ class TestPlotting:
             mock.MagicMock(label="ch2"),
         ]
 
-        # 単一チャネル用のNOctFrameのモック
+        # Single-channel NOctFrame mock
         self.mock_single_noct_frame = mock.MagicMock()
         self.mock_single_noct_frame.n_channels = 1
-        self.mock_single_noct_frame.n = 3  # 1/3オクターブ
-        self.mock_single_noct_frame.freqs = np.array([63, 125, 250, 500, 1000, 2000, 4000, 8000])
-        self.mock_single_noct_frame.dB = np.random.rand(8)
-        self.mock_single_noct_frame.dBA = np.random.rand(8)
+        self.mock_single_noct_frame.n = 3  # 1/3-octave
+        self.mock_single_noct_frame.freqs = _noct_freqs
+        self.mock_single_noct_frame.dB = _noct_ch0
+        self.mock_single_noct_frame.dBA = _noct_ch0 * 0.9
         self.mock_single_noct_frame.labels = ["ch1"]
         self.mock_single_noct_frame.label = "Test Single NOct"
         self.mock_single_noct_frame.channels = [
             mock.MagicMock(label="ch1"),
         ]
 
+        # Spectrogram frame mock -- deterministic data
+        _spec_grid = np.outer(
+            np.sin(np.linspace(0, np.pi, _N_FREQ_BINS)),
+            np.linspace(0.5, 1.0, _N_SPEC_TIME),
+        )  # (_N_FREQ_BINS, _N_SPEC_TIME) deterministic
+
         self.mock_spectrogram_frame = mock.MagicMock()
         self.mock_spectrogram_frame.n_channels = 2
-        self.mock_spectrogram_frame.n_freq_bins = 513
-        self.mock_spectrogram_frame.shape = (2, 513, 10)
-        self.mock_spectrogram_frame.sampling_rate = 44100
-        self.mock_spectrogram_frame.n_fft = 1024
-        self.mock_spectrogram_frame.hop_length = 512
-        self.mock_spectrogram_frame.win_length = 1024
-        self.mock_spectrogram_frame.dB = np.random.rand(2, 513, 10)
-        self.mock_spectrogram_frame.dBA = np.random.rand(2, 513, 10)
+        self.mock_spectrogram_frame.n_freq_bins = _N_FREQ_BINS
+        self.mock_spectrogram_frame.shape = (2, _N_FREQ_BINS, _N_SPEC_TIME)
+        self.mock_spectrogram_frame.sampling_rate = _SR_CD
+        self.mock_spectrogram_frame.n_fft = _N_FFT
+        self.mock_spectrogram_frame.hop_length = _HOP_LENGTH
+        self.mock_spectrogram_frame.win_length = _WIN_LENGTH
+        self.mock_spectrogram_frame.dB = np.stack([_spec_grid, _spec_grid * 0.8], axis=0)
+        self.mock_spectrogram_frame.dBA = np.stack([_spec_grid * 0.9, _spec_grid * 0.7], axis=0)
         self.mock_spectrogram_frame.channels = [
             mock.MagicMock(label="ch1"),
             mock.MagicMock(label="ch2"),
         ]
         self.mock_spectrogram_frame.label = "Test Spectrogram"
 
-        # スペクトログラムテスト用に単一チャネルバージョンも作成
+        # Single-channel spectrogram frame mock
         self.mock_single_spectrogram_frame = mock.MagicMock()
         self.mock_single_spectrogram_frame.n_channels = 1
-        self.mock_single_spectrogram_frame.n_freq_bins = 513
-        self.mock_single_spectrogram_frame.shape = (513, 10)
-        self.mock_single_spectrogram_frame.sampling_rate = 44100
-        self.mock_single_spectrogram_frame.n_fft = 1024
-        self.mock_single_spectrogram_frame.hop_length = 512
-        self.mock_single_spectrogram_frame.win_length = 1024
-        self.mock_single_spectrogram_frame.dB = np.random.rand(513, 10)
-        self.mock_single_spectrogram_frame.dBA = np.random.rand(513, 10)
+        self.mock_single_spectrogram_frame.n_freq_bins = _N_FREQ_BINS
+        self.mock_single_spectrogram_frame.shape = (_N_FREQ_BINS, _N_SPEC_TIME)
+        self.mock_single_spectrogram_frame.sampling_rate = _SR_CD
+        self.mock_single_spectrogram_frame.n_fft = _N_FFT
+        self.mock_single_spectrogram_frame.hop_length = _HOP_LENGTH
+        self.mock_single_spectrogram_frame.win_length = _WIN_LENGTH
+        self.mock_single_spectrogram_frame.dB = _spec_grid
+        self.mock_single_spectrogram_frame.dBA = _spec_grid * 0.9
         self.mock_single_spectrogram_frame.channels = [
             mock.MagicMock(label="ch1"),
         ]
         self.mock_single_spectrogram_frame.label = "Test Single Spectrogram"
 
-        # 単一チャネルのコヒーレンスデータ（自己相関）
+        # Coherence data -- deterministic sine pattern in [0, 1]
+        _coh_single = 0.5 + 0.5 * np.sin(np.linspace(0, 2 * np.pi, _N_FREQ_BINS))
+
+        # Single-channel coherence data (auto-correlation)
         self.mock_single_coherence_spectral_frame = mock.MagicMock()
         self.mock_single_coherence_spectral_frame.n_channels = 1
-        self.mock_single_coherence_spectral_frame.freqs = self.mock_spectral_frame.freqs
-        self.mock_single_coherence_spectral_frame.magnitude = np.random.rand(513)
+        self.mock_single_coherence_spectral_frame.freqs = _freqs
+        self.mock_single_coherence_spectral_frame.magnitude = _coh_single
         self.mock_single_coherence_spectral_frame.labels = ["ch1-ch1"]
         self.mock_single_coherence_spectral_frame.label = "Single Coherence Data"
         self.mock_single_coherence_spectral_frame.operation_history = [{"operation": "coherence"}]
         self.mock_single_coherence_spectral_frame.channels = [mock.MagicMock(label="ch1-ch1")]
 
-        # コヒーレンスデータでのテスト
+        # 4-channel coherence data
+        _coh_4ch = np.stack(
+            [
+                _coh_single,
+                np.roll(_coh_single, 128),
+                np.roll(_coh_single, 256),
+                np.roll(_coh_single, 384),
+            ],
+            axis=0,
+        )
+
         self.mock_coherence_spectral_frame = mock.MagicMock()
         self.mock_coherence_spectral_frame.n_channels = 4
-        self.mock_coherence_spectral_frame.freqs = self.mock_spectral_frame.freqs
-        self.mock_coherence_spectral_frame.magnitude = np.random.rand(4, 513)
+        self.mock_coherence_spectral_frame.freqs = _freqs
+        self.mock_coherence_spectral_frame.magnitude = _coh_4ch
         self.mock_coherence_spectral_frame.labels = [
             "ch1-ch1",
             "ch1-ch2",
@@ -201,43 +242,40 @@ class TestPlotting:
         ]
 
     def teardown_method(self) -> None:
-        """各テスト後の後処理"""
-        # 元の戦略を復元
-        from wandas.visualization.plotting import _plot_strategies
-
+        """Restore strategy registry after each test.
+        Figure cleanup is handled by the conftest.py cleanup_plots fixture."""
         _plot_strategies.clear()
         _plot_strategies.update(self.original_strategies)
-        plt.close("all")  # すべての図を閉じる
 
     def test_plot_strategy_registry(self) -> None:
-        """プロット戦略登録機能のテスト"""
-        # デフォルト戦略が登録されていることを確認
+        """Test plot strategy registration and retrieval."""
+        # Verify default strategies are registered
         strategies = ["waveform", "frequency", "spectrogram", "describe"]
         for name in strategies:
             strategy_cls = get_plot_strategy(name)
             assert strategy_cls.name == name
 
-        # 存在しない戦略を取得しようとするとエラー
+        # Attempting to get a nonexistent strategy raises an error
         with pytest.raises(ValueError, match="Unknown plot type"):
             get_plot_strategy("nonexistent_strategy")
 
-        # 新しい戦略を登録
+        # Register a new strategy
         register_plot_strategy(TestPlotStrategy)
         strategy_cls = get_plot_strategy("test_strategy")
         assert strategy_cls.name == "test_strategy"
         assert strategy_cls is TestPlotStrategy
 
     def test_register_invalid_strategy(self) -> None:
-        """無効なプロット戦略登録のテスト"""
+        """Test registration of invalid plot strategies."""
 
-        # PlotStrategyを継承していないクラス
+        # Class that does not inherit from PlotStrategy
         class InvalidStrategy:
             name = "invalid"
 
         with pytest.raises(TypeError, match="must inherit from PlotStrategy"):
             register_plot_strategy(InvalidStrategy)
 
-        # 抽象クラス
+        # Abstract class
         class AbstractStrategy(PlotStrategy[Any]):
             name = "abstract"
 
@@ -245,42 +283,46 @@ class TestPlotting:
             register_plot_strategy(AbstractStrategy)
 
     def test_create_operation(self) -> None:
-        """create_operation関数のテスト"""
-        # 有効な操作を作成
+        """Test create_operation function."""
+        # Create a valid operation
         op = create_operation("waveform")
         assert isinstance(op, WaveformPlotStrategy)
 
-        # 追加パラメータを持つ操作を作成 - ただしパラメータは無視される
-        # この呼び出しは引数なしのコンストラクタを使っていることをテスト
+        # Create operation with additional parameters (ignored by constructor)
+        # Verifies that the no-arg constructor is used
         op_with_params = create_operation("frequency")
         assert isinstance(op_with_params, FrequencyPlotStrategy)
 
-        # 存在しない操作を作成しようとするとエラー
+        # Attempting to create a nonexistent operation raises an error
         with pytest.raises(ValueError, match="Unknown plot type"):
             create_operation("nonexistent_operation")
 
     def test_waveform_plot_strategy(self) -> None:
-        """WaveformPlotStrategyのテスト"""
+        """Test WaveformPlotStrategy."""
         strategy = WaveformPlotStrategy()
 
-        # channel_plotのテスト
+        # Test channel_plot
         fig, ax = plt.subplots()
         strategy.channel_plot(self.mock_channel_frame.time, self.mock_channel_frame.data[0], ax)
         assert ax.get_ylabel() == "Amplitude"
 
-        # 単一チャネルでのplotのテスト (overlay=True)
+        # Test plot with single channel (overlay=True)
         result = strategy.plot(self.mock_channel_frame, overlay=True)
         assert isinstance(result, Axes)
+        assert result.get_xlabel() == "Time [s]"
+        assert result.get_ylabel() == "Amplitude"
 
-        # 複数チャネルでのplotのテスト (overlay=False)
+        # Test plot with multiple channels (overlay=False)
         result = strategy.plot(self.mock_channel_frame, overlay=False)
         assert isinstance(result, Iterator)
+        axes_list = list(result)
+        assert len(axes_list) == self.mock_channel_frame.n_channels
 
     def test_single_channel_waveform_plot_strategy(self) -> None:
-        """単一チャネルのWaveformPlotStrategyテスト"""
+        """Test single-channel WaveformPlotStrategy."""
         strategy = WaveformPlotStrategy()
 
-        # 単一チャネルでのchannel_plotのテスト（ラベル付き）
+        # Test single-channel channel_plot with label
         fig, ax = plt.subplots()
         strategy.channel_plot(
             self.mock_single_channel_frame.time,
@@ -289,58 +331,64 @@ class TestPlotting:
             label="Test Single Channel",
         )
         assert ax.get_ylabel() == "Amplitude"
-        # 凡例が表示されていることを確認
-        assert len(ax.get_legend().get_texts()) > 0
-        assert ax.get_legend().get_texts()[0].get_text() == "Test Single Channel"
+        # Verify legend is displayed
+        legend = ax.get_legend()
+        assert legend is not None
+        assert len(legend.get_texts()) > 0
+        assert legend.get_texts()[0].get_text() == "Test Single Channel"
 
-        # 単一チャネルでのplotのテスト (overlay=True)
+        # Test single-channel plot (overlay=True)
         result = strategy.plot(self.mock_single_channel_frame, overlay=True)
         assert isinstance(result, Axes)
         assert result.get_title() == "Test Single Channel"
 
-        # 単一チャネルでのplotのテスト (overlay=False)
+        # Test single-channel plot (overlay=False)
         result = strategy.plot(self.mock_single_channel_frame, overlay=False)
-        # 単一チャネルでもoverlay=Falseの場合はイテレータを返す
+        # Single channel with overlay=False still returns an Iterator
         assert isinstance(result, Iterator)
         axes_list = list(result)
-        assert len(axes_list) == 1  # 1チャネルなので軸は1つだけ
+        assert len(axes_list) == 1  # single channel produces exactly 1 axis
         assert axes_list[0].get_title() == "ch1"
 
-        # カスタムタイトルのテスト
+        # Test custom title
         result = strategy.plot(self.mock_single_channel_frame, title="Custom Title")
         assert isinstance(result, Iterator)
         axes_list = list(result)
-        assert len(axes_list) == 1  # 1チャネルなので軸は1つだけ
+        assert len(axes_list) == 1  # single channel produces exactly 1 axis
         assert axes_list[0].get_title() == "ch1"
-        # suptitleを確認
+        # Verify suptitle
         assert axes_list[0].figure.get_suptitle() == "Custom Title"
-        plt.close("all")  # すべての図を閉じる
 
     def test_frequency_plot_strategy(self) -> None:
-        """FrequencyPlotStrategyのテスト"""
+        """Test FrequencyPlotStrategy."""
         strategy = FrequencyPlotStrategy()
 
-        # channel_plotのテスト
+        # Test channel_plot
         fig, ax = plt.subplots()
         strategy.channel_plot(self.mock_spectral_frame.freqs, self.mock_spectral_frame.dB[0], ax)
 
-        # dB単位でのplotのテスト
+        # Test plot in dB units
         result = strategy.plot(self.mock_spectral_frame, overlay=True)
         assert isinstance(result, Axes)
+        assert result.get_xlabel() == "Frequency [Hz]"
+        assert result.get_ylabel() == "Spectrum level [dB]"
 
-        # dBA単位でのplotのテスト
+        # Test plot in dBA units
         result = strategy.plot(self.mock_spectral_frame, overlay=True, Aw=True)
         assert isinstance(result, Axes)
+        assert result.get_ylabel() == "Spectrum level [dBA]"
 
-        # 複数チャネルでのplotのテスト
+        # Test plot with multiple channels
         result = strategy.plot(self.mock_spectral_frame, overlay=False)
         assert isinstance(result, Iterator)
+        axes_list = list(result)
+        assert len(axes_list) == self.mock_spectral_frame.n_channels
 
     def test_single_channel_frequency_plot_strategy(self) -> None:
-        """単一チャネルのFrequencyPlotStrategyテスト"""
+        """Test single-channel FrequencyPlotStrategy."""
         strategy = FrequencyPlotStrategy()
 
-        # 単一チャネルでのchannel_plotのテスト（ラベル付き）
+        # Test channel_plot with label
         fig, ax = plt.subplots()
         strategy.channel_plot(
             self.mock_single_spectral_frame.freqs,
@@ -348,94 +396,92 @@ class TestPlotting:
             ax,
             label="Test Single Frequency",
         )
-        # assert ax.get_ylabel() == "Level [dB]"
-        # 凡例が表示されていることを確認
-        assert len(ax.get_legend().get_texts()) > 0
-        assert ax.get_legend().get_texts()[0].get_text() == "Test Single Frequency"
+        # Verify legend is displayed
+        legend = ax.get_legend()
+        assert legend is not None
+        assert len(legend.get_texts()) > 0
+        assert legend.get_texts()[0].get_text() == "Test Single Frequency"
 
-        # 単一チャネルでdB単位でのplotのテスト (overlay=True)
+        # Test single-channel plot in dB (overlay=True)
         result = strategy.plot(self.mock_single_spectral_frame, overlay=True)
         assert isinstance(result, Axes)
         assert result.get_title() == "Test Single Spectral"
         assert result.get_xlabel() == "Frequency [Hz]"
         assert result.get_ylabel() == "Spectrum level [dB]"
 
-        # 単一チャネルでdBA単位でのplotのテスト (overlay=True, Aw=True)
+        # Test single-channel plot in dBA (overlay=True, Aw=True)
         result = strategy.plot(self.mock_single_spectral_frame, overlay=True, Aw=True)
         assert isinstance(result, Axes)
         assert result.get_ylabel() == "Spectrum level [dBA]"
 
-        # 単一チャネルでのplotのテスト (overlay=False)
+        # Test single-channel plot (overlay=False)
         result = strategy.plot(self.mock_single_spectral_frame, overlay=False)
         assert isinstance(result, Iterator)
         axes_list = list(result)
-        assert len(axes_list) == 1  # 1チャネルなので軸は1つだけ
+        assert len(axes_list) == 1  # single channel produces exactly 1 axis
         assert axes_list[0].get_title() == "ch1"
 
-        # カスタムタイトルのテスト
+        # Test custom title
         result = strategy.plot(self.mock_single_spectral_frame, title="Custom Title")
         assert isinstance(result, Iterator)
         axes_list = list(result)
         assert axes_list[0].get_title() == "ch1"
         assert axes_list[0].figure.get_suptitle() == "Custom Title"
 
-        plt.close("all")  # すべての図を閉じる
-
     def test_spectrogram_plot_strategy(self) -> None:
-        """SpectrogramPlotStrategyのテスト"""
+        """Test SpectrogramPlotStrategy."""
         strategy = SpectrogramPlotStrategy()
 
-        # オーバーレイモードはサポートされていない
+        # Overlay mode is not supported
         with pytest.raises(ValueError, match="Overlay is not supported"):
             strategy.plot(self.mock_spectrogram_frame, overlay=True)
 
-        # テスト1: 単一チャネルのスペクトログラムフレームでのテスト
+        # Test 1: single-channel spectrogram frame
         fig, ax = plt.subplots()
         result = strategy.plot(self.mock_single_spectrogram_frame, ax=ax)
 
-        # 戻り値が単一のAxesであることを確認
+        # Verify return value is a single Axes
         assert isinstance(result, Axes)
         assert result is ax
         assert result.get_xlabel() == "Time [s]"
         assert result.get_ylabel() == "Frequency [Hz]"
 
-        # テスト2: チャネル数が1より大きい場合、axを指定するとエラー
+        # Test 2: providing ax when n_channels > 1 raises an error
         fig, ax = plt.subplots()
         with pytest.raises(ValueError, match="ax must be None when n_channels > 1"):
             strategy.plot(self.mock_spectrogram_frame, ax=ax)
 
-        # テスト3: 複数チャネルでのテスト（axなし）
+        # Test 3: multi-channel without ax
         result = strategy.plot(self.mock_spectrogram_frame)
 
-        # 結果がAxesのイテレータであることを確認
+        # Verify result is an Iterator of Axes
         assert isinstance(result, Iterator)
         axes_list = list(result)
         assert len(axes_list) == self.mock_spectrogram_frame.n_channels * 2
 
-        # 各軸が適切に設定されていることを確認
+        # Verify each axis is properly configured
         for ax in axes_list[:2]:
             assert ax.get_xlabel() == "Time [s]"
             assert ax.get_ylabel() == "Frequency [Hz]"
 
-        # すべての図をクローズ
-        plt.close("all")
+        # Close all figures
 
     def test_describe_plot_strategy(self) -> None:
-        """DescribePlotStrategyのテスト"""
+        """Test DescribePlotStrategy."""
         strategy = DescribePlotStrategy()
 
-        # モックのstftとwelchメソッド
+        # Set up mock stft and welch methods
         self.mock_channel_frame.stft.return_value = self.mock_spectrogram_frame
         self.mock_channel_frame.welch.return_value = self.mock_spectral_frame
 
-        # Matplotlibのメソッドを部分的にモック
+        # Partially patch Matplotlib methods
         with (
             mock.patch("matplotlib.figure.Figure.add_subplot") as mock_add_subplot,
             mock.patch("librosa.display.specshow") as mock_specshow,
             mock.patch("matplotlib.pyplot.figure") as mock_figure,
             mock.patch.object(Figure, "colorbar"),
         ):
-            # モックspectershowの戻り値を設定
+            # Set return value for mock specshow
             mock_img = mock.MagicMock(spec=QuadMesh)
             mock_specshow.return_value = mock_img
 
@@ -455,32 +501,32 @@ class TestPlotting:
             mock_add_subplot.side_effect = side_effect
             mock_fig.axes = [mock_ax1, mock_ax2, mock_ax3, mock_ax4]
 
-            # プロットの実行
+            # Execute plot
             result = strategy.plot(self.mock_channel_frame)
 
-            # 戻り値がAxesのイテレータであることを確認
+            # Verify return value is an Iterator of Axes
             assert isinstance(result, Iterator)
 
-            # stftメソッドとwelchメソッドが呼び出されることを確認
+            # Verify stft and welch methods were called
             self.mock_channel_frame.stft.assert_called_once()
             self.mock_channel_frame.welch.assert_called_once()
 
     def test_single_channel_describe_plot_strategy(self) -> None:
-        """単一チャネルのDescribePlotStrategyテスト"""
+        """Test single-channel DescribePlotStrategy."""
         strategy = DescribePlotStrategy()
 
-        # 単一チャネルのモックのstftとwelchメソッド
+        # Set up single-channel mock stft and welch methods
         self.mock_single_channel_frame.stft.return_value = self.mock_single_spectrogram_frame
         self.mock_single_channel_frame.welch.return_value = self.mock_single_spectral_frame
 
-        # Matplotlibのメソッドを部分的にモック
+        # Partially patch Matplotlib methods
         with (
             mock.patch("matplotlib.figure.Figure.add_subplot") as mock_add_subplot,
             mock.patch("librosa.display.specshow") as mock_specshow,
             mock.patch("matplotlib.pyplot.figure") as mock_figure,
             mock.patch.object(Figure, "colorbar"),
         ):
-            # モックspectershowの戻り値を設定
+            # Set return value for mock specshow
             mock_img = mock.MagicMock(spec=QuadMesh)
             mock_specshow.return_value = mock_img
 
@@ -498,29 +544,22 @@ class TestPlotting:
             mock_add_subplot.side_effect = side_effect
             mock_fig.axes = [mock_ax1, mock_ax2]
 
-            # 単一チャネルでのプロットの実行
+            # Execute plot for single channel
             result = strategy.plot(self.mock_single_channel_frame)
 
-            # 戻り値がAxesのイテレータであることを確認
+            # Verify return value is an Iterator of Axes
             assert isinstance(result, Iterator)
 
-            # 単一チャネルでもstftメソッドとwelchメソッドが呼び出されることを確認
+            # Verify stft and welch are called even for single channel
             self.mock_single_channel_frame.stft.assert_called_once()
             self.mock_single_channel_frame.welch.assert_called_once()
 
-            # # タイトルが設定されていることを確認
-            # mock_ax1.set_title.assert_called()
-            # mock_ax2.set_title.assert_called()
-
-            plt.close("all")  # すべての図を閉じる
-
     def test_noct_plot_strategy(self) -> None:
-        """NOctPlotStrategyのテスト"""
-        from wandas.visualization.plotting import NOctPlotStrategy
+        """Test NOctPlotStrategy."""
 
         strategy = NOctPlotStrategy()
 
-        # channel_plotのテスト
+        # Test channel_plot
         fig, ax = plt.subplots()
         strategy.channel_plot(
             self.mock_noct_frame.freqs,
@@ -528,39 +567,40 @@ class TestPlotting:
             ax,
             label="Test NOct",
         )
-        # stepプロットが使われ、グリッドと凡例が表示されていることを確認
-        assert len(ax.xaxis.get_gridlines()) > 0  # グリッドが表示されていることを確認
-        assert len(ax.get_legend().get_texts()) > 0  # 凡例が表示されていることを確認
+        # Verify step plot is used with grid and legend displayed
+        assert len(ax.xaxis.get_gridlines()) > 0  # Verify grid is displayed
+        legend = ax.get_legend()
+        assert legend is not None
+        assert len(legend.get_texts()) > 0  # Verify legend is displayed
 
-        # 単一チャネルでのplotのテスト (overlay=True)
+        # Test single-channel plot (overlay=True)
         result = strategy.plot(self.mock_noct_frame, overlay=True)
         assert isinstance(result, Axes)
         assert result.get_xlabel() == "Center frequency [Hz]"
         assert result.get_ylabel() == "Spectrum level [dBr]"
         assert result.get_title() == "Test NOct"
 
-        # dBA単位でのplotのテスト (overlay=True, Aw=True)
+        # Test plot in dBA (overlay=True, Aw=True)
         result = strategy.plot(self.mock_noct_frame, overlay=True, Aw=True)
         assert isinstance(result, Axes)
         assert result.get_ylabel() == "Spectrum level [dBrA]"
 
-        # 複数チャネルでのplotのテスト (overlay=False)
+        # Test plot with multiple channels (overlay=False)
         result = strategy.plot(self.mock_noct_frame, overlay=False)
         assert isinstance(result, Iterator)
         axes_list = list(result)
         assert len(axes_list) == self.mock_noct_frame.n_channels
 
-        # 最後の軸のxラベルとyラベルを確認
+        # Verify xlabel and ylabel on the last axis
         assert axes_list[-1].get_xlabel() == "Center frequency [Hz]"
         assert axes_list[-1].get_ylabel() == "Spectrum level [dBr]"
 
     def test_single_channel_noct_plot_strategy(self) -> None:
-        """単一チャネル用のNOctPlotStrategyのテスト"""
-        from wandas.visualization.plotting import NOctPlotStrategy
+        """Test single-channel NOctPlotStrategy."""
 
         strategy = NOctPlotStrategy()
 
-        # 単一チャネルでのchannel_plotのテスト
+        # Test single-channel channel_plot
         fig, ax = plt.subplots()
         strategy.channel_plot(
             self.mock_single_noct_frame.freqs,
@@ -568,128 +608,77 @@ class TestPlotting:
             ax,
             label="Test Single NOct",
         )
-        # プロットの特性を確認
-        assert len(ax.xaxis.get_gridlines()) > 0  # グリッドが表示されていることを確認
-        assert len(ax.get_legend().get_texts()) > 0  # 凡例が表示されていることを確認
-        assert ax.get_legend().get_texts()[0].get_text() == "Test Single NOct"
+        # Verify plot characteristics
+        assert len(ax.xaxis.get_gridlines()) > 0  # Verify grid is displayed
+        legend = ax.get_legend()
+        assert legend is not None
+        assert len(legend.get_texts()) > 0  # Verify legend is displayed
+        assert legend.get_texts()[0].get_text() == "Test Single NOct"
 
-        # 単一チャネルでのplotのテスト (overlay=True)
+        # Test single-channel plot (overlay=True)
         result = strategy.plot(self.mock_single_noct_frame, overlay=True)
         assert isinstance(result, Axes)
         assert result.get_xlabel() == "Center frequency [Hz]"
         assert result.get_ylabel() == "Spectrum level [dBr]"
         assert result.get_title() == "Test Single NOct"
 
-        # 単一チャネルでdBA単位でのplotのテスト (overlay=True, Aw=True)
+        # Test single-channel plot in dBA (overlay=True, Aw=True)
         result = strategy.plot(self.mock_single_noct_frame, overlay=True, Aw=True)
         assert isinstance(result, Axes)
         assert result.get_ylabel() == "Spectrum level [dBrA]"
 
-        # 単一チャネルでのplotのテスト (overlay=False)
+        # Test single-channel plot (overlay=False)
         result = strategy.plot(self.mock_single_noct_frame, overlay=False)
         assert isinstance(result, Iterator)
         axes_list = list(result)
-        assert len(axes_list) == 1  # 1チャネルなので軸は1つだけ
+        assert len(axes_list) == 1  # single channel produces exactly 1 axis
         assert axes_list[0].get_xlabel() == "Center frequency [Hz]"
         assert axes_list[0].get_ylabel() == "Spectrum level [dBr]"
         assert axes_list[0].get_title() == "ch1"
         assert axes_list[0].figure.get_suptitle() == "Test Single NOct"
-        # カスタムタイトルのテスト
+        # Test custom title
         result = strategy.plot(self.mock_single_noct_frame, title="Custom NOct Title")
         assert isinstance(result, Iterator)
         axes_list = list(result)
         assert axes_list[0].get_title() == "ch1"
         assert axes_list[0].figure.get_suptitle() == "Custom NOct Title"
 
-        plt.close("all")  # すべての図を閉じる
+    @pytest.mark.parametrize(
+        "strategy_cls,frame_attr",
+        [
+            (NOctPlotStrategy, "mock_noct_frame"),
+            (WaveformPlotStrategy, "mock_channel_frame"),
+            (FrequencyPlotStrategy, "mock_spectral_frame"),
+        ],
+        ids=["noct", "waveform", "frequency"],
+    )
+    def test_custom_label_overlay_and_per_channel(self, strategy_cls: type, frame_attr: str) -> None:
+        """Verify user-specified labels appear in overlay and per-channel legends."""
+        frame = getattr(self, frame_attr)
+        strategy = strategy_cls()
 
-    def test_noct_plot_custom_label(self) -> None:
-        """ユーザー指定のlabelがNOctPlotStrategyで適用されることを確認するテスト"""
-        from wandas.visualization.plotting import NOctPlotStrategy
-
-        strategy = NOctPlotStrategy()
-
-        # overlay=True でカスタムラベルが凡例に反映されることを確認
-        result = strategy.plot(self.mock_noct_frame, overlay=True, label="My Custom Label")
+        # overlay=True: single Axes with custom label in legend
+        result = strategy.plot(frame, overlay=True, label="Overlay Label")
         assert isinstance(result, Axes)
         legend = result.get_legend()
         assert legend is not None
         legend_texts = [t.get_text() for t in legend.get_texts()]
-        assert "My Custom Label" in legend_texts
+        assert "Overlay Label" in legend_texts
 
-        plt.close("all")
-
-        # overlay=False でカスタムラベルが各チャネルの凡例に反映されることを確認
-        result = strategy.plot(self.mock_noct_frame, overlay=False, label="Custom Ch Label")
+        # overlay=False: per-channel Axes each with custom label in legend
+        result = strategy.plot(frame, overlay=False, label="Per-Ch Label")
         assert isinstance(result, Iterator)
         axes_list = list(result)
         for ax_i in axes_list:
+            assert isinstance(ax_i, Axes)
             legend = ax_i.get_legend()
             assert legend is not None
             legend_texts = [t.get_text() for t in legend.get_texts()]
-            assert "Custom Ch Label" in legend_texts
+            assert "Per-Ch Label" in legend_texts
 
-        plt.close("all")
-
-    def test_waveform_plot_custom_label(self) -> None:
-        """ユーザー指定のlabelがWaveformPlotStrategyで適用されることを確認するテスト"""
-        strategy = WaveformPlotStrategy()
-
-        # overlay=True でカスタムラベルが凡例に反映されることを確認
-        result = strategy.plot(self.mock_channel_frame, overlay=True, label="My Waveform Label")
-        assert isinstance(result, Axes)
-        legend = result.get_legend()
-        assert legend is not None
-        legend_texts = [t.get_text() for t in legend.get_texts()]
-        assert "My Waveform Label" in legend_texts
-
-        plt.close("all")
-
-        # overlay=False でカスタムラベルが各チャネルの凡例に反映されることを確認
-        result = strategy.plot(self.mock_channel_frame, overlay=False, label="Custom Waveform Label")
-        assert isinstance(result, Iterator)
-        axes_list = list(result)
-        for ax_i in axes_list:
-            legend = ax_i.get_legend()
-            assert legend is not None
-            legend_texts = [t.get_text() for t in legend.get_texts()]
-            assert "Custom Waveform Label" in legend_texts
-
-        plt.close("all")
-
-    def test_frequency_plot_custom_label(self) -> None:
-        """ユーザー指定のlabelがFrequencyPlotStrategyで適用されることを確認するテスト"""
-        strategy = FrequencyPlotStrategy()
-
-        # overlay=True でカスタムラベルが凡例に反映されることを確認
-        result = strategy.plot(self.mock_spectral_frame, overlay=True, label="My Frequency Label")
-        assert isinstance(result, Axes)
-        legend = result.get_legend()
-        assert legend is not None
-        legend_texts = [t.get_text() for t in legend.get_texts()]
-        assert "My Frequency Label" in legend_texts
-
-        plt.close("all")
-
-        # overlay=False でカスタムラベルが各チャネルの凡例に反映されることを確認
-        result = strategy.plot(self.mock_spectral_frame, overlay=False, label="Custom Frequency Label")
-        assert isinstance(result, Iterator)
-        axes_list = list(result)
-        for ax_i in axes_list:
-            legend = ax_i.get_legend()
-            assert legend is not None
-            legend_texts = [t.get_text() for t in legend.get_texts()]
-            assert "Custom Frequency Label" in legend_texts
-
-        plt.close("all")
-
-    def test_matrix_plot_strategy(self) -> None:
-        """MatrixPlotStrategyのテスト"""
-        from wandas.visualization.plotting import MatrixPlotStrategy
-
+    def test_matrix_plot_strategy_channel_plot(self) -> None:
+        """Verify MatrixPlotStrategy.channel_plot sets xlabel, ylabel, title, and grid."""
         strategy = MatrixPlotStrategy()
-
-        # channel_plotのテスト
         fig, ax = plt.subplots()
         strategy.channel_plot(
             self.mock_coherence_spectral_frame.freqs,
@@ -699,70 +688,45 @@ class TestPlotting:
             ylabel="Test Label",
         )
 
-        # 正しくラベルとタイトルが設定されていることを確認
         assert ax.get_xlabel() == "Frequency [Hz]"
         assert ax.get_ylabel() == "Test Label"
         assert ax.get_title() == "Test Channel"
-        # グリッドが表示されていることを確認
         assert len(ax.xaxis.get_gridlines()) > 0
 
-        # 通常の周波数データでのplotのテスト
+    def test_matrix_plot_strategy_coherence(self) -> None:
+        """Verify MatrixPlotStrategy.plot returns per-channel axes with coherence labels."""
+        strategy = MatrixPlotStrategy()
         result = strategy.plot(self.mock_coherence_spectral_frame)
 
-        # 結果がAxesのイテレータであることを確認
         assert isinstance(result, Iterator)
         axes_list = list(result)
         assert len(axes_list) == self.mock_coherence_spectral_frame.n_channels
 
-        # 各軸のラベルとタイトルを確認
         for i, ax in enumerate(axes_list):
             assert ax.get_xlabel() == "Frequency [Hz]"
-            assert "coherence" in ax.get_ylabel()
+            assert "coherence" in ax.get_ylabel().lower()
             assert self.mock_coherence_spectral_frame.labels[i] in ax.get_title()
 
-        plt.close("all")  # すべての図をクローズ
-
-        # A特性重み付けデータでのテスト (Aw=True)
+    def test_matrix_plot_strategy_aw(self) -> None:
+        """Verify MatrixPlotStrategy.plot with Aw=True produces A-weighted labels."""
+        strategy = MatrixPlotStrategy()
         result = strategy.plot(self.mock_spectral_frame, Aw=True)
 
-        # 結果がAxesのイテレータであることを確認
         assert isinstance(result, Iterator)
         axes_list = list(result)
         assert len(axes_list) == 4
 
-        # 各軸のラベルとタイトルを確認（A特性重み付け）
         for i, ax in enumerate(axes_list[:2]):
             assert ax.get_xlabel() == "Frequency [Hz]"
             assert "dBA" in ax.get_ylabel() or "A-weighted" in ax.get_ylabel()
             assert self.mock_spectral_frame.labels[i] in ax.get_title()
 
-        plt.close("all")  # すべての図をクローズ
-
-        # コヒーレンスデータでのテスト
-
-        result = strategy.plot(self.mock_coherence_spectral_frame)
-
-        # 結果がAxesのイテレータであることを確認
-        assert isinstance(result, Iterator)
-        axes_list = list(result)
-        assert len(axes_list) == self.mock_coherence_spectral_frame.n_channels
-
-        # 各軸のラベルとタイトルを確認（コヒーレンス）
-        for i, ax in enumerate(axes_list):
-            assert ax.get_xlabel() == "Frequency [Hz]"
-            # y軸ラベルに「coherence」が含まれることを確認
-            assert "coherence" in ax.get_ylabel().lower()
-            assert self.mock_coherence_spectral_frame.labels[i] in ax.get_title()
-
-        plt.close("all")  # すべての図をクローズ
-
     def test_single_channel_matrix_plot_strategy(self) -> None:
-        """単一チャネル用のMatrixPlotStrategyのテスト"""
-        from wandas.visualization.plotting import MatrixPlotStrategy
+        """Test single-channel MatrixPlotStrategy."""
 
         strategy = MatrixPlotStrategy()
 
-        # 単一チャネルのchannel_plotテスト
+        # Test single-channel channel_plot
         fig, ax = plt.subplots()
         strategy.channel_plot(
             self.mock_single_coherence_spectral_frame.freqs,
@@ -773,50 +737,45 @@ class TestPlotting:
             label="ch1-ch1",
         )
 
-        # 正しいラベルとタイトルが設定されていることを確認
+        # Verify correct labels and title are set
         assert ax.get_xlabel() == "Frequency [Hz]"
         assert ax.get_ylabel() == "Magnitude"
         assert ax.get_title() == "Single Coherence Test"
-        # 凡例が表示されていることを確認
-        # assert len(ax.get_legend().get_texts()) > 0
-        # assert ax.get_legend().get_texts()[0].get_text() == "ch1-ch1"
-        # グリッドが表示されていることを確認
+        # Verify grid is displayed
         assert len(ax.xaxis.get_gridlines()) > 0
 
-        # 単一チャネルのコヒーレンスデータでのplotテスト
+        # Test single-channel coherence data plot
         result = strategy.plot(self.mock_single_coherence_spectral_frame)
 
-        # 結果がAxesのイテレータであることを確認
+        # Verify result is an Iterator of Axes
         assert isinstance(result, Iterator)
         axes_list = list(result)
-        assert len(axes_list) == 1  # 1チャネルなので軸は1つだけ
+        assert len(axes_list) == 1  # single channel produces exactly 1 axis
 
-        # 軸のラベルとタイトルを確認
+        # Verify axis labels and title
         assert axes_list[0].get_xlabel() == "Frequency [Hz]"
         assert "coherence" in axes_list[0].get_ylabel().lower()
         label = self.mock_single_coherence_spectral_frame.labels[0]
         assert label in axes_list[0].get_title()
 
-        # カスタムタイトルとユニットでのテスト
+        # Test with custom title and unit
         result = strategy.plot(
             self.mock_single_coherence_spectral_frame,
             title="Custom Matrix Title",
             ylabel="Custom Y Units",
         )
-        # iteratorになることを確認した上で、リスト化
+        # Verify result is an iterator, then convert to list
         assert isinstance(result, Iterator)
         axes_list = list(result)
         assert axes_list[0].get_title() == "ch1-ch1"
         assert "Custom Y Units" in axes_list[0].get_ylabel()
         assert axes_list[0].figure.get_suptitle() == "Custom Matrix Title"
 
-        plt.close("all")  # すべての図をクローズ
-
     def test_waveform_plot_strategy_edge_cases(self) -> None:
-        """WaveformPlotStrategyのエッジケースのテスト"""
+        """Test WaveformPlotStrategy edge cases."""
         strategy = WaveformPlotStrategy()
 
-        # カスタムパラメータでのテスト
+        # Test with custom parameters
         result = strategy.plot(
             self.mock_channel_frame,
             overlay=True,
@@ -829,7 +788,7 @@ class TestPlotting:
         assert result.get_xlabel() == "Custom Time"
         assert result.get_ylabel() == "Custom Amplitude"
 
-        # 外部のaxを指定した場合のテスト
+        # Test with externally provided ax
         fig, external_ax = plt.subplots()
         result = strategy.plot(
             self.mock_channel_frame,
@@ -840,24 +799,22 @@ class TestPlotting:
         assert result is external_ax
         assert result.get_title() == "External Ax Test"
 
-        plt.close("all")
-
     def test_frequency_plot_strategy_edge_cases(self) -> None:
-        """FrequencyPlotStrategyのエッジケースのテスト"""
+        """Test FrequencyPlotStrategy edge cases."""
         strategy = FrequencyPlotStrategy()
 
-        # コヒーレンス操作履歴を持つフレームでのテスト
+        # Test with coherence operation history frame
         self.mock_spectral_frame.operation_history = [{"operation": "coherence"}]
-        self.mock_spectral_frame.magnitude = np.random.rand(2, 513)
+        self.mock_spectral_frame.magnitude = np.abs(self.mock_spectral_frame.dB)
 
         result = strategy.plot(self.mock_spectral_frame, overlay=True)
         assert isinstance(result, Axes)
         assert "coherence" in result.get_ylabel()
 
-        # 操作履歴をリセット
+        # Reset operation history
         self.mock_spectral_frame.operation_history = []
 
-        # カスタムパラメータでのテスト
+        # Test with custom parameters
         result = strategy.plot(
             self.mock_spectral_frame,
             overlay=True,
@@ -870,13 +827,11 @@ class TestPlotting:
         assert result.get_xlabel() == "Custom Frequency"
         assert result.get_ylabel() == "Custom Level"
 
-        plt.close("all")
-
     def test_spectrogram_plot_strategy_edge_cases(self) -> None:
-        """SpectrogramPlotStrategyのエッジケースのテスト"""
+        """Test SpectrogramPlotStrategy edge cases."""
         strategy = SpectrogramPlotStrategy()
 
-        # dBA単位でのテスト
+        # Test in dBA units
         fig, ax = plt.subplots()
         with mock.patch("librosa.display.specshow") as mock_specshow:
             mock_img = mock.MagicMock()
@@ -892,103 +847,102 @@ class TestPlotting:
             )
 
             assert result is ax
-            # dBA単位が使用されていることを確認
+            # Verify dBA units and custom color params forwarded to specshow
             mock_specshow.assert_called_once()
             call_args = mock_specshow.call_args
-            assert "cmap" in call_args[1]
             assert call_args[1]["cmap"] == "viridis"
+            assert call_args[1]["vmin"] == -100
+            assert call_args[1]["vmax"] == 0
 
-        plt.close("all")
+    @staticmethod
+    def _make_spectrogram(
+        freq_hz: float = 440.0,
+        sample_rate: int = 44100,
+        duration: float = 0.1,
+        n_fft: int = 512,
+        hop_length: int = 256,
+        label: str = "test_channel",
+    ):
+        """Create a real SpectrogramFrame from a deterministic sine.
+
+        Used by integration-level tests that need actual STFT data.
+        """
+
+        n_samples = int(sample_rate * duration)
+        t = np.linspace(0, duration, n_samples, endpoint=False)
+        signal = np.sin(2 * np.pi * freq_hz * t)
+        dask_data = da_from_array(signal.reshape(1, -1), chunks=(1, -1))
+        cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate, label=label)
+        return cf, cf.stft(n_fft=n_fft, hop_length=hop_length)
 
     def test_spectrogram_plot_strategy_basic_functionality(self) -> None:
-        """SpectrogramPlotStrategyの基本機能テスト（mockなし）"""
+        """SpectrogramPlotStrategy: real data, single- and multi-channel axes labels."""
         strategy = SpectrogramPlotStrategy()
 
-        # テスト用の実データを作成
-        sample_rate: float = 44100
-        duration: float = 0.1  # 短時間のテストデータ
-        n_samples = int(sample_rate * duration)
-        t = np.linspace(0, duration, n_samples)
-        # シンプルなサイン波
-        signal = np.sin(2 * np.pi * 440.0 * t)  # 440Hz
+        # Deterministic 440 Hz sine — analytically predictable
+        sample_rate = 44100
+        n_fft = 512  # -> N/2+1 = 257 freq bins
+        hop_length = 256
+        _, spectrogram_frame = self._make_spectrogram(
+            freq_hz=440.0, sample_rate=sample_rate, n_fft=n_fft, hop_length=hop_length
+        )
 
-        # ChannelFrameを作成
-        from wandas.frames.channel import ChannelFrame
-
-        dask_data = _da_from_array(signal.reshape(1, -1), chunks=(1, -1))
-        channel_frame = ChannelFrame(data=dask_data, sampling_rate=sample_rate, label="test_channel")
-
-        # STFTを実行してSpectrogramFrameを作成
-        spectrogram_frame = channel_frame.stft(n_fft=512, hop_length=256)
-
-        # 単一チャネルでのテスト
+        # --- Single channel with explicit ax ---
         fig, ax = plt.subplots()
         result = strategy.plot(spectrogram_frame, ax=ax)
 
-        # 戻り値が正しいAxesオブジェクトであることを確認
+        # Verify return value is a correct Axes object
         assert result is ax
         assert result.get_xlabel() == "Time [s]"
         assert result.get_ylabel() == "Frequency [Hz]"
 
         plt.close(fig)
 
-        # 複数チャネルのテスト用データ
-        multi_signal = np.array([signal, signal * 0.5])  # 2チャネル
-        multi_dask_data = _da_from_array(multi_signal, chunks=(1, -1))
-        multi_channel_frame = ChannelFrame(data=multi_dask_data, sampling_rate=sample_rate, label="multi_channel_test")
-        multi_spectrogram_frame = multi_channel_frame.stft(n_fft=512, hop_length=256)
+        # --- Multi-channel: 2 channels ---
 
-        # 複数チャネルでのテスト
+        n_samples = int(sample_rate * 0.1)
+        t = np.linspace(0, 0.1, n_samples, endpoint=False)
+        signal = np.sin(2 * np.pi * 440.0 * t)
+        multi_signal = np.array([signal, signal * 0.5])
+        multi_dask_data = da_from_array(multi_signal, chunks=(1, -1))
+        multi_channel_frame = ChannelFrame(data=multi_dask_data, sampling_rate=sample_rate, label="multi_channel_test")
+        multi_spectrogram_frame = multi_channel_frame.stft(n_fft=n_fft, hop_length=hop_length)
+
+        # Test with multiple channels
         result = strategy.plot(multi_spectrogram_frame)
 
-        # Iteratorが返されることを確認
+        # Verify Iterator is returned
         assert isinstance(result, Iterator)
         axes_list = list(result)
-        # 2チャネル + 2つのカラーバー軸 = 4軸
+        # 2 channels + 2 colorbar axes = 4 axes total
         assert len(axes_list) == 4
 
-        # メインプロット軸（最初の2つ）が適切に設定されていることを確認
+        # Verify the main plot axes (first 2) are properly configured
         main_axes = [ax for ax in axes_list if ax.get_label() != "<colorbar>"]
         assert len(main_axes) == 2
         for ax in main_axes:
             assert ax.get_xlabel() == "Time [s]"
             assert ax.get_ylabel() == "Frequency [Hz]"
 
-        plt.close("all")
-
     def test_spectrogram_plot_strategy_dba_mode(self) -> None:
-        """SpectrogramPlotStrategyのdBAモードテスト（mockなし）"""
+        """SpectrogramPlotStrategy: dBA mode with real data returns same Axes."""
         strategy = SpectrogramPlotStrategy()
 
-        # 実際のデータでdBAモードをテスト
-        sample_rate: float = 44100
-        duration: float = 0.1
-        n_samples = int(sample_rate * duration)
-        t = np.linspace(0, duration, n_samples)
-        signal = np.sin(2 * np.pi * 1000.0 * t)  # 1kHz
+        # Deterministic 1 kHz sine — analytically predictable
+        _, spectrogram_frame = self._make_spectrogram(freq_hz=1000.0)
 
-        from wandas.frames.channel import ChannelFrame
-
-        dask_data = _da_from_array(signal.reshape(1, -1), chunks=(1, -1))
-        channel_frame = ChannelFrame(data=dask_data, sampling_rate=sample_rate, label="test_channel")
-
-        spectrogram_frame = channel_frame.stft(n_fft=512, hop_length=256)
-
-        # dBAモードでプロット
         fig, ax = plt.subplots()
         result = strategy.plot(spectrogram_frame, ax=ax, Aw=True)
-
         assert result is ax
-        # カラーバーラベルにdBAが含まれていることを期待
-        # （実際のカラーバーの検証は視覚的確認が必要）
-
-        plt.close(fig)
+        # dBA mode should label the axes
+        assert result.get_xlabel() == "Time [s]"
+        assert result.get_ylabel() == "Frequency [Hz]"
 
     def test_describe_plot_strategy_edge_cases(self) -> None:
-        """DescribePlotStrategyのエッジケースのテスト"""
+        """Test DescribePlotStrategy edge cases."""
         strategy = DescribePlotStrategy()
 
-        # A特性重み付けでのテスト
+        # Test with A-weighting
         self.mock_channel_frame.stft.return_value = self.mock_spectrogram_frame
         self.mock_channel_frame.welch.return_value = self.mock_spectral_frame
 
@@ -1011,7 +965,7 @@ class TestPlotting:
             mock_axes_iter = iter([mock_ax1, mock_ax2, mock_ax3, mock_ax4])
             mock_add_subplot.side_effect = lambda *args, **kwargs: next(mock_axes_iter)
 
-            # A特性重み付けでのプロット
+            # Plot with A-weighting
             result = strategy.plot(
                 self.mock_channel_frame,
                 Aw=True,
@@ -1023,21 +977,24 @@ class TestPlotting:
 
             assert isinstance(result, Iterator)
 
+            # Verify stft and welch were invoked
+            self.mock_channel_frame.stft.assert_called_once()
+            self.mock_channel_frame.welch.assert_called_once()
+
     def test_matrix_plot_strategy_overlay_mode(self) -> None:
-        """MatrixPlotStrategyのオーバーレイモードのテスト"""
-        from wandas.visualization.plotting import MatrixPlotStrategy
+        """Test MatrixPlotStrategy overlay mode."""
 
         strategy = MatrixPlotStrategy()
 
-        # オーバーレイモードでのテスト
+        # Test overlay mode
         result = strategy.plot(self.mock_spectral_frame, overlay=True)
         assert isinstance(result, Axes)
 
-        # オーバーレイモードでコヒーレンスデータのテスト
+        # Test overlay mode with coherence data
         result = strategy.plot(self.mock_coherence_spectral_frame, overlay=True)
         assert isinstance(result, Axes)
 
-        # 外部axを指定したオーバーレイモードのテスト
+        # Test overlay mode with externally provided ax
         fig, external_ax = plt.subplots()
         result = strategy.plot(
             self.mock_spectral_frame,
@@ -1047,32 +1004,29 @@ class TestPlotting:
         )
         assert result is external_ax
 
-        plt.close("all")
-
     def test_plot_strategy_kwargs_filtering(self) -> None:
-        """プロット戦略でのkwargs フィルタリングのテスト"""
+        """Test kwargs filtering in plot strategies — valid params applied, invalid ignored."""
         strategy = WaveformPlotStrategy()
 
-        # 無効なkwargsを含むテスト
         result = strategy.plot(
             self.mock_channel_frame,
             overlay=True,
             color="blue",
             linewidth=2,
-            invalid_param="should_be_ignored",  # 無効なパラメータ
+            invalid_param="should_be_ignored",  # Invalid parameter filtered out
             xlim=(0, 1),
         )
         assert isinstance(result, Axes)
-
-        plt.close("all")
+        # Valid xlim must be applied
+        assert result.get_xlim() == pytest.approx((0, 1))
 
     def test_plot_with_empty_labels(self) -> None:
-        """ラベルが空の場合のテスト"""
-        # ラベルが空のモックフレームを作成
+        """Test behavior when label is empty."""
+        # Create a mock frame with an empty label
         empty_label_frame = mock.MagicMock()
         empty_label_frame.n_channels = 1
-        empty_label_frame.time = np.linspace(0, 1, 1000)
-        empty_label_frame.data = np.random.rand(1000)
+        empty_label_frame.time = np.linspace(0, 1, _N_SAMPLES)
+        empty_label_frame.data = np.sin(np.linspace(0, 2 * np.pi, _N_SAMPLES))
         empty_label_frame.labels = [""]
         empty_label_frame.label = ""
         empty_label_frame.channels = [mock.MagicMock(label="")]
@@ -1080,16 +1034,14 @@ class TestPlotting:
         strategy = WaveformPlotStrategy()
         result = strategy.plot(empty_label_frame, overlay=True)
         assert isinstance(result, Axes)
-        # デフォルトタイトルが使用されることを確認
+        # Verify default title is used
         assert "Channel Data" in result.get_title()
 
-        plt.close("all")
-
     def test_spectrogram_2d_data_handling(self) -> None:
-        """スペクトログラムの2Dデータ処理のテスト"""
+        """Test spectrogram 2D data handling."""
         strategy = SpectrogramPlotStrategy()
 
-        # 2Dデータ（単一チャネル）のテスト
+        # Test with 2D data (single channel)
         fig, ax = plt.subplots()
 
         with mock.patch("librosa.display.specshow") as mock_specshow:
@@ -1098,85 +1050,78 @@ class TestPlotting:
 
             _ = strategy.plot(self.mock_single_spectrogram_frame, ax=ax)
 
-            # specshowが呼び出されていることを確認
+            # Verify specshow was called
             mock_specshow.assert_called_once()
             call_args = mock_specshow.call_args
-            # 正しいパラメータが渡されていることを確認
-            assert "sr" in call_args[1]
+            # Verify correct parameters were passed
             assert call_args[1]["sr"] == self.mock_single_spectrogram_frame.sampling_rate
-
-        plt.close("all")
+            assert call_args[1]["hop_length"] == self.mock_single_spectrogram_frame.hop_length
+            assert call_args[1]["n_fft"] == self.mock_single_spectrogram_frame.n_fft
 
     def test_channel_metadata_access(self) -> None:
-        """チャネルメタデータアクセスのテスト"""
-        # unitプロパティを持つチャネルメタデータ
+        """Test channel metadata access."""
+        # Channel metadata with unit property
         channel_with_unit = mock.MagicMock()
         channel_with_unit.label = "Test Channel"
         channel_with_unit.unit = "V"
 
         self.mock_channel_frame.channels = [channel_with_unit]
         self.mock_channel_frame.n_channels = 1
-        self.mock_channel_frame.data = np.random.rand(1, 1000)
+        self.mock_channel_frame.data = np.sin(np.linspace(0, 2 * np.pi, _N_SAMPLES)).reshape(1, -1)
 
         strategy = WaveformPlotStrategy()
         result = strategy.plot(self.mock_channel_frame, overlay=False)
 
         assert isinstance(result, Iterator)
         axes_list = list(result)
-        # unitがy軸ラベルに含まれることを確認
+        assert len(axes_list) == 1
+        # Verify unit is included in y-axis label
         assert "V" in axes_list[0].get_ylabel()
-
-        plt.close("all")
+        # Verify channel label appears in the plot title
+        assert axes_list[0].get_title() == "Test Channel"
 
     def test_noct_strategy_with_different_n_values(self) -> None:
-        """異なるN値でのNOctPlotStrategyのテスト"""
-        from wandas.visualization.plotting import NOctPlotStrategy
-
+        """Test NOctPlotStrategy with different N values."""
         strategy = NOctPlotStrategy()
 
-        # 一時的にlabelを保存してNoneに設定
-        original_label = self.mock_noct_frame.label
+        # Use a frame with label=None to verify auto-generated title
         self.mock_noct_frame.label = None
 
-        # n=1（1オクターブ）のテスト
+        # Test with n=1 (1-octave)
         self.mock_noct_frame.n = 1
         result = strategy.plot(self.mock_noct_frame, overlay=True)
         assert isinstance(result, Axes)
         assert "1/1-Octave Spectrum" in result.get_title()
 
-        # n=12（1/12オクターブ）のテスト
+        # Test with n=12 (1/12-octave)
         self.mock_noct_frame.n = 12
         result = strategy.plot(self.mock_noct_frame, overlay=True)
         assert isinstance(result, Axes)
         assert "1/12-Octave Spectrum" in result.get_title()
 
-        # labelを復元
-        self.mock_noct_frame.label = original_label
-
-        plt.close("all")
-
     def test_multiple_operations_history(self) -> None:
-        """複数の操作履歴を持つフレームのテスト"""
+        """Test frame with multiple operation history entries."""
         strategy = FrequencyPlotStrategy()
 
-        # 複数の操作履歴を持つフレーム
+        # Frame with multiple operation history entries
         self.mock_spectral_frame.operation_history = [
             {"operation": "fft"},
-            {"operation": "coherence"},  # 最後の操作がcoherence
+            {"operation": "coherence"},  # last operation is coherence
         ]
-        self.mock_spectral_frame.magnitude = np.random.rand(2, 513)
+        self.mock_spectral_frame.magnitude = np.abs(self.mock_spectral_frame.dB)
 
         result = strategy.plot(self.mock_spectral_frame, overlay=True)
         assert isinstance(result, Axes)
+        # Last operation is coherence — ylabel must reflect it
         assert "coherence" in result.get_ylabel()
-
-        plt.close("all")
+        # Frequency axis label must still be present
+        assert result.get_xlabel() == "Frequency [Hz]"
 
     def test_error_handling_in_describe_plot(self) -> None:
-        """DescribePlotでのエラーハンドリングのテスト"""
+        """Test error handling in DescribePlot."""
         strategy = DescribePlotStrategy()
 
-        # stftメソッドが存在しないフレーム
+        # Frame without stft method
         broken_frame = mock.MagicMock()
         broken_frame.stft.side_effect = AttributeError("No stft method")
 
@@ -1184,26 +1129,25 @@ class TestPlotting:
             strategy.plot(broken_frame)
 
     def test_return_axes_iterator_helper(self) -> None:
-        """_return_axes_iterator ヘルパー関数のテスト"""
-        from wandas.visualization.plotting import _return_axes_iterator
+        """Test _return_axes_iterator helper function."""
 
-        # モックのaxesリストを作成
+        # Create mock axes list
         mock_axes = [mock.MagicMock(spec=Axes) for _ in range(3)]
 
-        # ヘルパー関数をテスト
+        # Test the helper function
         result = _return_axes_iterator(mock_axes)
         assert isinstance(result, Iterator)
 
-        # イテレータから要素を取得
+        # Retrieve elements from iterator — identity preserved
         axes_list = list(result)
         assert len(axes_list) == 3
-        assert all(isinstance(ax, mock.MagicMock) for ax in axes_list)
+        assert axes_list == mock_axes  # exact same objects in order
 
     def test_matrix_plot_strategy_detailed_behavior(self) -> None:
-        """MatrixPlotStrategyの詳細な動作のテスト（選択されたコード部分）"""
+        """Test detailed MatrixPlotStrategy behavior."""
         strategy = MatrixPlotStrategy()
 
-        # ax_setパラメータが正しく適用されることをテスト
+        # Test that ax_set parameters are correctly applied
         with (
             mock.patch("matplotlib.pyplot.subplots") as mock_subplots,
             mock.patch("matplotlib.pyplot.tight_layout") as mock_tight_layout,
@@ -1211,20 +1155,20 @@ class TestPlotting:
         ):
             mock_fig = mock.MagicMock()
             mock_ax = mock.MagicMock(spec=Axes)
-            # ax.figure == figの場合、tight_layoutは呼び出されない（外部axesと同じ動作）
+            # When ax.figure == fig, tight_layout is not called (same behavior as external axes)
             mock_ax.figure = mock_fig
             mock_subplots.return_value = (mock_fig, mock_ax)
 
-            # ax_setパラメータを含むkwargsでテスト
+            # Test with kwargs containing ax_set parameters
             _ = strategy.plot(
                 self.mock_spectral_frame,
                 overlay=True,
-                xlim=(100, 8000),  # ax_setに含まれるパラメータ
-                ylim=(-60, 0),  # ax_setに含まれるパラメータ
+                xlim=(100, 8000),  # ax_set parameter
+                ylim=(-60, 0),  # ax_set parameter
                 title="Test Matrix Plot",
             )
 
-            # ax.setが呼び出されることを確認
+            # Verify ax.set was called
             mock_ax.set.assert_called()
             call_kwargs = mock_ax.set.call_args[1]
             assert "xlim" in call_kwargs
@@ -1232,16 +1176,15 @@ class TestPlotting:
             assert call_kwargs["xlim"] == (100, 8000)
             assert call_kwargs["ylim"] == (-60, 0)
 
-            # suptitleが設定されることを確認
+            # Verify suptitle is set
             mock_fig.suptitle.assert_called_with("Test Matrix Plot")
 
-            # ax.figure == figなので、tight_layoutとshowは呼び出されない
+            # Since ax.figure == fig, tight_layout and show are not called
             mock_tight_layout.assert_not_called()
             mock_show.assert_not_called()
 
     def test_matrix_plot_strategy_external_axes_behavior(self) -> None:
-        """MatrixPlotStrategyで外部axesを使用した場合の動作テスト"""
-        from wandas.visualization.plotting import MatrixPlotStrategy
+        """Test MatrixPlotStrategy behavior with external axes."""
 
         strategy = MatrixPlotStrategy()
 
@@ -1249,12 +1192,12 @@ class TestPlotting:
             mock.patch("matplotlib.pyplot.tight_layout") as mock_tight_layout,
             mock.patch("matplotlib.pyplot.show") as mock_show,
         ):
-            # 外部のfigureとaxesを作成
+            # Create external figure and axes
             external_fig = mock.MagicMock()
             external_ax = mock.MagicMock(spec=Axes)
             external_ax.figure = external_fig
 
-            # 外部axesを指定してplot
+            # Plot with external axes
             result = strategy.plot(
                 self.mock_spectral_frame,
                 ax=external_ax,
@@ -1262,22 +1205,21 @@ class TestPlotting:
                 title="External Axes Test",
             )
 
-            # 外部axesが返されることを確認
+            # Verify external axes are returned
             assert result is external_ax
 
-            # 外部axesのsetが呼び出されることを確認
+            # Verify set was called on external axes
             external_ax.set.assert_called()
 
-            # 外部figureのsuptitleが設定されることを確認
+            # Verify suptitle is set on external figure
             external_fig.suptitle.assert_called_with("External Axes Test")
 
-            # 外部axesの場合、tight_layoutとshowは呼び出されないことを確認
+            # Verify tight_layout and show are not called for external axes
             mock_tight_layout.assert_not_called()
             mock_show.assert_not_called()
 
     def test_matrix_plot_strategy_figure_condition(self) -> None:
-        """MatrixPlotStrategyのfigure条件分岐のテスト"""
-        from wandas.visualization.plotting import MatrixPlotStrategy
+        """Test MatrixPlotStrategy figure conditional branching."""
 
         strategy = MatrixPlotStrategy()
 
@@ -1286,23 +1228,22 @@ class TestPlotting:
             mock.patch("matplotlib.pyplot.tight_layout") as mock_tight_layout,
             mock.patch("matplotlib.pyplot.show") as mock_show,
         ):
-            # 異なるfigureを持つaxesをシミュレート
+            # Simulate axes belonging to a different figure
             created_fig = mock.MagicMock()
             different_fig = mock.MagicMock()
             mock_ax = mock.MagicMock(spec=Axes)
-            mock_ax.figure = different_fig  # 作成したfigureとは異なる
+            mock_ax.figure = different_fig  # Different from the created figure
             mock_subplots.return_value = (created_fig, mock_ax)
 
-            # plotを実行
+            # Execute plot
             _ = strategy.plot(self.mock_spectral_frame, overlay=True, title="Figure Condition Test")
 
-            # ax.figure != figの条件により、tight_layoutとshowが呼び出されることを確認
+            # Since ax.figure != fig, tight_layout and show should be called
             mock_tight_layout.assert_called_once()
             mock_show.assert_called_once()
 
     def test_matrix_plot_strategy_suptitle_fallback(self) -> None:
-        """MatrixPlotStrategyのsuptitleフォールバック動作のテスト"""
-        from wandas.visualization.plotting import MatrixPlotStrategy
+        """Test MatrixPlotStrategy suptitle fallback behavior."""
 
         strategy = MatrixPlotStrategy()
 
@@ -1316,23 +1257,22 @@ class TestPlotting:
             mock_ax.figure = mock_fig
             mock_subplots.return_value = (mock_fig, mock_ax)
 
-            # titleもlabelも指定しない場合
+            # When neither title nor label is specified
             self.mock_spectral_frame.label = None
             _ = strategy.plot(self.mock_spectral_frame, overlay=True)
 
-            # デフォルトのタイトルが使用されることを確認
+            # Verify default title is used
             mock_fig.suptitle.assert_called_with("Spectral Data")
 
-            # labelがある場合
+            # When label is present
             self.mock_spectral_frame.label = "Test Label"
             _ = strategy.plot(self.mock_spectral_frame, overlay=True)
 
-            # labelが使用されることを確認
+            # Verify label is used
             mock_fig.suptitle.assert_called_with("Test Label")
 
     def test_matrix_plot_strategy_coherence_data_ax_set(self) -> None:
-        """MatrixPlotStrategyでコヒーレンスデータのax_set処理をテスト"""
-        from wandas.visualization.plotting import MatrixPlotStrategy
+        """Test MatrixPlotStrategy ax_set handling with coherence data."""
 
         strategy = MatrixPlotStrategy()
 
@@ -1346,40 +1286,31 @@ class TestPlotting:
             mock_ax.figure = mock_fig
             mock_subplots.return_value = (mock_fig, mock_ax)
 
-            # コヒーレンスデータでax_setパラメータをテスト
-            # gridパラメータはAxes.setでは無効なので、filter_kwargsで除外される
+            # Test ax_set parameters with coherence data
+            # grid parameter is invalid for Axes.set, filtered out by filter_kwargs
             _ = strategy.plot(
                 self.mock_coherence_spectral_frame,
                 overlay=True,
                 xlim=(10, 10000),
                 ylim=(0, 1),
                 xscale="log",
-                grid=True,  # このパラメータはfilter_kwargsで除外される
+                grid=True,  # This parameter is filtered out by filter_kwargs
             )
 
-            # ax.setが適切なパラメータで呼び出されることを確認
+            # Verify ax.set is called with appropriate parameters
             mock_ax.set.assert_called()
             call_kwargs = mock_ax.set.call_args[1]
             assert "xlim" in call_kwargs
             assert "ylim" in call_kwargs
             assert "xscale" in call_kwargs
-            # gridはAxes.setで有効なパラメータではないので含まれない
+            # grid is not a valid parameter for Axes.set, so it should not be included
             assert "grid" not in call_kwargs
             assert call_kwargs["xlim"] == (10, 10000)
             assert call_kwargs["ylim"] == (0, 1)
             assert call_kwargs["xscale"] == "log"
 
-        plt.close("all")
-
     def test_plotting_helper_functions_and_noop_methods(self) -> None:
         """Helper utilities and explicit no-op methods should be covered directly."""
-        from wandas.core.metadata import ChannelMetadata
-        from wandas.visualization.plotting import (
-            _reshape_spectrogram_data,
-            _reshape_to_2d,
-            _resolve_channel_label,
-        )
-
         channel_meta = ChannelMetadata(label="default")
         unlabeled_channel_meta = ChannelMetadata()
 
@@ -1387,7 +1318,7 @@ class TestPlotting:
         assert _resolve_channel_label(None, unlabeled_channel_meta, 0, 2) == ""
         assert _resolve_channel_label("shared", channel_meta, 0, 2) == "shared"
         assert _resolve_channel_label(["left", "right"], channel_meta, 1, 2) == "right"
-        assert _resolve_channel_label(123, channel_meta, 0, 2) == "123"
+        assert _resolve_channel_label(123, channel_meta, 0, 2) == "123"  # ty: ignore[invalid-argument-type]
         with pytest.raises(ValueError, match="Channel label count mismatch"):
             _resolve_channel_label(["only-one"], channel_meta, 0, 2)
 
@@ -1495,116 +1426,101 @@ class TestPlotting:
             mock.patch("matplotlib.pyplot.show"),
         ):
             result = strategy.plot(self.mock_coherence_spectral_frame)
-            axes_list = list(result)
+            if isinstance(result, Axes):
+                axes_list = [result]
+            else:
+                axes_list = list(result)
 
         assert len(axes_list) == 4
         plt.close(fig)
 
 
 class TestChannelFramePlotParameters:
-    """Test plot parameter combinations for complete coverage."""
+    """Test plot parameter forwarding for ChannelFrame.plot().
 
-    def _get_axes_list(self, result: Axes | Iterator[Axes]) -> list[Axes]:
-        if isinstance(result, Iterator):
+    Visualization policy: verify that xlabel, ylabel, xlim, ylim, alpha
+    are correctly reflected in the returned Axes.
+    """
+
+    # Deterministic signal constants
+    _FREQ_HZ = 440
+    _DURATION = 0.1  # 100 ms — short but sufficient for parameter tests
+    _SR = 16_000
+
+    def _make_signal(self) -> wd.ChannelFrame:
+        return wd.generate_sin(
+            freqs=[self._FREQ_HZ],
+            duration=self._DURATION,
+            sampling_rate=self._SR,
+        )
+
+    @staticmethod
+    def _get_axes_list(result: Axes | Iterator[Axes]) -> list[Axes]:
+        if not isinstance(result, Axes):
             return list(result)
         return [result]
 
-    def test_plot_with_xlabel(self) -> None:
-        """Test plot with custom xlabel."""
-        signal = wd.generate_sin(freqs=[440], duration=0.1, sampling_rate=16000)
+    def test_plot_forwards_xlabel(self) -> None:
+        """Custom xlabel must appear on the returned Axes."""
+        res = self._make_signal().plot(xlabel="Custom X Label")
+        ax = self._get_axes_list(res)[0]
+        assert ax.get_xlabel() == "Custom X Label"
 
-        # This should trigger line 438
-        # plot() returns an iterator of axes
-        try:
-            res = signal.plot(xlabel="Custom X Label")
-            ax_list = self._get_axes_list(res)
-            assert len(ax_list) > 0
-            assert isinstance(ax_list[0], Axes)
-            assert ax_list[0].get_xlabel() == "Custom X Label"
-        except Exception as e:
-            # If plot fails due to matplotlib issues, skip the test
-            # The important thing is the code path was exercised
-            if "tight_layout" in str(e) or "_NoValueType" in str(e):
-                pytest.skip(f"Plot failed due to matplotlib issue: {e}")
-            raise
+    def test_plot_forwards_ylabel(self) -> None:
+        """Custom ylabel must appear on the returned Axes."""
+        res = self._make_signal().plot(ylabel="Custom Y Label")
+        ax = self._get_axes_list(res)[0]
+        assert ax.get_ylabel() == "Custom Y Label"
 
-    def test_plot_with_ylabel(self) -> None:
-        """Test plot with custom ylabel."""
-        signal = wd.generate_sin(freqs=[440], duration=0.1, sampling_rate=16000)
+    def test_plot_forwards_alpha(self) -> None:
+        """Custom alpha must be applied to drawn Line2D objects."""
+        res = self._make_signal().plot(alpha=0.5)
+        ax = self._get_axes_list(res)[0]
+        lines = ax.get_lines()
+        assert len(lines) >= 1, "At least one line should be drawn"
+        assert lines[0].get_alpha() == 0.5
 
-        # This should trigger line 440
-        try:
-            res = signal.plot(ylabel="Custom Y Label")
-            ax_list = self._get_axes_list(res)
-            assert len(ax_list) > 0
-            assert isinstance(ax_list[0], Axes)
-            assert ax_list[0].get_ylabel() == "Custom Y Label"
-        except Exception as e:
-            if "tight_layout" in str(e) or "_NoValueType" in str(e):
-                pytest.skip(f"Plot failed due to matplotlib issue: {e}")
-            raise
+    def test_plot_forwards_xlim(self) -> None:
+        """Custom xlim must be set on the returned Axes."""
+        res = self._make_signal().plot(xlim=(0.0, 0.05))
+        ax = self._get_axes_list(res)[0]
+        assert ax.get_xlim() == pytest.approx((0.0, 0.05))
 
-    def test_plot_with_alpha(self) -> None:
-        """Test plot with custom alpha value."""
-        signal = wd.generate_sin(freqs=[440], duration=0.1, sampling_rate=16000)
+    def test_plot_forwards_combined_parameters(self) -> None:
+        """Multiple parameters applied together must all be reflected."""
+        res = self._make_signal().plot(
+            xlabel="Time",
+            ylabel="Amplitude",
+            alpha=0.7,
+            xlim=(0.0, 0.05),
+            ylim=(-1.0, 1.0),
+        )
+        ax = self._get_axes_list(res)[0]
 
-        # This should trigger line 442 (alpha != 1.0)
-        try:
-            res = signal.plot(alpha=0.5)
-            ax_list = self._get_axes_list(res)
-            assert len(ax_list) > 0
-            assert isinstance(ax_list[0], Axes)
-            # Check alpha on the first line
-            lines = ax_list[0].get_lines()
-            if lines:
-                assert lines[0].get_alpha() == 0.5
-        except Exception as e:
-            if "tight_layout" in str(e) or "_NoValueType" in str(e):
-                pytest.skip(f"Plot failed due to matplotlib issue: {e}")
-            raise
+        assert ax.get_xlabel() == "Time"
+        assert ax.get_ylabel() == "Amplitude"
+        assert ax.get_xlim() == pytest.approx((0.0, 0.05))
+        assert ax.get_ylim() == pytest.approx((-1.0, 1.0))
 
-    def test_plot_with_xlim(self) -> None:
-        """Test plot with custom xlim."""
-        signal = wd.generate_sin(freqs=[440], duration=0.1, sampling_rate=16000)
+        lines = ax.get_lines()
+        if lines:
+            assert lines[0].get_alpha() == 0.7
 
-        # This should trigger line 444
-        try:
-            res = signal.plot(xlim=(0.0, 0.05))
-            ax_list = self._get_axes_list(res)
-            assert len(ax_list) > 0
-            assert isinstance(ax_list[0], Axes)
-            assert ax_list[0].get_xlim() == (0.0, 0.05)
-        except Exception as e:
-            if "tight_layout" in str(e) or "_NoValueType" in str(e):
-                pytest.skip(f"Plot failed due to matplotlib issue: {e}")
-            raise
 
-    def test_plot_with_combined_parameters(self) -> None:
-        """Test plot with multiple optional parameters."""
-        signal = wd.generate_sin(freqs=[440], duration=0.1, sampling_rate=16000)
+def test_spectrogram_plot_single_channel_scalar_axes_converted() -> None:
+    """SpectrogramPlotStrategy: single-channel with ax=None triggers scalar→array conversion."""
+    sr = 16_000
+    n_fft = 512
+    hop = n_fft // 4  # 128
+    freq_hz = 440  # A4 — deterministic sine
+    t = np.linspace(0, 1, sr, endpoint=False)
+    data = np.sin(2 * np.pi * freq_hz * t).reshape(1, -1)
+    cf = wd.ChannelFrame.from_numpy(data, sampling_rate=sr)
+    spec = cf.stft(n_fft=n_fft, hop_length=hop)
 
-        # Test multiple parameters at once
-        try:
-            res = signal.plot(
-                xlabel="Time",
-                ylabel="Amplitude",
-                alpha=0.7,
-                xlim=(0.0, 0.05),
-                ylim=(-1.0, 1.0),
-            )
-            ax_list = self._get_axes_list(res)
-            assert len(ax_list) > 0
-            assert isinstance(ax_list[0], Axes)
-
-            assert ax_list[0].get_xlabel() == "Time"
-            assert ax_list[0].get_ylabel() == "Amplitude"
-            assert ax_list[0].get_xlim() == (0.0, 0.05)
-            assert ax_list[0].get_ylim() == (-1.0, 1.0)
-
-            lines = ax_list[0].get_lines()
-            if lines:
-                assert lines[0].get_alpha() == 0.7
-        except Exception as e:
-            if "tight_layout" in str(e) or "_NoValueType" in str(e):
-                pytest.skip(f"Plot failed due to matplotlib issue: {e}")
-            raise
+    strategy = SpectrogramPlotStrategy()
+    result = strategy.plot(spec)
+    # Single-channel without ax= returns an iterator (scalar Axes is wrapped internally)
+    assert isinstance(result, Iterator)
+    axes_list = list(result)
+    assert len(axes_list) >= 1  # at least 1 axis for single channel

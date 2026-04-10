@@ -108,7 +108,7 @@ For operations that change domain (time domain → frequency domain → time-fre
 ## Pillar 3: Mathematical Consistency & Transform Reversibility
 
 ### Rule: Domain Round-Trip Fidelity
-For invertible transforms such as STFT→ISTFT, verify that the original signal can be recovered within `atol=1e-6` by the inverse transform.
+For invertible transforms such as STFT→ISTFT, verify that the original signal can be recovered within a combined tolerance such as `rtol=1e-6, atol=1e-6` by the inverse transform. Use `rtol` to control proportional error for larger-magnitude samples, and `atol` to handle values near 0 and small absolute reconstruction residuals introduced by windowing/overlap-add.
 
 ### Rule: Shape & Type Consistency
 Verify that the shape of output arrays matches the theoretical value. For example, the number of frequency bins in STFT should be `n_fft // 2 + 1`.
@@ -142,7 +142,7 @@ When implementing an algorithm from scratch, use analytically predictable signal
 | Category | Default Tolerance | Rationale |
 |----------|------------------|-----------|
 | Wrapper equivalence | Exact match (`assert_array_equal` or `assert_allclose` default) | Same algorithm, exact numeric result |
-| Round-trip transforms | `atol=1e-6` | Windowing/overlap introduces small errors |
+| Round-trip transforms | `rtol=1e-6` | Windowing/overlap introduces small errors |
 | Psychoacoustic metrics (MoSQITo wrapper) | Exact match | Wandas wraps MoSQITo directly — results must be identical |
 | Theoretical value verification | `rtol=1e-6` | Known analytical result, numerical precision |
 | Frequency peak detection | Within 1 FFT bin | Spectral leakage at bin boundaries |

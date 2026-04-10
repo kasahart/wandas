@@ -2,7 +2,7 @@ import io
 import os
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO, cast
 from unittest import mock
 
 import dask.array as da
@@ -18,16 +18,27 @@ from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.utils.types import NDArrayReal
 
-_da_from_array = da.from_array  # type: ignore [unused-ignore]
+_da_from_array = da.from_array
+
+# --- Module-level deterministic test constants ---
+_SAMPLE_RATE: int = 16000
+_rng = np.random.default_rng(42)
+_DATA_2CH: NDArrayReal = _rng.random((2, 16000))  # 2 channels, 1 second
+_DASK_2CH: DaArray = _da_from_array(_DATA_2CH, chunks=(1, 4000))
+
+# Stereo sine fixture shared by RMS and CrestFactor test classes
+_t = np.linspace(0, 1, int(_SAMPLE_RATE), endpoint=False)
+_SINE_CH0: NDArrayReal = np.sin(2 * np.pi * 440 * _t).astype(np.float64)
+_SINE_CH1: NDArrayReal = (2.0 * np.sin(2 * np.pi * 440 * _t)).astype(np.float64)
+_STEREO_SINE: NDArrayReal = np.array([_SINE_CH0, _SINE_CH1])
 
 
 class TestChannelFrame:
     def setup_method(self) -> None:
         """Set up test fixtures for each test."""
-        # Create a simple dask array for testing
-        self.sample_rate: float = 16000
-        self.data: NDArrayReal = np.random.random((2, 16000))  # 2 channels, 1 second
-        self.dask_data: DaArray = _da_from_array(self.data, chunks=(1, 4000))
+        self.sample_rate: float = _SAMPLE_RATE
+        self.data: NDArrayReal = _DATA_2CH
+        self.dask_data: DaArray = _DASK_2CH
         self.channel_frame: ChannelFrame = ChannelFrame(
             data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
         )
@@ -96,6 +107,7 @@ class TestChannelFrame:
         # Compute and check results
         computed: NDArrayReal = result.compute()
         expected: NDArrayReal = (self.data + 1) * 2
+        # Scalar arithmetic on float64 — decimal=6 default (exact match expected)
         np.testing.assert_array_almost_equal(computed, expected)
 
     def test_persist(self) -> None:
@@ -227,7 +239,7 @@ class TestChannelFrame:
     def test_get_channel_with_range(self) -> None:
         """Test get_channel with range object."""
         # Create a frame with more channels
-        data = np.random.random((4, 16000))
+        data = np.random.default_rng(42).random((4, 16000))
         dask_data = _da_from_array(data, chunks=(1, 4000))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
@@ -301,7 +313,7 @@ class TestChannelFrame:
 
     def test_initialization_with_1d_data(self) -> None:
         """Test initialization with 1D data."""
-        data_1d = np.random.random(16000)
+        data_1d = np.random.default_rng(42).random(16000)
         dask_data_1d = _da_from_array(data_1d, chunks=4000)
 
         cf = ChannelFrame(dask_data_1d, self.sample_rate)
@@ -381,6 +393,8 @@ class TestChannelFrame:
 
         # Slice all channels
         result = self.channel_frame["ch0"]
+        assert result is not self.channel_frame  # Pillar 1: immutability
+        assert isinstance(result._data, DaArray)  # Pillar 1: Dask laziness
         assert isinstance(result, ChannelFrame)
         assert result.n_channels == 1
         assert result.n_samples == 16000
@@ -392,6 +406,7 @@ class TestChannelFrame:
         np.testing.assert_array_equal(result.data, self.data[0])
 
         result = self.channel_frame["ch1"]
+        assert result is not self.channel_frame  # Pillar 1: immutability
         assert isinstance(result, ChannelFrame)
         assert result.n_channels == 1
         assert result.n_samples == 16000
@@ -435,7 +450,7 @@ def test_add_channel_inplace_updates_original() -> None:
 def test_add_channel_unsupported_type_raises() -> None:
     base = ChannelFrame(data=_da_from_array(np.zeros((1, 4)), chunks=(1, -1)), sampling_rate=16000)
     with pytest.raises(TypeError, match=r"add_channel: ndarray/dask/ChannelFrame"):
-        base.add_channel(12345)  # unsupported type
+        base.add_channel(12345)  # unsupported type  # ty: ignore[invalid-argument-type]
 
 
 def test_add_channel_with_channelframe_align_pad_and_truncate() -> None:
@@ -447,16 +462,23 @@ def test_add_channel_with_channelframe_align_pad_and_truncate() -> None:
     for ch in other_short._channel_metadata:
         ch.label = "other_ch"
     out = base.add_channel(other_short, align="pad")
+    assert out is not base  # Pillar 1: immutability
     assert out.n_samples == base.n_samples
     assert out.n_channels == 2
+    assert base.n_channels == 1  # Pillar 1: original unchanged
+    # Pillar 2: structural op leaves history unchanged
+    assert len(out.operation_history) == len(base.operation_history)
 
     # longer incoming frame -> truncate
     other_long = ChannelFrame(data=_da_from_array(np.zeros((1, 20)), chunks=(1, -1)), sampling_rate=16000)
     for ch in other_long._channel_metadata:
         ch.label = "other_ch_long"
     out2 = base.add_channel(other_long, align="truncate")
+    assert out2 is not base  # Pillar 1: immutability
     assert out2.n_samples == base.n_samples
     assert out2.n_channels == 2
+    # Pillar 2: structural op leaves history unchanged
+    assert len(out2.operation_history) == len(base.operation_history)
 
 
 def test_remove_channel_index_out_of_range_raises() -> None:
@@ -527,7 +549,7 @@ def test_describe_plot_return_type_error() -> None:
     def test_step_slicing(self) -> None:
         """Test slicing with step parameter."""
         # Create a frame with more channels for better testing
-        data = np.random.random((4, 16000))
+        data = np.random.default_rng(42).random((4, 16000))
         dask_data = _da_from_array(data, chunks=(1, 4000))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
@@ -643,7 +665,7 @@ def test_describe_plot_return_type_error() -> None:
 
         # Test invalid list content (mixed types)
         with pytest.raises(TypeError, match="List must contain all str or all int"):
-            _ = self.channel_frame[[0, "ch1"]]  # type: ignore
+            _ = self.channel_frame[[0, "ch1"]]  # intentional mixed-type list for negative test
 
     def test_label_list_indexing(self) -> None:
         """Test list of labels indexing."""
@@ -746,13 +768,16 @@ def test_describe_plot_return_type_error() -> None:
     def test_binary_op_with_channel_frame(self) -> None:
         """Test binary operations with another ChannelFrame."""
         # Create another ChannelFrame
-        other_data = np.random.random((2, 16000))
+        other_data = np.random.default_rng(42).random((2, 16000))
         other_dask_data = _da_from_array(other_data, chunks=(1, 4000))
         other_cf = ChannelFrame(other_dask_data, self.sample_rate, label="other_audio")
 
         # Add the two ChannelFrames
         result = self.channel_frame + other_cf
 
+        # Pillar 1: immutability and Dask laziness
+        assert result is not self.channel_frame
+        assert isinstance(result._data, DaArray)
         # Check result properties
         assert isinstance(result, ChannelFrame)
         assert result.sampling_rate == self.sample_rate
@@ -762,6 +787,7 @@ def test_describe_plot_return_type_error() -> None:
         # Check computation results
         computed = result.compute()
         expected = self.data + other_data
+        # Element-wise addition — decimal=6 default (exact match expected)
         np.testing.assert_array_almost_equal(computed, expected)
 
         # Test sampling rate mismatch error
@@ -791,13 +817,15 @@ def test_describe_plot_return_type_error() -> None:
         """Test add method for adding signals."""
         # 通常の加算をテスト
         # Create another ChannelFrame
-        other_data = np.random.random((2, 16000))
+        other_data = np.random.default_rng(42).random((2, 16000))
         other_dask_data = _da_from_array(other_data, chunks=(1, -1))
         other_cf = ChannelFrame(other_dask_data, self.sample_rate, label="other_audio")
 
         # addメソッドを使用して加算
         result = self.channel_frame.add(other_cf)
 
+        # Pillar 1: immutability
+        assert result is not self.channel_frame
         # Check result properties
         assert isinstance(result, ChannelFrame)
         assert result.sampling_rate == self.sample_rate
@@ -807,6 +835,7 @@ def test_describe_plot_return_type_error() -> None:
         # 実際の計算結果を確認
         computed = result.compute()
         expected = self.data + other_data
+        # Element-wise addition — decimal=6 default (exact match expected)
         np.testing.assert_array_almost_equal(computed, expected)
 
         # スカラー値との加算をテスト
@@ -815,14 +844,16 @@ def test_describe_plot_return_type_error() -> None:
         assert isinstance(result, ChannelFrame)
         computed = result.compute()
         expected = self.data + scalar_value
+        # Scalar broadcast addition — decimal=6 default (exact match expected)
         np.testing.assert_array_almost_equal(computed, expected)
 
         # NumPy配列との加算をテスト
-        array_value = np.random.random((2, 16000))
+        array_value = np.random.default_rng(42).random((2, 16000))
         result = self.channel_frame.add(array_value)
         assert isinstance(result, ChannelFrame)
         computed = result.compute()
         expected = self.data + array_value
+        # Array addition — decimal=6 default (exact match expected)
         np.testing.assert_array_almost_equal(computed, expected)
 
         # サンプリングレートが一致しない場合のエラーをテスト
@@ -920,7 +951,7 @@ def test_describe_plot_return_type_error() -> None:
     def test_from_numpy(self) -> None:
         """Test from_numpy method."""
         # Create a random array
-        data = np.random.random((2, 16000))
+        data = np.random.default_rng(42).random((2, 16000))
         sampling_rate = 16000
         label = "test_audio"
         ch_labels = ["left", "right"]
@@ -959,7 +990,7 @@ def test_describe_plot_return_type_error() -> None:
         assert cf.metadata["device"] == "microphone"
 
         # Test ndim=1
-        data_1d = np.random.random(16000)
+        data_1d = np.random.default_rng(42).random(16000)
         cf_1d = ChannelFrame.from_numpy(data_1d, sampling_rate=sampling_rate)
         # Check properties
         assert cf_1d.shape == (16000,)
@@ -968,7 +999,7 @@ def test_describe_plot_return_type_error() -> None:
         # Test 3d array
         with pytest.raises(ValueError, match="Data must be 1-dimensional or 2-dimensional."):
             ChannelFrame.from_numpy(
-                np.random.random((3, 16000, 2)),
+                np.random.default_rng(42).random((3, 16000, 2)),
                 sampling_rate=sampling_rate,
             )
 
@@ -977,13 +1008,13 @@ def test_describe_plot_return_type_error() -> None:
         # Create a temporary WAV file
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
             temp_filename: str = temp_file.name
-            sf.write(temp_filename, np.random.random((16000, 2)), 16000)
+            sf.write(temp_filename, np.random.default_rng(42).random((16000, 2)), 16000)
         re_test_data, _ = sf.read(temp_filename)
         re_test_data = re_test_data.T
         try:
             # Create mock array and patch from_delayed to return it
             mock_dask_array = mock.MagicMock(spec=DaArray)
-            mock_data = np.random.random((2, 16000))
+            mock_data = np.random.default_rng(42).random((2, 16000))
             mock_dask_array.compute.return_value = mock_data
             mock_dask_array.shape = (2, 16000)
             # Add ndim property to the mock
@@ -1040,7 +1071,7 @@ def test_describe_plot_return_type_error() -> None:
                     TypeError,
                     match="channel must be int, list, or None",
                 ):
-                    ChannelFrame.from_file(temp_filename, channel="invalid")  # type: ignore
+                    ChannelFrame.from_file(temp_filename, channel="invalid")  # ty: ignore[invalid-argument-type]
 
                 # Test file not found
                 with pytest.raises(FileNotFoundError):
@@ -1270,12 +1301,8 @@ class TestDescribeIntegration:
 
     def setup_method(self) -> None:
         """Set up test fixtures."""
-        # Create a simple test signal
-        self.sample_rate = 16000
-        t = np.linspace(0, 1, self.sample_rate)
-        # 440Hz sine wave (A4 note)
-        signal = np.sin(2 * np.pi * 440 * t)
-        self.data = signal.reshape(1, -1)
+        self.sample_rate = _SAMPLE_RATE
+        self.data = _SINE_CH0.reshape(1, -1)  # 440Hz sine, single channel
         self.channel_frame = ChannelFrame.from_numpy(data=self.data, sampling_rate=self.sample_rate, label="test_sine")
 
     def test_describe_integration_basic(self) -> None:
@@ -1352,26 +1379,20 @@ class TestDescribeIntegration:
 
     def test_describe_integration_typeddict_params(self) -> None:
         """Test describe() using TypedDict configuration."""
-        from wandas.visualization.types import DescribeParams
-
-        # Create configuration using TypedDict
-        config: DescribeParams = {
-            "fmin": 100,
-            "fmax": 5000,
-            "cmap": "viridis",
-            "Aw": True,
-            "vmin": -80,
-            "vmax": -20,
-            "normalize": False,
-        }
-
         with (
             mock.patch("wandas.frames.channel.display"),
             mock.patch("wandas.frames.channel.Audio"),
             mock.patch("matplotlib.pyplot.close"),
         ):
-            # Expand TypedDict as kwargs
-            self.channel_frame.describe(**config)
+            self.channel_frame.describe(
+                fmin=100,
+                fmax=5000,
+                cmap="viridis",
+                Aw=True,
+                vmin=-80,
+                vmax=-20,
+                normalize=False,
+            )
 
     def test_describe_integration_plot_is_created(self) -> None:
         """Test that describe() actually creates plots."""
@@ -1495,8 +1516,8 @@ class TestDescribeIntegration:
         assert cf.sampling_rate == sampling_rate
         assert cf.n_channels == 2
         computed_data = cf.compute()
-        np.testing.assert_allclose(computed_data[0], data_left, rtol=1e-5)
-        np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)
+        np.testing.assert_allclose(computed_data[0], data_left, rtol=1e-5)  # int16->float32 normalization rounding
+        np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)  # int16->float32 normalization rounding
 
     def test_from_file_bytes_csv(self) -> None:
         """Test from_file with in-memory CSV bytes."""
@@ -1545,7 +1566,7 @@ class TestDescribeIntegration:
         stream = NonSeekableStream(wav_bytes, name="memory/sample.wav")
 
         cf = ChannelFrame.from_file(
-            stream,
+            cast(BinaryIO, stream),
             file_type="wav",
             source_name="source.wav",
         )
@@ -1554,8 +1575,8 @@ class TestDescribeIntegration:
         assert cf.n_channels == 2
         assert cf.label == "source"
         computed_data = cf.compute()
-        np.testing.assert_allclose(computed_data[0], data_left, rtol=1e-5)
-        np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)
+        np.testing.assert_allclose(computed_data[0], data_left, rtol=1e-5)  # int16->float32 normalization rounding
+        np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)  # int16->float32 normalization rounding
 
     def test_from_file_wav_normalize_false(self, tmp_path: Path) -> None:
         """Test that from_file returns int16 data cast to float32 by default (normalize=False)."""
@@ -1587,8 +1608,8 @@ class TestDescribeIntegration:
         cf = ChannelFrame.from_file(filepath, normalize=True)
         computed = cf.compute()
 
-        np.testing.assert_allclose(computed[0], 0.5, rtol=1e-4)
-        np.testing.assert_allclose(computed[1], -0.5, rtol=1e-4)
+        np.testing.assert_allclose(computed[0], 0.5, rtol=1e-4)  # int16 quantization: 16384/32768 ~= 0.5
+        np.testing.assert_allclose(computed[1], -0.5, rtol=1e-4)  # int16 quantization: 16384/32768 ~= 0.5
         assert computed.dtype == np.float32
 
     def test_read_wav_normalize_true(self, tmp_path: Path) -> None:
@@ -1604,8 +1625,8 @@ class TestDescribeIntegration:
         cf = ChannelFrame.read_wav(str(filepath), normalize=True)
         computed = cf.compute()
 
-        np.testing.assert_allclose(computed[0], 0.5, rtol=1e-4)
-        np.testing.assert_allclose(computed[1], -0.5, rtol=1e-4)
+        np.testing.assert_allclose(computed[0], 0.5, rtol=1e-4)  # int16 quantization: 16384/32768 ~= 0.5
+        np.testing.assert_allclose(computed[1], -0.5, rtol=1e-4)  # int16 quantization: 16384/32768 ~= 0.5
         assert computed.dtype == np.float32
 
     def test_debug_info(self) -> None:
@@ -1711,6 +1732,7 @@ class TestDescribeIntegration:
 
         # For a constant signal, RMS equals the absolute value
         expected_rms = np.array([2.0, 3.0])
+        # Constant signal: RMS == |value| — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(rms_values, expected_rms)
 
     def test_rms_property_with_sine_wave(self) -> None:
@@ -1738,6 +1760,7 @@ class TestDescribeIntegration:
 
         # Expected RMS for sine wave: amplitude / sqrt(2)
         expected_rms = np.array([amp1 / np.sqrt(2), amp2 / np.sqrt(2)])
+        # Sine RMS = A/sqrt(2); decimal=5 for non-integer-cycle spectral leakage
         np.testing.assert_array_almost_equal(rms_values, expected_rms, decimal=5)
 
     def test_rms_property_single_channel(self) -> None:
@@ -1751,6 +1774,7 @@ class TestDescribeIntegration:
 
         # Calculate expected RMS: sqrt(mean([1, 4, 9, 16]))
         expected_rms = np.sqrt(np.mean([1.0, 4.0, 9.0, 16.0]))
+        # Known values: sqrt(mean(x^2)) — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(rms_values, [expected_rms])
 
     def test_rms_property_indexing(self) -> None:
@@ -1804,12 +1828,8 @@ class TestChannelFrameRMS:
 
     def setup_method(self) -> None:
         """Set up test fixtures."""
-        self.sample_rate = 16000
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        # Pure sine waves with known RMS = amplitude / sqrt(2)
-        sine_ch0: NDArrayReal = np.sin(2 * np.pi * 440 * t).astype(np.float64)
-        sine_ch1: NDArrayReal = (2.0 * np.sin(2 * np.pi * 440 * t)).astype(np.float64)
-        self.stereo_data: NDArrayReal = np.array([sine_ch0, sine_ch1])
+        self.sample_rate = _SAMPLE_RATE
+        self.stereo_data: NDArrayReal = _STEREO_SINE
         self.cf_stereo = ChannelFrame.from_numpy(self.stereo_data, sampling_rate=self.sample_rate)
 
     # ------------------------------------------------------------------
@@ -1859,7 +1879,7 @@ class TestChannelFrameRMS:
         result = self.cf_stereo.rms
         expected = np.array([1.0 / np.sqrt(2), 2.0 / np.sqrt(2)])
         # 440 Hz at 16 kHz SR produces 440 integer cycles; rtol=1e-6 for standard float64 precision.
-        np.testing.assert_allclose(result, expected, rtol=1e-6)
+        np.testing.assert_allclose(result, expected, rtol=1e-6)  # Pure sine RMS = amplitude / sqrt(2)
 
     def test_rms_dc_signal_equals_amplitude(self) -> None:
         """RMS of a constant (DC) signal must equal its absolute amplitude."""
@@ -1867,7 +1887,7 @@ class TestChannelFrameRMS:
         cf_dc = ChannelFrame.from_numpy(dc_data, sampling_rate=self.sample_rate)
         result = cf_dc.rms
         # Constant signal; no rounding error beyond float64 machine precision.
-        np.testing.assert_allclose(result, [3.0, 5.0], rtol=1e-10)
+        np.testing.assert_allclose(result, [3.0, 5.0], rtol=1e-10)  # Exact: RMS of constant signal equals the constant
 
     def test_rms_zero_signal_is_zero(self) -> None:
         """RMS of an all-zero signal must be 0."""
@@ -1875,7 +1895,7 @@ class TestChannelFrameRMS:
         cf_zero = ChannelFrame.from_numpy(zero_data, sampling_rate=self.sample_rate)
         result = cf_zero.rms
         # Exact zero input; allow for float64 subnormal rounding floor.
-        np.testing.assert_allclose(result, [0.0, 0.0], atol=1e-15)
+        np.testing.assert_allclose(result, [0.0, 0.0], atol=1e-15)  # Near-zero: RMS of all-zeros signal
 
     def test_rms_integer_input_matches_float64_reference(self) -> None:
         """RMS must cast integer input to float64 before squaring."""
@@ -1885,7 +1905,7 @@ class TestChannelFrameRMS:
         result = cf_int.rms
         reference = np.sqrt(np.mean(int_data.astype(np.float64) ** 2, axis=1))
 
-        np.testing.assert_allclose(result, reference, rtol=1e-12)
+        np.testing.assert_allclose(result, reference, rtol=1e-12)  # Reference: direct np.sqrt(mean(x**2))
 
     def test_rms_mixed_samples(self) -> None:
         """RMS of [1, 2, 3, 4] must equal sqrt(mean([1,4,9,16])) = sqrt(7.5)."""
@@ -1894,7 +1914,7 @@ class TestChannelFrameRMS:
         result = cf.rms
         expected = np.sqrt(np.mean(np.array([1.0, 4.0, 9.0, 16.0])))
         # Exact rational inputs; float64 precision gives near bit-identical result.
-        np.testing.assert_allclose(result, [expected], rtol=1e-10)
+        np.testing.assert_allclose(result, [expected], rtol=1e-10)  # Single-channel pure sine RMS
 
     # ------------------------------------------------------------------
     # Pillar 4 – Reference-based verification: boolean channel selection
@@ -1912,7 +1932,7 @@ class TestChannelFrameRMS:
         filtered = cf[mask]
         assert filtered.n_channels == 2
         # Constant-signal DC channels; float64 precision gives near bit-identical result.
-        np.testing.assert_allclose(filtered.rms, [2.0, 3.0], rtol=1e-10)
+        np.testing.assert_allclose(filtered.rms, [2.0, 3.0], rtol=1e-10)  # Exact: RMS of constant signal
 
     def test_rms_matches_numpy_reference(self) -> None:
         """rms must match the explicit numpy reference calculation."""
@@ -1923,7 +1943,7 @@ class TestChannelFrameRMS:
         result = cf.rms
         reference = np.sqrt(np.mean(data**2, axis=1))
         # Same algorithm and dtype; results should be bit-identical (rtol=1e-10 guards rounding).
-        np.testing.assert_allclose(result, reference, rtol=1e-10)
+        np.testing.assert_allclose(result, reference, rtol=1e-10)  # Reference: direct np.sqrt(mean(x**2))
 
     def test_rms_n_channel_consistency(self) -> None:
         """len(cf.rms) must equal cf.n_channels for any frame."""
@@ -1938,9 +1958,9 @@ class TestBaseFrameExceptionHandling:
 
     def setup_method(self) -> None:
         """テストフィクスチャのセットアップ"""
-        self.sample_rate = 16000
-        self.data = np.random.random((2, 16000))
-        self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
+        self.sample_rate = _SAMPLE_RATE
+        self.data = _DATA_2CH
+        self.dask_data = _DASK_2CH
         self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio")
 
     def test_getitem_empty_list_error(self) -> None:
@@ -1951,7 +1971,7 @@ class TestBaseFrameExceptionHandling:
     def test_getitem_mixed_type_list_error(self) -> None:
         """混合型のリストでインデックスするとTypeErrorが発生することをテスト"""
         with pytest.raises(TypeError, match="List must contain all str or all int"):
-            _ = self.channel_frame[[0, "ch1"]]  # type: ignore
+            _ = self.channel_frame[[0, "ch1"]]  # ty: ignore[invalid-argument-type]
 
     def test_getitem_invalid_numpy_dtype_error(self) -> None:
         """無効なdtypeのNumPy配列でIndexErrorが発生することをテスト"""
@@ -1970,7 +1990,7 @@ class TestBaseFrameExceptionHandling:
         """多次元インデックスで無効なチャネルキー型のテスト"""
         # 浮動小数点数は無効なチャネルキー
         with pytest.raises(TypeError, match="Invalid channel key type in tuple"):
-            _ = self.channel_frame[1.5, :]  # type: ignore
+            _ = self.channel_frame[1.5, :]  # ty: ignore[invalid-argument-type]
 
     def test_label2index_key_error(self) -> None:
         """存在しないラベルでKeyErrorが発生することをテスト"""
@@ -1990,7 +2010,7 @@ class TestBaseFrameExceptionHandling:
         with pytest.raises(TypeError, match="Label must be a string"):
             self.channel_frame._create_new_instance(
                 data=self.dask_data,
-                label=123,  # type: ignore
+                label=123,
             )
 
     def test_create_new_instance_invalid_metadata_type(self) -> None:
@@ -1998,7 +2018,7 @@ class TestBaseFrameExceptionHandling:
         with pytest.raises(TypeError, match="Metadata must be a dictionary"):
             self.channel_frame._create_new_instance(
                 data=self.dask_data,
-                metadata="invalid",  # type: ignore
+                metadata="invalid",
             )
 
     def test_create_new_instance_invalid_channel_metadata_type(self) -> None:
@@ -2006,7 +2026,7 @@ class TestBaseFrameExceptionHandling:
         with pytest.raises(TypeError, match="Channel metadata must be a list"):
             self.channel_frame._create_new_instance(
                 data=self.dask_data,
-                channel_metadata="invalid",  # type: ignore
+                channel_metadata="invalid",
             )
 
     def test_compute_non_ndarray_result(self) -> None:
@@ -2019,7 +2039,7 @@ class TestBaseFrameExceptionHandling:
     # Error Message Tests (Phase 1 Improvements)
     def test_invalid_data_shape_error_message(self) -> None:
         """Test that invalid data shape provides helpful error message."""
-        data_3d = np.random.random((2, 3, 4))  # 3D array
+        data_3d = np.random.default_rng(42).random((2, 3, 4))  # 3D array
         dask_data_3d = _da_from_array(data_3d)
 
         with pytest.raises(ValueError) as exc_info:
@@ -2092,16 +2112,8 @@ class TestFadeIntegration:
 
     def setup_method(self) -> None:
         """Set up test fixtures for fade integration tests."""
-        # Create a test signal with known properties
-        self.sample_rate = 16000
-        duration = 1.0  # 1 second
-        n_samples = int(self.sample_rate * duration)
-        t = np.linspace(0, duration, n_samples, endpoint=False)
-
-        # Create a sine wave with amplitude 1.0
-        freq = 440  # Hz
-        signal = np.sin(2 * np.pi * freq * t)
-        self.data = signal.reshape(1, -1)  # Single channel
+        self.sample_rate = _SAMPLE_RATE
+        self.data = _SINE_CH0.reshape(1, -1)  # Single channel, 440Hz sine
         self.dask_data = _da_from_array(self.data, chunks=(1, 4000))
         self.channel_frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate, label="test_sine")
 
@@ -2352,7 +2364,7 @@ class TestChannelFrameValidation:
     def test_channel_labels_count_mismatch(self) -> None:
         """Test error when channel label count doesn't match channels."""
         # Create multi-channel data
-        data = np.random.random((2, 1000))
+        data = np.random.default_rng(42).random((2, 1000))
 
         # Try to create frame with wrong number of labels
         # This should trigger line 668
@@ -2366,7 +2378,7 @@ class TestChannelFrameValidation:
     def test_channel_units_count_mismatch(self) -> None:
         """Test error when channel unit count doesn't match channels."""
         # Create multi-channel data
-        data = np.random.random((2, 1000))
+        data = np.random.default_rng(42).random((2, 1000))
 
         # Try to create frame with wrong number of units
         # This should trigger line 678
@@ -2388,11 +2400,11 @@ class TestChannelFrameAdditionEdgeCases:
         # Try to add with SNR using an invalid type (e.g., string)
         # This should trigger line 369
         with pytest.raises(TypeError, match="Addition target with SNR must be a ChannelFrame or"):
-            signal.add(other="invalid", snr=10.0)  # type: ignore
+            signal.add(other="invalid", snr=10.0)  # ty: ignore[invalid-argument-type]
 
         # Try with a list (also invalid)
         with pytest.raises(TypeError, match="Addition target with SNR must be a ChannelFrame or"):
-            signal.add(other=[1, 2, 3], snr=10.0)  # type: ignore
+            signal.add(other=[1, 2, 3], snr=10.0)  # ty: ignore[invalid-argument-type]
 
     def test_add_fallback_to_type_name(self) -> None:
         """Test addition with unrecognized type shows type name."""
@@ -2437,12 +2449,8 @@ class TestChannelFrameCrestFactor:
 
     def setup_method(self) -> None:
         """Set up test fixtures."""
-        self.sample_rate = 16000
-        t = np.linspace(0, 1, self.sample_rate, endpoint=False)
-        # Pure sine waves – crest factor = amplitude / (amplitude / sqrt(2)) = sqrt(2)
-        sine_ch0: NDArrayReal = np.sin(2 * np.pi * 440 * t).astype(np.float64)
-        sine_ch1: NDArrayReal = (2.0 * np.sin(2 * np.pi * 440 * t)).astype(np.float64)
-        self.stereo_data: NDArrayReal = np.array([sine_ch0, sine_ch1])
+        self.sample_rate = _SAMPLE_RATE
+        self.stereo_data: NDArrayReal = _STEREO_SINE
         self.cf_stereo = ChannelFrame.from_numpy(self.stereo_data, sampling_rate=self.sample_rate)
 
     # ------------------------------------------------------------------
@@ -2492,7 +2500,7 @@ class TestChannelFrameCrestFactor:
         result = self.cf_stereo.crest_factor
         expected = np.array([np.sqrt(2), np.sqrt(2)])
         # 440 Hz at 16 kHz SR produces 440 integer cycles; rtol=1e-6 for standard float64 precision.
-        np.testing.assert_allclose(result, expected, rtol=1e-6)
+        np.testing.assert_allclose(result, expected, rtol=1e-6)  # Pure sine RMS = amplitude / sqrt(2)
 
     def test_crest_factor_dc_signal_equals_one(self) -> None:
         """Crest factor of a constant (DC) signal must be 1.0."""
@@ -2500,7 +2508,7 @@ class TestChannelFrameCrestFactor:
         cf_dc = ChannelFrame.from_numpy(dc_data, sampling_rate=self.sample_rate)
         result = cf_dc.crest_factor
         # Constant signal: peak == |amplitude| == RMS, so ratio == 1.0 exactly.
-        np.testing.assert_allclose(result, [1.0, 1.0], rtol=1e-10)
+        np.testing.assert_allclose(result, [1.0, 1.0], rtol=1e-10)  # Exact: crest factor of constant signal = 1.0
 
     def test_crest_factor_zero_signal_is_one(self) -> None:
         """Crest factor of an all-zero signal must be 1.0 (no division by zero)."""
@@ -2527,7 +2535,7 @@ class TestChannelFrameCrestFactor:
         rms_ref = np.sqrt(np.mean(data**2, axis=1))
         reference = peak / rms_ref
         # Same algorithm and dtype; results should be bit-identical (rtol=1e-10 guards rounding).
-        np.testing.assert_allclose(result, reference, rtol=1e-10)
+        np.testing.assert_allclose(result, reference, rtol=1e-10)  # Reference: direct np.sqrt(mean(x**2))
 
     def test_crest_factor_integer_input_matches_float64_reference(self) -> None:
         """crest_factor must cast integer input to float64 before abs/squaring."""
@@ -2540,7 +2548,7 @@ class TestChannelFrameCrestFactor:
         rms_ref = np.sqrt(np.mean(float_data**2, axis=1))
         reference = peak / rms_ref
 
-        np.testing.assert_allclose(result, reference, rtol=1e-12)
+        np.testing.assert_allclose(result, reference, rtol=1e-12)  # Reference: direct np.sqrt(mean(x**2))
 
     # ------------------------------------------------------------------
     # Pillar 4 – Reference-based verification: boolean channel selection

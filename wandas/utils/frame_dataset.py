@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Generic, Optional, TypeVar, cast, overload
+from typing import Any, Generic, TypeVar, cast, overload
 
 from tqdm.auto import tqdm
 
@@ -57,7 +57,7 @@ class LazyFrame(Generic[F]):
             self.is_loaded = True
             return self.frame
         except Exception as e:
-            logger.error(f"Failed to load file {self.file_path}: {str(e)}")
+            logger.error(f"Failed to load file {self.file_path}: {e!s}")
             self.is_loaded = True  # Loading was attempted
             self.frame = None
             return None
@@ -86,7 +86,7 @@ class FrameDataset(Generic[F], ABC):
         file_extensions: list[str] | None = None,
         lazy_loading: bool = True,
         recursive: bool = False,
-        source_dataset: Optional["FrameDataset[Any]"] = None,
+        source_dataset: "FrameDataset[Any] | None" = None,
         transform: Callable[[Any], F | None] | None = None,
     ):
         self.folder_path = Path(folder_path)
@@ -140,7 +140,7 @@ class FrameDataset(Generic[F], ABC):
             file_paths.extend(sorted(p for p in self.folder_path.glob(pattern) if p.is_file()))
 
         # Remove duplicates and sort
-        file_paths = sorted(list(set(file_paths)))
+        file_paths = sorted(set(file_paths))
 
         # Create a list of LazyFrame
         self._lazy_frames = [LazyFrame(file_path) for file_path in file_paths]
@@ -152,13 +152,12 @@ class FrameDataset(Generic[F], ABC):
                 self._ensure_loaded(i)
             except Exception as e:
                 filepath = self._lazy_frames[i].file_path
-                logger.warning(f"Failed to load/transform index {i} ({filepath}): {str(e)}")
+                logger.warning(f"Failed to load/transform index {i} ({filepath}): {e!s}")
         self._lazy_loading = False
 
     @abstractmethod
     def _load_file(self, file_path: Path) -> F | None:
         """Abstract method to load a frame from a file."""
-        pass
 
     def _load_from_source(self, index: int) -> F | None:
         """Load a frame from the source dataset and transform it if necessary."""
@@ -172,7 +171,7 @@ class FrameDataset(Generic[F], ABC):
         try:
             return self._transform(source_frame)
         except Exception as e:
-            msg = f"Failed to transform index {index}: {str(e)}"
+            msg = f"Failed to transform index {index}: {e!s}"
             logger.warning(msg)
             # Also emit to the root logger to improve capture reliability
             # in test runners and across different logging configurations
@@ -199,11 +198,10 @@ class FrameDataset(Generic[F], ABC):
                 lazy_frame.is_loaded = True
                 return frame
             # Load directly from file
-            else:
-                return lazy_frame.ensure_loaded(self._load_file)
+            return lazy_frame.ensure_loaded(self._load_file)
         except Exception as e:
             f_path = lazy_frame.file_path
-            logger.error(f"Failed to load or initialize index {index} ({f_path}): {str(e)}")
+            logger.error(f"Failed to load or initialize index {index} ({f_path}): {e!s}")
             lazy_frame.frame = None
             lazy_frame.is_loaded = True
             lazy_frame.load_attempted = True
@@ -228,7 +226,7 @@ class FrameDataset(Generic[F], ABC):
 
         Returns
         -------
-        Optional[F]
+        F | None
             The frame if found, otherwise None.
 
         Examples
@@ -295,7 +293,7 @@ class FrameDataset(Generic[F], ABC):
 
         Returns
         -------
-        Optional[F] or list[F]
+        F | None or list[F]
             If `key` is an int, returns the frame or None. If `key` is a str,
             returns a list of matching frames (may be empty).
 
@@ -357,14 +355,13 @@ class FrameDataset(Generic[F], ABC):
             )
 
         # Determine sample size
-        if n is None and ratio is None:
-            n = max(1, min(10, int(total * 0.1)))
-        elif n is None and ratio is not None:
-            n = max(1, int(total * ratio))
-        elif n is not None:
-            n = max(1, n)
+        if n is None:
+            if ratio is None:
+                n = max(1, min(10, int(total * 0.1)))
+            else:
+                n = max(1, int(total * ratio))
         else:
-            n = 1
+            n = max(1, n)
 
         n = min(n, total)
 
@@ -454,12 +451,12 @@ class _SampledFrameDataset(FrameDataset[F]):
             logger.error(f"  Original dataset file count: {len(original_file_paths)}")
             logger.error(f"  Sampled indices: {sampled_indices}")
             raise IndexError(
-                "Indices are out of range for the original dataset. Original dataset count: "  # noqa: E501
+                "Indices are out of range for the original dataset. Original dataset count: "
                 f"{len(original_file_paths)}, indices: {sampled_indices}"
             ) from e
 
     def _load_file(self, file_path: Path) -> F | None:
-        """This class does not load directly from files but from the original dataset."""  # noqa: E501
+        """This class does not load directly from files but from the original dataset."""
         raise NotImplementedError("_SampledFrameDataset does not load files directly.")
 
     def _ensure_loaded(self, index: int) -> F | None:
@@ -493,7 +490,7 @@ class _SampledFrameDataset(FrameDataset[F]):
 
         except Exception as e:
             logger.error(
-                f"Error loading frame in sampled dataset (index {index}, original index {original_index}): {str(e)}"
+                f"Error loading frame in sampled dataset (index {index}, original index {original_index}): {e!s}"
             )
             lazy_frame.frame = None
             lazy_frame.is_loaded = True
@@ -531,7 +528,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         file_extensions: list[str] | None = None,
         lazy_loading: bool = True,
         recursive: bool = False,
-        source_dataset: Optional["FrameDataset[Any]"] = None,
+        source_dataset: "FrameDataset[Any] | None" = None,
         transform: Callable[[Any], ChannelFrame | None] | None = None,
     ):
         _file_extensions = file_extensions or [
@@ -564,7 +561,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
                 frame = frame.resampling(target_sr=self.sampling_rate)
             return frame
         except Exception as e:
-            logger.error(f"Failed to load or initialize file {file_path}: {str(e)}")
+            logger.error(f"Failed to load or initialize file {file_path}: {e!s}")
             return None
 
     def resample(self, target_sr: int) -> "ChannelFrameDataset":
@@ -680,7 +677,7 @@ class SpectrogramFrameDataset(FrameDataset[SpectrogramFrame]):
         file_extensions: list[str] | None = None,
         lazy_loading: bool = True,
         recursive: bool = False,
-        source_dataset: Optional["FrameDataset[Any]"] = None,
+        source_dataset: "FrameDataset[Any] | None" = None,
         transform: Callable[[Any], SpectrogramFrame | None] | None = None,
     ):
         super().__init__(

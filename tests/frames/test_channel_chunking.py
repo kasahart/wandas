@@ -11,7 +11,7 @@ class TestChannelWiseChunking:
 
     def test_from_numpy_mono_channel_chunks(self):
         """Test that from_numpy creates (1, -1) chunks for mono signal."""
-        data = np.random.rand(44100)
+        data = np.random.default_rng(42).random((44100,))
         cf = ChannelFrame.from_numpy(data, sampling_rate=44100)
 
         # Channel axis should be chunked as 1
@@ -21,7 +21,12 @@ class TestChannelWiseChunking:
 
     def test_from_numpy_stereo_channel_chunks(self):
         """Test that from_numpy creates (1, 1, ...) chunks for stereo signal."""
-        data = np.random.rand(2, 44100)
+        data = np.random.default_rng(42).random(
+            (
+                2,
+                44100,
+            )
+        )
         cf = ChannelFrame.from_numpy(data, sampling_rate=44100)
 
         # Each channel should be chunked separately
@@ -33,7 +38,12 @@ class TestChannelWiseChunking:
         """Test channel-wise chunking for multi-channel signals."""
         n_channels = 4
         n_samples = 48000
-        data = np.random.rand(n_channels, n_samples)
+        data = np.random.default_rng(42).random(
+            (
+                n_channels,
+                n_samples,
+            )
+        )
         cf = ChannelFrame.from_numpy(data, sampling_rate=48000)
 
         # Each channel should be chunked as 1
@@ -46,10 +56,23 @@ class TestChannelWiseChunking:
 
     def test_add_channel_preserves_chunking(self):
         """Test that add_channel maintains channel-wise chunking."""
-        cf = ChannelFrame.from_numpy(np.random.rand(2, 44100), sampling_rate=44100)
-        new_channel_data = np.random.rand(44100)
+        cf = ChannelFrame.from_numpy(
+            np.random.default_rng(42).random(
+                (
+                    2,
+                    44100,
+                )
+            ),
+            sampling_rate=44100,
+        )
+        new_channel_data = np.random.default_rng(42).random((44100,))
 
         cf_with_added = cf.add_channel(new_channel_data, label="new_ch")
+
+        # Pillar 1: add_channel returns new frame, original unchanged
+        assert cf_with_added is not cf
+        assert cf.n_channels == 2
+        assert isinstance(cf_with_added._data, da.core.Array)  # Dask laziness preserved
 
         # Should now have 3 channels, each chunked as 1
         assert cf_with_added._data.chunks[0] == (1, 1, 1), (
@@ -65,7 +88,16 @@ class TestChannelWiseChunking:
         import soundfile as sf
 
         audio_path = tmp_path / "test_audio.wav"
-        data = np.random.rand(2, 44100).astype(np.float32)
+        data = (
+            np.random.default_rng(42)
+            .random(
+                (
+                    2,
+                    44100,
+                )
+            )
+            .astype(np.float32)
+        )
         sf.write(str(audio_path), data.T, 44100)
 
         # Load with from_file
@@ -82,10 +114,18 @@ class TestChannelWiseChunking:
         which overrides custom chunking. This is the designed behavior to ensure
         consistent channel-wise parallelism across all frames.
         """
-        cf = ChannelFrame.from_numpy(np.random.rand(2, 44100), sampling_rate=44100)
+        cf = ChannelFrame.from_numpy(
+            np.random.default_rng(42).random(
+                (
+                    2,
+                    44100,
+                )
+            ),
+            sampling_rate=44100,
+        )
 
         # Try to rechunk sample axis to smaller chunks
-        rechunked_data = cf._data.rechunk((1, 16384))  # type: ignore
+        rechunked_data = cf._data.rechunk((1, 16384))
 
         # Verify the rechunking was applied before passing to _create_new_instance
         assert len(rechunked_data.chunks[1]) > 1, "rechunked_data should have multiple sample chunks"
@@ -103,8 +143,24 @@ class TestChannelWiseChunking:
 
     def test_binary_operations_preserve_chunking(self):
         """Test that binary operations maintain channel-wise chunking."""
-        cf1 = ChannelFrame.from_numpy(np.random.rand(2, 44100), sampling_rate=44100)
-        cf2 = ChannelFrame.from_numpy(np.random.rand(2, 44100), sampling_rate=44100)
+        cf1 = ChannelFrame.from_numpy(
+            np.random.default_rng(42).random(
+                (
+                    2,
+                    44100,
+                )
+            ),
+            sampling_rate=44100,
+        )
+        cf2 = ChannelFrame.from_numpy(
+            np.random.default_rng(42).random(
+                (
+                    2,
+                    44100,
+                )
+            ),
+            sampling_rate=44100,
+        )
 
         cf_result = cf1 + cf2
 
@@ -121,7 +177,7 @@ class TestBaseFrameRechunking:
     def test_1d_array_rechunking(self) -> None:
         """Test rechunking of 1D dask arrays."""
         # Create a 1D dask array
-        data_1d = np.random.random(1000)
+        data_1d = np.random.default_rng(42).random(1000)
         dask_1d = da.from_array(data_1d, chunks=100)
 
         # Create a ChannelFrame (which uses BaseFrame)
@@ -137,7 +193,7 @@ class TestBaseFrameRechunking:
     def test_rechunking_exception_fallback(self) -> None:
         """Test that rechunking exceptions are handled gracefully."""
         # Create a normal array
-        data = np.random.random((2, 1000))
+        data = np.random.default_rng(42).random((2, 1000))
         dask_data = da.from_array(data, chunks=(1, 500))
 
         # This test is checking if the frame can be created normally

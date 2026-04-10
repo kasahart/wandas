@@ -9,18 +9,29 @@ import pytest
 from dask.array.core import Array as DaArray
 
 from wandas.core.metadata import ChannelMetadata
+from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 # Reference to dask array functions
-_da_from_array = da.from_array  # type: ignore [unused-ignore]
+_da_from_array = da.from_array
+
+# --- Module-level deterministic test constants ---
+_SAMPLING_RATE: int = 44100
+_N_FFT: int = 1024
+_WINDOW: str = "hann"
+_SHAPE: tuple[int, int] = (2, _N_FFT // 2 + 1)
 
 
 # Helper function to create complex test data
-def create_complex_data(shape: tuple[int, ...]) -> NDArrayComplex:
-    """Create complex test data with the given shape."""
-    real_part = np.random.rand(*shape)
-    imag_part = np.random.rand(*shape)
+def create_complex_data(shape: tuple[int, ...], seed: int = 42) -> NDArrayComplex:
+    """Create deterministic complex test data with the given shape.
+
+    Uses a fixed seed so results are reproducible across runs.
+    """
+    rng = np.random.default_rng(seed)
+    real_part = rng.random(shape)
+    imag_part = rng.random(shape)
     return real_part + 1j * imag_part
 
 
@@ -34,13 +45,8 @@ class TestSpectralFrame:
 
     def setup_method(self) -> None:
         """Set up test fixtures for each test"""
-        self.sampling_rate: int = 44100
-        self.n_fft: int = 1024
-        self.window: str = "hann"
-
         # Create complex test data for 2 channels
-        self.shape: tuple[int, int] = (2, self.n_fft // 2 + 1)
-        self.complex_data: NDArrayComplex = create_complex_data(self.shape)
+        self.complex_data: NDArrayComplex = create_complex_data(_SHAPE)
         # 遅延実行に対応したデータ構造の使用
         self.data: DaArray = _da_from_array(self.complex_data, chunks=(1, -1))
 
@@ -53,9 +59,9 @@ class TestSpectralFrame:
         # Create SpectralFrame instance
         self.frame: SpectralFrame = SpectralFrame(
             data=self.data,
-            sampling_rate=self.sampling_rate,
-            n_fft=self.n_fft,
-            window=self.window,
+            sampling_rate=_SAMPLING_RATE,
+            n_fft=_N_FFT,
+            window=_WINDOW,
             label="test_frame",
             metadata={"test": "metadata"},
             channel_metadata=self.channel_metadata,
@@ -64,65 +70,71 @@ class TestSpectralFrame:
     def test_initialization(self) -> None:
         """Test initialization with different parameters"""
         # Test with minimal required parameters
-        minimal_frame: SpectralFrame = SpectralFrame(data=self.data, sampling_rate=self.sampling_rate, n_fft=self.n_fft)
-        assert minimal_frame.sampling_rate == self.sampling_rate
-        assert minimal_frame.n_fft == self.n_fft
+        minimal_frame: SpectralFrame = SpectralFrame(data=self.data, sampling_rate=_SAMPLING_RATE, n_fft=_N_FFT)
+        assert minimal_frame.sampling_rate == _SAMPLING_RATE
+        assert minimal_frame.n_fft == _N_FFT
         assert minimal_frame.window == "hann"  # Default value
 
         # Test with all parameters
-        assert self.frame.sampling_rate == self.sampling_rate
-        assert self.frame.n_fft == self.n_fft
-        assert self.frame.window == self.window
+        assert self.frame.sampling_rate == _SAMPLING_RATE
+        assert self.frame.n_fft == _N_FFT
+        assert self.frame.window == _WINDOW
         assert self.frame.label == "test_frame"
         assert self.frame.metadata == {"test": "metadata"}
 
     def test_reshape_1d_data(self) -> None:
         """Test that 1D data is reshaped to 2D"""
         # Create 1D complex data
-        shape_1d: tuple[int] = (self.n_fft // 2 + 1,)
+        shape_1d: tuple[int] = (_N_FFT // 2 + 1,)
         complex_data_1d: NDArrayComplex = create_complex_data(shape_1d)
+        # Use a single frequency-axis chunk because the input is 1-D before the
+        # frame reshapes it into the standard single-channel 2-D representation.
         data_1d: DaArray = _da_from_array(complex_data_1d, chunks=(-1,))
 
         # Create frame with 1D data
-        frame_1d: SpectralFrame = SpectralFrame(data=data_1d, sampling_rate=self.sampling_rate, n_fft=self.n_fft)
+        frame_1d: SpectralFrame = SpectralFrame(data=data_1d, sampling_rate=_SAMPLING_RATE, n_fft=_N_FFT)
 
         # Check that shape is (1, n_fft//2+1)
-        assert frame_1d.shape == (self.n_fft // 2 + 1,)
+        assert frame_1d.shape == (_N_FFT // 2 + 1,)
 
     def test_reject_high_dim_data(self) -> None:
         """Test that >2D data raises ValueError"""
         # Create 3D complex data
-        shape_3d: tuple[int, int, int] = (2, 3, self.n_fft // 2 + 1)
+        shape_3d: tuple[int, int, int] = (2, 3, _N_FFT // 2 + 1)
         complex_data_3d: NDArrayComplex = create_complex_data(shape_3d)
         data_3d: DaArray = _da_from_array(complex_data_3d, chunks=(1, -1, -1))
 
         # Check that creating frame with 3D data raises ValueError
         with pytest.raises(ValueError):
-            SpectralFrame(data=data_3d, sampling_rate=self.sampling_rate, n_fft=self.n_fft)
+            SpectralFrame(data=data_3d, sampling_rate=_SAMPLING_RATE, n_fft=_N_FFT)
 
     def test_property_magnitude(self) -> None:
         """Test magnitude property"""
         magnitude: NDArrayReal = self.frame.magnitude
         # 結果を評価するために .compute() を呼び出している
         expected: NDArrayReal = np.abs(self.data.compute())
+        # Direct numpy equivalent — default rtol=1e-7 (exact match expected)
         np.testing.assert_allclose(magnitude, expected)
 
     def test_property_phase(self) -> None:
         """Test phase property"""
         phase: NDArrayReal = self.frame.phase
         expected: NDArrayReal = np.angle(self.data.compute())
+        # Direct numpy equivalent — default rtol=1e-7 (exact match expected)
         np.testing.assert_allclose(phase, expected)
 
     def test_property_unwrapped_phase(self) -> None:
         """Test unwrapped_phase property"""
         unwrapped_phase: NDArrayReal = self.frame.unwrapped_phase
         expected: NDArrayReal = np.unwrap(np.angle(self.data.compute()))
+        # Direct numpy equivalent — default rtol=1e-7 (exact match expected)
         np.testing.assert_allclose(unwrapped_phase, expected)
 
     def test_property_power(self) -> None:
         """Test power property"""
         power: NDArrayReal = self.frame.power
         expected: NDArrayReal = np.abs(self.data.compute()) ** 2
+        # Direct numpy equivalent — default rtol=1e-7 (exact match expected)
         np.testing.assert_allclose(power, expected)
 
     def test_property_db(self) -> None:
@@ -131,6 +143,7 @@ class TestSpectralFrame:
         mag: NDArrayReal = np.abs(self.data.compute())
         ref_values: NDArrayReal = np.array([ch.ref for ch in self.channel_metadata])
         expected: NDArrayReal = 20 * np.log10(np.maximum(mag / ref_values[:, np.newaxis], 1e-12))
+        # Direct numpy equivalent — default rtol=1e-7 (exact match expected)
         np.testing.assert_allclose(db, expected)
 
     def test_property_dba(self) -> None:
@@ -154,17 +167,18 @@ class TestSpectralFrame:
     def test_property_freqs(self) -> None:
         """Test freqs property"""
         freqs: NDArrayReal = self.frame.freqs
-        expected: NDArrayReal = np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
+        expected: NDArrayReal = np.fft.rfftfreq(_N_FFT, 1.0 / _SAMPLING_RATE)
+        # Frequency axis from np.fft.rfftfreq — default rtol (exact match)
         np.testing.assert_allclose(freqs, expected)
 
     def test_binary_op_with_spectral_frame(self) -> None:
         """Test _binary_op with another SpectralFrame"""
-        other_data: DaArray = _da_from_array(create_complex_data(self.shape), chunks=(1, -1))
+        other_data: DaArray = _da_from_array(create_complex_data(_SHAPE), chunks=(1, -1))
         other_frame: SpectralFrame = SpectralFrame(
             data=other_data,
-            sampling_rate=self.sampling_rate,
-            n_fft=self.n_fft,
-            window=self.window,
+            sampling_rate=_SAMPLING_RATE,
+            n_fft=_N_FFT,
+            window=_WINDOW,
             label="other_frame",
             channel_metadata=self.channel_metadata,
         )
@@ -176,10 +190,13 @@ class TestSpectralFrame:
         symbol: str = "+"
         result: SpectralFrame = self.frame._binary_op(other_frame, add_op, symbol)
 
+        # Pillar 1: immutability and Dask laziness
+        assert result is not self.frame
+        assert isinstance(result._data, DaArray)
         assert isinstance(result, SpectralFrame)
-        assert result.sampling_rate == self.sampling_rate
-        assert result.n_fft == self.n_fft
-        assert result.window == self.window
+        assert result.sampling_rate == _SAMPLING_RATE
+        assert result.n_fft == _N_FFT
+        assert result.window == _WINDOW
         assert result.label == f"({self.frame.label} {symbol} {other_frame.label})"
 
         # 結果を評価するために .compute() を呼び出している
@@ -196,6 +213,9 @@ class TestSpectralFrame:
         symbol: str = "*"
         result: SpectralFrame = self.frame._binary_op(scalar, multiply_op, symbol)
 
+        # Pillar 1: immutability and Dask laziness
+        assert result is not self.frame
+        assert isinstance(result._data, DaArray)
         assert isinstance(result, SpectralFrame)
         assert result.label == f"({self.frame.label} {symbol} {scalar})"
 
@@ -217,7 +237,7 @@ class TestSpectralFrame:
 
     def test_binary_op_with_numpy_array(self) -> None:
         """Test _binary_op with numpy array"""
-        np_array: NDArrayReal = np.ones(self.shape)
+        np_array: NDArrayReal = np.ones(_SHAPE)
 
         def multiply_op(a: Any, b: Any) -> Any:
             return a * b
@@ -230,7 +250,7 @@ class TestSpectralFrame:
 
     def test_binary_op_with_dask_array(self) -> None:
         """Test _binary_op with dask array"""
-        dask_arr: DaArray = _da_from_array(np.ones(self.shape), chunks=(1, -1))
+        dask_arr: DaArray = _da_from_array(np.ones(_SHAPE), chunks=(1, -1))
 
         def multiply_op(a: Any, b: Any) -> Any:
             return a * b
@@ -253,11 +273,10 @@ class TestSpectralFrame:
             return a
 
         symbol: str = "~"
-        # type: ignore to test runtime behavior with unexpected types
         result: SpectralFrame = self.frame._binary_op(
-            custom_obj,
+            custom_obj,  # ty: ignore[invalid-argument-type]
             identity_op,
-            symbol,  # type: ignore[arg-type]
+            symbol,
         )
 
         assert isinstance(result, SpectralFrame)
@@ -379,12 +398,12 @@ class TestSpectralFrame:
 
             result = self.frame.ifft()
 
-            mock_create_op.assert_called_once_with("ifft", self.sampling_rate, n_fft=self.n_fft, window=self.window)
+            mock_create_op.assert_called_once_with("ifft", _SAMPLING_RATE, n_fft=_N_FFT, window=_WINDOW)
             mock_ifft_op.process.assert_called_once_with(self.data)
 
             mock_channel_frame.assert_called_once_with(
                 data=mock_time_series,
-                sampling_rate=self.sampling_rate,
+                sampling_rate=_SAMPLING_RATE,
                 label=f"ifft({self.frame.label})",
                 metadata=self.frame.metadata,
                 operation_history=self.frame.operation_history,
@@ -395,12 +414,12 @@ class TestSpectralFrame:
 
     def test_mismatch_sampling_rate_error(self) -> None:
         """Test that operations with mismatched sampling rates raise ValueError"""
-        other_data: DaArray = _da_from_array(create_complex_data(self.shape), chunks=(1, -1))
+        other_data: DaArray = _da_from_array(create_complex_data(_SHAPE), chunks=(1, -1))
         other_frame: SpectralFrame = SpectralFrame(
             data=other_data,
             sampling_rate=22050,  # Different sampling rate
-            n_fft=self.n_fft,
-            window=self.window,
+            n_fft=_N_FFT,
+            window=_WINDOW,
         )
 
         with pytest.raises(ValueError, match=r"Sampling rate mismatch"):
@@ -428,7 +447,7 @@ class TestSpectralFrame:
                 params: dict[str, Any] = {"param1": "value1"}
                 result: SpectralFrame = self.frame._apply_operation_impl(operation_name, **params)
 
-            mock_create_op.assert_called_once_with(operation_name, self.sampling_rate, **params)
+            mock_create_op.assert_called_once_with(operation_name, _SAMPLING_RATE, **params)
             mock_op.process.assert_called_once_with(self.data)
 
             expected_metadata: dict[str, Any] = {
@@ -464,8 +483,8 @@ class TestSpectralFrame:
         correct_sr_frame = SpectralFrame(
             data=self.data,
             sampling_rate=48000,  # 正しいサンプリングレート
-            n_fft=self.n_fft,
-            window=self.window,
+            n_fft=_N_FFT,
+            window=_WINDOW,
             label="test_frame",
             metadata={"test": "metadata"},
             channel_metadata=self.channel_metadata,
@@ -543,9 +562,9 @@ class TestSpectralFrame:
         # SpectralFrameの作成
         spectral_frame = SpectralFrame(
             data=self.data,
-            sampling_rate=self.sampling_rate,
-            n_fft=self.n_fft,
-            window=self.window,
+            sampling_rate=_SAMPLING_RATE,
+            n_fft=_N_FFT,
+            window=_WINDOW,
             channel_metadata=self.channel_metadata,
         )
 
@@ -554,7 +573,7 @@ class TestSpectralFrame:
 
         # DataFrameの検証
         assert isinstance(df, pd.DataFrame)
-        assert df.shape == (self.shape[1], self.shape[0])  # (freq_bins, channels)
+        assert df.shape == (_SHAPE[1], _SHAPE[0])  # (freq_bins, channels)
         assert df.index.name == "frequency"
         assert list(df.columns) == ["ch1", "ch2"]
 
@@ -570,52 +589,36 @@ class TestSpectralFrame:
 
         spectral_frame = SpectralFrame(
             data=single_channel_data,
-            sampling_rate=self.sampling_rate,
-            n_fft=self.n_fft,
-            window=self.window,
+            sampling_rate=_SAMPLING_RATE,
+            n_fft=_N_FFT,
+            window=_WINDOW,
             channel_metadata=single_channel_metadata,
         )
 
         df = spectral_frame.to_dataframe()
 
         assert isinstance(df, pd.DataFrame)
-        assert df.shape == (self.shape[1], 1)  # (freq_bins, 1)
+        assert df.shape == (_SHAPE[1], 1)  # (freq_bins, 1)
         assert df.index.name == "frequency"
         assert list(df.columns) == ["ch1"]
 
-    def test_spectral_info_includes_frequency_resolution(self) -> None:
+    def test_spectral_info_includes_frequency_resolution(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Test that info() includes frequency resolution (ΔF)."""
-        import io
-        import sys
-
-        # 標準出力をキャプチャ
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
-
         self.frame.info()
-
-        sys.stdout = sys.__stdout__
-        output = captured_output.getvalue()
+        output = capsys.readouterr().out
 
         # デルタFが含まれていることを確認
         assert "Frequency resolution (ΔF):" in output
 
         # 理論値との比較
+        assert self.frame.n_fft is not None
         expected_delta_f = self.frame.sampling_rate / self.frame.n_fft
         assert f"{expected_delta_f:.1f} Hz" in output
 
-    def test_spectral_info_display(self) -> None:
+    def test_spectral_info_display(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Test that info() displays spectral frame information without errors."""
-        import io
-        import sys
-
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
-
         self.frame.info()
-
-        sys.stdout = sys.__stdout__
-        output = captured_output.getvalue()
+        output = capsys.readouterr().out
 
         # 基本的な情報が出力されていることを確認
         assert "SpectralFrame Information:" in output
@@ -626,20 +629,13 @@ class TestSpectralFrame:
         assert "Frequency bins:" in output
         assert "Channel labels:" in output
 
-    def test_spectral_info_values_are_correct(self) -> None:
+    def test_spectral_info_values_are_correct(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Test that info() displays correct values."""
-        import io
-        import sys
-
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
-
         self.frame.info()
-
-        sys.stdout = sys.__stdout__
-        output = captured_output.getvalue()
+        output = capsys.readouterr().out
 
         # 理論値の計算
+        assert self.frame.n_fft is not None
         delta_f = self.frame.sampling_rate / self.frame.n_fft
 
         # 出力に理論値が含まれることを確認
@@ -649,17 +645,14 @@ class TestSpectralFrame:
         assert f"Frequency resolution (ΔF): {delta_f:.1f} Hz" in output
         assert f"Frequency bins: {len(self.frame.freqs)}" in output
 
-    def test_spectral_info_with_operation_history(self) -> None:
+    def test_spectral_info_with_operation_history(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Test info() with operation history."""
-        import io
-        import sys
-
         # 操作履歴を持つフレームを作成
         frame_with_ops = SpectralFrame(
             data=self.data,
-            sampling_rate=self.sampling_rate,
-            n_fft=self.n_fft,
-            window=self.window,
+            sampling_rate=_SAMPLING_RATE,
+            n_fft=_N_FFT,
+            window=_WINDOW,
             operation_history=[
                 {"operation": "fft", "params": {}},
                 {"operation": "normalize", "params": {}},
@@ -667,13 +660,8 @@ class TestSpectralFrame:
             channel_metadata=self.channel_metadata,
         )
 
-        captured_output = io.StringIO()
-        sys.stdout = captured_output
-
         frame_with_ops.info()
-
-        sys.stdout = sys.__stdout__
-        output = captured_output.getvalue()
+        output = capsys.readouterr().out
 
         # 操作履歴が表示されていることを確認
         assert "Operations Applied: 2" in output
@@ -684,34 +672,120 @@ class TestSpectralFrame:
 
         assert "n_fft" in kwargs
         assert "window" in kwargs
-        assert kwargs["n_fft"] == self.n_fft
-        assert kwargs["window"] == self.window
+        assert kwargs["n_fft"] == _N_FFT
+        assert kwargs["window"] == _WINDOW
 
 
 class TestSpectralFrameCoverage:
     """Additional tests for SpectralFrame coverage."""
 
     def setup_method(self) -> None:
-        self.sampling_rate = 44100
-        self.n_fft = 1024
-        self.shape = (2, self.n_fft // 2 + 1)
-        self.complex_data = np.random.rand(*self.shape) + 1j * np.random.rand(*self.shape)
+        rng = np.random.default_rng(99)  # deterministic seed for reproducibility
+        self.complex_data = rng.random(_SHAPE) + 1j * rng.random(_SHAPE)
         self.data = _da_from_array(self.complex_data, chunks=(1, -1))
         self.frame = SpectralFrame(
             data=self.data,
-            sampling_rate=self.sampling_rate,
-            n_fft=self.n_fft,
+            sampling_rate=_SAMPLING_RATE,
+            n_fft=_N_FFT,
         )
 
-    def test_binary_op_none_metadata_history(self) -> None:
-        """Test _binary_op when metadata and operation_history are None."""
-        # Force metadata and history to None (though init usually sets them)
-        self.frame.metadata = None  # type: ignore
-        self.frame.operation_history = None  # type: ignore
+    def test_binary_op_empty_metadata_history(self) -> None:
+        """Test _binary_op when metadata and operation_history are empty."""
+        # Start with default-initialized (empty) metadata and history
+        assert self.frame.operation_history == []
 
         other = self.frame * 2
 
-        # Should handle None gracefully and create new dicts/lists
+        # Should produce valid metadata and a single history entry
         assert other.metadata is not None
         assert other.operation_history is not None
         assert len(other.operation_history) == 1
+
+
+class TestSpectralFrameNumericalVerification:
+    """Pillar 3 & 4: Numerical verification using known signals (non-mocked)."""
+
+    def test_fft_ifft_preserves_frequency_content(self, channel_frame: ChannelFrame) -> None:
+        """FFT->IFFT preserves frequency content (peak detection round-trip).
+
+        Note: wandas FFT applies spectral-analysis scaling (window + normalization),
+        so FFT->IFFT is NOT an amplitude-preserving round-trip. Instead, verify
+        that frequency content is preserved through the transform pair.
+        Tolerance: ±1 FFT bin — spectral leakage at bin boundaries.
+        """
+        spectral = channel_frame.fft(n_fft=2048)
+        recovered = spectral.ifft()
+
+        # Verify the 440 Hz component is still the dominant frequency in channel 0
+        recovered_data = recovered.data
+        fft_of_recovered = np.fft.rfft(recovered_data[0])
+        freqs = np.fft.rfftfreq(len(recovered_data[0]), 1.0 / channel_frame.sampling_rate)
+        peak_freq = freqs[np.argmax(np.abs(fft_of_recovered))]
+        bin_resolution = freqs[1] - freqs[0]
+        assert abs(peak_freq - 440.0) <= bin_resolution, f"Expected 440 Hz peak after FFT->IFFT, got {peak_freq:.1f} Hz"
+
+    def test_spectral_data_is_complex(self, channel_frame: ChannelFrame) -> None:
+        """SpectralFrame data must be complex-typed.
+
+        Pillar 3: Data types are correct (complex for spectral).
+        """
+        spectral = channel_frame.fft()
+        assert np.iscomplexobj(spectral.data), "SpectralFrame data must be complex-typed"
+
+    def test_ifft_returns_real_data(self, channel_frame: ChannelFrame) -> None:
+        """IFFT result must be real-typed.
+
+        Pillar 3: Data types are correct (real for time).
+        """
+        spectral = channel_frame.fft()
+        recovered = spectral.ifft()
+        assert np.isrealobj(recovered.data), "IFFT result must be real-typed"
+
+    def test_fft_shape_matches_theoretical_bins(self, channel_frame: ChannelFrame) -> None:
+        """FFT output frequency bins = n_fft // 2 + 1.
+
+        Pillar 3: Output shapes match theoretical values.
+        Uses 2-channel channel_frame to test multi-channel shape.
+        """
+        n_fft = 2048
+        spectral = channel_frame.fft(n_fft=n_fft)
+        expected_freq_bins = n_fft // 2 + 1  # Theoretical: real FFT produces N/2+1 bins
+        # 2-channel frame: shape is (n_channels, n_freq_bins)
+        assert spectral.shape == (2, expected_freq_bins), (
+            f"Expected (2, {expected_freq_bins}) for n_fft={n_fft}, got {spectral.shape}"
+        )
+
+    def test_fft_peak_at_known_frequency(self, mono_frame: ChannelFrame) -> None:
+        """FFT of 440 Hz sine peaks at 440 Hz bin.
+
+        Pillar 4: Known-signal theoretical value verification.
+        Tolerance: ±1 FFT bin — spectral leakage at bin boundaries.
+        """
+        spectral = mono_frame.fft(n_fft=2048)
+        magnitude = spectral.magnitude
+        # mono_frame produces 1D spectral shape (n_freq_bins,)
+        peak_idx = np.argmax(magnitude)
+        freqs = spectral.freqs
+        detected_freq = freqs[peak_idx]
+
+        # ±1 bin tolerance for spectral leakage at bin boundaries
+        bin_resolution = freqs[1] - freqs[0]
+        assert abs(detected_freq - 440.0) <= bin_resolution, f"Expected peak near 440 Hz, got {detected_freq:.1f} Hz"
+
+    def test_fft_cross_rate_operations_raise_error(self) -> None:
+        """Operations between SpectralFrames with different sampling rates raise ValueError.
+
+        Pillar 3: Sampling rate constraint enforcement.
+        """
+        from wandas.frames.spectral import SpectralFrame
+
+        n_fft = 1024
+        shape = (1, n_fft // 2 + 1)
+        data1 = da.from_array(np.ones(shape, dtype=complex), chunks=(1, -1))
+        data2 = da.from_array(np.ones(shape, dtype=complex), chunks=(1, -1))
+
+        frame1 = SpectralFrame(data=data1, sampling_rate=44100, n_fft=n_fft)
+        frame2 = SpectralFrame(data=data2, sampling_rate=22050, n_fft=n_fft)
+
+        with pytest.raises(ValueError, match=r"Sampling rate mismatch"):
+            _ = frame1 + frame2

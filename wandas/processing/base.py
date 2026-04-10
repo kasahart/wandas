@@ -10,7 +10,7 @@ from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 logger = logging.getLogger(__name__)
 
-_da_from_delayed = da.from_delayed  # type: ignore [unused-ignore]
+_da_from_delayed = da.from_delayed
 
 # Define TypeVars for input and output array types
 InputArrayType = TypeVar("InputArrayType", NDArrayReal, NDArrayComplex)
@@ -22,6 +22,10 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
 
     # Class variable: operation name
     name: ClassVar[str]
+
+    # Optional attributes used by some subclasses (e.g., FFT)
+    n_fft: int | None
+    window: str
 
     def __init__(self, sampling_rate: float, *, pure: bool = True, **params: Any):
         """
@@ -52,11 +56,9 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
 
     def validate_params(self) -> None:
         """Validate parameters (raises exception if invalid)"""
-        pass
 
     def _setup_processor(self) -> None:
         """Set up processor function (implemented by subclasses)"""
-        pass
 
     def get_metadata_updates(self) -> dict[str, Any]:
         """
@@ -98,48 +100,12 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         """
         Get display name for the operation for use in channel labels.
 
-        This method allows operations to customize how they appear in
-        channel labels. By default, returns None, which means the
-        operation name will be used.
-
-        Returns
-        -------
-        str or None
-            Display name for the operation. If None, the operation name
-            (from the `name` class variable) is used.
-
-        Examples
-        --------
-        Default behavior (returns None, uses operation name):
-
-        >>> class NormalizeOp(AudioOperation):
-        ...     name = "normalize"
-        >>> op = NormalizeOp(44100)
-        >>> op.get_display_name()  # Returns None
-        >>> # Channel label: "normalize(ch0)"
-
-        Custom display name:
-
-        >>> class LowPassFilter(AudioOperation):
-        ...     name = "lowpass_filter"
-        ...
-        ...     def __init__(self, sr, cutoff):
-        ...         self.cutoff = cutoff
-        ...         super().__init__(sr, cutoff=cutoff)
-        ...
-        ...     def get_display_name(self):
-        ...         return f"lpf_{self.cutoff}Hz"
-        >>> op = LowPassFilter(44100, cutoff=1000)
-        >>> op.get_display_name()  # Returns "lpf_1000Hz"
-        >>> # Channel label: "lpf_1000Hz(ch0)"
-
-        Notes
-        -----
-        Subclasses can override this method to provide operation-specific
-        display names that include parameter information, making labels
-        more informative.
+        Returns ``_display`` if the subclass sets it, otherwise ``None``
+        (which tells the framework to fall back to the ``name`` class
+        variable).  Subclasses with dynamic display names can still
+        override this method.
         """
-        return None
+        return getattr(self, "_display", None)
 
     def _process_array(self, x: InputArrayType) -> OutputArrayType:
         """Processing function (implemented by subclasses)"""
@@ -163,7 +129,12 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         operation_wrapper.__name__ = self.name
         return operation_wrapper
 
-    def process_array(self, x: InputArrayType) -> Any:
+    def _delayed(self, data: Any) -> Any:
+        """Create a ``dask.delayed`` result for *data* using the named wrapper."""
+        wrapper = self._create_named_wrapper()
+        return delayed(wrapper, pure=self.pure)(data)
+
+    def process_array(self, x: Any) -> Any:
         """
         Processing function wrapped with @dask.delayed.
 
@@ -181,18 +152,16 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
             A Delayed object representing the computation.
         """
         logger.debug(f"Creating delayed operation on data with shape: {x.shape}")
-        # Create wrapper with operation name and wrap it with dask.delayed
-        wrapper = self._create_named_wrapper()
-        delayed_func = delayed(wrapper, pure=self.pure)
-        return delayed_func(x)
+        return self._delayed(x)
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
         Calculate output data shape after operation.
 
-        This method can be overridden by subclasses for efficiency.
-        If not overridden, it will execute _process_array on a small test array
-        to determine the output shape.
+        The default returns *input_shape* unchanged, which is correct for the
+        majority of operations (filters, effects, weighting, etc.).
+        Subclasses that alter the shape (e.g. FFT, STFT, resampling) **must**
+        override this method.
 
         Parameters
         ----------
@@ -203,58 +172,16 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         -------
         tuple
             Output data shape
-
-        Notes
-        -----
-        The default implementation creates a minimal test array and processes it
-        to determine output shape. For performance-critical code, subclasses should
-        override this method with a direct calculation.
         """
-        # Try to infer shape by executing _process_array on test data
-        import numpy as np
-
-        try:
-            # Create minimal test array with input shape
-            if len(input_shape) == 0:
-                return input_shape
-
-            # Create test input with correct dtype
-            # Try complex first, fall back to float if needed
-            test_input: Any = np.zeros(input_shape, dtype=np.complex128)
-
-            # Process test input
-            test_output: Any = self._process_array(test_input)
-
-            # Return the shape of the output
-            if isinstance(test_output, np.ndarray):
-                return tuple(int(s) for s in test_output.shape)
-            return input_shape
-        except Exception as e:
-            logger.warning(
-                f"Failed to infer output shape for {self.__class__.__name__}: {e}. "
-                "Please implement calculate_output_shape method."
-            )
-            raise NotImplementedError(
-                f"Subclass {self.__class__.__name__} must implement "
-                f"calculate_output_shape or ensure _process_array can be "
-                f"called with test data."
-            ) from e
+        return input_shape
 
     def process(self, data: DaArray) -> DaArray:
         """
         Execute operation and return result
         data shape is (channels, samples)
         """
-        # Add task as delayed processing with custom name for visualization
         logger.debug("Adding delayed operation to computation graph")
-
-        # Create a wrapper function with the operation name
-        # This allows Dask to use the operation name in the task graph
-        wrapper = self._create_named_wrapper()
-        delayed_func = delayed(wrapper, pure=self.pure)
-        delayed_result = delayed_func(data)
-
-        # Convert delayed result to dask array and return
+        delayed_result = self._delayed(data)
         output_shape = self.calculate_output_shape(data.shape)
         return _da_from_delayed(delayed_result, shape=output_shape, dtype=data.dtype)
 
