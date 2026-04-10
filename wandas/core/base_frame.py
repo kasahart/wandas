@@ -761,23 +761,23 @@ class BaseFrame(ABC, Generic[T]):
             return f"dask.array{other.shape}"
         return str(type(other).__name__)
 
-    def __add__(self: S, other: S | float | NDArrayReal) -> S:
+    def __add__(self: S, other: S | int | float | NDArrayReal) -> S:
         """Addition operator"""
         return self._binary_op(other, lambda x, y: x + y, "+")
 
-    def __sub__(self: S, other: S | float | NDArrayReal) -> S:
+    def __sub__(self: S, other: S | int | float | NDArrayReal) -> S:
         """Subtraction operator"""
         return self._binary_op(other, lambda x, y: x - y, "-")
 
-    def __mul__(self: S, other: S | float | NDArrayReal) -> S:
+    def __mul__(self: S, other: S | int | float | NDArrayReal) -> S:
         """Multiplication operator"""
         return self._binary_op(other, lambda x, y: x * y, "*")
 
-    def __truediv__(self: S, other: S | float | NDArrayReal) -> S:
+    def __truediv__(self: S, other: S | int | float | NDArrayReal) -> S:
         """Division operator"""
         return self._binary_op(other, lambda x, y: x / y, "/")
 
-    def __pow__(self: S, other: S | float | NDArrayReal) -> S:
+    def __pow__(self: S, other: S | int | float | NDArrayReal) -> S:
         """Power operator"""
         return self._binary_op(other, lambda x, y: x**y, "**")
 

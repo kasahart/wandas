@@ -25,9 +25,10 @@ repos:
       - id: ty
         name: ty
         description: "Run 'ty' for Python type checking using settings from pyproject.toml"
-        entry: uv run ty check
+        entry: uv run ty check wandas tests
         language: system
         types: [python]
+        pass_filenames: false
         require_serial: true
 
 ci:

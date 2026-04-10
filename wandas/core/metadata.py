@@ -103,8 +103,7 @@ class ChannelMetadata(BaseModel):
         if key in ("label", "ref"):
             setattr(self, key, value)
         elif key == "unit":
-            self.unit = value
-            self.ref = unit_to_ref(value)
+            self.unit = value  # __setattr__ auto-updates ref via unit_to_ref
         else:
             self.extra[key] = value
 
