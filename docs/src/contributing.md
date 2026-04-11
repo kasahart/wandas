@@ -19,8 +19,8 @@ This project uses `uv` for package management.
 
 ## Branch Naming Policy / ブランチ命名ポリシー
 
-The repository allows the following branch names. For normal contribution work, please create your branch with one of the prefixed patterns listed below.
-このリポジトリでは以下のブランチ名を許可します。通常のコントリビューション作業では、以下のプレフィックス付きパターンのいずれかでブランチを作成してください。
+The repository allows the following branch naming patterns. For normal contribution work, please create your branch with one of the prefixed patterns listed below.
+このリポジトリでは以下のブランチ命名パターンを許可します。通常のコントリビューション作業では、以下のプレフィックス付きパターンのいずれかでブランチを作成してください。
 
 - `main`
 - `feat/*` - new features, for example `feat/add-plot-export`
