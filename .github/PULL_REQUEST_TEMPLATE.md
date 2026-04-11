@@ -7,8 +7,8 @@
 
 <!-- Closes #<issue-number> / 関連Issue: #<issue-number> -->
 
-<!-- Please confirm your source branch follows the allowed working-branch patterns: `feat/*`, `fix/*`, `refactor/*`, `chore/*`, or `release/v0.x.x` (`main` is reserved as the release-ready base branch).
-     ソースブランチが許可された作業ブランチ命名パターン（`feat/*`、`fix/*`、`refactor/*`、`chore/*`、`release/v0.x.x`）に従っていることを確認してください（`main` はリリース可能なベースブランチとして予約されています）。 -->
+<!-- Please confirm your source branch follows the allowed working-branch patterns: `feat/*`, `fix/*`, `refactor/*`, `chore/*`, or `release/vx.x.x` (`main` is reserved as the release-ready base branch).
+     ソースブランチが許可された作業ブランチ命名パターン（`feat/*`、`fix/*`、`refactor/*`、`chore/*`、`release/vx.x.x`）に従っていることを確認してください（`main` はリリース可能なベースブランチとして予約されています）。 -->
 
 ---
 

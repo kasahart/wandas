@@ -23,11 +23,16 @@ The repository allows the following branch names. For normal contribution work, 
 このリポジトリでは以下のブランチ名を許可します。通常のコントリビューション作業では、以下のプレフィックス付きパターンのいずれかでブランチを作成してください。
 
 - `main`
-- `feat/*`
-- `fix/*`
-- `refactor/*`
-- `chore/*`
-- `release/v0.x.x`
+- `feat/*` - new features, for example `feat/add-plot-export`
+  `feat/*` - 新機能追加。例: `feat/add-plot-export`
+- `fix/*` - bug fixes, for example `fix/axis-label-bug`
+  `fix/*` - バグ修正。例: `fix/axis-label-bug`
+- `refactor/*` - internal refactors without intended behavior changes, for example `refactor/cleanup-fft-api`
+  `refactor/*` - 意図した挙動変更を伴わない内部整理。例: `refactor/cleanup-fft-api`
+- `chore/*` - maintenance work such as CI, tooling, or docs updates, for example `chore/update-ci`
+  `chore/*` - CI、ツール、ドキュメント更新などの保守作業。例: `chore/update-ci`
+- `release/vx.x.x` - release preparation branches, for example `release/v0.3.1`
+  `release/vx.x.x` - リリース準備用ブランチ。例: `release/v0.3.1`
 
 `main` is the always-releasable base branch and should not be used as the working branch for regular changes.
 `main` は常にリリース可能なベースブランチであり、通常の変更作業用ブランチとしては使用しないでください。
