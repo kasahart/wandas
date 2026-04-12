@@ -1,10 +1,10 @@
 import sys
 
-import wandas as wd
-
 
 def main() -> int:
     try:
+        import wandas as wd
+
         print(f"Successfully imported wandas version: {wd.__version__}")
         # Keep this as a lightweight smoke test for local installation checks.
         signal = wd.generate_sin(freqs=[5000, 1000], duration=1)
