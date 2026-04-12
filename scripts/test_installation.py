@@ -2,6 +2,7 @@ import sys
 
 import wandas as wd
 
+
 def main() -> int:
     try:
         print(f"Successfully imported wandas version: {wd.__version__}")
