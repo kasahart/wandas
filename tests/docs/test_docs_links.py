@@ -4,6 +4,8 @@ from pathlib import Path
 import pytest
 import yaml
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
 
 def _collect_nav_paths(nav):
     """Recursively collect path strings from mkdocs `nav` structure."""
@@ -25,7 +27,7 @@ def _collect_nav_paths(nav):
 
 def test_mkdocs_nav_targets_exist():
     """Test that all markdown files referenced in mkdocs.yml nav exist."""
-    mk_path = Path("docs/mkdocs.yml")
+    mk_path = REPO_ROOT / "docs/mkdocs.yml"
     assert mk_path.exists(), "docs/mkdocs.yml must exist"
     raw = mk_path.read_text(encoding="utf-8", errors="replace")
     # Remove python-specific YAML tags like !!python/name:... before parsing
@@ -43,7 +45,7 @@ def test_mkdocs_nav_targets_exist():
         nav_block = m.group(1)
         paths = re.findall(r"([A-Za-z0-9_\-/]+\.md)", nav_block)
 
-    base = Path("docs/src")
+    base = REPO_ROOT / "docs/src"
     assert base.exists(), f"Docs source directory {base} must exist"
 
     missing = []
@@ -66,13 +68,13 @@ def test_mkdocs_nav_targets_exist():
 
 def test_index_images_exist():
     """Test that all image files referenced in index.md exist."""
-    index = Path("docs/src/index.md")
+    index = REPO_ROOT / "docs/src/index.md"
     assert index.exists(), "docs/src/index.md must exist"
     text = index.read_text(encoding="utf-8", errors="replace")
 
     # find markdown image references ![alt](path)
     imgs = re.findall(r"!\[.*?\]\(([^)]+)\)", text)
-    base = Path("docs/src")
+    base = REPO_ROOT / "docs/src"
     missing = []
     for img in imgs:
         img = img.strip()
@@ -95,7 +97,7 @@ def test_index_images_exist():
 def test_learning_path_notebooks_exist():
     """Test that all learning-path notebooks referenced in tutorial exist."""
     # tutorial/index.md links to learning-path notebooks by absolute repo path
-    lp = Path("learning-path")
+    lp = REPO_ROOT / "learning-path"
     assert lp.exists(), "learning-path directory must exist in repository root"
 
     expected = [
