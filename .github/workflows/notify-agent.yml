@@ -1,0 +1,17 @@
+name: Notify wandas-agent
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger wandas-agent submodule update
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.WANDAS_AGENT_TOKEN }}
+          repository: kasahart/wandas-agent
+          event-type: wandas-updated
