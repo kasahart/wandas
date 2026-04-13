@@ -27,9 +27,24 @@ jobs:
         # docsグループでドキュメント生成に必要なパッケージのみインストール
         run: uv sync --all-extras --group docs
 
+      - name: Convert marimo notebooks to HTML
+        # learning-path の Python ファイルを marimo export html で HTML に変換
+        run: |
+          mkdir -p docs/src/learning-path
+          for file in learning-path/0{0..6}_*.py; do
+            if [ -f "$file" ]; then
+              echo "Converting $file to HTML..."
+              uv run marimo export html "$file" -o "docs/src/learning-path/$(basename ${file%.py}.html)"
+            fi
+          done
+
       - name: Build MkDocs documentation
         # uv run を使って uv の環境で mkdocs を実行
         run: uv run mkdocs build -f docs/mkdocs.yml
+
+      - name: Copy learning-path HTML to site directory
+        # MkDocs ビルド後、learning-path フォルダを site にコピー
+        run: cp -r docs/src/learning-path docs/site/
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4

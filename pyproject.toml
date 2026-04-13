@@ -79,6 +79,7 @@ docs = [
     "markdown-exec>=1.10.3",
     "jupytext>=1.17.1",
     "ipykernel>=6.29.5",
+    "marimo>=0.23.1",
 ]
 
 # 開発補助ツール（ローカル開発用）

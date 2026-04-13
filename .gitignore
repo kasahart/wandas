@@ -1,5 +1,6 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+__marimo__/
 *.py[cod]
 *$py.class
 
@@ -180,4 +181,4 @@ tutorial/
 .claude/settings.json
 
 # Accidental notebooks (keep repo clean)
-learning-path/06_skill_validation.ipynb
+learning-path/06_skill_validation.py
