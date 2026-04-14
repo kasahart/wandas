@@ -196,6 +196,7 @@ def _(mo):
 @app.cell
 def _():
     # ipymplが利用可能か確認 - インタラクティブ機能の前提条件
+    ipympl = None
     try:
         import ipympl
 
@@ -461,10 +462,10 @@ def _(ipympl):
     import matplotlib
 
     print(f"現在のバックエンド: {matplotlib.get_backend()}")
-    try:
+    if ipympl is not None:
         # 現在のmatplotlibバックエンドを確認 - デバッグ情報
         print(f"✅ ipymplバージョン: {ipympl.__version__}")
-    except ImportError:
+    else:
         # ipymplが利用可能か確認 - 機能チェック
         print("⚠️ ipymplがインストールされていません")
     return

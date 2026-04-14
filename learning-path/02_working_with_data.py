@@ -91,13 +91,15 @@ def _():
 
     import wandas as wd
 
+    pathlib_path = Path
+
     # インタラクティブプロット設定
     # '%matplotlib widget' command supported automatically in marimo
     plt.rcParams["figure.figsize"] = (12, 6)
 
     print(f"Wandas: {wd.__version__}")
     print("✅ 準備完了")
-    return Path, np, plt, urllib, wd
+    return np, pathlib_path, plt, urllib, wd
 
 
 @app.cell(hide_code=True)

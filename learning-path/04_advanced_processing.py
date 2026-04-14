@@ -846,10 +846,11 @@ def _(np, sampling_rate_1, wd):
     import os
 
     os.makedirs(temp_dir, exist_ok=True)
+    channel_frame_dataset = ChannelFrameDataset
     for i, _signal in enumerate(signals):
         filename = f"{temp_dir}/signal_{i}_{_signal.labels[0].lower().replace(' ', '_')}.wav"
         _signal.to_wav(filename)
-    return ChannelFrameDataset, temp_dir
+    return channel_frame_dataset, temp_dir
 
 
 @app.cell
