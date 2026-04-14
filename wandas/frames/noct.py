@@ -3,7 +3,6 @@ import logging
 from collections.abc import Callable, Iterator
 from typing import TYPE_CHECKING, Any, TypeVar
 
-import librosa
 import numpy as np
 import pandas as pd
 from dask.array.core import Array as DaArray
@@ -11,6 +10,7 @@ from mosqito.sound_level_meter.noct_spectrum._center_freq import _center_freq
 
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
+from wandas.processing.weighting import a_weighting_db
 from wandas.utils.types import NDArrayReal
 from wandas.utils.util import ref_weighted_dB
 
@@ -189,7 +189,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
             (channels, frequency_bins).
         """
         # Collect dB reference values from _channel_metadata
-        weighted: NDArrayReal = librosa.A_weighting(frequencies=self.freqs, min_db=None)
+        weighted: NDArrayReal = a_weighting_db(frequencies=self.freqs, min_db=None)
         return self.dB + weighted
 
     @property

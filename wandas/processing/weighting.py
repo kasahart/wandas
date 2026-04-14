@@ -206,3 +206,33 @@ def frequency_weight(signal: NDArrayReal, fs: float, curve: str = "A") -> NDArra
     """
     sos = frequency_weighting(fs, curve=curve, output="sos")
     return np.asarray(sosfilt(sos, signal))
+
+
+def a_weighting_db(frequencies: NDArrayReal, min_db: float | None = -45.0) -> NDArrayReal:
+    """
+    Compute A-weighting values in dB for given frequencies.
+
+    Implements the IEC 61672 A-weighting formula.
+    Equivalent to librosa.A_weighting(frequencies, min_db=min_db).
+
+    Parameters
+    ----------
+    frequencies : NDArrayReal
+        Array of frequencies in Hz.
+    min_db : float or None, default=-45.0
+        Minimum dB threshold. Values below this are clipped.
+        Pass None to disable clipping.
+
+    Returns
+    -------
+    NDArrayReal
+        A-weighting values in dB.
+    """
+    f = np.asarray(frequencies, dtype=float)
+    f2 = f**2
+    ra = (12194.0**2 * f2**2) / ((f2 + 20.6**2) * np.sqrt((f2 + 107.7**2) * (f2 + 737.9**2)) * (f2 + 12194.0**2))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        weights: NDArrayReal = 20.0 * np.log10(np.where(ra > 0, ra, np.nan)) + 2.0
+    if min_db is not None:
+        weights = np.where(np.isfinite(weights), np.maximum(weights, min_db), min_db)
+    return weights
