@@ -11,6 +11,25 @@ def _():
     return (mo,)
 
 
+@app.cell
+async def _():
+    import sys
+
+    if sys.platform == "emscripten":
+        import micropip
+
+        await micropip.install(
+            [
+                "wandas",
+                "dask",
+                "mosqito",
+                "japanize-matplotlib",
+                "soundfile",
+            ]
+        )
+    return
+
+
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
@@ -119,7 +138,7 @@ def _(mo):
 
 
 @app.cell
-def _(pathlib_path, urllib):
+async def _(pathlib_path, urllib):
     # サンプルWAVファイルをダウンロード
     wav_url = "https://github.com/kasahart/wandas/raw/refs/heads/main/learning-path/sample_audio.wav"
     wav_path = pathlib_path("sample_audio.wav")
@@ -127,7 +146,16 @@ def _(pathlib_path, urllib):
     # ダウンロード（既に存在しない場合）
     if not wav_path.exists():
         print("サンプルWAVファイルをダウンロード中...")
-        urllib.request.urlretrieve(wav_url, wav_path)
+        import sys as _sys
+
+        if _sys.platform == "emscripten":
+            from pyodide.http import pyfetch as _pyfetch
+
+            _response = await _pyfetch(wav_url)
+            with open(str(wav_path), "wb") as _f:
+                _f.write(await _response.bytes())
+        else:
+            urllib.request.urlretrieve(wav_url, wav_path)
         print(f"✅ ダウンロード完了: {wav_path}")
     else:
         print(f"✅ ファイル既に存在: {wav_path}")
@@ -184,14 +212,23 @@ def _(mo):
 
 
 @app.cell
-def _(pathlib_path, urllib):
+async def _(pathlib_path, urllib):
     # サンプルCSVファイルをダウンロード
     csv_path = pathlib_path("sensor_data.csv")
     csv_url = "https://raw.githubusercontent.com/kasahart/wandas/refs/heads/main/learning-path/sensor_data.csv"
 
     if not csv_path.exists():
         print("サンプルCSVファイルをダウンロード中...")
-        urllib.request.urlretrieve(csv_url, csv_path)
+        import sys as _sys
+
+        if _sys.platform == "emscripten":
+            from pyodide.http import pyfetch as _pyfetch
+
+            _response = await _pyfetch(csv_url)
+            with open(str(csv_path), "wb") as _f:
+                _f.write(await _response.bytes())
+        else:
+            urllib.request.urlretrieve(csv_url, csv_path)
         print(f"✅ ダウンロード完了: {csv_path}")
     else:
         print(f"✅ ファイル既に存在: {csv_path}")
