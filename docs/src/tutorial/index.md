@@ -128,6 +128,6 @@ Note: Keys specified in dict are only allowed for model fields of `ChannelMetada
 This section provides links to tutorial notebooks that demonstrate more detailed features and application examples of the Wandas library.
 このセクションでは、Wandasライブラリのより詳細な機能や応用例を、以下のチュートリアルノートブックを通じて学ぶことができます。
 
-- [Learning Path — 00_Why Wandas (marimo)](../learning-path/00_why_wandas.html): Overview and motivation / 概要と動機付け
-- [Learning Path — 01_Getting Started (marimo)](../learning-path/01_getting_started.html): Setup and basic configuration / セットアップと基本的な設定
-- [Learning Path — 02_Working With Data (marimo)](../learning-path/02_working_with_data.html): Reading, inspecting, and simple transformations / 読み込み、検査、基本的な変換
+- <a href="../learning-path/00_why_wandas.html">Learning Path — 00_Why Wandas (marimo)</a>: Overview and motivation / 概要と動機付け
+- <a href="../learning-path/01_getting_started.html">Learning Path — 01_Getting Started (marimo)</a>: Setup and basic configuration / セットアップと基本的な設定
+- <a href="../learning-path/02_working_with_data.html">Learning Path — 02_Working With Data (marimo)</a>: Reading, inspecting, and simple transformations / 読み込み、検査、基本的な変換
