@@ -3,8 +3,6 @@ from typing import Any
 
 import numpy as np
 from dask.array.core import Array as DaArray
-from librosa import effects
-from librosa import util as librosa_util
 from scipy.signal import windows as sp_windows
 
 from wandas.processing.base import AudioOperation, register_operation
@@ -26,7 +24,14 @@ class _HpssBase(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying HPSS {self._extract_func} to array with shape: {x.shape}")
-        func = getattr(effects, self._extract_func)
+        try:
+            from librosa import effects as _effects
+        except ImportError:
+            raise ImportError(
+                "HPSS requires librosa. Install with: pip install 'wandas[full]'\n"
+                "Note: librosa is not available in Pyodide/browser environments."
+            ) from None
+        func = getattr(_effects, self._extract_func)
         result: NDArrayReal = func(x, **self.kwargs)
         logger.debug(f"HPSS {self._extract_func} applied, returning result with shape: {result.shape}")
         return result
@@ -46,6 +51,50 @@ class HpssPercussive(_HpssBase):
     name = "hpss_percussive"
     _extract_func = "percussive"
     _display = "Prc"
+
+
+def _normalize_array(
+    x: NDArrayReal,
+    norm: float | None,
+    axis: int | None,
+    threshold: float | None,
+    fill: bool | None,
+) -> NDArrayReal:
+    """Numpy equivalent of librosa.util.normalize."""
+    if norm is None:
+        return x
+
+    if threshold is None:
+        threshold = float(np.finfo(x.dtype.type).tiny)
+
+    if norm == np.inf:
+        length = np.max(np.abs(x), axis=axis, keepdims=True)
+    elif norm == -np.inf:
+        length = np.min(np.abs(x), axis=axis, keepdims=True)
+    elif norm == 0:
+        length = np.sum(x != 0, axis=axis, keepdims=True).astype(float)
+    else:
+        length = np.sum(np.abs(x) ** norm, axis=axis, keepdims=True) ** (1.0 / norm)
+
+    small_idx = length < threshold
+    out = np.empty_like(x)
+
+    if fill is None:
+        length = length.copy()
+        length[small_idx] = 1.0
+        np.divide(x, length, out=out)
+    elif fill:
+        length = length.copy()
+        length[small_idx] = np.nan
+        np.divide(x, length, out=out)
+        out[np.isnan(out)] = 1.0
+    else:
+        length = length.copy()
+        length[small_idx] = 1.0
+        np.divide(x, length, out=out)
+        out[small_idx.squeeze(axis=axis)] = 0.0
+
+    return out
 
 
 class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -138,8 +187,7 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
         """Perform normalization processing"""
         logger.debug(f"Applying normalization to array with shape: {x.shape}, norm={self.norm}, axis={self.axis}")
 
-        # Apply librosa.util.normalize
-        result: NDArrayReal = librosa_util.normalize(
+        result: NDArrayReal = _normalize_array(
             x, norm=self.norm, axis=self.axis, threshold=self.threshold, fill=self.fill
         )
 
