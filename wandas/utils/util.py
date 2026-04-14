@@ -1,6 +1,5 @@
 from typing import Any
 
-import librosa
 import numpy as np
 from scipy.signal.windows import tukey
 
@@ -157,7 +156,8 @@ def amplitude_to_db(amplitude: "NDArrayReal", ref: float) -> "NDArrayReal":
     NDArrayReal
         Amplitude data converted to decibels.
     """
-    db: NDArrayReal = librosa.amplitude_to_db(np.abs(amplitude), ref=ref, amin=DB_AMIN, top_db=None)
+    magnitude = np.abs(amplitude)
+    db: NDArrayReal = 20.0 * np.log10(np.maximum(DB_AMIN, magnitude)) - 20.0 * np.log10(max(DB_AMIN, ref))
     return db
 
 
