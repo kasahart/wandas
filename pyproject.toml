@@ -35,7 +35,6 @@ dependencies = [
     "numpy>=2.0.2",
     "scipy>=1.13.0",
     "matplotlib>=3.9.0",
-    "librosa",
     "ipykernel",
     "ipywidgets",
     "cattrs",
@@ -51,6 +50,9 @@ dependencies = [
     "pandas",
     "mosqito",
 ]
+
+[project.optional-dependencies]
+full = ["librosa"]
 
 [project.urls]
 Repository = "https://github.com/kasahart/wandas.git"
