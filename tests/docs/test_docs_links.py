@@ -92,25 +92,3 @@ def test_index_images_exist():
             f"These image files are referenced in docs/src/index.md but don't exist.\n"
             f"Add the missing image files to the appropriate location in docs/src/."
         )
-
-
-def test_learning_path_notebooks_exist():
-    """Test that all learning-path notebooks referenced in tutorial exist."""
-    # tutorial/index.md links to learning-path notebooks by absolute repo path
-    lp = REPO_ROOT / "learning-path"
-    assert lp.exists(), "learning-path directory must exist in repository root"
-
-    expected = [
-        "00_why_wandas.ipynb",
-        "01_getting_started.ipynb",
-        "02_working_with_data.ipynb",
-    ]
-    missing = [str(lp / e) for e in expected if not (lp / e).exists()]
-    if missing:
-        pytest.fail(
-            f"Missing learning-path notebooks\n"
-            f"  Files: {', '.join(missing)}\n"
-            f"These notebooks are referenced in docs/src/tutorial/index.md\n"
-            f"  but don't exist.\n"
-            f"Create the missing tutorial notebooks in the learning-path/ directory."
-        )

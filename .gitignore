@@ -1,5 +1,6 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+__marimo__/
 *.py[cod]
 *$py.class
 
@@ -166,18 +167,20 @@ cython_debug/
 
 examples/data/dataset/
 # Ignore everything in tutorial directory
-tutorial/*
+/tutorial/*
 # But not the .ipynb files
-!tutorial/*.ipynb
+!/tutorial/*.ipynb
 
 # Ignore examples and tutorial directories completely
-examples/
-tutorial/
+/examples/
+/tutorial/
 
 *.html
+# But not the pre-generated marimo HTML in docs
+!docs/src/learning-path/*.html
 
 # Local/agent-specific settings
 .claude/settings.json
 
 # Accidental notebooks (keep repo clean)
-learning-path/06_skill_validation.ipynb
+learning-path/06_skill_validation.py
