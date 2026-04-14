@@ -1,12 +1,12 @@
 import logging
+from math import gcd
 from typing import Any
 
 import dask.array as da
-import librosa
 import numpy as np
 from dask.array.core import Array as DaArray
 from dask.delayed import delayed
-from scipy.signal import lfilter
+from scipy.signal import lfilter, resample_poly
 
 from wandas.processing.base import AudioOperation, register_operation
 from wandas.processing.weighting import A_weight, frequency_weight
@@ -83,7 +83,8 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for resampling operation"""
         logger.debug(f"Applying resampling to array with shape: {x.shape}")
-        result: NDArrayReal = librosa.resample(x, orig_sr=self.sampling_rate, target_sr=self.target_sr)
+        g = gcd(int(self.target_sr), int(self.sampling_rate))
+        result: NDArrayReal = resample_poly(x, int(self.target_sr) // g, int(self.sampling_rate) // g, axis=-1)
         logger.debug(f"Resampling applied, returning result with shape: {result.shape}")
         return result
 
@@ -209,6 +210,24 @@ class FixLength(AudioOperation[NDArrayReal, NDArrayReal]):
         return result
 
 
+def _frame_rms(y: NDArrayReal, frame_length: int, hop_length: int) -> NDArrayReal:
+    """Compute per-frame RMS using numpy stride tricks.
+
+    Matches librosa.feature.rms default behavior: center-pad the signal
+    by frame_length // 2 on each side before framing.
+    """
+    pad = frame_length // 2
+    pad_width = [(0, 0)] * (y.ndim - 1) + [(pad, pad)]
+    y_padded = np.pad(y, pad_width, mode="constant")
+    n_frames = 1 + max(0, (y_padded.shape[-1] - frame_length) // hop_length)
+    frames = np.lib.stride_tricks.as_strided(
+        y_padded,
+        shape=y_padded.shape[:-1] + (frame_length, n_frames),
+        strides=y_padded.strides[:-1] + (y_padded.strides[-1], y_padded.strides[-1] * hop_length),
+    )
+    return np.sqrt(np.mean(frames**2, axis=-2))
+
+
 class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
     """RMS calculation"""
 
@@ -290,11 +309,8 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         tuple
             Output data shape (channels, frames)
         """
-        n_frames = librosa.feature.rms(
-            y=np.ones((1, input_shape[-1])),
-            frame_length=self.frame_length,
-            hop_length=self.hop_length,
-        ).shape[-1]
+        pad = self.frame_length // 2
+        n_frames = 1 + max(0, (input_shape[-1] + 2 * pad - self.frame_length) // self.hop_length)
         return (*input_shape[:-1], n_frames)
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
@@ -314,9 +330,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
                 raise ValueError("A_weighting returned an unexpected type.")
 
         # Calculate RMS
-        result: NDArrayReal = librosa.feature.rms(y=x, frame_length=self.frame_length, hop_length=self.hop_length)[
-            ..., 0, :
-        ]
+        result: NDArrayReal = _frame_rms(x, self.frame_length, self.hop_length)
 
         if self.dB:
             # Convert to dB
