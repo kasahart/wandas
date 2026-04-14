@@ -4,17 +4,16 @@ import logging
 from collections.abc import Callable, Iterator, Sequence
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar
 
-# Import librosa (including display)
-import librosa
-
-from wandas.utils.introspection import filter_kwargs
-
+# Attempt to import librosa (optional — required only for specshow visualization)
 try:
-    # Avoid error due to librosa.display not being explicitly exported
-    from librosa import display
+    import librosa
+    from librosa import display as _librosa_display
+
+    _LIBROSA_AVAILABLE = True
 except ImportError:
-    # fallback
-    display = librosa.display
+    librosa = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    _librosa_display = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    _LIBROSA_AVAILABLE = False
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -23,7 +22,11 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 
+from wandas.utils.introspection import filter_kwargs
+
 if TYPE_CHECKING:
+    from numpy.typing import NDArray as NDArrayReal
+
     from wandas.core.base_frame import BaseFrame
     from wandas.core.metadata import ChannelMetadata
     from wandas.frames.channel import ChannelFrame
@@ -34,6 +37,63 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 TFrame = TypeVar("TFrame", bound="BaseFrame[Any]")
+
+
+def _specshow(
+    data: "NDArrayReal",
+    sr: float,
+    hop_length: int,
+    n_fft: int = 2048,
+    win_length: int | None = None,
+    x_axis: str = "time",
+    y_axis: str = "linear",
+    ax: "Axes | None" = None,
+    cmap: str = "jet",
+    vmin: float | None = None,
+    vmax: float | None = None,
+    fmin: float | None = None,
+    fmax: float | None = None,
+    **kwargs: Any,
+) -> Any:
+    """Display spectrogram using librosa.display.specshow or matplotlib fallback.
+
+    Falls back to matplotlib.imshow when librosa is not available (e.g., in Pyodide).
+    """
+    if _LIBROSA_AVAILABLE and _librosa_display is not None:
+        return _librosa_display.specshow(
+            data=data,
+            sr=sr,
+            hop_length=hop_length,
+            n_fft=n_fft,
+            win_length=win_length,
+            x_axis=x_axis,
+            y_axis=y_axis,
+            ax=ax,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            fmin=fmin,
+            fmax=fmax,
+            **kwargs,
+        )
+
+    # matplotlib fallback
+    if ax is None:
+        ax = plt.gca()
+    n_frames = data.shape[-1]
+    t_max = n_frames * hop_length / sr
+    f_min_val = fmin if fmin is not None else 0.0
+    f_max_val = fmax if fmax is not None else sr / 2.0
+    img = ax.imshow(
+        data,
+        aspect="auto",
+        origin="lower",
+        extent=(0, t_max, f_min_val, f_max_val),
+        cmap=cmap,
+        vmin=vmin,
+        vmax=vmax,
+    )
+    return img
 
 
 class PlotStrategy(abc.ABC, Generic[TFrame]):
@@ -498,7 +558,10 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
             unit = "dB"
             data = bf.dB
         data = _reshape_spectrogram_data(data)
-        specshow_kwargs = filter_kwargs(display.specshow, kwargs, strict_mode=True)
+        if _LIBROSA_AVAILABLE and _librosa_display is not None:
+            specshow_kwargs = filter_kwargs(_librosa_display.specshow, kwargs, strict_mode=True)
+        else:
+            specshow_kwargs = {}
         ax_set_kwargs = filter_kwargs(Axes.set, kwargs, strict_mode=True)
 
         cmap = kwargs.pop("cmap", "jet")
@@ -506,7 +569,7 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
         vmax = kwargs.pop("vmax", None)
 
         if ax is not None:
-            img = display.specshow(
+            img = _specshow(
                 data=data[0],
                 sr=bf.sampling_rate,
                 hop_length=bf.hop_length,
@@ -547,7 +610,7 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
             axs = np.array([axs])
 
         for ax_i, channel_data, ch_meta in zip(axs.flatten(), data, bf.channels, strict=True):
-            img = display.specshow(
+            img = _specshow(
                 data=channel_data,
                 sr=bf.sampling_rate,
                 hop_length=bf.hop_length,
@@ -652,7 +715,7 @@ class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
                     vmax = rounded_max
                     vmin = vmax - 180
                     break
-        img = display.specshow(
+        img = _specshow(
             data=channel_data,
             sr=bf.sampling_rate,
             hop_length=stft_ch.hop_length,
