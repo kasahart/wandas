@@ -134,3 +134,4 @@ ty = { require-serial = true, args = ["check", "wandas", "tests"] }
 "wandas/processing/spectral.py" = ["N803"]
 "wandas/processing/temporal.py" = ["N803"]
 "wandas/utils/util.py" = ["N802"]
+"wandas/processing/hpss.py" = ["N803", "N806"]

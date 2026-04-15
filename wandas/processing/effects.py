@@ -24,14 +24,10 @@ class _HpssBase(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying HPSS {self._extract_func} to array with shape: {x.shape}")
-        try:
-            from librosa import effects as _effects
-        except ImportError:
-            raise ImportError(
-                "HPSS requires librosa. Install with: pip install 'wandas[full]'\n"
-                "Note: librosa is not available in Pyodide/browser environments."
-            ) from None
-        func = getattr(_effects, self._extract_func)
+        from wandas.processing.hpss import harmonic as _harmonic
+        from wandas.processing.hpss import percussive as _percussive
+
+        func = _harmonic if self._extract_func == "harmonic" else _percussive
         result: NDArrayReal = func(x, **self.kwargs)
         logger.debug(f"HPSS {self._extract_func} applied, returning result with shape: {result.shape}")
         return result
