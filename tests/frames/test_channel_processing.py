@@ -1118,7 +1118,7 @@ def test_reduce_channels_unsupported_op_raises() -> None:
     """_reduce_channels raises ValueError for unsupported operation (line 313)."""
     cf = ChannelFrame.from_numpy(np.random.default_rng(42).random((2, 100)), sampling_rate=1000)
     with pytest.raises(ValueError, match="Unsupported reduction operation"):
-        cf._reduce_channels("median")  # ty: ignore[call-non-callable]
+        cf._reduce_channels("median")
 
 
 def test_roughness_dw_spec_missing_bark_axis() -> None:
