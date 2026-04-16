@@ -3,6 +3,7 @@ import logging
 from typing import TYPE_CHECKING
 
 import numpy as np
+from scipy.io import wavfile as _scipy_wavfile
 
 try:
     import soundfile as sf
@@ -40,18 +41,18 @@ def write_wav(filename: str, target: "ChannelFrame", format: str | None = None) 
     if not isinstance(target, ChannelFrame):
         raise ValueError("target must be a ChannelFrame object.")
 
-    if not _SOUNDFILE_AVAILABLE:
-        raise OSError(
-            "write_wav requires the soundfile library with libsndfile.\n"
-            "Install with: pip install soundfile\n"
-            "Note: soundfile is not available in Pyodide/browser environments."
-        )
     logger.debug(f"Saving audio data to file: {filename} (will compute now)")
     data = target.compute()
     data = data.T
     if data.shape[1] == 1:
         data = data.squeeze(axis=1)
-    if np.issubdtype(data.dtype, np.floating) and np.max(np.abs(data)) <= 1:
+
+    if not _SOUNDFILE_AVAILABLE:
+        # Fallback: scipy.io.wavfile (available in Pyodide)
+        # Only WAV format is supported; format parameter is ignored.
+        logger.debug("soundfile unavailable, falling back to scipy.io.wavfile")
+        _scipy_wavfile.write(str(filename), int(target.sampling_rate), data.astype(np.float32))
+    elif np.issubdtype(data.dtype, np.floating) and np.max(np.abs(data)) <= 1:
         sf.write(  # ty: ignore[unresolved-attribute]
             str(filename),
             data,
