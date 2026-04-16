@@ -24,6 +24,7 @@ async def _():
                 "dask",
                 "mosqito",
                 "soundfile",
+                "h5py",
             ]
         )
     return

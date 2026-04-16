@@ -74,8 +74,7 @@ def save(
     """
     if not _H5PY_AVAILABLE:
         raise ModuleNotFoundError(
-            "save() requires h5py. Install with: pip install wandas[wdf]\n"
-            "Note: h5py is not available in Pyodide/browser environments."
+            "save() requires h5py. Install with: pip install wandas[wdf]\nIn Pyodide: await micropip.install('h5py')"
         )
     # Handle path
     path = Path(path)
@@ -190,8 +189,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
     """
     if not _H5PY_AVAILABLE:
         raise ModuleNotFoundError(
-            "load() requires h5py. Install with: pip install wandas[wdf]\n"
-            "Note: h5py is not available in Pyodide/browser environments."
+            "load() requires h5py. Install with: pip install wandas[wdf]\nIn Pyodide: await micropip.install('h5py')"
         )
     # Ensure ChannelFrame is imported here to avoid circular imports
     from ..core.metadata import ChannelMetadata
