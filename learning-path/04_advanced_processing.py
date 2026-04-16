@@ -23,7 +23,6 @@ async def _():
                 "wandas",
                 "dask",
                 "mosqito",
-                "japanize-matplotlib",
                 "soundfile",
             ]
         )
