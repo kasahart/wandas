@@ -4719,7 +4719,7 @@ requires-dist = [
     { name = "mosqito" },
     { name = "numpy", specifier = ">=2.0.2" },
     { name = "pandas" },
-    { name = "pydantic", specifier = ">=2.11.0" },
+    { name = "pydantic", specifier = ">=2.10.0" },
     { name = "requests", specifier = ">=2.32.3" },
     { name = "scipy", specifier = ">=1.13.0" },
     { name = "tqdm" },
