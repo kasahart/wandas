@@ -18,6 +18,10 @@ async def _():
     if sys.platform == "emscripten":
         import micropip
 
+        # pydantic-core has no pure Python wheel on PyPI.
+        # Pyodide ships pydantic in its own repo, so install it first
+        # to satisfy wandas's dependency without hitting PyPI for pydantic-core.
+        await micropip.install("pydantic")
         await micropip.install(
             [
                 "wandas",
