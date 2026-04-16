@@ -1340,7 +1340,7 @@ class TestPlotting:
         assert DescribePlotStrategy().channel_plot(None, None, mock.MagicMock()) is None
 
     def test_plotting_module_fallback_import_path(self) -> None:
-        """Fallback import should use librosa.display when direct import fails."""
+        """When librosa is unavailable, _LIBROSA_AVAILABLE should be False and _librosa_display None."""
         import wandas.visualization.plotting as plotting_module
 
         isolated_module = types.ModuleType("wandas.visualization.plotting_fallback_test")
@@ -1356,14 +1356,15 @@ class TestPlotting:
             fromlist: tuple[str, ...] | None = (),
             level: int = 0,
         ) -> Any:
-            if name == "librosa" and fromlist and "display" in fromlist:
-                raise ImportError("forced display import failure")
+            if name == "librosa":
+                raise ImportError("forced librosa import failure")
             return real_import(name, globals_, locals_, fromlist, level)
 
         with mock.patch("builtins.__import__", side_effect=import_side_effect):
             exec(compile(plotting_source, plotting_module.__file__, "exec"), isolated_module.__dict__)
 
-        assert isolated_module.display is isolated_module.librosa.display
+        assert isolated_module._LIBROSA_AVAILABLE is False
+        assert isolated_module._librosa_display is None
 
     def test_spectrogram_plot_strategy_colorbar_error_paths(self) -> None:
         """Spectrogram plotting should swallow colorbar creation errors for both paths."""

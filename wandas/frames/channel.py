@@ -11,9 +11,20 @@ import numpy as np
 import pandas as pd
 from dask.array.core import Array as DaArray
 from dask.array.core import concatenate
-from IPython.display import Audio, display
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+
+try:
+    from IPython.display import Audio, display
+
+    _IPYTHON_AVAILABLE = True
+except ImportError:
+    Audio: type | None = None
+    _IPYTHON_AVAILABLE = False
+
+    def display(obj: Any) -> None:  # type: ignore[misc]
+        pass
+
 
 from wandas.utils import validate_sampling_rate
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
@@ -753,8 +764,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 fig.clf()  # Clear the figure to free memory
                 plt.close(fig)
 
-            # Play audio for each channel
-            display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))
+            # Play audio for each channel (requires IPython)
+            if _IPYTHON_AVAILABLE and Audio is not None:
+                display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))
 
         # Return figures only when is_close=False
         if is_close:

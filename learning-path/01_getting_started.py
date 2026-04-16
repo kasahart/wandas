@@ -11,6 +11,24 @@ def _():
     return (mo,)
 
 
+@app.cell
+async def _():
+    import sys
+
+    if sys.platform == "emscripten":
+        import micropip
+
+        await micropip.install(
+            [
+                "wandas",
+                "dask",
+                "mosqito",
+                "h5py",
+            ]
+        )
+    return
+
+
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""

@@ -6,9 +6,15 @@ from typing import Any, BinaryIO, ClassVar, TypedDict, cast
 
 import numpy as np
 import pandas as pd
-import soundfile as sf
 from numpy.typing import ArrayLike
 from scipy.io import wavfile
+
+try:
+    import soundfile as sf
+
+    _SOUNDFILE_AVAILABLE = True
+except OSError:
+    _SOUNDFILE_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +129,12 @@ class SoundFileReader(FileReader):
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Get basic information about the audio file."""
-        info = sf.info(_prepare_file_source(path))
+        if not _SOUNDFILE_AVAILABLE:
+            raise OSError(
+                "Reading audio files requires soundfile with libsndfile.\n"
+                "Note: soundfile is not available in Pyodide/browser environments."
+            )
+        info = sf.info(_prepare_file_source(path))  # ty: ignore[unresolved-attribute]
         return {
             "samplerate": info.samplerate,
             "channels": info.channels,
@@ -152,6 +163,11 @@ class SoundFileReader(FileReader):
                 always uses soundfile (returning float32 normalized to [-1.0, 1.0]).
                 When True, return float32 data normalized to [-1.0, 1.0] via soundfile.
         """
+        if not _SOUNDFILE_AVAILABLE:
+            raise OSError(
+                "Reading audio files requires soundfile with libsndfile.\n"
+                "Note: soundfile is not available in Pyodide/browser environments."
+            )
         logger.debug(f"Reading {frames} frames from {path!r} starting at {start_idx}")
 
         is_wav = isinstance(path, (str, Path)) and Path(path).suffix.lower() == ".wav"
@@ -174,7 +190,7 @@ class SoundFileReader(FileReader):
             logger.debug(f"File read complete (raw), returning data with shape {result.shape}")
             return result
 
-        with sf.SoundFile(_prepare_file_source(path)) as f:
+        with sf.SoundFile(_prepare_file_source(path)) as f:  # ty: ignore[unresolved-attribute]
             if start_idx > 0:
                 f.seek(start_idx)
             data = f.read(frames=frames, dtype="float32", always_2d=True)

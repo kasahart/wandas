@@ -131,7 +131,7 @@ class TestNOctFrame:
 
     def test_property_dba(self) -> None:
         """Test dBA property"""
-        with mock.patch("librosa.A_weighting") as mock_a_weighting:
+        with mock.patch("wandas.frames.noct.a_weighting_db") as mock_a_weighting:
             # モックの周波数重み付け係数を設定
             mock_weights: NDArrayReal = np.ones_like(self.frame.freqs)
             mock_a_weighting.return_value = mock_weights
@@ -139,7 +139,7 @@ class TestNOctFrame:
             # dBAプロパティを取得
             dba: NDArrayReal = self.frame.dBA
 
-            # librosのA_weightingが期待される引数で呼び出されたことを確認
+            # a_weighting_dbが期待される引数で呼び出されたことを確認
             mock_a_weighting.assert_called_once()
             np.testing.assert_array_equal(mock_a_weighting.call_args[1]["frequencies"], self.frame.freqs)
 

@@ -13,15 +13,15 @@ from .protocols import ProcessingFrameProtocol, T_Processing
 T_OutputFrame = TypeVar("T_OutputFrame")
 
 if TYPE_CHECKING:
-    from librosa._typing import (
-        _FloatLike_co,
-        _IntLike_co,
-        _PadModeSTFT,
-        _WindowSpec,
-    )
+    from typing import Any
 
     from wandas.core.base_frame import BaseFrame
     from wandas.utils.types import NDArrayReal
+
+    _FloatLike_co = float
+    _IntLike_co = int
+    _WindowSpec = Any
+    _PadModeSTFT = str
 logger = logging.getLogger(__name__)
 
 

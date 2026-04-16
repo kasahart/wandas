@@ -3,7 +3,14 @@ import logging
 from typing import TYPE_CHECKING
 
 import numpy as np
-import soundfile as sf
+from scipy.io import wavfile as _scipy_wavfile
+
+try:
+    import soundfile as sf
+
+    _SOUNDFILE_AVAILABLE = True
+except OSError:
+    _SOUNDFILE_AVAILABLE = False
 
 if TYPE_CHECKING:
     from ..frames.channel import ChannelFrame
@@ -39,8 +46,14 @@ def write_wav(filename: str, target: "ChannelFrame", format: str | None = None) 
     data = data.T
     if data.shape[1] == 1:
         data = data.squeeze(axis=1)
-    if np.issubdtype(data.dtype, np.floating) and np.max(np.abs(data)) <= 1:
-        sf.write(
+
+    if not _SOUNDFILE_AVAILABLE:
+        # Fallback: scipy.io.wavfile (available in Pyodide)
+        # Only WAV format is supported; format parameter is ignored.
+        logger.debug("soundfile unavailable, falling back to scipy.io.wavfile")
+        _scipy_wavfile.write(str(filename), int(target.sampling_rate), data.astype(np.float32))
+    elif np.issubdtype(data.dtype, np.floating) and np.max(np.abs(data)) <= 1:
+        sf.write(  # ty: ignore[unresolved-attribute]
             str(filename),
             data,
             int(target.sampling_rate),
@@ -48,5 +61,5 @@ def write_wav(filename: str, target: "ChannelFrame", format: str | None = None) 
             format=format,
         )
     else:
-        sf.write(str(filename), data, int(target.sampling_rate), format=format)
+        sf.write(str(filename), data, int(target.sampling_rate), format=format)  # ty: ignore[unresolved-attribute]
     logger.debug(f"Save complete: {filename}")

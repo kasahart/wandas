@@ -12,8 +12,14 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import h5py
 import numpy as np
+
+try:
+    import h5py
+
+    _H5PY_AVAILABLE = True
+except ModuleNotFoundError:
+    _H5PY_AVAILABLE = False
 
 if TYPE_CHECKING:
     from ..frames.channel import ChannelFrame
@@ -66,6 +72,10 @@ def save(
         FileExistsError: If the file exists and overwrite=False.
         NotImplementedError: For unsupported formats.
     """
+    if not _H5PY_AVAILABLE:
+        raise ModuleNotFoundError(
+            "save() requires h5py. Install with: pip install wandas[wdf]\nIn Pyodide: await micropip.install('h5py')"
+        )
     # Handle path
     path = Path(path)
     if path.suffix != ".wdf":
@@ -87,7 +97,7 @@ def save(
 
     # Create file
     logger.info(f"Creating HDF5 file at {path}...")
-    with h5py.File(path, "w") as f:
+    with h5py.File(path, "w") as f:  # ty: ignore[unresolved-attribute]
         # Set file version
         f.attrs["version"] = WDF_FORMAT_VERSION
 
@@ -177,6 +187,10 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
         >>> cf = ChannelFrame.load("audio_data.wdf")
         >>> cf = ChannelFrame.load("https://example.com/audio_data.wdf")
     """
+    if not _H5PY_AVAILABLE:
+        raise ModuleNotFoundError(
+            "load() requires h5py. Install with: pip install wandas[wdf]\nIn Pyodide: await micropip.install('h5py')"
+        )
     # Ensure ChannelFrame is imported here to avoid circular imports
     from ..core.metadata import ChannelMetadata
     from ..frames.channel import ChannelFrame
@@ -211,7 +225,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
 
     logger.debug(f"Loading ChannelFrame from {h5_source!r}")
 
-    with h5py.File(h5_source, "r", **h5_kwargs) as f:
+    with h5py.File(h5_source, "r", **h5_kwargs) as f:  # ty: ignore[unresolved-attribute]
         # Check format version for compatibility
         version = f.attrs.get("version", "unknown")
         if version != WDF_FORMAT_VERSION:
