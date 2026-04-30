@@ -22,6 +22,7 @@ def _mock_urlopen(
     forbid_unbounded_read: bool = False,
     include_content_length: bool = True,
     expected_chunk_size: int | None = None,
+    max_chunk_bytes: int | None = None,
 ):
     """Context manager that mocks urllib.request.urlopen to stream content_bytes."""
     stream = io.BytesIO(content_bytes)
@@ -35,7 +36,10 @@ def _mock_urlopen(
             raise AssertionError("URL reads must request bounded chunks")
         if expected_chunk_size is not None and size >= 0:
             assert size == expected_chunk_size, f"Expected chunk size {expected_chunk_size}, got {size}"
-        return stream.read(size)
+        effective_size = size
+        if max_chunk_bytes is not None and size >= 0:
+            effective_size = min(size, max_chunk_bytes)
+        return stream.read(effective_size)
 
     mock_resp.read = MagicMock(side_effect=_read)
     with patch("urllib.request.urlopen", return_value=mock_resp) as mock_fn:
@@ -424,6 +428,28 @@ def test_load_wdf_from_url_over_size_limit_without_content_length_raises(tmp_pat
         with _mock_urlopen(wdf_bytes, include_content_length=False):
             with pytest.raises(OSError, match=r"Downloaded WDF file exceeds size limit"):
                 wdf_io.load("https://example.com/data/test_stream_limit_url.wdf")
+
+
+def test_load_wdf_from_url_handles_partial_reads(tmp_path: Path) -> None:
+    """URL WDF loads must continue until EOF even when reads return small chunks."""
+    rng = np.random.default_rng(42)
+    sr = 8000
+    data = rng.standard_normal((1, sr)).astype(np.float32)
+    cf = ChannelFrame.from_numpy(data, sr, label="Partial Read Test", ch_labels=["A"])
+    wdf_path = tmp_path / "test_partial_reads_url.wdf"
+    cf.save(wdf_path)
+    wdf_bytes = wdf_path.read_bytes()
+
+    with _mock_urlopen(
+        wdf_bytes,
+        forbid_unbounded_read=True,
+        include_content_length=False,
+        expected_chunk_size=io_readers.URL_DOWNLOAD_CHUNK_SIZE,
+        max_chunk_bytes=257,
+    ):
+        loaded = wdf_io.load("https://example.com/data/test_partial_reads_url.wdf")
+
+    np.testing.assert_allclose(loaded.compute(), data, rtol=1e-5)
 
 
 def test_load_wdf_from_url_download_failure() -> None:

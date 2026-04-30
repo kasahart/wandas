@@ -424,6 +424,7 @@ def download_url_to_temporary_file(
     effective_chunk_size = URL_DOWNLOAD_CHUNK_SIZE if chunk_size is None else chunk_size
     normalized_suffix = _normalize_extension(suffix) or ""
     downloaded_bytes = 0
+    temp_dir: tempfile.TemporaryDirectory[str] | None = None
 
     try:
         with urllib.request.urlopen(url, timeout=timeout) as response:
@@ -467,6 +468,10 @@ def download_url_to_temporary_file(
             f"  Error: {exc}\n"
             f"Verify the URL is accessible and try again."
         ) from exc
+    except Exception:
+        if temp_dir is not None:
+            temp_dir.cleanup()
+        raise
 
 
 def _prepare_file_source(
