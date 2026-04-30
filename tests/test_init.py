@@ -138,3 +138,11 @@ def test_unknown_attr_raises() -> None:
     """存在しない属性へのアクセスが AttributeError を送出することを確認"""
     with pytest.raises(AttributeError, match="has no attribute"):
         _ = wandas.no_such_attribute
+
+
+def test_frames_package_exposes_cepstral_frame() -> None:
+    """wandas.frames exports CepstralFrame without circular-import failures."""
+    from wandas.frames import CepstralFrame
+    from wandas.frames.cepstral import CepstralFrame as DirectCepstralFrame
+
+    assert CepstralFrame is DirectCepstralFrame
