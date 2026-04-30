@@ -27,6 +27,7 @@ def _mock_urlopen(
     *,
     forbid_unbounded_read: bool = False,
     include_content_length: bool = True,
+    expected_chunk_size: int | None = None,
 ):
     """Context manager that mocks urllib.request.urlopen to stream wav_bytes."""
     stream = io.BytesIO(wav_bytes)
@@ -38,6 +39,8 @@ def _mock_urlopen(
     def _read(size: int = -1) -> bytes:
         if forbid_unbounded_read and size < 0:
             raise AssertionError("URL reads must request bounded chunks")
+        if expected_chunk_size is not None and size >= 0:
+            assert size == expected_chunk_size, f"Expected chunk size {expected_chunk_size}, got {size}"
         return stream.read(size)
 
     mock_resp.read = MagicMock(side_effect=_read)
@@ -237,7 +240,11 @@ def test_from_file_url_wav_streams_in_chunks() -> None:
     mono_data = np.full(n_samples, 0.25, dtype=np.float32)
     wav_bytes = _make_wav_bytes(sr, mono_data)
 
-    with _mock_urlopen(wav_bytes, forbid_unbounded_read=True):
+    with _mock_urlopen(
+        wav_bytes,
+        forbid_unbounded_read=True,
+        expected_chunk_size=io_readers.URL_DOWNLOAD_CHUNK_SIZE,
+    ):
         cf = ChannelFrame.from_file(url)
 
     assert cf.sampling_rate == sr

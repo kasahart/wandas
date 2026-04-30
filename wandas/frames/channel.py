@@ -965,8 +965,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         # Define the loading function using the file reader
         def _load_audio(_download_owner: Any | None = download_owner) -> NDArrayReal:
             logger.debug(">>> EXECUTING DELAYED LOAD <<<")
-            # Keep the temporary download directory alive until the delayed read runs.
-            del _download_owner
+            # The default argument keeps the temporary download directory alive
+            # until the delayed read runs.
             # Use the reader to get audio data with parameters
             out = reader.get_data(
                 source_obj,

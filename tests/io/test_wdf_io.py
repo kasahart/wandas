@@ -11,11 +11,17 @@ import numpy as np
 import pytest
 
 from wandas.frames.channel import ChannelFrame
+from wandas.io import readers as io_readers
 from wandas.io import wdf_io
 
 
 @contextmanager
-def _mock_urlopen(content_bytes: bytes, *, forbid_unbounded_read: bool = False):
+def _mock_urlopen(
+    content_bytes: bytes,
+    *,
+    forbid_unbounded_read: bool = False,
+    expected_chunk_size: int | None = None,
+):
     """Context manager that mocks urllib.request.urlopen to stream content_bytes."""
     stream = io.BytesIO(content_bytes)
     mock_resp = MagicMock()
@@ -26,6 +32,8 @@ def _mock_urlopen(content_bytes: bytes, *, forbid_unbounded_read: bool = False):
     def _read(size: int = -1) -> bytes:
         if forbid_unbounded_read and size < 0:
             raise AssertionError("URL reads must request bounded chunks")
+        if expected_chunk_size is not None and size >= 0:
+            assert size == expected_chunk_size, f"Expected chunk size {expected_chunk_size}, got {size}"
         return stream.read(size)
 
     mock_resp.read = MagicMock(side_effect=_read)
@@ -390,7 +398,11 @@ def test_load_wdf_from_url_streams_in_chunks(tmp_path: Path) -> None:
     cf.save(wdf_path)
     wdf_bytes = wdf_path.read_bytes()
 
-    with _mock_urlopen(wdf_bytes, forbid_unbounded_read=True):
+    with _mock_urlopen(
+        wdf_bytes,
+        forbid_unbounded_read=True,
+        expected_chunk_size=io_readers.URL_DOWNLOAD_CHUNK_SIZE,
+    ):
         loaded = wdf_io.load("https://example.com/data/test_stream_url.wdf")
 
     assert loaded.sampling_rate == sr

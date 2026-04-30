@@ -371,8 +371,8 @@ def _validate_and_get_content_length(
     url: str,
     resource_name: str,
 ) -> int | None:
-    headers = getattr(response, "headers", None)
-    raw_value = headers.get("Content-Length") if headers is not None else None
+    headers = getattr(response, "headers", {})
+    raw_value = headers.get("Content-Length") if hasattr(headers, "get") else None
     if raw_value in (None, ""):
         return None
 
