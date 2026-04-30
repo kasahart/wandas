@@ -426,7 +426,7 @@ def test_load_wdf_from_url_over_size_limit_without_content_length_raises(tmp_pat
 
     with patch.object(io_readers, "MAX_URL_DOWNLOAD_BYTES", 128):
         with _mock_urlopen(wdf_bytes, include_content_length=False):
-            with pytest.raises(OSError, match=r"Downloaded WDF file exceeds size limit"):
+            with pytest.raises(OSError, match=r"Streaming WDF file would exceed size limit"):
                 wdf_io.load("https://example.com/data/test_stream_limit_url.wdf")
 
 

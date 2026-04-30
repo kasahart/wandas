@@ -299,4 +299,6 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
             return cf
     finally:
         if download_owner is not None:
+            # WDF URL loads fully materialize channel data into NumPy arrays before
+            # wrapping it in Dask, so the temporary download can be removed here.
             download_owner.cleanup()
