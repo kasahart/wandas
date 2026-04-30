@@ -7,14 +7,12 @@ from wandas.frames.cepstral import CepstralFrame
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectral import SpectralFrame
 
-_da_from_array = da.from_array  # type: ignore [unused-ignore]
-
 
 class TestCepstralFrame:
     def setup_method(self) -> None:
         self.sampling_rate = 16000
         self.n_fft = 1024
-        self.data = _da_from_array(np.zeros((2, self.n_fft), dtype=np.float64), chunks=(1, -1))
+        self.data = da.from_array(np.zeros((2, self.n_fft), dtype=np.float64), chunks=(1, -1))
         self.frame = CepstralFrame(
             data=self.data,
             sampling_rate=self.sampling_rate,

@@ -5,8 +5,6 @@ import pytest
 from wandas.processing import Cepstrum, Lifter, SpectralEnvelope
 from wandas.processing.base import create_operation, get_operation
 
-_da_from_array = da.from_array  # type: ignore [unused-ignore]
-
 
 class TestCepstralOperations:
     def test_cepstrum_display_names_and_registry(self) -> None:
@@ -74,7 +72,7 @@ class TestCepstralOperations:
 
     def test_cepstrum_process_preserves_lazy_output(self) -> None:
         sr = 16000
-        signal = _da_from_array(np.ones((1, 512), dtype=np.float32), chunks=(1, -1))
+        signal = da.from_array(np.ones((1, 512), dtype=np.float32), chunks=(1, -1))
 
         result = Cepstrum(sr).process(signal)
 
