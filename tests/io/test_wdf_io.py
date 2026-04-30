@@ -430,6 +430,25 @@ def test_load_wdf_from_url_over_size_limit_without_content_length_raises(tmp_pat
                 wdf_io.load("https://example.com/data/test_stream_limit_url.wdf")
 
 
+def test_load_wdf_from_url_declared_size_limit_raises_before_streaming(tmp_path: Path) -> None:
+    """URL WDF loads must reject oversized Content-Length before streaming data."""
+    rng = np.random.default_rng(42)
+    sr = 8000
+    data = rng.standard_normal((1, sr)).astype(np.float32)
+    cf = ChannelFrame.from_numpy(data, sr, label="Declared Size Test", ch_labels=["A"])
+    wdf_path = tmp_path / "test_declared_limit_url.wdf"
+    cf.save(wdf_path)
+    wdf_bytes = wdf_path.read_bytes()
+
+    with patch.object(io_readers, "MAX_URL_DOWNLOAD_BYTES", 128):
+        with _mock_urlopen(wdf_bytes, include_content_length=True) as mock_fn:
+            with pytest.raises(OSError, match=r"Declared size of WDF file exceeds download limit"):
+                wdf_io.load("https://example.com/data/test_declared_limit_url.wdf")
+
+    mock_resp = mock_fn.return_value
+    mock_resp.read.assert_not_called()
+
+
 def test_load_wdf_from_url_handles_partial_reads(tmp_path: Path) -> None:
     """URL WDF loads must continue until EOF even when reads return small chunks."""
     rng = np.random.default_rng(42)

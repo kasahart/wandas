@@ -319,7 +319,7 @@ def test_from_file_url_declared_size_limit_raises_before_streaming() -> None:
 
     with patch.object(io_readers, "MAX_URL_DOWNLOAD_BYTES", 128):
         with _mock_urlopen(wav_bytes, include_content_length=True) as mock_fn:
-            with pytest.raises(OSError, match=r"Downloaded audio exceeds size limit"):
+            with pytest.raises(OSError, match=r"Declared size of audio exceeds download limit"):
                 ChannelFrame.from_file(url)
 
     mock_resp = mock_fn.return_value

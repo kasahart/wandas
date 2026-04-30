@@ -23,10 +23,10 @@ class DownloadedTemporaryFile:
     """Temporary file created for streamed URL downloads."""
 
     path: Path
-    _temp_dir: tempfile.TemporaryDirectory[str]
+    temp_dir: tempfile.TemporaryDirectory[str]
 
     def cleanup(self) -> None:
-        self._temp_dir.cleanup()
+        self.temp_dir.cleanup()
 
 
 class CSVFileInfoParams(TypedDict, total=False):
@@ -435,7 +435,7 @@ def download_url_to_temporary_file(
             )
             if content_length is not None and content_length > effective_max_bytes:
                 raise OSError(
-                    f"Downloaded {resource_name} exceeds size limit\n"
+                    f"Declared size of {resource_name} exceeds download limit\n"
                     f"  URL: {url}\n"
                     f"  Declared size: {content_length} bytes\n"
                     f"  Limit: {effective_max_bytes} bytes\n"
@@ -460,7 +460,7 @@ def download_url_to_temporary_file(
                         )
                     downloaded_bytes = next_downloaded_bytes
                     temp_file.write(chunk)
-        return DownloadedTemporaryFile(path=temp_path, _temp_dir=temp_dir)
+        return DownloadedTemporaryFile(path=temp_path, temp_dir=temp_dir)
     except urllib.error.URLError as exc:
         raise OSError(
             f"Failed to download {resource_name} from URL\n"
