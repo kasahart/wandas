@@ -27,7 +27,7 @@ class DownloadedTemporaryFile:
     temp_dir: tempfile.TemporaryDirectory[str]
 
     def __post_init__(self) -> None:
-        self._finalizer = weakref.finalize(self, self.temp_dir.cleanup)
+        self._finalizer = weakref.finalize(self, lambda: self.temp_dir.cleanup())
 
     def __enter__(self) -> "DownloadedTemporaryFile":
         return self
@@ -473,13 +473,6 @@ def download_url_to_temporary_file(
                         )
                     downloaded_bytes = next_downloaded_bytes
                     temp_file.write(chunk)
-        if downloaded_file is None:
-            raise OSError(
-                f"Failed to prepare {resource_name} download\n"
-                f"  URL: {url}\n"
-                f"  Temporary file could not be created\n"
-                f"Try the download again or save the file locally before loading."
-            )
         return downloaded_file
     except urllib.error.URLError as exc:
         raise OSError(
