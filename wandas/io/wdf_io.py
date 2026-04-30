@@ -22,7 +22,7 @@ from wandas.utils.dask_helpers import da_from_array as _da_from_array
 
 from ..core.base_frame import BaseFrame
 from ..core.metadata import FrameMetadata
-from .readers import download_url_to_temporary_file
+from .readers import DownloadedTemporaryFile, download_url_to_temporary_file
 
 logger = logging.getLogger(__name__)
 
@@ -186,15 +186,16 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
 
     # Detect and handle URL paths — stream to disk before HDF5 open.
     h5_source: str | Path
-    download_owner: Any | None = None
+    download_owner: DownloadedTemporaryFile | None = None
     if isinstance(path, str) and path.startswith(("http://", "https://")):
         logger.debug(f"Downloading WDF from URL: {path}")
-        h5_source, download_owner = download_url_to_temporary_file(
+        download_owner = download_url_to_temporary_file(
             path,
             timeout=timeout,
             suffix=".wdf",
             resource_name="WDF file",
         )
+        h5_source = download_owner.path
     else:
         path = Path(path)
         if not path.exists():

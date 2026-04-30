@@ -21,7 +21,7 @@ from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
 from ..core.metadata import ChannelMetadata, FrameMetadata
-from ..io.readers import download_url_to_temporary_file, get_file_reader
+from ..io.readers import DownloadedTemporaryFile, download_url_to_temporary_file, get_file_reader
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
 
 if TYPE_CHECKING:
@@ -94,7 +94,7 @@ def _download_url(
     normalized_file_type = file_type.lower() if file_type is not None else url_ext
     if normalized_file_type is not None and not normalized_file_type.startswith("."):
         normalized_file_type = f".{normalized_file_type}"
-    temp_path, temp_owner = download_url_to_temporary_file(
+    downloaded_file = download_url_to_temporary_file(
         url,
         timeout=timeout,
         suffix=normalized_file_type,
@@ -102,7 +102,7 @@ def _download_url(
     )
     if source_name is None:
         source_name = url
-    return temp_path, temp_owner, normalized_file_type, source_name
+    return downloaded_file.path, downloaded_file, normalized_file_type, source_name
 
 
 def _is_file_like(obj: object) -> bool:
@@ -917,7 +917,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         """
         from .channel import ChannelFrame
 
-        download_owner: Any | None = None
+        download_owner: DownloadedTemporaryFile | None = None
         downloaded_from_url = False
 
         # Detect and handle URL paths — stream to a temporary file before any path logic.
@@ -963,10 +963,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         expected_shape = (len(channels_to_load), frames_to_read)
 
         # Define the loading function using the file reader
-        def _load_audio(_download_owner: Any | None = download_owner) -> NDArrayReal:
+        def _load_audio() -> NDArrayReal:
             logger.debug(">>> EXECUTING DELAYED LOAD <<<")
-            # The default argument keeps the temporary download directory alive
-            # until the delayed read runs.
+            # Reference the streamed temp file owner so the closure keeps it alive
+            # until the delayed read completes.
+            _ = download_owner
             # Use the reader to get audio data with parameters
             out = reader.get_data(
                 source_obj,

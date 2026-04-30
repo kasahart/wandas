@@ -2,6 +2,7 @@ import io
 import logging
 import tempfile
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, BinaryIO, ClassVar, TypedDict, cast
 
@@ -15,6 +16,17 @@ logger = logging.getLogger(__name__)
 
 URL_DOWNLOAD_CHUNK_SIZE = 1024 * 1024
 MAX_URL_DOWNLOAD_BYTES = 256 * 1024 * 1024
+
+
+@dataclass
+class DownloadedTemporaryFile:
+    """Temporary file created for streamed URL downloads."""
+
+    path: Path
+    _temp_dir: tempfile.TemporaryDirectory[str]
+
+    def cleanup(self) -> None:
+        self._temp_dir.cleanup()
 
 
 class CSVFileInfoParams(TypedDict, total=False):
@@ -365,7 +377,7 @@ def _normalize_extension(file_type: str | None) -> str | None:
     return ext
 
 
-def _validate_and_get_content_length(
+def _get_validated_content_length_or_none(
     response: Any,
     *,
     url: str,
@@ -404,20 +416,22 @@ def download_url_to_temporary_file(
     resource_name: str = "file",
     max_bytes: int | None = None,
     chunk_size: int | None = None,
-) -> tuple[Path, tempfile.TemporaryDirectory]:
+) -> DownloadedTemporaryFile:
     import urllib.error
     import urllib.request
 
     effective_max_bytes = MAX_URL_DOWNLOAD_BYTES if max_bytes is None else max_bytes
     effective_chunk_size = URL_DOWNLOAD_CHUNK_SIZE if chunk_size is None else chunk_size
     normalized_suffix = _normalize_extension(suffix) or ""
-    temp_dir = tempfile.TemporaryDirectory()
-    temp_path = Path(temp_dir.name) / f"download{normalized_suffix}"
     downloaded_bytes = 0
 
     try:
         with urllib.request.urlopen(url, timeout=timeout) as response:
-            content_length = _validate_and_get_content_length(response, url=url, resource_name=resource_name)
+            content_length = _get_validated_content_length_or_none(
+                response,
+                url=url,
+                resource_name=resource_name,
+            )
             if content_length is not None and content_length > effective_max_bytes:
                 raise OSError(
                     f"Downloaded {resource_name} exceeds size limit\n"
@@ -427,33 +441,32 @@ def download_url_to_temporary_file(
                     f"Use a smaller file or download it locally before loading."
                 )
 
+            temp_dir = tempfile.TemporaryDirectory()
+            temp_path = Path(temp_dir.name) / f"download{normalized_suffix}"
             with temp_path.open("wb") as temp_file:
                 while True:
                     chunk = response.read(effective_chunk_size)
                     if not chunk:
                         break
-                    downloaded_bytes += len(chunk)
-                    if downloaded_bytes > effective_max_bytes:
+                    next_downloaded_bytes = downloaded_bytes + len(chunk)
+                    if next_downloaded_bytes > effective_max_bytes:
                         raise OSError(
                             f"Downloaded {resource_name} exceeds size limit\n"
                             f"  URL: {url}\n"
-                            f"  Downloaded: {downloaded_bytes} bytes\n"
+                            f"  Downloaded: {next_downloaded_bytes} bytes\n"
                             f"  Limit: {effective_max_bytes} bytes\n"
                             f"Use a smaller file or download it locally before loading."
                         )
+                    downloaded_bytes = next_downloaded_bytes
                     temp_file.write(chunk)
-        return temp_path, temp_dir
+        return DownloadedTemporaryFile(path=temp_path, _temp_dir=temp_dir)
     except urllib.error.URLError as exc:
-        temp_dir.cleanup()
         raise OSError(
             f"Failed to download {resource_name} from URL\n"
             f"  URL: {url}\n"
             f"  Error: {exc}\n"
             f"Verify the URL is accessible and try again."
         ) from exc
-    except Exception:
-        temp_dir.cleanup()
-        raise
 
 
 def _prepare_file_source(

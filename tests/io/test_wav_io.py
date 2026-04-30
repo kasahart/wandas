@@ -309,6 +309,23 @@ def test_from_file_url_over_size_limit_raises() -> None:
                 ChannelFrame.from_file(url)
 
 
+def test_from_file_url_declared_size_limit_raises_before_streaming() -> None:
+    """URL WAV loads must reject oversized Content-Length before streaming data."""
+    url = "https://example.com/audio/sample.wav"
+    sr = 16000
+    n_samples = 500
+    mono_data = np.full(n_samples, 0.5, dtype=np.float32)
+    wav_bytes = _make_wav_bytes(sr, mono_data)
+
+    with patch.object(io_readers, "MAX_URL_DOWNLOAD_BYTES", 128):
+        with _mock_urlopen(wav_bytes, include_content_length=True) as mock_fn:
+            with pytest.raises(OSError, match=r"Downloaded audio exceeds size limit"):
+                ChannelFrame.from_file(url)
+
+    mock_resp = mock_fn.return_value
+    mock_resp.read.assert_not_called()
+
+
 def test_from_file_nonexistent_path_raises_file_not_found(tmp_path) -> None:
     """Verify from_file raises FileNotFoundError for non-existent path (I/O Policy)."""
     nonexistent = tmp_path / "does_not_exist.wav"

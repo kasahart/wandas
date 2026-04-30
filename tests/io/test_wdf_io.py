@@ -20,6 +20,7 @@ def _mock_urlopen(
     content_bytes: bytes,
     *,
     forbid_unbounded_read: bool = False,
+    include_content_length: bool = True,
     expected_chunk_size: int | None = None,
 ):
     """Context manager that mocks urllib.request.urlopen to stream content_bytes."""
@@ -27,7 +28,7 @@ def _mock_urlopen(
     mock_resp = MagicMock()
     mock_resp.__enter__ = MagicMock(return_value=mock_resp)
     mock_resp.__exit__ = MagicMock(return_value=False)
-    mock_resp.headers = {"Content-Length": str(len(content_bytes))}
+    mock_resp.headers = {"Content-Length": str(len(content_bytes))} if include_content_length else {}
 
     def _read(size: int = -1) -> bytes:
         if forbid_unbounded_read and size < 0:
@@ -407,6 +408,22 @@ def test_load_wdf_from_url_streams_in_chunks(tmp_path: Path) -> None:
 
     assert loaded.sampling_rate == sr
     np.testing.assert_allclose(loaded.compute(), data, rtol=1e-5)
+
+
+def test_load_wdf_from_url_over_size_limit_without_content_length_raises(tmp_path: Path) -> None:
+    """URL WDF loads must stop oversized streamed downloads without Content-Length."""
+    rng = np.random.default_rng(42)
+    sr = 8000
+    data = rng.standard_normal((1, sr)).astype(np.float32)
+    cf = ChannelFrame.from_numpy(data, sr, label="URL Stream Test", ch_labels=["A"])
+    wdf_path = tmp_path / "test_stream_limit_url.wdf"
+    cf.save(wdf_path)
+    wdf_bytes = wdf_path.read_bytes()
+
+    with patch.object(io_readers, "MAX_URL_DOWNLOAD_BYTES", 128):
+        with _mock_urlopen(wdf_bytes, include_content_length=False):
+            with pytest.raises(OSError, match=r"Downloaded WDF file exceeds size limit"):
+                wdf_io.load("https://example.com/data/test_stream_limit_url.wdf")
 
 
 def test_load_wdf_from_url_download_failure() -> None:
