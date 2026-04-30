@@ -1,5 +1,6 @@
 """Tests for WDF (Wandas Data File) I/O functionality."""
 
+import io
 from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -14,12 +15,20 @@ from wandas.io import wdf_io
 
 
 @contextmanager
-def _mock_urlopen(content_bytes: bytes):
-    """Context manager that mocks urllib.request.urlopen to return content_bytes."""
+def _mock_urlopen(content_bytes: bytes, *, forbid_unbounded_read: bool = False):
+    """Context manager that mocks urllib.request.urlopen to stream content_bytes."""
+    stream = io.BytesIO(content_bytes)
     mock_resp = MagicMock()
     mock_resp.__enter__ = MagicMock(return_value=mock_resp)
     mock_resp.__exit__ = MagicMock(return_value=False)
-    mock_resp.read = MagicMock(return_value=content_bytes)
+    mock_resp.headers = {"Content-Length": str(len(content_bytes))}
+
+    def _read(size: int = -1) -> bytes:
+        if forbid_unbounded_read and size < 0:
+            raise AssertionError("URL reads must request bounded chunks")
+        return stream.read(size)
+
+    mock_resp.read = MagicMock(side_effect=_read)
     with patch("urllib.request.urlopen", return_value=mock_resp) as mock_fn:
         yield mock_fn
 
@@ -369,6 +378,23 @@ def test_load_wdf_from_url(tmp_path: Path) -> None:
     assert isinstance(cf2._data, dask.array.core.Array), "URL WDF load must produce Dask array"
     # Float32 HDF5 round-trip: rtol=1e-5 for float32 precision
     np.testing.assert_allclose(cf2.compute(), data, rtol=1e-5)
+
+
+def test_load_wdf_from_url_streams_in_chunks(tmp_path: Path) -> None:
+    """URL WDF loads must stream in bounded chunks instead of full-response reads."""
+    rng = np.random.default_rng(42)
+    sr = 8000
+    data = rng.standard_normal((1, sr)).astype(np.float32)
+    cf = ChannelFrame.from_numpy(data, sr, label="URL Stream Test", ch_labels=["A"])
+    wdf_path = tmp_path / "test_stream_url.wdf"
+    cf.save(wdf_path)
+    wdf_bytes = wdf_path.read_bytes()
+
+    with _mock_urlopen(wdf_bytes, forbid_unbounded_read=True):
+        loaded = wdf_io.load("https://example.com/data/test_stream_url.wdf")
+
+    assert loaded.sampling_rate == sr
+    np.testing.assert_allclose(loaded.compute(), data, rtol=1e-5)
 
 
 def test_load_wdf_from_url_download_failure() -> None:

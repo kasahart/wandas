@@ -1,5 +1,6 @@
 import io
 import logging
+import tempfile
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, BinaryIO, ClassVar, TypedDict, cast
@@ -11,6 +12,9 @@ from numpy.typing import ArrayLike
 from scipy.io import wavfile
 
 logger = logging.getLogger(__name__)
+
+URL_DOWNLOAD_CHUNK_SIZE = 1024 * 1024
+MAX_URL_DOWNLOAD_BYTES = 256 * 1024 * 1024
 
 
 class CSVFileInfoParams(TypedDict, total=False):
@@ -359,6 +363,97 @@ def _normalize_extension(file_type: str | None) -> str | None:
     if not ext.startswith("."):
         ext = f".{ext}"
     return ext
+
+
+def _get_content_length(
+    response: Any,
+    *,
+    url: str,
+    resource_name: str,
+) -> int | None:
+    headers = getattr(response, "headers", None)
+    raw_value = headers.get("Content-Length") if headers is not None else None
+    if raw_value in (None, ""):
+        return None
+
+    try:
+        content_length = int(raw_value)
+    except (TypeError, ValueError) as exc:
+        raise OSError(
+            f"Invalid Content-Length for {resource_name} download\n"
+            f"  URL: {url}\n"
+            f"  Content-Length: {raw_value!r}\n"
+            f"Use a valid URL or download the file locally before loading."
+        ) from exc
+
+    if content_length < 0:
+        raise OSError(
+            f"Invalid Content-Length for {resource_name} download\n"
+            f"  URL: {url}\n"
+            f"  Content-Length: {content_length}\n"
+            f"Use a valid URL or download the file locally before loading."
+        )
+    return content_length
+
+
+def download_url_to_temporary_file(
+    url: str,
+    *,
+    timeout: float,
+    suffix: str | None = None,
+    resource_name: str = "file",
+    max_bytes: int | None = None,
+    chunk_size: int | None = None,
+) -> tuple[Path, tempfile.TemporaryDirectory]:
+    import urllib.error
+    import urllib.request
+
+    effective_max_bytes = MAX_URL_DOWNLOAD_BYTES if max_bytes is None else max_bytes
+    effective_chunk_size = URL_DOWNLOAD_CHUNK_SIZE if chunk_size is None else chunk_size
+    normalized_suffix = _normalize_extension(suffix) or ""
+    temp_dir = tempfile.TemporaryDirectory()
+    temp_path = Path(temp_dir.name) / f"download{normalized_suffix}"
+    downloaded_bytes = 0
+
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as response:
+            content_length = _get_content_length(response, url=url, resource_name=resource_name)
+            if content_length is not None and content_length > effective_max_bytes:
+                raise OSError(
+                    f"Downloaded {resource_name} exceeds size limit\n"
+                    f"  URL: {url}\n"
+                    f"  Declared size: {content_length} bytes\n"
+                    f"  Limit: {effective_max_bytes} bytes\n"
+                    f"Use a smaller file or download it locally before loading."
+                )
+
+            with temp_path.open("wb") as temp_file:
+                while True:
+                    chunk = response.read(effective_chunk_size)
+                    if not chunk:
+                        break
+                    downloaded_bytes += len(chunk)
+                    if downloaded_bytes > effective_max_bytes:
+                        raise OSError(
+                            f"Downloaded {resource_name} exceeds size limit\n"
+                            f"  URL: {url}\n"
+                            f"  Downloaded: {downloaded_bytes} bytes\n"
+                            f"  Limit: {effective_max_bytes} bytes\n"
+                            f"Use a smaller file or download it locally before loading."
+                        )
+                    temp_file.write(chunk)
+        return temp_path, temp_dir
+    except urllib.error.URLError as exc:
+        temp_dir.cleanup()
+        raise OSError(
+            f"Failed to download {resource_name} from URL\n"
+            f"  URL: {url}\n"
+            f"  Error: {exc}\n"
+            f"Verify the URL is accessible and try again."
+        ) from exc
+    except Exception:
+        temp_dir.cleanup()
+        raise
 
 
 def _prepare_file_source(

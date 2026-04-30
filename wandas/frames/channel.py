@@ -21,7 +21,7 @@ from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
 from ..core.metadata import ChannelMetadata, FrameMetadata
-from ..io.readers import get_file_reader
+from ..io.readers import download_url_to_temporary_file, get_file_reader
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
 
 if TYPE_CHECKING:
@@ -84,30 +84,25 @@ def _download_url(
     file_type: str | None,
     source_name: str | None,
     timeout: float,
-) -> tuple[bytes, str | None, str | None]:
-    """Download *url* and return ``(bytes, file_type, source_name)``."""
-    import urllib.error
+) -> tuple[Path, Any, str | None, str | None]:
+    """Download *url* to a temporary file and return path metadata."""
     import urllib.parse
-    import urllib.request
     from pathlib import PurePosixPath
 
     url_path_part = urllib.parse.urlparse(url).path
     url_ext = PurePosixPath(url_path_part).suffix.lower() or None
-    if file_type is None and url_ext:
-        file_type = url_ext
-    try:
-        with urllib.request.urlopen(url, timeout=timeout) as resp:
-            data: bytes = resp.read()
-    except urllib.error.URLError as exc:
-        raise OSError(
-            f"Failed to download audio from URL\n"
-            f"  URL: {url}\n"
-            f"  Error: {exc}\n"
-            f"Verify the URL is accessible and try again."
-        ) from exc
+    normalized_file_type = file_type.lower() if file_type is not None else url_ext
+    if normalized_file_type is not None and not normalized_file_type.startswith("."):
+        normalized_file_type = f".{normalized_file_type}"
+    temp_path, temp_owner = download_url_to_temporary_file(
+        url,
+        timeout=timeout,
+        suffix=normalized_file_type,
+        resource_name="audio",
+    )
     if source_name is None:
         source_name = url
-    return data, file_type, source_name
+    return temp_path, temp_owner, normalized_file_type, source_name
 
 
 def _is_file_like(obj: object) -> bool:
@@ -876,9 +871,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         Args:
             path: Path to the audio file, in-memory bytes/stream, or an HTTP/HTTPS
-                URL. When a URL is given it is downloaded in full before processing.
-                The file extension is inferred from the URL path; supply `file_type`
-                explicitly when the URL has no recognisable extension.
+                URL. When a URL is given it is streamed into a temporary file
+                before processing. The file extension is inferred from the URL
+                path; supply `file_type` explicitly when the URL has no
+                recognisable extension.
             channel: Channel(s) to load. None loads all channels.
             start: Start time in seconds.
             end: End time in seconds.
@@ -921,9 +917,13 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         """
         from .channel import ChannelFrame
 
-        # Detect and handle URL paths — download to bytes before any path logic.
+        download_owner: Any | None = None
+        downloaded_from_url = False
+
+        # Detect and handle URL paths — stream to a temporary file before any path logic.
         if isinstance(path, str) and path.startswith(("http://", "https://")):
-            path, file_type, source_name = _download_url(path, file_type, source_name, timeout)
+            path, download_owner, file_type, source_name = _download_url(path, file_type, source_name, timeout)
+            downloaded_from_url = True
 
         source_obj, path_obj, reader, normalized_file_type = _resolve_source(path, file_type)
 
@@ -963,8 +963,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         expected_shape = (len(channels_to_load), frames_to_read)
 
         # Define the loading function using the file reader
-        def _load_audio() -> NDArrayReal:
+        def _load_audio(_download_owner: Any | None = download_owner) -> NDArrayReal:
             logger.debug(">>> EXECUTING DELAYED LOAD <<<")
+            del _download_owner
             # Use the reader to get audio data with parameters
             out = reader.get_data(
                 source_obj,
@@ -1007,7 +1008,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         else:
             frame_label = None
         source_file: str | None = None
-        if path_obj is not None:
+        if downloaded_from_url and source_name is not None:
+            source_file = source_name
+        elif path_obj is not None:
             source_file = str(path_obj.resolve())
         elif source_name is not None:
             source_file = source_name

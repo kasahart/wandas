@@ -10,6 +10,7 @@ import pytest
 from scipy.io import wavfile
 
 from wandas.frames.channel import ChannelFrame
+from wandas.io import readers as io_readers
 from wandas.io import write_wav
 
 
@@ -21,12 +22,25 @@ def _make_wav_bytes(sr: int, data: np.ndarray) -> bytes:
 
 
 @contextmanager
-def _mock_urlopen(wav_bytes: bytes):
-    """Context manager that mocks urllib.request.urlopen to return wav_bytes."""
+def _mock_urlopen(
+    wav_bytes: bytes,
+    *,
+    forbid_unbounded_read: bool = False,
+    include_content_length: bool = True,
+):
+    """Context manager that mocks urllib.request.urlopen to stream wav_bytes."""
+    stream = io.BytesIO(wav_bytes)
     mock_resp = MagicMock()
     mock_resp.__enter__ = MagicMock(return_value=mock_resp)
     mock_resp.__exit__ = MagicMock(return_value=False)
-    mock_resp.read = MagicMock(return_value=wav_bytes)
+    mock_resp.headers = {"Content-Length": str(len(wav_bytes))} if include_content_length else {}
+
+    def _read(size: int = -1) -> bytes:
+        if forbid_unbounded_read and size < 0:
+            raise AssertionError("URL reads must request bounded chunks")
+        return stream.read(size)
+
+    mock_resp.read = MagicMock(side_effect=_read)
     with patch("urllib.request.urlopen", return_value=mock_resp) as mock_fn:
         yield mock_fn
 
@@ -215,6 +229,21 @@ def test_from_file_url_wav() -> None:
     assert cf.label == "sample"
 
 
+def test_from_file_url_wav_streams_in_chunks() -> None:
+    """URL WAV loads must stream in bounded chunks instead of full-response reads."""
+    url = "https://example.com/audio/sample.wav"
+    sr = 22050
+    n_samples = 100
+    mono_data = np.full(n_samples, 0.25, dtype=np.float32)
+    wav_bytes = _make_wav_bytes(sr, mono_data)
+
+    with _mock_urlopen(wav_bytes, forbid_unbounded_read=True):
+        cf = ChannelFrame.from_file(url)
+
+    assert cf.sampling_rate == sr
+    np.testing.assert_allclose(cf.compute()[0], mono_data, rtol=1e-5)
+
+
 def test_from_file_url_http_scheme() -> None:
     """Test that plain http:// URLs are also handled by from_file."""
     url = "http://example.com/audio/sample.wav"
@@ -257,6 +286,20 @@ def test_from_file_url_download_failure() -> None:
     ):
         with pytest.raises(OSError, match=r"Failed to download audio from URL"):
             ChannelFrame.from_file(url)
+
+
+def test_from_file_url_over_size_limit_raises() -> None:
+    """URL WAV loads must stop when streamed bytes exceed the configured limit."""
+    url = "https://example.com/audio/sample.wav"
+    sr = 16000
+    n_samples = 500
+    mono_data = np.full(n_samples, 0.5, dtype=np.float32)
+    wav_bytes = _make_wav_bytes(sr, mono_data)
+
+    with patch.object(io_readers, "MAX_URL_DOWNLOAD_BYTES", 128):
+        with _mock_urlopen(wav_bytes, include_content_length=False):
+            with pytest.raises(OSError, match=r"Downloaded audio exceeds size limit"):
+                ChannelFrame.from_file(url)
 
 
 def test_from_file_nonexistent_path_raises_file_not_found(tmp_path) -> None:
