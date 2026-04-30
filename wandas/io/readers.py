@@ -365,7 +365,7 @@ def _normalize_extension(file_type: str | None) -> str | None:
     return ext
 
 
-def _get_content_length(
+def _validate_and_get_content_length(
     response: Any,
     *,
     url: str,
@@ -417,7 +417,7 @@ def download_url_to_temporary_file(
 
     try:
         with urllib.request.urlopen(url, timeout=timeout) as response:
-            content_length = _get_content_length(response, url=url, resource_name=resource_name)
+            content_length = _validate_and_get_content_length(response, url=url, resource_name=resource_name)
             if content_length is not None and content_length > effective_max_bytes:
                 raise OSError(
                     f"Downloaded {resource_name} exceeds size limit\n"
