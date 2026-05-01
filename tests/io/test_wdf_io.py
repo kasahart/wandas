@@ -1,5 +1,6 @@
 """Tests for WDF (Wandas Data File) I/O functionality."""
 
+import io
 from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -10,16 +11,37 @@ import numpy as np
 import pytest
 
 from wandas.frames.channel import ChannelFrame
+from wandas.io import readers as io_readers
 from wandas.io import wdf_io
 
 
 @contextmanager
-def _mock_urlopen(content_bytes: bytes):
-    """Context manager that mocks urllib.request.urlopen to return content_bytes."""
+def _mock_urlopen(
+    content_bytes: bytes,
+    *,
+    forbid_unbounded_read: bool = False,
+    include_content_length: bool = True,
+    expected_chunk_size: int | None = None,
+    max_chunk_bytes: int | None = None,
+):
+    """Context manager that mocks urllib.request.urlopen to stream content_bytes."""
+    stream = io.BytesIO(content_bytes)
     mock_resp = MagicMock()
     mock_resp.__enter__ = MagicMock(return_value=mock_resp)
     mock_resp.__exit__ = MagicMock(return_value=False)
-    mock_resp.read = MagicMock(return_value=content_bytes)
+    mock_resp.headers = {"Content-Length": str(len(content_bytes))} if include_content_length else {}
+
+    def _read(size: int = -1) -> bytes:
+        if forbid_unbounded_read and size < 0:
+            raise AssertionError("URL reads must request bounded chunks")
+        if expected_chunk_size is not None and size >= 0:
+            assert size == expected_chunk_size, f"Expected chunk size {expected_chunk_size}, got {size}"
+        effective_size = size
+        if max_chunk_bytes is not None and size >= 0:
+            effective_size = min(size, max_chunk_bytes)
+        return stream.read(effective_size)
+
+    mock_resp.read = MagicMock(side_effect=_read)
     with patch("urllib.request.urlopen", return_value=mock_resp) as mock_fn:
         yield mock_fn
 
@@ -369,6 +391,105 @@ def test_load_wdf_from_url(tmp_path: Path) -> None:
     assert isinstance(cf2._data, dask.array.core.Array), "URL WDF load must produce Dask array"
     # Float32 HDF5 round-trip: rtol=1e-5 for float32 precision
     np.testing.assert_allclose(cf2.compute(), data, rtol=1e-5)
+
+
+def test_load_wdf_from_url_streams_in_chunks(tmp_path: Path) -> None:
+    """URL WDF loads must stream in bounded chunks instead of full-response reads."""
+    rng = np.random.default_rng(42)
+    sr = 8000
+    data = rng.standard_normal((1, sr)).astype(np.float32)
+    cf = ChannelFrame.from_numpy(data, sr, label="URL Stream Test", ch_labels=["A"])
+    wdf_path = tmp_path / "test_stream_url.wdf"
+    cf.save(wdf_path)
+    wdf_bytes = wdf_path.read_bytes()
+
+    with _mock_urlopen(
+        wdf_bytes,
+        forbid_unbounded_read=True,
+        expected_chunk_size=io_readers.URL_DOWNLOAD_CHUNK_SIZE,
+    ):
+        loaded = wdf_io.load("https://example.com/data/test_stream_url.wdf")
+
+    assert loaded.sampling_rate == sr
+    np.testing.assert_allclose(loaded.compute(), data, rtol=1e-5)
+
+
+def test_load_wdf_from_url_over_size_limit_without_content_length_raises(tmp_path: Path) -> None:
+    """URL WDF loads must stop oversized streamed downloads without Content-Length."""
+    rng = np.random.default_rng(42)
+    sr = 8000
+    data = rng.standard_normal((1, sr)).astype(np.float32)
+    cf = ChannelFrame.from_numpy(data, sr, label="URL Stream Test", ch_labels=["A"])
+    wdf_path = tmp_path / "test_stream_limit_url.wdf"
+    cf.save(wdf_path)
+    wdf_bytes = wdf_path.read_bytes()
+
+    with patch.object(io_readers, "MAX_URL_DOWNLOAD_BYTES", 128):
+        with _mock_urlopen(wdf_bytes, include_content_length=False):
+            with pytest.raises(OSError, match=r"Streaming WDF file would exceed size limit"):
+                wdf_io.load("https://example.com/data/test_stream_limit_url.wdf")
+
+
+def test_load_wdf_from_url_declared_size_limit_raises_before_streaming(tmp_path: Path) -> None:
+    """URL WDF loads must reject oversized Content-Length before streaming data."""
+    rng = np.random.default_rng(42)
+    sr = 8000
+    data = rng.standard_normal((1, sr)).astype(np.float32)
+    cf = ChannelFrame.from_numpy(data, sr, label="Declared Size Test", ch_labels=["A"])
+    wdf_path = tmp_path / "test_declared_limit_url.wdf"
+    cf.save(wdf_path)
+    wdf_bytes = wdf_path.read_bytes()
+
+    with patch.object(io_readers, "MAX_URL_DOWNLOAD_BYTES", 128):
+        with _mock_urlopen(wdf_bytes, include_content_length=True) as mock_fn:
+            with pytest.raises(OSError, match=r"Declared size of WDF file exceeds download limit"):
+                wdf_io.load("https://example.com/data/test_declared_limit_url.wdf")
+
+    mock_resp = mock_fn.return_value
+    mock_resp.read.assert_not_called()
+
+
+def test_load_wdf_from_url_invalid_chunk_size_raises(tmp_path: Path) -> None:
+    """WDF URL loads must surface helper validation for non-positive chunk size."""
+    rng = np.random.default_rng(42)
+    sr = 8000
+    data = rng.standard_normal((1, sr)).astype(np.float32)
+    cf = ChannelFrame.from_numpy(data, sr, label="Chunk Size Test", ch_labels=["A"])
+    wdf_path = tmp_path / "test_invalid_chunk_url.wdf"
+    cf.save(wdf_path)
+    wdf_bytes = wdf_path.read_bytes()
+
+    with _mock_urlopen(wdf_bytes):
+        with pytest.raises(ValueError, match=r"Download chunk size must be greater than zero"):
+            io_readers.download_url_to_temporary_file(
+                "https://example.com/data/test_invalid_chunk_url.wdf",
+                timeout=10.0,
+                suffix=".wdf",
+                resource_name="WDF file",
+                chunk_size=0,
+            )
+
+
+def test_load_wdf_from_url_handles_partial_reads(tmp_path: Path) -> None:
+    """URL WDF loads must continue until EOF even when reads return small chunks."""
+    rng = np.random.default_rng(42)
+    sr = 8000
+    data = rng.standard_normal((1, sr)).astype(np.float32)
+    cf = ChannelFrame.from_numpy(data, sr, label="Partial Read Test", ch_labels=["A"])
+    wdf_path = tmp_path / "test_partial_reads_url.wdf"
+    cf.save(wdf_path)
+    wdf_bytes = wdf_path.read_bytes()
+
+    with _mock_urlopen(
+        wdf_bytes,
+        forbid_unbounded_read=True,
+        include_content_length=False,
+        expected_chunk_size=io_readers.URL_DOWNLOAD_CHUNK_SIZE,
+        max_chunk_bytes=257,
+    ):
+        loaded = wdf_io.load("https://example.com/data/test_partial_reads_url.wdf")
+
+    np.testing.assert_allclose(loaded.compute(), data, rtol=1e-5)
 
 
 def test_load_wdf_from_url_download_failure() -> None:

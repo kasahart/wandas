@@ -6,7 +6,6 @@ WDF (Wandas Data File) format, which is based on HDF5. The format preserves
 all metadata including sampling rate, channel labels, units, and frame metadata.
 """
 
-import io
 import json
 import logging
 from pathlib import Path
@@ -23,6 +22,7 @@ from wandas.utils.dask_helpers import da_from_array as _da_from_array
 
 from ..core.base_frame import BaseFrame
 from ..core.metadata import FrameMetadata
+from .readers import DownloadedTemporaryFile, download_url_to_temporary_file
 
 logger = logging.getLogger(__name__)
 
@@ -159,8 +159,12 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
 
     Args:
         path: Path to the WDF file to load, or an HTTP/HTTPS URL pointing to
-            a remote WDF file. When a URL is given the file is downloaded in
-            full before opening.
+            a remote WDF file. When a URL is given the file is streamed into a
+            temporary file before opening, subject to the maximum download
+            size enforced by `wandas.io.readers.MAX_URL_DOWNLOAD_BYTES`.
+            Oversized URL downloads raise `OSError` before loading completes.
+            Increase `wandas.io.readers.MAX_URL_DOWNLOAD_BYTES` before calling
+            this function if you need to allow larger remote WDF files.
         format: Format of the file. Currently only "hdf5" is supported.
         timeout: Timeout in seconds for HTTP/HTTPS URL downloads. Default is
             10.0 seconds. Has no effect for local file paths.
@@ -184,25 +188,18 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
     if format.lower() != "hdf5":
         raise NotImplementedError(f"Format '{format}' is not supported")
 
-    # Detect and handle URL paths — download to memory before HDF5 open.
-    h5_source: str | Path | io.BytesIO
-    h5_kwargs: dict[str, object] = {}
+    # Detect and handle URL paths — stream to disk before HDF5 open.
+    h5_source: str | Path
+    download_owner: DownloadedTemporaryFile | None = None
     if isinstance(path, str) and path.startswith(("http://", "https://")):
-        import urllib.error
-        import urllib.request
-
         logger.debug(f"Downloading WDF from URL: {path}")
-        try:
-            with urllib.request.urlopen(path, timeout=timeout) as _resp:
-                h5_source = io.BytesIO(_resp.read())
-        except urllib.error.URLError as exc:
-            raise OSError(
-                f"Failed to download WDF file from URL\n"
-                f"  URL: {path}\n"
-                f"  Error: {exc}\n"
-                f"Verify the URL is accessible and try again."
-            ) from exc
-        h5_kwargs = {"driver": "fileobj"}
+        download_owner = download_url_to_temporary_file(
+            path,
+            timeout=timeout,
+            suffix=".wdf",
+            resource_name="WDF file",
+        )
+        h5_source = download_owner.path
     else:
         path = Path(path)
         if not path.exists():
@@ -211,95 +208,101 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
 
     logger.debug(f"Loading ChannelFrame from {h5_source!r}")
 
-    with h5py.File(h5_source, "r", **h5_kwargs) as f:
-        # Check format version for compatibility
-        version = f.attrs.get("version", "unknown")
-        if version != WDF_FORMAT_VERSION:
-            logger.warning(f"File format version mismatch: file={version}, current={WDF_FORMAT_VERSION}")
+    try:
+        with h5py.File(h5_source, "r") as f:
+            # Check format version for compatibility
+            version = f.attrs.get("version", "unknown")
+            if version != WDF_FORMAT_VERSION:
+                logger.warning(f"File format version mismatch: file={version}, current={WDF_FORMAT_VERSION}")
 
-        # Get global attributes
-        sampling_rate = float(f.attrs["sampling_rate"])
-        frame_label = f.attrs.get("label", "")
+            # Get global attributes
+            sampling_rate = float(f.attrs["sampling_rate"])
+            frame_label = f.attrs.get("label", "")
 
-        # Get frame metadata
-        frame_metadata = FrameMetadata()
-        if "meta" in f:
-            meta_json = f["meta"].attrs.get("json", "{}")
-            if isinstance(meta_json, (bytes, np.bytes_)):
-                meta_json = _decode_hdf5_str(meta_json)
-            frame_metadata.update(json.loads(meta_json))
-            source_file = f["meta"].attrs.get("source_file", None)
-            if source_file is not None:
-                frame_metadata.source_file = _decode_hdf5_str(source_file)
+            # Get frame metadata
+            frame_metadata = FrameMetadata()
+            if "meta" in f:
+                meta_json = f["meta"].attrs.get("json", "{}")
+                if isinstance(meta_json, (bytes, np.bytes_)):
+                    meta_json = _decode_hdf5_str(meta_json)
+                frame_metadata.update(json.loads(meta_json))
+                source_file = f["meta"].attrs.get("source_file", None)
+                if source_file is not None:
+                    frame_metadata.source_file = _decode_hdf5_str(source_file)
 
-        # Load operation history
-        operation_history = []
-        if "operation_history" in f:
-            op_grp = f["operation_history"]
-            # Sort operation indices numerically
-            op_indices = sorted([int(key.split("_")[1]) for key in op_grp])
+            # Load operation history
+            operation_history = []
+            if "operation_history" in f:
+                op_grp = f["operation_history"]
+                # Sort operation indices numerically
+                op_indices = sorted([int(key.split("_")[1]) for key in op_grp])
 
-            for idx in op_indices:
-                op_sub_grp = op_grp[f"operation_{idx}"]
-                op_dict = {}
-                for attr_name in op_sub_grp.attrs:
-                    attr_value = op_sub_grp.attrs[attr_name]
-                    # Try to deserialize JSON, fallback to string
-                    try:
-                        op_dict[attr_name] = json.loads(attr_value)
-                    except (json.JSONDecodeError, TypeError):
-                        op_dict[attr_name] = attr_value
-                operation_history.append(op_dict)
+                for idx in op_indices:
+                    op_sub_grp = op_grp[f"operation_{idx}"]
+                    op_dict = {}
+                    for attr_name in op_sub_grp.attrs:
+                        attr_value = op_sub_grp.attrs[attr_name]
+                        # Try to deserialize JSON, fallback to string
+                        try:
+                            op_dict[attr_name] = json.loads(attr_value)
+                        except (json.JSONDecodeError, TypeError):
+                            op_dict[attr_name] = attr_value
+                    operation_history.append(op_dict)
 
-        # Load channel data and metadata
-        all_channel_data = []
-        channel_metadata_list = []
+            # Load channel data and metadata
+            all_channel_data = []
+            channel_metadata_list = []
 
-        if "channels" in f:
-            channels_group = f["channels"]
-            # Sort channel indices numerically
-            channel_indices = sorted([int(key) for key in channels_group])
+            if "channels" in f:
+                channels_group = f["channels"]
+                # Sort channel indices numerically
+                channel_indices = sorted([int(key) for key in channels_group])
 
-            for idx in channel_indices:
-                ch_group = channels_group[f"{idx}"]
+                for idx in channel_indices:
+                    ch_group = channels_group[f"{idx}"]
 
-                # Load channel data
-                channel_data = ch_group["data"][()]
+                    # Load channel data
+                    channel_data = ch_group["data"][()]
 
-                # Append to combined array
-                all_channel_data.append(channel_data)
+                    # Append to combined array
+                    all_channel_data.append(channel_data)
 
-                # Load channel metadata
-                label = ch_group.attrs.get("label", f"Ch{idx}")
-                unit = ch_group.attrs.get("unit", "")
+                    # Load channel metadata
+                    label = ch_group.attrs.get("label", f"Ch{idx}")
+                    unit = ch_group.attrs.get("unit", "")
 
-                # Load additional metadata if present
-                ch_extra = {}
-                if "metadata_json" in ch_group.attrs:
-                    ch_extra = json.loads(ch_group.attrs["metadata_json"])
+                    # Load additional metadata if present
+                    ch_extra = {}
+                    if "metadata_json" in ch_group.attrs:
+                        ch_extra = json.loads(ch_group.attrs["metadata_json"])
 
-                # Create ChannelMetadata object
-                channel_metadata = ChannelMetadata(label=label, unit=unit, extra=ch_extra)
-                channel_metadata_list.append(channel_metadata)
+                    # Create ChannelMetadata object
+                    channel_metadata = ChannelMetadata(label=label, unit=unit, extra=ch_extra)
+                    channel_metadata_list.append(channel_metadata)
 
-        # Stack channel data into a single array
-        if all_channel_data:
-            combined_data = np.stack(all_channel_data, axis=0)
-        else:
-            raise ValueError("No channel data found in the file")
+            # Stack channel data into a single array
+            if all_channel_data:
+                combined_data = np.stack(all_channel_data, axis=0)
+            else:
+                raise ValueError("No channel data found in the file")
 
-        # Create a new ChannelFrame
-        # Use channel-wise chunking: 1 for channel axis and -1 for samples
-        dask_data = _da_from_array(combined_data, chunks=(1, -1))
+            # Create a new ChannelFrame
+            # Use channel-wise chunking: 1 for channel axis and -1 for samples
+            dask_data = _da_from_array(combined_data, chunks=(1, -1))
 
-        cf = ChannelFrame(
-            data=dask_data,
-            sampling_rate=sampling_rate,
-            label=frame_label if frame_label else None,
-            metadata=frame_metadata,
-            operation_history=operation_history,
-            channel_metadata=channel_metadata_list,
-        )
+            cf = ChannelFrame(
+                data=dask_data,
+                sampling_rate=sampling_rate,
+                label=frame_label if frame_label else None,
+                metadata=frame_metadata,
+                operation_history=operation_history,
+                channel_metadata=channel_metadata_list,
+            )
 
-        logger.debug(f"ChannelFrame loaded from {path}: {len(cf)} channels, {cf.n_samples} samples")
-        return cf
+            logger.debug(f"ChannelFrame loaded from {path}: {len(cf)} channels, {cf.n_samples} samples")
+            return cf
+    finally:
+        if download_owner is not None:
+            # WDF URL loads fully materialize channel data into NumPy arrays before
+            # wrapping it in Dask, so the temporary download can be removed here.
+            download_owner.cleanup()

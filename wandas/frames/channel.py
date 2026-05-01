@@ -21,7 +21,7 @@ from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
 from ..core.metadata import ChannelMetadata, FrameMetadata
-from ..io.readers import get_file_reader
+from ..io.readers import DownloadedTemporaryFile, download_url_to_temporary_file, get_file_reader
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
 
 if TYPE_CHECKING:
@@ -84,30 +84,25 @@ def _download_url(
     file_type: str | None,
     source_name: str | None,
     timeout: float,
-) -> tuple[bytes, str | None, str | None]:
-    """Download *url* and return ``(bytes, file_type, source_name)``."""
-    import urllib.error
+) -> tuple[Path, DownloadedTemporaryFile, str | None, str | None]:
+    """Download *url* to a temporary file and return path metadata."""
     import urllib.parse
-    import urllib.request
     from pathlib import PurePosixPath
 
     url_path_part = urllib.parse.urlparse(url).path
     url_ext = PurePosixPath(url_path_part).suffix.lower() or None
-    if file_type is None and url_ext:
-        file_type = url_ext
-    try:
-        with urllib.request.urlopen(url, timeout=timeout) as resp:
-            data: bytes = resp.read()
-    except urllib.error.URLError as exc:
-        raise OSError(
-            f"Failed to download audio from URL\n"
-            f"  URL: {url}\n"
-            f"  Error: {exc}\n"
-            f"Verify the URL is accessible and try again."
-        ) from exc
+    normalized_file_type = file_type.lower() if file_type is not None else url_ext
+    if normalized_file_type is not None and not normalized_file_type.startswith("."):
+        normalized_file_type = f".{normalized_file_type}"
+    downloaded_file = download_url_to_temporary_file(
+        url,
+        timeout=timeout,
+        suffix=normalized_file_type,
+        resource_name="audio",
+    )
     if source_name is None:
         source_name = url
-    return data, file_type, source_name
+    return downloaded_file.path, downloaded_file, normalized_file_type, source_name
 
 
 def _is_file_like(obj: object) -> bool:
@@ -876,9 +871,15 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         Args:
             path: Path to the audio file, in-memory bytes/stream, or an HTTP/HTTPS
-                URL. When a URL is given it is downloaded in full before processing.
-                The file extension is inferred from the URL path; supply `file_type`
-                explicitly when the URL has no recognisable extension.
+                URL. When a URL is given it is streamed into a temporary file
+                before processing, subject to the maximum download size
+                enforced by `wandas.io.readers.MAX_URL_DOWNLOAD_BYTES`.
+                Oversized URL downloads fail before loading completes. The file
+                extension is inferred from the URL path; supply `file_type`
+                explicitly when the URL has no recognisable extension. If you
+                need to allow larger URL downloads, increase
+                `wandas.io.readers.MAX_URL_DOWNLOAD_BYTES` before calling this
+                method.
             channel: Channel(s) to load. None loads all channels.
             start: Start time in seconds.
             end: End time in seconds.
@@ -921,9 +922,13 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         """
         from .channel import ChannelFrame
 
-        # Detect and handle URL paths — download to bytes before any path logic.
+        download_owner: DownloadedTemporaryFile | None = None
+        downloaded_from_url = False
+
+        # Detect and handle URL paths — stream to a temporary file before any path logic.
         if isinstance(path, str) and path.startswith(("http://", "https://")):
-            path, file_type, source_name = _download_url(path, file_type, source_name, timeout)
+            path, download_owner, file_type, source_name = _download_url(path, file_type, source_name, timeout)
+            downloaded_from_url = True
 
         source_obj, path_obj, reader, normalized_file_type = _resolve_source(path, file_type)
 
@@ -962,9 +967,15 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         # Settings for lazy loading
         expected_shape = (len(channels_to_load), frames_to_read)
 
+        captured_download_owner = download_owner
+
         # Define the loading function using the file reader
         def _load_audio() -> NDArrayReal:
             logger.debug(">>> EXECUTING DELAYED LOAD <<<")
+            # Log the temporary download path so this closure keeps ownership of
+            # the streamed file until the delayed read completes.
+            if captured_download_owner is not None:
+                logger.debug("Reading from streamed temporary download %s", captured_download_owner.path)
             # Use the reader to get audio data with parameters
             out = reader.get_data(
                 source_obj,
@@ -1007,7 +1018,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         else:
             frame_label = None
         source_file: str | None = None
-        if path_obj is not None:
+        if downloaded_from_url and source_name is not None:
+            source_file = source_name
+        elif path_obj is not None:
             source_file = str(path_obj.resolve())
         elif source_name is not None:
             source_file = source_name
