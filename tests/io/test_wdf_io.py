@@ -449,6 +449,27 @@ def test_load_wdf_from_url_declared_size_limit_raises_before_streaming(tmp_path:
     mock_resp.read.assert_not_called()
 
 
+def test_load_wdf_from_url_invalid_chunk_size_raises(tmp_path: Path) -> None:
+    """WDF URL loads must surface helper validation for non-positive chunk size."""
+    rng = np.random.default_rng(42)
+    sr = 8000
+    data = rng.standard_normal((1, sr)).astype(np.float32)
+    cf = ChannelFrame.from_numpy(data, sr, label="Chunk Size Test", ch_labels=["A"])
+    wdf_path = tmp_path / "test_invalid_chunk_url.wdf"
+    cf.save(wdf_path)
+    wdf_bytes = wdf_path.read_bytes()
+
+    with _mock_urlopen(wdf_bytes):
+        with pytest.raises(ValueError, match=r"Download chunk size must be greater than zero"):
+            io_readers.download_url_to_temporary_file(
+                "https://example.com/data/test_invalid_chunk_url.wdf",
+                timeout=10.0,
+                suffix=".wdf",
+                resource_name="WDF file",
+                chunk_size=0,
+            )
+
+
 def test_load_wdf_from_url_handles_partial_reads(tmp_path: Path) -> None:
     """URL WDF loads must continue until EOF even when reads return small chunks."""
     rng = np.random.default_rng(42)

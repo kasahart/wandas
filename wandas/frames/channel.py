@@ -84,7 +84,7 @@ def _download_url(
     file_type: str | None,
     source_name: str | None,
     timeout: float,
-) -> tuple[Path, Any, str | None, str | None]:
+) -> tuple[Path, DownloadedTemporaryFile, str | None, str | None]:
     """Download *url* to a temporary file and return path metadata."""
     import urllib.parse
     from pathlib import PurePosixPath
@@ -872,9 +872,14 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         Args:
             path: Path to the audio file, in-memory bytes/stream, or an HTTP/HTTPS
                 URL. When a URL is given it is streamed into a temporary file
-                before processing. The file extension is inferred from the URL
-                path; supply `file_type` explicitly when the URL has no
-                recognisable extension.
+                before processing, subject to the maximum download size
+                enforced by `wandas.io.readers.MAX_URL_DOWNLOAD_BYTES`.
+                Oversized URL downloads fail before loading completes. The file
+                extension is inferred from the URL path; supply `file_type`
+                explicitly when the URL has no recognisable extension. If you
+                need to allow larger URL downloads, increase
+                `wandas.io.readers.MAX_URL_DOWNLOAD_BYTES` before calling this
+                method.
             channel: Channel(s) to load. None loads all channels.
             start: Start time in seconds.
             end: End time in seconds.

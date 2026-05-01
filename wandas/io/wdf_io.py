@@ -160,7 +160,11 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
     Args:
         path: Path to the WDF file to load, or an HTTP/HTTPS URL pointing to
             a remote WDF file. When a URL is given the file is streamed into a
-            temporary file before opening.
+            temporary file before opening, subject to the maximum download
+            size enforced by `wandas.io.readers.MAX_URL_DOWNLOAD_BYTES`.
+            Oversized URL downloads raise `OSError` before loading completes.
+            Increase `wandas.io.readers.MAX_URL_DOWNLOAD_BYTES` before calling
+            this function if you need to allow larger remote WDF files.
         format: Format of the file. Currently only "hdf5" is supported.
         timeout: Timeout in seconds for HTTP/HTTPS URL downloads. Default is
             10.0 seconds. Has no effect for local file paths.

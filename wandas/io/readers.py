@@ -27,7 +27,11 @@ class DownloadedTemporaryFile:
     temp_dir: tempfile.TemporaryDirectory[str]
 
     def __post_init__(self) -> None:
-        self._finalizer = weakref.finalize(self, lambda: self.temp_dir.cleanup())
+        self._finalizer = weakref.finalize(
+            self,
+            tempfile.TemporaryDirectory.cleanup,
+            self.temp_dir,
+        )
 
     def __enter__(self) -> "DownloadedTemporaryFile":
         return self
@@ -433,6 +437,22 @@ def download_url_to_temporary_file(
 
     effective_max_bytes = MAX_URL_DOWNLOAD_BYTES if max_bytes is None else max_bytes
     effective_chunk_size = URL_DOWNLOAD_CHUNK_SIZE if chunk_size is None else chunk_size
+    if effective_max_bytes <= 0:
+        raise ValueError(
+            f"Download size limit must be greater than zero\n"
+            f"  Resource: {resource_name}\n"
+            f"  URL: {url}\n"
+            f"  Got: {effective_max_bytes} bytes\n"
+            f"Provide a positive max_bytes value."
+        )
+    if effective_chunk_size <= 0:
+        raise ValueError(
+            f"Download chunk size must be greater than zero\n"
+            f"  Resource: {resource_name}\n"
+            f"  URL: {url}\n"
+            f"  Got: {effective_chunk_size} bytes\n"
+            f"Provide a positive chunk_size value."
+        )
     normalized_suffix = _normalize_extension(suffix) or ""
     downloaded_bytes = 0
     temp_dir: tempfile.TemporaryDirectory[str] | None = None
@@ -473,6 +493,7 @@ def download_url_to_temporary_file(
                         )
                     downloaded_bytes = next_downloaded_bytes
                     temp_file.write(chunk)
+        assert downloaded_file is not None
         return downloaded_file
     except urllib.error.URLError as exc:
         raise OSError(

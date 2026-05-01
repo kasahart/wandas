@@ -1,6 +1,7 @@
-# tests/io/test_wav_io.py
 import io
+import tempfile
 from contextlib import contextmanager
+from pathlib import Path
 from typing import BinaryIO, cast
 from unittest.mock import MagicMock, patch
 
@@ -324,6 +325,74 @@ def test_from_file_url_declared_size_limit_raises_before_streaming() -> None:
 
     mock_resp = mock_fn.return_value
     mock_resp.read.assert_not_called()
+
+
+def test_download_url_to_temporary_file_invalid_max_bytes_raises() -> None:
+    """Helper must reject non-positive max_bytes before opening the URL."""
+    with patch("urllib.request.urlopen") as mock_urlopen:
+        with pytest.raises(ValueError, match=r"Download size limit must be greater than zero"):
+            io_readers.download_url_to_temporary_file(
+                "https://example.com/audio/sample.wav",
+                timeout=10.0,
+                resource_name="audio",
+                max_bytes=0,
+            )
+
+    mock_urlopen.assert_not_called()
+
+
+def test_download_url_to_temporary_file_invalid_chunk_size_raises() -> None:
+    """Helper must reject non-positive chunk_size before opening the URL."""
+    with patch("urllib.request.urlopen") as mock_urlopen:
+        with pytest.raises(ValueError, match=r"Download chunk size must be greater than zero"):
+            io_readers.download_url_to_temporary_file(
+                "https://example.com/audio/sample.wav",
+                timeout=10.0,
+                resource_name="audio",
+                chunk_size=0,
+            )
+
+    mock_urlopen.assert_not_called()
+
+
+def test_download_url_to_temporary_file_invalid_content_length_raises() -> None:
+    """Helper must reject non-numeric Content-Length headers."""
+    wav_bytes = _make_wav_bytes(8000, np.full(10, 0.25, dtype=np.float32))
+
+    with _mock_urlopen(wav_bytes) as mock_fn:
+        mock_fn.return_value.headers = {"Content-Length": "not-a-number"}
+        with pytest.raises(OSError, match=r"Invalid Content-Length for audio download"):
+            io_readers.download_url_to_temporary_file(
+                "https://example.com/audio/sample.wav",
+                timeout=10.0,
+                resource_name="audio",
+            )
+
+
+def test_download_url_to_temporary_file_negative_content_length_raises() -> None:
+    """Helper must reject negative Content-Length headers."""
+    wav_bytes = _make_wav_bytes(8000, np.full(10, 0.25, dtype=np.float32))
+
+    with _mock_urlopen(wav_bytes) as mock_fn:
+        mock_fn.return_value.headers = {"Content-Length": "-1"}
+        with pytest.raises(OSError, match=r"Invalid Content-Length for audio download"):
+            io_readers.download_url_to_temporary_file(
+                "https://example.com/audio/sample.wav",
+                timeout=10.0,
+                resource_name="audio",
+            )
+
+
+def test_downloaded_temporary_file_context_manager_cleans_up() -> None:
+    """DownloadedTemporaryFile must clean up its temp directory on context exit."""
+    temp_dir = tempfile.TemporaryDirectory()
+    temp_path = Path(temp_dir.name) / "download.wav"
+
+    with io_readers.DownloadedTemporaryFile(path=temp_path, temp_dir=temp_dir) as downloaded:
+        downloaded.path.write_bytes(b"wav")
+        assert downloaded.path.exists()
+
+    assert not temp_path.parent.exists()
 
 
 def test_from_file_nonexistent_path_raises_file_not_found(tmp_path) -> None:
