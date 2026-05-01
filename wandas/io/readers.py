@@ -498,7 +498,8 @@ def download_url_to_temporary_file(
                 f"URL download did not produce a temporary file\n"
                 f"  Resource: {resource_name}\n"
                 f"  URL: {url}\n"
-                f"Retry the download or save the file locally before loading."
+                f"This indicates an unexpected failure in the download logic.\n"
+                f"Please report this as a bug."
             )
         return downloaded_file
     except urllib.error.URLError as exc:
