@@ -50,6 +50,7 @@ dependencies = [
     "types-requests>=2.32.0.20250328",
     "pandas",
     "mosqito",
+    "xarray>=2025.6.1",
 ]
 
 [project.urls]

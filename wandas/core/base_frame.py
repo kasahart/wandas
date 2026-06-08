@@ -1045,6 +1045,17 @@ class BaseFrame(ABC, Generic[T]):
         """
         return self.data
 
+    def to_xarray(self, copy: bool = True) -> Any:
+        """Convert the frame to an xarray DataArray using the Wandas schema."""
+        from wandas.xarray_bridge import frame_to_xarray
+
+        return frame_to_xarray(self, copy_dataarray=copy)
+
+    @property
+    def xr(self) -> Any:
+        """Return an xarray DataArray view of this frame using the Wandas schema."""
+        return self.to_xarray(copy=True)
+
     def to_tensor(self, framework: str = "torch", device: str | None = None) -> Any:
         """
         Convert the Dask array to a tensor in the specified framework.

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 # Import from frames instead of core
 from .frames.channel import ChannelFrame
 from .utils import generate_sample
+from .xarray_bridge import from_xarray
 
 if TYPE_CHECKING:
     from .utils.frame_dataset import ChannelFrameDataset
@@ -18,7 +19,15 @@ from_numpy = ChannelFrame.from_numpy
 from_ndarray = ChannelFrame.from_ndarray
 
 generate_sin = generate_sample.generate_sin_lazy
-__all__ = ["ChannelFrameDataset", "from_folder", "from_ndarray", "generate_sin", "read_csv", "read_wav"]
+__all__ = [
+    "ChannelFrameDataset",
+    "from_folder",
+    "from_ndarray",
+    "from_xarray",
+    "generate_sin",
+    "read_csv",
+    "read_wav",
+]
 
 
 def from_folder(
