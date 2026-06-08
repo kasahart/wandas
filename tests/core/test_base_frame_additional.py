@@ -179,7 +179,7 @@ def test_compute_non_ndarray_result_raises_value_error():
         def compute(self):
             return [1, 2, 3]
 
-    f._data = Bad()  # ty: ignore[invalid-assignment]
+    f._data = Bad()
     with pytest.raises(ValueError, match=r"Computed result is not a np.ndarray"):
         f.compute()
 
@@ -193,7 +193,7 @@ def test_visualize_graph_failure_logs_warning_returns_none(caplog):
         def visualize(self, filename=None):
             raise RuntimeError("no graphviz")
 
-    f._data = BadVis()  # ty: ignore[invalid-assignment]
+    f._data = BadVis()
 
     with caplog.at_level("WARNING"):
         res = f.visualize_graph()
@@ -333,7 +333,7 @@ def test_persist_returns_persisted_data():
             return _np.zeros(self.shape)
 
     p = Persister()
-    f._data = p  # ty: ignore[invalid-assignment]
+    f._data = p
     newf = f.persist()
     assert newf._data is p
 

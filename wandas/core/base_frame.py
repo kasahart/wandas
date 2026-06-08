@@ -5,6 +5,7 @@ import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from re import Pattern
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast, overload
 
 import numpy as np
@@ -77,7 +78,7 @@ class BaseFrame(ABC, Generic[T]):
         History of operations performed on this frame.
     """
 
-    _data: DaArray
+    _xr: Any
     sampling_rate: float
     label: str
     metadata: FrameMetadata
@@ -160,12 +161,57 @@ class BaseFrame(ABC, Generic[T]):
                 ChannelMetadata(label=f"ch{i}", unit="", extra={}) for i in range(self._n_channels)
             ]
 
+        self._refresh_xarray_storage()
+
         try:
             # Display information for newer dask versions
             logger.debug(f"Dask graph layers: {list(self._data.dask.layers.keys())}")
             logger.debug(f"Dask graph dependencies: {len(self._data.dask.dependencies)}")
         except Exception as e:
             logger.debug(f"Dask graph visualization details unavailable: {e}")
+
+    @property
+    def _data(self) -> Any:
+        """Compatibility access to the xarray-backed array data."""
+        return self._xr.data
+
+    @_data.setter
+    def _data(self, data: Any) -> None:
+        """Update internal xarray storage while preserving the legacy `_data` API."""
+        self._set_xarray_data(data)
+
+    def _xarray_dims_for_data(self, data: Any) -> tuple[str, ...]:
+        """Return Wandas schema dims for *data* based on the frame type."""
+        frame_type = type(self).__name__
+        if frame_type == "ChannelFrame" and data.ndim == 2:
+            return ("channel", "time")
+        if frame_type == "SpectralFrame" and data.ndim == 2:
+            return ("channel", "frequency")
+        if frame_type == "SpectrogramFrame" and data.ndim == 3:
+            return ("channel", "frequency", "time")
+        if frame_type == "NOctFrame" and data.ndim == 2:
+            return ("channel", "band")
+        if frame_type == "RoughnessFrame" and data.ndim == 2:
+            return ("channel", "time")
+        return tuple(f"dim_{idx}" for idx in range(data.ndim))
+
+    def _set_xarray_data(self, data: Any) -> None:
+        """Set raw data into `_xr`; full coords are refreshed after metadata exists."""
+        import xarray as xr
+
+        if not isinstance(data, DaArray):
+            self._xr = SimpleNamespace(data=data)
+            return
+
+        self._xr = xr.DataArray(data, dims=self._xarray_dims_for_data(data))
+
+    def _refresh_xarray_storage(self) -> None:
+        """Refresh `_xr` so coords and attrs mirror the current frame metadata."""
+        from wandas.xarray_bridge import frame_to_xarray
+
+        if not isinstance(self._data, DaArray):
+            return
+        self._xr = frame_to_xarray(self, copy_dataarray=False)
 
     @property
     def _n_channels(self) -> int:

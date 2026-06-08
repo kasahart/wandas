@@ -112,3 +112,23 @@ def test_from_xarray_round_trips_channel_frame_metadata_and_data() -> None:
     assert [ch.unit for ch in restored.channels] == ["Pa", "g"]
     npt.assert_allclose(restored.compute(), original.compute())
     assert restored._data.chunks == ((1, 1), (3,))
+
+
+def test_frame_keeps_internal_xarray_storage_in_sync_with_data_property() -> None:
+    frame = wd.ChannelFrame.from_numpy(
+        np.array([[1.0, 2.0], [3.0, 4.0]]),
+        sampling_rate=4.0,
+        ch_labels=["a", "b"],
+    )
+
+    assert hasattr(frame, "_xr")
+    assert frame._xr.dims == ("channel", "time")
+    assert frame._data is frame._xr.data
+
+    replacement = da_from_array(np.array([[5.0, 6.0]]), chunks=(1, -1))
+    frame._data = replacement
+
+    assert frame._xr.dims == ("channel", "time")
+    assert frame._data is frame._xr.data
+    assert frame._xr.chunks == ((1,), (2,))
+    npt.assert_allclose(frame.compute(), np.array([[5.0, 6.0]]))
