@@ -582,3 +582,70 @@ def test_complex_spectral_frame_round_trips_through_netcdf(tmp_path) -> None:
     assert isinstance(restored, SpectralFrame)
     assert restored.n_fft == original.n_fft
     npt.assert_allclose(restored.compute(), original.compute())
+
+
+def test_from_xarray_realigns_channel_extra_after_channel_selection() -> None:
+    frame = wd.ChannelFrame(
+        data=da_from_array(np.array([[1.0, 2.0], [3.0, 4.0]]), chunks=(1, -1)),
+        sampling_rate=10.0,
+        channel_metadata=[
+            ChannelMetadata(label="left", extra={"side": "left"}),
+            ChannelMetadata(label="right", extra={"side": "right"}),
+        ],
+    )
+    selected = frame.to_xarray().sel(channel=["right"])
+
+    restored = wd.from_xarray(selected)
+
+    assert restored.labels == ["right"]
+    assert [ch.extra for ch in restored.channels] == [{"side": "right"}]
+
+
+def test_from_xarray_rejects_reversed_spectral_frequency_coordinate() -> None:
+    frame = SpectralFrame(
+        data=da_from_array(np.ones((1, 5), dtype=np.complex128), chunks=(1, -1)),
+        sampling_rate=16.0,
+        n_fft=8,
+    )
+    reversed_frequency = frame.to_xarray().isel(frequency=slice(None, None, -1))
+
+    with pytest.raises(ValueError, match="frequency coordinate"):
+        wd.from_xarray(reversed_frequency)
+
+
+def test_from_xarray_decodes_netcdf_attrs_loaded_by_xarray(tmp_path) -> None:
+    original = wd.ChannelFrame.from_numpy(
+        np.array([[1.0, 2.0]]),
+        sampling_rate=2.0,
+        metadata={"source": "direct-xarray"},
+        ch_labels=["mic"],
+    )
+    original.operation_history.append({"operation": "gain", "factor": 2.0})
+    path = tmp_path / "direct_xarray.nc"
+    original.to_netcdf(path)
+
+    xr_data = xr.open_dataarray(path).load()
+    try:
+        restored = wd.from_xarray(xr_data)
+    finally:
+        xr_data.close()
+
+    assert restored.metadata == original.metadata
+    assert restored.operation_history == original.operation_history
+    assert restored.labels == ["mic"]
+
+
+def test_from_xarray_rejects_noncanonical_channel_time_coordinate() -> None:
+    frame = wd.ChannelFrame.from_numpy(np.arange(6.0).reshape(1, -1), sampling_rate=2.0)
+    decimated = frame.to_xarray().isel(time=slice(None, None, 2))
+
+    with pytest.raises(ValueError, match="time coordinate"):
+        wd.from_xarray(decimated)
+
+
+def test_from_xarray_rejects_nonzero_start_channel_time_coordinate() -> None:
+    frame = wd.ChannelFrame.from_numpy(np.arange(6.0).reshape(1, -1), sampling_rate=2.0)
+    shifted = frame.to_xarray().isel(time=slice(1, None))
+
+    with pytest.raises(ValueError, match="time coordinate"):
+        wd.from_xarray(shifted)

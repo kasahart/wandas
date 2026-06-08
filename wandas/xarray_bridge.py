@@ -40,6 +40,9 @@ def frame_to_xarray(frame: BaseFrame[Any], *, copy_dataarray: bool = True) -> xr
 
 def from_xarray(data_array: xr.DataArray) -> BaseFrame[Any]:
     """Create a Wandas frame from a Wandas-schema xarray DataArray."""
+    if data_array.attrs.get("wandas_attrs_encoding") == "json-v1" or data_array.attrs.get("wandas_complex_encoding"):
+        data_array = decode_attrs_from_netcdf(data_array)
+
     frame_type = str(data_array.attrs.get("wandas_frame_type", ""))
     if not frame_type:
         frame_type = _infer_frame_type(data_array)
@@ -194,6 +197,7 @@ def _attrs_for_frame(frame: BaseFrame[Any], frame_type: str) -> dict[str, Any]:
 
     if len(frame.channels) == frame.n_channels:
         attrs["channel_extra"] = copy.deepcopy([ch.extra for ch in frame.channels])
+        attrs["channel_extra_by_label"] = copy.deepcopy({ch.label: ch.extra for ch in frame.channels})
 
     for name in ("n_fft", "hop_length", "win_length", "window", "fmin", "fmax", "n", "G", "fr", "overlap"):
         if hasattr(frame, name):
@@ -236,6 +240,7 @@ def _validate_dims(data_array: xr.DataArray, frame_type: str) -> None:
 
 
 def _validate_frame_shape(data_array: xr.DataArray, frame_type: str) -> None:
+    _validate_time_coordinate(data_array, frame_type)
     if frame_type in {"SpectralFrame", "SpectrogramFrame"}:
         n_fft = int(data_array.attrs["n_fft"])
         expected_frequency = n_fft // 2 + 1
@@ -244,6 +249,13 @@ def _validate_frame_shape(data_array: xr.DataArray, frame_type: str) -> None:
             raise ValueError(
                 f"Invalid frequency dimension length for {frame_type}: "
                 f"expected {expected_frequency} from n_fft={n_fft}, got {actual_frequency}"
+            )
+        expected_coord = np.fft.rfftfreq(n_fft, d=1 / float(data_array.attrs["sampling_rate"]))
+        actual_coord = np.asarray(data_array.coords["frequency"].values, dtype=float)
+        if not np.allclose(actual_coord, expected_coord):
+            raise ValueError(
+                f"Invalid frequency coordinate for {frame_type}: "
+                "expected canonical ascending rfftfreq values from sampling_rate and n_fft"
             )
     if frame_type == "NOctFrame":
         expected_bands = _expected_noct_band_count(data_array.attrs)
@@ -268,6 +280,25 @@ def _expected_noct_band_count(attrs: dict[Any, Any]) -> int:
     return len(freqs)
 
 
+def _validate_time_coordinate(data_array: xr.DataArray, frame_type: str) -> None:
+    if "time" not in data_array.dims or "time" not in data_array.coords:
+        return
+
+    sampling_rate = float(data_array.attrs["sampling_rate"])
+    time_size = int(data_array.sizes["time"])
+    if frame_type == "SpectrogramFrame":
+        step = int(data_array.attrs["hop_length"]) / sampling_rate
+    else:
+        step = 1 / sampling_rate
+    expected = np.arange(time_size, dtype=float) * step
+    actual = np.asarray(data_array.coords["time"].values, dtype=float)
+    if not np.allclose(actual, expected):
+        raise ValueError(
+            f"Invalid time coordinate for {frame_type}: "
+            "expected canonical values starting at 0 from sampling_rate/hop_length"
+        )
+
+
 def _metadata_from_attrs(attrs: dict[Any, Any]) -> FrameMetadata:
     metadata = FrameMetadata(copy.deepcopy(attrs.get("metadata", {})))
     source_file = attrs.get("source_file")
@@ -281,14 +312,23 @@ def _channel_metadata_from_coords(data_array: xr.DataArray) -> list[ChannelMetad
     labels = _coord_values(data_array, "channel", [f"ch{i}" for i in range(n_channels)])
     units = _coord_values(data_array, "unit", [""] * n_channels)
     refs = _coord_values(data_array, "ref", [1.0] * n_channels)
-    extras = copy.deepcopy(data_array.attrs.get("channel_extra", [{} for _ in range(n_channels)]))
-    if not isinstance(extras, list) or len(extras) != n_channels:
-        extras = [{} for _ in range(n_channels)]
+    extras = _channel_extras_from_attrs(data_array.attrs, labels, n_channels)
 
     return [
         ChannelMetadata(label=str(labels[idx]), unit=str(units[idx]), ref=float(refs[idx]), extra=extras[idx])
         for idx in range(n_channels)
     ]
+
+
+def _channel_extras_from_attrs(attrs: dict[Any, Any], labels: list[Any], n_channels: int) -> list[dict[str, Any]]:
+    extras_by_label = attrs.get("channel_extra_by_label")
+    if isinstance(extras_by_label, dict):
+        return [copy.deepcopy(extras_by_label.get(str(label), {})) for label in labels]
+
+    extras = copy.deepcopy(attrs.get("channel_extra", [{} for _ in range(n_channels)]))
+    if not isinstance(extras, list) or len(extras) != n_channels:
+        return [{} for _ in range(n_channels)]
+    return extras
 
 
 def _coord_values(data_array: xr.DataArray, name: str, default: list[Any]) -> list[Any]:
@@ -332,7 +372,7 @@ def encode_attrs_for_netcdf(data_array: xr.DataArray) -> xr.DataArray:
     """Return a DataArray with NetCDF-safe Wandas attrs."""
     encoded = _encode_complex_for_netcdf(data_array)
     attrs = copy.deepcopy(dict(encoded.attrs))
-    for key in ("metadata", "operation_history", "channel_extra"):
+    for key in ("metadata", "operation_history", "channel_extra", "channel_extra_by_label"):
         if key in attrs:
             attrs[key] = json.dumps(_json_safe(attrs[key]))
     attrs["wandas_attrs_encoding"] = "json-v1"
@@ -345,7 +385,7 @@ def decode_attrs_from_netcdf(data_array: xr.DataArray) -> xr.DataArray:
     decoded = data_array.copy(deep=False)
     attrs = copy.deepcopy(dict(decoded.attrs))
     if attrs.get("wandas_attrs_encoding") == "json-v1":
-        for key in ("metadata", "operation_history", "channel_extra"):
+        for key in ("metadata", "operation_history", "channel_extra", "channel_extra_by_label"):
             if key in attrs and isinstance(attrs[key], str):
                 attrs[key] = json.loads(attrs[key])
         attrs.pop("wandas_attrs_encoding", None)
