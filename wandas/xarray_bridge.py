@@ -49,6 +49,7 @@ def from_xarray(data_array: xr.DataArray) -> BaseFrame[Any]:
     metadata = _metadata_from_attrs(data_array.attrs)
     operation_history = copy.deepcopy(data_array.attrs.get("operation_history", []))
     channel_metadata = _channel_metadata_from_coords(data_array)
+    _validate_frame_shape(data_array, frame_type)
     dask_data = _as_dask_channelwise(data_array)
 
     if frame_type == "ChannelFrame":
@@ -87,6 +88,23 @@ def from_xarray(data_array: xr.DataArray) -> BaseFrame[Any]:
             hop_length=int(data_array.attrs["hop_length"]),
             win_length=int(data_array.attrs.get("win_length", data_array.attrs["n_fft"])),
             window=str(data_array.attrs.get("window", "hann")),
+            label=label,
+            metadata=metadata,
+            operation_history=operation_history,
+            channel_metadata=channel_metadata,
+        )
+
+    if frame_type == "NOctFrame":
+        from wandas.frames.noct import NOctFrame
+
+        return NOctFrame(
+            data=dask_data,
+            sampling_rate=sampling_rate,
+            fmin=float(data_array.attrs["fmin"]),
+            fmax=float(data_array.attrs["fmax"]),
+            n=int(data_array.attrs["n"]),
+            G=int(data_array.attrs["G"]),
+            fr=int(data_array.attrs["fr"]),
             label=label,
             metadata=metadata,
             operation_history=operation_history,
@@ -155,7 +173,10 @@ def _attrs_for_frame(frame: BaseFrame[Any], frame_type: str) -> dict[str, Any]:
     if source_file is not None:
         attrs["source_file"] = source_file
 
-    for name in ("n_fft", "hop_length", "win_length", "window"):
+    if len(frame.channels) == frame.n_channels:
+        attrs["channel_extra"] = copy.deepcopy([ch.extra for ch in frame.channels])
+
+    for name in ("n_fft", "hop_length", "win_length", "window", "fmin", "fmax", "n", "G", "fr"):
         if hasattr(frame, name):
             attrs[name] = getattr(frame, name)
 
@@ -178,11 +199,24 @@ def _validate_dims(data_array: xr.DataArray, frame_type: str) -> None:
         "ChannelFrame": ("channel", "time"),
         "SpectralFrame": ("channel", "frequency"),
         "SpectrogramFrame": ("channel", "frequency", "time"),
+        "NOctFrame": ("channel", "band"),
     }.get(frame_type)
     if expected is None:
         return
     if tuple(data_array.dims) != expected:
         raise ValueError(f"Invalid dims for {frame_type}: expected {expected}, got {tuple(data_array.dims)}")
+
+
+def _validate_frame_shape(data_array: xr.DataArray, frame_type: str) -> None:
+    if frame_type in {"SpectralFrame", "SpectrogramFrame"}:
+        n_fft = int(data_array.attrs["n_fft"])
+        expected_frequency = n_fft // 2 + 1
+        actual_frequency = int(data_array.sizes["frequency"])
+        if actual_frequency != expected_frequency:
+            raise ValueError(
+                f"Invalid frequency dimension length for {frame_type}: "
+                f"expected {expected_frequency} from n_fft={n_fft}, got {actual_frequency}"
+            )
 
 
 def _metadata_from_attrs(attrs: dict[Any, Any]) -> FrameMetadata:
@@ -198,9 +232,13 @@ def _channel_metadata_from_coords(data_array: xr.DataArray) -> list[ChannelMetad
     labels = _coord_values(data_array, "channel", [f"ch{i}" for i in range(n_channels)])
     units = _coord_values(data_array, "unit", [""] * n_channels)
     refs = _coord_values(data_array, "ref", [1.0] * n_channels)
+    extras = copy.deepcopy(data_array.attrs.get("channel_extra", [{} for _ in range(n_channels)]))
+    if not isinstance(extras, list) or len(extras) != n_channels:
+        extras = [{} for _ in range(n_channels)]
 
     return [
-        ChannelMetadata(label=str(labels[idx]), unit=str(units[idx]), ref=float(refs[idx])) for idx in range(n_channels)
+        ChannelMetadata(label=str(labels[idx]), unit=str(units[idx]), ref=float(refs[idx]), extra=extras[idx])
+        for idx in range(n_channels)
     ]
 
 
@@ -213,26 +251,41 @@ def _coord_values(data_array: xr.DataArray, name: str, default: list[Any]) -> li
     return list(values)
 
 
+def _chunks_for_ndim(ndim: int) -> tuple[int, ...]:
+    if ndim == 0:
+        return ()
+    if ndim == 1:
+        return (-1,)
+    return tuple([1] + [-1] * (ndim - 1))
+
+
 def _as_dask_channelwise(data_array: xr.DataArray) -> Any:
+    chunks = _chunks_for_ndim(data_array.ndim)
     data = data_array.data
     if hasattr(data, "rechunk"):
-        dask_data = data
-    else:
-        dask_data = da_from_array(np.asarray(data), chunks=tuple([1] + [-1] * (data_array.ndim - 1)))
+        return data.rechunk(chunks)
+    return da_from_array(np.asarray(data), chunks=chunks)
 
-    if data_array.ndim >= 2:
-        chunks = tuple([1] + [-1] * (data_array.ndim - 1))
-        return dask_data.rechunk(chunks)
-    return dask_data.rechunk((-1,))
+
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, np.ndarray):
+        return [_json_safe(item) for item in value.tolist()]
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [_json_safe(item) for item in value]
+    return value
 
 
 def encode_attrs_for_netcdf(data_array: xr.DataArray) -> xr.DataArray:
     """Return a DataArray with NetCDF-safe Wandas attrs."""
     encoded = data_array.copy(deep=False)
     attrs = copy.deepcopy(dict(encoded.attrs))
-    for key in ("metadata", "operation_history"):
+    for key in ("metadata", "operation_history", "channel_extra"):
         if key in attrs:
-            attrs[key] = json.dumps(attrs[key])
+            attrs[key] = json.dumps(_json_safe(attrs[key]))
     attrs["wandas_attrs_encoding"] = "json-v1"
     encoded.attrs = attrs
     return encoded
@@ -243,7 +296,7 @@ def decode_attrs_from_netcdf(data_array: xr.DataArray) -> xr.DataArray:
     decoded = data_array.copy(deep=False)
     attrs = copy.deepcopy(dict(decoded.attrs))
     if attrs.get("wandas_attrs_encoding") == "json-v1":
-        for key in ("metadata", "operation_history"):
+        for key in ("metadata", "operation_history", "channel_extra"):
             if key in attrs and isinstance(attrs[key], str):
                 attrs[key] = json.loads(attrs[key])
         attrs.pop("wandas_attrs_encoding", None)

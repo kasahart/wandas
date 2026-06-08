@@ -880,7 +880,7 @@ class BaseFrame(ABC, Generic[T]):
         operation = create_operation(operation_name, self.sampling_rate, **params)
         from wandas.processing.chunk_policy import validate_strict_chunks
 
-        validate_strict_chunks(self, operation_name)
+        validate_strict_chunks(self, operation_name, params)
         processed_data = operation.process(self._data)
 
         new_metadata, new_history = self._updated_metadata_and_history(operation_name, params)
@@ -942,10 +942,9 @@ class BaseFrame(ABC, Generic[T]):
 
         from wandas.processing.chunk_policy import validate_strict_chunks
 
-        validate_strict_chunks(self, operation_name)
-        processed_data = operation.process(self._data)
-
         params = getattr(operation, "params", {})
+        validate_strict_chunks(self, operation_name, params)
+        processed_data = operation.process(self._data)
 
         new_metadata, new_history = self._updated_metadata_and_history(operation_name, params)
 
@@ -1109,7 +1108,7 @@ class BaseFrame(ABC, Generic[T]):
 
     @property
     def xr(self) -> Any:
-        """Return an xarray DataArray view of this frame using the Wandas schema."""
+        """Return an xarray DataArray copy of this frame using the Wandas schema."""
         return self.to_xarray(copy=True)
 
     def to_netcdf(self, path: str | Any) -> None:

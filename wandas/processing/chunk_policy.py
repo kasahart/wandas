@@ -31,9 +31,13 @@ STRICT_CORE_DIMS_BY_OPERATION: dict[str, tuple[str, ...]] = {
 }
 
 
-def validate_strict_chunks(frame: Any, operation_name: str) -> None:
+def validate_strict_chunks(frame: Any, operation_name: str, params: dict[str, Any] | None = None) -> None:
     """Reject unsafe split chunks for operations with signal core dimensions."""
     core_dims = STRICT_CORE_DIMS_BY_OPERATION.get(operation_name)
+    if operation_name == "normalize":
+        axis = None if params is None else params.get("axis", -1)
+        if axis not in (-1, None, "time"):
+            return
     if not core_dims:
         return
 
