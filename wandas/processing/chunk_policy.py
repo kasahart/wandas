@@ -34,14 +34,15 @@ STRICT_CORE_DIMS_BY_OPERATION: dict[str, tuple[str, ...]] = {
 def validate_strict_chunks(frame: Any, operation_name: str, params: dict[str, Any] | None = None) -> None:
     """Reject unsafe split chunks for operations with signal core dimensions."""
     core_dims = STRICT_CORE_DIMS_BY_OPERATION.get(operation_name)
-    if operation_name == "normalize":
-        axis = None if params is None else params.get("axis", -1)
-        if axis not in (-1, None, "time"):
-            return
     if not core_dims:
         return
 
     data_array = frame.to_xarray(copy=False)
+    if operation_name == "normalize":
+        axis = None if params is None else params.get("axis", -1)
+        if not _axis_targets_dim(axis, data_array.dims, "time"):
+            return
+
     if data_array.chunks is None:
         return
 
@@ -54,3 +55,14 @@ def validate_strict_chunks(frame: Any, operation_name: str, params: dict[str, An
                 f"  Got chunks for {dim}: {chunks}\n"
                 f"  Rechunk the frame so {dim} is a single chunk before running this operation."
             )
+
+
+def _axis_targets_dim(axis: Any, dims: tuple[str, ...], dim: str) -> bool:
+    if axis is None:
+        return True
+    if axis == dim:
+        return True
+    if isinstance(axis, int):
+        normalized = axis if axis >= 0 else len(dims) + axis
+        return 0 <= normalized < len(dims) and dims[normalized] == dim
+    return False

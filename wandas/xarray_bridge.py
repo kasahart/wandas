@@ -16,6 +16,9 @@ if TYPE_CHECKING:
     from wandas.core.base_frame import BaseFrame
 
 
+_COMPLEX_COMPONENT_DIM = "complex_component"
+
+
 def frame_to_xarray(frame: BaseFrame[Any], *, copy_dataarray: bool = True) -> xr.DataArray:
     """Convert a Wandas frame to an xarray DataArray using the Wandas schema."""
     frame_type = type(frame).__name__
@@ -111,6 +114,22 @@ def from_xarray(data_array: xr.DataArray) -> BaseFrame[Any]:
             channel_metadata=channel_metadata,
         )
 
+    if frame_type == "RoughnessFrame":
+        from wandas.frames.roughness import RoughnessFrame
+
+        bark_axis = np.asarray(data_array.coords["bark"].values, dtype=float)
+        overlap = float(data_array.attrs.get("overlap", metadata.get("overlap", 0.0)))
+        return RoughnessFrame(
+            data=dask_data,
+            sampling_rate=sampling_rate,
+            bark_axis=bark_axis,
+            overlap=overlap,
+            label=label,
+            metadata=metadata,
+            operation_history=operation_history,
+            channel_metadata=channel_metadata if "channel" in data_array.dims else None,
+        )
+
     raise ValueError(f"Unsupported Wandas xarray frame type: {frame_type!r}")
 
 
@@ -176,7 +195,7 @@ def _attrs_for_frame(frame: BaseFrame[Any], frame_type: str) -> dict[str, Any]:
     if len(frame.channels) == frame.n_channels:
         attrs["channel_extra"] = copy.deepcopy([ch.extra for ch in frame.channels])
 
-    for name in ("n_fft", "hop_length", "win_length", "window", "fmin", "fmax", "n", "G", "fr"):
+    for name in ("n_fft", "hop_length", "win_length", "window", "fmin", "fmax", "n", "G", "fr", "overlap"):
         if hasattr(frame, name):
             attrs[name] = getattr(frame, name)
 
@@ -191,6 +210,8 @@ def _infer_frame_type(data_array: xr.DataArray) -> str:
         return "SpectralFrame"
     if dims == ("channel", "frequency", "time"):
         return "SpectrogramFrame"
+    if dims in {("bark", "time"), ("channel", "bark", "time")}:
+        return "RoughnessFrame"
     raise ValueError(f"Cannot infer Wandas frame type from dims: {dims!r}")
 
 
@@ -201,6 +222,13 @@ def _validate_dims(data_array: xr.DataArray, frame_type: str) -> None:
         "SpectrogramFrame": ("channel", "frequency", "time"),
         "NOctFrame": ("channel", "band"),
     }.get(frame_type)
+    if frame_type == "RoughnessFrame":
+        if tuple(data_array.dims) not in {("bark", "time"), ("channel", "bark", "time")}:
+            raise ValueError(
+                "Invalid dims for RoughnessFrame: expected "
+                f"('bark', 'time') or ('channel', 'bark', 'time'), got {tuple(data_array.dims)}"
+            )
+        return
     if expected is None:
         return
     if tuple(data_array.dims) != expected:
@@ -217,6 +245,27 @@ def _validate_frame_shape(data_array: xr.DataArray, frame_type: str) -> None:
                 f"Invalid frequency dimension length for {frame_type}: "
                 f"expected {expected_frequency} from n_fft={n_fft}, got {actual_frequency}"
             )
+    if frame_type == "NOctFrame":
+        expected_bands = _expected_noct_band_count(data_array.attrs)
+        actual_bands = int(data_array.sizes["band"])
+        if actual_bands != expected_bands:
+            raise ValueError(
+                f"Invalid band dimension length for NOctFrame: "
+                f"expected {expected_bands} from NOct attrs, got {actual_bands}"
+            )
+
+
+def _expected_noct_band_count(attrs: dict[Any, Any]) -> int:
+    from wandas.frames.noct import _center_freq
+
+    _, freqs = _center_freq(
+        fmin=float(attrs["fmin"]),
+        fmax=float(attrs["fmax"]),
+        n=int(attrs["n"]),
+        G=int(attrs["G"]),
+        fr=int(attrs["fr"]),
+    )
+    return len(freqs)
 
 
 def _metadata_from_attrs(attrs: dict[Any, Any]) -> FrameMetadata:
@@ -281,7 +330,7 @@ def _json_safe(value: Any) -> Any:
 
 def encode_attrs_for_netcdf(data_array: xr.DataArray) -> xr.DataArray:
     """Return a DataArray with NetCDF-safe Wandas attrs."""
-    encoded = data_array.copy(deep=False)
+    encoded = _encode_complex_for_netcdf(data_array)
     attrs = copy.deepcopy(dict(encoded.attrs))
     for key in ("metadata", "operation_history", "channel_extra"):
         if key in attrs:
@@ -300,6 +349,31 @@ def decode_attrs_from_netcdf(data_array: xr.DataArray) -> xr.DataArray:
             if key in attrs and isinstance(attrs[key], str):
                 attrs[key] = json.loads(attrs[key])
         attrs.pop("wandas_attrs_encoding", None)
+    decoded.attrs = attrs
+    return _decode_complex_from_netcdf(decoded)
+
+
+def _encode_complex_for_netcdf(data_array: xr.DataArray) -> xr.DataArray:
+    if not np.issubdtype(data_array.dtype, np.complexfloating):
+        return data_array.copy(deep=False)
+
+    encoded = xr.concat(
+        [data_array.real, data_array.imag],
+        dim=xr.IndexVariable(_COMPLEX_COMPONENT_DIM, ["real", "imag"]),
+    ).transpose(*data_array.dims, _COMPLEX_COMPONENT_DIM)
+    encoded.attrs = copy.deepcopy(dict(data_array.attrs))
+    encoded.attrs["wandas_complex_encoding"] = "real-imag-v1"
+    return encoded
+
+
+def _decode_complex_from_netcdf(data_array: xr.DataArray) -> xr.DataArray:
+    if data_array.attrs.get("wandas_complex_encoding") != "real-imag-v1":
+        return data_array
+
+    attrs = copy.deepcopy(dict(data_array.attrs))
+    attrs.pop("wandas_complex_encoding", None)
+    decoded = data_array.sel({_COMPLEX_COMPONENT_DIM: "real"}) + 1j * data_array.sel({_COMPLEX_COMPONENT_DIM: "imag"})
+    decoded = decoded.drop_vars(_COMPLEX_COMPONENT_DIM, errors="ignore")
     decoded.attrs = attrs
     return decoded
 

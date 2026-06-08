@@ -46,6 +46,16 @@ def _build_cross_channel_metadata(
     return result
 
 
+def _validate_transform_chunks(
+    frame: TransformFrameProtocol,
+    operation_name: str,
+    params: dict[str, Any],
+) -> None:
+    from wandas.processing.chunk_policy import validate_strict_chunks
+
+    validate_strict_chunks(frame, operation_name, params)
+
+
 class ChannelTransformMixin:
     """Mixin providing methods related to frequency transformations.
 
@@ -74,6 +84,7 @@ class ChannelTransformMixin:
         from ..spectral import SpectralFrame
 
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
+        _validate_transform_chunks(self, operation_name, params)
 
         operation = create_operation(operation_name, self.sampling_rate, **params)
         result_data = operation.process(self._data)
@@ -130,6 +141,7 @@ class ChannelTransformMixin:
         params = {"n_fft": n_fft, "window": window}
         operation_name = "fft"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
+        _validate_transform_chunks(self, operation_name, params)
 
         # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
@@ -193,6 +205,7 @@ class ChannelTransformMixin:
         }
         operation_name = "welch"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
+        _validate_transform_chunks(self, operation_name, params)
 
         # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
@@ -244,6 +257,7 @@ class ChannelTransformMixin:
         params = {"fmin": fmin, "fmax": fmax, "n": n, "G": G, "fr": fr}
         operation_name = "noct_spectrum"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
+        _validate_transform_chunks(self, operation_name, params)
 
         # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
@@ -309,6 +323,7 @@ class ChannelTransformMixin:
         }
         operation_name = "stft"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
+        _validate_transform_chunks(self, operation_name, params)
 
         # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)

@@ -274,6 +274,9 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         params = {"n_fft": self.n_fft, "window": self.window}
         operation_name = "ifft"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
+        from wandas.processing.chunk_policy import validate_strict_chunks
+
+        validate_strict_chunks(self, operation_name, params)
 
         # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
@@ -357,7 +360,11 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         params = {"fmin": fmin, "fmax": fmax, "n": n, "G": G, "fr": fr}
         operation_name = "noct_synthesis"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
+        from wandas.processing.chunk_policy import validate_strict_chunks
+
         from ..processing import create_operation
+
+        validate_strict_chunks(self, operation_name, params)
 
         # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)

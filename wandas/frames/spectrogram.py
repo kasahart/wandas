@@ -443,6 +443,9 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         }
         operation_name = "istft"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
+        from wandas.processing.chunk_policy import validate_strict_chunks
+
+        validate_strict_chunks(self, operation_name, params)
 
         # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)

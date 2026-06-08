@@ -212,7 +212,7 @@ def test_noct_frame_round_trips_through_xarray() -> None:
     from wandas.frames.noct import NOctFrame
 
     frame = NOctFrame(
-        data=da_from_array(np.ones((1, 4)), chunks=(1, -1)),
+        data=da_from_array(np.ones((1, 11)), chunks=(1, -1)),
         sampling_rate=48_000,
         fmin=100.0,
         fmax=1000.0,
@@ -494,3 +494,91 @@ def test_dims_for_frame_falls_back_to_positional_dim_names() -> None:
     frame = SimpleNamespace(_data=np.ones((2, 3, 4)))
 
     assert _dims_for_frame(cast(Any, frame)) == ("dim_0", "dim_1", "dim_2")
+
+
+def test_transform_methods_reject_split_time_chunks() -> None:
+    frame = wd.ChannelFrame.from_numpy(np.arange(64.0).reshape(1, -1), sampling_rate=128.0)
+    frame._data = frame._data.rechunk((1, 16))
+
+    with pytest.raises(ValueError, match="Operation 'fft' requires contiguous chunks along time"):
+        frame.fft(n_fft=64)
+
+    with pytest.raises(ValueError, match="Operation 'stft' requires contiguous chunks along time"):
+        frame.stft(n_fft=16, hop_length=4)
+
+    with pytest.raises(ValueError, match="Operation 'welch' requires contiguous chunks along time"):
+        frame.welch(n_fft=16)
+
+
+def test_cross_channel_transform_rejects_split_time_chunks() -> None:
+    frame = wd.ChannelFrame.from_numpy(np.vstack([np.arange(64.0), np.arange(64.0)]), sampling_rate=128.0)
+    frame._data = frame._data.rechunk((1, 16))
+
+    with pytest.raises(ValueError, match="Operation 'coherence' requires contiguous chunks along time"):
+        frame.coherence(n_fft=16)
+
+
+def test_normalize_axis_one_rejects_split_time_chunks() -> None:
+    frame = wd.ChannelFrame.from_numpy(np.array([[1.0, 2.0, 3.0, 4.0]]), sampling_rate=4.0)
+    frame._data = frame._data.rechunk((1, 2))
+
+    with pytest.raises(ValueError, match="Operation 'normalize' requires contiguous chunks along time"):
+        frame.normalize(axis=1)
+
+
+def test_roughness_frame_round_trips_through_netcdf(tmp_path) -> None:
+    from wandas.frames.roughness import RoughnessFrame
+
+    bark_axis = np.linspace(0.5, 23.5, 47)
+    original = RoughnessFrame(
+        data=da_from_array(np.ones((47, 3)), chunks=(47, -1)),
+        sampling_rate=10.0,
+        bark_axis=bark_axis,
+        overlap=0.5,
+        label="roughness",
+    )
+    path = tmp_path / "roughness.nc"
+
+    original.to_netcdf(path)
+    restored = wd.open_netcdf(path)
+
+    assert isinstance(restored, RoughnessFrame)
+    assert restored.overlap == original.overlap
+    npt.assert_allclose(restored.bark_axis, bark_axis)
+    npt.assert_allclose(restored.compute(), original.compute())
+
+
+def test_from_xarray_rejects_sliced_noct_band_axis() -> None:
+    from wandas.frames.noct import NOctFrame
+
+    frame = NOctFrame(
+        data=da_from_array(np.ones((1, 11)), chunks=(1, -1)),
+        sampling_rate=48_000,
+        fmin=100.0,
+        fmax=1000.0,
+        n=3,
+        G=10,
+        fr=1000,
+    )
+    sliced = frame.to_xarray().isel(band=slice(0, 2))
+
+    with pytest.raises(ValueError, match="band dimension length"):
+        wd.from_xarray(sliced)
+
+
+def test_complex_spectral_frame_round_trips_through_netcdf(tmp_path) -> None:
+    original = SpectralFrame(
+        data=da_from_array(np.array([[1.0 + 2.0j, 3.0 + 4.0j, 5.0 + 6.0j]]), chunks=(1, -1)),
+        sampling_rate=8.0,
+        n_fft=4,
+        window="hann",
+        label="complex-spectrum",
+    )
+    path = tmp_path / "spectrum.nc"
+
+    original.to_netcdf(path)
+    restored = wd.open_netcdf(path)
+
+    assert isinstance(restored, SpectralFrame)
+    assert restored.n_fft == original.n_fft
+    npt.assert_allclose(restored.compute(), original.compute())
