@@ -1,3 +1,5 @@
+from typing import Any, cast
+
 import numpy as np
 import numpy.testing as npt
 import pytest
@@ -263,3 +265,232 @@ def test_as_dask_channelwise_handles_scalar_and_1d_dataarrays() -> None:
     assert scalar.chunks == ()
     assert one_dim.shape == (2,)
     assert one_dim.chunks == ((2,),)
+
+
+def test_from_xarray_infers_channel_frame_when_schema_type_missing() -> None:
+    original = wd.ChannelFrame.from_numpy(
+        np.array([[1.0, 2.0, 3.0]]),
+        sampling_rate=10.0,
+        label="signal",
+        ch_labels=["mic"],
+    )
+    xr_data = original.to_xarray()
+    xr_data.attrs.pop("wandas_frame_type")
+
+    restored = wd.from_xarray(xr_data)
+
+    assert isinstance(restored, wd.ChannelFrame)
+    assert restored.labels == ["mic"]
+    npt.assert_allclose(restored.compute(), original.compute())
+
+
+def test_from_xarray_round_trips_spectral_frame() -> None:
+    original = SpectralFrame(
+        data=da_from_array(np.ones((1, 5), dtype=np.complex128), chunks=(1, -1)),
+        sampling_rate=16.0,
+        n_fft=8,
+        window="boxcar",
+        label="spectrum",
+    )
+
+    restored = wd.from_xarray(original.to_xarray())
+
+    assert isinstance(restored, SpectralFrame)
+    assert restored.n_fft == 8
+    assert restored.window == "boxcar"
+    npt.assert_allclose(restored.compute(), original.compute())
+
+
+def test_from_xarray_infers_spectral_frame_when_schema_type_missing() -> None:
+    original = SpectralFrame(
+        data=da_from_array(np.ones((1, 5), dtype=np.complex128), chunks=(1, -1)),
+        sampling_rate=16.0,
+        n_fft=8,
+    )
+    xr_data = original.to_xarray()
+    xr_data.attrs.pop("wandas_frame_type")
+
+    restored = wd.from_xarray(xr_data)
+
+    assert isinstance(restored, SpectralFrame)
+    npt.assert_allclose(restored.compute(), original.compute())
+
+
+def test_from_xarray_round_trips_spectrogram_frame() -> None:
+    original = SpectrogramFrame.from_numpy(
+        np.ones((1, 5, 3), dtype=np.complex128),
+        sampling_rate=16.0,
+        n_fft=8,
+        hop_length=2,
+        win_length=4,
+        window="boxcar",
+        label="stft",
+    )
+
+    restored = wd.from_xarray(original.to_xarray())
+
+    assert isinstance(restored, SpectrogramFrame)
+    assert restored.n_fft == 8
+    assert restored.hop_length == 2
+    assert restored.win_length == 4
+    assert restored.window == "boxcar"
+    npt.assert_allclose(restored.compute(), original.compute())
+
+
+def test_from_xarray_infers_spectrogram_frame_when_schema_type_missing() -> None:
+    original = SpectrogramFrame.from_numpy(
+        np.ones((1, 5, 3), dtype=np.complex128),
+        sampling_rate=16.0,
+        n_fft=8,
+        hop_length=2,
+    )
+    xr_data = original.to_xarray()
+    xr_data.attrs.pop("wandas_frame_type")
+
+    restored = wd.from_xarray(xr_data)
+
+    assert isinstance(restored, SpectrogramFrame)
+    npt.assert_allclose(restored.compute(), original.compute())
+
+
+def test_from_xarray_rejects_unknown_untyped_dims() -> None:
+    xr_data = xr.DataArray(
+        np.ones((2, 3)),
+        dims=("sensor", "sample"),
+        attrs={"sampling_rate": 10.0},
+    )
+
+    with pytest.raises(ValueError, match="Cannot infer Wandas frame type"):
+        wd.from_xarray(xr_data)
+
+
+def test_from_xarray_rejects_invalid_typed_dims() -> None:
+    xr_data = xr.DataArray(
+        np.ones((2, 3)),
+        dims=("time", "channel"),
+        attrs={"wandas_frame_type": "ChannelFrame", "sampling_rate": 10.0},
+    )
+
+    with pytest.raises(ValueError, match="Invalid dims for ChannelFrame"):
+        wd.from_xarray(xr_data)
+
+
+def test_from_xarray_rejects_unsupported_typed_frame() -> None:
+    xr_data = xr.DataArray(
+        np.ones((2, 3)),
+        dims=("row", "column"),
+        attrs={"wandas_frame_type": "UnknownFrame", "sampling_rate": 10.0},
+    )
+
+    with pytest.raises(ValueError, match="Unsupported Wandas xarray frame type"):
+        wd.from_xarray(xr_data)
+
+
+def test_to_xarray_uses_source_file_attr_from_metadata() -> None:
+    frame = wd.ChannelFrame.from_numpy(np.array([[1.0, 2.0]]), sampling_rate=2.0)
+    frame.metadata.source_file = "input.wav"
+
+    restored = wd.from_xarray(frame.to_xarray())
+
+    assert restored.metadata.source_file == "input.wav"
+
+
+def test_from_xarray_ignores_malformed_channel_extra_metadata() -> None:
+    frame = wd.ChannelFrame.from_numpy(
+        np.array([[1.0, 2.0], [3.0, 4.0]]),
+        sampling_rate=10.0,
+        ch_labels=["front", "rear"],
+    )
+    xr_data = frame.to_xarray()
+    xr_data.attrs["channel_extra"] = [{"role": "reference"}]
+
+    restored = wd.from_xarray(xr_data)
+
+    assert [ch.extra for ch in restored.channels] == [{}, {}]
+
+
+def test_noct_frame_to_xarray_includes_optional_band_coordinate() -> None:
+    from wandas.frames.noct import NOctFrame
+
+    frame = NOctFrame(
+        data=da_from_array(np.ones((1, 4)), chunks=(1, -1)),
+        sampling_rate=48_000,
+        fmin=100.0,
+        fmax=1000.0,
+        n=3,
+        G=10,
+        fr=1000,
+    )
+    bands = np.array([100.0, 125.0, 160.0, 200.0])
+    setattr(frame, "bands", bands)
+
+    xr_data = frame.to_xarray()
+
+    npt.assert_allclose(xr_data.coords["band"].values, bands)
+
+
+def test_coord_values_falls_back_for_missing_and_scalar_coords() -> None:
+    from wandas.xarray_bridge import _coord_values
+
+    xr_data = xr.DataArray(np.array([1.0, 2.0]), dims=("time",), coords={"unit": "Pa"})
+
+    assert _coord_values(xr_data, "missing", ["fallback"]) == ["fallback"]
+    assert _coord_values(xr_data, "unit", ["", ""]) == ["Pa", "Pa"]
+
+
+def test_strict_chunk_policy_allows_unchunked_xarray_data() -> None:
+    from wandas.processing.chunk_policy import validate_strict_chunks
+
+    class DummyFrame:
+        def to_xarray(self, *, copy: bool = False) -> xr.DataArray:
+            return xr.DataArray(np.ones((1, 4)), dims=("channel", "time"))
+
+    validate_strict_chunks(DummyFrame(), "lowpass_filter")
+
+
+def test_roughness_frame_to_xarray_uses_bark_time_schema() -> None:
+    from wandas.frames.roughness import RoughnessFrame
+
+    bark_axis = np.linspace(0.5, 23.5, 47)
+    frame = RoughnessFrame(
+        data=da_from_array(np.ones((47, 3)), chunks=(47, -1)),
+        sampling_rate=10.0,
+        bark_axis=bark_axis,
+        overlap=0.5,
+    )
+
+    xr_data = frame.to_xarray()
+
+    assert xr_data.dims == ("bark", "time")
+    npt.assert_allclose(xr_data.coords["bark"].values, bark_axis)
+    npt.assert_allclose(xr_data.coords["time"].values, frame.time)
+
+
+def test_multichannel_roughness_frame_to_xarray_uses_channel_bark_time_schema() -> None:
+    from wandas.frames.roughness import RoughnessFrame
+
+    bark_axis = np.linspace(0.5, 23.5, 47)
+    frame = RoughnessFrame(
+        data=da_from_array(np.ones((2, 47, 3)), chunks=(1, 47, -1)),
+        sampling_rate=10.0,
+        bark_axis=bark_axis,
+        overlap=0.5,
+        channel_metadata=[ChannelMetadata(label="left"), ChannelMetadata(label="right")],
+    )
+
+    xr_data = frame.to_xarray()
+
+    assert xr_data.dims == ("channel", "bark", "time")
+    npt.assert_array_equal(xr_data.coords["channel"].values, np.array(["left", "right"], dtype=object))
+    npt.assert_allclose(xr_data.coords["bark"].values, bark_axis)
+    npt.assert_allclose(xr_data.coords["time"].values, frame.time)
+
+
+def test_dims_for_frame_falls_back_to_positional_dim_names() -> None:
+    from types import SimpleNamespace
+
+    from wandas.xarray_bridge import _dims_for_frame
+
+    frame = SimpleNamespace(_data=np.ones((2, 3, 4)))
+
+    assert _dims_for_frame(cast(Any, frame)) == ("dim_0", "dim_1", "dim_2")
