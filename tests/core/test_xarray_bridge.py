@@ -649,3 +649,56 @@ def test_from_xarray_rejects_nonzero_start_channel_time_coordinate() -> None:
 
     with pytest.raises(ValueError, match="time coordinate"):
         wd.from_xarray(shifted)
+
+
+def test_from_xarray_infers_roughness_frame_without_schema_type() -> None:
+    from wandas.frames.roughness import RoughnessFrame
+
+    bark_axis = np.linspace(0.5, 23.5, 47)
+    original = RoughnessFrame(
+        data=da_from_array(np.ones((47, 3)), chunks=(47, -1)),
+        sampling_rate=10.0,
+        bark_axis=bark_axis,
+        overlap=0.5,
+    )
+    xr_data = original.to_xarray()
+    xr_data.attrs.pop("wandas_frame_type")
+
+    restored = wd.from_xarray(xr_data)
+
+    assert isinstance(restored, RoughnessFrame)
+    npt.assert_allclose(restored.compute(), original.compute())
+
+
+def test_from_xarray_rejects_invalid_roughness_dims() -> None:
+    xr_data = xr.DataArray(
+        np.ones((47, 3)),
+        dims=("bark", "sample"),
+        attrs={"wandas_frame_type": "RoughnessFrame", "sampling_rate": 10.0, "metadata": {"overlap": 0.5}},
+    )
+
+    with pytest.raises(ValueError, match="Invalid dims for RoughnessFrame"):
+        wd.from_xarray(xr_data)
+
+
+def test_channel_extra_list_fallback_still_rejects_malformed_lengths() -> None:
+    frame = wd.ChannelFrame.from_numpy(
+        np.array([[1.0, 2.0], [3.0, 4.0]]),
+        sampling_rate=10.0,
+        ch_labels=["front", "rear"],
+    )
+    xr_data = frame.to_xarray()
+    xr_data.attrs.pop("channel_extra_by_label")
+    xr_data.attrs["channel_extra"] = [{"role": "reference"}]
+
+    restored = wd.from_xarray(xr_data)
+
+    assert [ch.extra for ch in restored.channels] == [{}, {}]
+
+
+def test_axis_targets_dim_handles_none_string_and_nonmatching_axis() -> None:
+    from wandas.processing.chunk_policy import _axis_targets_dim
+
+    assert _axis_targets_dim(None, ("channel", "time"), "time")
+    assert _axis_targets_dim("time", ("channel", "time"), "time")
+    assert not _axis_targets_dim("frequency", ("channel", "time"), "time")
