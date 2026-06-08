@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import json
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -106,16 +107,23 @@ def _dims_for_frame(frame: BaseFrame[Any]) -> tuple[str, ...]:
     if frame_type == "NOctFrame":
         return ("channel", "band")
     if frame_type == "RoughnessFrame":
-        return ("channel", "time")
+        if frame._data.ndim == 2:
+            return ("bark", "time")
+        if frame._data.ndim == 3:
+            return ("channel", "bark", "time")
     return tuple(f"dim_{idx}" for idx in range(frame._data.ndim))
 
 
 def _coords_for_frame(frame: BaseFrame[Any], dims: tuple[str, ...]) -> dict[str, Any]:
     coords: dict[str, Any] = {}
     if "channel" in dims:
-        coords["channel"] = np.asarray(frame.labels, dtype=object)
-        coords["unit"] = ("channel", np.asarray([ch.unit for ch in frame.channels], dtype=object))
-        coords["ref"] = ("channel", np.asarray([ch.ref for ch in frame.channels], dtype=float))
+        channel_size = int(frame._data.shape[dims.index("channel")])
+        labels = frame.labels if len(frame.labels) == channel_size else [f"ch{i}" for i in range(channel_size)]
+        units = [ch.unit for ch in frame.channels] if len(frame.channels) == channel_size else [""] * channel_size
+        refs = [ch.ref for ch in frame.channels] if len(frame.channels) == channel_size else [1.0] * channel_size
+        coords["channel"] = np.asarray(labels, dtype=object)
+        coords["unit"] = ("channel", np.asarray(units, dtype=object))
+        coords["ref"] = ("channel", np.asarray(refs, dtype=float))
 
     if "time" in dims:
         if hasattr(frame, "times"):
@@ -128,6 +136,9 @@ def _coords_for_frame(frame: BaseFrame[Any], dims: tuple[str, ...]) -> dict[str,
 
     if "band" in dims and hasattr(frame, "bands"):
         coords["band"] = np.asarray(getattr(frame, "bands"), dtype=float)
+
+    if "bark" in dims and hasattr(frame, "bark_axis"):
+        coords["bark"] = np.asarray(getattr(frame, "bark_axis"), dtype=float)
 
     return coords
 
@@ -213,3 +224,37 @@ def _as_dask_channelwise(data_array: xr.DataArray) -> Any:
         chunks = tuple([1] + [-1] * (data_array.ndim - 1))
         return dask_data.rechunk(chunks)
     return dask_data.rechunk((-1,))
+
+
+def encode_attrs_for_netcdf(data_array: xr.DataArray) -> xr.DataArray:
+    """Return a DataArray with NetCDF-safe Wandas attrs."""
+    encoded = data_array.copy(deep=False)
+    attrs = copy.deepcopy(dict(encoded.attrs))
+    for key in ("metadata", "operation_history"):
+        if key in attrs:
+            attrs[key] = json.dumps(attrs[key])
+    attrs["wandas_attrs_encoding"] = "json-v1"
+    encoded.attrs = attrs
+    return encoded
+
+
+def decode_attrs_from_netcdf(data_array: xr.DataArray) -> xr.DataArray:
+    """Decode Wandas attrs loaded from NetCDF."""
+    decoded = data_array.copy(deep=False)
+    attrs = copy.deepcopy(dict(decoded.attrs))
+    if attrs.get("wandas_attrs_encoding") == "json-v1":
+        for key in ("metadata", "operation_history"):
+            if key in attrs and isinstance(attrs[key], str):
+                attrs[key] = json.loads(attrs[key])
+        attrs.pop("wandas_attrs_encoding", None)
+    decoded.attrs = attrs
+    return decoded
+
+
+def open_netcdf(path: str | Any) -> BaseFrame[Any]:
+    """Open a Wandas NetCDF file as a frame."""
+    data_array = xr.open_dataarray(path).load()
+    try:
+        return from_xarray(decode_attrs_from_netcdf(data_array))
+    finally:
+        data_array.close()

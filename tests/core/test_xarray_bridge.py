@@ -1,5 +1,6 @@
 import numpy as np
 import numpy.testing as npt
+import pytest
 
 import wandas as wd
 from wandas.core.metadata import ChannelMetadata
@@ -132,3 +133,45 @@ def test_frame_keeps_internal_xarray_storage_in_sync_with_data_property() -> Non
     assert frame._data is frame._xr.data
     assert frame._xr.chunks == ((1,), (2,))
     npt.assert_allclose(frame.compute(), np.array([[5.0, 6.0]]))
+
+
+def test_strict_time_core_operation_rejects_split_time_chunks() -> None:
+    frame = wd.ChannelFrame.from_numpy(np.arange(64.0).reshape(1, -1), sampling_rate=128.0)
+    frame._data = frame._data.rechunk((1, 16))
+
+    with pytest.raises(ValueError, match="requires contiguous chunks along time"):
+        frame.low_pass_filter(10.0)
+
+
+def test_elementwise_operation_allows_split_time_chunks() -> None:
+    frame = wd.ChannelFrame.from_numpy(np.array([[-1.0, 2.0, -3.0, 4.0]]), sampling_rate=4.0)
+    frame._data = frame._data.rechunk((1, 2))
+
+    result = frame.abs()
+
+    npt.assert_allclose(result.compute(), np.array([[1.0, 2.0, 3.0, 4.0]]))
+
+
+def test_netcdf_round_trip_preserves_channel_frame_schema(tmp_path) -> None:
+    original = wd.ChannelFrame.from_numpy(
+        np.array([[1.0, 2.0, 3.0]]),
+        sampling_rate=12.0,
+        label="io-signal",
+        metadata={"source": "netcdf-test"},
+        ch_labels=["mic"],
+        ch_units=["Pa"],
+    )
+    original.operation_history.append({"operation": "gain", "factor": 0.5})
+    path = tmp_path / "frame.nc"
+
+    original.to_netcdf(path)
+    restored = wd.open_netcdf(path)
+
+    assert isinstance(restored, wd.ChannelFrame)
+    assert restored.sampling_rate == original.sampling_rate
+    assert restored.label == original.label
+    assert restored.metadata == original.metadata
+    assert restored.operation_history == original.operation_history
+    assert restored.labels == original.labels
+    assert [ch.unit for ch in restored.channels] == ["Pa"]
+    npt.assert_allclose(restored.compute(), original.compute())

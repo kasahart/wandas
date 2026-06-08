@@ -191,8 +191,11 @@ class BaseFrame(ABC, Generic[T]):
             return ("channel", "frequency", "time")
         if frame_type == "NOctFrame" and data.ndim == 2:
             return ("channel", "band")
-        if frame_type == "RoughnessFrame" and data.ndim == 2:
-            return ("channel", "time")
+        if frame_type == "RoughnessFrame":
+            if data.ndim == 2:
+                return ("bark", "time")
+            if data.ndim == 3:
+                return ("channel", "bark", "time")
         return tuple(f"dim_{idx}" for idx in range(data.ndim))
 
     def _set_xarray_data(self, data: Any) -> None:
@@ -875,6 +878,9 @@ class BaseFrame(ABC, Generic[T]):
         from wandas.processing import create_operation
 
         operation = create_operation(operation_name, self.sampling_rate, **params)
+        from wandas.processing.chunk_policy import validate_strict_chunks
+
+        validate_strict_chunks(self, operation_name)
         processed_data = operation.process(self._data)
 
         new_metadata, new_history = self._updated_metadata_and_history(operation_name, params)
@@ -931,10 +937,14 @@ class BaseFrame(ABC, Generic[T]):
             Extra constructor keyword arguments required by *output_frame_class*
             (e.g. ``{"n_fft": 1024, "window": "hann"}``).
         """
-        processed_data = operation.process(self._data)
-
         if operation_name is None:
             operation_name = getattr(operation, "name", "unknown_operation")
+
+        from wandas.processing.chunk_policy import validate_strict_chunks
+
+        validate_strict_chunks(self, operation_name)
+        processed_data = operation.process(self._data)
+
         params = getattr(operation, "params", {})
 
         new_metadata, new_history = self._updated_metadata_and_history(operation_name, params)
@@ -1101,6 +1111,12 @@ class BaseFrame(ABC, Generic[T]):
     def xr(self) -> Any:
         """Return an xarray DataArray view of this frame using the Wandas schema."""
         return self.to_xarray(copy=True)
+
+    def to_netcdf(self, path: str | Any) -> None:
+        """Write the frame to NetCDF using the Wandas xarray schema."""
+        from wandas.xarray_bridge import encode_attrs_for_netcdf
+
+        encode_attrs_for_netcdf(self.to_xarray(copy=True)).to_netcdf(path)
 
     def to_tensor(self, framework: str = "torch", device: str | None = None) -> Any:
         """
