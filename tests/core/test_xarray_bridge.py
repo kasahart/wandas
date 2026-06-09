@@ -1,15 +1,18 @@
 from typing import Any, cast
 from unittest import mock
 
+import dask.array as da
 import numpy as np
 import numpy.testing as npt
 import pytest
 import xarray as xr
 
 import wandas as wd
+from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
+from wandas.processing.base import AudioOperation
 from wandas.utils.dask_helpers import da_from_array
 
 
@@ -1062,3 +1065,205 @@ def test_fft_uses_xarray_apply_ufunc_and_records_execution() -> None:
         "core_dims": ["time"],
         "output_core_dims": ["frequency"],
     }
+
+
+class _BaseFrameProbe(BaseFrame[np.ndarray]):
+    @property
+    def _n_channels(self) -> int:
+        return int(self._data.shape[0]) if self._data.ndim else 1
+
+    def plot(self, plot_type: str = "default", ax: Any = None, **kwargs: Any) -> Any:
+        raise NotImplementedError
+
+    def _get_dataframe_index(self) -> Any:
+        import pandas as pd
+
+        return pd.RangeIndex(stop=int(self._data.shape[-1]) if self._data.ndim else 1)
+
+
+class _NumpyBackedXarrayOperation(AudioOperation[np.ndarray, np.ndarray]):
+    name = "_test_numpy_xarray_result"
+    _display = "txr"
+
+    def _setup_processor(self) -> None:
+        return None
+
+    def process_xarray(self, data_array: xr.DataArray) -> xr.DataArray | None:
+        computed = data_array.compute()
+        return xr.DataArray(np.asarray(computed.data) + 1.0, dims=data_array.dims, attrs=data_array.attrs)
+
+    def _process_array(self, x: np.ndarray) -> np.ndarray:
+        return x + 1.0
+
+
+class _MissingRequiredArgFrame(wd.ChannelFrame):
+    def __init__(self, *args: Any, required_arg: str, **kwargs: Any):
+        self.required_arg = required_arg
+        super().__init__(*args, **kwargs)
+
+
+def test_phase2_default_attrs_are_reconstructed_from_internal_xarray() -> None:
+    frame = wd.ChannelFrame.from_numpy(np.array([[1.0, 2.0]]), sampling_rate=2.0)
+    frame._xr.attrs.pop("label", None)
+    frame._xr.name = None
+    frame._xr.attrs.pop("metadata", None)
+    frame._xr.attrs["source_file"] = "input.wav"
+    frame._xr.attrs["operation_history"] = "not-a-list"
+
+    assert frame.label == "unnamed_frame"
+    assert frame.metadata.source_file == "input.wav"
+    assert frame.operation_history == []
+    assert frame._xr.attrs["operation_history"] == []
+
+    frame.metadata = None
+
+    assert frame.metadata.source_file is None
+    assert "source_file" not in frame._xr.attrs
+
+
+def test_phase2_channel_metadata_restores_from_public_attr_and_coords() -> None:
+    frame = wd.ChannelFrame.from_numpy(np.array([[1.0, 2.0], [3.0, 4.0]]), sampling_rate=2.0)
+    frame._xr.attrs.pop("_wandas_internal_channel_metadata", None)
+    frame._xr.attrs["channel_metadata"] = [
+        ChannelMetadata(label="front", unit="Pa", ref=2.0, extra={"role": "reference"}),
+        {"label": "rear", "unit": "g", "ref": 3.0, "extra": {"role": "response"}},
+    ]
+
+    restored = frame._channel_metadata
+
+    assert [ch.label for ch in restored] == ["front", "rear"]
+    assert [ch.unit for ch in restored] == ["Pa", "g"]
+    assert [ch.ref for ch in restored] == [2.0, 3.0]
+    assert [ch.extra for ch in restored] == [{"role": "reference"}, {"role": "response"}]
+
+    frame._xr.attrs.pop("_wandas_internal_channel_metadata", None)
+    frame._xr.attrs.pop("channel_metadata", None)
+    frame._xr = frame._xr.assign_coords(
+        channel=("channel", ["left", "right"]),
+        unit=("channel", ["Pa", "m/s2"]),
+        ref=("channel", [20e-6, 1.0]),
+    )
+
+    fallback = frame._channel_metadata
+
+    assert [ch.label for ch in fallback] == ["left", "right"]
+    assert [ch.unit for ch in fallback] == ["Pa", "m/s2"]
+    assert [ch.ref for ch in fallback] == [20e-6, 1.0]
+
+
+def test_phase2_channel_metadata_setter_rejects_invalid_items() -> None:
+    frame = wd.ChannelFrame.from_numpy(np.array([[1.0, 2.0]]), sampling_rate=2.0)
+
+    with pytest.raises(ValueError, match="Invalid channel_metadata at index 0"):
+        frame._channel_metadata = [{"label": 123}]
+
+    with pytest.raises(TypeError, match="Invalid type in channel_metadata at index 0"):
+        setattr(frame, "_channel_metadata", [object()])
+
+
+def test_binary_frame_operations_reject_channel_count_and_shape_mismatch() -> None:
+    left = wd.ChannelFrame.from_numpy(np.ones((2, 3)), sampling_rate=10.0)
+    one_channel = wd.ChannelFrame.from_numpy(np.ones((1, 3)), sampling_rate=10.0)
+    different_shape = wd.ChannelFrame.from_numpy(np.ones((2, 4)), sampling_rate=10.0)
+
+    with pytest.raises(ValueError, match="Channel count mismatch"):
+        _ = left + one_channel
+
+    with pytest.raises(ValueError, match="Frame shape mismatch"):
+        _ = left + different_shape
+
+
+def test_apply_operation_impl_uses_xarray_path_and_wraps_numpy_result(monkeypatch: pytest.MonkeyPatch) -> None:
+    from wandas.processing.base import _OPERATION_REGISTRY, register_operation
+
+    previous = _OPERATION_REGISTRY.get(_NumpyBackedXarrayOperation.name)
+    register_operation(_NumpyBackedXarrayOperation)
+    frame = wd.ChannelFrame.from_numpy(np.array([[1.0, 2.0]]), sampling_rate=2.0)
+
+    try:
+        result = frame._apply_operation_impl(_NumpyBackedXarrayOperation.name)
+    finally:
+        if previous is None:
+            monkeypatch.delitem(_OPERATION_REGISTRY, _NumpyBackedXarrayOperation.name, raising=False)
+        else:
+            monkeypatch.setitem(_OPERATION_REGISTRY, _NumpyBackedXarrayOperation.name, previous)
+
+    assert isinstance(result._data, da.Array)
+    npt.assert_allclose(result.compute(), np.array([[2.0, 3.0]]))
+    assert "execution" not in result.operation_history[-1]
+
+
+def test_apply_operation_instance_reports_bad_output_frame_constructor() -> None:
+    frame = wd.ChannelFrame.from_numpy(np.array([[1.0, 2.0]]), sampling_rate=2.0)
+    operation = _NumpyBackedXarrayOperation(sampling_rate=2.0)
+
+    with pytest.raises(TypeError, match="Invalid output_frame_class constructor"):
+        frame._apply_operation_instance(operation, output_frame_class=_MissingRequiredArgFrame)
+
+
+def test_operation_xarray_fallbacks_for_non_time_schemas() -> None:
+    from wandas.processing.effects import RemoveDC
+    from wandas.processing.spectral import FFT
+
+    data_array = xr.DataArray(np.array([1.0, 2.0]), dims=("sample",))
+
+    assert RemoveDC(sampling_rate=2.0).process_xarray(data_array) is None
+    assert FFT(sampling_rate=2.0).process_xarray(data_array) is None
+
+
+def test_fade_accepts_1d_input_by_restoring_channel_axis() -> None:
+    from wandas.processing.effects import Fade
+
+    result = Fade(sampling_rate=10.0, fade_ms=100.0)._process_array(np.ones(10))
+
+    assert result.shape == (1, 10)
+
+
+def test_istft_output_shape_honors_length_override() -> None:
+    from wandas.processing.spectral import ISTFT
+
+    operation = ISTFT(sampling_rate=16.0, n_fft=8, hop_length=2, length=5)
+
+    assert operation.calculate_output_shape((1, 5, 4)) == (1, 5)
+
+
+def test_base_frame_rechunks_scalar_dask_input_as_single_chunk() -> None:
+    frame = _BaseFrameProbe(da.from_array(np.array(1.0), chunks=()), sampling_rate=1.0)
+
+    assert frame._data.chunks == ()
+
+
+def test_getitem_slice_wraps_scalar_channel_metadata_slice_result() -> None:
+    class ScalarSliceMetadata(list[ChannelMetadata]):
+        def __getitem__(self, key: Any) -> Any:
+            if isinstance(key, slice):
+                return super().__getitem__(0)
+            return super().__getitem__(key)
+
+    frame = wd.ChannelFrame.from_numpy(np.array([[1.0, 2.0]]), sampling_rate=2.0)
+    frame._xr.attrs["_wandas_internal_channel_metadata"] = ScalarSliceMetadata(
+        [ChannelMetadata(label="mic", unit="Pa")]
+    )
+
+    selected = frame[:1]
+
+    assert selected.labels == ["mic"]
+
+
+def test_base_frame_apply_operation_impl_uses_xarray_audio_operation(monkeypatch: pytest.MonkeyPatch) -> None:
+    from wandas.processing.base import _OPERATION_REGISTRY, register_operation
+
+    previous = _OPERATION_REGISTRY.get(_NumpyBackedXarrayOperation.name)
+    register_operation(_NumpyBackedXarrayOperation)
+    frame = _BaseFrameProbe(da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1)), sampling_rate=2.0)
+
+    try:
+        result = frame._apply_operation_impl(_NumpyBackedXarrayOperation.name)
+    finally:
+        if previous is None:
+            monkeypatch.delitem(_OPERATION_REGISTRY, _NumpyBackedXarrayOperation.name, raising=False)
+        else:
+            monkeypatch.setitem(_OPERATION_REGISTRY, _NumpyBackedXarrayOperation.name, previous)
+
+    assert isinstance(result._data, da.Array)
+    npt.assert_allclose(result.compute(), np.array([[2.0, 3.0]]))
