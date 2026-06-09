@@ -231,6 +231,22 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             previous=previous,
         )
 
+    def _channel_count_from_data(self, data: DaArray) -> int:
+        """Return the number of channels in channel-first data."""
+        return int(data.shape[0])
+
+    def _xarray_dims(self, data: DaArray) -> tuple[str, ...]:
+        """Return ChannelFrame dimension names for the internal xarray container."""
+        return ("channel", "time")
+
+    def _xarray_coords(self, data: DaArray) -> dict[str, Any]:
+        """Return cheap ChannelFrame coordinates owned by the frame."""
+        return {"channel": [ch.label for ch in self._channel_metadata]}
+
+    def _refresh_xarray_channel_coord(self) -> None:
+        """Refresh the internal xarray channel coordinate after label changes."""
+        self._xr = self._xr.assign_coords(channel=[ch.label for ch in self._channel_metadata])
+
     def _set_channel_labels(self, ch_labels: list[str]) -> None:
         """Overwrite channel labels after construction.
 
@@ -240,6 +256,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             raise ValueError("Number of channel labels does not match the number of channels")
         for i, lbl in enumerate(ch_labels):
             self._channel_metadata[i].label = lbl
+        self._refresh_xarray_channel_coord()
 
     def _set_channel_units(self, ch_units: list[str]) -> None:
         """Overwrite channel units after construction.
@@ -259,8 +276,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
     ) -> "ChannelFrame":
         """Apply *new_data* and *new_chmeta* either in-place or as a new frame."""
         if inplace:
-            self._data = new_data
             self._channel_metadata = new_chmeta
+            self._replace_data(new_data)
             return self
         return ChannelFrame(
             data=new_data,
@@ -1379,6 +1396,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         if inplace:
             self._channel_metadata = new_chmeta
+            self._refresh_xarray_channel_coord()
             return self
         return self._finalize_channel_update(self._data, new_chmeta, inplace=False)
 

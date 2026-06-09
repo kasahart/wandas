@@ -228,6 +228,12 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         """
         return self._overlap
 
+    def _channel_count_from_data(self, data: DaArray) -> int:
+        """Return the number of channels for mono or channel-first roughness data."""
+        if data.ndim == 2:
+            return 1
+        return int(data.shape[0])
+
     @property
     def _n_channels(self) -> int:
         """

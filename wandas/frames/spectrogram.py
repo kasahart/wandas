@@ -147,6 +147,10 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             previous=previous,
         )
 
+    def _channel_count_from_data(self, data: DaArray) -> int:
+        """Return the number of channels in channel-frequency-time data."""
+        return int(data.shape[-3])
+
     @property
     def _n_channels(self) -> int:
         """
