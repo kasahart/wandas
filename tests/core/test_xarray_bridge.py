@@ -139,6 +139,63 @@ def test_frame_keeps_internal_xarray_storage_in_sync_with_data_property() -> Non
     npt.assert_allclose(frame.compute(), np.array([[5.0, 6.0]]))
 
 
+def test_phase2_to_xarray_copy_false_returns_authoritative_internal_storage() -> None:
+    frame = wd.ChannelFrame.from_numpy(np.array([[1.0, 2.0]]), sampling_rate=2.0, ch_labels=["mic"])
+
+    xr_data = frame.to_xarray(copy=False)
+
+    assert xr_data is frame._xr
+    assert frame._data is frame._xr.data
+
+
+def test_frame_to_xarray_helper_copy_branch_returns_distinct_dataarray() -> None:
+    from wandas.xarray_bridge import frame_to_xarray
+
+    frame = wd.ChannelFrame.from_numpy(np.array([[1.0, 2.0]]), sampling_rate=2.0, ch_labels=["mic"])
+
+    copied = frame_to_xarray(frame, copy_dataarray=True)
+
+    assert copied is not frame._xr
+    assert copied.data is frame._data
+
+
+def test_phase2_frame_metadata_properties_are_backed_by_internal_xarray_attrs() -> None:
+    frame = wd.ChannelFrame.from_numpy(np.array([[1.0, 2.0]]), sampling_rate=2.0)
+
+    frame.sampling_rate = 4.0
+    frame.label = "renamed"
+    frame.metadata = {"source": "phase2"}
+    frame.metadata.source_file = "input.wav"
+    frame.operation_history.append({"operation": "phase2"})
+
+    xr_data = frame.to_xarray(copy=False)
+
+    assert xr_data.attrs["sampling_rate"] == 4.0
+    assert xr_data.attrs["label"] == "renamed"
+    assert xr_data.name == "renamed"
+    assert xr_data.attrs["metadata"] == {"source": "phase2"}
+    assert xr_data.attrs["source_file"] == "input.wav"
+    assert xr_data.attrs["operation_history"] == [{"operation": "phase2"}]
+
+
+def test_phase2_channel_metadata_is_backed_by_internal_xarray_schema() -> None:
+    frame = wd.ChannelFrame.from_numpy(np.array([[1.0, 2.0], [3.0, 4.0]]), sampling_rate=2.0)
+    frame._channel_metadata = [
+        ChannelMetadata(label="front", unit="Pa", extra={"role": "reference"}),
+        ChannelMetadata(label="rear", unit="g", extra={"role": "response"}),
+    ]
+
+    xr_data = frame.to_xarray(copy=False)
+
+    npt.assert_array_equal(xr_data.coords["channel"].values, np.array(["front", "rear"], dtype=object))
+    npt.assert_array_equal(xr_data.coords["unit"].values, np.array(["Pa", "g"], dtype=object))
+    npt.assert_allclose(xr_data.coords["ref"].values, np.array([20e-6, 1.0]))
+    assert xr_data.attrs["channel_extra_by_label"] == {
+        "front": {"role": "reference"},
+        "rear": {"role": "response"},
+    }
+
+
 def test_strict_time_core_operation_rejects_split_time_chunks() -> None:
     frame = wd.ChannelFrame.from_numpy(np.arange(64.0).reshape(1, -1), sampling_rate=128.0)
     frame._data = frame._data.rechunk((1, 16))

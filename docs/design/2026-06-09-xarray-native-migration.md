@@ -261,24 +261,29 @@ Delivered:
 - complex real/imag encoding for NetCDF3 compatibility
 - signal-safe chunk validation based on xarray dims
 
-### Phase 2: Internal xarray as authoritative storage - not complete
+### Phase 2: Internal xarray as authoritative storage - completed in PR #213 follow-up
 
 Goal: make xarray `DataArray` the long-term core data representation.
 
-Required work:
+Delivered:
 
-1. Decide `_xr` ownership rules.
-2. Remove or reduce direct `_data` mutation paths.
-3. Convert `.data`, `.compute()`, `.labels`, `.channels`, `.metadata`, `.operation_history` to compatibility properties over `_xr` where possible.
-4. Define when frame constructors accept raw arrays vs `DataArray`.
-5. Add tests that direct xarray storage updates preserve all legacy API behavior.
-6. Update documentation to state that frame semantics are defined by xarray schema.
+1. Made `BaseFrame._xr` the authoritative storage object for frame data and schema metadata.
+2. Kept `BaseFrame._data` as a compatibility escape hatch that reads and writes `BaseFrame._xr.data`. It no longer owns a separate data object.
+3. Backed `sampling_rate`, `label`, `metadata`, `operation_history`, and `_channel_metadata` by `BaseFrame._xr.attrs`, with public xarray coords/attrs refreshed from that internal schema.
+4. Changed `frame.to_xarray(copy=False)` to return the authoritative internal `DataArray`.
+5. Kept `frame.to_xarray()` / `frame.xr` returning a public shallow copy with private internal attrs removed.
+6. Preserved attrs/name when legacy code assigns `frame._data = ...`, so rechunking through the compatibility path does not drop frame schema.
+7. Added regression tests for authoritative storage identity, metadata-backed attrs, and channel metadata-backed coords.
 
-Exit criteria:
+Exit criteria status:
 
-- There is a single authoritative storage object per frame.
-- Legacy `_data` access is either removed, deprecated, or clearly marked as an escape hatch.
-- Existing frame operations no longer rely on independent duplicated metadata state where xarray schema can provide it.
+- Single authoritative storage object per frame: complete.
+- Legacy `_data` access clearly marked as compatibility access to `_xr.data`: complete.
+- Duplicated frame metadata state reduced where xarray schema can provide it: complete for base frame data, frame attrs, operation history, and channel metadata.
+
+Remaining compatibility note:
+
+- Many existing frame methods still call `self._data` for array operations. This is now an escape hatch property over `_xr.data`, not separate storage. Reducing those call sites to `self._xr`/xarray-native operations is incremental cleanup, not a Phase 2 blocker.
 
 ### Phase 3: xarray-aware operations - completed in PR #213 follow-up
 
@@ -356,13 +361,12 @@ Do not implement this before the frame schema and operation semantics are stable
 Completed:
 
 - Phase 1 bridge is implemented and verified.
-- Some Phase 2 scaffolding exists through internal `_xr` sync.
+- Phase 2 internal xarray authoritative storage is implemented and verified.
 - Phase 3 xarray-aware operation dispatch is implemented for representative strict operations and exact reductions.
 - Some Phase 4 scaffolding exists through NetCDF helpers.
 
 Not completed:
 
-- Full xarray-native internal model.
 - Full xarray-native operation coverage for every operation.
 - Public blockwise/overlap execution modes.
 - Zarr support.

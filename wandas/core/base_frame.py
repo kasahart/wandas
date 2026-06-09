@@ -37,6 +37,8 @@ T = TypeVar("T", NDArrayComplex, NDArrayReal)
 S = TypeVar("S", bound="BaseFrame[Any]")
 S_Out = TypeVar("S_Out", bound="BaseFrame[Any]")
 QueryType = str | Pattern[str] | Callable[["ChannelMetadata"], bool] | dict[str, Any]
+_INTERNAL_CHANNEL_METADATA_ATTR = "_wandas_internal_channel_metadata"
+_PRIVATE_XARRAY_ATTR_PREFIX = "_wandas_internal_"
 
 
 class BaseFrame(ABC, Generic[T]):
@@ -79,11 +81,6 @@ class BaseFrame(ABC, Generic[T]):
     """
 
     _xr: Any
-    sampling_rate: float
-    label: str
-    metadata: FrameMetadata
-    operation_history: list[dict[str, Any]]
-    _channel_metadata: list[ChannelMetadata]
     _previous: "BaseFrame[Any] | None"
 
     def __init__(
@@ -199,22 +196,170 @@ class BaseFrame(ABC, Generic[T]):
         return tuple(f"dim_{idx}" for idx in range(data.ndim))
 
     def _set_xarray_data(self, data: Any) -> None:
-        """Set raw data into `_xr`; full coords are refreshed after metadata exists."""
+        """Set raw data into `_xr` while preserving existing schema attrs."""
         import xarray as xr
 
+        previous = getattr(self, "_xr", None)
+        attrs = copy.deepcopy(getattr(previous, "attrs", {}))
+        name = getattr(previous, "name", None)
+
         if not isinstance(data, DaArray):
-            self._xr = SimpleNamespace(data=data)
+            self._xr = SimpleNamespace(data=data, attrs=attrs, name=name)
             return
 
-        self._xr = xr.DataArray(data, dims=self._xarray_dims_for_data(data))
+        self._xr = xr.DataArray(data, dims=self._xarray_dims_for_data(data), attrs=attrs, name=name)
 
     def _refresh_xarray_storage(self) -> None:
         """Refresh `_xr` so coords and attrs mirror the current frame metadata."""
+        self._sync_xarray_schema()
+
+    def _sync_xarray_schema(self) -> None:
+        """Make the internal xarray object reflect the current Wandas schema."""
         from wandas.xarray_bridge import frame_to_xarray
 
         if not isinstance(self._data, DaArray):
             return
-        self._xr = frame_to_xarray(self, copy_dataarray=False)
+        channel_metadata = self._xr.attrs.get(_INTERNAL_CHANNEL_METADATA_ATTR)
+        refreshed = frame_to_xarray(self, copy_dataarray=False)
+        if channel_metadata is not None:
+            refreshed.attrs[_INTERNAL_CHANNEL_METADATA_ATTR] = channel_metadata
+        self._xr = refreshed
+
+    @property
+    def sampling_rate(self) -> float:
+        """Sampling rate stored in the authoritative xarray attrs."""
+        return self._xr.attrs.get("sampling_rate", 0.0)
+
+    @sampling_rate.setter
+    def sampling_rate(self, value: float) -> None:
+        self._xr.attrs["sampling_rate"] = value
+
+    @property
+    def label(self) -> str:
+        """Frame label stored in the authoritative xarray attrs/name."""
+        value = self._xr.attrs.get("label", self._xr.name)
+        if value is None:
+            return "unnamed_frame"
+        return str(value)
+
+    @label.setter
+    def label(self, value: str | None) -> None:
+        label = value or "unnamed_frame"
+        self._xr.attrs["label"] = label
+        self._xr.name = label
+
+    @property
+    def metadata(self) -> FrameMetadata:
+        """Frame metadata stored in the authoritative xarray attrs."""
+        value = self._xr.attrs.get("metadata")
+        if isinstance(value, FrameMetadata):
+            return value
+        if isinstance(value, dict):
+            metadata = FrameMetadata(value)
+        else:
+            metadata = FrameMetadata()
+        source_file = self._xr.attrs.get("source_file")
+        if source_file is not None:
+            metadata.source_file = str(source_file)
+        self._xr.attrs["metadata"] = metadata
+        return metadata
+
+    @metadata.setter
+    def metadata(self, value: FrameMetadata | dict[str, Any] | None) -> None:
+        if isinstance(value, FrameMetadata):
+            metadata = value
+        elif value is not None:
+            metadata = FrameMetadata(value)
+        else:
+            metadata = FrameMetadata()
+        self._xr.attrs["metadata"] = metadata
+        if metadata.source_file is not None:
+            self._xr.attrs["source_file"] = metadata.source_file
+        else:
+            self._xr.attrs.pop("source_file", None)
+
+    @property
+    def operation_history(self) -> list[dict[str, Any]]:
+        """Operation history stored in the authoritative xarray attrs."""
+        value = self._xr.attrs.get("operation_history")
+        if isinstance(value, list):
+            return value
+        history: list[dict[str, Any]] = []
+        self._xr.attrs["operation_history"] = history
+        return history
+
+    @operation_history.setter
+    def operation_history(self, value: list[dict[str, Any]] | None) -> None:
+        self._xr.attrs["operation_history"] = value or []
+
+    @property
+    def _channel_metadata(self) -> list[ChannelMetadata]:
+        """Channel metadata stored in the authoritative xarray attrs/coords."""
+        value = self._xr.attrs.get(_INTERNAL_CHANNEL_METADATA_ATTR)
+        if isinstance(value, list) and all(isinstance(ch, ChannelMetadata) for ch in value):
+            return value
+
+        public_value = self._xr.attrs.get("channel_metadata")
+        if isinstance(public_value, list):
+            metadata = []
+            for idx, item in enumerate(public_value):
+                if isinstance(item, ChannelMetadata):
+                    metadata.append(item.model_copy(deep=True))
+                elif isinstance(item, dict):
+                    raw_item = cast(dict[str, Any], item)
+                    extra = raw_item.get("extra", {})
+                    metadata.append(
+                        ChannelMetadata(
+                            label=str(raw_item.get("label", f"ch{idx}")),
+                            unit=str(raw_item.get("unit", "")),
+                            ref=float(raw_item.get("ref", 1.0)),
+                            extra=copy.deepcopy(extra) if isinstance(extra, dict) else {},
+                        )
+                    )
+            if metadata:
+                self._xr.attrs[_INTERNAL_CHANNEL_METADATA_ATTR] = metadata
+                return metadata
+
+        n_channels = int(self._xr.sizes.get("channel", self._xr.shape[0] if self._xr.ndim else 1))
+        labels = [f"ch{i}" for i in range(n_channels)]
+        if "channel" in self._xr.coords:
+            labels = [str(item) for item in self._xr.coords["channel"].values.tolist()]
+        units = [""] * n_channels
+        if "unit" in self._xr.coords:
+            units = [str(item) for item in self._xr.coords["unit"].values.tolist()]
+        refs = [1.0] * n_channels
+        if "ref" in self._xr.coords:
+            refs = [float(item) for item in self._xr.coords["ref"].values.tolist()]
+        metadata = [ChannelMetadata(label=labels[idx], unit=units[idx], ref=refs[idx]) for idx in range(n_channels)]
+        self._xr.attrs[_INTERNAL_CHANNEL_METADATA_ATTR] = metadata
+        return metadata
+
+    @_channel_metadata.setter
+    def _channel_metadata(self, value: list[ChannelMetadata] | list[dict[str, Any]]) -> None:
+        metadata: list[ChannelMetadata] = []
+        for idx, item in enumerate(value):
+            if isinstance(item, ChannelMetadata):
+                metadata.append(item.model_copy(deep=True))
+            elif isinstance(item, dict):
+                try:
+                    metadata.append(ChannelMetadata(**item))
+                except ValidationError as e:
+                    raise ValueError(
+                        f"Invalid channel_metadata at index {idx}\n"
+                        f"  Got: {item}\n"
+                        f"  Validation error: {e}\n"
+                        f"Ensure all dict keys match ChannelMetadata fields "
+                        f"(label, unit, ref, extra) and have correct types."
+                    ) from e
+            else:
+                raise TypeError(
+                    f"Invalid type in channel_metadata at index {idx}\n"
+                    f"  Got: {type(item).__name__} ({item!r})\n"
+                    f"  Expected: ChannelMetadata or dict\n"
+                    f"Use ChannelMetadata objects or dicts with valid fields."
+                )
+        self._xr.attrs[_INTERNAL_CHANNEL_METADATA_ATTR] = metadata
+        self._sync_xarray_schema()
 
     @property
     def _n_channels(self) -> int:
@@ -1126,9 +1271,16 @@ class BaseFrame(ABC, Generic[T]):
 
     def to_xarray(self, copy: bool = True) -> Any:
         """Convert the frame to an xarray DataArray using the Wandas schema."""
-        from wandas.xarray_bridge import frame_to_xarray
+        self._sync_xarray_schema()
+        if not copy:
+            return self._xr
+        import copy as copy_module
 
-        return frame_to_xarray(self, copy_dataarray=copy)
+        data_array = self._xr.copy(deep=False)
+        data_array.attrs = copy_module.deepcopy(
+            {key: value for key, value in self._xr.attrs.items() if not key.startswith(_PRIVATE_XARRAY_ATTR_PREFIX)}
+        )
+        return data_array
 
     @property
     def xr(self) -> Any:
