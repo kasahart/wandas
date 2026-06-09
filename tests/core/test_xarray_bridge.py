@@ -896,6 +896,110 @@ def test_from_xarray_scalar_roughness_channel_selection_keeps_selected_metadata(
     assert restored.channels[0].extra == {"side": "right"}
 
 
+def test_from_xarray_scalar_channel_selection_restores_channel_frame_metadata() -> None:
+    frame = wd.ChannelFrame(
+        data=da_from_array(np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]), chunks=(1, -1)),
+        sampling_rate=10.0,
+        channel_metadata=[
+            ChannelMetadata(label="left", unit="Pa", extra={"side": "left"}),
+            ChannelMetadata(label="right", unit="g", extra={"side": "right"}),
+        ],
+    )
+    selected = frame.to_xarray().sel(channel="right")
+
+    restored = wd.from_xarray(selected)
+
+    assert isinstance(restored, wd.ChannelFrame)
+    assert restored.n_channels == 1
+    assert restored.channels[0].label == "right"
+    assert restored.channels[0].unit == "g"
+    assert restored.channels[0].extra == {"side": "right"}
+    npt.assert_allclose(restored.compute(), np.array([[4.0, 5.0, 6.0]]))
+
+
+def test_from_xarray_scalar_channel_selection_restores_spectral_frame_metadata() -> None:
+    frame = SpectralFrame(
+        data=da_from_array(np.array([[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]], dtype=np.complex128), chunks=(1, -1)),
+        sampling_rate=16.0,
+        n_fft=8,
+        channel_metadata=[
+            ChannelMetadata(label="left", unit="Pa", extra={"side": "left"}),
+            ChannelMetadata(label="right", unit="g", extra={"side": "right"}),
+        ],
+    )
+    selected = frame.to_xarray().sel(channel="right")
+
+    restored = wd.from_xarray(selected)
+
+    assert isinstance(restored, SpectralFrame)
+    assert restored.n_channels == 1
+    assert restored.channels[0].label == "right"
+    assert restored.channels[0].unit == "g"
+    assert restored.channels[0].extra == {"side": "right"}
+    npt.assert_allclose(restored.compute(), np.array([[6, 7, 8, 9, 10]], dtype=np.complex128))
+
+
+def test_from_xarray_scalar_channel_selection_restores_spectrogram_frame_metadata() -> None:
+    data = np.stack([np.ones((5, 3)), np.full((5, 3), 2.0)]).astype(np.complex128)
+    frame = SpectrogramFrame.from_numpy(
+        data,
+        sampling_rate=16.0,
+        n_fft=8,
+        hop_length=2,
+        channel_metadata=[
+            ChannelMetadata(label="left", unit="Pa", extra={"side": "left"}),
+            ChannelMetadata(label="right", unit="g", extra={"side": "right"}),
+        ],
+    )
+    selected = frame.to_xarray().sel(channel="right")
+
+    restored = wd.from_xarray(selected)
+
+    assert isinstance(restored, SpectrogramFrame)
+    assert restored.n_channels == 1
+    assert restored.channels[0].label == "right"
+    assert restored.channels[0].unit == "g"
+    assert restored.channels[0].extra == {"side": "right"}
+    npt.assert_allclose(restored.compute(), data[1:2])
+
+
+def test_from_xarray_scalar_channel_selection_restores_noct_frame_metadata() -> None:
+    from wandas.frames.noct import NOctFrame
+
+    data = np.stack([np.ones(11), np.full(11, 2.0)])
+    frame = NOctFrame(
+        data=da_from_array(data, chunks=(1, -1)),
+        sampling_rate=48_000,
+        fmin=100.0,
+        fmax=1000.0,
+        n=3,
+        G=10,
+        fr=1000,
+        channel_metadata=[
+            ChannelMetadata(label="left", unit="Pa", extra={"side": "left"}),
+            ChannelMetadata(label="right", unit="g", extra={"side": "right"}),
+        ],
+    )
+    selected = frame.to_xarray().sel(channel="right")
+
+    restored = wd.from_xarray(selected)
+
+    assert isinstance(restored, NOctFrame)
+    assert restored.n_channels == 1
+    assert restored.channels[0].label == "right"
+    assert restored.channels[0].unit == "g"
+    assert restored.channels[0].extra == {"side": "right"}
+    npt.assert_allclose(restored.compute(), data[1:2])
+
+
+def test_from_xarray_rejects_missing_time_coordinate_from_internal_schema() -> None:
+    frame = wd.ChannelFrame.from_numpy(np.arange(6.0).reshape(1, -1), sampling_rate=2.0)
+    sliced_internal = frame.to_xarray(copy=False).isel(time=slice(1, None))
+
+    with pytest.raises(ValueError, match="explicit canonical time coordinate"):
+        wd.from_xarray(sliced_internal)
+
+
 def test_to_xarray_copy_false_does_not_materialize_dense_time_coordinate() -> None:
     frame = wd.ChannelFrame(
         data=da_from_array(np.zeros((1, 100_000)), chunks=(1, -1)),

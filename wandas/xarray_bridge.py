@@ -248,6 +248,19 @@ def _infer_frame_type(data_array: xr.DataArray) -> str:
     raise ValueError(f"Cannot infer Wandas frame type from dims: {dims!r}")
 
 
+def _has_scalar_channel_coord(data_array: xr.DataArray) -> bool:
+    if "channel" in data_array.dims or "channel" not in data_array.coords:
+        return False
+    return np.ndim(data_array.coords["channel"].values) == 0
+
+
+def _valid_dims_for_frame(data_array: xr.DataArray, frame_type: str, expected: tuple[str, ...]) -> set[tuple[str, ...]]:
+    valid = {expected}
+    if _has_scalar_channel_coord(data_array) and expected and expected[0] == "channel":
+        valid.add(expected[1:])
+    return valid
+
+
 def _validate_dims(data_array: xr.DataArray, frame_type: str) -> None:
     expected = {
         "ChannelFrame": ("channel", "time"),
@@ -264,8 +277,10 @@ def _validate_dims(data_array: xr.DataArray, frame_type: str) -> None:
         return
     if expected is None:
         return
-    if tuple(data_array.dims) != expected:
-        raise ValueError(f"Invalid dims for {frame_type}: expected {expected}, got {tuple(data_array.dims)}")
+    valid_dims = _valid_dims_for_frame(data_array, frame_type, expected)
+    if tuple(data_array.dims) not in valid_dims:
+        expected_text = " or ".join(str(item) for item in sorted(valid_dims))
+        raise ValueError(f"Invalid dims for {frame_type}: expected {expected_text}, got {tuple(data_array.dims)}")
 
 
 def _validate_frame_shape(data_array: xr.DataArray, frame_type: str) -> None:
@@ -316,8 +331,12 @@ def _expected_noct_band_values(attrs: dict[Any, Any]) -> np.ndarray:
 
 
 def _validate_time_coordinate(data_array: xr.DataArray, frame_type: str) -> None:
-    if "time" not in data_array.dims or "time" not in data_array.coords:
+    if "time" not in data_array.dims:
         return
+    if "time" not in data_array.coords:
+        raise ValueError(
+            f"Invalid time coordinate for {frame_type}: Wandas imports require an explicit canonical time coordinate"
+        )
 
     sampling_rate = float(data_array.attrs["sampling_rate"])
     time_size = int(data_array.sizes["time"])
