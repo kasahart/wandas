@@ -40,8 +40,8 @@ def validate_strict_chunks(frame: Any, operation_name: str, params: dict[str, An
 
     data_array = frame.to_xarray(copy=False)
     if operation_name == "normalize":
-        axis = None if params is None else params.get("axis", -1)
-        if not _axis_targets_dim(axis, data_array.dims, "time"):
+        axis = params.get("axis", -1) if params is not None else -1
+        if axis is None or not _axis_targets_dim(axis, data_array.dims, "time"):
             return
 
     if data_array.chunks is None:

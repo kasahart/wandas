@@ -992,6 +992,83 @@ def test_from_xarray_scalar_channel_selection_restores_noct_frame_metadata() -> 
     npt.assert_allclose(restored.compute(), data[1:2])
 
 
+def test_from_xarray_scalar_spectrogram_selection_keeps_frequency_contiguous() -> None:
+    data = np.stack([np.ones((5, 3)), np.full((5, 3), 2.0)]).astype(np.complex128)
+    frame = SpectrogramFrame.from_numpy(
+        data,
+        sampling_rate=16.0,
+        n_fft=8,
+        hop_length=2,
+        channel_metadata=[ChannelMetadata(label="left"), ChannelMetadata(label="right")],
+    )
+    selected = frame.to_xarray().sel(channel="right")
+
+    restored = wd.from_xarray(selected)
+
+    assert isinstance(restored, SpectrogramFrame)
+    assert restored._data.chunks[1] == (5,)
+    assert restored._data.chunks[2] == (3,)
+
+
+def test_from_xarray_infers_noct_frame_when_schema_type_missing() -> None:
+    from wandas.frames.noct import NOctFrame
+
+    frame = NOctFrame(
+        data=da_from_array(np.ones((1, 11)), chunks=(1, -1)),
+        sampling_rate=48_000,
+        fmin=100.0,
+        fmax=1000.0,
+        n=3,
+        G=10,
+        fr=1000,
+    )
+    xr_data = frame.to_xarray()
+    xr_data.attrs.pop("wandas_frame_type")
+
+    restored = wd.from_xarray(xr_data)
+
+    assert isinstance(restored, NOctFrame)
+    npt.assert_allclose(restored.compute(), frame.compute())
+
+
+def test_from_xarray_infers_scalar_noct_frame_when_schema_type_missing() -> None:
+    from wandas.frames.noct import NOctFrame
+
+    frame = NOctFrame(
+        data=da_from_array(np.stack([np.ones(11), np.full(11, 2.0)]), chunks=(1, -1)),
+        sampling_rate=48_000,
+        fmin=100.0,
+        fmax=1000.0,
+        n=3,
+        G=10,
+        fr=1000,
+        channel_metadata=[ChannelMetadata(label="left"), ChannelMetadata(label="right")],
+    )
+    selected = frame.to_xarray().sel(channel="right")
+    selected.attrs.pop("wandas_frame_type")
+
+    restored = wd.from_xarray(selected)
+
+    assert isinstance(restored, NOctFrame)
+    assert restored.labels == ["right"]
+    npt.assert_allclose(restored.compute(), np.full((1, 11), 2.0))
+
+
+def test_from_xarray_rejects_duplicate_label_scalar_channel_selection() -> None:
+    frame = wd.ChannelFrame(
+        data=da_from_array(np.array([[1.0, 2.0], [3.0, 4.0]]), chunks=(1, -1)),
+        sampling_rate=10.0,
+        channel_metadata=[
+            ChannelMetadata(label="dup", unit="Pa", extra={"idx": 0}),
+            ChannelMetadata(label="dup", unit="g", extra={"idx": 1}),
+        ],
+    )
+    selected = frame.to_xarray().isel(channel=1)
+
+    with pytest.raises(ValueError, match="duplicate channel labels"):
+        wd.from_xarray(selected)
+
+
 def test_from_xarray_rejects_missing_time_coordinate_from_internal_schema() -> None:
     frame = wd.ChannelFrame.from_numpy(np.arange(6.0).reshape(1, -1), sampling_rate=2.0)
     sliced_internal = frame.to_xarray(copy=False).isel(time=slice(1, None))

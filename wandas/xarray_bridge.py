@@ -243,9 +243,15 @@ def _infer_frame_type(data_array: xr.DataArray) -> str:
         return "SpectralFrame"
     if dims == ("channel", "frequency", "time"):
         return "SpectrogramFrame"
+    if dims in {("channel", "band"), ("band",)} and _has_noct_attrs(data_array.attrs):
+        return "NOctFrame"
     if dims in {("bark", "time"), ("channel", "bark", "time")}:
         return "RoughnessFrame"
     raise ValueError(f"Cannot infer Wandas frame type from dims: {dims!r}")
+
+
+def _has_noct_attrs(attrs: dict[Any, Any]) -> bool:
+    return all(name in attrs for name in ("fmin", "fmax", "n", "G", "fr"))
 
 
 def _has_scalar_channel_coord(data_array: xr.DataArray) -> bool:
@@ -367,9 +373,14 @@ def _channel_metadata_from_coords(data_array: xr.DataArray) -> list[ChannelMetad
         if "channel" in data_array.coords:
             selected_label = str(data_array.coords["channel"].item())
             if isinstance(encoded, list):
-                for item in _channel_metadata_from_attrs(encoded):
-                    if item.label == selected_label:
-                        return [item]
+                matches = [item for item in _channel_metadata_from_attrs(encoded) if item.label == selected_label]
+                if len(matches) == 1:
+                    return [matches[0]]
+                if len(matches) > 1:
+                    raise ValueError(
+                        "Cannot restore scalar channel selection with duplicate channel labels; "
+                        "select channels by a unique label or keep the channel dimension."
+                    )
             extras_by_label = data_array.attrs.get("channel_extra_by_label")
             extra = copy.deepcopy(extras_by_label.get(selected_label, {})) if isinstance(extras_by_label, dict) else {}
             return [ChannelMetadata(label=selected_label, extra=extra if isinstance(extra, dict) else {})]
@@ -425,16 +436,14 @@ def _coord_values(data_array: xr.DataArray, name: str, default: list[Any]) -> li
     return list(values)
 
 
-def _chunks_for_ndim(ndim: int) -> tuple[int, ...]:
-    if ndim == 0:
+def _chunks_for_dims(dims: tuple[str, ...]) -> tuple[int, ...]:
+    if not dims:
         return ()
-    if ndim == 1:
-        return (-1,)
-    return tuple([1] + [-1] * (ndim - 1))
+    return tuple(1 if dim == "channel" else -1 for dim in dims)
 
 
 def _as_dask_channelwise(data_array: xr.DataArray) -> Any:
-    chunks = _chunks_for_ndim(data_array.ndim)
+    chunks = _chunks_for_dims(tuple(str(dim) for dim in data_array.dims))
     data = data_array.data
     if hasattr(data, "rechunk"):
         return data.rechunk(chunks)
