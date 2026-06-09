@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 import xarray as xr
 from dask import array as da
+from dask import delayed
 
 from wandas import ChannelFrame
 from wandas.core.metadata import ChannelMetadata, FrameMetadata
@@ -181,3 +182,56 @@ def test_rename_channels_inplace_refreshes_xarray_channel_coord() -> None:
 
     assert frame.labels == ["Left", "R"]
     assert list(frame._xr.coords["channel"].values) == ["Left", "R"]
+
+
+def test_add_channel_inplace_updates_xarray_without_compute() -> None:
+    calls: list[str] = []
+
+    def build() -> list[list[float]]:
+        calls.append("computed")
+        return [[1.0, 2.0, 3.0]]
+
+    lazy_data = da.from_delayed(
+        delayed(build)(),
+        shape=(1, 3),
+        dtype=float,
+    )
+    frame = ChannelFrame(data=lazy_data, sampling_rate=3.0)
+
+    result = frame.add_channel(np.array([4.0, 5.0, 6.0]), label="extra", inplace=True)
+
+    assert result is frame
+    assert calls == []
+    assert frame._data is frame._xr.data
+    assert frame._data.shape == (2, 3)
+    assert list(frame._xr.coords["channel"].values) == ["ch0", "extra"]
+
+
+def test_remove_channel_inplace_updates_xarray_without_compute() -> None:
+    calls: list[str] = []
+
+    def build() -> list[list[float]]:
+        calls.append("computed")
+        return [[1.0, 2.0], [3.0, 4.0]]
+
+    lazy_data = da.from_delayed(
+        delayed(build)(),
+        shape=(2, 2),
+        dtype=float,
+    )
+    frame = ChannelFrame(
+        data=lazy_data,
+        sampling_rate=2.0,
+        channel_metadata=[
+            ChannelMetadata(label="left"),
+            ChannelMetadata(label="right"),
+        ],
+    )
+
+    result = frame.remove_channel("left", inplace=True)
+
+    assert result is frame
+    assert calls == []
+    assert frame._data is frame._xr.data
+    assert frame._data.shape == (1, 2)
+    assert list(frame._xr.coords["channel"].values) == ["right"]
