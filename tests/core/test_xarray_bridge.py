@@ -696,9 +696,89 @@ def test_channel_extra_list_fallback_still_rejects_malformed_lengths() -> None:
     assert [ch.extra for ch in restored.channels] == [{}, {}]
 
 
+def test_channel_metadata_attrs_ignores_malformed_entries() -> None:
+    from wandas.xarray_bridge import _channel_metadata_from_attrs
+
+    restored = _channel_metadata_from_attrs(["bad", {"label": "mic", "extra": ["bad"]}])
+
+    assert len(restored) == 1
+    assert restored[0].label == "mic"
+    assert restored[0].extra == {}
+
+
 def test_axis_targets_dim_handles_none_string_and_nonmatching_axis() -> None:
     from wandas.processing.chunk_policy import _axis_targets_dim
 
     assert _axis_targets_dim(None, ("channel", "time"), "time")
     assert _axis_targets_dim("time", ("channel", "time"), "time")
     assert not _axis_targets_dim("frequency", ("channel", "time"), "time")
+
+
+def test_noct_frame_to_xarray_uses_frequency_band_coordinate_by_default() -> None:
+    from wandas.frames.noct import NOctFrame
+
+    frame = NOctFrame(
+        data=da_from_array(np.ones((1, 11)), chunks=(1, -1)),
+        sampling_rate=48_000,
+        fmin=100.0,
+        fmax=1000.0,
+        n=3,
+        G=10,
+        fr=1000,
+    )
+
+    xr_data = frame.to_xarray()
+
+    npt.assert_allclose(xr_data.coords["band"].values, frame.freqs)
+
+
+def test_from_xarray_rejects_reordered_noct_band_coordinate() -> None:
+    from wandas.frames.noct import NOctFrame
+
+    frame = NOctFrame(
+        data=da_from_array(np.ones((1, 11)), chunks=(1, -1)),
+        sampling_rate=48_000,
+        fmin=100.0,
+        fmax=1000.0,
+        n=3,
+        G=10,
+        fr=1000,
+    )
+    reordered = frame.to_xarray().isel(band=slice(None, None, -1))
+
+    with pytest.raises(ValueError, match="band coordinate"):
+        wd.from_xarray(reordered)
+
+
+def test_noct_synthesis_rejects_split_frequency_chunks() -> None:
+    frame = SpectralFrame(
+        data=da_from_array(np.ones((1, 5), dtype=np.complex128), chunks=(1, -1)),
+        sampling_rate=48_000,
+        n_fft=8,
+    )
+    frame._data = frame._data.rechunk((1, 2))
+
+    with pytest.raises(ValueError, match="Operation 'noct_synthesis' requires contiguous chunks along frequency"):
+        frame.noct_synthesis(fmin=100.0, fmax=1000.0)
+
+
+def test_mono_roughness_frame_preserves_channel_metadata_through_netcdf(tmp_path) -> None:
+    from wandas.frames.roughness import RoughnessFrame
+
+    bark_axis = np.linspace(0.5, 23.5, 47)
+    original = RoughnessFrame(
+        data=da_from_array(np.ones((47, 3)), chunks=(47, -1)),
+        sampling_rate=10.0,
+        bark_axis=bark_axis,
+        overlap=0.5,
+        channel_metadata=[ChannelMetadata(label="rough", unit="asper", ref=2.0, extra={"source": "mono"})],
+    )
+    path = tmp_path / "mono_roughness_metadata.nc"
+
+    original.to_netcdf(path)
+    restored = wd.open_netcdf(path)
+
+    assert restored.channels[0].label == "rough"
+    assert restored.channels[0].unit == "asper"
+    assert restored.channels[0].ref == 2.0
+    assert restored.channels[0].extra == {"source": "mono"}

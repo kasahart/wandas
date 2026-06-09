@@ -27,7 +27,7 @@ STRICT_CORE_DIMS_BY_OPERATION: dict[str, tuple[str, ...]] = {
     "ifft": ("frequency",),
     "istft": ("frequency", "time"),
     "noct_spectrum": ("time",),
-    "noct_synthesis": ("band",),
+    "noct_synthesis": ("frequency",),
 }
 
 
