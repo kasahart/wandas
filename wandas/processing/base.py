@@ -3,6 +3,7 @@ import logging
 from typing import Any, ClassVar, Generic, TypeVar
 
 import dask.array as da
+import xarray as xr
 from dask.array.core import Array as DaArray
 from dask.delayed import delayed
 
@@ -45,6 +46,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         self.sampling_rate = sampling_rate
         self.pure = pure
         self.params = params
+        self._last_execution: dict[str, Any] | None = None
 
         # Validate parameters during initialization
         self.validate_params()
@@ -175,11 +177,35 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         """
         return input_shape
 
+    def process_xarray(self, data_array: xr.DataArray) -> xr.DataArray | None:
+        """Return an xarray-native result, or ``None`` to use the legacy path."""
+        return None
+
+    def _set_execution_info(self, *, engine: str, mode: str, core_dims: list[str], **extra: Any) -> None:
+        """Record how the most recent operation was added to the graph."""
+        self._last_execution = {"engine": engine, "mode": mode, "core_dims": core_dims, **extra}
+
+    def get_execution_info(self) -> dict[str, Any] | None:
+        """Return execution metadata for the most recent processing call."""
+        return self._last_execution
+
+    def process_dataarray(self, data_array: xr.DataArray) -> DaArray:
+        """Execute the operation using xarray when the subclass supports it."""
+        self._last_execution = None
+        xarray_result = self.process_xarray(data_array)
+        if xarray_result is not None:
+            data = xarray_result.data
+            if not isinstance(data, DaArray):
+                data = da.from_array(data, chunks=xarray_result.shape)
+            return data
+        return self.process(data_array.data)
+
     def process(self, data: DaArray) -> DaArray:
         """
         Execute operation and return result
         data shape is (channels, samples)
         """
+        self._last_execution = None
         logger.debug("Adding delayed operation to computation graph")
         delayed_result = self._delayed(data)
         output_shape = self.calculate_output_shape(data.shape)

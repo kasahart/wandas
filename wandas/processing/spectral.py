@@ -2,6 +2,7 @@ import logging
 from typing import Any
 
 import numpy as np
+import xarray as xr
 from mosqito.sound_level_meter import noct_spectrum, noct_synthesis
 from mosqito.sound_level_meter.noct_spectrum._center_freq import _center_freq
 from scipy.signal import ShortTimeFFT
@@ -171,6 +172,32 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         """
         n_freqs = self.n_fft // 2 + 1 if self.n_fft else input_shape[-1] // 2 + 1
         return (*input_shape[:-1], n_freqs)
+
+    def process_xarray(self, data_array: xr.DataArray) -> xr.DataArray | None:
+        """Apply FFT along the time core dimension via xarray.apply_ufunc."""
+        if "time" not in data_array.dims:
+            return None
+
+        n_freqs = self.calculate_output_shape(tuple(data_array.shape))[-1]
+        transformed = xr.apply_ufunc(
+            self._process_array,
+            data_array,
+            input_core_dims=[["time"]],
+            output_core_dims=[["frequency"]],
+            dask="parallelized",
+            output_dtypes=[np.dtype(np.complex128)],
+            dask_gufunc_kwargs={"output_sizes": {"frequency": n_freqs}},
+            keep_attrs=True,
+        )
+        leading_dims = tuple(dim for dim in data_array.dims if dim != "time")
+        transformed = transformed.transpose(*leading_dims, "frequency")
+        self._set_execution_info(
+            engine="xarray.apply_ufunc",
+            mode="strict",
+            core_dims=["time"],
+            output_core_dims=["frequency"],
+        )
+        return transformed
 
     def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
         """Apply FFT to the input array."""

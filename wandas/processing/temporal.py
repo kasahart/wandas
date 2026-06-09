@@ -4,6 +4,7 @@ from typing import Any
 import dask.array as da
 import librosa
 import numpy as np
+import xarray as xr
 from dask.array.core import Array as DaArray
 from dask.delayed import delayed
 from scipy.signal import lfilter
@@ -296,6 +297,33 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
             hop_length=self.hop_length,
         ).shape[-1]
         return (*input_shape[:-1], n_frames)
+
+    def process_xarray(self, data_array: xr.DataArray) -> xr.DataArray | None:
+        """Calculate RMS trend along the time core dimension via xarray.apply_ufunc."""
+        if "time" not in data_array.dims:
+            return None
+
+        n_frames = self.calculate_output_shape(tuple(data_array.shape))[-1]
+        result = xr.apply_ufunc(
+            self._process_array,
+            data_array,
+            input_core_dims=[["time"]],
+            output_core_dims=[["time"]],
+            exclude_dims={"time"},
+            dask="parallelized",
+            output_dtypes=[data_array.dtype],
+            dask_gufunc_kwargs={"output_sizes": {"time": n_frames}},
+            keep_attrs=True,
+        )
+        leading_dims = tuple(dim for dim in data_array.dims if dim != "time")
+        result = result.transpose(*leading_dims, "time")
+        self._set_execution_info(
+            engine="xarray.apply_ufunc",
+            mode="strict",
+            core_dims=["time"],
+            output_core_dims=["time"],
+        )
+        return result
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for RMS calculation"""

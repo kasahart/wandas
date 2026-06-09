@@ -280,24 +280,35 @@ Exit criteria:
 - Legacy `_data` access is either removed, deprecated, or clearly marked as an escape hatch.
 - Existing frame operations no longer rely on independent duplicated metadata state where xarray schema can provide it.
 
-### Phase 3: xarray-aware operations - not complete
+### Phase 3: xarray-aware operations - completed in PR #213 follow-up
 
-Goal: move safe operations to xarray/Dask-native execution while preserving signal correctness.
+Goal: move safe representative operations to xarray/Dask-native execution while preserving signal correctness. This phase does not mean every existing operation has been rewritten; it means the dispatch path, strict execution semantics, representative operations, and verification pattern are in place.
 
-Required work:
+Delivered:
 
-1. Categorize every operation by core dims and blockwise safety.
-2. Keep strict single-core-dim execution for FFT, IIR, `filtfilt`, and resampling until proven safe.
-3. Implement `xr.apply_ufunc` for operations with clear input/output core dims.
-4. Implement `map_overlap` only for operations where overlap semantics are mathematically correct, such as FIR or moving-window metrics.
-5. Record execution mode in `operation_history`.
-6. Add numerical equivalence tests against existing implementations.
+1. Added `AudioOperation.process_xarray()` and `AudioOperation.process_dataarray()` so real operation instances can opt into xarray-native execution while mocks/stubs and unsupported operations keep the legacy `process()` path.
+2. Added execution metadata to operation history for xarray-aware operations without changing the existing `params` structure.
+3. Implemented `xr.apply_ufunc` strict core-dim execution for:
+   - `normalize(axis=-1)` / time-axis normalization
+   - `fft()` from `ChannelFrame` to `SpectralFrame`
+   - `rms_trend()` moving-window RMS in strict whole-time mode
+4. Implemented exact xarray/Dask reduction execution for:
+   - `remove_dc()` over the `time` dimension
+5. Kept unsafe split-core operations guarded by strict chunk validation.
+6. Added numerical equivalence tests and execution-history tests for the xarray-aware paths.
 
-Exit criteria:
+Blockwise / overlap decision:
 
-- At least one representative operation in each safe class is xarray-aware.
-- Unsafe split core chunks fail loudly by default.
-- Any approximate/blockwise mode is explicit and documented.
+- No approximate blockwise mode is enabled in this phase.
+- `map_overlap` is intentionally not added until a specific operation has a reviewed boundary/trim definition.
+- FIR or moving-window blockwise execution should be a separate follow-up with operation-specific numerical equivalence tests.
+
+Exit criteria status:
+
+- Representative `xr.apply_ufunc` strict operations: complete.
+- Representative exact xarray reduction: complete.
+- Unsafe split core chunks fail loudly by default: complete for operations in `STRICT_CORE_DIMS_BY_OPERATION`.
+- Approximate/blockwise mode is explicit: complete by absence; no public blockwise mode is exposed.
 
 ### Phase 4: I/O repositioning - not complete
 
@@ -346,13 +357,14 @@ Completed:
 
 - Phase 1 bridge is implemented and verified.
 - Some Phase 2 scaffolding exists through internal `_xr` sync.
-- Some Phase 3 scaffolding exists through strict chunk policy validation.
+- Phase 3 xarray-aware operation dispatch is implemented for representative strict operations and exact reductions.
 - Some Phase 4 scaffolding exists through NetCDF helpers.
 
 Not completed:
 
 - Full xarray-native internal model.
-- xarray-native operation execution.
+- Full xarray-native operation coverage for every operation.
+- Public blockwise/overlap execution modes.
 - Zarr support.
 - WDF repositioning.
 - Accessor API.
@@ -389,6 +401,6 @@ wandas/processing/chunk_policy.py: 100%
 - Should WDF become a Wandas profile over Zarr/NetCDF, or should it remain a legacy HDF5 format?
 - Should `attrs` hold full `channel_metadata`, or should complex metadata eventually move to a sidecar `Dataset` variable?
 - What is the deprecation policy for direct `_data` mutation?
-- Which operations are safe to expose with `mode="blockwise"`?
+- Which operations are safe to expose with `mode="blockwise"` after operation-specific boundary tests?
 - Should xarray-selected non-zero time origins become representable in Wandas frames?
 - Should `.wd` accessor become public API after Phase 2?

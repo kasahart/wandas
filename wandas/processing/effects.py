@@ -2,6 +2,7 @@ import logging
 from typing import Any
 
 import numpy as np
+import xarray as xr
 from dask.array.core import Array as DaArray
 from librosa import effects
 from librosa import util as librosa_util
@@ -134,6 +135,32 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
             f"Initialized Normalize operation with norm={norm}, axis={axis}, threshold={threshold}, fill={fill}"
         )
 
+    def process_xarray(self, data_array: xr.DataArray) -> xr.DataArray | None:
+        """Normalize along the time core dimension via xarray.apply_ufunc."""
+        from wandas.processing.chunk_policy import _axis_targets_dim
+
+        dims = tuple(str(dim) for dim in data_array.dims)
+        if "time" not in dims or not _axis_targets_dim(self.axis, dims, "time"):
+            return None
+
+        def normalize_time(x: NDArrayReal) -> NDArrayReal:
+            result: NDArrayReal = librosa_util.normalize(
+                x, norm=self.norm, axis=-1, threshold=self.threshold, fill=self.fill
+            )
+            return result
+
+        normalized = xr.apply_ufunc(
+            normalize_time,
+            data_array,
+            input_core_dims=[["time"]],
+            output_core_dims=[["time"]],
+            dask="parallelized",
+            output_dtypes=[data_array.dtype],
+            keep_attrs=True,
+        ).transpose(*data_array.dims)
+        self._set_execution_info(engine="xarray.apply_ufunc", mode="strict", core_dims=["time"])
+        return normalized
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Perform normalization processing"""
         logger.debug(f"Applying normalization to array with shape: {x.shape}, norm={self.norm}, axis={self.axis}")
@@ -167,6 +194,15 @@ class RemoveDC(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         super().__init__(sampling_rate)
         logger.debug("Initialized RemoveDC operation")
+
+    def process_xarray(self, data_array: xr.DataArray) -> xr.DataArray | None:
+        """Remove the time-axis mean using exact xarray/Dask reductions."""
+        if "time" not in data_array.dims:
+            return None
+        result = data_array - data_array.mean(dim="time")
+        result.attrs = data_array.attrs.copy()
+        self._set_execution_info(engine="xarray", mode="exact-reduction", core_dims=["time"])
+        return result
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Perform DC removal processing.

@@ -853,6 +853,7 @@ class BaseFrame(ABC, Generic[T]):
         self,
         operation_name: str,
         params: dict[str, Any],
+        execution: dict[str, Any] | None = None,
     ) -> tuple[FrameMetadata, list[dict[str, Any]]]:
         """Build new metadata dict and operation history after an operation.
 
@@ -863,7 +864,10 @@ class BaseFrame(ABC, Generic[T]):
         """
         new_metadata = self.metadata.copy()
         new_metadata[operation_name] = params
-        new_history = [*self.operation_history, {"operation": operation_name, "params": params}]
+        history_entry: dict[str, Any] = {"operation": operation_name, "params": params}
+        if execution is not None:
+            history_entry["execution"] = execution
+        new_history = [*self.operation_history, history_entry]
         return new_metadata, new_history
 
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
@@ -878,12 +882,22 @@ class BaseFrame(ABC, Generic[T]):
         from wandas.processing import create_operation
 
         operation = create_operation(operation_name, self.sampling_rate, **params)
+        from wandas.processing.base import AudioOperation
         from wandas.processing.chunk_policy import validate_strict_chunks
 
         validate_strict_chunks(self, operation_name, params)
-        processed_data = operation.process(self._data)
+        if AudioOperation in type(operation).mro():
+            processed_data = operation.process_dataarray(self.to_xarray(copy=False))
+            execution = operation.get_execution_info()
+        else:
+            processed_data = operation.process(self._data)
+            execution = None
 
-        new_metadata, new_history = self._updated_metadata_and_history(operation_name, params)
+        new_metadata, new_history = self._updated_metadata_and_history(
+            operation_name,
+            params,
+            execution,
+        )
 
         return self._create_new_instance(
             data=processed_data,
@@ -940,13 +954,23 @@ class BaseFrame(ABC, Generic[T]):
         if operation_name is None:
             operation_name = getattr(operation, "name", "unknown_operation")
 
+        from wandas.processing.base import AudioOperation
         from wandas.processing.chunk_policy import validate_strict_chunks
 
         params = getattr(operation, "params", {})
         validate_strict_chunks(self, operation_name, params)
-        processed_data = operation.process(self._data)
+        if AudioOperation in type(operation).mro():
+            processed_data = operation.process_dataarray(self.to_xarray(copy=False))
+            execution = operation.get_execution_info()
+        else:
+            processed_data = operation.process(self._data)
+            execution = None
 
-        new_metadata, new_history = self._updated_metadata_and_history(operation_name, params)
+        new_metadata, new_history = self._updated_metadata_and_history(
+            operation_name,
+            params,
+            execution,
+        )
 
         metadata_updates = operation.get_metadata_updates()
 

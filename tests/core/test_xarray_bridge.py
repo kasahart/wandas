@@ -1,4 +1,5 @@
 from typing import Any, cast
+from unittest import mock
 
 import numpy as np
 import numpy.testing as npt
@@ -409,6 +410,19 @@ def test_from_xarray_ignores_malformed_channel_extra_metadata() -> None:
     assert [ch.extra for ch in restored.channels] == [{}, {}]
 
 
+def test_noct_frame_to_xarray_omits_band_coordinate_when_freqs_are_not_defined() -> None:
+    from wandas.frames.noct import NOctFrame
+
+    frame = NOctFrame(
+        data=da_from_array(np.ones((1, 4)), chunks=(1, -1)),
+        sampling_rate=48_000,
+    )
+
+    xr_data = frame.to_xarray()
+
+    assert "band" not in xr_data.coords
+
+
 def test_noct_frame_to_xarray_includes_optional_band_coordinate() -> None:
     from wandas.frames.noct import NOctFrame
 
@@ -782,3 +796,76 @@ def test_mono_roughness_frame_preserves_channel_metadata_through_netcdf(tmp_path
     assert restored.channels[0].unit == "asper"
     assert restored.channels[0].ref == 2.0
     assert restored.channels[0].extra == {"source": "mono"}
+
+
+def test_normalize_time_axis_uses_xarray_apply_ufunc_and_records_execution() -> None:
+    frame = wd.ChannelFrame.from_numpy(np.array([[1.0, -2.0, 4.0], [2.0, -4.0, 8.0]]), sampling_rate=3.0)
+
+    with mock.patch("xarray.apply_ufunc", wraps=xr.apply_ufunc) as apply_ufunc:
+        result = frame.normalize()
+        npt.assert_allclose(result.compute(), np.array([[0.25, -0.5, 1.0], [0.25, -0.5, 1.0]]))
+
+    assert apply_ufunc.called
+    assert result.operation_history[-1]["operation"] == "normalize"
+    assert result.operation_history[-1]["execution"] == {
+        "engine": "xarray.apply_ufunc",
+        "mode": "strict",
+        "core_dims": ["time"],
+    }
+
+
+def test_remove_dc_uses_xarray_reduction_with_split_time_chunks() -> None:
+    frame = wd.ChannelFrame.from_numpy(np.array([[1.0, 2.0, 3.0, 4.0]]), sampling_rate=4.0)
+    frame._data = frame._data.rechunk((1, 2))
+
+    result = frame.remove_dc()
+
+    npt.assert_allclose(result.compute(), np.array([[-1.5, -0.5, 0.5, 1.5]]))
+    assert result.operation_history[-1]["execution"] == {
+        "engine": "xarray",
+        "mode": "exact-reduction",
+        "core_dims": ["time"],
+    }
+
+
+def test_rms_trend_uses_xarray_apply_ufunc_strict_execution() -> None:
+    from wandas.processing.temporal import RmsTrend
+
+    data = np.array([[1.0, 0.0, -1.0, 0.0, 1.0, 0.0, -1.0, 0.0]])
+    frame = wd.ChannelFrame.from_numpy(data, sampling_rate=8.0)
+
+    with mock.patch("xarray.apply_ufunc", wraps=xr.apply_ufunc) as apply_ufunc:
+        result = frame.rms_trend(frame_length=4, hop_length=2)
+        expected = RmsTrend(8.0, frame_length=4, hop_length=2)._process_array(data)
+        npt.assert_allclose(result.compute(), expected)
+
+    assert apply_ufunc.called
+    assert result.sampling_rate == 4.0
+    assert result.operation_history[-1]["operation"] == "rms_trend"
+    assert result.operation_history[-1]["execution"] == {
+        "engine": "xarray.apply_ufunc",
+        "mode": "strict",
+        "core_dims": ["time"],
+        "output_core_dims": ["time"],
+    }
+
+
+def test_fft_uses_xarray_apply_ufunc_and_records_execution() -> None:
+    data = np.array([[0.0, 1.0, 0.0, -1.0]])
+    frame = wd.ChannelFrame.from_numpy(data, sampling_rate=4.0)
+
+    with mock.patch("xarray.apply_ufunc", wraps=xr.apply_ufunc) as apply_ufunc:
+        result = frame.fft(n_fft=4, window="boxcar")
+        expected = np.fft.rfft(data, n=4, axis=-1)
+        expected[..., 1:-1] *= 2.0
+        expected = expected / 4.0
+        npt.assert_allclose(result.compute(), expected)
+
+    assert apply_ufunc.called
+    assert result.operation_history[-1]["operation"] == "fft"
+    assert result.operation_history[-1]["execution"] == {
+        "engine": "xarray.apply_ufunc",
+        "mode": "strict",
+        "core_dims": ["time"],
+        "output_core_dims": ["frequency"],
+    }

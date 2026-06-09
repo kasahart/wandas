@@ -147,7 +147,14 @@ class ChannelTransformMixin:
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("FFT", operation)
         # Apply processing to data
-        spectrum_data = operation.process(self._data)
+        from wandas.processing.base import AudioOperation
+
+        if AudioOperation in type(operation).mro():
+            spectrum_data = operation.process_dataarray(cast(BaseFrame[Any], self).to_xarray(copy=False))
+            execution = operation.get_execution_info()
+        else:
+            spectrum_data = operation.process(self._data)
+            execution = None
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
@@ -166,7 +173,11 @@ class ChannelTransformMixin:
             metadata=self.metadata.merged(window=window, n_fft=_n_fft),
             operation_history=[
                 *self.operation_history,
-                {"operation": "fft", "params": {"n_fft": _n_fft, "window": window}},
+                {
+                    "operation": "fft",
+                    "params": {"n_fft": _n_fft, "window": window},
+                    **({"execution": execution} if execution else {}),
+                },
             ],
             channel_metadata=self._channel_metadata,
             previous=self._as_base_frame,
