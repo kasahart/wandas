@@ -139,6 +139,9 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
         """Normalize along the time core dimension via xarray.apply_ufunc."""
         from wandas.processing.chunk_policy import _axis_targets_dim
 
+        if self.axis is None:
+            return None
+
         dims = tuple(str(dim) for dim in data_array.dims)
         if "time" not in dims or not _axis_targets_dim(self.axis, dims, "time"):
             return None
@@ -199,7 +202,7 @@ class RemoveDC(AudioOperation[NDArrayReal, NDArrayReal]):
         """Remove the time-axis mean using exact xarray/Dask reductions."""
         if "time" not in data_array.dims:
             return None
-        result = data_array - data_array.mean(dim="time")
+        result = data_array - data_array.mean(dim="time", skipna=False)
         result.attrs = data_array.attrs.copy()
         self._set_execution_info(engine="xarray", mode="exact-reduction", core_dims=["time"])
         return result

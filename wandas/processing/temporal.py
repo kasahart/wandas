@@ -300,7 +300,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def process_xarray(self, data_array: xr.DataArray) -> xr.DataArray | None:
         """Calculate RMS trend along the time core dimension via xarray.apply_ufunc."""
-        if "time" not in data_array.dims:
+        if "time" not in data_array.dims or self.dB or self.Aw:
             return None
 
         n_frames = self.calculate_output_shape(tuple(data_array.shape))[-1]

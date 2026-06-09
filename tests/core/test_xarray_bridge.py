@@ -467,7 +467,7 @@ def test_from_xarray_ignores_malformed_channel_extra_metadata() -> None:
     assert [ch.extra for ch in restored.channels] == [{}, {}]
 
 
-def test_noct_frame_to_xarray_omits_band_coordinate_when_freqs_are_not_defined() -> None:
+def test_noct_frame_to_xarray_rejects_unreadable_schema_without_band_coordinate() -> None:
     from wandas.frames.noct import NOctFrame
 
     frame = NOctFrame(
@@ -475,9 +475,8 @@ def test_noct_frame_to_xarray_omits_band_coordinate_when_freqs_are_not_defined()
         sampling_rate=48_000,
     )
 
-    xr_data = frame.to_xarray()
-
-    assert "band" not in xr_data.coords
+    with pytest.raises(ValueError, match="NOctFrame xarray export requires a valid band coordinate"):
+        frame.to_xarray()
 
 
 def test_noct_frame_to_xarray_includes_optional_band_coordinate() -> None:
@@ -853,6 +852,143 @@ def test_mono_roughness_frame_preserves_channel_metadata_through_netcdf(tmp_path
     assert restored.channels[0].unit == "asper"
     assert restored.channels[0].ref == 2.0
     assert restored.channels[0].extra == {"source": "mono"}
+
+
+def test_from_xarray_preserves_duplicate_label_channel_extras_positionally() -> None:
+    frame = wd.ChannelFrame(
+        data=da_from_array(np.array([[1.0, 2.0], [3.0, 4.0]]), chunks=(1, -1)),
+        sampling_rate=10.0,
+        channel_metadata=[
+            ChannelMetadata(label="dup", extra={"idx": 0}),
+            ChannelMetadata(label="dup", extra={"idx": 1}),
+        ],
+    )
+
+    restored = wd.from_xarray(frame.to_xarray())
+
+    assert [ch.label for ch in restored.channels] == ["dup", "dup"]
+    assert [ch.extra for ch in restored.channels] == [{"idx": 0}, {"idx": 1}]
+
+
+def test_from_xarray_scalar_roughness_channel_selection_keeps_selected_metadata() -> None:
+    from wandas.frames.roughness import RoughnessFrame
+
+    bark_axis = np.linspace(0.5, 23.5, 47)
+    frame = RoughnessFrame(
+        data=da_from_array(np.ones((2, 47, 3)), chunks=(1, 47, -1)),
+        sampling_rate=10.0,
+        bark_axis=bark_axis,
+        overlap=0.5,
+        channel_metadata=[
+            ChannelMetadata(label="left", extra={"side": "left"}),
+            ChannelMetadata(label="right", extra={"side": "right"}),
+        ],
+    )
+    selected = frame.to_xarray().sel(channel="right")
+
+    restored = wd.from_xarray(selected)
+
+    assert restored.n_channels == 1
+    assert restored.channels[0].label == "right"
+    assert restored.channels[0].extra == {"side": "right"}
+
+
+def test_to_xarray_copy_false_does_not_materialize_dense_time_coordinate() -> None:
+    frame = wd.ChannelFrame(
+        data=da_from_array(np.zeros((1, 100_000)), chunks=(1, -1)),
+        sampling_rate=10.0,
+    )
+
+    internal = frame.to_xarray(copy=False)
+    exported = frame.to_xarray()
+
+    assert "time" not in internal.coords
+    assert "time" in exported.coords
+    npt.assert_allclose(exported.coords["time"].values[:3], np.array([0.0, 0.1, 0.2]))
+
+
+def test_scalar_channel_coord_without_matching_metadata_uses_label_extra_fallback() -> None:
+    from wandas.xarray_bridge import _channel_metadata_from_coords
+
+    xr_data = xr.DataArray(
+        np.ones((47, 3)),
+        dims=("bark", "time"),
+        coords={"channel": "selected"},
+        attrs={"channel_extra_by_label": {"selected": {"role": "picked"}}},
+    )
+
+    metadata = _channel_metadata_from_coords(xr_data)
+
+    assert len(metadata) == 1
+    assert metadata[0].label == "selected"
+    assert metadata[0].extra == {"role": "picked"}
+
+
+def test_json_safe_falls_back_for_non_json_objects() -> None:
+    from wandas.xarray_bridge import _json_safe
+
+    class NonJson:
+        pass
+
+    result = _json_safe(NonJson())
+
+    assert result["type"] == "NonJson"
+    assert "NonJson" in result["repr"]
+
+
+def test_add_with_snr_result_can_be_written_to_netcdf(tmp_path) -> None:
+    signal = wd.ChannelFrame.from_numpy(np.array([[1.0, 2.0, 3.0, 4.0]]), sampling_rate=4.0)
+    noise = wd.ChannelFrame.from_numpy(np.array([[0.25, -0.25, 0.5, -0.5]]), sampling_rate=4.0)
+    result = signal.add(noise, snr=10.0)
+    path = tmp_path / "snr.nc"
+
+    result.to_netcdf(path)
+    restored = wd.open_netcdf(path)
+
+    assert restored.operation_history[-1]["params"]["other"]["type"] == "dask.array"
+    npt.assert_allclose(restored.compute(), result.compute())
+
+
+def test_normalize_axis_none_preserves_global_legacy_semantics() -> None:
+    data = np.array([[1.0, 2.0], [10.0, 20.0]])
+    frame = wd.ChannelFrame.from_numpy(data, sampling_rate=2.0)
+
+    result = frame.normalize(axis=None)
+
+    npt.assert_allclose(result.compute(), data / 20.0)
+    assert "execution" not in result.operation_history[-1]
+
+
+def test_remove_dc_preserves_nan_propagation() -> None:
+    frame = wd.ChannelFrame.from_numpy(np.array([[1.0, np.nan, 3.0]]), sampling_rate=3.0)
+
+    result = frame.remove_dc()
+
+    assert np.isnan(result.compute()).all()
+
+
+def test_rms_trend_db_multichannel_preserves_channel_count() -> None:
+    frame = wd.ChannelFrame(
+        data=da_from_array(
+            np.array([[1.0, 0.0, -1.0, 0.0], [2.0, 0.0, -2.0, 0.0]]),
+            chunks=(1, -1),
+        ),
+        sampling_rate=4.0,
+        channel_metadata=[ChannelMetadata(label="a", unit="Pa"), ChannelMetadata(label="b", unit="Pa")],
+    )
+
+    result = frame.rms_trend(frame_length=2, hop_length=2, dB=True)
+
+    assert result.shape[0] == 2
+    assert result.compute().shape[0] == 2
+
+
+def test_roughness_dw_spec_rejects_split_time_chunks() -> None:
+    frame = wd.ChannelFrame.from_numpy(np.arange(9600.0).reshape(1, -1), sampling_rate=48_000)
+    frame._data = frame._data.rechunk((1, 2400))
+
+    with pytest.raises(ValueError, match="Operation 'roughness_dw_spec' requires contiguous chunks along time"):
+        frame.roughness_dw_spec()
 
 
 def test_normalize_time_axis_uses_xarray_apply_ufunc_and_records_execution() -> None:

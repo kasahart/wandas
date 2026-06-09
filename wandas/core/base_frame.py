@@ -220,7 +220,7 @@ class BaseFrame(ABC, Generic[T]):
         if not isinstance(self._data, DaArray):
             return
         channel_metadata = self._xr.attrs.get(_INTERNAL_CHANNEL_METADATA_ATTR)
-        refreshed = frame_to_xarray(self, copy_dataarray=False)
+        refreshed = frame_to_xarray(self, copy_dataarray=False, include_dense_coords=False)
         if channel_metadata is not None:
             refreshed.attrs[_INTERNAL_CHANNEL_METADATA_ATTR] = channel_metadata
         self._xr = refreshed
@@ -1274,13 +1274,10 @@ class BaseFrame(ABC, Generic[T]):
         self._sync_xarray_schema()
         if not copy:
             return self._xr
-        import copy as copy_module
 
-        data_array = self._xr.copy(deep=False)
-        data_array.attrs = copy_module.deepcopy(
-            {key: value for key, value in self._xr.attrs.items() if not key.startswith(_PRIVATE_XARRAY_ATTR_PREFIX)}
-        )
-        return data_array
+        from wandas.xarray_bridge import frame_to_xarray
+
+        return frame_to_xarray(self, copy_dataarray=True, include_dense_coords=True)
 
     @property
     def xr(self) -> Any:

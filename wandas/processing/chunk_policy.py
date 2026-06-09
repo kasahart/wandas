@@ -22,6 +22,7 @@ STRICT_CORE_DIMS_BY_OPERATION: dict[str, tuple[str, ...]] = {
     "loudness_zwtv": ("time",),
     "loudness_zwst": ("time",),
     "roughness_dw": ("time",),
+    "roughness_dw_spec": ("time",),
     "sharpness_din": ("time",),
     "sharpness_din_st": ("time",),
     "ifft": ("frequency",),

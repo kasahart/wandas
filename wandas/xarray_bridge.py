@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import xarray as xr
+from dask.array.core import Array as DaArray
 
 from wandas.core.metadata import ChannelMetadata, FrameMetadata
 from wandas.utils.dask_helpers import da_from_array
@@ -19,11 +20,16 @@ if TYPE_CHECKING:
 _COMPLEX_COMPONENT_DIM = "complex_component"
 
 
-def frame_to_xarray(frame: BaseFrame[Any], *, copy_dataarray: bool = True) -> xr.DataArray:
+def frame_to_xarray(
+    frame: BaseFrame[Any],
+    *,
+    copy_dataarray: bool = True,
+    include_dense_coords: bool = True,
+) -> xr.DataArray:
     """Convert a Wandas frame to an xarray DataArray using the Wandas schema."""
     frame_type = type(frame).__name__
     dims = _dims_for_frame(frame)
-    coords = _coords_for_frame(frame, dims)
+    coords = _coords_for_frame(frame, dims, include_dense_coords=include_dense_coords)
     attrs = _attrs_for_frame(frame, frame_type)
 
     data_array = xr.DataArray(
@@ -154,7 +160,12 @@ def _dims_for_frame(frame: BaseFrame[Any]) -> tuple[str, ...]:
     return tuple(f"dim_{idx}" for idx in range(frame._data.ndim))
 
 
-def _coords_for_frame(frame: BaseFrame[Any], dims: tuple[str, ...]) -> dict[str, Any]:
+def _coords_for_frame(
+    frame: BaseFrame[Any],
+    dims: tuple[str, ...],
+    *,
+    include_dense_coords: bool = True,
+) -> dict[str, Any]:
     coords: dict[str, Any] = {}
     if "channel" in dims:
         channel_size = int(frame._data.shape[dims.index("channel")])
@@ -165,7 +176,7 @@ def _coords_for_frame(frame: BaseFrame[Any], dims: tuple[str, ...]) -> dict[str,
         coords["unit"] = ("channel", np.asarray(units, dtype=object))
         coords["ref"] = ("channel", np.asarray(refs, dtype=float))
 
-    if "time" in dims:
+    if "time" in dims and include_dense_coords:
         if hasattr(frame, "times"):
             coords["time"] = np.asarray(getattr(frame, "times"), dtype=float)
         else:
@@ -186,6 +197,11 @@ def _coords_for_frame(frame: BaseFrame[Any], dims: tuple[str, ...]) -> dict[str,
                 band_values = None
         if band_values is not None and len(band_values) == band_size:
             coords["band"] = band_values
+        elif include_dense_coords and type(frame).__name__ == "NOctFrame":
+            raise ValueError(
+                "NOctFrame xarray export requires a valid band coordinate; "
+                "set fmin/fmax/n/G/fr so canonical bands match the data shape."
+            )
 
     if "bark" in dims and hasattr(frame, "bark_axis"):
         coords["bark"] = np.asarray(getattr(frame, "bark_axis"), dtype=float)
@@ -329,6 +345,15 @@ def _metadata_from_attrs(attrs: dict[Any, Any]) -> FrameMetadata:
 def _channel_metadata_from_coords(data_array: xr.DataArray) -> list[ChannelMetadata]:
     if "channel" not in data_array.dims:
         encoded = data_array.attrs.get("channel_metadata")
+        if "channel" in data_array.coords:
+            selected_label = str(data_array.coords["channel"].item())
+            if isinstance(encoded, list):
+                for item in _channel_metadata_from_attrs(encoded):
+                    if item.label == selected_label:
+                        return [item]
+            extras_by_label = data_array.attrs.get("channel_extra_by_label")
+            extra = copy.deepcopy(extras_by_label.get(selected_label, {})) if isinstance(extras_by_label, dict) else {}
+            return [ChannelMetadata(label=selected_label, extra=extra if isinstance(extra, dict) else {})]
         if isinstance(encoded, list):
             return _channel_metadata_from_attrs(encoded)
 
@@ -363,7 +388,7 @@ def _channel_metadata_from_attrs(encoded: list[Any]) -> list[ChannelMetadata]:
 
 def _channel_extras_from_attrs(attrs: dict[Any, Any], labels: list[Any], n_channels: int) -> list[dict[str, Any]]:
     extras_by_label = attrs.get("channel_extra_by_label")
-    if isinstance(extras_by_label, dict):
+    if isinstance(extras_by_label, dict) and len({str(label) for label in labels}) == n_channels:
         return [copy.deepcopy(extras_by_label.get(str(label), {})) for label in labels]
 
     extras = copy.deepcopy(attrs.get("channel_extra", [{} for _ in range(n_channels)]))
@@ -402,10 +427,21 @@ def _json_safe(value: Any) -> Any:
         return [_json_safe(item) for item in value.tolist()]
     if isinstance(value, np.generic):
         return value.item()
+    if isinstance(value, DaArray):
+        return {
+            "type": "dask.array",
+            "shape": list(value.shape),
+            "chunks": _json_safe(value.chunks),
+            "dtype": str(value.dtype),
+        }
     if isinstance(value, dict):
         return {str(key): _json_safe(item) for key, item in value.items()}
     if isinstance(value, list | tuple):
         return [_json_safe(item) for item in value]
+    try:
+        json.dumps(value)
+    except TypeError:
+        return {"type": type(value).__name__, "repr": repr(value)}
     return value
 
 
