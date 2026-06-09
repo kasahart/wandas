@@ -235,3 +235,54 @@ def test_remove_channel_inplace_updates_xarray_without_compute() -> None:
     assert frame._data is frame._xr.data
     assert frame._data.shape == (1, 2)
     assert list(frame._xr.coords["channel"].values) == ["right"]
+
+
+def test_to_xarray_returns_public_shallow_copy_with_export_attrs() -> None:
+    frame = ChannelFrame.from_numpy(
+        np.array([[1.0, 2.0]]),
+        sampling_rate=2.0,
+        label="exported",
+        metadata={"source": "unit-test"},
+    )
+    frame.operation_history.append({"operation": "normalize", "params": {}})
+
+    exported = frame.to_xarray()
+
+    assert isinstance(exported, xr.DataArray)
+    assert exported is not frame._xr
+    assert exported.data is frame._data
+    assert exported.attrs["wandas_frame_type"] == "ChannelFrame"
+    assert exported.attrs["sampling_rate"] == 2.0
+    assert exported.attrs["label"] == "exported"
+    assert exported.attrs["metadata"] == {"source": "unit-test"}
+    assert exported.attrs["operation_history"] == [{"operation": "normalize", "params": {}}]
+
+    exported.attrs["label"] = "changed-export"
+    assert frame.label == "exported"
+
+
+def test_to_xarray_deep_copies_exported_frame_metadata() -> None:
+    metadata = FrameMetadata({"nested": {"x": 1}}, source_file="input.wav")
+    frame = ChannelFrame.from_numpy(
+        np.array([1.0]),
+        sampling_rate=1.0,
+        metadata=metadata,
+    )
+
+    exported = frame.to_xarray()
+
+    assert isinstance(exported.attrs["metadata"], FrameMetadata)
+    assert exported.attrs["metadata"].source_file == "input.wav"
+
+    exported.attrs["metadata"]["nested"]["x"] = 99
+    assert frame.metadata["nested"]["x"] == 1
+
+
+def test_xr_property_matches_to_xarray_contract() -> None:
+    frame = ChannelFrame.from_numpy(np.array([1.0, 2.0]), sampling_rate=2.0)
+
+    exported = frame.xr
+
+    assert isinstance(exported, xr.DataArray)
+    assert exported is not frame._xr
+    assert exported.data is frame._data

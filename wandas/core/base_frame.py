@@ -592,6 +592,23 @@ class BaseFrame(ABC, Generic[T]):
         logger.debug(f"Computation complete, result shape: {result.shape}")
         return cast(T, result)
 
+    def to_xarray(self) -> xr.DataArray:
+        """Return a public xarray view of this frame without changing Wandas ownership."""
+        exported = self._xr.copy(deep=False)
+        exported.attrs = {
+            "wandas_frame_type": type(self).__name__,
+            "sampling_rate": self.sampling_rate,
+            "label": self.label,
+            "metadata": copy.deepcopy(self.metadata),
+            "operation_history": copy.deepcopy(self.operation_history),
+        }
+        return exported
+
+    @property
+    def xr(self) -> xr.DataArray:
+        """Return a public xarray view of this frame."""
+        return self.to_xarray()
+
     @abstractmethod
     def plot(self, plot_type: str = "default", ax: Axes | None = None, **kwargs: Any) -> Axes | Iterator[Axes]:
         """Plot the data"""
