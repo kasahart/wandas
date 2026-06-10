@@ -113,6 +113,34 @@ def test_target_frames_use_semantic_suffix_dims() -> None:
     assert noct._xr.dims == ("channel", "band")
 
 
+def test_constructor_dimension_constraints_remain_unchanged() -> None:
+    with pytest.raises(ValueError, match="Invalid data shape for ChannelFrame"):
+        ChannelFrame(data=da.ones((1, 2, 3), chunks=(1, 2, 3)), sampling_rate=8.0)
+
+    with pytest.raises(ValueError, match="Data must be 1-dimensional or 2-dimensional"):
+        SpectralFrame(
+            data=da.ones((1, 2, 3), chunks=(1, 2, 3)) + 0j,
+            sampling_rate=8.0,
+            n_fft=8,
+        )
+
+    with pytest.raises(ValueError, match="Invalid data dimensions"):
+        SpectrogramFrame(
+            data=da.ones((1, 2, 5, 3), chunks=(1, 2, 5, 3)) + 0j,
+            sampling_rate=8.0,
+            n_fft=8,
+            hop_length=2,
+        )
+
+    with pytest.raises(ValueError, match="1D or 2D"):
+        NOctFrame(
+            data=da.ones((1, 2, 3), chunks=(1, 2, 3)),
+            sampling_rate=8.0,
+            fmin=20.0,
+            fmax=2000.0,
+        )
+
+
 def test_spectral_frame_adds_channel_coord_without_frequency_coord() -> None:
     frame = SpectralFrame(
         data=da.ones((2, 5), chunks=(1, 5)) + 0j,
