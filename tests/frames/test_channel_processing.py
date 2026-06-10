@@ -5,7 +5,6 @@ import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 
-from wandas.core.metadata import FrameMetadata
 from wandas.frames.channel import ChannelFrame, ChannelMetadata
 from wandas.frames.spectral import SpectralFrame
 from wandas.utils.util import calculate_rms
@@ -212,7 +211,7 @@ class TestChannelProcessing:
         def rfft_transform(x: np.ndarray) -> np.ndarray:
             return np.fft.rfft(x, axis=-1)
 
-        metadata = FrameMetadata({"source": "test"}, source_file="input.wav")
+        metadata = {"source": "test", "_source_file": "input.wav"}
         operation_history = [{"operation": "normalize", "params": {"method": "peak"}}]
 
         frame = ChannelFrame(
@@ -239,9 +238,9 @@ class TestChannelProcessing:
         assert result.label == frame.label
         assert frame.labels == ["sig0", "sig1"]
         assert result.labels == ["rfft_transform(sig0)", "rfft_transform(sig1)"]
-        assert result.metadata == {"source": "test", "custom": {}}
-        assert result.metadata.source_file == "input.wav"
-        assert frame.metadata.source_file == "input.wav"
+        assert result.metadata == {"source": "test", "_source_file": "input.wav", "custom": {}}
+        assert result.metadata["_source_file"] == "input.wav"
+        assert frame.metadata["_source_file"] == "input.wav"
         assert frame.operation_history == operation_history
         assert result.operation_history == [
             {"operation": "normalize", "params": {"method": "peak"}},
@@ -723,7 +722,7 @@ class TestChannelProcessing:
         """rms_trend後のChannelFrame属性を確認するテスト"""
         # 事前に属性をセット
         self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
+        self.channel_frame.metadata = {"foo": "bar"}
         self.channel_frame._channel_metadata = [
             ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
             ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
@@ -773,7 +772,7 @@ class TestChannelProcessing:
         the frame label, metadata, and channel metadata in place.
         """
         self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
+        self.channel_frame.metadata = {"foo": "bar"}
         self.channel_frame._channel_metadata = [
             ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
             ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),

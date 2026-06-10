@@ -591,13 +591,13 @@ def test_frame_state_property_setters_validate_inputs() -> None:
         frame.sampling_rate = 0
 
     with pytest.raises(TypeError, match="Label must be a string or None"):
-        frame.label = 123  # type: ignore[assignment]
+        frame.label = 123  # ty: ignore[invalid-assignment]
 
     with pytest.raises(TypeError, match="Metadata must be a dictionary"):
-        frame.metadata = "invalid"  # type: ignore[assignment]
+        frame.metadata = "invalid"  # ty: ignore[invalid-assignment]
 
     with pytest.raises(TypeError, match="Operation history must be a list"):
-        frame.operation_history = {"operation": "bad"}  # type: ignore[assignment]
+        frame.operation_history = {"operation": "bad"}  # ty: ignore[invalid-assignment]
 
 
 def test_xr_property_matches_to_xarray_contract() -> None:

@@ -1,7 +1,7 @@
 import json
 from typing import Any
 
-from wandas.core.metadata import ChannelMetadata, FrameMetadata
+from wandas.core.metadata import ChannelMetadata
 from wandas.utils.util import unit_to_ref
 
 
@@ -261,80 +261,3 @@ class TestChannelMetadata:
         assert metadata.unit == "Hz"
         assert metadata.ref == 0.75
         assert metadata.extra["new_key"] == "new_value"
-
-
-class TestFrameMetadata:
-    """Tests for FrameMetadata."""
-
-    def test_init_default_empty_dict_no_source(self) -> None:
-        """Empty FrameMetadata behaves like an empty dict with no source."""
-        meta = FrameMetadata()
-        assert meta.source_file is None
-        assert dict(meta) == {}
-
-    def test_init_source_file_preserved(self) -> None:
-        meta = FrameMetadata(source_file="audio.wav")
-        assert meta.source_file == "audio.wav"
-        assert dict(meta) == {}
-
-    def test_init_dict_content_and_source_file(self) -> None:
-        meta = FrameMetadata({"gain": 0.5, "device": "mic"}, source_file="test.wav")
-        assert meta.source_file == "test.wav"
-        assert meta["gain"] == 0.5
-        assert meta["device"] == "mic"
-
-    def test_dict_operations_setitem_contains_get(self) -> None:
-        meta = FrameMetadata({"a": 1})
-        meta["b"] = 2
-        assert "a" in meta
-        assert "b" in meta
-        assert meta.get("a") == 1
-        assert meta.get("missing") is None
-        assert list(meta.items()) == [("a", 1), ("b", 2)]
-
-    def test_equality_compares_dict_content_only(self) -> None:
-        meta = FrameMetadata({"x": 10}, source_file="file.wav")
-        assert meta == {"x": 10}
-
-    def test_copy_preserves_source_file_independent(self) -> None:
-        meta = FrameMetadata({"key": "val"}, source_file="orig.wav")
-        copied = meta.copy()
-        assert isinstance(copied, FrameMetadata)
-        assert copied.source_file == "orig.wav"
-        assert copied["key"] == "val"
-        # Modifying copy does not affect original
-        copied["key"] = "changed"
-        assert meta["key"] == "val"
-
-    def test_deepcopy_preserves_source_file_independent(self) -> None:
-        import copy
-
-        meta = FrameMetadata({"nested": {"n": 1}}, source_file="deep.wav")
-        cloned = copy.deepcopy(meta)
-        assert isinstance(cloned, FrameMetadata)
-        assert cloned.source_file == "deep.wav"
-        assert cloned["nested"] == {"n": 1}
-        # Modifying nested content in clone does not affect original
-        cloned["nested"]["n"] = 99
-        assert meta["nested"]["n"] == 1
-
-    def test_json_serializable_dict_portion(self) -> None:
-        meta = FrameMetadata({"rate": 44100}, source_file="audio.wav")
-        # json.dumps should only serialize the dict portion
-        data = json.loads(json.dumps(dict(meta)))
-        assert data == {"rate": 44100}
-
-    def test_repr_contains_class_name_and_source(self) -> None:
-        meta = FrameMetadata({"k": 1}, source_file="f.wav")
-        r = repr(meta)
-        assert "FrameMetadata" in r
-        assert "f.wav" in r
-
-    def test_bool_empty_is_falsy_nonempty_is_truthy(self) -> None:
-        assert not FrameMetadata()
-        assert FrameMetadata({"a": 1})
-
-    def test_unpack_operator_merges_with_dict(self) -> None:
-        meta = FrameMetadata({"a": 1, "b": 2}, source_file="s.wav")
-        merged = {**meta, "c": 3}
-        assert merged == {"a": 1, "b": 2, "c": 3}
