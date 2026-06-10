@@ -105,7 +105,7 @@ def test_base_frame_owns_xarray_dataarray() -> None:
     assert frame._data is frame._xr.data
     assert frame._data.chunks == ((1, 1), (8,))
     assert list(frame._xr.coords["channel"].values) == ["left", "right"]
-    assert frame._xr.coords["time"].values.tolist() == [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75]
+    assert "time" not in frame._xr.coords
 
 
 def test_data_alias_is_read_only() -> None:
@@ -242,26 +242,27 @@ Add these methods inside `BaseFrame` after `__init__` and before `_n_channels`:
         )
 
     def _xarray_dims(self, data: DaArray) -> tuple[str, ...]:
-        """Return conservative dimension names for the internal xarray container."""
-        if data.ndim == 2:
-            return ("channel", "time")
-        if data.ndim == 3:
-            return ("channel", "frequency", "time")
-        if data.ndim >= 1:
-            return tuple(["channel"] + [f"dim_{i}" for i in range(1, data.ndim)])
-        return ()
+        """Return neutral dimension names for the internal xarray container."""
+        return tuple(f"dim_{i}" for i in range(data.ndim))
 
     def _xarray_coords(self, data: DaArray) -> dict[str, Any]:
-        """Return minimal coordinates that are already owned by the frame."""
-        dims = self._xarray_dims(data)
-        coords: dict[str, Any] = {}
-        if "channel" in dims and data.ndim >= 1:
-            coords["channel"] = [ch.label for ch in self._channel_metadata]
-        if "time" in dims:
-            time_axis = dims.index("time")
-            n_samples = int(data.shape[time_axis])
-            coords["time"] = np.arange(n_samples, dtype=float) / self.sampling_rate
-        return coords
+        """Return conservative base coordinates for the internal xarray container."""
+        return {}
+```
+
+`ChannelFrame` may then provide the only Phase 1 semantic override:
+
+```python
+    def _xarray_dims(self, data: DaArray) -> tuple[str, ...]:
+        """Return ChannelFrame dimension names for the internal xarray container."""
+        return ("channel", "time")
+
+    def _xarray_coords(self, data: DaArray) -> dict[str, Any]:
+        """Return cheap ChannelFrame coordinates owned by the frame."""
+        labels = [ch.label for ch in self._channel_metadata]
+        if len(labels) != self._channel_count_from_data(data):
+            return {}
+        return {"channel": labels}
 ```
 
 - [ ] **Step 3: Refactor `__init__` to create `_xr`**

@@ -97,24 +97,28 @@ def _xarray_coords(self, data: DaArray) -> dict[str, Any]: ...
 ```
 
 Subclasses can override these hooks only where they already have the required axis
-information:
+information. In Phase 1 the concrete schema remains intentionally conservative:
 
 ```text
+BaseFrame default:
+  dims=("dim_0", "dim_1", ...)
+  coords: none
+
 ChannelFrame:
   dims=("channel", "time")
-  coords: channel labels, time seconds
+  coords: channel labels only when metadata length matches the channel count
+  no generated time coordinate
 
 SpectralFrame:
-  dims=("channel", "frequency")
-  coords: channel labels, frequency values
+  BaseFrame default dims/coords in this PR
 
 SpectrogramFrame:
-  dims=("channel", "frequency", "time")
-  coords: channel labels, frequency values, time values
+  BaseFrame default dims/coords in this PR
 ```
 
 If a frame does not have enough domain information for a rich coordinate, the implementation
-should use minimal dimension names instead of adding validation-heavy schema logic.
+should use neutral dimension names instead of adding validation-heavy schema logic.
+Time and frequency coordinates are deferred to a later schema phase.
 
 ## Public API
 
