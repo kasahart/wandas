@@ -15,9 +15,10 @@ from dask.array.core import Array as DaArray
 from matplotlib.axes import Axes
 from pydantic import ValidationError
 
+from wandas.utils import validate_sampling_rate
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
-from .metadata import ChannelMetadata, FrameMetadata
+from .metadata import ChannelMetadata
 
 # IPython display types for visualize_graph return type
 # Define as type alias under TYPE_CHECKING; use Any at runtime
@@ -55,9 +56,8 @@ class BaseFrame(ABC, Generic[T]):
         The sampling rate of the signal in Hz.
     label : str, optional
         A label for the frame. If not provided, defaults to "unnamed_frame".
-    metadata : FrameMetadata | dict, optional
-        Additional metadata for the frame. Plain dicts are automatically
-        converted to FrameMetadata.
+    metadata : dict, optional
+        Additional metadata for the frame.
     operation_history : list[dict], optional
         History of operations performed on this frame.
     channel_metadata : list[ChannelMetadata | dict], optional
@@ -72,7 +72,7 @@ class BaseFrame(ABC, Generic[T]):
         The sampling rate of the signal in Hz.
     label : str
         The label of the frame.
-    metadata : FrameMetadata
+    metadata : dict
         Additional metadata for the frame.
     operation_history : list[dict]
         History of operations performed on this frame.
@@ -84,10 +84,6 @@ class BaseFrame(ABC, Generic[T]):
     _channel_axis: ClassVar[int | None] = -2
     _xarray_dim_suffix: ClassVar[tuple[str, ...]] = ()
     _xr: xr.DataArray
-    sampling_rate: float
-    label: str
-    metadata: FrameMetadata
-    operation_history: list[dict[str, Any]]
     _channel_metadata: list[ChannelMetadata]
     _previous: "BaseFrame[Any] | None"
 
@@ -96,25 +92,16 @@ class BaseFrame(ABC, Generic[T]):
         data: DaArray,
         sampling_rate: float,
         label: str | None = None,
-        metadata: "FrameMetadata | dict[str, Any] | None" = None,
+        metadata: dict[str, Any] | None = None,
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
         previous: "BaseFrame[Any] | None" = None,
     ):
         normalized_data = self._normalize_data(data)
-        self.sampling_rate = sampling_rate
-        self.label = label or "unnamed_frame"
-        if isinstance(metadata, FrameMetadata):
-            self.metadata = metadata
-        elif metadata is not None:
-            self.metadata = FrameMetadata(metadata)
-        else:
-            self.metadata = FrameMetadata()
-        self.operation_history = operation_history or []
-        self._previous = previous
+        frame_label = label or "unnamed_frame"
 
         if channel_metadata:
-            # Pydantic handles both ChannelMetadata objects and dicts
+
             def _to_channel_metadata(ch: ChannelMetadata | dict[str, Any], index: int) -> ChannelMetadata:
                 if isinstance(ch, ChannelMetadata):
                     return copy.deepcopy(ch)
@@ -129,13 +116,12 @@ class BaseFrame(ABC, Generic[T]):
                             f"Ensure all dict keys match ChannelMetadata fields "
                             f"(label, unit, ref, extra) and have correct types."
                         ) from e
-                else:
-                    raise TypeError(
-                        f"Invalid type in channel_metadata at index {index}\n"
-                        f"  Got: {type(ch).__name__} ({ch!r})\n"
-                        f"  Expected: ChannelMetadata or dict\n"
-                        f"Use ChannelMetadata objects or dicts with valid fields."
-                    )
+                raise TypeError(
+                    f"Invalid type in channel_metadata at index {index}\n"
+                    f"  Got: {type(ch).__name__} ({ch!r})\n"
+                    f"  Expected: ChannelMetadata or dict\n"
+                    f"Use ChannelMetadata objects or dicts with valid fields."
+                )
 
             self._channel_metadata = [
                 _to_channel_metadata(cast(ChannelMetadata | dict[str, Any], ch), i)
@@ -147,7 +133,12 @@ class BaseFrame(ABC, Generic[T]):
                 channel_count = self._channel_count_from_data(normalized_data)
             self._channel_metadata = [ChannelMetadata(label=f"ch{i}", unit="", extra={}) for i in range(channel_count)]
 
-        self._xr = self._build_xarray(normalized_data)
+        self._xr = self._build_xarray(normalized_data, name=frame_label)
+        self.label = label
+        self.sampling_rate = sampling_rate
+        self.metadata = metadata
+        self.operation_history = operation_history
+        self._previous = previous
 
         try:
             # Display information for newer dask versions
@@ -165,9 +156,11 @@ class BaseFrame(ABC, Generic[T]):
         return data
 
     def _replace_data(self, data: DaArray) -> None:
-        """Replace the internal xarray data container without touching Wandas metadata."""
+        """Replace the internal xarray data container without touching frame state."""
         normalized = self._normalize_data(data)
-        self._xr = self._build_xarray(normalized)
+        attrs = copy.deepcopy(self._xr.attrs)
+        self._xr = self._build_xarray(normalized, name=self.label)
+        self._xr.attrs = attrs
 
     def _normalize_data(self, data: DaArray) -> DaArray:
         """Normalize Dask data shape and chunks using Wandas channel-wise policy."""
@@ -182,13 +175,13 @@ class BaseFrame(ABC, Generic[T]):
             logger.warning(f"Rechunk failed: {e!r}. Falling back to chunks=-1.")
             return data.rechunk(chunks=-1)
 
-    def _build_xarray(self, data: DaArray) -> xr.DataArray:
+    def _build_xarray(self, data: DaArray, *, name: str) -> xr.DataArray:
         """Build the internal xarray container for frame data, dims, and coords."""
         return xr.DataArray(
             data,
             dims=self._xarray_dims(data),
             coords=self._xarray_coords(data),
-            name=self.label,
+            name=name,
         )
 
     def _xarray_dims(self, data: DaArray) -> tuple[str, ...]:
@@ -257,6 +250,72 @@ class BaseFrame(ABC, Generic[T]):
         Returns the previous frame.
         """
         return self._previous
+
+    @property
+    def sampling_rate(self) -> float:
+        """Return the frame sampling rate from xarray attrs."""
+        return float(self._xr.attrs["sampling_rate"])
+
+    @sampling_rate.setter
+    def sampling_rate(self, value: float) -> None:
+        validate_sampling_rate(value)
+        self._xr.attrs["sampling_rate"] = float(value)
+
+    @property
+    def label(self) -> str:
+        """Return the frame label from xarray attrs."""
+        value = self._xr.attrs.get("label", self._xr.name)
+        if value is None or value == "":
+            return "unnamed_frame"
+        return str(value)
+
+    @label.setter
+    def label(self, value: str | None) -> None:
+        if value is not None and not isinstance(value, str):
+            raise TypeError("Label must be a string or None")
+        label = value or "unnamed_frame"
+        self._xr.attrs["label"] = label
+        self._xr.name = label
+
+    @property
+    def metadata(self) -> dict[str, Any]:
+        """Return mutable frame metadata stored in xarray attrs."""
+        value = self._xr.attrs.get("metadata")
+        if value is None:
+            value = {}
+            self._xr.attrs["metadata"] = value
+        if not isinstance(value, dict):
+            raise TypeError(f"Internal metadata attrs must be a dictionary, got {type(value).__name__}")
+        return value
+
+    @metadata.setter
+    def metadata(self, value: dict[str, Any] | None) -> None:
+        if value is None:
+            self._xr.attrs["metadata"] = {}
+            return
+        if not isinstance(value, dict):
+            raise TypeError("Metadata must be a dictionary")
+        self._xr.attrs["metadata"] = dict(value)
+
+    @property
+    def operation_history(self) -> list[dict[str, Any]]:
+        """Return mutable operation history stored in xarray attrs."""
+        value = self._xr.attrs.get("operation_history")
+        if value is None:
+            value = []
+            self._xr.attrs["operation_history"] = value
+        if not isinstance(value, list):
+            raise TypeError(f"Internal operation_history attrs must be a list, got {type(value).__name__}")
+        return value
+
+    @operation_history.setter
+    def operation_history(self, value: list[dict[str, Any]] | None) -> None:
+        if value is None:
+            self._xr.attrs["operation_history"] = []
+            return
+        if not isinstance(value, list):
+            raise TypeError("Operation history must be a list")
+        self._xr.attrs["operation_history"] = copy.deepcopy(value)
 
     def get_channel(
         self: S,
@@ -628,13 +687,8 @@ class BaseFrame(ABC, Generic[T]):
     def to_xarray(self) -> xr.DataArray:
         """Return a public xarray view of this frame without changing Wandas ownership."""
         exported = self._xr.copy(deep=False)
-        exported.attrs = {
-            "wandas_frame_type": type(self).__name__,
-            "sampling_rate": self.sampling_rate,
-            "label": self.label,
-            "metadata": copy.deepcopy(self.metadata),
-            "operation_history": copy.deepcopy(self.operation_history),
-        }
+        exported.attrs = copy.deepcopy(self._xr.attrs)
+        exported.attrs["wandas_frame_type"] = type(self).__name__
         return exported
 
     @property
@@ -674,8 +728,12 @@ class BaseFrame(ABC, Generic[T]):
             raise TypeError("Label must be a string")
 
         metadata = kwargs.pop("metadata", copy.deepcopy(self.metadata))
-        if not isinstance(metadata, (dict, FrameMetadata)):
-            raise TypeError("Metadata must be a dictionary or FrameMetadata")
+        if not isinstance(metadata, dict):
+            raise TypeError("Metadata must be a dictionary")
+
+        operation_history = kwargs.pop("operation_history", copy.deepcopy(self.operation_history))
+        if not isinstance(operation_history, list):
+            raise TypeError("Operation history must be a list")
 
         channel_metadata = kwargs.pop("channel_metadata", copy.deepcopy(self._channel_metadata))
         if not isinstance(channel_metadata, list):
@@ -690,6 +748,7 @@ class BaseFrame(ABC, Generic[T]):
             sampling_rate=sampling_rate,
             label=label,
             metadata=metadata,
+            operation_history=operation_history,
             channel_metadata=channel_metadata,
             previous=self,
             **kwargs,
@@ -773,8 +832,8 @@ class BaseFrame(ABC, Generic[T]):
         """
         logger.debug(f"Setting up {symbol} operation (lazy)")
 
-        metadata: FrameMetadata = self.metadata.copy() if self.metadata is not None else FrameMetadata()
-        operation_history: list[dict[str, Any]] = self.operation_history.copy() if self.operation_history else []
+        metadata = copy.deepcopy(self.metadata)
+        operation_history = copy.deepcopy(self.operation_history)
         if isinstance(other, type(self)):
             if self.sampling_rate != other.sampling_rate:
                 raise ValueError(
@@ -885,15 +944,15 @@ class BaseFrame(ABC, Generic[T]):
         self,
         operation_name: str,
         params: dict[str, Any],
-    ) -> tuple[FrameMetadata, list[dict[str, Any]]]:
+    ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         """Build new metadata dict and operation history after an operation.
 
         Returns
         -------
-        tuple[FrameMetadata, list[dict[str, Any]]]
+        tuple[dict[str, Any], list[dict[str, Any]]]
             (new_metadata, new_history) ready to pass to ``_create_new_instance``.
         """
-        new_metadata = self.metadata.copy()
+        new_metadata = copy.deepcopy(self.metadata)
         new_metadata[operation_name] = params
         new_history = [*self.operation_history, {"operation": operation_name, "params": params}]
         return new_metadata, new_history

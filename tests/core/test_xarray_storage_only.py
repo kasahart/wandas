@@ -24,6 +24,13 @@ def _lazy_frame_with_counter(calls: list[str]) -> ChannelFrame:
     return ChannelFrame(data=lazy_data, sampling_rate=4.0)
 
 
+class _MergedDict(dict[str, object]):
+    def merged(self, **updates: object) -> dict[str, object]:
+        merged = dict(self)
+        merged.update(updates)
+        return merged
+
+
 class AxisOnlyFrame(BaseFrame[np.ndarray]):
     _channel_axis = -3
 
@@ -455,6 +462,7 @@ def test_selection_and_operation_do_not_compute_until_compute() -> None:
 def test_transform_methods_remain_lazy() -> None:
     calls: list[str] = []
     frame = _lazy_frame_with_counter(calls)
+    frame._xr.attrs["metadata"] = _MergedDict(frame.metadata)
 
     spectrum = frame.fft()
     spectrogram = frame.stft(n_fft=4, hop_length=2)
