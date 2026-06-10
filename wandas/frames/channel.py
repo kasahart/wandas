@@ -231,10 +231,6 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             previous=previous,
         )
 
-    def _channel_count_from_data(self, data: DaArray) -> int:
-        """Return the number of channels in channel-first data."""
-        return int(data.shape[0])
-
     def _xarray_dims(self, data: DaArray) -> tuple[str, ...]:
         """Return ChannelFrame dimension names for the internal xarray container."""
         return ("channel", "time")

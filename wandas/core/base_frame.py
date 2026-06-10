@@ -5,7 +5,7 @@ import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from re import Pattern
-from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast, overload
 
 import numpy as np
 import numpy.typing as npt
@@ -78,6 +78,7 @@ class BaseFrame(ABC, Generic[T]):
         History of operations performed on this frame.
     """
 
+    _channel_axis: ClassVar[int | None] = -2
     _xr: xr.DataArray
     sampling_rate: float
     label: str
@@ -195,18 +196,15 @@ class BaseFrame(ABC, Generic[T]):
         return {}
 
     def _channel_count_from_data(self, data: DaArray) -> int:
-        """Return the frame channel count used for default channel metadata."""
-        return int(data.shape[-2])
+        """Return the frame channel count from the declared channel axis."""
+        if self._channel_axis is None:
+            return 1
+        return int(data.shape[self._channel_axis])
 
     @property
     def _n_channels(self) -> int:
-        """Returns the number of channels.
-
-        Default assumes the channel axis is at position -2.
-        Subclasses with different data layouts (e.g. SpectrogramFrame,
-        RoughnessFrame) should override this.
-        """
-        return int(self._data.shape[-2])
+        """Returns the number of channels from the declared channel axis."""
+        return self._channel_count_from_data(self._data)
 
     @property
     def n_channels(self) -> int:

@@ -96,6 +96,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     >>> spectrogram.plot()
     """
 
+    _channel_axis = -3
+
     n_fft: int
     hop_length: int
     win_length: int
@@ -146,22 +148,6 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_metadata=channel_metadata,
             previous=previous,
         )
-
-    def _channel_count_from_data(self, data: DaArray) -> int:
-        """Return the number of channels in channel-frequency-time data."""
-        return int(data.shape[-3])
-
-    @property
-    def _n_channels(self) -> int:
-        """
-        Get the number of channels in the data.
-
-        Returns
-        -------
-        int
-            The number of channels.
-        """
-        return int(self._data.shape[-3])
 
     @property
     def n_frames(self) -> int:

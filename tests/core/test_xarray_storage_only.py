@@ -5,6 +5,7 @@ from dask import array as da
 from dask import delayed
 
 from wandas import ChannelFrame
+from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata, FrameMetadata
 from wandas.frames.roughness import RoughnessFrame
 from wandas.frames.spectrogram import SpectrogramFrame
@@ -17,6 +18,25 @@ def _lazy_frame_with_counter(calls: list[str]) -> ChannelFrame:
 
     lazy_data = da.from_delayed(delayed(build)(), shape=(1, 4), dtype=float)
     return ChannelFrame(data=lazy_data, sampling_rate=4.0)
+
+
+class AxisOnlyFrame(BaseFrame[np.ndarray]):
+    _channel_axis = -3
+
+    def plot(self, plot_type: str = "default", ax=None, **kwargs):
+        raise NotImplementedError
+
+    def _get_dataframe_index(self):
+        return None
+
+
+def test_base_frame_channel_axis_drives_default_metadata_and_n_channels() -> None:
+    data = da.ones((2, 3, 4), chunks=(1, 3, 4))
+
+    frame = AxisOnlyFrame(data=data, sampling_rate=1.0)
+
+    assert frame.n_channels == 2
+    assert len(frame.channels) == 2
 
 
 def test_base_frame_owns_xarray_dataarray() -> None:
