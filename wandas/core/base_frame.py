@@ -295,7 +295,7 @@ class BaseFrame(ABC, Generic[T]):
             return
         if not isinstance(value, dict):
             raise TypeError("Metadata must be a dictionary")
-        self._xr.attrs["metadata"] = dict(value)
+        self._xr.attrs["metadata"] = copy.deepcopy(value)
 
     @property
     def operation_history(self) -> list[dict[str, Any]]:

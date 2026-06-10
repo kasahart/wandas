@@ -65,7 +65,7 @@ Remove these `FrameMetadata` concepts from the public API and implementation:
 - `FrameMetadata.source_file`
 - WDF special handling for `FrameMetadata.source_file`
 
-Use plain dictionaries for frame metadata. `source_file` moves to a reserved metadata key:
+Use plain dictionaries for frame metadata. This is an intentional breaking change for code importing `FrameMetadata` or using `frame.metadata.source_file`. `source_file` moves to a reserved metadata key:
 
 ```python
 frame.metadata["_source_file"] = "input.wav"

@@ -533,6 +533,20 @@ def test_to_xarray_uses_attrs_backed_label_for_name() -> None:
     assert exported.attrs["label"] == "mutated"
 
 
+def test_metadata_setter_deep_copies_input_dict() -> None:
+    metadata = {"nested": {"x": 1}, "tags": ["raw"]}
+    frame = ChannelFrame.from_numpy(
+        np.array([1.0, 2.0]),
+        sampling_rate=2.0,
+        metadata=metadata,
+    )
+
+    metadata["nested"]["x"] = 99
+    metadata["tags"].append("mutated")
+
+    assert frame.metadata == {"nested": {"x": 1}, "tags": ["raw"]}
+
+
 def test_to_xarray_deep_copies_exported_metadata_dict() -> None:
     frame = ChannelFrame.from_numpy(
         np.array([[1.0, 2.0, 3.0]]),
