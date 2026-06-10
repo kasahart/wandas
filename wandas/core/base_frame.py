@@ -78,7 +78,11 @@ class BaseFrame(ABC, Generic[T]):
         History of operations performed on this frame.
     """
 
+    _CHANNEL_DIM: ClassVar[str] = "channel"
+    # Fallback only for neutral-dim and legacy frames. Target frames should
+    # prefer the xarray "channel" dimension when it is declared.
     _channel_axis: ClassVar[int | None] = -2
+    _xarray_dim_suffix: ClassVar[tuple[str, ...]] = ()
     _xr: xr.DataArray
     sampling_rate: float
     label: str
@@ -138,10 +142,10 @@ class BaseFrame(ABC, Generic[T]):
                 for i, ch in enumerate(channel_metadata)
             ]
         else:
-            self._channel_metadata = [
-                ChannelMetadata(label=f"ch{i}", unit="", extra={})
-                for i in range(self._channel_count_from_data(normalized_data))
-            ]
+            channel_count = self._channel_size_from_xarray_dims(normalized_data)
+            if channel_count is None:
+                channel_count = self._channel_count_from_data(normalized_data)
+            self._channel_metadata = [ChannelMetadata(label=f"ch{i}", unit="", extra={}) for i in range(channel_count)]
 
         self._xr = self._build_xarray(normalized_data)
 
@@ -188,12 +192,29 @@ class BaseFrame(ABC, Generic[T]):
         )
 
     def _xarray_dims(self, data: DaArray) -> tuple[str, ...]:
-        """Return neutral dimension names for the internal xarray container."""
+        """Return semantic xarray dims only for exact suffix-shaped data."""
+        suffix = self._xarray_dim_suffix
+        if suffix and data.ndim == len(suffix):
+            return suffix
         return tuple(f"dim_{i}" for i in range(data.ndim))
 
     def _xarray_coords(self, data: DaArray) -> dict[str, Any]:
-        """Return conservative base coordinates for the internal xarray container."""
-        return {}
+        """Return conservative coordinates for declared xarray dimensions."""
+        channel_size = self._channel_size_from_xarray_dims(data)
+        if channel_size is None:
+            return {}
+
+        labels = [ch.label for ch in self._channel_metadata]
+        if len(labels) != channel_size:
+            return {}
+        return {self._CHANNEL_DIM: labels}
+
+    def _channel_size_from_xarray_dims(self, data: DaArray) -> int | None:
+        """Return the channel size implied by xarray dims, if present."""
+        dims = self._xarray_dims(data)
+        if self._CHANNEL_DIM not in dims:
+            return None
+        return int(data.shape[dims.index(self._CHANNEL_DIM)])
 
     def _channel_count_from_data(self, data: DaArray) -> int:
         """Return the frame channel count from the declared channel axis."""
@@ -203,8 +224,22 @@ class BaseFrame(ABC, Generic[T]):
 
     @property
     def _n_channels(self) -> int:
-        """Returns the number of channels from the declared channel axis."""
+        """Returns the number of channels from the xarray channel dimension when available."""
+        if self._CHANNEL_DIM in self._xr.sizes:
+            return int(self._xr.sizes[self._CHANNEL_DIM])
         return self._channel_count_from_data(self._data)
+
+    def _refresh_xarray_channel_coord(self) -> None:
+        """Refresh the internal xarray channel coordinate after label changes."""
+        if self._CHANNEL_DIM not in self._xr.dims:
+            return
+
+        labels = [ch.label for ch in self._channel_metadata]
+        channel_size = int(self._xr.sizes[self._CHANNEL_DIM])
+        if len(labels) != channel_size:
+            self._xr = self._xr.drop_vars(self._CHANNEL_DIM, errors="ignore")
+            return
+        self._xr = self._xr.assign_coords({self._CHANNEL_DIM: labels})
 
     @property
     def n_channels(self) -> int:

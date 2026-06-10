@@ -101,6 +101,8 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     - The class maintains the processing history and metadata through all operations.
     """
 
+    _xarray_dim_suffix = ("channel", "frequency")
+
     n_fft: int
     window: str
 

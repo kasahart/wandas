@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 import numpy as np
 import pytest
 import xarray as xr
@@ -7,7 +9,9 @@ from dask import delayed
 from wandas import ChannelFrame
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata, FrameMetadata
+from wandas.frames.noct import NOctFrame
 from wandas.frames.roughness import RoughnessFrame
+from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 
 
@@ -30,11 +34,32 @@ class AxisOnlyFrame(BaseFrame[np.ndarray]):
         return None
 
 
+class SuffixOnlyFrame(BaseFrame[np.ndarray]):
+    _xarray_dim_suffix = ("channel", "frequency", "time")
+
+    def plot(self, plot_type: str = "default", ax=None, **kwargs):
+        raise NotImplementedError
+
+    def _get_dataframe_index(self):
+        return None
+
+
 def test_base_frame_channel_axis_drives_default_metadata_and_n_channels() -> None:
     data = da.ones((2, 3, 4), chunks=(1, 3, 4))
 
     frame = AxisOnlyFrame(data=data, sampling_rate=1.0)
 
+    assert frame.n_channels == 2
+    assert len(frame.channels) == 2
+
+
+def test_n_channels_prefers_xarray_channel_dim_size() -> None:
+    frame = SuffixOnlyFrame(
+        data=da.ones((2, 3, 4), chunks=(1, 3, 4)),
+        sampling_rate=1.0,
+    )
+
+    assert frame._xr.dims == ("channel", "frequency", "time")
     assert frame.n_channels == 2
     assert len(frame.channels) == 2
 
@@ -60,6 +85,154 @@ def test_base_frame_owns_xarray_dataarray() -> None:
         "right",
     ]
     assert "time" not in frame._xr.coords
+
+
+def test_target_frames_use_semantic_suffix_dims() -> None:
+    channel = ChannelFrame.from_numpy(np.ones((2, 8)), sampling_rate=8.0)
+    spectral = SpectralFrame(
+        data=da.ones((2, 5), chunks=(1, 5)) + 0j,
+        sampling_rate=8.0,
+        n_fft=8,
+    )
+    spectrogram = SpectrogramFrame(
+        data=da.ones((2, 5, 3), chunks=(1, 5, 3)) + 0j,
+        sampling_rate=8.0,
+        n_fft=8,
+        hop_length=2,
+    )
+    noct = NOctFrame(
+        data=da.ones((2, 4), chunks=(1, 4)),
+        sampling_rate=8.0,
+        fmin=20.0,
+        fmax=2000.0,
+    )
+
+    assert channel._xr.dims == ("channel", "time")
+    assert spectral._xr.dims == ("channel", "frequency")
+    assert spectrogram._xr.dims == ("channel", "frequency", "time")
+    assert noct._xr.dims == ("channel", "band")
+
+
+def test_constructor_dimension_constraints_remain_unchanged() -> None:
+    with pytest.raises(ValueError, match="Invalid data shape for ChannelFrame"):
+        ChannelFrame(data=da.ones((1, 2, 3), chunks=(1, 2, 3)), sampling_rate=8.0)
+
+    with pytest.raises(ValueError, match="Data must be 1-dimensional or 2-dimensional"):
+        SpectralFrame(
+            data=da.ones((1, 2, 3), chunks=(1, 2, 3)) + 0j,
+            sampling_rate=8.0,
+            n_fft=8,
+        )
+
+    with pytest.raises(ValueError, match="Invalid data dimensions"):
+        SpectrogramFrame(
+            data=da.ones((1, 2, 5, 3), chunks=(1, 2, 5, 3)) + 0j,
+            sampling_rate=8.0,
+            n_fft=8,
+            hop_length=2,
+        )
+
+    # NOctFrame preserves existing behavior and accepts 3D inputs.
+    # This is intentionally kept to avoid introducing new constraints in this PR.
+    noct = NOctFrame(
+        data=da.ones((1, 2, 3), chunks=(1, 2, 3)),
+        sampling_rate=8.0,
+        fmin=20.0,
+        fmax=2000.0,
+    )
+    assert noct._xr.dims == ("dim_0", "dim_1", "dim_2")
+    assert "channel" not in noct._xr.dims
+
+
+def test_spectral_frame_adds_channel_coord_without_frequency_coord() -> None:
+    frame = SpectralFrame(
+        data=da.ones((2, 5), chunks=(1, 5)) + 0j,
+        sampling_rate=8.0,
+        n_fft=8,
+        channel_metadata=[
+            ChannelMetadata(label="left"),
+            ChannelMetadata(label="right"),
+        ],
+    )
+
+    assert list(frame._xr.coords["channel"].values) == ["left", "right"]
+    assert "frequency" not in frame._xr.coords
+
+
+def test_spectrogram_frame_adds_channel_coord_without_frequency_or_time_coords() -> None:
+    frame = SpectrogramFrame(
+        data=da.ones((2, 5, 3), chunks=(1, 5, 3)) + 0j,
+        sampling_rate=8.0,
+        n_fft=8,
+        hop_length=2,
+        channel_metadata=[
+            ChannelMetadata(label="left"),
+            ChannelMetadata(label="right"),
+        ],
+    )
+
+    assert list(frame._xr.coords["channel"].values) == ["left", "right"]
+    assert "frequency" not in frame._xr.coords
+    assert "time" not in frame._xr.coords
+
+
+def test_noct_frame_adds_channel_coord_without_band_coord() -> None:
+    frame = NOctFrame(
+        data=da.ones((2, 4), chunks=(1, 4)),
+        sampling_rate=8.0,
+        fmin=20.0,
+        fmax=2000.0,
+        channel_metadata=[
+            ChannelMetadata(label="left"),
+            ChannelMetadata(label="right"),
+        ],
+    )
+
+    assert list(frame._xr.coords["channel"].values) == ["left", "right"]
+    assert "band" not in frame._xr.coords
+
+
+@pytest.mark.parametrize(
+    ("frame_factory",),
+    [
+        pytest.param(
+            lambda: SpectralFrame(
+                data=da.ones((2, 5), chunks=(1, 5)) + 0j,
+                sampling_rate=8.0,
+                n_fft=8,
+                channel_metadata=[ChannelMetadata(label="only-one")],
+            ),
+            id="spectral",
+        ),
+        pytest.param(
+            lambda: SpectrogramFrame(
+                data=da.ones((2, 5, 3), chunks=(1, 5, 3)) + 0j,
+                sampling_rate=8.0,
+                n_fft=8,
+                hop_length=2,
+                channel_metadata=[ChannelMetadata(label="only-one")],
+            ),
+            id="spectrogram",
+        ),
+        pytest.param(
+            lambda: NOctFrame(
+                data=da.ones((2, 4), chunks=(1, 4)),
+                sampling_rate=8.0,
+                fmin=20.0,
+                fmax=2000.0,
+                channel_metadata=[ChannelMetadata(label="only-one")],
+            ),
+            id="noct",
+        ),
+    ],
+)
+def test_channel_coord_omitted_when_metadata_length_differs_for_target_frames(
+    frame_factory: Callable[[], BaseFrame[np.ndarray]],
+) -> None:
+    frame = frame_factory()
+
+    assert frame.labels == ["only-one"]
+    assert "channel" not in frame._xr.coords
 
 
 def test_data_alias_is_read_only() -> None:
@@ -134,8 +307,9 @@ def test_base_frame_does_not_invent_spectrogram_time_coords() -> None:
         hop_length=256,
     )
 
-    assert frame._xr.dims == ("dim_0", "dim_1", "dim_2")
+    assert frame._xr.dims == ("channel", "frequency", "time")
     assert "time" not in frame._xr.coords
+    assert "frequency" not in frame._xr.coords
 
 
 def test_default_spectrogram_channel_metadata_matches_n_channels() -> None:
