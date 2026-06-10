@@ -134,17 +134,10 @@ def save(
                             op_sub_grp.attrs[k] = str(v)
 
         # Store frame metadata
-        dict_is_nonempty = bool(frame.metadata)
-        source_file = frame.metadata.get("_source_file")
-        has_source_file = source_file is not None
-        if dict_is_nonempty or has_source_file:
+        if frame.metadata:
             meta_grp = f.create_group("meta")
             # Store metadata dict content as JSON
             meta_grp.attrs["json"] = json.dumps(dict(frame.metadata))
-
-            # Store source_file separately if present
-            if has_source_file:
-                meta_grp.attrs["source_file"] = str(source_file)
 
             # Also store individual metadata items as attributes for compatibility
             for k, v in frame.metadata.items():

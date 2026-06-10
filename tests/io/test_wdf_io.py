@@ -313,6 +313,13 @@ def test_source_file_roundtrip(tmp_path: Path) -> None:
 
     path = tmp_path / "test_source_file.wdf"
     cf.save(path)
+    with h5py.File(path, "r") as f:
+        meta = f["meta"]
+        saved_metadata = json.loads(meta.attrs["json"])
+        assert saved_metadata["_source_file"] == source
+        assert meta.attrs["_source_file"] == source
+        assert "source_file" not in meta.attrs
+
     cf2 = ChannelFrame.load(path)
 
     assert type(cf2.metadata) is dict
