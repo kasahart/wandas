@@ -97,6 +97,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     """
 
     _channel_axis = -3
+    _xarray_dim_suffix = ("channel", "frequency", "time")
 
     n_fft: int
     hop_length: int

@@ -177,6 +177,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
     with each channel containing data samples in the time domain.
     """
 
+    _xarray_dim_suffix = ("channel", "time")
+
     def __init__(
         self,
         data: DaArray,
@@ -230,10 +232,6 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             channel_metadata=channel_metadata,
             previous=previous,
         )
-
-    def _xarray_dims(self, data: DaArray) -> tuple[str, ...]:
-        """Return ChannelFrame dimension names for the internal xarray container."""
-        return ("channel", "time")
 
     def _xarray_coords(self, data: DaArray) -> dict[str, Any]:
         """Return cheap ChannelFrame coordinates owned by the frame."""

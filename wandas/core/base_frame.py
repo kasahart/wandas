@@ -78,7 +78,9 @@ class BaseFrame(ABC, Generic[T]):
         History of operations performed on this frame.
     """
 
+    _CHANNEL_DIM: ClassVar[str] = "channel"
     _channel_axis: ClassVar[int | None] = -2
+    _xarray_dim_suffix: ClassVar[tuple[str, ...]] = ()
     _xr: xr.DataArray
     sampling_rate: float
     label: str
@@ -188,8 +190,12 @@ class BaseFrame(ABC, Generic[T]):
         )
 
     def _xarray_dims(self, data: DaArray) -> tuple[str, ...]:
-        """Return neutral dimension names for the internal xarray container."""
-        return tuple(f"dim_{i}" for i in range(data.ndim))
+        """Return xarray dimension names using any declared semantic suffix."""
+        suffix = self._xarray_dim_suffix
+        prefix_count = data.ndim - len(suffix)
+        if not suffix or prefix_count < 0:
+            return tuple(f"dim_{i}" for i in range(data.ndim))
+        return tuple(f"dim_{i}" for i in range(prefix_count)) + suffix
 
     def _xarray_coords(self, data: DaArray) -> dict[str, Any]:
         """Return conservative base coordinates for the internal xarray container."""
