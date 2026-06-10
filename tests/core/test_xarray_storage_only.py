@@ -518,6 +518,21 @@ def test_to_xarray_returns_public_shallow_copy_with_export_attrs() -> None:
     assert frame.label == "exported"
 
 
+def test_to_xarray_uses_attrs_backed_label_for_name() -> None:
+    frame = ChannelFrame.from_numpy(
+        np.array([1.0, 2.0]),
+        sampling_rate=2.0,
+        label="original",
+    )
+    frame._xr.attrs["label"] = "mutated"
+
+    exported = frame.to_xarray()
+
+    assert frame.label == "mutated"
+    assert exported.name == "mutated"
+    assert exported.attrs["label"] == "mutated"
+
+
 def test_to_xarray_deep_copies_exported_metadata_dict() -> None:
     frame = ChannelFrame.from_numpy(
         np.array([[1.0, 2.0, 3.0]]),

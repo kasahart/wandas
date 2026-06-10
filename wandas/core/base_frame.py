@@ -687,6 +687,7 @@ class BaseFrame(ABC, Generic[T]):
     def to_xarray(self) -> xr.DataArray:
         """Return a public xarray view of this frame without changing Wandas ownership."""
         exported = self._xr.copy(deep=False)
+        exported.name = self.label
         exported.attrs = copy.deepcopy(self._xr.attrs)
         exported.attrs["wandas_frame_type"] = type(self).__name__
         return exported

@@ -916,7 +916,7 @@ Run:
 rg -n "FrameMetadata|metadata\.source_file|metadata\.merged" docs README.md -g '*.md'
 ```
 
-Expected: no output or only historical design docs under `docs/superpowers/specs`. If user-facing docs mention old API, update them to plain dict metadata and `_source_file`.
+Expected: no output in user-facing docs, or only historical planning/design docs under `docs/superpowers/`. If user-facing docs mention old API, update them to plain dict metadata and `_source_file`.
 
 - [ ] **Step 3: Run type and lint checks**
 
