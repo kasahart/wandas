@@ -79,6 +79,8 @@ class BaseFrame(ABC, Generic[T]):
     """
 
     _CHANNEL_DIM: ClassVar[str] = "channel"
+    # Fallback only for neutral-dim and legacy frames. Target frames should
+    # prefer the xarray "channel" dimension when it is declared.
     _channel_axis: ClassVar[int | None] = -2
     _xarray_dim_suffix: ClassVar[tuple[str, ...]] = ()
     _xr: xr.DataArray

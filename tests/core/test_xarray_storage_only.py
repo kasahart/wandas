@@ -227,7 +227,7 @@ def test_noct_frame_adds_channel_coord_without_band_coord() -> None:
     ],
 )
 def test_channel_coord_omitted_when_metadata_length_differs_for_target_frames(
-    frame_factory: Callable[[], ChannelFrame],
+    frame_factory: Callable[[], BaseFrame[np.ndarray]],
 ) -> None:
     frame = frame_factory()
 
