@@ -220,7 +220,10 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
             meta_json = f["meta"].attrs.get("json", "{}")
             if isinstance(meta_json, (bytes, np.bytes_)):
                 meta_json = _decode_hdf5_str(meta_json)
-            frame_metadata = json.loads(meta_json)
+            parsed_metadata = json.loads(meta_json)
+            if not isinstance(parsed_metadata, dict):
+                raise ValueError("WDF meta/json must decode to a JSON object")
+            frame_metadata = parsed_metadata
             source_file = f["meta"].attrs.get("source_file", None)
             if source_file is not None:
                 frame_metadata.setdefault("_source_file", _decode_hdf5_str(source_file))

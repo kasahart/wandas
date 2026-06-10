@@ -367,6 +367,27 @@ def test_from_wdf_legacy_source_file_attr_maps_to_metadata_key(tmp_path: Path) -
     assert loaded.metadata["_source_file"] == "legacy/input.wav"
 
 
+def test_load_wdf_rejects_non_object_metadata_json(tmp_path: Path) -> None:
+    """Malformed WDF metadata JSON fails with an actionable error."""
+    path = tmp_path / "array_metadata.wdf"
+    with h5py.File(path, "w") as f:
+        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["sampling_rate"] = 16000.0
+        f.attrs["label"] = ""
+
+        channels = f.create_group("channels")
+        channel = channels.create_group("0")
+        channel.create_dataset("data", data=np.array([1.0, 2.0, 3.0], dtype=np.float32))
+        channel.attrs["label"] = ""
+        channel.attrs["unit"] = ""
+
+        meta = f.create_group("meta")
+        meta.attrs["json"] = json.dumps(["not", "a", "dict"])
+
+    with pytest.raises(ValueError, match="WDF meta/json must decode to a JSON object"):
+        ChannelFrame.load(path)
+
+
 def test_load_wdf_from_url(tmp_path: Path) -> None:
     """Test WDF load from mocked URL preserves data and metadata (Pillar 2, 4).
 
