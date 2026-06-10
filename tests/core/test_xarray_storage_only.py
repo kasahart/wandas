@@ -162,8 +162,9 @@ def test_base_frame_does_not_invent_spectrogram_time_coords() -> None:
         hop_length=256,
     )
 
-    assert frame._xr.dims == ("dim_0", "dim_1", "dim_2")
+    assert frame._xr.dims == ("channel", "frequency", "time")
     assert "time" not in frame._xr.coords
+    assert "frequency" not in frame._xr.coords
 
 
 def test_default_spectrogram_channel_metadata_matches_n_channels() -> None:
