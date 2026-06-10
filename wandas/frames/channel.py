@@ -20,7 +20,7 @@ from wandas.utils.dask_helpers import da_from_array as _da_from_array
 from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
-from ..core.metadata import ChannelMetadata, FrameMetadata
+from ..core.metadata import ChannelMetadata
 from ..io.readers import get_file_reader
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
 
@@ -184,7 +184,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         data: DaArray,
         sampling_rate: float,
         label: str | None = None,
-        metadata: "FrameMetadata | dict[str, Any] | None" = None,
+        metadata: dict[str, Any] | None = None,
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
         previous: "BaseFrame[Any] | None" = None,
@@ -770,7 +770,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         data: NDArrayReal,
         sampling_rate: float,
         label: str | None = None,
-        metadata: "FrameMetadata | dict[str, Any] | None" = None,
+        metadata: dict[str, Any] | None = None,
         ch_labels: list[str] | None = None,
         ch_units: list[str] | str | None = None,
     ) -> "ChannelFrame":
@@ -819,7 +819,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         labels: list[str] | None = None,
         unit: list[str] | str | None = None,
         frame_label: str | None = None,
-        metadata: "FrameMetadata | dict[str, Any] | None" = None,
+        metadata: dict[str, Any] | None = None,
     ) -> "ChannelFrame":
         """Create a ChannelFrame from a NumPy array.
 
@@ -1019,7 +1019,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             data=dask_array,
             sampling_rate=sr,
             label=frame_label,
-            metadata=FrameMetadata(source_file=source_file),
+            metadata={"_source_file": source_file} if source_file is not None else None,
         )
         if ch_labels is not None:
             cf._set_channel_labels(ch_labels)

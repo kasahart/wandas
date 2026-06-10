@@ -22,7 +22,6 @@ if TYPE_CHECKING:
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
 
 from ..core.base_frame import BaseFrame
-from ..core.metadata import FrameMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -136,7 +135,8 @@ def save(
 
         # Store frame metadata
         dict_is_nonempty = bool(frame.metadata)
-        has_source_file = isinstance(frame.metadata, FrameMetadata) and frame.metadata.source_file is not None
+        source_file = frame.metadata.get("_source_file")
+        has_source_file = source_file is not None
         if dict_is_nonempty or has_source_file:
             meta_grp = f.create_group("meta")
             # Store metadata dict content as JSON
@@ -144,7 +144,7 @@ def save(
 
             # Store source_file separately if present
             if has_source_file:
-                meta_grp.attrs["source_file"] = str(frame.metadata.source_file)
+                meta_grp.attrs["source_file"] = str(source_file)
 
             # Also store individual metadata items as attributes for compatibility
             for k, v in frame.metadata.items():
@@ -222,15 +222,15 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
         frame_label = f.attrs.get("label", "")
 
         # Get frame metadata
-        frame_metadata = FrameMetadata()
+        frame_metadata: dict[str, Any] = {}
         if "meta" in f:
             meta_json = f["meta"].attrs.get("json", "{}")
             if isinstance(meta_json, (bytes, np.bytes_)):
                 meta_json = _decode_hdf5_str(meta_json)
-            frame_metadata.update(json.loads(meta_json))
+            frame_metadata = json.loads(meta_json)
             source_file = f["meta"].attrs.get("source_file", None)
             if source_file is not None:
-                frame_metadata.source_file = _decode_hdf5_str(source_file)
+                frame_metadata.setdefault("_source_file", _decode_hdf5_str(source_file))
 
         # Load operation history
         operation_history = []
