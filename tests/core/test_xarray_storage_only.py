@@ -10,6 +10,15 @@ from wandas.frames.roughness import RoughnessFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 
 
+def _lazy_frame_with_counter(calls: list[str]) -> ChannelFrame:
+    def build() -> np.ndarray:
+        calls.append("computed")
+        return np.array([[1.0, 2.0, 3.0, 4.0]])
+
+    lazy_data = da.from_delayed(delayed(build)(), shape=(1, 4), dtype=float)
+    return ChannelFrame(data=lazy_data, sampling_rate=4.0)
+
+
 def test_base_frame_owns_xarray_dataarray() -> None:
     data = da.ones((2, 8), chunks=(2, 4))
     frame = ChannelFrame(
@@ -207,6 +216,45 @@ def test_add_channel_inplace_updates_xarray_without_compute() -> None:
     assert list(frame._xr.coords["channel"].values) == ["ch0", "extra"]
 
 
+def test_construction_and_xarray_export_do_not_compute() -> None:
+    calls: list[str] = []
+    frame = _lazy_frame_with_counter(calls)
+
+    _ = frame._data
+    exported = frame.to_xarray()
+    _ = frame.xr
+
+    assert calls == []
+    assert exported.data is frame._data
+
+
+def test_selection_and_operation_do_not_compute_until_compute() -> None:
+    calls: list[str] = []
+    frame = _lazy_frame_with_counter(calls)
+
+    selected = frame.get_channel(0)
+    normalized = selected.normalize()
+
+    assert calls == []
+
+    result = normalized.compute()
+
+    assert calls == ["computed"]
+    assert result.shape == (1, 4)
+
+
+def test_transform_methods_remain_lazy() -> None:
+    calls: list[str] = []
+    frame = _lazy_frame_with_counter(calls)
+
+    spectrum = frame.fft()
+    spectrogram = frame.stft(n_fft=4, hop_length=2)
+
+    assert calls == []
+    assert spectrum._data is spectrum._xr.data
+    assert spectrogram._data is spectrogram._xr.data
+
+
 def test_remove_channel_inplace_updates_xarray_without_compute() -> None:
     calls: list[str] = []
 
@@ -276,6 +324,16 @@ def test_to_xarray_deep_copies_exported_frame_metadata() -> None:
 
     exported.attrs["metadata"]["nested"]["x"] = 99
     assert frame.metadata["nested"]["x"] == 1
+
+
+def test_to_xarray_deep_copies_exported_operation_history() -> None:
+    frame = ChannelFrame.from_numpy(np.array([1.0, 2.0]), sampling_rate=2.0)
+    frame.operation_history.append({"operation": "gain", "params": {"factor": 2.0}})
+
+    exported = frame.to_xarray()
+    exported.attrs["operation_history"][0]["params"]["factor"] = 99.0
+
+    assert frame.operation_history[0]["params"]["factor"] == 2.0
 
 
 def test_xr_property_matches_to_xarray_contract() -> None:
