@@ -266,19 +266,19 @@ def test_replace_data_preserves_xarray_attrs_backed_frame_state() -> None:
     assert frame.operation_history == [{"operation": "load", "params": {"path": "input.wav"}}]
 
 
-def test_internal_xarray_attrs_do_not_own_wandas_metadata() -> None:
+def test_internal_xarray_attrs_are_frame_state_source_of_truth() -> None:
     frame = ChannelFrame.from_numpy(
         np.array([[1.0, 2.0]]),
         sampling_rate=2.0,
-        label="owned-by-wandas",
+        label="owned-by-attrs",
         metadata={"gain": 1.5},
     )
 
-    frame._xr.attrs["label"] = "not-authoritative"
+    frame._xr.attrs["label"] = "authoritative"
     frame._xr.attrs["metadata"] = {"gain": 999}
 
-    assert frame.label == "owned-by-wandas"
-    assert frame.metadata["gain"] == 1.5
+    assert frame.label == "authoritative"
+    assert frame.metadata["gain"] == 999
 
 
 def test_base_frame_keeps_roughness_mono_dims_neutral() -> None:
