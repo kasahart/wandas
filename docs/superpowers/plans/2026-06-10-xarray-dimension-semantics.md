@@ -478,7 +478,7 @@ git commit -m "refactor: centralize xarray channel semantics"
 **Files:**
 - Modify: `tests/core/test_xarray_storage_only.py`
 
-- [ ] **Step 1: Add tests that high-dimensional inputs are still rejected**
+- [ ] **Step 1: Add tests that preserve existing constructor constraints including NOctFrame 3D acceptance**
 
 Add:
 
@@ -502,16 +502,18 @@ def test_constructor_dimension_constraints_remain_unchanged() -> None:
             hop_length=2,
         )
 
-    with pytest.raises(ValueError, match="1D or 2D"):
-        NOctFrame(
-            data=da.ones((1, 2, 3), chunks=(1, 2, 3)),
-            sampling_rate=8.0,
-            fmin=20.0,
-            fmax=2000.0,
-        )
+
+    # NOctFrame currently accepts 3D inputs; this behavior is preserved by PR 2.
+    noct = NOctFrame(
+        data=da.ones((1, 2, 3), chunks=(1, 2, 3)),
+        sampling_rate=8.0,
+        fmin=20.0,
+        fmax=2000.0,
+    )
+    assert noct._xr.dims == ("dim_0", "channel", "band")
 ```
 
-If the NOctFrame error message differs, inspect `wandas/frames/noct.py` and adjust only the regex to match the existing public error. Do not change production validation text in this task.
+NOctFrame 3D acceptance is an existing behavior; do not change production validation text in this task.
 
 - [ ] **Step 2: Verify constraints test passes**
 

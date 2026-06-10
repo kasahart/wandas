@@ -132,13 +132,15 @@ def test_constructor_dimension_constraints_remain_unchanged() -> None:
             hop_length=2,
         )
 
-    with pytest.raises(ValueError, match="1D or 2D"):
-        NOctFrame(
-            data=da.ones((1, 2, 3), chunks=(1, 2, 3)),
-            sampling_rate=8.0,
-            fmin=20.0,
-            fmax=2000.0,
-        )
+    # NOctFrame preserves existing behavior and accepts 3D inputs.
+    # This is intentionally kept to avoid introducing new constraints in this PR.
+    noct = NOctFrame(
+        data=da.ones((1, 2, 3), chunks=(1, 2, 3)),
+        sampling_rate=8.0,
+        fmin=20.0,
+        fmax=2000.0,
+    )
+    assert noct._xr.dims == ("dim_0", "channel", "band")
 
 
 def test_spectral_frame_adds_channel_coord_without_frequency_coord() -> None:
