@@ -7,7 +7,9 @@ from dask import delayed
 from wandas import ChannelFrame
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata, FrameMetadata
+from wandas.frames.noct import NOctFrame
 from wandas.frames.roughness import RoughnessFrame
+from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 
 
@@ -60,6 +62,32 @@ def test_base_frame_owns_xarray_dataarray() -> None:
         "right",
     ]
     assert "time" not in frame._xr.coords
+
+
+def test_target_frames_use_semantic_suffix_dims() -> None:
+    channel = ChannelFrame.from_numpy(np.ones((2, 8)), sampling_rate=8.0)
+    spectral = SpectralFrame(
+        data=da.ones((2, 5), chunks=(1, 5)) + 0j,
+        sampling_rate=8.0,
+        n_fft=8,
+    )
+    spectrogram = SpectrogramFrame(
+        data=da.ones((2, 5, 3), chunks=(1, 5, 3)) + 0j,
+        sampling_rate=8.0,
+        n_fft=8,
+        hop_length=2,
+    )
+    noct = NOctFrame(
+        data=da.ones((2, 4), chunks=(1, 4)),
+        sampling_rate=8.0,
+        fmin=20.0,
+        fmax=2000.0,
+    )
+
+    assert channel._xr.dims == ("channel", "time")
+    assert spectral._xr.dims == ("channel", "frequency")
+    assert spectrogram._xr.dims == ("channel", "frequency", "time")
+    assert noct._xr.dims == ("channel", "band")
 
 
 def test_data_alias_is_read_only() -> None:
