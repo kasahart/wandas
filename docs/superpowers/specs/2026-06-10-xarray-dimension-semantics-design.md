@@ -24,13 +24,15 @@ SpectrogramFrame: (..., channel, frequency, time)
 NOctFrame:        (..., channel, band)
 ```
 
-The `...` prefix is a schema design direction only. PR 2 must keep the current input validation:
+The `...` prefix is a future schema direction only. PR 2 does not assign semantic dims
+when leading dimensions are present, because existing channel selection and chunking still
+assume channel-like data is axis 0. PR 2 must keep the current input validation and behavior:
 
 ```text
 ChannelFrame:     1D or 2D input only
 SpectralFrame:    1D or 2D input only
 SpectrogramFrame: 2D or 3D input only
-NOctFrame:        1D or 2D input only
+NOctFrame:        existing 1D/2D behavior plus existing 3D acceptance
 ```
 
 `RoughnessFrame` is out of scope for PR 2 because it has a special mono 2D layout and a
@@ -56,7 +58,8 @@ PR 2 must not add:
 ## Data Model
 
 Each target frame declares a suffix of semantic dimension names. BaseFrame uses that suffix
-to generate xarray dims while preserving neutral names for any leading dimensions.
+only when the normalized data rank exactly matches the suffix length. Data with leading
+dimensions remains neutral in PR 2.
 
 ```python
 class BaseFrame:
@@ -64,10 +67,9 @@ class BaseFrame:
 
     def _xarray_dims(self, data: DaArray) -> tuple[str, ...]:
         suffix = self._xarray_dim_suffix
-        prefix_count = data.ndim - len(suffix)
-        if prefix_count < 0:
-            return tuple(f"dim_{i}" for i in range(data.ndim))
-        return tuple(f"dim_{i}" for i in range(prefix_count)) + suffix
+        if suffix and data.ndim == len(suffix):
+            return suffix
+        return tuple(f"dim_{i}" for i in range(data.ndim))
 ```
 
 Target frames set only the suffix:
@@ -86,8 +88,9 @@ class NOctFrame(BaseFrame):
     _xarray_dim_suffix = ("channel", "band")
 ```
 
-The suffix helper is future-compatible with leading dimensions, but PR 2 does not change
-current constructors to accept those leading dimensions.
+The suffix helper intentionally does not name leading dimensions in PR 2. A later phase can
+add true leading-dimension semantics after channel selection and chunking are made compatible
+with nonzero channel axes.
 
 ## Channel Count
 
@@ -193,6 +196,10 @@ NOctFrame from 1D input:
 
 NOctFrame from 2D input:
   dims=("channel", "band")
+
+NOctFrame from existing 3D input:
+  dims=("dim_0", "dim_1", "dim_2")
+  no channel dim is declared in PR 2
 ```
 
 Only the `channel` coordinate is in scope. `time`, `frequency`, and `band` coordinates must not
@@ -201,10 +208,11 @@ exist after this PR unless they already existed for unrelated reasons before the
 ## Error Handling and Compatibility
 
 PR 2 should preserve current validation errors for unsupported dimensionality. The suffix schema
-must not silently accept higher-dimensional inputs.
+must not silently expand the set of accepted higher-dimensional inputs. Existing NOctFrame
+3D acceptance is preserved, but it remains neutral dims in PR 2.
 
 If a frame has no `"channel"` dim, `n_channels` should fall back to existing behavior. This keeps
-`RoughnessFrame` and any neutral BaseFrame test doubles stable.
+`RoughnessFrame`, existing 3D NOctFrame data, and any neutral BaseFrame test doubles stable.
 
 If metadata length does not match channel size, xarray should not receive a stale or invalid
 channel coord. The Wandas `_channel_metadata` list remains untouched for compatibility.
@@ -248,7 +256,7 @@ uv run pytest
 
 PR 2 is successful when:
 
-- target frame dims are semantic suffix dims
+- target frame dims are semantic suffix dims only when data rank exactly matches the suffix
 - channel count for target frames is read from xarray `"channel"` sizes
 - channel coord logic is shared instead of ChannelFrame-only
 - `_channel_axis` is no longer the primary channel semantics for target frames

@@ -190,12 +190,11 @@ class BaseFrame(ABC, Generic[T]):
         )
 
     def _xarray_dims(self, data: DaArray) -> tuple[str, ...]:
-        """Return xarray dimension names using any declared semantic suffix."""
+        """Return semantic xarray dims only for exact suffix-shaped data."""
         suffix = self._xarray_dim_suffix
-        prefix_count = data.ndim - len(suffix)
-        if not suffix or prefix_count < 0:
-            return tuple(f"dim_{i}" for i in range(data.ndim))
-        return tuple(f"dim_{i}" for i in range(prefix_count)) + suffix
+        if suffix and data.ndim == len(suffix):
+            return suffix
+        return tuple(f"dim_{i}" for i in range(data.ndim))
 
     def _xarray_coords(self, data: DaArray) -> dict[str, Any]:
         """Return conservative coordinates for declared xarray dimensions."""

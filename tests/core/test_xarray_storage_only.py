@@ -140,7 +140,8 @@ def test_constructor_dimension_constraints_remain_unchanged() -> None:
         fmin=20.0,
         fmax=2000.0,
     )
-    assert noct._xr.dims == ("dim_0", "channel", "band")
+    assert noct._xr.dims == ("dim_0", "dim_1", "dim_2")
+    assert "channel" not in noct._xr.dims
 
 
 def test_spectral_frame_adds_channel_coord_without_frequency_coord() -> None:

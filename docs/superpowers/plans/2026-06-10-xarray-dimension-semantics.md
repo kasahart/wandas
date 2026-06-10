@@ -139,10 +139,9 @@ Replace `_xarray_dims()` with:
     def _xarray_dims(self, data: DaArray) -> tuple[str, ...]:
         """Return xarray dimension names using any declared semantic suffix."""
         suffix = self._xarray_dim_suffix
-        prefix_count = data.ndim - len(suffix)
-        if not suffix or prefix_count < 0:
-            return tuple(f"dim_{i}" for i in range(data.ndim))
-        return tuple(f"dim_{i}" for i in range(prefix_count)) + suffix
+        if suffix and data.ndim == len(suffix):
+            return suffix
+        return tuple(f"dim_{i}" for i in range(data.ndim))
 ```
 
 - [ ] **Step 2: Replace ChannelFrame xarray hooks with suffix declaration**
