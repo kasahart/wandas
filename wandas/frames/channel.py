@@ -233,21 +233,6 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             previous=previous,
         )
 
-    def _xarray_coords(self, data: DaArray) -> dict[str, Any]:
-        """Return cheap ChannelFrame coordinates owned by the frame."""
-        labels = [ch.label for ch in self._channel_metadata]
-        if len(labels) != self._channel_count_from_data(data):
-            return {}
-        return {"channel": labels}
-
-    def _refresh_xarray_channel_coord(self) -> None:
-        """Refresh the internal xarray channel coordinate after label changes."""
-        labels = [ch.label for ch in self._channel_metadata]
-        if len(labels) != self.n_channels:
-            self._xr = self._xr.drop_vars("channel", errors="ignore")
-            return
-        self._xr = self._xr.assign_coords(channel=labels)
-
     def _set_channel_labels(self, ch_labels: list[str]) -> None:
         """Overwrite channel labels after construction.
 

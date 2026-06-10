@@ -96,7 +96,6 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     >>> spectrogram.plot()
     """
 
-    _channel_axis = -3
     _xarray_dim_suffix = ("channel", "frequency", "time")
 
     n_fft: int
