@@ -32,11 +32,32 @@ class AxisOnlyFrame(BaseFrame[np.ndarray]):
         return None
 
 
+class SuffixOnlyFrame(BaseFrame[np.ndarray]):
+    _xarray_dim_suffix = ("channel", "frequency", "time")
+
+    def plot(self, plot_type: str = "default", ax=None, **kwargs):
+        raise NotImplementedError
+
+    def _get_dataframe_index(self):
+        return None
+
+
 def test_base_frame_channel_axis_drives_default_metadata_and_n_channels() -> None:
     data = da.ones((2, 3, 4), chunks=(1, 3, 4))
 
     frame = AxisOnlyFrame(data=data, sampling_rate=1.0)
 
+    assert frame.n_channels == 2
+    assert len(frame.channels) == 2
+
+
+def test_n_channels_prefers_xarray_channel_dim_size() -> None:
+    frame = SuffixOnlyFrame(
+        data=da.ones((2, 3, 4), chunks=(1, 3, 4)),
+        sampling_rate=1.0,
+    )
+
+    assert frame._xr.dims == ("channel", "frequency", "time")
     assert frame.n_channels == 2
     assert len(frame.channels) == 2
 
@@ -88,6 +109,66 @@ def test_target_frames_use_semantic_suffix_dims() -> None:
     assert spectral._xr.dims == ("channel", "frequency")
     assert spectrogram._xr.dims == ("channel", "frequency", "time")
     assert noct._xr.dims == ("channel", "band")
+
+
+def test_spectral_frame_adds_channel_coord_without_frequency_coord() -> None:
+    frame = SpectralFrame(
+        data=da.ones((2, 5), chunks=(1, 5)) + 0j,
+        sampling_rate=8.0,
+        n_fft=8,
+        channel_metadata=[
+            ChannelMetadata(label="left"),
+            ChannelMetadata(label="right"),
+        ],
+    )
+
+    assert list(frame._xr.coords["channel"].values) == ["left", "right"]
+    assert "frequency" not in frame._xr.coords
+
+
+def test_spectrogram_frame_adds_channel_coord_without_frequency_or_time_coords() -> None:
+    frame = SpectrogramFrame(
+        data=da.ones((2, 5, 3), chunks=(1, 5, 3)) + 0j,
+        sampling_rate=8.0,
+        n_fft=8,
+        hop_length=2,
+        channel_metadata=[
+            ChannelMetadata(label="left"),
+            ChannelMetadata(label="right"),
+        ],
+    )
+
+    assert list(frame._xr.coords["channel"].values) == ["left", "right"]
+    assert "frequency" not in frame._xr.coords
+    assert "time" not in frame._xr.coords
+
+
+def test_noct_frame_adds_channel_coord_without_band_coord() -> None:
+    frame = NOctFrame(
+        data=da.ones((2, 4), chunks=(1, 4)),
+        sampling_rate=8.0,
+        fmin=20.0,
+        fmax=2000.0,
+        channel_metadata=[
+            ChannelMetadata(label="left"),
+            ChannelMetadata(label="right"),
+        ],
+    )
+
+    assert list(frame._xr.coords["channel"].values) == ["left", "right"]
+    assert "band" not in frame._xr.coords
+
+
+def test_channel_coord_omitted_when_metadata_length_differs_for_target_frames() -> None:
+    spectral = SpectralFrame(
+        data=da.ones((2, 5), chunks=(1, 5)) + 0j,
+        sampling_rate=8.0,
+        n_fft=8,
+        channel_metadata=[ChannelMetadata(label="only-one")],
+    )
+
+    assert spectral.labels == ["only-one"]
+    assert "channel" not in spectral._xr.coords
 
 
 def test_data_alias_is_read_only() -> None:
