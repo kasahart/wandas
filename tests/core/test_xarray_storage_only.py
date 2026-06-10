@@ -260,6 +260,8 @@ def test_replace_data_preserves_xarray_attrs_backed_frame_state() -> None:
     assert frame.label == "original"
     assert frame._xr.attrs["sampling_rate"] == 3.0
     assert frame._xr.attrs["label"] == "original"
+    assert frame._xr.attrs["metadata"] == {"source": "test", "nested": {"x": 1}}
+    assert frame._xr.attrs["operation_history"] == [{"operation": "load", "params": {"path": "input.wav"}}]
     assert frame.metadata == {"source": "test", "nested": {"x": 1}}
     assert frame.operation_history == [{"operation": "load", "params": {"path": "input.wav"}}]
 
@@ -548,8 +550,8 @@ def test_frame_state_properties_are_backed_by_xarray_attrs() -> None:
         sampling_rate=3.0,
         label="stateful",
         metadata={"owner": "attrs"},
-        operation_history=[{"operation": "load", "params": {}}],
     )
+    frame.operation_history = [{"operation": "load", "params": {}}]
 
     assert frame._xr.attrs["sampling_rate"] == 3.0
     assert frame._xr.attrs["label"] == "stateful"
