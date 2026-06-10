@@ -180,6 +180,20 @@ def test_large_lazy_channel_frame_does_not_create_internal_time_coord() -> None:
     assert "time" not in frame._xr.coords
 
 
+def test_channel_frame_omits_channel_coord_when_metadata_length_differs() -> None:
+    data = da.ones((2, 8), chunks=(1, 8))
+
+    frame = ChannelFrame(
+        data=data,
+        sampling_rate=8.0,
+        channel_metadata=[{"label": "sig", "unit": "", "extra": {}}],
+    )
+
+    assert frame._xr.dims == ("channel", "time")
+    assert frame.labels == ["sig"]
+    assert "channel" not in frame._xr.coords
+
+
 def test_rename_channels_inplace_refreshes_xarray_channel_coord() -> None:
     frame = ChannelFrame.from_numpy(
         np.ones((2, 4)),
