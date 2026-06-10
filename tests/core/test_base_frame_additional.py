@@ -175,13 +175,10 @@ def test_compute_non_ndarray_result_raises_value_error():
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
 
-    class Bad:
-        def compute(self):
-            return [1, 2, 3]
-
-    f._data = Bad()  # ty: ignore[invalid-assignment]
-    with pytest.raises(ValueError, match=r"Computed result is not a np.ndarray"):
-        f.compute()
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(type(f._data), "compute", lambda self: [1, 2, 3])
+        with pytest.raises(ValueError, match=r"Computed result is not a np.ndarray"):
+            f.compute()
 
 
 def test_visualize_graph_failure_logs_warning_returns_none(caplog):
@@ -189,14 +186,14 @@ def test_visualize_graph_failure_logs_warning_returns_none(caplog):
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
 
-    class BadVis:
-        def visualize(self, filename=None):
-            raise RuntimeError("no graphviz")
-
-    f._data = BadVis()  # ty: ignore[invalid-assignment]
-
-    with caplog.at_level("WARNING"):
-        res = f.visualize_graph()
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(
+            type(f._data),
+            "visualize",
+            lambda self, filename=None: (_ for _ in ()).throw(RuntimeError("no graphviz")),
+        )
+        with caplog.at_level("WARNING"):
+            res = f.visualize_graph()
     assert res is None
     assert "Failed to visualize the graph" in caplog.text
 
@@ -315,27 +312,20 @@ def test_persist_returns_persisted_data():
     """Test persist() calls persist on internal data."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
+    persisted = da_from_array(np.zeros((2, 3)), chunks=(2, 3))
+    calls = {"count": 0}
 
-    class Persister:
-        def __init__(self):
-            self.ndim = 2
-            self.shape = (2, 3)
+    def fake_persist(self):
+        calls["count"] += 1
+        return persisted
 
-        def persist(self):
-            return self
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(type(f._data), "persist", fake_persist)
+        newf = f.persist()
 
-        def rechunk(self, *args, **kwargs):
-            return self
-
-        def compute(self):
-            import numpy as _np
-
-            return _np.zeros(self.shape)
-
-    p = Persister()
-    f._data = p  # ty: ignore[invalid-assignment]
-    newf = f.persist()
-    assert newf._data is p
+    assert calls["count"] == 1
+    assert newf._data is newf._xr.data
+    np.testing.assert_array_equal(newf.compute(), np.zeros((2, 3)))
 
 
 def test_channel_metadata_invalid_dict_raises_value_error():

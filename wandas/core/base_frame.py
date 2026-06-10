@@ -5,11 +5,12 @@ import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from re import Pattern
-from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast, overload
 
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
+import xarray as xr
 from dask.array.core import Array as DaArray
 from matplotlib.axes import Axes
 from pydantic import ValidationError
@@ -77,7 +78,8 @@ class BaseFrame(ABC, Generic[T]):
         History of operations performed on this frame.
     """
 
-    _data: DaArray
+    _channel_axis: ClassVar[int | None] = -2
+    _xr: xr.DataArray
     sampling_rate: float
     label: str
     metadata: FrameMetadata
@@ -95,27 +97,7 @@ class BaseFrame(ABC, Generic[T]):
         channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
         previous: "BaseFrame[Any] | None" = None,
     ):
-        # Default rechunk: prefer channel-wise chunking so the 0th axis
-        # (channels) will be processed per-channel for parallelism.
-        # For (channels, samples) arrays use (1, -1). For spectrograms
-        # and higher-dim arrays (channels, ..) we preserve channel-wise
-        # first-axis chunking: (1, -1, -1, ...)
-        try:
-            # Normalize: reshape 1D data to (1, -1)
-            normalized = data.reshape((1, -1)) if data.ndim == 1 else data
-
-            # Chunking: channel-wise on first axis, flat on the rest
-            if normalized.ndim >= 2:
-                chunks = tuple([1] + [-1] * (normalized.ndim - 1))
-            else:
-                chunks = tuple([-1] * normalized.ndim)
-
-            self._data = normalized.rechunk(chunks)
-        except Exception as e:
-            # Fall back to previous behavior if Dask rechunk fails.
-            logger.warning(f"Rechunk failed: {e!r}. Falling back to chunks=-1.")
-            self._data = data.rechunk(chunks=-1)
-
+        normalized_data = self._normalize_data(data)
         self.sampling_rate = sampling_rate
         self.label = label or "unnamed_frame"
         if isinstance(metadata, FrameMetadata):
@@ -157,8 +139,11 @@ class BaseFrame(ABC, Generic[T]):
             ]
         else:
             self._channel_metadata = [
-                ChannelMetadata(label=f"ch{i}", unit="", extra={}) for i in range(self._n_channels)
+                ChannelMetadata(label=f"ch{i}", unit="", extra={})
+                for i in range(self._channel_count_from_data(normalized_data))
             ]
+
+        self._xr = self._build_xarray(normalized_data)
 
         try:
             # Display information for newer dask versions
@@ -168,14 +153,58 @@ class BaseFrame(ABC, Generic[T]):
             logger.debug(f"Dask graph visualization details unavailable: {e}")
 
     @property
-    def _n_channels(self) -> int:
-        """Returns the number of channels.
+    def _data(self) -> DaArray:
+        """Compatibility alias for the Dask array stored in ``_xr``."""
+        data = self._xr.data
+        if not isinstance(data, DaArray):
+            raise TypeError(f"Internal xarray data is not a Dask array: {type(data).__name__}")
+        return data
 
-        Default assumes the channel axis is at position -2.
-        Subclasses with different data layouts (e.g. SpectrogramFrame,
-        RoughnessFrame) should override this.
-        """
-        return int(self._data.shape[-2])
+    def _replace_data(self, data: DaArray) -> None:
+        """Replace the internal xarray data container without touching Wandas metadata."""
+        normalized = self._normalize_data(data)
+        self._xr = self._build_xarray(normalized)
+
+    def _normalize_data(self, data: DaArray) -> DaArray:
+        """Normalize Dask data shape and chunks using Wandas channel-wise policy."""
+        try:
+            normalized = data.reshape((1, -1)) if data.ndim == 1 else data
+            if normalized.ndim >= 2:
+                chunks = tuple([1] + [-1] * (normalized.ndim - 1))
+            else:
+                chunks = tuple([-1] * normalized.ndim)
+            return normalized.rechunk(chunks)
+        except Exception as e:
+            logger.warning(f"Rechunk failed: {e!r}. Falling back to chunks=-1.")
+            return data.rechunk(chunks=-1)
+
+    def _build_xarray(self, data: DaArray) -> xr.DataArray:
+        """Build the internal xarray container for frame data, dims, and coords."""
+        return xr.DataArray(
+            data,
+            dims=self._xarray_dims(data),
+            coords=self._xarray_coords(data),
+            name=self.label,
+        )
+
+    def _xarray_dims(self, data: DaArray) -> tuple[str, ...]:
+        """Return neutral dimension names for the internal xarray container."""
+        return tuple(f"dim_{i}" for i in range(data.ndim))
+
+    def _xarray_coords(self, data: DaArray) -> dict[str, Any]:
+        """Return conservative base coordinates for the internal xarray container."""
+        return {}
+
+    def _channel_count_from_data(self, data: DaArray) -> int:
+        """Return the frame channel count from the declared channel axis."""
+        if self._channel_axis is None:
+            return 1
+        return int(data.shape[self._channel_axis])
+
+    @property
+    def _n_channels(self) -> int:
+        """Returns the number of channels from the declared channel axis."""
+        return self._channel_count_from_data(self._data)
 
     @property
     def n_channels(self) -> int:
@@ -560,6 +589,23 @@ class BaseFrame(ABC, Generic[T]):
 
         logger.debug(f"Computation complete, result shape: {result.shape}")
         return cast(T, result)
+
+    def to_xarray(self) -> xr.DataArray:
+        """Return a public xarray view of this frame without changing Wandas ownership."""
+        exported = self._xr.copy(deep=False)
+        exported.attrs = {
+            "wandas_frame_type": type(self).__name__,
+            "sampling_rate": self.sampling_rate,
+            "label": self.label,
+            "metadata": copy.deepcopy(self.metadata),
+            "operation_history": copy.deepcopy(self.operation_history),
+        }
+        return exported
+
+    @property
+    def xr(self) -> xr.DataArray:
+        """Return a public xarray view of this frame."""
+        return self.to_xarray()
 
     @abstractmethod
     def plot(self, plot_type: str = "default", ax: Axes | None = None, **kwargs: Any) -> Axes | Iterator[Axes]:

@@ -463,13 +463,11 @@ def test_visualize_graph_exception_returns_none_and_logs(caplog) -> None:
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
 
-    cf._data = mock.MagicMock()
-    cf._data.visualize.side_effect = RuntimeError("viz fail")
-
-    with caplog.at_level("WARNING"):
-        res = cf.visualize_graph("out.png")
-        assert res is None
-        assert "Failed to visualize the graph" in caplog.text
+    with mock.patch.object(type(cf._data), "visualize", side_effect=RuntimeError("viz fail")):
+        with caplog.at_level("WARNING"):
+            res = cf.visualize_graph("out.png")
+            assert res is None
+            assert "Failed to visualize the graph" in caplog.text
 
 
 class TestBaseFrameChannelMetadata:
