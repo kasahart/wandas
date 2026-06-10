@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 import numpy as np
 import pytest
 import xarray as xr
@@ -159,16 +161,47 @@ def test_noct_frame_adds_channel_coord_without_band_coord() -> None:
     assert "band" not in frame._xr.coords
 
 
-def test_channel_coord_omitted_when_metadata_length_differs_for_target_frames() -> None:
-    spectral = SpectralFrame(
-        data=da.ones((2, 5), chunks=(1, 5)) + 0j,
-        sampling_rate=8.0,
-        n_fft=8,
-        channel_metadata=[ChannelMetadata(label="only-one")],
-    )
+@pytest.mark.parametrize(
+    ("frame_factory",),
+    [
+        pytest.param(
+            lambda: SpectralFrame(
+                data=da.ones((2, 5), chunks=(1, 5)) + 0j,
+                sampling_rate=8.0,
+                n_fft=8,
+                channel_metadata=[ChannelMetadata(label="only-one")],
+            ),
+            id="spectral",
+        ),
+        pytest.param(
+            lambda: SpectrogramFrame(
+                data=da.ones((2, 5, 3), chunks=(1, 5, 3)) + 0j,
+                sampling_rate=8.0,
+                n_fft=8,
+                hop_length=2,
+                channel_metadata=[ChannelMetadata(label="only-one")],
+            ),
+            id="spectrogram",
+        ),
+        pytest.param(
+            lambda: NOctFrame(
+                data=da.ones((2, 4), chunks=(1, 4)),
+                sampling_rate=8.0,
+                fmin=20.0,
+                fmax=2000.0,
+                channel_metadata=[ChannelMetadata(label="only-one")],
+            ),
+            id="noct",
+        ),
+    ],
+)
+def test_channel_coord_omitted_when_metadata_length_differs_for_target_frames(
+    frame_factory: Callable[[], ChannelFrame],
+) -> None:
+    frame = frame_factory()
 
-    assert spectral.labels == ["only-one"]
-    assert "channel" not in spectral._xr.coords
+    assert frame.labels == ["only-one"]
+    assert "channel" not in frame._xr.coords
 
 
 def test_data_alias_is_read_only() -> None:
