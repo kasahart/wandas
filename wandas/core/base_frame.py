@@ -61,7 +61,7 @@ class BaseFrame(ABC, Generic[T]):
         History of operations performed on this frame.
     channel_metadata : list[ChannelMetadata | dict], optional
         Metadata for each channel in the frame. Can be ChannelMetadata objects
-        or dicts that will be validated by Pydantic.
+        or dicts that will be converted to ChannelMetadata objects.
     previous : BaseFrame, optional
         The frame that this frame was derived from.
 
