@@ -111,8 +111,8 @@ cf.get_channel(0, query=lambda ch: ch.unit == 'g')
 cf.get_channel(0, query={"unit": "g", "gain": 0.8})
 ```
 
-Note: Keys specified in dict are only allowed for model fields of `ChannelMetadata` (pydantic) or existing keys in the channel's `extra`. Passing unknown keys will raise a `KeyError`.
-注意: dict で指定するキーは `ChannelMetadata` のモデルフィールド（pydantic）または既に存在するチャネルの `extra` キーのみ許容されます。不明なキーを渡すと `KeyError` が発生します。
+Note: Keys specified in dict are only allowed for dataclass fields of `ChannelMetadata` or existing keys in the channel's `extra`. Passing unknown keys will raise a `KeyError`.
+注意: dict で指定するキーは `ChannelMetadata` のデータクラスフィールドまたは既に存在するチャネルの `extra` キーのみ許容されます。不明なキーを渡すと `KeyError` が発生します。
 
 ## Next Steps / 次のステップ
 

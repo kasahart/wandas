@@ -513,11 +513,11 @@ class TestBaseFrameChannelMetadata:
         assert frame.channels[1].label == "right"
         assert isinstance(frame._data, DaArray)
 
-    def test_channel_metadata_invalid_label_type_raises_value_error(self) -> None:
-        """Test that dict with non-string label raises ValueError."""
+    def test_channel_metadata_invalid_extra_type_raises_value_error(self) -> None:
+        """Test that dict with non-dict extra raises ValueError."""
         invalid_metadata = [
             {"label": "ch0", "unit": "V", "extra": {}},
-            {"label": 123, "unit": "A", "extra": {}},  # Invalid: label must be str
+            {"label": "ch1", "unit": "A", "extra": "invalid"},  # Invalid: extra must be dict
         ]
         with pytest.raises(ValueError, match="Invalid channel_metadata at index 1"):
             ChannelFrame(

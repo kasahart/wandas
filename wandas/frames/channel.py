@@ -1,3 +1,4 @@
+import copy
 import logging
 import warnings
 from collections.abc import Iterator
@@ -1243,7 +1244,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                         )
                 new_labels.append(new_label)
                 # Copy the entire channel_metadata and update only the label
-                new_ch_meta = chmeta.model_copy(deep=True)
+                new_ch_meta = copy.deepcopy(chmeta)
                 new_ch_meta.label = new_label
                 new_metadata_list.append(new_ch_meta)
             new_data = concatenate([self._data, arr], axis=0)
@@ -1376,7 +1377,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         # Create updated channel_metadata list
         new_chmeta = []
         for i, ch_meta in enumerate(self._channel_metadata):
-            new_ch_meta = ch_meta.model_copy(deep=True)
+            new_ch_meta = copy.deepcopy(ch_meta)
             new_ch_meta.label = new_labels[i]
             new_chmeta.append(new_ch_meta)
 

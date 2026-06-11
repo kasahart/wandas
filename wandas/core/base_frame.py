@@ -13,7 +13,6 @@ import pandas as pd
 import xarray as xr
 from dask.array.core import Array as DaArray
 from matplotlib.axes import Axes
-from pydantic import ValidationError
 
 from wandas.utils import validate_sampling_rate
 from wandas.utils.types import NDArrayComplex, NDArrayReal
@@ -62,7 +61,7 @@ class BaseFrame(ABC, Generic[T]):
         History of operations performed on this frame.
     channel_metadata : list[ChannelMetadata | dict], optional
         Metadata for each channel in the frame. Can be ChannelMetadata objects
-        or dicts that will be validated by Pydantic.
+        or dicts that will be converted to ChannelMetadata objects.
     previous : BaseFrame, optional
         The frame that this frame was derived from.
 
@@ -108,11 +107,11 @@ class BaseFrame(ABC, Generic[T]):
                 if isinstance(ch, dict):
                     try:
                         return ChannelMetadata(**ch)
-                    except ValidationError as e:
+                    except (TypeError, ValueError) as e:
                         raise ValueError(
                             f"Invalid channel_metadata at index {index}\n"
                             f"  Got: {ch}\n"
-                            f"  Validation error: {e}\n"
+                            f"  Error: {e}\n"
                             f"Ensure all dict keys match ChannelMetadata fields "
                             f"(label, unit, ref, extra) and have correct types."
                         ) from e
@@ -370,7 +369,7 @@ class BaseFrame(ABC, Generic[T]):
             if isinstance(q, dict):
                 # Validate dict keys against known model fields + extra keys.
                 if validate_query_keys:
-                    model_keys = set(ChannelMetadata.model_fields.keys())
+                    model_keys = set(ChannelMetadata._MODEL_FIELDS)
 
                     extra_keys: set[str] = set()
                     for ch in self._channel_metadata:
@@ -875,7 +874,7 @@ class BaseFrame(ABC, Generic[T]):
         # Build merged channel metadata
         new_channel_metadata: list[ChannelMetadata] = []
         for self_ch, other_label in zip(self._channel_metadata, other_labels, strict=True):
-            ch = self_ch.model_copy(deep=True)
+            ch = copy.deepcopy(self_ch)
             ch.label = f"({self_ch.label} {symbol} {other_label})"
             new_channel_metadata.append(ch)
 
@@ -1125,7 +1124,7 @@ class BaseFrame(ABC, Generic[T]):
         new_metadata = []
         for ch in self._channel_metadata:
             # All channel metadata are ChannelMetadata objects at this point
-            new_ch = ch.model_copy(deep=True)
+            new_ch = copy.deepcopy(ch)
             new_ch.label = f"{display}({ch.label})"
             new_metadata.append(new_ch)
         return new_metadata

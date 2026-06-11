@@ -443,6 +443,27 @@ def test_decode_hdf5_str_invalid_utf8() -> None:
     assert result == str(invalid_bytes)
 
 
+def test_load_wdf_decodes_channel_label_and_unit_bytes(tmp_path: Path) -> None:
+    """Legacy HDF5 byte string channel attrs load as text metadata."""
+    path = tmp_path / "byte_channel_attrs.wdf"
+    with h5py.File(path, "w") as f:
+        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["sampling_rate"] = 16000.0
+        f.attrs["label"] = ""
+
+        channels = f.create_group("channels")
+        channel = channels.create_group("0")
+        channel.create_dataset("data", data=np.array([1.0, 2.0, 3.0], dtype=np.float32))
+        channel.attrs["label"] = np.bytes_(b"mic0")
+        channel.attrs["unit"] = np.bytes_(b"Pa")
+
+    loaded = ChannelFrame.load(path)
+
+    assert loaded.channels[0].label == "mic0"
+    assert loaded.channels[0].unit == "Pa"
+    assert loaded.channels[0].ref == 2e-5
+
+
 def test_load_wdf_meta_json_as_bytes(tmp_path: Path) -> None:
     """Loading a WDF file where meta JSON is stored as numpy.bytes_ triggers line 229."""
     sr = 16000
