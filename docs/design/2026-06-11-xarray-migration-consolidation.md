@@ -64,6 +64,8 @@ metadata = {**frame.metadata, "window": "hann"}
 
 Code that previously used Pydantic-specific `ChannelMetadata` APIs such as `model_copy`, `model_fields`, or Pydantic validation errors must use standard-library equivalents such as `copy.deepcopy()`, `ChannelMetadata._MODEL_FIELDS`, `to_json()`, and `from_json()`.
 
+Explicit `ChannelMetadata.ref` values are preserved during this migration, including `ref=1.0`.
+
 ## Non-Goals
 
 This consolidation does not introduce:
