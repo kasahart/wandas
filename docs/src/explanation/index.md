@@ -54,9 +54,9 @@ Wandas uses xarray internally as the labelled storage and frame-state layer whil
 
 Wandasは内部でxarrayをラベル付きストレージとフレーム状態の層として使い、波形解析APIとしての責務はWandasに残します。現在の移行段階では、xarrayがデータ、名前付き次元、選択された座標、フレーム単位の属性を担当し、Wandasが検証、チャンネルメタデータオブジェクト、操作履歴の意味づけ、操作の実行を担当します。
 
-For the durable design record, see [xarray Migration Consolidation](../../design/2026-06-11-xarray-migration-consolidation.md).
+The durable design record is in docs/design/2026-06-11-xarray-migration-consolidation.md.
 
-永続的な設計記録については、[xarray Migration Consolidation](../../design/2026-06-11-xarray-migration-consolidation.md)を参照してください。
+恒久的な設計記録は docs/design/2026-06-11-xarray-migration-consolidation.md にあります。
 
 ### Data Processing Flow / データ処理フロー
 
