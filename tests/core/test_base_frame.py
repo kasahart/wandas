@@ -1157,7 +1157,7 @@ class TestBaseFrameInfoAndDataframe:
 
         # Verify all expected information is present
         assert "Channels: 1" in output
-        assert f"Sampling rate: {self.sample_rate} Hz" in output
+        assert f"Sampling rate: {float(self.sample_rate)} Hz" in output
         assert "Duration: 1.0 s" in output
         assert f"Samples: {self.channel_frame.n_samples}" in output
         assert "Channel labels: ['ch0']" in output

@@ -12,7 +12,7 @@ from dask.array.core import Array as DaArray
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 from ..core.base_frame import BaseFrame
-from ..core.metadata import ChannelMetadata, FrameMetadata
+from ..core.metadata import ChannelMetadata
 from .mixins.spectral_properties_mixin import SpectralPropertiesMixin
 
 if TYPE_CHECKING:
@@ -113,7 +113,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         n_fft: int,
         window: str = "hann",
         label: str | None = None,
-        metadata: FrameMetadata | dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
         previous: BaseFrame[Any] | None = None,
@@ -378,7 +378,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             G=G,
             fr=fr,
             label=f"1/{n}Oct of {self.label}",
-            metadata=self.metadata.merged(**params),
+            metadata={**self.metadata, **params},
             operation_history=[
                 *self.operation_history,
                 {

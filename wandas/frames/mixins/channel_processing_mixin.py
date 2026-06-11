@@ -887,7 +887,7 @@ class ChannelProcessingMixin:
         metadata_updates = operation.get_metadata_updates()
 
         # Build metadata and history
-        new_metadata = self.metadata.merged(**params)
+        new_metadata = {**self.metadata, **params}
         new_history = [
             *self.operation_history,
             {"operation": operation_name, "params": params},

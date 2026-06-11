@@ -8,7 +8,7 @@ import pandas as pd
 from dask.array.core import Array as DaArray
 
 from wandas.core.base_frame import BaseFrame
-from wandas.core.metadata import ChannelMetadata, FrameMetadata
+from wandas.core.metadata import ChannelMetadata
 from wandas.frames.mixins.spectral_properties_mixin import SpectralPropertiesMixin
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
@@ -112,7 +112,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         win_length: int | None = None,
         window: str = "hann",
         label: str | None = None,
-        metadata: "FrameMetadata | dict[str, Any] | None" = None,
+        metadata: dict[str, Any] | None = None,
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
         previous: "BaseFrame[Any] | None" = None,
