@@ -1,11 +1,25 @@
+import copy
 import json
+from dataclasses import is_dataclass
 from typing import Any
+
+import pytest
 
 from wandas.core.metadata import ChannelMetadata
 from wandas.utils.util import unit_to_ref
 
 
 class TestChannelMetadata:
+    def test_channel_metadata_is_dataclass_not_pydantic_model(self) -> None:
+        """ChannelMetadata uses stdlib dataclass semantics, not Pydantic APIs."""
+        metadata = ChannelMetadata()
+
+        assert is_dataclass(metadata)
+        assert not hasattr(metadata, "model_copy")
+        assert not hasattr(metadata, "model_fields")
+        assert not hasattr(metadata, "model_dump_json")
+        assert not hasattr(metadata, "model_validate_json")
+
     def test_init_default_values_empty_strings_and_dict(self) -> None:
         """Test initialization with default values returns empty strings and dict."""
         metadata: ChannelMetadata = ChannelMetadata()
@@ -134,27 +148,31 @@ class TestChannelMetadata:
         assert metadata.extra["calibrated"] is True
         assert metadata.extra["notes"] == "Test recording"
 
-    def test_copy_deep_independent_from_original(self) -> None:
-        """Test deep copy is independent from original."""
-        metadata: ChannelMetadata = ChannelMetadata(
+    def test_from_json_rejects_non_object_json(self) -> None:
+        """ChannelMetadata JSON must decode to an object."""
+        with pytest.raises(ValueError, match="ChannelMetadata JSON must decode to an object"):
+            ChannelMetadata.from_json('["not", "an", "object"]')
+
+    def test_deepcopy_independent_from_original(self) -> None:
+        """Standard deepcopy is independent from original."""
+        metadata = ChannelMetadata(
             label="test_label",
             unit="Hz",
-            extra={"source": "microphone", "calibrated": True},
+            extra={"source": "microphone", "nested": {"gain": 10}},
         )
-        copy_mata: ChannelMetadata = metadata.model_copy(deep=True)
+        copied = copy.deepcopy(metadata)
 
-        # Verify all fields are equal
-        assert copy_mata.label == metadata.label
-        assert copy_mata.unit == metadata.unit
-        assert copy_mata.extra == metadata.extra
+        assert copied.label == metadata.label
+        assert copied.unit == metadata.unit
+        assert copied.extra == metadata.extra
 
-        # Verify it's a deep copy by modifying the original
         metadata.label = "modified_label"
         metadata.extra["new_key"] = "new_value"
+        metadata.extra["nested"]["gain"] = 99
 
-        # The copy should remain unchanged
-        assert copy_mata.label == "test_label"
-        assert "new_key" not in copy_mata.extra
+        assert copied.label == "test_label"
+        assert "new_key" not in copied.extra
+        assert copied.extra["nested"]["gain"] == 10
 
     def test_unicode_and_special_chars_roundtrip(self) -> None:
         """Test Unicode and special characters survive JSON round-trip."""
