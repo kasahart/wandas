@@ -168,12 +168,28 @@ class TestChannelMetadata:
             ({"ref": "bad"}, "ChannelMetadata ref must be a number"),
             ({"ref": True}, "ChannelMetadata ref must be a number"),
             ({"extra": []}, "ChannelMetadata extra must be a dictionary"),
+            ({"extra": None}, "ChannelMetadata extra must be a dictionary"),
         ],
     )
     def test_init_rejects_invalid_field_types(self, kwargs: dict[str, Any], message: str) -> None:
         """ChannelMetadata rejects invalid dataclass field types."""
         with pytest.raises(TypeError, match=message):
             ChannelMetadata(**kwargs)
+
+    def test_extra_dict_is_copied_from_caller_input(self) -> None:
+        """Caller-owned extra dictionaries are not stored directly."""
+        extra: dict[str, Any] = {"nested": {"gain": 10}}
+        metadata = ChannelMetadata(extra=extra)
+
+        extra["nested"]["gain"] = 99
+        extra["new"] = "value"
+
+        assert metadata.extra == {"nested": {"gain": 10}}
+
+    def test_from_json_rejects_explicit_null_extra(self) -> None:
+        """JSON extra must be a dictionary when explicitly provided."""
+        with pytest.raises(ValueError, match="ChannelMetadata extra must be a dictionary"):
+            ChannelMetadata.from_json('{"extra": null}')
 
     def test_init_converts_numeric_ref_to_float(self) -> None:
         """ChannelMetadata stores valid numeric ref values as floats."""

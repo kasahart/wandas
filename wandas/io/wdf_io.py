@@ -266,8 +266,8 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
                 all_channel_data.append(channel_data)
 
                 # Load channel metadata
-                label = ch_group.attrs.get("label", f"Ch{idx}")
-                unit = ch_group.attrs.get("unit", "")
+                label = _decode_hdf5_str(ch_group.attrs.get("label", f"Ch{idx}"))
+                unit = _decode_hdf5_str(ch_group.attrs.get("unit", ""))
 
                 # Load additional metadata if present
                 ch_extra = {}

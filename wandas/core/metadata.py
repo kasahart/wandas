@@ -1,3 +1,4 @@
+import copy
 import json
 from dataclasses import dataclass, field
 from typing import Any
@@ -9,7 +10,12 @@ class _RefUnset:
     pass
 
 
+class _ExtraUnset:
+    pass
+
+
 _REF_UNSET = _RefUnset()
+_EXTRA_UNSET = _ExtraUnset()
 
 
 @dataclass(init=False)
@@ -29,12 +35,19 @@ class ChannelMetadata:
         label: str = "",
         unit: str = "",
         ref: float | _RefUnset = _REF_UNSET,
-        extra: dict[str, Any] | None = None,
+        extra: dict[str, Any] | _ExtraUnset = _EXTRA_UNSET,
     ) -> None:
+        if extra is _EXTRA_UNSET:
+            extra_value = {}
+        elif isinstance(extra, dict):
+            extra_value = copy.deepcopy(extra)
+        else:
+            extra_value = extra
+
         object.__setattr__(self, "label", label)
         object.__setattr__(self, "unit", unit)
         object.__setattr__(self, "ref", 1.0 if ref is _REF_UNSET else ref)
-        object.__setattr__(self, "extra", {} if extra is None else extra)
+        object.__setattr__(self, "extra", extra_value)
         self.__post_init__()
         if ref is _REF_UNSET and self.unit:
             object.__setattr__(self, "ref", unit_to_ref(self.unit))
