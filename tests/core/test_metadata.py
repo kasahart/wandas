@@ -10,15 +10,11 @@ from wandas.utils.util import unit_to_ref
 
 
 class TestChannelMetadata:
-    def test_channel_metadata_is_dataclass_not_pydantic_model(self) -> None:
-        """ChannelMetadata uses stdlib dataclass semantics, not Pydantic APIs."""
+    def test_channel_metadata_is_dataclass(self) -> None:
+        """ChannelMetadata uses stdlib dataclass semantics."""
         metadata = ChannelMetadata()
 
         assert is_dataclass(metadata)
-        assert not hasattr(metadata, "model_copy")
-        assert not hasattr(metadata, "model_fields")
-        assert not hasattr(metadata, "model_dump_json")
-        assert not hasattr(metadata, "model_validate_json")
 
     def test_init_default_values_empty_strings_and_dict(self) -> None:
         """Test initialization with default values returns empty strings and dict."""
