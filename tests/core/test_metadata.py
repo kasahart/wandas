@@ -101,6 +101,10 @@ class TestChannelMetadata:
         assert metadata4.unit == "Pa"
         assert metadata4.ref == 0.5  # ref should not be overridden
 
+        metadata4b: ChannelMetadata = ChannelMetadata(unit="Pa", ref=1.0)
+        assert metadata4b.unit == "Pa"
+        assert metadata4b.ref == 1.0  # explicit ref should not be overridden
+
         # Case 7: Test with other units
         other_units = ["V", "m/s", "g"]
         for unit in other_units:
@@ -143,6 +147,13 @@ class TestChannelMetadata:
         assert metadata.extra["source"] == "microphone"
         assert metadata.extra["calibrated"] is True
         assert metadata.extra["notes"] == "Test recording"
+
+    def test_from_json_preserves_explicit_unit_ref_one(self) -> None:
+        """JSON with explicit ref=1.0 preserves that value."""
+        metadata = ChannelMetadata.from_json('{"unit": "Pa", "ref": 1.0, "extra": {}}')
+
+        assert metadata.unit == "Pa"
+        assert metadata.ref == 1.0
 
     def test_from_json_rejects_non_object_json(self) -> None:
         """ChannelMetadata JSON must decode to an object."""

@@ -5,7 +5,14 @@ from typing import Any
 from wandas.utils.util import unit_to_ref
 
 
-@dataclass
+class _RefUnset:
+    pass
+
+
+_REF_UNSET = _RefUnset()
+
+
+@dataclass(init=False)
 class ChannelMetadata:
     """Metadata for a single channel."""
 
@@ -17,6 +24,21 @@ class ChannelMetadata:
 
     _MODEL_FIELDS = frozenset({"label", "unit", "ref", "extra"})
 
+    def __init__(
+        self,
+        label: str = "",
+        unit: str = "",
+        ref: float | _RefUnset = _REF_UNSET,
+        extra: dict[str, Any] | None = None,
+    ) -> None:
+        object.__setattr__(self, "label", label)
+        object.__setattr__(self, "unit", unit)
+        object.__setattr__(self, "ref", 1.0 if ref is _REF_UNSET else ref)
+        object.__setattr__(self, "extra", {} if extra is None else extra)
+        self.__post_init__()
+        if ref is _REF_UNSET and self.unit:
+            object.__setattr__(self, "ref", unit_to_ref(self.unit))
+
     def __post_init__(self) -> None:
         if not isinstance(self.label, str):
             raise TypeError("ChannelMetadata label must be a string")
@@ -27,8 +49,6 @@ class ChannelMetadata:
         self.ref = float(self.ref)
         if not isinstance(self.extra, dict):
             raise TypeError("ChannelMetadata extra must be a dictionary")
-        if self.unit and self.ref == 1.0:
-            self.ref = unit_to_ref(self.unit)
         object.__setattr__(self, "_initialized", True)
 
     def __setattr__(self, name: str, value: Any) -> None:
