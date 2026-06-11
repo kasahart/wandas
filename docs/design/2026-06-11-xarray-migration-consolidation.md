@@ -1,7 +1,7 @@
-# xarray Migration Consolidation
+# ADR: Xarray Migration Consolidation
 
-Date: 2026-06-11
-Status: Accepted
+- **Status**: Accepted
+- **Date**: 2026-06-11
 
 ## Context
 
