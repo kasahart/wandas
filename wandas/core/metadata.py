@@ -18,6 +18,13 @@ class ChannelMetadata:
     _MODEL_FIELDS = frozenset({"label", "unit", "ref", "extra"})
 
     def __post_init__(self) -> None:
+        if not isinstance(self.label, str):
+            raise TypeError("ChannelMetadata label must be a string")
+        if not isinstance(self.unit, str):
+            raise TypeError("ChannelMetadata unit must be a string")
+        if isinstance(self.ref, bool) or not isinstance(self.ref, (int, float)):
+            raise TypeError("ChannelMetadata ref must be a number")
+        self.ref = float(self.ref)
         if not isinstance(self.extra, dict):
             raise TypeError("ChannelMetadata extra must be a dictionary")
         if self.unit and self.ref == 1.0:
@@ -75,7 +82,10 @@ class ChannelMetadata:
     @classmethod
     def from_json(cls, json_data: str) -> "ChannelMetadata":
         """Convert from JSON format."""
-        data = json.loads(json_data)
+        try:
+            data = json.loads(json_data)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid ChannelMetadata JSON: {e}") from e
         if not isinstance(data, dict):
             raise ValueError("ChannelMetadata JSON must decode to an object")
         try:

@@ -153,6 +153,33 @@ class TestChannelMetadata:
         with pytest.raises(ValueError, match="ChannelMetadata JSON must decode to an object"):
             ChannelMetadata.from_json('["not", "an", "object"]')
 
+    @pytest.mark.parametrize(
+        ("kwargs", "message"),
+        [
+            ({"label": 1}, "ChannelMetadata label must be a string"),
+            ({"unit": 1}, "ChannelMetadata unit must be a string"),
+            ({"ref": "bad"}, "ChannelMetadata ref must be a number"),
+            ({"ref": True}, "ChannelMetadata ref must be a number"),
+            ({"extra": []}, "ChannelMetadata extra must be a dictionary"),
+        ],
+    )
+    def test_init_rejects_invalid_field_types(self, kwargs: dict[str, Any], message: str) -> None:
+        """ChannelMetadata rejects invalid dataclass field types."""
+        with pytest.raises(TypeError, match=message):
+            ChannelMetadata(**kwargs)
+
+    def test_init_converts_numeric_ref_to_float(self) -> None:
+        """ChannelMetadata stores valid numeric ref values as floats."""
+        metadata = ChannelMetadata(ref=2)
+
+        assert metadata.ref == 2.0
+        assert isinstance(metadata.ref, float)
+
+    def test_from_json_wraps_malformed_json(self) -> None:
+        """Malformed JSON raises a ChannelMetadata-specific ValueError."""
+        with pytest.raises(ValueError, match="Invalid ChannelMetadata JSON:"):
+            ChannelMetadata.from_json("{")
+
     def test_deepcopy_independent_from_original(self) -> None:
         """Standard deepcopy is independent from original."""
         metadata = ChannelMetadata(
