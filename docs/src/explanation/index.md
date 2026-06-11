@@ -48,6 +48,12 @@ Responsibilities of each class:
 - **io/**: I/O helpers for WAV, WDF, CSV, etc.
   **io/**: WAV, WDF, CSVなどのI/Oヘルパー。
 
+## xarray-backed architecture
+
+Wandas uses xarray internally as the labelled storage and frame-state layer while keeping Wandas as the waveform analysis API. In the current migration stage, xarray owns data, named dimensions, selected coordinates, and frame-level attrs. Wandas still owns validation, channel metadata objects, operation history semantics, and operation execution.
+
+For the durable design record, see [xarray Migration Consolidation](../../design/2026-06-11-xarray-migration-consolidation.md).
+
 ### Data Processing Flow / データ処理フロー
 
 1. **Input Stage**: Generate `ChannelFrame` objects from files using `io` helpers.
