@@ -156,7 +156,8 @@ class ChannelTransformMixin:
                 *self.operation_history,
                 {"operation": "fft", "params": {"n_fft": _n_fft, "window": window}},
             ],
-            channel_metadata=self._channel_metadata,
+            channel_metadata=cast(Any, self).channels.to_list(),
+            channel_ids=cast(Any, self)._channel_ids,
             previous=self._as_base_frame,
         )
 
@@ -213,7 +214,8 @@ class ChannelTransformMixin:
                 *self.operation_history,
                 {"operation": "welch", "params": params},
             ],
-            channel_metadata=self._channel_metadata,
+            channel_metadata=cast(Any, self).channels.to_list(),
+            channel_ids=cast(Any, self)._channel_ids,
             previous=self._as_base_frame,
         )
 
@@ -270,7 +272,8 @@ class ChannelTransformMixin:
                     "params": params,
                 },
             ],
-            channel_metadata=self._channel_metadata,
+            channel_metadata=cast(Any, self).channels.to_list(),
+            channel_ids=cast(Any, self)._channel_ids,
             previous=self._as_base_frame,
         )
 
@@ -330,7 +333,8 @@ class ChannelTransformMixin:
             label=f"stft({self.label})",
             metadata=self.metadata,
             operation_history=self.operation_history,
-            channel_metadata=self._channel_metadata,
+            channel_metadata=cast(Any, self).channels.to_list(),
+            channel_ids=cast(Any, self)._channel_ids,
             previous=self._as_base_frame,
         )
 

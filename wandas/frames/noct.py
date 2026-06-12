@@ -1,6 +1,6 @@
 # spectral_frame.py
 import logging
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from typing import TYPE_CHECKING, Any, TypeVar
 
 import librosa
@@ -129,7 +129,8 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         label: str | None = None,
         metadata: dict[str, Any] | None = None,
         operation_history: list[dict[str, Any]] | None = None,
-        channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
+        channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
+        channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
     ) -> None:
         """
@@ -153,6 +154,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
             metadata=metadata,
             operation_history=operation_history,
             channel_metadata=channel_metadata,
+            channel_ids=channel_ids,
             previous=previous,
         )
 

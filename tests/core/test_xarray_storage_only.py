@@ -80,10 +80,8 @@ def test_base_frame_owns_xarray_dataarray() -> None:
     assert frame._xr.dims == ("channel", "time")
     assert frame._data is frame._xr.data
     assert frame._data.chunks == ((1, 1), (8,))
-    assert list(frame._xr.coords["channel"].values) == [
-        "left",
-        "right",
-    ]
+    assert list(frame._xr.coords["channel"].values) == ["c0", "c1"]
+    assert list(frame._xr.coords["channel_label"].values) == ["left", "right"]
     assert "time" not in frame._xr.coords
 
 
@@ -155,7 +153,8 @@ def test_spectral_frame_adds_channel_coord_without_frequency_coord() -> None:
         ],
     )
 
-    assert list(frame._xr.coords["channel"].values) == ["left", "right"]
+    assert list(frame._xr.coords["channel"].values) == ["c0", "c1"]
+    assert list(frame._xr.coords["channel_label"].values) == ["left", "right"]
     assert "frequency" not in frame._xr.coords
 
 
@@ -171,7 +170,8 @@ def test_spectrogram_frame_adds_channel_coord_without_frequency_or_time_coords()
         ],
     )
 
-    assert list(frame._xr.coords["channel"].values) == ["left", "right"]
+    assert list(frame._xr.coords["channel"].values) == ["c0", "c1"]
+    assert list(frame._xr.coords["channel_label"].values) == ["left", "right"]
     assert "frequency" not in frame._xr.coords
     assert "time" not in frame._xr.coords
 
@@ -188,7 +188,8 @@ def test_noct_frame_adds_channel_coord_without_band_coord() -> None:
         ],
     )
 
-    assert list(frame._xr.coords["channel"].values) == ["left", "right"]
+    assert list(frame._xr.coords["channel"].values) == ["c0", "c1"]
+    assert list(frame._xr.coords["channel_label"].values) == ["left", "right"]
     assert "band" not in frame._xr.coords
 
 
@@ -231,8 +232,9 @@ def test_channel_coord_omitted_when_metadata_length_differs_for_target_frames(
 ) -> None:
     frame = frame_factory()
 
-    assert frame.labels == ["only-one"]
-    assert "channel" not in frame._xr.coords
+    assert frame.labels == ["only-one", "ch1"]
+    assert list(frame._xr.coords["channel"].values) == ["c0", "c1"]
+    assert list(frame._xr.coords["channel_label"].values) == ["only-one", "ch1"]
 
 
 def test_data_alias_is_read_only() -> None:
@@ -362,7 +364,8 @@ def test_channel_frame_refreshes_xarray_channel_coord_after_label_update() -> No
         ch_labels=["L", "R"],
     )
 
-    assert list(frame._xr.coords["channel"].values) == ["L", "R"]
+    assert list(frame._xr.coords["channel"].values) == ["c0", "c1"]
+    assert list(frame._xr.coords["channel_label"].values) == ["L", "R"]
 
 
 def test_large_lazy_channel_frame_does_not_create_internal_time_coord() -> None:
@@ -385,8 +388,9 @@ def test_channel_frame_omits_channel_coord_when_metadata_length_differs() -> Non
     )
 
     assert frame._xr.dims == ("channel", "time")
-    assert frame.labels == ["sig"]
-    assert "channel" not in frame._xr.coords
+    assert frame.labels == ["sig", "ch1"]
+    assert list(frame._xr.coords["channel"].values) == ["c0", "c1"]
+    assert list(frame._xr.coords["channel_label"].values) == ["sig", "ch1"]
 
 
 def test_rename_channels_inplace_refreshes_xarray_channel_coord() -> None:
@@ -399,7 +403,8 @@ def test_rename_channels_inplace_refreshes_xarray_channel_coord() -> None:
     frame.rename_channels({"L": "Left"}, inplace=True)
 
     assert frame.labels == ["Left", "R"]
-    assert list(frame._xr.coords["channel"].values) == ["Left", "R"]
+    assert list(frame._xr.coords["channel"].values) == ["c0", "c1"]
+    assert list(frame._xr.coords["channel_label"].values) == ["Left", "R"]
 
 
 def test_add_channel_inplace_updates_xarray_without_compute() -> None:
@@ -422,7 +427,8 @@ def test_add_channel_inplace_updates_xarray_without_compute() -> None:
     assert calls == []
     assert frame._data is frame._xr.data
     assert frame._data.shape == (2, 3)
-    assert list(frame._xr.coords["channel"].values) == ["ch0", "extra"]
+    assert list(frame._xr.coords["channel"].values) == ["c0", "c1"]
+    assert list(frame._xr.coords["channel_label"].values) == ["ch0", "extra"]
 
 
 def test_construction_and_xarray_export_do_not_compute() -> None:
@@ -491,7 +497,8 @@ def test_remove_channel_inplace_updates_xarray_without_compute() -> None:
     assert calls == []
     assert frame._data is frame._xr.data
     assert frame._data.shape == (1, 2)
-    assert list(frame._xr.coords["channel"].values) == ["right"]
+    assert list(frame._xr.coords["channel"].values) == ["c1"]
+    assert list(frame._xr.coords["channel_label"].values) == ["right"]
 
 
 def test_to_xarray_returns_public_shallow_copy_with_export_attrs() -> None:

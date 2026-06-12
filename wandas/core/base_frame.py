@@ -3,7 +3,7 @@ import logging
 import numbers
 import uuid
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from re import Pattern
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast, overload
 
@@ -17,6 +17,7 @@ from matplotlib.axes import Axes
 from wandas.utils import validate_sampling_rate
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
+from .channel_metadata import ChannelMetadataIndexer
 from .metadata import ChannelMetadata
 
 # IPython display types for visualize_graph return type
@@ -83,7 +84,6 @@ class BaseFrame(ABC, Generic[T]):
     _channel_axis: ClassVar[int | None] = -2
     _xarray_dim_suffix: ClassVar[tuple[str, ...]] = ()
     _xr: xr.DataArray
-    _channel_metadata: list[ChannelMetadata]
     _previous: "BaseFrame[Any] | None"
 
     def __init__(
@@ -93,50 +93,32 @@ class BaseFrame(ABC, Generic[T]):
         label: str | None = None,
         metadata: dict[str, Any] | None = None,
         operation_history: list[dict[str, Any]] | None = None,
-        channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
+        channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
+        channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
     ):
         normalized_data = self._normalize_data(data)
         frame_label = label or "unnamed_frame"
+        channel_count = self._channel_size_from_xarray_dims(normalized_data)
+        if channel_count is None:
+            channel_count = self._channel_count_from_data(normalized_data)
 
-        if channel_metadata:
-
-            def _to_channel_metadata(ch: ChannelMetadata | dict[str, Any], index: int) -> ChannelMetadata:
-                if isinstance(ch, ChannelMetadata):
-                    return copy.deepcopy(ch)
-                if isinstance(ch, dict):
-                    try:
-                        return ChannelMetadata(**ch)
-                    except (TypeError, ValueError) as e:
-                        raise ValueError(
-                            f"Invalid channel_metadata at index {index}\n"
-                            f"  Got: {ch}\n"
-                            f"  Error: {e}\n"
-                            f"Ensure all dict keys match ChannelMetadata fields "
-                            f"(label, unit, ref, extra) and have correct types."
-                        ) from e
-                raise TypeError(
-                    f"Invalid type in channel_metadata at index {index}\n"
-                    f"  Got: {type(ch).__name__} ({ch!r})\n"
-                    f"  Expected: ChannelMetadata or dict\n"
-                    f"Use ChannelMetadata objects or dicts with valid fields."
-                )
-
-            self._channel_metadata = [
-                _to_channel_metadata(cast(ChannelMetadata | dict[str, Any], ch), i)
-                for i, ch in enumerate(channel_metadata)
-            ]
-        else:
-            channel_count = self._channel_size_from_xarray_dims(normalized_data)
-            if channel_count is None:
-                channel_count = self._channel_count_from_data(normalized_data)
-            self._channel_metadata = [ChannelMetadata(label=f"ch{i}", unit="", extra={}) for i in range(channel_count)]
+        normalized_channel_metadata = self._normalize_channel_metadata_for_count(channel_metadata, channel_count)
+        self._pending_channel_metadata = normalized_channel_metadata
+        self._pending_channel_ids = (
+            self._validate_channel_ids(channel_ids, channel_count)
+            if channel_ids is not None
+            else self._default_channel_ids(channel_count)
+        )
 
         self._xr = self._build_xarray(normalized_data, name=frame_label)
         self.label = label
         self.sampling_rate = sampling_rate
         self.metadata = metadata
         self.operation_history = operation_history
+        self._set_channel_metadata(normalized_channel_metadata, self._pending_channel_ids)
+        del self._pending_channel_metadata
+        del self._pending_channel_ids
         self._previous = previous
 
         try:
@@ -196,10 +178,16 @@ class BaseFrame(ABC, Generic[T]):
         if channel_size is None:
             return {}
 
-        labels = [ch.label for ch in self._channel_metadata]
-        if len(labels) != channel_size:
+        metadata = getattr(self, "_pending_channel_metadata", None)
+        channel_ids = getattr(self, "_pending_channel_ids", None)
+        if metadata is None or channel_ids is None or len(metadata) != channel_size:
             return {}
-        return {self._CHANNEL_DIM: labels}
+        return {
+            self._CHANNEL_DIM: (self._CHANNEL_DIM, channel_ids),
+            "channel_label": (self._CHANNEL_DIM, [ch.label for ch in metadata]),
+            "channel_unit": (self._CHANNEL_DIM, [ch.unit for ch in metadata]),
+            "channel_ref": (self._CHANNEL_DIM, [ch.ref for ch in metadata]),
+        }
 
     def _channel_size_from_xarray_dims(self, data: DaArray) -> int | None:
         """Return the channel size implied by xarray dims, if present."""
@@ -221,27 +209,167 @@ class BaseFrame(ABC, Generic[T]):
             return int(self._xr.sizes[self._CHANNEL_DIM])
         return self._channel_count_from_data(self._data)
 
-    def _refresh_xarray_channel_coord(self) -> None:
-        """Refresh the internal xarray channel coordinate after label changes."""
-        if self._CHANNEL_DIM not in self._xr.dims:
-            return
+    @staticmethod
+    def _default_channel_ids(n_channels: int) -> list[str]:
+        return [f"c{i}" for i in range(n_channels)]
 
-        labels = [ch.label for ch in self._channel_metadata]
-        channel_size = int(self._xr.sizes[self._CHANNEL_DIM])
-        if len(labels) != channel_size:
-            self._xr = self._xr.drop_vars(self._CHANNEL_DIM, errors="ignore")
+    @staticmethod
+    def _validate_channel_ids(channel_ids: Sequence[Any], n_channels: int) -> list[str]:
+        ids = [str(channel_id) for channel_id in channel_ids]
+        if len(ids) != n_channels:
+            raise ValueError(
+                f"Channel id length must match number of channels\n  Channel ids: {len(ids)}\n  Channels: {n_channels}"
+            )
+        if len(set(ids)) != len(ids):
+            raise ValueError(f"Channel ids must be unique: {ids}")
+        return ids
+
+    def _normalize_channel_metadata_for_count(
+        self,
+        channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None,
+        channel_count: int,
+    ) -> list[ChannelMetadata]:
+        def _to_channel_metadata(ch: ChannelMetadata | dict[str, Any], index: int) -> ChannelMetadata:
+            to_metadata = getattr(ch, "to_metadata", None)
+            if callable(to_metadata):
+                return copy.deepcopy(cast(Any, to_metadata)())
+            if isinstance(ch, ChannelMetadata):
+                return copy.deepcopy(ch)
+            if isinstance(ch, dict):
+                try:
+                    return ChannelMetadata(**ch)
+                except (TypeError, ValueError) as e:
+                    raise ValueError(
+                        f"Invalid channel_metadata at index {index}\n"
+                        f"  Got: {ch}\n"
+                        f"  Error: {e}\n"
+                        f"Ensure all dict keys match ChannelMetadata fields "
+                        f"(label, unit, ref, extra) and have correct types."
+                    ) from e
+            raise TypeError(
+                f"Invalid type in channel_metadata at index {index}\n"
+                f"  Got: {type(ch).__name__} ({ch!r})\n"
+                f"  Expected: ChannelMetadata or dict\n"
+                f"Use ChannelMetadata objects or dicts with valid fields."
+            )
+
+        if channel_metadata is None:
+            result = [ChannelMetadata(label=f"ch{i}", unit="", extra={}) for i in range(channel_count)]
+        else:
+            result = [_to_channel_metadata(ch, i) for i, ch in enumerate(channel_metadata)]
+        if len(result) > channel_count:
+            raise ValueError(
+                "Channel metadata length must not exceed number of channels\n"
+                f"  Metadata entries: {len(result)}\n"
+                f"  Channels: {channel_count}"
+            )
+        if len(result) < channel_count:
+            result.extend(ChannelMetadata(label=f"ch{i}", unit="", extra={}) for i in range(len(result), channel_count))
+        return result
+
+    def _refresh_xarray_channel_coord(self) -> None:
+        """Refresh auxiliary channel metadata coordinates after compatibility mutations."""
+        self._set_channel_metadata(self.channels.to_list(), self._channel_ids)
+
+    @property
+    def _channel_ids(self) -> list[str]:
+        if self._CHANNEL_DIM in self._xr.coords:
+            return [str(value) for value in self._xr.coords[self._CHANNEL_DIM].values.tolist()]
+        return [str(value) for value in self._xr.attrs.get("channel_ids", [])]
+
+    def _channel_id_at(self, index: int) -> str:
+        if self._CHANNEL_DIM in self._xr.coords:
+            return str(self._xr.coords[self._CHANNEL_DIM].values[index])
+        return str(self._xr.attrs["channel_ids"][index])
+
+    def _get_channel_coord_value(self, coord_name: str, index: int) -> Any:
+        if coord_name in self._xr.coords:
+            return self._xr.coords[coord_name].values[index]
+        return self._xr.attrs[coord_name][index]
+
+    def _channel_ids_for_selection(self, indices: Sequence[int]) -> list[str]:
+        selected_ids: list[str] = []
+        used_ids: set[str] = set()
+        for index in indices:
+            channel_id = self._channel_id_at(index)
+            if channel_id in used_ids:
+                channel_id = self._next_channel_id([*self._channel_ids, *selected_ids])
+            selected_ids.append(channel_id)
+            used_ids.add(channel_id)
+        return selected_ids
+
+    @property
+    def channels(self) -> ChannelMetadataIndexer:
+        """Property to access channel metadata."""
+        return ChannelMetadataIndexer(self)
+
+    @property
+    def _channel_metadata(self) -> list[ChannelMetadata]:
+        """Compatibility list-like view over xarray-backed channel metadata."""
+        return cast(list[ChannelMetadata], self.channels)
+
+    @_channel_metadata.setter
+    def _channel_metadata(self, value: Sequence[ChannelMetadata | dict[str, Any]]) -> None:
+        self._set_channel_metadata(value)
+
+    def _set_channel_coord_value(self, coord_name: str, index: int, value: Any) -> None:
+        if coord_name in self._xr.coords:
+            values = self._xr.coords[coord_name].values.tolist()
+            values[index] = value
+            self._xr = self._xr.assign_coords({coord_name: (self._CHANNEL_DIM, values)})
             return
-        self._xr = self._xr.assign_coords({self._CHANNEL_DIM: labels})
+        values = list(self._xr.attrs.get(coord_name, []))
+        values[index] = value
+        self._xr.attrs[coord_name] = values
+
+    def _set_channel_metadata(
+        self,
+        channel_metadata: Sequence[ChannelMetadata | dict[str, Any]],
+        channel_ids: Sequence[Any] | None = None,
+    ) -> None:
+        normalized = self._normalize_channel_metadata_for_count(channel_metadata, self._n_channels)
+        ids = (
+            self._validate_channel_ids(channel_ids, self._n_channels) if channel_ids is not None else self._channel_ids
+        )
+        if not ids:
+            ids = self._default_channel_ids(self._n_channels)
+        labels = [ch.label for ch in normalized]
+        units = [ch.unit for ch in normalized]
+        refs = [ch.ref for ch in normalized]
+        channel_extra = {channel_id: copy.deepcopy(ch.extra) for channel_id, ch in zip(ids, normalized, strict=True)}
+        self._xr.attrs["channel_extra"] = channel_extra
+        if self._CHANNEL_DIM in self._xr.dims:
+            self._xr = self._xr.assign_coords(
+                {
+                    self._CHANNEL_DIM: (self._CHANNEL_DIM, ids),
+                    "channel_label": (self._CHANNEL_DIM, labels),
+                    "channel_unit": (self._CHANNEL_DIM, units),
+                    "channel_ref": (self._CHANNEL_DIM, refs),
+                }
+            )
+            for name in ("channel_ids", "channel_label", "channel_unit", "channel_ref"):
+                self._xr.attrs.pop(name, None)
+            return
+        self._xr.attrs.update(
+            {
+                "channel_ids": ids,
+                "channel_label": labels,
+                "channel_unit": units,
+                "channel_ref": refs,
+            }
+        )
+
+    def _next_channel_id(self, existing_ids: Sequence[str] | None = None) -> str:
+        ids = set(existing_ids if existing_ids is not None else self._channel_ids)
+        index = 0
+        while f"c{index}" in ids:
+            index += 1
+        return f"c{index}"
 
     @property
     def n_channels(self) -> int:
         """Returns the number of channels."""
         return self._n_channels
-
-    @property
-    def channels(self) -> list[ChannelMetadata]:
-        """Property to access channel metadata."""
-        return self._channel_metadata
 
     @property
     def previous(self) -> "BaseFrame[Any] | None":
@@ -357,14 +485,14 @@ class BaseFrame(ABC, Generic[T]):
 
         def _indices_from_query(q: Any) -> list[int]:
             if isinstance(q, str):
-                return [i for i, ch in enumerate(self._channel_metadata) if ch.label == q]
+                return [i for i, ch in enumerate(self.channels) if ch.label == q]
 
             # re.Pattern compatibility
             if hasattr(q, "search") and callable(q.search):
-                return [i for i, ch in enumerate(self._channel_metadata) if q.search(ch.label)]
+                return [i for i, ch in enumerate(self.channels) if q.search(ch.label)]
 
             if callable(q):
-                return [i for i, ch in enumerate(self._channel_metadata) if bool(q(ch))]
+                return [i for i, ch in enumerate(self.channels) if bool(q(ch))]
 
             if isinstance(q, dict):
                 # Validate dict keys against known model fields + extra keys.
@@ -372,7 +500,7 @@ class BaseFrame(ABC, Generic[T]):
                     model_keys = set(ChannelMetadata._MODEL_FIELDS)
 
                     extra_keys: set[str] = set()
-                    for ch in self._channel_metadata:
+                    for ch in self.channels:
                         if isinstance(ch.extra, dict):
                             extra_keys.update(ch.extra.keys())
 
@@ -381,7 +509,7 @@ class BaseFrame(ABC, Generic[T]):
                         names_str = ", ".join(map(str, unknown_keys))
                         raise KeyError("Unknown channel metadata key(s): " + names_str)
 
-                return [i for i, ch in enumerate(self._channel_metadata) if ch.matches_query(q)]
+                return [i for i, ch in enumerate(self.channels) if ch.matches_query(q)]
 
             raise TypeError(f"Unsupported query type: {type(q).__name__}")
 
@@ -397,7 +525,8 @@ class BaseFrame(ABC, Generic[T]):
             channel_idx_list = [channel_idx] if isinstance(channel_idx, int) else list(channel_idx)
 
         new_data = self._data[channel_idx_list]
-        new_channel_metadata = [self._channel_metadata[i] for i in channel_idx_list]
+        new_channel_metadata = [self.channels[i].to_metadata() for i in channel_idx_list]
+        new_channel_ids = self._channel_ids_for_selection(channel_idx_list)
 
         # Preserve operation_history (copy for immutability) but do not
         # append a selection operation so higher-level semantic operations
@@ -408,6 +537,7 @@ class BaseFrame(ABC, Generic[T]):
             data=new_data,
             operation_history=new_history,
             channel_metadata=new_channel_metadata,
+            channel_ids=new_channel_ids,
         )
 
     def __len__(self) -> int:
@@ -551,13 +681,14 @@ class BaseFrame(ABC, Generic[T]):
         # Slice
         if isinstance(key, slice):
             new_data = self._data[key]
-            new_channel_metadata = self._channel_metadata[key]
-            if isinstance(new_channel_metadata, ChannelMetadata):
-                new_channel_metadata = [new_channel_metadata]
+            indices = list(range(self.n_channels))[key]
+            new_channel_metadata = [self.channels[i].to_metadata() for i in indices]
+            new_channel_ids = [self._channel_ids[i] for i in indices]
             return self._create_new_instance(
                 data=new_data,
                 operation_history=self.operation_history,
                 channel_metadata=new_channel_metadata,
+                channel_ids=new_channel_ids,
             )
 
         raise TypeError(f"Invalid key type: {type(key).__name__}. Expected int, str, slice, list, tuple, or ndarray.")
@@ -607,7 +738,8 @@ class BaseFrame(ABC, Generic[T]):
             return selected._create_new_instance(
                 data=new_data,
                 operation_history=selected.operation_history,
-                channel_metadata=selected._channel_metadata,
+                channel_metadata=selected.channels.to_list(),
+                channel_ids=selected._channel_ids,
             )
 
         return selected
@@ -631,7 +763,7 @@ class BaseFrame(ABC, Generic[T]):
         KeyError
             If the channel label is not found.
         """
-        for idx, ch in enumerate(self._channel_metadata):
+        for idx, ch in enumerate(self.channels):
             if ch.label == label:
                 return idx
         raise KeyError(f"Channel label '{label}' not found.")
@@ -657,7 +789,7 @@ class BaseFrame(ABC, Generic[T]):
     @property
     def labels(self) -> list[str]:
         """Get a list of all channel labels."""
-        return [ch.label for ch in self._channel_metadata]
+        return [ch.label for ch in self.channels]
 
     def compute(self) -> T:
         """
@@ -686,6 +818,10 @@ class BaseFrame(ABC, Generic[T]):
     def to_xarray(self) -> xr.DataArray:
         """Return a public xarray view of this frame without changing Wandas ownership."""
         exported = self._xr.copy(deep=False)
+        for coord_name in (self._CHANNEL_DIM, "channel_label", "channel_unit", "channel_ref"):
+            if coord_name in exported.coords:
+                coord = exported.coords[coord_name]
+                exported = exported.assign_coords({coord_name: (coord.dims, coord.values.copy())})
         exported.name = self.label
         exported.attrs = copy.deepcopy(self._xr.attrs)
         exported.attrs["wandas_frame_type"] = type(self).__name__
@@ -735,9 +871,19 @@ class BaseFrame(ABC, Generic[T]):
         if not isinstance(operation_history, list):
             raise TypeError("Operation history must be a list")
 
-        channel_metadata = kwargs.pop("channel_metadata", copy.deepcopy(self._channel_metadata))
+        channel_metadata = kwargs.pop("channel_metadata", self.channels.to_list())
         if not isinstance(channel_metadata, list):
             raise TypeError("Channel metadata must be a list")
+
+        channel_ids = kwargs.pop("channel_ids", None)
+        if channel_ids is None:
+            channel_ids = (
+                self._channel_ids
+                if len(channel_metadata) == self.n_channels
+                else self._default_channel_ids(len(channel_metadata))
+            )
+        if not isinstance(channel_ids, list):
+            raise TypeError("Channel ids must be a list")
 
         # Get additional initialization arguments from derived classes
         additional_kwargs = self._get_additional_init_kwargs()
@@ -750,6 +896,7 @@ class BaseFrame(ABC, Generic[T]):
             metadata=metadata,
             operation_history=operation_history,
             channel_metadata=channel_metadata,
+            channel_ids=channel_ids,
             previous=self,
             **kwargs,
         )
@@ -865,7 +1012,7 @@ class BaseFrame(ABC, Generic[T]):
 
             result_data = op(self._data, other._data)
             other_str = other.label
-            other_labels = [ch.label for ch in other._channel_metadata]
+            other_labels = other.labels
         else:
             result_data = op(self._data, other)
             other_str = self._format_operand_str(other)
@@ -873,8 +1020,8 @@ class BaseFrame(ABC, Generic[T]):
 
         # Build merged channel metadata
         new_channel_metadata: list[ChannelMetadata] = []
-        for self_ch, other_label in zip(self._channel_metadata, other_labels, strict=True):
-            ch = copy.deepcopy(self_ch)
+        for self_ch, other_label in zip(self.channels, other_labels, strict=True):
+            ch = self_ch.to_metadata()
             ch.label = f"({self_ch.label} {symbol} {other_label})"
             new_channel_metadata.append(ch)
 
@@ -1055,6 +1202,7 @@ class BaseFrame(ABC, Generic[T]):
                 "metadata": new_metadata,
                 "operation_history": new_history,
                 "channel_metadata": new_channel_metadata,
+                "channel_ids": self._channel_ids,
                 "previous": self,
             }
             kw.update(metadata_updates)
@@ -1078,6 +1226,7 @@ class BaseFrame(ABC, Generic[T]):
             "metadata": new_metadata,
             "operation_history": new_history,
             "channel_metadata": new_channel_metadata,
+            "channel_ids": self._channel_ids,
         }
         creation_params.update(metadata_updates)
 
@@ -1122,9 +1271,8 @@ class BaseFrame(ABC, Generic[T]):
         """
         display = display_name or operation_name
         new_metadata = []
-        for ch in self._channel_metadata:
-            # All channel metadata are ChannelMetadata objects at this point
-            new_ch = copy.deepcopy(ch)
+        for ch in self.channels:
+            new_ch = ch.to_metadata()
             new_ch.label = f"{display}({ch.label})"
             new_metadata.append(new_ch)
         return new_metadata
