@@ -109,6 +109,8 @@ class NOctFrame(BaseFrame[NDArrayReal]):
       perception, following IEC 61672-1:2013.
     """
 
+    _xarray_dim_suffix = ("channel", "band")
+
     fmin: float
     fmax: float
     n: int

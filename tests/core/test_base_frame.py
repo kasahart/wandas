@@ -463,13 +463,11 @@ def test_visualize_graph_exception_returns_none_and_logs(caplog) -> None:
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
 
-    cf._data = mock.MagicMock()
-    cf._data.visualize.side_effect = RuntimeError("viz fail")
-
-    with caplog.at_level("WARNING"):
-        res = cf.visualize_graph("out.png")
-        assert res is None
-        assert "Failed to visualize the graph" in caplog.text
+    with mock.patch.object(type(cf._data), "visualize", side_effect=RuntimeError("viz fail")):
+        with caplog.at_level("WARNING"):
+            res = cf.visualize_graph("out.png")
+            assert res is None
+            assert "Failed to visualize the graph" in caplog.text
 
 
 class TestBaseFrameChannelMetadata:
@@ -515,11 +513,11 @@ class TestBaseFrameChannelMetadata:
         assert frame.channels[1].label == "right"
         assert isinstance(frame._data, DaArray)
 
-    def test_channel_metadata_invalid_label_type_raises_value_error(self) -> None:
-        """Test that dict with non-string label raises ValueError."""
+    def test_channel_metadata_invalid_extra_type_raises_value_error(self) -> None:
+        """Test that dict with non-dict extra raises ValueError."""
         invalid_metadata = [
             {"label": "ch0", "unit": "V", "extra": {}},
-            {"label": 123, "unit": "A", "extra": {}},  # Invalid: label must be str
+            {"label": "ch1", "unit": "A", "extra": "invalid"},  # Invalid: extra must be dict
         ]
         with pytest.raises(ValueError, match="Invalid channel_metadata at index 1"):
             ChannelFrame(
@@ -1159,7 +1157,7 @@ class TestBaseFrameInfoAndDataframe:
 
         # Verify all expected information is present
         assert "Channels: 1" in output
-        assert f"Sampling rate: {self.sample_rate} Hz" in output
+        assert f"Sampling rate: {float(self.sample_rate)} Hz" in output
         assert "Duration: 1.0 s" in output
         assert f"Samples: {self.channel_frame.n_samples}" in output
         assert "Channel labels: ['ch0']" in output

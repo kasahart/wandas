@@ -104,7 +104,7 @@ class ChannelTransformMixin:
             n_fft=n_fft,
             window=operation.window,
             label=f"{label_prefix} {self.label}",
-            metadata=self.metadata.merged(**params),
+            metadata={**self.metadata, **params},
             operation_history=[
                 *self.operation_history,
                 {"operation": operation_name, "params": params},
@@ -151,7 +151,7 @@ class ChannelTransformMixin:
             n_fft=_n_fft,
             window=operation.window,
             label=f"Spectrum of {self.label}",
-            metadata=self.metadata.merged(window=window, n_fft=_n_fft),
+            metadata={**self.metadata, "window": window, "n_fft": _n_fft},
             operation_history=[
                 *self.operation_history,
                 {"operation": "fft", "params": {"n_fft": _n_fft, "window": window}},
@@ -209,7 +209,7 @@ class ChannelTransformMixin:
             n_fft=operation.n_fft,
             window=operation.window,
             label=f"Spectrum of {self.label}",
-            metadata=self.metadata.merged(**params),
+            metadata={**self.metadata, **params},
             operation_history=[
                 *self.operation_history,
                 {"operation": "welch", "params": params},
@@ -264,7 +264,7 @@ class ChannelTransformMixin:
             G=G,
             fr=fr,
             label=f"1/{n}Oct of {self.label}",
-            metadata=self.metadata.merged(**params),
+            metadata={**self.metadata, **params},
             operation_history=[
                 *self.operation_history,
                 {

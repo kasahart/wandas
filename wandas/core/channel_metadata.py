@@ -17,7 +17,6 @@ class ChannelMetadataView(ChannelMetadata):
     """Mutable xarray-backed view for one channel's metadata."""
 
     def __init__(self, frame: BaseFrame[Any], index: int) -> None:
-        super().__init__()
         object.__setattr__(self, "_frame", frame)
         object.__setattr__(self, "_index", index)
 
@@ -64,10 +63,10 @@ class ChannelMetadataView(ChannelMetadata):
         if name in {"id", "label", "unit", "ref", "extra"}:
             try:
                 object.__getattribute__(self, "_frame")
-            except AttributeError:
-                return super().__getattr__(name)  # ty: ignore[unresolved-attribute]
+            except AttributeError as exc:
+                raise AttributeError(name) from exc
             return self.__getattribute__(name)
-        return super().__getattr__(name)  # ty: ignore[unresolved-attribute]
+        raise AttributeError(name)
 
     def __setattr__(self, name: str, value: Any) -> None:
         if name == "label":
@@ -104,7 +103,8 @@ class ChannelMetadataView(ChannelMetadata):
         return self.to_metadata().matches_query(query)
 
     def model_copy(self, *, deep: bool = False, **_: Any) -> ChannelMetadata:
-        return self.to_metadata().model_copy(deep=deep)
+        metadata = self.to_metadata()
+        return copy.deepcopy(metadata) if deep else copy.copy(metadata)
 
     def to_metadata(self) -> ChannelMetadata:
         return ChannelMetadata(

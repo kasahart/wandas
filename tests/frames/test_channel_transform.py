@@ -36,6 +36,7 @@ class TestChannelTransform:
             mock_data = mock.MagicMock(spec=DaArray)
             mock_data.ndim = 2  # Set ndim property to pass dimension check
             mock_data.shape = (2, 2049)  # Set appropriate shape for a 2D array
+            mock_data.rechunk.return_value = mock_data
             mock_fft.process.return_value = mock_data
             mock_create_op.return_value = mock_fft
 
@@ -75,6 +76,7 @@ class TestChannelTransform:
             mock_data = mock.MagicMock(spec=DaArray)
             mock_data.ndim = 2  # Set ndim property to pass dimension check
             mock_data.shape = (2, 1025)  # Set appropriate shape for a 2D array
+            mock_data.rechunk.return_value = mock_data
             mock_welch.process.return_value = mock_data
             mock_create_op.return_value = mock_welch
 
@@ -117,6 +119,7 @@ class TestChannelTransform:
             mock_data = mock.MagicMock(spec=DaArray)
             mock_data.ndim = 3  # Set ndim property to pass dimension check
             mock_data.shape = (2, 1025, 10)  # Set appropriate shape for a 3D array
+            mock_data.rechunk.return_value = mock_data
             mock_stft.process.return_value = mock_data
             mock_create_op.return_value = mock_stft
 
@@ -188,6 +191,7 @@ class TestChannelTransform:
             mock_data = mock.MagicMock(spec=DaArray)
             mock_data.ndim = 2
             mock_data.shape = (2, 10)  # バンド数に応じた適切な形状
+            mock_data.rechunk.return_value = mock_data
             mock_noct.process.return_value = mock_data
             mock_create_op.return_value = mock_noct
 

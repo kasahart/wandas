@@ -22,7 +22,6 @@ if TYPE_CHECKING:
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
 
 from ..core.base_frame import BaseFrame
-from ..core.metadata import FrameMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -136,16 +135,10 @@ def save(
                             op_sub_grp.attrs[k] = str(v)
 
         # Store frame metadata
-        dict_is_nonempty = bool(frame.metadata)
-        has_source_file = isinstance(frame.metadata, FrameMetadata) and frame.metadata.source_file is not None
-        if dict_is_nonempty or has_source_file:
+        if frame.metadata:
             meta_grp = f.create_group("meta")
             # Store metadata dict content as JSON
             meta_grp.attrs["json"] = json.dumps(dict(frame.metadata))
-
-            # Store source_file separately if present
-            if has_source_file:
-                meta_grp.attrs["source_file"] = str(frame.metadata.source_file)
 
             # Also store individual metadata items as attributes for compatibility
             for k, v in frame.metadata.items():
@@ -223,15 +216,18 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
         frame_label = f.attrs.get("label", "")
 
         # Get frame metadata
-        frame_metadata = FrameMetadata()
+        frame_metadata: dict[str, Any] = {}
         if "meta" in f:
             meta_json = f["meta"].attrs.get("json", "{}")
             if isinstance(meta_json, (bytes, np.bytes_)):
                 meta_json = _decode_hdf5_str(meta_json)
-            frame_metadata.update(json.loads(meta_json))
+            parsed_metadata = json.loads(meta_json)
+            if not isinstance(parsed_metadata, dict):
+                raise ValueError("WDF meta/json must decode to a JSON object")
+            frame_metadata = parsed_metadata
             source_file = f["meta"].attrs.get("source_file", None)
             if source_file is not None:
-                frame_metadata.source_file = _decode_hdf5_str(source_file)
+                frame_metadata.setdefault("_source_file", _decode_hdf5_str(source_file))
 
         # Load operation history
         operation_history = []
@@ -271,9 +267,9 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
                 all_channel_data.append(channel_data)
 
                 # Load channel metadata
-                label = ch_group.attrs.get("label", f"Ch{idx}")
-                unit = ch_group.attrs.get("unit", "")
-                ref = float(ch_group.attrs.get("ref", 1.0))
+                label = _decode_hdf5_str(ch_group.attrs.get("label", f"Ch{idx}"))
+                unit = _decode_hdf5_str(ch_group.attrs.get("unit", ""))
+                ref = float(ch_group.attrs["ref"]) if "ref" in ch_group.attrs else None
 
                 # Load additional metadata if present
                 ch_extra = {}
@@ -281,7 +277,10 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
                     ch_extra = json.loads(ch_group.attrs["metadata_json"])
 
                 # Create ChannelMetadata object
-                channel_metadata = ChannelMetadata(label=label, unit=unit, ref=ref, extra=ch_extra)
+                if ref is None:
+                    channel_metadata = ChannelMetadata(label=label, unit=unit, extra=ch_extra)
+                else:
+                    channel_metadata = ChannelMetadata(label=label, unit=unit, ref=ref, extra=ch_extra)
                 channel_metadata_list.append(channel_metadata)
 
         # Stack channel data into a single array

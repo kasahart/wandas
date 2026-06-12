@@ -230,19 +230,11 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         """
         return self._overlap
 
-    @property
-    def _n_channels(self) -> int:
-        """
-        Return the number of channels.
-
-        Returns
-        -------
-        int
-            Number of channels. For 2D data (mono), returns 1.
-        """
-        if self._data.ndim == 2:
+    def _channel_count_from_data(self, data: DaArray) -> int:
+        """Return the number of channels for mono or channel-bark-time data."""
+        if data.ndim == 2:
             return 1
-        return int(self._data.shape[0])
+        return int(data.shape[-3])
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
         """

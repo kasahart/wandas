@@ -20,7 +20,7 @@ from wandas.utils.dask_helpers import da_from_array as _da_from_array
 from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
-from ..core.metadata import ChannelMetadata, FrameMetadata
+from ..core.metadata import ChannelMetadata
 from ..io.readers import get_file_reader
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
 
@@ -177,12 +177,14 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
     with each channel containing data samples in the time domain.
     """
 
+    _xarray_dim_suffix = ("channel", "time")
+
     def __init__(
         self,
         data: DaArray,
         sampling_rate: float,
         label: str | None = None,
-        metadata: "FrameMetadata | dict[str, Any] | None" = None,
+        metadata: dict[str, Any] | None = None,
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
@@ -241,7 +243,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         if len(ch_labels) != self.n_channels:
             raise ValueError("Number of channel labels does not match the number of channels")
         for i, lbl in enumerate(ch_labels):
-            self._channel_metadata[i].label = lbl
+            self.channels[i].label = lbl
 
     def _set_channel_units(self, ch_units: list[str]) -> None:
         """Overwrite channel units after construction.
@@ -251,7 +253,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         if len(ch_units) != self.n_channels:
             raise ValueError("Number of channel units does not match the number of channels")
         for i, unit in enumerate(ch_units):
-            self._channel_metadata[i].unit = unit
+            self.channels[i].unit = unit
 
     def _finalize_channel_update(
         self,
@@ -262,7 +264,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
     ) -> "ChannelFrame":
         """Apply *new_data* and *new_chmeta* either in-place or as a new frame."""
         if inplace:
-            self._data = new_data
+            self._replace_data(new_data)
             self._set_channel_metadata(new_chmeta, channel_ids)
             return self
         return ChannelFrame(
@@ -771,7 +773,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         data: NDArrayReal,
         sampling_rate: float,
         label: str | None = None,
-        metadata: "FrameMetadata | dict[str, Any] | None" = None,
+        metadata: dict[str, Any] | None = None,
         ch_labels: list[str] | None = None,
         ch_units: list[str] | str | None = None,
     ) -> "ChannelFrame":
@@ -820,7 +822,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         labels: list[str] | None = None,
         unit: list[str] | str | None = None,
         frame_label: str | None = None,
-        metadata: "FrameMetadata | dict[str, Any] | None" = None,
+        metadata: dict[str, Any] | None = None,
     ) -> "ChannelFrame":
         """Create a ChannelFrame from a NumPy array.
 
@@ -1020,7 +1022,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             data=dask_array,
             sampling_rate=sr,
             label=frame_label,
-            metadata=FrameMetadata(source_file=source_file),
+            metadata={"_source_file": source_file} if source_file is not None else None,
         )
         if ch_labels is not None:
             cf._set_channel_labels(ch_labels)
@@ -1229,7 +1231,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             labels = self.labels
             new_labels: list[str] = []
             new_metadata_list: list[ChannelMetadata] = []
-            for chmeta in data._channel_metadata:
+            for chmeta in data.channels:
                 new_label = f"{label}_{chmeta.label}" if label is not None else chmeta.label
                 if new_label in labels or new_label in new_labels:
                     if suffix_on_dup:
@@ -1244,7 +1246,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                         )
                 new_labels.append(new_label)
                 # Copy the entire channel_metadata and update only the label
-                new_ch_meta = chmeta.model_copy(deep=True)
+                new_ch_meta = chmeta.to_metadata()
                 new_ch_meta.label = new_label
                 new_metadata_list.append(new_ch_meta)
             new_data = concatenate([self._data, arr], axis=0)
@@ -1383,8 +1385,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             )
         # Create updated channel_metadata list
         new_chmeta = []
-        for i, ch_meta in enumerate(self._channel_metadata):
-            new_ch_meta = ch_meta.model_copy(deep=True)
+        for i, ch_meta in enumerate(self.channels):
+            new_ch_meta = ch_meta.to_metadata()
             new_ch_meta.label = new_labels[i]
             new_chmeta.append(new_ch_meta)
 
