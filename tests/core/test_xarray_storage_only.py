@@ -227,7 +227,7 @@ def test_noct_frame_adds_channel_coord_without_band_coord() -> None:
         ),
     ],
 )
-def test_channel_coord_omitted_when_metadata_length_differs_for_target_frames(
+def test_channel_coord_uses_padded_metadata_for_target_frames(
     frame_factory: Callable[[], BaseFrame[np.ndarray]],
 ) -> None:
     frame = frame_factory()
@@ -250,7 +250,11 @@ def test_replace_data_preserves_xarray_attrs_backed_frame_state() -> None:
         sampling_rate=3.0,
         label="original",
         metadata={"source": "test", "nested": {"x": 1}},
+        ch_labels=["mic"],
     )
+    frame.channels[0].unit = "Pa"
+    frame.channels[0].ref = 0.25
+    frame.channels[0].extra = {"gain": 12}
     frame.operation_history = [{"operation": "load", "params": {"path": "input.wav"}}]
     replacement = da.full((1, 4), 2.0, chunks=(1, -1))
 
@@ -266,6 +270,11 @@ def test_replace_data_preserves_xarray_attrs_backed_frame_state() -> None:
     assert frame._xr.attrs["operation_history"] == [{"operation": "load", "params": {"path": "input.wav"}}]
     assert frame.metadata == {"source": "test", "nested": {"x": 1}}
     assert frame.operation_history == [{"operation": "load", "params": {"path": "input.wav"}}]
+    assert frame.channels[0].id == "c0"
+    assert frame.channels[0].label == "mic"
+    assert frame.channels[0].unit == "Pa"
+    assert frame.channels[0].ref == 0.25
+    assert frame.channels[0].extra == {"gain": 12}
 
 
 def test_internal_xarray_attrs_are_frame_state_source_of_truth() -> None:
@@ -378,7 +387,7 @@ def test_large_lazy_channel_frame_does_not_create_internal_time_coord() -> None:
     assert "time" not in frame._xr.coords
 
 
-def test_channel_frame_omits_channel_coord_when_metadata_length_differs() -> None:
+def test_channel_frame_pads_channel_metadata_and_creates_channel_coord() -> None:
     data = da.ones((2, 8), chunks=(1, 8))
 
     frame = ChannelFrame(

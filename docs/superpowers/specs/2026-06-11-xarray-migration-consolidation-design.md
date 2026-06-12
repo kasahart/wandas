@@ -17,7 +17,7 @@ The migration has already reached these points:
 
 - `BaseFrame` stores data in `_xr: xarray.DataArray`
 - `_data` remains a read-only compatibility alias to `_xr.data`
-- xarray dims and channel coord are used for the supported frame schemas
+- xarray dims and channel coords are used for the supported frame schemas
 - frame-level state is backed by `_xr.attrs`
 - `FrameMetadata` has been removed
 - `ChannelMetadata` is a standard-library dataclass
@@ -92,7 +92,7 @@ Phase 5 will not introduce:
 - NetCDF or Zarr support
 - xarray-native operation dispatch
 - `xr.apply_ufunc` or `map_blocks` operation rewrites
-- channel metadata storage migration to xarray coords or attrs
+- xarray-native channel metadata ownership or public APIs; Wandas still exposes and validates channel metadata through `ChannelMetadata` views
 - dense time coordinates
 - new frame schemas
 

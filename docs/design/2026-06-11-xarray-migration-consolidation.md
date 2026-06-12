@@ -34,7 +34,8 @@ Wandas
 
 - `BaseFrame` owns `_xr: xarray.DataArray` as the internal storage object.
 - `_data` is a read-only compatibility alias to `_xr.data`.
-- Supported frame schemas use semantic xarray dims and a centralized channel coord.
+- Supported frame schemas use semantic xarray dims and centralized channel coords.
+- Channel `label`, `unit`, and `ref` are stored as xarray coords when a semantic `channel` dimension is present; channel `extra` is stored in `_xr.attrs` by stable channel id.
 - Frame-level state such as `label`, `sampling_rate`, `metadata`, and `operation_history` is backed by `_xr.attrs`.
 - `FrameMetadata` has been removed. Frame metadata is a plain `dict[str, Any]`.
 - Source file metadata is stored as `metadata["_source_file"]`.
@@ -74,7 +75,7 @@ This consolidation does not introduce:
 - NetCDF or Zarr support
 - xarray-native operation dispatch
 - `xr.apply_ufunc` or `map_blocks` operation rewrites
-- channel metadata storage migration to xarray coords or attrs
+- xarray-native channel metadata ownership or public APIs; Wandas still exposes and validates channel metadata through `ChannelMetadata` views
 - dense time coordinates
 - new frame schemas
 

@@ -34,13 +34,18 @@ would create inconsistent behavior.
 
 ## Channel Coordinate
 
-`BaseFrame` centralizes channel coordinate creation. A `channel` coord is attached only when:
+`BaseFrame` centralizes channel coordinate creation. Channel metadata is first normalized
+to the frame channel count: missing entries are filled with default `chN` metadata,
+and too many entries are rejected. A `channel` coord is attached when:
 
 - the frame has a declared `channel` dimension
-- channel metadata label count matches the xarray channel size
+- normalized channel metadata and channel id counts match the xarray channel size
 
-If the counts differ, Wandas keeps `channel_metadata` unchanged and omits the xarray coord.
-`unit`, `ref`, and other channel metadata remain Wandas-owned in this phase.
+This means user-supplied partial channel metadata still produces a complete `channel`
+coord after default padding. Only truly inconsistent pending metadata/id state omits
+the coord during xarray construction. `label`, `unit`, and `ref` are stored in channel
+coords, while `extra` remains in xarray attrs keyed by stable channel id; the public
+Wandas `ChannelMetadata` API remains the owner of channel metadata semantics.
 
 ## Non-Goals
 

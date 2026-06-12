@@ -1,5 +1,11 @@
 # Phase 4: ChannelMetadata Dataclass Simplification
 
+> Historical note: this document describes the dataclass simplification phase only.
+> Later consolidation moved the physical storage for channel labels, units, and refs
+> into xarray coords and channel `extra` into attrs while keeping Wandas-owned
+> `ChannelMetadata` views as the public API. See
+> `docs/design/2026-06-11-xarray-migration-consolidation.md` for the current state.
+
 ## Goal
 
 Replace `ChannelMetadata`'s Pydantic `BaseModel` implementation with a lightweight standard-library `dataclass`, while preserving the channel metadata concept and the existing Wandas channel metadata behavior.

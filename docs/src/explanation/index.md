@@ -58,6 +58,18 @@ The durable design record is in docs/design/2026-06-11-xarray-migration-consolid
 
 恒久的な設計記録は docs/design/2026-06-11-xarray-migration-consolidation.md にあります。
 
+Compatibility notes for this migration:
+
+- `frame.metadata` is now a plain mutable dictionary; `FrameMetadata` and Pydantic-specific metadata APIs are no longer part of the public surface.
+- `frame.channels` is a sequence-like xarray-backed metadata view, not a `list`. Indexing, iteration, equality with metadata snapshots, and `frame.channels[0].label = ...` continue to work, but list mutation methods such as `append` or slice assignment are not supported. Use frame methods such as `add_channel`, `remove_channel`, and `rename_channels` for structural channel changes.
+- `frame.channels.to_list()` returns a list snapshot of `ChannelMetadata` value objects when list semantics are needed.
+
+この移行に関する互換性メモ:
+
+- `frame.metadata` は通常の可変 dictionary になりました。`FrameMetadata` と Pydantic 固有の metadata API は public surface から外れています。
+- `frame.channels` は `list` ではなく、xarray backed の sequence-like metadata view です。indexing、iteration、metadata snapshot との equality、`frame.channels[0].label = ...` は引き続き使えますが、`append` や slice assignment のような list mutation method はサポートしません。構造的な channel 変更には `add_channel`、`remove_channel`、`rename_channels` などの frame method を使ってください。
+- list semantics が必要な場合は、`frame.channels.to_list()` で `ChannelMetadata` value object の list snapshot を取得できます。
+
 ### Data Processing Flow / データ処理フロー
 
 1. **Input Stage**: Generate `ChannelFrame` objects from files using `io` helpers.
