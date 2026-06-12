@@ -1,9 +1,11 @@
 import copy
 from collections.abc import Sequence
+from typing import Any, cast
 
 import numpy as np
 import pytest
 
+from wandas.core.channel_metadata import ChannelMetadataIndexer, ChannelMetadataView
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.utils.dask_helpers import da_from_array
@@ -171,3 +173,107 @@ def test_to_xarray_exports_channel_metadata_without_sharing_attrs() -> None:
     assert frame.channels[0].label == "left"
     assert frame.channels[0].unit == "Pa"
     assert frame.channels[0].ref == 2e-5
+
+
+def test_channel_metadata_view_falls_back_to_value_object_attributes() -> None:
+    view = ChannelMetadataView.__new__(ChannelMetadataView)
+    object.__setattr__(view, "label", "snapshot")
+    object.__setattr__(view, "unit", "V")
+    object.__setattr__(view, "ref", 1.0)
+    object.__setattr__(view, "extra", {"gain": 1.5})
+
+    assert view.label == "snapshot"
+    assert view.unit == "V"
+    assert view.extra == {"gain": 1.5}
+
+    with pytest.raises(AttributeError, match="id"):
+        _ = view.id
+
+
+def test_channel_metadata_view_normalizes_corrupt_extra_storage() -> None:
+    frame = _frame()
+    frame._xr.attrs["channel_extra"]["c0"] = "bad"
+
+    assert frame.channels[0].extra == {}
+    assert frame._xr.attrs["channel_extra"]["c0"] == {}
+
+
+def test_channel_metadata_view_item_access_and_copy_semantics() -> None:
+    frame = _frame()
+
+    frame.channels[0]["label"] = "front"
+    frame.channels[0]["ref"] = 0.25
+    frame.channels[0]["extra"] = {"gain": {"db": 3}}
+
+    assert frame.channels[0]["label"] == "front"
+    assert frame.channels[0]["ref"] == 0.25
+    assert frame.channels[0]["extra"] == {"gain": {"db": 3}}
+
+    shallow = frame.channels[0].model_copy()
+    deep = frame.channels[0].model_copy(deep=True)
+    frame.channels[0].extra["gain"]["db"] = 6
+
+    assert shallow.extra["gain"]["db"] == 3
+    assert deep.extra["gain"]["db"] == 3
+
+
+def test_channel_metadata_view_extra_setter_validates_dictionary() -> None:
+    frame = _frame()
+
+    with pytest.raises(TypeError, match="channel extra must be a dictionary"):
+        frame.channels[0].extra = "bad"  # ty: ignore[invalid-assignment]
+
+    frame.channels[0].extra = {"ok": True}
+    assert frame._xr.attrs["channel_extra"]["c0"] == {"ok": True}
+
+
+def test_channel_metadata_view_empty_unit_does_not_overwrite_ref() -> None:
+    frame = _frame()
+    frame.channels[0].ref = 0.25
+
+    frame.channels[0].unit = ""
+
+    assert frame.channels[0].unit == ""
+    assert frame.channels[0].ref == 0.25
+
+
+def test_channel_metadata_indexer_supports_ids_labels_slices_and_validation() -> None:
+    frame = _frame()
+
+    assert frame.channels[-1].label == "right"
+    assert [ch.label for ch in frame.channels[:1]] == ["left"]
+    assert frame.channels["c0"].label == "left"
+    assert frame.channels["right"].id == "c1"
+
+    with pytest.raises(IndexError, match="out of range"):
+        _ = frame.channels[10]
+    with pytest.raises(KeyError, match="not found"):
+        _ = frame.channels["missing"]
+    with pytest.raises(TypeError, match="Invalid channel metadata key type"):
+        _ = frame.channels[cast(Any, 1.5)]
+
+
+def test_channel_metadata_indexer_equality_and_list_concatenation() -> None:
+    frame = _frame()
+    snapshots = frame.channels.to_list()
+
+    assert frame.channels == snapshots
+    assert frame.channels == [view for view in frame.channels]
+    assert frame.channels != "left"
+    assert frame.channels != [object()]
+    assert frame.channels + [ChannelMetadata(label="center")] == snapshots + [ChannelMetadata(label="center")]
+    assert [ChannelMetadata(label="front")] + frame.channels == [ChannelMetadata(label="front")] + snapshots
+    assert isinstance(frame.channels, ChannelMetadataIndexer)
+
+
+def test_channel_metadata_view_getattr_and_custom_attributes() -> None:
+    frame = _frame()
+
+    assert ChannelMetadataView.__getattr__(frame.channels[0], "label") == "left"
+    with pytest.raises(AttributeError, match="missing"):
+        ChannelMetadataView.__getattr__(frame.channels[0], "missing")
+
+    view = frame.channels[0]
+    view.custom_note = "local"
+    assert object.__getattribute__(view, "custom_note") == "local"
+    assert view["missing"] is None
