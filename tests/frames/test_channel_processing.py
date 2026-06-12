@@ -1102,11 +1102,15 @@ class TestRoughnessOperations:
         assert roughness_spec.data.shape[1] == 47  # 47 Bark bands
 
 
-def test_roughness_dw_spec_ignores_source_channel_ids_for_bark_axis() -> None:
+def test_roughness_dw_spec_preserves_source_channel_metadata_and_ids() -> None:
     data = np.random.default_rng(123).random((2, 16000))
     frame = ChannelFrame(
         data=_da_from_array(data, chunks=(1, 4000)),
         sampling_rate=_SAMPLE_RATE,
+        channel_metadata=[
+            ChannelMetadata(label="left", unit="Pa", ref=0.25, extra={"gain": 10}),
+            ChannelMetadata(label="right", unit="V", ref=0.5, extra={"gain": 20}),
+        ],
         channel_ids=["left-id", "right-id"],
     )
 
@@ -1115,7 +1119,15 @@ def test_roughness_dw_spec_ignores_source_channel_ids_for_bark_axis() -> None:
     assert result.data.ndim == 3
     assert result.data.shape[0] == 2
     assert result.data.shape[1] == 47
-    assert len(result._channel_ids) == result.n_channels
+    assert result._channel_ids == ["left-id", "right-id"]
+    assert result.channels[0].label == "left"
+    assert result.channels[0].unit == "Pa"
+    assert result.channels[0].ref == 0.25
+    assert result.channels[0].extra == {"gain": 10}
+    assert result.channels[1].label == "right"
+    assert result.channels[1].unit == "V"
+    assert result.channels[1].ref == 0.5
+    assert result.channels[1].extra == {"gain": 20}
 
 
 # --- Tests for channel_processing_mixin coverage gaps ---

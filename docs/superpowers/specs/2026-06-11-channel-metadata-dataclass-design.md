@@ -40,16 +40,19 @@ The fields are simple enough to represent with a dataclass: `label`, `unit`, `re
 - Remove `pydantic.ValidationError` handling from `BaseFrame`.
 - Remove `pydantic` from runtime dependencies if no production or test code still imports it.
 
-## Out of Scope
+## Out of Scope for This Phase
 
-- Moving `_channel_metadata` storage into xarray coords or attrs.
-- Moving `unit`, `ref`, or `extra` into xarray coords or attrs.
-- Changing `channels` property mutability or return semantics.
-- Adding proxy objects for channel metadata.
-- Adding `from_xarray`, NetCDF, or Zarr support.
-- Changing operation execution or xarray operation dispatch.
-- Adding generated numeric coordinates.
-- Keeping Pydantic compatibility shims such as `model_copy()`.
+This phase only replaced the Pydantic model with a dataclass. Later consolidation
+phases changed the physical storage and `channels` view semantics; those later
+decisions are documented in `docs/design/2026-06-11-xarray-migration-consolidation.md`.
+
+The dataclass phase itself did not introduce:
+
+- xarray-native channel metadata ownership or public APIs
+- `from_xarray`, NetCDF, or Zarr support
+- xarray operation dispatch
+- generated numeric coordinates
+- Pydantic compatibility shims such as `model_copy()`
 
 ## Behavior to Preserve
 

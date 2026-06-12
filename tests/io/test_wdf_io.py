@@ -487,6 +487,26 @@ def test_load_wdf_decodes_channel_label_and_unit_bytes(tmp_path: Path) -> None:
     assert loaded.channels[0].ref == 2e-5
 
 
+def test_load_wdf_decodes_frame_label_bytes(tmp_path: Path) -> None:
+    """Legacy HDF5 byte string frame labels load as text labels."""
+    path = tmp_path / "byte_frame_label.wdf"
+    with h5py.File(path, "w") as f:
+        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["sampling_rate"] = 16000.0
+        f.attrs["label"] = np.bytes_(b"legacy-label")
+
+        channels = f.create_group("channels")
+        channel = channels.create_group("0")
+        channel.create_dataset("data", data=np.array([1.0, 2.0, 3.0], dtype=np.float32))
+        channel.attrs["label"] = "mic0"
+        channel.attrs["unit"] = "Pa"
+
+    loaded = ChannelFrame.load(path)
+
+    assert loaded.label == "legacy-label"
+    assert loaded.channels[0].label == "mic0"
+
+
 def test_load_wdf_meta_json_as_bytes(tmp_path: Path) -> None:
     """Loading a WDF file where meta JSON is stored as numpy.bytes_ triggers line 229."""
     sr = 16000
