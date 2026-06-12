@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
@@ -113,7 +113,8 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         label: str | None = None,
         metadata: FrameMetadata | dict[str, Any] | None = None,
         operation_history: list[dict[str, Any]] | None = None,
-        channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
+        channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
+        channel_ids: list[str] | None = None,
         previous: BaseFrame[Any] | None = None,
     ) -> None:
         if data.ndim == 1:
@@ -129,6 +130,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             metadata=metadata,
             operation_history=operation_history,
             channel_metadata=channel_metadata,
+            channel_ids=channel_ids,
             previous=previous,
         )
 
@@ -290,7 +292,8 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             label=f"ifft({self.label})",
             metadata=self.metadata,
             operation_history=self.operation_history,
-            channel_metadata=self._channel_metadata,
+            channel_metadata=self.channels.to_list(),
+            channel_ids=self._channel_ids,
         )
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
@@ -384,7 +387,8 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
                     "params": params,
                 },
             ],
-            channel_metadata=self._channel_metadata,
+            channel_metadata=self.channels.to_list(),
+            channel_ids=self._channel_ids,
             previous=self,
         )
 

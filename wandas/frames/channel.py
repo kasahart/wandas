@@ -1,6 +1,6 @@
 import logging
 import warnings
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO, TypeVar, cast
 
@@ -184,7 +184,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         label: str | None = None,
         metadata: "FrameMetadata | dict[str, Any] | None" = None,
         operation_history: list[dict[str, Any]] | None = None,
-        channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
+        channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
+        channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
     ) -> None:
         """Initialize a ChannelFrame.
@@ -228,6 +229,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             metadata=metadata,
             operation_history=operation_history,
             channel_metadata=channel_metadata,
+            channel_ids=channel_ids,
             previous=previous,
         )
 
@@ -256,11 +258,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         new_data: DaArray,
         new_chmeta: list[ChannelMetadata],
         inplace: bool,
+        channel_ids: list[str],
     ) -> "ChannelFrame":
         """Apply *new_data* and *new_chmeta* either in-place or as a new frame."""
         if inplace:
             self._data = new_data
-            self._channel_metadata = new_chmeta
+            self._set_channel_metadata(new_chmeta, channel_ids)
             return self
         return ChannelFrame(
             data=new_data,
@@ -269,6 +272,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             metadata=self.metadata,
             operation_history=self.operation_history,
             channel_metadata=new_chmeta,
+            channel_ids=channel_ids,
             previous=self,
         )
 
@@ -1245,8 +1249,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 new_metadata_list.append(new_ch_meta)
             new_data = concatenate([self._data, arr], axis=0)
 
-            new_chmeta = self._channel_metadata + new_metadata_list
-            return self._finalize_channel_update(new_data, new_chmeta, inplace)
+            new_chmeta = self.channels.to_list() + new_metadata_list
+            new_ids = self._channel_ids.copy()
+            for _ in new_metadata_list:
+                new_id = self._next_channel_id(new_ids)
+                new_ids.append(new_id)
+            return self._finalize_channel_update(new_data, new_chmeta, inplace, new_ids)
         if isinstance(data, np.ndarray):
             arr = _da_from_array(data.reshape(1, -1), chunks=(1, -1))
         elif isinstance(data, DaArray):
@@ -1271,8 +1279,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 )
         new_data = concatenate([self._data, arr], axis=0)
 
-        new_chmeta = [*self._channel_metadata, ChannelMetadata(label=new_label)]
-        return self._finalize_channel_update(new_data, new_chmeta, inplace)
+        new_ids = [*self._channel_ids, self._next_channel_id()]
+        new_chmeta = [*self.channels.to_list(), ChannelMetadata(label=new_label)]
+        return self._finalize_channel_update(new_data, new_chmeta, inplace, new_ids)
 
     def remove_channel(self, key: int | str, inplace: bool = False) -> "ChannelFrame":
         if isinstance(key, int):
@@ -1284,9 +1293,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             if key not in labels:
                 raise KeyError(f"label {key} not found")
             idx = labels.index(key)
-        new_data = self._data[[i for i in range(self.n_channels) if i != idx], :]
-        new_chmeta = [ch for i, ch in enumerate(self._channel_metadata) if i != idx]
-        return self._finalize_channel_update(new_data, new_chmeta, inplace)
+        keep_indices = [i for i in range(self.n_channels) if i != idx]
+        new_data = self._data[keep_indices, :]
+        new_chmeta = [self.channels[i].to_metadata() for i in keep_indices]
+        new_ids = [self._channel_ids[i] for i in keep_indices]
+        return self._finalize_channel_update(new_data, new_chmeta, inplace, new_ids)
 
     def rename_channels(
         self,
@@ -1378,9 +1389,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             new_chmeta.append(new_ch_meta)
 
         if inplace:
-            self._channel_metadata = new_chmeta
+            self._set_channel_metadata(new_chmeta, self._channel_ids)
             return self
-        return self._finalize_channel_update(self._data, new_chmeta, inplace=False)
+        return self._finalize_channel_update(self._data, new_chmeta, inplace=False, channel_ids=self._channel_ids)
 
     def _get_dataframe_index(self) -> "pd.Index[Any]":
         """Get time index for DataFrame."""

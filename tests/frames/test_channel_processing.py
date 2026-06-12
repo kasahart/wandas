@@ -145,7 +145,7 @@ class TestChannelProcessing:
         assert result.metadata == {"source": "test", "custom": {"bias": 0.0}}
 
         # Channel labels should use display name from callable __name__
-        assert result.labels == ["fancy(sig)"]
+        assert result.labels == ["fancy(sig)", "fancy(ch1)"]
 
     def test_apply_custom_label_fallback_to_custom_name(self) -> None:
         """When callable lacks __name__, label should fall back to 'custom'."""
@@ -161,7 +161,7 @@ class TestChannelProcessing:
         )
 
         result = frame.apply(CallableObj())
-        assert result.labels == ["custom(sig)"]
+        assert result.labels == ["custom(sig)", "custom(ch1)"]
 
     def test_apply_with_sr_in_params(self) -> None:
         """
@@ -1111,14 +1111,14 @@ def test_get_ref_values_empty_channel_metadata() -> None:
     cf = ChannelFrame.from_numpy(np.random.default_rng(42).random((2, 100)), sampling_rate=1000)
     cf._channel_metadata = []  # force empty
     result = cf._get_ref_values()
-    assert result == []
+    assert result == [1.0, 1.0]
 
 
 def test_reduce_channels_unsupported_op_raises() -> None:
     """_reduce_channels raises ValueError for unsupported operation (line 313)."""
     cf = ChannelFrame.from_numpy(np.random.default_rng(42).random((2, 100)), sampling_rate=1000)
     with pytest.raises(ValueError, match="Unsupported reduction operation"):
-        cf._reduce_channels("median")  # ty: ignore[call-non-callable]
+        cf._reduce_channels("median")
 
 
 def test_roughness_dw_spec_missing_bark_axis() -> None:

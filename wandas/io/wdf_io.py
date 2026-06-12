@@ -100,7 +100,7 @@ def save(
         channels_grp = f.create_group("channels")
 
         # Store each channel
-        for i, (channel_data, ch_meta) in enumerate(zip(computed_data, frame._channel_metadata, strict=True)):
+        for i, (channel_data, ch_meta) in enumerate(zip(computed_data, frame.channels, strict=True)):
             ch_grp = channels_grp.create_group(f"{i}")
 
             # Store channel data
@@ -112,6 +112,7 @@ def save(
             # Store metadata
             ch_grp.attrs["label"] = ch_meta.label
             ch_grp.attrs["unit"] = ch_meta.unit
+            ch_grp.attrs["ref"] = ch_meta.ref
 
             # Store extra metadata as JSON
             if ch_meta.extra:
@@ -272,6 +273,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
                 # Load channel metadata
                 label = ch_group.attrs.get("label", f"Ch{idx}")
                 unit = ch_group.attrs.get("unit", "")
+                ref = float(ch_group.attrs.get("ref", 1.0))
 
                 # Load additional metadata if present
                 ch_extra = {}
@@ -279,7 +281,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
                     ch_extra = json.loads(ch_group.attrs["metadata_json"])
 
                 # Create ChannelMetadata object
-                channel_metadata = ChannelMetadata(label=label, unit=unit, extra=ch_extra)
+                channel_metadata = ChannelMetadata(label=label, unit=unit, ref=ref, extra=ch_extra)
                 channel_metadata_list.append(channel_metadata)
 
         # Stack channel data into a single array

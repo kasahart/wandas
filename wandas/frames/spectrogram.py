@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 import dask.array as da
@@ -112,7 +112,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         label: str | None = None,
         metadata: "FrameMetadata | dict[str, Any] | None" = None,
         operation_history: list[dict[str, Any]] | None = None,
-        channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
+        channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
+        channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
     ) -> None:
         if data.ndim == 2:
@@ -144,6 +145,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             metadata=metadata,
             operation_history=operation_history,
             channel_metadata=channel_metadata,
+            channel_ids=channel_ids,
             previous=previous,
         )
 
@@ -413,7 +415,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             label=f"{self.label} (Frame {time_idx}, Time {self.times[time_idx]:.3f}s)",
             metadata=self.metadata,
             operation_history=self.operation_history,
-            channel_metadata=self._channel_metadata,
+            channel_metadata=self.channels.to_list(),
+            channel_ids=self._channel_ids,
         )
 
     def to_channel_frame(self) -> "ChannelFrame":
@@ -459,7 +462,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             label=f"istft({self.label})",
             metadata=self.metadata,
             operation_history=self.operation_history,
-            channel_metadata=self._channel_metadata,
+            channel_metadata=self.channels.to_list(),
+            channel_ids=self._channel_ids,
         )
 
     def istft(self) -> "ChannelFrame":
@@ -605,7 +609,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         label: str | None = None,
         metadata: dict[str, Any] | None = None,
         operation_history: list[dict[str, Any]] | None = None,
-        channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
+        channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
+        channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
     ) -> "SpectrogramFrame":
         """Create a SpectrogramFrame from a NumPy array.
@@ -659,6 +664,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             metadata=metadata,
             operation_history=operation_history,
             channel_metadata=channel_metadata,
+            channel_ids=channel_ids,
             previous=previous,
         )
         return sf
