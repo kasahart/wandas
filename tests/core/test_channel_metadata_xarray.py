@@ -122,6 +122,19 @@ def test_add_remove_and_rename_preserve_stable_ids_and_extra_keys() -> None:
     assert renamed._xr.attrs["channel_extra"] == {"c0": {"sensitivity": 50.0}, "c2": {}}
 
 
+def test_duplicate_channel_selection_generates_unique_ids() -> None:
+    frame = _frame()
+
+    duplicated = frame.get_channel([0, 0])
+
+    assert duplicated._xr.coords["channel"].values.tolist() == ["c0", "c2"]
+    assert duplicated._xr.coords["channel_label"].values.tolist() == ["left", "left"]
+    assert duplicated._xr.attrs["channel_extra"] == {
+        "c0": {"sensitivity": 50.0},
+        "c2": {"sensitivity": 50.0},
+    }
+
+
 def test_channel_metadata_snapshots_are_value_objects() -> None:
     frame = _frame()
 
@@ -150,4 +163,11 @@ def test_to_xarray_exports_channel_metadata_without_sharing_attrs() -> None:
     assert exported.attrs["channel_extra"] == copy.deepcopy(frame._xr.attrs["channel_extra"])
 
     exported.attrs["channel_extra"]["c0"]["sensitivity"] = 1.0
+    exported.coords["channel_label"].values[0] = "exported-left"
+    exported.coords["channel_unit"].values[0] = "Hz"
+    exported.coords["channel_ref"].values[0] = 1.0
+
     assert frame.channels[0].extra["sensitivity"] == 50.0
+    assert frame.channels[0].label == "left"
+    assert frame.channels[0].unit == "Pa"
+    assert frame.channels[0].ref == 2e-5

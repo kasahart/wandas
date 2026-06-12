@@ -1102,6 +1102,22 @@ class TestRoughnessOperations:
         assert roughness_spec.data.shape[1] == 47  # 47 Bark bands
 
 
+def test_roughness_dw_spec_ignores_source_channel_ids_for_bark_axis() -> None:
+    data = np.random.default_rng(123).random((2, 16000))
+    frame = ChannelFrame(
+        data=_da_from_array(data, chunks=(1, 4000)),
+        sampling_rate=_SAMPLE_RATE,
+        channel_ids=["left-id", "right-id"],
+    )
+
+    result = frame.roughness_dw_spec(overlap=0.5)
+
+    assert result.data.ndim == 3
+    assert result.data.shape[0] == 2
+    assert result.data.shape[1] == 47
+    assert len(result._channel_ids) == result.n_channels
+
+
 # --- Tests for channel_processing_mixin coverage gaps ---
 
 

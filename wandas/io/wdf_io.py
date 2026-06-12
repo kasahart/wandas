@@ -94,6 +94,7 @@ def save(
         f.attrs["sampling_rate"] = frame.sampling_rate
         f.attrs["label"] = frame.label or ""
         f.attrs["frame_type"] = type(frame).__name__
+        f.attrs["channel_ids_json"] = json.dumps(frame._channel_ids)
 
         # Create channels group
         channels_grp = f.create_group("channels")
@@ -251,6 +252,11 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
         # Load channel data and metadata
         all_channel_data = []
         channel_metadata_list = []
+        channel_ids = None
+        if "channel_ids_json" in f.attrs:
+            parsed_channel_ids = json.loads(_decode_hdf5_str(f.attrs["channel_ids_json"]))
+            if isinstance(parsed_channel_ids, list):
+                channel_ids = [str(channel_id) for channel_id in parsed_channel_ids]
 
         if "channels" in f:
             channels_group = f["channels"]
@@ -300,6 +306,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
             metadata=frame_metadata,
             operation_history=operation_history,
             channel_metadata=channel_metadata_list,
+            channel_ids=channel_ids,
         )
 
         logger.debug(f"ChannelFrame loaded from {path}: {len(cf)} channels, {cf.n_samples} samples")

@@ -908,8 +908,6 @@ class ChannelProcessingMixin:
             label=f"{self.label}_roughness_spec" if self.label else "roughness_spec",
             metadata=new_metadata,
             operation_history=new_history,
-            channel_metadata=cast(Any, self).channels.to_list(),
-            channel_ids=cast(Any, self)._channel_ids,
             previous=cast("BaseFrame[NDArrayReal]", self),
         )
 

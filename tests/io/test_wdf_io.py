@@ -111,6 +111,29 @@ def test_save_load_roundtrip(tmp_path: Path) -> None:
     assert cf2._channel_metadata[1].extra.get("sensitivity") == 48.5
 
 
+def test_wdf_roundtrip_preserves_stable_channel_ids(tmp_path: Path) -> None:
+    data = np.array([[1.0, 2.0], [3.0, 4.0]])
+    frame = ChannelFrame(
+        data=dask.array.from_array(data, chunks=(1, -1)),
+        sampling_rate=2.0,
+        channel_metadata=[
+            {"label": "left", "unit": "Pa", "extra": {"sensor": "a"}},
+            {"label": "right", "unit": "Pa", "extra": {"sensor": "b"}},
+        ],
+        channel_ids=["mic-a", "mic-b"],
+    )
+    path = tmp_path / "stable_ids.wdf"
+
+    frame.save(path)
+    loaded = ChannelFrame.load(path)
+
+    assert loaded._xr.coords["channel"].values.tolist() == ["mic-a", "mic-b"]
+    assert loaded._xr.attrs["channel_extra"] == {
+        "mic-a": {"sensor": "a"},
+        "mic-b": {"sensor": "b"},
+    }
+
+
 def test_wdf_operation_history_roundtrip(known_signal_frame, tmp_path: Path) -> None:
     """WDF round-trip preserves operation_history entries (Pillar 2: metadata sync).
 

@@ -28,30 +28,15 @@ class ChannelMetadataView(ChannelMetadata):
             except AttributeError:
                 return super().__getattribute__(name)
             if name == "id":
-                return frame._channel_ids[index]
+                return frame._channel_id_at(index)
             if name == "label":
-                values = (
-                    frame._xr.coords["channel_label"].values.tolist()
-                    if "channel_label" in frame._xr.coords
-                    else frame._xr.attrs["channel_label"]
-                )
-                return str(values[index])
+                return str(frame._get_channel_coord_value("channel_label", index))
             if name == "unit":
-                values = (
-                    frame._xr.coords["channel_unit"].values.tolist()
-                    if "channel_unit" in frame._xr.coords
-                    else frame._xr.attrs["channel_unit"]
-                )
-                return str(values[index])
+                return str(frame._get_channel_coord_value("channel_unit", index))
             if name == "ref":
-                values = (
-                    frame._xr.coords["channel_ref"].values.tolist()
-                    if "channel_ref" in frame._xr.coords
-                    else frame._xr.attrs["channel_ref"]
-                )
-                return float(values[index])
+                return float(frame._get_channel_coord_value("channel_ref", index))
             channel_extra = frame._xr.attrs.setdefault("channel_extra", {})
-            channel_id = frame._channel_ids[index]
+            channel_id = frame._channel_id_at(index)
             existing = channel_extra.setdefault(channel_id, {})
             if not isinstance(existing, dict):
                 existing = {}
@@ -127,7 +112,7 @@ class ChannelMetadataIndexer(Sequence[ChannelMetadataView]):
         self._frame = frame
 
     def __len__(self) -> int:
-        return len(self._frame._channel_ids)
+        return self._frame.n_channels
 
     def __iter__(self) -> Iterator[ChannelMetadataView]:
         for index in range(len(self)):

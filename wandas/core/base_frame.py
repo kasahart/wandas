@@ -277,6 +277,27 @@ class BaseFrame(ABC, Generic[T]):
             return [str(value) for value in self._xr.coords[self._CHANNEL_DIM].values.tolist()]
         return [str(value) for value in self._xr.attrs.get("channel_ids", [])]
 
+    def _channel_id_at(self, index: int) -> str:
+        if self._CHANNEL_DIM in self._xr.coords:
+            return str(self._xr.coords[self._CHANNEL_DIM].values[index])
+        return str(self._xr.attrs["channel_ids"][index])
+
+    def _get_channel_coord_value(self, coord_name: str, index: int) -> Any:
+        if coord_name in self._xr.coords:
+            return self._xr.coords[coord_name].values[index]
+        return self._xr.attrs[coord_name][index]
+
+    def _channel_ids_for_selection(self, indices: Sequence[int]) -> list[str]:
+        selected_ids: list[str] = []
+        used_ids: set[str] = set()
+        for index in indices:
+            channel_id = self._channel_id_at(index)
+            if channel_id in used_ids:
+                channel_id = self._next_channel_id([*self._channel_ids, *selected_ids])
+            selected_ids.append(channel_id)
+            used_ids.add(channel_id)
+        return selected_ids
+
     @property
     def channels(self) -> ChannelMetadataIndexer:
         """Property to access channel metadata."""
@@ -505,7 +526,7 @@ class BaseFrame(ABC, Generic[T]):
 
         new_data = self._data[channel_idx_list]
         new_channel_metadata = [self.channels[i].to_metadata() for i in channel_idx_list]
-        new_channel_ids = [self._channel_ids[i] for i in channel_idx_list]
+        new_channel_ids = self._channel_ids_for_selection(channel_idx_list)
 
         # Preserve operation_history (copy for immutability) but do not
         # append a selection operation so higher-level semantic operations
@@ -797,6 +818,10 @@ class BaseFrame(ABC, Generic[T]):
     def to_xarray(self) -> xr.DataArray:
         """Return a public xarray view of this frame without changing Wandas ownership."""
         exported = self._xr.copy(deep=False)
+        for coord_name in (self._CHANNEL_DIM, "channel_label", "channel_unit", "channel_ref"):
+            if coord_name in exported.coords:
+                coord = exported.coords[coord_name]
+                exported = exported.assign_coords({coord_name: (coord.dims, coord.values.copy())})
         exported.name = self.label
         exported.attrs = copy.deepcopy(self._xr.attrs)
         exported.attrs["wandas_frame_type"] = type(self).__name__
