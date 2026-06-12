@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import copy
 import numbers
-from collections.abc import Iterator
-from typing import TYPE_CHECKING, Any, overload
+from collections.abc import Iterator, Sequence
+from typing import TYPE_CHECKING, Any, cast, overload
 
 from wandas.utils.util import unit_to_ref
 
@@ -70,15 +70,20 @@ class ChannelMetadataView(ChannelMetadata):
 
     def __setattr__(self, name: str, value: Any) -> None:
         if name == "label":
-            self._frame._set_channel_coord_value("channel_label", self._index, str(value))
+            if not isinstance(value, str):
+                raise TypeError("ChannelMetadata label must be a string")
+            self._frame._set_channel_coord_value("channel_label", self._index, value)
             return
         if name == "unit":
-            unit = str(value)
-            self._frame._set_channel_coord_value("channel_unit", self._index, unit)
-            if unit:
-                self._frame._set_channel_coord_value("channel_ref", self._index, unit_to_ref(unit))
+            if not isinstance(value, str):
+                raise TypeError("ChannelMetadata unit must be a string")
+            self._frame._set_channel_coord_value("channel_unit", self._index, value)
+            if value:
+                self._frame._set_channel_coord_value("channel_ref", self._index, unit_to_ref(value))
             return
         if name == "ref":
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise TypeError("ChannelMetadata ref must be a number")
             self._frame._set_channel_coord_value("channel_ref", self._index, float(value))
             return
         if name == "extra":
@@ -115,11 +120,10 @@ class ChannelMetadataView(ChannelMetadata):
         )
 
 
-class ChannelMetadataIndexer(list[ChannelMetadataView]):
-    """List-like access to xarray-backed channel metadata views."""
+class ChannelMetadataIndexer(Sequence[ChannelMetadataView]):
+    """Sequence-like access to xarray-backed channel metadata views."""
 
     def __init__(self, frame: BaseFrame[Any]) -> None:
-        super().__init__()
         self._frame = frame
 
     def __len__(self) -> int:
@@ -138,7 +142,7 @@ class ChannelMetadataIndexer(list[ChannelMetadataView]):
     @overload
     def __getitem__(self, key: str) -> ChannelMetadataView: ...
 
-    def __getitem__(self, key: int | slice | str) -> ChannelMetadataView | list[ChannelMetadataView]:  # ty: ignore[invalid-method-override]
+    def __getitem__(self, key: int | slice | str) -> ChannelMetadataView | list[ChannelMetadataView]:
         if isinstance(key, numbers.Integral):
             index = int(key)
             index = index + len(self) if index < 0 else index
@@ -158,11 +162,23 @@ class ChannelMetadataIndexer(list[ChannelMetadataView]):
         raise TypeError(f"Invalid channel metadata key type: {type(key).__name__}")
 
     def __eq__(self, other: object) -> bool:
-        if isinstance(other, list):
-            return self.to_list() == other
-        return False
+        if not isinstance(other, Sequence) or isinstance(other, (str, bytes)):
+            return False
+        snapshots: list[ChannelMetadata] = []
+        for item in other:
+            to_metadata = getattr(item, "to_metadata", None)
+            if callable(to_metadata):
+                snapshots.append(cast(ChannelMetadata, to_metadata()))
+            elif isinstance(item, ChannelMetadata):
+                snapshots.append(item)
+            else:
+                return False
+        return self.to_list() == snapshots
 
-    def __add__(self, other: list[ChannelMetadata]) -> list[ChannelMetadata]:  # ty: ignore[invalid-method-override]
+    def __repr__(self) -> str:
+        return repr(self.to_list())
+
+    def __add__(self, other: list[ChannelMetadata]) -> list[ChannelMetadata]:
         return self.to_list() + other
 
     def __radd__(self, other: list[ChannelMetadata]) -> list[ChannelMetadata]:

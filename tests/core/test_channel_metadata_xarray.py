@@ -1,6 +1,8 @@
 import copy
+from collections.abc import Sequence
 
 import numpy as np
+import pytest
 
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
@@ -51,6 +53,31 @@ def test_channel_indexer_reads_and_writes_xarray_storage() -> None:
     assert frame._xr.coords["channel_unit"].values.tolist()[0] == "Hz"
     assert float(frame._xr.coords["channel_ref"].values[0]) == 0.25
     assert frame._xr.attrs["channel_extra"]["c0"] == {"sensitivity": 50.0, "calibrated": True}
+
+
+def test_channel_indexer_is_sequence_not_list_backed() -> None:
+    frame = _frame()
+
+    assert isinstance(frame.channels, Sequence)
+    assert not isinstance(frame.channels, list)
+    assert repr(frame.channels) == repr(frame.channels.to_list())
+
+
+def test_channel_metadata_view_setters_validate_like_value_object() -> None:
+    frame = _frame()
+
+    with pytest.raises(TypeError, match="label must be a string"):
+        setattr(frame.channels[0], "label", 123)
+    with pytest.raises(TypeError, match="unit must be a string"):
+        setattr(frame.channels[0], "unit", 123)
+    with pytest.raises(TypeError, match="ref must be a number"):
+        setattr(frame.channels[0], "ref", True)
+    with pytest.raises(TypeError, match="ref must be a number"):
+        setattr(frame.channels[0], "ref", "1.0")
+
+    assert frame.channels[0].label == "left"
+    assert frame.channels[0].unit == "Pa"
+    assert frame.channels[0].ref == 2e-5
 
 
 def test_channel_selection_reorder_keeps_metadata_aligned_and_filters_extra() -> None:

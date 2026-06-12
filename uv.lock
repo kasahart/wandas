@@ -4563,7 +4563,6 @@ requires-dist = [
     { name = "scipy", specifier = ">=1.13.0" },
     { name = "tqdm" },
     { name = "types-requests", specifier = ">=2.32.0.20250328" },
-    { name = "xarray" },
     { name = "xarray", specifier = ">=2025.6.1" },
 ]
 

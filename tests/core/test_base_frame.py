@@ -1,4 +1,5 @@
 import re
+from collections.abc import Sequence
 from typing import Any
 from unittest import mock
 
@@ -738,7 +739,8 @@ class TestBaseFrameUtilityMethods:
     def test_channels_property_returns_metadata_list(self) -> None:
         """Test channels property."""
         channels = self.channel_frame.channels
-        assert isinstance(channels, list)
+        assert isinstance(channels, Sequence)
+        assert not isinstance(channels, list)
         assert len(channels) == 2
         assert all(isinstance(ch, ChannelMetadata) for ch in channels)
 
@@ -1054,7 +1056,8 @@ class TestBaseFrameEdgeCases:
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
         result = frame[1:2]
-        assert isinstance(result.channels, list)
+        assert isinstance(result.channels, Sequence)
+        assert not isinstance(result.channels, list)
         assert len(result.channels) == 1
         assert isinstance(result._data, DaArray)
         assert result is not frame
@@ -1090,7 +1093,8 @@ class TestBaseFrameEdgeCases:
 
         # This should trigger the isinstance check on line 369
         result = frame[1:2]
-        assert isinstance(result.channels, list)
+        assert isinstance(result.channels, Sequence)
+        assert not isinstance(result.channels, list)
         assert len(result.channels) == 1
 
 
@@ -1103,7 +1107,8 @@ class TestBaseFrameSingleChannelMetadata:
 
         single_channel = signal[0]
         assert single_channel.n_channels == 1
-        assert isinstance(single_channel.channels, list)
+        assert isinstance(single_channel.channels, Sequence)
+        assert not isinstance(single_channel.channels, list)
         assert isinstance(single_channel._data, DaArray)
 
 
