@@ -882,6 +882,7 @@ class BaseFrame(ABC, Generic[T]):
         operation_name: str | None = None,
         output_frame_class: None = None,
         output_frame_kwargs: dict[str, Any] | None = None,
+        source_time_offset: float | None = None,
     ) -> S: ...
 
     @overload
@@ -891,6 +892,7 @@ class BaseFrame(ABC, Generic[T]):
         operation_name: str | None = None,
         output_frame_class: type[S_Out] = ...,
         output_frame_kwargs: dict[str, Any] | None = None,
+        source_time_offset: float | None = None,
     ) -> S_Out: ...
 
     def _apply_operation_instance(
@@ -899,6 +901,7 @@ class BaseFrame(ABC, Generic[T]):
         operation_name: str | None = None,
         output_frame_class: type[S_Out] | None = None,
         output_frame_kwargs: dict[str, Any] | None = None,
+        source_time_offset: float | None = None,
     ) -> S | S_Out:
         """Apply an already-instantiated operation to the frame.
 
@@ -954,6 +957,8 @@ class BaseFrame(ABC, Generic[T]):
                 "previous": self,
             }
             kw.update(metadata_updates)
+            if source_time_offset is not None:
+                kw["source_time_offset"] = source_time_offset
             if output_frame_kwargs:
                 kw.update(output_frame_kwargs)
             try:
@@ -976,6 +981,8 @@ class BaseFrame(ABC, Generic[T]):
             "channel_metadata": new_channel_metadata,
         }
         creation_params.update(metadata_updates)
+        if source_time_offset is not None:
+            creation_params["source_time_offset"] = source_time_offset
 
         return self._create_new_instance(**creation_params)
 
