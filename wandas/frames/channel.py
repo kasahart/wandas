@@ -1173,7 +1173,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             NotImplementedError: For unsupported formats
 
         Example:
-            >>> cf = ChannelFrame.load("audio_analysis.wdf")
+            >>> import wandas as wd
+            >>> cf = wd.load("audio_analysis.wdf")
         """
         from ..io.wdf_io import load as wdf_load
 
