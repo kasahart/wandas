@@ -361,6 +361,17 @@ def _normalize_extension(file_type: str | None) -> str | None:
     return ext
 
 
+def supported_formats() -> list[str]:
+    """Return file extensions supported by the registered readers."""
+    extensions: set[str] = set()
+    for reader in _file_readers:
+        for extension in reader.__class__.supported_extensions:
+            normalized = _normalize_extension(extension)
+            if normalized is not None:
+                extensions.add(normalized)
+    return sorted(extensions)
+
+
 def _prepare_file_source(
     source: str | Path | bytes | bytearray | memoryview | BinaryIO,
 ) -> str | BinaryIO:
