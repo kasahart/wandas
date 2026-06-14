@@ -5,11 +5,19 @@ from types import ModuleType
 from typing import Any
 
 
+def _is_requested_module_or_parent(missing_name: str | None, module_name: str) -> bool:
+    if missing_name is None:
+        return False
+    return module_name == missing_name or module_name.startswith(f"{missing_name}.")
+
+
 def require_optional_dependency(module_name: str, *, extra: str, feature: str) -> ModuleType:
     """Import an optional dependency or raise an actionable install error."""
     try:
         return importlib.import_module(module_name)
-    except ImportError as exc:
+    except ModuleNotFoundError as exc:
+        if not _is_requested_module_or_parent(exc.name, module_name):
+            raise
         raise ImportError(
             f'{feature} requires optional dependency {module_name!r}.\nInstall it with: pip install "wandas[{extra}]"'
         ) from exc
