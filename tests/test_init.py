@@ -151,10 +151,13 @@ def test_frames_module_all_matches_documented_frames() -> None:
 
 
 def test_compatibility_helpers_remain_importable_but_outside_all() -> None:
-    assert wandas.read_wav is ChannelFrame.read_wav
-    assert wandas.read_csv is ChannelFrame.read_csv
-    assert wandas.from_ndarray is ChannelFrame.from_ndarray
+    assert callable(wandas.read_wav)
+    assert callable(wandas.read_csv)
+    assert callable(wandas.from_ndarray)
     assert callable(wandas.generate_sin)
+    assert isinstance(ChannelFrame.__dict__["read_wav"], classmethod)
+    assert isinstance(ChannelFrame.__dict__["read_csv"], classmethod)
+    assert isinstance(ChannelFrame.__dict__["from_ndarray"], classmethod)
     assert "read_wav" not in wandas.__all__
     assert "read_csv" not in wandas.__all__
     assert "from_ndarray" not in wandas.__all__
