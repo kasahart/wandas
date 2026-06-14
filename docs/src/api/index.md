@@ -39,6 +39,7 @@ The frames module defines different types of data frames for time-domain, freque
 - `SpectralFrame` - Frequency-domain data / 周波数領域データ
 - `SpectrogramFrame` - Time-frequency domain data / 時間-周波数領域データ
 - `NOctFrame` - N-octave band analysis / Nオクターブバンド解析
+- `RoughnessFrame` - Psychoacoustic roughness analysis results / 心理音響ラフネス解析結果
 
 ### [Processing Module / 処理モジュール](processing.md)
 

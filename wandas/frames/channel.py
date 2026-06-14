@@ -297,7 +297,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         Examples:
             >>> import wandas as wd
-            >>> signal = wd.read_wav("audio.wav")
+            >>> signal = wd.read("audio.wav")
             >>> time = signal.time
             >>> print(f"Duration: {time[-1]:.3f}s")
             >>> print(f"Time step: {time[1] - time[0]:.6f}s")
@@ -346,7 +346,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             for each channel.
 
         Examples:
-            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> cf = ChannelFrame.from_file("audio.wav")
             >>> rms_values = cf.rms
             >>> print(f"RMS values: {rms_values}")
             >>> # Select channels with RMS > threshold
@@ -386,7 +386,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             for each channel.  All-zero channels yield 1.0.
 
         Examples:
-            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> cf = ChannelFrame.from_file("audio.wav")
             >>> cf_values = cf.crest_factor
             >>> print(f"Crest factors: {cf_values}")
             >>> # Select channels with crest factor above threshold
@@ -416,7 +416,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         Examples
         --------
-        >>> cf = ChannelFrame.read_wav("audio.wav")
+        >>> cf = ChannelFrame.from_file("audio.wav")
         >>> cf.info()
         Channels: 2
         Sampling rate: 44100 Hz
@@ -519,7 +519,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             Single Axes object or iterator of Axes objects.
 
         Examples:
-            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> cf = ChannelFrame.from_file("audio.wav")
             >>> # Basic plot
             >>> cf.plot()
             >>> # Overlay all channels
@@ -581,7 +581,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             Single Axes object or iterator of Axes objects.
 
         Examples:
-            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> cf = ChannelFrame.from_file("audio.wav")
             >>> # Basic RMS plot
             >>> cf.rms_plot()
             >>> # With A-weighting
@@ -683,7 +683,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             channels in the frame.
 
         Examples:
-            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> cf = ChannelFrame.from_file("audio.wav")
             >>> # Basic usage
             >>> cf.describe()
             >>>
@@ -1086,11 +1086,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         Examples:
             >>> # Read CSV with default settings
-            >>> cf = ChannelFrame.read_csv("data.csv")
+            >>> cf = ChannelFrame.from_file("data.csv")
             >>> # Read CSV with custom delimiter
-            >>> cf = ChannelFrame.read_csv("data.csv", delimiter=";")
+            >>> cf = ChannelFrame.from_file("data.csv", delimiter=";")
             >>> # Read CSV without header
-            >>> cf = ChannelFrame.read_csv("data.csv", header=None)
+            >>> cf = ChannelFrame.from_file("data.csv", header=None)
         """
         from .channel import ChannelFrame
 
@@ -1140,7 +1140,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             NotImplementedError: For unsupported formats.
 
         Example:
-            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> cf = ChannelFrame.from_file("audio.wav")
             >>> cf.save("audio_analysis.wdf")
         """
         from ..io.wdf_io import save as wdf_save
@@ -1215,12 +1215,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             TypeError: If data type is not supported.
 
         Examples:
-            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> cf = ChannelFrame.from_file("audio.wav")
             >>> # Add a numpy array as a new channel
             >>> new_data = np.sin(2 * np.pi * 440 * cf.time)
             >>> cf_new = cf.add_channel(new_data, label="sine_440Hz")
             >>> # Add another ChannelFrame's channels
-            >>> cf2 = ChannelFrame.read_wav("audio2.wav")
+            >>> cf2 = ChannelFrame.from_file("audio2.wav")
             >>> cf_combined = cf.add_channel(cf2)
         """
         # Handle ndarray/dask/same-type Frame
@@ -1323,7 +1323,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             ValueError: If duplicate labels would be created.
 
         Examples:
-            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> cf = ChannelFrame.from_file("audio.wav")
             >>> # Rename by index
             >>> cf_renamed = cf.rename_channels({0: "left", 1: "right"})
             >>> # Rename by label
