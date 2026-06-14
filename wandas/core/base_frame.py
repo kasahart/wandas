@@ -121,11 +121,7 @@ class BaseFrame(ABC, Generic[T]):
             self._data = data.rechunk(chunks=-1)
 
         self.sampling_rate = sampling_rate
-        if isinstance(source_time_offset, bool) or not isinstance(source_time_offset, numbers.Real):
-            raise TypeError("source_time_offset must be a finite number of seconds")
-        self.source_time_offset = float(source_time_offset)
-        if not math.isfinite(self.source_time_offset):
-            raise ValueError("source_time_offset must be finite")
+        self.source_time_offset = self._validate_source_time_offset(source_time_offset)
         self.label = label or "unnamed_frame"
         if isinstance(metadata, FrameMetadata):
             self.metadata = metadata
@@ -176,6 +172,15 @@ class BaseFrame(ABC, Generic[T]):
         except Exception as e:
             logger.debug(f"Dask graph visualization details unavailable: {e}")
 
+    @staticmethod
+    def _validate_source_time_offset(source_time_offset: Any) -> float:
+        if isinstance(source_time_offset, bool) or not isinstance(source_time_offset, numbers.Real):
+            raise TypeError("source_time_offset must be a finite number of seconds")
+        source_time_offset_float = float(source_time_offset)
+        if not math.isfinite(source_time_offset_float):
+            raise ValueError("source_time_offset must be finite")
+        return source_time_offset_float
+
     @property
     def _n_channels(self) -> int:
         """Returns the number of channels.
@@ -206,8 +211,6 @@ class BaseFrame(ABC, Generic[T]):
     @property
     def source_time_range(self) -> tuple[float, float]:
         """Return the source-relative time span represented by this frame."""
-        if self.previous is not None and not hasattr(self, "time") and not hasattr(self, "times"):
-            return self.previous.source_time_range
         duration = getattr(self, "duration", 0.0)
         if not isinstance(duration, numbers.Real):
             duration = 0.0
@@ -607,7 +610,9 @@ class BaseFrame(ABC, Generic[T]):
         """
 
         sampling_rate = kwargs.pop("sampling_rate", self.sampling_rate)
-        source_time_offset = kwargs.pop("source_time_offset", self.source_time_offset)
+        source_time_offset = self._validate_source_time_offset(
+            kwargs.pop("source_time_offset", self.source_time_offset)
+        )
 
         label = kwargs.pop("label", self.label)
         if not isinstance(label, str):

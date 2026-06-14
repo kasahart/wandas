@@ -50,6 +50,44 @@ def test_source_time_offset_is_preserved_by_create_new_instance() -> None:
     assert result.source_time_range == (10.0, 12.0)
 
 
+def test_source_time_range_uses_current_frame_when_previous_exists() -> None:
+    frame = ConcreteFrame(
+        da.from_array(np.arange(8).reshape(1, 8)),
+        sampling_rate=4.0,
+        source_time_offset=10.0,
+    )
+
+    result = frame._create_new_instance(data=frame._data, source_time_offset=20.0)
+
+    assert result.previous is frame
+    assert result.source_time_range == (20.0, 22.0)
+
+
+def test_source_time_offset_override_is_converted_by_create_new_instance() -> None:
+    frame = ChannelFrame(da_from_array(np.arange(8).reshape(1, 8), chunks=(1, -1)), sampling_rate=4.0)
+
+    result = frame._create_new_instance(data=frame._data, source_time_offset=3)
+
+    assert result.source_time_offset == 3.0
+    assert type(result.source_time_offset) is float
+
+
+@pytest.mark.parametrize("bad_offset", [cast(Any, True), cast(Any, "10.0")])
+def test_source_time_offset_override_rejects_non_numeric_values(bad_offset: Any) -> None:
+    frame = ChannelFrame(da_from_array(np.arange(8).reshape(1, 8), chunks=(1, -1)), sampling_rate=4.0)
+
+    with pytest.raises(TypeError, match="source_time_offset"):
+        frame._create_new_instance(data=frame._data, source_time_offset=bad_offset)
+
+
+@pytest.mark.parametrize("bad_offset", [math.nan, math.inf, -math.inf])
+def test_source_time_offset_override_rejects_non_finite_values(bad_offset: float) -> None:
+    frame = ChannelFrame(da_from_array(np.arange(8).reshape(1, 8), chunks=(1, -1)), sampling_rate=4.0)
+
+    with pytest.raises(ValueError, match="source_time_offset"):
+        frame._create_new_instance(data=frame._data, source_time_offset=bad_offset)
+
+
 @pytest.mark.parametrize("bad_offset", [math.nan, math.inf, -math.inf])
 def test_source_time_offset_rejects_non_finite_values(bad_offset: float) -> None:
     with pytest.raises(ValueError, match="source_time_offset"):
