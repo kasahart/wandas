@@ -64,8 +64,8 @@ signal.describe()
 
 ## What You Can Do / できること
 
-- Read waveform and sensor data from formats such as WAV, CSV, and WDF.
-  WAV、CSV、WDF などから波形やセンサーデータを読み込めます。
+- Read waveform and sensor data from registered reader formats: WAV, FLAC, OGG, AIFF/AIF, SND, and CSV. WDF is available through the separate save/load API.
+  登録済み reader 形式（WAV、FLAC、OGG、AIFF/AIF、SND、CSV）から波形やセンサーデータを読み込めます。WDF は別の save/load API で扱えます。
 - Filter, resample, normalize, and summarize signals with method chaining.
   フィルタ、リサンプリング、正規化、要約をメソッドチェーンで進められます。
 - Run FFT, STFT, Welch, coherence, transfer-function, and octave-style analyses.
