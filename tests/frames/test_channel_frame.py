@@ -98,6 +98,15 @@ class TestChannelFrame:
 
         np.testing.assert_allclose(df.index.to_numpy(), np.array([0.0, 0.5, 1.0, 1.5]))
 
+    def test_non_inplace_channel_update_preserves_source_time(self) -> None:
+        data = da.from_array(np.arange(8, dtype=float).reshape(1, 8))
+        frame = ChannelFrame(data, sampling_rate=4.0, source_time_offset=10.0)
+
+        renamed = frame.rename_channels({0: "renamed"}, inplace=False)
+
+        assert renamed.source_time_offset == 10.0
+        assert renamed.source_time_range == (10.0, 12.0)
+
     def test_operations_are_lazy(self) -> None:
         """Test that operations don't trigger immediate computation."""
         with mock.patch.object(DaArray, "compute", return_value=self.data) as mock_compute:
