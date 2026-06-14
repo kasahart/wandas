@@ -1,16 +1,72 @@
+import math
 import re
-from typing import Any
+from typing import Any, cast
 from unittest import mock
 
+import dask.array as da
 import numpy as np
 import pandas as pd
 import pytest
 from dask.array.core import Array as DaArray
 
 import wandas as wd
+from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.utils.dask_helpers import da_from_array
+
+
+class ConcreteFrame(BaseFrame[np.ndarray[Any, Any]]):
+    """Minimal concrete frame for BaseFrame contract tests."""
+
+    @property
+    def duration(self) -> float:
+        return float(self._data.shape[-1]) / self.sampling_rate
+
+    def plot(self, plot_type: str = "default", ax: Any = None, **kwargs: Any) -> Any:
+        raise NotImplementedError
+
+    def _get_dataframe_index(self) -> "pd.Index[Any]":
+        return pd.Index(np.arange(self._data.shape[-1]), name="sample")
+
+
+def test_source_time_offset_defaults_to_zero() -> None:
+    frame = ConcreteFrame(da.from_array(np.arange(8).reshape(1, 8)), sampling_rate=4.0)
+
+    assert frame.source_time_offset == 0.0
+    assert frame.source_time_range == (0.0, 2.0)
+
+
+def test_source_time_offset_is_preserved_by_create_new_instance() -> None:
+    frame = ConcreteFrame(
+        da.from_array(np.arange(8).reshape(1, 8)),
+        sampling_rate=4.0,
+        source_time_offset=10.0,
+    )
+
+    result = frame._create_new_instance(data=frame._data)
+
+    assert result.source_time_offset == 10.0
+    assert result.source_time_range == (10.0, 12.0)
+
+
+@pytest.mark.parametrize("bad_offset", [math.nan, math.inf, -math.inf])
+def test_source_time_offset_rejects_non_finite_values(bad_offset: float) -> None:
+    with pytest.raises(ValueError, match="source_time_offset"):
+        ConcreteFrame(
+            da.from_array(np.arange(8).reshape(1, 8)),
+            sampling_rate=4.0,
+            source_time_offset=bad_offset,
+        )
+
+
+def test_source_time_offset_rejects_non_numeric_values() -> None:
+    with pytest.raises(TypeError, match="source_time_offset"):
+        ConcreteFrame(
+            da.from_array(np.arange(8).reshape(1, 8)),
+            sampling_rate=4.0,
+            source_time_offset=cast(Any, "10.0"),
+        )
 
 
 class TestBaseFrameArithmeticOperations:

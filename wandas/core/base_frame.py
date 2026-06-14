@@ -1,5 +1,7 @@
 import copy
+import inspect
 import logging
+import math
 import numbers
 import uuid
 from abc import ABC, abstractmethod
@@ -84,6 +86,7 @@ class BaseFrame(ABC, Generic[T]):
     operation_history: list[dict[str, Any]]
     _channel_metadata: list[ChannelMetadata]
     _previous: "BaseFrame[Any] | None"
+    source_time_offset: float
 
     def __init__(
         self,
@@ -94,6 +97,7 @@ class BaseFrame(ABC, Generic[T]):
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
         previous: "BaseFrame[Any] | None" = None,
+        source_time_offset: float = 0.0,
     ):
         # Default rechunk: prefer channel-wise chunking so the 0th axis
         # (channels) will be processed per-channel for parallelism.
@@ -117,6 +121,11 @@ class BaseFrame(ABC, Generic[T]):
             self._data = data.rechunk(chunks=-1)
 
         self.sampling_rate = sampling_rate
+        if isinstance(source_time_offset, bool) or not isinstance(source_time_offset, numbers.Real):
+            raise TypeError("source_time_offset must be a finite number of seconds")
+        self.source_time_offset = float(source_time_offset)
+        if not math.isfinite(self.source_time_offset):
+            raise ValueError("source_time_offset must be finite")
         self.label = label or "unnamed_frame"
         if isinstance(metadata, FrameMetadata):
             self.metadata = metadata
@@ -193,6 +202,17 @@ class BaseFrame(ABC, Generic[T]):
         Returns the previous frame.
         """
         return self._previous
+
+    @property
+    def source_time_range(self) -> tuple[float, float]:
+        """Return the source-relative time span represented by this frame."""
+        if self.previous is not None and not hasattr(self, "time") and not hasattr(self, "times"):
+            return self.previous.source_time_range
+        duration = getattr(self, "duration", 0.0)
+        if not isinstance(duration, numbers.Real):
+            duration = 0.0
+        duration_float = max(0.0, float(duration))
+        return (self.source_time_offset, self.source_time_offset + duration_float)
 
     def get_channel(
         self: S,
@@ -587,6 +607,7 @@ class BaseFrame(ABC, Generic[T]):
         """
 
         sampling_rate = kwargs.pop("sampling_rate", self.sampling_rate)
+        source_time_offset = kwargs.pop("source_time_offset", self.source_time_offset)
 
         label = kwargs.pop("label", self.label)
         if not isinstance(label, str):
@@ -604,15 +625,25 @@ class BaseFrame(ABC, Generic[T]):
         additional_kwargs = self._get_additional_init_kwargs()
         kwargs.update(additional_kwargs)
 
-        return type(self)(
-            data=data,
-            sampling_rate=sampling_rate,
-            label=label,
-            metadata=metadata,
-            channel_metadata=channel_metadata,
-            previous=self,
+        constructor_kwargs: dict[str, Any] = {
+            "data": data,
+            "sampling_rate": sampling_rate,
+            "label": label,
+            "metadata": metadata,
+            "channel_metadata": channel_metadata,
+            "previous": self,
             **kwargs,
+        }
+        init_parameters = inspect.signature(type(self)).parameters
+        accepts_offset = "source_time_offset" in init_parameters or any(
+            parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in init_parameters.values()
         )
+        if accepts_offset:
+            constructor_kwargs["source_time_offset"] = source_time_offset
+        new_instance = type(self)(**constructor_kwargs)
+        if not accepts_offset:
+            new_instance.source_time_offset = source_time_offset
+        return new_instance
 
     def __array__(self, dtype: npt.DTypeLike = None) -> NDArrayReal:
         """Implicit conversion to NumPy array"""
