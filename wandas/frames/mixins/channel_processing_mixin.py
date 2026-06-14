@@ -887,7 +887,7 @@ class ChannelProcessingMixin:
         metadata_updates = operation.get_metadata_updates()
 
         # Build metadata and history
-        new_metadata = self.metadata.merged(**params)
+        new_metadata = {**self.metadata, **params}
         new_history = [
             *self.operation_history,
             {"operation": operation_name, "params": params},
@@ -908,7 +908,8 @@ class ChannelProcessingMixin:
             label=f"{self.label}_roughness_spec" if self.label else "roughness_spec",
             metadata=new_metadata,
             operation_history=new_history,
-            channel_metadata=self._channel_metadata,
+            channel_metadata=cast(Any, self).channels.to_list(),
+            channel_ids=cast(Any, self)._channel_ids,
             previous=cast("BaseFrame[NDArrayReal]", self),
         )
 

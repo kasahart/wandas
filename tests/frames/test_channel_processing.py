@@ -5,7 +5,6 @@ import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 
-from wandas.core.metadata import FrameMetadata
 from wandas.frames.channel import ChannelFrame, ChannelMetadata
 from wandas.frames.spectral import SpectralFrame
 from wandas.utils.util import calculate_rms
@@ -145,7 +144,7 @@ class TestChannelProcessing:
         assert result.metadata == {"source": "test", "custom": {"bias": 0.0}}
 
         # Channel labels should use display name from callable __name__
-        assert result.labels == ["fancy(sig)"]
+        assert result.labels == ["fancy(sig)", "fancy(ch1)"]
 
     def test_apply_custom_label_fallback_to_custom_name(self) -> None:
         """When callable lacks __name__, label should fall back to 'custom'."""
@@ -161,7 +160,7 @@ class TestChannelProcessing:
         )
 
         result = frame.apply(CallableObj())
-        assert result.labels == ["custom(sig)"]
+        assert result.labels == ["custom(sig)", "custom(ch1)"]
 
     def test_apply_with_sr_in_params(self) -> None:
         """
@@ -212,7 +211,7 @@ class TestChannelProcessing:
         def rfft_transform(x: np.ndarray) -> np.ndarray:
             return np.fft.rfft(x, axis=-1)
 
-        metadata = FrameMetadata({"source": "test"}, source_file="input.wav")
+        metadata = {"source": "test", "_source_file": "input.wav"}
         operation_history = [{"operation": "normalize", "params": {"method": "peak"}}]
 
         frame = ChannelFrame(
@@ -239,9 +238,9 @@ class TestChannelProcessing:
         assert result.label == frame.label
         assert frame.labels == ["sig0", "sig1"]
         assert result.labels == ["rfft_transform(sig0)", "rfft_transform(sig1)"]
-        assert result.metadata == {"source": "test", "custom": {}}
-        assert result.metadata.source_file == "input.wav"
-        assert frame.metadata.source_file == "input.wav"
+        assert result.metadata == {"source": "test", "_source_file": "input.wav", "custom": {}}
+        assert result.metadata["_source_file"] == "input.wav"
+        assert frame.metadata["_source_file"] == "input.wav"
         assert frame.operation_history == operation_history
         assert result.operation_history == [
             {"operation": "normalize", "params": {"method": "peak"}},
@@ -723,7 +722,7 @@ class TestChannelProcessing:
         """rms_trend後のChannelFrame属性を確認するテスト"""
         # 事前に属性をセット
         self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
+        self.channel_frame.metadata = {"foo": "bar"}
         self.channel_frame._channel_metadata = [
             ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
             ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
@@ -773,7 +772,7 @@ class TestChannelProcessing:
         the frame label, metadata, and channel metadata in place.
         """
         self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
+        self.channel_frame.metadata = {"foo": "bar"}
         self.channel_frame._channel_metadata = [
             ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
             ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
@@ -1103,6 +1102,34 @@ class TestRoughnessOperations:
         assert roughness_spec.data.shape[1] == 47  # 47 Bark bands
 
 
+def test_roughness_dw_spec_preserves_source_channel_metadata_and_ids() -> None:
+    data = np.random.default_rng(123).random((2, 16000))
+    frame = ChannelFrame(
+        data=_da_from_array(data, chunks=(1, 4000)),
+        sampling_rate=_SAMPLE_RATE,
+        channel_metadata=[
+            ChannelMetadata(label="left", unit="Pa", ref=0.25, extra={"gain": 10}),
+            ChannelMetadata(label="right", unit="V", ref=0.5, extra={"gain": 20}),
+        ],
+        channel_ids=["left-id", "right-id"],
+    )
+
+    result = frame.roughness_dw_spec(overlap=0.5)
+
+    assert result.data.ndim == 3
+    assert result.data.shape[0] == 2
+    assert result.data.shape[1] == 47
+    assert result._channel_ids == ["left-id", "right-id"]
+    assert result.channels[0].label == "left"
+    assert result.channels[0].unit == "Pa"
+    assert result.channels[0].ref == 0.25
+    assert result.channels[0].extra == {"gain": 10}
+    assert result.channels[1].label == "right"
+    assert result.channels[1].unit == "V"
+    assert result.channels[1].ref == 0.5
+    assert result.channels[1].extra == {"gain": 20}
+
+
 # --- Tests for channel_processing_mixin coverage gaps ---
 
 
@@ -1111,14 +1138,14 @@ def test_get_ref_values_empty_channel_metadata() -> None:
     cf = ChannelFrame.from_numpy(np.random.default_rng(42).random((2, 100)), sampling_rate=1000)
     cf._channel_metadata = []  # force empty
     result = cf._get_ref_values()
-    assert result == []
+    assert result == [1.0, 1.0]
 
 
 def test_reduce_channels_unsupported_op_raises() -> None:
     """_reduce_channels raises ValueError for unsupported operation (line 313)."""
     cf = ChannelFrame.from_numpy(np.random.default_rng(42).random((2, 100)), sampling_rate=1000)
     with pytest.raises(ValueError, match="Unsupported reduction operation"):
-        cf._reduce_channels("median")  # ty: ignore[call-non-callable]
+        cf._reduce_channels("median")
 
 
 def test_roughness_dw_spec_missing_bark_axis() -> None:

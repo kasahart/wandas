@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
@@ -12,7 +12,7 @@ from dask.array.core import Array as DaArray
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 from ..core.base_frame import BaseFrame
-from ..core.metadata import ChannelMetadata, FrameMetadata
+from ..core.metadata import ChannelMetadata
 from .mixins.spectral_properties_mixin import SpectralPropertiesMixin
 
 if TYPE_CHECKING:
@@ -101,6 +101,8 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     - The class maintains the processing history and metadata through all operations.
     """
 
+    _xarray_dim_suffix = ("channel", "frequency")
+
     n_fft: int
     window: str
 
@@ -111,9 +113,10 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         n_fft: int,
         window: str = "hann",
         label: str | None = None,
-        metadata: FrameMetadata | dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
         operation_history: list[dict[str, Any]] | None = None,
-        channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
+        channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
+        channel_ids: list[str] | None = None,
         previous: BaseFrame[Any] | None = None,
     ) -> None:
         if data.ndim == 1:
@@ -129,6 +132,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             metadata=metadata,
             operation_history=operation_history,
             channel_metadata=channel_metadata,
+            channel_ids=channel_ids,
             previous=previous,
         )
 
@@ -290,7 +294,8 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             label=f"ifft({self.label})",
             metadata=self.metadata,
             operation_history=self.operation_history,
-            channel_metadata=self._channel_metadata,
+            channel_metadata=self.channels.to_list(),
+            channel_ids=self._channel_ids,
         )
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
@@ -376,7 +381,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             G=G,
             fr=fr,
             label=f"1/{n}Oct of {self.label}",
-            metadata=self.metadata.merged(**params),
+            metadata={**self.metadata, **params},
             operation_history=[
                 *self.operation_history,
                 {
@@ -384,7 +389,8 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
                     "params": params,
                 },
             ],
-            channel_metadata=self._channel_metadata,
+            channel_metadata=self.channels.to_list(),
+            channel_ids=self._channel_ids,
             previous=self,
         )
 

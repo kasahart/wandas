@@ -1,9 +1,14 @@
+from typing import Any, cast
+
 import dask.array as da
 import numpy as np
 import pandas as pd
 import pytest
+import xarray as xr
 
 from wandas.core.base_frame import BaseFrame
+from wandas.core.metadata import ChannelMetadata
+from wandas.frames.channel import ChannelFrame
 from wandas.utils.dask_helpers import da_from_array
 
 
@@ -175,13 +180,10 @@ def test_compute_non_ndarray_result_raises_value_error():
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
 
-    class Bad:
-        def compute(self):
-            return [1, 2, 3]
-
-    f._data = Bad()  # ty: ignore[invalid-assignment]
-    with pytest.raises(ValueError, match=r"Computed result is not a np.ndarray"):
-        f.compute()
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(type(f._data), "compute", lambda self: [1, 2, 3])
+        with pytest.raises(ValueError, match=r"Computed result is not a np.ndarray"):
+            f.compute()
 
 
 def test_visualize_graph_failure_logs_warning_returns_none(caplog):
@@ -189,14 +191,14 @@ def test_visualize_graph_failure_logs_warning_returns_none(caplog):
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
 
-    class BadVis:
-        def visualize(self, filename=None):
-            raise RuntimeError("no graphviz")
-
-    f._data = BadVis()  # ty: ignore[invalid-assignment]
-
-    with caplog.at_level("WARNING"):
-        res = f.visualize_graph()
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(
+            type(f._data),
+            "visualize",
+            lambda self, filename=None: (_ for _ in ()).throw(RuntimeError("no graphviz")),
+        )
+        with caplog.at_level("WARNING"):
+            res = f.visualize_graph()
     assert res is None
     assert "Failed to visualize the graph" in caplog.text
 
@@ -315,27 +317,20 @@ def test_persist_returns_persisted_data():
     """Test persist() calls persist on internal data."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
+    persisted = da_from_array(np.zeros((2, 3)), chunks=(2, 3))
+    calls = {"count": 0}
 
-    class Persister:
-        def __init__(self):
-            self.ndim = 2
-            self.shape = (2, 3)
+    def fake_persist(self):
+        calls["count"] += 1
+        return persisted
 
-        def persist(self):
-            return self
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(type(f._data), "persist", fake_persist)
+        newf = f.persist()
 
-        def rechunk(self, *args, **kwargs):
-            return self
-
-        def compute(self):
-            import numpy as _np
-
-            return _np.zeros(self.shape)
-
-    p = Persister()
-    f._data = p  # ty: ignore[invalid-assignment]
-    newf = f.persist()
-    assert newf._data is p
+    assert calls["count"] == 1
+    assert newf._data is newf._xr.data
+    np.testing.assert_array_equal(newf.compute(), np.zeros((2, 3)))
 
 
 def test_channel_metadata_invalid_dict_raises_value_error():
@@ -537,3 +532,394 @@ def test_to_tensor_torch_and_tensorflow_fake_modules_succeed(monkeypatch):
     t2 = f.to_tensor(framework="tensorflow", device="/CPU:0")
     assert hasattr(t2, "numpy")
     assert t2.shape == f.to_numpy().shape
+
+
+class SingleChannelAxislessFrame(BaseFrame[np.ndarray]):
+    _channel_axis = None
+
+    def plot(self, plot_type: str = "default", ax=None, **kwargs):
+        raise NotImplementedError
+
+    def _get_dataframe_index(self) -> pd.Index:
+        return pd.RangeIndex(stop=self._data.shape[-1])
+
+    def _debug_info_impl(self) -> None:
+        return None
+
+
+def test_data_property_rejects_non_dask_xarray_storage():
+    f = make_frame(np.arange(6).reshape(2, 3))
+    f._xr = xr.DataArray(np.arange(6).reshape(2, 3), dims=("dim_0", "dim_1"))
+
+    with pytest.raises(TypeError, match="Internal xarray data is not a Dask array"):
+        _ = f._data
+
+
+def test_replace_data_preserves_existing_attrs():
+    f = make_frame(np.arange(6).reshape(2, 3), metadata={"source": "old"}, label="original")
+    replacement = da_from_array(np.arange(8).reshape(2, 4), chunks=(1, -1))
+
+    f._replace_data(replacement)
+
+    assert f.label == "original"
+    assert f.metadata == {"source": "old"}
+    assert f._data.shape == (2, 4)
+
+
+def test_axisless_frame_counts_as_one_channel():
+    data = da_from_array(np.arange(4), chunks=(4,))
+
+    f = SingleChannelAxislessFrame(data, sampling_rate=100.0)
+
+    assert f.n_channels == 1
+    assert f.labels == ["ch0"]
+
+
+def test_xarray_coords_without_pending_metadata_are_conservative():
+    f = make_frame(np.arange(6).reshape(2, 3))
+
+    assert f._xarray_coords(f._data) == {}
+
+
+def test_channel_id_validation_rejects_wrong_length_and_duplicates():
+    data = da_from_array(np.arange(6).reshape(2, 3), chunks=(1, -1))
+
+    with pytest.raises(ValueError, match="length must match"):
+        DummyFrame(data, sampling_rate=100.0, channel_ids=["a"])
+    with pytest.raises(ValueError, match="must be unique"):
+        DummyFrame(data, sampling_rate=100.0, channel_ids=["a", "a"])
+
+
+def test_channel_metadata_short_lists_are_padded_and_long_lists_rejected():
+    data = da_from_array(np.arange(6).reshape(2, 3), chunks=(1, -1))
+
+    f = DummyFrame(data, sampling_rate=100.0, channel_metadata=[{"label": "only"}])
+    assert f.labels == ["only", "ch1"]
+
+    with pytest.raises(ValueError, match="must not exceed number of channels"):
+        DummyFrame(
+            data,
+            sampling_rate=100.0,
+            channel_metadata=[{"label": "a"}, {"label": "b"}, {"label": "c"}],
+        )
+
+
+def test_channel_metadata_accepts_view_like_objects():
+    source = make_frame(np.arange(6).reshape(2, 3))
+
+    f = make_frame(np.arange(6).reshape(2, 3), channel_metadata=[source.channels[0], source.channels[1]])
+
+    assert f.channels.to_list() == source.channels.to_list()
+
+
+def test_attrs_backed_channel_metadata_mutation_and_refresh():
+    f = make_frame(np.arange(6).reshape(2, 3))
+
+    f.channels[0].label = "left"
+    f.channels[0].unit = "V"
+    f._channel_metadata = [ChannelMetadata(label="front"), ChannelMetadata(label="rear")]
+    f._refresh_xarray_channel_coord()
+
+    assert f._xr.attrs["channel_label"] == ["front", "rear"]
+    assert f._xr.attrs["channel_unit"] == ["", ""]
+
+
+def test_empty_channel_ids_are_defaulted_when_setting_metadata():
+    f = make_frame(np.arange(6).reshape(2, 3))
+    f._xr.attrs["channel_ids"] = []
+
+    f._set_channel_metadata([ChannelMetadata(label="a"), ChannelMetadata(label="b")])
+
+    assert f._channel_ids == ["c0", "c1"]
+
+
+def test_label_metadata_and_operation_history_attrs_validation():
+    f = make_frame(np.arange(6).reshape(2, 3))
+
+    f.label = None
+    assert f.label == "unnamed_frame"
+    f._xr.attrs["label"] = ""
+    assert f.label == "unnamed_frame"
+    with pytest.raises(TypeError, match="Label must be a string or None"):
+        f.label = cast(Any, 123)
+
+    f.metadata = None
+    assert f.metadata == {}
+    f._xr.attrs["metadata"] = "bad"
+    with pytest.raises(TypeError, match="Internal metadata attrs must be a dictionary"):
+        _ = f.metadata
+    with pytest.raises(TypeError, match="Metadata must be a dictionary"):
+        f.metadata = cast(Any, "bad")
+
+    f._xr.attrs["operation_history"] = None
+    assert f.operation_history == []
+    f._xr.attrs["operation_history"] = "bad"
+    with pytest.raises(TypeError, match="Internal operation_history attrs must be a list"):
+        _ = f.operation_history
+    with pytest.raises(TypeError, match="Operation history must be a list"):
+        f.operation_history = cast(Any, "bad")
+
+
+def test_create_new_instance_validates_operation_history_and_channel_ids():
+    f = make_frame(np.arange(6).reshape(2, 3))
+
+    with pytest.raises(TypeError, match="Operation history must be a list"):
+        f._create_new_instance(data=f._data, operation_history="bad")
+    with pytest.raises(TypeError, match="Channel ids must be a list"):
+        f._create_new_instance(data=f._data, channel_ids=("a", "b"))
+
+
+def test_binary_operations_cover_scalar_helpers_and_frame_mismatch_errors():
+    f = ChannelFrame(da_from_array(np.arange(6).reshape(2, 3).astype(float), chunks=(1, -1)), sampling_rate=100.0)
+
+    assert (f - 1).operation_history[-1] == {"operation": "-", "with": "1"}
+    assert (f * 2).operation_history[-1] == {"operation": "*", "with": "2"}
+    assert (f / 2).operation_history[-1] == {"operation": "/", "with": "2"}
+    assert BaseFrame._format_operand_str(1 + 2j) == "complex(1.0, 2.0)"
+    assert BaseFrame._format_operand_str(object()) == "object"
+
+    one_channel = ChannelFrame(
+        da_from_array(np.arange(3).reshape(1, 3).astype(float), chunks=(1, -1)),
+        sampling_rate=100.0,
+    )
+    with pytest.raises(ValueError, match="Channel count mismatch"):
+        _ = f + one_channel
+
+    different_shape = ChannelFrame(
+        da_from_array(np.arange(8).reshape(2, 4).astype(float), chunks=(1, -1)),
+        sampling_rate=100.0,
+    )
+    with pytest.raises(ValueError, match="Frame shape mismatch"):
+        _ = f + different_shape
+
+
+def test_apply_operation_helpers_update_metadata_and_history(monkeypatch):
+    f = make_frame(np.arange(6).reshape(2, 3).astype(float))
+
+    class FakeOperation:
+        name = "fake"
+        params = {"amount": 2}
+
+        def process(self, data):
+            return data + 1
+
+        def get_metadata_updates(self):
+            return {"sampling_rate": 200.0}
+
+        def get_display_name(self):
+            return "Fake"
+
+    result = f._apply_operation_instance(FakeOperation())
+
+    assert result.sampling_rate == 200.0
+    assert result.metadata["fake"] == {"amount": 2}
+    assert result.operation_history[-1] == {"operation": "fake", "params": {"amount": 2}}
+    assert result.labels == ["Fake(ch0)", "Fake(ch1)"]
+
+    class CreatedOperation(FakeOperation):
+        name = "created"
+        params = {"gain": 3}
+
+    monkeypatch.setattr("wandas.processing.create_operation", lambda name, sampling_rate, **params: CreatedOperation())
+    applied = BaseFrame._apply_operation_impl(f, "created", gain=3)
+
+    assert applied.metadata["created"] == {"gain": 3}
+
+
+def test_apply_operation_instance_output_frame_validation_and_constructor_errors():
+    f = make_frame(np.arange(6).reshape(2, 3).astype(float))
+
+    class FakeOperation:
+        name = "fake"
+        params = {}
+
+        def process(self, data):
+            return data
+
+        def get_metadata_updates(self):
+            return {}
+
+        def get_display_name(self):
+            return "fake"
+
+    with pytest.raises(TypeError, match="Invalid output_frame_class"):
+        f._apply_operation_instance(FakeOperation(), output_frame_class=cast(Any, object))
+
+    class NeedsExtra(DummyFrame):
+        def __init__(self, data, sampling_rate: float = 1.0, *, required, **kwargs):
+            super().__init__(data, sampling_rate, **kwargs)
+            self.required = required
+
+    with pytest.raises(TypeError, match="Invalid output_frame_class constructor"):
+        f._apply_operation_instance(FakeOperation(), output_frame_class=NeedsExtra)
+
+    transitioned = f._apply_operation_instance(
+        FakeOperation(),
+        operation_name="renamed",
+        output_frame_class=NeedsExtra,
+        output_frame_kwargs={"required": "ok"},
+    )
+
+    assert isinstance(transitioned, NeedsExtra)
+    assert transitioned.required == "ok"
+    assert transitioned.operation_history[-1]["operation"] == "renamed"
+
+
+def test_indexing_variants_cover_base_frame_selection_paths():
+    f = make_frame(
+        np.arange(12).reshape(3, 4),
+        channel_metadata=[{"label": "left"}, {"label": "right"}, {"label": "rear"}],
+    )
+
+    assert f.get_channel(query={"label": "right"}).labels == ["right"]
+    with pytest.raises(TypeError, match="Unsupported query type"):
+        f.get_channel(query=object())  # ty: ignore[invalid-argument-type]
+    with pytest.raises(TypeError, match="Either 'channel_idx' or 'query'"):
+        f.get_channel()
+
+    assert f["right"].labels == ["right"]
+    assert f[np.array([True, False, True])].labels == ["left", "rear"]
+    assert f[np.array([2, 0])].labels == ["rear", "left"]
+    assert f[["rear", "left"]].labels == ["rear", "left"]
+    assert f[cast(Any, [1, np.int64(2)])].labels == ["right", "rear"]
+    assert f[1:].labels == ["right", "rear"]
+    assert f[("left",)].labels == ["left"]
+    assert f[([0, 2], slice(1, 3))]._data.shape == (2, 2)
+
+    with pytest.raises(TypeError, match="Invalid channel key type in tuple"):
+        _ = f[cast(Any, (1.5, slice(None)))]
+
+
+def test_public_xarray_and_array_protocol_paths():
+    f = make_frame(np.arange(6).reshape(2, 3), label="raw")
+
+    exported = f.xr
+    assert exported.name == "raw"
+    assert exported.attrs["wandas_frame_type"] == "DummyFrame"
+    np.testing.assert_array_equal(f.__array__(), np.arange(6).reshape(2, 3))
+
+
+def test_channel_frame_binary_op_frame_success_and_remaining_operand_formats():
+    left = ChannelFrame(
+        da_from_array(np.arange(6).reshape(2, 3).astype(float), chunks=(1, -1)),
+        sampling_rate=100.0,
+        label="left_frame",
+        channel_metadata=[{"label": "l0"}, {"label": "l1"}],
+    )
+    right = ChannelFrame(
+        da_from_array(np.ones((2, 3)), chunks=(1, -1)),
+        sampling_rate=100.0,
+        label="right_frame",
+        channel_metadata=[{"label": "r0"}, {"label": "r1"}],
+    )
+
+    added = left + right
+    powered = left**2
+
+    assert added.label == "(left_frame + right_frame)"
+    assert added.labels == ["(l0 + r0)", "(l1 + r1)"]
+    assert added.operation_history[-1] == {"operation": "+", "with": "right_frame"}
+    np.testing.assert_array_equal(added.compute(), left.compute() + right.compute())
+    assert powered.operation_history[-1] == {"operation": "**", "with": "2"}
+    assert BaseFrame._format_operand_str(np.zeros((2, 3))) == "ndarray(2, 3)"
+    assert BaseFrame._format_operand_str(da_from_array(np.zeros((2, 3)), chunks=(1, -1))) == "dask.array(2, 3)"
+
+    mismatched_rate = ChannelFrame(da_from_array(np.ones((2, 3)), chunks=(1, -1)), sampling_rate=200.0)
+    with pytest.raises(ValueError, match="Sampling rate mismatch"):
+        _ = left + mismatched_rate
+
+
+def test_apply_operation_dispatches_to_subclass_impl():
+    f = make_frame(np.arange(6).reshape(2, 3))
+
+    result = f.apply_operation("noop", amount=1)
+
+    assert result.operation_history[-1] == {"operation": "noop", "amount": 1}
+
+
+def test_lazy_metadata_and_previous_accessors():
+    f = make_frame(np.arange(6).reshape(2, 3))
+    f._xr.attrs.pop("metadata")
+
+    assert f.metadata == {}
+    assert f.previous is None
+
+
+def test_tensorflow_tensor_conversion_without_device(monkeypatch):
+    f = make_frame(np.arange(6).reshape(2, 3))
+
+    class FakeTf:
+        @staticmethod
+        def convert_to_tensor(value):
+            return {"tensor": value}
+
+    import importlib.util as iu
+    import sys
+
+    monkeypatch.setattr(iu, "find_spec", lambda name: object() if name == "tensorflow" else None)
+    monkeypatch.setitem(sys.modules, "tensorflow", FakeTf)
+
+    tensor = f.to_tensor(framework="tensorflow")
+
+    np.testing.assert_array_equal(tensor["tensor"], f.to_numpy())
+
+
+def test_base_frame_remaining_coordinate_and_indexing_edges():
+    f = make_frame(np.arange(6).reshape(2, 3))
+
+    assert f._next_channel_id(["c0", "c1"]) == "c2"
+    assert f._channel_ids_for_selection([0, 0]) == ["c0", "c2"]
+    with pytest.raises(TypeError, match="Invalid key type"):
+        _ = f[cast(Any, object())]
+
+    cf = ChannelFrame(da_from_array(np.arange(6).reshape(2, 3), chunks=(1, -1)), sampling_rate=100.0)
+    cf._set_channel_coord_value("channel_label", 0, "front")
+    exported = cf.to_xarray()
+    exported.coords["channel_label"].values[0] = "mutated"
+
+    assert cf.channels[0].label == "front"
+    assert exported.attrs["wandas_frame_type"] == "ChannelFrame"
+
+
+def test_xarray_coords_are_omitted_when_pending_metadata_length_mismatches():
+    data = da_from_array(np.arange(6).reshape(2, 3), chunks=(1, -1))
+    f = ChannelFrame(data, sampling_rate=100.0)
+    f._pending_channel_metadata = [ChannelMetadata(label="only")]
+    f._pending_channel_ids = ["c0", "c1"]
+
+    assert f._xarray_coords(data) == {}
+
+    del f._pending_channel_metadata
+    del f._pending_channel_ids
+
+
+def test_zero_dimensional_axisless_frame_uses_scalar_chunk_policy():
+    data = da_from_array(np.array(1.0), chunks=())
+
+    f = SingleChannelAxislessFrame(data, sampling_rate=100.0)
+
+    assert f._data.ndim == 0
+    assert f.n_channels == 1
+
+
+def test_init_debug_logging_fallback_when_dask_details_unavailable(caplog):
+    class DebugFallbackFrame(BaseFrame[np.ndarray]):
+        _xarray_dim_suffix = ("channel", "time")
+
+        @property
+        def _data(self):
+            raise RuntimeError("no dask details")
+
+        def plot(self, plot_type: str = "default", ax=None, **kwargs):
+            raise NotImplementedError
+
+        def _get_dataframe_index(self) -> pd.Index:
+            return pd.RangeIndex(stop=0)
+
+        def _debug_info_impl(self) -> None:
+            return None
+
+    with caplog.at_level("DEBUG"):
+        DebugFallbackFrame(da_from_array(np.arange(6).reshape(2, 3), chunks=(1, -1)), sampling_rate=100.0)
+
+    assert "Dask graph visualization details unavailable" in caplog.text

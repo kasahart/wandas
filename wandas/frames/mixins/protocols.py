@@ -8,7 +8,7 @@ from typing import Any, Protocol, TypeVar, runtime_checkable
 
 from dask.array.core import Array as DaArray
 
-from wandas.core.metadata import ChannelMetadata, FrameMetadata
+from wandas.core.metadata import ChannelMetadata
 from wandas.utils.types import NDArrayReal
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ class BaseFrameProtocol(Protocol):
     _data: DaArray
     sampling_rate: float
     _channel_metadata: list[ChannelMetadata]
-    metadata: FrameMetadata
+    metadata: dict[str, Any]
     operation_history: list[dict[str, Any]]
     label: str
 
@@ -97,7 +97,7 @@ class ProcessingFrameProtocol(BaseFrameProtocol, Protocol):
         self,
         operation_name: str,
         params: dict[str, Any],
-    ) -> tuple[FrameMetadata, list[dict[str, Any]]]: ...
+    ) -> tuple[dict[str, Any], list[dict[str, Any]]]: ...
 
     def _get_ref_values(self, *, require_non_default: bool = False) -> list[float]: ...
 

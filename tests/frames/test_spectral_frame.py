@@ -407,7 +407,8 @@ class TestSpectralFrame:
                 label=f"ifft({self.frame.label})",
                 metadata=self.frame.metadata,
                 operation_history=self.frame.operation_history,
-                channel_metadata=self.frame._channel_metadata,
+                channel_metadata=self.frame.channels.to_list(),
+                channel_ids=self.frame._channel_ids,
             )
 
             assert result is mock_result
@@ -550,7 +551,8 @@ class TestSpectralFrame:
                         },
                     },
                 ],
-                channel_metadata=correct_sr_frame._channel_metadata,
+                channel_metadata=correct_sr_frame.channels.to_list(),
+                channel_ids=correct_sr_frame._channel_ids,
                 previous=correct_sr_frame,
             )
 

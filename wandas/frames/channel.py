@@ -1,6 +1,6 @@
 import logging
 import warnings
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO, TypeVar, cast
 
@@ -20,7 +20,7 @@ from wandas.utils.dask_helpers import da_from_array as _da_from_array
 from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
-from ..core.metadata import ChannelMetadata, FrameMetadata
+from ..core.metadata import ChannelMetadata
 from ..io.readers import get_file_reader
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
 
@@ -177,14 +177,17 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
     with each channel containing data samples in the time domain.
     """
 
+    _xarray_dim_suffix = ("channel", "time")
+
     def __init__(
         self,
         data: DaArray,
         sampling_rate: float,
         label: str | None = None,
-        metadata: "FrameMetadata | dict[str, Any] | None" = None,
+        metadata: dict[str, Any] | None = None,
         operation_history: list[dict[str, Any]] | None = None,
-        channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
+        channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
+        channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
     ) -> None:
         """Initialize a ChannelFrame.
@@ -228,6 +231,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             metadata=metadata,
             operation_history=operation_history,
             channel_metadata=channel_metadata,
+            channel_ids=channel_ids,
             previous=previous,
         )
 
@@ -239,7 +243,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         if len(ch_labels) != self.n_channels:
             raise ValueError("Number of channel labels does not match the number of channels")
         for i, lbl in enumerate(ch_labels):
-            self._channel_metadata[i].label = lbl
+            self.channels[i].label = lbl
 
     def _set_channel_units(self, ch_units: list[str]) -> None:
         """Overwrite channel units after construction.
@@ -249,18 +253,19 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         if len(ch_units) != self.n_channels:
             raise ValueError("Number of channel units does not match the number of channels")
         for i, unit in enumerate(ch_units):
-            self._channel_metadata[i].unit = unit
+            self.channels[i].unit = unit
 
     def _finalize_channel_update(
         self,
         new_data: DaArray,
         new_chmeta: list[ChannelMetadata],
         inplace: bool,
+        channel_ids: list[str],
     ) -> "ChannelFrame":
         """Apply *new_data* and *new_chmeta* either in-place or as a new frame."""
         if inplace:
-            self._data = new_data
-            self._channel_metadata = new_chmeta
+            self._replace_data(new_data)
+            self._set_channel_metadata(new_chmeta, channel_ids)
             return self
         return ChannelFrame(
             data=new_data,
@@ -269,6 +274,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             metadata=self.metadata,
             operation_history=self.operation_history,
             channel_metadata=new_chmeta,
+            channel_ids=channel_ids,
             previous=self,
         )
 
@@ -767,7 +773,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         data: NDArrayReal,
         sampling_rate: float,
         label: str | None = None,
-        metadata: "FrameMetadata | dict[str, Any] | None" = None,
+        metadata: dict[str, Any] | None = None,
         ch_labels: list[str] | None = None,
         ch_units: list[str] | str | None = None,
     ) -> "ChannelFrame":
@@ -816,7 +822,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         labels: list[str] | None = None,
         unit: list[str] | str | None = None,
         frame_label: str | None = None,
-        metadata: "FrameMetadata | dict[str, Any] | None" = None,
+        metadata: dict[str, Any] | None = None,
     ) -> "ChannelFrame":
         """Create a ChannelFrame from a NumPy array.
 
@@ -1016,7 +1022,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             data=dask_array,
             sampling_rate=sr,
             label=frame_label,
-            metadata=FrameMetadata(source_file=source_file),
+            metadata={"_source_file": source_file} if source_file is not None else None,
         )
         if ch_labels is not None:
             cf._set_channel_labels(ch_labels)
@@ -1225,7 +1231,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             labels = self.labels
             new_labels: list[str] = []
             new_metadata_list: list[ChannelMetadata] = []
-            for chmeta in data._channel_metadata:
+            for chmeta in data.channels:
                 new_label = f"{label}_{chmeta.label}" if label is not None else chmeta.label
                 if new_label in labels or new_label in new_labels:
                     if suffix_on_dup:
@@ -1240,13 +1246,17 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                         )
                 new_labels.append(new_label)
                 # Copy the entire channel_metadata and update only the label
-                new_ch_meta = chmeta.model_copy(deep=True)
+                new_ch_meta = chmeta.to_metadata()
                 new_ch_meta.label = new_label
                 new_metadata_list.append(new_ch_meta)
             new_data = concatenate([self._data, arr], axis=0)
 
-            new_chmeta = self._channel_metadata + new_metadata_list
-            return self._finalize_channel_update(new_data, new_chmeta, inplace)
+            new_chmeta = self.channels.to_list() + new_metadata_list
+            new_ids = self._channel_ids.copy()
+            for _ in new_metadata_list:
+                new_id = self._next_channel_id(new_ids)
+                new_ids.append(new_id)
+            return self._finalize_channel_update(new_data, new_chmeta, inplace, new_ids)
         if isinstance(data, np.ndarray):
             arr = _da_from_array(data.reshape(1, -1), chunks=(1, -1))
         elif isinstance(data, DaArray):
@@ -1271,8 +1281,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 )
         new_data = concatenate([self._data, arr], axis=0)
 
-        new_chmeta = [*self._channel_metadata, ChannelMetadata(label=new_label)]
-        return self._finalize_channel_update(new_data, new_chmeta, inplace)
+        new_ids = [*self._channel_ids, self._next_channel_id()]
+        new_chmeta = [*self.channels.to_list(), ChannelMetadata(label=new_label)]
+        return self._finalize_channel_update(new_data, new_chmeta, inplace, new_ids)
 
     def remove_channel(self, key: int | str, inplace: bool = False) -> "ChannelFrame":
         if isinstance(key, int):
@@ -1284,9 +1295,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             if key not in labels:
                 raise KeyError(f"label {key} not found")
             idx = labels.index(key)
-        new_data = self._data[[i for i in range(self.n_channels) if i != idx], :]
-        new_chmeta = [ch for i, ch in enumerate(self._channel_metadata) if i != idx]
-        return self._finalize_channel_update(new_data, new_chmeta, inplace)
+        keep_indices = [i for i in range(self.n_channels) if i != idx]
+        new_data = self._data[keep_indices, :]
+        new_chmeta = [self.channels[i].to_metadata() for i in keep_indices]
+        new_ids = [self._channel_ids[i] for i in keep_indices]
+        return self._finalize_channel_update(new_data, new_chmeta, inplace, new_ids)
 
     def rename_channels(
         self,
@@ -1372,15 +1385,15 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             )
         # Create updated channel_metadata list
         new_chmeta = []
-        for i, ch_meta in enumerate(self._channel_metadata):
-            new_ch_meta = ch_meta.model_copy(deep=True)
+        for i, ch_meta in enumerate(self.channels):
+            new_ch_meta = ch_meta.to_metadata()
             new_ch_meta.label = new_labels[i]
             new_chmeta.append(new_ch_meta)
 
         if inplace:
-            self._channel_metadata = new_chmeta
+            self._set_channel_metadata(new_chmeta, self._channel_ids)
             return self
-        return self._finalize_channel_update(self._data, new_chmeta, inplace=False)
+        return self._finalize_channel_update(self._data, new_chmeta, inplace=False, channel_ids=self._channel_ids)
 
     def _get_dataframe_index(self) -> "pd.Index[Any]":
         """Get time index for DataFrame."""

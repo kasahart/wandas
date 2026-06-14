@@ -1,7 +1,7 @@
 """Roughness analysis frame for detailed psychoacoustic analysis."""
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -116,7 +116,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         label: str | None = None,
         metadata: dict[str, Any] | None = None,
         operation_history: list[dict[str, Any]] | None = None,
-        channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
+        channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
+        channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
     ) -> None:
         """Initialize a RoughnessFrame."""
@@ -150,6 +151,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             metadata=metadata,
             operation_history=operation_history,
             channel_metadata=channel_metadata,
+            channel_ids=channel_ids,
             previous=previous,
         )
 
@@ -228,19 +230,11 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         """
         return self._overlap
 
-    @property
-    def _n_channels(self) -> int:
-        """
-        Return the number of channels.
-
-        Returns
-        -------
-        int
-            Number of channels. For 2D data (mono), returns 1.
-        """
-        if self._data.ndim == 2:
+    def _channel_count_from_data(self, data: DaArray) -> int:
+        """Return the number of channels for mono or channel-bark-time data."""
+        if data.ndim == 2:
             return 1
-        return int(self._data.shape[0])
+        return int(data.shape[-3])
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
         """
@@ -338,7 +332,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             label=self.label,
             metadata=metadata,
             operation_history=operation_history,
-            channel_metadata=self._channel_metadata,
+            channel_metadata=self.channels.to_list(),
+            channel_ids=self._channel_ids,
             previous=self,
         )
 
