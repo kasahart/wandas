@@ -312,6 +312,9 @@ class TestFileReaderHelpers:
 
             assert ".custom" in formats
             assert formats.count(".wav") == 1
+
+            reader = get_file_reader("test.custom")
+            assert isinstance(reader, CustomFileReader)
         finally:
             del _file_readers[original_count:]
 

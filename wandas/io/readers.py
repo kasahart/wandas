@@ -104,10 +104,22 @@ class FileReader(ABC):
         # pragma: no cover
 
     @classmethod
+    def _normalize_supported_extensions(cls) -> list[str]:
+        """Return normalized reader extensions in lowercase dot form."""
+        normalized_extensions: list[str] = []
+        for extension in cls.supported_extensions:
+            normalized_extension = _normalize_extension(extension)
+            if normalized_extension is not None:
+                normalized_extensions.append(normalized_extension)
+        return normalized_extensions
+
+    @classmethod
     def can_read(cls, path: str | Path) -> bool:
         """Check if this reader can handle the file based on extension."""
-        ext = Path(path).suffix.lower()
-        return ext in cls.supported_extensions
+        ext = _normalize_extension(Path(path).suffix)
+        if ext is None:
+            return False
+        return ext in cls._normalize_supported_extensions()
 
 
 class SoundFileReader(FileReader):
@@ -365,10 +377,7 @@ def supported_formats() -> list[str]:
     """Return file extensions supported by the registered readers."""
     extensions: set[str] = set()
     for reader in _file_readers:
-        for extension in reader.__class__.supported_extensions:
-            normalized = _normalize_extension(extension)
-            if normalized is not None:
-                extensions.add(normalized)
+        extensions.update(reader.__class__._normalize_supported_extensions())
     return sorted(extensions)
 
 
@@ -411,7 +420,7 @@ def get_file_reader(
 
     # Try each reader in order
     for reader in _file_readers:
-        if ext in reader.__class__.supported_extensions:
+        if ext in reader.__class__._normalize_supported_extensions():
             logger.debug(f"Using {reader.__class__.__name__} for {path_str}")
             return reader
 
