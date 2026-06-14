@@ -374,6 +374,7 @@ class ChannelProcessingMixin:
         operation = create_operation("trim", cast(Any, self).sampling_rate, start=start, end=end)
         result = cast(Any, self)._apply_operation_instance(
             operation,
+            operation_name="trim",
             source_time_offset=cast(Any, self).source_time_offset + start,
         )
         return cast(T_Processing, result)

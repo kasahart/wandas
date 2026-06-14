@@ -923,6 +923,9 @@ class BaseFrame(ABC, Generic[T]):
         output_frame_kwargs : dict, optional
             Extra constructor keyword arguments required by *output_frame_class*
             (e.g. ``{"n_fft": 1024, "window": "hann"}``).
+        source_time_offset : float, optional
+            Override for the new frame source-time offset. If omitted, the
+            current frame offset is preserved through normal instance creation.
         """
         processed_data = operation.process(self._data)
 
