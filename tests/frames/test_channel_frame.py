@@ -82,6 +82,22 @@ class TestChannelFrame:
             expected_time = np.arange(16000) / 16000
             np.testing.assert_array_equal(time, expected_time)
 
+    def test_source_time_adds_offset_to_local_time(self) -> None:
+        data = da.from_array(np.arange(8, dtype=float).reshape(1, 8))
+        frame = ChannelFrame(data, sampling_rate=4.0, source_time_offset=10.0)
+
+        np.testing.assert_allclose(frame.time, np.arange(8) / 4.0)
+        np.testing.assert_allclose(frame.source_time, 10.0 + np.arange(8) / 4.0)
+        assert frame.source_time_range == (10.0, 12.0)
+
+    def test_to_dataframe_keeps_local_time_index(self) -> None:
+        data = da.from_array(np.arange(4, dtype=float).reshape(1, 4))
+        frame = ChannelFrame(data, sampling_rate=2.0, source_time_offset=10.0)
+
+        df = frame.to_dataframe()
+
+        np.testing.assert_allclose(df.index.to_numpy(), np.array([0.0, 0.5, 1.0, 1.5]))
+
     def test_operations_are_lazy(self) -> None:
         """Test that operations don't trigger immediate computation."""
         with mock.patch.object(DaArray, "compute", return_value=self.data) as mock_compute:
