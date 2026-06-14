@@ -56,5 +56,5 @@ cf.save(
 
 # Load a ChannelFrame from a WDF file
 # WDFファイルから ChannelFrame を読み込み
-cf2 = wd.ChannelFrame.load("audio_data.wdf")
+cf2 = wd.load("audio_data.wdf")
 ```
