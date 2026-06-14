@@ -42,7 +42,7 @@ File structure / ファイル構造:
 ```python
 # Save a ChannelFrame in WDF format
 # ChannelFrame を WDF形式で保存
-cf = wd.read_wav("audio.wav")
+cf = wd.read("audio.wav")
 cf.save("audio_data.wdf")
 
 # Specifying options when saving
