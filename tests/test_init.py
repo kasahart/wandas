@@ -69,6 +69,13 @@ def test_no_handler():
     assert len(logger.handlers) == 0
 
 
+def test_supported_formats_public_api() -> None:
+    formats = wandas.supported_formats()
+
+    assert formats == [".aif", ".aiff", ".csv", ".flac", ".ogg", ".snd", ".wav"]
+    assert ".mp3" not in formats
+
+
 def test_existing_handler():
     """すでにハンドラーがある場合、新しいハンドラーは追加されない"""
     # 事前にハンドラーを追加

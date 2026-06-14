@@ -18,7 +18,22 @@ from_numpy = ChannelFrame.from_numpy
 from_ndarray = ChannelFrame.from_ndarray
 
 generate_sin = generate_sample.generate_sin_lazy
-__all__ = ["ChannelFrameDataset", "from_folder", "from_ndarray", "generate_sin", "read_csv", "read_wav"]
+__all__ = [
+    "ChannelFrameDataset",
+    "from_folder",
+    "from_ndarray",
+    "generate_sin",
+    "read_csv",
+    "read_wav",
+    "supported_formats",
+]
+
+
+def supported_formats() -> list[str]:
+    """Return file extensions supported by the registered readers."""
+    from .io.readers import supported_formats as _supported_formats
+
+    return _supported_formats()
 
 
 def from_folder(
