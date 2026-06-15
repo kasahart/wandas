@@ -64,15 +64,30 @@ def _is_in_memory_source(path: object) -> bool:
     return isinstance(path, (bytes, bytearray, memoryview)) or hasattr(path, "read")
 
 
+def _named_in_memory_source(path: object) -> str | None:
+    if not _is_in_memory_source(path):
+        return None
+    source_name = getattr(path, "name", None)
+    if isinstance(source_name, (str, Path)):
+        return str(source_name)
+    return None
+
+
 def _infer_in_memory_file_type(path: object, file_type: str | None) -> str | None:
     if file_type is not None or not _is_in_memory_source(path):
         return file_type
-    source_name = getattr(path, "name", None)
-    if isinstance(source_name, (str, Path)):
+    source_name = _named_in_memory_source(path)
+    if source_name is not None:
         suffix = Path(source_name).suffix
         if suffix:
             return suffix
     return ".wav"
+
+
+def _infer_in_memory_source_name(path: object, source_name: str | None) -> str | None:
+    if source_name is not None:
+        return source_name
+    return _named_in_memory_source(path)
 
 
 def _raise_read_wdf_error(path: object) -> None:
@@ -101,6 +116,7 @@ def read(
     objects. Use ``wd.load()`` for Wandas native WDF files.
     """
     effective_file_type = _infer_in_memory_file_type(path, file_type)
+    effective_source_name = _infer_in_memory_source_name(path, source_name)
     if _is_wdf_request(path, effective_file_type):
         _raise_read_wdf_error(path)
     return ChannelFrame.from_file(
@@ -113,7 +129,7 @@ def read(
         delimiter=delimiter,
         header=header,
         file_type=effective_file_type,
-        source_name=source_name,
+        source_name=effective_source_name,
         normalize=normalize,
         timeout=timeout,
     )

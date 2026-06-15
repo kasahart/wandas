@@ -253,6 +253,8 @@ def test_read_loads_named_csv_file_like_without_file_type(tmp_path: Path) -> Non
     assert signal.sampling_rate == 10
     assert signal.n_channels == 2
     assert signal.labels == ["left", "right"]
+    assert signal.label == "sensor"
+    assert signal.metadata["_source_file"] == str(path)
 
 
 def test_read_loads_csv_like_read_csv(tmp_path: Path) -> None:
@@ -301,6 +303,26 @@ def test_read_accepts_non_path_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
     assert wandas.read(source) is expected
     assert captured["path"] is source
     assert captured_kwargs["file_type"] == ".wav"
+    assert captured_kwargs["source_name"] is None
+
+
+def test_read_preserves_explicit_source_name_for_named_stream(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    expected = object()
+    path = tmp_path / "sensor.csv"
+    path.write_text("time,left\n0.0,1.0\n", encoding="utf-8")
+    captured_kwargs: dict[str, object] = {}
+
+    def fake_from_file(path: object, **kwargs: object) -> object:
+        captured_kwargs.update(kwargs)
+        return expected
+
+    monkeypatch.setattr(ChannelFrame, "from_file", staticmethod(fake_from_file))
+
+    with path.open("rb") as file_obj:
+        assert wandas.read(file_obj, source_name="explicit.csv") is expected
+
+    assert captured_kwargs["file_type"] == ".csv"
+    assert captured_kwargs["source_name"] == "explicit.csv"
 
 
 def test_read_forwards_non_path_non_memory_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
