@@ -928,7 +928,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         from .channel import ChannelFrame
 
         # Detect and handle URL paths — download to bytes before any path logic.
-        if isinstance(path, str) and path.startswith(("http://", "https://")):
+        if isinstance(path, str) and path.lower().startswith(("http://", "https://")):
             path, file_type, source_name = _download_url(path, file_type, source_name, timeout)
 
         source_obj, path_obj, reader, normalized_file_type = _resolve_source(path, file_type)

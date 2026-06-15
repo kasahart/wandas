@@ -255,8 +255,9 @@ def test_read_rejects_wdf_file_type_with_load_guidance() -> None:
         wandas.read(b"not a real wdf", file_type=".wdf")
 
 
-def test_read_rejects_wdf_url_with_query_using_load_guidance() -> None:
-    url = "https://example.com/analysis.wdf?signature=abc#section"
+@pytest.mark.parametrize("scheme", ["https", "HTTPS"])
+def test_read_rejects_wdf_url_with_query_using_load_guidance(scheme: str) -> None:
+    url = f"{scheme}://example.com/analysis.wdf?signature=abc#section"
 
     with pytest.raises(ValueError, match="wd.load") as exc_info:
         wandas.read(url)
