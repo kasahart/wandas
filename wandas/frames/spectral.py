@@ -137,7 +137,9 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     @property
     def source_time_range(self) -> tuple[float, float]:
         if self.previous is not None:
-            return self.previous.source_time_range
+            start, end = self.previous.source_time_range
+            offset_delta = self.source_time_offset - self.previous.source_time_offset
+            return (start + offset_delta, end + offset_delta)
         return super().source_time_range
 
     @property

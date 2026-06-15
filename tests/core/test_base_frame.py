@@ -159,6 +159,7 @@ def test_public_apply_output_frame_kwargs_source_time_offset_overrides_default()
 
     assert isinstance(result, SpectralFrame)
     assert result.source_time_offset == pytest.approx(12.0)
+    assert result.source_time_range == pytest.approx((12.0, 14.0))
     assert type(result.source_time_offset) is float
     assert result.previous is frame
 

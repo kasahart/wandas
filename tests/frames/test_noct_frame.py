@@ -128,6 +128,27 @@ class TestNOctFrame:
 
         assert frame.source_time_range == pytest.approx(previous.source_time_range)
 
+    def test_noct_frame_source_time_range_shifts_previous_range_by_offset_delta(self) -> None:
+        previous = ChannelFrame(
+            da.from_array(np.arange(8, dtype=float).reshape(1, 8), chunks=(1, -1)),
+            sampling_rate=4.0,
+            source_time_offset=7.0,
+        )
+        frame = NOctFrame(
+            da.from_array(np.ones((1, 5), dtype=float), chunks=(1, -1)),
+            sampling_rate=4.0,
+            fmin=100.0,
+            fmax=1000.0,
+            n=3,
+            G=10,
+            fr=1000,
+            previous=previous,
+            source_time_offset=12.0,
+        )
+
+        assert previous.source_time_range == pytest.approx((7.0, 9.0))
+        assert frame.source_time_range == pytest.approx((12.0, 14.0))
+
     def test_reshape_1d_data(self) -> None:
         """Test that 1D data is reshaped to 2D"""
         # Create 1D real data
