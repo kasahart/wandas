@@ -250,9 +250,26 @@ def test_read_rejects_wdf_with_load_guidance(tmp_path: Path) -> None:
     assert "analysis.wdf" in message
 
 
-def test_read_rejects_wdf_file_type_with_load_guidance() -> None:
+@pytest.mark.parametrize("file_type", [".wdf", "wdf"])
+def test_read_rejects_wdf_file_type_with_load_guidance(file_type: str) -> None:
     with pytest.raises(ValueError, match="wd.load"):
-        wandas.read(b"not a real wdf", file_type=".wdf")
+        wandas.read(b"not a real wdf", file_type=file_type)
+
+
+def test_read_accepts_non_path_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
+    expected = object()
+    source = b"not a file path"
+    captured: dict[str, object] = {}
+
+    def fake_from_file(path: object, **kwargs: object) -> object:
+        captured["path"] = path
+        captured["kwargs"] = kwargs
+        return expected
+
+    monkeypatch.setattr(ChannelFrame, "from_file", staticmethod(fake_from_file))
+
+    assert wandas.read(source) is expected
+    assert captured["path"] is source
 
 
 @pytest.mark.parametrize("scheme", ["https", "HTTPS"])
