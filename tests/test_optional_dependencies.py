@@ -351,7 +351,8 @@ def test_describe_missing_ipython_has_notebook_extra_hint() -> None:
         import numpy as np
         import wandas
 
-        frame = wandas.ChannelFrame.from_numpy(np.array([[0.0, 1.0, 0.0, -1.0]]), sampling_rate=48000)
+        data = np.sin(np.linspace(0, 16, 4096, dtype=float))[None, :]
+        frame = wandas.ChannelFrame.from_numpy(data, sampling_rate=48000)
 
         try:
             frame.describe()
@@ -369,6 +370,88 @@ def test_describe_missing_ipython_has_notebook_extra_hint() -> None:
     )
 
     assert result.returncode == 0, result.stderr
+
+
+def test_describe_image_save_without_ipython_does_not_require_notebook_extra() -> None:
+    script = """
+        import importlib.abc
+        import sys
+        import tempfile
+        from pathlib import Path
+
+        class BlockIPython(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path, target=None):
+                if fullname.split(".", 1)[0] == "IPython":
+                    raise ModuleNotFoundError("No module named 'IPython'", name="IPython")
+                return None
+
+        sys.meta_path.insert(0, BlockIPython())
+
+        import numpy as np
+        import wandas
+
+        data = np.sin(np.linspace(0, 16, 4096, dtype=float))[None, :]
+        frame = wandas.ChannelFrame.from_numpy(data, sampling_rate=48000)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output = Path(tmpdir) / "describe.png"
+            frame.describe(image_save=output)
+            assert output.exists()
+    """
+
+    result = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent(script)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_hpss_harmonic_missing_librosa_effects_raises_at_init(monkeypatch: pytest.MonkeyPatch) -> None:
+    from wandas.processing.effects import HpssHarmonic
+
+    def raise_missing_librosa(module_name: str, *, extra: str, feature: str) -> None:
+        assert module_name == "librosa.effects"
+        assert extra == "viz"
+        assert feature == "hpss_harmonic"
+        raise ImportError(
+            f'{feature} requires optional dependency {module_name!r}.\nInstall it with: pip install "wandas[{extra}]"'
+        )
+
+    monkeypatch.setattr(
+        "wandas.processing.effects.require_optional_dependency",
+        raise_missing_librosa,
+    )
+
+    with pytest.raises(ImportError) as exc_info:
+        HpssHarmonic(48000)
+
+    message = str(exc_info.value)
+    assert "hpss_harmonic requires optional dependency 'librosa.effects'" in message
+    assert 'pip install "wandas[viz]"' in message
+
+
+def test_remote_csv_missing_pandas_raises_before_download(monkeypatch: pytest.MonkeyPatch) -> None:
+    from wandas.frames.channel import ChannelFrame
+
+    def raise_missing_pandas(feature: str) -> None:
+        assert feature == "CSV file reading"
+        raise ImportError(
+            "CSV file reading requires optional dependency 'pandas'.\nInstall it with: pip install \"wandas[io]\""
+        )
+
+    def fail_download(*args: object, **kwargs: object) -> None:
+        raise AssertionError("remote CSV should check pandas before download")
+
+    monkeypatch.setattr("wandas.frames.channel._pandas", raise_missing_pandas)
+    monkeypatch.setattr("wandas.frames.channel._download_url", fail_download)
+
+    with pytest.raises(ImportError) as exc_info:
+        ChannelFrame.from_file("https://example.com/data.csv")
+
+    assert 'pip install "wandas[io]"' in str(exc_info.value)
 
 
 def test_wdf_save_missing_h5py_has_io_extra_hint() -> None:

@@ -51,6 +51,10 @@ def _ipython_display(feature: str) -> tuple[Any, Any]:
     return display_module.display, display_module.Audio
 
 
+def _is_display_enabled(image_save: str | Path | None, is_close: bool) -> bool:
+    return image_save is None or not is_close
+
+
 def display(*args: Any, **kwargs: Any) -> Any:
     notebook_display, _ = _ipython_display("describe")
     return notebook_display(*args, **kwargs)
@@ -753,9 +757,13 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         self._apply_deprecated_describe_kwargs(plot_kwargs)
 
-        _ipython_display("describe")
         plt = _matplotlib_pyplot("describe")
         axes_cls = _matplotlib_axes_type("describe")
+        display_enabled = _is_display_enabled(image_save, is_close)
+        if display_enabled:
+            notebook_display, notebook_audio = _ipython_display("describe")
+        else:
+            notebook_display = notebook_audio = None
 
         figures: list[Figure] = []
 
@@ -782,14 +790,15 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 else:
                     fig.savefig(image_save, bbox_inches="tight")
 
-            if fig is not None:
-                display(fig)
+            if fig is not None and notebook_display is not None:
+                notebook_display(fig)
             if is_close and fig is not None:
                 fig.clf()  # Clear the figure to free memory
                 plt.close(fig)
 
             # Play audio for each channel
-            display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))
+            if notebook_display is not None and notebook_audio is not None:
+                notebook_display(notebook_audio(ch.data, rate=ch.sampling_rate, normalize=normalize))
 
         # Return figures only when is_close=False
         if is_close:
@@ -957,7 +966,15 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         from .channel import ChannelFrame
 
         # Detect and handle URL paths — download to bytes before any path logic.
-        if isinstance(path, str) and path.startswith(("http://", "https://")):
+        if isinstance(path, str) and path.lower().startswith(("http://", "https://")):
+            url_file_type = file_type
+            if url_file_type is None:
+                from pathlib import PurePosixPath
+                from urllib.parse import urlparse
+
+                url_file_type = PurePosixPath(urlparse(path).path).suffix.lower() or None
+            if url_file_type is not None and url_file_type.lower().lstrip(".") == "csv":
+                _pandas("CSV file reading")
             path, file_type, source_name = _download_url(path, file_type, source_name, timeout)
 
         source_obj, path_obj, reader, normalized_file_type = _resolve_source(path, file_type)

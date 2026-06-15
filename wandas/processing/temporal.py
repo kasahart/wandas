@@ -40,7 +40,7 @@ def _frame_rms(y: NDArrayReal, frame_length: int, hop_length: int) -> NDArrayRea
 
 
 def _resampling_ratio(source_sr: float, target_sr: float) -> tuple[int, int]:
-    ratio = Fraction(float(target_sr) / float(source_sr)).limit_denominator(1_000_000)
+    ratio = Fraction(str(target_sr)) / Fraction(str(source_sr))
     return ratio.numerator, ratio.denominator
 
 

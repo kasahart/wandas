@@ -12,6 +12,7 @@ from wandas.processing.temporal import (
     RmsTrend,
     SoundLevel,
     Trim,
+    _resampling_ratio,
 )
 from wandas.processing.weighting import a_weighting_db, frequency_weighting
 from wandas.utils.dask_helpers import da_from_array
@@ -57,6 +58,15 @@ class TestReSampling:
         assert isinstance(r, ReSampling)
         assert r.sampling_rate == 16000
         assert r.target_sr == 22050
+
+    def test_resampling_ratio_preserves_small_rate_differences(self) -> None:
+        """Tiny sampling-rate differences must not collapse to a 1:1 ratio."""
+        source_sr = 48000.0
+        target_sr = 48000.0001
+        up, down = _resampling_ratio(source_sr, target_sr)
+
+        assert (up, down) == (480000001, 480000000)
+        assert up / down == pytest.approx(target_sr / source_sr)
 
     def test_resampling_negative_source_sr_raises(self) -> None:
         """Test negative source sampling rate provides WHAT/WHY/HOW error."""

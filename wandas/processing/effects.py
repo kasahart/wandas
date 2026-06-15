@@ -59,12 +59,12 @@ class _HpssBase(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def __init__(self, sampling_rate: float, **kwargs: Any):
         self.kwargs = kwargs
+        self._effects = require_optional_dependency("librosa.effects", extra="viz", feature=self.name)
         super().__init__(sampling_rate, **kwargs)
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying HPSS {self._extract_func} to array with shape: {x.shape}")
-        effects = require_optional_dependency("librosa.effects", extra="viz", feature=self.name)
-        func = getattr(effects, self._extract_func)
+        func = getattr(self._effects, self._extract_func)
         result: NDArrayReal = func(x, **self.kwargs)
         logger.debug(f"HPSS {self._extract_func} applied, returning result with shape: {result.shape}")
         return result
