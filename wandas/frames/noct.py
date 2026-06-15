@@ -4,7 +4,6 @@ from collections.abc import Callable, Iterator, Sequence
 from typing import TYPE_CHECKING, Any, TypeVar
 
 import numpy as np
-import pandas as pd
 from dask.array.core import Array as DaArray
 
 from wandas.core.base_frame import BaseFrame
@@ -15,6 +14,7 @@ from wandas.utils.types import NDArrayReal
 from wandas.utils.util import ref_weighted_dB
 
 if TYPE_CHECKING:
+    import pandas as pd
     from matplotlib.axes import Axes
 
     from wandas.visualization.plotting import PlotStrategy
@@ -23,6 +23,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 S = TypeVar("S", bound="BaseFrame[Any]")
+
+
+def _pandas(feature: str) -> Any:
+    return require_optional_dependency("pandas", extra="io", feature=feature)
 
 
 def _center_freq(*args: Any, **kwargs: Any) -> Any:
@@ -371,4 +375,5 @@ class NOctFrame(BaseFrame[NDArrayReal]):
 
     def _get_dataframe_index(self) -> "pd.Index[Any]":
         """Get frequency index for DataFrame."""
+        pd = _pandas("NOctFrame.to_dataframe")
         return pd.Index(self.freqs, name="frequency")

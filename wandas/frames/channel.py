@@ -8,7 +8,6 @@ import dask
 import dask.array as da
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 from dask.array.core import Array as DaArray
 from dask.array.core import concatenate
 from IPython.display import Audio, display
@@ -17,6 +16,7 @@ from matplotlib.figure import Figure
 
 from wandas.utils import validate_sampling_rate
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
+from wandas.utils.optional_imports import require_optional_dependency
 from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
@@ -25,6 +25,7 @@ from ..io.readers import get_file_reader
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
 
 if TYPE_CHECKING:
+    import pandas as pd
     from matplotlib.axes import Axes
 
 logger = logging.getLogger(__name__)
@@ -34,6 +35,10 @@ da_from_delayed = da.from_delayed
 
 
 S = TypeVar("S", bound="BaseFrame[Any]")
+
+
+def _pandas(feature: str) -> Any:
+    return require_optional_dependency("pandas", extra="io", feature=feature)
 
 
 def _align_to_length(arr: DaArray, target_len: int, align: str, source_len: int) -> DaArray:
@@ -1397,4 +1402,5 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
     def _get_dataframe_index(self) -> "pd.Index[Any]":
         """Get time index for DataFrame."""
+        pd = _pandas("ChannelFrame.to_dataframe")
         return pd.Index(self.time, name="time")

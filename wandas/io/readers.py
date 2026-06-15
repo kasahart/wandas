@@ -5,12 +5,17 @@ from pathlib import Path
 from typing import Any, BinaryIO, ClassVar, TypedDict, cast
 
 import numpy as np
-import pandas as pd
 import soundfile as sf
 from numpy.typing import ArrayLike
 from scipy.io import wavfile
 
+from wandas.utils.optional_imports import require_optional_dependency
+
 logger = logging.getLogger(__name__)
+
+
+def _pandas(feature: str) -> Any:
+    return require_optional_dependency("pandas", extra="io", feature=feature)
 
 
 class CSVFileInfoParams(TypedDict, total=False):
@@ -254,6 +259,7 @@ class CSVFileReader(FileReader):
         time_column: int | str = kwargs.get("time_column", 0)
 
         # Read first few lines to determine structure
+        pd = _pandas("CSV file reading")
         df = pd.read_csv(_prepare_file_source(path), delimiter=delimiter, header=header)
 
         # Estimate sampling rate from first column (assuming it's time)
@@ -331,6 +337,7 @@ class CSVFileReader(FileReader):
         logger.debug(f"Reading CSV data from {path!r} starting at {start_idx}")
 
         # Read the CSV file
+        pd = _pandas("CSV file reading")
         df = pd.read_csv(_prepare_file_source(path), delimiter=delimiter, header=header)
 
         # Remove time column

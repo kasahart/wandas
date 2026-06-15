@@ -160,6 +160,153 @@ def test_import_wandas_without_librosa_or_mosqito() -> None:
     assert result.returncode == 0, result.stderr
 
 
+def test_import_wandas_and_basic_waveform_ops_without_io_dependencies() -> None:
+    script = """
+        import importlib.abc
+        import sys
+
+        BLOCKED = {"pandas", "h5py", "tqdm"}
+
+        class BlockOptionalImports(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path, target=None):
+                top_level_name = fullname.split(".", 1)[0]
+                if top_level_name in BLOCKED:
+                    raise ModuleNotFoundError(
+                        f"No module named {top_level_name!r}",
+                        name=top_level_name,
+                    )
+                return None
+
+        sys.meta_path.insert(0, BlockOptionalImports())
+
+        import numpy as np
+        import wandas
+
+        frame = wandas.ChannelFrame.from_numpy(np.array([[1.0, 2.0, 3.0]]), sampling_rate=48000)
+
+        assert wandas.read_wav is not None
+        assert np.allclose((frame + 1).to_numpy(), [[2.0, 3.0, 4.0]])
+        assert "pandas" not in sys.modules
+        assert "h5py" not in sys.modules
+        assert "tqdm" not in sys.modules
+    """
+
+    result = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent(script)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_dataframe_method_missing_pandas_has_io_extra_hint() -> None:
+    script = """
+        import importlib.abc
+        import sys
+
+        class BlockPandas(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path, target=None):
+                if fullname.split(".", 1)[0] == "pandas":
+                    raise ModuleNotFoundError("No module named 'pandas'", name="pandas")
+                return None
+
+        sys.meta_path.insert(0, BlockPandas())
+
+        import numpy as np
+        import wandas as wd
+
+        frame = wd.ChannelFrame.from_numpy(np.array([[1.0, 2.0, 3.0]]), sampling_rate=48000)
+
+        try:
+            frame.to_dataframe()
+        except ImportError as exc:
+            assert 'pip install "wandas[io]"' in str(exc)
+        else:
+            raise AssertionError("Expected ImportError for missing pandas")
+    """
+
+    result = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent(script)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_wdf_save_missing_h5py_has_io_extra_hint() -> None:
+    script = """
+        import importlib.abc
+        import sys
+        import tempfile
+        from pathlib import Path
+
+        class BlockH5py(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path, target=None):
+                if fullname.split(".", 1)[0] == "h5py":
+                    raise ModuleNotFoundError("No module named 'h5py'", name="h5py")
+                return None
+
+        sys.meta_path.insert(0, BlockH5py())
+
+        import numpy as np
+        import wandas as wd
+
+        frame = wd.ChannelFrame.from_numpy(np.array([[1.0, 2.0, 3.0]]), sampling_rate=48000)
+        path = Path(tempfile.gettempdir()) / "wandas_missing_h5py_boundary.wdf"
+        if path.exists():
+            path.unlink()
+
+        try:
+            frame.save(path)
+        except ImportError as exc:
+            assert 'pip install "wandas[io]"' in str(exc)
+        else:
+            raise AssertionError("Expected ImportError for missing h5py")
+    """
+
+    result = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent(script)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_frame_dataset_import_without_tqdm() -> None:
+    script = """
+        import importlib.abc
+        import sys
+
+        class BlockTqdm(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path, target=None):
+                if fullname.split(".", 1)[0] == "tqdm":
+                    raise ModuleNotFoundError("No module named 'tqdm'", name="tqdm")
+                return None
+
+        sys.meta_path.insert(0, BlockTqdm())
+
+        import wandas.utils.frame_dataset as frame_dataset
+
+        assert frame_dataset.FrameDataset is not None
+        assert "tqdm" not in sys.modules
+    """
+
+    result = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent(script)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
 def test_psychoacoustic_missing_mosqito_has_extra_hint() -> None:
     script = """
         import importlib.abc

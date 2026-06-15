@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Any, cast
 
 import dask.array as da
 import numpy as np
-import pandas as pd
 from dask.array.core import Array as DaArray
 
 from wandas.core.base_frame import BaseFrame
@@ -13,6 +12,7 @@ from wandas.frames.mixins.spectral_properties_mixin import SpectralPropertiesMix
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 if TYPE_CHECKING:
+    import pandas as pd
     from matplotlib.axes import Axes
 
     from wandas.frames.channel import ChannelFrame

@@ -5,7 +5,6 @@ from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import pandas as pd
 from dask.array.core import Array as DaArray
 
 from wandas.core.base_frame import BaseFrame
@@ -14,6 +13,7 @@ from wandas.utils.dask_helpers import da_from_array as _da_from_array
 from wandas.utils.types import NDArrayReal
 
 if TYPE_CHECKING:
+    import pandas as pd
     from matplotlib.axes import Axes
 
 logger = logging.getLogger(__name__)

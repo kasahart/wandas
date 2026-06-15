@@ -9,12 +9,12 @@ from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast, overloa
 
 import numpy as np
 import numpy.typing as npt
-import pandas as pd
 import xarray as xr
 from dask.array.core import Array as DaArray
 from matplotlib.axes import Axes
 
 from wandas.utils import validate_sampling_rate
+from wandas.utils.optional_imports import require_optional_dependency
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 from .channel_metadata import ChannelMetadataIndexer
@@ -25,6 +25,7 @@ from .metadata import ChannelMetadata
 if TYPE_CHECKING:
     from typing import TypeAlias
 
+    import pandas as pd
     from IPython.display import Image as IPythonImage
 
     VisualizeReturnType: TypeAlias = IPythonImage | None
@@ -38,6 +39,10 @@ T = TypeVar("T", NDArrayComplex, NDArrayReal)
 S = TypeVar("S", bound="BaseFrame[Any]")
 S_Out = TypeVar("S_Out", bound="BaseFrame[Any]")
 QueryType = str | Pattern[str] | Callable[["ChannelMetadata"], bool] | dict[str, Any]
+
+
+def _pandas(feature: str) -> Any:
+    return require_optional_dependency("pandas", extra="io", feature=feature)
 
 
 class BaseFrame(ABC, Generic[T]):
@@ -1459,6 +1464,8 @@ class BaseFrame(ABC, Generic[T]):
         >>> df = cf.to_dataframe()
         >>> print(df.head())
         """
+        pd = _pandas("BaseFrame.to_dataframe")
+
         # Get data as numpy array
         data = self.to_numpy()
 
