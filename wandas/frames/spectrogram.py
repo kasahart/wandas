@@ -114,6 +114,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
         previous: "BaseFrame[Any] | None" = None,
+        source_time_offset: float = 0.0,
     ) -> None:
         if data.ndim == 2:
             data = da.expand_dims(data, axis=0)
@@ -145,6 +146,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             operation_history=operation_history,
             channel_metadata=channel_metadata,
             previous=previous,
+            source_time_offset=source_time_offset,
         )
 
     @property
@@ -206,6 +208,11 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             Array of time values corresponding to each time frame.
         """
         return np.arange(self.n_frames) * self.hop_length / self.sampling_rate
+
+    @property
+    def source_times(self) -> NDArrayReal:
+        """Get source-relative time values for each spectrogram frame."""
+        return self.times + self.source_time_offset
 
     def plot(
         self,

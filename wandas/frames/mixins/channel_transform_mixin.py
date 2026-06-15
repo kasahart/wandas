@@ -332,6 +332,7 @@ class ChannelTransformMixin:
             operation_history=self.operation_history,
             channel_metadata=self._channel_metadata,
             previous=self._as_base_frame,
+            source_time_offset=self._as_base_frame.source_time_offset,
         )
 
     def coherence(

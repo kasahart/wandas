@@ -19,6 +19,17 @@ from wandas.utils.types import NDArrayComplex, NDArrayReal
 _da_random_random = da.random.random
 
 
+def test_stft_preserves_source_offset_and_exposes_source_times() -> None:
+    data = da.from_array(np.ones((1, 64), dtype=float))
+    frame = ChannelFrame(data, sampling_rate=32.0, source_time_offset=10.0)
+
+    spec = frame.stft(n_fft=16, hop_length=8, win_length=16)
+
+    assert spec.source_time_offset == pytest.approx(10.0)
+    np.testing.assert_allclose(spec.source_times, spec.times + 10.0)
+    assert spec.source_times[0] == pytest.approx(10.0)
+
+
 @pytest.fixture
 def sample_spectrogram() -> SpectrogramFrame:
     """スペクトログラムのサンプルデータを生成するフィクスチャ"""
