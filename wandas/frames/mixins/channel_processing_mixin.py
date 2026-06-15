@@ -63,6 +63,10 @@ class ChannelProcessingMixin:
         """
         from wandas.utils.types import NDArrayReal
 
+        ensure_dependencies = getattr(operation, "ensure_dependencies", None)
+        if ensure_dependencies is not None:
+            ensure_dependencies()
+
         data = self.data
         if data.ndim == 1:
             data = data.reshape(1, -1)

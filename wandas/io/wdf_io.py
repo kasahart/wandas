@@ -185,6 +185,8 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
     if format.lower() != "hdf5":
         raise NotImplementedError(f"Format '{format}' is not supported")
 
+    h5py = _h5py("WDF load")
+
     # Detect and handle URL paths — download to memory before HDF5 open.
     h5_source: str | Path | io.BytesIO
     h5_kwargs: dict[str, object] = {}
@@ -212,7 +214,6 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
 
     logger.debug(f"Loading ChannelFrame from {h5_source!r}")
 
-    h5py = _h5py("WDF load")
     with h5py.File(h5_source, "r", **h5_kwargs) as f:
         # Check format version for compatibility
         version = f.attrs.get("version", "unknown")

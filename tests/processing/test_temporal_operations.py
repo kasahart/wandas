@@ -332,6 +332,26 @@ class TestRmsTrend:
         )
         np.testing.assert_allclose(result, expected)
 
+    def test_rms_trend_integer_frames_do_not_overflow_before_square(self) -> None:
+        """Integer PCM-like samples are cast to float before RMS squaring."""
+        data = np.array([[30000, -30000, 30000, -30000]], dtype=np.int16)
+        dask_input = da_from_array(data, chunks=(1, -1))
+        rms = RmsTrend(_SR, frame_length=4, hop_length=2)
+
+        result = rms.process(dask_input).compute()
+
+        expected = np.array(
+            [
+                [
+                    np.sqrt((0.0**2 + 0.0**2 + 30000.0**2 + (-30000.0) ** 2) / 4.0),
+                    30000.0,
+                    np.sqrt((30000.0**2 + (-30000.0) ** 2 + 0.0**2 + 0.0**2) / 4.0),
+                ]
+            ]
+        )
+        np.testing.assert_allclose(result, expected)
+        assert np.isfinite(result).all()
+
     def test_rms_trend_empty_input_odd_frame_length_raises(self) -> None:
         """Empty centered input shorter than an odd frame raises instead of unsafe striding."""
         data = np.empty((1, 0), dtype=float)

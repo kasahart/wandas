@@ -35,7 +35,8 @@ def _frame_rms(y: NDArrayReal, frame_length: int, hop_length: int) -> NDArrayRea
         shape=y_padded.shape[:-1] + (frame_length, n_frames),
         strides=y_padded.strides[:-1] + (y_padded.strides[-1], y_padded.strides[-1] * hop_length),
     )
-    return np.sqrt(np.mean(frames**2, axis=-2))
+    frames_float = frames.astype(float, copy=False)
+    return np.sqrt(np.mean(frames_float**2, axis=-2))
 
 
 def _resampling_ratio(source_sr: float, target_sr: float) -> tuple[int, int]:

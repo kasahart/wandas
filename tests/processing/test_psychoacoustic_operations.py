@@ -61,6 +61,26 @@ def test_loudness_zwst_wrapper_propagates_import_error(monkeypatch: pytest.Monke
     assert exc_info.value is original_error
 
 
+def test_scalar_metric_missing_mosqito_does_not_materialize_data(monkeypatch: pytest.MonkeyPatch) -> None:
+    original_error = ImportError('Install it with: pip install "wandas[psychoacoustic]"')
+
+    def raise_import_error(*args: object, **kwargs: object) -> None:
+        raise original_error
+
+    class UncomputableFrame:
+        @property
+        def data(self) -> NDArrayReal:
+            raise AssertionError("scalar metric materialized data before checking mosqito")
+
+    monkeypatch.setattr(psychoacoustic_module, "_sq_metric", raise_import_error)
+
+    operation = LoudnessZwst(_SR)
+    with pytest.raises(ImportError) as exc_info:
+        ChannelFrame._compute_scalar_metric(UncomputableFrame(), operation)  # ty: ignore[invalid-argument-type]
+
+    assert exc_info.value is original_error
+
+
 # -- Shared signal builders ------------------------------------------------
 
 

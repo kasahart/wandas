@@ -467,6 +467,20 @@ def test_load_wdf_from_url_download_failure() -> None:
             wdf_io.load(url)
 
 
+def test_load_wdf_missing_h5py_does_not_download_url() -> None:
+    """Missing h5py fails before downloading a remote WDF file."""
+    url = "https://example.com/data/large.wdf"
+
+    with (
+        patch.object(wdf_io, "_h5py", side_effect=ImportError('Install it with: pip install "wandas[io]"')),
+        patch("urllib.request.urlopen") as mock_urlopen,
+    ):
+        with pytest.raises(ImportError, match=r"wandas\[io\]"):
+            wdf_io.load(url)
+
+    mock_urlopen.assert_not_called()
+
+
 def test_decode_hdf5_str_invalid_utf8() -> None:
     """_decode_hdf5_str falls back to str() for non-UTF-8 bytes (lines 39-42)."""
     from wandas.io.wdf_io import _decode_hdf5_str

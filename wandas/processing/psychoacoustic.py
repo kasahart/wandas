@@ -316,6 +316,9 @@ class LoudnessZwst(_SteadyStateBase):
     def validate_params(self) -> None:
         _validate_field_type(self.field_type)
 
+    def ensure_dependencies(self) -> None:
+        _sq_metric("loudness_zwst", "loudness_zwst")
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """
         Process array to calculate steady-state loudness.
@@ -774,6 +777,9 @@ class SharpnessDinSt(_SteadyStateBase):
 
     def validate_params(self) -> None:
         _validate_sharpness_params(self.weighting, self.field_type)
+
+    def ensure_dependencies(self) -> None:
+        _sq_metric("sharpness_din_st", "sharpness_din_st")
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """
