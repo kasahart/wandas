@@ -960,12 +960,23 @@ class BaseFrame(ABC, Generic[T]):
                 "previous": self,
             }
             kw.update(metadata_updates)
+            validated_source_time_offset: float | None = None
+            accepts_source_time_offset = False
             if source_time_offset is not None:
-                kw["source_time_offset"] = source_time_offset
+                validated_source_time_offset = self._validate_source_time_offset(source_time_offset)
+                init_parameters = inspect.signature(output_frame_class).parameters
+                accepts_source_time_offset = "source_time_offset" in init_parameters or any(
+                    parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in init_parameters.values()
+                )
+                if accepts_source_time_offset:
+                    kw["source_time_offset"] = validated_source_time_offset
             if output_frame_kwargs:
                 kw.update(output_frame_kwargs)
             try:
-                return output_frame_class(**kw)
+                result = output_frame_class(**kw)
+                if validated_source_time_offset is not None and not accepts_source_time_offset:
+                    result.source_time_offset = validated_source_time_offset
+                return result
             except TypeError as exc:
                 provided_kwargs = ", ".join(sorted(kw)) or "none"
                 raise TypeError(

@@ -505,6 +505,7 @@ class TestChannelProcessing:
         assert result.time[0] == pytest.approx(0.0)
         assert result.source_time[0] == pytest.approx(1.0)
         assert result.source_time_range == pytest.approx((1.0, 3.0))
+        assert result.operation_history[-1] == {"operation": "trim", "params": {"start": 1.0, "end": 3.0}}
 
     def test_chained_trim_uses_local_time_and_accumulates_source_offset(self) -> None:
         data = da.from_array(np.arange(100, dtype=float).reshape(1, 100))
@@ -516,6 +517,10 @@ class TestChannelProcessing:
         assert result.time[0] == pytest.approx(0.0)
         assert result.source_time[0] == pytest.approx(1.5)
         assert result.source_time_range == pytest.approx((1.5, 3.0))
+        assert result.operation_history == [
+            {"operation": "trim", "params": {"start": 1.0, "end": 8.0}},
+            {"operation": "trim", "params": {"start": 0.5, "end": 2.0}},
+        ]
 
     def test_hpss_operations(self) -> None:
         """Test HPSS (Harmonic-Percussive Source Separation) methods."""

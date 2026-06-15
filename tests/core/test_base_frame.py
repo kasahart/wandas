@@ -30,6 +30,44 @@ class ConcreteFrame(BaseFrame[np.ndarray[Any, Any]]):
         return pd.Index(np.arange(self._data.shape[-1]), name="sample")
 
 
+class OutputFrameWithoutSourceOffset(ConcreteFrame):
+    """Output frame whose constructor predates source_time_offset."""
+
+    def __init__(
+        self,
+        data: DaArray,
+        sampling_rate: float,
+        label: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        operation_history: list[dict[str, Any]] | None = None,
+        channel_metadata: list[ChannelMetadata] | None = None,
+        previous: BaseFrame[Any] | None = None,
+    ) -> None:
+        super().__init__(
+            data=data,
+            sampling_rate=sampling_rate,
+            label=label,
+            metadata=metadata,
+            operation_history=operation_history,
+            channel_metadata=channel_metadata,
+            previous=previous,
+        )
+
+
+class PassthroughOperation:
+    name = "passthrough"
+    params = {"mode": "test"}
+
+    def process(self, data: DaArray) -> DaArray:
+        return data
+
+    def get_metadata_updates(self) -> dict[str, Any]:
+        return {}
+
+    def get_display_name(self) -> str:
+        return "passthrough"
+
+
 def test_source_time_offset_defaults_to_zero() -> None:
     frame = ConcreteFrame(da.from_array(np.arange(8).reshape(1, 8)), sampling_rate=4.0)
 
@@ -70,6 +108,21 @@ def test_source_time_offset_override_is_converted_by_create_new_instance() -> No
 
     assert result.source_time_offset == 3.0
     assert type(result.source_time_offset) is float
+
+
+def test_apply_operation_instance_sets_source_time_offset_when_output_frame_constructor_omits_it() -> None:
+    frame = ConcreteFrame(da.from_array(np.arange(8).reshape(1, 8)), sampling_rate=4.0)
+
+    result = frame._apply_operation_instance(
+        PassthroughOperation(),
+        output_frame_class=OutputFrameWithoutSourceOffset,
+        source_time_offset=3,
+    )
+
+    assert isinstance(result, OutputFrameWithoutSourceOffset)
+    assert result.source_time_offset == 3.0
+    assert type(result.source_time_offset) is float
+    assert result.previous is frame
 
 
 @pytest.mark.parametrize("bad_offset", [cast(Any, True), cast(Any, "10.0")])
