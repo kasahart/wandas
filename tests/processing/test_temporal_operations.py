@@ -1,11 +1,18 @@
+from collections.abc import Iterator
+from typing import Any
 from unittest import mock
 
+import dask.array as da
 import librosa
 import numpy as np
+import pandas as pd
 import pytest
 from dask.array.core import Array as DaArray
+from matplotlib.axes import Axes
 from scipy import signal as scipy_signal
 
+from wandas.core.base_frame import BaseFrame
+from wandas.frames.channel import ChannelFrame
 from wandas.processing.base import create_operation, get_operation, register_operation
 from wandas.processing.temporal import (
     FixLength,
@@ -19,6 +26,14 @@ from wandas.utils.dask_helpers import da_from_array
 from wandas.utils.types import NDArrayReal
 
 _SR: int = 16000
+
+
+class _DefaultOperationFrame(BaseFrame[NDArrayReal]):
+    def plot(self, plot_type: str = "default", ax: Axes | None = None, **kwargs: Any) -> Axes | Iterator[Axes]:
+        return mock.Mock()
+
+    def _get_dataframe_index(self) -> "pd.Index[int]":
+        return pd.Index(np.arange(self._data.shape[-1]), name="sample")
 
 
 class TestReSampling:
@@ -113,6 +128,28 @@ class TestReSampling:
         result = resampler.process(dask_input).compute()
         expected_len = int(np.ceil(dask_input.shape[1] * (self._TARGET_SR / sr)))
         assert result.shape == (2, expected_len)
+
+    def test_resampling_preserves_source_offset_and_updates_time_axis(self) -> None:
+        data = da.from_array(np.arange(10, dtype=float).reshape(1, 10))
+        frame = ChannelFrame(data, sampling_rate=10.0, source_time_offset=5.0)
+
+        result = frame.resampling(20.0)
+
+        assert result.source_time_offset == pytest.approx(5.0)
+        assert result.sampling_rate == pytest.approx(20.0)
+        assert result.n_samples == 20
+        assert result.duration == pytest.approx(result.n_samples / result.sampling_rate)
+        assert result.source_time[0] == pytest.approx(5.0)
+
+    def test_base_apply_operation_preserves_source_offset_and_updates_sampling_rate(self) -> None:
+        data = da.from_array(np.arange(10, dtype=float).reshape(1, 10))
+        frame = _DefaultOperationFrame(data, sampling_rate=10.0, source_time_offset=5.0)
+
+        result = frame.apply_operation("resampling", target_sr=20.0)
+
+        assert result.source_time_offset == pytest.approx(5.0)
+        assert result.sampling_rate == pytest.approx(20.0)
+        assert result.shape[-1] == 20
 
     # -- Layer 3: Frequency preservation -----------------------------------
 
@@ -287,6 +324,17 @@ class TestRmsTrend:
             hop_length=self._HOP,
         ).shape[-1]
         assert result.shape == (1, expected_frames)
+
+    def test_rms_trend_preserves_source_offset_and_uses_output_time_axis(self) -> None:
+        data = da.from_array(np.ones((1, 32), dtype=float))
+        frame = ChannelFrame(data, sampling_rate=16.0, source_time_offset=3.0)
+
+        result = frame.rms_trend(frame_length=8, hop_length=4)
+
+        assert result.source_time_offset == pytest.approx(3.0)
+        assert result.sampling_rate == pytest.approx(4.0)
+        assert result.time[0] == pytest.approx(0.0)
+        assert result.source_time[0] == pytest.approx(3.0)
 
     # -- Layer 3: Numerical verification -----------------------------------
 

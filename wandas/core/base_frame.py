@@ -868,11 +868,13 @@ class BaseFrame(ABC, Generic[T]):
         processed_data = operation.process(self._data)
 
         new_metadata, new_history = self._updated_metadata_and_history(operation_name, params)
+        metadata_updates = operation.get_metadata_updates()
 
         return self._create_new_instance(
             data=processed_data,
             metadata=new_metadata,
             operation_history=new_history,
+            **metadata_updates,
         )
 
     @overload
