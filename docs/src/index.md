@@ -25,9 +25,9 @@
 ```python
 import wandas as wd
 
-# Load a WAV file
-# WAVファイルを読み込む
-cf = wd.read_wav("path/to/file.wav")
+# Read a signal file
+# 信号ファイルを読み込む
+cf = wd.read("path/to/file.wav")
 
 # Display waveform and spectrogram
 # 波形とスペクトログラムを表示

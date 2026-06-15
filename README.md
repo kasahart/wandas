@@ -45,15 +45,15 @@ PyPI からインストールします。
 pip install wandas
 ```
 
-Then load a WAV file and inspect it in one short path:
-次に、WAV ファイルを読み込んで、そのまま確認できます。
+Then read a signal file and inspect it in one short path:
+次に、信号ファイルを読み込んで、そのまま確認できます。
 
 ```python
 import wandas as wd
 
-# Load a WAV file and inspect it.
-# WAV ファイルを読み込んで確認する。
-signal = wd.read_wav("audio.wav")
+# Read a signal file and inspect it.
+# 信号ファイルを読み込んで確認する。
+signal = wd.read("audio.wav")
 signal.describe()
 ```
 
@@ -61,6 +61,25 @@ signal.describe()
 `describe()` で、波形、スペクトル、スペクトログラムをまとめて素早く確認できます。
 
 ![cf.describe](https://github.com/kasahart/wandas/blob/main/images/read_wav_describe.png?raw=true)
+
+## Public API / 公開API
+
+For most workflows, start with the small top-level API:
+多くのワークフローでは、小さな top-level API から始めます。
+
+```python
+import numpy as np
+import wandas as wd
+
+signal = wd.read("audio.wav")      # WAV, CSV, supported audio, URL, bytes, file-like
+saved = wd.load("analysis.wdf")    # Wandas native WDF
+data = np.zeros((1, 48000), dtype=np.float32)
+array_signal = wd.from_numpy(data, sampling_rate=48000)
+dataset = wd.from_folder("recordings/")
+```
+
+`read_wav()`, `read_csv()`, and `from_ndarray()` remain available for existing code, but new examples use `read()` and `from_numpy()`.
+既存コード向けに `read_wav()`、`read_csv()`、`from_ndarray()` は残りますが、新しい例では `read()` と `from_numpy()` を使います。
 
 ## What You Can Do / できること
 

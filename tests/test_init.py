@@ -1,3 +1,4 @@
+import io
 import logging
 from pathlib import Path
 
@@ -6,6 +7,11 @@ import pytest
 import soundfile as sf
 
 import wandas
+from wandas.frames.channel import ChannelFrame
+from wandas.frames.noct import NOctFrame
+from wandas.frames.spectral import SpectralFrame
+from wandas.frames.spectrogram import SpectrogramFrame
+from wandas.utils.frame_dataset import ChannelFrameDataset
 
 
 @pytest.fixture(autouse=True)
@@ -105,6 +111,74 @@ def test_formatter():
     assert "%(message)s" in format_str
 
 
+def test_top_level_all_is_curated_primary_api() -> None:
+    assert wandas.__all__ == [
+        "ChannelFrame",
+        "SpectralFrame",
+        "SpectrogramFrame",
+        "NOctFrame",
+        "ChannelFrameDataset",
+        "read",
+        "load",
+        "from_numpy",
+        "from_folder",
+    ]
+
+
+def test_top_level_read_is_io_read() -> None:
+    from wandas.io.read import read
+
+    assert wandas.read is read
+
+
+def test_top_level_frame_classes_are_public() -> None:
+    assert wandas.ChannelFrame is ChannelFrame
+    assert wandas.SpectralFrame is SpectralFrame
+    assert wandas.SpectrogramFrame is SpectrogramFrame
+    assert wandas.NOctFrame is NOctFrame
+    assert wandas.ChannelFrameDataset is ChannelFrameDataset
+
+
+def test_frames_module_all_matches_documented_frames() -> None:
+    import wandas.frames as frames
+    from wandas.frames.roughness import RoughnessFrame
+
+    assert frames.__all__ == [
+        "ChannelFrame",
+        "SpectralFrame",
+        "SpectrogramFrame",
+        "NOctFrame",
+        "RoughnessFrame",
+    ]
+    assert frames.ChannelFrame is ChannelFrame
+    assert frames.SpectralFrame is SpectralFrame
+    assert frames.SpectrogramFrame is SpectrogramFrame
+    assert frames.NOctFrame is NOctFrame
+    assert frames.RoughnessFrame is RoughnessFrame
+
+
+def test_compatibility_helpers_remain_importable_but_outside_all() -> None:
+    assert callable(wandas.read_wav)
+    assert callable(wandas.read_csv)
+    assert callable(wandas.from_ndarray)
+    assert callable(wandas.generate_sin)
+    assert isinstance(ChannelFrame.__dict__["read_wav"], classmethod)
+    assert isinstance(ChannelFrame.__dict__["read_csv"], classmethod)
+    assert isinstance(ChannelFrame.__dict__["from_ndarray"], classmethod)
+    assert "read_wav" not in wandas.__all__
+    assert "read_csv" not in wandas.__all__
+    assert "from_ndarray" not in wandas.__all__
+    assert "generate_sin" not in wandas.__all__
+
+
+def test_from_ndarray_remains_deprecated_compatibility_helper() -> None:
+    with pytest.warns(DeprecationWarning, match="from_ndarray is deprecated"):
+        signal = wandas.from_ndarray(np.array([[0.0, 1.0]], dtype=np.float32), sampling_rate=1000)
+
+    assert isinstance(signal, ChannelFrame)
+    assert signal.sampling_rate == 1000
+
+
 def test_from_folder(tmp_path: Path) -> None:
     """wd.from_folder が ChannelFrameDataset を返すことを確認"""
     from wandas.utils.frame_dataset import ChannelFrameDataset
@@ -143,6 +217,91 @@ def test_from_folder_same_as_class_method(tmp_path: Path) -> None:
     assert type(ds1) is type(ds2)
     assert ds1.sampling_rate == ds2.sampling_rate
     assert len(ds1) == len(ds2)
+
+
+def test_read_loads_wav_like_read_wav(tmp_path: Path) -> None:
+    sr = 16000
+    data = np.zeros((sr, 1), dtype=np.float32)
+    path = tmp_path / "test.wav"
+    sf.write(str(path), data, sr)
+
+    signal = wandas.read(path)
+
+    assert isinstance(signal, ChannelFrame)
+    assert signal.sampling_rate == sr
+    assert signal.n_channels == 1
+    assert signal.label == "test"
+
+
+def test_read_loads_wav_bytes_without_file_type() -> None:
+    sr = 16000
+    data = np.array([[0.0], [0.5], [-0.5]], dtype=np.float32)
+    buffer = io.BytesIO()
+    sf.write(buffer, data, sr, format="WAV")
+
+    signal = wandas.read(buffer.getvalue())
+
+    assert isinstance(signal, ChannelFrame)
+    assert signal.sampling_rate == sr
+    assert signal.n_channels == 1
+    np.testing.assert_allclose(signal.compute(), data.T, atol=1e-4)
+
+
+def test_read_loads_named_csv_file_like_without_file_type(tmp_path: Path) -> None:
+    path = tmp_path / "sensor.csv"
+    path.write_text("time,left,right\n0.0,1.0,2.0\n0.1,3.0,4.0\n", encoding="utf-8")
+
+    with path.open("rb") as file_obj:
+        signal = wandas.read(file_obj)
+
+    assert isinstance(signal, ChannelFrame)
+    assert signal.sampling_rate == 10
+    assert signal.n_channels == 2
+    assert signal.labels == ["left", "right"]
+    assert signal.label == "sensor"
+    assert signal.metadata["_source_file"] == str(path)
+
+
+def test_read_loads_csv_like_read_csv(tmp_path: Path) -> None:
+    path = tmp_path / "sensor.csv"
+    path.write_text("time,left,right\n0.0,1.0,2.0\n0.1,3.0,4.0\n", encoding="utf-8")
+
+    signal = wandas.read(path)
+
+    assert isinstance(signal, ChannelFrame)
+    assert signal.sampling_rate == 10
+    assert signal.n_channels == 2
+    assert signal.labels == ["left", "right"]
+
+
+def test_read_rejects_wdf_with_load_guidance(tmp_path: Path) -> None:
+    path = tmp_path / "analysis.wdf"
+    path.write_bytes(b"not a real wdf")
+
+    with pytest.raises(ValueError, match="wd.load") as exc_info:
+        wandas.read(path)
+
+    message = str(exc_info.value)
+    assert "WDF files are loaded with wd.load(), not wd.read()" in message
+    assert "analysis.wdf" in message
+
+
+def test_load_reads_wdf(tmp_path: Path) -> None:
+    sr = 8000
+    source = ChannelFrame.from_numpy(
+        np.array([[0.0, 0.5, -0.5]], dtype=np.float32),
+        sampling_rate=sr,
+        ch_labels=["source"],
+    )
+    path = tmp_path / "analysis.wdf"
+    source.save(path)
+
+    loaded = wandas.load(path)
+
+    assert isinstance(loaded, ChannelFrame)
+    assert loaded.sampling_rate == sr
+    assert loaded.labels == ["source"]
+    np.testing.assert_allclose(loaded.compute(), source.compute())
 
 
 def test_channel_frame_dataset_attr() -> None:
