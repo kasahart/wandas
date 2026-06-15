@@ -183,7 +183,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
     # Detect and handle URL paths — download to memory before HDF5 open.
     h5_source: str | Path | io.BytesIO
     h5_kwargs: dict[str, object] = {}
-    if isinstance(path, str) and path.startswith(("http://", "https://")):
+    if isinstance(path, str) and path.lower().startswith(("http://", "https://")):
         import urllib.error
         import urllib.request
 
