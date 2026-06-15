@@ -33,7 +33,6 @@ __all__ = [
     "load",
     "from_numpy",
     "from_folder",
-    "supported_formats",
 ]
 
 
