@@ -150,6 +150,28 @@ def test_require_optional_attr_missing_attribute_error_message() -> None:
     assert 'pip install "wandas[viz]"' in message
 
 
+def test_sharpness_din_tv_wrapper_missing_mosqito_names_feature(monkeypatch: pytest.MonkeyPatch) -> None:
+    from wandas.processing.psychoacoustic import sharpness_din_tv_mosqito
+
+    original_error = ModuleNotFoundError("No module named 'mosqito'", name="mosqito")
+
+    def raise_missing_mosqito(module_name: str) -> None:
+        assert module_name == "mosqito.sq_metrics"
+        raise original_error
+
+    monkeypatch.setattr(
+        "wandas.utils.optional_imports.importlib.import_module",
+        raise_missing_mosqito,
+    )
+
+    with pytest.raises(ImportError) as exc_info:
+        sharpness_din_tv_mosqito([0.0], 48000)
+
+    message = str(exc_info.value)
+    assert "sharpness_din_tv requires optional dependency 'mosqito.sq_metrics'" in message
+    assert 'pip install "wandas[psychoacoustic]"' in message
+
+
 def test_import_wandas_without_librosa_or_mosqito() -> None:
     script = """
         import importlib.abc

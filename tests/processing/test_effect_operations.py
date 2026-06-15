@@ -477,6 +477,19 @@ class TestNormalize:
         result = result_da.compute()
         assert np.max(np.abs(result)) < 1.0
 
+    def test_normalize_default_threshold_uses_float32_tiny(self) -> None:
+        """Float32 subnormal values are treated as near-zero by default."""
+        tiny = np.finfo(np.float32).tiny
+        small_value = np.float32(tiny / 2)
+        small = np.full((1, 4), small_value, dtype=np.float32)
+        dask_small = da_from_array(small, chunks=(1, -1))
+
+        normalize = Normalize(_SR, norm=np.inf, axis=-1)
+        result = normalize.process(dask_small).compute()
+
+        assert np.max(np.abs(result)) < 1.0
+        np.testing.assert_array_equal(result, small)
+
     def test_normalize_fill_true_makes_zero_nonzero(self) -> None:
         """With fill=True, zero vector is filled so max|x| == 1.0."""
         zero = np.zeros((1, _SR))

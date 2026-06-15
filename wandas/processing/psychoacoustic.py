@@ -40,7 +40,7 @@ def roughness_dw_mosqito(*args: Any, **kwargs: Any) -> Any:
 
 
 def sharpness_din_tv_mosqito(*args: Any, **kwargs: Any) -> Any:
-    return _sq_metric("sharpness_din_tv", "sharpness_din")(*args, **kwargs)
+    return _sq_metric("sharpness_din_tv", "sharpness_din_tv")(*args, **kwargs)
 
 
 def sharpness_din_st_mosqito(*args: Any, **kwargs: Any) -> Any:

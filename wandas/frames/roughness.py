@@ -10,6 +10,7 @@ from dask.array.core import Array as DaArray
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
+from wandas.utils.optional_imports import require_optional_dependency
 from wandas.utils.types import NDArrayReal
 
 if TYPE_CHECKING:
@@ -392,7 +393,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         >>> roughness_spec = signal.roughness_dw_spec(overlap=0.5)
         >>> roughness_spec.plot(cmap="hot", title="Motor Roughness Analysis")
         """
-        import matplotlib.pyplot as plt
+        plt = require_optional_dependency("matplotlib.pyplot", extra="viz", feature="roughness plot")
 
         if ax is None:
             _, ax = plt.subplots(figsize=(10, 6))

@@ -235,6 +235,18 @@ def test_save_load_unsupported_format_raises_not_implemented() -> None:
         ChannelFrame.load("test.wdf", format="unsupported")
 
 
+def test_save_wdf_missing_h5py_does_not_compute(tmp_path: Path) -> None:
+    """Missing h5py fails before materializing the frame data."""
+
+    class UncomputableFrame:
+        def compute(self) -> np.ndarray:
+            raise AssertionError("save() computed data before checking h5py")
+
+    with patch.object(wdf_io, "_h5py", side_effect=ImportError('Install it with: pip install "wandas[io]"')):
+        with pytest.raises(ImportError, match=r"wandas\[io\]"):
+            wdf_io.save(UncomputableFrame(), tmp_path / "missing_h5py.wdf")  # ty: ignore[invalid-argument-type]
+
+
 def test_load_wdf_modified_version_still_loads(tmp_path: Path) -> None:
     """Test version handling in WDF files."""
     rng = np.random.default_rng(6)

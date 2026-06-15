@@ -82,6 +82,8 @@ def save(
     if format.lower() != "hdf5":
         raise NotImplementedError(f"Format {format} not supported. Only 'hdf5' is currently implemented.")
 
+    h5py = _h5py("WDF save")
+
     # Compute data arrays (this triggers actual computation)
     logger.info("Computing data arrays for saving...")
     computed_data = frame.compute()
@@ -90,7 +92,6 @@ def save(
 
     # Create file
     logger.info(f"Creating HDF5 file at {path}...")
-    h5py = _h5py("WDF save")
     with h5py.File(path, "w") as f:
         # Set file version
         f.attrs["version"] = WDF_FORMAT_VERSION

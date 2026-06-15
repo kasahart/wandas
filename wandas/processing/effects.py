@@ -22,7 +22,8 @@ def _normalize_array(
     if norm is None:
         return x
     if threshold is None:
-        threshold = float(np.finfo(float).tiny)
+        dtype = np.asarray(x).dtype
+        threshold = float(np.finfo(dtype.name).tiny if dtype.kind == "f" else np.finfo(float).tiny)
     elif threshold <= 0:
         raise ValueError("threshold must be strictly positive")
     if norm == np.inf:
