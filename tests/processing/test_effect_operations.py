@@ -266,6 +266,11 @@ class TestNormalize:
         assert "float, int, np.inf" in error_msg
         assert "Common values:" in error_msg
 
+    def test_normalize_zero_threshold_raises_error(self) -> None:
+        """Threshold must be positive to avoid zero-length normalization division."""
+        with pytest.raises(ValueError, match="Invalid threshold"):
+            Normalize(sampling_rate=44100, threshold=0.0)
+
     # -- Layer 2: Domain (shape + immutability) ----------------------------
 
     def test_normalize_preserves_shape_and_immutability(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
@@ -489,6 +494,6 @@ class TestNormalize:
         assert "Invalid threshold for normalization" in error_msg
         assert "-0.5" in error_msg
         # Check WHY
-        assert "Non-negative value" in error_msg
+        assert "Positive value" in error_msg
         # Check HOW
         assert "Typical values:" in error_msg

@@ -157,7 +157,8 @@ def amplitude_to_db(amplitude: "NDArrayReal", ref: float) -> "NDArrayReal":
         Amplitude data converted to decibels.
     """
     magnitude = np.abs(amplitude)
-    db: NDArrayReal = 20.0 * np.log10(np.maximum(DB_AMIN, magnitude)) - 20.0 * np.log10(max(DB_AMIN, ref))
+    ref_magnitude = abs(ref)
+    db: NDArrayReal = 20.0 * np.log10(np.maximum(DB_AMIN, magnitude)) - 20.0 * np.log10(max(DB_AMIN, ref_magnitude))
     return db
 
 

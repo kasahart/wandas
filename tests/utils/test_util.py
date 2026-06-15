@@ -219,6 +219,13 @@ class TestAmplitudeToDb:
         result = amplitude_to_db(amp, ref=1.0)
         np.testing.assert_allclose(result, 0.0, atol=1e-10)  # Theoretical: 20*log10(1) = 0
 
+    def test_amplitude_to_db_negative_ref_uses_magnitude(self) -> None:
+        """Negative scalar refs are treated by magnitude before dB conversion."""
+        amp = np.array([1.0, 0.5])
+        result = amplitude_to_db(amp, ref=-1.0)
+        expected = 20.0 * np.log10(np.abs(amp))
+        np.testing.assert_allclose(result, expected)
+
     def test_amplitude_to_db_half_returns_minus_6db(self) -> None:
         """Halving amplitude corresponds to approximately -6.02 dB."""
         amp = np.array([0.5])

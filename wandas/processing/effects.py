@@ -23,6 +23,8 @@ def _normalize_array(
         return x
     if threshold is None:
         threshold = float(np.finfo(float).tiny)
+    elif threshold <= 0:
+        raise ValueError("threshold must be strictly positive")
     if norm == np.inf:
         length = np.max(np.abs(x), axis=axis, keepdims=True)
     elif norm == -np.inf:
@@ -151,13 +153,13 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
             )
 
         # Validate threshold
-        if threshold is not None and threshold < 0:
+        if threshold is not None and threshold <= 0:
             raise ValueError(
                 f"Invalid threshold for normalization\n"
                 f"  Got: {threshold}\n"
-                f"  Expected: Non-negative value or None\n"
-                f"Threshold must be non-negative.\n"
-                f"Typical values: 0.0 (no threshold), 1e-10 (small threshold)"
+                f"  Expected: Positive value or None\n"
+                f"Threshold must be strictly positive.\n"
+                f"Typical values: 1e-10 (small threshold), 1e-6 (larger threshold)"
             )
 
         super().__init__(sampling_rate, norm=norm, axis=axis, threshold=threshold, fill=fill)

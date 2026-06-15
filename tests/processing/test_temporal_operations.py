@@ -332,6 +332,16 @@ class TestRmsTrend:
         )
         np.testing.assert_allclose(result, expected)
 
+    def test_rms_trend_empty_input_odd_frame_length_raises(self) -> None:
+        """Empty centered input shorter than an odd frame raises instead of unsafe striding."""
+        data = np.empty((1, 0), dtype=float)
+        rms = RmsTrend(_SR, frame_length=5, hop_length=2)
+
+        with pytest.raises(ValueError, match="Input is too short"):
+            rms._process_array(data)
+        with pytest.raises(ValueError, match="Input is too short"):
+            rms.calculate_output_shape(data.shape)
+
     # -- Layer 3: Numerical verification -----------------------------------
 
     def test_rms_trend_sine_wave_matches_theoretical_rms(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:

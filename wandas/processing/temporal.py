@@ -18,11 +18,18 @@ logger = logging.getLogger(__name__)
 MIN_SOUND_LEVEL_POWER_RATIO = 1e-20
 
 
+def _centered_frame_count(n_samples: int, frame_length: int, hop_length: int) -> int:
+    padded_length = n_samples + 2 * (frame_length // 2)
+    if padded_length < frame_length:
+        raise ValueError(f"Input is too short (n={padded_length}) for frame_length={frame_length}")
+    return 1 + ((padded_length - frame_length) // hop_length)
+
+
 def _frame_rms(y: NDArrayReal, frame_length: int, hop_length: int) -> NDArrayReal:
     pad = frame_length // 2
     pad_width = [(0, 0)] * (y.ndim - 1) + [(pad, pad)]
     y_padded = np.pad(y, pad_width, mode="constant")
-    n_frames = 1 + max(0, (y_padded.shape[-1] - frame_length) // hop_length)
+    n_frames = _centered_frame_count(y.shape[-1], frame_length, hop_length)
     frames = np.lib.stride_tricks.as_strided(
         y_padded,
         shape=y_padded.shape[:-1] + (frame_length, n_frames),
@@ -309,8 +316,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         tuple
             Output data shape (channels, frames)
         """
-        pad = self.frame_length // 2
-        n_frames = 1 + max(0, (input_shape[-1] + 2 * pad - self.frame_length) // self.hop_length)
+        n_frames = _centered_frame_count(input_shape[-1], self.frame_length, self.hop_length)
         return (*input_shape[:-1], n_frames)
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
