@@ -1390,6 +1390,7 @@ class BaseFrame(ABC, Generic[T]):
 
         if framework == "torch":
             try:
+                import importlib
                 import importlib.util
 
                 if importlib.util.find_spec("torch") is None:
@@ -1398,7 +1399,7 @@ class BaseFrame(ABC, Generic[T]):
                         "  Required for: tensor conversion with framework='torch'\n"
                         "  Install with: pip install torch"
                     )
-                import torch
+                torch = importlib.import_module("torch")
 
                 # Convert NumPy array to PyTorch tensor
                 tensor = torch.from_numpy(numpy_data)
@@ -1418,6 +1419,7 @@ class BaseFrame(ABC, Generic[T]):
 
         elif framework == "tensorflow":
             try:
+                import importlib
                 import importlib.util
 
                 if importlib.util.find_spec("tensorflow") is None:
@@ -1427,7 +1429,7 @@ class BaseFrame(ABC, Generic[T]):
                         "  framework='tensorflow'\n"
                         "  Install with: pip install tensorflow"
                     )
-                import tensorflow as tf
+                tf = importlib.import_module("tensorflow")
 
                 # Convert NumPy array to TensorFlow tensor
                 if device is not None:

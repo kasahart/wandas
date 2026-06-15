@@ -20,8 +20,7 @@ class TestToTensorPyTorch:
 
     def test_to_tensor_pytorch_default_cpu_correct_shape(self) -> None:
         """Test to_tensor() with PyTorch default device."""
-        pytest.importorskip("torch")
-        import torch
+        torch = pytest.importorskip("torch")
 
         tensor = self.channel_frame.to_tensor(framework="torch")
 
@@ -31,8 +30,7 @@ class TestToTensorPyTorch:
 
     def test_to_tensor_pytorch_cpu_explicit_correct_values(self) -> None:
         """Test to_tensor() with PyTorch CPU device."""
-        pytest.importorskip("torch")
-        import torch
+        torch = pytest.importorskip("torch")
 
         tensor = self.channel_frame.to_tensor(framework="torch", device="cpu")
 
@@ -109,8 +107,7 @@ class TestToTensorTensorFlow:
 
     def test_to_tensor_tensorflow_default_correct_shape(self) -> None:
         """Test to_tensor() with TensorFlow default device."""
-        pytest.importorskip("tensorflow")
-        import tensorflow as tf
+        tf = pytest.importorskip("tensorflow")
 
         tensor = self.channel_frame.to_tensor(framework="tensorflow")
 
@@ -120,8 +117,7 @@ class TestToTensorTensorFlow:
 
     def test_to_tensor_tensorflow_cpu_explicit_correct_values(self) -> None:
         """Test to_tensor() with TensorFlow CPU device."""
-        pytest.importorskip("tensorflow")
-        import tensorflow as tf
+        tf = pytest.importorskip("tensorflow")
 
         tensor = self.channel_frame.to_tensor(framework="tensorflow", device="/CPU:0")
 
