@@ -144,6 +144,25 @@ def test_public_apply_preserves_source_time_offset_for_output_frame_class() -> N
     assert result.previous is frame
 
 
+def test_public_apply_output_frame_kwargs_source_time_offset_overrides_default() -> None:
+    frame = ChannelFrame(
+        da_from_array(np.arange(8).reshape(1, 8), chunks=(1, -1)),
+        sampling_rate=4.0,
+        source_time_offset=7.0,
+    )
+
+    result = frame.apply(
+        lambda data: data.astype(complex),
+        output_frame_class=SpectralFrame,
+        output_frame_kwargs={"n_fft": 14, "source_time_offset": 12},
+    )
+
+    assert isinstance(result, SpectralFrame)
+    assert result.source_time_offset == pytest.approx(12.0)
+    assert type(result.source_time_offset) is float
+    assert result.previous is frame
+
+
 @pytest.mark.parametrize("bad_offset", [cast(Any, True), cast(Any, "10.0")])
 def test_source_time_offset_override_rejects_non_numeric_values(bad_offset: Any) -> None:
     frame = ChannelFrame(da_from_array(np.arange(8).reshape(1, 8), chunks=(1, -1)), sampling_rate=4.0)

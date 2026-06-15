@@ -962,9 +962,17 @@ class BaseFrame(ABC, Generic[T]):
                 "previous": self,
             }
             kw.update(metadata_updates)
+            explicit_output_source_time_offset = (
+                output_frame_kwargs is not None and "source_time_offset" in output_frame_kwargs
+            )
             if output_frame_kwargs:
                 kw.update(output_frame_kwargs)
-            effective_source_time_offset = self.source_time_offset if source_time_offset is None else source_time_offset
+            if explicit_output_source_time_offset:
+                effective_source_time_offset = kw.pop("source_time_offset")
+            else:
+                effective_source_time_offset = (
+                    self.source_time_offset if source_time_offset is None else source_time_offset
+                )
             validated_source_time_offset = self._validate_source_time_offset(effective_source_time_offset)
             init_parameters = inspect.signature(output_frame_class).parameters
             accepts_source_time_offset = "source_time_offset" in init_parameters or any(
