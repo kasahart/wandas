@@ -44,7 +44,7 @@ def a_weighting_db(frequencies: NDArrayReal, min_db: float | None = -45.0) -> ND
     f2 = f**2
     ra = (12194.0**2 * f2**2) / ((f2 + 20.6**2) * np.sqrt((f2 + 107.7**2) * (f2 + 737.9**2)) * (f2 + 12194.0**2))
     with np.errstate(divide="ignore", invalid="ignore"):
-        weights: NDArrayReal = 20.0 * np.log10(np.where(ra > 0, ra, np.nan)) + 2.0
+        weights: NDArrayReal = 20.0 * np.log10(ra) + 2.0
     if min_db is not None:
         weights = np.where(np.isfinite(weights), np.maximum(weights, min_db), min_db)
     return weights

@@ -455,6 +455,16 @@ class TestNormalize:
             rtol=1e-10,  # fill produces exact normalized values
         )
 
+    def test_normalize_l2_fill_true_zero_signal_has_unit_norm(self) -> None:
+        """With fill=True and norm=2, zero vectors are filled to unit L2 norm."""
+        zero = np.zeros((1, 4))
+        dask_zero = da_from_array(zero, chunks=(1, -1))
+        normalize = Normalize(_SR, norm=2, axis=-1, fill=True)
+
+        result = normalize.process(dask_zero).compute()
+
+        np.testing.assert_allclose(np.sqrt(np.sum(result**2, axis=-1)), 1.0)
+
     def test_negative_norm_error_message(self) -> None:
         """Test that negative norm (except -np.inf) provides helpful error message."""
         with pytest.raises(ValueError) as exc_info:

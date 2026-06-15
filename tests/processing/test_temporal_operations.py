@@ -27,6 +27,14 @@ class TestAWeightingDb:
         weights = a_weighting_db(np.array([1000.0]), min_db=None)
         np.testing.assert_allclose(weights, 0.0, atol=0.01)
 
+    def test_a_weighting_db_zero_hz_is_negative_infinity_without_floor(self) -> None:
+        weights = a_weighting_db(np.array([0.0]), min_db=None)
+        assert np.isneginf(weights[0])
+
+    def test_a_weighting_db_zero_hz_uses_default_floor(self) -> None:
+        weights = a_weighting_db(np.array([0.0]))
+        np.testing.assert_allclose(weights, -45.0)
+
 
 class TestReSampling:
     """ReSampling operation: Layer 1 + Layer 2 + Layer 3 (scipy reference)."""

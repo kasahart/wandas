@@ -36,7 +36,13 @@ def _normalize_array(
     safe_length = np.where(small, 1.0, length)
     out = x / safe_length
     if fill is True:
-        out = np.where(np.broadcast_to(small, x.shape), 1.0, out)
+        if norm == 0:
+            raise ValueError("Cannot normalize with norm=0 and fill=True")
+        fill_value = 1.0
+        if norm not in {np.inf, -np.inf}:
+            axis_length = x.size if axis is None else x.shape[axis]
+            fill_value = axis_length ** (-1.0 / norm)
+        out = np.where(np.broadcast_to(small, x.shape), fill_value, out)
     elif fill is False:
         out = np.where(np.broadcast_to(small, x.shape), 0.0, out)
     return np.asarray(out)
