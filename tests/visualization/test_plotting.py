@@ -1339,31 +1339,28 @@ class TestPlotting:
         assert SpectrogramPlotStrategy().channel_plot(None, None, mock.MagicMock()) is None
         assert DescribePlotStrategy().channel_plot(None, None, mock.MagicMock()) is None
 
-    def test_plotting_module_fallback_import_path(self) -> None:
-        """Fallback import should use librosa.display when direct import fails."""
+    def test_plotting_module_lazy_librosa_display(self) -> None:
+        """Plotting module import should defer librosa until display is needed."""
+        import librosa
+
         import wandas.visualization.plotting as plotting_module
 
-        isolated_module = types.ModuleType("wandas.visualization.plotting_fallback_test")
+        isolated_module = types.ModuleType("wandas.visualization.plotting_lazy_test")
         isolated_module.__file__ = plotting_module.__file__
         isolated_module.__package__ = "wandas.visualization"
         plotting_source = Path(plotting_module.__file__).read_text(encoding="utf-8")
-        real_import = __import__
 
-        def import_side_effect(
-            name: str,
-            globals_: dict[str, Any] | None = None,
-            locals_: dict[str, Any] | None = None,
-            fromlist: tuple[str, ...] | None = (),
-            level: int = 0,
-        ) -> Any:
-            if name == "librosa" and fromlist and "display" in fromlist:
-                raise ImportError("forced display import failure")
-            return real_import(name, globals_, locals_, fromlist, level)
-
-        with mock.patch("builtins.__import__", side_effect=import_side_effect):
+        with mock.patch(
+            "wandas.utils.optional_imports.require_optional_attr",
+            wraps=plotting_module.require_optional_attr,
+        ) as require_optional_attr:
             exec(compile(plotting_source, plotting_module.__file__, "exec"), isolated_module.__dict__)
+            assert "librosa" not in isolated_module.__dict__
+            assert "display" not in isolated_module.__dict__
 
-        assert isolated_module.display is isolated_module.librosa.display
+            assert isolated_module._librosa_display("spectrogram plot") is librosa.display
+
+        require_optional_attr.assert_called_with("librosa", "display", extra="viz", feature="spectrogram plot")
 
     def test_spectrogram_plot_strategy_colorbar_error_paths(self) -> None:
         """Spectrogram plotting should swallow colorbar creation errors for both paths."""

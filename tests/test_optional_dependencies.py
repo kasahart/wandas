@@ -201,6 +201,131 @@ def test_import_wandas_and_basic_waveform_ops_without_io_dependencies() -> None:
     assert result.returncode == 0, result.stderr
 
 
+def test_import_wandas_and_basic_waveform_ops_without_visualization_or_notebook_dependencies() -> None:
+    script = """
+        import importlib.abc
+        import sys
+
+        BLOCKED = {
+            "IPython",
+            "ipycytoscape",
+            "ipympl",
+            "ipywidgets",
+            "japanize_matplotlib",
+            "librosa",
+            "matplotlib",
+        }
+
+        class BlockOptionalImports(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path, target=None):
+                top_level_name = fullname.split(".", 1)[0]
+                if top_level_name in BLOCKED:
+                    raise ModuleNotFoundError(
+                        f"No module named {top_level_name!r}",
+                        name=top_level_name,
+                    )
+                return None
+
+        sys.meta_path.insert(0, BlockOptionalImports())
+
+        import numpy as np
+        import wandas
+
+        frame = wandas.ChannelFrame.from_numpy(np.array([[1.0, 2.0, 3.0]]), sampling_rate=48000)
+
+        assert np.isclose(frame.data.mean(), 2.0)
+        for module_name in BLOCKED:
+            assert module_name not in sys.modules
+    """
+
+    result = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent(script)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_plot_missing_visualization_dependencies_has_viz_extra_hint() -> None:
+    script = """
+        import importlib.abc
+        import sys
+
+        BLOCKED = {"librosa", "matplotlib"}
+
+        class BlockOptionalImports(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path, target=None):
+                top_level_name = fullname.split(".", 1)[0]
+                if top_level_name in BLOCKED:
+                    raise ModuleNotFoundError(
+                        f"No module named {top_level_name!r}",
+                        name=top_level_name,
+                    )
+                return None
+
+        sys.meta_path.insert(0, BlockOptionalImports())
+
+        import numpy as np
+        import wandas
+
+        frame = wandas.ChannelFrame.from_numpy(np.array([[1.0, 2.0, 3.0]]), sampling_rate=48000)
+
+        try:
+            frame.plot()
+        except ImportError as exc:
+            assert 'pip install "wandas[viz]"' in str(exc)
+        else:
+            raise AssertionError("Expected ImportError for missing visualization dependency")
+    """
+
+    result = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent(script)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_describe_missing_ipython_has_notebook_extra_hint() -> None:
+    script = """
+        import importlib.abc
+        import sys
+
+        class BlockIPython(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path, target=None):
+                if fullname.split(".", 1)[0] == "IPython":
+                    raise ModuleNotFoundError("No module named 'IPython'", name="IPython")
+                return None
+
+        sys.meta_path.insert(0, BlockIPython())
+
+        import numpy as np
+        import wandas
+
+        frame = wandas.ChannelFrame.from_numpy(np.array([[0.0, 1.0, 0.0, -1.0]]), sampling_rate=48000)
+
+        try:
+            frame.describe()
+        except ImportError as exc:
+            assert 'pip install "wandas[notebook]"' in str(exc)
+        else:
+            raise AssertionError("Expected ImportError for missing IPython")
+    """
+
+    result = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent(script)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
 def test_dataframe_method_missing_pandas_has_io_extra_hint() -> None:
     script = """
         import importlib.abc

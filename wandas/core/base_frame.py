@@ -11,7 +11,6 @@ import numpy as np
 import numpy.typing as npt
 import xarray as xr
 from dask.array.core import Array as DaArray
-from matplotlib.axes import Axes
 
 from wandas.utils import validate_sampling_rate
 from wandas.utils.optional_imports import require_optional_dependency
@@ -27,6 +26,7 @@ if TYPE_CHECKING:
 
     import pandas as pd
     from IPython.display import Image as IPythonImage
+    from matplotlib.axes import Axes
 
     VisualizeReturnType: TypeAlias = IPythonImage | None
 else:
@@ -842,7 +842,7 @@ class BaseFrame(ABC, Generic[T]):
         return self.to_xarray()
 
     @abstractmethod
-    def plot(self, plot_type: str = "default", ax: Axes | None = None, **kwargs: Any) -> Axes | Iterator[Axes]:
+    def plot(self, plot_type: str = "default", ax: "Axes | None" = None, **kwargs: Any) -> "Axes | Iterator[Axes]":
         """Plot the data"""
 
     def persist(self: S) -> S:

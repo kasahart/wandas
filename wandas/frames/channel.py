@@ -6,17 +6,13 @@ from typing import TYPE_CHECKING, Any, BinaryIO, TypeVar, cast
 
 import dask
 import dask.array as da
-import matplotlib.pyplot as plt
 import numpy as np
 from dask.array.core import Array as DaArray
 from dask.array.core import concatenate
-from IPython.display import Audio, display
-from matplotlib.axes import Axes
-from matplotlib.figure import Figure
 
 from wandas.utils import validate_sampling_rate
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
-from wandas.utils.optional_imports import require_optional_dependency
+from wandas.utils.optional_imports import require_optional_attr, require_optional_dependency
 from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
@@ -27,6 +23,7 @@ from .mixins import ChannelProcessingMixin, ChannelTransformMixin
 if TYPE_CHECKING:
     import pandas as pd
     from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +36,29 @@ S = TypeVar("S", bound="BaseFrame[Any]")
 
 def _pandas(feature: str) -> Any:
     return require_optional_dependency("pandas", extra="io", feature=feature)
+
+
+def _matplotlib_pyplot(feature: str) -> Any:
+    return require_optional_dependency("matplotlib.pyplot", extra="viz", feature=feature)
+
+
+def _matplotlib_axes_type(feature: str) -> Any:
+    return require_optional_attr("matplotlib.axes", "Axes", extra="viz", feature=feature)
+
+
+def _ipython_display(feature: str) -> tuple[Any, Any]:
+    display_module = require_optional_dependency("IPython.display", extra="notebook", feature=feature)
+    return display_module.display, display_module.Audio
+
+
+def display(*args: Any, **kwargs: Any) -> Any:
+    notebook_display, _ = _ipython_display("describe")
+    return notebook_display(*args, **kwargs)
+
+
+def Audio(*args: Any, **kwargs: Any) -> Any:  # noqa: N802
+    _, audio = _ipython_display("describe")
+    return audio(*args, **kwargs)
 
 
 def _align_to_length(arr: DaArray, target_len: int, align: str, source_len: int) -> DaArray:
@@ -502,7 +522,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         xlim: tuple[float, float] | None = None,
         ylim: tuple[float, float] | None = None,
         **kwargs: Any,
-    ) -> Axes | Iterator[Axes]:
+    ) -> "Axes | Iterator[Axes]":
         """Plot the frame data.
 
         Args:
@@ -570,7 +590,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         overlay: bool = True,
         Aw: bool = False,  # noqa: N803
         **kwargs: Any,
-    ) -> Axes | Iterator[Axes]:
+    ) -> "Axes | Iterator[Axes]":
         """Generate an RMS plot.
 
         Args:
@@ -640,7 +660,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         spectral: dict[str, Any] | None = None,
         image_save: str | Path | None = None,
         **kwargs: Any,
-    ) -> list[Figure] | None:
+    ) -> "list[Figure] | None":
         """Display visual and audio representation of the frame.
 
         This method creates a comprehensive visualization with three plots:
@@ -733,14 +753,18 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         self._apply_deprecated_describe_kwargs(plot_kwargs)
 
+        _ipython_display("describe")
+        plt = _matplotlib_pyplot("describe")
+        axes_cls = _matplotlib_axes_type("describe")
+
         figures: list[Figure] = []
 
         for ch_idx, ch in enumerate(self):
             _ax = ch.plot("describe", title=f"{ch.label} {ch.labels[0]}", **plot_kwargs)
-            if isinstance(_ax, Axes):
+            if isinstance(_ax, axes_cls):
                 ax = _ax
             elif isinstance(_ax, Iterator):
-                ax = cast(Axes, next(_ax))
+                ax = cast("Axes", next(_ax))
             else:
                 raise TypeError(f"Unexpected type for plot result: {type(_ax)}. Expected Axes or Iterator[Axes].")
             # Extract figure from axes (existing pattern)

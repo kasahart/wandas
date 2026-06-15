@@ -1,29 +1,19 @@
+from __future__ import annotations
+
 import abc
 import inspect
 import logging
 from collections.abc import Callable, Iterator, Sequence
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar
 
-# Import librosa (including display)
-import librosa
+import numpy as np
 
 from wandas.utils.introspection import filter_kwargs
-
-try:
-    # Avoid error due to librosa.display not being explicitly exported
-    from librosa import display
-except ImportError:
-    # fallback
-    display = librosa.display
-
-import matplotlib.pyplot as plt
-import numpy as np
-from matplotlib import gridspec
-from matplotlib.axes import Axes
-from matplotlib.figure import Figure
-from matplotlib.lines import Line2D
+from wandas.utils.optional_imports import require_optional_attr, require_optional_dependency
 
 if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+
     from wandas.core.base_frame import BaseFrame
     from wandas.core.metadata import ChannelMetadata
     from wandas.frames.channel import ChannelFrame
@@ -36,6 +26,30 @@ logger = logging.getLogger(__name__)
 TFrame = TypeVar("TFrame", bound="BaseFrame[Any]")
 
 
+def _matplotlib_pyplot(feature: str) -> Any:
+    return require_optional_dependency("matplotlib.pyplot", extra="viz", feature=feature)
+
+
+def _matplotlib_gridspec(feature: str) -> Any:
+    return require_optional_dependency("matplotlib.gridspec", extra="viz", feature=feature)
+
+
+def _matplotlib_axes_type(feature: str) -> Any:
+    return require_optional_attr("matplotlib.axes", "Axes", extra="viz", feature=feature)
+
+
+def _matplotlib_figure_type(feature: str) -> Any:
+    return require_optional_attr("matplotlib.figure", "Figure", extra="viz", feature=feature)
+
+
+def _matplotlib_line2d_type(feature: str) -> Any:
+    return require_optional_attr("matplotlib.lines", "Line2D", extra="viz", feature=feature)
+
+
+def _librosa_display(feature: str) -> Any:
+    return require_optional_attr("librosa", "display", extra="viz", feature=feature)
+
+
 class PlotStrategy(abc.ABC, Generic[TFrame]):
     """Base class for plotting strategies"""
 
@@ -46,7 +60,7 @@ class PlotStrategy(abc.ABC, Generic[TFrame]):
         self,
         x: Any,
         y: Any,
-        ax: "Axes",
+        ax: Axes,
         label: str | None = None,
         alpha: float = 1.0,
     ) -> None:
@@ -56,7 +70,7 @@ class PlotStrategy(abc.ABC, Generic[TFrame]):
     def plot(
         self,
         bf: TFrame,
-        ax: "Axes | None" = None,
+        ax: Axes | None = None,
         title: str | None = None,
         overlay: bool = False,
         **kwargs: Any,
@@ -71,8 +85,8 @@ def _return_axes_iterator(axes_list: Any) -> Iterator[Axes]:
 
 
 def _resolve_channel_label(
-    label: "str | Sequence[str] | None",
-    ch_meta: "ChannelMetadata",
+    label: str | Sequence[str] | None,
+    ch_meta: ChannelMetadata,
     channel_index: int,
     n_channels: int,
 ) -> str:
@@ -163,8 +177,8 @@ def _reshape_spectrogram_data(data: Any) -> Any:
 
 
 def _plot_line_layout(
-    strategy: "PlotStrategy[Any]",
-    bf: "BaseFrame[Any]",
+    strategy: PlotStrategy[Any],
+    bf: BaseFrame[Any],
     x_data: Any,
     data_2d: Any,
     *,
@@ -204,6 +218,8 @@ def _plot_line_layout(
 
     if ax is not None:
         overlay = True
+
+    plt = _matplotlib_pyplot("plot")
 
     if overlay:
         if ax is None:
@@ -258,7 +274,7 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         self,
         x: Any,
         y: Any,
-        ax: "Axes",
+        ax: Axes,
         label: str | None = None,
         alpha: float = 1.0,
         **kwargs: Any,
@@ -276,20 +292,22 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
 
     def plot(
         self,
-        bf: "ChannelFrame",
-        ax: "Axes | None" = None,
+        bf: ChannelFrame,
+        ax: Axes | None = None,
         title: str | None = None,
         overlay: bool = False,
         **kwargs: Any,
     ) -> Axes | Iterator[Axes]:
         """Waveform plotting"""
         kwargs = kwargs or {}
+        axes_cls = _matplotlib_axes_type("waveform plot")
+        line2d_cls = _matplotlib_line2d_type("waveform plot")
         ylabel = kwargs.pop("ylabel", "Amplitude")
         xlabel = kwargs.pop("xlabel", "Time [s]")
         alpha = kwargs.pop("alpha", 1)
         label = kwargs.pop("label", None)
-        plot_kwargs = filter_kwargs(Line2D, kwargs, strict_mode=True)
-        ax_set = filter_kwargs(Axes.set, kwargs, strict_mode=True)
+        plot_kwargs = filter_kwargs(line2d_cls, kwargs, strict_mode=True)
+        ax_set = filter_kwargs(axes_cls.set, kwargs, strict_mode=True)
         data = _reshape_to_2d(bf.data)
 
         def _waveform_ylabel(ylabel: str, ch_meta: Any) -> str:
@@ -324,7 +342,7 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
         self,
         x: Any,
         y: Any,
-        ax: "Axes",
+        ax: Axes,
         label: str | None = None,
         alpha: float = 1.0,
         **kwargs: Any,
@@ -341,14 +359,16 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
 
     def plot(
         self,
-        bf: "SpectralFrame",
-        ax: "Axes | None" = None,
+        bf: SpectralFrame,
+        ax: Axes | None = None,
         title: str | None = None,
         overlay: bool = False,
         **kwargs: Any,
     ) -> Axes | Iterator[Axes]:
         """Frequency domain plotting"""
         kwargs = kwargs or {}
+        axes_cls = _matplotlib_axes_type("frequency plot")
+        line2d_cls = _matplotlib_line2d_type("frequency plot")
         is_aw = kwargs.pop("Aw", False)
         if len(bf.operation_history) > 0 and bf.operation_history[-1]["operation"] == "coherence":
             data = bf.magnitude
@@ -365,8 +385,8 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
         xlabel = kwargs.pop("xlabel", "Frequency [Hz]")
         alpha = kwargs.pop("alpha", 1)
         label = kwargs.pop("label", None)
-        plot_kwargs = filter_kwargs(Line2D, kwargs, strict_mode=True)
-        ax_set = filter_kwargs(Axes.set, kwargs, strict_mode=True)
+        plot_kwargs = filter_kwargs(line2d_cls, kwargs, strict_mode=True)
+        ax_set = filter_kwargs(axes_cls.set, kwargs, strict_mode=True)
 
         return _plot_line_layout(
             self,
@@ -395,7 +415,7 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
         self,
         x: Any,
         y: Any,
-        ax: "Axes",
+        ax: Axes,
         label: str | None = None,
         alpha: float = 1.0,
         **kwargs: Any,
@@ -412,14 +432,16 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
 
     def plot(
         self,
-        bf: "NOctFrame",
-        ax: "Axes | None" = None,
+        bf: NOctFrame,
+        ax: Axes | None = None,
         title: str | None = None,
         overlay: bool = False,
         **kwargs: Any,
     ) -> Axes | Iterator[Axes]:
         """N-octave band analysis plotting"""
         kwargs = kwargs or {}
+        axes_cls = _matplotlib_axes_type("noct plot")
+        line2d_cls = _matplotlib_line2d_type("noct plot")
         is_aw = kwargs.pop("Aw", False)
 
         if is_aw:
@@ -433,8 +455,8 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
         xlabel = kwargs.pop("xlabel", "Center frequency [Hz]")
         alpha = kwargs.pop("alpha", 1)
         label = kwargs.pop("label", None)
-        plot_kwargs = filter_kwargs(Line2D, kwargs, strict_mode=True)
-        ax_set = filter_kwargs(Axes.set, kwargs, strict_mode=True)
+        plot_kwargs = filter_kwargs(line2d_cls, kwargs, strict_mode=True)
+        ax_set = filter_kwargs(axes_cls.set, kwargs, strict_mode=True)
 
         default_title = bf.label or f"1/{bf.n!s}-Octave Spectrum"
         return _plot_line_layout(
@@ -464,7 +486,7 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
         self,
         x: Any,
         y: Any,
-        ax: "Axes",
+        ax: Axes,
         label: str | None = None,
         alpha: float = 1.0,
         **kwargs: Any,
@@ -473,8 +495,8 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
 
     def plot(
         self,
-        bf: "SpectrogramFrame",
-        ax: "Axes | None" = None,
+        bf: SpectrogramFrame,
+        ax: Axes | None = None,
         title: str | None = None,
         overlay: bool = False,
         **kwargs: Any,
@@ -489,6 +511,10 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
             raise ValueError("ax must be None when n_channels > 1.")
 
         kwargs = kwargs or {}
+        plt = _matplotlib_pyplot("spectrogram plot")
+        axes_cls = _matplotlib_axes_type("spectrogram plot")
+        figure_cls = _matplotlib_figure_type("spectrogram plot")
+        librosa_display = _librosa_display("spectrogram plot")
 
         is_aw = kwargs.pop("Aw", False)
         if is_aw:
@@ -498,15 +524,15 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
             unit = "dB"
             data = bf.dB
         data = _reshape_spectrogram_data(data)
-        specshow_kwargs = filter_kwargs(display.specshow, kwargs, strict_mode=True)
-        ax_set_kwargs = filter_kwargs(Axes.set, kwargs, strict_mode=True)
+        specshow_kwargs = filter_kwargs(librosa_display.specshow, kwargs, strict_mode=True)
+        ax_set_kwargs = filter_kwargs(axes_cls.set, kwargs, strict_mode=True)
 
         cmap = kwargs.pop("cmap", "jet")
         vmin = kwargs.pop("vmin", None)
         vmax = kwargs.pop("vmax", None)
 
         if ax is not None:
-            img = display.specshow(
+            img = librosa_display.specshow(
                 data=data[0],
                 sr=bf.sampling_rate,
                 hop_length=bf.hop_length,
@@ -540,14 +566,14 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
         # Create a new figure if ax is None
         num_channels = bf.n_channels
         fig, axs = plt.subplots(num_channels, 1, figsize=(10, 5 * num_channels), sharex=True)
-        if not isinstance(fig, Figure):
+        if not isinstance(fig, figure_cls):
             raise ValueError("fig must be a matplotlib Figure object.")
         # Convert axs to array if it is a single Axes object
         if not isinstance(axs, np.ndarray):
             axs = np.array([axs])
 
         for ax_i, channel_data, ch_meta in zip(axs.flatten(), data, bf.channels, strict=True):
-            img = display.specshow(
+            img = librosa_display.specshow(
                 data=channel_data,
                 sr=bf.sampling_rate,
                 hop_length=bf.hop_length,
@@ -589,7 +615,7 @@ class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
         self,
         x: Any,
         y: Any,
-        ax: "Axes",
+        ax: Axes,
         label: str | None = None,
         alpha: float = 1.0,
         **kwargs: Any,
@@ -599,13 +625,17 @@ class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
 
     def plot(
         self,
-        bf: "ChannelFrame",
-        ax: "Axes | None" = None,
+        bf: ChannelFrame,
+        ax: Axes | None = None,
         title: str | None = None,
         overlay: bool = False,
         **kwargs: Any,
     ) -> Axes | Iterator[Axes]:
         """Implementation of describe method for visualizing ChannelFrame data"""
+
+        plt = _matplotlib_pyplot("describe plot")
+        gridspec = _matplotlib_gridspec("describe plot")
+        librosa_display = _librosa_display("describe plot")
 
         fmin = kwargs.pop("fmin", 0)
         fmax = kwargs.pop("fmax", None)
@@ -652,7 +682,7 @@ class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
                     vmax = rounded_max
                     vmin = vmax - 180
                     break
-        img = display.specshow(
+        img = librosa_display.specshow(
             data=channel_data,
             sr=bf.sampling_rate,
             hop_length=stft_ch.hop_length,
@@ -702,7 +732,7 @@ class MatrixPlotStrategy(PlotStrategy["SpectralFrame"]):
         self,
         x: Any,
         y: Any,
-        ax: "Axes",
+        ax: Axes,
         label: str | None = None,
         alpha: float = 1.0,
         **kwargs: Any,
@@ -731,13 +761,16 @@ class MatrixPlotStrategy(PlotStrategy["SpectralFrame"]):
 
     def plot(
         self,
-        bf: "SpectralFrame",
-        ax: "Axes | None" = None,
+        bf: SpectralFrame,
+        ax: Axes | None = None,
         title: str | None = None,
         overlay: bool = False,
         **kwargs: Any,
     ) -> Axes | Iterator[Axes]:
         kwargs = kwargs or {}
+        plt = _matplotlib_pyplot("matrix plot")
+        axes_cls = _matplotlib_axes_type("matrix plot")
+        line2d_cls = _matplotlib_line2d_type("matrix plot")
         is_aw = kwargs.pop("Aw", False)
         if len(bf.operation_history) > 0 and bf.operation_history[-1]["operation"] == "coherence":
             unit = ""
@@ -756,8 +789,8 @@ class MatrixPlotStrategy(PlotStrategy["SpectralFrame"]):
 
         xlabel = kwargs.pop("xlabel", "Frequency [Hz]")
         alpha = kwargs.pop("alpha", 1)
-        plot_kwargs = filter_kwargs(Line2D, kwargs, strict_mode=True)
-        ax_set = filter_kwargs(Axes.set, kwargs, strict_mode=True)
+        plot_kwargs = filter_kwargs(line2d_cls, kwargs, strict_mode=True)
+        ax_set = filter_kwargs(axes_cls.set, kwargs, strict_mode=True)
         num_channels = bf.n_channels
         # If an Axes is provided, prefer drawing into it (treat as overlay)
         if ax is not None:
