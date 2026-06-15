@@ -5176,7 +5176,7 @@ operation_history : list[dict]
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>
 <span class="sd">        &gt;&gt;&gt; import wandas as wd</span>
-<span class="sd">        &gt;&gt;&gt; signal = wd.read_wav(&quot;audio.wav&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; signal = wd.read(&quot;audio.wav&quot;)</span>
 <span class="sd">        &gt;&gt;&gt; processed = signal.normalize().low_pass_filter(cutoff=1000)</span>
 <span class="sd">        &gt;&gt;&gt; # In Jupyter: displays graph inline</span>
 <span class="sd">        &gt;&gt;&gt; processed.visualize_graph()</span>
@@ -5559,7 +5559,7 @@ operation_history : list[dict]
 
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>
-<span class="sd">        &gt;&gt;&gt; cf = ChannelFrame.read_wav(&quot;audio.wav&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; cf = wd.read(&quot;audio.wav&quot;)</span>
 <span class="sd">        &gt;&gt;&gt; data = cf.to_numpy()</span>
 <span class="sd">        &gt;&gt;&gt; print(f&quot;Shape: {data.shape}&quot;)  # (n_channels, n_samples)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -5683,7 +5683,7 @@ operation_history : list[dict]
 
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>
-<span class="sd">        &gt;&gt;&gt; cf = ChannelFrame.read_wav(&quot;audio.wav&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; cf = wd.read(&quot;audio.wav&quot;)</span>
 <span class="sd">        &gt;&gt;&gt; df = cf.to_dataframe()</span>
 <span class="sd">        &gt;&gt;&gt; print(df.head())</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -7090,7 +7090,7 @@ making it easier to understand the processing pipeline.</p>
 <blockquote>
 <blockquote>
 <p>import wandas as wd
-signal = wd.read_wav("audio.wav")
+signal = wd.read("audio.wav")
 processed = signal.normalize().low_pass_filter(cutoff=1000)</p>
 <h5 id="wandas.core.base_frame.BaseFrame.visualize_graph--in-jupyter-displays-graph-inline">In Jupyter: displays graph inline<a class="headerlink" href="#wandas.core.base_frame.BaseFrame.visualize_graph--in-jupyter-displays-graph-inline" title="Permanent link">&para;</a></h5>
 <p>processed.visualize_graph()</p>
@@ -7193,7 +7193,7 @@ processed = signal.normalize().low_pass_filter(cutoff=1000)</p>
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
 <span class="sd">    &gt;&gt;&gt; import wandas as wd</span>
-<span class="sd">    &gt;&gt;&gt; signal = wd.read_wav(&quot;audio.wav&quot;)</span>
+<span class="sd">    &gt;&gt;&gt; signal = wd.read(&quot;audio.wav&quot;)</span>
 <span class="sd">    &gt;&gt;&gt; processed = signal.normalize().low_pass_filter(cutoff=1000)</span>
 <span class="sd">    &gt;&gt;&gt; # In Jupyter: displays graph inline</span>
 <span class="sd">    &gt;&gt;&gt; processed.visualize_graph()</span>
@@ -7563,7 +7563,7 @@ The returned array has the same shape as the frame's data.</p>
 <blockquote>
 <blockquote>
 <blockquote>
-<p>cf = ChannelFrame.read_wav("audio.wav")
+<p>cf = wd.read("audio.wav")
 data = cf.to_numpy()
 print(f"Shape: {data.shape}")  # (n_channels, n_samples)</p>
 </blockquote>
@@ -7603,7 +7603,7 @@ print(f"Shape: {data.shape}")  # (n_channels, n_samples)</p>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; cf = ChannelFrame.read_wav(&quot;audio.wav&quot;)</span>
+<span class="sd">    &gt;&gt;&gt; cf = wd.read(&quot;audio.wav&quot;)</span>
 <span class="sd">    &gt;&gt;&gt; data = cf.to_numpy()</span>
 <span class="sd">    &gt;&gt;&gt; print(f&quot;Shape: {data.shape}&quot;)  # (n_channels, n_samples)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -7894,7 +7894,7 @@ to pandas DataFrame. Subclasses can override this method for custom behavior.</p
 <blockquote>
 <blockquote>
 <blockquote>
-<p>cf = ChannelFrame.read_wav("audio.wav")
+<p>cf = wd.read("audio.wav")
 df = cf.to_dataframe()
 print(df.head())</p>
 </blockquote>
@@ -7951,7 +7951,7 @@ print(df.head())</p>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; cf = ChannelFrame.read_wav(&quot;audio.wav&quot;)</span>
+<span class="sd">    &gt;&gt;&gt; cf = wd.read(&quot;audio.wav&quot;)</span>
 <span class="sd">    &gt;&gt;&gt; df = cf.to_dataframe()</span>
 <span class="sd">    &gt;&gt;&gt; print(df.head())</span>
 <span class="sd">    &quot;&quot;&quot;</span>
