@@ -54,6 +54,51 @@ def test_read_infers_named_file_like_type_and_source_name(monkeypatch: pytest.Mo
     assert captured["source_name"] == "folder/source.csv"
 
 
+def test_read_defaults_unnamed_file_like_source_to_wav(monkeypatch: pytest.MonkeyPatch) -> None:
+    sentinel = object()
+    captured: dict[str, object] = {}
+
+    def fake_from_file(cls: type[ChannelFrame], path: object, **kwargs: object) -> object:
+        captured["path"] = path
+        captured.update(kwargs)
+        return sentinel
+
+    buffer = io.BytesIO(b"not real wav")
+    monkeypatch.setattr(ChannelFrame, "from_file", classmethod(fake_from_file))
+
+    result = read(buffer)
+
+    assert result is sentinel
+    assert captured["path"] is buffer
+    assert captured["file_type"] == ".wav"
+    assert captured["source_name"] is None
+
+
+def test_read_ignores_unstringable_file_like_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    class BrokenName:
+        def __str__(self) -> str:
+            raise RuntimeError("cannot stringify")
+
+    sentinel = object()
+    captured: dict[str, object] = {}
+
+    def fake_from_file(cls: type[ChannelFrame], path: object, **kwargs: object) -> object:
+        captured["path"] = path
+        captured.update(kwargs)
+        return sentinel
+
+    buffer = io.BytesIO(b"not real wav")
+    buffer.name = BrokenName()
+    monkeypatch.setattr(ChannelFrame, "from_file", classmethod(fake_from_file))
+
+    result = read(buffer)
+
+    assert result is sentinel
+    assert captured["path"] is buffer
+    assert captured["file_type"] == ".wav"
+    assert captured["source_name"] is None
+
+
 @pytest.mark.parametrize("file_type", [".wdf", "wdf"])
 def test_read_rejects_wdf_file_type_with_load_guidance(file_type: str) -> None:
     with pytest.raises(ValueError, match="wd.load"):
