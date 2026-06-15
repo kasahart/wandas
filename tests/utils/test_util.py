@@ -1,5 +1,4 @@
 # tests/utils/test_util.py
-import librosa
 import numpy as np
 import pytest
 from scipy.signal.windows import tukey
@@ -205,14 +204,14 @@ class TestCutSig:
 
 
 class TestAmplitudeToDb:
-    """Test suite for amplitude_to_db — Pillar 4: wrapper equivalence with librosa."""
+    """Test suite for amplitude_to_db — Pillar 4: theoretical value verification."""
 
-    def test_amplitude_to_db_matches_librosa(self) -> None:
-        amp = np.array([1.0, 0.5, 0.1], dtype=float)
-        ref = 1.0
+    def test_amplitude_to_db_matches_numpy_formula(self) -> None:
+        amp = np.array([1.0, -0.5, 0.1, 0.0], dtype=float)
+        ref = 0.5
         result = amplitude_to_db(amp, ref)
-        expected = librosa.amplitude_to_db(np.abs(amp), ref=ref, amin=1e-15, top_db=None)
-        np.testing.assert_allclose(result, expected)  # Wrapper equivalence: same librosa call
+        expected = 20.0 * np.log10(np.maximum(1e-15, np.abs(amp))) - 20.0 * np.log10(max(1e-15, ref))
+        np.testing.assert_allclose(result, expected)
 
     def test_amplitude_to_db_unity_returns_zero(self) -> None:
         """Amplitude of 1.0 relative to ref=1.0 is 0 dB by definition."""

@@ -148,7 +148,7 @@ class TestSpectralFrame:
 
     def test_property_dba(self) -> None:
         """Test dBA property"""
-        with mock.patch("librosa.A_weighting") as mock_a_weighting:
+        with mock.patch("wandas.frames.mixins.spectral_properties_mixin.a_weighting_db") as mock_a_weighting:
             mock_weights: NDArrayReal = np.ones_like(self.frame.freqs)
             mock_a_weighting.return_value = mock_weights
 

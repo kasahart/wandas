@@ -3,15 +3,43 @@ from typing import Any
 
 import numpy as np
 from dask.array.core import Array as DaArray
-from librosa import effects
-from librosa import util as librosa_util
 from scipy.signal import windows as sp_windows
 
 from wandas.processing.base import AudioOperation, register_operation
-from wandas.utils import util
+from wandas.utils import require_optional_dependency, util
 from wandas.utils.types import NDArrayReal
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_array(
+    x: NDArrayReal,
+    norm: float | None,
+    axis: int | None,
+    threshold: float | None,
+    fill: bool | None,
+) -> NDArrayReal:
+    if norm is None:
+        return x
+    if threshold is None:
+        threshold = float(np.finfo(float).tiny)
+    if norm == np.inf:
+        length = np.max(np.abs(x), axis=axis, keepdims=True)
+    elif norm == -np.inf:
+        length = np.min(np.abs(x), axis=axis, keepdims=True)
+    elif norm == 0:
+        length = np.sum(x != 0, axis=axis, keepdims=True).astype(float)
+    else:
+        length = np.sum(np.abs(x) ** norm, axis=axis, keepdims=True) ** (1.0 / norm)
+
+    small = length < threshold
+    safe_length = np.where(small, 1.0, length)
+    out = x / safe_length
+    if fill is True:
+        out = np.where(np.broadcast_to(small, x.shape), 1.0, out)
+    elif fill is False:
+        out = np.where(np.broadcast_to(small, x.shape), 0.0, out)
+    return np.asarray(out)
 
 
 class _HpssBase(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -26,6 +54,7 @@ class _HpssBase(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying HPSS {self._extract_func} to array with shape: {x.shape}")
+        effects = require_optional_dependency("librosa.effects", extra="viz", feature=self.name)
         func = getattr(effects, self._extract_func)
         result: NDArrayReal = func(x, **self.kwargs)
         logger.debug(f"HPSS {self._extract_func} applied, returning result with shape: {result.shape}")
@@ -49,7 +78,7 @@ class HpssPercussive(_HpssBase):
 
 
 class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
-    """Signal normalization operation using librosa.util.normalize"""
+    """Signal normalization operation."""
 
     name = "normalize"
     _display = "norm"
@@ -138,10 +167,7 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
         """Perform normalization processing"""
         logger.debug(f"Applying normalization to array with shape: {x.shape}, norm={self.norm}, axis={self.axis}")
 
-        # Apply librosa.util.normalize
-        result: NDArrayReal = librosa_util.normalize(
-            x, norm=self.norm, axis=self.axis, threshold=self.threshold, fill=self.fill
-        )
+        result = _normalize_array(x, norm=self.norm, axis=self.axis, threshold=self.threshold, fill=self.fill)
 
         logger.debug(f"Normalization applied, returning result with shape: {result.shape}")
         return result

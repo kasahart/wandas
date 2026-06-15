@@ -38,6 +38,18 @@ from scipy.signal import bilinear_zpk, freqs, sosfilt, zpk2sos, zpk2tf
 from wandas.utils.types import NDArrayReal
 
 
+def a_weighting_db(frequencies: NDArrayReal, min_db: float | None = -45.0) -> NDArrayReal:
+    """Compute IEC 61672 A-weighting values in dB."""
+    f = np.asarray(frequencies, dtype=float)
+    f2 = f**2
+    ra = (12194.0**2 * f2**2) / ((f2 + 20.6**2) * np.sqrt((f2 + 107.7**2) * (f2 + 737.9**2)) * (f2 + 12194.0**2))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        weights: NDArrayReal = 20.0 * np.log10(np.where(ra > 0, ra, np.nan)) + 2.0
+    if min_db is not None:
+        weights = np.where(np.isfinite(weights), np.maximum(weights, min_db), min_db)
+    return weights
+
+
 def ABC_weighting(curve: str = "A") -> tuple[NDArrayReal, NDArrayReal, float]:
     """
     Design of an analog weighting filter with A, B, or C curve.

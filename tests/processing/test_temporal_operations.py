@@ -1,6 +1,5 @@
 from unittest import mock
 
-import librosa
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
@@ -14,11 +13,19 @@ from wandas.processing.temporal import (
     SoundLevel,
     Trim,
 )
-from wandas.processing.weighting import frequency_weighting
+from wandas.processing.weighting import a_weighting_db, frequency_weighting
 from wandas.utils.dask_helpers import da_from_array
 from wandas.utils.types import NDArrayReal
 
 _SR: int = 16000
+
+
+class TestAWeightingDb:
+    """A-weighting dB reference checks."""
+
+    def test_a_weighting_db_is_zero_db_near_1000_hz(self) -> None:
+        weights = a_weighting_db(np.array([1000.0]), min_db=None)
+        np.testing.assert_allclose(weights, 0.0, atol=0.01)
 
 
 class TestReSampling:
@@ -95,6 +102,17 @@ class TestReSampling:
         result = resampler.process(dask_input).compute()
         expected_len = int(np.ceil(dask_input.shape[1] * (self._TARGET_SR / sr)))
         assert result.shape == (1, expected_len)
+
+    def test_resampling_polyphase_output_length_matches_shape_calculation(self) -> None:
+        """Polyphase resampling output length follows ceil(input_len * target / source)."""
+        data = np.arange(10, dtype=float).reshape(1, -1)
+        dask_input = da_from_array(data, chunks=(1, -1))
+        resampler = ReSampling(sampling_rate=10, target_sr=3)
+
+        result = resampler.process(dask_input).compute()
+
+        assert result.shape == resampler.calculate_output_shape(data.shape)
+        assert result.shape == (1, 3)
 
     def test_resampling_upsample_shape_mono(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
         """Upsample 16 kHz -> 32 kHz doubles sample count."""
@@ -221,7 +239,7 @@ class TestTrim:
 
 
 class TestRmsTrend:
-    """RmsTrend operation: Layer 1 + Layer 2 + Layer 3 (librosa reference)."""
+    """RmsTrend operation: Layer 1 + Layer 2 + Layer 3 (NumPy reference)."""
 
     _FRAME: int = 2048
     _HOP: int = 512
@@ -274,19 +292,37 @@ class TestRmsTrend:
         np.testing.assert_array_equal(dask_input.compute(), input_copy)
         assert isinstance(result_da, DaArray)
 
-    def test_rms_trend_output_shape_matches_librosa(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
-        """Output frame count matches librosa.feature.rms reference."""
+    def test_rms_trend_output_shape_matches_centered_frame_count(
+        self, pure_sine_440hz_dask: tuple[DaArray, int]
+    ) -> None:
+        """Output frame count matches centered zero-padded frame calculation."""
 
         dask_input, sr = pure_sine_440hz_dask
         rms = RmsTrend(sr, frame_length=self._FRAME, hop_length=self._HOP)
         result = rms.process(dask_input).compute()
 
-        expected_frames = librosa.feature.rms(
-            y=dask_input.compute(),
-            frame_length=self._FRAME,
-            hop_length=self._HOP,
-        ).shape[-1]
+        pad = self._FRAME // 2
+        expected_frames = 1 + ((dask_input.shape[-1] + 2 * pad - self._FRAME) // self._HOP)
         assert result.shape == (1, expected_frames)
+
+    def test_rms_trend_centered_frame_values(self) -> None:
+        """RMS trend uses centered zero-padded frames with expected values."""
+        data = np.array([[1.0, 2.0, 3.0, 4.0]])
+        dask_input = da_from_array(data, chunks=(1, -1))
+        rms = RmsTrend(_SR, frame_length=4, hop_length=2)
+
+        result = rms.process(dask_input).compute()
+
+        expected = np.array(
+            [
+                [
+                    np.sqrt((0.0**2 + 0.0**2 + 1.0**2 + 2.0**2) / 4.0),
+                    np.sqrt((1.0**2 + 2.0**2 + 3.0**2 + 4.0**2) / 4.0),
+                    np.sqrt((3.0**2 + 4.0**2 + 0.0**2 + 0.0**2) / 4.0),
+                ]
+            ]
+        )
+        np.testing.assert_allclose(result, expected)
 
     # -- Layer 3: Numerical verification -----------------------------------
 

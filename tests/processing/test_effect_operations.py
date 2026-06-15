@@ -310,6 +310,17 @@ class TestNormalize:
             rtol=1e-10,  # float64 precision for simple division
         )
 
+    def test_normalize_inf_norm_values_match_numpy_reference(self) -> None:
+        """Inf-norm normalization divides each channel by its max absolute value."""
+        sig = np.array([[1.0, -2.0, 4.0], [0.5, -1.0, 0.25]])
+        dask_sig = da_from_array(sig, chunks=(1, -1))
+        normalize = Normalize(_SR, norm=np.inf, axis=-1)
+
+        result = normalize.process(dask_sig).compute()
+
+        expected = sig / np.max(np.abs(sig), axis=-1, keepdims=True)
+        np.testing.assert_allclose(result, expected)
+
     def test_normalize_l1_norm_sum_abs_equals_one(self) -> None:
         """With norm=1, sum|x| must equal 1.0 (theoretical).
 

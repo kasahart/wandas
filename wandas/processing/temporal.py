@@ -1,12 +1,12 @@
 import logging
+from fractions import Fraction
 from typing import Any
 
 import dask.array as da
-import librosa
 import numpy as np
 from dask.array.core import Array as DaArray
 from dask.delayed import delayed
-from scipy.signal import lfilter
+from scipy.signal import lfilter, resample_poly
 
 from wandas.processing.base import AudioOperation, register_operation
 from wandas.processing.weighting import A_weight, frequency_weight
@@ -16,6 +16,24 @@ from wandas.utils.util import DB_FLOOR
 
 logger = logging.getLogger(__name__)
 MIN_SOUND_LEVEL_POWER_RATIO = 1e-20
+
+
+def _frame_rms(y: NDArrayReal, frame_length: int, hop_length: int) -> NDArrayReal:
+    pad = frame_length // 2
+    pad_width = [(0, 0)] * (y.ndim - 1) + [(pad, pad)]
+    y_padded = np.pad(y, pad_width, mode="constant")
+    n_frames = 1 + max(0, (y_padded.shape[-1] - frame_length) // hop_length)
+    frames = np.lib.stride_tricks.as_strided(
+        y_padded,
+        shape=y_padded.shape[:-1] + (frame_length, n_frames),
+        strides=y_padded.strides[:-1] + (y_padded.strides[-1], y_padded.strides[-1] * hop_length),
+    )
+    return np.sqrt(np.mean(frames**2, axis=-2))
+
+
+def _resampling_ratio(source_sr: float, target_sr: float) -> tuple[int, int]:
+    ratio = Fraction(float(target_sr) / float(source_sr)).limit_denominator(1_000_000)
+    return ratio.numerator, ratio.denominator
 
 
 class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -83,7 +101,8 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for resampling operation"""
         logger.debug(f"Applying resampling to array with shape: {x.shape}")
-        result: NDArrayReal = librosa.resample(x, orig_sr=self.sampling_rate, target_sr=self.target_sr)
+        up, down = _resampling_ratio(self.sampling_rate, self.target_sr)
+        result: NDArrayReal = resample_poly(x, up, down, axis=-1)
         logger.debug(f"Resampling applied, returning result with shape: {result.shape}")
         return result
 
@@ -290,11 +309,8 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         tuple
             Output data shape (channels, frames)
         """
-        n_frames = librosa.feature.rms(
-            y=np.ones((1, input_shape[-1])),
-            frame_length=self.frame_length,
-            hop_length=self.hop_length,
-        ).shape[-1]
+        pad = self.frame_length // 2
+        n_frames = 1 + max(0, (input_shape[-1] + 2 * pad - self.frame_length) // self.hop_length)
         return (*input_shape[:-1], n_frames)
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
@@ -314,9 +330,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
                 raise ValueError("A_weighting returned an unexpected type.")
 
         # Calculate RMS
-        result: NDArrayReal = librosa.feature.rms(y=x, frame_length=self.frame_length, hop_length=self.hop_length)[
-            ..., 0, :
-        ]
+        result: NDArrayReal = _frame_rms(x, frame_length=self.frame_length, hop_length=self.hop_length)
 
         if self.dB:
             # Convert to dB
