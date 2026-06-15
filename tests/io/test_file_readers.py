@@ -318,6 +318,14 @@ class TestFileReaderHelpers:
         finally:
             del _file_readers[original_count:]
 
+    def test_can_read_uses_normalized_supported_extensions(self) -> None:
+        class CustomFileReader(SoundFileReader):
+            supported_extensions: list[str] = ["custom"]
+
+        assert CustomFileReader.can_read("test.custom") is True
+        assert CustomFileReader.can_read("test.wav") is False
+        assert CustomFileReader.can_read("test") is False
+
 
 class TestGetFileReader:
     def test_get_file_reader_wav(self) -> None:
