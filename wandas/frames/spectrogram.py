@@ -467,6 +467,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             metadata=self.metadata,
             operation_history=self.operation_history,
             channel_metadata=self._channel_metadata,
+            source_time_offset=self.source_time_offset,
         )
 
     def istft(self) -> "ChannelFrame":

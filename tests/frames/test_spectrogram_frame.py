@@ -295,6 +295,15 @@ class TestSpectrogramFrame:
         assert channel_frame.sampling_rate == spec.sampling_rate
         assert channel_frame._n_channels == spec._n_channels
 
+    def test_istft_preserves_source_offset(self) -> None:
+        data = da.from_array(np.ones((1, 64), dtype=float))
+        frame = ChannelFrame(data, sampling_rate=32.0, source_time_offset=10.0)
+
+        recovered = frame.stft(n_fft=16, hop_length=8, win_length=16).istft()
+
+        assert recovered.source_time_offset == pytest.approx(10.0)
+        assert recovered.source_time[0] == pytest.approx(10.0)
+
     def test_istft(self, sample_spectrogram: SpectrogramFrame) -> None:
         """istftメソッドがto_channel_frameのエイリアスとして機能することをテスト"""
         spec: SpectrogramFrame = sample_spectrogram
