@@ -210,6 +210,11 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         return np.arange(self.n_frames) * self.hop_length / self.sampling_rate
 
     @property
+    def duration(self) -> float:
+        """Get the local time span covered by spectrogram frames."""
+        return float(self.n_frames * self.hop_length / self.sampling_rate)
+
+    @property
     def source_times(self) -> NDArrayReal:
         """Get source-relative time values for each spectrogram frame."""
         return self.times + self.source_time_offset
@@ -421,6 +426,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             metadata=self.metadata,
             operation_history=self.operation_history,
             channel_metadata=self._channel_metadata,
+            source_time_offset=float(self.source_times[time_idx]),
         )
 
     def to_channel_frame(self) -> "ChannelFrame":

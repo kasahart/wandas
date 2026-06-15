@@ -14,6 +14,8 @@ def test_trim_stft_chain_keeps_source_context() -> None:
 
     assert trimmed.source_time_range == pytest.approx((1.0, 3.0))
     assert spec.source_time_offset == pytest.approx(1.0)
+    assert spec.duration > 0.0
+    assert spec.source_time_range == pytest.approx((spec.source_time_offset, spec.source_time_offset + spec.duration))
     np.testing.assert_allclose(spec.source_times, spec.times + 1.0)
 
 

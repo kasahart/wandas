@@ -286,6 +286,16 @@ class TestSpectrogramFrame:
         ):
             spec.get_frame_at(5)  # n_frames=5 なので範囲外
 
+    def test_get_frame_at_preserves_source_time_offset(self) -> None:
+        data = da.from_array(np.ones((1, 64), dtype=float))
+        frame = ChannelFrame(data, sampling_rate=32.0, source_time_offset=10.0)
+        spec = frame.stft(n_fft=16, hop_length=8, win_length=16)
+
+        spectral_frame = spec.get_frame_at(1)
+
+        assert spectral_frame.source_time_offset == pytest.approx(spec.source_times[1])
+        assert spectral_frame.source_time_range == pytest.approx((spec.source_times[1], spec.source_times[1]))
+
     def test_to_channel_frame(self, sample_spectrogram: SpectrogramFrame) -> None:
         """時間領域への変換テスト"""
         spec: SpectrogramFrame = sample_spectrogram
