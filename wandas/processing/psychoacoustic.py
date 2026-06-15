@@ -172,7 +172,7 @@ class LoudnessZwtv(_ZwickerTimeVaryingBase):
     --------
     Calculate loudness for a signal:
     >>> import wandas as wd
-    >>> signal = wd.read_wav("audio.wav")
+    >>> signal = wd.read("audio.wav")
     >>> loudness = signal.loudness_zwtv(field_type="free")
 
     Notes
@@ -260,7 +260,7 @@ class LoudnessZwst(_SteadyStateBase):
     --------
     Calculate steady-state loudness for a signal:
     >>> import wandas as wd
-    >>> signal = wd.read_wav("fan_noise.wav")
+    >>> signal = wd.read("fan_noise.wav")
     >>> loudness = signal.loudness_zwst(field_type="free")
     >>> print(f"Steady-state loudness: {loudness.data[0]:.2f} sones")
 
@@ -394,7 +394,7 @@ class RoughnessDw(_RoughnessBase):
     --------
     Calculate roughness for a signal:
     >>> import wandas as wd
-    >>> signal = wd.read_wav("motor_noise.wav")
+    >>> signal = wd.read("motor_noise.wav")
     >>> roughness = signal.roughness_dw(overlap=0.5)
     >>> print(f"Mean roughness: {roughness.data.mean():.2f} asper")
 
@@ -611,7 +611,7 @@ class SharpnessDin(_ZwickerTimeVaryingBase):
     --------
     Calculate sharpness for a signal:
     >>> import wandas as wd
-    >>> signal = wd.read_wav("sharp_sound.wav")
+    >>> signal = wd.read("sharp_sound.wav")
     >>> sharpness = signal.sharpness_din(weighting="din", field_type="free")
     >>> print(f"Mean sharpness: {sharpness.data.mean():.2f} acum")
 
@@ -716,7 +716,7 @@ class SharpnessDinSt(_SteadyStateBase):
     --------
     Calculate steady-state sharpness for a signal:
     >>> import wandas as wd
-    >>> signal = wd.read_wav("constant_tone.wav")
+    >>> signal = wd.read("constant_tone.wav")
     >>> sharpness = signal.sharpness_din_st(weighting="din", field_type="free")
     >>> print(f"Steady-state sharpness: {sharpness.data[0]:.2f} acum")
 

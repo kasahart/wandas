@@ -169,8 +169,9 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
         ValueError: If the file format is invalid or incompatible.
 
     Example:
-        >>> cf = ChannelFrame.load("audio_data.wdf")
-        >>> cf = ChannelFrame.load("https://example.com/audio_data.wdf")
+        >>> import wandas as wd
+        >>> cf = wd.load("audio_data.wdf")
+        >>> cf = wd.load("https://example.com/audio_data.wdf")
     """
     # Ensure ChannelFrame is imported here to avoid circular imports
     from ..core.metadata import ChannelMetadata

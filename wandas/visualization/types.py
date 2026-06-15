@@ -61,7 +61,7 @@ class DescribeParams(TypedDict, total=False):
         cbar_config: Old colorbar configuration. Use vmin/vmax instead.
 
     Examples:
-        >>> cf = ChannelFrame.read_wav("audio.wav")
+        >>> cf = wd.read("audio.wav")
         >>> # Basic usage
         >>> cf.describe()
         >>>
