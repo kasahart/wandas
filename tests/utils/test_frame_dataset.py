@@ -18,11 +18,60 @@ from wandas.utils.frame_dataset import (
     FrameDataset,
     LazyFrame,  # Import new class
     SpectrogramFrameDataset,
+    _progress,
     _SampledFrameDataset,
 )
 from wandas.utils.types import NDArrayReal
 
 _da_from_array = da.from_array
+
+
+def test_progress_returns_original_iterable_without_tqdm(monkeypatch: pytest.MonkeyPatch) -> None:
+    original_import_module = __import__("importlib").import_module
+
+    def fake_import_module(name: str):
+        if name == "tqdm.auto":
+            raise ModuleNotFoundError("No module named 'tqdm'", name="tqdm")
+        return original_import_module(name)
+
+    monkeypatch.setattr("wandas.utils.frame_dataset.importlib.import_module", fake_import_module)
+
+    iterable = range(3)
+
+    assert _progress(iterable, desc="Loading") is iterable
+
+
+def test_progress_wraps_iterable_with_tqdm(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeTqdmModule:
+        @staticmethod
+        def tqdm(iterable: range, *, desc: str) -> tuple[range, str]:
+            return iterable, desc
+
+    def fake_import_module(name: str) -> FakeTqdmModule:
+        assert name == "tqdm.auto"
+        return FakeTqdmModule()
+
+    monkeypatch.setattr("wandas.utils.frame_dataset.importlib.import_module", fake_import_module)
+
+    iterable = range(2)
+
+    assert _progress(iterable, desc="Loading") == (iterable, "Loading")
+
+
+def test_progress_reraises_tqdm_transitive_import_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    original_error = ModuleNotFoundError("No module named 'missing_dependency'", name="missing_dependency")
+
+    def fake_import_module(name: str) -> None:
+        assert name == "tqdm.auto"
+        raise original_error
+
+    monkeypatch.setattr("wandas.utils.frame_dataset.importlib.import_module", fake_import_module)
+
+    with pytest.raises(ModuleNotFoundError) as exc_info:
+        _progress(range(1), desc="Loading")
+
+    assert exc_info.value is original_error
+
 
 # --- Test Fixtures ---
 

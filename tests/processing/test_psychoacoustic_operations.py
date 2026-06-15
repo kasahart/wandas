@@ -26,6 +26,8 @@ from wandas.processing.psychoacoustic import (
     RoughnessDwSpec,
     SharpnessDin,
     SharpnessDinSt,
+    _process_per_channel,
+    loudness_zwst_mosqito,
 )
 from wandas.utils.dask_helpers import da_from_array
 from wandas.utils.types import NDArrayReal
@@ -35,6 +37,28 @@ _SR: int = 48000
 
 def _psychoacoustic_class(name: str) -> type:
     return getattr(psychoacoustic_module, name)
+
+
+def test_process_per_channel_handles_1d_scalar_output() -> None:
+    signal = np.array([1.0, 2.0, 3.0])
+
+    result = _process_per_channel(signal, lambda channel: float(np.mean(channel)), scalar=True)
+
+    np.testing.assert_array_equal(result, np.array([[2.0]]))
+
+
+def test_loudness_zwst_wrapper_propagates_import_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    original_error = ImportError("missing mosqito")
+
+    def raise_import_error(*args: object, **kwargs: object) -> None:
+        raise original_error
+
+    monkeypatch.setattr(psychoacoustic_module, "_sq_metric", raise_import_error)
+
+    with pytest.raises(ImportError) as exc_info:
+        loudness_zwst_mosqito(np.zeros(4), _SR)
+
+    assert exc_info.value is original_error
 
 
 # -- Shared signal builders ------------------------------------------------
@@ -2168,6 +2192,20 @@ class TestRoughnessBaseCoverageGaps:
         result = roughness_dw._estimated_time_samples(n_samples=int(sr * 0.2))
         assert result == 1
 
+    def test_roughness_dw_spec_init_mosqito_import_error_reraises(self) -> None:
+        unique_sr = 99989.0
+        RoughnessDwSpec._bark_axis_cache.pop((unique_sr, 0.5), None)
+        original_error = ImportError("missing mosqito")
+
+        with patch(
+            "wandas.processing.psychoacoustic.roughness_dw_mosqito",
+            side_effect=original_error,
+        ):
+            with pytest.raises(ImportError) as exc_info:
+                RoughnessDwSpec(sampling_rate=unique_sr, overlap=0.5)
+
+        assert exc_info.value is original_error
+
     def test_roughness_dw_spec_init_mosqito_raises(self) -> None:
         """RoughnessDwSpec.__init__ raises RuntimeError when mosqito fails (lines 493-495)."""
         unique_sr = 99997.0
@@ -2192,6 +2230,16 @@ class TestRoughnessBaseCoverageGaps:
         ):
             with pytest.raises(RuntimeError, match="empty or None bark_axis"):
                 RoughnessDwSpec(sampling_rate=unique_sr, overlap=0.5)
+
+    def test_roughness_dw_spec_calculate_output_shape_multichannel_input(self) -> None:
+        sr = 48000.0
+        if (sr, 0.5) not in RoughnessDwSpec._bark_axis_cache:
+            RoughnessDwSpec(sampling_rate=sr, overlap=0.5)
+        op = RoughnessDwSpec(sampling_rate=sr, overlap=0.5)
+
+        shape = op.calculate_output_shape((2, int(sr)))
+
+        assert shape == (2, len(op.bark_axis), op._estimated_time_samples(int(sr)))
 
     def test_roughness_dw_spec_calculate_output_shape_1d_input(self) -> None:
         """calculate_output_shape handles 1D input shape (lines 520-521)."""

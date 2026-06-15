@@ -1,3 +1,4 @@
+import importlib
 import logging
 import random
 import warnings
@@ -20,12 +21,12 @@ F_out = TypeVar("F_out", bound=FrameType)
 
 def _progress(iterable: range, *, desc: str) -> Any:
     try:
-        from tqdm.auto import tqdm
+        tqdm_auto = importlib.import_module("tqdm.auto")
     except ModuleNotFoundError as exc:
         if exc.name != "tqdm":
             raise
         return iterable
-    return tqdm(iterable, desc=desc)
+    return tqdm_auto.tqdm(iterable, desc=desc)
 
 
 @dataclass

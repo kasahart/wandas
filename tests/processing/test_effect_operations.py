@@ -5,9 +5,12 @@ from dask.array.core import Array as DaArray
 from wandas.processing.base import create_operation, get_operation
 from wandas.processing.effects import (
     AddWithSNR,
+    Fade,
     HpssHarmonic,
     HpssPercussive,
     Normalize,
+    RemoveDC,
+    _normalize_array,
 )
 from wandas.utils import util
 from wandas.utils.dask_helpers import da_from_array
@@ -230,6 +233,18 @@ class TestAddWithSNR:
         assert result.shape == clean.shape
 
 
+class TestRemoveDC:
+    def test_remove_dc_subtracts_channel_mean(self) -> None:
+        signal = np.array([[1.0, 2.0, 3.0], [2.0, 2.0, 4.0]])
+        dask_signal = da_from_array(signal, chunks=(1, -1))
+        remove_dc = RemoveDC(_SR)
+
+        result = remove_dc.process(dask_signal).compute()
+
+        expected = signal - signal.mean(axis=-1, keepdims=True)
+        np.testing.assert_allclose(result, expected)
+
+
 class TestNormalize:
     """Normalize operation: Layer 1 + Layer 2 + Layer 3 (theoretical values)."""
 
@@ -315,6 +330,15 @@ class TestNormalize:
             rtol=1e-10,  # float64 precision for simple division
         )
 
+    def test_normalize_norm_none_returns_input_values(self) -> None:
+        sig = np.array([[1.0, -2.0, 4.0]])
+        dask_sig = da_from_array(sig, chunks=(1, -1))
+        normalize = Normalize(_SR, norm=None)
+
+        result = normalize.process(dask_sig).compute()
+
+        np.testing.assert_array_equal(result, sig)
+
     def test_normalize_inf_norm_values_match_numpy_reference(self) -> None:
         """Inf-norm normalization divides each channel by its max absolute value."""
         sig = np.array([[1.0, -2.0, 4.0], [0.5, -1.0, 0.25]])
@@ -324,6 +348,16 @@ class TestNormalize:
         result = normalize.process(dask_sig).compute()
 
         expected = sig / np.max(np.abs(sig), axis=-1, keepdims=True)
+        np.testing.assert_allclose(result, expected)
+
+    def test_normalize_negative_inf_norm_uses_min_abs_reference(self) -> None:
+        sig = np.array([[1.0, -2.0, 4.0], [0.5, -1.0, 0.25]])
+        dask_sig = da_from_array(sig, chunks=(1, -1))
+        normalize = Normalize(_SR, norm=-np.inf, axis=-1)
+
+        result = normalize.process(dask_sig).compute()
+
+        expected = sig / np.min(np.abs(sig), axis=-1, keepdims=True)
         np.testing.assert_allclose(result, expected)
 
     def test_normalize_l1_norm_sum_abs_equals_one(self) -> None:
@@ -460,6 +494,15 @@ class TestNormalize:
             rtol=1e-10,  # fill produces exact normalized values
         )
 
+    def test_normalize_fill_false_zeroes_small_signal(self) -> None:
+        small = np.full((1, 4), 1e-12)
+        dask_small = da_from_array(small, chunks=(1, -1))
+        normalize = Normalize(_SR, norm=np.inf, axis=-1, threshold=1e-10, fill=False)
+
+        result = normalize.process(dask_small).compute()
+
+        np.testing.assert_array_equal(result, np.zeros_like(small))
+
     def test_normalize_l2_fill_true_zero_signal_has_unit_norm(self) -> None:
         """With fill=True and norm=2, zero vectors are filled to unit L2 norm."""
         zero = np.zeros((1, 4))
@@ -469,6 +512,18 @@ class TestNormalize:
         result = normalize.process(dask_zero).compute()
 
         np.testing.assert_allclose(np.sqrt(np.sum(result**2, axis=-1)), 1.0)
+
+    def test_normalize_norm_zero_fill_true_raises_error(self) -> None:
+        zero = np.zeros((1, 4))
+
+        with pytest.raises(ValueError, match="Cannot normalize with norm=0 and fill=True"):
+            _normalize_array(zero, norm=0, axis=-1, threshold=None, fill=True)
+
+    def test_normalize_helper_nonpositive_threshold_raises_error(self) -> None:
+        values = np.array([[1.0, 2.0]])
+
+        with pytest.raises(ValueError, match="threshold must be strictly positive"):
+            _normalize_array(values, norm=np.inf, axis=-1, threshold=0.0, fill=None)
 
     def test_negative_norm_error_message(self) -> None:
         """Test that negative norm (except -np.inf) provides helpful error message."""
@@ -497,3 +552,33 @@ class TestNormalize:
         assert "Positive value" in error_msg
         # Check HOW
         assert "Typical values:" in error_msg
+
+
+class TestFade:
+    def test_fade_negative_duration_raises_error(self) -> None:
+        with pytest.raises(ValueError, match="fade_ms must be non-negative"):
+            Fade(1000, fade_ms=-1)
+
+    def test_fade_too_long_raises_error(self) -> None:
+        fade = Fade(1000, fade_ms=5)
+
+        with pytest.raises(ValueError, match="Fade length too long"):
+            fade.process_array(np.ones((1, 10))).compute()
+
+    def test_fade_1d_input_is_reshaped_to_channel_axis(self) -> None:
+        fade = Fade(1000, fade_ms=1)
+        signal = np.ones(10)
+
+        result = fade.process_array(signal).compute()
+
+        assert result.shape == (1, 10)
+        assert result[0, 0] == 0.0
+        assert result[0, -1] == 0.0
+
+    def test_fade_zero_duration_reshapes_without_fading(self) -> None:
+        fade = Fade(1000, fade_ms=0)
+        signal = np.array([1.0, 2.0, 3.0])
+
+        result = fade.process_array(signal).compute()
+
+        np.testing.assert_array_equal(result, signal.reshape(1, -1))

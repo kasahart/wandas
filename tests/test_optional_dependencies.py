@@ -10,7 +10,7 @@ from wandas.utils.optional_imports import require_optional_attr, require_optiona
 
 
 def _pyproject() -> dict:
-    return tomli.loads(Path("pyproject.toml").read_text())
+    return tomli.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
 
 
 def test_runtime_dependencies_are_balanced_core_only() -> None:
@@ -87,6 +87,30 @@ def test_require_optional_dependency_reraises_transitive_import_error(monkeypatc
         "No module named 'missing_transitive_dependency'",
         name="missing_transitive_dependency",
     )
+
+    def raise_transitive_error(module_name: str) -> None:
+        assert module_name == "installed_optional_package"
+        raise original_error
+
+    monkeypatch.setattr(
+        "wandas.utils.optional_imports.importlib.import_module",
+        raise_transitive_error,
+    )
+
+    with pytest.raises(ModuleNotFoundError) as exc_info:
+        require_optional_dependency(
+            "installed_optional_package",
+            extra="viz",
+            feature="plot",
+        )
+
+    assert exc_info.value is original_error
+
+
+def test_require_optional_dependency_reraises_import_error_without_missing_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_error = ModuleNotFoundError("optional package import failed")
 
     def raise_transitive_error(module_name: str) -> None:
         assert module_name == "installed_optional_package"
@@ -430,6 +454,13 @@ def test_psychoacoustic_missing_mosqito_has_extra_hint() -> None:
     )
 
     assert result.returncode == 0, result.stderr
+
+
+def test_processing_getattr_unknown_name_raises_attribute_error() -> None:
+    import wandas.processing as processing
+
+    with pytest.raises(AttributeError, match="definitely_missing_operation"):
+        processing.__getattr__("definitely_missing_operation")
 
 
 def test_processing_lazy_registry_without_mosqito() -> None:
