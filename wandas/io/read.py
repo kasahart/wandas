@@ -47,12 +47,15 @@ def _named_in_memory_source(path: object) -> str | None:
 def _infer_in_memory_file_type(
     path: str | Path | bytes | bytearray | memoryview | BinaryIO,
     file_type: str | None,
+    source_name: str | None,
 ) -> str | None:
     if file_type is not None or not _is_in_memory_source(path):
         return file_type
-    source_name = _named_in_memory_source(path)
-    if source_name is not None:
-        suffix = Path(source_name).suffix
+    named_source_name = _named_in_memory_source(path)
+    for candidate_source_name in (named_source_name, source_name):
+        if candidate_source_name is None:
+            continue
+        suffix = Path(candidate_source_name).suffix
         if suffix:
             return suffix
     return ".wav"
@@ -94,8 +97,8 @@ def read(
     """
     from wandas.frames.channel import ChannelFrame
 
-    file_type = _infer_in_memory_file_type(path, file_type)
     source_name = _infer_in_memory_source_name(path, source_name)
+    file_type = _infer_in_memory_file_type(path, file_type, source_name)
     if _is_wdf_request(path, file_type):
         _raise_read_wdf_error(path)
     return ChannelFrame.from_file(

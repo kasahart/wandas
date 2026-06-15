@@ -54,6 +54,64 @@ def test_read_infers_named_file_like_type_and_source_name(monkeypatch: pytest.Mo
     assert captured["source_name"] == "folder/source.csv"
 
 
+def test_read_infers_bytes_type_from_source_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    sentinel = object()
+    captured: dict[str, object] = {}
+
+    def fake_from_file(cls: type[ChannelFrame], path: object, **kwargs: object) -> object:
+        captured["path"] = path
+        captured.update(kwargs)
+        return sentinel
+
+    monkeypatch.setattr(ChannelFrame, "from_file", classmethod(fake_from_file))
+
+    result = read(b"time,left\n0.0,1.0\n", source_name="sensor.csv")
+
+    assert result is sentinel
+    assert captured["path"] == b"time,left\n0.0,1.0\n"
+    assert captured["file_type"] == ".csv"
+    assert captured["source_name"] == "sensor.csv"
+
+
+def test_read_infers_unnamed_file_like_type_from_source_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    sentinel = object()
+    captured: dict[str, object] = {}
+
+    def fake_from_file(cls: type[ChannelFrame], path: object, **kwargs: object) -> object:
+        captured["path"] = path
+        captured.update(kwargs)
+        return sentinel
+
+    buffer = io.BytesIO(b"time,left\n0.0,1.0\n")
+    monkeypatch.setattr(ChannelFrame, "from_file", classmethod(fake_from_file))
+
+    result = read(buffer, source_name="sensor.csv")
+
+    assert result is sentinel
+    assert captured["path"] is buffer
+    assert captured["file_type"] == ".csv"
+    assert captured["source_name"] == "sensor.csv"
+
+
+def test_read_keeps_explicit_file_type_over_source_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    sentinel = object()
+    captured: dict[str, object] = {}
+
+    def fake_from_file(cls: type[ChannelFrame], path: object, **kwargs: object) -> object:
+        captured["path"] = path
+        captured.update(kwargs)
+        return sentinel
+
+    monkeypatch.setattr(ChannelFrame, "from_file", classmethod(fake_from_file))
+
+    result = read(b"not real wav", file_type=".wav", source_name="sensor.csv")
+
+    assert result is sentinel
+    assert captured["path"] == b"not real wav"
+    assert captured["file_type"] == ".wav"
+    assert captured["source_name"] == "sensor.csv"
+
+
 def test_read_defaults_unnamed_file_like_source_to_wav(monkeypatch: pytest.MonkeyPatch) -> None:
     sentinel = object()
     captured: dict[str, object] = {}
@@ -118,10 +176,10 @@ def test_read_preserves_explicit_source_name_for_named_stream(monkeypatch: pytes
     monkeypatch.setattr(ChannelFrame, "from_file", staticmethod(fake_from_file))
 
     with path.open("rb") as file_obj:
-        assert read(file_obj, source_name="explicit.csv") is expected
+        assert read(file_obj, source_name="explicit.wav") is expected
 
     assert captured_kwargs["file_type"] == ".csv"
-    assert captured_kwargs["source_name"] == "explicit.csv"
+    assert captured_kwargs["source_name"] == "explicit.wav"
 
 
 def test_read_forwards_non_path_non_memory_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
