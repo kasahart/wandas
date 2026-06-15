@@ -425,9 +425,19 @@ class TestSpectralFrame:
                 metadata=self.frame.metadata,
                 operation_history=self.frame.operation_history,
                 channel_metadata=self.frame._channel_metadata,
+                source_time_offset=self.frame.source_time_offset,
             )
 
             assert result is mock_result
+
+    def test_ifft_preserves_source_time_offset(self) -> None:
+        data = da.from_array(np.arange(32, dtype=float).reshape(1, 32), chunks=(1, -1))
+        frame = ChannelFrame(data, sampling_rate=16.0, source_time_offset=10.0)
+
+        recovered = frame.fft(n_fft=32).ifft()
+
+        assert recovered.source_time_offset == pytest.approx(10.0)
+        assert recovered.source_time[0] == pytest.approx(10.0)
 
     def test_mismatch_sampling_rate_error(self) -> None:
         """Test that operations with mismatched sampling rates raise ValueError"""
