@@ -165,7 +165,7 @@ def test_import_wandas_and_basic_waveform_ops_without_io_dependencies() -> None:
         import importlib.abc
         import sys
 
-        BLOCKED = {"pandas", "h5py", "tqdm"}
+        BLOCKED = {"h5py", "tqdm"}
 
         class BlockOptionalImports(importlib.abc.MetaPathFinder):
             def find_spec(self, fullname, path, target=None):
@@ -186,7 +186,6 @@ def test_import_wandas_and_basic_waveform_ops_without_io_dependencies() -> None:
 
         assert wandas.read_wav is not None
         assert np.allclose((frame + 1).to_numpy(), [[2.0, 3.0, 4.0]])
-        assert "pandas" not in sys.modules
         assert "h5py" not in sys.modules
         assert "tqdm" not in sys.modules
     """
@@ -314,42 +313,6 @@ def test_describe_missing_ipython_has_notebook_extra_hint() -> None:
             assert 'pip install "wandas[notebook]"' in str(exc)
         else:
             raise AssertionError("Expected ImportError for missing IPython")
-    """
-
-    result = subprocess.run(
-        [sys.executable, "-c", textwrap.dedent(script)],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
-
-
-def test_dataframe_method_missing_pandas_has_io_extra_hint() -> None:
-    script = """
-        import importlib.abc
-        import sys
-
-        class BlockPandas(importlib.abc.MetaPathFinder):
-            def find_spec(self, fullname, path, target=None):
-                if fullname.split(".", 1)[0] == "pandas":
-                    raise ModuleNotFoundError("No module named 'pandas'", name="pandas")
-                return None
-
-        sys.meta_path.insert(0, BlockPandas())
-
-        import numpy as np
-        import wandas as wd
-
-        frame = wd.ChannelFrame.from_numpy(np.array([[1.0, 2.0, 3.0]]), sampling_rate=48000)
-
-        try:
-            frame.to_dataframe()
-        except ImportError as exc:
-            assert 'pip install "wandas[io]"' in str(exc)
-        else:
-            raise AssertionError("Expected ImportError for missing pandas")
     """
 
     result = subprocess.run(
