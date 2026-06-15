@@ -1,6 +1,7 @@
 import io
 import logging
 from pathlib import Path
+from typing import Any, cast
 
 import numpy as np
 import pytest
@@ -241,6 +242,19 @@ def test_read_loads_wav_bytes_without_file_type() -> None:
     np.testing.assert_allclose(signal.compute(), data.T, atol=1e-4)
 
 
+def test_read_loads_named_csv_file_like_without_file_type(tmp_path: Path) -> None:
+    path = tmp_path / "sensor.csv"
+    path.write_text("time,left,right\n0.0,1.0,2.0\n0.1,3.0,4.0\n", encoding="utf-8")
+
+    with path.open("rb") as file_obj:
+        signal = wandas.read(file_obj)
+
+    assert isinstance(signal, ChannelFrame)
+    assert signal.sampling_rate == 10
+    assert signal.n_channels == 2
+    assert signal.labels == ["left", "right"]
+
+
 def test_read_loads_csv_like_read_csv(tmp_path: Path) -> None:
     path = tmp_path / "sensor.csv"
     path.write_text("time,left,right\n0.0,1.0,2.0\n0.1,3.0,4.0\n", encoding="utf-8")
@@ -287,6 +301,24 @@ def test_read_accepts_non_path_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
     assert wandas.read(source) is expected
     assert captured["path"] is source
     assert captured_kwargs["file_type"] == ".wav"
+
+
+def test_read_forwards_non_path_non_memory_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
+    expected = object()
+    source = cast(Any, object())
+    captured: dict[str, object] = {}
+    captured_kwargs: dict[str, object] = {}
+
+    def fake_from_file(path: object, **kwargs: object) -> object:
+        captured["path"] = path
+        captured_kwargs.update(kwargs)
+        return expected
+
+    monkeypatch.setattr(ChannelFrame, "from_file", staticmethod(fake_from_file))
+
+    assert wandas.read(source) is expected
+    assert captured["path"] is source
+    assert captured_kwargs["file_type"] is None
 
 
 @pytest.mark.parametrize("scheme", ["https", "HTTPS"])
