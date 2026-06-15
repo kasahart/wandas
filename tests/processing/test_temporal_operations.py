@@ -59,14 +59,30 @@ class TestReSampling:
         assert r.sampling_rate == 16000
         assert r.target_sr == 22050
 
-    def test_resampling_ratio_preserves_small_rate_differences(self) -> None:
-        """Tiny sampling-rate differences must not collapse to a 1:1 ratio."""
-        source_sr = 48000.0
-        target_sr = 48000.0001
-        up, down = _resampling_ratio(source_sr, target_sr)
+    def test_resampling_ratio_is_bounded_for_small_rate_differences(self) -> None:
+        """Tiny sampling-rate corrections must not create huge polyphase factors."""
+        up, down = _resampling_ratio(48000.0, 48000.0001)
 
-        assert (up, down) == (480000001, 480000000)
-        assert up / down == pytest.approx(target_sr / source_sr)
+        assert max(up, down) <= 1_000_000
+
+    def test_resampling_near_identical_rate_uses_exact_output_length(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Bounded polyphase fallback still returns the advertised duration."""
+        data = np.arange(1000, dtype=float).reshape(1, -1)
+        resampler = ReSampling(sampling_rate=1000.0, target_sr=1000.0001)
+
+        def fail_polyphase(*args: object, **kwargs: object) -> None:
+            raise AssertionError("near-identical rates should use exact-length fallback")
+
+        def fake_resample(x: NDArrayReal, num: int, axis: int) -> NDArrayReal:
+            assert num == resampler.calculate_output_shape(data.shape)[-1]
+            return np.zeros((*x.shape[:-1], num), dtype=float)
+
+        monkeypatch.setattr("wandas.processing.temporal.resample_poly", fail_polyphase)
+        monkeypatch.setattr("wandas.processing.temporal.resample", fake_resample)
+
+        result = resampler._process_array(data)
+
+        assert result.shape == resampler.calculate_output_shape(data.shape)
 
     def test_resampling_negative_source_sr_raises(self) -> None:
         """Test negative source sampling rate provides WHAT/WHY/HOW error."""

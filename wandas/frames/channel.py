@@ -46,13 +46,21 @@ def _matplotlib_axes_type(feature: str) -> Any:
     return require_optional_attr("matplotlib.axes", "Axes", extra="viz", feature=feature)
 
 
+class _LazyPyplot:
+    def __getattr__(self, name: str) -> Any:
+        return getattr(_matplotlib_pyplot("describe"), name)
+
+
+plt = _LazyPyplot()
+
+
 def _ipython_display(feature: str) -> tuple[Any, Any]:
     display_module = require_optional_dependency("IPython.display", extra="notebook", feature=feature)
     return display_module.display, display_module.Audio
 
 
 def _is_display_enabled(image_save: str | Path | None, is_close: bool) -> bool:
-    return image_save is None or not is_close
+    return image_save is None and is_close
 
 
 def display(*args: Any, **kwargs: Any) -> Any:
@@ -761,13 +769,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         self._apply_deprecated_describe_kwargs(plot_kwargs)
 
-        plt = _matplotlib_pyplot("describe")
         axes_cls = _matplotlib_axes_type("describe")
         display_enabled = _is_display_enabled(image_save, is_close)
         if display_enabled:
-            notebook_display, notebook_audio = _ipython_display("describe")
-        else:
-            notebook_display = notebook_audio = None
+            _ipython_display("describe")
 
         figures: list[Figure] = []
 
@@ -794,15 +799,15 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 else:
                     fig.savefig(image_save, bbox_inches="tight")
 
-            if fig is not None and notebook_display is not None:
-                notebook_display(fig)
+            if fig is not None and display_enabled:
+                display(fig)
             if is_close and fig is not None:
                 fig.clf()  # Clear the figure to free memory
                 plt.close(fig)
 
             # Play audio for each channel
-            if notebook_display is not None and notebook_audio is not None:
-                notebook_display(notebook_audio(ch.data, rate=ch.sampling_rate, normalize=normalize))
+            if display_enabled:
+                display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))
 
         # Return figures only when is_close=False
         if is_close:

@@ -6,7 +6,7 @@ import dask.array as da
 import numpy as np
 from dask.array.core import Array as DaArray
 from dask.delayed import delayed
-from scipy.signal import lfilter, resample_poly
+from scipy.signal import lfilter, resample, resample_poly
 
 from wandas.processing.base import AudioOperation, register_operation
 from wandas.processing.weighting import A_weight, frequency_weight
@@ -16,6 +16,7 @@ from wandas.utils.util import DB_FLOOR
 
 logger = logging.getLogger(__name__)
 MIN_SOUND_LEVEL_POWER_RATIO = 1e-20
+MAX_RESAMPLING_FACTOR = 1_000_000
 
 
 def _centered_frame_count(n_samples: int, frame_length: int, hop_length: int) -> int:
@@ -39,8 +40,12 @@ def _frame_rms(y: NDArrayReal, frame_length: int, hop_length: int) -> NDArrayRea
     return np.sqrt(np.mean(frames_float**2, axis=-2))
 
 
+def _resampling_fraction(source_sr: float, target_sr: float) -> Fraction:
+    return Fraction(str(target_sr)) / Fraction(str(source_sr))
+
+
 def _resampling_ratio(source_sr: float, target_sr: float) -> tuple[int, int]:
-    ratio = Fraction(str(target_sr)) / Fraction(str(source_sr))
+    ratio = _resampling_fraction(source_sr, target_sr).limit_denominator(MAX_RESAMPLING_FACTOR)
     return ratio.numerator, ratio.denominator
 
 
@@ -110,7 +115,12 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
         """Create processor function for resampling operation"""
         logger.debug(f"Applying resampling to array with shape: {x.shape}")
         up, down = _resampling_ratio(self.sampling_rate, self.target_sr)
-        result: NDArrayReal = resample_poly(x, up, down, axis=-1)
+        target_len = self.calculate_output_shape(x.shape)[-1]
+        poly_len = int(np.ceil(x.shape[-1] * (up / down)))
+        if poly_len == target_len:
+            result: NDArrayReal = resample_poly(x, up, down, axis=-1)
+        else:
+            result = resample(x, target_len, axis=-1)
         logger.debug(f"Resampling applied, returning result with shape: {result.shape}")
         return result
 

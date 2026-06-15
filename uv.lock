@@ -4636,6 +4636,7 @@ dependencies = [
     { name = "dask" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.3.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pandas" },
     { name = "pydantic" },
     { name = "requests" },
     { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -4648,7 +4649,6 @@ dependencies = [
 [package.optional-dependencies]
 io = [
     { name = "h5py" },
-    { name = "pandas" },
 ]
 ml = [
     { name = "tensorflow" },
@@ -4714,7 +4714,7 @@ requires-dist = [
     { name = "matplotlib", marker = "extra == 'viz'", specifier = ">=3.9.0" },
     { name = "mosqito", marker = "extra == 'psychoacoustic'" },
     { name = "numpy", specifier = ">=2.0.2" },
-    { name = "pandas", marker = "extra == 'io'" },
+    { name = "pandas" },
     { name = "pydantic", specifier = ">=2.11.0" },
     { name = "requests", specifier = ">=2.32.3" },
     { name = "scipy", specifier = ">=1.13.0" },

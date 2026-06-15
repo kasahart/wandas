@@ -3,6 +3,7 @@ import sys
 import textwrap
 from pathlib import Path
 
+import numpy as np
 import pytest
 import tomli
 
@@ -17,7 +18,7 @@ def test_runtime_dependencies_are_balanced_core_only() -> None:
     dependencies = set(_pyproject()["project"]["dependencies"])
     names = {dep.split("[", 1)[0].split(">", 1)[0].split("=", 1)[0].split("<", 1)[0] for dep in dependencies}
 
-    assert {"numpy", "scipy", "dask", "pydantic", "soundfile"}.issubset(names)
+    assert {"numpy", "scipy", "dask", "pydantic", "soundfile", "pandas", "xarray"}.issubset(names)
     assert "matplotlib" not in names
     assert "librosa" not in names
     assert "ipykernel" not in names
@@ -25,7 +26,6 @@ def test_runtime_dependencies_are_balanced_core_only() -> None:
     assert "ipympl" not in names
     assert "ipycytoscape" not in names
     assert "japanize-matplotlib" not in names
-    assert "pandas" not in names
     assert "h5py" not in names
     assert "mosqito" not in names
     assert "torch" not in names
@@ -37,7 +37,6 @@ def test_optional_dependency_groups_exist() -> None:
     optional = _pyproject()["project"]["optional-dependencies"]
 
     assert set(optional) >= {"io", "viz", "notebook", "psychoacoustic", "ml"}
-    assert "pandas" in optional["io"]
     assert any(dep.startswith("h5py") for dep in optional["io"])
     assert any(dep.startswith("matplotlib") for dep in optional["viz"])
     assert "librosa" in optional["viz"]
@@ -372,6 +371,39 @@ def test_describe_missing_ipython_has_notebook_extra_hint() -> None:
     assert result.returncode == 0, result.stderr
 
 
+def test_describe_return_figures_without_ipython_does_not_require_notebook_extra() -> None:
+    script = """
+        import importlib.abc
+        import sys
+
+        class BlockIPython(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path, target=None):
+                if fullname.split(".", 1)[0] == "IPython":
+                    raise ModuleNotFoundError("No module named 'IPython'", name="IPython")
+                return None
+
+        sys.meta_path.insert(0, BlockIPython())
+
+        import numpy as np
+        import wandas
+
+        data = np.sin(np.linspace(0, 16, 4096, dtype=float))[None, :]
+        frame = wandas.ChannelFrame.from_numpy(data, sampling_rate=48000)
+
+        figures = frame.describe(is_close=False)
+        assert len(figures) == 1
+    """
+
+    result = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent(script)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
 def test_describe_image_save_without_ipython_does_not_require_notebook_extra() -> None:
     script = """
         import importlib.abc
@@ -452,6 +484,38 @@ def test_remote_csv_missing_pandas_raises_before_download(monkeypatch: pytest.Mo
         ChannelFrame.from_file("https://example.com/data.csv")
 
     assert 'pip install "wandas[io]"' in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    ("method_name", "kwargs", "feature"),
+    [
+        ("loudness_zwtv", {"field_type": "free"}, "loudness_zwtv"),
+        ("roughness_dw", {"overlap": 0.5}, "roughness_dw"),
+        ("sharpness_din", {"weighting": "din", "field_type": "free"}, "sharpness_din"),
+    ],
+)
+def test_lazy_psychoacoustic_missing_mosqito_raises_before_graph_build(
+    monkeypatch: pytest.MonkeyPatch,
+    method_name: str,
+    kwargs: dict[str, object],
+    feature: str,
+) -> None:
+    from wandas.frames.channel import ChannelFrame
+
+    def raise_missing_mosqito(name: str, actual_feature: str) -> None:
+        assert actual_feature == feature
+        raise ImportError(
+            f"{actual_feature} requires optional dependency 'mosqito.sq_metrics'.\n"
+            'Install it with: pip install "wandas[psychoacoustic]"'
+        )
+
+    frame = ChannelFrame.from_numpy(np.zeros((1, 4800), dtype=float), sampling_rate=48000)
+    monkeypatch.setattr("wandas.processing.psychoacoustic._sq_metric", raise_missing_mosqito)
+
+    with pytest.raises(ImportError) as exc_info:
+        getattr(frame, method_name)(**kwargs)
+
+    assert 'pip install "wandas[psychoacoustic]"' in str(exc_info.value)
 
 
 def test_wdf_save_missing_h5py_has_io_extra_hint() -> None:

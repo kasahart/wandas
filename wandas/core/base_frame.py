@@ -1125,6 +1125,9 @@ class BaseFrame(ABC, Generic[T]):
         from wandas.processing import create_operation
 
         operation = create_operation(operation_name, self.sampling_rate, **params)
+        ensure_dependencies = getattr(operation, "ensure_dependencies", None)
+        if ensure_dependencies is not None:
+            ensure_dependencies()
         processed_data = operation.process(self._data)
 
         new_metadata, new_history = self._updated_metadata_and_history(operation_name, params)
@@ -1181,6 +1184,9 @@ class BaseFrame(ABC, Generic[T]):
             Extra constructor keyword arguments required by *output_frame_class*
             (e.g. ``{"n_fft": 1024, "window": "hann"}``).
         """
+        ensure_dependencies = getattr(operation, "ensure_dependencies", None)
+        if ensure_dependencies is not None:
+            ensure_dependencies()
         processed_data = operation.process(self._data)
 
         if operation_name is None:

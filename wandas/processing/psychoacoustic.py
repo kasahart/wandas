@@ -225,6 +225,9 @@ class LoudnessZwtv(_ZwickerTimeVaryingBase):
     def validate_params(self) -> None:
         _validate_field_type(self.field_type)
 
+    def ensure_dependencies(self) -> None:
+        _sq_metric("loudness_zwtv", "loudness_zwtv")
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """
         Process array to calculate loudness.
@@ -460,6 +463,9 @@ class RoughnessDw(_RoughnessBase):
         self.overlap = overlap
         super().__init__(sampling_rate, overlap=overlap)
 
+    def ensure_dependencies(self) -> None:
+        _sq_metric("roughness_dw", "roughness_dw")
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """
         Process array to calculate roughness.
@@ -670,6 +676,9 @@ class SharpnessDin(_ZwickerTimeVaryingBase):
 
     def validate_params(self) -> None:
         _validate_sharpness_params(self.weighting, self.field_type)
+
+    def ensure_dependencies(self) -> None:
+        _sq_metric("sharpness_din_tv", "sharpness_din")
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """
