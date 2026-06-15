@@ -2,15 +2,43 @@ import logging
 from typing import Any
 
 import numpy as np
-from mosqito.sound_level_meter import noct_spectrum, noct_synthesis
-from mosqito.sound_level_meter.noct_spectrum._center_freq import _center_freq
 from scipy.signal import ShortTimeFFT
 from scipy.signal.windows import get_window
 
 from wandas.processing.base import AudioOperation, register_operation
+from wandas.utils.optional_imports import require_optional_dependency
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 logger = logging.getLogger(__name__)
+
+
+def _require_mosqito_sound_level_meter(feature: str) -> Any:
+    return require_optional_dependency(
+        "mosqito.sound_level_meter",
+        extra="psychoacoustic",
+        feature=feature,
+    )
+
+
+def _require_center_freq(feature: str) -> Any:
+    module = require_optional_dependency(
+        "mosqito.sound_level_meter.noct_spectrum._center_freq",
+        extra="psychoacoustic",
+        feature=feature,
+    )
+    return module._center_freq
+
+
+def noct_spectrum(*args: Any, **kwargs: Any) -> Any:
+    return _require_mosqito_sound_level_meter("noct_spectrum").noct_spectrum(*args, **kwargs)
+
+
+def noct_synthesis(*args: Any, **kwargs: Any) -> Any:
+    return _require_mosqito_sound_level_meter("noct_synthesis").noct_synthesis(*args, **kwargs)
+
+
+def _center_freq(*args: Any, **kwargs: Any) -> Any:
+    return _require_center_freq("NOctFrame")(*args, **kwargs)
 
 
 def _validate_spectral_params(

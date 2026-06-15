@@ -1,3 +1,4 @@
+import importlib
 import inspect
 import logging
 from typing import Any, ClassVar, Generic, TypeVar
@@ -188,6 +189,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
 
 # Automatically collect operation types and corresponding classes
 _OPERATION_REGISTRY: dict[str, type[AudioOperation[Any, Any]]] = {}
+_OPERATION_MODULES: dict[str, str] = {}
 
 
 def register_operation(operation_class: type) -> None:
@@ -209,8 +211,15 @@ def register_operation(operation_class: type) -> None:
     _OPERATION_REGISTRY[operation_class.name] = operation_class
 
 
+def register_lazy_operation(name: str, module_name: str) -> None:
+    """Register an operation that can be loaded from *module_name* on demand."""
+    _OPERATION_MODULES[name] = module_name
+
+
 def get_operation(name: str) -> type[AudioOperation[Any, Any]]:
     """Get operation class by name"""
+    if name not in _OPERATION_REGISTRY and name in _OPERATION_MODULES:
+        importlib.import_module(_OPERATION_MODULES[name])
     if name not in _OPERATION_REGISTRY:
         raise ValueError(f"Unknown operation type: {name}")
     return _OPERATION_REGISTRY[name]

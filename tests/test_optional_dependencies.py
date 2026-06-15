@@ -1,3 +1,6 @@
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -121,3 +124,173 @@ def test_require_optional_attr_missing_attribute_error_message() -> None:
     message = str(exc_info.value)
     assert "plot requires 'math' to provide attribute 'definitely_missing_wandas_attr'" in message
     assert 'pip install "wandas[viz]"' in message
+
+
+def test_import_wandas_without_librosa_or_mosqito() -> None:
+    script = """
+        import importlib.abc
+
+        BLOCKED = {"librosa", "mosqito"}
+
+        class BlockOptionalImports(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path, target=None):
+                top_level_name = fullname.split(".", 1)[0]
+                if top_level_name in BLOCKED:
+                    raise ModuleNotFoundError(
+                        f"No module named {top_level_name!r}",
+                        name=top_level_name,
+                    )
+                return None
+
+        import sys
+        sys.meta_path.insert(0, BlockOptionalImports())
+
+        import wandas
+
+        assert wandas.read_wav is not None
+    """
+
+    result = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent(script)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_psychoacoustic_missing_mosqito_has_extra_hint() -> None:
+    script = """
+        import importlib.abc
+
+        class BlockMosqito(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path, target=None):
+                if fullname.split(".", 1)[0] == "mosqito":
+                    raise ModuleNotFoundError("No module named 'mosqito'", name="mosqito")
+                return None
+
+        import sys
+        sys.meta_path.insert(0, BlockMosqito())
+
+        import numpy as np
+        import wandas as wd
+
+        frame = wd.ChannelFrame.from_numpy(np.zeros((1, 4800), dtype=float), sampling_rate=48000)
+
+        try:
+            frame.loudness_zwst()
+        except ImportError as exc:
+            message = str(exc)
+            assert 'pip install "wandas[psychoacoustic]"' in message
+        else:
+            raise AssertionError("Expected ImportError for missing mosqito")
+    """
+
+    result = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent(script)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_processing_lazy_registry_without_mosqito() -> None:
+    script = """
+        import importlib.abc
+        import sys
+
+        class BlockMosqito(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path, target=None):
+                if fullname.split(".", 1)[0] == "mosqito":
+                    raise ModuleNotFoundError("No module named 'mosqito'", name="mosqito")
+                return None
+
+        sys.meta_path.insert(0, BlockMosqito())
+
+        import wandas.processing as processing
+        from wandas.processing import FFT, NOctSpectrum
+
+        assert FFT.__name__ == "FFT"
+        assert NOctSpectrum.__name__ == "NOctSpectrum"
+        assert processing.get_operation("noct_spectrum").__name__ == "NOctSpectrum"
+        assert "mosqito" not in sys.modules
+    """
+
+    result = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent(script)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_noct_missing_mosqito_has_extra_hint() -> None:
+    script = """
+        import importlib.abc
+        import sys
+
+        class BlockMosqito(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path, target=None):
+                if fullname.split(".", 1)[0] == "mosqito":
+                    raise ModuleNotFoundError("No module named 'mosqito'", name="mosqito")
+                return None
+
+        sys.meta_path.insert(0, BlockMosqito())
+
+        from wandas.processing.spectral import NOctSpectrum
+
+        op = NOctSpectrum(48000, fmin=20, fmax=20000)
+        try:
+            op.calculate_output_shape((1, 48000))
+        except ImportError as exc:
+            assert 'pip install "wandas[psychoacoustic]"' in str(exc)
+        else:
+            raise AssertionError("Expected ImportError for missing mosqito")
+    """
+
+    result = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent(script)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_roughness_spec_missing_mosqito_has_extra_hint() -> None:
+    script = """
+        import importlib.abc
+        import sys
+
+        class BlockMosqito(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path, target=None):
+                if fullname.split(".", 1)[0] == "mosqito":
+                    raise ModuleNotFoundError("No module named 'mosqito'", name="mosqito")
+                return None
+
+        sys.meta_path.insert(0, BlockMosqito())
+
+        from wandas.processing.psychoacoustic import RoughnessDwSpec
+
+        try:
+            RoughnessDwSpec(48000)
+        except ImportError as exc:
+            assert 'pip install "wandas[psychoacoustic]"' in str(exc)
+        else:
+            raise AssertionError("Expected ImportError for missing mosqito")
+    """
+
+    result = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent(script)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr

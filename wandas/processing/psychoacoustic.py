@@ -10,16 +10,41 @@ from collections.abc import Callable
 from typing import Any, ClassVar, overload
 
 import numpy as np
-from mosqito.sq_metrics import loudness_zwst as loudness_zwst_mosqito
-from mosqito.sq_metrics import loudness_zwtv as loudness_zwtv_mosqito
-from mosqito.sq_metrics import roughness_dw as roughness_dw_mosqito
-from mosqito.sq_metrics import sharpness_din_st as sharpness_din_st_mosqito
-from mosqito.sq_metrics import sharpness_din_tv as sharpness_din_tv_mosqito
 
 from wandas.processing.base import AudioOperation, get_operation, register_operation
+from wandas.utils.optional_imports import require_optional_dependency
 from wandas.utils.types import NDArrayReal
 
 logger = logging.getLogger(__name__)
+
+
+def _sq_metric(name: str, feature: str) -> Any:
+    module = require_optional_dependency(
+        "mosqito.sq_metrics",
+        extra="psychoacoustic",
+        feature=feature,
+    )
+    return getattr(module, name)
+
+
+def loudness_zwtv_mosqito(*args: Any, **kwargs: Any) -> Any:
+    return _sq_metric("loudness_zwtv", "loudness_zwtv")(*args, **kwargs)
+
+
+def loudness_zwst_mosqito(*args: Any, **kwargs: Any) -> Any:
+    return _sq_metric("loudness_zwst", "loudness_zwst")(*args, **kwargs)
+
+
+def roughness_dw_mosqito(*args: Any, **kwargs: Any) -> Any:
+    return _sq_metric("roughness_dw", "roughness_dw")(*args, **kwargs)
+
+
+def sharpness_din_tv_mosqito(*args: Any, **kwargs: Any) -> Any:
+    return _sq_metric("sharpness_din_tv", "sharpness_din")(*args, **kwargs)
+
+
+def sharpness_din_st_mosqito(*args: Any, **kwargs: Any) -> Any:
+    return _sq_metric("sharpness_din_st", "sharpness_din_st")(*args, **kwargs)
 
 
 @overload
@@ -490,6 +515,8 @@ class RoughnessDwSpec(_RoughnessBase):
             reference_signal = np.zeros(int(sampling_rate * 0.2))  # 200ms minimal signal
             try:
                 _, _, bark_axis_from_mosqito, _ = roughness_dw_mosqito(reference_signal, sampling_rate, overlap=overlap)
+            except ImportError:
+                raise
             except Exception as e:
                 logger.error(f"Failed to retrieve bark_axis from MoSQITo's roughness_dw: {e}")
                 raise RuntimeError(
