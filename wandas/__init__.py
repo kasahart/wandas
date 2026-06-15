@@ -60,6 +60,10 @@ def _is_wdf_request(
     return Path(path_value).suffix.lower() == ".wdf"
 
 
+def _is_in_memory_source(path: object) -> bool:
+    return isinstance(path, (bytes, bytearray, memoryview)) or hasattr(path, "read")
+
+
 def _raise_read_wdf_error(path: object) -> None:
     raise ValueError(
         f"WDF files are loaded with wd.load(), not wd.read()\n  Path: {path}\n  Use: wd.load({str(path)!r})"
@@ -85,7 +89,8 @@ def read(
     Use this for WAV, CSV, supported audio files, URLs, bytes, and file-like
     objects. Use ``wd.load()`` for Wandas native WDF files.
     """
-    if _is_wdf_request(path, file_type):
+    effective_file_type = ".wav" if file_type is None and _is_in_memory_source(path) else file_type
+    if _is_wdf_request(path, effective_file_type):
         _raise_read_wdf_error(path)
     return ChannelFrame.from_file(
         path,
@@ -96,7 +101,7 @@ def read(
         time_column=time_column,
         delimiter=delimiter,
         header=header,
-        file_type=file_type,
+        file_type=effective_file_type,
         source_name=source_name,
         normalize=normalize,
         timeout=timeout,

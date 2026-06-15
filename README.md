@@ -68,10 +68,12 @@ For most workflows, start with the small top-level API:
 多くのワークフローでは、小さな top-level API から始めます。
 
 ```python
+import numpy as np
 import wandas as wd
 
 signal = wd.read("audio.wav")      # WAV, CSV, supported audio, URL, bytes, file-like
 saved = wd.load("analysis.wdf")    # Wandas native WDF
+data = np.zeros((1, 48000), dtype=np.float32)
 array_signal = wd.from_numpy(data, sampling_rate=48000)
 dataset = wd.from_folder("recordings/")
 ```

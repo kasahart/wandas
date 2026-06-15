@@ -1,3 +1,4 @@
+import io
 import logging
 from pathlib import Path
 
@@ -226,6 +227,20 @@ def test_read_loads_wav_like_read_wav(tmp_path: Path) -> None:
     assert signal.label == "test"
 
 
+def test_read_loads_wav_bytes_without_file_type() -> None:
+    sr = 16000
+    data = np.array([[0.0], [0.5], [-0.5]], dtype=np.float32)
+    buffer = io.BytesIO()
+    sf.write(buffer, data, sr, format="WAV")
+
+    signal = wandas.read(buffer.getvalue())
+
+    assert isinstance(signal, ChannelFrame)
+    assert signal.sampling_rate == sr
+    assert signal.n_channels == 1
+    np.testing.assert_allclose(signal.compute(), data.T, atol=1e-4)
+
+
 def test_read_loads_csv_like_read_csv(tmp_path: Path) -> None:
     path = tmp_path / "sensor.csv"
     path.write_text("time,left,right\n0.0,1.0,2.0\n0.1,3.0,4.0\n", encoding="utf-8")
@@ -260,16 +275,18 @@ def test_read_accepts_non_path_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
     expected = object()
     source = b"not a file path"
     captured: dict[str, object] = {}
+    captured_kwargs: dict[str, object] = {}
 
     def fake_from_file(path: object, **kwargs: object) -> object:
         captured["path"] = path
-        captured["kwargs"] = kwargs
+        captured_kwargs.update(kwargs)
         return expected
 
     monkeypatch.setattr(ChannelFrame, "from_file", staticmethod(fake_from_file))
 
     assert wandas.read(source) is expected
     assert captured["path"] is source
+    assert captured_kwargs["file_type"] == ".wav"
 
 
 @pytest.mark.parametrize("scheme", ["https", "HTTPS"])

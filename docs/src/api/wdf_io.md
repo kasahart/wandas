@@ -40,6 +40,8 @@ File structure / ファイル構造:
 ## Usage Examples / 利用例
 
 ```python
+import wandas as wd
+
 # Save a ChannelFrame in WDF format
 # ChannelFrame を WDF形式で保存
 cf = wd.read("audio.wav")

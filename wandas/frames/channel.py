@@ -346,6 +346,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             for each channel.
 
         Examples:
+            >>> import wandas as wd
             >>> cf = wd.read("audio.wav")
             >>> rms_values = cf.rms
             >>> print(f"RMS values: {rms_values}")
@@ -386,6 +387,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             for each channel.  All-zero channels yield 1.0.
 
         Examples:
+            >>> import wandas as wd
             >>> cf = wd.read("audio.wav")
             >>> cf_values = cf.crest_factor
             >>> print(f"Crest factors: {cf_values}")
@@ -416,6 +418,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         Examples
         --------
+        >>> import wandas as wd
         >>> cf = wd.read("audio.wav")
         >>> cf.info()
         Channels: 2
@@ -519,6 +522,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             Single Axes object or iterator of Axes objects.
 
         Examples:
+            >>> import wandas as wd
             >>> cf = wd.read("audio.wav")
             >>> # Basic plot
             >>> cf.plot()
@@ -914,6 +918,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 troubleshooting suggestions.
 
         Examples:
+            >>> import wandas as wd
             >>> # Load WAV file (raw integer samples cast to float32 by default)
             >>> cf = wd.read("audio.wav")
             >>> # Load WAV file normalized to float32 [-1.0, 1.0]
