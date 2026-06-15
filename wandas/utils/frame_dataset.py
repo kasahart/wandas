@@ -11,6 +11,7 @@ from tqdm.auto import tqdm
 
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectrogram import SpectrogramFrame
+from wandas.io.readers import supported_formats
 
 logger = logging.getLogger(__name__)
 
@@ -531,12 +532,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         source_dataset: "FrameDataset[Any] | None" = None,
         transform: Callable[[Any], ChannelFrame | None] | None = None,
     ):
-        _file_extensions = file_extensions or [
-            ".wav",
-            ".mp3",
-            ".flac",
-            ".csv",
-        ]
+        _file_extensions = file_extensions if file_extensions is not None else supported_formats()
 
         super().__init__(
             folder_path=folder_path,
@@ -652,7 +648,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         lazy_loading: bool = True,
     ) -> "ChannelFrameDataset":
         """Class method to create a ChannelFrameDataset from a folder."""
-        extensions = file_extensions if file_extensions is not None else [".wav", ".mp3", ".flac", ".csv"]
+        extensions = file_extensions if file_extensions is not None else supported_formats()
 
         return cls(
             folder_path,

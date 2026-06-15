@@ -69,6 +69,13 @@ def test_no_handler():
     assert len(logger.handlers) == 0
 
 
+def test_supported_formats_public_api() -> None:
+    formats = wandas.supported_formats()
+
+    assert formats == [".aif", ".aiff", ".csv", ".flac", ".ogg", ".snd", ".wav"]
+    assert ".mp3" not in formats
+
+
 def test_existing_handler():
     """すでにハンドラーがある場合、新しいハンドラーは追加されない"""
     # 事前にハンドラーを追加
@@ -110,6 +117,17 @@ def test_from_folder(tmp_path: Path) -> None:
     dataset = wandas.from_folder(str(tmp_path), file_extensions=[".wav"])
     assert isinstance(dataset, ChannelFrameDataset)
     assert len(dataset) == 1
+
+
+def test_from_folder_default_extensions_exclude_mp3(tmp_path: Path) -> None:
+    (tmp_path / "readable.csv").write_text("time,ch1\n0.0,1.0\n", encoding="utf-8")
+    (tmp_path / "ignored.mp3").write_bytes(b"")
+
+    dataset = wandas.from_folder(str(tmp_path))
+
+    names = [lazy_frame.file_path.name for lazy_frame in dataset._lazy_frames]
+    assert names == ["readable.csv"]
+    assert ".mp3" not in dataset.file_extensions
 
 
 def test_from_folder_same_as_class_method(tmp_path: Path) -> None:

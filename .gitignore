@@ -181,6 +181,7 @@ examples/data/dataset/
 
 # Local/agent-specific settings
 .claude/settings.json
+.worktrees/
 
 # Accidental notebooks (keep repo clean)
 learning-path/06_skill_validation.py

@@ -15,6 +15,7 @@ from wandas.io.readers import (
     _prepare_file_source,
     get_file_reader,
     register_file_reader,
+    supported_formats,
 )
 from wandas.utils.types import NDArrayReal
 
@@ -293,6 +294,38 @@ class TestFileReaderHelpers:
 
         assert prepared is stream
 
+    def test_supported_formats_returns_registered_reader_extensions(self) -> None:
+        formats = supported_formats()
+
+        assert formats == [".aif", ".aiff", ".csv", ".flac", ".ogg", ".snd", ".wav"]
+        assert ".mp3" not in formats
+
+    def test_supported_formats_reflects_custom_reader_registration(self) -> None:
+        class CustomFileReader(SoundFileReader):
+            supported_extensions: list[str] = ["custom", ".WAV"]
+
+        original_count = len(_file_readers)
+        try:
+            register_file_reader(CustomFileReader)
+
+            formats = supported_formats()
+
+            assert ".custom" in formats
+            assert formats.count(".wav") == 1
+
+            reader = get_file_reader("test.custom")
+            assert isinstance(reader, CustomFileReader)
+        finally:
+            del _file_readers[original_count:]
+
+    def test_can_read_uses_normalized_supported_extensions(self) -> None:
+        class CustomFileReader(SoundFileReader):
+            supported_extensions: list[str] = ["custom"]
+
+        assert CustomFileReader.can_read("test.custom") is True
+        assert CustomFileReader.can_read("test.wav") is False
+        assert CustomFileReader.can_read("test") is False
+
 
 class TestGetFileReader:
     def test_get_file_reader_wav(self) -> None:
@@ -327,8 +360,11 @@ class TestRegisterFileReader:
             supported_extensions: list[str] = [".custom"]
 
         original_count: int = len(_file_readers)
-        register_file_reader(CustomFileReader)
+        try:
+            register_file_reader(CustomFileReader)
 
-        assert len(_file_readers) == original_count + 1
-        reader = get_file_reader("test.custom")
-        assert isinstance(reader, CustomFileReader)
+            assert len(_file_readers) == original_count + 1
+            reader = get_file_reader("test.custom")
+            assert isinstance(reader, CustomFileReader)
+        finally:
+            del _file_readers[original_count:]
