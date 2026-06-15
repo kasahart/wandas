@@ -129,6 +129,18 @@ class TestRoughnessFrame:
         np.testing.assert_allclose(frame.source_time, frame.time + 7.0)
         assert frame.source_time_offset == pytest.approx(7.0)
 
+    def test_roughness_source_time_range_uses_duration(self) -> None:
+        data = da.from_array(np.ones((1, 47, 5), dtype=float))
+        frame = RoughnessFrame(
+            data,
+            sampling_rate=10.0,
+            bark_axis=np.arange(47, dtype=float) + 0.5,
+            overlap=0.5,
+            source_time_offset=7.0,
+        )
+
+        assert frame.source_time_range == pytest.approx((7.0, 7.5))
+
     def test_roughness_binary_op_preserves_source_time_offset(self) -> None:
         frame = RoughnessFrame(
             data=_DATA_MONO,

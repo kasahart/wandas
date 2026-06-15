@@ -219,6 +219,11 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         return np.arange(self.n_time_points) / self.sampling_rate
 
     @property
+    def duration(self) -> float:
+        """Get the roughness frame duration in seconds."""
+        return self.n_time_points / self.sampling_rate
+
+    @property
     def source_time(self) -> NDArrayReal:
         """Get source-relative time values for each roughness frame."""
         return self.time + self.source_time_offset
