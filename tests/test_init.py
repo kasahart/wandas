@@ -255,6 +255,17 @@ def test_read_rejects_wdf_file_type_with_load_guidance() -> None:
         wandas.read(b"not a real wdf", file_type=".wdf")
 
 
+def test_read_rejects_wdf_url_with_query_using_load_guidance() -> None:
+    url = "https://example.com/analysis.wdf?signature=abc#section"
+
+    with pytest.raises(ValueError, match="wd.load") as exc_info:
+        wandas.read(url)
+
+    message = str(exc_info.value)
+    assert "WDF files are loaded with wd.load(), not wd.read()" in message
+    assert url in message
+
+
 def test_load_reads_wdf(tmp_path: Path) -> None:
     sr = 8000
     source = ChannelFrame.from_numpy(
