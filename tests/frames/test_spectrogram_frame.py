@@ -463,6 +463,9 @@ class TestSpectrogramFrame:
                 self.called = True
                 return processed_data
 
+            def get_metadata_updates(self) -> dict[str, Any]:
+                return {}
+
         mock_op = MockOperation()
 
         # create_operation 関数をモック

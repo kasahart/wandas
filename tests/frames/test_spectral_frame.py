@@ -559,6 +559,7 @@ class TestSpectralFrame:
                 ],
                 channel_metadata=correct_sr_frame._channel_metadata,
                 previous=correct_sr_frame,
+                source_time_offset=correct_sr_frame.source_time_offset,
             )
 
             # 結果の検証
