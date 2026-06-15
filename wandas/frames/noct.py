@@ -157,6 +157,12 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         )
 
     @property
+    def source_time_range(self) -> tuple[float, float]:
+        if self.previous is not None:
+            return self.previous.source_time_range
+        return super().source_time_range
+
+    @property
     def dB(self) -> NDArrayReal:  # noqa: N802
         """
         Get the spectrum in decibels relative to each channel's reference value.

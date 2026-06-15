@@ -135,6 +135,12 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         )
 
     @property
+    def source_time_range(self) -> tuple[float, float]:
+        if self.previous is not None:
+            return self.previous.source_time_range
+        return super().source_time_range
+
+    @property
     def unwrapped_phase(self) -> NDArrayReal:
         """
         Get the unwrapped phase spectrum.

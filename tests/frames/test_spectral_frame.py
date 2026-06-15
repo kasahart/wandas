@@ -89,6 +89,16 @@ class TestSpectralFrame:
         assert frame.source_time_offset == pytest.approx(4.0)
         assert frame.source_time_range == pytest.approx((4.0, 4.0))
 
+    def test_fft_source_time_range_matches_trimmed_previous_frame(self) -> None:
+        data = da.from_array(np.arange(32, dtype=float).reshape(1, 32), chunks=(1, -1))
+        frame = ChannelFrame(data, sampling_rate=16.0, source_time_offset=5.0)
+
+        trimmed = frame.trim(start=0.25, end=0.75)
+        spectrum = trimmed.fft(n_fft=8)
+
+        assert spectrum.previous is trimmed
+        assert spectrum.source_time_range == pytest.approx(trimmed.source_time_range)
+
     def test_reshape_1d_data(self) -> None:
         """Test that 1D data is reshaped to 2D"""
         # Create 1D complex data

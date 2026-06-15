@@ -13,6 +13,7 @@ import wandas as wd
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
+from wandas.frames.spectral import SpectralFrame
 from wandas.utils.dask_helpers import da_from_array
 
 
@@ -122,6 +123,24 @@ def test_apply_operation_instance_sets_source_time_offset_when_output_frame_cons
     assert isinstance(result, OutputFrameWithoutSourceOffset)
     assert result.source_time_offset == 3.0
     assert type(result.source_time_offset) is float
+    assert result.previous is frame
+
+
+def test_public_apply_preserves_source_time_offset_for_output_frame_class() -> None:
+    frame = ChannelFrame(
+        da_from_array(np.arange(8).reshape(1, 8), chunks=(1, -1)),
+        sampling_rate=4.0,
+        source_time_offset=7.0,
+    )
+
+    result = frame.apply(
+        lambda data: data.astype(complex),
+        output_frame_class=SpectralFrame,
+        output_frame_kwargs={"n_fft": 14},
+    )
+
+    assert isinstance(result, SpectralFrame)
+    assert result.source_time_offset == pytest.approx(7.0)
     assert result.previous is frame
 
 

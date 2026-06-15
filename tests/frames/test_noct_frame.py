@@ -8,6 +8,7 @@ import pytest
 from dask.array.core import Array as DaArray
 
 from wandas.core.metadata import ChannelMetadata
+from wandas.frames.channel import ChannelFrame
 from wandas.frames.noct import NOctFrame, _center_freq
 from wandas.utils.types import NDArrayReal
 
@@ -106,6 +107,26 @@ class TestNOctFrame:
 
         assert frame.source_time_offset == pytest.approx(4.0)
         assert frame.source_time_range == pytest.approx((4.0, 4.0))
+
+    def test_noct_frame_source_time_range_delegates_to_previous_frame(self) -> None:
+        previous = ChannelFrame(
+            da.from_array(np.arange(32, dtype=float).reshape(1, 32), chunks=(1, -1)),
+            sampling_rate=16.0,
+            source_time_offset=5.0,
+        ).trim(start=0.25, end=0.75)
+        frame = NOctFrame(
+            da.from_array(np.ones((1, 5), dtype=float), chunks=(1, -1)),
+            sampling_rate=16.0,
+            fmin=100.0,
+            fmax=1000.0,
+            n=3,
+            G=10,
+            fr=1000,
+            previous=previous,
+            source_time_offset=previous.source_time_offset,
+        )
+
+        assert frame.source_time_range == pytest.approx(previous.source_time_range)
 
     def test_reshape_1d_data(self) -> None:
         """Test that 1D data is reshaped to 2D"""
