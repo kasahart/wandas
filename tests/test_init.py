@@ -126,6 +126,12 @@ def test_top_level_all_is_curated_primary_api() -> None:
     ]
 
 
+def test_read_is_exported_from_io_package() -> None:
+    from wandas.io import read
+
+    assert read is wandas.read
+
+
 def test_top_level_frame_classes_are_public() -> None:
     assert wandas.ChannelFrame is ChannelFrame
     assert wandas.SpectralFrame is SpectralFrame
@@ -212,6 +218,46 @@ def test_from_folder_same_as_class_method(tmp_path: Path) -> None:
     assert type(ds1) is type(ds2)
     assert ds1.sampling_rate == ds2.sampling_rate
     assert len(ds1) == len(ds2)
+
+
+def test_read_defaults_in_memory_source_to_wav(monkeypatch: pytest.MonkeyPatch) -> None:
+    sentinel = object()
+    captured: dict[str, object] = {}
+
+    def fake_from_file(cls: type[ChannelFrame], path: object, **kwargs: object) -> object:
+        captured["path"] = path
+        captured.update(kwargs)
+        return sentinel
+
+    monkeypatch.setattr(ChannelFrame, "from_file", classmethod(fake_from_file))
+
+    result = wandas.read(b"not real wav")
+
+    assert result is sentinel
+    assert captured["path"] == b"not real wav"
+    assert captured["file_type"] == ".wav"
+    assert captured["source_name"] is None
+
+
+def test_read_infers_named_file_like_type_and_source_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    sentinel = object()
+    captured: dict[str, object] = {}
+
+    def fake_from_file(cls: type[ChannelFrame], path: object, **kwargs: object) -> object:
+        captured["path"] = path
+        captured.update(kwargs)
+        return sentinel
+
+    buffer = io.BytesIO(b"time,left\n0.0,1.0\n")
+    buffer.name = "folder/source.csv"
+    monkeypatch.setattr(ChannelFrame, "from_file", classmethod(fake_from_file))
+
+    result = wandas.read(buffer)
+
+    assert result is sentinel
+    assert captured["path"] is buffer
+    assert captured["file_type"] == ".csv"
+    assert captured["source_name"] == "folder/source.csv"
 
 
 def test_read_loads_wav_like_read_wav(tmp_path: Path) -> None:

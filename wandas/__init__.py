@@ -1,14 +1,13 @@
 # wandas/__init__.py
 import logging
 from importlib.metadata import version
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, BinaryIO
-from urllib.parse import urlparse
+from typing import TYPE_CHECKING, Any
 
 from .frames.channel import ChannelFrame
 from .frames.noct import NOctFrame
 from .frames.spectral import SpectralFrame
 from .frames.spectrogram import SpectrogramFrame
+from .io.read import read
 from .io.wdf_io import load
 from .utils import generate_sample
 
@@ -41,98 +40,6 @@ def supported_formats() -> list[str]:
     from .io.readers import supported_formats as _supported_formats
 
     return _supported_formats()
-
-
-def _is_wdf_request(
-    path: str | Path | bytes | bytearray | memoryview | BinaryIO,
-    file_type: str | None,
-) -> bool:
-    if file_type is not None:
-        normalized = file_type.lower()
-        if not normalized.startswith("."):
-            normalized = f".{normalized}"
-        return normalized == ".wdf"
-    if not isinstance(path, (str, Path)):
-        return False
-    path_value = str(path)
-    if path_value.lower().startswith(("http://", "https://")):
-        path_value = urlparse(path_value).path
-    return Path(path_value).suffix.lower() == ".wdf"
-
-
-def _is_in_memory_source(path: object) -> bool:
-    return isinstance(path, (bytes, bytearray, memoryview)) or hasattr(path, "read")
-
-
-def _named_in_memory_source(path: object) -> str | None:
-    if not _is_in_memory_source(path):
-        return None
-    source_name = getattr(path, "name", None)
-    if isinstance(source_name, (str, Path)):
-        return str(source_name)
-    return None
-
-
-def _infer_in_memory_file_type(path: object, file_type: str | None) -> str | None:
-    if file_type is not None or not _is_in_memory_source(path):
-        return file_type
-    source_name = _named_in_memory_source(path)
-    if source_name is not None:
-        suffix = Path(source_name).suffix
-        if suffix:
-            return suffix
-    return ".wav"
-
-
-def _infer_in_memory_source_name(path: object, source_name: str | None) -> str | None:
-    if source_name is not None:
-        return source_name
-    return _named_in_memory_source(path)
-
-
-def _raise_read_wdf_error(path: object) -> None:
-    raise ValueError(
-        f"WDF files are loaded with wd.load(), not wd.read()\n  Path: {path}\n  Use: wd.load({str(path)!r})"
-    )
-
-
-def read(
-    path: str | Path | bytes | bytearray | memoryview | BinaryIO,
-    channel: int | list[int] | None = None,
-    start: float | None = None,
-    end: float | None = None,
-    ch_labels: list[str] | None = None,
-    time_column: int | str = 0,
-    delimiter: str = ",",
-    header: int | None = 0,
-    file_type: str | None = None,
-    source_name: str | None = None,
-    normalize: bool = False,
-    timeout: float = 10.0,
-) -> ChannelFrame:
-    """Read external source data into a ChannelFrame.
-
-    Use this for WAV, CSV, supported audio files, URLs, bytes, and file-like
-    objects. Use ``wd.load()`` for Wandas native WDF files.
-    """
-    effective_file_type = _infer_in_memory_file_type(path, file_type)
-    effective_source_name = _infer_in_memory_source_name(path, source_name)
-    if _is_wdf_request(path, effective_file_type):
-        _raise_read_wdf_error(path)
-    return ChannelFrame.from_file(
-        path,
-        channel=channel,
-        start=start,
-        end=end,
-        ch_labels=ch_labels,
-        time_column=time_column,
-        delimiter=delimiter,
-        header=header,
-        file_type=effective_file_type,
-        source_name=effective_source_name,
-        normalize=normalize,
-        timeout=timeout,
-    )
 
 
 def from_folder(
