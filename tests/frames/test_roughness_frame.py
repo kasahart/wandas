@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 
+from wandas.frames.channel import ChannelFrame
 from wandas.frames.roughness import RoughnessFrame
 
 # --- Module-level deterministic roughness test data ---
@@ -127,6 +128,54 @@ class TestRoughnessFrame:
 
         np.testing.assert_allclose(frame.source_time, frame.time + 7.0)
         assert frame.source_time_offset == pytest.approx(7.0)
+
+    def test_roughness_binary_op_preserves_source_time_offset(self) -> None:
+        frame = RoughnessFrame(
+            data=_DATA_MONO,
+            sampling_rate=_SAMPLING_RATE,
+            bark_axis=_BARK_AXIS,
+            overlap=_OVERLAP,
+            source_time_offset=7.0,
+        )
+
+        result = frame + 1.0
+
+        assert result.source_time_offset == pytest.approx(7.0)
+        assert result.source_time[0] == pytest.approx(7.0)
+
+    def test_roughness_dw_spec_preserves_source_time_offset(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        class MockRoughnessSpecOperation:
+            def process(self, data: DaArray) -> DaArray:
+                return da.from_array(np.ones((1, 47, 5), dtype=float), chunks=(1, 47, 5))
+
+            def get_metadata_updates(self) -> dict[str, object]:
+                return {
+                    "sampling_rate": 10.0,
+                    "bark_axis": np.arange(47, dtype=float) + 0.5,
+                }
+
+        def mock_create_operation(
+            operation_name: str, sampling_rate: float, **params: object
+        ) -> MockRoughnessSpecOperation:
+            assert operation_name == "roughness_dw_spec"
+            assert sampling_rate == 48_000.0
+            assert params == {"overlap": 0.5}
+            return MockRoughnessSpecOperation()
+
+        monkeypatch.setattr(
+            "wandas.frames.mixins.channel_processing_mixin.create_operation",
+            mock_create_operation,
+        )
+        source = ChannelFrame(
+            da.from_array(np.ones((1, 480), dtype=float), chunks=(1, -1)),
+            sampling_rate=48_000.0,
+            source_time_offset=3.5,
+        )
+
+        result = source.roughness_dw_spec(overlap=0.5)
+
+        assert result.source_time_offset == pytest.approx(3.5)
+        assert result.source_time[0] == pytest.approx(3.5)
 
     def test_metadata_storage(self) -> None:
         """Test that overlap is stored in metadata."""

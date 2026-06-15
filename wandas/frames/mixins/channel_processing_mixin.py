@@ -917,6 +917,7 @@ class ChannelProcessingMixin:
             operation_history=new_history,
             channel_metadata=self._channel_metadata,
             previous=cast("BaseFrame[NDArrayReal]", self),
+            source_time_offset=cast(Any, self).source_time_offset,
         )
 
         logger.debug(

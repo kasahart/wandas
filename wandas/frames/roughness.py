@@ -347,6 +347,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             operation_history=operation_history,
             channel_metadata=self._channel_metadata,
             previous=self,
+            source_time_offset=self.source_time_offset,
         )
 
     def _apply_operation_impl(self, operation_name: str, **params: Any) -> "RoughnessFrame":
