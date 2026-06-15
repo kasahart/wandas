@@ -3,29 +3,35 @@ import logging
 from importlib.metadata import version
 from typing import TYPE_CHECKING, Any
 
-# Import from frames instead of core
 from .frames.channel import ChannelFrame
+from .frames.noct import NOctFrame
+from .frames.spectral import SpectralFrame
+from .frames.spectrogram import SpectrogramFrame
+from .io.read import read
+from .io.wdf_io import load
 from .utils import generate_sample
 
 if TYPE_CHECKING:
     from .utils.frame_dataset import ChannelFrameDataset
 
 __version__ = version(__package__ or "wandas")
-read_wav = ChannelFrame.read_wav
 
+read_wav = ChannelFrame.read_wav
 read_csv = ChannelFrame.read_csv
 from_numpy = ChannelFrame.from_numpy
 from_ndarray = ChannelFrame.from_ndarray
 
 generate_sin = generate_sample.generate_sin_lazy
 __all__ = [
+    "ChannelFrame",
+    "SpectralFrame",
+    "SpectrogramFrame",
+    "NOctFrame",
     "ChannelFrameDataset",
+    "read",
+    "load",
+    "from_numpy",
     "from_folder",
-    "from_ndarray",
-    "generate_sin",
-    "read_csv",
-    "read_wav",
-    "supported_formats",
 ]
 
 

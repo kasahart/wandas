@@ -25,20 +25,20 @@ import wandas as wd
 ### 2. Load Audio Files / 音声ファイルの読み込み
 
 ```python
-# Load a WAV file / WAVファイルを読み込む
+# Read a signal file / 信号ファイルを読み込む
 url = "https://github.com/kasahart/wandas/raw/v0.1.6/examples/data/summer_streets1.wav"
 
-audio = wd.read_wav(url)
+audio = wd.read(url)
 print(f"Sampling rate / サンプリングレート: {audio.sampling_rate} Hz")
 print(f"Number of channels / チャンネル数: {audio.n_channels}")
 print(f"Duration / 長さ: {audio.duration} s")
 ```
 
 ```python exec="on" session="wd_demo"
-# Load a WAV file / WAVファイルを読み込む
+# Read a signal file / 信号ファイルを読み込む
 url = "https://github.com/kasahart/wandas/raw/v0.1.6/examples/data/summer_streets1.wav"
 
-audio = wd.read_wav(url)
+audio = wd.read(url)
 print(f"Sampling rate / サンプリングレート: {audio.sampling_rate} Hz  ")
 print(f"Number of channels / チャンネル数: {audio.n_channels}  ")
 print(f"Duration / 長さ: {audio.duration} s  ")

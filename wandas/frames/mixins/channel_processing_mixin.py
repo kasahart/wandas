@@ -230,7 +230,7 @@ class ChannelProcessingMixin:
 
         Examples:
             >>> import wandas as wd
-            >>> signal = wd.read_wav("audio.wav")
+            >>> signal = wd.read("audio.wav")
             >>> # Normalize to maximum absolute value of 1.0 (per channel)
             >>> normalized = signal.normalize()
             >>> # Global normalization across all channels
@@ -256,7 +256,7 @@ class ChannelProcessingMixin:
             >>> import wandas as wd
             >>> import numpy as np
             >>> # Create signal with DC offset
-            >>> signal = wd.read_wav("audio.wav")
+            >>> signal = wd.read("audio.wav")
             >>> signal_with_dc = signal + 2.0  # Add DC offset
             >>> # Remove DC offset
             >>> signal_clean = signal_with_dc.remove_dc()
@@ -645,7 +645,7 @@ class ChannelProcessingMixin:
         Examples:
             Calculate loudness for a signal:
             >>> import wandas as wd
-            >>> signal = wd.read_wav("audio.wav")
+            >>> signal = wd.read("audio.wav")
             >>> loudness = signal.loudness_zwtv(field_type="free")
             >>> loudness.plot(title="Time-varying Loudness")
 
@@ -708,7 +708,7 @@ class ChannelProcessingMixin:
         Examples:
             Calculate steady-state loudness for a fan noise:
             >>> import wandas as wd
-            >>> signal = wd.read_wav("fan_noise.wav")
+            >>> signal = wd.read("fan_noise.wav")
             >>> loudness = signal.loudness_zwst(field_type="free")
             >>> print(f"Channel 0 loudness: {loudness[0]:.2f} sones")
             >>> print(f"Mean loudness: {loudness.mean():.2f} sones")
@@ -763,7 +763,7 @@ class ChannelProcessingMixin:
         Examples:
             Calculate roughness for a motor noise:
             >>> import wandas as wd
-            >>> signal = wd.read_wav("motor_noise.wav")
+            >>> signal = wd.read("motor_noise.wav")
             >>> roughness = signal.roughness_dw(overlap=0.5)
             >>> roughness.plot(ylabel="Roughness [asper]")
 
@@ -774,8 +774,8 @@ class ChannelProcessingMixin:
             >>> print(f"Max: {max_roughness:.2f} asper")
 
             Compare before and after modification:
-            >>> before = wd.read_wav("motor_before.wav").roughness_dw()
-            >>> after = wd.read_wav("motor_after.wav").roughness_dw()
+            >>> before = wd.read("motor_before.wav").roughness_dw()
+            >>> after = wd.read("motor_after.wav").roughness_dw()
             >>> improvement = before.data.mean() - after.data.mean()
             >>> print(f"Roughness reduction: {improvement:.2f} asper")
 
@@ -841,7 +841,7 @@ class ChannelProcessingMixin:
             Analyze frequency-specific roughness:
             >>> import wandas as wd
             >>> import numpy as np
-            >>> signal = wd.read_wav("motor.wav")
+            >>> signal = wd.read("motor.wav")
             >>> roughness_spec = signal.roughness_dw_spec(overlap=0.5)
             >>>
             >>> # Plot Bark-Time heatmap
@@ -946,7 +946,7 @@ class ChannelProcessingMixin:
 
         Examples:
             >>> import wandas as wd
-            >>> signal = wd.read_wav("audio.wav")
+            >>> signal = wd.read("audio.wav")
             >>> # Apply 10ms fade-in and fade-out
             >>> faded = signal.fade(fade_ms=10.0)
             >>> # Apply very short fade (almost no effect)
@@ -1003,7 +1003,7 @@ class ChannelProcessingMixin:
         Examples
         --------
         >>> import wandas as wd
-        >>> signal = wd.read_wav("sharp_sound.wav")
+        >>> signal = wd.read("sharp_sound.wav")
         >>> sharpness = signal.sharpness_din(weighting="din", field_type="free")
         >>> print(f"Mean sharpness: {sharpness.data.mean():.2f} acum")
 
@@ -1069,7 +1069,7 @@ class ChannelProcessingMixin:
         Examples
         --------
         >>> import wandas as wd
-        >>> signal = wd.read_wav("constant_tone.wav")
+        >>> signal = wd.read("constant_tone.wav")
         >>> sharpness = signal.sharpness_din_st(weighting="din", field_type="free")
         >>> print(f"Steady-state sharpness: {sharpness[0]:.2f} acum")
 

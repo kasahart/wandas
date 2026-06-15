@@ -953,7 +953,7 @@ class BaseFrame(ABC, Generic[T]):
         Examples
         --------
         >>> import wandas as wd
-        >>> signal = wd.read_wav("audio.wav")
+        >>> signal = wd.read("audio.wav")
         >>> processed = signal.normalize().low_pass_filter(cutoff=1000)
         >>> # In Jupyter: displays graph inline
         >>> processed.visualize_graph()
@@ -1336,7 +1336,7 @@ class BaseFrame(ABC, Generic[T]):
 
         Examples
         --------
-        >>> cf = ChannelFrame.read_wav("audio.wav")
+        >>> cf = wd.read("audio.wav")
         >>> data = cf.to_numpy()
         >>> print(f"Shape: {data.shape}")  # (n_channels, n_samples)
         """
@@ -1460,7 +1460,7 @@ class BaseFrame(ABC, Generic[T]):
 
         Examples
         --------
-        >>> cf = ChannelFrame.read_wav("audio.wav")
+        >>> cf = wd.read("audio.wav")
         >>> df = cf.to_dataframe()
         >>> print(df.head())
         """

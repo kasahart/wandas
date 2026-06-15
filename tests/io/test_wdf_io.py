@@ -423,7 +423,8 @@ def test_load_wdf_rejects_non_object_metadata_json(tmp_path: Path) -> None:
         ChannelFrame.load(path)
 
 
-def test_load_wdf_from_url(tmp_path: Path) -> None:
+@pytest.mark.parametrize("scheme", ["https", "HTTPS"])
+def test_load_wdf_from_url(tmp_path: Path, scheme: str) -> None:
     """Test WDF load from mocked URL preserves data and metadata (Pillar 2, 4).
 
     Verifies urlopen is called, numerical data matches (rtol=1e-5 for float32),
@@ -437,7 +438,7 @@ def test_load_wdf_from_url(tmp_path: Path) -> None:
     cf.save(wdf_path)
     wdf_bytes = wdf_path.read_bytes()
 
-    url = "https://example.com/data/test_url.wdf"
+    url = f"{scheme}://example.com/data/test_url.wdf"
     with _mock_urlopen(wdf_bytes) as mock_fn:
         cf2 = wdf_io.load(url)
 

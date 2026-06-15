@@ -75,7 +75,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
     Create a roughness frame from a signal:
 
     >>> import wandas as wd
-    >>> signal = wd.read_wav("motor.wav")
+    >>> signal = wd.read("motor.wav")
     >>> roughness_spec = signal.roughness_dw_spec(overlap=0.5)
     >>>
     >>> # Plot Bark-Time heatmap
@@ -389,7 +389,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         Examples
         --------
         >>> import wandas as wd
-        >>> signal = wd.read_wav("motor.wav")
+        >>> signal = wd.read("motor.wav")
         >>> roughness_spec = signal.roughness_dw_spec(overlap=0.5)
         >>> roughness_spec.plot(cmap="hot", title="Motor Roughness Analysis")
         """
