@@ -111,6 +111,7 @@ class ChannelTransformMixin:
             ],
             channel_metadata=channel_metadata,
             previous=self._as_base_frame,
+            source_time_offset=self._as_base_frame.source_time_offset,
         )
 
     def fft(self: TransformFrameProtocol, n_fft: int | None = None, window: str = "hann") -> "SpectralFrame":
@@ -158,6 +159,7 @@ class ChannelTransformMixin:
             ],
             channel_metadata=self._channel_metadata,
             previous=self._as_base_frame,
+            source_time_offset=self._as_base_frame.source_time_offset,
         )
 
     def welch(
@@ -215,6 +217,7 @@ class ChannelTransformMixin:
             ],
             channel_metadata=self._channel_metadata,
             previous=self._as_base_frame,
+            source_time_offset=self._as_base_frame.source_time_offset,
         )
 
     def noct_spectrum(
@@ -272,6 +275,7 @@ class ChannelTransformMixin:
             ],
             channel_metadata=self._channel_metadata,
             previous=self._as_base_frame,
+            source_time_offset=self._as_base_frame.source_time_offset,
         )
 
     def stft(

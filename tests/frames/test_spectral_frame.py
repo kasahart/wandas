@@ -82,6 +82,13 @@ class TestSpectralFrame:
         assert self.frame.label == "test_frame"
         assert self.frame.metadata == {"test": "metadata"}
 
+    def test_spectral_frame_accepts_source_time_offset(self) -> None:
+        data = da.from_array(np.ones((1, 9), dtype=complex))
+        frame = SpectralFrame(data, sampling_rate=32.0, n_fft=16, source_time_offset=4.0)
+
+        assert frame.source_time_offset == pytest.approx(4.0)
+        assert frame.source_time_range == pytest.approx((4.0, 4.0))
+
     def test_reshape_1d_data(self) -> None:
         """Test that 1D data is reshaped to 2D"""
         # Create 1D complex data

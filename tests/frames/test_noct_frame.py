@@ -91,6 +91,22 @@ class TestNOctFrame:
         assert self.frame.label == "test_frame"
         assert self.frame.metadata == {"test": "metadata"}
 
+    def test_noct_frame_accepts_source_time_offset(self) -> None:
+        data = da.from_array(np.ones((1, 5), dtype=float))
+        frame = NOctFrame(
+            data,
+            sampling_rate=48_000.0,
+            fmin=100.0,
+            fmax=1000.0,
+            n=3,
+            G=10,
+            fr=1000,
+            source_time_offset=4.0,
+        )
+
+        assert frame.source_time_offset == pytest.approx(4.0)
+        assert frame.source_time_range == pytest.approx((4.0, 4.0))
+
     def test_reshape_1d_data(self) -> None:
         """Test that 1D data is reshaped to 2D"""
         # Create 1D real data

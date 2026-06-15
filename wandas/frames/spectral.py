@@ -115,6 +115,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
         previous: BaseFrame[Any] | None = None,
+        source_time_offset: float = 0.0,
     ) -> None:
         if data.ndim == 1:
             data = data.reshape(1, -1)
@@ -130,6 +131,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             operation_history=operation_history,
             channel_metadata=channel_metadata,
             previous=previous,
+            source_time_offset=source_time_offset,
         )
 
     @property
@@ -386,6 +388,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             ],
             channel_metadata=self._channel_metadata,
             previous=self,
+            source_time_offset=self.source_time_offset,
         )
 
     def plot_matrix(

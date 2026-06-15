@@ -114,6 +114,20 @@ class TestRoughnessFrame:
         assert time[0] == 0.0
         assert time[-1] == pytest.approx((_N_TIME - 1) / _SAMPLING_RATE)
 
+    def test_roughness_source_time_adds_offset(self) -> None:
+        data = da.from_array(np.ones((1, 47, 5), dtype=float))
+        bark_axis = np.arange(47, dtype=float) + 0.5
+        frame = RoughnessFrame(
+            data,
+            sampling_rate=10.0,
+            bark_axis=bark_axis,
+            overlap=0.5,
+            source_time_offset=7.0,
+        )
+
+        np.testing.assert_allclose(frame.source_time, frame.time + 7.0)
+        assert frame.source_time_offset == pytest.approx(7.0)
+
     def test_metadata_storage(self) -> None:
         """Test that overlap is stored in metadata."""
         frame = RoughnessFrame(
