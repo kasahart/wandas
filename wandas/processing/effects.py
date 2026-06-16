@@ -1,8 +1,10 @@
 import logging
 from typing import Any
 
+import dask.array as da
 import numpy as np
 from dask.array.core import Array as DaArray
+from dask.delayed import delayed
 from scipy.signal import windows as sp_windows
 
 from wandas.processing.base import AudioOperation, register_operation
@@ -92,6 +94,12 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
     name = "normalize"
     _display = "norm"
 
+    @staticmethod
+    def _output_dtype(input_dtype: np.dtype[Any], norm: float | None) -> np.dtype[Any]:
+        if norm is None or np.dtype(input_dtype).kind == "f":
+            return np.dtype(input_dtype)
+        return np.dtype(np.float64)
+
     def __init__(
         self,
         sampling_rate: float,
@@ -180,6 +188,14 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
 
         logger.debug(f"Normalization applied, returning result with shape: {result.shape}")
         return result
+
+    def process(self, data: DaArray) -> DaArray:
+        """Execute normalization with accurate floating output dtype metadata."""
+        logger.debug("Adding delayed normalize operation to computation graph")
+        wrapper = self._create_named_wrapper()
+        delayed_result = delayed(wrapper, pure=self.pure)(data)
+        output_shape = self.calculate_output_shape(data.shape)
+        return da.from_delayed(delayed_result, shape=output_shape, dtype=self._output_dtype(data.dtype, self.norm))
 
 
 class RemoveDC(AudioOperation[NDArrayReal, NDArrayReal]):

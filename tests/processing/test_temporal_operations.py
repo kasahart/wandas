@@ -148,6 +148,19 @@ class TestReSampling:
         assert result.shape == resampler.calculate_output_shape(data.shape)
         assert result.shape == (1, 3)
 
+    def test_resampling_standard_44100_to_48000_exact_length(self) -> None:
+        """Standard 44.1 kHz to 48 kHz conversion advertises the exact polyphase length."""
+        data = np.arange(44100, dtype=float).reshape(1, -1)
+        dask_input = da_from_array(data, chunks=(1, -1))
+        resampler = ReSampling(sampling_rate=44100, target_sr=48000)
+
+        result_da = resampler.process(dask_input)
+        result = result_da.compute()
+
+        assert resampler.calculate_output_shape(data.shape) == (1, 48000)
+        assert result_da.shape == (1, 48000)
+        assert result.shape == (1, 48000)
+
     def test_resampling_upsample_shape_mono(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
         """Upsample 16 kHz -> 32 kHz doubles sample count."""
         dask_input, sr = pure_sine_440hz_dask

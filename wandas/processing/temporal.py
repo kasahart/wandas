@@ -44,6 +44,10 @@ def _resampling_fraction(source_sr: float, target_sr: float) -> Fraction:
     return Fraction(str(target_sr)) / Fraction(str(source_sr))
 
 
+def _ceil_resampled_length(n_samples: int, ratio: Fraction) -> int:
+    return (n_samples * ratio.numerator + ratio.denominator - 1) // ratio.denominator
+
+
 def _resampling_ratio(source_sr: float, target_sr: float) -> tuple[int, int]:
     ratio = _resampling_fraction(source_sr, target_sr).limit_denominator(MAX_RESAMPLING_FACTOR)
     return ratio.numerator, ratio.denominator
@@ -106,9 +110,9 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
         tuple
             Output data shape
         """
-        # Calculate length after resampling
-        ratio = float(self.target_sr) / float(self.sampling_rate)
-        n_samples = int(np.ceil(input_shape[-1] * ratio))
+        # Calculate length after resampling using exact decimal sampling-rate ratio.
+        ratio = _resampling_fraction(self.sampling_rate, self.target_sr)
+        n_samples = _ceil_resampled_length(input_shape[-1], ratio)
         return (*input_shape[:-1], n_samples)
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
@@ -116,7 +120,7 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
         logger.debug(f"Applying resampling to array with shape: {x.shape}")
         up, down = _resampling_ratio(self.sampling_rate, self.target_sr)
         target_len = self.calculate_output_shape(x.shape)[-1]
-        poly_len = int(np.ceil(x.shape[-1] * (up / down)))
+        poly_len = _ceil_resampled_length(x.shape[-1], Fraction(up, down))
         if poly_len == target_len:
             result: NDArrayReal = resample_poly(x, up, down, axis=-1)
         else:

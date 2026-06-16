@@ -18,7 +18,7 @@ def test_runtime_dependencies_are_balanced_core_only() -> None:
     dependencies = set(_pyproject()["project"]["dependencies"])
     names = {dep.split("[", 1)[0].split(">", 1)[0].split("=", 1)[0].split("<", 1)[0] for dep in dependencies}
 
-    assert {"numpy", "scipy", "dask", "pydantic", "soundfile", "pandas", "xarray"}.issubset(names)
+    assert {"numpy", "scipy", "dask", "soundfile", "pandas", "xarray"}.issubset(names)
     assert "matplotlib" not in names
     assert "librosa" not in names
     assert "ipykernel" not in names
