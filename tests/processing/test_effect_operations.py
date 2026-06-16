@@ -412,6 +412,19 @@ class TestNormalize:
             rtol=1e-10,  # float64 precision
         )
 
+    def test_normalize_integer_l2_norm_avoids_overflow(self) -> None:
+        sig = np.array([[30000, -30000, 0, 0]], dtype=np.int16)
+        dask_sig = da_from_array(sig, chunks=(1, -1))
+        normalize = Normalize(_SR, norm=2, axis=-1)
+
+        result_da = normalize.process(dask_sig)
+        result = result_da.compute()
+
+        assert result_da.dtype == np.float64
+        assert result.dtype == np.float64
+        np.testing.assert_allclose(np.sqrt(np.sum(result**2, axis=-1)), 1.0, rtol=1e-12)
+        assert np.all(np.isfinite(result))
+
     def test_normalize_multichannel_independent_inf_norm(self) -> None:
         """Each channel independently normalized: max|ch_i| == 1.0."""
         t = np.linspace(0, 1, _SR, endpoint=False)

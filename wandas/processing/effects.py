@@ -35,7 +35,8 @@ def _normalize_array(
     elif norm == 0:
         length = np.sum(x != 0, axis=axis, keepdims=True).astype(float)
     else:
-        length = np.sum(np.abs(x) ** norm, axis=axis, keepdims=True) ** (1.0 / norm)
+        magnitude = np.abs(x).astype(float, copy=False)
+        length = np.sum(magnitude**norm, axis=axis, keepdims=True) ** (1.0 / norm)
 
     small = length < threshold
     safe_length = np.where(small, 1.0, length)
