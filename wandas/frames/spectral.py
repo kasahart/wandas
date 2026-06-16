@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 def _pandas(feature: str) -> Any:
-    return require_optional_dependency("pandas", extra="io", feature=feature)
+    return require_optional_dependency("pandas", extra="core", feature=feature)
 
 
 class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):

@@ -35,7 +35,7 @@ S = TypeVar("S", bound="BaseFrame[Any]")
 
 
 def _pandas(feature: str) -> Any:
-    return require_optional_dependency("pandas", extra="io", feature=feature)
+    return require_optional_dependency("pandas", extra="core", feature=feature)
 
 
 def _matplotlib_pyplot(feature: str) -> Any:

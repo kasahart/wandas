@@ -473,7 +473,7 @@ def test_remote_csv_missing_pandas_raises_before_download(monkeypatch: pytest.Mo
     def raise_missing_pandas(feature: str) -> None:
         assert feature == "CSV file reading"
         raise ImportError(
-            "CSV file reading requires optional dependency 'pandas'.\nInstall it with: pip install \"wandas[io]\""
+            "CSV file reading requires core dependency 'pandas'.\nInstall it with: pip install \"wandas\""
         )
 
     def fail_download(*args: object, **kwargs: object) -> None:
@@ -485,7 +485,7 @@ def test_remote_csv_missing_pandas_raises_before_download(monkeypatch: pytest.Mo
     with pytest.raises(ImportError) as exc_info:
         ChannelFrame.from_file("https://example.com/data.csv")
 
-    assert 'pip install "wandas[io]"' in str(exc_info.value)
+    assert 'pip install "wandas"' in str(exc_info.value)
 
 
 @pytest.mark.parametrize(

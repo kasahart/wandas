@@ -215,10 +215,16 @@ def test_to_tensor_torch_not_installed_raises_import_error(monkeypatch):
     """Test to_tensor raises ImportError when torch is not installed."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
-    import importlib.util as iu
 
-    monkeypatch.setattr(iu, "find_spec", lambda name: None)
-    with pytest.raises(ImportError, match=r"PyTorch is not installed"):
+    def raise_missing_torch(module_name, *, extra, feature):
+        assert module_name == "torch"
+        assert extra == "ml"
+        raise ImportError(
+            f'{feature} requires optional dependency {module_name!r}.\nInstall it with: pip install "wandas[{extra}]"'
+        )
+
+    monkeypatch.setattr("wandas.core.base_frame.require_optional_dependency", raise_missing_torch)
+    with pytest.raises(ImportError, match=r'pip install "wandas\[ml\]"'):
         f.to_tensor(framework="torch")
 
 
@@ -226,10 +232,16 @@ def test_to_tensor_tensorflow_not_installed_raises_import_error(monkeypatch):
     """Test to_tensor raises ImportError when tensorflow is not installed."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
-    import importlib.util as iu
 
-    monkeypatch.setattr(iu, "find_spec", lambda name: None)
-    with pytest.raises(ImportError, match=r"TensorFlow is not installed"):
+    def raise_missing_tensorflow(module_name, *, extra, feature):
+        assert module_name == "tensorflow"
+        assert extra == "ml"
+        raise ImportError(
+            f'{feature} requires optional dependency {module_name!r}.\nInstall it with: pip install "wandas[{extra}]"'
+        )
+
+    monkeypatch.setattr("wandas.core.base_frame.require_optional_dependency", raise_missing_tensorflow)
+    with pytest.raises(ImportError, match=r'pip install "wandas\[ml\]"'):
         f.to_tensor(framework="tensorflow")
 
 
@@ -434,7 +446,6 @@ def test_to_tensor_torch_and_tensorflow_fake_modules_succeed(monkeypatch):
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
 
-    import importlib.util as iu
     import sys
 
     # Fake torch (module-like)
@@ -484,7 +495,6 @@ def test_to_tensor_torch_and_tensorflow_fake_modules_succeed(monkeypatch):
         def from_numpy(x):
             return FakeTorchTensor(x)
 
-    monkeypatch.setattr(iu, "find_spec", lambda name: object())
     monkeypatch.setitem(sys.modules, "torch", FakeTorchModule())
 
     t = f.to_tensor(framework="torch", device="cpu")
@@ -853,10 +863,8 @@ def test_tensorflow_tensor_conversion_without_device(monkeypatch):
         def convert_to_tensor(value):
             return {"tensor": value}
 
-    import importlib.util as iu
     import sys
 
-    monkeypatch.setattr(iu, "find_spec", lambda name: object() if name == "tensorflow" else None)
     monkeypatch.setitem(sys.modules, "tensorflow", FakeTf)
 
     tensor = f.to_tensor(framework="tensorflow")

@@ -42,7 +42,7 @@ QueryType = str | Pattern[str] | Callable[["ChannelMetadata"], bool] | dict[str,
 
 
 def _pandas(feature: str) -> Any:
-    return require_optional_dependency("pandas", extra="io", feature=feature)
+    return require_optional_dependency("pandas", extra="core", feature=feature)
 
 
 class BaseFrame(ABC, Generic[T]):
@@ -1385,67 +1385,35 @@ class BaseFrame(ABC, Generic[T]):
         >>> tensor = frame.to_tensor(framework="tensorflow", device="/GPU:0")
         """
 
-        # Compute the Dask array to NumPy array
-        numpy_data = self.to_numpy()
-
         if framework == "torch":
-            try:
-                import importlib
-                import importlib.util
+            torch = require_optional_dependency("torch", extra="ml", feature="tensor conversion with framework='torch'")
+            numpy_data = self.to_numpy()
 
-                if importlib.util.find_spec("torch") is None:
-                    raise ImportError(
-                        "PyTorch is not installed\n"
-                        "  Required for: tensor conversion with framework='torch'\n"
-                        "  Install with: pip install torch"
-                    )
-                torch = importlib.import_module("torch")
+            # Convert NumPy array to PyTorch tensor
+            tensor = torch.from_numpy(numpy_data)
 
-                # Convert NumPy array to PyTorch tensor
-                tensor = torch.from_numpy(numpy_data)
+            # Move to specified device if provided
+            if device is not None:
+                tensor = tensor.to(device)
 
-                # Move to specified device if provided
-                if device is not None:
-                    tensor = tensor.to(device)
-
-                return tensor
-
-            except ImportError as e:
-                raise ImportError(
-                    "PyTorch is not installed\n"
-                    "  Required for: tensor conversion with framework='torch'\n"
-                    "  Install with: pip install torch"
-                ) from e
+            return tensor
 
         elif framework == "tensorflow":
-            try:
-                import importlib
-                import importlib.util
+            tf = require_optional_dependency(
+                "tensorflow",
+                extra="ml",
+                feature="tensor conversion with framework='tensorflow'",
+            )
+            numpy_data = self.to_numpy()
 
-                if importlib.util.find_spec("tensorflow") is None:
-                    raise ImportError(
-                        "TensorFlow is not installed\n"
-                        "  Required for: tensor conversion with\n"
-                        "  framework='tensorflow'\n"
-                        "  Install with: pip install tensorflow"
-                    )
-                tf = importlib.import_module("tensorflow")
-
-                # Convert NumPy array to TensorFlow tensor
-                if device is not None:
-                    with tf.device(device):
-                        tensor = tf.convert_to_tensor(numpy_data)
-                else:
+            # Convert NumPy array to TensorFlow tensor
+            if device is not None:
+                with tf.device(device):
                     tensor = tf.convert_to_tensor(numpy_data)
+            else:
+                tensor = tf.convert_to_tensor(numpy_data)
 
-                return tensor
-
-            except ImportError as e:
-                raise ImportError(
-                    "TensorFlow is not installed\n"
-                    "  Required for: tensor conversion with framework='tensorflow'\n"
-                    "  Install with: pip install tensorflow"
-                ) from e
+            return tensor
 
         else:
             raise ValueError(

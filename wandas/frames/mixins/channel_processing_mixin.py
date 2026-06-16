@@ -204,7 +204,7 @@ class ChannelProcessingMixin:
         threshold: float | None = None,
         fill: bool | None = None,
     ) -> T_Processing:
-        """Normalize signal levels using librosa.util.normalize.
+        """Normalize signal levels using NumPy-based normalization.
 
         This method normalizes the signal amplitude according to the specified norm.
 

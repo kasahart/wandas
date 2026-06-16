@@ -67,32 +67,21 @@ class TestToTensorPyTorch:
         assert tensor.device.index == 0
         assert tensor.shape == self.data.shape
 
-    def test_to_tensor_pytorch_missing_raises_import_error(self) -> None:
+    def test_to_tensor_pytorch_missing_raises_import_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test to_tensor() raises ImportError when PyTorch is not installed."""
-        import importlib.machinery
-        import importlib.util
-        import sys
 
-        # Mock that torch is not available
-        original_find_spec = importlib.util.find_spec
+        def raise_missing_torch(module_name: str, *, extra: str, feature: str) -> None:
+            assert module_name == "torch"
+            assert extra == "ml"
+            assert feature == "tensor conversion with framework='torch'"
+            raise ImportError(
+                f"{feature} requires optional dependency {module_name!r}.\n"
+                f'Install it with: pip install "wandas[{extra}]"'
+            )
 
-        def mock_find_spec(name: str) -> importlib.machinery.ModuleSpec | None:
-            if name == "torch":
-                return None
-            return original_find_spec(name)
-
-        # Save original torch import
-        torch_module = sys.modules.pop("torch", None)
-
-        try:
-            importlib.util.find_spec = mock_find_spec  # ty: ignore[invalid-assignment]
-            with pytest.raises(ImportError, match="(?s)PyTorch is not installed.*pip install torch"):
-                self.channel_frame.to_tensor(framework="torch")
-        finally:
-            # Restore
-            importlib.util.find_spec = original_find_spec
-            if torch_module is not None:
-                sys.modules["torch"] = torch_module
+        monkeypatch.setattr("wandas.core.base_frame.require_optional_dependency", raise_missing_torch)
+        with pytest.raises(ImportError, match=r'(?s)torch.*pip install "wandas\[ml\]"'):
+            self.channel_frame.to_tensor(framework="torch")
 
 
 class TestToTensorTensorFlow:
@@ -140,35 +129,21 @@ class TestToTensorTensorFlow:
         assert tensor.shape == self.data.shape
         np.testing.assert_allclose(tensor.numpy(), self.data, rtol=1e-6)  # float32 precision tolerance
 
-    def test_to_tensor_tensorflow_missing_raises_import_error(self) -> None:
+    def test_to_tensor_tensorflow_missing_raises_import_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test to_tensor() raises ImportError when TensorFlow is not installed."""
-        import importlib.machinery
-        import importlib.util
-        import sys
 
-        # Mock that tensorflow is not available
-        original_find_spec = importlib.util.find_spec
+        def raise_missing_tensorflow(module_name: str, *, extra: str, feature: str) -> None:
+            assert module_name == "tensorflow"
+            assert extra == "ml"
+            assert feature == "tensor conversion with framework='tensorflow'"
+            raise ImportError(
+                f"{feature} requires optional dependency {module_name!r}.\n"
+                f'Install it with: pip install "wandas[{extra}]"'
+            )
 
-        def mock_find_spec(name: str) -> importlib.machinery.ModuleSpec | None:
-            if name == "tensorflow":
-                return None
-            return original_find_spec(name)
-
-        # Save original tensorflow import
-        tf_module = sys.modules.pop("tensorflow", None)
-
-        try:
-            importlib.util.find_spec = mock_find_spec  # ty: ignore[invalid-assignment]
-            with pytest.raises(
-                ImportError,
-                match="(?s)TensorFlow is not installed.*pip install tensorflow",
-            ):
-                self.channel_frame.to_tensor(framework="tensorflow")
-        finally:
-            # Restore
-            importlib.util.find_spec = original_find_spec
-            if tf_module is not None:
-                sys.modules["tensorflow"] = tf_module
+        monkeypatch.setattr("wandas.core.base_frame.require_optional_dependency", raise_missing_tensorflow)
+        with pytest.raises(ImportError, match=r'(?s)tensorflow.*pip install "wandas\[ml\]"'):
+            self.channel_frame.to_tensor(framework="tensorflow")
 
 
 class TestToTensorErrorHandling:
