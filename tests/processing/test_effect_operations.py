@@ -363,6 +363,18 @@ class TestNormalize:
         assert result.dtype == np.float64
         np.testing.assert_allclose(result, np.array([[-1.0, 0.0, 0.5]], dtype=np.float64))
 
+    def test_normalize_float32_peak_norm_preserves_dtype(self) -> None:
+        sig = np.array([[1.0, -2.0, 4.0]], dtype=np.float32)
+        dask_sig = da_from_array(sig, chunks=(1, -1))
+        normalize = Normalize(_SR, norm=np.inf, axis=-1)
+
+        result_da = normalize.process(dask_sig)
+        result = result_da.compute()
+
+        assert result_da.dtype == np.float32
+        assert result.dtype == np.float32
+        np.testing.assert_allclose(result, np.array([[0.25, -0.5, 1.0]], dtype=np.float32))
+
     def test_normalize_inf_norm_values_match_numpy_reference(self) -> None:
         """Inf-norm normalization divides each channel by its max absolute value."""
         sig = np.array([[1.0, -2.0, 4.0], [0.5, -1.0, 0.25]])

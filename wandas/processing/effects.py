@@ -30,14 +30,17 @@ def _normalize_array(
         raise ValueError("threshold must be strictly positive")
     if norm == 0:
         length = np.sum(x != 0, axis=axis, keepdims=True).astype(float)
-    else:
-        magnitude = np.abs(x.astype(float, copy=False))
+    elif norm in {np.inf, -np.inf}:
+        dtype = np.asarray(x).dtype
+        magnitude_input = x if dtype.kind == "f" else x.astype(float, copy=False)
+        magnitude = np.abs(magnitude_input)
         if norm == np.inf:
             length = np.max(magnitude, axis=axis, keepdims=True)
-        elif norm == -np.inf:
-            length = np.min(magnitude, axis=axis, keepdims=True)
         else:
-            length = np.sum(magnitude**norm, axis=axis, keepdims=True) ** (1.0 / norm)
+            length = np.min(magnitude, axis=axis, keepdims=True)
+    else:
+        magnitude = np.abs(x.astype(float, copy=False))
+        length = np.sum(magnitude**norm, axis=axis, keepdims=True) ** (1.0 / norm)
 
     small = length < threshold
     safe_length = np.where(small, 1.0, length)
