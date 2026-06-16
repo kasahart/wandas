@@ -115,6 +115,13 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
         n_samples = _ceil_resampled_length(input_shape[-1], ratio)
         return (*input_shape[:-1], n_samples)
 
+    @staticmethod
+    def _output_dtype(input_dtype: np.dtype[Any]) -> np.dtype[Any]:
+        dtype = np.dtype(input_dtype)
+        if dtype.kind == "f":
+            return dtype
+        return np.dtype(np.float64)
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for resampling operation"""
         logger.debug(f"Applying resampling to array with shape: {x.shape}")
@@ -127,6 +134,14 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
             result = resample(x, target_len, axis=-1)
         logger.debug(f"Resampling applied, returning result with shape: {result.shape}")
         return result
+
+    def process(self, data: DaArray) -> DaArray:
+        """Execute resampling with accurate floating output dtype metadata."""
+        logger.debug("Adding delayed resampling operation to computation graph")
+        wrapper = self._create_named_wrapper()
+        delayed_result = delayed(wrapper, pure=self.pure)(data)
+        output_shape = self.calculate_output_shape(data.shape)
+        return da.from_delayed(delayed_result, shape=output_shape, dtype=self._output_dtype(data.dtype))
 
 
 class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -334,6 +349,10 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         n_frames = _centered_frame_count(input_shape[-1], self.frame_length, self.hop_length)
         return (*input_shape[:-1], n_frames)
 
+    @staticmethod
+    def _output_dtype() -> np.dtype[Any]:
+        return np.dtype(np.float64)
+
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for RMS calculation"""
         logger.debug(f"Applying RMS to array with shape: {x.shape}")
@@ -358,6 +377,14 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
             result = 20 * np.log10(np.maximum(result / self.ref[..., np.newaxis], DB_FLOOR))
         logger.debug(f"RMS applied, returning result with shape: {result.shape}")
         return result
+
+    def process(self, data: DaArray) -> DaArray:
+        """Execute RMS trend with accurate floating output dtype metadata."""
+        logger.debug("Adding delayed RMS trend operation to computation graph")
+        wrapper = self._create_named_wrapper()
+        delayed_result = delayed(wrapper, pure=self.pure)(data)
+        output_shape = self.calculate_output_shape(data.shape)
+        return da.from_delayed(delayed_result, shape=output_shape, dtype=self._output_dtype())
 
 
 class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):

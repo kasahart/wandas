@@ -28,15 +28,16 @@ def _normalize_array(
         threshold = float(np.finfo(dtype.name).tiny if dtype.kind == "f" else np.finfo(float).tiny)
     elif threshold <= 0:
         raise ValueError("threshold must be strictly positive")
-    if norm == np.inf:
-        length = np.max(np.abs(x), axis=axis, keepdims=True)
-    elif norm == -np.inf:
-        length = np.min(np.abs(x), axis=axis, keepdims=True)
-    elif norm == 0:
+    if norm == 0:
         length = np.sum(x != 0, axis=axis, keepdims=True).astype(float)
     else:
-        magnitude = np.abs(x).astype(float, copy=False)
-        length = np.sum(magnitude**norm, axis=axis, keepdims=True) ** (1.0 / norm)
+        magnitude = np.abs(x.astype(float, copy=False))
+        if norm == np.inf:
+            length = np.max(magnitude, axis=axis, keepdims=True)
+        elif norm == -np.inf:
+            length = np.min(magnitude, axis=axis, keepdims=True)
+        else:
+            length = np.sum(magnitude**norm, axis=axis, keepdims=True) ** (1.0 / norm)
 
     small = length < threshold
     safe_length = np.where(small, 1.0, length)
@@ -97,8 +98,11 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
 
     @staticmethod
     def _output_dtype(input_dtype: np.dtype[Any], norm: float | None) -> np.dtype[Any]:
-        if norm is None or np.dtype(input_dtype).kind == "f":
-            return np.dtype(input_dtype)
+        dtype = np.dtype(input_dtype)
+        if norm is None:
+            return dtype
+        if dtype.kind == "f" and norm in {np.inf, -np.inf}:
+            return dtype
         return np.dtype(np.float64)
 
     def __init__(

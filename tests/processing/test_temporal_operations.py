@@ -161,6 +161,17 @@ class TestReSampling:
         assert result_da.shape == (1, 48000)
         assert result.shape == (1, 48000)
 
+    def test_resampling_integer_input_reports_float_dtype(self) -> None:
+        data = np.array([[0, 1000, -1000, 500]], dtype=np.int16)
+        dask_input = da_from_array(data, chunks=(1, -1))
+        resampler = ReSampling(sampling_rate=4, target_sr=8)
+
+        result_da = resampler.process(dask_input)
+        result = result_da.compute()
+
+        assert result_da.dtype == np.float64
+        assert result.dtype == np.float64
+
     def test_resampling_upsample_shape_mono(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
         """Upsample 16 kHz -> 32 kHz doubles sample count."""
         dask_input, sr = pure_sine_440hz_dask
@@ -390,6 +401,17 @@ class TestRmsTrend:
         )
         np.testing.assert_allclose(result, expected)
         assert np.isfinite(result).all()
+
+    def test_rms_trend_float32_reports_float64_dtype(self) -> None:
+        data = np.ones((1, 16), dtype=np.float32)
+        dask_input = da_from_array(data, chunks=(1, -1))
+        rms = RmsTrend(_SR, frame_length=4, hop_length=2)
+
+        result_da = rms.process(dask_input)
+        result = result_da.compute()
+
+        assert result_da.dtype == np.float64
+        assert result.dtype == np.float64
 
     def test_rms_trend_empty_input_odd_frame_length_raises(self) -> None:
         """Empty centered input shorter than an odd frame raises instead of unsafe striding."""
