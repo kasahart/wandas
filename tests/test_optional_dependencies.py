@@ -19,7 +19,7 @@ def test_runtime_dependencies_are_balanced_core_only() -> None:
     names = {dep.split("[", 1)[0].split(">", 1)[0].split("=", 1)[0].split("<", 1)[0] for dep in dependencies}
 
     assert {"numpy", "scipy", "dask", "soundfile", "pandas", "xarray"}.issubset(names)
-    assert "matplotlib" not in names
+    assert "matplotlib" in names
     assert "librosa" not in names
     assert "ipykernel" not in names
     assert "ipywidgets" not in names
@@ -38,7 +38,6 @@ def test_optional_dependency_groups_exist() -> None:
 
     assert set(optional) >= {"io", "viz", "notebook", "psychoacoustic", "ml"}
     assert any(dep.startswith("h5py") for dep in optional["io"])
-    assert any(dep.startswith("matplotlib") for dep in optional["viz"])
     assert "librosa" in optional["viz"]
     assert any(dep.startswith("japanize-matplotlib") for dep in optional["viz"])
     assert "ipykernel" in optional["notebook"]
@@ -257,7 +256,6 @@ def test_import_wandas_and_basic_waveform_ops_without_visualization_or_notebook_
             "ipywidgets",
             "japanize_matplotlib",
             "librosa",
-            "matplotlib",
         }
 
         class BlockOptionalImports(importlib.abc.MetaPathFinder):
@@ -292,12 +290,12 @@ def test_import_wandas_and_basic_waveform_ops_without_visualization_or_notebook_
     assert result.returncode == 0, result.stderr
 
 
-def test_plot_missing_visualization_dependencies_has_viz_extra_hint() -> None:
+def test_spectrogram_plot_missing_librosa_has_viz_extra_hint() -> None:
     script = """
         import importlib.abc
         import sys
 
-        BLOCKED = {"librosa", "matplotlib"}
+        BLOCKED = {"librosa"}
 
         class BlockOptionalImports(importlib.abc.MetaPathFinder):
             def find_spec(self, fullname, path, target=None):
@@ -314,10 +312,11 @@ def test_plot_missing_visualization_dependencies_has_viz_extra_hint() -> None:
         import numpy as np
         import wandas
 
-        frame = wandas.ChannelFrame.from_numpy(np.array([[1.0, 2.0, 3.0]]), sampling_rate=48000)
+        data = np.sin(np.linspace(0, 16, 4096, dtype=float))[None, :]
+        frame = wandas.ChannelFrame.from_numpy(data, sampling_rate=48000)
 
         try:
-            frame.plot()
+            frame.stft().plot()
         except ImportError as exc:
             assert 'pip install "wandas[viz]"' in str(exc)
         else:
@@ -339,13 +338,14 @@ def test_describe_missing_ipython_has_notebook_extra_hint() -> None:
         import importlib.abc
         import sys
 
-        class BlockIPython(importlib.abc.MetaPathFinder):
+        class BlockOptionalImports(importlib.abc.MetaPathFinder):
             def find_spec(self, fullname, path, target=None):
-                if fullname.split(".", 1)[0] == "IPython":
-                    raise ModuleNotFoundError("No module named 'IPython'", name="IPython")
+                top_level_name = fullname.split(".", 1)[0]
+                if top_level_name in {"IPython", "librosa"}:
+                    raise ModuleNotFoundError(f"No module named {top_level_name!r}", name=top_level_name)
                 return None
 
-        sys.meta_path.insert(0, BlockIPython())
+        sys.meta_path.insert(0, BlockOptionalImports())
 
         import numpy as np
         import wandas
@@ -376,13 +376,14 @@ def test_describe_return_figures_without_ipython_does_not_require_notebook_extra
         import importlib.abc
         import sys
 
-        class BlockIPython(importlib.abc.MetaPathFinder):
+        class BlockOptionalImports(importlib.abc.MetaPathFinder):
             def find_spec(self, fullname, path, target=None):
-                if fullname.split(".", 1)[0] == "IPython":
-                    raise ModuleNotFoundError("No module named 'IPython'", name="IPython")
+                top_level_name = fullname.split(".", 1)[0]
+                if top_level_name in {"IPython", "librosa"}:
+                    raise ModuleNotFoundError(f"No module named {top_level_name!r}", name=top_level_name)
                 return None
 
-        sys.meta_path.insert(0, BlockIPython())
+        sys.meta_path.insert(0, BlockOptionalImports())
 
         import numpy as np
         import wandas
@@ -411,13 +412,14 @@ def test_describe_image_save_without_ipython_does_not_require_notebook_extra() -
         import tempfile
         from pathlib import Path
 
-        class BlockIPython(importlib.abc.MetaPathFinder):
+        class BlockOptionalImports(importlib.abc.MetaPathFinder):
             def find_spec(self, fullname, path, target=None):
-                if fullname.split(".", 1)[0] == "IPython":
-                    raise ModuleNotFoundError("No module named 'IPython'", name="IPython")
+                top_level_name = fullname.split(".", 1)[0]
+                if top_level_name in {"IPython", "librosa"}:
+                    raise ModuleNotFoundError(f"No module named {top_level_name!r}", name=top_level_name)
                 return None
 
-        sys.meta_path.insert(0, BlockIPython())
+        sys.meta_path.insert(0, BlockOptionalImports())
 
         import numpy as np
         import wandas

@@ -22,7 +22,7 @@ _DATA_STEREO = da.from_array(_rng.random((2, _N_BARK, _N_TIME)), chunks=(1, 47, 
 _BARK_AXIS = np.linspace(0.5, 23.5, _N_BARK)
 
 
-def test_plot_missing_matplotlib_has_viz_extra_hint() -> None:
+def test_plot_missing_matplotlib_has_core_install_hint() -> None:
     script = """
         import importlib.abc
         import sys
@@ -50,8 +50,8 @@ def test_plot_missing_matplotlib_has_viz_extra_hint() -> None:
             frame.plot()
         except ImportError as exc:
             message = str(exc)
-            assert "roughness plot requires optional dependency 'matplotlib.pyplot'" in message
-            assert 'pip install "wandas[viz]"' in message
+            assert "roughness plot requires core dependency 'matplotlib.pyplot'" in message
+            assert 'pip install "wandas"' in message
         else:
             raise AssertionError("Expected ImportError for missing matplotlib")
     """

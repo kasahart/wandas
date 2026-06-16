@@ -38,6 +38,7 @@ dependencies = [
     "soundfile",
     "pandas",
     "xarray>=2025.6.1",
+    "matplotlib>=3.9.0",
     "cattrs",
     "requests>=2.32.3",
 ]
@@ -51,7 +52,6 @@ io = [
     "h5py>=3.13.0",
 ]
 viz = [
-    "matplotlib>=3.9.0",
     "librosa",
     "japanize-matplotlib>=1.1.3",
 ]

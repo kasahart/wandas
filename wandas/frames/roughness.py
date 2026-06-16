@@ -393,7 +393,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         >>> roughness_spec = signal.roughness_dw_spec(overlap=0.5)
         >>> roughness_spec.plot(cmap="hot", title="Motor Roughness Analysis")
         """
-        plt = require_optional_dependency("matplotlib.pyplot", extra="viz", feature="roughness plot")
+        plt = require_optional_dependency("matplotlib.pyplot", extra="core", feature="roughness plot")
 
         if ax is None:
             _, ax = plt.subplots(figsize=(10, 6))

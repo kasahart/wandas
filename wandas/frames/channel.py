@@ -39,11 +39,11 @@ def _pandas(feature: str) -> Any:
 
 
 def _matplotlib_pyplot(feature: str) -> Any:
-    return require_optional_dependency("matplotlib.pyplot", extra="viz", feature=feature)
+    return require_optional_dependency("matplotlib.pyplot", extra="core", feature=feature)
 
 
 def _matplotlib_axes_type(feature: str) -> Any:
-    return require_optional_attr("matplotlib.axes", "Axes", extra="viz", feature=feature)
+    return require_optional_attr("matplotlib.axes", "Axes", extra="core", feature=feature)
 
 
 class _LazyPyplot:

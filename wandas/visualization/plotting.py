@@ -27,27 +27,33 @@ TFrame = TypeVar("TFrame", bound="BaseFrame[Any]")
 
 
 def _matplotlib_pyplot(feature: str) -> Any:
-    return require_optional_dependency("matplotlib.pyplot", extra="viz", feature=feature)
+    return require_optional_dependency("matplotlib.pyplot", extra="core", feature=feature)
 
 
 def _matplotlib_gridspec(feature: str) -> Any:
-    return require_optional_dependency("matplotlib.gridspec", extra="viz", feature=feature)
+    return require_optional_dependency("matplotlib.gridspec", extra="core", feature=feature)
 
 
 def _matplotlib_axes_type(feature: str) -> Any:
-    return require_optional_attr("matplotlib.axes", "Axes", extra="viz", feature=feature)
+    return require_optional_attr("matplotlib.axes", "Axes", extra="core", feature=feature)
 
 
 def _matplotlib_figure_type(feature: str) -> Any:
-    return require_optional_attr("matplotlib.figure", "Figure", extra="viz", feature=feature)
+    return require_optional_attr("matplotlib.figure", "Figure", extra="core", feature=feature)
 
 
 def _matplotlib_line2d_type(feature: str) -> Any:
-    return require_optional_attr("matplotlib.lines", "Line2D", extra="viz", feature=feature)
+    return require_optional_attr("matplotlib.lines", "Line2D", extra="core", feature=feature)
 
 
 def _librosa_display(feature: str) -> Any:
     return require_optional_attr("librosa", "display", extra="viz", feature=feature)
+
+
+def _spectrogram_axis_values(frame: Any, data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    freqs = np.fft.rfftfreq(frame.n_fft, 1.0 / frame.sampling_rate)
+    times = np.arange(data.shape[-1]) * frame.hop_length / frame.sampling_rate
+    return times, freqs
 
 
 class PlotStrategy(abc.ABC, Generic[TFrame]):
@@ -635,7 +641,6 @@ class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
 
         plt = _matplotlib_pyplot("describe plot")
         gridspec = _matplotlib_gridspec("describe plot")
-        librosa_display = _librosa_display("describe plot")
 
         fmin = kwargs.pop("fmin", 0)
         fmax = kwargs.pop("fmax", None)
@@ -682,22 +687,10 @@ class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
                     vmax = rounded_max
                     vmin = vmax - 180
                     break
-        img = librosa_display.specshow(
-            data=channel_data,
-            sr=bf.sampling_rate,
-            hop_length=stft_ch.hop_length,
-            n_fft=stft_ch.n_fft,
-            win_length=stft_ch.win_length,
-            x_axis="time",
-            y_axis="linear",
-            ax=ax_2,
-            fmin=fmin,
-            fmax=fmax,
-            cmap=cmap,
-            vmin=vmin,
-            vmax=vmax,
-        )
-        ax_2.set(xlim=xlim, ylim=ylim)
+        times, freqs = _spectrogram_axis_values(stft_ch, channel_data)
+        img = ax_2.pcolormesh(times, freqs, channel_data, shading="auto", cmap=cmap, vmin=vmin, vmax=vmax)
+        spectrogram_ylim = ylim if ylim is not None else (fmin, fmax) if fmin != 0 or fmax is not None else None
+        ax_2.set(xlabel="Time [s]", ylabel="Frequency [Hz]", xlim=xlim, ylim=spectrogram_ylim)
 
         # Third subplot
         ax_3 = fig.add_subplot(gs[1])
