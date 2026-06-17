@@ -14,6 +14,7 @@ DependencyKey = Literal[
     "matplotlib_lines",
     "h5py",
     "librosa",
+    "librosa_display",
     "librosa_effects",
     "mosqito_sq_metrics",
     "mosqito_sound_level_meter",
@@ -45,6 +46,7 @@ DEPENDENCY_REGISTRY: dict[DependencyKey, DependencySpec] = {
     "matplotlib_lines": DependencySpec(import_name="matplotlib.lines", extra="core"),
     "h5py": DependencySpec(import_name="h5py", extra="io"),
     "librosa": DependencySpec(import_name="librosa", extra="viz"),
+    "librosa_display": DependencySpec(import_name="librosa.display", extra="viz"),
     "librosa_effects": DependencySpec(import_name="librosa.effects", extra="viz"),
     "mosqito_sq_metrics": DependencySpec(import_name="mosqito.sq_metrics", extra="psychoacoustic"),
     "mosqito_sound_level_meter": DependencySpec(

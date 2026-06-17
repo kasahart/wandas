@@ -1351,16 +1351,16 @@ class TestPlotting:
         plotting_source = Path(plotting_module.__file__).read_text(encoding="utf-8")
 
         with mock.patch(
-            "wandas.utils.optional_imports.require_dependency_attr",
-            wraps=plotting_module.require_dependency_attr,
-        ) as require_dependency_attr:
+            "wandas.utils.optional_imports.require_dependency",
+            wraps=plotting_module.require_dependency,
+        ) as require_dependency:
             exec(compile(plotting_source, plotting_module.__file__, "exec"), isolated_module.__dict__)
             assert "librosa" not in isolated_module.__dict__
             assert "display" not in isolated_module.__dict__
 
             assert isolated_module._librosa_display("spectrogram plot") is librosa.display
 
-        require_dependency_attr.assert_called_with("librosa", "display", feature="spectrogram plot")
+        require_dependency.assert_called_with("librosa_display", feature="spectrogram plot")
 
     def test_spectrogram_plot_strategy_colorbar_error_paths(self) -> None:
         """Spectrogram plotting should swallow colorbar creation errors for both paths."""

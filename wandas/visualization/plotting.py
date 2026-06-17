@@ -47,7 +47,7 @@ def _matplotlib_line2d_type(feature: str) -> Any:
 
 
 def _librosa_display(feature: str) -> Any:
-    return require_dependency_attr("librosa", "display", feature=feature)
+    return require_dependency("librosa_display", feature=feature)
 
 
 def _spectrogram_axis_values(frame: Any, data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:

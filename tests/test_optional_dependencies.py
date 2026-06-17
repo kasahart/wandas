@@ -24,6 +24,7 @@ PROJECT_PACKAGE_BY_REGISTRY_KEY = {
     "matplotlib_lines": "matplotlib",
     "h5py": "h5py",
     "librosa": "librosa",
+    "librosa_display": "librosa",
     "librosa_effects": "librosa",
     "mosqito_sq_metrics": "mosqito",
     "mosqito_sound_level_meter": "mosqito",
