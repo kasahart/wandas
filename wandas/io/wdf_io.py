@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 # Import BaseFrame from core module
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
-from wandas.utils.optional_imports import require_optional_dependency
+from wandas.utils.optional_imports import require_dependency
 
 from ..core.base_frame import BaseFrame
 
@@ -30,7 +30,7 @@ WDF_FORMAT_VERSION = "0.1"
 
 
 def _h5py(feature: str) -> Any:
-    return require_optional_dependency("h5py", extra="io", feature=feature)
+    return require_dependency("h5py", feature=feature)
 
 
 def _decode_hdf5_str(value: object) -> str:

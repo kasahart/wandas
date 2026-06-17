@@ -9,7 +9,7 @@ from dask.array.core import Array as DaArray
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
 from wandas.processing.weighting import a_weighting_db
-from wandas.utils.optional_imports import require_optional_dependency
+from wandas.utils.optional_imports import require_dependency
 from wandas.utils.types import NDArrayReal
 from wandas.utils.util import ref_weighted_dB
 
@@ -26,15 +26,11 @@ S = TypeVar("S", bound="BaseFrame[Any]")
 
 
 def _pandas(feature: str) -> Any:
-    return require_optional_dependency("pandas", extra="core", feature=feature)
+    return require_dependency("pandas", feature=feature)
 
 
 def _center_freq(*args: Any, **kwargs: Any) -> Any:
-    module = require_optional_dependency(
-        "mosqito.sound_level_meter.noct_spectrum._center_freq",
-        extra="psychoacoustic",
-        feature="NOctFrame.freqs",
-    )
+    module = require_dependency("mosqito_center_freq", feature="NOctFrame.freqs")
     return module._center_freq(*args, **kwargs)
 
 

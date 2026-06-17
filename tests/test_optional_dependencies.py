@@ -7,7 +7,12 @@ import numpy as np
 import pytest
 import tomli
 
-from wandas.utils.optional_imports import require_optional_attr, require_optional_dependency
+from wandas.utils.optional_imports import (
+    require_dependency,
+    require_dependency_attr,
+    require_optional_attr,
+    require_optional_dependency,
+)
 
 
 def _pyproject() -> dict:
@@ -47,6 +52,87 @@ def test_optional_dependency_groups_exist() -> None:
     assert "mosqito" in optional["psychoacoustic"]
     assert any(dep.startswith("torch") for dep in optional["ml"])
     assert any(dep.startswith("tensorflow") for dep in optional["ml"])
+
+
+def test_require_dependency_imports_registered_module() -> None:
+    module = require_dependency("pandas", feature="dataframe export")
+    assert module.__name__ == "pandas"
+
+
+def test_require_dependency_error_message_uses_registered_module_and_extra(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_error = ModuleNotFoundError("No module named 'matplotlib'", name="matplotlib")
+
+    def raise_missing_matplotlib(module_name: str) -> None:
+        assert module_name == "matplotlib.pyplot"
+        raise original_error
+
+    monkeypatch.setattr(
+        "wandas.utils.optional_imports.importlib.import_module",
+        raise_missing_matplotlib,
+    )
+
+    with pytest.raises(ImportError) as exc_info:
+        require_dependency("matplotlib_pyplot", feature="roughness plot")
+
+    message = str(exc_info.value)
+    assert "roughness plot requires core dependency 'matplotlib.pyplot'" in message
+    assert 'pip install "wandas"' in message
+
+
+def test_require_dependency_attr_uses_registered_install_hint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_error = ModuleNotFoundError("No module named 'IPython'", name="IPython")
+
+    def raise_missing_ipython(module_name: str) -> None:
+        assert module_name == "IPython.display"
+        raise original_error
+
+    monkeypatch.setattr(
+        "wandas.utils.optional_imports.importlib.import_module",
+        raise_missing_ipython,
+    )
+
+    with pytest.raises(ImportError) as exc_info:
+        require_dependency_attr("ipython_display", "Audio", feature="describe")
+
+    message = str(exc_info.value)
+    assert "describe requires optional dependency 'IPython.display'" in message
+    assert 'pip install "wandas[notebook]"' in message
+
+
+def test_require_dependency_reraises_registered_transitive_import_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_error = ModuleNotFoundError(
+        "No module named 'missing_transitive_dependency'",
+        name="missing_transitive_dependency",
+    )
+
+    def raise_transitive_error(module_name: str) -> None:
+        assert module_name == "librosa"
+        raise original_error
+
+    monkeypatch.setattr(
+        "wandas.utils.optional_imports.importlib.import_module",
+        raise_transitive_error,
+    )
+
+    with pytest.raises(ModuleNotFoundError) as exc_info:
+        require_dependency("librosa", feature="spectrogram plot")
+
+    assert exc_info.value is original_error
+
+
+def test_require_dependency_attr_missing_attribute_error_message() -> None:
+    with pytest.raises(ImportError) as exc_info:
+        require_dependency_attr("pandas", "definitely_missing_wandas_attr", feature="dataframe export")
+
+    message = str(exc_info.value)
+    assert "dataframe export requires 'pandas' to provide attribute 'definitely_missing_wandas_attr'" in message
+    assert 'pip install "wandas"' in message
 
 
 def test_require_optional_dependency_imports_installed_module() -> None:
@@ -446,16 +532,15 @@ def test_describe_image_save_without_ipython_does_not_require_notebook_extra() -
 def test_hpss_harmonic_missing_librosa_effects_raises_at_init(monkeypatch: pytest.MonkeyPatch) -> None:
     from wandas.processing.effects import HpssHarmonic
 
-    def raise_missing_librosa(module_name: str, *, extra: str, feature: str) -> None:
-        assert module_name == "librosa.effects"
-        assert extra == "viz"
+    def raise_missing_librosa(key: str, *, feature: str) -> None:
+        assert key == "librosa_effects"
         assert feature == "hpss_harmonic"
         raise ImportError(
-            f'{feature} requires optional dependency {module_name!r}.\nInstall it with: pip install "wandas[{extra}]"'
+            f"{feature} requires optional dependency 'librosa.effects'.\nInstall it with: pip install \"wandas[viz]\""
         )
 
     monkeypatch.setattr(
-        "wandas.processing.effects.require_optional_dependency",
+        "wandas.processing.effects.require_dependency",
         raise_missing_librosa,
     )
 
