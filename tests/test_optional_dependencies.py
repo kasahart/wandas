@@ -8,20 +8,59 @@ import pytest
 import tomli
 
 from wandas.utils.optional_imports import (
+    DEPENDENCY_REGISTRY,
     require_dependency,
     require_dependency_attr,
     require_optional_attr,
     require_optional_dependency,
 )
 
+PROJECT_PACKAGE_BY_REGISTRY_KEY = {
+    "pandas": "pandas",
+    "matplotlib_pyplot": "matplotlib",
+    "matplotlib_gridspec": "matplotlib",
+    "matplotlib_axes": "matplotlib",
+    "matplotlib_figure": "matplotlib",
+    "matplotlib_lines": "matplotlib",
+    "h5py": "h5py",
+    "librosa": "librosa",
+    "librosa_effects": "librosa",
+    "mosqito_sq_metrics": "mosqito",
+    "mosqito_sound_level_meter": "mosqito",
+    "mosqito_center_freq": "mosqito",
+    "ipython_display": "ipykernel",
+    "torch": "torch",
+    "tensorflow": "tensorflow",
+}
+
 
 def _pyproject() -> dict:
     return tomli.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
 
 
+def _dependency_names(requirements: list[str]) -> set[str]:
+    names = set()
+    for requirement in requirements:
+        name = requirement
+        for separator in ("[", ">", "=", "<", "~", "!", ";"):
+            name = name.split(separator, 1)[0]
+        names.add(name.strip())
+    return names
+
+
+def _run_isolated_script(script: str) -> None:
+    result = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent(script)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
 def test_runtime_dependencies_are_balanced_core_only() -> None:
-    dependencies = set(_pyproject()["project"]["dependencies"])
-    names = {dep.split("[", 1)[0].split(">", 1)[0].split("=", 1)[0].split("<", 1)[0] for dep in dependencies}
+    names = _dependency_names(_pyproject()["project"]["dependencies"])
 
     assert {"numpy", "scipy", "dask", "soundfile", "pandas", "xarray"}.issubset(names)
     assert "matplotlib" in names
@@ -52,6 +91,29 @@ def test_optional_dependency_groups_exist() -> None:
     assert "mosqito" in optional["psychoacoustic"]
     assert any(dep.startswith("torch") for dep in optional["ml"])
     assert any(dep.startswith("tensorflow") for dep in optional["ml"])
+
+
+def test_dependency_registry_matches_project_dependency_groups() -> None:
+    pyproject = _pyproject()["project"]
+    dependency_names_by_extra = {
+        "core": _dependency_names(pyproject["dependencies"]),
+        **{
+            extra: _dependency_names(requirements) for extra, requirements in pyproject["optional-dependencies"].items()
+        },
+    }
+
+    assert set(PROJECT_PACKAGE_BY_REGISTRY_KEY) == set(DEPENDENCY_REGISTRY)
+
+    for key, spec in DEPENDENCY_REGISTRY.items():
+        assert spec.extra in dependency_names_by_extra, key
+        assert spec.import_name, key
+        assert PROJECT_PACKAGE_BY_REGISTRY_KEY[key] in dependency_names_by_extra[spec.extra], key
+
+
+def test_dependency_registry_install_hints_match_registered_extras() -> None:
+    for key, spec in DEPENDENCY_REGISTRY.items():
+        expected_hint = 'pip install "wandas"' if spec.extra == "core" else f'pip install "wandas[{spec.extra}]"'
+        assert (spec.install_hint or expected_hint) == expected_hint, key
 
 
 def test_require_dependency_imports_registered_module() -> None:
@@ -280,14 +342,7 @@ def test_import_wandas_without_librosa_or_mosqito() -> None:
         assert wandas.read_wav is not None
     """
 
-    result = subprocess.run(
-        [sys.executable, "-c", textwrap.dedent(script)],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
+    _run_isolated_script(script)
 
 
 def test_import_wandas_and_basic_waveform_ops_without_io_dependencies() -> None:
@@ -320,14 +375,7 @@ def test_import_wandas_and_basic_waveform_ops_without_io_dependencies() -> None:
         assert "tqdm" not in sys.modules
     """
 
-    result = subprocess.run(
-        [sys.executable, "-c", textwrap.dedent(script)],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
+    _run_isolated_script(script)
 
 
 def test_import_wandas_and_basic_waveform_ops_without_visualization_or_notebook_dependencies() -> None:
@@ -366,14 +414,7 @@ def test_import_wandas_and_basic_waveform_ops_without_visualization_or_notebook_
             assert module_name not in sys.modules
     """
 
-    result = subprocess.run(
-        [sys.executable, "-c", textwrap.dedent(script)],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
+    _run_isolated_script(script)
 
 
 def test_spectrogram_plot_missing_librosa_has_viz_extra_hint() -> None:
@@ -409,14 +450,7 @@ def test_spectrogram_plot_missing_librosa_has_viz_extra_hint() -> None:
             raise AssertionError("Expected ImportError for missing visualization dependency")
     """
 
-    result = subprocess.run(
-        [sys.executable, "-c", textwrap.dedent(script)],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
+    _run_isolated_script(script)
 
 
 def test_describe_missing_ipython_has_notebook_extra_hint() -> None:
@@ -447,14 +481,7 @@ def test_describe_missing_ipython_has_notebook_extra_hint() -> None:
             raise AssertionError("Expected ImportError for missing IPython")
     """
 
-    result = subprocess.run(
-        [sys.executable, "-c", textwrap.dedent(script)],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
+    _run_isolated_script(script)
 
 
 def test_describe_return_figures_without_ipython_does_not_require_notebook_extra() -> None:
@@ -481,14 +508,7 @@ def test_describe_return_figures_without_ipython_does_not_require_notebook_extra
         assert len(figures) == 1
     """
 
-    result = subprocess.run(
-        [sys.executable, "-c", textwrap.dedent(script)],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
+    _run_isolated_script(script)
 
 
 def test_describe_image_save_without_ipython_does_not_require_notebook_extra() -> None:
@@ -519,14 +539,7 @@ def test_describe_image_save_without_ipython_does_not_require_notebook_extra() -
             assert output.exists()
     """
 
-    result = subprocess.run(
-        [sys.executable, "-c", textwrap.dedent(script)],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
+    _run_isolated_script(script)
 
 
 def test_hpss_harmonic_missing_librosa_effects_raises_at_init(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -636,14 +649,7 @@ def test_wdf_save_missing_h5py_has_io_extra_hint() -> None:
             raise AssertionError("Expected ImportError for missing h5py")
     """
 
-    result = subprocess.run(
-        [sys.executable, "-c", textwrap.dedent(script)],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
+    _run_isolated_script(script)
 
 
 def test_frame_dataset_import_without_tqdm() -> None:
@@ -665,14 +671,7 @@ def test_frame_dataset_import_without_tqdm() -> None:
         assert "tqdm" not in sys.modules
     """
 
-    result = subprocess.run(
-        [sys.executable, "-c", textwrap.dedent(script)],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
+    _run_isolated_script(script)
 
 
 def test_psychoacoustic_missing_mosqito_has_extra_hint() -> None:
@@ -702,14 +701,7 @@ def test_psychoacoustic_missing_mosqito_has_extra_hint() -> None:
             raise AssertionError("Expected ImportError for missing mosqito")
     """
 
-    result = subprocess.run(
-        [sys.executable, "-c", textwrap.dedent(script)],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
+    _run_isolated_script(script)
 
 
 def test_processing_getattr_unknown_name_raises_attribute_error() -> None:
@@ -741,14 +733,7 @@ def test_processing_lazy_registry_without_mosqito() -> None:
         assert "mosqito" not in sys.modules
     """
 
-    result = subprocess.run(
-        [sys.executable, "-c", textwrap.dedent(script)],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
+    _run_isolated_script(script)
 
 
 def test_noct_missing_mosqito_has_extra_hint() -> None:
@@ -775,14 +760,7 @@ def test_noct_missing_mosqito_has_extra_hint() -> None:
             raise AssertionError("Expected ImportError for missing mosqito")
     """
 
-    result = subprocess.run(
-        [sys.executable, "-c", textwrap.dedent(script)],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
+    _run_isolated_script(script)
 
 
 def test_roughness_spec_missing_mosqito_has_extra_hint() -> None:
@@ -808,11 +786,4 @@ def test_roughness_spec_missing_mosqito_has_extra_hint() -> None:
             raise AssertionError("Expected ImportError for missing mosqito")
     """
 
-    result = subprocess.run(
-        [sys.executable, "-c", textwrap.dedent(script)],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
+    _run_isolated_script(script)
