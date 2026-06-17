@@ -12,7 +12,6 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import h5py
 import numpy as np
 
 if TYPE_CHECKING:
@@ -20,6 +19,7 @@ if TYPE_CHECKING:
 
 # Import BaseFrame from core module
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
+from wandas.utils.optional_imports import require_dependency
 
 from ..core.base_frame import BaseFrame
 
@@ -27,6 +27,10 @@ logger = logging.getLogger(__name__)
 
 # Constants for version management
 WDF_FORMAT_VERSION = "0.1"
+
+
+def _h5py(feature: str):
+    return require_dependency("h5py", feature=feature)
 
 
 def _decode_hdf5_str(value: object) -> str:
@@ -86,6 +90,7 @@ def save(
 
     # Create file
     logger.info(f"Creating HDF5 file at {path}...")
+    h5py = _h5py("saving WDF files")
     with h5py.File(path, "w") as f:
         # Set file version
         f.attrs["version"] = WDF_FORMAT_VERSION
@@ -207,6 +212,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
 
     logger.debug(f"Loading ChannelFrame from {h5_source!r}")
 
+    h5py = _h5py("loading WDF files")
     with h5py.File(h5_source, "r", **h5_kwargs) as f:
         # Check format version for compatibility
         version = f.attrs.get("version", "unknown")

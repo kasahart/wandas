@@ -8,11 +8,15 @@ from __future__ import annotations
 
 from typing import Any
 
-import librosa
 import numpy as np
 
+from wandas.utils.optional_imports import require_dependency
 from wandas.utils.types import NDArrayReal
 from wandas.utils.util import ref_weighted_dB
+
+
+def _librosa(feature: str):
+    return require_dependency("librosa", feature=feature)
 
 
 class SpectralPropertiesMixin:
@@ -52,7 +56,9 @@ class SpectralPropertiesMixin:
     @property
     def dBA(self: Any) -> NDArrayReal:  # noqa: N802
         """A-weighted decibel level."""
-        weighted: NDArrayReal = librosa.A_weighting(frequencies=self.freqs, min_db=None)
+        weighted: NDArrayReal = _librosa("A-weighted spectral properties").A_weighting(
+            frequencies=self.freqs, min_db=None
+        )
         if self._data.ndim == 3:
             # SpectrogramFrame: broadcast over time axis
             result: NDArrayReal = self.dB + weighted[:, np.newaxis]

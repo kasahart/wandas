@@ -3,15 +3,22 @@ from typing import Any
 
 import numpy as np
 from dask.array.core import Array as DaArray
-from librosa import effects
-from librosa import util as librosa_util
 from scipy.signal import windows as sp_windows
 
 from wandas.processing.base import AudioOperation, register_operation
 from wandas.utils import util
+from wandas.utils.optional_imports import require_dependency
 from wandas.utils.types import NDArrayReal
 
 logger = logging.getLogger(__name__)
+
+
+def _librosa_effects(feature: str):
+    return require_dependency("librosa_effects", feature=feature)
+
+
+def _librosa_util(feature: str):
+    return require_dependency("librosa_util", feature=feature)
 
 
 class _HpssBase(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -26,7 +33,7 @@ class _HpssBase(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying HPSS {self._extract_func} to array with shape: {x.shape}")
-        func = getattr(effects, self._extract_func)
+        func = getattr(_librosa_effects(f"HPSS {self._extract_func}"), self._extract_func)
         result: NDArrayReal = func(x, **self.kwargs)
         logger.debug(f"HPSS {self._extract_func} applied, returning result with shape: {result.shape}")
         return result
@@ -139,7 +146,7 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
         logger.debug(f"Applying normalization to array with shape: {x.shape}, norm={self.norm}, axis={self.axis}")
 
         # Apply librosa.util.normalize
-        result: NDArrayReal = librosa_util.normalize(
+        result: NDArrayReal = _librosa_util("signal normalization").normalize(
             x, norm=self.norm, axis=self.axis, threshold=self.threshold, fill=self.fill
         )
 

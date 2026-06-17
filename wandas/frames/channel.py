@@ -11,12 +11,12 @@ import numpy as np
 import pandas as pd
 from dask.array.core import Array as DaArray
 from dask.array.core import concatenate
-from IPython.display import Audio, display
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 from wandas.utils import validate_sampling_rate
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
+from wandas.utils.optional_imports import require_dependency_attr
 from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
@@ -28,6 +28,11 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
 logger = logging.getLogger(__name__)
+
+
+def _ipython_display_attr(attr_name: str):
+    return require_dependency_attr("ipython_display", attr_name, feature="notebook audio display")
+
 
 dask_delayed = dask.delayed
 da_from_delayed = da.from_delayed
@@ -758,13 +763,14 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                     fig.savefig(image_save, bbox_inches="tight")
 
             if fig is not None:
-                display(fig)
+                _ipython_display_attr("display")(fig)
             if is_close and fig is not None:
                 fig.clf()  # Clear the figure to free memory
                 plt.close(fig)
 
             # Play audio for each channel
-            display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))
+            audio = _ipython_display_attr("Audio")(ch.data, rate=ch.sampling_rate, normalize=normalize)
+            _ipython_display_attr("display")(audio)
 
         # Return figures only when is_close=False
         if is_close:

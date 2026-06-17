@@ -2,7 +2,6 @@ import logging
 from typing import Any
 
 import dask.array as da
-import librosa
 import numpy as np
 from dask.array.core import Array as DaArray
 from dask.delayed import delayed
@@ -11,11 +10,16 @@ from scipy.signal import lfilter
 from wandas.processing.base import AudioOperation, register_operation
 from wandas.processing.weighting import A_weight, frequency_weight
 from wandas.utils import validate_sampling_rate
+from wandas.utils.optional_imports import require_dependency
 from wandas.utils.types import NDArrayReal
 from wandas.utils.util import DB_FLOOR
 
 logger = logging.getLogger(__name__)
 MIN_SOUND_LEVEL_POWER_RATIO = 1e-20
+
+
+def _librosa(feature: str):
+    return require_dependency("librosa", feature=feature)
 
 
 class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -83,7 +87,7 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for resampling operation"""
         logger.debug(f"Applying resampling to array with shape: {x.shape}")
-        result: NDArrayReal = librosa.resample(x, orig_sr=self.sampling_rate, target_sr=self.target_sr)
+        result: NDArrayReal = _librosa("resampling").resample(x, orig_sr=self.sampling_rate, target_sr=self.target_sr)
         logger.debug(f"Resampling applied, returning result with shape: {result.shape}")
         return result
 
@@ -290,7 +294,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         tuple
             Output data shape (channels, frames)
         """
-        n_frames = librosa.feature.rms(
+        n_frames = _librosa("RMS trend").feature.rms(
             y=np.ones((1, input_shape[-1])),
             frame_length=self.frame_length,
             hop_length=self.hop_length,
@@ -314,9 +318,11 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
                 raise ValueError("A_weighting returned an unexpected type.")
 
         # Calculate RMS
-        result: NDArrayReal = librosa.feature.rms(y=x, frame_length=self.frame_length, hop_length=self.hop_length)[
-            ..., 0, :
-        ]
+        result: NDArrayReal = _librosa("RMS trend").feature.rms(
+            y=x,
+            frame_length=self.frame_length,
+            hop_length=self.hop_length,
+        )[..., 0, :]
 
         if self.dB:
             # Convert to dB

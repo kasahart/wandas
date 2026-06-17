@@ -1,9 +1,9 @@
 from typing import Any
 
-import librosa
 import numpy as np
 from scipy.signal.windows import tukey
 
+from wandas.utils.optional_imports import require_dependency
 from wandas.utils.types import NDArrayReal
 
 # Minimum amplitude ratio used in dB conversions to avoid log10(0).
@@ -157,6 +157,7 @@ def amplitude_to_db(amplitude: "NDArrayReal", ref: float) -> "NDArrayReal":
     NDArrayReal
         Amplitude data converted to decibels.
     """
+    librosa = require_dependency("librosa", feature="amplitude to decibel conversion")
     db: NDArrayReal = librosa.amplitude_to_db(np.abs(amplitude), ref=ref, amin=DB_AMIN, top_db=None)
     return db
 

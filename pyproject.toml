@@ -52,6 +52,20 @@ dependencies = [
     "mosqito",
 ]
 
+[project.optional-dependencies]
+io = [
+    "h5py>=3.13.0",
+]
+viz = [
+    "librosa",
+]
+psychoacoustic = [
+    "mosqito",
+]
+notebook = [
+    "ipykernel",
+]
+
 [project.urls]
 Repository = "https://github.com/kasahart/wandas.git"
 Issues = "https://github.com/kasahart/wandas/issues"

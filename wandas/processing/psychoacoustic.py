@@ -10,16 +10,36 @@ from collections.abc import Callable
 from typing import Any, ClassVar, overload
 
 import numpy as np
-from mosqito.sq_metrics import loudness_zwst as loudness_zwst_mosqito
-from mosqito.sq_metrics import loudness_zwtv as loudness_zwtv_mosqito
-from mosqito.sq_metrics import roughness_dw as roughness_dw_mosqito
-from mosqito.sq_metrics import sharpness_din_st as sharpness_din_st_mosqito
-from mosqito.sq_metrics import sharpness_din_tv as sharpness_din_tv_mosqito
 
 from wandas.processing.base import AudioOperation, get_operation, register_operation
+from wandas.utils.optional_imports import require_dependency_attr
 from wandas.utils.types import NDArrayReal
 
 logger = logging.getLogger(__name__)
+
+
+def _mosqito_metric(attr_name: str, feature: str):
+    return require_dependency_attr("mosqito_sq_metrics", attr_name, feature=feature)
+
+
+def loudness_zwtv_mosqito(*args: Any, **kwargs: Any) -> Any:
+    return _mosqito_metric("loudness_zwtv", "time-varying loudness")(*args, **kwargs)
+
+
+def loudness_zwst_mosqito(*args: Any, **kwargs: Any) -> Any:
+    return _mosqito_metric("loudness_zwst", "steady-state loudness")(*args, **kwargs)
+
+
+def roughness_dw_mosqito(*args: Any, **kwargs: Any) -> Any:
+    return _mosqito_metric("roughness_dw", "roughness")(*args, **kwargs)
+
+
+def sharpness_din_tv_mosqito(*args: Any, **kwargs: Any) -> Any:
+    return _mosqito_metric("sharpness_din_tv", "time-varying sharpness")(*args, **kwargs)
+
+
+def sharpness_din_st_mosqito(*args: Any, **kwargs: Any) -> Any:
+    return _mosqito_metric("sharpness_din_st", "steady-state sharpness")(*args, **kwargs)
 
 
 @overload

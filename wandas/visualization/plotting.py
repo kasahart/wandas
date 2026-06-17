@@ -4,24 +4,15 @@ import logging
 from collections.abc import Callable, Iterator, Sequence
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar
 
-# Import librosa (including display)
-import librosa
-
-from wandas.utils.introspection import filter_kwargs
-
-try:
-    # Avoid error due to librosa.display not being explicitly exported
-    from librosa import display
-except ImportError:
-    # fallback
-    display = librosa.display
-
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import gridspec
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
+
+from wandas.utils.introspection import filter_kwargs
+from wandas.utils.optional_imports import require_dependency
 
 if TYPE_CHECKING:
     from wandas.core.base_frame import BaseFrame
@@ -34,6 +25,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 TFrame = TypeVar("TFrame", bound="BaseFrame[Any]")
+
+
+def _librosa_display():
+    return require_dependency("librosa_display", feature="spectrogram visualization")
 
 
 class PlotStrategy(abc.ABC, Generic[TFrame]):
@@ -498,6 +493,7 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
             unit = "dB"
             data = bf.dB
         data = _reshape_spectrogram_data(data)
+        display = _librosa_display()
         specshow_kwargs = filter_kwargs(display.specshow, kwargs, strict_mode=True)
         ax_set_kwargs = filter_kwargs(Axes.set, kwargs, strict_mode=True)
 
@@ -652,6 +648,7 @@ class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
                     vmax = rounded_max
                     vmin = vmax - 180
                     break
+        display = _librosa_display()
         img = display.specshow(
             data=channel_data,
             sr=bf.sampling_rate,
