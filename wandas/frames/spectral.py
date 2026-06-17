@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, cast
 import numpy as np
 from dask.array.core import Array as DaArray
 
-from wandas.utils.optional_imports import require_optional_dependency
+from wandas.utils.optional_imports import require_dependency
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 from ..core.base_frame import BaseFrame
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 def _pandas(feature: str) -> Any:
-    return require_optional_dependency("pandas", extra="core", feature=feature)
+    return require_dependency("pandas", feature=feature)
 
 
 class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):

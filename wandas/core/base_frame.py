@@ -13,7 +13,7 @@ import xarray as xr
 from dask.array.core import Array as DaArray
 
 from wandas.utils import validate_sampling_rate
-from wandas.utils.optional_imports import require_optional_dependency
+from wandas.utils.optional_imports import require_dependency
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 from .channel_metadata import ChannelMetadataIndexer
@@ -42,7 +42,7 @@ QueryType = str | Pattern[str] | Callable[["ChannelMetadata"], bool] | dict[str,
 
 
 def _pandas(feature: str) -> Any:
-    return require_optional_dependency("pandas", extra="core", feature=feature)
+    return require_dependency("pandas", feature=feature)
 
 
 class BaseFrame(ABC, Generic[T]):
@@ -1386,7 +1386,7 @@ class BaseFrame(ABC, Generic[T]):
         """
 
         if framework == "torch":
-            torch = require_optional_dependency("torch", extra="ml", feature="tensor conversion with framework='torch'")
+            torch = require_dependency("torch", feature="tensor conversion with framework='torch'")
             numpy_data = self.to_numpy()
 
             # Convert NumPy array to PyTorch tensor
@@ -1399,11 +1399,7 @@ class BaseFrame(ABC, Generic[T]):
             return tensor
 
         elif framework == "tensorflow":
-            tf = require_optional_dependency(
-                "tensorflow",
-                extra="ml",
-                feature="tensor conversion with framework='tensorflow'",
-            )
+            tf = require_dependency("tensorflow", feature="tensor conversion with framework='tensorflow'")
             numpy_data = self.to_numpy()
 
             # Convert NumPy array to TensorFlow tensor

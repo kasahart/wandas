@@ -12,19 +12,14 @@ from typing import Any, ClassVar, overload
 import numpy as np
 
 from wandas.processing.base import AudioOperation, get_operation, register_operation
-from wandas.utils.optional_imports import require_optional_dependency
+from wandas.utils.optional_imports import require_dependency_attr
 from wandas.utils.types import NDArrayReal
 
 logger = logging.getLogger(__name__)
 
 
 def _sq_metric(name: str, feature: str) -> Any:
-    module = require_optional_dependency(
-        "mosqito.sq_metrics",
-        extra="psychoacoustic",
-        feature=feature,
-    )
-    return getattr(module, name)
+    return require_dependency_attr("mosqito_sq_metrics", name, feature=feature)
 
 
 def loudness_zwtv_mosqito(*args: Any, **kwargs: Any) -> Any:

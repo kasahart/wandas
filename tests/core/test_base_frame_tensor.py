@@ -70,16 +70,15 @@ class TestToTensorPyTorch:
     def test_to_tensor_pytorch_missing_raises_import_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test to_tensor() raises ImportError when PyTorch is not installed."""
 
-        def raise_missing_torch(module_name: str, *, extra: str, feature: str) -> None:
-            assert module_name == "torch"
-            assert extra == "ml"
+        def raise_missing_torch(key: str, *, feature: str) -> None:
+            assert key == "torch"
             assert feature == "tensor conversion with framework='torch'"
             raise ImportError(
-                f"{feature} requires optional dependency {module_name!r}.\n"
-                f'Install it with: pip install "wandas[{extra}]"'
+                f"{feature} requires optional dependency {key!r}.\n"
+                'Install it with: pip install "wandas[ml]"'
             )
 
-        monkeypatch.setattr("wandas.core.base_frame.require_optional_dependency", raise_missing_torch)
+        monkeypatch.setattr("wandas.core.base_frame.require_dependency", raise_missing_torch)
         with pytest.raises(ImportError, match=r'(?s)torch.*pip install "wandas\[ml\]"'):
             self.channel_frame.to_tensor(framework="torch")
 
@@ -132,16 +131,15 @@ class TestToTensorTensorFlow:
     def test_to_tensor_tensorflow_missing_raises_import_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test to_tensor() raises ImportError when TensorFlow is not installed."""
 
-        def raise_missing_tensorflow(module_name: str, *, extra: str, feature: str) -> None:
-            assert module_name == "tensorflow"
-            assert extra == "ml"
+        def raise_missing_tensorflow(key: str, *, feature: str) -> None:
+            assert key == "tensorflow"
             assert feature == "tensor conversion with framework='tensorflow'"
             raise ImportError(
-                f"{feature} requires optional dependency {module_name!r}.\n"
-                f'Install it with: pip install "wandas[{extra}]"'
+                f"{feature} requires optional dependency {key!r}.\n"
+                'Install it with: pip install "wandas[ml]"'
             )
 
-        monkeypatch.setattr("wandas.core.base_frame.require_optional_dependency", raise_missing_tensorflow)
+        monkeypatch.setattr("wandas.core.base_frame.require_dependency", raise_missing_tensorflow)
         with pytest.raises(ImportError, match=r'(?s)tensorflow.*pip install "wandas\[ml\]"'):
             self.channel_frame.to_tensor(framework="tensorflow")
 
