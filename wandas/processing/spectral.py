@@ -6,18 +6,27 @@ from scipy.signal import ShortTimeFFT
 from scipy.signal.windows import get_window
 
 from wandas.processing.base import AudioOperation, register_operation
-from wandas.utils.optional_imports import require_dependency, require_dependency_attr
+from wandas.utils.optional_imports import require_optional_dependency
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 logger = logging.getLogger(__name__)
 
 
 def _require_mosqito_sound_level_meter(feature: str) -> Any:
-    return require_dependency("mosqito_sound_level_meter", feature=feature)
+    return require_optional_dependency(
+        "mosqito.sound_level_meter",
+        extra="psychoacoustic",
+        feature=feature,
+    )
 
 
 def _require_center_freq(feature: str) -> Any:
-    return require_dependency_attr("mosqito_center_freq", "_center_freq", feature=feature)
+    module = require_optional_dependency(
+        "mosqito.sound_level_meter.noct_spectrum._center_freq",
+        extra="psychoacoustic",
+        feature=feature,
+    )
+    return module._center_freq
 
 
 def noct_spectrum(*args: Any, **kwargs: Any) -> Any:

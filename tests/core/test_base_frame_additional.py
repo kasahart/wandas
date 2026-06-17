@@ -216,13 +216,14 @@ def test_to_tensor_torch_not_installed_raises_import_error(monkeypatch):
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
 
-    def raise_missing_torch(key, *, feature):
-        assert key == "torch"
+    def raise_missing_torch(module_name, *, extra, feature):
+        assert module_name == "torch"
+        assert extra == "ml"
         raise ImportError(
-            f'{feature} requires optional dependency {key!r}.\nInstall it with: pip install "wandas[ml]"'
+            f'{feature} requires optional dependency {module_name!r}.\nInstall it with: pip install "wandas[{extra}]"'
         )
 
-    monkeypatch.setattr("wandas.core.base_frame.require_dependency", raise_missing_torch)
+    monkeypatch.setattr("wandas.core.base_frame.require_optional_dependency", raise_missing_torch)
     with pytest.raises(ImportError, match=r'pip install "wandas\[ml\]"'):
         f.to_tensor(framework="torch")
 
@@ -232,13 +233,14 @@ def test_to_tensor_tensorflow_not_installed_raises_import_error(monkeypatch):
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
 
-    def raise_missing_tensorflow(key, *, feature):
-        assert key == "tensorflow"
+    def raise_missing_tensorflow(module_name, *, extra, feature):
+        assert module_name == "tensorflow"
+        assert extra == "ml"
         raise ImportError(
-            f'{feature} requires optional dependency {key!r}.\nInstall it with: pip install "wandas[ml]"'
+            f'{feature} requires optional dependency {module_name!r}.\nInstall it with: pip install "wandas[{extra}]"'
         )
 
-    monkeypatch.setattr("wandas.core.base_frame.require_dependency", raise_missing_tensorflow)
+    monkeypatch.setattr("wandas.core.base_frame.require_optional_dependency", raise_missing_tensorflow)
     with pytest.raises(ImportError, match=r'pip install "wandas\[ml\]"'):
         f.to_tensor(framework="tensorflow")
 

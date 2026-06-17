@@ -12,7 +12,7 @@ from dask.array.core import concatenate
 
 from wandas.utils import validate_sampling_rate
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
-from wandas.utils.optional_imports import require_dependency, require_dependency_attr
+from wandas.utils.optional_imports import require_optional_attr, require_optional_dependency
 from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
@@ -35,15 +35,15 @@ S = TypeVar("S", bound="BaseFrame[Any]")
 
 
 def _pandas(feature: str) -> Any:
-    return require_dependency("pandas", feature=feature)
+    return require_optional_dependency("pandas", extra="core", feature=feature)
 
 
 def _matplotlib_pyplot(feature: str) -> Any:
-    return require_dependency("matplotlib_pyplot", feature=feature)
+    return require_optional_dependency("matplotlib.pyplot", extra="core", feature=feature)
 
 
 def _matplotlib_axes_type(feature: str) -> Any:
-    return require_dependency_attr("matplotlib_axes", "Axes", feature=feature)
+    return require_optional_attr("matplotlib.axes", "Axes", extra="core", feature=feature)
 
 
 class _LazyPyplot:
@@ -55,7 +55,7 @@ plt = _LazyPyplot()
 
 
 def _ipython_display(feature: str) -> tuple[Any, Any]:
-    display_module = require_dependency("ipython_display", feature=feature)
+    display_module = require_optional_dependency("IPython.display", extra="notebook", feature=feature)
     return display_module.display, display_module.Audio
 
 

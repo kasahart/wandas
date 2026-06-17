@@ -9,13 +9,13 @@ import soundfile as sf
 from numpy.typing import ArrayLike
 from scipy.io import wavfile
 
-from wandas.utils.optional_imports import require_dependency
+from wandas.utils.optional_imports import require_optional_dependency
 
 logger = logging.getLogger(__name__)
 
 
 def _pandas(feature: str) -> Any:
-    return require_dependency("pandas", feature=feature)
+    return require_optional_dependency("pandas", extra="core", feature=feature)
 
 
 class CSVFileInfoParams(TypedDict, total=False):

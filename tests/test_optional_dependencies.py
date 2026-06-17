@@ -7,13 +7,7 @@ import numpy as np
 import pytest
 import tomli
 
-from wandas.utils.optional_imports import (
-    DEPENDENCY_REGISTRY,
-    require_dependency,
-    require_dependency_attr,
-    require_optional_attr,
-    require_optional_dependency,
-)
+from wandas.utils.optional_imports import require_optional_attr, require_optional_dependency
 
 
 def _pyproject() -> dict:
@@ -53,68 +47,6 @@ def test_optional_dependency_groups_exist() -> None:
     assert "mosqito" in optional["psychoacoustic"]
     assert any(dep.startswith("torch") for dep in optional["ml"])
     assert any(dep.startswith("tensorflow") for dep in optional["ml"])
-
-
-def _dependency_name(requirement: str) -> str:
-    return requirement.split("[", 1)[0].split(">", 1)[0].split("=", 1)[0].split("<", 1)[0].lower().replace("_", "-")
-
-
-def _dependency_names(requirements: list[str]) -> set[str]:
-    return {_dependency_name(requirement) for requirement in requirements}
-
-
-def test_dependency_registry_matches_pyproject() -> None:
-    project = _pyproject()["project"]
-    core_dependencies = _dependency_names(project["dependencies"])
-    optional_dependencies = project["optional-dependencies"]
-    known_extras = set(optional_dependencies) | {"core"}
-
-    for key, spec in DEPENDENCY_REGISTRY.items():
-        package_name = spec.package_name.lower().replace("_", "-")
-        assert spec.extra in known_extras, key
-        if spec.extra == "core":
-            assert package_name in core_dependencies, key
-        else:
-            assert package_name in _dependency_names(optional_dependencies[spec.extra]), key
-
-
-def test_require_dependency_core_install_hint(monkeypatch: pytest.MonkeyPatch) -> None:
-    original_error = ModuleNotFoundError("No module named 'pandas'", name="pandas")
-
-    def raise_missing_pandas(module_name: str) -> None:
-        assert module_name == "pandas"
-        raise original_error
-
-    monkeypatch.setattr("wandas.utils.optional_imports.importlib.import_module", raise_missing_pandas)
-
-    with pytest.raises(ImportError) as exc_info:
-        require_dependency("pandas", feature="dataframe export")
-
-    message = str(exc_info.value)
-    assert "dataframe export requires core dependency 'pandas'" in message
-    assert 'pip install "wandas"' in message
-
-
-def test_require_dependency_optional_install_hint(monkeypatch: pytest.MonkeyPatch) -> None:
-    original_error = ModuleNotFoundError("No module named 'h5py'", name="h5py")
-
-    def raise_missing_h5py(module_name: str) -> None:
-        assert module_name == "h5py"
-        raise original_error
-
-    monkeypatch.setattr("wandas.utils.optional_imports.importlib.import_module", raise_missing_h5py)
-
-    with pytest.raises(ImportError) as exc_info:
-        require_dependency("h5py", feature="WDF save")
-
-    message = str(exc_info.value)
-    assert "WDF save requires optional dependency 'h5py'" in message
-    assert 'pip install "wandas[io]"' in message
-
-
-def test_require_dependency_attr_returns_installed_attribute() -> None:
-    sqrt = require_dependency_attr("pandas", "DataFrame", feature="dataframe export")
-    assert sqrt.__name__ == "DataFrame"
 
 
 def test_require_optional_dependency_imports_installed_module() -> None:
@@ -234,7 +166,7 @@ def test_sharpness_din_tv_wrapper_missing_mosqito_names_feature(monkeypatch: pyt
         sharpness_din_tv_mosqito([0.0], 48000)
 
     message = str(exc_info.value)
-    assert "sharpness_din_tv requires optional dependency 'mosqito'" in message
+    assert "sharpness_din_tv requires optional dependency 'mosqito.sq_metrics'" in message
     assert 'pip install "wandas[psychoacoustic]"' in message
 
 
@@ -514,16 +446,16 @@ def test_describe_image_save_without_ipython_does_not_require_notebook_extra() -
 def test_hpss_harmonic_missing_librosa_effects_raises_at_init(monkeypatch: pytest.MonkeyPatch) -> None:
     from wandas.processing.effects import HpssHarmonic
 
-    def raise_missing_librosa(key: str, *, feature: str) -> None:
-        assert key == "librosa_effects"
+    def raise_missing_librosa(module_name: str, *, extra: str, feature: str) -> None:
+        assert module_name == "librosa.effects"
+        assert extra == "viz"
         assert feature == "hpss_harmonic"
         raise ImportError(
-            f"{feature} requires optional dependency 'librosa.effects'.\n"
-            'Install it with: pip install "wandas[viz]"'
+            f'{feature} requires optional dependency {module_name!r}.\nInstall it with: pip install "wandas[{extra}]"'
         )
 
     monkeypatch.setattr(
-        "wandas.processing.effects.require_dependency",
+        "wandas.processing.effects.require_optional_dependency",
         raise_missing_librosa,
     )
 

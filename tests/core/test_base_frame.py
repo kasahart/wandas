@@ -434,7 +434,7 @@ def test_to_tensor_torch_missing_raises_import_error() -> None:
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
 
     with mock.patch(
-        "wandas.core.base_frame.require_dependency",
+        "wandas.core.base_frame.require_optional_dependency",
         side_effect=ImportError(
             "tensor conversion requires optional dependency 'torch'.\nInstall it with: pip install \"wandas[ml]\""
         ),
@@ -450,7 +450,7 @@ def test_to_tensor_tensorflow_missing_raises_import_error() -> None:
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
 
     with mock.patch(
-        "wandas.core.base_frame.require_dependency",
+        "wandas.core.base_frame.require_optional_dependency",
         side_effect=ImportError(
             "tensor conversion requires optional dependency 'tensorflow'.\nInstall it with: pip install \"wandas[ml]\""
         ),

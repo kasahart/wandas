@@ -8,7 +8,7 @@ from dask.delayed import delayed
 from scipy.signal import windows as sp_windows
 
 from wandas.processing.base import AudioOperation, register_operation
-from wandas.utils import require_dependency, util
+from wandas.utils import require_optional_dependency, util
 from wandas.utils.types import NDArrayReal
 
 logger = logging.getLogger(__name__)
@@ -66,7 +66,7 @@ class _HpssBase(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def __init__(self, sampling_rate: float, **kwargs: Any):
         self.kwargs = kwargs
-        self._effects = require_dependency("librosa_effects", feature=self.name)
+        self._effects = require_optional_dependency("librosa.effects", extra="viz", feature=self.name)
         super().__init__(sampling_rate, **kwargs)
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
