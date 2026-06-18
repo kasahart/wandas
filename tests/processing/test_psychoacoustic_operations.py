@@ -53,7 +53,7 @@ def test_loudness_zwst_wrapper_propagates_import_error(monkeypatch: pytest.Monke
     def raise_import_error(*args: object, **kwargs: object) -> None:
         raise original_error
 
-    monkeypatch.setattr(psychoacoustic_module, "_sq_metric", raise_import_error)
+    monkeypatch.setattr(psychoacoustic_module, "require_mosqito_sq_metric", raise_import_error)
 
     with pytest.raises(ImportError) as exc_info:
         loudness_zwst_mosqito(np.zeros(4), _SR)
@@ -72,11 +72,60 @@ def test_scalar_metric_missing_mosqito_does_not_materialize_data(monkeypatch: py
         def data(self) -> NDArrayReal:
             raise AssertionError("scalar metric materialized data before checking mosqito")
 
-    monkeypatch.setattr(psychoacoustic_module, "_sq_metric", raise_import_error)
+    monkeypatch.setattr(psychoacoustic_module, "require_mosqito_sq_metric", raise_import_error)
 
     operation = LoudnessZwst(_SR)
     with pytest.raises(ImportError) as exc_info:
         ChannelFrame._compute_scalar_metric(UncomputableFrame(), operation)  # ty: ignore[invalid-argument-type]
+
+    assert exc_info.value is original_error
+
+
+@pytest.mark.parametrize(
+    ("operation", "metric_name", "feature"),
+    [
+        (LoudnessZwtv(_SR), "loudness_zwtv", "loudness_zwtv"),
+        (LoudnessZwst(_SR), "loudness_zwst", "loudness_zwst"),
+        (RoughnessDw(_SR), "roughness_dw", "roughness_dw"),
+        (SharpnessDin(_SR), "sharpness_din_tv", "sharpness_din"),
+        (SharpnessDinSt(_SR), "sharpness_din_st", "sharpness_din_st"),
+    ],
+)
+def test_direct_psychoacoustic_process_preflights_dependencies(
+    monkeypatch: pytest.MonkeyPatch,
+    operation: object,
+    metric_name: str,
+    feature: str,
+) -> None:
+    original_error = ImportError('Install it with: pip install "wandas[psychoacoustic]"')
+    calls: list[tuple[str, str]] = []
+
+    def raise_import_error(name: str, actual_feature: str) -> None:
+        calls.append((name, actual_feature))
+        raise original_error
+
+    monkeypatch.setattr(psychoacoustic_module, "require_mosqito_sq_metric", raise_import_error)
+    monkeypatch.setattr(operation, "_delayed", lambda _data: pytest.fail("created graph before checking mosqito"))
+
+    with pytest.raises(ImportError) as exc_info:
+        getattr(operation, "process")(da_from_array(np.zeros((1, 16)), chunks=(1, -1)))
+
+    assert exc_info.value is original_error
+    assert calls == [(metric_name, feature)]
+
+
+def test_direct_psychoacoustic_process_array_preflights_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
+    original_error = ImportError('Install it with: pip install "wandas[psychoacoustic]"')
+
+    def raise_import_error(*args: object, **kwargs: object) -> None:
+        raise original_error
+
+    operation = LoudnessZwst(_SR)
+    monkeypatch.setattr(psychoacoustic_module, "require_mosqito_sq_metric", raise_import_error)
+    monkeypatch.setattr(operation, "_delayed", lambda _data: pytest.fail("created graph before checking mosqito"))
+
+    with pytest.raises(ImportError) as exc_info:
+        operation.process_array(np.zeros((1, 16)))
 
     assert exc_info.value is original_error
 

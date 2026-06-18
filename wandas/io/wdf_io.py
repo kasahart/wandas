@@ -29,10 +29,6 @@ logger = logging.getLogger(__name__)
 WDF_FORMAT_VERSION = "0.1"
 
 
-def _h5py(feature: str) -> Any:
-    return require_h5py(feature)
-
-
 def _decode_hdf5_str(value: object) -> str:
     """Decode an HDF5 attribute value to a Python string.
 
@@ -82,7 +78,7 @@ def save(
     if format.lower() != "hdf5":
         raise NotImplementedError(f"Format {format} not supported. Only 'hdf5' is currently implemented.")
 
-    h5py = _h5py("WDF save")
+    h5py = require_h5py("WDF save")
 
     # Compute data arrays (this triggers actual computation)
     logger.info("Computing data arrays for saving...")
@@ -186,7 +182,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
     if format.lower() != "hdf5":
         raise NotImplementedError(f"Format '{format}' is not supported")
 
-    h5py = _h5py("WDF load")
+    h5py = require_h5py("WDF load")
 
     # Detect and handle URL paths — download to memory before HDF5 open.
     h5_source: str | Path | io.BytesIO

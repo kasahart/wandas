@@ -647,7 +647,7 @@ def test_lazy_psychoacoustic_missing_mosqito_raises_before_graph_build(
         )
 
     frame = ChannelFrame.from_numpy(np.zeros((1, 4800), dtype=float), sampling_rate=48000)
-    monkeypatch.setattr("wandas.processing.psychoacoustic._sq_metric", raise_missing_mosqito)
+    monkeypatch.setattr("wandas.processing.psychoacoustic.require_mosqito_sq_metric", raise_missing_mosqito)
 
     with pytest.raises(ImportError) as exc_info:
         getattr(frame, method_name)(**kwargs)

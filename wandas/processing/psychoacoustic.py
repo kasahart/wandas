@@ -18,28 +18,24 @@ from wandas.utils.types import NDArrayReal
 logger = logging.getLogger(__name__)
 
 
-def _sq_metric(name: str, feature: str) -> Any:
-    return require_mosqito_sq_metric(name, feature)
-
-
 def loudness_zwtv_mosqito(*args: Any, **kwargs: Any) -> Any:
-    return _sq_metric("loudness_zwtv", "loudness_zwtv")(*args, **kwargs)
+    return require_mosqito_sq_metric("loudness_zwtv", "loudness_zwtv")(*args, **kwargs)
 
 
 def loudness_zwst_mosqito(*args: Any, **kwargs: Any) -> Any:
-    return _sq_metric("loudness_zwst", "loudness_zwst")(*args, **kwargs)
+    return require_mosqito_sq_metric("loudness_zwst", "loudness_zwst")(*args, **kwargs)
 
 
 def roughness_dw_mosqito(*args: Any, **kwargs: Any) -> Any:
-    return _sq_metric("roughness_dw", "roughness_dw")(*args, **kwargs)
+    return require_mosqito_sq_metric("roughness_dw", "roughness_dw")(*args, **kwargs)
 
 
 def sharpness_din_tv_mosqito(*args: Any, **kwargs: Any) -> Any:
-    return _sq_metric("sharpness_din_tv", "sharpness_din_tv")(*args, **kwargs)
+    return require_mosqito_sq_metric("sharpness_din_tv", "sharpness_din_tv")(*args, **kwargs)
 
 
 def sharpness_din_st_mosqito(*args: Any, **kwargs: Any) -> Any:
-    return _sq_metric("sharpness_din_st", "sharpness_din_st")(*args, **kwargs)
+    return require_mosqito_sq_metric("sharpness_din_st", "sharpness_din_st")(*args, **kwargs)
 
 
 @overload
@@ -125,7 +121,20 @@ def _register_canonical(operation_class: type[AudioOperation[Any, Any]]) -> None
     globals()[operation_class.__name__] = get_operation(operation_class.name)
 
 
-class _ZwickerTimeVaryingBase(AudioOperation[NDArrayReal, NDArrayReal]):
+class _PsychoacousticOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+    def ensure_dependencies(self) -> None:
+        return None
+
+    def process_array(self, x: Any) -> Any:
+        self.ensure_dependencies()
+        return super().process_array(x)
+
+    def process(self, data: Any) -> Any:
+        self.ensure_dependencies()
+        return super().process(data)
+
+
+class _ZwickerTimeVaryingBase(_PsychoacousticOperation):
     """Shared base for Zwicker time-varying metrics (loudness, sharpness).
 
     These operations share:
@@ -145,7 +154,7 @@ class _ZwickerTimeVaryingBase(AudioOperation[NDArrayReal, NDArrayReal]):
         return (n_channels, estimated_time_samples)
 
 
-class _SteadyStateBase(AudioOperation[NDArrayReal, NDArrayReal]):
+class _SteadyStateBase(_PsychoacousticOperation):
     """Shared base for steady-state psychoacoustic metrics.
 
     These operations return one scalar per channel (shape ``(n_channels, 1)``)
@@ -221,7 +230,7 @@ class LoudnessZwtv(_ZwickerTimeVaryingBase):
         _validate_field_type(self.field_type)
 
     def ensure_dependencies(self) -> None:
-        _sq_metric("loudness_zwtv", "loudness_zwtv")
+        require_mosqito_sq_metric("loudness_zwtv", "loudness_zwtv")
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """
@@ -315,7 +324,7 @@ class LoudnessZwst(_SteadyStateBase):
         _validate_field_type(self.field_type)
 
     def ensure_dependencies(self) -> None:
-        _sq_metric("loudness_zwst", "loudness_zwst")
+        require_mosqito_sq_metric("loudness_zwst", "loudness_zwst")
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """
@@ -347,7 +356,7 @@ class LoudnessZwst(_SteadyStateBase):
 _register_canonical(LoudnessZwst)
 
 
-class _RoughnessBase(AudioOperation[NDArrayReal, NDArrayReal]):
+class _RoughnessBase(_PsychoacousticOperation):
     """Shared base for Daniel-Weber roughness operations.
 
     Provides common parameter validation, output estimation helpers,
@@ -459,7 +468,7 @@ class RoughnessDw(_RoughnessBase):
         super().__init__(sampling_rate, overlap=overlap)
 
     def ensure_dependencies(self) -> None:
-        _sq_metric("roughness_dw", "roughness_dw")
+        require_mosqito_sq_metric("roughness_dw", "roughness_dw")
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """
@@ -673,7 +682,7 @@ class SharpnessDin(_ZwickerTimeVaryingBase):
         _validate_sharpness_params(self.weighting, self.field_type)
 
     def ensure_dependencies(self) -> None:
-        _sq_metric("sharpness_din_tv", "sharpness_din")
+        require_mosqito_sq_metric("sharpness_din_tv", "sharpness_din")
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """
@@ -783,7 +792,7 @@ class SharpnessDinSt(_SteadyStateBase):
         _validate_sharpness_params(self.weighting, self.field_type)
 
     def ensure_dependencies(self) -> None:
-        _sq_metric("sharpness_din_st", "sharpness_din_st")
+        require_mosqito_sq_metric("sharpness_din_st", "sharpness_din_st")
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """

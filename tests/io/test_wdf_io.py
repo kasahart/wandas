@@ -242,7 +242,7 @@ def test_save_wdf_missing_h5py_does_not_compute(tmp_path: Path) -> None:
         def compute(self) -> np.ndarray:
             raise AssertionError("save() computed data before checking h5py")
 
-    with patch.object(wdf_io, "_h5py", side_effect=ImportError('Install it with: pip install "wandas[io]"')):
+    with patch.object(wdf_io, "require_h5py", side_effect=ImportError('Install it with: pip install "wandas[io]"')):
         with pytest.raises(ImportError, match=r"wandas\[io\]"):
             wdf_io.save(UncomputableFrame(), tmp_path / "missing_h5py.wdf")  # ty: ignore[invalid-argument-type]
 
@@ -473,7 +473,7 @@ def test_load_wdf_missing_h5py_does_not_download_url() -> None:
     url = "https://example.com/data/large.wdf"
 
     with (
-        patch.object(wdf_io, "_h5py", side_effect=ImportError('Install it with: pip install "wandas[io]"')),
+        patch.object(wdf_io, "require_h5py", side_effect=ImportError('Install it with: pip install "wandas[io]"')),
         patch("urllib.request.urlopen") as mock_urlopen,
     ):
         with pytest.raises(ImportError, match=r"wandas\[io\]"):
