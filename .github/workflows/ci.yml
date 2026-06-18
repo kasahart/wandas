@@ -95,7 +95,9 @@ jobs:
           uv pip install --python "$RUNNER_TEMP/wandas-core-smoke/bin/python" dist/*.whl
           cd "$RUNNER_TEMP"
           "$RUNNER_TEMP/wandas-core-smoke/bin/python" - <<'PY'
+          import importlib
           import importlib.util
+          import pkgutil
           import tempfile
           from pathlib import Path
 
@@ -113,6 +115,14 @@ jobs:
           ]
           installed_optional = [name for name in optional_modules if importlib.util.find_spec(name) is not None]
           assert installed_optional == [], f"Unexpected optional packages installed: {installed_optional}"
+
+          import_errors = []
+          for module_info in pkgutil.walk_packages(wd.__path__, prefix=f"{wd.__name__}."):
+              try:
+                  importlib.import_module(module_info.name)
+              except Exception as exc:  # noqa: BLE001 - CI smoke should report every import failure.
+                  import_errors.append(f"{module_info.name}: {type(exc).__name__}: {exc}")
+          assert import_errors == [], "Submodule imports failed:\n" + "\n".join(import_errors)
 
           data = np.sin(np.linspace(0, 16, 4096, dtype=float))[None, :]
           frame = wd.ChannelFrame.from_numpy(data, sampling_rate=48000)
