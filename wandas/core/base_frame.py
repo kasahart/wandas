@@ -13,7 +13,7 @@ import xarray as xr
 from dask.array.core import Array as DaArray
 
 from wandas.utils import validate_sampling_rate
-from wandas.utils.optional_imports import require_dependency
+from wandas.utils.optional_imports import require_dependency, require_pandas
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 from .channel_metadata import ChannelMetadataIndexer
@@ -39,10 +39,6 @@ T = TypeVar("T", NDArrayComplex, NDArrayReal)
 S = TypeVar("S", bound="BaseFrame[Any]")
 S_Out = TypeVar("S_Out", bound="BaseFrame[Any]")
 QueryType = str | Pattern[str] | Callable[["ChannelMetadata"], bool] | dict[str, Any]
-
-
-def _pandas(feature: str) -> Any:
-    return require_dependency("pandas", feature=feature)
 
 
 class BaseFrame(ABC, Generic[T]):
@@ -1439,7 +1435,7 @@ class BaseFrame(ABC, Generic[T]):
         >>> df = cf.to_dataframe()
         >>> print(df.head())
         """
-        pd = _pandas("BaseFrame.to_dataframe")
+        pd = require_pandas("BaseFrame.to_dataframe")
 
         # Get data as numpy array
         data = self.to_numpy()

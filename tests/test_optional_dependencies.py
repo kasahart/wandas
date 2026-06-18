@@ -2,6 +2,7 @@ import subprocess
 import sys
 import textwrap
 from pathlib import Path
+from types import ModuleType
 
 import numpy as np
 import pytest
@@ -11,6 +12,10 @@ from wandas.utils.optional_imports import (
     DEPENDENCY_REGISTRY,
     require_dependency,
     require_dependency_attr,
+    require_ipython_display,
+    require_librosa_display,
+    require_matplotlib_axes_type,
+    require_mosqito_sq_metric,
     require_optional_attr,
     require_optional_dependency,
 )
@@ -196,6 +201,38 @@ def test_require_dependency_attr_missing_attribute_error_message() -> None:
     message = str(exc_info.value)
     assert "dataframe export requires 'pandas' to provide attribute 'definitely_missing_wandas_attr'" in message
     assert 'pip install "wandas"' in message
+
+
+def test_convenience_helpers_use_registered_import_boundaries(monkeypatch: pytest.MonkeyPatch) -> None:
+    imported: list[str] = []
+
+    def import_module(module_name: str) -> ModuleType:
+        imported.append(module_name)
+        module = ModuleType(module_name)
+        if module_name == "matplotlib.axes":
+            setattr(module, "Axes", object())
+        elif module_name == "IPython.display":
+            setattr(module, "display", object())
+            setattr(module, "Audio", object())
+        elif module_name == "mosqito.sq_metrics":
+            setattr(module, "loudness_zwtv", object())
+        return module
+
+    monkeypatch.setattr("wandas.utils.optional_imports.importlib.import_module", import_module)
+
+    assert require_librosa_display("spectrogram plot").__name__ == "librosa.display"
+    assert require_matplotlib_axes_type("waveform plot") is not None
+    display, audio = require_ipython_display("describe")
+    assert display is not None
+    assert audio is not None
+    assert require_mosqito_sq_metric("loudness_zwtv", "loudness_zwtv") is not None
+
+    assert imported == [
+        "librosa.display",
+        "matplotlib.axes",
+        "IPython.display",
+        "mosqito.sq_metrics",
+    ]
 
 
 def test_require_optional_dependency_imports_installed_module() -> None:
@@ -546,15 +583,14 @@ def test_describe_image_save_without_ipython_does_not_require_notebook_extra() -
 def test_hpss_harmonic_missing_librosa_effects_raises_at_init(monkeypatch: pytest.MonkeyPatch) -> None:
     from wandas.processing.effects import HpssHarmonic
 
-    def raise_missing_librosa(key: str, *, feature: str) -> None:
-        assert key == "librosa_effects"
+    def raise_missing_librosa(feature: str) -> None:
         assert feature == "hpss_harmonic"
         raise ImportError(
             f"{feature} requires optional dependency 'librosa.effects'.\nInstall it with: pip install \"wandas[viz]\""
         )
 
     monkeypatch.setattr(
-        "wandas.processing.effects.require_dependency",
+        "wandas.processing.effects.require_librosa_effects",
         raise_missing_librosa,
     )
 

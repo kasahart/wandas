@@ -12,7 +12,16 @@ from dask.array.core import concatenate
 
 from wandas.utils import validate_sampling_rate
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
-from wandas.utils.optional_imports import require_dependency, require_dependency_attr
+from wandas.utils.optional_imports import (
+    require_ipython_display,
+    require_pandas,
+)
+from wandas.utils.optional_imports import (
+    require_matplotlib_axes_type as _matplotlib_axes_type,
+)
+from wandas.utils.optional_imports import (
+    require_matplotlib_pyplot as _matplotlib_pyplot,
+)
 from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
@@ -35,15 +44,7 @@ S = TypeVar("S", bound="BaseFrame[Any]")
 
 
 def _pandas(feature: str) -> Any:
-    return require_dependency("pandas", feature=feature)
-
-
-def _matplotlib_pyplot(feature: str) -> Any:
-    return require_dependency("matplotlib_pyplot", feature=feature)
-
-
-def _matplotlib_axes_type(feature: str) -> Any:
-    return require_dependency_attr("matplotlib_axes", "Axes", feature=feature)
+    return require_pandas(feature)
 
 
 class _LazyPyplot:
@@ -54,22 +55,17 @@ class _LazyPyplot:
 plt = _LazyPyplot()
 
 
-def _ipython_display(feature: str) -> tuple[Any, Any]:
-    display_module = require_dependency("ipython_display", feature=feature)
-    return display_module.display, display_module.Audio
-
-
 def _is_display_enabled(image_save: str | Path | None, is_close: bool) -> bool:
     return image_save is None and is_close
 
 
 def display(*args: Any, **kwargs: Any) -> Any:
-    notebook_display, _ = _ipython_display("describe")
+    notebook_display, _ = require_ipython_display("describe")
     return notebook_display(*args, **kwargs)
 
 
 def Audio(*args: Any, **kwargs: Any) -> Any:  # noqa: N802
-    _, audio = _ipython_display("describe")
+    _, audio = require_ipython_display("describe")
     return audio(*args, **kwargs)
 
 
@@ -772,7 +768,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         axes_cls = _matplotlib_axes_type("describe")
         display_enabled = _is_display_enabled(image_save, is_close)
         if display_enabled:
-            _ipython_display("describe")
+            require_ipython_display("describe")
 
         figures: list[Figure] = []
 

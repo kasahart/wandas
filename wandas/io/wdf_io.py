@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 # Import BaseFrame from core module
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
-from wandas.utils.optional_imports import require_dependency
+from wandas.utils.optional_imports import require_h5py
 
 from ..core.base_frame import BaseFrame
 
@@ -27,10 +27,6 @@ logger = logging.getLogger(__name__)
 
 # Constants for version management
 WDF_FORMAT_VERSION = "0.1"
-
-
-def _h5py(feature: str) -> Any:
-    return require_dependency("h5py", feature=feature)
 
 
 def _decode_hdf5_str(value: object) -> str:
@@ -82,7 +78,7 @@ def save(
     if format.lower() != "hdf5":
         raise NotImplementedError(f"Format {format} not supported. Only 'hdf5' is currently implemented.")
 
-    h5py = _h5py("WDF save")
+    h5py = require_h5py("WDF save")
 
     # Compute data arrays (this triggers actual computation)
     logger.info("Computing data arrays for saving...")
@@ -186,7 +182,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
     if format.lower() != "hdf5":
         raise NotImplementedError(f"Format '{format}' is not supported")
 
-    h5py = _h5py("WDF load")
+    h5py = require_h5py("WDF load")
 
     # Detect and handle URL paths — download to memory before HDF5 open.
     h5_source: str | Path | io.BytesIO

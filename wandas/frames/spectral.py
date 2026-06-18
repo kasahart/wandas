@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, cast
 import numpy as np
 from dask.array.core import Array as DaArray
 
-from wandas.utils.optional_imports import require_dependency
+from wandas.utils.optional_imports import require_pandas
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 from ..core.base_frame import BaseFrame
@@ -25,10 +25,6 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
-
-
-def _pandas(feature: str) -> Any:
-    return require_dependency("pandas", feature=feature)
 
 
 class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
@@ -319,7 +315,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
     def _get_dataframe_index(self) -> pd.Index[Any]:
         """Get frequency index for DataFrame."""
-        pd = _pandas("SpectralFrame.to_dataframe")
+        pd = require_pandas("SpectralFrame.to_dataframe")
         return pd.Index(self.freqs, name="frequency")
 
     def noct_synthesis(

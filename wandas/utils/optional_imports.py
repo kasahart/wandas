@@ -135,6 +135,59 @@ def require_dependency_attr(key: DependencyKey, attr_name: str, *, feature: str)
         ) from exc
 
 
+def require_pandas(feature: str) -> ModuleType:
+    return require_dependency("pandas", feature=feature)
+
+
+def require_matplotlib_pyplot(feature: str) -> ModuleType:
+    return require_dependency("matplotlib_pyplot", feature=feature)
+
+
+def require_matplotlib_gridspec(feature: str) -> ModuleType:
+    return require_dependency("matplotlib_gridspec", feature=feature)
+
+
+def require_matplotlib_axes_type(feature: str) -> Any:
+    return require_dependency_attr("matplotlib_axes", "Axes", feature=feature)
+
+
+def require_matplotlib_figure_type(feature: str) -> Any:
+    return require_dependency_attr("matplotlib_figure", "Figure", feature=feature)
+
+
+def require_matplotlib_line2d_type(feature: str) -> Any:
+    return require_dependency_attr("matplotlib_lines", "Line2D", feature=feature)
+
+
+def require_h5py(feature: str) -> ModuleType:
+    return require_dependency("h5py", feature=feature)
+
+
+def require_librosa_display(feature: str) -> ModuleType:
+    return require_dependency("librosa_display", feature=feature)
+
+
+def require_librosa_effects(feature: str) -> ModuleType:
+    return require_dependency("librosa_effects", feature=feature)
+
+
+def require_mosqito_sound_level_meter(feature: str) -> ModuleType:
+    return require_dependency("mosqito_sound_level_meter", feature=feature)
+
+
+def require_mosqito_sq_metric(name: str, feature: str) -> Any:
+    return require_dependency_attr("mosqito_sq_metrics", name, feature=feature)
+
+
+def require_mosqito_center_freq(feature: str) -> Any:
+    return require_dependency_attr("mosqito_center_freq", "_center_freq", feature=feature)
+
+
+def require_ipython_display(feature: str) -> tuple[Any, Any]:
+    display_module = require_dependency("ipython_display", feature=feature)
+    return display_module.display, display_module.Audio
+
+
 def require_optional_dependency(module_name: str, *, extra: str, feature: str) -> ModuleType:
     """Import a dependency or raise an actionable install error.
 

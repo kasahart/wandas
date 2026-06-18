@@ -9,7 +9,24 @@ from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar
 import numpy as np
 
 from wandas.utils.introspection import filter_kwargs
-from wandas.utils.optional_imports import require_dependency, require_dependency_attr
+from wandas.utils.optional_imports import (
+    require_librosa_display as _librosa_display,
+)
+from wandas.utils.optional_imports import (
+    require_matplotlib_axes_type as _matplotlib_axes_type,
+)
+from wandas.utils.optional_imports import (
+    require_matplotlib_figure_type as _matplotlib_figure_type,
+)
+from wandas.utils.optional_imports import (
+    require_matplotlib_gridspec as _matplotlib_gridspec,
+)
+from wandas.utils.optional_imports import (
+    require_matplotlib_line2d_type as _matplotlib_line2d_type,
+)
+from wandas.utils.optional_imports import (
+    require_matplotlib_pyplot as _matplotlib_pyplot,
+)
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -24,30 +41,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 TFrame = TypeVar("TFrame", bound="BaseFrame[Any]")
-
-
-def _matplotlib_pyplot(feature: str) -> Any:
-    return require_dependency("matplotlib_pyplot", feature=feature)
-
-
-def _matplotlib_gridspec(feature: str) -> Any:
-    return require_dependency("matplotlib_gridspec", feature=feature)
-
-
-def _matplotlib_axes_type(feature: str) -> Any:
-    return require_dependency_attr("matplotlib_axes", "Axes", feature=feature)
-
-
-def _matplotlib_figure_type(feature: str) -> Any:
-    return require_dependency_attr("matplotlib_figure", "Figure", feature=feature)
-
-
-def _matplotlib_line2d_type(feature: str) -> Any:
-    return require_dependency_attr("matplotlib_lines", "Line2D", feature=feature)
-
-
-def _librosa_display(feature: str) -> Any:
-    return require_dependency("librosa_display", feature=feature)
 
 
 def _spectrogram_axis_values(frame: Any, data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:

@@ -9,7 +9,7 @@ from dask.array.core import Array as DaArray
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
 from wandas.processing.weighting import a_weighting_db
-from wandas.utils.optional_imports import require_dependency
+from wandas.utils.optional_imports import require_mosqito_center_freq, require_pandas
 from wandas.utils.types import NDArrayReal
 from wandas.utils.util import ref_weighted_dB
 
@@ -25,13 +25,8 @@ logger = logging.getLogger(__name__)
 S = TypeVar("S", bound="BaseFrame[Any]")
 
 
-def _pandas(feature: str) -> Any:
-    return require_dependency("pandas", feature=feature)
-
-
 def _center_freq(*args: Any, **kwargs: Any) -> Any:
-    module = require_dependency("mosqito_center_freq", feature="NOctFrame.freqs")
-    return module._center_freq(*args, **kwargs)
+    return require_mosqito_center_freq("NOctFrame.freqs")(*args, **kwargs)
 
 
 class NOctFrame(BaseFrame[NDArrayReal]):
@@ -371,5 +366,5 @@ class NOctFrame(BaseFrame[NDArrayReal]):
 
     def _get_dataframe_index(self) -> "pd.Index[Any]":
         """Get frequency index for DataFrame."""
-        pd = _pandas("NOctFrame.to_dataframe")
+        pd = require_pandas("NOctFrame.to_dataframe")
         return pd.Index(self.freqs, name="frequency")
