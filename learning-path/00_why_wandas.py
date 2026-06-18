@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.1"
+__generated_with = "0.23.9"
 app = marimo.App()
 
 
@@ -148,14 +148,6 @@ def _(mo):
     - メソッドチェーンで処理を連鎖
     - pandasユーザーになじみやすい
     """)
-    return
-
-
-@app.cell
-def _(plt):
-    _fig, _ax = plt.subplots()
-    _ax.plot([1, 2, 3])
-    _fig  # セルの最後に必ずオブジェクトを置く
     return
 
 
