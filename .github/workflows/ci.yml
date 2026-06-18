@@ -86,6 +86,7 @@ jobs:
         run: uv build --wheel
 
       - name: core-only wheel install smoke
+        # Keep this as a packaging smoke test, not a duplicate pytest subset.
         shell: bash
         env:
           MPLBACKEND: Agg
