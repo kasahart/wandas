@@ -1274,7 +1274,7 @@ def test_describe_plot_return_type_error() -> None:
             # Test with normalize=False and is_close=False
             self.channel_frame.describe(normalize=False, is_close=False)
 
-            # Returning figures skips notebook audio/display and leaves figures open.
+            # Returning figures skips interactive audio/display and leaves figures open.
             mock_audio.assert_not_called()
             mock_close.assert_not_called()
 
@@ -1399,7 +1399,7 @@ class TestDescribeIntegration:
         ):
             self.channel_frame.describe(is_close=False)
 
-            # Returning figures skips notebook display.
+            # Returning figures skips interactive display.
             mock_display.assert_not_called()
 
     def test_describe_integration_stft_computation(self) -> None:

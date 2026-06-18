@@ -245,7 +245,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         overlay : bool, default=False
             Whether to overlay channels on a single axes.
         **kwargs : dict
-            Additional keyword arguments passed to librosa.display.specshow().
+            Additional keyword arguments passed to Matplotlib plotting methods.
 
         Returns
         -------

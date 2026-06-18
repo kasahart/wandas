@@ -38,11 +38,41 @@ It helps you move from raw data to inspection, filtering, spectral analysis, and
 
 ## Quick Start / クイックスタート
 
-Install from PyPI:
-PyPI からインストールします。
+Install from PyPI with the recommended marimo extra:
+推奨の marimo extra 付きで PyPI からインストールします。
+
+```bash
+pip install "wandas[marimo]"
+```
+
+For a minimal core-only install:
+最小の core-only インストールの場合:
 
 ```bash
 pip install wandas
+```
+
+### Installation Options / インストールオプション
+
+The core-only install keeps waveform, CSV/WAV, processing, plotting, and `describe()` workflows available without optional extras.
+core-only インストールでは、optional extras なしで波形データ、CSV/WAV、処理、プロット、`describe()` の主要ワークフローを利用できます。
+
+Install optional extras when you need additional file formats or heavier analysis features:
+追加のファイル形式や重めの解析機能が必要な場合は、optional extras を追加してインストールします。
+
+```bash
+pip install "wandas[io]"              # WDF save/load support
+pip install "wandas[effects]"         # librosa-backed audio effects
+pip install "wandas[marimo]"          # marimo learning apps and interactive display support
+pip install "wandas[psychoacoustic]"  # loudness, roughness, octave-band helpers
+pip install "wandas[ml]"              # Torch/TensorFlow tensor helpers
+```
+
+Combine extras as needed:
+必要に応じて extras は組み合わせられます。
+
+```bash
+pip install "wandas[marimo,io,effects,psychoacoustic]"
 ```
 
 Then read a signal file and inspect it in one short path:
@@ -98,8 +128,8 @@ dataset = wd.from_folder("recordings/")
 
 - [Documentation](https://kasahart.github.io/wandas/) - Guides, API reference, and examples.
   [公式ドキュメント](https://kasahart.github.io/wandas/) - ガイド、API リファレンス、使用例。
-- [Learning Path](https://github.com/kasahart/wandas/tree/main/learning-path/) - Notebook-based walkthroughs.
-  [Learning Path](https://github.com/kasahart/wandas/tree/main/learning-path/) - Notebook ベースのステップ別チュートリアル。
+- [Learning Path](https://github.com/kasahart/wandas/tree/main/learning-path/) - marimo app-based walkthroughs.
+  [Learning Path](https://github.com/kasahart/wandas/tree/main/learning-path/) - marimo アプリベースのステップ別チュートリアル。
 - [Examples](https://github.com/kasahart/wandas/tree/main/examples/) - Small runnable scripts and sample data.
   [examples](https://github.com/kasahart/wandas/tree/main/examples/) - 小さな実行例とサンプルデータ。
 

@@ -29,7 +29,7 @@ jobs:
         run: uv python install 3.12
 
       - name: 依存関係をインストール (testグループ + 非ML extras)
-        run: uv sync --no-dev --extra io --extra viz --extra notebook --extra psychoacoustic --group test
+        run: uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group test
 
       - name: フォーマットチェック (ruff format)
         run: uv run --no-sync ruff format --check wandas tests
@@ -59,7 +59,7 @@ jobs:
 
         - name: 依存関係をインストール (docsグループ + 非ML extras)
           # ドキュメント構築に必要なパッケージ群と非ML extrasのみをインストール
-          run: uv sync --no-dev --extra io --extra viz --extra notebook --extra psychoacoustic --group docs
+          run: uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group docs
 
         - name: ドキュメントのビルドテスト (MkDocs)
           # --strictフラグにより、警告（リンク切れやパースエラー）をエラーとして扱いCIを落とす
@@ -107,7 +107,6 @@ jobs:
           optional_modules = [
               "h5py",
               "IPython",
-              "japanize_matplotlib",
               "librosa",
               "mosqito",
               "tensorflow",
@@ -158,7 +157,7 @@ jobs:
 
       - name: 依存関係をインストール
         # testグループと非ML extrasのみインストールしてCI実行時間を短縮
-        run: uv sync --no-dev --extra io --extra viz --extra notebook --extra psychoacoustic --group test
+        run: uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group test
 
       - name: テスト実行とカバレッジレポート生成 (pytest)
         # Windowsの場合のみ MPLBACKEND を設定

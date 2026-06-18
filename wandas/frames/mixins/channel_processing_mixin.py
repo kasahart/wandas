@@ -13,13 +13,6 @@ from .protocols import ProcessingFrameProtocol, T_Processing
 T_OutputFrame = TypeVar("T_OutputFrame")
 
 if TYPE_CHECKING:
-    from librosa._typing import (
-        _FloatLike_co,
-        _IntLike_co,
-        _PadModeSTFT,
-        _WindowSpec,
-    )
-
     from wandas.core.base_frame import BaseFrame
     from wandas.utils.types import NDArrayReal
 logger = logging.getLogger(__name__)
@@ -503,15 +496,15 @@ class ChannelProcessingMixin:
     def _hpss(
         self: T_Processing,
         operation_name: str,
-        kernel_size: "_IntLike_co | tuple[_IntLike_co, _IntLike_co] | list[_IntLike_co]" = 31,
+        kernel_size: "int | tuple[int, int] | list[int]" = 31,
         power: float = 2,
-        margin: "_FloatLike_co | tuple[_FloatLike_co, _FloatLike_co] | list[_FloatLike_co]" = 1,
+        margin: "float | tuple[float, float] | list[float]" = 1,
         n_fft: int = 2048,
         hop_length: int | None = None,
         win_length: int | None = None,
-        window: "_WindowSpec" = "hann",
+        window: "Any" = "hann",
         center: bool = True,
-        pad_mode: "_PadModeSTFT" = "constant",
+        pad_mode: "str" = "constant",
     ) -> T_Processing:
         """Shared implementation for HPSS harmonic/percussive extraction."""
         result = self.apply_operation(
@@ -530,15 +523,15 @@ class ChannelProcessingMixin:
 
     def hpss_harmonic(
         self: T_Processing,
-        kernel_size: "_IntLike_co | tuple[_IntLike_co, _IntLike_co] | list[_IntLike_co]" = 31,
+        kernel_size: "int | tuple[int, int] | list[int]" = 31,
         power: float = 2,
-        margin: "_FloatLike_co | tuple[_FloatLike_co, _FloatLike_co] | list[_FloatLike_co]" = 1,
+        margin: "float | tuple[float, float] | list[float]" = 1,
         n_fft: int = 2048,
         hop_length: int | None = None,
         win_length: int | None = None,
-        window: "_WindowSpec" = "hann",
+        window: "Any" = "hann",
         center: bool = True,
-        pad_mode: "_PadModeSTFT" = "constant",
+        pad_mode: "str" = "constant",
     ) -> T_Processing:
         """
         Extract harmonic components using HPSS
@@ -578,15 +571,15 @@ class ChannelProcessingMixin:
 
     def hpss_percussive(
         self: T_Processing,
-        kernel_size: "_IntLike_co | tuple[_IntLike_co, _IntLike_co] | list[_IntLike_co]" = 31,
+        kernel_size: "int | tuple[int, int] | list[int]" = 31,
         power: float = 2,
-        margin: "_FloatLike_co | tuple[_FloatLike_co, _FloatLike_co] | list[_FloatLike_co]" = 1,
+        margin: "float | tuple[float, float] | list[float]" = 1,
         n_fft: int = 2048,
         hop_length: int | None = None,
         win_length: int | None = None,
-        window: "_WindowSpec" = "hann",
+        window: "Any" = "hann",
         center: bool = True,
-        pad_mode: "_PadModeSTFT" = "constant",
+        pad_mode: "str" = "constant",
     ) -> T_Processing:
         """
         Extract percussive components using HPSS

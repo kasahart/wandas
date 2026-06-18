@@ -17,17 +17,17 @@ def _(mo):
     # 01 環境構築とウォームアップ
     ## Wandasを動かしてみよう
 
-    このノートブックでは、Wandasをインストールし、基本的な環境設定を行って、最初の信号処理を体験します。
+    このmarimoアプリでは、Wandasをインストールし、基本的な環境設定を行って、最初の信号処理を体験します。
 
     **学習目標:**
     - Wandasのインストールと環境設定
-    - Jupyter環境でのインタラクティブな操作
+    - marimo環境でのインタラクティブな操作
     - 最初の信号生成と可視化
     - 基本的な操作の習得
 
     **前提条件:**
     - Python 3.9以上
-    - Jupyter Notebook環境
+    - marimo環境
     """)
     return
 
@@ -52,7 +52,7 @@ def _(mo):
     - 異なる可視化方法を比較
     - 処理結果をリアルタイムで評価
 
-    Jupyter Notebook + Wandasの組み合わせで、これを可能にします。
+    marimo + Wandasの組み合わせで、これを可能にします。
     """)
     return
 
@@ -72,13 +72,13 @@ def _(mo):
 @app.cell
 def _():
     # Wandasの最新版をインストール
-    # !pip install wandas
+    # !pip install "wandas[marimo]"
 
     # 開発版の場合は（オプション）
     # !pip install git+https://github.com/kasahart/wandas.git
 
-    print("Wandasのインストールコマンド:")
-    print("!pip install wandas")
+    print("Wandas + marimo の推奨インストールコマンド:")
+    print('!pip install "wandas[marimo]"')
     return
 
 
@@ -114,11 +114,11 @@ def _(mo):
 
 @app.cell
 def _():
-    # インタラクティブプロット用のライブラリ
-    # !pip install ipympl
+    # marimo学習アプリ用のライブラリ
+    # !pip install "wandas[marimo]"
 
-    print("可視化ライブラリのインストール:")
-    print("!pip install ipympl")
+    print("marimo環境のインストール:")
+    print('!pip install "wandas[marimo]"')
     return
 
 
@@ -152,7 +152,7 @@ def _():
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## 🎨 Jupyter環境の設定
+    ## 🎨 marimo環境の設定
 
     ### インタラクティブプロットの有効化
 
@@ -161,7 +161,7 @@ def _(mo):
     - パンで特定の領域に移動
     - データポイントの値を確認
 
-    `ipympl`バックエンドを使用することで、これを実現します。
+    marimo上でMatplotlibの表示を確認しながら、探索的にグラフを操作できます。
     """)
     return
 
@@ -186,26 +186,22 @@ def _(plt):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ### ipymplの確認
+    ### marimoの確認
 
-    インタラクティブ機能が利用可能か確認します。
+    marimoアプリとして実行できる環境か確認します。
     """)
     return
 
 
 @app.cell
 def _():
-    # ipymplが利用可能か確認 - インタラクティブ機能の前提条件
-    ipympl = None
-    try:
-        import ipympl
+    # marimoが利用可能か確認 - アプリ実行環境の前提条件
+    from importlib.metadata import version as _metadata_version
 
-        print(f"✅ ipympl: {ipympl.__version__} - インタラクティブ機能が利用可能です")
-    except ImportError:
-        print("⚠️  ipymplがインストールされていません")
-        print("   インタラクティブ機能が制限されます")
-        print("   インストール: pip install ipympl")
-    return (ipympl,)
+    marimo_version = _metadata_version("marimo")
+    print(f"✅ marimo: {marimo_version} - marimoアプリとして実行できます")
+    print("   起動例: marimo edit learning-path/01_getting_started.py")
+    return
 
 
 @app.cell(hide_code=True)
@@ -425,12 +421,11 @@ def _(mo):
 
     ### よくある問題と解決法
 
-    #### 1. インタラクティブプロットが動作しない
+    #### 1. marimoアプリが起動しない
     ```python
     # 解決法
-    !pip install ipympl --upgrade
-    # JupyterLabの場合
-    !jupyter labextension install jupyter-matplotlib
+    !pip install "wandas[marimo]" --upgrade
+    marimo edit learning-path/01_getting_started.py
     ```
 
     #### 2. バージョン互換性の問題
@@ -442,32 +437,26 @@ def _(mo):
     - サンプリングレートを下げる
 
     #### 4. プロットが表示されない
-    - `%matplotlib widget` が正しく設定されているか確認
-    - Jupyterのカーネルを再起動
+    - `marimo edit learning-path/01_getting_started.py` で起動しているか確認
+    - ブラウザを再読み込みしてセルを再実行
     """)
     return
 
 
 @app.cell
-def _(ipympl):
-    # トラブルシューティング: インタラクティブプロットが動作しない場合の解決法
-    # !pip install ipympl --upgrade  # アップグレードが必要な場合
-    print("インタラクティブプロットのトラブルシューティング:")
-    # JupyterLabの場合の追加設定 - 環境による違いに対応
-    # !jupyter labextension install jupyter-matplotlib
-    print("1. ipymplパッケージがインストールされているか確認")
-    # 現在の設定状況を表示
-    print("2. JupyterLabを使用している場合はlabextensionもインストール")
-    print("3. カーネルを再起動して %matplotlib widget を再実行")
+def _():
+    # トラブルシューティング: marimo表示が動作しない場合の確認
+    # !pip install "wandas[marimo]" --upgrade  # アップグレードが必要な場合
+    print("marimo表示のトラブルシューティング:")
+    print("1. marimo edit learning-path/01_getting_started.py で起動")
+    print("2. wandas[marimo] がインストールされているか確認")
+    print("3. ブラウザを再読み込みしてセルを再実行")
+    from importlib.metadata import version as _metadata_version
+
     import matplotlib
 
-    print(f"現在のバックエンド: {matplotlib.get_backend()}")
-    if ipympl is not None:
-        # 現在のmatplotlibバックエンドを確認 - デバッグ情報
-        print(f"✅ ipymplバージョン: {ipympl.__version__}")
-    else:
-        # ipymplが利用可能か確認 - 機能チェック
-        print("⚠️ ipymplがインストールされていません")
+    print(f"現在のMatplotlibバックエンド: {matplotlib.get_backend()}")
+    print(f"✅ marimoバージョン: {_metadata_version('marimo')}")
     return
 
 
@@ -482,48 +471,6 @@ def _(mo):
     return
 
 
-@app.cell
-def _(wd):
-    # # 以下はサンプルコードです: AWS S3 互換ストレージ (MinIO) からのダウンロード例
-    # # 使用にはボーティオ と botocore が必要です
-    # import boto3
-    # from botocore.client import Config
-    # from getpass import getpass
-    # from wandas import ChannelFrame
-    #
-    # endpoint_url="http://172.17.0.1:9000"
-    # access_key = "minioadmin"
-    # secret_key = "minioadminpassword"
-    # bucket_name = "dataset"
-    # object_key = "Auditory Scene Analysis 2 (ASA2) Dataset/ASA/dev/mixed/1.wav"
-    # local_path = "/tmp/minio_download.wav"
-    #
-    # s3 = boto3.resource(
-    #     "s3",
-    #     endpoint_url=endpoint_url,
-    #     aws_access_key_id=access_key,
-    #     aws_secret_access_key=secret_key,
-    #     config=Config(signature_version="s3v4"),
-    #     region_name="us-east-1",
-    # )
-    #
-    # # S3からWAVのバイト列を取得（毎回新しく取得して空バイトを避ける）
-    # obj = s3.Object(bucket_name, object_key).get()
-    # wav_bytes = obj["Body"].read()
-    # if not wav_bytes:
-    #     raise ValueError("S3からの読み込み結果が空です。バケット名/キーを確認してください。")
-    #
-    # # bytesそのままでもOK / BytesIOでもOK
-    # ch_bytes = wd.read_wav(wav_bytes)
-    # ch_bytes[0].describe()
-
-    # Note: This cell previously demonstrated AWS S3 integration (boto3)
-    # It has been commented out as an optional sample.
-    # Uncomment and install boto3 if you need to test S3 connectivity.
-    pass
-    return
-
-
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
@@ -531,13 +478,13 @@ def _(mo):
 
     環境構築と基本操作が完了しました！
 
-    **次のノートブック**: [02_working_with_data.ipynb](02_working_with_data.ipynb)
+    **次のmarimoアプリ**: [02_working_with_data.py](02_working_with_data.py)
 
     ここでは、実際のデータファイル（WAV, CSVなど）を読み込んで、Wandasのデータ構造について紹介します。
 
     ### 🎯 これまでに学んだこと
     - ✅ Wandasのインストールと環境設定
-    - ✅ インタラクティブなJupyter環境の構築
+    - ✅ インタラクティブなmarimo環境の構築
     - ✅ 信号生成と基本的な可視化
     - ✅ メソッドチェーンによる直感的な処理
     - ✅ パラメータ変更による実験
@@ -550,7 +497,7 @@ def _(mo):
 
     ---
 
-    **準備はできましたか？次のノートブックへ進みましょう！** 🎵
+    **準備はできましたか？次のmarimoアプリへ進みましょう！** 🎵
     """)
     return
 

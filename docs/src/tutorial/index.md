@@ -5,6 +5,16 @@ This tutorial will teach you the basics of the Wandas library in 5 minutes.
 
 ## Installation / インストール
 
+Recommended for learning apps and interactive display support:
+学習アプリとインタラクティブ表示を使う場合の推奨インストール:
+
+```bash
+pip install "wandas[marimo]"
+```
+
+Core-only install:
+core-only インストール:
+
 ```bash
 pip install wandas
 ```
@@ -125,8 +135,8 @@ Note: Keys specified in dict are only allowed for dataclass fields of `ChannelMe
 
 ## Learning Path / 学習パス
 
-This section provides links to tutorial notebooks that demonstrate more detailed features and application examples of the Wandas library.
-このセクションでは、Wandasライブラリのより詳細な機能や応用例を、以下のチュートリアルノートブックを通じて学ぶことができます。
+This section provides links to tutorial marimo apps that demonstrate more detailed features and application examples of the Wandas library.
+このセクションでは、Wandasライブラリのより詳細な機能や応用例を、以下のチュートリアル marimo アプリを通じて学ぶことができます。
 
 - <a href="../learning-path/00_why_wandas.html">Learning Path — 00_Why Wandas (marimo)</a>: Overview and motivation / 概要と動機付け
 - <a href="../learning-path/01_getting_started.html">Learning Path — 01_Getting Started (marimo)</a>: Setup and basic configuration / セットアップと基本的な設定

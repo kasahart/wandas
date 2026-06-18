@@ -56,8 +56,8 @@ def _is_display_enabled(image_save: str | Path | None, is_close: bool) -> bool:
 
 
 def display(*args: Any, **kwargs: Any) -> Any:
-    notebook_display, _ = require_ipython_display("describe")
-    return notebook_display(*args, **kwargs)
+    interactive_display, _ = require_ipython_display("describe")
+    return interactive_display(*args, **kwargs)
 
 
 def Audio(*args: Any, **kwargs: Any) -> Any:  # noqa: N802

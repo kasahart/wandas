@@ -10,9 +10,6 @@ import numpy as np
 
 from wandas.utils.introspection import filter_kwargs
 from wandas.utils.optional_imports import (
-    require_librosa_display as _librosa_display,
-)
-from wandas.utils.optional_imports import (
     require_matplotlib_axes_type as _matplotlib_axes_type,
 )
 from wandas.utils.optional_imports import (
@@ -513,7 +510,6 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
         plt = _matplotlib_pyplot("spectrogram plot")
         axes_cls = _matplotlib_axes_type("spectrogram plot")
         figure_cls = _matplotlib_figure_type("spectrogram plot")
-        librosa_display = _librosa_display("spectrogram plot")
 
         is_aw = kwargs.pop("Aw", False)
         if is_aw:
@@ -523,34 +519,43 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
             unit = "dB"
             data = bf.dB
         data = _reshape_spectrogram_data(data)
-        specshow_kwargs = filter_kwargs(librosa_display.specshow, kwargs, strict_mode=True)
-        ax_set_kwargs = filter_kwargs(axes_cls.set, kwargs, strict_mode=True)
 
         cmap = kwargs.pop("cmap", "jet")
         vmin = kwargs.pop("vmin", None)
         vmax = kwargs.pop("vmax", None)
+        fmin = kwargs.pop("fmin", 0)
+        fmax = kwargs.pop("fmax", None)
+        xlim = kwargs.pop("xlim", None)
+        ylim = kwargs.pop("ylim", None)
+        shading = kwargs.pop("shading", "auto")
+        ax_set_kwargs = filter_kwargs(axes_cls.set, kwargs, strict_mode=True)
 
-        if ax is not None:
-            img = librosa_display.specshow(
-                data=data[0],
-                sr=bf.sampling_rate,
-                hop_length=bf.hop_length,
-                n_fft=bf.n_fft,
-                win_length=bf.win_length,
-                x_axis="time",
-                y_axis="linear",
+        def draw_spectrogram(target_ax: Axes, channel_data: np.ndarray, plot_title: str | None) -> Any:
+            times, freqs = _spectrogram_axis_values(bf, channel_data)
+            image_kwargs = filter_kwargs(target_ax.pcolormesh, kwargs, strict_mode=True)
+            img = target_ax.pcolormesh(
+                times,
+                freqs,
+                channel_data,
+                shading=shading,
                 cmap=cmap,
-                ax=ax,
                 vmin=vmin,
                 vmax=vmax,
-                **specshow_kwargs,
+                **image_kwargs,
             )
-            ax.set(
-                title=title or bf.label or "Spectrogram",
+            spectrogram_ylim = ylim if ylim is not None else (fmin, fmax) if fmin != 0 or fmax is not None else None
+            target_ax.set(
+                title=plot_title,
                 ylabel="Frequency [Hz]",
                 xlabel="Time [s]",
+                xlim=xlim,
+                ylim=spectrogram_ylim,
                 **ax_set_kwargs,
             )
+            return img
+
+        if ax is not None:
+            img = draw_spectrogram(ax, data[0], title or bf.label or "Spectrogram")
 
             fig = ax.figure
             if fig is not None:
@@ -558,7 +563,6 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
                     cbar = fig.colorbar(img, ax=ax)
                     cbar.set_label(f"Spectrum level [{unit}]")
                 except (ValueError, AttributeError) as e:
-                    # Handle case where img doesn't have proper colorbar properties
                     logger.warning(f"Failed to create colorbar for spectrogram: {type(e).__name__}: {e}")
             return ax
 
@@ -572,31 +576,11 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
             axs = np.array([axs])
 
         for ax_i, channel_data, ch_meta in zip(axs.flatten(), data, bf.channels, strict=True):
-            img = librosa_display.specshow(
-                data=channel_data,
-                sr=bf.sampling_rate,
-                hop_length=bf.hop_length,
-                n_fft=bf.n_fft,
-                win_length=bf.win_length,
-                x_axis="time",
-                y_axis="linear",
-                ax=ax_i,
-                cmap=cmap,
-                vmin=vmin,
-                vmax=vmax,
-                **specshow_kwargs,
-            )
-            ax_i.set(
-                title=ch_meta.label,
-                ylabel="Frequency [Hz]",
-                xlabel="Time [s]",
-                **ax_set_kwargs,
-            )
+            img = draw_spectrogram(ax_i, channel_data, ch_meta.label)
             try:
                 cbar = ax_i.figure.colorbar(img, ax=ax_i)
                 cbar.set_label(f"Spectrum level [{unit}]")
             except (ValueError, AttributeError) as e:
-                # Handle case where img doesn't have proper colorbar properties
                 logger.warning(f"Failed to create colorbar for spectrogram: {type(e).__name__}: {e}")
             fig.suptitle(title or "Spectrogram Data")
         plt.tight_layout()

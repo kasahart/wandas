@@ -6,22 +6,22 @@ PR #223 moved non-core runtime dependencies behind optional extras and made the 
 
 The base package keeps signal-frame construction, basic waveform operations, CSV-backed workflows, Matplotlib plotting, and `describe()` figure generation available. `pandas` and `matplotlib` are treated as core dependencies for now; this project does not currently test or promise a pandas-free core install.
 
-The core smoke tests should continue to block IO, notebook, psychoacoustic, visualization-adjacent, and ML-only imports such as `h5py`, `IPython`, `librosa`, `mosqito`, `torch`, and `tensorflow` where those packages are not required by the exercised path.
+The core smoke tests should continue to block IO, marimo, psychoacoustic, effect, and ML-only imports such as `h5py`, `IPython`, `librosa`, `mosqito`, `torch`, and `tensorflow` where those packages are not required by the exercised path.
 
 ## Standard CI Install
 
 The lint and test jobs install the test dependency group plus non-ML extras:
 
 ```bash
-uv sync --no-dev --extra io --extra viz --extra notebook --extra psychoacoustic --group test
+uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group test
 ```
 
-This path verifies the regular development and release surface for IO, plotting, notebook display, and psychoacoustic features without pulling in heavyweight ML frameworks.
+This path verifies the regular development and release surface for IO, effect, marimo display, and psychoacoustic features without pulling in heavyweight ML frameworks.
 
 The docs job installs the docs group plus the same non-ML extras:
 
 ```bash
-uv sync --no-dev --extra io --extra viz --extra notebook --extra psychoacoustic --group docs
+uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group docs
 ```
 
 This keeps documentation examples aligned with the standard non-ML feature set while avoiding Torch and TensorFlow install cost in every documentation build.

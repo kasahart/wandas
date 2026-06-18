@@ -14,7 +14,6 @@ DependencyKey = Literal[
     "matplotlib_lines",
     "h5py",
     "librosa",
-    "librosa_display",
     "librosa_effects",
     "mosqito_sq_metrics",
     "mosqito_sound_level_meter",
@@ -45,9 +44,8 @@ DEPENDENCY_REGISTRY: dict[DependencyKey, DependencySpec] = {
     "matplotlib_figure": DependencySpec(import_name="matplotlib.figure", extra="core"),
     "matplotlib_lines": DependencySpec(import_name="matplotlib.lines", extra="core"),
     "h5py": DependencySpec(import_name="h5py", extra="io"),
-    "librosa": DependencySpec(import_name="librosa", extra="viz"),
-    "librosa_display": DependencySpec(import_name="librosa.display", extra="viz"),
-    "librosa_effects": DependencySpec(import_name="librosa.effects", extra="viz"),
+    "librosa": DependencySpec(import_name="librosa", extra="effects"),
+    "librosa_effects": DependencySpec(import_name="librosa.effects", extra="effects"),
     "mosqito_sq_metrics": DependencySpec(import_name="mosqito.sq_metrics", extra="psychoacoustic"),
     "mosqito_sound_level_meter": DependencySpec(
         import_name="mosqito.sound_level_meter",
@@ -59,8 +57,8 @@ DEPENDENCY_REGISTRY: dict[DependencyKey, DependencySpec] = {
     ),
     "ipython_display": DependencySpec(
         import_name="IPython.display",
-        extra="notebook",
-        install_hint='pip install "wandas[notebook]"',
+        extra="marimo",
+        install_hint='pip install "wandas[marimo]"',
     ),
     "torch": DependencySpec(import_name="torch", extra="ml"),
     "tensorflow": DependencySpec(import_name="tensorflow", extra="ml"),
@@ -161,10 +159,6 @@ def require_matplotlib_line2d_type(feature: str) -> Any:
 
 def require_h5py(feature: str) -> ModuleType:
     return require_dependency("h5py", feature=feature)
-
-
-def require_librosa_display(feature: str) -> ModuleType:
-    return require_dependency("librosa_display", feature=feature)
 
 
 def require_librosa_effects(feature: str) -> ModuleType:
