@@ -614,7 +614,7 @@ def test_remote_csv_missing_pandas_raises_before_download(monkeypatch: pytest.Mo
     def fail_download(*args: object, **kwargs: object) -> None:
         raise AssertionError("remote CSV should check pandas before download")
 
-    monkeypatch.setattr("wandas.frames.channel._pandas", raise_missing_pandas)
+    monkeypatch.setattr("wandas.frames.channel.require_pandas", raise_missing_pandas)
     monkeypatch.setattr("wandas.frames.channel._download_url", fail_download)
 
     with pytest.raises(ImportError) as exc_info:

@@ -43,10 +43,6 @@ da_from_delayed = da.from_delayed
 S = TypeVar("S", bound="BaseFrame[Any]")
 
 
-def _pandas(feature: str) -> Any:
-    return require_pandas(feature)
-
-
 class _LazyPyplot:
     def __getattr__(self, name: str) -> Any:
         return getattr(_matplotlib_pyplot("describe"), name)
@@ -980,7 +976,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
                 url_file_type = PurePosixPath(urlparse(path).path).suffix.lower() or None
             if url_file_type is not None and url_file_type.lower().lstrip(".") == "csv":
-                _pandas("CSV file reading")
+                require_pandas("CSV file reading")
             path, file_type, source_name = _download_url(path, file_type, source_name, timeout)
 
         source_obj, path_obj, reader, normalized_file_type = _resolve_source(path, file_type)
@@ -1450,5 +1446,5 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
     def _get_dataframe_index(self) -> "pd.Index[Any]":
         """Get time index for DataFrame."""
-        pd = _pandas("ChannelFrame.to_dataframe")
+        pd = require_pandas("ChannelFrame.to_dataframe")
         return pd.Index(self.time, name="time")
