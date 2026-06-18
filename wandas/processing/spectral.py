@@ -2,15 +2,26 @@ import logging
 from typing import Any
 
 import numpy as np
-from mosqito.sound_level_meter import noct_spectrum, noct_synthesis
-from mosqito.sound_level_meter.noct_spectrum._center_freq import _center_freq
 from scipy.signal import ShortTimeFFT
 from scipy.signal.windows import get_window
 
 from wandas.processing.base import AudioOperation, register_operation
+from wandas.utils.optional_imports import require_mosqito_center_freq, require_mosqito_sound_level_meter
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 logger = logging.getLogger(__name__)
+
+
+def noct_spectrum(*args: Any, **kwargs: Any) -> Any:
+    return require_mosqito_sound_level_meter("noct_spectrum").noct_spectrum(*args, **kwargs)
+
+
+def noct_synthesis(*args: Any, **kwargs: Any) -> Any:
+    return require_mosqito_sound_level_meter("noct_synthesis").noct_synthesis(*args, **kwargs)
+
+
+def _center_freq(*args: Any, **kwargs: Any) -> Any:
+    return require_mosqito_center_freq("NOctFrame")(*args, **kwargs)
 
 
 def _validate_spectral_params(
@@ -668,6 +679,17 @@ class _NOctBase(AudioOperation[NDArrayReal, NDArrayReal]):
         self.G = G
         self.fr = fr
         super().__init__(sampling_rate, fmin=fmin, fmax=fmax, n=n, G=G, fr=fr)
+
+    def ensure_dependencies(self) -> None:
+        require_mosqito_center_freq("NOctFrame")
+
+    def process_array(self, x: Any) -> Any:
+        self.ensure_dependencies()
+        return super().process_array(x)
+
+    def process(self, data: Any) -> Any:
+        self.ensure_dependencies()
+        return super().process(data)
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         _, fpref = _center_freq(fmin=self.fmin, fmax=self.fmax, n=self.n, G=self.G, fr=self.fr)

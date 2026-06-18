@@ -235,6 +235,18 @@ def test_save_load_unsupported_format_raises_not_implemented() -> None:
         ChannelFrame.load("test.wdf", format="unsupported")
 
 
+def test_save_wdf_missing_h5py_does_not_compute(tmp_path: Path) -> None:
+    """Missing h5py fails before materializing the frame data."""
+
+    class UncomputableFrame:
+        def compute(self) -> np.ndarray:
+            raise AssertionError("save() computed data before checking h5py")
+
+    with patch.object(wdf_io, "require_h5py", side_effect=ImportError('Install it with: pip install "wandas[io]"')):
+        with pytest.raises(ImportError, match=r"wandas\[io\]"):
+            wdf_io.save(UncomputableFrame(), tmp_path / "missing_h5py.wdf")  # ty: ignore[invalid-argument-type]
+
+
 def test_load_wdf_modified_version_still_loads(tmp_path: Path) -> None:
     """Test version handling in WDF files."""
     rng = np.random.default_rng(6)
@@ -454,6 +466,20 @@ def test_load_wdf_from_url_download_failure() -> None:
     ):
         with pytest.raises(OSError, match=r"Failed to download WDF file from URL"):
             wdf_io.load(url)
+
+
+def test_load_wdf_missing_h5py_does_not_download_url() -> None:
+    """Missing h5py fails before downloading a remote WDF file."""
+    url = "https://example.com/data/large.wdf"
+
+    with (
+        patch.object(wdf_io, "require_h5py", side_effect=ImportError('Install it with: pip install "wandas[io]"')),
+        patch("urllib.request.urlopen") as mock_urlopen,
+    ):
+        with pytest.raises(ImportError, match=r"wandas\[io\]"):
+            wdf_io.load(url)
+
+    mock_urlopen.assert_not_called()
 
 
 def test_decode_hdf5_str_invalid_utf8() -> None:

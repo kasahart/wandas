@@ -4352,18 +4352,6 @@ wheels = [
 ]
 
 [[package]]
-name = "tqdm"
-version = "4.67.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/a8/4b/29b4ef32e036bb34e4ab51796dd745cdba7ed47ad142a9f4a1eb8e0c744d/tqdm-4.67.1.tar.gz", hash = "sha256:f8aef9c52c08c13a65f30ea34f4e5aac3fd1a34959879d7e59e63027286627f2", size = 169737, upload-time = "2024-11-24T20:12:22.481Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/d0/30/dc54f88dd4a2b5dc8a0279bdd7270e735851848b762aeb1c1184ed1f6b14/tqdm-4.67.1-py3-none-any.whl", hash = "sha256:26445eca388f82e72884e0d580d5464cd801a3ea01e63e5601bdff9ba6a48de2", size = 78540, upload-time = "2024-11-24T20:12:19.698Z" },
-]
-
-[[package]]
 name = "traitlets"
 version = "5.14.3"
 source = { registry = "https://pypi.org/simple" }
@@ -4494,25 +4482,38 @@ source = { editable = "." }
 dependencies = [
     { name = "cattrs" },
     { name = "dask" },
-    { name = "h5py" },
-    { name = "ipycytoscape" },
-    { name = "ipykernel" },
-    { name = "ipympl" },
-    { name = "ipywidgets" },
-    { name = "japanize-matplotlib" },
-    { name = "librosa" },
     { name = "matplotlib" },
-    { name = "mosqito" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.3.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pandas" },
     { name = "requests" },
     { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "scipy", version = "1.16.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "tqdm" },
-    { name = "types-requests" },
+    { name = "soundfile" },
     { name = "xarray", version = "2025.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "xarray", version = "2026.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
+
+[package.optional-dependencies]
+io = [
+    { name = "h5py" },
+]
+ml = [
+    { name = "tensorflow" },
+    { name = "torch" },
+]
+notebook = [
+    { name = "ipycytoscape" },
+    { name = "ipykernel" },
+    { name = "ipympl" },
+    { name = "ipywidgets" },
+]
+psychoacoustic = [
+    { name = "mosqito" },
+]
+viz = [
+    { name = "japanize-matplotlib" },
+    { name = "librosa" },
 ]
 
 [package.dev-dependencies]
@@ -4541,30 +4542,34 @@ test = [
     { name = "pytest-cov" },
     { name = "pytest-xdist" },
     { name = "ruff" },
+    { name = "tomli" },
     { name = "ty" },
+    { name = "types-requests" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "cattrs" },
     { name = "dask", specifier = ">=2024.8.0" },
-    { name = "h5py", specifier = ">=3.13.0" },
-    { name = "ipycytoscape", specifier = ">=1.3.3" },
-    { name = "ipykernel" },
-    { name = "ipympl", specifier = ">=0.9.3" },
-    { name = "ipywidgets" },
-    { name = "japanize-matplotlib", specifier = ">=1.1.3" },
-    { name = "librosa" },
+    { name = "h5py", marker = "extra == 'io'", specifier = ">=3.13.0" },
+    { name = "ipycytoscape", marker = "extra == 'notebook'", specifier = ">=1.3.3" },
+    { name = "ipykernel", marker = "extra == 'notebook'" },
+    { name = "ipympl", marker = "extra == 'notebook'", specifier = ">=0.9.3" },
+    { name = "ipywidgets", marker = "extra == 'notebook'" },
+    { name = "japanize-matplotlib", marker = "extra == 'viz'", specifier = ">=1.1.3" },
+    { name = "librosa", marker = "extra == 'viz'" },
     { name = "matplotlib", specifier = ">=3.9.0" },
-    { name = "mosqito" },
+    { name = "mosqito", marker = "extra == 'psychoacoustic'" },
     { name = "numpy", specifier = ">=2.0.2" },
     { name = "pandas" },
     { name = "requests", specifier = ">=2.32.3" },
     { name = "scipy", specifier = ">=1.13.0" },
-    { name = "tqdm" },
-    { name = "types-requests", specifier = ">=2.32.0.20250328" },
+    { name = "soundfile" },
+    { name = "tensorflow", marker = "extra == 'ml'", specifier = ">=2.13.0" },
+    { name = "torch", marker = "extra == 'ml'", specifier = ">=2.0.0" },
     { name = "xarray", specifier = ">=2025.6.1" },
 ]
+provides-extras = ["io", "viz", "notebook", "psychoacoustic", "ml"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -4592,7 +4597,9 @@ test = [
     { name = "pytest-cov" },
     { name = "pytest-xdist", specifier = ">=3.6.1" },
     { name = "ruff", specifier = ">=0.9.9" },
+    { name = "tomli", specifier = ">=2.0.0" },
     { name = "ty", specifier = ">=0.0.26" },
+    { name = "types-requests", specifier = ">=2.32.0.20250328" },
 ]
 
 [[package]]

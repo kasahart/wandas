@@ -433,8 +433,13 @@ def test_to_tensor_torch_missing_raises_import_error() -> None:
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
 
-    with mock.patch("importlib.util.find_spec", return_value=None):
-        with pytest.raises(ImportError):
+    with mock.patch(
+        "wandas.core.base_frame.require_dependency",
+        side_effect=ImportError(
+            "tensor conversion requires optional dependency 'torch'.\nInstall it with: pip install \"wandas[ml]\""
+        ),
+    ):
+        with pytest.raises(ImportError, match=r'pip install "wandas\[ml\]"'):
             cf.to_tensor(framework="torch")
 
 
@@ -444,8 +449,13 @@ def test_to_tensor_tensorflow_missing_raises_import_error() -> None:
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
 
-    with mock.patch("importlib.util.find_spec", return_value=None):
-        with pytest.raises(ImportError):
+    with mock.patch(
+        "wandas.core.base_frame.require_dependency",
+        side_effect=ImportError(
+            "tensor conversion requires optional dependency 'tensorflow'.\nInstall it with: pip install \"wandas[ml]\""
+        ),
+    ):
+        with pytest.raises(ImportError, match=r'pip install "wandas\[ml\]"'):
             cf.to_tensor(framework="tensorflow")
 
 

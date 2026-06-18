@@ -6,17 +6,22 @@ from typing import TYPE_CHECKING, Any, BinaryIO, TypeVar, cast
 
 import dask
 import dask.array as da
-import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 from dask.array.core import Array as DaArray
 from dask.array.core import concatenate
-from IPython.display import Audio, display
-from matplotlib.axes import Axes
-from matplotlib.figure import Figure
 
 from wandas.utils import validate_sampling_rate
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
+from wandas.utils.optional_imports import (
+    require_ipython_display,
+    require_pandas,
+)
+from wandas.utils.optional_imports import (
+    require_matplotlib_axes_type as _matplotlib_axes_type,
+)
+from wandas.utils.optional_imports import (
+    require_matplotlib_pyplot as _matplotlib_pyplot,
+)
 from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
@@ -25,7 +30,9 @@ from ..io.readers import get_file_reader
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
 
 if TYPE_CHECKING:
+    import pandas as pd
     from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +41,28 @@ da_from_delayed = da.from_delayed
 
 
 S = TypeVar("S", bound="BaseFrame[Any]")
+
+
+class _LazyPyplot:
+    def __getattr__(self, name: str) -> Any:
+        return getattr(_matplotlib_pyplot("describe"), name)
+
+
+plt = _LazyPyplot()
+
+
+def _is_display_enabled(image_save: str | Path | None, is_close: bool) -> bool:
+    return image_save is None and is_close
+
+
+def display(*args: Any, **kwargs: Any) -> Any:
+    notebook_display, _ = require_ipython_display("describe")
+    return notebook_display(*args, **kwargs)
+
+
+def Audio(*args: Any, **kwargs: Any) -> Any:  # noqa: N802
+    _, audio = require_ipython_display("describe")
+    return audio(*args, **kwargs)
 
 
 def _align_to_length(arr: DaArray, target_len: int, align: str, source_len: int) -> DaArray:
@@ -500,7 +529,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         xlim: tuple[float, float] | None = None,
         ylim: tuple[float, float] | None = None,
         **kwargs: Any,
-    ) -> Axes | Iterator[Axes]:
+    ) -> "Axes | Iterator[Axes]":
         """Plot the frame data.
 
         Args:
@@ -569,7 +598,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         overlay: bool = True,
         Aw: bool = False,  # noqa: N803
         **kwargs: Any,
-    ) -> Axes | Iterator[Axes]:
+    ) -> "Axes | Iterator[Axes]":
         """Generate an RMS plot.
 
         Args:
@@ -639,7 +668,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         spectral: dict[str, Any] | None = None,
         image_save: str | Path | None = None,
         **kwargs: Any,
-    ) -> list[Figure] | None:
+    ) -> "list[Figure] | None":
         """Display visual and audio representation of the frame.
 
         This method creates a comprehensive visualization with three plots:
@@ -732,14 +761,19 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         self._apply_deprecated_describe_kwargs(plot_kwargs)
 
+        axes_cls = _matplotlib_axes_type("describe")
+        display_enabled = _is_display_enabled(image_save, is_close)
+        if display_enabled:
+            require_ipython_display("describe")
+
         figures: list[Figure] = []
 
         for ch_idx, ch in enumerate(self):
             _ax = ch.plot("describe", title=f"{ch.label} {ch.labels[0]}", **plot_kwargs)
-            if isinstance(_ax, Axes):
+            if isinstance(_ax, axes_cls):
                 ax = _ax
             elif isinstance(_ax, Iterator):
-                ax = cast(Axes, next(_ax))
+                ax = cast("Axes", next(_ax))
             else:
                 raise TypeError(f"Unexpected type for plot result: {type(_ax)}. Expected Axes or Iterator[Axes].")
             # Extract figure from axes (existing pattern)
@@ -757,14 +791,15 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 else:
                     fig.savefig(image_save, bbox_inches="tight")
 
-            if fig is not None:
+            if fig is not None and display_enabled:
                 display(fig)
             if is_close and fig is not None:
                 fig.clf()  # Clear the figure to free memory
                 plt.close(fig)
 
             # Play audio for each channel
-            display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))
+            if display_enabled:
+                display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))
 
         # Return figures only when is_close=False
         if is_close:
@@ -934,6 +969,14 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         # Detect and handle URL paths — download to bytes before any path logic.
         if isinstance(path, str) and path.lower().startswith(("http://", "https://")):
+            url_file_type = file_type
+            if url_file_type is None:
+                from pathlib import PurePosixPath
+                from urllib.parse import urlparse
+
+                url_file_type = PurePosixPath(urlparse(path).path).suffix.lower() or None
+            if url_file_type is not None and url_file_type.lower().lstrip(".") == "csv":
+                require_pandas("CSV file reading")
             path, file_type, source_name = _download_url(path, file_type, source_name, timeout)
 
         source_obj, path_obj, reader, normalized_file_type = _resolve_source(path, file_type)
@@ -1403,4 +1446,5 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
     def _get_dataframe_index(self) -> "pd.Index[Any]":
         """Get time index for DataFrame."""
+        pd = require_pandas("ChannelFrame.to_dataframe")
         return pd.Index(self.time, name="time")

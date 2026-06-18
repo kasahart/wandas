@@ -1,12 +1,12 @@
 import logging
+from fractions import Fraction
 from typing import Any
 
 import dask.array as da
-import librosa
 import numpy as np
 from dask.array.core import Array as DaArray
 from dask.delayed import delayed
-from scipy.signal import lfilter
+from scipy.signal import lfilter, resample, resample_poly
 
 from wandas.processing.base import AudioOperation, register_operation
 from wandas.processing.weighting import A_weight, frequency_weight
@@ -16,6 +16,41 @@ from wandas.utils.util import DB_FLOOR
 
 logger = logging.getLogger(__name__)
 MIN_SOUND_LEVEL_POWER_RATIO = 1e-20
+MAX_RESAMPLING_FACTOR = 1_000_000
+
+
+def _centered_frame_count(n_samples: int, frame_length: int, hop_length: int) -> int:
+    padded_length = n_samples + 2 * (frame_length // 2)
+    if padded_length < frame_length:
+        raise ValueError(f"Input is too short (n={padded_length}) for frame_length={frame_length}")
+    return 1 + ((padded_length - frame_length) // hop_length)
+
+
+def _frame_rms(y: NDArrayReal, frame_length: int, hop_length: int) -> NDArrayReal:
+    pad = frame_length // 2
+    pad_width = [(0, 0)] * (y.ndim - 1) + [(pad, pad)]
+    y_padded = np.pad(y, pad_width, mode="constant")
+    n_frames = _centered_frame_count(y.shape[-1], frame_length, hop_length)
+    frames = np.lib.stride_tricks.as_strided(
+        y_padded,
+        shape=y_padded.shape[:-1] + (frame_length, n_frames),
+        strides=y_padded.strides[:-1] + (y_padded.strides[-1], y_padded.strides[-1] * hop_length),
+    )
+    frames_float = frames.astype(float, copy=False)
+    return np.sqrt(np.mean(frames_float**2, axis=-2))
+
+
+def _resampling_fraction(source_sr: float, target_sr: float) -> Fraction:
+    return Fraction(str(target_sr)) / Fraction(str(source_sr))
+
+
+def _ceil_resampled_length(n_samples: int, ratio: Fraction) -> int:
+    return (n_samples * ratio.numerator + ratio.denominator - 1) // ratio.denominator
+
+
+def _resampling_ratio(source_sr: float, target_sr: float) -> tuple[int, int]:
+    ratio = _resampling_fraction(source_sr, target_sr).limit_denominator(MAX_RESAMPLING_FACTOR)
+    return ratio.numerator, ratio.denominator
 
 
 class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -75,17 +110,38 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
         tuple
             Output data shape
         """
-        # Calculate length after resampling
-        ratio = float(self.target_sr) / float(self.sampling_rate)
-        n_samples = int(np.ceil(input_shape[-1] * ratio))
+        # Calculate length after resampling using exact decimal sampling-rate ratio.
+        ratio = _resampling_fraction(self.sampling_rate, self.target_sr)
+        n_samples = _ceil_resampled_length(input_shape[-1], ratio)
         return (*input_shape[:-1], n_samples)
+
+    @staticmethod
+    def _output_dtype(input_dtype: np.dtype[Any]) -> np.dtype[Any]:
+        dtype = np.dtype(input_dtype)
+        if dtype.kind == "f":
+            return dtype
+        return np.dtype(np.float64)
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for resampling operation"""
         logger.debug(f"Applying resampling to array with shape: {x.shape}")
-        result: NDArrayReal = librosa.resample(x, orig_sr=self.sampling_rate, target_sr=self.target_sr)
+        up, down = _resampling_ratio(self.sampling_rate, self.target_sr)
+        target_len = self.calculate_output_shape(x.shape)[-1]
+        poly_len = _ceil_resampled_length(x.shape[-1], Fraction(up, down))
+        if poly_len == target_len:
+            result: NDArrayReal = resample_poly(x, up, down, axis=-1)
+        else:
+            result = resample(x, target_len, axis=-1)
         logger.debug(f"Resampling applied, returning result with shape: {result.shape}")
         return result
+
+    def process(self, data: DaArray) -> DaArray:
+        """Execute resampling with accurate floating output dtype metadata."""
+        logger.debug("Adding delayed resampling operation to computation graph")
+        wrapper = self._create_named_wrapper()
+        delayed_result = delayed(wrapper, pure=self.pure)(data)
+        output_shape = self.calculate_output_shape(data.shape)
+        return da.from_delayed(delayed_result, shape=output_shape, dtype=self._output_dtype(data.dtype))
 
 
 class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -290,12 +346,12 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         tuple
             Output data shape (channels, frames)
         """
-        n_frames = librosa.feature.rms(
-            y=np.ones((1, input_shape[-1])),
-            frame_length=self.frame_length,
-            hop_length=self.hop_length,
-        ).shape[-1]
+        n_frames = _centered_frame_count(input_shape[-1], self.frame_length, self.hop_length)
         return (*input_shape[:-1], n_frames)
+
+    @staticmethod
+    def _output_dtype() -> np.dtype[Any]:
+        return np.dtype(np.float64)
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for RMS calculation"""
@@ -314,15 +370,21 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
                 raise ValueError("A_weighting returned an unexpected type.")
 
         # Calculate RMS
-        result: NDArrayReal = librosa.feature.rms(y=x, frame_length=self.frame_length, hop_length=self.hop_length)[
-            ..., 0, :
-        ]
+        result: NDArrayReal = _frame_rms(x, frame_length=self.frame_length, hop_length=self.hop_length)
 
         if self.dB:
             # Convert to dB
             result = 20 * np.log10(np.maximum(result / self.ref[..., np.newaxis], DB_FLOOR))
         logger.debug(f"RMS applied, returning result with shape: {result.shape}")
         return result
+
+    def process(self, data: DaArray) -> DaArray:
+        """Execute RMS trend with accurate floating output dtype metadata."""
+        logger.debug("Adding delayed RMS trend operation to computation graph")
+        wrapper = self._create_named_wrapper()
+        delayed_result = delayed(wrapper, pure=self.pure)(data)
+        output_shape = self.calculate_output_shape(data.shape)
+        return da.from_delayed(delayed_result, shape=output_shape, dtype=self._output_dtype())
 
 
 class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):

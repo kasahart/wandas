@@ -1,6 +1,5 @@
 from unittest import mock
 
-import librosa
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
@@ -13,12 +12,29 @@ from wandas.processing.temporal import (
     RmsTrend,
     SoundLevel,
     Trim,
+    _resampling_ratio,
 )
-from wandas.processing.weighting import frequency_weighting
+from wandas.processing.weighting import a_weighting_db, frequency_weighting
 from wandas.utils.dask_helpers import da_from_array
 from wandas.utils.types import NDArrayReal
 
 _SR: int = 16000
+
+
+class TestAWeightingDb:
+    """A-weighting dB reference checks."""
+
+    def test_a_weighting_db_is_zero_db_near_1000_hz(self) -> None:
+        weights = a_weighting_db(np.array([1000.0]), min_db=None)
+        np.testing.assert_allclose(weights, 0.0, atol=0.01)
+
+    def test_a_weighting_db_zero_hz_is_negative_infinity_without_floor(self) -> None:
+        weights = a_weighting_db(np.array([0.0]), min_db=None)
+        assert np.isneginf(weights[0])
+
+    def test_a_weighting_db_zero_hz_uses_default_floor(self) -> None:
+        weights = a_weighting_db(np.array([0.0]))
+        np.testing.assert_allclose(weights, -45.0)
 
 
 class TestReSampling:
@@ -42,6 +58,31 @@ class TestReSampling:
         assert isinstance(r, ReSampling)
         assert r.sampling_rate == 16000
         assert r.target_sr == 22050
+
+    def test_resampling_ratio_is_bounded_for_small_rate_differences(self) -> None:
+        """Tiny sampling-rate corrections must not create huge polyphase factors."""
+        up, down = _resampling_ratio(48000.0, 48000.0001)
+
+        assert max(up, down) <= 1_000_000
+
+    def test_resampling_near_identical_rate_uses_exact_output_length(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Bounded polyphase fallback still returns the advertised duration."""
+        data = np.arange(1000, dtype=float).reshape(1, -1)
+        resampler = ReSampling(sampling_rate=1000.0, target_sr=1000.0001)
+
+        def fail_polyphase(*args: object, **kwargs: object) -> None:
+            raise AssertionError("near-identical rates should use exact-length fallback")
+
+        def fake_resample(x: NDArrayReal, num: int, axis: int) -> NDArrayReal:
+            assert num == resampler.calculate_output_shape(data.shape)[-1]
+            return np.zeros((*x.shape[:-1], num), dtype=float)
+
+        monkeypatch.setattr("wandas.processing.temporal.resample_poly", fail_polyphase)
+        monkeypatch.setattr("wandas.processing.temporal.resample", fake_resample)
+
+        result = resampler._process_array(data)
+
+        assert result.shape == resampler.calculate_output_shape(data.shape)
 
     def test_resampling_negative_source_sr_raises(self) -> None:
         """Test negative source sampling rate provides WHAT/WHY/HOW error."""
@@ -95,6 +136,41 @@ class TestReSampling:
         result = resampler.process(dask_input).compute()
         expected_len = int(np.ceil(dask_input.shape[1] * (self._TARGET_SR / sr)))
         assert result.shape == (1, expected_len)
+
+    def test_resampling_polyphase_output_length_matches_shape_calculation(self) -> None:
+        """Polyphase resampling output length follows ceil(input_len * target / source)."""
+        data = np.arange(10, dtype=float).reshape(1, -1)
+        dask_input = da_from_array(data, chunks=(1, -1))
+        resampler = ReSampling(sampling_rate=10, target_sr=3)
+
+        result = resampler.process(dask_input).compute()
+
+        assert result.shape == resampler.calculate_output_shape(data.shape)
+        assert result.shape == (1, 3)
+
+    def test_resampling_standard_44100_to_48000_exact_length(self) -> None:
+        """Standard 44.1 kHz to 48 kHz conversion advertises the exact polyphase length."""
+        data = np.arange(44100, dtype=float).reshape(1, -1)
+        dask_input = da_from_array(data, chunks=(1, -1))
+        resampler = ReSampling(sampling_rate=44100, target_sr=48000)
+
+        result_da = resampler.process(dask_input)
+        result = result_da.compute()
+
+        assert resampler.calculate_output_shape(data.shape) == (1, 48000)
+        assert result_da.shape == (1, 48000)
+        assert result.shape == (1, 48000)
+
+    def test_resampling_integer_input_reports_float_dtype(self) -> None:
+        data = np.array([[0, 1000, -1000, 500]], dtype=np.int16)
+        dask_input = da_from_array(data, chunks=(1, -1))
+        resampler = ReSampling(sampling_rate=4, target_sr=8)
+
+        result_da = resampler.process(dask_input)
+        result = result_da.compute()
+
+        assert result_da.dtype == np.float64
+        assert result.dtype == np.float64
 
     def test_resampling_upsample_shape_mono(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
         """Upsample 16 kHz -> 32 kHz doubles sample count."""
@@ -221,7 +297,7 @@ class TestTrim:
 
 
 class TestRmsTrend:
-    """RmsTrend operation: Layer 1 + Layer 2 + Layer 3 (librosa reference)."""
+    """RmsTrend operation: Layer 1 + Layer 2 + Layer 3 (NumPy reference)."""
 
     _FRAME: int = 2048
     _HOP: int = 512
@@ -274,19 +350,78 @@ class TestRmsTrend:
         np.testing.assert_array_equal(dask_input.compute(), input_copy)
         assert isinstance(result_da, DaArray)
 
-    def test_rms_trend_output_shape_matches_librosa(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
-        """Output frame count matches librosa.feature.rms reference."""
+    def test_rms_trend_output_shape_matches_centered_frame_count(
+        self, pure_sine_440hz_dask: tuple[DaArray, int]
+    ) -> None:
+        """Output frame count matches centered zero-padded frame calculation."""
 
         dask_input, sr = pure_sine_440hz_dask
         rms = RmsTrend(sr, frame_length=self._FRAME, hop_length=self._HOP)
         result = rms.process(dask_input).compute()
 
-        expected_frames = librosa.feature.rms(
-            y=dask_input.compute(),
-            frame_length=self._FRAME,
-            hop_length=self._HOP,
-        ).shape[-1]
+        pad = self._FRAME // 2
+        expected_frames = 1 + ((dask_input.shape[-1] + 2 * pad - self._FRAME) // self._HOP)
         assert result.shape == (1, expected_frames)
+
+    def test_rms_trend_centered_frame_values(self) -> None:
+        """RMS trend uses centered zero-padded frames with expected values."""
+        data = np.array([[1.0, 2.0, 3.0, 4.0]])
+        dask_input = da_from_array(data, chunks=(1, -1))
+        rms = RmsTrend(_SR, frame_length=4, hop_length=2)
+
+        result = rms.process(dask_input).compute()
+
+        expected = np.array(
+            [
+                [
+                    np.sqrt((0.0**2 + 0.0**2 + 1.0**2 + 2.0**2) / 4.0),
+                    np.sqrt((1.0**2 + 2.0**2 + 3.0**2 + 4.0**2) / 4.0),
+                    np.sqrt((3.0**2 + 4.0**2 + 0.0**2 + 0.0**2) / 4.0),
+                ]
+            ]
+        )
+        np.testing.assert_allclose(result, expected)
+
+    def test_rms_trend_integer_frames_do_not_overflow_before_square(self) -> None:
+        """Integer PCM-like samples are cast to float before RMS squaring."""
+        data = np.array([[30000, -30000, 30000, -30000]], dtype=np.int16)
+        dask_input = da_from_array(data, chunks=(1, -1))
+        rms = RmsTrend(_SR, frame_length=4, hop_length=2)
+
+        result = rms.process(dask_input).compute()
+
+        expected = np.array(
+            [
+                [
+                    np.sqrt((0.0**2 + 0.0**2 + 30000.0**2 + (-30000.0) ** 2) / 4.0),
+                    30000.0,
+                    np.sqrt((30000.0**2 + (-30000.0) ** 2 + 0.0**2 + 0.0**2) / 4.0),
+                ]
+            ]
+        )
+        np.testing.assert_allclose(result, expected)
+        assert np.isfinite(result).all()
+
+    def test_rms_trend_float32_reports_float64_dtype(self) -> None:
+        data = np.ones((1, 16), dtype=np.float32)
+        dask_input = da_from_array(data, chunks=(1, -1))
+        rms = RmsTrend(_SR, frame_length=4, hop_length=2)
+
+        result_da = rms.process(dask_input)
+        result = result_da.compute()
+
+        assert result_da.dtype == np.float64
+        assert result.dtype == np.float64
+
+    def test_rms_trend_empty_input_odd_frame_length_raises(self) -> None:
+        """Empty centered input shorter than an odd frame raises instead of unsafe striding."""
+        data = np.empty((1, 0), dtype=float)
+        rms = RmsTrend(_SR, frame_length=5, hop_length=2)
+
+        with pytest.raises(ValueError, match="Input is too short"):
+            rms._process_array(data)
+        with pytest.raises(ValueError, match="Input is too short"):
+            rms.calculate_output_shape(data.shape)
 
     # -- Layer 3: Numerical verification -----------------------------------
 

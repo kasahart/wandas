@@ -6,9 +6,9 @@ from collections.abc import Iterator, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
-import pandas as pd
 from dask.array.core import Array as DaArray
 
+from wandas.utils.optional_imports import require_pandas
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 from ..core.base_frame import BaseFrame
@@ -16,6 +16,7 @@ from ..core.metadata import ChannelMetadata
 from .mixins.spectral_properties_mixin import SpectralPropertiesMixin
 
 if TYPE_CHECKING:
+    import pandas as pd
     from matplotlib.axes import Axes
 
     from ..visualization.plotting import PlotStrategy
@@ -314,6 +315,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
     def _get_dataframe_index(self) -> pd.Index[Any]:
         """Get frequency index for DataFrame."""
+        pd = require_pandas("SpectralFrame.to_dataframe")
         return pd.Index(self.freqs, name="frequency")
 
     def noct_synthesis(

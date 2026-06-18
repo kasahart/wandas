@@ -9,12 +9,11 @@ from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast, overloa
 
 import numpy as np
 import numpy.typing as npt
-import pandas as pd
 import xarray as xr
 from dask.array.core import Array as DaArray
-from matplotlib.axes import Axes
 
 from wandas.utils import validate_sampling_rate
+from wandas.utils.optional_imports import require_dependency, require_pandas
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 from .channel_metadata import ChannelMetadataIndexer
@@ -25,7 +24,9 @@ from .metadata import ChannelMetadata
 if TYPE_CHECKING:
     from typing import TypeAlias
 
+    import pandas as pd
     from IPython.display import Image as IPythonImage
+    from matplotlib.axes import Axes
 
     VisualizeReturnType: TypeAlias = IPythonImage | None
 else:
@@ -837,7 +838,7 @@ class BaseFrame(ABC, Generic[T]):
         return self.to_xarray()
 
     @abstractmethod
-    def plot(self, plot_type: str = "default", ax: Axes | None = None, **kwargs: Any) -> Axes | Iterator[Axes]:
+    def plot(self, plot_type: str = "default", ax: "Axes | None" = None, **kwargs: Any) -> "Axes | Iterator[Axes]":
         """Plot the data"""
 
     def persist(self: S) -> S:
@@ -1120,6 +1121,9 @@ class BaseFrame(ABC, Generic[T]):
         from wandas.processing import create_operation
 
         operation = create_operation(operation_name, self.sampling_rate, **params)
+        ensure_dependencies = getattr(operation, "ensure_dependencies", None)
+        if ensure_dependencies is not None:
+            ensure_dependencies()
         processed_data = operation.process(self._data)
 
         new_metadata, new_history = self._updated_metadata_and_history(operation_name, params)
@@ -1176,6 +1180,9 @@ class BaseFrame(ABC, Generic[T]):
             Extra constructor keyword arguments required by *output_frame_class*
             (e.g. ``{"n_fft": 1024, "window": "hann"}``).
         """
+        ensure_dependencies = getattr(operation, "ensure_dependencies", None)
+        if ensure_dependencies is not None:
+            ensure_dependencies()
         processed_data = operation.process(self._data)
 
         if operation_name is None:
@@ -1374,65 +1381,34 @@ class BaseFrame(ABC, Generic[T]):
         >>> tensor = frame.to_tensor(framework="tensorflow", device="/GPU:0")
         """
 
-        # Compute the Dask array to NumPy array
-        numpy_data = self.to_numpy()
-
         if framework == "torch":
-            try:
-                import importlib.util
+            torch = require_dependency("torch", feature="tensor conversion with framework='torch'")
+            numpy_data = self.to_numpy()
 
-                if importlib.util.find_spec("torch") is None:
-                    raise ImportError(
-                        "PyTorch is not installed\n"
-                        "  Required for: tensor conversion with framework='torch'\n"
-                        "  Install with: pip install torch"
-                    )
-                import torch
+            # Convert NumPy array to PyTorch tensor
+            tensor = torch.from_numpy(numpy_data)
 
-                # Convert NumPy array to PyTorch tensor
-                tensor = torch.from_numpy(numpy_data)
+            # Move to specified device if provided
+            if device is not None:
+                tensor = tensor.to(device)
 
-                # Move to specified device if provided
-                if device is not None:
-                    tensor = tensor.to(device)
-
-                return tensor
-
-            except ImportError as e:
-                raise ImportError(
-                    "PyTorch is not installed\n"
-                    "  Required for: tensor conversion with framework='torch'\n"
-                    "  Install with: pip install torch"
-                ) from e
+            return tensor
 
         elif framework == "tensorflow":
-            try:
-                import importlib.util
+            tf = require_dependency(
+                "tensorflow",
+                feature="tensor conversion with framework='tensorflow'",
+            )
+            numpy_data = self.to_numpy()
 
-                if importlib.util.find_spec("tensorflow") is None:
-                    raise ImportError(
-                        "TensorFlow is not installed\n"
-                        "  Required for: tensor conversion with\n"
-                        "  framework='tensorflow'\n"
-                        "  Install with: pip install tensorflow"
-                    )
-                import tensorflow as tf
-
-                # Convert NumPy array to TensorFlow tensor
-                if device is not None:
-                    with tf.device(device):
-                        tensor = tf.convert_to_tensor(numpy_data)
-                else:
+            # Convert NumPy array to TensorFlow tensor
+            if device is not None:
+                with tf.device(device):
                     tensor = tf.convert_to_tensor(numpy_data)
+            else:
+                tensor = tf.convert_to_tensor(numpy_data)
 
-                return tensor
-
-            except ImportError as e:
-                raise ImportError(
-                    "TensorFlow is not installed\n"
-                    "  Required for: tensor conversion with framework='tensorflow'\n"
-                    "  Install with: pip install tensorflow"
-                ) from e
+            return tensor
 
         else:
             raise ValueError(
@@ -1459,6 +1435,8 @@ class BaseFrame(ABC, Generic[T]):
         >>> df = cf.to_dataframe()
         >>> print(df.head())
         """
+        pd = require_pandas("BaseFrame.to_dataframe")
+
         # Get data as numpy array
         data = self.to_numpy()
 

@@ -6,10 +6,12 @@ import pytest
 from dask.array.core import Array as DaArray
 
 from wandas.processing.base import (
+    _OPERATION_MODULES,
     _OPERATION_REGISTRY,
     AudioOperation,
     create_operation,
     get_operation,
+    register_lazy_operation,
     register_operation,
 )
 from wandas.processing.filters import HighPassFilter
@@ -25,6 +27,27 @@ class TestOperationRegistry:
         # Test for existing operations
         assert "highpass_filter" in _OPERATION_REGISTRY
         assert "lowpass_filter" in _OPERATION_REGISTRY
+
+    def test_get_operation_imports_lazy_registered_module(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        class LazyTestOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "lazy_test_op"
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        def fake_import_module(module_name: str) -> object:
+            assert module_name == "tests.fake_lazy_module"
+            register_operation(LazyTestOperation)
+            return object()
+
+        monkeypatch.setattr("wandas.processing.base.importlib.import_module", fake_import_module)
+        register_lazy_operation("lazy_test_op", "tests.fake_lazy_module")
+
+        try:
+            assert get_operation("lazy_test_op") is LazyTestOperation
+        finally:
+            _OPERATION_MODULES.pop("lazy_test_op", None)
+            _OPERATION_REGISTRY.pop("lazy_test_op", None)
 
     def test_get_operation_error(self) -> None:
         """Test get_operation raises ValueError for unknown operations."""
@@ -51,6 +74,21 @@ class TestOperationRegistry:
         # Clean up
         if "test_register_op" in _OPERATION_REGISTRY:
             del _OPERATION_REGISTRY["test_register_op"]
+
+    def test_register_operation_same_class_is_idempotent(self) -> None:
+        class IdempotentOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "idempotent_op"
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        try:
+            register_operation(IdempotentOperation)
+            register_operation(IdempotentOperation)
+
+            assert _OPERATION_REGISTRY["idempotent_op"] is IdempotentOperation
+        finally:
+            _OPERATION_REGISTRY.pop("idempotent_op", None)
 
     def test_register_operation_error(self) -> None:
         """Test registering an invalid class raises TypeError."""

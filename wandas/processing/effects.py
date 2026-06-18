@@ -1,17 +1,62 @@
 import logging
 from typing import Any
 
+import dask.array as da
 import numpy as np
 from dask.array.core import Array as DaArray
-from librosa import effects
-from librosa import util as librosa_util
+from dask.delayed import delayed
 from scipy.signal import windows as sp_windows
 
 from wandas.processing.base import AudioOperation, register_operation
 from wandas.utils import util
+from wandas.utils.optional_imports import require_librosa_effects
 from wandas.utils.types import NDArrayReal
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_array(
+    x: NDArrayReal,
+    norm: float | None,
+    axis: int | None,
+    threshold: float | None,
+    fill: bool | None,
+) -> NDArrayReal:
+    if norm is None:
+        return x
+    if threshold is None:
+        dtype = np.asarray(x).dtype
+        threshold = float(np.finfo(dtype.name).tiny if dtype.kind == "f" else np.finfo(float).tiny)
+    elif threshold <= 0:
+        raise ValueError("threshold must be strictly positive")
+    if norm == 0:
+        length = np.sum(x != 0, axis=axis, keepdims=True).astype(float)
+    elif norm in {np.inf, -np.inf}:
+        dtype = np.asarray(x).dtype
+        magnitude_input = x if dtype.kind == "f" else x.astype(float, copy=False)
+        magnitude = np.abs(magnitude_input)
+        if norm == np.inf:
+            length = np.max(magnitude, axis=axis, keepdims=True)
+        else:
+            length = np.min(magnitude, axis=axis, keepdims=True)
+    else:
+        magnitude = np.abs(x.astype(float, copy=False))
+        length = np.sum(magnitude**norm, axis=axis, keepdims=True) ** (1.0 / norm)
+
+    small = length < threshold
+    safe_length = np.where(small, 1.0, length)
+    out = x / safe_length
+    if fill is True:
+        if norm == 0:
+            raise ValueError("Cannot normalize with norm=0 and fill=True")
+        fill_value = 1.0
+        if norm not in {np.inf, -np.inf}:
+            axis_length = x.size if axis is None else x.shape[axis]
+            fill_value = axis_length ** (-1.0 / norm)
+        out = np.where(np.broadcast_to(small, x.shape), fill_value, out)
+    elif fill is False:
+        out = np.where(np.broadcast_to(small, x.shape), 0.0, out)
+    return np.asarray(out)
 
 
 class _HpssBase(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -22,11 +67,12 @@ class _HpssBase(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def __init__(self, sampling_rate: float, **kwargs: Any):
         self.kwargs = kwargs
+        self._effects = require_librosa_effects(self.name)
         super().__init__(sampling_rate, **kwargs)
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying HPSS {self._extract_func} to array with shape: {x.shape}")
-        func = getattr(effects, self._extract_func)
+        func = getattr(self._effects, self._extract_func)
         result: NDArrayReal = func(x, **self.kwargs)
         logger.debug(f"HPSS {self._extract_func} applied, returning result with shape: {result.shape}")
         return result
@@ -49,10 +95,19 @@ class HpssPercussive(_HpssBase):
 
 
 class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
-    """Signal normalization operation using librosa.util.normalize"""
+    """Signal normalization operation."""
 
     name = "normalize"
     _display = "norm"
+
+    @staticmethod
+    def _output_dtype(input_dtype: np.dtype[Any], norm: float | None) -> np.dtype[Any]:
+        dtype = np.dtype(input_dtype)
+        if norm is None:
+            return dtype
+        if dtype.kind == "f" and norm in {np.inf, -np.inf}:
+            return dtype
+        return np.dtype(np.float64)
 
     def __init__(
         self,
@@ -116,13 +171,13 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
             )
 
         # Validate threshold
-        if threshold is not None and threshold < 0:
+        if threshold is not None and threshold <= 0:
             raise ValueError(
                 f"Invalid threshold for normalization\n"
                 f"  Got: {threshold}\n"
-                f"  Expected: Non-negative value or None\n"
-                f"Threshold must be non-negative.\n"
-                f"Typical values: 0.0 (no threshold), 1e-10 (small threshold)"
+                f"  Expected: Positive value or None\n"
+                f"Threshold must be strictly positive.\n"
+                f"Typical values: 1e-10 (small threshold), 1e-6 (larger threshold)"
             )
 
         super().__init__(sampling_rate, norm=norm, axis=axis, threshold=threshold, fill=fill)
@@ -138,13 +193,18 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
         """Perform normalization processing"""
         logger.debug(f"Applying normalization to array with shape: {x.shape}, norm={self.norm}, axis={self.axis}")
 
-        # Apply librosa.util.normalize
-        result: NDArrayReal = librosa_util.normalize(
-            x, norm=self.norm, axis=self.axis, threshold=self.threshold, fill=self.fill
-        )
+        result = _normalize_array(x, norm=self.norm, axis=self.axis, threshold=self.threshold, fill=self.fill)
 
         logger.debug(f"Normalization applied, returning result with shape: {result.shape}")
         return result
+
+    def process(self, data: DaArray) -> DaArray:
+        """Execute normalization with accurate floating output dtype metadata."""
+        logger.debug("Adding delayed normalize operation to computation graph")
+        wrapper = self._create_named_wrapper()
+        delayed_result = delayed(wrapper, pure=self.pure)(data)
+        output_shape = self.calculate_output_shape(data.shape)
+        return da.from_delayed(delayed_result, shape=output_shape, dtype=self._output_dtype(data.dtype, self.norm))
 
 
 class RemoveDC(AudioOperation[NDArrayReal, NDArrayReal]):

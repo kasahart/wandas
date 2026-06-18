@@ -12,7 +12,6 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import h5py
 import numpy as np
 
 if TYPE_CHECKING:
@@ -20,6 +19,7 @@ if TYPE_CHECKING:
 
 # Import BaseFrame from core module
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
+from wandas.utils.optional_imports import require_h5py
 
 from ..core.base_frame import BaseFrame
 
@@ -77,6 +77,8 @@ def save(
     # Currently only HDF5 is supported
     if format.lower() != "hdf5":
         raise NotImplementedError(f"Format {format} not supported. Only 'hdf5' is currently implemented.")
+
+    h5py = require_h5py("WDF save")
 
     # Compute data arrays (this triggers actual computation)
     logger.info("Computing data arrays for saving...")
@@ -179,6 +181,8 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
 
     if format.lower() != "hdf5":
         raise NotImplementedError(f"Format '{format}' is not supported")
+
+    h5py = require_h5py("WDF load")
 
     # Detect and handle URL paths — download to memory before HDF5 open.
     h5_source: str | Path | io.BytesIO

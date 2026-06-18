@@ -34,31 +34,46 @@ classifiers = [
 dependencies = [
     "numpy>=2.0.2",
     "scipy>=1.13.0",
-    "matplotlib>=3.9.0",
-    "xarray>=2025.6.1",
-    "librosa",
-    "ipykernel",
-    "ipywidgets",
-    "cattrs",
-    "tqdm",
-    "ipympl>=0.9.3",
-    "h5py>=3.13.0",
     "dask>=2024.8.0",
-    "japanize-matplotlib>=1.1.3",
-    "ipycytoscape>=1.3.3",
-    "requests>=2.32.3",
-    "types-requests>=2.32.0.20250328",
+    "soundfile",
     "pandas",
-    "mosqito",
+    "xarray>=2025.6.1",
+    "matplotlib>=3.9.0",
+    "cattrs",
+    "requests>=2.32.3",
 ]
 
 [project.urls]
 Repository = "https://github.com/kasahart/wandas.git"
 Issues = "https://github.com/kasahart/wandas/issues"
 
+[project.optional-dependencies]
+io = [
+    "h5py>=3.13.0",
+]
+viz = [
+    "librosa",
+    "japanize-matplotlib>=1.1.3",
+]
+notebook = [
+    "ipykernel",
+    "ipywidgets",
+    "ipympl>=0.9.3",
+    "ipycytoscape>=1.3.3",
+]
+psychoacoustic = [
+    "mosqito",
+]
+ml = [
+    "torch>=2.0.0",
+    "tensorflow>=2.13.0",
+]
+
 [dependency-groups]
 # CI最小限（テスト・リント・型チェック）
 test = [
+    "tomli>=2.0.0",
+    "types-requests>=2.32.0.20250328",
     "pytest>=8.3.5",
     "pytest-xdist>=3.6.1",
     "pytest-cov",
