@@ -65,6 +65,66 @@ jobs:
           # --strictフラグにより、警告（リンク切れやパースエラー）をエラーとして扱いCIを落とす
           run: uv run --no-sync mkdocs build -f docs/mkdocs.yml --strict
 
+  core-install-smoke:
+    name: Core-only wheel install smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: uv をセットアップ
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          version: "latest"
+
+      - name: Python 3.12 をインストール
+        run: uv python install 3.12
+
+      - name: wheel をビルド
+        run: uv build --wheel
+
+      - name: core-only wheel install smoke
+        shell: bash
+        env:
+          MPLBACKEND: Agg
+        run: |
+          uv venv --python 3.12 "$RUNNER_TEMP/wandas-core-smoke"
+          uv pip install --python "$RUNNER_TEMP/wandas-core-smoke/bin/python" dist/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/wandas-core-smoke/bin/python" - <<'PY'
+          import importlib.util
+          import tempfile
+          from pathlib import Path
+
+          import numpy as np
+          import wandas as wd
+
+          optional_modules = [
+              "h5py",
+              "IPython",
+              "japanize_matplotlib",
+              "librosa",
+              "mosqito",
+              "tensorflow",
+              "torch",
+          ]
+          installed_optional = [name for name in optional_modules if importlib.util.find_spec(name) is not None]
+          assert installed_optional == [], f"Unexpected optional packages installed: {installed_optional}"
+
+          data = np.sin(np.linspace(0, 16, 4096, dtype=float))[None, :]
+          frame = wd.ChannelFrame.from_numpy(data, sampling_rate=48000)
+          assert np.allclose((frame + 1).to_numpy(), data + 1)
+          assert frame.to_dataframe().shape == (4096, 1)
+          assert frame.fft().n_channels == 1
+
+          with tempfile.TemporaryDirectory() as tmpdir:
+              output = Path(tmpdir) / "describe.png"
+              frame.describe(image_save=output)
+              assert output.exists(), "describe(image_save=...) should work in a core-only install"
+          PY
+
   test:
     name: Test on ${{ matrix.os }} / Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}

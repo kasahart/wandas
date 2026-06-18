@@ -26,6 +26,12 @@ uv sync --no-dev --extra io --extra viz --extra notebook --extra psychoacoustic 
 
 This keeps documentation examples aligned with the standard non-ML feature set while avoiding Torch and TensorFlow install cost in every documentation build.
 
+## Core-Only Wheel Smoke
+
+CI also builds a wheel and installs it into a fresh Python 3.12 environment without extras or dependency groups. The smoke script runs from outside the repository checkout so it verifies the installed wheel rather than the local source tree.
+
+This job checks that the core package imports, basic frame operations and `describe(image_save=...)` work, and optional-only packages such as `h5py`, `IPython`, `librosa`, `mosqito`, `torch`, and `tensorflow` are not installed by the base wheel.
+
 ## ML Extras
 
 The `ml` extra owns Torch and TensorFlow tensor conversion support. These packages are intentionally excluded from the normal lint, docs, and test matrix because they materially increase install time and platform variance.
