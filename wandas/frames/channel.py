@@ -299,7 +299,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             self._replace_data(new_data)
             self._set_channel_metadata(new_chmeta, channel_ids)
             return self
-        return ChannelFrame(
+        frame = ChannelFrame(
             data=new_data,
             sampling_rate=self.sampling_rate,
             label=self.label,
@@ -310,6 +310,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             previous=self,
             source_time_offset=self.source_time_offset,
         )
+        if "source_time_range" in self._xr.attrs:
+            frame._xr.attrs["source_time_range"] = tuple(self.source_time_range)
+        return frame
 
     @property
     def time(self) -> NDArrayReal:
@@ -354,6 +357,24 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 sample_index += sample_axis_length
             source_time_offset += sample_index / self.sampling_rate
         return source_time_offset
+
+    def _source_time_range_for_indexing(self, time_keys: tuple[Any, ...]) -> tuple[float, float]:
+        sample_key = time_keys[-1]
+        sample_axis_length = self.shape[-1]
+        if isinstance(sample_key, slice):
+            start_sample, stop_sample, _ = sample_key.indices(sample_axis_length)
+        else:
+            sample_index = int(sample_key)
+            if sample_index < 0:
+                sample_index += sample_axis_length
+            start_sample = sample_index
+            stop_sample = sample_index + 1
+        selected_start = self.source_time_offset + start_sample / self.sampling_rate
+        selected_end = self.source_time_offset + stop_sample / self.sampling_rate
+        parent_start, parent_end = self.source_time_range
+        start = max(parent_start, selected_start)
+        end = min(parent_end, selected_end)
+        return (start, max(start, end))
 
     def _validate_time_indexing(self, time_keys: tuple[Any, ...]) -> None:
         sample_key = time_keys[-1]

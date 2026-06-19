@@ -737,6 +737,9 @@ class BaseFrame(ABC, Generic[T]):
     def _source_time_offset_for_indexing(self, time_keys: tuple[Any, ...]) -> float:
         return self.source_time_offset
 
+    def _source_time_range_for_indexing(self, time_keys: tuple[Any, ...]) -> tuple[float, float] | None:
+        return None
+
     def _validate_time_indexing(self, time_keys: tuple[Any, ...]) -> None:
         """Validate subclass-specific time-axis indexing constraints."""
 
@@ -784,12 +787,14 @@ class BaseFrame(ABC, Generic[T]):
             selected._validate_time_indexing(time_keys)
             new_data = selected._data[(slice(None),) + time_keys]  # noqa: RUF005
             source_time_offset = selected._source_time_offset_for_indexing(time_keys)
+            source_time_range = selected._source_time_range_for_indexing(time_keys)
             return selected._create_new_instance(
                 data=new_data,
                 operation_history=selected.operation_history,
                 channel_metadata=selected.channels.to_list(),
                 channel_ids=selected._channel_ids,
                 source_time_offset=source_time_offset,
+                source_time_range=source_time_range,
             )
 
         return selected

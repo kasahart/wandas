@@ -1,6 +1,7 @@
 """Roughness analysis frame for detailed psychoacoustic analysis."""
 
 import logging
+import numbers
 from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 
@@ -231,10 +232,61 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         """Get source-relative time values for each roughness frame."""
         return self.time + self.source_time_offset
 
+    def _source_time_offset_for_indexing(self, time_keys: tuple[Any, ...]) -> float:
+        source_time_offset = self.source_time_offset
+        if len(time_keys) >= 2:
+            time_key = time_keys[-1]
+            time_axis_length = self.shape[-1]
+            if isinstance(time_key, slice):
+                source_time_offset += time_key.indices(time_axis_length)[0] / self.sampling_rate
+            elif isinstance(time_key, numbers.Integral):
+                time_index = int(time_key)
+                if time_index < 0:
+                    time_index += time_axis_length
+                source_time_offset += time_index / self.sampling_rate
+        return source_time_offset
+
+    def _source_time_range_for_indexing(self, time_keys: tuple[Any, ...]) -> tuple[float, float] | None:
+        if len(time_keys) < 2:
+            return None
+        time_key = time_keys[-1]
+        time_axis_length = self.shape[-1]
+        if isinstance(time_key, slice):
+            start_index, stop_index, _ = time_key.indices(time_axis_length)
+        else:
+            time_index = int(time_key)
+            if time_index < 0:
+                time_index += time_axis_length
+            start_index = time_index
+            stop_index = time_index + 1
+        selected_start = self.source_time_offset + start_index / self.sampling_rate
+        selected_end = self.source_time_offset + stop_index / self.sampling_rate
+        parent_start, parent_end = self.source_time_range
+        start = max(parent_start, selected_start)
+        end = min(parent_end, selected_end)
+        return (start, max(start, end))
+
+    def _validate_time_indexing(self, time_keys: tuple[Any, ...]) -> None:
+        if len(time_keys) < 2:
+            return
+        time_key = time_keys[-1]
+        if isinstance(time_key, slice):
+            if time_key.step not in (None, 1):
+                raise ValueError("Non-contiguous time indexing is not supported")
+            return
+        if isinstance(time_key, numbers.Integral):
+            return
+        raise ValueError("Non-contiguous time indexing is not supported")
+
     @property
     def source_time_range(self) -> tuple[float, float]:
         """Return the source span represented by this roughness frame."""
         if self.previous is not None:
+            if isinstance(self.previous, RoughnessFrame):
+                _, previous_end = self.previous.source_time_range
+                start = self.source_time_offset
+                end = min(previous_end, start + self.duration)
+                return (start, max(start, end))
             start, end = self.previous.source_time_range
             offset_delta = self.source_time_offset - self.previous.source_time_offset
             return (start + offset_delta, end + offset_delta)

@@ -3,6 +3,7 @@ import numpy as np
 import pytest
 
 from wandas.frames.channel import ChannelFrame
+from wandas.frames.roughness import RoughnessFrame
 
 
 def test_trim_stft_chain_keeps_source_context() -> None:
@@ -94,3 +95,67 @@ def test_non_contiguous_spectrogram_time_indexing_is_rejected() -> None:
 
     with pytest.raises(ValueError, match="Non-contiguous time indexing"):
         _ = spec[:, :, [0, 2]]
+
+
+def test_channel_update_preserves_explicit_source_range() -> None:
+    data = da.from_array(np.ones((1, 10), dtype=float), chunks=(1, -1))
+    frame = ChannelFrame(data, sampling_rate=10.0).fix_length(length=20)
+
+    result = frame.rename_channels({0: "renamed"})
+
+    assert frame.source_time_range == pytest.approx((0.0, 1.0))
+    assert result.source_time_range == pytest.approx(frame.source_time_range)
+
+
+def test_trim_clips_explicit_source_range_to_selected_samples() -> None:
+    data = da.from_array(np.ones((1, 10), dtype=float), chunks=(1, -1))
+    frame = ChannelFrame(data, sampling_rate=10.0).fix_length(length=20)
+
+    real_samples = frame.trim(0.0, 0.5)
+    padded_samples = frame.trim(1.5, 2.0)
+
+    assert real_samples.source_time_range == pytest.approx((0.0, 0.5))
+    assert padded_samples.source_time_range == pytest.approx((1.5, 1.5))
+
+
+def test_channel_time_indexing_clips_explicit_source_range_to_selected_samples() -> None:
+    data = da.from_array(np.ones((1, 10), dtype=float), chunks=(1, -1))
+    frame = ChannelFrame(data, sampling_rate=10.0).fix_length(length=20)
+
+    real_samples = frame[:, 0:5]
+    padded_samples = frame[:, 15:20]
+
+    assert real_samples.source_time_range == pytest.approx((0.0, 0.5))
+    assert padded_samples.source_time_range == pytest.approx((1.5, 1.5))
+
+
+def test_roughness_dw_preserves_input_source_range() -> None:
+    sampling_rate = 44100.0
+    time = np.linspace(0.0, 1.0, int(sampling_rate), endpoint=False)
+    signal = np.sin(2 * np.pi * 1000.0 * time).reshape(1, -1)
+    frame = ChannelFrame(da.from_array(signal, chunks=(1, 4410)), sampling_rate=sampling_rate, source_time_offset=2.0)
+
+    result = frame.roughness_dw(overlap=0.5)
+
+    assert result.source_time_range == pytest.approx(frame.source_time_range)
+
+
+def test_roughness_time_indexing_advances_source_range() -> None:
+    previous = ChannelFrame(
+        da.from_array(np.ones((1, 10), dtype=float), chunks=(1, -1)),
+        sampling_rate=10.0,
+        source_time_offset=3.0,
+    )
+    roughness = RoughnessFrame(
+        data=da.from_array(np.ones((1, 47, 10), dtype=float), chunks=(1, 47, -1)),
+        sampling_rate=10.0,
+        bark_axis=np.linspace(0.5, 23.5, 47),
+        overlap=0.5,
+        previous=previous,
+        source_time_offset=previous.source_time_offset,
+    )
+
+    result = roughness[:, :, 2:5]
+
+    assert result.source_time_offset == pytest.approx(3.2)
+    assert result.source_time_range == pytest.approx((3.2, 3.5))

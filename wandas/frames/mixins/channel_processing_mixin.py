@@ -370,13 +370,25 @@ class ChannelProcessingMixin:
             end = self.duration
         if start > end:
             raise ValueError("start must be less than end")
-        operation = create_operation("trim", cast(Any, self).sampling_rate, start=start, end=end)
-        start_sample = getattr(operation, "start_sample", int(start * cast(Any, self).sampling_rate))
+        sampling_rate = cast(Any, self).sampling_rate
+        operation = create_operation("trim", sampling_rate, start=start, end=end)
+        start_sample = getattr(operation, "start_sample", int(start * sampling_rate))
+        end_sample = getattr(operation, "end_sample", int(end * sampling_rate))
+        n_samples = cast(Any, self).n_samples
+        stop_sample = min(end_sample, n_samples)
+        selected_start = cast(Any, self).source_time_offset + start_sample / sampling_rate
+        selected_end = cast(Any, self).source_time_offset + stop_sample / sampling_rate
+        parent_start, parent_end = cast(Any, self).source_time_range
+        source_time_range = (
+            max(parent_start, selected_start),
+            max(max(parent_start, selected_start), min(parent_end, selected_end)),
+        )
         result = cast(Any, self)._apply_operation_instance(
             operation,
             operation_name="trim",
-            source_time_offset=cast(Any, self).source_time_offset + start_sample / cast(Any, self).sampling_rate,
+            source_time_offset=selected_start,
         )
+        result._xr.attrs["source_time_range"] = source_time_range
         return cast(T_Processing, result)
 
     def fix_length(
@@ -817,6 +829,7 @@ class ChannelProcessingMixin:
         """
         logger.debug(f"Applying roughness_dw operation with overlap={overlap} (lazy)")
         result = self.apply_operation("roughness_dw", overlap=overlap)
+        cast(Any, result)._xr.attrs["source_time_range"] = tuple(cast(Any, self).source_time_range)
         return cast(T_Processing, result)
 
     def roughness_dw_spec(self: ProcessingFrameProtocol, overlap: float = 0.5) -> "RoughnessFrame":
