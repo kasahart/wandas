@@ -72,13 +72,13 @@ def _(mo):
 @app.cell
 def _():
     # Wandasの最新版をインストール
-    # !pip install "wandas[marimo]"
+    # !pip install "wandas[marimo,io,psychoacoustic]"
 
     # 開発版の場合は（オプション）
     # !pip install git+https://github.com/kasahart/wandas.git
 
-    print("Wandas + marimo の推奨インストールコマンド:")
-    print('!pip install "wandas[marimo]"')
+    print("Wandas learning path の推奨インストールコマンド:")
+    print('!pip install "wandas[marimo,io,psychoacoustic]"')
     return
 
 
@@ -107,7 +107,7 @@ def _(mo):
     mo.md(r"""
     ### 可視化ライブラリのインストール
 
-    インタラクティブなプロットのために必要です。
+    marimo 表示と学習パス内の WDF/音響解析セルのために必要です。
     """)
     return
 
@@ -115,10 +115,10 @@ def _(mo):
 @app.cell
 def _():
     # marimo学習アプリ用のライブラリ
-    # !pip install "wandas[marimo]"
+    # !pip install "wandas[marimo,io,psychoacoustic]"
 
     print("marimo環境のインストール:")
-    print('!pip install "wandas[marimo]"')
+    print('!pip install "wandas[marimo,io,psychoacoustic]"')
     return
 
 
@@ -154,32 +154,31 @@ def _(mo):
     mo.md(r"""
     ## 🎨 marimo環境の設定
 
-    ### インタラクティブプロットの有効化
+    ### プロット表示の設定
 
-    信号処理では、**グラフをインタラクティブに操作**することが重要です：
-    - ズームイン/アウトで詳細を確認
-    - パンで特定の領域に移動
-    - データポイントの値を確認
+    信号処理では、**グラフを見ながら探索的に確認**することが重要です：
+    - 時間範囲や周波数範囲を絞って詳細を確認
+    - 複数の処理結果を並べて比較
+    - ラベルや凡例で注目点を確認
 
-    marimo上でMatplotlibの表示を確認しながら、探索的にグラフを操作できます。
+    この学習パスでは、marimo上でMatplotlibの静的な図を確認しながら進めます。
     """)
     return
 
 
 @app.cell
 def _(plt):
-    # インタラクティブプロットの設定
-    # '%matplotlib widget' command supported automatically in marimo
+    # プロット表示の設定
 
     # プロットのサイズを設定 - 見やすさを調整
     plt.rcParams["figure.figsize"] = (10, 6)  # 図のサイズ (幅10インチ、高さ6インチ)
     plt.rcParams["figure.dpi"] = 100  # 解像度 (dots per inch)
 
-    print("✅ インタラクティブプロットが有効になりました！")
-    print("\nグラフ上で:")
-    print("- マウスホイール: ズームイン/アウト")
-    print("- 右クリック+ドラッグ: パン")
-    print("- ホバー: データ値の表示")
+    print("✅ プロット表示の設定が完了しました！")
+    print("\nグラフ表示:")
+    print("- 図は marimo のセル出力として表示されます")
+    print("- 必要に応じて plot() の xlim/ylim などで表示範囲を調整します")
+    print("- 比較したい結果は複数セルや複数軸に並べて確認します")
     return
 
 
@@ -253,7 +252,7 @@ def _(mo):
 @app.cell
 def _(simple_tone):
     # describe()メソッドで完全な分析を表示 - Wandasの強力な可視化機能
-    # is_close=False: プロットウィンドウを自動で閉じない設定。インタラクティブな操作が可能
+    # is_close=False: 図を自動で閉じず、marimo のセル出力として保持する設定
     simple_tone.describe(is_close=False)
     return
 
@@ -424,7 +423,7 @@ def _(mo):
     #### 1. marimoアプリが起動しない
     ```python
     # 解決法
-    !pip install "wandas[marimo]" --upgrade
+    !pip install "wandas[marimo,io,psychoacoustic]" --upgrade
     marimo edit learning-path/01_getting_started.py
     ```
 
@@ -446,10 +445,10 @@ def _(mo):
 @app.cell
 def _():
     # トラブルシューティング: marimo表示が動作しない場合の確認
-    # !pip install "wandas[marimo]" --upgrade  # アップグレードが必要な場合
+    # !pip install "wandas[marimo,io,psychoacoustic]" --upgrade  # アップグレードが必要な場合
     print("marimo表示のトラブルシューティング:")
     print("1. marimo edit learning-path/01_getting_started.py で起動")
-    print("2. wandas[marimo] がインストールされているか確認")
+    print("2. wandas[marimo,io,psychoacoustic] がインストールされているか確認")
     print("3. ブラウザを再読み込みしてセルを再実行")
     from importlib.metadata import version as _metadata_version
 

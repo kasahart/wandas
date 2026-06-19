@@ -31,7 +31,7 @@
 
 - インストールと環境設定
 - 最初の信号生成と可視化
-- marimo環境でのインタラクティブな操作
+- marimo環境での探索的な確認
 
 ### 3. [02_working_with_data.py](02_working_with_data.py) - データの読み込みと操作
 

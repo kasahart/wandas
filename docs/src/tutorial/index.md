@@ -5,11 +5,11 @@ This tutorial will teach you the basics of the Wandas library in 5 minutes.
 
 ## Installation / インストール
 
-Recommended for learning apps and interactive display support:
-学習アプリとインタラクティブ表示を使う場合の推奨インストール:
+Recommended for the learning apps, WDF examples, and psychoacoustic cells:
+学習アプリ、WDF 例、音響解析セルを使う場合の推奨インストール:
 
 ```bash
-pip install "wandas[marimo]"
+pip install "wandas[marimo,io,psychoacoustic]"
 ```
 
 Core-only install:

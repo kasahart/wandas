@@ -54,8 +54,8 @@ pip install wandas
 
 ### Installation Options / インストールオプション
 
-The core-only install keeps waveform, CSV/WAV, processing, plotting, and non-interactive `describe()` figure/export workflows available without optional extras.
-core-only インストールでは、optional extras なしで波形データ、CSV/WAV、処理、プロット、非インタラクティブな `describe()` の図作成・保存ワークフローを利用できます。
+The core-only install keeps waveform, CSV/WAV, processing, plotting, and `describe()` figure/export workflows available when you use non-display options such as `is_close=False` or `image_save`. The default interactive `frame.describe()` display path requires `wandas[marimo]`.
+core-only インストールでは、optional extras なしで波形データ、CSV/WAV、処理、プロットを利用でき、`is_close=False` や `image_save` などの非表示オプションを使う `describe()` の図作成・保存ワークフローも利用できます。デフォルトのインタラクティブな `frame.describe()` 表示には `wandas[marimo]` が必要です。
 
 Install optional extras when you need additional file formats or heavier analysis features:
 追加のファイル形式や重めの解析機能が必要な場合は、optional extras を追加してインストールします。
