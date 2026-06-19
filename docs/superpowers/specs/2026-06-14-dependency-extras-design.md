@@ -2,20 +2,20 @@
 
 ## Context
 
-Wandas currently installs notebook, broad visualization, WDF IO, machine learning, and psychoacoustic dependencies as runtime dependencies. This makes the core install heavy for a library whose central value is waveform-oriented data structures, `describe()`, and analysis operations.
+Before the extras split, Wandas installed marimo, broad visualization, WDF IO, machine learning, and psychoacoustic dependencies as runtime dependencies. This made the core install heavy for a library whose central value is waveform-oriented data structures, `describe()`, and analysis operations.
 
-The current import graph also pulls optional dependencies too early:
+The pre-split import graph also pulled optional dependencies too early:
 
 - `wandas.__init__` imports `ChannelFrame`.
 - `ChannelFrame` imports `IPython.display` and some plotting helpers at module import time.
 - `wandas.processing.__init__` imports all processing modules, which pulls in `librosa` and `mosqito`.
-- Visualization imports `librosa.display` at module import time.
+- Visualization should not import `librosa.display`; spectrogram rendering is core Matplotlib.
 
-The result is that `import wandas` requires packages that are not part of the core data-structure experience.
+The result was that `import wandas` required packages that are not part of the core data-structure experience.
 
 ## Goal
 
-Use the balanced "take" option from the Matsu/Take/Ume split: keep the first-use waveform and `describe()` experience strong while removing notebook, WDF IO, machine learning, psychoacoustic, and non-core visualization dependencies from the core install.
+Use the balanced "take" option from the Matsu/Take/Ume split: keep the first-use waveform and `describe()` experience strong while removing marimo, WDF IO, machine learning, psychoacoustic, and non-core visualization dependencies from the core install.
 
 `pip install wandas` must support:
 
@@ -30,8 +30,8 @@ Use the balanced "take" option from the Matsu/Take/Ume split: keep the first-use
 Use extras for workflows outside that core:
 
 - `pip install "wandas[io]"`
-- `pip install "wandas[viz]"`
-- `pip install "wandas[notebook]"`
+- `pip install "wandas[effects]"`
+- `pip install "wandas[marimo]"`
 - `pip install "wandas[psychoacoustic]"`
 - `pip install "wandas[ml]"`
 
@@ -60,15 +60,12 @@ Optional dependencies:
 io = [
     "h5py>=3.13.0",
 ]
-viz = [
+effects = [
     "librosa",
-    "japanize-matplotlib>=1.1.3",
 ]
-notebook = [
-    "ipykernel",
-    "ipywidgets",
-    "ipympl>=0.9.3",
-    "ipycytoscape>=1.3.3",
+marimo = [
+    "ipython",
+    "marimo>=0.23.3",
 ]
 psychoacoustic = [
     "mosqito",
@@ -106,7 +103,7 @@ This keeps error messages consistent and makes tests precise.
 
 ### Packaging
 
-Move notebook packages, WDF-only IO packages, non-core visualization packages, `mosqito`, `torch`, and `tensorflow` out of core runtime dependencies and into extras. Keep `pandas`, `xarray`, and `matplotlib` in core because current core frame/data and `describe()` workflows depend on them.
+Move marimo app packages, WDF-only IO packages, non-core visualization packages, `mosqito`, `torch`, and `tensorflow` out of core runtime dependencies and into extras. Keep `pandas`, `xarray`, and `matplotlib` in core because current core frame/data and `describe()` workflows depend on them.
 
 Keep `soundfile` in core so `read_wav` remains part of the default Wandas experience.
 
@@ -119,7 +116,7 @@ Remove unused runtime dependencies from core when implementation confirms they a
 Remove optional imports from module top-level import paths:
 
 - Move `matplotlib.pyplot`, `matplotlib.axes`, and `matplotlib.figure` imports out of `wandas.frames.channel` runtime imports.
-- Move `IPython.display.Audio` and `display` imports into notebook-specific code paths.
+- Move `IPython.display.Audio` and `display` imports into marimo display code paths.
 - Keep `pandas` imports lazy or under `TYPE_CHECKING` where practical, but treat missing pandas as a broken core install rather than an `io` extra issue.
 - Ensure `wandas.__init__` can complete without `IPython`, `h5py`, `librosa`, `mosqito`, `torch`, or `tensorflow`.
 
@@ -134,11 +131,11 @@ WDF features become `io` extra features:
 
 Missing `h5py` should produce the shared helper error with `wandas[io]`. Missing `pandas` should be reported as a core dependency problem.
 
-### Visualization And Notebook
+### Visualization And Marimo
 
-Basic Matplotlib plotting and figure/export-oriented `describe()` workflows remain core. Non-core visualization helpers that require `librosa.display` or `japanize-matplotlib` require `wandas[viz]`.
+Basic Matplotlib plotting, `SpectrogramFrame.plot()`, and figure/export-oriented `describe()` workflows remain core. Effect helpers that require `librosa.effects` require `wandas[effects]`.
 
-Notebook-specific audio display requires `wandas[notebook]`. `describe()` may still save or return figures when notebook dependencies are not installed; audio playback should be skipped or produce a notebook-specific missing dependency message depending on the call path.
+marimo audio/display workflows require `wandas[marimo]`. `describe()` may still save or return figures when marimo dependencies are not installed; audio playback should be skipped or produce a marimo-specific missing dependency message depending on the call path.
 
 ### Processing Registry
 
@@ -160,7 +157,7 @@ Core replacements:
 - Replace `librosa.util.normalize` with a NumPy implementation.
 - Replace `librosa.A_weighting` with a local A-weighting dB helper.
 
-Keep `librosa.display.specshow` in `viz` for spectrogram plotting paths that still use it. `describe()` should render its spectrogram with Matplotlib directly so its minimum figure/export workflow remains core.
+`SpectrogramFrame.plot()` and `describe()` should render spectrograms with Matplotlib directly so spectrogram visualization remains core. Keep `librosa.effects` in `effects` for HPSS features.
 
 Do not vendor HPSS code as part of this change. HPSS remains an optional `librosa` feature for now.
 
@@ -178,15 +175,15 @@ IO extra:
 1. User installs `wandas[io]`.
 2. `wd.read_csv(...)` and WDF load/save become available.
 
-Visualization extra:
+Effects extra:
 
-1. User installs `wandas[viz]`.
-2. librosa-backed spectrogram rendering and non-core visualization helpers become available.
+1. User installs `wandas[effects]`.
+2. librosa-backed effect helpers such as HPSS become available.
 
-Notebook extra:
+marimo extra:
 
-1. User installs `wandas[notebook]`.
-2. IPython/Jupyter audio display and notebook-specific interactive behavior become available.
+1. User installs `wandas[marimo]`.
+2. IPython-backed audio display and marimo app workflows become available.
 
 Psychoacoustic extra:
 
@@ -201,10 +198,10 @@ Required behavior:
 
 - `read_csv` without `pandas`: raise `ImportError` recommending `pip install "wandas[io]"`.
 - WDF without `h5py`: raise `ImportError` recommending `pip install "wandas[io]"`.
-- Plotting without `matplotlib` or `librosa`: raise `ImportError` recommending `pip install "wandas[viz]"`.
-- Notebook display without `IPython`: raise `ImportError` recommending `pip install "wandas[notebook]"`, unless the feature can reasonably degrade without display.
+- Plotting without `matplotlib`: raise `ImportError` recommending `pip install "wandas"` because Matplotlib is core. Spectrogram plotting must not require `librosa`.
+- marimo display without `IPython`: raise `ImportError` recommending `pip install "wandas[marimo]"`, unless the feature can reasonably degrade without display.
 - Psychoacoustic operations without `mosqito`: raise `ImportError` recommending `pip install "wandas[psychoacoustic]"`.
-- HPSS without `librosa`: raise `ImportError` recommending `pip install "wandas[viz]"`.
+- Effects without `librosa`: raise `ImportError` recommending `pip install "wandas[effects]"`.
 
 ## Testing
 
@@ -212,10 +209,10 @@ Required behavior:
 
 Add tests that parse `pyproject.toml` and verify:
 
-- notebook packages are not core dependencies.
-- visualization packages are not core dependencies except where explicitly intended.
+- marimo packages are not core dependencies.
+- Effect packages are not core dependencies.
 - `pandas`, `h5py`, `mosqito`, `torch`, and `tensorflow` are not core dependencies.
-- `io`, `viz`, `notebook`, `psychoacoustic`, and `ml` extras exist.
+- `io`, `effects`, `marimo`, `psychoacoustic`, and `ml` extras exist.
 
 ### Minimal Import Tests
 
@@ -269,10 +266,10 @@ For `librosa` replacements, add focused tests that compare against known expecte
 ## Acceptance Criteria
 
 - `pip install wandas` provides the core waveform frame experience.
-- `import wandas` does not import optional notebook, visualization, IO, or psychoacoustic dependencies.
+- `import wandas` does not import optional marimo, visualization, IO, or psychoacoustic dependencies.
 - `pip install "wandas[io]"` enables WDF workflows.
-- `pip install "wandas[viz]"` enables librosa-backed spectrogram visualization workflows.
-- `pip install "wandas[notebook]"` enables notebook display workflows.
+- `pip install "wandas[effects]"` enables librosa-backed audio effect workflows.
+- `pip install "wandas[marimo]"` enables marimo display workflows.
 - `pip install "wandas[psychoacoustic]"` enables `mosqito`-backed operations.
 - `pip install "wandas[ml]"` enables Torch/TensorFlow tensor conversion workflows.
 - Missing optional dependencies raise clear errors with the correct extra install command.

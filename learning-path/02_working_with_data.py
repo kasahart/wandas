@@ -17,7 +17,7 @@ def _(mo):
     # 02 データの読み込みと操作
     ## 現実のデータをWandasで扱う
 
-    このノートブックでは、実際のデータファイル（WAV, CSVなど）を読み込み、
+    このmarimoアプリでは、実際のデータファイル（WAV, CSVなど）を読み込み、
     Wandasのデータ構造を理解し、基本的な操作を紹介します。
 
     **学習目標:**
@@ -27,7 +27,7 @@ def _(mo):
     - メタデータの管理
 
     **前提条件:**
-    - 01_getting_started.ipynb を完了していること
+    - 01_getting_started.py を完了していること
     """)
     return
 
@@ -652,7 +652,7 @@ def _(mo):
 
     データの読み込みと基本操作をマスターしました！
 
-    **次のノートブック**: [03_signal_processing_basics.ipynb](03_signal_processing_basics.ipynb)
+    **次のmarimoアプリ**: [03_signal_processing_basics.py](03_signal_processing_basics.py)
 
     ここでは、読み込んだデータを**フィルタリング**や**周波数分析**などの信号処理テクニックで加工する方法を紹介します。
 

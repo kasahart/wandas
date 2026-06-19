@@ -918,8 +918,8 @@ class BaseFrame(ABC, Generic[T]):
         Visualize the computation graph and save it to a file.
 
         This method creates a visual representation of the Dask computation graph.
-        In Jupyter notebooks, it returns an IPython.display.Image object that
-        will be displayed inline. In other environments, it saves the graph to
+        In interactive Python environments, it returns an IPython.display.Image object
+        that can be displayed inline. In other environments, it saves the graph to
         a file and returns None.
 
         Parameters
@@ -932,7 +932,7 @@ class BaseFrame(ABC, Generic[T]):
         Returns
         -------
         IPython.display.Image or None
-            In Jupyter environments: Returns an IPython.display.Image object
+            In interactive Python environments: Returns an IPython.display.Image object
             that can be displayed inline.
             In other environments: Returns None after saving the graph to file.
 
@@ -951,7 +951,7 @@ class BaseFrame(ABC, Generic[T]):
         >>> import wandas as wd
         >>> signal = wd.read("audio.wav")
         >>> processed = signal.normalize().low_pass_filter(cutoff=1000)
-        >>> # In Jupyter: displays graph inline
+        >>> # In interactive environments: displays graph inline
         >>> processed.visualize_graph()
         >>> # Save to specific file
         >>> processed.visualize_graph("my_graph.png")

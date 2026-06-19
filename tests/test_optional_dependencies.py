@@ -13,7 +13,6 @@ from wandas.utils.optional_imports import (
     require_dependency,
     require_dependency_attr,
     require_ipython_display,
-    require_librosa_display,
     require_matplotlib_axes_type,
     require_mosqito_sq_metric,
     require_optional_attr,
@@ -29,12 +28,11 @@ PROJECT_PACKAGE_BY_REGISTRY_KEY = {
     "matplotlib_lines": "matplotlib",
     "h5py": "h5py",
     "librosa": "librosa",
-    "librosa_display": "librosa",
     "librosa_effects": "librosa",
     "mosqito_sq_metrics": "mosqito",
     "mosqito_sound_level_meter": "mosqito",
     "mosqito_center_freq": "mosqito",
-    "ipython_display": "ipykernel",
+    "ipython_display": "ipython",
     "torch": "torch",
     "tensorflow": "tensorflow",
 }
@@ -75,7 +73,8 @@ def test_runtime_dependencies_are_balanced_core_only() -> None:
     assert "ipywidgets" not in names
     assert "ipympl" not in names
     assert "ipycytoscape" not in names
-    assert "japanize-matplotlib" not in names
+    assert "ipython" not in names
+    assert "marimo" not in names
     assert "h5py" not in names
     assert "mosqito" not in names
     assert "torch" not in names
@@ -86,14 +85,11 @@ def test_runtime_dependencies_are_balanced_core_only() -> None:
 def test_optional_dependency_groups_exist() -> None:
     optional = _pyproject()["project"]["optional-dependencies"]
 
-    assert set(optional) >= {"io", "viz", "notebook", "psychoacoustic", "ml"}
+    assert set(optional) >= {"io", "effects", "marimo", "psychoacoustic", "ml"}
     assert any(dep.startswith("h5py") for dep in optional["io"])
-    assert "librosa" in optional["viz"]
-    assert any(dep.startswith("japanize-matplotlib") for dep in optional["viz"])
-    assert "ipykernel" in optional["notebook"]
-    assert "ipywidgets" in optional["notebook"]
-    assert any(dep.startswith("ipympl") for dep in optional["notebook"])
-    assert any(dep.startswith("ipycytoscape") for dep in optional["notebook"])
+    assert "librosa" in optional["effects"]
+    assert "ipython" in optional["marimo"]
+    assert any(dep.startswith("marimo") for dep in optional["marimo"])
     assert "mosqito" in optional["psychoacoustic"]
     assert any(dep.startswith("torch") for dep in optional["ml"])
     assert any(dep.startswith("tensorflow") for dep in optional["ml"])
@@ -168,7 +164,7 @@ def test_require_dependency_attr_uses_registered_install_hint(
 
     message = str(exc_info.value)
     assert "describe requires optional dependency 'IPython.display'" in message
-    assert 'pip install "wandas[notebook]"' in message
+    assert 'pip install "wandas[marimo]"' in message
 
 
 def test_require_dependency_reraises_registered_transitive_import_error(
@@ -220,7 +216,6 @@ def test_convenience_helpers_use_registered_import_boundaries(monkeypatch: pytes
 
     monkeypatch.setattr("wandas.utils.optional_imports.importlib.import_module", import_module)
 
-    assert require_librosa_display("spectrogram plot").__name__ == "librosa.display"
     assert require_matplotlib_axes_type("waveform plot") is not None
     display, audio = require_ipython_display("describe")
     assert display is not None
@@ -228,7 +223,6 @@ def test_convenience_helpers_use_registered_import_boundaries(monkeypatch: pytes
     assert require_mosqito_sq_metric("loudness_zwtv", "loudness_zwtv") is not None
 
     assert imported == [
-        "librosa.display",
         "matplotlib.axes",
         "IPython.display",
         "mosqito.sq_metrics",
@@ -244,26 +238,26 @@ def test_require_optional_dependency_error_message() -> None:
     with pytest.raises(ImportError) as exc_info:
         require_optional_dependency(
             "definitely_missing_wandas_dependency",
-            extra="viz",
+            extra="effects",
             feature="plot",
         )
 
     message = str(exc_info.value)
     assert "plot requires optional dependency 'definitely_missing_wandas_dependency'" in message
-    assert 'pip install "wandas[viz]"' in message
+    assert 'pip install "wandas[effects]"' in message
 
 
 def test_require_optional_dependency_wraps_missing_parent_package() -> None:
     with pytest.raises(ImportError) as exc_info:
         require_optional_dependency(
             "definitely_missing_wandas_dependency.submodule",
-            extra="viz",
+            extra="effects",
             feature="plot",
         )
 
     message = str(exc_info.value)
     assert "plot requires optional dependency 'definitely_missing_wandas_dependency.submodule'" in message
-    assert 'pip install "wandas[viz]"' in message
+    assert 'pip install "wandas[effects]"' in message
 
 
 def test_require_optional_dependency_reraises_transitive_import_error(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -284,7 +278,7 @@ def test_require_optional_dependency_reraises_transitive_import_error(monkeypatc
     with pytest.raises(ModuleNotFoundError) as exc_info:
         require_optional_dependency(
             "installed_optional_package",
-            extra="viz",
+            extra="effects",
             feature="plot",
         )
 
@@ -308,7 +302,7 @@ def test_require_optional_dependency_reraises_import_error_without_missing_name(
     with pytest.raises(ModuleNotFoundError) as exc_info:
         require_optional_dependency(
             "installed_optional_package",
-            extra="viz",
+            extra="effects",
             feature="plot",
         )
 
@@ -325,13 +319,13 @@ def test_require_optional_attr_missing_attribute_error_message() -> None:
         require_optional_attr(
             "math",
             "definitely_missing_wandas_attr",
-            extra="viz",
+            extra="effects",
             feature="plot",
         )
 
     message = str(exc_info.value)
     assert "plot requires 'math' to provide attribute 'definitely_missing_wandas_attr'" in message
-    assert 'pip install "wandas[viz]"' in message
+    assert 'pip install "wandas[effects]"' in message
 
 
 def test_sharpness_din_tv_wrapper_missing_mosqito_names_feature(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -416,7 +410,7 @@ def test_import_wandas_and_basic_waveform_ops_without_io_dependencies() -> None:
     _run_isolated_script(script)
 
 
-def test_import_wandas_and_basic_waveform_ops_without_visualization_or_notebook_dependencies() -> None:
+def test_import_wandas_and_basic_waveform_ops_without_visualization_or_marimo_dependencies() -> None:
     script = """
         import importlib.abc
         import sys
@@ -426,8 +420,8 @@ def test_import_wandas_and_basic_waveform_ops_without_visualization_or_notebook_
             "ipycytoscape",
             "ipympl",
             "ipywidgets",
-            "japanize_matplotlib",
             "librosa",
+            "marimo",
         }
 
         class BlockOptionalImports(importlib.abc.MetaPathFinder):
@@ -455,10 +449,13 @@ def test_import_wandas_and_basic_waveform_ops_without_visualization_or_notebook_
     _run_isolated_script(script)
 
 
-def test_spectrogram_plot_missing_librosa_has_viz_extra_hint() -> None:
+def test_spectrogram_plot_without_librosa_uses_core_matplotlib() -> None:
     script = """
         import importlib.abc
         import sys
+
+        import matplotlib
+        matplotlib.use("Agg")
 
         BLOCKED = {"librosa"}
 
@@ -479,19 +476,16 @@ def test_spectrogram_plot_missing_librosa_has_viz_extra_hint() -> None:
 
         data = np.sin(np.linspace(0, 16, 4096, dtype=float))[None, :]
         frame = wandas.ChannelFrame.from_numpy(data, sampling_rate=48000)
+        ax = frame.stft().plot()
 
-        try:
-            frame.stft().plot()
-        except ImportError as exc:
-            assert 'pip install "wandas[viz]"' in str(exc)
-        else:
-            raise AssertionError("Expected ImportError for missing visualization dependency")
+        assert ax is not None
+        assert "librosa" not in sys.modules
     """
 
     _run_isolated_script(script)
 
 
-def test_describe_missing_ipython_has_notebook_extra_hint() -> None:
+def test_describe_missing_ipython_has_marimo_extra_hint() -> None:
     script = """
         import importlib.abc
         import sys
@@ -514,7 +508,7 @@ def test_describe_missing_ipython_has_notebook_extra_hint() -> None:
         try:
             frame.describe()
         except ImportError as exc:
-            assert 'pip install "wandas[notebook]"' in str(exc)
+            assert 'pip install "wandas[marimo]"' in str(exc)
         else:
             raise AssertionError("Expected ImportError for missing IPython")
     """
@@ -522,7 +516,7 @@ def test_describe_missing_ipython_has_notebook_extra_hint() -> None:
     _run_isolated_script(script)
 
 
-def test_describe_return_figures_without_ipython_does_not_require_notebook_extra() -> None:
+def test_describe_return_figures_without_ipython_does_not_require_marimo_extra() -> None:
     script = """
         import importlib.abc
         import sys
@@ -549,7 +543,7 @@ def test_describe_return_figures_without_ipython_does_not_require_notebook_extra
     _run_isolated_script(script)
 
 
-def test_describe_image_save_without_ipython_does_not_require_notebook_extra() -> None:
+def test_describe_image_save_without_ipython_does_not_require_marimo_extra() -> None:
     script = """
         import importlib.abc
         import sys
@@ -586,7 +580,8 @@ def test_hpss_harmonic_missing_librosa_effects_raises_at_init(monkeypatch: pytes
     def raise_missing_librosa(feature: str) -> None:
         assert feature == "hpss_harmonic"
         raise ImportError(
-            f"{feature} requires optional dependency 'librosa.effects'.\nInstall it with: pip install \"wandas[viz]\""
+            f"{feature} requires optional dependency 'librosa.effects'.\n"
+            'Install it with: pip install "wandas[effects]"'
         )
 
     monkeypatch.setattr(
@@ -599,7 +594,7 @@ def test_hpss_harmonic_missing_librosa_effects_raises_at_init(monkeypatch: pytes
 
     message = str(exc_info.value)
     assert "hpss_harmonic requires optional dependency 'librosa.effects'" in message
-    assert 'pip install "wandas[viz]"' in message
+    assert 'pip install "wandas[effects]"' in message
 
 
 def test_remote_csv_missing_pandas_raises_before_download(monkeypatch: pytest.MonkeyPatch) -> None:
