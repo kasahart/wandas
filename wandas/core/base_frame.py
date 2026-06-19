@@ -1171,7 +1171,9 @@ class BaseFrame(ABC, Generic[T]):
             ensure_dependencies()
         processed_data = operation.process(self._data)
 
-        operation_params = getattr(operation, "params", params)
+        operation_params = getattr(operation, "params", None)
+        if not isinstance(operation_params, dict):
+            operation_params = params
         new_metadata, new_history = self._updated_metadata_and_history(operation_name, operation_params)
         metadata_updates = operation.get_metadata_updates()
 
