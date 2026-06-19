@@ -227,8 +227,11 @@ def test_windowed_channel_time_indexing_includes_last_analysis_window() -> None:
     trend = frame.rms_trend(frame_length=16, hop_length=8)
     result = trend[:, 2:5]
 
+    resliced = result[:, 0:1]
+
     assert trend.source_time_range == pytest.approx((1.0, 3.0))
     assert result.source_time_range == pytest.approx((1.4, 2.2))
+    assert resliced.source_time_range == pytest.approx((1.4, 1.8))
 
 
 def test_rate_changing_analyzers_preserve_explicit_source_range(monkeypatch: pytest.MonkeyPatch) -> None:
