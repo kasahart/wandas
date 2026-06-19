@@ -2,7 +2,7 @@
 
 import logging
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, SupportsFloat, SupportsIndex, TypeAlias, TypeVar, cast, overload
 
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.roughness import RoughnessFrame
@@ -11,6 +11,10 @@ from wandas.processing import create_operation
 from .protocols import ProcessingFrameProtocol, T_Processing
 
 T_OutputFrame = TypeVar("T_OutputFrame")
+HpssIntLike: TypeAlias = SupportsIndex
+HpssFloatLike: TypeAlias = SupportsFloat
+HpssKernelSize: TypeAlias = HpssIntLike | tuple[HpssIntLike, HpssIntLike] | list[HpssIntLike]
+HpssMargin: TypeAlias = HpssFloatLike | tuple[HpssFloatLike, HpssFloatLike] | list[HpssFloatLike]
 
 if TYPE_CHECKING:
     from wandas.core.base_frame import BaseFrame
@@ -496,12 +500,12 @@ class ChannelProcessingMixin:
     def _hpss(
         self: T_Processing,
         operation_name: str,
-        kernel_size: "int | tuple[int, int] | list[int]" = 31,
-        power: float = 2,
-        margin: "float | tuple[float, float] | list[float]" = 1,
-        n_fft: int = 2048,
-        hop_length: int | None = None,
-        win_length: int | None = None,
+        kernel_size: HpssKernelSize = 31,
+        power: HpssFloatLike = 2,
+        margin: HpssMargin = 1,
+        n_fft: HpssIntLike = 2048,
+        hop_length: HpssIntLike | None = None,
+        win_length: HpssIntLike | None = None,
         window: "Any" = "hann",
         center: bool = True,
         pad_mode: "str" = "constant",
@@ -523,12 +527,12 @@ class ChannelProcessingMixin:
 
     def hpss_harmonic(
         self: T_Processing,
-        kernel_size: "int | tuple[int, int] | list[int]" = 31,
-        power: float = 2,
-        margin: "float | tuple[float, float] | list[float]" = 1,
-        n_fft: int = 2048,
-        hop_length: int | None = None,
-        win_length: int | None = None,
+        kernel_size: HpssKernelSize = 31,
+        power: HpssFloatLike = 2,
+        margin: HpssMargin = 1,
+        n_fft: HpssIntLike = 2048,
+        hop_length: HpssIntLike | None = None,
+        win_length: HpssIntLike | None = None,
         window: "Any" = "hann",
         center: bool = True,
         pad_mode: "str" = "constant",
@@ -571,12 +575,12 @@ class ChannelProcessingMixin:
 
     def hpss_percussive(
         self: T_Processing,
-        kernel_size: "int | tuple[int, int] | list[int]" = 31,
-        power: float = 2,
-        margin: "float | tuple[float, float] | list[float]" = 1,
-        n_fft: int = 2048,
-        hop_length: int | None = None,
-        win_length: int | None = None,
+        kernel_size: HpssKernelSize = 31,
+        power: HpssFloatLike = 2,
+        margin: HpssMargin = 1,
+        n_fft: HpssIntLike = 2048,
+        hop_length: HpssIntLike | None = None,
+        win_length: HpssIntLike | None = None,
         window: "Any" = "hann",
         center: bool = True,
         pad_mode: "str" = "constant",

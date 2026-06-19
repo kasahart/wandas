@@ -2,16 +2,16 @@
 
 ## Context
 
-Wandas currently installs marimo, broad visualization, WDF IO, machine learning, and psychoacoustic dependencies as runtime dependencies. This makes the core install heavy for a library whose central value is waveform-oriented data structures, `describe()`, and analysis operations.
+Before the extras split, Wandas installed marimo, broad visualization, WDF IO, machine learning, and psychoacoustic dependencies as runtime dependencies. This made the core install heavy for a library whose central value is waveform-oriented data structures, `describe()`, and analysis operations.
 
-The current import graph also pulls optional dependencies too early:
+The pre-split import graph also pulled optional dependencies too early:
 
 - `wandas.__init__` imports `ChannelFrame`.
 - `ChannelFrame` imports `IPython.display` and some plotting helpers at module import time.
 - `wandas.processing.__init__` imports all processing modules, which pulls in `librosa` and `mosqito`.
 - Visualization should not import `librosa.display`; spectrogram rendering is core Matplotlib.
 
-The result is that `import wandas` requires packages that are not part of the core data-structure experience.
+The result was that `import wandas` required packages that are not part of the core data-structure experience.
 
 ## Goal
 

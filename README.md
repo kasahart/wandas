@@ -54,8 +54,8 @@ pip install wandas
 
 ### Installation Options / インストールオプション
 
-The core-only install keeps waveform, CSV/WAV, processing, plotting, and `describe()` workflows available without optional extras.
-core-only インストールでは、optional extras なしで波形データ、CSV/WAV、処理、プロット、`describe()` の主要ワークフローを利用できます。
+The core-only install keeps waveform, CSV/WAV, processing, plotting, and non-interactive `describe()` figure/export workflows available without optional extras.
+core-only インストールでは、optional extras なしで波形データ、CSV/WAV、処理、プロット、非インタラクティブな `describe()` の図作成・保存ワークフローを利用できます。
 
 Install optional extras when you need additional file formats or heavier analysis features:
 追加のファイル形式や重めの解析機能が必要な場合は、optional extras を追加してインストールします。
