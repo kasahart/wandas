@@ -234,7 +234,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
 
     def _source_time_offset_for_indexing(self, time_keys: tuple[Any, ...]) -> float:
         source_time_offset = self.source_time_offset
-        if len(time_keys) >= 2:
+        if time_keys:
             time_key = time_keys[-1]
             time_axis_length = self.shape[-1]
             if isinstance(time_key, slice):
@@ -247,7 +247,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         return source_time_offset
 
     def _source_time_range_for_indexing(self, time_keys: tuple[Any, ...]) -> tuple[float, float] | None:
-        if len(time_keys) < 2:
+        if not time_keys:
             return None
         time_key = time_keys[-1]
         time_axis_length = self.shape[-1]
@@ -267,7 +267,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         return (start, max(start, end))
 
     def _validate_time_indexing(self, time_keys: tuple[Any, ...]) -> None:
-        if len(time_keys) < 2:
+        if not time_keys:
             return
         time_key = time_keys[-1]
         if isinstance(time_key, slice):
@@ -281,8 +281,12 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
     @property
     def source_time_range(self) -> tuple[float, float]:
         """Return the source span represented by this roughness frame."""
+        if "source_time_range" in self._xr.attrs:
+            return super().source_time_range
         if self.previous is not None:
             if isinstance(self.previous, RoughnessFrame):
+                if self._source_time_offsets_equal(self.source_time_offset, self.previous.source_time_offset):
+                    return self.previous.source_time_range
                 _, previous_end = self.previous.source_time_range
                 start = self.source_time_offset
                 end = min(previous_end, start + self.duration)
@@ -382,7 +386,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             if self._data.shape != other._data.shape:
                 raise ValueError(f"Shape mismatch: {self._data.shape} vs {other._data.shape}")
 
-            if not np.allclose(self.source_time_range, other.source_time_range):
+            if not self._source_time_ranges_equal(self.source_time_range, other.source_time_range):
                 raise ValueError(f"Source time range mismatch: {self.source_time_range} vs {other.source_time_range}")
 
             # Apply operation

@@ -89,6 +89,7 @@ class BaseFrame(ABC, Generic[T]):
     _xr: xr.DataArray
     _previous: "BaseFrame[Any] | None"
     source_time_offset: float
+    _SOURCE_TIME_TOLERANCE: ClassVar[float] = 1e-9
 
     def __init__(
         self,
@@ -142,6 +143,14 @@ class BaseFrame(ABC, Generic[T]):
         if not math.isfinite(source_time_offset_float):
             raise ValueError("source_time_offset must be finite")
         return source_time_offset_float
+
+    @classmethod
+    def _source_time_offsets_equal(cls, left: float, right: float) -> bool:
+        return bool(np.allclose(left, right, rtol=0.0, atol=cls._SOURCE_TIME_TOLERANCE))
+
+    @classmethod
+    def _source_time_ranges_equal(cls, left: tuple[float, float], right: tuple[float, float]) -> bool:
+        return bool(np.allclose(left, right, rtol=0.0, atol=cls._SOURCE_TIME_TOLERANCE))
 
     @property
     def _data(self) -> DaArray:
@@ -1096,7 +1105,7 @@ class BaseFrame(ABC, Generic[T]):
                     f"unintended broadcasting.\n"
                     f"Align the frame shapes before performing {symbol} operation."
                 )
-            if not np.allclose(self.source_time_range, other.source_time_range):
+            if not self._source_time_ranges_equal(self.source_time_range, other.source_time_range):
                 raise ValueError(
                     f"Source time range mismatch\n"
                     f"  Left operand: {self.source_time_range}\n"
@@ -1339,6 +1348,14 @@ class BaseFrame(ABC, Generic[T]):
                 result = output_frame_class(**kw)
                 if not accepts_source_time_offset:
                     result.source_time_offset = validated_source_time_offset
+                preserves_source_span = (
+                    "source_time_range" in self._xr.attrs
+                    and self._source_time_offsets_equal(validated_source_time_offset, self.source_time_offset)
+                    and result.sampling_rate == self.sampling_rate
+                    and result._data.shape[-1] == self._data.shape[-1]
+                )
+                if preserves_source_span:
+                    result._xr.attrs["source_time_range"] = tuple(self.source_time_range)
                 return result
             except TypeError as exc:
                 provided_kwargs = ", ".join(sorted(kw)) or "none"

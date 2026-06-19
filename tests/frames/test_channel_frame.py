@@ -108,6 +108,16 @@ class TestChannelFrame:
         assert frame.source_time[0] == pytest.approx(0.1)
         assert frame.n_samples == 9
 
+    def test_from_csv_preserves_time_column_origin_in_source_time_offset(self, tmp_path: Path) -> None:
+        path = tmp_path / "offset.csv"
+        path.write_text("time,ch0\n10.0,1.0\n10.1,2.0\n10.2,3.0\n10.3,4.0\n", encoding="utf-8")
+
+        frame = ChannelFrame.from_file(path, start=0.1)
+
+        assert frame.source_time_offset == pytest.approx(10.1)
+        assert frame.source_time[0] == pytest.approx(10.1)
+        assert frame.n_samples == 3
+
     def test_non_inplace_channel_update_preserves_source_time(self) -> None:
         data = da.from_array(np.arange(8, dtype=float).reshape(1, 8))
         frame = ChannelFrame(data, sampling_rate=4.0, source_time_offset=10.0)

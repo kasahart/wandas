@@ -260,6 +260,22 @@ def test_binary_frame_operation_rejects_mismatched_source_time_ranges() -> None:
         _ = left + right
 
 
+def test_binary_frame_operation_uses_absolute_source_range_tolerance() -> None:
+    left = ChannelFrame(
+        da_from_array(np.ones((1, 100), dtype=float), chunks=(1, -1)),
+        sampling_rate=100.0,
+        source_time_offset=100000.0,
+    )
+    right = ChannelFrame(
+        da_from_array(np.ones((1, 100), dtype=float), chunks=(1, -1)),
+        sampling_rate=100.0,
+        source_time_offset=100000.5,
+    )
+
+    with pytest.raises(ValueError, match="Source time range mismatch"):
+        _ = left + right
+
+
 class TestBaseFrameArithmeticOperations:
     """Test arithmetic operations in BaseFrame."""
 

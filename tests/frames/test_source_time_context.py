@@ -159,3 +159,62 @@ def test_roughness_time_indexing_advances_source_range() -> None:
 
     assert result.source_time_offset == pytest.approx(3.2)
     assert result.source_time_range == pytest.approx((3.2, 3.5))
+
+
+def test_mono_roughness_time_indexing_advances_source_range() -> None:
+    previous = ChannelFrame(
+        da.from_array(np.ones((1, 10), dtype=float), chunks=(1, -1)),
+        sampling_rate=10.0,
+        source_time_offset=3.0,
+    )
+    roughness = RoughnessFrame(
+        data=da.from_array(np.ones((47, 10), dtype=float), chunks=(47, -1)),
+        sampling_rate=10.0,
+        bark_axis=np.linspace(0.5, 23.5, 47),
+        overlap=0.5,
+        previous=previous,
+        source_time_offset=previous.source_time_offset,
+    )
+
+    result = roughness[:, 2:5]
+
+    assert result.source_time_offset == pytest.approx(3.2)
+    assert result.source_time_range == pytest.approx((3.2, 3.5))
+
+    with pytest.raises(ValueError, match="Non-contiguous time indexing"):
+        _ = roughness[:, ::2]
+
+
+def test_roughness_scalar_operation_preserves_full_previous_source_range() -> None:
+    previous = ChannelFrame(
+        da.from_array(np.ones((1, 10), dtype=float), chunks=(1, -1)),
+        sampling_rate=10.0,
+    )
+    roughness = RoughnessFrame(
+        data=da.from_array(np.ones((1, 47, 9), dtype=float), chunks=(1, 47, -1)),
+        sampling_rate=10.0,
+        bark_axis=np.linspace(0.5, 23.5, 47),
+        overlap=0.5,
+        previous=previous,
+        source_time_offset=previous.source_time_offset,
+    )
+
+    result = roughness + 1.0
+
+    assert roughness.duration == pytest.approx(0.9)
+    assert roughness.source_time_range == pytest.approx((0.0, 1.0))
+    assert result.source_time_range == pytest.approx(roughness.source_time_range)
+
+
+def test_apply_output_frame_class_preserves_explicit_source_range_when_extent_is_unchanged() -> None:
+    data = da.from_array(np.ones((1, 10), dtype=float), chunks=(1, -1))
+    frame = ChannelFrame(data, sampling_rate=10.0).fix_length(length=20)
+
+    result = frame.apply(
+        lambda values: values,
+        output_shape_func=lambda shape: shape,
+        output_frame_class=ChannelFrame,
+    )
+
+    assert frame.source_time_range == pytest.approx((0.0, 1.0))
+    assert result.source_time_range == pytest.approx(frame.source_time_range)

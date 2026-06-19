@@ -258,11 +258,14 @@ class CSVFileReader(FileReader):
         pd = require_pandas("CSV file reading")
         df = pd.read_csv(_prepare_file_source(path), delimiter=delimiter, header=header)
 
+        time_origin = 0.0
         # Estimate sampling rate from first column (assuming it's time)
         try:
             # Get time column as Series
             time_series = df[time_column] if isinstance(time_column, str) else df.iloc[:, time_column]
-            time_values = np.array(time_series.values)
+            time_values = np.array(time_series.values, dtype=float)
+            if len(time_values) > 0:
+                time_origin = float(time_values[0])
             if len(time_values) > 1:
                 # Use round() instead of int() to handle floating-point precision issues
                 estimated_sr = round(1 / np.mean(np.diff(time_values)))
@@ -282,6 +285,7 @@ class CSVFileReader(FileReader):
             "format": "CSV",
             "duration": duration,
             "ch_labels": df.columns[1:].tolist(),  # Assuming first column is time
+            "time_origin": time_origin,
         }
 
     @classmethod

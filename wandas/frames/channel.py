@@ -566,7 +566,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         # If SNR is specified, adjust the length of the other signal
         if other.duration != self.duration:
-            if not np.allclose(self.source_time_offset, other.source_time_offset):
+            if not self._source_time_offsets_equal(self.source_time_offset, other.source_time_offset):
                 raise ValueError(
                     f"Source time range mismatch\n"
                     f"  Signal: {self.source_time_range}\n"
@@ -576,7 +576,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             other = other.fix_length(length=self.n_samples)
             other._xr.attrs["source_time_range"] = tuple(self.source_time_range)
 
-        if not np.allclose(self.source_time_range, other.source_time_range):
+        if not self._source_time_ranges_equal(self.source_time_range, other.source_time_range):
             raise ValueError(
                 f"Source time range mismatch\n"
                 f"  Signal: {self.source_time_range}\n"
@@ -1137,12 +1137,13 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         elif source_name is not None:
             source_file = source_name
 
+        source_time_offset = float(info.get("time_origin", 0.0)) + start_idx / sr
         cf = ChannelFrame(
             data=dask_array,
             sampling_rate=sr,
             label=frame_label,
             metadata={"_source_file": source_file} if source_file is not None else None,
-            source_time_offset=start_idx / sr,
+            source_time_offset=source_time_offset,
         )
         if ch_labels is not None:
             cf._set_channel_labels(ch_labels)
@@ -1349,9 +1350,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             if self.sampling_rate != data.sampling_rate:
                 raise ValueError("sampling_rate mismatch")
             if data.n_samples == self.n_samples:
-                ranges_match = np.allclose(self.source_time_range, data.source_time_range)
+                ranges_match = self._source_time_ranges_equal(self.source_time_range, data.source_time_range)
             else:
-                ranges_match = np.allclose(self.source_time_offset, data.source_time_offset)
+                ranges_match = self._source_time_offsets_equal(self.source_time_offset, data.source_time_offset)
             if not ranges_match:
                 raise ValueError(
                     f"Source time range mismatch\n"
