@@ -218,3 +218,35 @@ def test_apply_output_frame_class_preserves_explicit_source_range_when_extent_is
 
     assert frame.source_time_range == pytest.approx((0.0, 1.0))
     assert result.source_time_range == pytest.approx(frame.source_time_range)
+
+
+def test_windowed_channel_time_indexing_includes_last_analysis_window() -> None:
+    data = da.from_array(np.ones((1, 80), dtype=float), chunks=(1, -1))
+    frame = ChannelFrame(data, sampling_rate=40.0, source_time_offset=1.0)
+
+    trend = frame.rms_trend(frame_length=16, hop_length=8)
+    result = trend[:, 2:5]
+
+    assert trend.source_time_range == pytest.approx((1.0, 3.0))
+    assert result.source_time_range == pytest.approx((1.4, 2.2))
+
+
+def test_rate_changing_analyzers_preserve_explicit_source_range(monkeypatch: pytest.MonkeyPatch) -> None:
+    data = da.from_array(np.ones((1, 10), dtype=float), chunks=(1, -1))
+    frame = ChannelFrame(data, sampling_rate=10.0).fix_length(length=20)
+
+    def fake_apply_operation(self: ChannelFrame, operation_name: str, **params: object) -> ChannelFrame:
+        assert operation_name in {"loudness_zwtv", "sharpness_din"}
+        output = da.from_array(np.ones((self.n_channels, 1000), dtype=float), chunks=(1, -1))
+        return ChannelFrame(
+            output,
+            sampling_rate=500.0,
+            previous=self,
+            source_time_offset=self.source_time_offset,
+        )
+
+    monkeypatch.setattr(ChannelFrame, "apply_operation", fake_apply_operation)
+
+    assert frame.source_time_range == pytest.approx((0.0, 1.0))
+    assert frame.loudness_zwtv().source_time_range == pytest.approx(frame.source_time_range)
+    assert frame.sharpness_din().source_time_range == pytest.approx(frame.source_time_range)

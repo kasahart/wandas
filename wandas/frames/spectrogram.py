@@ -233,13 +233,18 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """Get the local time span covered by spectrogram frames."""
         return float(self.n_frames * self.hop_length / self.sampling_rate)
 
+    def _analysis_window_source_duration(self) -> float:
+        if self.n_frames <= 0:
+            return 0.0
+        return float(((self.n_frames - 1) * self.hop_length + self.n_fft) / self.sampling_rate)
+
     @property
     def source_time_range(self) -> tuple[float, float]:
         if self.previous is not None:
             if isinstance(self.previous, SpectrogramFrame):
                 _, previous_end = self.previous.source_time_range
                 start = self.source_time_offset
-                end = min(previous_end, start + self.duration)
+                end = min(previous_end, start + self._analysis_window_source_duration())
                 return (start, max(start, end))
             start, end = self.previous.source_time_range
             offset_delta = self.source_time_offset - self.previous.source_time_offset

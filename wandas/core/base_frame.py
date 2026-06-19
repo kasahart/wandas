@@ -980,9 +980,11 @@ class BaseFrame(ABC, Generic[T]):
         if not accepts_offset:
             new_instance.source_time_offset = source_time_offset
         if source_time_range is None:
+            output_sample_axis_unchanged = data.shape[-1] == self._data.shape[-1]
             preserves_source_span = (
                 sampling_rate == original_sampling_rate
                 and source_time_offset == original_source_time_offset
+                and output_sample_axis_unchanged
                 and "source_time_range" in self._xr.attrs
             )
             if preserves_source_span:
@@ -995,6 +997,8 @@ class BaseFrame(ABC, Generic[T]):
                 self._validate_source_time_offset(start),
                 self._validate_source_time_offset(end),
             )
+        if "source_time_window_length" in self._xr.attrs:
+            new_instance._xr.attrs["source_time_window_length"] = self._xr.attrs["source_time_window_length"]
         return new_instance
 
     def __array__(self, dtype: npt.DTypeLike = None) -> NDArrayReal:

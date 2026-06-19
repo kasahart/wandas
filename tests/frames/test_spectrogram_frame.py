@@ -61,6 +61,15 @@ def test_spectrogram_time_slice_source_range_is_bounded_by_selected_frames() -> 
     assert sliced.source_time_range == pytest.approx((10.5, 12.0))
 
 
+def test_spectrogram_time_slice_source_range_includes_last_analysis_window() -> None:
+    data = da.from_array(np.ones((1, 80), dtype=float), chunks=(1, -1))
+    spec = ChannelFrame(data, sampling_rate=32.0, source_time_offset=10.0).stft(n_fft=16, hop_length=8, win_length=16)
+
+    sliced = spec[:, :, 2:5]
+
+    assert sliced.source_time_range == pytest.approx((10.5, 11.5))
+
+
 def test_istft_preserves_spectrogram_source_time_range() -> None:
     data = da.from_array(np.ones((1, 80), dtype=float), chunks=(1, -1))
     frame = ChannelFrame(data, sampling_rate=40.0, source_time_offset=1.0)

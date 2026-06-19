@@ -113,6 +113,20 @@ def test_explicit_source_time_range_is_preserved_by_create_new_instance() -> Non
     assert result.source_time_range == (10.0, 11.0)
 
 
+def test_explicit_source_time_range_is_not_preserved_when_sample_axis_changes() -> None:
+    frame = ConcreteFrame(
+        da.from_array(np.arange(8).reshape(1, 8)),
+        sampling_rate=4.0,
+        source_time_offset=10.0,
+    )
+    frame._xr.attrs["source_time_range"] = (10.0, 11.5)
+    shorter_data = frame._data[:, :4]
+
+    result = frame._create_new_instance(data=shorter_data)
+
+    assert result.source_time_range == (10.0, 11.0)
+
+
 def test_source_time_range_treats_non_numeric_duration_as_zero() -> None:
     frame = NonNumericDurationFrame(
         da.from_array(np.arange(8).reshape(1, 8)),

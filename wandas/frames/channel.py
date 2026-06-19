@@ -370,7 +370,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             start_sample = sample_index
             stop_sample = sample_index + 1
         selected_start = self.source_time_offset + start_sample / self.sampling_rate
-        selected_end = self.source_time_offset + stop_sample / self.sampling_rate
+        window_length = self._xr.attrs.get("source_time_window_length")
+        if window_length is not None and stop_sample > start_sample:
+            selected_end = self.source_time_offset + (stop_sample - 1) / self.sampling_rate + float(window_length)
+        else:
+            selected_end = self.source_time_offset + stop_sample / self.sampling_rate
         parent_start, parent_end = self.source_time_range
         start = max(parent_start, selected_start)
         end = min(parent_end, selected_end)

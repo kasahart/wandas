@@ -448,6 +448,7 @@ class ChannelProcessingMixin:
             Aw=Aw,
         )
         cast(Any, result)._xr.attrs["source_time_range"] = tuple(cast(Any, self).source_time_range)
+        cast(Any, result)._xr.attrs["source_time_window_length"] = frame_length / cast(Any, self).sampling_rate
 
         # Sampling rate update is handled by the Operation class
         return cast(T_Processing, result)
@@ -699,6 +700,7 @@ class ChannelProcessingMixin:
             Part 1: Zwicker method"
         """
         result = self.apply_operation("loudness_zwtv", field_type=field_type)
+        cast(Any, result)._xr.attrs["source_time_range"] = tuple(cast(Any, self).source_time_range)
 
         # Sampling rate update is handled by the Operation class
         return cast(T_Processing, result)
@@ -1054,6 +1056,7 @@ class ChannelProcessingMixin:
             weighting=weighting,
             field_type=field_type,
         )
+        cast(Any, result)._xr.attrs["source_time_range"] = tuple(cast(Any, self).source_time_range)
         return cast(T_Processing, result)
 
     def sharpness_din_st(
