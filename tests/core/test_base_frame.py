@@ -1077,6 +1077,19 @@ class TestBaseFrameIndexing:
         assert isinstance(result._data, DaArray)
         np.testing.assert_array_equal(result.compute(), self.data[0:1, 100:200])
 
+    def test_getitem_with_tuple_time_slice_advances_source_time_offset(self) -> None:
+        frame = ChannelFrame(
+            da_from_array(np.arange(400, dtype=float).reshape(1, 400), chunks=(1, -1)),
+            sampling_rate=100.0,
+            source_time_offset=5.0,
+        )
+
+        result = frame[:, 100:200]
+
+        assert result.source_time_offset == pytest.approx(6.0)
+        assert result.time[0] == pytest.approx(0.0)
+        assert result.source_time[0] == pytest.approx(6.0)
+
     def test_getitem_with_tuple_list_and_time_preserves_dask(self) -> None:
         """Test __getitem__ with list of channels and time slice."""
         result = self.channel_frame[[0, 2], ::2]

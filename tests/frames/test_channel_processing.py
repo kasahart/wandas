@@ -521,6 +521,16 @@ class TestChannelProcessing:
             {"operation": "trim", "params": {"start": 0.5, "end": 2.0}},
         ]
 
+    def test_trim_source_time_offset_uses_actual_start_sample(self) -> None:
+        data = da.from_array(np.arange(40, dtype=float).reshape(1, 40))
+        frame = ChannelFrame(data, sampling_rate=10.0, source_time_offset=5.0)
+
+        result = frame.trim(0.19, 1.0)
+
+        assert result.compute()[0, 0] == pytest.approx(1.0)
+        assert result.source_time_offset == pytest.approx(5.1)
+        assert result.source_time[0] == pytest.approx(5.1)
+
     def test_hpss_operations(self) -> None:
         """Test HPSS (Harmonic-Percussive Source Separation) methods."""
         with mock.patch("wandas.processing.create_operation") as mock_create_op:

@@ -1079,6 +1079,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             sampling_rate=sr,
             label=frame_label,
             metadata={"_source_file": source_file} if source_file is not None else None,
+            source_time_offset=start_idx / sr,
         )
         if ch_labels is not None:
             cf._set_channel_labels(ch_labels)

@@ -772,11 +772,22 @@ class BaseFrame(ABC, Generic[T]):
         # Apply time indexing if present
         if time_keys:
             new_data = selected._data[(slice(None),) + time_keys]  # noqa: RUF005
+            source_time_offset = selected.source_time_offset
+            sample_key = time_keys[-1]
+            sample_axis_length = selected.shape[-1]
+            if isinstance(sample_key, slice):
+                source_time_offset += sample_key.indices(sample_axis_length)[0] / selected.sampling_rate
+            elif isinstance(sample_key, numbers.Integral):
+                sample_index = int(sample_key)
+                if sample_index < 0:
+                    sample_index += sample_axis_length
+                source_time_offset += sample_index / selected.sampling_rate
             return selected._create_new_instance(
                 data=new_data,
                 operation_history=selected.operation_history,
                 channel_metadata=selected.channels.to_list(),
                 channel_ids=selected._channel_ids,
+                source_time_offset=source_time_offset,
             )
 
         return selected

@@ -111,6 +111,21 @@ def test_save_load_roundtrip(tmp_path: Path) -> None:
     assert cf2._channel_metadata[1].extra.get("sensitivity") == 48.5
 
 
+def test_wdf_roundtrip_preserves_source_time_offset(tmp_path: Path) -> None:
+    frame = ChannelFrame(
+        data=dask.array.from_array(np.arange(8, dtype=float).reshape(1, 8), chunks=(1, -1)),
+        sampling_rate=4.0,
+        source_time_offset=12.5,
+    )
+    path = tmp_path / "source_time.wdf"
+
+    frame.save(path)
+    loaded = ChannelFrame.load(path)
+
+    assert loaded.source_time_offset == pytest.approx(12.5)
+    assert loaded.source_time_range == pytest.approx((12.5, 14.5))
+
+
 def test_wdf_roundtrip_preserves_stable_channel_ids(tmp_path: Path) -> None:
     data = np.array([[1.0, 2.0], [3.0, 4.0]])
     frame = ChannelFrame(

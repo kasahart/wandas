@@ -98,6 +98,16 @@ class TestChannelFrame:
 
         np.testing.assert_allclose(df.index.to_numpy(), np.array([0.0, 0.5, 1.0, 1.5]))
 
+    def test_from_file_start_preserves_source_time_offset(self, tmp_path: Path) -> None:
+        path = tmp_path / "offset.wav"
+        wavfile.write(path, 10, np.arange(20, dtype=np.int16))
+
+        frame = ChannelFrame.from_file(path, start=0.19, end=1.0)
+
+        assert frame.source_time_offset == pytest.approx(0.1)
+        assert frame.source_time[0] == pytest.approx(0.1)
+        assert frame.n_samples == 9
+
     def test_non_inplace_channel_update_preserves_source_time(self) -> None:
         data = da.from_array(np.arange(8, dtype=float).reshape(1, 8))
         frame = ChannelFrame(data, sampling_rate=4.0, source_time_offset=10.0)

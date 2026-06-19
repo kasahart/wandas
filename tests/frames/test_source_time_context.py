@@ -15,7 +15,7 @@ def test_trim_stft_chain_keeps_source_context() -> None:
     assert trimmed.source_time_range == pytest.approx((1.0, 3.0))
     assert spec.source_time_offset == pytest.approx(1.0)
     assert spec.duration > 0.0
-    assert spec.source_time_range == pytest.approx((spec.source_time_offset, spec.source_time_offset + spec.duration))
+    assert spec.source_time_range == pytest.approx(trimmed.source_time_range)
     np.testing.assert_allclose(spec.source_times, spec.times + 1.0)
 
 
@@ -31,3 +31,14 @@ def test_trim_resampling_chain_keeps_consistent_duration_and_context() -> None:
     assert result.source_time_range == pytest.approx((2.0, 7.0))
     assert result.time[0] == pytest.approx(0.0)
     assert result.source_time[0] == pytest.approx(2.0)
+
+
+def test_spectrogram_source_time_range_is_bounded_by_previous_frame() -> None:
+    data = da.from_array(np.ones((1, 80), dtype=float))
+    frame = ChannelFrame(data, sampling_rate=40.0, source_time_offset=1.0)
+
+    spec = frame.stft(n_fft=16, hop_length=8, win_length=16)
+
+    assert spec.duration == pytest.approx(2.2)
+    assert frame.source_time_range == pytest.approx((1.0, 3.0))
+    assert spec.source_time_range == pytest.approx((1.0, 3.0))

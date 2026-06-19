@@ -207,6 +207,14 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         return float(self.n_frames * self.hop_length / self.sampling_rate)
 
     @property
+    def source_time_range(self) -> tuple[float, float]:
+        if self.previous is not None:
+            start, end = self.previous.source_time_range
+            offset_delta = self.source_time_offset - self.previous.source_time_offset
+            return (start + offset_delta, end + offset_delta)
+        return super().source_time_range
+
+    @property
     def source_times(self) -> NDArrayReal:
         """Get source-relative time values for each spectrogram frame."""
         return self.times + self.source_time_offset

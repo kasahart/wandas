@@ -94,6 +94,7 @@ def save(
 
         # Store frame metadata
         f.attrs["sampling_rate"] = frame.sampling_rate
+        f.attrs["source_time_offset"] = frame.source_time_offset
         f.attrs["label"] = frame.label or ""
         f.attrs["frame_type"] = type(frame).__name__
         f.attrs["channel_ids_json"] = json.dumps(frame._channel_ids)
@@ -219,6 +220,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
 
         # Get global attributes
         sampling_rate = float(f.attrs["sampling_rate"])
+        source_time_offset = float(f.attrs.get("source_time_offset", 0.0))
         frame_label = _decode_hdf5_str(f.attrs.get("label", ""))
 
         # Get frame metadata
@@ -312,6 +314,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
             operation_history=operation_history,
             channel_metadata=channel_metadata_list,
             channel_ids=channel_ids,
+            source_time_offset=source_time_offset,
         )
 
         logger.debug(f"ChannelFrame loaded from {path}: {len(cf)} channels, {cf.n_samples} samples")

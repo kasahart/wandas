@@ -371,10 +371,11 @@ class ChannelProcessingMixin:
         if start > end:
             raise ValueError("start must be less than end")
         operation = create_operation("trim", cast(Any, self).sampling_rate, start=start, end=end)
+        start_sample = getattr(operation, "start_sample", int(start * cast(Any, self).sampling_rate))
         result = cast(Any, self)._apply_operation_instance(
             operation,
             operation_name="trim",
-            source_time_offset=cast(Any, self).source_time_offset + start,
+            source_time_offset=cast(Any, self).source_time_offset + start_sample / cast(Any, self).sampling_rate,
         )
         return cast(T_Processing, result)
 
