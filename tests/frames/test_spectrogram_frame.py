@@ -30,6 +30,19 @@ def test_stft_preserves_source_offset_and_exposes_source_times() -> None:
     assert spec.source_times[0] == pytest.approx(10.0)
 
 
+def test_spectrogram_source_time_range_without_previous_uses_duration() -> None:
+    data = da.from_array(np.ones((1, 9, 3), dtype=complex), chunks=(1, -1, -1))
+    spec = SpectrogramFrame(
+        data,
+        sampling_rate=16.0,
+        n_fft=16,
+        hop_length=4,
+        source_time_offset=2.0,
+    )
+
+    assert spec.source_time_range == pytest.approx((2.0, 2.75))
+
+
 @pytest.fixture
 def sample_spectrogram() -> SpectrogramFrame:
     """スペクトログラムのサンプルデータを生成するフィクスチャ"""
