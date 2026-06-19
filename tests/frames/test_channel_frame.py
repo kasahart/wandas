@@ -135,6 +135,14 @@ class TestChannelFrame:
         with pytest.raises(ValueError, match="Source time range mismatch"):
             left.add(right, snr=10.0)
 
+    def test_add_channel_rejects_mismatched_source_time_ranges(self) -> None:
+        data = da.from_array(np.ones((1, 8), dtype=float), chunks=(1, -1))
+        left = ChannelFrame(data, sampling_rate=4.0, source_time_offset=10.0)
+        right = ChannelFrame(data, sampling_rate=4.0, source_time_offset=20.0)
+
+        with pytest.raises(ValueError, match="Source time range mismatch"):
+            left.add_channel(right)
+
     def test_operations_are_lazy(self) -> None:
         """Test that operations don't trigger immediate computation."""
         with mock.patch.object(DaArray, "compute", return_value=self.data) as mock_compute:

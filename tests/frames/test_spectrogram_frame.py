@@ -351,7 +351,7 @@ class TestSpectrogramFrame:
         spectral_frame = spec.get_frame_at(1)
 
         assert spectral_frame.source_time_offset == pytest.approx(spec.source_times[1])
-        assert spectral_frame.source_time_range == pytest.approx((spec.source_times[1], spec.source_times[1]))
+        assert spectral_frame.source_time_range == pytest.approx((spec.source_times[1], spec.source_times[1] + 0.5))
 
     def test_to_channel_frame(self, sample_spectrogram: SpectrogramFrame) -> None:
         """時間領域への変換テスト"""

@@ -737,6 +737,9 @@ class BaseFrame(ABC, Generic[T]):
     def _source_time_offset_for_indexing(self, time_keys: tuple[Any, ...]) -> float:
         return self.source_time_offset
 
+    def _validate_time_indexing(self, time_keys: tuple[Any, ...]) -> None:
+        """Validate subclass-specific time-axis indexing constraints."""
+
     def _handle_multidim_indexing(
         self: S,
         key: tuple[
@@ -778,6 +781,7 @@ class BaseFrame(ABC, Generic[T]):
 
         # Apply time indexing if present
         if time_keys:
+            selected._validate_time_indexing(time_keys)
             new_data = selected._data[(slice(None),) + time_keys]  # noqa: RUF005
             source_time_offset = selected._source_time_offset_for_indexing(time_keys)
             return selected._create_new_instance(

@@ -216,6 +216,18 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
                 source_time_offset += time_index * self.hop_length / self.sampling_rate
         return source_time_offset
 
+    def _validate_time_indexing(self, time_keys: tuple[Any, ...]) -> None:
+        if len(time_keys) < 2:
+            return
+        time_key = time_keys[-1]
+        if isinstance(time_key, slice):
+            if time_key.step not in (None, 1):
+                raise ValueError("Non-contiguous time indexing is not supported")
+            return
+        if isinstance(time_key, numbers.Integral):
+            return
+        raise ValueError("Non-contiguous time indexing is not supported")
+
     @property
     def duration(self) -> float:
         """Get the local time span covered by spectrogram frames."""
@@ -438,8 +450,14 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             )
 
         frame_data = self._data[..., time_idx]
+        source_time_offset = float(self.source_times[time_idx])
+        parent_start, parent_end = self.source_time_range
+        source_time_range = (
+            max(parent_start, source_time_offset),
+            min(parent_end, source_time_offset + self.n_fft / self.sampling_rate),
+        )
 
-        return SpectralFrame(
+        frame = SpectralFrame(
             data=frame_data,
             sampling_rate=self.sampling_rate,
             n_fft=self.n_fft,
@@ -449,8 +467,10 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             operation_history=self.operation_history,
             channel_metadata=self.channels.to_list(),
             channel_ids=self._channel_ids,
-            source_time_offset=float(self.source_times[time_idx]),
+            source_time_offset=source_time_offset,
         )
+        frame._xr.attrs["source_time_range"] = source_time_range
+        return frame
 
     def to_channel_frame(self) -> "ChannelFrame":
         """

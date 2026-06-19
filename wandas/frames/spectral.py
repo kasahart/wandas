@@ -303,7 +303,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
         # Create new instance
-        return ChannelFrame(
+        frame = ChannelFrame(
             data=time_series,
             sampling_rate=self.sampling_rate,
             label=f"ifft({self.label})",
@@ -313,6 +313,8 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_ids=self._channel_ids,
             source_time_offset=self.source_time_offset,
         )
+        frame._xr.attrs["source_time_range"] = tuple(self.source_time_range)
+        return frame
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
         """

@@ -355,6 +355,16 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             source_time_offset += sample_index / self.sampling_rate
         return source_time_offset
 
+    def _validate_time_indexing(self, time_keys: tuple[Any, ...]) -> None:
+        sample_key = time_keys[-1]
+        if isinstance(sample_key, slice):
+            if sample_key.step not in (None, 1):
+                raise ValueError("Non-contiguous time indexing is not supported")
+            return
+        if isinstance(sample_key, numbers.Integral):
+            return
+        raise ValueError("Non-contiguous time indexing is not supported")
+
     @property
     def n_samples(self) -> int:
         """Returns the number of samples."""
@@ -535,7 +545,15 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         # If SNR is specified, adjust the length of the other signal
         if other.duration != self.duration:
+            if not np.allclose(self.source_time_offset, other.source_time_offset):
+                raise ValueError(
+                    f"Source time range mismatch\n"
+                    f"  Signal: {self.source_time_range}\n"
+                    f"  Other: {other.source_time_range}\n"
+                    f"ChannelFrame.add requires matching source time ranges."
+                )
             other = other.fix_length(length=self.n_samples)
+            other._xr.attrs["source_time_range"] = tuple(self.source_time_range)
 
         if not np.allclose(self.source_time_range, other.source_time_range):
             raise ValueError(
@@ -1309,6 +1327,17 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         if isinstance(data, ChannelFrame):
             if self.sampling_rate != data.sampling_rate:
                 raise ValueError("sampling_rate mismatch")
+            if data.n_samples == self.n_samples:
+                ranges_match = np.allclose(self.source_time_range, data.source_time_range)
+            else:
+                ranges_match = np.allclose(self.source_time_offset, data.source_time_offset)
+            if not ranges_match:
+                raise ValueError(
+                    f"Source time range mismatch\n"
+                    f"  Existing frame: {self.source_time_range}\n"
+                    f"  Added frame: {data.source_time_range}\n"
+                    f"add_channel requires matching source time ranges."
+                )
             arr = _align_to_length(data._data, self.n_samples, align, data.n_samples)
             labels = self.labels
             new_labels: list[str] = []

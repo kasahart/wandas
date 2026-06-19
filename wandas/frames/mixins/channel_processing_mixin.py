@@ -395,6 +395,13 @@ class ChannelProcessingMixin:
         """
 
         result = self.apply_operation("fix_length", length=length, duration=duration)
+        if length is not None:
+            target_length = length
+        else:
+            target_length = int(float(cast(float, duration)) * cast(Any, self).sampling_rate)
+        start, end = cast(Any, self).source_time_range
+        target_end = cast(Any, self).source_time_offset + target_length / cast(Any, self).sampling_rate
+        cast(Any, result)._xr.attrs["source_time_range"] = (start, min(end, target_end))
         return cast(T_Processing, result)
 
     def rms_trend(
@@ -495,14 +502,13 @@ class ChannelProcessingMixin:
         Returns:
             Resampled ChannelFrame
         """
-        return cast(
-            T_Processing,
-            self.apply_operation(
-                "resampling",
-                target_sr=target_sr,
-                **kwargs,
-            ),
+        result = self.apply_operation(
+            "resampling",
+            target_sr=target_sr,
+            **kwargs,
         )
+        cast(Any, result)._xr.attrs["source_time_range"] = tuple(cast(Any, self).source_time_range)
+        return cast(T_Processing, result)
 
     def _hpss(
         self: T_Processing,
