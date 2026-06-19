@@ -1139,12 +1139,12 @@ class TestBaseFrameIndexing:
 
     def test_getitem_with_tuple_list_and_time_preserves_dask(self) -> None:
         """Test __getitem__ with list of channels and time slice."""
-        result = self.channel_frame[[0, 2], ::2]
+        result = self.channel_frame[[0, 2], 200:8200]
         assert result is not self.channel_frame
         assert result.n_channels == 2
-        assert result.n_samples == 8000  # Every 2nd sample
+        assert result.n_samples == 8000
         assert isinstance(result._data, DaArray)
-        np.testing.assert_array_equal(result.compute(), self.data[[0, 2], ::2])
+        np.testing.assert_array_equal(result.compute(), self.data[[0, 2], 200:8200])
 
     def test_getitem_with_tuple_invalid_length(self) -> None:
         """Test __getitem__ with tuple of invalid length raises ValueError."""
