@@ -117,6 +117,24 @@ class TestChannelFrame:
         assert renamed.source_time_offset == 10.0
         assert renamed.source_time_range == (10.0, 12.0)
 
+    def test_add_numpy_array_uses_left_source_time_range(self) -> None:
+        data = da.from_array(np.ones((1, 8), dtype=float), chunks=(1, -1))
+        frame = ChannelFrame(data, sampling_rate=4.0, source_time_offset=10.0)
+
+        result = frame.add(np.ones((1, 8), dtype=float))
+        snr_result = frame.add(np.ones((1, 8), dtype=float), snr=10.0)
+
+        assert result.source_time_range == pytest.approx(frame.source_time_range)
+        assert snr_result.source_time_range == pytest.approx(frame.source_time_range)
+
+    def test_add_with_snr_rejects_mismatched_source_time_ranges(self) -> None:
+        data = da.from_array(np.ones((1, 8), dtype=float), chunks=(1, -1))
+        left = ChannelFrame(data, sampling_rate=4.0, source_time_offset=10.0)
+        right = ChannelFrame(data, sampling_rate=4.0, source_time_offset=20.0)
+
+        with pytest.raises(ValueError, match="Source time range mismatch"):
+            left.add(right, snr=10.0)
+
     def test_operations_are_lazy(self) -> None:
         """Test that operations don't trigger immediate computation."""
         with mock.patch.object(DaArray, "compute", return_value=self.data) as mock_compute:

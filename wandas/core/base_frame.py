@@ -903,10 +903,13 @@ class BaseFrame(ABC, Generic[T]):
         Keyword arguments can override or extend the original attributes.
         """
 
-        sampling_rate = kwargs.pop("sampling_rate", self.sampling_rate)
+        original_sampling_rate = self.sampling_rate
+        original_source_time_offset = self.source_time_offset
+        sampling_rate = kwargs.pop("sampling_rate", original_sampling_rate)
         source_time_offset = self._validate_source_time_offset(
-            kwargs.pop("source_time_offset", self.source_time_offset)
+            kwargs.pop("source_time_offset", original_source_time_offset)
         )
+        source_time_range = kwargs.pop("source_time_range", None)
 
         label = kwargs.pop("label", self.label)
         if not isinstance(label, str):
@@ -958,6 +961,22 @@ class BaseFrame(ABC, Generic[T]):
         new_instance = type(self)(**constructor_kwargs)
         if not accepts_offset:
             new_instance.source_time_offset = source_time_offset
+        if source_time_range is None:
+            preserves_source_span = (
+                sampling_rate == original_sampling_rate
+                and source_time_offset == original_source_time_offset
+                and "source_time_range" in self._xr.attrs
+            )
+            if preserves_source_span:
+                source_time_range = self._xr.attrs["source_time_range"]
+        if source_time_range is not None:
+            if not isinstance(source_time_range, tuple | list) or len(source_time_range) != 2:
+                raise TypeError("source_time_range must be a two-item tuple or list")
+            start, end = source_time_range
+            new_instance._xr.attrs["source_time_range"] = (
+                self._validate_source_time_offset(start),
+                self._validate_source_time_offset(end),
+            )
         return new_instance
 
     def __array__(self, dtype: npt.DTypeLike = None) -> NDArrayReal:

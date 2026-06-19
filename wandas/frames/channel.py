@@ -526,6 +526,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         elif isinstance(other, np.ndarray):
             other = ChannelFrame.from_numpy(cast(NDArrayReal, other), self.sampling_rate, label="array_data")
+            other.source_time_offset = self.source_time_offset
+            other._xr.attrs["source_time_range"] = tuple(self.source_time_range)
         elif isinstance(other, int | float):
             return self + other
         else:
@@ -534,6 +536,14 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         # If SNR is specified, adjust the length of the other signal
         if other.duration != self.duration:
             other = other.fix_length(length=self.n_samples)
+
+        if not np.allclose(self.source_time_range, other.source_time_range):
+            raise ValueError(
+                f"Source time range mismatch\n"
+                f"  Signal: {self.source_time_range}\n"
+                f"  Other: {other.source_time_range}\n"
+                f"ChannelFrame.add requires matching source time ranges."
+            )
 
         if snr is None:
             return self + other

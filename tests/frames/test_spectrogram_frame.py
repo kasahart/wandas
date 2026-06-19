@@ -52,6 +52,25 @@ def test_spectrogram_time_slice_advances_source_time_offset_by_hop() -> None:
     assert sliced.source_time_offset == pytest.approx(10.5)
 
 
+def test_spectrogram_time_slice_source_range_is_bounded_by_selected_frames() -> None:
+    data = da.from_array(np.ones((1, 64), dtype=float), chunks=(1, -1))
+    spec = ChannelFrame(data, sampling_rate=32.0, source_time_offset=10.0).stft(n_fft=16, hop_length=8, win_length=16)
+
+    sliced = spec[:, :, 2:]
+
+    assert sliced.source_time_range == pytest.approx((10.5, 12.0))
+
+
+def test_istft_preserves_spectrogram_source_time_range() -> None:
+    data = da.from_array(np.ones((1, 80), dtype=float), chunks=(1, -1))
+    frame = ChannelFrame(data, sampling_rate=40.0, source_time_offset=1.0)
+    spec = frame.stft(n_fft=16, hop_length=8, win_length=16)
+
+    recovered = spec.istft()
+
+    assert recovered.source_time_range == pytest.approx(frame.source_time_range)
+
+
 def test_spectrogram_time_integer_index_offset_uses_hop() -> None:
     data = da.from_array(np.ones((1, 64), dtype=float), chunks=(1, -1))
     spec = ChannelFrame(data, sampling_rate=32.0, source_time_offset=10.0).stft(n_fft=16, hop_length=8, win_length=16)

@@ -232,6 +232,15 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         return self.time + self.source_time_offset
 
     @property
+    def source_time_range(self) -> tuple[float, float]:
+        """Return the source span represented by this roughness frame."""
+        if self.previous is not None:
+            start, end = self.previous.source_time_range
+            offset_delta = self.source_time_offset - self.previous.source_time_offset
+            return (start + offset_delta, end + offset_delta)
+        return super().source_time_range
+
+    @property
     def overlap(self) -> float:
         """
         Overlap coefficient used in the calculation.
@@ -320,6 +329,9 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
 
             if self._data.shape != other._data.shape:
                 raise ValueError(f"Shape mismatch: {self._data.shape} vs {other._data.shape}")
+
+            if not np.allclose(self.source_time_range, other.source_time_range):
+                raise ValueError(f"Source time range mismatch: {self.source_time_range} vs {other.source_time_range}")
 
             # Apply operation
             result_data = op(self._data, other._data)

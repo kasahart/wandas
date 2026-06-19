@@ -189,6 +189,42 @@ class TestRoughnessFrame:
 
         assert frame.source_time_range == pytest.approx((7.0, 7.5))
 
+    def test_roughness_source_time_range_delegates_to_previous_frame(self) -> None:
+        previous = ChannelFrame(
+            da.from_array(np.ones((1, 40), dtype=float), chunks=(1, -1)),
+            sampling_rate=40.0,
+            source_time_offset=1.0,
+        )
+        frame = RoughnessFrame(
+            da.from_array(np.ones((1, 47, 5), dtype=float), chunks=(1, 47, 5)),
+            sampling_rate=10.0,
+            bark_axis=np.arange(47, dtype=float) + 0.5,
+            overlap=0.5,
+            previous=previous,
+            source_time_offset=1.0,
+        )
+
+        assert frame.source_time_range == pytest.approx(previous.source_time_range)
+
+    def test_roughness_binary_op_rejects_mismatched_source_time_ranges(self) -> None:
+        left = RoughnessFrame(
+            data=da.from_array(np.ones((1, 47, 5), dtype=float), chunks=(1, 47, 5)),
+            sampling_rate=10.0,
+            bark_axis=np.arange(47, dtype=float) + 0.5,
+            overlap=0.5,
+            source_time_offset=1.0,
+        )
+        right = RoughnessFrame(
+            data=da.from_array(np.ones((1, 47, 5), dtype=float), chunks=(1, 47, 5)),
+            sampling_rate=10.0,
+            bark_axis=np.arange(47, dtype=float) + 0.5,
+            overlap=0.5,
+            source_time_offset=2.0,
+        )
+
+        with pytest.raises(ValueError, match="Source time range mismatch"):
+            _ = left + right
+
     def test_roughness_binary_op_preserves_source_time_offset(self) -> None:
         frame = RoughnessFrame(
             data=_DATA_MONO,

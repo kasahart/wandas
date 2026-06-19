@@ -224,9 +224,16 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     @property
     def source_time_range(self) -> tuple[float, float]:
         if self.previous is not None:
+            if isinstance(self.previous, SpectrogramFrame):
+                _, previous_end = self.previous.source_time_range
+                start = self.source_time_offset
+                end = min(previous_end, start + self.duration)
+                return (start, max(start, end))
             start, end = self.previous.source_time_range
             offset_delta = self.source_time_offset - self.previous.source_time_offset
-            return (start + offset_delta, end + offset_delta)
+            shifted_start = start + offset_delta
+            shifted_end = min(end + offset_delta, shifted_start + self.duration)
+            return (shifted_start, max(shifted_start, shifted_end))
         return super().source_time_range
 
     @property
@@ -482,7 +489,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         logger.debug(f"Created new ChannelFrame with operation {operation_name} added to graph")
 
         # Create new instance
-        return ChannelFrame(
+        frame = ChannelFrame(
             data=time_series,
             sampling_rate=self.sampling_rate,
             label=f"istft({self.label})",
@@ -492,6 +499,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_ids=self._channel_ids,
             source_time_offset=self.source_time_offset,
         )
+        frame._xr.attrs["source_time_range"] = tuple(self.source_time_range)
+        return frame
 
     def istft(self) -> "ChannelFrame":
         """

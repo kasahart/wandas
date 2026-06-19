@@ -95,6 +95,8 @@ def save(
         # Store frame metadata
         f.attrs["sampling_rate"] = frame.sampling_rate
         f.attrs["source_time_offset"] = frame.source_time_offset
+        if "source_time_range" in frame._xr.attrs:
+            f.attrs["source_time_range_json"] = json.dumps(list(frame.source_time_range))
         f.attrs["label"] = frame.label or ""
         f.attrs["frame_type"] = type(frame).__name__
         f.attrs["channel_ids_json"] = json.dumps(frame._channel_ids)
@@ -221,6 +223,12 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
         # Get global attributes
         sampling_rate = float(f.attrs["sampling_rate"])
         source_time_offset = float(f.attrs.get("source_time_offset", 0.0))
+        source_time_range = None
+        if "source_time_range_json" in f.attrs:
+            parsed_range = json.loads(_decode_hdf5_str(f.attrs["source_time_range_json"]))
+            if not isinstance(parsed_range, list) or len(parsed_range) != 2:
+                raise ValueError("WDF source_time_range_json must decode to a two-item list")
+            source_time_range = (float(parsed_range[0]), float(parsed_range[1]))
         frame_label = _decode_hdf5_str(f.attrs.get("label", ""))
 
         # Get frame metadata
@@ -316,6 +324,8 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,
         )
+        if source_time_range is not None:
+            cf._xr.attrs["source_time_range"] = source_time_range
 
         logger.debug(f"ChannelFrame loaded from {path}: {len(cf)} channels, {cf.n_samples} samples")
         return cf

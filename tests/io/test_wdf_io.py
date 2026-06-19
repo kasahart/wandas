@@ -126,6 +126,22 @@ def test_wdf_roundtrip_preserves_source_time_offset(tmp_path: Path) -> None:
     assert loaded.source_time_range == pytest.approx((12.5, 14.5))
 
 
+def test_wdf_roundtrip_preserves_explicit_source_time_range(tmp_path: Path) -> None:
+    frame = ChannelFrame(
+        data=dask.array.from_array(np.arange(80, dtype=float).reshape(1, 80), chunks=(1, -1)),
+        sampling_rate=40.0,
+        source_time_offset=1.0,
+    )
+    frame._xr.attrs["source_time_range"] = (1.0, 2.5)
+    path = tmp_path / "source_time_range.wdf"
+
+    frame.save(path)
+    loaded = ChannelFrame.load(path)
+
+    assert loaded.source_time_offset == pytest.approx(1.0)
+    assert loaded.source_time_range == pytest.approx((1.0, 2.5))
+
+
 def test_wdf_roundtrip_preserves_stable_channel_ids(tmp_path: Path) -> None:
     data = np.array([[1.0, 2.0], [3.0, 4.0]])
     frame = ChannelFrame(
