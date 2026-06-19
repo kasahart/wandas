@@ -370,8 +370,6 @@ class ChannelProcessingMixin:
             end = self.duration
         if start > end:
             raise ValueError("start must be less than end")
-        from wandas.processing import create_operation
-
         operation = create_operation("trim", cast(Any, self).sampling_rate, start=start, end=end)
         result = cast(Any, self)._apply_operation_instance(
             operation,

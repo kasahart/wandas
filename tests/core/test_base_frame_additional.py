@@ -728,6 +728,28 @@ def test_apply_operation_helpers_update_metadata_and_history(monkeypatch):
     applied = BaseFrame._apply_operation_impl(f, "created", gain=3)
 
     assert applied.metadata["created"] == {"gain": 3}
+    assert applied.operation_history[-1] == {"operation": "created", "params": {"gain": 3}}
+
+
+def test_apply_operation_impl_records_operation_normalized_params(monkeypatch):
+    f = make_frame(np.arange(6).reshape(2, 3).astype(float))
+
+    class CreatedOperation:
+        name = "created"
+        params = {"gain": 3.0, "mode": "normalized"}
+
+        def process(self, data):
+            return data
+
+        def get_metadata_updates(self):
+            return {}
+
+    monkeypatch.setattr("wandas.processing.create_operation", lambda name, sampling_rate, **params: CreatedOperation())
+    applied = BaseFrame._apply_operation_impl(f, "created", gain=3)
+
+    expected_params = {"gain": 3.0, "mode": "normalized"}
+    assert applied.metadata["created"] == expected_params
+    assert applied.operation_history[-1] == {"operation": "created", "params": expected_params}
 
 
 def test_apply_operation_instance_output_frame_validation_and_constructor_errors():
