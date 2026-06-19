@@ -1,31 +1,38 @@
 import logging
 import warnings
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO, TypeVar, cast
 
 import dask
 import dask.array as da
-import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 from dask.array.core import Array as DaArray
 from dask.array.core import concatenate
-from IPython.display import Audio, display
-from matplotlib.axes import Axes
-from matplotlib.figure import Figure
 
 from wandas.utils import validate_sampling_rate
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
+from wandas.utils.optional_imports import (
+    require_ipython_display,
+    require_pandas,
+)
+from wandas.utils.optional_imports import (
+    require_matplotlib_axes_type as _matplotlib_axes_type,
+)
+from wandas.utils.optional_imports import (
+    require_matplotlib_pyplot as _matplotlib_pyplot,
+)
 from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
-from ..core.metadata import ChannelMetadata, FrameMetadata
+from ..core.metadata import ChannelMetadata
 from ..io.readers import get_file_reader
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
 
 if TYPE_CHECKING:
+    import pandas as pd
     from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +41,28 @@ da_from_delayed = da.from_delayed
 
 
 S = TypeVar("S", bound="BaseFrame[Any]")
+
+
+class _LazyPyplot:
+    def __getattr__(self, name: str) -> Any:
+        return getattr(_matplotlib_pyplot("describe"), name)
+
+
+plt = _LazyPyplot()
+
+
+def _is_display_enabled(image_save: str | Path | None, is_close: bool) -> bool:
+    return image_save is None and is_close
+
+
+def display(*args: Any, **kwargs: Any) -> Any:
+    interactive_display, _ = require_ipython_display("describe")
+    return interactive_display(*args, **kwargs)
+
+
+def Audio(*args: Any, **kwargs: Any) -> Any:  # noqa: N802
+    _, audio = require_ipython_display("describe")
+    return audio(*args, **kwargs)
 
 
 def _align_to_length(arr: DaArray, target_len: int, align: str, source_len: int) -> DaArray:
@@ -177,14 +206,17 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
     with each channel containing data samples in the time domain.
     """
 
+    _xarray_dim_suffix = ("channel", "time")
+
     def __init__(
         self,
         data: DaArray,
         sampling_rate: float,
         label: str | None = None,
-        metadata: "FrameMetadata | dict[str, Any] | None" = None,
+        metadata: dict[str, Any] | None = None,
         operation_history: list[dict[str, Any]] | None = None,
-        channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
+        channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
+        channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
         source_time_offset: float = 0.0,
     ) -> None:
@@ -229,6 +261,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             metadata=metadata,
             operation_history=operation_history,
             channel_metadata=channel_metadata,
+            channel_ids=channel_ids,
             previous=previous,
             source_time_offset=source_time_offset,
         )
@@ -241,7 +274,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         if len(ch_labels) != self.n_channels:
             raise ValueError("Number of channel labels does not match the number of channels")
         for i, lbl in enumerate(ch_labels):
-            self._channel_metadata[i].label = lbl
+            self.channels[i].label = lbl
 
     def _set_channel_units(self, ch_units: list[str]) -> None:
         """Overwrite channel units after construction.
@@ -251,18 +284,19 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         if len(ch_units) != self.n_channels:
             raise ValueError("Number of channel units does not match the number of channels")
         for i, unit in enumerate(ch_units):
-            self._channel_metadata[i].unit = unit
+            self.channels[i].unit = unit
 
     def _finalize_channel_update(
         self,
         new_data: DaArray,
         new_chmeta: list[ChannelMetadata],
         inplace: bool,
+        channel_ids: list[str],
     ) -> "ChannelFrame":
         """Apply *new_data* and *new_chmeta* either in-place or as a new frame."""
         if inplace:
-            self._data = new_data
-            self._channel_metadata = new_chmeta
+            self._replace_data(new_data)
+            self._set_channel_metadata(new_chmeta, channel_ids)
             return self
         return ChannelFrame(
             data=new_data,
@@ -271,6 +305,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             metadata=self.metadata,
             operation_history=self.operation_history,
             channel_metadata=new_chmeta,
+            channel_ids=channel_ids,
             previous=self,
             source_time_offset=self.source_time_offset,
         )
@@ -294,7 +329,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         Examples:
             >>> import wandas as wd
-            >>> signal = wd.read_wav("audio.wav")
+            >>> signal = wd.read("audio.wav")
             >>> time = signal.time
             >>> print(f"Duration: {time[-1]:.3f}s")
             >>> print(f"Time step: {time[1] - time[0]:.6f}s")
@@ -348,7 +383,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             for each channel.
 
         Examples:
-            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> import wandas as wd
+            >>> cf = wd.read("audio.wav")
             >>> rms_values = cf.rms
             >>> print(f"RMS values: {rms_values}")
             >>> # Select channels with RMS > threshold
@@ -388,7 +424,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             for each channel.  All-zero channels yield 1.0.
 
         Examples:
-            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> import wandas as wd
+            >>> cf = wd.read("audio.wav")
             >>> cf_values = cf.crest_factor
             >>> print(f"Crest factors: {cf_values}")
             >>> # Select channels with crest factor above threshold
@@ -418,7 +455,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         Examples
         --------
-        >>> cf = ChannelFrame.read_wav("audio.wav")
+        >>> import wandas as wd
+        >>> cf = wd.read("audio.wav")
         >>> cf.info()
         Channels: 2
         Sampling rate: 44100 Hz
@@ -499,7 +537,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         xlim: tuple[float, float] | None = None,
         ylim: tuple[float, float] | None = None,
         **kwargs: Any,
-    ) -> Axes | Iterator[Axes]:
+    ) -> "Axes | Iterator[Axes]":
         """Plot the frame data.
 
         Args:
@@ -521,7 +559,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             Single Axes object or iterator of Axes objects.
 
         Examples:
-            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> import wandas as wd
+            >>> cf = wd.read("audio.wav")
             >>> # Basic plot
             >>> cf.plot()
             >>> # Overlay all channels
@@ -567,7 +606,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         overlay: bool = True,
         Aw: bool = False,  # noqa: N803
         **kwargs: Any,
-    ) -> Axes | Iterator[Axes]:
+    ) -> "Axes | Iterator[Axes]":
         """Generate an RMS plot.
 
         Args:
@@ -583,7 +622,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             Single Axes object or iterator of Axes objects.
 
         Examples:
-            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> cf = wd.read("audio.wav")
             >>> # Basic RMS plot
             >>> cf.rms_plot()
             >>> # With A-weighting
@@ -637,7 +676,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         spectral: dict[str, Any] | None = None,
         image_save: str | Path | None = None,
         **kwargs: Any,
-    ) -> list[Figure] | None:
+    ) -> "list[Figure] | None":
         """Display visual and audio representation of the frame.
 
         This method creates a comprehensive visualization with three plots:
@@ -685,7 +724,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             channels in the frame.
 
         Examples:
-            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> cf = wd.read("audio.wav")
             >>> # Basic usage
             >>> cf.describe()
             >>>
@@ -730,14 +769,19 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         self._apply_deprecated_describe_kwargs(plot_kwargs)
 
+        axes_cls = _matplotlib_axes_type("describe")
+        display_enabled = _is_display_enabled(image_save, is_close)
+        if display_enabled:
+            require_ipython_display("describe")
+
         figures: list[Figure] = []
 
         for ch_idx, ch in enumerate(self):
             _ax = ch.plot("describe", title=f"{ch.label} {ch.labels[0]}", **plot_kwargs)
-            if isinstance(_ax, Axes):
+            if isinstance(_ax, axes_cls):
                 ax = _ax
             elif isinstance(_ax, Iterator):
-                ax = cast(Axes, next(_ax))
+                ax = cast("Axes", next(_ax))
             else:
                 raise TypeError(f"Unexpected type for plot result: {type(_ax)}. Expected Axes or Iterator[Axes].")
             # Extract figure from axes (existing pattern)
@@ -755,14 +799,15 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 else:
                     fig.savefig(image_save, bbox_inches="tight")
 
-            if fig is not None:
+            if fig is not None and display_enabled:
                 display(fig)
             if is_close and fig is not None:
                 fig.clf()  # Clear the figure to free memory
                 plt.close(fig)
 
             # Play audio for each channel
-            display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))
+            if display_enabled:
+                display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))
 
         # Return figures only when is_close=False
         if is_close:
@@ -775,7 +820,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         data: NDArrayReal,
         sampling_rate: float,
         label: str | None = None,
-        metadata: "FrameMetadata | dict[str, Any] | None" = None,
+        metadata: dict[str, Any] | None = None,
         ch_labels: list[str] | None = None,
         ch_units: list[str] | str | None = None,
     ) -> "ChannelFrame":
@@ -824,7 +869,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         labels: list[str] | None = None,
         unit: list[str] | str | None = None,
         frame_label: str | None = None,
-        metadata: "FrameMetadata | dict[str, Any] | None" = None,
+        metadata: dict[str, Any] | None = None,
     ) -> "ChannelFrame":
         """Create a ChannelFrame from a NumPy array.
 
@@ -916,21 +961,30 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 troubleshooting suggestions.
 
         Examples:
+            >>> import wandas as wd
             >>> # Load WAV file (raw integer samples cast to float32 by default)
-            >>> cf = ChannelFrame.from_file("audio.wav")
+            >>> cf = wd.read("audio.wav")
             >>> # Load WAV file normalized to float32 [-1.0, 1.0]
-            >>> cf = ChannelFrame.from_file("audio.wav", normalize=True)
+            >>> cf = wd.read("audio.wav", normalize=True)
             >>> # Load specific channels
-            >>> cf = ChannelFrame.from_file("audio.wav", channel=[0, 2])
+            >>> cf = wd.read("audio.wav", channel=[0, 2])
             >>> # Load CSV file
-            >>> cf = ChannelFrame.from_file("data.csv", time_column=0, delimiter=",", header=0)
+            >>> cf = wd.read("data.csv", time_column=0, delimiter=",", header=0)
             >>> # Load from a URL
-            >>> cf = ChannelFrame.from_file("https://example.com/audio.wav")
+            >>> cf = wd.read("https://example.com/audio.wav")
         """
         from .channel import ChannelFrame
 
         # Detect and handle URL paths — download to bytes before any path logic.
-        if isinstance(path, str) and path.startswith(("http://", "https://")):
+        if isinstance(path, str) and path.lower().startswith(("http://", "https://")):
+            url_file_type = file_type
+            if url_file_type is None:
+                from pathlib import PurePosixPath
+                from urllib.parse import urlparse
+
+                url_file_type = PurePosixPath(urlparse(path).path).suffix.lower() or None
+            if url_file_type is not None and url_file_type.lower().lstrip(".") == "csv":
+                require_pandas("CSV file reading")
             path, file_type, source_name = _download_url(path, file_type, source_name, timeout)
 
         source_obj, path_obj, reader, normalized_file_type = _resolve_source(path, file_type)
@@ -1024,7 +1078,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             data=dask_array,
             sampling_rate=sr,
             label=frame_label,
-            metadata=FrameMetadata(source_file=source_file),
+            metadata={"_source_file": source_file} if source_file is not None else None,
         )
         if ch_labels is not None:
             cf._set_channel_labels(ch_labels)
@@ -1088,11 +1142,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         Examples:
             >>> # Read CSV with default settings
-            >>> cf = ChannelFrame.read_csv("data.csv")
+            >>> cf = wd.read("data.csv")
             >>> # Read CSV with custom delimiter
-            >>> cf = ChannelFrame.read_csv("data.csv", delimiter=";")
+            >>> cf = wd.read("data.csv", delimiter=";")
             >>> # Read CSV without header
-            >>> cf = ChannelFrame.read_csv("data.csv", header=None)
+            >>> cf = wd.read("data.csv", header=None)
         """
         from .channel import ChannelFrame
 
@@ -1142,7 +1196,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             NotImplementedError: For unsupported formats.
 
         Example:
-            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> cf = wd.read("audio.wav")
             >>> cf.save("audio_analysis.wdf")
         """
         from ..io.wdf_io import save as wdf_save
@@ -1175,7 +1229,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             NotImplementedError: For unsupported formats
 
         Example:
-            >>> cf = ChannelFrame.load("audio_analysis.wdf")
+            >>> import wandas as wd
+            >>> cf = wd.load("audio_analysis.wdf")
         """
         from ..io.wdf_io import load as wdf_load
 
@@ -1217,12 +1272,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             TypeError: If data type is not supported.
 
         Examples:
-            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> cf = wd.read("audio.wav")
             >>> # Add a numpy array as a new channel
             >>> new_data = np.sin(2 * np.pi * 440 * cf.time)
             >>> cf_new = cf.add_channel(new_data, label="sine_440Hz")
             >>> # Add another ChannelFrame's channels
-            >>> cf2 = ChannelFrame.read_wav("audio2.wav")
+            >>> cf2 = wd.read("audio2.wav")
             >>> cf_combined = cf.add_channel(cf2)
         """
         # Handle ndarray/dask/same-type Frame
@@ -1233,7 +1288,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             labels = self.labels
             new_labels: list[str] = []
             new_metadata_list: list[ChannelMetadata] = []
-            for chmeta in data._channel_metadata:
+            for chmeta in data.channels:
                 new_label = f"{label}_{chmeta.label}" if label is not None else chmeta.label
                 if new_label in labels or new_label in new_labels:
                     if suffix_on_dup:
@@ -1248,13 +1303,17 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                         )
                 new_labels.append(new_label)
                 # Copy the entire channel_metadata and update only the label
-                new_ch_meta = chmeta.model_copy(deep=True)
+                new_ch_meta = chmeta.to_metadata()
                 new_ch_meta.label = new_label
                 new_metadata_list.append(new_ch_meta)
             new_data = concatenate([self._data, arr], axis=0)
 
-            new_chmeta = self._channel_metadata + new_metadata_list
-            return self._finalize_channel_update(new_data, new_chmeta, inplace)
+            new_chmeta = self.channels.to_list() + new_metadata_list
+            new_ids = self._channel_ids.copy()
+            for _ in new_metadata_list:
+                new_id = self._next_channel_id(new_ids)
+                new_ids.append(new_id)
+            return self._finalize_channel_update(new_data, new_chmeta, inplace, new_ids)
         if isinstance(data, np.ndarray):
             arr = _da_from_array(data.reshape(1, -1), chunks=(1, -1))
         elif isinstance(data, DaArray):
@@ -1279,8 +1338,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 )
         new_data = concatenate([self._data, arr], axis=0)
 
-        new_chmeta = [*self._channel_metadata, ChannelMetadata(label=new_label)]
-        return self._finalize_channel_update(new_data, new_chmeta, inplace)
+        new_ids = [*self._channel_ids, self._next_channel_id()]
+        new_chmeta = [*self.channels.to_list(), ChannelMetadata(label=new_label)]
+        return self._finalize_channel_update(new_data, new_chmeta, inplace, new_ids)
 
     def remove_channel(self, key: int | str, inplace: bool = False) -> "ChannelFrame":
         if isinstance(key, int):
@@ -1292,9 +1352,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             if key not in labels:
                 raise KeyError(f"label {key} not found")
             idx = labels.index(key)
-        new_data = self._data[[i for i in range(self.n_channels) if i != idx], :]
-        new_chmeta = [ch for i, ch in enumerate(self._channel_metadata) if i != idx]
-        return self._finalize_channel_update(new_data, new_chmeta, inplace)
+        keep_indices = [i for i in range(self.n_channels) if i != idx]
+        new_data = self._data[keep_indices, :]
+        new_chmeta = [self.channels[i].to_metadata() for i in keep_indices]
+        new_ids = [self._channel_ids[i] for i in keep_indices]
+        return self._finalize_channel_update(new_data, new_chmeta, inplace, new_ids)
 
     def rename_channels(
         self,
@@ -1318,7 +1380,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             ValueError: If duplicate labels would be created.
 
         Examples:
-            >>> cf = ChannelFrame.read_wav("audio.wav")
+            >>> cf = wd.read("audio.wav")
             >>> # Rename by index
             >>> cf_renamed = cf.rename_channels({0: "left", 1: "right"})
             >>> # Rename by label
@@ -1380,16 +1442,17 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             )
         # Create updated channel_metadata list
         new_chmeta = []
-        for i, ch_meta in enumerate(self._channel_metadata):
-            new_ch_meta = ch_meta.model_copy(deep=True)
+        for i, ch_meta in enumerate(self.channels):
+            new_ch_meta = ch_meta.to_metadata()
             new_ch_meta.label = new_labels[i]
             new_chmeta.append(new_ch_meta)
 
         if inplace:
-            self._channel_metadata = new_chmeta
+            self._set_channel_metadata(new_chmeta, self._channel_ids)
             return self
-        return self._finalize_channel_update(self._data, new_chmeta, inplace=False)
+        return self._finalize_channel_update(self._data, new_chmeta, inplace=False, channel_ids=self._channel_ids)
 
     def _get_dataframe_index(self) -> "pd.Index[Any]":
         """Get time index for DataFrame."""
+        pd = require_pandas("ChannelFrame.to_dataframe")
         return pd.Index(self.time, name="time")

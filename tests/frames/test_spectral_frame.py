@@ -183,7 +183,7 @@ class TestSpectralFrame:
 
     def test_property_dba(self) -> None:
         """Test dBA property"""
-        with mock.patch("librosa.A_weighting") as mock_a_weighting:
+        with mock.patch("wandas.frames.mixins.spectral_properties_mixin.a_weighting_db") as mock_a_weighting:
             mock_weights: NDArrayReal = np.ones_like(self.frame.freqs)
             mock_a_weighting.return_value = mock_weights
 
@@ -442,7 +442,8 @@ class TestSpectralFrame:
                 label=f"ifft({self.frame.label})",
                 metadata=self.frame.metadata,
                 operation_history=self.frame.operation_history,
-                channel_metadata=self.frame._channel_metadata,
+                channel_metadata=self.frame.channels.to_list(),
+                channel_ids=self.frame._channel_ids,
                 source_time_offset=self.frame.source_time_offset,
             )
 
@@ -595,7 +596,8 @@ class TestSpectralFrame:
                         },
                     },
                 ],
-                channel_metadata=correct_sr_frame._channel_metadata,
+                channel_metadata=correct_sr_frame.channels.to_list(),
+                channel_ids=correct_sr_frame._channel_ids,
                 previous=correct_sr_frame,
                 source_time_offset=correct_sr_frame.source_time_offset,
             )

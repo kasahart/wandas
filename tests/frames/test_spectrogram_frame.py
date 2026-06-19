@@ -590,8 +590,9 @@ class TestSpectrogramFrame:
         self, sample_spectrogram: SpectrogramFrame, monkeypatch: Any
     ) -> None:
         """dBAプロパティが正しくA特性重み付けを適用していることを確認"""
-        import librosa
         import numpy as np
+
+        import wandas.frames.mixins.spectral_properties_mixin as spectral_properties_mixin
 
         spec: SpectrogramFrame = sample_spectrogram
 
@@ -606,8 +607,7 @@ class TestSpectrogramFrame:
                 weights[i] = mock_a_weights[i]
             return weights
 
-        # librosa.A_weightingをモック
-        monkeypatch.setattr(librosa, "A_weighting", mock_a_weighting)
+        monkeypatch.setattr(spectral_properties_mixin, "a_weighting_db", mock_a_weighting)
 
         # dBとdBAの値を取得
         db_values = spec.dB

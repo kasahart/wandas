@@ -1299,11 +1299,8 @@ def test_describe_plot_return_type_error() -> None:
             # Test with normalize=False and is_close=False
             self.channel_frame.describe(normalize=False, is_close=False)
 
-            # Verify Audio was called with normalize=False
-            for call in mock_audio.call_args_list:
-                assert call[1].get("normalize") is False
-
-            # Verify plt.close was not called
+            # Returning figures skips interactive audio/display and leaves figures open.
+            mock_audio.assert_not_called()
             mock_close.assert_not_called()
 
     def test_describe_backward_compatibility_warning(self) -> None:
@@ -1427,8 +1424,8 @@ class TestDescribeIntegration:
         ):
             self.channel_frame.describe(is_close=False)
 
-            # Verify plot was created (display was called)
-            assert mock_display.call_count > 0
+            # Returning figures skips interactive display.
+            mock_display.assert_not_called()
 
     def test_describe_integration_stft_computation(self) -> None:
         """Test that describe() computes STFT correctly."""

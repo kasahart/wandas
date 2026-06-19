@@ -1,3 +1,4 @@
+import importlib
 import logging
 import random
 import warnings
@@ -7,16 +8,25 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Generic, TypeVar, cast, overload
 
-from tqdm.auto import tqdm
-
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectrogram import SpectrogramFrame
+from wandas.io.readers import supported_formats
 
 logger = logging.getLogger(__name__)
 
 FrameType = ChannelFrame | SpectrogramFrame
 F = TypeVar("F", bound=FrameType)
 F_out = TypeVar("F_out", bound=FrameType)
+
+
+def _progress(iterable: range, *, desc: str) -> Any:
+    try:
+        tqdm_auto = importlib.import_module("tqdm.auto")
+    except ModuleNotFoundError as exc:
+        if exc.name != "tqdm":
+            raise
+        return iterable
+    return tqdm_auto.tqdm(iterable, desc=desc)
 
 
 @dataclass
@@ -147,7 +157,7 @@ class FrameDataset(Generic[F], ABC):
 
     def _load_all_files(self) -> None:
         """Load all files."""
-        for i in tqdm(range(len(self._lazy_frames)), desc="Loading/transforming"):
+        for i in _progress(range(len(self._lazy_frames)), desc="Loading/transforming"):
             try:
                 self._ensure_loaded(i)
             except Exception as e:
@@ -531,12 +541,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         source_dataset: "FrameDataset[Any] | None" = None,
         transform: Callable[[Any], ChannelFrame | None] | None = None,
     ):
-        _file_extensions = file_extensions or [
-            ".wav",
-            ".mp3",
-            ".flac",
-            ".csv",
-        ]
+        _file_extensions = file_extensions if file_extensions is not None else supported_formats()
 
         super().__init__(
             folder_path=folder_path,
@@ -652,7 +657,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         lazy_loading: bool = True,
     ) -> "ChannelFrameDataset":
         """Class method to create a ChannelFrameDataset from a folder."""
-        extensions = file_extensions if file_extensions is not None else [".wav", ".mp3", ".flac", ".csv"]
+        extensions = file_extensions if file_extensions is not None else supported_formats()
 
         return cls(
             folder_path,

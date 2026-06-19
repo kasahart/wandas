@@ -1,5 +1,6 @@
 """Tests for WDF (Wandas Data File) I/O functionality."""
 
+import json
 from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -110,6 +111,29 @@ def test_save_load_roundtrip(tmp_path: Path) -> None:
     assert cf2._channel_metadata[1].extra.get("sensitivity") == 48.5
 
 
+def test_wdf_roundtrip_preserves_stable_channel_ids(tmp_path: Path) -> None:
+    data = np.array([[1.0, 2.0], [3.0, 4.0]])
+    frame = ChannelFrame(
+        data=dask.array.from_array(data, chunks=(1, -1)),
+        sampling_rate=2.0,
+        channel_metadata=[
+            {"label": "left", "unit": "Pa", "extra": {"sensor": "a"}},
+            {"label": "right", "unit": "Pa", "extra": {"sensor": "b"}},
+        ],
+        channel_ids=["mic-a", "mic-b"],
+    )
+    path = tmp_path / "stable_ids.wdf"
+
+    frame.save(path)
+    loaded = ChannelFrame.load(path)
+
+    assert loaded._xr.coords["channel"].values.tolist() == ["mic-a", "mic-b"]
+    assert loaded._xr.attrs["channel_extra"] == {
+        "mic-a": {"sensor": "a"},
+        "mic-b": {"sensor": "b"},
+    }
+
+
 def test_wdf_operation_history_roundtrip(known_signal_frame, tmp_path: Path) -> None:
     """WDF round-trip preserves operation_history entries (Pillar 2: metadata sync).
 
@@ -211,6 +235,18 @@ def test_save_load_unsupported_format_raises_not_implemented() -> None:
         ChannelFrame.load("test.wdf", format="unsupported")
 
 
+def test_save_wdf_missing_h5py_does_not_compute(tmp_path: Path) -> None:
+    """Missing h5py fails before materializing the frame data."""
+
+    class UncomputableFrame:
+        def compute(self) -> np.ndarray:
+            raise AssertionError("save() computed data before checking h5py")
+
+    with patch.object(wdf_io, "require_h5py", side_effect=ImportError('Install it with: pip install "wandas[io]"')):
+        with pytest.raises(ImportError, match=r"wandas\[io\]"):
+            wdf_io.save(UncomputableFrame(), tmp_path / "missing_h5py.wdf")  # ty: ignore[invalid-argument-type]
+
+
 def test_load_wdf_modified_version_still_loads(tmp_path: Path) -> None:
     """Test version handling in WDF files."""
     rng = np.random.default_rng(6)
@@ -298,50 +334,97 @@ def test_load_file_not_found(tmp_path: Path) -> None:
 
 
 def test_source_file_roundtrip(tmp_path: Path) -> None:
-    """Test that source_file in FrameMetadata survives a save/load round-trip."""
-    from wandas.core.metadata import FrameMetadata
-
-    rng = np.random.default_rng(8)
+    """Source file metadata survives a save/load round-trip as a plain dict key."""
+    source = "audio/input.wav"
+    data = np.array([[1, 2, 3]], dtype=np.float32)
     sr = 16000
-    data = rng.standard_normal((1, sr))
-    source = "/data/recordings/audio.wav"
     cf = ChannelFrame.from_numpy(
         data,
         sr,
-        metadata=FrameMetadata({"key": "val"}, source_file=source),
+        metadata={"key": "val", "_source_file": source},
     )
-    assert isinstance(cf.metadata, FrameMetadata)
-    assert cf.metadata.source_file == source
+    assert type(cf.metadata) is dict
+    assert cf.metadata["_source_file"] == source
 
     path = tmp_path / "test_source_file.wdf"
     cf.save(path)
+    with h5py.File(path, "r") as f:
+        meta = f["meta"]
+        saved_metadata = json.loads(meta.attrs["json"])
+        assert saved_metadata["_source_file"] == source
+        assert meta.attrs["_source_file"] == source
+        assert "source_file" not in meta.attrs
 
     cf2 = ChannelFrame.load(path)
-    assert isinstance(cf2.metadata, FrameMetadata)
-    assert cf2.metadata.source_file == source
-    assert cf2.metadata.get("key") == "val"
+
+    assert type(cf2.metadata) is dict
+    assert cf2.metadata["_source_file"] == source
+    assert cf2.metadata["key"] == "val"
 
 
-def test_source_file_none_roundtrip(tmp_path: Path) -> None:
-    """Test round-trip when source_file is None."""
-    from wandas.core.metadata import FrameMetadata
-
-    rng = np.random.default_rng(9)
+def test_source_file_absent_roundtrip(tmp_path: Path) -> None:
+    """Round-trip without source file keeps metadata as a plain dict."""
+    data = np.array([[1, 2, 3]], dtype=np.float32)
     sr = 16000
-    data = rng.standard_normal((1, sr))
-    cf = ChannelFrame.from_numpy(data, sr, metadata=FrameMetadata({"only": "dict"}))
-    assert cf.metadata.source_file is None
+    cf = ChannelFrame.from_numpy(data, sr, metadata={"only": "dict"})
+    assert type(cf.metadata) is dict
+    assert "_source_file" not in cf.metadata
 
     path = tmp_path / "test_no_source_file.wdf"
     cf.save(path)
-
     cf2 = ChannelFrame.load(path)
-    assert isinstance(cf2.metadata, FrameMetadata)
-    assert cf2.metadata.source_file is None
-    assert cf2.metadata.get("only") == "dict"
+
+    assert type(cf2.metadata) is dict
+    assert cf2.metadata == {"only": "dict"}
 
 
-def test_load_wdf_from_url(tmp_path: Path) -> None:
+def test_from_wdf_legacy_source_file_attr_maps_to_metadata_key(tmp_path: Path) -> None:
+    """Legacy meta/source_file attrs populate _source_file when JSON lacks it."""
+    path = tmp_path / "legacy_source_file.wdf"
+    with h5py.File(path, "w") as f:
+        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["sampling_rate"] = 16000.0
+        f.attrs["label"] = ""
+
+        channels = f.create_group("channels")
+        channel = channels.create_group("0")
+        channel.create_dataset("data", data=np.array([1.0, 2.0, 3.0], dtype=np.float32))
+        channel.attrs["label"] = ""
+        channel.attrs["unit"] = ""
+
+        meta = f.create_group("meta")
+        meta.attrs["json"] = json.dumps({"key": "val"})
+        meta.attrs["source_file"] = "legacy/input.wav"
+
+    loaded = ChannelFrame.load(path)
+    assert type(loaded.metadata) is dict
+    assert loaded.metadata["key"] == "val"
+    assert loaded.metadata["_source_file"] == "legacy/input.wav"
+
+
+def test_load_wdf_rejects_non_object_metadata_json(tmp_path: Path) -> None:
+    """Malformed WDF metadata JSON fails with an actionable error."""
+    path = tmp_path / "array_metadata.wdf"
+    with h5py.File(path, "w") as f:
+        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["sampling_rate"] = 16000.0
+        f.attrs["label"] = ""
+
+        channels = f.create_group("channels")
+        channel = channels.create_group("0")
+        channel.create_dataset("data", data=np.array([1.0, 2.0, 3.0], dtype=np.float32))
+        channel.attrs["label"] = ""
+        channel.attrs["unit"] = ""
+
+        meta = f.create_group("meta")
+        meta.attrs["json"] = json.dumps(["not", "a", "dict"])
+
+    with pytest.raises(ValueError, match="WDF meta/json must decode to a JSON object"):
+        ChannelFrame.load(path)
+
+
+@pytest.mark.parametrize("scheme", ["https", "HTTPS"])
+def test_load_wdf_from_url(tmp_path: Path, scheme: str) -> None:
     """Test WDF load from mocked URL preserves data and metadata (Pillar 2, 4).
 
     Verifies urlopen is called, numerical data matches (rtol=1e-5 for float32),
@@ -355,7 +438,7 @@ def test_load_wdf_from_url(tmp_path: Path) -> None:
     cf.save(wdf_path)
     wdf_bytes = wdf_path.read_bytes()
 
-    url = "https://example.com/data/test_url.wdf"
+    url = f"{scheme}://example.com/data/test_url.wdf"
     with _mock_urlopen(wdf_bytes) as mock_fn:
         cf2 = wdf_io.load(url)
 
@@ -385,6 +468,20 @@ def test_load_wdf_from_url_download_failure() -> None:
             wdf_io.load(url)
 
 
+def test_load_wdf_missing_h5py_does_not_download_url() -> None:
+    """Missing h5py fails before downloading a remote WDF file."""
+    url = "https://example.com/data/large.wdf"
+
+    with (
+        patch.object(wdf_io, "require_h5py", side_effect=ImportError('Install it with: pip install "wandas[io]"')),
+        patch("urllib.request.urlopen") as mock_urlopen,
+    ):
+        with pytest.raises(ImportError, match=r"wandas\[io\]"):
+            wdf_io.load(url)
+
+    mock_urlopen.assert_not_called()
+
+
 def test_decode_hdf5_str_invalid_utf8() -> None:
     """_decode_hdf5_str falls back to str() for non-UTF-8 bytes (lines 39-42)."""
     from wandas.io.wdf_io import _decode_hdf5_str
@@ -394,6 +491,47 @@ def test_decode_hdf5_str_invalid_utf8() -> None:
     # Should return str() fallback rather than raising
     assert isinstance(result, str)
     assert result == str(invalid_bytes)
+
+
+def test_load_wdf_decodes_channel_label_and_unit_bytes(tmp_path: Path) -> None:
+    """Legacy HDF5 byte string channel attrs load as text metadata."""
+    path = tmp_path / "byte_channel_attrs.wdf"
+    with h5py.File(path, "w") as f:
+        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["sampling_rate"] = 16000.0
+        f.attrs["label"] = ""
+
+        channels = f.create_group("channels")
+        channel = channels.create_group("0")
+        channel.create_dataset("data", data=np.array([1.0, 2.0, 3.0], dtype=np.float32))
+        channel.attrs["label"] = np.bytes_(b"mic0")
+        channel.attrs["unit"] = np.bytes_(b"Pa")
+
+    loaded = ChannelFrame.load(path)
+
+    assert loaded.channels[0].label == "mic0"
+    assert loaded.channels[0].unit == "Pa"
+    assert loaded.channels[0].ref == 2e-5
+
+
+def test_load_wdf_decodes_frame_label_bytes(tmp_path: Path) -> None:
+    """Legacy HDF5 byte string frame labels load as text labels."""
+    path = tmp_path / "byte_frame_label.wdf"
+    with h5py.File(path, "w") as f:
+        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["sampling_rate"] = 16000.0
+        f.attrs["label"] = np.bytes_(b"legacy-label")
+
+        channels = f.create_group("channels")
+        channel = channels.create_group("0")
+        channel.create_dataset("data", data=np.array([1.0, 2.0, 3.0], dtype=np.float32))
+        channel.attrs["label"] = "mic0"
+        channel.attrs["unit"] = "Pa"
+
+    loaded = ChannelFrame.load(path)
+
+    assert loaded.label == "legacy-label"
+    assert loaded.channels[0].label == "mic0"
 
 
 def test_load_wdf_meta_json_as_bytes(tmp_path: Path) -> None:

@@ -15,9 +15,9 @@
 
 ## 📚 学習の流れ
 
-この学習パスは以下のノートブックで構成されています。各ノートブックは独立しており、順番に進めることも、興味のある部分だけを学ぶことも可能です。
+この学習パスは以下のmarimoアプリで構成されています。各marimoアプリは独立しており、順番に進めることも、興味のある部分だけを学ぶことも可能です。
 
-### 1. [00_why_wandas.ipynb](00_why_wandas.ipynb) - Wandasとは何か
+### 1. [00_why_wandas.py](00_why_wandas.py) - Wandasとは何か
 
 **なぜWandasが必要なのか？**
 
@@ -25,15 +25,15 @@
 - Wandasの特徴と利点
 - どんな問題を解決できるか
 
-### 2. [01_getting_started.ipynb](01_getting_started.ipynb) - 環境構築とウォームアップ
+### 2. [01_getting_started.py](01_getting_started.py) - 環境構築とウォームアップ
 
 **Wandasを動かしてみよう**
 
 - インストールと環境設定
 - 最初の信号生成と可視化
-- Jupyter環境でのインタラクティブな操作
+- marimo環境での探索的な確認
 
-### 3. [02_working_with_data.ipynb](02_working_with_data.ipynb) - データの読み込みと操作
+### 3. [02_working_with_data.py](02_working_with_data.py) - データの読み込みと操作
 
 **現実のデータをWandasで扱う**
 
@@ -41,7 +41,7 @@
 - ChannelFrameデータ構造の理解
 - データのアクセスと基本操作
 
-### 4. [03_signal_processing_basics.ipynb](03_signal_processing_basics.ipynb) - 信号処理の基礎
+### 4. [03_signal_processing_basics.py](03_signal_processing_basics.py) - 信号処理の基礎
 
 **周波数分析とフィルタリング**
 
@@ -49,7 +49,7 @@
 - ローパス/ハイパス/バンドパスフィルター
 - 実践的なオーディオ処理例
 
-### 5. [04_advanced_signal_processing.ipynb](04_advanced_signal_processing.ipynb) - 高度な信号処理
+### 5. [04_advanced_processing.py](04_advanced_processing.py) - 高度な信号処理
 
 **スペクトログラムと時間周波数分析**
 
@@ -62,12 +62,12 @@
 ### 必要な環境
 
 - Python 3.9+
-- Jupyter Notebook/Lab
+- marimo
 - 基本的な信号処理の知識（なくてもOK）
 
-## 📖 各ノートブックの特徴
+## 📖 各marimoアプリの特徴
 
-| ノートブック | 学習目標 | 実践要素 | 動機付け |
+| marimoアプリ | 学習目標 | 実践要素 | 動機付け |
 |-------------|---------|---------|---------|
 | 00_why_wandas | Wandas理解 | 概念説明 | なぜ必要か |
 | 01_getting_started | 環境構築 | インストール | すぐに始める |

@@ -9,6 +9,7 @@ from scipy import signal as ss
 from scipy.signal import ShortTimeFFT as ScipySTFT
 from scipy.signal import get_window
 
+import wandas.processing.spectral as spectral_module
 from wandas.processing.base import create_operation, get_operation
 from wandas.processing.spectral import (
     CSD,
@@ -652,6 +653,57 @@ class TestSTFTOperation:
             rtol=1e-6,
             atol=1e-5,
         )
+
+
+@pytest.mark.parametrize(
+    "operation",
+    [
+        NOctSpectrum(_SR, 24, 12600),
+        NOctSynthesis(_SR, 24, 12600),
+    ],
+)
+def test_direct_noct_process_preflights_dependencies(monkeypatch: pytest.MonkeyPatch, operation: object) -> None:
+    original_error = ImportError('Install it with: pip install "wandas[psychoacoustic]"')
+    calls: list[str] = []
+
+    def raise_import_error(feature: str) -> None:
+        calls.append(feature)
+        raise original_error
+
+    monkeypatch.setattr(spectral_module, "require_mosqito_center_freq", raise_import_error)
+    monkeypatch.setattr(operation, "_delayed", lambda _data: pytest.fail("created graph before checking mosqito"))
+
+    with pytest.raises(ImportError) as exc_info:
+        getattr(operation, "process")(da_from_array(np.zeros((1, 16)), chunks=(1, -1)))
+
+    assert exc_info.value is original_error
+    assert calls == ["NOctFrame"]
+
+
+def test_direct_noct_process_array_preflights_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
+    original_error = ImportError('Install it with: pip install "wandas[psychoacoustic]"')
+
+    def raise_import_error(*args: object, **kwargs: object) -> None:
+        raise original_error
+
+    operation = NOctSpectrum(_SR, 24, 12600)
+    monkeypatch.setattr(spectral_module, "require_mosqito_center_freq", raise_import_error)
+    monkeypatch.setattr(operation, "_delayed", lambda _data: pytest.fail("created graph before checking mosqito"))
+
+    with pytest.raises(ImportError) as exc_info:
+        operation.process_array(np.zeros((1, 16)))
+
+    assert exc_info.value is original_error
+
+
+def test_direct_noct_process_array_continues_after_dependency_preflight(monkeypatch: pytest.MonkeyPatch) -> None:
+    operation = NOctSpectrum(_SR, 24, 12600)
+    delayed_result = object()
+
+    monkeypatch.setattr(spectral_module, "require_mosqito_center_freq", lambda feature: None)
+    monkeypatch.setattr(operation, "_delayed", lambda _data: delayed_result)
+
+    assert operation.process_array(np.zeros((1, 16))) is delayed_result
 
 
 class TestNOctSynthesisOperation:

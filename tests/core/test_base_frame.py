@@ -1,5 +1,6 @@
 import math
 import re
+from collections.abc import Sequence
 from typing import Any, cast
 from unittest import mock
 
@@ -42,6 +43,7 @@ class OutputFrameWithoutSourceOffset(ConcreteFrame):
         metadata: dict[str, Any] | None = None,
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: list[ChannelMetadata] | None = None,
+        channel_ids: list[str] | None = None,
         previous: BaseFrame[Any] | None = None,
     ) -> None:
         super().__init__(
@@ -51,6 +53,7 @@ class OutputFrameWithoutSourceOffset(ConcreteFrame):
             metadata=metadata,
             operation_history=operation_history,
             channel_metadata=channel_metadata,
+            channel_ids=channel_ids,
             previous=previous,
         )
 
@@ -618,8 +621,13 @@ def test_to_tensor_torch_missing_raises_import_error() -> None:
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
 
-    with mock.patch("importlib.util.find_spec", return_value=None):
-        with pytest.raises(ImportError):
+    with mock.patch(
+        "wandas.core.base_frame.require_dependency",
+        side_effect=ImportError(
+            "tensor conversion requires optional dependency 'torch'.\nInstall it with: pip install \"wandas[ml]\""
+        ),
+    ):
+        with pytest.raises(ImportError, match=r'pip install "wandas\[ml\]"'):
             cf.to_tensor(framework="torch")
 
 
@@ -629,8 +637,13 @@ def test_to_tensor_tensorflow_missing_raises_import_error() -> None:
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
 
-    with mock.patch("importlib.util.find_spec", return_value=None):
-        with pytest.raises(ImportError):
+    with mock.patch(
+        "wandas.core.base_frame.require_dependency",
+        side_effect=ImportError(
+            "tensor conversion requires optional dependency 'tensorflow'.\nInstall it with: pip install \"wandas[ml]\""
+        ),
+    ):
+        with pytest.raises(ImportError, match=r'pip install "wandas\[ml\]"'):
             cf.to_tensor(framework="tensorflow")
 
 
@@ -649,13 +662,11 @@ def test_visualize_graph_exception_returns_none_and_logs(caplog) -> None:
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
 
-    cf._data = mock.MagicMock()
-    cf._data.visualize.side_effect = RuntimeError("viz fail")
-
-    with caplog.at_level("WARNING"):
-        res = cf.visualize_graph("out.png")
-        assert res is None
-        assert "Failed to visualize the graph" in caplog.text
+    with mock.patch.object(type(cf._data), "visualize", side_effect=RuntimeError("viz fail")):
+        with caplog.at_level("WARNING"):
+            res = cf.visualize_graph("out.png")
+            assert res is None
+            assert "Failed to visualize the graph" in caplog.text
 
 
 class TestBaseFrameChannelMetadata:
@@ -701,11 +712,11 @@ class TestBaseFrameChannelMetadata:
         assert frame.channels[1].label == "right"
         assert isinstance(frame._data, DaArray)
 
-    def test_channel_metadata_invalid_label_type_raises_value_error(self) -> None:
-        """Test that dict with non-string label raises ValueError."""
+    def test_channel_metadata_invalid_extra_type_raises_value_error(self) -> None:
+        """Test that dict with non-dict extra raises ValueError."""
         invalid_metadata = [
             {"label": "ch0", "unit": "V", "extra": {}},
-            {"label": 123, "unit": "A", "extra": {}},  # Invalid: label must be str
+            {"label": "ch1", "unit": "A", "extra": "invalid"},  # Invalid: extra must be dict
         ]
         with pytest.raises(ValueError, match="Invalid channel_metadata at index 1"):
             ChannelFrame(
@@ -926,7 +937,8 @@ class TestBaseFrameUtilityMethods:
     def test_channels_property_returns_metadata_list(self) -> None:
         """Test channels property."""
         channels = self.channel_frame.channels
-        assert isinstance(channels, list)
+        assert isinstance(channels, Sequence)
+        assert not isinstance(channels, list)
         assert len(channels) == 2
         assert all(isinstance(ch, ChannelMetadata) for ch in channels)
 
@@ -1242,7 +1254,8 @@ class TestBaseFrameEdgeCases:
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
         result = frame[1:2]
-        assert isinstance(result.channels, list)
+        assert isinstance(result.channels, Sequence)
+        assert not isinstance(result.channels, list)
         assert len(result.channels) == 1
         assert isinstance(result._data, DaArray)
         assert result is not frame
@@ -1278,7 +1291,8 @@ class TestBaseFrameEdgeCases:
 
         # This should trigger the isinstance check on line 369
         result = frame[1:2]
-        assert isinstance(result.channels, list)
+        assert isinstance(result.channels, Sequence)
+        assert not isinstance(result.channels, list)
         assert len(result.channels) == 1
 
 
@@ -1291,7 +1305,8 @@ class TestBaseFrameSingleChannelMetadata:
 
         single_channel = signal[0]
         assert single_channel.n_channels == 1
-        assert isinstance(single_channel.channels, list)
+        assert isinstance(single_channel.channels, Sequence)
+        assert not isinstance(single_channel.channels, list)
         assert isinstance(single_channel._data, DaArray)
 
 
@@ -1345,7 +1360,7 @@ class TestBaseFrameInfoAndDataframe:
 
         # Verify all expected information is present
         assert "Channels: 1" in output
-        assert f"Sampling rate: {self.sample_rate} Hz" in output
+        assert f"Sampling rate: {float(self.sample_rate)} Hz" in output
         assert "Duration: 1.0 s" in output
         assert f"Samples: {self.channel_frame.n_samples}" in output
         assert "Channel labels: ['ch0']" in output

@@ -5,10 +5,11 @@ from pathlib import Path
 from typing import Any, BinaryIO, ClassVar, TypedDict, cast
 
 import numpy as np
-import pandas as pd
 import soundfile as sf
 from numpy.typing import ArrayLike
 from scipy.io import wavfile
+
+from wandas.utils.optional_imports import require_pandas
 
 logger = logging.getLogger(__name__)
 
@@ -104,10 +105,22 @@ class FileReader(ABC):
         # pragma: no cover
 
     @classmethod
+    def _normalize_supported_extensions(cls) -> list[str]:
+        """Return normalized reader extensions in lowercase dot form."""
+        normalized_extensions: list[str] = []
+        for extension in cls.supported_extensions:
+            normalized_extension = _normalize_extension(extension)
+            if normalized_extension is not None:
+                normalized_extensions.append(normalized_extension)
+        return normalized_extensions
+
+    @classmethod
     def can_read(cls, path: str | Path) -> bool:
         """Check if this reader can handle the file based on extension."""
-        ext = Path(path).suffix.lower()
-        return ext in cls.supported_extensions
+        ext = _normalize_extension(Path(path).suffix)
+        if ext is None:
+            return False
+        return ext in cls._normalize_supported_extensions()
 
 
 class SoundFileReader(FileReader):
@@ -242,6 +255,7 @@ class CSVFileReader(FileReader):
         time_column: int | str = kwargs.get("time_column", 0)
 
         # Read first few lines to determine structure
+        pd = require_pandas("CSV file reading")
         df = pd.read_csv(_prepare_file_source(path), delimiter=delimiter, header=header)
 
         # Estimate sampling rate from first column (assuming it's time)
@@ -319,6 +333,7 @@ class CSVFileReader(FileReader):
         logger.debug(f"Reading CSV data from {path!r} starting at {start_idx}")
 
         # Read the CSV file
+        pd = require_pandas("CSV file reading")
         df = pd.read_csv(_prepare_file_source(path), delimiter=delimiter, header=header)
 
         # Remove time column
@@ -361,6 +376,14 @@ def _normalize_extension(file_type: str | None) -> str | None:
     return ext
 
 
+def supported_formats() -> list[str]:
+    """Return file extensions supported by the registered readers."""
+    extensions: set[str] = set()
+    for reader in _file_readers:
+        extensions.update(reader.__class__._normalize_supported_extensions())
+    return sorted(extensions)
+
+
 def _prepare_file_source(
     source: str | Path | bytes | bytearray | memoryview | BinaryIO,
 ) -> str | BinaryIO:
@@ -400,7 +423,7 @@ def get_file_reader(
 
     # Try each reader in order
     for reader in _file_readers:
-        if ext in reader.__class__.supported_extensions:
+        if ext in reader.__class__._normalize_supported_extensions():
             logger.debug(f"Using {reader.__class__.__name__} for {path_str}")
             return reader
 

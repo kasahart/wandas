@@ -18,11 +18,60 @@ from wandas.utils.frame_dataset import (
     FrameDataset,
     LazyFrame,  # Import new class
     SpectrogramFrameDataset,
+    _progress,
     _SampledFrameDataset,
 )
 from wandas.utils.types import NDArrayReal
 
 _da_from_array = da.from_array
+
+
+def test_progress_returns_original_iterable_without_tqdm(monkeypatch: pytest.MonkeyPatch) -> None:
+    original_import_module = __import__("importlib").import_module
+
+    def fake_import_module(name: str):
+        if name == "tqdm.auto":
+            raise ModuleNotFoundError("No module named 'tqdm'", name="tqdm")
+        return original_import_module(name)
+
+    monkeypatch.setattr("wandas.utils.frame_dataset.importlib.import_module", fake_import_module)
+
+    iterable = range(3)
+
+    assert _progress(iterable, desc="Loading") is iterable
+
+
+def test_progress_wraps_iterable_with_tqdm(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeTqdmModule:
+        @staticmethod
+        def tqdm(iterable: range, *, desc: str) -> tuple[range, str]:
+            return iterable, desc
+
+    def fake_import_module(name: str) -> FakeTqdmModule:
+        assert name == "tqdm.auto"
+        return FakeTqdmModule()
+
+    monkeypatch.setattr("wandas.utils.frame_dataset.importlib.import_module", fake_import_module)
+
+    iterable = range(2)
+
+    assert _progress(iterable, desc="Loading") == (iterable, "Loading")
+
+
+def test_progress_reraises_tqdm_transitive_import_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    original_error = ModuleNotFoundError("No module named 'missing_dependency'", name="missing_dependency")
+
+    def fake_import_module(name: str) -> None:
+        assert name == "tqdm.auto"
+        raise original_error
+
+    monkeypatch.setattr("wandas.utils.frame_dataset.importlib.import_module", fake_import_module)
+
+    with pytest.raises(ModuleNotFoundError) as exc_info:
+        _progress(range(1), desc="Loading")
+
+    assert exc_info.value is original_error
+
 
 # --- Test Fixtures ---
 
@@ -85,6 +134,29 @@ def create_test_files(
     empty_subdir.mkdir()
 
     return tmp_path
+
+
+def test_channel_frame_dataset_default_extensions_exclude_mp3(tmp_path: Path) -> None:
+    (tmp_path / "readable.wav").write_bytes(b"")
+    (tmp_path / "ignored.mp3").write_bytes(b"")
+    (tmp_path / "readable.csv").write_text("time,ch1\n0.0,1.0\n", encoding="utf-8")
+
+    dataset = ChannelFrameDataset.from_folder(str(tmp_path))
+
+    names = [lazy_frame.file_path.name for lazy_frame in dataset._lazy_frames]
+    assert names == ["readable.csv", "readable.wav"]
+    assert dataset.file_extensions == [".aif", ".aiff", ".csv", ".flac", ".ogg", ".snd", ".wav"]
+
+
+def test_channel_frame_dataset_explicit_extensions_can_include_mp3(tmp_path: Path) -> None:
+    (tmp_path / "explicit.mp3").write_bytes(b"")
+    (tmp_path / "ignored.wav").write_bytes(b"")
+
+    dataset = ChannelFrameDataset.from_folder(str(tmp_path), file_extensions=[".mp3"])
+
+    names = [lazy_frame.file_path.name for lazy_frame in dataset._lazy_frames]
+    assert names == ["explicit.mp3"]
+    assert dataset.file_extensions == [".mp3"]
 
 
 # --- Test LazyFrame ---
@@ -212,7 +284,15 @@ class TestChannelFrameDataset:
         assert all(not lf.is_loaded for lf in dataset._lazy_frames)
         assert all(lf.frame is None for lf in dataset._lazy_frames)
         assert dataset.folder_path == folder_path
-        assert dataset.file_extensions == [".wav", ".mp3", ".flac", ".csv"]  # Default extensions
+        assert dataset.file_extensions == [
+            ".aif",
+            ".aiff",
+            ".csv",
+            ".flac",
+            ".ogg",
+            ".snd",
+            ".wav",
+        ]  # Default extensions
         assert dataset._recursive is False
 
     def test_init_eager_loads_all_frames(self, create_test_files: Path) -> None:

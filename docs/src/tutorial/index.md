@@ -5,6 +5,16 @@ This tutorial will teach you the basics of the Wandas library in 5 minutes.
 
 ## Installation / インストール
 
+Recommended for the learning apps, WDF examples, and psychoacoustic cells:
+学習アプリ、WDF 例、音響解析セルを使う場合の推奨インストール:
+
+```bash
+pip install "wandas[marimo,io,psychoacoustic]"
+```
+
+Core-only install:
+core-only インストール:
+
 ```bash
 pip install wandas
 ```
@@ -25,20 +35,20 @@ import wandas as wd
 ### 2. Load Audio Files / 音声ファイルの読み込み
 
 ```python
-# Load a WAV file / WAVファイルを読み込む
+# Read a signal file / 信号ファイルを読み込む
 url = "https://github.com/kasahart/wandas/raw/v0.1.6/examples/data/summer_streets1.wav"
 
-audio = wd.read_wav(url)
+audio = wd.read(url)
 print(f"Sampling rate / サンプリングレート: {audio.sampling_rate} Hz")
 print(f"Number of channels / チャンネル数: {audio.n_channels}")
 print(f"Duration / 長さ: {audio.duration} s")
 ```
 
 ```python exec="on" session="wd_demo"
-# Load a WAV file / WAVファイルを読み込む
+# Read a signal file / 信号ファイルを読み込む
 url = "https://github.com/kasahart/wandas/raw/v0.1.6/examples/data/summer_streets1.wav"
 
-audio = wd.read_wav(url)
+audio = wd.read(url)
 print(f"Sampling rate / サンプリングレート: {audio.sampling_rate} Hz  ")
 print(f"Number of channels / チャンネル数: {audio.n_channels}  ")
 print(f"Duration / 長さ: {audio.duration} s  ")
@@ -111,8 +121,8 @@ cf.get_channel(0, query=lambda ch: ch.unit == 'g')
 cf.get_channel(0, query={"unit": "g", "gain": 0.8})
 ```
 
-Note: Keys specified in dict are only allowed for model fields of `ChannelMetadata` (pydantic) or existing keys in the channel's `extra`. Passing unknown keys will raise a `KeyError`.
-注意: dict で指定するキーは `ChannelMetadata` のモデルフィールド（pydantic）または既に存在するチャネルの `extra` キーのみ許容されます。不明なキーを渡すと `KeyError` が発生します。
+Note: Keys specified in dict are only allowed for dataclass fields of `ChannelMetadata` or existing keys in the channel's `extra`. Passing unknown keys will raise a `KeyError`.
+注意: dict で指定するキーは `ChannelMetadata` のデータクラスフィールドまたは既に存在するチャネルの `extra` キーのみ許容されます。不明なキーを渡すと `KeyError` が発生します。
 
 ## Next Steps / 次のステップ
 
@@ -125,8 +135,8 @@ Note: Keys specified in dict are only allowed for model fields of `ChannelMetada
 
 ## Learning Path / 学習パス
 
-This section provides links to tutorial notebooks that demonstrate more detailed features and application examples of the Wandas library.
-このセクションでは、Wandasライブラリのより詳細な機能や応用例を、以下のチュートリアルノートブックを通じて学ぶことができます。
+This section provides links to tutorial marimo apps that demonstrate more detailed features and application examples of the Wandas library.
+このセクションでは、Wandasライブラリのより詳細な機能や応用例を、以下のチュートリアル marimo アプリを通じて学ぶことができます。
 
 - <a href="../learning-path/00_why_wandas.html">Learning Path — 00_Why Wandas (marimo)</a>: Overview and motivation / 概要と動機付け
 - <a href="../learning-path/01_getting_started.html">Learning Path — 01_Getting Started (marimo)</a>: Setup and basic configuration / セットアップと基本的な設定

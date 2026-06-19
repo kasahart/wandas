@@ -1,19 +1,20 @@
 """Roughness analysis frame for detailed psychoacoustic analysis."""
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import pandas as pd
 from dask.array.core import Array as DaArray
 
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
+from wandas.utils.optional_imports import require_matplotlib_pyplot
 from wandas.utils.types import NDArrayReal
 
 if TYPE_CHECKING:
+    import pandas as pd
     from matplotlib.axes import Axes
 
 logger = logging.getLogger(__name__)
@@ -74,7 +75,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
     Create a roughness frame from a signal:
 
     >>> import wandas as wd
-    >>> signal = wd.read_wav("motor.wav")
+    >>> signal = wd.read("motor.wav")
     >>> roughness_spec = signal.roughness_dw_spec(overlap=0.5)
     >>>
     >>> # Plot Bark-Time heatmap
@@ -116,7 +117,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         label: str | None = None,
         metadata: dict[str, Any] | None = None,
         operation_history: list[dict[str, Any]] | None = None,
-        channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
+        channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
+        channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
         source_time_offset: float = 0.0,
     ) -> None:
@@ -151,6 +153,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             metadata=metadata,
             operation_history=operation_history,
             channel_metadata=channel_metadata,
+            channel_ids=channel_ids,
             previous=previous,
             source_time_offset=source_time_offset,
         )
@@ -240,19 +243,11 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         """
         return self._overlap
 
-    @property
-    def _n_channels(self) -> int:
-        """
-        Return the number of channels.
-
-        Returns
-        -------
-        int
-            Number of channels. For 2D data (mono), returns 1.
-        """
-        if self._data.ndim == 2:
+    def _channel_count_from_data(self, data: DaArray) -> int:
+        """Return the number of channels for mono or channel-bark-time data."""
+        if data.ndim == 2:
             return 1
-        return int(self._data.shape[0])
+        return int(data.shape[-3])
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
         """
@@ -350,7 +345,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             label=self.label,
             metadata=metadata,
             operation_history=operation_history,
-            channel_metadata=self._channel_metadata,
+            channel_metadata=self.channels.to_list(),
+            channel_ids=self._channel_ids,
             previous=self,
             source_time_offset=self.source_time_offset,
         )
@@ -406,11 +402,11 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         Examples
         --------
         >>> import wandas as wd
-        >>> signal = wd.read_wav("motor.wav")
+        >>> signal = wd.read("motor.wav")
         >>> roughness_spec = signal.roughness_dw_spec(overlap=0.5)
         >>> roughness_spec.plot(cmap="hot", title="Motor Roughness Analysis")
         """
-        import matplotlib.pyplot as plt
+        plt = require_matplotlib_pyplot("roughness plot")
 
         if ax is None:
             _, ax = plt.subplots(figsize=(10, 6))

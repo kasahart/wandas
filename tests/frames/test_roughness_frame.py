@@ -1,5 +1,9 @@
 """Tests for RoughnessFrame class."""
 
+import subprocess
+import sys
+import textwrap
+
 import dask.array as da
 import numpy as np
 import pytest
@@ -17,6 +21,50 @@ _rng = np.random.default_rng(42)
 _DATA_MONO = da.from_array(_rng.random((_N_BARK, _N_TIME)), chunks=(47, 5))
 _DATA_STEREO = da.from_array(_rng.random((2, _N_BARK, _N_TIME)), chunks=(1, 47, 5))
 _BARK_AXIS = np.linspace(0.5, 23.5, _N_BARK)
+
+
+def test_plot_missing_matplotlib_has_core_install_hint() -> None:
+    script = """
+        import importlib.abc
+        import sys
+
+        class BlockMatplotlib(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path, target=None):
+                if fullname.split(".", 1)[0] == "matplotlib":
+                    raise ModuleNotFoundError("No module named 'matplotlib'", name="matplotlib")
+                return None
+
+        sys.meta_path.insert(0, BlockMatplotlib())
+
+        import dask.array as da
+        import numpy as np
+        from wandas.frames.roughness import RoughnessFrame
+
+        frame = RoughnessFrame(
+            data=da.from_array(np.ones((47, 2)), chunks=(47, 2)),
+            sampling_rate=10.0,
+            bark_axis=np.linspace(0.5, 23.5, 47),
+            overlap=0.5,
+        )
+
+        try:
+            frame.plot()
+        except ImportError as exc:
+            message = str(exc)
+            assert "roughness plot requires core dependency 'matplotlib.pyplot'" in message
+            assert 'pip install "wandas"' in message
+        else:
+            raise AssertionError("Expected ImportError for missing matplotlib")
+    """
+
+    result = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent(script)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
 
 
 class TestRoughnessFrame:
