@@ -428,6 +428,7 @@ class ChannelProcessingMixin:
             dB=dB,
             Aw=Aw,
         )
+        cast(Any, result)._xr.attrs["source_time_range"] = tuple(cast(Any, self).source_time_range)
 
         # Sampling rate update is handled by the Operation class
         return cast(T_Processing, result)

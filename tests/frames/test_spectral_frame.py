@@ -99,6 +99,15 @@ class TestSpectralFrame:
         assert spectrum.previous is trimmed
         assert spectrum.source_time_range == pytest.approx(trimmed.source_time_range)
 
+    def test_fft_source_time_range_reflects_truncated_n_fft(self) -> None:
+        data = da.from_array(np.arange(200, dtype=float).reshape(1, 200), chunks=(1, -1))
+        frame = ChannelFrame(data, sampling_rate=100.0, source_time_offset=10.0)
+
+        spectrum = frame.fft(n_fft=100)
+
+        assert frame.source_time_range == pytest.approx((10.0, 12.0))
+        assert spectrum.source_time_range == pytest.approx((10.0, 11.0))
+
     def test_source_time_range_shifts_previous_range_by_offset_delta(self) -> None:
         previous = ChannelFrame(
             da.from_array(np.arange(8, dtype=float).reshape(1, 8), chunks=(1, -1)),

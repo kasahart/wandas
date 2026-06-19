@@ -144,7 +144,11 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         if self.previous is not None:
             start, end = self.previous.source_time_range
             offset_delta = self.source_time_offset - self.previous.source_time_offset
-            return (start + offset_delta, end + offset_delta)
+            start += offset_delta
+            end += offset_delta
+            if self.operation_history and self.operation_history[-1].get("operation") == "fft":
+                end = min(end, start + self.n_fft / self.sampling_rate)
+            return (start, end)
         return super().source_time_range
 
     @property

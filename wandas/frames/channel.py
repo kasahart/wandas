@@ -1,4 +1,5 @@
 import logging
+import numbers
 import warnings
 from collections.abc import Iterator, Sequence
 from pathlib import Path
@@ -340,6 +341,19 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
     def source_time(self) -> NDArrayReal:
         """Get source-relative time values for each sample."""
         return self.time + self.source_time_offset
+
+    def _source_time_offset_for_indexing(self, time_keys: tuple[Any, ...]) -> float:
+        source_time_offset = self.source_time_offset
+        sample_key = time_keys[-1]
+        sample_axis_length = self.shape[-1]
+        if isinstance(sample_key, slice):
+            source_time_offset += sample_key.indices(sample_axis_length)[0] / self.sampling_rate
+        elif isinstance(sample_key, numbers.Integral):
+            sample_index = int(sample_key)
+            if sample_index < 0:
+                sample_index += sample_axis_length
+            source_time_offset += sample_index / self.sampling_rate
+        return source_time_offset
 
     @property
     def n_samples(self) -> int:

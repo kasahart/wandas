@@ -411,6 +411,16 @@ class TestRmsTrend:
         assert result.time[0] == pytest.approx(0.0)
         assert result.source_time[0] == pytest.approx(3.0)
 
+    def test_rms_trend_source_time_range_is_bounded_by_input_span(self) -> None:
+        data = da.from_array(np.ones((1, 80), dtype=float))
+        frame = ChannelFrame(data, sampling_rate=40.0, source_time_offset=1.0)
+
+        result = frame.rms_trend(frame_length=16, hop_length=8)
+
+        assert result.n_samples == 11
+        assert result.duration == pytest.approx(2.2)
+        assert result.source_time_range == pytest.approx((1.0, 3.0))
+
     def test_rms_trend_centered_frame_values(self) -> None:
         """RMS trend uses centered zero-padded frames with expected values."""
         data = np.array([[1.0, 2.0, 3.0, 4.0]])

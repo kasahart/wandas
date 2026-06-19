@@ -400,6 +400,10 @@ class BaseFrame(ABC, Generic[T]):
     @property
     def source_time_range(self) -> tuple[float, float]:
         """Return the source-relative time span represented by this frame."""
+        stored_range = self._xr.attrs.get("source_time_range")
+        if isinstance(stored_range, tuple | list) and len(stored_range) == 2:
+            start, end = stored_range
+            return (self._validate_source_time_offset(start), self._validate_source_time_offset(end))
         duration = getattr(self, "duration", 0.0)
         if not isinstance(duration, numbers.Real):
             duration = 0.0
@@ -730,6 +734,9 @@ class BaseFrame(ABC, Generic[T]):
 
         raise TypeError(f"Invalid key type: {type(key).__name__}. Expected int, str, slice, list, tuple, or ndarray.")
 
+    def _source_time_offset_for_indexing(self, time_keys: tuple[Any, ...]) -> float:
+        return self.source_time_offset
+
     def _handle_multidim_indexing(
         self: S,
         key: tuple[
@@ -772,16 +779,7 @@ class BaseFrame(ABC, Generic[T]):
         # Apply time indexing if present
         if time_keys:
             new_data = selected._data[(slice(None),) + time_keys]  # noqa: RUF005
-            source_time_offset = selected.source_time_offset
-            sample_key = time_keys[-1]
-            sample_axis_length = selected.shape[-1]
-            if isinstance(sample_key, slice):
-                source_time_offset += sample_key.indices(sample_axis_length)[0] / selected.sampling_rate
-            elif isinstance(sample_key, numbers.Integral):
-                sample_index = int(sample_key)
-                if sample_index < 0:
-                    sample_index += sample_axis_length
-                source_time_offset += sample_index / selected.sampling_rate
+            source_time_offset = selected._source_time_offset_for_indexing(time_keys)
             return selected._create_new_instance(
                 data=new_data,
                 operation_history=selected.operation_history,
@@ -1069,6 +1067,13 @@ class BaseFrame(ABC, Generic[T]):
                     f"Binary frame operations require identical shapes to avoid "
                     f"unintended broadcasting.\n"
                     f"Align the frame shapes before performing {symbol} operation."
+                )
+            if not np.allclose(self.source_time_range, other.source_time_range):
+                raise ValueError(
+                    f"Source time range mismatch\n"
+                    f"  Left operand: {self.source_time_range}\n"
+                    f"  Right operand: {other.source_time_range}\n"
+                    f"Binary frame operations require matching source time ranges."
                 )
 
             result_data = op(self._data, other._data)

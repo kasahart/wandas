@@ -1,4 +1,5 @@
 import logging
+import numbers
 from collections.abc import Iterator, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
@@ -200,6 +201,20 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             Array of time values corresponding to each time frame.
         """
         return np.arange(self.n_frames) * self.hop_length / self.sampling_rate
+
+    def _source_time_offset_for_indexing(self, time_keys: tuple[Any, ...]) -> float:
+        source_time_offset = self.source_time_offset
+        if len(time_keys) >= 2:
+            time_key = time_keys[-1]
+            time_axis_length = self.shape[-1]
+            if isinstance(time_key, slice):
+                source_time_offset += time_key.indices(time_axis_length)[0] * self.hop_length / self.sampling_rate
+            elif isinstance(time_key, numbers.Integral):
+                time_index = int(time_key)
+                if time_index < 0:
+                    time_index += time_axis_length
+                source_time_offset += time_index * self.hop_length / self.sampling_rate
+        return source_time_offset
 
     @property
     def duration(self) -> float:

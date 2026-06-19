@@ -43,6 +43,15 @@ def test_spectrogram_source_time_range_without_previous_uses_duration() -> None:
     assert spec.source_time_range == pytest.approx((2.0, 2.75))
 
 
+def test_spectrogram_time_slice_advances_source_time_offset_by_hop() -> None:
+    data = da.from_array(np.ones((1, 64), dtype=float), chunks=(1, -1))
+    spec = ChannelFrame(data, sampling_rate=32.0, source_time_offset=10.0).stft(n_fft=16, hop_length=8, win_length=16)
+
+    sliced = spec[:, :, 2:]
+
+    assert sliced.source_time_offset == pytest.approx(10.5)
+
+
 @pytest.fixture
 def sample_spectrogram() -> SpectrogramFrame:
     """スペクトログラムのサンプルデータを生成するフィクスチャ"""

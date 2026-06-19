@@ -235,6 +235,18 @@ def test_source_time_offset_rejects_non_numeric_values() -> None:
         )
 
 
+def test_binary_frame_operation_rejects_mismatched_source_time_ranges() -> None:
+    frame = ChannelFrame(
+        da_from_array(np.arange(400, dtype=float).reshape(1, 400), chunks=(1, -1)),
+        sampling_rate=100.0,
+    )
+    left = frame.trim(0.0, 1.0)
+    right = frame.trim(1.0, 2.0)
+
+    with pytest.raises(ValueError, match="Source time range mismatch"):
+        _ = left + right
+
+
 class TestBaseFrameArithmeticOperations:
     """Test arithmetic operations in BaseFrame."""
 
@@ -1100,6 +1112,17 @@ class TestBaseFrameIndexing:
         result = frame[:, -1]
 
         assert result.source_time_offset == pytest.approx(8.99)
+
+    def test_getitem_frequency_slice_does_not_shift_source_time_offset(self) -> None:
+        frame = ChannelFrame(
+            da_from_array(np.arange(64, dtype=float).reshape(1, 64), chunks=(1, -1)),
+            sampling_rate=16.0,
+            source_time_offset=5.0,
+        )
+
+        spectrum = frame.fft(n_fft=32)[:, 10:]
+
+        assert spectrum.source_time_offset == pytest.approx(5.0)
 
     def test_getitem_with_tuple_list_and_time_preserves_dask(self) -> None:
         """Test __getitem__ with list of channels and time slice."""
