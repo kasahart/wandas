@@ -551,6 +551,17 @@ class SingleChannelAxislessFrame(BaseFrame[np.ndarray]):
         return None
 
 
+def test_axisless_frame_stores_source_time_offset_in_attrs() -> None:
+    data = da_from_array(np.arange(4, dtype=float), chunks=(4,))
+    frame = SingleChannelAxislessFrame(data, sampling_rate=100.0, source_time_offset=2.5)
+
+    xr_data = frame.to_xarray()
+
+    assert "source_time_offset" not in xr_data.coords
+    np.testing.assert_array_equal(xr_data.attrs["source_time_offset"], np.array([2.5]))
+    np.testing.assert_array_equal(frame.source_time_offset, np.array([2.5]))
+
+
 def test_data_property_rejects_non_dask_xarray_storage():
     f = make_frame(np.arange(6).reshape(2, 3))
     f._xr = xr.DataArray(np.arange(6).reshape(2, 3), dims=("dim_0", "dim_1"))

@@ -1346,7 +1346,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         new_ids = [*self._channel_ids, self._next_channel_id()]
         new_chmeta = [*self.channels.to_list(), ChannelMetadata(label=new_label)]
-        new_offsets = np.concatenate([self.source_time_offset, self.source_time_offset[:1]])
+        new_offsets = np.concatenate([self.source_time_offset, np.array([0.0])])
         return self._finalize_channel_update(new_data, new_chmeta, inplace, new_ids, new_offsets)
 
     def remove_channel(self, key: int | str, inplace: bool = False) -> "ChannelFrame":

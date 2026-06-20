@@ -96,7 +96,6 @@ def save(
         f.attrs["sampling_rate"] = frame.sampling_rate
         f.attrs["label"] = frame.label or ""
         f.attrs["frame_type"] = type(frame).__name__
-        f.attrs["source_time_offset"] = frame.source_time_offset
         f.attrs["channel_ids_json"] = json.dumps(frame._channel_ids)
 
         # Create channels group
@@ -116,6 +115,7 @@ def save(
             ch_grp.attrs["label"] = ch_meta.label
             ch_grp.attrs["unit"] = ch_meta.unit
             ch_grp.attrs["ref"] = ch_meta.ref
+            ch_grp.attrs["source_time_offset"] = frame.source_time_offset[i]
 
             # Store extra metadata as JSON
             if ch_meta.extra:
@@ -221,7 +221,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
         # Get global attributes
         sampling_rate = float(f.attrs["sampling_rate"])
         frame_label = _decode_hdf5_str(f.attrs.get("label", ""))
-        source_time_offset = f.attrs.get("source_time_offset", 0.0)
+        legacy_source_time_offset = f.attrs.get("source_time_offset", None)
 
         # Get frame metadata
         frame_metadata: dict[str, Any] = {}
@@ -259,6 +259,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
         # Load channel data and metadata
         all_channel_data = []
         channel_metadata_list = []
+        channel_source_time_offsets = []
         channel_ids = None
         if "channel_ids_json" in f.attrs:
             parsed_channel_ids = json.loads(_decode_hdf5_str(f.attrs["channel_ids_json"]))
@@ -283,6 +284,8 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
                 label = _decode_hdf5_str(ch_group.attrs.get("label", f"Ch{idx}"))
                 unit = _decode_hdf5_str(ch_group.attrs.get("unit", ""))
                 ref = float(ch_group.attrs["ref"]) if "ref" in ch_group.attrs else None
+                if "source_time_offset" in ch_group.attrs:
+                    channel_source_time_offsets.append(float(ch_group.attrs["source_time_offset"]))
 
                 # Load additional metadata if present
                 ch_extra = {}
@@ -301,6 +304,13 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
             combined_data = np.stack(all_channel_data, axis=0)
         else:
             raise ValueError("No channel data found in the file")
+
+        if channel_source_time_offsets:
+            source_time_offset = channel_source_time_offsets
+        elif legacy_source_time_offset is not None:
+            source_time_offset = legacy_source_time_offset
+        else:
+            source_time_offset = 0.0
 
         # Create a new ChannelFrame
         # Use channel-wise chunking: 1 for channel axis and -1 for samples

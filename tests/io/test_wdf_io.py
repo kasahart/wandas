@@ -53,10 +53,56 @@ def test_wdf_roundtrip_preserves_source_time_offset(known_signal_frame, tmp_path
     path = tmp_path / "source_time_offset.wdf"
 
     known_signal_frame.save(path)
+    with h5py.File(path, "r") as f:
+        assert "source_time_offset" not in f.attrs
+        assert f["channels"]["0"].attrs["source_time_offset"] == 3.25
+        assert f["channels"]["1"].attrs["source_time_offset"] == 7.5
+
     loaded = ChannelFrame.load(path)
 
     np.testing.assert_array_equal(loaded.source_time_offset, np.array([3.25, 7.5]))
     np.testing.assert_array_equal(loaded.source_time[:, 0], np.array([3.25, 7.5]))
+
+
+def test_wdf_load_channel_source_time_offset_takes_priority_over_root(tmp_path: Path) -> None:
+    """New channel attr offsets take priority over legacy root offsets."""
+    path = tmp_path / "channel_offset_priority.wdf"
+    with h5py.File(path, "w") as f:
+        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["sampling_rate"] = 16000.0
+        f.attrs["label"] = ""
+        f.attrs["source_time_offset"] = np.array([99.0, 100.0])
+        channels = f.create_group("channels")
+        for i, offset in enumerate([1.25, 2.5]):
+            channel = channels.create_group(str(i))
+            channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
+            channel.attrs["label"] = f"mic{i}"
+            channel.attrs["unit"] = ""
+            channel.attrs["source_time_offset"] = offset
+
+    loaded = ChannelFrame.load(path)
+
+    np.testing.assert_array_equal(loaded.source_time_offset, np.array([1.25, 2.5]))
+
+
+def test_wdf_load_legacy_root_source_time_offset(tmp_path: Path) -> None:
+    """Legacy root source_time_offset remains readable."""
+    path = tmp_path / "legacy_root_offset.wdf"
+    with h5py.File(path, "w") as f:
+        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["sampling_rate"] = 16000.0
+        f.attrs["label"] = ""
+        f.attrs["source_time_offset"] = np.array([4.0, 8.0])
+        channels = f.create_group("channels")
+        for i in range(2):
+            channel = channels.create_group(str(i))
+            channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
+            channel.attrs["label"] = f"mic{i}"
+            channel.attrs["unit"] = ""
+
+    loaded = ChannelFrame.load(path)
+
+    np.testing.assert_array_equal(loaded.source_time_offset, np.array([4.0, 8.0]))
 
 
 def test_wdf_load_defaults_missing_source_time_offset_to_zero(tmp_path: Path) -> None:

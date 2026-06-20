@@ -88,7 +88,9 @@ class TestChannelFrame:
 
         np.testing.assert_array_equal(cf.source_time_offset, np.array([2.5, 2.5]))
         np.testing.assert_array_equal(cf.source_time, cf.time[None, :] + np.array([[2.5], [2.5]]))
-        np.testing.assert_array_equal(cf.to_xarray().attrs["source_time_offset"], np.array([2.5, 2.5]))
+        xr = cf.to_xarray()
+        np.testing.assert_array_equal(xr.coords["source_time_offset"].values, np.array([2.5, 2.5]))
+        assert "source_time_offset" not in xr.attrs
 
     def test_source_time_offset_accepts_per_channel_values(self) -> None:
         """source_time_offset is stored per channel."""
@@ -533,7 +535,7 @@ def test_channel_update_helpers_preserve_source_time_offset() -> None:
     added = base.add_channel(np.zeros(6), label="new_ch")
     removed = added.remove_channel("new_ch")
 
-    np.testing.assert_array_equal(added.source_time_offset, np.array([2.5, 2.5]))
+    np.testing.assert_array_equal(added.source_time_offset, np.array([2.5, 0.0]))
     np.testing.assert_array_equal(removed.source_time_offset, np.array([2.5]))
 
 

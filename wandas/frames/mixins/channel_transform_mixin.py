@@ -37,8 +37,8 @@ def _build_cross_channel_metadata(
     from wandas.core.metadata import ChannelMetadata
 
     result = []
-    for in_ch in channel_metadata:
-        for out_ch in channel_metadata:
+    for out_ch in channel_metadata:
+        for in_ch in channel_metadata:
             meta = ChannelMetadata()
             meta.label = label_template.format(in_label=in_ch.label, out_label=out_ch.label)
             meta.unit = ""
@@ -52,8 +52,8 @@ def _build_cross_channel_source_time_offsets(source_time_offset: Any) -> Any:
     """Build pairwise source offsets for cross-channel spectral outputs."""
     offsets = np.asarray(source_time_offset, dtype=float)
     result: list[float] = []
-    for in_offset in offsets:
-        for _out_offset in offsets:
+    for _out_offset in offsets:
+        for in_offset in offsets:
             result.append(float(in_offset))
     return np.asarray(result, dtype=float)
 

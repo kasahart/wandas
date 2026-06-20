@@ -308,7 +308,44 @@ class TestChannelTransform:
 
         csd_frame = cf.csd(n_fft=512, win_length=256, hop_length=128)
 
-        np.testing.assert_array_equal(csd_frame.source_time_offset, np.array([0.0, 0.0, 5.0, 5.0]))
+        np.testing.assert_array_equal(csd_frame.source_time_offset, np.array([0.0, 5.0, 0.0, 5.0]))
+
+    @pytest.mark.parametrize(
+        ("method_name", "expected_labels"),
+        [
+            ("csd", ["csd(left, left)", "csd(right, left)", "csd(left, right)", "csd(right, right)"]),
+            (
+                "coherence",
+                [
+                    "$\\gamma_{left, left}$",
+                    "$\\gamma_{right, left}$",
+                    "$\\gamma_{left, right}$",
+                    "$\\gamma_{right, right}$",
+                ],
+            ),
+            (
+                "transfer_function",
+                ["$H_{left, left}$", "$H_{right, left}$", "$H_{left, right}$", "$H_{right, right}$"],
+            ),
+        ],
+    )
+    def test_cross_channel_transform_metadata_and_offsets_follow_flattened_order(
+        self,
+        method_name: str,
+        expected_labels: list[str],
+    ) -> None:
+        cf = ChannelFrame.from_numpy(
+            _DATA,
+            _SAMPLE_RATE,
+            ch_labels=["left", "right"],
+        )
+        cf.source_time_offset = [1.0, 9.0]
+
+        transform = getattr(cf, method_name)
+        result = transform(n_fft=512, win_length=256, hop_length=128)
+
+        assert result.labels == expected_labels
+        np.testing.assert_array_equal(result.source_time_offset, np.array([1.0, 9.0, 1.0, 9.0]))
 
     def test_transfer_function(self) -> None:
         """伝達関数メソッドのテスト"""
