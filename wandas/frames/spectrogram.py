@@ -414,6 +414,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             operation_history=self.operation_history,
             channel_metadata=self.channels.to_list(),
             channel_ids=self._channel_ids,
+            source_time_offset=self.source_time_offset + float(self.times[time_idx]),
         )
 
     def to_channel_frame(self) -> "ChannelFrame":

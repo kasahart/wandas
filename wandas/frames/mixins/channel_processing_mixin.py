@@ -911,6 +911,7 @@ class ChannelProcessingMixin:
             operation_history=new_history,
             channel_metadata=cast(Any, self).channels.to_list(),
             channel_ids=cast(Any, self)._channel_ids,
+            source_time_offset=cast(Any, self).source_time_offset,
             previous=cast("BaseFrame[NDArrayReal]", self),
         )
 

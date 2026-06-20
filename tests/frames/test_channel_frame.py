@@ -96,6 +96,13 @@ class TestChannelFrame:
         assert result.source_time_offset == 500 / self.sample_rate
         assert result.source_time[0] == 500 / self.sample_rate
 
+    def test_stepped_time_slice_advances_source_time_offset(self) -> None:
+        """Stepped sample slicing reports the source time of its first sample."""
+        result = self.channel_frame[:, 500::2]
+
+        assert result.source_time_offset == 500 / self.sample_rate
+        assert result.source_time[0] == 500 / self.sample_rate
+
     def test_binary_op_preserves_left_source_time_offset(self) -> None:
         """Frame-frame binary ops use array indices and keep the left timeline."""
         left = ChannelFrame(self.dask_data, self.sample_rate, source_time_offset=2.0)
@@ -468,6 +475,20 @@ def test_add_channel_inplace_updates_original() -> None:
     base.add_channel(np.zeros(6), label="new_ch", inplace=True)
     assert base.n_channels == orig_n + 1
     assert any(ch.label == "new_ch" for ch in base._channel_metadata)
+
+
+def test_channel_update_helpers_preserve_source_time_offset() -> None:
+    base = ChannelFrame(
+        data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)),
+        sampling_rate=16000,
+        source_time_offset=2.5,
+    )
+
+    added = base.add_channel(np.zeros(6), label="new_ch")
+    removed = added.remove_channel("new_ch")
+
+    assert added.source_time_offset == 2.5
+    assert removed.source_time_offset == 2.5
 
 
 def test_add_channel_unsupported_type_raises() -> None:

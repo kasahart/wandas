@@ -1122,6 +1122,7 @@ def test_roughness_dw_spec_preserves_source_channel_metadata_and_ids() -> None:
             ChannelMetadata(label="right", unit="V", ref=0.5, extra={"gain": 20}),
         ],
         channel_ids=["left-id", "right-id"],
+        source_time_offset=3.25,
     )
 
     result = frame.roughness_dw_spec(overlap=0.5)
@@ -1129,6 +1130,7 @@ def test_roughness_dw_spec_preserves_source_channel_metadata_and_ids() -> None:
     assert result.data.ndim == 3
     assert result.data.shape[0] == 2
     assert result.data.shape[1] == 47
+    assert result.source_time_offset == 3.25
     assert result._channel_ids == ["left-id", "right-id"]
     assert result.channels[0].label == "left"
     assert result.channels[0].unit == "Pa"

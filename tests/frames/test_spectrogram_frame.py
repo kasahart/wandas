@@ -158,6 +158,19 @@ class TestSpectrogramFrame:
 
         assert result.source_time_offset == 1.25 + 2 * spec.hop_length / spec.sampling_rate
 
+    def test_stepped_time_slice_advances_source_time_offset_by_hop_length(
+        self, sample_spectrogram: SpectrogramFrame
+    ) -> None:
+        """Stepped spectrogram slicing reports the source time of its first frame."""
+        spec = sample_spectrogram._create_new_instance(
+            data=sample_spectrogram._data,
+            source_time_offset=1.25,
+        )
+
+        result = spec[:, :, 2::2]
+
+        assert result.source_time_offset == 1.25 + 2 * spec.hop_length / spec.sampling_rate
+
     def test_binary_operations(self, sample_spectrogram: SpectrogramFrame) -> None:
         """二項演算子の動作テスト"""
         spec: SpectrogramFrame = sample_spectrogram
@@ -268,11 +281,15 @@ class TestSpectrogramFrame:
 
     def test_get_frame_at(self, sample_spectrogram: SpectrogramFrame) -> None:
         """特定時間フレームの取得テスト"""
-        spec: SpectrogramFrame = sample_spectrogram
+        spec: SpectrogramFrame = sample_spectrogram._create_new_instance(
+            data=sample_spectrogram._data,
+            source_time_offset=3.0,
+        )
 
         # 正常なインデックス
         frame: SpectralFrame = spec.get_frame_at(4)
         assert frame.shape == (2, 65)  # チャネル数 x 周波数ビン数
+        assert frame.source_time_offset == 3.0 + spec.times[4]
 
         # 範囲外インデックス（負の値）
         with pytest.raises(

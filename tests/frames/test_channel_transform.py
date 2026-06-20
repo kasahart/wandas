@@ -40,6 +40,8 @@ class TestChannelTransform:
             mock_fft.process.return_value = mock_data
             mock_create_op.return_value = mock_fft
 
+            self.channel_frame.source_time_offset = 2.75
+
             # fftを遅延実行
             result = self.channel_frame.fft(n_fft=4096, window="hamming")
 
@@ -55,8 +57,9 @@ class TestChannelTransform:
             assert result.n_fft == 4096
             assert result.window == "hann"
             assert result.previous is self.channel_frame
-            # Pillar 2: domain transition preserves sampling rate
+            # Pillar 2: domain transition preserves sampling rate and source offset
             assert result.sampling_rate == self.channel_frame.sampling_rate
+            assert result.source_time_offset == 2.75
 
     def test_welch_transform(self) -> None:
         """
@@ -79,6 +82,8 @@ class TestChannelTransform:
             mock_data.rechunk.return_value = mock_data
             mock_welch.process.return_value = mock_data
             mock_create_op.return_value = mock_welch
+
+            self.channel_frame.source_time_offset = 2.75
 
             # welchを遅延実行
             result = self.channel_frame.welch(
@@ -108,6 +113,7 @@ class TestChannelTransform:
             assert result.n_fft == 2048
             assert result.window == "blackman"
             assert result.previous is self.channel_frame
+            assert result.source_time_offset == 2.75
 
     def test_stft_transform(self) -> None:
         """Test stft method for lazy short-time Fourier transform."""
@@ -198,6 +204,8 @@ class TestChannelTransform:
             mock_noct.process.return_value = mock_data
             mock_create_op.return_value = mock_noct
 
+            self.channel_frame.source_time_offset = 2.75
+
             # noct_spectrumを呼び出す
             fmin, fmax, n = 20, 20000, 3
             G, fr = 10, 1000  # noqa: N806
@@ -225,6 +233,7 @@ class TestChannelTransform:
             assert result.G == G
             assert result.fr == fr
             assert result.previous is self.channel_frame
+            assert result.source_time_offset == 2.75
 
     def test_csd(self) -> None:
         """クロススペクトル密度（CSD）メソッドのテスト"""

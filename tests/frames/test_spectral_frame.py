@@ -499,6 +499,7 @@ class TestSpectralFrame:
             label="test_frame",
             metadata={"test": "metadata"},
             channel_metadata=self.channel_metadata,
+            source_time_offset=6.25,
         )
 
         with (
@@ -563,6 +564,7 @@ class TestSpectralFrame:
                 ],
                 channel_metadata=correct_sr_frame.channels.to_list(),
                 channel_ids=correct_sr_frame._channel_ids,
+                source_time_offset=6.25,
                 previous=correct_sr_frame,
             )
 
