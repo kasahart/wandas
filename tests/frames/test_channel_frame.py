@@ -96,6 +96,15 @@ class TestChannelFrame:
         assert result.source_time_offset == 500 / self.sample_rate
         assert result.source_time[0] == 500 / self.sample_rate
 
+    def test_binary_op_preserves_left_source_time_offset(self) -> None:
+        """Frame-frame binary ops use array indices and keep the left timeline."""
+        left = ChannelFrame(self.dask_data, self.sample_rate, source_time_offset=2.0)
+        right = ChannelFrame(self.dask_data, self.sample_rate, source_time_offset=7.0)
+
+        result = left + right
+
+        assert result.source_time_offset == 2.0
+
     def test_operations_are_lazy(self) -> None:
         """Test that operations don't trigger immediate computation."""
         with mock.patch.object(DaArray, "compute", return_value=self.data) as mock_compute:

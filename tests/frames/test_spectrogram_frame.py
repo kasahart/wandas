@@ -147,6 +147,17 @@ class TestSpectrogramFrame:
 
         np.testing.assert_array_equal(spec.source_times, spec.times + 1.25)
 
+    def test_time_slice_advances_source_time_offset_by_hop_length(self, sample_spectrogram: SpectrogramFrame) -> None:
+        """Spectrogram time slicing advances by hop_length / sampling_rate."""
+        spec = sample_spectrogram._create_new_instance(
+            data=sample_spectrogram._data,
+            source_time_offset=1.25,
+        )
+
+        result = spec[:, :, 2:]
+
+        assert result.source_time_offset == 1.25 + 2 * spec.hop_length / spec.sampling_rate
+
     def test_binary_operations(self, sample_spectrogram: SpectrogramFrame) -> None:
         """二項演算子の動作テスト"""
         spec: SpectrogramFrame = sample_spectrogram
@@ -295,7 +306,10 @@ class TestSpectrogramFrame:
 
     def test_istft(self, sample_spectrogram: SpectrogramFrame) -> None:
         """istftメソッドがto_channel_frameのエイリアスとして機能することをテスト"""
-        spec: SpectrogramFrame = sample_spectrogram
+        spec: SpectrogramFrame = sample_spectrogram._create_new_instance(
+            data=sample_spectrogram._data,
+            source_time_offset=4.5,
+        )
 
         # istftメソッドを呼び出し
         channel_frame_istft: Any = spec.istft()
@@ -311,8 +325,10 @@ class TestSpectrogramFrame:
         assert channel_frame_istft._n_channels == channel_frame_to._n_channels
         assert channel_frame_istft.shape == channel_frame_to.shape
 
-        # Pillar 2: sampling rate inherited from spectrogram
+        # Pillar 2: sampling rate and source offset inherited from spectrogram
         assert channel_frame_istft.sampling_rate == spec.sampling_rate
+        assert channel_frame_istft.source_time_offset == 4.5
+        assert channel_frame_to.source_time_offset == 4.5
 
         # データが同じであることを確認
         # Same ISTFT algorithm — decimal=6 default (alias, results identical)

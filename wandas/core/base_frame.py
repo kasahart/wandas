@@ -752,10 +752,12 @@ class BaseFrame(ABC, Generic[T]):
         if time_keys:
             new_data = selected._data[(slice(None),) + time_keys]  # noqa: RUF005
             source_time_offset = selected.source_time_offset
-            last_key = time_keys[-1]
-            if isinstance(last_key, slice) and (last_key.step is None or last_key.step == 1):
-                start, _, _ = last_key.indices(selected._data.shape[-1])
-                source_time_offset += start / selected.sampling_rate
+            time_slice_context = selected._source_time_slice_context(time_keys)
+            if time_slice_context is not None:
+                time_axis_key, time_axis_size, time_step = time_slice_context
+                if isinstance(time_axis_key, slice) and (time_axis_key.step is None or time_axis_key.step == 1):
+                    start, _, _ = time_axis_key.indices(time_axis_size)
+                    source_time_offset += start * time_step
             return selected._create_new_instance(
                 data=new_data,
                 operation_history=selected.operation_history,
@@ -765,6 +767,18 @@ class BaseFrame(ABC, Generic[T]):
             )
 
         return selected
+
+    def _source_time_slice_context(self, keys: tuple[Any, ...]) -> tuple[Any, int, float] | None:
+        """Return the sliced time-axis key, axis size, and seconds per index."""
+        dims = self._xr.dims
+        if "time" not in dims:
+            return None
+        time_dim_index = dims.index("time")
+        key_index = time_dim_index - 1
+        if key_index < 0 or key_index >= len(keys):
+            return None
+        hop_length = getattr(self, "hop_length", 1)
+        return keys[key_index], self._data.shape[time_dim_index], float(hop_length) / self.sampling_rate
 
     def label2index(self, label: str) -> int:
         """
@@ -996,7 +1010,9 @@ class BaseFrame(ABC, Generic[T]):
         """Default implementation of binary operations using dask's lazy evaluation.
 
         Handles both frame-frame and frame-scalar/array operations with
-        metadata propagation and history tracking.  Uses
+        metadata propagation and history tracking. Frame-frame operations
+        combine current array indices and preserve the left operand's source
+        timeline; no source-time alignment is performed. Uses
         ``_create_new_instance`` so that subclass-specific constructor
         parameters are automatically forwarded.
 
@@ -1213,7 +1229,8 @@ class BaseFrame(ABC, Generic[T]):
 
         metadata_updates = operation.get_metadata_updates()
         if operation_name == "trim":
-            metadata_updates["source_time_offset"] = self.source_time_offset + float(params.get("start", 0.0))
+            start_sample = int(float(params.get("start", 0.0)) * self.sampling_rate)
+            metadata_updates["source_time_offset"] = self.source_time_offset + start_sample / self.sampling_rate
 
         display_name = operation.get_display_name()
         new_channel_metadata = self._relabel_channels(operation_name, display_name)

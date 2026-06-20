@@ -488,6 +488,13 @@ class TestChannelProcessing:
         assert isinstance(trimmed_frame, ChannelFrame)
         assert trimmed_frame.n_samples == int(0.3 * self.sample_rate)
 
+        # Non-sample-aligned trim starts report the actual sliced sample time.
+        sample_data = _da_from_array(np.arange(1000, dtype=np.float64).reshape(1, -1), chunks=(1, -1))
+        sample_frame = ChannelFrame(sample_data, sampling_rate=1000)
+        trimmed_frame = sample_frame.trim(start=0.1005, end=0.2)
+        assert trimmed_frame.source_time_offset == 0.1
+        assert trimmed_frame.source_time[0] == 0.1
+
         # Test trimming with no start or end (should return the same frame)
         trimmed_frame = self.channel_frame.trim()
         assert isinstance(trimmed_frame, ChannelFrame)

@@ -171,6 +171,14 @@ class TestSpectralFrame:
         # Frequency axis from np.fft.rfftfreq — default rtol (exact match)
         np.testing.assert_allclose(freqs, expected)
 
+    def test_frequency_slice_preserves_source_time_offset(self) -> None:
+        """Frequency-axis slicing does not move source-relative time."""
+        self.frame.source_time_offset = 1.25
+
+        result = self.frame[:, 10:20]
+
+        assert result.source_time_offset == 1.25
+
     def test_binary_op_with_spectral_frame(self) -> None:
         """Test _binary_op with another SpectralFrame"""
         other_data: DaArray = _da_from_array(create_complex_data(_SHAPE), chunks=(1, -1))
@@ -395,6 +403,7 @@ class TestSpectralFrame:
             mock_ifft_op.process.return_value = mock_time_series
             mock_result: Any = mock.MagicMock()
             mock_channel_frame.return_value = mock_result
+            self.frame.source_time_offset = 6.25
 
             result = self.frame.ifft()
 
@@ -409,6 +418,7 @@ class TestSpectralFrame:
                 operation_history=self.frame.operation_history,
                 channel_metadata=self.frame.channels.to_list(),
                 channel_ids=self.frame._channel_ids,
+                source_time_offset=6.25,
             )
 
             assert result is mock_result

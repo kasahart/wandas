@@ -123,6 +123,8 @@ class TestChannelTransform:
             mock_stft.process.return_value = mock_data
             mock_create_op.return_value = mock_stft
 
+            self.channel_frame.source_time_offset = 2.75
+
             # stftを遅延実行（デフォルト引数）
             result = self.channel_frame.stft()
 
@@ -146,8 +148,9 @@ class TestChannelTransform:
             assert result.hop_length == 512
             assert result.win_length == 2048
             assert result.window == "hann"
-            # Pillar 2: domain transition preserves sampling rate
+            # Pillar 2: domain transition preserves sampling rate and source offset
             assert result.sampling_rate == self.channel_frame.sampling_rate
+            assert result.source_time_offset == 2.75
 
             # カスタムパラメータでテスト
             mock_create_op.reset_mock()
