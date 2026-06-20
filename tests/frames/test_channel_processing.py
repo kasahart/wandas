@@ -445,6 +445,16 @@ class TestChannelProcessing:
         np.testing.assert_array_equal(sum_cf.source_time_offset, np.array([0.0]))
         np.testing.assert_array_equal(mean_cf.source_time_offset, np.array([0.0]))
 
+    def test_reduce_channels_preserves_shared_source_time_offset(self) -> None:
+        """Channel reduction preserves a shared source timeline."""
+        self.channel_frame.source_time_offset = [5.0, 5.0]
+
+        sum_cf = self.channel_frame.sum()
+        mean_cf = self.channel_frame.mean()
+
+        np.testing.assert_array_equal(sum_cf.source_time_offset, np.array([5.0]))
+        np.testing.assert_array_equal(mean_cf.source_time_offset, np.array([5.0]))
+
     def test_channel_difference(self) -> None:
         """Test channel_difference method."""
         # Test that channel_difference is lazy
