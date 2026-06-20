@@ -89,6 +89,17 @@ class TestChannelFrame:
         np.testing.assert_array_equal(cf.source_time, cf.time + 2.5)
         assert cf.to_xarray().attrs["source_time_offset"] == 2.5
 
+    def test_source_time_offset_rejects_non_finite_values(self) -> None:
+        """source_time_offset must remain finite."""
+        cf = ChannelFrame(self.dask_data, self.sample_rate)
+
+        with pytest.raises(ValueError, match="source_time_offset must be finite"):
+            cf.source_time_offset = float("nan")
+        with pytest.raises(ValueError, match="source_time_offset must be finite"):
+            cf.source_time_offset = float("inf")
+        with pytest.raises(TypeError, match="source_time_offset must be a finite numeric value"):
+            cast(Any, cf).source_time_offset = "not-a-number"
+
     def test_time_slice_advances_source_time_offset(self) -> None:
         """Continuous sample slicing advances source-relative time."""
         result = self.channel_frame[:, 500:1500]
@@ -100,6 +111,25 @@ class TestChannelFrame:
         """Stepped sample slicing would make source_time spacing ambiguous."""
         with pytest.raises(ValueError, match="Stepped slicing on the time axis is not supported"):
             _ = self.channel_frame[:, 500::2]
+
+    def test_point_time_selection_raises_for_source_time_offset(self) -> None:
+        """Point time selection is outside the offset-only continuous-slice model."""
+        with pytest.raises(ValueError, match="Only continuous slicing on the time axis is supported"):
+            _ = self.channel_frame[0, 500]
+
+    def test_fancy_time_selection_raises_for_source_time_offset(self) -> None:
+        """Fancy time selection may imply irregular time spacing."""
+        with pytest.raises(ValueError, match="Only continuous slicing on the time axis is supported"):
+            _ = self.channel_frame[:, [500, 700, 900]]
+
+    def test_positional_previous_constructor_argument_remains_compatible(self) -> None:
+        """Adding source_time_offset does not steal the existing positional previous argument."""
+        previous = ChannelFrame(self.dask_data, self.sample_rate)
+
+        cf = ChannelFrame(self.dask_data, self.sample_rate, None, None, None, None, None, previous)
+
+        assert cf.previous is previous
+        assert cf.source_time_offset == 0.0
 
     def test_binary_op_preserves_left_source_time_offset(self) -> None:
         """Frame-frame binary ops use array indices and keep the left timeline."""

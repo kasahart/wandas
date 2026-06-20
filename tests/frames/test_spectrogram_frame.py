@@ -168,6 +168,11 @@ class TestSpectrogramFrame:
         with pytest.raises(ValueError, match="Stepped slicing on the time axis is not supported"):
             _ = spec[:, :, 2::2]
 
+    def test_point_time_selection_raises_for_source_time_offset(self, sample_spectrogram: SpectrogramFrame) -> None:
+        """Point spectrogram time selection is outside the continuous-slice model."""
+        with pytest.raises(ValueError, match="Only continuous slicing on the time axis is supported"):
+            _ = sample_spectrogram[:, :, 2]
+
     def test_binary_operations(self, sample_spectrogram: SpectrogramFrame) -> None:
         """二項演算子の動作テスト"""
         spec: SpectrogramFrame = sample_spectrogram

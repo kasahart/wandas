@@ -377,6 +377,19 @@ class TestRoughnessFrame:
         result = frame[:, :, 5:]
 
         assert result.source_time_offset == 4.0 + 5 / _SAMPLING_RATE
+        assert result.source_time[0] == 4.0 + 5 / _SAMPLING_RATE
+
+    def test_source_time_adds_source_time_offset(self) -> None:
+        """RoughnessFrame exposes source-relative analysis times."""
+        frame = RoughnessFrame(
+            data=_DATA_STEREO,
+            sampling_rate=_SAMPLING_RATE,
+            bark_axis=_BARK_AXIS,
+            overlap=_OVERLAP,
+            source_time_offset=4.0,
+        )
+
+        np.testing.assert_array_equal(frame.source_time, frame.time + 4.0)
 
     def test_binary_op_with_roughness_frame(self) -> None:
         """Test binary operations between RoughnessFrame instances."""

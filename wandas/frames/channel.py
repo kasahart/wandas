@@ -217,8 +217,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
-        source_time_offset: float = 0.0,
         previous: "BaseFrame[Any] | None" = None,
+        source_time_offset: float = 0.0,
     ) -> None:
         """Initialize a ChannelFrame.
 

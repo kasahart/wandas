@@ -77,6 +77,24 @@ def test_wdf_load_defaults_missing_source_time_offset_to_zero(tmp_path: Path) ->
     assert loaded.source_time_offset == 0.0
 
 
+def test_wdf_load_rejects_non_finite_source_time_offset(tmp_path: Path) -> None:
+    """Invalid persisted source_time_offset values are rejected on load."""
+    path = tmp_path / "invalid_offset.wdf"
+    with h5py.File(path, "w") as f:
+        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["sampling_rate"] = 16000.0
+        f.attrs["label"] = ""
+        f.attrs["source_time_offset"] = np.nan
+        channels = f.create_group("channels")
+        channel = channels.create_group("0")
+        channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
+        channel.attrs["label"] = "mic0"
+        channel.attrs["unit"] = ""
+
+    with pytest.raises(ValueError, match="source_time_offset must be finite"):
+        ChannelFrame.load(path)
+
+
 def test_save_load_roundtrip(tmp_path: Path) -> None:
     """Test saving and loading a ChannelFrame with full metadata preservation."""
     # Seeded RNG for reproducibility (Grand Policy: no random data)

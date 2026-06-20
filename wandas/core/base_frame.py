@@ -96,8 +96,8 @@ class BaseFrame(ABC, Generic[T]):
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
-        source_time_offset: float = 0.0,
         previous: "BaseFrame[Any] | None" = None,
+        source_time_offset: float = 0.0,
     ):
         normalized_data = self._normalize_data(data)
         frame_label = label or "unnamed_frame"
@@ -458,7 +458,13 @@ class BaseFrame(ABC, Generic[T]):
 
     @source_time_offset.setter
     def source_time_offset(self, value: float) -> None:
-        self._xr.attrs["source_time_offset"] = float(value)
+        try:
+            offset = float(value)
+        except (TypeError, ValueError) as exc:
+            raise TypeError("source_time_offset must be a finite numeric value") from exc
+        if not np.isfinite(offset):
+            raise ValueError("source_time_offset must be finite")
+        self._xr.attrs["source_time_offset"] = offset
 
     def get_channel(
         self: S,
@@ -755,11 +761,12 @@ class BaseFrame(ABC, Generic[T]):
             time_slice_context = selected._source_time_slice_context(time_keys)
             if time_slice_context is not None:
                 time_axis_key, time_axis_size, time_step = time_slice_context
-                if isinstance(time_axis_key, slice):
-                    if time_axis_key.step not in (None, 1):
-                        raise ValueError("Stepped slicing on the time axis is not supported for source time offsets.")
-                    start, _, _ = time_axis_key.indices(time_axis_size)
-                    source_time_offset += start * time_step
+                if not isinstance(time_axis_key, slice):
+                    raise ValueError("Only continuous slicing on the time axis is supported for source time offsets.")
+                if time_axis_key.step not in (None, 1):
+                    raise ValueError("Stepped slicing on the time axis is not supported for source time offsets.")
+                start, _, _ = time_axis_key.indices(time_axis_size)
+                source_time_offset += start * time_step
             return selected._create_new_instance(
                 data=new_data,
                 operation_history=selected.operation_history,
