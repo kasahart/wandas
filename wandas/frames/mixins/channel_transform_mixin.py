@@ -53,12 +53,7 @@ def _build_cross_channel_source_time_offsets(source_time_offset: Any) -> Any:
     offsets = np.asarray(source_time_offset, dtype=float)
     result: list[float] = []
     for in_offset in offsets:
-        for out_offset in offsets:
-            if not np.isclose(in_offset, out_offset):
-                raise ValueError(
-                    "Cross-channel transforms require matching source_time_offset values. "
-                    "Align the channels first or select channels with matching offsets."
-                )
+        for _out_offset in offsets:
             result.append(float(in_offset))
     return np.asarray(result, dtype=float)
 

@@ -102,6 +102,11 @@ class TestChannelFrame:
         with pytest.raises(ValueError, match="source_time_offset length must match number of channels"):
             ChannelFrame(self.dask_data, self.sample_rate, source_time_offset=[1.0])
 
+    def test_source_time_offset_rejects_multidimensional_values(self) -> None:
+        """source_time_offset must be scalar or channel-wise 1D."""
+        with pytest.raises(ValueError, match="source_time_offset must be a scalar or a 1D array"):
+            ChannelFrame(self.dask_data, self.sample_rate, source_time_offset=np.zeros((2, 1)))
+
     def test_source_time_offset_rejects_non_finite_values(self) -> None:
         """source_time_offset must remain finite."""
         cf = ChannelFrame(self.dask_data, self.sample_rate)

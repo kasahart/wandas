@@ -301,6 +301,15 @@ class TestChannelTransform:
         assert abs(ch1_auto[idx_100hz]) > abs(ch1_auto[idx_200hz])
         assert abs(ch1_auto[idx_300hz]) > abs(ch1_auto[idx_200hz])
 
+    def test_cross_channel_transform_uses_input_channel_source_time_offsets(self) -> None:
+        """Pairwise channel transforms use the input-side channel timeline."""
+        cf = ChannelFrame.from_numpy(_DATA, _SAMPLE_RATE)
+        cf.source_time_offset = [0.0, 5.0]
+
+        csd_frame = cf.csd(n_fft=512, win_length=256, hop_length=128)
+
+        np.testing.assert_array_equal(csd_frame.source_time_offset, np.array([0.0, 0.0, 5.0, 5.0]))
+
     def test_transfer_function(self) -> None:
         """伝達関数メソッドのテスト"""
         # 単純なシステム用のテスト信号を作成

@@ -435,6 +435,16 @@ class TestChannelProcessing:
         # Direct numpy mean — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(mean_data, expected_mean)
 
+    def test_reduce_channels_resets_mismatched_source_time_offsets(self) -> None:
+        """Channel reduction resets source timeline metadata."""
+        self.channel_frame.source_time_offset = [0.0, 5.0]
+
+        sum_cf = self.channel_frame.sum()
+        mean_cf = self.channel_frame.mean()
+
+        np.testing.assert_array_equal(sum_cf.source_time_offset, np.array([0.0]))
+        np.testing.assert_array_equal(mean_cf.source_time_offset, np.array([0.0]))
+
     def test_channel_difference(self) -> None:
         """Test channel_difference method."""
         # Test that channel_difference is lazy
@@ -463,6 +473,16 @@ class TestChannelProcessing:
         # Element-wise subtraction — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(computed, expected)
 
+    def test_channel_difference_preserves_each_output_source_time_offset(self) -> None:
+        """Channel difference is index-wise and keeps each output channel's timeline."""
+        self.channel_frame.source_time_offset = [0.0, 5.0]
+
+        diff_cf = self.channel_frame.channel_difference(other_channel=0)
+
+        np.testing.assert_array_equal(diff_cf.source_time_offset, np.array([0.0, 5.0]))
+
+    def test_channel_difference_invalid_channel(self) -> None:
+        """Test invalid channel index."""
         # Test invalid channel index
         with pytest.raises(IndexError):
             self.channel_frame.channel_difference(other_channel=10)
