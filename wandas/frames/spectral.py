@@ -118,6 +118,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
+        source_time_offset: float = 0.0,
         previous: BaseFrame[Any] | None = None,
     ) -> None:
         if data.ndim == 1:
@@ -134,6 +135,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             operation_history=operation_history,
             channel_metadata=channel_metadata,
             channel_ids=channel_ids,
+            source_time_offset=source_time_offset,
             previous=previous,
         )
 

@@ -474,11 +474,14 @@ class TestChannelProcessing:
         assert isinstance(trimmed_frame, ChannelFrame)
         assert trimmed_frame.n_samples == int(0.4 * self.sample_rate)
         assert trimmed_frame.n_channels == self.channel_frame.n_channels
+        assert trimmed_frame.source_time_offset == 0.1
+        assert trimmed_frame.source_time[0] == 0.1
 
         # Test trimming with only start time
         trimmed_frame = self.channel_frame.trim(start=0.2)
         assert isinstance(trimmed_frame, ChannelFrame)
         assert trimmed_frame.n_samples == int(0.8 * self.sample_rate)
+        assert trimmed_frame.source_time_offset == 0.2
 
         # Test trimming with only end time
         trimmed_frame = self.channel_frame.trim(end=0.3)

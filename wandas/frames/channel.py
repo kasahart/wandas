@@ -217,6 +217,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
+        source_time_offset: float = 0.0,
         previous: "BaseFrame[Any] | None" = None,
     ) -> None:
         """Initialize a ChannelFrame.
@@ -261,6 +262,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             operation_history=operation_history,
             channel_metadata=channel_metadata,
             channel_ids=channel_ids,
+            source_time_offset=source_time_offset,
             previous=previous,
         )
 
@@ -332,6 +334,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> print(f"Time step: {time[1] - time[0]:.6f}s")
         """
         return np.arange(self.n_samples) / self.sampling_rate
+
+    @property
+    def source_time(self) -> NDArrayReal:
+        """Get sample times relative to the original source timeline."""
+        return self.time + self.source_time_offset
 
     @property
     def n_samples(self) -> int:
@@ -1071,6 +1078,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             sampling_rate=sr,
             label=frame_label,
             metadata={"_source_file": source_file} if source_file is not None else None,
+            source_time_offset=start_idx / sr,
         )
         if ch_labels is not None:
             cf._set_channel_labels(ch_labels)

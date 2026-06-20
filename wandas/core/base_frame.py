@@ -96,6 +96,7 @@ class BaseFrame(ABC, Generic[T]):
         operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
+        source_time_offset: float = 0.0,
         previous: "BaseFrame[Any] | None" = None,
     ):
         normalized_data = self._normalize_data(data)
@@ -117,6 +118,7 @@ class BaseFrame(ABC, Generic[T]):
         self.sampling_rate = sampling_rate
         self.metadata = metadata
         self.operation_history = operation_history
+        self.source_time_offset = source_time_offset
         self._set_channel_metadata(normalized_channel_metadata, self._pending_channel_ids)
         del self._pending_channel_metadata
         del self._pending_channel_ids
@@ -449,6 +451,15 @@ class BaseFrame(ABC, Generic[T]):
             raise TypeError("Operation history must be a list")
         self._xr.attrs["operation_history"] = copy.deepcopy(value)
 
+    @property
+    def source_time_offset(self) -> float:
+        """Return the offset from this frame's local time axis to source time."""
+        return float(self._xr.attrs.get("source_time_offset", 0.0))
+
+    @source_time_offset.setter
+    def source_time_offset(self, value: float) -> None:
+        self._xr.attrs["source_time_offset"] = float(value)
+
     def get_channel(
         self: S,
         channel_idx: int | list[int] | tuple[int, ...] | npt.NDArray[np.int_] | npt.NDArray[np.bool_] | None = None,
@@ -740,11 +751,17 @@ class BaseFrame(ABC, Generic[T]):
         # Apply time indexing if present
         if time_keys:
             new_data = selected._data[(slice(None),) + time_keys]  # noqa: RUF005
+            source_time_offset = selected.source_time_offset
+            last_key = time_keys[-1]
+            if isinstance(last_key, slice) and (last_key.step is None or last_key.step == 1):
+                start, _, _ = last_key.indices(selected._data.shape[-1])
+                source_time_offset += start / selected.sampling_rate
             return selected._create_new_instance(
                 data=new_data,
                 operation_history=selected.operation_history,
                 channel_metadata=selected.channels.to_list(),
                 channel_ids=selected._channel_ids,
+                source_time_offset=source_time_offset,
             )
 
         return selected
@@ -890,6 +907,8 @@ class BaseFrame(ABC, Generic[T]):
         if not isinstance(channel_ids, list):
             raise TypeError("Channel ids must be a list")
 
+        source_time_offset = kwargs.pop("source_time_offset", self.source_time_offset)
+
         # Get additional initialization arguments from derived classes
         additional_kwargs = self._get_additional_init_kwargs()
         kwargs.update(additional_kwargs)
@@ -902,6 +921,7 @@ class BaseFrame(ABC, Generic[T]):
             operation_history=operation_history,
             channel_metadata=channel_metadata,
             channel_ids=channel_ids,
+            source_time_offset=source_time_offset,
             previous=self,
             **kwargs,
         )
@@ -1192,6 +1212,8 @@ class BaseFrame(ABC, Generic[T]):
         new_metadata, new_history = self._updated_metadata_and_history(operation_name, params)
 
         metadata_updates = operation.get_metadata_updates()
+        if operation_name == "trim":
+            metadata_updates["source_time_offset"] = self.source_time_offset + float(params.get("start", 0.0))
 
         display_name = operation.get_display_name()
         new_channel_metadata = self._relabel_channels(operation_name, display_name)
@@ -1214,6 +1236,7 @@ class BaseFrame(ABC, Generic[T]):
                 "operation_history": new_history,
                 "channel_metadata": new_channel_metadata,
                 "channel_ids": self._channel_ids,
+                "source_time_offset": metadata_updates.pop("source_time_offset", self.source_time_offset),
                 "previous": self,
             }
             kw.update(metadata_updates)

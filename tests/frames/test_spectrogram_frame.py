@@ -138,6 +138,15 @@ class TestSpectrogramFrame:
         assert len(freqs) == spec.n_freq_bins  # FFTサイズの半分 + 1
         assert len(times) == 5
 
+    def test_source_times_add_source_time_offset(self, sample_spectrogram: SpectrogramFrame) -> None:
+        """source_times returns spectrogram frame times on the source timeline."""
+        spec = sample_spectrogram._create_new_instance(
+            data=sample_spectrogram._data,
+            source_time_offset=1.25,
+        )
+
+        np.testing.assert_array_equal(spec.source_times, spec.times + 1.25)
+
     def test_binary_operations(self, sample_spectrogram: SpectrogramFrame) -> None:
         """二項演算子の動作テスト"""
         spec: SpectrogramFrame = sample_spectrogram

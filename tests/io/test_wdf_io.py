@@ -47,6 +47,36 @@ def test_wdf_roundtrip_known_signal(known_signal_frame, tmp_path: Path) -> None:
     assert isinstance(loaded._data, dask.array.core.Array)
 
 
+def test_wdf_roundtrip_preserves_source_time_offset(known_signal_frame, tmp_path: Path) -> None:
+    """WDF stores and restores source_time_offset as frame state."""
+    known_signal_frame.source_time_offset = 3.25
+    path = tmp_path / "source_time_offset.wdf"
+
+    known_signal_frame.save(path)
+    loaded = ChannelFrame.load(path)
+
+    assert loaded.source_time_offset == 3.25
+    assert loaded.source_time[0] == 3.25
+
+
+def test_wdf_load_defaults_missing_source_time_offset_to_zero(tmp_path: Path) -> None:
+    """Legacy WDF files without source_time_offset load with zero offset."""
+    path = tmp_path / "legacy_no_offset.wdf"
+    with h5py.File(path, "w") as f:
+        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["sampling_rate"] = 16000.0
+        f.attrs["label"] = ""
+        channels = f.create_group("channels")
+        channel = channels.create_group("0")
+        channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
+        channel.attrs["label"] = "mic0"
+        channel.attrs["unit"] = ""
+
+    loaded = ChannelFrame.load(path)
+
+    assert loaded.source_time_offset == 0.0
+
+
 def test_save_load_roundtrip(tmp_path: Path) -> None:
     """Test saving and loading a ChannelFrame with full metadata preservation."""
     # Seeded RNG for reproducibility (Grand Policy: no random data)

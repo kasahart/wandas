@@ -82,6 +82,20 @@ class TestChannelFrame:
             expected_time = np.arange(16000) / 16000
             np.testing.assert_array_equal(time, expected_time)
 
+    def test_source_time_adds_source_time_offset(self) -> None:
+        """Test source-relative time property."""
+        cf = ChannelFrame(self.dask_data, self.sample_rate, source_time_offset=2.5)
+
+        np.testing.assert_array_equal(cf.source_time, cf.time + 2.5)
+        assert cf.to_xarray().attrs["source_time_offset"] == 2.5
+
+    def test_time_slice_advances_source_time_offset(self) -> None:
+        """Continuous sample slicing advances source-relative time."""
+        result = self.channel_frame[:, 500:1500]
+
+        assert result.source_time_offset == 500 / self.sample_rate
+        assert result.source_time[0] == 500 / self.sample_rate
+
     def test_operations_are_lazy(self) -> None:
         """Test that operations don't trigger immediate computation."""
         with mock.patch.object(DaArray, "compute", return_value=self.data) as mock_compute:
@@ -1055,6 +1069,8 @@ def test_describe_plot_return_type_error() -> None:
                 cf = ChannelFrame.from_file(temp_filename, channel=0, start=0.1, end=0.5)
                 # assert cf.metadata["channels"] == [0]
                 assert cf.channels[0].label == "ch0"
+                assert cf.source_time_offset == 0.1
+                assert cf.source_time[0] == 0.1
                 # Test with multiple channels
                 cf = ChannelFrame.from_file(temp_filename, channel=[0, 1])
                 # assert cf.metadata["channels"] == [0, 1]
