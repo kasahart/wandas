@@ -263,6 +263,7 @@ class CSVFileReader(FileReader):
             # Get time column as Series
             time_series = df[time_column] if isinstance(time_column, str) else df.iloc[:, time_column]
             time_values = np.array(time_series.values)
+            time_start = float(time_values[0]) if len(time_values) > 0 else 0.0
             if len(time_values) > 1:
                 # Use round() instead of int() to handle floating-point precision issues
                 estimated_sr = round(1 / np.mean(np.diff(time_values)))
@@ -270,6 +271,7 @@ class CSVFileReader(FileReader):
                 estimated_sr = 0  # Cannot determine from single row
         except Exception:
             estimated_sr = 0  # Default if can't calculate
+            time_start = 0.0
 
         frames = df.shape[0]
         duration = frames / estimated_sr if estimated_sr else None
@@ -282,6 +284,7 @@ class CSVFileReader(FileReader):
             "format": "CSV",
             "duration": duration,
             "ch_labels": df.columns[1:].tolist(),  # Assuming first column is time
+            "time_start": time_start,
         }
 
     @classmethod

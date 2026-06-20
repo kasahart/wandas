@@ -755,7 +755,9 @@ class BaseFrame(ABC, Generic[T]):
             time_slice_context = selected._source_time_slice_context(time_keys)
             if time_slice_context is not None:
                 time_axis_key, time_axis_size, time_step = time_slice_context
-                if isinstance(time_axis_key, slice) and (time_axis_key.step is None or time_axis_key.step > 0):
+                if isinstance(time_axis_key, slice):
+                    if time_axis_key.step not in (None, 1):
+                        raise ValueError("Stepped slicing on the time axis is not supported for source time offsets.")
                     start, _, _ = time_axis_key.indices(time_axis_size)
                     source_time_offset += start * time_step
             return selected._create_new_instance(

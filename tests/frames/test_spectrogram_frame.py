@@ -158,18 +158,15 @@ class TestSpectrogramFrame:
 
         assert result.source_time_offset == 1.25 + 2 * spec.hop_length / spec.sampling_rate
 
-    def test_stepped_time_slice_advances_source_time_offset_by_hop_length(
-        self, sample_spectrogram: SpectrogramFrame
-    ) -> None:
-        """Stepped spectrogram slicing reports the source time of its first frame."""
+    def test_stepped_time_slice_raises_for_source_time_offset(self, sample_spectrogram: SpectrogramFrame) -> None:
+        """Stepped spectrogram slicing would make source_times spacing ambiguous."""
         spec = sample_spectrogram._create_new_instance(
             data=sample_spectrogram._data,
             source_time_offset=1.25,
         )
 
-        result = spec[:, :, 2::2]
-
-        assert result.source_time_offset == 1.25 + 2 * spec.hop_length / spec.sampling_rate
+        with pytest.raises(ValueError, match="Stepped slicing on the time axis is not supported"):
+            _ = spec[:, :, 2::2]
 
     def test_binary_operations(self, sample_spectrogram: SpectrogramFrame) -> None:
         """二項演算子の動作テスト"""

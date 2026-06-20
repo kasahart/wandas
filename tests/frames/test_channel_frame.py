@@ -96,12 +96,10 @@ class TestChannelFrame:
         assert result.source_time_offset == 500 / self.sample_rate
         assert result.source_time[0] == 500 / self.sample_rate
 
-    def test_stepped_time_slice_advances_source_time_offset(self) -> None:
-        """Stepped sample slicing reports the source time of its first sample."""
-        result = self.channel_frame[:, 500::2]
-
-        assert result.source_time_offset == 500 / self.sample_rate
-        assert result.source_time[0] == 500 / self.sample_rate
+    def test_stepped_time_slice_raises_for_source_time_offset(self) -> None:
+        """Stepped sample slicing would make source_time spacing ambiguous."""
+        with pytest.raises(ValueError, match="Stepped slicing on the time axis is not supported"):
+            _ = self.channel_frame[:, 500::2]
 
     def test_binary_op_preserves_left_source_time_offset(self) -> None:
         """Frame-frame binary ops use array indices and keep the left timeline."""
@@ -1576,6 +1574,19 @@ class TestDescribeIntegration:
 
         expected_data = np.loadtxt(io.BytesIO(csv_bytes), delimiter=",", skiprows=1).T
         np.testing.assert_array_equal(cf.data, expected_data[1:])
+
+    def test_from_file_csv_uses_time_column_origin_for_source_time(self) -> None:
+        """CSV source time starts at the selected time-column value."""
+        header = "time,value1,value2\n"
+        data = "\n".join([f"{10 + i / 10},{1.1},{2.2}" for i in range(20)])
+        csv_bytes = (header + data).encode()
+
+        cf = ChannelFrame.from_file(csv_bytes, file_type=".csv", time_column=0, start=0.5)
+
+        assert cf.sampling_rate == 10
+        assert cf.n_samples == 15
+        assert cf.source_time_offset == 10.5
+        assert cf.source_time[0] == 10.5
 
     def test_from_file_bytes_requires_file_type(self) -> None:
         """Test in-memory data requires file_type."""

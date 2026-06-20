@@ -110,6 +110,7 @@ class ChannelTransformMixin:
                 {"operation": operation_name, "params": params},
             ],
             channel_metadata=channel_metadata,
+            source_time_offset=cast(Any, self).source_time_offset,
             previous=self._as_base_frame,
         )
 

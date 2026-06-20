@@ -76,6 +76,7 @@ class TestRoughnessFrame:
             sampling_rate=_SAMPLING_RATE,
             bark_axis=_BARK_AXIS,
             overlap=_OVERLAP,
+            source_time_offset=2.25,
         )
 
         assert frame.data.shape == (_N_BARK, _N_TIME)
@@ -358,9 +359,24 @@ class TestRoughnessFrame:
         assert isinstance(result, RoughnessFrame)
         assert result.sampling_rate == frame.sampling_rate
         assert result.overlap == frame.overlap
+        assert result.source_time_offset == frame.source_time_offset
         # Scalar addition — np.allclose default tol (exact match expected)
         assert np.allclose(result.data, original_data + 1.0)
         assert np.allclose(frame.data, original_data)  # Pillar 1: original unchanged
+
+    def test_time_slice_advances_source_time_offset(self) -> None:
+        """RoughnessFrame time slicing advances on the last axis."""
+        frame = RoughnessFrame(
+            data=_DATA_STEREO,
+            sampling_rate=_SAMPLING_RATE,
+            bark_axis=_BARK_AXIS,
+            overlap=_OVERLAP,
+            source_time_offset=4.0,
+        )
+
+        result = frame[:, :, 5:]
+
+        assert result.source_time_offset == 4.0 + 5 / _SAMPLING_RATE
 
     def test_binary_op_with_roughness_frame(self) -> None:
         """Test binary operations between RoughnessFrame instances."""

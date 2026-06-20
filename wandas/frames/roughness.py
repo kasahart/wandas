@@ -257,6 +257,13 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         """DataFrame index is not supported for RoughnessFrame."""
         raise NotImplementedError("DataFrame index is not supported for RoughnessFrame.")
 
+    def _source_time_slice_context(self, keys: tuple[Any, ...]) -> tuple[Any, int, float] | None:
+        """Roughness time is stored on the last data axis."""
+        key_index = self._data.ndim - 2
+        if key_index < 0 or key_index >= len(keys):
+            return None
+        return keys[key_index], self._data.shape[-1], 1.0 / self.sampling_rate
+
     def to_dataframe(self) -> "pd.DataFrame":
         """DataFrame conversion is not supported for RoughnessFrame.
 
@@ -337,6 +344,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             operation_history=operation_history,
             channel_metadata=self.channels.to_list(),
             channel_ids=self._channel_ids,
+            source_time_offset=self.source_time_offset,
             previous=self,
         )
 

@@ -1005,6 +1005,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         n_channels = info["channels"]
         n_frames = info["frames"]
         ch_labels = ch_labels or info.get("ch_labels", None)
+        source_time_start = float(info.get("time_start", 0.0))
 
         logger.debug(f"File info: sr={sr}, channels={n_channels}, frames={n_frames}")
 
@@ -1079,7 +1080,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             sampling_rate=sr,
             label=frame_label,
             metadata={"_source_file": source_file} if source_file is not None else None,
-            source_time_offset=start_idx / sr,
+            source_time_offset=source_time_start + start_idx / sr,
         )
         if ch_labels is not None:
             cf._set_channel_labels(ch_labels)

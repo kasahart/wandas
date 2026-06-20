@@ -250,6 +250,7 @@ class TestChannelTransform:
 
         # ChannelFrameインスタンスを作成
         cf = ChannelFrame.from_numpy(sigs, sr)
+        cf.source_time_offset = 3.5
 
         # CSD計算のパラメータ
         n_fft = 512
@@ -258,6 +259,7 @@ class TestChannelTransform:
 
         # ChannelFrameメソッドを使用してCSDを計算
         csd_frame = cf.csd(n_fft=n_fft, win_length=win_length, hop_length=hop_length, window="hamming")
+        assert csd_frame.source_time_offset == 3.5
 
         # 実際のデータを取得するために計算
         csd_data = csd_frame.compute()
