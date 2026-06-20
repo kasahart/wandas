@@ -120,7 +120,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
-        source_time_offset: float = 0.0,
+        source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
     ) -> None:
         """Initialize a RoughnessFrame."""
         # Validate dimensions
@@ -224,7 +224,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
     @property
     def source_time(self) -> NDArrayReal:
         """Return roughness analysis time points on the source timeline."""
-        return self.time + self.source_time_offset
+        return self.source_time_offset[:, None] + self.time[None, :]
 
     @property
     def overlap(self) -> float:

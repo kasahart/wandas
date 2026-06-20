@@ -145,7 +145,8 @@ class TestSpectrogramFrame:
             source_time_offset=1.25,
         )
 
-        np.testing.assert_array_equal(spec.source_times, spec.times + 1.25)
+        np.testing.assert_array_equal(spec.source_time_offset, np.array([1.25, 1.25]))
+        np.testing.assert_array_equal(spec.source_times, spec.times[None, :] + np.array([[1.25], [1.25]]))
 
     def test_time_slice_advances_source_time_offset_by_hop_length(self, sample_spectrogram: SpectrogramFrame) -> None:
         """Spectrogram time slicing advances by hop_length / sampling_rate."""
@@ -156,7 +157,10 @@ class TestSpectrogramFrame:
 
         result = spec[:, :, 2:]
 
-        assert result.source_time_offset == 1.25 + 2 * spec.hop_length / spec.sampling_rate
+        np.testing.assert_array_equal(
+            result.source_time_offset,
+            np.array([1.25 + 2 * spec.hop_length / spec.sampling_rate] * 2),
+        )
 
     def test_stepped_time_slice_raises_for_source_time_offset(self, sample_spectrogram: SpectrogramFrame) -> None:
         """Stepped spectrogram slicing would make source_times spacing ambiguous."""
@@ -291,7 +295,7 @@ class TestSpectrogramFrame:
         # 正常なインデックス
         frame: SpectralFrame = spec.get_frame_at(4)
         assert frame.shape == (2, 65)  # チャネル数 x 周波数ビン数
-        assert frame.source_time_offset == 3.0 + spec.times[4]
+        np.testing.assert_array_equal(frame.source_time_offset, np.array([3.0 + spec.times[4]] * 2))
 
         # 範囲外インデックス（負の値）
         with pytest.raises(
@@ -346,8 +350,8 @@ class TestSpectrogramFrame:
 
         # Pillar 2: sampling rate and source offset inherited from spectrogram
         assert channel_frame_istft.sampling_rate == spec.sampling_rate
-        assert channel_frame_istft.source_time_offset == 4.5
-        assert channel_frame_to.source_time_offset == 4.5
+        np.testing.assert_array_equal(channel_frame_istft.source_time_offset, np.array([4.5, 4.5]))
+        np.testing.assert_array_equal(channel_frame_to.source_time_offset, np.array([4.5, 4.5]))
 
         # データが同じであることを確認
         # Same ISTFT algorithm — decimal=6 default (alias, results identical)

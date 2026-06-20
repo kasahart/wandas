@@ -136,7 +136,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
-        source_time_offset: float = 0.0,
+        source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
     ) -> None:
         """
         Initialize a NOctFrame instance.

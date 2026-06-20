@@ -359,7 +359,7 @@ class TestRoughnessFrame:
         assert isinstance(result, RoughnessFrame)
         assert result.sampling_rate == frame.sampling_rate
         assert result.overlap == frame.overlap
-        assert result.source_time_offset == frame.source_time_offset
+        np.testing.assert_array_equal(result.source_time_offset, frame.source_time_offset)
         # Scalar addition — np.allclose default tol (exact match expected)
         assert np.allclose(result.data, original_data + 1.0)
         assert np.allclose(frame.data, original_data)  # Pillar 1: original unchanged
@@ -376,8 +376,8 @@ class TestRoughnessFrame:
 
         result = frame[:, :, 5:]
 
-        assert result.source_time_offset == 4.0 + 5 / _SAMPLING_RATE
-        assert result.source_time[0] == 4.0 + 5 / _SAMPLING_RATE
+        np.testing.assert_array_equal(result.source_time_offset, np.array([4.0 + 5 / _SAMPLING_RATE] * 2))
+        np.testing.assert_array_equal(result.source_time[:, 0], np.array([4.0 + 5 / _SAMPLING_RATE] * 2))
 
     def test_source_time_adds_source_time_offset(self) -> None:
         """RoughnessFrame exposes source-relative analysis times."""
@@ -389,7 +389,7 @@ class TestRoughnessFrame:
             source_time_offset=4.0,
         )
 
-        np.testing.assert_array_equal(frame.source_time, frame.time + 4.0)
+        np.testing.assert_array_equal(frame.source_time, frame.time[None, :] + np.array([[4.0], [4.0]]))
 
     def test_source_time_slice_context_without_time_key_returns_none(self) -> None:
         """RoughnessFrame source time updates only when its time axis is indexed."""

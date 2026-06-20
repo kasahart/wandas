@@ -49,14 +49,14 @@ def test_wdf_roundtrip_known_signal(known_signal_frame, tmp_path: Path) -> None:
 
 def test_wdf_roundtrip_preserves_source_time_offset(known_signal_frame, tmp_path: Path) -> None:
     """WDF stores and restores source_time_offset as frame state."""
-    known_signal_frame.source_time_offset = 3.25
+    known_signal_frame.source_time_offset = [3.25, 7.5]
     path = tmp_path / "source_time_offset.wdf"
 
     known_signal_frame.save(path)
     loaded = ChannelFrame.load(path)
 
-    assert loaded.source_time_offset == 3.25
-    assert loaded.source_time[0] == 3.25
+    np.testing.assert_array_equal(loaded.source_time_offset, np.array([3.25, 7.5]))
+    np.testing.assert_array_equal(loaded.source_time[:, 0], np.array([3.25, 7.5]))
 
 
 def test_wdf_load_defaults_missing_source_time_offset_to_zero(tmp_path: Path) -> None:
@@ -74,7 +74,7 @@ def test_wdf_load_defaults_missing_source_time_offset_to_zero(tmp_path: Path) ->
 
     loaded = ChannelFrame.load(path)
 
-    assert loaded.source_time_offset == 0.0
+    np.testing.assert_array_equal(loaded.source_time_offset, np.array([0.0]))
 
 
 def test_wdf_load_rejects_non_finite_source_time_offset(tmp_path: Path) -> None:
@@ -92,6 +92,24 @@ def test_wdf_load_rejects_non_finite_source_time_offset(tmp_path: Path) -> None:
         channel.attrs["unit"] = ""
 
     with pytest.raises(ValueError, match="source_time_offset must be finite"):
+        ChannelFrame.load(path)
+
+
+def test_wdf_load_rejects_source_time_offset_length_mismatch(tmp_path: Path) -> None:
+    """Persisted source_time_offset arrays must match WDF channel count."""
+    path = tmp_path / "invalid_offset_length.wdf"
+    with h5py.File(path, "w") as f:
+        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["sampling_rate"] = 16000.0
+        f.attrs["label"] = ""
+        f.attrs["source_time_offset"] = np.array([1.0, 2.0])
+        channels = f.create_group("channels")
+        channel = channels.create_group("0")
+        channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
+        channel.attrs["label"] = "mic0"
+        channel.attrs["unit"] = ""
+
+    with pytest.raises(ValueError, match="source_time_offset length must match number of channels"):
         ChannelFrame.load(path)
 
 

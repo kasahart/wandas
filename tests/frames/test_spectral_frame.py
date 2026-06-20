@@ -177,7 +177,7 @@ class TestSpectralFrame:
 
         result = self.frame[:, 10:20]
 
-        assert result.source_time_offset == 1.25
+        np.testing.assert_array_equal(result.source_time_offset, np.array([1.25, 1.25]))
 
     def test_binary_op_with_spectral_frame(self) -> None:
         """Test _binary_op with another SpectralFrame"""
@@ -418,7 +418,11 @@ class TestSpectralFrame:
                 operation_history=self.frame.operation_history,
                 channel_metadata=self.frame.channels.to_list(),
                 channel_ids=self.frame._channel_ids,
-                source_time_offset=6.25,
+                source_time_offset=mock.ANY,
+            )
+            np.testing.assert_array_equal(
+                mock_channel_frame.call_args.kwargs["source_time_offset"],
+                np.array([6.25, 6.25]),
             )
 
             assert result is mock_result
@@ -564,8 +568,12 @@ class TestSpectralFrame:
                 ],
                 channel_metadata=correct_sr_frame.channels.to_list(),
                 channel_ids=correct_sr_frame._channel_ids,
-                source_time_offset=6.25,
+                source_time_offset=mock.ANY,
                 previous=correct_sr_frame,
+            )
+            np.testing.assert_array_equal(
+                mock_noct_frame.call_args.kwargs["source_time_offset"],
+                np.array([6.25, 6.25]),
             )
 
             # 結果の検証

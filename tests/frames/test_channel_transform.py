@@ -59,7 +59,7 @@ class TestChannelTransform:
             assert result.previous is self.channel_frame
             # Pillar 2: domain transition preserves sampling rate and source offset
             assert result.sampling_rate == self.channel_frame.sampling_rate
-            assert result.source_time_offset == 2.75
+            np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
 
     def test_welch_transform(self) -> None:
         """
@@ -113,7 +113,7 @@ class TestChannelTransform:
             assert result.n_fft == 2048
             assert result.window == "blackman"
             assert result.previous is self.channel_frame
-            assert result.source_time_offset == 2.75
+            np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
 
     def test_stft_transform(self) -> None:
         """Test stft method for lazy short-time Fourier transform."""
@@ -156,7 +156,7 @@ class TestChannelTransform:
             assert result.window == "hann"
             # Pillar 2: domain transition preserves sampling rate and source offset
             assert result.sampling_rate == self.channel_frame.sampling_rate
-            assert result.source_time_offset == 2.75
+            np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
 
             # カスタムパラメータでテスト
             mock_create_op.reset_mock()
@@ -233,7 +233,7 @@ class TestChannelTransform:
             assert result.G == G
             assert result.fr == fr
             assert result.previous is self.channel_frame
-            assert result.source_time_offset == 2.75
+            np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
 
     def test_csd(self) -> None:
         """クロススペクトル密度（CSD）メソッドのテスト"""
@@ -259,7 +259,7 @@ class TestChannelTransform:
 
         # ChannelFrameメソッドを使用してCSDを計算
         csd_frame = cf.csd(n_fft=n_fft, win_length=win_length, hop_length=hop_length, window="hamming")
-        assert csd_frame.source_time_offset == 3.5
+        np.testing.assert_array_equal(csd_frame.source_time_offset, np.array([3.5, 3.5, 3.5, 3.5]))
 
         # 実際のデータを取得するために計算
         csd_data = csd_frame.compute()

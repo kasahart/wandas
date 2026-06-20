@@ -4,6 +4,8 @@ import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, SupportsFloat, SupportsIndex, TypeAlias, TypeVar, cast, overload
 
+import numpy as np
+
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.roughness import RoughnessFrame
 from wandas.processing import create_operation
@@ -324,12 +326,19 @@ class ChannelProcessingMixin:
                 extra=reduced_extra,
             )
         ]
+        source_time_offset = cast(Any, self).source_time_offset
+        if not np.allclose(source_time_offset, source_time_offset[0]):
+            raise ValueError(
+                f"{op} cannot reduce channels with different source_time_offset values. "
+                "Align the channels first or select channels with matching offsets."
+            )
         new_metadata, new_history = self._updated_metadata_and_history(op, {})
         result = self._create_new_instance(
             data=reduced_data,
             metadata=new_metadata,
             operation_history=new_history,
             channel_metadata=new_channel_metadata,
+            source_time_offset=source_time_offset[:1],
         )
         return result
 

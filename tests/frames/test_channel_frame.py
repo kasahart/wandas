@@ -86,8 +86,21 @@ class TestChannelFrame:
         """Test source-relative time property."""
         cf = ChannelFrame(self.dask_data, self.sample_rate, source_time_offset=2.5)
 
-        np.testing.assert_array_equal(cf.source_time, cf.time + 2.5)
-        assert cf.to_xarray().attrs["source_time_offset"] == 2.5
+        np.testing.assert_array_equal(cf.source_time_offset, np.array([2.5, 2.5]))
+        np.testing.assert_array_equal(cf.source_time, cf.time[None, :] + np.array([[2.5], [2.5]]))
+        np.testing.assert_array_equal(cf.to_xarray().attrs["source_time_offset"], np.array([2.5, 2.5]))
+
+    def test_source_time_offset_accepts_per_channel_values(self) -> None:
+        """source_time_offset is stored per channel."""
+        cf = ChannelFrame(self.dask_data, self.sample_rate, source_time_offset=[2.5, 7.5])
+
+        np.testing.assert_array_equal(cf.source_time_offset, np.array([2.5, 7.5]))
+        np.testing.assert_array_equal(cf.source_time[:, 0], np.array([2.5, 7.5]))
+
+    def test_source_time_offset_rejects_wrong_channel_count(self) -> None:
+        """source_time_offset arrays must match the channel count."""
+        with pytest.raises(ValueError, match="source_time_offset length must match number of channels"):
+            ChannelFrame(self.dask_data, self.sample_rate, source_time_offset=[1.0])
 
     def test_source_time_offset_rejects_non_finite_values(self) -> None:
         """source_time_offset must remain finite."""
@@ -104,8 +117,8 @@ class TestChannelFrame:
         """Continuous sample slicing advances source-relative time."""
         result = self.channel_frame[:, 500:1500]
 
-        assert result.source_time_offset == 500 / self.sample_rate
-        assert result.source_time[0] == 500 / self.sample_rate
+        np.testing.assert_array_equal(result.source_time_offset, np.array([500 / self.sample_rate] * 2))
+        np.testing.assert_array_equal(result.source_time[:, 0], np.array([500 / self.sample_rate] * 2))
 
     def test_stepped_time_slice_raises_for_source_time_offset(self) -> None:
         """Stepped sample slicing would make source_time spacing ambiguous."""
@@ -129,7 +142,7 @@ class TestChannelFrame:
         cf = ChannelFrame(self.dask_data, self.sample_rate, None, None, None, None, None, previous)
 
         assert cf.previous is previous
-        assert cf.source_time_offset == 0.0
+        np.testing.assert_array_equal(cf.source_time_offset, np.array([0.0, 0.0]))
 
     def test_binary_op_preserves_left_source_time_offset(self) -> None:
         """Frame-frame binary ops use array indices and keep the left timeline."""
@@ -138,7 +151,7 @@ class TestChannelFrame:
 
         result = left + right
 
-        assert result.source_time_offset == 2.0
+        np.testing.assert_array_equal(result.source_time_offset, np.array([2.0, 2.0]))
 
     def test_operations_are_lazy(self) -> None:
         """Test that operations don't trigger immediate computation."""
@@ -515,8 +528,27 @@ def test_channel_update_helpers_preserve_source_time_offset() -> None:
     added = base.add_channel(np.zeros(6), label="new_ch")
     removed = added.remove_channel("new_ch")
 
-    assert added.source_time_offset == 2.5
-    assert removed.source_time_offset == 2.5
+    np.testing.assert_array_equal(added.source_time_offset, np.array([2.5, 2.5]))
+    np.testing.assert_array_equal(removed.source_time_offset, np.array([2.5]))
+
+
+def test_add_channel_frame_preserves_per_channel_source_time_offsets() -> None:
+    base = ChannelFrame(
+        data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)),
+        sampling_rate=16000,
+        source_time_offset=2.5,
+    )
+    other = ChannelFrame(
+        data=_da_from_array(np.ones((2, 6)), chunks=(1, -1)),
+        sampling_rate=16000,
+        channel_metadata=[{"label": "other0"}, {"label": "other1"}],
+        source_time_offset=[5.0, 8.0],
+    )
+
+    added = base.add_channel(other)
+
+    np.testing.assert_array_equal(added.source_time_offset, np.array([2.5, 5.0, 8.0]))
+    np.testing.assert_array_equal(added.source_time[:, 0], np.array([2.5, 5.0, 8.0]))
 
 
 def test_add_channel_unsupported_type_raises() -> None:
@@ -1127,8 +1159,8 @@ def test_describe_plot_return_type_error() -> None:
                 cf = ChannelFrame.from_file(temp_filename, channel=0, start=0.1, end=0.5)
                 # assert cf.metadata["channels"] == [0]
                 assert cf.channels[0].label == "ch0"
-                assert cf.source_time_offset == 0.1
-                assert cf.source_time[0] == 0.1
+                np.testing.assert_array_equal(cf.source_time_offset, np.array([0.1]))
+                np.testing.assert_array_equal(cf.source_time[:, 0], np.array([0.1]))
                 # Test with multiple channels
                 cf = ChannelFrame.from_file(temp_filename, channel=[0, 1])
                 # assert cf.metadata["channels"] == [0, 1]
@@ -1615,8 +1647,8 @@ class TestDescribeIntegration:
 
         assert cf.sampling_rate == 10
         assert cf.n_samples == 15
-        assert cf.source_time_offset == 10.5
-        assert cf.source_time[0] == 10.5
+        np.testing.assert_array_equal(cf.source_time_offset, np.array([10.5, 10.5]))
+        np.testing.assert_array_equal(cf.source_time[:, 0], np.array([10.5, 10.5]))
 
     def test_from_file_bytes_requires_file_type(self) -> None:
         """Test in-memory data requires file_type."""

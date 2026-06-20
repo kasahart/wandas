@@ -97,7 +97,7 @@ class BaseFrame(ABC, Generic[T]):
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
-        source_time_offset: float = 0.0,
+        source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
     ):
         normalized_data = self._normalize_data(data)
         frame_label = label or "unnamed_frame"
@@ -452,19 +452,36 @@ class BaseFrame(ABC, Generic[T]):
         self._xr.attrs["operation_history"] = copy.deepcopy(value)
 
     @property
-    def source_time_offset(self) -> float:
-        """Return the offset from this frame's local time axis to source time."""
-        return float(self._xr.attrs.get("source_time_offset", 0.0))
+    def source_time_offset(self) -> NDArrayReal:
+        """Return each channel's offset from local time axis to source time."""
+        return self._normalize_source_time_offset(self._xr.attrs.get("source_time_offset", 0.0), self.n_channels)
 
     @source_time_offset.setter
-    def source_time_offset(self, value: float) -> None:
+    def source_time_offset(self, value: float | Sequence[float] | NDArrayReal) -> None:
+        self._xr.attrs["source_time_offset"] = self._normalize_source_time_offset(value, self.n_channels)
+
+    @staticmethod
+    def _normalize_source_time_offset(
+        value: object,
+        n_channels: int,
+    ) -> NDArrayReal:
         try:
-            offset = float(value)
+            offsets = np.asarray(value, dtype=float)
         except (TypeError, ValueError) as exc:
             raise TypeError("source_time_offset must be a finite numeric value") from exc
-        if not np.isfinite(offset):
+        if offsets.ndim == 0:
+            offsets = np.full(n_channels, float(offsets), dtype=float)
+        elif offsets.ndim != 1:
+            raise ValueError("source_time_offset must be a scalar or a 1D array")
+        elif len(offsets) != n_channels:
+            raise ValueError(
+                "source_time_offset length must match number of channels\n"
+                f"  Offsets: {len(offsets)}\n"
+                f"  Channels: {n_channels}"
+            )
+        if not np.all(np.isfinite(offsets)):
             raise ValueError("source_time_offset must be finite")
-        self._xr.attrs["source_time_offset"] = offset
+        return offsets.astype(float, copy=True)
 
     def get_channel(
         self: S,
@@ -560,6 +577,7 @@ class BaseFrame(ABC, Generic[T]):
             operation_history=new_history,
             channel_metadata=new_channel_metadata,
             channel_ids=new_channel_ids,
+            source_time_offset=self.source_time_offset[channel_idx_list],
         )
 
     def __len__(self) -> int:
@@ -711,6 +729,7 @@ class BaseFrame(ABC, Generic[T]):
                 operation_history=self.operation_history,
                 channel_metadata=new_channel_metadata,
                 channel_ids=new_channel_ids,
+                source_time_offset=self.source_time_offset[indices],
             )
 
         raise TypeError(f"Invalid key type: {type(key).__name__}. Expected int, str, slice, list, tuple, or ndarray.")
@@ -766,7 +785,7 @@ class BaseFrame(ABC, Generic[T]):
                 if time_axis_key.step not in (None, 1):
                     raise ValueError("Stepped slicing on the time axis is not supported for source time offsets.")
                 start, _, _ = time_axis_key.indices(time_axis_size)
-                source_time_offset += start * time_step
+                source_time_offset = source_time_offset + start * time_step
             return selected._create_new_instance(
                 data=new_data,
                 operation_history=selected.operation_history,

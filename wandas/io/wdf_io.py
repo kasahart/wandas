@@ -221,7 +221,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
         # Get global attributes
         sampling_rate = float(f.attrs["sampling_rate"])
         frame_label = _decode_hdf5_str(f.attrs.get("label", ""))
-        source_time_offset = float(f.attrs.get("source_time_offset", 0.0))
+        source_time_offset = f.attrs.get("source_time_offset", 0.0)
 
         # Get frame metadata
         frame_metadata: dict[str, Any] = {}

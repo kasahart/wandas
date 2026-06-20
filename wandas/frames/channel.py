@@ -218,7 +218,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
-        source_time_offset: float = 0.0,
+        source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
     ) -> None:
         """Initialize a ChannelFrame.
 
@@ -292,11 +292,14 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         new_chmeta: list[ChannelMetadata],
         inplace: bool,
         channel_ids: list[str],
+        source_time_offset: float | Sequence[float] | NDArrayReal | None = None,
     ) -> "ChannelFrame":
         """Apply *new_data* and *new_chmeta* either in-place or as a new frame."""
+        offsets = self.source_time_offset if source_time_offset is None else source_time_offset
         if inplace:
             self._replace_data(new_data)
             self._set_channel_metadata(new_chmeta, channel_ids)
+            self.source_time_offset = cast(Any, offsets)
             return self
         return ChannelFrame(
             data=new_data,
@@ -306,7 +309,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             operation_history=self.operation_history,
             channel_metadata=new_chmeta,
             channel_ids=channel_ids,
-            source_time_offset=self.source_time_offset,
+            source_time_offset=offsets,
             previous=self,
         )
 
@@ -339,7 +342,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
     @property
     def source_time(self) -> NDArrayReal:
         """Get sample times relative to the original source timeline."""
-        return self.time + self.source_time_offset
+        return self.source_time_offset[:, None] + self.time[None, :]
 
     @property
     def n_samples(self) -> int:
@@ -1315,7 +1318,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             for _ in new_metadata_list:
                 new_id = self._next_channel_id(new_ids)
                 new_ids.append(new_id)
-            return self._finalize_channel_update(new_data, new_chmeta, inplace, new_ids)
+            new_offsets = np.concatenate([self.source_time_offset, data.source_time_offset])
+            return self._finalize_channel_update(new_data, new_chmeta, inplace, new_ids, new_offsets)
         if isinstance(data, np.ndarray):
             arr = _da_from_array(data.reshape(1, -1), chunks=(1, -1))
         elif isinstance(data, DaArray):
@@ -1342,7 +1346,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         new_ids = [*self._channel_ids, self._next_channel_id()]
         new_chmeta = [*self.channels.to_list(), ChannelMetadata(label=new_label)]
-        return self._finalize_channel_update(new_data, new_chmeta, inplace, new_ids)
+        new_offsets = np.concatenate([self.source_time_offset, self.source_time_offset[:1]])
+        return self._finalize_channel_update(new_data, new_chmeta, inplace, new_ids, new_offsets)
 
     def remove_channel(self, key: int | str, inplace: bool = False) -> "ChannelFrame":
         if isinstance(key, int):
@@ -1358,7 +1363,13 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         new_data = self._data[keep_indices, :]
         new_chmeta = [self.channels[i].to_metadata() for i in keep_indices]
         new_ids = [self._channel_ids[i] for i in keep_indices]
-        return self._finalize_channel_update(new_data, new_chmeta, inplace, new_ids)
+        return self._finalize_channel_update(
+            new_data,
+            new_chmeta,
+            inplace,
+            new_ids,
+            self.source_time_offset[keep_indices],
+        )
 
     def rename_channels(
         self,

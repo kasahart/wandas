@@ -117,7 +117,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
-        source_time_offset: float = 0.0,
+        source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
     ) -> None:
         if data.ndim == 2:
             data = da.expand_dims(data, axis=0)
@@ -204,7 +204,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     @property
     def source_times(self) -> NDArrayReal:
         """Get frame times relative to the original source timeline."""
-        return self.times + self.source_time_offset
+        return self.source_time_offset[:, None] + self.times[None, :]
 
     def plot(
         self,
