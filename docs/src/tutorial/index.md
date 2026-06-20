@@ -24,11 +24,6 @@ pip install wandas
 ### 1. Import the Library / ライブラリのインポート
 
 ```python exec="on" session="wd_demo"
-from io import StringIO
-import matplotlib.pyplot as plt
-```
-
-```python exec="on" source="above" session="wd_demo"
 import wandas as wd
 ```
 
@@ -61,12 +56,7 @@ print(f"Duration / 長さ: {audio.duration} s  ")
 audio.describe()
 ```
 
-```python exec="on" html="true" session="wd_demo"
-audio.describe(is_close=False)
-buffer = StringIO()
-plt.savefig(buffer, format="svg")
-print(buffer.getvalue())
-```
+![Waveform and spectrogram display](../assets/images/read_wav_describe.png)
 
 <audio controls src="https://github.com/kasahart/wandas/raw/v0.1.6/examples/data/summer_streets1.wav"></audio>
 
@@ -83,18 +73,7 @@ filtered.previous.plot(title="Original")
 filtered.plot(title="filtered")
 ```
 
-```python exec="on" html="true" session="wd_demo"
-filtered = audio.low_pass_filter(cutoff=1000)
-filtered.previous.plot(title="Original")
-buffer = StringIO()
-plt.savefig(buffer, format="svg")
-print(buffer.getvalue())
-
-filtered.plot(title="filtered")
-buffer = StringIO()
-plt.savefig(buffer, format="svg")
-print(buffer.getvalue())
-```
+![Low-pass filter example](../assets/images/low_pass_filter.png)
 
 ### Channel selection with `query` / チャンネル選択（`query` 引数）
 
