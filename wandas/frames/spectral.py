@@ -119,6 +119,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
         previous: BaseFrame[Any] | None = None,
+        source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
     ) -> None:
         if data.ndim == 1:
             data = data.reshape(1, -1)
@@ -134,6 +135,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             operation_history=operation_history,
             channel_metadata=channel_metadata,
             channel_ids=channel_ids,
+            source_time_offset=source_time_offset,
             previous=previous,
         )
 
@@ -297,6 +299,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             operation_history=self.operation_history,
             channel_metadata=self.channels.to_list(),
             channel_ids=self._channel_ids,
+            source_time_offset=self.source_time_offset,
         )
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
@@ -393,6 +396,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             ],
             channel_metadata=self.channels.to_list(),
             channel_ids=self._channel_ids,
+            source_time_offset=self.source_time_offset,
             previous=self,
         )
 

@@ -117,6 +117,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
+        source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
     ) -> None:
         if data.ndim == 2:
             data = da.expand_dims(data, axis=0)
@@ -148,6 +149,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             operation_history=operation_history,
             channel_metadata=channel_metadata,
             channel_ids=channel_ids,
+            source_time_offset=source_time_offset,
             previous=previous,
         )
 
@@ -198,6 +200,11 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             Array of time values corresponding to each time frame.
         """
         return np.arange(self.n_frames) * self.hop_length / self.sampling_rate
+
+    @property
+    def source_times(self) -> NDArrayReal:
+        """Get frame times relative to the original source timeline."""
+        return self.source_time_offset[:, None] + self.times[None, :]
 
     def plot(
         self,
@@ -407,6 +414,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             operation_history=self.operation_history,
             channel_metadata=self.channels.to_list(),
             channel_ids=self._channel_ids,
+            source_time_offset=self.source_time_offset + float(self.times[time_idx]),
         )
 
     def to_channel_frame(self) -> "ChannelFrame":
@@ -454,6 +462,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             operation_history=self.operation_history,
             channel_metadata=self.channels.to_list(),
             channel_ids=self._channel_ids,
+            source_time_offset=self.source_time_offset,
         )
 
     def istft(self) -> "ChannelFrame":

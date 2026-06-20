@@ -138,6 +138,45 @@ class TestSpectrogramFrame:
         assert len(freqs) == spec.n_freq_bins  # FFTサイズの半分 + 1
         assert len(times) == 5
 
+    def test_source_times_add_source_time_offset(self, sample_spectrogram: SpectrogramFrame) -> None:
+        """source_times returns spectrogram frame times on the source timeline."""
+        spec = sample_spectrogram._create_new_instance(
+            data=sample_spectrogram._data,
+            source_time_offset=1.25,
+        )
+
+        np.testing.assert_array_equal(spec.source_time_offset, np.array([1.25, 1.25]))
+        np.testing.assert_array_equal(spec.source_times, spec.times[None, :] + np.array([[1.25], [1.25]]))
+
+    def test_time_slice_advances_source_time_offset_by_hop_length(self, sample_spectrogram: SpectrogramFrame) -> None:
+        """Spectrogram time slicing advances by hop_length / sampling_rate."""
+        spec = sample_spectrogram._create_new_instance(
+            data=sample_spectrogram._data,
+            source_time_offset=1.25,
+        )
+
+        result = spec[:, :, 2:]
+
+        np.testing.assert_array_equal(
+            result.source_time_offset,
+            np.array([1.25 + 2 * spec.hop_length / spec.sampling_rate] * 2),
+        )
+
+    def test_stepped_time_slice_raises_for_source_time_offset(self, sample_spectrogram: SpectrogramFrame) -> None:
+        """Stepped spectrogram slicing would make source_times spacing ambiguous."""
+        spec = sample_spectrogram._create_new_instance(
+            data=sample_spectrogram._data,
+            source_time_offset=1.25,
+        )
+
+        with pytest.raises(ValueError, match="Stepped slicing on the time axis is not supported"):
+            _ = spec[:, :, 2::2]
+
+    def test_point_time_selection_raises_for_source_time_offset(self, sample_spectrogram: SpectrogramFrame) -> None:
+        """Point spectrogram time selection is outside the continuous-slice model."""
+        with pytest.raises(ValueError, match="Only continuous slicing on the time axis is supported"):
+            _ = sample_spectrogram[:, :, 2]
+
     def test_binary_operations(self, sample_spectrogram: SpectrogramFrame) -> None:
         """二項演算子の動作テスト"""
         spec: SpectrogramFrame = sample_spectrogram
@@ -248,11 +287,15 @@ class TestSpectrogramFrame:
 
     def test_get_frame_at(self, sample_spectrogram: SpectrogramFrame) -> None:
         """特定時間フレームの取得テスト"""
-        spec: SpectrogramFrame = sample_spectrogram
+        spec: SpectrogramFrame = sample_spectrogram._create_new_instance(
+            data=sample_spectrogram._data,
+            source_time_offset=3.0,
+        )
 
         # 正常なインデックス
         frame: SpectralFrame = spec.get_frame_at(4)
         assert frame.shape == (2, 65)  # チャネル数 x 周波数ビン数
+        np.testing.assert_array_equal(frame.source_time_offset, np.array([3.0 + spec.times[4]] * 2))
 
         # 範囲外インデックス（負の値）
         with pytest.raises(
@@ -286,7 +329,10 @@ class TestSpectrogramFrame:
 
     def test_istft(self, sample_spectrogram: SpectrogramFrame) -> None:
         """istftメソッドがto_channel_frameのエイリアスとして機能することをテスト"""
-        spec: SpectrogramFrame = sample_spectrogram
+        spec: SpectrogramFrame = sample_spectrogram._create_new_instance(
+            data=sample_spectrogram._data,
+            source_time_offset=4.5,
+        )
 
         # istftメソッドを呼び出し
         channel_frame_istft: Any = spec.istft()
@@ -302,8 +348,10 @@ class TestSpectrogramFrame:
         assert channel_frame_istft._n_channels == channel_frame_to._n_channels
         assert channel_frame_istft.shape == channel_frame_to.shape
 
-        # Pillar 2: sampling rate inherited from spectrogram
+        # Pillar 2: sampling rate and source offset inherited from spectrogram
         assert channel_frame_istft.sampling_rate == spec.sampling_rate
+        np.testing.assert_array_equal(channel_frame_istft.source_time_offset, np.array([4.5, 4.5]))
+        np.testing.assert_array_equal(channel_frame_to.source_time_offset, np.array([4.5, 4.5]))
 
         # データが同じであることを確認
         # Same ISTFT algorithm — decimal=6 default (alias, results identical)

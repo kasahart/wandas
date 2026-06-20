@@ -435,6 +435,26 @@ class TestChannelProcessing:
         # Direct numpy mean — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(mean_data, expected_mean)
 
+    def test_reduce_channels_resets_mismatched_source_time_offsets(self) -> None:
+        """Channel reduction resets source timeline metadata."""
+        self.channel_frame.source_time_offset = [0.0, 5.0]
+
+        sum_cf = self.channel_frame.sum()
+        mean_cf = self.channel_frame.mean()
+
+        np.testing.assert_array_equal(sum_cf.source_time_offset, np.array([0.0]))
+        np.testing.assert_array_equal(mean_cf.source_time_offset, np.array([0.0]))
+
+    def test_reduce_channels_preserves_shared_source_time_offset(self) -> None:
+        """Channel reduction preserves a shared source timeline."""
+        self.channel_frame.source_time_offset = [5.0, 5.0]
+
+        sum_cf = self.channel_frame.sum()
+        mean_cf = self.channel_frame.mean()
+
+        np.testing.assert_array_equal(sum_cf.source_time_offset, np.array([5.0]))
+        np.testing.assert_array_equal(mean_cf.source_time_offset, np.array([5.0]))
+
     def test_channel_difference(self) -> None:
         """Test channel_difference method."""
         # Test that channel_difference is lazy
@@ -463,6 +483,16 @@ class TestChannelProcessing:
         # Element-wise subtraction — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(computed, expected)
 
+    def test_channel_difference_preserves_each_output_source_time_offset(self) -> None:
+        """Channel difference is index-wise and keeps each output channel's timeline."""
+        self.channel_frame.source_time_offset = [0.0, 5.0]
+
+        diff_cf = self.channel_frame.channel_difference(other_channel=0)
+
+        np.testing.assert_array_equal(diff_cf.source_time_offset, np.array([0.0, 5.0]))
+
+    def test_channel_difference_invalid_channel(self) -> None:
+        """Test invalid channel index."""
         # Test invalid channel index
         with pytest.raises(IndexError):
             self.channel_frame.channel_difference(other_channel=10)
@@ -474,16 +504,26 @@ class TestChannelProcessing:
         assert isinstance(trimmed_frame, ChannelFrame)
         assert trimmed_frame.n_samples == int(0.4 * self.sample_rate)
         assert trimmed_frame.n_channels == self.channel_frame.n_channels
+        np.testing.assert_array_equal(trimmed_frame.source_time_offset, np.array([0.1, 0.1]))
+        np.testing.assert_array_equal(trimmed_frame.source_time[:, 0], np.array([0.1, 0.1]))
 
         # Test trimming with only start time
         trimmed_frame = self.channel_frame.trim(start=0.2)
         assert isinstance(trimmed_frame, ChannelFrame)
         assert trimmed_frame.n_samples == int(0.8 * self.sample_rate)
+        np.testing.assert_array_equal(trimmed_frame.source_time_offset, np.array([0.2, 0.2]))
 
         # Test trimming with only end time
         trimmed_frame = self.channel_frame.trim(end=0.3)
         assert isinstance(trimmed_frame, ChannelFrame)
         assert trimmed_frame.n_samples == int(0.3 * self.sample_rate)
+
+        # Non-sample-aligned trim starts report the actual sliced sample time.
+        sample_data = _da_from_array(np.arange(1000, dtype=np.float64).reshape(1, -1), chunks=(1, -1))
+        sample_frame = ChannelFrame(sample_data, sampling_rate=1000)
+        trimmed_frame = sample_frame.trim(start=0.1005, end=0.2)
+        np.testing.assert_array_equal(trimmed_frame.source_time_offset, np.array([0.1]))
+        np.testing.assert_array_equal(trimmed_frame.source_time[:, 0], np.array([0.1]))
 
         # Test trimming with no start or end (should return the same frame)
         trimmed_frame = self.channel_frame.trim()
@@ -1112,6 +1152,7 @@ def test_roughness_dw_spec_preserves_source_channel_metadata_and_ids() -> None:
             ChannelMetadata(label="right", unit="V", ref=0.5, extra={"gain": 20}),
         ],
         channel_ids=["left-id", "right-id"],
+        source_time_offset=3.25,
     )
 
     result = frame.roughness_dw_spec(overlap=0.5)
@@ -1119,6 +1160,7 @@ def test_roughness_dw_spec_preserves_source_channel_metadata_and_ids() -> None:
     assert result.data.ndim == 3
     assert result.data.shape[0] == 2
     assert result.data.shape[1] == 47
+    np.testing.assert_array_equal(result.source_time_offset, np.array([3.25, 3.25]))
     assert result._channel_ids == ["left-id", "right-id"]
     assert result.channels[0].label == "left"
     assert result.channels[0].unit == "Pa"

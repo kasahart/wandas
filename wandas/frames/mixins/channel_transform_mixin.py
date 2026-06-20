@@ -4,6 +4,8 @@ operations."""
 import logging
 from typing import TYPE_CHECKING, Any, cast
 
+import numpy as np
+
 from ...core.base_frame import BaseFrame
 from .protocols import TransformFrameProtocol
 
@@ -35,8 +37,8 @@ def _build_cross_channel_metadata(
     from wandas.core.metadata import ChannelMetadata
 
     result = []
-    for in_ch in channel_metadata:
-        for out_ch in channel_metadata:
+    for out_ch in channel_metadata:
+        for in_ch in channel_metadata:
             meta = ChannelMetadata()
             meta.label = label_template.format(in_label=in_ch.label, out_label=out_ch.label)
             meta.unit = ""
@@ -44,6 +46,16 @@ def _build_cross_channel_metadata(
             meta["metadata"] = {"in_ch": in_ch["metadata"], "out_ch": out_ch["metadata"]}
             result.append(meta)
     return result
+
+
+def _build_cross_channel_source_time_offsets(source_time_offset: Any) -> Any:
+    """Build pairwise source offsets for cross-channel spectral outputs."""
+    offsets = np.asarray(source_time_offset, dtype=float)
+    result: list[float] = []
+    for _out_offset in offsets:
+        for in_offset in offsets:
+            result.append(float(in_offset))
+    return np.asarray(result, dtype=float)
 
 
 class ChannelTransformMixin:
@@ -110,6 +122,7 @@ class ChannelTransformMixin:
                 {"operation": operation_name, "params": params},
             ],
             channel_metadata=channel_metadata,
+            source_time_offset=_build_cross_channel_source_time_offsets(cast(Any, self).source_time_offset),
             previous=self._as_base_frame,
         )
 
@@ -158,6 +171,7 @@ class ChannelTransformMixin:
             ],
             channel_metadata=cast(Any, self).channels.to_list(),
             channel_ids=cast(Any, self)._channel_ids,
+            source_time_offset=cast(Any, self).source_time_offset,
             previous=self._as_base_frame,
         )
 
@@ -216,6 +230,7 @@ class ChannelTransformMixin:
             ],
             channel_metadata=cast(Any, self).channels.to_list(),
             channel_ids=cast(Any, self)._channel_ids,
+            source_time_offset=cast(Any, self).source_time_offset,
             previous=self._as_base_frame,
         )
 
@@ -274,6 +289,7 @@ class ChannelTransformMixin:
             ],
             channel_metadata=cast(Any, self).channels.to_list(),
             channel_ids=cast(Any, self)._channel_ids,
+            source_time_offset=cast(Any, self).source_time_offset,
             previous=self._as_base_frame,
         )
 
@@ -335,6 +351,7 @@ class ChannelTransformMixin:
             operation_history=self.operation_history,
             channel_metadata=cast(Any, self).channels.to_list(),
             channel_ids=cast(Any, self)._channel_ids,
+            source_time_offset=cast(Any, self).source_time_offset,
             previous=self._as_base_frame,
         )
 

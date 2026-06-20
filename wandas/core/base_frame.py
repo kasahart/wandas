@@ -97,6 +97,7 @@ class BaseFrame(ABC, Generic[T]):
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
+        source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
     ):
         normalized_data = self._normalize_data(data)
         frame_label = label or "unnamed_frame"
@@ -118,6 +119,7 @@ class BaseFrame(ABC, Generic[T]):
         self.metadata = metadata
         self.operation_history = operation_history
         self._set_channel_metadata(normalized_channel_metadata, self._pending_channel_ids)
+        self.source_time_offset = source_time_offset
         del self._pending_channel_metadata
         del self._pending_channel_ids
         self._previous = previous
@@ -141,12 +143,14 @@ class BaseFrame(ABC, Generic[T]):
         """Replace the internal xarray data container without touching frame state."""
         old_channel_metadata = self.channels.to_list()
         old_channel_ids = self._channel_ids
+        old_source_time_offset = self.source_time_offset
         normalized = self._normalize_data(data)
         attrs = copy.deepcopy(self._xr.attrs)
         self._xr = self._build_xarray(normalized, name=self.label)
         self._xr.attrs = attrs
         if len(old_channel_metadata) == self._n_channels and len(old_channel_ids) == self._n_channels:
             self._set_channel_metadata(old_channel_metadata, old_channel_ids)
+            self.source_time_offset = old_source_time_offset
 
     def _normalize_data(self, data: DaArray) -> DaArray:
         """Normalize Dask data shape and chunks using Wandas channel-wise policy."""
@@ -449,6 +453,47 @@ class BaseFrame(ABC, Generic[T]):
             raise TypeError("Operation history must be a list")
         self._xr.attrs["operation_history"] = copy.deepcopy(value)
 
+    @property
+    def source_time_offset(self) -> NDArrayReal:
+        """Return each channel's offset from local time axis to source time."""
+        if "source_time_offset" in self._xr.coords:
+            value = self._xr.coords["source_time_offset"].values
+        else:
+            value = self._xr.attrs.get("source_time_offset", 0.0)
+        return self._normalize_source_time_offset(value, self.n_channels)
+
+    @source_time_offset.setter
+    def source_time_offset(self, value: float | Sequence[float] | NDArrayReal) -> None:
+        offsets = self._normalize_source_time_offset(value, self.n_channels)
+        if self._CHANNEL_DIM in self._xr.dims:
+            self._xr = self._xr.assign_coords({"source_time_offset": (self._CHANNEL_DIM, offsets)})
+            self._xr.attrs.pop("source_time_offset", None)
+            return
+        self._xr.attrs["source_time_offset"] = offsets
+
+    @staticmethod
+    def _normalize_source_time_offset(
+        value: object,
+        n_channels: int,
+    ) -> NDArrayReal:
+        try:
+            offsets = np.asarray(value, dtype=float)
+        except (TypeError, ValueError) as exc:
+            raise TypeError("source_time_offset must be a finite numeric value") from exc
+        if offsets.ndim == 0:
+            offsets = np.full(n_channels, float(offsets), dtype=float)
+        elif offsets.ndim != 1:
+            raise ValueError("source_time_offset must be a scalar or a 1D array")
+        elif len(offsets) != n_channels:
+            raise ValueError(
+                "source_time_offset length must match number of channels\n"
+                f"  Offsets: {len(offsets)}\n"
+                f"  Channels: {n_channels}"
+            )
+        if not np.all(np.isfinite(offsets)):
+            raise ValueError("source_time_offset must be finite")
+        return offsets.astype(float, copy=True)
+
     def get_channel(
         self: S,
         channel_idx: int | list[int] | tuple[int, ...] | npt.NDArray[np.int_] | npt.NDArray[np.bool_] | None = None,
@@ -543,6 +588,7 @@ class BaseFrame(ABC, Generic[T]):
             operation_history=new_history,
             channel_metadata=new_channel_metadata,
             channel_ids=new_channel_ids,
+            source_time_offset=self.source_time_offset[channel_idx_list],
         )
 
     def __len__(self) -> int:
@@ -694,6 +740,7 @@ class BaseFrame(ABC, Generic[T]):
                 operation_history=self.operation_history,
                 channel_metadata=new_channel_metadata,
                 channel_ids=new_channel_ids,
+                source_time_offset=self.source_time_offset[indices],
             )
 
         raise TypeError(f"Invalid key type: {type(key).__name__}. Expected int, str, slice, list, tuple, or ndarray.")
@@ -740,14 +787,37 @@ class BaseFrame(ABC, Generic[T]):
         # Apply time indexing if present
         if time_keys:
             new_data = selected._data[(slice(None),) + time_keys]  # noqa: RUF005
+            source_time_offset = selected.source_time_offset
+            time_slice_context = selected._source_time_slice_context(time_keys)
+            if time_slice_context is not None:
+                time_axis_key, time_axis_size, time_step = time_slice_context
+                if not isinstance(time_axis_key, slice):
+                    raise ValueError("Only continuous slicing on the time axis is supported for source time offsets.")
+                if time_axis_key.step not in (None, 1):
+                    raise ValueError("Stepped slicing on the time axis is not supported for source time offsets.")
+                start, _, _ = time_axis_key.indices(time_axis_size)
+                source_time_offset = source_time_offset + start * time_step
             return selected._create_new_instance(
                 data=new_data,
                 operation_history=selected.operation_history,
                 channel_metadata=selected.channels.to_list(),
                 channel_ids=selected._channel_ids,
+                source_time_offset=source_time_offset,
             )
 
         return selected
+
+    def _source_time_slice_context(self, keys: tuple[Any, ...]) -> tuple[Any, int, float] | None:
+        """Return the sliced time-axis key, axis size, and seconds per index."""
+        dims = self._xr.dims
+        if "time" not in dims:
+            return None
+        time_dim_index = dims.index("time")
+        key_index = time_dim_index - 1
+        if key_index < 0 or key_index >= len(keys):
+            return None
+        hop_length = getattr(self, "hop_length", 1)
+        return keys[key_index], self._data.shape[time_dim_index], float(hop_length) / self.sampling_rate
 
     def label2index(self, label: str) -> int:
         """
@@ -823,7 +893,7 @@ class BaseFrame(ABC, Generic[T]):
     def to_xarray(self) -> xr.DataArray:
         """Return a public xarray view of this frame without changing Wandas ownership."""
         exported = self._xr.copy(deep=False)
-        for coord_name in (self._CHANNEL_DIM, "channel_label", "channel_unit", "channel_ref"):
+        for coord_name in (self._CHANNEL_DIM, "channel_label", "channel_unit", "channel_ref", "source_time_offset"):
             if coord_name in exported.coords:
                 coord = exported.coords[coord_name]
                 exported = exported.assign_coords({coord_name: (coord.dims, coord.values.copy())})
@@ -890,6 +960,8 @@ class BaseFrame(ABC, Generic[T]):
         if not isinstance(channel_ids, list):
             raise TypeError("Channel ids must be a list")
 
+        source_time_offset = kwargs.pop("source_time_offset", self.source_time_offset)
+
         # Get additional initialization arguments from derived classes
         additional_kwargs = self._get_additional_init_kwargs()
         kwargs.update(additional_kwargs)
@@ -902,6 +974,7 @@ class BaseFrame(ABC, Generic[T]):
             operation_history=operation_history,
             channel_metadata=channel_metadata,
             channel_ids=channel_ids,
+            source_time_offset=source_time_offset,
             previous=self,
             **kwargs,
         )
@@ -976,7 +1049,9 @@ class BaseFrame(ABC, Generic[T]):
         """Default implementation of binary operations using dask's lazy evaluation.
 
         Handles both frame-frame and frame-scalar/array operations with
-        metadata propagation and history tracking.  Uses
+        metadata propagation and history tracking. Frame-frame operations
+        combine current array indices and preserve the left operand's source
+        timeline; no source-time alignment is performed. Uses
         ``_create_new_instance`` so that subclass-specific constructor
         parameters are automatically forwarded.
 
@@ -1192,6 +1267,9 @@ class BaseFrame(ABC, Generic[T]):
         new_metadata, new_history = self._updated_metadata_and_history(operation_name, params)
 
         metadata_updates = operation.get_metadata_updates()
+        if operation_name == "trim":
+            start_sample = int(float(params.get("start", 0.0)) * self.sampling_rate)
+            metadata_updates["source_time_offset"] = self.source_time_offset + start_sample / self.sampling_rate
 
         display_name = operation.get_display_name()
         new_channel_metadata = self._relabel_channels(operation_name, display_name)
@@ -1214,6 +1292,7 @@ class BaseFrame(ABC, Generic[T]):
                 "operation_history": new_history,
                 "channel_metadata": new_channel_metadata,
                 "channel_ids": self._channel_ids,
+                "source_time_offset": metadata_updates.pop("source_time_offset", self.source_time_offset),
                 "previous": self,
             }
             kw.update(metadata_updates)

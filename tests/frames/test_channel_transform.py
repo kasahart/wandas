@@ -40,6 +40,8 @@ class TestChannelTransform:
             mock_fft.process.return_value = mock_data
             mock_create_op.return_value = mock_fft
 
+            self.channel_frame.source_time_offset = 2.75
+
             # fftを遅延実行
             result = self.channel_frame.fft(n_fft=4096, window="hamming")
 
@@ -55,8 +57,9 @@ class TestChannelTransform:
             assert result.n_fft == 4096
             assert result.window == "hann"
             assert result.previous is self.channel_frame
-            # Pillar 2: domain transition preserves sampling rate
+            # Pillar 2: domain transition preserves sampling rate and source offset
             assert result.sampling_rate == self.channel_frame.sampling_rate
+            np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
 
     def test_welch_transform(self) -> None:
         """
@@ -79,6 +82,8 @@ class TestChannelTransform:
             mock_data.rechunk.return_value = mock_data
             mock_welch.process.return_value = mock_data
             mock_create_op.return_value = mock_welch
+
+            self.channel_frame.source_time_offset = 2.75
 
             # welchを遅延実行
             result = self.channel_frame.welch(
@@ -108,6 +113,7 @@ class TestChannelTransform:
             assert result.n_fft == 2048
             assert result.window == "blackman"
             assert result.previous is self.channel_frame
+            np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
 
     def test_stft_transform(self) -> None:
         """Test stft method for lazy short-time Fourier transform."""
@@ -122,6 +128,8 @@ class TestChannelTransform:
             mock_data.rechunk.return_value = mock_data
             mock_stft.process.return_value = mock_data
             mock_create_op.return_value = mock_stft
+
+            self.channel_frame.source_time_offset = 2.75
 
             # stftを遅延実行（デフォルト引数）
             result = self.channel_frame.stft()
@@ -146,8 +154,9 @@ class TestChannelTransform:
             assert result.hop_length == 512
             assert result.win_length == 2048
             assert result.window == "hann"
-            # Pillar 2: domain transition preserves sampling rate
+            # Pillar 2: domain transition preserves sampling rate and source offset
             assert result.sampling_rate == self.channel_frame.sampling_rate
+            np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
 
             # カスタムパラメータでテスト
             mock_create_op.reset_mock()
@@ -195,6 +204,8 @@ class TestChannelTransform:
             mock_noct.process.return_value = mock_data
             mock_create_op.return_value = mock_noct
 
+            self.channel_frame.source_time_offset = 2.75
+
             # noct_spectrumを呼び出す
             fmin, fmax, n = 20, 20000, 3
             G, fr = 10, 1000  # noqa: N806
@@ -222,6 +233,7 @@ class TestChannelTransform:
             assert result.G == G
             assert result.fr == fr
             assert result.previous is self.channel_frame
+            np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
 
     def test_csd(self) -> None:
         """クロススペクトル密度（CSD）メソッドのテスト"""
@@ -238,6 +250,7 @@ class TestChannelTransform:
 
         # ChannelFrameインスタンスを作成
         cf = ChannelFrame.from_numpy(sigs, sr)
+        cf.source_time_offset = 3.5
 
         # CSD計算のパラメータ
         n_fft = 512
@@ -246,6 +259,7 @@ class TestChannelTransform:
 
         # ChannelFrameメソッドを使用してCSDを計算
         csd_frame = cf.csd(n_fft=n_fft, win_length=win_length, hop_length=hop_length, window="hamming")
+        np.testing.assert_array_equal(csd_frame.source_time_offset, np.array([3.5, 3.5, 3.5, 3.5]))
 
         # 実際のデータを取得するために計算
         csd_data = csd_frame.compute()
@@ -286,6 +300,52 @@ class TestChannelTransform:
         ch1_auto = csd_data[3]  # ch1 -> ch1
         assert abs(ch1_auto[idx_100hz]) > abs(ch1_auto[idx_200hz])
         assert abs(ch1_auto[idx_300hz]) > abs(ch1_auto[idx_200hz])
+
+    def test_cross_channel_transform_uses_input_channel_source_time_offsets(self) -> None:
+        """Pairwise channel transforms use the input-side channel timeline."""
+        cf = ChannelFrame.from_numpy(_DATA, _SAMPLE_RATE)
+        cf.source_time_offset = [0.0, 5.0]
+
+        csd_frame = cf.csd(n_fft=512, win_length=256, hop_length=128)
+
+        np.testing.assert_array_equal(csd_frame.source_time_offset, np.array([0.0, 5.0, 0.0, 5.0]))
+
+    @pytest.mark.parametrize(
+        ("method_name", "expected_labels"),
+        [
+            ("csd", ["csd(left, left)", "csd(right, left)", "csd(left, right)", "csd(right, right)"]),
+            (
+                "coherence",
+                [
+                    "$\\gamma_{left, left}$",
+                    "$\\gamma_{right, left}$",
+                    "$\\gamma_{left, right}$",
+                    "$\\gamma_{right, right}$",
+                ],
+            ),
+            (
+                "transfer_function",
+                ["$H_{left, left}$", "$H_{right, left}$", "$H_{left, right}$", "$H_{right, right}$"],
+            ),
+        ],
+    )
+    def test_cross_channel_transform_metadata_and_offsets_follow_flattened_order(
+        self,
+        method_name: str,
+        expected_labels: list[str],
+    ) -> None:
+        cf = ChannelFrame.from_numpy(
+            _DATA,
+            _SAMPLE_RATE,
+            ch_labels=["left", "right"],
+        )
+        cf.source_time_offset = [1.0, 9.0]
+
+        transform = getattr(cf, method_name)
+        result = transform(n_fft=512, win_length=256, hop_length=128)
+
+        assert result.labels == expected_labels
+        np.testing.assert_array_equal(result.source_time_offset, np.array([1.0, 9.0, 1.0, 9.0]))
 
     def test_transfer_function(self) -> None:
         """伝達関数メソッドのテスト"""

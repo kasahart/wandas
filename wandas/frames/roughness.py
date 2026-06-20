@@ -120,6 +120,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
+        source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
     ) -> None:
         """Initialize a RoughnessFrame."""
         # Validate dimensions
@@ -153,6 +154,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             operation_history=operation_history,
             channel_metadata=channel_metadata,
             channel_ids=channel_ids,
+            source_time_offset=source_time_offset,
             previous=previous,
         )
 
@@ -220,6 +222,11 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         return np.arange(self.n_time_points) / self.sampling_rate
 
     @property
+    def source_time(self) -> NDArrayReal:
+        """Return roughness analysis time points on the source timeline."""
+        return self.source_time_offset[:, None] + self.time[None, :]
+
+    @property
     def overlap(self) -> float:
         """
         Overlap coefficient used in the calculation.
@@ -254,6 +261,13 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
     def _get_dataframe_index(self) -> "pd.Index[Any]":
         """DataFrame index is not supported for RoughnessFrame."""
         raise NotImplementedError("DataFrame index is not supported for RoughnessFrame.")
+
+    def _source_time_slice_context(self, keys: tuple[Any, ...]) -> tuple[Any, int, float] | None:
+        """Roughness time is stored on the last data axis."""
+        key_index = self._data.ndim - 2
+        if key_index < 0 or key_index >= len(keys):
+            return None
+        return keys[key_index], self._data.shape[-1], 1.0 / self.sampling_rate
 
     def to_dataframe(self) -> "pd.DataFrame":
         """DataFrame conversion is not supported for RoughnessFrame.
@@ -335,6 +349,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             operation_history=operation_history,
             channel_metadata=self.channels.to_list(),
             channel_ids=self._channel_ids,
+            source_time_offset=self.source_time_offset,
             previous=self,
         )
 

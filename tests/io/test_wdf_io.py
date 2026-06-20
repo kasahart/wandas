@@ -47,6 +47,118 @@ def test_wdf_roundtrip_known_signal(known_signal_frame, tmp_path: Path) -> None:
     assert isinstance(loaded._data, dask.array.core.Array)
 
 
+def test_wdf_roundtrip_preserves_source_time_offset(known_signal_frame, tmp_path: Path) -> None:
+    """WDF stores and restores source_time_offset as frame state."""
+    known_signal_frame.source_time_offset = [3.25, 7.5]
+    path = tmp_path / "source_time_offset.wdf"
+
+    known_signal_frame.save(path)
+    with h5py.File(path, "r") as f:
+        assert "source_time_offset" not in f.attrs
+        assert f["channels"]["0"].attrs["source_time_offset"] == 3.25
+        assert f["channels"]["1"].attrs["source_time_offset"] == 7.5
+
+    loaded = ChannelFrame.load(path)
+
+    np.testing.assert_array_equal(loaded.source_time_offset, np.array([3.25, 7.5]))
+    np.testing.assert_array_equal(loaded.source_time[:, 0], np.array([3.25, 7.5]))
+
+
+def test_wdf_load_channel_source_time_offset_takes_priority_over_root(tmp_path: Path) -> None:
+    """New channel attr offsets take priority over legacy root offsets."""
+    path = tmp_path / "channel_offset_priority.wdf"
+    with h5py.File(path, "w") as f:
+        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["sampling_rate"] = 16000.0
+        f.attrs["label"] = ""
+        f.attrs["source_time_offset"] = np.array([99.0, 100.0])
+        channels = f.create_group("channels")
+        for i, offset in enumerate([1.25, 2.5]):
+            channel = channels.create_group(str(i))
+            channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
+            channel.attrs["label"] = f"mic{i}"
+            channel.attrs["unit"] = ""
+            channel.attrs["source_time_offset"] = offset
+
+    loaded = ChannelFrame.load(path)
+
+    np.testing.assert_array_equal(loaded.source_time_offset, np.array([1.25, 2.5]))
+
+
+def test_wdf_load_legacy_root_source_time_offset(tmp_path: Path) -> None:
+    """Legacy root source_time_offset remains readable."""
+    path = tmp_path / "legacy_root_offset.wdf"
+    with h5py.File(path, "w") as f:
+        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["sampling_rate"] = 16000.0
+        f.attrs["label"] = ""
+        f.attrs["source_time_offset"] = np.array([4.0, 8.0])
+        channels = f.create_group("channels")
+        for i in range(2):
+            channel = channels.create_group(str(i))
+            channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
+            channel.attrs["label"] = f"mic{i}"
+            channel.attrs["unit"] = ""
+
+    loaded = ChannelFrame.load(path)
+
+    np.testing.assert_array_equal(loaded.source_time_offset, np.array([4.0, 8.0]))
+
+
+def test_wdf_load_defaults_missing_source_time_offset_to_zero(tmp_path: Path) -> None:
+    """Legacy WDF files without source_time_offset load with zero offset."""
+    path = tmp_path / "legacy_no_offset.wdf"
+    with h5py.File(path, "w") as f:
+        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["sampling_rate"] = 16000.0
+        f.attrs["label"] = ""
+        channels = f.create_group("channels")
+        channel = channels.create_group("0")
+        channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
+        channel.attrs["label"] = "mic0"
+        channel.attrs["unit"] = ""
+
+    loaded = ChannelFrame.load(path)
+
+    np.testing.assert_array_equal(loaded.source_time_offset, np.array([0.0]))
+
+
+def test_wdf_load_rejects_non_finite_source_time_offset(tmp_path: Path) -> None:
+    """Invalid persisted source_time_offset values are rejected on load."""
+    path = tmp_path / "invalid_offset.wdf"
+    with h5py.File(path, "w") as f:
+        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["sampling_rate"] = 16000.0
+        f.attrs["label"] = ""
+        f.attrs["source_time_offset"] = np.nan
+        channels = f.create_group("channels")
+        channel = channels.create_group("0")
+        channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
+        channel.attrs["label"] = "mic0"
+        channel.attrs["unit"] = ""
+
+    with pytest.raises(ValueError, match="source_time_offset must be finite"):
+        ChannelFrame.load(path)
+
+
+def test_wdf_load_rejects_source_time_offset_length_mismatch(tmp_path: Path) -> None:
+    """Persisted source_time_offset arrays must match WDF channel count."""
+    path = tmp_path / "invalid_offset_length.wdf"
+    with h5py.File(path, "w") as f:
+        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["sampling_rate"] = 16000.0
+        f.attrs["label"] = ""
+        f.attrs["source_time_offset"] = np.array([1.0, 2.0])
+        channels = f.create_group("channels")
+        channel = channels.create_group("0")
+        channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
+        channel.attrs["label"] = "mic0"
+        channel.attrs["unit"] = ""
+
+    with pytest.raises(ValueError, match="source_time_offset length must match number of channels"):
+        ChannelFrame.load(path)
+
+
 def test_save_load_roundtrip(tmp_path: Path) -> None:
     """Test saving and loading a ChannelFrame with full metadata preservation."""
     # Seeded RNG for reproducibility (Grand Policy: no random data)
