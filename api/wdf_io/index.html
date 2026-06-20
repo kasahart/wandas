@@ -1267,7 +1267,10 @@ WDFフォーマットは以下の特徴を持ちます:</p>
 <span class="normal">146</span>
 <span class="normal">147</span>
 <span class="normal">148</span>
-<span class="normal">149</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
+<span class="normal">149</span>
+<span class="normal">150</span>
+<span class="normal">151</span>
+<span class="normal">152</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
     <span class="n">frame</span><span class="p">:</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
@@ -1302,6 +1305,8 @@ WDFフォーマットは以下の特徴を持ちます:</p>
     <span class="c1"># Currently only HDF5 is supported</span>
     <span class="k">if</span> <span class="nb">format</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;hdf5&quot;</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Format </span><span class="si">{</span><span class="nb">format</span><span class="si">}</span><span class="s2"> not supported. Only &#39;hdf5&#39; is currently implemented.&quot;</span><span class="p">)</span>
+
+    <span class="n">h5py</span> <span class="o">=</span> <span class="n">require_h5py</span><span class="p">(</span><span class="s2">&quot;WDF save&quot;</span><span class="p">)</span>
 
     <span class="c1"># Compute data arrays (this triggers actual computation)</span>
     <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Computing data arrays for saving...&quot;</span><span class="p">)</span>
@@ -1338,6 +1343,7 @@ WDFフォーマットは以下の特徴を持ちます:</p>
             <span class="n">ch_grp</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ch_meta</span><span class="o">.</span><span class="n">label</span>
             <span class="n">ch_grp</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;unit&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ch_meta</span><span class="o">.</span><span class="n">unit</span>
             <span class="n">ch_grp</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;ref&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ch_meta</span><span class="o">.</span><span class="n">ref</span>
+            <span class="n">ch_grp</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;source_time_offset&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">source_time_offset</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
 
             <span class="c1"># Store extra metadata as JSON</span>
             <span class="k">if</span> <span class="n">ch_meta</span><span class="o">.</span><span class="n">extra</span><span class="p">:</span>
@@ -1540,10 +1546,7 @@ cf = wd.load("https://example.com/audio_data.wdf")</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/wdf_io.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">152</span>
-<span class="normal">153</span>
-<span class="normal">154</span>
-<span class="normal">155</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">155</span>
 <span class="normal">156</span>
 <span class="normal">157</span>
 <span class="normal">158</span>
@@ -1702,7 +1705,24 @@ cf = wd.load("https://example.com/audio_data.wdf")</p>
 <span class="normal">311</span>
 <span class="normal">312</span>
 <span class="normal">313</span>
-<span class="normal">314</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hdf5&quot;</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
+<span class="normal">314</span>
+<span class="normal">315</span>
+<span class="normal">316</span>
+<span class="normal">317</span>
+<span class="normal">318</span>
+<span class="normal">319</span>
+<span class="normal">320</span>
+<span class="normal">321</span>
+<span class="normal">322</span>
+<span class="normal">323</span>
+<span class="normal">324</span>
+<span class="normal">325</span>
+<span class="normal">326</span>
+<span class="normal">327</span>
+<span class="normal">328</span>
+<span class="normal">329</span>
+<span class="normal">330</span>
+<span class="normal">331</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hdf5&quot;</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a ChannelFrame object from a WDF (Wandas Data File) file or URL.</span>
 
 <span class="sd">    Args:</span>
@@ -1732,6 +1752,8 @@ cf = wd.load("https://example.com/audio_data.wdf")</p>
 
     <span class="k">if</span> <span class="nb">format</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;hdf5&quot;</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Format &#39;</span><span class="si">{</span><span class="nb">format</span><span class="si">}</span><span class="s2">&#39; is not supported&quot;</span><span class="p">)</span>
+
+    <span class="n">h5py</span> <span class="o">=</span> <span class="n">require_h5py</span><span class="p">(</span><span class="s2">&quot;WDF load&quot;</span><span class="p">)</span>
 
     <span class="c1"># Detect and handle URL paths — download to memory before HDF5 open.</span>
     <span class="n">h5_source</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span>
@@ -1769,6 +1791,7 @@ cf = wd.load("https://example.com/audio_data.wdf")</p>
         <span class="c1"># Get global attributes</span>
         <span class="n">sampling_rate</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;sampling_rate&quot;</span><span class="p">])</span>
         <span class="n">frame_label</span> <span class="o">=</span> <span class="n">_decode_hdf5_str</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">))</span>
+        <span class="n">legacy_source_time_offset</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;source_time_offset&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
         <span class="c1"># Get frame metadata</span>
         <span class="n">frame_metadata</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
@@ -1806,6 +1829,7 @@ cf = wd.load("https://example.com/audio_data.wdf")</p>
         <span class="c1"># Load channel data and metadata</span>
         <span class="n">all_channel_data</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">channel_metadata_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">channel_source_time_offsets</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">channel_ids</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="s2">&quot;channel_ids_json&quot;</span> <span class="ow">in</span> <span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="p">:</span>
             <span class="n">parsed_channel_ids</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">_decode_hdf5_str</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;channel_ids_json&quot;</span><span class="p">]))</span>
@@ -1830,6 +1854,8 @@ cf = wd.load("https://example.com/audio_data.wdf")</p>
                 <span class="n">label</span> <span class="o">=</span> <span class="n">_decode_hdf5_str</span><span class="p">(</span><span class="n">ch_group</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Ch</span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
                 <span class="n">unit</span> <span class="o">=</span> <span class="n">_decode_hdf5_str</span><span class="p">(</span><span class="n">ch_group</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;unit&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">))</span>
                 <span class="n">ref</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ch_group</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;ref&quot;</span><span class="p">])</span> <span class="k">if</span> <span class="s2">&quot;ref&quot;</span> <span class="ow">in</span> <span class="n">ch_group</span><span class="o">.</span><span class="n">attrs</span> <span class="k">else</span> <span class="kc">None</span>
+                <span class="k">if</span> <span class="s2">&quot;source_time_offset&quot;</span> <span class="ow">in</span> <span class="n">ch_group</span><span class="o">.</span><span class="n">attrs</span><span class="p">:</span>
+                    <span class="n">channel_source_time_offsets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">ch_group</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;source_time_offset&quot;</span><span class="p">]))</span>
 
                 <span class="c1"># Load additional metadata if present</span>
                 <span class="n">ch_extra</span> <span class="o">=</span> <span class="p">{}</span>
@@ -1849,6 +1875,13 @@ cf = wd.load("https://example.com/audio_data.wdf")</p>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No channel data found in the file&quot;</span><span class="p">)</span>
 
+        <span class="k">if</span> <span class="n">channel_source_time_offsets</span><span class="p">:</span>
+            <span class="n">source_time_offset</span> <span class="o">=</span> <span class="n">channel_source_time_offsets</span>
+        <span class="k">elif</span> <span class="n">legacy_source_time_offset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">source_time_offset</span> <span class="o">=</span> <span class="n">legacy_source_time_offset</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">source_time_offset</span> <span class="o">=</span> <span class="mf">0.0</span>
+
         <span class="c1"># Create a new ChannelFrame</span>
         <span class="c1"># Use channel-wise chunking: 1 for channel axis and -1 for samples</span>
         <span class="n">dask_data</span> <span class="o">=</span> <span class="n">_da_from_array</span><span class="p">(</span><span class="n">combined_data</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
@@ -1861,6 +1894,7 @@ cf = wd.load("https://example.com/audio_data.wdf")</p>
             <span class="n">operation_history</span><span class="o">=</span><span class="n">operation_history</span><span class="p">,</span>
             <span class="n">channel_metadata</span><span class="o">=</span><span class="n">channel_metadata_list</span><span class="p">,</span>
             <span class="n">channel_ids</span><span class="o">=</span><span class="n">channel_ids</span><span class="p">,</span>
+            <span class="n">source_time_offset</span><span class="o">=</span><span class="n">source_time_offset</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ChannelFrame loaded from </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">cf</span><span class="p">)</span><span class="si">}</span><span class="s2"> channels, </span><span class="si">{</span><span class="n">cf</span><span class="o">.</span><span class="n">n_samples</span><span class="si">}</span><span class="s2"> samples&quot;</span><span class="p">)</span>
