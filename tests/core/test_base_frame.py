@@ -865,6 +865,10 @@ class TestBaseFrameIndexing:
         assert isinstance(result._data, DaArray)
         np.testing.assert_array_equal(result.compute(), self.data[[0, 2], 100:200])
 
+    def test_source_time_slice_context_without_time_key_returns_none(self) -> None:
+        """No source offset update is needed when tuple indexing omits the time key."""
+        assert self.channel_frame._source_time_slice_context(()) is None
+
     def test_getitem_with_tuple_invalid_length(self) -> None:
         """Test __getitem__ with tuple of invalid length raises ValueError."""
         with pytest.raises(ValueError, match="Invalid key length"):

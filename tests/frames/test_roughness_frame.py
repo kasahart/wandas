@@ -391,6 +391,17 @@ class TestRoughnessFrame:
 
         np.testing.assert_array_equal(frame.source_time, frame.time + 4.0)
 
+    def test_source_time_slice_context_without_time_key_returns_none(self) -> None:
+        """RoughnessFrame source time updates only when its time axis is indexed."""
+        frame = RoughnessFrame(
+            data=_DATA_STEREO,
+            sampling_rate=_SAMPLING_RATE,
+            bark_axis=_BARK_AXIS,
+            overlap=_OVERLAP,
+        )
+
+        assert frame._source_time_slice_context(()) is None
+
     def test_binary_op_with_roughness_frame(self) -> None:
         """Test binary operations between RoughnessFrame instances."""
         frame1 = RoughnessFrame(
