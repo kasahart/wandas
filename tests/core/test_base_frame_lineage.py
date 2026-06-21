@@ -1,0 +1,104 @@
+from unittest import mock
+
+import dask.array as da
+import numpy as np
+import pytest
+from dask.delayed import delayed
+
+from wandas.frames.channel import ChannelFrame
+from wandas.processing.custom import CustomOperation
+from wandas.processing.effects import Normalize
+from wandas.processing.filters import HighPassFilter
+from wandas.processing.spectral import STFT
+from wandas.utils.dask_helpers import da_from_array
+from wandas.utils.types import NDArrayReal
+
+
+def _frame() -> ChannelFrame:
+    data = np.linspace(-1.0, 1.0, 4096, dtype=np.float64).reshape(1, -1)
+    return ChannelFrame(da_from_array(data, chunks=(1, -1)), sampling_rate=16000, label="lineage")
+
+
+def test_operations_extracts_serial_chain_in_dependency_order() -> None:
+    result = _frame().high_pass_filter(100).normalize().stft(n_fft=64, hop_length=16)
+
+    operations = result.operations
+
+    assert [operation.name for operation in operations] == ["highpass_filter", "normalize", "stft"]
+    assert isinstance(operations[0], HighPassFilter)
+    assert isinstance(operations[1], Normalize)
+    assert isinstance(operations[2], STFT)
+
+
+def test_operations_keeps_repeated_operations_as_distinct_instances() -> None:
+    result = _frame().normalize().normalize()
+
+    operations = result.operations
+
+    assert [operation.name for operation in operations] == ["normalize", "normalize"]
+    assert operations[0] is not operations[1]
+
+
+def test_operations_ignores_dask_internal_tasks_rechunk_and_from_delayed() -> None:
+    delayed_data = delayed(lambda: np.ones((1, 32), dtype=np.float64))()
+    dask_data = da.from_delayed(delayed_data, shape=(1, 32), dtype=np.float64).rechunk((1, -1))
+    frame = ChannelFrame(dask_data, sampling_rate=16000)
+
+    assert frame.operations == ()
+
+
+def test_operations_stable_after_compute_on_same_frame_graph() -> None:
+    result = _frame().high_pass_filter(100).normalize()
+    before = result.operations
+
+    _ = result.compute()
+
+    assert result.operations == before
+
+
+def test_operations_does_not_compute_data() -> None:
+    result = _frame().normalize()
+
+    with mock.patch("dask.array.core.Array.compute") as compute:
+        operations = result.operations
+
+    compute.assert_not_called()
+    assert [operation.name for operation in operations] == ["normalize"]
+
+
+def test_operations_extracts_custom_operation_instance() -> None:
+    def scale(x: NDArrayReal, gain: float) -> NDArrayReal:
+        return x * gain
+
+    result = _frame().apply(scale, gain=2.0)
+
+    operations = result.operations
+
+    assert len(operations) == 1
+    assert isinstance(operations[0], CustomOperation)
+    assert operations[0].func is scale
+    assert operations[0].params == {"gain": 2.0}
+
+
+def test_operation_history_public_behavior_is_unchanged() -> None:
+    frame = _frame()
+    history: list[dict[str, object]] = [{"operation": "load", "params": {"path": "input.wav"}}]
+    frame.operation_history = history
+    history[0]["operation"] = "mutated"
+
+    assert frame.operation_history == [{"operation": "load", "params": {"path": "input.wav"}}]
+
+    frame.operation_history.append({"operation": "normalize", "params": {}})
+
+    assert frame._xr.attrs["operation_history"] == [
+        {"operation": "load", "params": {"path": "input.wav"}},
+        {"operation": "normalize", "params": {}},
+    ]
+
+
+def test_operations_property_is_read_only_sequence() -> None:
+    result = _frame().normalize()
+
+    assert isinstance(result.operations, tuple)
+    with pytest.raises(AttributeError):
+        result.operations = ()  # ty: ignore[invalid-assignment]

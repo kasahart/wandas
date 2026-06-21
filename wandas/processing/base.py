@@ -18,6 +18,11 @@ InputArrayType = TypeVar("InputArrayType", NDArrayReal, NDArrayComplex)
 OutputArrayType = TypeVar("OutputArrayType", NDArrayReal, NDArrayComplex)
 
 
+def _execute_wandas_operation(operation: "AudioOperation[Any, Any]", data: Any) -> Any:
+    """Execute a Wandas operation from a Dask task."""
+    return operation._process_array(data)
+
+
 class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     """Abstract base class for audio processing operations."""
 
@@ -113,27 +118,9 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         # Default is no-op function
         raise NotImplementedError("Subclasses must implement this method.")
 
-    def _create_named_wrapper(self) -> Any:
-        """
-        Create a named wrapper function for better Dask graph visualization.
-
-        Returns
-        -------
-        callable
-            A wrapper function with the operation name set as __name__.
-        """
-
-        def operation_wrapper(x: InputArrayType) -> OutputArrayType:
-            return self._process_array(x)
-
-        # Set the function name to the operation name for better visualization
-        operation_wrapper.__name__ = self.name
-        return operation_wrapper
-
     def _delayed(self, data: Any) -> Any:
-        """Create a ``dask.delayed`` result for *data* using the named wrapper."""
-        wrapper = self._create_named_wrapper()
-        return delayed(wrapper, pure=self.pure)(data)
+        """Create a ``dask.delayed`` result for *data* with an explicit operation marker."""
+        return delayed(_execute_wandas_operation, name=self.name, pure=self.pure)(self, data)
 
     def process_array(self, x: Any) -> Any:
         """

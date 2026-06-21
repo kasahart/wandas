@@ -209,10 +209,11 @@ class TestAudioOperation:
         for pure_val in (True, False):
             op = test_op_cls(16000, pure=pure_val)
             with mock.patch("wandas.processing.base.delayed") as mock_delayed:
-                mock_delayed.return_value = lambda x: mock.MagicMock()
+                mock_delayed.return_value = lambda *args: mock.MagicMock()
                 op.process_array(test_array)
                 _, kwargs = mock_delayed.call_args
                 assert kwargs["pure"] is pure_val
+                assert kwargs["name"] == op.name
 
     def test_get_metadata_updates_returns_empty_dict(self) -> None:
         """Base class get_metadata_updates() returns empty dict by default."""
