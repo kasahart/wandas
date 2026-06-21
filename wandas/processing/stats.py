@@ -1,6 +1,6 @@
 import logging
 
-import numpy as np
+import dask.array as da
 from dask.array.core import Array as DaArray
 
 from wandas.processing.base import AudioOperation, register_operation
@@ -26,9 +26,8 @@ class ABS(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         super().__init__(sampling_rate)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
-        result: NDArrayReal = np.abs(x)
-        return result
+    def process(self, data: DaArray) -> DaArray:
+        return self._mark_array(da.abs(data))
 
 
 class Power(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -51,9 +50,8 @@ class Power(AudioOperation[NDArrayReal, NDArrayReal]):
         self.exp = exponent
         super().__init__(sampling_rate, exponent=exponent)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
-        result: NDArrayReal = np.power(x, self.exp)
-        return result
+    def process(self, data: DaArray) -> DaArray:
+        return self._mark_array(da.power(data, self.exp))
 
 
 class Sum(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -62,12 +60,8 @@ class Sum(AudioOperation[NDArrayReal, NDArrayReal]):
     name = "sum"
     _display = "sum"
 
-    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        return (1, *input_shape[1:])
-
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
-        result: NDArrayReal = x.sum(axis=0, keepdims=True)
-        return result
+    def process(self, data: DaArray) -> DaArray:
+        return self._mark_array(data.sum(axis=0, keepdims=True))
 
 
 class Mean(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -76,12 +70,8 @@ class Mean(AudioOperation[NDArrayReal, NDArrayReal]):
     name = "mean"
     _display = "mean"
 
-    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        return (1, *input_shape[1:])
-
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
-        result: NDArrayReal = x.mean(axis=0, keepdims=True)
-        return result
+    def process(self, data: DaArray) -> DaArray:
+        return self._mark_array(data.mean(axis=0, keepdims=True))
 
 
 class ChannelDifference(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -106,13 +96,9 @@ class ChannelDifference(AudioOperation[NDArrayReal, NDArrayReal]):
         super().__init__(sampling_rate, other_channel=other_channel)
 
     def process(self, data: DaArray) -> DaArray:
-        if self.other_channel < 0 or self.other_channel >= data.shape[0]:
+        if not -data.shape[0] <= self.other_channel < data.shape[0]:
             raise IndexError("Channel index out of range")
-        return super().process(data)
-
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
-        result: NDArrayReal = x - x[self.other_channel]
-        return result
+        return self._mark_array(data - data[self.other_channel])
 
 
 # Register all operations

@@ -1,7 +1,7 @@
 import importlib
 import inspect
 import logging
-from typing import Any, ClassVar, Generic, TypeVar
+from typing import Any, ClassVar, Generic, TypeVar, cast
 
 import dask.array as da
 from dask.array.core import Array as DaArray
@@ -21,6 +21,11 @@ OutputArrayType = TypeVar("OutputArrayType", NDArrayReal, NDArrayComplex)
 def _execute_wandas_operation(operation: "AudioOperation[Any, Any]", data: Any) -> Any:
     """Execute a Wandas operation from a Dask task."""
     return operation._process_array(data)
+
+
+def _mark_wandas_operation(data: Any, operation: "AudioOperation[Any, Any]") -> Any:
+    """Mark a Dask-native task as a Wandas operation without changing the data."""
+    return data
 
 
 class AudioOperation(Generic[InputArrayType, OutputArrayType]):
@@ -121,6 +126,11 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     def _delayed(self, data: Any) -> Any:
         """Create a ``dask.delayed`` result for *data* with an explicit operation marker."""
         return delayed(_execute_wandas_operation, name=self.name, pure=self.pure)(self, data)
+
+    def _mark_array(self, data: DaArray) -> DaArray:
+        """Attach an explicit operation marker to a Dask-native array result."""
+        marker = cast(Any, _mark_wandas_operation)
+        return data.map_blocks(marker, self, dtype=data.dtype)
 
     def process_array(self, x: Any) -> Any:
         """

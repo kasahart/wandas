@@ -6,7 +6,9 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from wandas.processing.base import AudioOperation, _execute_wandas_operation
+from wandas.processing.base import AudioOperation, _execute_wandas_operation, _mark_wandas_operation
+
+_OPERATION_MARKER_FUNCTIONS = {_execute_wandas_operation, _mark_wandas_operation}
 
 
 @dataclass(frozen=True)
@@ -53,10 +55,14 @@ def _flatten_graph(graph: Mapping[Any, Any]) -> Mapping[Any, Any]:
             if not _is_graph_mapping(value):
                 continue
             for key, nested_task in value.items():
-                if key not in flattened:
+                if key not in flattened or _prefers_nested_task(flattened[key], nested_task):
                     flattened[key] = nested_task
                     stack.append(nested_task)
     return flattened
+
+
+def _prefers_nested_task(existing_task: Any, nested_task: Any) -> bool:
+    return _operation_marker(existing_task) is None and _operation_marker(nested_task) is not None
 
 
 def _is_graph_mapping(value: Any) -> bool:
@@ -76,26 +82,72 @@ def _looks_like_dask_task(value: Any) -> bool:
 
 def _operation_nodes(graph: Mapping[Any, Any]) -> dict[Any, _OperationNode]:
     nodes: dict[Any, _OperationNode] = {}
+    operation_keys: dict[int, Any] = {}
     for key, task in graph.items():
         marker = _operation_marker(task)
         if marker is None:
             continue
-        nodes[key] = _OperationNode(
-            key=key,
-            operation=marker,
-            dependencies=frozenset(_task_dependencies(task, graph)),
-        )
+        dependencies = frozenset(_task_dependencies(task, graph))
+        operation_id = id(marker)
+        existing_key = operation_keys.get(operation_id)
+        if existing_key is not None:
+            existing_node = nodes[existing_key]
+            nodes[existing_key] = _OperationNode(
+                key=existing_node.key,
+                operation=existing_node.operation,
+                dependencies=existing_node.dependencies | dependencies,
+            )
+            continue
+        operation_keys[operation_id] = key
+        nodes[key] = _OperationNode(key=key, operation=marker, dependencies=dependencies)
     return nodes
 
 
 def _operation_marker(task: Any) -> AudioOperation[Any, Any] | None:
     func, args = _task_func_and_args(task)
-    if func is not _execute_wandas_operation:
+    if getattr(func, "__name__", None) == "_execute_subgraph":
+        return _subgraph_operation_marker(args)
+    if not any(func is marker_func for marker_func in _OPERATION_MARKER_FUNCTIONS):
         return None
+    return _operation_from_args(args)
+
+
+def _subgraph_operation_marker(args: tuple[Any, ...]) -> AudioOperation[Any, Any] | None:
+    if len(args) < 2 or not isinstance(args[0], Mapping):
+        return None
+    subgraph = args[0]
+    output_task = subgraph.get(_dependency_key(args[1]))
+    if output_task is None:
+        return None
+    func, output_args = _task_func_and_args(output_task)
+    if not any(func is marker_func for marker_func in _OPERATION_MARKER_FUNCTIONS):
+        return None
+    substitutions = _subgraph_substitutions(args)
+    return _operation_from_args(output_args, substitutions)
+
+
+def _subgraph_substitutions(args: tuple[Any, ...]) -> dict[Any, Any]:
+    if len(args) < 3 or not isinstance(args[2], tuple):
+        return {}
+    return dict(zip(args[2], args[3:], strict=False))
+
+
+def _operation_from_args(
+    args: tuple[Any, ...],
+    substitutions: Mapping[Any, Any] | None = None,
+) -> AudioOperation[Any, Any] | None:
+    substitutions = substitutions or {}
     for arg in args:
-        if isinstance(arg, AudioOperation):
-            return arg
+        value = _literal_value(arg)
+        if not isinstance(value, AudioOperation):
+            value = _literal_value(substitutions.get(_dependency_key(arg), value))
+        if isinstance(value, AudioOperation):
+            return value
     return None
+
+
+def _literal_value(value: Any) -> Any:
+    return getattr(value, "value", value)
 
 
 def _task_func_and_args(task: Any) -> tuple[Any, tuple[Any, ...]]:

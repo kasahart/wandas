@@ -32,6 +32,16 @@ def _stereo_frame() -> ChannelFrame:
     return ChannelFrame(da_from_array(data, chunks=(1, -1)), sampling_rate=16000, label="lineage")
 
 
+def _int_stereo_frame() -> ChannelFrame:
+    data = np.vstack(
+        [
+            np.arange(4096, dtype=np.int16),
+            np.arange(4096, dtype=np.int16) * -1,
+        ]
+    )
+    return ChannelFrame(da_from_array(data, chunks=(1, -1)), sampling_rate=16000, label="lineage")
+
+
 class _GraphCollection:
     def __init__(self, graph: dict[object, object]):
         self._graph = graph
@@ -133,11 +143,27 @@ def test_operations_includes_stats_operation_before_normalize() -> None:
     assert [operation.name for operation in operations] == ["abs", "normalize"]
 
 
+def test_operations_deduplicates_chunked_stats_markers() -> None:
+    operations = _stereo_frame().abs().operations
+
+    assert [operation.name for operation in operations] == ["abs"]
+
+
 def test_operations_includes_power_params() -> None:
     operations = _frame().power(exponent=2.0).operations
 
     assert [operation.name for operation in operations] == ["power"]
     assert operations[0].params == {"exponent": 2.0}
+
+
+def test_stats_operations_keep_dask_native_dtype_and_chunks() -> None:
+    frame = _int_stereo_frame()
+    meaned = frame.mean()
+    absolute = frame.abs()
+
+    assert meaned._data.dtype == np.float64
+    assert meaned.compute().dtype == np.float64
+    assert absolute._data.chunks == frame._data.chunks
 
 
 def test_operations_includes_channel_reductions() -> None:
@@ -155,6 +181,20 @@ def test_operations_includes_channel_difference() -> None:
 
     assert [operation.name for operation in operations] == ["channel_difference"]
     assert operations[0].params == {"other_channel": 0}
+
+
+def test_operations_preserves_negative_channel_difference_indices() -> None:
+    frame = _stereo_frame()
+    result = frame.channel_difference(other_channel=-1)
+
+    assert [operation.name for operation in result.operations] == ["channel_difference"]
+    np.testing.assert_allclose(result.compute(), frame.compute() - frame.compute()[-1])
+
+
+def test_operations_prefers_nested_marker_over_alias() -> None:
+    operations = _stereo_frame().normalize().sum().operations
+
+    assert [operation.name for operation in operations] == ["normalize", "sum"]
 
 
 def test_operation_history_public_behavior_is_unchanged() -> None:
