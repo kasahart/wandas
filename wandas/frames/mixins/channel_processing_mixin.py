@@ -304,14 +304,16 @@ class ChannelProcessingMixin:
 
     def _reduce_channels(self: T_Processing, op: str) -> T_Processing:
         """Helper to reduce all channels with the given operation ('sum' or 'mean')."""
+        from wandas.processing import create_operation
+
         if op == "sum":
-            reduced_data = self._data.sum(axis=0, keepdims=True)
             label = "sum"
         elif op == "mean":
-            reduced_data = self._data.mean(axis=0, keepdims=True)
             label = "mean"
         else:
             raise ValueError(f"Unsupported reduction operation: {op}")
+        operation = create_operation(op, self.sampling_rate)
+        reduced_data = operation.process(self._data)
 
         units = [ch.unit for ch in self._channel_metadata]
         reduced_unit = units[0] if all(u == units[0] for u in units) else ""

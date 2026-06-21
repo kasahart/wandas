@@ -5,7 +5,6 @@ from typing import Any
 import dask.array as da
 import numpy as np
 from dask.array.core import Array as DaArray
-from dask.delayed import delayed
 from scipy.signal import lfilter, resample, resample_poly
 
 from wandas.processing.base import AudioOperation, register_operation
@@ -138,8 +137,7 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
     def process(self, data: DaArray) -> DaArray:
         """Execute resampling with accurate floating output dtype metadata."""
         logger.debug("Adding delayed resampling operation to computation graph")
-        wrapper = self._create_named_wrapper()
-        delayed_result = delayed(wrapper, pure=self.pure)(data)
+        delayed_result = self._delayed(data)
         output_shape = self.calculate_output_shape(data.shape)
         return da.from_delayed(delayed_result, shape=output_shape, dtype=self._output_dtype(data.dtype))
 
@@ -381,8 +379,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
     def process(self, data: DaArray) -> DaArray:
         """Execute RMS trend with accurate floating output dtype metadata."""
         logger.debug("Adding delayed RMS trend operation to computation graph")
-        wrapper = self._create_named_wrapper()
-        delayed_result = delayed(wrapper, pure=self.pure)(data)
+        delayed_result = self._delayed(data)
         output_shape = self.calculate_output_shape(data.shape)
         return da.from_delayed(delayed_result, shape=output_shape, dtype=self._output_dtype())
 
@@ -509,8 +506,7 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
     def process(self, data: DaArray) -> DaArray:
         """Execute sound level with floating output dtype metadata."""
         logger.debug("Adding delayed sound level operation to computation graph")
-        wrapper = self._create_named_wrapper()
-        delayed_result = delayed(wrapper, pure=self.pure)(data)
+        delayed_result = self._delayed(data)
         output_shape = self.calculate_output_shape(data.shape)
         return da.from_delayed(delayed_result, shape=output_shape, dtype=self._output_dtype(data.dtype))
 

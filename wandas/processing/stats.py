@@ -27,8 +27,7 @@ class ABS(AudioOperation[NDArrayReal, NDArrayReal]):
         super().__init__(sampling_rate)
 
     def process(self, data: DaArray) -> DaArray:
-        # Use Dask's aggregate function directly without map_blocks
-        return da.abs(data)
+        return self._mark_array(da.abs(data))
 
 
 class Power(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -48,12 +47,11 @@ class Power(AudioOperation[NDArrayReal, NDArrayReal]):
         exponent : float
             Power exponent
         """
-        super().__init__(sampling_rate)
         self.exp = exponent
+        super().__init__(sampling_rate, exponent=exponent)
 
     def process(self, data: DaArray) -> DaArray:
-        # Use Dask's aggregate function directly without map_blocks
-        return da.power(data, self.exp)
+        return self._mark_array(da.power(data, self.exp))
 
 
 class Sum(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -63,8 +61,7 @@ class Sum(AudioOperation[NDArrayReal, NDArrayReal]):
     _display = "sum"
 
     def process(self, data: DaArray) -> DaArray:
-        # Use Dask's aggregate function directly without map_blocks
-        return data.sum(axis=0, keepdims=True)
+        return self._mark_array(data.sum(axis=0, keepdims=True))
 
 
 class Mean(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -74,8 +71,7 @@ class Mean(AudioOperation[NDArrayReal, NDArrayReal]):
     _display = "mean"
 
     def process(self, data: DaArray) -> DaArray:
-        # Use Dask's aggregate function directly without map_blocks
-        return data.mean(axis=0, keepdims=True)
+        return self._mark_array(data.mean(axis=0, keepdims=True))
 
 
 class ChannelDifference(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -100,9 +96,9 @@ class ChannelDifference(AudioOperation[NDArrayReal, NDArrayReal]):
         super().__init__(sampling_rate, other_channel=other_channel)
 
     def process(self, data: DaArray) -> DaArray:
-        # Use Dask's aggregate function directly without map_blocks
-        result = data - data[self.other_channel]
-        return result
+        if not -data.shape[0] <= self.other_channel < data.shape[0]:
+            raise IndexError("Channel index out of range")
+        return self._mark_array(data - data[self.other_channel])
 
 
 # Register all operations

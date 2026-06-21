@@ -1,7 +1,7 @@
 import importlib
 import inspect
 import logging
-from typing import Any, ClassVar, Generic, TypeVar
+from typing import Any, ClassVar, Generic, TypeVar, cast
 
 import dask.array as da
 from dask.array.core import Array as DaArray
@@ -16,6 +16,16 @@ _da_from_delayed = da.from_delayed
 # Define TypeVars for input and output array types
 InputArrayType = TypeVar("InputArrayType", NDArrayReal, NDArrayComplex)
 OutputArrayType = TypeVar("OutputArrayType", NDArrayReal, NDArrayComplex)
+
+
+def _execute_wandas_operation(operation: "AudioOperation[Any, Any]", data: Any) -> Any:
+    """Execute a Wandas operation from a Dask task."""
+    return operation._process_array(data)
+
+
+def _mark_wandas_operation(data: Any, operation: "AudioOperation[Any, Any]") -> Any:
+    """Mark a Dask-native task as a Wandas operation without changing the data."""
+    return data
 
 
 class AudioOperation(Generic[InputArrayType, OutputArrayType]):
@@ -113,27 +123,14 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         # Default is no-op function
         raise NotImplementedError("Subclasses must implement this method.")
 
-    def _create_named_wrapper(self) -> Any:
-        """
-        Create a named wrapper function for better Dask graph visualization.
-
-        Returns
-        -------
-        callable
-            A wrapper function with the operation name set as __name__.
-        """
-
-        def operation_wrapper(x: InputArrayType) -> OutputArrayType:
-            return self._process_array(x)
-
-        # Set the function name to the operation name for better visualization
-        operation_wrapper.__name__ = self.name
-        return operation_wrapper
-
     def _delayed(self, data: Any) -> Any:
-        """Create a ``dask.delayed`` result for *data* using the named wrapper."""
-        wrapper = self._create_named_wrapper()
-        return delayed(wrapper, pure=self.pure)(data)
+        """Create a ``dask.delayed`` result for *data* with an explicit operation marker."""
+        return delayed(_execute_wandas_operation, name=self.name, pure=self.pure)(self, data)
+
+    def _mark_array(self, data: DaArray) -> DaArray:
+        """Attach an explicit operation marker to a Dask-native array result."""
+        marker = cast(Any, _mark_wandas_operation)
+        return data.map_blocks(marker, self, dtype=data.dtype)
 
     def process_array(self, x: Any) -> Any:
         """

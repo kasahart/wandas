@@ -28,6 +28,8 @@ if TYPE_CHECKING:
     from IPython.display import Image as IPythonImage
     from matplotlib.axes import Axes
 
+    from wandas.processing.base import AudioOperation
+
     VisualizeReturnType: TypeAlias = IPythonImage | None
 else:
     # Use Any at runtime to avoid type checker errors
@@ -452,6 +454,13 @@ class BaseFrame(ABC, Generic[T]):
         if not isinstance(value, list):
             raise TypeError("Operation history must be a list")
         self._xr.attrs["operation_history"] = copy.deepcopy(value)
+
+    @property
+    def operations(self) -> tuple["AudioOperation[Any, Any]", ...]:
+        """Return Wandas operation instances found in the lazy Dask graph."""
+        from wandas.lineage import extract_operations
+
+        return extract_operations(self._data)
 
     @property
     def source_time_offset(self) -> NDArrayReal:
