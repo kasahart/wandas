@@ -1,6 +1,6 @@
 import logging
 
-import dask.array as da
+import numpy as np
 from dask.array.core import Array as DaArray
 
 from wandas.processing.base import AudioOperation, register_operation
@@ -26,9 +26,9 @@ class ABS(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         super().__init__(sampling_rate)
 
-    def process(self, data: DaArray) -> DaArray:
-        # Use Dask's aggregate function directly without map_blocks
-        return da.abs(data)
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        result: NDArrayReal = np.abs(x)
+        return result
 
 
 class Power(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -48,12 +48,12 @@ class Power(AudioOperation[NDArrayReal, NDArrayReal]):
         exponent : float
             Power exponent
         """
-        super().__init__(sampling_rate)
         self.exp = exponent
+        super().__init__(sampling_rate, exponent=exponent)
 
-    def process(self, data: DaArray) -> DaArray:
-        # Use Dask's aggregate function directly without map_blocks
-        return da.power(data, self.exp)
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        result: NDArrayReal = np.power(x, self.exp)
+        return result
 
 
 class Sum(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -62,9 +62,12 @@ class Sum(AudioOperation[NDArrayReal, NDArrayReal]):
     name = "sum"
     _display = "sum"
 
-    def process(self, data: DaArray) -> DaArray:
-        # Use Dask's aggregate function directly without map_blocks
-        return data.sum(axis=0, keepdims=True)
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        return (1, *input_shape[1:])
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        result: NDArrayReal = x.sum(axis=0, keepdims=True)
+        return result
 
 
 class Mean(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -73,9 +76,12 @@ class Mean(AudioOperation[NDArrayReal, NDArrayReal]):
     name = "mean"
     _display = "mean"
 
-    def process(self, data: DaArray) -> DaArray:
-        # Use Dask's aggregate function directly without map_blocks
-        return data.mean(axis=0, keepdims=True)
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        return (1, *input_shape[1:])
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        result: NDArrayReal = x.mean(axis=0, keepdims=True)
+        return result
 
 
 class ChannelDifference(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -100,8 +106,12 @@ class ChannelDifference(AudioOperation[NDArrayReal, NDArrayReal]):
         super().__init__(sampling_rate, other_channel=other_channel)
 
     def process(self, data: DaArray) -> DaArray:
-        # Use Dask's aggregate function directly without map_blocks
-        result = data - data[self.other_channel]
+        if self.other_channel < 0 or self.other_channel >= data.shape[0]:
+            raise IndexError("Channel index out of range")
+        return super().process(data)
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        result: NDArrayReal = x - x[self.other_channel]
         return result
 
 

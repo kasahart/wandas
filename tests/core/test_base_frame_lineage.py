@@ -22,6 +22,16 @@ def _frame() -> ChannelFrame:
     return ChannelFrame(da_from_array(data, chunks=(1, -1)), sampling_rate=16000, label="lineage")
 
 
+def _stereo_frame() -> ChannelFrame:
+    data = np.vstack(
+        [
+            np.linspace(-1.0, 1.0, 4096, dtype=np.float64),
+            np.linspace(1.0, -1.0, 4096, dtype=np.float64),
+        ]
+    )
+    return ChannelFrame(da_from_array(data, chunks=(1, -1)), sampling_rate=16000, label="lineage")
+
+
 class _GraphCollection:
     def __init__(self, graph: dict[object, object]):
         self._graph = graph
@@ -115,6 +125,36 @@ def test_operations_extracts_custom_operation_instance() -> None:
     assert isinstance(operations[0], CustomOperation)
     assert operations[0].func is scale
     assert operations[0].params == {"gain": 2.0}
+
+
+def test_operations_includes_stats_operation_before_normalize() -> None:
+    operations = _frame().abs().normalize().operations
+
+    assert [operation.name for operation in operations] == ["abs", "normalize"]
+
+
+def test_operations_includes_power_params() -> None:
+    operations = _frame().power(exponent=2.0).operations
+
+    assert [operation.name for operation in operations] == ["power"]
+    assert operations[0].params == {"exponent": 2.0}
+
+
+def test_operations_includes_channel_reductions() -> None:
+    summed = _stereo_frame().sum()
+    averaged = _stereo_frame().mean()
+
+    assert [operation.name for operation in summed.operations] == ["sum"]
+    assert [operation.name for operation in averaged.operations] == ["mean"]
+    assert summed.n_channels == 1
+    assert averaged.n_channels == 1
+
+
+def test_operations_includes_channel_difference() -> None:
+    operations = _stereo_frame().channel_difference(other_channel=0).operations
+
+    assert [operation.name for operation in operations] == ["channel_difference"]
+    assert operations[0].params == {"other_channel": 0}
 
 
 def test_operation_history_public_behavior_is_unchanged() -> None:
