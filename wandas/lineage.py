@@ -18,6 +18,38 @@ class _OperationNode:
     dependencies: frozenset[Any]
 
 
+@dataclass(frozen=True)
+class _SubgraphTask:
+    task: Any
+    substitutions: Mapping[Any, Any]
+    key_map: Mapping[Any, Any]
+
+    @property
+    def dependencies(self) -> frozenset[Any]:
+        dependencies = getattr(self.task, "dependencies", None)
+        if dependencies is None:
+            return frozenset()
+        resolved: set[Any] = set()
+        for dependency in dependencies:
+            value = _resolve_subgraph_value(dependency, self.substitutions, self.key_map)
+            try:
+                hash(value)
+            except TypeError:
+                continue
+            resolved.add(value)
+        return frozenset(resolved)
+
+
+@dataclass(frozen=True)
+class _SubgraphOutputTask:
+    task: Any
+    output_dependency: Any
+
+    @property
+    def dependencies(self) -> frozenset[Any]:
+        return frozenset({self.output_dependency})
+
+
 def extract_operations(collection: Any) -> tuple[AudioOperation[Any, Any], ...]:
     """Return Wandas operations embedded in an unoptimized Dask collection graph."""
     graph = _collection_graph(collection)
@@ -43,22 +75,46 @@ def _collection_graph(collection: Any) -> Mapping[Any, Any]:
 
 def _flatten_graph(graph: Mapping[Any, Any]) -> Mapping[Any, Any]:
     flattened: dict[Any, Any] = dict(graph)
-    stack = list(graph.values())
-    seen_tasks = {id(task) for task in stack}
+    stack = list(graph.items())
+    seen_tasks = {id(task) for task in graph.values()}
     while stack:
-        task = stack.pop()
+        key, task = stack.pop()
+        subgraph_tasks, output_dependency = _subgraph_tasks(key, task)
+        if output_dependency is not None:
+            flattened[key] = _SubgraphOutputTask(task, output_dependency)
+        for nested_key, nested_task in subgraph_tasks.items():
+            if nested_key not in flattened or _prefers_nested_task(flattened[nested_key], nested_task):
+                flattened[nested_key] = nested_task
+                stack.append((nested_key, nested_task))
+        if output_dependency is not None:
+            continue
+
         _, args = _task_func_and_args(task)
         for value in _walk_values(args, include_containers=True):
             if _looks_like_dask_task(value) and id(value) not in seen_tasks:
                 seen_tasks.add(id(value))
-                stack.append(value)
+                stack.append((_dependency_key(value), value))
             if not _is_graph_mapping(value):
                 continue
             for key, nested_task in value.items():
                 if key not in flattened or _prefers_nested_task(flattened[key], nested_task):
                     flattened[key] = nested_task
-                    stack.append(nested_task)
+                    stack.append((key, nested_task))
     return flattened
+
+
+def _subgraph_tasks(parent_key: Any, task: Any) -> tuple[Mapping[Any, _SubgraphTask], Any | None]:
+    func, args = _task_func_and_args(task)
+    if getattr(func, "__name__", None) != "_execute_subgraph" or len(args) < 2 or not isinstance(args[0], Mapping):
+        return {}, None
+    subgraph = args[0]
+    key_map = {key: (parent_key, key) for key in subgraph}
+    substitutions = _subgraph_substitutions(args)
+    output_dependency = key_map.get(_dependency_key(args[1]))
+    return {
+        key_map[key]: _SubgraphTask(nested_task, substitutions=substitutions, key_map=key_map)
+        for key, nested_task in subgraph.items()
+    }, output_dependency
 
 
 def _prefers_nested_task(existing_task: Any, nested_task: Any) -> bool:
@@ -91,12 +147,6 @@ def _operation_nodes(graph: Mapping[Any, Any]) -> dict[Any, _OperationNode]:
         operation_id = id(marker)
         existing_key = operation_keys.get(operation_id)
         if existing_key is not None:
-            existing_node = nodes[existing_key]
-            nodes[existing_key] = _OperationNode(
-                key=existing_node.key,
-                operation=existing_node.operation,
-                dependencies=existing_node.dependencies | dependencies,
-            )
             continue
         operation_keys[operation_id] = key
         nodes[key] = _OperationNode(key=key, operation=marker, dependencies=dependencies)
@@ -106,24 +156,10 @@ def _operation_nodes(graph: Mapping[Any, Any]) -> dict[Any, _OperationNode]:
 def _operation_marker(task: Any) -> AudioOperation[Any, Any] | None:
     func, args = _task_func_and_args(task)
     if getattr(func, "__name__", None) == "_execute_subgraph":
-        return _subgraph_operation_marker(args)
+        return None
     if not any(func is marker_func for marker_func in _OPERATION_MARKER_FUNCTIONS):
         return None
     return _operation_from_args(args)
-
-
-def _subgraph_operation_marker(args: tuple[Any, ...]) -> AudioOperation[Any, Any] | None:
-    if len(args) < 2 or not isinstance(args[0], Mapping):
-        return None
-    subgraph = args[0]
-    output_task = subgraph.get(_dependency_key(args[1]))
-    if output_task is None:
-        return None
-    func, output_args = _task_func_and_args(output_task)
-    if not any(func is marker_func for marker_func in _OPERATION_MARKER_FUNCTIONS):
-        return None
-    substitutions = _subgraph_substitutions(args)
-    return _operation_from_args(output_args, substitutions)
 
 
 def _subgraph_substitutions(args: tuple[Any, ...]) -> dict[Any, Any]:
@@ -151,6 +187,12 @@ def _literal_value(value: Any) -> Any:
 
 
 def _task_func_and_args(task: Any) -> tuple[Any, tuple[Any, ...]]:
+    if isinstance(task, _SubgraphTask):
+        func, args = _task_func_and_args(task.task)
+        return (
+            func,
+            tuple(_resolve_subgraph_value(arg, task.substitutions, task.key_map) for arg in args),
+        )
     func = getattr(task, "func", None)
     args = getattr(task, "args", None)
     if func is not None and args is not None:
@@ -162,9 +204,10 @@ def _task_func_and_args(task: Any) -> tuple[Any, tuple[Any, ...]]:
 
 def _task_dependencies(task: Any, graph: Mapping[Any, Any]) -> set[Any]:
     graph_keys = set(graph)
+    task_args = _task_func_and_args(task)[1]
     discovered = {
         key
-        for key in (_reference_key(value, graph_keys) for value in _walk_values(_task_func_and_args(task)[1]))
+        for key in (_reference_key(value, graph_keys) for value in _walk_references(task_args, graph_keys))
         if key is not None
     }
     discovered.update(_inline_task_output_dependencies(task, graph_keys))
@@ -195,7 +238,7 @@ def _ordered_operation_nodes(
     graph: Mapping[Any, Any],
 ) -> list[_OperationNode]:
     direct_operation_deps = {
-        key: _reachable_operation_dependencies(node.dependencies, nodes, graph) for key, node in nodes.items()
+        key: _reachable_operation_dependencies(node.dependencies, nodes, graph) - {key} for key, node in nodes.items()
     }
 
     ordered: list[_OperationNode] = []
@@ -239,6 +282,18 @@ def _dependency_key(value: Any) -> Any:
     return getattr(value, "key", value)
 
 
+def _resolve_subgraph_value(value: Any, substitutions: Mapping[Any, Any], key_map: Mapping[Any, Any]) -> Any:
+    key = _dependency_key(value)
+    try:
+        if key in substitutions:
+            return substitutions[key]
+        if key in key_map:
+            return key_map[key]
+    except TypeError:
+        pass
+    return value
+
+
 def _reference_key(value: Any, graph_keys: set[Any]) -> Any | None:
     try:
         if value in graph_keys:
@@ -252,6 +307,22 @@ def _reference_key(value: Any, graph_keys: set[Any]) -> Any | None:
     except TypeError:
         pass
     return None
+
+
+def _walk_references(values: Any, graph_keys: set[Any]) -> Iterable[Any]:
+    if _reference_key(values, graph_keys) is not None:
+        yield values
+        return
+    if isinstance(values, Mapping):
+        for key, value in values.items():
+            yield from _walk_references(key, graph_keys)
+            yield from _walk_references(value, graph_keys)
+        return
+    if isinstance(values, (tuple, list, set, frozenset)):
+        for value in values:
+            yield from _walk_references(value, graph_keys)
+        return
+    yield values
 
 
 def _walk_values(values: Any, *, include_containers: bool = False) -> Iterable[Any]:

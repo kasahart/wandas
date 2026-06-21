@@ -197,6 +197,18 @@ def test_operations_prefers_nested_marker_over_alias() -> None:
     assert [operation.name for operation in operations] == ["normalize", "sum"]
 
 
+def test_operations_preserves_fused_native_markers_before_normalize() -> None:
+    operations = _frame().abs().power(exponent=2.0).normalize().operations
+
+    assert [operation.name for operation in operations] == ["abs", "power", "normalize"]
+
+
+def test_operations_preserves_fused_native_markers_before_stft() -> None:
+    operations = _frame().abs().power(exponent=2.0).stft(n_fft=64, hop_length=16).operations
+
+    assert [operation.name for operation in operations] == ["abs", "power", "stft"]
+
+
 def test_operation_history_public_behavior_is_unchanged() -> None:
     frame = _frame()
     history: list[dict[str, object]] = [{"operation": "load", "params": {"path": "input.wav"}}]
