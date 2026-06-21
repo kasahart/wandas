@@ -1,3 +1,4 @@
+from typing import Any
 from unittest import mock
 
 import dask.array as da
@@ -6,6 +7,8 @@ import pytest
 from dask.delayed import delayed
 
 from wandas.frames.channel import ChannelFrame
+from wandas.lineage import extract_operations
+from wandas.processing.base import AudioOperation, _execute_wandas_operation
 from wandas.processing.custom import CustomOperation
 from wandas.processing.effects import Normalize
 from wandas.processing.filters import HighPassFilter
@@ -17,6 +20,21 @@ from wandas.utils.types import NDArrayReal
 def _frame() -> ChannelFrame:
     data = np.linspace(-1.0, 1.0, 4096, dtype=np.float64).reshape(1, -1)
     return ChannelFrame(da_from_array(data, chunks=(1, -1)), sampling_rate=16000, label="lineage")
+
+
+class _GraphCollection:
+    def __init__(self, graph: dict[object, object]):
+        self._graph = graph
+
+    def __dask_graph__(self) -> dict[object, object]:
+        return self._graph
+
+
+class _LineageTestOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+    name = "lineage_test"
+
+    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+        return x
 
 
 def test_operations_extracts_serial_chain_in_dependency_order() -> None:
@@ -45,6 +63,25 @@ def test_operations_ignores_dask_internal_tasks_rechunk_and_from_delayed() -> No
     frame = ChannelFrame(dask_data, sampling_rate=16000)
 
     assert frame.operations == ()
+
+
+def test_extract_operations_rejects_non_dask_collection() -> None:
+    with pytest.raises(TypeError, match="Expected a Dask collection with __dask_graph__"):
+        extract_operations(object())
+
+
+def test_operations_preserves_tuple_key_dependencies_in_legacy_graph() -> None:
+    first = _LineageTestOperation(16000)
+    second = _LineageTestOperation(16000)
+    first_key = ("first", 0, 0)
+    graph: dict[Any, Any] = {
+        "second": (_execute_wandas_operation, second, first_key),
+        first_key: (_execute_wandas_operation, first, "source"),
+    }
+
+    operations = extract_operations(_GraphCollection(graph))
+
+    assert operations == (first, second)
 
 
 def test_operations_stable_after_compute_on_same_frame_graph() -> None:

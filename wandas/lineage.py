@@ -26,7 +26,10 @@ def extract_operations(collection: Any) -> tuple[AudioOperation[Any, Any], ...]:
 
 
 def _collection_graph(collection: Any) -> Mapping[Any, Any]:
-    dask_graph = collection.__dask_graph__()
+    dask_graph_method = getattr(collection, "__dask_graph__", None)
+    if not callable(dask_graph_method):
+        raise TypeError(f"Expected a Dask collection with __dask_graph__(), got {type(collection).__name__}")
+    dask_graph = dask_graph_method()
     if hasattr(dask_graph, "to_dict"):
         graph = dask_graph.to_dict()
     else:
@@ -207,7 +210,9 @@ def _walk_values(values: Any, *, include_containers: bool = False) -> Iterable[A
             yield key
             yield from _walk_values(value, include_containers=include_containers)
         return
-    if isinstance(values, tuple | list | set | frozenset):
+    if isinstance(values, (tuple, list, set, frozenset)):
+        if isinstance(values, tuple):
+            yield values
         for value in values:
             yield from _walk_values(value, include_containers=include_containers)
         return
