@@ -1,6 +1,6 @@
 # Wandas
 
-English | [日本語](README.ja.md)
+[English](README.md) | [日本語](https://github.com/kasahart/wandas/blob/main/README.ja.md)
 
 ![Wandas logo](https://github.com/kasahart/wandas/blob/main/images/logo.png?raw=true)
 
