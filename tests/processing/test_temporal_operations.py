@@ -683,6 +683,15 @@ class TestSoundLevel:
         assert op.time_weighting == "Fast"
         assert op.dB is True
 
+    def test_sound_level_snapshots_external_ref_array(self) -> None:
+        """Mutating a caller-owned ref array must not change operation config."""
+        ref = np.array([1.0])
+        op = SoundLevel(_SR, ref=ref, dB=True)
+
+        ref[0] = 100.0
+
+        np.testing.assert_array_equal(op.ref, np.array([1.0]))
+
     def test_sound_level_defaults_to_linear(self) -> None:
         """Test SoundLevel defaults to linear (dB=False) output."""
         op = SoundLevel(_SR, ref=2e-5)

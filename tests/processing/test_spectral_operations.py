@@ -404,6 +404,7 @@ class TestSTFTOperation:
         assert stft.hop_length == 512
         assert stft.win_length == 2048
         assert stft.window == "hann"
+        assert not hasattr(stft, "SFT")
 
     def test_stft_init_custom_params(self) -> None:
         """STFT stores custom n_fft, hop_length, win_length, window."""

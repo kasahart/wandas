@@ -86,8 +86,18 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         # Create processor function (lazy initialization possible)
         self._setup_processor()
 
+        self._snapshot_public_config_attributes()
+
         logger.debug(f"Initialized {self.__class__.__name__} operation with params: {params}")
         object.__setattr__(self, "_wandas_initialized", True)
+
+    def _snapshot_public_config_attributes(self) -> None:
+        """Replace public mutable config attrs with operation-owned snapshots."""
+        params = object.__getattribute__(self, "_params")
+        for name, value in list(object.__getattribute__(self, "__dict__").items()):
+            if name.startswith("_") or name not in params or not _should_snapshot_public_attr(value):
+                continue
+            object.__setattr__(self, name, _snapshot_config_value(value))
 
     def __setattr__(self, name: str, value: Any) -> None:
         if getattr(self, "_wandas_initialized", False) and not name.startswith("_"):

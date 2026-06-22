@@ -310,7 +310,7 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         self.hop_length = actual_hop_length
         self.window = window
 
-        self.SFT = ShortTimeFFT(
+        self._SFT = ShortTimeFFT(
             win=get_window(window, self.win_length),
             hop=self.hop_length,
             fs=sampling_rate,
@@ -340,8 +340,8 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
             Output data shape
         """
         n_samples = input_shape[-1]
-        n_f = len(self.SFT.f)
-        n_t = len(self.SFT.t(n_samples))
+        n_f = len(self._SFT.f)
+        n_t = len(self._SFT.t(n_samples))
         return (input_shape[0], n_f, n_t)
 
     def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
@@ -353,7 +353,7 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
             x = x.reshape(1, -1)
 
         # Apply STFT to all channels at once
-        result: NDArrayComplex = self.SFT.stft(x)
+        result: NDArrayComplex = self._SFT.stft(x)
         result[..., 1:-1, :] *= 2.0
         logger.debug(f"SciPy STFT applied, returning result with shape: {result.shape}")
         return result
@@ -407,7 +407,7 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         self.length = length
 
         # Instantiate ShortTimeFFT for ISTFT calculation
-        self.SFT = ShortTimeFFT(
+        self._SFT = ShortTimeFFT(
             win=get_window(window, self.win_length),
             hop=self.hop_length,
             fs=sampling_rate,
@@ -483,8 +483,8 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
 
         # Follow SciPy ShortTimeFFT formula
         # See: https://github.com/scipy/scipy/blob/main/scipy/signal/_short_time_fft.py
-        q_max = n_frames + self.SFT.p_min
-        k_max = (q_max - 1) * self.SFT.hop + self.SFT.m_num - self.SFT.m_num_mid
+        q_max = n_frames + self._SFT.p_min
+        k_max = (q_max - 1) * self._SFT.hop + self._SFT.m_num - self._SFT.m_num_mid
 
         # Default parameters: k0=0, k1=None (which becomes k_max)
         # The output length is k1 - k0 = k_max - 0 = k_max
@@ -513,7 +513,7 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         _x[..., 1:-1, :] /= 2.0
 
         # Apply ISTFT using the ShortTimeFFT instance
-        result: NDArrayReal = self.SFT.istft(_x)
+        result: NDArrayReal = self._SFT.istft(_x)
 
         # Trim to desired length if specified
         if self.length is not None:

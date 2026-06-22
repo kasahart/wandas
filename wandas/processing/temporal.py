@@ -395,7 +395,7 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
     def __init__(
         self,
         sampling_rate: float,
-        ref: list[float] | float = 1.0,
+        ref: list[float] | float | NDArrayReal = 1.0,
         freq_weighting: str | None = "Z",
         time_weighting: str = "Fast",
         dB: bool = False,
