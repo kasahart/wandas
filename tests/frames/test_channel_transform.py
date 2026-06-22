@@ -60,6 +60,7 @@ class TestChannelTransform:
             # Pillar 2: domain transition preserves sampling rate and source offset
             assert result.sampling_rate == self.channel_frame.sampling_rate
             np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
+            assert result.operations[-1] is mock_fft
 
     def test_welch_transform(self) -> None:
         """
@@ -114,6 +115,7 @@ class TestChannelTransform:
             assert result.window == "blackman"
             assert result.previous is self.channel_frame
             np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
+            assert result.operations[-1] is mock_welch
 
     def test_stft_transform(self) -> None:
         """Test stft method for lazy short-time Fourier transform."""
@@ -153,6 +155,7 @@ class TestChannelTransform:
             assert result.n_fft == 2048
             assert result.hop_length == 512
             assert result.win_length == 2048
+            assert result.operations[-1] is mock_stft
             assert result.window == "hann"
             # Pillar 2: domain transition preserves sampling rate and source offset
             assert result.sampling_rate == self.channel_frame.sampling_rate
@@ -234,6 +237,7 @@ class TestChannelTransform:
             assert result.fr == fr
             assert result.previous is self.channel_frame
             np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
+            assert result.operations[-1] is mock_noct
 
     def test_csd(self) -> None:
         """クロススペクトル密度（CSD）メソッドのテスト"""
@@ -260,6 +264,7 @@ class TestChannelTransform:
         # ChannelFrameメソッドを使用してCSDを計算
         csd_frame = cf.csd(n_fft=n_fft, win_length=win_length, hop_length=hop_length, window="hamming")
         np.testing.assert_array_equal(csd_frame.source_time_offset, np.array([3.5, 3.5, 3.5, 3.5]))
+        assert csd_frame.operations[-1].name == "csd"
 
         # 実際のデータを取得するために計算
         csd_data = csd_frame.compute()
@@ -440,6 +445,7 @@ class TestChannelTransform:
 
         # ChannelFrameメソッドを使用してコヒーレンスを計算
         coherence_frame = cf.coherence(n_fft=n_fft, win_length=win_length, hop_length=hop_length, window="hamming")
+        assert coherence_frame.operations[-1].name == "coherence"
 
         # 実際のデータを取得するために計算
         coherence_data = coherence_frame.compute()

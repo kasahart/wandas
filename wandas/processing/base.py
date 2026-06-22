@@ -1,7 +1,8 @@
+import copy
 import importlib
 import inspect
 import logging
-from collections.abc import Iterator, Mapping
+from collections.abc import Mapping
 from typing import Any, ClassVar, Generic, TypeVar
 
 import dask.array as da
@@ -20,69 +21,31 @@ InputArrayType = TypeVar("InputArrayType", NDArrayReal, NDArrayComplex)
 OutputArrayType = TypeVar("OutputArrayType", NDArrayReal, NDArrayComplex)
 
 
-class FrozenDict(Mapping[Any, Any]):
-    """Read-only mapping used for immutable operation parameters."""
-
-    def __init__(self, values: Mapping[Any, Any]):
-        self._values = dict(values)
-
-    def __getitem__(self, key: Any) -> Any:
-        return self._values[key]
-
-    def __iter__(self) -> Iterator[Any]:
-        return iter(self._values)
-
-    def __len__(self) -> int:
-        return len(self._values)
-
-    def __repr__(self) -> str:
-        return repr(self._values)
-
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, Mapping):
-            return self._values == dict(other)
-        return False
-
-    def copy(self) -> dict[Any, Any]:
-        return dict(self._values)
-
-    def __copy__(self) -> "FrozenDict":
-        return self
-
-    def __deepcopy__(self, memo: dict[int, Any]) -> "FrozenDict":
-        return self
-
-
-def _freeze_config_value(value: Any) -> Any:
-    """Return an immutable/read-only representation for operation config values."""
-    if isinstance(value, FrozenDict):
-        return value
+def _snapshot_config_value(value: Any) -> Any:
+    """Return an operation-owned snapshot of user supplied config values."""
     if isinstance(value, np.ndarray):
-        if not value.flags.writeable:
-            return value
-        frozen_array = np.array(value, copy=True)
-        frozen_array.flags.writeable = False
-        return frozen_array
+        return np.array(value, copy=True)
     if isinstance(value, Mapping):
-        return FrozenDict({key: _freeze_config_value(item) for key, item in value.items()})
+        return {key: _snapshot_config_value(item) for key, item in value.items()}
     if isinstance(value, tuple):
-        return tuple(_freeze_config_value(item) for item in value)
+        return tuple(_snapshot_config_value(item) for item in value)
     if isinstance(value, list):
-        return tuple(_freeze_config_value(item) for item in value)
-    if isinstance(value, set):
-        return frozenset(_freeze_config_value(item) for item in value)
-    if isinstance(value, frozenset):
-        return frozenset(_freeze_config_value(item) for item in value)
-    return value
+        return [_snapshot_config_value(item) for item in value]
+    if isinstance(value, set | frozenset):
+        return type(value)(_snapshot_config_value(item) for item in value)
+    try:
+        return copy.deepcopy(value)
+    except Exception:
+        return value
 
 
 class AudioOperation(Generic[InputArrayType, OutputArrayType]):
-    """Abstract immutable value object for audio processing operations.
+    """Abstract runtime lineage object for audio processing operations.
 
-    Operation configuration is frozen after initialization. User-provided
-    callables, including ``CustomOperation.func``, are stored by reference;
-    freezing arbitrary callable internals is outside Python's object model and
-    is intentionally not attempted.
+    After initialization, public configuration is treated as effectively
+    immutable: ordinary public attribute reassignment is blocked and ``params``
+    returns a defensive snapshot. Private/reflective mutation and arbitrary
+    callable internals are intentionally outside this contract.
     """
 
     # Class variable: operation name
@@ -107,10 +70,10 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         **params : Any
             Operation-specific parameters
         """
-        object.__setattr__(self, "_wandas_frozen", False)
+        object.__setattr__(self, "_wandas_initialized", False)
         self.sampling_rate = sampling_rate
         self.pure = pure
-        self.params = params
+        self._params = {key: _snapshot_config_value(value) for key, value in params.items()}
 
         # Validate parameters during initialization
         self.validate_params()
@@ -119,20 +82,26 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         self._setup_processor()
 
         logger.debug(f"Initialized {self.__class__.__name__} operation with params: {params}")
-        self._freeze()
+        object.__setattr__(self, "_wandas_initialized", True)
 
     def __setattr__(self, name: str, value: Any) -> None:
-        if getattr(self, "_wandas_frozen", False) and not name.startswith("_"):
-            raise AttributeError(f"{self.__class__.__name__} is immutable; cannot set attribute {name!r}")
+        if getattr(self, "_wandas_initialized", False) and not name.startswith("_"):
+            raise AttributeError(
+                f"{self.__class__.__name__} operation config is read-only; cannot set attribute {name!r}"
+            )
         object.__setattr__(self, name, value)
 
-    def _freeze(self) -> None:
-        """Freeze operation attributes after subclass/base initialization."""
-        for name, value in tuple(vars(self).items()):
-            if name == "_wandas_frozen":
-                continue
-            object.__setattr__(self, name, _freeze_config_value(value))
-        object.__setattr__(self, "_wandas_frozen", True)
+    def __delattr__(self, name: str) -> None:
+        if getattr(self, "_wandas_initialized", False) and not name.startswith("_"):
+            raise AttributeError(
+                f"{self.__class__.__name__} operation config is read-only; cannot delete attribute {name!r}"
+            )
+        object.__delattr__(self, name)
+
+    @property
+    def params(self) -> dict[str, Any]:
+        """Return a defensive snapshot of operation parameters."""
+        return {key: _snapshot_config_value(value) for key, value in self._params.items()}
 
     def validate_params(self) -> None:
         """Validate parameters (raises exception if invalid)"""

@@ -40,13 +40,6 @@ class TestHighPassFilter:
         hpf = HighPassFilter(_SR, _CUTOFF_HPF, order=6)
         assert hpf.order == 6
 
-    def test_highpass_filter_coefficients_are_read_only_after_init(self) -> None:
-        hpf = HighPassFilter(_SR, _CUTOFF_HPF)
-
-        assert not hpf.b.flags.writeable
-        with pytest.raises(ValueError):
-            hpf.b[0] = 1.0
-
     def test_highpass_cutoff_zero_raises_error(self) -> None:
         """Test that cutoff=0 is rejected."""
         with pytest.raises(ValueError, match=r"Cutoff frequency out of valid range"):

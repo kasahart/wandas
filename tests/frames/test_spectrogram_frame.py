@@ -326,6 +326,7 @@ class TestSpectrogramFrame:
         # 基本プロパティの確認
         assert channel_frame.sampling_rate == spec.sampling_rate
         assert channel_frame._n_channels == spec._n_channels
+        assert channel_frame.operations[-1].name == "istft"
 
     def test_istft(self, sample_spectrogram: SpectrogramFrame) -> None:
         """istftメソッドがto_channel_frameのエイリアスとして機能することをテスト"""

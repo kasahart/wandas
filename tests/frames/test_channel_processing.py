@@ -1076,6 +1076,7 @@ class TestRoughnessOperations:
         first_op = result.operation_history[0]
         op_name = first_op.get("name") or first_op.get("operation")
         assert op_name == "roughness_dw_spec"
+        assert result.operations[-1].name == "roughness_dw_spec"
 
         # Compare with MoSQITo direct calculation
         computed_data = result.compute()

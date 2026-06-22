@@ -44,15 +44,15 @@ QueryType = str | Pattern[str] | Callable[["ChannelMetadata"], bool] | dict[str,
 
 
 def _mutable_config_value(value: Any) -> Any:
-    """Convert frozen operation config values to plain containers for public history."""
+    """Convert operation config values to plain JSON-friendly containers for history."""
     if isinstance(value, np.ndarray):
-        return np.array(value, copy=True)
+        return value.tolist()
     if isinstance(value, Mapping):
         return {key: _mutable_config_value(item) for key, item in value.items()}
-    if isinstance(value, tuple):
-        return tuple(_mutable_config_value(item) for item in value)
-    if isinstance(value, frozenset):
-        return {_mutable_config_value(item) for item in value}
+    if isinstance(value, tuple | list):
+        return [_mutable_config_value(item) for item in value]
+    if isinstance(value, set | frozenset):
+        return [_mutable_config_value(item) for item in value]
     return value
 
 
@@ -134,6 +134,8 @@ class BaseFrame(ABC, Generic[T]):
         self.sampling_rate = sampling_rate
         self.metadata = metadata
         self.operation_history = operation_history
+        if operations is not None and not isinstance(operations, tuple):
+            raise TypeError("Operations must be a tuple")
         self._operations = operations or ()
         self._set_channel_metadata(normalized_channel_metadata, self._pending_channel_ids)
         self.source_time_offset = source_time_offset
@@ -158,7 +160,7 @@ class BaseFrame(ABC, Generic[T]):
 
     @property
     def operations(self) -> tuple["AudioOperation[Any, Any]", ...]:
-        """Return immutable operation instances used to build this frame."""
+        """Return runtime operation instances used to build this frame."""
         return self._operations
 
     def _replace_data(self, data: DaArray) -> None:
@@ -1120,10 +1122,12 @@ class BaseFrame(ABC, Generic[T]):
             result_data = op(self._data, other._data)
             other_str = other.label
             other_labels = other.labels
+            operations = (*self.operations, *other.operations)
         else:
             result_data = op(self._data, other)
             other_str = self._format_operand_str(other)
             other_labels = [other_str] * self.n_channels
+            operations = self.operations
 
         # Build merged channel metadata
         new_channel_metadata: list[ChannelMetadata] = []
@@ -1139,6 +1143,7 @@ class BaseFrame(ABC, Generic[T]):
             label=f"({self.label} {symbol} {other_str})",
             metadata=metadata,
             operation_history=operation_history,
+            operations=operations,
             channel_metadata=new_channel_metadata,
         )
 

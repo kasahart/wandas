@@ -302,6 +302,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_metadata=self.channels.to_list(),
             channel_ids=self._channel_ids,
             source_time_offset=self.source_time_offset,
+            operations=(*self.operations, operation),
         )
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
@@ -399,6 +400,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_metadata=self.channels.to_list(),
             channel_ids=self._channel_ids,
             source_time_offset=self.source_time_offset,
+            operations=(*self.operations, operation),
             previous=self,
         )
 

@@ -1,5 +1,4 @@
 import abc
-import copy
 from unittest import mock
 
 import cloudpickle
@@ -12,8 +11,7 @@ from wandas.processing.base import (
     _OPERATION_MODULES,
     _OPERATION_REGISTRY,
     AudioOperation,
-    FrozenDict,
-    _freeze_config_value,
+    _snapshot_config_value,
     create_operation,
     get_operation,
     register_lazy_operation,
@@ -239,33 +237,27 @@ class TestAudioOperation:
 
         with pytest.raises(AttributeError):
             op.cutoff = 1000
+        with pytest.raises(AttributeError):
+            del op.cutoff
 
-    def test_operation_params_are_read_only_after_init(self) -> None:
+    def test_operation_params_returns_defensive_snapshot(self) -> None:
         op = HighPassFilter(16000, cutoff=500)
 
-        with pytest.raises(TypeError):
-            op.params["cutoff"] = 1000  # type: ignore[index]
+        params = op.params
+        params["cutoff"] = 1000
 
-    def test_frozen_dict_behaves_like_read_only_mapping(self) -> None:
-        params = FrozenDict({"gain": 2.0})
+        assert op.params["cutoff"] == 500
+        assert op.cutoff == 500
 
-        assert len(params) == 1
-        assert list(params) == ["gain"]
-        assert repr(params) == "{'gain': 2.0}"
-        assert params == {"gain": 2.0}
-        assert params != object()
-        assert params.copy() == {"gain": 2.0}
-        assert copy.copy(params) is params
-        assert copy.deepcopy(params) is params
-
-    def test_freeze_config_value_recursively_freezes_container_variants(self) -> None:
+    def test_snapshot_config_value_copies_container_variants(self) -> None:
         readonly = np.array([1.0])
         readonly.flags.writeable = False
 
-        assert _freeze_config_value(FrozenDict({"x": 1})) == {"x": 1}
-        assert _freeze_config_value(readonly) is readonly
+        copied_array = _snapshot_config_value(readonly)
+        assert copied_array is not readonly
+        assert copied_array.flags.writeable
 
-        frozen = _freeze_config_value(
+        snapshot = _snapshot_config_value(
             {
                 "tuple": ({"x": 1},),
                 "list": [{"y": 2}],
@@ -274,18 +266,23 @@ class TestAudioOperation:
             }
         )
 
-        assert isinstance(frozen["tuple"][0], FrozenDict)
-        assert isinstance(frozen["list"], tuple)
-        assert isinstance(frozen["list"][0], FrozenDict)
-        assert frozen["set"] == frozenset({1, 2})
-        assert frozen["frozenset"] == frozenset({3, 4})
+        assert snapshot["tuple"] == ({"x": 1},)
+        assert snapshot["list"] == [{"y": 2}]
+        assert snapshot["set"] == {1, 2}
+        assert snapshot["frozenset"] == frozenset({3, 4})
+        snapshot["tuple"][0]["x"] = 99
+        snapshot["list"][0]["y"] = 99
+        assert _snapshot_config_value({"tuple": ({"x": 1},), "list": [{"y": 2}]}) == {
+            "tuple": ({"x": 1},),
+            "list": [{"y": 2}],
+        }
 
-    def test_operation_tokenize_is_stable_after_freeze(self) -> None:
+    def test_operation_tokenize_is_stable_after_initialization(self) -> None:
         op = HighPassFilter(16000, cutoff=500)
 
         assert tokenize(op) == tokenize(op)
 
-    def test_cloudpickle_serializes_frozen_operations(self) -> None:
+    def test_cloudpickle_serializes_operation_lineage_objects(self) -> None:
         def identity(x: NDArrayReal) -> NDArrayReal:
             return x
 

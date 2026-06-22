@@ -419,6 +419,7 @@ class TestSpectralFrame:
                 channel_metadata=self.frame.channels.to_list(),
                 channel_ids=self.frame._channel_ids,
                 source_time_offset=mock.ANY,
+                operations=(*self.frame.operations, mock_ifft_op),
             )
             np.testing.assert_array_equal(
                 mock_channel_frame.call_args.kwargs["source_time_offset"],
@@ -569,6 +570,7 @@ class TestSpectralFrame:
                 channel_metadata=correct_sr_frame.channels.to_list(),
                 channel_ids=correct_sr_frame._channel_ids,
                 source_time_offset=mock.ANY,
+                operations=(*correct_sr_frame.operations, mock_noct_op),
                 previous=correct_sr_frame,
             )
             np.testing.assert_array_equal(

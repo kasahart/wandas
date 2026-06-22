@@ -683,6 +683,8 @@ def test_create_new_instance_validates_operation_history_and_channel_ids():
         f._create_new_instance(data=f._data, operation_history="bad")
     with pytest.raises(TypeError, match="Operations must be a tuple"):
         f._create_new_instance(data=f._data, operations=["bad"])
+    with pytest.raises(TypeError, match="Operations must be a tuple"):
+        make_frame(np.arange(6).reshape(2, 3), operations=["bad"])
     with pytest.raises(TypeError, match="Channel ids must be a list"):
         f._create_new_instance(data=f._data, channel_ids=("a", "b"))
 
@@ -709,6 +711,15 @@ def test_binary_operations_cover_scalar_helpers_and_frame_mismatch_errors():
     )
     with pytest.raises(ValueError, match="Frame shape mismatch"):
         _ = f + different_shape
+
+
+def test_binary_frame_operation_merges_left_and_right_operation_lineage():
+    left = ChannelFrame(da_from_array(np.array([[1.0, 2.0, 4.0]]), chunks=(1, -1)), sampling_rate=100.0)
+    right = ChannelFrame(da_from_array(np.array([[1.0, 1.0, 1.0]]), chunks=(1, -1)), sampling_rate=100.0)
+
+    result = left.normalize() + right.remove_dc()
+
+    assert [operation.name for operation in result.operations] == ["normalize", "remove_dc"]
 
 
 def test_apply_operation_helpers_update_metadata_and_history(monkeypatch):
@@ -781,21 +792,19 @@ def test_apply_operation_helpers_update_metadata_and_history(monkeypatch):
     assert dependency_calls == 4
 
 
-def test_mutable_config_value_converts_frozen_containers_for_history():
-    frozen_array = np.array([1.0, 2.0])
-    frozen_array.flags.writeable = False
+def test_mutable_config_value_converts_containers_for_history():
+    source_array = np.array([1.0, 2.0])
     converted = _mutable_config_value(
         {
-            "array": frozen_array,
-            "tuple": (frozen_array,),
+            "array": source_array,
+            "tuple": (source_array,),
             "frozenset": frozenset({1, 2}),
         }
     )
 
-    assert converted["array"] is not frozen_array
-    assert converted["array"].flags.writeable
-    assert converted["tuple"][0] is not frozen_array
-    assert converted["frozenset"] == {1, 2}
+    assert converted["array"] == [1.0, 2.0]
+    assert converted["tuple"] == [[1.0, 2.0]]
+    assert sorted(converted["frozenset"]) == [1, 2]
 
 
 def test_frame_operations_returns_immutable_live_operation_and_compute_is_stable():
@@ -812,8 +821,9 @@ def test_frame_operations_returns_immutable_live_operation_and_compute_is_stable
 
     with pytest.raises(AttributeError):
         op.norm = 2
-    with pytest.raises(TypeError):
-        op.params["norm"] = 2  # type: ignore[index]
+    params = op.params
+    params["norm"] = 2
+    assert op.params["norm"] == np.inf
 
     np.testing.assert_allclose(result.compute(), data / 4.0)
 
