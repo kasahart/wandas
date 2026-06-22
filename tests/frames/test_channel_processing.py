@@ -403,9 +403,10 @@ class TestChannelProcessing:
             # Check no computation happened yet
             mock_compute.assert_not_called()
 
-            # Verify result is the expected type
-            assert isinstance(sum_cf, ChannelFrame)
-            assert sum_cf.n_channels == 1
+        # Verify result is the expected type
+        assert isinstance(sum_cf, ChannelFrame)
+        assert sum_cf.n_channels == 1
+        assert [operation.name for operation in sum_cf.operations] == ["sum"]
 
         # Test correctness of computation result
         sum_cf = self.channel_frame.sum()
@@ -413,6 +414,7 @@ class TestChannelProcessing:
         expected_sum = self.data.sum(axis=-2, keepdims=True)
         # Direct numpy sum — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(sum_data, expected_sum)
+        assert [operation.name for operation in self.channel_frame.normalize().sum().operations] == ["normalize", "sum"]
 
     def test_mean_methods(self) -> None:
         """Test mean() methods."""
@@ -424,9 +426,10 @@ class TestChannelProcessing:
             # Check no computation happened yet
             mock_compute.assert_not_called()
 
-            # Verify result is the expected type
-            assert isinstance(mean_cf, ChannelFrame)
-            assert mean_cf.n_channels == 1
+        # Verify result is the expected type
+        assert isinstance(mean_cf, ChannelFrame)
+        assert mean_cf.n_channels == 1
+        assert [operation.name for operation in mean_cf.operations] == ["mean"]
 
         # Compute and check results
         mean_cf = self.channel_frame.mean()

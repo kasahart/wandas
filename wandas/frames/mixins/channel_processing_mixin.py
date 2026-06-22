@@ -329,12 +329,14 @@ class ChannelProcessingMixin:
             source_time_offset[:1] if (source_time_offset == source_time_offset[0]).all() else 0.0
         )
         new_metadata, new_history = self._updated_metadata_and_history(op, {})
+        operation = create_operation(op, cast(Any, self).sampling_rate)
         result = self._create_new_instance(
             data=reduced_data,
             metadata=new_metadata,
             operation_history=new_history,
             channel_metadata=new_channel_metadata,
             source_time_offset=reduced_source_time_offset,
+            operations=(*cast(Any, self).operations, operation),
         )
         return result
 

@@ -31,6 +31,14 @@ class TestHpssHarmonic:
         hpss_custom = HpssHarmonic(_SR, margin=2.0)
         assert hpss_custom.kwargs.get("margin") == 2.0
 
+    def test_hpss_harmonic_kwargs_are_defensive_copies(self) -> None:
+        """Mutating exposed HPSS kwargs must not change operation config."""
+        hpss = HpssHarmonic(_SR, margin=2.0)
+
+        hpss.kwargs["margin"] = 8.0
+
+        assert hpss.kwargs["margin"] == 2.0
+
     def test_hpss_harmonic_registry_returns_correct_class(self) -> None:
         """Test HpssHarmonic is registered as 'hpss_harmonic'."""
         assert get_operation("hpss_harmonic") == HpssHarmonic

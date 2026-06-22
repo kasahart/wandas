@@ -663,6 +663,7 @@ class TestSpectrogramFrame:
         assert abs_spec.hop_length == spec.hop_length
         assert abs_spec.win_length == spec.win_length
         assert abs_spec.window == spec.window
+        assert abs_spec.operations[-1].name == "abs"
 
         # ラベルが正しく更新されていることを確認
         assert abs_spec.label == f"abs({spec.label})"

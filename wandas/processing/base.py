@@ -39,6 +39,11 @@ def _snapshot_config_value(value: Any) -> Any:
         return value
 
 
+def _should_snapshot_public_attr(value: Any) -> bool:
+    """Return whether a public config attribute should be exposed defensively."""
+    return isinstance(value, np.ndarray | Mapping | tuple | list | set | frozenset)
+
+
 class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     """Abstract runtime lineage object for audio processing operations.
 
@@ -99,14 +104,14 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
             initialized = object.__getattribute__(self, "_wandas_initialized")
         except AttributeError:
             return value
-        if not initialized or not isinstance(value, np.ndarray):
+        if not initialized or not _should_snapshot_public_attr(value):
             return value
         try:
             params = object.__getattribute__(self, "_params")
         except AttributeError:
             return value
-        if name in params:
-            return value.copy()
+        if name in params or (isinstance(value, Mapping) and all(key in params for key in value)):
+            return _snapshot_config_value(value)
         return value
 
     def __delattr__(self, name: str) -> None:

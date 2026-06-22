@@ -365,6 +365,9 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         magnitude_data = da.absolute(self._data)
 
         new_metadata, new_history = self._updated_metadata_and_history("abs", {})
+        from wandas.processing import create_operation
+
+        operation = create_operation("abs", self.sampling_rate)
 
         logger.debug("Created new SpectrogramFrame with abs operation added to graph")
 
@@ -373,6 +376,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             label=f"abs({self.label})",
             metadata=new_metadata,
             operation_history=new_history,
+            operations=(*self.operations, operation),
         )
 
     def get_frame_at(self, time_idx: int) -> "SpectralFrame":
