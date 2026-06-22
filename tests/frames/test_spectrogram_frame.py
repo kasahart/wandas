@@ -13,6 +13,7 @@ from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
+from wandas.processing.effects import Normalize
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 # Reference to dask array functions
@@ -290,12 +291,14 @@ class TestSpectrogramFrame:
         spec: SpectrogramFrame = sample_spectrogram._create_new_instance(
             data=sample_spectrogram._data,
             source_time_offset=3.0,
+            operations=(Normalize(sample_spectrogram.sampling_rate),),
         )
 
         # 正常なインデックス
         frame: SpectralFrame = spec.get_frame_at(4)
         assert frame.shape == (2, 65)  # チャネル数 x 周波数ビン数
         np.testing.assert_array_equal(frame.source_time_offset, np.array([3.0 + spec.times[4]] * 2))
+        assert frame.operations == spec.operations
 
         # 範囲外インデックス（負の値）
         with pytest.raises(

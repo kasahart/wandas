@@ -48,8 +48,8 @@ class _ButterworthFilter(AudioOperation[NDArrayReal, NDArrayReal]):
 
     _btype: str  # "high" or "low" — set by subclasses
     _display: str  # set by subclasses
-    a: NDArrayReal
-    b: NDArrayReal
+    _a: NDArrayReal
+    _b: NDArrayReal
 
     def __init__(self, sampling_rate: float, cutoff: float, order: int = 4):
         self.cutoff = cutoff
@@ -61,12 +61,22 @@ class _ButterworthFilter(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def _setup_processor(self) -> None:
         normal_cutoff = self.cutoff / (0.5 * self.sampling_rate)
-        self.b, self.a = signal.butter(self.order, normal_cutoff, btype=self._btype)
-        logger.debug(f"{self._display} filter coefficients calculated: b={self.b}, a={self.a}")
+        self._b, self._a = signal.butter(self.order, normal_cutoff, btype=self._btype)
+        logger.debug(f"{self._display} filter coefficients calculated: b={self._b}, a={self._a}")
+
+    @property
+    def b(self) -> NDArrayReal:
+        """Return a defensive copy of numerator filter coefficients."""
+        return self._b.copy()
+
+    @property
+    def a(self) -> NDArrayReal:
+        """Return a defensive copy of denominator filter coefficients."""
+        return self._a.copy()
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying {self._display} filter to array with shape: {x.shape}")
-        result: NDArrayReal = signal.filtfilt(self.b, self.a, x, axis=1)
+        result: NDArrayReal = signal.filtfilt(self._b, self._a, x, axis=1)
         logger.debug(f"Filter applied, returning result with shape: {result.shape}")
         return result
 
@@ -151,8 +161,8 @@ class BandPassFilter(_ButterworthFilter):
         high_normal_cutoff = self.high_cutoff / nyquist
 
         # Precompute and save filter coefficients
-        self.b, self.a = signal.butter(self.order, [low_normal_cutoff, high_normal_cutoff], btype="band")
-        logger.debug(f"Bandpass filter coefficients calculated: b={self.b}, a={self.a}")
+        self._b, self._a = signal.butter(self.order, [low_normal_cutoff, high_normal_cutoff], btype="band")
+        logger.debug(f"Bandpass filter coefficients calculated: b={self._b}, a={self._a}")
 
 
 class AWeighting(AudioOperation[NDArrayReal, NDArrayReal]):

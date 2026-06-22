@@ -312,6 +312,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             channel_metadata=new_chmeta,
             channel_ids=channel_ids,
             source_time_offset=offsets,
+            operations=self.operations,
             previous=self,
         )
 

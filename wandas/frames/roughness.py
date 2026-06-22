@@ -327,6 +327,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
 
             # Apply operation
             result_data = op(self._data, other._data)
+            operations = (*self.operations, *other.operations)
 
             # Update operation history
             operation_history.append({"name": f"binary_op_{symbol}", "params": {"other": "RoughnessFrame"}})
@@ -337,6 +338,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
                 other = _da_from_array(other, chunks=self._data.chunks)
 
             result_data = op(self._data, other)
+            operations = self.operations
 
             operation_history.append({"name": f"binary_op_{symbol}", "params": {"other": str(type(other))}})
 
@@ -352,6 +354,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             channel_metadata=self.channels.to_list(),
             channel_ids=self._channel_ids,
             source_time_offset=self.source_time_offset,
+            operations=operations,
             previous=self,
         )
 

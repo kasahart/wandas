@@ -828,6 +828,17 @@ def test_frame_operations_returns_immutable_live_operation_and_compute_is_stable
     np.testing.assert_allclose(result.compute(), data / 4.0)
 
 
+def test_channel_metadata_update_paths_preserve_operations_lineage():
+    data = np.array([[1.0, 2.0, 4.0]])
+    frame = ChannelFrame(da_from_array(data, chunks=(1, -1)), sampling_rate=100.0)
+
+    result = frame.normalize().rename_channels({0: "renamed"})
+
+    assert isinstance(result.operations, tuple)
+    assert [operation.name for operation in result.operations] == ["normalize"]
+    np.testing.assert_allclose(result.compute(), data / 4.0)
+
+
 def test_apply_operation_instance_output_frame_validation_and_constructor_errors():
     f = make_frame(np.arange(6).reshape(2, 3).astype(float))
 
