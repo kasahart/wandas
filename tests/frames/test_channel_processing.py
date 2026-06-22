@@ -616,6 +616,19 @@ class TestChannelProcessing:
         assert isinstance(neg_computed, np.ndarray)
         assert neg_computed.shape == (2, 16000)
 
+    def test_add_with_snr_merges_other_frame_operations(self) -> None:
+        """SNR add preserves lineage from both operands."""
+        signal_cf = ChannelFrame(_da_from_array(np.ones((1, 16000)), chunks=(1, -1)), self.sample_rate)
+        noise_cf = ChannelFrame(_da_from_array(np.ones((1, 16000)) * 0.1, chunks=(1, -1)), self.sample_rate)
+
+        result = signal_cf.normalize().add(noise_cf.low_pass_filter(cutoff=1000), snr=10.0)
+
+        assert [operation.name for operation in result.operations] == [
+            "normalize",
+            "lowpass_filter",
+            "add_with_snr",
+        ]
+
     def test_add_with_snr_numpy_array(self) -> None:
         """add(..., snr=...) should accept NumPy array inputs via ChannelFrame coercion."""
         signal_data = np.ones((2, 16000), dtype=np.float64)

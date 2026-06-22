@@ -91,6 +91,24 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
             )
         object.__setattr__(self, name, value)
 
+    def __getattribute__(self, name: str) -> Any:
+        value = object.__getattribute__(self, name)
+        if name.startswith("_"):
+            return value
+        try:
+            initialized = object.__getattribute__(self, "_wandas_initialized")
+        except AttributeError:
+            return value
+        if not initialized or not isinstance(value, np.ndarray):
+            return value
+        try:
+            params = object.__getattribute__(self, "_params")
+        except AttributeError:
+            return value
+        if name in params:
+            return value.copy()
+        return value
+
     def __delattr__(self, name: str) -> None:
         if getattr(self, "_wandas_initialized", False) and not name.startswith("_"):
             raise AttributeError(

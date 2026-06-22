@@ -336,6 +336,21 @@ class TestRmsTrend:
         assert isinstance(rms.ref, np.ndarray)
         assert rms.ref.shape == (1,)
 
+    def test_public_ref_arrays_are_defensive_copies(self) -> None:
+        """Mutating exposed reference arrays must not change pending compute."""
+        rms = RmsTrend(_SR, frame_length=4, hop_length=2, dB=True, ref=[1.0])
+        sound_level = SoundLevel(_SR, dB=True, ref=[1.0])
+
+        rms.ref[0] = 100.0
+        sound_level.ref[0] = 100.0
+
+        np.testing.assert_array_equal(rms.ref, np.array([1.0]))
+        np.testing.assert_array_equal(sound_level.ref, np.array([1.0]))
+
+        data = da_from_array(np.ones((1, 8)), chunks=(1, -1))
+        expected = RmsTrend(_SR, frame_length=4, hop_length=2, dB=True, ref=[1.0]).process(data).compute()
+        np.testing.assert_allclose(rms.process(data).compute(), expected)
+
     # -- Layer 2: Domain (shape + immutability) ----------------------------
 
     def test_rms_trend_preserves_immutability_and_dask_type(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
