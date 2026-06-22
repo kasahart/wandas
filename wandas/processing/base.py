@@ -44,13 +44,21 @@ def _should_snapshot_public_attr(value: Any) -> bool:
     return isinstance(value, np.ndarray | Mapping | tuple | list | set | frozenset)
 
 
+def _is_public_config_attr(name: str, value: Any, params: Mapping[str, Any]) -> bool:
+    """Return whether a public attribute mirrors captured operation config."""
+    if name in params:
+        return True
+    return isinstance(value, Mapping) and all(key in params for key in value)
+
+
 class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     """Abstract runtime lineage object for audio processing operations.
 
-    After initialization, public configuration is treated as effectively
-    immutable: ordinary public attribute reassignment is blocked and ``params``
-    returns a defensive snapshot. Private/reflective mutation and arbitrary
-    callable internals are intentionally outside this contract.
+    Operation parameters are captured as operation-owned snapshots for lineage
+    metadata. ``params`` and public mutable config attributes are exposed as
+    defensive snapshots. Public attributes remain ordinary Python attributes for
+    custom operation compatibility, so reflective/manual mutation is outside the
+    public lineage contract.
     """
 
     # Class variable: operation name
@@ -95,15 +103,22 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         """Replace public mutable config attrs with operation-owned snapshots."""
         params = object.__getattribute__(self, "_params")
         for name, value in list(object.__getattribute__(self, "__dict__").items()):
-            if name.startswith("_") or name not in params or not _should_snapshot_public_attr(value):
+            if (
+                name.startswith("_")
+                or not _should_snapshot_public_attr(value)
+                or not _is_public_config_attr(name, value, params)
+            ):
                 continue
             object.__setattr__(self, name, _snapshot_config_value(value))
 
     def __setattr__(self, name: str, value: Any) -> None:
         if getattr(self, "_wandas_initialized", False) and not name.startswith("_"):
-            raise AttributeError(
-                f"{self.__class__.__name__} operation config is read-only; cannot set attribute {name!r}"
-            )
+            try:
+                params = object.__getattribute__(self, "_params")
+            except AttributeError:
+                params = {}
+            if _should_snapshot_public_attr(value) and _is_public_config_attr(name, value, params):
+                value = _snapshot_config_value(value)
         object.__setattr__(self, name, value)
 
     def __getattribute__(self, name: str) -> Any:
@@ -120,16 +135,9 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
             params = object.__getattribute__(self, "_params")
         except AttributeError:
             return value
-        if name in params or (isinstance(value, Mapping) and all(key in params for key in value)):
+        if _is_public_config_attr(name, value, params):
             return _snapshot_config_value(value)
         return value
-
-    def __delattr__(self, name: str) -> None:
-        if getattr(self, "_wandas_initialized", False) and not name.startswith("_"):
-            raise AttributeError(
-                f"{self.__class__.__name__} operation config is read-only; cannot delete attribute {name!r}"
-            )
-        object.__delattr__(self, name)
 
     @property
     def params(self) -> dict[str, Any]:

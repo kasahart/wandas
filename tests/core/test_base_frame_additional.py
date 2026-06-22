@@ -807,7 +807,7 @@ def test_mutable_config_value_converts_containers_for_history():
     assert sorted(converted["frozenset"]) == [1, 2]
 
 
-def test_frame_operations_returns_immutable_live_operation_and_compute_is_stable():
+def test_frame_operations_returns_live_operation_with_defensive_params():
     data = np.array([[1.0, 2.0, 4.0]])
     frame = ChannelFrame(da_from_array(data, chunks=(1, -1)), sampling_rate=100.0)
 
@@ -819,8 +819,6 @@ def test_frame_operations_returns_immutable_live_operation_and_compute_is_stable
     op = result.operations[0]
     assert op.name == "normalize"
 
-    with pytest.raises(AttributeError):
-        op.norm = 2
     params = op.params
     params["norm"] = 2
     assert op.params["norm"] == np.inf

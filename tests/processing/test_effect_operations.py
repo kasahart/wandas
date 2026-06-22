@@ -39,6 +39,15 @@ class TestHpssHarmonic:
 
         assert hpss.kwargs["margin"] == 2.0
 
+    def test_hpss_harmonic_kwargs_snapshot_caller_owned_mutable_values(self) -> None:
+        """Grouped kwargs should not retain caller-owned mutable values."""
+        margin = [2.0, 3.0]
+        hpss = HpssHarmonic(_SR, margin=margin)
+
+        margin[0] = 8.0
+
+        assert hpss.kwargs["margin"] == [2.0, 3.0]
+
     def test_hpss_harmonic_registry_returns_correct_class(self) -> None:
         """Test HpssHarmonic is registered as 'hpss_harmonic'."""
         assert get_operation("hpss_harmonic") == HpssHarmonic

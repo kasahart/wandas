@@ -100,11 +100,14 @@ class TestCustomOperation:
 
         assert op.params["config"]["gain"] == 2.0
 
-    def test_custom_operation_callables_are_not_reassignable(self) -> None:
+    def test_custom_operation_callables_remain_normal_attributes(self) -> None:
         def my_func(x: np.ndarray) -> np.ndarray:
             return x
 
         op = CustomOperation(16000, func=my_func)
 
-        with pytest.raises(AttributeError):
-            op.func = lambda x: x * 2
+        op.func = lambda x: x * 2
+
+        data = np.array([[1.0, 2.0]])
+        dask_data = da_from_array(data, chunks=(1, -1))
+        np.testing.assert_array_equal(op.process(dask_data).compute(), data * 2)

@@ -232,13 +232,49 @@ class TestAudioOperation:
         test_op_cls = self._make_test_op_class()
         assert test_op_cls(16000).get_metadata_updates() == {}
 
-    def test_operation_attribute_reassignment_is_blocked_after_init(self) -> None:
+    def test_public_attribute_reassignment_does_not_mutate_captured_params(self) -> None:
         op = HighPassFilter(16000, cutoff=500)
 
-        with pytest.raises(AttributeError):
-            op.cutoff = 1000
-        with pytest.raises(AttributeError):
-            del op.cutoff
+        op.cutoff = 1000
+
+        assert op.cutoff == 1000
+        assert op.params["cutoff"] == 500
+
+    def test_subclass_can_assign_public_attributes_after_base_init(self) -> None:
+        class PostInitOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "post_init_op"
+
+            def __init__(self, sampling_rate: float, gain: float):
+                super().__init__(sampling_rate, gain=gain)
+                self.gain = gain
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x * self.gain
+
+        op = PostInitOperation(16000, gain=2.0)
+        data = da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1))
+
+        assert op.gain == 2.0
+        np.testing.assert_array_equal(op.process(data).compute(), np.array([[2.0, 4.0]]))
+
+    def test_post_base_init_mutable_config_assignment_is_snapshotted(self) -> None:
+        class PostInitConfigOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "post_init_config_op"
+
+            def __init__(self, sampling_rate: float, config: dict[str, float]):
+                super().__init__(sampling_rate, config=config)
+                self.config = config
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x * object.__getattribute__(self, "config")["gain"]
+
+        config = {"gain": 2.0}
+        op = PostInitConfigOperation(16000, config=config)
+        data = da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1))
+        config["gain"] = 99.0
+
+        assert op.config["gain"] == 2.0
+        np.testing.assert_array_equal(op.process(data).compute(), np.array([[2.0, 4.0]]))
 
     def test_operation_params_returns_defensive_snapshot(self) -> None:
         op = HighPassFilter(16000, cutoff=500)
