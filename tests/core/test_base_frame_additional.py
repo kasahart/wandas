@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from wandas.core.base_frame import BaseFrame
+from wandas.core.base_frame import BaseFrame, _mutable_config_value
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.processing.base import AudioOperation
@@ -681,6 +681,8 @@ def test_create_new_instance_validates_operation_history_and_channel_ids():
 
     with pytest.raises(TypeError, match="Operation history must be a list"):
         f._create_new_instance(data=f._data, operation_history="bad")
+    with pytest.raises(TypeError, match="Operations must be a tuple"):
+        f._create_new_instance(data=f._data, operations=["bad"])
     with pytest.raises(TypeError, match="Channel ids must be a list"):
         f._create_new_instance(data=f._data, channel_ids=("a", "b"))
 
@@ -711,10 +713,15 @@ def test_binary_operations_cover_scalar_helpers_and_frame_mismatch_errors():
 
 def test_apply_operation_helpers_update_metadata_and_history(monkeypatch):
     f = make_frame(np.arange(6).reshape(2, 3).astype(float))
+    dependency_calls = 0
 
     class FakeOperation:
         name = "fake"
         params = {"amount": 2}
+
+        def ensure_dependencies(self):
+            nonlocal dependency_calls
+            dependency_calls += 1
 
         def process(self, data):
             return data + 1
@@ -731,6 +738,7 @@ def test_apply_operation_helpers_update_metadata_and_history(monkeypatch):
     assert result.metadata["fake"] == {"amount": 2}
     assert result.operation_history[-1] == {"operation": "fake", "params": {"amount": 2}}
     assert result.labels == ["Fake(ch0)", "Fake(ch1)"]
+    assert dependency_calls == 1
 
     class CreatedOperation(FakeOperation):
         name = "created"
@@ -740,6 +748,54 @@ def test_apply_operation_helpers_update_metadata_and_history(monkeypatch):
     applied = BaseFrame._apply_operation_impl(f, "created", gain=3)
 
     assert applied.metadata["created"] == {"gain": 3}
+    assert dependency_calls == 2
+
+    class TrimOperation(FakeOperation):
+        name = "trim"
+        params = {"start": 0.01}
+
+        def get_metadata_updates(self):
+            return {}
+
+    trimmed = f._apply_operation_instance(TrimOperation())
+    assert trimmed.source_time_offset[0] == pytest.approx(0.01)
+
+    class CreatedAudioOperation(AudioOperation[np.ndarray, np.ndarray]):
+        name = "created_audio"
+
+        def ensure_dependencies(self):
+            nonlocal dependency_calls
+            dependency_calls += 1
+
+        def _process_array(self, x: np.ndarray) -> np.ndarray:
+            return x
+
+    monkeypatch.setattr(
+        "wandas.processing.create_operation",
+        lambda name, sampling_rate, **params: CreatedAudioOperation(sampling_rate),
+    )
+    applied_with_operation = BaseFrame._apply_operation_impl(f, "created_audio")
+
+    assert len(applied_with_operation.operations) == 1
+    assert applied_with_operation.operations[0].name == "created_audio"
+    assert dependency_calls == 4
+
+
+def test_mutable_config_value_converts_frozen_containers_for_history():
+    frozen_array = np.array([1.0, 2.0])
+    frozen_array.flags.writeable = False
+    converted = _mutable_config_value(
+        {
+            "array": frozen_array,
+            "tuple": (frozen_array,),
+            "frozenset": frozenset({1, 2}),
+        }
+    )
+
+    assert converted["array"] is not frozen_array
+    assert converted["array"].flags.writeable
+    assert converted["tuple"][0] is not frozen_array
+    assert converted["frozenset"] == {1, 2}
 
 
 def test_frame_operations_returns_immutable_live_operation_and_compute_is_stable():
@@ -799,6 +855,21 @@ def test_apply_operation_instance_output_frame_validation_and_constructor_errors
     assert isinstance(transitioned, NeedsExtra)
     assert transitioned.required == "ok"
     assert transitioned.operation_history[-1]["operation"] == "renamed"
+
+    class AudioFakeOperation(AudioOperation[np.ndarray, np.ndarray]):
+        name = "audio_fake"
+
+        def _process_array(self, x: np.ndarray) -> np.ndarray:
+            return x
+
+    audio_transitioned = f._apply_operation_instance(
+        AudioFakeOperation(f.sampling_rate),
+        output_frame_class=NeedsExtra,
+        output_frame_kwargs={"required": "ok"},
+    )
+
+    assert len(audio_transitioned.operations) == 1
+    assert audio_transitioned.operations[0].name == "audio_fake"
 
 
 def test_indexing_variants_cover_base_frame_selection_paths():
