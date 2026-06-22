@@ -3,7 +3,7 @@ import logging
 import numbers
 import uuid
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from re import Pattern
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast, overload
 
@@ -28,6 +28,8 @@ if TYPE_CHECKING:
     from IPython.display import Image as IPythonImage
     from matplotlib.axes import Axes
 
+    from wandas.processing.base import AudioOperation
+
     VisualizeReturnType: TypeAlias = IPythonImage | None
 else:
     # Use Any at runtime to avoid type checker errors
@@ -39,6 +41,19 @@ T = TypeVar("T", NDArrayComplex, NDArrayReal)
 S = TypeVar("S", bound="BaseFrame[Any]")
 S_Out = TypeVar("S_Out", bound="BaseFrame[Any]")
 QueryType = str | Pattern[str] | Callable[["ChannelMetadata"], bool] | dict[str, Any]
+
+
+def _mutable_config_value(value: Any) -> Any:
+    """Convert frozen operation config values to plain containers for public history."""
+    if isinstance(value, np.ndarray):
+        return np.array(value, copy=True)
+    if isinstance(value, Mapping):
+        return {key: _mutable_config_value(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return tuple(_mutable_config_value(item) for item in value)
+    if isinstance(value, frozenset):
+        return {_mutable_config_value(item) for item in value}
+    return value
 
 
 class BaseFrame(ABC, Generic[T]):
@@ -98,6 +113,7 @@ class BaseFrame(ABC, Generic[T]):
         channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
+        operations: tuple["AudioOperation[Any, Any]", ...] | None = None,
     ):
         normalized_data = self._normalize_data(data)
         frame_label = label or "unnamed_frame"
@@ -118,6 +134,7 @@ class BaseFrame(ABC, Generic[T]):
         self.sampling_rate = sampling_rate
         self.metadata = metadata
         self.operation_history = operation_history
+        self._operations = operations or ()
         self._set_channel_metadata(normalized_channel_metadata, self._pending_channel_ids)
         self.source_time_offset = source_time_offset
         del self._pending_channel_metadata
@@ -138,6 +155,11 @@ class BaseFrame(ABC, Generic[T]):
         if not isinstance(data, DaArray):
             raise TypeError(f"Internal xarray data is not a Dask array: {type(data).__name__}")
         return data
+
+    @property
+    def operations(self) -> tuple["AudioOperation[Any, Any]", ...]:
+        """Return immutable operation instances used to build this frame."""
+        return self._operations
 
     def _replace_data(self, data: DaArray) -> None:
         """Replace the internal xarray data container without touching frame state."""
@@ -946,6 +968,10 @@ class BaseFrame(ABC, Generic[T]):
         if not isinstance(operation_history, list):
             raise TypeError("Operation history must be a list")
 
+        operations = kwargs.pop("operations", self.operations)
+        if not isinstance(operations, tuple):
+            raise TypeError("Operations must be a tuple")
+
         channel_metadata = kwargs.pop("channel_metadata", self.channels.to_list())
         if not isinstance(channel_metadata, list):
             raise TypeError("Channel metadata must be a list")
@@ -975,6 +1001,7 @@ class BaseFrame(ABC, Generic[T]):
             channel_metadata=channel_metadata,
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,
+            operations=operations,
             previous=self,
             **kwargs,
         )
@@ -1170,7 +1197,7 @@ class BaseFrame(ABC, Generic[T]):
     def _updated_metadata_and_history(
         self,
         operation_name: str,
-        params: dict[str, Any],
+        params: Mapping[str, Any],
     ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         """Build new metadata dict and operation history after an operation.
 
@@ -1179,10 +1206,19 @@ class BaseFrame(ABC, Generic[T]):
         tuple[dict[str, Any], list[dict[str, Any]]]
             (new_metadata, new_history) ready to pass to ``_create_new_instance``.
         """
+        history_params = _mutable_config_value(params)
         new_metadata = copy.deepcopy(self.metadata)
-        new_metadata[operation_name] = params
-        new_history = [*self.operation_history, {"operation": operation_name, "params": params}]
+        new_metadata[operation_name] = copy.deepcopy(history_params)
+        new_history = [*self.operation_history, {"operation": operation_name, "params": history_params}]
         return new_metadata, new_history
+
+    def _updated_operations(self, operation: Any) -> tuple["AudioOperation[Any, Any]", ...]:
+        """Append a concrete AudioOperation to lineage when available."""
+        from wandas.processing.base import AudioOperation
+
+        if isinstance(operation, AudioOperation):
+            return (*self.operations, operation)
+        return self.operations
 
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
         """Default implementation of operation application.
@@ -1203,11 +1239,16 @@ class BaseFrame(ABC, Generic[T]):
 
         new_metadata, new_history = self._updated_metadata_and_history(operation_name, params)
 
-        return self._create_new_instance(
-            data=processed_data,
-            metadata=new_metadata,
-            operation_history=new_history,
-        )
+        creation_params: dict[str, Any] = {
+            "data": processed_data,
+            "metadata": new_metadata,
+            "operation_history": new_history,
+        }
+        updated_operations = self._updated_operations(operation)
+        if updated_operations is not self.operations:
+            creation_params["operations"] = updated_operations
+
+        return self._create_new_instance(**creation_params)
 
     @overload
     def _apply_operation_instance(
@@ -1284,6 +1325,7 @@ class BaseFrame(ABC, Generic[T]):
                     f"SpectralFrame or SpectrogramFrame."
                 )
             # Domain transition: build a different frame type
+            updated_operations = self._updated_operations(operation)
             kw: dict[str, Any] = {
                 "data": processed_data,
                 "sampling_rate": metadata_updates.pop("sampling_rate", self.sampling_rate),
@@ -1295,6 +1337,8 @@ class BaseFrame(ABC, Generic[T]):
                 "source_time_offset": metadata_updates.pop("source_time_offset", self.source_time_offset),
                 "previous": self,
             }
+            if updated_operations is not self.operations:
+                kw["operations"] = updated_operations
             kw.update(metadata_updates)
             if output_frame_kwargs:
                 kw.update(output_frame_kwargs)
@@ -1318,6 +1362,9 @@ class BaseFrame(ABC, Generic[T]):
             "channel_metadata": new_channel_metadata,
             "channel_ids": self._channel_ids,
         }
+        updated_operations = self._updated_operations(operation)
+        if updated_operations is not self.operations:
+            creation_params["operations"] = updated_operations
         creation_params.update(metadata_updates)
 
         return self._create_new_instance(**creation_params)

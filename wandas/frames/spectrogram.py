@@ -118,6 +118,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
+        operations: tuple[Any, ...] | None = None,
     ) -> None:
         if data.ndim == 2:
             data = da.expand_dims(data, axis=0)
@@ -150,6 +151,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_metadata=channel_metadata,
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,
+            operations=operations,
             previous=previous,
         )
 

@@ -77,8 +77,8 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         validate_sampling_rate(sampling_rate, "source sampling rate")
         validate_sampling_rate(target_sr, "target sampling rate")
-        super().__init__(sampling_rate, target_sr=target_sr)
         self.target_sr = target_sr
+        super().__init__(sampling_rate, target_sr=target_sr)
 
     def get_metadata_updates(self) -> dict[str, Any]:
         """
@@ -168,11 +168,11 @@ class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
         end : float
             End time for trimming (seconds)
         """
-        super().__init__(sampling_rate, start=start, end=end)
         self.start = start
         self.end = end
         self.start_sample = int(start * sampling_rate)
         self.end_sample = int(end * sampling_rate)
+        super().__init__(sampling_rate, start=start, end=end)
         logger.debug(f"Initialized Trim operation with start: {self.start}, end: {self.end}")
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:

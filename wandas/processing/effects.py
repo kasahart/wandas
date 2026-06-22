@@ -180,11 +180,11 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
                 f"Typical values: 1e-10 (small threshold), 1e-6 (larger threshold)"
             )
 
-        super().__init__(sampling_rate, norm=norm, axis=axis, threshold=threshold, fill=fill)
         self.norm = norm
         self.axis = axis
         self.threshold = threshold
         self.fill = fill
+        super().__init__(sampling_rate, norm=norm, axis=axis, threshold=threshold, fill=fill)
         logger.debug(
             f"Initialized Normalize operation with norm={norm}, axis={axis}, threshold={threshold}, fill={fill}"
         )
@@ -270,10 +270,9 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
         snr : float
             Signal-to-noise ratio (dB)
         """
-        super().__init__(sampling_rate, other=other, snr=snr)
-
         self.other = other
         self.snr = snr
+        super().__init__(sampling_rate, other=other, snr=snr)
         logger.debug(f"Initialized AddWithSNR operation with SNR: {snr} dB")
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:

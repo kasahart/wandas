@@ -9,6 +9,7 @@ import xarray as xr
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
+from wandas.processing.base import AudioOperation
 from wandas.utils.dask_helpers import da_from_array
 
 
@@ -739,6 +740,26 @@ def test_apply_operation_helpers_update_metadata_and_history(monkeypatch):
     applied = BaseFrame._apply_operation_impl(f, "created", gain=3)
 
     assert applied.metadata["created"] == {"gain": 3}
+
+
+def test_frame_operations_returns_immutable_live_operation_and_compute_is_stable():
+    data = np.array([[1.0, 2.0, 4.0]])
+    frame = ChannelFrame(da_from_array(data, chunks=(1, -1)), sampling_rate=100.0)
+
+    result = frame.normalize()
+
+    assert isinstance(result.operations, tuple)
+    assert len(result.operations) == 1
+    assert isinstance(result.operations[0], AudioOperation)
+    op = result.operations[0]
+    assert op.name == "normalize"
+
+    with pytest.raises(AttributeError):
+        op.norm = 2
+    with pytest.raises(TypeError):
+        op.params["norm"] = 2  # type: ignore[index]
+
+    np.testing.assert_allclose(result.compute(), data / 4.0)
 
 
 def test_apply_operation_instance_output_frame_validation_and_constructor_errors():

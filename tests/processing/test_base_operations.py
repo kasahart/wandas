@@ -1,9 +1,11 @@
 import abc
 from unittest import mock
 
+import cloudpickle
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
+from dask.base import tokenize
 
 from wandas.processing.base import (
     _OPERATION_MODULES,
@@ -15,6 +17,7 @@ from wandas.processing.base import (
     register_operation,
 )
 from wandas.processing.filters import HighPassFilter
+from wandas.processing.spectral import STFT
 from wandas.utils.dask_helpers import da_from_array
 from wandas.utils.types import NDArrayReal
 
@@ -150,6 +153,15 @@ class TestAudioOperation:
 
         np.testing.assert_array_equal(dask_data.compute(), data_copy)
 
+    def test_same_immutable_operation_instance_can_process_multiple_inputs(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000)
+        first = da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1))
+        second = da_from_array(np.array([[3.0, 4.0]]), chunks=(1, -1))
+
+        np.testing.assert_array_equal(op.process(first).compute(), np.array([[2.0, 4.0]]))
+        np.testing.assert_array_equal(op.process(second).compute(), np.array([[6.0, 8.0]]))
+
     def test_delayed_execution_not_computed_early(self) -> None:
         """Pillar 1: process() preserves Dask lazy evaluation; no premature compute()."""
         test_op_cls = self._make_test_op_class()
@@ -218,6 +230,40 @@ class TestAudioOperation:
         """Base class get_metadata_updates() returns empty dict by default."""
         test_op_cls = self._make_test_op_class()
         assert test_op_cls(16000).get_metadata_updates() == {}
+
+    def test_operation_attribute_reassignment_is_blocked_after_init(self) -> None:
+        op = HighPassFilter(16000, cutoff=500)
+
+        with pytest.raises(AttributeError):
+            op.cutoff = 1000
+
+    def test_operation_params_are_read_only_after_init(self) -> None:
+        op = HighPassFilter(16000, cutoff=500)
+
+        with pytest.raises(TypeError):
+            op.params["cutoff"] = 1000  # type: ignore[index]
+
+    def test_operation_tokenize_is_stable_after_freeze(self) -> None:
+        op = HighPassFilter(16000, cutoff=500)
+
+        assert tokenize(op) == tokenize(op)
+
+    def test_cloudpickle_serializes_frozen_operations(self) -> None:
+        def identity(x: NDArrayReal) -> NDArrayReal:
+            return x
+
+        from wandas.processing.custom import CustomOperation
+        from wandas.processing.effects import Normalize
+
+        operations = [
+            HighPassFilter(16000, cutoff=500),
+            Normalize(16000),
+            STFT(16000),
+            CustomOperation(16000, func=identity),
+        ]
+
+        for operation in operations:
+            assert cloudpickle.loads(cloudpickle.dumps(operation)).params == operation.params
 
     def test_get_display_name_returns_none(self) -> None:
         """Base class get_display_name() returns None by default."""

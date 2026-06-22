@@ -120,6 +120,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         channel_ids: list[str] | None = None,
         previous: BaseFrame[Any] | None = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
+        operations: tuple[Any, ...] | None = None,
     ) -> None:
         if data.ndim == 1:
             data = data.reshape(1, -1)
@@ -136,6 +137,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_metadata=channel_metadata,
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,
+            operations=operations,
             previous=previous,
         )
 

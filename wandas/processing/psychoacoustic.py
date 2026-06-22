@@ -542,9 +542,10 @@ class RoughnessDwSpec(_RoughnessBase):
                 raise RuntimeError(
                     "Could not initialize RoughnessDwSpec: MoSQITo's roughness_dw returned an empty or None bark_axis."
                 )
-            self._bark_axis = bark_axis_from_mosqito
+            self._bark_axis = np.asarray(bark_axis_from_mosqito)
+            self._bark_axis.flags.writeable = False
             # Cache the result for future use
-            RoughnessDwSpec._bark_axis_cache[cache_key] = bark_axis_from_mosqito
+            RoughnessDwSpec._bark_axis_cache[cache_key] = self._bark_axis
         super().__init__(sampling_rate, overlap=overlap)
 
     @property

@@ -88,3 +88,21 @@ class TestCustomOperation:
         # Direct call raises TypeError due to Python's argument handling
         with pytest.raises(TypeError, match="multiple values for argument"):
             CustomOperation(16000, func=my_func, sampling_rate=44100)  # ty: ignore[parameter-already-assigned]
+
+    def test_custom_operation_nested_params_are_read_only(self) -> None:
+        def my_func(x: np.ndarray, config: dict[str, float]) -> np.ndarray:
+            return x * config["gain"]
+
+        op = CustomOperation(16000, func=my_func, config={"gain": 2.0})
+
+        with pytest.raises(TypeError):
+            op.params["config"]["gain"] = 3.0  # type: ignore[index]
+
+    def test_custom_operation_callables_are_not_reassignable(self) -> None:
+        def my_func(x: np.ndarray) -> np.ndarray:
+            return x
+
+        op = CustomOperation(16000, func=my_func)
+
+        with pytest.raises(AttributeError):
+            op.func = lambda x: x * 2

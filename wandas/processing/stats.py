@@ -48,8 +48,8 @@ class Power(AudioOperation[NDArrayReal, NDArrayReal]):
         exponent : float
             Power exponent
         """
-        super().__init__(sampling_rate)
         self.exp = exponent
+        super().__init__(sampling_rate, exponent=exponent)
 
     def process(self, data: DaArray) -> DaArray:
         # Use Dask's aggregate function directly without map_blocks
