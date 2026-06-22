@@ -39,16 +39,11 @@ def _snapshot_config_value(value: Any) -> Any:
         return value
 
 
-def _should_snapshot_public_attr(value: Any) -> bool:
-    """Return whether a public config attribute should be exposed defensively."""
-    return isinstance(value, np.ndarray | Mapping | tuple | list | set | frozenset)
-
-
 def _is_public_config_attr(name: str, value: Any, params: Mapping[str, Any]) -> bool:
     """Return whether a public attribute mirrors captured operation config."""
     if name in params:
         return True
-    return isinstance(value, Mapping) and all(key in params for key in value)
+    return isinstance(value, Mapping) and bool(value) and all(key in params for key in value)
 
 
 class AudioOperation(Generic[InputArrayType, OutputArrayType]):
@@ -103,11 +98,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         """Replace public mutable config attrs with operation-owned snapshots."""
         params = object.__getattribute__(self, "_params")
         for name, value in list(object.__getattribute__(self, "__dict__").items()):
-            if (
-                name.startswith("_")
-                or not _should_snapshot_public_attr(value)
-                or not _is_public_config_attr(name, value, params)
-            ):
+            if name.startswith("_") or not _is_public_config_attr(name, value, params):
                 continue
             object.__setattr__(self, name, _snapshot_config_value(value))
 
@@ -117,7 +108,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
                 params = object.__getattribute__(self, "_params")
             except AttributeError:
                 params = {}
-            if _should_snapshot_public_attr(value) and _is_public_config_attr(name, value, params):
+            if _is_public_config_attr(name, value, params):
                 value = _snapshot_config_value(value)
         object.__setattr__(self, name, value)
 
@@ -129,7 +120,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
             initialized = object.__getattribute__(self, "_wandas_initialized")
         except AttributeError:
             return value
-        if not initialized or not _should_snapshot_public_attr(value):
+        if not initialized:
             return value
         try:
             params = object.__getattribute__(self, "_params")

@@ -532,7 +532,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         result = self.apply_operation("add_with_snr", other=other._data, snr=snr)
         if other.operations:
             operations = (*self.operations, *other.operations, result.operations[-1])
-            return result._create_new_instance(data=result._data, operations=operations)
+            object.__setattr__(result, "_operations", operations)
         return result
 
     def plot(

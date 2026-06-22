@@ -1,4 +1,5 @@
 import abc
+from types import SimpleNamespace
 from unittest import mock
 
 import cloudpickle
@@ -276,6 +277,25 @@ class TestAudioOperation:
         assert op.config["gain"] == 2.0
         np.testing.assert_array_equal(op.process(data).compute(), np.array([[2.0, 4.0]]))
 
+    def test_post_base_init_non_container_config_assignment_is_snapshotted(self) -> None:
+        class NamespaceConfigOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "namespace_config_op"
+
+            def __init__(self, sampling_rate: float, cfg: SimpleNamespace):
+                super().__init__(sampling_rate, cfg=cfg)
+                self.cfg = cfg
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x * self.cfg.gain
+
+        cfg = SimpleNamespace(gain=2.0)
+        op = NamespaceConfigOperation(16000, cfg=cfg)
+        data = da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1))
+        cfg.gain = 99.0
+
+        assert op.cfg.gain == 2.0
+        np.testing.assert_array_equal(op.process(data).compute(), np.array([[2.0, 4.0]]))
+
     def test_pre_base_init_mutable_config_attribute_is_snapshotted(self) -> None:
         class PreInitConfigOperation(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "pre_init_config_op"
@@ -300,6 +320,23 @@ class TestAudioOperation:
         object.__setattr__(op, "cache", cache)
 
         assert op.cache is cache
+
+    def test_empty_public_mapping_after_base_init_returns_live_value(self) -> None:
+        class CachedOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "cached_op"
+
+            def __init__(self, sampling_rate: float):
+                super().__init__(sampling_rate)
+                self.cache: dict[str, float] = {}
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        op = CachedOperation(16000)
+
+        op.cache["last"] = 1.0
+
+        assert object.__getattribute__(op, "cache") == {"last": 1.0}
 
     def test_operation_params_returns_defensive_snapshot(self) -> None:
         op = HighPassFilter(16000, cutoff=500)

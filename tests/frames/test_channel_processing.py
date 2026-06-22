@@ -624,13 +624,15 @@ class TestChannelProcessing:
         signal_cf = ChannelFrame(_da_from_array(np.ones((1, 16000)), chunks=(1, -1)), self.sample_rate)
         noise_cf = ChannelFrame(_da_from_array(np.ones((1, 16000)) * 0.1, chunks=(1, -1)), self.sample_rate)
 
-        result = signal_cf.normalize().add(noise_cf.low_pass_filter(cutoff=1000), snr=10.0)
+        signal = signal_cf.normalize()
+        result = signal.add(noise_cf.low_pass_filter(cutoff=1000), snr=10.0)
 
         assert [operation.name for operation in result.operations] == [
             "normalize",
             "lowpass_filter",
             "add_with_snr",
         ]
+        assert result.previous is signal
 
     def test_add_with_snr_numpy_array(self) -> None:
         """add(..., snr=...) should accept NumPy array inputs via ChannelFrame coercion."""
