@@ -276,6 +276,31 @@ class TestAudioOperation:
         assert op.config["gain"] == 2.0
         np.testing.assert_array_equal(op.process(data).compute(), np.array([[2.0, 4.0]]))
 
+    def test_pre_base_init_mutable_config_attribute_is_snapshotted(self) -> None:
+        class PreInitConfigOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "pre_init_config_op"
+
+            def __init__(self, sampling_rate: float, config: dict[str, float]):
+                self.config = config
+                super().__init__(sampling_rate, config=config)
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x * object.__getattribute__(self, "config")["gain"]
+
+        config = {"gain": 2.0}
+        op = PreInitConfigOperation(16000, config=config)
+        config["gain"] = 99.0
+
+        assert object.__getattribute__(op, "config") == {"gain": 2.0}
+
+    def test_non_config_mutable_public_attribute_returns_live_value(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000, gain=2.0)
+        cache = {"last": 1.0}
+        object.__setattr__(op, "cache", cache)
+
+        assert op.cache is cache
+
     def test_operation_params_returns_defensive_snapshot(self) -> None:
         op = HighPassFilter(16000, cutoff=500)
 
@@ -312,6 +337,34 @@ class TestAudioOperation:
             "tuple": ({"x": 1},),
             "list": [{"y": 2}],
         }
+
+    def test_snapshot_config_value_falls_back_when_deepcopy_fails(self) -> None:
+        class NonCopyable:
+            def __deepcopy__(self, memo: dict[int, object]) -> object:
+                raise RuntimeError("no copy")
+
+        value = NonCopyable()
+
+        assert _snapshot_config_value(value) is value
+
+    def test_public_config_access_handles_missing_params_during_partial_initialization(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = object.__new__(test_op_cls)
+        config = {"gain": 2.0}
+        object.__setattr__(op, "_wandas_initialized", True)
+        object.__setattr__(op, "config", config)
+
+        assert op.config is config
+
+    def test_public_config_assignment_handles_missing_params_during_partial_initialization(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = object.__new__(test_op_cls)
+        config = {"gain": 2.0}
+        object.__setattr__(op, "_wandas_initialized", True)
+
+        op.config = config
+
+        assert object.__getattribute__(op, "config") is config
 
     def test_operation_tokenize_is_stable_after_initialization(self) -> None:
         op = HighPassFilter(16000, cutoff=500)
