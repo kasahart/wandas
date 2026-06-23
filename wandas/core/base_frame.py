@@ -56,6 +56,13 @@ def _constructor_accepts_kwarg(cls: type[Any], name: str) -> bool:
 
 def _mutable_config_value(value: Any) -> Any:
     """Convert operation config values to plain JSON-friendly containers for history."""
+    if isinstance(value, DaArray):
+        return {
+            "type": "dask.array",
+            "shape": [_json_dimension(item) for item in value.shape],
+            "dtype": str(value.dtype),
+            "chunks": [[_json_dimension(item) for item in chunk] for chunk in value.chunks],
+        }
     if isinstance(value, np.ndarray):
         return value.tolist()
     if isinstance(value, Mapping):
@@ -65,6 +72,20 @@ def _mutable_config_value(value: Any) -> Any:
     if isinstance(value, set | frozenset):
         return [_mutable_config_value(item) for item in value]
     return value
+
+
+def _json_dimension(value: Any) -> int | float | str | None:
+    """Return a JSON-safe scalar for array shape/chunk metadata."""
+    if isinstance(value, numbers.Integral):
+        return int(value)
+    if isinstance(value, numbers.Real):
+        numeric = float(value)
+        if np.isfinite(numeric):
+            return numeric
+        return None
+    if value is None:
+        return None
+    return str(value)
 
 
 class BaseFrame(ABC, Generic[T]):
@@ -1356,9 +1377,7 @@ class BaseFrame(ABC, Generic[T]):
                 "source_time_offset": metadata_updates.pop("source_time_offset", self.source_time_offset),
                 "previous": self,
             }
-            if updated_operations is not self.operations and _constructor_accepts_kwarg(
-                output_frame_class, "operations"
-            ):
+            if _constructor_accepts_kwarg(output_frame_class, "operations"):
                 kw["operations"] = updated_operations
             kw.update(metadata_updates)
             if output_frame_kwargs:

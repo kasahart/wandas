@@ -1,3 +1,4 @@
+import json
 from typing import Any, cast
 
 import dask.array as da
@@ -872,17 +873,26 @@ def test_apply_operation_helpers_update_metadata_and_history(monkeypatch):
 
 def test_mutable_config_value_converts_containers_for_history():
     source_array = np.array([1.0, 2.0])
+    dask_array = da_from_array(source_array.reshape(1, 2), chunks=(1, -1))
     converted = _mutable_config_value(
         {
             "array": source_array,
+            "dask_array": dask_array,
             "tuple": (source_array,),
             "frozenset": frozenset({1, 2}),
         }
     )
 
     assert converted["array"] == [1.0, 2.0]
+    assert converted["dask_array"] == {
+        "type": "dask.array",
+        "shape": [1, 2],
+        "dtype": "float64",
+        "chunks": [[1], [2]],
+    }
     assert converted["tuple"] == [[1.0, 2.0]]
     assert sorted(converted["frozenset"]) == [1, 2]
+    json.dumps(converted)
 
 
 def test_frame_operations_returns_live_operation_with_defensive_params():
@@ -971,6 +981,16 @@ def test_apply_operation_instance_output_frame_validation_and_constructor_errors
     assert isinstance(transitioned, NeedsExtra)
     assert transitioned.required == "ok"
     assert transitioned.operation_history[-1]["operation"] == "renamed"
+
+    existing_operation = AudioOperation(f.sampling_rate)
+    frame_with_operations = make_frame(np.arange(6).reshape(2, 3).astype(float), operations=(existing_operation,))
+    non_audio_transitioned = frame_with_operations._apply_operation_instance(
+        FakeOperation(),
+        output_frame_class=NeedsExtra,
+        output_frame_kwargs={"required": "ok"},
+    )
+
+    assert non_audio_transitioned.operations == (existing_operation,)
 
     class AudioFakeOperation(AudioOperation[np.ndarray, np.ndarray]):
         name = "audio_fake"

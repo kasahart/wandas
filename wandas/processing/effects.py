@@ -310,8 +310,13 @@ class Fade(AudioOperation[NDArrayReal, NDArrayReal]):
     def __init__(self, sampling_rate: float, fade_ms: float = 50) -> None:
         self.fade_ms = float(fade_ms)
         # Precompute fade length in samples at construction time
-        self.fade_len = round(self.fade_ms * float(sampling_rate) / 1000.0)
+        self._fade_len = round(self.fade_ms * float(sampling_rate) / 1000.0)
         super().__init__(sampling_rate, fade_ms=fade_ms)
+
+    @property
+    def fade_len(self) -> int:
+        """Fade length in samples."""
+        return self._fade_len
 
     def validate_params(self) -> None:
         if self.fade_ms < 0:
@@ -357,14 +362,14 @@ class Fade(AudioOperation[NDArrayReal, NDArrayReal]):
         n_samples = int(arr.shape[-1])
 
         # If no fade requested, return input
-        if self.fade_len <= 0:
+        if self._fade_len <= 0:
             return arr
 
-        if 2 * self.fade_len >= n_samples:
+        if 2 * self._fade_len >= n_samples:
             raise ValueError("Fade length too long: 2*fade_ms must be less than signal length")
 
         # Calculate Tukey window alpha parameter
-        alpha = self.calculate_tukey_alpha(self.fade_len, n_samples)
+        alpha = self.calculate_tukey_alpha(self._fade_len, n_samples)
 
         # Create tukey window (numpy) and apply
         env = sp_windows.tukey(n_samples, alpha=alpha)

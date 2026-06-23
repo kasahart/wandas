@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 
 import dask.array as da
@@ -647,6 +648,22 @@ class TestChannelProcessing:
             "add_with_snr",
         ]
         assert result.previous is signal
+
+    def test_add_with_snr_records_json_serializable_noise_param(self) -> None:
+        signal_cf = ChannelFrame(_da_from_array(np.ones((1, 16000)), chunks=(1, -1)), self.sample_rate)
+        noise_cf = ChannelFrame(_da_from_array(np.ones((1, 16000)) * 0.1, chunks=(1, -1)), self.sample_rate)
+
+        result = signal_cf.add(noise_cf, snr=10.0)
+
+        noise_param = result.operation_history[-1]["params"]["other"]
+        assert noise_param == {
+            "type": "dask.array",
+            "shape": [1, 16000],
+            "dtype": "float64",
+            "chunks": [[1], [16000]],
+        }
+        json.dumps(result.operation_history)
+        json.dumps(dict(result.metadata))
 
     def test_add_with_snr_skips_lineage_rewrite_for_legacy_result_frame(self) -> None:
         class LegacyChannelFrame(ChannelFrame):

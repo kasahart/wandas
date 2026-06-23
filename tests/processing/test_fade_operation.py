@@ -3,6 +3,7 @@ import pytest
 from dask.array.core import Array as DaArray
 from scipy.signal import windows as sp_windows
 
+from wandas.frames.channel import ChannelFrame
 from wandas.processing.base import create_operation
 from wandas.processing.effects import Fade
 from wandas.utils.dask_helpers import da_from_array
@@ -101,3 +102,17 @@ class TestFade:
             rtol=1e-10,
             atol=1e-12,  # float64 window multiplication precision
         )
+
+    def test_frame_fade_lineage_exposes_read_only_fade_len(self) -> None:
+        sig = np.ones((1, 200), dtype=float)
+        frame = ChannelFrame(da_from_array(sig, chunks=(1, -1)), sampling_rate=_SR)
+
+        result = frame.fade(fade_ms=20.0)
+        op = result.operations[-1]
+
+        assert op.fade_len == 20
+        with pytest.raises(AttributeError):
+            op.fade_len = 0
+
+        expected = sp_windows.tukey(200, alpha=Fade.calculate_tukey_alpha(20, 200)).reshape(1, -1)
+        np.testing.assert_allclose(result.compute(), expected, rtol=1e-10, atol=1e-12)
