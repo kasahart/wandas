@@ -3,7 +3,7 @@ import importlib
 import inspect
 import logging
 from collections.abc import Iterator, Mapping, MutableMapping
-from typing import Any, ClassVar, Generic, TypeVar
+from typing import Any, ClassVar, Generic, TypeVar, cast
 
 import dask.array as da
 import numpy as np
@@ -48,7 +48,31 @@ def _is_public_config_attr(
     """Return whether a public attribute mirrors captured operation config."""
     if name in params:
         return True
-    return name in grouped_config_attrs and isinstance(value, Mapping) and all(key in params for key in value)
+    return name in grouped_config_attrs and isinstance(value, Mapping)
+
+
+def _config_values_equal(left: Any, right: Any) -> bool:
+    """Compare captured config values without NumPy's ambiguous bool errors."""
+    if isinstance(left, np.ndarray) or isinstance(right, np.ndarray):
+        try:
+            return bool(np.array_equal(left, right))
+        except Exception:
+            return False
+    if isinstance(left, Mapping) and isinstance(right, Mapping):
+        if set(left) != set(right):
+            return False
+        return all(_config_values_equal(left[key], right[key]) for key in left)
+    if isinstance(left, tuple | list) and isinstance(right, tuple | list):
+        if type(left) is not type(right) or len(left) != len(right):
+            return False
+        return all(_config_values_equal(left_item, right_item) for left_item, right_item in zip(left, right))
+    try:
+        result = left == right
+    except Exception:
+        return False
+    if isinstance(result, np.ndarray):
+        return bool(np.all(result))
+    return bool(result)
 
 
 class _ParamsView(MutableMapping[str, Any]):
@@ -80,7 +104,10 @@ class _ParamsView(MutableMapping[str, Any]):
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Mapping):
             return False
-        return dict(self.items()) == dict(other.items())
+        other_mapping = cast(Mapping[str, Any], other)
+        if set(self) != set(other_mapping):
+            return False
+        return all(_config_values_equal(self[key], other_mapping[key]) for key in self)
 
     def copy(self) -> dict[str, Any]:
         return dict(self.items())

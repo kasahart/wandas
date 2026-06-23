@@ -446,6 +446,23 @@ class TestAudioOperation:
 
         assert op.params["config"]["gain"] == 2.0
 
+    def test_operation_params_equality_handles_array_values(self) -> None:
+        class ArrayParamsOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "array_params_op"
+
+            def __init__(self, sampling_rate: float, reference: NDArrayReal):
+                super().__init__(sampling_rate, reference=reference, config={"weights": reference})
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        reference = np.array([1.0, 2.0])
+        op = ArrayParamsOperation(16000, reference=reference)
+
+        assert op.params == op.params
+        assert op.params == {"reference": np.array([1.0, 2.0]), "config": {"weights": np.array([1.0, 2.0])}}
+        assert op.params != {"reference": np.array([1.0, 3.0]), "config": {"weights": np.array([1.0, 2.0])}}
+
     def test_snapshot_config_value_copies_container_variants(self) -> None:
         readonly = np.array([1.0])
         readonly.flags.writeable = False

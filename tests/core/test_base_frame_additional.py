@@ -908,6 +908,21 @@ def test_frame_operations_returns_live_operation_with_defensive_params():
     np.testing.assert_allclose(result.compute(), data / 4.0)
 
 
+def test_power_operation_exp_alias_reassignment_does_not_change_delayed_result():
+    data = np.array([[2.0, 3.0, 4.0]])
+    frame = ChannelFrame(da_from_array(data, chunks=(1, -1)), sampling_rate=100.0)
+
+    result = frame.power(2.0)
+    op = result.operations[-1]
+
+    with pytest.raises(AttributeError):
+        setattr(op, "exp", 3.0)
+
+    assert op.params["exponent"] == 2.0
+    assert op.exp == 2.0
+    np.testing.assert_allclose(result.compute(), data**2)
+
+
 def test_channel_metadata_update_paths_preserve_operations_lineage():
     data = np.array([[1.0, 2.0, 4.0]])
     frame = ChannelFrame(da_from_array(data, chunks=(1, -1)), sampling_rate=100.0)
