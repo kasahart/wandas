@@ -82,6 +82,9 @@ class _ParamsView(MutableMapping[str, Any]):
             return False
         return dict(self.items()) == dict(other.items())
 
+    def copy(self) -> dict[str, Any]:
+        return dict(self.items())
+
 
 class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     """Abstract runtime lineage object for audio processing operations.
@@ -149,6 +152,8 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
                 params = {}
             grouped_config_attrs = object.__getattribute__(self, "_grouped_config_attrs")
             if _is_public_config_attr(name, value, params, grouped_config_attrs):
+                if name in object.__getattribute__(self, "__dict__"):
+                    return
                 value = _snapshot_config_value(value)
         object.__setattr__(self, name, value)
 
@@ -172,7 +177,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         return value
 
     @property
-    def params(self) -> MutableMapping[str, Any]:
+    def params(self) -> _ParamsView:
         """Return a write-through view of operation parameters."""
         return _ParamsView(self)
 

@@ -233,12 +233,12 @@ class TestAudioOperation:
         test_op_cls = self._make_test_op_class()
         assert test_op_cls(16000).get_metadata_updates() == {}
 
-    def test_public_attribute_reassignment_does_not_mutate_captured_params(self) -> None:
+    def test_public_attribute_reassignment_does_not_mutate_captured_config(self) -> None:
         op = HighPassFilter(16000, cutoff=500)
 
         op.cutoff = 1000
 
-        assert op.cutoff == 1000
+        assert op.cutoff == 500
         assert op.params["cutoff"] == 500
 
     def test_subclass_can_assign_public_attributes_after_base_init(self) -> None:
@@ -421,6 +421,7 @@ class TestAudioOperation:
 
         assert len(params) == 1
         assert repr(params) == "{'gain': 2.0}"
+        assert params.copy() == {"gain": 2.0}
         assert params != [("gain", 2.0)]
 
         del params["gain"]
@@ -439,6 +440,8 @@ class TestAudioOperation:
 
         op = NestedParamsOperation(16000, config={"gain": 2.0})
 
+        copied_params = op.params.copy()
+        copied_params["config"]["gain"] = 99.0
         op.params["config"]["gain"] = 99.0
 
         assert op.params["config"]["gain"] == 2.0
