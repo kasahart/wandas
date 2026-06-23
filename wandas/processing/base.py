@@ -39,11 +39,16 @@ def _snapshot_config_value(value: Any) -> Any:
         return value
 
 
-def _is_public_config_attr(name: str, value: Any, params: Mapping[str, Any]) -> bool:
+def _is_public_config_attr(
+    name: str,
+    value: Any,
+    params: Mapping[str, Any],
+    grouped_config_attrs: frozenset[str],
+) -> bool:
     """Return whether a public attribute mirrors captured operation config."""
     if name in params:
         return True
-    return isinstance(value, Mapping) and bool(value) and all(key in params for key in value)
+    return name in grouped_config_attrs and isinstance(value, Mapping) and all(key in params for key in value)
 
 
 class AudioOperation(Generic[InputArrayType, OutputArrayType]):
@@ -62,6 +67,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     # Optional attributes used by some subclasses (e.g., FFT)
     n_fft: int | None
     window: str
+    _grouped_config_attrs: ClassVar[frozenset[str]] = frozenset()
 
     def __init__(self, sampling_rate: float, *, pure: bool = True, **params: Any):
         """
@@ -97,8 +103,9 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     def _snapshot_public_config_attributes(self) -> None:
         """Replace public mutable config attrs with operation-owned snapshots."""
         params = object.__getattribute__(self, "_params")
+        grouped_config_attrs = object.__getattribute__(self, "_grouped_config_attrs")
         for name, value in list(object.__getattribute__(self, "__dict__").items()):
-            if name.startswith("_") or not _is_public_config_attr(name, value, params):
+            if name.startswith("_") or not _is_public_config_attr(name, value, params, grouped_config_attrs):
                 continue
             object.__setattr__(self, name, _snapshot_config_value(value))
 
@@ -108,7 +115,8 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
                 params = object.__getattribute__(self, "_params")
             except AttributeError:
                 params = {}
-            if _is_public_config_attr(name, value, params):
+            grouped_config_attrs = object.__getattribute__(self, "_grouped_config_attrs")
+            if _is_public_config_attr(name, value, params, grouped_config_attrs):
                 value = _snapshot_config_value(value)
         object.__setattr__(self, name, value)
 
@@ -126,7 +134,8 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
             params = object.__getattribute__(self, "_params")
         except AttributeError:
             return value
-        if _is_public_config_attr(name, value, params):
+        grouped_config_attrs = object.__getattribute__(self, "_grouped_config_attrs")
+        if _is_public_config_attr(name, value, params, grouped_config_attrs):
             return _snapshot_config_value(value)
         return value
 

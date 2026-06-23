@@ -1,4 +1,5 @@
 import copy
+import inspect
 import logging
 import numbers
 import uuid
@@ -41,6 +42,16 @@ T = TypeVar("T", NDArrayComplex, NDArrayReal)
 S = TypeVar("S", bound="BaseFrame[Any]")
 S_Out = TypeVar("S_Out", bound="BaseFrame[Any]")
 QueryType = str | Pattern[str] | Callable[["ChannelMetadata"], bool] | dict[str, Any]
+
+
+def _constructor_accepts_kwarg(cls: type[Any], name: str) -> bool:
+    try:
+        parameters = inspect.signature(cls.__init__).parameters
+    except (TypeError, ValueError):
+        return True
+    return name in parameters or any(
+        parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()
+    )
 
 
 def _mutable_config_value(value: Any) -> Any:
@@ -994,19 +1005,22 @@ class BaseFrame(ABC, Generic[T]):
         additional_kwargs = self._get_additional_init_kwargs()
         kwargs.update(additional_kwargs)
 
-        return type(self)(
-            data=data,
-            sampling_rate=sampling_rate,
-            label=label,
-            metadata=metadata,
-            operation_history=operation_history,
-            channel_metadata=channel_metadata,
-            channel_ids=channel_ids,
-            source_time_offset=source_time_offset,
-            operations=operations,
-            previous=self,
+        init_kwargs: dict[str, Any] = {
+            "data": data,
+            "sampling_rate": sampling_rate,
+            "label": label,
+            "metadata": metadata,
+            "operation_history": operation_history,
+            "channel_metadata": channel_metadata,
+            "channel_ids": channel_ids,
+            "source_time_offset": source_time_offset,
+            "previous": self,
             **kwargs,
-        )
+        }
+        if _constructor_accepts_kwarg(type(self), "operations"):
+            init_kwargs["operations"] = operations
+
+        return type(self)(**init_kwargs)
 
     def __array__(self, dtype: npt.DTypeLike = None) -> NDArrayReal:
         """Implicit conversion to NumPy array"""

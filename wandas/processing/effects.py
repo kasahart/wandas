@@ -1,5 +1,5 @@
 import logging
-from typing import Any
+from typing import Any, ClassVar
 
 import dask.array as da
 import numpy as np
@@ -62,6 +62,7 @@ def _normalize_array(
 class _HpssBase(AudioOperation[NDArrayReal, NDArrayReal]):
     """Shared base for HPSS harmonic/percussive extraction."""
 
+    _grouped_config_attrs: ClassVar[frozenset[str]] = frozenset({"kwargs"})
     _extract_func: str  # "harmonic" or "percussive" — set by subclasses
     _display: str  # set by subclasses
 

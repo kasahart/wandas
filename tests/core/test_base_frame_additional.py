@@ -44,6 +44,55 @@ class DummyFrame(BaseFrame[np.ndarray]):
         return None
 
 
+class LegacyFrame(BaseFrame[np.ndarray]):
+    def __init__(
+        self,
+        data,
+        sampling_rate: float = 1.0,
+        label: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        operation_history: list[dict[str, Any]] | None = None,
+        channel_metadata=None,
+        channel_ids: list[str] | None = None,
+        source_time_offset=0.0,
+        previous=None,
+    ):
+        super().__init__(
+            data=data,
+            sampling_rate=sampling_rate,
+            label=label,
+            metadata=metadata,
+            operation_history=operation_history,
+            channel_metadata=channel_metadata,
+            channel_ids=channel_ids,
+            source_time_offset=source_time_offset,
+            previous=previous,
+        )
+
+    @property
+    def _n_channels(self) -> int:
+        return int(self._data.shape[0])
+
+    def plot(self, plot_type: str = "default", ax=None, **kwargs):
+        raise NotImplementedError
+
+    def _get_additional_init_kwargs(self) -> dict:
+        return {}
+
+    def _binary_op(self, other, op, symbol):
+        return self._create_new_instance(data=self._data)
+
+    def _apply_operation_impl(self, operation_name: str, **params):
+        new_history = [*self.operation_history, {"operation": operation_name, **params}]
+        return self._create_new_instance(data=self._data, operation_history=new_history)
+
+    def _get_dataframe_index(self) -> pd.Index:
+        return pd.RangeIndex(stop=self._data.shape[-1])
+
+    def _debug_info_impl(self) -> None:
+        return None
+
+
 def make_frame(arr: np.ndarray | da.Array, **kwargs) -> DummyFrame:
     if isinstance(arr, np.ndarray):
         darr = da_from_array(arr, chunks=arr.shape)
@@ -687,6 +736,26 @@ def test_create_new_instance_validates_operation_history_and_channel_ids():
         make_frame(np.arange(6).reshape(2, 3), operations=["bad"])
     with pytest.raises(TypeError, match="Channel ids must be a list"):
         f._create_new_instance(data=f._data, channel_ids=("a", "b"))
+
+
+def test_create_new_instance_omits_operations_for_legacy_constructor():
+    data = da_from_array(np.arange(6).reshape(2, 3).astype(float), chunks=(2, 3))
+    frame = LegacyFrame(
+        data,
+        sampling_rate=100.0,
+        operation_history=[{"operation": "fake"}],
+    )
+
+    result = frame._create_new_instance(
+        data=frame._data,
+        operation_history=[*frame.operation_history],
+        operations=(AudioOperation(100.0),),
+    )
+
+    assert isinstance(result, LegacyFrame)
+    assert result.previous is frame
+    assert result.operation_history == [{"operation": "fake"}]
+    assert result.operations == ()
 
 
 def test_binary_operations_cover_scalar_helpers_and_frame_mismatch_errors():

@@ -338,6 +338,24 @@ class TestAudioOperation:
 
         assert object.__getattribute__(op, "cache") == {"last": 1.0}
 
+    def test_public_cache_with_param_key_returns_live_value(self) -> None:
+        class CachedOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "param_key_cache_op"
+
+            def __init__(self, sampling_rate: float, gain: float):
+                super().__init__(sampling_rate, gain=gain)
+                self.cache: dict[str, float | None] = {"gain": None}
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                self.cache["gain"] = 2.0
+                return x
+
+        op = CachedOperation(16000, gain=2.0)
+
+        op.cache["gain"] = 3.0
+
+        assert object.__getattribute__(op, "cache") == {"gain": 3.0}
+
     def test_operation_params_returns_defensive_snapshot(self) -> None:
         op = HighPassFilter(16000, cutoff=500)
 
