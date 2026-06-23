@@ -1,6 +1,7 @@
 import abc
 from collections import Counter, defaultdict
 from types import SimpleNamespace
+from typing import Any
 from unittest import mock
 
 import cloudpickle
@@ -13,6 +14,7 @@ from wandas.processing.base import (
     _OPERATION_MODULES,
     _OPERATION_REGISTRY,
     AudioOperation,
+    _config_values_equal,
     _snapshot_config_value,
     create_operation,
     get_operation,
@@ -483,6 +485,16 @@ class TestAudioOperation:
         assert isinstance(snapshot, Counter)
         assert snapshot == Counter({"gain": 2})
 
+    def test_snapshot_config_value_falls_back_for_mutable_mapping_copy_failure(self) -> None:
+        class BadMutableMapping(dict[str, float]):
+            def clear(self) -> None:
+                raise RuntimeError("cannot clear")
+
+        snapshot = _snapshot_config_value(BadMutableMapping({"gain": 2.0}))
+
+        assert type(snapshot) is dict
+        assert snapshot == {"gain": 2.0}
+
     def test_mapping_subclass_public_config_keeps_behavior_after_snapshot(self) -> None:
         class DefaultdictConfigOperation(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "defaultdict_config_op"
@@ -516,6 +528,45 @@ class TestAudioOperation:
         assert op.params == op.params
         assert op.params == {"reference": np.array([1.0, 2.0]), "config": {"weights": np.array([1.0, 2.0])}}
         assert op.params != {"reference": np.array([1.0, 3.0]), "config": {"weights": np.array([1.0, 2.0])}}
+
+    def test_snapshot_config_value_preserves_dask_arrays(self) -> None:
+        dask_array = da_from_array(np.array([1.0]), chunks=(1,))
+
+        assert _snapshot_config_value(dask_array) is dask_array
+
+    def test_config_values_equal_handles_non_matching_containers(self) -> None:
+        assert not _config_values_equal({"left": 1}, {"right": 1})
+        assert not _config_values_equal([1], (1,))
+        assert not _config_values_equal([1], [1, 2])
+        assert _config_values_equal([{"gain": np.array([1.0])}], [{"gain": np.array([1.0])}])
+
+    def test_config_values_equal_handles_ambiguous_or_failing_comparisons(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        class EqRaises:
+            def __eq__(self, other: object) -> bool:
+                raise RuntimeError("no eq")
+
+        class EqDaskArray:
+            def __eq__(self, other: object) -> Any:
+                return da_from_array(np.array([True]), chunks=(1,))
+
+        class EqNumpyArray:
+            def __init__(self, values: list[bool]):
+                self.values = values
+
+            def __eq__(self, other: object) -> Any:
+                return np.array(self.values)
+
+        dask_array = da_from_array(np.array([1.0]), chunks=(1,))
+        monkeypatch.setattr("wandas.processing.base.np.array_equal", mock.Mock(side_effect=RuntimeError("no array")))
+
+        assert not _config_values_equal(np.array([1.0]), np.array([1.0]))
+        assert not _config_values_equal(EqRaises(), object())
+        assert not _config_values_equal(dask_array, 1.0)
+        assert not _config_values_equal(EqDaskArray(), object())
+        assert _config_values_equal(EqNumpyArray([True, True]), object())
+        assert not _config_values_equal(EqNumpyArray([True, False]), object())
 
     def test_snapshot_config_value_copies_container_variants(self) -> None:
         readonly = np.array([1.0])
@@ -563,6 +614,18 @@ class TestAudioOperation:
 
         assert op.config is config
 
+    def test_public_config_access_handles_missing_captured_attrs_during_partial_initialization(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = object.__new__(test_op_cls)
+        object.__setattr__(op, "_wandas_initialized", True)
+        object.__setattr__(op, "_params", {"config": {"gain": 2.0}})
+        object.__setattr__(op, "config", {"gain": 2.0})
+
+        exposed = op.config
+        exposed["gain"] = 99.0
+
+        assert object.__getattribute__(op, "config") == {"gain": 2.0}
+
     def test_public_config_assignment_handles_missing_params_during_partial_initialization(self) -> None:
         test_op_cls = self._make_test_op_class()
         op = object.__new__(test_op_cls)
@@ -572,6 +635,12 @@ class TestAudioOperation:
         op.config = config
 
         assert object.__getattribute__(op, "config") is config
+
+    def test_params_view_equality_requires_same_keys(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000, gain=2.0)
+
+        assert op.params != {"other": 2.0}
 
     def test_operation_tokenize_is_stable_after_initialization(self) -> None:
         op = HighPassFilter(16000, cutoff=500)

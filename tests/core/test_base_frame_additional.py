@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from wandas.core.base_frame import BaseFrame, _constructor_accepts_kwarg, _mutable_config_value
+from wandas.core.base_frame import BaseFrame, _constructor_accepts_kwarg, _json_dimension, _mutable_config_value
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.processing.base import AudioOperation
@@ -893,6 +893,15 @@ def test_mutable_config_value_converts_containers_for_history():
     assert converted["tuple"] == [[1.0, 2.0]]
     assert sorted(converted["frozenset"]) == [1, 2]
     json.dumps(converted)
+
+
+def test_json_dimension_converts_non_standard_values():
+    sentinel = object()
+
+    assert _json_dimension(np.float64(1.5)) == 1.5
+    assert _json_dimension(np.inf) is None
+    assert _json_dimension(None) is None
+    assert _json_dimension(sentinel) == str(sentinel)
 
 
 def test_frame_operations_returns_live_operation_with_defensive_params():
