@@ -134,6 +134,21 @@ class TestChannelProcessing:
 
         np.testing.assert_array_equal(result.compute(), self.data + 1.0)
 
+    def test_apply_custom_function_lineage_params_are_snapshotted_for_compute(self) -> None:
+        """Custom operation params mutation cannot alter an existing lazy graph."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
+        )
+
+        result = frame.apply(lambda x, gain: x * gain, output_shape_func=lambda shape: shape, gain=2.0)
+        op = result.operations[-1]
+        op.params["gain"] = 0.0
+
+        np.testing.assert_array_equal(result.compute(), self.data * 2.0)
+        assert result.operation_history[-1]["params"] == {"gain": 2.0}
+
     def test_apply_custom_updates_history_metadata_and_labels(self) -> None:
         """
         Custom apply should update history, metadata, and labels using display name.

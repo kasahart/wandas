@@ -762,6 +762,7 @@ class _CrossSpectralBase(AudioOperation[NDArrayReal, NDArrayReal]):
     _method_label: str  # human-readable label for _validate_spectral_params
     _display: str  # set by subclasses
     n_fft: int
+    _noverlap: int
 
     def __init__(
         self,
@@ -779,7 +780,7 @@ class _CrossSpectralBase(AudioOperation[NDArrayReal, NDArrayReal]):
         self.n_fft = n_fft
         self.win_length = actual_win_length
         self.hop_length = actual_hop_length
-        self.noverlap = self.win_length - self.hop_length
+        self._noverlap = self.win_length - self.hop_length
         self.window = window
         self.detrend = detrend
         super().__init__(
@@ -791,6 +792,11 @@ class _CrossSpectralBase(AudioOperation[NDArrayReal, NDArrayReal]):
             detrend=detrend,
             **extra_kwargs,
         )
+
+    @property
+    def noverlap(self) -> int:
+        """Overlap captured at operation construction time."""
+        return self._noverlap
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         n_channels = input_shape[0]
@@ -815,7 +821,7 @@ class Coherence(_CrossSpectralBase):
             y=x[np.newaxis, :],
             fs=self.sampling_rate,
             nperseg=self.win_length,
-            noverlap=self.noverlap,
+            noverlap=self._noverlap,
             nfft=self.n_fft,
             window=self.window,
             detrend=self.detrend,
@@ -878,7 +884,7 @@ class CSD(_ScaledCrossSpectralBase):
             y=x[np.newaxis, :],
             fs=self.sampling_rate,
             nperseg=self.win_length,
-            noverlap=self.noverlap,
+            noverlap=self._noverlap,
             nfft=self.n_fft,
             window=self.window,
             detrend=self.detrend,
@@ -911,7 +917,7 @@ class TransferFunction(_ScaledCrossSpectralBase):
             y=x[np.newaxis, :, :],
             fs=self.sampling_rate,
             nperseg=self.win_length,
-            noverlap=self.noverlap,
+            noverlap=self._noverlap,
             nfft=self.n_fft,
             window=self.window,
             detrend=self.detrend,
@@ -926,7 +932,7 @@ class TransferFunction(_ScaledCrossSpectralBase):
             x=x,
             fs=self.sampling_rate,
             nperseg=self.win_length,
-            noverlap=self.noverlap,
+            noverlap=self._noverlap,
             nfft=self.n_fft,
             window=self.window,
             detrend=self.detrend,

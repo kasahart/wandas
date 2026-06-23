@@ -44,7 +44,13 @@ def _snapshot_config_value(value: Any) -> Any:
                 pass
         return dict(items)
     if isinstance(value, tuple):
-        return tuple(_snapshot_config_value(item) for item in value)
+        items = tuple(_snapshot_config_value(item) for item in value)
+        if type(value) is tuple:
+            return items
+        try:
+            return type(value)(*items)
+        except TypeError:
+            return type(value)(items)
     if isinstance(value, list):
         return [_snapshot_config_value(item) for item in value]
     if isinstance(value, set | frozenset):

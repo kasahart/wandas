@@ -1,5 +1,5 @@
 import abc
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, namedtuple
 from types import SimpleNamespace
 from typing import Any
 from unittest import mock
@@ -595,6 +595,35 @@ class TestAudioOperation:
             "tuple": ({"x": 1},),
             "list": [{"y": 2}],
         }
+
+    def test_snapshot_config_value_preserves_tuple_subclasses(self) -> None:
+        Config = namedtuple("Config", ["gain"])
+        config = Config(gain={"value": 2.0})
+
+        snapshot = _snapshot_config_value(config)
+        config.gain["value"] = 99.0
+
+        assert isinstance(snapshot, Config)
+        assert snapshot.gain == {"value": 2.0}
+
+    def test_tuple_subclass_public_config_keeps_behavior_after_snapshot(self) -> None:
+        Config = namedtuple("Config", ["gain"])
+
+        class TupleSubclassConfigOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "tuple_subclass_config_op"
+
+            def __init__(self, sampling_rate: float, cfg: Any):
+                self.cfg = cfg
+                super().__init__(sampling_rate, cfg=cfg)
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x * self.cfg.gain
+
+        op = TupleSubclassConfigOperation(16000, Config(gain=2.0))
+        data = da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1))
+
+        assert isinstance(object.__getattribute__(op, "cfg"), Config)
+        np.testing.assert_array_equal(op.process(data).compute(), np.array([[2.0, 4.0]]))
 
     def test_snapshot_config_value_falls_back_when_deepcopy_fails(self) -> None:
         class NonCopyable:

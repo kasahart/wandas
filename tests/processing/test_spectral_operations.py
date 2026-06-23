@@ -1182,6 +1182,15 @@ class TestCoherenceOperation:
         assert op.hop_length == 512
         assert op.window == "hamming"
         assert op.detrend == "linear"
+        assert op.noverlap == self._WIN_LEN - 512
+
+    def test_noverlap_is_read_only(self) -> None:
+        op = self._op()
+
+        with pytest.raises(AttributeError):
+            setattr(op, "noverlap", 0)
+
+        assert op.noverlap == self._WIN_LEN - self._HOP
 
     def test_registry_returns_correct_class(self) -> None:
         assert get_operation("coherence") == Coherence
