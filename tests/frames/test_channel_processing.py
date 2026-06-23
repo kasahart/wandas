@@ -118,6 +118,22 @@ class TestChannelProcessing:
         np.testing.assert_array_almost_equal(computed, self.data + 1.5)
         assert func.call_count == 1
 
+    def test_apply_custom_function_lineage_callable_is_read_only(self) -> None:
+        """Custom operation callable cannot be swapped before lazy compute."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
+        )
+
+        result = frame.apply(lambda x: x + 1.0, output_shape_func=lambda shape: shape)
+        op = result.operations[-1]
+
+        with pytest.raises(AttributeError):
+            setattr(op, "func", lambda x: x * 0)
+
+        np.testing.assert_array_equal(result.compute(), self.data + 1.0)
+
     def test_apply_custom_updates_history_metadata_and_labels(self) -> None:
         """
         Custom apply should update history, metadata, and labels using display name.

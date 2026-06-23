@@ -543,6 +543,7 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
     n_fft: int
     window: str
     hop_length: int | None
+    _noverlap: int | None
     win_length: int | None
     average: str
     detrend: str
@@ -588,7 +589,7 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
         self.n_fft = n_fft
         self.win_length = actual_win_length
         self.hop_length = actual_hop_length
-        self.noverlap = self.win_length - self.hop_length if hop_length is not None else None
+        self._noverlap = self.win_length - self.hop_length if hop_length is not None else None
         self.window = window
         self.average = average
         self.detrend = detrend
@@ -601,6 +602,11 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
             average=average,
             detrend=detrend,
         )
+
+    @property
+    def noverlap(self) -> int | None:
+        """Overlap captured at operation construction time."""
+        return self._noverlap
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
@@ -633,7 +639,7 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
         _, result = ss.welch(
             x,
             nperseg=self.win_length,
-            noverlap=self.noverlap,
+            noverlap=self._noverlap,
             nfft=self.n_fft,
             window=self.window,
             average=self.average,

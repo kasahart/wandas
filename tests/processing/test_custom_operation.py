@@ -112,14 +112,21 @@ class TestCustomOperation:
         assert op.params["params"] == 2.0
         np.testing.assert_array_equal(op.process(dask_data).compute(), data * 2.0)
 
-    def test_custom_operation_callables_remain_normal_attributes(self) -> None:
+    def test_custom_operation_callables_are_read_only(self) -> None:
         def my_func(x: np.ndarray) -> np.ndarray:
             return x
 
         op = CustomOperation(16000, func=my_func)
 
-        op.func = lambda x: x * 2
+        with pytest.raises(AttributeError):
+            setattr(op, "func", lambda x: x * 2)
 
         data = np.array([[1.0, 2.0]])
         dask_data = da_from_array(data, chunks=(1, -1))
-        np.testing.assert_array_equal(op.process(dask_data).compute(), data * 2)
+        np.testing.assert_array_equal(op.process(dask_data).compute(), data)
+
+    def test_custom_operation_output_shape_callable_is_read_only(self) -> None:
+        op = CustomOperation(16000, func=lambda x: x, output_shape_func=lambda shape: shape)
+
+        with pytest.raises(AttributeError):
+            setattr(op, "output_shape_func", lambda shape: (shape[0],))

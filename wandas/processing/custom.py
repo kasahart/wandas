@@ -35,25 +35,35 @@ class CustomOperation(AudioOperation[InputArrayType, OutputArrayType]):
         **params : Any
             Additional parameters to pass to the function.
         """
-        # Annotate the instance attribute so the type checker knows the callable's return
-        # type corresponds to OutputArrayType.
-        self.func: Callable[..., OutputArrayType] = func
-        self.output_shape_func = output_shape_func
+        # Store callables privately so a frame lineage operation cannot alter a
+        # pending Dask graph by reassigning public attributes before compute.
+        self._func: Callable[..., OutputArrayType] = func
+        self._output_shape_func = output_shape_func
         super().__init__(sampling_rate, **params)
+
+    @property
+    def func(self) -> Callable[..., OutputArrayType]:
+        """Function captured at operation construction time."""
+        return self._func
+
+    @property
+    def output_shape_func(self) -> Callable[[tuple[int, ...]], tuple[int, ...]] | None:
+        """Output shape function captured at operation construction time."""
+        return self._output_shape_func
 
     def _process_array(self, x: InputArrayType) -> OutputArrayType:
         """Apply custom function."""
-        return self.func(x, **self.params)
+        return self._func(x, **self.params)
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """Calculate output shape."""
-        if self.output_shape_func:
-            return self.output_shape_func(input_shape)
+        if self._output_shape_func is not None:
+            return self._output_shape_func(input_shape)
         return super().calculate_output_shape(input_shape)
 
     def get_display_name(self) -> str:
         """Get display name for the operation."""
-        name = getattr(self.func, "__name__", None)
+        name = getattr(self._func, "__name__", None)
         if isinstance(name, str):
             return name
         return "custom"

@@ -944,6 +944,15 @@ class TestWelchOperation:
         assert welch.window == "hamming"
         assert welch.average == "median"
         assert welch.detrend == "linear"
+        assert welch.noverlap == 256
+
+    def test_noverlap_is_read_only(self) -> None:
+        welch = self._op()
+
+        with pytest.raises(AttributeError):
+            setattr(welch, "noverlap", 0)
+
+        assert welch.noverlap == self._WIN_LEN - self._HOP
 
     def test_registry_returns_correct_class(self) -> None:
         assert get_operation("welch") == Welch
