@@ -414,6 +414,19 @@ class TestAudioOperation:
         assert op.params["cutoff"] == 1000
         assert op.cutoff == 500
 
+    def test_operation_params_view_exposes_mapping_helpers(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000, gain=2.0)
+        params = op.params
+
+        assert len(params) == 1
+        assert repr(params) == "{'gain': 2.0}"
+        assert params != [("gain", 2.0)]
+
+        del params["gain"]
+
+        assert op.params == {}
+
     def test_operation_params_nested_values_remain_defensive(self) -> None:
         class NestedParamsOperation(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "nested_params_op"
