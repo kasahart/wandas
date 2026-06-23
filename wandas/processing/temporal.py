@@ -170,10 +170,20 @@ class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         self.start = start
         self.end = end
-        self.start_sample = int(start * sampling_rate)
-        self.end_sample = int(end * sampling_rate)
+        self._start_sample = int(start * sampling_rate)
+        self._end_sample = int(end * sampling_rate)
         super().__init__(sampling_rate, start=start, end=end)
         logger.debug(f"Initialized Trim operation with start: {self.start}, end: {self.end}")
+
+    @property
+    def start_sample(self) -> int:
+        """Start sample index derived from the captured start time."""
+        return self._start_sample
+
+    @property
+    def end_sample(self) -> int:
+        """End sample index derived from the captured end time."""
+        return self._end_sample
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
@@ -191,15 +201,15 @@ class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         # Calculate length after trimming
         # Exclude parts where there is no signal
-        end_sample = min(self.end_sample, input_shape[-1])
-        n_samples = end_sample - self.start_sample
+        end_sample = min(self._end_sample, input_shape[-1])
+        n_samples = end_sample - self._start_sample
         return (*input_shape[:-1], n_samples)
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for trimming operation"""
         logger.debug(f"Applying trim to array with shape: {x.shape}")
         # Apply trimming
-        result = x[..., self.start_sample : self.end_sample]
+        result = x[..., self._start_sample : self._end_sample]
         logger.debug(f"Trim applied, returning result with shape: {result.shape}")
         return result
 

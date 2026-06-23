@@ -537,6 +537,20 @@ class TestChannelProcessing:
         with pytest.raises(ValueError):
             self.channel_frame.trim(start=0.5, end=0.1)
 
+    def test_trim_operation_sample_bounds_are_read_only_in_lineage(self) -> None:
+        data = np.arange(10, dtype=np.float64).reshape(1, -1)
+        frame = ChannelFrame(_da_from_array(data, chunks=(1, -1)), sampling_rate=10)
+
+        trimmed_frame = frame.trim(start=0.2, end=0.5)
+        trim_op = trimmed_frame.operations[-1]
+
+        with pytest.raises(AttributeError):
+            setattr(trim_op, "start_sample", 0)
+
+        assert trim_op.start_sample == 2
+        assert trim_op.end_sample == 5
+        np.testing.assert_array_equal(trimmed_frame.compute(), data[:, 2:5])
+
     def test_hpss_operations(self) -> None:
         """Test HPSS (Harmonic-Percussive Source Separation) methods."""
         with mock.patch("wandas.processing.create_operation") as mock_create_op:

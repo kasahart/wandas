@@ -2,6 +2,7 @@ import copy
 import importlib
 import inspect
 import logging
+from collections import defaultdict
 from collections.abc import Iterator, Mapping, MutableMapping
 from typing import Any, ClassVar, Generic, TypeVar, cast
 
@@ -26,7 +27,13 @@ def _snapshot_config_value(value: Any) -> Any:
     if isinstance(value, np.ndarray):
         return np.array(value, copy=True)
     if isinstance(value, Mapping):
-        return {key: _snapshot_config_value(item) for key, item in value.items()}
+        items = [(key, _snapshot_config_value(item)) for key, item in value.items()]
+        if isinstance(value, defaultdict):
+            return defaultdict(value.default_factory, items)
+        try:
+            return type(value)(items)
+        except Exception:
+            return dict(items)
     if isinstance(value, tuple):
         return tuple(_snapshot_config_value(item) for item in value)
     if isinstance(value, list):
@@ -42,11 +49,11 @@ def _snapshot_config_value(value: Any) -> Any:
 def _is_public_config_attr(
     name: str,
     value: Any,
-    params: Mapping[str, Any],
+    captured_config_attrs: set[str] | frozenset[str],
     grouped_config_attrs: frozenset[str],
 ) -> bool:
     """Return whether a public attribute mirrors captured operation config."""
-    if name in params:
+    if name in captured_config_attrs:
         return True
     return name in grouped_config_attrs and isinstance(value, Mapping)
 
@@ -87,6 +94,7 @@ class _ParamsView(MutableMapping[str, Any]):
 
     def __setitem__(self, key: str, value: Any) -> None:
         self._params()[key] = _snapshot_config_value(value)
+        object.__getattribute__(self._operation, "_captured_config_attrs").add(key)
         self._operation._snapshot_public_config_attributes()
 
     def __delitem__(self, key: str) -> None:
@@ -150,6 +158,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         self.sampling_rate = sampling_rate
         self.pure = pure
         self._params = {key: _snapshot_config_value(value) for key, value in params.items()}
+        self._captured_config_attrs = set(params)
 
         # Validate parameters during initialization
         self.validate_params()
@@ -164,10 +173,12 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
 
     def _snapshot_public_config_attributes(self) -> None:
         """Replace public mutable config attrs with operation-owned snapshots."""
-        params = object.__getattribute__(self, "_params")
+        captured_config_attrs = object.__getattribute__(self, "_captured_config_attrs")
         grouped_config_attrs = object.__getattribute__(self, "_grouped_config_attrs")
         for name, value in list(object.__getattribute__(self, "__dict__").items()):
-            if name.startswith("_") or not _is_public_config_attr(name, value, params, grouped_config_attrs):
+            if name.startswith("_") or not _is_public_config_attr(
+                name, value, captured_config_attrs, grouped_config_attrs
+            ):
                 continue
             object.__setattr__(self, name, _snapshot_config_value(value))
 
@@ -177,8 +188,12 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
                 params = object.__getattribute__(self, "_params")
             except AttributeError:
                 params = {}
+            try:
+                captured_config_attrs = object.__getattribute__(self, "_captured_config_attrs")
+            except AttributeError:
+                captured_config_attrs = set(params)
             grouped_config_attrs = object.__getattribute__(self, "_grouped_config_attrs")
-            if _is_public_config_attr(name, value, params, grouped_config_attrs):
+            if _is_public_config_attr(name, value, captured_config_attrs, grouped_config_attrs):
                 if name in object.__getattribute__(self, "__dict__"):
                     return
                 value = _snapshot_config_value(value)
@@ -198,8 +213,12 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
             params = object.__getattribute__(self, "_params")
         except AttributeError:
             return value
+        try:
+            captured_config_attrs = object.__getattribute__(self, "_captured_config_attrs")
+        except AttributeError:
+            captured_config_attrs = set(params)
         grouped_config_attrs = object.__getattribute__(self, "_grouped_config_attrs")
-        if _is_public_config_attr(name, value, params, grouped_config_attrs):
+        if _is_public_config_attr(name, value, captured_config_attrs, grouped_config_attrs):
             return _snapshot_config_value(value)
         return value
 
@@ -214,6 +233,12 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         if not isinstance(value, Mapping):
             raise TypeError("Operation params must be a mapping")
         object.__setattr__(self, "_params", {key: _snapshot_config_value(item) for key, item in value.items()})
+        try:
+            captured_config_attrs = object.__getattribute__(self, "_captured_config_attrs")
+        except AttributeError:
+            object.__setattr__(self, "_captured_config_attrs", set(value))
+        else:
+            captured_config_attrs.update(value)
         try:
             initialized = object.__getattribute__(self, "_wandas_initialized")
         except AttributeError:

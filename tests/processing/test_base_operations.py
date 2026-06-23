@@ -1,4 +1,5 @@
 import abc
+from collections import defaultdict
 from types import SimpleNamespace
 from unittest import mock
 
@@ -445,6 +446,42 @@ class TestAudioOperation:
         op.params["config"]["gain"] = 99.0
 
         assert op.params["config"]["gain"] == 2.0
+
+    def test_operation_params_deletion_does_not_remove_public_config_guard(self) -> None:
+        op = HighPassFilter(16000, cutoff=500)
+
+        del op.params["cutoff"]
+        op.cutoff = 1000
+
+        assert "cutoff" not in op.params
+        assert op.cutoff == 500
+
+    def test_snapshot_config_value_preserves_defaultdict_behavior(self) -> None:
+        config: defaultdict[str, float] = defaultdict(lambda: 2.0, {"gain": 3.0})
+
+        snapshot = _snapshot_config_value(config)
+        config["gain"] = 99.0
+
+        assert isinstance(snapshot, defaultdict)
+        assert snapshot["missing"] == 2.0
+        assert snapshot["gain"] == 3.0
+
+    def test_mapping_subclass_public_config_keeps_behavior_after_snapshot(self) -> None:
+        class DefaultdictConfigOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "defaultdict_config_op"
+
+            def __init__(self, sampling_rate: float, config: defaultdict[str, float]):
+                self.config = config
+                super().__init__(sampling_rate, config=config)
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x * self.config["missing"]
+
+        op = DefaultdictConfigOperation(16000, defaultdict(lambda: 2.0))
+        data = da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1))
+
+        assert isinstance(object.__getattribute__(op, "config"), defaultdict)
+        np.testing.assert_array_equal(op.process(data).compute(), np.array([[2.0, 4.0]]))
 
     def test_operation_params_equality_handles_array_values(self) -> None:
         class ArrayParamsOperation(AudioOperation[NDArrayReal, NDArrayReal]):
