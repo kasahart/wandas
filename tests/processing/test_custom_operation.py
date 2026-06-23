@@ -100,6 +100,18 @@ class TestCustomOperation:
 
         assert op.params["config"]["gain"] == 2.0
 
+    def test_custom_operation_accepts_params_named_function_argument(self) -> None:
+        data = np.array([[1.0, 2.0]])
+        dask_data = da_from_array(data, chunks=(1, -1))
+
+        def my_func(x: np.ndarray, params: float) -> np.ndarray:
+            return x * params
+
+        op = CustomOperation(16000, func=my_func, params=2.0)
+
+        assert op.params["params"] == 2.0
+        np.testing.assert_array_equal(op.process(dask_data).compute(), data * 2.0)
+
     def test_custom_operation_callables_remain_normal_attributes(self) -> None:
         def my_func(x: np.ndarray) -> np.ndarray:
             return x

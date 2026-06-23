@@ -24,16 +24,25 @@ OutputArrayType = TypeVar("OutputArrayType", NDArrayReal, NDArrayComplex)
 
 def _snapshot_config_value(value: Any) -> Any:
     """Return an operation-owned snapshot of user supplied config values."""
+    if isinstance(value, DaArray):
+        return value
     if isinstance(value, np.ndarray):
         return np.array(value, copy=True)
     if isinstance(value, Mapping):
         items = [(key, _snapshot_config_value(item)) for key, item in value.items()]
         if isinstance(value, defaultdict):
             return defaultdict(value.default_factory, items)
-        try:
-            return type(value)(items)
-        except Exception:
+        if type(value) is dict:
             return dict(items)
+        if isinstance(value, MutableMapping):
+            try:
+                snapshot = copy.copy(value)
+                snapshot.clear()
+                snapshot.update(dict(items))
+                return snapshot
+            except Exception:
+                pass
+        return dict(items)
     if isinstance(value, tuple):
         return tuple(_snapshot_config_value(item) for item in value)
     if isinstance(value, list):
@@ -60,6 +69,15 @@ def _is_public_config_attr(
 
 def _config_values_equal(left: Any, right: Any) -> bool:
     """Compare captured config values without NumPy's ambiguous bool errors."""
+    if isinstance(left, DaArray) or isinstance(right, DaArray):
+        return (
+            isinstance(left, DaArray)
+            and isinstance(right, DaArray)
+            and left.name == right.name
+            and left.shape == right.shape
+            and left.chunks == right.chunks
+            and left.dtype == right.dtype
+        )
     if isinstance(left, np.ndarray) or isinstance(right, np.ndarray):
         try:
             return bool(np.array_equal(left, right))
@@ -76,6 +94,8 @@ def _config_values_equal(left: Any, right: Any) -> bool:
     try:
         result = left == right
     except Exception:
+        return False
+    if isinstance(result, DaArray):
         return False
     if isinstance(result, np.ndarray):
         return bool(np.all(result))
@@ -155,7 +175,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
             Operation-specific parameters
         """
         object.__setattr__(self, "_wandas_initialized", False)
-        self.sampling_rate = sampling_rate
+        object.__setattr__(self, "_sampling_rate", float(sampling_rate))
         self.pure = pure
         self._params = {key: _snapshot_config_value(value) for key, value in params.items()}
         self._captured_config_attrs = set(params)
@@ -201,7 +221,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
 
     def __getattribute__(self, name: str) -> Any:
         value = object.__getattribute__(self, name)
-        if name.startswith("_"):
+        if name.startswith("_") or name == "params":
             return value
         try:
             initialized = object.__getattribute__(self, "_wandas_initialized")
@@ -221,6 +241,11 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         if _is_public_config_attr(name, value, captured_config_attrs, grouped_config_attrs):
             return _snapshot_config_value(value)
         return value
+
+    @property
+    def sampling_rate(self) -> float:
+        """Sampling rate captured at operation construction time."""
+        return object.__getattribute__(self, "_sampling_rate")
 
     @property
     def params(self) -> _ParamsView:

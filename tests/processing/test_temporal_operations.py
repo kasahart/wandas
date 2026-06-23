@@ -128,6 +128,19 @@ class TestReSampling:
         np.testing.assert_array_equal(dask_input.compute(), input_copy)
         assert isinstance(result_da, DaArray)
 
+    def test_resampling_sampling_rate_reassignment_does_not_change_delayed_result(self) -> None:
+        data = np.arange(10, dtype=float).reshape(1, -1)
+        dask_input = da_from_array(data, chunks=(1, -1))
+        resampler = ReSampling(sampling_rate=10, target_sr=5)
+
+        result_da = resampler.process(dask_input)
+        with pytest.raises(AttributeError):
+            setattr(resampler, "sampling_rate", 5)
+
+        assert resampler.sampling_rate == 10
+        assert result_da.shape == (1, 5)
+        assert result_da.compute().shape == (1, 5)
+
     def test_resampling_downsample_shape_mono(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
         """Downsample 16 kHz -> 8 kHz halves sample count for mono."""
         dask_input, sr = pure_sine_440hz_dask

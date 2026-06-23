@@ -664,6 +664,7 @@ class TestChannelProcessing:
         }
         json.dumps(result.operation_history)
         json.dumps(dict(result.metadata))
+        assert result.operations[-1].params == result.operations[-1].params
 
     def test_add_with_snr_skips_lineage_rewrite_for_legacy_result_frame(self) -> None:
         class LegacyChannelFrame(ChannelFrame):

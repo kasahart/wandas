@@ -1,5 +1,5 @@
 import abc
-from collections import defaultdict
+from collections import Counter, defaultdict
 from types import SimpleNamespace
 from unittest import mock
 
@@ -164,6 +164,15 @@ class TestAudioOperation:
 
         np.testing.assert_array_equal(op.process(first).compute(), np.array([[2.0, 4.0]]))
         np.testing.assert_array_equal(op.process(second).compute(), np.array([[6.0, 8.0]]))
+
+    def test_sampling_rate_is_read_only_after_initialization(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000)
+
+        with pytest.raises(AttributeError):
+            setattr(op, "sampling_rate", 8000)
+
+        assert op.sampling_rate == 16000
 
     def test_delayed_execution_not_computed_early(self) -> None:
         """Pillar 1: process() preserves Dask lazy evaluation; no premature compute()."""
@@ -465,6 +474,14 @@ class TestAudioOperation:
         assert isinstance(snapshot, defaultdict)
         assert snapshot["missing"] == 2.0
         assert snapshot["gain"] == 3.0
+
+    def test_snapshot_config_value_preserves_mutable_mapping_items(self) -> None:
+        config = Counter({"gain": 2})
+
+        snapshot = _snapshot_config_value(config)
+
+        assert isinstance(snapshot, Counter)
+        assert snapshot == Counter({"gain": 2})
 
     def test_mapping_subclass_public_config_keeps_behavior_after_snapshot(self) -> None:
         class DefaultdictConfigOperation(AudioOperation[NDArrayReal, NDArrayReal]):
