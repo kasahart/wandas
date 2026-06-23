@@ -2,7 +2,7 @@ import copy
 import importlib
 import inspect
 import logging
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping, MutableMapping
 from typing import Any, ClassVar, Generic, TypeVar
 
 import dask.array as da
@@ -49,6 +49,38 @@ def _is_public_config_attr(
     if name in params:
         return True
     return name in grouped_config_attrs and isinstance(value, Mapping) and all(key in params for key in value)
+
+
+class _ParamsView(MutableMapping[str, Any]):
+    def __init__(self, operation: "AudioOperation[Any, Any]") -> None:
+        self._operation = operation
+
+    def _params(self) -> dict[str, Any]:
+        return object.__getattribute__(self._operation, "_params")
+
+    def __getitem__(self, key: str) -> Any:
+        return _snapshot_config_value(self._params()[key])
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self._params()[key] = _snapshot_config_value(value)
+        self._operation._snapshot_public_config_attributes()
+
+    def __delitem__(self, key: str) -> None:
+        del self._params()[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._params())
+
+    def __len__(self) -> int:
+        return len(self._params())
+
+    def __repr__(self) -> str:
+        return repr(dict(self.items()))
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Mapping):
+            return False
+        return dict(self.items()) == dict(other.items())
 
 
 class AudioOperation(Generic[InputArrayType, OutputArrayType]):
@@ -140,9 +172,9 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         return value
 
     @property
-    def params(self) -> dict[str, Any]:
-        """Return a defensive snapshot of operation parameters."""
-        return {key: _snapshot_config_value(value) for key, value in self._params.items()}
+    def params(self) -> MutableMapping[str, Any]:
+        """Return a write-through view of operation parameters."""
+        return _ParamsView(self)
 
     @params.setter
     def params(self, value: Mapping[str, Any]) -> None:

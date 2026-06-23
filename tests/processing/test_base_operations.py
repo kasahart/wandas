@@ -274,8 +274,24 @@ class TestAudioOperation:
         params = op.params
         params["gain"] = 99.0
 
-        assert op.params == {"gain": 2.0}
+        assert op.params == {"gain": 99.0}
         assert op.gain == 2.0
+
+    def test_custom_operation_can_update_params_in_place_after_base_init(self) -> None:
+        class ParamsUpdateOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "params_update_op"
+
+            def __init__(self, sampling_rate: float, gain: float):
+                super().__init__(sampling_rate)
+                self.params.update({"gain": gain})
+                self.gain = gain
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x * self.gain
+
+        op = ParamsUpdateOperation(16000, gain=2.0)
+
+        assert op.params == {"gain": 2.0}
 
     def test_params_assignment_requires_mapping(self) -> None:
         test_op_cls = self._make_test_op_class()
@@ -389,14 +405,30 @@ class TestAudioOperation:
 
         assert object.__getattribute__(op, "cache") == {"gain": 3.0}
 
-    def test_operation_params_returns_defensive_snapshot(self) -> None:
+    def test_operation_params_direct_assignment_updates_captured_params(self) -> None:
         op = HighPassFilter(16000, cutoff=500)
 
         params = op.params
         params["cutoff"] = 1000
 
-        assert op.params["cutoff"] == 500
+        assert op.params["cutoff"] == 1000
         assert op.cutoff == 500
+
+    def test_operation_params_nested_values_remain_defensive(self) -> None:
+        class NestedParamsOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "nested_params_op"
+
+            def __init__(self, sampling_rate: float, config: dict[str, float]):
+                super().__init__(sampling_rate, config=config)
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        op = NestedParamsOperation(16000, config={"gain": 2.0})
+
+        op.params["config"]["gain"] = 99.0
+
+        assert op.params["config"]["gain"] == 2.0
 
     def test_snapshot_config_value_copies_container_variants(self) -> None:
         readonly = np.array([1.0])

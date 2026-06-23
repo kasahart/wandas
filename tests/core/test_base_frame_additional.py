@@ -899,7 +899,8 @@ def test_frame_operations_returns_live_operation_with_defensive_params():
 
     params = op.params
     params["norm"] = 2
-    assert op.params["norm"] == np.inf
+    assert op.params["norm"] == 2
+    assert op.norm == np.inf
 
     np.testing.assert_allclose(result.compute(), data / 4.0)
 
