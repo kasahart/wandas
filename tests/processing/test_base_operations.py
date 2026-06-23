@@ -277,6 +277,20 @@ class TestAudioOperation:
         assert op.params == {"gain": 2.0}
         assert op.gain == 2.0
 
+    def test_params_assignment_requires_mapping(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000)
+
+        with pytest.raises(TypeError, match="Operation params must be a mapping"):
+            op.params = [("gain", 2.0)]
+
+    def test_params_assignment_before_base_init_stores_snapshot(self) -> None:
+        op = object.__new__(self._make_test_op_class())
+
+        op.params = {"gain": 2.0}
+
+        assert op.params == {"gain": 2.0}
+
     def test_post_base_init_mutable_config_assignment_is_snapshotted(self) -> None:
         class PostInitConfigOperation(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "post_init_config_op"
