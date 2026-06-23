@@ -634,6 +634,41 @@ class TestChannelProcessing:
         ]
         assert result.previous is signal
 
+    def test_add_with_snr_skips_lineage_rewrite_for_legacy_result_frame(self) -> None:
+        class LegacyChannelFrame(ChannelFrame):
+            def __init__(
+                self,
+                data,
+                sampling_rate,
+                label=None,
+                metadata=None,
+                operation_history=None,
+                channel_metadata=None,
+                channel_ids=None,
+                previous=None,
+                source_time_offset=0.0,
+            ):
+                super().__init__(
+                    data=data,
+                    sampling_rate=sampling_rate,
+                    label=label,
+                    metadata=metadata,
+                    operation_history=operation_history,
+                    channel_metadata=channel_metadata,
+                    channel_ids=channel_ids,
+                    previous=previous,
+                    source_time_offset=source_time_offset,
+                )
+
+        signal_cf = LegacyChannelFrame(_da_from_array(np.ones((1, 16000)), chunks=(1, -1)), self.sample_rate)
+        noise_cf = ChannelFrame(_da_from_array(np.ones((1, 16000)) * 0.1, chunks=(1, -1)), self.sample_rate)
+
+        result = signal_cf.add(noise_cf.low_pass_filter(cutoff=1000), snr=10.0)
+
+        assert isinstance(result, LegacyChannelFrame)
+        assert result.operations == ()
+        assert result.operation_history[-1]["operation"] == "add_with_snr"
+
     def test_add_with_snr_numpy_array(self) -> None:
         """add(..., snr=...) should accept NumPy array inputs via ChannelFrame coercion."""
         signal_data = np.ones((2, 16000), dtype=np.float64)

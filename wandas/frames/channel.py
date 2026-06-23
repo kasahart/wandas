@@ -530,7 +530,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         if snr is None:
             return self + other
         result = self.apply_operation("add_with_snr", other=other._data, snr=snr)
-        if other.operations:
+        if other.operations and result.operations:
             operations = (*self.operations, *other.operations, result.operations[-1])
             object.__setattr__(result, "_operations", operations)
         return result
