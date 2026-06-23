@@ -1356,7 +1356,9 @@ class BaseFrame(ABC, Generic[T]):
                 "source_time_offset": metadata_updates.pop("source_time_offset", self.source_time_offset),
                 "previous": self,
             }
-            if updated_operations is not self.operations:
+            if updated_operations is not self.operations and _constructor_accepts_kwarg(
+                output_frame_class, "operations"
+            ):
                 kw["operations"] = updated_operations
             kw.update(metadata_updates)
             if output_frame_kwargs:

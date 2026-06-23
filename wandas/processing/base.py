@@ -144,6 +144,19 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         """Return a defensive snapshot of operation parameters."""
         return {key: _snapshot_config_value(value) for key, value in self._params.items()}
 
+    @params.setter
+    def params(self, value: Mapping[str, Any]) -> None:
+        """Set captured operation parameters for custom operation compatibility."""
+        if not isinstance(value, Mapping):
+            raise TypeError("Operation params must be a mapping")
+        object.__setattr__(self, "_params", {key: _snapshot_config_value(item) for key, item in value.items()})
+        try:
+            initialized = object.__getattribute__(self, "_wandas_initialized")
+        except AttributeError:
+            initialized = False
+        if initialized:
+            self._snapshot_public_config_attributes()
+
     def validate_params(self) -> None:
         """Validate parameters (raises exception if invalid)"""
 

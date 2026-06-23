@@ -959,6 +959,16 @@ def test_apply_operation_instance_output_frame_validation_and_constructor_errors
     assert len(audio_transitioned.operations) == 1
     assert audio_transitioned.operations[0].name == "audio_fake"
 
+    legacy_transitioned = f._apply_operation_instance(
+        AudioFakeOperation(f.sampling_rate),
+        output_frame_class=LegacyFrame,
+    )
+
+    assert isinstance(legacy_transitioned, LegacyFrame)
+    assert legacy_transitioned.previous is f
+    assert legacy_transitioned.operations == ()
+    assert legacy_transitioned.operation_history[-1]["operation"] == "audio_fake"
+
 
 def test_indexing_variants_cover_base_frame_selection_paths():
     f = make_frame(

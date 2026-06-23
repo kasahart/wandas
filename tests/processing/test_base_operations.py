@@ -258,6 +258,25 @@ class TestAudioOperation:
         assert op.gain == 2.0
         np.testing.assert_array_equal(op.process(data).compute(), np.array([[2.0, 4.0]]))
 
+    def test_custom_operation_can_assign_params_after_base_init(self) -> None:
+        class ParamsAssignmentOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "params_assignment_op"
+
+            def __init__(self, sampling_rate: float, gain: float):
+                super().__init__(sampling_rate)
+                self.params = {"gain": gain}
+                self.gain = gain
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x * self.gain
+
+        op = ParamsAssignmentOperation(16000, gain=2.0)
+        params = op.params
+        params["gain"] = 99.0
+
+        assert op.params == {"gain": 2.0}
+        assert op.gain == 2.0
+
     def test_post_base_init_mutable_config_assignment_is_snapshotted(self) -> None:
         class PostInitConfigOperation(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "post_init_config_op"
