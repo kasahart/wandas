@@ -5,6 +5,7 @@ import logging
 from collections import defaultdict
 from collections.abc import Iterator, Mapping, MutableMapping
 from contextvars import ContextVar
+from functools import wraps
 from typing import Any, ClassVar, Generic, TypeVar, cast
 
 import dask.array as da
@@ -31,7 +32,10 @@ def _snapshot_config_value(value: Any) -> Any:
     if isinstance(value, DaArray):
         return value
     if isinstance(value, np.ndarray):
-        return np.array(value, copy=True)
+        try:
+            return value.copy()
+        except Exception:
+            return np.array(value, copy=True, subok=True)
     if isinstance(value, Mapping):
         items = [(key, _snapshot_config_value(item)) for key, item in value.items()]
         if isinstance(value, defaultdict):
@@ -176,6 +180,23 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     window: str
     _grouped_config_attrs: ClassVar[frozenset[str]] = frozenset()
 
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        original_init = cls.__init__
+        if getattr(original_init, "_wandas_constructing_wrapper", False):
+            return
+
+        @wraps(original_init)
+        def wrapped_init(self: "AudioOperation[Any, Any]", *args: Any, **init_kwargs: Any) -> None:
+            object.__setattr__(self, "_wandas_constructing", True)
+            try:
+                original_init(self, *args, **init_kwargs)
+            finally:
+                object.__setattr__(self, "_wandas_constructing", False)
+
+        setattr(wrapped_init, "_wandas_constructing_wrapper", True)
+        setattr(cls, "__init__", wrapped_init)
+
     def __init__(self, sampling_rate: float, *, pure: bool = True, **params: Any):
         """
         Initialize AudioOperation.
@@ -230,10 +251,11 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
             grouped_config_attrs = object.__getattribute__(self, "_grouped_config_attrs")
             if _is_public_config_attr(name, captured_config_attrs, grouped_config_attrs):
                 if name in object.__getattribute__(self, "__dict__"):
-                    current_value = object.__getattribute__(self, "__dict__")[name]
-                    if current_value is None and name in params and params[name] is not None:
+                    constructing = object.__getattribute__(self, "__dict__").get("_wandas_constructing", False)
+                    if constructing:
                         snapshot = _snapshot_config_value(value)
-                        params[name] = snapshot
+                        if name in params:
+                            params[name] = snapshot
                         object.__setattr__(self, name, snapshot)
                     return
                 value = _snapshot_config_value(value)

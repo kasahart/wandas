@@ -298,6 +298,25 @@ class TestAudioOperation:
         assert op.params["gain"] == 2.0
         np.testing.assert_array_equal(op.process(data).compute(), np.array([[2.0, 4.0]]))
 
+    def test_subclass_can_normalize_seeded_config_during_initialization(self) -> None:
+        class SeededConfigOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "seeded_config_op"
+
+            def __init__(self, sampling_rate: float, gain: str):
+                self.gain = gain
+                super().__init__(sampling_rate, gain=gain)
+                self.gain = float(gain)
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x * object.__getattribute__(self, "gain")
+
+        op = SeededConfigOperation(16000, gain="2.0")
+        data = da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1))
+
+        assert op.gain == 2.0
+        assert op.params["gain"] == 2.0
+        np.testing.assert_array_equal(op.process(data).compute(), np.array([[2.0, 4.0]]))
+
     def test_custom_operation_can_assign_params_after_base_init(self) -> None:
         class ParamsAssignmentOperation(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "params_assignment_op"
@@ -645,6 +664,16 @@ class TestAudioOperation:
             "tuple": ({"x": 1},),
             "list": [{"y": 2}],
         }
+
+    def test_snapshot_config_value_preserves_ndarray_subclasses(self) -> None:
+        masked = np.ma.array([1.0, 2.0], mask=[False, True])
+
+        snapshot = _snapshot_config_value(masked)
+        masked[0] = 99.0
+
+        assert isinstance(snapshot, np.ma.MaskedArray)
+        np.testing.assert_array_equal(snapshot.data, np.array([1.0, 2.0]))
+        np.testing.assert_array_equal(snapshot.mask, np.array([False, True]))
 
     def test_snapshot_config_value_preserves_tuple_subclasses(self) -> None:
         Config = namedtuple("Config", ["gain"])
