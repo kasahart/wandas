@@ -415,7 +415,10 @@ class TestSpectralFrame:
                 sampling_rate=_SAMPLING_RATE,
                 label=f"ifft({self.frame.label})",
                 metadata=self.frame.metadata,
-                operation_history=self.frame.operation_history,
+                operation_history=[
+                    *self.frame.operation_history,
+                    {"operation": "ifft", "params": {"n_fft": _N_FFT, "window": _WINDOW}},
+                ],
                 channel_metadata=self.frame.channels.to_list(),
                 channel_ids=self.frame._channel_ids,
                 source_time_offset=mock.ANY,

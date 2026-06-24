@@ -298,7 +298,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             sampling_rate=self.sampling_rate,
             label=f"ifft({self.label})",
             metadata=self.metadata,
-            operation_history=self.operation_history,
+            operation_history=[*self.operation_history, {"operation": operation_name, "params": params}],
             channel_metadata=self.channels.to_list(),
             channel_ids=self._channel_ids,
             source_time_offset=self.source_time_offset,

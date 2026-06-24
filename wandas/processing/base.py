@@ -231,7 +231,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
             if _is_public_config_attr(name, captured_config_attrs, grouped_config_attrs):
                 if name in object.__getattribute__(self, "__dict__"):
                     current_value = object.__getattribute__(self, "__dict__")[name]
-                    if current_value is None and name in params:
+                    if current_value is None and name in params and params[name] is not None:
                         snapshot = _snapshot_config_value(value)
                         params[name] = snapshot
                         object.__setattr__(self, name, snapshot)

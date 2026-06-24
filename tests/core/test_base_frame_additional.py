@@ -799,6 +799,7 @@ def test_binary_frame_operation_merges_left_and_right_operation_lineage():
     result = left.normalize() + right.remove_dc()
 
     assert [operation.name for operation in result.operations] == ["normalize", "remove_dc"]
+    assert [record["operation"] for record in result.operation_history] == ["normalize", "remove_dc", "+"]
 
 
 def test_apply_operation_helpers_update_metadata_and_history(monkeypatch):
@@ -925,6 +926,20 @@ def test_frame_operations_returns_live_operation_with_defensive_params():
     assert op.norm == np.inf
 
     np.testing.assert_allclose(result.compute(), data / 4.0)
+
+
+def test_none_valued_config_reassignment_does_not_change_delayed_result():
+    data = np.array([[1.0, 2.0, 4.0]])
+    frame = ChannelFrame(da_from_array(data, chunks=(1, -1)), sampling_rate=100.0)
+
+    result = frame.normalize(norm=None)
+    op = result.operations[-1]
+
+    op.norm = np.inf
+
+    assert op.norm is None
+    assert op.params["norm"] is None
+    np.testing.assert_allclose(result.compute(), data)
 
 
 def test_power_operation_exp_alias_reassignment_does_not_change_delayed_result():

@@ -1158,6 +1158,7 @@ class BaseFrame(ABC, Generic[T]):
             other_str = other.label
             other_labels = other.labels
             operations = (*self.operations, *other.operations)
+            operation_history.extend(copy.deepcopy(other.operation_history))
         else:
             result_data = op(self._data, other)
             other_str = self._format_operand_str(other)
