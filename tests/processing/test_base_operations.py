@@ -637,6 +637,19 @@ class TestAudioOperation:
         assert isinstance(snapshot, Config)
         assert snapshot.gain == {"value": 2.0}
 
+    def test_snapshot_config_value_preserves_tuple_subclasses_with_iterable_constructor(self) -> None:
+        class IterableTuple(tuple):
+            def __new__(cls, values: tuple[Any, ...]):
+                return super().__new__(cls, values)
+
+        config = IterableTuple(({"gain": 2.0}, {"bias": 1.0}))
+
+        snapshot = _snapshot_config_value(config)
+        config[0]["gain"] = 99.0
+
+        assert isinstance(snapshot, IterableTuple)
+        assert snapshot == ({"gain": 2.0}, {"bias": 1.0})
+
     def test_tuple_subclass_public_config_keeps_behavior_after_snapshot(self) -> None:
         Config = namedtuple("Config", ["gain"])
 
@@ -695,6 +708,16 @@ class TestAudioOperation:
         op.config = config
 
         assert object.__getattribute__(op, "config") is config
+
+    def test_public_attribute_deletion_handles_missing_params_during_partial_initialization(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = object.__new__(test_op_cls)
+        object.__setattr__(op, "_wandas_initialized", True)
+        object.__setattr__(op, "cache", {"gain": 2.0})
+
+        del op.cache
+
+        assert "cache" not in object.__getattribute__(op, "__dict__")
 
     def test_params_view_equality_requires_same_keys(self) -> None:
         test_op_cls = self._make_test_op_class()
