@@ -156,6 +156,15 @@ class TestChannelTransform:
             assert result.hop_length == 512
             assert result.win_length == 2048
             assert result.operations[-1] is mock_stft
+            assert result.operation_history[-1] == {
+                "operation": "stft",
+                "params": {
+                    "n_fft": 2048,
+                    "hop_length": 512,
+                    "win_length": 2048,
+                    "window": "hann",
+                },
+            }
             assert result.window == "hann"
             # Pillar 2: domain transition preserves sampling rate and source offset
             assert result.sampling_rate == self.channel_frame.sampling_rate

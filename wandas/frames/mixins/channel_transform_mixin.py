@@ -352,7 +352,7 @@ class ChannelTransformMixin:
             window=window,
             label=f"stft({self.label})",
             metadata=self.metadata,
-            operation_history=self.operation_history,
+            operation_history=[*self.operation_history, {"operation": operation_name, "params": params}],
             channel_metadata=cast(Any, self).channels.to_list(),
             channel_ids=cast(Any, self)._channel_ids,
             source_time_offset=cast(Any, self).source_time_offset,

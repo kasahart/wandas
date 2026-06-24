@@ -62,7 +62,7 @@ class CustomOperation(AudioOperation[InputArrayType, OutputArrayType]):
         params = _snapshot_config_value(dict(self.params))
 
         def operation_wrapper(x: InputArrayType) -> OutputArrayType:
-            return func(x, **params)
+            return func(x, **_snapshot_config_value(params))
 
         operation_wrapper.__name__ = self.name
         return operation_wrapper

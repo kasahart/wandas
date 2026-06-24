@@ -29,6 +29,22 @@ class TestCustomOperation:
 
         np.testing.assert_array_equal(op._process_array(data), data * 2.0)
 
+    def test_custom_operation_snapshots_nested_params_for_each_delayed_execution(self) -> None:
+        data = np.array([[1.0, 2.0, 3.0]])
+        dask_data = da_from_array(data, chunks=(1, -1))
+
+        def mutating_scale(x: np.ndarray, config: dict[str, float]) -> np.ndarray:
+            gain = config["gain"]
+            config["gain"] += 1.0
+            return x * gain
+
+        op = CustomOperation(16000, func=mutating_scale, config={"gain": 2.0})
+        result = op.process(dask_data)
+
+        np.testing.assert_array_equal(result.compute(), data * 2.0)
+        np.testing.assert_array_equal(result.compute(), data * 2.0)
+        assert op.params["config"]["gain"] == 2.0
+
     def test_custom_operation_output_shape_func_overrides(self) -> None:
         """output_shape_func overrides default shape inference for Dask graph."""
         data = np.arange(8.0).reshape(1, 8)
