@@ -141,7 +141,8 @@ class ChannelTransformMixin:
         from wandas.frames.spectral import SpectralFrame
         from wandas.processing import FFT, create_operation
 
-        params = {"n_fft": n_fft, "window": window}
+        _n_fft = int(self._data.shape[-1]) if n_fft is None else n_fft
+        params = {"n_fft": _n_fft, "window": window}
         operation_name = "fft"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
 
@@ -152,12 +153,6 @@ class ChannelTransformMixin:
         spectrum_data = operation.process(self._data)
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
-
-        if n_fft is None:
-            is_even = spectrum_data.shape[-1] % 2 == 0
-            _n_fft = spectrum_data.shape[-1] * 2 - 2 if is_even else spectrum_data.shape[-1] * 2 - 1
-        else:
-            _n_fft = n_fft
 
         return SpectralFrame(
             data=spectrum_data,

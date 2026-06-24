@@ -62,6 +62,17 @@ class TestChannelTransform:
             np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
             assert result.operations[-1] is mock_fft
 
+    def test_fft_default_n_fft_operation_lineage_matches_history(self) -> None:
+        data = np.arange(8.0).reshape(1, 8)
+        frame = ChannelFrame.from_numpy(data, sampling_rate=_SAMPLE_RATE, label="test_audio")
+
+        result = frame.fft()
+
+        assert result.n_fft == 8
+        assert result.operations[-1].params["n_fft"] == 8
+        assert result.operation_history[-1] == {"operation": "fft", "params": {"n_fft": 8, "window": "hann"}}
+        assert result.metadata["n_fft"] == 8
+
     def test_welch_transform(self) -> None:
         """
         Test welch method for lazy transformation to frequency domain

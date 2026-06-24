@@ -188,11 +188,12 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
 
         @wraps(original_init)
         def wrapped_init(self: "AudioOperation[Any, Any]", *args: Any, **init_kwargs: Any) -> None:
+            previous_constructing = object.__getattribute__(self, "__dict__").get("_wandas_constructing", False)
             object.__setattr__(self, "_wandas_constructing", True)
             try:
                 original_init(self, *args, **init_kwargs)
             finally:
-                object.__setattr__(self, "_wandas_constructing", False)
+                object.__setattr__(self, "_wandas_constructing", previous_constructing)
 
         setattr(wrapped_init, "_wandas_constructing_wrapper", True)
         setattr(cls, "__init__", wrapped_init)
