@@ -8,6 +8,8 @@ from dask.array.core import Array as DaArray
 
 from wandas.frames.channel import ChannelFrame, ChannelMetadata
 from wandas.frames.spectral import SpectralFrame
+from wandas.processing.base import _OPERATION_REGISTRY, AudioOperation, register_operation
+from wandas.utils.types import NDArrayReal
 from wandas.utils.util import calculate_rms
 
 _da_from_array = da.from_array
@@ -143,6 +145,36 @@ class TestChannelProcessing:
         )
 
         result = frame.apply(lambda x, gain: x * gain, output_shape_func=lambda shape: shape, gain=2.0)
+        op = result.operations[-1]
+        op.params["gain"] = 0.0
+
+        np.testing.assert_array_equal(result.compute(), self.data * 2.0)
+        assert result.operation_history[-1]["params"] == {"gain": 2.0}
+
+    def test_registered_operation_params_are_snapshotted_for_compute(self) -> None:
+        """Registered operations reading self.params cannot mutate existing lazy graphs."""
+
+        class ParamsDrivenGain(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "test_params_driven_gain"
+
+            def __init__(self, sampling_rate: float, gain: float):
+                super().__init__(sampling_rate, gain=gain)
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x * self.params["gain"]
+
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
+        )
+
+        register_operation(ParamsDrivenGain)
+        try:
+            result = frame.apply_operation("test_params_driven_gain", gain=2.0)
+        finally:
+            _OPERATION_REGISTRY.pop("test_params_driven_gain", None)
+
         op = result.operations[-1]
         op.params["gain"] = 0.0
 

@@ -4,6 +4,7 @@ import inspect
 import logging
 from collections import defaultdict
 from collections.abc import Iterator, Mapping, MutableMapping
+from contextvars import ContextVar
 from typing import Any, ClassVar, Generic, TypeVar, cast
 
 import dask.array as da
@@ -16,6 +17,9 @@ from wandas.utils.types import NDArrayComplex, NDArrayReal
 logger = logging.getLogger(__name__)
 
 _da_from_delayed = da.from_delayed
+_ACTIVE_OPERATION_PARAMS: ContextVar[dict[int, dict[str, Any]] | None] = ContextVar(
+    "_ACTIVE_OPERATION_PARAMS", default=None
+)
 
 # Define TypeVars for input and output array types
 InputArrayType = TypeVar("InputArrayType", NDArrayReal, NDArrayComplex)
@@ -115,6 +119,11 @@ class _ParamsView(MutableMapping[str, Any]):
         self._operation = operation
 
     def _params(self) -> dict[str, Any]:
+        active_params = _ACTIVE_OPERATION_PARAMS.get()
+        if active_params is not None:
+            params_snapshot = active_params.get(id(self._operation))
+            if params_snapshot is not None:
+                return params_snapshot
         return object.__getattribute__(self._operation, "_params")
 
     def __getitem__(self, key: str) -> Any:
@@ -360,8 +369,17 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
             A wrapper function with the operation name set as __name__.
         """
 
+        graph_params = _snapshot_config_value(dict(self.params))
+
         def operation_wrapper(x: InputArrayType) -> OutputArrayType:
-            return self._process_array(x)
+            active_params = _ACTIVE_OPERATION_PARAMS.get()
+            scoped_params = dict(active_params) if active_params is not None else {}
+            scoped_params[id(self)] = _snapshot_config_value(graph_params)
+            token = _ACTIVE_OPERATION_PARAMS.set(scoped_params)
+            try:
+                return self._process_array(x)
+            finally:
+                _ACTIVE_OPERATION_PARAMS.reset(token)
 
         # Set the function name to the operation name for better visualization
         operation_wrapper.__name__ = self.name
