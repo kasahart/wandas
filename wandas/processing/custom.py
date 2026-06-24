@@ -5,7 +5,6 @@ from wandas.processing.base import (
     AudioOperation,
     InputArrayType,
     OutputArrayType,
-    _snapshot_config_value,
     register_operation,
 )
 
@@ -55,17 +54,6 @@ class CustomOperation(AudioOperation[InputArrayType, OutputArrayType]):
     def _process_array(self, x: InputArrayType) -> OutputArrayType:
         """Apply custom function."""
         return self._func(x, **self.params)
-
-    def _create_named_wrapper(self) -> Any:
-        """Create a delayed wrapper with params captured at graph-build time."""
-        func = self._func
-        params = _snapshot_config_value(dict(self.params))
-
-        def operation_wrapper(x: InputArrayType) -> OutputArrayType:
-            return func(x, **_snapshot_config_value(params))
-
-        operation_wrapper.__name__ = self.name
-        return operation_wrapper
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """Calculate output shape."""

@@ -240,6 +240,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
 
     def __setattr__(self, name: str, value: Any) -> None:
         if getattr(self, "_wandas_initialized", False) and not name.startswith("_"):
+            constructing = object.__getattribute__(self, "__dict__").get("_wandas_constructing", False)
             try:
                 params = object.__getattribute__(self, "_params")
             except AttributeError:
@@ -250,15 +251,15 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
                 captured_config_attrs = set(params)
             grouped_config_attrs = object.__getattribute__(self, "_grouped_config_attrs")
             if _is_public_config_attr(name, captured_config_attrs, grouped_config_attrs):
-                if name in object.__getattribute__(self, "__dict__"):
-                    constructing = object.__getattribute__(self, "__dict__").get("_wandas_constructing", False)
-                    if constructing:
-                        snapshot = _snapshot_config_value(value)
-                        if name in params:
-                            params[name] = snapshot
-                        object.__setattr__(self, name, snapshot)
+                if constructing:
+                    snapshot = _snapshot_config_value(value)
+                    if name in params:
+                        params[name] = snapshot
+                    object.__setattr__(self, name, snapshot)
                     return
-                value = _snapshot_config_value(value)
+                if name in object.__getattribute__(self, "__dict__"):
+                    return
+                return
         object.__setattr__(self, name, value)
 
     def __delattr__(self, name: str) -> None:

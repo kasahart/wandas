@@ -385,6 +385,26 @@ class TestAudioOperation:
         assert op.config["gain"] == 2.0
         np.testing.assert_array_equal(op.process(data).compute(), np.array([[2.0, 4.0]]))
 
+    def test_post_construction_first_write_to_captured_config_is_ignored(self) -> None:
+        class FallbackAttrOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "fallback_attr_op"
+
+            def __init__(self, sampling_rate: float, gain: float):
+                super().__init__(sampling_rate, gain=gain)
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x * getattr(self, "gain", self.params["gain"])
+
+        data = np.array([[1.0, 2.0]])
+        op = FallbackAttrOperation(16000, gain=2.0)
+        result = op.process(da_from_array(data, chunks=(1, -1)))
+
+        op.gain = 0.0
+
+        assert "gain" not in object.__getattribute__(op, "__dict__")
+        assert op.params["gain"] == 2.0
+        np.testing.assert_array_equal(result.compute(), data * 2.0)
+
     def test_post_base_init_non_container_config_assignment_is_snapshotted(self) -> None:
         class NamespaceConfigOperation(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "namespace_config_op"
@@ -675,6 +695,19 @@ class TestAudioOperation:
         np.testing.assert_array_equal(snapshot.data, np.array([1.0, 2.0]))
         np.testing.assert_array_equal(snapshot.mask, np.array([False, True]))
 
+    def test_snapshot_config_value_falls_back_when_ndarray_copy_fails(self) -> None:
+        class CopyFailingArray(np.ndarray):
+            def copy(self, order: Any = "C") -> Any:
+                raise RuntimeError("cannot copy")
+
+        array = np.asarray([1.0, 2.0]).view(CopyFailingArray)
+
+        snapshot = _snapshot_config_value(array)
+
+        assert isinstance(snapshot, CopyFailingArray)
+        assert snapshot is not array
+        np.testing.assert_array_equal(snapshot, np.array([1.0, 2.0]))
+
     def test_snapshot_config_value_preserves_tuple_subclasses(self) -> None:
         Config = namedtuple("Config", ["gain"])
         config = Config(gain={"value": 2.0})
@@ -794,6 +827,20 @@ class TestAudioOperation:
 
         for operation in operations:
             assert cloudpickle.loads(cloudpickle.dumps(operation)).params == operation.params
+
+    def test_inherited_operation_init_is_not_wrapped_twice(self) -> None:
+        class ParentOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "parent_wrapped_op"
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        parent_init = ParentOperation.__init__
+
+        class ChildOperation(ParentOperation):
+            name = "child_wrapped_op"
+
+        assert ChildOperation.__init__ is parent_init
 
     def test_get_display_name_returns_none(self) -> None:
         """Base class get_display_name() returns None by default."""

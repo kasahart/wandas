@@ -45,6 +45,17 @@ class TestCustomOperation:
         np.testing.assert_array_equal(result.compute(), data * 2.0)
         assert op.params["config"]["gain"] == 2.0
 
+    def test_custom_operation_subclass_delayed_wrapper_uses_process_array_hook(self) -> None:
+        class HookedCustomOperation(CustomOperation):
+            def _process_array(self, x: np.ndarray) -> np.ndarray:
+                return super()._process_array(x) * 3.0
+
+        data = np.array([[1.0, 2.0, 3.0]])
+        dask_data = da_from_array(data, chunks=(1, -1))
+        op = HookedCustomOperation(16000, func=lambda x, gain: x * gain, gain=2.0)
+
+        np.testing.assert_array_equal(op.process(dask_data).compute(), data * 6.0)
+
     def test_custom_operation_output_shape_func_overrides(self) -> None:
         """output_shape_func overrides default shape inference for Dask graph."""
         data = np.arange(8.0).reshape(1, 8)
