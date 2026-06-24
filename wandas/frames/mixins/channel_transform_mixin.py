@@ -2,6 +2,7 @@
 operations."""
 
 import logging
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
@@ -58,6 +59,17 @@ def _build_cross_channel_source_time_offsets(source_time_offset: Any) -> Any:
     return np.asarray(result, dtype=float)
 
 
+def _operation_params_snapshot(operation: Any, fallback_names: tuple[str, ...]) -> dict[str, Any]:
+    """Return operation params, falling back to public attrs for test doubles."""
+    raw_params = getattr(operation, "params", None)
+    if isinstance(raw_params, Mapping):
+        params = dict(raw_params)
+        if params:
+            return params
+
+    return {name: getattr(operation, name) for name in fallback_names if hasattr(operation, name)}
+
+
 class ChannelTransformMixin:
     """Mixin providing methods related to frequency transformations.
 
@@ -109,6 +121,10 @@ class ChannelTransformMixin:
                 f"Operation '{operation_name}' must provide a positive integer n_fft "
                 f"to create a SpectralFrame, but got {n_fft}."
             )
+        operation_params = _operation_params_snapshot(
+            operation,
+            ("n_fft", "hop_length", "win_length", "window", "detrend", "scaling", "average"),
+        )
 
         return SpectralFrame(
             data=result_data,
@@ -116,10 +132,10 @@ class ChannelTransformMixin:
             n_fft=n_fft,
             window=operation.window,
             label=f"{label_prefix} {self.label}",
-            metadata={**self.metadata, **params},
+            metadata={**self.metadata, **operation_params},
             operation_history=[
                 *self.operation_history,
-                {"operation": operation_name, "params": params},
+                {"operation": operation_name, "params": operation_params},
             ],
             channel_metadata=channel_metadata,
             source_time_offset=_build_cross_channel_source_time_offsets(cast(Any, self).source_time_offset),
@@ -213,6 +229,10 @@ class ChannelTransformMixin:
         spectrum_data = operation.process(self._data)
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
+        operation_params = _operation_params_snapshot(
+            operation,
+            ("n_fft", "hop_length", "win_length", "window", "average", "detrend"),
+        )
 
         return SpectralFrame(
             data=spectrum_data,
@@ -220,10 +240,10 @@ class ChannelTransformMixin:
             n_fft=operation.n_fft,
             window=operation.window,
             label=f"Spectrum of {self.label}",
-            metadata={**self.metadata, **params},
+            metadata={**self.metadata, **operation_params},
             operation_history=[
                 *self.operation_history,
-                {"operation": "welch", "params": params},
+                {"operation": "welch", "params": operation_params},
             ],
             channel_metadata=cast(Any, self).channels.to_list(),
             channel_ids=cast(Any, self)._channel_ids,

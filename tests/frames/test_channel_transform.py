@@ -128,6 +128,24 @@ class TestChannelTransform:
             np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
             assert result.operations[-1] is mock_welch
 
+    def test_welch_default_params_operation_lineage_matches_history(self) -> None:
+        frame = ChannelFrame.from_numpy(_DATA, _SAMPLE_RATE, label="test_audio")
+
+        result = frame.welch()
+
+        operation_params = dict(result.operations[-1].params)
+        assert operation_params == {
+            "n_fft": 2048,
+            "win_length": 2048,
+            "hop_length": 512,
+            "window": "hann",
+            "average": "mean",
+            "detrend": "constant",
+        }
+        assert result.operation_history[-1] == {"operation": "welch", "params": operation_params}
+        for name, value in operation_params.items():
+            assert result.metadata[name] == value
+
     def test_stft_transform(self) -> None:
         """Test stft method for lazy short-time Fourier transform."""
         from wandas.processing import STFT
@@ -334,6 +352,27 @@ class TestChannelTransform:
         csd_frame = cf.csd(n_fft=512, win_length=256, hop_length=128)
 
         np.testing.assert_array_equal(csd_frame.source_time_offset, np.array([0.0, 5.0, 0.0, 5.0]))
+
+    @pytest.mark.parametrize("method_name", ["coherence", "csd", "transfer_function"])
+    def test_cross_channel_default_params_operation_lineage_matches_history(self, method_name: str) -> None:
+        cf = ChannelFrame.from_numpy(_DATA, _SAMPLE_RATE)
+
+        result = getattr(cf, method_name)()
+
+        operation_params = dict(result.operations[-1].params)
+        expected_params = {
+            "n_fft": 2048,
+            "hop_length": 512,
+            "win_length": 2048,
+            "window": "hann",
+            "detrend": "constant",
+        }
+        if method_name in {"csd", "transfer_function"}:
+            expected_params.update({"scaling": "spectrum", "average": "mean"})
+        assert operation_params == expected_params
+        assert result.operation_history[-1] == {"operation": method_name, "params": operation_params}
+        for name, value in operation_params.items():
+            assert result.metadata[name] == value
 
     @pytest.mark.parametrize(
         ("method_name", "expected_labels"),
