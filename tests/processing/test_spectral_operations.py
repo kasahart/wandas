@@ -927,6 +927,7 @@ class TestWelchOperation:
         assert welch.window == "hann"
         assert welch.average == "mean"
         assert welch.detrend == "constant"
+        assert welch.noverlap == 1536
 
     def test_init_custom_params(self) -> None:
         welch = Welch(
