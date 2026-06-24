@@ -253,6 +253,15 @@ class TestAudioOperation:
         assert op.cutoff == 500
         assert op.params["cutoff"] == 500
 
+    def test_public_config_attribute_deletion_is_blocked(self) -> None:
+        op = HighPassFilter(16000, cutoff=500)
+
+        with pytest.raises(AttributeError, match="cannot delete captured operation config attribute 'cutoff'"):
+            del op.cutoff
+
+        assert op.cutoff == 500
+        assert op.params["cutoff"] == 500
+
     def test_subclass_can_assign_public_attributes_after_base_init(self) -> None:
         class PostInitOperation(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "post_init_op"
@@ -567,6 +576,28 @@ class TestAudioOperation:
         assert not _config_values_equal(EqDaskArray(), object())
         assert _config_values_equal(EqNumpyArray([True, True]), object())
         assert not _config_values_equal(EqNumpyArray([True, False]), object())
+
+    def test_operation_params_equality_handles_ambiguous_bool_results(self) -> None:
+        class AmbiguousComparison:
+            def __bool__(self) -> bool:
+                raise ValueError("ambiguous")
+
+        class EqAmbiguousBool:
+            def __eq__(self, other: object) -> Any:
+                return AmbiguousComparison()
+
+        class AmbiguousParamsOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "ambiguous_params_op"
+
+            def __init__(self, sampling_rate: float, config: object):
+                super().__init__(sampling_rate, config=config)
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        op = AmbiguousParamsOperation(16000, config=EqAmbiguousBool())
+
+        assert op.params != op.params
 
     def test_snapshot_config_value_copies_container_variants(self) -> None:
         readonly = np.array([1.0])

@@ -63,14 +63,13 @@ def _snapshot_config_value(value: Any) -> Any:
 
 def _is_public_config_attr(
     name: str,
-    value: Any,
     captured_config_attrs: set[str] | frozenset[str],
     grouped_config_attrs: frozenset[str],
 ) -> bool:
     """Return whether a public attribute mirrors captured operation config."""
     if name in captured_config_attrs:
         return True
-    return name in grouped_config_attrs and isinstance(value, Mapping)
+    return name in grouped_config_attrs
 
 
 def _config_values_equal(left: Any, right: Any) -> bool:
@@ -105,7 +104,10 @@ def _config_values_equal(left: Any, right: Any) -> bool:
         return False
     if isinstance(result, np.ndarray):
         return bool(np.all(result))
-    return bool(result)
+    try:
+        return bool(result)
+    except Exception:
+        return False
 
 
 class _ParamsView(MutableMapping[str, Any]):
@@ -202,9 +204,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         captured_config_attrs = object.__getattribute__(self, "_captured_config_attrs")
         grouped_config_attrs = object.__getattribute__(self, "_grouped_config_attrs")
         for name, value in list(object.__getattribute__(self, "__dict__").items()):
-            if name.startswith("_") or not _is_public_config_attr(
-                name, value, captured_config_attrs, grouped_config_attrs
-            ):
+            if name.startswith("_") or not _is_public_config_attr(name, captured_config_attrs, grouped_config_attrs):
                 continue
             object.__setattr__(self, name, _snapshot_config_value(value))
 
@@ -219,11 +219,26 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
             except AttributeError:
                 captured_config_attrs = set(params)
             grouped_config_attrs = object.__getattribute__(self, "_grouped_config_attrs")
-            if _is_public_config_attr(name, value, captured_config_attrs, grouped_config_attrs):
+            if _is_public_config_attr(name, captured_config_attrs, grouped_config_attrs):
                 if name in object.__getattribute__(self, "__dict__"):
                     return
                 value = _snapshot_config_value(value)
         object.__setattr__(self, name, value)
+
+    def __delattr__(self, name: str) -> None:
+        if getattr(self, "_wandas_initialized", False) and not name.startswith("_"):
+            try:
+                params = object.__getattribute__(self, "_params")
+            except AttributeError:
+                params = {}
+            try:
+                captured_config_attrs = object.__getattribute__(self, "_captured_config_attrs")
+            except AttributeError:
+                captured_config_attrs = set(params)
+            grouped_config_attrs = object.__getattribute__(self, "_grouped_config_attrs")
+            if _is_public_config_attr(name, captured_config_attrs, grouped_config_attrs):
+                raise AttributeError(f"cannot delete captured operation config attribute '{name}'")
+        object.__delattr__(self, name)
 
     def __getattribute__(self, name: str) -> Any:
         value = object.__getattribute__(self, name)
@@ -244,7 +259,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         except AttributeError:
             captured_config_attrs = set(params)
         grouped_config_attrs = object.__getattribute__(self, "_grouped_config_attrs")
-        if _is_public_config_attr(name, value, captured_config_attrs, grouped_config_attrs):
+        if _is_public_config_attr(name, captured_config_attrs, grouped_config_attrs):
             return _snapshot_config_value(value)
         return value
 
