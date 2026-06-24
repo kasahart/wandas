@@ -412,6 +412,7 @@ class TestRoughnessFrame:
             sampling_rate=_SAMPLING_RATE,
             bark_axis=_BARK_AXIS,
             overlap=_OVERLAP,
+            operation_history=[{"operation": "left"}],
             operations=(left_operation,),
         )
         frame2 = RoughnessFrame(
@@ -419,6 +420,7 @@ class TestRoughnessFrame:
             sampling_rate=_SAMPLING_RATE,
             bark_axis=_BARK_AXIS,
             overlap=_OVERLAP,
+            operation_history=[{"operation": "right"}],
             operations=(right_operation,),
         )
 
@@ -433,6 +435,11 @@ class TestRoughnessFrame:
         assert np.allclose(result.data, original_data1 + frame2.data)
         assert np.allclose(frame1.data, original_data1)  # Pillar 1: original unchanged
         assert result.operations == (left_operation, right_operation)
+        assert result.operation_history == [
+            {"operation": "left"},
+            {"operation": "right"},
+            {"name": "binary_op_+", "params": {"other": "RoughnessFrame"}},
+        ]
 
     def test_binary_op_sampling_rate_mismatch(self) -> None:
         """Test binary operation raises error on sampling rate mismatch."""

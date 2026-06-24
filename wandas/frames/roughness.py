@@ -330,6 +330,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             operations = (*self.operations, *other.operations)
 
             # Update operation history
+            operation_history.extend(other.operation_history)
             operation_history.append({"name": f"binary_op_{symbol}", "params": {"other": "RoughnessFrame"}})
 
         else:

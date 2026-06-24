@@ -710,6 +710,11 @@ class TestChannelProcessing:
             "lowpass_filter",
             "add_with_snr",
         ]
+        assert [record["operation"] for record in result.operation_history] == [
+            "normalize",
+            "lowpass_filter",
+            "add_with_snr",
+        ]
         assert result.previous is signal
 
     def test_add_with_snr_records_json_serializable_noise_param(self) -> None:
