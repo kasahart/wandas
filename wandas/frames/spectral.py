@@ -387,7 +387,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             G=G,
             fr=fr,
             label=f"1/{n}Oct of {self.label}",
-            metadata={**self.metadata, **params},
+            metadata=self.metadata,
             channel_metadata=self.channels.to_list(),
             channel_ids=self._channel_ids,
             source_time_offset=self.source_time_offset,

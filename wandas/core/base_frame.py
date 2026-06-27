@@ -1,5 +1,4 @@
 import copy
-import inspect
 import logging
 import numbers
 import uuid
@@ -62,16 +61,6 @@ class _LineageOperationName:
         if hasattr(self._operation, "to_params"):
             return cast(Mapping[str, Any], self._operation.to_params())
         return cast(Mapping[str, Any], getattr(self._operation, "params", {}))
-
-
-def _constructor_accepts_kwarg(cls: type[Any], name: str) -> bool:
-    try:
-        parameters = inspect.signature(cls.__init__).parameters
-    except (TypeError, ValueError):
-        return True
-    return name in parameters or any(
-        parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()
-    )
 
 
 def _mutable_config_value(value: Any) -> Any:

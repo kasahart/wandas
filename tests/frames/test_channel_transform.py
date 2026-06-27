@@ -65,15 +65,23 @@ class TestChannelTransform:
 
     def test_fft_default_n_fft_operation_lineage_matches_history(self) -> None:
         data = np.arange(8.0).reshape(1, 8)
-        frame = ChannelFrame.from_numpy(data, sampling_rate=_SAMPLE_RATE, label="test_audio")
+        frame = ChannelFrame.from_numpy(
+            data,
+            sampling_rate=_SAMPLE_RATE,
+            label="test_audio",
+            metadata={"recording": "fixture"},
+        )
 
         result = frame.fft()
 
         assert result.n_fft == 8
+        assert result.window == "hann"
+        assert result.metadata == {"recording": "fixture"}
         assert result.lineage is not None
         assert result.lineage.operation.params["n_fft"] == 8
         assert result.operation_history[-1] == {"operation": "fft", "params": {"n_fft": 8, "window": "hann"}}
-        assert result.metadata["n_fft"] == 8
+        assert "n_fft" not in result.metadata
+        assert "window" not in result.metadata
 
     def test_welch_transform(self) -> None:
         """
@@ -132,10 +140,18 @@ class TestChannelTransform:
             assert result.lineage.operation is mock_welch
 
     def test_welch_default_params_operation_lineage_matches_history(self) -> None:
-        frame = ChannelFrame.from_numpy(_DATA, _SAMPLE_RATE, label="test_audio")
+        frame = ChannelFrame.from_numpy(
+            _DATA,
+            _SAMPLE_RATE,
+            label="test_audio",
+            metadata={"recording": "fixture"},
+        )
 
         result = frame.welch()
 
+        assert result.n_fft == 2048
+        assert result.window == "hann"
+        assert result.metadata == {"recording": "fixture"}
         assert result.lineage is not None
         operation_params = dict(result.lineage.operation.params)
         assert operation_params == {
@@ -147,8 +163,7 @@ class TestChannelTransform:
             "detrend": "constant",
         }
         assert result.operation_history[-1] == {"operation": "welch", "params": operation_params}
-        for name, value in operation_params.items():
-            assert result.metadata[name] == value
+        assert not set(operation_params).intersection(result.metadata)
 
     def test_stft_transform(self) -> None:
         """Test stft method for lazy short-time Fourier transform."""
@@ -290,6 +305,28 @@ class TestChannelTransform:
             assert result.lineage is not None
             assert result.lineage.operation is mock_noct
 
+    def test_noct_spectrum_preserves_metadata_and_stores_params_in_lineage(self) -> None:
+        frame = ChannelFrame.from_numpy(
+            _DATA,
+            _SAMPLE_RATE,
+            label="test_audio",
+            metadata={"recording": "fixture"},
+        )
+
+        result = frame.noct_spectrum(fmin=20, fmax=8000, n=3, G=10, fr=1000)
+
+        assert result.fmin == 20
+        assert result.fmax == 8000
+        assert result.n == 3
+        assert result.G == 10
+        assert result.fr == 1000
+        assert result.metadata == {"recording": "fixture"}
+        assert result.operation_history[-1] == {
+            "operation": "noct_spectrum",
+            "params": {"fmin": 20, "fmax": 8000, "n": 3, "G": 10, "fr": 1000},
+        }
+        assert not {"fmin", "fmax", "n", "G", "fr"}.intersection(result.metadata)
+
     def test_csd(self) -> None:
         """クロススペクトル密度（CSD）メソッドのテスト"""
         # テスト用信号を作成
@@ -369,10 +406,13 @@ class TestChannelTransform:
 
     @pytest.mark.parametrize("method_name", ["coherence", "csd", "transfer_function"])
     def test_cross_channel_default_params_operation_lineage_matches_history(self, method_name: str) -> None:
-        cf = ChannelFrame.from_numpy(_DATA, _SAMPLE_RATE)
+        cf = ChannelFrame.from_numpy(_DATA, _SAMPLE_RATE, metadata={"recording": "fixture"})
 
         result = getattr(cf, method_name)()
 
+        assert result.n_fft == 2048
+        assert result.window == "hann"
+        assert result.metadata == {"recording": "fixture"}
         assert result.lineage is not None
         operation_params = dict(result.lineage.operation.params)
         expected_params = {
@@ -386,8 +426,7 @@ class TestChannelTransform:
             expected_params.update({"scaling": "spectrum", "average": "mean"})
         assert operation_params == expected_params
         assert result.operation_history[-1] == {"operation": method_name, "params": operation_params}
-        for name, value in operation_params.items():
-            assert result.metadata[name] == value
+        assert not set(operation_params).intersection(result.metadata)
 
     @pytest.mark.parametrize(
         ("method_name", "expected_labels"),

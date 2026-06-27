@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from wandas.core.base_frame import BaseFrame, _constructor_accepts_kwarg, _mutable_config_value
+from wandas.core.base_frame import BaseFrame, _mutable_config_value
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.processing.base import AudioOperation, LineageNode
@@ -772,15 +772,6 @@ def test_create_new_instance_preserves_lineage_for_constructor():
     assert result.previous is frame
     assert result.operation_history == [{"operation": "fake"}]
     assert result.lineage is lineage
-
-
-def test_constructor_accepts_kwarg_falls_back_when_signature_unavailable(monkeypatch):
-    def raise_value_error(_):
-        raise ValueError("signature unavailable")
-
-    monkeypatch.setattr("wandas.core.base_frame.inspect.signature", raise_value_error)
-
-    assert _constructor_accepts_kwarg(LegacyFrame, "operations")
 
 
 def test_binary_operations_cover_scalar_helpers_and_frame_mismatch_errors():
