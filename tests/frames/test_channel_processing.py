@@ -8,7 +8,9 @@ from dask.array.core import Array as DaArray
 
 from wandas.frames.channel import ChannelFrame, ChannelMetadata
 from wandas.frames.spectral import SpectralFrame
-from wandas.processing.base import _OPERATION_REGISTRY, AudioOperation, register_operation
+from wandas.processing.base import _OPERATION_REGISTRY, AudioOperation, LineageNode, register_operation
+from wandas.processing.effects import Normalize
+from wandas.processing.temporal import Trim
 from wandas.utils.types import NDArrayReal
 from wandas.utils.util import calculate_rms
 
@@ -129,7 +131,8 @@ class TestChannelProcessing:
         )
 
         result = frame.apply(lambda x: x + 1.0, output_shape_func=lambda shape: shape)
-        op = result.operations[-1]
+        assert result.lineage is not None
+        op = result.lineage.operation
 
         with pytest.raises(AttributeError):
             setattr(op, "func", lambda x: x * 0)
@@ -145,7 +148,8 @@ class TestChannelProcessing:
         )
 
         result = frame.apply(lambda x, gain: x * gain, output_shape_func=lambda shape: shape, gain=2.0)
-        op = result.operations[-1]
+        assert result.lineage is not None
+        op = result.lineage.operation
         params = op.params.copy()
         params["gain"] = 0.0
 
@@ -159,7 +163,11 @@ class TestChannelProcessing:
             name = "test_params_driven_gain"
 
             def __init__(self, sampling_rate: float, gain: float):
+                self._gain = gain
                 super().__init__(sampling_rate, gain=gain)
+
+            def to_params(self) -> dict[str, float]:
+                return {"gain": self._gain}
 
             def _process_array(self, x: NDArrayReal) -> NDArrayReal:
                 return x * self.params["gain"]
@@ -176,7 +184,8 @@ class TestChannelProcessing:
         finally:
             _OPERATION_REGISTRY.pop("test_params_driven_gain", None)
 
-        op = result.operations[-1]
+        assert result.lineage is not None
+        op = result.lineage.operation
         params = op.params.copy()
         params["gain"] = 0.0
 
@@ -278,13 +287,13 @@ class TestChannelProcessing:
             return np.fft.rfft(x, axis=-1)
 
         metadata = {"source": "test", "_source_file": "input.wav"}
-        operation_history = [{"operation": "normalize", "params": {"method": "peak"}}]
+        lineage = LineageNode(Normalize(self.sample_rate))
 
         frame = ChannelFrame(
             data=self.dask_data,
             sampling_rate=self.sample_rate,
             metadata=metadata,
-            operation_history=operation_history,
+            lineage=lineage,
             channel_metadata=[{"label": "sig0", "unit": "V", "extra": {}}, {"label": "sig1", "unit": "V", "extra": {}}],
             label="time_signal",
         )
@@ -307,11 +316,8 @@ class TestChannelProcessing:
         assert result.metadata == {"source": "test", "_source_file": "input.wav", "custom": {}}
         assert result.metadata["_source_file"] == "input.wav"
         assert frame.metadata["_source_file"] == "input.wav"
-        assert frame.operation_history == operation_history
-        assert result.operation_history == [
-            {"operation": "normalize", "params": {"method": "peak"}},
-            {"operation": "custom", "params": {}},
-        ]
+        assert frame.operation_history[0]["operation"] == "normalize"
+        assert [record["operation"] for record in result.operation_history] == ["normalize", "custom"]
         assert result.shape == (2, self.data.shape[1] // 2 + 1)
 
         computed = result.compute()
@@ -472,7 +478,8 @@ class TestChannelProcessing:
         # Verify result is the expected type
         assert isinstance(sum_cf, ChannelFrame)
         assert sum_cf.n_channels == 1
-        assert [operation.name for operation in sum_cf.operations] == ["sum"]
+        assert sum_cf.lineage is not None
+        assert sum_cf.lineage.operation.name == "sum"
 
         # Test correctness of computation result
         sum_cf = self.channel_frame.sum()
@@ -480,7 +487,10 @@ class TestChannelProcessing:
         expected_sum = self.data.sum(axis=-2, keepdims=True)
         # Direct numpy sum — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(sum_data, expected_sum)
-        assert [operation.name for operation in self.channel_frame.normalize().sum().operations] == ["normalize", "sum"]
+        assert [record["operation"] for record in self.channel_frame.normalize().sum().operation_history] == [
+            "normalize",
+            "sum",
+        ]
 
     def test_mean_methods(self) -> None:
         """Test mean() methods."""
@@ -495,7 +505,8 @@ class TestChannelProcessing:
         # Verify result is the expected type
         assert isinstance(mean_cf, ChannelFrame)
         assert mean_cf.n_channels == 1
-        assert [operation.name for operation in mean_cf.operations] == ["mean"]
+        assert mean_cf.lineage is not None
+        assert mean_cf.lineage.operation.name == "mean"
 
         # Compute and check results
         mean_cf = self.channel_frame.mean()
@@ -608,7 +619,9 @@ class TestChannelProcessing:
         frame = ChannelFrame(_da_from_array(data, chunks=(1, -1)), sampling_rate=10)
 
         trimmed_frame = frame.trim(start=0.2, end=0.5)
-        trim_op = trimmed_frame.operations[-1]
+        assert trimmed_frame.lineage is not None
+        trim_op = trimmed_frame.lineage.operation
+        assert isinstance(trim_op, Trim)
 
         with pytest.raises(AttributeError):
             setattr(trim_op, "start_sample", 0)
@@ -707,16 +720,13 @@ class TestChannelProcessing:
         signal = signal_cf.normalize()
         result = signal.add(noise_cf.low_pass_filter(cutoff=1000), snr=10.0)
 
-        assert [operation.name for operation in result.operations] == [
-            "normalize",
-            "lowpass_filter",
-            "add_with_snr",
-        ]
         assert [record["operation"] for record in result.operation_history] == [
             "normalize",
             "lowpass_filter",
             "add_with_snr",
         ]
+        assert result.operation_graph is not None
+        assert [node["operation"] for node in result.operation_graph["inputs"]] == ["normalize", "lowpass_filter"]
         assert result.previous is signal
 
     def test_add_with_snr_records_json_serializable_noise_param(self) -> None:
@@ -734,9 +744,10 @@ class TestChannelProcessing:
         }
         json.dumps(result.operation_history)
         json.dumps(dict(result.metadata))
-        assert result.operations[-1].params == result.operations[-1].params
+        assert result.lineage is not None
+        assert result.lineage.operation.params == result.lineage.operation.params
 
-    def test_add_with_snr_skips_lineage_rewrite_for_legacy_result_frame(self) -> None:
+    def test_add_with_snr_rewrites_lineage_for_subclass_result_frame(self) -> None:
         class LegacyChannelFrame(ChannelFrame):
             def __init__(
                 self,
@@ -744,22 +755,22 @@ class TestChannelProcessing:
                 sampling_rate,
                 label=None,
                 metadata=None,
-                operation_history=None,
                 channel_metadata=None,
                 channel_ids=None,
                 previous=None,
                 source_time_offset=0.0,
+                lineage=None,
             ):
                 super().__init__(
                     data=data,
                     sampling_rate=sampling_rate,
                     label=label,
                     metadata=metadata,
-                    operation_history=operation_history,
                     channel_metadata=channel_metadata,
                     channel_ids=channel_ids,
                     previous=previous,
                     source_time_offset=source_time_offset,
+                    lineage=lineage,
                 )
 
         signal_cf = LegacyChannelFrame(_da_from_array(np.ones((1, 16000)), chunks=(1, -1)), self.sample_rate)
@@ -768,8 +779,9 @@ class TestChannelProcessing:
         result = signal_cf.add(noise_cf.low_pass_filter(cutoff=1000), snr=10.0)
 
         assert isinstance(result, LegacyChannelFrame)
-        assert result.operations == ()
         assert result.operation_history[-1]["operation"] == "add_with_snr"
+        assert result.operation_graph is not None
+        assert [node["operation"] for node in result.operation_graph["inputs"]] == ["lowpass_filter"]
 
     def test_add_with_snr_numpy_array(self) -> None:
         """add(..., snr=...) should accept NumPy array inputs via ChannelFrame coercion."""
@@ -804,8 +816,9 @@ class TestChannelProcessing:
         assert isinstance(result, ChannelFrame)
         # Scalar broadcast addition — default rtol (exact match expected)
         np.testing.assert_allclose(result.compute(), self.data + scalar_value)
-        assert result.operation_history[-1] == {"operation": "+", "with": str(scalar_value)}
-        assert "snr" not in result.operation_history[-1]
+        assert result.operation_history[-1]["operation"] == "+"
+        assert result.operation_history[-1]["params"]["operand"] == {"type": "float", "value": scalar_value}
+        assert "snr" not in result.operation_history[-1]["params"]
 
     def test_add_with_snr_invalid_type_raises_type_error(self) -> None:
         """Unsupported add(..., snr=...) inputs should raise a targeted TypeError."""
@@ -1231,7 +1244,8 @@ class TestRoughnessOperations:
         first_op = result.operation_history[0]
         op_name = first_op.get("name") or first_op.get("operation")
         assert op_name == "roughness_dw_spec"
-        assert result.operations[-1].name == "roughness_dw_spec"
+        assert result.lineage is not None
+        assert result.lineage.operation.name == "roughness_dw_spec"
 
         # Compare with MoSQITo direct calculation
         computed_data = result.compute()

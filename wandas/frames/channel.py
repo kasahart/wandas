@@ -214,12 +214,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         sampling_rate: float,
         label: str | None = None,
         metadata: dict[str, Any] | None = None,
-        operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
-        operations: tuple[Any, ...] | None = None,
+        lineage: Any | None = None,
     ) -> None:
         """Initialize a ChannelFrame.
 
@@ -260,11 +259,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             sampling_rate=sampling_rate,
             label=label,
             metadata=metadata,
-            operation_history=operation_history,
             channel_metadata=channel_metadata,
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,
-            operations=operations,
+            lineage=lineage,
             previous=previous,
         )
 
@@ -308,11 +306,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             sampling_rate=self.sampling_rate,
             label=self.label,
             metadata=self.metadata,
-            operation_history=self.operation_history,
             channel_metadata=new_chmeta,
             channel_ids=channel_ids,
             source_time_offset=offsets,
-            operations=self.operations,
+            lineage=self.lineage,
             previous=self,
         )
 
@@ -530,15 +527,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         if snr is None:
             return self + other
         result = self.apply_operation("add_with_snr", other=other._data, snr=snr)
-        if other.operation_history and result.operation_history:
-            result.operation_history = [
-                *self.operation_history,
-                *other.operation_history,
-                result.operation_history[-1],
-            ]
-        if other.operations and result.operations:
-            operations = (*self.operations, *other.operations, result.operations[-1])
-            object.__setattr__(result, "_operations", operations)
+        if result.lineage is not None:
+            object.__setattr__(
+                result,
+                "lineage",
+                result._lineage_with_operation(result.lineage.operation, self.lineage, other.lineage),
+            )
         return result
 
     def plot(

@@ -13,6 +13,7 @@ from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
+from wandas.processing.base import LineageNode
 from wandas.processing.effects import Normalize
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
@@ -291,14 +292,14 @@ class TestSpectrogramFrame:
         spec: SpectrogramFrame = sample_spectrogram._create_new_instance(
             data=sample_spectrogram._data,
             source_time_offset=3.0,
-            operations=(Normalize(sample_spectrogram.sampling_rate),),
+            lineage=LineageNode(Normalize(sample_spectrogram.sampling_rate)),
         )
 
         # 正常なインデックス
         frame: SpectralFrame = spec.get_frame_at(4)
         assert frame.shape == (2, 65)  # チャネル数 x 周波数ビン数
         np.testing.assert_array_equal(frame.source_time_offset, np.array([3.0 + spec.times[4]] * 2))
-        assert frame.operations == spec.operations
+        assert frame.lineage is spec.lineage
 
         # 範囲外インデックス（負の値）
         with pytest.raises(
@@ -329,7 +330,8 @@ class TestSpectrogramFrame:
         # 基本プロパティの確認
         assert channel_frame.sampling_rate == spec.sampling_rate
         assert channel_frame._n_channels == spec._n_channels
-        assert channel_frame.operations[-1].name == "istft"
+        assert channel_frame.lineage is not None
+        assert channel_frame.lineage.operation.name == "istft"
         assert channel_frame.operation_history[-1] == {
             "operation": "istft",
             "params": {
@@ -337,6 +339,7 @@ class TestSpectrogramFrame:
                 "hop_length": spec.hop_length,
                 "win_length": spec.win_length,
                 "window": spec.window,
+                "length": None,
             },
         }
 
@@ -569,16 +572,13 @@ class TestSpectrogramFrame:
             operation = create_operation(operation_name, self.sampling_rate, **params)
             processed_data = operation.process(self._data)
 
-            operation_metadata = {"operation": operation_name, "params": params}
-            new_history = self.operation_history.copy()
-            new_history.append(operation_metadata)
             new_metadata = {**self.metadata}
             new_metadata[operation_name] = params
 
             return self._create_new_instance(
                 data=processed_data,
                 metadata=new_metadata,
-                operation_history=new_history,
+                lineage=self._lineage_with_operation(operation, self.lineage),
             )
 
         # モックを適用
@@ -589,6 +589,8 @@ class TestSpectrogramFrame:
 
         # モックオペレーション作成
         class MockOperation:
+            name = "test_operation"
+
             def process(self, data: Any) -> Any:
                 return processed_data
 
@@ -672,7 +674,8 @@ class TestSpectrogramFrame:
         assert abs_spec.hop_length == spec.hop_length
         assert abs_spec.win_length == spec.win_length
         assert abs_spec.window == spec.window
-        assert abs_spec.operations[-1].name == "abs"
+        assert abs_spec.lineage is not None
+        assert abs_spec.lineage.operation.name == "abs"
 
         # ラベルが正しく更新されていることを確認
         assert abs_spec.label == f"abs({spec.label})"
@@ -686,7 +689,7 @@ class TestSpectrogramFrame:
         # 操作履歴に "abs" が追加されていることを確認
         assert len(abs_spec.operation_history) == len(spec.operation_history) + 1
         assert abs_spec.operation_history[-1]["operation"] == "abs"
-        assert abs_spec.operation_history[-1]["params"] == {}
+        assert abs_spec.operation_history[-1].get("params", {}) == {}
 
         # メタデータに "abs" が追加されていることを確認
         assert "abs" in abs_spec.metadata
@@ -866,7 +869,7 @@ class TestSpectrogramFrame:
 
         # メタデータの作成
         metadata = {"source": "test", "version": "1.0"}
-        operation_history = [{"operation": "test_op", "params": {"param": 1}}]
+        lineage = LineageNode(Normalize(sampling_rate))
         channel_metadata = [
             ChannelMetadata(label="ch1", unit="Pa", ref=1.0),
             ChannelMetadata(label="ch2", unit="Pa", ref=2.0),
@@ -882,7 +885,7 @@ class TestSpectrogramFrame:
             window=window,
             label="test_full",
             metadata=metadata,
-            operation_history=operation_history,
+            lineage=lineage,
             channel_metadata=channel_metadata,
         )
 
@@ -894,7 +897,7 @@ class TestSpectrogramFrame:
         assert spec_frame.window == window
         assert spec_frame.label == "test_full"
         assert spec_frame.metadata == metadata
-        assert spec_frame.operation_history == operation_history
+        assert spec_frame.lineage is lineage
         assert spec_frame._channel_metadata == channel_metadata
 
     def test_from_numpy_default_label(self) -> None:

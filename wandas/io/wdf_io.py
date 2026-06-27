@@ -121,23 +121,6 @@ def save(
             if ch_meta.extra:
                 ch_grp.attrs["metadata_json"] = json.dumps(ch_meta.extra)
 
-        # Store operation history
-        if frame.operation_history:
-            op_grp = f.create_group("operation_history")
-            for i, op in enumerate(frame.operation_history):
-                op_sub_grp = op_grp.create_group(f"operation_{i}")
-                for k, v in op.items():
-                    # Store simple attributes directly
-                    if isinstance(v, (str, int, float, bool, np.number)):
-                        op_sub_grp.attrs[k] = v
-                    else:
-                        # For complex types, serialize to JSON
-                        try:
-                            op_sub_grp.attrs[k] = json.dumps(v)
-                        except (TypeError, OverflowError) as e:
-                            logger.warning(f"Could not serialize operation key '{k}': {e}")
-                            op_sub_grp.attrs[k] = str(v)
-
         # Store frame metadata
         if frame.metadata:
             meta_grp = f.create_group("meta")
@@ -237,25 +220,6 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
             if source_file is not None:
                 frame_metadata.setdefault("_source_file", _decode_hdf5_str(source_file))
 
-        # Load operation history
-        operation_history = []
-        if "operation_history" in f:
-            op_grp = f["operation_history"]
-            # Sort operation indices numerically
-            op_indices = sorted([int(key.split("_")[1]) for key in op_grp])
-
-            for idx in op_indices:
-                op_sub_grp = op_grp[f"operation_{idx}"]
-                op_dict = {}
-                for attr_name in op_sub_grp.attrs:
-                    attr_value = op_sub_grp.attrs[attr_name]
-                    # Try to deserialize JSON, fallback to string
-                    try:
-                        op_dict[attr_name] = json.loads(attr_value)
-                    except (json.JSONDecodeError, TypeError):
-                        op_dict[attr_name] = attr_value
-                operation_history.append(op_dict)
-
         # Load channel data and metadata
         all_channel_data = []
         channel_metadata_list = []
@@ -321,7 +285,6 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
             sampling_rate=sampling_rate,
             label=frame_label if frame_label else None,
             metadata=frame_metadata,
-            operation_history=operation_history,
             channel_metadata=channel_metadata_list,
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,

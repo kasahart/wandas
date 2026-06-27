@@ -133,13 +133,9 @@ class ChannelTransformMixin:
             window=operation.window,
             label=f"{label_prefix} {self.label}",
             metadata={**self.metadata, **operation_params},
-            operation_history=[
-                *self.operation_history,
-                {"operation": operation_name, "params": operation_params},
-            ],
             channel_metadata=channel_metadata,
             source_time_offset=_build_cross_channel_source_time_offsets(cast(Any, self).source_time_offset),
-            operations=(*cast(Any, self).operations, operation),
+            lineage=cast(Any, self)._lineage_with_operation(operation, cast(Any, self).lineage),
             previous=self._as_base_frame,
         )
 
@@ -177,14 +173,10 @@ class ChannelTransformMixin:
             window=operation.window,
             label=f"Spectrum of {self.label}",
             metadata={**self.metadata, "window": window, "n_fft": _n_fft},
-            operation_history=[
-                *self.operation_history,
-                {"operation": "fft", "params": {"n_fft": _n_fft, "window": window}},
-            ],
             channel_metadata=cast(Any, self).channels.to_list(),
             channel_ids=cast(Any, self)._channel_ids,
             source_time_offset=cast(Any, self).source_time_offset,
-            operations=(*cast(Any, self).operations, operation),
+            lineage=cast(Any, self)._lineage_with_operation(operation, cast(Any, self).lineage),
             previous=self._as_base_frame,
         )
 
@@ -241,14 +233,10 @@ class ChannelTransformMixin:
             window=operation.window,
             label=f"Spectrum of {self.label}",
             metadata={**self.metadata, **operation_params},
-            operation_history=[
-                *self.operation_history,
-                {"operation": "welch", "params": operation_params},
-            ],
             channel_metadata=cast(Any, self).channels.to_list(),
             channel_ids=cast(Any, self)._channel_ids,
             source_time_offset=cast(Any, self).source_time_offset,
-            operations=(*cast(Any, self).operations, operation),
+            lineage=cast(Any, self)._lineage_with_operation(operation, cast(Any, self).lineage),
             previous=self._as_base_frame,
         )
 
@@ -298,17 +286,10 @@ class ChannelTransformMixin:
             fr=fr,
             label=f"1/{n}Oct of {self.label}",
             metadata={**self.metadata, **params},
-            operation_history=[
-                *self.operation_history,
-                {
-                    "operation": "noct_spectrum",
-                    "params": params,
-                },
-            ],
             channel_metadata=cast(Any, self).channels.to_list(),
             channel_ids=cast(Any, self)._channel_ids,
             source_time_offset=cast(Any, self).source_time_offset,
-            operations=(*cast(Any, self).operations, operation),
+            lineage=cast(Any, self)._lineage_with_operation(operation, cast(Any, self).lineage),
             previous=self._as_base_frame,
         )
 
@@ -367,11 +348,10 @@ class ChannelTransformMixin:
             window=window,
             label=f"stft({self.label})",
             metadata=self.metadata,
-            operation_history=[*self.operation_history, {"operation": operation_name, "params": params}],
             channel_metadata=cast(Any, self).channels.to_list(),
             channel_ids=cast(Any, self)._channel_ids,
             source_time_offset=cast(Any, self).source_time_offset,
-            operations=(*cast(Any, self).operations, operation),
+            lineage=cast(Any, self)._lineage_with_operation(operation, cast(Any, self).lineage),
             previous=self._as_base_frame,
         )
 

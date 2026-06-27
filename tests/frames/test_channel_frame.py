@@ -142,11 +142,11 @@ class TestChannelFrame:
         with pytest.raises(ValueError, match="Only continuous slicing on the time axis is supported"):
             _ = self.channel_frame[:, [500, 700, 900]]
 
-    def test_positional_previous_constructor_argument_remains_compatible(self) -> None:
-        """Adding source_time_offset does not steal the existing positional previous argument."""
+    def test_positional_previous_constructor_argument_remains_compatible_after_history_removal(self) -> None:
+        """previous remains compatible at its new positional slot after removing legacy history."""
         previous = ChannelFrame(self.dask_data, self.sample_rate)
 
-        cf = ChannelFrame(self.dask_data, self.sample_rate, None, None, None, None, None, previous)
+        cf = ChannelFrame(self.dask_data, self.sample_rate, None, None, None, None, previous)
 
         assert cf.previous is previous
         np.testing.assert_array_equal(cf.source_time_offset, np.array([0.0, 0.0]))

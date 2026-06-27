@@ -125,6 +125,13 @@ class TestAudioOperation:
         class _TestOp(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "test_op"
 
+            def __init__(self, sampling_rate: float, *, pure: bool = True, **params: Any) -> None:
+                self._test_params = {key: _snapshot_config_value(value) for key, value in params.items()}
+                super().__init__(sampling_rate, pure=pure, **params)
+
+            def to_params(self) -> dict[str, Any]:
+                return {key: _snapshot_config_value(value) for key, value in self._test_params.items()}
+
             def _process_array(self, x: NDArrayReal) -> NDArrayReal:
                 return x * 2
 
@@ -244,49 +251,34 @@ class TestAudioOperation:
         test_op_cls = self._make_test_op_class()
         assert test_op_cls(16000).get_metadata_updates() == {}
 
-    def test_public_config_attribute_reassignment_is_blocked(self) -> None:
+    def test_concrete_config_properties_are_read_only(self) -> None:
         op = HighPassFilter(16000, cutoff=500)
 
-        with pytest.raises(AttributeError, match="cannot modify captured operation config attribute 'cutoff'"):
-            op.cutoff = 1000
-
-        assert op.cutoff == 500
-        assert op.params["cutoff"] == 500
-
-    def test_public_config_attribute_deletion_is_blocked(self) -> None:
-        op = HighPassFilter(16000, cutoff=500)
-
-        with pytest.raises(AttributeError, match="cannot delete captured operation config attribute 'cutoff'"):
+        with pytest.raises(AttributeError):
+            setattr(op, "cutoff", 1000)
+        with pytest.raises(AttributeError):
             del op.cutoff
 
         assert op.cutoff == 500
         assert op.params["cutoff"] == 500
 
-    def test_subclass_cannot_assign_captured_public_attribute_after_base_init(self) -> None:
-        class PostInitOperation(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "post_init_op"
-
-            def __init__(self, sampling_rate: float, gain: float):
-                super().__init__(sampling_rate, gain=gain)
-                self.gain = gain
-
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
-                return x
-
-        with pytest.raises(AttributeError, match="cannot modify captured operation config attribute 'gain'"):
-            PostInitOperation(16000, gain=2.0)
-
-    def test_subclass_can_seed_public_config_before_base_init(self) -> None:
+    def test_subclass_to_params_defines_operation_params(self) -> None:
         class SeededConfigOperation(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "seeded_config_op"
 
             def __init__(self, sampling_rate: float, gain: str):
-                normalized_gain = float(gain)
-                self.gain = normalized_gain
-                super().__init__(sampling_rate, gain=normalized_gain)
+                self._gain = float(gain)
+                super().__init__(sampling_rate, gain=self._gain)
+
+            @property
+            def gain(self) -> float:
+                return self._gain
+
+            def to_params(self) -> dict[str, float]:
+                return {"gain": self._gain}
 
             def _process_array(self, x: NDArrayReal) -> NDArrayReal:
-                return x * self.gain
+                return x * self._gain
 
         op = SeededConfigOperation(16000, gain="2.0")
         data = da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1))
@@ -335,7 +327,11 @@ class TestAudioOperation:
             name = "nested_params_op"
 
             def __init__(self, sampling_rate: float, config: dict[str, float]):
+                self._config = _snapshot_config_value(config)
                 super().__init__(sampling_rate, config=config)
+
+            def to_params(self) -> dict[str, Any]:
+                return {"config": self._config}
 
             def _process_array(self, x: NDArrayReal) -> NDArrayReal:
                 return x
@@ -349,47 +345,34 @@ class TestAudioOperation:
 
         assert op.params["config"]["gain"] == 2.0
 
-    def test_operation_params_deletion_does_not_remove_public_config_guard(self) -> None:
+    def test_params_deletion_does_not_change_generated_params(self) -> None:
         op = HighPassFilter(16000, cutoff=500)
 
         with pytest.raises(TypeError):
             del op.params["cutoff"]  # ty: ignore[not-subscriptable]
-        with pytest.raises(AttributeError, match="cannot modify captured operation config attribute 'cutoff'"):
-            op.cutoff = 1000
 
         assert op.params["cutoff"] == 500
         assert op.cutoff == 500
 
-    def test_post_base_init_mutable_config_assignment_is_blocked(self) -> None:
-        class PostInitConfigOperation(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "post_init_config_op"
+    def test_subclasses_snapshot_mutable_config_for_to_params(self) -> None:
+        class PrivateConfigOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "private_config_op"
 
             def __init__(self, sampling_rate: float, config: dict[str, float]):
-                super().__init__(sampling_rate, config=config)
-                self.config = config
-
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
-                return x
-
-        with pytest.raises(AttributeError, match="cannot modify captured operation config attribute 'config'"):
-            PostInitConfigOperation(16000, config={"gain": 2.0})
-
-    def test_pre_base_init_mutable_config_attribute_is_snapshotted(self) -> None:
-        class PreInitConfigOperation(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "pre_init_config_op"
-
-            def __init__(self, sampling_rate: float, config: dict[str, float]):
-                self.config = config
+                self._config = _snapshot_config_value(config)
                 super().__init__(sampling_rate, config=config)
 
+            def to_params(self) -> dict[str, Any]:
+                return {"config": self._config}
+
             def _process_array(self, x: NDArrayReal) -> NDArrayReal:
-                return x * object.__getattribute__(self, "config")["gain"]
+                return x * self._config["gain"]
 
         config = {"gain": 2.0}
-        op = PreInitConfigOperation(16000, config=config)
+        op = PrivateConfigOperation(16000, config=config)
         config["gain"] = 99.0
 
-        assert object.__getattribute__(op, "config") == {"gain": 2.0}
+        assert op.params["config"] == {"gain": 2.0}
 
     def test_non_config_mutable_public_attribute_returns_live_value(self) -> None:
         test_op_cls = self._make_test_op_class()
@@ -484,7 +467,12 @@ class TestAudioOperation:
             name = "array_params_op"
 
             def __init__(self, sampling_rate: float, reference: NDArrayReal):
+                self._reference = _snapshot_config_value(reference)
+                self._config = {"weights": _snapshot_config_value(reference)}
                 super().__init__(sampling_rate, reference=reference, config={"weights": reference})
+
+            def to_params(self) -> dict[str, Any]:
+                return {"reference": self._reference, "config": self._config}
 
             def _process_array(self, x: NDArrayReal) -> NDArrayReal:
                 return x
@@ -548,7 +536,11 @@ class TestAudioOperation:
             name = "ambiguous_params_op"
 
             def __init__(self, sampling_rate: float, config: object):
+                self._config = config
                 super().__init__(sampling_rate, config=config)
+
+            def to_params(self) -> dict[str, object]:
+                return {"config": self._config}
 
             def _process_array(self, x: NDArrayReal) -> NDArrayReal:
                 return x
@@ -659,46 +651,16 @@ class TestAudioOperation:
 
         assert _snapshot_config_value(value) is value
 
-    def test_public_config_access_handles_missing_params_during_partial_initialization(self) -> None:
+    def test_public_attributes_remain_ordinary_python_state(self) -> None:
         test_op_cls = self._make_test_op_class()
-        op = object.__new__(test_op_cls)
+        op = test_op_cls(16000)
         config = {"gain": 2.0}
-        object.__setattr__(op, "_wandas_initialized", True)
-        object.__setattr__(op, "config", config)
-
-        assert op.config is config
-
-    def test_public_config_access_handles_missing_captured_attrs_during_partial_initialization(self) -> None:
-        test_op_cls = self._make_test_op_class()
-        op = object.__new__(test_op_cls)
-        object.__setattr__(op, "_wandas_initialized", True)
-        object.__setattr__(op, "_params", {"config": {"gain": 2.0}})
-        object.__setattr__(op, "config", {"gain": 2.0})
-
-        exposed = op.config
-        exposed["gain"] = 99.0
-
-        assert object.__getattribute__(op, "config") == {"gain": 2.0}
-
-    def test_public_config_assignment_handles_missing_params_during_partial_initialization(self) -> None:
-        test_op_cls = self._make_test_op_class()
-        op = object.__new__(test_op_cls)
-        config = {"gain": 2.0}
-        object.__setattr__(op, "_wandas_initialized", True)
 
         op.config = config
+        op.config["gain"] = 3.0
+        del op.config
 
-        assert object.__getattribute__(op, "config") is config
-
-    def test_public_attribute_deletion_handles_missing_params_during_partial_initialization(self) -> None:
-        test_op_cls = self._make_test_op_class()
-        op = object.__new__(test_op_cls)
-        object.__setattr__(op, "_wandas_initialized", True)
-        object.__setattr__(op, "cache", {"gain": 2.0})
-
-        del op.cache
-
-        assert "cache" not in object.__getattribute__(op, "__dict__")
+        assert "config" not in object.__getattribute__(op, "__dict__")
 
     def test_params_view_equality_requires_same_keys(self) -> None:
         test_op_cls = self._make_test_op_class()

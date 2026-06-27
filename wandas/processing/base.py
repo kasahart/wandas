@@ -5,6 +5,7 @@ import logging
 from collections import defaultdict
 from collections.abc import Iterator, Mapping, MutableMapping
 from contextvars import ContextVar
+from dataclasses import dataclass
 from typing import Any, ClassVar, Generic, TypeVar, cast
 
 import dask.array as da
@@ -24,6 +25,68 @@ _ACTIVE_OPERATION_PARAMS: ContextVar[dict[int, dict[str, Any]] | None] = Context
 # Define TypeVars for input and output array types
 InputArrayType = TypeVar("InputArrayType", NDArrayReal, NDArrayComplex)
 OutputArrayType = TypeVar("OutputArrayType", NDArrayReal, NDArrayComplex)
+
+
+@dataclass(frozen=True)
+class LineageNode:
+    """Serializable computation provenance node.
+
+    ``operation`` is the same operation object used to build the Dask task
+    whenever the computation is represented by an ``AudioOperation``. This keeps
+    lineage parameters and compute parameters tied to one immutable operation
+    snapshot.
+    """
+
+    operation: Any
+    inputs: tuple["LineageNode", ...] = ()
+
+
+def _operand_descriptor(value: Any) -> dict[str, Any]:
+    if isinstance(value, DaArray):
+        return {
+            "type": "dask.array",
+            "shape": list(value.shape),
+            "dtype": str(value.dtype),
+            "chunks": [list(chunk) for chunk in value.chunks],
+        }
+    if isinstance(value, np.ndarray):
+        return {
+            "type": "ndarray",
+            "shape": list(value.shape),
+            "dtype": str(value.dtype),
+        }
+    if isinstance(value, complex):
+        return {"type": "complex", "real": value.real, "imag": value.imag}
+    if isinstance(value, bool):
+        return {"type": "bool", "value": value}
+    if isinstance(value, int | float | str) or value is None:
+        return {"type": type(value).__name__, "value": value}
+    if hasattr(value, "shape"):
+        return {"type": type(value).__name__, "shape": list(value.shape)}
+    return {"type": type(value).__name__}
+
+
+@dataclass(frozen=True)
+class BinaryOperation:
+    """Lightweight operation record for frame binary computations."""
+
+    symbol: str
+    operand_kind: str
+    operand: Any | None = None
+    name: str = "binary_operation"
+
+    @property
+    def params(self) -> Mapping[str, Any]:
+        return self.to_params()
+
+    def to_params(self) -> Mapping[str, Any]:
+        params: dict[str, Any] = {
+            "symbol": self.symbol,
+            "operand_kind": self.operand_kind,
+        }
+        if self.operand_kind != "frame":
+            params["operand"] = _operand_descriptor(self.operand)
+        return params
 
 
 def _snapshot_config_value(value: Any) -> Any:
@@ -68,17 +131,6 @@ def _snapshot_config_value(value: Any) -> Any:
         return value
 
 
-def _is_public_config_attr(
-    name: str,
-    captured_config_attrs: set[str] | frozenset[str],
-    grouped_config_attrs: frozenset[str],
-) -> bool:
-    """Return whether a public attribute mirrors captured operation config."""
-    if name in captured_config_attrs:
-        return True
-    return name in grouped_config_attrs
-
-
 def _config_values_equal(left: Any, right: Any) -> bool:
     """Compare captured config values without NumPy's ambiguous bool errors."""
     if isinstance(left, DaArray) or isinstance(right, DaArray):
@@ -121,22 +173,23 @@ class _ParamsSnapshot(Mapping[str, Any]):
     def __init__(self, operation: "AudioOperation[Any, Any]") -> None:
         self._operation = operation
 
-    def _params(self) -> dict[str, Any]:
+    def _current_params(self) -> dict[str, Any]:
         active_params = _ACTIVE_OPERATION_PARAMS.get()
         if active_params is not None:
             params_snapshot = active_params.get(id(self._operation))
             if params_snapshot is not None:
                 return params_snapshot
-        return object.__getattribute__(self._operation, "_params")
+        params = self._operation.to_params()
+        return {key: _snapshot_config_value(value) for key, value in params.items()}
 
     def __getitem__(self, key: str) -> Any:
-        return _snapshot_config_value(self._params()[key])
+        return _snapshot_config_value(self._current_params()[key])
 
     def __iter__(self) -> Iterator[str]:
-        return iter(self._params())
+        return iter(self._current_params())
 
     def __len__(self) -> int:
-        return len(self._params())
+        return len(self._current_params())
 
     def __repr__(self) -> str:
         return repr(dict(self.items()))
@@ -158,9 +211,9 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
 
     Operation parameters are captured as operation-owned snapshots for lineage
     metadata. ``params`` is a read-only defensive snapshot; create a new
-    operation when configuration needs to change. Public attributes remain
-    ordinary Python attributes for custom operation compatibility, but attributes
-    that mirror captured config are protected after initialization.
+    operation when configuration needs to change. Subclasses should store
+    execution config in private attributes and expose lineage through
+    ``to_params()``.
     """
 
     # Class variable: operation name
@@ -169,7 +222,6 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     # Optional attributes used by some subclasses (e.g., FFT)
     n_fft: int | None
     window: str
-    _grouped_config_attrs: ClassVar[frozenset[str]] = frozenset()
 
     def __init__(self, sampling_rate: float, *, pure: bool = True, **params: Any):
         """
@@ -186,11 +238,8 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         **params : Any
             Operation-specific parameters
         """
-        object.__setattr__(self, "_wandas_initialized", False)
         object.__setattr__(self, "_sampling_rate", float(sampling_rate))
         self.pure = pure
-        self._params = {key: _snapshot_config_value(value) for key, value in params.items()}
-        self._captured_config_attrs = set(params)
 
         # Validate parameters during initialization
         self.validate_params()
@@ -198,75 +247,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         # Create processor function (lazy initialization possible)
         self._setup_processor()
 
-        self._snapshot_public_config_attributes()
-
         logger.debug(f"Initialized {self.__class__.__name__} operation with params: {params}")
-        object.__setattr__(self, "_wandas_initialized", True)
-
-    def _snapshot_public_config_attributes(self) -> None:
-        """Replace public mutable config attrs with operation-owned snapshots."""
-        captured_config_attrs = object.__getattribute__(self, "_captured_config_attrs")
-        grouped_config_attrs = object.__getattribute__(self, "_grouped_config_attrs")
-        for name, value in list(object.__getattribute__(self, "__dict__").items()):
-            if name.startswith("_") or not _is_public_config_attr(name, captured_config_attrs, grouped_config_attrs):
-                continue
-            object.__setattr__(self, name, _snapshot_config_value(value))
-
-    def __setattr__(self, name: str, value: Any) -> None:
-        if getattr(self, "_wandas_initialized", False) and not name.startswith("_"):
-            try:
-                params = object.__getattribute__(self, "_params")
-            except AttributeError:
-                params = {}
-            try:
-                captured_config_attrs = object.__getattribute__(self, "_captured_config_attrs")
-            except AttributeError:
-                captured_config_attrs = set(params)
-            grouped_config_attrs = object.__getattribute__(self, "_grouped_config_attrs")
-            if _is_public_config_attr(name, captured_config_attrs, grouped_config_attrs):
-                raise AttributeError(
-                    f"cannot modify captured operation config attribute '{name}'; "
-                    "create a new operation with the desired parameters"
-                )
-        object.__setattr__(self, name, value)
-
-    def __delattr__(self, name: str) -> None:
-        if getattr(self, "_wandas_initialized", False) and not name.startswith("_"):
-            try:
-                params = object.__getattribute__(self, "_params")
-            except AttributeError:
-                params = {}
-            try:
-                captured_config_attrs = object.__getattribute__(self, "_captured_config_attrs")
-            except AttributeError:
-                captured_config_attrs = set(params)
-            grouped_config_attrs = object.__getattribute__(self, "_grouped_config_attrs")
-            if _is_public_config_attr(name, captured_config_attrs, grouped_config_attrs):
-                raise AttributeError(f"cannot delete captured operation config attribute '{name}'")
-        object.__delattr__(self, name)
-
-    def __getattribute__(self, name: str) -> Any:
-        value = object.__getattribute__(self, name)
-        if name.startswith("_") or name == "params":
-            return value
-        try:
-            initialized = object.__getattribute__(self, "_wandas_initialized")
-        except AttributeError:
-            return value
-        if not initialized:
-            return value
-        try:
-            params = object.__getattribute__(self, "_params")
-        except AttributeError:
-            return value
-        try:
-            captured_config_attrs = object.__getattribute__(self, "_captured_config_attrs")
-        except AttributeError:
-            captured_config_attrs = set(params)
-        grouped_config_attrs = object.__getattribute__(self, "_grouped_config_attrs")
-        if _is_public_config_attr(name, captured_config_attrs, grouped_config_attrs):
-            return _snapshot_config_value(value)
-        return value
 
     @property
     def sampling_rate(self) -> float:
@@ -277,6 +258,10 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     def params(self) -> _ParamsSnapshot:
         """Return a read-only defensive snapshot of operation parameters."""
         return _ParamsSnapshot(self)
+
+    def to_params(self) -> Mapping[str, Any]:
+        """Return operation parameters used for lineage and Dask graph snapshots."""
+        return {}
 
     def validate_params(self) -> None:
         """Validate parameters (raises exception if invalid)"""

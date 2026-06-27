@@ -48,17 +48,25 @@ class Power(AudioOperation[NDArrayReal, NDArrayReal]):
         exponent : float
             Power exponent
         """
-        self.exponent = exponent
+        self._exponent = exponent
         super().__init__(sampling_rate, exponent=exponent)
+
+    @property
+    def exponent(self) -> float:
+        """Exponent captured at operation construction time."""
+        return self._exponent
 
     @property
     def exp(self) -> float:
         """Backward-compatible read-only alias for the captured exponent."""
-        return self.exponent
+        return self._exponent
+
+    def to_params(self) -> dict[str, float]:
+        return {"exponent": self._exponent}
 
     def process(self, data: DaArray) -> DaArray:
         # Use Dask's aggregate function directly without map_blocks
-        return da.power(data, self.exponent)
+        return da.power(data, self._exponent)
 
 
 class Sum(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -101,12 +109,20 @@ class ChannelDifference(AudioOperation[NDArrayReal, NDArrayReal]):
         other_channel : int
             Channel to calculate difference with, default is 0
         """
-        self.other_channel = other_channel
+        self._other_channel = other_channel
         super().__init__(sampling_rate, other_channel=other_channel)
+
+    @property
+    def other_channel(self) -> int:
+        """Other channel index captured at operation construction time."""
+        return self._other_channel
+
+    def to_params(self) -> dict[str, int]:
+        return {"other_channel": self._other_channel}
 
     def process(self, data: DaArray) -> DaArray:
         # Use Dask's aggregate function directly without map_blocks
-        result = data - data[self.other_channel]
+        result = data - data[self._other_channel]
         return result
 
 

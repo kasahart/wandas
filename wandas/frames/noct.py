@@ -132,12 +132,11 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         fr: int = 1000,
         label: str | None = None,
         metadata: dict[str, Any] | None = None,
-        operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
-        operations: tuple[Any, ...] | None = None,
+        lineage: Any | None = None,
     ) -> None:
         """
         Initialize a NOctFrame instance.
@@ -158,11 +157,10 @@ class NOctFrame(BaseFrame[NDArrayReal]):
             sampling_rate=sampling_rate,
             label=label,
             metadata=metadata,
-            operation_history=operation_history,
             channel_metadata=channel_metadata,
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,
-            operations=operations,
+            lineage=lineage,
             previous=previous,
         )
 

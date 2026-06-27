@@ -11,6 +11,8 @@ from dask.array.core import Array as DaArray
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectral import SpectralFrame
+from wandas.processing.base import LineageNode
+from wandas.processing.effects import Normalize
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 # Reference to dask array functions
@@ -415,14 +417,10 @@ class TestSpectralFrame:
                 sampling_rate=_SAMPLING_RATE,
                 label=f"ifft({self.frame.label})",
                 metadata=self.frame.metadata,
-                operation_history=[
-                    *self.frame.operation_history,
-                    {"operation": "ifft", "params": {"n_fft": _N_FFT, "window": _WINDOW}},
-                ],
                 channel_metadata=self.frame.channels.to_list(),
                 channel_ids=self.frame._channel_ids,
                 source_time_offset=mock.ANY,
-                operations=(*self.frame.operations, mock_ifft_op),
+                lineage=mock.ANY,
             )
             np.testing.assert_array_equal(
                 mock_channel_frame.call_args.kwargs["source_time_offset"],
@@ -473,12 +471,10 @@ class TestSpectralFrame:
                 **self.frame.metadata,
                 operation_name: params,
             }
-            expected_history: list[dict[str, Any]] = self.frame.operation_history.copy()
-            expected_history.append({"operation": operation_name, "params": params})
             mock_create_new_instance.assert_called_once_with(
                 data=mock_processed_data,
                 metadata=expected_metadata,
-                operation_history=expected_history,
+                lineage=mock.ANY,
             )
 
             # 戻り値の検証
@@ -557,23 +553,10 @@ class TestSpectralFrame:
                     "G": G,
                     "fr": fr,
                 },
-                operation_history=[
-                    *correct_sr_frame.operation_history,
-                    {
-                        "operation": "noct_synthesis",
-                        "params": {
-                            "fmin": fmin,
-                            "fmax": fmax,
-                            "n": n,
-                            "G": G,
-                            "fr": fr,
-                        },
-                    },
-                ],
                 channel_metadata=correct_sr_frame.channels.to_list(),
                 channel_ids=correct_sr_frame._channel_ids,
                 source_time_offset=mock.ANY,
-                operations=(*correct_sr_frame.operations, mock_noct_op),
+                lineage=mock.ANY,
                 previous=correct_sr_frame,
             )
             np.testing.assert_array_equal(
@@ -680,10 +663,7 @@ class TestSpectralFrame:
             sampling_rate=_SAMPLING_RATE,
             n_fft=_N_FFT,
             window=_WINDOW,
-            operation_history=[
-                {"operation": "fft", "params": {}},
-                {"operation": "normalize", "params": {}},
-            ],
+            lineage=LineageNode(Normalize(_SAMPLING_RATE), (LineageNode(Normalize(_SAMPLING_RATE)),)),
             channel_metadata=self.channel_metadata,
         )
 

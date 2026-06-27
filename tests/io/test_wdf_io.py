@@ -180,12 +180,6 @@ def test_save_load_roundtrip(tmp_path: Path) -> None:
     cf._channel_metadata[0].extra["sensitivity"] = 50.0
     cf._channel_metadata[1].extra["sensitivity"] = 48.5
 
-    # Add operation history
-    cf.operation_history = [
-        {"operation": "normalize", "params": {"method": "peak"}},
-        {"operation": "filter", "params": {"type": "lowpass", "cutoff": 1000}},
-    ]
-
     # Save to file
     path = tmp_path / "test_roundtrip.wdf"
     cf.save(path)
@@ -199,13 +193,8 @@ def test_save_load_roundtrip(tmp_path: Path) -> None:
     assert cf2.label == "Test Frame", f"Label mismatch: {cf2.label}"
     assert cf2.metadata.get("test_key") == "test_value", "Custom metadata key not preserved"
 
-    # Verify operation history
-    assert len(cf2.operation_history) == 2, f"Expected 2 history entries, got {len(cf2.operation_history)}"
-    assert cf2.operation_history[0]["operation"] == "normalize"
-    assert cf2.operation_history[0]["params"]["method"] == "peak"
-    assert cf2.operation_history[1]["operation"] == "filter"
-    assert cf2.operation_history[1]["params"]["type"] == "lowpass"
-    assert cf2.operation_history[1]["params"]["cutoff"] == 1000
+    # WDF no longer persists computation lineage.
+    assert cf2.operation_history == []
 
     # Verify channel data — HDF5 round-trip with same dtype: exact match expected
     np.testing.assert_array_equal(cf2.data, cf.data)
@@ -246,26 +235,14 @@ def test_wdf_roundtrip_preserves_stable_channel_ids(tmp_path: Path) -> None:
     }
 
 
-def test_wdf_operation_history_roundtrip(known_signal_frame, tmp_path: Path) -> None:
-    """WDF round-trip preserves operation_history entries (Pillar 2: metadata sync).
-
-    Verifies that operation names and parameters survive HDF5 serialization.
-    """
-    known_signal_frame.operation_history = [
-        {"operation": "normalize", "params": {"method": "peak"}},
-        {"operation": "lowpass_filter", "params": {"cutoff": 1000, "order": 4}},
-    ]
+def test_wdf_does_not_roundtrip_operation_history(known_signal_frame, tmp_path: Path) -> None:
+    """WDF does not persist operation_history; lineage is runtime-only."""
     path = tmp_path / "op_history.wdf"
-    known_signal_frame.save(path)
+    known_signal_frame.normalize().low_pass_filter(cutoff=1000, order=4).save(path)
 
     loaded = ChannelFrame.load(path)
 
-    assert len(loaded.operation_history) == 2
-    assert loaded.operation_history[0]["operation"] == "normalize"
-    assert loaded.operation_history[0]["params"]["method"] == "peak"
-    assert loaded.operation_history[1]["operation"] == "lowpass_filter"
-    assert loaded.operation_history[1]["params"]["cutoff"] == 1000
-    assert loaded.operation_history[1]["params"]["order"] == 4
+    assert loaded.operation_history == []
 
 
 def test_save_wdf_dtype_float32_converts_stored_data(tmp_path: Path) -> None:
@@ -378,26 +355,18 @@ def test_load_wdf_modified_version_still_loads(tmp_path: Path) -> None:
     assert cf2.n_samples == sr, f"Expected {sr} samples after version-modified load, got {cf2.n_samples}"
 
 
-def test_save_wdf_non_serializable_op_history_falls_back_to_string(tmp_path: Path) -> None:
-    """Non-JSON-serializable op history params fallback to str representation."""
+def test_save_wdf_does_not_create_operation_history_group(tmp_path: Path) -> None:
+    """WDF save omits legacy operation_history groups."""
     rng = np.random.default_rng(7)
     sr = 16000
     data = rng.standard_normal((1, sr))
-    cf = ChannelFrame.from_numpy(data, sr)
-
-    class NonSerializable:
-        def __str__(self) -> str:
-            return "NonSerializableObj"
-
-    cf.operation_history = [{"op": "test", "param": NonSerializable()}]
+    cf = ChannelFrame.from_numpy(data, sr).normalize()
 
     path = tmp_path / "test_non_serializable.wdf"
-    # Should not raise, but fallback to string representation
     wdf_io.save(cf, path)
 
-    # Verify it was saved as string fallback
-    cf2 = wdf_io.load(path)
-    assert cf2.operation_history[0]["param"] == "NonSerializableObj", "Non-serializable must fallback to str()"
+    with h5py.File(path, "r") as f:
+        assert "operation_history" not in f
 
 
 def test_load_no_channels(tmp_path: Path) -> None:
@@ -433,9 +402,9 @@ def test_load_json_decode_error(tmp_path: Path) -> None:
         # Invalid JSON string
         op0.attrs["params"] = "{bad_json"
 
-    # Should load and fallback to raw string
+    # Legacy operation_history groups are ignored.
     cf = wdf_io.load(path)
-    assert cf.operation_history[0]["params"] == "{bad_json"
+    assert cf.operation_history == []
 
 
 def test_load_file_not_found(tmp_path: Path) -> None:

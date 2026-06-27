@@ -115,12 +115,11 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         window: str = "hann",
         label: str | None = None,
         metadata: dict[str, Any] | None = None,
-        operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
         previous: BaseFrame[Any] | None = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
-        operations: tuple[Any, ...] | None = None,
+        lineage: Any | None = None,
     ) -> None:
         if data.ndim == 1:
             data = data.reshape(1, -1)
@@ -133,11 +132,10 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             sampling_rate=sampling_rate,
             label=label,
             metadata=metadata,
-            operation_history=operation_history,
             channel_metadata=channel_metadata,
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,
-            operations=operations,
+            lineage=lineage,
             previous=previous,
         )
 
@@ -298,11 +296,10 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             sampling_rate=self.sampling_rate,
             label=f"ifft({self.label})",
             metadata=self.metadata,
-            operation_history=[*self.operation_history, {"operation": operation_name, "params": params}],
             channel_metadata=self.channels.to_list(),
             channel_ids=self._channel_ids,
             source_time_offset=self.source_time_offset,
-            operations=(*self.operations, operation),
+            lineage=self._lineage_with_operation(operation, self.lineage),
         )
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
@@ -390,17 +387,10 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             fr=fr,
             label=f"1/{n}Oct of {self.label}",
             metadata={**self.metadata, **params},
-            operation_history=[
-                *self.operation_history,
-                {
-                    "operation": "noct_synthesis",
-                    "params": params,
-                },
-            ],
             channel_metadata=self.channels.to_list(),
             channel_ids=self._channel_ids,
             source_time_offset=self.source_time_offset,
-            operations=(*self.operations, operation),
+            lineage=self._lineage_with_operation(operation, self.lineage),
             previous=self,
         )
 

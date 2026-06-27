@@ -108,11 +108,13 @@ class TestFade:
         frame = ChannelFrame(da_from_array(sig, chunks=(1, -1)), sampling_rate=_SR)
 
         result = frame.fade(fade_ms=20.0)
-        op = result.operations[-1]
+        assert result.lineage is not None
+        op = result.lineage.operation
+        assert isinstance(op, Fade)
 
         assert op.fade_len == 20
         with pytest.raises(AttributeError):
-            op.fade_len = 0
+            setattr(op, "fade_len", 0)
 
         expected = sp_windows.tukey(200, alpha=Fade.calculate_tukey_alpha(20, 200)).reshape(1, -1)
         np.testing.assert_allclose(result.compute(), expected, rtol=1e-10, atol=1e-12)

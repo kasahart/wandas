@@ -77,8 +77,16 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         validate_sampling_rate(sampling_rate, "source sampling rate")
         validate_sampling_rate(target_sr, "target sampling rate")
-        self.target_sr = target_sr
+        self._target_sr = target_sr
         super().__init__(sampling_rate, target_sr=target_sr)
+
+    @property
+    def target_sr(self) -> float:
+        """Target sampling rate captured at operation construction time."""
+        return self._target_sr
+
+    def to_params(self) -> dict[str, float]:
+        return {"target_sr": self._target_sr}
 
     def get_metadata_updates(self) -> dict[str, Any]:
         """
@@ -94,7 +102,7 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
         Resampling always produces output at target_sr, regardless of input
         sampling rate. All necessary parameters are provided at initialization.
         """
-        return {"sampling_rate": self.target_sr}
+        return {"sampling_rate": self._target_sr}
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
@@ -111,7 +119,7 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
             Output data shape
         """
         # Calculate length after resampling using exact decimal sampling-rate ratio.
-        ratio = _resampling_fraction(self.sampling_rate, self.target_sr)
+        ratio = _resampling_fraction(self.sampling_rate, self._target_sr)
         n_samples = _ceil_resampled_length(input_shape[-1], ratio)
         return (*input_shape[:-1], n_samples)
 
@@ -125,7 +133,7 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for resampling operation"""
         logger.debug(f"Applying resampling to array with shape: {x.shape}")
-        up, down = _resampling_ratio(self.sampling_rate, self.target_sr)
+        up, down = _resampling_ratio(self.sampling_rate, self._target_sr)
         target_len = self.calculate_output_shape(x.shape)[-1]
         poly_len = _ceil_resampled_length(x.shape[-1], Fraction(up, down))
         if poly_len == target_len:
@@ -168,12 +176,22 @@ class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
         end : float
             End time for trimming (seconds)
         """
-        self.start = start
-        self.end = end
+        self._start = start
+        self._end = end
         self._start_sample = int(start * sampling_rate)
         self._end_sample = int(end * sampling_rate)
         super().__init__(sampling_rate, start=start, end=end)
-        logger.debug(f"Initialized Trim operation with start: {self.start}, end: {self.end}")
+        logger.debug(f"Initialized Trim operation with start: {self._start}, end: {self._end}")
+
+    @property
+    def start(self) -> float:
+        """Start time captured at operation construction time."""
+        return self._start
+
+    @property
+    def end(self) -> float:
+        """End time captured at operation construction time."""
+        return self._end
 
     @property
     def start_sample(self) -> int:
@@ -184,6 +202,9 @@ class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
     def end_sample(self) -> int:
         """End sample index derived from the captured end time."""
         return self._end_sample
+
+    def to_params(self) -> dict[str, float]:
+        return {"start": self._start, "end": self._end}
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
@@ -242,9 +263,17 @@ class FixLength(AudioOperation[NDArrayReal, NDArrayReal]):
             if duration is None:
                 raise ValueError("Either length or duration must be provided.")
             length = int(duration * sampling_rate)
-        self.target_length = length
+        self._target_length = length
 
-        super().__init__(sampling_rate, target_length=self.target_length)
+        super().__init__(sampling_rate, target_length=self._target_length)
+
+    @property
+    def target_length(self) -> int:
+        """Target length captured at operation construction time."""
+        return self._target_length
+
+    def to_params(self) -> dict[str, int]:
+        return {"target_length": self._target_length}
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
@@ -260,17 +289,17 @@ class FixLength(AudioOperation[NDArrayReal, NDArrayReal]):
         tuple
             Output data shape
         """
-        return (*input_shape[:-1], self.target_length)
+        return (*input_shape[:-1], self._target_length)
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for padding operation"""
         logger.debug(f"Applying padding to array with shape: {x.shape}")
         # Apply padding
-        pad_width = self.target_length - x.shape[-1]
+        pad_width = self._target_length - x.shape[-1]
         if pad_width > 0:
             result = np.pad(x, ((0, 0), (0, pad_width)), mode="constant")
         else:
-            result = x[..., : self.target_length]
+            result = x[..., : self._target_length]
         logger.debug(f"Padding applied, returning result with shape: {result.shape}")
         return result
 
@@ -311,19 +340,53 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         Aw : bool
             Whether to apply A-weighting before RMS calculation
         """
-        self.frame_length = frame_length
-        self.hop_length = hop_length
-        self.dB = dB
-        self.Aw = Aw
-        self.ref = np.array(ref if isinstance(ref, list) else [ref])
+        self._frame_length = frame_length
+        self._hop_length = hop_length
+        self._dB = dB
+        self._Aw = Aw
+        self._ref = np.array(ref if isinstance(ref, list) else [ref])
         super().__init__(
             sampling_rate,
             frame_length=frame_length,
             hop_length=hop_length,
             dB=dB,
             Aw=Aw,
-            ref=self.ref,
+            ref=self._ref,
         )
+
+    @property
+    def frame_length(self) -> int:
+        """Frame length captured at operation construction time."""
+        return self._frame_length
+
+    @property
+    def hop_length(self) -> int:
+        """Hop length captured at operation construction time."""
+        return self._hop_length
+
+    @property
+    def dB(self) -> bool:  # noqa: N802
+        """Whether output is converted to decibels."""
+        return self._dB
+
+    @property
+    def Aw(self) -> bool:  # noqa: N802
+        """Whether A-weighting is applied before RMS calculation."""
+        return self._Aw
+
+    @property
+    def ref(self) -> NDArrayReal:
+        """Reference values captured at operation construction time."""
+        return self._ref.copy()
+
+    def to_params(self) -> dict[str, Any]:
+        return {
+            "frame_length": self._frame_length,
+            "hop_length": self._hop_length,
+            "dB": self._dB,
+            "Aw": self._Aw,
+            "ref": self._ref,
+        }
 
     def get_metadata_updates(self) -> dict[str, Any]:
         """
@@ -339,7 +402,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         The output sampling rate is determined by downsampling the input
         by hop_length. All necessary parameters are provided at initialization.
         """
-        new_sr = self.sampling_rate / self.hop_length
+        new_sr = self.sampling_rate / self._hop_length
         return {"sampling_rate": new_sr}
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
@@ -356,7 +419,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         tuple
             Output data shape (channels, frames)
         """
-        n_frames = _centered_frame_count(input_shape[-1], self.frame_length, self.hop_length)
+        n_frames = _centered_frame_count(input_shape[-1], self._frame_length, self._hop_length)
         return (*input_shape[:-1], n_frames)
 
     @staticmethod
@@ -367,7 +430,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         """Create processor function for RMS calculation"""
         logger.debug(f"Applying RMS to array with shape: {x.shape}")
 
-        if self.Aw:
+        if self._Aw:
             # Apply A-weighting
             _x = A_weight(x, self.sampling_rate)
             if isinstance(_x, np.ndarray):
@@ -380,11 +443,11 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
                 raise ValueError("A_weighting returned an unexpected type.")
 
         # Calculate RMS
-        result: NDArrayReal = _frame_rms(x, frame_length=self.frame_length, hop_length=self.hop_length)
+        result: NDArrayReal = _frame_rms(x, frame_length=self._frame_length, hop_length=self._hop_length)
 
-        if self.dB:
+        if self._dB:
             # Convert to dB
-            result = 20 * np.log10(np.maximum(result / self.ref[..., np.newaxis], DB_FLOOR))
+            result = 20 * np.log10(np.maximum(result / self._ref[..., np.newaxis], DB_FLOOR))
         logger.debug(f"RMS applied, returning result with shape: {result.shape}")
         return result
 
@@ -411,22 +474,22 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
         dB: bool = False,
     ) -> None:
         validate_sampling_rate(sampling_rate)
-        self.ref = np.atleast_1d(np.asarray(ref, dtype=float))
-        if np.any(self.ref <= 0):
+        self._ref = np.atleast_1d(np.array(ref, dtype=float, copy=True))
+        if np.any(self._ref <= 0):
             raise ValueError(
                 "Invalid sound level reference\n"
-                f"  Got: {self.ref.tolist()}\n"
+                f"  Got: {self._ref.tolist()}\n"
                 "  Expected: Positive reference values\n"
                 "Sound pressure level requires a positive reference pressure."
             )
-        self.freq_weighting = self._normalize_freq_weighting(freq_weighting)
-        self.time_weighting = self._normalize_time_weighting(time_weighting)
-        self.dB = dB
+        self._freq_weighting = self._normalize_freq_weighting(freq_weighting)
+        self._time_weighting = self._normalize_time_weighting(time_weighting)
+        self._dB = dB
         super().__init__(
             sampling_rate,
-            ref=self.ref,
-            freq_weighting=self.freq_weighting,
-            time_weighting=self.time_weighting,
+            ref=self._ref,
+            freq_weighting=self._freq_weighting,
+            time_weighting=self._time_weighting,
             dB=dB,
         )
 
@@ -457,9 +520,37 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
         )
 
     @property
+    def ref(self) -> NDArrayReal:
+        """Reference values captured at operation construction time."""
+        return self._ref.copy()
+
+    @property
+    def freq_weighting(self) -> str:
+        """Frequency weighting captured at operation construction time."""
+        return self._freq_weighting
+
+    @property
+    def time_weighting(self) -> str:
+        """Time weighting captured at operation construction time."""
+        return self._time_weighting
+
+    @property
+    def dB(self) -> bool:  # noqa: N802
+        """Whether output is converted to decibels."""
+        return self._dB
+
+    def to_params(self) -> dict[str, Any]:
+        return {
+            "ref": self._ref,
+            "freq_weighting": self._freq_weighting,
+            "time_weighting": self._time_weighting,
+            "dB": self._dB,
+        }
+
+    @property
     def time_constant(self) -> float:
         """Return the RC time constant in seconds."""
-        return 0.125 if self.time_weighting == "Fast" else 1.0
+        return 0.125 if self._time_weighting == "Fast" else 1.0
 
     @staticmethod
     def _output_dtype(
@@ -472,20 +563,20 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def get_display_name(self) -> str:
         """Get display name for the operation for use in channel labels."""
-        if self.dB:
-            return f"L{self.freq_weighting}{self.time_weighting[0]}"
-        return f"{self.freq_weighting}{self.time_weighting[0]}RMS"
+        if self._dB:
+            return f"L{self._freq_weighting}{self._time_weighting[0]}"
+        return f"{self._freq_weighting}{self._time_weighting[0]}RMS"
 
     def _reference_squared(self, n_channels: int) -> NDArrayReal:
         """Return squared reference pressure for each channel."""
-        if self.ref.size == 1:
-            ref = np.repeat(self.ref, n_channels)
-        elif self.ref.size == n_channels:
-            ref = self.ref
+        if self._ref.size == 1:
+            ref = np.repeat(self._ref, n_channels)
+        elif self._ref.size == n_channels:
+            ref = self._ref
         else:
             raise ValueError(
                 "Reference count mismatch\n"
-                f"  Got: {self.ref.size} reference values for {n_channels} channels\n"
+                f"  Got: {self._ref.size} reference values for {n_channels} channels\n"
                 "  Expected: One shared reference or one reference per channel\n"
                 "Provide ref as a scalar or a list matching the number of channels."
             )
@@ -496,19 +587,19 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
         logger.debug(
             "Applying sound level to array with shape %s using %s/%s weighting",
             x.shape,
-            self.freq_weighting,
-            self.time_weighting,
+            self._freq_weighting,
+            self._time_weighting,
         )
         output_dtype = self._output_dtype(x.dtype)
         weighted_input = x if x.dtype == np.float64 else np.asarray(x, dtype=np.float64)
-        if self.freq_weighting == "Z":
+        if self._freq_weighting == "Z":
             weighted = weighted_input
         else:
-            weighted = frequency_weight(weighted_input, self.sampling_rate, curve=self.freq_weighting)
+            weighted = frequency_weight(weighted_input, self.sampling_rate, curve=self._freq_weighting)
         squared = np.square(weighted)
         alpha = np.asarray(np.exp(-1.0 / (self.sampling_rate * self.time_constant)), dtype=np.float64).item()
         smoothed = lfilter([1.0 - alpha], [1.0, -alpha], squared, axis=-1)
-        if self.dB:
+        if self._dB:
             ref_squared_broadcast = self._reference_squared(smoothed.shape[0])[:, np.newaxis]
             result = 10.0 * np.log10(np.maximum(smoothed / ref_squared_broadcast, MIN_SOUND_LEVEL_POWER_RATIO))
         else:

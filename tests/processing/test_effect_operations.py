@@ -50,8 +50,8 @@ class TestHpssHarmonic:
     def test_hpss_harmonic_empty_kwargs_reassignment_is_blocked(self) -> None:
         hpss = HpssHarmonic(_SR)
 
-        with pytest.raises(AttributeError, match="cannot modify captured operation config attribute 'kwargs'"):
-            hpss.kwargs = {"margin": 8.0}
+        with pytest.raises(AttributeError):
+            setattr(hpss, "kwargs", {"margin": 8.0})
 
         assert hpss.kwargs == {}
         assert object.__getattribute__(hpss, "kwargs") == {}
@@ -59,8 +59,8 @@ class TestHpssHarmonic:
     def test_hpss_harmonic_kwargs_reassignment_to_non_mapping_is_blocked(self) -> None:
         hpss = HpssHarmonic(_SR, margin=2.0)
 
-        with pytest.raises(AttributeError, match="cannot modify captured operation config attribute 'kwargs'"):
-            hpss.kwargs = None
+        with pytest.raises(AttributeError):
+            setattr(hpss, "kwargs", None)
 
         assert hpss.kwargs == {"margin": 2.0}
         assert object.__getattribute__(hpss, "kwargs") == {"margin": 2.0}

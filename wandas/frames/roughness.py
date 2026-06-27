@@ -116,12 +116,11 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         overlap: float,
         label: str | None = None,
         metadata: dict[str, Any] | None = None,
-        operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
-        operations: tuple[Any, ...] | None = None,
+        lineage: Any | None = None,
     ) -> None:
         """Initialize a RoughnessFrame."""
         # Validate dimensions
@@ -152,11 +151,10 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             sampling_rate=sampling_rate,
             label=label or "roughness_spec",
             metadata=metadata,
-            operation_history=operation_history,
             channel_metadata=channel_metadata,
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,
-            operations=operations,
+            lineage=lineage,
             previous=previous,
         )
 
@@ -315,8 +313,6 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         logger.debug(f"Setting up {symbol} operation (lazy)")
 
         metadata = self.metadata.copy()
-        operation_history = [*self.operation_history]
-
         # Check if other is a RoughnessFrame
         if isinstance(other, RoughnessFrame):
             if self.sampling_rate != other.sampling_rate:
@@ -327,11 +323,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
 
             # Apply operation
             result_data = op(self._data, other._data)
-            operations = (*self.operations, *other.operations)
-
-            # Update operation history
-            operation_history.extend(other.operation_history)
-            operation_history.append({"name": f"binary_op_{symbol}", "params": {"other": "RoughnessFrame"}})
+            operand_kind = "frame"
+            lineage_inputs = (self.lineage, other.lineage)
 
         else:
             # Scalar or array operation
@@ -339,9 +332,16 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
                 other = _da_from_array(other, chunks=self._data.chunks)
 
             result_data = op(self._data, other)
-            operations = self.operations
+            operand_kind = "operand"
+            lineage_inputs = (self.lineage,)
 
-            operation_history.append({"name": f"binary_op_{symbol}", "params": {"other": str(type(other))}})
+        from wandas.processing.base import BinaryOperation
+
+        binary_operation = BinaryOperation(
+            symbol=symbol,
+            operand_kind=operand_kind,
+            operand=None if operand_kind == "frame" else other,
+        )
 
         # Create new instance
         return RoughnessFrame(
@@ -351,11 +351,10 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             overlap=self._overlap,
             label=self.label,
             metadata=metadata,
-            operation_history=operation_history,
             channel_metadata=self.channels.to_list(),
             channel_ids=self._channel_ids,
             source_time_offset=self.source_time_offset,
-            operations=operations,
+            lineage=self._lineage_with_operation(binary_operation, *lineage_inputs),
             previous=self,
         )
 

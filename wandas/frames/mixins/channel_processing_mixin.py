@@ -328,15 +328,14 @@ class ChannelProcessingMixin:
         reduced_source_time_offset = (
             source_time_offset[:1] if (source_time_offset == source_time_offset[0]).all() else 0.0
         )
-        new_metadata, new_history = self._updated_metadata_and_history(op, {})
+        new_metadata = self._updated_metadata(op, {})
         operation = create_operation(op, cast(Any, self).sampling_rate)
         result = self._create_new_instance(
             data=reduced_data,
             metadata=new_metadata,
-            operation_history=new_history,
             channel_metadata=new_channel_metadata,
             source_time_offset=reduced_source_time_offset,
-            operations=(*cast(Any, self).operations, operation),
+            lineage=cast(Any, self)._lineage_with_operation(operation, cast(Any, self).lineage),
         )
         return result
 
@@ -894,12 +893,8 @@ class ChannelProcessingMixin:
         # Get metadata updates (sampling rate, bark_axis)
         metadata_updates = operation.get_metadata_updates()
 
-        # Build metadata and history
+        # Build metadata
         new_metadata = {**self.metadata, **params}
-        new_history = [
-            *self.operation_history,
-            {"operation": operation_name, "params": params},
-        ]
 
         # Extract bark_axis with proper type handling
         bark_axis_value = metadata_updates.get("bark_axis")
@@ -915,11 +910,10 @@ class ChannelProcessingMixin:
             overlap=overlap,
             label=f"{self.label}_roughness_spec" if self.label else "roughness_spec",
             metadata=new_metadata,
-            operation_history=new_history,
             channel_metadata=cast(Any, self).channels.to_list(),
             channel_ids=cast(Any, self)._channel_ids,
             source_time_offset=cast(Any, self).source_time_offset,
-            operations=(*cast(Any, self).operations, operation),
+            lineage=cast(Any, self)._lineage_with_operation(operation, cast(Any, self).lineage),
             previous=cast("BaseFrame[NDArrayReal]", self),
         )
 

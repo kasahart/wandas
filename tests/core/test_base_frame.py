@@ -11,6 +11,8 @@ from dask.array.core import Array as DaArray
 import wandas as wd
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
+from wandas.processing.base import LineageNode
+from wandas.processing.effects import Normalize
 from wandas.utils.dask_helpers import da_from_array
 
 
@@ -45,7 +47,7 @@ class TestBaseFrameArithmeticOperations:
         assert result.n_samples == 16000
         assert len(result.operation_history) == 1
         assert result.operation_history[0]["operation"] == "**"
-        assert result.operation_history[0]["with"] == "2"
+        assert result.operation_history[0]["params"]["operand"] == {"type": "int", "value": 2}
 
         # Pillar 4: Numerical correctness — deterministic expected value
         computed = result.compute()
@@ -73,7 +75,7 @@ class TestBaseFrameArithmeticOperations:
         assert result.n_samples == 16000
         assert len(result.operation_history) == 1
         assert result.operation_history[0]["operation"] == "**"
-        assert result.operation_history[0]["with"] == "exponent"
+        assert result.operation_history[0]["params"]["operand_kind"] == "frame"
 
         # Pillar 4: Numerical correctness
         computed = result.compute()
@@ -94,7 +96,7 @@ class TestBaseFrameArithmeticOperations:
         assert result.sampling_rate == self.sample_rate
         assert len(result.operation_history) == 1
         assert result.operation_history[0]["operation"] == "**"
-        assert "ndarray" in result.operation_history[0]["with"]
+        assert result.operation_history[0]["params"]["operand"]["type"] == "ndarray"
 
         # Pillar 4: Numerical correctness
         computed = result.compute()
@@ -116,7 +118,7 @@ class TestBaseFrameArithmeticOperations:
         assert result.sampling_rate == self.sample_rate
         assert len(result.operation_history) == 1
         assert result.operation_history[0]["operation"] == "**"
-        assert "dask.array" in result.operation_history[0]["with"]
+        assert result.operation_history[0]["params"]["operand"]["type"] == "dask.array"
 
         # Pillar 4: Numerical correctness — sqrt of deterministic ramp
         computed = result.compute()
@@ -932,18 +934,18 @@ class TestBaseFrameInitialization:
         assert frame.channels[2].label == "ch2"
         assert isinstance(frame._data, DaArray)
 
-    def test_init_with_operation_history(self) -> None:
-        """Test initialization with operation history."""
+    def test_init_with_lineage(self) -> None:
+        """Test initialization with lineage."""
         data = np.linspace(0.1, 1.0, 32000).reshape(2, 16000)
         dask_data: DaArray = da_from_array(data, chunks=(1, -1))
-        history = [{"operation": "test", "param": "value"}]
+        operation = Normalize(self.sample_rate)
         frame = ChannelFrame(
             data=dask_data,
             sampling_rate=self.sample_rate,
-            operation_history=history,
+            lineage=LineageNode(operation),
         )
         assert len(frame.operation_history) == 1
-        assert frame.operation_history[0]["operation"] == "test"
+        assert frame.operation_history[0]["operation"] == "normalize"
 
     def test_init_with_metadata(self) -> None:
         """Test initialization with custom metadata."""
