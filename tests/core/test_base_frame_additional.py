@@ -740,6 +740,8 @@ def test_label_metadata_and_operation_history_attrs_validation():
     assert f.operation_history == []
     with pytest.raises(AttributeError):
         setattr(f, "operation_history", cast(Any, "bad"))
+    with pytest.raises(AttributeError):
+        setattr(f, "lineage", LineageNode(_TestLineageOperation("bad")))
 
 
 def test_create_new_instance_rejects_legacy_history_and_validates_channel_ids():
@@ -843,7 +845,7 @@ def test_apply_operation_helpers_update_metadata_and_history(monkeypatch):
     result = f._apply_operation_instance(FakeOperation())
 
     assert result.sampling_rate == 200.0
-    assert result.metadata["fake"] == {"amount": 2}
+    assert result.metadata == f.metadata
     assert result.operation_history[-1] == {"operation": "fake", "params": {"amount": 2}}
     assert result.labels == ["Fake(ch0)", "Fake(ch1)"]
     assert dependency_calls == 1
@@ -855,7 +857,7 @@ def test_apply_operation_helpers_update_metadata_and_history(monkeypatch):
     monkeypatch.setattr("wandas.processing.create_operation", lambda name, sampling_rate, **params: CreatedOperation())
     applied = BaseFrame._apply_operation_impl(f, "created", gain=3)
 
-    assert applied.metadata["created"] == {"gain": 3}
+    assert applied.metadata == f.metadata
     assert dependency_calls == 2
 
     class TrimOperation(FakeOperation):

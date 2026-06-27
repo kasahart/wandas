@@ -5,6 +5,8 @@
 This phase introduces xarray only as an axis-aware data container for Wandas frames.
 It is not an xarray-native execution, metadata, or storage migration.
 
+Current provenance note: this phase predates the runtime-lineage cleanup. In the current model, operation provenance is runtime-only: `lineage` is the source of truth, and `operation_history` is a read-only derived compatibility view that is not backed by `_xr.attrs`.
+
 The goal is to evaluate whether replacing `BaseFrame`'s direct Dask-array ownership with
 `xr.DataArray` reduces long-term complexity without changing the existing Wandas API or
 operation semantics.
@@ -36,7 +38,7 @@ Wandas:
   sampling_rate
   label
   metadata
-  operation_history
+  lineage
   channel_metadata
   previous
   domain API
@@ -70,7 +72,7 @@ def _replace_data(self, data: DaArray) -> None:
 ```
 
 `_replace_data()` updates only the xarray data container. It must not mutate or synchronize
-`sampling_rate`, `label`, `metadata`, `operation_history`, or `_channel_metadata`.
+`sampling_rate`, `label`, `metadata`, runtime provenance, or `_channel_metadata`.
 
 ## Data model
 
@@ -137,10 +139,10 @@ wandas_frame_type
 sampling_rate
 label
 metadata
-operation_history
 ```
 
 These attrs are export metadata only. They do not back the live Wandas frame state.
+Current exports omit runtime provenance attrs (`operation_history` and `operation_graph`).
 
 `.xr` is a convenience alias for `to_xarray()`.
 
@@ -171,7 +173,7 @@ Phase 1 does not include:
 
 ```text
 metadata backed by _xr.attrs
-operation_history backed by _xr.attrs
+runtime provenance backed by _xr.attrs
 channel_metadata backed by _xr.attrs
 sampling_rate or label backed by _xr.attrs
 wd.from_xarray() broad restoration
@@ -182,6 +184,7 @@ operation chunk-policy integration
 ```
 
 These are later-phase topics and should not enter this PR.
+The later lineage cleanup chose runtime-only provenance instead of `operation_history` attrs backing.
 
 ## Lazy execution requirements
 

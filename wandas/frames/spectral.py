@@ -54,8 +54,9 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         A label for the frame.
     metadata : dict, optional
         Additional metadata for the frame.
-    operation_history : list[dict], optional
-        History of operations performed on this frame.
+    lineage : LineageNode, optional
+        Runtime operation lineage for this frame. ``operation_history`` is a
+        read-only derived compatibility view.
     channel_metadata : list[ChannelMetadata], optional
         Metadata for each channel in the frame.
     previous : BaseFrame, optional
@@ -99,7 +100,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     - All operations are performed lazily using dask arrays for efficient memory usage.
     - Binary operations (+, -, *, /) can be performed between SpectralFrames or with
       scalar values.
-    - The class maintains the processing history and metadata through all operations.
+    - The class maintains runtime lineage and metadata through all operations.
     """
 
     _xarray_dim_suffix = ("channel", "frequency")

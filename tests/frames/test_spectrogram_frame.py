@@ -549,9 +549,8 @@ class TestSpectrogramFrame:
         # 結果が正しいSpectrogramFrameオブジェクトであることを確認
         assert isinstance(result, SpectrogramFrame)
 
-        # メタデータが正しく更新されていることを確認
-        assert "test_operation" in result.metadata
-        assert result.metadata["test_operation"] == {"param1": 10, "param2": "test"}
+        # Operation params are stored in lineage, not duplicated into metadata.
+        assert "test_operation" not in result.metadata
 
         # 操作履歴が正しく更新されていることを確認
         last_operation = result.operation_history[-1]
@@ -572,8 +571,7 @@ class TestSpectrogramFrame:
             operation = create_operation(operation_name, self.sampling_rate, **params)
             processed_data = operation.process(self._data)
 
-            new_metadata = {**self.metadata}
-            new_metadata[operation_name] = params
+            new_metadata = self._updated_metadata(operation_name, params)
 
             return self._create_new_instance(
                 data=processed_data,
@@ -613,7 +611,7 @@ class TestSpectrogramFrame:
         # 結果の検証
         assert isinstance(result, SpectrogramFrame)
         assert_array_equal(result.data, processed_data)
-        assert "test_operation" in result.metadata
+        assert "test_operation" not in result.metadata
         assert result.operation_history[-1]["operation"] == "test_operation"
 
     def test_dBA_property(  # noqa: N802
@@ -691,9 +689,8 @@ class TestSpectrogramFrame:
         assert abs_spec.operation_history[-1]["operation"] == "abs"
         assert abs_spec.operation_history[-1].get("params", {}) == {}
 
-        # メタデータに "abs" が追加されていることを確認
-        assert "abs" in abs_spec.metadata
-        assert abs_spec.metadata["abs"] == {}
+        # Operation params are stored in lineage, not duplicated into metadata.
+        assert "abs" not in abs_spec.metadata
 
         # チャネルメタデータが保持されていることを確認
         assert abs_spec._channel_metadata == spec._channel_metadata

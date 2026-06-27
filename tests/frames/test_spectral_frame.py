@@ -467,10 +467,7 @@ class TestSpectralFrame:
             mock_create_op.assert_called_once_with(operation_name, _SAMPLING_RATE, **params)
             mock_op.process.assert_called_once_with(self.data)
 
-            expected_metadata: dict[str, Any] = {
-                **self.frame.metadata,
-                operation_name: params,
-            }
+            expected_metadata: dict[str, Any] = dict(self.frame.metadata)
             mock_create_new_instance.assert_called_once_with(
                 data=mock_processed_data,
                 metadata=expected_metadata,

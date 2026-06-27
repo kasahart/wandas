@@ -18,7 +18,7 @@ The migration has already reached these points:
 - `BaseFrame` stores data in `_xr: xarray.DataArray`
 - `_data` remains a read-only compatibility alias to `_xr.data`
 - xarray dims and channel coords are used for the supported frame schemas
-- frame-level state is backed by `_xr.attrs`
+- durable frame-level state is backed by `_xr.attrs`; operation provenance is runtime-only lineage with a derived `operation_history` compatibility view
 - `FrameMetadata` has been removed
 - `ChannelMetadata` is a standard-library dataclass
 - operation execution is still the existing Wandas/Dask path

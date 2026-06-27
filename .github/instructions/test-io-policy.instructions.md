@@ -40,7 +40,9 @@ For WDF round-trips, verify that all of the following are preserved:
 - Numerical data (`np.testing.assert_allclose` rtol=1e-6)
 - Sampling rate
 - Channel labels
-- `operation_history`
+- user/recording metadata
+
+Runtime provenance (`lineage`, `operation_history`, `operation_graph`) is not part of the WDF persistence contract unless that contract explicitly changes.
 
 ---
 

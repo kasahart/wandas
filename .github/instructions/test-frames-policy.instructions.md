@@ -54,8 +54,8 @@ When adding a new Frame method, always include the following 4 categories:
 **1. Immutability** — the original frame must not be modified:
 Copy the original data before the operation, then verify with `assert result is not channel_frame` that the original instance's data has not changed and that the return value is a new instance.
 
-**2. Metadata Propagation** — sampling rate and history are correctly updated:
-Verify that the sampling rate is preserved after the operation. For methods designed to record history, verify that the `operation_history` count increases by exactly 1. For structural operations that only modify the channel collection (`add_channel` / `remove_channel` / `rename_channels`, etc.), verify that `operation_history` remains unchanged.
+**2. Metadata Propagation** — sampling rate and runtime lineage are correctly updated:
+Verify that the sampling rate is preserved after the operation. For methods designed to record provenance, verify that runtime lineage is extended and that the derived `operation_history` count increases by exactly 1. For structural operations that only modify the channel collection (`add_channel` / `remove_channel` / `rename_channels`, etc.), verify that lineage-derived `operation_history` remains unchanged.
 
 **3. Lazy Evaluation** — Dask array is preserved:
 Verify that `result._data` is an instance of `dask.array.core.Array` after the operation.

@@ -35,9 +35,17 @@ class BaseFrameProtocol(Protocol):
     sampling_rate: float
     _channel_metadata: list[ChannelMetadata]
     metadata: dict[str, Any]
-    operation_history: list[dict[str, Any]]
-    lineage: Any | None
     label: str
+
+    @property
+    def operation_history(self) -> list[dict[str, Any]]:
+        """Flat read-only compatibility view derived from runtime lineage."""
+        ...
+
+    @property
+    def lineage(self) -> Any | None:
+        """Runtime computation lineage."""
+        ...
 
     @property
     def duration(self) -> float:

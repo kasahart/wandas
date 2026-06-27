@@ -14,7 +14,7 @@ This phase is a dependency and complexity reduction step. It does not move chann
 
 ## Context
 
-After Phase 3, frame-level state is backed by `BaseFrame._xr.attrs`, and `FrameMetadata` has been removed. The remaining metadata-specific production type is `ChannelMetadata` in `wandas/core/metadata.py`.
+After Phase 3, durable frame-level state is backed by `BaseFrame._xr.attrs`, runtime operation provenance is held in lineage, and `FrameMetadata` has been removed. The remaining metadata-specific production type is `ChannelMetadata` in `wandas/core/metadata.py`.
 
 `ChannelMetadata` currently depends on Pydantic for:
 

@@ -5,12 +5,12 @@ These instructions are for Wandas custom agents. For substantive implementation,
 ## 1. Big Picture & Architecture
 - **Purpose**: Wandas provides pandas‑like data structures and operations for waveform/signal analysis (see `README.md`).
 - **Core packages** (under `wandas/`):
-  - `frames/`: user‑facing data structures (`ChannelFrame`, `SpectralFrame`, `SpectrogramFrame`) handling axes, metadata, and `operation_history`.
+  - `frames/`: user‑facing data structures (`ChannelFrame`, `SpectralFrame`, `SpectrogramFrame`) handling axes, metadata, and runtime lineage.
   - `processing/`: pure numerical logic for filters, spectral analysis, psychoacoustics, temporal/stats/effects; frame methods should delegate here.
   - `io/`: I/O helpers for WAV/WDF/CSV (`wav_io.py`, `wdf_io.py`, `readers.py`) plus sample data/datasets.
   - `visualization/`: plotting helpers returning Matplotlib `Axes` that build on frame methods (e.g. `plotting.py`).
   - `core/`, `utils/`, `datasets/`: shared protocol types, base classes, small utilities, dataset helpers.
-- **Design goals**: immutable frame semantics, traceable `operation_history`, preserved metadata (including sampling rate and channel info), and optional Dask‑based lazy execution.
+- **Design goals**: immutable frame semantics, traceable runtime lineage with a read-only `operation_history` compatibility view, preserved metadata (including sampling rate and channel info), and optional Dask‑based lazy execution.
 
 ## 2. Development Workflow & Commands
 - **Environment**: use `uv` for all Python commands (see `pyproject.toml`).
@@ -32,23 +32,24 @@ These instructions are for Wandas custom agents. For substantive implementation,
 ## 3. Frames, Immutability, and Metadata
 - **Never mutate frames in place**: all frame operations must return new frame objects; treat underlying arrays/graphs as immutable from the API perspective.
 - **Always maintain together** when implementing frame operations:
-  - `operation_history` entries (what was done and with which parameters, in call‑order).
+  - runtime `lineage` entries (what was done and with which parameters); `operation_history` is derived from lineage.
   - Sampling rate, time/frequency axes, and channel labels.
   - User/recording metadata carried from inputs to outputs, including when changing domains (time → spectral → spectrogram).
 - **Metadata update encapsulation**:
-  - Prefer helpers on frames (e.g. `_with_updated_metadata`, `replace(...)`) to update data + metadata + history atomically.
-  - Avoid scattered direct dict updates to `metadata` or `operation_history`; keep them inside frame classes or dedicated utilities in `frames/`.
+  - Prefer helpers on frames (e.g. `_create_new_instance(...)`) to update data + metadata + lineage atomically.
+  - Keep operation parameters in lineage, not in `metadata[operation_name]`; metadata should carry user/recording/domain state.
+  - Avoid scattered direct dict updates to `metadata` or provenance; keep them inside frame classes or dedicated utilities in `frames/`.
 - **Dask laziness**:
   - Preserve lazy execution where present: build Dask graphs and avoid eager `.compute()` unless required by the public API or tests.
   - When refactoring, check spectral/roughness/spectrogram code paths to ensure you do not force computation earlier than before.
 
 ## 4. Processing API & Project‑Specific Patterns
 - **Separation of concerns**:
-  - Frame methods should be thin facades: validate inputs, manage metadata/history, and dispatch into `processing/` functions.
+  - Frame methods should be thin facades: validate inputs, manage metadata/lineage, and dispatch into `processing/` functions.
   - Numerical algorithms (FFT, filters, psychoacoustic metrics, statistics, effects) should live in `processing/` modules like `filters.py`, `spectral.py`, `psychoacoustic.py`, `temporal.py`, `stats.py`, `effects.py`.
 - **Adding new operations**:
   - First add a function in the appropriate `processing/` module.
-  - Then add a frame method in `frames/` that delegates to that function and wraps the result in a new frame with updated metadata/history.
+  - Then add a frame method in `frames/` that delegates to that function and wraps the result in a new frame with updated metadata/lineage.
   - Mirror parameter naming and default values of nearby functions/methods; avoid inventing new patterns unless necessary.
 - **I/O patterns**:
   - Use `io/wav_io.py`, `io/wdf_io.py`, and `io/readers.py` as references for how sampling rate, channels, and metadata are handled, especially for WDF/HDF5 round‑trips.
@@ -64,6 +65,7 @@ These instructions are for Wandas custom agents. For substantive implementation,
   - When changing behavior, locate relevant tests in `tests/` and update or extend them first; tests define expectations for metadata, axes, lazy behavior, and numerical tolerances.
 - **Minimal surface (YAGNI)**:
   - Implement the smallest API surface that satisfies existing tests and documented use cases; avoid speculative flags or configuration.
+  - Do not add complex compatibility layers for undocumented or ambiguous behavior; prefer clarifying the contract, removing state duplication, and making unsupported mutation explicit.
 - **Extensibility & maintainability**:
   - Prefer small, composable helpers in `processing/` and short, chainable frame methods over large monolithic functions.
   - Reuse existing helpers for resampling, filtering, spectral transforms, etc., instead of duplicating logic; factor out shared pieces when duplication is unavoidable.
@@ -101,7 +103,7 @@ These instructions are for Wandas custom agents. For substantive implementation,
 - **Implementer**:
   - Usually follows a planner handoff, but can handle explicit, tightly scoped follow-up implementation when the scope and validation context are already clear.
   - Follow the planner handoff when one is provided; if assumptions change, update the plan before editing.
-  - Keep frames immutable, preserve metadata/history, and honor Dask laziness as described above.
+  - Keep frames immutable, preserve metadata/lineage, and honor Dask laziness as described above.
   - Run the relevant VS Code tasks when they exist, and record the task names plus any direct `uv run ...` commands that were needed.
   - Run `Build MkDocs Documentation` only when `docs/`, `src/`, `README.md`, or other MkDocs-backed user-facing markdown changed; `.github/` customization-only changes normally do not require it.
 - **Reviewer**:

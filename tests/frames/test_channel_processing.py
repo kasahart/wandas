@@ -214,9 +214,9 @@ class TestChannelProcessing:
         assert last_op["operation"] == "custom"
         assert last_op["params"] == {"bias": 0.0}
 
-        # Metadata should include the new entry while preserving existing keys
+        # Metadata should preserve user/domain keys without duplicating operation params.
         assert frame.metadata == {"source": "test"}
-        assert result.metadata == {"source": "test", "custom": {"bias": 0.0}}
+        assert result.metadata == {"source": "test"}
 
         # Channel labels should use display name from callable __name__
         assert result.labels == ["fancy(sig)", "fancy(ch1)"]
@@ -313,7 +313,7 @@ class TestChannelProcessing:
         assert result.label == frame.label
         assert frame.labels == ["sig0", "sig1"]
         assert result.labels == ["rfft_transform(sig0)", "rfft_transform(sig1)"]
-        assert result.metadata == {"source": "test", "_source_file": "input.wav", "custom": {}}
+        assert result.metadata == {"source": "test", "_source_file": "input.wav"}
         assert result.metadata["_source_file"] == "input.wav"
         assert frame.metadata["_source_file"] == "input.wav"
         assert frame.operation_history[0]["operation"] == "normalize"
@@ -951,12 +951,11 @@ class TestChannelProcessing:
         expected_sr = base.sampling_rate / hop_length if hop_length else base.sampling_rate
         assert result.sampling_rate == expected_sr
         assert result.label == base.label
-        # metadata: baseの内容が含まれていること、新しい操作分のキーが追加されていること
+        # metadata: base user/domain metadata is preserved without operation params duplication.
         for k, v in base.metadata.items():
             assert k in result.metadata
             assert result.metadata[k] == v
-        if op_key is not None:
-            assert op_key in result.metadata
+        assert result.metadata == base.metadata
         # _channel_metadata: unit="Pa"のrefが期待値通りか確認
         if hasattr(result, "_channel_metadata") and hasattr(base, "_channel_metadata"):
             for res_meta, base_meta in zip(result._channel_metadata, base._channel_metadata):

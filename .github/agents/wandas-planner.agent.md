@@ -9,7 +9,7 @@ handoffs:
     prompt: >
       Implement the approved plan above. Use the requirements, impact analysis, design notes,
       test plan, and risks as the source of truth. Preserve frame immutability, metadata and
-      operation_history updates, and Dask laziness. Follow TDD where applicable, run the relevant
+      runtime lineage updates, and Dask laziness. Follow TDD where applicable, run the relevant
       quality checks, and finish with the required deliverables: summary of changes, tests added
       or updated, command log, documentation updates, residual risks, and agent retrospective.
     send: true
@@ -40,5 +40,5 @@ handoffs:
   - Identify **reference libraries** for Integration-layer tests (scipy, librosa, mosqito).
   - **Test pattern updates**: If error messages change, identify `pytest.raises(..., match=...)` patterns that need updating. Use `grep -r "old message text" tests/` to find affected tests before planning changes.
   - List specific test functions that will need modification.
-- **Risks**: performance, API breakage, metadata/history edge cases.
+- **Risks**: performance, API breakage, metadata/lineage edge cases.
 - **Agent retrospective**: after planning, review `.github/agents/*.agent.md` for improvements and note any follow-up tasks.

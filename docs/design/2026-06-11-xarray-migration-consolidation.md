@@ -36,7 +36,8 @@ Wandas
 - `_data` is a read-only compatibility alias to `_xr.data`.
 - Supported frame schemas use semantic xarray dims and centralized channel coords.
 - Channel `label`, `unit`, and `ref` are stored as xarray coords when a semantic `channel` dimension is present; channel `extra` is stored in `_xr.attrs` by stable channel id.
-- Frame-level state such as `label`, `sampling_rate`, `metadata`, and `operation_history` is backed by `_xr.attrs`.
+- Frame-level state such as `label`, `sampling_rate`, and `metadata` is backed by `_xr.attrs`.
+- Operation provenance is runtime-only: `lineage` is the source of truth, `operation_history` is a read-only derived compatibility view, and neither `operation_history` nor `operation_graph` is exported through xarray attrs.
 - `FrameMetadata` has been removed. Frame metadata is a plain `dict[str, Any]`.
 - Source file metadata is stored as `metadata["_source_file"]`.
 - `ChannelMetadata` is a standard-library dataclass, not a Pydantic model.

@@ -229,7 +229,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 Must be a positive value.
             label: A label for the frame.
             metadata: Optional metadata dictionary.
-            operation_history: History of operations applied to the frame.
+            lineage: Runtime operation lineage for this frame.
             channel_metadata: Metadata for each channel.
             previous: Reference to the previous frame in the processing chain.
 
@@ -526,14 +526,18 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         if snr is None:
             return self + other
-        result = self.apply_operation("add_with_snr", other=other._data, snr=snr)
-        if result.lineage is not None:
-            object.__setattr__(
-                result,
-                "lineage",
-                result._lineage_with_operation(result.lineage.operation, self.lineage, other.lineage),
-            )
-        return result
+        from wandas.processing import create_operation
+
+        operation = create_operation("add_with_snr", self.sampling_rate, other=other._data, snr=snr)
+        ensure_dependencies = getattr(operation, "ensure_dependencies", None)
+        if ensure_dependencies is not None:
+            ensure_dependencies()
+        result_data = operation.process(self._data)
+        return self._create_new_instance(
+            data=result_data,
+            metadata=self._updated_metadata("add_with_snr", operation.params),
+            lineage=self._lineage_with_operation(operation, self.lineage, other.lineage),
+        )
 
     def plot(
         self,

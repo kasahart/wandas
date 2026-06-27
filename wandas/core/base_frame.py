@@ -139,8 +139,11 @@ class BaseFrame(ABC, Generic[T]):
         The label of the frame.
     metadata : dict
         Additional metadata for the frame.
+    lineage : LineageNode | None
+        Runtime-only computation lineage. This is set during construction and
+        propagated through ``_create_new_instance``.
     operation_history : list[dict]
-        Flat derived view of computation lineage.
+        Flat read-only compatibility view derived from ``lineage``.
     """
 
     _CHANNEL_DIM: ClassVar[str] = "channel"
@@ -181,7 +184,7 @@ class BaseFrame(ABC, Generic[T]):
         self.label = label
         self.sampling_rate = sampling_rate
         self.metadata = metadata
-        self.lineage = lineage
+        self._lineage = lineage
         self._set_channel_metadata(normalized_channel_metadata, self._pending_channel_ids)
         self.source_time_offset = source_time_offset
         del self._pending_channel_metadata
@@ -501,6 +504,11 @@ class BaseFrame(ABC, Generic[T]):
     def operation_history(self) -> list[dict[str, Any]]:
         """Return a flat read-only view derived from ``lineage``."""
         return self._lineage_to_history(self.lineage)
+
+    @property
+    def lineage(self) -> "LineageNode | None":
+        """Return runtime computation lineage for this frame."""
+        return self._lineage
 
     @property
     def operation_graph(self) -> dict[str, Any] | None:
@@ -1277,11 +1285,13 @@ class BaseFrame(ABC, Generic[T]):
         operation_name: str,
         params: Mapping[str, Any],
     ) -> dict[str, Any]:
-        """Build new metadata dict after an operation."""
-        history_params = _mutable_config_value(params)
-        new_metadata = copy.deepcopy(self.metadata)
-        new_metadata[operation_name] = copy.deepcopy(history_params)
-        return new_metadata
+        """Return frame metadata for a derived frame.
+
+        Operation parameters are owned by runtime lineage. Frame metadata only
+        carries user/domain metadata and is deep-copied to avoid sharing mutable
+        state between frames.
+        """
+        return copy.deepcopy(self.metadata)
 
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
         """Default implementation of operation application.

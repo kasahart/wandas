@@ -52,8 +52,9 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         A label for the frame.
     metadata : dict, optional
         Additional metadata for the frame.
-    operation_history : list[dict], optional
-        History of operations performed on this frame.
+    lineage : LineageNode, optional
+        Runtime operation lineage for this frame. ``operation_history`` is a
+        read-only derived compatibility view.
     channel_metadata : list[ChannelMetadata], optional
         Metadata for each channel in the frame.
     previous : BaseFrame, optional
@@ -628,7 +629,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             window: The window function used (e.g., "hann", "hamming").
             label: A label for the frame.
             metadata: Optional metadata dictionary.
-            operation_history: History of operations applied to the frame.
+            lineage: Runtime operation lineage for this frame.
             channel_metadata: Metadata for each channel.
             previous: Reference to the previous frame in the processing chain.
 

@@ -50,8 +50,9 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         Frame label. Defaults to "roughness_spec".
     metadata : dict, optional
         Additional metadata.
-    operation_history : list[dict], optional
-        History of operations applied to this frame.
+    lineage : LineageNode, optional
+        Runtime operation lineage for this frame. ``operation_history`` is a
+        read-only derived compatibility view.
     channel_metadata : list[ChannelMetadata], optional
         Metadata for each channel.
     previous : BaseFrame, optional
