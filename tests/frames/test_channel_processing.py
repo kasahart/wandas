@@ -139,8 +139,8 @@ class TestChannelProcessing:
 
         np.testing.assert_array_equal(result.compute(), self.data + 1.0)
 
-    def test_apply_custom_function_lineage_params_are_snapshotted_for_compute(self) -> None:
-        """Custom operation params mutation cannot alter an existing lazy graph."""
+    def test_apply_custom_function_params_copy_mutation_does_not_change_history_or_compute(self) -> None:
+        """Custom operation params are defensive views for history and compute."""
         frame = ChannelFrame(
             data=self.dask_data,
             sampling_rate=self.sample_rate,
@@ -156,8 +156,8 @@ class TestChannelProcessing:
         np.testing.assert_array_equal(result.compute(), self.data * 2.0)
         assert result.operation_history[-1]["params"] == {"gain": 2.0}
 
-    def test_registered_operation_params_are_snapshotted_for_compute(self) -> None:
-        """Registered operations reading self.params cannot mutate existing lazy graphs."""
+    def test_registered_operation_params_copy_mutation_does_not_change_history_or_compute(self) -> None:
+        """Registered operation params are defensive views for history and compute."""
 
         class ParamsDrivenGain(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "test_params_driven_gain"

@@ -58,7 +58,8 @@ class CustomOperation(AudioOperation[InputArrayType, OutputArrayType]):
 
     def _process_array(self, x: InputArrayType) -> OutputArrayType:
         """Apply custom function."""
-        return self._func(x, **self.params)
+        params = {key: _snapshot_config_value(value) for key, value in self._custom_params.items()}
+        return self._func(x, **params)
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """Calculate output shape."""

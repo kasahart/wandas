@@ -4,7 +4,6 @@ import inspect
 import logging
 from collections import defaultdict
 from collections.abc import Iterator, Mapping, MutableMapping
-from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, ClassVar, Generic, TypeVar, cast
 
@@ -18,9 +17,6 @@ from wandas.utils.types import NDArrayComplex, NDArrayReal
 logger = logging.getLogger(__name__)
 
 _da_from_delayed = da.from_delayed
-_ACTIVE_OPERATION_PARAMS: ContextVar[dict[int, dict[str, Any]] | None] = ContextVar(
-    "_ACTIVE_OPERATION_PARAMS", default=None
-)
 
 # Define TypeVars for input and output array types
 InputArrayType = TypeVar("InputArrayType", NDArrayReal, NDArrayComplex)
@@ -170,26 +166,17 @@ def _config_values_equal(left: Any, right: Any) -> bool:
 
 
 class _ParamsSnapshot(Mapping[str, Any]):
-    def __init__(self, operation: "AudioOperation[Any, Any]") -> None:
-        self._operation = operation
-
-    def _current_params(self) -> dict[str, Any]:
-        active_params = _ACTIVE_OPERATION_PARAMS.get()
-        if active_params is not None:
-            params_snapshot = active_params.get(id(self._operation))
-            if params_snapshot is not None:
-                return params_snapshot
-        params = self._operation.to_params()
-        return {key: _snapshot_config_value(value) for key, value in params.items()}
+    def __init__(self, params: Mapping[str, Any]) -> None:
+        self._params = {key: _snapshot_config_value(value) for key, value in params.items()}
 
     def __getitem__(self, key: str) -> Any:
-        return _snapshot_config_value(self._current_params()[key])
+        return _snapshot_config_value(self._params[key])
 
     def __iter__(self) -> Iterator[str]:
-        return iter(self._current_params())
+        return iter(self._params)
 
     def __len__(self) -> int:
-        return len(self._current_params())
+        return len(self._params)
 
     def __repr__(self) -> str:
         return repr(dict(self.items()))
@@ -257,10 +244,10 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     @property
     def params(self) -> _ParamsSnapshot:
         """Return a read-only defensive snapshot of operation parameters."""
-        return _ParamsSnapshot(self)
+        return _ParamsSnapshot(self.to_params())
 
     def to_params(self) -> Mapping[str, Any]:
-        """Return operation parameters used for lineage and Dask graph snapshots."""
+        """Return operation parameters used for lineage and display."""
         return {}
 
     def validate_params(self) -> None:
@@ -331,17 +318,8 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
             A wrapper function with the operation name set as __name__.
         """
 
-        graph_params = _snapshot_config_value(dict(self.params))
-
         def operation_wrapper(x: InputArrayType) -> OutputArrayType:
-            active_params = _ACTIVE_OPERATION_PARAMS.get()
-            scoped_params = dict(active_params) if active_params is not None else {}
-            scoped_params[id(self)] = _snapshot_config_value(graph_params)
-            token = _ACTIVE_OPERATION_PARAMS.set(scoped_params)
-            try:
-                return self._process_array(x)
-            finally:
-                _ACTIVE_OPERATION_PARAMS.reset(token)
+            return self._process_array(x)
 
         # Set the function name to the operation name for better visualization
         operation_wrapper.__name__ = self.name

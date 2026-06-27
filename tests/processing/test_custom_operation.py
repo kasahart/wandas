@@ -23,13 +23,13 @@ class TestCustomOperation:
         result = result_da.compute()
         np.testing.assert_array_equal(result, scale_add(data, gain=2.0))
 
-    def test_custom_operation_process_array_uses_params_view(self) -> None:
+    def test_custom_operation_process_array_uses_operation_owned_params_copy(self) -> None:
         data = np.array([[1.0, 2.0, 3.0]])
         op = CustomOperation(16000, func=lambda x, gain: x * gain, gain=2.0)
 
         np.testing.assert_array_equal(op._process_array(data), data * 2.0)
 
-    def test_custom_operation_snapshots_nested_params_for_each_delayed_execution(self) -> None:
+    def test_custom_operation_copies_nested_params_for_each_delayed_execution(self) -> None:
         data = np.array([[1.0, 2.0, 3.0]])
         dask_data = da_from_array(data, chunks=(1, -1))
 
