@@ -5,7 +5,6 @@ import logging
 from collections import defaultdict
 from collections.abc import Iterator, Mapping, MutableMapping
 from contextvars import ContextVar
-from functools import wraps
 from typing import Any, ClassVar, Generic, TypeVar, cast
 
 import dask.array as da
@@ -118,7 +117,7 @@ def _config_values_equal(left: Any, right: Any) -> bool:
         return False
 
 
-class _ParamsView(MutableMapping[str, Any]):
+class _ParamsSnapshot(Mapping[str, Any]):
     def __init__(self, operation: "AudioOperation[Any, Any]") -> None:
         self._operation = operation
 
@@ -132,14 +131,6 @@ class _ParamsView(MutableMapping[str, Any]):
 
     def __getitem__(self, key: str) -> Any:
         return _snapshot_config_value(self._params()[key])
-
-    def __setitem__(self, key: str, value: Any) -> None:
-        self._params()[key] = _snapshot_config_value(value)
-        object.__getattribute__(self._operation, "_captured_config_attrs").add(key)
-        self._operation._snapshot_public_config_attributes()
-
-    def __delitem__(self, key: str) -> None:
-        del self._params()[key]
 
     def __iter__(self) -> Iterator[str]:
         return iter(self._params())
@@ -166,10 +157,10 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     """Abstract runtime lineage object for audio processing operations.
 
     Operation parameters are captured as operation-owned snapshots for lineage
-    metadata. ``params`` and public mutable config attributes are exposed as
-    defensive snapshots. Public attributes remain ordinary Python attributes for
-    custom operation compatibility, so reflective/manual mutation is outside the
-    public lineage contract.
+    metadata. ``params`` is a read-only defensive snapshot; create a new
+    operation when configuration needs to change. Public attributes remain
+    ordinary Python attributes for custom operation compatibility, but attributes
+    that mirror captured config are protected after initialization.
     """
 
     # Class variable: operation name
@@ -179,24 +170,6 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     n_fft: int | None
     window: str
     _grouped_config_attrs: ClassVar[frozenset[str]] = frozenset()
-
-    def __init_subclass__(cls, **kwargs: Any) -> None:
-        super().__init_subclass__(**kwargs)
-        original_init = cls.__init__
-        if getattr(original_init, "_wandas_constructing_wrapper", False):
-            return
-
-        @wraps(original_init)
-        def wrapped_init(self: "AudioOperation[Any, Any]", *args: Any, **init_kwargs: Any) -> None:
-            previous_constructing = object.__getattribute__(self, "__dict__").get("_wandas_constructing", False)
-            object.__setattr__(self, "_wandas_constructing", True)
-            try:
-                original_init(self, *args, **init_kwargs)
-            finally:
-                object.__setattr__(self, "_wandas_constructing", previous_constructing)
-
-        setattr(wrapped_init, "_wandas_constructing_wrapper", True)
-        setattr(cls, "__init__", wrapped_init)
 
     def __init__(self, sampling_rate: float, *, pure: bool = True, **params: Any):
         """
@@ -241,7 +214,6 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
 
     def __setattr__(self, name: str, value: Any) -> None:
         if getattr(self, "_wandas_initialized", False) and not name.startswith("_"):
-            constructing = object.__getattribute__(self, "__dict__").get("_wandas_constructing", False)
             try:
                 params = object.__getattribute__(self, "_params")
             except AttributeError:
@@ -252,15 +224,10 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
                 captured_config_attrs = set(params)
             grouped_config_attrs = object.__getattribute__(self, "_grouped_config_attrs")
             if _is_public_config_attr(name, captured_config_attrs, grouped_config_attrs):
-                if constructing:
-                    snapshot = _snapshot_config_value(value)
-                    if name in params:
-                        params[name] = snapshot
-                    object.__setattr__(self, name, snapshot)
-                    return
-                if name in object.__getattribute__(self, "__dict__"):
-                    return
-                return
+                raise AttributeError(
+                    f"cannot modify captured operation config attribute '{name}'; "
+                    "create a new operation with the desired parameters"
+                )
         object.__setattr__(self, name, value)
 
     def __delattr__(self, name: str) -> None:
@@ -307,28 +274,9 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         return object.__getattribute__(self, "_sampling_rate")
 
     @property
-    def params(self) -> _ParamsView:
-        """Return a write-through view of operation parameters."""
-        return _ParamsView(self)
-
-    @params.setter
-    def params(self, value: Mapping[str, Any]) -> None:
-        """Set captured operation parameters for custom operation compatibility."""
-        if not isinstance(value, Mapping):
-            raise TypeError("Operation params must be a mapping")
-        object.__setattr__(self, "_params", {key: _snapshot_config_value(item) for key, item in value.items()})
-        try:
-            captured_config_attrs = object.__getattribute__(self, "_captured_config_attrs")
-        except AttributeError:
-            object.__setattr__(self, "_captured_config_attrs", set(value))
-        else:
-            captured_config_attrs.update(value)
-        try:
-            initialized = object.__getattribute__(self, "_wandas_initialized")
-        except AttributeError:
-            initialized = False
-        if initialized:
-            self._snapshot_public_config_attributes()
+    def params(self) -> _ParamsSnapshot:
+        """Return a read-only defensive snapshot of operation parameters."""
+        return _ParamsSnapshot(self)
 
     def validate_params(self) -> None:
         """Validate parameters (raises exception if invalid)"""

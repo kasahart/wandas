@@ -146,7 +146,8 @@ class TestChannelProcessing:
 
         result = frame.apply(lambda x, gain: x * gain, output_shape_func=lambda shape: shape, gain=2.0)
         op = result.operations[-1]
-        op.params["gain"] = 0.0
+        params = op.params.copy()
+        params["gain"] = 0.0
 
         np.testing.assert_array_equal(result.compute(), self.data * 2.0)
         assert result.operation_history[-1]["params"] == {"gain": 2.0}
@@ -176,7 +177,8 @@ class TestChannelProcessing:
             _OPERATION_REGISTRY.pop("test_params_driven_gain", None)
 
         op = result.operations[-1]
-        op.params["gain"] = 0.0
+        params = op.params.copy()
+        params["gain"] = 0.0
 
         np.testing.assert_array_equal(result.compute(), self.data * 2.0)
         assert result.operation_history[-1]["params"] == {"gain": 2.0}

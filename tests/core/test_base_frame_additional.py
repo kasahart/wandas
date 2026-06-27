@@ -917,25 +917,27 @@ def test_frame_operations_returns_live_operation_with_defensive_params():
     op = result.operations[0]
     assert op.name == "normalize"
 
-    params = op.params
+    params = op.params.copy()
     params["norm"] = 2
-    assert op.params["norm"] == 2
+    assert op.params["norm"] == np.inf
     assert op.norm == np.inf
 
-    op.norm = None
+    with pytest.raises(AttributeError, match="cannot modify captured operation config attribute 'norm'"):
+        op.norm = None
     assert op.norm == np.inf
 
     np.testing.assert_allclose(result.compute(), data / 4.0)
 
 
-def test_none_valued_config_reassignment_does_not_change_delayed_result():
+def test_none_valued_config_reassignment_is_blocked_and_delayed_result_is_stable():
     data = np.array([[1.0, 2.0, 4.0]])
     frame = ChannelFrame(da_from_array(data, chunks=(1, -1)), sampling_rate=100.0)
 
     result = frame.normalize(norm=None)
     op = result.operations[-1]
 
-    op.norm = np.inf
+    with pytest.raises(AttributeError, match="cannot modify captured operation config attribute 'norm'"):
+        op.norm = np.inf
 
     assert op.norm is None
     assert op.params["norm"] is None
