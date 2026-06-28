@@ -9,6 +9,8 @@ import pytest
 from dask.array.core import Array as DaArray
 from dask.base import tokenize
 
+from wandas.frames.channel import ChannelFrame
+from wandas.processing import base as base_module
 from wandas.processing.base import (
     _OPERATION_MODULES,
     _OPERATION_REGISTRY,
@@ -217,6 +219,81 @@ class TestAudioOperation:
             _ = result.compute()
             mock_compute.assert_called_once()
 
+    def test_super_only_config_operation_exposes_base_params_through_lineage_and_compute(self) -> None:
+        class SuperOnlyGainOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "super_only_gain_op"
+
+            def __init__(self, sampling_rate: float, gain: float):
+                super().__init__(sampling_rate, gain=gain)
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x * self._config_snapshot()["gain"]
+
+        try:
+            register_operation(SuperOnlyGainOperation)
+            op = create_operation("super_only_gain_op", 16000, gain=2.0)
+            data = da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1))
+            frame = ChannelFrame(data, sampling_rate=16000)
+            result = ChannelFrame(
+                op.process(data),
+                sampling_rate=16000,
+                lineage=frame._lineage_with_operation(op, frame.lineage),
+            )
+
+            assert op.params == {"gain": 2.0}
+            assert op.to_params() == {"gain": 2.0}
+            assert result.operation_history == [{"operation": "super_only_gain_op", "params": {"gain": 2.0}}]
+            np.testing.assert_array_equal(result.compute(), np.array([[2.0, 4.0]]))
+        finally:
+            _OPERATION_REGISTRY.pop("super_only_gain_op", None)
+
+    def test_base_config_snapshots_constructor_inputs_for_params_compute_and_history(self) -> None:
+        class BaseConfigOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "base_config_snapshot_op"
+
+            def __init__(self, sampling_rate: float, config: dict[str, float]):
+                super().__init__(sampling_rate, config=config)
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x * self._config_snapshot()["config"]["gain"]
+
+        config = {"gain": 2.0}
+        op = BaseConfigOperation(16000, config=config)
+        data = da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1))
+        frame = ChannelFrame(data, sampling_rate=16000)
+        result = ChannelFrame(
+            op.process(data),
+            sampling_rate=16000,
+            lineage=frame._lineage_with_operation(op, frame.lineage),
+        )
+
+        config["gain"] = 99.0
+
+        assert op.params["config"] == {"gain": 2.0}
+        assert op.to_params()["config"] == {"gain": 2.0}
+        assert result.operation_history[-1]["params"] == {"config": {"gain": 2.0}}
+        np.testing.assert_array_equal(result.compute(), np.array([[2.0, 4.0]]))
+
+    def test_base_config_returned_nested_values_do_not_change_pending_compute(self) -> None:
+        class BaseConfigOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "base_config_pending_op"
+
+            def __init__(self, sampling_rate: float, config: dict[str, float]):
+                super().__init__(sampling_rate, config=config)
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x * self._config_snapshot()["config"]["gain"]
+
+        op = BaseConfigOperation(16000, config={"gain": 2.0})
+        data = da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1))
+        result = op.process(data)
+
+        op.params["config"]["gain"] = 99.0
+        op.to_params()["config"]["gain"] = 99.0
+
+        assert op.params["config"] == {"gain": 2.0}
+        np.testing.assert_array_equal(result.compute(), np.array([[2.0, 4.0]]))
+
     def test_validate_params_raises_on_invalid(self) -> None:
         """validate_params() raises ValueError for invalid parameters in __init__."""
 
@@ -350,11 +427,11 @@ class TestAudioOperation:
             name = "nested_params_op"
 
             def __init__(self, sampling_rate: float, config: dict[str, float]):
-                self._config = _snapshot_config_value(config)
+                self._test_config = _snapshot_config_value(config)
                 super().__init__(sampling_rate, config=config)
 
             def to_params(self) -> dict[str, Any]:
-                return {"config": self._config}
+                return {"config": self._test_config}
 
             def _process_array(self, x: NDArrayReal) -> NDArrayReal:
                 return x
@@ -382,14 +459,14 @@ class TestAudioOperation:
             name = "private_config_op"
 
             def __init__(self, sampling_rate: float, config: dict[str, float]):
-                self._config = _snapshot_config_value(config)
+                self._test_config = _snapshot_config_value(config)
                 super().__init__(sampling_rate, config=config)
 
             def to_params(self) -> dict[str, Any]:
-                return {"config": self._config}
+                return {"config": self._test_config}
 
             def _process_array(self, x: NDArrayReal) -> NDArrayReal:
-                return x * self._config["gain"]
+                return x * self._test_config["gain"]
 
         config = {"gain": 2.0}
         op = PrivateConfigOperation(16000, config=config)
@@ -491,11 +568,11 @@ class TestAudioOperation:
 
             def __init__(self, sampling_rate: float, reference: NDArrayReal):
                 self._reference = _snapshot_config_value(reference)
-                self._config = {"weights": _snapshot_config_value(reference)}
+                self._test_config = {"weights": _snapshot_config_value(reference)}
                 super().__init__(sampling_rate, reference=reference, config={"weights": reference})
 
             def to_params(self) -> dict[str, Any]:
-                return {"reference": self._reference, "config": self._config}
+                return {"reference": self._reference, "config": self._test_config}
 
             def _process_array(self, x: NDArrayReal) -> NDArrayReal:
                 return x
@@ -511,6 +588,41 @@ class TestAudioOperation:
         dask_array = da_from_array(np.array([1.0]), chunks=(1,))
 
         assert _snapshot_config_value(dask_array) is dask_array
+
+    def test_snapshot_config_value_returns_immutable_scalars_without_deepcopy(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def fail_deepcopy(value: object) -> object:
+            raise AssertionError(f"deepcopy should not run for {value!r}")
+
+        monkeypatch.setattr("wandas.processing.base.copy.deepcopy", fail_deepcopy)
+
+        for value in [None, True, 1, 1.5, "gain", b"gain", 1 + 2j]:
+            assert _snapshot_config_value(value) is value
+
+    def test_config_value_snapshots_only_requested_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        test_op_cls = self._make_test_op_class()
+        target = {"gain": 2.0}
+        untouched = {"bias": 1.0}
+        op = test_op_cls(16000, target=target, untouched=untouched)
+        config = object.__getattribute__(op, "_config")
+        calls: list[object] = []
+        real_snapshot = base_module._snapshot_config_value
+
+        def record_snapshot(value: object) -> object:
+            calls.append(value)
+            return real_snapshot(value)
+
+        monkeypatch.setattr(base_module, "_snapshot_config_value", record_snapshot)
+
+        snapshot = op._config_value("target")
+
+        assert snapshot == {"gain": 2.0}
+        assert calls[0] is config["target"]
+        assert config["untouched"] not in calls
+        snapshot["gain"] = 99.0
+        assert op._config["target"] == {"gain": 2.0}
 
     def test_config_values_equal_handles_non_matching_containers(self) -> None:
         assert not _config_values_equal({"left": 1}, {"right": 1})
@@ -559,11 +671,11 @@ class TestAudioOperation:
             name = "ambiguous_params_op"
 
             def __init__(self, sampling_rate: float, config: object):
-                self._config = config
+                self._test_config = config
                 super().__init__(sampling_rate, config=config)
 
             def to_params(self) -> dict[str, object]:
-                return {"config": self._config}
+                return {"config": self._test_config}
 
             def _process_array(self, x: NDArrayReal) -> NDArrayReal:
                 return x

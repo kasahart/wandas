@@ -99,6 +99,8 @@ class BinaryOperation:
 
 def _snapshot_config_value(value: Any) -> Any:
     """Return an operation-owned snapshot of user supplied config values."""
+    if value is None or isinstance(value, bool | int | float | str | bytes | complex):
+        return value
     if isinstance(value, DaArray):
         return value
     if isinstance(value, np.ndarray):
@@ -210,17 +212,15 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
 
     Operation parameters are captured as operation-owned snapshots for lineage
     metadata. ``params`` is a read-only defensive snapshot; create a new
-    operation when configuration needs to change. Subclasses should store
-    execution config in private attributes and expose lineage through
-    ``to_params()``.
+    operation when configuration needs to change. Subclasses can rely on the
+    default ``to_params()`` when lineage parameters match constructor
+    parameters.
     """
 
     # Class variable: operation name
     name: ClassVar[str]
 
-    # Optional attributes used by some subclasses (e.g., FFT)
-    n_fft: int | None
-    window: str
+    _config: dict[str, Any]
 
     def __init__(self, sampling_rate: float, *, pure: bool = True, **params: Any):
         """
@@ -238,6 +238,11 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
             Operation-specific parameters
         """
         object.__setattr__(self, "_sampling_rate", float(sampling_rate))
+        object.__setattr__(
+            self,
+            "_config",
+            {key: _snapshot_config_value(value) for key, value in params.items()},
+        )
         self.pure = pure
 
         # Validate parameters during initialization
@@ -260,7 +265,15 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
 
     def to_params(self) -> Mapping[str, Any]:
         """Return operation parameters used for lineage and display."""
-        return {}
+        return self._config_snapshot()
+
+    def _config_snapshot(self) -> dict[str, Any]:
+        """Return a defensive copy of base-managed constructor config."""
+        return {key: _snapshot_config_value(value) for key, value in self._config.items()}
+
+    def _config_value(self, key: str) -> Any:
+        """Return a defensive snapshot for one base-managed config value."""
+        return _snapshot_config_value(self._config[key])
 
     def validate_params(self) -> None:
         """Validate parameters (raises exception if invalid)"""

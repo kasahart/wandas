@@ -35,7 +35,7 @@ class TestCustomOperation:
 
         def mutating_scale(x: np.ndarray, config: dict[str, float]) -> np.ndarray:
             gain = config["gain"]
-            config["gain"] += 1.0
+            config["gain"] = 99.0
             return x * gain
 
         op = CustomOperation(16000, func=mutating_scale, config={"gain": 2.0})
@@ -43,7 +43,7 @@ class TestCustomOperation:
 
         np.testing.assert_array_equal(result.compute(), data * 2.0)
         np.testing.assert_array_equal(result.compute(), data * 2.0)
-        assert op.params["config"]["gain"] == 2.0
+        assert op.params["config"] == {"gain": 2.0}
 
     def test_custom_operation_subclass_delayed_wrapper_uses_process_array_hook(self) -> None:
         class HookedCustomOperation(CustomOperation):
@@ -134,6 +134,13 @@ class TestCustomOperation:
         params["config"]["gain"] = 3.0
 
         assert op.params["config"]["gain"] == 2.0
+
+    def test_custom_operation_does_not_expose_pure_constructor_option(self) -> None:
+        def my_func(x: np.ndarray, pure: bool) -> np.ndarray:
+            return x + (1.0 if pure else 2.0)
+
+        with pytest.raises(TypeError, match="multiple values"):
+            CustomOperation(16000, func=my_func, pure=False)
 
     def test_custom_operation_accepts_params_named_function_argument(self) -> None:
         data = np.array([[1.0, 2.0]])

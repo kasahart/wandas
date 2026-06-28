@@ -334,6 +334,20 @@ class TestRmsTrend:
         assert rms.dB is True
         assert rms.Aw is True
 
+    def test_rms_trend_ref_params_are_defensive_for_pending_compute(self) -> None:
+        data = np.ones((1, 8), dtype=float)
+        dask_data = da_from_array(data, chunks=(1, -1))
+        rms = RmsTrend(_SR, frame_length=4, hop_length=2, dB=True, ref=[1.0])
+        result = rms.process(dask_data)
+
+        rms.params["ref"][0] = 100.0
+        rms.to_params()["ref"][0] = 100.0
+
+        assert rms.params["ref"].tolist() == [1.0]
+        np.testing.assert_allclose(
+            result.compute(), np.array([[-3.010299956639812, 0.0, 0.0, 0.0, -3.010299956639812]])
+        )
+
     def test_rms_trend_registry_returns_correct_class(self) -> None:
         """Test that RmsTrend is registered as 'rms_trend'."""
         assert get_operation("rms_trend") == RmsTrend

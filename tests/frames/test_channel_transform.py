@@ -692,7 +692,7 @@ def test_cross_channel_spectral_transform_n_fft_not_int():
 
     mock_op = MagicMock()
     mock_op.process.return_value = _da_from_array(np.random.default_rng(42).random((3, 513)), chunks=(3, 513))
-    mock_op.n_fft = "not_an_int"  # non-int value
+    mock_op.to_params.return_value = {"n_fft": "not_an_int", "window": "hann"}
 
     with patch("wandas.processing.create_operation", return_value=mock_op):
         with pytest.raises(TypeError, match="must provide a positive integer n_fft"):
@@ -708,7 +708,7 @@ def test_cross_channel_spectral_transform_n_fft_non_positive():
 
     mock_op = MagicMock()
     mock_op.process.return_value = _da_from_array(np.random.default_rng(42).random((3, 513)), chunks=(3, 513))
-    mock_op.n_fft = 0  # non-positive int
+    mock_op.to_params.return_value = {"n_fft": 0, "window": "hann"}
 
     with patch("wandas.processing.create_operation", return_value=mock_op):
         with pytest.raises(ValueError, match="must provide a positive integer n_fft"):

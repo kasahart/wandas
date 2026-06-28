@@ -47,24 +47,20 @@ class Power(AudioOperation[NDArrayReal, NDArrayReal]):
         exponent : float
             Power exponent
         """
-        self._exponent = exponent
         super().__init__(sampling_rate, exponent=exponent)
 
     @property
     def exponent(self) -> float:
         """Exponent captured at operation construction time."""
-        return self._exponent
+        return self._config_value("exponent")
 
     @property
     def exp(self) -> float:
         """Backward-compatible read-only alias for the captured exponent."""
-        return self._exponent
-
-    def to_params(self) -> dict[str, float]:
-        return {"exponent": self._exponent}
+        return self.exponent
 
     def process(self, data: DaArray) -> DaArray:
-        return self._mark_array(da.power(data, self._exponent))
+        return self._mark_array(da.power(data, self.exponent))
 
 
 class Sum(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -92,7 +88,6 @@ class ChannelDifference(AudioOperation[NDArrayReal, NDArrayReal]):
 
     name = "channel_difference"
     _display = "diff"
-    other_channel: int
 
     def __init__(self, sampling_rate: float, other_channel: int = 0):
         """
@@ -105,21 +100,18 @@ class ChannelDifference(AudioOperation[NDArrayReal, NDArrayReal]):
         other_channel : int
             Channel to calculate difference with, default is 0
         """
-        self._other_channel = other_channel
         super().__init__(sampling_rate, other_channel=other_channel)
 
     @property
     def other_channel(self) -> int:
         """Other channel index captured at operation construction time."""
-        return self._other_channel
-
-    def to_params(self) -> dict[str, int]:
-        return {"other_channel": self._other_channel}
+        return self._config_value("other_channel")
 
     def process(self, data: DaArray) -> DaArray:
-        if not -data.shape[0] <= self._other_channel < data.shape[0]:
+        other_channel = self.other_channel
+        if not -data.shape[0] <= other_channel < data.shape[0]:
             raise IndexError("Channel index out of range")
-        return self._mark_array(data - data[self._other_channel])
+        return self._mark_array(data - data[other_channel])
 
 
 # Register all operations
