@@ -5,6 +5,7 @@ from wandas.processing.base import (
     AudioOperation,
     InputArrayType,
     OutputArrayType,
+    _snapshot_config_value,
     register_operation,
 )
 
@@ -39,6 +40,7 @@ class CustomOperation(AudioOperation[InputArrayType, OutputArrayType]):
         # pending Dask graph by reassigning public attributes before compute.
         self._func: Callable[..., OutputArrayType] = func
         self._output_shape_func = output_shape_func
+        self._custom_params = {key: _snapshot_config_value(value) for key, value in params.items()}
         super().__init__(sampling_rate, **params)
 
     @property
@@ -51,9 +53,13 @@ class CustomOperation(AudioOperation[InputArrayType, OutputArrayType]):
         """Output shape function captured at operation construction time."""
         return self._output_shape_func
 
+    def to_params(self) -> dict[str, Any]:
+        return {key: _snapshot_config_value(value) for key, value in self._custom_params.items()}
+
     def _process_array(self, x: InputArrayType) -> OutputArrayType:
         """Apply custom function."""
-        return self._func(x, **self._config_snapshot())
+        params = {key: _snapshot_config_value(value) for key, value in self._custom_params.items()}
+        return self._func(x, **params)
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """Calculate output shape."""

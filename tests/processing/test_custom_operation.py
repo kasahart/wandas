@@ -155,6 +155,19 @@ class TestCustomOperation:
 
         assert op.params["config"]["gain"] == 2.0
 
+    def test_custom_operation_accepts_pure_named_function_argument(self) -> None:
+        data = np.array([[1.0, 2.0]])
+        dask_data = da_from_array(data, chunks=(1, -1))
+
+        def my_func(x: np.ndarray, pure: bool) -> np.ndarray:
+            return x + (1.0 if pure else 2.0)
+
+        op = CustomOperation(16000, func=my_func, pure=False)
+
+        assert op.params["pure"] is False
+        assert op.to_params()["pure"] is False
+        np.testing.assert_array_equal(op.process(dask_data).compute(), data + 2.0)
+
     def test_custom_operation_accepts_params_named_function_argument(self) -> None:
         data = np.array([[1.0, 2.0]])
         dask_data = da_from_array(data, chunks=(1, -1))

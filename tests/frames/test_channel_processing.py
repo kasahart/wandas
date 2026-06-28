@@ -139,6 +139,21 @@ class TestChannelProcessing:
 
         np.testing.assert_array_equal(result.compute(), self.data + 1.0)
 
+    def test_apply_custom_function_accepts_pure_named_argument(self) -> None:
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
+        )
+
+        def add_for_pure_arg(x: np.ndarray, pure: bool) -> np.ndarray:
+            return x + (1.0 if pure else 2.0)
+
+        result = frame.apply(add_for_pure_arg, output_shape_func=lambda shape: shape, pure=False)
+
+        np.testing.assert_array_equal(result.compute(), self.data + 2.0)
+        assert result.operation_history[-1]["params"] == {"pure": False}
+
     def test_apply_custom_function_params_copy_mutation_does_not_change_history_or_compute(self) -> None:
         """Custom operation params are defensive views for history and compute."""
         frame = ChannelFrame(
