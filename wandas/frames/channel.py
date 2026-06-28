@@ -1262,6 +1262,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         align: str = "strict",
         suffix_on_dup: str | None = None,
         inplace: bool = False,
+        source_time_offset: float | Sequence[float] | NDArrayReal | None = None,
     ) -> "ChannelFrame":
         """Add a new channel to the frame.
 
@@ -1281,6 +1282,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             suffix_on_dup: Suffix to add to duplicate labels. If None, raises error.
             inplace: If True, modifies the frame in place.
                 Otherwise returns a new frame.
+            source_time_offset: Offset in seconds for raw numpy or dask input.
+                If None, raw input uses 0.0. When data is a ChannelFrame,
+                offsets are taken from that frame and this argument must be None.
 
         Returns:
             Modified ChannelFrame (self if inplace=True, new frame otherwise).
@@ -1301,6 +1305,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         """
         # Handle ndarray/dask/same-type Frame
         if isinstance(data, ChannelFrame):
+            if source_time_offset is not None:
+                raise ValueError(
+                    "source_time_offset cannot be used when adding a ChannelFrame\n"
+                    "  ChannelFrame input already carries per-channel offsets.\n"
+                    "Pass raw ndarray or dask data to set an explicit offset."
+                )
             if self.sampling_rate != data.sampling_rate:
                 raise ValueError("sampling_rate mismatch")
             arr = _align_to_length(data._data, self.n_samples, align, data.n_samples)
@@ -1360,7 +1370,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         new_ids = [*self._channel_ids, self._next_channel_id()]
         new_chmeta = [*self.channels.to_list(), ChannelMetadata(label=new_label)]
-        new_offsets = np.concatenate([self.source_time_offset, np.array([0.0])])
+        raw_source_time_offset = 0.0 if source_time_offset is None else source_time_offset
+        new_channel_offsets = self._normalize_source_time_offset(raw_source_time_offset, arr.shape[0])
+        new_offsets = np.concatenate([self.source_time_offset, new_channel_offsets])
         return self._finalize_channel_update(new_data, new_chmeta, inplace, new_ids, new_offsets)
 
     def remove_channel(self, key: int | str, inplace: bool = False) -> "ChannelFrame":

@@ -569,6 +569,57 @@ def test_channel_update_helpers_preserve_source_time_offset() -> None:
     np.testing.assert_array_equal(removed.source_time_offset, np.array([2.5]))
 
 
+def test_add_channel_numpy_raw_uses_explicit_source_time_offset() -> None:
+    base = ChannelFrame(
+        data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)),
+        sampling_rate=16000,
+        source_time_offset=2.5,
+    )
+
+    added = base.add_channel(np.zeros(6), label="new_ch", source_time_offset=5.0)
+
+    np.testing.assert_array_equal(added.source_time_offset, np.array([2.5, 5.0]))
+    np.testing.assert_array_equal(added.source_time[:, 0], np.array([2.5, 5.0]))
+
+
+def test_add_channel_dask_raw_uses_explicit_source_time_offset_and_stays_lazy() -> None:
+    base = ChannelFrame(
+        data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)),
+        sampling_rate=16000,
+        source_time_offset=2.5,
+    )
+    raw_channel = _da_from_array(np.ones(6), chunks=3)
+    history_before = list(base.operation_history)
+
+    added = base.add_channel(raw_channel, label="new_ch", source_time_offset=[5.0])
+
+    assert isinstance(added._data, DaArray)
+    assert base.operation_history == history_before
+    assert added.operation_history == history_before
+    np.testing.assert_array_equal(added.source_time_offset, np.array([2.5, 5.0]))
+
+
+@pytest.mark.parametrize(
+    ("source_time_offset", "error_type", "match"),
+    [
+        ([1.0, 2.0], ValueError, "source_time_offset length must match number of channels"),
+        (float("nan"), ValueError, "source_time_offset must be finite"),
+        (float("inf"), ValueError, "source_time_offset must be finite"),
+        ("not-a-number", TypeError, "source_time_offset must be a finite numeric value"),
+        (np.zeros((1, 1)), ValueError, "source_time_offset must be a scalar or a 1D array"),
+    ],
+)
+def test_add_channel_raw_source_time_offset_validation(
+    source_time_offset: Any,
+    error_type: type[Exception],
+    match: str,
+) -> None:
+    base = ChannelFrame(data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)), sampling_rate=16000)
+
+    with pytest.raises(error_type, match=match):
+        base.add_channel(np.zeros(6), label="new_ch", source_time_offset=source_time_offset)
+
+
 def test_add_channel_frame_preserves_per_channel_source_time_offsets() -> None:
     base = ChannelFrame(
         data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)),
@@ -586,6 +637,23 @@ def test_add_channel_frame_preserves_per_channel_source_time_offsets() -> None:
 
     np.testing.assert_array_equal(added.source_time_offset, np.array([2.5, 5.0, 8.0]))
     np.testing.assert_array_equal(added.source_time[:, 0], np.array([2.5, 5.0, 8.0]))
+
+
+def test_add_channel_frame_rejects_explicit_source_time_offset() -> None:
+    base = ChannelFrame(
+        data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)),
+        sampling_rate=16000,
+        source_time_offset=2.5,
+    )
+    other = ChannelFrame(
+        data=_da_from_array(np.ones((1, 6)), chunks=(1, -1)),
+        sampling_rate=16000,
+        channel_metadata=[{"label": "other0"}],
+        source_time_offset=5.0,
+    )
+
+    with pytest.raises(ValueError, match="source_time_offset cannot be used when adding a ChannelFrame"):
+        base.add_channel(other, source_time_offset=9.0)
 
 
 def test_add_channel_unsupported_type_raises() -> None:
