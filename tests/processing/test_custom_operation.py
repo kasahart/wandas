@@ -135,6 +135,18 @@ class TestCustomOperation:
 
         assert op.params["config"]["gain"] == 2.0
 
+    def test_custom_operation_defaults_to_dask_pure(self) -> None:
+        op = CustomOperation(16000, func=lambda x: x)
+
+        assert op.pure is True
+
+    def test_custom_operation_dask_pure_controls_dask_purity_not_params(self) -> None:
+        op = CustomOperation(16000, func=lambda x, gain: x * gain, dask_pure=False, gain=2.0)
+
+        assert op.pure is False
+        assert op.params == {"gain": 2.0}
+        assert "dask_pure" not in op.to_params()
+
     def test_custom_operation_does_not_expose_pure_constructor_option(self) -> None:
         def my_func(x: np.ndarray, pure: bool) -> np.ndarray:
             return x + (1.0 if pure else 2.0)

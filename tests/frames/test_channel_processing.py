@@ -152,6 +152,37 @@ class TestChannelProcessing:
         with pytest.raises(ValueError, match="Parameter name conflict"):
             frame.apply(add_for_pure_arg, output_shape_func=lambda shape: shape, pure=False)
 
+    def test_apply_custom_function_defaults_to_dask_pure(self) -> None:
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
+        )
+
+        result = frame.apply(lambda x: x, output_shape_func=lambda shape: shape)
+
+        assert result.lineage is not None
+        assert result.lineage.operation.pure is True
+
+    def test_apply_custom_function_dask_pure_controls_operation_not_history_params(self) -> None:
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
+        )
+
+        result = frame.apply(
+            lambda x, user_param: x + user_param,
+            output_shape_func=lambda shape: shape,
+            dask_pure=False,
+            user_param=1.5,
+        )
+
+        assert result.lineage is not None
+        assert result.lineage.operation.pure is False
+        assert result.lineage.operation.params == {"user_param": 1.5}
+        assert result.operation_history[-1]["params"] == {"user_param": 1.5}
+
     def test_apply_custom_function_params_copy_mutation_does_not_change_history_or_compute(self) -> None:
         """Custom operation params are defensive views for history and compute."""
         frame = ChannelFrame(

@@ -81,6 +81,8 @@ class ChannelProcessingMixin:
         output_shape_func: Callable[[tuple[int, ...]], tuple[int, ...]] | None = ...,
         output_frame_class: None = ...,
         output_frame_kwargs: dict[str, Any] | None = ...,
+        *,
+        dask_pure: bool = ...,
         **kwargs: Any,
     ) -> T_Processing: ...
 
@@ -93,14 +95,19 @@ class ChannelProcessingMixin:
         output_shape_func: Callable[[tuple[int, ...]], tuple[int, ...]] | None = ...,
         output_frame_class: type[T_OutputFrame] = ...,
         output_frame_kwargs: dict[str, Any] | None = ...,
+        *,
+        dask_pure: bool = ...,
         **kwargs: Any,
     ) -> T_OutputFrame: ...
+
     def apply(
         self: T_Processing,
         func: Callable[..., Any],
         output_shape_func: Callable[[tuple[int, ...]], tuple[int, ...]] | None = None,
         output_frame_class: type[T_OutputFrame] | None = None,
         output_frame_kwargs: dict[str, Any] | None = None,
+        *,
+        dask_pure: bool = True,
         **kwargs: Any,
     ) -> Any:
         """Apply a custom function to the signal.
@@ -114,6 +121,10 @@ class ChannelProcessingMixin:
                 ``ChannelFrame`` -> ``SpectralFrame``).
             output_frame_kwargs: Extra constructor keyword arguments required
                 by *output_frame_class* (e.g. ``{"n_fft": 1024}``).
+            dask_pure: Dask execution-control flag for delayed custom
+                operations. Set to ``False`` for non-deterministic or
+                side-effecting functions. This value is not forwarded to
+                *func* or recorded in operation history.
             **kwargs: Additional arguments for the function.
 
         Returns:
@@ -143,6 +154,7 @@ class ChannelProcessingMixin:
             sampling_rate=self.sampling_rate,
             func=func,
             output_shape_func=output_shape_func,
+            dask_pure=dask_pure,
             **kwargs,
         )
 
