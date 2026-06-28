@@ -893,9 +893,12 @@ def test_mutable_config_value_converts_containers_for_history():
             "tuple": (source_array,),
             "frozenset": frozenset({1, 2}),
             "numpy_scalar": np.float64(1.5),
+            "numpy_bool": np.bool_(True),
+            "complex": 1 + 2j,
             "non_finite": np.inf,
             "none": None,
             "unknown": sentinel,
+            ("tuple", "key"): "tuple-key-value",
         }
     )
 
@@ -909,10 +912,42 @@ def test_mutable_config_value_converts_containers_for_history():
     assert converted["tuple"] == [[1.0, 2.0]]
     assert sorted(converted["frozenset"]) == [1, 2]
     assert converted["numpy_scalar"] == 1.5
+    assert converted["numpy_bool"] is True
+    assert converted["complex"] == {"type": "complex", "real": 1.0, "imag": 2.0}
     assert converted["non_finite"] is None
     assert converted["none"] is None
     assert converted["unknown"] == str(sentinel)
+    assert converted['["tuple","key"]'] == "tuple-key-value"
     json.dumps(converted)
+
+
+def test_operation_history_and_graph_are_json_serializable_with_nested_params():
+    source_array = np.array([1.0, 2.0])
+    dask_array = da_from_array(source_array.reshape(1, 2), chunks=(1, -1))
+    frame = ChannelFrame(da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1)), sampling_rate=100.0)
+    params = cast(
+        dict[str, Any],
+        {
+            "array": source_array,
+            "dask": dask_array,
+            "set": {"b", "a"},
+            "numpy_bool": np.bool_(True),
+            "complex": np.complex128(1 + 2j),
+            ("tuple", "key"): {"nested": (np.float64(1.5), np.inf)},
+        },
+    )
+    result = frame._create_new_instance(
+        data=frame._data,
+        lineage=frame._lineage_with_operation(_TestLineageOperation("json_ready", params), frame.lineage),
+    )
+
+    json.dumps(result.operation_history)
+    json.dumps(result.operation_graph)
+    history_params = result.operation_history[-1]["params"]
+    assert history_params["set"] == ["a", "b"]
+    assert history_params["numpy_bool"] is True
+    assert history_params["complex"] == {"type": "complex", "real": 1.0, "imag": 2.0}
+    assert history_params['["tuple","key"]'] == {"nested": [1.5, None]}
 
 
 def test_lineage_returns_live_operation_with_defensive_params():

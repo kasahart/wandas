@@ -1,4 +1,5 @@
 import copy
+import json
 import logging
 import numbers
 import uuid
@@ -74,6 +75,8 @@ def _mutable_config_value(value: Any) -> Any:
         }
     if isinstance(value, np.ndarray):
         return value.tolist()
+    if isinstance(value, bool | np.bool_):
+        return bool(value)
     if isinstance(value, numbers.Integral):
         return int(value)
     if isinstance(value, numbers.Real):
@@ -81,17 +84,37 @@ def _mutable_config_value(value: Any) -> Any:
         if np.isfinite(numeric):
             return numeric
         return None
+    if isinstance(value, numbers.Complex):
+        return {
+            "type": "complex",
+            "real": _mutable_config_value(value.real),
+            "imag": _mutable_config_value(value.imag),
+        }
     if isinstance(value, Mapping):
-        return {key: _mutable_config_value(item) for key, item in value.items()}
+        return {_mutable_config_key(key): _mutable_config_value(item) for key, item in value.items()}
     if isinstance(value, tuple | list):
         return [_mutable_config_value(item) for item in value]
     if isinstance(value, set | frozenset):
-        return [_mutable_config_value(item) for item in value]
+        return sorted((_mutable_config_value(item) for item in value), key=_stable_json_sort_key)
     if value is None or isinstance(value, str | bool):
         return value
     if not isinstance(value, int | float):
         return str(value)
     return value
+
+
+def _mutable_config_key(key: Any) -> str:
+    """Convert operation param keys to stable JSON object keys."""
+    if isinstance(key, str):
+        return key
+    value = _mutable_config_value(key)
+    if isinstance(value, str):
+        return value
+    return _stable_json_sort_key(value)
+
+
+def _stable_json_sort_key(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
 
 
 class BaseFrame(ABC, Generic[T]):
