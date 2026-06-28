@@ -10,6 +10,7 @@ from dask.array.core import Array as DaArray
 from dask.base import tokenize
 
 from wandas.frames.channel import ChannelFrame
+from wandas.processing import base as base_module
 from wandas.processing.base import (
     _OPERATION_MODULES,
     _OPERATION_REGISTRY,
@@ -587,6 +588,41 @@ class TestAudioOperation:
         dask_array = da_from_array(np.array([1.0]), chunks=(1,))
 
         assert _snapshot_config_value(dask_array) is dask_array
+
+    def test_snapshot_config_value_returns_immutable_scalars_without_deepcopy(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def fail_deepcopy(value: object) -> object:
+            raise AssertionError(f"deepcopy should not run for {value!r}")
+
+        monkeypatch.setattr("wandas.processing.base.copy.deepcopy", fail_deepcopy)
+
+        for value in [None, True, 1, 1.5, "gain", b"gain", 1 + 2j]:
+            assert _snapshot_config_value(value) is value
+
+    def test_config_value_snapshots_only_requested_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        test_op_cls = self._make_test_op_class()
+        target = {"gain": 2.0}
+        untouched = {"bias": 1.0}
+        op = test_op_cls(16000, target=target, untouched=untouched)
+        config = object.__getattribute__(op, "_config")
+        calls: list[object] = []
+        real_snapshot = base_module._snapshot_config_value
+
+        def record_snapshot(value: object) -> object:
+            calls.append(value)
+            return real_snapshot(value)
+
+        monkeypatch.setattr(base_module, "_snapshot_config_value", record_snapshot)
+
+        snapshot = op._config_value("target")
+
+        assert snapshot == {"gain": 2.0}
+        assert calls[0] is config["target"]
+        assert config["untouched"] not in calls
+        snapshot["gain"] = 99.0
+        assert op._config["target"] == {"gain": 2.0}
 
     def test_config_values_equal_handles_non_matching_containers(self) -> None:
         assert not _config_values_equal({"left": 1}, {"right": 1})

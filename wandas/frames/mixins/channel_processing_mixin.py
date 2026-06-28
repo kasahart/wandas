@@ -130,6 +130,14 @@ class ChannelProcessingMixin:
                 "  Suggested alternatives: 'sr', 'sample_rate', or 'fs'\n"
                 f"  Received params: {list(kwargs.keys())}"
             )
+        if "pure" in kwargs:
+            raise ValueError(
+                "Parameter name conflict\n"
+                "  Cannot use 'pure' as a parameter in apply().\n"
+                "  'pure' is reserved for operation purity and Dask task semantics.\n"
+                "  Suggested alternative: rename the function argument to 'is_pure'.\n"
+                f"  Received params: {list(kwargs.keys())}"
+            )
 
         operation = CustomOperation(
             sampling_rate=self.sampling_rate,

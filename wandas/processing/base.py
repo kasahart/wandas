@@ -99,6 +99,8 @@ class BinaryOperation:
 
 def _snapshot_config_value(value: Any) -> Any:
     """Return an operation-owned snapshot of user supplied config values."""
+    if value is None or isinstance(value, bool | int | float | str | bytes | complex):
+        return value
     if isinstance(value, DaArray):
         return value
     if isinstance(value, np.ndarray):
@@ -218,9 +220,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     # Class variable: operation name
     name: ClassVar[str]
 
-    # Optional attributes used by some subclasses (e.g., FFT)
-    n_fft: int | None
-    window: str
+    _config: dict[str, Any]
 
     def __init__(self, sampling_rate: float, *, pure: bool = True, **params: Any):
         """
@@ -269,8 +269,11 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
 
     def _config_snapshot(self) -> dict[str, Any]:
         """Return a defensive copy of base-managed constructor config."""
-        config = object.__getattribute__(self, "_config")
-        return {key: _snapshot_config_value(value) for key, value in config.items()}
+        return {key: _snapshot_config_value(value) for key, value in self._config.items()}
+
+    def _config_value(self, key: str) -> Any:
+        """Return a defensive snapshot for one base-managed config value."""
+        return _snapshot_config_value(self._config[key])
 
     def validate_params(self) -> None:
         """Validate parameters (raises exception if invalid)"""

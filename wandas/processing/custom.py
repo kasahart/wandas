@@ -5,7 +5,6 @@ from wandas.processing.base import (
     AudioOperation,
     InputArrayType,
     OutputArrayType,
-    _snapshot_config_value,
     register_operation,
 )
 
@@ -34,14 +33,15 @@ class CustomOperation(AudioOperation[InputArrayType, OutputArrayType]):
         output_shape_func : Callable, optional
             Function to calculate output shape from input shape.
         **params : Any
-            Additional parameters to pass to the function.
+            Additional parameters to pass to the function. ``pure`` is reserved
+            for operation purity and Dask task semantics; use a different
+            custom parameter name such as ``is_pure``.
         """
         # Store callables privately so a frame lineage operation cannot alter a
         # pending Dask graph by reassigning public attributes before compute.
         self._func: Callable[..., OutputArrayType] = func
         self._output_shape_func = output_shape_func
-        self._custom_params = {key: _snapshot_config_value(value) for key, value in params.items()}
-        super().__init__(sampling_rate, **params)
+        super().__init__(sampling_rate, pure=True, **params)
 
     @property
     def func(self) -> Callable[..., OutputArrayType]:
@@ -53,13 +53,9 @@ class CustomOperation(AudioOperation[InputArrayType, OutputArrayType]):
         """Output shape function captured at operation construction time."""
         return self._output_shape_func
 
-    def to_params(self) -> dict[str, Any]:
-        return {key: _snapshot_config_value(value) for key, value in self._custom_params.items()}
-
     def _process_array(self, x: InputArrayType) -> OutputArrayType:
         """Apply custom function."""
-        params = {key: _snapshot_config_value(value) for key, value in self._custom_params.items()}
-        return self._func(x, **params)
+        return self._func(x, **self._config)
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """Calculate output shape."""

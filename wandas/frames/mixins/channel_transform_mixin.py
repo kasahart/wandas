@@ -98,7 +98,8 @@ class ChannelTransformMixin:
             label_template,
         )
 
-        n_fft = operation.n_fft
+        operation_params = operation.to_params()
+        n_fft = operation_params["n_fft"]
         if isinstance(n_fft, bool) or not isinstance(n_fft, int):
             raise TypeError(
                 f"Operation '{operation_name}' must provide a positive integer n_fft "
@@ -113,7 +114,7 @@ class ChannelTransformMixin:
             data=result_data,
             sampling_rate=self.sampling_rate,
             n_fft=n_fft,
-            window=operation.window,
+            window=operation_params["window"],
             label=f"{label_prefix} {self.label}",
             metadata=self.metadata,
             channel_metadata=channel_metadata,

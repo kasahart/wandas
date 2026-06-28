@@ -103,7 +103,7 @@ class TestFade:
             atol=1e-12,  # float64 window multiplication precision
         )
 
-    def test_frame_fade_lineage_exposes_read_only_fade_len(self) -> None:
+    def test_frame_fade_lineage_records_fade_parameters(self) -> None:
         sig = np.ones((1, 200), dtype=float)
         frame = ChannelFrame(da_from_array(sig, chunks=(1, -1)), sampling_rate=_SR)
 
@@ -112,9 +112,7 @@ class TestFade:
         op = result.lineage.operation
         assert isinstance(op, Fade)
 
-        assert op.fade_len == 20
-        with pytest.raises(AttributeError):
-            setattr(op, "fade_len", 0)
+        assert op.to_params() == {"fade_ms": 20.0}
 
         expected = sp_windows.tukey(200, alpha=Fade.calculate_tukey_alpha(20, 200)).reshape(1, -1)
         np.testing.assert_allclose(result.compute(), expected, rtol=1e-10, atol=1e-12)

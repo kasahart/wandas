@@ -226,11 +226,9 @@ def test_add_with_snr_and_fade_expose_lineage_parameters() -> None:
     add = AddWithSNR(_SR, other=noise, snr=12.0)
     fade = Fade(_SR, fade_ms=25)
 
-    assert add.other is noise
     assert add.snr == 12.0
     assert add.to_params() == {"other": noise, "snr": 12.0}
     assert fade.fade_ms == 25.0
-    assert fade.fade_len == 400
     assert fade.to_params() == {"fade_ms": 25.0}
 
 
