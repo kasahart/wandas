@@ -61,6 +61,17 @@ def test_loudness_zwst_wrapper_propagates_import_error(monkeypatch: pytest.Monke
     assert exc_info.value is original_error
 
 
+def test_loudness_and_sharpness_lineage_parameters() -> None:
+    loudness = LoudnessZwst(_SR, field_type="diffuse")
+    sharpness = SharpnessDinSt(_SR, weighting="aures", field_type="diffuse")
+
+    assert loudness.field_type == "diffuse"
+    assert loudness.to_params() == {"field_type": "diffuse"}
+    assert sharpness.weighting == "aures"
+    assert sharpness.field_type == "diffuse"
+    assert sharpness.to_params() == {"weighting": "aures", "field_type": "diffuse"}
+
+
 def test_scalar_metric_missing_mosqito_does_not_materialize_data(monkeypatch: pytest.MonkeyPatch) -> None:
     original_error = ImportError('Install it with: pip install "wandas[psychoacoustic]"')
 

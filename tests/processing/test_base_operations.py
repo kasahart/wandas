@@ -13,7 +13,9 @@ from wandas.processing.base import (
     _OPERATION_MODULES,
     _OPERATION_REGISTRY,
     AudioOperation,
+    BinaryOperation,
     _config_values_equal,
+    _operand_descriptor,
     _snapshot_config_value,
     create_operation,
     get_operation,
@@ -115,6 +117,26 @@ class TestOperationRegistry:
         assert isinstance(hpf_op, HighPassFilter)
         assert hpf_op.cutoff == 150.0
         assert hpf_op.order == 6
+
+
+def test_operand_descriptor_handles_scalar_and_shape_only_values() -> None:
+    class ShapeOnly:
+        shape = (2, 3)
+
+    assert _operand_descriptor(1 + 2j) == {"type": "complex", "real": 1.0, "imag": 2.0}
+    assert _operand_descriptor(True) == {"type": "bool", "value": True}
+    assert _operand_descriptor(ShapeOnly()) == {"type": "ShapeOnly", "shape": [2, 3]}
+    assert _operand_descriptor(object()) == {"type": "object"}
+
+
+def test_binary_operation_params_delegate_to_params() -> None:
+    operation = BinaryOperation(symbol="+", operand_kind="scalar", operand=2.0)
+
+    assert operation.params == {
+        "symbol": "+",
+        "operand_kind": "scalar",
+        "operand": {"type": "float", "value": 2.0},
+    }
 
 
 class TestAudioOperation:

@@ -69,6 +69,11 @@ class TestFFTOperation:
         assert fft.n_fft == 2048
         assert fft.window == "hamming"
 
+    def test_fft_to_params_returns_lineage_parameters(self) -> None:
+        fft = FFT(_SR, n_fft=2048, window="hamming")
+
+        assert fft.to_params() == {"n_fft": 2048, "window": "hamming"}
+
     def test_fft_registry_returns_correct_class(self) -> None:
         """Test FFT is registered as 'fft'."""
         assert get_operation("fft") == FFT
@@ -235,6 +240,11 @@ class TestIFFTOperation:
         ifft = IFFT(_SR, n_fft=2048, window="hamming")
         assert ifft.n_fft == 2048
         assert ifft.window == "hamming"
+
+    def test_ifft_to_params_returns_lineage_parameters(self) -> None:
+        ifft = IFFT(_SR, n_fft=2048, window="hamming")
+
+        assert ifft.to_params() == {"n_fft": 2048, "window": "hamming"}
 
     def test_ifft_registry_returns_correct_class(self) -> None:
         """Test IFFT is registered as 'ifft'."""
@@ -432,6 +442,11 @@ class TestSTFTOperation:
         assert istft.win_length == 512
         assert istft.window == "hamming"
         assert istft.length == 16000
+
+    def test_istft_calculate_output_shape_respects_length_limit(self) -> None:
+        istft = ISTFT(_SR, n_fft=256, hop_length=64, length=128)
+
+        assert istft.calculate_output_shape((2, 129, 10)) == (2, 128)
 
     def test_stft_registry_returns_correct_class(self) -> None:
         """'stft' and 'istft' registry keys create correct instances."""

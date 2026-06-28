@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from typing import Any, cast
 
 import dask.array as da
@@ -7,7 +8,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from wandas.core.base_frame import BaseFrame, _mutable_config_value
+from wandas.core.base_frame import BaseFrame, _LineageOperationName, _mutable_config_key, _mutable_config_value
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.processing.base import AudioOperation, LineageNode
@@ -135,6 +136,33 @@ def test_rechunk_failure_fallback_logs_warning(caplog):
         f = make_frame(arr)
     assert "Rechunk failed" in caplog.text
     assert hasattr(f, "_data")
+
+
+def test_lineage_operation_name_uses_wrapped_params_when_no_override() -> None:
+    operation = _TestLineageOperation("wrapped", {"alpha": 1.0})
+    named = _LineageOperationName(operation, "display")
+
+    assert named.params == {"alpha": 1.0}
+    assert named.to_params() == {"alpha": 1.0}
+
+
+def test_lineage_operation_name_falls_back_to_params_attribute() -> None:
+    class ParamsOnlyOperation:
+        params = {"beta": 2.0}
+
+    named = _LineageOperationName(ParamsOnlyOperation(), "display")
+
+    assert named.to_params() == {"beta": 2.0}
+
+
+def test_mutable_config_value_preserves_plain_float_and_non_string_key() -> None:
+    assert _mutable_config_value(1.25) == 1.25
+    assert _mutable_config_key(Path("left")) == "left"
+    assert _mutable_config_key(("channel", 1)) == '["channel",1]'
+
+
+def test_lineage_to_graph_returns_none_for_empty_lineage() -> None:
+    assert DummyFrame._lineage_to_graph(None) is None
 
 
 def test_get_channel_query_no_match_raises_key_error():

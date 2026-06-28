@@ -98,9 +98,7 @@ def _mutable_config_value(value: Any) -> Any:
         return sorted((_mutable_config_value(item) for item in value), key=_stable_json_sort_key)
     if value is None or isinstance(value, str | bool):
         return value
-    if not isinstance(value, int | float):
-        return str(value)
-    return value
+    return str(value)
 
 
 def _mutable_config_key(key: Any) -> str:
