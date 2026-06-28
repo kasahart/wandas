@@ -223,8 +223,16 @@ class LoudnessZwtv(_ZwickerTimeVaryingBase):
     name = "loudness_zwtv"
 
     def __init__(self, sampling_rate: float, field_type: str = "free"):
-        self.field_type = field_type
+        self._field_type = field_type
         super().__init__(sampling_rate, field_type=field_type)
+
+    @property
+    def field_type(self) -> str:
+        """Sound-field type captured at operation construction time."""
+        return self._field_type
+
+    def to_params(self) -> dict[str, str]:
+        return {"field_type": self._field_type}
 
     def validate_params(self) -> None:
         _validate_field_type(self.field_type)
@@ -317,8 +325,16 @@ class LoudnessZwst(_SteadyStateBase):
     name = "loudness_zwst"
 
     def __init__(self, sampling_rate: float, field_type: str = "free"):
-        self.field_type = field_type
+        self._field_type = field_type
         super().__init__(sampling_rate, field_type=field_type)
+
+    @property
+    def field_type(self) -> str:
+        """Sound-field type captured at operation construction time."""
+        return self._field_type
+
+    def to_params(self) -> dict[str, str]:
+        return {"field_type": self._field_type}
 
     def validate_params(self) -> None:
         _validate_field_type(self.field_type)
@@ -364,22 +380,30 @@ class _RoughnessBase(_PsychoacousticOperation):
     """
 
     _WINDOW_DURATION = 0.2  # 200 ms analysis window
-    overlap: float  # Set by subclass __init__
+    _overlap: float  # Set by subclass __init__
+
+    @property
+    def overlap(self) -> float:
+        """Overlap captured at operation construction time."""
+        return self._overlap
+
+    def to_params(self) -> dict[str, float]:
+        return {"overlap": self._overlap}
 
     def validate_params(self) -> None:
         """Validate overlap is in [0.0, 1.0]."""
-        if not 0.0 <= self.overlap <= 1.0:
-            raise ValueError(f"overlap must be in [0.0, 1.0], got {self.overlap}")
+        if not 0.0 <= self._overlap <= 1.0:
+            raise ValueError(f"overlap must be in [0.0, 1.0], got {self._overlap}")
 
     def _output_sampling_rate(self) -> float:
         """Compute output sampling rate from window duration and overlap."""
-        hop_duration = self._WINDOW_DURATION * (1 - self.overlap)
+        hop_duration = self._WINDOW_DURATION * (1 - self._overlap)
         return 1.0 / hop_duration if hop_duration > 0 else 5.0
 
     def _estimated_time_samples(self, n_samples: int) -> int:
         """Estimate output time-axis length for *n_samples* input."""
         window_samples = int(self._WINDOW_DURATION * self.sampling_rate)
-        hop_samples = int(window_samples * (1 - self.overlap))
+        hop_samples = int(window_samples * (1 - self._overlap))
         if hop_samples > 0:
             return max(1, (n_samples - window_samples) // hop_samples + 1)
         return 1
@@ -464,7 +488,7 @@ class RoughnessDw(_RoughnessBase):
         overlap : float, default=0.5
             Overlapping coefficient (0.0 to 1.0)
         """
-        self.overlap = overlap
+        self._overlap = overlap
         super().__init__(sampling_rate, overlap=overlap)
 
     def ensure_dependencies(self) -> None:
@@ -485,10 +509,10 @@ class RoughnessDw(_RoughnessBase):
             Time-varying roughness in asper for each channel.
             Shape: (channels, time_samples)
         """
-        logger.debug(f"Calculating roughness for signal with shape: {x.shape}, overlap: {self.overlap}")
+        logger.debug(f"Calculating roughness for signal with shape: {x.shape}, overlap: {self._overlap}")
 
         def _compute(ch: NDArrayReal) -> NDArrayReal:
-            roughness_r, _, _, _ = roughness_dw_mosqito(ch, self.sampling_rate, overlap=self.overlap)
+            roughness_r, _, _, _ = roughness_dw_mosqito(ch, self.sampling_rate, overlap=self._overlap)
             return np.asarray(roughness_r)
 
         return _process_per_channel(x, _compute)
@@ -514,7 +538,7 @@ class RoughnessDwSpec(_RoughnessBase):
     _bark_axis_cache: ClassVar[dict[tuple[float, float], NDArrayReal]] = {}
 
     def __init__(self, sampling_rate: float, overlap: float = 0.5) -> None:
-        self.overlap = overlap
+        self._overlap = overlap
         self.validate_params()
         # Check cache first to avoid redundant MoSQITo calls
         cache_key = (sampling_rate, overlap)
@@ -542,9 +566,10 @@ class RoughnessDwSpec(_RoughnessBase):
                 raise RuntimeError(
                     "Could not initialize RoughnessDwSpec: MoSQITo's roughness_dw returned an empty or None bark_axis."
                 )
-            self._bark_axis = bark_axis_from_mosqito
+            self._bark_axis = np.asarray(bark_axis_from_mosqito)
+            self._bark_axis.flags.writeable = False
             # Cache the result for future use
-            RoughnessDwSpec._bark_axis_cache[cache_key] = bark_axis_from_mosqito
+            RoughnessDwSpec._bark_axis_cache[cache_key] = self._bark_axis
         super().__init__(sampling_rate, overlap=overlap)
 
     @property
@@ -572,7 +597,7 @@ class RoughnessDwSpec(_RoughnessBase):
         logger.debug(
             "Calculating specific roughness for signal with shape: %s, overlap: %s",
             x.shape,
-            self.overlap,
+            self._overlap,
         )
 
         # Ensure (n_channels, n_samples)
@@ -588,7 +613,7 @@ class RoughnessDwSpec(_RoughnessBase):
             channel_data = np.asarray(x_proc[ch]).ravel()
 
             # Call MoSQITo's roughness_dw (module-level import)
-            _, r_spec, bark_axis, _ = roughness_dw_mosqito(channel_data, self.sampling_rate, overlap=self.overlap)
+            _, r_spec, bark_axis, _ = roughness_dw_mosqito(channel_data, self.sampling_rate, overlap=self._overlap)
 
             r_spec_list.append(r_spec)
             if self._bark_axis is None:
@@ -674,9 +699,22 @@ class SharpnessDin(_ZwickerTimeVaryingBase):
     name = "sharpness_din"
 
     def __init__(self, sampling_rate: float, weighting: str = "din", field_type: str = "free"):
-        self.weighting = weighting
-        self.field_type = field_type
+        self._weighting = weighting
+        self._field_type = field_type
         super().__init__(sampling_rate, weighting=weighting, field_type=field_type)
+
+    @property
+    def weighting(self) -> str:
+        """Sharpness weighting captured at operation construction time."""
+        return self._weighting
+
+    @property
+    def field_type(self) -> str:
+        """Sound-field type captured at operation construction time."""
+        return self._field_type
+
+    def to_params(self) -> dict[str, str]:
+        return {"weighting": self._weighting, "field_type": self._field_type}
 
     def validate_params(self) -> None:
         _validate_sharpness_params(self.weighting, self.field_type)
@@ -784,9 +822,22 @@ class SharpnessDinSt(_SteadyStateBase):
     name = "sharpness_din_st"
 
     def __init__(self, sampling_rate: float, weighting: str = "din", field_type: str = "free"):
-        self.weighting = weighting
-        self.field_type = field_type
+        self._weighting = weighting
+        self._field_type = field_type
         super().__init__(sampling_rate, weighting=weighting, field_type=field_type)
+
+    @property
+    def weighting(self) -> str:
+        """Sharpness weighting captured at operation construction time."""
+        return self._weighting
+
+    @property
+    def field_type(self) -> str:
+        """Sound-field type captured at operation construction time."""
+        return self._field_type
+
+    def to_params(self) -> dict[str, str]:
+        return {"weighting": self._weighting, "field_type": self._field_type}
 
     def validate_params(self) -> None:
         _validate_sharpness_params(self.weighting, self.field_type)

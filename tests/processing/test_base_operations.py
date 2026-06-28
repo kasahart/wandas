@@ -1,20 +1,29 @@
 import abc
+from collections import Counter, defaultdict, namedtuple
+from typing import Any
 from unittest import mock
 
+import cloudpickle
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
+from dask.base import tokenize
 
 from wandas.processing.base import (
     _OPERATION_MODULES,
     _OPERATION_REGISTRY,
     AudioOperation,
+    BinaryOperation,
+    _config_values_equal,
+    _operand_descriptor,
+    _snapshot_config_value,
     create_operation,
     get_operation,
     register_lazy_operation,
     register_operation,
 )
 from wandas.processing.filters import HighPassFilter
+from wandas.processing.spectral import STFT
 from wandas.utils.dask_helpers import da_from_array
 from wandas.utils.types import NDArrayReal
 
@@ -110,6 +119,26 @@ class TestOperationRegistry:
         assert hpf_op.order == 6
 
 
+def test_operand_descriptor_handles_scalar_and_shape_only_values() -> None:
+    class ShapeOnly:
+        shape = (2, 3)
+
+    assert _operand_descriptor(1 + 2j) == {"type": "complex", "real": 1.0, "imag": 2.0}
+    assert _operand_descriptor(True) == {"type": "bool", "value": True}
+    assert _operand_descriptor(ShapeOnly()) == {"type": "ShapeOnly", "shape": [2, 3]}
+    assert _operand_descriptor(object()) == {"type": "object"}
+
+
+def test_binary_operation_params_delegate_to_params() -> None:
+    operation = BinaryOperation(symbol="+", operand_kind="scalar", operand=2.0)
+
+    assert operation.params == {
+        "symbol": "+",
+        "operand_kind": "scalar",
+        "operand": {"type": "float", "value": 2.0},
+    }
+
+
 class TestAudioOperation:
     """Test AudioOperation base class."""
 
@@ -117,6 +146,13 @@ class TestAudioOperation:
     def _make_test_op_class() -> type:
         class _TestOp(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "test_op"
+
+            def __init__(self, sampling_rate: float, *, pure: bool = True, **params: Any) -> None:
+                self._test_params = {key: _snapshot_config_value(value) for key, value in params.items()}
+                super().__init__(sampling_rate, pure=pure, **params)
+
+            def to_params(self) -> dict[str, Any]:
+                return {key: _snapshot_config_value(value) for key, value in self._test_params.items()}
 
             def _process_array(self, x: NDArrayReal) -> NDArrayReal:
                 return x * 2
@@ -149,6 +185,24 @@ class TestAudioOperation:
         _ = op.process(dask_data).compute()
 
         np.testing.assert_array_equal(dask_data.compute(), data_copy)
+
+    def test_same_immutable_operation_instance_can_process_multiple_inputs(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000)
+        first = da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1))
+        second = da_from_array(np.array([[3.0, 4.0]]), chunks=(1, -1))
+
+        np.testing.assert_array_equal(op.process(first).compute(), np.array([[2.0, 4.0]]))
+        np.testing.assert_array_equal(op.process(second).compute(), np.array([[6.0, 8.0]]))
+
+    def test_sampling_rate_is_read_only_after_initialization(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000)
+
+        with pytest.raises(AttributeError):
+            setattr(op, "sampling_rate", 8000)
+
+        assert op.sampling_rate == 16000
 
     def test_delayed_execution_not_computed_early(self) -> None:
         """Pillar 1: process() preserves Dask lazy evaluation; no premature compute()."""
@@ -219,6 +273,459 @@ class TestAudioOperation:
         """Base class get_metadata_updates() returns empty dict by default."""
         test_op_cls = self._make_test_op_class()
         assert test_op_cls(16000).get_metadata_updates() == {}
+
+    def test_concrete_config_properties_are_read_only(self) -> None:
+        op = HighPassFilter(16000, cutoff=500)
+
+        with pytest.raises(AttributeError):
+            setattr(op, "cutoff", 1000)
+        with pytest.raises(AttributeError):
+            del op.cutoff
+
+        assert op.cutoff == 500
+        assert op.params["cutoff"] == 500
+
+    def test_subclass_to_params_defines_operation_params(self) -> None:
+        class SeededConfigOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "seeded_config_op"
+
+            def __init__(self, sampling_rate: float, gain: str):
+                self._gain = float(gain)
+                super().__init__(sampling_rate, gain=self._gain)
+
+            @property
+            def gain(self) -> float:
+                return self._gain
+
+            def to_params(self) -> dict[str, float]:
+                return {"gain": self._gain}
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x * self._gain
+
+        op = SeededConfigOperation(16000, gain="2.0")
+        data = da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1))
+
+        assert op.gain == 2.0
+        assert op.params["gain"] == 2.0
+        np.testing.assert_array_equal(op.process(data).compute(), np.array([[2.0, 4.0]]))
+
+    def test_params_are_read_only_after_operation_creation(self) -> None:
+        op = HighPassFilter(16000, cutoff=500)
+
+        with pytest.raises(TypeError):
+            op.params["cutoff"] = 1000  # ty: ignore[invalid-assignment]
+        with pytest.raises(AttributeError):
+            op.params = {"cutoff": 1000}  # ty: ignore[invalid-assignment]
+
+        assert op.params["cutoff"] == 500
+        assert op.cutoff == 500
+
+    def test_params_copy_mutation_does_not_change_operation(self) -> None:
+        op = HighPassFilter(16000, cutoff=500)
+
+        params = op.params.copy()
+        params["cutoff"] = 1000
+
+        assert op.params["cutoff"] == 500
+        assert op.cutoff == 500
+
+    def test_params_view_exposes_read_only_mapping_helpers(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000, gain=2.0)
+        params = op.params
+
+        assert len(params) == 1
+        assert repr(params) == "{'gain': 2.0}"
+        assert params.copy() == {"gain": 2.0}
+        assert params != [("gain", 2.0)]
+
+        with pytest.raises(TypeError):
+            del params["gain"]  # type: ignore[attr-defined]
+
+        assert op.params == {"gain": 2.0}
+
+    def test_operation_params_nested_values_remain_defensive(self) -> None:
+        class NestedParamsOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "nested_params_op"
+
+            def __init__(self, sampling_rate: float, config: dict[str, float]):
+                self._config = _snapshot_config_value(config)
+                super().__init__(sampling_rate, config=config)
+
+            def to_params(self) -> dict[str, Any]:
+                return {"config": self._config}
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        op = NestedParamsOperation(16000, config={"gain": 2.0})
+
+        copied_params = op.params.copy()
+        copied_params["config"]["gain"] = 99.0
+        nested_config = op.params["config"]
+        nested_config["gain"] = 99.0
+
+        assert op.params["config"]["gain"] == 2.0
+
+    def test_params_deletion_does_not_change_generated_params(self) -> None:
+        op = HighPassFilter(16000, cutoff=500)
+
+        with pytest.raises(TypeError):
+            del op.params["cutoff"]  # ty: ignore[not-subscriptable]
+
+        assert op.params["cutoff"] == 500
+        assert op.cutoff == 500
+
+    def test_subclasses_snapshot_mutable_config_for_to_params(self) -> None:
+        class PrivateConfigOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "private_config_op"
+
+            def __init__(self, sampling_rate: float, config: dict[str, float]):
+                self._config = _snapshot_config_value(config)
+                super().__init__(sampling_rate, config=config)
+
+            def to_params(self) -> dict[str, Any]:
+                return {"config": self._config}
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x * self._config["gain"]
+
+        config = {"gain": 2.0}
+        op = PrivateConfigOperation(16000, config=config)
+        config["gain"] = 99.0
+
+        assert op.params["config"] == {"gain": 2.0}
+
+    def test_non_config_mutable_public_attribute_returns_live_value(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000, gain=2.0)
+        cache = {"last": 1.0}
+        object.__setattr__(op, "cache", cache)
+
+        assert op.cache is cache
+
+    def test_empty_public_mapping_after_base_init_returns_live_value(self) -> None:
+        class CachedOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "cached_op"
+
+            def __init__(self, sampling_rate: float):
+                super().__init__(sampling_rate)
+                self.cache: dict[str, float] = {}
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        op = CachedOperation(16000)
+
+        op.cache["last"] = 1.0
+
+        assert object.__getattribute__(op, "cache") == {"last": 1.0}
+
+    def test_public_cache_with_param_key_returns_live_value(self) -> None:
+        class CachedOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "param_key_cache_op"
+
+            def __init__(self, sampling_rate: float, gain: float):
+                super().__init__(sampling_rate, gain=gain)
+                self.cache: dict[str, float | None] = {"gain": None}
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                self.cache["gain"] = 2.0
+                return x
+
+        op = CachedOperation(16000, gain=2.0)
+
+        op.cache["gain"] = 3.0
+
+        assert object.__getattribute__(op, "cache") == {"gain": 3.0}
+
+    def test_snapshot_config_value_preserves_defaultdict_behavior(self) -> None:
+        config: defaultdict[str, float] = defaultdict(lambda: 2.0, {"gain": 3.0})
+
+        snapshot = _snapshot_config_value(config)
+        config["gain"] = 99.0
+
+        assert isinstance(snapshot, defaultdict)
+        assert snapshot["missing"] == 2.0
+        assert snapshot["gain"] == 3.0
+
+    def test_snapshot_config_value_preserves_mutable_mapping_items(self) -> None:
+        config = Counter({"gain": 2})
+
+        snapshot = _snapshot_config_value(config)
+
+        assert isinstance(snapshot, Counter)
+        assert snapshot == Counter({"gain": 2})
+
+    def test_snapshot_config_value_falls_back_for_mutable_mapping_copy_failure(self) -> None:
+        class BadMutableMapping(dict[str, float]):
+            def clear(self) -> None:
+                raise RuntimeError("cannot clear")
+
+        snapshot = _snapshot_config_value(BadMutableMapping({"gain": 2.0}))
+
+        assert type(snapshot) is dict
+        assert snapshot == {"gain": 2.0}
+
+    def test_mapping_subclass_public_config_keeps_behavior_after_snapshot(self) -> None:
+        class DefaultdictConfigOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "defaultdict_config_op"
+
+            def __init__(self, sampling_rate: float, config: defaultdict[str, float]):
+                self.config = config
+                super().__init__(sampling_rate, config=config)
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x * self.config["missing"]
+
+        op = DefaultdictConfigOperation(16000, defaultdict(lambda: 2.0))
+        data = da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1))
+
+        assert isinstance(object.__getattribute__(op, "config"), defaultdict)
+        np.testing.assert_array_equal(op.process(data).compute(), np.array([[2.0, 4.0]]))
+
+    def test_operation_params_equality_handles_array_values(self) -> None:
+        class ArrayParamsOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "array_params_op"
+
+            def __init__(self, sampling_rate: float, reference: NDArrayReal):
+                self._reference = _snapshot_config_value(reference)
+                self._config = {"weights": _snapshot_config_value(reference)}
+                super().__init__(sampling_rate, reference=reference, config={"weights": reference})
+
+            def to_params(self) -> dict[str, Any]:
+                return {"reference": self._reference, "config": self._config}
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        reference = np.array([1.0, 2.0])
+        op = ArrayParamsOperation(16000, reference=reference)
+
+        assert op.params == op.params
+        assert op.params == {"reference": np.array([1.0, 2.0]), "config": {"weights": np.array([1.0, 2.0])}}
+        assert op.params != {"reference": np.array([1.0, 3.0]), "config": {"weights": np.array([1.0, 2.0])}}
+
+    def test_snapshot_config_value_preserves_dask_arrays(self) -> None:
+        dask_array = da_from_array(np.array([1.0]), chunks=(1,))
+
+        assert _snapshot_config_value(dask_array) is dask_array
+
+    def test_config_values_equal_handles_non_matching_containers(self) -> None:
+        assert not _config_values_equal({"left": 1}, {"right": 1})
+        assert not _config_values_equal([1], (1,))
+        assert not _config_values_equal([1], [1, 2])
+        assert _config_values_equal([{"gain": np.array([1.0])}], [{"gain": np.array([1.0])}])
+
+    def test_config_values_equal_handles_ambiguous_or_failing_comparisons(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        class EqRaises:
+            def __eq__(self, other: object) -> bool:
+                raise RuntimeError("no eq")
+
+        class EqDaskArray:
+            def __eq__(self, other: object) -> Any:
+                return da_from_array(np.array([True]), chunks=(1,))
+
+        class EqNumpyArray:
+            def __init__(self, values: list[bool]):
+                self.values = values
+
+            def __eq__(self, other: object) -> Any:
+                return np.array(self.values)
+
+        dask_array = da_from_array(np.array([1.0]), chunks=(1,))
+        monkeypatch.setattr("wandas.processing.base.np.array_equal", mock.Mock(side_effect=RuntimeError("no array")))
+
+        assert not _config_values_equal(np.array([1.0]), np.array([1.0]))
+        assert not _config_values_equal(EqRaises(), object())
+        assert not _config_values_equal(dask_array, 1.0)
+        assert not _config_values_equal(EqDaskArray(), object())
+        assert _config_values_equal(EqNumpyArray([True, True]), object())
+        assert not _config_values_equal(EqNumpyArray([True, False]), object())
+
+    def test_operation_params_equality_handles_ambiguous_bool_results(self) -> None:
+        class AmbiguousComparison:
+            def __bool__(self) -> bool:
+                raise ValueError("ambiguous")
+
+        class EqAmbiguousBool:
+            def __eq__(self, other: object) -> Any:
+                return AmbiguousComparison()
+
+        class AmbiguousParamsOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "ambiguous_params_op"
+
+            def __init__(self, sampling_rate: float, config: object):
+                self._config = config
+                super().__init__(sampling_rate, config=config)
+
+            def to_params(self) -> dict[str, object]:
+                return {"config": self._config}
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        op = AmbiguousParamsOperation(16000, config=EqAmbiguousBool())
+
+        assert op.params != op.params
+
+    def test_snapshot_config_value_copies_container_variants(self) -> None:
+        readonly = np.array([1.0])
+        readonly.flags.writeable = False
+
+        copied_array = _snapshot_config_value(readonly)
+        assert copied_array is not readonly
+        assert copied_array.flags.writeable
+
+        snapshot = _snapshot_config_value(
+            {
+                "tuple": ({"x": 1},),
+                "list": [{"y": 2}],
+                "set": {1, 2},
+                "frozenset": frozenset({3, 4}),
+            }
+        )
+
+        assert snapshot["tuple"] == ({"x": 1},)
+        assert snapshot["list"] == [{"y": 2}]
+        assert snapshot["set"] == {1, 2}
+        assert snapshot["frozenset"] == frozenset({3, 4})
+        snapshot["tuple"][0]["x"] = 99
+        snapshot["list"][0]["y"] = 99
+        assert _snapshot_config_value({"tuple": ({"x": 1},), "list": [{"y": 2}]}) == {
+            "tuple": ({"x": 1},),
+            "list": [{"y": 2}],
+        }
+
+    def test_snapshot_config_value_preserves_ndarray_subclasses(self) -> None:
+        masked = np.ma.array([1.0, 2.0], mask=[False, True])
+
+        snapshot = _snapshot_config_value(masked)
+        masked[0] = 99.0
+
+        assert isinstance(snapshot, np.ma.MaskedArray)
+        np.testing.assert_array_equal(snapshot.data, np.array([1.0, 2.0]))
+        np.testing.assert_array_equal(snapshot.mask, np.array([False, True]))
+
+    def test_snapshot_config_value_falls_back_when_ndarray_copy_fails(self) -> None:
+        class CopyFailingArray(np.ndarray):
+            def copy(self, order: Any = "C") -> Any:
+                raise RuntimeError("cannot copy")
+
+        array = np.asarray([1.0, 2.0]).view(CopyFailingArray)
+
+        snapshot = _snapshot_config_value(array)
+
+        assert isinstance(snapshot, CopyFailingArray)
+        assert snapshot is not array
+        np.testing.assert_array_equal(snapshot, np.array([1.0, 2.0]))
+
+    def test_snapshot_config_value_preserves_tuple_subclasses(self) -> None:
+        Config = namedtuple("Config", ["gain"])
+        config = Config(gain={"value": 2.0})
+
+        snapshot = _snapshot_config_value(config)
+        config.gain["value"] = 99.0
+
+        assert isinstance(snapshot, Config)
+        assert snapshot.gain == {"value": 2.0}
+
+    def test_snapshot_config_value_preserves_tuple_subclasses_with_iterable_constructor(self) -> None:
+        class IterableTuple(tuple):
+            def __new__(cls, values: tuple[Any, ...]):
+                return super().__new__(cls, values)
+
+        config = IterableTuple(({"gain": 2.0}, {"bias": 1.0}))
+
+        snapshot = _snapshot_config_value(config)
+        config[0]["gain"] = 99.0
+
+        assert isinstance(snapshot, IterableTuple)
+        assert snapshot == ({"gain": 2.0}, {"bias": 1.0})
+
+    def test_tuple_subclass_public_config_keeps_behavior_after_snapshot(self) -> None:
+        Config = namedtuple("Config", ["gain"])
+
+        class TupleSubclassConfigOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "tuple_subclass_config_op"
+
+            def __init__(self, sampling_rate: float, cfg: Any):
+                self.cfg = cfg
+                super().__init__(sampling_rate, cfg=cfg)
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x * self.cfg.gain
+
+        op = TupleSubclassConfigOperation(16000, Config(gain=2.0))
+        data = da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1))
+
+        assert isinstance(object.__getattribute__(op, "cfg"), Config)
+        np.testing.assert_array_equal(op.process(data).compute(), np.array([[2.0, 4.0]]))
+
+    def test_snapshot_config_value_falls_back_when_deepcopy_fails(self) -> None:
+        class NonCopyable:
+            def __deepcopy__(self, memo: dict[int, object]) -> object:
+                raise RuntimeError("no copy")
+
+        value = NonCopyable()
+
+        assert _snapshot_config_value(value) is value
+
+    def test_public_attributes_remain_ordinary_python_state(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000)
+        config = {"gain": 2.0}
+
+        op.config = config
+        op.config["gain"] = 3.0
+        del op.config
+
+        assert "config" not in object.__getattribute__(op, "__dict__")
+
+    def test_params_view_equality_requires_same_keys(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000, gain=2.0)
+
+        assert op.params != {"other": 2.0}
+
+    def test_operation_tokenize_is_stable_after_initialization(self) -> None:
+        op = HighPassFilter(16000, cutoff=500)
+
+        assert tokenize(op) == tokenize(op)
+
+    def test_cloudpickle_serializes_operation_lineage_objects(self) -> None:
+        def identity(x: NDArrayReal) -> NDArrayReal:
+            return x
+
+        from wandas.processing.custom import CustomOperation
+        from wandas.processing.effects import Normalize
+
+        operations = [
+            HighPassFilter(16000, cutoff=500),
+            Normalize(16000),
+            STFT(16000),
+            CustomOperation(16000, func=identity),
+        ]
+
+        for operation in operations:
+            assert cloudpickle.loads(cloudpickle.dumps(operation)).params == operation.params
+
+    def test_inherited_operation_init_is_not_wrapped_twice(self) -> None:
+        class ParentOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "parent_wrapped_op"
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        parent_init = ParentOperation.__init__
+
+        class ChildOperation(ParentOperation):
+            name = "child_wrapped_op"
+
+        assert ChildOperation.__init__ is parent_init
 
     def test_get_display_name_returns_none(self) -> None:
         """Base class get_display_name() returns None by default."""

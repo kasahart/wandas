@@ -1,9 +1,14 @@
+import copy
 import importlib
 import inspect
 import logging
+from collections import defaultdict
+from collections.abc import Iterator, Mapping, MutableMapping
+from dataclasses import dataclass
 from typing import Any, ClassVar, Generic, TypeVar, cast
 
 import dask.array as da
+import numpy as np
 from dask.array.core import Array as DaArray
 from dask.delayed import delayed
 
@@ -28,8 +33,187 @@ def _mark_wandas_operation(data: Any, operation: "AudioOperation[Any, Any]") -> 
     return data
 
 
+@dataclass(frozen=True)
+class LineageNode:
+    """Serializable computation provenance node.
+
+    ``operation`` is the same operation object used to build the Dask task
+    whenever the computation is represented by an ``AudioOperation``. This keeps
+    lineage parameters and compute parameters tied to one immutable operation
+    snapshot.
+    """
+
+    operation: Any
+    inputs: tuple["LineageNode", ...] = ()
+
+
+def _operand_descriptor(value: Any) -> dict[str, Any]:
+    if isinstance(value, DaArray):
+        return {
+            "type": "dask.array",
+            "shape": list(value.shape),
+            "dtype": str(value.dtype),
+            "chunks": [list(chunk) for chunk in value.chunks],
+        }
+    if isinstance(value, np.ndarray):
+        return {
+            "type": "ndarray",
+            "shape": list(value.shape),
+            "dtype": str(value.dtype),
+        }
+    if isinstance(value, complex):
+        return {"type": "complex", "real": value.real, "imag": value.imag}
+    if isinstance(value, bool):
+        return {"type": "bool", "value": value}
+    if isinstance(value, int | float | str) or value is None:
+        return {"type": type(value).__name__, "value": value}
+    if hasattr(value, "shape"):
+        return {"type": type(value).__name__, "shape": list(value.shape)}
+    return {"type": type(value).__name__}
+
+
+@dataclass(frozen=True)
+class BinaryOperation:
+    """Lightweight operation record for frame binary computations."""
+
+    symbol: str
+    operand_kind: str
+    operand: Any | None = None
+    name: str = "binary_operation"
+
+    @property
+    def params(self) -> Mapping[str, Any]:
+        return self.to_params()
+
+    def to_params(self) -> Mapping[str, Any]:
+        params: dict[str, Any] = {
+            "symbol": self.symbol,
+            "operand_kind": self.operand_kind,
+        }
+        if self.operand_kind == "frame" and self.operand is not None:
+            params["operand"] = {"type": "frame", "label": str(self.operand)}
+        elif self.operand_kind != "frame":
+            params["operand"] = _operand_descriptor(self.operand)
+        return params
+
+
+def _snapshot_config_value(value: Any) -> Any:
+    """Return an operation-owned snapshot of user supplied config values."""
+    if isinstance(value, DaArray):
+        return value
+    if isinstance(value, np.ndarray):
+        try:
+            return value.copy()
+        except Exception:
+            return np.array(value, copy=True, subok=True)
+    if isinstance(value, Mapping):
+        items = [(key, _snapshot_config_value(item)) for key, item in value.items()]
+        if isinstance(value, defaultdict):
+            return defaultdict(value.default_factory, items)
+        if type(value) is dict:
+            return dict(items)
+        if isinstance(value, MutableMapping):
+            try:
+                snapshot = copy.copy(value)
+                snapshot.clear()
+                snapshot.update(dict(items))
+                return snapshot
+            except Exception:
+                pass
+        return dict(items)
+    if isinstance(value, tuple):
+        items = tuple(_snapshot_config_value(item) for item in value)
+        if type(value) is tuple:
+            return items
+        try:
+            return type(value)(*items)
+        except TypeError:
+            return type(value)(items)
+    if isinstance(value, list):
+        return [_snapshot_config_value(item) for item in value]
+    if isinstance(value, set | frozenset):
+        return type(value)(_snapshot_config_value(item) for item in value)
+    try:
+        return copy.deepcopy(value)
+    except Exception:
+        return value
+
+
+def _config_values_equal(left: Any, right: Any) -> bool:
+    """Compare captured config values without NumPy's ambiguous bool errors."""
+    if isinstance(left, DaArray) or isinstance(right, DaArray):
+        return (
+            isinstance(left, DaArray)
+            and isinstance(right, DaArray)
+            and left.name == right.name
+            and left.shape == right.shape
+            and left.chunks == right.chunks
+            and left.dtype == right.dtype
+        )
+    if isinstance(left, np.ndarray) or isinstance(right, np.ndarray):
+        try:
+            return bool(np.array_equal(left, right))
+        except Exception:
+            return False
+    if isinstance(left, Mapping) and isinstance(right, Mapping):
+        if set(left) != set(right):
+            return False
+        return all(_config_values_equal(left[key], right[key]) for key in left)
+    if isinstance(left, tuple | list) and isinstance(right, tuple | list):
+        if type(left) is not type(right) or len(left) != len(right):
+            return False
+        return all(_config_values_equal(left_item, right_item) for left_item, right_item in zip(left, right))
+    try:
+        result = left == right
+    except Exception:
+        return False
+    if isinstance(result, DaArray):
+        return False
+    if isinstance(result, np.ndarray):
+        return bool(np.all(result))
+    try:
+        return bool(result)
+    except Exception:
+        return False
+
+
+class _ParamsSnapshot(Mapping[str, Any]):
+    def __init__(self, params: Mapping[str, Any]) -> None:
+        self._params = {key: _snapshot_config_value(value) for key, value in params.items()}
+
+    def __getitem__(self, key: str) -> Any:
+        return _snapshot_config_value(self._params[key])
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._params)
+
+    def __len__(self) -> int:
+        return len(self._params)
+
+    def __repr__(self) -> str:
+        return repr(dict(self.items()))
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Mapping):
+            return False
+        other_mapping = cast(Mapping[str, Any], other)
+        if set(self) != set(other_mapping):
+            return False
+        return all(_config_values_equal(self[key], other_mapping[key]) for key in self)
+
+    def copy(self) -> dict[str, Any]:
+        return dict(self.items())
+
+
 class AudioOperation(Generic[InputArrayType, OutputArrayType]):
-    """Abstract base class for audio processing operations."""
+    """Abstract runtime lineage object for audio processing operations.
+
+    Operation parameters are captured as operation-owned snapshots for lineage
+    metadata. ``params`` is a read-only defensive snapshot; create a new
+    operation when configuration needs to change. Subclasses should store
+    execution config in private attributes and expose lineage through
+    ``to_params()``.
+    """
 
     # Class variable: operation name
     name: ClassVar[str]
@@ -53,9 +237,8 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         **params : Any
             Operation-specific parameters
         """
-        self.sampling_rate = sampling_rate
+        object.__setattr__(self, "_sampling_rate", float(sampling_rate))
         self.pure = pure
-        self.params = params
 
         # Validate parameters during initialization
         self.validate_params()
@@ -64,6 +247,20 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         self._setup_processor()
 
         logger.debug(f"Initialized {self.__class__.__name__} operation with params: {params}")
+
+    @property
+    def sampling_rate(self) -> float:
+        """Sampling rate captured at operation construction time."""
+        return object.__getattribute__(self, "_sampling_rate")
+
+    @property
+    def params(self) -> _ParamsSnapshot:
+        """Return a read-only defensive snapshot of operation parameters."""
+        return _ParamsSnapshot(self.to_params())
+
+    def to_params(self) -> Mapping[str, Any]:
+        """Return operation parameters used for lineage and display."""
+        return {}
 
     def validate_params(self) -> None:
         """Validate parameters (raises exception if invalid)"""

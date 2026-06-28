@@ -128,6 +128,19 @@ class TestReSampling:
         np.testing.assert_array_equal(dask_input.compute(), input_copy)
         assert isinstance(result_da, DaArray)
 
+    def test_resampling_sampling_rate_reassignment_does_not_change_delayed_result(self) -> None:
+        data = np.arange(10, dtype=float).reshape(1, -1)
+        dask_input = da_from_array(data, chunks=(1, -1))
+        resampler = ReSampling(sampling_rate=10, target_sr=5)
+
+        result_da = resampler.process(dask_input)
+        with pytest.raises(AttributeError):
+            setattr(resampler, "sampling_rate", 5)
+
+        assert resampler.sampling_rate == 10
+        assert result_da.shape == (1, 5)
+        assert result_da.compute().shape == (1, 5)
+
     def test_resampling_downsample_shape_mono(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
         """Downsample 16 kHz -> 8 kHz halves sample count for mono."""
         dask_input, sr = pure_sine_440hz_dask
@@ -335,6 +348,21 @@ class TestRmsTrend:
         rms = RmsTrend(_SR, dB=True, ref=[1.0])
         assert isinstance(rms.ref, np.ndarray)
         assert rms.ref.shape == (1,)
+
+    def test_public_ref_arrays_are_defensive_copies(self) -> None:
+        """Mutating exposed reference arrays must not change pending compute."""
+        rms = RmsTrend(_SR, frame_length=4, hop_length=2, dB=True, ref=[1.0])
+        sound_level = SoundLevel(_SR, dB=True, ref=[1.0])
+
+        rms.ref[0] = 100.0
+        sound_level.ref[0] = 100.0
+
+        np.testing.assert_array_equal(rms.ref, np.array([1.0]))
+        np.testing.assert_array_equal(sound_level.ref, np.array([1.0]))
+
+        data = da_from_array(np.ones((1, 8)), chunks=(1, -1))
+        expected = RmsTrend(_SR, frame_length=4, hop_length=2, dB=True, ref=[1.0]).process(data).compute()
+        np.testing.assert_allclose(rms.process(data).compute(), expected)
 
     # -- Layer 2: Domain (shape + immutability) ----------------------------
 
@@ -667,6 +695,15 @@ class TestSoundLevel:
         assert op.freq_weighting == "A"
         assert op.time_weighting == "Fast"
         assert op.dB is True
+
+    def test_sound_level_snapshots_external_ref_array(self) -> None:
+        """Mutating a caller-owned ref array must not change operation config."""
+        ref = np.array([1.0])
+        op = SoundLevel(_SR, ref=ref, dB=True)
+
+        ref[0] = 100.0
+
+        np.testing.assert_array_equal(op.ref, np.array([1.0]))
 
     def test_sound_level_defaults_to_linear(self) -> None:
         """Test SoundLevel defaults to linear (dB=False) output."""

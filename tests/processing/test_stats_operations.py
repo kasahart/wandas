@@ -86,6 +86,7 @@ class TestPowerOperation:
         """Test Power stores custom exponent."""
         power_op = Power(_SR, exponent=3.0)
         assert power_op.sampling_rate == _SR
+        assert power_op.exponent == 3.0
         assert power_op.exp == 3.0
 
     def test_power_registry_returns_correct_class(self) -> None:
@@ -94,6 +95,19 @@ class TestPowerOperation:
         power_op = create_operation("power", _SR, exponent=3.0)
         assert isinstance(power_op, Power)
         assert power_op.exp == 3.0
+
+    def test_power_exp_alias_is_read_only_and_process_uses_exponent(self) -> None:
+        data = np.array([[2.0, 3.0]])
+        power_op = Power(_SR, exponent=2.0)
+
+        with pytest.raises(AttributeError):
+            setattr(power_op, "exp", 3.0)
+
+        assert power_op.exp == 2.0
+        np.testing.assert_array_equal(
+            power_op.process(da_from_array(data, chunks=(1, -1))).compute(),
+            data**2,
+        )
 
     # -- Layer 2: Domain (shape + immutability) ----------------------------
 

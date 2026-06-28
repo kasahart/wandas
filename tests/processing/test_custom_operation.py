@@ -23,6 +23,39 @@ class TestCustomOperation:
         result = result_da.compute()
         np.testing.assert_array_equal(result, scale_add(data, gain=2.0))
 
+    def test_custom_operation_process_array_uses_operation_owned_params_copy(self) -> None:
+        data = np.array([[1.0, 2.0, 3.0]])
+        op = CustomOperation(16000, func=lambda x, gain: x * gain, gain=2.0)
+
+        np.testing.assert_array_equal(op._process_array(data), data * 2.0)
+
+    def test_custom_operation_copies_nested_params_for_each_delayed_execution(self) -> None:
+        data = np.array([[1.0, 2.0, 3.0]])
+        dask_data = da_from_array(data, chunks=(1, -1))
+
+        def mutating_scale(x: np.ndarray, config: dict[str, float]) -> np.ndarray:
+            gain = config["gain"]
+            config["gain"] += 1.0
+            return x * gain
+
+        op = CustomOperation(16000, func=mutating_scale, config={"gain": 2.0})
+        result = op.process(dask_data)
+
+        np.testing.assert_array_equal(result.compute(), data * 2.0)
+        np.testing.assert_array_equal(result.compute(), data * 2.0)
+        assert op.params["config"]["gain"] == 2.0
+
+    def test_custom_operation_subclass_delayed_wrapper_uses_process_array_hook(self) -> None:
+        class HookedCustomOperation(CustomOperation):
+            def _process_array(self, x: np.ndarray) -> np.ndarray:
+                return super()._process_array(x) * 3.0
+
+        data = np.array([[1.0, 2.0, 3.0]])
+        dask_data = da_from_array(data, chunks=(1, -1))
+        op = HookedCustomOperation(16000, func=lambda x, gain: x * gain, gain=2.0)
+
+        np.testing.assert_array_equal(op.process(dask_data).compute(), data * 6.0)
+
     def test_custom_operation_output_shape_func_overrides(self) -> None:
         """output_shape_func overrides default shape inference for Dask graph."""
         data = np.arange(8.0).reshape(1, 8)
@@ -42,6 +75,8 @@ class TestCustomOperation:
 
         processed = op.process(dask_data)
         assert processed.shape == (1, 4)
+        assert op.func is halve_samples
+        assert op.output_shape_func is output_shape
         np.testing.assert_array_equal(processed.compute(), halve_samples(data))
 
     def test_get_display_name_uses_func_name(self) -> None:
@@ -88,3 +123,45 @@ class TestCustomOperation:
         # Direct call raises TypeError due to Python's argument handling
         with pytest.raises(TypeError, match="multiple values for argument"):
             CustomOperation(16000, func=my_func, sampling_rate=44100)  # ty: ignore[parameter-already-assigned]
+
+    def test_custom_operation_nested_params_are_defensive_snapshots(self) -> None:
+        def my_func(x: np.ndarray, config: dict[str, float]) -> np.ndarray:
+            return x * config["gain"]
+
+        op = CustomOperation(16000, func=my_func, config={"gain": 2.0})
+
+        params = op.params
+        params["config"]["gain"] = 3.0
+
+        assert op.params["config"]["gain"] == 2.0
+
+    def test_custom_operation_accepts_params_named_function_argument(self) -> None:
+        data = np.array([[1.0, 2.0]])
+        dask_data = da_from_array(data, chunks=(1, -1))
+
+        def my_func(x: np.ndarray, params: float) -> np.ndarray:
+            return x * params
+
+        op = CustomOperation(16000, func=my_func, params=2.0)
+
+        assert op.params["params"] == 2.0
+        np.testing.assert_array_equal(op.process(dask_data).compute(), data * 2.0)
+
+    def test_custom_operation_callables_are_read_only(self) -> None:
+        def my_func(x: np.ndarray) -> np.ndarray:
+            return x
+
+        op = CustomOperation(16000, func=my_func)
+
+        with pytest.raises(AttributeError):
+            setattr(op, "func", lambda x: x * 2)
+
+        data = np.array([[1.0, 2.0]])
+        dask_data = da_from_array(data, chunks=(1, -1))
+        np.testing.assert_array_equal(op.process(dask_data).compute(), data)
+
+    def test_custom_operation_output_shape_callable_is_read_only(self) -> None:
+        op = CustomOperation(16000, func=lambda x: x, output_shape_func=lambda shape: shape)
+
+        with pytest.raises(AttributeError):
+            setattr(op, "output_shape_func", lambda shape: (shape[0],))

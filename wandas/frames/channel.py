@@ -214,11 +214,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         sampling_rate: float,
         label: str | None = None,
         metadata: dict[str, Any] | None = None,
-        operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
+        lineage: Any | None = None,
     ) -> None:
         """Initialize a ChannelFrame.
 
@@ -229,7 +229,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 Must be a positive value.
             label: A label for the frame.
             metadata: Optional metadata dictionary.
-            operation_history: History of operations applied to the frame.
+            lineage: Runtime operation lineage for this frame.
             channel_metadata: Metadata for each channel.
             previous: Reference to the previous frame in the processing chain.
 
@@ -259,10 +259,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             sampling_rate=sampling_rate,
             label=label,
             metadata=metadata,
-            operation_history=operation_history,
             channel_metadata=channel_metadata,
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,
+            lineage=lineage,
             previous=previous,
         )
 
@@ -306,10 +306,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             sampling_rate=self.sampling_rate,
             label=self.label,
             metadata=self.metadata,
-            operation_history=self.operation_history,
             channel_metadata=new_chmeta,
             channel_ids=channel_ids,
             source_time_offset=offsets,
+            lineage=self.lineage,
             previous=self,
         )
 
@@ -526,7 +526,21 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         if snr is None:
             return self + other
-        return self.apply_operation("add_with_snr", other=other._data, snr=snr)
+        from wandas.processing import create_operation
+
+        operation = create_operation("add_with_snr", self.sampling_rate, other=other._data, snr=snr)
+        ensure_dependencies = getattr(operation, "ensure_dependencies", None)
+        if ensure_dependencies is not None:
+            ensure_dependencies()
+        result_data = operation.process(self._data)
+        get_display_name = getattr(operation, "get_display_name", None)
+        display_name = get_display_name() if callable(get_display_name) else getattr(operation, "name", "add_with_snr")
+        return self._create_new_instance(
+            data=result_data,
+            metadata=self._updated_metadata("add_with_snr", operation.params),
+            lineage=self._lineage_with_operation(operation, self.lineage, other.lineage),
+            channel_metadata=self._relabel_channels("add_with_snr", display_name),
+        )
 
     def plot(
         self,

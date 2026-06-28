@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 
 import dask.array as da
@@ -7,6 +8,10 @@ from dask.array.core import Array as DaArray
 
 from wandas.frames.channel import ChannelFrame, ChannelMetadata
 from wandas.frames.spectral import SpectralFrame
+from wandas.processing.base import _OPERATION_REGISTRY, AudioOperation, LineageNode, register_operation
+from wandas.processing.effects import Normalize
+from wandas.processing.temporal import Trim
+from wandas.utils.types import NDArrayReal
 from wandas.utils.util import calculate_rms
 
 _da_from_array = da.from_array
@@ -117,6 +122,76 @@ class TestChannelProcessing:
         np.testing.assert_array_almost_equal(computed, self.data + 1.5)
         assert func.call_count == 1
 
+    def test_apply_custom_function_lineage_callable_is_read_only(self) -> None:
+        """Custom operation callable cannot be swapped before lazy compute."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
+        )
+
+        result = frame.apply(lambda x: x + 1.0, output_shape_func=lambda shape: shape)
+        assert result.lineage is not None
+        op = result.lineage.operation
+
+        with pytest.raises(AttributeError):
+            setattr(op, "func", lambda x: x * 0)
+
+        np.testing.assert_array_equal(result.compute(), self.data + 1.0)
+
+    def test_apply_custom_function_params_copy_mutation_does_not_change_history_or_compute(self) -> None:
+        """Custom operation params are defensive views for history and compute."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
+        )
+
+        result = frame.apply(lambda x, gain: x * gain, output_shape_func=lambda shape: shape, gain=2.0)
+        assert result.lineage is not None
+        op = result.lineage.operation
+        params = op.params.copy()
+        params["gain"] = 0.0
+
+        np.testing.assert_array_equal(result.compute(), self.data * 2.0)
+        assert result.operation_history[-1]["params"] == {"gain": 2.0}
+
+    def test_registered_operation_params_copy_mutation_does_not_change_history_or_compute(self) -> None:
+        """Registered operation params are defensive views for history and compute."""
+
+        class ParamsDrivenGain(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "test_params_driven_gain"
+
+            def __init__(self, sampling_rate: float, gain: float):
+                self._gain = gain
+                super().__init__(sampling_rate, gain=gain)
+
+            def to_params(self) -> dict[str, float]:
+                return {"gain": self._gain}
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x * self.params["gain"]
+
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
+        )
+
+        register_operation(ParamsDrivenGain)
+        try:
+            result = frame.apply_operation("test_params_driven_gain", gain=2.0)
+        finally:
+            _OPERATION_REGISTRY.pop("test_params_driven_gain", None)
+
+        assert result.lineage is not None
+        op = result.lineage.operation
+        params = op.params.copy()
+        params["gain"] = 0.0
+
+        np.testing.assert_array_equal(result.compute(), self.data * 2.0)
+        assert result.operation_history[-1]["params"] == {"gain": 2.0}
+
     def test_apply_custom_updates_history_metadata_and_labels(self) -> None:
         """
         Custom apply should update history, metadata, and labels using display name.
@@ -139,9 +214,9 @@ class TestChannelProcessing:
         assert last_op["operation"] == "custom"
         assert last_op["params"] == {"bias": 0.0}
 
-        # Metadata should include the new entry while preserving existing keys
+        # Metadata should preserve user/domain keys without duplicating operation params.
         assert frame.metadata == {"source": "test"}
-        assert result.metadata == {"source": "test", "custom": {"bias": 0.0}}
+        assert result.metadata == {"source": "test"}
 
         # Channel labels should use display name from callable __name__
         assert result.labels == ["fancy(sig)", "fancy(ch1)"]
@@ -212,13 +287,13 @@ class TestChannelProcessing:
             return np.fft.rfft(x, axis=-1)
 
         metadata = {"source": "test", "_source_file": "input.wav"}
-        operation_history = [{"operation": "normalize", "params": {"method": "peak"}}]
+        lineage = LineageNode(Normalize(self.sample_rate))
 
         frame = ChannelFrame(
             data=self.dask_data,
             sampling_rate=self.sample_rate,
             metadata=metadata,
-            operation_history=operation_history,
+            lineage=lineage,
             channel_metadata=[{"label": "sig0", "unit": "V", "extra": {}}, {"label": "sig1", "unit": "V", "extra": {}}],
             label="time_signal",
         )
@@ -238,14 +313,11 @@ class TestChannelProcessing:
         assert result.label == frame.label
         assert frame.labels == ["sig0", "sig1"]
         assert result.labels == ["rfft_transform(sig0)", "rfft_transform(sig1)"]
-        assert result.metadata == {"source": "test", "_source_file": "input.wav", "custom": {}}
+        assert result.metadata == {"source": "test", "_source_file": "input.wav"}
         assert result.metadata["_source_file"] == "input.wav"
         assert frame.metadata["_source_file"] == "input.wav"
-        assert frame.operation_history == operation_history
-        assert result.operation_history == [
-            {"operation": "normalize", "params": {"method": "peak"}},
-            {"operation": "custom", "params": {}},
-        ]
+        assert frame.operation_history[0]["operation"] == "normalize"
+        assert [record["operation"] for record in result.operation_history] == ["normalize", "custom"]
         assert result.shape == (2, self.data.shape[1] // 2 + 1)
 
         computed = result.compute()
@@ -403,9 +475,11 @@ class TestChannelProcessing:
             # Check no computation happened yet
             mock_compute.assert_not_called()
 
-            # Verify result is the expected type
-            assert isinstance(sum_cf, ChannelFrame)
-            assert sum_cf.n_channels == 1
+        # Verify result is the expected type
+        assert isinstance(sum_cf, ChannelFrame)
+        assert sum_cf.n_channels == 1
+        assert sum_cf.lineage is not None
+        assert sum_cf.lineage.operation.name == "sum"
 
         # Test correctness of computation result
         sum_cf = self.channel_frame.sum()
@@ -413,6 +487,10 @@ class TestChannelProcessing:
         expected_sum = self.data.sum(axis=-2, keepdims=True)
         # Direct numpy sum — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(sum_data, expected_sum)
+        assert [record["operation"] for record in self.channel_frame.normalize().sum().operation_history] == [
+            "normalize",
+            "sum",
+        ]
 
     def test_mean_methods(self) -> None:
         """Test mean() methods."""
@@ -424,9 +502,11 @@ class TestChannelProcessing:
             # Check no computation happened yet
             mock_compute.assert_not_called()
 
-            # Verify result is the expected type
-            assert isinstance(mean_cf, ChannelFrame)
-            assert mean_cf.n_channels == 1
+        # Verify result is the expected type
+        assert isinstance(mean_cf, ChannelFrame)
+        assert mean_cf.n_channels == 1
+        assert mean_cf.lineage is not None
+        assert mean_cf.lineage.operation.name == "mean"
 
         # Compute and check results
         mean_cf = self.channel_frame.mean()
@@ -534,6 +614,22 @@ class TestChannelProcessing:
         with pytest.raises(ValueError):
             self.channel_frame.trim(start=0.5, end=0.1)
 
+    def test_trim_operation_sample_bounds_are_read_only_in_lineage(self) -> None:
+        data = np.arange(10, dtype=np.float64).reshape(1, -1)
+        frame = ChannelFrame(_da_from_array(data, chunks=(1, -1)), sampling_rate=10)
+
+        trimmed_frame = frame.trim(start=0.2, end=0.5)
+        assert trimmed_frame.lineage is not None
+        trim_op = trimmed_frame.lineage.operation
+        assert isinstance(trim_op, Trim)
+
+        with pytest.raises(AttributeError):
+            setattr(trim_op, "start_sample", 0)
+
+        assert trim_op.start_sample == 2
+        assert trim_op.end_sample == 5
+        np.testing.assert_array_equal(trimmed_frame.compute(), data[:, 2:5])
+
     def test_hpss_operations(self) -> None:
         """Test HPSS (Harmonic-Percussive Source Separation) methods."""
         with mock.patch("wandas.processing.create_operation") as mock_create_op:
@@ -616,6 +712,77 @@ class TestChannelProcessing:
         assert isinstance(neg_computed, np.ndarray)
         assert neg_computed.shape == (2, 16000)
 
+    def test_add_with_snr_merges_other_frame_operations(self) -> None:
+        """SNR add preserves lineage from both operands."""
+        signal_cf = ChannelFrame(_da_from_array(np.ones((1, 16000)), chunks=(1, -1)), self.sample_rate)
+        noise_cf = ChannelFrame(_da_from_array(np.ones((1, 16000)) * 0.1, chunks=(1, -1)), self.sample_rate)
+
+        signal = signal_cf.normalize()
+        result = signal.add(noise_cf.low_pass_filter(cutoff=1000), snr=10.0)
+
+        assert [record["operation"] for record in result.operation_history] == [
+            "normalize",
+            "lowpass_filter",
+            "add_with_snr",
+        ]
+        assert result.operation_graph is not None
+        assert [node["operation"] for node in result.operation_graph["inputs"]] == ["normalize", "lowpass_filter"]
+        assert result.previous is signal
+
+    def test_add_with_snr_records_json_serializable_noise_param(self) -> None:
+        signal_cf = ChannelFrame(_da_from_array(np.ones((1, 16000)), chunks=(1, -1)), self.sample_rate)
+        noise_cf = ChannelFrame(_da_from_array(np.ones((1, 16000)) * 0.1, chunks=(1, -1)), self.sample_rate)
+
+        result = signal_cf.add(noise_cf, snr=10.0)
+
+        noise_param = result.operation_history[-1]["params"]["other"]
+        assert noise_param == {
+            "type": "dask.array",
+            "shape": [1, 16000],
+            "dtype": "float64",
+            "chunks": [[1], [16000]],
+        }
+        json.dumps(result.operation_history)
+        json.dumps(dict(result.metadata))
+        assert result.lineage is not None
+        assert result.lineage.operation.params == result.lineage.operation.params
+
+    def test_add_with_snr_rewrites_lineage_for_subclass_result_frame(self) -> None:
+        class LegacyChannelFrame(ChannelFrame):
+            def __init__(
+                self,
+                data,
+                sampling_rate,
+                label=None,
+                metadata=None,
+                channel_metadata=None,
+                channel_ids=None,
+                previous=None,
+                source_time_offset=0.0,
+                lineage=None,
+            ):
+                super().__init__(
+                    data=data,
+                    sampling_rate=sampling_rate,
+                    label=label,
+                    metadata=metadata,
+                    channel_metadata=channel_metadata,
+                    channel_ids=channel_ids,
+                    previous=previous,
+                    source_time_offset=source_time_offset,
+                    lineage=lineage,
+                )
+
+        signal_cf = LegacyChannelFrame(_da_from_array(np.ones((1, 16000)), chunks=(1, -1)), self.sample_rate)
+        noise_cf = ChannelFrame(_da_from_array(np.ones((1, 16000)) * 0.1, chunks=(1, -1)), self.sample_rate)
+
+        result = signal_cf.add(noise_cf.low_pass_filter(cutoff=1000), snr=10.0)
+
+        assert isinstance(result, LegacyChannelFrame)
+        assert result.operation_history[-1]["operation"] == "add_with_snr"
+        assert result.operation_graph is not None
+        assert [node["operation"] for node in result.operation_graph["inputs"]] == ["lowpass_filter"]
+
     def test_add_with_snr_numpy_array(self) -> None:
         """add(..., snr=...) should accept NumPy array inputs via ChannelFrame coercion."""
         signal_data = np.ones((2, 16000), dtype=np.float64)
@@ -649,8 +816,9 @@ class TestChannelProcessing:
         assert isinstance(result, ChannelFrame)
         # Scalar broadcast addition — default rtol (exact match expected)
         np.testing.assert_allclose(result.compute(), self.data + scalar_value)
-        assert result.operation_history[-1] == {"operation": "+", "with": str(scalar_value)}
-        assert "snr" not in result.operation_history[-1]
+        assert result.operation_history[-1]["operation"] == "+"
+        assert result.operation_history[-1]["params"]["operand"] == {"type": "float", "value": scalar_value}
+        assert "snr" not in result.operation_history[-1]["params"]
 
     def test_add_with_snr_invalid_type_raises_type_error(self) -> None:
         """Unsupported add(..., snr=...) inputs should raise a targeted TypeError."""
@@ -783,12 +951,11 @@ class TestChannelProcessing:
         expected_sr = base.sampling_rate / hop_length if hop_length else base.sampling_rate
         assert result.sampling_rate == expected_sr
         assert result.label == base.label
-        # metadata: baseの内容が含まれていること、新しい操作分のキーが追加されていること
+        # metadata: base user/domain metadata is preserved without operation params duplication.
         for k, v in base.metadata.items():
             assert k in result.metadata
             assert result.metadata[k] == v
-        if op_key is not None:
-            assert op_key in result.metadata
+        assert result.metadata == base.metadata
         # _channel_metadata: unit="Pa"のrefが期待値通りか確認
         if hasattr(result, "_channel_metadata") and hasattr(base, "_channel_metadata"):
             for res_meta, base_meta in zip(result._channel_metadata, base._channel_metadata):
@@ -1076,6 +1243,8 @@ class TestRoughnessOperations:
         first_op = result.operation_history[0]
         op_name = first_op.get("name") or first_op.get("operation")
         assert op_name == "roughness_dw_spec"
+        assert result.lineage is not None
+        assert result.lineage.operation.name == "roughness_dw_spec"
 
         # Compare with MoSQITo direct calculation
         computed_data = result.compute()

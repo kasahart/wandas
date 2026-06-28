@@ -35,8 +35,17 @@ class BaseFrameProtocol(Protocol):
     sampling_rate: float
     _channel_metadata: list[ChannelMetadata]
     metadata: dict[str, Any]
-    operation_history: list[dict[str, Any]]
     label: str
+
+    @property
+    def operation_history(self) -> list[dict[str, Any]]:
+        """Flat read-only compatibility view derived from runtime lineage."""
+        ...
+
+    @property
+    def lineage(self) -> Any | None:
+        """Runtime computation lineage."""
+        ...
 
     @property
     def duration(self) -> float:
@@ -75,7 +84,7 @@ class BaseFrameProtocol(Protocol):
         Args:
             data: The new data for the frame
             metadata: The new metadata for the frame
-            operation_history: The new operation history for the frame
+            lineage: The new operation lineage for the frame
             channel_metadata: The new channel metadata for the frame
         Returns:
             A new instance of the frame with the updated data and metadata
@@ -93,11 +102,11 @@ class ProcessingFrameProtocol(BaseFrameProtocol, Protocol):
     Defines methods that provide frame operations related to signal processing.
     """
 
-    def _updated_metadata_and_history(
+    def _updated_metadata(
         self,
         operation_name: str,
         params: dict[str, Any],
-    ) -> tuple[dict[str, Any], list[dict[str, Any]]]: ...
+    ) -> dict[str, Any]: ...
 
     def _get_ref_values(self, *, require_non_default: bool = False) -> list[float]: ...
 

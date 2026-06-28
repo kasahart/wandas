@@ -1,9 +1,10 @@
 import copy
+import json
 import logging
 import numbers
 import uuid
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from re import Pattern
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast, overload
 
@@ -28,7 +29,7 @@ if TYPE_CHECKING:
     from IPython.display import Image as IPythonImage
     from matplotlib.axes import Axes
 
-    from wandas.processing.base import AudioOperation
+    from wandas.processing.base import AudioOperation, LineageNode
 
     VisualizeReturnType: TypeAlias = IPythonImage | None
 else:
@@ -41,6 +42,81 @@ T = TypeVar("T", NDArrayComplex, NDArrayReal)
 S = TypeVar("S", bound="BaseFrame[Any]")
 S_Out = TypeVar("S_Out", bound="BaseFrame[Any]")
 QueryType = str | Pattern[str] | Callable[["ChannelMetadata"], bool] | dict[str, Any]
+
+
+class _LineageOperationName:
+    """Operation view used when callers provide an explicit lineage name."""
+
+    def __init__(self, operation: Any, name: str, params: Mapping[str, Any] | None = None) -> None:
+        self._operation = operation
+        self.name = name
+        self._params = params
+
+    @property
+    def params(self) -> Any:
+        return self._params if self._params is not None else getattr(self._operation, "params", {})
+
+    def to_params(self) -> Mapping[str, Any]:
+        if self._params is not None:
+            return self._params
+        if hasattr(self._operation, "to_params"):
+            return cast(Mapping[str, Any], self._operation.to_params())
+        return cast(Mapping[str, Any], getattr(self._operation, "params", {}))
+
+
+def _mutable_config_value(value: Any) -> Any:
+    """Convert operation config values to plain JSON-friendly containers for history."""
+    if isinstance(value, DaArray):
+        return {
+            "type": "dask.array",
+            "shape": [_mutable_config_value(item) for item in value.shape],
+            "dtype": str(value.dtype),
+            "chunks": [[_mutable_config_value(item) for item in chunk] for chunk in value.chunks],
+        }
+    if isinstance(value, np.ndarray):
+        return _mutable_config_value(value.tolist())
+    if isinstance(value, bool | np.bool_):
+        return bool(value)
+    if isinstance(value, numbers.Integral):
+        return int(value)
+    if isinstance(value, numbers.Real):
+        numeric = float(value)
+        if np.isfinite(numeric):
+            return numeric
+        if np.isnan(numeric):
+            return {"type": "float", "value": "nan"}
+        if numeric > 0:
+            return {"type": "float", "value": "inf"}
+        return {"type": "float", "value": "-inf"}
+    if isinstance(value, numbers.Complex):
+        return {
+            "type": "complex",
+            "real": _mutable_config_value(value.real),
+            "imag": _mutable_config_value(value.imag),
+        }
+    if isinstance(value, Mapping):
+        return {_mutable_config_key(key): _mutable_config_value(item) for key, item in value.items()}
+    if isinstance(value, tuple | list):
+        return [_mutable_config_value(item) for item in value]
+    if isinstance(value, set | frozenset):
+        return sorted((_mutable_config_value(item) for item in value), key=_stable_json_sort_key)
+    if value is None or isinstance(value, str | bool):
+        return value
+    return str(value)
+
+
+def _mutable_config_key(key: Any) -> str:
+    """Convert operation param keys to stable JSON object keys."""
+    if isinstance(key, str):
+        return key
+    value = _mutable_config_value(key)
+    if isinstance(value, str):
+        return value
+    return _stable_json_sort_key(value)
+
+
+def _stable_json_sort_key(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
 
 
 class BaseFrame(ABC, Generic[T]):
@@ -61,8 +137,8 @@ class BaseFrame(ABC, Generic[T]):
         A label for the frame. If not provided, defaults to "unnamed_frame".
     metadata : dict, optional
         Additional metadata for the frame.
-    operation_history : list[dict], optional
-        History of operations performed on this frame.
+    lineage : LineageNode, optional
+        Computation lineage for this frame.
     channel_metadata : list[ChannelMetadata | dict], optional
         Metadata for each channel in the frame. Can be ChannelMetadata objects
         or dicts that will be converted to ChannelMetadata objects.
@@ -77,8 +153,11 @@ class BaseFrame(ABC, Generic[T]):
         The label of the frame.
     metadata : dict
         Additional metadata for the frame.
+    lineage : LineageNode | None
+        Runtime-only computation lineage. This is set during construction and
+        propagated through ``_create_new_instance``.
     operation_history : list[dict]
-        History of operations performed on this frame.
+        Flat read-only compatibility view derived from ``lineage``.
     """
 
     _CHANNEL_DIM: ClassVar[str] = "channel"
@@ -95,11 +174,11 @@ class BaseFrame(ABC, Generic[T]):
         sampling_rate: float,
         label: str | None = None,
         metadata: dict[str, Any] | None = None,
-        operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
+        lineage: "LineageNode | None" = None,
     ):
         normalized_data = self._normalize_data(data)
         frame_label = label or "unnamed_frame"
@@ -119,7 +198,7 @@ class BaseFrame(ABC, Generic[T]):
         self.label = label
         self.sampling_rate = sampling_rate
         self.metadata = metadata
-        self.operation_history = operation_history
+        self._lineage = lineage
         self._set_channel_metadata(normalized_channel_metadata, self._pending_channel_ids)
         self.source_time_offset = source_time_offset
         del self._pending_channel_metadata
@@ -437,23 +516,67 @@ class BaseFrame(ABC, Generic[T]):
 
     @property
     def operation_history(self) -> list[dict[str, Any]]:
-        """Return mutable operation history stored in xarray attrs."""
-        value = self._xr.attrs.get("operation_history")
-        if value is None:
-            value = []
-            self._xr.attrs["operation_history"] = value
-        if not isinstance(value, list):
-            raise TypeError(f"Internal operation_history attrs must be a list, got {type(value).__name__}")
-        return value
+        """Return a flat read-only view derived from ``lineage``."""
+        return self._lineage_to_history(self.lineage)
 
-    @operation_history.setter
-    def operation_history(self, value: list[dict[str, Any]] | None) -> None:
-        if value is None:
-            self._xr.attrs["operation_history"] = []
-            return
-        if not isinstance(value, list):
-            raise TypeError("Operation history must be a list")
-        self._xr.attrs["operation_history"] = copy.deepcopy(value)
+    @property
+    def lineage(self) -> "LineageNode | None":
+        """Return runtime computation lineage for this frame."""
+        return self._lineage
+
+    @property
+    def operation_graph(self) -> dict[str, Any] | None:
+        """Return nested serializable computation lineage."""
+        return self._lineage_to_graph(self.lineage)
+
+    @staticmethod
+    def _operation_name(operation: Any) -> str:
+        from wandas.processing.base import BinaryOperation
+
+        if isinstance(operation, BinaryOperation):
+            return cast(str, getattr(operation, "symbol"))
+        return cast(str, getattr(operation, "name", type(operation).__name__))
+
+    @staticmethod
+    def _operation_params(operation: Any) -> dict[str, Any]:
+        if hasattr(operation, "to_params"):
+            params = operation.to_params()
+        else:
+            params = getattr(operation, "params", {})
+        return cast(dict[str, Any], _mutable_config_value(params))
+
+    @classmethod
+    def _lineage_to_history(cls, lineage: "LineageNode | None") -> list[dict[str, Any]]:
+        if lineage is None:
+            return []
+        records: list[dict[str, Any]] = []
+        for input_lineage in lineage.inputs:
+            records.extend(cls._lineage_to_history(input_lineage))
+        params = cls._operation_params(lineage.operation)
+        record: dict[str, Any] = {"operation": cls._operation_name(lineage.operation)}
+        if params:
+            record["params"] = params
+        return [*records, record]
+
+    @classmethod
+    def _lineage_to_graph(cls, lineage: "LineageNode | None") -> dict[str, Any] | None:
+        if lineage is None:
+            return None
+        return {
+            "operation": cls._operation_name(lineage.operation),
+            "params": cls._operation_params(lineage.operation),
+            "inputs": [
+                input_graph
+                for input_lineage in lineage.inputs
+                if (input_graph := cls._lineage_to_graph(input_lineage)) is not None
+            ],
+        }
+
+    def _lineage_with_operation(self, operation: Any, *inputs: "LineageNode | None") -> "LineageNode":
+        from wandas.processing.base import LineageNode
+
+        lineage_inputs = tuple(input_lineage for input_lineage in inputs if input_lineage is not None)
+        return LineageNode(operation=operation, inputs=lineage_inputs)
 
     @property
     def operations(self) -> tuple["AudioOperation[Any, Any]", ...]:
@@ -587,14 +710,8 @@ class BaseFrame(ABC, Generic[T]):
         new_channel_metadata = [self.channels[i].to_metadata() for i in channel_idx_list]
         new_channel_ids = self._channel_ids_for_selection(channel_idx_list)
 
-        # Preserve operation_history (copy for immutability) but do not
-        # append a selection operation so higher-level semantic operations
-        # (e.g., 'fade') remain the last recorded operation.
-        new_history = [*self.operation_history]
-
         return self._create_new_instance(
             data=new_data,
-            operation_history=new_history,
             channel_metadata=new_channel_metadata,
             channel_ids=new_channel_ids,
             source_time_offset=self.source_time_offset[channel_idx_list],
@@ -746,7 +863,6 @@ class BaseFrame(ABC, Generic[T]):
             new_channel_ids = [self._channel_ids[i] for i in indices]
             return self._create_new_instance(
                 data=new_data,
-                operation_history=self.operation_history,
                 channel_metadata=new_channel_metadata,
                 channel_ids=new_channel_ids,
                 source_time_offset=self.source_time_offset[indices],
@@ -808,7 +924,6 @@ class BaseFrame(ABC, Generic[T]):
                 source_time_offset = source_time_offset + start * time_step
             return selected._create_new_instance(
                 data=new_data,
-                operation_history=selected.operation_history,
                 channel_metadata=selected.channels.to_list(),
                 channel_ids=selected._channel_ids,
                 source_time_offset=source_time_offset,
@@ -908,6 +1023,8 @@ class BaseFrame(ABC, Generic[T]):
                 exported = exported.assign_coords({coord_name: (coord.dims, coord.values.copy())})
         exported.name = self.label
         exported.attrs = copy.deepcopy(self._xr.attrs)
+        exported.attrs.pop("operation_history", None)
+        exported.attrs.pop("operation_graph", None)
         exported.attrs["wandas_frame_type"] = type(self).__name__
         return exported
 
@@ -951,9 +1068,7 @@ class BaseFrame(ABC, Generic[T]):
         if not isinstance(metadata, dict):
             raise TypeError("Metadata must be a dictionary")
 
-        operation_history = kwargs.pop("operation_history", copy.deepcopy(self.operation_history))
-        if not isinstance(operation_history, list):
-            raise TypeError("Operation history must be a list")
+        lineage = kwargs.pop("lineage", self.lineage)
 
         channel_metadata = kwargs.pop("channel_metadata", self.channels.to_list())
         if not isinstance(channel_metadata, list):
@@ -975,18 +1090,20 @@ class BaseFrame(ABC, Generic[T]):
         additional_kwargs = self._get_additional_init_kwargs()
         kwargs.update(additional_kwargs)
 
-        return type(self)(
-            data=data,
-            sampling_rate=sampling_rate,
-            label=label,
-            metadata=metadata,
-            operation_history=operation_history,
-            channel_metadata=channel_metadata,
-            channel_ids=channel_ids,
-            source_time_offset=source_time_offset,
-            previous=self,
+        init_kwargs: dict[str, Any] = {
+            "data": data,
+            "sampling_rate": sampling_rate,
+            "label": label,
+            "metadata": metadata,
+            "channel_metadata": channel_metadata,
+            "channel_ids": channel_ids,
+            "source_time_offset": source_time_offset,
+            "previous": self,
+            "lineage": lineage,
             **kwargs,
-        )
+        }
+
+        return type(self)(**init_kwargs)
 
     def __array__(self, dtype: npt.DTypeLike = None) -> NDArrayReal:
         """Implicit conversion to NumPy array"""
@@ -1069,7 +1186,6 @@ class BaseFrame(ABC, Generic[T]):
         logger.debug(f"Setting up {symbol} operation (lazy)")
 
         metadata = copy.deepcopy(self.metadata)
-        operation_history = copy.deepcopy(self.operation_history)
         if isinstance(other, type(self)):
             if self.sampling_rate != other.sampling_rate:
                 raise ValueError(
@@ -1102,10 +1218,14 @@ class BaseFrame(ABC, Generic[T]):
             result_data = op(self._data, other._data)
             other_str = other.label
             other_labels = other.labels
+            operand_kind = "frame"
+            lineage_inputs = (self.lineage, other.lineage)
         else:
             result_data = op(self._data, other)
             other_str = self._format_operand_str(other)
             other_labels = [other_str] * self.n_channels
+            operand_kind = "operand"
+            lineage_inputs = (self.lineage,)
 
         # Build merged channel metadata
         new_channel_metadata: list[ChannelMetadata] = []
@@ -1114,13 +1234,20 @@ class BaseFrame(ABC, Generic[T]):
             ch.label = f"({self_ch.label} {symbol} {other_label})"
             new_channel_metadata.append(ch)
 
-        operation_history.append({"operation": symbol, "with": other_str})
+        from wandas.processing.base import BinaryOperation
+
+        binary_operation = BinaryOperation(
+            symbol=symbol,
+            operand_kind=operand_kind,
+            operand=other_str if operand_kind == "frame" else other,
+        )
+        lineage = self._lineage_with_operation(binary_operation, *lineage_inputs)
 
         return self._create_new_instance(
             data=result_data,
             label=f"({self.label} {symbol} {other_str})",
             metadata=metadata,
-            operation_history=operation_history,
+            lineage=lineage,
             channel_metadata=new_channel_metadata,
         )
 
@@ -1176,22 +1303,18 @@ class BaseFrame(ABC, Generic[T]):
         # Apply the operation through abstract method
         return self._apply_operation_impl(operation_name, **params)
 
-    def _updated_metadata_and_history(
+    def _updated_metadata(
         self,
         operation_name: str,
-        params: dict[str, Any],
-    ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-        """Build new metadata dict and operation history after an operation.
+        params: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Return frame metadata for a derived frame.
 
-        Returns
-        -------
-        tuple[dict[str, Any], list[dict[str, Any]]]
-            (new_metadata, new_history) ready to pass to ``_create_new_instance``.
+        Operation parameters are owned by runtime lineage. Frame metadata only
+        carries user/domain metadata and is deep-copied to avoid sharing mutable
+        state between frames.
         """
-        new_metadata = copy.deepcopy(self.metadata)
-        new_metadata[operation_name] = params
-        new_history = [*self.operation_history, {"operation": operation_name, "params": params}]
-        return new_metadata, new_history
+        return copy.deepcopy(self.metadata)
 
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
         """Default implementation of operation application.
@@ -1210,13 +1333,20 @@ class BaseFrame(ABC, Generic[T]):
             ensure_dependencies()
         processed_data = operation.process(self._data)
 
-        new_metadata, new_history = self._updated_metadata_and_history(operation_name, params)
+        new_metadata = self._updated_metadata(operation_name, params)
 
-        return self._create_new_instance(
-            data=processed_data,
-            metadata=new_metadata,
-            operation_history=new_history,
-        )
+        creation_params: dict[str, Any] = {
+            "data": processed_data,
+            "metadata": new_metadata,
+            "lineage": self._lineage_with_operation(
+                operation
+                if getattr(operation, "name", None) == operation_name
+                else _LineageOperationName(operation, operation_name, params),
+                self.lineage,
+            ),
+        }
+
+        return self._create_new_instance(**creation_params)
 
     @overload
     def _apply_operation_instance(
@@ -1273,7 +1403,13 @@ class BaseFrame(ABC, Generic[T]):
             operation_name = getattr(operation, "name", "unknown_operation")
         params = getattr(operation, "params", {})
 
-        new_metadata, new_history = self._updated_metadata_and_history(operation_name, params)
+        new_metadata = self._updated_metadata(operation_name, params)
+        lineage_operation = (
+            operation
+            if getattr(operation, "name", None) == operation_name
+            else _LineageOperationName(operation, operation_name, params)
+        )
+        lineage = self._lineage_with_operation(lineage_operation, self.lineage)
 
         metadata_updates = operation.get_metadata_updates()
         if operation_name == "trim":
@@ -1298,11 +1434,11 @@ class BaseFrame(ABC, Generic[T]):
                 "sampling_rate": metadata_updates.pop("sampling_rate", self.sampling_rate),
                 "label": self.label,
                 "metadata": new_metadata,
-                "operation_history": new_history,
                 "channel_metadata": new_channel_metadata,
                 "channel_ids": self._channel_ids,
                 "source_time_offset": metadata_updates.pop("source_time_offset", self.source_time_offset),
                 "previous": self,
+                "lineage": lineage,
             }
             kw.update(metadata_updates)
             if output_frame_kwargs:
@@ -1323,7 +1459,7 @@ class BaseFrame(ABC, Generic[T]):
         creation_params: dict[str, Any] = {
             "data": processed_data,
             "metadata": new_metadata,
-            "operation_history": new_history,
+            "lineage": lineage,
             "channel_metadata": new_channel_metadata,
             "channel_ids": self._channel_ids,
         }

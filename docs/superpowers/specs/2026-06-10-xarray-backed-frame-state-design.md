@@ -2,11 +2,11 @@
 
 ## Status
 
-Proposed. This spec assumes Phase 2 has introduced xarray-backed storage and exact-rank semantic dimensions for target frames.
+Superseded by the current xarray-backed runtime model. This note is retained as design history, but operation provenance has since moved out of `_xr.attrs`: `lineage` is the runtime source of truth, and `operation_history` is a read-only derived compatibility view.
 
 ## Goal
 
-Move frame-level state into the internal `xarray.DataArray.attrs` so Wandas has one storage location for frame state while preserving the public property API.
+Move durable frame-level state into the internal `xarray.DataArray.attrs` so Wandas has one storage location for frame state while preserving the public property API. Runtime operation provenance is explicitly excluded from durable attrs.
 
 This phase is intentionally about state ownership, not operation execution or channel metadata migration.
 
@@ -24,11 +24,11 @@ BaseFrame
   sampling_rate
   label
   metadata
-  operation_history
+  lineage
   _channel_metadata
 ```
 
-That split keeps Phase 1/2 safe, but it leaves duplicated state ownership. Phase 3 makes `_xr.attrs` the backing store for frame-level state:
+That split keeps Phase 1/2 safe, but it leaves duplicated state ownership. Phase 3 makes `_xr.attrs` the backing store for durable frame-level state while keeping operation provenance runtime-only:
 
 ```text
 BaseFrame
@@ -40,8 +40,8 @@ BaseFrame
       sampling_rate
       label
       metadata
-      operation_history
 
+  _lineage
   _channel_metadata
   _previous
 ```
@@ -55,7 +55,8 @@ Move these frame-level fields to `_xr.attrs`:
 - `sampling_rate`
 - `label`
 - `metadata`
-- `operation_history`
+
+Do not move operation provenance to `_xr.attrs`. `lineage` is held on the frame at runtime, and `operation_history` is derived from that lineage.
 
 Remove these `FrameMetadata` concepts from the public API and implementation:
 
@@ -95,9 +96,10 @@ frame.sampling_rate
 frame.label
 frame.metadata
 frame.operation_history
+frame.lineage
 ```
 
-Their backing store changes to `_xr.attrs`.
+The durable state backing store changes to `_xr.attrs`. `lineage` remains runtime-only, and `operation_history` is a read-only compatibility view derived from lineage.
 
 ### `sampling_rate`
 
@@ -129,9 +131,9 @@ The getter returns the internal metadata dict so existing mutation patterns cont
 frame.metadata["calibration"] = 1.0
 ```
 
-### `operation_history`
+### `lineage` and `operation_history`
 
-`operation_history` is stored as a list of dictionaries. The setter deep-copies incoming history to avoid sharing mutable state between frames.
+`lineage` is the runtime source of truth for operation provenance. It is set during construction and propagated through `_create_new_instance(..., lineage=...)`. `operation_history` has no setter and is generated from lineage on access.
 
 ## Initialization Flow
 
@@ -142,7 +144,7 @@ Order:
 1. Normalize data.
 2. Build `_channel_metadata`, because channel coords depend on labels.
 3. Build `_xr` with data, dims, coords, and name.
-4. Set `label`, `sampling_rate`, `metadata`, and `operation_history` through property setters.
+4. Set `label`, `sampling_rate`, and `metadata` through property setters, and assign internal runtime `_lineage` from the constructor argument.
 5. Set `_previous`.
 
 `_build_xarray()` must not read `self.label` before `_xr` exists. It should accept a `name` argument or otherwise receive the name explicitly.
@@ -157,23 +159,23 @@ self._xr = self._build_xarray(normalized_data, name=self.label)
 self._xr.attrs = attrs
 ```
 
-This keeps metadata and operation history stable across data replacement.
+This keeps metadata stable across data replacement. Runtime lineage is preserved separately on the frame.
 
 ## New Frame Creation
 
 `_create_new_instance()` must keep the current no-shared-mutable-state behavior:
 
 - default `metadata` is `copy.deepcopy(self.metadata)`
-- default `operation_history` is `copy.deepcopy(self.operation_history)`
+- default `lineage` is `self.lineage`
 - default channel metadata remains `copy.deepcopy(self._channel_metadata)`
 
 Any use of `metadata.merged(...)` must be replaced with plain dict merging, for example:
 
 ```python
-metadata={**self.metadata, **params}
+metadata={**self.metadata, **domain_metadata}
 ```
 
-or an equivalent local expression. Do not add a broad abstraction unless repeated code becomes hard to read.
+or an equivalent local expression. Do not duplicate operation parameters into `metadata[operation_name]`; provenance parameters belong to lineage. Do not add a broad abstraction unless repeated code becomes hard to read.
 
 ## Xarray Export
 
@@ -185,7 +187,8 @@ exported.attrs = copy.deepcopy(self._xr.attrs)
 return exported
 ```
 
-External mutation of `frame.xr.attrs["metadata"]` or `frame.xr.attrs["operation_history"]` must not mutate the frame.
+External mutation of `frame.xr.attrs["metadata"]` must not mutate the frame. Legacy provenance attrs, if present on external xarray objects, are ignored by Wandas frames.
+`to_xarray()` must omit `operation_history` and `operation_graph`; runtime provenance is not exported as attrs.
 
 ## WDF and File Readers
 
@@ -202,21 +205,24 @@ Round trips should verify `metadata["_source_file"]`, not `metadata.source_file`
 ## Error Handling
 
 - Invalid `metadata` types raise `TypeError`.
-- Invalid `operation_history` types raise `TypeError`.
+- Assigning `operation_history` or `lineage` directly raises `AttributeError`; use construction or `_create_new_instance(..., lineage=...)`.
 - Invalid `sampling_rate` values raise `ValueError` from `validate_sampling_rate()`.
 - Invalid `label` types raise `TypeError`.
-- Missing attrs are repaired lazily by getters where safe: `metadata` becomes `{}` and `operation_history` becomes `[]`. Missing `sampling_rate` should remain an error because a frame without sampling rate is invalid.
+- Missing attrs are repaired lazily by getters where safe: `metadata` becomes `{}`. `operation_history` ignores attrs and returns the lineage-derived view, or `[]` when lineage is absent. Missing `sampling_rate` should remain an error because a frame without sampling rate is invalid.
 
 ## Tests
 
 Add or update tests for:
 
-- `sampling_rate`, `label`, `metadata`, and `operation_history` using `_xr.attrs` as source of truth
+- `sampling_rate`, `label`, and `metadata` using `_xr.attrs` as source of truth
+- `lineage` as the source of truth for derived `operation_history` and `operation_graph`
 - property setters updating `_xr.attrs` and `_xr.name`
-- invalid `sampling_rate`, `label`, `metadata`, and `operation_history` values
+- invalid `sampling_rate`, `label`, and `metadata` values
+- direct assignment rejection for `lineage` and `operation_history`
 - `to_xarray()` deep-copying attrs
+- `to_xarray()` omitting `operation_history` and `operation_graph`
 - `_replace_data()` preserving attrs
-- `_create_new_instance()` deep-copying metadata and operation history
+- `_create_new_instance()` deep-copying metadata and preserving or replacing lineage through its keyword argument
 - WDF source file round trip through `metadata["_source_file"]`
 - WAV/URL source file metadata through `metadata["_source_file"]`
 - removal of `FrameMetadata` tests while preserving `ChannelMetadata` tests
@@ -236,10 +242,11 @@ Phase 3 is complete when:
 
 1. `FrameMetadata` is removed from production code.
 2. `frame.metadata` is a plain dict.
-3. `frame.label`, `frame.sampling_rate`, `frame.metadata`, and `frame.operation_history` are backed by `_xr.attrs`.
-4. Public property access remains available.
-5. `to_xarray()` returns a public copy with deep-copied attrs.
-6. `ChannelMetadata` remains unchanged.
-7. Generated numeric coords are not added.
-8. Operation execution remains unchanged.
-9. Production code removes the FrameMetadata-specific paths instead of adding a compatibility layer.
+3. `frame.label`, `frame.sampling_rate`, and `frame.metadata` are backed by `_xr.attrs`.
+4. `frame.lineage` is runtime-only, and `frame.operation_history` / `frame.operation_graph` are derived views that are not stored or exported.
+5. Public property access remains available.
+6. `to_xarray()` returns a public copy with deep-copied attrs.
+7. `ChannelMetadata` remains unchanged.
+8. Generated numeric coords are not added.
+9. Operation execution remains unchanged.
+10. Production code removes the FrameMetadata-specific paths instead of adding a compatibility layer.

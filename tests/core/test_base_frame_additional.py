@@ -1,3 +1,5 @@
+import json
+from pathlib import Path
 from typing import Any, cast
 
 import dask.array as da
@@ -6,10 +8,26 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from wandas.core.base_frame import BaseFrame
+from wandas.core.base_frame import BaseFrame, _LineageOperationName, _mutable_config_key, _mutable_config_value
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
+from wandas.processing.base import AudioOperation, LineageNode
+from wandas.processing.effects import Normalize
+from wandas.processing.stats import Power
 from wandas.utils.dask_helpers import da_from_array
+
+
+class _TestLineageOperation:
+    def __init__(self, name: str, params: dict[str, Any] | None = None) -> None:
+        self.name = name
+        self._params = params or {}
+
+    @property
+    def params(self) -> dict[str, Any]:
+        return self._params
+
+    def to_params(self) -> dict[str, Any]:
+        return self._params
 
 
 class DummyFrame(BaseFrame[np.ndarray]):
@@ -31,13 +49,62 @@ class DummyFrame(BaseFrame[np.ndarray]):
         return self._create_new_instance(data=self._data)
 
     def _apply_operation_impl(self, operation_name: str, **params):
-        new_history = [*self.operation_history, {"operation": operation_name, **params}]
-        return self._create_new_instance(data=self._data, operation_history=new_history)
+        operation = _TestLineageOperation(operation_name, params)
+        return self._create_new_instance(data=self._data, lineage=self._lineage_with_operation(operation, self.lineage))
 
     def _get_dataframe_index(self) -> pd.Index:
         # index should be length of samples
         length = self._data.shape[-1]
         return pd.RangeIndex(stop=length)
+
+    def _debug_info_impl(self) -> None:
+        return None
+
+
+class LegacyFrame(BaseFrame[np.ndarray]):
+    def __init__(
+        self,
+        data,
+        sampling_rate: float = 1.0,
+        label: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        lineage=None,
+        channel_metadata=None,
+        channel_ids: list[str] | None = None,
+        source_time_offset=0.0,
+        previous=None,
+    ):
+        super().__init__(
+            data=data,
+            sampling_rate=sampling_rate,
+            label=label,
+            metadata=metadata,
+            channel_metadata=channel_metadata,
+            channel_ids=channel_ids,
+            source_time_offset=source_time_offset,
+            previous=previous,
+            lineage=lineage,
+        )
+
+    @property
+    def _n_channels(self) -> int:
+        return int(self._data.shape[0])
+
+    def plot(self, plot_type: str = "default", ax=None, **kwargs):
+        raise NotImplementedError
+
+    def _get_additional_init_kwargs(self) -> dict:
+        return {}
+
+    def _binary_op(self, other, op, symbol):
+        return self._create_new_instance(data=self._data)
+
+    def _apply_operation_impl(self, operation_name: str, **params):
+        operation = _TestLineageOperation(operation_name, params)
+        return self._create_new_instance(data=self._data, lineage=self._lineage_with_operation(operation, self.lineage))
+
+    def _get_dataframe_index(self) -> pd.Index:
+        return pd.RangeIndex(stop=self._data.shape[-1])
 
     def _debug_info_impl(self) -> None:
         return None
@@ -69,6 +136,33 @@ def test_rechunk_failure_fallback_logs_warning(caplog):
         f = make_frame(arr)
     assert "Rechunk failed" in caplog.text
     assert hasattr(f, "_data")
+
+
+def test_lineage_operation_name_uses_wrapped_params_when_no_override() -> None:
+    operation = _TestLineageOperation("wrapped", {"alpha": 1.0})
+    named = _LineageOperationName(operation, "display")
+
+    assert named.params == {"alpha": 1.0}
+    assert named.to_params() == {"alpha": 1.0}
+
+
+def test_lineage_operation_name_falls_back_to_params_attribute() -> None:
+    class ParamsOnlyOperation:
+        params = {"beta": 2.0}
+
+    named = _LineageOperationName(ParamsOnlyOperation(), "display")
+
+    assert named.to_params() == {"beta": 2.0}
+
+
+def test_mutable_config_value_preserves_plain_float_and_non_string_key() -> None:
+    assert _mutable_config_value(1.25) == 1.25
+    assert _mutable_config_key(Path("left")) == "left"
+    assert _mutable_config_key(("channel", 1)) == '["channel",1]'
+
+
+def test_lineage_to_graph_returns_none_for_empty_lineage() -> None:
+    assert DummyFrame._lineage_to_graph(None) is None
 
 
 def test_get_channel_query_no_match_raises_key_error():
@@ -269,7 +363,6 @@ def test_print_operation_history_empty_shows_empty_label(capsys):
     """Test print_operation_history shows '<empty>' for empty history."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
-    f.operation_history = []
     f.print_operation_history()
     out = capsys.readouterr().out
     assert "Operation history: <empty>" in out
@@ -278,13 +371,18 @@ def test_print_operation_history_empty_shows_empty_label(capsys):
 def test_print_operation_history_populated_shows_indexed_entries(capsys):
     """Test print_operation_history shows indexed entries for populated history."""
     arr = np.arange(6).reshape(2, 3)
-    f = make_frame(arr)
-    f.operation_history = [{"operation": "normalize"}, {"name": "filter", "cutoff": 1000}]
+    f = make_frame(
+        arr,
+        lineage=LineageNode(
+            _TestLineageOperation("filter", {"cutoff": 1000}),
+            (LineageNode(_TestLineageOperation("normalize")),),
+        ),
+    )
     f.print_operation_history()
     out = capsys.readouterr().out
     assert "Operation history (2):" in out
     assert "1: normalize {}" in out
-    assert "2: filter {'cutoff': 1000}" in out
+    assert "2: filter {'params': {'cutoff': 1000}}" in out
 
 
 def test_relabel_channels_adds_prefix_to_labels():
@@ -419,7 +517,6 @@ def test_print_operation_history_empty_shows_none(capsys):
     """Test _print_operation_history shows 'None' for empty history."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
-    f.operation_history = []
     f._print_operation_history()
     out = capsys.readouterr().out
     assert "Operations Applied: None" in out
@@ -428,8 +525,7 @@ def test_print_operation_history_empty_shows_none(capsys):
 def test_print_operation_history_populated_shows_count(capsys):
     """Test _print_operation_history shows correct count for populated history."""
     arr = np.arange(6).reshape(2, 3)
-    f = make_frame(arr)
-    f.operation_history = [{"operation": "a"}, {"operation": "b"}]
+    f = make_frame(arr, lineage=LineageNode(_TestLineageOperation("b"), (LineageNode(_TestLineageOperation("a")),)))
     f._print_operation_history()
     out = capsys.readouterr().out
     assert "Operations Applied: 2" in out
@@ -669,27 +765,52 @@ def test_label_metadata_and_operation_history_attrs_validation():
     f._xr.attrs["operation_history"] = None
     assert f.operation_history == []
     f._xr.attrs["operation_history"] = "bad"
-    with pytest.raises(TypeError, match="Internal operation_history attrs must be a list"):
-        _ = f.operation_history
-    with pytest.raises(TypeError, match="Operation history must be a list"):
-        f.operation_history = cast(Any, "bad")
+    assert f.operation_history == []
+    with pytest.raises(AttributeError):
+        setattr(f, "operation_history", cast(Any, "bad"))
+    with pytest.raises(AttributeError):
+        setattr(f, "lineage", LineageNode(_TestLineageOperation("bad")))
 
 
-def test_create_new_instance_validates_operation_history_and_channel_ids():
+def test_create_new_instance_rejects_legacy_history_and_validates_channel_ids():
     f = make_frame(np.arange(6).reshape(2, 3))
 
-    with pytest.raises(TypeError, match="Operation history must be a list"):
+    with pytest.raises(TypeError, match="unexpected keyword argument 'operation_history'"):
         f._create_new_instance(data=f._data, operation_history="bad")
+    with pytest.raises(TypeError, match="unexpected keyword argument 'operations'"):
+        make_frame(np.arange(6).reshape(2, 3), operations=["bad"])
     with pytest.raises(TypeError, match="Channel ids must be a list"):
         f._create_new_instance(data=f._data, channel_ids=("a", "b"))
+
+
+def test_create_new_instance_preserves_lineage_for_constructor():
+    data = da_from_array(np.arange(6).reshape(2, 3).astype(float), chunks=(2, 3))
+    lineage = LineageNode(_TestLineageOperation("fake"))
+    frame = LegacyFrame(
+        data,
+        sampling_rate=100.0,
+        lineage=lineage,
+    )
+
+    result = frame._create_new_instance(
+        data=frame._data,
+    )
+
+    assert isinstance(result, LegacyFrame)
+    assert result.previous is frame
+    assert result.operation_history == [{"operation": "fake"}]
+    assert result.lineage is lineage
 
 
 def test_binary_operations_cover_scalar_helpers_and_frame_mismatch_errors():
     f = ChannelFrame(da_from_array(np.arange(6).reshape(2, 3).astype(float), chunks=(1, -1)), sampling_rate=100.0)
 
-    assert (f - 1).operation_history[-1] == {"operation": "-", "with": "1"}
-    assert (f * 2).operation_history[-1] == {"operation": "*", "with": "2"}
-    assert (f / 2).operation_history[-1] == {"operation": "/", "with": "2"}
+    assert (f - 1).operation_history[-1] == {
+        "operation": "-",
+        "params": {"symbol": "-", "operand_kind": "operand", "operand": {"type": "int", "value": 1}},
+    }
+    assert (f * 2).operation_history[-1]["params"]["symbol"] == "*"
+    assert (f / 2).operation_history[-1]["params"]["symbol"] == "/"
     assert BaseFrame._format_operand_str(1 + 2j) == "complex(1.0, 2.0)"
     assert BaseFrame._format_operand_str(object()) == "object"
 
@@ -708,12 +829,28 @@ def test_binary_operations_cover_scalar_helpers_and_frame_mismatch_errors():
         _ = f + different_shape
 
 
+def test_binary_frame_operation_merges_left_and_right_operation_lineage():
+    left = ChannelFrame(da_from_array(np.array([[1.0, 2.0, 4.0]]), chunks=(1, -1)), sampling_rate=100.0)
+    right = ChannelFrame(da_from_array(np.array([[1.0, 1.0, 1.0]]), chunks=(1, -1)), sampling_rate=100.0)
+
+    result = left.normalize() + right.remove_dc()
+
+    assert [record["operation"] for record in result.operation_history] == ["normalize", "remove_dc", "+"]
+    assert result.operation_graph is not None
+    assert [node["operation"] for node in result.operation_graph["inputs"]] == ["normalize", "remove_dc"]
+
+
 def test_apply_operation_helpers_update_metadata_and_history(monkeypatch):
     f = make_frame(np.arange(6).reshape(2, 3).astype(float))
+    dependency_calls = 0
 
     class FakeOperation:
         name = "fake"
         params = {"amount": 2}
+
+        def ensure_dependencies(self):
+            nonlocal dependency_calls
+            dependency_calls += 1
 
         def process(self, data):
             return data + 1
@@ -727,9 +864,10 @@ def test_apply_operation_helpers_update_metadata_and_history(monkeypatch):
     result = f._apply_operation_instance(FakeOperation())
 
     assert result.sampling_rate == 200.0
-    assert result.metadata["fake"] == {"amount": 2}
+    assert result.metadata == f.metadata
     assert result.operation_history[-1] == {"operation": "fake", "params": {"amount": 2}}
     assert result.labels == ["Fake(ch0)", "Fake(ch1)"]
+    assert dependency_calls == 1
 
     class CreatedOperation(FakeOperation):
         name = "created"
@@ -738,7 +876,203 @@ def test_apply_operation_helpers_update_metadata_and_history(monkeypatch):
     monkeypatch.setattr("wandas.processing.create_operation", lambda name, sampling_rate, **params: CreatedOperation())
     applied = BaseFrame._apply_operation_impl(f, "created", gain=3)
 
-    assert applied.metadata["created"] == {"gain": 3}
+    assert applied.metadata == f.metadata
+    assert dependency_calls == 2
+
+    class TrimOperation(FakeOperation):
+        name = "trim"
+        params = {"start": 0.01}
+
+        def get_metadata_updates(self):
+            return {}
+
+    trimmed = f._apply_operation_instance(TrimOperation())
+    assert trimmed.source_time_offset[0] == pytest.approx(0.01)
+
+    class CreatedAudioOperation(AudioOperation[np.ndarray, np.ndarray]):
+        name = "created_audio"
+
+        def ensure_dependencies(self):
+            nonlocal dependency_calls
+            dependency_calls += 1
+
+        def _process_array(self, x: np.ndarray) -> np.ndarray:
+            return x
+
+    monkeypatch.setattr(
+        "wandas.processing.create_operation",
+        lambda name, sampling_rate, **params: CreatedAudioOperation(sampling_rate),
+    )
+    applied_with_operation = BaseFrame._apply_operation_impl(f, "created_audio")
+
+    assert applied_with_operation.lineage is not None
+    assert applied_with_operation.lineage.operation.name == "created_audio"
+    assert dependency_calls == 4
+
+
+def test_mutable_config_value_converts_containers_for_history():
+    source_array = np.array([1.0, 2.0])
+    dask_array = da_from_array(source_array.reshape(1, 2), chunks=(1, -1))
+    sentinel = object()
+    converted = _mutable_config_value(
+        {
+            "array": source_array,
+            "dask_array": dask_array,
+            "tuple": (source_array,),
+            "frozenset": frozenset({1, 2}),
+            "numpy_scalar": np.float64(1.5),
+            "numpy_bool": np.bool_(True),
+            "complex": 1 + 2j,
+            "non_finite": np.inf,
+            "none": None,
+            "unknown": sentinel,
+            ("tuple", "key"): "tuple-key-value",
+        }
+    )
+
+    assert converted["array"] == [1.0, 2.0]
+    assert converted["dask_array"] == {
+        "type": "dask.array",
+        "shape": [1, 2],
+        "dtype": "float64",
+        "chunks": [[1], [2]],
+    }
+    assert converted["tuple"] == [[1.0, 2.0]]
+    assert sorted(converted["frozenset"]) == [1, 2]
+    assert converted["numpy_scalar"] == 1.5
+    assert converted["numpy_bool"] is True
+    assert converted["complex"] == {"type": "complex", "real": 1.0, "imag": 2.0}
+    assert converted["non_finite"] == {"type": "float", "value": "inf"}
+    assert converted["none"] is None
+    assert converted["unknown"] == str(sentinel)
+    assert converted['["tuple","key"]'] == "tuple-key-value"
+    json.dumps(converted)
+
+
+def test_operation_history_and_graph_are_json_serializable_with_nested_params():
+    source_array = np.array([1.0 + 2.0j, np.inf], dtype=np.complex128)
+    dask_array = da_from_array(source_array.reshape(1, 2), chunks=(1, -1))
+    frame = ChannelFrame(da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1)), sampling_rate=100.0)
+    params = cast(
+        dict[str, Any],
+        {
+            "array": source_array,
+            "dask": dask_array,
+            "set": {"b", "a"},
+            "numpy_bool": np.bool_(True),
+            "complex": np.complex128(1 + 2j),
+            ("tuple", "key"): {"nested": (np.float64(1.5), np.inf)},
+        },
+    )
+    result = frame._create_new_instance(
+        data=frame._data,
+        lineage=frame._lineage_with_operation(_TestLineageOperation("json_ready", params), frame.lineage),
+    )
+
+    json.dumps(result.operation_history)
+    json.dumps(result.operation_graph)
+    history_params = result.operation_history[-1]["params"]
+    assert history_params["set"] == ["a", "b"]
+    assert history_params["numpy_bool"] is True
+    assert history_params["complex"] == {"type": "complex", "real": 1.0, "imag": 2.0}
+    assert history_params["array"] == [
+        {"type": "complex", "real": 1.0, "imag": 2.0},
+        {"type": "complex", "real": {"type": "float", "value": "inf"}, "imag": 0.0},
+    ]
+    assert history_params['["tuple","key"]'] == {"nested": [1.5, {"type": "float", "value": "inf"}]}
+
+
+def test_mutable_config_value_preserves_non_finite_numeric_identity():
+    assert _mutable_config_value(np.inf) == {"type": "float", "value": "inf"}
+    assert _mutable_config_value(-np.inf) == {"type": "float", "value": "-inf"}
+    assert _mutable_config_value(np.nan) == {"type": "float", "value": "nan"}
+
+
+def test_lineage_operation_name_prefers_name_for_custom_symbol_attribute():
+    class SymbolConfigOperation:
+        name = "custom_symbol_operation"
+        symbol = "user-symbol"
+        params = {"symbol": "user-symbol"}
+
+    frame = ChannelFrame(da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1)), sampling_rate=100.0)
+    result = frame._create_new_instance(
+        data=frame._data,
+        lineage=frame._lineage_with_operation(SymbolConfigOperation(), frame.lineage),
+    )
+
+    assert result.operation_history[-1] == {
+        "operation": "custom_symbol_operation",
+        "params": {"symbol": "user-symbol"},
+    }
+
+
+def test_lineage_returns_live_operation_with_defensive_params():
+    data = np.array([[1.0, 2.0, 4.0]])
+    frame = ChannelFrame(da_from_array(data, chunks=(1, -1)), sampling_rate=100.0)
+
+    result = frame.normalize()
+
+    assert result.lineage is not None
+    assert isinstance(result.lineage.operation, AudioOperation)
+    op = result.lineage.operation
+    assert isinstance(op, Normalize)
+    assert op.name == "normalize"
+
+    params = op.params.copy()
+    params["norm"] = 2
+    assert op.params["norm"] == np.inf
+    assert op.norm == np.inf
+
+    with pytest.raises(AttributeError):
+        setattr(op, "norm", None)
+    assert op.norm == np.inf
+
+    np.testing.assert_allclose(result.compute(), data / 4.0)
+
+
+def test_none_valued_config_reassignment_is_blocked_and_delayed_result_is_stable():
+    data = np.array([[1.0, 2.0, 4.0]])
+    frame = ChannelFrame(da_from_array(data, chunks=(1, -1)), sampling_rate=100.0)
+
+    result = frame.normalize(norm=None)
+    assert result.lineage is not None
+    op = result.lineage.operation
+    assert isinstance(op, Normalize)
+
+    with pytest.raises(AttributeError):
+        setattr(op, "norm", np.inf)
+
+    assert op.norm is None
+    assert op.params["norm"] is None
+    np.testing.assert_allclose(result.compute(), data)
+
+
+def test_power_operation_exp_alias_reassignment_does_not_change_delayed_result():
+    data = np.array([[2.0, 3.0, 4.0]])
+    frame = ChannelFrame(da_from_array(data, chunks=(1, -1)), sampling_rate=100.0)
+
+    result = frame.power(2.0)
+    assert result.lineage is not None
+    op = result.lineage.operation
+    assert isinstance(op, Power)
+
+    with pytest.raises(AttributeError):
+        setattr(op, "exp", 3.0)
+
+    assert op.params["exponent"] == 2.0
+    assert op.exp == 2.0
+    np.testing.assert_allclose(result.compute(), data**2)
+
+
+def test_channel_metadata_update_paths_preserve_operations_lineage():
+    data = np.array([[1.0, 2.0, 4.0]])
+    frame = ChannelFrame(da_from_array(data, chunks=(1, -1)), sampling_rate=100.0)
+
+    result = frame.normalize().rename_channels({0: "renamed"})
+
+    assert result.lineage is not None
+    assert result.lineage.operation.name == "normalize"
+    np.testing.assert_allclose(result.compute(), data / 4.0)
 
 
 def test_apply_operation_instance_output_frame_validation_and_constructor_errors():
@@ -778,6 +1112,30 @@ def test_apply_operation_instance_output_frame_validation_and_constructor_errors
     assert isinstance(transitioned, NeedsExtra)
     assert transitioned.required == "ok"
     assert transitioned.operation_history[-1]["operation"] == "renamed"
+
+    class AudioFakeOperation(AudioOperation[np.ndarray, np.ndarray]):
+        name = "audio_fake"
+
+        def _process_array(self, x: np.ndarray) -> np.ndarray:
+            return x
+
+    audio_transitioned = f._apply_operation_instance(
+        AudioFakeOperation(f.sampling_rate),
+        output_frame_class=NeedsExtra,
+        output_frame_kwargs={"required": "ok"},
+    )
+
+    assert audio_transitioned.lineage is not None
+    assert audio_transitioned.lineage.operation.name == "audio_fake"
+
+    legacy_transitioned = f._apply_operation_instance(
+        AudioFakeOperation(f.sampling_rate),
+        output_frame_class=LegacyFrame,
+    )
+
+    assert isinstance(legacy_transitioned, LegacyFrame)
+    assert legacy_transitioned.previous is f
+    assert legacy_transitioned.operation_history[-1]["operation"] == "audio_fake"
 
 
 def test_indexing_variants_cover_base_frame_selection_paths():
@@ -833,9 +1191,12 @@ def test_channel_frame_binary_op_frame_success_and_remaining_operand_formats():
 
     assert added.label == "(left_frame + right_frame)"
     assert added.labels == ["(l0 + r0)", "(l1 + r1)"]
-    assert added.operation_history[-1] == {"operation": "+", "with": "right_frame"}
+    assert added.operation_history[-1] == {
+        "operation": "+",
+        "params": {"symbol": "+", "operand_kind": "frame", "operand": {"type": "frame", "label": "right_frame"}},
+    }
     np.testing.assert_array_equal(added.compute(), left.compute() + right.compute())
-    assert powered.operation_history[-1] == {"operation": "**", "with": "2"}
+    assert powered.operation_history[-1]["params"]["operand"] == {"type": "int", "value": 2}
     assert BaseFrame._format_operand_str(np.zeros((2, 3))) == "ndarray(2, 3)"
     assert BaseFrame._format_operand_str(da_from_array(np.zeros((2, 3)), chunks=(1, -1))) == "dask.array(2, 3)"
 
@@ -849,7 +1210,7 @@ def test_apply_operation_dispatches_to_subclass_impl():
 
     result = f.apply_operation("noop", amount=1)
 
-    assert result.operation_history[-1] == {"operation": "noop", "amount": 1}
+    assert result.operation_history[-1] == {"operation": "noop", "params": {"amount": 1}}
 
 
 def test_lazy_metadata_and_previous_accessors():

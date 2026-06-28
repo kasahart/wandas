@@ -31,6 +31,58 @@ class TestHpssHarmonic:
         hpss_custom = HpssHarmonic(_SR, margin=2.0)
         assert hpss_custom.kwargs.get("margin") == 2.0
 
+    def test_hpss_harmonic_kwargs_are_defensive_copies(self) -> None:
+        """Mutating exposed HPSS kwargs must not change operation config."""
+        hpss = HpssHarmonic(_SR, margin=2.0)
+
+        hpss.kwargs["margin"] = 8.0
+
+        assert hpss.kwargs["margin"] == 2.0
+
+    def test_hpss_harmonic_empty_kwargs_are_defensive_copies(self) -> None:
+        hpss = HpssHarmonic(_SR)
+
+        hpss.kwargs["margin"] = 8.0
+
+        assert hpss.kwargs == {}
+        assert object.__getattribute__(hpss, "kwargs") == {}
+
+    def test_hpss_harmonic_empty_kwargs_reassignment_is_blocked(self) -> None:
+        hpss = HpssHarmonic(_SR)
+
+        with pytest.raises(AttributeError):
+            setattr(hpss, "kwargs", {"margin": 8.0})
+
+        assert hpss.kwargs == {}
+        assert object.__getattribute__(hpss, "kwargs") == {}
+
+    def test_hpss_harmonic_kwargs_reassignment_to_non_mapping_is_blocked(self) -> None:
+        hpss = HpssHarmonic(_SR, margin=2.0)
+
+        with pytest.raises(AttributeError):
+            setattr(hpss, "kwargs", None)
+
+        assert hpss.kwargs == {"margin": 2.0}
+        assert object.__getattribute__(hpss, "kwargs") == {"margin": 2.0}
+
+    def test_hpss_harmonic_kwargs_snapshot_caller_owned_mutable_values(self) -> None:
+        """Grouped kwargs should not retain caller-owned mutable values."""
+        margin = [2.0, 3.0]
+        hpss = HpssHarmonic(_SR, margin=margin)
+
+        margin[0] = 8.0
+
+        assert hpss.kwargs["margin"] == [2.0, 3.0]
+
+    def test_hpss_harmonic_to_params_returns_defensive_snapshot(self) -> None:
+        margin = [2.0, 3.0]
+        hpss = HpssHarmonic(_SR, margin=margin)
+
+        params = hpss.to_params()
+        params["margin"][0] = 8.0
+
+        assert hpss.to_params()["margin"] == [2.0, 3.0]
+
     def test_hpss_harmonic_registry_returns_correct_class(self) -> None:
         """Test HpssHarmonic is registered as 'hpss_harmonic'."""
         assert get_operation("hpss_harmonic") == HpssHarmonic
@@ -146,6 +198,29 @@ class TestHpssPercussive:
         result_flatness = np.exp(np.mean(np.log(result_spec + 1e-10))) / np.mean(result_spec)
 
         assert result_flatness > orig_flatness, "Percussive extraction must increase spectral flatness"
+
+
+def test_normalize_stores_all_lineage_parameters() -> None:
+    normalize = Normalize(_SR, norm=2.0, axis=1, threshold=0.01, fill=False)
+
+    assert normalize.norm == 2.0
+    assert normalize.axis == 1
+    assert normalize.threshold == 0.01
+    assert normalize.fill is False
+    assert normalize.to_params() == {"norm": 2.0, "axis": 1, "threshold": 0.01, "fill": False}
+
+
+def test_add_with_snr_and_fade_expose_lineage_parameters() -> None:
+    noise = da_from_array(np.ones((1, 8)), chunks=(1, -1))
+    add = AddWithSNR(_SR, other=noise, snr=12.0)
+    fade = Fade(_SR, fade_ms=25)
+
+    assert add.other is noise
+    assert add.snr == 12.0
+    assert add.to_params() == {"other": noise, "snr": 12.0}
+    assert fade.fade_ms == 25.0
+    assert fade.fade_len == 400
+    assert fade.to_params() == {"fade_ms": 25.0}
 
 
 class TestAddWithSNR:

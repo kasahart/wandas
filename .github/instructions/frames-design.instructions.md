@@ -1,5 +1,5 @@
 ---
-description: "Frame architecture: immutability, metadata propagation, and operation_history rules for ChannelFrame, SpectralFrame, and SpectrogramFrame"
+description: "Frame architecture: immutability, metadata propagation, and runtime lineage rules for ChannelFrame, SpectralFrame, and SpectrogramFrame"
 applyTo: "wandas/frames/**"
 ---
 # Wandas Frames Design Prompt
@@ -7,22 +7,24 @@ applyTo: "wandas/frames/**"
 Use this prompt when working on `wandas/frames/` or any code that manipulates `ChannelFrame`, `SpectralFrame`, or `SpectrogramFrame`.
 
 ## Core principles
-- Frames are **immutable**: never mutate data, metadata, or `operation_history` in place.
+- Frames are **immutable**: never mutate data, metadata, or runtime provenance in place.
 - Always create a **new frame instance** when applying an operation.
-- Update data, metadata, axes information, and `operation_history` **atomically**.
+- Update data, metadata, axes information, and `lineage` **atomically**.
 
-## Metadata & operation_history updates
+## Metadata & lineage updates
 - Prefer dedicated helpers (e.g. `_with_updated_metadata`, `replace(...)`) on frame classes to:
   - swap out the underlying array (NumPy/Dask),
   - update sampling rate, axes, and channel labels,
-  - append an `operation_history` entry with parameters,
+  - append runtime lineage with operation parameters,
   - carry over user/recording metadata.
-- Avoid scattered `frame.metadata[...] = ...` or direct `operation_history` mutations in callers; encapsulate these inside `frames/`.
+- `operation_history` is a read-only compatibility view derived from lineage.
+- Do not duplicate operation parameters into `metadata[operation_name]`; metadata should carry user, recording, and domain state.
+- Avoid scattered `frame.metadata[...] = ...` or direct provenance mutations in callers; encapsulate these inside `frames/`.
 
 ## Where to put logic
 - Keep **orchestration** in frames:
   - user-facing methods (e.g. `low_pass_filter`, `fft`, `stft`, `normalize`).
-  - input validation, axis alignment, metadata management, and history recording.
+  - input validation, axis alignment, metadata management, and lineage recording.
 - Keep **numerical logic** in `wandas/processing/`:
   - filtering, FFT, psychoacoustic metrics, resampling, stats, effects.
 
@@ -33,6 +35,6 @@ Use this prompt when working on `wandas/frames/` or any code that manipulates `C
 - Ensure that:
   - sampling rate and axes are consistent with the operation performed,
   - channel labels remain aligned with the underlying data,
-  - `operation_history` captures what/why/how for debugging and reproducibility.
+  - `lineage` captures operation provenance for debugging; `operation_history` exposes its flat compatibility summary.
 
 Use this as a checklist whenever you change or add frame methods.

@@ -60,6 +60,28 @@ class TestChannelTransform:
             # Pillar 2: domain transition preserves sampling rate and source offset
             assert result.sampling_rate == self.channel_frame.sampling_rate
             np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
+            assert result.lineage is not None
+            assert result.lineage.operation is mock_fft
+
+    def test_fft_default_n_fft_operation_lineage_matches_history(self) -> None:
+        data = np.arange(8.0).reshape(1, 8)
+        frame = ChannelFrame.from_numpy(
+            data,
+            sampling_rate=_SAMPLE_RATE,
+            label="test_audio",
+            metadata={"recording": "fixture"},
+        )
+
+        result = frame.fft()
+
+        assert result.n_fft == 8
+        assert result.window == "hann"
+        assert result.metadata == {"recording": "fixture"}
+        assert result.lineage is not None
+        assert result.lineage.operation.params["n_fft"] == 8
+        assert result.operation_history[-1] == {"operation": "fft", "params": {"n_fft": 8, "window": "hann"}}
+        assert "n_fft" not in result.metadata
+        assert "window" not in result.metadata
 
     def test_welch_transform(self) -> None:
         """
@@ -114,6 +136,34 @@ class TestChannelTransform:
             assert result.window == "blackman"
             assert result.previous is self.channel_frame
             np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
+            assert result.lineage is not None
+            assert result.lineage.operation is mock_welch
+
+    def test_welch_default_params_operation_lineage_matches_history(self) -> None:
+        frame = ChannelFrame.from_numpy(
+            _DATA,
+            _SAMPLE_RATE,
+            label="test_audio",
+            metadata={"recording": "fixture"},
+        )
+
+        result = frame.welch()
+
+        assert result.n_fft == 2048
+        assert result.window == "hann"
+        assert result.metadata == {"recording": "fixture"}
+        assert result.lineage is not None
+        operation_params = dict(result.lineage.operation.params)
+        assert operation_params == {
+            "n_fft": 2048,
+            "win_length": 2048,
+            "hop_length": 512,
+            "window": "hann",
+            "average": "mean",
+            "detrend": "constant",
+        }
+        assert result.operation_history[-1] == {"operation": "welch", "params": operation_params}
+        assert not set(operation_params).intersection(result.metadata)
 
     def test_stft_transform(self) -> None:
         """Test stft method for lazy short-time Fourier transform."""
@@ -122,6 +172,13 @@ class TestChannelTransform:
         with mock.patch("wandas.processing.create_operation") as mock_create_op:
             # モックSTFTオペレーションの設定
             mock_stft = mock.MagicMock(spec=STFT)
+            mock_stft.name = "stft"
+            mock_stft.to_params.return_value = {
+                "n_fft": 2048,
+                "hop_length": 512,
+                "win_length": 2048,
+                "window": "hann",
+            }
             mock_data = mock.MagicMock(spec=DaArray)
             mock_data.ndim = 3  # Set ndim property to pass dimension check
             mock_data.shape = (2, 1025, 10)  # Set appropriate shape for a 3D array
@@ -153,6 +210,17 @@ class TestChannelTransform:
             assert result.n_fft == 2048
             assert result.hop_length == 512
             assert result.win_length == 2048
+            assert result.lineage is not None
+            assert result.lineage.operation is mock_stft
+            assert result.operation_history[-1] == {
+                "operation": "stft",
+                "params": {
+                    "n_fft": 2048,
+                    "hop_length": 512,
+                    "win_length": 2048,
+                    "window": "hann",
+                },
+            }
             assert result.window == "hann"
             # Pillar 2: domain transition preserves sampling rate and source offset
             assert result.sampling_rate == self.channel_frame.sampling_rate
@@ -234,6 +302,30 @@ class TestChannelTransform:
             assert result.fr == fr
             assert result.previous is self.channel_frame
             np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
+            assert result.lineage is not None
+            assert result.lineage.operation is mock_noct
+
+    def test_noct_spectrum_preserves_metadata_and_stores_params_in_lineage(self) -> None:
+        frame = ChannelFrame.from_numpy(
+            _DATA,
+            _SAMPLE_RATE,
+            label="test_audio",
+            metadata={"recording": "fixture"},
+        )
+
+        result = frame.noct_spectrum(fmin=20, fmax=8000, n=3, G=10, fr=1000)
+
+        assert result.fmin == 20
+        assert result.fmax == 8000
+        assert result.n == 3
+        assert result.G == 10
+        assert result.fr == 1000
+        assert result.metadata == {"recording": "fixture"}
+        assert result.operation_history[-1] == {
+            "operation": "noct_spectrum",
+            "params": {"fmin": 20, "fmax": 8000, "n": 3, "G": 10, "fr": 1000},
+        }
+        assert not {"fmin", "fmax", "n", "G", "fr"}.intersection(result.metadata)
 
     def test_csd(self) -> None:
         """クロススペクトル密度（CSD）メソッドのテスト"""
@@ -260,6 +352,8 @@ class TestChannelTransform:
         # ChannelFrameメソッドを使用してCSDを計算
         csd_frame = cf.csd(n_fft=n_fft, win_length=win_length, hop_length=hop_length, window="hamming")
         np.testing.assert_array_equal(csd_frame.source_time_offset, np.array([3.5, 3.5, 3.5, 3.5]))
+        assert csd_frame.lineage is not None
+        assert csd_frame.lineage.operation.name == "csd"
 
         # 実際のデータを取得するために計算
         csd_data = csd_frame.compute()
@@ -309,6 +403,30 @@ class TestChannelTransform:
         csd_frame = cf.csd(n_fft=512, win_length=256, hop_length=128)
 
         np.testing.assert_array_equal(csd_frame.source_time_offset, np.array([0.0, 5.0, 0.0, 5.0]))
+
+    @pytest.mark.parametrize("method_name", ["coherence", "csd", "transfer_function"])
+    def test_cross_channel_default_params_operation_lineage_matches_history(self, method_name: str) -> None:
+        cf = ChannelFrame.from_numpy(_DATA, _SAMPLE_RATE, metadata={"recording": "fixture"})
+
+        result = getattr(cf, method_name)()
+
+        assert result.n_fft == 2048
+        assert result.window == "hann"
+        assert result.metadata == {"recording": "fixture"}
+        assert result.lineage is not None
+        operation_params = dict(result.lineage.operation.params)
+        expected_params = {
+            "n_fft": 2048,
+            "hop_length": 512,
+            "win_length": 2048,
+            "window": "hann",
+            "detrend": "constant",
+        }
+        if method_name in {"csd", "transfer_function"}:
+            expected_params.update({"scaling": "spectrum", "average": "mean"})
+        assert operation_params == expected_params
+        assert result.operation_history[-1] == {"operation": method_name, "params": operation_params}
+        assert not set(operation_params).intersection(result.metadata)
 
     @pytest.mark.parametrize(
         ("method_name", "expected_labels"),
@@ -440,6 +558,8 @@ class TestChannelTransform:
 
         # ChannelFrameメソッドを使用してコヒーレンスを計算
         coherence_frame = cf.coherence(n_fft=n_fft, win_length=win_length, hop_length=hop_length, window="hamming")
+        assert coherence_frame.lineage is not None
+        assert coherence_frame.lineage.operation.name == "coherence"
 
         # 実際のデータを取得するために計算
         coherence_data = coherence_frame.compute()

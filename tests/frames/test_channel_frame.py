@@ -14,6 +14,7 @@ from matplotlib.axes import Axes
 from scipy.io import wavfile
 
 import wandas as wd
+import wandas.processing as processing_module
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.utils.types import NDArrayReal
@@ -66,6 +67,35 @@ class TestChannelFrame:
         with mock.patch.object(DaArray, "compute", return_value=self.data) as mock_compute:
             _: NDArrayReal = self.channel_frame.data
             mock_compute.assert_called_once()
+
+    def test_add_with_snr_calls_operation_dependency_preflight(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        calls: list[str] = []
+
+        class FakeAddWithSNR:
+            name = "add_with_snr"
+            params = {"snr": 6.0}
+
+            def ensure_dependencies(self) -> None:
+                calls.append("ensure")
+
+            def process(self, data: DaArray) -> DaArray:
+                calls.append("process")
+                return data
+
+        def fake_create_operation(operation_name: str, sampling_rate: float, **params: Any) -> FakeAddWithSNR:
+            assert operation_name == "add_with_snr"
+            assert sampling_rate == self.sample_rate
+            assert params["snr"] == 6.0
+            return FakeAddWithSNR()
+
+        monkeypatch.setattr(processing_module, "create_operation", fake_create_operation)
+        other = ChannelFrame(_da_from_array(np.zeros_like(self.data), chunks=(1, 4000)), self.sample_rate)
+
+        result = self.channel_frame.add(other, snr=6.0)
+
+        assert calls == ["ensure", "process"]
+        assert result is not self.channel_frame
+        assert result.labels == ["add_with_snr(ch0)", "add_with_snr(ch1)"]
 
     def test_compute_method(self) -> None:
         """Test explicit compute method."""
@@ -142,11 +172,11 @@ class TestChannelFrame:
         with pytest.raises(ValueError, match="Only continuous slicing on the time axis is supported"):
             _ = self.channel_frame[:, [500, 700, 900]]
 
-    def test_positional_previous_constructor_argument_remains_compatible(self) -> None:
-        """Adding source_time_offset does not steal the existing positional previous argument."""
+    def test_positional_previous_constructor_argument_remains_compatible_after_history_removal(self) -> None:
+        """previous remains compatible at its new positional slot after removing legacy history."""
         previous = ChannelFrame(self.dask_data, self.sample_rate)
 
-        cf = ChannelFrame(self.dask_data, self.sample_rate, None, None, None, None, None, previous)
+        cf = ChannelFrame(self.dask_data, self.sample_rate, None, None, None, None, previous)
 
         assert cf.previous is previous
         np.testing.assert_array_equal(cf.source_time_offset, np.array([0.0, 0.0]))

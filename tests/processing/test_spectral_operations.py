@@ -69,6 +69,11 @@ class TestFFTOperation:
         assert fft.n_fft == 2048
         assert fft.window == "hamming"
 
+    def test_fft_to_params_returns_lineage_parameters(self) -> None:
+        fft = FFT(_SR, n_fft=2048, window="hamming")
+
+        assert fft.to_params() == {"n_fft": 2048, "window": "hamming"}
+
     def test_fft_registry_returns_correct_class(self) -> None:
         """Test FFT is registered as 'fft'."""
         assert get_operation("fft") == FFT
@@ -235,6 +240,11 @@ class TestIFFTOperation:
         ifft = IFFT(_SR, n_fft=2048, window="hamming")
         assert ifft.n_fft == 2048
         assert ifft.window == "hamming"
+
+    def test_ifft_to_params_returns_lineage_parameters(self) -> None:
+        ifft = IFFT(_SR, n_fft=2048, window="hamming")
+
+        assert ifft.to_params() == {"n_fft": 2048, "window": "hamming"}
 
     def test_ifft_registry_returns_correct_class(self) -> None:
         """Test IFFT is registered as 'ifft'."""
@@ -404,6 +414,7 @@ class TestSTFTOperation:
         assert stft.hop_length == 512
         assert stft.win_length == 2048
         assert stft.window == "hann"
+        assert not hasattr(stft, "SFT")
 
     def test_stft_init_custom_params(self) -> None:
         """STFT stores custom n_fft, hop_length, win_length, window."""
@@ -431,6 +442,11 @@ class TestSTFTOperation:
         assert istft.win_length == 512
         assert istft.window == "hamming"
         assert istft.length == 16000
+
+    def test_istft_calculate_output_shape_respects_length_limit(self) -> None:
+        istft = ISTFT(_SR, n_fft=256, hop_length=64, length=128)
+
+        assert istft.calculate_output_shape((2, 129, 10)) == (2, 128)
 
     def test_stft_registry_returns_correct_class(self) -> None:
         """'stft' and 'istft' registry keys create correct instances."""
@@ -926,6 +942,7 @@ class TestWelchOperation:
         assert welch.window == "hann"
         assert welch.average == "mean"
         assert welch.detrend == "constant"
+        assert welch.noverlap == 1536
 
     def test_init_custom_params(self) -> None:
         welch = Welch(
@@ -943,6 +960,15 @@ class TestWelchOperation:
         assert welch.window == "hamming"
         assert welch.average == "median"
         assert welch.detrend == "linear"
+        assert welch.noverlap == 256
+
+    def test_noverlap_is_read_only(self) -> None:
+        welch = self._op()
+
+        with pytest.raises(AttributeError):
+            setattr(welch, "noverlap", 0)
+
+        assert welch.noverlap == self._WIN_LEN - self._HOP
 
     def test_registry_returns_correct_class(self) -> None:
         assert get_operation("welch") == Welch
@@ -1172,6 +1198,15 @@ class TestCoherenceOperation:
         assert op.hop_length == 512
         assert op.window == "hamming"
         assert op.detrend == "linear"
+        assert op.noverlap == self._WIN_LEN - 512
+
+    def test_noverlap_is_read_only(self) -> None:
+        op = self._op()
+
+        with pytest.raises(AttributeError):
+            setattr(op, "noverlap", 0)
+
+        assert op.noverlap == self._WIN_LEN - self._HOP
 
     def test_registry_returns_correct_class(self) -> None:
         assert get_operation("coherence") == Coherence

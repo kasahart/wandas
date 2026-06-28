@@ -209,20 +209,19 @@ def test_operations_preserves_fused_native_markers_before_stft() -> None:
     assert [operation.name for operation in operations] == ["abs", "power", "stft"]
 
 
-def test_operation_history_public_behavior_is_unchanged() -> None:
+def test_operation_history_public_behavior_is_read_only_lineage_view() -> None:
     frame = _frame()
-    history: list[dict[str, object]] = [{"operation": "load", "params": {"path": "input.wav"}}]
-    frame.operation_history = history
-    history[0]["operation"] = "mutated"
 
-    assert frame.operation_history == [{"operation": "load", "params": {"path": "input.wav"}}]
+    with pytest.raises(AttributeError):
+        setattr(frame, "operation_history", [{"operation": "load", "params": {"path": "input.wav"}}])
 
-    frame.operation_history.append({"operation": "normalize", "params": {}})
+    result = frame.normalize()
+    history = result.operation_history
+    history.append({"operation": "mutated", "params": {}})
 
-    assert frame._xr.attrs["operation_history"] == [
-        {"operation": "load", "params": {"path": "input.wav"}},
-        {"operation": "normalize", "params": {}},
-    ]
+    assert [record["operation"] for record in result.operation_history] == ["normalize"]
+    assert all(record["operation"] != "mutated" for record in result.operation_history)
+    assert "operation_history" not in result._xr.attrs
 
 
 def test_operations_property_is_read_only_sequence() -> None:

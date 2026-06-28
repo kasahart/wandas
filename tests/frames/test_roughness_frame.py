@@ -10,6 +10,8 @@ import pytest
 from dask.array.core import Array as DaArray
 
 from wandas.frames.roughness import RoughnessFrame
+from wandas.processing.base import LineageNode
+from wandas.processing.effects import Normalize
 
 # --- Module-level deterministic roughness test data ---
 _N_BARK: int = 47
@@ -404,17 +406,21 @@ class TestRoughnessFrame:
 
     def test_binary_op_with_roughness_frame(self) -> None:
         """Test binary operations between RoughnessFrame instances."""
+        left_operation = Normalize(_SAMPLING_RATE)
+        right_operation = Normalize(_SAMPLING_RATE)
         frame1 = RoughnessFrame(
             data=_DATA_MONO,
             sampling_rate=_SAMPLING_RATE,
             bark_axis=_BARK_AXIS,
             overlap=_OVERLAP,
+            lineage=LineageNode(left_operation),
         )
         frame2 = RoughnessFrame(
             data=_DATA_MONO,
             sampling_rate=_SAMPLING_RATE,
             bark_axis=_BARK_AXIS,
             overlap=_OVERLAP,
+            lineage=LineageNode(right_operation),
         )
 
         # Test addition
@@ -427,6 +433,9 @@ class TestRoughnessFrame:
         # Element-wise addition — np.allclose default tol (exact match expected)
         assert np.allclose(result.data, original_data1 + frame2.data)
         assert np.allclose(frame1.data, original_data1)  # Pillar 1: original unchanged
+        assert [record["operation"] for record in result.operation_history] == ["normalize", "normalize", "+"]
+        assert result.operation_graph is not None
+        assert [node["operation"] for node in result.operation_graph["inputs"]] == ["normalize", "normalize"]
 
     def test_binary_op_sampling_rate_mismatch(self) -> None:
         """Test binary operation raises error on sampling rate mismatch."""
