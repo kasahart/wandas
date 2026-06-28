@@ -80,7 +80,9 @@ class BinaryOperation:
             "symbol": self.symbol,
             "operand_kind": self.operand_kind,
         }
-        if self.operand_kind != "frame":
+        if self.operand_kind == "frame" and self.operand is not None:
+            params["operand"] = {"type": "frame", "label": str(self.operand)}
+        elif self.operand_kind != "frame":
             params["operand"] = _operand_descriptor(self.operand)
         return params
 

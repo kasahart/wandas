@@ -74,7 +74,7 @@ def _mutable_config_value(value: Any) -> Any:
             "chunks": [[_mutable_config_value(item) for item in chunk] for chunk in value.chunks],
         }
     if isinstance(value, np.ndarray):
-        return value.tolist()
+        return _mutable_config_value(value.tolist())
     if isinstance(value, bool | np.bool_):
         return bool(value)
     if isinstance(value, numbers.Integral):
@@ -83,7 +83,11 @@ def _mutable_config_value(value: Any) -> Any:
         numeric = float(value)
         if np.isfinite(numeric):
             return numeric
-        return None
+        if np.isnan(numeric):
+            return {"type": "float", "value": "nan"}
+        if numeric > 0:
+            return {"type": "float", "value": "inf"}
+        return {"type": "float", "value": "-inf"}
     if isinstance(value, numbers.Complex):
         return {
             "type": "complex",
@@ -527,7 +531,9 @@ class BaseFrame(ABC, Generic[T]):
 
     @staticmethod
     def _operation_name(operation: Any) -> str:
-        if hasattr(operation, "symbol"):
+        from wandas.processing.base import BinaryOperation
+
+        if isinstance(operation, BinaryOperation):
             return cast(str, getattr(operation, "symbol"))
         return cast(str, getattr(operation, "name", type(operation).__name__))
 
@@ -1226,7 +1232,7 @@ class BaseFrame(ABC, Generic[T]):
         binary_operation = BinaryOperation(
             symbol=symbol,
             operand_kind=operand_kind,
-            operand=None if operand_kind == "frame" else other,
+            operand=other_str if operand_kind == "frame" else other,
         )
         lineage = self._lineage_with_operation(binary_operation, *lineage_inputs)
 

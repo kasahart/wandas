@@ -95,6 +95,7 @@ class TestChannelFrame:
 
         assert calls == ["ensure", "process"]
         assert result is not self.channel_frame
+        assert result.labels == ["add_with_snr(ch0)", "add_with_snr(ch1)"]
 
     def test_compute_method(self) -> None:
         """Test explicit compute method."""

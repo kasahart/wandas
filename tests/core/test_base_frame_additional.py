@@ -942,7 +942,7 @@ def test_mutable_config_value_converts_containers_for_history():
     assert converted["numpy_scalar"] == 1.5
     assert converted["numpy_bool"] is True
     assert converted["complex"] == {"type": "complex", "real": 1.0, "imag": 2.0}
-    assert converted["non_finite"] is None
+    assert converted["non_finite"] == {"type": "float", "value": "inf"}
     assert converted["none"] is None
     assert converted["unknown"] == str(sentinel)
     assert converted['["tuple","key"]'] == "tuple-key-value"
@@ -950,7 +950,7 @@ def test_mutable_config_value_converts_containers_for_history():
 
 
 def test_operation_history_and_graph_are_json_serializable_with_nested_params():
-    source_array = np.array([1.0, 2.0])
+    source_array = np.array([1.0 + 2.0j, np.inf], dtype=np.complex128)
     dask_array = da_from_array(source_array.reshape(1, 2), chunks=(1, -1))
     frame = ChannelFrame(da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1)), sampling_rate=100.0)
     params = cast(
@@ -975,7 +975,35 @@ def test_operation_history_and_graph_are_json_serializable_with_nested_params():
     assert history_params["set"] == ["a", "b"]
     assert history_params["numpy_bool"] is True
     assert history_params["complex"] == {"type": "complex", "real": 1.0, "imag": 2.0}
-    assert history_params['["tuple","key"]'] == {"nested": [1.5, None]}
+    assert history_params["array"] == [
+        {"type": "complex", "real": 1.0, "imag": 2.0},
+        {"type": "complex", "real": {"type": "float", "value": "inf"}, "imag": 0.0},
+    ]
+    assert history_params['["tuple","key"]'] == {"nested": [1.5, {"type": "float", "value": "inf"}]}
+
+
+def test_mutable_config_value_preserves_non_finite_numeric_identity():
+    assert _mutable_config_value(np.inf) == {"type": "float", "value": "inf"}
+    assert _mutable_config_value(-np.inf) == {"type": "float", "value": "-inf"}
+    assert _mutable_config_value(np.nan) == {"type": "float", "value": "nan"}
+
+
+def test_lineage_operation_name_prefers_name_for_custom_symbol_attribute():
+    class SymbolConfigOperation:
+        name = "custom_symbol_operation"
+        symbol = "user-symbol"
+        params = {"symbol": "user-symbol"}
+
+    frame = ChannelFrame(da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1)), sampling_rate=100.0)
+    result = frame._create_new_instance(
+        data=frame._data,
+        lineage=frame._lineage_with_operation(SymbolConfigOperation(), frame.lineage),
+    )
+
+    assert result.operation_history[-1] == {
+        "operation": "custom_symbol_operation",
+        "params": {"symbol": "user-symbol"},
+    }
 
 
 def test_lineage_returns_live_operation_with_defensive_params():
@@ -1163,7 +1191,10 @@ def test_channel_frame_binary_op_frame_success_and_remaining_operand_formats():
 
     assert added.label == "(left_frame + right_frame)"
     assert added.labels == ["(l0 + r0)", "(l1 + r1)"]
-    assert added.operation_history[-1] == {"operation": "+", "params": {"symbol": "+", "operand_kind": "frame"}}
+    assert added.operation_history[-1] == {
+        "operation": "+",
+        "params": {"symbol": "+", "operand_kind": "frame", "operand": {"type": "frame", "label": "right_frame"}},
+    }
     np.testing.assert_array_equal(added.compute(), left.compute() + right.compute())
     assert powered.operation_history[-1]["params"]["operand"] == {"type": "int", "value": 2}
     assert BaseFrame._format_operand_str(np.zeros((2, 3))) == "ndarray(2, 3)"

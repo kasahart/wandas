@@ -533,10 +533,13 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         if ensure_dependencies is not None:
             ensure_dependencies()
         result_data = operation.process(self._data)
+        get_display_name = getattr(operation, "get_display_name", None)
+        display_name = get_display_name() if callable(get_display_name) else getattr(operation, "name", "add_with_snr")
         return self._create_new_instance(
             data=result_data,
             metadata=self._updated_metadata("add_with_snr", operation.params),
             lineage=self._lineage_with_operation(operation, self.lineage, other.lineage),
+            channel_metadata=self._relabel_channels("add_with_snr", display_name),
         )
 
     def plot(
