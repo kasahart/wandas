@@ -19,6 +19,8 @@ class CustomOperation(AudioOperation[InputArrayType, OutputArrayType]):
         sampling_rate: float,
         func: Callable[..., OutputArrayType],
         output_shape_func: Callable[[tuple[int, ...]], tuple[int, ...]] | None = None,
+        *,
+        dask_pure: bool = True,
         **params: Any,
     ):
         """
@@ -32,16 +34,21 @@ class CustomOperation(AudioOperation[InputArrayType, OutputArrayType]):
             Function to apply to the data.
         output_shape_func : Callable, optional
             Function to calculate output shape from input shape.
+        dask_pure : bool, default=True
+            Dask execution-control flag for the delayed task. Set to ``False``
+            for non-deterministic or side-effecting custom functions. This is
+            not forwarded to the custom function or recorded in lineage params.
         **params : Any
-            Additional parameters to pass to the function. ``pure`` is reserved
-            for operation purity and Dask task semantics; use a different
-            custom parameter name such as ``is_pure``.
+            Additional parameters to pass to the function. ``pure`` and
+            ``dask_pure`` are reserved for operation purity and Dask task
+            semantics; use different custom parameter names such as
+            ``is_pure``.
         """
         # Store callables privately so a frame lineage operation cannot alter a
         # pending Dask graph by reassigning public attributes before compute.
         self._func: Callable[..., OutputArrayType] = func
         self._output_shape_func = output_shape_func
-        super().__init__(sampling_rate, pure=True, **params)
+        super().__init__(sampling_rate, pure=dask_pure, **params)
 
     @property
     def func(self) -> Callable[..., OutputArrayType]:
