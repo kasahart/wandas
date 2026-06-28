@@ -59,15 +59,12 @@ class _ButterworthFilter(AudioOperation[NDArrayReal, NDArrayReal]):
     @property
     def cutoff(self) -> float:
         """Cutoff frequency captured at operation construction time."""
-        return self._cutoff
+        return self._config_snapshot()["cutoff"]
 
     @property
     def order(self) -> int:
         """Filter order captured at operation construction time."""
-        return self._order
-
-    def to_params(self) -> dict[str, float | int]:
-        return {"cutoff": self._cutoff, "order": self._order}
+        return self._config_snapshot()["order"]
 
     def validate_params(self) -> None:
         _validate_cutoff(self._cutoff, self.sampling_rate, "Cutoff")
@@ -154,15 +151,12 @@ class BandPassFilter(_ButterworthFilter):
     @property
     def low_cutoff(self) -> float:
         """Lower cutoff frequency captured at operation construction time."""
-        return self._low_cutoff
+        return self._config_snapshot()["low_cutoff"]
 
     @property
     def high_cutoff(self) -> float:
         """Higher cutoff frequency captured at operation construction time."""
-        return self._high_cutoff
-
-    def to_params(self) -> dict[str, float | int]:
-        return {"low_cutoff": self._low_cutoff, "high_cutoff": self._high_cutoff, "order": self._order}
+        return self._config_snapshot()["high_cutoff"]
 
     def validate_params(self) -> None:
         """Validate parameters"""

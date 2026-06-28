@@ -83,6 +83,17 @@ class TestHpssHarmonic:
 
         assert hpss.to_params()["margin"] == [2.0, 3.0]
 
+    def test_hpss_harmonic_params_and_kwargs_share_defensive_base_config(self) -> None:
+        hpss = HpssHarmonic(_SR, margin=[2.0, 3.0], kernel_size={"harmonic": 31})
+
+        hpss.params["margin"][0] = 8.0
+        hpss.to_params()["kernel_size"]["harmonic"] = 99
+        hpss.kwargs["margin"][1] = 9.0
+
+        assert hpss.params["margin"] == [2.0, 3.0]
+        assert hpss.to_params()["kernel_size"] == {"harmonic": 31}
+        assert hpss.kwargs == {"margin": [2.0, 3.0], "kernel_size": {"harmonic": 31}}
+
     def test_hpss_harmonic_registry_returns_correct_class(self) -> None:
         """Test HpssHarmonic is registered as 'hpss_harmonic'."""
         assert get_operation("hpss_harmonic") == HpssHarmonic

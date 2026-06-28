@@ -354,30 +354,22 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
     @property
     def n_fft(self) -> int:
         """FFT size captured at operation construction time."""
-        return self._n_fft
+        return self._config_snapshot()["n_fft"]
 
     @property
     def win_length(self) -> int:
         """Window length captured at operation construction time."""
-        return self._win_length
+        return self._config_snapshot()["win_length"]
 
     @property
     def hop_length(self) -> int:
         """Hop length captured at operation construction time."""
-        return self._hop_length
+        return self._config_snapshot()["hop_length"]
 
     @property
     def window(self) -> str:
         """Window name captured at operation construction time."""
-        return self._window
-
-    def to_params(self) -> dict[str, int | str | None]:
-        return {
-            "n_fft": self._n_fft,
-            "win_length": self._win_length,
-            "hop_length": self._hop_length,
-            "window": self._window,
-        }
+        return self._config_snapshot()["window"]
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """

@@ -210,9 +210,9 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
 
     Operation parameters are captured as operation-owned snapshots for lineage
     metadata. ``params`` is a read-only defensive snapshot; create a new
-    operation when configuration needs to change. Subclasses should store
-    execution config in private attributes and expose lineage through
-    ``to_params()``.
+    operation when configuration needs to change. Subclasses can rely on the
+    default ``to_params()`` when lineage parameters match constructor
+    parameters.
     """
 
     # Class variable: operation name
@@ -238,6 +238,11 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
             Operation-specific parameters
         """
         object.__setattr__(self, "_sampling_rate", float(sampling_rate))
+        object.__setattr__(
+            self,
+            "_config",
+            {key: _snapshot_config_value(value) for key, value in params.items()},
+        )
         self.pure = pure
 
         # Validate parameters during initialization
@@ -260,7 +265,12 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
 
     def to_params(self) -> Mapping[str, Any]:
         """Return operation parameters used for lineage and display."""
-        return {}
+        return self._config_snapshot()
+
+    def _config_snapshot(self) -> dict[str, Any]:
+        """Return a defensive copy of base-managed constructor config."""
+        config = object.__getattribute__(self, "_config")
+        return {key: _snapshot_config_value(value) for key, value in config.items()}
 
     def validate_params(self) -> None:
         """Validate parameters (raises exception if invalid)"""

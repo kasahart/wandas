@@ -355,36 +355,27 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
     @property
     def frame_length(self) -> int:
         """Frame length captured at operation construction time."""
-        return self._frame_length
+        return self._config_snapshot()["frame_length"]
 
     @property
     def hop_length(self) -> int:
         """Hop length captured at operation construction time."""
-        return self._hop_length
+        return self._config_snapshot()["hop_length"]
 
     @property
     def dB(self) -> bool:  # noqa: N802
         """Whether output is converted to decibels."""
-        return self._dB
+        return self._config_snapshot()["dB"]
 
     @property
     def Aw(self) -> bool:  # noqa: N802
         """Whether A-weighting is applied before RMS calculation."""
-        return self._Aw
+        return self._config_snapshot()["Aw"]
 
     @property
     def ref(self) -> NDArrayReal:
         """Reference values captured at operation construction time."""
-        return self._ref.copy()
-
-    def to_params(self) -> dict[str, Any]:
-        return {
-            "frame_length": self._frame_length,
-            "hop_length": self._hop_length,
-            "dB": self._dB,
-            "Aw": self._Aw,
-            "ref": self._ref,
-        }
+        return self._config_snapshot()["ref"]
 
     def get_metadata_updates(self) -> dict[str, Any]:
         """
@@ -519,30 +510,22 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
     @property
     def ref(self) -> NDArrayReal:
         """Reference values captured at operation construction time."""
-        return self._ref.copy()
+        return self._config_snapshot()["ref"]
 
     @property
     def freq_weighting(self) -> str:
         """Frequency weighting captured at operation construction time."""
-        return self._freq_weighting
+        return self._config_snapshot()["freq_weighting"]
 
     @property
     def time_weighting(self) -> str:
         """Time weighting captured at operation construction time."""
-        return self._time_weighting
+        return self._config_snapshot()["time_weighting"]
 
     @property
     def dB(self) -> bool:  # noqa: N802
         """Whether output is converted to decibels."""
-        return self._dB
-
-    def to_params(self) -> dict[str, Any]:
-        return {
-            "ref": self._ref,
-            "freq_weighting": self._freq_weighting,
-            "time_weighting": self._time_weighting,
-            "dB": self._dB,
-        }
+        return self._config_snapshot()["dB"]
 
     @property
     def time_constant(self) -> float:

@@ -6,7 +6,7 @@ import numpy as np
 from dask.array.core import Array as DaArray
 from scipy.signal import windows as sp_windows
 
-from wandas.processing.base import AudioOperation, _snapshot_config_value, register_operation
+from wandas.processing.base import AudioOperation, register_operation
 from wandas.utils import util
 from wandas.utils.optional_imports import require_librosa_effects
 from wandas.utils.types import NDArrayReal
@@ -65,22 +65,18 @@ class _HpssBase(AudioOperation[NDArrayReal, NDArrayReal]):
     _display: str  # set by subclasses
 
     def __init__(self, sampling_rate: float, **kwargs: Any):
-        self._kwargs = {key: _snapshot_config_value(value) for key, value in kwargs.items()}
         self._effects = require_librosa_effects(self.name)
         super().__init__(sampling_rate, **kwargs)
 
     @property
     def kwargs(self) -> dict[str, Any]:
         """Keyword arguments captured at operation construction time."""
-        return {key: _snapshot_config_value(value) for key, value in self._kwargs.items()}
-
-    def to_params(self) -> dict[str, Any]:
-        return {key: _snapshot_config_value(value) for key, value in self._kwargs.items()}
+        return self._config_snapshot()
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying HPSS {self._extract_func} to array with shape: {x.shape}")
         func = getattr(self._effects, self._extract_func)
-        result: NDArrayReal = func(x, **self._kwargs)
+        result: NDArrayReal = func(x, **self._config_snapshot())
         logger.debug(f"HPSS {self._extract_func} applied, returning result with shape: {result.shape}")
         return result
 
@@ -199,25 +195,22 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
     @property
     def norm(self) -> float | None:
         """Norm captured at operation construction time."""
-        return self._norm
+        return self._config_snapshot()["norm"]
 
     @property
     def axis(self) -> int | None:
         """Axis captured at operation construction time."""
-        return self._axis
+        return self._config_snapshot()["axis"]
 
     @property
     def threshold(self) -> float | None:
         """Threshold captured at operation construction time."""
-        return self._threshold
+        return self._config_snapshot()["threshold"]
 
     @property
     def fill(self) -> bool | None:
         """Fill behavior captured at operation construction time."""
-        return self._fill
-
-    def to_params(self) -> dict[str, float | int | bool | None]:
-        return {"norm": self._norm, "axis": self._axis, "threshold": self._threshold, "fill": self._fill}
+        return self._config_snapshot()["fill"]
 
     def _process_array(self, x: NDArrayReal) -> NDArrayReal:
         """Perform normalization processing"""
