@@ -169,6 +169,25 @@ class TestChannelProcessing:
         np.testing.assert_array_equal(result.compute(), self.data * 2.0)
         assert result.operation_history[-1]["params"] == {"gain": 2.0}
 
+    def test_apply_custom_function_mutating_nested_param_does_not_change_history_or_compute(self) -> None:
+        """Custom functions receive per-call config snapshots for mutable kwargs."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
+        )
+
+        def mutating_scale(x: np.ndarray, config: dict[str, float]) -> np.ndarray:
+            gain = config["gain"]
+            config["gain"] = 99.0
+            return x * gain
+
+        result = frame.apply(mutating_scale, output_shape_func=lambda shape: shape, config={"gain": 2.0})
+
+        np.testing.assert_array_equal(result.compute(), self.data * 2.0)
+        np.testing.assert_array_equal(result.compute(), self.data * 2.0)
+        assert result.operation_history[-1]["params"] == {"config": {"gain": 2.0}}
+
     def test_registered_operation_params_copy_mutation_does_not_change_history_or_compute(self) -> None:
         """Registered operation params are defensive views for history and compute."""
 

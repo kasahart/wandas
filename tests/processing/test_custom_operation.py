@@ -29,6 +29,22 @@ class TestCustomOperation:
 
         np.testing.assert_array_equal(op._process_array(data), data * 2.0)
 
+    def test_custom_operation_copies_nested_params_for_each_delayed_execution(self) -> None:
+        data = np.array([[1.0, 2.0, 3.0]])
+        dask_data = da_from_array(data, chunks=(1, -1))
+
+        def mutating_scale(x: np.ndarray, config: dict[str, float]) -> np.ndarray:
+            gain = config["gain"]
+            config["gain"] = 99.0
+            return x * gain
+
+        op = CustomOperation(16000, func=mutating_scale, config={"gain": 2.0})
+        result = op.process(dask_data)
+
+        np.testing.assert_array_equal(result.compute(), data * 2.0)
+        np.testing.assert_array_equal(result.compute(), data * 2.0)
+        assert op.params["config"] == {"gain": 2.0}
+
     def test_custom_operation_subclass_delayed_wrapper_uses_process_array_hook(self) -> None:
         class HookedCustomOperation(CustomOperation):
             def _process_array(self, x: np.ndarray) -> np.ndarray:
