@@ -223,8 +223,9 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
         logger.debug(f"Normalization applied, returning result with shape: {result.shape}")
         return result
 
-    def process(self, data: DaArray) -> DaArray:
+    def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
         """Execute normalization with accurate floating output dtype metadata."""
+        self._validate_input_count(1 + len(inputs), expected=1)
         logger.debug("Adding delayed normalize operation to computation graph")
         delayed_result = self._delayed(data)
         output_shape = self.calculate_output_shape(data.shape)
@@ -285,7 +286,7 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
     name = "add_with_snr"
     _display = "+SNR"
 
-    def __init__(self, sampling_rate: float, other: DaArray, snr: float = 1.0):
+    def __init__(self, sampling_rate: float, snr: float = 1.0):
         """
         Initialize addition operation considering SNR
 
@@ -293,12 +294,10 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
         ----------
         sampling_rate : float
             Sampling rate (Hz)
-        other : DaArray
-            Noise signal to add (channel-frame format)
         snr : float
             Signal-to-noise ratio (dB)
         """
-        super().__init__(sampling_rate, other=other, snr=snr)
+        super().__init__(sampling_rate, snr=snr)
         logger.debug(f"Initialized AddWithSNR operation with SNR: {snr} dB")
 
     @property
@@ -306,10 +305,15 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
         """Signal-to-noise ratio captured at operation construction time."""
         return self._config_value("snr")
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process_inputs(self, *inputs: NDArrayReal) -> NDArrayReal:
         """Perform addition processing considering SNR"""
+        if len(inputs) != 2:
+            raise ValueError(
+                f"Expected exactly two inputs for AddWithSNR; got {len(inputs)}. "
+                "Pass clean and noise arrays to process()."
+            )
+        x, other = inputs
         logger.debug(f"Applying SNR-based addition with shape: {x.shape}")
-        other: NDArrayReal = self._config["other"].compute()
 
         # Use multi-channel versions of calculate_rms and calculate_desired_noise_rms
         clean_rms = util.calculate_rms(x)

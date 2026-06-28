@@ -222,12 +222,11 @@ def test_normalize_stores_all_lineage_parameters() -> None:
 
 
 def test_add_with_snr_and_fade_expose_lineage_parameters() -> None:
-    noise = da_from_array(np.ones((1, 8)), chunks=(1, -1))
-    add = AddWithSNR(_SR, other=noise, snr=12.0)
+    add = AddWithSNR(_SR, snr=12.0)
     fade = Fade(_SR, fade_ms=25)
 
     assert add.snr == 12.0
-    assert add.to_params() == {"other": noise, "snr": 12.0}
+    assert add.to_params() == {"snr": 12.0}
     assert fade.fade_ms == 25.0
     assert fade.to_params() == {"fade_ms": 25.0}
 
@@ -239,11 +238,11 @@ class TestAddWithSNR:
 
     def test_add_with_snr_init_stores_params(self) -> None:
         """Test AddWithSNR stores sampling rate and SNR."""
-        rng = np.random.default_rng(42)
-        noise = da_from_array(rng.standard_normal((1, _SR)), chunks=(1, -1))
-        op = AddWithSNR(_SR, noise, 10.0)
+        op = AddWithSNR(_SR, 10.0)
         assert op.sampling_rate == _SR
         assert op.snr == 10.0
+        assert op.params == {"snr": 10.0}
+        assert not any(isinstance(value, DaArray) for value in op._config.values())
 
     def test_add_with_snr_registry_returns_correct_class(self) -> None:
         """Test AddWithSNR is registered as 'add_with_snr'."""
@@ -256,11 +255,11 @@ class TestAddWithSNR:
         dask_input, sr = pure_sine_440hz_dask
         rng = np.random.default_rng(42)
         noise = da_from_array(rng.standard_normal((1, sr)), chunks=(1, -1))
-        op = AddWithSNR(sr, noise, 10.0)
+        op = AddWithSNR(sr, 10.0)
         input_copy = dask_input.compute().copy()
 
         # Act
-        result_da = op.process(dask_input)
+        result_da = op.process(dask_input, noise)
 
         # Assert 1: Immutability
         assert result_da is not dask_input
@@ -284,10 +283,10 @@ class TestAddWithSNR:
         target_snr = 10.0
         rng = np.random.default_rng(42)
         noise = da_from_array(rng.standard_normal((1, sr)), chunks=(1, -1))
-        op = AddWithSNR(sr, noise, target_snr)
+        op = AddWithSNR(sr, target_snr)
 
         clean = dask_input.compute()
-        result = op.process(dask_input).compute()
+        result = op.process(dask_input, noise).compute()
 
         clean_power = util.calculate_rms(clean) ** 2
         noise_component = result - clean
@@ -309,9 +308,9 @@ class TestAddWithSNR:
 
         dask_clean = da_from_array(clean, chunks=(1, -1))
         dask_noise = da_from_array(noise, chunks=(1, -1))
-        op = AddWithSNR(_SR, dask_noise, 10.0)
+        op = AddWithSNR(_SR, 10.0)
 
-        result_da = op.process(dask_clean)
+        result_da = op.process(dask_clean, dask_noise)
         assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
         result = result_da.compute()
         assert result.shape == clean.shape

@@ -854,6 +854,42 @@ class TestAudioOperation:
         with pytest.raises(NotImplementedError, match="Subclasses must implement"):
             op._process_array(np.array([[1.0, 2.0, 3.0]]))
 
+    def test_process_accepts_variadic_inputs_for_multi_input_subclass(self) -> None:
+        """A subclass can process multiple Dask inputs lazily."""
+
+        class AddInputs(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "add_inputs_op"
+
+            def _process_inputs(self, *inputs: NDArrayReal) -> NDArrayReal:
+                left, right = inputs
+                return left + right
+
+        left = da_from_array(np.array([[1.0, 2.0, 3.0]]), chunks=(1, -1))
+        right = da_from_array(np.array([[0.5, 0.25, 0.125]]), chunks=(1, -1))
+        op = AddInputs(16000)
+
+        result = op.process(left, right)
+
+        assert isinstance(result, DaArray)
+        assert result.shape == left.shape
+        np.testing.assert_allclose(result.compute(), np.array([[1.5, 2.25, 3.125]]))
+
+    def test_default_process_rejects_extra_inputs(self) -> None:
+        """Single-input operations fail clearly when called with multiple inputs."""
+
+        class DoubleOp(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "double_single_input_op"
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x * 2.0
+
+        first = da_from_array(np.array([[1.0, 2.0, 3.0]]), chunks=(1, -1))
+        second = da_from_array(np.array([[4.0, 5.0, 6.0]]), chunks=(1, -1))
+        op = DoubleOp(16000)
+
+        with pytest.raises(ValueError, match="Expected exactly one input"):
+            op.process(first, second).compute()
+
     def test_calculate_output_shape_default_returns_input(self) -> None:
         """Default calculate_output_shape() returns input shape unchanged."""
 

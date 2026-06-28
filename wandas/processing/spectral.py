@@ -780,7 +780,8 @@ class _NOctBase(AudioOperation[NDArrayReal, NDArrayReal]):
         self.ensure_dependencies()
         return super().process_array(x)
 
-    def process(self, data: Any) -> Any:
+    def process(self, data: Any, *inputs: Any) -> Any:
+        self._validate_input_count(1 + len(inputs), expected=1)
         self.ensure_dependencies()
         return super().process(data)
 

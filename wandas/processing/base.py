@@ -23,9 +23,9 @@ InputArrayType = TypeVar("InputArrayType", NDArrayReal, NDArrayComplex)
 OutputArrayType = TypeVar("OutputArrayType", NDArrayReal, NDArrayComplex)
 
 
-def _execute_wandas_operation(operation: "AudioOperation[Any, Any]", data: Any) -> Any:
+def _execute_wandas_operation(operation: "AudioOperation[Any, Any]", *inputs: Any) -> Any:
     """Execute a Wandas operation from a Dask task."""
-    return operation._process_array(data)
+    return operation._process_inputs(*inputs)
 
 
 def _mark_wandas_operation(data: Any, operation: "AudioOperation[Any, Any]") -> Any:
@@ -333,9 +333,29 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         # Default is no-op function
         raise NotImplementedError("Subclasses must implement this method.")
 
-    def _delayed(self, data: Any) -> Any:
+    def _validate_input_count(self, input_count: int, *, expected: int) -> None:
+        """Validate operation input arity."""
+        if input_count != expected:
+            noun = "input" if expected == 1 else "inputs"
+            expected_text = "one" if expected == 1 else str(expected)
+            raise ValueError(
+                f"Expected exactly {expected_text} {noun} for {self.__class__.__name__}; "
+                f"got {input_count}. Override _process_inputs for multi-input operations."
+            )
+
+    def _process_inputs(self, *inputs: InputArrayType) -> OutputArrayType:
+        """Process one or more concrete input arrays.
+
+        The base operation contract remains single-input. Multi-input
+        subclasses override this method and keep ``_process_array`` available
+        for existing single-input implementations.
+        """
+        self._validate_input_count(len(inputs), expected=1)
+        return self._process_array(inputs[0])
+
+    def _delayed(self, *inputs: Any) -> Any:
         """Create a ``dask.delayed`` result for *data* with an explicit operation marker."""
-        return delayed(_execute_wandas_operation, name=self.name, pure=self.pure)(self, data)
+        return delayed(_execute_wandas_operation, name=self.name, pure=self.pure)(self, *inputs)
 
     def _mark_array(self, data: DaArray) -> DaArray:
         """Attach an explicit operation marker to a Dask-native array result."""
@@ -383,13 +403,13 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         """
         return input_shape
 
-    def process(self, data: DaArray) -> DaArray:
+    def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
         """
         Execute operation and return result
         data shape is (channels, samples)
         """
         logger.debug("Adding delayed operation to computation graph")
-        delayed_result = self._delayed(data)
+        delayed_result = self._delayed(data, *inputs)
         output_shape = self.calculate_output_shape(data.shape)
         return _da_from_delayed(delayed_result, shape=output_shape, dtype=data.dtype)
 

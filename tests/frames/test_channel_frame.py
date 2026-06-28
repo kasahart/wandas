@@ -78,7 +78,8 @@ class TestChannelFrame:
             def ensure_dependencies(self) -> None:
                 calls.append("ensure")
 
-            def process(self, data: DaArray) -> DaArray:
+            def process(self, data: DaArray, noise: DaArray) -> DaArray:
+                assert noise is other._data
                 calls.append("process")
                 return data
 

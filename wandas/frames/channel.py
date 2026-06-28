@@ -528,11 +528,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             return self + other
         from wandas.processing import create_operation
 
-        operation = create_operation("add_with_snr", self.sampling_rate, other=other._data, snr=snr)
+        operation = create_operation("add_with_snr", self.sampling_rate, snr=snr)
         ensure_dependencies = getattr(operation, "ensure_dependencies", None)
         if ensure_dependencies is not None:
             ensure_dependencies()
-        result_data = operation.process(self._data)
+        result_data = operation.process(self._data, other._data)
         get_display_name = getattr(operation, "get_display_name", None)
         display_name = get_display_name() if callable(get_display_name) else getattr(operation, "name", "add_with_snr")
         return self._create_new_instance(

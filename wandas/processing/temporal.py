@@ -138,8 +138,9 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
         logger.debug(f"Resampling applied, returning result with shape: {result.shape}")
         return result
 
-    def process(self, data: DaArray) -> DaArray:
+    def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
         """Execute resampling with accurate floating output dtype metadata."""
+        self._validate_input_count(1 + len(inputs), expected=1)
         logger.debug("Adding delayed resampling operation to computation graph")
         delayed_result = self._delayed(data)
         output_shape = self.calculate_output_shape(data.shape)
@@ -425,8 +426,9 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         logger.debug(f"RMS applied, returning result with shape: {result.shape}")
         return result
 
-    def process(self, data: DaArray) -> DaArray:
+    def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
         """Execute RMS trend with accurate floating output dtype metadata."""
+        self._validate_input_count(1 + len(inputs), expected=1)
         logger.debug("Adding delayed RMS trend operation to computation graph")
         delayed_result = self._delayed(data)
         output_shape = self.calculate_output_shape(data.shape)
@@ -575,8 +577,9 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
         logger.debug(f"Sound level applied, returning result with shape: {result.shape}")
         return np.asarray(result, dtype=output_dtype)
 
-    def process(self, data: DaArray) -> DaArray:
+    def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
         """Execute sound level with floating output dtype metadata."""
+        self._validate_input_count(1 + len(inputs), expected=1)
         logger.debug("Adding delayed sound level operation to computation graph")
         delayed_result = self._delayed(data)
         output_shape = self.calculate_output_shape(data.shape)
