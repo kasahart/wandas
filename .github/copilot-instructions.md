@@ -15,10 +15,12 @@ These instructions are for Wandas custom agents. For substantive implementation,
 ## 2. Development Workflow & Commands
 - **Environment**: use `uv` for all Python commands (see `pyproject.toml`).
 - **Git worktrees for Codex work**:
-  - For substantive code changes, create or switch to a dedicated Git worktree under `.worktrees/` before editing, unless the user explicitly asks to use the current checkout.
-  - Use a descriptive branch/worktree name that matches the task, such as `.worktrees/fix-issue-123` or `.worktrees/feat-custom-operation-api`.
+  - For substantive code changes, create or switch to a dedicated Git worktree under `.worktrees/` before editing when the active agent has a tool path for `git worktree`, unless the user explicitly asks to use the current checkout.
+  - Keep branch names and checkout paths separate. Use a valid Git branch name such as `codex/fix-issue-123` or `codex/feat-custom-operation-api` with a checkout path such as `.worktrees/fix-issue-123` or `.worktrees/feat-custom-operation-api`.
   - Before creating a worktree, inspect `git status --short` and do not move, stage, revert, or overwrite uncommitted changes from the current checkout.
+  - If the current checkout has uncommitted changes related to the task, continue in that checkout or ask the user before creating a fresh worktree. If the changes are unrelated, leave them untouched and use a separate worktree. If the relationship is unclear, ask before editing.
   - If the current checkout already appears to be the intended task worktree, continue there and state that assumption.
+  - If a role is required to edit files but lacks any tool path to create or switch worktrees, stop before editing and ask the user or a tool-capable role to prepare the worktree.
   - Keep commits, staging, pushes, and PR publication in the publisher workflow unless the user explicitly requests them.
 - **Setup**:
   - If a `.venv` virtual environment is missing, run the VS Code task "Create Virtual Environment" (see `.vscode/tasks.json`) which executes:

@@ -7,7 +7,7 @@ Follow `.github/copilot-instructions.md` for the full Wandas repository conventi
 Core rules:
 
 - Use `uv` for Python commands.
-- For substantive code changes, use a dedicated Git worktree under `.worktrees/` before editing unless the user explicitly asks to work in the current checkout.
+- For substantive code changes, use a dedicated Git worktree under `.worktrees/` when available and appropriate; follow `.github/copilot-instructions.md` for dirty-checkout and tool-availability rules.
 - Preserve frame immutability, metadata/history, and Dask laziness.
 - Keep frame methods thin; numerical logic belongs in `wandas/processing`.
 - Prefer small, explicit contracts over compatibility layers for undocumented or ambiguous behavior.
