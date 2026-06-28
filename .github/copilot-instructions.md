@@ -14,6 +14,12 @@ These instructions are for Wandas custom agents. For substantive implementation,
 
 ## 2. Development Workflow & Commands
 - **Environment**: use `uv` for all Python commands (see `pyproject.toml`).
+- **Git worktrees for Codex work**:
+  - For substantive code changes, create or switch to a dedicated Git worktree under `.worktrees/` before editing, unless the user explicitly asks to use the current checkout.
+  - Use a descriptive branch/worktree name that matches the task, such as `.worktrees/fix-issue-123` or `.worktrees/feat-custom-operation-api`.
+  - Before creating a worktree, inspect `git status --short` and do not move, stage, revert, or overwrite uncommitted changes from the current checkout.
+  - If the current checkout already appears to be the intended task worktree, continue there and state that assumption.
+  - Keep commits, staging, pushes, and PR publication in the publisher workflow unless the user explicitly requests them.
 - **Setup**:
   - If a `.venv` virtual environment is missing, run the VS Code task "Create Virtual Environment" (see `.vscode/tasks.json`) which executes:
     - `uv venv --allow-existing .venv && uv sync --frozen --all-groups`
