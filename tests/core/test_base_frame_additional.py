@@ -910,6 +910,26 @@ def test_apply_operation_helpers_update_metadata_and_history(monkeypatch):
     assert dependency_calls == 4
 
 
+def test_apply_operation_instance_rejects_multi_input_operation_before_processing():
+    f = make_frame(np.arange(6).reshape(2, 3).astype(float))
+    process_calls = 0
+
+    class MultiInputOperation:
+        name = "multi_input"
+        params = {}
+        _expected_input_count = 2
+
+        def process(self, data):
+            nonlocal process_calls
+            process_calls += 1
+            return data
+
+    with pytest.raises(ValueError, match="Operation requires multiple runtime inputs"):
+        f._apply_operation_instance(MultiInputOperation())
+
+    assert process_calls == 0
+
+
 def test_mutable_config_value_converts_containers_for_history():
     source_array = np.array([1.0, 2.0])
     dask_array = da_from_array(source_array.reshape(1, 2), chunks=(1, -1))

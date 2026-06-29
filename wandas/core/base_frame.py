@@ -1394,13 +1394,23 @@ class BaseFrame(ABC, Generic[T]):
             Extra constructor keyword arguments required by *output_frame_class*
             (e.g. ``{"n_fft": 1024, "window": "hann"}``).
         """
+        if operation_name is None:
+            operation_name = getattr(operation, "name", "unknown_operation")
+        expected_input_count = getattr(operation, "_expected_input_count", 1)
+        if isinstance(expected_input_count, int) and expected_input_count != 1:
+            raise ValueError(
+                "Operation requires multiple runtime inputs\n"
+                f"  Operation: {operation_name}\n"
+                f"  Expected inputs: {expected_input_count}\n"
+                "  Got: apply_operation provides one frame input\n"
+                "Use an operation-specific method that can pass all runtime inputs."
+            )
+
         ensure_dependencies = getattr(operation, "ensure_dependencies", None)
         if ensure_dependencies is not None:
             ensure_dependencies()
         processed_data = operation.process(self._data)
 
-        if operation_name is None:
-            operation_name = getattr(operation, "name", "unknown_operation")
         params = getattr(operation, "params", {})
 
         new_metadata = self._updated_metadata(operation_name, params)

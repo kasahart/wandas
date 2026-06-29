@@ -945,6 +945,11 @@ class TestChannelProcessing:
         assert np.all(computed[:, :8000] > 1.0)
         np.testing.assert_allclose(computed[:, 8000:], 1.0)  # Exact: zero-padded region unchanged
 
+    def test_apply_operation_rejects_add_with_snr_without_runtime_noise_input(self) -> None:
+        """Generic apply_operation cannot supply AddWithSNR's second runtime input."""
+        with pytest.raises(ValueError, match="Operation requires multiple runtime inputs"):
+            self.channel_frame.apply_operation("add_with_snr", snr=6.0)
+
     def test_add_with_different_lengths(self) -> None:
         """異なる長さの信号を加算するテスト。"""
         # 標準の長さのフレーム（self.channel_frame）
