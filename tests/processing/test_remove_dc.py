@@ -44,7 +44,7 @@ class TestRemoveDC:
 
         op = create_operation("remove_dc", sampling_rate=_SR)
         data_1d = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-        result = op._process_array(data_1d)
+        result = op._process(data_1d)
         # Exact match expected: simple float64 mean subtraction
         np.testing.assert_allclose(result, data_1d - data_1d.mean())
 
@@ -53,7 +53,7 @@ class TestRemoveDC:
 
         op = create_operation("remove_dc", sampling_rate=_SR)
         data_2d = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
-        result = op._process_array(data_2d)
+        result = op._process(data_2d)
         expected = data_2d - data_2d.mean(axis=1, keepdims=True)
         # Exact match expected: same float64 per-channel mean subtraction
         np.testing.assert_allclose(result, expected)

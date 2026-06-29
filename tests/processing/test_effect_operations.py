@@ -1,3 +1,5 @@
+from typing import Any
+
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
@@ -16,6 +18,17 @@ from wandas.utils import util
 from wandas.utils.dask_helpers import da_from_array
 
 _SR: int = 16000
+
+
+def _as_dask(data: Any) -> DaArray:
+    if isinstance(data, DaArray):
+        return data
+    chunks = (1, *(-1,) * (np.ndim(data) - 1)) if np.ndim(data) > 1 else (-1,)
+    return da_from_array(data, chunks=chunks)
+
+
+def _compute_process(operation: Any, data: Any, *inputs: Any) -> Any:
+    return operation.process(_as_dask(data), *(_as_dask(input_data) for input_data in inputs)).compute()
 
 
 class TestHpssHarmonic:
@@ -133,7 +146,7 @@ class TestHpssHarmonic:
         dask_input, sr = mixed_harmonic_percussive_dask
         hpss = HpssHarmonic(sr)
         raw = dask_input.compute()
-        result = hpss.process(dask_input).compute()
+        result = _compute_process(hpss, dask_input)
 
         n_fft = 2048
         orig_spec = np.abs(np.fft.rfft(raw[0], n_fft))
@@ -199,7 +212,7 @@ class TestHpssPercussive:
         dask_input, sr = mixed_harmonic_percussive_dask
         hpss = HpssPercussive(sr)
         raw = dask_input.compute()
-        result = hpss.process(dask_input).compute()
+        result = _compute_process(hpss, dask_input)
 
         n_fft = 2048
         orig_spec = np.abs(np.fft.rfft(raw[0], n_fft))
@@ -318,7 +331,7 @@ class TestAddWithSNR:
         op = AddWithSNR(sr, target_snr)
 
         clean = dask_input.compute()
-        result = op.process(dask_input, noise).compute()
+        result = _compute_process(op, dask_input, noise)
 
         clean_power = util.calculate_rms(clean) ** 2
         noise_component = result - clean
@@ -354,7 +367,7 @@ class TestRemoveDC:
         dask_signal = da_from_array(signal, chunks=(1, -1))
         remove_dc = RemoveDC(_SR)
 
-        result = remove_dc.process(dask_signal).compute()
+        result = _compute_process(remove_dc, dask_signal)
 
         expected = signal - signal.mean(axis=-1, keepdims=True)
         np.testing.assert_allclose(result, expected)
@@ -450,7 +463,7 @@ class TestNormalize:
         dask_sig = da_from_array(sig, chunks=(1, -1))
         normalize = Normalize(_SR, norm=None)
 
-        result = normalize.process(dask_sig).compute()
+        result = _compute_process(normalize, dask_sig)
 
         np.testing.assert_array_equal(result, sig)
 
@@ -496,7 +509,7 @@ class TestNormalize:
         dask_sig = da_from_array(sig, chunks=(1, -1))
         normalize = Normalize(_SR, norm=np.inf, axis=-1)
 
-        result = normalize.process(dask_sig).compute()
+        result = _compute_process(normalize, dask_sig)
 
         expected = sig / np.max(np.abs(sig), axis=-1, keepdims=True)
         np.testing.assert_allclose(result, expected)
@@ -506,7 +519,7 @@ class TestNormalize:
         dask_sig = da_from_array(sig, chunks=(1, -1))
         normalize = Normalize(_SR, norm=-np.inf, axis=-1)
 
-        result = normalize.process(dask_sig).compute()
+        result = _compute_process(normalize, dask_sig)
 
         expected = sig / np.min(np.abs(sig), axis=-1, keepdims=True)
         np.testing.assert_allclose(result, expected)
@@ -661,7 +674,7 @@ class TestNormalize:
         dask_small = da_from_array(small, chunks=(1, -1))
 
         normalize = Normalize(_SR, norm=np.inf, axis=-1)
-        result = normalize.process(dask_small).compute()
+        result = _compute_process(normalize, dask_small)
 
         assert np.max(np.abs(result)) < 1.0
         np.testing.assert_array_equal(result, small)
@@ -688,7 +701,7 @@ class TestNormalize:
         dask_small = da_from_array(small, chunks=(1, -1))
         normalize = Normalize(_SR, norm=np.inf, axis=-1, threshold=1e-10, fill=False)
 
-        result = normalize.process(dask_small).compute()
+        result = _compute_process(normalize, dask_small)
 
         np.testing.assert_array_equal(result, np.zeros_like(small))
 
@@ -698,7 +711,7 @@ class TestNormalize:
         dask_zero = da_from_array(zero, chunks=(1, -1))
         normalize = Normalize(_SR, norm=2, axis=-1, fill=True)
 
-        result = normalize.process(dask_zero).compute()
+        result = _compute_process(normalize, dask_zero)
 
         np.testing.assert_allclose(np.sqrt(np.sum(result**2, axis=-1)), 1.0)
 
@@ -752,13 +765,13 @@ class TestFade:
         fade = Fade(1000, fade_ms=5)
 
         with pytest.raises(ValueError, match="Fade length too long"):
-            fade.process_array(np.ones((1, 10))).compute()
+            _compute_process(fade, np.ones((1, 10)))
 
     def test_fade_1d_input_is_reshaped_to_channel_axis(self) -> None:
         fade = Fade(1000, fade_ms=1)
         signal = np.ones(10)
 
-        result = fade.process_array(signal).compute()
+        result = _compute_process(fade, signal)
 
         assert result.shape == (1, 10)
         assert result[0, 0] == 0.0
@@ -768,6 +781,6 @@ class TestFade:
         fade = Fade(1000, fade_ms=0)
         signal = np.array([1.0, 2.0, 3.0])
 
-        result = fade.process_array(signal).compute()
+        result = _compute_process(fade, signal)
 
         np.testing.assert_array_equal(result, signal.reshape(1, -1))
