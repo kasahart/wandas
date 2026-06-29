@@ -82,7 +82,7 @@ class _ButterworthFilter(AudioOperation[NDArrayReal, NDArrayReal]):
         """Return a defensive copy of denominator filter coefficients."""
         return self._a.copy()
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying {self._display} filter to array with shape: {x.shape}")
         result: NDArrayReal = signal.filtfilt(self._b, self._a, x, axis=1)
         logger.debug(f"Filter applied, returning result with shape: {result.shape}")
@@ -203,7 +203,7 @@ class AWeighting(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         super().__init__(sampling_rate)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for A-weighting filter"""
         logger.debug(f"Applying A-weighting to array with shape: {x.shape}")
         result = A_weight(x, self.sampling_rate)

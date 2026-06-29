@@ -125,7 +125,7 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
             return dtype
         return np.dtype(np.float64)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for resampling operation"""
         logger.debug(f"Applying resampling to array with shape: {x.shape}")
         up, down = _resampling_ratio(self.sampling_rate, self.target_sr)
@@ -213,7 +213,7 @@ class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
         n_samples = end_sample - self.start_sample
         return (*input_shape[:-1], n_samples)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for trimming operation"""
         logger.debug(f"Applying trim to array with shape: {x.shape}")
         # Apply trimming
@@ -273,7 +273,7 @@ class FixLength(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         return (*input_shape[:-1], self.target_length)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for padding operation"""
         logger.debug(f"Applying padding to array with shape: {x.shape}")
         # Apply padding
@@ -396,7 +396,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
     def _output_dtype() -> np.dtype[Any]:
         return np.dtype(np.float64)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for RMS calculation"""
         logger.debug(f"Applying RMS to array with shape: {x.shape}")
 
@@ -549,7 +549,7 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
             )
         return np.asarray(np.square(ref), dtype=np.float64)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for sound level calculation."""
         logger.debug(
             "Applying sound level to array with shape %s using %s/%s weighting",

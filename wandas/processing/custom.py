@@ -60,7 +60,7 @@ class CustomOperation(AudioOperation[InputArrayType, OutputArrayType]):
         """Output shape function captured at operation construction time."""
         return self._output_shape_func
 
-    def _process_array(self, x: InputArrayType) -> OutputArrayType:
+    def _process(self, x: InputArrayType) -> OutputArrayType:
         """Apply custom function."""
         return self._func(x, **self._config_snapshot())
 

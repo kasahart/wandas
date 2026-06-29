@@ -73,7 +73,7 @@ class _HpssBase(AudioOperation[NDArrayReal, NDArrayReal]):
         """Keyword arguments captured at operation construction time."""
         return self._config_snapshot()
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying HPSS {self._extract_func} to array with shape: {x.shape}")
         func = getattr(self._effects, self._extract_func)
         result: NDArrayReal = func(x, **self._config)
@@ -208,7 +208,7 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
         """Fill behavior captured at operation construction time."""
         return self._config_value("fill")
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Perform normalization processing"""
         logger.debug(f"Applying normalization to array with shape: {x.shape}, norm={self.norm}, axis={self.axis}")
 
@@ -256,7 +256,7 @@ class RemoveDC(AudioOperation[NDArrayReal, NDArrayReal]):
         super().__init__(sampling_rate)
         logger.debug("Initialized RemoveDC operation")
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Perform DC removal processing.
 
         Parameters
@@ -309,29 +309,19 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
         """Promote SNR mixing to at least float32 precision."""
         return np.result_type(*input_dtypes, np.float32)
 
-    def _process_inputs(self, *inputs: NDArrayReal) -> NDArrayReal:
-        """Perform addition processing considering SNR"""
-        if len(inputs) != 2:
-            raise ValueError(
-                f"Expected exactly two inputs for AddWithSNR; got {len(inputs)}. "
-                "Pass clean and noise arrays to process()."
-            )
-        work_dtype = self.calculate_output_dtype(*(np.asarray(input_data).dtype for input_data in inputs))
-        x, other = (input_data.astype(work_dtype, copy=False) for input_data in inputs)
+    def _process(self, x: NDArrayReal, other: NDArrayReal) -> NDArrayReal:
+        """Perform addition processing considering SNR."""
         logger.debug(f"Applying SNR-based addition with shape: {x.shape}")
+        output_dtype = self.calculate_output_dtype(x.dtype, other.dtype)
+        clean = np.asarray(x, dtype=output_dtype)
+        noise = np.asarray(other, dtype=output_dtype)
 
-        # Use multi-channel versions of calculate_rms and calculate_desired_noise_rms
-        clean_rms = util.calculate_rms(x)
-        other_rms = util.calculate_rms(other)
-
-        # Adjust noise gain based on specified SNR (apply per channel)
+        clean_rms = util.calculate_rms(clean)
+        other_rms = util.calculate_rms(noise)
         desired_noise_rms = util.calculate_desired_noise_rms(clean_rms, self.snr)
-
-        # Apply gain per channel using broadcasting
         gain = desired_noise_rms / other_rms
-        # Add adjusted noise to signal
-        result: NDArrayReal = x + other * gain
-        return result
+        result: NDArrayReal = clean + noise * gain
+        return np.asarray(result, dtype=output_dtype)
 
 
 class Fade(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -392,7 +382,7 @@ class Fade(AudioOperation[NDArrayReal, NDArrayReal]):
         alpha = float(2 * fade_len) / float(n_samples)
         return min(1.0, alpha)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying Tukey Fade to array with shape: {x.shape}")
 
         arr = x
