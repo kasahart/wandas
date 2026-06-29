@@ -53,7 +53,7 @@ class _GraphCollection:
 class _LineageTestOperation(AudioOperation[NDArrayReal, NDArrayReal]):
     name = "lineage_test"
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         return x
 
 

@@ -14,11 +14,10 @@ from wandas.utils.types import NDArrayReal
 logger = logging.getLogger(__name__)
 
 
-# Protocol for operation objects that provide process_array method
 class OperationProtocol(Protocol):
     """Protocol defining the interface expected by _compute_scalar_metric."""
 
-    def process_array(self, x: Any) -> Any: ...
+    def _process(self, x: Any) -> Any: ...
 
 
 T_Base = TypeVar("T_Base", bound="BaseFrameProtocol")

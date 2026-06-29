@@ -896,7 +896,7 @@ def test_apply_operation_helpers_update_metadata_and_history(monkeypatch):
             nonlocal dependency_calls
             dependency_calls += 1
 
-        def _process_array(self, x: np.ndarray) -> np.ndarray:
+        def _process(self, x: np.ndarray) -> np.ndarray:
             return x
 
     monkeypatch.setattr(
@@ -1136,7 +1136,7 @@ def test_apply_operation_instance_output_frame_validation_and_constructor_errors
     class AudioFakeOperation(AudioOperation[np.ndarray, np.ndarray]):
         name = "audio_fake"
 
-        def _process_array(self, x: np.ndarray) -> np.ndarray:
+        def _process(self, x: np.ndarray) -> np.ndarray:
             return x
 
     audio_transitioned = f._apply_operation_instance(

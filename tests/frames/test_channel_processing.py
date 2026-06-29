@@ -232,7 +232,7 @@ class TestChannelProcessing:
             def to_params(self) -> dict[str, float]:
                 return {"gain": self._gain}
 
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x * self.params["gain"]
 
         frame = ChannelFrame(
@@ -254,6 +254,18 @@ class TestChannelProcessing:
 
         np.testing.assert_array_equal(result.compute(), self.data * 2.0)
         assert result.operation_history[-1]["params"] == {"gain": 2.0}
+
+    def test_compute_scalar_metric_uses_direct_operation_kernel(self) -> None:
+        """Scalar metric helpers call the concrete kernel after materializing frame data."""
+        frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate)
+
+        class ChannelMean:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                return x.mean(axis=1)
+
+        result = frame._compute_scalar_metric(ChannelMean())
+
+        np.testing.assert_array_equal(result, np.mean(self.data, axis=1))
 
     def test_apply_custom_updates_history_metadata_and_labels(self) -> None:
         """

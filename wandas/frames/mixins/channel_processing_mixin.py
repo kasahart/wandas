@@ -67,7 +67,7 @@ class ChannelProcessingMixin:
         data = self.data
         if data.ndim == 1:
             data = data.reshape(1, -1)
-        result = operation.process_array(data).compute()
+        result = operation._process(data)
         values: NDArrayReal = result.squeeze()
         if values.ndim == 0:
             values = values.reshape(1)
