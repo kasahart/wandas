@@ -225,7 +225,6 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
         """Execute normalization with accurate floating output dtype metadata."""
-        self._validate_process_input_count(1 + len(inputs))
         logger.debug("Adding delayed normalize operation to computation graph")
         delayed_result = self._delayed(data)
         output_shape = self.calculate_output_shape(data.shape)

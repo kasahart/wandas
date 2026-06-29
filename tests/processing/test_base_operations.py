@@ -912,6 +912,22 @@ class TestAudioOperation:
         with pytest.raises(ValueError, match="Expected exactly one input"):
             op.process(first, second)
 
+    def test_process_override_rejects_extra_inputs_without_manual_validation(self) -> None:
+        """Subclass process overrides are wrapped with base arity validation."""
+
+        class OverrideProcessOp(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "override_process_early_reject_op"
+
+            def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
+                return self._mark_array(data)
+
+        first = da_from_array(np.array([[1.0, 2.0, 3.0]]), chunks=(1, -1))
+        second = da_from_array(np.array([[4.0, 5.0, 6.0]]), chunks=(1, -1))
+        op = OverrideProcessOp(16000)
+
+        with pytest.raises(ValueError, match="Expected exactly one input"):
+            op.process(first, second)
+
     def test_default_process_rejects_extra_inputs(self) -> None:
         """Single-input operations fail clearly when called with multiple inputs."""
 

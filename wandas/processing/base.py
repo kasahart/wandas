@@ -5,6 +5,7 @@ import logging
 from collections import defaultdict
 from collections.abc import Iterator, Mapping, MutableMapping
 from dataclasses import dataclass
+from functools import wraps
 from typing import Any, ClassVar, Generic, TypeVar, cast
 
 import dask.array as da
@@ -223,6 +224,21 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
 
     _config: dict[str, Any]
 
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """Ensure subclass ``process`` overrides keep the base input contract."""
+        super().__init_subclass__(**kwargs)
+        process = cls.__dict__.get("process")
+        if process is None or getattr(process, "_wandas_validates_process_input_count", False):
+            return
+
+        @wraps(process)
+        def validated_process(self: "AudioOperation[Any, Any]", data: Any, *inputs: Any) -> Any:
+            self._validate_process_input_count(1 + len(inputs))
+            return process(self, data, *inputs)
+
+        setattr(validated_process, "_wandas_validates_process_input_count", True)
+        cls.process = cast(Any, validated_process)
+
     def __init__(self, sampling_rate: float, *, pure: bool = True, **params: Any):
         """
         Initialize AudioOperation.
@@ -334,21 +350,19 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         # Default is no-op function
         raise NotImplementedError("Subclasses must implement this method.")
 
-    def _validate_input_count(self, input_count: int, *, expected: int) -> None:
-        """Validate operation input arity."""
-        if input_count != expected:
-            noun = "input" if expected == 1 else "inputs"
-            expected_text = "one" if expected == 1 else str(expected)
-            raise ValueError(
-                f"Expected exactly {expected_text} {noun} for {self.__class__.__name__}; "
-                f"got {input_count}. Set _expected_input_count and override _process_inputs "
-                "for multi-input operations."
-            )
-
     def _validate_process_input_count(self, input_count: int) -> None:
         """Validate process input arity using the operation class contract."""
-        if self._expected_input_count is not None:
-            self._validate_input_count(input_count, expected=self._expected_input_count)
+        expected = self._expected_input_count
+        if expected is None or input_count == expected:
+            return
+
+        noun = "input" if expected == 1 else "inputs"
+        expected_text = "one" if expected == 1 else str(expected)
+        raise ValueError(
+            f"Expected exactly {expected_text} {noun} for {self.__class__.__name__}; "
+            f"got {input_count}. Set _expected_input_count and override _process_inputs "
+            "for multi-input operations."
+        )
 
     def _process_inputs(self, *inputs: InputArrayType) -> OutputArrayType:
         """Process one or more concrete input arrays.
