@@ -26,7 +26,7 @@ OutputArrayType = TypeVar("OutputArrayType", NDArrayReal, NDArrayComplex)
 
 def _execute_wandas_operation(operation: "AudioOperation[Any, Any]", *inputs: Any) -> Any:
     """Execute a Wandas operation from a Dask task."""
-    return operation._process_inputs(*inputs)
+    return operation._process(*inputs)
 
 
 def _mark_wandas_operation(data: Any, operation: "AudioOperation[Any, Any]") -> Any:
@@ -345,11 +345,6 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         """
         return getattr(self, "_display", None)
 
-    def _process_array(self, x: InputArrayType) -> OutputArrayType:
-        """Processing function (implemented by subclasses)"""
-        # Default is no-op function
-        raise NotImplementedError("Subclasses must implement this method.")
-
     def _validate_process_input_count(self, input_count: int) -> None:
         """Validate process input arity using the operation class contract."""
         expected = self._expected_input_count
@@ -360,48 +355,18 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         expected_text = "one" if expected == 1 else str(expected)
         raise ValueError(
             f"Expected exactly {expected_text} {noun} for {self.__class__.__name__}; "
-            f"got {input_count}. Set _expected_input_count and override _process_inputs "
-            "for multi-input operations."
+            f"got {input_count}. Use an operation-specific method when multiple "
+            "runtime inputs are required."
         )
 
-    def _process_inputs(self, *inputs: InputArrayType) -> OutputArrayType:
-        """Process one or more concrete input arrays.
-
-        The base operation contract remains single-input. Multi-input
-        subclasses override this method and keep ``_process_array`` available
-        for existing single-input implementations.
-        """
-        self._validate_process_input_count(len(inputs))
-        return self._process_array(inputs[0])
-
-    def _delayed(self, *inputs: Any) -> Any:
-        """Create a ``dask.delayed`` result for *data* with an explicit operation marker."""
-        return delayed(_execute_wandas_operation, name=self.name, pure=self.pure)(self, *inputs)
+    def _process(self, *inputs: InputArrayType) -> OutputArrayType:
+        """Concrete numerical kernel implemented by subclasses."""
+        raise NotImplementedError("Subclasses must implement this method.")
 
     def _mark_array(self, data: DaArray) -> DaArray:
         """Attach an explicit operation marker to a Dask-native array result."""
         marker = cast(Any, _mark_wandas_operation)
         return data.map_blocks(marker, self, dtype=data.dtype)
-
-    def process_array(self, x: Any) -> Any:
-        """
-        Processing function wrapped with @dask.delayed.
-
-        This method returns a Delayed object that can be computed later.
-        The operation name is used in the Dask task graph for better visualization.
-
-        Parameters
-        ----------
-        x : InputArrayType
-            Input array to process.
-
-        Returns
-        -------
-        dask.delayed.Delayed
-            A Delayed object representing the computation.
-        """
-        logger.debug(f"Creating delayed operation on data with shape: {x.shape}")
-        return self._delayed(x)
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
@@ -424,26 +389,22 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         """
         return input_shape
 
-    def calculate_output_dtype(self, *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
-        """
-        Calculate output data dtype after operation.
-
-        The default follows NumPy promotion rules across all inputs. Subclasses
-        that intentionally normalize precision can override this method.
-        """
-        return np.result_type(*input_dtypes)
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        """Calculate output dtype metadata after operation."""
+        return np.result_type(input_dtype, *input_dtypes)
 
     def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
         """
-        Execute operation and return result
-        data shape is (channels, samples)
+        Execute operation lazily and return a Dask Array.
+
+        Data shape is usually (channels, samples). Multi-input operations pass
+        additional Dask arrays through *inputs.
         """
         self._validate_process_input_count(1 + len(inputs))
         logger.debug("Adding delayed operation to computation graph")
-        delayed_result = self._delayed(data, *inputs)
+        delayed_result = delayed(_execute_wandas_operation, name=self.name, pure=self.pure)(self, data, *inputs)
         output_shape = self.calculate_output_shape(data.shape)
-        input_dtypes = tuple(input_data.dtype for input_data in (data, *inputs))
-        output_dtype = self.calculate_output_dtype(*input_dtypes)
+        output_dtype = self.calculate_output_dtype(data.dtype, *(input_data.dtype for input_data in inputs))
         return _da_from_delayed(delayed_result, shape=output_shape, dtype=output_dtype)
 
 

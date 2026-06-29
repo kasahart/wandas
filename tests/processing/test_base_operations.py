@@ -183,7 +183,7 @@ class TestAudioOperation:
             def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x.astype(np.float64)
 
-            def calculate_output_dtype(self, input_dtype: np.dtype[Any]) -> np.dtype[Any]:  # ty: ignore[invalid-method-override]
+            def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
                 return np.dtype(np.float64)
 
         data = da_from_array(np.array([[1, 2, 3]], dtype=np.int16), chunks=(1, -1))
@@ -878,7 +878,7 @@ class TestAudioOperation:
         op = IncompleteOp(16000)
 
         with pytest.raises(NotImplementedError, match="Subclasses must implement"):
-            op._process(np.array([[1.0, 2.0, 3.0]]))  # ty: ignore[unresolved-attribute]
+            op._process(np.array([[1.0, 2.0, 3.0]]))
 
     def test_process_accepts_variadic_inputs_for_multi_input_subclass(self) -> None:
         """A subclass can process multiple Dask inputs lazily."""
@@ -887,7 +887,7 @@ class TestAudioOperation:
             name = "add_inputs_op"
             _expected_input_count = 2
 
-            def _process_inputs(self, *inputs: NDArrayReal) -> NDArrayReal:
+            def _process(self, *inputs: NDArrayReal) -> NDArrayReal:
                 left, right = inputs
                 return left + right
 
@@ -901,14 +901,14 @@ class TestAudioOperation:
         assert result.shape == left.shape
         np.testing.assert_allclose(result.compute(), np.array([[1.5, 2.25, 3.125]]))
 
-    def test_process_uses_result_type_metadata_for_multi_input_subclass(self) -> None:
-        """Default multi-input metadata dtype follows NumPy result type."""
+    def test_process_uses_result_type_dtype_metadata_for_multi_input_subclass(self) -> None:
+        """Default multi-input dtype metadata follows NumPy result type."""
 
         class AddInputs(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "add_inputs_dtype_op"
             _expected_input_count = 2
 
-            def _process_inputs(self, *inputs: NDArrayReal) -> NDArrayReal:
+            def _process(self, *inputs: NDArrayReal) -> NDArrayReal:
                 left, right = inputs
                 return left + right
 
