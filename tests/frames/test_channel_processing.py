@@ -798,13 +798,7 @@ class TestChannelProcessing:
 
         result = signal_cf.add(noise_cf, snr=10.0)
 
-        noise_param = result.operation_history[-1]["params"]["other"]
-        assert noise_param == {
-            "type": "dask.array",
-            "shape": [1, 16000],
-            "dtype": "float64",
-            "chunks": [[1], [16000]],
-        }
+        assert result.operation_history[-1]["params"] == {"snr": 10.0}
         json.dumps(result.operation_history)
         json.dumps(dict(result.metadata))
         assert result.lineage is not None
@@ -859,7 +853,7 @@ class TestChannelProcessing:
         assert result.sampling_rate == self.sample_rate
         assert result.n_channels == 2
         assert result.n_samples == 16000
-        assert len(result.operation_history) > len(signal_cf.operation_history)
+        assert result.operation_history[-1] == {"operation": "add_with_snr", "params": {"snr": snr_db}}
         computed = result.compute()
         added_noise = computed - signal_data
         added_noise_rms = calculate_rms(added_noise)
@@ -869,6 +863,44 @@ class TestChannelProcessing:
 
         # atol=1e-3: SNR estimation from computed noise has small float64 rounding
         np.testing.assert_allclose(actual_snr, np.full_like(actual_snr, snr_db), atol=1e-3)
+
+    def test_add_with_snr_matches_processing_formula_and_two_parent_lineage(self) -> None:
+        """Frame SNR add delegates noise as a Dask input and records both parent branches."""
+        t = np.linspace(0, 1, 16000, endpoint=False)
+        clean = np.sin(2 * np.pi * 440 * t).reshape(1, -1)
+        noise = np.cos(2 * np.pi * 880 * t).reshape(1, -1)
+        signal_cf = ChannelFrame(_da_from_array(clean, chunks=(1, -1)), self.sample_rate)
+        noise_cf = ChannelFrame(_da_from_array(noise, chunks=(1, -1)), self.sample_rate)
+
+        signal = signal_cf.normalize()
+        noise_branch = noise_cf.low_pass_filter(cutoff=1200)
+        result = signal.add(noise_branch, snr=6.0)
+
+        clean_input = signal.compute()
+        noise_input = noise_branch.compute()
+        desired_noise_rms = calculate_rms(clean_input) / (10 ** (6.0 / 20))
+        expected = clean_input + noise_input * (desired_noise_rms / calculate_rms(noise_input))
+
+        np.testing.assert_allclose(result.compute(), expected)
+        assert result.operation_history[-1] == {"operation": "add_with_snr", "params": {"snr": 6.0}}
+        assert result.operation_graph is not None
+        assert [node["operation"] for node in result.operation_graph["inputs"]] == ["normalize", "lowpass_filter"]
+
+    def test_add_with_snr_shared_input_graph_keeps_shared_branch_once_per_parent_path(self) -> None:
+        data = _da_from_array(np.linspace(0.1, 1.0, 16000).reshape(1, -1), chunks=(1, -1))
+        base = ChannelFrame(data, self.sample_rate)
+        shared = base.normalize()
+        signal = shared.low_pass_filter(cutoff=3000)
+        noise = shared.high_pass_filter(cutoff=300)
+
+        result = signal.add(noise, snr=3.0)
+
+        operations = [record["operation"] for record in result.operation_history]
+        assert operations == ["normalize", "lowpass_filter", "normalize", "highpass_filter", "add_with_snr"]
+        assert result.operation_graph is not None
+        assert [node["operation"] for node in result.operation_graph["inputs"]] == ["lowpass_filter", "highpass_filter"]
+        shared_parents = [node["inputs"][0]["operation"] for node in result.operation_graph["inputs"]]
+        assert shared_parents == ["normalize", "normalize"]
 
     def test_add_with_snr_scalar_returns_direct_addition(self) -> None:
         """Scalar inputs should follow the direct-addition branch even when snr is provided."""
@@ -912,6 +944,11 @@ class TestChannelProcessing:
         )  # SNR estimation noise floor
         assert np.all(computed[:, :8000] > 1.0)
         np.testing.assert_allclose(computed[:, 8000:], 1.0)  # Exact: zero-padded region unchanged
+
+    def test_apply_operation_rejects_add_with_snr_without_runtime_noise_input(self) -> None:
+        """Generic apply_operation cannot supply AddWithSNR's second runtime input."""
+        with pytest.raises(ValueError, match="Operation requires multiple runtime inputs"):
+            self.channel_frame.apply_operation("add_with_snr", snr=6.0)
 
     def test_add_with_different_lengths(self) -> None:
         """異なる長さの信号を加算するテスト。"""

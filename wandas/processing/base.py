@@ -5,6 +5,7 @@ import logging
 from collections import defaultdict
 from collections.abc import Iterator, Mapping, MutableMapping
 from dataclasses import dataclass
+from functools import wraps
 from typing import Any, ClassVar, Generic, TypeVar, cast
 
 import dask.array as da
@@ -23,9 +24,9 @@ InputArrayType = TypeVar("InputArrayType", NDArrayReal, NDArrayComplex)
 OutputArrayType = TypeVar("OutputArrayType", NDArrayReal, NDArrayComplex)
 
 
-def _execute_wandas_operation(operation: "AudioOperation[Any, Any]", data: Any) -> Any:
+def _execute_wandas_operation(operation: "AudioOperation[Any, Any]", *inputs: Any) -> Any:
     """Execute a Wandas operation from a Dask task."""
-    return operation._process_array(data)
+    return operation._process_inputs(*inputs)
 
 
 def _mark_wandas_operation(data: Any, operation: "AudioOperation[Any, Any]") -> Any:
@@ -219,8 +220,24 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
 
     # Class variable: operation name
     name: ClassVar[str]
+    _expected_input_count: ClassVar[int | None] = 1
 
     _config: dict[str, Any]
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """Ensure subclass ``process`` overrides keep the base input contract."""
+        super().__init_subclass__(**kwargs)
+        process = cls.__dict__.get("process")
+        if process is None or getattr(process, "_wandas_validates_process_input_count", False):
+            return
+
+        @wraps(process)
+        def validated_process(self: "AudioOperation[Any, Any]", data: Any, *inputs: Any) -> Any:
+            self._validate_process_input_count(1 + len(inputs))
+            return process(self, data, *inputs)
+
+        setattr(validated_process, "_wandas_validates_process_input_count", True)
+        cls.process = cast(Any, validated_process)
 
     def __init__(self, sampling_rate: float, *, pure: bool = True, **params: Any):
         """
@@ -333,9 +350,33 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         # Default is no-op function
         raise NotImplementedError("Subclasses must implement this method.")
 
-    def _delayed(self, data: Any) -> Any:
+    def _validate_process_input_count(self, input_count: int) -> None:
+        """Validate process input arity using the operation class contract."""
+        expected = self._expected_input_count
+        if expected is None or input_count == expected:
+            return
+
+        noun = "input" if expected == 1 else "inputs"
+        expected_text = "one" if expected == 1 else str(expected)
+        raise ValueError(
+            f"Expected exactly {expected_text} {noun} for {self.__class__.__name__}; "
+            f"got {input_count}. Set _expected_input_count and override _process_inputs "
+            "for multi-input operations."
+        )
+
+    def _process_inputs(self, *inputs: InputArrayType) -> OutputArrayType:
+        """Process one or more concrete input arrays.
+
+        The base operation contract remains single-input. Multi-input
+        subclasses override this method and keep ``_process_array`` available
+        for existing single-input implementations.
+        """
+        self._validate_process_input_count(len(inputs))
+        return self._process_array(inputs[0])
+
+    def _delayed(self, *inputs: Any) -> Any:
         """Create a ``dask.delayed`` result for *data* with an explicit operation marker."""
-        return delayed(_execute_wandas_operation, name=self.name, pure=self.pure)(self, data)
+        return delayed(_execute_wandas_operation, name=self.name, pure=self.pure)(self, *inputs)
 
     def _mark_array(self, data: DaArray) -> DaArray:
         """Attach an explicit operation marker to a Dask-native array result."""
@@ -383,15 +424,27 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         """
         return input_shape
 
-    def process(self, data: DaArray) -> DaArray:
+    def calculate_output_dtype(self, *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        """
+        Calculate output data dtype after operation.
+
+        The default follows NumPy promotion rules across all inputs. Subclasses
+        that intentionally normalize precision can override this method.
+        """
+        return np.result_type(*input_dtypes)
+
+    def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
         """
         Execute operation and return result
         data shape is (channels, samples)
         """
+        self._validate_process_input_count(1 + len(inputs))
         logger.debug("Adding delayed operation to computation graph")
-        delayed_result = self._delayed(data)
+        delayed_result = self._delayed(data, *inputs)
         output_shape = self.calculate_output_shape(data.shape)
-        return _da_from_delayed(delayed_result, shape=output_shape, dtype=data.dtype)
+        input_dtypes = tuple(input_data.dtype for input_data in (data, *inputs))
+        output_dtype = self.calculate_output_dtype(*input_dtypes)
+        return _da_from_delayed(delayed_result, shape=output_shape, dtype=output_dtype)
 
 
 # Automatically collect operation types and corresponding classes
