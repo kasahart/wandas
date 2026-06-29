@@ -2,9 +2,7 @@ import logging
 from fractions import Fraction
 from typing import Any
 
-import dask.array as da
 import numpy as np
-from dask.array.core import Array as DaArray
 from scipy.signal import lfilter, resample, resample_poly
 
 from wandas.processing.base import AudioOperation, register_operation
@@ -138,12 +136,9 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
         logger.debug(f"Resampling applied, returning result with shape: {result.shape}")
         return result
 
-    def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
-        """Execute resampling with accurate floating output dtype metadata."""
-        logger.debug("Adding delayed resampling operation to computation graph")
-        delayed_result = self._delayed(data)
-        output_shape = self.calculate_output_shape(data.shape)
-        return da.from_delayed(delayed_result, shape=output_shape, dtype=self._output_dtype(data.dtype))
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        """Return resampling output dtype metadata."""
+        return self._output_dtype(input_dtype)
 
 
 class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -425,12 +420,9 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         logger.debug(f"RMS applied, returning result with shape: {result.shape}")
         return result
 
-    def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
-        """Execute RMS trend with accurate floating output dtype metadata."""
-        logger.debug("Adding delayed RMS trend operation to computation graph")
-        delayed_result = self._delayed(data)
-        output_shape = self.calculate_output_shape(data.shape)
-        return da.from_delayed(delayed_result, shape=output_shape, dtype=self._output_dtype())
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        """Return RMS trend output dtype metadata."""
+        return self._output_dtype()
 
 
 class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -575,12 +567,9 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
         logger.debug(f"Sound level applied, returning result with shape: {result.shape}")
         return np.asarray(result, dtype=output_dtype)
 
-    def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
-        """Execute sound level with floating output dtype metadata."""
-        logger.debug("Adding delayed sound level operation to computation graph")
-        delayed_result = self._delayed(data)
-        output_shape = self.calculate_output_shape(data.shape)
-        return da.from_delayed(delayed_result, shape=output_shape, dtype=self._output_dtype(data.dtype))
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        """Return sound level output dtype metadata."""
+        return self._output_dtype(input_dtype)
 
 
 # Register all operations
