@@ -874,6 +874,26 @@ class TestAudioOperation:
         assert result.shape == left.shape
         np.testing.assert_allclose(result.compute(), np.array([[1.5, 2.25, 3.125]]))
 
+    def test_process_uses_result_type_metadata_for_multi_input_subclass(self) -> None:
+        """Default multi-input metadata dtype follows NumPy result type."""
+
+        class AddInputs(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "add_inputs_dtype_op"
+
+            def _process_inputs(self, *inputs: NDArrayReal) -> NDArrayReal:
+                left, right = inputs
+                return left + right
+
+        left = da_from_array(np.array([[1, 2, 3]], dtype=np.int16), chunks=(1, -1))
+        right = da_from_array(np.array([[0.5, 0.25, 0.125]], dtype=np.float32), chunks=(1, -1))
+        op = AddInputs(16000)
+
+        result = op.process(left, right)
+
+        expected_dtype = np.result_type(left.dtype, right.dtype)
+        assert result.dtype == expected_dtype
+        assert result.compute().dtype == expected_dtype
+
     def test_default_process_rejects_extra_inputs(self) -> None:
         """Single-input operations fail clearly when called with multiple inputs."""
 

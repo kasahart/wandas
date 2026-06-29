@@ -272,6 +272,30 @@ class TestAddWithSNR:
         result = result_da.compute()
         assert result.shape == input_copy.shape
 
+    def test_add_with_snr_int16_clean_float32_noise_uses_float32_dtype(self) -> None:
+        """Integer clean data is promoted to at least float32 for SNR math."""
+        clean = da_from_array(np.array([[1000, -1000, 500, -500]], dtype=np.int16), chunks=(1, -1))
+        noise = da_from_array(np.array([[0.5, -0.25, 0.125, -0.5]], dtype=np.float32), chunks=(1, -1))
+        op = AddWithSNR(_SR, 10.0)
+
+        result_da = op.process(clean, noise)
+
+        assert isinstance(result_da, DaArray)
+        assert result_da.dtype == np.float32
+        assert result_da.compute().dtype == np.float32
+
+    def test_add_with_snr_float32_clean_float64_noise_uses_float64_dtype(self) -> None:
+        """Float64 input preserves float64 precision in SNR math."""
+        clean = da_from_array(np.array([[1.0, -1.0, 0.5, -0.5]], dtype=np.float32), chunks=(1, -1))
+        noise = da_from_array(np.array([[0.5, -0.25, 0.125, -0.5]], dtype=np.float64), chunks=(1, -1))
+        op = AddWithSNR(_SR, 10.0)
+
+        result_da = op.process(clean, noise)
+
+        assert isinstance(result_da, DaArray)
+        assert result_da.dtype == np.float64
+        assert result_da.compute().dtype == np.float64
+
     # -- Layer 3: Integration (SNR verification) ---------------------------
 
     def test_add_with_snr_actual_snr_matches_target(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:

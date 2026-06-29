@@ -305,6 +305,10 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
         """Signal-to-noise ratio captured at operation construction time."""
         return self._config_value("snr")
 
+    def calculate_output_dtype(self, *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        """Promote SNR mixing to at least float32 precision."""
+        return np.result_type(*input_dtypes, np.float32)
+
     def _process_inputs(self, *inputs: NDArrayReal) -> NDArrayReal:
         """Perform addition processing considering SNR"""
         if len(inputs) != 2:
@@ -312,7 +316,8 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
                 f"Expected exactly two inputs for AddWithSNR; got {len(inputs)}. "
                 "Pass clean and noise arrays to process()."
             )
-        x, other = inputs
+        work_dtype = self.calculate_output_dtype(*(np.asarray(input_data).dtype for input_data in inputs))
+        x, other = (input_data.astype(work_dtype, copy=False) for input_data in inputs)
         logger.debug(f"Applying SNR-based addition with shape: {x.shape}")
 
         # Use multi-channel versions of calculate_rms and calculate_desired_noise_rms

@@ -403,6 +403,15 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         """
         return input_shape
 
+    def calculate_output_dtype(self, *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        """
+        Calculate output data dtype after operation.
+
+        The default follows NumPy promotion rules across all inputs. Subclasses
+        that intentionally normalize precision can override this method.
+        """
+        return np.result_type(*input_dtypes)
+
     def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
         """
         Execute operation and return result
@@ -411,7 +420,9 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         logger.debug("Adding delayed operation to computation graph")
         delayed_result = self._delayed(data, *inputs)
         output_shape = self.calculate_output_shape(data.shape)
-        return _da_from_delayed(delayed_result, shape=output_shape, dtype=data.dtype)
+        input_dtypes = tuple(input_data.dtype for input_data in (data, *inputs))
+        output_dtype = self.calculate_output_dtype(*input_dtypes)
+        return _da_from_delayed(delayed_result, shape=output_shape, dtype=output_dtype)
 
 
 # Automatically collect operation types and corresponding classes
