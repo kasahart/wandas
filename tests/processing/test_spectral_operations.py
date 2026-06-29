@@ -144,7 +144,7 @@ class TestFFTOperation:
         dask_input, sr = pure_sine_440hz_dask
         fft = FFT(sr, n_fft=self._N_FFT, window=self._WINDOW)
 
-        result = fft.process(dask_input.compute()).compute()
+        result = fft.process(dask_input).compute()
         expected_freqs = self._N_FFT // 2 + 1
         assert result.shape == (1, expected_freqs)
 
@@ -153,7 +153,7 @@ class TestFFTOperation:
         dask_input, sr = stereo_sine_440_880hz_dask
         fft = FFT(sr, n_fft=self._N_FFT, window=self._WINDOW)
 
-        result = fft.process(dask_input.compute()).compute()
+        result = fft.process(dask_input).compute()
         expected_freqs = self._N_FFT // 2 + 1
         assert result.shape == (2, expected_freqs)
 
