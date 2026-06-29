@@ -296,6 +296,14 @@ class TestAddWithSNR:
         assert result_da.dtype == np.float64
         assert result_da.compute().dtype == np.float64
 
+    def test_add_with_snr_rejects_missing_noise_before_dask_compute(self) -> None:
+        """AddWithSNR declares two inputs so process() validates arity early."""
+        clean = da_from_array(np.array([[1.0, -1.0, 0.5, -0.5]], dtype=np.float32), chunks=(1, -1))
+        op = AddWithSNR(_SR, 10.0)
+
+        with pytest.raises(ValueError, match="Expected exactly 2 inputs"):
+            op.process(clean)
+
     # -- Layer 3: Integration (SNR verification) ---------------------------
 
     def test_add_with_snr_actual_snr_matches_target(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:

@@ -219,6 +219,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
 
     # Class variable: operation name
     name: ClassVar[str]
+    _expected_input_count: ClassVar[int | None] = 1
 
     _config: dict[str, Any]
 
@@ -340,8 +341,14 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
             expected_text = "one" if expected == 1 else str(expected)
             raise ValueError(
                 f"Expected exactly {expected_text} {noun} for {self.__class__.__name__}; "
-                f"got {input_count}. Override _process_inputs for multi-input operations."
+                f"got {input_count}. Set _expected_input_count and override _process_inputs "
+                "for multi-input operations."
             )
+
+    def _validate_process_input_count(self, input_count: int) -> None:
+        """Validate process input arity using the operation class contract."""
+        if self._expected_input_count is not None:
+            self._validate_input_count(input_count, expected=self._expected_input_count)
 
     def _process_inputs(self, *inputs: InputArrayType) -> OutputArrayType:
         """Process one or more concrete input arrays.
@@ -350,7 +357,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         subclasses override this method and keep ``_process_array`` available
         for existing single-input implementations.
         """
-        self._validate_input_count(len(inputs), expected=1)
+        self._validate_process_input_count(len(inputs))
         return self._process_array(inputs[0])
 
     def _delayed(self, *inputs: Any) -> Any:
@@ -417,6 +424,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         Execute operation and return result
         data shape is (channels, samples)
         """
+        self._validate_process_input_count(1 + len(inputs))
         logger.debug("Adding delayed operation to computation graph")
         delayed_result = self._delayed(data, *inputs)
         output_shape = self.calculate_output_shape(data.shape)

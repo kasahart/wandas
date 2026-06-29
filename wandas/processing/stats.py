@@ -27,7 +27,7 @@ class ABS(AudioOperation[NDArrayReal, NDArrayReal]):
         super().__init__(sampling_rate)
 
     def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
-        self._validate_input_count(1 + len(inputs), expected=1)
+        self._validate_process_input_count(1 + len(inputs))
         return self._mark_array(da.abs(data))
 
 
@@ -61,7 +61,7 @@ class Power(AudioOperation[NDArrayReal, NDArrayReal]):
         return self.exponent
 
     def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
-        self._validate_input_count(1 + len(inputs), expected=1)
+        self._validate_process_input_count(1 + len(inputs))
         return self._mark_array(da.power(data, self.exponent))
 
 
@@ -72,7 +72,7 @@ class Sum(AudioOperation[NDArrayReal, NDArrayReal]):
     _display = "sum"
 
     def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
-        self._validate_input_count(1 + len(inputs), expected=1)
+        self._validate_process_input_count(1 + len(inputs))
         return self._mark_array(data.sum(axis=0, keepdims=True))
 
 
@@ -83,7 +83,7 @@ class Mean(AudioOperation[NDArrayReal, NDArrayReal]):
     _display = "mean"
 
     def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
-        self._validate_input_count(1 + len(inputs), expected=1)
+        self._validate_process_input_count(1 + len(inputs))
         return self._mark_array(data.mean(axis=0, keepdims=True))
 
 
@@ -112,7 +112,7 @@ class ChannelDifference(AudioOperation[NDArrayReal, NDArrayReal]):
         return self._config_value("other_channel")
 
     def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
-        self._validate_input_count(1 + len(inputs), expected=1)
+        self._validate_process_input_count(1 + len(inputs))
         other_channel = self.other_channel
         if not -data.shape[0] <= other_channel < data.shape[0]:
             raise IndexError("Channel index out of range")

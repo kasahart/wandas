@@ -859,6 +859,7 @@ class TestAudioOperation:
 
         class AddInputs(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "add_inputs_op"
+            _expected_input_count = 2
 
             def _process_inputs(self, *inputs: NDArrayReal) -> NDArrayReal:
                 left, right = inputs
@@ -879,6 +880,7 @@ class TestAudioOperation:
 
         class AddInputs(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "add_inputs_dtype_op"
+            _expected_input_count = 2
 
             def _process_inputs(self, *inputs: NDArrayReal) -> NDArrayReal:
                 left, right = inputs
@@ -893,6 +895,22 @@ class TestAudioOperation:
         expected_dtype = np.result_type(left.dtype, right.dtype)
         assert result.dtype == expected_dtype
         assert result.compute().dtype == expected_dtype
+
+    def test_process_rejects_extra_inputs_before_dask_compute(self) -> None:
+        """Base process validates input arity when building the Dask graph."""
+
+        class DoubleOp(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "double_early_reject_op"
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x * 2.0
+
+        first = da_from_array(np.array([[1.0, 2.0, 3.0]]), chunks=(1, -1))
+        second = da_from_array(np.array([[4.0, 5.0, 6.0]]), chunks=(1, -1))
+        op = DoubleOp(16000)
+
+        with pytest.raises(ValueError, match="Expected exactly one input"):
+            op.process(first, second)
 
     def test_default_process_rejects_extra_inputs(self) -> None:
         """Single-input operations fail clearly when called with multiple inputs."""
