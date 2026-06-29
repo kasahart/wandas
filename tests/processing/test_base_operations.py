@@ -854,6 +854,96 @@ class TestAudioOperation:
         with pytest.raises(NotImplementedError, match="Subclasses must implement"):
             op._process_array(np.array([[1.0, 2.0, 3.0]]))
 
+    def test_process_accepts_variadic_inputs_for_multi_input_subclass(self) -> None:
+        """A subclass can process multiple Dask inputs lazily."""
+
+        class AddInputs(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "add_inputs_op"
+            _expected_input_count = 2
+
+            def _process_inputs(self, *inputs: NDArrayReal) -> NDArrayReal:
+                left, right = inputs
+                return left + right
+
+        left = da_from_array(np.array([[1.0, 2.0, 3.0]]), chunks=(1, -1))
+        right = da_from_array(np.array([[0.5, 0.25, 0.125]]), chunks=(1, -1))
+        op = AddInputs(16000)
+
+        result = op.process(left, right)
+
+        assert isinstance(result, DaArray)
+        assert result.shape == left.shape
+        np.testing.assert_allclose(result.compute(), np.array([[1.5, 2.25, 3.125]]))
+
+    def test_process_uses_result_type_metadata_for_multi_input_subclass(self) -> None:
+        """Default multi-input metadata dtype follows NumPy result type."""
+
+        class AddInputs(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "add_inputs_dtype_op"
+            _expected_input_count = 2
+
+            def _process_inputs(self, *inputs: NDArrayReal) -> NDArrayReal:
+                left, right = inputs
+                return left + right
+
+        left = da_from_array(np.array([[1, 2, 3]], dtype=np.int16), chunks=(1, -1))
+        right = da_from_array(np.array([[0.5, 0.25, 0.125]], dtype=np.float32), chunks=(1, -1))
+        op = AddInputs(16000)
+
+        result = op.process(left, right)
+
+        expected_dtype = np.result_type(left.dtype, right.dtype)
+        assert result.dtype == expected_dtype
+        assert result.compute().dtype == expected_dtype
+
+    def test_process_rejects_extra_inputs_before_dask_compute(self) -> None:
+        """Base process validates input arity when building the Dask graph."""
+
+        class DoubleOp(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "double_early_reject_op"
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x * 2.0
+
+        first = da_from_array(np.array([[1.0, 2.0, 3.0]]), chunks=(1, -1))
+        second = da_from_array(np.array([[4.0, 5.0, 6.0]]), chunks=(1, -1))
+        op = DoubleOp(16000)
+
+        with pytest.raises(ValueError, match="Expected exactly one input"):
+            op.process(first, second)
+
+    def test_process_override_rejects_extra_inputs_without_manual_validation(self) -> None:
+        """Subclass process overrides are wrapped with base arity validation."""
+
+        class OverrideProcessOp(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "override_process_early_reject_op"
+
+            def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
+                return self._mark_array(data)
+
+        first = da_from_array(np.array([[1.0, 2.0, 3.0]]), chunks=(1, -1))
+        second = da_from_array(np.array([[4.0, 5.0, 6.0]]), chunks=(1, -1))
+        op = OverrideProcessOp(16000)
+
+        with pytest.raises(ValueError, match="Expected exactly one input"):
+            op.process(first, second)
+
+    def test_default_process_rejects_extra_inputs(self) -> None:
+        """Single-input operations fail clearly when called with multiple inputs."""
+
+        class DoubleOp(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "double_single_input_op"
+
+            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+                return x * 2.0
+
+        first = da_from_array(np.array([[1.0, 2.0, 3.0]]), chunks=(1, -1))
+        second = da_from_array(np.array([[4.0, 5.0, 6.0]]), chunks=(1, -1))
+        op = DoubleOp(16000)
+
+        with pytest.raises(ValueError, match="Expected exactly one input"):
+            op.process(first, second).compute()
+
     def test_calculate_output_shape_default_returns_input(self) -> None:
         """Default calculate_output_shape() returns input shape unchanged."""
 
