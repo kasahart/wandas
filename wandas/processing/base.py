@@ -359,9 +359,11 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
             "runtime inputs are required."
         )
 
-    def _process(self, *inputs: InputArrayType) -> OutputArrayType:
-        """Concrete numerical kernel implemented by subclasses."""
+    def _missing_process(self, *inputs: Any) -> Any:
+        """Fallback concrete kernel for subclasses that do not implement one."""
         raise NotImplementedError("Subclasses must implement this method.")
+
+    _process: Any = _missing_process
 
     def _mark_array(self, data: DaArray) -> DaArray:
         """Attach an explicit operation marker to a Dask-native array result."""

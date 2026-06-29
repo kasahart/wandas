@@ -296,9 +296,9 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
         """Signal-to-noise ratio captured at operation construction time."""
         return self._config_value("snr")
 
-    def calculate_output_dtype(self, *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
         """Promote SNR mixing to at least float32 precision."""
-        return np.result_type(*input_dtypes, np.float32)
+        return np.result_type(input_dtype, *input_dtypes, np.float32)
 
     def _process(self, x: NDArrayReal, other: NDArrayReal) -> NDArrayReal:
         """Perform addition processing considering SNR."""
