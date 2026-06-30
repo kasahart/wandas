@@ -34,15 +34,22 @@ def _mark_wandas_operation(data: Any, operation: "AudioOperation[Any, Any]") -> 
     return data
 
 
-def _validate_channel_first_array(value: Any, label: str) -> None:
+def _validate_channel_first_array(value: Any, label: str, *, ndim: int | None = None) -> None:
     if not hasattr(value, "ndim"):
         return
-    if value.ndim >= 2:
+    if ndim is not None and value.ndim == ndim:
         return
+    if ndim is None and value.ndim >= 2:
+        return
+    expected = (
+        f"a Dask array shaped (channels, ...) with ndim={ndim}"
+        if ndim is not None
+        else "a Dask array shaped (channels, ...)"
+    )
     raise ValueError(
         "AudioOperation.process requires channel-first data\n"
         f"  Got: {label} with shape {value.shape}\n"
-        "  Expected: a Dask array shaped (channels, ...)\n"
+        f"  Expected: {expected}\n"
         "Use Frame operations or reshape direct lazy inputs to include a channel axis."
     )
 
@@ -383,6 +390,13 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         marker = cast(Any, _mark_wandas_operation)
         return data.map_blocks(marker, self, dtype=data.dtype)
 
+    def _validate_process_inputs(self, data: DaArray, *inputs: DaArray, ndim: int | None = None) -> None:
+        """Validate Frame-internal lazy inputs before building a process graph."""
+        self._validate_process_input_count(1 + len(inputs))
+        _validate_channel_first_array(data, "data", ndim=ndim)
+        for index, input_data in enumerate(inputs, start=1):
+            _validate_channel_first_array(input_data, f"input {index}")
+
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
         Calculate output data shape after operation.
@@ -418,10 +432,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         a channel axis before calling ``process()``. Multi-input operations
         pass additional channel-first Dask arrays through ``*inputs``.
         """
-        self._validate_process_input_count(1 + len(inputs))
-        _validate_channel_first_array(data, "data")
-        for index, input_data in enumerate(inputs, start=1):
-            _validate_channel_first_array(input_data, f"input {index}")
+        self._validate_process_inputs(data, *inputs)
         logger.debug("Adding delayed operation to computation graph")
         delayed_result = delayed(_execute_wandas_operation, name=self.name, pure=self.pure)(self, data, *inputs)
         output_shape = self.calculate_output_shape(data.shape)

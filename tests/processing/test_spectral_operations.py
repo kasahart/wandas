@@ -609,14 +609,14 @@ class TestSTFTOperation:
         assert result.shape[0] == 1
         assert abs(result.shape[1] - sig.shape[1]) < self._WIN_LEN
 
-    def test_istft_2d_input_reshaped(self) -> None:
-        """2D (single-channel spectrogram) produces 2D output."""
+    def test_istft_process_rejects_2d_direct_lazy_input(self) -> None:
+        """ISTFT.process requires channel-first spectrograms."""
         sig, _ = self._make_mono()
         stft_data = _compute_process(self._stft(), sig)
         stft_2d = stft_data[0]  # (freqs, frames)
-        result = _compute_process(self._istft(), stft_2d)
-        assert result.ndim == 2
-        assert result.shape[0] == 1
+
+        with pytest.raises(ValueError, match=r"AudioOperation.process requires channel-first data"):
+            _compute_process(self._istft(), stft_2d)
 
     def test_istft_with_length_trims_output(self) -> None:
         """ISTFT with length parameter trims to exact output length."""

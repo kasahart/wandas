@@ -2,6 +2,7 @@ import logging
 from typing import Any
 
 import numpy as np
+from dask.array.core import Array as DaArray
 from scipy.signal import ShortTimeFFT
 from scipy.signal.windows import get_window
 
@@ -593,6 +594,11 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
 
         logger.debug(f"ShortTimeFFT applied, returning result with shape: {result.shape}")
         return result
+
+    def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
+        """Execute ISTFT on Frame-internal channel-first spectrogram data."""
+        self._validate_process_inputs(data, *inputs, ndim=3)
+        return super().process(data, *inputs)
 
 
 class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
