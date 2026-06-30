@@ -599,6 +599,16 @@ class TestSTFTOperation:
         assert result.ndim == 2
         assert result.shape[0] == 1
 
+    def test_istft_process_rejects_2d_direct_lazy_input(self) -> None:
+        """ISTFT.process requires channel-first spectrograms."""
+        sig, _ = self._make_mono()
+        stft_data = self._stft().process_array(sig).compute()
+        stft_2d = stft_data[0]  # (freqs, frames), missing channel axis
+        dask_input = da_from_array(stft_2d, chunks=(-1, -1))
+
+        with pytest.raises(ValueError, match=r"AudioOperation.process requires channel-first data"):
+            self._istft().process(dask_input)
+
     def test_istft_with_length_trims_output(self) -> None:
         """ISTFT with length parameter trims to exact output length."""
         sig, _ = self._make_mono()

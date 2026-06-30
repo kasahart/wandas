@@ -33,15 +33,22 @@ def _mark_wandas_operation(data: Any, operation: "AudioOperation[Any, Any]") -> 
     return data
 
 
-def _validate_channel_first_array(value: Any, label: str) -> None:
+def _validate_channel_first_array(value: Any, label: str, *, ndim: int | None = None) -> None:
     if not hasattr(value, "ndim"):
         return
-    if value.ndim >= 2:
+    if ndim is not None and value.ndim == ndim:
         return
+    if ndim is None and value.ndim >= 2:
+        return
+    expected = (
+        f"a Dask array shaped (channels, ...) with ndim={ndim}"
+        if ndim is not None
+        else "a Dask array shaped (channels, ...)"
+    )
     raise ValueError(
         "AudioOperation.process requires channel-first data\n"
         f"  Got: {label} with shape {value.shape}\n"
-        "  Expected: a Dask array shaped (channels, ...)\n"
+        f"  Expected: {expected}\n"
         "Use Frame operations or reshape direct lazy inputs to include a channel axis."
     )
 
@@ -375,6 +382,13 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         marker = cast(Any, _mark_wandas_operation)
         return data.map_blocks(marker, self, dtype=data.dtype)
 
+    def _validate_process_inputs(self, data: DaArray, *, ndim: int | None = None) -> None:
+        """Validate Frame-internal lazy inputs before building a process graph."""
+        _validate_channel_first_array(data, "data", ndim=ndim)
+        for name, value in self._config.items():
+            for config_array in _iter_dask_config_arrays(value):
+                _validate_channel_first_array(config_array, f"parameter '{name}'")
+
     def process_array(self, x: Any) -> Any:
         """
         Processing function wrapped with @dask.delayed.
@@ -425,10 +439,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         of this API; use a Frame operation or reshape direct lazy inputs to add
         a channel axis before calling ``process()``.
         """
-        _validate_channel_first_array(data, "data")
-        for name, value in self._config.items():
-            for config_array in _iter_dask_config_arrays(value):
-                _validate_channel_first_array(config_array, f"parameter '{name}'")
+        self._validate_process_inputs(data)
         logger.debug("Adding delayed operation to computation graph")
         delayed_result = self._delayed(data)
         output_shape = self.calculate_output_shape(data.shape)

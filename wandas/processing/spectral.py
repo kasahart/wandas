@@ -573,6 +573,11 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         logger.debug(f"ShortTimeFFT applied, returning result with shape: {result.shape}")
         return result
 
+    def process(self, data: Any) -> Any:
+        """Execute ISTFT on Frame-internal channel-first spectrogram data."""
+        self._validate_process_inputs(data, ndim=3)
+        return super().process(data)
+
 
 class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
     """Welch method for power spectral density estimation.
