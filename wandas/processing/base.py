@@ -3,10 +3,10 @@ import importlib
 import inspect
 import logging
 from collections import defaultdict
-from collections.abc import Iterator, Mapping, MutableMapping
+from collections.abc import Callable, Iterator, Mapping, MutableMapping
 from dataclasses import dataclass
 from functools import wraps
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast
+from typing import Any, ClassVar, Generic, NoReturn, TypeVar, cast
 
 import dask.array as da
 import numpy as np
@@ -236,6 +236,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     _expected_input_count: ClassVar[int | None] = 1
 
     _config: dict[str, Any]
+    _process: Callable[..., NDArrayReal | NDArrayComplex]
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Ensure subclass ``process`` overrides keep the base input contract."""
@@ -372,14 +373,6 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
             "runtime inputs are required."
         )
 
-    if TYPE_CHECKING:
-        _process: Any
-    else:
-
-        def _process(self, *inputs: Any) -> Any:
-            """Fallback concrete kernel for subclasses that do not implement one."""
-            raise NotImplementedError("Subclasses must implement this method.")
-
     def _mark_array(self, data: DaArray) -> DaArray:
         """Attach an explicit operation marker to a Dask-native array result."""
         marker = cast(Any, _mark_wandas_operation)
@@ -429,6 +422,16 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         output_shape = self.calculate_output_shape(data.shape)
         output_dtype = self.calculate_output_dtype(data.dtype, *(input_data.dtype for input_data in inputs))
         return _da_from_delayed(delayed_result, shape=output_shape, dtype=output_dtype)
+
+
+def _audio_operation_unimplemented_process(
+    self: AudioOperation[NDArrayReal, NDArrayReal], *inputs: NDArrayReal | NDArrayComplex
+) -> NoReturn:
+    """Fallback concrete kernel for subclasses that do not implement one."""
+    raise NotImplementedError("Subclasses must implement this method.")
+
+
+AudioOperation._process = _audio_operation_unimplemented_process
 
 
 # Automatically collect operation types and corresponding classes
