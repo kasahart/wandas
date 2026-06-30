@@ -241,7 +241,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     _expected_input_count: ClassVar[int | None] = 1
 
     _config: dict[str, Any]
-    _process: Callable[..., NDArrayReal | NDArrayComplex] = _unimplemented_process
+    _process: Callable[..., OutputArrayType] = _unimplemented_process
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Ensure subclass ``process`` overrides keep the base input contract."""
