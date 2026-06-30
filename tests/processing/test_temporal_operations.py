@@ -80,7 +80,7 @@ class TestReSampling:
         monkeypatch.setattr("wandas.processing.temporal.resample_poly", fail_polyphase)
         monkeypatch.setattr("wandas.processing.temporal.resample", fake_resample)
 
-        result = resampler._process_array(data)
+        result = resampler._process(data)
 
         assert result.shape == resampler.calculate_output_shape(data.shape)
 
@@ -461,7 +461,7 @@ class TestRmsTrend:
         rms = RmsTrend(_SR, frame_length=5, hop_length=2)
 
         with pytest.raises(ValueError, match="Input is too short"):
-            rms._process_array(data)
+            rms._process(data)
         with pytest.raises(ValueError, match="Input is too short"):
             rms.calculate_output_shape(data.shape)
 
@@ -553,7 +553,7 @@ class TestRmsTrend:
         arr = np.array([np.sin(2 * np.pi * 440 * t)])
         tuple_result = (arr, None)
         with mock.patch("wandas.processing.temporal.A_weight", return_value=tuple_result):
-            result = rms._process_array(arr)
+            result = rms._process(arr)
         assert result.shape[0] == 1
         assert result.ndim == 2
 
@@ -564,7 +564,7 @@ class TestRmsTrend:
         arr = np.array([np.sin(2 * np.pi * 440 * t)])
         with mock.patch("wandas.processing.temporal.A_weight", return_value=42):
             with pytest.raises(ValueError, match="A_weighting returned an unexpected type"):
-                rms._process_array(arr)
+                rms._process(arr)
 
 
 class TestFixLength:

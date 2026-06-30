@@ -3,10 +3,10 @@ import importlib
 import inspect
 import logging
 from collections import defaultdict
-from collections.abc import Iterator, Mapping, MutableMapping
+from collections.abc import Callable, Iterator, Mapping, MutableMapping
 from dataclasses import dataclass
 from functools import wraps
-from typing import Any, ClassVar, Generic, TypeVar, cast
+from typing import Any, ClassVar, Generic, NoReturn, TypeVar, cast
 
 import dask.array as da
 import numpy as np
@@ -26,12 +26,37 @@ OutputArrayType = TypeVar("OutputArrayType", NDArrayReal, NDArrayComplex)
 
 def _execute_wandas_operation(operation: "AudioOperation[Any, Any]", *inputs: Any) -> Any:
     """Execute a Wandas operation from a Dask task."""
-    return operation._process_inputs(*inputs)
+    return operation._process(*inputs)
 
 
 def _mark_wandas_operation(data: Any, operation: "AudioOperation[Any, Any]") -> Any:
     """Mark a Dask-native task as a Wandas operation without changing the data."""
     return data
+
+
+def _validate_channel_first_array(value: Any, label: str, *, ndim: int | None = None) -> None:
+    if not hasattr(value, "ndim"):
+        return
+    if ndim is not None and value.ndim == ndim:
+        return
+    if ndim is None and value.ndim >= 2:
+        return
+    expected = (
+        f"a Dask array shaped (channels, ...) with ndim={ndim}"
+        if ndim is not None
+        else "a Dask array shaped (channels, ...)"
+    )
+    raise ValueError(
+        "AudioOperation.process requires channel-first data\n"
+        f"  Got: {label} with shape {value.shape}\n"
+        f"  Expected: {expected}\n"
+        "Use Frame operations or reshape direct lazy inputs to include a channel axis."
+    )
+
+
+def _unimplemented_process(_self: object, *inputs: NDArrayReal | NDArrayComplex) -> NoReturn:
+    """Fallback concrete kernel for subclasses that do not implement one."""
+    raise NotImplementedError("Subclasses must implement this method.")
 
 
 @dataclass(frozen=True)
@@ -223,20 +248,21 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     _expected_input_count: ClassVar[int | None] = 1
 
     _config: dict[str, Any]
+    _process: Callable[..., OutputArrayType] = _unimplemented_process
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Ensure subclass ``process`` overrides keep the base input contract."""
         super().__init_subclass__(**kwargs)
         process = cls.__dict__.get("process")
-        if process is None or getattr(process, "_wandas_validates_process_input_count", False):
+        if process is None or getattr(process, "_wandas_validates_process_inputs", False):
             return
 
         @wraps(process)
         def validated_process(self: "AudioOperation[Any, Any]", data: Any, *inputs: Any) -> Any:
-            self._validate_process_input_count(1 + len(inputs))
+            self._validate_process_inputs(data, *inputs)
             return process(self, data, *inputs)
 
-        setattr(validated_process, "_wandas_validates_process_input_count", True)
+        setattr(validated_process, "_wandas_validates_process_inputs", True)
         cls.process = cast(Any, validated_process)
 
     def __init__(self, sampling_rate: float, *, pure: bool = True, **params: Any):
@@ -345,11 +371,6 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         """
         return getattr(self, "_display", None)
 
-    def _process_array(self, x: InputArrayType) -> OutputArrayType:
-        """Processing function (implemented by subclasses)"""
-        # Default is no-op function
-        raise NotImplementedError("Subclasses must implement this method.")
-
     def _validate_process_input_count(self, input_count: int) -> None:
         """Validate process input arity using the operation class contract."""
         expected = self._expected_input_count
@@ -360,48 +381,21 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         expected_text = "one" if expected == 1 else str(expected)
         raise ValueError(
             f"Expected exactly {expected_text} {noun} for {self.__class__.__name__}; "
-            f"got {input_count}. Set _expected_input_count and override _process_inputs "
-            "for multi-input operations."
+            f"got {input_count}. Use an operation-specific method when multiple "
+            "runtime inputs are required."
         )
-
-    def _process_inputs(self, *inputs: InputArrayType) -> OutputArrayType:
-        """Process one or more concrete input arrays.
-
-        The base operation contract remains single-input. Multi-input
-        subclasses override this method and keep ``_process_array`` available
-        for existing single-input implementations.
-        """
-        self._validate_process_input_count(len(inputs))
-        return self._process_array(inputs[0])
-
-    def _delayed(self, *inputs: Any) -> Any:
-        """Create a ``dask.delayed`` result for *data* with an explicit operation marker."""
-        return delayed(_execute_wandas_operation, name=self.name, pure=self.pure)(self, *inputs)
 
     def _mark_array(self, data: DaArray) -> DaArray:
         """Attach an explicit operation marker to a Dask-native array result."""
         marker = cast(Any, _mark_wandas_operation)
         return data.map_blocks(marker, self, dtype=data.dtype)
 
-    def process_array(self, x: Any) -> Any:
-        """
-        Processing function wrapped with @dask.delayed.
-
-        This method returns a Delayed object that can be computed later.
-        The operation name is used in the Dask task graph for better visualization.
-
-        Parameters
-        ----------
-        x : InputArrayType
-            Input array to process.
-
-        Returns
-        -------
-        dask.delayed.Delayed
-            A Delayed object representing the computation.
-        """
-        logger.debug(f"Creating delayed operation on data with shape: {x.shape}")
-        return self._delayed(x)
+    def _validate_process_inputs(self, data: DaArray, *inputs: DaArray, ndim: int | None = None) -> None:
+        """Validate Frame-internal lazy inputs before building a process graph."""
+        self._validate_process_input_count(1 + len(inputs))
+        _validate_channel_first_array(data, "data", ndim=ndim)
+        for index, input_data in enumerate(inputs, start=1):
+            _validate_channel_first_array(input_data, f"input {index}")
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
@@ -424,26 +418,25 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         """
         return input_shape
 
-    def calculate_output_dtype(self, *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
-        """
-        Calculate output data dtype after operation.
-
-        The default follows NumPy promotion rules across all inputs. Subclasses
-        that intentionally normalize precision can override this method.
-        """
-        return np.result_type(*input_dtypes)
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        """Calculate output dtype metadata after operation."""
+        return np.result_type(input_dtype, *input_dtypes)
 
     def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
         """
-        Execute operation and return result
-        data shape is (channels, samples)
+        Execute operation lazily on Frame-internal channel-first Dask arrays.
+
+        ``data`` must be the lazy array held by a Frame, with a leading channel
+        axis such as ``(channels, samples)``. Direct 1-D lazy input is not part
+        of this API; use a Frame operation or reshape direct lazy inputs to add
+        a channel axis before calling ``process()``. Multi-input operations
+        pass additional channel-first Dask arrays through ``*inputs``.
         """
-        self._validate_process_input_count(1 + len(inputs))
+        self._validate_process_inputs(data, *inputs)
         logger.debug("Adding delayed operation to computation graph")
-        delayed_result = self._delayed(data, *inputs)
+        delayed_result = delayed(_execute_wandas_operation, name=self.name, pure=self.pure)(self, data, *inputs)
         output_shape = self.calculate_output_shape(data.shape)
-        input_dtypes = tuple(input_data.dtype for input_data in (data, *inputs))
-        output_dtype = self.calculate_output_dtype(*input_dtypes)
+        output_dtype = self.calculate_output_dtype(data.dtype, *(input_data.dtype for input_data in inputs))
         return _da_from_delayed(delayed_result, shape=output_shape, dtype=output_dtype)
 
 

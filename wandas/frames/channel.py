@@ -524,6 +524,14 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         if other.duration != self.duration:
             other = other.fix_length(length=self.n_samples)
 
+        if snr is not None and other.n_channels not in {1, self.n_channels}:
+            raise ValueError(
+                "Channel count mismatch for SNR addition\n"
+                f"  Signal channels: {self.n_channels}\n"
+                f"  Other channels: {other.n_channels}\n"
+                "Use a single-channel noise frame for broadcast, or match the signal channel count."
+            )
+
         if snr is None:
             return self + other
         from wandas.processing import create_operation

@@ -2,6 +2,7 @@ import logging
 from typing import Any
 
 import numpy as np
+from dask.array.core import Array as DaArray
 from scipy.signal import ShortTimeFFT
 from scipy.signal.windows import get_window
 
@@ -22,6 +23,14 @@ def noct_synthesis(*args: Any, **kwargs: Any) -> Any:
 
 def _center_freq(*args: Any, **kwargs: Any) -> Any:
     return require_mosqito_center_freq("NOctFrame")(*args, **kwargs)
+
+
+def _spectral_real_dtype(input_dtype: np.dtype[Any]) -> np.dtype[Any]:
+    return np.dtype(np.result_type(input_dtype, np.float32))
+
+
+def _spectral_complex_dtype(input_dtype: np.dtype[Any]) -> np.dtype[Any]:
+    return np.dtype(np.result_type(_spectral_real_dtype(input_dtype), np.complex64))
 
 
 def _validate_spectral_params(
@@ -190,7 +199,10 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         n_freqs = n_fft // 2 + 1 if n_fft else input_shape[-1] // 2 + 1
         return (*input_shape[:-1], n_freqs)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return np.dtype(np.complex128)
+
+    def _process(self, x: NDArrayReal) -> NDArrayComplex:
         """Apply FFT to the input array."""
         from scipy.signal import get_window
 
@@ -258,7 +270,10 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         n_samples = 2 * (input_shape[-1] - 1) if n_fft is None else n_fft
         return (*input_shape[:-1], n_samples)
 
-    def _process_array(self, x: NDArrayComplex) -> NDArrayReal:
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return np.dtype(np.float64)
+
+    def _process(self, x: NDArrayComplex) -> NDArrayReal:
         """Create processor function for IFFT operation"""
         logger.debug(f"Applying IFFT to array with shape: {x.shape}")
 
@@ -369,12 +384,16 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         tuple
             Output data shape
         """
+        n_channels = input_shape[0]
         n_samples = input_shape[-1]
         n_f = len(self._SFT.f)
         n_t = len(self._SFT.t(n_samples))
-        return (input_shape[0], n_f, n_t)
+        return (n_channels, n_f, n_t)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return np.dtype(np.complex128)
+
+    def _process(self, x: NDArrayReal) -> NDArrayComplex:
         """Apply SciPy STFT processing to multiple channels at once"""
         logger.debug(f"Applying SciPy STFT to array with shape: {x.shape}")
 
@@ -549,7 +568,10 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
 
         return (n_channels, output_samples)
 
-    def _process_array(self, x: NDArrayComplex) -> NDArrayReal:
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return np.dtype(np.float64)
+
+    def _process(self, x: NDArrayComplex) -> NDArrayReal:
         """
         Apply SciPy ISTFT processing to multiple channels at once using ShortTimeFFT"""
         logger.debug(f"Applying SciPy ISTFT (ShortTimeFFT) to array with shape: {x.shape}")
@@ -572,6 +594,11 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
 
         logger.debug(f"ShortTimeFFT applied, returning result with shape: {result.shape}")
         return result
+
+    def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
+        """Execute ISTFT on Frame-internal channel-first spectrogram data."""
+        self._validate_process_inputs(data, *inputs, ndim=3)
+        return super().process(data, *inputs)
 
 
 class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -692,7 +719,10 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
         n_freqs = self.n_fft // 2 + 1
         return (*input_shape[:-1], n_freqs)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return _spectral_real_dtype(input_dtype)
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for Welch operation.
 
         Converts power spectrum from scipy.signal.welch to one-sided
@@ -776,13 +806,9 @@ class _NOctBase(AudioOperation[NDArrayReal, NDArrayReal]):
     def ensure_dependencies(self) -> None:
         require_mosqito_center_freq("NOctFrame")
 
-    def process_array(self, x: Any) -> Any:
-        self.ensure_dependencies()
-        return super().process_array(x)
-
     def process(self, data: Any, *inputs: Any) -> Any:
         self.ensure_dependencies()
-        return super().process(data)
+        return super().process(data, *inputs)
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         _, fpref = _center_freq(
@@ -801,7 +827,7 @@ class NOctSpectrum(_NOctBase):
     name = "noct_spectrum"
     _display = "Oct"
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for octave spectrum"""
         logger.debug(f"Applying NoctSpectrum to array with shape: {x.shape}")
         spec, _ = noct_spectrum(
@@ -824,7 +850,7 @@ class NOctSynthesis(_NOctBase):
     name = "noct_synthesis"
     _display = "Octs"
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for octave synthesis"""
         logger.debug(f"Applying NoctSynthesis to array with shape: {x.shape}")
         # Calculate n from shape[-1]
@@ -913,6 +939,9 @@ class _CrossSpectralBase(AudioOperation[NDArrayReal, NDArrayReal]):
         n_freqs = self.n_fft // 2 + 1
         return (n_channels * n_channels, n_freqs)
 
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return _spectral_real_dtype(input_dtype)
+
 
 class Coherence(_CrossSpectralBase):
     """Coherence estimation operation"""
@@ -921,7 +950,7 @@ class Coherence(_CrossSpectralBase):
     _method_label = "Coherence"
     _display = "Coh"
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Processor function for coherence estimation operation"""
         logger.debug(f"Applying coherence estimation to array with shape: {x.shape}")
         from scipy import signal as ss
@@ -983,6 +1012,9 @@ class _ScaledCrossSpectralBase(_CrossSpectralBase):
         """Averaging method captured at operation construction time."""
         return self._config_value("average")
 
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return _spectral_complex_dtype(input_dtype)
+
 
 class CSD(_ScaledCrossSpectralBase):
     """Cross-spectral density estimation operation"""
@@ -991,7 +1023,7 @@ class CSD(_ScaledCrossSpectralBase):
     _method_label = "CSD"
     _display = "CSD"
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
+    def _process(self, x: NDArrayReal) -> NDArrayComplex:
         """Processor function for cross-spectral density estimation operation"""
         logger.debug(f"Applying CSD estimation to array with shape: {x.shape}")
         from scipy import signal as ss
@@ -1024,7 +1056,7 @@ class TransferFunction(_ScaledCrossSpectralBase):
     _method_label = "Transfer function"
     _display = "H"
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
+    def _process(self, x: NDArrayReal) -> NDArrayComplex:
         """Processor function for transfer function estimation operation"""
         logger.debug(f"Applying transfer function estimation to array with shape: {x.shape}")
         from scipy import signal as ss

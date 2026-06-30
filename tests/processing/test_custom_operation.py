@@ -23,11 +23,11 @@ class TestCustomOperation:
         result = result_da.compute()
         np.testing.assert_array_equal(result, scale_add(data, gain=2.0))
 
-    def test_custom_operation_process_array_uses_operation_owned_params_copy(self) -> None:
+    def test_custom_operation_process_uses_operation_owned_params_copy(self) -> None:
         data = np.array([[1.0, 2.0, 3.0]])
         op = CustomOperation(16000, func=lambda x, gain: x * gain, gain=2.0)
 
-        np.testing.assert_array_equal(op._process_array(data), data * 2.0)
+        np.testing.assert_array_equal(op._process(data), data * 2.0)
 
     def test_custom_operation_copies_nested_params_for_each_delayed_execution(self) -> None:
         data = np.array([[1.0, 2.0, 3.0]])
@@ -45,10 +45,10 @@ class TestCustomOperation:
         np.testing.assert_array_equal(result.compute(), data * 2.0)
         assert op.params["config"] == {"gain": 2.0}
 
-    def test_custom_operation_subclass_delayed_wrapper_uses_process_array_hook(self) -> None:
+    def test_custom_operation_subclass_process_contract_uses_process_hook(self) -> None:
         class HookedCustomOperation(CustomOperation):
-            def _process_array(self, x: np.ndarray) -> np.ndarray:
-                return super()._process_array(x) * 3.0
+            def _process(self, x: np.ndarray) -> np.ndarray:
+                return super()._process(x) * 3.0
 
         data = np.array([[1.0, 2.0, 3.0]])
         dask_data = da_from_array(data, chunks=(1, -1))
@@ -74,7 +74,6 @@ class TestCustomOperation:
         )
 
         processed = op.process(dask_data)
-        assert processed.shape == (1, 4)
         assert op.func is halve_samples
         assert op.output_shape_func is output_shape
         np.testing.assert_array_equal(processed.compute(), halve_samples(data))

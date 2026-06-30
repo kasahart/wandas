@@ -2,9 +2,7 @@ import logging
 from fractions import Fraction
 from typing import Any
 
-import dask.array as da
 import numpy as np
-from dask.array.core import Array as DaArray
 from scipy.signal import lfilter, resample, resample_poly
 
 from wandas.processing.base import AudioOperation, register_operation
@@ -125,7 +123,7 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
             return dtype
         return np.dtype(np.float64)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for resampling operation"""
         logger.debug(f"Applying resampling to array with shape: {x.shape}")
         up, down = _resampling_ratio(self.sampling_rate, self.target_sr)
@@ -138,12 +136,9 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
         logger.debug(f"Resampling applied, returning result with shape: {result.shape}")
         return result
 
-    def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
-        """Execute resampling with accurate floating output dtype metadata."""
-        logger.debug("Adding delayed resampling operation to computation graph")
-        delayed_result = self._delayed(data)
-        output_shape = self.calculate_output_shape(data.shape)
-        return da.from_delayed(delayed_result, shape=output_shape, dtype=self._output_dtype(data.dtype))
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        """Return resampling output dtype metadata."""
+        return self._output_dtype(input_dtype)
 
 
 class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -213,7 +208,7 @@ class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
         n_samples = end_sample - self.start_sample
         return (*input_shape[:-1], n_samples)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for trimming operation"""
         logger.debug(f"Applying trim to array with shape: {x.shape}")
         # Apply trimming
@@ -273,7 +268,7 @@ class FixLength(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         return (*input_shape[:-1], self.target_length)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for padding operation"""
         logger.debug(f"Applying padding to array with shape: {x.shape}")
         # Apply padding
@@ -396,7 +391,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
     def _output_dtype() -> np.dtype[Any]:
         return np.dtype(np.float64)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for RMS calculation"""
         logger.debug(f"Applying RMS to array with shape: {x.shape}")
 
@@ -425,12 +420,9 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         logger.debug(f"RMS applied, returning result with shape: {result.shape}")
         return result
 
-    def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
-        """Execute RMS trend with accurate floating output dtype metadata."""
-        logger.debug("Adding delayed RMS trend operation to computation graph")
-        delayed_result = self._delayed(data)
-        output_shape = self.calculate_output_shape(data.shape)
-        return da.from_delayed(delayed_result, shape=output_shape, dtype=self._output_dtype())
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        """Return RMS trend output dtype metadata."""
+        return self._output_dtype()
 
 
 class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -549,7 +541,7 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
             )
         return np.asarray(np.square(ref), dtype=np.float64)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for sound level calculation."""
         logger.debug(
             "Applying sound level to array with shape %s using %s/%s weighting",
@@ -575,12 +567,9 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
         logger.debug(f"Sound level applied, returning result with shape: {result.shape}")
         return np.asarray(result, dtype=output_dtype)
 
-    def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
-        """Execute sound level with floating output dtype metadata."""
-        logger.debug("Adding delayed sound level operation to computation graph")
-        delayed_result = self._delayed(data)
-        output_shape = self.calculate_output_shape(data.shape)
-        return da.from_delayed(delayed_result, shape=output_shape, dtype=self._output_dtype(data.dtype))
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        """Return sound level output dtype metadata."""
+        return self._output_dtype(input_dtype)
 
 
 # Register all operations

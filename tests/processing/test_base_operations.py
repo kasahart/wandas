@@ -43,7 +43,7 @@ class TestOperationRegistry:
         class LazyTestOperation(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "lazy_test_op"
 
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x
 
         def fake_import_module(module_name: str) -> object:
@@ -75,7 +75,7 @@ class TestOperationRegistry:
             def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
                 return input_shape
 
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x
 
         # Register and verify
@@ -90,7 +90,7 @@ class TestOperationRegistry:
         class IdempotentOperation(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "idempotent_op"
 
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x
 
         try:
@@ -156,7 +156,7 @@ class TestAudioOperation:
             def to_params(self) -> dict[str, Any]:
                 return {key: _snapshot_config_value(value) for key, value in self._test_params.items()}
 
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x * 2
 
             def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
@@ -165,7 +165,7 @@ class TestAudioOperation:
         return _TestOp
 
     def test_process_doubles_input(self) -> None:
-        """process() applies _process_array and returns correct DaskArray result."""
+        """process() applies _process and returns correct DaskArray result."""
         test_op_cls = self._make_test_op_class()
         op = test_op_cls(16000)
         data = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
@@ -175,6 +175,59 @@ class TestAudioOperation:
 
         assert isinstance(result, DaArray)
         np.testing.assert_array_equal(result.compute(), data * 2)
+
+    def test_process_uses_calculate_output_dtype(self) -> None:
+        class FloatOutputOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "float_output_op"
+
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                return x.astype(np.float64)
+
+            def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+                return np.dtype(np.float64)
+
+        data = da_from_array(np.array([[1, 2, 3]], dtype=np.int16), chunks=(1, -1))
+        result = FloatOutputOperation(16000).process(data)
+
+        assert result.dtype == np.dtype(np.float64)
+        np.testing.assert_array_equal(result.compute(), np.array([[1.0, 2.0, 3.0]], dtype=np.float64))
+
+    def test_process_array_removed_from_audio_operation(self) -> None:
+        class SimpleOp(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "simple_removed_process_array_op"
+
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        op = SimpleOp(16000)
+
+        assert not hasattr(op, "process_array")
+
+    def test_process_rejects_1d_direct_input(self) -> None:
+        """process() requires Frame-internal ch-first Dask arrays."""
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000)
+        data = da_from_array(np.array([1.0, 2.0, 3.0]), chunks=(-1,))
+
+        with pytest.raises(ValueError, match=r"AudioOperation.process requires channel-first data"):
+            op.process(data)
+
+    def test_process_rejects_1d_additional_dask_input(self) -> None:
+        """Multi-input lazy operations require ch-first Dask arrays for all inputs."""
+
+        class AddOtherOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "add_other_op"
+            _expected_input_count = 2
+
+            def _process(self, x: NDArrayReal, other: NDArrayReal) -> NDArrayReal:
+                return x + other
+
+        data = da_from_array(np.array([[1.0, 2.0, 3.0]]), chunks=(1, -1))
+        other = da_from_array(np.array([0.1, 0.2, 0.3]), chunks=(-1,))
+        op = AddOtherOperation(16000)
+
+        with pytest.raises(ValueError, match=r"AudioOperation.process requires channel-first data"):
+            op.process(data, other)
 
     def test_process_preserves_immutability(self) -> None:
         """Pillar 1: process() does not mutate the input DaskArray."""
@@ -226,7 +279,7 @@ class TestAudioOperation:
             def __init__(self, sampling_rate: float, gain: float):
                 super().__init__(sampling_rate, gain=gain)
 
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x * self._config_snapshot()["gain"]
 
         try:
@@ -254,7 +307,7 @@ class TestAudioOperation:
             def __init__(self, sampling_rate: float, config: dict[str, float]):
                 super().__init__(sampling_rate, config=config)
 
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x * self._config_snapshot()["config"]["gain"]
 
         config = {"gain": 2.0}
@@ -281,7 +334,7 @@ class TestAudioOperation:
             def __init__(self, sampling_rate: float, config: dict[str, float]):
                 super().__init__(sampling_rate, config=config)
 
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x * self._config_snapshot()["config"]["gain"]
 
         op = BaseConfigOperation(16000, config={"gain": 2.0})
@@ -308,7 +361,7 @@ class TestAudioOperation:
                 if self.value < 0:
                     raise ValueError("Value must be non-negative")
 
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x
 
             def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
@@ -341,7 +394,7 @@ class TestAudioOperation:
             op = test_op_cls(16000, pure=pure_val)
             with mock.patch("wandas.processing.base.delayed") as mock_delayed:
                 mock_delayed.return_value = lambda *args: mock.MagicMock()
-                op.process_array(test_array)
+                op.process(da_from_array(test_array, chunks=(1, -1)))
                 _, kwargs = mock_delayed.call_args
                 assert kwargs["pure"] is pure_val
                 assert kwargs["name"] == op.name
@@ -377,7 +430,7 @@ class TestAudioOperation:
             def to_params(self) -> dict[str, float]:
                 return {"gain": self._gain}
 
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x * self._gain
 
         op = SeededConfigOperation(16000, gain="2.0")
@@ -433,7 +486,7 @@ class TestAudioOperation:
             def to_params(self) -> dict[str, Any]:
                 return {"config": self._test_config}
 
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x
 
         op = NestedParamsOperation(16000, config={"gain": 2.0})
@@ -465,7 +518,7 @@ class TestAudioOperation:
             def to_params(self) -> dict[str, Any]:
                 return {"config": self._test_config}
 
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x * self._test_config["gain"]
 
         config = {"gain": 2.0}
@@ -490,7 +543,7 @@ class TestAudioOperation:
                 super().__init__(sampling_rate)
                 self.cache: dict[str, float] = {}
 
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x
 
         op = CachedOperation(16000)
@@ -507,7 +560,7 @@ class TestAudioOperation:
                 super().__init__(sampling_rate, gain=gain)
                 self.cache: dict[str, float | None] = {"gain": None}
 
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
                 self.cache["gain"] = 2.0
                 return x
 
@@ -553,7 +606,7 @@ class TestAudioOperation:
                 self.config = config
                 super().__init__(sampling_rate, config=config)
 
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x * self.config["missing"]
 
         op = DefaultdictConfigOperation(16000, defaultdict(lambda: 2.0))
@@ -574,7 +627,7 @@ class TestAudioOperation:
             def to_params(self) -> dict[str, Any]:
                 return {"reference": self._reference, "config": self._test_config}
 
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x
 
         reference = np.array([1.0, 2.0])
@@ -677,7 +730,7 @@ class TestAudioOperation:
             def to_params(self) -> dict[str, object]:
                 return {"config": self._test_config}
 
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x
 
         op = AmbiguousParamsOperation(16000, config=EqAmbiguousBool())
@@ -768,7 +821,7 @@ class TestAudioOperation:
                 self.cfg = cfg
                 super().__init__(sampling_rate, cfg=cfg)
 
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x * self.cfg.gain
 
         op = TupleSubclassConfigOperation(16000, Config(gain=2.0))
@@ -829,7 +882,7 @@ class TestAudioOperation:
         class ParentOperation(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "parent_wrapped_op"
 
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x
 
         parent_init = ParentOperation.__init__
@@ -844,15 +897,14 @@ class TestAudioOperation:
         test_op_cls = self._make_test_op_class()
         assert test_op_cls(16000).get_display_name() is None
 
-    def test_process_array_not_implemented_raises(self) -> None:
-        """Calling _process_array on base class raises NotImplementedError."""
-
+    def test_incomplete_operation_requires_process_kernel(self) -> None:
         class IncompleteOp(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "incomplete_op"
 
         op = IncompleteOp(16000)
+
         with pytest.raises(NotImplementedError, match="Subclasses must implement"):
-            op._process_array(np.array([[1.0, 2.0, 3.0]]))
+            op._process(np.array([[1.0, 2.0, 3.0]]))
 
     def test_process_accepts_variadic_inputs_for_multi_input_subclass(self) -> None:
         """A subclass can process multiple Dask inputs lazily."""
@@ -861,7 +913,7 @@ class TestAudioOperation:
             name = "add_inputs_op"
             _expected_input_count = 2
 
-            def _process_inputs(self, *inputs: NDArrayReal) -> NDArrayReal:
+            def _process(self, *inputs: NDArrayReal) -> NDArrayReal:
                 left, right = inputs
                 return left + right
 
@@ -875,14 +927,14 @@ class TestAudioOperation:
         assert result.shape == left.shape
         np.testing.assert_allclose(result.compute(), np.array([[1.5, 2.25, 3.125]]))
 
-    def test_process_uses_result_type_metadata_for_multi_input_subclass(self) -> None:
-        """Default multi-input metadata dtype follows NumPy result type."""
+    def test_process_uses_result_type_dtype_metadata_for_multi_input_subclass(self) -> None:
+        """Default multi-input dtype metadata follows NumPy result type."""
 
         class AddInputs(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "add_inputs_dtype_op"
             _expected_input_count = 2
 
-            def _process_inputs(self, *inputs: NDArrayReal) -> NDArrayReal:
+            def _process(self, *inputs: NDArrayReal) -> NDArrayReal:
                 left, right = inputs
                 return left + right
 
@@ -902,7 +954,7 @@ class TestAudioOperation:
         class DoubleOp(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "double_early_reject_op"
 
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x * 2.0
 
         first = da_from_array(np.array([[1.0, 2.0, 3.0]]), chunks=(1, -1))
@@ -928,13 +980,28 @@ class TestAudioOperation:
         with pytest.raises(ValueError, match="Expected exactly one input"):
             op.process(first, second)
 
+    def test_process_override_wrapper_rejects_1d_direct_input(self) -> None:
+        """Subclass process overrides inherit channel-first validation."""
+
+        class NativeOverrideOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "native_override_op"
+
+            def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
+                return self._mark_array(data + 1)
+
+        data = da_from_array(np.array([1.0, 2.0, 3.0]), chunks=(-1,))
+        op = NativeOverrideOperation(16000)
+
+        with pytest.raises(ValueError, match=r"AudioOperation.process requires channel-first data"):
+            op.process(data)
+
     def test_default_process_rejects_extra_inputs(self) -> None:
         """Single-input operations fail clearly when called with multiple inputs."""
 
         class DoubleOp(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "double_single_input_op"
 
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x * 2.0
 
         first = da_from_array(np.array([[1.0, 2.0, 3.0]]), chunks=(1, -1))
@@ -950,7 +1017,7 @@ class TestAudioOperation:
         class SimpleOp(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "simple_op"
 
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x * 2
 
         op = SimpleOp(16000)

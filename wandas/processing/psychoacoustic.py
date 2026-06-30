@@ -125,13 +125,9 @@ class _PsychoacousticOperation(AudioOperation[NDArrayReal, NDArrayReal]):
     def ensure_dependencies(self) -> None:
         return None
 
-    def process_array(self, x: Any) -> Any:
-        self.ensure_dependencies()
-        return super().process_array(x)
-
     def process(self, data: Any, *inputs: Any) -> Any:
         self.ensure_dependencies()
-        return super().process(data)
+        return super().process(data, *inputs)
 
 
 class _ZwickerTimeVaryingBase(_PsychoacousticOperation):
@@ -240,7 +236,7 @@ class LoudnessZwtv(_ZwickerTimeVaryingBase):
     def ensure_dependencies(self) -> None:
         require_mosqito_sq_metric("loudness_zwtv", "loudness_zwtv")
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """
         Process array to calculate loudness.
 
@@ -342,7 +338,7 @@ class LoudnessZwst(_SteadyStateBase):
     def ensure_dependencies(self) -> None:
         require_mosqito_sq_metric("loudness_zwst", "loudness_zwst")
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """
         Process array to calculate steady-state loudness.
 
@@ -494,7 +490,7 @@ class RoughnessDw(_RoughnessBase):
     def ensure_dependencies(self) -> None:
         require_mosqito_sq_metric("roughness_dw", "roughness_dw")
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """
         Process array to calculate roughness.
 
@@ -593,7 +589,7 @@ class RoughnessDwSpec(_RoughnessBase):
             return (n_bark_bands, estimated_time_samples)
         return (n_channels, n_bark_bands, estimated_time_samples)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(
             "Calculating specific roughness for signal with shape: %s, overlap: %s",
             x.shape,
@@ -722,7 +718,7 @@ class SharpnessDin(_ZwickerTimeVaryingBase):
     def ensure_dependencies(self) -> None:
         require_mosqito_sq_metric("sharpness_din_tv", "sharpness_din")
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """
         Process array to calculate sharpness.
 
@@ -845,7 +841,7 @@ class SharpnessDinSt(_SteadyStateBase):
     def ensure_dependencies(self) -> None:
         require_mosqito_sq_metric("sharpness_din_st", "sharpness_din_st")
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """
         Process array to calculate steady-state sharpness.
 

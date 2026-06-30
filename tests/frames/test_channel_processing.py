@@ -232,7 +232,7 @@ class TestChannelProcessing:
             def to_params(self) -> dict[str, float]:
                 return {"gain": self._gain}
 
-            def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x * self.params["gain"]
 
         frame = ChannelFrame(
@@ -254,6 +254,18 @@ class TestChannelProcessing:
 
         np.testing.assert_array_equal(result.compute(), self.data * 2.0)
         assert result.operation_history[-1]["params"] == {"gain": 2.0}
+
+    def test_compute_scalar_metric_uses_direct_operation_kernel(self) -> None:
+        """Scalar metric helpers call the concrete kernel after materializing frame data."""
+        frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate)
+
+        class ChannelMean:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                return x.mean(axis=1)
+
+        result = frame._compute_scalar_metric(ChannelMean())
+
+        np.testing.assert_array_equal(result, np.mean(self.data, axis=1))
 
     def test_apply_custom_updates_history_metadata_and_labels(self) -> None:
         """
@@ -803,6 +815,23 @@ class TestChannelProcessing:
         json.dumps(dict(result.metadata))
         assert result.lineage is not None
         assert result.lineage.operation.params == result.lineage.operation.params
+
+    def test_add_with_snr_rejects_broadcast_to_more_channels(self) -> None:
+        signal = ChannelFrame(_da_from_array(np.ones((1, 16000)), chunks=(1, -1)), self.sample_rate)
+        noise = ChannelFrame(_da_from_array(np.ones((2, 16000)) * 0.1, chunks=(1, -1)), self.sample_rate)
+
+        with pytest.raises(ValueError, match=r"Channel count mismatch for SNR addition"):
+            signal.add(noise, snr=6.0)
+
+    def test_add_with_snr_allows_single_noise_channel_for_multichannel_signal(self) -> None:
+        signal_data = np.ones((2, 16000), dtype=np.float64)
+        signal = ChannelFrame(_da_from_array(signal_data, chunks=(1, -1)), self.sample_rate)
+        noise = ChannelFrame(_da_from_array(np.ones((1, 16000)) * 0.1, chunks=(1, -1)), self.sample_rate)
+
+        result = signal.add(noise, snr=6.0)
+
+        assert result.n_channels == 2
+        assert result.compute().shape == signal_data.shape
 
     def test_add_with_snr_rewrites_lineage_for_subclass_result_frame(self) -> None:
         class LegacyChannelFrame(ChannelFrame):
