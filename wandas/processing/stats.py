@@ -70,7 +70,6 @@ class Sum(AudioOperation[NDArrayReal, NDArrayReal]):
     _display = "sum"
 
     def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
-        self._validate_process_inputs(data, *inputs)
         return self._mark_array(data.sum(axis=0, keepdims=True))
 
 
@@ -81,7 +80,6 @@ class Mean(AudioOperation[NDArrayReal, NDArrayReal]):
     _display = "mean"
 
     def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
-        self._validate_process_inputs(data, *inputs)
         return self._mark_array(data.mean(axis=0, keepdims=True))
 
 

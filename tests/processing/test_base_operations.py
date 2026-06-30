@@ -980,6 +980,21 @@ class TestAudioOperation:
         with pytest.raises(ValueError, match="Expected exactly one input"):
             op.process(first, second)
 
+    def test_process_override_wrapper_rejects_1d_direct_input(self) -> None:
+        """Subclass process overrides inherit channel-first validation."""
+
+        class NativeOverrideOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "native_override_op"
+
+            def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
+                return self._mark_array(data + 1)
+
+        data = da_from_array(np.array([1.0, 2.0, 3.0]), chunks=(-1,))
+        op = NativeOverrideOperation(16000)
+
+        with pytest.raises(ValueError, match=r"AudioOperation.process requires channel-first data"):
+            op.process(data)
+
     def test_default_process_rejects_extra_inputs(self) -> None:
         """Single-input operations fail clearly when called with multiple inputs."""
 

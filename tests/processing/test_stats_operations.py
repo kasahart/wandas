@@ -322,6 +322,14 @@ class TestChannelDifference:
         assert isinstance(diff_op, ChannelDifference)
         assert diff_op.other_channel == 1
 
+    def test_channel_diff_process_rejects_1d_direct_input(self) -> None:
+        """ChannelDifference.process requires Frame-internal channel-first Dask arrays."""
+        data = da_from_array(np.array([1.0, 2.0, 4.0]), chunks=(-1,))
+        diff_op = ChannelDifference(_SR)
+
+        with pytest.raises(ValueError, match=r"AudioOperation.process requires channel-first data"):
+            diff_op.process(data)
+
     # -- Layer 2: Domain (shape + immutability) ----------------------------
 
     def test_channel_diff_stereo_preserves_shape_and_immutability(

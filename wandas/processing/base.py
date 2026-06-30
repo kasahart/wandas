@@ -254,15 +254,15 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         """Ensure subclass ``process`` overrides keep the base input contract."""
         super().__init_subclass__(**kwargs)
         process = cls.__dict__.get("process")
-        if process is None or getattr(process, "_wandas_validates_process_input_count", False):
+        if process is None or getattr(process, "_wandas_validates_process_inputs", False):
             return
 
         @wraps(process)
         def validated_process(self: "AudioOperation[Any, Any]", data: Any, *inputs: Any) -> Any:
-            self._validate_process_input_count(1 + len(inputs))
+            self._validate_process_inputs(data, *inputs)
             return process(self, data, *inputs)
 
-        setattr(validated_process, "_wandas_validates_process_input_count", True)
+        setattr(validated_process, "_wandas_validates_process_inputs", True)
         cls.process = cast(Any, validated_process)
 
     def __init__(self, sampling_rate: float, *, pure: bool = True, **params: Any):
