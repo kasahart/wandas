@@ -9,10 +9,10 @@ import pytest
 from dask.array.core import Array as DaArray
 
 import wandas.processing.custom  # noqa: F401
-import wandas.processing.effects  # noqa: F401
+import wandas.processing.effects as effects_module
 import wandas.processing.filters  # noqa: F401
 import wandas.processing.psychoacoustic as psychoacoustic_module
-import wandas.processing.spectral  # noqa: F401
+import wandas.processing.spectral as spectral_module
 import wandas.processing.stats  # noqa: F401
 import wandas.processing.temporal  # noqa: F401
 from wandas.processing.base import _OPERATION_REGISTRY, AudioOperation
@@ -90,7 +90,77 @@ def _psycho_signal(samples: int = 1000) -> np.ndarray:
     )
 
 
-def _patch_psychoacoustic_backends(monkeypatch: pytest.MonkeyPatch) -> None:
+class _FakeLibrosaEffects:
+    @staticmethod
+    def harmonic(x: np.ndarray, **_: Any) -> np.ndarray:
+        return np.asarray(x)
+
+    @staticmethod
+    def percussive(x: np.ndarray, **_: Any) -> np.ndarray:
+        return np.asarray(x)
+
+
+def _fake_center_freq(*, fmin: float, fmax: float, n: int, **_: Any) -> tuple[np.ndarray, np.ndarray]:
+    bands = max(1, int(np.ceil(np.log2(fmax / fmin) * n)))
+    indices = np.arange(bands, dtype=np.float64)
+    fpref = fmin * 2.0 ** (indices / n)
+    return indices, fpref
+
+
+def _fake_noct_spectrum(
+    *,
+    sig: np.ndarray,
+    fs: float,
+    fmin: float,
+    fmax: float,
+    n: int,
+    fr: int,
+    **kwargs: Any,
+) -> tuple[np.ndarray, np.ndarray]:
+    del fs, fr
+    _, fpref = _fake_center_freq(fmin=fmin, fmax=fmax, n=n, **kwargs)
+    input_array = np.asarray(sig)
+    n_channels = 1 if input_array.ndim == 1 else input_array.shape[-1]
+    spec = np.ones((fpref.shape[0], n_channels), dtype=np.float64)
+    if n_channels == 1:
+        return spec[:, 0], fpref
+    return spec, fpref
+
+
+def _fake_noct_synthesis(
+    *,
+    spectrum: np.ndarray,
+    freqs: np.ndarray,
+    fmin: float,
+    fmax: float,
+    n: int,
+    fr: int,
+    **kwargs: Any,
+) -> tuple[np.ndarray, np.ndarray]:
+    del freqs, fr
+    _, fpref = _fake_center_freq(fmin=fmin, fmax=fmax, n=n, **kwargs)
+    input_array = np.asarray(spectrum)
+    n_channels = 1 if input_array.ndim == 1 else input_array.shape[-1]
+    result = np.ones((fpref.shape[0], n_channels), dtype=np.float64)
+    if n_channels == 1:
+        return result[:, 0], fpref
+    return result, fpref
+
+
+def _patch_optional_backends(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        effects_module,
+        "require_librosa_effects",
+        lambda _feature: _FakeLibrosaEffects,
+    )
+    monkeypatch.setattr(
+        spectral_module,
+        "require_mosqito_center_freq",
+        lambda _feature: _fake_center_freq,
+    )
+    monkeypatch.setattr(spectral_module, "_center_freq", _fake_center_freq)
+    monkeypatch.setattr(spectral_module, "noct_spectrum", _fake_noct_spectrum)
+    monkeypatch.setattr(spectral_module, "noct_synthesis", _fake_noct_synthesis)
     monkeypatch.setattr(
         psychoacoustic_module._PsychoacousticOperation,
         "ensure_dependencies",
@@ -203,7 +273,35 @@ OPERATION_CASES = _operation_cases()
 
 @pytest.mark.parametrize("case", OPERATION_CASES, ids=[case.name for case in OPERATION_CASES])
 def test_operation_lazy_metadata_matches_computed_result(case: OperationCase, monkeypatch: pytest.MonkeyPatch) -> None:
-    _patch_psychoacoustic_backends(monkeypatch)
+    _patch_optional_backends(monkeypatch)
+    operation = case.operation_factory()
+
+    result_da = operation.process(_as_dask(case.data), *(_as_dask(input_data) for input_data in case.extra_inputs))
+    result = result_da.compute()
+
+    assert result_da.shape == result.shape
+    assert result_da.dtype == result.dtype
+
+
+@pytest.mark.parametrize(
+    "case_name",
+    ["hpss_harmonic", "hpss_percussive", "noct_spectrum", "noct_synthesis", "roughness_dw_spec"],
+)
+def test_operation_lazy_metadata_contract_mocks_optional_backends(
+    case_name: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fail_optional_dependency(*_args: Any, **_kwargs: Any) -> None:
+        raise ImportError("optional dependency should be mocked by this contract test")
+
+    monkeypatch.setattr(effects_module, "require_librosa_effects", fail_optional_dependency)
+    monkeypatch.setattr(spectral_module, "require_mosqito_center_freq", fail_optional_dependency)
+    monkeypatch.setattr(spectral_module, "_center_freq", fail_optional_dependency)
+    monkeypatch.setattr(spectral_module, "noct_spectrum", fail_optional_dependency)
+    monkeypatch.setattr(spectral_module, "noct_synthesis", fail_optional_dependency)
+    monkeypatch.setattr(psychoacoustic_module, "roughness_dw_mosqito", fail_optional_dependency)
+
+    _patch_optional_backends(monkeypatch)
+    case = next(case for case in OPERATION_CASES if case.name == case_name)
     operation = case.operation_factory()
 
     result_da = operation.process(_as_dask(case.data), *(_as_dask(input_data) for input_data in case.extra_inputs))
