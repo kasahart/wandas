@@ -47,6 +47,11 @@ def _validate_channel_first_array(value: Any, label: str) -> None:
     )
 
 
+def _unimplemented_process(_self: object, *inputs: NDArrayReal | NDArrayComplex) -> NoReturn:
+    """Fallback concrete kernel for subclasses that do not implement one."""
+    raise NotImplementedError("Subclasses must implement this method.")
+
+
 @dataclass(frozen=True)
 class LineageNode:
     """Serializable computation provenance node.
@@ -236,7 +241,7 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     _expected_input_count: ClassVar[int | None] = 1
 
     _config: dict[str, Any]
-    _process: Callable[..., NDArrayReal | NDArrayComplex]
+    _process: Callable[..., NDArrayReal | NDArrayComplex] = _unimplemented_process
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Ensure subclass ``process`` overrides keep the base input contract."""
@@ -422,16 +427,6 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         output_shape = self.calculate_output_shape(data.shape)
         output_dtype = self.calculate_output_dtype(data.dtype, *(input_data.dtype for input_data in inputs))
         return _da_from_delayed(delayed_result, shape=output_shape, dtype=output_dtype)
-
-
-def _audio_operation_unimplemented_process(
-    self: AudioOperation[NDArrayReal, NDArrayReal], *inputs: NDArrayReal | NDArrayComplex
-) -> NoReturn:
-    """Fallback concrete kernel for subclasses that do not implement one."""
-    raise NotImplementedError("Subclasses must implement this method.")
-
-
-AudioOperation._process = _audio_operation_unimplemented_process
 
 
 # Automatically collect operation types and corresponding classes
