@@ -63,6 +63,115 @@ class TestGetDisplayNames:
         assert TransferFunction(sr).get_display_name() == "H"
 
 
+class TestSpectralLazyMetadata:
+    @staticmethod
+    def _two_channel_signal(dtype: np.dtype[Any] | type[Any] = np.float64) -> NDArrayReal:
+        t = np.arange(4096, dtype=np.float64) / _SR
+        signal = np.vstack(
+            [
+                np.sin(2 * np.pi * 440 * t),
+                0.5 * np.sin(2 * np.pi * 880 * t),
+            ]
+        )
+        return signal.astype(dtype)
+
+    def test_fft_and_stft_report_complex_dtype_metadata(self) -> None:
+        data = self._two_channel_signal(np.float32)
+
+        for operation in [FFT(_SR, n_fft=1024), STFT(_SR, n_fft=1024)]:
+            result_da = _lazy_process(operation, data)
+            result = result_da.compute()
+
+            assert result_da.shape == result.shape
+            assert result_da.dtype == np.complex128
+            assert result.dtype == np.complex128
+
+    def test_ifft_and_istft_report_real_dtype_metadata(self) -> None:
+        spectrum = np.ones((2, 513), dtype=np.complex64)
+        spectrogram = np.ones((2, 513, 20), dtype=np.complex64)
+
+        ifft_da = _lazy_process(IFFT(_SR, n_fft=1024), spectrum)
+        ifft = ifft_da.compute()
+        istft_da = _lazy_process(ISTFT(_SR, n_fft=1024), spectrogram)
+        istft = istft_da.compute()
+
+        assert ifft_da.shape == ifft.shape
+        assert ifft_da.dtype == np.float64
+        assert ifft.dtype == np.float64
+        assert istft_da.shape == istft.shape
+        assert istft_da.dtype == np.float64
+        assert istft.dtype == np.float64
+
+    def test_stft_1d_input_reports_single_channel_shape_metadata(self) -> None:
+        data = np.ones(4096, dtype=np.float64)
+        operation = STFT(_SR, n_fft=1024)
+
+        result_da = _lazy_process(operation, data)
+        result = result_da.compute()
+
+        assert result_da.shape == result.shape
+        assert result_da.shape[0] == 1
+
+    def test_istft_2d_input_reports_single_channel_shape_metadata(self) -> None:
+        spectrogram = np.ones((513, 20), dtype=np.complex128)
+        operation = ISTFT(_SR, n_fft=1024)
+
+        result_da = _lazy_process(operation, spectrogram)
+        result = result_da.compute()
+
+        assert result_da.shape == result.shape
+        assert result_da.shape[0] == 1
+
+    def test_cross_spectral_complex_operations_report_complex_dtype_metadata(self) -> None:
+        float32_data = self._two_channel_signal(np.float32)
+        float64_data = self._two_channel_signal(np.float64)
+
+        for operation in [CSD(_SR, n_fft=1024), TransferFunction(_SR, n_fft=1024)]:
+            float32_da = _lazy_process(operation, float32_data)
+            float32_result = float32_da.compute()
+            float64_da = _lazy_process(operation, float64_data)
+            float64_result = float64_da.compute()
+
+            assert float32_da.shape == float32_result.shape
+            assert float32_da.dtype == np.complex64
+            assert float32_result.dtype == np.complex64
+            assert float64_da.shape == float64_result.shape
+            assert float64_da.dtype == np.complex128
+            assert float64_result.dtype == np.complex128
+
+    def test_integer_spectral_operations_report_computed_dtype_metadata(self) -> None:
+        data = (self._two_channel_signal(np.float64) * 1000).astype(np.int16)
+
+        for operation in [Welch(_SR, n_fft=1024), Coherence(_SR, n_fft=1024)]:
+            result_da = _lazy_process(operation, data)
+            result = result_da.compute()
+
+            assert result_da.shape == result.shape
+            assert result_da.dtype == np.float32
+            assert result.dtype == np.float32
+
+    def test_noct_spectrum_1d_input_reports_single_channel_shape_metadata(self) -> None:
+        sampling_rate = 48000
+        data = np.ones(sampling_rate, dtype=np.float64)
+        operation = NOctSpectrum(sampling_rate, fmin=100, fmax=10000)
+
+        result_da = _lazy_process(operation, data)
+        result = result_da.compute()
+
+        assert result_da.shape == result.shape
+        assert result_da.shape[0] == 1
+
+    def test_noct_synthesis_1d_input_reports_computed_shape_metadata(self) -> None:
+        sampling_rate = 48000
+        data = np.ones(21, dtype=np.float64)
+        operation = NOctSynthesis(sampling_rate, fmin=100, fmax=10000)
+
+        result_da = _lazy_process(operation, data)
+        result = result_da.compute()
+
+        assert result_da.shape == result.shape
+
+
 class TestFFTOperation:
     """FFT operation: Layer 1 + Layer 2 + Layer 3 (np.fft.rfft reference)."""
 

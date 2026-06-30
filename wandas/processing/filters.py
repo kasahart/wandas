@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 import numpy as np
 from scipy import signal
@@ -81,6 +82,9 @@ class _ButterworthFilter(AudioOperation[NDArrayReal, NDArrayReal]):
     def a(self) -> NDArrayReal:
         """Return a defensive copy of denominator filter coefficients."""
         return self._a.copy()
+
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return np.dtype(np.float64)
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying {self._display} filter to array with shape: {x.shape}")
@@ -202,6 +206,9 @@ class AWeighting(AudioOperation[NDArrayReal, NDArrayReal]):
             Sampling rate (Hz)
         """
         super().__init__(sampling_rate)
+
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return np.dtype(np.float64)
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for A-weighting filter"""

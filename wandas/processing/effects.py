@@ -247,6 +247,11 @@ class RemoveDC(AudioOperation[NDArrayReal, NDArrayReal]):
         super().__init__(sampling_rate)
         logger.debug("Initialized RemoveDC operation")
 
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        if np.issubdtype(input_dtype, np.integer):
+            return np.dtype(np.float64)
+        return np.dtype(input_dtype)
+
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Perform DC removal processing.
 

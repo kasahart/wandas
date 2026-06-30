@@ -24,6 +24,14 @@ def _center_freq(*args: Any, **kwargs: Any) -> Any:
     return require_mosqito_center_freq("NOctFrame")(*args, **kwargs)
 
 
+def _spectral_real_dtype(input_dtype: np.dtype[Any]) -> np.dtype[Any]:
+    return np.dtype(np.result_type(input_dtype, np.float32))
+
+
+def _spectral_complex_dtype(input_dtype: np.dtype[Any]) -> np.dtype[Any]:
+    return np.dtype(np.result_type(_spectral_real_dtype(input_dtype), np.complex64))
+
+
 def _validate_spectral_params(
     n_fft: int,
     win_length: int | None,
@@ -190,6 +198,9 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         n_freqs = n_fft // 2 + 1 if n_fft else input_shape[-1] // 2 + 1
         return (*input_shape[:-1], n_freqs)
 
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return np.dtype(np.complex128)
+
     def _process(self, x: NDArrayReal) -> NDArrayComplex:
         """Apply FFT to the input array."""
         from scipy.signal import get_window
@@ -257,6 +268,9 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         n_fft = self.n_fft
         n_samples = 2 * (input_shape[-1] - 1) if n_fft is None else n_fft
         return (*input_shape[:-1], n_samples)
+
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return np.dtype(np.float64)
 
     def _process(self, x: NDArrayComplex) -> NDArrayReal:
         """Create processor function for IFFT operation"""
@@ -369,10 +383,14 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         tuple
             Output data shape
         """
+        n_channels = 1 if len(input_shape) == 1 else input_shape[0]
         n_samples = input_shape[-1]
         n_f = len(self._SFT.f)
         n_t = len(self._SFT.t(n_samples))
-        return (input_shape[0], n_f, n_t)
+        return (n_channels, n_f, n_t)
+
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return np.dtype(np.complex128)
 
     def _process(self, x: NDArrayReal) -> NDArrayComplex:
         """Apply SciPy STFT processing to multiple channels at once"""
@@ -527,7 +545,7 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
           https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.ShortTimeFFT.istft.html
         - SciPy Source: https://github.com/scipy/scipy/blob/main/scipy/signal/_short_time_fft.py
         """
-        n_channels = input_shape[0]
+        n_channels = 1 if len(input_shape) == 2 else input_shape[0]
         n_frames = input_shape[-1]  # time_frames
 
         # Follow SciPy ShortTimeFFT formula
@@ -548,6 +566,9 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         output_samples = k1 - k0
 
         return (n_channels, output_samples)
+
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return np.dtype(np.float64)
 
     def _process(self, x: NDArrayComplex) -> NDArrayReal:
         """
@@ -692,6 +713,9 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
         n_freqs = self.n_fft // 2 + 1
         return (*input_shape[:-1], n_freqs)
 
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return _spectral_real_dtype(input_dtype)
+
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for Welch operation.
 
@@ -797,6 +821,12 @@ class NOctSpectrum(_NOctBase):
     name = "noct_spectrum"
     _display = "Oct"
 
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        output_shape = super().calculate_output_shape(input_shape)
+        if len(input_shape) == 1:
+            return (1, output_shape[-1])
+        return output_shape
+
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for octave spectrum"""
         logger.debug(f"Applying NoctSpectrum to array with shape: {x.shape}")
@@ -819,6 +849,9 @@ class NOctSynthesis(_NOctBase):
 
     name = "noct_synthesis"
     _display = "Octs"
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        return input_shape
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for octave synthesis"""
@@ -909,6 +942,9 @@ class _CrossSpectralBase(AudioOperation[NDArrayReal, NDArrayReal]):
         n_freqs = self.n_fft // 2 + 1
         return (n_channels * n_channels, n_freqs)
 
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return _spectral_real_dtype(input_dtype)
+
 
 class Coherence(_CrossSpectralBase):
     """Coherence estimation operation"""
@@ -978,6 +1014,9 @@ class _ScaledCrossSpectralBase(_CrossSpectralBase):
     def average(self) -> str:
         """Averaging method captured at operation construction time."""
         return self._config_value("average")
+
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return _spectral_complex_dtype(input_dtype)
 
 
 class CSD(_ScaledCrossSpectralBase):
