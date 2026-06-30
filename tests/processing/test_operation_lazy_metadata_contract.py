@@ -147,6 +147,10 @@ def _fake_noct_synthesis(
     return result, fpref
 
 
+def _noop_ensure_dependencies(self: object) -> None:
+    return None
+
+
 def _patch_optional_backends(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         effects_module,
@@ -161,11 +165,17 @@ def _patch_optional_backends(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(spectral_module, "_center_freq", _fake_center_freq)
     monkeypatch.setattr(spectral_module, "noct_spectrum", _fake_noct_spectrum)
     monkeypatch.setattr(spectral_module, "noct_synthesis", _fake_noct_synthesis)
-    monkeypatch.setattr(
+    psychoacoustic_classes = [
         psychoacoustic_module._PsychoacousticOperation,
-        "ensure_dependencies",
-        lambda self: None,
-    )
+        LoudnessZwtv,
+        LoudnessZwst,
+        RoughnessDw,
+        RoughnessDwSpec,
+        SharpnessDin,
+        SharpnessDinSt,
+    ]
+    for operation_class in psychoacoustic_classes:
+        monkeypatch.setattr(operation_class, "ensure_dependencies", _noop_ensure_dependencies)
 
     def time_samples(ch: np.ndarray, sampling_rate: float) -> int:
         return int(ch.shape[-1] / (sampling_rate * 0.002))
@@ -285,7 +295,18 @@ def test_operation_lazy_metadata_matches_computed_result(case: OperationCase, mo
 
 @pytest.mark.parametrize(
     "case_name",
-    ["hpss_harmonic", "hpss_percussive", "noct_spectrum", "noct_synthesis", "roughness_dw_spec"],
+    [
+        "hpss_harmonic",
+        "hpss_percussive",
+        "noct_spectrum",
+        "noct_synthesis",
+        "loudness_zwtv",
+        "loudness_zwst",
+        "roughness_dw",
+        "roughness_dw_spec",
+        "sharpness_din",
+        "sharpness_din_st",
+    ],
 )
 def test_operation_lazy_metadata_contract_mocks_optional_backends(
     case_name: str, monkeypatch: pytest.MonkeyPatch
@@ -298,6 +319,7 @@ def test_operation_lazy_metadata_contract_mocks_optional_backends(
     monkeypatch.setattr(spectral_module, "_center_freq", fail_optional_dependency)
     monkeypatch.setattr(spectral_module, "noct_spectrum", fail_optional_dependency)
     monkeypatch.setattr(spectral_module, "noct_synthesis", fail_optional_dependency)
+    monkeypatch.setattr(psychoacoustic_module, "require_mosqito_sq_metric", fail_optional_dependency)
     monkeypatch.setattr(psychoacoustic_module, "roughness_dw_mosqito", fail_optional_dependency)
 
     _patch_optional_backends(monkeypatch)

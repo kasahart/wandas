@@ -816,6 +816,23 @@ class TestChannelProcessing:
         assert result.lineage is not None
         assert result.lineage.operation.params == result.lineage.operation.params
 
+    def test_add_with_snr_rejects_broadcast_to_more_channels(self) -> None:
+        signal = ChannelFrame(_da_from_array(np.ones((1, 16000)), chunks=(1, -1)), self.sample_rate)
+        noise = ChannelFrame(_da_from_array(np.ones((2, 16000)) * 0.1, chunks=(1, -1)), self.sample_rate)
+
+        with pytest.raises(ValueError, match=r"Channel count mismatch for SNR addition"):
+            signal.add(noise, snr=6.0)
+
+    def test_add_with_snr_allows_single_noise_channel_for_multichannel_signal(self) -> None:
+        signal_data = np.ones((2, 16000), dtype=np.float64)
+        signal = ChannelFrame(_da_from_array(signal_data, chunks=(1, -1)), self.sample_rate)
+        noise = ChannelFrame(_da_from_array(np.ones((1, 16000)) * 0.1, chunks=(1, -1)), self.sample_rate)
+
+        result = signal.add(noise, snr=6.0)
+
+        assert result.n_channels == 2
+        assert result.compute().shape == signal_data.shape
+
     def test_add_with_snr_rewrites_lineage_for_subclass_result_frame(self) -> None:
         class LegacyChannelFrame(ChannelFrame):
             def __init__(

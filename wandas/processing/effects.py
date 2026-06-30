@@ -378,6 +378,12 @@ class Fade(AudioOperation[NDArrayReal, NDArrayReal]):
         alpha = float(2 * fade_len) / float(n_samples)
         return min(1.0, alpha)
 
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        del input_dtypes
+        if self._fade_len_for_sampling_rate() <= 0:
+            return np.dtype(input_dtype)
+        return np.result_type(input_dtype, np.float64)
+
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying Tukey Fade to array with shape: {x.shape}")
 

@@ -787,3 +787,35 @@ class TestFade:
         result = _compute_process(fade, signal)
 
         np.testing.assert_array_equal(result, signal.reshape(1, -1))
+
+    @pytest.mark.parametrize(
+        ("input_dtype", "expected_dtype"),
+        [
+            (np.dtype(np.int16), np.dtype(np.float64)),
+            (np.dtype(np.float32), np.dtype(np.float64)),
+            (np.dtype(np.float64), np.dtype(np.float64)),
+        ],
+    )
+    def test_fade_nonzero_duration_reports_computed_dtype(
+        self, input_dtype: np.dtype[Any], expected_dtype: np.dtype[Any]
+    ) -> None:
+        signal = np.ones((1, 100), dtype=input_dtype)
+        dask_signal = da_from_array(signal, chunks=(1, -1))
+        fade = Fade(1000, fade_ms=10)
+
+        result_da = fade.process(dask_signal)
+        result = result_da.compute()
+
+        assert result_da.dtype == expected_dtype
+        assert result.dtype == expected_dtype
+
+    def test_fade_zero_duration_preserves_input_dtype_metadata(self) -> None:
+        signal = np.ones((1, 100), dtype=np.int16)
+        dask_signal = da_from_array(signal, chunks=(1, -1))
+        fade = Fade(1000, fade_ms=0)
+
+        result_da = fade.process(dask_signal)
+        result = result_da.compute()
+
+        assert result_da.dtype == signal.dtype
+        assert result.dtype == signal.dtype
