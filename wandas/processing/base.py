@@ -34,6 +34,39 @@ def _mark_wandas_operation(data: Any, operation: "AudioOperation[Any, Any]") -> 
     return data
 
 
+def _validate_channel_first_array(value: Any, label: str) -> None:
+    if not hasattr(value, "ndim"):
+        return
+    if value.ndim >= 2:
+        return
+    raise ValueError(
+        "AudioOperation.process requires channel-first data\n"
+        f"  Got: {label} with shape {value.shape}\n"
+        "  Expected: a Dask array shaped (channels, ...)\n"
+        "Use Frame operations or reshape direct lazy inputs to include a channel axis."
+    )
+
+
+def _iter_dask_config_arrays(value: Any, *, _seen: set[int] | None = None) -> Iterator[DaArray]:
+    if _seen is None:
+        _seen = set()
+    value_id = id(value)
+    if value_id in _seen:
+        return
+    _seen.add(value_id)
+
+    if isinstance(value, DaArray):
+        yield value
+        return
+    if isinstance(value, Mapping):
+        for item in value.values():
+            yield from _iter_dask_config_arrays(item, _seen=_seen)
+        return
+    if isinstance(value, tuple | list | set | frozenset):
+        for item in value:
+            yield from _iter_dask_config_arrays(item, _seen=_seen)
+
+
 @dataclass(frozen=True)
 class LineageNode:
     """Serializable computation provenance node.
@@ -397,12 +430,18 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
 
     def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
         """
-        Execute operation lazily and return a Dask Array.
+        Execute operation lazily on Frame-internal channel-first Dask arrays.
 
-        Data shape is usually (channels, samples). Multi-input operations pass
-        additional Dask arrays through *inputs.
+        ``data`` must be the lazy array held by a Frame, with a leading channel
+        axis such as ``(channels, samples)``. Direct 1-D lazy input is not part
+        of this API; use a Frame operation or reshape direct lazy inputs to add
+        a channel axis before calling ``process()``. Multi-input operations
+        pass additional channel-first Dask arrays through ``*inputs``.
         """
         self._validate_process_input_count(1 + len(inputs))
+        _validate_channel_first_array(data, "data")
+        for index, input_data in enumerate(inputs, start=1):
+            _validate_channel_first_array(input_data, f"input {index}")
         logger.debug("Adding delayed operation to computation graph")
         delayed_result = delayed(_execute_wandas_operation, name=self.name, pure=self.pure)(self, data, *inputs)
         output_shape = self.calculate_output_shape(data.shape)

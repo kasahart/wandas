@@ -73,16 +73,16 @@ class TestFade:
         out = out_da.compute()
         assert out.shape == sig.shape
 
-    def test_fade_1d_input_reports_channel_axis_shape_metadata(self) -> None:
-        """One-dimensional direct operation input reports the reshaped channel axis lazily."""
-        sig = np.ones(100, dtype=float)
-        dsig = da_from_array(sig, chunks=(-1,))
+    def test_fade_ch_first_input_preserves_shape_metadata(self) -> None:
+        """Channel-first lazy input preserves shape metadata."""
+        sig = np.ones((1, 100), dtype=float)
+        dsig = da_from_array(sig, chunks=(1, -1))
 
         op = create_operation("fade", _SR, fade_ms=0.0)
         out_da = op.process(dsig)
 
-        assert out_da.shape == (1, sig.shape[0])
-        assert out_da.compute().shape == (1, sig.shape[0])
+        assert out_da.shape == sig.shape
+        assert out_da.compute().shape == sig.shape
 
     # -- Layer 3: scipy Tukey reference ------------------------------------
 

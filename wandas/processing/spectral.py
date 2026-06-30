@@ -383,7 +383,7 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         tuple
             Output data shape
         """
-        n_channels = 1 if len(input_shape) == 1 else input_shape[0]
+        n_channels = input_shape[0]
         n_samples = input_shape[-1]
         n_f = len(self._SFT.f)
         n_t = len(self._SFT.t(n_samples))
@@ -545,7 +545,7 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
           https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.ShortTimeFFT.istft.html
         - SciPy Source: https://github.com/scipy/scipy/blob/main/scipy/signal/_short_time_fft.py
         """
-        n_channels = 1 if len(input_shape) == 2 else input_shape[0]
+        n_channels = input_shape[0]
         n_frames = input_shape[-1]  # time_frames
 
         # Follow SciPy ShortTimeFFT formula
@@ -821,12 +821,6 @@ class NOctSpectrum(_NOctBase):
     name = "noct_spectrum"
     _display = "Oct"
 
-    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        output_shape = super().calculate_output_shape(input_shape)
-        if len(input_shape) == 1:
-            return (1, output_shape[-1])
-        return output_shape
-
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for octave spectrum"""
         logger.debug(f"Applying NoctSpectrum to array with shape: {x.shape}")
@@ -849,9 +843,6 @@ class NOctSynthesis(_NOctBase):
 
     name = "noct_synthesis"
     _display = "Octs"
-
-    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        return input_shape
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for octave synthesis"""

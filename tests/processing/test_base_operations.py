@@ -203,6 +203,32 @@ class TestAudioOperation:
 
         assert not hasattr(op, "process_array")
 
+    def test_process_rejects_1d_direct_input(self) -> None:
+        """process() requires Frame-internal ch-first Dask arrays."""
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000)
+        data = da_from_array(np.array([1.0, 2.0, 3.0]), chunks=(-1,))
+
+        with pytest.raises(ValueError, match=r"AudioOperation.process requires channel-first data"):
+            op.process(data)
+
+    def test_process_rejects_1d_additional_dask_input(self) -> None:
+        """Multi-input lazy operations require ch-first Dask arrays for all inputs."""
+
+        class AddOtherOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "add_other_op"
+            _expected_input_count = 2
+
+            def _process(self, x: NDArrayReal, other: NDArrayReal) -> NDArrayReal:
+                return x + other
+
+        data = da_from_array(np.array([[1.0, 2.0, 3.0]]), chunks=(1, -1))
+        other = da_from_array(np.array([0.1, 0.2, 0.3]), chunks=(-1,))
+        op = AddOtherOperation(16000)
+
+        with pytest.raises(ValueError, match=r"AudioOperation.process requires channel-first data"):
+            op.process(data, other)
+
     def test_process_preserves_immutability(self) -> None:
         """Pillar 1: process() does not mutate the input DaskArray."""
         test_op_cls = self._make_test_op_class()

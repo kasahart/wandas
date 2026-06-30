@@ -33,8 +33,11 @@ _SR: int = 16000
 def _as_dask(data: Any) -> DaArray:
     if isinstance(data, DaArray):
         return data
-    chunks = (1, *(-1,) * (np.ndim(data) - 1)) if np.ndim(data) > 1 else (-1,)
-    return da_from_array(data, chunks=chunks)
+    array = np.asarray(data)
+    if array.ndim == 1:
+        array = array.reshape(1, -1)
+    chunks = (1, *(-1,) * (array.ndim - 1))
+    return da_from_array(array, chunks=chunks)
 
 
 def _lazy_process(operation: Any, data: Any, *inputs: Any) -> DaArray:
@@ -102,8 +105,8 @@ class TestSpectralLazyMetadata:
         assert istft_da.dtype == np.float64
         assert istft.dtype == np.float64
 
-    def test_stft_1d_input_reports_single_channel_shape_metadata(self) -> None:
-        data = np.ones(4096, dtype=np.float64)
+    def test_stft_ch_first_input_reports_shape_metadata(self) -> None:
+        data = np.ones((1, 4096), dtype=np.float64)
         operation = STFT(_SR, n_fft=1024)
 
         result_da = _lazy_process(operation, data)
@@ -112,8 +115,8 @@ class TestSpectralLazyMetadata:
         assert result_da.shape == result.shape
         assert result_da.shape[0] == 1
 
-    def test_istft_2d_input_reports_single_channel_shape_metadata(self) -> None:
-        spectrogram = np.ones((513, 20), dtype=np.complex128)
+    def test_istft_ch_first_input_reports_shape_metadata(self) -> None:
+        spectrogram = np.ones((1, 513, 20), dtype=np.complex128)
         operation = ISTFT(_SR, n_fft=1024)
 
         result_da = _lazy_process(operation, spectrogram)
@@ -150,9 +153,9 @@ class TestSpectralLazyMetadata:
             assert result_da.dtype == np.float32
             assert result.dtype == np.float32
 
-    def test_noct_spectrum_1d_input_reports_single_channel_shape_metadata(self) -> None:
+    def test_noct_spectrum_ch_first_input_reports_shape_metadata(self) -> None:
         sampling_rate = 48000
-        data = np.ones(sampling_rate, dtype=np.float64)
+        data = np.ones((1, sampling_rate), dtype=np.float64)
         operation = NOctSpectrum(sampling_rate, fmin=100, fmax=10000)
 
         result_da = _lazy_process(operation, data)
@@ -161,9 +164,9 @@ class TestSpectralLazyMetadata:
         assert result_da.shape == result.shape
         assert result_da.shape[0] == 1
 
-    def test_noct_synthesis_1d_input_reports_computed_shape_metadata(self) -> None:
+    def test_noct_synthesis_ch_first_input_reports_band_count_shape_metadata(self) -> None:
         sampling_rate = 48000
-        data = np.ones(21, dtype=np.float64)
+        data = np.ones((1, 513), dtype=np.float64)
         operation = NOctSynthesis(sampling_rate, fmin=100, fmax=10000)
 
         result_da = _lazy_process(operation, data)
@@ -926,6 +929,23 @@ class TestNOctSynthesisOperation:
         np.testing.assert_array_equal(spectrum, spec_copy)
         assert result is not spectrum
 
+    def test_process_metadata_shape_uses_fractional_octave_band_count(self) -> None:
+        """NOctSynthesis lazy metadata shape matches its computed band-count output."""
+        spectrum = np.ones((1, 513))
+        dask_spectrum = da_from_array(spectrum, chunks=(1, -1))
+        _, center_freqs = _center_freq(
+            fmin=self._FMIN,
+            fmax=self._FMAX,
+            n=self._N,
+            G=self._G,
+            fr=self._FR,
+        )
+
+        result_da = self._op().process(dask_spectrum)
+
+        assert result_da.shape == (1, len(center_freqs))
+        assert result_da.compute().shape == result_da.shape
+
     def test_delayed_execution_not_computed_early(self) -> None:
         """Pillar 1: Dask lazy evaluation preserved; no premature compute()."""
         pink, _ = self._make_pink_noise()
@@ -961,7 +981,7 @@ class TestNOctSynthesisOperation:
 
         fft = FFT(self._NOCT_SR, n_fft=None, window="hann")
         spectrum = _compute_process(fft, dask_sig)
-        result_da = self._op().process(spectrum)
+        result_da = _lazy_process(self._op(), spectrum)
         assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
         result = result_da.compute()
 
@@ -994,7 +1014,7 @@ class TestNOctSynthesisOperation:
 
         fft = FFT(self._NOCT_SR, n_fft=None, window="hann")
         spectrum = _compute_process(fft, dask_sig)
-        result_da = self._op().process(spectrum)
+        result_da = _lazy_process(self._op(), spectrum)
         assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
         result = result_da.compute()
 

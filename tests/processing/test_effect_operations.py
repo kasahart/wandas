@@ -23,8 +23,11 @@ _SR: int = 16000
 def _as_dask(data: Any) -> DaArray:
     if isinstance(data, DaArray):
         return data
-    chunks = (1, *(-1,) * (np.ndim(data) - 1)) if np.ndim(data) > 1 else (-1,)
-    return da_from_array(data, chunks=chunks)
+    array = np.asarray(data)
+    if array.ndim == 1:
+        array = array.reshape(1, -1)
+    chunks = (1, *(-1,) * (array.ndim - 1))
+    return da_from_array(array, chunks=chunks)
 
 
 def _compute_process(operation: Any, data: Any, *inputs: Any) -> Any:
@@ -769,7 +772,7 @@ class TestEffectLazyMetadata:
         data = np.array([[1000, -1000, 500, -500]], dtype=np.int16)
 
         _assert_lazy_metadata_matches_compute(RemoveDC(_SR), data)
-        _assert_lazy_metadata_matches_compute(Fade(_SR, fade_ms=0), data[0])
+        _assert_lazy_metadata_matches_compute(Fade(_SR, fade_ms=0), data)
         _assert_lazy_metadata_matches_compute(AddWithSNR(_SR, snr=10), data, data.astype(np.float32))
 
 
