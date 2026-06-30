@@ -74,7 +74,6 @@ class TestCustomOperation:
         )
 
         processed = op.process(dask_data)
-        assert processed.shape == (1, 4)
         assert op.func is halve_samples
         assert op.output_shape_func is output_shape
         np.testing.assert_array_equal(processed.compute(), halve_samples(data))

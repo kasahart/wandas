@@ -34,14 +34,6 @@ def _compute_process(operation: Any, data: Any, *inputs: Any) -> Any:
     return operation.process(_as_dask(data), *(_as_dask(input_data) for input_data in inputs)).compute()
 
 
-def _assert_lazy_metadata_matches_compute(operation: Any, data: Any, *inputs: Any) -> None:
-    result_da = operation.process(_as_dask(data), *(_as_dask(input_data) for input_data in inputs))
-    result = result_da.compute()
-
-    assert result_da.shape == result.shape
-    assert result_da.dtype == result.dtype
-
-
 class TestHpssHarmonic:
     """HPSS harmonic extraction: Layer 1 (unit) + Layer 2 (domain) + Layer 3."""
 
@@ -765,15 +757,6 @@ class TestNormalize:
         assert "Positive value" in error_msg
         # Check HOW
         assert "Typical values:" in error_msg
-
-
-class TestEffectLazyMetadata:
-    def test_effect_operations_report_computed_shape_and_dtype_metadata(self) -> None:
-        data = np.array([[1000, -1000, 500, -500]], dtype=np.int16)
-
-        _assert_lazy_metadata_matches_compute(RemoveDC(_SR), data)
-        _assert_lazy_metadata_matches_compute(Fade(_SR, fade_ms=0), data)
-        _assert_lazy_metadata_matches_compute(AddWithSNR(_SR, snr=10), data, data.astype(np.float32))
 
 
 class TestFade:

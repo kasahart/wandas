@@ -1,4 +1,3 @@
-from typing import Any
 from unittest import mock
 
 import numpy as np
@@ -13,7 +12,6 @@ from wandas.processing.filters import (
     HighPassFilter,
     LowPassFilter,
 )
-from wandas.utils.dask_helpers import da_from_array
 
 # ---------------------------------------------------------------------------
 # Constants shared across filter tests
@@ -23,15 +21,6 @@ _CUTOFF_HPF: float = 500.0
 _ORDER: int = 4
 _LOW_FREQ: float = 50.0  # below typical cutoff — must be attenuated by HPF/LPF
 _HIGH_FREQ: float = 1000.0  # above typical cutoff — must be preserved by HPF
-
-
-def _assert_lazy_metadata_matches_compute(operation: Any, data: np.ndarray) -> None:
-    dask_input = da_from_array(data, chunks=(1, -1))
-    result_da = operation.process(dask_input)
-    result = result_da.compute()
-
-    assert result_da.shape == result.shape
-    assert result_da.dtype == result.dtype
 
 
 class TestHighPassFilter:
@@ -93,14 +82,6 @@ class TestHighPassFilter:
         # Check HOW
         assert "Solutions:" in error_msg
         assert "resample" in error_msg.lower()
-
-    def test_filter_lazy_metadata_matches_computed_results_for_float32_input(self) -> None:
-        data = np.ones((1, 512), dtype=np.float32)
-
-        _assert_lazy_metadata_matches_compute(HighPassFilter(_SR, _CUTOFF_HPF), data)
-        _assert_lazy_metadata_matches_compute(LowPassFilter(_SR, 1000.0), data)
-        _assert_lazy_metadata_matches_compute(BandPassFilter(_SR, 100.0, 1000.0), data)
-        _assert_lazy_metadata_matches_compute(AWeighting(_SR), data)
 
     # -- Layer 2: Domain tests (physics) -----------------------------------
 

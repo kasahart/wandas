@@ -6,7 +6,7 @@ from collections import defaultdict
 from collections.abc import Iterator, Mapping, MutableMapping
 from dataclasses import dataclass
 from functools import wraps
-from typing import Any, ClassVar, Generic, TypeVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast
 
 import dask.array as da
 import numpy as np
@@ -45,26 +45,6 @@ def _validate_channel_first_array(value: Any, label: str) -> None:
         "  Expected: a Dask array shaped (channels, ...)\n"
         "Use Frame operations or reshape direct lazy inputs to include a channel axis."
     )
-
-
-def _iter_dask_config_arrays(value: Any, *, _seen: set[int] | None = None) -> Iterator[DaArray]:
-    if _seen is None:
-        _seen = set()
-    value_id = id(value)
-    if value_id in _seen:
-        return
-    _seen.add(value_id)
-
-    if isinstance(value, DaArray):
-        yield value
-        return
-    if isinstance(value, Mapping):
-        for item in value.values():
-            yield from _iter_dask_config_arrays(item, _seen=_seen)
-        return
-    if isinstance(value, tuple | list | set | frozenset):
-        for item in value:
-            yield from _iter_dask_config_arrays(item, _seen=_seen)
 
 
 @dataclass(frozen=True)
@@ -392,11 +372,13 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
             "runtime inputs are required."
         )
 
-    def _missing_process(self, *inputs: Any) -> Any:
-        """Fallback concrete kernel for subclasses that do not implement one."""
-        raise NotImplementedError("Subclasses must implement this method.")
+    if TYPE_CHECKING:
+        _process: Any
+    else:
 
-    _process: Any = _missing_process
+        def _process(self, *inputs: Any) -> Any:
+            """Fallback concrete kernel for subclasses that do not implement one."""
+            raise NotImplementedError("Subclasses must implement this method.")
 
     def _mark_array(self, data: DaArray) -> DaArray:
         """Attach an explicit operation marker to a Dask-native array result."""
