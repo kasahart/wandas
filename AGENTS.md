@@ -14,6 +14,8 @@ Core rules:
 - Avoid duplicated state, silent no-op compatibility shims, and public mutable state that must be synchronized with internal state.
 - When changing behavior, update the relevant tests so they describe the clarified contract.
 - Run relevant `uv run pytest`, `uv run ruff check`, and `uv run ty check` commands before finishing.
+- After pushing PR updates, verify that local `HEAD`, `origin/<branch>`, and the PR head SHA match before reporting completion.
+- After a PR is merged, check closing issue references and close any completed-but-open source issue with a concise comment.
 
 Area-specific guidance lives in:
 
