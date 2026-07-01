@@ -2,6 +2,7 @@ import abc
 import json
 from collections import Counter, defaultdict, namedtuple
 from decimal import Decimal
+from fractions import Fraction
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -347,6 +348,46 @@ class TestAudioOperation:
         summary = op.to_summary()
 
         assert summary["params"]["window"] == {"type": "timedelta64"}
+        assert summary["portable"] is False
+        json.dumps(summary, allow_nan=False)
+
+    def test_audio_operation_summary_marks_lossy_rational_params_non_portable(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000, ratio=Fraction(1, 3))
+
+        summary = op.to_summary()
+
+        assert summary["params"]["ratio"] == {"type": "Fraction"}
+        assert summary["portable"] is False
+        json.dumps(summary, allow_nan=False)
+
+    def test_audio_operation_summary_marks_ndarray_params_non_portable(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000, weights=np.array([0.1, 0.9]))
+
+        summary = op.to_summary()
+
+        assert summary["params"]["weights"] == {
+            "type": "ndarray",
+            "shape": [2],
+            "dtype": "float64",
+        }
+        assert summary["portable"] is False
+        json.dumps(summary, allow_nan=False)
+
+    def test_audio_operation_summary_normalizes_top_level_param_keys_for_strict_json(self) -> None:
+        class NonStringParamKeyOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "non_string_param_key_op"
+
+            def to_params(self) -> dict[Any, Any]:
+                return {1: "linear", "1": "log"}
+
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        summary = NonStringParamKeyOperation(16000).to_summary()
+
+        assert summary["params"] == {"1": "log"}
         assert summary["portable"] is False
         json.dumps(summary, allow_nan=False)
 

@@ -118,6 +118,8 @@ def _summary_value(value: Any) -> Any:
         return bool(value)
     if isinstance(value, numbers.Integral):
         return int(value)
+    if isinstance(value, numbers.Rational):
+        return {"type": type(value).__name__}
     if isinstance(value, numbers.Real):
         numeric = float(value)
         if np.isfinite(numeric):
@@ -159,10 +161,12 @@ def _summary_is_portable(value: Any) -> bool:
         return True
     if isinstance(value, np.timedelta64 | np.datetime64):
         return False
-    if isinstance(value, numbers.Integral | numbers.Real | numbers.Complex):
+    if isinstance(value, int | float | complex | np.integer | np.floating | np.complexfloating):
         return True
-    if isinstance(value, np.ndarray | DaArray):
+    if isinstance(value, DaArray):
         return True
+    if isinstance(value, np.ndarray):
+        return False
     if isinstance(value, Mapping):
         return all(isinstance(key, str) and _summary_is_portable(item) for key, item in value.items())
     if isinstance(value, tuple | list | set | frozenset):
@@ -403,8 +407,8 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         return {
             "schema_version": SUMMARY_SCHEMA_VERSION,
             "operation": self.name,
-            "params": {key: _summary_value(value) for key, value in params.items()},
-            "portable": all(_summary_is_portable(value) for value in params.values()),
+            "params": {str(key): _summary_value(value) for key, value in params.items()},
+            "portable": all(isinstance(key, str) and _summary_is_portable(value) for key, value in params.items()),
         }
 
     def _config_snapshot(self) -> dict[str, Any]:
