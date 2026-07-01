@@ -112,6 +112,8 @@ def _summary_value(value: Any) -> Any:
         return {"type": "callable", "name": getattr(value, "__qualname__", type(value).__name__)}
     if value is None or isinstance(value, str):
         return value
+    if isinstance(value, np.timedelta64 | np.datetime64):
+        return {"type": type(value).__name__}
     if isinstance(value, bool | np.bool_):
         return bool(value)
     if isinstance(value, numbers.Integral):
@@ -155,7 +157,9 @@ def _summary_is_portable(value: Any) -> bool:
         return False
     if value is None or isinstance(value, str | bool | np.bool_):
         return True
-    if isinstance(value, numbers.Number):
+    if isinstance(value, np.timedelta64 | np.datetime64):
+        return False
+    if isinstance(value, numbers.Integral | numbers.Real | numbers.Complex):
         return True
     if isinstance(value, np.ndarray | DaArray):
         return True
@@ -164,6 +168,11 @@ def _summary_is_portable(value: Any) -> bool:
     if isinstance(value, tuple | list | set | frozenset):
         return all(_summary_is_portable(item) for item in value)
     return False
+
+
+def _operand_descriptor_is_portable(value: Any) -> bool:
+    """Return whether ``_operand_descriptor`` preserves the operand value."""
+    return value is None or isinstance(value, bool | int | float | complex | str)
 
 
 @dataclass(frozen=True)
@@ -192,11 +201,12 @@ class BinaryOperation:
 
     def to_summary(self) -> OperationSummary:
         """Return a lightweight display/persistence summary for this operation."""
+        params = self.to_params()
         return {
             "schema_version": SUMMARY_SCHEMA_VERSION,
             "operation": self.symbol,
-            "params": {key: _summary_value(value) for key, value in self.to_params().items()},
-            "portable": True,
+            "params": {key: _summary_value(value) for key, value in params.items()},
+            "portable": self.operand_kind == "frame" or _operand_descriptor_is_portable(self.operand),
         }
 
 

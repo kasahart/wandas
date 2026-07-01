@@ -1,6 +1,7 @@
 import abc
 import json
 from collections import Counter, defaultdict, namedtuple
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -161,6 +162,25 @@ def test_binary_operation_to_summary_returns_portable_summary() -> None:
     }
 
 
+@pytest.mark.parametrize(
+    ("operand", "expected_operand"),
+    [
+        (np.float32(0.5), {"type": "float32", "shape": []}),
+        (np.array([0.5, 1.5]), {"type": "ndarray", "shape": [2], "dtype": "float64"}),
+    ],
+)
+def test_binary_operation_to_summary_marks_descriptor_only_operands_non_portable(
+    operand: Any, expected_operand: dict[str, Any]
+) -> None:
+    operation = BinaryOperation(symbol="+", operand_kind="scalar", operand=operand)
+
+    summary = operation.to_summary()
+
+    assert summary["params"]["operand"] == expected_operand
+    assert summary["portable"] is False
+    json.dumps(summary, allow_nan=False)
+
+
 class TestAudioOperation:
     """Test AudioOperation base class."""
 
@@ -307,6 +327,26 @@ class TestAudioOperation:
         summary = op.to_summary()
 
         assert summary["params"]["config"] == {"1": "log"}
+        assert summary["portable"] is False
+        json.dumps(summary, allow_nan=False)
+
+    def test_audio_operation_summary_marks_unsupported_numeric_params_non_portable(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000, amount=Decimal("1.25"))
+
+        summary = op.to_summary()
+
+        assert summary["params"]["amount"] == {"type": "Decimal"}
+        assert summary["portable"] is False
+        json.dumps(summary, allow_nan=False)
+
+    def test_audio_operation_summary_handles_timedelta_params_as_non_portable(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000, window=np.timedelta64(1, "s"))
+
+        summary = op.to_summary()
+
+        assert summary["params"]["window"] == {"type": "timedelta64"}
         assert summary["portable"] is False
         json.dumps(summary, allow_nan=False)
 
