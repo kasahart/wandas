@@ -103,6 +103,8 @@ def _operand_descriptor(value: Any) -> dict[str, Any]:
 
 def _summary_value(value: Any) -> Any:
     """Return a lightweight, display-safe representation of a summary value."""
+    if callable(value):
+        return {"type": "callable", "name": getattr(value, "__qualname__", type(value).__name__)}
     if value is None or isinstance(value, str):
         return value
     if isinstance(value, bool | np.bool_):
@@ -125,9 +127,9 @@ def _summary_value(value: Any) -> Any:
             "imag": _summary_value(value.imag),
         }
     if isinstance(value, Mapping):
-        return {str(key): _summary_value(item) for key, item in value.items() if not callable(item)}
+        return {str(key): _summary_value(item) for key, item in value.items()}
     if isinstance(value, tuple | list):
-        return [_summary_value(item) for item in value if not callable(item)]
+        return [_summary_value(item) for item in value]
     if isinstance(value, np.ndarray):
         return {"type": "ndarray", "shape": list(value.shape), "dtype": str(value.dtype)}
     if isinstance(value, DaArray):
@@ -137,9 +139,18 @@ def _summary_value(value: Any) -> Any:
             "dtype": str(value.dtype),
             "chunks": [list(chunk) for chunk in value.chunks],
         }
-    if callable(value):
-        return {"type": "callable", "name": getattr(value, "__qualname__", type(value).__name__)}
     return {"type": type(value).__name__}
+
+
+def _summary_is_portable(value: Any) -> bool:
+    """Return whether a value can be represented as a portable summary."""
+    if callable(value):
+        return False
+    if isinstance(value, Mapping):
+        return all(_summary_is_portable(item) for item in value.values())
+    if isinstance(value, tuple | list | set | frozenset):
+        return all(_summary_is_portable(item) for item in value)
+    return True
 
 
 @dataclass(frozen=True)
@@ -365,11 +376,12 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
 
     def to_summary(self) -> OperationSummary:
         """Return a lightweight display/persistence summary for this operation."""
+        params = self.to_params()
         return {
             "schema_version": SUMMARY_SCHEMA_VERSION,
             "operation": self.name,
-            "params": {key: _summary_value(value) for key, value in self.to_params().items()},
-            "portable": True,
+            "params": {key: _summary_value(value) for key, value in params.items()},
+            "portable": all(_summary_is_portable(value) for value in params.values()),
         }
 
     def _config_snapshot(self) -> dict[str, Any]:

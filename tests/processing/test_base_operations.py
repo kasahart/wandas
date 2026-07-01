@@ -258,6 +258,47 @@ class TestAudioOperation:
         assert summary["params"]["norm"] == {"type": "float", "value": "inf"}
         json.dumps(summary, allow_nan=False)
 
+    def test_audio_operation_summary_preserves_nested_callable_params_as_non_portable(self) -> None:
+        def transform(value: float) -> float:
+            return value * 2.0
+
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000, config={"transform": transform}, steps=[transform])
+
+        summary = op.to_summary()
+
+        expected_name = (
+            "TestAudioOperation."
+            "test_audio_operation_summary_preserves_nested_callable_params_as_non_portable."
+            "<locals>.transform"
+        )
+        assert summary["params"]["config"]["transform"] == {
+            "type": "callable",
+            "name": expected_name,
+        }
+        assert summary["params"]["steps"] == [
+            {
+                "type": "callable",
+                "name": expected_name,
+            }
+        ]
+        assert summary["portable"] is False
+        json.dumps(summary, allow_nan=False)
+
+    def test_audio_operation_summary_preserves_numpy_and_complex_scalars_for_strict_json(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000, gain=np.float32(0.5), count=np.int64(4), phase=1 + 2j)
+
+        summary = op.to_summary()
+
+        assert summary["params"] == {
+            "gain": 0.5,
+            "count": 4,
+            "phase": {"type": "complex", "real": 1.0, "imag": 2.0},
+        }
+        assert summary["portable"] is True
+        json.dumps(summary, allow_nan=False)
+
     def test_process_rejects_1d_direct_input(self) -> None:
         """process() requires Frame-internal ch-first Dask arrays."""
         test_op_cls = self._make_test_op_class()
