@@ -300,6 +300,16 @@ class TestAudioOperation:
         assert summary["portable"] is False
         json.dumps(summary, allow_nan=False)
 
+    def test_audio_operation_summary_marks_non_string_mapping_keys_non_portable(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000, config={1: "linear", "1": "log"})
+
+        summary = op.to_summary()
+
+        assert summary["params"]["config"] == {"1": "log"}
+        assert summary["portable"] is False
+        json.dumps(summary, allow_nan=False)
+
     def test_audio_operation_summary_sanitizes_non_finite_numbers_for_strict_json(self) -> None:
         summary = Normalize(16000).to_summary()
 

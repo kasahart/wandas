@@ -160,7 +160,7 @@ def _summary_is_portable(value: Any) -> bool:
     if isinstance(value, np.ndarray | DaArray):
         return True
     if isinstance(value, Mapping):
-        return all(_summary_is_portable(item) for item in value.values())
+        return all(isinstance(key, str) and _summary_is_portable(item) for key, item in value.items())
     if isinstance(value, tuple | list | set | frozenset):
         return all(_summary_is_portable(item) for item in value)
     return False
