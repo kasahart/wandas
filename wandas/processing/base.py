@@ -167,9 +167,9 @@ def _summary_is_portable(value: Any) -> bool:
         return True
     if isinstance(value, np.ndarray):
         return False
-    if isinstance(value, Mapping):
+    if type(value) is dict:
         return all(isinstance(key, str) and _summary_is_portable(item) for key, item in value.items())
-    if isinstance(value, tuple | list | set | frozenset):
+    if type(value) in (tuple, list, set, frozenset):
         return all(_summary_is_portable(item) for item in value)
     return False
 
@@ -210,7 +210,8 @@ class BinaryOperation:
             "schema_version": SUMMARY_SCHEMA_VERSION,
             "operation": self.symbol,
             "params": {key: _summary_value(value) for key, value in params.items()},
-            "portable": self.operand_kind == "frame" or _operand_descriptor_is_portable(self.operand),
+            "portable": (self.operand_kind == "frame" and self.operand is not None)
+            or (self.operand_kind != "frame" and _operand_descriptor_is_portable(self.operand)),
         }
 
 

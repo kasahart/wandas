@@ -163,6 +163,16 @@ def test_binary_operation_to_summary_returns_portable_summary() -> None:
     }
 
 
+def test_binary_operation_to_summary_marks_unlabeled_frame_operand_non_portable() -> None:
+    operation = BinaryOperation(symbol="+", operand_kind="frame", operand=None)
+
+    summary = operation.to_summary()
+
+    assert summary["params"] == {"symbol": "+", "operand_kind": "frame"}
+    assert summary["portable"] is False
+    json.dumps(summary, allow_nan=False)
+
+
 @pytest.mark.parametrize(
     ("operand", "expected_operand"),
     [
@@ -372,6 +382,22 @@ class TestAudioOperation:
             "shape": [2],
             "dtype": "float64",
         }
+        assert summary["portable"] is False
+        json.dumps(summary, allow_nan=False)
+
+    def test_audio_operation_summary_marks_container_subclasses_non_portable(self) -> None:
+        Config = namedtuple("Config", ["gain"])
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(
+            16000,
+            config=defaultdict(lambda: 2.0, {"gain": 3.0}),
+            preset=Config(gain=2.0),
+        )
+
+        summary = op.to_summary()
+
+        assert summary["params"]["config"] == {"gain": 3.0}
+        assert summary["params"]["preset"] == [2.0]
         assert summary["portable"] is False
         json.dumps(summary, allow_nan=False)
 
