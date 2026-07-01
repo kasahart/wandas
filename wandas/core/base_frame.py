@@ -572,6 +572,32 @@ class BaseFrame(ABC, Generic[T]):
             ],
         }
 
+    @classmethod
+    def _lineage_to_summaries(cls, lineage: "LineageNode | None") -> list[dict[str, Any]]:
+        if lineage is None:
+            return []
+        records: list[dict[str, Any]] = []
+        for input_lineage in lineage.inputs:
+            records.extend(cls._lineage_to_summaries(input_lineage))
+        operation = lineage.operation
+        if hasattr(operation, "to_summary"):
+            records.append(cast(dict[str, Any], operation.to_summary()))
+        else:
+            records.append(
+                {
+                    "schema_version": 1,
+                    "operation": cls._operation_name(operation),
+                    "params": cls._operation_params(operation),
+                    "portable": False,
+                }
+            )
+        return records
+
+    @property
+    def operation_summaries(self) -> list[dict[str, Any]]:
+        """Return lightweight operation summaries for display and persistence."""
+        return self._lineage_to_summaries(self.lineage)
+
     def _lineage_with_operation(self, operation: Any, *inputs: "LineageNode | None") -> "LineageNode":
         from wandas.processing.base import LineageNode
 

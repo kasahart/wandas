@@ -230,3 +230,37 @@ def test_operations_property_is_read_only_sequence() -> None:
     assert isinstance(result.operations, tuple)
     with pytest.raises(AttributeError):
         result.operations = ()  # ty: ignore[invalid-assignment]
+
+
+def test_operation_summaries_returns_serial_lineage_summaries() -> None:
+    result = _frame().normalize().low_pass_filter(1000)
+
+    assert [summary["operation"] for summary in result.operation_summaries] == [
+        "normalize",
+        "lowpass_filter",
+    ]
+    assert all(summary["schema_version"] == 1 for summary in result.operation_summaries)
+    assert all(summary["portable"] is True for summary in result.operation_summaries)
+
+
+def test_operation_summaries_does_not_compute_data() -> None:
+    result = _frame().normalize()
+
+    with mock.patch("dask.array.core.Array.compute") as compute:
+        summaries = result.operation_summaries
+
+    compute.assert_not_called()
+    assert summaries[0]["operation"] == "normalize"
+
+
+def test_operation_summaries_include_multi_input_lineage() -> None:
+    signal = _frame().normalize()
+    noise = _frame().low_pass_filter(1000)
+
+    result = signal.add(noise, snr=6.0)
+
+    assert [summary["operation"] for summary in result.operation_summaries] == [
+        "normalize",
+        "lowpass_filter",
+        "add_with_snr",
+    ]

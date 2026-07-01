@@ -141,6 +141,21 @@ def test_binary_operation_params_delegate_to_params() -> None:
     }
 
 
+def test_binary_operation_to_summary_returns_portable_summary() -> None:
+    operation = BinaryOperation(symbol="+", operand_kind="scalar", operand=2.0)
+
+    assert operation.to_summary() == {
+        "schema_version": 1,
+        "operation": "+",
+        "params": {
+            "symbol": "+",
+            "operand_kind": "scalar",
+            "operand": {"type": "float", "value": 2.0},
+        },
+        "portable": True,
+    }
+
+
 class TestAudioOperation:
     """Test AudioOperation base class."""
 
@@ -202,6 +217,38 @@ class TestAudioOperation:
         op = SimpleOp(16000)
 
         assert not hasattr(op, "process_array")
+
+    def test_audio_operation_to_summary_returns_portable_summary(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000, gain=2.0, enabled=True)
+
+        assert op.to_summary() == {
+            "schema_version": 1,
+            "operation": "test_op",
+            "params": {"gain": 2.0, "enabled": True},
+            "portable": True,
+        }
+
+    def test_audio_operation_to_summary_returns_defensive_params(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000, config={"gain": 2.0})
+
+        summary = op.to_summary()
+        summary["params"]["config"]["gain"] = 99.0
+
+        assert op.to_params()["config"] == {"gain": 2.0}
+
+    def test_audio_operation_summary_sanitizes_array_like_params(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000, weights=np.array([1.0, 2.0]))
+
+        summary = op.to_summary()
+
+        assert summary["params"]["weights"] == {
+            "type": "ndarray",
+            "shape": [2],
+            "dtype": "float64",
+        }
 
     def test_process_rejects_1d_direct_input(self) -> None:
         """process() requires Frame-internal ch-first Dask arrays."""

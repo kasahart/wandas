@@ -22,6 +22,8 @@ _da_from_delayed = da.from_delayed
 # Define TypeVars for input and output array types
 InputArrayType = TypeVar("InputArrayType", NDArrayReal, NDArrayComplex)
 OutputArrayType = TypeVar("OutputArrayType", NDArrayReal, NDArrayComplex)
+OperationSummary = dict[str, Any]
+SUMMARY_SCHEMA_VERSION = 1
 
 
 def _execute_wandas_operation(operation: "AudioOperation[Any, Any]", *inputs: Any) -> Any:
@@ -98,6 +100,28 @@ def _operand_descriptor(value: Any) -> dict[str, Any]:
     return {"type": type(value).__name__}
 
 
+def _summary_value(value: Any) -> Any:
+    """Return a lightweight, display-safe representation of a summary value."""
+    if value is None or isinstance(value, bool | int | float | str):
+        return value
+    if isinstance(value, Mapping):
+        return {str(key): _summary_value(item) for key, item in value.items() if not callable(item)}
+    if isinstance(value, tuple | list):
+        return [_summary_value(item) for item in value if not callable(item)]
+    if isinstance(value, np.ndarray):
+        return {"type": "ndarray", "shape": list(value.shape), "dtype": str(value.dtype)}
+    if isinstance(value, DaArray):
+        return {
+            "type": "dask.array",
+            "shape": list(value.shape),
+            "dtype": str(value.dtype),
+            "chunks": [list(chunk) for chunk in value.chunks],
+        }
+    if callable(value):
+        return {"type": "callable", "name": getattr(value, "__qualname__", type(value).__name__)}
+    return {"type": type(value).__name__}
+
+
 @dataclass(frozen=True)
 class BinaryOperation:
     """Lightweight operation record for frame binary computations."""
@@ -121,6 +145,15 @@ class BinaryOperation:
         elif self.operand_kind != "frame":
             params["operand"] = _operand_descriptor(self.operand)
         return params
+
+    def to_summary(self) -> OperationSummary:
+        """Return a lightweight display/persistence summary for this operation."""
+        return {
+            "schema_version": SUMMARY_SCHEMA_VERSION,
+            "operation": self.symbol,
+            "params": {key: _summary_value(value) for key, value in self.to_params().items()},
+            "portable": True,
+        }
 
 
 def _snapshot_config_value(value: Any) -> Any:
@@ -309,6 +342,15 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     def to_params(self) -> Mapping[str, Any]:
         """Return operation parameters used for lineage and display."""
         return self._config_snapshot()
+
+    def to_summary(self) -> OperationSummary:
+        """Return a lightweight display/persistence summary for this operation."""
+        return {
+            "schema_version": SUMMARY_SCHEMA_VERSION,
+            "operation": self.name,
+            "params": {key: _summary_value(value) for key, value in self.to_params().items()},
+            "portable": True,
+        }
 
     def _config_snapshot(self) -> dict[str, Any]:
         """Return a defensive copy of base-managed constructor config."""

@@ -9,6 +9,14 @@ from wandas.processing.base import (
 )
 
 
+def _callable_reference(func: Callable[..., Any]) -> str:
+    module = getattr(func, "__module__", None)
+    qualname = getattr(func, "__qualname__", None)
+    if module and qualname:
+        return f"{module}:{qualname}"
+    return getattr(func, "__name__", type(func).__name__)
+
+
 class CustomOperation(AudioOperation[InputArrayType, OutputArrayType]):
     """Custom operation defined by a user function."""
 
@@ -76,6 +84,13 @@ class CustomOperation(AudioOperation[InputArrayType, OutputArrayType]):
         if isinstance(name, str):
             return name
         return "custom"
+
+    def to_summary(self) -> dict[str, Any]:
+        """Return a non-portable summary for this custom callable."""
+        summary = super().to_summary()
+        summary["portable"] = False
+        summary["implementation"] = _callable_reference(self.func)
+        return summary
 
 
 register_operation(CustomOperation)
