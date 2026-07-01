@@ -2,6 +2,7 @@ import copy
 import importlib
 import inspect
 import logging
+import numbers
 from collections import defaultdict
 from collections.abc import Callable, Iterator, Mapping, MutableMapping
 from dataclasses import dataclass
@@ -102,8 +103,27 @@ def _operand_descriptor(value: Any) -> dict[str, Any]:
 
 def _summary_value(value: Any) -> Any:
     """Return a lightweight, display-safe representation of a summary value."""
-    if value is None or isinstance(value, bool | int | float | str):
+    if value is None or isinstance(value, str):
         return value
+    if isinstance(value, bool | np.bool_):
+        return bool(value)
+    if isinstance(value, numbers.Integral):
+        return int(value)
+    if isinstance(value, numbers.Real):
+        numeric = float(value)
+        if np.isfinite(numeric):
+            return numeric
+        if np.isnan(numeric):
+            return {"type": "float", "value": "nan"}
+        if numeric > 0:
+            return {"type": "float", "value": "inf"}
+        return {"type": "float", "value": "-inf"}
+    if isinstance(value, numbers.Complex):
+        return {
+            "type": "complex",
+            "real": _summary_value(value.real),
+            "imag": _summary_value(value.imag),
+        }
     if isinstance(value, Mapping):
         return {str(key): _summary_value(item) for key, item in value.items() if not callable(item)}
     if isinstance(value, tuple | list):

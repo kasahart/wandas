@@ -1,3 +1,4 @@
+import json
 from typing import Any
 from unittest import mock
 
@@ -251,6 +252,13 @@ def test_operation_summaries_does_not_compute_data() -> None:
 
     compute.assert_not_called()
     assert summaries[0]["operation"] == "normalize"
+
+
+def test_operation_summaries_are_strict_json_serializable_with_default_normalize() -> None:
+    summaries = _frame().normalize().operation_summaries
+
+    assert summaries[0]["params"]["norm"] == {"type": "float", "value": "inf"}
+    json.dumps(summaries, allow_nan=False)
 
 
 def test_operation_summaries_include_multi_input_lineage() -> None:

@@ -1,4 +1,5 @@
 import abc
+import json
 from collections import Counter, defaultdict, namedtuple
 from typing import Any
 from unittest import mock
@@ -24,6 +25,7 @@ from wandas.processing.base import (
     register_lazy_operation,
     register_operation,
 )
+from wandas.processing.effects import Normalize
 from wandas.processing.filters import HighPassFilter
 from wandas.processing.spectral import STFT
 from wandas.utils.dask_helpers import da_from_array
@@ -249,6 +251,12 @@ class TestAudioOperation:
             "shape": [2],
             "dtype": "float64",
         }
+
+    def test_audio_operation_summary_sanitizes_non_finite_numbers_for_strict_json(self) -> None:
+        summary = Normalize(16000).to_summary()
+
+        assert summary["params"]["norm"] == {"type": "float", "value": "inf"}
+        json.dumps(summary, allow_nan=False)
 
     def test_process_rejects_1d_direct_input(self) -> None:
         """process() requires Frame-internal ch-first Dask arrays."""
