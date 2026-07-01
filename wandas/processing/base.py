@@ -1,6 +1,7 @@
 import copy
 import importlib
 import inspect
+import json
 import logging
 import numbers
 from collections import defaultdict
@@ -101,6 +102,10 @@ def _operand_descriptor(value: Any) -> dict[str, Any]:
     return {"type": type(value).__name__}
 
 
+def _summary_sort_key(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
 def _summary_value(value: Any) -> Any:
     """Return a lightweight, display-safe representation of a summary value."""
     if callable(value):
@@ -130,14 +135,16 @@ def _summary_value(value: Any) -> Any:
         return {str(key): _summary_value(item) for key, item in value.items()}
     if isinstance(value, tuple | list):
         return [_summary_value(item) for item in value]
+    if isinstance(value, set | frozenset):
+        return sorted((_summary_value(item) for item in value), key=_summary_sort_key)
     if isinstance(value, np.ndarray):
-        return {"type": "ndarray", "shape": list(value.shape), "dtype": str(value.dtype)}
+        return {"type": "ndarray", "shape": [_summary_value(item) for item in value.shape], "dtype": str(value.dtype)}
     if isinstance(value, DaArray):
         return {
             "type": "dask.array",
-            "shape": list(value.shape),
+            "shape": [_summary_value(item) for item in value.shape],
             "dtype": str(value.dtype),
-            "chunks": [list(chunk) for chunk in value.chunks],
+            "chunks": [[_summary_value(item) for item in chunk] for chunk in value.chunks],
         }
     return {"type": type(value).__name__}
 
@@ -146,11 +153,17 @@ def _summary_is_portable(value: Any) -> bool:
     """Return whether a value can be represented as a portable summary."""
     if callable(value):
         return False
+    if value is None or isinstance(value, str | bool | np.bool_):
+        return True
+    if isinstance(value, numbers.Number):
+        return True
+    if isinstance(value, np.ndarray | DaArray):
+        return True
     if isinstance(value, Mapping):
         return all(_summary_is_portable(item) for item in value.values())
     if isinstance(value, tuple | list | set | frozenset):
         return all(_summary_is_portable(item) for item in value)
-    return True
+    return False
 
 
 @dataclass(frozen=True)

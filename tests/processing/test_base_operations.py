@@ -1,12 +1,15 @@
 import abc
 import json
 from collections import Counter, defaultdict, namedtuple
+from pathlib import Path
 from typing import Any
 from unittest import mock
 
 import cloudpickle
+import dask.array as da
 import numpy as np
 import pytest
+from dask import delayed
 from dask.array.core import Array as DaArray
 from dask.base import tokenize
 
@@ -251,6 +254,51 @@ class TestAudioOperation:
             "shape": [2],
             "dtype": "float64",
         }
+
+    def test_audio_operation_summary_sanitizes_dask_shape_and_chunks_for_strict_json(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        weights = da.from_delayed(delayed(lambda: np.array([1.0, 2.0]))(), shape=(np.nan,), dtype=float)
+        op = test_op_cls(16000, weights=weights)
+
+        summary = op.to_summary()
+
+        assert summary["params"]["weights"] == {
+            "type": "dask.array",
+            "shape": [{"type": "float", "value": "nan"}],
+            "dtype": "float64",
+            "chunks": [[{"type": "float", "value": "nan"}]],
+        }
+        assert summary["portable"] is True
+        json.dumps(summary, allow_nan=False)
+
+    def test_audio_operation_summary_preserves_set_values_deterministically(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(
+            16000,
+            channels={2, 1},
+            bands=frozenset({np.float32(0.5), np.float32(0.25)}),
+        )
+
+        summary = op.to_summary()
+
+        assert summary["params"]["channels"] == [1, 2]
+        assert summary["params"]["bands"] == [0.25, 0.5]
+        assert summary["portable"] is True
+        json.dumps(summary, allow_nan=False)
+
+    def test_audio_operation_summary_marks_opaque_params_non_portable(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        impulse_response = Path("ir.wav")
+        op = test_op_cls(16000, impulse_response=impulse_response, resource=object())
+
+        summary = op.to_summary()
+
+        assert summary["params"] == {
+            "impulse_response": {"type": type(impulse_response).__name__},
+            "resource": {"type": "object"},
+        }
+        assert summary["portable"] is False
+        json.dumps(summary, allow_nan=False)
 
     def test_audio_operation_summary_sanitizes_non_finite_numbers_for_strict_json(self) -> None:
         summary = Normalize(16000).to_summary()
