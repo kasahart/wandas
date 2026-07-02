@@ -1,3 +1,4 @@
+import importlib
 import subprocess
 import sys
 import textwrap
@@ -33,6 +34,8 @@ PROJECT_PACKAGE_BY_REGISTRY_KEY = {
     "mosqito_sound_level_meter": "mosqito",
     "mosqito_center_freq": "mosqito",
     "ipython_display": "ipython",
+    "sklearn_base": "scikit-learn",
+    "sklearn_pipeline": "scikit-learn",
     "torch": "torch",
     "tensorflow": "tensorflow",
 }
@@ -85,12 +88,13 @@ def test_runtime_dependencies_are_balanced_core_only() -> None:
 def test_optional_dependency_groups_exist() -> None:
     optional = _pyproject()["project"]["optional-dependencies"]
 
-    assert set(optional) >= {"io", "effects", "marimo", "psychoacoustic", "ml"}
+    assert set(optional) >= {"io", "effects", "marimo", "psychoacoustic", "ml", "sklearn"}
     assert any(dep.startswith("h5py") for dep in optional["io"])
     assert "librosa" in optional["effects"]
     assert "ipython" in optional["marimo"]
     assert any(dep.startswith("marimo") for dep in optional["marimo"])
     assert "mosqito" in optional["psychoacoustic"]
+    assert "scikit-learn" in optional["sklearn"]
     assert any(dep.startswith("torch") for dep in optional["ml"])
     assert any(dep.startswith("tensorflow") for dep in optional["ml"])
 
@@ -165,6 +169,30 @@ def test_require_dependency_attr_uses_registered_install_hint(
     message = str(exc_info.value)
     assert "describe requires optional dependency 'IPython.display'" in message
     assert 'pip install "wandas[marimo]"' in message
+
+
+def test_pipeline_sklearn_import_reports_sklearn_extra(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_error = ModuleNotFoundError("No module named 'sklearn'", name="sklearn")
+    original_import_module = importlib.import_module
+
+    def raise_missing_sklearn(module_name: str) -> None:
+        assert module_name == "sklearn.base"
+        raise original_error
+
+    sys.modules.pop("wandas.pipeline.sklearn", None)
+    monkeypatch.setattr(
+        "wandas.utils.optional_imports.importlib.import_module",
+        raise_missing_sklearn,
+    )
+
+    with pytest.raises(ImportError) as exc_info:
+        original_import_module("wandas.pipeline.sklearn")
+
+    message = str(exc_info.value)
+    assert "Wandas sklearn transformers requires optional dependency 'sklearn.base'" in message
+    assert 'pip install "wandas[sklearn]"' in message
 
 
 def test_require_dependency_reraises_registered_transitive_import_error(
