@@ -529,6 +529,11 @@ class BaseFrame(ABC, Generic[T]):
         """Return nested serializable computation lineage."""
         return self._lineage_to_graph(self.lineage)
 
+    @property
+    def operation_summaries(self) -> list[dict[str, Any]]:
+        """Return lightweight display summaries derived from ``lineage``."""
+        return self._lineage_to_summaries(self.lineage)
+
     @staticmethod
     def _operation_name(operation: Any) -> str:
         from wandas.processing.base import BinaryOperation
@@ -571,6 +576,27 @@ class BaseFrame(ABC, Generic[T]):
                 if (input_graph := cls._lineage_to_graph(input_lineage)) is not None
             ],
         }
+
+    @classmethod
+    def _operation_summary(cls, operation: Any) -> dict[str, Any]:
+        if hasattr(operation, "to_summary"):
+            return cast(dict[str, Any], operation.to_summary())
+        from wandas.processing.base import _summary_value
+
+        return {
+            "operation": cls._operation_name(operation),
+            "params": _summary_value(cls._operation_params(operation)),
+        }
+
+    @classmethod
+    def _lineage_to_summaries(cls, lineage: "LineageNode | None") -> list[dict[str, Any]]:
+        if lineage is None:
+            return []
+        records: list[dict[str, Any]] = []
+        for input_lineage in lineage.inputs:
+            records.extend(cls._lineage_to_summaries(input_lineage))
+        records.append(cls._operation_summary(lineage.operation))
+        return records
 
     def _lineage_with_operation(self, operation: Any, *inputs: "LineageNode | None") -> "LineageNode":
         from wandas.processing.base import LineageNode
