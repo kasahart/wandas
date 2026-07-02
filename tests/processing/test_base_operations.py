@@ -1,5 +1,7 @@
 import abc
+import json
 from collections import Counter, defaultdict, namedtuple
+from fractions import Fraction
 from typing import Any
 from unittest import mock
 
@@ -141,6 +143,35 @@ def test_binary_operation_params_delegate_to_params() -> None:
     }
 
 
+def test_binary_operation_to_summary_returns_display_only_summary() -> None:
+    operation = BinaryOperation(symbol="+", operand_kind="scalar", operand=2.0)
+
+    assert operation.to_summary() == {
+        "operation": "+",
+        "params": {
+            "symbol": "+",
+            "operand_kind": "scalar",
+            "operand": {"type": "float", "value": 2.0},
+        },
+    }
+
+
+def test_binary_operation_to_summary_describes_array_operand_without_values() -> None:
+    operation = BinaryOperation(symbol="+", operand_kind="scalar", operand=np.array([0.5, 1.5]))
+
+    summary = operation.to_summary()
+
+    assert summary == {
+        "operation": "+",
+        "params": {
+            "symbol": "+",
+            "operand_kind": "scalar",
+            "operand": {"type": "ndarray", "shape": [2], "dtype": "float64"},
+        },
+    }
+    json.dumps(summary, allow_nan=False)
+
+
 class TestAudioOperation:
     """Test AudioOperation base class."""
 
@@ -202,6 +233,54 @@ class TestAudioOperation:
         op = SimpleOp(16000)
 
         assert not hasattr(op, "process_array")
+
+    def test_audio_operation_to_summary_returns_display_only_summary(self) -> None:
+        test_op_cls = self._make_test_op_class()
+        op = test_op_cls(16000, gain=2.0, enabled=True)
+
+        assert op.to_summary() == {
+            "operation": "test_op",
+            "params": {"gain": 2.0, "enabled": True},
+        }
+
+    def test_audio_operation_summary_sanitizes_display_values_for_strict_json(self) -> None:
+        test_op_cls = self._make_test_op_class()
+
+        def transform(x: NDArrayReal) -> NDArrayReal:
+            return x
+
+        op = test_op_cls(
+            16000,
+            norm=np.inf,
+            ratio=Fraction(1, 3),
+            weights=np.array([0.1, 0.9]),
+            config={1: "linear", "callable": transform},
+            channels={2, 1},
+        )
+
+        summary = op.to_summary()
+
+        assert summary == {
+            "operation": "test_op",
+            "params": {
+                "norm": {"type": "float", "value": "inf"},
+                "ratio": {"type": "Fraction"},
+                "weights": {"type": "ndarray", "shape": [2], "dtype": "float64"},
+                "config": {
+                    "1": "linear",
+                    "callable": {
+                        "type": "callable",
+                        "name": (
+                            "TestAudioOperation."
+                            "test_audio_operation_summary_sanitizes_display_values_for_strict_json."
+                            "<locals>.transform"
+                        ),
+                    },
+                },
+                "channels": [1, 2],
+            },
+        }
+        json.dumps(summary, allow_nan=False)
 
     def test_process_rejects_1d_direct_input(self) -> None:
         """process() requires Frame-internal ch-first Dask arrays."""
