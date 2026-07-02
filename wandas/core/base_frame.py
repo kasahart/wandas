@@ -583,9 +583,13 @@ class BaseFrame(ABC, Generic[T]):
             return cast(dict[str, Any], operation.to_summary())
         from wandas.processing.base import _summary_value
 
+        if hasattr(operation, "to_params"):
+            params = operation.to_params()
+        else:
+            params = getattr(operation, "params", {})
         return {
             "operation": cls._operation_name(operation),
-            "params": _summary_value(cls._operation_params(operation)),
+            "params": _summary_value(params),
         }
 
     @classmethod

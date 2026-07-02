@@ -9,7 +9,7 @@ from dask.delayed import delayed
 
 from wandas.frames.channel import ChannelFrame
 from wandas.lineage import extract_operations
-from wandas.processing.base import AudioOperation, _execute_wandas_operation
+from wandas.processing.base import AudioOperation, LineageNode, _execute_wandas_operation
 from wandas.processing.custom import CustomOperation
 from wandas.processing.effects import Normalize
 from wandas.processing.filters import HighPassFilter
@@ -270,6 +270,25 @@ def test_operation_summaries_include_multi_input_lineage() -> None:
         "operand_kind": "frame",
         "operand": {"type": "frame", "label": "lineage"},
     }
+
+
+def test_operation_summaries_fallback_describes_ndarray_params_without_values() -> None:
+    class LegacyOperation:
+        name = "legacy"
+        params = {"weights": np.array([0.1, 0.9])}
+
+    frame = ChannelFrame(
+        da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1)),
+        sampling_rate=16000,
+        lineage=LineageNode(LegacyOperation()),
+    )
+
+    assert frame.operation_summaries == [
+        {
+            "operation": "legacy",
+            "params": {"weights": {"type": "ndarray", "shape": [2], "dtype": "float64"}},
+        }
+    ]
 
 
 def test_operations_property_is_read_only_sequence() -> None:
