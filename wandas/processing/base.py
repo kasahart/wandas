@@ -1,7 +1,9 @@
 import copy
 import importlib
 import inspect
+import json
 import logging
+import numbers
 from collections import defaultdict
 from collections.abc import Callable, Iterator, Mapping, MutableMapping
 from dataclasses import dataclass
@@ -22,6 +24,7 @@ _da_from_delayed = da.from_delayed
 # Define TypeVars for input and output array types
 InputArrayType = TypeVar("InputArrayType", NDArrayReal, NDArrayComplex)
 OutputArrayType = TypeVar("OutputArrayType", NDArrayReal, NDArrayComplex)
+OperationSummary = dict[str, Any]
 
 
 def _execute_wandas_operation(operation: "AudioOperation[Any, Any]", *inputs: Any) -> Any:
@@ -98,6 +101,57 @@ def _operand_descriptor(value: Any) -> dict[str, Any]:
     return {"type": type(value).__name__}
 
 
+def _summary_sort_key(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
+def _summary_value(value: Any) -> Any:
+    """Return a lightweight, JSON-safe value for display summaries."""
+    if callable(value):
+        return {"type": "callable", "name": getattr(value, "__qualname__", type(value).__name__)}
+    if value is None or isinstance(value, str):
+        return value
+    if isinstance(value, np.timedelta64 | np.datetime64):
+        return {"type": type(value).__name__}
+    if isinstance(value, bool | np.bool_):
+        return bool(value)
+    if isinstance(value, numbers.Integral):
+        return int(value)
+    if isinstance(value, numbers.Rational):
+        return {"type": type(value).__name__}
+    if isinstance(value, numbers.Real):
+        numeric = float(value)
+        if np.isfinite(numeric):
+            return numeric
+        if np.isnan(numeric):
+            return {"type": "float", "value": "nan"}
+        if numeric > 0:
+            return {"type": "float", "value": "inf"}
+        return {"type": "float", "value": "-inf"}
+    if isinstance(value, numbers.Complex):
+        return {
+            "type": "complex",
+            "real": _summary_value(value.real),
+            "imag": _summary_value(value.imag),
+        }
+    if isinstance(value, Mapping):
+        return {str(key): _summary_value(item) for key, item in value.items()}
+    if isinstance(value, tuple | list):
+        return [_summary_value(item) for item in value]
+    if isinstance(value, set | frozenset):
+        return sorted((_summary_value(item) for item in value), key=_summary_sort_key)
+    if isinstance(value, np.ndarray):
+        return {"type": "ndarray", "shape": [_summary_value(item) for item in value.shape], "dtype": str(value.dtype)}
+    if isinstance(value, DaArray):
+        return {
+            "type": "dask.array",
+            "shape": [_summary_value(item) for item in value.shape],
+            "dtype": str(value.dtype),
+            "chunks": [[_summary_value(item) for item in chunk] for chunk in value.chunks],
+        }
+    return {"type": type(value).__name__}
+
+
 @dataclass(frozen=True)
 class BinaryOperation:
     """Lightweight operation record for frame binary computations."""
@@ -121,6 +175,14 @@ class BinaryOperation:
         elif self.operand_kind != "frame":
             params["operand"] = _operand_descriptor(self.operand)
         return params
+
+    def to_summary(self) -> OperationSummary:
+        """Return a lightweight display summary for this operation."""
+        params = self.to_params()
+        return {
+            "operation": self.symbol,
+            "params": {key: _summary_value(value) for key, value in params.items()},
+        }
 
 
 def _snapshot_config_value(value: Any) -> Any:
@@ -309,6 +371,14 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     def to_params(self) -> Mapping[str, Any]:
         """Return operation parameters used for lineage and display."""
         return self._config_snapshot()
+
+    def to_summary(self) -> OperationSummary:
+        """Return a lightweight display summary for this operation."""
+        params = self.to_params()
+        return {
+            "operation": self.name,
+            "params": {str(key): _summary_value(value) for key, value in params.items()},
+        }
 
     def _config_snapshot(self) -> dict[str, Any]:
         """Return a defensive copy of base-managed constructor config."""

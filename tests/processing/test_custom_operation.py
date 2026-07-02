@@ -146,6 +146,21 @@ class TestCustomOperation:
         assert op.params == {"gain": 2.0}
         assert "dask_pure" not in op.to_params()
 
+    def test_custom_operation_summary_includes_callable_reference_for_display(self) -> None:
+        def scale(x: np.ndarray, gain: float) -> np.ndarray:
+            return x * gain
+
+        operation = CustomOperation(16000, func=scale, gain=2.0)
+
+        summary = operation.to_summary()
+
+        assert summary["operation"] == "custom"
+        assert summary["params"] == {"gain": 2.0}
+        assert summary["implementation"] is not scale
+        assert summary["implementation"].endswith(".scale")
+        assert "portable" not in summary
+        assert "schema_version" not in summary
+
     def test_custom_operation_does_not_expose_pure_constructor_option(self) -> None:
         def my_func(x: np.ndarray, pure: bool) -> np.ndarray:
             return x + (1.0 if pure else 2.0)

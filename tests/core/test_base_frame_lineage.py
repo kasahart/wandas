@@ -1,3 +1,4 @@
+import json
 from typing import Any
 from unittest import mock
 
@@ -8,7 +9,7 @@ from dask.delayed import delayed
 
 from wandas.frames.channel import ChannelFrame
 from wandas.lineage import extract_operations
-from wandas.processing.base import AudioOperation, _execute_wandas_operation
+from wandas.processing.base import AudioOperation, LineageNode, _execute_wandas_operation
 from wandas.processing.custom import CustomOperation
 from wandas.processing.effects import Normalize
 from wandas.processing.filters import HighPassFilter
@@ -222,6 +223,72 @@ def test_operation_history_public_behavior_is_read_only_lineage_view() -> None:
     assert [record["operation"] for record in result.operation_history] == ["normalize"]
     assert all(record["operation"] != "mutated" for record in result.operation_history)
     assert "operation_history" not in result._xr.attrs
+
+
+def test_operation_summaries_returns_display_lineage_summaries() -> None:
+    result = _frame().high_pass_filter(100).normalize()
+
+    assert result.operation_summaries == [
+        {"operation": "highpass_filter", "params": {"cutoff": 100.0, "order": 4}},
+        {
+            "operation": "normalize",
+            "params": {"norm": {"type": "float", "value": "inf"}, "axis": -1, "threshold": None, "fill": None},
+        },
+    ]
+
+
+def test_operation_summaries_do_not_compute_data() -> None:
+    result = _frame().normalize()
+
+    with mock.patch("dask.array.core.Array.compute") as compute:
+        summaries = result.operation_summaries
+
+    compute.assert_not_called()
+    assert summaries == [
+        {
+            "operation": "normalize",
+            "params": {"norm": {"type": "float", "value": "inf"}, "axis": -1, "threshold": None, "fill": None},
+        }
+    ]
+
+
+def test_operation_summaries_are_strict_json_serializable() -> None:
+    summaries = _frame().normalize().operation_summaries
+
+    json.dumps(summaries, allow_nan=False)
+
+
+def test_operation_summaries_include_multi_input_lineage() -> None:
+    left = _frame().normalize()
+    right = _frame().remove_dc()
+
+    result = left + right
+
+    assert [summary["operation"] for summary in result.operation_summaries] == ["normalize", "remove_dc", "+"]
+    assert result.operation_summaries[-1]["params"] == {
+        "symbol": "+",
+        "operand_kind": "frame",
+        "operand": {"type": "frame", "label": "lineage"},
+    }
+
+
+def test_operation_summaries_fallback_describes_ndarray_params_without_values() -> None:
+    class LegacyOperation:
+        name = "legacy"
+        params = {"weights": np.array([0.1, 0.9])}
+
+    frame = ChannelFrame(
+        da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1)),
+        sampling_rate=16000,
+        lineage=LineageNode(LegacyOperation()),
+    )
+
+    assert frame.operation_summaries == [
+        {
+            "operation": "legacy",
+            "params": {"weights": {"type": "ndarray", "shape": [2], "dtype": "float64"}},
+        }
+    ]
 
 
 def test_operations_property_is_read_only_sequence() -> None:
