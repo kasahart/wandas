@@ -33,10 +33,13 @@ _REPLAYABLE_METHOD_OPERATIONS = {
 }
 _REPLAYABLE_METHOD_NAMES = frozenset(method for method, _param_names in _REPLAYABLE_METHOD_OPERATIONS.values())
 _REPLAYABLE_TYPED_METHOD_OPERATIONS = {
+    "coherence": ("coherence", None),
+    "csd": ("csd", None),
     "fft": ("fft", None),
     "ifft": ("ifft", {}),
     "istft": ("istft", {}),
     "stft": ("stft", None),
+    "transfer_function": ("transfer_function", None),
 }
 _REPLAYABLE_TYPED_METHOD_NAMES = frozenset(
     method for method, _param_names in _REPLAYABLE_TYPED_METHOD_OPERATIONS.values()

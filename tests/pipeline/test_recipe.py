@@ -373,6 +373,72 @@ def test_recipe_from_frame_extracts_stft_typed_transition() -> None:
     assert replayed.window == processed.window
 
 
+@pytest.mark.parametrize(
+    ("build_frame", "expected_step"),
+    [
+        (
+            lambda frame: frame.coherence(n_fft=512, hop_length=128, win_length=512, window="hann"),
+            TypedMethodStep(
+                "coherence",
+                {"n_fft": 512, "hop_length": 128, "win_length": 512, "window": "hann", "detrend": "constant"},
+            ),
+        ),
+        (
+            lambda frame: frame.csd(n_fft=512, hop_length=128, win_length=512, window="hann"),
+            TypedMethodStep(
+                "csd",
+                {
+                    "n_fft": 512,
+                    "hop_length": 128,
+                    "win_length": 512,
+                    "window": "hann",
+                    "detrend": "constant",
+                    "scaling": "spectrum",
+                    "average": "mean",
+                },
+            ),
+        ),
+        (
+            lambda frame: frame.transfer_function(n_fft=512, hop_length=128, win_length=512, window="hann"),
+            TypedMethodStep(
+                "transfer_function",
+                {
+                    "n_fft": 512,
+                    "hop_length": 128,
+                    "win_length": 512,
+                    "window": "hann",
+                    "detrend": "constant",
+                    "scaling": "spectrum",
+                    "average": "mean",
+                },
+            ),
+        ),
+    ],
+)
+def test_recipe_from_frame_extracts_cross_channel_typed_transitions(
+    build_frame: Callable[[ChannelFrame], SpectralFrame],
+    expected_step: TypedMethodStep,
+) -> None:
+    base = _frame()
+    frame = ChannelFrame.from_numpy(
+        np.vstack([base.data, base.data * 0.5]),
+        sampling_rate=base.sampling_rate,
+        ch_labels=["left", "right"],
+    )
+    processed = build_frame(frame)
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (expected_step,)
+    assert isinstance(replayed, SpectralFrame)
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.labels == processed.labels
+    assert replayed.sampling_rate == processed.sampling_rate
+    assert replayed.shape == processed.shape
+    np.testing.assert_allclose(replayed.source_time_offset, processed.source_time_offset)
+
+
 def test_recipe_from_frame_empty_history_returns_empty_recipe() -> None:
     assert RecipeSpec.from_frame(_frame()).steps == ()
 

@@ -74,7 +74,7 @@ FrameMethodStep(method="mean", kwargs={})
 
 ## Stage 3: Typed Domain Transitions / 型遷移を含む Recipe
 
-Status: partially implemented for `fft`, `stft`, `ifft`, and `istft`.
+Status: partially implemented for `fft`, `stft`, `ifft`, `istft`, `coherence`, `csd`, and `transfer_function`.
 
 対象例:
 
@@ -84,12 +84,14 @@ Implemented:
 - `frame.stft()` -> `SpectrogramFrame`
 - `spectral_frame.ifft()` -> `ChannelFrame`
 - `spectrogram_frame.istft()` -> `ChannelFrame`
+- `frame.coherence()` -> `SpectralFrame`
+- `frame.csd()` -> `SpectralFrame`
+- `frame.transfer_function()` -> `SpectralFrame`
 
 Not implemented yet:
 
-- `frame.welch()` -> `SpectralFrame`
-- `frame.noct_spectrum()` -> `NOctFrame`
-- cross-channel transforms such as `coherence()`, `csd()`, `transfer_function()`
+- `frame.welch()` -> `SpectralFrame`: operation graph contains normalized `detrend`, while the public method currently has no `detrend` argument.
+- `frame.noct_spectrum()` -> `NOctFrame`: replay shape is clear, but it depends on optional `mosqito`; this needs optional-dependency test coverage before enabling.
 
 これらは operation graph としては線形に見えるが、出力 frame class と constructor metadata が変わる。実装済み範囲では `TypedMethodStep` が既存 frame method を呼び、型遷移と metadata 構築を既存実装に委譲する。
 
@@ -100,6 +102,9 @@ TypedMethodStep(method="fft", kwargs={"n_fft": 16000, "window": "hann"})
 TypedMethodStep(method="stft", kwargs={"n_fft": 2048, "hop_length": 512, "win_length": 2048, "window": "hann"})
 TypedMethodStep(method="ifft", kwargs={})
 TypedMethodStep(method="istft", kwargs={})
+TypedMethodStep(method="coherence", kwargs={"n_fft": 2048, "hop_length": 512, "win_length": 2048, "window": "hann", "detrend": "constant"})
+TypedMethodStep(method="csd", kwargs={"n_fft": 2048, "hop_length": 512, "win_length": 2048, "window": "hann", "detrend": "constant", "scaling": "spectrum", "average": "mean"})
+TypedMethodStep(method="transfer_function", kwargs={"n_fft": 2048, "hop_length": 512, "win_length": 2048, "window": "hann", "detrend": "constant", "scaling": "spectrum", "average": "mean"})
 ```
 
 `ifft()` と `istft()` は、入力 `SpectralFrame` / `SpectrogramFrame` の metadata から必要な逆変換パラメータを取得する既存 method なので、Recipe には追加パラメータを持たせない。
