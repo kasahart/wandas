@@ -86,6 +86,8 @@ ChannelFrame
       -> frame.apply_operation("fade", fade_ms=10.0)
     -> OperationSpec("rms_trend", {"frame_length": 512, "hop_length": 128, "ref": [1.0]})
       -> frame.apply_operation("rms_trend", frame_length=512, hop_length=128, ref=[1.0])
+    -> OperationSpec("roughness_dw", {"overlap": 0.5})
+      -> frame.apply_operation("roughness_dw", overlap=0.5)
     -> OperationSpec("normalize")
       -> frame.apply_operation("normalize")
   -> new ChannelFrame with operation_history
@@ -143,6 +145,7 @@ sklearn.pipeline.Pipeline
 - sklearn 未導入で `wandas.pipeline.sklearn` を import した場合は、optional dependency registry を通じて `pip install "wandas[sklearn]"` を含む `ImportError` を出す。
 - operation 名やパラメータが不正な場合は、既存の `apply_operation` / operation class の validation に委譲する。
 - sequence params は浅い literal sequence だけを受け付ける。`rms_trend()` / `sound_level()` の `ref` や HPSS の `kernel_size` / `margin` は replay に必要な値として保存するが、nested list や array operand は graph recipe の範囲として拒否する。
+- `loudness_zwtv()`、`roughness_dw()`、`sharpness_din()` のような frame を返す psychoacoustic operation は `OperationSpec` で replay する。`loudness_zwst()`、`sharpness_din_st()` のように配列を返す terminal metric は現在の frame transform Recipe には含めない。
 - v1 では複数入力 operation を recipe から呼ばない。必要な場合は operation-specific method を使う。
 - method-aware step は明示 allowlist に含まれる method だけを抽出する。現在は `fix_length`、`sum`、`mean`、`channel_difference` に限定する。
 - typed method step は明示 allowlist に含まれる method だけを抽出する。現在は `fft`、`stft`、`ifft`、`istft`、`welch`、`noct_spectrum`、`noct_synthesis`、`coherence`、`csd`、`transfer_function` に限定する。

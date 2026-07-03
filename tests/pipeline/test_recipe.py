@@ -50,6 +50,46 @@ def _patch_hpss_backend(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(effects_module, "require_librosa_effects", lambda _feature: fake_effects)
 
 
+def _patch_psychoacoustic_backend(monkeypatch: pytest.MonkeyPatch) -> None:
+    import wandas.processing.psychoacoustic as psychoacoustic_module
+
+    def fake_loudness(
+        signal: np.ndarray,
+        sampling_rate: float,
+        *,
+        field_type: str,
+    ) -> tuple[np.ndarray, None, None, None]:
+        del sampling_rate, field_type
+        return np.linspace(1.0, 2.0, max(1, signal.shape[-1] // 96)), None, None, None
+
+    def fake_roughness(
+        signal: np.ndarray,
+        sampling_rate: float,
+        *,
+        overlap: float,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, None]:
+        del sampling_rate, overlap
+        total = np.linspace(0.1, 0.2, max(1, signal.shape[-1] // 7200))
+        specific = np.ones((47, total.shape[0]), dtype=np.float64)
+        bark_axis = np.linspace(0.5, 23.5, 47)
+        return total, specific, bark_axis, None
+
+    def fake_sharpness(
+        signal: np.ndarray,
+        sampling_rate: float,
+        *,
+        weighting: str,
+        field_type: str,
+        skip: int,
+    ) -> tuple[np.ndarray, None]:
+        del sampling_rate, weighting, field_type, skip
+        return np.linspace(0.3, 0.4, max(1, signal.shape[-1] // 96)), None
+
+    monkeypatch.setattr(psychoacoustic_module, "loudness_zwtv_mosqito", fake_loudness)
+    monkeypatch.setattr(psychoacoustic_module, "roughness_dw_mosqito", fake_roughness)
+    monkeypatch.setattr(psychoacoustic_module, "sharpness_din_tv_mosqito", fake_sharpness)
+
+
 def _fake_center_freq(*, fmin: float, fmax: float, n: int, **_: object) -> tuple[np.ndarray, np.ndarray]:
     bands = max(1, int(np.ceil(np.log2(fmax / fmin) * n)))
     indices = np.arange(bands, dtype=np.float64)
@@ -390,6 +430,49 @@ def test_recipe_from_frame_extracts_hpss_apply_operations(
 ) -> None:
     _patch_hpss_backend(monkeypatch)
     frame = _frame()
+    processed = build_frame(frame)
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (expected_step,)
+    assert replayed.operation_history == processed.operation_history
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.labels == processed.labels
+    assert replayed.sampling_rate == processed.sampling_rate
+    assert replayed.shape == processed.shape
+
+
+@pytest.mark.parametrize(
+    ("build_frame", "expected_step"),
+    [
+        (
+            lambda frame: frame.loudness_zwtv(field_type="diffuse"),
+            OperationSpec("loudness_zwtv", {"field_type": "diffuse"}),
+        ),
+        (
+            lambda frame: frame.roughness_dw(overlap=0.25),
+            OperationSpec("roughness_dw", {"overlap": 0.25}),
+        ),
+        (
+            lambda frame: frame.sharpness_din(weighting="din", field_type="diffuse"),
+            OperationSpec("sharpness_din", {"weighting": "din", "field_type": "diffuse"}),
+        ),
+    ],
+)
+def test_recipe_from_frame_extracts_psychoacoustic_apply_operations(
+    monkeypatch: pytest.MonkeyPatch,
+    build_frame: Callable[[ChannelFrame], ChannelFrame],
+    expected_step: OperationSpec,
+) -> None:
+    _patch_psychoacoustic_backend(monkeypatch)
+    sampling_rate = 48000
+    time = np.linspace(0, 1, sampling_rate, endpoint=False)
+    frame = ChannelFrame.from_numpy(
+        np.sin(2 * np.pi * 1000 * time).reshape(1, -1),
+        sampling_rate=sampling_rate,
+        label="psychoacoustic-source",
+    )
     processed = build_frame(frame)
 
     recipe = RecipeSpec.from_frame(processed)
@@ -822,7 +905,7 @@ def test_recipe_from_frame_empty_history_returns_empty_recipe() -> None:
         ),
         (
             "registered operation outside current allowlist",
-            lambda frame: frame.apply_operation("loudness_zwtv", field_type="free"),
+            lambda frame: frame.apply_operation("loudness_zwst", field_type="free"),
             "Operation is outside the Stage 1 recipe allowlist",
         ),
     ],

@@ -44,6 +44,9 @@ Status: implemented in prototype.
 - `sound_level`
 - `hpss_harmonic`
 - `hpss_percussive`
+- `loudness_zwtv`
+- `roughness_dw`
+- `sharpness_din`
 
 条件:
 
@@ -55,6 +58,8 @@ Status: implemented in prototype.
 `rms_trend()` と `sound_level()` は channel metadata から解決した `ref` を operation graph に保存する。Recipe ではこの `ref` を落とさず `OperationSpec` に残す。そうしないと、別 frame に replay した時に `ref=1.0` へ戻り、特に `dB=True` の結果が変わる。
 
 HPSS の `kernel_size` / `margin` は public API が scalar と 2要素 sequence を受け付けるため、浅い sequence literal として replay する。ただし callable window、array-like、nested dict/list は現在の直列 Recipe では保存形式を定義しない。
+
+`loudness_zwtv()`、`roughness_dw()`、`sharpness_din()` は optional `mosqito` backend を使うが、Recipe は依存関係を横取りしない。抽出・再生は既存 `apply_operation` に委譲し、backend が無い場合のエラーも既存 optional dependency 契約に従う。
 
 この段階では、Wandas の既存 frame operation が持つ不変性、metadata/history、Dask laziness に依存する。
 
@@ -196,6 +201,8 @@ frame.apply(lambda data, gain: data * gain, output_shape_func=lambda shape: shap
 ## Stage 6: Terminal / Display Operations
 
 Status: separate concern.
+
+`loudness_zwst()` と `sharpness_din_st()` は frame ではなく channel ごとの配列を返す terminal metric である。現在の `RecipeSpec` が表すのは frame transform chain なので、これらを扱うには metric/report Recipe の設計が別途必要である。
 
 `compute()`, `plot()`, `describe()`, `info()` は frame を変換する Recipe step ではなく、評価・表示・レポート生成に近い。全体の UX としては、変換 Recipe と report Recipe を分けるのが自然である。
 
