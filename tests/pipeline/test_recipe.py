@@ -353,6 +353,18 @@ def test_recipe_from_frame_extracts_linear_apply_operation_replayable_chain() ->
         (lambda frame: frame.power(exponent=3.0), OperationSpec("power", {"exponent": 3.0})),
         (lambda frame: frame.a_weighting(), OperationSpec("a_weighting")),
         (lambda frame: frame.fade(fade_ms=10.0), OperationSpec("fade", {"fade_ms": 10.0})),
+        (
+            lambda frame: frame.high_pass_filter(cutoff=100.0, order=2),
+            OperationSpec("highpass_filter", {"cutoff": 100.0, "order": 2}),
+        ),
+        (
+            lambda frame: frame.low_pass_filter(cutoff=1000.0, order=3),
+            OperationSpec("lowpass_filter", {"cutoff": 1000.0, "order": 3}),
+        ),
+        (
+            lambda frame: frame.band_pass_filter(low_cutoff=100.0, high_cutoff=1000.0, order=2),
+            OperationSpec("bandpass_filter", {"low_cutoff": 100.0, "high_cutoff": 1000.0, "order": 2}),
+        ),
     ],
 )
 def test_recipe_from_frame_extracts_additional_single_input_apply_operations(
