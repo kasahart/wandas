@@ -1050,6 +1050,55 @@ class BinaryFrameStep:
 
 
 RecipeStep = OperationSpec | MethodStep | TypedMethodStep | ScalarOperationStep | IndexingStep | TerminalStep
+GraphStep = RecipeStep | BinaryFrameStep
+
+
+def _apply_recipe_step(step: RecipeStep, frame: Any) -> Any:
+    if isinstance(step, MethodStep | TypedMethodStep | ScalarOperationStep | IndexingStep | TerminalStep):
+        return step.apply(frame)
+    return frame.apply_operation(step.operation, **step.params)
+
+
+@dataclass(frozen=True, init=False)
+class GraphNodeSpec:
+    """Replayable node in a tree-shaped frame computation graph."""
+
+    id: str
+    step: GraphStep
+    inputs: tuple[str, ...]
+
+    def __init__(self, id: str, step: GraphStep, inputs: Iterable[str]) -> None:
+        if not isinstance(id, str) or not id:
+            raise TypeError("GraphNodeSpec id must be a non-empty string")
+        frozen_inputs = tuple(inputs)
+        if not frozen_inputs or not all(isinstance(input_id, str) and input_id for input_id in frozen_inputs):
+            raise TypeError("GraphNodeSpec inputs must be non-empty strings")
+        if isinstance(step, BinaryFrameStep):
+            if frozen_inputs != (step.left, step.right):
+                raise ValueError(
+                    "GraphNodeSpec binary step inputs must match BinaryFrameStep references\n"
+                    f"  Node inputs: {list(frozen_inputs)}\n"
+                    f"  Binary inputs: {[step.left, step.right]}"
+                )
+        elif len(frozen_inputs) != 1:
+            raise ValueError(
+                f"GraphNodeSpec unary step requires exactly one input\n  Node inputs: {list(frozen_inputs)}"
+            )
+        object.__setattr__(self, "id", id)
+        object.__setattr__(self, "step", step)
+        object.__setattr__(self, "inputs", frozen_inputs)
+
+    def to_dict(self) -> dict[str, Any]:
+        node_dict: dict[str, Any] = {"id": self.id, "step": self.step.to_dict()}
+        if len(self.inputs) == 1:
+            node_dict["input"] = self.inputs[0]
+        else:
+            node_dict["inputs"] = list(self.inputs)
+        return node_dict
+
+
+def _unique_preserving_order(values: Iterable[str]) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(values))
 
 
 @dataclass(frozen=True, init=False)
@@ -1082,10 +1131,7 @@ class RecipeSpec:
     def apply(self, frame: Any) -> Any:
         result: Any = frame
         for step in self.steps:
-            if isinstance(step, MethodStep | TypedMethodStep | ScalarOperationStep | IndexingStep | TerminalStep):
-                result = step.apply(result)
-            else:
-                result = result.apply_operation(step.operation, **step.params)
+            result = _apply_recipe_step(step, result)
         return result
 
 
@@ -1208,11 +1254,196 @@ class GraphRecipeSpec:
         return self.tail_recipe.apply(self.output.apply(frames))
 
 
+@dataclass(frozen=True, init=False)
+class NodeGraphRecipeSpec:
+    """Replayable tree-shaped graph recipe with named external inputs."""
+
+    inputs: tuple[str, ...]
+    nodes: tuple[GraphNodeSpec, ...]
+    output: str
+
+    def __init__(self, inputs: Iterable[str], nodes: Iterable[GraphNodeSpec], output: str) -> None:
+        frozen_inputs = tuple(inputs)
+        if not frozen_inputs or not all(isinstance(input_name, str) and input_name for input_name in frozen_inputs):
+            raise ValueError("NodeGraphRecipeSpec inputs must be non-empty strings")
+        if len(set(frozen_inputs)) != len(frozen_inputs):
+            raise ValueError(f"NodeGraphRecipeSpec inputs must be unique\n  Inputs: {list(frozen_inputs)}")
+        frozen_nodes = tuple(nodes)
+        if not frozen_nodes:
+            raise ValueError("NodeGraphRecipeSpec requires at least one node")
+        if not isinstance(output, str) or not output:
+            raise ValueError("NodeGraphRecipeSpec output must be a non-empty string")
+
+        available_refs = set(frozen_inputs)
+        for node in frozen_nodes:
+            if not isinstance(node, GraphNodeSpec):
+                raise TypeError(
+                    f"NodeGraphRecipeSpec nodes must be GraphNodeSpec instances\n  Got: {type(node).__name__}"
+                )
+            if node.id in available_refs:
+                raise ValueError(
+                    f"NodeGraphRecipeSpec node id duplicates an existing reference\n  Node id: {node.id!r}"
+                )
+            missing_inputs = [input_id for input_id in node.inputs if input_id not in available_refs]
+            if missing_inputs:
+                raise ValueError(
+                    "NodeGraphRecipeSpec node references unknown inputs\n"
+                    f"  Node id: {node.id!r}\n"
+                    f"  Missing refs: {missing_inputs}\n"
+                    f"  Available refs: {sorted(available_refs)}"
+                )
+            available_refs.add(node.id)
+        if output not in available_refs:
+            raise ValueError(
+                "NodeGraphRecipeSpec output references unknown node or input\n"
+                f"  Output: {output!r}\n"
+                f"  Available refs: {sorted(available_refs)}"
+            )
+        object.__setattr__(self, "inputs", frozen_inputs)
+        object.__setattr__(self, "nodes", frozen_nodes)
+        object.__setattr__(self, "output", output)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "inputs": list(self.inputs),
+            "nodes": [node.to_dict() for node in self.nodes],
+            "output": self.output,
+        }
+
+    @classmethod
+    def from_frame(cls, frame: Any, *, input_names: tuple[str, ...] | None = None) -> NodeGraphRecipeSpec:
+        from wandas.core.base_frame import BaseFrame
+
+        if not isinstance(frame, BaseFrame):
+            raise RecipeExtractionError(
+                f"NodeGraphRecipeSpec extraction requires a Wandas frame\n  Got: {type(frame).__name__}"
+            )
+        graph = frame.operation_graph
+        if graph is None:
+            raise RecipeExtractionError("NodeGraphRecipeSpec extraction requires operation_graph lineage")
+
+        nodes: list[GraphNodeSpec] = []
+        source_names: list[str] = []
+        next_source_index = 0
+
+        def next_source_name() -> str:
+            nonlocal next_source_index
+            source_index = next_source_index
+            next_source_index += 1
+            if input_names is not None:
+                if source_index >= len(input_names):
+                    raise RecipeExtractionError(
+                        "NodeGraphRecipeSpec extraction requires one input name per source leaf\n"
+                        f"  Source leaf count so far: {source_index + 1}\n"
+                        f"  Input names: {list(input_names)}"
+                    )
+                name = input_names[source_index]
+            else:
+                name = f"input_{source_index}"
+            if not isinstance(name, str) or not name:
+                raise RecipeExtractionError(
+                    "NodeGraphRecipeSpec input names must be non-empty strings\n"
+                    f"  Input names: {list(input_names or ())}"
+                )
+            source_names.append(name)
+            return name
+
+        def next_node_id() -> str:
+            return f"n{len(nodes)}"
+
+        def extract_node(node_graph: Mapping[str, Any]) -> str:
+            kind = cast(str | None, node_graph.get("kind"))
+            if kind == "source":
+                return next_source_name()
+
+            operation = str(node_graph["operation"])
+            params = cast(Mapping[str, Any], _restore_history_value(node_graph.get("params", {})))
+            input_graphs = tuple(node_graph.get("inputs", ()))
+
+            if operation == "__getitem__" and params.get("indexing") == "multidimensional_slice":
+                if len(input_graphs) != 1:
+                    raise RecipeExtractionError(
+                        "Multidimensional indexing recipe extraction requires one channel-selection parent\n"
+                        f"  Parent count: {len(input_graphs)}"
+                    )
+                parent_graph = cast(Mapping[str, Any], input_graphs[0])
+                parent_inputs = tuple(parent_graph.get("inputs", ()))
+                if len(parent_inputs) > 1:
+                    raise RecipeExtractionError(
+                        "Graph operation requires graph recipe support\n"
+                        f"  Operation: {parent_graph['operation']}\n"
+                        f"  Parent count: {len(parent_inputs)}\n"
+                        "  Multidimensional indexing requires one replayable parent chain."
+                    )
+                parent_ref = (
+                    extract_node(cast(Mapping[str, Any], parent_inputs[0])) if parent_inputs else next_source_name()
+                )
+                step = IndexingStep((_channel_key_from_parent_graph(parent_graph), *_axis_slices_from_params(params)))
+                node_id = next_node_id()
+                nodes.append(GraphNodeSpec(node_id, step, (parent_ref,)))
+                return node_id
+
+            if len(input_graphs) == 0:
+                parent_ref = next_source_name()
+                step = _step_from_graph(operation, params, kind)
+                node_id = next_node_id()
+                nodes.append(GraphNodeSpec(node_id, step, (parent_ref,)))
+                return node_id
+            if len(input_graphs) == 1:
+                parent_ref = extract_node(cast(Mapping[str, Any], input_graphs[0]))
+                step = _step_from_graph(operation, params, kind)
+                node_id = next_node_id()
+                nodes.append(GraphNodeSpec(node_id, step, (parent_ref,)))
+                return node_id
+            if len(input_graphs) == 2:
+                left_ref = extract_node(cast(Mapping[str, Any], input_graphs[0]))
+                right_ref = extract_node(cast(Mapping[str, Any], input_graphs[1]))
+                step = _binary_frame_step_from_graph(operation, params, left_ref, right_ref)
+                node_id = next_node_id()
+                nodes.append(GraphNodeSpec(node_id, step, (left_ref, right_ref)))
+                return node_id
+            raise RecipeExtractionError(
+                "NodeGraphRecipeSpec extraction only supports unary and binary frame graph nodes\n"
+                f"  Operation: {operation}\n"
+                f"  Parent count: {len(input_graphs)}"
+            )
+
+        output = extract_node(cast(Mapping[str, Any], graph))
+        if input_names is not None and next_source_index != len(input_names):
+            raise RecipeExtractionError(
+                "NodeGraphRecipeSpec extraction requires one input name per source leaf\n"
+                f"  Source leaf count: {next_source_index}\n"
+                f"  Input names: {list(input_names)}"
+            )
+        return cls(_unique_preserving_order(source_names), nodes, output)
+
+    def apply(self, inputs: Mapping[str, Any]) -> Any:
+        env: dict[str, Any] = {}
+        for input_name in self.inputs:
+            try:
+                env[input_name] = inputs[input_name]
+            except KeyError as exc:
+                raise KeyError(
+                    "NodeGraphRecipeSpec input is missing\n"
+                    f"  Missing input: {input_name!r}\n"
+                    f"  Available inputs: {sorted(inputs)}"
+                ) from exc
+
+        for node in self.nodes:
+            if isinstance(node.step, BinaryFrameStep):
+                env[node.id] = node.step.apply({input_ref: env[input_ref] for input_ref in node.inputs})
+            else:
+                env[node.id] = _apply_recipe_step(cast(RecipeStep, node.step), env[node.inputs[0]])
+        return env[self.output]
+
+
 __all__ = [
     "BinaryFrameStep",
+    "GraphNodeSpec",
     "GraphRecipeSpec",
     "IndexingStep",
     "MethodStep",
+    "NodeGraphRecipeSpec",
     "OperationSpec",
     "RecipeExtractionError",
     "RecipeSpec",

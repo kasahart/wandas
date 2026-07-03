@@ -194,6 +194,8 @@ Implemented:
 - `GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))` for a single binary merge followed by a replayable linear tail, such as `(signal.normalize() + noise.remove_dc()).stft()`
 - `GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))` when one or both binary parents are unprocessed source frames
 - `GraphRecipeSpec.from_frame(processed)` with default structural input names `left` and `right`
+- `NodeGraphRecipeSpec.from_frame(processed)` for replayable tree graphs with multiple binary merges
+- `NodeGraphRecipeSpec.from_frame(processed, input_names=("base", "base"))` for duplicated parent paths replayed from the same external input
 
 現在の表現:
 
@@ -208,11 +210,24 @@ GraphRecipeSpec(
     output=BinaryFrameStep("+", left="signal", right="noise"),
     tail_recipe=RecipeSpec([TypedMethodStep("stft", {"n_fft": 2048, ...})]),
 )
+NodeGraphRecipeSpec(
+    inputs=("input_0", "input_1", "input_2"),
+    nodes=(
+        GraphNodeSpec("n0", OperationSpec("normalize"), ("input_0",)),
+        GraphNodeSpec("n1", OperationSpec("remove_dc"), ("input_1",)),
+        GraphNodeSpec("n2", BinaryFrameStep("+", "n0", "n1"), ("n0", "n1")),
+        GraphNodeSpec("n3", OperationSpec("highpass_filter", {"cutoff": 500}), ("input_2",)),
+        GraphNodeSpec("n4", BinaryFrameStep("+", "n2", "n3"), ("n2", "n3")),
+    ),
+    output="n4",
+)
 ```
 
 `ScalarOperationStep` は既存 frame operator を呼ぶだけで、二項演算の metadata/history/Dask laziness は frame 本体に委譲する。対応 operand は operation graph に値として保存された Python / NumPy real scalar に限定する。NaN は recipe equality が安定しないため拒否する。
 
 `GraphRecipeSpec` は名前付き入力ごとに linear `RecipeSpec` を適用し、`BinaryFrameStep` で既存 frame-frame 演算を呼び、その後に optional な linear `tail_recipe` を適用する。`from_frame(..., input_names=...)` は 1 回だけ merge する graph だけを対象にし、入力名は呼び出し側が与える。`input_names` を省略した場合は、Python 変数名や frame label ではなく、構造上の左右を表す `left` / `right` を使う。tail は既存 `RecipeSpec` step で表現するため、merge 後の `normalize()`、`trim()`、`stft()` のような replayable operation / method / typed method は同じ仕組みで扱う。
+
+`NodeGraphRecipeSpec` は `operation_graph` を bottom-up に走査し、source leaf を外部入力、operation node を topological order の `GraphNodeSpec` に変換する。複数 binary merge は扱うが、各 node の処理自体は既存 step と `BinaryFrameStep` に委譲する。現時点の `operation_graph` は tree であり true DAG identity は持たないため、shared branch は duplicated parent path として replay する。同じ source を使いたい場合は、`input_names=("base", "base")` のように同じ外部入力名を複数 leaf に割り当てる。
 
 未加工の入力 frame は runtime `operation_graph` では `{"operation": "__source__", "kind": "source"}` という内部 leaf として表す。これは左右 parent の位置を保つためだけの marker であり、`operation_history` には出さない。Recipe 抽出では source leaf を空の `RecipeSpec(())` に変換する。
 
@@ -223,26 +238,11 @@ Not implemented yet:
 - `frame + np.ones(frame.shape)`
 - `frame + dask_array`
 - 入力名を推定する `RecipeSpec.from_frame(signal.add(noise, snr=6.0))` の自動 graph 抽出
-- shared branch を持つ graph: `base.normalize()` から signal/noise branch を作って合成する処理
-- 2 回以上 merge する graph: `(a + b) + c` や `(a + b).normalize() + c`
+- true DAG identity を持つ shared branch graph。現在は tree として duplicated parent path を replay する。
 
 これらは直列 Recipe では表現できない。特に `operation_history` だけを見ると `normalize -> lowpass_filter -> add_with_snr` のように直列に見えることがあるが、`operation_graph` では複数 parent や外部 operand が必要である。array operand も shape、chunking、保存形式を Recipe 側で決める必要があるため、scalar operand と同じ扱いにはしない。
 
-必要な拡張:
-
-```text
-GraphRecipeSpec(
-    inputs=["signal", "noise"],
-    nodes=[
-        Node(id="signal_norm", input="signal", operation="normalize"),
-        Node(id="noise_lp", input="noise", operation="lowpass_filter", params={"cutoff": 1000}),
-        Node(id="mix", operation="add_with_snr", inputs=["signal_norm", "noise_lp"], params={"snr": 6.0}),
-    ],
-    output="mix",
-)
-```
-
-この段階では、外部入力の名前付け、shape/sampling_rate/channel metadata の整合性、operand serialization policy が必要になる。
+残る graph 拡張では、source identity を lineage に保存するか、array/dask operand の値または外部参照をどう保存するかを決める必要がある。shape、sampling rate、channel metadata の整合性チェックは引き続き既存 frame 実装に委譲する。
 
 ## Stage 5: Custom Callable Calculations
 
