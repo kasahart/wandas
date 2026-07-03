@@ -40,6 +40,16 @@ _REPLAYABLE_TYPED_METHOD_OPERATIONS = {
     "istft": ("istft", {}),
     "stft": ("stft", None),
     "transfer_function": ("transfer_function", None),
+    "welch": (
+        "welch",
+        {
+            "n_fft": "n_fft",
+            "hop_length": "hop_length",
+            "win_length": "win_length",
+            "window": "window",
+            "average": "average",
+        },
+    ),
 }
 _REPLAYABLE_TYPED_METHOD_NAMES = frozenset(
     method for method, _param_names in _REPLAYABLE_TYPED_METHOD_OPERATIONS.values()
@@ -138,6 +148,12 @@ def _method_step_from_graph(operation: str, params: Mapping[str, Any]) -> Method
 
 
 def _typed_method_step_from_graph(operation: str, params: Mapping[str, Any]) -> TypedMethodStep:
+    if operation == "welch" and params.get("detrend", "constant") != "constant":
+        raise RecipeExtractionError(
+            "Welch recipe extraction only supports public welch parameters\n"
+            f"  Operation detrend: {params.get('detrend')!r}\n"
+            "  ChannelFrame.welch() does not expose detrend, so non-default values cannot be replayed safely."
+        )
     method, param_names = _REPLAYABLE_TYPED_METHOD_OPERATIONS[operation]
     return TypedMethodStep(method, _method_params(params, param_names))
 

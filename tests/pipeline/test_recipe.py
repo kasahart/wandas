@@ -373,6 +373,43 @@ def test_recipe_from_frame_extracts_stft_typed_transition() -> None:
     assert replayed.window == processed.window
 
 
+def test_recipe_from_frame_extracts_welch_typed_transition() -> None:
+    frame = _frame()
+    processed = frame.welch(n_fft=512, hop_length=128, win_length=512, window="hann", average="mean")
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (
+        TypedMethodStep(
+            "welch",
+            {"n_fft": 512, "hop_length": 128, "win_length": 512, "window": "hann", "average": "mean"},
+        ),
+    )
+    assert isinstance(replayed, SpectralFrame)
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.labels == processed.labels
+    assert replayed.n_fft == processed.n_fft
+    assert replayed.window == processed.window
+    assert replayed.sampling_rate == processed.sampling_rate
+
+
+def test_recipe_from_frame_rejects_welch_with_non_public_detrend() -> None:
+    frame = _frame()
+    processed = frame.apply_operation(
+        "welch",
+        n_fft=512,
+        hop_length=128,
+        win_length=512,
+        window="hann",
+        average="mean",
+        detrend="linear",
+    )
+
+    with pytest.raises(RecipeExtractionError, match="Welch recipe extraction only supports public welch parameters"):
+        RecipeSpec.from_frame(processed)
+
+
 @pytest.mark.parametrize(
     ("build_frame", "expected_step"),
     [
@@ -446,7 +483,6 @@ def test_recipe_from_frame_empty_history_returns_empty_recipe() -> None:
 @pytest.mark.parametrize(
     ("operation_name", "build_frame", "message"),
     [
-        ("welch domain transition", lambda frame: frame.welch(), "Operation is outside the Stage 1 recipe allowlist"),
         (
             "binary frame operation",
             lambda frame: frame + _frame().normalize(),
