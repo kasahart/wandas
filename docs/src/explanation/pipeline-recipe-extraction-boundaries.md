@@ -70,30 +70,35 @@ FrameMethodStep(method="mean", kwargs={})
 
 ## Stage 3: Typed Domain Transitions / 型遷移を含む Recipe
 
-Status: not implemented; required for full target.
+Status: partially implemented for `fft`, `stft`, `ifft`, and `istft`.
 
 対象例:
 
+Implemented:
+
 - `frame.fft()` -> `SpectralFrame`
 - `frame.stft()` -> `SpectrogramFrame`
-- `frame.welch()` -> `SpectralFrame`
 - `spectral_frame.ifft()` -> `ChannelFrame`
 - `spectrogram_frame.istft()` -> `ChannelFrame`
 
-これらは operation graph としては線形に見えるが、出力 frame class と constructor metadata が変わる。現在の `RecipeSpec.apply(frame)` は `frame.apply_operation(...)` だけを呼ぶため、型遷移を正しく再現できない。
+Not implemented yet:
 
-必要な拡張:
+- `frame.welch()` -> `SpectralFrame`
+- `frame.noct_spectrum()` -> `NOctFrame`
+- cross-channel transforms such as `coherence()`, `csd()`, `transfer_function()`
+
+これらは operation graph としては線形に見えるが、出力 frame class と constructor metadata が変わる。実装済み範囲では `TypedMethodStep` が既存 frame method を呼び、型遷移と metadata 構築を既存実装に委譲する。
+
+現在の表現:
 
 ```text
-TypedOperationStep(
-    operation="fft",
-    params={"n_fft": 16000, "window": "hann"},
-    input_frame="ChannelFrame",
-    output_frame="SpectralFrame",
-)
+TypedMethodStep(method="fft", kwargs={"n_fft": 16000, "window": "hann"})
+TypedMethodStep(method="stft", kwargs={"n_fft": 2048, "hop_length": 512, "win_length": 2048, "window": "hann"})
+TypedMethodStep(method="ifft", kwargs={})
+TypedMethodStep(method="istft", kwargs={})
 ```
 
-または、既存 frame method を呼ぶ method-aware step として replay する。
+`ifft()` と `istft()` は、入力 `SpectralFrame` / `SpectrogramFrame` の metadata から必要な逆変換パラメータを取得する既存 method なので、Recipe には追加パラメータを持たせない。
 
 ## Stage 4: Graph / Multi-Input / Binary Calculations
 

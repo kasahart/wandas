@@ -4,14 +4,7 @@ import math
 import numbers
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any, Protocol, TypeVar, cast
-
-
-class _SupportsApplyOperation(Protocol):
-    def apply_operation(self, operation_name: str, **params: Any) -> Any: ...
-
-
-T_Frame = TypeVar("T_Frame", bound=_SupportsApplyOperation)
+from typing import Any, cast
 
 
 class RecipeExtractionError(ValueError):
@@ -35,6 +28,15 @@ _REPLAYABLE_METHOD_OPERATIONS = {
     "sum": ("sum", {}),
 }
 _REPLAYABLE_METHOD_NAMES = frozenset(method for method, _param_names in _REPLAYABLE_METHOD_OPERATIONS.values())
+_REPLAYABLE_TYPED_METHOD_OPERATIONS = {
+    "fft": ("fft", None),
+    "ifft": ("ifft", {}),
+    "istft": ("istft", {}),
+    "stft": ("stft", None),
+}
+_REPLAYABLE_TYPED_METHOD_NAMES = frozenset(
+    method for method, _param_names in _REPLAYABLE_TYPED_METHOD_OPERATIONS.values()
+)
 
 
 def _snapshot_param_value(value: Any) -> Any:
@@ -116,14 +118,27 @@ def _validate_replayable_operation(operation: str) -> None:
         )
 
 
+def _method_params(params: Mapping[str, Any], param_names: Mapping[str, str] | None) -> dict[str, Any]:
+    if param_names is None:
+        return dict(params)
+    return {param_names[key]: value for key, value in params.items() if key in param_names}
+
+
 def _method_step_from_graph(operation: str, params: Mapping[str, Any]) -> MethodStep:
     method, param_names = _REPLAYABLE_METHOD_OPERATIONS[operation]
-    return MethodStep(method, {param_names.get(key, key): value for key, value in params.items()})
+    return MethodStep(method, _method_params(params, param_names))
+
+
+def _typed_method_step_from_graph(operation: str, params: Mapping[str, Any]) -> TypedMethodStep:
+    method, param_names = _REPLAYABLE_TYPED_METHOD_OPERATIONS[operation]
+    return TypedMethodStep(method, _method_params(params, param_names))
 
 
 def _step_from_graph(operation: str, params: Mapping[str, Any]) -> RecipeStep:
     if operation in _REPLAYABLE_METHOD_OPERATIONS:
         return _method_step_from_graph(operation, params)
+    if operation in _REPLAYABLE_TYPED_METHOD_OPERATIONS:
+        return _typed_method_step_from_graph(operation, params)
     _validate_replayable_operation(operation)
     return OperationSpec(operation, params)
 
@@ -192,7 +207,36 @@ class MethodStep:
         return getattr(frame, self.method)(**self.params)
 
 
-RecipeStep = OperationSpec | MethodStep
+@dataclass(frozen=True, init=False)
+class TypedMethodStep:
+    """Replayable frame method call that may change the frame type."""
+
+    method: str
+    _params: tuple[tuple[str, Any], ...]
+
+    def __init__(self, method: str, params: Mapping[str, Any] | None = None) -> None:
+        if method not in _REPLAYABLE_TYPED_METHOD_NAMES:
+            valid_methods = ", ".join(sorted(_REPLAYABLE_TYPED_METHOD_NAMES))
+            raise ValueError(
+                "TypedMethodStep method is outside the replayable typed-method allowlist\n"
+                f"  Method: {method}\n"
+                f"  Valid methods: {valid_methods}"
+            )
+        object.__setattr__(self, "method", method)
+        object.__setattr__(self, "_params", _snapshot_params(params or {}))
+
+    @property
+    def params(self) -> dict[str, Any]:
+        return dict(self._params)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"typed_method": self.method, "params": self.params}
+
+    def apply(self, frame: Any) -> Any:
+        return getattr(frame, self.method)(**self.params)
+
+
+RecipeStep = OperationSpec | MethodStep | TypedMethodStep
 
 
 @dataclass(frozen=True, init=False)
@@ -222,14 +266,14 @@ class RecipeSpec:
             return cls(())
         return cls(_steps_from_graph(cast(Mapping[str, Any], graph)))
 
-    def apply(self, frame: T_Frame) -> T_Frame:
+    def apply(self, frame: Any) -> Any:
         result: Any = frame
         for step in self.steps:
-            if isinstance(step, MethodStep):
+            if isinstance(step, MethodStep | TypedMethodStep):
                 result = step.apply(result)
             else:
                 result = result.apply_operation(step.operation, **step.params)
-        return cast(T_Frame, result)
+        return result
 
 
-__all__ = ["MethodStep", "OperationSpec", "RecipeExtractionError", "RecipeSpec"]
+__all__ = ["MethodStep", "OperationSpec", "RecipeExtractionError", "RecipeSpec", "TypedMethodStep"]

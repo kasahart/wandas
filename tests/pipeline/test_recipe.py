@@ -6,7 +6,9 @@ import pytest
 from dask.array.core import Array as DaArray
 
 from wandas.frames.channel import ChannelFrame
-from wandas.pipeline import MethodStep, OperationSpec, RecipeExtractionError, RecipeSpec
+from wandas.frames.spectral import SpectralFrame
+from wandas.frames.spectrogram import SpectrogramFrame
+from wandas.pipeline import MethodStep, OperationSpec, RecipeExtractionError, RecipeSpec, TypedMethodStep
 
 
 def _frame() -> ChannelFrame:
@@ -101,6 +103,11 @@ def test_method_step_rejects_methods_outside_replay_allowlist() -> None:
         MethodStep("plot")
 
 
+def test_typed_method_step_rejects_methods_outside_replay_allowlist() -> None:
+    with pytest.raises(ValueError, match="TypedMethodStep method is outside the replayable typed-method allowlist"):
+        TypedMethodStep("plot")
+
+
 def test_recipe_apply_preserves_dask_laziness(monkeypatch: pytest.MonkeyPatch) -> None:
     sampling_rate = 16000
     time = np.linspace(0, 1, sampling_rate, endpoint=False)
@@ -182,6 +189,78 @@ def test_recipe_from_frame_extracts_method_aware_linear_steps() -> None:
     assert replayed.shape == processed.shape
 
 
+def test_recipe_from_frame_extracts_fft_typed_transition() -> None:
+    frame = _frame()
+    processed = frame.fft(n_fft=1024, window="hann")
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (TypedMethodStep("fft", {"n_fft": 1024, "window": "hann"}),)
+    assert recipe.to_dict() == {"steps": [{"typed_method": "fft", "params": {"n_fft": 1024, "window": "hann"}}]}
+    assert isinstance(replayed, SpectralFrame)
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.n_fft == processed.n_fft
+    assert replayed.window == processed.window
+    assert replayed.sampling_rate == processed.sampling_rate
+
+
+def test_recipe_from_frame_extracts_fft_ifft_typed_transition_chain() -> None:
+    frame = _frame()
+    processed = frame.fft(n_fft=1024, window="hann").ifft()
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (
+        TypedMethodStep("fft", {"n_fft": 1024, "window": "hann"}),
+        TypedMethodStep("ifft"),
+    )
+    assert isinstance(replayed, ChannelFrame)
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.sampling_rate == processed.sampling_rate
+
+
+def test_recipe_from_frame_extracts_stft_istft_typed_transition_chain() -> None:
+    frame = _frame()
+    processed = frame.stft(n_fft=512, hop_length=128, win_length=512, window="hann").istft()
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (
+        TypedMethodStep(
+            "stft",
+            {"n_fft": 512, "hop_length": 128, "win_length": 512, "window": "hann"},
+        ),
+        TypedMethodStep("istft"),
+    )
+    assert isinstance(replayed, ChannelFrame)
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.sampling_rate == processed.sampling_rate
+
+
+def test_recipe_from_frame_extracts_stft_typed_transition() -> None:
+    frame = _frame()
+    processed = frame.stft(n_fft=512, hop_length=128, win_length=512, window="hann")
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (
+        TypedMethodStep(
+            "stft",
+            {"n_fft": 512, "hop_length": 128, "win_length": 512, "window": "hann"},
+        ),
+    )
+    assert isinstance(replayed, SpectrogramFrame)
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.n_fft == processed.n_fft
+    assert replayed.hop_length == processed.hop_length
+    assert replayed.win_length == processed.win_length
+    assert replayed.window == processed.window
+
+
 def test_recipe_from_frame_empty_history_returns_empty_recipe() -> None:
     assert RecipeSpec.from_frame(_frame()).steps == ()
 
@@ -189,16 +268,7 @@ def test_recipe_from_frame_empty_history_returns_empty_recipe() -> None:
 @pytest.mark.parametrize(
     ("operation_name", "build_frame", "message"),
     [
-        (
-            "fft domain transition",
-            lambda frame: frame.fft(),
-            "Operation is outside the Stage 1 recipe allowlist",
-        ),
-        (
-            "stft domain transition",
-            lambda frame: frame.stft(n_fft=512, hop_length=128),
-            "Operation is outside the Stage 1 recipe allowlist",
-        ),
+        ("welch domain transition", lambda frame: frame.welch(), "Operation is outside the Stage 1 recipe allowlist"),
         (
             "binary scalar operation",
             lambda frame: frame + 0.1,
