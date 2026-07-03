@@ -14,7 +14,10 @@ Core rules:
 - Avoid duplicated state, silent no-op compatibility shims, and public mutable state that must be synchronized with internal state.
 - When changing behavior, update the relevant tests so they describe the clarified contract.
 - Run relevant `uv run pytest`, `uv run ruff check`, and `uv run ty check` commands before finishing.
+- Treat repeated PR review feedback about the same contract as a design signal, not an endless patch queue; stop and reassess the contract before adding more defensive branches.
+- Restarting a PR from a clean base is an exception, used only when old PR history or review context would obscure a revised contract.
 - After pushing PR updates, verify that local `HEAD`, `origin/<branch>`, and the PR head SHA match before reporting completion.
+- After pushing PR updates, use finite post-push monitoring: wait for CI/checks and review state to settle (up to 10 minutes by default, 30 minutes maximum); before reporting completion, confirm there are no unresolved review threads and no pending requested reviews.
 - After a PR is merged, check closing issue references and close any completed-but-open source issue with a concise comment.
 
 Area-specific guidance lives in:
