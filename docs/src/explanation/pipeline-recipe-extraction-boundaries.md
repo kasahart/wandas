@@ -76,6 +76,7 @@ Status: partially implemented for `fix_length`, `sum`, `mean`, `channel_differen
 | `frame.mean()` | `MethodStep("mean")` | `sum` と同じく channel metadata 再構成を frame method に委譲する |
 | `frame.channel_difference(other_channel=0)` | `MethodStep("channel_difference", {"other_channel": 0})` | channel label / metadata 更新を frame method に委譲する |
 | `frame.get_channel(1)` | `MethodStep("get_channel", {"channel_idx": 1})` | channel metadata、channel ids、source time offset の selection を frame method に委譲する |
+| `frame.get_channel(np.array([False, True]))` | `MethodStep("get_channel", {"channel_mask": [False, True]})` | mask intent を integer index へ潰さず、既存 `get_channel(mask)` に委譲する |
 | `frame.get_channel(query="right")` | `MethodStep("get_channel", {"query": "right", "validate_query_keys": True})` | exact label query は値として保存できる |
 | `frame.get_channel(query={"unit": "Pa"})` | `MethodStep("get_channel", {"query": {"unit": "Pa"}, "validate_query_keys": True})` | literal metadata query は query intent を保存できる |
 | `frame[0:2]` | `IndexingStep(slice(0, 2))` | slice intent を index list へ潰さず、既存 `frame[key]` に委譲する |

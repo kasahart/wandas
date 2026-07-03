@@ -646,6 +646,35 @@ def test_recipe_from_frame_extracts_channel_selection_method_step(
     assert replayed.shape == processed.shape
 
 
+def test_get_channel_boolean_mask_recipe_extraction_snapshots_mask() -> None:
+    base = _frame()
+    frame = ChannelFrame(
+        data=da.from_array(np.vstack([base.data, base.data * 0.5]), chunks=(1, -1)),
+        sampling_rate=base.sampling_rate,
+        channel_metadata=[
+            ChannelMetadata(label="left"),
+            ChannelMetadata(label="right"),
+        ],
+    )
+    mask = np.array([False, True])
+    processed = frame.get_channel(mask)
+    mask[1] = False
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (MethodStep("get_channel", {"channel_mask": [False, True]}),)
+    assert recipe.to_dict() == {"steps": [{"method": "get_channel", "params": {"channel_mask": [False, True]}}]}
+    assert replayed.operation_history == processed.operation_history
+    assert isinstance(replayed._data, DaArray)
+    assert replayed.labels == ["right"]
+
+
+def test_get_channel_boolean_mask_step_rejects_non_bool_values() -> None:
+    with pytest.raises(TypeError, match="get_channel channel_mask"):
+        MethodStep("get_channel", {"channel_mask": [0, 2, 0]})
+
+
 def test_get_channel_dict_query_recipe_extraction_snapshots_query() -> None:
     base = _frame()
     frame = ChannelFrame(

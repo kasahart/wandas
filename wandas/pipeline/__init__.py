@@ -56,6 +56,7 @@ _REPLAYABLE_METHOD_OPERATIONS = {
     "get_channel": (
         "get_channel",
         {
+            "channel_mask": "channel_mask",
             "channel_idx": "channel_idx",
             "query": "query",
             "validate_query_keys": "validate_query_keys",
@@ -169,9 +170,38 @@ def _snapshot_rename_channels_params(params: Mapping[str, Any]) -> tuple[tuple[s
     return (("mapping", _FrozenMapping(frozen_mapping)),)
 
 
+def _is_bool_scalar(value: Any) -> bool:
+    return isinstance(value, bool) or (type(value).__module__ == "numpy" and type(value).__name__ in {"bool", "bool_"})
+
+
+def _snapshot_bool_mask_param(value: Any, *, context: str) -> _FrozenSequence:
+    if not isinstance(value, list | tuple):
+        raise TypeError(f"{context} must be a shallow sequence of bool values\n  Got: {type(value).__name__}")
+    if not all(_is_bool_scalar(item) for item in value):
+        raise TypeError(f"{context} must contain only bool values\n  Got: {value!r}")
+    return _FrozenSequence(tuple(bool(item) for item in value))
+
+
+def _snapshot_get_channel_param_value(key: str, value: Any) -> Any:
+    if key == "channel_mask":
+        return _snapshot_bool_mask_param(value, context="get_channel channel_mask")
+    return _snapshot_param_value(value)
+
+
 def _snapshot_get_channel_query_params(params: Mapping[str, Any]) -> tuple[tuple[str, Any], ...]:
     query = params.get("query")
     if not isinstance(query, Mapping):
+        if "channel_mask" in params:
+            frozen: list[tuple[str, Any]] = []
+            for key, value in params.items():
+                if not isinstance(key, str):
+                    raise TypeError(
+                        "OperationSpec params mapping keys must be strings\n"
+                        f"  Got: {type(key).__name__}\n"
+                        "  Recipe params use string keys so equality and serialization stay predictable."
+                    )
+                frozen.append((key, _snapshot_get_channel_param_value(key, value)))
+            return tuple(sorted(frozen))
         return _snapshot_params(params)
     frozen: list[tuple[str, Any]] = []
     for key, value in params.items():
@@ -189,7 +219,7 @@ def _snapshot_get_channel_query_params(params: Mapping[str, Any]) -> tuple[tuple
                     f"  Got: {type(key).__name__}\n"
                     "  Recipe params use string keys so equality and serialization stay predictable."
                 )
-            frozen.append((key, _snapshot_param_value(value)))
+            frozen.append((key, _snapshot_get_channel_param_value(key, value)))
     return tuple(sorted(frozen))
 
 
@@ -627,6 +657,11 @@ class MethodStep:
         return {"method": self.method, "params": params}
 
     def apply(self, frame: Any) -> Any:
+        if self.method == "get_channel":
+            params = self.params
+            mask = params.pop("channel_mask", None)
+            if mask is not None:
+                return frame.get_channel(np.array(mask, dtype=bool), **params)
         return getattr(frame, self.method)(**self.params)
 
 

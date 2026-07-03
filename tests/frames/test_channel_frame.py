@@ -345,6 +345,33 @@ class TestChannelFrame:
         assert channels.n_channels == 2
         np.testing.assert_array_equal(channels.data, self.data[[-1, -2]])
 
+    def test_get_channel_boolean_numpy_array(self) -> None:
+        """Test get_channel with a 1-D boolean mask."""
+        mask = np.array([False, True])
+        channels = self.channel_frame.get_channel(mask)
+
+        assert isinstance(channels, ChannelFrame)
+        assert channels.n_channels == 1
+        assert channels.channels[0].label == "ch1"
+        assert channels.operation_history[-1] == {
+            "operation": "get_channel",
+            "params": {"channel_mask": [False, True]},
+        }
+        assert isinstance(channels._data, DaArray)
+        np.testing.assert_array_equal(channels.data, self.data[1])
+
+    @pytest.mark.parametrize(
+        "mask",
+        [
+            np.array([True]),
+            np.array([[False, True]]),
+            np.array([[False], [True]]),
+        ],
+    )
+    def test_get_channel_boolean_numpy_array_rejects_invalid_masks(self, mask: np.ndarray[Any, Any]) -> None:
+        with pytest.raises(ValueError, match="Boolean mask"):
+            self.channel_frame.get_channel(mask)
+
     def test_get_channel_with_range(self) -> None:
         """Test get_channel with range object."""
         # Create a frame with more channels

@@ -802,10 +802,21 @@ class BaseFrame(ABC, Generic[T]):
             if channel_idx is None:
                 raise TypeError("Either 'channel_idx' or 'query' must be provided.")
 
-            channel_idx_list = [channel_idx] if isinstance(channel_idx, int) else list(channel_idx)
-            lineage_params = {
-                "channel_idx": channel_idx_list[0] if len(channel_idx_list) == 1 else channel_idx_list,
-            }
+            if isinstance(channel_idx, np.ndarray) and channel_idx.dtype in (bool, np.bool_):
+                if channel_idx.ndim != 1:
+                    raise ValueError(f"Boolean mask must be 1-D, got shape {channel_idx.shape}")
+                if len(channel_idx) != self.n_channels:
+                    raise ValueError(
+                        f"Boolean mask length {len(channel_idx)} does not match number of channels {self.n_channels}"
+                    )
+                mask = [bool(value) for value in cast(npt.NDArray[np.bool_], channel_idx).tolist()]
+                channel_idx_list = [int(index) for index in np.where(channel_idx)[0]]
+                lineage_params = {"channel_mask": tuple(mask)}
+            else:
+                channel_idx_list = [channel_idx] if isinstance(channel_idx, int) else list(channel_idx)
+                lineage_params = {
+                    "channel_idx": channel_idx_list[0] if len(channel_idx_list) == 1 else channel_idx_list,
+                }
 
         new_data = self._data[channel_idx_list]
         new_channel_metadata = [self.channels[i].to_metadata() for i in channel_idx_list]
