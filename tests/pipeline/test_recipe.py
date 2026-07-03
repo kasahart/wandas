@@ -224,6 +224,56 @@ def test_recipe_apply_supports_terminal_crest_factor_metric() -> None:
     np.testing.assert_allclose(result, frame.crest_factor)
 
 
+@pytest.mark.parametrize("metric", ["time", "source_time"])
+def test_recipe_apply_supports_channel_terminal_axis_properties(metric: str) -> None:
+    frame = _frame()
+    recipe = RecipeSpec([OperationSpec("trim", {"start": 0.1, "end": 0.2}), TerminalStep(metric)])
+
+    result = recipe.apply(frame)
+    expected = getattr(frame.trim(start=0.1, end=0.2), metric)
+
+    np.testing.assert_allclose(result, expected)
+
+
+@pytest.mark.parametrize("metric", ["magnitude", "phase", "power", "dB", "dBA", "freqs", "unwrapped_phase"])
+def test_recipe_apply_supports_spectral_terminal_properties(metric: str) -> None:
+    frame = _frame()
+    recipe = RecipeSpec([TypedMethodStep("fft", {"n_fft": 1024, "window": "hann"}), TerminalStep(metric)])
+
+    result = recipe.apply(frame)
+    expected = getattr(frame.fft(n_fft=1024, window="hann"), metric)
+
+    np.testing.assert_allclose(result, expected)
+
+
+@pytest.mark.parametrize("metric", ["magnitude", "phase", "power", "dB", "dBA", "freqs", "times", "source_times"])
+def test_recipe_apply_supports_spectrogram_terminal_properties(metric: str) -> None:
+    frame = _frame()
+    params = {"n_fft": 1024, "hop_length": 256, "win_length": 1024, "window": "hann"}
+    recipe = RecipeSpec([TypedMethodStep("stft", params), TerminalStep(metric)])
+
+    result = recipe.apply(frame)
+    expected = getattr(frame.stft(**params), metric)
+
+    np.testing.assert_allclose(result, expected)
+
+
+def test_recipe_apply_supports_roughness_terminal_bark_axis(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_psychoacoustic_backend(monkeypatch)
+    frame = _frame()
+    recipe = RecipeSpec([TypedMethodStep("roughness_dw_spec", {"overlap": 0.5}), TerminalStep("bark_axis")])
+
+    result = recipe.apply(frame)
+    expected = frame.roughness_dw_spec(overlap=0.5).bark_axis
+
+    np.testing.assert_allclose(result, expected)
+
+
+def test_terminal_property_step_rejects_callable_attribute_on_frame() -> None:
+    with pytest.raises(TypeError, match="TerminalStep expected a terminal property"):
+        TerminalStep("power").apply(_frame())
+
+
 def test_terminal_step_rejects_unknown_metric() -> None:
     with pytest.raises(ValueError, match="TerminalStep metric is outside the replayable terminal allowlist"):
         TerminalStep("plot")

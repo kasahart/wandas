@@ -101,7 +101,24 @@ _REPLAYABLE_SCALAR_OPERATIONS = frozenset({"+", "-", "*", "/", "**"})
 _REPLAYABLE_GETITEM_INDEXING = frozenset(
     {"boolean_mask", "channel_slice", "integer_list", "label_list", "multidimensional_slice"}
 )
-_REPLAYABLE_TERMINAL_PROPERTIES = frozenset({"crest_factor", "rms"})
+_REPLAYABLE_TERMINAL_PROPERTIES = frozenset(
+    {
+        "bark_axis",
+        "crest_factor",
+        "dB",
+        "dBA",
+        "freqs",
+        "magnitude",
+        "phase",
+        "power",
+        "rms",
+        "source_time",
+        "source_times",
+        "time",
+        "times",
+        "unwrapped_phase",
+    }
+)
 _REPLAYABLE_TERMINAL_METHODS = frozenset({"loudness_zwst", "sharpness_din_st"})
 _REPLAYABLE_BINARY_FRAME_OPERATIONS = frozenset({"+", "-", "*", "/", "**", "add_with_snr"})
 

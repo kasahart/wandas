@@ -300,10 +300,22 @@ Implemented:
 
 - `TerminalStep("rms")`
 - `TerminalStep("crest_factor")`
+- `TerminalStep("time")`
+- `TerminalStep("source_time")`
+- `TerminalStep("freqs")`
+- `TerminalStep("magnitude")`
+- `TerminalStep("phase")`
+- `TerminalStep("power")`
+- `TerminalStep("dB")`
+- `TerminalStep("dBA")`
+- `TerminalStep("unwrapped_phase")`
+- `TerminalStep("times")`
+- `TerminalStep("source_times")`
+- `TerminalStep("bark_axis")`
 - `TerminalStep("loudness_zwst", {"field_type": "free"})`
 - `TerminalStep("sharpness_din_st", {"weighting": "din", "field_type": "free"})`
 
-これらは `RecipeSpec.from_frame(...)` で自動抽出しない。terminal metric は NumPy 配列を返し、結果そのものは frame lineage を保持しないためである。明示的に `RecipeSpec([OperationSpec("remove_dc"), TerminalStep("rms")])` のように組む場合だけ、変換 chain の末尾で既存 property / method を呼ぶ。
+これらは `RecipeSpec.from_frame(...)` で自動抽出しない。terminal metric / property は NumPy 配列や scalar を返し、結果そのものは frame lineage を保持しないためである。明示的に `RecipeSpec([OperationSpec("remove_dc"), TerminalStep("rms")])` や `RecipeSpec([TypedMethodStep("fft", {...}), TerminalStep("magnitude")])` のように組む場合だけ、変換 chain の末尾で既存 property / method を呼ぶ。
 
 未対応の terminal metric / report 自動抽出には、frame lineage を持たない結果からどの frame と terminal call を結び付けるかを決める UX が必要である。
 
