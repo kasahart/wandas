@@ -603,6 +603,19 @@ def _steps_from_graph(graph: Mapping[str, Any]) -> tuple[RecipeStep, ...]:
     return (*parent_steps, _step_from_graph(operation, params, kind))
 
 
+def _binary_frame_step_from_graph(operation: str, params: Mapping[str, Any], left: str, right: str) -> BinaryFrameStep:
+    if operation == "add_with_snr":
+        return BinaryFrameStep("add_with_snr", left, right, {"snr": params["snr"]})
+    if operation == "+" and params.get("operand_kind") == "frame":
+        return BinaryFrameStep(operation, left, right)
+    raise RecipeExtractionError(
+        "GraphRecipeSpec extraction only supports root binary frame operations\n"
+        f"  Operation: {operation}\n"
+        f"  Params: {params!r}\n"
+        "  Supported roots: frame-frame '+', add_with_snr."
+    )
+
+
 @dataclass(frozen=True, init=False)
 class OperationSpec:
     """Replayable single-frame operation call."""
@@ -1086,6 +1099,41 @@ class GraphRecipeSpec:
             "inputs": {name: recipe.to_dict() for name, recipe in self.input_recipes},
             "output": self.output.to_dict(),
         }
+
+    @classmethod
+    def from_frame(cls, frame: Any, *, input_names: tuple[str, ...]) -> GraphRecipeSpec:
+        from wandas.core.base_frame import BaseFrame
+
+        if not isinstance(frame, BaseFrame):
+            raise RecipeExtractionError(
+                f"GraphRecipeSpec extraction requires a Wandas frame\n  Got: {type(frame).__name__}"
+            )
+        graph = frame.operation_graph
+        if graph is None:
+            raise RecipeExtractionError("GraphRecipeSpec extraction requires operation_graph lineage")
+
+        inputs = tuple(graph.get("inputs", ()))
+        if len(inputs) != 2 or len(input_names) != 2:
+            raise RecipeExtractionError(
+                "GraphRecipeSpec extraction requires one input name per parent\n"
+                f"  Parent count: {len(inputs)}\n"
+                f"  Input names: {list(input_names)}"
+            )
+        if input_names[0] == input_names[1]:
+            raise RecipeExtractionError(
+                f"GraphRecipeSpec extraction requires distinct input names\n  Input names: {list(input_names)}"
+            )
+
+        operation = str(graph["operation"])
+        params = cast(Mapping[str, Any], _restore_history_value(graph.get("params", {})))
+        left, right = input_names
+        return cls(
+            {
+                left: RecipeSpec(_steps_from_graph(cast(Mapping[str, Any], inputs[0]))),
+                right: RecipeSpec(_steps_from_graph(cast(Mapping[str, Any], inputs[1]))),
+            },
+            _binary_frame_step_from_graph(operation, params, left, right),
+        )
 
     def apply(self, inputs: Mapping[str, Any]) -> Any:
         frames: dict[str, Any] = {}

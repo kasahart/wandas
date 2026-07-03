@@ -300,6 +300,77 @@ def test_graph_recipe_applies_add_with_snr() -> None:
     assert result.operation_history == expected.operation_history
 
 
+def test_graph_recipe_from_frame_extracts_root_add_with_snr_with_input_names() -> None:
+    base = _frame()
+    signal_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="signal")
+    noise_source = ChannelFrame.from_numpy(np.flip(base.data), sampling_rate=base.sampling_rate, label="noise")
+    processed = signal_source.normalize().add(noise_source.low_pass_filter(cutoff=1200.0), snr=6.0)
+
+    graph_recipe = GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))
+    replayed = graph_recipe.apply({"signal": signal_source, "noise": noise_source})
+
+    assert graph_recipe.to_dict() == {
+        "inputs": {
+            "signal": {
+                "steps": [
+                    {
+                        "operation": "normalize",
+                        "params": {"axis": -1, "fill": None, "norm": float("inf"), "threshold": None},
+                    }
+                ]
+            },
+            "noise": {"steps": [{"operation": "lowpass_filter", "params": {"cutoff": 1200.0, "order": 4}}]},
+        },
+        "output": {
+            "binary_frame": {
+                "operation": "add_with_snr",
+                "left": "signal",
+                "right": "noise",
+                "params": {"snr": 6.0},
+            }
+        },
+    }
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.operation_history == processed.operation_history
+
+
+def test_graph_recipe_from_frame_extracts_root_frame_addition_with_input_names() -> None:
+    base = _frame()
+    left_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="left")
+    right_source = ChannelFrame.from_numpy(base.data * 0.25, sampling_rate=base.sampling_rate, label="right")
+    processed = left_source.remove_dc() + right_source.high_pass_filter(cutoff=500.0)
+
+    graph_recipe = GraphRecipeSpec.from_frame(processed, input_names=("left", "right"))
+    replayed = graph_recipe.apply({"left": left_source, "right": right_source})
+
+    assert graph_recipe.output == BinaryFrameStep("+", "left", "right")
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.operation_history == processed.operation_history
+
+
+def test_graph_recipe_from_frame_rejects_wrong_input_name_count() -> None:
+    base = _frame()
+    signal_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="signal")
+    noise_source = ChannelFrame.from_numpy(np.flip(base.data), sampling_rate=base.sampling_rate, label="noise")
+    processed = signal_source.normalize().add(noise_source.low_pass_filter(cutoff=1200.0), snr=6.0)
+
+    with pytest.raises(RecipeExtractionError, match="GraphRecipeSpec extraction requires one input name per parent"):
+        GraphRecipeSpec.from_frame(processed, input_names=("signal",))
+
+
+def test_graph_recipe_from_frame_rejects_unsupported_root_binary_operator() -> None:
+    base = _frame()
+    left_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="left")
+    right_source = ChannelFrame.from_numpy(base.data * 0.25, sampling_rate=base.sampling_rate, label="right")
+    processed = left_source.remove_dc() - right_source.high_pass_filter(cutoff=500.0)
+
+    with pytest.raises(
+        RecipeExtractionError,
+        match="GraphRecipeSpec extraction only supports root binary frame operations",
+    ):
+        GraphRecipeSpec.from_frame(processed, input_names=("left", "right"))
+
+
 def test_graph_recipe_rejects_missing_input() -> None:
     graph_recipe = GraphRecipeSpec(
         input_recipes={"signal": RecipeSpec(()), "noise": RecipeSpec(())},
