@@ -184,6 +184,8 @@ Implemented:
 - `frame * 2`
 - `frame / 2`
 - `frame ** 2`
+- `NodeGraphRecipeSpec.from_frame(frame + np.ones(frame.shape), input_names=("signal", "offset"))`
+- `NodeGraphRecipeSpec.from_frame(frame * dask_array, input_names=("signal", "operand"))`
 - `GraphRecipeSpec(..., BinaryFrameStep("+", ...))`
 - `GraphRecipeSpec(..., BinaryFrameStep("-", ...))`
 - `GraphRecipeSpec(..., BinaryFrameStep("*", ...))`
@@ -223,6 +225,7 @@ NodeGraphRecipeSpec(
     output="n4",
 )
 AddChannelStep(base="base", added="added", params={"align": "strict", "label": "ref", "suffix_on_dup": null})
+BinaryOperandStep(operation="+", frame="signal", operand="offset")
 ```
 
 `ScalarOperationStep` は既存 frame operator を呼ぶだけで、二項演算の metadata/history/Dask laziness は frame 本体に委譲する。対応 operand は operation graph に値として保存された Python / NumPy real scalar に限定する。NaN は recipe equality が安定しないため拒否する。
@@ -230,6 +233,8 @@ AddChannelStep(base="base", added="added", params={"align": "strict", "label": "
 `GraphRecipeSpec` は名前付き入力ごとに linear `RecipeSpec` を適用し、`BinaryFrameStep` で既存 frame-frame 演算を呼び、その後に optional な linear `tail_recipe` を適用する。`from_frame(..., input_names=...)` は 1 回だけ merge する graph だけを対象にし、入力名は呼び出し側が与える。`input_names` を省略した場合は、Python 変数名や frame label ではなく、構造上の左右を表す `left` / `right` を使う。tail は既存 `RecipeSpec` step で表現するため、merge 後の `normalize()`、`trim()`、`stft()` のような replayable operation / method / typed method は同じ仕組みで扱う。
 
 `NodeGraphRecipeSpec` は `operation_graph` を bottom-up に走査し、source leaf を外部入力、operation node を topological order の `GraphNodeSpec` に変換する。複数 binary merge は扱うが、各 node の処理自体は既存 step と `BinaryFrameStep` に委譲する。現時点の `operation_graph` は tree であり true DAG identity は持たないため、shared branch は duplicated parent path として replay する。同じ source を使いたい場合は、`input_names=("base", "base")` のように同じ外部入力名を複数 leaf に割り当てる。
+
+`frame + ndarray` や `frame * dask_array` のような array operand は `BinaryOperandStep` に変換する。Recipe は array 値を保存せず、named external input として replay 時に受け取る。`operation_graph` に残る shape/dtype/chunk descriptor は、対象が external operand であることの判定にだけ使い、値の再構成には使わない。
 
 `add_channel(ChannelFrame, ...)` は `AddChannelStep` に変換する。Recipe 側で channel metadata や source offset の再構成は複製せず、`base.add_channel(added, align=..., label=..., suffix_on_dup=...)` を呼ぶ。raw `ndarray` / `dask.array` の `add_channel()` は、追加データの値または外部参照を recipe にどう保存するか決めるまで拒否する。
 
@@ -239,8 +244,6 @@ Not implemented yet:
 
 - Python 変数名や frame label に基づく入力名推定。現在の runtime lineage は source identity を保存しないため、名前推定は `left` / `right` の構造名に限定する。
 - `RecipeSpec.from_frame(frame_a + frame_b)` が graph recipe を返すこと。`RecipeSpec` は単一入力・直列 recipe のままとし、複数入力 graph は `GraphRecipeSpec.from_frame(...)` で抽出する。
-- `frame + np.ones(frame.shape)`
-- `frame + dask_array`
 - `frame.add_channel(np.ones(frame.n_samples), label="raw")`
 - `frame.add_channel(dask_array, label="raw")`
 - 入力名を推定する `RecipeSpec.from_frame(signal.add(noise, snr=6.0))` の自動 graph 抽出

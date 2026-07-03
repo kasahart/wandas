@@ -19,6 +19,7 @@ from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.pipeline import (
     AddChannelStep,
     BinaryFrameStep,
+    BinaryOperandStep,
     GraphNodeSpec,
     GraphRecipeSpec,
     IndexingStep,
@@ -662,12 +663,79 @@ def test_node_graph_recipe_from_frame_extracts_multidimensional_indexing_branch(
     assert replayed.operation_history == processed.operation_history
 
 
-def test_node_graph_recipe_from_frame_rejects_array_operand_boundary() -> None:
+def test_node_graph_recipe_from_frame_extracts_numpy_operand_as_external_input() -> None:
     frame = _frame()
-    processed = frame + np.ones(frame.shape)
+    operand = np.ones(frame.shape)
+    processed = frame + operand
 
-    with pytest.raises(RecipeExtractionError, match="Scalar operation requires a numeric scalar operand"):
-        NodeGraphRecipeSpec.from_frame(processed)
+    recipe = NodeGraphRecipeSpec.from_frame(processed, input_names=("signal", "offset"))
+    replayed = recipe.apply({"signal": frame, "offset": operand})
+
+    assert recipe.inputs == ("signal", "offset")
+    assert recipe.nodes == (GraphNodeSpec("n0", BinaryOperandStep("+", "signal", "offset"), ("signal", "offset")),)
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.operation_history == processed.operation_history
+
+
+def test_node_graph_recipe_from_frame_extracts_dask_operand_after_processed_parent() -> None:
+    frame = _frame()
+    operand = da.ones(frame.shape, chunks=frame.shape)
+    processed = frame.normalize() * operand
+
+    recipe = NodeGraphRecipeSpec.from_frame(processed)
+    replayed = recipe.apply({"input_0": frame, "input_1": operand})
+
+    assert recipe.inputs == ("input_0", "input_1")
+    assert recipe.nodes == (
+        GraphNodeSpec(
+            "n0",
+            OperationSpec("normalize", {"axis": -1, "fill": None, "norm": float("inf"), "threshold": None}),
+            ("input_0",),
+        ),
+        GraphNodeSpec("n1", BinaryOperandStep("*", "n0", "input_1"), ("n0", "input_1")),
+    )
+    assert isinstance(replayed._data, DaArray)
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.operation_history == processed.operation_history
+
+
+def test_node_graph_recipe_binary_operand_rejects_missing_operand_input() -> None:
+    frame = _frame()
+    recipe = NodeGraphRecipeSpec.from_frame(frame + np.ones(frame.shape), input_names=("signal", "offset"))
+
+    with pytest.raises(KeyError, match="NodeGraphRecipeSpec input is missing"):
+        recipe.apply({"signal": frame})
+
+
+def test_binary_operand_step_rejects_same_frame_and_operand_ref() -> None:
+    with pytest.raises(ValueError, match="BinaryOperandStep frame and operand inputs must be distinct"):
+        BinaryOperandStep("+", "signal", "signal")
+
+
+def test_binary_operand_step_rejects_non_array_runtime_operand() -> None:
+    frame = _frame()
+    step = BinaryOperandStep("+", "signal", "operand")
+
+    with pytest.raises(TypeError, match="BinaryOperandStep operand input must be a NumPy or Dask array"):
+        step.apply({"signal": frame, "operand": 1.0})
+
+
+def test_node_graph_recipe_binary_operand_rejects_inconsistent_symbol_metadata() -> None:
+    graph = {
+        "operation": "+",
+        "params": {"symbol": "-", "operand_kind": "operand", "operand": {"type": "ndarray", "shape": [8]}},
+        "inputs": [],
+    }
+
+    class GraphFrame(ChannelFrame):
+        @property
+        def operation_graph(self) -> dict[str, Any]:
+            return graph
+
+    graph_frame = GraphFrame(data=da.from_array(np.arange(8.0), chunks=-1), sampling_rate=8000)
+
+    with pytest.raises(RecipeExtractionError, match="Binary operand graph has inconsistent operator metadata"):
+        NodeGraphRecipeSpec.from_frame(graph_frame)
 
 
 def test_node_graph_recipe_from_frame_extracts_add_channel_frame_inputs() -> None:

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 import numpy as np
+from dask.array.core import Array as DaArray
 
 
 class RecipeExtractionError(ValueError):
@@ -618,6 +619,33 @@ def _binary_frame_step_from_graph(operation: str, params: Mapping[str, Any], lef
     )
 
 
+def _is_external_operand_graph(operation: str, params: Mapping[str, Any]) -> bool:
+    if operation not in _REPLAYABLE_SCALAR_OPERATIONS or params.get("operand_kind") != "operand":
+        return False
+    operand = params.get("operand")
+    return isinstance(operand, Mapping) and operand.get("type") in {"ndarray", "dask.array"}
+
+
+def _binary_operand_step_from_graph(
+    operation: str,
+    params: Mapping[str, Any],
+    frame: str,
+    operand: str,
+) -> BinaryOperandStep:
+    symbol = params.get("symbol", operation)
+    if symbol != operation:
+        raise RecipeExtractionError(
+            f"Binary operand graph has inconsistent operator metadata\n  Operation: {operation}\n  Symbol: {symbol!r}"
+        )
+    if not _is_external_operand_graph(operation, params):
+        raise RecipeExtractionError(
+            "Binary operand recipe extraction only supports external ndarray and dask.array operands\n"
+            f"  Operation: {operation}\n"
+            f"  Params: {params!r}"
+        )
+    return BinaryOperandStep(operation, frame, operand)
+
+
 def _add_channel_step_from_graph(params: Mapping[str, Any], base: str, added: str) -> AddChannelStep:
     if params.get("input_kind") != "frame":
         raise RecipeExtractionError(
@@ -1068,6 +1096,68 @@ class BinaryFrameStep:
 
 
 @dataclass(frozen=True, init=False)
+class BinaryOperandStep:
+    """Replayable binary operation over a frame and a named external operand."""
+
+    operation: str
+    frame: str
+    operand: str
+
+    def __init__(self, operation: str, frame: str, operand: str) -> None:
+        if operation not in _REPLAYABLE_SCALAR_OPERATIONS:
+            valid_operations = ", ".join(sorted(_REPLAYABLE_SCALAR_OPERATIONS))
+            raise ValueError(
+                "BinaryOperandStep operation is outside the replayable operand allowlist\n"
+                f"  Operation: {operation}\n"
+                f"  Valid operations: {valid_operations}"
+            )
+        if not frame or not operand:
+            raise ValueError("BinaryOperandStep frame and operand input names must be non-empty strings")
+        if frame == operand:
+            raise ValueError(f"BinaryOperandStep frame and operand inputs must be distinct\n  Input: {frame!r}")
+        object.__setattr__(self, "operation", operation)
+        object.__setattr__(self, "frame", frame)
+        object.__setattr__(self, "operand", operand)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "binary_operand": {
+                "operation": self.operation,
+                "frame": self.frame,
+                "operand": self.operand,
+            }
+        }
+
+    def apply(self, inputs: Mapping[str, Any]) -> Any:
+        try:
+            frame = inputs[self.frame]
+            operand = inputs[self.operand]
+        except KeyError as exc:
+            raise KeyError(
+                "NodeGraphRecipeSpec binary operand input is missing\n"
+                f"  Missing input: {exc.args[0]!r}\n"
+                f"  Available inputs: {sorted(inputs)}"
+            ) from exc
+        if not isinstance(operand, np.ndarray | DaArray):
+            raise TypeError(
+                "BinaryOperandStep operand input must be a NumPy or Dask array\n"
+                f"  Operand input: {self.operand!r}\n"
+                f"  Got: {type(operand).__name__}"
+            )
+        if self.operation == "+":
+            return frame + operand
+        if self.operation == "-":
+            return frame - operand
+        if self.operation == "*":
+            return frame * operand
+        if self.operation == "/":
+            return frame / operand
+        if self.operation == "**":
+            return frame**operand
+        raise AssertionError(f"Unhandled binary operand operation: {self.operation}")
+
+
+@dataclass(frozen=True, init=False)
 class AddChannelStep:
     """Replayable add_channel call over two named frame inputs."""
 
@@ -1115,7 +1205,7 @@ class AddChannelStep:
 
 
 RecipeStep = OperationSpec | MethodStep | TypedMethodStep | ScalarOperationStep | IndexingStep | TerminalStep
-GraphStep = RecipeStep | BinaryFrameStep | AddChannelStep
+GraphStep = RecipeStep | BinaryFrameStep | BinaryOperandStep | AddChannelStep
 
 
 def _apply_recipe_step(step: RecipeStep, frame: Any) -> Any:
@@ -1144,6 +1234,13 @@ class GraphNodeSpec:
                     "GraphNodeSpec binary step inputs must match BinaryFrameStep references\n"
                     f"  Node inputs: {list(frozen_inputs)}\n"
                     f"  Binary inputs: {[step.left, step.right]}"
+                )
+        elif isinstance(step, BinaryOperandStep):
+            if frozen_inputs != (step.frame, step.operand):
+                raise ValueError(
+                    "GraphNodeSpec binary operand inputs must match BinaryOperandStep references\n"
+                    f"  Node inputs: {list(frozen_inputs)}\n"
+                    f"  Binary operand inputs: {[step.frame, step.operand]}"
                 )
         elif isinstance(step, AddChannelStep):
             if frozen_inputs != (step.base, step.added):
@@ -1439,6 +1536,22 @@ class NodeGraphRecipeSpec:
                     "  Raw ndarray and dask.array inputs need an explicit data serialization or external-input policy."
                 )
 
+            if _is_external_operand_graph(operation, params):
+                if len(input_graphs) > 1:
+                    raise RecipeExtractionError(
+                        "Binary operand recipe extraction requires at most one frame parent\n"
+                        f"  Operation: {operation}\n"
+                        f"  Parent count: {len(input_graphs)}"
+                    )
+                frame_ref = (
+                    extract_node(cast(Mapping[str, Any], input_graphs[0])) if input_graphs else next_source_name()
+                )
+                operand_ref = next_source_name()
+                step = _binary_operand_step_from_graph(operation, params, frame_ref, operand_ref)
+                node_id = next_node_id()
+                nodes.append(GraphNodeSpec(node_id, step, (frame_ref, operand_ref)))
+                return node_id
+
             if operation == "__getitem__" and params.get("indexing") == "multidimensional_slice":
                 if len(input_graphs) != 1:
                     raise RecipeExtractionError(
@@ -1513,7 +1626,7 @@ class NodeGraphRecipeSpec:
                 ) from exc
 
         for node in self.nodes:
-            if isinstance(node.step, BinaryFrameStep | AddChannelStep):
+            if isinstance(node.step, BinaryFrameStep | BinaryOperandStep | AddChannelStep):
                 env[node.id] = node.step.apply({input_ref: env[input_ref] for input_ref in node.inputs})
             else:
                 env[node.id] = _apply_recipe_step(cast(RecipeStep, node.step), env[node.inputs[0]])
@@ -1523,6 +1636,7 @@ class NodeGraphRecipeSpec:
 __all__ = [
     "AddChannelStep",
     "BinaryFrameStep",
+    "BinaryOperandStep",
     "GraphNodeSpec",
     "GraphRecipeSpec",
     "IndexingStep",
