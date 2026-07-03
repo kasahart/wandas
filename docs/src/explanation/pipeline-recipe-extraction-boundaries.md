@@ -76,7 +76,7 @@ FrameMethodStep(method="channel_difference", kwargs={"other_channel": 0})
 
 ## Stage 3: Typed Domain Transitions / 型遷移を含む Recipe
 
-Status: partially implemented for `fft`, `stft`, `ifft`, `istft`, `welch`, `noct_spectrum`, `coherence`, `csd`, and `transfer_function`.
+Status: partially implemented for `fft`, `stft`, `ifft`, `istft`, `welch`, `noct_spectrum`, `noct_synthesis`, `coherence`, `csd`, and `transfer_function`.
 
 対象例:
 
@@ -88,13 +88,14 @@ Implemented:
 - `spectrogram_frame.istft()` -> `ChannelFrame`
 - `frame.welch()` -> `SpectralFrame`
 - `frame.noct_spectrum()` -> `NOctFrame`
+- `spectral_frame.noct_synthesis()` -> `NOctFrame`
 - `frame.coherence()` -> `SpectralFrame`
 - `frame.csd()` -> `SpectralFrame`
 - `frame.transfer_function()` -> `SpectralFrame`
 
 Not implemented yet:
 
-- `spectral_frame.noct_synthesis()` -> `NOctFrame`
+- psychoacoustic typed result frames such as `roughness_dw_spec()`
 
 これらは operation graph としては線形に見えるが、出力 frame class と constructor metadata が変わる。実装済み範囲では `TypedMethodStep` が既存 frame method を呼び、型遷移と metadata 構築を既存実装に委譲する。
 
@@ -110,13 +111,14 @@ TypedMethodStep(method="istft", kwargs={})
 TypedMethodStep(method="coherence", kwargs={"n_fft": 2048, "hop_length": 512, "win_length": 2048, "window": "hann", "detrend": "constant"})
 TypedMethodStep(method="csd", kwargs={"n_fft": 2048, "hop_length": 512, "win_length": 2048, "window": "hann", "detrend": "constant", "scaling": "spectrum", "average": "mean"})
 TypedMethodStep(method="transfer_function", kwargs={"n_fft": 2048, "hop_length": 512, "win_length": 2048, "window": "hann", "detrend": "constant", "scaling": "spectrum", "average": "mean"})
+TypedMethodStep(method="noct_synthesis", kwargs={"fmin": 25, "fmax": 20000, "n": 3, "G": 10, "fr": 1000})
 ```
 
 `ifft()` と `istft()` は、入力 `SpectralFrame` / `SpectrogramFrame` の metadata から必要な逆変換パラメータを取得する既存 method なので、Recipe には追加パラメータを持たせない。
 
 `welch()` は public `ChannelFrame.welch()` で replay できる範囲だけを抽出する。operation graph に `detrend` が残っていても、public method が表現できる default `detrend="constant"` の場合だけ受け付ける。`frame.apply_operation("welch", detrend="linear")` のような graph は、数値結果が変わるため境界外として拒否する。
 
-`noct_spectrum()` は optional `mosqito` backend を使うが、Recipe は依存関係を横取りしない。抽出・再生は既存 method に委譲し、backend が無い場合のエラーも既存 optional dependency 契約に従う。
+`noct_spectrum()` と `noct_synthesis()` は optional `mosqito` backend を使うが、Recipe は依存関係を横取りしない。抽出・再生は既存 method に委譲し、backend が無い場合のエラーも既存 optional dependency 契約に従う。
 
 ## Stage 4: Graph / Multi-Input / Binary Calculations
 

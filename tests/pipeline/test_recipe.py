@@ -52,6 +52,22 @@ def _fake_noct_spectrum(
     return spectrum, fpref
 
 
+def _fake_noct_synthesis(
+    *,
+    spectrum: np.ndarray,
+    freqs: np.ndarray,
+    fmin: float,
+    fmax: float,
+    n: int,
+    **kwargs: object,
+) -> tuple[np.ndarray, np.ndarray]:
+    del freqs
+    _, fpref = _fake_center_freq(fmin=fmin, fmax=fmax, n=n, **kwargs)
+    data = np.asarray(spectrum)
+    n_channels = 1 if data.ndim == 1 else data.shape[-1]
+    return np.ones((fpref.shape[0], n_channels), dtype=np.float64), fpref
+
+
 def _patch_noct_backend(monkeypatch: pytest.MonkeyPatch) -> None:
     import wandas.frames.noct as noct_frame_module
     import wandas.processing.spectral as spectral_module
@@ -59,6 +75,7 @@ def _patch_noct_backend(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(spectral_module, "require_mosqito_center_freq", lambda _feature: _fake_center_freq)
     monkeypatch.setattr(spectral_module, "_center_freq", _fake_center_freq)
     monkeypatch.setattr(spectral_module, "noct_spectrum", _fake_noct_spectrum)
+    monkeypatch.setattr(spectral_module, "noct_synthesis", _fake_noct_synthesis)
     monkeypatch.setattr(noct_frame_module, "_center_freq", _fake_center_freq)
 
 
@@ -477,6 +494,39 @@ def test_recipe_from_frame_extracts_noct_spectrum_typed_transition(monkeypatch: 
     assert replayed.fr == processed.fr
 
 
+def test_recipe_from_frame_extracts_noct_synthesis_typed_transition(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_noct_backend(monkeypatch)
+    sampling_rate = 48000
+    time = np.linspace(0, 1, sampling_rate, endpoint=False)
+    frame = ChannelFrame.from_numpy(
+        np.sin(2 * np.pi * 1000 * time).reshape(1, -1),
+        sampling_rate=sampling_rate,
+        label="noct-synthesis-source",
+    )
+    processed = frame.fft(n_fft=2048).noct_synthesis(fmin=125, fmax=8000, n=3, G=10, fr=1000)
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (
+        TypedMethodStep("fft", {"n_fft": 2048, "window": "hann"}),
+        TypedMethodStep(
+            "noct_synthesis",
+            {"fmin": 125, "fmax": 8000, "n": 3, "G": 10, "fr": 1000},
+        ),
+    )
+    assert isinstance(replayed, NOctFrame)
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.labels == processed.labels
+    assert replayed.sampling_rate == processed.sampling_rate
+    assert replayed.shape == processed.shape
+    assert replayed.fmin == processed.fmin
+    assert replayed.fmax == processed.fmax
+    assert replayed.n == processed.n
+    assert replayed.G == processed.G
+    assert replayed.fr == processed.fr
+
+
 def test_recipe_from_frame_rejects_welch_with_non_public_detrend() -> None:
     frame = _frame()
     processed = frame.apply_operation(
@@ -557,6 +607,46 @@ def test_recipe_from_frame_extracts_cross_channel_typed_transitions(
     assert replayed.sampling_rate == processed.sampling_rate
     assert replayed.shape == processed.shape
     np.testing.assert_allclose(replayed.source_time_offset, processed.source_time_offset)
+
+
+def test_recipe_from_frame_extracts_spectrogram_abs_chain() -> None:
+    frame = _frame()
+    processed = frame.stft(n_fft=512, hop_length=128, win_length=512, window="hann").abs()
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (
+        TypedMethodStep(
+            "stft",
+            {"n_fft": 512, "hop_length": 128, "win_length": 512, "window": "hann"},
+        ),
+        OperationSpec("abs"),
+    )
+    assert isinstance(replayed, SpectrogramFrame)
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.labels == processed.labels
+    assert replayed.sampling_rate == processed.sampling_rate
+    assert replayed.shape == processed.shape
+
+
+def test_recipe_from_frame_extracts_spectrogram_to_channel_frame_as_istft() -> None:
+    frame = _frame()
+    processed = frame.stft(n_fft=512, hop_length=128, win_length=512, window="hann").to_channel_frame()
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (
+        TypedMethodStep(
+            "stft",
+            {"n_fft": 512, "hop_length": 128, "win_length": 512, "window": "hann"},
+        ),
+        TypedMethodStep("istft"),
+    )
+    assert isinstance(replayed, ChannelFrame)
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.sampling_rate == processed.sampling_rate
 
 
 def test_recipe_from_frame_empty_history_returns_empty_recipe() -> None:
