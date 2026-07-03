@@ -11,6 +11,16 @@ class RecipeExtractionError(ValueError):
     """Raised when a frame lineage cannot be represented by RecipeSpec."""
 
 
+@dataclass(frozen=True)
+class _FrozenSequence:
+    items: tuple[Any, ...]
+
+
+@dataclass(frozen=True)
+class _FrozenMapping:
+    items: tuple[tuple[Any, Any], ...]
+
+
 _REPLAYABLE_APPLY_OPERATIONS = frozenset(
     {
         "a_weighting",
@@ -46,6 +56,7 @@ _REPLAYABLE_METHOD_OPERATIONS = {
     ),
     "mean": ("mean", {}),
     "remove_channel": ("remove_channel", {"key": "key"}),
+    "rename_channels": ("rename_channels", {"mapping_items": "mapping"}),
     "sum": ("sum", {}),
 }
 _REPLAYABLE_METHOD_NAMES = frozenset(method for method, _param_names in _REPLAYABLE_METHOD_OPERATIONS.values())
@@ -94,7 +105,7 @@ def _snapshot_param_value(value: Any) -> Any:
             )
         return frozen_float
     if isinstance(value, list | tuple):
-        return tuple(_snapshot_sequence_item(item) for item in value)
+        return _FrozenSequence(tuple(_snapshot_sequence_item(item) for item in value))
     raise TypeError(
         "OperationSpec params must be flat recipe-literal values\n"
         f"  Got: {type(value).__name__}\n"
@@ -103,13 +114,49 @@ def _snapshot_param_value(value: Any) -> Any:
 
 
 def _snapshot_sequence_item(value: Any) -> Any:
-    if isinstance(value, list | tuple):
+    if isinstance(value, list | tuple | Mapping):
         raise TypeError(
             "OperationSpec params must be flat recipe-literal values\n"
-            f"  Got nested sequence: {type(value).__name__}\n"
-            "  Sequence params are intentionally shallow so equality and serialization stay predictable."
+            f"  Got nested value: {type(value).__name__}\n"
+            "  Sequence and mapping params are intentionally shallow so equality and serialization stay predictable."
         )
     return _snapshot_param_value(value)
+
+
+def _snapshot_rename_mapping_key(value: Any) -> int | str:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, bool) or (type(value).__module__ == "numpy" and type(value).__name__ in {"bool", "bool_"}):
+        raise TypeError(
+            "rename_channels mapping keys must be int or str\n"
+            f"  Got: {type(value).__name__}\n"
+            "  Supported mapping keys: int and str."
+        )
+    if isinstance(value, numbers.Integral):
+        return int(value)
+    raise TypeError(
+        "rename_channels mapping keys must be int or str\n"
+        f"  Got: {type(value).__name__}\n"
+        "  Supported mapping keys: int and str."
+    )
+
+
+def _snapshot_rename_mapping_value(value: Any) -> str:
+    if not isinstance(value, str):
+        raise TypeError(f"rename_channels mapping values must be strings\n  Got: {type(value).__name__}")
+    return value
+
+
+def _snapshot_rename_channels_params(params: Mapping[str, Any]) -> tuple[tuple[str, Any], ...]:
+    if set(params) != {"mapping"}:
+        return _snapshot_params(params)
+    mapping = params["mapping"]
+    if not isinstance(mapping, Mapping):
+        raise TypeError(f"rename_channels mapping must be a mapping\n  Got: {type(mapping).__name__}")
+    frozen_mapping = tuple(
+        (_snapshot_rename_mapping_key(key), _snapshot_rename_mapping_value(value)) for key, value in mapping.items()
+    )
+    return (("mapping", _FrozenMapping(frozen_mapping)),)
 
 
 def _snapshot_params(params: Mapping[str, Any]) -> tuple[tuple[str, Any], ...]:
@@ -126,7 +173,15 @@ def _snapshot_params(params: Mapping[str, Any]) -> tuple[tuple[str, Any], ...]:
 
 
 def _params_to_public_dict(params: tuple[tuple[str, Any], ...]) -> dict[str, Any]:
-    return {key: list(value) if isinstance(value, tuple) else value for key, value in params}
+    return {key: _param_to_public_value(value) for key, value in params}
+
+
+def _param_to_public_value(value: Any) -> Any:
+    if isinstance(value, _FrozenSequence):
+        return [_param_to_public_value(item) for item in value.items]
+    if isinstance(value, _FrozenMapping):
+        return {key: _param_to_public_value(item) for key, item in value.items}
+    return value
 
 
 def _restore_history_value(value: Any) -> Any:
@@ -188,8 +243,32 @@ def _method_step_from_graph(operation: str, params: Mapping[str, Any]) -> Method
             f"  Query kind: {params['query_kind']!r}\n"
             "  Callable, regex, and dict channel queries need a selection recipe model that can preserve query intent."
         )
+    if operation == "rename_channels":
+        return MethodStep("rename_channels", {"mapping": _rename_mapping_from_params(params)})
     method, param_names = _REPLAYABLE_METHOD_OPERATIONS[operation]
     return MethodStep(method, _method_params(params, param_names))
+
+
+def _rename_mapping_from_params(params: Mapping[str, Any]) -> dict[int | str, str]:
+    raw_items = params.get("mapping_items")
+    if not isinstance(raw_items, list | tuple):
+        raise RecipeExtractionError(
+            f"rename_channels recipe extraction requires typed mapping items\n  Got: {type(raw_items).__name__}"
+        )
+    mapping: dict[int | str, str] = {}
+    for raw_item in raw_items:
+        if not isinstance(raw_item, list | tuple) or len(raw_item) != 2:
+            raise RecipeExtractionError(
+                f"rename_channels recipe extraction requires key/value mapping items\n  Got: {raw_item!r}"
+            )
+        key, value = raw_item
+        if not isinstance(key, int | str) or not isinstance(value, str):
+            raise RecipeExtractionError(
+                "rename_channels recipe extraction only supports int/str keys and str labels\n"
+                f"  Got key/value types: {type(key).__name__}/{type(value).__name__}"
+            )
+        mapping[key] = value
+    return mapping
 
 
 def _typed_method_step_from_graph(operation: str, params: Mapping[str, Any]) -> TypedMethodStep:
@@ -316,14 +395,25 @@ class MethodStep:
                 f"  Valid methods: {valid_methods}"
             )
         object.__setattr__(self, "method", method)
-        object.__setattr__(self, "_params", _snapshot_params(params or {}))
+        frozen_params = (
+            _snapshot_rename_channels_params(params or {})
+            if method == "rename_channels"
+            else _snapshot_params(params or {})
+        )
+        object.__setattr__(self, "_params", frozen_params)
 
     @property
     def params(self) -> dict[str, Any]:
         return _params_to_public_dict(self._params)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"method": self.method, "params": _params_to_public_dict(self._params)}
+        params = _params_to_public_dict(self._params)
+        if self.method == "rename_channels" and isinstance(params.get("mapping"), Mapping):
+            return {
+                "method": self.method,
+                "params": {"mapping_items": [[key, value] for key, value in params["mapping"].items()]},
+            }
+        return {"method": self.method, "params": params}
 
     def apply(self, frame: Any) -> Any:
         return getattr(frame, self.method)(**self.params)

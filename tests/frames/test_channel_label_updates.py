@@ -460,8 +460,9 @@ class TestRenameChannels:
         result = frame.rename_channels({0: "left", 1: "right"})
 
         assert result.labels == ["left", "right"]
-        # Pillar 2: structural operation — history unchanged
-        assert len(result.operation_history) == 0
+        assert result.operation_history == [
+            {"operation": "rename_channels", "params": {"mapping_items": [[0, "left"], [1, "right"]]}}
+        ]
 
     def test_rename_channels_by_label(self) -> None:
         """Test renaming channels using label keys."""

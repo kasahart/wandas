@@ -1499,7 +1499,13 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         if inplace:
             self._set_channel_metadata(new_chmeta, self._channel_ids)
             return self
-        return self._finalize_channel_update(self._data, new_chmeta, inplace=False, channel_ids=self._channel_ids)
+        return self._finalize_channel_update(
+            self._data,
+            new_chmeta,
+            inplace=False,
+            channel_ids=self._channel_ids,
+            lineage=self._lineage_with_method("rename_channels", {"mapping_items": list(mapping.items())}),
+        )
 
     def _get_dataframe_index(self) -> "pd.Index[Any]":
         """Get time index for DataFrame."""

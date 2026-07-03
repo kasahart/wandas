@@ -1,3 +1,4 @@
+import json
 import re
 from collections.abc import Callable
 from types import SimpleNamespace
@@ -219,9 +220,9 @@ def test_operation_spec_snapshots_shallow_sequence_params() -> None:
         object(),
         b"bytes",
         1 + 2j,
+        {"nested": 1},
         {1, 2},
         frozenset({1, 2}),
-        {"nested": 1},
         [[1, 2]],
         [{"nested": 1}],
         [object()],
@@ -233,6 +234,11 @@ def test_operation_spec_snapshots_shallow_sequence_params() -> None:
 def test_operation_spec_rejects_non_flat_literal_params(value: object) -> None:
     with pytest.raises(TypeError, match="OperationSpec params must be flat recipe-literal values"):
         OperationSpec("normalize", {"value": value})
+
+
+def test_operation_spec_rejects_nested_mapping_params() -> None:
+    with pytest.raises(TypeError, match="OperationSpec params must be flat recipe-literal values"):
+        OperationSpec("normalize", {"value": {"outer": {"nested": 1}}})
 
 
 def test_operation_spec_rejects_nan_params() -> None:
@@ -249,6 +255,20 @@ def test_operation_spec_rejects_nan_inside_sequence_params(value: object) -> Non
 def test_operation_spec_rejects_non_string_mapping_keys() -> None:
     with pytest.raises(TypeError, match="OperationSpec params mapping keys must be strings"):
         OperationSpec("normalize", {object(): "value"})  # ty: ignore[invalid-argument-type]
+
+
+def test_rename_channels_method_step_serializes_mapping_as_items() -> None:
+    mapping = {"right": "front-right", 0: "left"}
+    step = MethodStep("rename_channels", {"mapping": mapping})
+    mapping[0] = "changed"
+
+    assert step.params == {"mapping": {"right": "front-right", 0: "left"}}
+    serialized_step = step.to_dict()
+    assert serialized_step == {
+        "method": "rename_channels",
+        "params": {"mapping_items": [["right", "front-right"], [0, "left"]]},
+    }
+    assert json.loads(json.dumps(serialized_step)) == serialized_step
 
 
 def test_method_step_rejects_methods_outside_replay_allowlist() -> None:
@@ -632,6 +652,57 @@ def test_recipe_from_frame_extracts_remove_channel_method_step(
     np.testing.assert_allclose(replayed.source_time_offset, processed.source_time_offset)
     assert replayed.labels == processed.labels
     assert replayed.shape == processed.shape
+
+
+@pytest.mark.parametrize(
+    ("mapping", "expected_step"),
+    [
+        (
+            {0: "front-left", 1: "front-right"},
+            MethodStep("rename_channels", {"mapping": {0: "front-left", 1: "front-right"}}),
+        ),
+        (
+            {"left": "front-left", "right": "front-right"},
+            MethodStep("rename_channels", {"mapping": {"left": "front-left", "right": "front-right"}}),
+        ),
+        (
+            {"right": "front-right", 0: "front-left"},
+            MethodStep("rename_channels", {"mapping": {"right": "front-right", 0: "front-left"}}),
+        ),
+    ],
+)
+def test_recipe_from_frame_extracts_rename_channels_method_step(
+    mapping: dict[int | str, str],
+    expected_step: MethodStep,
+) -> None:
+    base = _frame()
+    frame = ChannelFrame(
+        data=da.from_array(np.vstack([base.data, base.data * 0.5]), chunks=(1, -1)),
+        sampling_rate=base.sampling_rate,
+        channel_metadata=[
+            ChannelMetadata(label="left", unit="Pa", ref=2.0),
+            ChannelMetadata(label="right", unit="V", ref=1.0),
+        ],
+        source_time_offset=[0.0, 0.1],
+    )
+    processed = frame.rename_channels(mapping)
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (expected_step,)
+    serialized_step = recipe.to_dict()["steps"][0]
+    assert serialized_step == {
+        "method": "rename_channels",
+        "params": {"mapping_items": [[key, value] for key, value in expected_step.params["mapping"].items()]},
+    }
+    assert json.loads(json.dumps(serialized_step)) == serialized_step
+    assert replayed.operation_history == processed.operation_history
+    assert replayed.labels == processed.labels
+    assert replayed.channels[0].unit == processed.channels[0].unit
+    assert replayed.channels[1].ref == processed.channels[1].ref
+    np.testing.assert_allclose(replayed.data, processed.data)
+    np.testing.assert_allclose(replayed.source_time_offset, processed.source_time_offset)
 
 
 @pytest.mark.parametrize(
