@@ -1158,7 +1158,7 @@ class GraphRecipeSpec:
         return recipe_dict
 
     @classmethod
-    def from_frame(cls, frame: Any, *, input_names: tuple[str, ...]) -> GraphRecipeSpec:
+    def from_frame(cls, frame: Any, *, input_names: tuple[str, ...] | None = None) -> GraphRecipeSpec:
         from wandas.core.base_frame import BaseFrame
 
         if not isinstance(frame, BaseFrame):
@@ -1171,20 +1171,21 @@ class GraphRecipeSpec:
 
         merge_graph, tail_steps = _split_graph_at_binary_merge(cast(Mapping[str, Any], graph))
         inputs = tuple(merge_graph.get("inputs", ()))
-        if len(inputs) != 2 or len(input_names) != 2:
+        resolved_input_names = ("left", "right") if input_names is None and len(inputs) == 2 else input_names
+        if len(inputs) != 2 or resolved_input_names is None or len(resolved_input_names) != 2:
             raise RecipeExtractionError(
                 "GraphRecipeSpec extraction requires one input name per parent\n"
                 f"  Parent count: {len(inputs)}\n"
-                f"  Input names: {list(input_names)}"
+                f"  Input names: {list(resolved_input_names or ())}"
             )
-        if input_names[0] == input_names[1]:
+        if resolved_input_names[0] == resolved_input_names[1]:
             raise RecipeExtractionError(
-                f"GraphRecipeSpec extraction requires distinct input names\n  Input names: {list(input_names)}"
+                f"GraphRecipeSpec extraction requires distinct input names\n  Input names: {list(resolved_input_names)}"
             )
 
         operation = str(merge_graph["operation"])
         params = cast(Mapping[str, Any], _restore_history_value(merge_graph.get("params", {})))
-        left, right = input_names
+        left, right = resolved_input_names
         return cls(
             {
                 left: RecipeSpec(_steps_from_graph(cast(Mapping[str, Any], inputs[0]))),

@@ -193,6 +193,7 @@ Implemented:
 - `GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))` for root frame-frame binary / `add_with_snr` graphs with two linear parents
 - `GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))` for a single binary merge followed by a replayable linear tail, such as `(signal.normalize() + noise.remove_dc()).stft()`
 - `GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))` when one or both binary parents are unprocessed source frames
+- `GraphRecipeSpec.from_frame(processed)` with default structural input names `left` and `right`
 
 現在の表現:
 
@@ -211,13 +212,14 @@ GraphRecipeSpec(
 
 `ScalarOperationStep` は既存 frame operator を呼ぶだけで、二項演算の metadata/history/Dask laziness は frame 本体に委譲する。対応 operand は operation graph に値として保存された Python / NumPy real scalar に限定する。NaN は recipe equality が安定しないため拒否する。
 
-`GraphRecipeSpec` は名前付き入力ごとに linear `RecipeSpec` を適用し、`BinaryFrameStep` で既存 frame-frame 演算を呼び、その後に optional な linear `tail_recipe` を適用する。`from_frame(..., input_names=...)` は 1 回だけ merge する graph だけを対象にし、入力名は呼び出し側が与える。tail は既存 `RecipeSpec` step で表現するため、merge 後の `normalize()`、`trim()`、`stft()` のような replayable operation / method / typed method は同じ仕組みで扱う。
+`GraphRecipeSpec` は名前付き入力ごとに linear `RecipeSpec` を適用し、`BinaryFrameStep` で既存 frame-frame 演算を呼び、その後に optional な linear `tail_recipe` を適用する。`from_frame(..., input_names=...)` は 1 回だけ merge する graph だけを対象にし、入力名は呼び出し側が与える。`input_names` を省略した場合は、Python 変数名や frame label ではなく、構造上の左右を表す `left` / `right` を使う。tail は既存 `RecipeSpec` step で表現するため、merge 後の `normalize()`、`trim()`、`stft()` のような replayable operation / method / typed method は同じ仕組みで扱う。
 
 未加工の入力 frame は runtime `operation_graph` では `{"operation": "__source__", "kind": "source"}` という内部 leaf として表す。これは左右 parent の位置を保つためだけの marker であり、`operation_history` には出さない。Recipe 抽出では source leaf を空の `RecipeSpec(())` に変換する。
 
 Not implemented yet:
 
-- 入力名を推定する `RecipeSpec.from_frame(frame_a + frame_b)` の自動 graph 抽出
+- Python 変数名や frame label に基づく入力名推定。現在の runtime lineage は source identity を保存しないため、名前推定は `left` / `right` の構造名に限定する。
+- `RecipeSpec.from_frame(frame_a + frame_b)` が graph recipe を返すこと。`RecipeSpec` は単一入力・直列 recipe のままとし、複数入力 graph は `GraphRecipeSpec.from_frame(...)` で抽出する。
 - `frame + np.ones(frame.shape)`
 - `frame + dask_array`
 - 入力名を推定する `RecipeSpec.from_frame(signal.add(noise, snr=6.0))` の自動 graph 抽出
