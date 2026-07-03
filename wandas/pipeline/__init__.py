@@ -576,6 +576,8 @@ def _step_from_graph(operation: str, params: Mapping[str, Any], kind: str | None
 def _steps_from_graph(graph: Mapping[str, Any]) -> tuple[RecipeStep, ...]:
     operation = str(graph["operation"])
     kind = cast(str | None, graph.get("kind"))
+    if kind == "source":
+        return ()
     inputs = tuple(graph.get("inputs", ()))
     if operation == "add_channel":
         raise RecipeExtractionError(

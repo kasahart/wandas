@@ -437,6 +437,27 @@ class TestRoughnessFrame:
         assert result.operation_graph is not None
         assert [node["operation"] for node in result.operation_graph["inputs"]] == ["normalize", "normalize"]
 
+    def test_binary_op_with_raw_roughness_frames_records_source_parents(self) -> None:
+        """Raw RoughnessFrame binary operands keep positional source leaves."""
+        frame1 = RoughnessFrame(
+            data=_DATA_MONO,
+            sampling_rate=_SAMPLING_RATE,
+            bark_axis=_BARK_AXIS,
+            overlap=_OVERLAP,
+        )
+        frame2 = RoughnessFrame(
+            data=_DATA_MONO,
+            sampling_rate=_SAMPLING_RATE,
+            bark_axis=_BARK_AXIS,
+            overlap=_OVERLAP,
+        )
+
+        result = frame1 + frame2
+
+        assert result.operation_history == [{"operation": "+", "params": {"symbol": "+", "operand_kind": "frame"}}]
+        assert result.operation_graph is not None
+        assert [node["kind"] for node in result.operation_graph["inputs"]] == ["source", "source"]
+
     def test_binary_op_sampling_rate_mismatch(self) -> None:
         """Test binary operation raises error on sampling rate mismatch."""
         frame1 = RoughnessFrame(

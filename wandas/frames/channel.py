@@ -557,7 +557,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         return self._create_new_instance(
             data=result_data,
             metadata=self._updated_metadata("add_with_snr", operation.params),
-            lineage=self._lineage_with_operation(operation, self.lineage, other.lineage),
+            lineage=self._lineage_with_operation(operation, self._lineage_or_source(), other._lineage_or_source()),
             channel_metadata=self._relabel_channels("add_with_snr", display_name),
         )
 

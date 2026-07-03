@@ -325,7 +325,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             # Apply operation
             result_data = op(self._data, other._data)
             operand_kind = "frame"
-            lineage_inputs = (self.lineage, other.lineage)
+            lineage_inputs = (self._lineage_or_source(), other._lineage_or_source())
 
         else:
             # Scalar or array operation

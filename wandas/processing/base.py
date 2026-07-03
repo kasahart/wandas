@@ -76,6 +76,20 @@ class LineageNode:
     inputs: tuple["LineageNode", ...] = ()
 
 
+@dataclass(frozen=True)
+class FrameSourceOperation:
+    """Internal lineage marker for an unprocessed frame input."""
+
+    name: str = "__source__"
+
+    @property
+    def params(self) -> Mapping[str, Any]:
+        return {}
+
+    def to_params(self) -> Mapping[str, Any]:
+        return {}
+
+
 def _operand_descriptor(value: Any) -> dict[str, Any]:
     if isinstance(value, DaArray):
         return {

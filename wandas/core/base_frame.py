@@ -554,6 +554,10 @@ class BaseFrame(ABC, Generic[T]):
     def _lineage_to_history(cls, lineage: "LineageNode | None") -> list[dict[str, Any]]:
         if lineage is None:
             return []
+        from wandas.processing.base import FrameSourceOperation
+
+        if isinstance(lineage.operation, FrameSourceOperation):
+            return []
         records: list[dict[str, Any]] = []
         for input_lineage in lineage.inputs:
             records.extend(cls._lineage_to_history(input_lineage))
@@ -567,6 +571,10 @@ class BaseFrame(ABC, Generic[T]):
     def _lineage_to_graph(cls, lineage: "LineageNode | None") -> dict[str, Any] | None:
         if lineage is None:
             return None
+        from wandas.processing.base import FrameSourceOperation
+
+        if isinstance(lineage.operation, FrameSourceOperation):
+            return {"operation": "__source__", "params": {}, "inputs": [], "kind": "source"}
         graph = {
             "operation": cls._operation_name(lineage.operation),
             "params": cls._operation_params(lineage.operation),
@@ -612,6 +620,11 @@ class BaseFrame(ABC, Generic[T]):
 
         lineage_inputs = tuple(input_lineage for input_lineage in inputs if input_lineage is not None)
         return LineageNode(operation=operation, inputs=lineage_inputs)
+
+    def _lineage_or_source(self) -> "LineageNode":
+        from wandas.processing.base import FrameSourceOperation, LineageNode
+
+        return self.lineage or LineageNode(FrameSourceOperation())
 
     def _lineage_with_method(self, method: str, params: Mapping[str, Any]) -> "LineageNode":
         from wandas.processing.base import FrameMethodOperation
@@ -1397,7 +1410,7 @@ class BaseFrame(ABC, Generic[T]):
             other_str = other.label
             other_labels = other.labels
             operand_kind = "frame"
-            lineage_inputs = (self.lineage, other.lineage)
+            lineage_inputs = (self._lineage_or_source(), other._lineage_or_source())
         else:
             result_data = op(self._data, other)
             other_str = self._format_operand_str(other)

@@ -348,6 +348,63 @@ def test_graph_recipe_from_frame_extracts_root_frame_addition_with_input_names()
     assert replayed.operation_history == processed.operation_history
 
 
+def test_graph_recipe_from_frame_extracts_raw_left_binary_parent() -> None:
+    base = _frame()
+    left_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="left")
+    right_source = ChannelFrame.from_numpy(base.data * 0.25, sampling_rate=base.sampling_rate, label="right")
+    processed = left_source + right_source.remove_dc()
+
+    graph_recipe = GraphRecipeSpec.from_frame(processed, input_names=("left", "right"))
+    replayed = graph_recipe.apply({"left": left_source, "right": right_source})
+
+    assert graph_recipe.input_recipes == (
+        ("left", RecipeSpec(())),
+        ("right", RecipeSpec([OperationSpec("remove_dc")])),
+    )
+    assert graph_recipe.output == BinaryFrameStep("+", "left", "right")
+    assert [record["operation"] for record in processed.operation_history] == ["remove_dc", "+"]
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.operation_history == processed.operation_history
+
+
+def test_graph_recipe_from_frame_extracts_raw_right_binary_parent() -> None:
+    base = _frame()
+    left_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="left")
+    right_source = ChannelFrame.from_numpy(base.data * 0.25, sampling_rate=base.sampling_rate, label="right")
+    processed = left_source.normalize() + right_source
+
+    graph_recipe = GraphRecipeSpec.from_frame(processed, input_names=("left", "right"))
+    replayed = graph_recipe.apply({"left": left_source, "right": right_source})
+    left_recipe = RecipeSpec(
+        [OperationSpec("normalize", {"axis": -1, "fill": None, "norm": float("inf"), "threshold": None})]
+    )
+
+    assert graph_recipe.input_recipes == (
+        ("left", left_recipe),
+        ("right", RecipeSpec(())),
+    )
+    assert graph_recipe.output == BinaryFrameStep("+", "left", "right")
+    assert [record["operation"] for record in processed.operation_history] == ["normalize", "+"]
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.operation_history == processed.operation_history
+
+
+def test_graph_recipe_from_frame_extracts_raw_add_with_snr_parents() -> None:
+    base = _frame()
+    signal_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="signal")
+    noise_source = ChannelFrame.from_numpy(np.flip(base.data), sampling_rate=base.sampling_rate, label="noise")
+    processed = signal_source.add(noise_source, snr=6.0)
+
+    graph_recipe = GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))
+    replayed = graph_recipe.apply({"signal": signal_source, "noise": noise_source})
+
+    assert graph_recipe.input_recipes == (("signal", RecipeSpec(())), ("noise", RecipeSpec(())))
+    assert graph_recipe.output == BinaryFrameStep("add_with_snr", "signal", "noise", {"snr": 6.0})
+    assert processed.operation_history == [{"operation": "add_with_snr", "params": {"snr": 6.0}}]
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.operation_history == processed.operation_history
+
+
 def test_graph_recipe_applies_single_merge_with_linear_tail() -> None:
     base = _frame()
     signal = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="signal")

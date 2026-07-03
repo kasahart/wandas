@@ -812,6 +812,9 @@ class TestChannelProcessing:
 
         assert result.operation_history[-1]["params"] == {"snr": 10.0}
         json.dumps(result.operation_history)
+        assert result.operation_graph is not None
+        assert [node["kind"] for node in result.operation_graph["inputs"]] == ["source", "source"]
+        json.dumps(result.operation_graph)
         json.dumps(dict(result.metadata))
         assert result.lineage is not None
         assert result.lineage.operation.params == result.lineage.operation.params
@@ -867,7 +870,8 @@ class TestChannelProcessing:
         assert isinstance(result, LegacyChannelFrame)
         assert result.operation_history[-1]["operation"] == "add_with_snr"
         assert result.operation_graph is not None
-        assert [node["operation"] for node in result.operation_graph["inputs"]] == ["lowpass_filter"]
+        assert [node["operation"] for node in result.operation_graph["inputs"]] == ["__source__", "lowpass_filter"]
+        assert result.operation_graph["inputs"][0]["kind"] == "source"
 
     def test_add_with_snr_numpy_array(self) -> None:
         """add(..., snr=...) should accept NumPy array inputs via ChannelFrame coercion."""

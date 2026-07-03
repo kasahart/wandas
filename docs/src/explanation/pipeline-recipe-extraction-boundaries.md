@@ -192,6 +192,7 @@ Implemented:
 - `GraphRecipeSpec(..., BinaryFrameStep("add_with_snr", ..., params={"snr": 6.0}))`
 - `GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))` for root frame-frame binary / `add_with_snr` graphs with two linear parents
 - `GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))` for a single binary merge followed by a replayable linear tail, such as `(signal.normalize() + noise.remove_dc()).stft()`
+- `GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))` when one or both binary parents are unprocessed source frames
 
 現在の表現:
 
@@ -212,10 +213,11 @@ GraphRecipeSpec(
 
 `GraphRecipeSpec` は名前付き入力ごとに linear `RecipeSpec` を適用し、`BinaryFrameStep` で既存 frame-frame 演算を呼び、その後に optional な linear `tail_recipe` を適用する。`from_frame(..., input_names=...)` は 1 回だけ merge する graph だけを対象にし、入力名は呼び出し側が与える。tail は既存 `RecipeSpec` step で表現するため、merge 後の `normalize()`、`trim()`、`stft()` のような replayable operation / method / typed method は同じ仕組みで扱う。
 
+未加工の入力 frame は runtime `operation_graph` では `{"operation": "__source__", "kind": "source"}` という内部 leaf として表す。これは左右 parent の位置を保つためだけの marker であり、`operation_history` には出さない。Recipe 抽出では source leaf を空の `RecipeSpec(())` に変換する。
+
 Not implemented yet:
 
 - 入力名を推定する `RecipeSpec.from_frame(frame_a + frame_b)` の自動 graph 抽出
-- 片方または両方が未加工 source frame のままの graph 抽出。現在の runtime lineage は `None` source parent を保持しないため、`signal.add(noise.remove_dc(), snr=6.0)` のような graph は左右 2 parent として復元できない。
 - `frame + np.ones(frame.shape)`
 - `frame + dask_array`
 - 入力名を推定する `RecipeSpec.from_frame(signal.add(noise, snr=6.0))` の自動 graph 抽出
