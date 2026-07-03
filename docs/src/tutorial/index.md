@@ -105,6 +105,9 @@ Note: Keys specified in dict are only allowed for dataclass fields of `ChannelMe
 
 ## Next Steps / 次のステップ
 
+- [Pipeline Recipes Notebook / Recipe Notebook](pipeline-recipes.md)
+  - Try executable examples for recipe extraction, replay, graph recipes, custom functions, terminal steps, and extraction boundaries.
+  - Recipe 抽出、replay、graph recipe、custom function、terminal step、抽出境界を実行可能な例で確認する。
 - [API Reference / APIリファレンス](../api/index.md)
   - Detailed API specifications.
   - 詳細な機能やAPI仕様を調べる。
