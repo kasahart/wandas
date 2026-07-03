@@ -21,7 +21,7 @@ recipe = RecipeSpec.from_frame(processed)
 replayed = recipe.apply(frame)
 ```
 
-`RecipeSpec.from_frame(processed)` は `processed.operation_graph` を読み、1 本の親 chain として表現できる operation だけを `OperationSpec` に変換する。
+`RecipeSpec.from_frame(processed)` は `processed.operation_graph` を読み、1 本の親 chain として表現できる operation だけを `OperationSpec` / `MethodStep` / `TypedMethodStep` / `ScalarOperationStep` に変換する。
 
 ## Stage 1: Linear `apply_operation` Replay / 直列 apply_operation 再生
 
@@ -102,16 +102,34 @@ TypedMethodStep(method="istft", kwargs={})
 
 ## Stage 4: Graph / Multi-Input / Binary Calculations
 
-Status: not implemented; required for full target.
+Status: partially implemented for numeric scalar operands; full graph recipe is still required.
 
-対象例:
+Implemented:
 
 - `frame + 0.1`
+- `frame - 0.1`
+- `frame * 2`
+- `frame / 2`
+- `frame ** 2`
+
+現在の表現:
+
+```text
+ScalarOperationStep(symbol="+", operand=0.1)
+ScalarOperationStep(symbol="*", operand=2)
+```
+
+`ScalarOperationStep` は既存 frame operator を呼ぶだけで、二項演算の metadata/history/Dask laziness は frame 本体に委譲する。対応 operand は operation graph に値として保存された Python / NumPy real scalar に限定する。NaN は recipe equality が安定しないため拒否する。
+
+Not implemented yet:
+
 - `frame_a + frame_b`
+- `frame + np.ones(frame.shape)`
+- `frame + dask_array`
 - `signal.add(noise, snr=6.0)`
 - shared branch を持つ graph: `base.normalize()` から signal/noise branch を作って合成する処理
 
-これらは直列 Recipe では表現できない。特に `operation_history` だけを見ると `normalize -> lowpass_filter -> add_with_snr` のように直列に見えることがあるが、`operation_graph` では複数 parent や外部 operand が必要である。
+これらは直列 Recipe では表現できない。特に `operation_history` だけを見ると `normalize -> lowpass_filter -> add_with_snr` のように直列に見えることがあるが、`operation_graph` では複数 parent や外部 operand が必要である。array operand も shape、chunking、保存形式を Recipe 側で決める必要があるため、scalar operand と同じ扱いにはしない。
 
 必要な拡張:
 

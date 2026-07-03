@@ -37,6 +37,7 @@ _REPLAYABLE_TYPED_METHOD_OPERATIONS = {
 _REPLAYABLE_TYPED_METHOD_NAMES = frozenset(
     method for method, _param_names in _REPLAYABLE_TYPED_METHOD_OPERATIONS.values()
 )
+_REPLAYABLE_SCALAR_OPERATIONS = frozenset({"+", "-", "*", "/", "**"})
 
 
 def _snapshot_param_value(value: Any) -> Any:
@@ -134,11 +135,64 @@ def _typed_method_step_from_graph(operation: str, params: Mapping[str, Any]) -> 
     return TypedMethodStep(method, _method_params(params, param_names))
 
 
+def _scalar_operand_from_params(operation: str, params: Mapping[str, Any]) -> int | float:
+    if params.get("operand_kind") != "operand":
+        raise RecipeExtractionError(
+            "Graph operation requires graph recipe support\n"
+            f"  Operation: {operation}\n"
+            "  ScalarOperationStep can only replay a single numeric operand stored in the operation graph."
+        )
+
+    operand = params.get("operand")
+    if isinstance(operand, int | float) and not isinstance(operand, bool):
+        return operand
+    if not isinstance(operand, Mapping) or set(operand) != {"type", "value"}:
+        raise RecipeExtractionError(
+            f"Scalar operation requires a numeric scalar operand\n  Operation: {operation}\n  Operand: {operand!r}"
+        )
+
+    operand_type = operand["type"]
+    value = operand["value"]
+    if operand_type == "bool" or isinstance(value, bool):
+        raise RecipeExtractionError(
+            "Scalar operation requires a numeric scalar operand\n"
+            f"  Operation: {operation}\n"
+            f"  Operand type: {operand_type!r}"
+        )
+    if isinstance(value, numbers.Integral):
+        return int(value)
+    if isinstance(value, numbers.Real):
+        return float(value)
+    raise RecipeExtractionError(
+        "Scalar operation requires a numeric scalar operand\n"
+        f"  Operation: {operation}\n"
+        f"  Operand type: {operand_type!r}"
+    )
+
+
+def _scalar_step_from_graph(operation: str, params: Mapping[str, Any]) -> ScalarOperationStep:
+    symbol = params.get("symbol", operation)
+    if symbol != operation:
+        raise RecipeExtractionError(
+            f"Scalar operation graph has inconsistent operator metadata\n  Operation: {operation}\n  Symbol: {symbol!r}"
+        )
+    try:
+        return ScalarOperationStep(operation, _scalar_operand_from_params(operation, params))
+    except TypeError as exc:
+        raise RecipeExtractionError(
+            "Scalar operation requires a stable numeric scalar operand\n"
+            f"  Operation: {operation}\n"
+            "  NaN operands are not replayable because recipe equality must remain stable."
+        ) from exc
+
+
 def _step_from_graph(operation: str, params: Mapping[str, Any]) -> RecipeStep:
     if operation in _REPLAYABLE_METHOD_OPERATIONS:
         return _method_step_from_graph(operation, params)
     if operation in _REPLAYABLE_TYPED_METHOD_OPERATIONS:
         return _typed_method_step_from_graph(operation, params)
+    if operation in _REPLAYABLE_SCALAR_OPERATIONS:
+        return _scalar_step_from_graph(operation, params)
     _validate_replayable_operation(operation)
     return OperationSpec(operation, params)
 
@@ -236,7 +290,44 @@ class TypedMethodStep:
         return getattr(frame, self.method)(**self.params)
 
 
-RecipeStep = OperationSpec | MethodStep | TypedMethodStep
+@dataclass(frozen=True, init=False)
+class ScalarOperationStep:
+    """Replayable frame operation with a single numeric scalar operand."""
+
+    symbol: str
+    operand: int | float
+
+    def __init__(self, symbol: str, operand: int | float) -> None:
+        if symbol not in _REPLAYABLE_SCALAR_OPERATIONS:
+            valid_operations = ", ".join(sorted(_REPLAYABLE_SCALAR_OPERATIONS))
+            raise ValueError(
+                "ScalarOperationStep operation is outside the replayable scalar allowlist\n"
+                f"  Operation: {symbol}\n"
+                f"  Valid operations: {valid_operations}"
+            )
+        if isinstance(operand, bool) or not isinstance(operand, int | float):
+            raise TypeError(f"ScalarOperationStep operand must be an int or float\n  Got: {type(operand).__name__}")
+        object.__setattr__(self, "symbol", symbol)
+        object.__setattr__(self, "operand", _snapshot_param_value(operand))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"scalar_operation": self.symbol, "operand": self.operand}
+
+    def apply(self, frame: Any) -> Any:
+        if self.symbol == "+":
+            return frame + self.operand
+        if self.symbol == "-":
+            return frame - self.operand
+        if self.symbol == "*":
+            return frame * self.operand
+        if self.symbol == "/":
+            return frame / self.operand
+        if self.symbol == "**":
+            return frame**self.operand
+        raise AssertionError(f"Unhandled scalar operation: {self.symbol}")
+
+
+RecipeStep = OperationSpec | MethodStep | TypedMethodStep | ScalarOperationStep
 
 
 @dataclass(frozen=True, init=False)
@@ -269,11 +360,18 @@ class RecipeSpec:
     def apply(self, frame: Any) -> Any:
         result: Any = frame
         for step in self.steps:
-            if isinstance(step, MethodStep | TypedMethodStep):
+            if isinstance(step, MethodStep | TypedMethodStep | ScalarOperationStep):
                 result = step.apply(result)
             else:
                 result = result.apply_operation(step.operation, **step.params)
         return result
 
 
-__all__ = ["MethodStep", "OperationSpec", "RecipeExtractionError", "RecipeSpec", "TypedMethodStep"]
+__all__ = [
+    "MethodStep",
+    "OperationSpec",
+    "RecipeExtractionError",
+    "RecipeSpec",
+    "ScalarOperationStep",
+    "TypedMethodStep",
+]

@@ -8,7 +8,14 @@ from dask.array.core import Array as DaArray
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
-from wandas.pipeline import MethodStep, OperationSpec, RecipeExtractionError, RecipeSpec, TypedMethodStep
+from wandas.pipeline import (
+    MethodStep,
+    OperationSpec,
+    RecipeExtractionError,
+    RecipeSpec,
+    ScalarOperationStep,
+    TypedMethodStep,
+)
 
 
 def _frame() -> ChannelFrame:
@@ -108,6 +115,16 @@ def test_typed_method_step_rejects_methods_outside_replay_allowlist() -> None:
         TypedMethodStep("plot")
 
 
+def test_scalar_operation_step_rejects_operations_outside_replay_allowlist() -> None:
+    with pytest.raises(ValueError, match="ScalarOperationStep operation is outside the replayable scalar allowlist"):
+        ScalarOperationStep("%", 2)
+
+
+def test_scalar_operation_step_rejects_non_numeric_operands() -> None:
+    with pytest.raises(TypeError, match="ScalarOperationStep operand must be an int or float"):
+        ScalarOperationStep("+", "2")  # ty: ignore[invalid-argument-type]
+
+
 def test_recipe_apply_preserves_dask_laziness(monkeypatch: pytest.MonkeyPatch) -> None:
     sampling_rate = 16000
     time = np.linspace(0, 1, sampling_rate, endpoint=False)
@@ -187,6 +204,74 @@ def test_recipe_from_frame_extracts_method_aware_linear_steps() -> None:
     assert replayed.labels == processed.labels
     assert replayed.sampling_rate == processed.sampling_rate
     assert replayed.shape == processed.shape
+
+
+def test_recipe_from_frame_extracts_scalar_operation_chain() -> None:
+    frame = _frame()
+    processed = frame.normalize(norm=2.0) + 0.25
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (
+        OperationSpec("normalize", {"norm": 2.0, "axis": -1, "threshold": None, "fill": None}),
+        ScalarOperationStep("+", 0.25),
+    )
+    assert recipe.to_dict() == {
+        "steps": [
+            {
+                "operation": "normalize",
+                "params": {"axis": -1, "fill": None, "norm": 2.0, "threshold": None},
+            },
+            {"scalar_operation": "+", "operand": 0.25},
+        ]
+    }
+    assert [record["operation"] for record in replayed.operation_history] == ["normalize", "+"]
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.labels == processed.labels
+    assert replayed.sampling_rate == processed.sampling_rate
+    assert replayed.shape == processed.shape
+
+
+def test_recipe_from_frame_extracts_value_bearing_numpy_scalar_operation() -> None:
+    frame = _frame()
+    processed = frame + np.float64(0.25)
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (ScalarOperationStep("+", 0.25),)
+    np.testing.assert_allclose(replayed.data, processed.data)
+
+
+def test_recipe_from_frame_reports_scalar_nan_operand_boundary() -> None:
+    processed = _frame() + float("nan")
+
+    with pytest.raises(RecipeExtractionError, match="Scalar operation requires a stable numeric scalar operand"):
+        RecipeSpec.from_frame(processed)
+
+
+@pytest.mark.parametrize(
+    ("build_frame", "step"),
+    [
+        (lambda frame: frame - 0.5, ScalarOperationStep("-", 0.5)),
+        (lambda frame: frame * 2, ScalarOperationStep("*", 2)),
+        (lambda frame: frame / 2, ScalarOperationStep("/", 2)),
+        (lambda frame: frame**2, ScalarOperationStep("**", 2)),
+    ],
+)
+def test_recipe_from_frame_extracts_scalar_operation_symbols(
+    build_frame: Callable[[ChannelFrame], ChannelFrame],
+    step: ScalarOperationStep,
+) -> None:
+    frame = _frame()
+    processed = build_frame(frame)
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (step,)
+    np.testing.assert_allclose(replayed.data, processed.data)
 
 
 def test_recipe_from_frame_extracts_fft_typed_transition() -> None:
@@ -270,14 +355,14 @@ def test_recipe_from_frame_empty_history_returns_empty_recipe() -> None:
     [
         ("welch domain transition", lambda frame: frame.welch(), "Operation is outside the Stage 1 recipe allowlist"),
         (
-            "binary scalar operation",
-            lambda frame: frame + 0.1,
-            "Operation is outside the Stage 1 recipe allowlist",
-        ),
-        (
             "binary frame operation",
             lambda frame: frame + _frame().normalize(),
-            "Operation is outside the Stage 1 recipe allowlist",
+            "Graph operation requires graph recipe support",
+        ),
+        (
+            "array operand operation",
+            lambda frame: frame + np.ones(frame.shape),
+            "Scalar operation requires a numeric scalar operand",
         ),
         (
             "custom apply operation",
