@@ -15,6 +15,7 @@ from wandas.frames.roughness import RoughnessFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.pipeline import (
+    IndexingStep,
     MethodStep,
     OperationSpec,
     RecipeExtractionError,
@@ -728,11 +729,11 @@ def test_recipe_from_frame_rejects_non_literal_channel_queries(
         RecipeSpec.from_frame(processed)
 
 
-def test_recipe_from_frame_rejects_channel_and_time_indexing_boundary() -> None:
+def test_recipe_from_frame_rejects_integer_list_channel_and_time_indexing_boundary() -> None:
     frame = _two_channel_frame_with_refs()
-    processed = frame["right", 10:20]
+    processed = frame[[0, 1], 10:20]
 
-    with pytest.raises(RecipeExtractionError, match="Indexing recipe extraction only supports channel-only"):
+    with pytest.raises(RecipeExtractionError, match="Multidimensional indexing recipe extraction only supports"):
         RecipeSpec.from_frame(processed)
 
 
@@ -806,6 +807,89 @@ def test_recipe_from_frame_extracts_getitem_channel_selection(
     assert replayed.labels == processed.labels
     np.testing.assert_allclose(replayed.data, processed.data)
     np.testing.assert_allclose(replayed.source_time_offset, processed.source_time_offset)
+
+
+@pytest.mark.parametrize(
+    ("build_frame", "expected_step"),
+    [
+        (
+            lambda frame: frame[:, 100:400],
+            {
+                "getitem": {
+                    "type": "multidimensional_slice",
+                    "channel": {"type": "slice", "start": None, "stop": None, "step": None},
+                    "axis_slices": [{"start": 100, "stop": 400, "step": None}],
+                }
+            },
+        ),
+        (
+            lambda frame: frame["right", 200:600],
+            {
+                "getitem": {
+                    "type": "multidimensional_slice",
+                    "channel": {"type": "index", "value": 1},
+                    "axis_slices": [{"start": 200, "stop": 600, "step": None}],
+                }
+            },
+        ),
+    ],
+)
+def test_recipe_from_frame_extracts_multidimensional_slice_indexing(
+    build_frame: Callable[[ChannelFrame], ChannelFrame],
+    expected_step: dict[str, object],
+) -> None:
+    frame = _two_channel_frame_with_refs()
+    processed = build_frame(frame)
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.to_dict() == {"steps": [expected_step]}
+    assert replayed.operation_history == processed.operation_history
+    assert replayed.labels == processed.labels
+    np.testing.assert_allclose(replayed.data, processed.data)
+    np.testing.assert_allclose(replayed.source_time_offset, processed.source_time_offset)
+
+
+def test_recipe_from_frame_extracts_multidimensional_slice_after_operation() -> None:
+    frame = _two_channel_frame_with_refs()
+    processed = frame.normalize(norm=2.0)[:, 100:400]
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.to_dict() == {
+        "steps": [
+            {
+                "operation": "normalize",
+                "params": {"axis": -1, "fill": None, "norm": 2.0, "threshold": None},
+            },
+            {
+                "getitem": {
+                    "type": "multidimensional_slice",
+                    "channel": {"type": "slice", "start": None, "stop": None, "step": None},
+                    "axis_slices": [{"start": 100, "stop": 400, "step": None}],
+                }
+            },
+        ]
+    }
+    assert replayed.operation_history == processed.operation_history
+    np.testing.assert_allclose(replayed.data, processed.data)
+    np.testing.assert_allclose(replayed.source_time_offset, processed.source_time_offset)
+
+
+def test_indexing_step_normalizes_multidimensional_slices() -> None:
+    key = (slice(None), slice(np.int64(100), np.int64(400)))
+    step = IndexingStep(key)
+
+    assert step.key == (slice(None), slice(100, 400))
+    assert step.to_dict() == {
+        "getitem": {
+            "type": "multidimensional_slice",
+            "channel": {"type": "slice", "start": None, "stop": None, "step": None},
+            "axis_slices": [{"start": 100, "stop": 400, "step": None}],
+        }
+    }
 
 
 def test_recipe_from_frame_extracts_scalar_operation_chain() -> None:

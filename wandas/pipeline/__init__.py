@@ -87,7 +87,7 @@ _REPLAYABLE_TYPED_METHOD_NAMES = frozenset(
     method for method, _param_names in _REPLAYABLE_TYPED_METHOD_OPERATIONS.values()
 )
 _REPLAYABLE_SCALAR_OPERATIONS = frozenset({"+", "-", "*", "/", "**"})
-_REPLAYABLE_GETITEM_INDEXING = frozenset({"channel_slice", "label_list"})
+_REPLAYABLE_GETITEM_INDEXING = frozenset({"channel_slice", "label_list", "multidimensional_slice"})
 
 
 def _snapshot_param_value(value: Any) -> Any:
@@ -358,11 +358,73 @@ def _optional_int_from_params(params: Mapping[str, Any], key: str) -> int | None
     return int(value)
 
 
+def _slice_from_serialized(value: Any, *, context: str) -> slice:
+    if not isinstance(value, Mapping):
+        raise RecipeExtractionError(f"{context} requires serialized slice objects\n  Got: {type(value).__name__}")
+    if not {"start", "stop", "step"}.issubset(value):
+        raise RecipeExtractionError(f"{context} requires explicit start/stop/step slice params\n  Got: {value!r}")
+    return slice(
+        _optional_int_from_params(value, "start"),
+        _optional_int_from_params(value, "stop"),
+        _optional_int_from_params(value, "step"),
+    )
+
+
+def _axis_slices_from_params(params: Mapping[str, Any]) -> tuple[slice, ...]:
+    raw_axis_slices = params.get("axis_slices")
+    if not isinstance(raw_axis_slices, list | tuple) or not raw_axis_slices:
+        raise RecipeExtractionError(
+            f"Multidimensional slice recipe extraction requires non-empty axis_slices\n  Got: {raw_axis_slices!r}"
+        )
+    return tuple(
+        _slice_from_serialized(raw_axis_slice, context="Multidimensional slice recipe extraction")
+        for raw_axis_slice in raw_axis_slices
+    )
+
+
+def _channel_key_from_getitem_params(params: Mapping[str, Any]) -> slice | list[str]:
+    indexing = params.get("indexing")
+    if indexing == "channel_slice":
+        return slice(
+            _optional_int_from_params(params, "start"),
+            _optional_int_from_params(params, "stop"),
+            _optional_int_from_params(params, "step"),
+        )
+    if indexing == "label_list":
+        labels = params.get("labels")
+        if isinstance(labels, list | tuple) and all(isinstance(label, str) for label in labels):
+            return list(labels)
+    raise RecipeExtractionError(
+        "Multidimensional indexing recipe extraction only supports slice or label-list channel selectors\n"
+        f"  Parent indexing kind: {indexing!r}"
+    )
+
+
+def _channel_key_from_parent_graph(parent: Mapping[str, Any]) -> int | slice | list[str]:
+    operation = str(parent["operation"])
+    params = cast(Mapping[str, Any], _restore_history_value(parent.get("params", {})))
+    if operation == "get_channel":
+        channel_idx = params.get("channel_idx")
+        if isinstance(channel_idx, numbers.Integral) and not isinstance(channel_idx, bool):
+            return int(channel_idx)
+        raise RecipeExtractionError(
+            "Multidimensional indexing recipe extraction only supports single integer get_channel parents\n"
+            f"  Parent params: {params!r}"
+        )
+    if operation == "__getitem__":
+        return _channel_key_from_getitem_params(params)
+    raise RecipeExtractionError(
+        "Multidimensional indexing recipe extraction requires a replayable channel-selection parent\n"
+        f"  Parent operation: {operation}"
+    )
+
+
 def _getitem_step_from_graph(params: Mapping[str, Any]) -> IndexingStep:
     indexing = params.get("indexing")
     if indexing not in _REPLAYABLE_GETITEM_INDEXING:
         raise RecipeExtractionError(
-            "Indexing recipe extraction only supports channel-only slice and label list selection\n"
+            "Indexing recipe extraction only supports channel-only slice, label list, "
+            "and multidimensional slice selection\n"
             f"  Indexing kind: {indexing!r}\n"
             "  Multidimensional, callable, regex, dict, and array indexing need a selection recipe model "
             "that can preserve full indexing intent."
@@ -375,10 +437,29 @@ def _getitem_step_from_graph(params: Mapping[str, Any]) -> IndexingStep:
                 _optional_int_from_params(params, "step"),
             )
         )
+    if indexing == "multidimensional_slice":
+        return IndexingStep((slice(None), *_axis_slices_from_params(params)))
     labels = params.get("labels")
     if not isinstance(labels, list | tuple) or not all(isinstance(label, str) for label in labels):
         raise RecipeExtractionError(f"Label-list indexing recipe extraction requires string labels\n  Got: {labels!r}")
     return IndexingStep(list(labels))
+
+
+def _multidimensional_steps_from_graph(
+    params: Mapping[str, Any],
+    parent: Mapping[str, Any],
+) -> tuple[RecipeStep, ...]:
+    axis_slices = _axis_slices_from_params(params)
+    parent_inputs = tuple(parent.get("inputs", ()))
+    if len(parent_inputs) > 1:
+        raise RecipeExtractionError(
+            "Graph operation requires graph recipe support\n"
+            f"  Operation: {parent['operation']}\n"
+            f"  Parent count: {len(parent_inputs)}\n"
+            "  Current RecipeSpec can only replay one linear parent chain."
+        )
+    grandparent_steps = _steps_from_graph(cast(Mapping[str, Any], parent_inputs[0])) if parent_inputs else ()
+    return (*grandparent_steps, IndexingStep((_channel_key_from_parent_graph(parent), *axis_slices)))
 
 
 def _step_from_graph(operation: str, params: Mapping[str, Any], kind: str | None) -> RecipeStep:
@@ -407,6 +488,13 @@ def _steps_from_graph(graph: Mapping[str, Any]) -> tuple[RecipeStep, ...]:
         )
 
     params = cast(Mapping[str, Any], _restore_history_value(graph.get("params", {})))
+    if operation == "__getitem__" and params.get("indexing") == "multidimensional_slice":
+        if len(inputs) != 1:
+            raise RecipeExtractionError(
+                "Multidimensional indexing recipe extraction requires one channel-selection parent\n"
+                f"  Parent count: {len(inputs)}"
+            )
+        return _multidimensional_steps_from_graph(params, cast(Mapping[str, Any], inputs[0]))
     parent_steps = _steps_from_graph(cast(Mapping[str, Any], inputs[0])) if inputs else ()
     return (*parent_steps, _step_from_graph(operation, params, kind))
 
@@ -540,25 +628,52 @@ class ScalarOperationStep:
 class IndexingStep:
     """Replayable channel-only indexing call."""
 
-    _key: slice | tuple[str, ...]
+    _key: slice | tuple[str, ...] | tuple[int | slice | tuple[str, ...], ...]
 
-    def __init__(self, key: slice | list[str] | tuple[str, ...]) -> None:
+    def __init__(self, key: slice | list[str] | tuple[str, ...] | tuple[int | slice | list[str], ...]) -> None:
         if isinstance(key, slice):
             object.__setattr__(
                 self,
                 "_key",
-                slice(
-                    self._snapshot_slice_value(key.start, "start"),
-                    self._snapshot_slice_value(key.stop, "stop"),
-                    self._snapshot_slice_value(key.step, "step"),
-                ),
+                self._snapshot_slice(key),
             )
+            return
+        if self._is_multidimensional_key(key):
+            object.__setattr__(self, "_key", self._snapshot_multidimensional_key(cast(tuple[Any, ...], key)))
             return
         if not isinstance(key, list | tuple) or not key or not all(isinstance(label, str) for label in key):
             raise TypeError(
                 f"IndexingStep key must be a channel slice or non-empty label list\n  Got: {type(key).__name__}"
             )
         object.__setattr__(self, "_key", tuple(key))
+
+    @staticmethod
+    def _is_multidimensional_key(key: object) -> bool:
+        return isinstance(key, tuple) and len(key) >= 2 and all(isinstance(item, slice) for item in key[1:])
+
+    @classmethod
+    def _snapshot_multidimensional_key(cls, key: tuple[Any, ...]) -> tuple[int | slice | tuple[str, ...], ...]:
+        channel_key = key[0]
+        if isinstance(channel_key, slice):
+            frozen_channel_key: int | slice | tuple[str, ...] = cls._snapshot_slice(channel_key)
+        elif isinstance(channel_key, numbers.Integral) and not isinstance(channel_key, bool):
+            frozen_channel_key = int(channel_key)
+        elif isinstance(channel_key, list) and channel_key and all(isinstance(label, str) for label in channel_key):
+            frozen_channel_key = tuple(channel_key)
+        else:
+            raise TypeError(
+                "IndexingStep multidimensional channel key must be an int, slice, or non-empty label list\n"
+                f"  Got: {type(channel_key).__name__}"
+            )
+        return (frozen_channel_key, *(cls._snapshot_slice(axis_slice) for axis_slice in key[1:]))
+
+    @classmethod
+    def _snapshot_slice(cls, key: slice) -> slice:
+        return slice(
+            cls._snapshot_slice_value(key.start, "start"),
+            cls._snapshot_slice_value(key.stop, "stop"),
+            cls._snapshot_slice_value(key.step, "step"),
+        )
 
     @staticmethod
     def _snapshot_slice_value(value: Any, name: str) -> int | None:
@@ -573,19 +688,45 @@ class IndexingStep:
         return int(value)
 
     @property
-    def key(self) -> slice | list[str]:
+    def key(self) -> slice | list[str] | tuple[int | slice | list[str], ...]:
         if isinstance(self._key, slice):
             return self._key
+        if self._is_multidimensional_key(self._key):
+            channel_key = self._key[0]
+            public_channel_key: int | slice | list[str]
+            if isinstance(channel_key, tuple):
+                public_channel_key = list(channel_key)
+            else:
+                public_channel_key = cast(int | slice, channel_key)
+            return cast(tuple[int | slice | list[str], ...], (public_channel_key, *self._key[1:]))
         return list(self._key)
+
+    @staticmethod
+    def _slice_to_dict(key: slice) -> dict[str, int | None]:
+        return {"start": key.start, "stop": key.stop, "step": key.step}
+
+    @classmethod
+    def _channel_key_to_dict(cls, key: int | slice | tuple[str, ...]) -> dict[str, Any]:
+        if isinstance(key, slice):
+            return {"type": "slice", **cls._slice_to_dict(key)}
+        if isinstance(key, int):
+            return {"type": "index", "value": key}
+        return {"type": "label_list", "labels": list(key)}
 
     def to_dict(self) -> dict[str, Any]:
         if isinstance(self._key, slice):
             return {
                 "getitem": {
                     "type": "channel_slice",
-                    "start": self._key.start,
-                    "stop": self._key.stop,
-                    "step": self._key.step,
+                    **self._slice_to_dict(self._key),
+                }
+            }
+        if self._is_multidimensional_key(self._key):
+            return {
+                "getitem": {
+                    "type": "multidimensional_slice",
+                    "channel": self._channel_key_to_dict(cast(int | slice | tuple[str, ...], self._key[0])),
+                    "axis_slices": [self._slice_to_dict(axis_slice) for axis_slice in self._key[1:]],
                 }
             }
         return {"getitem": {"type": "label_list", "labels": list(self._key)}}

@@ -621,6 +621,37 @@ class BaseFrame(ABC, Generic[T]):
     def _lineage_with_unsupported_indexing(self, indexing: str) -> "LineageNode":
         return self._lineage_with_method("__getitem__", {"indexing": indexing})
 
+    @staticmethod
+    def _slice_bound_for_lineage(value: Any) -> int | None:
+        if value is None:
+            return None
+        if isinstance(value, bool) or not isinstance(value, numbers.Integral):
+            return None
+        return int(value)
+
+    @classmethod
+    def _slice_for_lineage(cls, key: slice) -> dict[str, int | None] | None:
+        start = cls._slice_bound_for_lineage(key.start)
+        stop = cls._slice_bound_for_lineage(key.stop)
+        step = cls._slice_bound_for_lineage(key.step)
+        if (key.start is not None and start is None) or (key.stop is not None and stop is None):
+            return None
+        if key.step is not None and step is None:
+            return None
+        return {"start": start, "stop": stop, "step": step}
+
+    @classmethod
+    def _axis_slices_for_lineage(cls, keys: tuple[Any, ...]) -> tuple[dict[str, int | None], ...] | None:
+        axis_slices: list[dict[str, int | None]] = []
+        for key in keys:
+            if not isinstance(key, slice):
+                return None
+            axis_slice = cls._slice_for_lineage(key)
+            if axis_slice is None:
+                return None
+            axis_slices.append(axis_slice)
+        return tuple(axis_slices)
+
     @property
     def operations(self) -> tuple["AudioOperation[Any, Any]", ...]:
         """Return Wandas operation instances found in the lazy Dask graph."""
@@ -1018,6 +1049,12 @@ class BaseFrame(ABC, Generic[T]):
                     raise ValueError("Stepped slicing on the time axis is not supported for source time offsets.")
                 start, _, _ = time_axis_key.indices(time_axis_size)
                 source_time_offset = source_time_offset + start * time_step
+            axis_slices = selected._axis_slices_for_lineage(time_keys)
+            lineage_params: dict[str, Any] = (
+                {"indexing": "multidimensional_slice", "axis_slices": axis_slices}
+                if axis_slices is not None
+                else {"indexing": "multidimensional"}
+            )
             return selected._create_new_instance(
                 data=new_data,
                 channel_metadata=selected.channels.to_list(),
@@ -1025,7 +1062,7 @@ class BaseFrame(ABC, Generic[T]):
                 source_time_offset=source_time_offset,
                 lineage=selected._lineage_with_method(
                     "__getitem__",
-                    {"indexing": "multidimensional"},
+                    lineage_params,
                 ),
             )
 
