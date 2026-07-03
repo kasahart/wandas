@@ -72,6 +72,7 @@ Status: partially implemented for `fix_length`, `sum`, `mean`, `channel_differen
 | Frame calculation | Recipe step | Why method replay is used |
 | --- | --- | --- |
 | `frame.fix_length(length=8000)` | `MethodStep("fix_length", {"length": 8000})` | operation history は `target_length` を持つため、frame method の public argument に戻す |
+| `frame.fix_length(duration=0.25)` | `MethodStep("fix_length", {"length": int(0.25 * sampling_rate)})` | duration intent ではなく、実行時に解決済みの target length を replay して同じ出力長を再現する |
 | `frame.sum()` | `MethodStep("sum")` | channel metadata を 2ch から 1ch に再構成する frame method 固有処理を再利用する |
 | `frame.mean()` | `MethodStep("mean")` | `sum` と同じく channel metadata 再構成を frame method に委譲する |
 | `frame.channel_difference(other_channel=0)` | `MethodStep("channel_difference", {"other_channel": 0})` | channel label / metadata 更新を frame method に委譲する |

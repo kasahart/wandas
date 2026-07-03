@@ -577,6 +577,22 @@ def test_recipe_from_frame_extracts_method_aware_linear_steps() -> None:
     assert replayed.shape == processed.shape
 
 
+def test_fix_length_duration_recipe_extraction_replays_computed_length() -> None:
+    frame = _frame()
+    original_shape = frame.shape
+    processed = frame.fix_length(duration=0.25)
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (MethodStep("fix_length", {"length": 4000}),)
+    assert recipe.to_dict() == {"steps": [{"method": "fix_length", "params": {"length": 4000}}]}
+    assert replayed.operation_history == processed.operation_history
+    assert replayed.shape == processed.shape == (4000,)
+    assert frame.shape == original_shape
+    assert isinstance(replayed._data, DaArray)
+
+
 def test_recipe_from_frame_extracts_channel_difference_method_step() -> None:
     base = _frame()
     frame = ChannelFrame.from_numpy(
