@@ -935,7 +935,7 @@ class ChannelProcessingMixin:
             channel_metadata=cast(Any, self).channels.to_list(),
             channel_ids=cast(Any, self)._channel_ids,
             source_time_offset=cast(Any, self).source_time_offset,
-            lineage=cast(Any, self)._lineage_with_operation(operation, cast(Any, self).lineage),
+            lineage=cast(Any, self)._lineage_with_method(operation_name, operation.to_params()),
             previous=cast("BaseFrame[NDArrayReal]", self),
         )
 

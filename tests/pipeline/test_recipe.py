@@ -837,6 +837,14 @@ def test_recipe_from_frame_extracts_fft_typed_transition() -> None:
     assert replayed.sampling_rate == processed.sampling_rate
 
 
+def test_recipe_from_frame_rejects_direct_apply_operation_typed_transition() -> None:
+    frame = _frame()
+    processed = frame.apply_operation("fft", n_fft=1024, window="hann")
+
+    with pytest.raises(RecipeExtractionError, match="Typed operation requires frame method lineage"):
+        RecipeSpec.from_frame(processed)
+
+
 def test_recipe_from_frame_extracts_fft_ifft_typed_transition_chain() -> None:
     frame = _frame()
     processed = frame.fft(n_fft=1024, window="hann").ifft()

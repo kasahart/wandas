@@ -83,13 +83,13 @@ Status: partially implemented for `fix_length`, `sum`, `mean`, `channel_differen
 現在の表現:
 
 ```text
-FrameMethodStep(method="fix_length", kwargs={"length": 8000})
-FrameMethodStep(method="sum", kwargs={})
-FrameMethodStep(method="mean", kwargs={})
-FrameMethodStep(method="channel_difference", kwargs={"other_channel": 0})
-FrameMethodStep(method="get_channel", kwargs={"channel_idx": [0, 2]})
-FrameMethodStep(method="remove_channel", kwargs={"key": "right"})
-FrameMethodStep(method="rename_channels", kwargs={"mapping": {0: "left", 1: "right"}})
+MethodStep(method="fix_length", kwargs={"length": 8000})
+MethodStep(method="sum", kwargs={})
+MethodStep(method="mean", kwargs={})
+MethodStep(method="channel_difference", kwargs={"other_channel": 0})
+MethodStep(method="get_channel", kwargs={"channel_idx": [0, 2]})
+MethodStep(method="remove_channel", kwargs={"key": "right"})
+MethodStep(method="rename_channels", kwargs={"mapping": {0: "left", 1: "right"}})
 ```
 
 `rename_channels()` の `to_dict()` 表現では JSON object key の文字列化で int key intent が失われないよう、`{"mapping_items": [[0, "left"], [1, "right"]]}` の pair list として保存する。
@@ -131,6 +131,8 @@ Not implemented yet:
 
 これらは operation graph としては線形に見えるが、出力 frame class と constructor metadata が変わる。実装済み範囲では `TypedMethodStep` が既存 frame method を呼び、型遷移と metadata 構築を既存実装に委譲する。
 
+Typed domain transition は public frame method 経由の lineage だけを抽出する。`frame.apply_operation("fft", ...)` のような generic operation call は、同じ operation 名でも戻り frame type と metadata 構築の契約が public method と異なるため、`TypedMethodStep` には変換しない。
+
 現在の表現:
 
 ```text
@@ -155,6 +157,8 @@ TypedMethodStep(method="roughness_dw_spec", kwargs={"overlap": 0.5})
 `noct_spectrum()` と `noct_synthesis()` は optional `mosqito` backend を使うが、Recipe は依存関係を横取りしない。抽出・再生は既存 method に委譲し、backend が無い場合のエラーも既存 optional dependency 契約に従う。
 
 `roughness_dw_spec()` も optional `mosqito` backend を使う。Recipe は `RoughnessFrame` の Bark 軸や metadata 構築を複製せず、既存 frame method に委譲する。
+
+`persist()` は計算結果のキャッシュ/materialization state を変える実行制御であり、信号処理の意味を変える frame calculation ではないため Recipe には含めない。
 
 ## Stage 4: Graph / Multi-Input / Binary Calculations
 

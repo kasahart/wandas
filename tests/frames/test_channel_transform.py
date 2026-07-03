@@ -33,6 +33,7 @@ class TestChannelTransform:
             mock_fft = mock.MagicMock(spec=FFT)
             mock_fft.n_fft = 4096
             mock_fft.window = "hann"
+            mock_fft.to_params.return_value = {"n_fft": 4096, "window": "hann"}
             mock_data = mock.MagicMock(spec=DaArray)
             mock_data.ndim = 2  # Set ndim property to pass dimension check
             mock_data.shape = (2, 2049)  # Set appropriate shape for a 2D array
@@ -60,8 +61,9 @@ class TestChannelTransform:
             # Pillar 2: domain transition preserves sampling rate and source offset
             assert result.sampling_rate == self.channel_frame.sampling_rate
             np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
-            assert result.lineage is not None
-            assert result.lineage.operation is mock_fft
+            assert result.operation_history[-1] == {"operation": "fft", "params": {"n_fft": 4096, "window": "hann"}}
+            assert result.operation_graph is not None
+            assert result.operation_graph["kind"] == "method"
 
     def test_fft_default_n_fft_operation_lineage_matches_history(self) -> None:
         data = np.arange(8.0).reshape(1, 8)
@@ -98,6 +100,14 @@ class TestChannelTransform:
             mock_welch.win_length = 1024
             mock_welch.window = "blackman"
             mock_welch.average = "mean"
+            mock_welch.to_params.return_value = {
+                "n_fft": 2048,
+                "hop_length": 256,
+                "win_length": 1024,
+                "window": "blackman",
+                "average": "mean",
+                "detrend": "constant",
+            }
             mock_data = mock.MagicMock(spec=DaArray)
             mock_data.ndim = 2  # Set ndim property to pass dimension check
             mock_data.shape = (2, 1025)  # Set appropriate shape for a 2D array
@@ -136,8 +146,19 @@ class TestChannelTransform:
             assert result.window == "blackman"
             assert result.previous is self.channel_frame
             np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
-            assert result.lineage is not None
-            assert result.lineage.operation is mock_welch
+            assert result.operation_history[-1] == {
+                "operation": "welch",
+                "params": {
+                    "n_fft": 2048,
+                    "hop_length": 256,
+                    "win_length": 1024,
+                    "window": "blackman",
+                    "average": "mean",
+                    "detrend": "constant",
+                },
+            }
+            assert result.operation_graph is not None
+            assert result.operation_graph["kind"] == "method"
 
     def test_welch_default_params_operation_lineage_matches_history(self) -> None:
         frame = ChannelFrame.from_numpy(
@@ -210,8 +231,6 @@ class TestChannelTransform:
             assert result.n_fft == 2048
             assert result.hop_length == 512
             assert result.win_length == 2048
-            assert result.lineage is not None
-            assert result.lineage.operation is mock_stft
             assert result.operation_history[-1] == {
                 "operation": "stft",
                 "params": {
@@ -221,6 +240,8 @@ class TestChannelTransform:
                     "window": "hann",
                 },
             }
+            assert result.operation_graph is not None
+            assert result.operation_graph["kind"] == "method"
             assert result.window == "hann"
             # Pillar 2: domain transition preserves sampling rate and source offset
             assert result.sampling_rate == self.channel_frame.sampling_rate
@@ -265,6 +286,7 @@ class TestChannelTransform:
         with mock.patch("wandas.processing.create_operation") as mock_create_op:
             # モックNOctSpectrumオペレーションの設定
             mock_noct = mock.MagicMock(spec=NOctSpectrum)
+            mock_noct.to_params.return_value = {"fmin": 20, "fmax": 20000, "n": 3, "G": 10, "fr": 1000}
             mock_data = mock.MagicMock(spec=DaArray)
             mock_data.ndim = 2
             mock_data.shape = (2, 10)  # バンド数に応じた適切な形状
@@ -302,8 +324,12 @@ class TestChannelTransform:
             assert result.fr == fr
             assert result.previous is self.channel_frame
             np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
-            assert result.lineage is not None
-            assert result.lineage.operation is mock_noct
+            assert result.operation_history[-1] == {
+                "operation": "noct_spectrum",
+                "params": {"fmin": 20, "fmax": 20000, "n": 3, "G": 10, "fr": 1000},
+            }
+            assert result.operation_graph is not None
+            assert result.operation_graph["kind"] == "method"
 
     def test_noct_spectrum_preserves_metadata_and_stores_params_in_lineage(self) -> None:
         frame = ChannelFrame.from_numpy(

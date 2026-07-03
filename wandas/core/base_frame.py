@@ -567,7 +567,7 @@ class BaseFrame(ABC, Generic[T]):
     def _lineage_to_graph(cls, lineage: "LineageNode | None") -> dict[str, Any] | None:
         if lineage is None:
             return None
-        return {
+        graph = {
             "operation": cls._operation_name(lineage.operation),
             "params": cls._operation_params(lineage.operation),
             "inputs": [
@@ -576,6 +576,11 @@ class BaseFrame(ABC, Generic[T]):
                 if (input_graph := cls._lineage_to_graph(input_lineage)) is not None
             ],
         }
+        from wandas.processing.base import FrameMethodOperation
+
+        if isinstance(lineage.operation, FrameMethodOperation):
+            graph["kind"] = "method"
+        return graph
 
     @classmethod
     def _operation_summary(cls, operation: Any) -> dict[str, Any]:

@@ -271,12 +271,19 @@ def _rename_mapping_from_params(params: Mapping[str, Any]) -> dict[int | str, st
     return mapping
 
 
-def _typed_method_step_from_graph(operation: str, params: Mapping[str, Any]) -> TypedMethodStep:
+def _typed_method_step_from_graph(operation: str, params: Mapping[str, Any], kind: str | None) -> TypedMethodStep:
     if operation == "welch" and params.get("detrend", "constant") != "constant":
         raise RecipeExtractionError(
             "Welch recipe extraction only supports public welch parameters\n"
             f"  Operation detrend: {params.get('detrend')!r}\n"
             "  ChannelFrame.welch() does not expose detrend, so non-default values cannot be replayed safely."
+        )
+    if kind != "method":
+        raise RecipeExtractionError(
+            "Typed operation requires frame method lineage\n"
+            f"  Operation: {operation}\n"
+            "  Call the typed frame method, such as frame.fft(), instead of generic apply_operation(). "
+            "Recipe replay delegates typed domain transitions to frame methods so output frame metadata stays correct."
         )
     method, param_names = _REPLAYABLE_TYPED_METHOD_OPERATIONS[operation]
     return TypedMethodStep(method, _method_params(params, param_names))
@@ -333,11 +340,11 @@ def _scalar_step_from_graph(operation: str, params: Mapping[str, Any]) -> Scalar
         ) from exc
 
 
-def _step_from_graph(operation: str, params: Mapping[str, Any]) -> RecipeStep:
+def _step_from_graph(operation: str, params: Mapping[str, Any], kind: str | None) -> RecipeStep:
     if operation in _REPLAYABLE_METHOD_OPERATIONS:
         return _method_step_from_graph(operation, params)
     if operation in _REPLAYABLE_TYPED_METHOD_OPERATIONS:
-        return _typed_method_step_from_graph(operation, params)
+        return _typed_method_step_from_graph(operation, params, kind)
     if operation in _REPLAYABLE_SCALAR_OPERATIONS:
         return _scalar_step_from_graph(operation, params)
     _validate_replayable_operation(operation)
@@ -346,6 +353,7 @@ def _step_from_graph(operation: str, params: Mapping[str, Any]) -> RecipeStep:
 
 def _steps_from_graph(graph: Mapping[str, Any]) -> tuple[RecipeStep, ...]:
     operation = str(graph["operation"])
+    kind = cast(str | None, graph.get("kind"))
     inputs = tuple(graph.get("inputs", ()))
     if len(inputs) > 1:
         raise RecipeExtractionError(
@@ -357,7 +365,7 @@ def _steps_from_graph(graph: Mapping[str, Any]) -> tuple[RecipeStep, ...]:
 
     params = cast(Mapping[str, Any], _restore_history_value(graph.get("params", {})))
     parent_steps = _steps_from_graph(cast(Mapping[str, Any], inputs[0])) if inputs else ()
-    return (*parent_steps, _step_from_graph(operation, params))
+    return (*parent_steps, _step_from_graph(operation, params, kind))
 
 
 @dataclass(frozen=True, init=False)
