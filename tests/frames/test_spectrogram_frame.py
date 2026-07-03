@@ -299,7 +299,8 @@ class TestSpectrogramFrame:
         frame: SpectralFrame = spec.get_frame_at(4)
         assert frame.shape == (2, 65)  # チャネル数 x 周波数ビン数
         np.testing.assert_array_equal(frame.source_time_offset, np.array([3.0 + spec.times[4]] * 2))
-        assert frame.lineage is spec.lineage
+        assert [record["operation"] for record in frame.operation_history] == ["normalize", "get_frame_at"]
+        assert frame.operation_history[-1]["params"] == {"time_idx": 4}
 
         # 範囲外インデックス（負の値）
         with pytest.raises(

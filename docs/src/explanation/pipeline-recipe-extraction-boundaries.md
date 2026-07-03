@@ -98,7 +98,7 @@ FrameMethodStep(method="get_channel", kwargs={"channel_idx": [0, 2]})
 
 ## Stage 3: Typed Domain Transitions / 型遷移を含む Recipe
 
-Status: partially implemented for `fft`, `stft`, `ifft`, `istft`, `welch`, `noct_spectrum`, `noct_synthesis`, `coherence`, `csd`, `transfer_function`, and `roughness_dw_spec`.
+Status: partially implemented for `fft`, `stft`, `get_frame_at`, `ifft`, `istft`, `welch`, `noct_spectrum`, `noct_synthesis`, `coherence`, `csd`, `transfer_function`, and `roughness_dw_spec`.
 
 対象例:
 
@@ -106,6 +106,7 @@ Implemented:
 
 - `frame.fft()` -> `SpectralFrame`
 - `frame.stft()` -> `SpectrogramFrame`
+- `spectrogram_frame.get_frame_at()` -> `SpectralFrame`
 - `spectral_frame.ifft()` -> `ChannelFrame`
 - `spectrogram_frame.istft()` -> `ChannelFrame`
 - `frame.welch()` -> `SpectralFrame`
@@ -127,6 +128,7 @@ Not implemented yet:
 ```text
 TypedMethodStep(method="fft", kwargs={"n_fft": 16000, "window": "hann"})
 TypedMethodStep(method="stft", kwargs={"n_fft": 2048, "hop_length": 512, "win_length": 2048, "window": "hann"})
+TypedMethodStep(method="get_frame_at", kwargs={"time_idx": 2})
 TypedMethodStep(method="welch", kwargs={"n_fft": 2048, "hop_length": 512, "win_length": 2048, "window": "hann", "average": "mean"})
 TypedMethodStep(method="noct_spectrum", kwargs={"fmin": 25, "fmax": 20000, "n": 3, "G": 10, "fr": 1000})
 TypedMethodStep(method="ifft", kwargs={})

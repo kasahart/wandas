@@ -785,6 +785,27 @@ def test_recipe_from_frame_extracts_stft_typed_transition() -> None:
     assert replayed.window == processed.window
 
 
+def test_recipe_from_frame_extracts_stft_get_frame_at_typed_transition_chain() -> None:
+    frame = _frame()
+    processed = frame.stft(n_fft=512, hop_length=128, win_length=512, window="hann").get_frame_at(2)
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (
+        TypedMethodStep(
+            "stft",
+            {"n_fft": 512, "hop_length": 128, "win_length": 512, "window": "hann"},
+        ),
+        TypedMethodStep("get_frame_at", {"time_idx": 2}),
+    )
+    assert isinstance(replayed, SpectralFrame)
+    np.testing.assert_allclose(replayed.data, processed.data)
+    np.testing.assert_allclose(replayed.source_time_offset, processed.source_time_offset)
+    assert replayed.n_fft == processed.n_fft
+    assert replayed.window == processed.window
+
+
 def test_recipe_from_frame_extracts_welch_typed_transition() -> None:
     frame = _frame()
     processed = frame.welch(n_fft=512, hop_length=128, win_length=512, window="hann", average="mean")

@@ -52,6 +52,7 @@ _REPLAYABLE_TYPED_METHOD_OPERATIONS = {
     "coherence": ("coherence", None),
     "csd": ("csd", None),
     "fft": ("fft", None),
+    "get_frame_at": ("get_frame_at", {"time_idx": "time_idx"}),
     "ifft": ("ifft", {}),
     "istft": ("istft", {}),
     "noct_spectrum": ("noct_spectrum", None),
