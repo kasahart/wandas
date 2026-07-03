@@ -99,6 +99,7 @@ _REPLAYABLE_GETITEM_INDEXING = frozenset(
     {"boolean_mask", "channel_slice", "integer_list", "label_list", "multidimensional_slice"}
 )
 _REPLAYABLE_TERMINAL_PROPERTIES = frozenset({"crest_factor", "rms"})
+_REPLAYABLE_BINARY_FRAME_OPERATIONS = frozenset({"+", "add_with_snr"})
 
 
 def _snapshot_param_value(value: Any) -> Any:
@@ -941,6 +942,61 @@ class TerminalStep:
         return getattr(frame, self.metric)
 
 
+@dataclass(frozen=True, init=False)
+class BinaryFrameStep:
+    """Replayable binary operation over two named frame inputs."""
+
+    operation: str
+    left: str
+    right: str
+    _params: tuple[tuple[str, Any], ...]
+
+    def __init__(self, operation: str, left: str, right: str, params: Mapping[str, Any] | None = None) -> None:
+        if operation not in _REPLAYABLE_BINARY_FRAME_OPERATIONS:
+            valid_operations = ", ".join(sorted(_REPLAYABLE_BINARY_FRAME_OPERATIONS))
+            raise ValueError(
+                "BinaryFrameStep operation is outside the replayable binary-frame allowlist\n"
+                f"  Operation: {operation}\n"
+                f"  Valid operations: {valid_operations}"
+            )
+        if not left or not right:
+            raise ValueError("BinaryFrameStep left and right input names must be non-empty strings")
+        if operation == "+" and params:
+            raise TypeError("BinaryFrameStep '+' operation does not accept params")
+        object.__setattr__(self, "operation", operation)
+        object.__setattr__(self, "left", left)
+        object.__setattr__(self, "right", right)
+        object.__setattr__(self, "_params", _snapshot_params(params or {}))
+
+    @property
+    def params(self) -> dict[str, Any]:
+        return _params_to_public_dict(self._params)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "binary_frame": {
+                "operation": self.operation,
+                "left": self.left,
+                "right": self.right,
+                "params": self.params,
+            }
+        }
+
+    def apply(self, frames: Mapping[str, Any]) -> Any:
+        try:
+            left_frame = frames[self.left]
+            right_frame = frames[self.right]
+        except KeyError as exc:
+            raise KeyError(
+                "GraphRecipeSpec input is missing\n"
+                f"  Missing input: {exc.args[0]!r}\n"
+                f"  Available inputs: {sorted(frames)}"
+            ) from exc
+        if self.operation == "+":
+            return left_frame + right_frame
+        return left_frame.add(right_frame, **self.params)
+
+
 RecipeStep = OperationSpec | MethodStep | TypedMethodStep | ScalarOperationStep | IndexingStep | TerminalStep
 
 
@@ -981,7 +1037,62 @@ class RecipeSpec:
         return result
 
 
+@dataclass(frozen=True, init=False)
+class GraphRecipeSpec:
+    """Explicit multi-input recipe with per-input linear recipes and one binary frame output."""
+
+    input_recipes: tuple[tuple[str, RecipeSpec], ...]
+    output: BinaryFrameStep
+
+    def __init__(self, input_recipes: Mapping[str, RecipeSpec], output: BinaryFrameStep) -> None:
+        if not input_recipes:
+            raise ValueError("GraphRecipeSpec requires at least one named input recipe")
+        if not isinstance(output, BinaryFrameStep):
+            raise TypeError(f"GraphRecipeSpec output must be a BinaryFrameStep\n  Got: {type(output).__name__}")
+        frozen_inputs: list[tuple[str, RecipeSpec]] = []
+        for name, recipe in input_recipes.items():
+            if not isinstance(name, str) or not name:
+                raise TypeError("GraphRecipeSpec input names must be non-empty strings")
+            if not isinstance(recipe, RecipeSpec):
+                raise TypeError(
+                    "GraphRecipeSpec input recipes must be RecipeSpec instances\n"
+                    f"  Input: {name}\n"
+                    f"  Got: {type(recipe).__name__}"
+                )
+            frozen_inputs.append((name, recipe))
+        input_names = {name for name, _recipe in frozen_inputs}
+        missing_output_inputs = [name for name in (output.left, output.right) if name not in input_names]
+        if missing_output_inputs:
+            raise ValueError(
+                "GraphRecipeSpec output references unknown input\n"
+                f"  Missing input references: {missing_output_inputs}\n"
+                f"  Available inputs: {sorted(input_names)}"
+            )
+        object.__setattr__(self, "input_recipes", tuple(frozen_inputs))
+        object.__setattr__(self, "output", output)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "inputs": {name: recipe.to_dict() for name, recipe in self.input_recipes},
+            "output": self.output.to_dict(),
+        }
+
+    def apply(self, inputs: Mapping[str, Any]) -> Any:
+        frames: dict[str, Any] = {}
+        for name, recipe in self.input_recipes:
+            try:
+                frame = inputs[name]
+            except KeyError as exc:
+                raise KeyError(
+                    f"GraphRecipeSpec input is missing\n  Missing input: {name!r}\n  Available inputs: {sorted(inputs)}"
+                ) from exc
+            frames[name] = recipe.apply(frame)
+        return self.output.apply(frames)
+
+
 __all__ = [
+    "BinaryFrameStep",
+    "GraphRecipeSpec",
     "IndexingStep",
     "MethodStep",
     "OperationSpec",

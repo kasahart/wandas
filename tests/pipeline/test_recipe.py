@@ -3,7 +3,7 @@ import re
 from collections.abc import Callable
 from fractions import Fraction
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import dask.array as da
 import numpy as np
@@ -17,6 +17,8 @@ from wandas.frames.roughness import RoughnessFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.pipeline import (
+    BinaryFrameStep,
+    GraphRecipeSpec,
     IndexingStep,
     MethodStep,
     OperationSpec,
@@ -210,6 +212,79 @@ def test_terminal_step_rejects_unknown_metric() -> None:
 def test_terminal_property_step_rejects_params() -> None:
     with pytest.raises(TypeError, match="TerminalStep metric does not accept params"):
         TerminalStep("rms", {"axis": -1})
+
+
+def test_graph_recipe_applies_named_input_recipes_and_frame_addition() -> None:
+    base = _frame()
+    signal = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="signal")
+    noise = ChannelFrame.from_numpy(base.data * 0.25, sampling_rate=base.sampling_rate, label="noise")
+    graph_recipe = GraphRecipeSpec(
+        input_recipes={
+            "signal": RecipeSpec([OperationSpec("normalize")]),
+            "noise": RecipeSpec([OperationSpec("lowpass_filter", {"cutoff": 2000.0})]),
+        },
+        output=BinaryFrameStep("+", left="signal", right="noise"),
+    )
+
+    result = graph_recipe.apply({"signal": signal, "noise": noise})
+    expected = signal.normalize() + noise.low_pass_filter(cutoff=2000.0)
+
+    np.testing.assert_allclose(result.data, expected.data)
+    assert result.operation_history == expected.operation_history
+    assert graph_recipe.to_dict() == {
+        "inputs": {
+            "signal": {"steps": [{"operation": "normalize", "params": {}}]},
+            "noise": {"steps": [{"operation": "lowpass_filter", "params": {"cutoff": 2000.0}}]},
+        },
+        "output": {"binary_frame": {"operation": "+", "left": "signal", "right": "noise", "params": {}}},
+    }
+
+
+def test_graph_recipe_applies_add_with_snr() -> None:
+    base = _frame()
+    signal = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="signal")
+    noise = ChannelFrame.from_numpy(np.flip(base.data), sampling_rate=base.sampling_rate, label="noise")
+    graph_recipe = GraphRecipeSpec(
+        input_recipes={
+            "signal": RecipeSpec([OperationSpec("normalize")]),
+            "noise": RecipeSpec([OperationSpec("remove_dc")]),
+        },
+        output=BinaryFrameStep("add_with_snr", left="signal", right="noise", params={"snr": 6.0}),
+    )
+
+    result = graph_recipe.apply({"signal": signal, "noise": noise})
+    expected = signal.normalize().add(noise.remove_dc(), snr=6.0)
+
+    np.testing.assert_allclose(result.data, expected.data)
+    assert result.operation_history == expected.operation_history
+
+
+def test_graph_recipe_rejects_missing_input() -> None:
+    graph_recipe = GraphRecipeSpec(
+        input_recipes={"signal": RecipeSpec(()), "noise": RecipeSpec(())},
+        output=BinaryFrameStep("+", left="signal", right="noise"),
+    )
+
+    with pytest.raises(KeyError, match="GraphRecipeSpec input is missing"):
+        graph_recipe.apply({"signal": _frame()})
+
+
+def test_graph_recipe_rejects_output_reference_outside_named_inputs() -> None:
+    with pytest.raises(ValueError, match="GraphRecipeSpec output references unknown input"):
+        GraphRecipeSpec(
+            input_recipes={"signal": RecipeSpec(())},
+            output=BinaryFrameStep("+", left="signal", right="noise"),
+        )
+
+
+def test_graph_recipe_rejects_non_binary_output() -> None:
+    with pytest.raises(TypeError, match="GraphRecipeSpec output must be a BinaryFrameStep"):
+        GraphRecipeSpec(input_recipes={"signal": RecipeSpec(())}, output=cast(Any, TerminalStep("rms")))
+
+
+def test_binary_frame_step_rejects_unknown_operation() -> None:
+    with pytest.raises(ValueError, match="BinaryFrameStep operation is outside the replayable binary-frame allowlist"):
+        BinaryFrameStep("*", left="signal", right="noise")
 
 
 def test_recipe_spec_snapshots_mutable_step_params() -> None:

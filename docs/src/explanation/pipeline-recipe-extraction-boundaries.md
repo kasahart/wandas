@@ -175,7 +175,7 @@ TypedMethodStep(method="roughness_dw_spec", kwargs={"overlap": 0.5})
 
 ## Stage 4: Graph / Multi-Input / Binary Calculations
 
-Status: partially implemented for numeric scalar operands; full graph recipe is still required.
+Status: partially implemented for numeric scalar operands and explicit two-input graph recipes; automatic graph extraction is still required.
 
 Implemented:
 
@@ -184,6 +184,8 @@ Implemented:
 - `frame * 2`
 - `frame / 2`
 - `frame ** 2`
+- `GraphRecipeSpec(..., BinaryFrameStep("+", ...))`
+- `GraphRecipeSpec(..., BinaryFrameStep("add_with_snr", ..., params={"snr": 6.0}))`
 
 現在の表現:
 
@@ -194,12 +196,14 @@ ScalarOperationStep(symbol="*", operand=2)
 
 `ScalarOperationStep` は既存 frame operator を呼ぶだけで、二項演算の metadata/history/Dask laziness は frame 本体に委譲する。対応 operand は operation graph に値として保存された Python / NumPy real scalar に限定する。NaN は recipe equality が安定しないため拒否する。
 
+`GraphRecipeSpec` は名前付き入力ごとに linear `RecipeSpec` を適用し、最後に `BinaryFrameStep` で既存 frame-frame 演算を呼ぶ。これは明示 API であり、探索済み frame の `operation_graph` から自動抽出するものではない。
+
 Not implemented yet:
 
-- `frame_a + frame_b`
+- `RecipeSpec.from_frame(frame_a + frame_b)` の自動 graph 抽出
 - `frame + np.ones(frame.shape)`
 - `frame + dask_array`
-- `signal.add(noise, snr=6.0)`
+- `RecipeSpec.from_frame(signal.add(noise, snr=6.0))` の自動 graph 抽出
 - shared branch を持つ graph: `base.normalize()` から signal/noise branch を作って合成する処理
 
 これらは直列 Recipe では表現できない。特に `operation_history` だけを見ると `normalize -> lowpass_filter -> add_with_snr` のように直列に見えることがあるが、`operation_graph` では複数 parent や外部 operand が必要である。array operand も shape、chunking、保存形式を Recipe 側で決める必要があるため、scalar operand と同じ扱いにはしない。
