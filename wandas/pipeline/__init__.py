@@ -27,6 +27,7 @@ _REPLAYABLE_APPLY_OPERATIONS = frozenset(
     }
 )
 _REPLAYABLE_METHOD_OPERATIONS = {
+    "channel_difference": ("channel_difference", {"other_channel": "other_channel"}),
     "fix_length": ("fix_length", {"target_length": "length"}),
     "mean": ("mean", {}),
     "sum": ("sum", {}),

@@ -270,6 +270,26 @@ def test_recipe_from_frame_extracts_method_aware_linear_steps() -> None:
     assert replayed.shape == processed.shape
 
 
+def test_recipe_from_frame_extracts_channel_difference_method_step() -> None:
+    base = _frame()
+    frame = ChannelFrame.from_numpy(
+        np.vstack([base.data, base.data * 0.5]),
+        sampling_rate=base.sampling_rate,
+        ch_labels=["left", "right"],
+    )
+    processed = frame.channel_difference(other_channel="left")
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (MethodStep("channel_difference", {"other_channel": 0}),)
+    assert recipe.to_dict() == {"steps": [{"method": "channel_difference", "params": {"other_channel": 0}}]}
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.labels == processed.labels
+    assert replayed.sampling_rate == processed.sampling_rate
+    assert replayed.shape == processed.shape
+
+
 def test_recipe_from_frame_extracts_scalar_operation_chain() -> None:
     frame = _frame()
     processed = frame.normalize(norm=2.0) + 0.25
@@ -566,12 +586,8 @@ def test_recipe_from_frame_empty_history_returns_empty_recipe() -> None:
             "Operation is outside the Stage 1 recipe allowlist",
         ),
         (
-            "metadata-aware registered operation outside current allowlist",
-            lambda frame: ChannelFrame.from_numpy(
-                np.vstack([frame.data, frame.data * 0.5]),
-                sampling_rate=frame.sampling_rate,
-                ch_labels=["left", "right"],
-            ).channel_difference(other_channel=0),
+            "registered operation outside current allowlist",
+            lambda frame: frame.rms_trend(frame_length=512, hop_length=128),
             "Operation is outside the Stage 1 recipe allowlist",
         ),
     ],

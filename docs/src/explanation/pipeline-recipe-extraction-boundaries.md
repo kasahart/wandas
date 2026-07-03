@@ -52,7 +52,7 @@ Status: implemented in prototype.
 
 ## Stage 2: Method-Aware Linear Steps / frame method aware な直列 step
 
-Status: partially implemented for `fix_length`, `sum`, and `mean`.
+Status: partially implemented for `fix_length`, `sum`, `mean`, and `channel_difference`.
 
 検証で見えた例:
 
@@ -61,6 +61,7 @@ Status: partially implemented for `fix_length`, `sum`, and `mean`.
 | `frame.fix_length(length=8000)` | `MethodStep("fix_length", {"length": 8000})` | operation history は `target_length` を持つため、frame method の public argument に戻す |
 | `frame.sum()` | `MethodStep("sum")` | channel metadata を 2ch から 1ch に再構成する frame method 固有処理を再利用する |
 | `frame.mean()` | `MethodStep("mean")` | `sum` と同じく channel metadata 再構成を frame method に委譲する |
+| `frame.channel_difference(other_channel=0)` | `MethodStep("channel_difference", {"other_channel": 0})` | channel label / metadata 更新を frame method に委譲する |
 
 現在の表現:
 
@@ -68,6 +69,7 @@ Status: partially implemented for `fix_length`, `sum`, and `mean`.
 FrameMethodStep(method="fix_length", kwargs={"length": 8000})
 FrameMethodStep(method="sum", kwargs={})
 FrameMethodStep(method="mean", kwargs={})
+FrameMethodStep(method="channel_difference", kwargs={"other_channel": 0})
 ```
 
 この段階では metadata 変換ロジックを Recipe 側に複製しない。既存 frame method を呼ぶことで、frame immutability、metadata/history、Dask laziness は既存契約に従う。
