@@ -17,6 +17,7 @@ from wandas.frames.roughness import RoughnessFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.pipeline import (
+    AddChannelStep,
     BinaryFrameStep,
     GraphNodeSpec,
     GraphRecipeSpec,
@@ -666,6 +667,55 @@ def test_node_graph_recipe_from_frame_rejects_array_operand_boundary() -> None:
     processed = frame + np.ones(frame.shape)
 
     with pytest.raises(RecipeExtractionError, match="Scalar operation requires a numeric scalar operand"):
+        NodeGraphRecipeSpec.from_frame(processed)
+
+
+def test_node_graph_recipe_from_frame_extracts_add_channel_frame_inputs() -> None:
+    base = _frame()
+    left_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, ch_labels=["left"])
+    right_source = ChannelFrame.from_numpy(base.data * 0.5, sampling_rate=base.sampling_rate, ch_labels=["right"])
+    processed = left_source.add_channel(right_source, label="ref")
+
+    recipe = NodeGraphRecipeSpec.from_frame(processed, input_names=("left", "right"))
+    replayed = recipe.apply({"left": left_source, "right": right_source})
+
+    assert recipe.inputs == ("left", "right")
+    assert recipe.nodes == (
+        GraphNodeSpec(
+            "n0",
+            AddChannelStep(
+                "left",
+                "right",
+                {"align": "strict", "label": "ref", "suffix_on_dup": None},
+            ),
+            ("left", "right"),
+        ),
+    )
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.operation_history == processed.operation_history
+    assert replayed.labels == processed.labels
+
+
+def test_node_graph_recipe_from_frame_extracts_add_channel_with_processed_parents() -> None:
+    base = _frame()
+    left_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, ch_labels=["left"])
+    right_source = ChannelFrame.from_numpy(base.data * 0.5, sampling_rate=base.sampling_rate, ch_labels=["right"])
+    processed = left_source.normalize().add_channel(right_source.remove_dc(), label="ref").normalize()
+
+    recipe = NodeGraphRecipeSpec.from_frame(processed, input_names=("left", "right"))
+    replayed = recipe.apply({"left": left_source, "right": right_source})
+
+    assert [node.id for node in recipe.nodes] == ["n0", "n1", "n2", "n3"]
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.operation_history == processed.operation_history
+    assert replayed.labels == processed.labels
+
+
+def test_node_graph_recipe_from_frame_rejects_add_channel_raw_data_boundary() -> None:
+    frame = _frame()
+    processed = frame.add_channel(np.zeros(frame.n_samples), label="raw")
+
+    with pytest.raises(RecipeExtractionError, match="add_channel recipe extraction only supports ChannelFrame inputs"):
         NodeGraphRecipeSpec.from_frame(processed)
 
 

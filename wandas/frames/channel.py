@@ -319,9 +319,16 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         params: dict[str, Any],
         added_lineage: Any | None = None,
     ) -> Any:
-        from wandas.processing.base import FrameMethodOperation
+        from wandas.processing.base import FrameMethodOperation, FrameSourceOperation, LineageNode
 
-        inputs = (self.lineage, added_lineage) if added_lineage is not None else (self.lineage,)
+        if params.get("input_kind") == "frame":
+            inputs = (
+                self._lineage_or_source(),
+                added_lineage if added_lineage is not None else LineageNode(FrameSourceOperation()),
+            )
+            return self._lineage_with_operation(FrameMethodOperation("add_channel", params), *inputs)
+
+        inputs = (self.lineage,)
         return self._lineage_with_operation(FrameMethodOperation("add_channel", params), *inputs)
 
     @property

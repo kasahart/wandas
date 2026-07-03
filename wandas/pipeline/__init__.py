@@ -618,6 +618,24 @@ def _binary_frame_step_from_graph(operation: str, params: Mapping[str, Any], lef
     )
 
 
+def _add_channel_step_from_graph(params: Mapping[str, Any], base: str, added: str) -> AddChannelStep:
+    if params.get("input_kind") != "frame":
+        raise RecipeExtractionError(
+            "add_channel recipe extraction only supports ChannelFrame inputs\n"
+            f"  Input kind: {params.get('input_kind')!r}\n"
+            "  Raw ndarray and dask.array inputs need an explicit data serialization or external-input policy."
+        )
+    return AddChannelStep(
+        base,
+        added,
+        {
+            "align": params.get("align", "strict"),
+            "label": params.get("label"),
+            "suffix_on_dup": params.get("suffix_on_dup"),
+        },
+    )
+
+
 def _split_graph_at_binary_merge(graph: Mapping[str, Any]) -> tuple[Mapping[str, Any], tuple[RecipeStep, ...]]:
     inputs = tuple(graph.get("inputs", ()))
     if len(inputs) == 2:
@@ -1049,8 +1067,55 @@ class BinaryFrameStep:
         return left_frame.add(right_frame, **self.params)
 
 
+@dataclass(frozen=True, init=False)
+class AddChannelStep:
+    """Replayable add_channel call over two named frame inputs."""
+
+    base: str
+    added: str
+    _params: tuple[tuple[str, Any], ...]
+
+    def __init__(self, base: str, added: str, params: Mapping[str, Any] | None = None) -> None:
+        if not base or not added:
+            raise ValueError("AddChannelStep base and added input names must be non-empty strings")
+        unsupported_params = set(params or ()) - {"align", "label", "suffix_on_dup"}
+        if unsupported_params:
+            raise TypeError(
+                "AddChannelStep params only support public add_channel frame-input options\n"
+                f"  Unsupported params: {sorted(unsupported_params)}"
+            )
+        object.__setattr__(self, "base", base)
+        object.__setattr__(self, "added", added)
+        object.__setattr__(self, "_params", _snapshot_params(params or {}))
+
+    @property
+    def params(self) -> dict[str, Any]:
+        return _params_to_public_dict(self._params)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "add_channel": {
+                "base": self.base,
+                "added": self.added,
+                "params": self.params,
+            }
+        }
+
+    def apply(self, frames: Mapping[str, Any]) -> Any:
+        try:
+            base_frame = frames[self.base]
+            added_frame = frames[self.added]
+        except KeyError as exc:
+            raise KeyError(
+                "NodeGraphRecipeSpec add_channel input is missing\n"
+                f"  Missing input: {exc.args[0]!r}\n"
+                f"  Available inputs: {sorted(frames)}"
+            ) from exc
+        return base_frame.add_channel(added_frame, **self.params)
+
+
 RecipeStep = OperationSpec | MethodStep | TypedMethodStep | ScalarOperationStep | IndexingStep | TerminalStep
-GraphStep = RecipeStep | BinaryFrameStep
+GraphStep = RecipeStep | BinaryFrameStep | AddChannelStep
 
 
 def _apply_recipe_step(step: RecipeStep, frame: Any) -> Any:
@@ -1079,6 +1144,13 @@ class GraphNodeSpec:
                     "GraphNodeSpec binary step inputs must match BinaryFrameStep references\n"
                     f"  Node inputs: {list(frozen_inputs)}\n"
                     f"  Binary inputs: {[step.left, step.right]}"
+                )
+        elif isinstance(step, AddChannelStep):
+            if frozen_inputs != (step.base, step.added):
+                raise ValueError(
+                    "GraphNodeSpec add_channel step inputs must match AddChannelStep references\n"
+                    f"  Node inputs: {list(frozen_inputs)}\n"
+                    f"  add_channel inputs: {[step.base, step.added]}"
                 )
         elif len(frozen_inputs) != 1:
             raise ValueError(
@@ -1360,6 +1432,13 @@ class NodeGraphRecipeSpec:
             params = cast(Mapping[str, Any], _restore_history_value(node_graph.get("params", {})))
             input_graphs = tuple(node_graph.get("inputs", ()))
 
+            if operation == "add_channel" and len(input_graphs) != 2:
+                raise RecipeExtractionError(
+                    "add_channel recipe extraction only supports ChannelFrame inputs\n"
+                    f"  Parent count: {len(input_graphs)}\n"
+                    "  Raw ndarray and dask.array inputs need an explicit data serialization or external-input policy."
+                )
+
             if operation == "__getitem__" and params.get("indexing") == "multidimensional_slice":
                 if len(input_graphs) != 1:
                     raise RecipeExtractionError(
@@ -1398,7 +1477,11 @@ class NodeGraphRecipeSpec:
             if len(input_graphs) == 2:
                 left_ref = extract_node(cast(Mapping[str, Any], input_graphs[0]))
                 right_ref = extract_node(cast(Mapping[str, Any], input_graphs[1]))
-                step = _binary_frame_step_from_graph(operation, params, left_ref, right_ref)
+                step = (
+                    _add_channel_step_from_graph(params, left_ref, right_ref)
+                    if operation == "add_channel"
+                    else _binary_frame_step_from_graph(operation, params, left_ref, right_ref)
+                )
                 node_id = next_node_id()
                 nodes.append(GraphNodeSpec(node_id, step, (left_ref, right_ref)))
                 return node_id
@@ -1430,7 +1513,7 @@ class NodeGraphRecipeSpec:
                 ) from exc
 
         for node in self.nodes:
-            if isinstance(node.step, BinaryFrameStep):
+            if isinstance(node.step, BinaryFrameStep | AddChannelStep):
                 env[node.id] = node.step.apply({input_ref: env[input_ref] for input_ref in node.inputs})
             else:
                 env[node.id] = _apply_recipe_step(cast(RecipeStep, node.step), env[node.inputs[0]])
@@ -1438,6 +1521,7 @@ class NodeGraphRecipeSpec:
 
 
 __all__ = [
+    "AddChannelStep",
     "BinaryFrameStep",
     "GraphNodeSpec",
     "GraphRecipeSpec",
