@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 
+from tests.pipeline.custom_recipe_fixtures import callable_scale, custom_rfft, custom_scale, rfft_shape, same_shape
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.noct import NOctFrame
@@ -21,6 +22,7 @@ from wandas.pipeline import (
     AddChannelStep,
     BinaryFrameStep,
     BinaryOperandStep,
+    CustomFunctionStep,
     GraphNodeSpec,
     GraphRecipeSpec,
     IndexingStep,
@@ -258,6 +260,97 @@ def test_recipe_apply_supports_terminal_sharpness_din_st_method(monkeypatch: pyt
     expected = frame.sharpness_din_st(weighting="aures", field_type="diffuse")
 
     np.testing.assert_allclose(result, expected)
+
+
+def test_recipe_from_frame_extracts_importable_custom_function() -> None:
+    frame = _frame()
+    processed = frame.apply(custom_scale, output_shape_func=same_shape, gain=2.0)
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (
+        CustomFunctionStep(
+            "tests.pipeline.custom_recipe_fixtures.custom_scale",
+            {"gain": 2.0},
+            output_shape_function="tests.pipeline.custom_recipe_fixtures.same_shape",
+        ),
+    )
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.operation_history == processed.operation_history
+    assert processed.operation_history[-1] == {"operation": "custom", "params": {"gain": 2.0}}
+    assert processed.operation_graph is not None
+    assert processed.operation_graph["custom"] == {
+        "function": "tests.pipeline.custom_recipe_fixtures.custom_scale",
+        "output_shape_function": "tests.pipeline.custom_recipe_fixtures.same_shape",
+        "dask_pure": True,
+        "output_frame_class": None,
+    }
+
+
+def test_recipe_from_frame_preserves_importable_custom_dask_pure_flag() -> None:
+    frame = _frame()
+    processed = frame.apply(custom_scale, output_shape_func=same_shape, dask_pure=False, gain=2.0)
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (
+        CustomFunctionStep(
+            "tests.pipeline.custom_recipe_fixtures.custom_scale",
+            {"gain": 2.0},
+            output_shape_function="tests.pipeline.custom_recipe_fixtures.same_shape",
+            dask_pure=False,
+        ),
+    )
+    assert replayed.lineage is not None
+    assert replayed.lineage.operation.pure is False
+    np.testing.assert_allclose(replayed.data, processed.data)
+
+
+def test_recipe_from_frame_rejects_custom_lambda_boundary() -> None:
+    frame = _frame()
+    processed = frame.apply(lambda data, gain: data * gain, output_shape_func=lambda shape: shape, gain=2.0)
+
+    with pytest.raises(RecipeExtractionError, match="Custom operation recipe extraction requires importable"):
+        RecipeSpec.from_frame(processed)
+
+
+def test_recipe_from_frame_rejects_custom_domain_transition_boundary() -> None:
+    frame = _frame()
+    processed = frame.apply(
+        custom_rfft,
+        output_shape_func=rfft_shape,
+        output_frame_class=SpectralFrame,
+        output_frame_kwargs={"n_fft": frame.n_samples, "window": "hann"},
+    )
+
+    with pytest.raises(RecipeExtractionError, match="Custom operation domain transitions require"):
+        RecipeSpec.from_frame(processed)
+
+
+@pytest.mark.parametrize(
+    "function_path",
+    [
+        "tests.pipeline.custom_recipe_fixtures.CallableScale",
+        "tests.pipeline.custom_recipe_fixtures.callable_scale",
+        "tests.pipeline.custom_recipe_fixtures.partial_scale",
+    ],
+)
+def test_custom_function_step_rejects_non_function_import_targets(function_path: str) -> None:
+    frame = _frame()
+    step = CustomFunctionStep(function_path, {"gain": 2.0}, output_shape_function=None)
+
+    with pytest.raises(TypeError, match="module-level function"):
+        step.apply(frame)
+
+
+def test_recipe_from_frame_rejects_custom_callable_object_boundary() -> None:
+    frame = _frame()
+    processed = frame.apply(callable_scale, output_shape_func=same_shape, gain=2.0)
+
+    with pytest.raises(RecipeExtractionError, match="Custom operation recipe extraction requires importable"):
+        RecipeSpec.from_frame(processed)
 
 
 def test_graph_recipe_applies_named_input_recipes_and_frame_addition() -> None:
@@ -578,6 +671,28 @@ def test_node_graph_recipe_from_frame_extracts_two_binary_merges() -> None:
     assert recipe.inputs == ("left", "middle", "right")
     assert [node.id for node in recipe.nodes] == ["n0", "n1", "n2", "n3", "n4"]
     assert recipe.output == "n4"
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.operation_history == processed.operation_history
+
+
+def test_node_graph_recipe_from_frame_extracts_custom_function_branch() -> None:
+    base = _frame()
+    left_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="left")
+    right_source = ChannelFrame.from_numpy(base.data * 0.25, sampling_rate=base.sampling_rate, label="right")
+    processed = left_source.apply(custom_scale, output_shape_func=same_shape, gain=2.0) + right_source.remove_dc()
+
+    recipe = NodeGraphRecipeSpec.from_frame(processed, input_names=("left", "right"))
+    replayed = recipe.apply({"left": left_source, "right": right_source})
+
+    assert recipe.nodes[0] == GraphNodeSpec(
+        "n0",
+        CustomFunctionStep(
+            "tests.pipeline.custom_recipe_fixtures.custom_scale",
+            {"gain": 2.0},
+            output_shape_function="tests.pipeline.custom_recipe_fixtures.same_shape",
+        ),
+        ("left",),
+    )
     np.testing.assert_allclose(replayed.data, processed.data)
     assert replayed.operation_history == processed.operation_history
 
@@ -2248,7 +2363,7 @@ def test_recipe_from_frame_empty_history_returns_empty_recipe() -> None:
                 output_shape_func=lambda shape: shape,
                 gain=2.0,
             ),
-            "Operation is outside the Stage 1 recipe allowlist",
+            "Custom operation recipe extraction requires importable",
         ),
         (
             "registered operation outside current allowlist",

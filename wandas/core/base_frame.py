@@ -588,6 +588,12 @@ class BaseFrame(ABC, Generic[T]):
 
         if isinstance(lineage.operation, FrameMethodOperation):
             graph["kind"] = "method"
+        from wandas.processing.custom import CustomOperation
+
+        if isinstance(lineage.operation, CustomOperation):
+            custom_metadata = lineage.operation.to_recipe_metadata()
+            if custom_metadata is not None:
+                graph["custom"] = custom_metadata
         return graph
 
     @classmethod
@@ -1587,6 +1593,13 @@ class BaseFrame(ABC, Generic[T]):
         """
         if operation_name is None:
             operation_name = getattr(operation, "name", "unknown_operation")
+        if getattr(operation, "name", None) == "custom":
+            output_frame_class_name = (
+                None
+                if output_frame_class is None
+                else f"{output_frame_class.__module__}.{output_frame_class.__qualname__}"
+            )
+            setattr(operation, "_recipe_output_frame_class", output_frame_class_name)
         expected_input_count = getattr(operation, "_expected_input_count", 1)
         if isinstance(expected_input_count, int) and expected_input_count != 1:
             raise ValueError(

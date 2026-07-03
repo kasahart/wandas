@@ -1,3 +1,5 @@
+import importlib
+import inspect
 from collections.abc import Callable
 from typing import Any
 
@@ -13,6 +15,23 @@ def _callable_reference(func: Callable[..., Any]) -> str:
     module = getattr(func, "__module__", type(func).__module__)
     qualname = getattr(func, "__qualname__", type(func).__qualname__)
     return f"{module}.{qualname}"
+
+
+def _importable_function_path(func: Callable[..., Any] | None) -> str | None:
+    """Return a stable import path for module-level functions."""
+    if func is None or not inspect.isfunction(func):
+        return None
+    if func.__module__ == "__main__" or func.__name__ == "<lambda>":
+        return None
+    if func.__qualname__ != func.__name__ or func.__closure__ is not None:
+        return None
+    try:
+        module = importlib.import_module(func.__module__)
+    except Exception:
+        return None
+    if getattr(module, func.__name__, None) is not func:
+        return None
+    return f"{func.__module__}.{func.__name__}"
 
 
 class CustomOperation(AudioOperation[InputArrayType, OutputArrayType]):
@@ -88,6 +107,21 @@ class CustomOperation(AudioOperation[InputArrayType, OutputArrayType]):
         summary = super().to_summary()
         summary["implementation"] = _callable_reference(self.func)
         return summary
+
+    def to_recipe_metadata(self) -> dict[str, Any] | None:
+        """Return custom recipe metadata when the callables are importable."""
+        function_path = _importable_function_path(self._func)
+        if function_path is None:
+            return None
+        output_shape_function_path = _importable_function_path(self._output_shape_func)
+        if self._output_shape_func is not None and output_shape_function_path is None:
+            return None
+        return {
+            "function": function_path,
+            "output_shape_function": output_shape_function_path,
+            "dask_pure": bool(self.pure),
+            "output_frame_class": getattr(self, "_recipe_output_frame_class", None),
+        }
 
 
 register_operation(CustomOperation)

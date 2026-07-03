@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import importlib
+import inspect
 import math
 import numbers
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any, cast
 
@@ -317,6 +319,67 @@ def _method_step_from_graph(operation: str, params: Mapping[str, Any]) -> Method
     return MethodStep(method, _method_params(params, param_names))
 
 
+def _load_importable_function(path: str) -> Callable[..., Any]:
+    module_name, _, attr_name = path.rpartition(".")
+    if not module_name or not attr_name:
+        raise ValueError(f"CustomFunctionStep function must be a module-level import path\n  Got: {path!r}")
+    if module_name == "__main__" or attr_name == "<lambda>":
+        raise TypeError(f"CustomFunctionStep import path must resolve to a module-level function\n  Path: {path!r}")
+    module = importlib.import_module(module_name)
+    func = getattr(module, attr_name)
+    if not inspect.isfunction(func) or func.__qualname__ != func.__name__ or func.__closure__ is not None:
+        raise TypeError(
+            "CustomFunctionStep import path must resolve to a module-level function\n"
+            f"  Path: {path!r}\n"
+            f"  Got: {type(func).__name__}"
+        )
+    if func.__module__ != module_name or getattr(module, func.__name__, None) is not func:
+        raise TypeError(f"CustomFunctionStep import path must resolve to its module-level function\n  Path: {path!r}")
+    return cast(Callable[..., Any], func)
+
+
+def _custom_function_step_from_graph(
+    params: Mapping[str, Any],
+    custom_metadata: Mapping[str, Any] | None,
+) -> CustomFunctionStep:
+    if custom_metadata is None:
+        raise RecipeExtractionError(
+            "Custom operation recipe extraction requires importable module-level functions\n"
+            "  Supported custom operations: module-level functions importable as 'module.function'.\n"
+            "  Unsupported custom operations: lambdas, closures, nested functions, callable objects, "
+            "bound methods, functools.partial, and __main__ functions."
+        )
+    if custom_metadata.get("output_frame_class") is not None:
+        raise RecipeExtractionError(
+            "Custom operation domain transitions require an explicit typed custom recipe model\n"
+            f"  Output frame class: {custom_metadata.get('output_frame_class')!r}\n"
+            "  Same-frame importable custom functions can be replayed; custom output frame metadata "
+            "needs a richer recipe contract."
+        )
+    function = custom_metadata.get("function")
+    if not isinstance(function, str):
+        raise RecipeExtractionError(
+            f"Custom operation recipe extraction requires an importable function path\n  Metadata: {custom_metadata!r}"
+        )
+    output_shape_function = custom_metadata.get("output_shape_function")
+    if output_shape_function is not None and not isinstance(output_shape_function, str):
+        raise RecipeExtractionError(
+            "Custom operation recipe extraction requires an importable output_shape_func path\n"
+            f"  Metadata: {custom_metadata!r}"
+        )
+    dask_pure = custom_metadata.get("dask_pure", True)
+    if not isinstance(dask_pure, bool):
+        raise RecipeExtractionError(
+            f"Custom operation recipe extraction requires a boolean dask_pure flag\n  Metadata: {custom_metadata!r}"
+        )
+    return CustomFunctionStep(
+        function,
+        params,
+        output_shape_function=output_shape_function,
+        dask_pure=dask_pure,
+    )
+
+
 def _rename_mapping_from_params(params: Mapping[str, Any]) -> dict[int | str, str]:
     raw_items = params.get("mapping_items")
     if not isinstance(raw_items, list | tuple):
@@ -561,9 +624,16 @@ def _multidimensional_steps_from_graph(
     return (*grandparent_steps, IndexingStep((_channel_key_from_parent_graph(parent), *axis_slices)))
 
 
-def _step_from_graph(operation: str, params: Mapping[str, Any], kind: str | None) -> RecipeStep:
+def _step_from_graph(
+    operation: str,
+    params: Mapping[str, Any],
+    kind: str | None,
+    custom_metadata: Mapping[str, Any] | None = None,
+) -> RecipeStep:
     if operation == "__getitem__":
         return _getitem_step_from_graph(params)
+    if operation == "custom":
+        return _custom_function_step_from_graph(params, custom_metadata)
     if operation in _REPLAYABLE_METHOD_OPERATIONS:
         return _method_step_from_graph(operation, params)
     if operation in _REPLAYABLE_TYPED_METHOD_OPERATIONS:
@@ -603,7 +673,13 @@ def _steps_from_graph(graph: Mapping[str, Any]) -> tuple[RecipeStep, ...]:
             )
         return _multidimensional_steps_from_graph(params, cast(Mapping[str, Any], inputs[0]))
     parent_steps = _steps_from_graph(cast(Mapping[str, Any], inputs[0])) if inputs else ()
-    return (*parent_steps, _step_from_graph(operation, params, kind))
+    step = _step_from_graph(
+        operation,
+        params,
+        kind,
+        cast(Mapping[str, Any] | None, graph.get("custom")),
+    )
+    return (*parent_steps, step)
 
 
 def _binary_frame_step_from_graph(operation: str, params: Mapping[str, Any], left: str, right: str) -> BinaryFrameStep:
@@ -702,7 +778,10 @@ def _split_graph_at_binary_merge(graph: Mapping[str, Any]) -> tuple[Mapping[str,
     operation = str(graph["operation"])
     params = cast(Mapping[str, Any], _restore_history_value(graph.get("params", {})))
     kind = cast(str | None, graph.get("kind"))
-    return merge_graph, (*tail_steps, _step_from_graph(operation, params, kind))
+    return merge_graph, (
+        *tail_steps,
+        _step_from_graph(operation, params, kind, cast(Mapping[str, Any] | None, graph.get("custom"))),
+    )
 
 
 @dataclass(frozen=True, init=False)
@@ -797,6 +876,68 @@ class TypedMethodStep:
 
     def apply(self, frame: Any) -> Any:
         return getattr(frame, self.method)(**self.params)
+
+
+@dataclass(frozen=True, init=False)
+class CustomFunctionStep:
+    """Replayable same-frame custom function by import path."""
+
+    function: str
+    output_shape_function: str | None
+    dask_pure: bool
+    _params: tuple[tuple[str, Any], ...]
+
+    def __init__(
+        self,
+        function: str,
+        params: Mapping[str, Any] | None = None,
+        *,
+        output_shape_function: str | None = None,
+        dask_pure: bool = True,
+    ) -> None:
+        if not isinstance(function, str) or not function:
+            raise TypeError("CustomFunctionStep function must be a non-empty import path string")
+        if "." not in function:
+            raise ValueError(f"CustomFunctionStep function must be a module import path\n  Got: {function!r}")
+        if output_shape_function is not None and (
+            not isinstance(output_shape_function, str) or not output_shape_function
+        ):
+            raise TypeError("CustomFunctionStep output_shape_function must be None or a non-empty import path string")
+        if output_shape_function is not None and "." not in output_shape_function:
+            raise ValueError(
+                "CustomFunctionStep output_shape_function must be a module import path\n"
+                f"  Got: {output_shape_function!r}"
+            )
+        if not isinstance(dask_pure, bool):
+            raise TypeError(f"CustomFunctionStep dask_pure must be a bool\n  Got: {type(dask_pure).__name__}")
+        object.__setattr__(self, "function", function)
+        object.__setattr__(self, "output_shape_function", output_shape_function)
+        object.__setattr__(self, "dask_pure", dask_pure)
+        object.__setattr__(self, "_params", _snapshot_params(params or {}))
+
+    @property
+    def params(self) -> dict[str, Any]:
+        return _params_to_public_dict(self._params)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "custom_function": self.function,
+            "output_shape_function": self.output_shape_function,
+            "dask_pure": self.dask_pure,
+            "params": self.params,
+        }
+
+    def apply(self, frame: Any) -> Any:
+        func = _load_importable_function(self.function)
+        output_shape_func = (
+            None if self.output_shape_function is None else _load_importable_function(self.output_shape_function)
+        )
+        return frame.apply(
+            func,
+            output_shape_func=output_shape_func,
+            dask_pure=self.dask_pure,
+            **self.params,
+        )
 
 
 @dataclass(frozen=True, init=False)
@@ -1281,12 +1422,23 @@ class AddChannelDataStep:
         return base_frame.add_channel(data, **self.params)
 
 
-RecipeStep = OperationSpec | MethodStep | TypedMethodStep | ScalarOperationStep | IndexingStep | TerminalStep
+RecipeStep = (
+    OperationSpec
+    | MethodStep
+    | TypedMethodStep
+    | CustomFunctionStep
+    | ScalarOperationStep
+    | IndexingStep
+    | TerminalStep
+)
 GraphStep = RecipeStep | BinaryFrameStep | BinaryOperandStep | AddChannelStep | AddChannelDataStep
 
 
 def _apply_recipe_step(step: RecipeStep, frame: Any) -> Any:
-    if isinstance(step, MethodStep | TypedMethodStep | ScalarOperationStep | IndexingStep | TerminalStep):
+    if isinstance(
+        step,
+        MethodStep | TypedMethodStep | CustomFunctionStep | ScalarOperationStep | IndexingStep | TerminalStep,
+    ):
         return step.apply(frame)
     return frame.apply_operation(step.operation, **step.params)
 
@@ -1675,13 +1827,23 @@ class NodeGraphRecipeSpec:
 
             if len(input_graphs) == 0:
                 parent_ref = next_source_name()
-                step = _step_from_graph(operation, params, kind)
+                step = _step_from_graph(
+                    operation,
+                    params,
+                    kind,
+                    cast(Mapping[str, Any] | None, node_graph.get("custom")),
+                )
                 node_id = next_node_id()
                 nodes.append(GraphNodeSpec(node_id, step, (parent_ref,)))
                 return node_id
             if len(input_graphs) == 1:
                 parent_ref = extract_node(cast(Mapping[str, Any], input_graphs[0]))
-                step = _step_from_graph(operation, params, kind)
+                step = _step_from_graph(
+                    operation,
+                    params,
+                    kind,
+                    cast(Mapping[str, Any] | None, node_graph.get("custom")),
+                )
                 node_id = next_node_id()
                 nodes.append(GraphNodeSpec(node_id, step, (parent_ref,)))
                 return node_id
@@ -1736,6 +1898,7 @@ __all__ = [
     "AddChannelStep",
     "BinaryFrameStep",
     "BinaryOperandStep",
+    "CustomFunctionStep",
     "GraphNodeSpec",
     "GraphRecipeSpec",
     "IndexingStep",

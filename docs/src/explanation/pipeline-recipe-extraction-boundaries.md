@@ -257,21 +257,34 @@ Not implemented yet:
 
 ## Stage 5: Custom Callable Calculations
 
-Status: not implemented; required for full target only with constraints.
+Status: partially implemented for importable same-frame custom functions.
 
 対象例:
 
 ```python
-frame.apply(lambda data, gain: data * gain, output_shape_func=lambda shape: shape, gain=2.0)
+from my_project.audio_ops import scale
+from my_project.shapes import same_shape
+
+processed = frame.apply(scale, output_shape_func=same_shape, gain=2.0)
+recipe = RecipeSpec.from_frame(processed)
+replayed = recipe.apply(frame)
 ```
 
-現在の history には `operation="custom"` と parameter は残るが、callable 本体と `output_shape_func` は replayable な形では残らない。任意 lambda の完全保存は Python 実行環境に依存するため、無条件に Recipe 化するべきではない。
+現在の history には `operation="custom"` と parameter だけを残す。callable 本体と `output_shape_func` の import path は `operation_graph` の custom metadata にだけ持たせ、`RecipeSpec.from_frame(...)` が `CustomFunctionStep` に変換する。Recipe replay 時は import path からユーザー関数を import して `frame.apply(...)` を呼ぶため、trusted user code として扱う。
 
-必要な拡張:
+Implemented:
 
-- 登録済み callable 名を使う。
-- import path で解決できる関数だけを許可する。
-- lambda や closure は strict mode で拒否する。
+- `RecipeSpec.from_frame(processed)` for `frame.apply(module_level_function, output_shape_func=module_level_function_or_none, **literal_params)`
+- `CustomFunctionStep("package.module.function", params={...}, output_shape_function="package.module.shape_func")`
+- `dask_pure` flag replay via `frame.apply(..., dask_pure=...)`
+- same-frame custom functions inside `NodeGraphRecipeSpec` unary nodes
+
+Not implemented yet:
+
+- lambda, closure, nested function, callable object, bound method, `functools.partial`, and `__main__` functions
+- custom domain transition via `output_frame_class`
+- automatic callable registry names distinct from Python import paths
+- serialization of function source or bytecode
 
 ## Stage 6: Terminal / Display Operations
 
