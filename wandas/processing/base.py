@@ -173,6 +173,7 @@ class BinaryOperation:
     symbol: str
     operand_kind: str
     operand: Any | None = None
+    operand_position: str = "right"
     name: str = "binary_operation"
 
     @property
@@ -184,6 +185,8 @@ class BinaryOperation:
             "symbol": self.symbol,
             "operand_kind": self.operand_kind,
         }
+        if self.operand_position != "right":
+            params["operand_position"] = self.operand_position
         if self.operand_kind == "frame" and self.operand is not None:
             params["operand"] = {"type": "frame", "label": str(self.operand)}
         elif self.operand_kind != "frame":

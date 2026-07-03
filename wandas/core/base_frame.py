@@ -165,6 +165,14 @@ class BaseFrame(ABC, Generic[T]):
     # prefer the xarray "channel" dimension when it is declared.
     _channel_axis: ClassVar[int | None] = -2
     _xarray_dim_suffix: ClassVar[tuple[str, ...]] = ()
+    _array_ufunc_reverse_methods: ClassVar[Mapping[str, str]] = {
+        "add": "__radd__",
+        "subtract": "__rsub__",
+        "multiply": "__rmul__",
+        "divide": "__rtruediv__",
+        "true_divide": "__rtruediv__",
+        "power": "__rpow__",
+    }
     _xr: xr.DataArray
     _previous: "BaseFrame[Any] | None"
 
@@ -1309,6 +1317,17 @@ class BaseFrame(ABC, Generic[T]):
             return result.astype(dtype)
         return result
 
+    def __array_ufunc__(self, ufunc: np.ufunc, method: str, *inputs: Any, **kwargs: Any) -> Any:
+        """Handle NumPy scalar-left operators without forcing eager arrays."""
+        if method == "__call__" and len(inputs) == 2 and inputs[1] is self and isinstance(inputs[0], np.generic):
+            reverse_method_name = self._array_ufunc_reverse_methods.get(ufunc.__name__)
+            if reverse_method_name is not None:
+                result = getattr(self, reverse_method_name)(self._python_numeric_scalar(inputs[0]))
+                if result is not NotImplemented:
+                    return result
+        array_inputs = tuple(np.asarray(input_value) if input_value is self else input_value for input_value in inputs)
+        return getattr(ufunc, method)(*array_inputs, **kwargs)
+
     def visualize_graph(self, filename: str | None = None) -> VisualizeReturnType:
         """
         Visualize the computation graph and save it to a file.
@@ -1369,6 +1388,16 @@ class BaseFrame(ABC, Generic[T]):
         op: Callable[[DaArray, Any], DaArray],
         symbol: str,
     ) -> S:
+        return self._binary_operand_op(other, op, symbol, reverse=False)
+
+    def _binary_operand_op(
+        self: S,
+        other: S | int | float | complex | NDArrayReal | DaArray,
+        op: Callable[[Any, Any], Any],
+        symbol: str,
+        *,
+        reverse: bool = False,
+    ) -> S:
         """Default implementation of binary operations using dask's lazy evaluation.
 
         Handles both frame-frame and frame-scalar/array operations with
@@ -1418,7 +1447,7 @@ class BaseFrame(ABC, Generic[T]):
             operand_kind = "frame"
             lineage_inputs = (self._lineage_or_source(), other._lineage_or_source())
         else:
-            result_data = op(self._data, other)
+            result_data = op(other, self._data) if reverse else op(self._data, other)
             other_str = self._format_operand_str(other)
             other_labels = [other_str] * self.n_channels
             operand_kind = "operand"
@@ -1428,7 +1457,10 @@ class BaseFrame(ABC, Generic[T]):
         new_channel_metadata: list[ChannelMetadata] = []
         for self_ch, other_label in zip(self.channels, other_labels, strict=True):
             ch = self_ch.to_metadata()
-            ch.label = f"({self_ch.label} {symbol} {other_label})"
+            if reverse and operand_kind == "operand":
+                ch.label = f"({other_label} {symbol} {self_ch.label})"
+            else:
+                ch.label = f"({self_ch.label} {symbol} {other_label})"
             new_channel_metadata.append(ch)
 
         from wandas.processing.base import BinaryOperation
@@ -1437,16 +1469,37 @@ class BaseFrame(ABC, Generic[T]):
             symbol=symbol,
             operand_kind=operand_kind,
             operand=other_str if operand_kind == "frame" else other,
+            operand_position="left" if reverse and operand_kind == "operand" else "right",
         )
         lineage = self._lineage_with_operation(binary_operation, *lineage_inputs)
 
+        label = (
+            f"({other_str} {symbol} {self.label})"
+            if reverse and operand_kind == "operand"
+            else f"({self.label} {symbol} {other_str})"
+        )
         return self._create_new_instance(
             data=result_data,
-            label=f"({self.label} {symbol} {other_str})",
+            label=label,
             metadata=metadata,
             lineage=lineage,
             channel_metadata=new_channel_metadata,
         )
+
+    @staticmethod
+    def _is_supported_reverse_scalar(value: object) -> bool:
+        return isinstance(value, numbers.Real) and not isinstance(value, bool)
+
+    @staticmethod
+    def _python_numeric_scalar(value: object) -> int | float:
+        if isinstance(value, numbers.Integral):
+            return int(value)
+        if isinstance(value, numbers.Real):
+            return float(value)
+        raise TypeError(f"Expected a real scalar\n  Got: {type(value).__name__}")
+
+    def _supports_base_reverse_scalar_op(self) -> bool:
+        return type(self)._binary_op is BaseFrame._binary_op
 
     @staticmethod
     def _format_operand_str(other: object) -> str:
@@ -1480,6 +1533,36 @@ class BaseFrame(ABC, Generic[T]):
     def __pow__(self: S, other: S | int | float | NDArrayReal) -> S:
         """Power operator"""
         return self._binary_op(other, lambda x, y: x**y, "**")
+
+    def __radd__(self: S, other: int | float) -> S:
+        """Reverse addition operator."""
+        if not self._is_supported_reverse_scalar(other) or not self._supports_base_reverse_scalar_op():
+            return NotImplemented
+        return self._binary_operand_op(self._python_numeric_scalar(other), lambda x, y: x + y, "+", reverse=True)
+
+    def __rsub__(self: S, other: int | float) -> S:
+        """Reverse subtraction operator."""
+        if not self._is_supported_reverse_scalar(other) or not self._supports_base_reverse_scalar_op():
+            return NotImplemented
+        return self._binary_operand_op(self._python_numeric_scalar(other), lambda x, y: x - y, "-", reverse=True)
+
+    def __rmul__(self: S, other: int | float) -> S:
+        """Reverse multiplication operator."""
+        if not self._is_supported_reverse_scalar(other) or not self._supports_base_reverse_scalar_op():
+            return NotImplemented
+        return self._binary_operand_op(self._python_numeric_scalar(other), lambda x, y: x * y, "*", reverse=True)
+
+    def __rtruediv__(self: S, other: int | float) -> S:
+        """Reverse division operator."""
+        if not self._is_supported_reverse_scalar(other) or not self._supports_base_reverse_scalar_op():
+            return NotImplemented
+        return self._binary_operand_op(self._python_numeric_scalar(other), lambda x, y: x / y, "/", reverse=True)
+
+    def __rpow__(self: S, other: int | float) -> S:
+        """Reverse power operator."""
+        if not self._is_supported_reverse_scalar(other) or not self._supports_base_reverse_scalar_op():
+            return NotImplemented
+        return self._binary_operand_op(self._python_numeric_scalar(other), lambda x, y: x**y, "**", reverse=True)
 
     def apply_operation(self: S, operation_name: str, **params: Any) -> S:
         """

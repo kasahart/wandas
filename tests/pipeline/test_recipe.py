@@ -2006,6 +2006,45 @@ def test_recipe_from_frame_extracts_value_bearing_numpy_scalar_operation() -> No
     np.testing.assert_allclose(replayed.data, processed.data)
 
 
+@pytest.mark.parametrize(
+    ("build_frame", "step"),
+    [
+        (lambda frame: 0.5 + frame, ScalarOperationStep("+", 0.5, reverse=True)),
+        (lambda frame: 0.5 - frame, ScalarOperationStep("-", 0.5, reverse=True)),
+        (lambda frame: 2.0 * frame, ScalarOperationStep("*", 2.0, reverse=True)),
+        (lambda frame: 2.0 / frame, ScalarOperationStep("/", 2.0, reverse=True)),
+        (lambda frame: 2.0**frame, ScalarOperationStep("**", 2.0, reverse=True)),
+        (lambda frame: np.float64(0.5) + frame, ScalarOperationStep("+", 0.5, reverse=True)),
+        (lambda frame: np.float64(0.5) - frame, ScalarOperationStep("-", 0.5, reverse=True)),
+        (lambda frame: np.float64(2.0) * frame, ScalarOperationStep("*", 2.0, reverse=True)),
+        (lambda frame: np.float64(2.0) / frame, ScalarOperationStep("/", 2.0, reverse=True)),
+        (lambda frame: np.float64(2.0) ** frame, ScalarOperationStep("**", 2.0, reverse=True)),
+    ],
+)
+def test_recipe_from_frame_extracts_reverse_numeric_scalar_operations(
+    build_frame: Callable[[ChannelFrame], ChannelFrame],
+    step: ScalarOperationStep,
+) -> None:
+    frame = _frame()
+    processed = build_frame(frame)
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (step,)
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.operation_history == processed.operation_history
+    assert replayed.labels == processed.labels
+
+
+def test_numpy_array_left_operator_remains_outside_frame_recipe_boundary() -> None:
+    frame = _frame()
+
+    result = np.ones(frame.shape) + frame
+
+    assert isinstance(result, np.ndarray)
+
+
 def test_recipe_from_frame_reports_scalar_nan_operand_boundary() -> None:
     processed = _frame() + float("nan")
 

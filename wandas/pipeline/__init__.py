@@ -461,8 +461,19 @@ def _scalar_step_from_graph(operation: str, params: Mapping[str, Any]) -> Scalar
         raise RecipeExtractionError(
             f"Scalar operation graph has inconsistent operator metadata\n  Operation: {operation}\n  Symbol: {symbol!r}"
         )
+    operand_position = params.get("operand_position", "right")
+    if operand_position not in {"left", "right"}:
+        raise RecipeExtractionError(
+            "Scalar operation graph has invalid operand position metadata\n"
+            f"  Operation: {operation}\n"
+            f"  Operand position: {operand_position!r}"
+        )
     try:
-        return ScalarOperationStep(operation, _scalar_operand_from_params(operation, params))
+        return ScalarOperationStep(
+            operation,
+            _scalar_operand_from_params(operation, params),
+            reverse=operand_position == "left",
+        )
     except TypeError as exc:
         raise RecipeExtractionError(
             "Scalar operation requires a stable numeric scalar operand\n"
@@ -946,8 +957,9 @@ class ScalarOperationStep:
 
     symbol: str
     operand: int | float
+    reverse: bool
 
-    def __init__(self, symbol: str, operand: int | float) -> None:
+    def __init__(self, symbol: str, operand: int | float, *, reverse: bool = False) -> None:
         if symbol not in _REPLAYABLE_SCALAR_OPERATIONS:
             valid_operations = ", ".join(sorted(_REPLAYABLE_SCALAR_OPERATIONS))
             raise ValueError(
@@ -957,13 +969,31 @@ class ScalarOperationStep:
             )
         if isinstance(operand, bool) or not isinstance(operand, int | float):
             raise TypeError(f"ScalarOperationStep operand must be an int or float\n  Got: {type(operand).__name__}")
+        if not isinstance(reverse, bool):
+            raise TypeError(f"ScalarOperationStep reverse must be a bool\n  Got: {type(reverse).__name__}")
         object.__setattr__(self, "symbol", symbol)
         object.__setattr__(self, "operand", _snapshot_param_value(operand))
+        object.__setattr__(self, "reverse", reverse)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"scalar_operation": self.symbol, "operand": self.operand}
+        step_dict: dict[str, Any] = {"scalar_operation": self.symbol, "operand": self.operand}
+        if self.reverse:
+            step_dict["reverse"] = True
+        return step_dict
 
     def apply(self, frame: Any) -> Any:
+        if self.reverse:
+            if self.symbol == "+":
+                return self.operand + frame
+            if self.symbol == "-":
+                return self.operand - frame
+            if self.symbol == "*":
+                return self.operand * frame
+            if self.symbol == "/":
+                return self.operand / frame
+            if self.symbol == "**":
+                return self.operand**frame
+            raise AssertionError(f"Unhandled reverse scalar operation: {self.symbol}")
         if self.symbol == "+":
             return frame + self.operand
         if self.symbol == "-":

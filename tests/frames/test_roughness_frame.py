@@ -100,6 +100,18 @@ class TestRoughnessFrame:
         assert frame.data.shape == (2, _N_BARK, _N_TIME)
         assert frame._n_channels == 2
 
+    def test_reverse_scalar_binary_operation_does_not_bypass_override(self) -> None:
+        """Reverse scalar operators should not use BaseFrame binary behavior."""
+        frame = RoughnessFrame(
+            data=_DATA_MONO,
+            sampling_rate=_SAMPLING_RATE,
+            bark_axis=_BARK_AXIS,
+            overlap=_OVERLAP,
+        )
+
+        with pytest.raises(TypeError, match="unsupported operand type"):
+            2.0 + frame
+
     def test_initialization_validates_dimensions(self) -> None:
         """Test that initialization validates data dimensions."""
         # 1D data should fail

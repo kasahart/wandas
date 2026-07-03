@@ -184,6 +184,11 @@ Implemented:
 - `frame * 2`
 - `frame / 2`
 - `frame ** 2`
+- `2 + frame`
+- `2 - frame`
+- `2 * frame`
+- `2 / frame`
+- `2 ** frame`
 - `NodeGraphRecipeSpec.from_frame(frame + np.ones(frame.shape), input_names=("signal", "offset"))`
 - `NodeGraphRecipeSpec.from_frame(frame * dask_array, input_names=("signal", "operand"))`
 - `GraphRecipeSpec(..., BinaryFrameStep("+", ...))`
@@ -206,6 +211,7 @@ Implemented:
 ```text
 ScalarOperationStep(symbol="+", operand=0.1)
 ScalarOperationStep(symbol="*", operand=2)
+ScalarOperationStep(symbol="-", operand=2, reverse=True)
 GraphRecipeSpec(
     input_recipes={
         "signal": RecipeSpec([OperationSpec("normalize")]),
@@ -230,7 +236,7 @@ AddChannelDataStep(base="base", data="raw", params={"align": "strict", "label": 
 BinaryOperandStep(operation="+", frame="signal", operand="offset")
 ```
 
-`ScalarOperationStep` は既存 frame operator を呼ぶだけで、二項演算の metadata/history/Dask laziness は frame 本体に委譲する。対応 operand は operation graph に値として保存された Python / NumPy real scalar に限定する。NaN は recipe equality が安定しないため拒否する。
+`ScalarOperationStep` は既存 frame operator を呼ぶだけで、二項演算の metadata/history/Dask laziness は frame 本体に委譲する。対応 operand は operation graph に値として保存された Python / NumPy real scalar に限定する。NaN は recipe equality が安定しないため拒否する。`2 - frame` のように scalar が左辺にある場合は `reverse=True` を保存し、`frame - 2` と取り違えない。
 
 `GraphRecipeSpec` は名前付き入力ごとに linear `RecipeSpec` を適用し、`BinaryFrameStep` で既存 frame-frame 演算を呼び、その後に optional な linear `tail_recipe` を適用する。`from_frame(..., input_names=...)` は 1 回だけ merge する graph だけを対象にし、入力名は呼び出し側が与える。`input_names` を省略した場合は、Python 変数名や frame label ではなく、構造上の左右を表す `left` / `right` を使う。tail は既存 `RecipeSpec` step で表現するため、merge 後の `normalize()`、`trim()`、`stft()` のような replayable operation / method / typed method は同じ仕組みで扱う。
 
