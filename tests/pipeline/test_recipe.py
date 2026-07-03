@@ -23,6 +23,7 @@ from wandas.pipeline import (
     RecipeExtractionError,
     RecipeSpec,
     ScalarOperationStep,
+    TerminalStep,
     TypedMethodStep,
 )
 
@@ -174,6 +175,41 @@ def test_recipe_apply_runs_steps_in_order_and_preserves_source_frame() -> None:
         "norm": 2.0,
         "threshold": None,
     }
+
+
+def test_recipe_apply_supports_terminal_rms_metric() -> None:
+    frame = _frame()
+    recipe = RecipeSpec([OperationSpec("remove_dc"), TerminalStep("rms")])
+
+    result = recipe.apply(frame)
+    expected = frame.remove_dc().rms
+
+    np.testing.assert_allclose(result, expected)
+    assert recipe.to_dict() == {
+        "steps": [
+            {"operation": "remove_dc", "params": {}},
+            {"terminal": "rms", "params": {}},
+        ]
+    }
+
+
+def test_recipe_apply_supports_terminal_crest_factor_metric() -> None:
+    frame = _frame()
+    recipe = RecipeSpec([TerminalStep("crest_factor")])
+
+    result = recipe.apply(frame)
+
+    np.testing.assert_allclose(result, frame.crest_factor)
+
+
+def test_terminal_step_rejects_unknown_metric() -> None:
+    with pytest.raises(ValueError, match="TerminalStep metric is outside the replayable terminal allowlist"):
+        TerminalStep("plot")
+
+
+def test_terminal_property_step_rejects_params() -> None:
+    with pytest.raises(TypeError, match="TerminalStep metric does not accept params"):
+        TerminalStep("rms", {"axis": -1})
 
 
 def test_recipe_spec_snapshots_mutable_step_params() -> None:

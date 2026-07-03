@@ -98,6 +98,7 @@ _REPLAYABLE_SCALAR_OPERATIONS = frozenset({"+", "-", "*", "/", "**"})
 _REPLAYABLE_GETITEM_INDEXING = frozenset(
     {"boolean_mask", "channel_slice", "integer_list", "label_list", "multidimensional_slice"}
 )
+_REPLAYABLE_TERMINAL_PROPERTIES = frozenset({"crest_factor", "rms"})
 
 
 def _snapshot_param_value(value: Any) -> Any:
@@ -905,7 +906,42 @@ class IndexingStep:
         return frame[self.key]
 
 
-RecipeStep = OperationSpec | MethodStep | TypedMethodStep | ScalarOperationStep | IndexingStep
+@dataclass(frozen=True, init=False)
+class TerminalStep:
+    """Replayable terminal frame metric that returns a non-frame value."""
+
+    metric: str
+    _params: tuple[tuple[str, Any], ...]
+
+    def __init__(self, metric: str, params: Mapping[str, Any] | None = None) -> None:
+        if metric not in _REPLAYABLE_TERMINAL_PROPERTIES:
+            valid_metrics = ", ".join(sorted(_REPLAYABLE_TERMINAL_PROPERTIES))
+            raise ValueError(
+                "TerminalStep metric is outside the replayable terminal allowlist\n"
+                f"  Metric: {metric}\n"
+                f"  Valid metrics: {valid_metrics}"
+            )
+        if params:
+            raise TypeError(
+                "TerminalStep metric does not accept params\n"
+                f"  Metric: {metric}\n"
+                "  Current terminal recipe support is limited to zero-argument frame properties."
+            )
+        object.__setattr__(self, "metric", metric)
+        object.__setattr__(self, "_params", ())
+
+    @property
+    def params(self) -> dict[str, Any]:
+        return {}
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"terminal": self.metric, "params": {}}
+
+    def apply(self, frame: Any) -> Any:
+        return getattr(frame, self.metric)
+
+
+RecipeStep = OperationSpec | MethodStep | TypedMethodStep | ScalarOperationStep | IndexingStep | TerminalStep
 
 
 @dataclass(frozen=True, init=False)
@@ -938,7 +974,7 @@ class RecipeSpec:
     def apply(self, frame: Any) -> Any:
         result: Any = frame
         for step in self.steps:
-            if isinstance(step, MethodStep | TypedMethodStep | ScalarOperationStep | IndexingStep):
+            if isinstance(step, MethodStep | TypedMethodStep | ScalarOperationStep | IndexingStep | TerminalStep):
                 result = step.apply(result)
             else:
                 result = result.apply_operation(step.operation, **step.params)
@@ -952,5 +988,6 @@ __all__ = [
     "RecipeExtractionError",
     "RecipeSpec",
     "ScalarOperationStep",
+    "TerminalStep",
     "TypedMethodStep",
 ]
