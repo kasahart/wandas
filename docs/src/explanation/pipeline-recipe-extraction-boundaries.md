@@ -40,13 +40,21 @@ Status: implemented in prototype.
 - `power`
 - `a_weighting`
 - `fade`
+- `rms_trend`
+- `sound_level`
+- `hpss_harmonic`
+- `hpss_percussive`
 
 条件:
 
 - operation graph が 1 本の chain である。
 - 各 node が registered Wandas operation である。
 - operation が generic `frame.apply_operation(operation, **params)` で同じ意味に replay できる。
-- パラメータが Recipe 内で値として保持できる。
+- パラメータが Recipe 内で値として保持できる。対応値は `None`、`bool`、`int`、`float`、`str`、およびそれらだけを要素に持つ浅い `list` / `tuple` である。
+
+`rms_trend()` と `sound_level()` は channel metadata から解決した `ref` を operation graph に保存する。Recipe ではこの `ref` を落とさず `OperationSpec` に残す。そうしないと、別 frame に replay した時に `ref=1.0` へ戻り、特に `dB=True` の結果が変わる。
+
+HPSS の `kernel_size` / `margin` は public API が scalar と 2要素 sequence を受け付けるため、浅い sequence literal として replay する。ただし callable window、array-like、nested dict/list は現在の直列 Recipe では保存形式を定義しない。
 
 この段階では、Wandas の既存 frame operation が持つ不変性、metadata/history、Dask laziness に依存する。
 

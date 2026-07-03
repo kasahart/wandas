@@ -15,7 +15,7 @@ sklearn 互換の `WandasOperationTransformer` は、`BaseEstimator` / `Transfor
 
 単一 Wandas operation の replayable な呼び出しを表す。`operation` は `"normalize"`、`"highpass_filter"`、`"fade"` のような registry key を使う。`params` は作成時に snapshot されるため、呼び出し元の dict を後から変更しても spec は変わらない。
 
-Stage 1 では、`params` は flat な recipe literal に限定する。対応する値は `None`、`bool`、`int`、`float`、`str` である。nested dict/list、callable、array-like object は、保存形式と equality policy を決めるまで受け付けない。
+Stage 1 では、`params` は recipe literal に限定する。対応する値は `None`、`bool`、`int`、`float`、`str`、およびそれらだけを要素に持つ浅い `list` / `tuple` である。sequence は作成時に snapshot され、`to_dict()` では JSON 的に扱いやすい `list` として返る。nested sequence、dict、callable、array-like object、NaN は、保存形式と equality policy を決めるまで受け付けない。
 
 ### `wandas.pipeline.RecipeSpec`
 
@@ -84,6 +84,8 @@ ChannelFrame
       -> frame + 0.25
     -> OperationSpec("fade", {"fade_ms": 10.0})
       -> frame.apply_operation("fade", fade_ms=10.0)
+    -> OperationSpec("rms_trend", {"frame_length": 512, "hop_length": 128, "ref": [1.0]})
+      -> frame.apply_operation("rms_trend", frame_length=512, hop_length=128, ref=[1.0])
     -> OperationSpec("normalize")
       -> frame.apply_operation("normalize")
   -> new ChannelFrame with operation_history
@@ -140,6 +142,7 @@ sklearn.pipeline.Pipeline
 
 - sklearn 未導入で `wandas.pipeline.sklearn` を import した場合は、optional dependency registry を通じて `pip install "wandas[sklearn]"` を含む `ImportError` を出す。
 - operation 名やパラメータが不正な場合は、既存の `apply_operation` / operation class の validation に委譲する。
+- sequence params は浅い literal sequence だけを受け付ける。`rms_trend()` / `sound_level()` の `ref` や HPSS の `kernel_size` / `margin` は replay に必要な値として保存するが、nested list や array operand は graph recipe の範囲として拒否する。
 - v1 では複数入力 operation を recipe から呼ばない。必要な場合は operation-specific method を使う。
 - method-aware step は明示 allowlist に含まれる method だけを抽出する。現在は `fix_length`、`sum`、`mean`、`channel_difference` に限定する。
 - typed method step は明示 allowlist に含まれる method だけを抽出する。現在は `fft`、`stft`、`ifft`、`istft`、`welch`、`noct_spectrum`、`noct_synthesis`、`coherence`、`csd`、`transfer_function` に限定する。

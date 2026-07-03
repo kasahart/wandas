@@ -1,10 +1,12 @@
 from collections.abc import Callable
+from types import SimpleNamespace
 
 import dask.array as da
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 
+from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.noct import NOctFrame
 from wandas.frames.spectral import SpectralFrame
@@ -24,6 +26,28 @@ def _frame() -> ChannelFrame:
     time = np.linspace(0, 1, sampling_rate, endpoint=False)
     data = (0.25 + np.sin(2 * np.pi * 1000 * time)).reshape(1, -1)
     return ChannelFrame.from_numpy(data, sampling_rate=sampling_rate, label="recipe-source")
+
+
+def _two_channel_frame_with_refs() -> ChannelFrame:
+    base = _frame()
+    return ChannelFrame(
+        data=da.from_array(np.vstack([base.data, base.data * 0.5]), chunks=(1, -1)),
+        sampling_rate=base.sampling_rate,
+        channel_metadata=[
+            ChannelMetadata(label="left", unit="Pa", ref=2.0),
+            ChannelMetadata(label="right", unit="Pa", ref=4.0),
+        ],
+    )
+
+
+def _patch_hpss_backend(monkeypatch: pytest.MonkeyPatch) -> None:
+    import wandas.processing.effects as effects_module
+
+    fake_effects = SimpleNamespace(
+        harmonic=lambda data, **_: data,
+        percussive=lambda data, **_: data,
+    )
+    monkeypatch.setattr(effects_module, "require_librosa_effects", lambda _feature: fake_effects)
 
 
 def _fake_center_freq(*, fmin: float, fmax: float, n: int, **_: object) -> tuple[np.ndarray, np.ndarray]:
@@ -130,6 +154,21 @@ def test_recipe_spec_snapshots_mutable_step_params() -> None:
     }
 
 
+def test_operation_spec_snapshots_shallow_sequence_params() -> None:
+    values = [1, np.float64(2.0), np.bool_(True), None, "hann"]
+    operation = OperationSpec("hpss_harmonic", {"value": values})
+    values[0] = 99
+    returned_params = operation.params
+    returned_params["value"] = [3]
+
+    assert operation.params == {"value": [1, 2.0, True, None, "hann"]}
+    assert operation.to_dict() == {
+        "operation": "hpss_harmonic",
+        "params": {"value": [1, 2.0, True, None, "hann"]},
+    }
+    assert operation == OperationSpec("hpss_harmonic", {"value": (1, 2.0, True, None, "hann")})
+
+
 @pytest.mark.parametrize(
     "value",
     [
@@ -140,8 +179,12 @@ def test_recipe_spec_snapshots_mutable_step_params() -> None:
         {1, 2},
         frozenset({1, 2}),
         {"nested": 1},
-        [1, 2],
-        (1, 2),
+        [[1, 2]],
+        [{"nested": 1}],
+        [object()],
+        [b"bytes"],
+        [1 + 2j],
+        [np.array([1.0, 2.0])],
     ],
 )
 def test_operation_spec_rejects_non_flat_literal_params(value: object) -> None:
@@ -152,6 +195,12 @@ def test_operation_spec_rejects_non_flat_literal_params(value: object) -> None:
 def test_operation_spec_rejects_nan_params() -> None:
     with pytest.raises(TypeError, match="OperationSpec params must not contain NaN"):
         OperationSpec("normalize", {"norm": float("nan")})
+
+
+@pytest.mark.parametrize("value", [[float("nan")], [np.float64("nan")]])
+def test_operation_spec_rejects_nan_inside_sequence_params(value: object) -> None:
+    with pytest.raises(TypeError, match="OperationSpec params must not contain NaN"):
+        OperationSpec("normalize", {"value": value})
 
 
 def test_operation_spec_rejects_non_string_mapping_keys() -> None:
@@ -244,6 +293,102 @@ def test_recipe_from_frame_extracts_additional_single_input_apply_operations(
     build_frame: Callable[[ChannelFrame], ChannelFrame],
     expected_step: OperationSpec,
 ) -> None:
+    frame = _frame()
+    processed = build_frame(frame)
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (expected_step,)
+    assert replayed.operation_history == processed.operation_history
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.labels == processed.labels
+    assert replayed.sampling_rate == processed.sampling_rate
+    assert replayed.shape == processed.shape
+
+
+@pytest.mark.parametrize(
+    ("build_frame", "expected_step"),
+    [
+        (
+            lambda frame: frame.rms_trend(frame_length=512, hop_length=128, dB=True, Aw=False),
+            OperationSpec(
+                "rms_trend",
+                {"frame_length": 512, "hop_length": 128, "dB": True, "Aw": False, "ref": [2.0, 4.0]},
+            ),
+        ),
+        (
+            lambda frame: frame.sound_level(freq_weighting="Z", time_weighting="Fast", dB=True),
+            OperationSpec(
+                "sound_level",
+                {"ref": [2.0, 4.0], "freq_weighting": "Z", "time_weighting": "Fast", "dB": True},
+            ),
+        ),
+    ],
+)
+def test_recipe_from_frame_extracts_ref_bearing_apply_operations(
+    build_frame: Callable[[ChannelFrame], ChannelFrame],
+    expected_step: OperationSpec,
+) -> None:
+    frame = _two_channel_frame_with_refs()
+    processed = build_frame(frame)
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (expected_step,)
+    assert replayed.operation_history == processed.operation_history
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.labels == processed.labels
+    assert replayed.sampling_rate == processed.sampling_rate
+    assert replayed.shape == processed.shape
+
+
+@pytest.mark.parametrize(
+    ("build_frame", "expected_step"),
+    [
+        (
+            lambda frame: frame.hpss_harmonic(kernel_size=(31, 31), margin=(1.0, 2.0)),
+            OperationSpec(
+                "hpss_harmonic",
+                {
+                    "kernel_size": [31, 31],
+                    "power": 2,
+                    "margin": [1.0, 2.0],
+                    "n_fft": 2048,
+                    "hop_length": None,
+                    "win_length": None,
+                    "window": "hann",
+                    "center": True,
+                    "pad_mode": "constant",
+                },
+            ),
+        ),
+        (
+            lambda frame: frame.hpss_percussive(kernel_size=(31, 31), margin=(1.0, 2.0)),
+            OperationSpec(
+                "hpss_percussive",
+                {
+                    "kernel_size": [31, 31],
+                    "power": 2,
+                    "margin": [1.0, 2.0],
+                    "n_fft": 2048,
+                    "hop_length": None,
+                    "win_length": None,
+                    "window": "hann",
+                    "center": True,
+                    "pad_mode": "constant",
+                },
+            ),
+        ),
+    ],
+)
+def test_recipe_from_frame_extracts_hpss_apply_operations(
+    monkeypatch: pytest.MonkeyPatch,
+    build_frame: Callable[[ChannelFrame], ChannelFrame],
+    expected_step: OperationSpec,
+) -> None:
+    _patch_hpss_backend(monkeypatch)
     frame = _frame()
     processed = build_frame(frame)
 
@@ -677,7 +822,7 @@ def test_recipe_from_frame_empty_history_returns_empty_recipe() -> None:
         ),
         (
             "registered operation outside current allowlist",
-            lambda frame: frame.rms_trend(frame_length=512, hop_length=128),
+            lambda frame: frame.apply_operation("loudness_zwtv", field_type="free"),
             "Operation is outside the Stage 1 recipe allowlist",
         ),
     ],

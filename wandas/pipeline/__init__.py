@@ -17,12 +17,16 @@ _REPLAYABLE_APPLY_OPERATIONS = frozenset(
         "abs",
         "bandpass_filter",
         "fade",
+        "hpss_harmonic",
+        "hpss_percussive",
         "highpass_filter",
         "lowpass_filter",
         "normalize",
         "power",
         "remove_dc",
+        "rms_trend",
         "resampling",
+        "sound_level",
         "trim",
     }
 )
@@ -63,6 +67,8 @@ _REPLAYABLE_SCALAR_OPERATIONS = frozenset({"+", "-", "*", "/", "**"})
 def _snapshot_param_value(value: Any) -> Any:
     if value is None or isinstance(value, bool | str):
         return value
+    if type(value).__module__ == "numpy" and type(value).__name__ in {"bool", "bool_"}:
+        return bool(value)
     if isinstance(value, numbers.Integral):
         return int(value)
     if isinstance(value, numbers.Real):
@@ -73,11 +79,23 @@ def _snapshot_param_value(value: Any) -> Any:
                 "  NaN does not compare equal to itself, so recipe equality becomes unstable."
             )
         return frozen_float
+    if isinstance(value, list | tuple):
+        return tuple(_snapshot_sequence_item(item) for item in value)
     raise TypeError(
         "OperationSpec params must be flat recipe-literal values\n"
         f"  Got: {type(value).__name__}\n"
-        "  Supported values: None, bool, int, float, and str."
+        "  Supported values: None, bool, int, float, str, and shallow list/tuple of those values."
     )
+
+
+def _snapshot_sequence_item(value: Any) -> Any:
+    if isinstance(value, list | tuple):
+        raise TypeError(
+            "OperationSpec params must be flat recipe-literal values\n"
+            f"  Got nested sequence: {type(value).__name__}\n"
+            "  Sequence params are intentionally shallow so equality and serialization stay predictable."
+        )
+    return _snapshot_param_value(value)
 
 
 def _snapshot_params(params: Mapping[str, Any]) -> tuple[tuple[str, Any], ...]:
@@ -91,6 +109,10 @@ def _snapshot_params(params: Mapping[str, Any]) -> tuple[tuple[str, Any], ...]:
             )
         frozen.append((key, _snapshot_param_value(value)))
     return tuple(sorted(frozen))
+
+
+def _params_to_public_dict(params: tuple[tuple[str, Any], ...]) -> dict[str, Any]:
+    return {key: list(value) if isinstance(value, tuple) else value for key, value in params}
 
 
 def _restore_history_value(value: Any) -> Any:
@@ -252,10 +274,10 @@ class OperationSpec:
 
     @property
     def params(self) -> dict[str, Any]:
-        return dict(self._params)
+        return _params_to_public_dict(self._params)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"operation": self.operation, "params": self.params}
+        return {"operation": self.operation, "params": _params_to_public_dict(self._params)}
 
 
 @dataclass(frozen=True, init=False)
@@ -278,10 +300,10 @@ class MethodStep:
 
     @property
     def params(self) -> dict[str, Any]:
-        return dict(self._params)
+        return _params_to_public_dict(self._params)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"method": self.method, "params": self.params}
+        return {"method": self.method, "params": _params_to_public_dict(self._params)}
 
     def apply(self, frame: Any) -> Any:
         return getattr(frame, self.method)(**self.params)
@@ -307,10 +329,10 @@ class TypedMethodStep:
 
     @property
     def params(self) -> dict[str, Any]:
-        return dict(self._params)
+        return _params_to_public_dict(self._params)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"typed_method": self.method, "params": self.params}
+        return {"typed_method": self.method, "params": _params_to_public_dict(self._params)}
 
     def apply(self, frame: Any) -> Any:
         return getattr(frame, self.method)(**self.params)
