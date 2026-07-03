@@ -9,6 +9,7 @@ from dask.array.core import Array as DaArray
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.noct import NOctFrame
+from wandas.frames.roughness import RoughnessFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.pipeline import (
@@ -85,6 +86,7 @@ def _patch_psychoacoustic_backend(monkeypatch: pytest.MonkeyPatch) -> None:
         del sampling_rate, weighting, field_type, skip
         return np.linspace(0.3, 0.4, max(1, signal.shape[-1] // 96)), None
 
+    psychoacoustic_module.RoughnessDwSpec._bark_axis_cache.clear()
     monkeypatch.setattr(psychoacoustic_module, "loudness_zwtv_mosqito", fake_loudness)
     monkeypatch.setattr(psychoacoustic_module, "roughness_dw_mosqito", fake_roughness)
     monkeypatch.setattr(psychoacoustic_module, "sharpness_din_tv_mosqito", fake_sharpness)
@@ -484,6 +486,30 @@ def test_recipe_from_frame_extracts_psychoacoustic_apply_operations(
     assert replayed.labels == processed.labels
     assert replayed.sampling_rate == processed.sampling_rate
     assert replayed.shape == processed.shape
+
+
+def test_recipe_from_frame_extracts_roughness_spec_typed_transition(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_psychoacoustic_backend(monkeypatch)
+    sampling_rate = 48000
+    time = np.linspace(0, 1, sampling_rate, endpoint=False)
+    frame = ChannelFrame.from_numpy(
+        np.sin(2 * np.pi * 1000 * time).reshape(1, -1),
+        sampling_rate=sampling_rate,
+        label="roughness-spec-source",
+    )
+    processed = frame.roughness_dw_spec(overlap=0.25)
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (TypedMethodStep("roughness_dw_spec", {"overlap": 0.25}),)
+    assert isinstance(replayed, RoughnessFrame)
+    np.testing.assert_allclose(replayed.data, processed.data)
+    np.testing.assert_allclose(replayed.bark_axis, processed.bark_axis)
+    assert replayed.labels == processed.labels
+    assert replayed.sampling_rate == processed.sampling_rate
+    assert replayed.shape == processed.shape
+    assert replayed.overlap == processed.overlap
 
 
 def test_recipe_from_frame_extracts_method_aware_linear_steps() -> None:

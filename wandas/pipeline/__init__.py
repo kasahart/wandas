@@ -48,6 +48,7 @@ _REPLAYABLE_TYPED_METHOD_OPERATIONS = {
     "istft": ("istft", {}),
     "noct_spectrum": ("noct_spectrum", None),
     "noct_synthesis": ("noct_synthesis", None),
+    "roughness_dw_spec": ("roughness_dw_spec", None),
     "stft": ("stft", None),
     "transfer_function": ("transfer_function", None),
     "welch": (
