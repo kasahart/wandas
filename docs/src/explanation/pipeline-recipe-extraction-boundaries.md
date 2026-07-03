@@ -48,17 +48,17 @@ Status: implemented in prototype.
 
 ## Stage 2: Method-Aware Linear Steps / frame method aware な直列 step
 
-Status: not implemented; required for full target.
+Status: partially implemented for `fix_length`, `sum`, and `mean`.
 
 検証で見えた例:
 
-| Frame calculation | History operation | Why current `RecipeSpec` is insufficient |
+| Frame calculation | Recipe step | Why method replay is used |
 | --- | --- | --- |
-| `frame.fix_length(length=8000)` | `fix_length` with `target_length` | operation history の parameter 名と constructor 引数が異なる |
-| `frame.sum()` | `sum` | channel metadata を 2ch から 1ch に再構成する frame method 固有処理が必要 |
-| `frame.mean()` | `mean` | `sum` と同じく channel metadata 再構成が必要 |
+| `frame.fix_length(length=8000)` | `MethodStep("fix_length", {"length": 8000})` | operation history は `target_length` を持つため、frame method の public argument に戻す |
+| `frame.sum()` | `MethodStep("sum")` | channel metadata を 2ch から 1ch に再構成する frame method 固有処理を再利用する |
+| `frame.mean()` | `MethodStep("mean")` | `sum` と同じく channel metadata 再構成を frame method に委譲する |
 
-必要な拡張:
+現在の表現:
 
 ```text
 FrameMethodStep(method="fix_length", kwargs={"length": 8000})
@@ -66,7 +66,7 @@ FrameMethodStep(method="sum", kwargs={})
 FrameMethodStep(method="mean", kwargs={})
 ```
 
-または、operation classes の lineage params と constructor params を完全に揃え、metadata 変換を `apply_operation` 側で安全に扱えるようにする。
+この段階では metadata 変換ロジックを Recipe 側に複製しない。既存 frame method を呼ぶことで、frame immutability、metadata/history、Dask laziness は既存契約に従う。
 
 ## Stage 3: Typed Domain Transitions / 型遷移を含む Recipe
 

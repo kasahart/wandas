@@ -6,7 +6,7 @@ import pytest
 from dask.array.core import Array as DaArray
 
 from wandas.frames.channel import ChannelFrame
-from wandas.pipeline import OperationSpec, RecipeExtractionError, RecipeSpec
+from wandas.pipeline import MethodStep, OperationSpec, RecipeExtractionError, RecipeSpec
 
 
 def _frame() -> ChannelFrame:
@@ -96,6 +96,11 @@ def test_operation_spec_rejects_non_string_mapping_keys() -> None:
         OperationSpec("normalize", {object(): "value"})  # ty: ignore[invalid-argument-type]
 
 
+def test_method_step_rejects_methods_outside_replay_allowlist() -> None:
+    with pytest.raises(ValueError, match="MethodStep method is outside the replayable method allowlist"):
+        MethodStep("plot")
+
+
 def test_recipe_apply_preserves_dask_laziness(monkeypatch: pytest.MonkeyPatch) -> None:
     sampling_rate = 16000
     time = np.linspace(0, 1, sampling_rate, endpoint=False)
@@ -148,6 +153,35 @@ def test_recipe_from_frame_extracts_linear_apply_operation_replayable_chain() ->
     np.testing.assert_allclose(replayed.source_time_offset, processed.source_time_offset)
 
 
+def test_recipe_from_frame_extracts_method_aware_linear_steps() -> None:
+    frame = ChannelFrame.from_numpy(
+        np.vstack([_frame().data, _frame().data * 0.5]),
+        sampling_rate=_frame().sampling_rate,
+        ch_labels=["left", "right"],
+    )
+    processed = frame.fix_length(length=8000).sum().mean()
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (
+        MethodStep("fix_length", {"length": 8000}),
+        MethodStep("sum"),
+        MethodStep("mean"),
+    )
+    assert recipe.to_dict() == {
+        "steps": [
+            {"method": "fix_length", "params": {"length": 8000}},
+            {"method": "sum", "params": {}},
+            {"method": "mean", "params": {}},
+        ]
+    }
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.labels == processed.labels
+    assert replayed.sampling_rate == processed.sampling_rate
+    assert replayed.shape == processed.shape
+
+
 def test_recipe_from_frame_empty_history_returns_empty_recipe() -> None:
     assert RecipeSpec.from_frame(_frame()).steps == ()
 
@@ -182,27 +216,6 @@ def test_recipe_from_frame_empty_history_returns_empty_recipe() -> None:
                 output_shape_func=lambda shape: shape,
                 gain=2.0,
             ),
-            "Operation is outside the Stage 1 recipe allowlist",
-        ),
-        (
-            "frame method metadata operation",
-            lambda frame: frame.fix_length(length=8000),
-            "Operation is outside the Stage 1 recipe allowlist",
-        ),
-        (
-            "sum frame method metadata operation",
-            lambda frame: ChannelFrame.from_numpy(
-                np.vstack([frame.data, frame.data]),
-                sampling_rate=frame.sampling_rate,
-            ).sum(),
-            "Operation is outside the Stage 1 recipe allowlist",
-        ),
-        (
-            "mean frame method metadata operation",
-            lambda frame: ChannelFrame.from_numpy(
-                np.vstack([frame.data, frame.data]),
-                sampling_rate=frame.sampling_rate,
-            ).mean(),
             "Operation is outside the Stage 1 recipe allowlist",
         ),
         (

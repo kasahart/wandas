@@ -29,6 +29,12 @@ _REPLAYABLE_APPLY_OPERATIONS = frozenset(
         "trim",
     }
 )
+_REPLAYABLE_METHOD_OPERATIONS = {
+    "fix_length": ("fix_length", {"target_length": "length"}),
+    "mean": ("mean", {}),
+    "sum": ("sum", {}),
+}
+_REPLAYABLE_METHOD_NAMES = frozenset(method for method, _param_names in _REPLAYABLE_METHOD_OPERATIONS.values())
 
 
 def _snapshot_param_value(value: Any) -> Any:
@@ -110,7 +116,19 @@ def _validate_replayable_operation(operation: str) -> None:
         )
 
 
-def _steps_from_graph(graph: Mapping[str, Any]) -> tuple[OperationSpec, ...]:
+def _method_step_from_graph(operation: str, params: Mapping[str, Any]) -> MethodStep:
+    method, param_names = _REPLAYABLE_METHOD_OPERATIONS[operation]
+    return MethodStep(method, {param_names.get(key, key): value for key, value in params.items()})
+
+
+def _step_from_graph(operation: str, params: Mapping[str, Any]) -> RecipeStep:
+    if operation in _REPLAYABLE_METHOD_OPERATIONS:
+        return _method_step_from_graph(operation, params)
+    _validate_replayable_operation(operation)
+    return OperationSpec(operation, params)
+
+
+def _steps_from_graph(graph: Mapping[str, Any]) -> tuple[RecipeStep, ...]:
     operation = str(graph["operation"])
     inputs = tuple(graph.get("inputs", ()))
     if len(inputs) > 1:
@@ -120,11 +138,10 @@ def _steps_from_graph(graph: Mapping[str, Any]) -> tuple[OperationSpec, ...]:
             f"  Parent count: {len(inputs)}\n"
             "  Current RecipeSpec can only replay one linear parent chain."
         )
-    _validate_replayable_operation(operation)
 
     params = cast(Mapping[str, Any], _restore_history_value(graph.get("params", {})))
     parent_steps = _steps_from_graph(cast(Mapping[str, Any], inputs[0])) if inputs else ()
-    return (*parent_steps, OperationSpec(operation, params))
+    return (*parent_steps, _step_from_graph(operation, params))
 
 
 @dataclass(frozen=True, init=False)
@@ -147,12 +164,44 @@ class OperationSpec:
 
 
 @dataclass(frozen=True, init=False)
+class MethodStep:
+    """Replayable frame method call."""
+
+    method: str
+    _params: tuple[tuple[str, Any], ...]
+
+    def __init__(self, method: str, params: Mapping[str, Any] | None = None) -> None:
+        if method not in _REPLAYABLE_METHOD_NAMES:
+            valid_methods = ", ".join(sorted(_REPLAYABLE_METHOD_NAMES))
+            raise ValueError(
+                "MethodStep method is outside the replayable method allowlist\n"
+                f"  Method: {method}\n"
+                f"  Valid methods: {valid_methods}"
+            )
+        object.__setattr__(self, "method", method)
+        object.__setattr__(self, "_params", _snapshot_params(params or {}))
+
+    @property
+    def params(self) -> dict[str, Any]:
+        return dict(self._params)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"method": self.method, "params": self.params}
+
+    def apply(self, frame: Any) -> Any:
+        return getattr(frame, self.method)(**self.params)
+
+
+RecipeStep = OperationSpec | MethodStep
+
+
+@dataclass(frozen=True, init=False)
 class RecipeSpec:
     """Serial recipe of replayable Wandas frame operations."""
 
-    steps: tuple[OperationSpec, ...]
+    steps: tuple[RecipeStep, ...]
 
-    def __init__(self, steps: Iterable[OperationSpec]) -> None:
+    def __init__(self, steps: Iterable[RecipeStep]) -> None:
         object.__setattr__(self, "steps", tuple(steps))
 
     def to_dict(self) -> dict[str, Any]:
@@ -176,8 +225,11 @@ class RecipeSpec:
     def apply(self, frame: T_Frame) -> T_Frame:
         result: Any = frame
         for step in self.steps:
-            result = result.apply_operation(step.operation, **step.params)
+            if isinstance(step, MethodStep):
+                result = step.apply(result)
+            else:
+                result = result.apply_operation(step.operation, **step.params)
         return cast(T_Frame, result)
 
 
-__all__ = ["OperationSpec", "RecipeExtractionError", "RecipeSpec"]
+__all__ = ["MethodStep", "OperationSpec", "RecipeExtractionError", "RecipeSpec"]
