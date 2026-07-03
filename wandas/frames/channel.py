@@ -293,6 +293,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         inplace: bool,
         channel_ids: list[str],
         source_time_offset: float | Sequence[float] | NDArrayReal | None = None,
+        lineage: Any | None = None,
     ) -> "ChannelFrame":
         """Apply *new_data* and *new_chmeta* either in-place or as a new frame."""
         offsets = self.source_time_offset if source_time_offset is None else source_time_offset
@@ -309,7 +310,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             channel_metadata=new_chmeta,
             channel_ids=channel_ids,
             source_time_offset=offsets,
-            lineage=self.lineage,
+            lineage=self.lineage if lineage is None else lineage,
             previous=self,
         )
 
@@ -1403,6 +1404,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             inplace,
             new_ids,
             self.source_time_offset[keep_indices],
+            lineage=None if inplace else self._lineage_with_method("remove_channel", {"key": key}),
         )
 
     def rename_channels(

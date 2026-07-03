@@ -598,6 +598,43 @@ def test_recipe_from_frame_extracts_channel_selection_method_step(
 
 
 @pytest.mark.parametrize(
+    ("build_frame", "expected_step"),
+    [
+        (lambda frame: frame.remove_channel(0), MethodStep("remove_channel", {"key": 0})),
+        (lambda frame: frame.remove_channel("right"), MethodStep("remove_channel", {"key": "right"})),
+    ],
+)
+def test_recipe_from_frame_extracts_remove_channel_method_step(
+    build_frame: Callable[[ChannelFrame], ChannelFrame],
+    expected_step: MethodStep,
+) -> None:
+    base = _frame()
+    frame = ChannelFrame(
+        data=da.from_array(np.vstack([base.data, base.data * 0.5, base.data * 0.25]), chunks=(1, -1)),
+        sampling_rate=base.sampling_rate,
+        channel_metadata=[
+            ChannelMetadata(label="left"),
+            ChannelMetadata(label="right"),
+            ChannelMetadata(label="rear"),
+        ],
+        source_time_offset=[0.0, 0.1, 0.2],
+    )
+    source_history = list(frame.operation_history)
+    processed = build_frame(frame)
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert frame.operation_history == source_history
+    assert recipe.steps == (expected_step,)
+    assert replayed.operation_history == processed.operation_history
+    np.testing.assert_allclose(replayed.data, processed.data)
+    np.testing.assert_allclose(replayed.source_time_offset, processed.source_time_offset)
+    assert replayed.labels == processed.labels
+    assert replayed.shape == processed.shape
+
+
+@pytest.mark.parametrize(
     "build_frame",
     [
         lambda frame: frame.get_channel(query=lambda channel: channel.label == "right"),

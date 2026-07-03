@@ -45,6 +45,7 @@ _REPLAYABLE_METHOD_OPERATIONS = {
         },
     ),
     "mean": ("mean", {}),
+    "remove_channel": ("remove_channel", {"key": "key"}),
     "sum": ("sum", {}),
 }
 _REPLAYABLE_METHOD_NAMES = frozenset(method for method, _param_names in _REPLAYABLE_METHOD_OPERATIONS.values())

@@ -65,7 +65,7 @@ HPSS の `kernel_size` / `margin` は public API が scalar と 2要素 sequence
 
 ## Stage 2: Method-Aware Linear Steps / frame method aware な直列 step
 
-Status: partially implemented for `fix_length`, `sum`, `mean`, `channel_difference`, and simple `get_channel` selection.
+Status: partially implemented for `fix_length`, `sum`, `mean`, `channel_difference`, simple `get_channel` selection, and `remove_channel`.
 
 検証で見えた例:
 
@@ -77,6 +77,7 @@ Status: partially implemented for `fix_length`, `sum`, `mean`, `channel_differen
 | `frame.channel_difference(other_channel=0)` | `MethodStep("channel_difference", {"other_channel": 0})` | channel label / metadata 更新を frame method に委譲する |
 | `frame.get_channel(1)` | `MethodStep("get_channel", {"channel_idx": 1})` | channel metadata、channel ids、source time offset の selection を frame method に委譲する |
 | `frame.get_channel(query="right")` | `MethodStep("get_channel", {"query": "right", "validate_query_keys": True})` | exact label query は値として保存できる |
+| `frame.remove_channel("right")` | `MethodStep("remove_channel", {"key": "right"})` | channel metadata、channel ids、source time offset の removal を frame method に委譲する |
 
 現在の表現:
 
@@ -86,6 +87,7 @@ FrameMethodStep(method="sum", kwargs={})
 FrameMethodStep(method="mean", kwargs={})
 FrameMethodStep(method="channel_difference", kwargs={"other_channel": 0})
 FrameMethodStep(method="get_channel", kwargs={"channel_idx": [0, 2]})
+FrameMethodStep(method="remove_channel", kwargs={"key": "right"})
 ```
 
 この段階では metadata 変換ロジックを Recipe 側に複製しない。既存 frame method を呼ぶことで、frame immutability、metadata/history、Dask laziness は既存契約に従う。
@@ -95,6 +97,8 @@ FrameMethodStep(method="get_channel", kwargs={"channel_idx": [0, 2]})
 `frame[0:2]` のような channel slice や `frame[["right", "rear"]]` のような label list selection は、現在は抽出時に拒否する。これらは既存 frame API としては動作するが、Recipe としては slice/list label intent を表現する dedicated step が必要になる。
 
 `frame["right", 10:20]` のような channel + time の tuple indexing は、channel selection だけを抽出すると time slice を落とした部分 replay になるため現在は拒否する。time slicing を扱う場合は、channel selection とは別の明示 step と source time offset contract が必要になる。
+
+`add_channel()` は新しい signal data を Recipe step 内に持つ必要があるため、現在の単一入力 linear Recipe では扱わない。`rename_channels()` は dict mapping を recipe literal として保存する設計を決めてから対応する。
 
 ## Stage 3: Typed Domain Transitions / 型遷移を含む Recipe
 
