@@ -199,6 +199,7 @@ Implemented:
 - `NodeGraphRecipeSpec.from_frame(processed)` for replayable tree graphs with multiple binary merges
 - `NodeGraphRecipeSpec.from_frame(processed, input_names=("base", "base"))` for duplicated parent paths replayed from the same external input
 - `NodeGraphRecipeSpec.from_frame(processed, input_names=("base", "added"))` for `base.add_channel(added_frame, ...)`
+- `NodeGraphRecipeSpec.from_frame(processed, input_names=("base", "raw"))` for `base.add_channel(raw_array, ...)`
 
 現在の表現:
 
@@ -225,6 +226,7 @@ NodeGraphRecipeSpec(
     output="n4",
 )
 AddChannelStep(base="base", added="added", params={"align": "strict", "label": "ref", "suffix_on_dup": null})
+AddChannelDataStep(base="base", data="raw", params={"align": "strict", "label": "raw", "source_time_offset": 1.25})
 BinaryOperandStep(operation="+", frame="signal", operand="offset")
 ```
 
@@ -236,7 +238,9 @@ BinaryOperandStep(operation="+", frame="signal", operand="offset")
 
 `frame + ndarray` や `frame * dask_array` のような array operand は `BinaryOperandStep` に変換する。Recipe は array 値を保存せず、named external input として replay 時に受け取る。`operation_graph` に残る shape/dtype/chunk descriptor は、対象が external operand であることの判定にだけ使い、値の再構成には使わない。
 
-`add_channel(ChannelFrame, ...)` は `AddChannelStep` に変換する。Recipe 側で channel metadata や source offset の再構成は複製せず、`base.add_channel(added, align=..., label=..., suffix_on_dup=...)` を呼ぶ。raw `ndarray` / `dask.array` の `add_channel()` は、追加データの値または外部参照を recipe にどう保存するか決めるまで拒否する。
+`add_channel(ChannelFrame, ...)` は `AddChannelStep` に変換する。Recipe 側で channel metadata や source offset の再構成は複製せず、`base.add_channel(added, align=..., label=..., suffix_on_dup=...)` を呼ぶ。
+
+`add_channel(ndarray|dask.array, ...)` は `AddChannelDataStep` に変換する。Recipe は raw data 値を保存せず、named external input として replay 時に受け取る。`source_time_offset` は raw data の時間意味を決める public option なので lineage params に保存し、replay 時に既存 `base.add_channel(data, ...)` へ渡す。
 
 未加工の入力 frame は runtime `operation_graph` では `{"operation": "__source__", "kind": "source"}` という内部 leaf として表す。これは左右 parent の位置を保つためだけの marker であり、`operation_history` には出さない。Recipe 抽出では source leaf を空の `RecipeSpec(())` に変換する。
 
@@ -244,14 +248,12 @@ Not implemented yet:
 
 - Python 変数名や frame label に基づく入力名推定。現在の runtime lineage は source identity を保存しないため、名前推定は `left` / `right` の構造名に限定する。
 - `RecipeSpec.from_frame(frame_a + frame_b)` が graph recipe を返すこと。`RecipeSpec` は単一入力・直列 recipe のままとし、複数入力 graph は `GraphRecipeSpec.from_frame(...)` で抽出する。
-- `frame.add_channel(np.ones(frame.n_samples), label="raw")`
-- `frame.add_channel(dask_array, label="raw")`
 - 入力名を推定する `RecipeSpec.from_frame(signal.add(noise, snr=6.0))` の自動 graph 抽出
 - true DAG identity を持つ shared branch graph。現在は tree として duplicated parent path を replay する。
 
 これらは直列 Recipe では表現できない。特に `operation_history` だけを見ると `normalize -> lowpass_filter -> add_with_snr` のように直列に見えることがあるが、`operation_graph` では複数 parent や外部 operand が必要である。array operand も shape、chunking、保存形式を Recipe 側で決める必要があるため、scalar operand と同じ扱いにはしない。
 
-残る graph 拡張では、source identity を lineage に保存するか、array/dask operand の値または外部参照をどう保存するかを決める必要がある。shape、sampling rate、channel metadata の整合性チェックは引き続き既存 frame 実装に委譲する。
+残る graph 拡張では、source identity を lineage に保存するかを決める必要がある。shape、sampling rate、channel metadata の整合性チェックは引き続き既存 frame 実装に委譲する。
 
 ## Stage 5: Custom Callable Calculations
 

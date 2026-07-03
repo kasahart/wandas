@@ -664,6 +664,28 @@ def _add_channel_step_from_graph(params: Mapping[str, Any], base: str, added: st
     )
 
 
+def _is_external_add_channel_data_graph(operation: str, params: Mapping[str, Any]) -> bool:
+    return operation == "add_channel" and params.get("input_kind") in {"ndarray", "dask.array"}
+
+
+def _add_channel_data_step_from_graph(params: Mapping[str, Any], base: str, data: str) -> AddChannelDataStep:
+    if not _is_external_add_channel_data_graph("add_channel", params):
+        raise RecipeExtractionError(
+            "add_channel data recipe extraction only supports external ndarray and dask.array inputs\n"
+            f"  Input kind: {params.get('input_kind')!r}"
+        )
+    return AddChannelDataStep(
+        base,
+        data,
+        {
+            "align": params.get("align", "strict"),
+            "label": params.get("label"),
+            "suffix_on_dup": params.get("suffix_on_dup"),
+            "source_time_offset": params.get("source_time_offset"),
+        },
+    )
+
+
 def _split_graph_at_binary_merge(graph: Mapping[str, Any]) -> tuple[Mapping[str, Any], tuple[RecipeStep, ...]]:
     inputs = tuple(graph.get("inputs", ()))
     if len(inputs) == 2:
@@ -1204,8 +1226,63 @@ class AddChannelStep:
         return base_frame.add_channel(added_frame, **self.params)
 
 
+@dataclass(frozen=True, init=False)
+class AddChannelDataStep:
+    """Replayable add_channel call over a frame and named raw channel data."""
+
+    base: str
+    data: str
+    _params: tuple[tuple[str, Any], ...]
+
+    def __init__(self, base: str, data: str, params: Mapping[str, Any] | None = None) -> None:
+        if not base or not data:
+            raise ValueError("AddChannelDataStep base and data input names must be non-empty strings")
+        if base == data:
+            raise ValueError(f"AddChannelDataStep base and data inputs must be distinct\n  Input: {base!r}")
+        unsupported_params = set(params or ()) - {"align", "label", "suffix_on_dup", "source_time_offset"}
+        if unsupported_params:
+            raise TypeError(
+                "AddChannelDataStep params only support public add_channel raw-data options\n"
+                f"  Unsupported params: {sorted(unsupported_params)}"
+            )
+        object.__setattr__(self, "base", base)
+        object.__setattr__(self, "data", data)
+        object.__setattr__(self, "_params", _snapshot_params(params or {}))
+
+    @property
+    def params(self) -> dict[str, Any]:
+        return _params_to_public_dict(self._params)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "add_channel_data": {
+                "base": self.base,
+                "data": self.data,
+                "params": self.params,
+            }
+        }
+
+    def apply(self, inputs: Mapping[str, Any]) -> Any:
+        try:
+            base_frame = inputs[self.base]
+            data = inputs[self.data]
+        except KeyError as exc:
+            raise KeyError(
+                "NodeGraphRecipeSpec add_channel data input is missing\n"
+                f"  Missing input: {exc.args[0]!r}\n"
+                f"  Available inputs: {sorted(inputs)}"
+            ) from exc
+        if not isinstance(data, np.ndarray | DaArray):
+            raise TypeError(
+                "AddChannelDataStep data input must be a NumPy or Dask array\n"
+                f"  Data input: {self.data!r}\n"
+                f"  Got: {type(data).__name__}"
+            )
+        return base_frame.add_channel(data, **self.params)
+
+
 RecipeStep = OperationSpec | MethodStep | TypedMethodStep | ScalarOperationStep | IndexingStep | TerminalStep
-GraphStep = RecipeStep | BinaryFrameStep | BinaryOperandStep | AddChannelStep
+GraphStep = RecipeStep | BinaryFrameStep | BinaryOperandStep | AddChannelStep | AddChannelDataStep
 
 
 def _apply_recipe_step(step: RecipeStep, frame: Any) -> Any:
@@ -1248,6 +1325,13 @@ class GraphNodeSpec:
                     "GraphNodeSpec add_channel step inputs must match AddChannelStep references\n"
                     f"  Node inputs: {list(frozen_inputs)}\n"
                     f"  add_channel inputs: {[step.base, step.added]}"
+                )
+        elif isinstance(step, AddChannelDataStep):
+            if frozen_inputs != (step.base, step.data):
+                raise ValueError(
+                    "GraphNodeSpec add_channel data inputs must match AddChannelDataStep references\n"
+                    f"  Node inputs: {list(frozen_inputs)}\n"
+                    f"  add_channel data inputs: {[step.base, step.data]}"
                 )
         elif len(frozen_inputs) != 1:
             raise ValueError(
@@ -1530,10 +1614,24 @@ class NodeGraphRecipeSpec:
             input_graphs = tuple(node_graph.get("inputs", ()))
 
             if operation == "add_channel" and len(input_graphs) != 2:
+                if _is_external_add_channel_data_graph(operation, params):
+                    if len(input_graphs) > 1:
+                        raise RecipeExtractionError(
+                            "add_channel data recipe extraction requires at most one frame parent\n"
+                            f"  Parent count: {len(input_graphs)}"
+                        )
+                    base_ref = (
+                        extract_node(cast(Mapping[str, Any], input_graphs[0])) if input_graphs else next_source_name()
+                    )
+                    data_ref = next_source_name()
+                    step = _add_channel_data_step_from_graph(params, base_ref, data_ref)
+                    node_id = next_node_id()
+                    nodes.append(GraphNodeSpec(node_id, step, (base_ref, data_ref)))
+                    return node_id
                 raise RecipeExtractionError(
-                    "add_channel recipe extraction only supports ChannelFrame inputs\n"
+                    "add_channel recipe extraction only supports ChannelFrame or external raw data inputs\n"
                     f"  Parent count: {len(input_graphs)}\n"
-                    "  Raw ndarray and dask.array inputs need an explicit data serialization or external-input policy."
+                    f"  Input kind: {params.get('input_kind')!r}"
                 )
 
             if _is_external_operand_graph(operation, params):
@@ -1626,7 +1724,7 @@ class NodeGraphRecipeSpec:
                 ) from exc
 
         for node in self.nodes:
-            if isinstance(node.step, BinaryFrameStep | BinaryOperandStep | AddChannelStep):
+            if isinstance(node.step, BinaryFrameStep | BinaryOperandStep | AddChannelStep | AddChannelDataStep):
                 env[node.id] = node.step.apply({input_ref: env[input_ref] for input_ref in node.inputs})
             else:
                 env[node.id] = _apply_recipe_step(cast(RecipeStep, node.step), env[node.inputs[0]])
@@ -1634,6 +1732,7 @@ class NodeGraphRecipeSpec:
 
 
 __all__ = [
+    "AddChannelDataStep",
     "AddChannelStep",
     "BinaryFrameStep",
     "BinaryOperandStep",

@@ -34,14 +34,26 @@ class TestChannelFrameCollection:
         assert cf2._data.shape == (2, 8)
         assert cf2.operation_history[-1] == {
             "operation": "add_channel",
-            "params": {"align": "pad", "input_kind": "ndarray", "label": "B", "suffix_on_dup": None},
+            "params": {
+                "align": "pad",
+                "input_kind": "ndarray",
+                "label": "B",
+                "source_time_offset": None,
+                "suffix_on_dup": None,
+            },
         }
         cf3 = cf.add_channel(np.arange(10), label="C", align="truncate")
         assert cf3 is not cf  # Pillar 1: immutability
         assert cf3._data.shape == (2, 8)
         assert cf3.operation_history[-1] == {
             "operation": "add_channel",
-            "params": {"align": "truncate", "input_kind": "ndarray", "label": "C", "suffix_on_dup": None},
+            "params": {
+                "align": "truncate",
+                "input_kind": "ndarray",
+                "label": "C",
+                "source_time_offset": None,
+                "suffix_on_dup": None,
+            },
         }
         with pytest.raises(ValueError):
             cf.add_channel(np.arange(8), label="A")

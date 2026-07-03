@@ -17,6 +17,7 @@ from wandas.frames.roughness import RoughnessFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.pipeline import (
+    AddChannelDataStep,
     AddChannelStep,
     BinaryFrameStep,
     BinaryOperandStep,
@@ -779,12 +780,53 @@ def test_node_graph_recipe_from_frame_extracts_add_channel_with_processed_parent
     assert replayed.labels == processed.labels
 
 
-def test_node_graph_recipe_from_frame_rejects_add_channel_raw_data_boundary() -> None:
+def test_node_graph_recipe_from_frame_extracts_add_channel_numpy_data_input() -> None:
     frame = _frame()
-    processed = frame.add_channel(np.zeros(frame.n_samples), label="raw")
+    raw = np.zeros(frame.n_samples)
+    processed = frame.add_channel(raw, label="raw", source_time_offset=1.25)
 
-    with pytest.raises(RecipeExtractionError, match="add_channel recipe extraction only supports ChannelFrame inputs"):
-        NodeGraphRecipeSpec.from_frame(processed)
+    recipe = NodeGraphRecipeSpec.from_frame(processed, input_names=("signal", "raw"))
+    replayed = recipe.apply({"signal": frame, "raw": raw})
+
+    assert recipe.inputs == ("signal", "raw")
+    assert recipe.nodes == (
+        GraphNodeSpec(
+            "n0",
+            AddChannelDataStep(
+                "signal",
+                "raw",
+                {"align": "strict", "label": "raw", "suffix_on_dup": None, "source_time_offset": 1.25},
+            ),
+            ("signal", "raw"),
+        ),
+    )
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.operation_history == processed.operation_history
+    np.testing.assert_allclose(replayed.source_time_offset, processed.source_time_offset)
+
+
+def test_node_graph_recipe_from_frame_extracts_add_channel_dask_data_after_processed_parent() -> None:
+    frame = _frame()
+    raw = da.ones(frame.n_samples + 2, chunks=4)
+    processed = frame.normalize().add_channel(raw, label="raw", align="truncate", source_time_offset=[2.0])
+
+    recipe = NodeGraphRecipeSpec.from_frame(processed, input_names=("signal", "raw"))
+    replayed = recipe.apply({"signal": frame, "raw": raw})
+
+    assert recipe.inputs == ("signal", "raw")
+    assert [node.id for node in recipe.nodes] == ["n0", "n1"]
+    assert isinstance(replayed._data, DaArray)
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.operation_history == processed.operation_history
+    np.testing.assert_allclose(replayed.source_time_offset, processed.source_time_offset)
+
+
+def test_add_channel_data_step_rejects_non_array_runtime_data() -> None:
+    frame = _frame()
+    step = AddChannelDataStep("signal", "raw", {"label": "raw"})
+
+    with pytest.raises(TypeError, match="AddChannelDataStep data input must be a NumPy or Dask array"):
+        step.apply({"signal": frame, "raw": 1.0})
 
 
 @pytest.mark.parametrize("operator", ["-", "*", "/", "**"])

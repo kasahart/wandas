@@ -1385,9 +1385,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             )
         if isinstance(data, np.ndarray):
             lineage_params["input_kind"] = "ndarray"
+            lineage_params["source_time_offset"] = source_time_offset
             arr = _da_from_array(data.reshape(1, -1), chunks=(1, -1))
         elif isinstance(data, DaArray):
             lineage_params["input_kind"] = "dask.array"
+            lineage_params["source_time_offset"] = source_time_offset
             arr = data[None, ...] if data.ndim == 1 else data
             if arr.shape[0] != 1:
                 arr = arr.reshape((1, -1))

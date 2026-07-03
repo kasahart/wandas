@@ -630,6 +630,7 @@ def test_add_channel_dask_raw_uses_explicit_source_time_offset_and_stays_lazy() 
                 "align": "strict",
                 "input_kind": "dask.array",
                 "label": "new_ch",
+                "source_time_offset": [5.0],
                 "suffix_on_dup": None,
             },
         }
