@@ -785,20 +785,63 @@ def test_recipe_from_frame_rejects_non_literal_channel_queries(
         RecipeSpec.from_frame(processed)
 
 
-def test_recipe_from_frame_rejects_boolean_mask_channel_and_time_indexing_boundary() -> None:
+def test_recipe_from_frame_extracts_boolean_mask_channel_and_time_indexing() -> None:
     frame = _two_channel_frame_with_refs()
-    processed = frame[np.array([True, True]), 10:20]
+    mask = np.array([False, True])
+    processed = frame[mask, 10:20]
+    mask[1] = False
 
-    with pytest.raises(RecipeExtractionError, match="Multidimensional indexing recipe extraction only supports"):
-        RecipeSpec.from_frame(processed)
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.to_dict() == {
+        "steps": [
+            {
+                "getitem": {
+                    "type": "multidimensional_slice",
+                    "channel": {"type": "boolean_mask", "mask": [False, True]},
+                    "axis_slices": [{"start": 10, "stop": 20, "step": None}],
+                }
+            }
+        ]
+    }
+    assert replayed.operation_history == processed.operation_history
+    assert replayed.labels == ["right"]
+    np.testing.assert_allclose(replayed.data, processed.data)
 
 
-def test_recipe_from_frame_rejects_getitem_boolean_mask_array() -> None:
+def test_getitem_boolean_mask_recipe_extraction_snapshots_mask() -> None:
     frame = _two_channel_frame_with_refs()
-    processed = frame[np.array([True, True])]
+    mask = np.array([False, True])
+    processed = frame[mask]
+    mask[1] = False
 
-    with pytest.raises(RecipeExtractionError, match="Indexing recipe extraction only supports channel-only"):
-        RecipeSpec.from_frame(processed)
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.to_dict() == {"steps": [{"getitem": {"type": "boolean_mask", "mask": [False, True]}}]}
+    assert replayed.operation_history == processed.operation_history
+    assert isinstance(replayed._data, DaArray)
+    assert replayed.labels == ["right"]
+
+
+@pytest.mark.parametrize(
+    "mask",
+    [
+        np.array([[True, False]]),
+        np.array([[False], [True]]),
+    ],
+)
+def test_getitem_boolean_mask_recipe_extraction_rejects_multidimensional_mask(mask: np.ndarray[Any, Any]) -> None:
+    frame = _two_channel_frame_with_refs()
+
+    with pytest.raises(ValueError, match="Boolean mask"):
+        _ = frame[mask]
+
+
+def test_indexing_step_rejects_python_boolean_list() -> None:
+    with pytest.raises(TypeError, match="IndexingStep key must be"):
+        IndexingStep([True, False])
 
 
 @pytest.mark.parametrize(

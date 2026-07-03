@@ -922,10 +922,13 @@ class BaseFrame(ABC, Generic[T]):
         if isinstance(key, np.ndarray):
             if key.dtype in (bool, np.bool_):
                 # Boolean mask
+                if key.ndim != 1:
+                    raise ValueError(f"Boolean mask must be 1-D, got shape {key.shape}")
                 if len(key) != self.n_channels:
                     raise ValueError(
                         f"Boolean mask length {len(key)} does not match number of channels {self.n_channels}"
                     )
+                mask = [bool(value) for value in cast(npt.NDArray[np.bool_], key).tolist()]
                 indices = np.where(cast(npt.NDArray[np.bool_], key))[0]
                 result = self.get_channel(indices)
                 return result._create_new_instance(
@@ -933,7 +936,10 @@ class BaseFrame(ABC, Generic[T]):
                     channel_metadata=result.channels.to_list(),
                     channel_ids=result._channel_ids,
                     source_time_offset=result.source_time_offset,
-                    lineage=self._lineage_with_unsupported_indexing("array"),
+                    lineage=self._lineage_with_method(
+                        "__getitem__",
+                        {"indexing": "boolean_mask", "mask": tuple(mask)},
+                    ),
                 )
             if np.issubdtype(key.dtype, np.integer):
                 # Integer array

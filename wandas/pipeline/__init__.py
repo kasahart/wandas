@@ -6,6 +6,8 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any, cast
 
+import numpy as np
+
 
 class RecipeExtractionError(ValueError):
     """Raised when a frame lineage cannot be represented by RecipeSpec."""
@@ -19,6 +21,11 @@ class _FrozenSequence:
 @dataclass(frozen=True)
 class _FrozenMapping:
     items: tuple[tuple[Any, Any], ...]
+
+
+@dataclass(frozen=True)
+class _BooleanMask:
+    values: tuple[bool, ...]
 
 
 _REPLAYABLE_APPLY_OPERATIONS = frozenset(
@@ -87,7 +94,9 @@ _REPLAYABLE_TYPED_METHOD_NAMES = frozenset(
     method for method, _param_names in _REPLAYABLE_TYPED_METHOD_OPERATIONS.values()
 )
 _REPLAYABLE_SCALAR_OPERATIONS = frozenset({"+", "-", "*", "/", "**"})
-_REPLAYABLE_GETITEM_INDEXING = frozenset({"channel_slice", "integer_list", "label_list", "multidimensional_slice"})
+_REPLAYABLE_GETITEM_INDEXING = frozenset(
+    {"boolean_mask", "channel_slice", "integer_list", "label_list", "multidimensional_slice"}
+)
 
 
 def _snapshot_param_value(value: Any) -> Any:
@@ -417,7 +426,19 @@ def _indices_from_params(params: Mapping[str, Any]) -> list[int]:
     return [int(index) for index in indices]
 
 
-def _channel_key_from_getitem_params(params: Mapping[str, Any]) -> slice | list[int] | list[str]:
+def _mask_from_params(params: Mapping[str, Any]) -> _BooleanMask:
+    mask = params.get("mask")
+    if not isinstance(mask, list | tuple) or not mask:
+        raise RecipeExtractionError(f"Boolean-mask indexing recipe extraction requires mask values\n  Got: {mask!r}")
+    if not all(
+        isinstance(value, bool) or type(value).__module__ == "numpy" and type(value).__name__ == "bool"
+        for value in mask
+    ):
+        raise RecipeExtractionError(f"Boolean-mask indexing recipe extraction requires bool values\n  Got: {mask!r}")
+    return _BooleanMask(tuple(bool(value) for value in mask))
+
+
+def _channel_key_from_getitem_params(params: Mapping[str, Any]) -> slice | list[int] | list[str] | _BooleanMask:
     indexing = params.get("indexing")
     if indexing == "channel_slice":
         return slice(
@@ -425,6 +446,8 @@ def _channel_key_from_getitem_params(params: Mapping[str, Any]) -> slice | list[
             _optional_int_from_params(params, "stop"),
             _optional_int_from_params(params, "step"),
         )
+    if indexing == "boolean_mask":
+        return _mask_from_params(params)
     if indexing == "integer_list":
         return _indices_from_params(params)
     if indexing == "label_list":
@@ -438,7 +461,7 @@ def _channel_key_from_getitem_params(params: Mapping[str, Any]) -> slice | list[
     )
 
 
-def _channel_key_from_parent_graph(parent: Mapping[str, Any]) -> int | slice | list[int] | list[str]:
+def _channel_key_from_parent_graph(parent: Mapping[str, Any]) -> int | slice | list[int] | list[str] | _BooleanMask:
     operation = str(parent["operation"])
     params = cast(Mapping[str, Any], _restore_history_value(parent.get("params", {})))
     if operation == "get_channel":
@@ -477,6 +500,8 @@ def _getitem_step_from_graph(params: Mapping[str, Any]) -> IndexingStep:
         )
     if indexing == "integer_list":
         return IndexingStep(_indices_from_params(params))
+    if indexing == "boolean_mask":
+        return IndexingStep(_mask_from_params(params))
     if indexing == "multidimensional_slice":
         return IndexingStep((slice(None), *_axis_slices_from_params(params)))
     labels = params.get("labels")
@@ -675,7 +700,13 @@ class ScalarOperationStep:
 class IndexingStep:
     """Replayable channel-only indexing call."""
 
-    _key: slice | tuple[int, ...] | tuple[str, ...] | tuple[int | slice | tuple[int, ...] | tuple[str, ...], ...]
+    _key: (
+        slice
+        | _BooleanMask
+        | tuple[int, ...]
+        | tuple[str, ...]
+        | tuple[int | slice | _BooleanMask | tuple[int, ...] | tuple[str, ...], ...]
+    )
 
     def __init__(self, key: Any) -> None:
         if isinstance(key, slice):
@@ -684,6 +715,12 @@ class IndexingStep:
                 "_key",
                 self._snapshot_slice(key),
             )
+            return
+        if isinstance(key, _BooleanMask):
+            object.__setattr__(self, "_key", self._snapshot_boolean_mask(key.values))
+            return
+        if self._is_boolean_mask_key(key):
+            object.__setattr__(self, "_key", self._snapshot_boolean_mask(key))
             return
         if self._is_multidimensional_key(key):
             object.__setattr__(self, "_key", self._snapshot_multidimensional_key(cast(tuple[Any, ...], key)))
@@ -706,13 +743,31 @@ class IndexingStep:
     def _is_multidimensional_key(key: object) -> bool:
         return isinstance(key, tuple) and len(key) >= 2 and all(isinstance(item, slice) for item in key[1:])
 
+    @staticmethod
+    def _is_boolean_mask_key(key: object) -> bool:
+        return isinstance(key, np.ndarray) and key.dtype in (bool, np.bool_) and key.ndim == 1 and key.size > 0
+
+    @staticmethod
+    def _snapshot_boolean_mask(key: Any) -> _BooleanMask:
+        if isinstance(key, np.ndarray):
+            values = key.tolist()
+        else:
+            values = list(key)
+        return _BooleanMask(tuple(bool(value) for value in values))
+
     @classmethod
     def _snapshot_multidimensional_key(
         cls, key: tuple[Any, ...]
-    ) -> tuple[int | slice | tuple[int, ...] | tuple[str, ...], ...]:
+    ) -> tuple[int | slice | _BooleanMask | tuple[int, ...] | tuple[str, ...], ...]:
         channel_key = key[0]
         if isinstance(channel_key, slice):
-            frozen_channel_key: int | slice | tuple[int, ...] | tuple[str, ...] = cls._snapshot_slice(channel_key)
+            frozen_channel_key: int | slice | _BooleanMask | tuple[int, ...] | tuple[str, ...] = cls._snapshot_slice(
+                channel_key
+            )
+        elif isinstance(channel_key, _BooleanMask):
+            frozen_channel_key = cls._snapshot_boolean_mask(channel_key.values)
+        elif cls._is_boolean_mask_key(channel_key):
+            frozen_channel_key = cls._snapshot_boolean_mask(channel_key)
         elif isinstance(channel_key, numbers.Integral) and not isinstance(channel_key, bool):
             frozen_channel_key = int(channel_key)
         elif (
@@ -752,17 +807,21 @@ class IndexingStep:
         return int(value)
 
     @property
-    def key(self) -> slice | list[int] | list[str] | tuple[int | slice | list[int] | list[str], ...]:
+    def key(self) -> slice | np.ndarray[Any, np.dtype[np.bool_]] | list[int] | list[str] | tuple[Any, ...]:
         if isinstance(self._key, slice):
             return self._key
+        if isinstance(self._key, _BooleanMask):
+            return np.array(self._key.values, dtype=bool)
         if self._is_multidimensional_key(self._key):
             channel_key = self._key[0]
-            public_channel_key: int | slice | list[int] | list[str]
+            public_channel_key: int | slice | np.ndarray[Any, np.dtype[np.bool_]] | list[int] | list[str]
             if isinstance(channel_key, tuple):
                 public_channel_key = list(channel_key)
+            elif isinstance(channel_key, _BooleanMask):
+                public_channel_key = np.array(channel_key.values, dtype=bool)
             else:
                 public_channel_key = cast(int | slice, channel_key)
-            return cast(tuple[int | slice | list[int] | list[str], ...], (public_channel_key, *self._key[1:]))
+            return (public_channel_key, *self._key[1:])
         return list(self._key)
 
     @staticmethod
@@ -770,11 +829,15 @@ class IndexingStep:
         return {"start": key.start, "stop": key.stop, "step": key.step}
 
     @classmethod
-    def _channel_key_to_dict(cls, key: int | slice | tuple[int, ...] | tuple[str, ...]) -> dict[str, Any]:
+    def _channel_key_to_dict(
+        cls, key: int | slice | _BooleanMask | tuple[int, ...] | tuple[str, ...]
+    ) -> dict[str, Any]:
         if isinstance(key, slice):
             return {"type": "slice", **cls._slice_to_dict(key)}
         if isinstance(key, int):
             return {"type": "index", "value": key}
+        if isinstance(key, _BooleanMask):
+            return {"type": "boolean_mask", "mask": list(key.values)}
         if all(isinstance(index, int) for index in key):
             return {"type": "integer_list", "indices": list(key)}
         return {"type": "label_list", "labels": list(key)}
@@ -787,12 +850,14 @@ class IndexingStep:
                     **self._slice_to_dict(self._key),
                 }
             }
+        if isinstance(self._key, _BooleanMask):
+            return {"getitem": {"type": "boolean_mask", "mask": list(self._key.values)}}
         if self._is_multidimensional_key(self._key):
             return {
                 "getitem": {
                     "type": "multidimensional_slice",
                     "channel": self._channel_key_to_dict(
-                        cast(int | slice | tuple[int, ...] | tuple[str, ...], self._key[0])
+                        cast(int | slice | _BooleanMask | tuple[int, ...] | tuple[str, ...], self._key[0])
                     ),
                     "axis_slices": [self._slice_to_dict(axis_slice) for axis_slice in self._key[1:]],
                 }
