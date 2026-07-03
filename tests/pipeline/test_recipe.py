@@ -6,6 +6,7 @@ import pytest
 from dask.array.core import Array as DaArray
 
 from wandas.frames.channel import ChannelFrame
+from wandas.frames.noct import NOctFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.pipeline import (
@@ -23,6 +24,42 @@ def _frame() -> ChannelFrame:
     time = np.linspace(0, 1, sampling_rate, endpoint=False)
     data = (0.25 + np.sin(2 * np.pi * 1000 * time)).reshape(1, -1)
     return ChannelFrame.from_numpy(data, sampling_rate=sampling_rate, label="recipe-source")
+
+
+def _fake_center_freq(*, fmin: float, fmax: float, n: int, **_: object) -> tuple[np.ndarray, np.ndarray]:
+    bands = max(1, int(np.ceil(np.log2(fmax / fmin) * n)))
+    indices = np.arange(bands, dtype=np.float64)
+    return indices, fmin * 2.0 ** (indices / n)
+
+
+def _fake_noct_spectrum(
+    *,
+    sig: np.ndarray,
+    fs: float,
+    fmin: float,
+    fmax: float,
+    n: int,
+    fr: int,
+    **kwargs: object,
+) -> tuple[np.ndarray, np.ndarray]:
+    del fs, fr
+    _, fpref = _fake_center_freq(fmin=fmin, fmax=fmax, n=n, **kwargs)
+    data = np.asarray(sig)
+    n_channels = 1 if data.ndim == 1 else data.shape[-1]
+    spectrum = np.ones((fpref.shape[0], n_channels), dtype=np.float64)
+    if n_channels == 1:
+        return spectrum[:, 0], fpref
+    return spectrum, fpref
+
+
+def _patch_noct_backend(monkeypatch: pytest.MonkeyPatch) -> None:
+    import wandas.frames.noct as noct_frame_module
+    import wandas.processing.spectral as spectral_module
+
+    monkeypatch.setattr(spectral_module, "require_mosqito_center_freq", lambda _feature: _fake_center_freq)
+    monkeypatch.setattr(spectral_module, "_center_freq", _fake_center_freq)
+    monkeypatch.setattr(spectral_module, "noct_spectrum", _fake_noct_spectrum)
+    monkeypatch.setattr(noct_frame_module, "_center_freq", _fake_center_freq)
 
 
 def test_recipe_apply_runs_steps_in_order_and_preserves_source_frame() -> None:
@@ -392,6 +429,32 @@ def test_recipe_from_frame_extracts_welch_typed_transition() -> None:
     assert replayed.n_fft == processed.n_fft
     assert replayed.window == processed.window
     assert replayed.sampling_rate == processed.sampling_rate
+
+
+def test_recipe_from_frame_extracts_noct_spectrum_typed_transition(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_noct_backend(monkeypatch)
+    frame = _frame()
+    processed = frame.noct_spectrum(fmin=125, fmax=8000, n=3, G=10, fr=1000)
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (
+        TypedMethodStep(
+            "noct_spectrum",
+            {"fmin": 125, "fmax": 8000, "n": 3, "G": 10, "fr": 1000},
+        ),
+    )
+    assert isinstance(replayed, NOctFrame)
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.labels == processed.labels
+    assert replayed.sampling_rate == processed.sampling_rate
+    assert replayed.shape == processed.shape
+    assert replayed.fmin == processed.fmin
+    assert replayed.fmax == processed.fmax
+    assert replayed.n == processed.n
+    assert replayed.G == processed.G
+    assert replayed.fr == processed.fr
 
 
 def test_recipe_from_frame_rejects_welch_with_non_public_detrend() -> None:

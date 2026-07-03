@@ -38,6 +38,7 @@ _REPLAYABLE_TYPED_METHOD_OPERATIONS = {
     "fft": ("fft", None),
     "ifft": ("ifft", {}),
     "istft": ("istft", {}),
+    "noct_spectrum": ("noct_spectrum", None),
     "stft": ("stft", None),
     "transfer_function": ("transfer_function", None),
     "welch": (
