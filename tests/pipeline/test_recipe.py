@@ -1,5 +1,4 @@
 from collections.abc import Callable
-from dataclasses import asdict
 
 import dask.array as da
 import numpy as np
@@ -44,30 +43,25 @@ def test_recipe_apply_runs_steps_in_order_and_preserves_source_frame() -> None:
 
 
 def test_recipe_spec_snapshots_mutable_step_params() -> None:
-    params = {"cutoff": 100.0, "config": {"labels": ["a"]}}
+    params = {"cutoff": 100.0, "order": 2}
     operation = OperationSpec("highpass_filter", params)
     params["cutoff"] = 200.0
-    params["config"]["labels"].append("b")
     recipe = RecipeSpec([operation])
+    returned_params = operation.params
+    returned_params["cutoff"] = 300.0
 
     assert operation.params["cutoff"] == 100.0
-    assert operation.params["config"]["labels"] == ("a",)
-    assert asdict(operation)["params"] == {"config": {"labels": ("a",)}, "cutoff": 100.0}
     assert type(operation.to_dict()["params"]) is dict
     assert operation.to_dict() == {
         "operation": "highpass_filter",
-        "params": {"config": {"labels": ["a"]}, "cutoff": 100.0},
+        "params": {"cutoff": 100.0, "order": 2},
     }
-    with pytest.raises(TypeError):
-        operation.params["config"]["labels"] += ("c",)
-    with pytest.raises(TypeError):
-        operation.params["cutoff"] = 300.0  # ty: ignore[invalid-assignment]
     assert recipe.steps == (operation,)
     assert recipe.to_dict() == {
         "steps": [
             {
                 "operation": "highpass_filter",
-                "params": {"config": {"labels": ["a"]}, "cutoff": 100.0},
+                "params": {"cutoff": 100.0, "order": 2},
             }
         ]
     }
@@ -82,10 +76,13 @@ def test_recipe_spec_snapshots_mutable_step_params() -> None:
         1 + 2j,
         {1, 2},
         frozenset({1, 2}),
+        {"nested": 1},
+        [1, 2],
+        (1, 2),
     ],
 )
-def test_operation_spec_rejects_non_literal_mutable_params(value: object) -> None:
-    with pytest.raises(TypeError, match="OperationSpec params must be recipe-literal values"):
+def test_operation_spec_rejects_non_flat_literal_params(value: object) -> None:
+    with pytest.raises(TypeError, match="OperationSpec params must be flat recipe-literal values"):
         OperationSpec("normalize", {"value": value})
 
 
@@ -161,22 +158,22 @@ def test_recipe_from_frame_empty_history_returns_empty_recipe() -> None:
         (
             "fft domain transition",
             lambda frame: frame.fft(),
-            "Domain-transition operation requires a typed recipe",
+            "Operation is outside the Stage 1 recipe allowlist",
         ),
         (
             "stft domain transition",
             lambda frame: frame.stft(n_fft=512, hop_length=128),
-            "Domain-transition operation requires a typed recipe",
+            "Operation is outside the Stage 1 recipe allowlist",
         ),
         (
             "binary scalar operation",
             lambda frame: frame + 0.1,
-            "Operation does not map to a registered Wandas operation",
+            "Operation is outside the Stage 1 recipe allowlist",
         ),
         (
             "binary frame operation",
             lambda frame: frame + _frame().normalize(),
-            "Operation does not map to a registered Wandas operation",
+            "Operation is outside the Stage 1 recipe allowlist",
         ),
         (
             "custom apply operation",
@@ -185,12 +182,12 @@ def test_recipe_from_frame_empty_history_returns_empty_recipe() -> None:
                 output_shape_func=lambda shape: shape,
                 gain=2.0,
             ),
-            "Custom callable operation requires a callable recipe",
+            "Operation is outside the Stage 1 recipe allowlist",
         ),
         (
             "frame method metadata operation",
             lambda frame: frame.fix_length(length=8000),
-            "Frame-method operation requires method-aware recipe support",
+            "Operation is outside the Stage 1 recipe allowlist",
         ),
         (
             "sum frame method metadata operation",
@@ -198,7 +195,7 @@ def test_recipe_from_frame_empty_history_returns_empty_recipe() -> None:
                 np.vstack([frame.data, frame.data]),
                 sampling_rate=frame.sampling_rate,
             ).sum(),
-            "Frame-method operation requires method-aware recipe support",
+            "Operation is outside the Stage 1 recipe allowlist",
         ),
         (
             "mean frame method metadata operation",
@@ -206,12 +203,12 @@ def test_recipe_from_frame_empty_history_returns_empty_recipe() -> None:
                 np.vstack([frame.data, frame.data]),
                 sampling_rate=frame.sampling_rate,
             ).mean(),
-            "Frame-method operation requires method-aware recipe support",
+            "Operation is outside the Stage 1 recipe allowlist",
         ),
         (
             "registered operation outside stage one",
             lambda frame: frame.abs(),
-            "Registered operation is not yet recipe-replayable",
+            "Operation is outside the Stage 1 recipe allowlist",
         ),
     ],
 )

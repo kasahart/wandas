@@ -15,12 +15,17 @@ sklearn 互換の `WandasOperationTransformer` は、`BaseEstimator` / `Transfor
 
 単一 Wandas operation の replayable な呼び出しを表す。`operation` は `"normalize"` や `"highpass_filter"` のような registry key を使う。`params` は作成時に snapshot されるため、呼び出し元の dict を後から変更しても spec は変わらない。
 
+Stage 1 では、`params` は flat な recipe literal に限定する。対応する値は `None`、`bool`、`int`、`float`、`str` である。nested dict/list、callable、array-like object は、保存形式と equality policy を決めるまで受け付けない。
+
 ### `wandas.pipeline.RecipeSpec`
 
 - `steps: tuple[OperationSpec, ...]`
 - `apply(frame) -> frame`
+- `from_frame(frame) -> RecipeSpec`
 
 `steps` を順番に処理し、各 step で `frame.apply_operation(step.operation, **step.params)` を呼ぶ。`RecipeSpec` 自体は frame を保持しないため、同じレシピを複数 frame に再適用できる。
+
+`from_frame(frame)` は、探索的に処理した frame の `operation_graph` から Stage 1 で安全に replay できる直列 chain だけを抽出する。対応外の計算は黙って落とさず、`RecipeExtractionError` で現在の境界を返す。
 
 ### `wandas.pipeline.sklearn.WandasOperationTransformer`
 
@@ -87,9 +92,9 @@ sklearn.pipeline.Pipeline
 
 ## Future Extensions / 次フェーズ候補
 
-- frame の探索的メソッドチェインから `RecipeSpec.from_frame(processed)` で Recipe を抽出する UX。
 - `FrameMethodStep` を追加し、`sum()`、`mean()`、`fix_length()` のような method 固有 metadata 処理を replay する。
 - `GraphRecipeSpec` を追加し、binary operation、複数入力 operation、shared branch を表現する。
+- `RecipeSpec.from_frame(processed)` を method-aware / typed / graph recipe まで拡張する。
 - `RecipeSpec` の JSON schema と WDF metadata 保存。
 - `RecipeSpec` と sklearn `Pipeline` の明示的な相互変換。
 - domain transition を含む recipe の型制約。

@@ -35,7 +35,6 @@ PROJECT_PACKAGE_BY_REGISTRY_KEY = {
     "mosqito_center_freq": "mosqito",
     "ipython_display": "ipython",
     "sklearn_base": "scikit-learn",
-    "sklearn_pipeline": "scikit-learn",
     "torch": "torch",
     "tensorflow": "tensorflow",
 }
@@ -378,11 +377,11 @@ def test_sharpness_din_tv_wrapper_missing_mosqito_names_feature(monkeypatch: pyt
     assert 'pip install "wandas[psychoacoustic]"' in message
 
 
-def test_import_wandas_without_librosa_or_mosqito() -> None:
+def test_import_wandas_without_optional_analysis_or_sklearn_dependencies() -> None:
     script = """
         import importlib.abc
 
-        BLOCKED = {"librosa", "mosqito"}
+        BLOCKED = {"librosa", "mosqito", "sklearn"}
 
         class BlockOptionalImports(importlib.abc.MetaPathFinder):
             def find_spec(self, fullname, path, target=None):
@@ -400,6 +399,7 @@ def test_import_wandas_without_librosa_or_mosqito() -> None:
         import wandas
 
         assert wandas.read_wav is not None
+        assert "sklearn" not in sys.modules
     """
 
     _run_isolated_script(script)

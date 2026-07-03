@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 import numbers
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol, TypeVar, cast
 
@@ -18,24 +18,6 @@ class RecipeExtractionError(ValueError):
     """Raised when a frame lineage cannot be represented by RecipeSpec."""
 
 
-_DOMAIN_TRANSITION_OPERATIONS = frozenset(
-    {
-        "coherence",
-        "csd",
-        "fft",
-        "ifft",
-        "istft",
-        "noct_spectrum",
-        "noct_synthesis",
-        "roughness_dw",
-        "roughness_dw_spec",
-        "stft",
-        "transfer_function",
-        "welch",
-    }
-)
-_CALLABLE_OPERATIONS = frozenset({"custom"})
-_FRAME_METHOD_OPERATIONS = frozenset({"fix_length", "mean", "sum"})
 _REPLAYABLE_APPLY_OPERATIONS = frozenset(
     {
         "bandpass_filter",
@@ -49,30 +31,7 @@ _REPLAYABLE_APPLY_OPERATIONS = frozenset(
 )
 
 
-class _FrozenMapping(Mapping[str, Any]):
-    def __init__(self, items: Iterable[tuple[str, Any]]) -> None:
-        self._items = tuple(items)
-        self._dict = dict(self._items)
-
-    def __getitem__(self, key: str) -> Any:
-        return self._dict[key]
-
-    def __iter__(self) -> Iterator[str]:
-        return iter(self._dict)
-
-    def __len__(self) -> int:
-        return len(self._dict)
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, Mapping):
-            return NotImplemented
-        return dict(self.items()) == dict(other.items())
-
-    def __repr__(self) -> str:
-        return repr(self._dict)
-
-
-def _freeze_value(value: Any) -> Any:
+def _snapshot_param_value(value: Any) -> Any:
     if value is None or isinstance(value, bool | str):
         return value
     if isinstance(value, numbers.Integral):
@@ -85,32 +44,24 @@ def _freeze_value(value: Any) -> Any:
                 "  NaN does not compare equal to itself, so recipe equality becomes unstable."
             )
         return frozen_float
-    if isinstance(value, Mapping):
-        frozen: list[tuple[str, Any]] = []
-        for key, item in value.items():
-            if not isinstance(key, str):
-                raise TypeError(
-                    "OperationSpec params mapping keys must be strings\n"
-                    f"  Got: {type(key).__name__}\n"
-                    "  Recipe params use string keys so equality and serialization stay predictable."
-                )
-            frozen.append((key, _freeze_value(item)))
-        return _FrozenMapping(sorted(frozen))
-    if isinstance(value, list | tuple):
-        return tuple(_freeze_value(item) for item in value)
     raise TypeError(
-        "OperationSpec params must be recipe-literal values\n"
+        "OperationSpec params must be flat recipe-literal values\n"
         f"  Got: {type(value).__name__}\n"
-        "  Supported values: None, bool, int, float, str, and nested mappings/sequences of those values."
+        "  Supported values: None, bool, int, float, and str."
     )
 
 
-def _to_plain_value(value: Any) -> Any:
-    if isinstance(value, Mapping):
-        return {key: _to_plain_value(item) for key, item in value.items()}
-    if isinstance(value, tuple):
-        return [_to_plain_value(item) for item in value]
-    return value
+def _snapshot_params(params: Mapping[str, Any]) -> tuple[tuple[str, Any], ...]:
+    frozen: list[tuple[str, Any]] = []
+    for key, value in params.items():
+        if not isinstance(key, str):
+            raise TypeError(
+                "OperationSpec params mapping keys must be strings\n"
+                f"  Got: {type(key).__name__}\n"
+                "  Recipe params use string keys so equality and serialization stay predictable."
+            )
+        frozen.append((key, _snapshot_param_value(value)))
+    return tuple(sorted(frozen))
 
 
 def _restore_history_value(value: Any) -> Any:
@@ -130,36 +81,16 @@ def _restore_history_value(value: Any) -> Any:
 
 
 def _validate_replayable_operation(operation: str) -> None:
-    if operation in _DOMAIN_TRANSITION_OPERATIONS:
-        raise RecipeExtractionError(
-            "Domain-transition operation requires a typed recipe\n"
-            f"  Operation: {operation}\n"
-            "  Current RecipeSpec can only replay same-frame apply_operation steps."
-        )
-    if operation in _CALLABLE_OPERATIONS:
-        raise RecipeExtractionError(
-            "Custom callable operation requires a callable recipe\n"
-            f"  Operation: {operation}\n"
-            "  Current RecipeSpec stores parameters, not Python callable bodies."
-        )
-    if operation in _FRAME_METHOD_OPERATIONS:
-        raise RecipeExtractionError(
-            "Frame-method operation requires method-aware recipe support\n"
-            f"  Operation: {operation}\n"
-            "  Current RecipeSpec replays apply_operation calls and cannot yet "
-            "reconstruct method-specific metadata handling."
-        )
-
     try:
         from wandas.processing import get_operation
 
         operation_class = get_operation(operation)
     except ValueError as exc:
         raise RecipeExtractionError(
-            "Operation does not map to a registered Wandas operation\n"
+            "Operation is outside the Stage 1 recipe allowlist\n"
             f"  Operation: {operation}\n"
-            "  GraphRecipe support is required for binary operators, scalar operands, "
-            "and other non-registry frame calculations."
+            "  Current RecipeSpec can only replay selected single-input Wandas operations. "
+            "Graph, method, domain-transition, and callable recipes require the next recipe model."
         ) from exc
 
     expected_input_count = getattr(operation_class, "_expected_input_count", 1)
@@ -172,10 +103,10 @@ def _validate_replayable_operation(operation: str) -> None:
         )
     if operation not in _REPLAYABLE_APPLY_OPERATIONS:
         raise RecipeExtractionError(
-            "Registered operation is not yet recipe-replayable\n"
+            "Operation is outside the Stage 1 recipe allowlist\n"
             f"  Operation: {operation}\n"
-            "  Current RecipeSpec uses an explicit Stage 1 allowlist so new "
-            "operations require a recipe capability decision before extraction."
+            "  Current RecipeSpec can only replay selected single-input Wandas operations. "
+            "Graph, method, domain-transition, and callable recipes require the next recipe model."
         )
 
 
@@ -201,14 +132,18 @@ class OperationSpec:
     """Replayable single-frame operation call."""
 
     operation: str
-    params: Mapping[str, Any]
+    _params: tuple[tuple[str, Any], ...]
 
     def __init__(self, operation: str, params: Mapping[str, Any] | None = None) -> None:
         object.__setattr__(self, "operation", operation)
-        object.__setattr__(self, "params", _freeze_value(dict(params or {})))
+        object.__setattr__(self, "_params", _snapshot_params(params or {}))
+
+    @property
+    def params(self) -> dict[str, Any]:
+        return dict(self._params)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"operation": self.operation, "params": _to_plain_value(self.params)}
+        return {"operation": self.operation, "params": self.params}
 
 
 @dataclass(frozen=True, init=False)
