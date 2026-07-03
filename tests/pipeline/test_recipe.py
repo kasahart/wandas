@@ -2,6 +2,7 @@ import json
 import re
 from collections.abc import Callable
 from types import SimpleNamespace
+from typing import Any
 
 import dask.array as da
 import numpy as np
@@ -729,9 +730,9 @@ def test_recipe_from_frame_rejects_non_literal_channel_queries(
         RecipeSpec.from_frame(processed)
 
 
-def test_recipe_from_frame_rejects_integer_list_channel_and_time_indexing_boundary() -> None:
+def test_recipe_from_frame_rejects_array_channel_and_time_indexing_boundary() -> None:
     frame = _two_channel_frame_with_refs()
-    processed = frame[[0, 1], 10:20]
+    processed = frame[np.array([0, 1]), 10:20]
 
     with pytest.raises(RecipeExtractionError, match="Multidimensional indexing recipe extraction only supports"):
         RecipeSpec.from_frame(processed)
@@ -740,12 +741,11 @@ def test_recipe_from_frame_rejects_integer_list_channel_and_time_indexing_bounda
 @pytest.mark.parametrize(
     "build_frame",
     [
-        lambda frame: frame[[0, 1]],
         lambda frame: frame[np.array([0, 1])],
         lambda frame: frame[np.array([True, True])],
     ],
 )
-def test_recipe_from_frame_rejects_getitem_index_arrays_and_integer_lists(
+def test_recipe_from_frame_rejects_getitem_index_arrays(
     build_frame: Callable[[ChannelFrame], ChannelFrame],
 ) -> None:
     frame = _two_channel_frame_with_refs()
@@ -753,6 +753,20 @@ def test_recipe_from_frame_rejects_getitem_index_arrays_and_integer_lists(
 
     with pytest.raises(RecipeExtractionError, match="Indexing recipe extraction only supports channel-only"):
         RecipeSpec.from_frame(processed)
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        [True, False],
+        ([True, False], slice(100, 200)),
+    ],
+)
+def test_recipe_from_frame_rejects_python_boolean_list_indexing(key: Any) -> None:
+    frame = _two_channel_frame_with_refs()
+
+    with pytest.raises(TypeError, match="List must contain all str or all int"):
+        _ = frame[key]
 
 
 def test_getitem_label_list_recipe_extraction_snapshots_labels() -> None:
@@ -767,6 +781,20 @@ def test_getitem_label_list_recipe_extraction_snapshots_labels() -> None:
     assert recipe.to_dict() == {"steps": [{"getitem": {"type": "label_list", "labels": ["left", "right"]}}]}
     assert replayed.operation_history == processed.operation_history
     assert replayed.labels == ["left", "right"]
+
+
+def test_getitem_integer_list_recipe_extraction_snapshots_indices() -> None:
+    frame = _two_channel_frame_with_refs()
+    indices = [1, 0]
+    processed = frame[indices]
+    indices[0] = 0
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.to_dict() == {"steps": [{"getitem": {"type": "integer_list", "indices": [1, 0]}}]}
+    assert replayed.operation_history == processed.operation_history
+    assert replayed.labels == ["right", "left"]
 
 
 def test_recipe_from_frame_rejects_legacy_getitem_channel_slice_without_bounds() -> None:
@@ -789,6 +817,10 @@ def test_recipe_from_frame_rejects_legacy_getitem_channel_slice_without_bounds()
         (
             lambda frame: frame[["left", "right"]],
             {"getitem": {"type": "label_list", "labels": ["left", "right"]}},
+        ),
+        (
+            lambda frame: frame[[1, 0]],
+            {"getitem": {"type": "integer_list", "indices": [1, 0]}},
         ),
     ],
 )
@@ -828,6 +860,16 @@ def test_recipe_from_frame_extracts_getitem_channel_selection(
                 "getitem": {
                     "type": "multidimensional_slice",
                     "channel": {"type": "index", "value": 1},
+                    "axis_slices": [{"start": 200, "stop": 600, "step": None}],
+                }
+            },
+        ),
+        (
+            lambda frame: frame[[1, 0], 200:600],
+            {
+                "getitem": {
+                    "type": "multidimensional_slice",
+                    "channel": {"type": "integer_list", "indices": [1, 0]},
                     "axis_slices": [{"start": 200, "stop": 600, "step": None}],
                 }
             },

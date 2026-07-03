@@ -87,7 +87,7 @@ _REPLAYABLE_TYPED_METHOD_NAMES = frozenset(
     method for method, _param_names in _REPLAYABLE_TYPED_METHOD_OPERATIONS.values()
 )
 _REPLAYABLE_SCALAR_OPERATIONS = frozenset({"+", "-", "*", "/", "**"})
-_REPLAYABLE_GETITEM_INDEXING = frozenset({"channel_slice", "label_list", "multidimensional_slice"})
+_REPLAYABLE_GETITEM_INDEXING = frozenset({"channel_slice", "integer_list", "label_list", "multidimensional_slice"})
 
 
 def _snapshot_param_value(value: Any) -> Any:
@@ -382,7 +382,18 @@ def _axis_slices_from_params(params: Mapping[str, Any]) -> tuple[slice, ...]:
     )
 
 
-def _channel_key_from_getitem_params(params: Mapping[str, Any]) -> slice | list[str]:
+def _indices_from_params(params: Mapping[str, Any]) -> list[int]:
+    indices = params.get("indices")
+    if not isinstance(indices, list | tuple) or not indices:
+        raise RecipeExtractionError(f"Integer-list indexing recipe extraction requires indices\n  Got: {indices!r}")
+    if not all(isinstance(index, numbers.Integral) and not isinstance(index, bool) for index in indices):
+        raise RecipeExtractionError(
+            f"Integer-list indexing recipe extraction requires integer indices\n  Got: {indices!r}"
+        )
+    return [int(index) for index in indices]
+
+
+def _channel_key_from_getitem_params(params: Mapping[str, Any]) -> slice | list[int] | list[str]:
     indexing = params.get("indexing")
     if indexing == "channel_slice":
         return slice(
@@ -390,17 +401,20 @@ def _channel_key_from_getitem_params(params: Mapping[str, Any]) -> slice | list[
             _optional_int_from_params(params, "stop"),
             _optional_int_from_params(params, "step"),
         )
+    if indexing == "integer_list":
+        return _indices_from_params(params)
     if indexing == "label_list":
         labels = params.get("labels")
         if isinstance(labels, list | tuple) and all(isinstance(label, str) for label in labels):
             return list(labels)
     raise RecipeExtractionError(
-        "Multidimensional indexing recipe extraction only supports slice or label-list channel selectors\n"
+        "Multidimensional indexing recipe extraction only supports slice, integer-list, "
+        "or label-list channel selectors\n"
         f"  Parent indexing kind: {indexing!r}"
     )
 
 
-def _channel_key_from_parent_graph(parent: Mapping[str, Any]) -> int | slice | list[str]:
+def _channel_key_from_parent_graph(parent: Mapping[str, Any]) -> int | slice | list[int] | list[str]:
     operation = str(parent["operation"])
     params = cast(Mapping[str, Any], _restore_history_value(parent.get("params", {})))
     if operation == "get_channel":
@@ -437,6 +451,8 @@ def _getitem_step_from_graph(params: Mapping[str, Any]) -> IndexingStep:
                 _optional_int_from_params(params, "step"),
             )
         )
+    if indexing == "integer_list":
+        return IndexingStep(_indices_from_params(params))
     if indexing == "multidimensional_slice":
         return IndexingStep((slice(None), *_axis_slices_from_params(params)))
     labels = params.get("labels")
@@ -634,9 +650,9 @@ class ScalarOperationStep:
 class IndexingStep:
     """Replayable channel-only indexing call."""
 
-    _key: slice | tuple[str, ...] | tuple[int | slice | tuple[str, ...], ...]
+    _key: slice | tuple[int, ...] | tuple[str, ...] | tuple[int | slice | tuple[int, ...] | tuple[str, ...], ...]
 
-    def __init__(self, key: slice | list[str] | tuple[str, ...] | tuple[int | slice | list[str], ...]) -> None:
+    def __init__(self, key: Any) -> None:
         if isinstance(key, slice):
             object.__setattr__(
                 self,
@@ -647,9 +663,17 @@ class IndexingStep:
         if self._is_multidimensional_key(key):
             object.__setattr__(self, "_key", self._snapshot_multidimensional_key(cast(tuple[Any, ...], key)))
             return
+        if (
+            isinstance(key, list | tuple)
+            and key
+            and all(isinstance(index, numbers.Integral) and not isinstance(index, bool) for index in key)
+        ):
+            object.__setattr__(self, "_key", tuple(int(index) for index in key))
+            return
         if not isinstance(key, list | tuple) or not key or not all(isinstance(label, str) for label in key):
             raise TypeError(
-                f"IndexingStep key must be a channel slice or non-empty label list\n  Got: {type(key).__name__}"
+                "IndexingStep key must be a channel slice, non-empty integer list, or non-empty label list\n"
+                f"  Got: {type(key).__name__}"
             )
         object.__setattr__(self, "_key", tuple(key))
 
@@ -658,17 +682,26 @@ class IndexingStep:
         return isinstance(key, tuple) and len(key) >= 2 and all(isinstance(item, slice) for item in key[1:])
 
     @classmethod
-    def _snapshot_multidimensional_key(cls, key: tuple[Any, ...]) -> tuple[int | slice | tuple[str, ...], ...]:
+    def _snapshot_multidimensional_key(
+        cls, key: tuple[Any, ...]
+    ) -> tuple[int | slice | tuple[int, ...] | tuple[str, ...], ...]:
         channel_key = key[0]
         if isinstance(channel_key, slice):
-            frozen_channel_key: int | slice | tuple[str, ...] = cls._snapshot_slice(channel_key)
+            frozen_channel_key: int | slice | tuple[int, ...] | tuple[str, ...] = cls._snapshot_slice(channel_key)
         elif isinstance(channel_key, numbers.Integral) and not isinstance(channel_key, bool):
             frozen_channel_key = int(channel_key)
+        elif (
+            isinstance(channel_key, list)
+            and channel_key
+            and all(isinstance(index, numbers.Integral) and not isinstance(index, bool) for index in channel_key)
+        ):
+            frozen_channel_key = tuple(int(index) for index in channel_key)
         elif isinstance(channel_key, list) and channel_key and all(isinstance(label, str) for label in channel_key):
             frozen_channel_key = tuple(channel_key)
         else:
             raise TypeError(
-                "IndexingStep multidimensional channel key must be an int, slice, or non-empty label list\n"
+                "IndexingStep multidimensional channel key must be an int, slice, non-empty integer list, "
+                "or non-empty label list\n"
                 f"  Got: {type(channel_key).__name__}"
             )
         return (frozen_channel_key, *(cls._snapshot_slice(axis_slice) for axis_slice in key[1:]))
@@ -694,17 +727,17 @@ class IndexingStep:
         return int(value)
 
     @property
-    def key(self) -> slice | list[str] | tuple[int | slice | list[str], ...]:
+    def key(self) -> slice | list[int] | list[str] | tuple[int | slice | list[int] | list[str], ...]:
         if isinstance(self._key, slice):
             return self._key
         if self._is_multidimensional_key(self._key):
             channel_key = self._key[0]
-            public_channel_key: int | slice | list[str]
+            public_channel_key: int | slice | list[int] | list[str]
             if isinstance(channel_key, tuple):
                 public_channel_key = list(channel_key)
             else:
                 public_channel_key = cast(int | slice, channel_key)
-            return cast(tuple[int | slice | list[str], ...], (public_channel_key, *self._key[1:]))
+            return cast(tuple[int | slice | list[int] | list[str], ...], (public_channel_key, *self._key[1:]))
         return list(self._key)
 
     @staticmethod
@@ -712,11 +745,13 @@ class IndexingStep:
         return {"start": key.start, "stop": key.stop, "step": key.step}
 
     @classmethod
-    def _channel_key_to_dict(cls, key: int | slice | tuple[str, ...]) -> dict[str, Any]:
+    def _channel_key_to_dict(cls, key: int | slice | tuple[int, ...] | tuple[str, ...]) -> dict[str, Any]:
         if isinstance(key, slice):
             return {"type": "slice", **cls._slice_to_dict(key)}
         if isinstance(key, int):
             return {"type": "index", "value": key}
+        if all(isinstance(index, int) for index in key):
+            return {"type": "integer_list", "indices": list(key)}
         return {"type": "label_list", "labels": list(key)}
 
     def to_dict(self) -> dict[str, Any]:
@@ -731,10 +766,14 @@ class IndexingStep:
             return {
                 "getitem": {
                     "type": "multidimensional_slice",
-                    "channel": self._channel_key_to_dict(cast(int | slice | tuple[str, ...], self._key[0])),
+                    "channel": self._channel_key_to_dict(
+                        cast(int | slice | tuple[int, ...] | tuple[str, ...], self._key[0])
+                    ),
                     "axis_slices": [self._slice_to_dict(axis_slice) for axis_slice in self._key[1:]],
                 }
             }
+        if self._key and all(isinstance(index, int) for index in self._key):
+            return {"getitem": {"type": "integer_list", "indices": list(self._key)}}
         return {"getitem": {"type": "label_list", "labels": list(self._key)}}
 
     def apply(self, frame: Any) -> Any:

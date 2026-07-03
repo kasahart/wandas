@@ -955,7 +955,7 @@ class BaseFrame(ABC, Generic[T]):
                 )
 
             # Check if all elements are integers
-            if all(isinstance(k, int | np.integer) for k in key):
+            if all(isinstance(k, int | np.integer) and not isinstance(k, bool | np.bool_) for k in key):
                 # Multiple indices - convert to list[int] for type safety
                 int_list = [int(k) for k in key]
                 result = self.get_channel(int_list)
@@ -964,7 +964,10 @@ class BaseFrame(ABC, Generic[T]):
                     channel_metadata=result.channels.to_list(),
                     channel_ids=result._channel_ids,
                     source_time_offset=result.source_time_offset,
-                    lineage=self._lineage_with_unsupported_indexing("integer_list"),
+                    lineage=self._lineage_with_method(
+                        "__getitem__",
+                        {"indexing": "integer_list", "indices": tuple(int_list)},
+                    ),
                 )
 
             raise TypeError(f"List must contain all str or all int, got mixed types: {[type(k).__name__ for k in key]}")
