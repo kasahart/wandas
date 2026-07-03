@@ -366,7 +366,7 @@ def test_recipe_from_frame_rejects_custom_lambda_boundary() -> None:
         RecipeSpec.from_frame(processed)
 
 
-def test_recipe_from_frame_rejects_custom_domain_transition_boundary() -> None:
+def test_recipe_from_frame_extracts_custom_domain_transition() -> None:
     frame = _frame()
     processed = frame.apply(
         custom_rfft,
@@ -375,7 +375,74 @@ def test_recipe_from_frame_rejects_custom_domain_transition_boundary() -> None:
         output_frame_kwargs={"n_fft": frame.n_samples, "window": "hann"},
     )
 
-    with pytest.raises(RecipeExtractionError, match="Custom operation domain transitions require"):
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (
+        CustomFunctionStep(
+            "tests.pipeline.custom_recipe_fixtures.custom_rfft",
+            {},
+            output_shape_function="tests.pipeline.custom_recipe_fixtures.rfft_shape",
+            output_frame_class="wandas.frames.spectral.SpectralFrame",
+            output_frame_kwargs={"n_fft": frame.n_samples, "window": "hann"},
+        ),
+    )
+    assert recipe.to_dict() == {
+        "steps": [
+            {
+                "custom_function": "tests.pipeline.custom_recipe_fixtures.custom_rfft",
+                "output_shape_function": "tests.pipeline.custom_recipe_fixtures.rfft_shape",
+                "dask_pure": True,
+                "output_frame_class": "wandas.frames.spectral.SpectralFrame",
+                "output_frame_kwargs": {"n_fft": frame.n_samples, "window": "hann"},
+                "params": {},
+            }
+        ]
+    }
+    assert isinstance(replayed, SpectralFrame)
+    assert replayed.n_fft == processed.n_fft == frame.n_samples
+    assert replayed.window == processed.window == "hann"
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.operation_history == processed.operation_history
+    assert processed.operation_graph is not None
+    assert processed.operation_graph["custom"] == {
+        "function": "tests.pipeline.custom_recipe_fixtures.custom_rfft",
+        "output_shape_function": "tests.pipeline.custom_recipe_fixtures.rfft_shape",
+        "dask_pure": True,
+        "output_frame_class": "wandas.frames.spectral.SpectralFrame",
+        "output_frame_kwargs": {"n_fft": frame.n_samples, "window": "hann"},
+    }
+
+
+def test_recipe_from_frame_rejects_non_importable_custom_output_frame_class() -> None:
+    frame = _frame()
+
+    class LocalSpectralFrame(SpectralFrame):
+        pass
+
+    processed = frame.apply(
+        custom_rfft,
+        output_shape_func=rfft_shape,
+        output_frame_class=LocalSpectralFrame,
+        output_frame_kwargs={"n_fft": frame.n_samples, "window": "hann"},
+    )
+
+    with pytest.raises(RecipeExtractionError, match="importable output frame class"):
+        RecipeSpec.from_frame(processed)
+
+
+def test_recipe_from_frame_rejects_non_literal_custom_output_frame_kwargs() -> None:
+    frame = _frame()
+    processed = frame.apply(
+        custom_rfft,
+        output_shape_func=rfft_shape,
+        output_frame_class=SpectralFrame,
+        output_frame_kwargs={"n_fft": np.array([frame.n_samples]), "window": "hann"},
+    )
+
+    assert processed.operation_graph is not None
+    assert "custom" not in processed.operation_graph
+    with pytest.raises(RecipeExtractionError, match="Custom operation recipe extraction requires importable"):
         RecipeSpec.from_frame(processed)
 
 

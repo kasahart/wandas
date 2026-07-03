@@ -355,6 +355,32 @@ def _load_importable_function(path: str) -> Callable[..., Any]:
     return cast(Callable[..., Any], func)
 
 
+def _load_importable_frame_class(path: str) -> type[Any]:
+    module_name, _, attr_name = path.rpartition(".")
+    if not module_name or not attr_name:
+        raise ValueError(f"CustomFunctionStep output_frame_class must be a module-level import path\n  Got: {path!r}")
+    if module_name == "__main__":
+        raise TypeError(
+            f"CustomFunctionStep output_frame_class must resolve to an importable BaseFrame subclass\n  Path: {path!r}"
+        )
+    module = importlib.import_module(module_name)
+    frame_class = getattr(module, attr_name)
+
+    from wandas.core.base_frame import BaseFrame
+
+    if not inspect.isclass(frame_class) or not issubclass(frame_class, BaseFrame):
+        raise TypeError(
+            "CustomFunctionStep output_frame_class must resolve to an importable BaseFrame subclass\n"
+            f"  Path: {path!r}\n"
+            f"  Got: {type(frame_class).__name__}"
+        )
+    if frame_class.__module__ != module_name or getattr(module, frame_class.__name__, None) is not frame_class:
+        raise TypeError(
+            f"CustomFunctionStep output_frame_class must resolve to its module-level class\n  Path: {path!r}"
+        )
+    return cast(type[Any], frame_class)
+
+
 def _custom_function_step_from_graph(
     params: Mapping[str, Any],
     custom_metadata: Mapping[str, Any] | None,
@@ -365,13 +391,6 @@ def _custom_function_step_from_graph(
             "  Supported custom operations: module-level functions importable as 'module.function'.\n"
             "  Unsupported custom operations: lambdas, closures, nested functions, callable objects, "
             "bound methods, functools.partial, and __main__ functions."
-        )
-    if custom_metadata.get("output_frame_class") is not None:
-        raise RecipeExtractionError(
-            "Custom operation domain transitions require an explicit typed custom recipe model\n"
-            f"  Output frame class: {custom_metadata.get('output_frame_class')!r}\n"
-            "  Same-frame importable custom functions can be replayed; custom output frame metadata "
-            "needs a richer recipe contract."
         )
     function = custom_metadata.get("function")
     if not isinstance(function, str):
@@ -389,12 +408,39 @@ def _custom_function_step_from_graph(
         raise RecipeExtractionError(
             f"Custom operation recipe extraction requires a boolean dask_pure flag\n  Metadata: {custom_metadata!r}"
         )
-    return CustomFunctionStep(
-        function,
-        params,
-        output_shape_function=output_shape_function,
-        dask_pure=dask_pure,
-    )
+    output_frame_class = custom_metadata.get("output_frame_class")
+    if output_frame_class is not None and not isinstance(output_frame_class, str):
+        raise RecipeExtractionError(
+            "Custom operation recipe extraction requires an importable output frame class path\n"
+            f"  Metadata: {custom_metadata!r}"
+        )
+    if output_frame_class is not None:
+        try:
+            _load_importable_frame_class(output_frame_class)
+        except (ImportError, AttributeError, TypeError, ValueError) as exc:
+            raise RecipeExtractionError(
+                "Custom operation recipe extraction requires an importable output frame class\n"
+                f"  Output frame class: {output_frame_class!r}"
+            ) from exc
+    output_frame_kwargs = custom_metadata.get("output_frame_kwargs", {})
+    if not isinstance(output_frame_kwargs, Mapping):
+        raise RecipeExtractionError(
+            f"Custom operation recipe extraction requires output_frame_kwargs mapping\n  Metadata: {custom_metadata!r}"
+        )
+    try:
+        return CustomFunctionStep(
+            function,
+            params,
+            output_shape_function=output_shape_function,
+            dask_pure=dask_pure,
+            output_frame_class=output_frame_class,
+            output_frame_kwargs=output_frame_kwargs,
+        )
+    except TypeError as exc:
+        raise RecipeExtractionError(
+            "Custom operation recipe extraction requires recipe-literal params and output_frame_kwargs\n"
+            f"  Metadata: {custom_metadata!r}"
+        ) from exc
 
 
 def _rename_mapping_from_params(params: Mapping[str, Any]) -> dict[int | str, str]:
@@ -913,6 +959,8 @@ class CustomFunctionStep:
     function: str
     output_shape_function: str | None
     dask_pure: bool
+    output_frame_class: str | None
+    _output_frame_kwargs: tuple[tuple[str, Any], ...]
     _params: tuple[tuple[str, Any], ...]
 
     def __init__(
@@ -922,6 +970,8 @@ class CustomFunctionStep:
         *,
         output_shape_function: str | None = None,
         dask_pure: bool = True,
+        output_frame_class: str | None = None,
+        output_frame_kwargs: Mapping[str, Any] | None = None,
     ) -> None:
         if not isinstance(function, str) or not function:
             raise TypeError("CustomFunctionStep function must be a non-empty import path string")
@@ -938,31 +988,54 @@ class CustomFunctionStep:
             )
         if not isinstance(dask_pure, bool):
             raise TypeError(f"CustomFunctionStep dask_pure must be a bool\n  Got: {type(dask_pure).__name__}")
+        if output_frame_class is not None and (not isinstance(output_frame_class, str) or not output_frame_class):
+            raise TypeError("CustomFunctionStep output_frame_class must be None or a non-empty import path string")
+        if output_frame_class is not None and "." not in output_frame_class:
+            raise ValueError(
+                f"CustomFunctionStep output_frame_class must be a module import path\n  Got: {output_frame_class!r}"
+            )
+        if output_frame_class is None and output_frame_kwargs:
+            raise TypeError("CustomFunctionStep output_frame_kwargs require output_frame_class")
         object.__setattr__(self, "function", function)
         object.__setattr__(self, "output_shape_function", output_shape_function)
         object.__setattr__(self, "dask_pure", dask_pure)
+        object.__setattr__(self, "output_frame_class", output_frame_class)
+        object.__setattr__(self, "_output_frame_kwargs", _snapshot_params(output_frame_kwargs or {}))
         object.__setattr__(self, "_params", _snapshot_params(params or {}))
 
     @property
     def params(self) -> dict[str, Any]:
         return _params_to_public_dict(self._params)
 
+    @property
+    def output_frame_kwargs(self) -> dict[str, Any]:
+        return _params_to_public_dict(self._output_frame_kwargs)
+
     def to_dict(self) -> dict[str, Any]:
-        return {
+        step_dict = {
             "custom_function": self.function,
             "output_shape_function": self.output_shape_function,
             "dask_pure": self.dask_pure,
             "params": self.params,
         }
+        if self.output_frame_class is not None:
+            step_dict["output_frame_class"] = self.output_frame_class
+            step_dict["output_frame_kwargs"] = self.output_frame_kwargs
+        return step_dict
 
     def apply(self, frame: Any) -> Any:
         func = _load_importable_function(self.function)
         output_shape_func = (
             None if self.output_shape_function is None else _load_importable_function(self.output_shape_function)
         )
+        output_frame_class = (
+            None if self.output_frame_class is None else _load_importable_frame_class(self.output_frame_class)
+        )
         return frame.apply(
             func,
             output_shape_func=output_shape_func,
+            output_frame_class=output_frame_class,
+            output_frame_kwargs=self.output_frame_kwargs or None,
             dask_pure=self.dask_pure,
             **self.params,
         )

@@ -1683,6 +1683,7 @@ class BaseFrame(ABC, Generic[T]):
                 else f"{output_frame_class.__module__}.{output_frame_class.__qualname__}"
             )
             setattr(operation, "_recipe_output_frame_class", output_frame_class_name)
+            setattr(operation, "_recipe_output_frame_kwargs", copy.deepcopy(output_frame_kwargs or {}))
         expected_input_count = getattr(operation, "_expected_input_count", 1)
         if isinstance(expected_input_count, int) and expected_input_count != 1:
             raise ValueError(

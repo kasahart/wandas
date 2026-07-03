@@ -284,11 +284,11 @@ Implemented:
 - `CustomFunctionStep("package.module.function", params={...}, output_shape_function="package.module.shape_func")`
 - `dask_pure` flag replay via `frame.apply(..., dask_pure=...)`
 - same-frame custom functions inside `NodeGraphRecipeSpec` unary nodes
+- `frame.apply(..., output_frame_class=ImportableFrameClass, output_frame_kwargs={...})` when the frame class is importable and kwargs are recipe literals
 
 Not implemented yet:
 
 - lambda, closure, nested function, callable object, bound method, `functools.partial`, and `__main__` functions
-- custom domain transition via `output_frame_class`
 - automatic callable registry names distinct from Python import paths
 - serialization of function source or bytecode
 
