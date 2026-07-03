@@ -244,16 +244,18 @@ frame.apply(lambda data, gain: data * gain, output_shape_func=lambda shape: shap
 
 ## Stage 6: Terminal / Display Operations
 
-Status: partially implemented for explicit zero-argument terminal properties.
+Status: partially implemented for explicit terminal metrics.
 
 Implemented:
 
 - `TerminalStep("rms")`
 - `TerminalStep("crest_factor")`
+- `TerminalStep("loudness_zwst", {"field_type": "free"})`
+- `TerminalStep("sharpness_din_st", {"weighting": "din", "field_type": "free"})`
 
-これらは `RecipeSpec.from_frame(...)` で自動抽出しない。`rms` と `crest_factor` は NumPy 配列を返し、結果そのものは frame lineage を保持しないためである。明示的に `RecipeSpec([OperationSpec("remove_dc"), TerminalStep("rms")])` のように組む場合だけ、変換 chain の末尾で既存 property を呼ぶ。
+これらは `RecipeSpec.from_frame(...)` で自動抽出しない。terminal metric は NumPy 配列を返し、結果そのものは frame lineage を保持しないためである。明示的に `RecipeSpec([OperationSpec("remove_dc"), TerminalStep("rms")])` のように組む場合だけ、変換 chain の末尾で既存 property / method を呼ぶ。
 
-`loudness_zwst()` と `sharpness_din_st()` は frame ではなく channel ごとの配列を返す terminal metric である。現在の `RecipeSpec` が表すのは frame transform chain なので、これらを扱うには metric/report Recipe の設計が別途必要である。
+未対応の terminal metric / report 自動抽出には、frame lineage を持たない結果からどの frame と terminal call を結び付けるかを決める UX が必要である。
 
 `compute()`, `plot()`, `describe()`, `info()` は frame を変換する Recipe step ではなく、評価・表示・レポート生成に近い。全体の UX としては、変換 Recipe と report Recipe を分けるのが自然である。
 

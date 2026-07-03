@@ -94,10 +94,23 @@ def _patch_psychoacoustic_backend(monkeypatch: pytest.MonkeyPatch) -> None:
         del sampling_rate, weighting, field_type, skip
         return np.linspace(0.3, 0.4, max(1, signal.shape[-1] // 96)), None
 
+    def fake_loudness_zwst(signal: np.ndarray, sampling_rate: float, *, field_type: str) -> tuple[float, None, None]:
+        del sampling_rate
+        scale = 2.0 if field_type == "diffuse" else 1.0
+        return float(np.mean(np.abs(signal)) * scale), None, None
+
+    def fake_sharpness_din_st(signal: np.ndarray, sampling_rate: float, *, weighting: str, field_type: str) -> float:
+        del sampling_rate
+        scale = 2.0 if field_type == "diffuse" else 1.0
+        weighting_scale = 1.5 if weighting == "aures" else 1.0
+        return float(np.max(np.abs(signal)) * scale * weighting_scale)
+
     psychoacoustic_module.RoughnessDwSpec._bark_axis_cache.clear()
     monkeypatch.setattr(psychoacoustic_module, "loudness_zwtv_mosqito", fake_loudness)
     monkeypatch.setattr(psychoacoustic_module, "roughness_dw_mosqito", fake_roughness)
     monkeypatch.setattr(psychoacoustic_module, "sharpness_din_tv_mosqito", fake_sharpness)
+    monkeypatch.setattr(psychoacoustic_module, "loudness_zwst_mosqito", fake_loudness_zwst)
+    monkeypatch.setattr(psychoacoustic_module, "sharpness_din_st_mosqito", fake_sharpness_din_st)
 
 
 def _fake_center_freq(*, fmin: float, fmax: float, n: int, **_: object) -> tuple[np.ndarray, np.ndarray]:
@@ -212,6 +225,34 @@ def test_terminal_step_rejects_unknown_metric() -> None:
 def test_terminal_property_step_rejects_params() -> None:
     with pytest.raises(TypeError, match="TerminalStep metric does not accept params"):
         TerminalStep("rms", {"axis": -1})
+
+
+def test_recipe_apply_supports_terminal_loudness_zwst_method(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_psychoacoustic_backend(monkeypatch)
+    frame = _two_channel_frame_with_refs()
+    recipe = RecipeSpec([OperationSpec("remove_dc"), TerminalStep("loudness_zwst", {"field_type": "diffuse"})])
+
+    result = recipe.apply(frame)
+    expected = frame.remove_dc().loudness_zwst(field_type="diffuse")
+
+    np.testing.assert_allclose(result, expected)
+    assert recipe.to_dict() == {
+        "steps": [
+            {"operation": "remove_dc", "params": {}},
+            {"terminal": "loudness_zwst", "params": {"field_type": "diffuse"}},
+        ]
+    }
+
+
+def test_recipe_apply_supports_terminal_sharpness_din_st_method(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_psychoacoustic_backend(monkeypatch)
+    frame = _two_channel_frame_with_refs()
+    recipe = RecipeSpec([TerminalStep("sharpness_din_st", {"weighting": "aures", "field_type": "diffuse"})])
+
+    result = recipe.apply(frame)
+    expected = frame.sharpness_din_st(weighting="aures", field_type="diffuse")
+
+    np.testing.assert_allclose(result, expected)
 
 
 def test_graph_recipe_applies_named_input_recipes_and_frame_addition() -> None:

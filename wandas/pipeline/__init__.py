@@ -99,6 +99,7 @@ _REPLAYABLE_GETITEM_INDEXING = frozenset(
     {"boolean_mask", "channel_slice", "integer_list", "label_list", "multidimensional_slice"}
 )
 _REPLAYABLE_TERMINAL_PROPERTIES = frozenset({"crest_factor", "rms"})
+_REPLAYABLE_TERMINAL_METHODS = frozenset({"loudness_zwst", "sharpness_din_st"})
 _REPLAYABLE_BINARY_FRAME_OPERATIONS = frozenset({"+", "add_with_snr"})
 
 
@@ -915,31 +916,40 @@ class TerminalStep:
     _params: tuple[tuple[str, Any], ...]
 
     def __init__(self, metric: str, params: Mapping[str, Any] | None = None) -> None:
-        if metric not in _REPLAYABLE_TERMINAL_PROPERTIES:
-            valid_metrics = ", ".join(sorted(_REPLAYABLE_TERMINAL_PROPERTIES))
+        if metric not in _REPLAYABLE_TERMINAL_PROPERTIES | _REPLAYABLE_TERMINAL_METHODS:
+            valid_metrics = ", ".join(sorted(_REPLAYABLE_TERMINAL_PROPERTIES | _REPLAYABLE_TERMINAL_METHODS))
             raise ValueError(
                 "TerminalStep metric is outside the replayable terminal allowlist\n"
                 f"  Metric: {metric}\n"
                 f"  Valid metrics: {valid_metrics}"
             )
-        if params:
+        if metric in _REPLAYABLE_TERMINAL_PROPERTIES and params:
             raise TypeError(
                 "TerminalStep metric does not accept params\n"
                 f"  Metric: {metric}\n"
                 "  Current terminal recipe support is limited to zero-argument frame properties."
             )
         object.__setattr__(self, "metric", metric)
-        object.__setattr__(self, "_params", ())
+        object.__setattr__(self, "_params", _snapshot_params(params or {}))
 
     @property
     def params(self) -> dict[str, Any]:
-        return {}
+        return _params_to_public_dict(self._params)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"terminal": self.metric, "params": {}}
+        return {"terminal": self.metric, "params": self.params}
 
     def apply(self, frame: Any) -> Any:
-        return getattr(frame, self.metric)
+        terminal = getattr(frame, self.metric)
+        if self.metric in _REPLAYABLE_TERMINAL_PROPERTIES:
+            if callable(terminal):
+                raise TypeError(
+                    "TerminalStep expected a terminal property but found a callable attribute\n"
+                    f"  Metric: {self.metric}\n"
+                    f"  Frame type: {type(frame).__name__}"
+                )
+            return terminal
+        return terminal(**self.params)
 
 
 @dataclass(frozen=True, init=False)
