@@ -358,17 +358,53 @@ def test_graph_recipe_from_frame_rejects_wrong_input_name_count() -> None:
         GraphRecipeSpec.from_frame(processed, input_names=("signal",))
 
 
-def test_graph_recipe_from_frame_rejects_unsupported_root_binary_operator() -> None:
+@pytest.mark.parametrize("operator", ["-", "*", "/", "**"])
+def test_graph_recipe_applies_named_input_recipes_and_frame_binary_operator(operator: str) -> None:
+    base = _frame()
+    left = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="left")
+    right = ChannelFrame.from_numpy(base.data * 0.25, sampling_rate=base.sampling_rate, label="right")
+    graph_recipe = GraphRecipeSpec(
+        input_recipes={
+            "left": RecipeSpec([OperationSpec("abs"), ScalarOperationStep("+", 1.0)]),
+            "right": RecipeSpec([OperationSpec("abs"), ScalarOperationStep("+", 1.0)]),
+        },
+        output=BinaryFrameStep(operator, left="left", right="right"),
+    )
+
+    result = graph_recipe.apply({"left": left, "right": right})
+    left_processed = left.abs() + 1.0
+    right_processed = right.abs() + 1.0
+    expected = {
+        "-": left_processed - right_processed,
+        "*": left_processed * right_processed,
+        "/": left_processed / right_processed,
+        "**": left_processed**right_processed,
+    }[operator]
+
+    np.testing.assert_allclose(result.data, expected.data)
+    assert result.operation_history == expected.operation_history
+
+
+@pytest.mark.parametrize("operator", ["-", "*", "/", "**"])
+def test_graph_recipe_from_frame_extracts_root_frame_binary_operator(operator: str) -> None:
     base = _frame()
     left_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="left")
     right_source = ChannelFrame.from_numpy(base.data * 0.25, sampling_rate=base.sampling_rate, label="right")
-    processed = left_source.remove_dc() - right_source.high_pass_filter(cutoff=500.0)
+    left_processed = left_source.abs() + 1.0
+    right_processed = right_source.abs() + 1.0
+    processed = {
+        "-": left_processed - right_processed,
+        "*": left_processed * right_processed,
+        "/": left_processed / right_processed,
+        "**": left_processed**right_processed,
+    }[operator]
 
-    with pytest.raises(
-        RecipeExtractionError,
-        match="GraphRecipeSpec extraction only supports root binary frame operations",
-    ):
-        GraphRecipeSpec.from_frame(processed, input_names=("left", "right"))
+    graph_recipe = GraphRecipeSpec.from_frame(processed, input_names=("left", "right"))
+    replayed = graph_recipe.apply({"left": left_source, "right": right_source})
+
+    assert graph_recipe.output == BinaryFrameStep(operator, "left", "right")
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.operation_history == processed.operation_history
 
 
 def test_graph_recipe_rejects_missing_input() -> None:
@@ -396,7 +432,7 @@ def test_graph_recipe_rejects_non_binary_output() -> None:
 
 def test_binary_frame_step_rejects_unknown_operation() -> None:
     with pytest.raises(ValueError, match="BinaryFrameStep operation is outside the replayable binary-frame allowlist"):
-        BinaryFrameStep("*", left="signal", right="noise")
+        BinaryFrameStep("@", left="signal", right="noise")
 
 
 def test_recipe_spec_snapshots_mutable_step_params() -> None:

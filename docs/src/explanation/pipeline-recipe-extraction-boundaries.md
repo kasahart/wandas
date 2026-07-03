@@ -185,8 +185,12 @@ Implemented:
 - `frame / 2`
 - `frame ** 2`
 - `GraphRecipeSpec(..., BinaryFrameStep("+", ...))`
+- `GraphRecipeSpec(..., BinaryFrameStep("-", ...))`
+- `GraphRecipeSpec(..., BinaryFrameStep("*", ...))`
+- `GraphRecipeSpec(..., BinaryFrameStep("/", ...))`
+- `GraphRecipeSpec(..., BinaryFrameStep("**", ...))`
 - `GraphRecipeSpec(..., BinaryFrameStep("add_with_snr", ..., params={"snr": 6.0}))`
-- `GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))` for root `+` / `add_with_snr` graphs with two linear parents
+- `GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))` for root frame-frame binary / `add_with_snr` graphs with two linear parents
 
 現在の表現:
 

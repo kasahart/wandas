@@ -100,7 +100,7 @@ _REPLAYABLE_GETITEM_INDEXING = frozenset(
 )
 _REPLAYABLE_TERMINAL_PROPERTIES = frozenset({"crest_factor", "rms"})
 _REPLAYABLE_TERMINAL_METHODS = frozenset({"loudness_zwst", "sharpness_din_st"})
-_REPLAYABLE_BINARY_FRAME_OPERATIONS = frozenset({"+", "add_with_snr"})
+_REPLAYABLE_BINARY_FRAME_OPERATIONS = frozenset({"+", "-", "*", "/", "**", "add_with_snr"})
 
 
 def _snapshot_param_value(value: Any) -> Any:
@@ -606,7 +606,7 @@ def _steps_from_graph(graph: Mapping[str, Any]) -> tuple[RecipeStep, ...]:
 def _binary_frame_step_from_graph(operation: str, params: Mapping[str, Any], left: str, right: str) -> BinaryFrameStep:
     if operation == "add_with_snr":
         return BinaryFrameStep("add_with_snr", left, right, {"snr": params["snr"]})
-    if operation == "+" and params.get("operand_kind") == "frame":
+    if operation in _REPLAYABLE_SCALAR_OPERATIONS and params.get("operand_kind") == "frame":
         return BinaryFrameStep(operation, left, right)
     raise RecipeExtractionError(
         "GraphRecipeSpec extraction only supports root binary frame operations\n"
@@ -984,8 +984,8 @@ class BinaryFrameStep:
             )
         if not left or not right:
             raise ValueError("BinaryFrameStep left and right input names must be non-empty strings")
-        if operation == "+" and params:
-            raise TypeError("BinaryFrameStep '+' operation does not accept params")
+        if operation in _REPLAYABLE_SCALAR_OPERATIONS and params:
+            raise TypeError(f"BinaryFrameStep frame operator does not accept params\n  Operation: {operation}")
         object.__setattr__(self, "operation", operation)
         object.__setattr__(self, "left", left)
         object.__setattr__(self, "right", right)
@@ -1017,6 +1017,14 @@ class BinaryFrameStep:
             ) from exc
         if self.operation == "+":
             return left_frame + right_frame
+        if self.operation == "-":
+            return left_frame - right_frame
+        if self.operation == "*":
+            return left_frame * right_frame
+        if self.operation == "/":
+            return left_frame / right_frame
+        if self.operation == "**":
+            return left_frame**right_frame
         return left_frame.add(right_frame, **self.params)
 
 
