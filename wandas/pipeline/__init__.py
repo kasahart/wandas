@@ -87,6 +87,7 @@ _REPLAYABLE_TYPED_METHOD_NAMES = frozenset(
     method for method, _param_names in _REPLAYABLE_TYPED_METHOD_OPERATIONS.values()
 )
 _REPLAYABLE_SCALAR_OPERATIONS = frozenset({"+", "-", "*", "/", "**"})
+_REPLAYABLE_GETITEM_INDEXING = frozenset({"channel_slice", "label_list"})
 
 
 def _snapshot_param_value(value: Any) -> Any:
@@ -340,7 +341,49 @@ def _scalar_step_from_graph(operation: str, params: Mapping[str, Any]) -> Scalar
         ) from exc
 
 
+def _optional_int_from_params(params: Mapping[str, Any], key: str) -> int | None:
+    if key not in params:
+        raise RecipeExtractionError(
+            f"Channel slice recipe extraction requires explicit slice params\n  Missing parameter: {key}"
+        )
+    value = params.get(key)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, numbers.Integral):
+        raise RecipeExtractionError(
+            "Channel slice recipe extraction requires integer slice bounds\n"
+            f"  Parameter: {key}\n"
+            f"  Got: {type(value).__name__}"
+        )
+    return int(value)
+
+
+def _getitem_step_from_graph(params: Mapping[str, Any]) -> IndexingStep:
+    indexing = params.get("indexing")
+    if indexing not in _REPLAYABLE_GETITEM_INDEXING:
+        raise RecipeExtractionError(
+            "Indexing recipe extraction only supports channel-only slice and label list selection\n"
+            f"  Indexing kind: {indexing!r}\n"
+            "  Multidimensional, callable, regex, dict, and array indexing need a selection recipe model "
+            "that can preserve full indexing intent."
+        )
+    if indexing == "channel_slice":
+        return IndexingStep(
+            slice(
+                _optional_int_from_params(params, "start"),
+                _optional_int_from_params(params, "stop"),
+                _optional_int_from_params(params, "step"),
+            )
+        )
+    labels = params.get("labels")
+    if not isinstance(labels, list | tuple) or not all(isinstance(label, str) for label in labels):
+        raise RecipeExtractionError(f"Label-list indexing recipe extraction requires string labels\n  Got: {labels!r}")
+    return IndexingStep(list(labels))
+
+
 def _step_from_graph(operation: str, params: Mapping[str, Any], kind: str | None) -> RecipeStep:
+    if operation == "__getitem__":
+        return _getitem_step_from_graph(params)
     if operation in _REPLAYABLE_METHOD_OPERATIONS:
         return _method_step_from_graph(operation, params)
     if operation in _REPLAYABLE_TYPED_METHOD_OPERATIONS:
@@ -493,7 +536,65 @@ class ScalarOperationStep:
         raise AssertionError(f"Unhandled scalar operation: {self.symbol}")
 
 
-RecipeStep = OperationSpec | MethodStep | TypedMethodStep | ScalarOperationStep
+@dataclass(frozen=True, init=False)
+class IndexingStep:
+    """Replayable channel-only indexing call."""
+
+    _key: slice | tuple[str, ...]
+
+    def __init__(self, key: slice | list[str] | tuple[str, ...]) -> None:
+        if isinstance(key, slice):
+            object.__setattr__(
+                self,
+                "_key",
+                slice(
+                    self._snapshot_slice_value(key.start, "start"),
+                    self._snapshot_slice_value(key.stop, "stop"),
+                    self._snapshot_slice_value(key.step, "step"),
+                ),
+            )
+            return
+        if not isinstance(key, list | tuple) or not key or not all(isinstance(label, str) for label in key):
+            raise TypeError(
+                f"IndexingStep key must be a channel slice or non-empty label list\n  Got: {type(key).__name__}"
+            )
+        object.__setattr__(self, "_key", tuple(key))
+
+    @staticmethod
+    def _snapshot_slice_value(value: Any, name: str) -> int | None:
+        if value is None:
+            return None
+        if isinstance(value, bool) or not isinstance(value, numbers.Integral):
+            raise TypeError(
+                "IndexingStep slice bounds must be integers or None\n"
+                f"  Parameter: {name}\n"
+                f"  Got: {type(value).__name__}"
+            )
+        return int(value)
+
+    @property
+    def key(self) -> slice | list[str]:
+        if isinstance(self._key, slice):
+            return self._key
+        return list(self._key)
+
+    def to_dict(self) -> dict[str, Any]:
+        if isinstance(self._key, slice):
+            return {
+                "getitem": {
+                    "type": "channel_slice",
+                    "start": self._key.start,
+                    "stop": self._key.stop,
+                    "step": self._key.step,
+                }
+            }
+        return {"getitem": {"type": "label_list", "labels": list(self._key)}}
+
+    def apply(self, frame: Any) -> Any:
+        return frame[self.key]
+
+
+RecipeStep = OperationSpec | MethodStep | TypedMethodStep | ScalarOperationStep | IndexingStep
 
 
 @dataclass(frozen=True, init=False)
@@ -526,7 +627,7 @@ class RecipeSpec:
     def apply(self, frame: Any) -> Any:
         result: Any = frame
         for step in self.steps:
-            if isinstance(step, MethodStep | TypedMethodStep | ScalarOperationStep):
+            if isinstance(step, MethodStep | TypedMethodStep | ScalarOperationStep | IndexingStep):
                 result = step.apply(result)
             else:
                 result = result.apply_operation(step.operation, **step.params)
@@ -534,6 +635,7 @@ class RecipeSpec:
 
 
 __all__ = [
+    "IndexingStep",
     "MethodStep",
     "OperationSpec",
     "RecipeExtractionError",

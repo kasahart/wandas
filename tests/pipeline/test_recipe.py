@@ -732,25 +732,80 @@ def test_recipe_from_frame_rejects_channel_and_time_indexing_boundary() -> None:
     frame = _two_channel_frame_with_refs()
     processed = frame["right", 10:20]
 
-    with pytest.raises(RecipeExtractionError, match="Operation is outside the Stage 1 recipe allowlist"):
+    with pytest.raises(RecipeExtractionError, match="Indexing recipe extraction only supports channel-only"):
         RecipeSpec.from_frame(processed)
 
 
 @pytest.mark.parametrize(
     "build_frame",
     [
-        lambda frame: frame[0:2],
-        lambda frame: frame[["left", "right"]],
+        lambda frame: frame[[0, 1]],
+        lambda frame: frame[np.array([0, 1])],
+        lambda frame: frame[np.array([True, True])],
     ],
 )
-def test_recipe_from_frame_rejects_ambiguous_getitem_channel_selection(
+def test_recipe_from_frame_rejects_getitem_index_arrays_and_integer_lists(
     build_frame: Callable[[ChannelFrame], ChannelFrame],
 ) -> None:
     frame = _two_channel_frame_with_refs()
     processed = build_frame(frame)
 
-    with pytest.raises(RecipeExtractionError, match="Operation is outside the Stage 1 recipe allowlist"):
+    with pytest.raises(RecipeExtractionError, match="Indexing recipe extraction only supports channel-only"):
         RecipeSpec.from_frame(processed)
+
+
+def test_getitem_label_list_recipe_extraction_snapshots_labels() -> None:
+    frame = _two_channel_frame_with_refs()
+    labels = ["left", "right"]
+    processed = frame[labels]
+    labels[0] = "mutated"
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.to_dict() == {"steps": [{"getitem": {"type": "label_list", "labels": ["left", "right"]}}]}
+    assert replayed.operation_history == processed.operation_history
+    assert replayed.labels == ["left", "right"]
+
+
+def test_recipe_from_frame_rejects_legacy_getitem_channel_slice_without_bounds() -> None:
+    frame = _two_channel_frame_with_refs()
+    processed = frame[0:2]
+    assert processed.lineage is not None
+    processed._lineage = frame._lineage_with_method("__getitem__", {"indexing": "channel_slice"})
+
+    with pytest.raises(RecipeExtractionError, match="Channel slice recipe extraction requires explicit slice params"):
+        RecipeSpec.from_frame(processed)
+
+
+@pytest.mark.parametrize(
+    ("build_frame", "expected_step"),
+    [
+        (
+            lambda frame: frame[0:2],
+            {"getitem": {"type": "channel_slice", "start": 0, "stop": 2, "step": None}},
+        ),
+        (
+            lambda frame: frame[["left", "right"]],
+            {"getitem": {"type": "label_list", "labels": ["left", "right"]}},
+        ),
+    ],
+)
+def test_recipe_from_frame_extracts_getitem_channel_selection(
+    build_frame: Callable[[ChannelFrame], ChannelFrame],
+    expected_step: dict[str, object],
+) -> None:
+    frame = _two_channel_frame_with_refs()
+    processed = build_frame(frame)
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.to_dict() == {"steps": [expected_step]}
+    assert replayed.operation_history == processed.operation_history
+    assert replayed.labels == processed.labels
+    np.testing.assert_allclose(replayed.data, processed.data)
+    np.testing.assert_allclose(replayed.source_time_offset, processed.source_time_offset)
 
 
 def test_recipe_from_frame_extracts_scalar_operation_chain() -> None:

@@ -879,10 +879,24 @@ class BaseFrame(ABC, Generic[T]):
                         f"Boolean mask length {len(key)} does not match number of channels {self.n_channels}"
                     )
                 indices = np.where(cast(npt.NDArray[np.bool_], key))[0]
-                return self.get_channel(indices)
+                result = self.get_channel(indices)
+                return result._create_new_instance(
+                    data=result._data,
+                    channel_metadata=result.channels.to_list(),
+                    channel_ids=result._channel_ids,
+                    source_time_offset=result.source_time_offset,
+                    lineage=self._lineage_with_unsupported_indexing("array"),
+                )
             if np.issubdtype(key.dtype, np.integer):
                 # Integer array
-                return self.get_channel(cast(npt.NDArray[np.int_], key))
+                result = self.get_channel(cast(npt.NDArray[np.int_], key))
+                return result._create_new_instance(
+                    data=result._data,
+                    channel_metadata=result.channels.to_list(),
+                    channel_ids=result._channel_ids,
+                    source_time_offset=result.source_time_offset,
+                    lineage=self._lineage_with_unsupported_indexing("array"),
+                )
             raise TypeError(f"NumPy array must be of integer or boolean type, got {key.dtype}")
 
         # Phase 1: List support (int or str)
@@ -903,14 +917,24 @@ class BaseFrame(ABC, Generic[T]):
                     channel_metadata=new_channel_metadata,
                     channel_ids=new_channel_ids,
                     source_time_offset=self.source_time_offset[indices_from_labels],
-                    lineage=self._lineage_with_unsupported_indexing("label_list"),
+                    lineage=self._lineage_with_method(
+                        "__getitem__",
+                        {"indexing": "label_list", "labels": tuple(str_list)},
+                    ),
                 )
 
             # Check if all elements are integers
             if all(isinstance(k, int | np.integer) for k in key):
                 # Multiple indices - convert to list[int] for type safety
                 int_list = [int(k) for k in key]
-                return self.get_channel(int_list)
+                result = self.get_channel(int_list)
+                return result._create_new_instance(
+                    data=result._data,
+                    channel_metadata=result.channels.to_list(),
+                    channel_ids=result._channel_ids,
+                    source_time_offset=result.source_time_offset,
+                    lineage=self._lineage_with_unsupported_indexing("integer_list"),
+                )
 
             raise TypeError(f"List must contain all str or all int, got mixed types: {[type(k).__name__ for k in key]}")
 
@@ -929,7 +953,15 @@ class BaseFrame(ABC, Generic[T]):
                 channel_metadata=new_channel_metadata,
                 channel_ids=new_channel_ids,
                 source_time_offset=self.source_time_offset[indices],
-                lineage=self._lineage_with_unsupported_indexing("channel_slice"),
+                lineage=self._lineage_with_method(
+                    "__getitem__",
+                    {
+                        "indexing": "channel_slice",
+                        "start": key.start,
+                        "stop": key.stop,
+                        "step": key.step,
+                    },
+                ),
             )
 
         raise TypeError(f"Invalid key type: {type(key).__name__}. Expected int, str, slice, list, tuple, or ndarray.")

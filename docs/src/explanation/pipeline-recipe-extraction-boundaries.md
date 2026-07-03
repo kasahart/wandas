@@ -21,7 +21,7 @@ recipe = RecipeSpec.from_frame(processed)
 replayed = recipe.apply(frame)
 ```
 
-`RecipeSpec.from_frame(processed)` は `processed.operation_graph` を読み、1 本の親 chain として表現できる operation だけを `OperationSpec` / `MethodStep` / `TypedMethodStep` / `ScalarOperationStep` に変換する。
+`RecipeSpec.from_frame(processed)` は `processed.operation_graph` を読み、1 本の親 chain として表現できる operation だけを `OperationSpec` / `MethodStep` / `TypedMethodStep` / `IndexingStep` / `ScalarOperationStep` に変換する。
 
 ## Stage 1: Linear `apply_operation` Replay / 直列 apply_operation 再生
 
@@ -65,7 +65,7 @@ HPSS の `kernel_size` / `margin` は public API が scalar と 2要素 sequence
 
 ## Stage 2: Method-Aware Linear Steps / frame method aware な直列 step
 
-Status: partially implemented for `fix_length`, `sum`, `mean`, `channel_difference`, simple `get_channel` selection, `remove_channel`, and `rename_channels`.
+Status: partially implemented for `fix_length`, `sum`, `mean`, `channel_difference`, simple `get_channel` selection, channel-only `__getitem__` selection, `remove_channel`, and `rename_channels`.
 
 検証で見えた例:
 
@@ -77,6 +77,8 @@ Status: partially implemented for `fix_length`, `sum`, `mean`, `channel_differen
 | `frame.channel_difference(other_channel=0)` | `MethodStep("channel_difference", {"other_channel": 0})` | channel label / metadata 更新を frame method に委譲する |
 | `frame.get_channel(1)` | `MethodStep("get_channel", {"channel_idx": 1})` | channel metadata、channel ids、source time offset の selection を frame method に委譲する |
 | `frame.get_channel(query="right")` | `MethodStep("get_channel", {"query": "right", "validate_query_keys": True})` | exact label query は値として保存できる |
+| `frame[0:2]` | `IndexingStep(slice(0, 2))` | slice intent を index list へ潰さず、既存 `frame[key]` に委譲する |
+| `frame[["right", "rear"]]` | `IndexingStep(["right", "rear"])` | label list intent を index list へ潰さず、既存 `frame[key]` に委譲する |
 | `frame.remove_channel("right")` | `MethodStep("remove_channel", {"key": "right"})` | channel metadata、channel ids、source time offset の removal を frame method に委譲する |
 | `frame.rename_channels({0: "left"})` | `MethodStep("rename_channels", {"mapping": {0: "left"}})` | channel metadata の label 更新を frame method に委譲する。保存表現では int key を保つため `mapping_items` を使う |
 
@@ -88,6 +90,8 @@ MethodStep(method="sum", kwargs={})
 MethodStep(method="mean", kwargs={})
 MethodStep(method="channel_difference", kwargs={"other_channel": 0})
 MethodStep(method="get_channel", kwargs={"channel_idx": [0, 2]})
+IndexingStep(key=slice(0, 2))
+IndexingStep(key=["right", "rear"])
 MethodStep(method="remove_channel", kwargs={"key": "right"})
 MethodStep(method="rename_channels", kwargs={"mapping": {0: "left", 1: "right"}})
 ```
@@ -98,7 +102,7 @@ MethodStep(method="rename_channels", kwargs={"mapping": {0: "left", 1: "right"}}
 
 `get_channel()` の callable / regex / dict query は、選択時点の index へ潰すと query intent が失われるため現在は抽出時に拒否する。これらを replayable にするには、query 表現を Recipe schema として定義する必要がある。
 
-`frame[0:2]` のような channel slice や `frame[["right", "rear"]]` のような label list selection は、現在は抽出時に拒否する。これらは既存 frame API としては動作するが、Recipe としては slice/list label intent を表現する dedicated step が必要になる。
+`IndexingStep` の保存表現は `{"getitem": {"type": "channel_slice", "start": 0, "stop": 2, "step": null}}` または `{"getitem": {"type": "label_list", "labels": ["right", "rear"]}}` とする。Recipe 側では indexing の metadata 処理を複製せず、`frame[key]` を呼ぶ。
 
 `frame["right", 10:20]` のような channel + time の tuple indexing は、channel selection だけを抽出すると time slice を落とした部分 replay になるため現在は拒否する。time slicing を扱う場合は、channel selection とは別の明示 step と source time offset contract が必要になる。
 
