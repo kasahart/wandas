@@ -785,26 +785,17 @@ def test_recipe_from_frame_rejects_non_literal_channel_queries(
         RecipeSpec.from_frame(processed)
 
 
-def test_recipe_from_frame_rejects_array_channel_and_time_indexing_boundary() -> None:
+def test_recipe_from_frame_rejects_boolean_mask_channel_and_time_indexing_boundary() -> None:
     frame = _two_channel_frame_with_refs()
-    processed = frame[np.array([0, 1]), 10:20]
+    processed = frame[np.array([True, True]), 10:20]
 
     with pytest.raises(RecipeExtractionError, match="Multidimensional indexing recipe extraction only supports"):
         RecipeSpec.from_frame(processed)
 
 
-@pytest.mark.parametrize(
-    "build_frame",
-    [
-        lambda frame: frame[np.array([0, 1])],
-        lambda frame: frame[np.array([True, True])],
-    ],
-)
-def test_recipe_from_frame_rejects_getitem_index_arrays(
-    build_frame: Callable[[ChannelFrame], ChannelFrame],
-) -> None:
+def test_recipe_from_frame_rejects_getitem_boolean_mask_array() -> None:
     frame = _two_channel_frame_with_refs()
-    processed = build_frame(frame)
+    processed = frame[np.array([True, True])]
 
     with pytest.raises(RecipeExtractionError, match="Indexing recipe extraction only supports channel-only"):
         RecipeSpec.from_frame(processed)
@@ -849,6 +840,21 @@ def test_getitem_integer_list_recipe_extraction_snapshots_indices() -> None:
 
     assert recipe.to_dict() == {"steps": [{"getitem": {"type": "integer_list", "indices": [1, 0]}}]}
     assert replayed.operation_history == processed.operation_history
+    assert replayed.labels == ["right", "left"]
+
+
+def test_getitem_integer_array_recipe_extraction_snapshots_indices() -> None:
+    frame = _two_channel_frame_with_refs()
+    indices = np.array([1, 0])
+    processed = frame[indices]
+    indices[0] = 0
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.to_dict() == {"steps": [{"getitem": {"type": "integer_list", "indices": [1, 0]}}]}
+    assert replayed.operation_history == processed.operation_history
+    assert isinstance(replayed._data, DaArray)
     assert replayed.labels == ["right", "left"]
 
 
@@ -921,6 +927,16 @@ def test_recipe_from_frame_extracts_getitem_channel_selection(
         ),
         (
             lambda frame: frame[[1, 0], 200:600],
+            {
+                "getitem": {
+                    "type": "multidimensional_slice",
+                    "channel": {"type": "integer_list", "indices": [1, 0]},
+                    "axis_slices": [{"start": 200, "stop": 600, "step": None}],
+                }
+            },
+        ),
+        (
+            lambda frame: frame[np.array([1, 0]), 200:600],
             {
                 "getitem": {
                     "type": "multidimensional_slice",

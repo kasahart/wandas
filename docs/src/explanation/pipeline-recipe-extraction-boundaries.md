@@ -65,7 +65,7 @@ HPSS の `kernel_size` / `margin` は public API が scalar と 2要素 sequence
 
 ## Stage 2: Method-Aware Linear Steps / frame method aware な直列 step
 
-Status: partially implemented for `fix_length`, `sum`, `mean`, `channel_difference`, simple `get_channel` selection, literal dict channel queries, channel-only `__getitem__` selection including `list[int]`, slice-only multidimensional `__getitem__`, `remove_channel`, and `rename_channels`.
+Status: partially implemented for `fix_length`, `sum`, `mean`, `channel_difference`, simple `get_channel` selection, literal dict channel queries, channel-only `__getitem__` selection including `list[int]` and integer `ndarray`, slice-only multidimensional `__getitem__`, `remove_channel`, and `rename_channels`.
 
 検証で見えた例:
 
@@ -80,6 +80,7 @@ Status: partially implemented for `fix_length`, `sum`, `mean`, `channel_differen
 | `frame.get_channel(query={"unit": "Pa"})` | `MethodStep("get_channel", {"query": {"unit": "Pa"}, "validate_query_keys": True})` | literal metadata query は query intent を保存できる |
 | `frame[0:2]` | `IndexingStep(slice(0, 2))` | slice intent を index list へ潰さず、既存 `frame[key]` に委譲する |
 | `frame[[1, 0]]` | `IndexingStep([1, 0])` | explicit integer list intent を保存し、既存 `frame[key]` に委譲する |
+| `frame[np.array([1, 0])]` | `IndexingStep([1, 0])` | explicit integer selection として保存し、container 型ではなく選択値を replay する |
 | `frame[["right", "rear"]]` | `IndexingStep(["right", "rear"])` | label list intent を index list へ潰さず、既存 `frame[key]` に委譲する |
 | `frame[:, 100:400]` | `IndexingStep((slice(None), slice(100, 400)))` | channel selection と time slice を分離せず、元の tuple indexing を既存 `frame[key]` に委譲する |
 | `frame.remove_channel("right")` | `MethodStep("remove_channel", {"key": "right"})` | channel metadata、channel ids、source time offset の removal を frame method に委譲する |
@@ -109,7 +110,7 @@ MethodStep(method="rename_channels", kwargs={"mapping": {0: "left", 1: "right"}}
 
 `IndexingStep` の保存表現は `{"getitem": {"type": "channel_slice", "start": 0, "stop": 2, "step": null}}`、`{"getitem": {"type": "integer_list", "indices": [1, 0]}}`、`{"getitem": {"type": "label_list", "labels": ["right", "rear"]}}`、または `{"getitem": {"type": "multidimensional_slice", "channel": {"type": "slice", "start": null, "stop": null, "step": null}, "axis_slices": [{"start": 100, "stop": 400, "step": null}]}}` とする。Recipe 側では indexing の metadata 処理を複製せず、`frame[key]` を呼ぶ。
 
-`frame["right", 10:20]` のような channel + time の tuple indexing は、channel selector が単一 index、channel slice、integer list、または label list で、残りの軸が `slice` だけの場合に限って抽出する。source time offset の更新は Recipe に複製せず、既存 `frame[key]` に委譲する。NumPy array、boolean mask、point/fancy time selection は、selection intent と source time offset contract を追加で定義するまで拒否する。
+`frame["right", 10:20]` のような channel + time の tuple indexing は、channel selector が単一 index、channel slice、integer list、または label list で、残りの軸が `slice` だけの場合に限って抽出する。source time offset の更新は Recipe に複製せず、既存 `frame[key]` に委譲する。Boolean mask、point/fancy time selection は、selection intent と source time offset contract を追加で定義するまで拒否する。
 
 `add_channel()` は新しい signal data または別 frame を Recipe step 内で参照する必要があるため、現在の単一入力 linear Recipe では扱わない。非 `inplace` の `add_channel()` は明示的な lineage を残すが、`RecipeSpec.from_frame()` は部分 Recipe を返さず `RecipeExtractionError` で拒否する。
 

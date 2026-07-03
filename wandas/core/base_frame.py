@@ -937,13 +937,17 @@ class BaseFrame(ABC, Generic[T]):
                 )
             if np.issubdtype(key.dtype, np.integer):
                 # Integer array
+                int_list = [int(index) for index in cast(npt.NDArray[np.integer[Any]], key).tolist()]
                 result = self.get_channel(cast(npt.NDArray[np.int_], key))
                 return result._create_new_instance(
                     data=result._data,
                     channel_metadata=result.channels.to_list(),
                     channel_ids=result._channel_ids,
                     source_time_offset=result.source_time_offset,
-                    lineage=self._lineage_with_unsupported_indexing("array"),
+                    lineage=self._lineage_with_method(
+                        "__getitem__",
+                        {"indexing": "integer_list", "indices": tuple(int_list)},
+                    ),
                 )
             raise TypeError(f"NumPy array must be of integer or boolean type, got {key.dtype}")
 
