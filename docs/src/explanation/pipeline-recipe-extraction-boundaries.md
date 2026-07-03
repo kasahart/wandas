@@ -36,6 +36,10 @@ Status: implemented in prototype.
 - `normalize`
 - `trim`
 - `resampling`
+- `abs`
+- `power`
+- `a_weighting`
+- `fade`
 
 条件:
 

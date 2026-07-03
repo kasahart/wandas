@@ -177,6 +177,33 @@ def test_recipe_from_frame_extracts_linear_apply_operation_replayable_chain() ->
     np.testing.assert_allclose(replayed.source_time_offset, processed.source_time_offset)
 
 
+@pytest.mark.parametrize(
+    ("build_frame", "expected_step"),
+    [
+        (lambda frame: frame.abs(), OperationSpec("abs")),
+        (lambda frame: frame.power(exponent=3.0), OperationSpec("power", {"exponent": 3.0})),
+        (lambda frame: frame.a_weighting(), OperationSpec("a_weighting")),
+        (lambda frame: frame.fade(fade_ms=10.0), OperationSpec("fade", {"fade_ms": 10.0})),
+    ],
+)
+def test_recipe_from_frame_extracts_additional_single_input_apply_operations(
+    build_frame: Callable[[ChannelFrame], ChannelFrame],
+    expected_step: OperationSpec,
+) -> None:
+    frame = _frame()
+    processed = build_frame(frame)
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (expected_step,)
+    assert replayed.operation_history == processed.operation_history
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.labels == processed.labels
+    assert replayed.sampling_rate == processed.sampling_rate
+    assert replayed.shape == processed.shape
+
+
 def test_recipe_from_frame_extracts_method_aware_linear_steps() -> None:
     frame = ChannelFrame.from_numpy(
         np.vstack([_frame().data, _frame().data * 0.5]),
@@ -374,8 +401,12 @@ def test_recipe_from_frame_empty_history_returns_empty_recipe() -> None:
             "Operation is outside the Stage 1 recipe allowlist",
         ),
         (
-            "registered operation outside stage one",
-            lambda frame: frame.abs(),
+            "metadata-aware registered operation outside current allowlist",
+            lambda frame: ChannelFrame.from_numpy(
+                np.vstack([frame.data, frame.data * 0.5]),
+                sampling_rate=frame.sampling_rate,
+                ch_labels=["left", "right"],
+            ).channel_difference(other_channel=0),
             "Operation is outside the Stage 1 recipe allowlist",
         ),
     ],

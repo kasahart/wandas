@@ -13,10 +13,14 @@ class RecipeExtractionError(ValueError):
 
 _REPLAYABLE_APPLY_OPERATIONS = frozenset(
     {
+        "a_weighting",
+        "abs",
         "bandpass_filter",
+        "fade",
         "highpass_filter",
         "lowpass_filter",
         "normalize",
+        "power",
         "remove_dc",
         "resampling",
         "trim",

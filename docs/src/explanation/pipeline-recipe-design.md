@@ -13,7 +13,7 @@ sklearn 互換の `WandasOperationTransformer` は、`BaseEstimator` / `Transfor
 - `operation: str`
 - `params: Mapping[str, Any]`
 
-単一 Wandas operation の replayable な呼び出しを表す。`operation` は `"normalize"` や `"highpass_filter"` のような registry key を使う。`params` は作成時に snapshot されるため、呼び出し元の dict を後から変更しても spec は変わらない。
+単一 Wandas operation の replayable な呼び出しを表す。`operation` は `"normalize"`、`"highpass_filter"`、`"fade"` のような registry key を使う。`params` は作成時に snapshot されるため、呼び出し元の dict を後から変更しても spec は変わらない。
 
 Stage 1 では、`params` は flat な recipe literal に限定する。対応する値は `None`、`bool`、`int`、`float`、`str` である。nested dict/list、callable、array-like object は、保存形式と equality policy を決めるまで受け付けない。
 
@@ -82,6 +82,8 @@ ChannelFrame
       -> frame.apply_operation("highpass_filter", cutoff=100.0)
     -> ScalarOperationStep("+", 0.25)
       -> frame + 0.25
+    -> OperationSpec("fade", {"fade_ms": 10.0})
+      -> frame.apply_operation("fade", fade_ms=10.0)
     -> OperationSpec("normalize")
       -> frame.apply_operation("normalize")
   -> new ChannelFrame with operation_history
