@@ -162,7 +162,7 @@ sklearn.pipeline.Pipeline
 - operation 名やパラメータが不正な場合は、既存の `apply_operation` / operation class の validation に委譲する。
 - sequence params は浅い literal sequence だけを受け付ける。`rms_trend()` / `sound_level()` の `ref` や HPSS の `kernel_size` / `margin` は replay に必要な値として保存するが、nested list や array operand は graph recipe の範囲として拒否する。
 - `loudness_zwtv()`、`roughness_dw()`、`sharpness_din()` のような frame を返す psychoacoustic operation は `OperationSpec` で replay する。`loudness_zwst()`、`sharpness_din_st()` のように配列を返す terminal metric は現在の frame transform Recipe には含めない。
-- `get_channel()` は explicit index/list、exact label query、literal dict query だけを抽出する。callable、regex、regex 値を含む dict query は query intent を保存する schema が必要なため拒否する。
+- `get_channel()` は explicit index、integer sequence/ndarray、exact label query、literal dict query だけを抽出する。callable、regex、regex 値を含む dict query は query intent を保存する schema が必要なため拒否する。
 - `__getitem__` は channel slice、integer list/ndarray、1-D boolean mask ndarray、label list、slice-only tuple indexing だけを `IndexingStep` として抽出する。point/fancy time selection は indexing intent と source time offset contract の追加 schema が必要なため現在は拒否する。
 - `add_channel()` は外部 data または別 frame 入力が必要なため、現行の単一入力 `RecipeSpec` では replay しない。非 `inplace` 実行では lineage を残し、抽出時に明示的に拒否して部分 Recipe を返さない。
 - `add_channel()` は外部データ入力を含むため graph recipe の範囲として扱う。

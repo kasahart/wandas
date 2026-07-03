@@ -590,6 +590,8 @@ def test_recipe_from_frame_extracts_channel_difference_method_step() -> None:
     [
         (lambda frame: frame.get_channel(1), MethodStep("get_channel", {"channel_idx": 1})),
         (lambda frame: frame.get_channel([0, 2]), MethodStep("get_channel", {"channel_idx": [0, 2]})),
+        (lambda frame: frame.get_channel((2, 0)), MethodStep("get_channel", {"channel_idx": [2, 0]})),
+        (lambda frame: frame.get_channel(np.array([2, 0])), MethodStep("get_channel", {"channel_idx": [2, 0]})),
         (lambda frame: frame["right"], MethodStep("get_channel", {"channel_idx": 1})),
         (
             lambda frame: frame.get_channel(query="right"),
