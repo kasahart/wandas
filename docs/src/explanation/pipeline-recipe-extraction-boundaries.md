@@ -191,25 +191,36 @@ Implemented:
 - `GraphRecipeSpec(..., BinaryFrameStep("**", ...))`
 - `GraphRecipeSpec(..., BinaryFrameStep("add_with_snr", ..., params={"snr": 6.0}))`
 - `GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))` for root frame-frame binary / `add_with_snr` graphs with two linear parents
+- `GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))` for a single binary merge followed by a replayable linear tail, such as `(signal.normalize() + noise.remove_dc()).stft()`
 
 現在の表現:
 
 ```text
 ScalarOperationStep(symbol="+", operand=0.1)
 ScalarOperationStep(symbol="*", operand=2)
+GraphRecipeSpec(
+    input_recipes={
+        "signal": RecipeSpec([OperationSpec("normalize")]),
+        "noise": RecipeSpec([OperationSpec("remove_dc")]),
+    },
+    output=BinaryFrameStep("+", left="signal", right="noise"),
+    tail_recipe=RecipeSpec([TypedMethodStep("stft", {"n_fft": 2048, ...})]),
+)
 ```
 
 `ScalarOperationStep` は既存 frame operator を呼ぶだけで、二項演算の metadata/history/Dask laziness は frame 本体に委譲する。対応 operand は operation graph に値として保存された Python / NumPy real scalar に限定する。NaN は recipe equality が安定しないため拒否する。
 
-`GraphRecipeSpec` は名前付き入力ごとに linear `RecipeSpec` を適用し、最後に `BinaryFrameStep` で既存 frame-frame 演算を呼ぶ。`from_frame(..., input_names=...)` は root binary graph だけを対象にし、入力名は呼び出し側が与える。
+`GraphRecipeSpec` は名前付き入力ごとに linear `RecipeSpec` を適用し、`BinaryFrameStep` で既存 frame-frame 演算を呼び、その後に optional な linear `tail_recipe` を適用する。`from_frame(..., input_names=...)` は 1 回だけ merge する graph だけを対象にし、入力名は呼び出し側が与える。tail は既存 `RecipeSpec` step で表現するため、merge 後の `normalize()`、`trim()`、`stft()` のような replayable operation / method / typed method は同じ仕組みで扱う。
 
 Not implemented yet:
 
 - 入力名を推定する `RecipeSpec.from_frame(frame_a + frame_b)` の自動 graph 抽出
+- 片方または両方が未加工 source frame のままの graph 抽出。現在の runtime lineage は `None` source parent を保持しないため、`signal.add(noise.remove_dc(), snr=6.0)` のような graph は左右 2 parent として復元できない。
 - `frame + np.ones(frame.shape)`
 - `frame + dask_array`
 - 入力名を推定する `RecipeSpec.from_frame(signal.add(noise, snr=6.0))` の自動 graph 抽出
 - shared branch を持つ graph: `base.normalize()` から signal/noise branch を作って合成する処理
+- 2 回以上 merge する graph: `(a + b) + c` や `(a + b).normalize() + c`
 
 これらは直列 Recipe では表現できない。特に `operation_history` だけを見ると `normalize -> lowpass_filter -> add_with_snr` のように直列に見えることがあるが、`operation_graph` では複数 parent や外部 operand が必要である。array operand も shape、chunking、保存形式を Recipe 側で決める必要があるため、scalar operand と同じ扱いにはしない。
 

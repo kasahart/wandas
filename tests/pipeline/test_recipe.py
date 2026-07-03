@@ -348,6 +348,95 @@ def test_graph_recipe_from_frame_extracts_root_frame_addition_with_input_names()
     assert replayed.operation_history == processed.operation_history
 
 
+def test_graph_recipe_applies_single_merge_with_linear_tail() -> None:
+    base = _frame()
+    signal = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="signal")
+    noise = ChannelFrame.from_numpy(base.data * 0.25, sampling_rate=base.sampling_rate, label="noise")
+    graph_recipe = GraphRecipeSpec(
+        input_recipes={
+            "signal": RecipeSpec([OperationSpec("remove_dc")]),
+            "noise": RecipeSpec([OperationSpec("lowpass_filter", {"cutoff": 1200.0})]),
+        },
+        output=BinaryFrameStep("+", left="signal", right="noise"),
+        tail_recipe=RecipeSpec([OperationSpec("normalize")]),
+    )
+
+    result = graph_recipe.apply({"signal": signal, "noise": noise})
+    expected = (signal.remove_dc() + noise.low_pass_filter(cutoff=1200.0)).normalize()
+
+    np.testing.assert_allclose(result.data, expected.data)
+    assert result.operation_history == expected.operation_history
+    assert graph_recipe.to_dict() == {
+        "inputs": {
+            "signal": {"steps": [{"operation": "remove_dc", "params": {}}]},
+            "noise": {"steps": [{"operation": "lowpass_filter", "params": {"cutoff": 1200.0}}]},
+        },
+        "output": {"binary_frame": {"operation": "+", "left": "signal", "right": "noise", "params": {}}},
+        "tail": {"steps": [{"operation": "normalize", "params": {}}]},
+    }
+
+
+def test_graph_recipe_from_frame_extracts_single_merge_with_linear_tail() -> None:
+    base = _frame()
+    signal_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="signal")
+    noise_source = ChannelFrame.from_numpy(base.data * 0.25, sampling_rate=base.sampling_rate, label="noise")
+    processed = (signal_source.remove_dc() + noise_source.low_pass_filter(cutoff=1200.0)).normalize()
+
+    graph_recipe = GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))
+    replayed = graph_recipe.apply({"signal": signal_source, "noise": noise_source})
+
+    assert graph_recipe.output == BinaryFrameStep("+", "signal", "noise")
+    assert graph_recipe.tail_recipe == RecipeSpec(
+        [OperationSpec("normalize", {"axis": -1, "fill": None, "norm": float("inf"), "threshold": None})]
+    )
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.operation_history == processed.operation_history
+
+
+def test_graph_recipe_from_frame_extracts_add_with_snr_with_linear_tail() -> None:
+    base = _frame()
+    signal_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="signal")
+    noise_source = ChannelFrame.from_numpy(np.flip(base.data), sampling_rate=base.sampling_rate, label="noise")
+    processed = signal_source.normalize().add(noise_source.remove_dc(), snr=6.0).trim(start=0.1, end=0.5)
+
+    graph_recipe = GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))
+    replayed = graph_recipe.apply({"signal": signal_source, "noise": noise_source})
+
+    assert graph_recipe.output == BinaryFrameStep("add_with_snr", "signal", "noise", {"snr": 6.0})
+    assert graph_recipe.tail_recipe == RecipeSpec([OperationSpec("trim", {"start": 0.1, "end": 0.5})])
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.operation_history == processed.operation_history
+
+
+def test_graph_recipe_from_frame_extracts_single_merge_with_typed_tail() -> None:
+    base = _frame()
+    signal_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="signal")
+    noise_source = ChannelFrame.from_numpy(base.data * 0.25, sampling_rate=base.sampling_rate, label="noise")
+    processed = (signal_source.remove_dc() + noise_source.remove_dc()).stft(
+        n_fft=512,
+        hop_length=128,
+        win_length=512,
+        window="hann",
+    )
+
+    graph_recipe = GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))
+    replayed = graph_recipe.apply({"signal": signal_source, "noise": noise_source})
+
+    assert graph_recipe.tail_recipe == RecipeSpec(
+        [TypedMethodStep("stft", {"n_fft": 512, "hop_length": 128, "win_length": 512, "window": "hann"})]
+    )
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.operation_history == processed.operation_history
+    assert isinstance(replayed, SpectrogramFrame)
+
+
+def test_graph_recipe_from_frame_rejects_without_binary_merge() -> None:
+    processed = _frame().remove_dc().normalize()
+
+    with pytest.raises(RecipeExtractionError, match="GraphRecipeSpec extraction requires one binary merge"):
+        GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))
+
+
 def test_graph_recipe_from_frame_rejects_wrong_input_name_count() -> None:
     base = _frame()
     signal_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="signal")
@@ -422,6 +511,22 @@ def test_graph_recipe_rejects_output_reference_outside_named_inputs() -> None:
         GraphRecipeSpec(
             input_recipes={"signal": RecipeSpec(())},
             output=BinaryFrameStep("+", left="signal", right="noise"),
+        )
+
+
+def test_graph_recipe_rejects_extra_input_recipe_outside_binary_merge() -> None:
+    with pytest.raises(ValueError, match="GraphRecipeSpec input recipes must exactly match output inputs"):
+        GraphRecipeSpec(
+            input_recipes={"signal": RecipeSpec(()), "noise": RecipeSpec(()), "unused": RecipeSpec(())},
+            output=BinaryFrameStep("+", left="signal", right="noise"),
+        )
+
+
+def test_graph_recipe_rejects_reused_binary_input_name() -> None:
+    with pytest.raises(ValueError, match="GraphRecipeSpec output requires two distinct inputs"):
+        GraphRecipeSpec(
+            input_recipes={"signal": RecipeSpec(())},
+            output=BinaryFrameStep("+", left="signal", right="signal"),
         )
 
 

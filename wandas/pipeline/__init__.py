@@ -612,8 +612,27 @@ def _binary_frame_step_from_graph(operation: str, params: Mapping[str, Any], lef
         "GraphRecipeSpec extraction only supports root binary frame operations\n"
         f"  Operation: {operation}\n"
         f"  Params: {params!r}\n"
-        "  Supported roots: frame-frame '+', add_with_snr."
+        "  Supported roots: frame-frame '+', '-', '*', '/', '**', and add_with_snr."
     )
+
+
+def _split_graph_at_binary_merge(graph: Mapping[str, Any]) -> tuple[Mapping[str, Any], tuple[RecipeStep, ...]]:
+    inputs = tuple(graph.get("inputs", ()))
+    if len(inputs) == 2:
+        return graph, ()
+    if len(inputs) != 1:
+        raise RecipeExtractionError(
+            "GraphRecipeSpec extraction requires one binary merge\n"
+            f"  Operation: {graph.get('operation')!r}\n"
+            f"  Parent count: {len(inputs)}\n"
+            "  Supported shape: two replayable linear input chains, one binary merge, and one replayable linear tail."
+        )
+
+    merge_graph, tail_steps = _split_graph_at_binary_merge(cast(Mapping[str, Any], inputs[0]))
+    operation = str(graph["operation"])
+    params = cast(Mapping[str, Any], _restore_history_value(graph.get("params", {})))
+    kind = cast(str | None, graph.get("kind"))
+    return merge_graph, (*tail_steps, _step_from_graph(operation, params, kind))
 
 
 @dataclass(frozen=True, init=False)
@@ -1070,16 +1089,32 @@ class RecipeSpec:
 
 @dataclass(frozen=True, init=False)
 class GraphRecipeSpec:
-    """Explicit multi-input recipe with per-input linear recipes and one binary frame output."""
+    """Explicit multi-input recipe with one binary frame merge and an optional linear tail."""
 
     input_recipes: tuple[tuple[str, RecipeSpec], ...]
     output: BinaryFrameStep
+    tail_recipe: RecipeSpec
 
-    def __init__(self, input_recipes: Mapping[str, RecipeSpec], output: BinaryFrameStep) -> None:
+    def __init__(
+        self,
+        input_recipes: Mapping[str, RecipeSpec],
+        output: BinaryFrameStep,
+        tail_recipe: RecipeSpec | None = None,
+    ) -> None:
         if not input_recipes:
             raise ValueError("GraphRecipeSpec requires at least one named input recipe")
         if not isinstance(output, BinaryFrameStep):
             raise TypeError(f"GraphRecipeSpec output must be a BinaryFrameStep\n  Got: {type(output).__name__}")
+        if output.left == output.right:
+            raise ValueError(
+                "GraphRecipeSpec output requires two distinct inputs\n"
+                f"  Left input: {output.left!r}\n"
+                f"  Right input: {output.right!r}"
+            )
+        if tail_recipe is None:
+            tail_recipe = RecipeSpec(())
+        if not isinstance(tail_recipe, RecipeSpec):
+            raise TypeError(f"GraphRecipeSpec tail_recipe must be a RecipeSpec\n  Got: {type(tail_recipe).__name__}")
         frozen_inputs: list[tuple[str, RecipeSpec]] = []
         for name, recipe in input_recipes.items():
             if not isinstance(name, str) or not name:
@@ -1099,14 +1134,26 @@ class GraphRecipeSpec:
                 f"  Missing input references: {missing_output_inputs}\n"
                 f"  Available inputs: {sorted(input_names)}"
             )
+        output_inputs = {output.left, output.right}
+        extra_inputs = input_names - output_inputs
+        if extra_inputs:
+            raise ValueError(
+                "GraphRecipeSpec input recipes must exactly match output inputs\n"
+                f"  Extra input recipes: {sorted(extra_inputs)}\n"
+                f"  Output inputs: {sorted(output_inputs)}"
+            )
         object.__setattr__(self, "input_recipes", tuple(frozen_inputs))
         object.__setattr__(self, "output", output)
+        object.__setattr__(self, "tail_recipe", tail_recipe)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        recipe_dict = {
             "inputs": {name: recipe.to_dict() for name, recipe in self.input_recipes},
             "output": self.output.to_dict(),
         }
+        if self.tail_recipe.steps:
+            recipe_dict["tail"] = self.tail_recipe.to_dict()
+        return recipe_dict
 
     @classmethod
     def from_frame(cls, frame: Any, *, input_names: tuple[str, ...]) -> GraphRecipeSpec:
@@ -1120,7 +1167,8 @@ class GraphRecipeSpec:
         if graph is None:
             raise RecipeExtractionError("GraphRecipeSpec extraction requires operation_graph lineage")
 
-        inputs = tuple(graph.get("inputs", ()))
+        merge_graph, tail_steps = _split_graph_at_binary_merge(cast(Mapping[str, Any], graph))
+        inputs = tuple(merge_graph.get("inputs", ()))
         if len(inputs) != 2 or len(input_names) != 2:
             raise RecipeExtractionError(
                 "GraphRecipeSpec extraction requires one input name per parent\n"
@@ -1132,8 +1180,8 @@ class GraphRecipeSpec:
                 f"GraphRecipeSpec extraction requires distinct input names\n  Input names: {list(input_names)}"
             )
 
-        operation = str(graph["operation"])
-        params = cast(Mapping[str, Any], _restore_history_value(graph.get("params", {})))
+        operation = str(merge_graph["operation"])
+        params = cast(Mapping[str, Any], _restore_history_value(merge_graph.get("params", {})))
         left, right = input_names
         return cls(
             {
@@ -1141,6 +1189,7 @@ class GraphRecipeSpec:
                 right: RecipeSpec(_steps_from_graph(cast(Mapping[str, Any], inputs[1]))),
             },
             _binary_frame_step_from_graph(operation, params, left, right),
+            RecipeSpec(tail_steps),
         )
 
     def apply(self, inputs: Mapping[str, Any]) -> Any:
@@ -1153,7 +1202,7 @@ class GraphRecipeSpec:
                     f"GraphRecipeSpec input is missing\n  Missing input: {name!r}\n  Available inputs: {sorted(inputs)}"
                 ) from exc
             frames[name] = recipe.apply(frame)
-        return self.output.apply(frames)
+        return self.tail_recipe.apply(self.output.apply(frames))
 
 
 __all__ = [
