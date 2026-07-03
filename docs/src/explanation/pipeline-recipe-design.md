@@ -164,6 +164,7 @@ sklearn.pipeline.Pipeline
 - `loudness_zwtv()`、`roughness_dw()`、`sharpness_din()` のような frame を返す psychoacoustic operation は `OperationSpec` で replay する。`loudness_zwst()`、`sharpness_din_st()` のように配列を返す terminal metric は現在の frame transform Recipe には含めない。
 - `get_channel()` は explicit index/list と exact label query だけを抽出する。callable、regex、dict query は query intent を保存する schema が必要なため拒否する。
 - `__getitem__` は channel slice、label list、slice-only tuple indexing だけを `IndexingStep` として抽出する。array indexing、boolean mask、integer-list channel selector を含む tuple indexing、point/fancy time selection は indexing intent と source time offset contract の追加 schema が必要なため現在は拒否する。
+- `add_channel()` は外部 data または別 frame 入力が必要なため、現行の単一入力 `RecipeSpec` では replay しない。非 `inplace` 実行では lineage を残し、抽出時に明示的に拒否して部分 Recipe を返さない。
 - `add_channel()` は外部データ入力を含むため graph recipe の範囲として扱う。
 - v1 では複数入力 operation を recipe から呼ばない。必要な場合は operation-specific method を使う。
 - method-aware step は明示 allowlist に含まれる method だけを抽出する。現在は `get_channel`、`remove_channel`、`rename_channels`、`fix_length`、`sum`、`mean`、`channel_difference` に限定する。

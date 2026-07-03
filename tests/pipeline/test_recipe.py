@@ -1327,3 +1327,21 @@ def test_recipe_from_frame_reports_graph_recipe_boundary_for_multi_input_operati
 
     with pytest.raises(RecipeExtractionError, match="Graph operation requires graph recipe support"):
         RecipeSpec.from_frame(processed)
+
+
+@pytest.mark.parametrize(
+    "build_added",
+    [
+        lambda frame: frame.add_channel(np.zeros(frame.n_samples), label="raw"),
+        lambda frame: frame.add_channel(frame.get_channel(0).rename_channels({0: "copied"})),
+    ],
+)
+def test_recipe_from_frame_rejects_add_channel_boundary(
+    build_added: Callable[[ChannelFrame], ChannelFrame],
+) -> None:
+    frame = _two_channel_frame_with_refs().normalize(norm=2.0)
+    processed = build_added(frame)
+
+    assert processed.operation_history[-1]["operation"] == "add_channel"
+    with pytest.raises(RecipeExtractionError, match="add_channel recipe extraction requires external input support"):
+        RecipeSpec.from_frame(processed)

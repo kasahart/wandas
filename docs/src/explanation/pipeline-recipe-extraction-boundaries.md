@@ -108,7 +108,7 @@ MethodStep(method="rename_channels", kwargs={"mapping": {0: "left", 1: "right"}}
 
 `frame["right", 10:20]` のような channel + time の tuple indexing は、channel selector が単一 index、channel slice、または label list で、残りの軸が `slice` だけの場合に限って抽出する。source time offset の更新は Recipe に複製せず、既存 `frame[key]` に委譲する。integer-list channel selector、NumPy array、boolean mask、point/fancy time selection は、selection intent と source time offset contract を追加で定義するまで拒否する。
 
-`add_channel()` は新しい signal data を Recipe step 内に持つ必要があるため、現在の単一入力 linear Recipe では扱わない。
+`add_channel()` は新しい signal data または別 frame を Recipe step 内で参照する必要があるため、現在の単一入力 linear Recipe では扱わない。非 `inplace` の `add_channel()` は明示的な lineage を残すが、`RecipeSpec.from_frame()` は部分 Recipe を返さず `RecipeExtractionError` で拒否する。
 
 ## Stage 3: Typed Domain Transitions / 型遷移を含む Recipe
 

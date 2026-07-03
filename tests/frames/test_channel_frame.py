@@ -596,7 +596,17 @@ def test_add_channel_dask_raw_uses_explicit_source_time_offset_and_stays_lazy() 
 
     assert isinstance(added._data, DaArray)
     assert base.operation_history == history_before
-    assert added.operation_history == history_before
+    assert added.operation_history == [
+        {
+            "operation": "add_channel",
+            "params": {
+                "align": "strict",
+                "input_kind": "dask.array",
+                "label": "new_ch",
+                "suffix_on_dup": None,
+            },
+        }
+    ]
     np.testing.assert_array_equal(added.source_time_offset, np.array([2.5, 5.0]))
 
 
@@ -676,8 +686,10 @@ def test_add_channel_with_channelframe_align_pad_and_truncate() -> None:
     assert out.n_samples == base.n_samples
     assert out.n_channels == 2
     assert base.n_channels == 1  # Pillar 1: original unchanged
-    # Pillar 2: structural op leaves history unchanged
-    assert len(out.operation_history) == len(base.operation_history)
+    assert out.operation_history[-1] == {
+        "operation": "add_channel",
+        "params": {"align": "pad", "input_kind": "frame", "label": None, "suffix_on_dup": None},
+    }
 
     # longer incoming frame -> truncate
     other_long = ChannelFrame(data=_da_from_array(np.zeros((1, 20)), chunks=(1, -1)), sampling_rate=16000)
@@ -687,8 +699,10 @@ def test_add_channel_with_channelframe_align_pad_and_truncate() -> None:
     assert out2 is not base  # Pillar 1: immutability
     assert out2.n_samples == base.n_samples
     assert out2.n_channels == 2
-    # Pillar 2: structural op leaves history unchanged
-    assert len(out2.operation_history) == len(base.operation_history)
+    assert out2.operation_history[-1] == {
+        "operation": "add_channel",
+        "params": {"align": "truncate", "input_kind": "frame", "label": None, "suffix_on_dup": None},
+    }
 
 
 def test_remove_channel_index_out_of_range_raises() -> None:

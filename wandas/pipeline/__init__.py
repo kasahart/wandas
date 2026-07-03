@@ -479,6 +479,12 @@ def _steps_from_graph(graph: Mapping[str, Any]) -> tuple[RecipeStep, ...]:
     operation = str(graph["operation"])
     kind = cast(str | None, graph.get("kind"))
     inputs = tuple(graph.get("inputs", ()))
+    if operation == "add_channel":
+        raise RecipeExtractionError(
+            "add_channel recipe extraction requires external input support\n"
+            "  Current RecipeSpec can only replay one existing input frame. "
+            "Adding channels needs a graph recipe or external data/input reference."
+        )
     if len(inputs) > 1:
         raise RecipeExtractionError(
             "Graph operation requires graph recipe support\n"

@@ -314,6 +314,16 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             previous=self,
         )
 
+    def _lineage_with_add_channel(
+        self,
+        params: dict[str, Any],
+        added_lineage: Any | None = None,
+    ) -> Any:
+        from wandas.processing.base import FrameMethodOperation
+
+        inputs = (self.lineage, added_lineage) if added_lineage is not None else (self.lineage,)
+        return self._lineage_with_operation(FrameMethodOperation("add_channel", params), *inputs)
+
     @property
     def time(self) -> NDArrayReal:
         """Get time array for the signal.
@@ -1313,7 +1323,13 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> cf_combined = cf.add_channel(cf2)
         """
         # Handle ndarray/dask/same-type Frame
+        lineage_params: dict[str, Any] = {
+            "align": align,
+            "label": label,
+            "suffix_on_dup": suffix_on_dup,
+        }
         if isinstance(data, ChannelFrame):
+            lineage_params["input_kind"] = "frame"
             if source_time_offset is not None:
                 raise ValueError(
                     "source_time_offset cannot be used when adding a ChannelFrame\n"
@@ -1352,10 +1368,19 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 new_id = self._next_channel_id(new_ids)
                 new_ids.append(new_id)
             new_offsets = np.concatenate([self.source_time_offset, data.source_time_offset])
-            return self._finalize_channel_update(new_data, new_chmeta, inplace, new_ids, new_offsets)
+            return self._finalize_channel_update(
+                new_data,
+                new_chmeta,
+                inplace,
+                new_ids,
+                new_offsets,
+                lineage=None if inplace else self._lineage_with_add_channel(lineage_params, data.lineage),
+            )
         if isinstance(data, np.ndarray):
+            lineage_params["input_kind"] = "ndarray"
             arr = _da_from_array(data.reshape(1, -1), chunks=(1, -1))
         elif isinstance(data, DaArray):
+            lineage_params["input_kind"] = "dask.array"
             arr = data[None, ...] if data.ndim == 1 else data
             if arr.shape[0] != 1:
                 arr = arr.reshape((1, -1))
@@ -1382,7 +1407,14 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         raw_source_time_offset = 0.0 if source_time_offset is None else source_time_offset
         new_channel_offsets = self._normalize_source_time_offset(raw_source_time_offset, arr.shape[0])
         new_offsets = np.concatenate([self.source_time_offset, new_channel_offsets])
-        return self._finalize_channel_update(new_data, new_chmeta, inplace, new_ids, new_offsets)
+        return self._finalize_channel_update(
+            new_data,
+            new_chmeta,
+            inplace,
+            new_ids,
+            new_offsets,
+            lineage=None if inplace else self._lineage_with_add_channel(lineage_params),
+        )
 
     def remove_channel(self, key: int | str, inplace: bool = False) -> "ChannelFrame":
         if isinstance(key, int):
