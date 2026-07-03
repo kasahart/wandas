@@ -2417,7 +2417,7 @@ class TestFadeIntegration:
         # Should work correctly
         assert isinstance(processed, ChannelFrame)
         assert processed.n_channels == 1
-        assert processed.operation_history[-1]["operation"] == "fade"
+        assert [record["operation"] for record in processed.operation_history] == ["fade", "get_channel"]
 
     def test_fade_with_arithmetic_operations(self) -> None:
         """Test fade with arithmetic operations."""

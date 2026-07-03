@@ -608,6 +608,14 @@ class BaseFrame(ABC, Generic[T]):
         lineage_inputs = tuple(input_lineage for input_lineage in inputs if input_lineage is not None)
         return LineageNode(operation=operation, inputs=lineage_inputs)
 
+    def _lineage_with_method(self, method: str, params: Mapping[str, Any]) -> "LineageNode":
+        from wandas.processing.base import FrameMethodOperation
+
+        return self._lineage_with_operation(FrameMethodOperation(method, params), self.lineage)
+
+    def _lineage_with_unsupported_indexing(self, indexing: str) -> "LineageNode":
+        return self._lineage_with_method("__getitem__", {"indexing": indexing})
+
     @property
     def operations(self) -> tuple["AudioOperation[Any, Any]", ...]:
         """Return Wandas operation instances found in the lazy Dask graph."""
@@ -730,11 +738,21 @@ class BaseFrame(ABC, Generic[T]):
             if not indices:
                 raise KeyError(f"No channels match query: {query!r}")
             channel_idx_list = indices
+            if isinstance(query, str):
+                lineage_params: dict[str, Any] = {"query": query, "validate_query_keys": validate_query_keys}
+            else:
+                lineage_params = {
+                    "channel_idx": channel_idx_list,
+                    "query_kind": type(query).__name__,
+                }
         else:
             if channel_idx is None:
                 raise TypeError("Either 'channel_idx' or 'query' must be provided.")
 
             channel_idx_list = [channel_idx] if isinstance(channel_idx, int) else list(channel_idx)
+            lineage_params = {
+                "channel_idx": channel_idx_list[0] if len(channel_idx_list) == 1 else channel_idx_list,
+            }
 
         new_data = self._data[channel_idx_list]
         new_channel_metadata = [self.channels[i].to_metadata() for i in channel_idx_list]
@@ -745,6 +763,7 @@ class BaseFrame(ABC, Generic[T]):
             channel_metadata=new_channel_metadata,
             channel_ids=new_channel_ids,
             source_time_offset=self.source_time_offset[channel_idx_list],
+            lineage=self._lineage_with_method("get_channel", lineage_params),
         )
 
     def __len__(self) -> int:
@@ -871,7 +890,16 @@ class BaseFrame(ABC, Generic[T]):
                 # Multiple labels - type narrowing for type checker
                 str_list = cast(list[str], key)
                 indices_from_labels = [self.label2index(label) for label in str_list]
-                return self.get_channel(indices_from_labels)
+                new_data = self._data[indices_from_labels]
+                new_channel_metadata = [self.channels[i].to_metadata() for i in indices_from_labels]
+                new_channel_ids = [self._channel_ids[i] for i in indices_from_labels]
+                return self._create_new_instance(
+                    data=new_data,
+                    channel_metadata=new_channel_metadata,
+                    channel_ids=new_channel_ids,
+                    source_time_offset=self.source_time_offset[indices_from_labels],
+                    lineage=self._lineage_with_unsupported_indexing("label_list"),
+                )
 
             # Check if all elements are integers
             if all(isinstance(k, int | np.integer) for k in key):
@@ -896,6 +924,7 @@ class BaseFrame(ABC, Generic[T]):
                 channel_metadata=new_channel_metadata,
                 channel_ids=new_channel_ids,
                 source_time_offset=self.source_time_offset[indices],
+                lineage=self._lineage_with_unsupported_indexing("channel_slice"),
             )
 
         raise TypeError(f"Invalid key type: {type(key).__name__}. Expected int, str, slice, list, tuple, or ndarray.")
@@ -957,6 +986,10 @@ class BaseFrame(ABC, Generic[T]):
                 channel_metadata=selected.channels.to_list(),
                 channel_ids=selected._channel_ids,
                 source_time_offset=source_time_offset,
+                lineage=selected._lineage_with_method(
+                    "__getitem__",
+                    {"indexing": "multidimensional"},
+                ),
             )
 
         return selected

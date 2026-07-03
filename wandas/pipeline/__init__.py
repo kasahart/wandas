@@ -36,6 +36,14 @@ _REPLAYABLE_APPLY_OPERATIONS = frozenset(
 _REPLAYABLE_METHOD_OPERATIONS = {
     "channel_difference": ("channel_difference", {"other_channel": "other_channel"}),
     "fix_length": ("fix_length", {"target_length": "length"}),
+    "get_channel": (
+        "get_channel",
+        {
+            "channel_idx": "channel_idx",
+            "query": "query",
+            "validate_query_keys": "validate_query_keys",
+        },
+    ),
     "mean": ("mean", {}),
     "sum": ("sum", {}),
 }
@@ -172,6 +180,12 @@ def _method_params(params: Mapping[str, Any], param_names: Mapping[str, str] | N
 
 
 def _method_step_from_graph(operation: str, params: Mapping[str, Any]) -> MethodStep:
+    if operation == "get_channel" and "query_kind" in params:
+        raise RecipeExtractionError(
+            "Channel selection recipe extraction only supports explicit indices or exact label queries\n"
+            f"  Query kind: {params['query_kind']!r}\n"
+            "  Callable, regex, and dict channel queries need a selection recipe model that can preserve query intent."
+        )
     method, param_names = _REPLAYABLE_METHOD_OPERATIONS[operation]
     return MethodStep(method, _method_params(params, param_names))
 

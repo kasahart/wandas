@@ -185,6 +185,21 @@ class BinaryOperation:
         }
 
 
+@dataclass(frozen=True)
+class FrameMethodOperation:
+    """Lightweight lineage record for replayable frame method calls."""
+
+    name: str
+    method_params: Mapping[str, Any]
+
+    @property
+    def params(self) -> Mapping[str, Any]:
+        return self.to_params()
+
+    def to_params(self) -> Mapping[str, Any]:
+        return _snapshot_config_value(self.method_params)
+
+
 def _snapshot_config_value(value: Any) -> Any:
     """Return an operation-owned snapshot of user supplied config values."""
     if value is None or isinstance(value, bool | int | float | str | bytes | complex):

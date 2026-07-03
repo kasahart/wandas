@@ -65,7 +65,7 @@ HPSS の `kernel_size` / `margin` は public API が scalar と 2要素 sequence
 
 ## Stage 2: Method-Aware Linear Steps / frame method aware な直列 step
 
-Status: partially implemented for `fix_length`, `sum`, `mean`, and `channel_difference`.
+Status: partially implemented for `fix_length`, `sum`, `mean`, `channel_difference`, and simple `get_channel` selection.
 
 検証で見えた例:
 
@@ -75,6 +75,8 @@ Status: partially implemented for `fix_length`, `sum`, `mean`, and `channel_diff
 | `frame.sum()` | `MethodStep("sum")` | channel metadata を 2ch から 1ch に再構成する frame method 固有処理を再利用する |
 | `frame.mean()` | `MethodStep("mean")` | `sum` と同じく channel metadata 再構成を frame method に委譲する |
 | `frame.channel_difference(other_channel=0)` | `MethodStep("channel_difference", {"other_channel": 0})` | channel label / metadata 更新を frame method に委譲する |
+| `frame.get_channel(1)` | `MethodStep("get_channel", {"channel_idx": 1})` | channel metadata、channel ids、source time offset の selection を frame method に委譲する |
+| `frame.get_channel(query="right")` | `MethodStep("get_channel", {"query": "right", "validate_query_keys": True})` | exact label query は値として保存できる |
 
 現在の表現:
 
@@ -83,9 +85,16 @@ FrameMethodStep(method="fix_length", kwargs={"length": 8000})
 FrameMethodStep(method="sum", kwargs={})
 FrameMethodStep(method="mean", kwargs={})
 FrameMethodStep(method="channel_difference", kwargs={"other_channel": 0})
+FrameMethodStep(method="get_channel", kwargs={"channel_idx": [0, 2]})
 ```
 
 この段階では metadata 変換ロジックを Recipe 側に複製しない。既存 frame method を呼ぶことで、frame immutability、metadata/history、Dask laziness は既存契約に従う。
+
+`get_channel()` の callable / regex / dict query は、選択時点の index へ潰すと query intent が失われるため現在は抽出時に拒否する。これらを replayable にするには、query 表現を Recipe schema として定義する必要がある。
+
+`frame[0:2]` のような channel slice や `frame[["right", "rear"]]` のような label list selection は、現在は抽出時に拒否する。これらは既存 frame API としては動作するが、Recipe としては slice/list label intent を表現する dedicated step が必要になる。
+
+`frame["right", 10:20]` のような channel + time の tuple indexing は、channel selection だけを抽出すると time slice を落とした部分 replay になるため現在は拒否する。time slicing を扱う場合は、channel selection とは別の明示 step と source time offset contract が必要になる。
 
 ## Stage 3: Typed Domain Transitions / 型遷移を含む Recipe
 

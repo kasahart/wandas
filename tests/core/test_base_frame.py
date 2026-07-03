@@ -334,7 +334,7 @@ def test_get_channel_validate_false_unknown_key_raises_no_match() -> None:
         _ = cf.get_channel(0, query={"no_such_key": "value"}, validate_query_keys=False)
 
 
-def test_get_channel_selection_preserves_history_and_immutability() -> None:
+def test_get_channel_selection_records_history_and_preserves_immutability() -> None:
     sample_rate = 16000
     data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
@@ -353,9 +353,11 @@ def test_get_channel_selection_preserves_history_and_immutability() -> None:
     np.testing.assert_array_equal(cf._data.compute(), original_data)
     assert isinstance(new_cf._data, DaArray)
 
-    # Pillar 2: History preserved (structural operation, no history added)
+    # Pillar 2: Source history is preserved and selection is replayable.
     assert cf.operation_history == original_history
-    assert new_cf.operation_history == original_history
+    assert new_cf.operation_history == [
+        {"operation": "get_channel", "params": {"channel_idx": 0}},
+    ]
     assert new_cf.sampling_rate == sample_rate
 
 
@@ -787,6 +789,15 @@ class TestBaseFrameIndexing:
         assert result.channels[0].label == "ch1"
         # Pillar 1: Dask laziness preserved
         assert isinstance(result._data, DaArray)
+
+    def test_getitem_with_duplicate_string_label_returns_first_match(self) -> None:
+        """String label indexing preserves the existing single-channel contract."""
+        self.channel_frame.channels[2].label = "ch1"
+
+        result = self.channel_frame["ch1"]
+
+        assert result.n_channels == 1
+        np.testing.assert_array_equal(result.compute(), self.data[1:2])
 
     def test_getitem_with_list_of_strings(self) -> None:
         """Test __getitem__ with list of string labels."""

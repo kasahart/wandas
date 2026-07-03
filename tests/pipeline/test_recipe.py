@@ -1,3 +1,4 @@
+import re
 from collections.abc import Callable
 from types import SimpleNamespace
 
@@ -559,6 +560,89 @@ def test_recipe_from_frame_extracts_channel_difference_method_step() -> None:
     assert replayed.labels == processed.labels
     assert replayed.sampling_rate == processed.sampling_rate
     assert replayed.shape == processed.shape
+
+
+@pytest.mark.parametrize(
+    ("build_frame", "expected_step"),
+    [
+        (lambda frame: frame.get_channel(1), MethodStep("get_channel", {"channel_idx": 1})),
+        (lambda frame: frame.get_channel([0, 2]), MethodStep("get_channel", {"channel_idx": [0, 2]})),
+        (lambda frame: frame["right"], MethodStep("get_channel", {"channel_idx": 1})),
+        (
+            lambda frame: frame.get_channel(query="right"),
+            MethodStep("get_channel", {"query": "right", "validate_query_keys": True}),
+        ),
+    ],
+)
+def test_recipe_from_frame_extracts_channel_selection_method_step(
+    build_frame: Callable[[ChannelFrame], ChannelFrame],
+    expected_step: MethodStep,
+) -> None:
+    base = _frame()
+    frame = ChannelFrame.from_numpy(
+        np.vstack([base.data, base.data * 0.5, base.data * 0.25]),
+        sampling_rate=base.sampling_rate,
+        ch_labels=["left", "right", "rear"],
+    )
+    processed = build_frame(frame)
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.steps == (expected_step,)
+    assert replayed.operation_history == processed.operation_history
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.labels == processed.labels
+    assert replayed.sampling_rate == processed.sampling_rate
+    assert replayed.shape == processed.shape
+
+
+@pytest.mark.parametrize(
+    "build_frame",
+    [
+        lambda frame: frame.get_channel(query=lambda channel: channel.label == "right"),
+        lambda frame: frame.get_channel(query=re.compile("right")),
+        lambda frame: frame.get_channel(query={"label": "right"}),
+    ],
+)
+def test_recipe_from_frame_rejects_non_literal_channel_queries(
+    build_frame: Callable[[ChannelFrame], ChannelFrame],
+) -> None:
+    base = _frame()
+    frame = ChannelFrame.from_numpy(
+        np.vstack([base.data, base.data * 0.5]),
+        sampling_rate=base.sampling_rate,
+        ch_labels=["left", "right"],
+    )
+    processed = build_frame(frame)
+
+    with pytest.raises(RecipeExtractionError, match="Channel selection recipe extraction only supports"):
+        RecipeSpec.from_frame(processed)
+
+
+def test_recipe_from_frame_rejects_channel_and_time_indexing_boundary() -> None:
+    frame = _two_channel_frame_with_refs()
+    processed = frame["right", 10:20]
+
+    with pytest.raises(RecipeExtractionError, match="Operation is outside the Stage 1 recipe allowlist"):
+        RecipeSpec.from_frame(processed)
+
+
+@pytest.mark.parametrize(
+    "build_frame",
+    [
+        lambda frame: frame[0:2],
+        lambda frame: frame[["left", "right"]],
+    ],
+)
+def test_recipe_from_frame_rejects_ambiguous_getitem_channel_selection(
+    build_frame: Callable[[ChannelFrame], ChannelFrame],
+) -> None:
+    frame = _two_channel_frame_with_refs()
+    processed = build_frame(frame)
+
+    with pytest.raises(RecipeExtractionError, match="Operation is outside the Stage 1 recipe allowlist"):
+        RecipeSpec.from_frame(processed)
 
 
 def test_recipe_from_frame_extracts_scalar_operation_chain() -> None:
