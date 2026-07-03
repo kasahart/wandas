@@ -65,7 +65,7 @@ HPSS の `kernel_size` / `margin` は public API が scalar と 2要素 sequence
 
 ## Stage 2: Method-Aware Linear Steps / frame method aware な直列 step
 
-Status: partially implemented for `fix_length`, `sum`, `mean`, `channel_difference`, simple `get_channel` selection, channel-only `__getitem__` selection including `list[int]`, slice-only multidimensional `__getitem__`, `remove_channel`, and `rename_channels`.
+Status: partially implemented for `fix_length`, `sum`, `mean`, `channel_difference`, simple `get_channel` selection, literal dict channel queries, channel-only `__getitem__` selection including `list[int]`, slice-only multidimensional `__getitem__`, `remove_channel`, and `rename_channels`.
 
 検証で見えた例:
 
@@ -77,6 +77,7 @@ Status: partially implemented for `fix_length`, `sum`, `mean`, `channel_differen
 | `frame.channel_difference(other_channel=0)` | `MethodStep("channel_difference", {"other_channel": 0})` | channel label / metadata 更新を frame method に委譲する |
 | `frame.get_channel(1)` | `MethodStep("get_channel", {"channel_idx": 1})` | channel metadata、channel ids、source time offset の selection を frame method に委譲する |
 | `frame.get_channel(query="right")` | `MethodStep("get_channel", {"query": "right", "validate_query_keys": True})` | exact label query は値として保存できる |
+| `frame.get_channel(query={"unit": "Pa"})` | `MethodStep("get_channel", {"query": {"unit": "Pa"}, "validate_query_keys": True})` | literal metadata query は query intent を保存できる |
 | `frame[0:2]` | `IndexingStep(slice(0, 2))` | slice intent を index list へ潰さず、既存 `frame[key]` に委譲する |
 | `frame[[1, 0]]` | `IndexingStep([1, 0])` | explicit integer list intent を保存し、既存 `frame[key]` に委譲する |
 | `frame[["right", "rear"]]` | `IndexingStep(["right", "rear"])` | label list intent を index list へ潰さず、既存 `frame[key]` に委譲する |
@@ -104,7 +105,7 @@ MethodStep(method="rename_channels", kwargs={"mapping": {0: "left", 1: "right"}}
 
 この段階では metadata 変換ロジックを Recipe 側に複製しない。既存 frame method を呼ぶことで、frame immutability、metadata/history、Dask laziness は既存契約に従う。
 
-`get_channel()` の callable / regex / dict query は、選択時点の index へ潰すと query intent が失われるため現在は抽出時に拒否する。これらを replayable にするには、query 表現を Recipe schema として定義する必要がある。
+`get_channel()` の callable / regex query と regex 値を含む dict query は、選択時点の index へ潰すと query intent が失われるため現在は抽出時に拒否する。literal dict query は `None`、`bool`、`int`、`float`、`str` だけを値に持つ場合に限って保存する。
 
 `IndexingStep` の保存表現は `{"getitem": {"type": "channel_slice", "start": 0, "stop": 2, "step": null}}`、`{"getitem": {"type": "integer_list", "indices": [1, 0]}}`、`{"getitem": {"type": "label_list", "labels": ["right", "rear"]}}`、または `{"getitem": {"type": "multidimensional_slice", "channel": {"type": "slice", "start": null, "stop": null, "step": null}, "axis_slices": [{"start": 100, "stop": 400, "step": null}]}}` とする。Recipe 側では indexing の metadata 処理を複製せず、`frame[key]` を呼ぶ。
 

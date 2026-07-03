@@ -1,6 +1,7 @@
 import json
 import re
 from collections.abc import Callable
+from fractions import Fraction
 from types import SimpleNamespace
 from typing import Any
 
@@ -594,6 +595,14 @@ def test_recipe_from_frame_extracts_channel_difference_method_step() -> None:
             lambda frame: frame.get_channel(query="right"),
             MethodStep("get_channel", {"query": "right", "validate_query_keys": True}),
         ),
+        (
+            lambda frame: frame.get_channel(query={"label": "right"}),
+            MethodStep("get_channel", {"query": {"label": "right"}, "validate_query_keys": True}),
+        ),
+        (
+            lambda frame: frame.get_channel(query={"unit": "Pa", "ref": 2.0}),
+            MethodStep("get_channel", {"query": {"unit": "Pa", "ref": 2.0}, "validate_query_keys": True}),
+        ),
     ],
 )
 def test_recipe_from_frame_extracts_channel_selection_method_step(
@@ -601,10 +610,14 @@ def test_recipe_from_frame_extracts_channel_selection_method_step(
     expected_step: MethodStep,
 ) -> None:
     base = _frame()
-    frame = ChannelFrame.from_numpy(
-        np.vstack([base.data, base.data * 0.5, base.data * 0.25]),
+    frame = ChannelFrame(
+        data=da.from_array(np.vstack([base.data, base.data * 0.5, base.data * 0.25]), chunks=(1, -1)),
         sampling_rate=base.sampling_rate,
-        ch_labels=["left", "right", "rear"],
+        channel_metadata=[
+            ChannelMetadata(label="left", unit="Pa", ref=2.0),
+            ChannelMetadata(label="right", unit="Pa", ref=2.0),
+            ChannelMetadata(label="rear", unit="V", ref=1.0),
+        ],
     )
     processed = build_frame(frame)
 
@@ -617,6 +630,48 @@ def test_recipe_from_frame_extracts_channel_selection_method_step(
     assert replayed.labels == processed.labels
     assert replayed.sampling_rate == processed.sampling_rate
     assert replayed.shape == processed.shape
+
+
+def test_get_channel_dict_query_recipe_extraction_snapshots_query() -> None:
+    base = _frame()
+    frame = ChannelFrame(
+        data=da.from_array(np.vstack([base.data, base.data * 0.5]), chunks=(1, -1)),
+        sampling_rate=base.sampling_rate,
+        channel_metadata=[
+            ChannelMetadata(label="left", unit="V"),
+            ChannelMetadata(label="right", unit="Pa"),
+        ],
+    )
+    query = {"unit": "Pa"}
+    processed = frame.get_channel(query=query)
+    query["unit"] = "V"
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert recipe.to_dict() == {
+        "steps": [{"method": "get_channel", "params": {"query": {"unit": "Pa"}, "validate_query_keys": True}}]
+    }
+    assert replayed.operation_history == processed.operation_history
+    assert replayed.labels == ["right"]
+
+
+def test_get_channel_dict_query_recipe_extraction_rejects_non_builtin_real() -> None:
+    base = _frame()
+    ratio = Fraction(1, 3)
+    frame = ChannelFrame(
+        data=da.from_array(np.vstack([base.data, base.data * 0.5]), chunks=(1, -1)),
+        sampling_rate=base.sampling_rate,
+        channel_metadata=[
+            ChannelMetadata(label="left", extra={"ratio": Fraction(1, 2)}),
+            ChannelMetadata(label="right", extra={"ratio": ratio}),
+        ],
+    )
+
+    processed = frame.get_channel(query={"ratio": ratio})
+
+    with pytest.raises(RecipeExtractionError, match="Channel selection recipe extraction only supports"):
+        RecipeSpec.from_frame(processed)
 
 
 @pytest.mark.parametrize(
@@ -712,7 +767,7 @@ def test_recipe_from_frame_extracts_rename_channels_method_step(
     [
         lambda frame: frame.get_channel(query=lambda channel: channel.label == "right"),
         lambda frame: frame.get_channel(query=re.compile("right")),
-        lambda frame: frame.get_channel(query={"label": "right"}),
+        lambda frame: frame.get_channel(query={"label": re.compile("right")}),
     ],
 )
 def test_recipe_from_frame_rejects_non_literal_channel_queries(

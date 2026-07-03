@@ -160,6 +160,30 @@ def _snapshot_rename_channels_params(params: Mapping[str, Any]) -> tuple[tuple[s
     return (("mapping", _FrozenMapping(frozen_mapping)),)
 
 
+def _snapshot_get_channel_query_params(params: Mapping[str, Any]) -> tuple[tuple[str, Any], ...]:
+    query = params.get("query")
+    if not isinstance(query, Mapping):
+        return _snapshot_params(params)
+    frozen: list[tuple[str, Any]] = []
+    for key, value in params.items():
+        if key == "query":
+            query_items: list[tuple[Any, Any]] = []
+            for query_key, query_value in query.items():
+                if not isinstance(query_key, str):
+                    raise TypeError(f"get_channel query keys must be strings\n  Got: {type(query_key).__name__}")
+                query_items.append((query_key, _snapshot_param_value(query_value)))
+            frozen.append((key, _FrozenMapping(tuple(sorted(query_items)))))
+        else:
+            if not isinstance(key, str):
+                raise TypeError(
+                    "OperationSpec params mapping keys must be strings\n"
+                    f"  Got: {type(key).__name__}\n"
+                    "  Recipe params use string keys so equality and serialization stay predictable."
+                )
+            frozen.append((key, _snapshot_param_value(value)))
+    return tuple(sorted(frozen))
+
+
 def _snapshot_params(params: Mapping[str, Any]) -> tuple[tuple[str, Any], ...]:
     frozen: list[tuple[str, Any]] = []
     for key, value in params.items():
@@ -556,11 +580,12 @@ class MethodStep:
                 f"  Valid methods: {valid_methods}"
             )
         object.__setattr__(self, "method", method)
-        frozen_params = (
-            _snapshot_rename_channels_params(params or {})
-            if method == "rename_channels"
-            else _snapshot_params(params or {})
-        )
+        if method == "rename_channels":
+            frozen_params = _snapshot_rename_channels_params(params or {})
+        elif method == "get_channel":
+            frozen_params = _snapshot_get_channel_query_params(params or {})
+        else:
+            frozen_params = _snapshot_params(params or {})
         object.__setattr__(self, "_params", frozen_params)
 
     @property

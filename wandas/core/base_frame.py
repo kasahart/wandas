@@ -622,6 +622,18 @@ class BaseFrame(ABC, Generic[T]):
         return self._lineage_with_method("__getitem__", {"indexing": indexing})
 
     @staticmethod
+    def _is_literal_channel_query(query: Mapping[Any, Any]) -> bool:
+        for key, value in query.items():
+            if not isinstance(key, str):
+                return False
+            if value is None or isinstance(value, bool | int | float | str):
+                continue
+            if isinstance(value, np.bool_ | np.integer | np.floating):
+                continue
+            return False
+        return True
+
+    @staticmethod
     def _slice_bound_for_lineage(value: Any) -> int | None:
         if value is None:
             return None
@@ -776,6 +788,11 @@ class BaseFrame(ABC, Generic[T]):
             channel_idx_list = indices
             if isinstance(query, str):
                 lineage_params: dict[str, Any] = {"query": query, "validate_query_keys": validate_query_keys}
+            elif isinstance(query, dict) and self._is_literal_channel_query(query):
+                lineage_params = {
+                    "query": dict(query),
+                    "validate_query_keys": validate_query_keys,
+                }
             else:
                 lineage_params = {
                     "channel_idx": channel_idx_list,
