@@ -7,5 +7,5 @@ This page points to the executable notebook for checking the Pipeline Recipe req
 - [Read the requirements / 要件定義を読む](../explanation/pipeline-recipe-requirements.md)
 - [Try the UX tutorial notebook / UXチュートリアルNotebookを試す](pipeline-recipes.md)
 
-The notebook is assert-driven. It checks R1-R8 from the requirements document, including replay, input immutability, Dask laziness, sklearn adapter behavior when available, and optional dependency boundaries.
-Notebookはassert中心です。要件定義のR1-R8について、replay、入力Frameの不変性、Dask laziness、sklearn adapterの挙動、optional dependencyの境界を確認します。
+The notebook is assert-driven. It checks R1-R12 from the requirements document, including replay, input immutability, Dask laziness, sklearn adapter behavior when available, frame-to-recipe extraction, graph extraction, explicit step types, and extraction boundaries.
+Notebookはassert中心です。要件定義のR1-R12について、replay、入力Frameの不変性、Dask laziness、sklearn adapterの挙動、frameからのRecipe抽出、graph抽出、明示step、抽出境界を確認します。
