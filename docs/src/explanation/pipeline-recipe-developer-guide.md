@@ -172,14 +172,21 @@ Use this checklist before editing code:
 
 Typical code locations:
 
-- Step classes and extraction helpers: `wandas/pipeline/__init__.py`
+- Public Recipe exports: `wandas/pipeline/__init__.py`
+- Replayable support allowlists: `wandas/pipeline/registry.py`
+- Recipe-literal param snapshot/restore helpers: `wandas/pipeline/params.py`
+- Step classes and replay calls: `wandas/pipeline/steps.py`
+- Lineage graph to step conversion helpers: `wandas/pipeline/extraction.py`
+- `RecipeSpec`, `GraphRecipeSpec`, and `NodeGraphRecipeSpec`: `wandas/pipeline/specs.py`
 - Recipe extraction error type and future boundary helpers: `wandas/pipeline/errors.py`
 - sklearn adapter: `wandas/pipeline/sklearn.py`
 - Runtime lineage and operation graph generation: `wandas/core/base_frame.py`
 - Custom operation metadata: `wandas/processing/custom.py`
 - Operation implementation and registration: `wandas/processing/`
 - Frame methods and typed transitions: `wandas/frames/` and `wandas/frames/mixins/`
-- Tests: `tests/pipeline/test_recipe.py`, plus frame/processing tests for behavior contracts
+- Recipe behavior tests: `tests/pipeline/test_recipe.py`
+- Recipe module boundary tests: `tests/pipeline/test_recipe_errors.py`
+- Frame/processing behavior tests: add focused tests near the frame or operation contract being changed.
 
 ## Reading RecipeExtractionError
 
