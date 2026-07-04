@@ -1,9 +1,12 @@
 import numpy as np
-from sklearn.pipeline import Pipeline
+import pytest
 
-from wandas.frames.channel import ChannelFrame
-from wandas.pipeline import OperationSpec
-from wandas.pipeline.sklearn import (
+sklearn_pipeline = pytest.importorskip("sklearn.pipeline")
+Pipeline = sklearn_pipeline.Pipeline
+
+from wandas.frames.channel import ChannelFrame  # noqa: E402
+from wandas.pipeline import OperationSpec  # noqa: E402
+from wandas.pipeline.sklearn import (  # noqa: E402
     BandPassFilter,
     HighPassFilter,
     LowPassFilter,

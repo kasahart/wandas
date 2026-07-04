@@ -306,8 +306,12 @@ def _mask_from_params(params: Mapping[str, Any]) -> _BooleanMask:
     return _BooleanMask(tuple(bool(value) for value in mask))
 
 
-def _channel_key_from_getitem_params(params: Mapping[str, Any]) -> slice | list[int] | list[str] | _BooleanMask:
+def _channel_key_from_getitem_params(params: Mapping[str, Any]) -> str | slice | list[int] | list[str] | _BooleanMask:
     indexing = params.get("indexing")
+    if indexing == "label":
+        label = params.get("label")
+        if isinstance(label, str):
+            return label
     if indexing == "channel_slice":
         return slice(
             _optional_int_from_params(params, "start"),
@@ -323,21 +327,27 @@ def _channel_key_from_getitem_params(params: Mapping[str, Any]) -> slice | list[
         if isinstance(labels, list | tuple) and all(isinstance(label, str) for label in labels):
             return list(labels)
     raise RecipeExtractionError(
-        "Multidimensional indexing recipe extraction only supports slice, integer-list, "
+        "Multidimensional indexing recipe extraction only supports label, slice, integer-list, "
         "or label-list channel selectors\n"
         f"  Parent indexing kind: {indexing!r}"
     )
 
 
-def _channel_key_from_parent_graph(parent: Mapping[str, Any]) -> int | slice | list[int] | list[str] | _BooleanMask:
+def _channel_key_from_parent_graph(
+    parent: Mapping[str, Any],
+) -> int | str | slice | list[int] | list[str] | _BooleanMask:
     operation = str(parent["operation"])
     params = cast(Mapping[str, Any], _restore_history_value(parent.get("params", {})))
     if operation == "get_channel":
+        query = params.get("query")
+        if isinstance(query, str):
+            return query
         channel_idx = params.get("channel_idx")
         if isinstance(channel_idx, numbers.Integral) and not isinstance(channel_idx, bool):
             return int(channel_idx)
         raise RecipeExtractionError(
-            "Multidimensional indexing recipe extraction only supports single integer get_channel parents\n"
+            "Multidimensional indexing recipe extraction only supports single integer "
+            "or exact-label get_channel parents\n"
             f"  Parent params: {params!r}"
         )
     if operation == "__getitem__":
@@ -352,12 +362,17 @@ def _getitem_step_from_graph(params: Mapping[str, Any]) -> IndexingStep:
     indexing = params.get("indexing")
     if indexing not in _REPLAYABLE_GETITEM_INDEXING:
         raise RecipeExtractionError(
-            "Indexing recipe extraction only supports channel-only slice, label list, "
+            "Indexing recipe extraction only supports channel-only label, slice, label list, "
             "and multidimensional slice selection\n"
             f"  Indexing kind: {indexing!r}\n"
             "  Multidimensional, callable, regex, dict, and array indexing need a selection recipe model "
             "that can preserve full indexing intent."
         )
+    if indexing == "label":
+        label = params.get("label")
+        if not isinstance(label, str):
+            raise RecipeExtractionError(f"Label indexing recipe extraction requires a string label\n  Got: {label!r}")
+        return IndexingStep(label)
     if indexing == "channel_slice":
         return IndexingStep(
             slice(
@@ -405,7 +420,9 @@ def _step_from_graph(
         return _getitem_step_from_graph(params)
     if operation == "custom":
         return _custom_function_step_from_graph(params, custom_metadata)
-    if operation in _REPLAYABLE_METHOD_OPERATIONS:
+    if operation in _REPLAYABLE_METHOD_OPERATIONS and (
+        kind == "method" or operation not in _REPLAYABLE_APPLY_OPERATIONS
+    ):
         return _method_step_from_graph(operation, params)
     if operation in _REPLAYABLE_TYPED_METHOD_OPERATIONS:
         return _typed_method_step_from_graph(operation, params, kind)

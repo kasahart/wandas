@@ -37,6 +37,11 @@ _REPLAYABLE_METHOD_OPERATIONS = {
     "mean": ("mean", {}),
     "remove_channel": ("remove_channel", {"key": "key"}),
     "rename_channels": ("rename_channels", {"mapping_items": "mapping"}),
+    "rms_trend": ("rms_trend", {"frame_length": "frame_length", "hop_length": "hop_length", "dB": "dB", "Aw": "Aw"}),
+    "sound_level": (
+        "sound_level",
+        {"freq_weighting": "freq_weighting", "time_weighting": "time_weighting", "dB": "dB"},
+    ),
     "sum": ("sum", {}),
 }
 _REPLAYABLE_METHOD_NAMES = frozenset(method for method, _param_names in _REPLAYABLE_METHOD_OPERATIONS.values())
@@ -68,7 +73,7 @@ _REPLAYABLE_TYPED_METHOD_NAMES = frozenset(
 )
 _REPLAYABLE_SCALAR_OPERATIONS = frozenset({"+", "-", "*", "/", "**"})
 _REPLAYABLE_GETITEM_INDEXING = frozenset(
-    {"boolean_mask", "channel_slice", "integer_list", "label_list", "multidimensional_slice"}
+    {"boolean_mask", "channel_slice", "integer_list", "label", "label_list", "multidimensional_slice"}
 )
 _REPLAYABLE_TERMINAL_PROPERTIES = frozenset(
     {

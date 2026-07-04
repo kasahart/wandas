@@ -957,8 +957,17 @@ class BaseFrame(ABC, Generic[T]):
 
         # Single label (str)
         if isinstance(key, str):
-            index = self.label2index(key)
-            return self.get_channel(index)
+            selected = self.get_channel(self.label2index(key))
+            return self._create_new_instance(
+                data=selected._data,
+                channel_metadata=selected.channels.to_list(),
+                channel_ids=selected._channel_ids,
+                source_time_offset=selected.source_time_offset,
+                lineage=self._lineage_with_method(
+                    "__getitem__",
+                    {"indexing": "label", "label": key},
+                ),
+            )
 
         # Phase 2: NumPy array support (bool mask and int array)
         if isinstance(key, np.ndarray):

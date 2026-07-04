@@ -56,6 +56,18 @@ def _two_channel_frame_with_refs() -> ChannelFrame:
     )
 
 
+def _two_channel_frame_with_reordered_refs() -> ChannelFrame:
+    base = _frame()
+    return ChannelFrame(
+        data=da.from_array(np.vstack([base.data * 0.5, base.data]), chunks=(1, -1)),
+        sampling_rate=base.sampling_rate,
+        channel_metadata=[
+            ChannelMetadata(label="right", unit="Pa", ref=8.0),
+            ChannelMetadata(label="left", unit="Pa", ref=2.0),
+        ],
+    )
+
+
 def _patch_hpss_backend(monkeypatch: pytest.MonkeyPatch) -> None:
     import wandas.processing.effects as effects_module
 
@@ -113,6 +125,7 @@ def _patch_psychoacoustic_backend(monkeypatch: pytest.MonkeyPatch) -> None:
         return float(np.max(np.abs(signal)) * scale * weighting_scale)
 
     psychoacoustic_module.RoughnessDwSpec._bark_axis_cache.clear()
+    monkeypatch.setattr(psychoacoustic_module, "require_mosqito_sq_metric", lambda _feature, _name: object())
     monkeypatch.setattr(psychoacoustic_module, "loudness_zwtv_mosqito", fake_loudness)
     monkeypatch.setattr(psychoacoustic_module, "roughness_dw_mosqito", fake_roughness)
     monkeypatch.setattr(psychoacoustic_module, "sharpness_din_tv_mosqito", fake_sharpness)
@@ -1368,23 +1381,17 @@ def test_recipe_from_frame_extracts_additional_single_input_apply_operations(
     [
         (
             lambda frame: frame.rms_trend(frame_length=512, hop_length=128, dB=True, Aw=False),
-            OperationSpec(
-                "rms_trend",
-                {"frame_length": 512, "hop_length": 128, "dB": True, "Aw": False, "ref": [2.0, 4.0]},
-            ),
+            MethodStep("rms_trend", {"frame_length": 512, "hop_length": 128, "dB": True, "Aw": False}),
         ),
         (
             lambda frame: frame.sound_level(freq_weighting="Z", time_weighting="Fast", dB=True),
-            OperationSpec(
-                "sound_level",
-                {"ref": [2.0, 4.0], "freq_weighting": "Z", "time_weighting": "Fast", "dB": True},
-            ),
+            MethodStep("sound_level", {"freq_weighting": "Z", "time_weighting": "Fast", "dB": True}),
         ),
     ],
 )
-def test_recipe_from_frame_extracts_ref_bearing_apply_operations(
+def test_recipe_from_frame_extracts_ref_bearing_frame_methods(
     build_frame: Callable[[ChannelFrame], ChannelFrame],
-    expected_step: OperationSpec,
+    expected_step: MethodStep,
 ) -> None:
     frame = _two_channel_frame_with_refs()
     processed = build_frame(frame)
@@ -1398,6 +1405,28 @@ def test_recipe_from_frame_extracts_ref_bearing_apply_operations(
     assert replayed.labels == processed.labels
     assert replayed.sampling_rate == processed.sampling_rate
     assert replayed.shape == processed.shape
+
+
+@pytest.mark.parametrize(
+    "build_frame",
+    [
+        lambda frame: frame.rms_trend(frame_length=512, hop_length=128, dB=True, Aw=False),
+        lambda frame: frame.sound_level(freq_weighting="Z", time_weighting="Fast", dB=True),
+    ],
+)
+def test_ref_bearing_frame_method_recipes_recompute_target_refs(
+    build_frame: Callable[[ChannelFrame], ChannelFrame],
+) -> None:
+    source = _two_channel_frame_with_refs()
+    target = _two_channel_frame_with_reordered_refs()
+    processed = build_frame(source)
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(target)
+    expected = build_frame(target)
+
+    assert replayed.operation_history == expected.operation_history
+    np.testing.assert_allclose(replayed.data, expected.data)
 
 
 @pytest.mark.parametrize(
@@ -1583,12 +1612,26 @@ def test_recipe_from_frame_extracts_channel_difference_method_step() -> None:
     recipe = RecipeSpec.from_frame(processed)
     replayed = recipe.apply(frame)
 
-    assert recipe.steps == (MethodStep("channel_difference", {"other_channel": 0}),)
-    assert recipe.to_dict() == {"steps": [{"method": "channel_difference", "params": {"other_channel": 0}}]}
+    assert recipe.steps == (MethodStep("channel_difference", {"other_channel": "left"}),)
+    assert recipe.to_dict() == {"steps": [{"method": "channel_difference", "params": {"other_channel": "left"}}]}
     np.testing.assert_allclose(replayed.data, processed.data)
     assert replayed.labels == processed.labels
     assert replayed.sampling_rate == processed.sampling_rate
     assert replayed.shape == processed.shape
+
+
+def test_channel_difference_recipe_replays_label_intent_on_reordered_channels() -> None:
+    source = _two_channel_frame_with_refs()
+    target = _two_channel_frame_with_reordered_refs()
+    processed = source.channel_difference(other_channel="right")
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(target)
+    expected = target.channel_difference(other_channel="right")
+
+    assert recipe.steps == (MethodStep("channel_difference", {"other_channel": "right"}),)
+    np.testing.assert_allclose(replayed.data, expected.data)
+    assert replayed.labels == expected.labels
 
 
 @pytest.mark.parametrize(
@@ -1598,7 +1641,6 @@ def test_recipe_from_frame_extracts_channel_difference_method_step() -> None:
         (lambda frame: frame.get_channel([0, 2]), MethodStep("get_channel", {"channel_idx": [0, 2]})),
         (lambda frame: frame.get_channel((2, 0)), MethodStep("get_channel", {"channel_idx": [2, 0]})),
         (lambda frame: frame.get_channel(np.array([2, 0])), MethodStep("get_channel", {"channel_idx": [2, 0]})),
-        (lambda frame: frame["right"], MethodStep("get_channel", {"channel_idx": 1})),
         (
             lambda frame: frame.get_channel(query="right"),
             MethodStep("get_channel", {"query": "right", "validate_query_keys": True}),
@@ -1862,6 +1904,37 @@ def test_getitem_boolean_mask_recipe_extraction_snapshots_mask() -> None:
     assert replayed.labels == ["right"]
 
 
+def test_getitem_label_recipe_replays_single_label_getitem_semantics_with_duplicates() -> None:
+    base = _frame()
+    source = ChannelFrame(
+        data=da.from_array(np.vstack([base.data, base.data * 0.5]), chunks=(1, -1)),
+        sampling_rate=base.sampling_rate,
+        channel_metadata=[
+            ChannelMetadata(label="left"),
+            ChannelMetadata(label="left"),
+        ],
+    )
+    target = ChannelFrame(
+        data=da.from_array(np.vstack([base.data * 0.25, base.data * 0.75]), chunks=(1, -1)),
+        sampling_rate=base.sampling_rate,
+        channel_metadata=[
+            ChannelMetadata(label="left"),
+            ChannelMetadata(label="left"),
+        ],
+    )
+    processed = source["left"]
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(target)
+    expected = target["left"]
+
+    assert recipe.steps == (IndexingStep("left"),)
+    assert recipe.to_dict() == {"steps": [{"getitem": {"type": "label", "label": "left"}}]}
+    assert replayed.n_channels == 1
+    assert replayed.labels == expected.labels == ["left"]
+    np.testing.assert_allclose(replayed.data, expected.data)
+
+
 @pytest.mark.parametrize(
     "mask",
     [
@@ -1952,6 +2025,10 @@ def test_recipe_from_frame_rejects_legacy_getitem_channel_slice_without_bounds()
     ("build_frame", "expected_step"),
     [
         (
+            lambda frame: frame["right"],
+            {"getitem": {"type": "label", "label": "right"}},
+        ),
+        (
             lambda frame: frame[0:2],
             {"getitem": {"type": "channel_slice", "start": 0, "stop": 2, "step": None}},
         ),
@@ -2000,7 +2077,7 @@ def test_recipe_from_frame_extracts_getitem_channel_selection(
             {
                 "getitem": {
                     "type": "multidimensional_slice",
-                    "channel": {"type": "index", "value": 1},
+                    "channel": {"type": "label", "label": "right"},
                     "axis_slices": [{"start": 200, "stop": 600, "step": None}],
                 }
             },
@@ -2042,6 +2119,30 @@ def test_recipe_from_frame_extracts_multidimensional_slice_indexing(
     assert replayed.labels == processed.labels
     np.testing.assert_allclose(replayed.data, processed.data)
     np.testing.assert_allclose(replayed.source_time_offset, processed.source_time_offset)
+
+
+def test_multidimensional_label_indexing_recipe_replays_label_intent_on_reordered_channels() -> None:
+    source = _two_channel_frame_with_refs()
+    target = _two_channel_frame_with_reordered_refs()
+    processed = source["right", 200:600]
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(target)
+    expected = target["right", 200:600]
+
+    assert recipe.to_dict() == {
+        "steps": [
+            {
+                "getitem": {
+                    "type": "multidimensional_slice",
+                    "channel": {"type": "label", "label": "right"},
+                    "axis_slices": [{"start": 200, "stop": 600, "step": None}],
+                }
+            }
+        ]
+    }
+    assert replayed.labels == expected.labels
+    np.testing.assert_allclose(replayed.data, expected.data)
 
 
 def test_recipe_from_frame_extracts_multidimensional_slice_after_operation() -> None:
