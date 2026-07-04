@@ -105,9 +105,12 @@ Note: Keys specified in dict are only allowed for dataclass fields of `ChannelMe
 
 ## Next Steps / 次のステップ
 
-- [Pipeline Recipes Notebook / Recipe Notebook](pipeline-recipes.md)
-  - Try executable examples for recipe extraction, replay, graph recipes, custom functions, terminal steps, and extraction boundaries.
-  - Recipe 抽出、replay、graph recipe、custom function、terminal step、抽出境界を実行可能な例で確認する。
+- <a href="../learning-path/06_pipeline_recipe_ux.html">Frame-First Recipe UX (marimo)</a>
+  - Start with normal frame method chains, extract a recipe, and replay it on another frame.
+  - 通常のframe method chainから始め、Recipeを抽出し、別frameで再現する。
+- [Pipeline Recipes Examples / Recipe例](pipeline-recipes.md)
+  - Use after the frame-first path when you need graph recipes, custom functions, terminal steps, and extraction boundaries.
+  - frame-first導線の後に、graph recipe、custom function、terminal step、抽出境界を確認する。
 - [Pipeline Recipe Requirements Check Notebook](pipeline-recipe-requirements-check.md)
   - Run assert-driven checks for the current Pipeline Recipe requirements.
   - Pipeline Recipe 要件を assert 中心の Notebook で確認する。
@@ -129,4 +132,4 @@ This section provides links to tutorial marimo apps that demonstrate more detail
 - <a href="../learning-path/03_signal_processing_basics.html">Learning Path — 03_Signal Processing Basics (marimo)</a>: Filtering and frequency analysis / フィルタリングと周波数分析
 - <a href="../learning-path/04_advanced_processing.html">Learning Path — 04_Advanced Processing (marimo)</a>: Spectrograms and time-frequency analysis / スペクトログラムと時間周波数解析
 - <a href="../learning-path/05_custom_functions.html">Learning Path — 05_Custom Functions (marimo)</a>: Custom frame operations / custom frame操作
-- <a href="../learning-path/07_frame_centric_recipe_ux.html">Learning Path — 07_Frame-Centric Recipe UX (marimo)</a>: Exploratory frame analysis and replay without thinking in pipeline classes / pipeline classを意識しない探索解析と再現実験
+- <a href="../learning-path/06_pipeline_recipe_ux.html">Learning Path — 06_Frame-First Recipe UX (marimo)</a>: Extract and replay recipes from normal frame method chains / 通常のframe method chainからRecipeを抽出して再現

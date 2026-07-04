@@ -40,19 +40,10 @@ The replayed result uses existing frame APIs, so normal Wandas behavior still ap
 - Dask-backed data stays lazy when the underlying operation is lazy,
 - metadata and channel labels are updated by existing frame methods.
 
-## Choosing A Recipe Class
+## Optional: Build A Recipe Explicitly
 
-| Your calculation | Recommended class | Example |
-| --- | --- | --- |
-| One input, linear frame result | `RecipeSpec` | `frame.remove_dc().normalize()` |
-| One input, explicit terminal array/scalar | `RecipeSpec([... , TerminalStep(...)])` | `RecipeSpec([OperationSpec("remove_dc"), TerminalStep("rms")])` |
-| Two frame inputs, one binary merge, optional linear tail | `GraphRecipeSpec` | `(signal.remove_dc() + noise.normalize()).trim(...)` |
-| Multiple merges, external arrays, or `add_channel` graph inputs | `NodeGraphRecipeSpec` | `base.add_channel(raw_array)` or `(a + b) + c` |
-| sklearn-style transform interface | `wandas.pipeline.sklearn` | `Pipeline([("dc", RemoveDC()), ...])` |
-
-## Build A Recipe Explicitly
-
-You do not have to extract from a frame. You can build a recipe directly:
+Frame extraction is the recommended user entry point. Direct construction is available for tests,
+generated configs, and explicit specifications:
 
 ```python
 from wandas.pipeline import OperationSpec, RecipeSpec
@@ -304,6 +295,19 @@ spec = HighPassFilter(cutoff=100.0, order=2).to_spec()
 ```
 
 Wandas Recipe remains the canonical representation. sklearn `Pipeline` is for integration and familiar UX.
+
+## Advanced Reference: Choosing A Recipe Class
+
+Most users should start with `RecipeSpec.from_frame(processed)`. Use this table only when the frame
+result crosses the single-input linear boundary or an integration layer requires another API.
+
+| Your calculation | Recommended class | Example |
+| --- | --- | --- |
+| One input, linear frame result | `RecipeSpec` | `frame.remove_dc().normalize()` |
+| One input, explicit terminal array/scalar | `RecipeSpec([... , TerminalStep(...)])` | `RecipeSpec([OperationSpec("remove_dc"), TerminalStep("rms")])` |
+| Two frame inputs, one binary merge, optional linear tail | `GraphRecipeSpec` | `(signal.remove_dc() + noise.normalize()).trim(...)` |
+| Multiple merges, external arrays, or `add_channel` graph inputs | `NodeGraphRecipeSpec` | `base.add_channel(raw_array)` or `(a + b) + c` |
+| sklearn-style transform interface | `wandas.pipeline.sklearn` | `Pipeline([("dc", RemoveDC()), ...])` |
 
 ## What Is Not Supported Yet
 

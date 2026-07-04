@@ -91,7 +91,7 @@ nav:
   - Tutorials:
       - Overview: tutorial/index.md
       - Pipeline Recipe Use Cases: tutorial/pipeline-recipe-use-cases.md
-      - Pipeline Recipes Notebook: tutorial/pipeline-recipes.md
+      - Pipeline Recipes Examples: tutorial/pipeline-recipes.md
       - Pipeline Recipe Requirements Check: tutorial/pipeline-recipe-requirements-check.md
   - How-to Guides:
       - Pipeline Recipes: how-to/pipeline-recipes.md
