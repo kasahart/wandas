@@ -540,6 +540,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         else:
             raise TypeError(f"Addition target with SNR must be a ChannelFrame or NumPy array: {type(other)}")
 
+        lineage_other = other._lineage_or_source()
+
         # If SNR is specified, adjust the length of the other signal
         if other.duration != self.duration:
             other = other.fix_length(length=self.n_samples)
@@ -566,7 +568,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         return self._create_new_instance(
             data=result_data,
             metadata=self._updated_metadata("add_with_snr", operation.params),
-            lineage=self._lineage_with_operation(operation, self._lineage_or_source(), other._lineage_or_source()),
+            lineage=self._lineage_with_operation(operation, self._lineage_or_source(), lineage_other),
             channel_metadata=self._relabel_channels("add_with_snr", display_name),
         )
 

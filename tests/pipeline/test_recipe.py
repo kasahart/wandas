@@ -541,6 +541,17 @@ def test_graph_recipe_applies_add_with_snr() -> None:
     assert result.operation_history == expected.operation_history
 
 
+def test_binary_frame_step_requires_numeric_snr_for_add_with_snr() -> None:
+    with pytest.raises(TypeError, match="requires a numeric snr"):
+        BinaryFrameStep("add_with_snr", left="signal", right="noise")
+    with pytest.raises(TypeError, match="requires a numeric snr"):
+        BinaryFrameStep("add_with_snr", left="signal", right="noise", params={"snr": "6"})
+    with pytest.raises(TypeError, match="requires a numeric snr"):
+        BinaryFrameStep("add_with_snr", left="signal", right="noise", params={"snr": True})
+    with pytest.raises(TypeError, match="only accepts the snr parameter"):
+        BinaryFrameStep("add_with_snr", left="signal", right="noise", params={"snr": 6.0, "gain": 2.0})
+
+
 def test_graph_recipe_from_frame_extracts_root_add_with_snr_with_input_names() -> None:
     base = _frame()
     signal_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="signal")
@@ -662,6 +673,27 @@ def test_graph_recipe_from_frame_extracts_raw_add_with_snr_parents() -> None:
     assert processed.operation_history == [{"operation": "add_with_snr", "params": {"snr": 6.0}}]
     np.testing.assert_allclose(replayed.data, processed.data)
     assert replayed.operation_history == processed.operation_history
+
+
+def test_graph_recipe_from_frame_does_not_bake_source_length_into_add_with_snr() -> None:
+    base = _frame()
+    data = base.data.reshape(1, -1)
+    signal_source = ChannelFrame.from_numpy(data[:, :100], sampling_rate=base.sampling_rate, label="signal")
+    noise_source = ChannelFrame.from_numpy(data[:, :200], sampling_rate=base.sampling_rate, label="noise")
+    processed = signal_source.add(noise_source, snr=6.0)
+
+    graph_recipe = GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))
+
+    assert graph_recipe.input_recipes == (("signal", RecipeSpec(())), ("noise", RecipeSpec(())))
+
+    replay_signal = ChannelFrame.from_numpy(data[:, :150], sampling_rate=base.sampling_rate, label="signal")
+    replay_noise = ChannelFrame.from_numpy(data[:, :200], sampling_rate=base.sampling_rate, label="noise")
+    replayed = graph_recipe.apply({"signal": replay_signal, "noise": replay_noise})
+    expected = replay_signal.add(replay_noise, snr=6.0)
+
+    np.testing.assert_allclose(replayed.data, expected.data)
+    assert replayed.n_samples == replay_signal.n_samples
+    assert replayed.operation_history == expected.operation_history
 
 
 def test_graph_recipe_from_frame_uses_default_names_for_raw_add_with_snr() -> None:
@@ -861,6 +893,27 @@ def test_node_graph_recipe_from_frame_uses_default_input_names() -> None:
     )
     np.testing.assert_allclose(replayed.data, processed.data)
     assert replayed.operation_history == processed.operation_history
+
+
+def test_node_graph_recipe_rejects_input_output_when_nodes_exist() -> None:
+    with pytest.raises(ValueError, match="output must reference a graph node"):
+        NodeGraphRecipeSpec(
+            inputs=("signal",),
+            nodes=(GraphNodeSpec("n0", OperationSpec("normalize"), ("signal",)),),
+            output="signal",
+        )
+
+
+def test_node_graph_recipe_rejects_non_final_node_output() -> None:
+    with pytest.raises(ValueError, match="output must reference the final graph node"):
+        NodeGraphRecipeSpec(
+            inputs=("signal",),
+            nodes=(
+                GraphNodeSpec("n0", OperationSpec("remove_dc"), ("signal",)),
+                GraphNodeSpec("n1", OperationSpec("normalize"), ("n0",)),
+            ),
+            output="n0",
+        )
 
 
 def test_node_graph_recipe_from_frame_extracts_typed_tail_after_merge() -> None:
@@ -1281,6 +1334,11 @@ def test_rename_channels_method_step_serializes_mapping_as_items() -> None:
 def test_method_step_rejects_methods_outside_replay_allowlist() -> None:
     with pytest.raises(ValueError, match="MethodStep method is outside the replayable method allowlist"):
         MethodStep("plot")
+
+
+def test_method_step_rejects_inplace_mutation_params() -> None:
+    with pytest.raises(TypeError, match="cannot replay in-place frame mutations"):
+        MethodStep("remove_channel", {"key": 0, "inplace": True})
 
 
 def test_typed_method_step_rejects_methods_outside_replay_allowlist() -> None:

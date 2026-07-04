@@ -233,6 +233,20 @@ class NodeGraphRecipeSpec:
                 f"  Output: {output!r}\n"
                 f"  Available refs: {sorted(available_refs)}"
             )
+        node_ids = {node.id for node in frozen_nodes}
+        if output not in node_ids:
+            raise ValueError(
+                "NodeGraphRecipeSpec output must reference a graph node\n"
+                f"  Output: {output!r}\n"
+                f"  Node ids: {sorted(node_ids)}"
+            )
+        final_node_id = frozen_nodes[-1].id
+        if output != final_node_id:
+            raise ValueError(
+                "NodeGraphRecipeSpec output must reference the final graph node\n"
+                f"  Output: {output!r}\n"
+                f"  Final node: {final_node_id!r}"
+            )
         object.__setattr__(self, "inputs", frozen_inputs)
         object.__setattr__(self, "nodes", frozen_nodes)
         object.__setattr__(self, "output", output)

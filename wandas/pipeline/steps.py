@@ -107,6 +107,12 @@ class MethodStep:
                 f"  Method: {method}\n"
                 f"  Valid methods: {valid_methods}"
             )
+        if params and "inplace" in params:
+            raise TypeError(
+                "MethodStep recipes cannot replay in-place frame mutations\n"
+                f"  Method: {method}\n"
+                "Use the non-mutating frame method result before extracting or building a recipe."
+            )
         object.__setattr__(self, "method", method)
         if method == "rename_channels":
             frozen_params = _snapshot_rename_channels_params(params or {})
@@ -563,6 +569,17 @@ class BinaryFrameStep:
             raise ValueError("BinaryFrameStep left and right input names must be non-empty strings")
         if operation in _REPLAYABLE_SCALAR_OPERATIONS and params:
             raise TypeError(f"BinaryFrameStep frame operator does not accept params\n  Operation: {operation}")
+        if operation == "add_with_snr":
+            add_params = params or {}
+            unexpected_params = sorted(set(add_params) - {"snr"})
+            if unexpected_params:
+                raise TypeError(
+                    "BinaryFrameStep add_with_snr only accepts the snr parameter\n"
+                    f"  Unexpected params: {unexpected_params}"
+                )
+            snr = add_params.get("snr")
+            if not isinstance(snr, numbers.Real) or isinstance(snr, bool):
+                raise TypeError(f"BinaryFrameStep add_with_snr requires a numeric snr parameter\n  Got: {snr!r}")
         object.__setattr__(self, "operation", operation)
         object.__setattr__(self, "left", left)
         object.__setattr__(self, "right", right)
