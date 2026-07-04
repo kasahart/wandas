@@ -173,6 +173,7 @@ Use this checklist before editing code:
 Typical code locations:
 
 - Step classes and extraction helpers: `wandas/pipeline/__init__.py`
+- Recipe extraction error type and future boundary helpers: `wandas/pipeline/errors.py`
 - sklearn adapter: `wandas/pipeline/sklearn.py`
 - Runtime lineage and operation graph generation: `wandas/core/base_frame.py`
 - Custom operation metadata: `wandas/processing/custom.py`

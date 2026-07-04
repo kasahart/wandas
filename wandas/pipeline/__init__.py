@@ -11,9 +11,7 @@ from typing import Any, cast
 import numpy as np
 from dask.array.core import Array as DaArray
 
-
-class RecipeExtractionError(ValueError):
-    """Raised when a frame lineage cannot be represented by RecipeSpec."""
+from wandas.pipeline.errors import RecipeExtractionError
 
 
 @dataclass(frozen=True)
