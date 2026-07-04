@@ -623,6 +623,10 @@ class BaseFrame(ABC, Generic[T]):
     def _lineage_to_summaries(cls, lineage: "LineageNode | None") -> list[dict[str, Any]]:
         if lineage is None:
             return []
+        from wandas.processing.base import FrameSourceOperation
+
+        if isinstance(lineage.operation, FrameSourceOperation):
+            return []
         records: list[dict[str, Any]] = []
         for input_lineage in lineage.inputs:
             records.extend(cls._lineage_to_summaries(input_lineage))
@@ -1323,8 +1327,7 @@ class BaseFrame(ABC, Generic[T]):
             reverse_method_name = self._array_ufunc_reverse_methods.get(ufunc.__name__)
             if reverse_method_name is not None:
                 result = getattr(self, reverse_method_name)(self._python_numeric_scalar(inputs[0]))
-                if result is not NotImplemented:
-                    return result
+                return result
         array_inputs = tuple(np.asarray(input_value) if input_value is self else input_value for input_value in inputs)
         return getattr(ufunc, method)(*array_inputs, **kwargs)
 

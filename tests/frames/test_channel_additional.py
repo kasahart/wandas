@@ -220,7 +220,7 @@ def test_remove_channel_errors_and_inplace():
     # inplace True
     cf.remove_channel(0, inplace=True)
     assert cf.n_channels == 1
-    assert cf.operation_history == []
+    assert cf.operation_history[-1] == {"operation": "remove_channel", "params": {"key": 0}}
 
 
 def test_describe_image_save_jpg(tmp_path):

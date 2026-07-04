@@ -17,6 +17,7 @@ import wandas as wd
 import wandas.processing as processing_module
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
+from wandas.pipeline import NodeGraphRecipeSpec
 from wandas.utils.types import NDArrayReal
 
 _da_from_array = da.from_array
@@ -581,6 +582,24 @@ def test_add_channel_inplace_updates_original() -> None:
     base.add_channel(np.zeros(6), label="new_ch", inplace=True)
     assert base.n_channels == orig_n + 1
     assert any(ch.label == "new_ch" for ch in base._channel_metadata)
+    assert base.operation_history[-1]["operation"] == "add_channel"
+
+
+def test_add_channel_inplace_preserves_replayable_lineage() -> None:
+    base = ChannelFrame(data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)), sampling_rate=16000)
+
+    base.add_channel(np.ones(6), label="new_ch", inplace=True)
+
+    recipe = NodeGraphRecipeSpec.from_frame(base, input_names=("base", "new_data"))
+    replayed = recipe.apply(
+        {
+            "base": ChannelFrame(data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)), sampling_rate=16000),
+            "new_data": np.ones(6),
+        }
+    )
+
+    assert replayed.labels == ["ch0", "new_ch"]
+    np.testing.assert_allclose(replayed.data, base.data)
 
 
 def test_channel_update_helpers_preserve_source_time_offset() -> None:

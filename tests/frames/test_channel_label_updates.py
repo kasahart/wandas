@@ -509,6 +509,10 @@ class TestRenameChannels:
 
         assert result is frame
         assert frame.labels == ["left", "right"]
+        assert frame.operation_history[-1] == {
+            "operation": "rename_channels",
+            "params": {"mapping_items": [[0, "left"], [1, "right"]]},
+        }
 
     def test_rename_channels_nonexistent_index_error(self) -> None:
         """Test error when renaming non-existent index."""

@@ -111,6 +111,8 @@ class TestRoughnessFrame:
 
         with pytest.raises(TypeError, match="unsupported operand type"):
             2.0 + frame
+        with pytest.raises(TypeError):
+            np.float64(2.0) + frame
 
     def test_initialization_validates_dimensions(self) -> None:
         """Test that initialization validates data dimensions."""

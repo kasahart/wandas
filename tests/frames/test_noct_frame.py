@@ -95,6 +95,8 @@ class TestNOctFrame:
         """Reverse scalar operators should respect NOctFrame binary-op policy."""
         with pytest.raises(TypeError, match="unsupported operand type"):
             2.0 + self.frame
+        with pytest.raises(TypeError):
+            np.float64(2.0) + self.frame
 
     def test_reshape_1d_data(self) -> None:
         """Test that 1D data is reshaped to 2D"""

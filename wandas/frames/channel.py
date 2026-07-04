@@ -301,6 +301,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             self._replace_data(new_data)
             self._set_channel_metadata(new_chmeta, channel_ids)
             self.source_time_offset = cast(Any, offsets)
+            if lineage is not None:
+                self._lineage = lineage
             return self
         return ChannelFrame(
             data=new_data,
@@ -1381,7 +1383,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 inplace,
                 new_ids,
                 new_offsets,
-                lineage=None if inplace else self._lineage_with_add_channel(lineage_params, data.lineage),
+                lineage=self._lineage_with_add_channel(lineage_params, data.lineage),
             )
         if isinstance(data, np.ndarray):
             lineage_params["input_kind"] = "ndarray"
@@ -1422,7 +1424,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             inplace,
             new_ids,
             new_offsets,
-            lineage=None if inplace else self._lineage_with_add_channel(lineage_params),
+            lineage=self._lineage_with_add_channel(lineage_params),
         )
 
     def remove_channel(self, key: int | str, inplace: bool = False) -> "ChannelFrame":
@@ -1445,7 +1447,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             inplace,
             new_ids,
             self.source_time_offset[keep_indices],
-            lineage=None if inplace else self._lineage_with_method("remove_channel", {"key": key}),
+            lineage=self._lineage_with_method("remove_channel", {"key": key}),
         )
 
     def rename_channels(
@@ -1537,13 +1539,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             new_ch_meta.label = new_labels[i]
             new_chmeta.append(new_ch_meta)
 
-        if inplace:
-            self._set_channel_metadata(new_chmeta, self._channel_ids)
-            return self
         return self._finalize_channel_update(
             self._data,
             new_chmeta,
-            inplace=False,
+            inplace=inplace,
             channel_ids=self._channel_ids,
             lineage=self._lineage_with_method("rename_channels", {"mapping_items": list(mapping.items())}),
         )

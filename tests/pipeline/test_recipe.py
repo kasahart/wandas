@@ -2112,14 +2112,16 @@ def test_recipe_from_frame_extracts_scalar_operation_chain() -> None:
     assert replayed.shape == processed.shape
 
 
-def test_recipe_from_frame_extracts_value_bearing_numpy_scalar_operation() -> None:
+@pytest.mark.parametrize("operand", [np.float64(0.25), np.float32(0.25), np.int64(2)])
+def test_recipe_from_frame_extracts_value_bearing_numpy_scalar_operation(operand: Any) -> None:
     frame = _frame()
-    processed = frame + np.float64(0.25)
+    processed = frame + operand
 
     recipe = RecipeSpec.from_frame(processed)
     replayed = recipe.apply(frame)
 
-    assert recipe.steps == (ScalarOperationStep("+", 0.25),)
+    expected_operand = float(operand) if isinstance(operand, np.floating) else int(operand)
+    assert recipe.steps == (ScalarOperationStep("+", expected_operand),)
     np.testing.assert_allclose(replayed.data, processed.data)
 
 

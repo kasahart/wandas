@@ -127,8 +127,11 @@ def test_operand_descriptor_handles_scalar_and_shape_only_values() -> None:
     class ShapeOnly:
         shape = (2, 3)
 
+    assert _operand_descriptor(np.int64(2)) == {"type": "int64", "value": 2}
+    assert _operand_descriptor(np.float32(0.5)) == {"type": "float32", "value": 0.5}
     assert _operand_descriptor(1 + 2j) == {"type": "complex", "real": 1.0, "imag": 2.0}
     assert _operand_descriptor(True) == {"type": "bool", "value": True}
+    assert _operand_descriptor(np.bool_(True)) == {"type": "bool", "value": True}
     assert _operand_descriptor(ShapeOnly()) == {"type": "ShapeOnly", "shape": [2, 3]}
     assert _operand_descriptor(object()) == {"type": "object"}
 

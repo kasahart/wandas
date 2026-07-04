@@ -104,6 +104,14 @@ def _operand_descriptor(value: Any) -> dict[str, Any]:
             "shape": list(value.shape),
             "dtype": str(value.dtype),
         }
+    if isinstance(value, np.bool_):
+        return {"type": "bool", "value": bool(value)}
+    if isinstance(value, np.integer):
+        return {"type": type(value).__name__, "value": int(value)}
+    if isinstance(value, np.floating):
+        return {"type": type(value).__name__, "value": float(value)}
+    if isinstance(value, np.complexfloating):
+        return {"type": type(value).__name__, "real": float(value.real), "imag": float(value.imag)}
     if isinstance(value, complex):
         return {"type": "complex", "real": value.real, "imag": value.imag}
     if isinstance(value, bool):
