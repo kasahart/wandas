@@ -15,7 +15,7 @@
 
 ## 📚 学習の流れ
 
-この学習パスは以下のmarimoアプリで構成されています。各marimoアプリは独立しており、順番に進めることも、興味のある部分だけを学ぶことも可能です。
+この学習パスは以下のmarimoアプリと補助Notebookで構成されています。各アプリ/Notebookは独立しており、順番に進めることも、興味のある部分だけを学ぶことも可能です。
 
 ### 1. [00_why_wandas.py](00_why_wandas.py) - Wandasとは何か
 
@@ -57,6 +57,31 @@
 - 時間周波数解析の応用
 - 信号の特徴抽出
 
+### 6. [05_custom_functions.py](05_custom_functions.py) - custom function
+
+**独自処理をWandasの操作として扱う**
+
+- custom operationの最小例
+- frame操作としての組み込み
+- 再利用しやすい処理単位の作り方
+
+### 7. [06_pipeline_recipe_ux.ipynb](06_pipeline_recipe_ux.ipynb) - Pipeline Recipe UX
+
+**Recipe機能の基本要件をNotebookで確認する**
+
+- `RecipeSpec` と sklearn adapter の基本例
+- `operation_history` による処理履歴の確認
+- 処理前後の数値比較
+
+### 8. [07_frame_centric_recipe_ux.py](07_frame_centric_recipe_ux.py) - Frame中心のRecipe UX
+
+**探索解析を別データで再現する**
+
+- 通常のFrame method chainからRecipeを抽出
+- 別Frameへのreplayによる再現実験
+- graph recipe、外部データ、terminal値、抽出境界の最小例
+- 初学者ユーザーがpipeline固有classを意識しないための理想UX
+
 ## 🚀 学習を始める前に
 
 ### 必要な環境
@@ -67,13 +92,16 @@
 
 ## 📖 各marimoアプリの特徴
 
-| marimoアプリ | 学習目標 | 実践要素 | 動機付け |
+| アプリ/Notebook | 学習目標 | 実践要素 | 動機付け |
 |-------------|---------|---------|---------|
 | 00_why_wandas | Wandas理解 | 概念説明 | なぜ必要か |
 | 01_getting_started | 環境構築 | インストール | すぐに始める |
 | 02_working_with_data | データ操作 | ファイルIO | データ活用 |
 | 03_signal_processing_basics | 基本処理 | フィルタリング | 信号改善 |
-| 04_advanced_signal_processing | 高度処理 | スペクトログラム | 特徴抽出 |
+| 04_advanced_processing | 高度処理 | スペクトログラム | 特徴抽出 |
+| 05_custom_functions | custom処理 | custom operation | 処理の再利用 |
+| 06_pipeline_recipe_ux | Recipe基本 | RecipeSpec / sklearn adapter | 処理履歴の再実行 |
+| 07_frame_centric_recipe_ux | Recipe UX | replay / graph / terminal | 探索解析の再現 |
 
 ## 🔗 関連リソース
 

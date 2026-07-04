@@ -80,7 +80,24 @@ operation_spec = hp.to_spec()
 
 `to_spec()` により、sklearn 風 transformer から Wandas-native な `OperationSpec` に戻せる。
 
-## Use Case 4: UX Notebook で処理履歴を確認する
+## Use Case 4: Frame-centric UX をNotebookで確認する
+
+Recipe のあるべき姿は、ユーザーが最初から pipeline 固有の class を選ぶことではない。
+まず通常の frame 操作で探索し、処理済み frame から replayable な recipe を作り、別 frame で再現実験できることである。
+
+frame 中心の UX を確認する marimo アプリ:
+
+- <a href="../learning-path/07_frame_centric_recipe_ux.html">Learning Path — 07_Frame-Centric Recipe UX</a>
+- source: `learning-path/07_frame_centric_recipe_ux.py`
+
+この marimo アプリでは次を確認できる。
+
+- 通常の frame method chain から `RecipeSpec.from_frame(...)` で抽出する。
+- notebook-local facade を使い、`RecipeSpec` / `GraphRecipeSpec` / `NodeGraphRecipeSpec` の選択をユーザーから隠す理想形を確認する。
+- 別 frame への replay、graph recipe、外部データ、terminal step、抽出境界を小さなデータで実行する。
+- 現在の public API と、将来の `processed.to_recipe(...)` のような入口候補を区別して確認する。
+
+## Use Case 5: 既存UX Notebook で処理履歴を確認する
 
 実行可能な UX ノートブック:
 

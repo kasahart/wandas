@@ -126,3 +126,7 @@ This section provides links to tutorial marimo apps that demonstrate more detail
 - <a href="../learning-path/00_why_wandas.html">Learning Path — 00_Why Wandas (marimo)</a>: Overview and motivation / 概要と動機付け
 - <a href="../learning-path/01_getting_started.html">Learning Path — 01_Getting Started (marimo)</a>: Setup and basic configuration / セットアップと基本的な設定
 - <a href="../learning-path/02_working_with_data.html">Learning Path — 02_Working With Data (marimo)</a>: Reading, inspecting, and simple transformations / 読み込み、検査、基本的な変換
+- <a href="../learning-path/03_signal_processing_basics.html">Learning Path — 03_Signal Processing Basics (marimo)</a>: Filtering and frequency analysis / フィルタリングと周波数分析
+- <a href="../learning-path/04_advanced_processing.html">Learning Path — 04_Advanced Processing (marimo)</a>: Spectrograms and time-frequency analysis / スペクトログラムと時間周波数解析
+- <a href="../learning-path/05_custom_functions.html">Learning Path — 05_Custom Functions (marimo)</a>: Custom frame operations / custom frame操作
+- <a href="../learning-path/07_frame_centric_recipe_ux.html">Learning Path — 07_Frame-Centric Recipe UX (marimo)</a>: Exploratory frame analysis and replay without thinking in pipeline classes / pipeline classを意識しない探索解析と再現実験
