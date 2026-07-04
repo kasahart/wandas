@@ -35,6 +35,8 @@ from wandas.pipeline import (
     TerminalStep,
     TypedMethodStep,
 )
+from wandas.processing.base import _OPERATION_REGISTRY, AudioOperation
+from wandas.utils.types import NDArrayReal
 
 
 def _frame() -> ChannelFrame:
@@ -66,6 +68,17 @@ def _two_channel_frame_with_reordered_refs() -> ChannelFrame:
             ChannelMetadata(label="left", unit="Pa", ref=2.0),
         ],
     )
+
+
+def _register_recipe_boundary_operation(monkeypatch: pytest.MonkeyPatch) -> str:
+    class RecipeBoundaryNoop(AudioOperation[NDArrayReal, NDArrayReal]):
+        name = "_recipe_boundary_noop"
+
+        def _process(self, x: NDArrayReal) -> NDArrayReal:
+            return x
+
+    monkeypatch.setitem(_OPERATION_REGISTRY, RecipeBoundaryNoop.name, RecipeBoundaryNoop)
+    return RecipeBoundaryNoop.name
 
 
 def _patch_hpss_backend(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -2626,16 +2639,19 @@ def test_recipe_from_frame_empty_history_returns_empty_recipe() -> None:
         ),
         (
             "registered operation outside current allowlist",
-            lambda frame: frame.apply_operation("loudness_zwst", field_type="free"),
+            lambda frame: frame.apply_operation("_recipe_boundary_noop"),
             "Operation is outside the Stage 1 recipe allowlist",
         ),
     ],
 )
 def test_recipe_from_frame_reports_current_boundary_for_non_replayable_operations(
+    monkeypatch: pytest.MonkeyPatch,
     operation_name: str,
     build_frame: Callable[[ChannelFrame], object],
     message: str,
 ) -> None:
+    if operation_name == "registered operation outside current allowlist":
+        _register_recipe_boundary_operation(monkeypatch)
     frame = _frame()
     processed = build_frame(frame)
 
