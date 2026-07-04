@@ -76,6 +76,20 @@ class LineageNode:
     inputs: tuple["LineageNode", ...] = ()
 
 
+@dataclass(frozen=True)
+class FrameSourceOperation:
+    """Internal lineage marker for an unprocessed frame input."""
+
+    name: str = "__source__"
+
+    @property
+    def params(self) -> Mapping[str, Any]:
+        return {}
+
+    def to_params(self) -> Mapping[str, Any]:
+        return {}
+
+
 def _operand_descriptor(value: Any) -> dict[str, Any]:
     if isinstance(value, DaArray):
         return {
@@ -90,6 +104,14 @@ def _operand_descriptor(value: Any) -> dict[str, Any]:
             "shape": list(value.shape),
             "dtype": str(value.dtype),
         }
+    if isinstance(value, np.bool_):
+        return {"type": "bool", "value": bool(value)}
+    if isinstance(value, np.integer):
+        return {"type": type(value).__name__, "value": int(value)}
+    if isinstance(value, np.floating):
+        return {"type": type(value).__name__, "value": float(value)}
+    if isinstance(value, np.complexfloating):
+        return {"type": type(value).__name__, "real": float(value.real), "imag": float(value.imag)}
     if isinstance(value, complex):
         return {"type": "complex", "real": value.real, "imag": value.imag}
     if isinstance(value, bool):
@@ -159,6 +181,7 @@ class BinaryOperation:
     symbol: str
     operand_kind: str
     operand: Any | None = None
+    operand_position: str = "right"
     name: str = "binary_operation"
 
     @property
@@ -170,6 +193,8 @@ class BinaryOperation:
             "symbol": self.symbol,
             "operand_kind": self.operand_kind,
         }
+        if self.operand_position != "right":
+            params["operand_position"] = self.operand_position
         if self.operand_kind == "frame" and self.operand is not None:
             params["operand"] = {"type": "frame", "label": str(self.operand)}
         elif self.operand_kind != "frame":
@@ -183,6 +208,21 @@ class BinaryOperation:
             "operation": self.symbol,
             "params": {key: _summary_value(value) for key, value in params.items()},
         }
+
+
+@dataclass(frozen=True)
+class FrameMethodOperation:
+    """Lightweight lineage record for replayable frame method calls."""
+
+    name: str
+    method_params: Mapping[str, Any]
+
+    @property
+    def params(self) -> Mapping[str, Any]:
+        return self.to_params()
+
+    def to_params(self) -> Mapping[str, Any]:
+        return _snapshot_config_value(self.method_params)
 
 
 def _snapshot_config_value(value: Any) -> Any:

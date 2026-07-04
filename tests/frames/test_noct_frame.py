@@ -91,6 +91,13 @@ class TestNOctFrame:
         assert self.frame.label == "test_frame"
         assert self.frame.metadata == {"test": "metadata"}
 
+    def test_reverse_scalar_binary_operation_remains_unsupported(self) -> None:
+        """Reverse scalar operators should respect NOctFrame binary-op policy."""
+        with pytest.raises(TypeError, match="unsupported operand type"):
+            2.0 + self.frame
+        with pytest.raises(TypeError):
+            np.float64(2.0) + self.frame
+
     def test_reshape_1d_data(self) -> None:
         """Test that 1D data is reshaped to 2D"""
         # Create 1D real data

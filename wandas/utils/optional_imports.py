@@ -19,6 +19,7 @@ DependencyKey = Literal[
     "mosqito_sound_level_meter",
     "mosqito_center_freq",
     "ipython_display",
+    "sklearn_base",
     "torch",
     "tensorflow",
 ]
@@ -60,6 +61,7 @@ DEPENDENCY_REGISTRY: dict[DependencyKey, DependencySpec] = {
         extra="marimo",
         install_hint='pip install "wandas[marimo]"',
     ),
+    "sklearn_base": DependencySpec(import_name="sklearn.base", extra="sklearn"),
     "torch": DependencySpec(import_name="torch", extra="ml"),
     "tensorflow": DependencySpec(import_name="tensorflow", extra="ml"),
 }

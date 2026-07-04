@@ -17,6 +17,7 @@ import wandas as wd
 import wandas.processing as processing_module
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
+from wandas.pipeline import NodeGraphRecipeSpec
 from wandas.utils.types import NDArrayReal
 
 _da_from_array = da.from_array
@@ -345,6 +346,33 @@ class TestChannelFrame:
         assert channels.n_channels == 2
         np.testing.assert_array_equal(channels.data, self.data[[-1, -2]])
 
+    def test_get_channel_boolean_numpy_array(self) -> None:
+        """Test get_channel with a 1-D boolean mask."""
+        mask = np.array([False, True])
+        channels = self.channel_frame.get_channel(mask)
+
+        assert isinstance(channels, ChannelFrame)
+        assert channels.n_channels == 1
+        assert channels.channels[0].label == "ch1"
+        assert channels.operation_history[-1] == {
+            "operation": "get_channel",
+            "params": {"channel_mask": [False, True]},
+        }
+        assert isinstance(channels._data, DaArray)
+        np.testing.assert_array_equal(channels.data, self.data[1])
+
+    @pytest.mark.parametrize(
+        "mask",
+        [
+            np.array([True]),
+            np.array([[False, True]]),
+            np.array([[False], [True]]),
+        ],
+    )
+    def test_get_channel_boolean_numpy_array_rejects_invalid_masks(self, mask: np.ndarray[Any, Any]) -> None:
+        with pytest.raises(ValueError, match="Boolean mask"):
+            self.channel_frame.get_channel(mask)
+
     def test_get_channel_with_range(self) -> None:
         """Test get_channel with range object."""
         # Create a frame with more channels
@@ -554,6 +582,24 @@ def test_add_channel_inplace_updates_original() -> None:
     base.add_channel(np.zeros(6), label="new_ch", inplace=True)
     assert base.n_channels == orig_n + 1
     assert any(ch.label == "new_ch" for ch in base._channel_metadata)
+    assert base.operation_history[-1]["operation"] == "add_channel"
+
+
+def test_add_channel_inplace_preserves_replayable_lineage() -> None:
+    base = ChannelFrame(data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)), sampling_rate=16000)
+
+    base.add_channel(np.ones(6), label="new_ch", inplace=True)
+
+    recipe = NodeGraphRecipeSpec.from_frame(base, input_names=("base", "new_data"))
+    replayed = recipe.apply(
+        {
+            "base": ChannelFrame(data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)), sampling_rate=16000),
+            "new_data": np.ones(6),
+        }
+    )
+
+    assert replayed.labels == ["ch0", "new_ch"]
+    np.testing.assert_allclose(replayed.data, base.data)
 
 
 def test_channel_update_helpers_preserve_source_time_offset() -> None:
@@ -596,7 +642,18 @@ def test_add_channel_dask_raw_uses_explicit_source_time_offset_and_stays_lazy() 
 
     assert isinstance(added._data, DaArray)
     assert base.operation_history == history_before
-    assert added.operation_history == history_before
+    assert added.operation_history == [
+        {
+            "operation": "add_channel",
+            "params": {
+                "align": "strict",
+                "input_kind": "dask.array",
+                "label": "new_ch",
+                "source_time_offset": [5.0],
+                "suffix_on_dup": None,
+            },
+        }
+    ]
     np.testing.assert_array_equal(added.source_time_offset, np.array([2.5, 5.0]))
 
 
@@ -676,8 +733,10 @@ def test_add_channel_with_channelframe_align_pad_and_truncate() -> None:
     assert out.n_samples == base.n_samples
     assert out.n_channels == 2
     assert base.n_channels == 1  # Pillar 1: original unchanged
-    # Pillar 2: structural op leaves history unchanged
-    assert len(out.operation_history) == len(base.operation_history)
+    assert out.operation_history[-1] == {
+        "operation": "add_channel",
+        "params": {"align": "pad", "input_kind": "frame", "label": None, "suffix_on_dup": None},
+    }
 
     # longer incoming frame -> truncate
     other_long = ChannelFrame(data=_da_from_array(np.zeros((1, 20)), chunks=(1, -1)), sampling_rate=16000)
@@ -687,8 +746,10 @@ def test_add_channel_with_channelframe_align_pad_and_truncate() -> None:
     assert out2 is not base  # Pillar 1: immutability
     assert out2.n_samples == base.n_samples
     assert out2.n_channels == 2
-    # Pillar 2: structural op leaves history unchanged
-    assert len(out2.operation_history) == len(base.operation_history)
+    assert out2.operation_history[-1] == {
+        "operation": "add_channel",
+        "params": {"align": "truncate", "input_kind": "frame", "label": None, "suffix_on_dup": None},
+    }
 
 
 def test_remove_channel_index_out_of_range_raises() -> None:
@@ -2417,7 +2478,7 @@ class TestFadeIntegration:
         # Should work correctly
         assert isinstance(processed, ChannelFrame)
         assert processed.n_channels == 1
-        assert processed.operation_history[-1]["operation"] == "fade"
+        assert [record["operation"] for record in processed.operation_history] == ["fade", "get_channel"]
 
     def test_fade_with_arithmetic_operations(self) -> None:
         """Test fade with arithmetic operations."""

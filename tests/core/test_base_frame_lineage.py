@@ -272,6 +272,15 @@ def test_operation_summaries_include_multi_input_lineage() -> None:
     }
 
 
+def test_operation_summaries_hide_source_lineage_markers() -> None:
+    left = _frame()
+    right = _frame()
+
+    result = left + right
+
+    assert [summary["operation"] for summary in result.operation_summaries] == ["+"]
+
+
 def test_operation_summaries_fallback_describes_ndarray_params_without_values() -> None:
     class LegacyOperation:
         name = "legacy"

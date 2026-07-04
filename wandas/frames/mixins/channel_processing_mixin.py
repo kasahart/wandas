@@ -1,7 +1,7 @@
 """Module providing mixins related to signal processing."""
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any, SupportsFloat, SupportsIndex, TypeAlias, TypeVar, cast, overload
 
 from wandas.core.metadata import ChannelMetadata
@@ -48,6 +48,28 @@ class ChannelProcessingMixin:
         if require_non_default and not any(ch.unit or ch.ref != 1.0 for ch in self._channel_metadata):
             return []
         return [ch.ref for ch in self._channel_metadata]
+
+    def _with_public_method_lineage(
+        self: T_Processing,
+        result: ProcessingFrameProtocol,
+        method: str,
+        params: Mapping[str, Any],
+    ) -> T_Processing:
+        """Return ``result`` data with lineage anchored to the public method call."""
+        result_frame = cast(Any, result)
+        return cast(
+            T_Processing,
+            self._create_new_instance(
+                data=result_frame._data,
+                sampling_rate=result_frame.sampling_rate,
+                label=result_frame.label,
+                metadata=result_frame.metadata,
+                channel_metadata=result_frame.channels.to_list(),
+                channel_ids=result_frame._channel_ids,
+                source_time_offset=result_frame.source_time_offset,
+                lineage=self._lineage_with_method(method, params),
+            ),
+        )
 
     def _compute_scalar_metric(
         self: ProcessingFrameProtocol,
@@ -452,7 +474,16 @@ class ChannelProcessingMixin:
         )
 
         # Sampling rate update is handled by the Operation class
-        return cast(T_Processing, result)
+        return self._with_public_method_lineage(
+            result,
+            "rms_trend",
+            {
+                "frame_length": frame_length,
+                "hop_length": hop_length,
+                "dB": dB,
+                "Aw": Aw,
+            },
+        )
 
     def sound_level(
         self: T_Processing,
@@ -484,7 +515,15 @@ class ChannelProcessingMixin:
             dB=dB,
             **({"ref": ref_values} if ref_values else {}),
         )
-        return cast(T_Processing, result)
+        return self._with_public_method_lineage(
+            result,
+            "sound_level",
+            {
+                "freq_weighting": freq_weighting,
+                "time_weighting": time_weighting,
+                "dB": dB,
+            },
+        )
 
     def channel_difference(self: T_Processing, other_channel: int | str = 0) -> T_Processing:
         """Compute the difference between channels.
@@ -495,11 +534,18 @@ class ChannelProcessingMixin:
         Returns:
             New ChannelFrame containing the channel difference
         """
+        requested_other_channel = other_channel
         # label2index is a method of BaseFrame
         if isinstance(other_channel, str) and hasattr(self, "label2index"):
             other_channel = self.label2index(other_channel)
 
         result = self.apply_operation("channel_difference", other_channel=other_channel)
+        if isinstance(requested_other_channel, str):
+            return self._with_public_method_lineage(
+                result,
+                "channel_difference",
+                {"other_channel": requested_other_channel},
+            )
         return cast(T_Processing, result)
 
     def resampling(
@@ -935,7 +981,7 @@ class ChannelProcessingMixin:
             channel_metadata=cast(Any, self).channels.to_list(),
             channel_ids=cast(Any, self)._channel_ids,
             source_time_offset=cast(Any, self).source_time_offset,
-            lineage=cast(Any, self)._lineage_with_operation(operation, cast(Any, self).lineage),
+            lineage=cast(Any, self)._lineage_with_method(operation_name, operation.to_params()),
             previous=cast("BaseFrame[NDArrayReal]", self),
         )
 

@@ -61,6 +61,9 @@ marimo = [
 psychoacoustic = [
     "mosqito",
 ]
+sklearn = [
+    "scikit-learn",
+]
 ml = [
     "torch>=2.0.0",
     "tensorflow>=2.13.0",

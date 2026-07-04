@@ -1,3 +1,7 @@
+import importlib
+import inspect
+import math
+import numbers
 from collections.abc import Callable
 from typing import Any
 
@@ -13,6 +17,43 @@ def _callable_reference(func: Callable[..., Any]) -> str:
     module = getattr(func, "__module__", type(func).__module__)
     qualname = getattr(func, "__qualname__", type(func).__qualname__)
     return f"{module}.{qualname}"
+
+
+def _importable_function_path(func: Callable[..., Any] | None) -> str | None:
+    """Return a stable import path for module-level functions."""
+    if func is None or not inspect.isfunction(func):
+        return None
+    if func.__module__ == "__main__" or func.__name__ == "<lambda>":
+        return None
+    if func.__qualname__ != func.__name__ or func.__closure__ is not None:
+        return None
+    try:
+        module = importlib.import_module(func.__module__)
+    except Exception:
+        return None
+    if getattr(module, func.__name__, None) is not func:
+        return None
+    return f"{func.__module__}.{func.__name__}"
+
+
+def _is_recipe_literal(value: Any) -> bool:
+    if value is None or isinstance(value, bool | str):
+        return True
+    if type(value).__module__ == "numpy" and type(value).__name__ in {"bool", "bool_"}:
+        return True
+    if isinstance(value, numbers.Integral) and not isinstance(value, bool):
+        return True
+    if isinstance(value, numbers.Real) and not isinstance(value, bool):
+        return not math.isnan(float(value))
+    if isinstance(value, list | tuple):
+        return all(not isinstance(item, list | tuple | dict) and _is_recipe_literal(item) for item in value)
+    return False
+
+
+def _is_recipe_literal_mapping(value: Any) -> bool:
+    return isinstance(value, dict) and all(
+        isinstance(key, str) and _is_recipe_literal(item) for key, item in value.items()
+    )
 
 
 class CustomOperation(AudioOperation[InputArrayType, OutputArrayType]):
@@ -88,6 +129,28 @@ class CustomOperation(AudioOperation[InputArrayType, OutputArrayType]):
         summary = super().to_summary()
         summary["implementation"] = _callable_reference(self.func)
         return summary
+
+    def to_recipe_metadata(self) -> dict[str, Any] | None:
+        """Return custom recipe metadata when the callables are importable."""
+        function_path = _importable_function_path(self._func)
+        if function_path is None:
+            return None
+        output_shape_function_path = _importable_function_path(self._output_shape_func)
+        if self._output_shape_func is not None and output_shape_function_path is None:
+            return None
+        output_frame_class = getattr(self, "_recipe_output_frame_class", None)
+        metadata = {
+            "function": function_path,
+            "output_shape_function": output_shape_function_path,
+            "dask_pure": bool(self.pure),
+            "output_frame_class": output_frame_class,
+        }
+        if output_frame_class is not None:
+            output_frame_kwargs = getattr(self, "_recipe_output_frame_kwargs", {})
+            if not _is_recipe_literal_mapping(output_frame_kwargs):
+                return None
+            metadata["output_frame_kwargs"] = output_frame_kwargs
+        return metadata
 
 
 register_operation(CustomOperation)

@@ -1091,7 +1091,7 @@ def test_channel_metadata_update_paths_preserve_operations_lineage():
     result = frame.normalize().rename_channels({0: "renamed"})
 
     assert result.lineage is not None
-    assert result.lineage.operation.name == "normalize"
+    assert [record["operation"] for record in result.operation_history] == ["normalize", "rename_channels"]
     np.testing.assert_allclose(result.compute(), data / 4.0)
 
 

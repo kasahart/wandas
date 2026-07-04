@@ -165,6 +165,14 @@ class BaseFrame(ABC, Generic[T]):
     # prefer the xarray "channel" dimension when it is declared.
     _channel_axis: ClassVar[int | None] = -2
     _xarray_dim_suffix: ClassVar[tuple[str, ...]] = ()
+    _array_ufunc_reverse_methods: ClassVar[Mapping[str, str]] = {
+        "add": "__radd__",
+        "subtract": "__rsub__",
+        "multiply": "__rmul__",
+        "divide": "__rtruediv__",
+        "true_divide": "__rtruediv__",
+        "power": "__rpow__",
+    }
     _xr: xr.DataArray
     _previous: "BaseFrame[Any] | None"
 
@@ -554,6 +562,10 @@ class BaseFrame(ABC, Generic[T]):
     def _lineage_to_history(cls, lineage: "LineageNode | None") -> list[dict[str, Any]]:
         if lineage is None:
             return []
+        from wandas.processing.base import FrameSourceOperation
+
+        if isinstance(lineage.operation, FrameSourceOperation):
+            return []
         records: list[dict[str, Any]] = []
         for input_lineage in lineage.inputs:
             records.extend(cls._lineage_to_history(input_lineage))
@@ -567,7 +579,11 @@ class BaseFrame(ABC, Generic[T]):
     def _lineage_to_graph(cls, lineage: "LineageNode | None") -> dict[str, Any] | None:
         if lineage is None:
             return None
-        return {
+        from wandas.processing.base import FrameSourceOperation
+
+        if isinstance(lineage.operation, FrameSourceOperation):
+            return {"operation": "__source__", "params": {}, "inputs": [], "kind": "source"}
+        graph = {
             "operation": cls._operation_name(lineage.operation),
             "params": cls._operation_params(lineage.operation),
             "inputs": [
@@ -576,6 +592,17 @@ class BaseFrame(ABC, Generic[T]):
                 if (input_graph := cls._lineage_to_graph(input_lineage)) is not None
             ],
         }
+        from wandas.processing.base import FrameMethodOperation
+
+        if isinstance(lineage.operation, FrameMethodOperation):
+            graph["kind"] = "method"
+        from wandas.processing.custom import CustomOperation
+
+        if isinstance(lineage.operation, CustomOperation):
+            custom_metadata = lineage.operation.to_recipe_metadata()
+            if custom_metadata is not None:
+                graph["custom"] = custom_metadata
+        return graph
 
     @classmethod
     def _operation_summary(cls, operation: Any) -> dict[str, Any]:
@@ -596,6 +623,10 @@ class BaseFrame(ABC, Generic[T]):
     def _lineage_to_summaries(cls, lineage: "LineageNode | None") -> list[dict[str, Any]]:
         if lineage is None:
             return []
+        from wandas.processing.base import FrameSourceOperation
+
+        if isinstance(lineage.operation, FrameSourceOperation):
+            return []
         records: list[dict[str, Any]] = []
         for input_lineage in lineage.inputs:
             records.extend(cls._lineage_to_summaries(input_lineage))
@@ -607,6 +638,62 @@ class BaseFrame(ABC, Generic[T]):
 
         lineage_inputs = tuple(input_lineage for input_lineage in inputs if input_lineage is not None)
         return LineageNode(operation=operation, inputs=lineage_inputs)
+
+    def _lineage_or_source(self) -> "LineageNode":
+        from wandas.processing.base import FrameSourceOperation, LineageNode
+
+        return self.lineage or LineageNode(FrameSourceOperation())
+
+    def _lineage_with_method(self, method: str, params: Mapping[str, Any]) -> "LineageNode":
+        from wandas.processing.base import FrameMethodOperation
+
+        return self._lineage_with_operation(FrameMethodOperation(method, params), self.lineage)
+
+    def _lineage_with_unsupported_indexing(self, indexing: str) -> "LineageNode":
+        return self._lineage_with_method("__getitem__", {"indexing": indexing})
+
+    @staticmethod
+    def _is_literal_channel_query(query: Mapping[Any, Any]) -> bool:
+        for key, value in query.items():
+            if not isinstance(key, str):
+                return False
+            if value is None or isinstance(value, bool | int | float | str):
+                continue
+            if isinstance(value, np.bool_ | np.integer | np.floating):
+                continue
+            return False
+        return True
+
+    @staticmethod
+    def _slice_bound_for_lineage(value: Any) -> int | None:
+        if value is None:
+            return None
+        if isinstance(value, bool) or not isinstance(value, numbers.Integral):
+            return None
+        return int(value)
+
+    @classmethod
+    def _slice_for_lineage(cls, key: slice) -> dict[str, int | None] | None:
+        start = cls._slice_bound_for_lineage(key.start)
+        stop = cls._slice_bound_for_lineage(key.stop)
+        step = cls._slice_bound_for_lineage(key.step)
+        if (key.start is not None and start is None) or (key.stop is not None and stop is None):
+            return None
+        if key.step is not None and step is None:
+            return None
+        return {"start": start, "stop": stop, "step": step}
+
+    @classmethod
+    def _axis_slices_for_lineage(cls, keys: tuple[Any, ...]) -> tuple[dict[str, int | None], ...] | None:
+        axis_slices: list[dict[str, int | None]] = []
+        for key in keys:
+            if not isinstance(key, slice):
+                return None
+            axis_slice = cls._slice_for_lineage(key)
+            if axis_slice is None:
+                return None
+            axis_slices.append(axis_slice)
+        return tuple(axis_slices)
 
     @property
     def operations(self) -> tuple["AudioOperation[Any, Any]", ...]:
@@ -730,11 +817,37 @@ class BaseFrame(ABC, Generic[T]):
             if not indices:
                 raise KeyError(f"No channels match query: {query!r}")
             channel_idx_list = indices
+            if isinstance(query, str):
+                lineage_params: dict[str, Any] = {"query": query, "validate_query_keys": validate_query_keys}
+            elif isinstance(query, dict) and self._is_literal_channel_query(query):
+                lineage_params = {
+                    "query": dict(query),
+                    "validate_query_keys": validate_query_keys,
+                }
+            else:
+                lineage_params = {
+                    "channel_idx": channel_idx_list,
+                    "query_kind": type(query).__name__,
+                }
         else:
             if channel_idx is None:
                 raise TypeError("Either 'channel_idx' or 'query' must be provided.")
 
-            channel_idx_list = [channel_idx] if isinstance(channel_idx, int) else list(channel_idx)
+            if isinstance(channel_idx, np.ndarray) and channel_idx.dtype in (bool, np.bool_):
+                if channel_idx.ndim != 1:
+                    raise ValueError(f"Boolean mask must be 1-D, got shape {channel_idx.shape}")
+                if len(channel_idx) != self.n_channels:
+                    raise ValueError(
+                        f"Boolean mask length {len(channel_idx)} does not match number of channels {self.n_channels}"
+                    )
+                mask = [bool(value) for value in cast(npt.NDArray[np.bool_], channel_idx).tolist()]
+                channel_idx_list = [int(index) for index in np.where(channel_idx)[0]]
+                lineage_params = {"channel_mask": tuple(mask)}
+            else:
+                channel_idx_list = [channel_idx] if isinstance(channel_idx, int) else list(channel_idx)
+                lineage_params = {
+                    "channel_idx": channel_idx_list[0] if len(channel_idx_list) == 1 else channel_idx_list,
+                }
 
         new_data = self._data[channel_idx_list]
         new_channel_metadata = [self.channels[i].to_metadata() for i in channel_idx_list]
@@ -745,6 +858,7 @@ class BaseFrame(ABC, Generic[T]):
             channel_metadata=new_channel_metadata,
             channel_ids=new_channel_ids,
             source_time_offset=self.source_time_offset[channel_idx_list],
+            lineage=self._lineage_with_method("get_channel", lineage_params),
         )
 
     def __len__(self) -> int:
@@ -843,22 +957,55 @@ class BaseFrame(ABC, Generic[T]):
 
         # Single label (str)
         if isinstance(key, str):
-            index = self.label2index(key)
-            return self.get_channel(index)
+            selected = self.get_channel(self.label2index(key))
+            return self._create_new_instance(
+                data=selected._data,
+                channel_metadata=selected.channels.to_list(),
+                channel_ids=selected._channel_ids,
+                source_time_offset=selected.source_time_offset,
+                lineage=self._lineage_with_method(
+                    "__getitem__",
+                    {"indexing": "label", "label": key},
+                ),
+            )
 
         # Phase 2: NumPy array support (bool mask and int array)
         if isinstance(key, np.ndarray):
             if key.dtype in (bool, np.bool_):
                 # Boolean mask
+                if key.ndim != 1:
+                    raise ValueError(f"Boolean mask must be 1-D, got shape {key.shape}")
                 if len(key) != self.n_channels:
                     raise ValueError(
                         f"Boolean mask length {len(key)} does not match number of channels {self.n_channels}"
                     )
+                mask = [bool(value) for value in cast(npt.NDArray[np.bool_], key).tolist()]
                 indices = np.where(cast(npt.NDArray[np.bool_], key))[0]
-                return self.get_channel(indices)
+                result = self.get_channel(indices)
+                return result._create_new_instance(
+                    data=result._data,
+                    channel_metadata=result.channels.to_list(),
+                    channel_ids=result._channel_ids,
+                    source_time_offset=result.source_time_offset,
+                    lineage=self._lineage_with_method(
+                        "__getitem__",
+                        {"indexing": "boolean_mask", "mask": tuple(mask)},
+                    ),
+                )
             if np.issubdtype(key.dtype, np.integer):
                 # Integer array
-                return self.get_channel(cast(npt.NDArray[np.int_], key))
+                int_list = [int(index) for index in cast(npt.NDArray[np.integer[Any]], key).tolist()]
+                result = self.get_channel(cast(npt.NDArray[np.int_], key))
+                return result._create_new_instance(
+                    data=result._data,
+                    channel_metadata=result.channels.to_list(),
+                    channel_ids=result._channel_ids,
+                    source_time_offset=result.source_time_offset,
+                    lineage=self._lineage_with_method(
+                        "__getitem__",
+                        {"indexing": "integer_list", "indices": tuple(int_list)},
+                    ),
+                )
             raise TypeError(f"NumPy array must be of integer or boolean type, got {key.dtype}")
 
         # Phase 1: List support (int or str)
@@ -871,13 +1018,35 @@ class BaseFrame(ABC, Generic[T]):
                 # Multiple labels - type narrowing for type checker
                 str_list = cast(list[str], key)
                 indices_from_labels = [self.label2index(label) for label in str_list]
-                return self.get_channel(indices_from_labels)
+                new_data = self._data[indices_from_labels]
+                new_channel_metadata = [self.channels[i].to_metadata() for i in indices_from_labels]
+                new_channel_ids = [self._channel_ids[i] for i in indices_from_labels]
+                return self._create_new_instance(
+                    data=new_data,
+                    channel_metadata=new_channel_metadata,
+                    channel_ids=new_channel_ids,
+                    source_time_offset=self.source_time_offset[indices_from_labels],
+                    lineage=self._lineage_with_method(
+                        "__getitem__",
+                        {"indexing": "label_list", "labels": tuple(str_list)},
+                    ),
+                )
 
             # Check if all elements are integers
-            if all(isinstance(k, int | np.integer) for k in key):
+            if all(isinstance(k, int | np.integer) and not isinstance(k, bool | np.bool_) for k in key):
                 # Multiple indices - convert to list[int] for type safety
                 int_list = [int(k) for k in key]
-                return self.get_channel(int_list)
+                result = self.get_channel(int_list)
+                return result._create_new_instance(
+                    data=result._data,
+                    channel_metadata=result.channels.to_list(),
+                    channel_ids=result._channel_ids,
+                    source_time_offset=result.source_time_offset,
+                    lineage=self._lineage_with_method(
+                        "__getitem__",
+                        {"indexing": "integer_list", "indices": tuple(int_list)},
+                    ),
+                )
 
             raise TypeError(f"List must contain all str or all int, got mixed types: {[type(k).__name__ for k in key]}")
 
@@ -896,6 +1065,15 @@ class BaseFrame(ABC, Generic[T]):
                 channel_metadata=new_channel_metadata,
                 channel_ids=new_channel_ids,
                 source_time_offset=self.source_time_offset[indices],
+                lineage=self._lineage_with_method(
+                    "__getitem__",
+                    {
+                        "indexing": "channel_slice",
+                        "start": key.start,
+                        "stop": key.stop,
+                        "step": key.step,
+                    },
+                ),
             )
 
         raise TypeError(f"Invalid key type: {type(key).__name__}. Expected int, str, slice, list, tuple, or ndarray.")
@@ -952,11 +1130,21 @@ class BaseFrame(ABC, Generic[T]):
                     raise ValueError("Stepped slicing on the time axis is not supported for source time offsets.")
                 start, _, _ = time_axis_key.indices(time_axis_size)
                 source_time_offset = source_time_offset + start * time_step
+            axis_slices = selected._axis_slices_for_lineage(time_keys)
+            lineage_params: dict[str, Any] = (
+                {"indexing": "multidimensional_slice", "axis_slices": axis_slices}
+                if axis_slices is not None
+                else {"indexing": "multidimensional"}
+            )
             return selected._create_new_instance(
                 data=new_data,
                 channel_metadata=selected.channels.to_list(),
                 channel_ids=selected._channel_ids,
                 source_time_offset=source_time_offset,
+                lineage=selected._lineage_with_method(
+                    "__getitem__",
+                    lineage_params,
+                ),
             )
 
         return selected
@@ -1142,6 +1330,16 @@ class BaseFrame(ABC, Generic[T]):
             return result.astype(dtype)
         return result
 
+    def __array_ufunc__(self, ufunc: np.ufunc, method: str, *inputs: Any, **kwargs: Any) -> Any:
+        """Handle NumPy scalar-left operators without forcing eager arrays."""
+        if method == "__call__" and len(inputs) == 2 and inputs[1] is self and isinstance(inputs[0], np.generic):
+            reverse_method_name = self._array_ufunc_reverse_methods.get(ufunc.__name__)
+            if reverse_method_name is not None:
+                result = getattr(self, reverse_method_name)(self._python_numeric_scalar(inputs[0]))
+                return result
+        array_inputs = tuple(np.asarray(input_value) if input_value is self else input_value for input_value in inputs)
+        return getattr(ufunc, method)(*array_inputs, **kwargs)
+
     def visualize_graph(self, filename: str | None = None) -> VisualizeReturnType:
         """
         Visualize the computation graph and save it to a file.
@@ -1202,6 +1400,16 @@ class BaseFrame(ABC, Generic[T]):
         op: Callable[[DaArray, Any], DaArray],
         symbol: str,
     ) -> S:
+        return self._binary_operand_op(other, op, symbol, reverse=False)
+
+    def _binary_operand_op(
+        self: S,
+        other: S | int | float | complex | NDArrayReal | DaArray,
+        op: Callable[[Any, Any], Any],
+        symbol: str,
+        *,
+        reverse: bool = False,
+    ) -> S:
         """Default implementation of binary operations using dask's lazy evaluation.
 
         Handles both frame-frame and frame-scalar/array operations with
@@ -1249,9 +1457,9 @@ class BaseFrame(ABC, Generic[T]):
             other_str = other.label
             other_labels = other.labels
             operand_kind = "frame"
-            lineage_inputs = (self.lineage, other.lineage)
+            lineage_inputs = (self._lineage_or_source(), other._lineage_or_source())
         else:
-            result_data = op(self._data, other)
+            result_data = op(other, self._data) if reverse else op(self._data, other)
             other_str = self._format_operand_str(other)
             other_labels = [other_str] * self.n_channels
             operand_kind = "operand"
@@ -1261,7 +1469,10 @@ class BaseFrame(ABC, Generic[T]):
         new_channel_metadata: list[ChannelMetadata] = []
         for self_ch, other_label in zip(self.channels, other_labels, strict=True):
             ch = self_ch.to_metadata()
-            ch.label = f"({self_ch.label} {symbol} {other_label})"
+            if reverse and operand_kind == "operand":
+                ch.label = f"({other_label} {symbol} {self_ch.label})"
+            else:
+                ch.label = f"({self_ch.label} {symbol} {other_label})"
             new_channel_metadata.append(ch)
 
         from wandas.processing.base import BinaryOperation
@@ -1270,16 +1481,37 @@ class BaseFrame(ABC, Generic[T]):
             symbol=symbol,
             operand_kind=operand_kind,
             operand=other_str if operand_kind == "frame" else other,
+            operand_position="left" if reverse and operand_kind == "operand" else "right",
         )
         lineage = self._lineage_with_operation(binary_operation, *lineage_inputs)
 
+        label = (
+            f"({other_str} {symbol} {self.label})"
+            if reverse and operand_kind == "operand"
+            else f"({self.label} {symbol} {other_str})"
+        )
         return self._create_new_instance(
             data=result_data,
-            label=f"({self.label} {symbol} {other_str})",
+            label=label,
             metadata=metadata,
             lineage=lineage,
             channel_metadata=new_channel_metadata,
         )
+
+    @staticmethod
+    def _is_supported_reverse_scalar(value: object) -> bool:
+        return isinstance(value, numbers.Real) and not isinstance(value, bool)
+
+    @staticmethod
+    def _python_numeric_scalar(value: object) -> int | float:
+        if isinstance(value, numbers.Integral):
+            return int(value)
+        if isinstance(value, numbers.Real):
+            return float(value)
+        raise TypeError(f"Expected a real scalar\n  Got: {type(value).__name__}")
+
+    def _supports_base_reverse_scalar_op(self) -> bool:
+        return type(self)._binary_op is BaseFrame._binary_op
 
     @staticmethod
     def _format_operand_str(other: object) -> str:
@@ -1313,6 +1545,36 @@ class BaseFrame(ABC, Generic[T]):
     def __pow__(self: S, other: S | int | float | NDArrayReal) -> S:
         """Power operator"""
         return self._binary_op(other, lambda x, y: x**y, "**")
+
+    def __radd__(self: S, other: int | float) -> S:
+        """Reverse addition operator."""
+        if not self._is_supported_reverse_scalar(other) or not self._supports_base_reverse_scalar_op():
+            return NotImplemented
+        return self._binary_operand_op(self._python_numeric_scalar(other), lambda x, y: x + y, "+", reverse=True)
+
+    def __rsub__(self: S, other: int | float) -> S:
+        """Reverse subtraction operator."""
+        if not self._is_supported_reverse_scalar(other) or not self._supports_base_reverse_scalar_op():
+            return NotImplemented
+        return self._binary_operand_op(self._python_numeric_scalar(other), lambda x, y: x - y, "-", reverse=True)
+
+    def __rmul__(self: S, other: int | float) -> S:
+        """Reverse multiplication operator."""
+        if not self._is_supported_reverse_scalar(other) or not self._supports_base_reverse_scalar_op():
+            return NotImplemented
+        return self._binary_operand_op(self._python_numeric_scalar(other), lambda x, y: x * y, "*", reverse=True)
+
+    def __rtruediv__(self: S, other: int | float) -> S:
+        """Reverse division operator."""
+        if not self._is_supported_reverse_scalar(other) or not self._supports_base_reverse_scalar_op():
+            return NotImplemented
+        return self._binary_operand_op(self._python_numeric_scalar(other), lambda x, y: x / y, "/", reverse=True)
+
+    def __rpow__(self: S, other: int | float) -> S:
+        """Reverse power operator."""
+        if not self._is_supported_reverse_scalar(other) or not self._supports_base_reverse_scalar_op():
+            return NotImplemented
+        return self._binary_operand_op(self._python_numeric_scalar(other), lambda x, y: x**y, "**", reverse=True)
 
     def apply_operation(self: S, operation_name: str, **params: Any) -> S:
         """
@@ -1426,6 +1688,14 @@ class BaseFrame(ABC, Generic[T]):
         """
         if operation_name is None:
             operation_name = getattr(operation, "name", "unknown_operation")
+        if getattr(operation, "name", None) == "custom":
+            output_frame_class_name = (
+                None
+                if output_frame_class is None
+                else f"{output_frame_class.__module__}.{output_frame_class.__qualname__}"
+            )
+            setattr(operation, "_recipe_output_frame_class", output_frame_class_name)
+            setattr(operation, "_recipe_output_frame_kwargs", copy.deepcopy(output_frame_kwargs or {}))
         expected_input_count = getattr(operation, "_expected_input_count", 1)
         if isinstance(expected_input_count, int) and expected_input_count != 1:
             raise ValueError(

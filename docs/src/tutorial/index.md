@@ -105,6 +105,15 @@ Note: Keys specified in dict are only allowed for dataclass fields of `ChannelMe
 
 ## Next Steps / 次のステップ
 
+- <a href="../learning-path/06_pipeline_recipe_ux.html">Frame-First Recipe UX (marimo)</a>
+  - Start with normal frame method chains, extract a recipe, and replay it on another frame.
+  - 通常のframe method chainから始め、Recipeを抽出し、別frameで再現する。
+- [Pipeline Recipes Examples / Recipe例](pipeline-recipes.md)
+  - Use after the frame-first path when you need graph recipes, custom functions, terminal steps, and extraction boundaries.
+  - frame-first導線の後に、graph recipe、custom function、terminal step、抽出境界を確認する。
+- [Pipeline Recipe Requirements Check Notebook](pipeline-recipe-requirements-check.md)
+  - Run assert-driven checks for the current Pipeline Recipe requirements.
+  - Pipeline Recipe 要件を assert 中心の Notebook で確認する。
 - [API Reference / APIリファレンス](../api/index.md)
   - Detailed API specifications.
   - 詳細な機能やAPI仕様を調べる。
@@ -120,3 +129,7 @@ This section provides links to tutorial marimo apps that demonstrate more detail
 - <a href="../learning-path/00_why_wandas.html">Learning Path — 00_Why Wandas (marimo)</a>: Overview and motivation / 概要と動機付け
 - <a href="../learning-path/01_getting_started.html">Learning Path — 01_Getting Started (marimo)</a>: Setup and basic configuration / セットアップと基本的な設定
 - <a href="../learning-path/02_working_with_data.html">Learning Path — 02_Working With Data (marimo)</a>: Reading, inspecting, and simple transformations / 読み込み、検査、基本的な変換
+- <a href="../learning-path/03_signal_processing_basics.html">Learning Path — 03_Signal Processing Basics (marimo)</a>: Filtering and frequency analysis / フィルタリングと周波数分析
+- <a href="../learning-path/04_advanced_processing.html">Learning Path — 04_Advanced Processing (marimo)</a>: Spectrograms and time-frequency analysis / スペクトログラムと時間周波数解析
+- <a href="../learning-path/05_custom_functions.html">Learning Path — 05_Custom Functions (marimo)</a>: Custom frame operations / custom frame操作
+- <a href="../learning-path/06_pipeline_recipe_ux.html">Learning Path — 06_Frame-First Recipe UX (marimo)</a>: Extract and replay recipes from normal frame method chains / 通常のframe method chainからRecipeを抽出して再現
