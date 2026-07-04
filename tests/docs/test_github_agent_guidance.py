@@ -6,6 +6,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 GITHUB_DIR = REPO_ROOT / ".github"
 
 
+def _read_repo(relative_path: str) -> str:
+    return (REPO_ROOT / relative_path).read_text(encoding="utf-8")
+
+
 def _read(relative_path: str) -> str:
     return (GITHUB_DIR / relative_path).read_text(encoding="utf-8")
 
@@ -54,6 +58,60 @@ def test_agent_docs_keep_planner_first_workflow() -> None:
     assert (
         "**Who**: Use the full `wandas-planner` -> `wandas-implementer` -> `wandas-reviewer` flow" in maintenance_text
     )
+
+
+def test_pr_lifecycle_harness_guidance_is_linked() -> None:
+    """Publisher-facing docs should require PR completion and cleanup gates."""
+    agents_text = _read_repo("AGENTS.md")
+    copilot_text = _read("copilot-instructions.md")
+    publisher_text = _read("agents/wandas-publisher.agent.md")
+    maintenance_text = _read("instructions/agent-maintenance.instructions.md")
+    lifecycle_text = _read("instructions/pr-lifecycle-harness.instructions.md")
+    agents_text_lower = agents_text.lower()
+
+    assert "cross-agent source of truth" in agents_text
+    assert "If the current checkout has changes related to the task" in agents_text
+    assert "If the relationship is unclear, ask before editing." in agents_text
+    assert "PR title/body full-scope check" in agents_text
+    assert "validation evidence" in agents_text_lower
+    assert "Closes" in agents_text
+    assert "Related" in agents_text
+    assert "follow-up issue" in agents_text_lower
+    assert "generated/ignored artifact cleanup" in agents_text_lower
+    assert "local `HEAD`, `origin/<branch>`, and the PR head SHA" in agents_text
+    assert "finite post-push monitoring" in agents_text_lower
+    assert "no unresolved review threads" in agents_text_lower
+    assert "no pending requested reviews" in agents_text_lower
+    assert "repeated review feedback" in agents_text_lower
+    assert "Codex" in agents_text
+    assert ".github/agents/*.agent.md" in agents_text
+    assert "runtime procedures" in agents_text
+    for instruction_path in sorted((GITHUB_DIR / "instructions").glob("*.instructions.md")):
+        assert f"`.github/instructions/{instruction_path.name}`" in agents_text
+    assert "PR lifecycle harness" in copilot_text
+    assert "pr-lifecycle-harness.instructions.md" in publisher_text
+    assert "Copilot-specific adapter" in publisher_text
+    assert "not the repository-canonical checklist" in publisher_text
+    assert "pr-lifecycle-harness.instructions.md" in maintenance_text
+    assert "## PR Completion Gate" in lifecycle_text
+    assert "AGENTS.md contains the cross-agent canonical PR lifecycle checklist" in lifecycle_text
+    assert "local `HEAD`, `origin/<branch>`, and the PR head SHA" in lifecycle_text
+    assert "There are no unresolved actionable review threads." in lifecycle_text
+    assert "There are no pending requested reviews." in lifecycle_text
+    assert "## Issue Triage Gate" in lifecycle_text
+    assert "## Workspace Hygiene Gate" in lifecycle_text
+    assert "## Finite Monitoring Gate" in lifecycle_text
+
+
+def test_pr_template_prompts_for_followup_and_hygiene() -> None:
+    """PR authors should record follow-up issues and generated-file cleanup."""
+    template_text = (GITHUB_DIR / "PULL_REQUEST_TEMPLATE.md").read_text(encoding="utf-8")
+
+    assert "Follow-up issue" in template_text
+    assert "No generated or ignored work files are left behind" in template_text
+    assert "PR title and description describe the full current scope" in template_text
+    assert "Closes #<issue-number> only when this PR fully satisfies the issue" in template_text
+    assert "Related: #<issue-number> for parent, partial, or follow-up work" in template_text
 
 
 def test_all_agent_frontmatter_is_valid_yaml() -> None:
