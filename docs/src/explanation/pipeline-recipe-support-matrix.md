@@ -14,6 +14,19 @@
 | 手動なら対応 | 自動抽出はしないが、自分で Recipe を書けば使える |
 | 未決定 | まだ保存形式や使い方を決めていない |
 
+## Recipe に保存するもの
+
+Recipe は「あとで同じ意味で実行できる手順」だけを保存します。
+
+| 保存する | 保存しない |
+| --- | --- |
+| 処理名と引数 | 計算済みの波形データ |
+| channel の選び方 | Python 関数そのもの |
+| 外から渡す入力名 | NumPy/Dask array の中身 |
+| `add_channel` の公開オプション | 内部で一時的に行われた長さ合わせ |
+
+保存すると意味が変わりそうなものは、Recipe にせずエラーにします。
+
 ## まず見る表
 
 | やりたいこと | 対応 | 使うもの | 例 | 注意 |
@@ -21,12 +34,14 @@
 | 1つの frame に処理を順番にかける | 対応 | `RecipeSpec.from_frame(...)` | `frame.remove_dc().normalize()` | まずはこれを使う |
 | 基本的な信号処理を保存する | 対応 | `RecipeSpec` | `remove_dc`, `highpass_filter`, `trim`, `normalize` | Wandas が名前で呼べる処理が対象 |
 | frame method を保存する | 一部対応 | `RecipeSpec` | `fix_length`, `sum`, `mean`, `channel_difference` | 対応済み method だけ |
+| `fix_length(duration=...)` で長さをそろえる | 対応 | `RecipeSpec` | `frame.fix_length(duration=0.25)` | Recipe には秒数ではなく、実行時に決まったサンプル数を保存する |
 | channel を選ぶ | 一部対応 | `RecipeSpec` | `frame[0:2]`, `frame[["left", "right"]]`, `get_channel("left")` | 名前、範囲、番号の一覧、True/False の一覧は対応 |
 | 複雑な条件で channel を選ぶ | 非対応 | なし | 関数や正規表現で探す選び方 | 選び方の意味をあとで再現しにくい |
 | time 方向の範囲を切り出す | 対応 | `RecipeSpec` | `frame[:, 100:400]` | 連続した範囲だけ対応 |
 | time 方向で飛び飛びの点を選ぶ | 非対応 | なし | `frame[:, [1, 5, 9]]` | 時刻の基準を再現するルールが未整理 |
 | 別の frame 型へ変換する | 一部対応 | `RecipeSpec` | `fft`, `stft`, `welch`, `ifft`, `istft` | 対応済み method だけ |
 | 2つの frame を足す、引く、混ぜる | 対応 | `GraphRecipeSpec` または `NodeGraphRecipeSpec` | `signal + noise` | 1回だけ組み合わせるなら `GraphRecipeSpec`、複数回なら `NodeGraphRecipeSpec` |
+| 2つの frame を SNR 指定で混ぜる | 対応 | `GraphRecipeSpec` | `signal.add(noise, snr=6.0)` | `snr` だけ保存する。内部の長さ合わせは Recipe に入れない |
 | 数値 scalar と演算する | 対応 | `RecipeSpec` | `frame * 2.0`, `2.0 - frame` | NaN は非対応 |
 | NumPy/Dask array と演算する | 対応 | `NodeGraphRecipeSpec` | `frame + offset_array` | array の中身は Recipe に保存しない |
 | channel を追加する | 対応 | `NodeGraphRecipeSpec` | `base.add_channel(raw, label="ref")` | 追加データは外から渡す |

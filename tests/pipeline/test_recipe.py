@@ -696,6 +696,31 @@ def test_graph_recipe_from_frame_does_not_bake_source_length_into_add_with_snr()
     assert replayed.operation_history == expected.operation_history
 
 
+def test_graph_recipe_add_with_snr_serializes_snr_without_implicit_fix_length_step() -> None:
+    base = _frame()
+    data = base.data.reshape(1, -1)
+    signal_source = ChannelFrame.from_numpy(data[:, :100], sampling_rate=base.sampling_rate, label="signal")
+    noise_source = ChannelFrame.from_numpy(data[:, :200], sampling_rate=base.sampling_rate, label="noise")
+    processed = signal_source.add(noise_source, snr=6.0)
+
+    graph_recipe = GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))
+
+    assert graph_recipe.to_dict() == {
+        "inputs": {
+            "signal": {"steps": []},
+            "noise": {"steps": []},
+        },
+        "output": {
+            "binary_frame": {
+                "operation": "add_with_snr",
+                "left": "signal",
+                "right": "noise",
+                "params": {"snr": 6.0},
+            }
+        },
+    }
+
+
 def test_graph_recipe_from_frame_uses_default_names_for_raw_add_with_snr() -> None:
     base = _frame()
     signal_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="signal")
@@ -1076,6 +1101,30 @@ def test_node_graph_recipe_from_frame_extracts_add_channel_frame_inputs() -> Non
     assert replayed.labels == processed.labels
 
 
+def test_node_graph_recipe_add_channel_frame_input_omits_raw_source_time_offset_option() -> None:
+    base = _frame()
+    left_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, ch_labels=["left"])
+    right_source = ChannelFrame(
+        data=da.from_array((base.data * 0.5).reshape(1, -1), chunks=(1, -1)),
+        sampling_rate=base.sampling_rate,
+        channel_metadata=[ChannelMetadata(label="right")],
+        source_time_offset=2.5,
+    )
+    processed = left_source.add_channel(right_source, label="ref")
+
+    recipe = NodeGraphRecipeSpec.from_frame(processed, input_names=("left", "right"))
+    serialized = recipe.to_dict()
+
+    assert serialized["nodes"][0]["step"] == {
+        "add_channel": {
+            "base": "left",
+            "added": "right",
+            "params": {"align": "strict", "label": "ref", "suffix_on_dup": None},
+        }
+    }
+    assert "source_time_offset" not in serialized["nodes"][0]["step"]["add_channel"]["params"]
+
+
 def test_node_graph_recipe_from_frame_extracts_add_channel_with_processed_parents() -> None:
     base = _frame()
     left_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, ch_labels=["left"])
@@ -1114,6 +1163,37 @@ def test_node_graph_recipe_from_frame_extracts_add_channel_numpy_data_input() ->
     np.testing.assert_allclose(replayed.data, processed.data)
     assert replayed.operation_history == processed.operation_history
     np.testing.assert_allclose(replayed.source_time_offset, processed.source_time_offset)
+
+
+def test_node_graph_recipe_add_channel_data_serializes_input_name_not_array_values() -> None:
+    frame = _frame()
+    raw = np.arange(frame.n_samples, dtype=float)
+    processed = frame.add_channel(raw, label="raw", source_time_offset=1.25)
+
+    recipe = NodeGraphRecipeSpec.from_frame(processed, input_names=("signal", "raw"))
+    serialized = recipe.to_dict()
+
+    assert serialized["inputs"] == ["signal", "raw"]
+    assert serialized["nodes"] == [
+        {
+            "id": "n0",
+            "step": {
+                "add_channel_data": {
+                    "base": "signal",
+                    "data": "raw",
+                    "params": {
+                        "align": "strict",
+                        "label": "raw",
+                        "suffix_on_dup": None,
+                        "source_time_offset": 1.25,
+                    },
+                }
+            },
+            "inputs": ["signal", "raw"],
+        }
+    ]
+    assert "array" not in repr(serialized).lower()
+    assert "arange" not in repr(serialized).lower()
 
 
 def test_node_graph_recipe_from_frame_extracts_add_channel_dask_data_after_processed_parent() -> None:
@@ -2190,6 +2270,16 @@ def test_recipe_from_frame_extracts_multidimensional_slice_indexing(
     assert replayed.labels == processed.labels
     np.testing.assert_allclose(replayed.data, processed.data)
     np.testing.assert_allclose(replayed.source_time_offset, processed.source_time_offset)
+
+
+def test_recipe_from_frame_rejects_non_slice_multidimensional_indexing_lineage() -> None:
+    frame = _two_channel_frame_with_refs()
+    processed = frame[:, 100:400]
+    assert processed.lineage is not None
+    processed._lineage = frame._lineage_with_method("__getitem__", {"indexing": "multidimensional"})
+
+    with pytest.raises(RecipeExtractionError, match="Indexing recipe extraction only supports"):
+        RecipeSpec.from_frame(processed)
 
 
 def test_multidimensional_label_indexing_recipe_replays_label_intent_on_reordered_channels() -> None:
