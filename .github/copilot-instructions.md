@@ -1,6 +1,8 @@
 # Copilot Instructions for the Wandas Repository
 
-These instructions are for Wandas custom agents. For substantive implementation, validation, and review work, the default workflow is `wandas-planner` -> `wandas-implementer` -> `wandas-reviewer`; use `wandas-publisher` only after review for PR publication handoff. GitHub Release drafting and tag-driven release publication stay in GitHub Actions.
+These instructions are the GitHub Copilot adapter for the Wandas repository. `AGENTS.md` is the cross-agent source of truth; keep Copilot-only role and loading details here, and keep detailed PR lifecycle guidance in `.github/instructions/pr-lifecycle-harness.instructions.md`.
+
+For substantive implementation, validation, and review work, the default workflow is `wandas-planner` -> `wandas-implementer` -> `wandas-reviewer`; use `wandas-publisher` only after review for PR publication handoff. GitHub Release drafting and tag-driven release publication stay in GitHub Actions.
 
 ## 1. Big Picture & Architecture
 - **Purpose**: Wandas provides pandas‑like data structures and operations for waveform/signal analysis (see `README.md`).
@@ -120,7 +122,7 @@ These instructions are for Wandas custom agents. For substantive implementation,
   - Confirm non-mutating validation evidence such as `Run ruff check`; do not use `Run ruff check --fix` during review.
   - Verify that frame immutability and metadata rules are respected, that new APIs align with existing naming/parameter patterns, and that tests cover the main branches and edge cases discussed in the planner handoff.
 - **Publisher**:
-  - After pushing a PR update, verify that local `HEAD`, `origin/<branch>`, and the PR head all point to the intended commit. Use `git rev-parse HEAD`, `git rev-parse origin/<branch>`, and `gh pr view <pr> --json headRefOid,headRefName,url`.
+  - Use the canonical checklist in `AGENTS.md` and the detailed PR lifecycle harness in [pr-lifecycle-harness.instructions.md](instructions/pr-lifecycle-harness.instructions.md) before reporting that a PR is ready to merge.
   - When responding to PR review feedback, distinguish inline review threads from top-level PR comments. Resolve inline threads only when the feedback has been addressed and the thread still exists; top-level PR comments cannot be resolved, so reply with the commit and validation evidence instead.
   - After a PR is merged, check `gh pr view <pr> --json closingIssuesReferences,state,mergedAt`. If a referenced issue is complete but still open, close it with a concise comment that links the merge outcome to the issue acceptance criteria.
 

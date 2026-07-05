@@ -5,7 +5,10 @@
 <!-- A clear and concise description of what this PR does and why.
      このPRが何をするものか、なぜ必要かを明確・簡潔に説明してください。 -->
 
-<!-- Closes #<issue-number> / 関連Issue: #<issue-number> -->
+<!-- Closes #<issue-number> only when this PR fully satisfies the issue.
+     Use Related: #<issue-number> for parent, partial, or follow-up work.
+     このPRでIssueを完全に満たす場合のみ Closes #<issue-number> を使ってください。
+     親Issue、部分対応、残件がある場合は Related: #<issue-number> を使ってください。 -->
 
 <!-- Please confirm your source branch follows the allowed working-branch patterns: `feat/*`, `fix/*`, `refactor/*`, `chore/*`, or `release/vx.x.x` (`main` is reserved as the release-ready base branch).
      ソースブランチが許可された作業ブランチ命名パターン（`feat/*`、`fix/*`、`refactor/*`、`chore/*`、`release/vx.x.x`）に従っていることを確認してください（`main` はリリース可能なベースブランチとして予約されています）。 -->
@@ -32,6 +35,17 @@
 
 -
 -
+
+---
+
+## PR Readiness / PR準備状況
+
+<!-- Confirm the PR metadata and follow-up tracking are current. / PRメタデータと残件追跡が最新であることを確認してください。 -->
+
+- [ ] PR title and description describe the full current scope, not only the latest review fix / PRタイトルと説明が、直近の修正だけでなく現在の全体スコープを表している
+- [ ] Linked issues use `Closes` only when fully satisfied; otherwise they are marked `Related` / 完了したIssueのみ `Closes` とし、それ以外は `Related` としている
+- [ ] Follow-up issue created or linked for meaningful deferred work / 意味のある残件について Follow-up issue を作成またはリンクした
+- [ ] No generated or ignored work files are left behind / 生成物やignoredな作業ファイルを残していない
 
 ---
 
