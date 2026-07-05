@@ -4,6 +4,26 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GITHUB_DIR = REPO_ROOT / ".github"
+AGENTS_SKILLS_DIR = REPO_ROOT / ".agents" / "skills"
+
+REPO_SKILL_REQUIRED_CHECKS = {
+    "wandas-pr-readiness": [
+        "PR title/body full-scope check",
+        "Validation evidence",
+        "SHA alignment",
+        "Finite post-push monitoring",
+    ],
+    "wandas-issue-triage": [
+        "`Closes`",
+        "`Related`",
+        "Follow-up issue",
+    ],
+    "wandas-workspace-hygiene": [
+        "dirty checkout",
+        "ignored/generated artifacts",
+        "worktree",
+    ],
+}
 
 
 def _read_repo(relative_path: str) -> str:
@@ -101,6 +121,35 @@ def test_pr_lifecycle_harness_guidance_is_linked() -> None:
     assert "## Issue Triage Gate" in lifecycle_text
     assert "## Workspace Hygiene Gate" in lifecycle_text
     assert "## Finite Monitoring Gate" in lifecycle_text
+
+
+def test_repo_skills_are_thin_agents_guidance_adapters() -> None:
+    """Repo skills should be validated, discoverable adapters to AGENTS.md."""
+    agents_text = _read_repo("AGENTS.md")
+
+    assert "`.agents/skills/`" in agents_text
+    assert "`.claude/skills`" in agents_text
+    assert "legacy/removed" in agents_text
+
+    for skill_name, required_checks in REPO_SKILL_REQUIRED_CHECKS.items():
+        skill_path = AGENTS_SKILLS_DIR / skill_name / "SKILL.md"
+        text = skill_path.read_text(encoding="utf-8")
+
+        assert text.startswith("---\n"), skill_path
+        _, frontmatter, body = text.split("---", 2)
+        data = yaml.safe_load(frontmatter)
+
+        assert isinstance(data, dict), skill_path
+        assert data["name"] == skill_name
+        assert isinstance(data["description"], str)
+        assert data["description"].startswith("Use when ")
+        assert "AGENTS.md" in body
+        assert "## When to use" in body
+        assert "## Required checks" in body
+        assert "## Output to report" in body
+        assert "## What not to do" in body
+        for required_check in required_checks:
+            assert required_check in body
 
 
 def test_pr_template_prompts_for_followup_and_hygiene() -> None:
