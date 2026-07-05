@@ -1,5 +1,7 @@
 # Pipeline Recipe Extraction Boundaries / Recipe 化境界検証
 
+For a shorter user-facing table, start with [Pipeline Recipe Support Matrix](pipeline-recipe-support-matrix.md).
+
 ## Goal / 目標
 
 あるべき姿は、frame で計算できる処理をすべて Recipe 化できることである。ただし、現在の `RecipeSpec` は「単一入力・直列・`apply_operation` replay」の最小表現なので、すべての frame 計算を表すには段階的な拡張が必要である。
