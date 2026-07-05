@@ -35,6 +35,23 @@ from wandas.pipeline import (
     TerminalStep,
     TypedMethodStep,
 )
+from wandas.pipeline.extraction import (
+    _add_channel_data_step_from_graph,
+    _add_channel_step_from_graph,
+    _axis_slices_from_params,
+    _binary_frame_step_from_graph,
+    _binary_operand_step_from_graph,
+    _channel_key_from_parent_graph,
+    _custom_function_step_from_graph,
+    _getitem_step_from_graph,
+    _indices_from_params,
+    _mask_from_params,
+    _rename_mapping_from_params,
+    _scalar_step_from_graph,
+    _slice_from_serialized,
+    _validate_replayable_operation,
+)
+from wandas.pipeline.params import _BooleanMask, _restore_history_value
 from wandas.processing.base import _OPERATION_REGISTRY, AudioOperation
 from wandas.utils.types import NDArrayReal
 
@@ -941,6 +958,73 @@ def test_node_graph_recipe_rejects_non_final_node_output() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    ("factory", "message"),
+    [
+        (lambda: NodeGraphRecipeSpec(inputs=(), nodes=(), output="n0"), "inputs must be non-empty strings"),
+        (
+            lambda: NodeGraphRecipeSpec(inputs=("signal", "signal"), nodes=(), output="n0"),
+            "inputs must be unique",
+        ),
+        (
+            lambda: NodeGraphRecipeSpec(inputs=("signal",), nodes=(), output="n0"),
+            "requires at least one node",
+        ),
+        (
+            lambda: NodeGraphRecipeSpec(
+                inputs=("signal",),
+                nodes=(GraphNodeSpec("n0", OperationSpec("normalize"), ("signal",)),),
+                output="",
+            ),
+            "output must be a non-empty string",
+        ),
+        (
+            lambda: NodeGraphRecipeSpec(
+                inputs=("signal",),
+                nodes=(cast(Any, TerminalStep("rms")),),
+                output="n0",
+            ),
+            "nodes must be GraphNodeSpec instances",
+        ),
+        (
+            lambda: NodeGraphRecipeSpec(
+                inputs=("signal",),
+                nodes=(GraphNodeSpec("signal", OperationSpec("normalize"), ("signal",)),),
+                output="signal",
+            ),
+            "node id duplicates an existing reference",
+        ),
+        (
+            lambda: NodeGraphRecipeSpec(
+                inputs=("signal",),
+                nodes=(GraphNodeSpec("n0", OperationSpec("normalize"), ("missing",)),),
+                output="n0",
+            ),
+            "node references unknown inputs",
+        ),
+        (
+            lambda: NodeGraphRecipeSpec(
+                inputs=("signal",),
+                nodes=(GraphNodeSpec("n0", OperationSpec("normalize"), ("signal",)),),
+                output="missing",
+            ),
+            "output references unknown node or input",
+        ),
+    ],
+)
+def test_node_graph_recipe_constructor_rejects_invalid_structure(factory: Callable[[], object], message: str) -> None:
+    with pytest.raises((TypeError, ValueError), match=message):
+        factory()
+
+
+def test_node_graph_recipe_from_frame_rejects_non_frame_or_missing_graph() -> None:
+    with pytest.raises(RecipeExtractionError, match="requires a Wandas frame"):
+        NodeGraphRecipeSpec.from_frame(object())
+
+    with pytest.raises(RecipeExtractionError, match="requires operation_graph lineage"):
+        NodeGraphRecipeSpec.from_frame(_frame())
+
+
 def test_node_graph_recipe_from_frame_extracts_typed_tail_after_merge() -> None:
     base = _frame()
     left_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="left")
@@ -1220,6 +1304,112 @@ def test_add_channel_data_step_rejects_non_array_runtime_data() -> None:
         step.apply({"signal": frame, "raw": 1.0})
 
 
+@pytest.mark.parametrize(
+    ("step", "inputs", "message"),
+    [
+        (BinaryFrameStep("+", "left", "right"), {"left": _frame()}, "GraphRecipeSpec input is missing"),
+        (AddChannelStep("base", "added"), {"base": _frame()}, "NodeGraphRecipeSpec add_channel input is missing"),
+        (
+            AddChannelDataStep("base", "raw"),
+            {"raw": np.ones(_frame().n_samples)},
+            "NodeGraphRecipeSpec add_channel data input is missing",
+        ),
+    ],
+)
+def test_graph_steps_report_missing_runtime_inputs(
+    step: BinaryFrameStep | AddChannelStep | AddChannelDataStep,
+    inputs: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(KeyError, match=message):
+        step.apply(inputs)
+
+
+@pytest.mark.parametrize(
+    ("factory", "message"),
+    [
+        (lambda: BinaryFrameStep("+", "", "right"), "left and right input names must be non-empty"),
+        (lambda: BinaryFrameStep("+", "left", "right", {"unexpected": 1}), "does not accept params"),
+        (lambda: BinaryFrameStep("add_with_snr", "left", "right", {"gain": 1}), "only accepts the snr parameter"),
+        (lambda: BinaryFrameStep("add_with_snr", "left", "right", {"snr": True}), "requires a numeric snr"),
+        (lambda: BinaryOperandStep("+", "", "operand"), "frame and operand input names must be non-empty"),
+        (lambda: AddChannelStep("", "added"), "base and added input names must be non-empty"),
+        (lambda: AddChannelStep("base", "added", {"source_time_offset": 1.0}), "params only support"),
+        (lambda: AddChannelDataStep("", "raw"), "base and data input names must be non-empty"),
+        (lambda: AddChannelDataStep("raw", "raw"), "base and data inputs must be distinct"),
+        (lambda: AddChannelDataStep("base", "raw", {"gain": 1}), "params only support"),
+    ],
+)
+def test_graph_step_constructors_reject_invalid_inputs(factory: Callable[[], object], message: str) -> None:
+    with pytest.raises((TypeError, ValueError), match=message):
+        factory()
+
+
+@pytest.mark.parametrize("operator", ["-", "/", "**"])
+def test_binary_operand_step_applies_non_additive_array_operators(operator: str) -> None:
+    frame = _frame()
+    operand = np.full(frame.shape, 2.0 if operator == "**" else 0.5)
+    step = BinaryOperandStep(operator, "signal", "operand")
+
+    result = step.apply({"signal": frame, "operand": operand})
+    expected = {
+        "-": frame - operand,
+        "/": frame / operand,
+        "**": frame**operand,
+    }[operator]
+
+    np.testing.assert_allclose(result.data, expected.data)
+    assert result.operation_history == expected.operation_history
+
+
+@pytest.mark.parametrize(
+    "step",
+    [
+        GraphNodeSpec("n0", BinaryFrameStep("+", "left", "right"), ("left", "right")),
+        GraphNodeSpec("n1", BinaryOperandStep("*", "signal", "operand"), ("signal", "operand")),
+        GraphNodeSpec("n2", AddChannelStep("base", "added"), ("base", "added")),
+        GraphNodeSpec("n3", AddChannelDataStep("base", "raw"), ("base", "raw")),
+    ],
+)
+def test_graph_node_spec_serializes_multi_input_nodes(step: GraphNodeSpec) -> None:
+    serialized = step.to_dict()
+
+    assert "inputs" in serialized
+    assert "input" not in serialized
+
+
+@pytest.mark.parametrize(
+    ("factory", "message"),
+    [
+        (lambda: GraphNodeSpec("", OperationSpec("normalize"), ("signal",)), "id must be a non-empty string"),
+        (lambda: GraphNodeSpec("n0", OperationSpec("normalize"), ()), "inputs must be non-empty strings"),
+        (
+            lambda: GraphNodeSpec("n0", BinaryFrameStep("+", "left", "right"), ("right", "left")),
+            "binary step inputs must match",
+        ),
+        (
+            lambda: GraphNodeSpec("n0", BinaryOperandStep("+", "signal", "operand"), ("operand", "signal")),
+            "binary operand inputs must match",
+        ),
+        (
+            lambda: GraphNodeSpec("n0", AddChannelStep("base", "added"), ("added", "base")),
+            "add_channel step inputs must match",
+        ),
+        (
+            lambda: GraphNodeSpec("n0", AddChannelDataStep("base", "raw"), ("raw", "base")),
+            "add_channel data inputs must match",
+        ),
+        (
+            lambda: GraphNodeSpec("n0", OperationSpec("normalize"), ("left", "right")),
+            "unary step requires exactly one input",
+        ),
+    ],
+)
+def test_graph_node_spec_rejects_invalid_identity_and_inputs(factory: Callable[[], object], message: str) -> None:
+    with pytest.raises((TypeError, ValueError), match=message):
+        factory()
+
+
 @pytest.mark.parametrize("operator", ["-", "*", "/", "**"])
 def test_graph_recipe_applies_named_input_recipes_and_frame_binary_operator(operator: str) -> None:
     base = _frame()
@@ -1308,6 +1498,58 @@ def test_graph_recipe_rejects_non_binary_output() -> None:
         GraphRecipeSpec(input_recipes={"signal": RecipeSpec(())}, output=cast(Any, TerminalStep("rms")))
 
 
+@pytest.mark.parametrize(
+    ("factory", "message"),
+    [
+        (
+            lambda: GraphRecipeSpec({}, BinaryFrameStep("+", "left", "right")),
+            "requires at least one named input recipe",
+        ),
+        (
+            lambda: GraphRecipeSpec(
+                input_recipes={"left": RecipeSpec(()), "right": RecipeSpec(())},
+                output=BinaryFrameStep("+", "left", "right"),
+                tail_recipe=cast(Any, TerminalStep("rms")),
+            ),
+            "tail_recipe must be a RecipeSpec",
+        ),
+        (
+            lambda: GraphRecipeSpec(
+                input_recipes={"": RecipeSpec(()), "right": RecipeSpec(())},
+                output=BinaryFrameStep("+", "left", "right"),
+            ),
+            "input names must be non-empty strings",
+        ),
+        (
+            lambda: GraphRecipeSpec(
+                input_recipes={"left": cast(Any, TerminalStep("rms")), "right": RecipeSpec(())},
+                output=BinaryFrameStep("+", "left", "right"),
+            ),
+            "input recipes must be RecipeSpec instances",
+        ),
+    ],
+)
+def test_graph_recipe_constructor_rejects_invalid_structure(factory: Callable[[], object], message: str) -> None:
+    with pytest.raises((TypeError, ValueError), match=message):
+        factory()
+
+
+def test_graph_recipe_from_frame_rejects_non_frame_or_missing_graph() -> None:
+    with pytest.raises(RecipeExtractionError, match="requires a Wandas frame"):
+        GraphRecipeSpec.from_frame(object())
+
+    with pytest.raises(RecipeExtractionError, match="requires operation_graph lineage"):
+        GraphRecipeSpec.from_frame(_frame())
+
+
+def test_graph_recipe_from_frame_rejects_duplicate_input_names() -> None:
+    base = _frame()
+    processed = base + ChannelFrame.from_numpy(base.data * 0.5, sampling_rate=base.sampling_rate)
+
+    with pytest.raises(RecipeExtractionError, match="requires distinct input names"):
+        GraphRecipeSpec.from_frame(processed, input_names=("same", "same"))
+
+
 def test_binary_frame_step_rejects_unknown_operation() -> None:
     with pytest.raises(ValueError, match="BinaryFrameStep operation is outside the replayable binary-frame allowlist"):
         BinaryFrameStep("@", left="signal", right="noise")
@@ -1392,6 +1634,297 @@ def test_operation_spec_rejects_nan_inside_sequence_params(value: object) -> Non
         OperationSpec("normalize", {"value": value})
 
 
+@pytest.mark.parametrize(
+    ("factory", "message"),
+    [
+        (lambda: CustomFunctionStep(cast(Any, "")), "function must be a non-empty import path string"),
+        (lambda: CustomFunctionStep("not_import_path"), "function must be a module import path"),
+        (
+            lambda: CustomFunctionStep("tests.pipeline.custom_recipe_fixtures.custom_scale", output_shape_function=""),
+            "output_shape_function must be None or a non-empty import path string",
+        ),
+        (
+            lambda: CustomFunctionStep(
+                "tests.pipeline.custom_recipe_fixtures.custom_scale",
+                output_shape_function="not_import_path",
+            ),
+            "output_shape_function must be a module import path",
+        ),
+        (
+            lambda: CustomFunctionStep(
+                "tests.pipeline.custom_recipe_fixtures.custom_scale",
+                dask_pure=cast(Any, "yes"),
+            ),
+            "dask_pure must be a bool",
+        ),
+        (
+            lambda: CustomFunctionStep("tests.pipeline.custom_recipe_fixtures.custom_scale", output_frame_class=""),
+            "output_frame_class must be None or a non-empty import path string",
+        ),
+        (
+            lambda: CustomFunctionStep(
+                "tests.pipeline.custom_recipe_fixtures.custom_scale",
+                output_frame_class="NotImportPath",
+            ),
+            "output_frame_class must be a module import path",
+        ),
+        (
+            lambda: CustomFunctionStep(
+                "tests.pipeline.custom_recipe_fixtures.custom_scale",
+                output_frame_kwargs={"freqs": [1.0]},
+            ),
+            "output_frame_kwargs require output_frame_class",
+        ),
+    ],
+)
+def test_custom_function_step_rejects_invalid_metadata(factory: Callable[[], object], message: str) -> None:
+    with pytest.raises((TypeError, ValueError), match=message):
+        factory()
+
+
+def test_custom_function_step_serializes_output_frame_class_metadata() -> None:
+    step = CustomFunctionStep(
+        "tests.pipeline.custom_recipe_fixtures.custom_rfft",
+        output_shape_function="tests.pipeline.custom_recipe_fixtures.rfft_shape",
+        output_frame_class="wandas.frames.spectral.SpectralFrame",
+        output_frame_kwargs={"freqs": [0.0, 1.0]},
+    )
+
+    assert step.to_dict() == {
+        "custom_function": "tests.pipeline.custom_recipe_fixtures.custom_rfft",
+        "output_shape_function": "tests.pipeline.custom_recipe_fixtures.rfft_shape",
+        "dask_pure": True,
+        "params": {},
+        "output_frame_class": "wandas.frames.spectral.SpectralFrame",
+        "output_frame_kwargs": {"freqs": [0.0, 1.0]},
+    }
+
+
+@pytest.mark.parametrize(
+    ("key", "expected_channel"),
+    [
+        ((slice(0, 2), slice(10, 20)), {"type": "slice", "start": 0, "stop": 2, "step": None}),
+        ((np.array([True, False]), slice(10, 20)), {"type": "boolean_mask", "mask": [True, False]}),
+        ((1, slice(10, 20)), {"type": "index", "value": 1}),
+        ((["left", "right"], slice(10, 20)), {"type": "label_list", "labels": ["left", "right"]}),
+        (([0, 1], slice(10, 20)), {"type": "integer_list", "indices": [0, 1]}),
+    ],
+)
+def test_indexing_step_serializes_multidimensional_channel_key_variants(
+    key: tuple[object, slice],
+    expected_channel: dict[str, object],
+) -> None:
+    step = IndexingStep(key)
+
+    assert step.to_dict() == {
+        "getitem": {
+            "type": "multidimensional_slice",
+            "channel": expected_channel,
+            "axis_slices": [{"start": 10, "stop": 20, "step": None}],
+        }
+    }
+
+
+def test_indexing_step_restores_boolean_mask_wrapper_to_public_numpy_mask() -> None:
+    step = IndexingStep((_BooleanMask((True, False)), slice(10, 20)))
+
+    key = step.key
+
+    assert isinstance(key, tuple)
+    np.testing.assert_array_equal(key[0], np.array([True, False]))
+
+
+@pytest.mark.parametrize(
+    ("factory", "message"),
+    [
+        (lambda: IndexingStep((object(), slice(0, 1))), "multidimensional channel key"),
+        (lambda: IndexingStep(slice(0.1, 1)), "slice bounds must be integers or None"),
+        (lambda: IndexingStep([]), "key must be a channel label"),
+    ],
+)
+def test_indexing_step_rejects_invalid_keys(factory: Callable[[], object], message: str) -> None:
+    with pytest.raises(TypeError, match=message):
+        factory()
+
+
+@pytest.mark.parametrize(
+    ("metadata", "message"),
+    [
+        (None, "requires importable module-level functions"),
+        ({"function": object()}, "requires an importable function path"),
+        (
+            {
+                "function": "tests.pipeline.custom_recipe_fixtures.custom_scale",
+                "output_shape_function": object(),
+            },
+            "requires an importable output_shape_func path",
+        ),
+        (
+            {"function": "tests.pipeline.custom_recipe_fixtures.custom_scale", "dask_pure": "yes"},
+            "requires a boolean dask_pure flag",
+        ),
+        (
+            {
+                "function": "tests.pipeline.custom_recipe_fixtures.custom_scale",
+                "output_frame_class": object(),
+            },
+            "requires an importable output frame class path",
+        ),
+        (
+            {
+                "function": "tests.pipeline.custom_recipe_fixtures.custom_scale",
+                "output_frame_class": "tests.pipeline.custom_recipe_fixtures.custom_scale",
+            },
+            "requires an importable output frame class",
+        ),
+        (
+            {
+                "function": "tests.pipeline.custom_recipe_fixtures.custom_scale",
+                "output_frame_kwargs": object(),
+            },
+            "requires output_frame_kwargs mapping",
+        ),
+        (
+            {
+                "function": "tests.pipeline.custom_recipe_fixtures.custom_scale",
+            },
+            "requires recipe-literal params",
+        ),
+    ],
+)
+def test_custom_function_extraction_rejects_unreplayable_metadata(
+    metadata: dict[str, object] | None,
+    message: str,
+) -> None:
+    params = {"bad": {"nested": 1}} if message == "requires recipe-literal params" else {}
+
+    with pytest.raises(RecipeExtractionError, match=message):
+        _custom_function_step_from_graph(params, metadata)
+
+
+@pytest.mark.parametrize(
+    ("params", "message"),
+    [
+        ({}, "requires typed mapping items"),
+        ({"mapping_items": [("ok",)]}, "requires key/value mapping items"),
+        ({"mapping_items": [(object(), "label")]}, "only supports int/str keys"),
+    ],
+)
+def test_rename_mapping_extraction_rejects_invalid_serialized_items(
+    params: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(RecipeExtractionError, match=message):
+        _rename_mapping_from_params(params)
+
+
+@pytest.mark.parametrize(
+    ("operation", "params", "message"),
+    [
+        ("+", {"operand_kind": "frame"}, "can only replay a single numeric operand"),
+        ("+", {"operand_kind": "operand", "operand": {"type": "bool", "value": True}}, "numeric scalar operand"),
+        ("+", {"operand_kind": "operand", "operand": {"type": "str", "value": "x"}}, "numeric scalar operand"),
+        ("+", {"symbol": "-", "operand_kind": "operand", "operand": 1.0}, "inconsistent operator metadata"),
+        ("+", {"operand_position": "middle", "operand_kind": "operand", "operand": 1.0}, "invalid operand position"),
+    ],
+)
+def test_scalar_step_extraction_rejects_unstable_operand_metadata(
+    operation: str,
+    params: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(RecipeExtractionError, match=message):
+        _scalar_step_from_graph(operation, params)
+
+
+@pytest.mark.parametrize(
+    ("func", "args", "message"),
+    [
+        (_slice_from_serialized, (object(),), "requires serialized slice objects"),
+        (_slice_from_serialized, ({"start": 0},), "requires explicit start/stop/step"),
+        (_axis_slices_from_params, ({},), "requires non-empty axis_slices"),
+        (_indices_from_params, ({},), "requires indices"),
+        (_indices_from_params, ({"indices": [True]},), "requires integer indices"),
+        (_mask_from_params, ({},), "requires mask values"),
+        (_mask_from_params, ({"mask": [True, 1]},), "requires bool values"),
+    ],
+)
+def test_indexing_extraction_rejects_invalid_serialized_selectors(
+    func: Callable[..., object],
+    args: tuple[object, ...],
+    message: str,
+) -> None:
+    kwargs = {"context": "test"} if func is _slice_from_serialized else {}
+
+    with pytest.raises(RecipeExtractionError, match=message):
+        func(*args, **kwargs)
+
+
+@pytest.mark.parametrize(
+    ("params", "message"),
+    [
+        ({"indexing": "label", "label": 1}, "requires a string label"),
+        ({"indexing": "label_list", "labels": [1]}, "requires string labels"),
+        ({"indexing": "callable"}, "Indexing recipe extraction only supports"),
+    ],
+)
+def test_getitem_step_extraction_rejects_unreplayable_indexing(
+    params: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(RecipeExtractionError, match=message):
+        _getitem_step_from_graph(params)
+
+
+@pytest.mark.parametrize(
+    ("parent", "message"),
+    [
+        ({"operation": "get_channel", "params": {"query": {"label": "left"}}}, "only supports single integer"),
+        ({"operation": "remove_dc", "params": {}}, "requires a replayable channel-selection parent"),
+    ],
+)
+def test_channel_key_extraction_rejects_unreplayable_parent_graph(
+    parent: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(RecipeExtractionError, match=message):
+        _channel_key_from_parent_graph(parent)
+
+
+@pytest.mark.parametrize(
+    ("factory", "message"),
+    [
+        (
+            lambda: _binary_frame_step_from_graph("+", {"operand_kind": "operand"}, "left", "right"),
+            "only supports root binary frame operations",
+        ),
+        (
+            lambda: _binary_operand_step_from_graph("+", {"operand_kind": "frame"}, "frame", "operand"),
+            "only supports external ndarray",
+        ),
+        (
+            lambda: _add_channel_step_from_graph({"input_kind": "ndarray"}, "base", "added"),
+            "only supports ChannelFrame inputs",
+        ),
+        (
+            lambda: _add_channel_data_step_from_graph({"input_kind": "frame"}, "base", "raw"),
+            "only supports external ndarray",
+        ),
+    ],
+)
+def test_graph_step_extraction_rejects_unreplayable_binary_metadata(
+    factory: Callable[[], object],
+    message: str,
+) -> None:
+    with pytest.raises(RecipeExtractionError, match=message):
+        factory()
+
+
+def test_validate_replayable_operation_rejects_unregistered_operation() -> None:
+    with pytest.raises(RecipeExtractionError, match="outside the Stage 1 recipe allowlist"):
+        _validate_replayable_operation("definitely_missing_operation")
+
+
 def test_operation_spec_rejects_non_string_mapping_keys() -> None:
     with pytest.raises(TypeError, match="OperationSpec params mapping keys must be strings"):
         OperationSpec("normalize", {object(): "value"})  # ty: ignore[invalid-argument-type]
@@ -1409,6 +1942,67 @@ def test_rename_channels_method_step_serializes_mapping_as_items() -> None:
         "params": {"mapping_items": [["right", "front-right"], [0, "left"]]},
     }
     assert json.loads(json.dumps(serialized_step)) == serialized_step
+
+
+def test_rename_channels_method_step_allows_non_mapping_params_through_generic_snapshot() -> None:
+    step = MethodStep("rename_channels", {"mapping_items": ["left", "front-left"]})
+
+    assert step.params == {"mapping_items": ["left", "front-left"]}
+
+
+@pytest.mark.parametrize(
+    ("params", "message"),
+    [
+        ({"mapping": object()}, "rename_channels mapping must be a mapping"),
+        ({"mapping": {True: "bad"}}, "mapping keys must be int or str"),
+        ({"mapping": {object(): "bad"}}, "mapping keys must be int or str"),
+        ({"mapping": {"left": 1}}, "mapping values must be strings"),
+    ],
+)
+def test_rename_channels_method_step_rejects_invalid_mapping_params(
+    params: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(TypeError, match=message):
+        MethodStep("rename_channels", params)
+
+
+def test_get_channel_method_step_snapshots_boolean_mask_and_query_mapping() -> None:
+    step = MethodStep(
+        "get_channel",
+        {"query": {"label": "left", "index": 0}, "channel_mask": [np.bool_(True), False]},
+    )
+
+    assert step.params == {"query": {"index": 0, "label": "left"}, "channel_mask": [True, False]}
+
+
+@pytest.mark.parametrize(
+    ("params", "message"),
+    [
+        ({"channel_mask": object()}, "channel_mask must be a shallow sequence"),
+        ({"channel_mask": [True, 1]}, "channel_mask must contain only bool values"),
+        ({"query": {object(): "left"}}, "get_channel query keys must be strings"),
+        ({"query": {"label": "left"}, object(): "bad"}, "OperationSpec params mapping keys must be strings"),
+    ],
+)
+def test_get_channel_method_step_rejects_invalid_query_params(
+    params: dict[object, object],
+    message: str,
+) -> None:
+    with pytest.raises(TypeError, match=message):
+        MethodStep("get_channel", params)  # ty: ignore[invalid-argument-type]
+
+
+def test_restore_history_value_handles_negative_infinity_and_nested_nan() -> None:
+    restored = _restore_history_value(
+        {
+            "floor": {"type": "float", "value": "-inf"},
+            "values": [{"type": "float", "value": "nan"}],
+        }
+    )
+
+    assert restored["floor"] == float("-inf")
+    assert np.isnan(restored["values"][0])
 
 
 def test_method_step_rejects_methods_outside_replay_allowlist() -> None:
