@@ -27,6 +27,9 @@ logger = logging.getLogger(__name__)
 
 # Constants for version management
 WDF_FORMAT_VERSION = "0.1"
+OPERATION_SUMMARIES_SCHEMA_VERSION = 1
+OPERATION_SUMMARIES_SCHEMA_ATTR = "operation_summaries_schema"
+OPERATION_SUMMARIES_JSON_ATTR = "operation_summaries_json"
 
 
 def _decode_hdf5_str(value: object) -> str:
@@ -40,6 +43,25 @@ def _decode_hdf5_str(value: object) -> str:
         except (UnicodeDecodeError, AttributeError):
             return str(value)
     return str(value)
+
+
+def _load_operation_summaries_snapshot(h5_file: Any) -> list[dict[str, Any]] | None:
+    if OPERATION_SUMMARIES_JSON_ATTR not in h5_file.attrs:
+        return None
+    schema = int(h5_file.attrs.get(OPERATION_SUMMARIES_SCHEMA_ATTR, 0))
+    if schema != OPERATION_SUMMARIES_SCHEMA_VERSION:
+        raise ValueError(
+            "Unsupported WDF operation summaries schema\n"
+            f"  Got: {schema}\n"
+            f"  Supported: {OPERATION_SUMMARIES_SCHEMA_VERSION}\n"
+            "Use a compatible Wandas version or resave the file."
+        )
+    parsed = json.loads(_decode_hdf5_str(h5_file.attrs[OPERATION_SUMMARIES_JSON_ATTR]))
+    if not isinstance(parsed, list) or not all(isinstance(record, dict) for record in parsed):
+        raise ValueError(
+            f"Invalid WDF operation summaries JSON\n  Expected: JSON array of objects\n  Got: {type(parsed).__name__}"
+        )
+    return parsed
 
 
 def save(
@@ -80,6 +102,8 @@ def save(
 
     h5py = require_h5py("WDF save")
 
+    operation_summaries = frame._operation_summaries_for_storage()
+
     # Compute data arrays (this triggers actual computation)
     logger.info("Computing data arrays for saving...")
     computed_data = frame.compute()
@@ -97,6 +121,8 @@ def save(
         f.attrs["label"] = frame.label or ""
         f.attrs["frame_type"] = type(frame).__name__
         f.attrs["channel_ids_json"] = json.dumps(frame._channel_ids)
+        f.attrs[OPERATION_SUMMARIES_SCHEMA_ATTR] = OPERATION_SUMMARIES_SCHEMA_VERSION
+        f.attrs[OPERATION_SUMMARIES_JSON_ATTR] = json.dumps(operation_summaries, allow_nan=False)
 
         # Create channels group
         channels_grp = f.create_group("channels")
@@ -220,6 +246,8 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
             if source_file is not None:
                 frame_metadata.setdefault("_source_file", _decode_hdf5_str(source_file))
 
+        operation_summaries_snapshot = _load_operation_summaries_snapshot(f)
+
         # Load channel data and metadata
         all_channel_data = []
         channel_metadata_list = []
@@ -288,6 +316,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
             channel_metadata=channel_metadata_list,
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,
+            operation_summaries_snapshot=operation_summaries_snapshot,
         )
 
         logger.debug(f"ChannelFrame loaded from {path}: {len(cf)} channels, {cf.n_samples} samples")

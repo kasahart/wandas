@@ -58,6 +58,10 @@ def _build_cross_channel_source_time_offsets(source_time_offset: Any) -> Any:
     return np.asarray(result, dtype=float)
 
 
+def _operation_summaries_snapshot_kwargs(frame: TransformFrameProtocol, lineage: Any) -> dict[str, Any]:
+    return cast(Any, frame)._operation_summaries_snapshot_kwargs(lineage)
+
+
 class ChannelTransformMixin:
     """Mixin providing methods related to frequency transformations.
 
@@ -110,6 +114,7 @@ class ChannelTransformMixin:
                 f"Operation '{operation_name}' must provide a positive integer n_fft "
                 f"to create a SpectralFrame, but got {n_fft}."
             )
+        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
         return SpectralFrame(
             data=result_data,
             sampling_rate=self.sampling_rate,
@@ -119,8 +124,9 @@ class ChannelTransformMixin:
             metadata=self.metadata,
             channel_metadata=channel_metadata,
             source_time_offset=_build_cross_channel_source_time_offsets(cast(Any, self).source_time_offset),
-            lineage=cast(Any, self)._lineage_with_method(operation_name, operation.to_params()),
+            lineage=lineage,
             previous=self._as_base_frame,
+            **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
     def fft(self: TransformFrameProtocol, n_fft: int | None = None, window: str = "hann") -> "SpectralFrame":
@@ -150,6 +156,7 @@ class ChannelTransformMixin:
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
+        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
         return SpectralFrame(
             data=spectrum_data,
             sampling_rate=self.sampling_rate,
@@ -160,8 +167,9 @@ class ChannelTransformMixin:
             channel_metadata=cast(Any, self).channels.to_list(),
             channel_ids=cast(Any, self)._channel_ids,
             source_time_offset=cast(Any, self).source_time_offset,
-            lineage=cast(Any, self)._lineage_with_method(operation_name, operation.to_params()),
+            lineage=lineage,
             previous=self._as_base_frame,
+            **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
     def welch(
@@ -206,6 +214,7 @@ class ChannelTransformMixin:
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
+        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
         return SpectralFrame(
             data=spectrum_data,
             sampling_rate=self.sampling_rate,
@@ -216,8 +225,9 @@ class ChannelTransformMixin:
             channel_metadata=cast(Any, self).channels.to_list(),
             channel_ids=cast(Any, self)._channel_ids,
             source_time_offset=cast(Any, self).source_time_offset,
-            lineage=cast(Any, self)._lineage_with_method(operation_name, operation.to_params()),
+            lineage=lineage,
             previous=self._as_base_frame,
+            **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
     def noct_spectrum(
@@ -256,6 +266,7 @@ class ChannelTransformMixin:
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
+        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
         return NOctFrame(
             data=spectrum_data,
             sampling_rate=self.sampling_rate,
@@ -269,8 +280,9 @@ class ChannelTransformMixin:
             channel_metadata=cast(Any, self).channels.to_list(),
             channel_ids=cast(Any, self)._channel_ids,
             source_time_offset=cast(Any, self).source_time_offset,
-            lineage=cast(Any, self)._lineage_with_method(operation_name, operation.to_params()),
+            lineage=lineage,
             previous=self._as_base_frame,
+            **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
     def stft(
@@ -319,6 +331,7 @@ class ChannelTransformMixin:
         logger.debug(f"Created new SpectrogramFrame with operation {operation_name} added to graph")
 
         # Create new instance
+        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
         return SpectrogramFrame(
             data=spectrogram_data,
             sampling_rate=self.sampling_rate,
@@ -331,8 +344,9 @@ class ChannelTransformMixin:
             channel_metadata=cast(Any, self).channels.to_list(),
             channel_ids=cast(Any, self)._channel_ids,
             source_time_offset=cast(Any, self).source_time_offset,
-            lineage=cast(Any, self)._lineage_with_method(operation_name, operation.to_params()),
+            lineage=lineage,
             previous=self._as_base_frame,
+            **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
     def coherence(

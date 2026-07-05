@@ -472,6 +472,41 @@ class TestRoughnessFrame:
         assert result.operation_graph is not None
         assert [node["kind"] for node in result.operation_graph["inputs"]] == ["source", "source"]
 
+    def test_binary_op_preserves_snapshot_backed_operation_summaries(self) -> None:
+        frame = RoughnessFrame(
+            data=_DATA_MONO,
+            sampling_rate=_SAMPLING_RATE,
+            bark_axis=_BARK_AXIS,
+            overlap=_OVERLAP,
+            operation_summaries_snapshot=[{"operation": "loaded", "params": {}}],
+        )
+
+        result = frame + 1.0
+
+        assert [summary["operation"] for summary in result.operation_summaries] == ["loaded", "+"]
+        assert [record["operation"] for record in result.operation_history] == ["+"]
+
+    def test_binary_op_merges_snapshot_backed_roughness_frame_input_summaries(self) -> None:
+        left = RoughnessFrame(
+            data=_DATA_MONO,
+            sampling_rate=_SAMPLING_RATE,
+            bark_axis=_BARK_AXIS,
+            overlap=_OVERLAP,
+            lineage=LineageNode(Normalize(_SAMPLING_RATE)),
+        )
+        right = RoughnessFrame(
+            data=_DATA_MONO,
+            sampling_rate=_SAMPLING_RATE,
+            bark_axis=_BARK_AXIS,
+            overlap=_OVERLAP,
+            operation_summaries_snapshot=[{"operation": "loaded", "params": {}}],
+        )
+
+        result = left + right
+
+        assert [summary["operation"] for summary in result.operation_summaries] == ["normalize", "loaded", "+"]
+        assert [record["operation"] for record in result.operation_history] == ["normalize", "+"]
+
     def test_binary_op_sampling_rate_mismatch(self) -> None:
         """Test binary operation raises error on sampling rate mismatch."""
         frame1 = RoughnessFrame(

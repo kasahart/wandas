@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
@@ -121,6 +121,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         previous: BaseFrame[Any] | None = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
         lineage: Any | None = None,
+        operation_summaries_snapshot: Sequence[Mapping[str, Any]] | None = None,
     ) -> None:
         if data.ndim == 1:
             data = data.reshape(1, -1)
@@ -137,6 +138,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,
             lineage=lineage,
+            operation_summaries_snapshot=operation_summaries_snapshot,
             previous=previous,
         )
 
@@ -292,6 +294,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
         # Create new instance
+        lineage = self._lineage_with_method(operation_name, operation.to_params())
         return ChannelFrame(
             data=time_series,
             sampling_rate=self.sampling_rate,
@@ -300,7 +303,8 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_metadata=self.channels.to_list(),
             channel_ids=self._channel_ids,
             source_time_offset=self.source_time_offset,
-            lineage=self._lineage_with_method(operation_name, operation.to_params()),
+            lineage=lineage,
+            **self._operation_summaries_snapshot_kwargs(lineage),
         )
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
@@ -378,6 +382,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
+        lineage = self._lineage_with_method(operation_name, operation.to_params())
         return NOctFrame(
             data=spectrum_data,
             sampling_rate=self.sampling_rate,
@@ -391,8 +396,9 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_metadata=self.channels.to_list(),
             channel_ids=self._channel_ids,
             source_time_offset=self.source_time_offset,
-            lineage=self._lineage_with_method(operation_name, operation.to_params()),
+            lineage=lineage,
             previous=self,
+            **self._operation_summaries_snapshot_kwargs(lineage),
         )
 
     def plot_matrix(

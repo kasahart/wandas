@@ -187,6 +187,7 @@ class BaseFrame(ABC, Generic[T]):
         previous: "BaseFrame[Any] | None" = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
         lineage: "LineageNode | None" = None,
+        operation_summaries_snapshot: Sequence[Mapping[str, Any]] | None = None,
     ):
         normalized_data = self._normalize_data(data)
         frame_label = label or "unnamed_frame"
@@ -207,6 +208,11 @@ class BaseFrame(ABC, Generic[T]):
         self.sampling_rate = sampling_rate
         self.metadata = metadata
         self._lineage = lineage
+        self._operation_summaries_snapshot = (
+            self._snapshot_operation_summaries(operation_summaries_snapshot)
+            if operation_summaries_snapshot is not None
+            else None
+        )
         self._set_channel_metadata(normalized_channel_metadata, self._pending_channel_ids)
         self.source_time_offset = source_time_offset
         del self._pending_channel_metadata
@@ -539,8 +545,29 @@ class BaseFrame(ABC, Generic[T]):
 
     @property
     def operation_summaries(self) -> list[dict[str, Any]]:
-        """Return lightweight display summaries derived from ``lineage``."""
+        """Return lightweight display summaries derived from lineage or a boundary snapshot."""
+        if self._operation_summaries_snapshot is not None:
+            return copy.deepcopy(self._operation_summaries_snapshot)
         return self._lineage_to_summaries(self.lineage)
+
+    def _operation_summaries_for_storage(self) -> list[dict[str, Any]]:
+        """Return a defensive strict-JSON-safe snapshot for persistence boundaries."""
+        return self._snapshot_operation_summaries(self.operation_summaries)
+
+    def _operation_summaries_with_lineage_delta(self, lineage: "LineageNode | None") -> list[dict[str, Any]]:
+        """Extend a boundary snapshot with summaries added since this frame."""
+        snapshot = self._snapshot_operation_summaries(self._operation_summaries_snapshot or [])
+        current_lineage_summaries = self._lineage_to_summaries(self.lineage)
+        new_lineage_summaries = self._lineage_to_summaries(lineage)
+        if new_lineage_summaries[: len(current_lineage_summaries)] != current_lineage_summaries:
+            return snapshot
+        return self._snapshot_operation_summaries([*snapshot, *new_lineage_summaries[len(current_lineage_summaries) :]])
+
+    def _operation_summaries_snapshot_kwargs(self, lineage: "LineageNode | None") -> dict[str, Any]:
+        """Return constructor kwargs that propagate a boundary snapshot for ``lineage``."""
+        if self._operation_summaries_snapshot is None:
+            return {}
+        return {"operation_summaries_snapshot": self._operation_summaries_with_lineage_delta(lineage)}
 
     @staticmethod
     def _operation_name(operation: Any) -> str:
@@ -632,6 +659,26 @@ class BaseFrame(ABC, Generic[T]):
             records.extend(cls._lineage_to_summaries(input_lineage))
         records.append(cls._operation_summary(lineage.operation))
         return records
+
+    @classmethod
+    def _snapshot_operation_summaries(cls, summaries: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+        records = list(summaries)
+        if not all(isinstance(record, Mapping) for record in records):
+            raise ValueError(
+                "Operation summaries snapshot must be a sequence of mappings\n"
+                f"  Got: {type(summaries).__name__}\n"
+                "Use frame.operation_summaries or another JSON-safe summary list."
+            )
+        snapshot = [copy.deepcopy(dict(record)) for record in records]
+        try:
+            json.dumps(snapshot, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "Operation summaries snapshot must be strict JSON serializable\n"
+                f"  Got: {snapshot!r}\n"
+                "Use operation_summaries, which converts runtime values to display-safe summaries."
+            ) from exc
+        return snapshot
 
     def _lineage_with_operation(self, operation: Any, *inputs: "LineageNode | None") -> "LineageNode":
         from wandas.processing.base import LineageNode
@@ -982,29 +1029,43 @@ class BaseFrame(ABC, Generic[T]):
                 mask = [bool(value) for value in cast(npt.NDArray[np.bool_], key).tolist()]
                 indices = np.where(cast(npt.NDArray[np.bool_], key))[0]
                 result = self.get_channel(indices)
+                lineage = self._lineage_with_method(
+                    "__getitem__",
+                    {"indexing": "boolean_mask", "mask": tuple(mask)},
+                )
+                creation_kwargs: dict[str, Any] = {}
+                if self._operation_summaries_snapshot is not None:
+                    creation_kwargs["operation_summaries_snapshot"] = self._operation_summaries_with_lineage_delta(
+                        lineage
+                    )
                 return result._create_new_instance(
                     data=result._data,
                     channel_metadata=result.channels.to_list(),
                     channel_ids=result._channel_ids,
                     source_time_offset=result.source_time_offset,
-                    lineage=self._lineage_with_method(
-                        "__getitem__",
-                        {"indexing": "boolean_mask", "mask": tuple(mask)},
-                    ),
+                    lineage=lineage,
+                    **creation_kwargs,
                 )
             if np.issubdtype(key.dtype, np.integer):
                 # Integer array
                 int_list = [int(index) for index in cast(npt.NDArray[np.integer[Any]], key).tolist()]
                 result = self.get_channel(cast(npt.NDArray[np.int_], key))
+                lineage = self._lineage_with_method(
+                    "__getitem__",
+                    {"indexing": "integer_list", "indices": tuple(int_list)},
+                )
+                creation_kwargs = {}
+                if self._operation_summaries_snapshot is not None:
+                    creation_kwargs["operation_summaries_snapshot"] = self._operation_summaries_with_lineage_delta(
+                        lineage
+                    )
                 return result._create_new_instance(
                     data=result._data,
                     channel_metadata=result.channels.to_list(),
                     channel_ids=result._channel_ids,
                     source_time_offset=result.source_time_offset,
-                    lineage=self._lineage_with_method(
-                        "__getitem__",
-                        {"indexing": "integer_list", "indices": tuple(int_list)},
-                    ),
+                    lineage=lineage,
+                    **creation_kwargs,
                 )
             raise TypeError(f"NumPy array must be of integer or boolean type, got {key.dtype}")
 
@@ -1037,15 +1098,22 @@ class BaseFrame(ABC, Generic[T]):
                 # Multiple indices - convert to list[int] for type safety
                 int_list = [int(k) for k in key]
                 result = self.get_channel(int_list)
+                lineage = self._lineage_with_method(
+                    "__getitem__",
+                    {"indexing": "integer_list", "indices": tuple(int_list)},
+                )
+                creation_kwargs = {}
+                if self._operation_summaries_snapshot is not None:
+                    creation_kwargs["operation_summaries_snapshot"] = self._operation_summaries_with_lineage_delta(
+                        lineage
+                    )
                 return result._create_new_instance(
                     data=result._data,
                     channel_metadata=result.channels.to_list(),
                     channel_ids=result._channel_ids,
                     source_time_offset=result.source_time_offset,
-                    lineage=self._lineage_with_method(
-                        "__getitem__",
-                        {"indexing": "integer_list", "indices": tuple(int_list)},
-                    ),
+                    lineage=lineage,
+                    **creation_kwargs,
                 )
 
             raise TypeError(f"List must contain all str or all int, got mixed types: {[type(k).__name__ for k in key]}")
@@ -1256,9 +1324,13 @@ class BaseFrame(ABC, Generic[T]):
         """Plot the data"""
 
     def persist(self: S) -> S:
-        """Persist the data in memory"""
+        """Persist the data in memory."""
+        operation_summaries_snapshot = self._operation_summaries_for_storage()
         persisted_data = self._data.persist()
-        return self._create_new_instance(data=persisted_data)
+        return self._create_new_instance(
+            data=persisted_data,
+            operation_summaries_snapshot=operation_summaries_snapshot,
+        )
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
         """Return additional keyword arguments for ``_create_new_instance``.
@@ -1287,6 +1359,9 @@ class BaseFrame(ABC, Generic[T]):
             raise TypeError("Metadata must be a dictionary")
 
         lineage = kwargs.pop("lineage", self.lineage)
+        operation_summaries_snapshot = kwargs.pop("operation_summaries_snapshot", None)
+        if operation_summaries_snapshot is None and self._operation_summaries_snapshot is not None:
+            operation_summaries_snapshot = self._operation_summaries_with_lineage_delta(lineage)
 
         channel_metadata = kwargs.pop("channel_metadata", self.channels.to_list())
         if not isinstance(channel_metadata, list):
@@ -1320,6 +1395,8 @@ class BaseFrame(ABC, Generic[T]):
             "lineage": lineage,
             **kwargs,
         }
+        if operation_summaries_snapshot is not None:
+            init_kwargs["operation_summaries_snapshot"] = operation_summaries_snapshot
 
         return type(self)(**init_kwargs)
 
@@ -1484,6 +1561,17 @@ class BaseFrame(ABC, Generic[T]):
             operand_position="left" if reverse and operand_kind == "operand" else "right",
         )
         lineage = self._lineage_with_operation(binary_operation, *lineage_inputs)
+        operation_summaries_snapshot = None
+        if isinstance(other, type(self)) and (
+            self._operation_summaries_snapshot is not None or other._operation_summaries_snapshot is not None
+        ):
+            operation_summaries_snapshot = self._snapshot_operation_summaries(
+                [
+                    *self.operation_summaries,
+                    *other.operation_summaries,
+                    self._operation_summary(binary_operation),
+                ]
+            )
 
         label = (
             f"({other_str} {symbol} {self.label})"
@@ -1496,6 +1584,7 @@ class BaseFrame(ABC, Generic[T]):
             metadata=metadata,
             lineage=lineage,
             channel_metadata=new_channel_metadata,
+            operation_summaries_snapshot=operation_summaries_snapshot,
         )
 
     @staticmethod
@@ -1750,6 +1839,7 @@ class BaseFrame(ABC, Generic[T]):
                 "previous": self,
                 "lineage": lineage,
             }
+            kw.update(self._operation_summaries_snapshot_kwargs(lineage))
             kw.update(metadata_updates)
             if output_frame_kwargs:
                 kw.update(output_frame_kwargs)

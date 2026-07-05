@@ -971,6 +971,7 @@ class ChannelProcessingMixin:
 
         # Create RoughnessFrame. operation.get_metadata_updates() should provide
         # sampling_rate and bark_axis
+        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
         roughness_frame = RoughnessFrame(
             data=r_spec_dask,
             sampling_rate=metadata_updates.get("sampling_rate", self.sampling_rate),
@@ -981,8 +982,9 @@ class ChannelProcessingMixin:
             channel_metadata=cast(Any, self).channels.to_list(),
             channel_ids=cast(Any, self)._channel_ids,
             source_time_offset=cast(Any, self).source_time_offset,
-            lineage=cast(Any, self)._lineage_with_method(operation_name, operation.to_params()),
+            lineage=lineage,
             previous=cast("BaseFrame[NDArrayReal]", self),
+            **cast(Any, self)._operation_summaries_snapshot_kwargs(lineage),
         )
 
         logger.debug(
