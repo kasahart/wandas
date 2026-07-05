@@ -46,9 +46,9 @@ Issue #259 is satisfied by the current replay-intent contract:
 
 The remaining larger graph-model decisions are follow-up work:
 
-- Recipe input-name inference for graph recipes.
-- True DAG identity / shared branch graph recipes.
-- Automatic graph recipe dispatch from `RecipeSpec.from_frame(...)`.
+- Recipe input-name inference for graph recipes is tracked by #263.
+- True DAG identity / shared branch graph recipes are tracked by #264.
+- Automatic graph recipe dispatch from `RecipeSpec.from_frame(...)` is tracked by #265.
 
 WDF Recipe persistence remains tracked by #257. Recipe interoperability and export remain tracked by #258.
 
