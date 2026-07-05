@@ -33,6 +33,25 @@ Recipe extraction preserves what the user meant to replay, not every helper step
 - If only a runtime helper detail is available, Recipe either converts it to a stable public argument or rejects extraction.
 - Recipe replay delegates to existing frame APIs. Recipe code does not duplicate numerical processing, metadata propagation, source-time updates, or Dask graph construction.
 
+## Issue #259 Closure Checklist / #259 クローズ確認
+
+Issue #259 is satisfied by the current replay-intent contract:
+
+| #259 acceptance | Evidence |
+| --- | --- |
+| Accepted cases preserve intent and replay through frame APIs. | Supported linear, method, typed-method, scalar, graph, node-graph, `add_channel`, and `add_with_snr` recipes store public replay steps and call existing frame APIs. |
+| Unsupported cases fail with `RecipeExtractionError` instead of silently changing meaning. | Callable/regex channel queries, non-literal query values, unsupported multidimensional indexing, linear `RecipeSpec` graph boundaries, and single-input `add_channel` extraction are rejected. |
+| New intent representations are documented and covered by focused tests. | `MethodStep`, `IndexingStep`, `TypedMethodStep`, `ScalarOperationStep`, `BinaryFrameStep`, `BinaryOperandStep`, `AddChannelStep`, `AddChannelDataStep`, `GraphRecipeSpec`, and `NodeGraphRecipeSpec` are documented below and covered in `tests/pipeline/test_recipe.py`. |
+| Recipe code does not duplicate numerical logic, metadata propagation, or Dask graph construction. | Recipe replay delegates to existing frame methods and operators. Recipe extraction stores replay intent, not waveform data, materialized arrays, metadata reconstruction logic, source-time update logic, or Dask graph construction. |
+
+The remaining larger graph-model decisions are follow-up work:
+
+- Recipe input-name inference for graph recipes is tracked by #263.
+- True DAG identity / shared branch graph recipes are tracked by #264.
+- Automatic graph recipe dispatch from `RecipeSpec.from_frame(...)` is tracked by #265.
+
+WDF Recipe persistence remains tracked by #257. Recipe interoperability and export remain tracked by #258.
+
 ## Stage 1: Linear `apply_operation` Replay / 直列 apply_operation 再生
 
 Status: implemented in prototype.
