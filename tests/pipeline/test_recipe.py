@@ -50,6 +50,7 @@ from wandas.pipeline.extraction import (
     _rename_mapping_from_params,
     _scalar_step_from_graph,
     _slice_from_serialized,
+    _steps_from_graph,
     _validate_replayable_operation,
 )
 from wandas.pipeline.params import _BooleanMask, _restore_history_value, _snapshot_get_channel_query_params
@@ -1782,6 +1783,15 @@ def test_custom_function_import_loaders_reject_non_module_identity_targets(
         _load_importable_frame_class("tests.pipeline.custom_recipe_fixtures.LocalChannelFrame")
 
 
+def test_custom_function_loader_rejects_module_level_name_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(custom_scale, "__module__", "math")
+    monkeypatch.setattr(custom_scale, "__name__", "sqrt")
+    monkeypatch.setattr(custom_scale, "__qualname__", "sqrt")
+
+    with pytest.raises(TypeError, match="module-level function"):
+        _load_importable_function("tests.pipeline.custom_recipe_fixtures.custom_scale")
+
+
 @pytest.mark.parametrize(
     ("factory", "message"),
     [
@@ -2084,6 +2094,41 @@ def test_channel_key_extraction_accepts_public_get_channel_selectors(
 
 
 @pytest.mark.parametrize(
+    ("graph", "message"),
+    [
+        (
+            {
+                "operation": "__getitem__",
+                "params": {
+                    "indexing": "multidimensional_slice",
+                    "axis_slices": [{"start": 0, "stop": None, "step": 1}],
+                },
+                "inputs": [],
+            },
+            "requires one channel-selection parent",
+        ),
+        (
+            {
+                "operation": "__getitem__",
+                "params": {
+                    "indexing": "multidimensional_slice",
+                    "axis_slices": [{"start": 0, "stop": None, "step": 1}],
+                },
+                "inputs": [{"operation": "get_channel", "params": {"query": "left"}, "inputs": [{}, {}]}],
+            },
+            "Current RecipeSpec can only replay one linear parent chain",
+        ),
+    ],
+)
+def test_steps_from_graph_rejects_invalid_multidimensional_parent_shapes(
+    graph: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(RecipeExtractionError, match=message):
+        _steps_from_graph(graph)
+
+
+@pytest.mark.parametrize(
     ("factory", "message"),
     [
         (
@@ -2115,6 +2160,22 @@ def test_graph_step_extraction_rejects_unreplayable_binary_metadata(
 def test_validate_replayable_operation_rejects_unregistered_operation() -> None:
     with pytest.raises(RecipeExtractionError, match="outside the Stage 1 recipe allowlist"):
         _validate_replayable_operation("definitely_missing_operation")
+
+
+def test_validate_replayable_operation_rejects_multi_input_operation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class MultiInputOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+        name = "_recipe_multi_input"
+        _expected_input_count = 2
+
+        def _process(self, x: NDArrayReal) -> NDArrayReal:
+            return x
+
+    monkeypatch.setitem(_OPERATION_REGISTRY, MultiInputOperation.name, MultiInputOperation)
+
+    with pytest.raises(RecipeExtractionError, match="requires graph recipe support"):
+        _validate_replayable_operation(MultiInputOperation.name)
 
 
 def test_operation_spec_rejects_non_string_mapping_keys() -> None:

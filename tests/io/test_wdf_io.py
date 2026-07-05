@@ -634,6 +634,42 @@ def test_load_wdf_restores_operation_summaries_snapshot(tmp_path: Path) -> None:
     assert loaded.operation_history == []
 
 
+def test_load_wdf_rejects_unsupported_operation_summaries_schema(tmp_path: Path) -> None:
+    path = tmp_path / "bad_summary_schema.wdf"
+
+    with h5py.File(path, "w") as f:
+        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["sampling_rate"] = 16000.0
+        f.attrs["operation_summaries_schema"] = 999
+        f.attrs["operation_summaries_json"] = json.dumps([])
+        channels = f.create_group("channels")
+        channel = channels.create_group("0")
+        channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
+        channel.attrs["label"] = "mic"
+        channel.attrs["unit"] = ""
+
+    with pytest.raises(ValueError, match="Unsupported WDF operation summaries schema"):
+        wdf_io.load(path)
+
+
+def test_load_wdf_rejects_invalid_operation_summaries_json_shape(tmp_path: Path) -> None:
+    path = tmp_path / "bad_summaries_json.wdf"
+
+    with h5py.File(path, "w") as f:
+        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["sampling_rate"] = 16000.0
+        f.attrs["operation_summaries_schema"] = 1
+        f.attrs["operation_summaries_json"] = json.dumps({"operation": "loaded"})
+        channels = f.create_group("channels")
+        channel = channels.create_group("0")
+        channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
+        channel.attrs["label"] = "mic"
+        channel.attrs["unit"] = ""
+
+    with pytest.raises(ValueError, match="Invalid WDF operation summaries JSON"):
+        wdf_io.load(path)
+
+
 def test_load_file_not_found(tmp_path: Path) -> None:
     """Test loading a non-existent file raises FileNotFoundError."""
     path = tmp_path / "non_existent.wdf"
