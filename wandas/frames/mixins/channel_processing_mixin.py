@@ -526,13 +526,19 @@ class ChannelProcessingMixin:
         )
 
     def channel_difference(self: T_Processing, other_channel: int | str = 0) -> T_Processing:
-        """Compute the difference between channels.
+        """Compute index-wise differences between channels.
+
+        ``channel_difference`` subtracts the selected reference channel from
+        each channel at the current array indices. It does not compare
+        per-channel ``source_time_offset`` values and does not perform
+        source-time alignment.
 
         Args:
             other_channel: Index or label of the reference channel. Default is 0.
 
         Returns:
-            New ChannelFrame containing the channel difference
+            New ChannelFrame containing the channel difference with the input
+            source-time offsets preserved.
         """
         requested_other_channel = other_channel
         # label2index is a method of BaseFrame

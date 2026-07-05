@@ -1413,11 +1413,13 @@ class BaseFrame(ABC, Generic[T]):
         """Default implementation of binary operations using dask's lazy evaluation.
 
         Handles both frame-frame and frame-scalar/array operations with
-        metadata propagation and history tracking. Frame-frame operations
-        combine current array indices and preserve the left operand's source
-        timeline; no source-time alignment is performed. Uses
-        ``_create_new_instance`` so that subclass-specific constructor
-        parameters are automatically forwarded.
+        metadata propagation and history tracking. Frame-frame operations are
+        index-wise: they combine current array positions, do not compare
+        ``source_time_offset`` values, and do not perform source-time alignment,
+        trimming, or padding. Results preserve the left operand's source-time
+        offset through ``_create_new_instance``. Uses ``_create_new_instance``
+        so that subclass-specific constructor parameters are automatically
+        forwarded.
 
         Subclasses may override this entirely (e.g. ``RoughnessFrame``).
         """
