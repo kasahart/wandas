@@ -29,7 +29,82 @@ from wandas.pipeline.steps import (
 )
 
 
-def _validate_replayable_operation(operation: str) -> None:
+def _recipe_spec_graph_boundary_error(
+    operation: str,
+    *,
+    parent_count: int | None = None,
+    runtime_inputs: int | None = None,
+    detail: str | None = None,
+) -> RecipeExtractionError:
+    lines = [
+        "RecipeSpec.from_frame(...) cannot extract graph lineage as a linear recipe",
+        f"  Operation: {operation}",
+    ]
+    if parent_count is not None:
+        lines.append(f"  Parent count: {parent_count}")
+    if runtime_inputs is not None:
+        lines.append(f"  Runtime inputs: {runtime_inputs}")
+    if detail is not None:
+        lines.append(f"  Detail: {detail}")
+    lines.extend(
+        [
+            "  RecipeSpec.from_frame(...) only supports single-input linear recipes.",
+            "  Use GraphRecipeSpec.from_frame(...) for one binary frame merge.",
+            "  Use NodeGraphRecipeSpec.from_frame(...) for tree-shaped graph recipes, external operands, "
+            "or add_channel inputs.",
+        ]
+    )
+    return RecipeExtractionError("\n".join(lines))
+
+
+def _graph_extractor_boundary_error(
+    operation: str,
+    *,
+    parent_count: int | None = None,
+    runtime_inputs: int | None = None,
+    detail: str | None = None,
+) -> RecipeExtractionError:
+    lines = [
+        "Graph extraction requires an explicit node graph recipe for this lineage",
+        f"  Operation: {operation}",
+    ]
+    if parent_count is not None:
+        lines.append(f"  Parent count: {parent_count}")
+    if runtime_inputs is not None:
+        lines.append(f"  Runtime inputs: {runtime_inputs}")
+    if detail is not None:
+        lines.append(f"  Detail: {detail}")
+    lines.append(
+        "  Use NodeGraphRecipeSpec.from_frame(...) for tree-shaped graph recipes, external operands, "
+        "or add_channel inputs."
+    )
+    return RecipeExtractionError("\n".join(lines))
+
+
+def _graph_boundary_error(
+    operation: str,
+    *,
+    recipe_spec_context: bool,
+    parent_count: int | None = None,
+    runtime_inputs: int | None = None,
+    detail: str | None = None,
+) -> RecipeExtractionError:
+    if recipe_spec_context:
+        return _recipe_spec_graph_boundary_error(
+            operation,
+            parent_count=parent_count,
+            runtime_inputs=runtime_inputs,
+            detail=detail,
+        )
+    return _graph_extractor_boundary_error(
+        operation,
+        parent_count=parent_count,
+        runtime_inputs=runtime_inputs,
+        detail=detail,
+    )
+
+
+def _validate_replayable_operation(operation: str, *, recipe_spec_context: bool = False) -> None:
     try:
         from wandas.processing import get_operation
 
@@ -44,11 +119,10 @@ def _validate_replayable_operation(operation: str) -> None:
 
     expected_input_count = getattr(operation_class, "_expected_input_count", 1)
     if isinstance(expected_input_count, int) and expected_input_count != 1:
-        raise RecipeExtractionError(
-            "Graph operation requires graph recipe support\n"
-            f"  Operation: {operation}\n"
-            f"  Runtime inputs: {expected_input_count}\n"
-            "  Current RecipeSpec can only replay single-input linear operations."
+        raise _graph_boundary_error(
+            operation,
+            recipe_spec_context=recipe_spec_context,
+            runtime_inputs=expected_input_count,
         )
     if operation not in _REPLAYABLE_APPLY_OPERATIONS:
         raise RecipeExtractionError(
@@ -180,17 +254,28 @@ def _typed_method_step_from_graph(operation: str, params: Mapping[str, Any], kin
     return TypedMethodStep(method, _method_params(params, param_names))
 
 
-def _scalar_operand_from_params(operation: str, params: Mapping[str, Any]) -> int | float:
+def _scalar_operand_from_params(
+    operation: str,
+    params: Mapping[str, Any],
+    *,
+    recipe_spec_context: bool = False,
+) -> int | float:
     if params.get("operand_kind") != "operand":
-        raise RecipeExtractionError(
-            "Graph operation requires graph recipe support\n"
-            f"  Operation: {operation}\n"
-            "  ScalarOperationStep can only replay a single numeric operand stored in the operation graph."
+        raise _graph_boundary_error(
+            operation,
+            recipe_spec_context=recipe_spec_context,
+            detail="ScalarOperationStep only handles numeric scalar operands; external operands need graph inputs.",
         )
 
     operand = params.get("operand")
     if isinstance(operand, int | float) and not isinstance(operand, bool):
         return operand
+    if isinstance(operand, Mapping) and operand.get("type") in {"ndarray", "dask.array"}:
+        raise _graph_boundary_error(
+            operation,
+            recipe_spec_context=recipe_spec_context,
+            detail="ScalarOperationStep only handles numeric scalar operands; external operands need graph inputs.",
+        )
     if not isinstance(operand, Mapping) or set(operand) != {"type", "value"}:
         raise RecipeExtractionError(
             f"Scalar operation requires a numeric scalar operand\n  Operation: {operation}\n  Operand: {operand!r}"
@@ -215,7 +300,12 @@ def _scalar_operand_from_params(operation: str, params: Mapping[str, Any]) -> in
     )
 
 
-def _scalar_step_from_graph(operation: str, params: Mapping[str, Any]) -> ScalarOperationStep:
+def _scalar_step_from_graph(
+    operation: str,
+    params: Mapping[str, Any],
+    *,
+    recipe_spec_context: bool = False,
+) -> ScalarOperationStep:
     symbol = params.get("symbol", operation)
     if symbol != operation:
         raise RecipeExtractionError(
@@ -231,7 +321,7 @@ def _scalar_step_from_graph(operation: str, params: Mapping[str, Any]) -> Scalar
     try:
         return ScalarOperationStep(
             operation,
-            _scalar_operand_from_params(operation, params),
+            _scalar_operand_from_params(operation, params, recipe_spec_context=recipe_spec_context),
             reverse=operand_position == "left",
         )
     except TypeError as exc:
@@ -396,17 +486,23 @@ def _getitem_step_from_graph(params: Mapping[str, Any]) -> IndexingStep:
 def _multidimensional_steps_from_graph(
     params: Mapping[str, Any],
     parent: Mapping[str, Any],
+    *,
+    recipe_spec_context: bool = False,
 ) -> tuple[RecipeStep, ...]:
     axis_slices = _axis_slices_from_params(params)
     parent_inputs = tuple(parent.get("inputs", ()))
     if len(parent_inputs) > 1:
-        raise RecipeExtractionError(
-            "Graph operation requires graph recipe support\n"
-            f"  Operation: {parent['operation']}\n"
-            f"  Parent count: {len(parent_inputs)}\n"
-            "  Current RecipeSpec can only replay one linear parent chain."
+        raise _graph_boundary_error(
+            str(parent["operation"]),
+            recipe_spec_context=recipe_spec_context,
+            parent_count=len(parent_inputs),
+            detail="Multidimensional indexing requires one replayable parent chain.",
         )
-    grandparent_steps = _steps_from_graph(cast(Mapping[str, Any], parent_inputs[0])) if parent_inputs else ()
+    grandparent_steps = (
+        _steps_from_graph(cast(Mapping[str, Any], parent_inputs[0]), recipe_spec_context=recipe_spec_context)
+        if parent_inputs
+        else ()
+    )
     return (*grandparent_steps, IndexingStep((_channel_key_from_parent_graph(parent), *axis_slices)))
 
 
@@ -415,6 +511,8 @@ def _step_from_graph(
     params: Mapping[str, Any],
     kind: str | None,
     custom_metadata: Mapping[str, Any] | None = None,
+    *,
+    recipe_spec_context: bool = False,
 ) -> RecipeStep:
     if operation == "__getitem__":
         return _getitem_step_from_graph(params)
@@ -427,30 +525,29 @@ def _step_from_graph(
     if operation in _REPLAYABLE_TYPED_METHOD_OPERATIONS:
         return _typed_method_step_from_graph(operation, params, kind)
     if operation in _REPLAYABLE_SCALAR_OPERATIONS:
-        return _scalar_step_from_graph(operation, params)
-    _validate_replayable_operation(operation)
+        return _scalar_step_from_graph(operation, params, recipe_spec_context=recipe_spec_context)
+    _validate_replayable_operation(operation, recipe_spec_context=recipe_spec_context)
     return OperationSpec(operation, params)
 
 
-def _steps_from_graph(graph: Mapping[str, Any]) -> tuple[RecipeStep, ...]:
+def _steps_from_graph(
+    graph: Mapping[str, Any],
+    *,
+    recipe_spec_context: bool = False,
+) -> tuple[RecipeStep, ...]:
     operation = str(graph["operation"])
     kind = cast(str | None, graph.get("kind"))
     if kind == "source":
         return ()
     inputs = tuple(graph.get("inputs", ()))
     if operation == "add_channel":
-        raise RecipeExtractionError(
-            "add_channel recipe extraction requires external input support\n"
-            "  Current RecipeSpec can only replay one existing input frame. "
-            "Adding channels needs a graph recipe or external data/input reference."
+        raise _graph_boundary_error(
+            operation,
+            recipe_spec_context=recipe_spec_context,
+            detail="add_channel needs a graph recipe or external data/input reference.",
         )
     if len(inputs) > 1:
-        raise RecipeExtractionError(
-            "Graph operation requires graph recipe support\n"
-            f"  Operation: {operation}\n"
-            f"  Parent count: {len(inputs)}\n"
-            "  Current RecipeSpec can only replay one linear parent chain."
-        )
+        raise _graph_boundary_error(operation, recipe_spec_context=recipe_spec_context, parent_count=len(inputs))
 
     params = cast(Mapping[str, Any], _restore_history_value(graph.get("params", {})))
     if operation == "__getitem__" and params.get("indexing") == "multidimensional_slice":
@@ -459,15 +556,26 @@ def _steps_from_graph(graph: Mapping[str, Any]) -> tuple[RecipeStep, ...]:
                 "Multidimensional indexing recipe extraction requires one channel-selection parent\n"
                 f"  Parent count: {len(inputs)}"
             )
-        return _multidimensional_steps_from_graph(params, cast(Mapping[str, Any], inputs[0]))
-    parent_steps = _steps_from_graph(cast(Mapping[str, Any], inputs[0])) if inputs else ()
+        return _multidimensional_steps_from_graph(
+            params,
+            cast(Mapping[str, Any], inputs[0]),
+            recipe_spec_context=recipe_spec_context,
+        )
+    parent_steps = (
+        _steps_from_graph(cast(Mapping[str, Any], inputs[0]), recipe_spec_context=recipe_spec_context) if inputs else ()
+    )
     step = _step_from_graph(
         operation,
         params,
         kind,
         cast(Mapping[str, Any] | None, graph.get("custom")),
+        recipe_spec_context=recipe_spec_context,
     )
     return (*parent_steps, step)
+
+
+def _recipe_spec_steps_from_graph(graph: Mapping[str, Any]) -> tuple[RecipeStep, ...]:
+    return _steps_from_graph(graph, recipe_spec_context=True)
 
 
 def _binary_frame_step_from_graph(operation: str, params: Mapping[str, Any], left: str, right: str) -> BinaryFrameStep:

@@ -196,7 +196,7 @@ Common messages:
 
 | Error theme | Meaning | Usual next step |
 | --- | --- | --- |
-| "Graph operation requires graph recipe support" | A linear `RecipeSpec` saw multiple parents. | Use `GraphRecipeSpec.from_frame(...)` or `NodeGraphRecipeSpec.from_frame(...)`. |
+| "RecipeSpec.from_frame(...) cannot extract graph lineage as a linear recipe" | A linear `RecipeSpec` saw graph or multi-input lineage. | Use `GraphRecipeSpec.from_frame(...)` or `NodeGraphRecipeSpec.from_frame(...)`. |
 | "Operation is outside the Stage 1 recipe allowlist" | The operation is registered, but not yet declared replayable. | Confirm replay semantics, then add allowlist/tests/docs. |
 | "Typed operation requires frame method lineage" | A typed transform was called through a generic operation path. | Use the public method, or define a new typed extraction rule. |
 | "Custom operation recipe extraction requires importable..." | The callable or output shape function cannot be imported by module path. | Move the function into an importable module-level function. |

@@ -14,6 +14,7 @@ from wandas.pipeline.extraction import (
     _channel_key_from_parent_graph,
     _is_external_add_channel_data_graph,
     _is_external_operand_graph,
+    _recipe_spec_steps_from_graph,
     _split_graph_at_binary_merge,
     _step_from_graph,
     _steps_from_graph,
@@ -60,7 +61,7 @@ class RecipeSpec:
         graph = frame.operation_graph
         if graph is None:
             return cls(())
-        return cls(_steps_from_graph(cast(Mapping[str, Any], graph)))
+        return cls(_recipe_spec_steps_from_graph(cast(Mapping[str, Any], graph)))
 
     def apply(self, frame: Any) -> Any:
         result: Any = frame

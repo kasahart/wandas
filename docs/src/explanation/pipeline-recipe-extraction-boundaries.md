@@ -48,7 +48,7 @@ The remaining larger graph-model decisions are follow-up work:
 
 - Graph recipe input-name inference is intentionally avoided; omitted names use mechanical `input_0`, `input_1`, ... defaults.
 - True DAG identity / shared branch graph recipes are tracked by #264.
-- Automatic graph recipe dispatch from `RecipeSpec.from_frame(...)` is tracked by #265.
+- Automatic graph recipe dispatch is intentionally deferred. `RecipeSpec.from_frame(...)` remains linear-only; a future higher-level factory may provide explicit union-return dispatch.
 
 WDF Recipe persistence remains tracked by #257. Recipe interoperability and export remain tracked by #258.
 
@@ -284,8 +284,8 @@ For `add_with_snr`, Recipe stores the two frame inputs and the public `snr` valu
 Not implemented yet:
 
 - 名前推定は行わず、Python 変数名、frame label、channel label、metadata は見ない。省略時は source leaf の順番に基づく `input_0` / `input_1` / ... の機械的な名前だけを使う。
-- `RecipeSpec.from_frame(frame_a + frame_b)` が graph recipe を返すこと。`RecipeSpec` は単一入力・直列 recipe のままとし、複数入力 graph は `GraphRecipeSpec.from_frame(...)` で抽出する。
-- 入力名を推定する `RecipeSpec.from_frame(signal.add(noise, snr=6.0))` の自動 graph 抽出
+- `RecipeSpec.from_frame(frame_a + frame_b)` が graph recipe を返すことは現時点では行わない。`RecipeSpec` は単一入力・直列 recipe のままとし、複数入力 graph は `GraphRecipeSpec.from_frame(...)` または `NodeGraphRecipeSpec.from_frame(...)` で明示的に抽出する。
+- 将来の上位 factory による自動 graph 抽出。追加する場合も `RecipeSpec.from_frame(...)` の戻り値型は変えない。
 - true DAG identity を持つ shared branch graph。現在は tree として duplicated parent path を replay する。
 
 これらは直列 Recipe では表現できない。特に `operation_history` だけを見ると `normalize -> lowpass_filter -> add_with_snr` のように直列に見えることがあるが、`operation_graph` では複数 parent や外部 operand が必要である。array operand も shape、chunking、保存形式を Recipe 側で決める必要があるため、scalar operand と同じ扱いにはしない。
