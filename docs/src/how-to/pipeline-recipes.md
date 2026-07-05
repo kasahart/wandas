@@ -301,6 +301,8 @@ Wandas Recipe remains the canonical representation. sklearn `Pipeline` is for in
 Most users should start with `RecipeSpec.from_frame(processed)`. Use this table only when the frame
 result crosses the single-input linear boundary or an integration layer requires another API.
 
+`RecipeSpec.from_frame(...)` is intentionally linear-only and does not automatically return `GraphRecipeSpec` or `NodeGraphRecipeSpec`. When a result has graph lineage, choose the graph recipe class explicitly. A future higher-level factory may add automatic dispatch without changing the `RecipeSpec.from_frame(...)` return type.
+
 | Your calculation | Recommended class | Example |
 | --- | --- | --- |
 | One input, linear frame result | `RecipeSpec` | `frame.remove_dc().normalize()` |
@@ -317,7 +319,7 @@ These are the user-facing categories to remember:
 
 | Boundary category | Alternative |
 | --- | --- |
-| Multi-input work through `RecipeSpec.from_frame(...)` | Use `GraphRecipeSpec.from_frame(...)` or `NodeGraphRecipeSpec.from_frame(...)`. |
+| Multi-input work through `RecipeSpec.from_frame(...)` | `RecipeSpec.from_frame(...)` stays linear-only; use `GraphRecipeSpec.from_frame(...)` or `NodeGraphRecipeSpec.from_frame(...)` explicitly. |
 | Semantic runtime names or values | Pass explicit `input_names=(...)` and runtime inputs; omitted names are source-order mechanical `input_0`, `input_1`, ... labels, not inferred from frame/channel metadata. |
 | Selection/indexing forms that cannot be replayed by intent | Use supported literal selections, or keep the operation outside recipe extraction. |
 | Non-importable custom code | Move the function to an importable module-level function. |
