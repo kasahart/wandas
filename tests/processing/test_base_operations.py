@@ -18,9 +18,12 @@ from wandas.processing.base import (
     _OPERATION_REGISTRY,
     AudioOperation,
     BinaryOperation,
+    FrameSourceOperation,
     _config_values_equal,
     _operand_descriptor,
     _snapshot_config_value,
+    _summary_value,
+    _validate_channel_first_array,
     create_operation,
     get_operation,
     register_lazy_operation,
@@ -129,11 +132,23 @@ def test_operand_descriptor_handles_scalar_and_shape_only_values() -> None:
 
     assert _operand_descriptor(np.int64(2)) == {"type": "int64", "value": 2}
     assert _operand_descriptor(np.float32(0.5)) == {"type": "float32", "value": 0.5}
+    assert _operand_descriptor(np.complex64(1 + 2j)) == {"type": "complex64", "real": 1.0, "imag": 2.0}
     assert _operand_descriptor(1 + 2j) == {"type": "complex", "real": 1.0, "imag": 2.0}
     assert _operand_descriptor(True) == {"type": "bool", "value": True}
     assert _operand_descriptor(np.bool_(True)) == {"type": "bool", "value": True}
     assert _operand_descriptor(ShapeOnly()) == {"type": "ShapeOnly", "shape": [2, 3]}
     assert _operand_descriptor(object()) == {"type": "object"}
+
+
+def test_frame_source_operation_exposes_empty_params_mapping() -> None:
+    source = FrameSourceOperation()
+
+    assert source.params == {}
+    assert source.to_params() == {}
+
+
+def test_validate_channel_first_array_ignores_non_array_values() -> None:
+    _validate_channel_first_array(object(), "data")
 
 
 def test_binary_operation_params_delegate_to_params() -> None:
@@ -173,6 +188,39 @@ def test_binary_operation_to_summary_describes_array_operand_without_values() ->
         },
     }
     json.dumps(summary, allow_nan=False)
+
+
+def test_summary_value_normalizes_display_only_edge_values() -> None:
+    dask_data = da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1))
+
+    def callback() -> None:
+        return None
+
+    assert _summary_value(callback) == {
+        "type": "callable",
+        "name": "test_summary_value_normalizes_display_only_edge_values.<locals>.callback",
+    }
+    assert _summary_value(np.datetime64("2026-01-01")) == {"type": "datetime64"}
+    assert _summary_value(Fraction(1, 3)) == {"type": "Fraction"}
+    assert _summary_value(float("nan")) == {"type": "float", "value": "nan"}
+    assert _summary_value(float("inf")) == {"type": "float", "value": "inf"}
+    assert _summary_value(float("-inf")) == {"type": "float", "value": "-inf"}
+    assert _summary_value(1 + 2j) == {"type": "complex", "real": 1.0, "imag": 2.0}
+    assert _summary_value({"gain": Fraction(1, 2)}) == {"gain": {"type": "Fraction"}}
+    assert _summary_value((np.int64(2), np.float32(0.5))) == [2, 0.5]
+    assert _summary_value({2, 1}) == [1, 2]
+    assert _summary_value(np.zeros((2, 3), dtype=np.float32)) == {
+        "type": "ndarray",
+        "shape": [2, 3],
+        "dtype": "float32",
+    }
+    assert _summary_value(dask_data) == {
+        "type": "dask.array",
+        "shape": [1, 2],
+        "dtype": "float64",
+        "chunks": [[1], [2]],
+    }
+    assert _summary_value(object()) == {"type": "object"}
 
 
 class TestAudioOperation:

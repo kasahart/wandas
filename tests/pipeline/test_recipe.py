@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 
+import tests.pipeline.custom_recipe_fixtures as custom_recipe_fixtures
 from tests.pipeline.custom_recipe_fixtures import callable_scale, custom_rfft, custom_scale, rfft_shape, same_shape
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
@@ -1387,6 +1388,14 @@ def test_graph_node_spec_serializes_multi_input_nodes(step: GraphNodeSpec) -> No
     assert "input" not in serialized
 
 
+def test_graph_node_spec_serializes_unary_input_key() -> None:
+    assert GraphNodeSpec("n0", OperationSpec("abs"), ("signal",)).to_dict() == {
+        "id": "n0",
+        "step": {"operation": "abs", "params": {}},
+        "input": "signal",
+    }
+
+
 @pytest.mark.parametrize(
     ("factory", "message"),
     [
@@ -1675,6 +1684,24 @@ def test_custom_function_import_loaders_reject_non_importable_targets(
         loader(path)
 
 
+def test_custom_function_import_loaders_reject_non_module_identity_targets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def local_shape(shape: tuple[int, ...]) -> tuple[int, ...]:
+        return shape
+
+    class LocalChannelFrame(ChannelFrame):
+        pass
+
+    monkeypatch.setattr(custom_recipe_fixtures, "same_shape", local_shape)
+    monkeypatch.setattr(custom_recipe_fixtures, "LocalChannelFrame", LocalChannelFrame, raising=False)
+
+    with pytest.raises(TypeError, match="function"):
+        _load_importable_function("tests.pipeline.custom_recipe_fixtures.same_shape")
+    with pytest.raises(TypeError, match="module-level class"):
+        _load_importable_frame_class("tests.pipeline.custom_recipe_fixtures.LocalChannelFrame")
+
+
 @pytest.mark.parametrize(
     ("factory", "message"),
     [
@@ -1885,11 +1912,20 @@ def test_scalar_step_extraction_rejects_unstable_operand_metadata(
         _scalar_step_from_graph(operation, params)
 
 
+def test_scalar_step_extraction_accepts_direct_numeric_operand() -> None:
+    assert _scalar_step_from_graph("+", {"operand_kind": "operand", "operand": 2}) == ScalarOperationStep("+", 2)
+
+
 @pytest.mark.parametrize(
     ("func", "args", "message"),
     [
         (_slice_from_serialized, (object(),), "requires serialized slice objects"),
         (_slice_from_serialized, ({"start": 0},), "requires explicit start/stop/step"),
+        (
+            _slice_from_serialized,
+            ({"start": True, "stop": None, "step": 1},),
+            "requires integer slice bounds",
+        ),
         (_axis_slices_from_params, ({},), "requires non-empty axis_slices"),
         (_indices_from_params, ({},), "requires indices"),
         (_indices_from_params, ({"indices": [True]},), "requires integer indices"),
@@ -1924,10 +1960,19 @@ def test_getitem_step_extraction_rejects_unreplayable_indexing(
         _getitem_step_from_graph(params)
 
 
+def test_getitem_step_extraction_accepts_multidimensional_slice() -> None:
+    step = _getitem_step_from_graph(
+        {"indexing": "multidimensional_slice", "axis_slices": [{"start": 0, "stop": None, "step": 2}]}
+    )
+
+    assert step == IndexingStep((slice(None), slice(0, None, 2)))
+
+
 @pytest.mark.parametrize(
     ("parent", "message"),
     [
         ({"operation": "get_channel", "params": {"query": {"label": "left"}}}, "only supports single integer"),
+        ({"operation": "__getitem__", "params": {"indexing": "callable"}}, "only supports label"),
         ({"operation": "remove_dc", "params": {}}, "requires a replayable channel-selection parent"),
     ],
 )
@@ -1937,6 +1982,20 @@ def test_channel_key_extraction_rejects_unreplayable_parent_graph(
 ) -> None:
     with pytest.raises(RecipeExtractionError, match=message):
         _channel_key_from_parent_graph(parent)
+
+
+@pytest.mark.parametrize(
+    ("parent", "expected"),
+    [
+        ({"operation": "get_channel", "params": {"query": "left"}}, "left"),
+        ({"operation": "get_channel", "params": {"channel_idx": np.int64(1)}}, 1),
+    ],
+)
+def test_channel_key_extraction_accepts_public_get_channel_selectors(
+    parent: dict[str, object],
+    expected: str | int,
+) -> None:
+    assert _channel_key_from_parent_graph(parent) == expected
 
 
 @pytest.mark.parametrize(
