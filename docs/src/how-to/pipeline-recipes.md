@@ -311,7 +311,9 @@ result crosses the single-input linear boundary or an integration layer requires
 
 ## What Is Not Supported Yet
 
-The exact boundary matrix is maintained in [Pipeline Recipe Extraction Boundaries](../explanation/pipeline-recipe-extraction-boundaries.md). These are the user-facing categories to remember:
+Start with the short [Pipeline Recipe Support Matrix](../explanation/pipeline-recipe-support-matrix.md) when you only need to know whether a calculation is supported. The detailed boundary notes are maintained in [Pipeline Recipe Extraction Boundaries](../explanation/pipeline-recipe-extraction-boundaries.md).
+
+These are the user-facing categories to remember:
 
 | Boundary category | Alternative |
 | --- | --- |
