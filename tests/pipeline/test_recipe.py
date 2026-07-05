@@ -620,20 +620,20 @@ def test_graph_recipe_from_frame_extracts_root_frame_addition_with_input_names()
     assert replayed.operation_history == processed.operation_history
 
 
-def test_graph_recipe_from_frame_uses_default_structural_input_names() -> None:
+def test_graph_recipe_from_frame_uses_numbered_default_input_names() -> None:
     base = _frame()
     left_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="signal")
     right_source = ChannelFrame.from_numpy(base.data * 0.25, sampling_rate=base.sampling_rate, label="noise")
     processed = left_source.remove_dc() + right_source.high_pass_filter(cutoff=500.0)
 
     graph_recipe = GraphRecipeSpec.from_frame(processed)
-    replayed = graph_recipe.apply({"left": left_source, "right": right_source})
+    replayed = graph_recipe.apply({"input_0": left_source, "input_1": right_source})
 
     assert graph_recipe.input_recipes == (
-        ("left", RecipeSpec([OperationSpec("remove_dc")])),
-        ("right", RecipeSpec([OperationSpec("highpass_filter", {"cutoff": 500.0, "order": 4})])),
+        ("input_0", RecipeSpec([OperationSpec("remove_dc")])),
+        ("input_1", RecipeSpec([OperationSpec("highpass_filter", {"cutoff": 500.0, "order": 4})])),
     )
-    assert graph_recipe.output == BinaryFrameStep("+", "left", "right")
+    assert graph_recipe.output == BinaryFrameStep("+", "input_0", "input_1")
     np.testing.assert_allclose(replayed.data, processed.data)
     assert replayed.operation_history == processed.operation_history
 
@@ -741,17 +741,40 @@ def test_graph_recipe_add_with_snr_serializes_snr_without_implicit_fix_length_st
     }
 
 
-def test_graph_recipe_from_frame_uses_default_names_for_raw_add_with_snr() -> None:
+def test_graph_recipe_from_frame_uses_numbered_default_names_for_raw_add_with_snr() -> None:
     base = _frame()
     signal_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="signal")
     noise_source = ChannelFrame.from_numpy(np.flip(base.data), sampling_rate=base.sampling_rate, label="noise")
     processed = signal_source.add(noise_source, snr=6.0)
 
     graph_recipe = GraphRecipeSpec.from_frame(processed)
-    replayed = graph_recipe.apply({"left": signal_source, "right": noise_source})
+    replayed = graph_recipe.apply({"input_0": signal_source, "input_1": noise_source})
 
-    assert graph_recipe.input_recipes == (("left", RecipeSpec(())), ("right", RecipeSpec(())))
-    assert graph_recipe.output == BinaryFrameStep("add_with_snr", "left", "right", {"snr": 6.0})
+    assert graph_recipe.input_recipes == (("input_0", RecipeSpec(())), ("input_1", RecipeSpec(())))
+    assert graph_recipe.output == BinaryFrameStep("add_with_snr", "input_0", "input_1", {"snr": 6.0})
+    np.testing.assert_allclose(replayed.data, processed.data)
+    assert replayed.operation_history == processed.operation_history
+
+
+def test_graph_recipe_numbered_default_names_preserve_binary_operand_order() -> None:
+    base = _frame()
+    signal_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="signal")
+    noise_source = ChannelFrame.from_numpy(base.data * 0.25, sampling_rate=base.sampling_rate, label="noise")
+    processed = signal_source.remove_dc() - noise_source.normalize()
+
+    graph_recipe = GraphRecipeSpec.from_frame(processed)
+    replayed = graph_recipe.apply({"input_0": signal_source, "input_1": noise_source})
+
+    assert graph_recipe.input_recipes == (
+        ("input_0", RecipeSpec([OperationSpec("remove_dc")])),
+        (
+            "input_1",
+            RecipeSpec(
+                [OperationSpec("normalize", {"axis": -1, "fill": None, "norm": float("inf"), "threshold": None})]
+            ),
+        ),
+    )
+    assert graph_recipe.output == BinaryFrameStep("-", "input_0", "input_1")
     np.testing.assert_allclose(replayed.data, processed.data)
     assert replayed.operation_history == processed.operation_history
 
@@ -838,7 +861,7 @@ def test_graph_recipe_from_frame_extracts_single_merge_with_typed_tail() -> None
     assert isinstance(replayed, SpectrogramFrame)
 
 
-def test_graph_recipe_from_frame_uses_default_names_with_typed_tail() -> None:
+def test_graph_recipe_from_frame_uses_numbered_default_names_with_typed_tail() -> None:
     base = _frame()
     left_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="signal")
     right_source = ChannelFrame.from_numpy(base.data * 0.25, sampling_rate=base.sampling_rate, label="noise")
@@ -850,10 +873,10 @@ def test_graph_recipe_from_frame_uses_default_names_with_typed_tail() -> None:
     )
 
     graph_recipe = GraphRecipeSpec.from_frame(processed)
-    replayed = graph_recipe.apply({"left": left_source, "right": right_source})
+    replayed = graph_recipe.apply({"input_0": left_source, "input_1": right_source})
 
-    assert graph_recipe.input_recipes == (("left", RecipeSpec(())), ("right", RecipeSpec(())))
-    assert graph_recipe.output == BinaryFrameStep("+", "left", "right")
+    assert graph_recipe.input_recipes == (("input_0", RecipeSpec(())), ("input_1", RecipeSpec(())))
+    assert graph_recipe.output == BinaryFrameStep("+", "input_0", "input_1")
     assert graph_recipe.tail_recipe == RecipeSpec(
         [TypedMethodStep("stft", {"n_fft": 512, "hop_length": 128, "win_length": 512, "window": "hann"})]
     )

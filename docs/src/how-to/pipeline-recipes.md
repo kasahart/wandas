@@ -137,7 +137,7 @@ replayed = graph_recipe.apply(
 )
 ```
 
-`input_names` are explicit because runtime lineage does not know Python variable names.
+`input_names` are explicit because runtime lineage does not know Python variable names, and graph recipes do not infer names from frame labels, channel labels, or metadata. If omitted, graph recipes use source leaf order to assign mechanical names such as `input_0` and `input_1`; for binary frame recipes, `input_0` is the left operand and `input_1` is the right operand.
 
 Use `NodeGraphRecipeSpec` for more general tree-shaped graphs:
 
@@ -318,7 +318,7 @@ These are the user-facing categories to remember:
 | Boundary category | Alternative |
 | --- | --- |
 | Multi-input work through `RecipeSpec.from_frame(...)` | Use `GraphRecipeSpec.from_frame(...)` or `NodeGraphRecipeSpec.from_frame(...)`. |
-| Implicit runtime names or values | Pass explicit `input_names=(...)` and runtime inputs. |
+| Semantic runtime names or values | Pass explicit `input_names=(...)` and runtime inputs; omitted names are source-order mechanical `input_0`, `input_1`, ... labels, not inferred from frame/channel metadata. |
 | Selection/indexing forms that cannot be replayed by intent | Use supported literal selections, or keep the operation outside recipe extraction. |
 | Non-importable custom code | Move the function to an importable module-level function. |
 | Terminal NumPy arrays without lineage | Build a recipe with an explicit `TerminalStep`. |
