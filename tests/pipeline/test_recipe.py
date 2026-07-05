@@ -52,7 +52,7 @@ from wandas.pipeline.extraction import (
     _slice_from_serialized,
     _validate_replayable_operation,
 )
-from wandas.pipeline.params import _BooleanMask, _restore_history_value
+from wandas.pipeline.params import _BooleanMask, _restore_history_value, _snapshot_get_channel_query_params
 from wandas.pipeline.steps import _load_importable_frame_class, _load_importable_function
 from wandas.processing.base import _OPERATION_REGISTRY, AudioOperation
 from wandas.utils.types import NDArrayReal
@@ -1027,6 +1027,86 @@ def test_node_graph_recipe_from_frame_rejects_non_frame_or_missing_graph() -> No
         NodeGraphRecipeSpec.from_frame(_frame())
 
 
+@pytest.mark.parametrize(
+    ("graph", "input_names", "message"),
+    [
+        (
+            {"operation": "+", "params": {"operand_kind": "frame"}, "inputs": [{"kind": "source"}, {"kind": "source"}]},
+            ("left",),
+            "requires one input name per source leaf",
+        ),
+        (
+            {"operation": "remove_dc", "params": {}, "inputs": []},
+            ("",),
+            "input names must be non-empty strings",
+        ),
+        (
+            {"operation": "add_channel", "params": {"input_kind": "ndarray"}, "inputs": [{}, {}, {}]},
+            ("a", "b", "c", "data"),
+            "add_channel data recipe extraction requires at most one frame parent",
+        ),
+        (
+            {"operation": "add_channel", "params": {"input_kind": "unknown"}, "inputs": [{}]},
+            ("signal",),
+            "add_channel recipe extraction only supports",
+        ),
+        (
+            {
+                "operation": "+",
+                "params": {"operand_kind": "operand", "operand": {"type": "ndarray"}},
+                "inputs": [{}, {}],
+            },
+            ("signal", "offset", "extra"),
+            "Binary operand recipe extraction requires at most one frame parent",
+        ),
+        (
+            {
+                "operation": "__getitem__",
+                "params": {
+                    "indexing": "multidimensional_slice",
+                    "axis_slices": [{"start": 0, "stop": None, "step": 1}],
+                },
+                "inputs": [],
+            },
+            ("signal",),
+            "requires one channel-selection parent",
+        ),
+        (
+            {
+                "operation": "__getitem__",
+                "params": {
+                    "indexing": "multidimensional_slice",
+                    "axis_slices": [{"start": 0, "stop": None, "step": 1}],
+                },
+                "inputs": [{"operation": "get_channel", "params": {"query": "left"}, "inputs": [{}, {}]}],
+            },
+            ("left", "right", "extra"),
+            "Multidimensional indexing requires one replayable parent chain",
+        ),
+        (
+            {"operation": "remove_dc", "params": {}, "inputs": [{}, {}, {}]},
+            ("a", "b", "c"),
+            "only supports unary and binary frame graph nodes",
+        ),
+        (
+            {"operation": "remove_dc", "params": {}, "inputs": []},
+            ("signal", "extra"),
+            "requires one input name per source leaf",
+        ),
+    ],
+)
+def test_node_graph_recipe_from_frame_rejects_invalid_graph_shapes(
+    graph: dict[str, object],
+    input_names: tuple[str, ...],
+    message: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(ChannelFrame, "operation_graph", property(lambda _self: graph))
+
+    with pytest.raises(RecipeExtractionError, match=message):
+        NodeGraphRecipeSpec.from_frame(_frame(), input_names=input_names)
+
+
 def test_node_graph_recipe_from_frame_extracts_typed_tail_after_merge() -> None:
     base = _frame()
     left_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="left")
@@ -1809,6 +1889,11 @@ def test_indexing_step_snapshots_direct_boolean_mask_key() -> None:
     assert step.to_dict() == {"getitem": {"type": "boolean_mask", "mask": [True, False]}}
 
 
+def test_get_channel_query_snapshot_rejects_non_string_key_with_channel_mask() -> None:
+    with pytest.raises(TypeError, match="mapping keys must be strings"):
+        _snapshot_get_channel_query_params(cast(Any, {1: "left", "channel_mask": [True]}))
+
+
 @pytest.mark.parametrize(
     ("factory", "message"),
     [
@@ -2146,6 +2231,27 @@ def test_scalar_operation_step_rejects_non_bool_reverse_flag_and_serializes_reve
         "operand": 2,
         "reverse": True,
     }
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_scalar_operation_step_defensive_assertion_for_unreachable_operation(reverse: bool) -> None:
+    step = object.__new__(ScalarOperationStep)
+    object.__setattr__(step, "symbol", "%")
+    object.__setattr__(step, "operand", 2)
+    object.__setattr__(step, "reverse", reverse)
+
+    with pytest.raises(AssertionError, match="Unhandled"):
+        step.apply(_frame())
+
+
+def test_binary_operand_step_defensive_assertion_for_unreachable_operation() -> None:
+    step = object.__new__(BinaryOperandStep)
+    object.__setattr__(step, "operation", "%")
+    object.__setattr__(step, "frame", "signal")
+    object.__setattr__(step, "operand", "operand")
+
+    with pytest.raises(AssertionError, match="Unhandled binary operand operation"):
+        step.apply({"signal": _frame(), "operand": np.ones(_frame().shape)})
 
 
 def test_recipe_apply_preserves_dask_laziness(monkeypatch: pytest.MonkeyPatch) -> None:
