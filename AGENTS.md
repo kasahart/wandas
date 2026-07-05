@@ -35,7 +35,9 @@ Use this direct checklist before reporting PR completion or readiness to merge. 
 - Codex: loads `AGENTS.md`; treat this file as the repository-canonical cross-agent checklist.
 - GitHub Copilot: loads `.github/copilot-instructions.md` plus applicable `.github/instructions/*.instructions.md` files.
 - Copilot custom agents: load `.github/agents/*.agent.md` only when that agent is selected; those files are role adapters.
-- Skills: runtime procedures from the active agent environment; they are not repository source of truth.
+- Repo-shared skills: `.agents/skills/` contains reusable runtime procedures for repository workflows; each skill adapts `AGENTS.md` and must not replace it as the source of truth.
+- Claude legacy skills: `.claude/skills` is legacy/removed; do not add or synchronize repo guidance there.
+- Environment skills: runtime procedures from the active agent environment; they are not repository source of truth.
 
 Area-specific guidance lives in:
 
