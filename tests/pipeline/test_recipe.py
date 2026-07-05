@@ -3661,8 +3661,11 @@ def test_recipe_from_frame_extracts_spectrogram_to_channel_frame_as_istft() -> N
     assert replayed.sampling_rate == processed.sampling_rate
 
 
-def test_recipe_from_frame_empty_history_returns_empty_recipe() -> None:
-    assert RecipeSpec.from_frame(_frame()).steps == ()
+def test_recipe_from_frame_empty_history_returns_linear_recipe() -> None:
+    recipe = RecipeSpec.from_frame(_frame())
+
+    assert isinstance(recipe, RecipeSpec)
+    assert recipe.steps == ()
 
 
 @pytest.mark.parametrize(
@@ -3671,12 +3674,12 @@ def test_recipe_from_frame_empty_history_returns_empty_recipe() -> None:
         (
             "binary frame operation",
             lambda frame: frame + _frame().normalize(),
-            "Graph operation requires graph recipe support",
+            "RecipeSpec.from_frame(...) cannot extract graph lineage as a linear recipe",
         ),
         (
             "array operand operation",
             lambda frame: frame + np.ones(frame.shape),
-            "Scalar operation requires a numeric scalar operand",
+            "NodeGraphRecipeSpec.from_frame(...)",
         ),
         (
             "custom apply operation",
@@ -3705,7 +3708,7 @@ def test_recipe_from_frame_reports_current_boundary_for_non_replayable_operation
     frame = _frame()
     processed = build_frame(frame)
 
-    with pytest.raises(RecipeExtractionError, match=message):
+    with pytest.raises(RecipeExtractionError, match=re.escape(message)):
         RecipeSpec.from_frame(processed)
 
 
@@ -3726,8 +3729,41 @@ def test_recipe_from_frame_reports_graph_recipe_boundary_for_multi_input_operati
     noise = _frame().low_pass_filter(cutoff=1000.0)
     processed = frame.normalize().add(noise, snr=6.0)
 
-    with pytest.raises(RecipeExtractionError, match="Graph operation requires graph recipe support"):
+    with pytest.raises(RecipeExtractionError, match=r"GraphRecipeSpec\.from_frame"):
         RecipeSpec.from_frame(processed)
+
+
+def test_recipe_from_frame_reports_explicit_graph_extractors_for_binary_merge() -> None:
+    frame = _frame()
+    noise = _frame().remove_dc()
+    processed = frame.normalize() + noise
+
+    with pytest.raises(RecipeExtractionError) as exc_info:
+        RecipeSpec.from_frame(processed)
+
+    message = str(exc_info.value)
+    assert "RecipeSpec.from_frame(...) cannot extract graph lineage as a linear recipe" in message
+    assert "RecipeSpec.from_frame(...) only supports single-input linear recipes" in message
+    assert "GraphRecipeSpec.from_frame(...)" in message
+    assert "NodeGraphRecipeSpec.from_frame(...)" in message
+    assert isinstance(GraphRecipeSpec.from_frame(processed), GraphRecipeSpec)
+
+
+def test_recipe_from_frame_reports_node_graph_extractor_for_external_operand() -> None:
+    frame = _frame()
+    processed = frame + np.ones(frame.shape)
+
+    with pytest.raises(RecipeExtractionError) as exc_info:
+        RecipeSpec.from_frame(processed)
+
+    message = str(exc_info.value)
+    assert "RecipeSpec.from_frame(...) cannot extract graph lineage as a linear recipe" in message
+    assert "NodeGraphRecipeSpec.from_frame(...)" in message
+    assert "external operands" in message
+    assert isinstance(
+        NodeGraphRecipeSpec.from_frame(processed, input_names=("signal", "offset")),
+        NodeGraphRecipeSpec,
+    )
 
 
 @pytest.mark.parametrize(
@@ -3744,5 +3780,5 @@ def test_recipe_from_frame_rejects_add_channel_boundary(
     processed = build_added(frame)
 
     assert processed.operation_history[-1]["operation"] == "add_channel"
-    with pytest.raises(RecipeExtractionError, match="add_channel recipe extraction requires external input support"):
+    with pytest.raises(RecipeExtractionError, match=r"NodeGraphRecipeSpec\.from_frame"):
         RecipeSpec.from_frame(processed)
