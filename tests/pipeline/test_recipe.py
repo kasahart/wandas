@@ -52,6 +52,7 @@ from wandas.pipeline.extraction import (
     _validate_replayable_operation,
 )
 from wandas.pipeline.params import _BooleanMask, _restore_history_value
+from wandas.pipeline.steps import _load_importable_frame_class, _load_importable_function
 from wandas.processing.base import _OPERATION_REGISTRY, AudioOperation
 from wandas.utils.types import NDArrayReal
 
@@ -1141,6 +1142,14 @@ def test_binary_operand_step_rejects_non_array_runtime_operand() -> None:
         step.apply({"signal": frame, "operand": 1.0})
 
 
+def test_binary_operand_step_rejects_unknown_operation_and_missing_runtime_inputs() -> None:
+    with pytest.raises(ValueError, match="operation is outside the replayable operand allowlist"):
+        BinaryOperandStep("@", "signal", "operand")
+
+    with pytest.raises(KeyError, match="binary operand input is missing"):
+        BinaryOperandStep("+", "signal", "operand").apply({"signal": _frame()})
+
+
 def test_node_graph_recipe_binary_operand_rejects_inconsistent_symbol_metadata() -> None:
     graph = {
         "operation": "+",
@@ -1635,6 +1644,38 @@ def test_operation_spec_rejects_nan_inside_sequence_params(value: object) -> Non
 
 
 @pytest.mark.parametrize(
+    ("loader", "path", "message"),
+    [
+        (_load_importable_function, "not_import_path", "function must be a module-level import path"),
+        (_load_importable_function, "__main__.custom_scale", "import path must resolve to a module-level function"),
+        (
+            _load_importable_function,
+            "tests.pipeline.custom_recipe_fixtures.callable_scale",
+            "import path must resolve to a module-level function",
+        ),
+        (_load_importable_frame_class, "not_import_path", "output_frame_class must be a module-level import path"),
+        (
+            _load_importable_frame_class,
+            "__main__.ChannelFrame",
+            "output_frame_class must resolve to an importable BaseFrame subclass",
+        ),
+        (
+            _load_importable_frame_class,
+            "tests.pipeline.custom_recipe_fixtures.custom_scale",
+            "output_frame_class must resolve to an importable BaseFrame subclass",
+        ),
+    ],
+)
+def test_custom_function_import_loaders_reject_non_importable_targets(
+    loader: Callable[[str], object],
+    path: str,
+    message: str,
+) -> None:
+    with pytest.raises((TypeError, ValueError), match=message):
+        loader(path)
+
+
+@pytest.mark.parametrize(
     ("factory", "message"),
     [
         (lambda: CustomFunctionStep(cast(Any, "")), "function must be a non-empty import path string"),
@@ -1732,6 +1773,13 @@ def test_indexing_step_restores_boolean_mask_wrapper_to_public_numpy_mask() -> N
 
     assert isinstance(key, tuple)
     np.testing.assert_array_equal(key[0], np.array([True, False]))
+
+
+def test_indexing_step_snapshots_direct_boolean_mask_key() -> None:
+    step = IndexingStep(np.array([True, False]))
+
+    np.testing.assert_array_equal(step.key, np.array([True, False]))
+    assert step.to_dict() == {"getitem": {"type": "boolean_mask", "mask": [True, False]}}
 
 
 @pytest.mark.parametrize(
@@ -2028,6 +2076,17 @@ def test_scalar_operation_step_rejects_operations_outside_replay_allowlist() -> 
 def test_scalar_operation_step_rejects_non_numeric_operands() -> None:
     with pytest.raises(TypeError, match="ScalarOperationStep operand must be an int or float"):
         ScalarOperationStep("+", "2")  # ty: ignore[invalid-argument-type]
+
+
+def test_scalar_operation_step_rejects_non_bool_reverse_flag_and_serializes_reverse() -> None:
+    with pytest.raises(TypeError, match="reverse must be a bool"):
+        ScalarOperationStep("+", 2, reverse=cast(Any, "yes"))
+
+    assert ScalarOperationStep("-", 2, reverse=True).to_dict() == {
+        "scalar_operation": "-",
+        "operand": 2,
+        "reverse": True,
+    }
 
 
 def test_recipe_apply_preserves_dask_laziness(monkeypatch: pytest.MonkeyPatch) -> None:
