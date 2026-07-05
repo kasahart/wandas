@@ -235,14 +235,181 @@ def test_wdf_roundtrip_preserves_stable_channel_ids(tmp_path: Path) -> None:
     }
 
 
-def test_wdf_does_not_roundtrip_operation_history(known_signal_frame, tmp_path: Path) -> None:
-    """WDF does not persist operation_history; lineage is runtime-only."""
-    path = tmp_path / "op_history.wdf"
-    known_signal_frame.normalize().low_pass_filter(cutoff=1000, order=4).save(path)
+def test_wdf_roundtrips_operation_summaries_but_not_operation_history(known_signal_frame, tmp_path: Path) -> None:
+    """WDF restores display summaries, not executable runtime history."""
+    path = tmp_path / "op_summaries.wdf"
+    processed = known_signal_frame.normalize().low_pass_filter(cutoff=1000, order=4)
+    expected_summaries = processed.operation_summaries
+
+    processed.save(path)
 
     loaded = ChannelFrame.load(path)
 
+    assert loaded.operation_summaries == expected_summaries
     assert loaded.operation_history == []
+    assert loaded.operations == ()
+
+
+def test_wdf_roundtrips_custom_operation_summaries(tmp_path: Path) -> None:
+    def scale(x: np.ndarray, gain: float) -> np.ndarray:
+        return x * gain
+
+    path = tmp_path / "custom_summaries.wdf"
+    processed = ChannelFrame.from_numpy(np.array([[1.0, -1.0, 0.5]]), 16000).apply(scale, gain=2.0)
+    expected_summaries = processed.operation_summaries
+
+    processed.save(path)
+    loaded = ChannelFrame.load(path)
+
+    assert loaded.operation_summaries == expected_summaries
+    assert loaded.operation_summaries[-1]["operation"] == "custom"
+    assert loaded.operation_history == []
+    assert loaded.operations == ()
+
+
+def test_wdf_roundtrips_multi_input_operation_summaries(tmp_path: Path) -> None:
+    path = tmp_path / "multi_input_summaries.wdf"
+    left = ChannelFrame.from_numpy(np.array([[1.0, -1.0, 0.5]]), 16000).normalize()
+    right = ChannelFrame.from_numpy(np.array([[0.25, 0.5, -0.25]]), 16000).remove_dc()
+    processed = left + right
+    expected_summaries = processed.operation_summaries
+
+    processed.save(path)
+    loaded = ChannelFrame.load(path)
+
+    assert loaded.operation_summaries == expected_summaries
+    assert [summary["operation"] for summary in loaded.operation_summaries] == ["normalize", "remove_dc", "+"]
+    assert loaded.operation_history == []
+    assert loaded.operations == ()
+
+
+def test_wdf_loaded_summary_snapshot_extends_across_followup_operations(tmp_path: Path) -> None:
+    path = tmp_path / "loaded_followup.wdf"
+    loaded = ChannelFrame.from_numpy(np.array([[1.0, -1.0, 0.5]]), 16000).normalize()
+    loaded.save(path)
+
+    result = ChannelFrame.load(path).low_pass_filter(cutoff=1000, order=4)
+
+    assert [summary["operation"] for summary in result.operation_summaries] == ["normalize", "lowpass_filter"]
+    assert [record["operation"] for record in result.operation_history] == ["lowpass_filter"]
+
+
+def test_wdf_loaded_summary_snapshot_extends_across_binary_followup(tmp_path: Path) -> None:
+    left_path = tmp_path / "loaded_left.wdf"
+    right_path = tmp_path / "loaded_right.wdf"
+    left = ChannelFrame.from_numpy(np.array([[1.0, -1.0, 0.5]]), 16000).normalize()
+    right = ChannelFrame.from_numpy(np.array([[0.25, 0.5, -0.25]]), 16000).remove_dc()
+    left.save(left_path)
+    right.save(right_path)
+
+    result = ChannelFrame.load(left_path) + ChannelFrame.load(right_path)
+
+    assert [summary["operation"] for summary in result.operation_summaries] == ["normalize", "remove_dc", "+"]
+    assert [record["operation"] for record in result.operation_history] == ["+"]
+
+
+def test_wdf_loaded_summary_snapshot_extends_after_inplace_channel_update(tmp_path: Path) -> None:
+    source_path = tmp_path / "loaded_inplace_source.wdf"
+    renamed_path = tmp_path / "loaded_inplace_renamed.wdf"
+    processed = ChannelFrame.from_numpy(np.array([[1.0, -1.0, 0.5]]), 16000).normalize()
+    processed.save(source_path)
+
+    loaded = ChannelFrame.load(source_path)
+    loaded.rename_channels({0: "renamed"}, inplace=True)
+    loaded.save(renamed_path)
+    reloaded = ChannelFrame.load(renamed_path)
+
+    assert [summary["operation"] for summary in loaded.operation_summaries] == ["normalize", "rename_channels"]
+    assert [summary["operation"] for summary in reloaded.operation_summaries] == ["normalize", "rename_channels"]
+    assert [record["operation"] for record in loaded.operation_history] == ["rename_channels"]
+
+
+def test_wdf_loaded_summary_snapshot_extends_across_domain_transition(tmp_path: Path) -> None:
+    source_path = tmp_path / "loaded_stft_source.wdf"
+    processed = ChannelFrame.from_numpy(np.linspace(-1.0, 1.0, 16).reshape(1, -1), 16000).normalize()
+    processed.save(source_path)
+
+    result = ChannelFrame.load(source_path).stft(n_fft=8, hop_length=4)
+
+    assert [summary["operation"] for summary in result.operation_summaries] == ["normalize", "stft"]
+    assert [record["operation"] for record in result.operation_history] == ["stft"]
+
+
+def test_add_channel_merges_snapshot_backed_frame_input_summaries(tmp_path: Path) -> None:
+    added_path = tmp_path / "loaded_added_channel.wdf"
+    added = ChannelFrame.from_numpy(np.array([[1.0, -1.0, 0.5]]), 16000).normalize()
+    added.save(added_path)
+    base = ChannelFrame.from_numpy(np.array([[0.25, 0.5, -0.25]]), 16000).remove_dc()
+
+    result = base.add_channel(ChannelFrame.load(added_path))
+
+    assert [summary["operation"] for summary in result.operation_summaries] == ["remove_dc", "normalize", "add_channel"]
+    assert [record["operation"] for record in result.operation_history] == ["remove_dc", "add_channel"]
+
+
+def test_wdf_loaded_summary_snapshot_extends_through_inverse_stft(tmp_path: Path) -> None:
+    source_path = tmp_path / "loaded_istft_source.wdf"
+    processed = ChannelFrame.from_numpy(np.linspace(-1.0, 1.0, 16).reshape(1, -1), 16000).normalize()
+    processed.save(source_path)
+
+    result = ChannelFrame.load(source_path).stft(n_fft=8, hop_length=4).istft()
+
+    assert [summary["operation"] for summary in result.operation_summaries] == ["normalize", "stft", "istft"]
+    assert [record["operation"] for record in result.operation_history] == ["stft", "istft"]
+
+
+def test_wdf_loaded_summary_snapshot_extends_through_stft_frame_extraction(tmp_path: Path) -> None:
+    source_path = tmp_path / "loaded_stft_frame_source.wdf"
+    processed = ChannelFrame.from_numpy(np.linspace(-1.0, 1.0, 16).reshape(1, -1), 16000).normalize()
+    processed.save(source_path)
+
+    result = ChannelFrame.load(source_path).stft(n_fft=8, hop_length=4).get_frame_at(0)
+
+    assert [summary["operation"] for summary in result.operation_summaries] == ["normalize", "stft", "get_frame_at"]
+    assert [record["operation"] for record in result.operation_history] == ["stft", "get_frame_at"]
+
+
+def test_wdf_loaded_summary_snapshot_extends_through_inverse_fft(tmp_path: Path) -> None:
+    source_path = tmp_path / "loaded_ifft_source.wdf"
+    processed = ChannelFrame.from_numpy(np.linspace(-1.0, 1.0, 16).reshape(1, -1), 16000).normalize()
+    processed.save(source_path)
+
+    result = ChannelFrame.load(source_path).fft(n_fft=16).ifft()
+
+    assert [summary["operation"] for summary in result.operation_summaries] == ["normalize", "fft", "ifft"]
+    assert [record["operation"] for record in result.operation_history] == ["fft", "ifft"]
+
+
+def test_add_with_snr_merges_snapshot_backed_frame_input_summaries(tmp_path: Path) -> None:
+    noise_path = tmp_path / "loaded_snr_noise.wdf"
+    noise = ChannelFrame.from_numpy(np.array([[1.0, -1.0, 0.5]]), 16000).normalize()
+    noise.save(noise_path)
+    signal = ChannelFrame.from_numpy(np.array([[0.25, 0.5, -0.25]]), 16000).remove_dc()
+
+    result = signal.add(ChannelFrame.load(noise_path), snr=12.0)
+
+    assert [summary["operation"] for summary in result.operation_summaries] == [
+        "remove_dc",
+        "normalize",
+        "add_with_snr",
+    ]
+    assert [record["operation"] for record in result.operation_history] == ["remove_dc", "add_with_snr"]
+
+
+def test_add_with_snr_excludes_implicit_fix_length_from_snapshot_input_summaries(tmp_path: Path) -> None:
+    noise_path = tmp_path / "loaded_short_snr_noise.wdf"
+    noise = ChannelFrame.from_numpy(np.array([[1.0, -1.0]]), 16000).normalize()
+    noise.save(noise_path)
+    signal = ChannelFrame.from_numpy(np.array([[0.25, 0.5, -0.25, 0.75]]), 16000).remove_dc()
+
+    result = signal.add(ChannelFrame.load(noise_path), snr=12.0)
+
+    assert [summary["operation"] for summary in result.operation_summaries] == [
+        "remove_dc",
+        "normalize",
+        "add_with_snr",
+    ]
+    assert [record["operation"] for record in result.operation_history] == ["remove_dc", "add_with_snr"]
 
 
 def test_save_wdf_dtype_float32_converts_stored_data(tmp_path: Path) -> None:
@@ -369,6 +536,43 @@ def test_save_wdf_does_not_create_operation_history_group(tmp_path: Path) -> Non
         assert "operation_history" not in f
 
 
+def test_save_wdf_writes_operation_summaries_json(tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(np.array([[1.0, -1.0, 0.5]]), 16000).normalize()
+    path = tmp_path / "summaries.wdf"
+
+    wdf_io.save(frame, path)
+
+    with h5py.File(path, "r") as f:
+        assert f.attrs["operation_summaries_schema"] == 1
+        summaries = json.loads(f.attrs["operation_summaries_json"])
+    assert [summary["operation"] for summary in summaries] == ["normalize"]
+
+
+def test_save_wdf_operation_summaries_json_is_strict_json(tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(np.array([[1.0, -1.0, 0.5]]), 16000).normalize()
+    path = tmp_path / "strict_summaries.wdf"
+
+    wdf_io.save(frame, path)
+
+    with h5py.File(path, "r") as f:
+        json.loads(f.attrs["operation_summaries_json"])
+
+
+def test_save_wdf_validates_operation_summaries_before_overwrite(tmp_path: Path) -> None:
+    path = tmp_path / "existing.wdf"
+    original = ChannelFrame.from_numpy(np.array([[1.0, 2.0, 3.0]]), 16000)
+    original.save(path)
+    candidate = ChannelFrame.from_numpy(np.array([[4.0, 5.0, 6.0]]), 16000)
+
+    with patch.object(candidate, "_operation_summaries_for_storage", side_effect=ValueError("bad summaries")):
+        with pytest.raises(ValueError, match="bad summaries"):
+            wdf_io.save(candidate, path, overwrite=True)
+
+    loaded = ChannelFrame.load(path)
+
+    np.testing.assert_array_equal(loaded.compute(), original.compute())
+
+
 def test_load_no_channels(tmp_path: Path) -> None:
     """Test loading a file with no channels raises ValueError."""
     path = tmp_path / "empty_channels.wdf"
@@ -402,9 +606,32 @@ def test_load_json_decode_error(tmp_path: Path) -> None:
         # Invalid JSON string
         op0.attrs["params"] = "{bad_json"
 
-    # Legacy operation_history groups are ignored.
+    # Legacy operation_history groups are ignored and are not translated into
+    # operation_summaries.
     cf = wdf_io.load(path)
     assert cf.operation_history == []
+    assert cf.operation_summaries == []
+
+
+def test_load_wdf_restores_operation_summaries_snapshot(tmp_path: Path) -> None:
+    path = tmp_path / "manual_summaries.wdf"
+    summaries = [{"operation": "loaded", "params": {"gain": 2.0}}]
+
+    with h5py.File(path, "w") as f:
+        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["sampling_rate"] = 16000.0
+        f.attrs["operation_summaries_schema"] = 1
+        f.attrs["operation_summaries_json"] = json.dumps(summaries)
+        channels = f.create_group("channels")
+        channel = channels.create_group("0")
+        channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
+        channel.attrs["label"] = "mic"
+        channel.attrs["unit"] = ""
+
+    loaded = wdf_io.load(path)
+
+    assert loaded.operation_summaries == summaries
+    assert loaded.operation_history == []
 
 
 def test_load_file_not_found(tmp_path: Path) -> None:

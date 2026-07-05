@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 import dask.array as da
@@ -119,6 +119,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
+        operation_summaries_snapshot: Sequence[Mapping[str, Any]] | None = None,
     ) -> None:
         if data.ndim == 2:
             data = da.expand_dims(data, axis=0)
@@ -151,6 +152,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,
             lineage=lineage,
+            operation_summaries_snapshot=operation_summaries_snapshot,
             previous=previous,
         )
 
@@ -408,6 +410,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
         frame_data = self._data[..., time_idx]
 
+        lineage = self._lineage_with_method("get_frame_at", {"time_idx": time_idx})
         return SpectralFrame(
             data=frame_data,
             sampling_rate=self.sampling_rate,
@@ -418,7 +421,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_metadata=self.channels.to_list(),
             channel_ids=self._channel_ids,
             source_time_offset=self.source_time_offset + float(self.times[time_idx]),
-            lineage=self._lineage_with_method("get_frame_at", {"time_idx": time_idx}),
+            lineage=lineage,
+            **self._operation_summaries_snapshot_kwargs(lineage),
         )
 
     def to_channel_frame(self) -> "ChannelFrame":
@@ -458,6 +462,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         logger.debug(f"Created new ChannelFrame with operation {operation_name} added to graph")
 
         # Create new instance
+        lineage = self._lineage_with_method(operation_name, operation.to_params())
         return ChannelFrame(
             data=time_series,
             sampling_rate=self.sampling_rate,
@@ -466,7 +471,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_metadata=self.channels.to_list(),
             channel_ids=self._channel_ids,
             source_time_offset=self.source_time_offset,
-            lineage=self._lineage_with_method(operation_name, operation.to_params()),
+            lineage=lineage,
+            **self._operation_summaries_snapshot_kwargs(lineage),
         )
 
     def istft(self) -> "ChannelFrame":

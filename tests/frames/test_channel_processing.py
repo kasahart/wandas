@@ -1388,6 +1388,47 @@ class TestRoughnessOperations:
             err_msg="Specific roughness values differ from MoSQITo calculation",
         )
 
+    def test_roughness_dw_spec_preserves_snapshot_backed_operation_summaries(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        class FakeRoughnessSpecOperation:
+            name = "roughness_dw_spec"
+            params = {"overlap": 0.5}
+
+            def process(self, data: DaArray) -> DaArray:
+                return da.ones((data.shape[0], 47, 2), chunks=(1, 47, 2))
+
+            def get_metadata_updates(self) -> dict[str, object]:
+                return {"sampling_rate": 10.0, "bark_axis": np.linspace(0.5, 23.5, 47)}
+
+            def to_params(self) -> dict[str, float]:
+                return {"overlap": 0.5}
+
+        def fake_create_operation(operation_name: str, sampling_rate: float, **params: object) -> object:
+            assert operation_name == "roughness_dw_spec"
+            assert sampling_rate == self.sample_rate
+            assert params == {"overlap": 0.5}
+            return FakeRoughnessSpecOperation()
+
+        monkeypatch.setattr(
+            "wandas.frames.mixins.channel_processing_mixin.create_operation",
+            fake_create_operation,
+        )
+        frame = ChannelFrame(
+            data=_da_from_array(np.ones((1, 16)), chunks=(1, -1)),
+            sampling_rate=self.sample_rate,
+            operation_summaries_snapshot=[{"operation": "loaded", "params": {}}],
+        )
+
+        result = frame.roughness_dw_spec(overlap=0.5)
+
+        assert [summary["operation"] for summary in result.operation_summaries] == [
+            "loaded",
+            "roughness_dw_spec",
+        ]
+        assert [record["operation"] for record in result.operation_history] == ["roughness_dw_spec"]
+
     def test_roughness_dw_spec_plot(self) -> None:
         """Test that roughness_dw_spec plot method works."""
         import matplotlib.pyplot as plt

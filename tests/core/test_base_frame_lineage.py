@@ -1,4 +1,5 @@
 import json
+from types import MappingProxyType
 from typing import Any
 from unittest import mock
 
@@ -256,6 +257,103 @@ def test_operation_summaries_are_strict_json_serializable() -> None:
     summaries = _frame().normalize().operation_summaries
 
     json.dumps(summaries, allow_nan=False)
+
+
+def test_persist_preserves_operation_summaries_from_snapshot() -> None:
+    result = _frame().high_pass_filter(100).normalize()
+    expected = result.operation_summaries
+
+    persisted = result.persist()
+
+    assert persisted.operation_summaries == expected
+
+
+def test_persisted_operation_summaries_do_not_compute_on_read() -> None:
+    persisted = _frame().normalize().persist()
+
+    with mock.patch("dask.array.core.Array.compute") as compute:
+        summaries = persisted.operation_summaries
+
+    compute.assert_not_called()
+    assert [summary["operation"] for summary in summaries] == ["normalize"]
+
+
+def test_persist_preserves_custom_operation_summaries_from_snapshot() -> None:
+    def scale(x: NDArrayReal, gain: float) -> NDArrayReal:
+        return x * gain
+
+    result = _frame().apply(scale, gain=2.0)
+    expected = result.operation_summaries
+
+    persisted = result.persist()
+
+    with mock.patch("dask.array.core.Array.compute") as compute:
+        summaries = persisted.operation_summaries
+
+    compute.assert_not_called()
+    assert summaries == expected
+    assert summaries[-1]["operation"] == "custom"
+
+
+def test_persist_preserves_multi_input_operation_summaries_from_snapshot() -> None:
+    result = _frame().normalize() + _frame().remove_dc()
+    expected = result.operation_summaries
+
+    persisted = result.persist()
+
+    with mock.patch("dask.array.core.Array.compute") as compute:
+        summaries = persisted.operation_summaries
+
+    compute.assert_not_called()
+    assert summaries == expected
+    assert [summary["operation"] for summary in summaries] == ["normalize", "remove_dc", "+"]
+
+
+def test_snapshot_backed_getitem_hides_temporary_get_channel_summary() -> None:
+    frame = ChannelFrame(
+        da_from_array(np.array([[1.0, 2.0], [3.0, 4.0]]), chunks=(1, -1)),
+        sampling_rate=16000,
+        channel_metadata=[{"label": "left"}, {"label": "right"}],
+        operation_summaries_snapshot=[{"operation": "loaded", "params": {}}],
+    )
+
+    result = frame[np.array([True, False])]
+
+    assert [summary["operation"] for summary in result.operation_summaries] == ["loaded", "__getitem__"]
+
+
+def test_operation_summaries_snapshot_is_defensive_copy() -> None:
+    snapshot = [{"operation": "loaded", "params": {"gain": 2.0}}]
+    frame = ChannelFrame(
+        da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1)),
+        sampling_rate=16000,
+        operation_summaries_snapshot=snapshot,
+    )
+
+    snapshot[0]["params"]["gain"] = 3.0
+    returned = frame.operation_summaries
+    returned[0]["params"]["gain"] = 4.0
+
+    assert frame.operation_summaries == [{"operation": "loaded", "params": {"gain": 2.0}}]
+
+
+def test_operation_summaries_snapshot_accepts_non_dict_mapping() -> None:
+    frame = ChannelFrame(
+        da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1)),
+        sampling_rate=16000,
+        operation_summaries_snapshot=[MappingProxyType({"operation": "loaded", "params": {"gain": 2.0}})],
+    )
+
+    assert frame.operation_summaries == [{"operation": "loaded", "params": {"gain": 2.0}}]
+
+
+def test_operation_summaries_snapshot_requires_strict_json_values() -> None:
+    with pytest.raises(ValueError, match="Operation summaries snapshot must be strict JSON serializable"):
+        ChannelFrame(
+            da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1)),
+            sampling_rate=16000,
+            operation_summaries_snapshot=[{"operation": "bad", "params": {"value": float("nan")}}],
+        )
 
 
 def test_operation_summaries_include_multi_input_lineage() -> None:

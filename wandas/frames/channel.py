@@ -1,6 +1,6 @@
 import logging
 import warnings
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO, TypeVar, cast
 
@@ -219,6 +219,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         previous: "BaseFrame[Any] | None" = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
         lineage: Any | None = None,
+        operation_summaries_snapshot: Sequence[Mapping[str, Any]] | None = None,
     ) -> None:
         """Initialize a ChannelFrame.
 
@@ -263,6 +264,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,
             lineage=lineage,
+            operation_summaries_snapshot=operation_summaries_snapshot,
             previous=previous,
         )
 
@@ -294,15 +296,26 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         channel_ids: list[str],
         source_time_offset: float | Sequence[float] | NDArrayReal | None = None,
         lineage: Any | None = None,
+        operation_summaries_snapshot: Sequence[Mapping[str, Any]] | None = None,
     ) -> "ChannelFrame":
         """Apply *new_data* and *new_chmeta* either in-place or as a new frame."""
         offsets = self.source_time_offset if source_time_offset is None else source_time_offset
+        if operation_summaries_snapshot is not None:
+            operation_summaries_snapshot = self._snapshot_operation_summaries(operation_summaries_snapshot)
+        elif self._operation_summaries_snapshot is not None:
+            operation_summaries_snapshot = (
+                self._operation_summaries_with_lineage_delta(lineage)
+                if lineage is not None
+                else self._operation_summaries_for_storage()
+            )
         if inplace:
             self._replace_data(new_data)
             self._set_channel_metadata(new_chmeta, channel_ids)
             self.source_time_offset = cast(Any, offsets)
             if lineage is not None:
                 self._lineage = lineage
+            if operation_summaries_snapshot is not None:
+                self._operation_summaries_snapshot = operation_summaries_snapshot
             return self
         return ChannelFrame(
             data=new_data,
@@ -313,6 +326,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             channel_ids=channel_ids,
             source_time_offset=offsets,
             lineage=self.lineage if lineage is None else lineage,
+            operation_summaries_snapshot=operation_summaries_snapshot,
             previous=self,
         )
 
@@ -541,6 +555,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             raise TypeError(f"Addition target with SNR must be a ChannelFrame or NumPy array: {type(other)}")
 
         lineage_other = other._lineage_or_source()
+        other_operation_summaries = other.operation_summaries
+        other_has_operation_summaries_snapshot = other._operation_summaries_snapshot is not None
 
         # If SNR is specified, adjust the length of the other signal
         if other.duration != self.duration:
@@ -565,11 +581,22 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         result_data = operation.process(self._data, other._data)
         get_display_name = getattr(operation, "get_display_name", None)
         display_name = get_display_name() if callable(get_display_name) else getattr(operation, "name", "add_with_snr")
+        lineage = self._lineage_with_operation(operation, self._lineage_or_source(), lineage_other)
+        operation_summaries_snapshot = None
+        if self._operation_summaries_snapshot is not None or other_has_operation_summaries_snapshot:
+            operation_summaries_snapshot = self._snapshot_operation_summaries(
+                [
+                    *self.operation_summaries,
+                    *other_operation_summaries,
+                    self._operation_summary(operation),
+                ]
+            )
         return self._create_new_instance(
             data=result_data,
             metadata=self._updated_metadata("add_with_snr", operation.params),
-            lineage=self._lineage_with_operation(operation, self._lineage_or_source(), lineage_other),
+            lineage=lineage,
             channel_metadata=self._relabel_channels("add_with_snr", display_name),
+            operation_summaries_snapshot=operation_summaries_snapshot,
         )
 
     def plot(
@@ -1379,13 +1406,24 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 new_id = self._next_channel_id(new_ids)
                 new_ids.append(new_id)
             new_offsets = np.concatenate([self.source_time_offset, data.source_time_offset])
+            lineage = self._lineage_with_add_channel(lineage_params, data.lineage)
+            operation_summaries_snapshot = None
+            if self._operation_summaries_snapshot is not None or data._operation_summaries_snapshot is not None:
+                operation_summaries_snapshot = self._snapshot_operation_summaries(
+                    [
+                        *self.operation_summaries,
+                        *data.operation_summaries,
+                        self._operation_summary(lineage.operation),
+                    ]
+                )
             return self._finalize_channel_update(
                 new_data,
                 new_chmeta,
                 inplace,
                 new_ids,
                 new_offsets,
-                lineage=self._lineage_with_add_channel(lineage_params, data.lineage),
+                lineage=lineage,
+                operation_summaries_snapshot=operation_summaries_snapshot,
             )
         if isinstance(data, np.ndarray):
             lineage_params["input_kind"] = "ndarray"

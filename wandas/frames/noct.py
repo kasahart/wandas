@@ -1,6 +1,6 @@
 # spectral_frame.py
 import logging
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, TypeVar
 
 import numpy as np
@@ -138,6 +138,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         previous: "BaseFrame[Any] | None" = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
         lineage: Any | None = None,
+        operation_summaries_snapshot: Sequence[Mapping[str, Any]] | None = None,
     ) -> None:
         """
         Initialize a NOctFrame instance.
@@ -162,6 +163,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,
             lineage=lineage,
+            operation_summaries_snapshot=operation_summaries_snapshot,
             previous=previous,
         )
 
