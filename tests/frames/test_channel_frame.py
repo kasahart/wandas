@@ -183,13 +183,14 @@ class TestChannelFrame:
         assert cf.previous is previous
         np.testing.assert_array_equal(cf.source_time_offset, np.array([0.0, 0.0]))
 
-    def test_binary_op_preserves_left_source_time_offset(self) -> None:
-        """Frame-frame binary ops use array indices and keep the left timeline."""
+    def test_binary_op_allows_source_time_offset_mismatch_and_inherits_left_offset(self) -> None:
+        """Frame-frame binary ops are index-wise and keep the left source timeline."""
         left = ChannelFrame(self.dask_data, self.sample_rate, source_time_offset=2.0)
         right = ChannelFrame(self.dask_data, self.sample_rate, source_time_offset=7.0)
 
         result = left + right
 
+        np.testing.assert_array_equal(result.compute(), self.data + self.data)
         np.testing.assert_array_equal(result.source_time_offset, np.array([2.0, 2.0]))
 
     def test_operations_are_lazy(self) -> None:
