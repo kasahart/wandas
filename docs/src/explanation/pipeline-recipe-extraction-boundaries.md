@@ -46,7 +46,7 @@ Issue #259 is satisfied by the current replay-intent contract:
 
 The remaining larger graph-model decisions are follow-up work:
 
-- Recipe input-name inference for graph recipes is tracked by #263.
+- Graph recipe input-name inference is intentionally avoided; omitted names use mechanical `input_0`, `input_1`, ... defaults.
 - True DAG identity / shared branch graph recipes are tracked by #264.
 - Automatic graph recipe dispatch from `RecipeSpec.from_frame(...)` is tracked by #265.
 
@@ -229,7 +229,7 @@ Implemented:
 - `GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))` for root frame-frame binary / `add_with_snr` graphs with two linear parents
 - `GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))` for a single binary merge followed by a replayable linear tail, such as `(signal.normalize() + noise.remove_dc()).stft()`
 - `GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))` when one or both binary parents are unprocessed source frames
-- `GraphRecipeSpec.from_frame(processed)` with default structural input names `left` and `right`
+- `GraphRecipeSpec.from_frame(processed)` with default structural input names `input_0` and `input_1`
 - `NodeGraphRecipeSpec.from_frame(processed)` for replayable tree graphs with multiple binary merges
 - `NodeGraphRecipeSpec.from_frame(processed, input_names=("base", "base"))` for duplicated parent paths replayed from the same external input
 - `NodeGraphRecipeSpec.from_frame(processed, input_names=("base", "added"))` for `base.add_channel(added_frame, ...)`
@@ -267,7 +267,7 @@ BinaryOperandStep(operation="+", frame="signal", operand="offset")
 
 `ScalarOperationStep` は既存 frame operator を呼ぶだけで、二項演算の metadata/history/Dask laziness は frame 本体に委譲する。対応 operand は operation graph に値として保存された Python / NumPy real scalar に限定する。NaN は recipe equality が安定しないため拒否する。`2 - frame` のように scalar が左辺にある場合は `reverse=True` を保存し、`frame - 2` と取り違えない。
 
-`GraphRecipeSpec` は名前付き入力ごとに linear `RecipeSpec` を適用し、`BinaryFrameStep` で既存 frame-frame 演算を呼び、その後に optional な linear `tail_recipe` を適用する。`from_frame(..., input_names=...)` は 1 回だけ merge する graph だけを対象にし、入力名は呼び出し側が与える。`input_names` を省略した場合は、Python 変数名や frame label ではなく、構造上の左右を表す `left` / `right` を使う。tail は既存 `RecipeSpec` step で表現するため、merge 後の `normalize()`、`trim()`、`stft()` のような replayable operation / method / typed method は同じ仕組みで扱う。
+`GraphRecipeSpec` は名前付き入力ごとに linear `RecipeSpec` を適用し、`BinaryFrameStep` で既存 frame-frame 演算を呼び、その後に optional な linear `tail_recipe` を適用する。`from_frame(..., input_names=...)` は 1 回だけ merge する graph だけを対象にし、入力名は呼び出し側が与える。`input_names` を省略した場合は、Python 変数名、frame label、channel label、metadata から名前を推定せず、source leaf の順番に基づく `input_0` / `input_1` を使う。二項演算では `input_0` が左 operand、`input_1` が右 operand であり、`input_0 - input_1` のような非可換演算でも順序を保つ。tail は既存 `RecipeSpec` step で表現するため、merge 後の `normalize()`、`trim()`、`stft()` のような replayable operation / method / typed method は同じ仕組みで扱う。
 
 For `add_with_snr`, Recipe stores the two frame inputs and the public `snr` value. If the runtime method internally adjusts the noise length, that helper operation is not extracted as a separate `fix_length` step. Replay calls `frame.add(other, snr=...)`, so the current inputs decide any length alignment.
 
@@ -283,7 +283,7 @@ For `add_with_snr`, Recipe stores the two frame inputs and the public `snr` valu
 
 Not implemented yet:
 
-- Python 変数名や frame label に基づく入力名推定。現在の runtime lineage は source identity を保存しないため、名前推定は `left` / `right` の構造名に限定する。
+- 名前推定は行わず、Python 変数名、frame label、channel label、metadata は見ない。省略時は source leaf の順番に基づく `input_0` / `input_1` / ... の機械的な名前だけを使う。
 - `RecipeSpec.from_frame(frame_a + frame_b)` が graph recipe を返すこと。`RecipeSpec` は単一入力・直列 recipe のままとし、複数入力 graph は `GraphRecipeSpec.from_frame(...)` で抽出する。
 - 入力名を推定する `RecipeSpec.from_frame(signal.add(noise, snr=6.0))` の自動 graph 抽出
 - true DAG identity を持つ shared branch graph。現在は tree として duplicated parent path を replay する。
