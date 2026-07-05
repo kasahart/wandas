@@ -170,15 +170,16 @@ def test_require_dependency_attr_uses_registered_install_hint(
     assert 'pip install "wandas[marimo]"' in message
 
 
-def test_pipeline_sklearn_import_reports_sklearn_extra(
+def test_pipeline_sklearn_module_import_is_core_only_boundary(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     original_error = ModuleNotFoundError("No module named 'sklearn'", name="sklearn")
     original_import_module = importlib.import_module
 
-    def raise_missing_sklearn(module_name: str) -> None:
-        assert module_name == "sklearn.base"
-        raise original_error
+    def raise_missing_sklearn(module_name: str) -> ModuleType:
+        if module_name == "sklearn.base":
+            raise original_error
+        return original_import_module(module_name)
 
     sys.modules.pop("wandas.pipeline.sklearn", None)
     monkeypatch.setattr(
@@ -186,8 +187,10 @@ def test_pipeline_sklearn_import_reports_sklearn_extra(
         raise_missing_sklearn,
     )
 
+    sklearn_module = original_import_module("wandas.pipeline.sklearn")
+
     with pytest.raises(ImportError) as exc_info:
-        original_import_module("wandas.pipeline.sklearn")
+        sklearn_module.WandasOperationTransformer("normalize")
 
     message = str(exc_info.value)
     assert "Wandas sklearn transformers requires optional dependency 'sklearn.base'" in message
