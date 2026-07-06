@@ -1180,7 +1180,21 @@ def test_node_graph_recipe_from_frame_replays_duplicated_shared_branch_with_same
     replayed = recipe.apply({"base": base})
 
     assert recipe.inputs == ("base",)
-    assert [node.id for node in recipe.nodes] == ["n0", "n1", "n2", "n3", "n4"]
+    assert recipe.nodes == (
+        GraphNodeSpec(
+            "n0",
+            OperationSpec("normalize", {"axis": -1, "fill": None, "norm": float("inf"), "threshold": None}),
+            ("base",),
+        ),
+        GraphNodeSpec("n1", OperationSpec("lowpass_filter", {"cutoff": 3000.0, "order": 4}), ("n0",)),
+        GraphNodeSpec(
+            "n2",
+            OperationSpec("normalize", {"axis": -1, "fill": None, "norm": float("inf"), "threshold": None}),
+            ("base",),
+        ),
+        GraphNodeSpec("n3", OperationSpec("highpass_filter", {"cutoff": 300.0, "order": 4}), ("n2",)),
+        GraphNodeSpec("n4", BinaryFrameStep("add_with_snr", "n1", "n3", {"snr": 3.0}), ("n1", "n3")),
+    )
     np.testing.assert_allclose(replayed.data, processed.data)
     assert replayed.operation_history == processed.operation_history
 
