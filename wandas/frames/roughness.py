@@ -56,7 +56,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
     channel_metadata : list[ChannelMetadata], optional
         Metadata for each channel.
     previous : BaseFrame, optional
-        Reference to the previous frame in the processing chain.
+        Compatibility/debug pointer to the immediate prior frame; not the
+        provenance source of truth.
 
     Attributes
     ----------

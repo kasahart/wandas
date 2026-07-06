@@ -230,9 +230,14 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 Must be a positive value.
             label: A label for the frame.
             metadata: Optional metadata dictionary.
-            lineage: Runtime operation lineage for this frame.
+            lineage: Runtime operation lineage for this frame. This is the
+                provenance source for executable replay and derived history
+                views.
             channel_metadata: Metadata for each channel.
-            previous: Reference to the previous frame in the processing chain.
+            previous: Compatibility/debug pointer to the immediate prior frame;
+                not the provenance source of truth.
+            operation_summaries_snapshot: Inspection-only summary snapshot used
+                across persistence boundaries.
 
         Raises:
             ValueError: If data has more than 2 dimensions, or if

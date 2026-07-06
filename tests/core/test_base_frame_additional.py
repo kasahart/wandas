@@ -777,6 +777,8 @@ def test_create_new_instance_rejects_legacy_history_and_validates_channel_ids():
 
     with pytest.raises(TypeError, match="unexpected keyword argument 'operation_history'"):
         f._create_new_instance(data=f._data, operation_history="bad")
+    with pytest.raises(TypeError, match="unexpected keyword argument 'operation_graph'"):
+        f._create_new_instance(data=f._data, operation_graph={"operation": "bad"})
     with pytest.raises(TypeError, match="unexpected keyword argument 'operations'"):
         make_frame(np.arange(6).reshape(2, 3), operations=["bad"])
     with pytest.raises(TypeError, match="Channel ids must be a list"):
