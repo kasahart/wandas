@@ -138,12 +138,14 @@ class BaseFrame(ABC, Generic[T]):
     metadata : dict, optional
         Additional metadata for the frame.
     lineage : LineageNode, optional
-        Computation lineage for this frame.
+        Runtime operation lineage for this frame. This is the source of truth
+        for executable replay and the derived ``operation_history`` view.
     channel_metadata : list[ChannelMetadata | dict], optional
         Metadata for each channel in the frame. Can be ChannelMetadata objects
         or dicts that will be converted to ChannelMetadata objects.
     previous : BaseFrame, optional
-        The frame that this frame was derived from.
+        Compatibility/debug pointer to the immediate prior frame. This strong
+        reference is not the source of truth for processing history.
 
     Attributes
     ----------
