@@ -840,7 +840,7 @@ def test_binary_frame_operation_merges_left_and_right_operation_lineage():
     assert [node["operation"] for node in result.operation_graph["inputs"]] == ["normalize", "remove_dc"]
 
 
-def test_apply_operation_helpers_update_metadata_and_history(monkeypatch):
+def test_apply_operation_helpers_update_metadata_and_lineage_history_view(monkeypatch):
     f = make_frame(np.arange(6).reshape(2, 3).astype(float))
     dependency_calls = 0
 

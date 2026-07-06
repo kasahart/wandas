@@ -407,7 +407,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         This is a scalar reduction: it computes one value per channel and
         triggers immediate computation of the underlying Dask graph.  The
         result is a plain NumPy array and does **not** produce a new frame,
-        so no operation history is recorded.
+        so no runtime lineage or operation history view entry is created.
 
         The RMS is defined as::
 
@@ -441,7 +441,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         This is a scalar reduction: it computes one value per channel and
         triggers immediate computation of the underlying Dask graph.  The
         result is a plain NumPy array and does **not** produce a new frame,
-        so no operation history is recorded.
+        so no runtime lineage or operation history view entry is created.
 
         The crest factor is defined as::
 

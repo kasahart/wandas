@@ -334,8 +334,8 @@ class TestBackwardCompatibility:
         result = frame.normalize()
         assert result.labels == ["norm(ch0)", "norm(ch1)"]
 
-    def test_operation_history_still_tracked(self) -> None:
-        """Test that operation history is still tracked correctly."""
+    def test_operation_history_view_from_lineage(self) -> None:
+        """Test that the operation history view is still derived correctly."""
         frame = ChannelFrame(
             data=_DASK_2CH,
             sampling_rate=_SAMPLE_RATE,

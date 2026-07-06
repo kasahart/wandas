@@ -1493,7 +1493,7 @@ class BaseFrame(ABC, Generic[T]):
         """Default implementation of binary operations using dask's lazy evaluation.
 
         Handles both frame-frame and frame-scalar/array operations with
-        metadata propagation and history tracking. Frame-frame operations are
+        metadata propagation and runtime lineage tracking. Frame-frame operations are
         index-wise: they combine current array positions, do not compare
         ``source_time_offset`` values, and do not perform source-time alignment,
         trimming, or padding. Results preserve the left operand's source-time
@@ -1706,7 +1706,7 @@ class BaseFrame(ABC, Generic[T]):
         """Default implementation of operation application.
 
         Creates the named operation, applies it to the data, and returns
-        a new frame with updated metadata and operation history.
+        a new frame with updated metadata and runtime lineage.
         Derived classes may override this to add extra behaviour
         (e.g. channel relabelling).
         """
@@ -1762,7 +1762,7 @@ class BaseFrame(ABC, Generic[T]):
         """Apply an already-instantiated operation to the frame.
 
         This method processes data through the operation, updates metadata,
-        operation history, and channel labels atomically.  It is the
+        runtime lineage, and channel labels atomically.  It is the
         entry-point used by ``ChannelProcessingMixin`` and by
         ``ChannelFrame._apply_operation_impl``.
 

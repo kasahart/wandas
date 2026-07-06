@@ -2440,7 +2440,7 @@ class TestFadeIntegration:
         assert processed.n_channels == 1
         assert processed.n_samples == self.channel_frame.n_samples
 
-        # Check that operation history is recorded
+        # Check the lineage-derived operation history view
         assert len(processed.operation_history) == 2
         assert processed.operation_history[0]["operation"] == "fade"
         assert processed.operation_history[1]["operation"] == "normalize"
@@ -2458,7 +2458,7 @@ class TestFadeIntegration:
         assert isinstance(processed, ChannelFrame)
         assert processed.sampling_rate == self.sample_rate
 
-        # Check operation history
+        # Check the operation history view
         assert len(processed.operation_history) == 2
         assert processed.operation_history[0]["operation"] == "fade"
         assert processed.operation_history[1]["operation"] == "lowpass_filter"
@@ -2523,7 +2523,7 @@ class TestFadeIntegration:
         assert faded.channels[0]["gain"] == 0.8
         assert faded.metadata["test_key"] == "test_value"
 
-        # Check operation history
+        # Check the operation history view
         assert faded.operation_history[0]["operation"] == "fade"
         assert faded.operation_history[0]["params"]["fade_ms"] == 50.0
 

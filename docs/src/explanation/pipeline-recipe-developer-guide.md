@@ -17,7 +17,7 @@ The important design constraints are:
 - Wandas Recipe is the source of truth. sklearn `Pipeline` is only an optional adapter.
 - Recipe objects describe calls; they do not own signal-processing logic.
 - Replay delegates to existing frame APIs such as `apply_operation()`, frame methods, frame operators, `frame[key]`, and `frame.apply(...)`.
-- Frame immutability, metadata/history updates, and Dask laziness remain the responsibility of the existing frame implementation.
+- Frame immutability, metadata propagation, lineage-derived history views, and Dask laziness remain the responsibility of the existing frame implementation.
 - Unsupported calculations must fail loudly with `RecipeExtractionError` rather than returning a partial or misleading recipe.
 
 ## Core Terms
@@ -173,7 +173,7 @@ Use this checklist before editing code:
 - Make `apply()` delegate to the existing frame API.
 - Make extraction reject ambiguous cases with `RecipeExtractionError`.
 - Preserve existing behavior for `operation_history`.
-- Add tests for replayed data, operation history, labels/metadata when relevant, source frame immutability, and Dask laziness when the operation is lazy.
+- Add tests for replayed data, lineage-derived operation history views, labels/metadata when relevant, source frame immutability, and Dask laziness when the operation is lazy.
 - Update [Pipeline Recipe Extraction Boundaries](pipeline-recipe-extraction-boundaries.md) and user-facing docs.
 
 Typical code locations:

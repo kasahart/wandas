@@ -7,7 +7,7 @@ Recipe is useful when you want to:
 - turn exploratory notebook work into a repeatable preprocessing pipeline,
 - apply the same signal-processing chain to many files,
 - inspect exactly which Wandas operations were applied,
-- keep Wandas frame metadata/history/Dask behavior intact.
+- keep Wandas frame metadata, lineage-derived history views, and Dask behavior intact.
 
 ## Quick Start: Linear Recipe
 
