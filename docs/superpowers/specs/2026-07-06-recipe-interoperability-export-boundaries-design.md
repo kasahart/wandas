@@ -35,7 +35,7 @@ This keeps the current adapter honest: it is a convenience wrapper around frame 
 
 WDF should not store executable Recipe specs as part of this issue.
 
-For now, WDF only needs to preserve operation history / operation summaries for inspection. That means loaded WDF frames can show what happened, but users should not expect `load(...)` to restore an executable `RecipeSpec`.
+For now, WDF only preserves operation summaries snapshots for inspection. That means loaded WDF frames can show what happened before save, but users should not expect `load(...)` to restore runtime `operation_history`, runtime lineage, or an executable `RecipeSpec`.
 
 The WDF contract is an inspection-only snapshot boundary:
 
@@ -72,7 +72,7 @@ Users should see three different concepts:
 
 1. **Wandas Recipe**: the canonical replay contract for Wandas frame work.
 2. **sklearn adapter**: a convenience layer for users who want sklearn `Pipeline([...]).transform(frame)` around simple Wandas operations.
-3. **WDF history**: persisted inspection metadata, not executable Recipe persistence.
+3. **WDF inspection summaries**: persisted display metadata, not runtime history or executable Recipe persistence.
 
 Docs should say:
 
@@ -117,7 +117,7 @@ The PR should use `Closes #258` if it documents:
 - unsupported Recipe step conversions;
 - joblib/skops export boundaries;
 - Dask / Dask-ML boundaries;
-- WDF non-goal: history/summaries only for now, executable Recipe persistence deferred to #257.
+- WDF non-goal: inspection summaries snapshot only for now, executable Recipe persistence deferred to #257.
 
 It should use `Related` for:
 
