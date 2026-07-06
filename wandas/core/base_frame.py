@@ -477,8 +477,11 @@ class BaseFrame(ABC, Generic[T]):
 
     @property
     def previous(self) -> "BaseFrame[Any] | None":
-        """
-        Returns the previous frame.
+        """Return the immediate prior frame for compatibility/debug inspection.
+
+        This strong reference is not the source of truth for processing
+        history. Runtime lineage drives ``operation_history``,
+        ``operation_summaries``, ``operation_graph``, and Recipe extraction.
         """
         return self._previous
 
@@ -545,7 +548,7 @@ class BaseFrame(ABC, Generic[T]):
 
     @property
     def operation_summaries(self) -> list[dict[str, Any]]:
-        """Return lightweight display summaries derived from lineage or a boundary snapshot."""
+        """Return display summaries derived from lineage or a boundary snapshot."""
         if self._operation_summaries_snapshot is not None:
             return copy.deepcopy(self._operation_summaries_snapshot)
         return self._lineage_to_summaries(self.lineage)
