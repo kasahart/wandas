@@ -226,6 +226,36 @@ def test_operation_history_public_behavior_is_read_only_lineage_view() -> None:
     assert "operation_history" not in result._xr.attrs
 
 
+def test_previous_is_stable_debug_accessor_not_history_source() -> None:
+    previous = _frame().normalize()
+    frame = ChannelFrame(
+        da_from_array(np.array([[1.0, 2.0, 3.0]]), chunks=(1, -1)),
+        sampling_rate=16000,
+        previous=previous,
+    )
+
+    assert frame.previous is previous
+    assert frame.lineage is None
+    assert frame.operation_history == []
+    assert frame.operation_summaries == []
+    assert frame.operation_graph is None
+
+
+def test_operation_history_comes_from_lineage_without_previous() -> None:
+    frame = ChannelFrame(
+        da_from_array(np.array([[1.0, 2.0, 3.0]]), chunks=(1, -1)),
+        sampling_rate=16000,
+        lineage=LineageNode(Normalize(16000)),
+        previous=None,
+    )
+
+    assert frame.previous is None
+    assert [record["operation"] for record in frame.operation_history] == ["normalize"]
+    assert [summary["operation"] for summary in frame.operation_summaries] == ["normalize"]
+    assert frame.operation_graph is not None
+    assert frame.operation_graph["operation"] == "normalize"
+
+
 def test_operation_summaries_returns_display_lineage_summaries() -> None:
     result = _frame().high_pass_filter(100).normalize()
 
