@@ -160,6 +160,24 @@ replayed = node_recipe.apply(
 )
 ```
 
+If the same processed branch is used twice, the current recipe stores it as two parent paths. Pass the same explicit input name for both source leaves when replay should use one runtime input:
+
+```python
+shared = base.normalize()
+processed = shared.low_pass_filter(cutoff=3000.0).add(
+    shared.high_pass_filter(cutoff=300.0),
+    snr=3.0,
+)
+
+recipe = NodeGraphRecipeSpec.from_frame(
+    processed,
+    input_names=("base", "base"),
+)
+replayed = recipe.apply({"base": new_base})
+```
+
+This is not true DAG identity. True shared node identity is tracked separately in #270.
+
 ## add_channel Recipes
 
 `RecipeSpec` is single-input, so `add_channel(...)` needs a graph recipe.
