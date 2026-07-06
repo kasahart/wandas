@@ -14,6 +14,7 @@ from wandas.pipeline.extraction import (
     _channel_key_from_parent_graph,
     _is_external_add_channel_data_graph,
     _is_external_operand_graph,
+    _recipe_spec_steps_from_graph,
     _split_graph_at_binary_merge,
     _step_from_graph,
     _steps_from_graph,
@@ -60,7 +61,7 @@ class RecipeSpec:
         graph = frame.operation_graph
         if graph is None:
             return cls(())
-        return cls(_steps_from_graph(cast(Mapping[str, Any], graph)))
+        return cls(_recipe_spec_steps_from_graph(cast(Mapping[str, Any], graph)))
 
     def apply(self, frame: Any) -> Any:
         result: Any = frame
@@ -151,7 +152,9 @@ class GraphRecipeSpec:
 
         merge_graph, tail_steps = _split_graph_at_binary_merge(cast(Mapping[str, Any], graph))
         inputs = tuple(merge_graph.get("inputs", ()))
-        resolved_input_names = ("left", "right") if input_names is None and len(inputs) == 2 else input_names
+        resolved_input_names = (
+            tuple(f"input_{index}" for index in range(len(inputs))) if input_names is None else input_names
+        )
         if len(inputs) != 2 or resolved_input_names is None or len(resolved_input_names) != 2:
             raise RecipeExtractionError(
                 "GraphRecipeSpec extraction requires one input name per parent\n"

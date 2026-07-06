@@ -11,7 +11,7 @@ from dask.array.core import Array as DaArray
 import wandas as wd
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
-from wandas.processing.base import LineageNode
+from wandas.processing.base import FrameMethodOperation, LineageNode
 from wandas.processing.effects import Normalize
 from wandas.utils.dask_helpers import da_from_array
 
@@ -758,6 +758,45 @@ class TestBaseFrameUtilityMethods:
         assert len(channels) == 2
         assert all(isinstance(ch, ChannelMetadata) for ch in channels)
 
+    def test_operation_summary_delta_returns_snapshot_when_lineage_prefix_mismatches(self) -> None:
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            lineage=LineageNode(Normalize(self.sample_rate)),
+            operation_summaries_snapshot=[{"operation": "loaded"}],
+        )
+        lineage = LineageNode(FrameMethodOperation("fft", {"n_fft": 8}))
+
+        assert frame._operation_summaries_with_lineage_delta(lineage) == [{"operation": "loaded"}]
+
+    def test_operation_summaries_snapshot_rejects_non_mapping_items(self) -> None:
+        with pytest.raises(ValueError, match="must be a sequence of mappings"):
+            ChannelFrame._snapshot_operation_summaries([object()])  # ty: ignore[invalid-argument-type]
+
+    def test_lineage_and_indexing_static_helpers_handle_unreplayable_values(self) -> None:
+        lineage = self.channel_frame._lineage_with_unsupported_indexing("callable")
+
+        assert lineage.operation.name == "__getitem__"
+        assert lineage.operation.params == {"indexing": "callable"}
+        assert self.channel_frame._is_literal_channel_query({1: "left"}) is False
+        assert self.channel_frame._is_literal_channel_query({"idx": np.int64(1)}) is True
+        assert self.channel_frame._slice_bound_for_lineage(True) is None
+        assert self.channel_frame._slice_bound_for_lineage(object()) is None
+        assert self.channel_frame._slice_for_lineage(slice(object(), None, None)) is None
+        assert self.channel_frame._slice_for_lineage(slice(None, None, object())) is None
+        assert self.channel_frame._axis_slices_for_lineage((1,)) is None
+        assert self.channel_frame._axis_slices_for_lineage((slice(object(), None, None),)) is None
+
+    def test_reverse_scalar_helpers_and_unsupported_reverse_operands(self) -> None:
+        assert self.channel_frame._python_numeric_scalar(np.int64(2)) == 2
+        with pytest.raises(TypeError, match="Expected a real scalar"):
+            self.channel_frame._python_numeric_scalar(object())
+
+        assert self.channel_frame.__rsub__(True) is NotImplemented
+        assert self.channel_frame.__rmul__(True) is NotImplemented
+        assert self.channel_frame.__rtruediv__(True) is NotImplemented
+        assert self.channel_frame.__rpow__(True) is NotImplemented
+
 
 class TestBaseFrameIndexing:
     """Test advanced indexing features."""
@@ -779,6 +818,26 @@ class TestBaseFrameIndexing:
             label="test_audio",
             channel_metadata=metadata_objs,
         )
+
+    def test_integer_sequence_indexing_extends_operation_summary_snapshot(self) -> None:
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[channel.to_metadata() for channel in self.channel_frame.channels],
+            operation_summaries_snapshot=[{"operation": "loaded"}],
+        )
+
+        numpy_indexed = frame[np.array([0, 1])]
+        list_indexed = frame[[0, 1]]
+
+        assert [summary["operation"] for summary in numpy_indexed.operation_summaries] == ["loaded", "__getitem__"]
+        assert [summary["operation"] for summary in list_indexed.operation_summaries] == ["loaded", "__getitem__"]
+        assert numpy_indexed.operation_history == [
+            {"operation": "__getitem__", "params": {"indexing": "integer_list", "indices": [0, 1]}}
+        ]
+        assert list_indexed.operation_history == [
+            {"operation": "__getitem__", "params": {"indexing": "integer_list", "indices": [0, 1]}}
+        ]
 
     def test_getitem_with_string_label(self) -> None:
         """Test __getitem__ with string label returns new instance with Dask preserved."""

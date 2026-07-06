@@ -526,13 +526,19 @@ class ChannelProcessingMixin:
         )
 
     def channel_difference(self: T_Processing, other_channel: int | str = 0) -> T_Processing:
-        """Compute the difference between channels.
+        """Compute index-wise differences between channels.
+
+        ``channel_difference`` subtracts the selected reference channel from
+        each channel at the current array indices. It does not compare
+        per-channel ``source_time_offset`` values and does not perform
+        source-time alignment.
 
         Args:
             other_channel: Index or label of the reference channel. Default is 0.
 
         Returns:
-            New ChannelFrame containing the channel difference
+            New ChannelFrame containing the channel difference with the input
+            source-time offsets preserved.
         """
         requested_other_channel = other_channel
         # label2index is a method of BaseFrame
@@ -971,6 +977,7 @@ class ChannelProcessingMixin:
 
         # Create RoughnessFrame. operation.get_metadata_updates() should provide
         # sampling_rate and bark_axis
+        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
         roughness_frame = RoughnessFrame(
             data=r_spec_dask,
             sampling_rate=metadata_updates.get("sampling_rate", self.sampling_rate),
@@ -981,8 +988,9 @@ class ChannelProcessingMixin:
             channel_metadata=cast(Any, self).channels.to_list(),
             channel_ids=cast(Any, self)._channel_ids,
             source_time_offset=cast(Any, self).source_time_offset,
-            lineage=cast(Any, self)._lineage_with_method(operation_name, operation.to_params()),
+            lineage=lineage,
             previous=cast("BaseFrame[NDArrayReal]", self),
+            **cast(Any, self)._operation_summaries_snapshot_kwargs(lineage),
         )
 
         logger.debug(

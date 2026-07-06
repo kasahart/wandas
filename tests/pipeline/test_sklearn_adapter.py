@@ -47,6 +47,20 @@ def test_named_transformer_get_params_set_params_and_to_spec() -> None:
     assert transformer.to_spec() == OperationSpec("highpass_filter", {"cutoff": 200.0, "order": 6})
 
 
+def test_generic_operation_transformer_get_params_set_params_and_rejects_unknown_param() -> None:
+    transformer = WandasOperationTransformer("normalize", norm=2.0)
+
+    assert transformer.get_params() == {"operation": "normalize", "norm": 2.0}
+
+    returned = transformer.set_params(operation="remove_dc", norm=1.0)
+
+    assert returned is transformer
+    assert transformer.get_params() == {"operation": "remove_dc", "norm": 1.0}
+    assert transformer.to_spec() == OperationSpec("remove_dc", {"norm": 1.0})
+    with pytest.raises(ValueError, match="Invalid parameter"):
+        transformer.set_params(missing=True)
+
+
 def test_sklearn_pipeline_transform_applies_wandas_operations_in_order() -> None:
     frame = _frame()
     pipeline = Pipeline(

@@ -137,7 +137,7 @@ replayed = graph_recipe.apply(
 )
 ```
 
-`input_names` are explicit because runtime lineage does not know Python variable names.
+`input_names` are explicit because runtime lineage does not know Python variable names, and graph recipes do not infer names from frame labels, channel labels, or metadata. If omitted, graph recipes use source leaf order to assign mechanical names such as `input_0` and `input_1`; for binary frame recipes, `input_0` is the left operand and `input_1` is the right operand.
 
 Use `NodeGraphRecipeSpec` for more general tree-shaped graphs:
 
@@ -159,6 +159,24 @@ replayed = node_recipe.apply(
     }
 )
 ```
+
+If the same processed branch is used twice, the current recipe stores it as two parent paths. Pass the same explicit input name for both source leaves when replay should use one runtime input:
+
+```python
+shared = base.normalize()
+processed = shared.low_pass_filter(cutoff=3000.0).add(
+    shared.high_pass_filter(cutoff=300.0),
+    snr=3.0,
+)
+
+recipe = NodeGraphRecipeSpec.from_frame(
+    processed,
+    input_names=("base", "base"),
+)
+replayed = recipe.apply({"base": new_base})
+```
+
+This is not true DAG identity. True shared node identity is tracked separately in #270.
 
 ## add_channel Recipes
 
@@ -296,10 +314,14 @@ spec = HighPassFilter(cutoff=100.0, order=2).to_spec()
 
 Wandas Recipe remains the canonical representation. sklearn `Pipeline` is for integration and familiar UX.
 
+WDF currently preserves operation summaries for inspection only. Loading a WDF does not rebuild runtime lineage or restore an executable `RecipeSpec`; executable Recipe persistence is tracked separately in #257.
+
 ## Advanced Reference: Choosing A Recipe Class
 
 Most users should start with `RecipeSpec.from_frame(processed)`. Use this table only when the frame
 result crosses the single-input linear boundary or an integration layer requires another API.
+
+`RecipeSpec.from_frame(...)` is intentionally linear-only and does not automatically return `GraphRecipeSpec` or `NodeGraphRecipeSpec`. When a result has graph lineage, choose the graph recipe class explicitly. A future higher-level factory may add automatic dispatch without changing the `RecipeSpec.from_frame(...)` return type.
 
 | Your calculation | Recommended class | Example |
 | --- | --- | --- |
@@ -311,12 +333,14 @@ result crosses the single-input linear boundary or an integration layer requires
 
 ## What Is Not Supported Yet
 
-The exact boundary matrix is maintained in [Pipeline Recipe Extraction Boundaries](../explanation/pipeline-recipe-extraction-boundaries.md). These are the user-facing categories to remember:
+Start with the short [Pipeline Recipe Support Matrix](../explanation/pipeline-recipe-support-matrix.md) when you only need to know whether a calculation is supported. The detailed boundary notes are maintained in [Pipeline Recipe Extraction Boundaries](../explanation/pipeline-recipe-extraction-boundaries.md).
+
+These are the user-facing categories to remember:
 
 | Boundary category | Alternative |
 | --- | --- |
-| Multi-input work through `RecipeSpec.from_frame(...)` | Use `GraphRecipeSpec.from_frame(...)` or `NodeGraphRecipeSpec.from_frame(...)`. |
-| Implicit runtime names or values | Pass explicit `input_names=(...)` and runtime inputs. |
+| Multi-input work through `RecipeSpec.from_frame(...)` | `RecipeSpec.from_frame(...)` stays linear-only; use `GraphRecipeSpec.from_frame(...)` or `NodeGraphRecipeSpec.from_frame(...)` explicitly. |
+| Semantic runtime names or values | Pass explicit `input_names=(...)` and runtime inputs; omitted names are source-order mechanical `input_0`, `input_1`, ... labels, not inferred from frame/channel metadata. |
 | Selection/indexing forms that cannot be replayed by intent | Use supported literal selections, or keep the operation outside recipe extraction. |
 | Non-importable custom code | Move the function to an importable module-level function. |
 | Terminal NumPy arrays without lineage | Build a recipe with an explicit `TerminalStep`. |

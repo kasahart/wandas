@@ -1,5 +1,7 @@
 # Pipeline Recipe Extraction Boundaries / Recipe 化境界検証
 
+For a shorter user-facing table, start with [Pipeline Recipe Support Matrix](pipeline-recipe-support-matrix.md).
+
 ## Goal / 目標
 
 あるべき姿は、frame で計算できる処理をすべて Recipe 化できることである。ただし、現在の `RecipeSpec` は「単一入力・直列・`apply_operation` replay」の最小表現なので、すべての frame 計算を表すには段階的な拡張が必要である。
@@ -22,6 +24,33 @@ replayed = recipe.apply(frame)
 ```
 
 `RecipeSpec.from_frame(processed)` は `processed.operation_graph` を読み、1 本の親 chain として表現できる operation だけを `OperationSpec` / `MethodStep` / `TypedMethodStep` / `IndexingStep` / `ScalarOperationStep` に変換する。
+
+## Replay Intent Rule / 再生意図のルール
+
+Recipe extraction preserves what the user meant to replay, not every helper step that happened at runtime.
+
+- If a public frame API can replay the same meaning, Recipe stores that public API call.
+- If only a runtime helper detail is available, Recipe either converts it to a stable public argument or rejects extraction.
+- Recipe replay delegates to existing frame APIs. Recipe code does not duplicate numerical processing, metadata propagation, source-time updates, or Dask graph construction.
+
+## Issue #259 Closure Checklist / #259 クローズ確認
+
+Issue #259 is satisfied by the current replay-intent contract:
+
+| #259 acceptance | Evidence |
+| --- | --- |
+| Accepted cases preserve intent and replay through frame APIs. | Supported linear, method, typed-method, scalar, graph, node-graph, `add_channel`, and `add_with_snr` recipes store public replay steps and call existing frame APIs. |
+| Unsupported cases fail with `RecipeExtractionError` instead of silently changing meaning. | Callable/regex channel queries, non-literal query values, unsupported multidimensional indexing, linear `RecipeSpec` graph boundaries, and single-input `add_channel` extraction are rejected. |
+| New intent representations are documented and covered by focused tests. | `MethodStep`, `IndexingStep`, `TypedMethodStep`, `ScalarOperationStep`, `BinaryFrameStep`, `BinaryOperandStep`, `AddChannelStep`, `AddChannelDataStep`, `GraphRecipeSpec`, and `NodeGraphRecipeSpec` are documented below and covered in `tests/pipeline/test_recipe.py`. |
+| Recipe code does not duplicate numerical logic, metadata propagation, or Dask graph construction. | Recipe replay delegates to existing frame methods and operators. Recipe extraction stores replay intent, not waveform data, materialized arrays, metadata reconstruction logic, source-time update logic, or Dask graph construction. |
+
+The remaining larger graph-model decisions are follow-up work:
+
+- Graph recipe input-name inference is intentionally avoided; omitted names use mechanical `input_0`, `input_1`, ... defaults.
+- True DAG identity / shared branch graph recipes are tracked by #264.
+- Automatic graph recipe dispatch is intentionally deferred. `RecipeSpec.from_frame(...)` remains linear-only; a future higher-level factory may provide explicit union-return dispatch.
+
+WDF Recipe persistence remains tracked by #257. Recipe interoperability and export remain tracked by #258.
 
 ## Stage 1: Linear `apply_operation` Replay / 直列 apply_operation 再生
 
@@ -72,7 +101,7 @@ Status: partially implemented for `fix_length`, `sum`, `mean`, `channel_differen
 | Frame calculation | Recipe step | Why method replay is used |
 | --- | --- | --- |
 | `frame.fix_length(length=8000)` | `MethodStep("fix_length", {"length": 8000})` | operation history は `target_length` を持つため、frame method の public argument に戻す |
-| `frame.fix_length(duration=0.25)` | `MethodStep("fix_length", {"length": int(0.25 * sampling_rate)})` | duration intent ではなく、実行時に解決済みの target length を replay して同じ出力長を再現する |
+| `frame.fix_length(duration=0.25)` | `MethodStep("fix_length", {"length": int(0.25 * sampling_rate)})` | Recipe stores the resolved sample length. It does not promise to replay the original duration argument on a different sampling rate. |
 | `frame.sum()` | `MethodStep("sum")` | channel metadata を 2ch から 1ch に再構成する frame method 固有処理を再利用する |
 | `frame.mean()` | `MethodStep("mean")` | `sum` と同じく channel metadata 再構成を frame method に委譲する |
 | `frame.channel_difference(other_channel=0)` | `MethodStep("channel_difference", {"other_channel": 0})` | channel label / metadata 更新を frame method に委譲する |
@@ -200,7 +229,7 @@ Implemented:
 - `GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))` for root frame-frame binary / `add_with_snr` graphs with two linear parents
 - `GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))` for a single binary merge followed by a replayable linear tail, such as `(signal.normalize() + noise.remove_dc()).stft()`
 - `GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))` when one or both binary parents are unprocessed source frames
-- `GraphRecipeSpec.from_frame(processed)` with default structural input names `left` and `right`
+- `GraphRecipeSpec.from_frame(processed)` with default structural input names `input_0` and `input_1`
 - `NodeGraphRecipeSpec.from_frame(processed)` for replayable tree graphs with multiple binary merges
 - `NodeGraphRecipeSpec.from_frame(processed, input_names=("base", "base"))` for duplicated parent paths replayed from the same external input
 - `NodeGraphRecipeSpec.from_frame(processed, input_names=("base", "added"))` for `base.add_channel(added_frame, ...)`
@@ -238,7 +267,9 @@ BinaryOperandStep(operation="+", frame="signal", operand="offset")
 
 `ScalarOperationStep` は既存 frame operator を呼ぶだけで、二項演算の metadata/history/Dask laziness は frame 本体に委譲する。対応 operand は operation graph に値として保存された Python / NumPy real scalar に限定する。NaN は recipe equality が安定しないため拒否する。`2 - frame` のように scalar が左辺にある場合は `reverse=True` を保存し、`frame - 2` と取り違えない。
 
-`GraphRecipeSpec` は名前付き入力ごとに linear `RecipeSpec` を適用し、`BinaryFrameStep` で既存 frame-frame 演算を呼び、その後に optional な linear `tail_recipe` を適用する。`from_frame(..., input_names=...)` は 1 回だけ merge する graph だけを対象にし、入力名は呼び出し側が与える。`input_names` を省略した場合は、Python 変数名や frame label ではなく、構造上の左右を表す `left` / `right` を使う。tail は既存 `RecipeSpec` step で表現するため、merge 後の `normalize()`、`trim()`、`stft()` のような replayable operation / method / typed method は同じ仕組みで扱う。
+`GraphRecipeSpec` は名前付き入力ごとに linear `RecipeSpec` を適用し、`BinaryFrameStep` で既存 frame-frame 演算を呼び、その後に optional な linear `tail_recipe` を適用する。`from_frame(..., input_names=...)` は 1 回だけ merge する graph だけを対象にし、入力名は呼び出し側が与える。`input_names` を省略した場合は、Python 変数名、frame label、channel label、metadata から名前を推定せず、source leaf の順番に基づく `input_0` / `input_1` を使う。二項演算では `input_0` が左 operand、`input_1` が右 operand であり、`input_0 - input_1` のような非可換演算でも順序を保つ。tail は既存 `RecipeSpec` step で表現するため、merge 後の `normalize()`、`trim()`、`stft()` のような replayable operation / method / typed method は同じ仕組みで扱う。
+
+For `add_with_snr`, Recipe stores the two frame inputs and the public `snr` value. If the runtime method internally adjusts the noise length, that helper operation is not extracted as a separate `fix_length` step. Replay calls `frame.add(other, snr=...)`, so the current inputs decide any length alignment.
 
 `NodeGraphRecipeSpec` は `operation_graph` を bottom-up に走査し、source leaf を外部入力、operation node を topological order の `GraphNodeSpec` に変換する。複数 binary merge は扱うが、各 node の処理自体は既存 step と `BinaryFrameStep` に委譲する。現時点の `operation_graph` は tree であり true DAG identity は持たないため、shared branch は duplicated parent path として replay する。同じ source を使いたい場合は、`input_names=("base", "base")` のように同じ外部入力名を複数 leaf に割り当てる。
 
@@ -252,9 +283,9 @@ BinaryOperandStep(operation="+", frame="signal", operand="offset")
 
 Not implemented yet:
 
-- Python 変数名や frame label に基づく入力名推定。現在の runtime lineage は source identity を保存しないため、名前推定は `left` / `right` の構造名に限定する。
-- `RecipeSpec.from_frame(frame_a + frame_b)` が graph recipe を返すこと。`RecipeSpec` は単一入力・直列 recipe のままとし、複数入力 graph は `GraphRecipeSpec.from_frame(...)` で抽出する。
-- 入力名を推定する `RecipeSpec.from_frame(signal.add(noise, snr=6.0))` の自動 graph 抽出
+- 名前推定は行わず、Python 変数名、frame label、channel label、metadata は見ない。省略時は source leaf の順番に基づく `input_0` / `input_1` / ... の機械的な名前だけを使う。
+- `RecipeSpec.from_frame(frame_a + frame_b)` が graph recipe を返すことは現時点では行わない。`RecipeSpec` は単一入力・直列 recipe のままとし、複数入力 graph は `GraphRecipeSpec.from_frame(...)` または `NodeGraphRecipeSpec.from_frame(...)` で明示的に抽出する。
+- 将来の上位 factory による自動 graph 抽出。追加する場合も `RecipeSpec.from_frame(...)` の戻り値型は変えない。
 - true DAG identity を持つ shared branch graph。現在は tree として duplicated parent path を replay する。
 
 これらは直列 Recipe では表現できない。特に `operation_history` だけを見ると `normalize -> lowpass_filter -> add_with_snr` のように直列に見えることがあるが、`operation_graph` では複数 parent や外部 operand が必要である。array operand も shape、chunking、保存形式を Recipe 側で決める必要があるため、scalar operand と同じ扱いにはしない。

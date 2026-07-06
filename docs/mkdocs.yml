@@ -109,6 +109,7 @@ nav:
       - Overview: explanation/index.md
       - Pipeline Recipe Requirements: explanation/pipeline-recipe-requirements.md
       - Pipeline Recipe Design: explanation/pipeline-recipe-design.md
+      - Pipeline Recipe Support Matrix: explanation/pipeline-recipe-support-matrix.md
       - Pipeline Recipe Extraction Boundaries: explanation/pipeline-recipe-extraction-boundaries.md
       - Pipeline Recipe Developer Guide: explanation/pipeline-recipe-developer-guide.md
   - Contributing Guide: contributing.md

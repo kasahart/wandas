@@ -1,7 +1,7 @@
 """Roughness analysis frame for detailed psychoacoustic analysis."""
 
 import logging
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -122,6 +122,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         previous: "BaseFrame[Any] | None" = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
         lineage: Any | None = None,
+        operation_summaries_snapshot: Sequence[Mapping[str, Any]] | None = None,
     ) -> None:
         """Initialize a RoughnessFrame."""
         # Validate dimensions
@@ -156,6 +157,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,
             lineage=lineage,
+            operation_summaries_snapshot=operation_summaries_snapshot,
             previous=previous,
         )
 
@@ -314,8 +316,10 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         logger.debug(f"Setting up {symbol} operation (lazy)")
 
         metadata = self.metadata.copy()
+        other_frame: RoughnessFrame | None = None
         # Check if other is a RoughnessFrame
         if isinstance(other, RoughnessFrame):
+            other_frame = other
             if self.sampling_rate != other.sampling_rate:
                 raise ValueError(f"Sampling rates do not match: {self.sampling_rate} vs {other.sampling_rate}")
 
@@ -343,6 +347,20 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             operand_kind=operand_kind,
             operand=None if operand_kind == "frame" else other,
         )
+        lineage = self._lineage_with_operation(binary_operation, *lineage_inputs)
+        operation_summaries_snapshot = None
+        if other_frame is not None and (
+            self._operation_summaries_snapshot is not None or other_frame._operation_summaries_snapshot is not None
+        ):
+            operation_summaries_snapshot = self._snapshot_operation_summaries(
+                [
+                    *self.operation_summaries,
+                    *other_frame.operation_summaries,
+                    self._operation_summary(binary_operation),
+                ]
+            )
+        elif self._operation_summaries_snapshot is not None:
+            operation_summaries_snapshot = self._operation_summaries_with_lineage_delta(lineage)
 
         # Create new instance
         return RoughnessFrame(
@@ -355,7 +373,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             channel_metadata=self.channels.to_list(),
             channel_ids=self._channel_ids,
             source_time_offset=self.source_time_offset,
-            lineage=self._lineage_with_operation(binary_operation, *lineage_inputs),
+            lineage=lineage,
+            operation_summaries_snapshot=operation_summaries_snapshot,
             previous=self,
         )
 

@@ -7,16 +7,32 @@ import numpy as np
 from wandas.pipeline import OperationSpec
 from wandas.utils.optional_imports import require_dependency_attr
 
-BaseEstimator = require_dependency_attr(
-    "sklearn_base",
-    "BaseEstimator",
-    feature="Wandas sklearn transformers",
-)
-TransformerMixin = require_dependency_attr(
-    "sklearn_base",
-    "TransformerMixin",
-    feature="Wandas sklearn transformers",
-)
+_SKLEARN_IMPORT_ERROR: ImportError | None = None
+
+try:
+    BaseEstimator = require_dependency_attr(
+        "sklearn_base",
+        "BaseEstimator",
+        feature="Wandas sklearn transformers",
+    )
+    TransformerMixin = require_dependency_attr(
+        "sklearn_base",
+        "TransformerMixin",
+        feature="Wandas sklearn transformers",
+    )
+except ImportError as exc:
+    _SKLEARN_IMPORT_ERROR = exc
+
+    class BaseEstimator:  # type: ignore[no-redef]
+        pass
+
+    class TransformerMixin:  # type: ignore[no-redef]
+        pass
+
+
+def _require_sklearn() -> None:
+    if _SKLEARN_IMPORT_ERROR is not None:
+        raise ImportError(str(_SKLEARN_IMPORT_ERROR)) from _SKLEARN_IMPORT_ERROR
 
 
 class WandasOperationTransformer(TransformerMixin, BaseEstimator):  # type: ignore[misc]
@@ -26,6 +42,7 @@ class WandasOperationTransformer(TransformerMixin, BaseEstimator):  # type: igno
     _param_names: tuple[str, ...] | None = None
 
     def __init__(self, operation: str, **params: Any) -> None:
+        _require_sklearn()
         self.operation = operation
         self._params = dict(params)
 
