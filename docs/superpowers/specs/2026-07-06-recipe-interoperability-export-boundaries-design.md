@@ -37,6 +37,15 @@ WDF should not store executable Recipe specs as part of this issue.
 
 For now, WDF only needs to preserve operation history / operation summaries for inspection. That means loaded WDF frames can show what happened, but users should not expect `load(...)` to restore an executable `RecipeSpec`.
 
+The WDF contract is an inspection-only snapshot boundary:
+
+- WDF save does not write an executable Recipe payload.
+- WDF load does not restore pre-save runtime lineage or `operation_graph`.
+- A frame loaded from WDF keeps the pre-save operation summaries as an inspection-only snapshot.
+- If users process that loaded frame, display summaries should look like `snapshot at load time + new post-load operation summaries`.
+- Repeating `save -> load -> process -> save -> load` should preserve summaries without dropping, duplicating, or reordering them.
+- `RecipeSpec.from_frame(...)` on a loaded frame should not be expected to recover pre-save operations, because those operations are snapshot metadata, not runtime lineage.
+
 Executable Recipe persistence remains #257. That later issue should define schema versioning, load behavior, portable custom functions, graph recipe handling, and unsupported future schema behavior.
 
 This #258 work should not add `recipe_json`, a Recipe group, or any executable Recipe field to WDF.
