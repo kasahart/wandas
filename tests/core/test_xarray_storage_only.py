@@ -610,7 +610,6 @@ def test_frame_state_properties_are_backed_by_xarray_attrs() -> None:
     frame._xr.attrs["sampling_rate"] = 8.0
     frame._xr.attrs["label"] = "from-attrs"
     frame._xr.attrs["metadata"] = {"owner": "mutated"}
-    frame._xr.attrs["operation_history"] = [{"operation": "mutated", "params": {"x": 1}}]
 
     assert frame.sampling_rate == 8.0
     assert frame.label == "from-attrs"

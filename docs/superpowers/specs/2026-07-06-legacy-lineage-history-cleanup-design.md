@@ -46,7 +46,9 @@ Wandas should expose four distinct concepts:
    - Display-oriented summary view.
    - Derived from runtime `lineage` during normal processing.
    - Derived from an inspection-only snapshot after WDF load or `persist()`.
-   - Not backed by legacy `operation_history` attrs, legacy WDF `operation_history` groups, or manual append paths.
+   - Not backed by `_xr.attrs["operation_history"]`, WDF `operation_history` groups, or manual append paths.
+   - WDF `operation_history` groups are not a supported load contract; WDF history display uses the
+     `operation_summaries_json` snapshot instead.
 
 ## First PR Scope
 
@@ -56,7 +58,7 @@ The first #246 PR should be small and contract-focused:
 - Update docstrings or docs so `previous` is described as a compatibility/debug accessor, not a history source of truth.
 - Rename or adjust misleading tests such as `previous_property_tracks_lineage` so they no longer imply `previous` powers lineage.
 - Add focused tests proving that `operation_history` does not read from `previous`.
-- Add focused tests proving that legacy `operation_history` attrs do not affect `operation_summaries`.
+- Add focused tests proving that unsupported `operation_history` attrs do not affect `operation_summaries`.
 - Add or update docs for the beginner-facing distinction between `previous`, `operation_history`, `operation_summaries`, `operation_graph`, and WDF snapshots.
 
 Production code changes should be minimal. If the new tests already pass, the PR can be mostly docs and test contract pinning. If a new test exposes legacy state being treated as authoritative, fix only that path.
@@ -83,7 +85,7 @@ After the first PR, remaining #246 work can be split into smaller issues or PRs:
 
 2. Legacy `operation_history` storage cleanup
    - Remove or tighten any remaining compatibility paths that accept stored `operation_history` as input.
-   - Keep WDF legacy groups ignored unless a migration requirement is explicitly added.
+   - Do not add compatibility for WDF `operation_history` groups unless a migration requirement is explicitly added.
 
 3. Metadata/history duplication cleanup
    - Ensure metadata remains durable frame state while history remains runtime lineage or inspection snapshot state.
@@ -99,8 +101,8 @@ Add tests before production changes:
 - `previous` remains stable across a normal operation and is not weakref/GC-dependent.
 - A frame with `previous` but no `lineage` has empty `operation_history` and `operation_graph`.
 - A frame with runtime `lineage` but no `previous` still exposes `operation_history`.
-- Injecting `_xr.attrs["operation_history"]` does not affect `operation_history` or `operation_summaries`.
-- A snapshot-backed frame returns snapshot `operation_summaries` even if legacy `operation_history` attrs are present.
+- Injecting unsupported `_xr.attrs["operation_history"]` does not affect `operation_history` or `operation_summaries`.
+- A snapshot-backed frame returns snapshot `operation_summaries` even if unsupported `operation_history` attrs are present.
 
 Run focused checks first:
 
@@ -121,6 +123,6 @@ The first #246 PR is complete when:
 
 - `previous` is explicitly documented and tested as a stable debug/compat accessor, not a history source of truth.
 - `operation_history` is explicitly tested as a lineage-derived read-only compatibility view.
-- `operation_summaries` is explicitly tested as lineage-derived or snapshot-derived, never legacy history attr-derived.
-- No new public behavior depends on legacy `operation_history` attrs or manual append paths.
+- `operation_summaries` is explicitly tested as lineage-derived or snapshot-derived, never unsupported history attr-derived.
+- No new public behavior depends on unsupported `operation_history` attrs or manual append paths.
 - Relevant tests, lint, and scoped type checks pass.

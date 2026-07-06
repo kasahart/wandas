@@ -582,7 +582,7 @@ def test_load_wdf_modified_version_still_loads(tmp_path: Path) -> None:
 
 
 def test_save_wdf_does_not_create_operation_history_group(tmp_path: Path) -> None:
-    """WDF save omits legacy operation_history groups."""
+    """WDF save stores summary snapshots, not operation_history groups."""
     rng = np.random.default_rng(7)
     sr = 16000
     data = rng.standard_normal((1, sr))
