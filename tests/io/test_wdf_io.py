@@ -12,6 +12,7 @@ import pytest
 
 from wandas.frames.channel import ChannelFrame
 from wandas.io import wdf_io
+from wandas.pipeline import RecipeSpec
 
 
 @contextmanager
@@ -248,6 +249,51 @@ def test_wdf_roundtrips_operation_summaries_but_not_operation_history(known_sign
     assert loaded.operation_summaries == expected_summaries
     assert loaded.operation_history == []
     assert loaded.operations == ()
+
+
+def test_wdf_loaded_summary_snapshot_is_not_recipe_lineage(known_signal_frame, tmp_path: Path) -> None:
+    """WDF load keeps pre-load summaries inspection-only and outside Recipe lineage."""
+    path = tmp_path / "snapshot_not_lineage.wdf"
+    processed = known_signal_frame.normalize().low_pass_filter(cutoff=1000, order=4)
+    expected_summaries = processed.operation_summaries
+
+    processed.save(path)
+    loaded = ChannelFrame.load(path)
+
+    assert loaded.operation_summaries == expected_summaries
+    assert loaded.operation_graph is None
+    assert RecipeSpec.from_frame(loaded).steps == ()
+
+    followup = loaded.high_pass_filter(cutoff=200, order=4)
+
+    assert [summary["operation"] for summary in followup.operation_summaries] == [
+        "normalize",
+        "lowpass_filter",
+        "highpass_filter",
+    ]
+    assert [record["operation"] for record in followup.operation_history] == ["highpass_filter"]
+    assert [step.to_dict()["operation"] for step in RecipeSpec.from_frame(followup).steps] == ["highpass_filter"]
+
+
+def test_wdf_repeated_save_load_preserves_composed_summary_order(tmp_path: Path) -> None:
+    """Repeated WDF boundaries keep composed display summaries once and in order."""
+    first_path = tmp_path / "snapshot_cycle_1.wdf"
+    second_path = tmp_path / "snapshot_cycle_2.wdf"
+    first = ChannelFrame.from_numpy(np.linspace(-1.0, 1.0, 64).reshape(1, -1), 16000).normalize()
+    expected_after_first_load = first.operation_summaries
+
+    first.save(first_path)
+    loaded = ChannelFrame.load(first_path)
+    second = loaded.low_pass_filter(cutoff=1000, order=4)
+    expected_after_followup = second.operation_summaries
+    second.save(second_path)
+    reloaded = ChannelFrame.load(second_path)
+
+    assert loaded.operation_summaries == expected_after_first_load
+    assert [summary["operation"] for summary in second.operation_summaries] == ["normalize", "lowpass_filter"]
+    assert reloaded.operation_summaries == expected_after_followup
+    assert [summary["operation"] for summary in reloaded.operation_summaries] == ["normalize", "lowpass_filter"]
+    assert [record["operation"] for record in reloaded.operation_history] == []
 
 
 def test_wdf_roundtrips_custom_operation_summaries(tmp_path: Path) -> None:
