@@ -26,6 +26,19 @@ def _mock_urlopen(content_bytes: bytes):
         yield mock_fn
 
 
+def _write_minimal_wdf(path: Path, **attrs: object) -> None:
+    with h5py.File(path, "w") as f:
+        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["sampling_rate"] = 16000.0
+        for key, value in attrs.items():
+            f.attrs[key] = value
+        channels = f.create_group("channels")
+        channel = channels.create_group("0")
+        channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
+        channel.attrs["label"] = "mic"
+        channel.attrs["unit"] = ""
+
+
 def test_wdf_roundtrip_known_signal(known_signal_frame, tmp_path: Path) -> None:
     """WDF round-trip with known_signal_frame: data, SR, labels preserved (I/O Policy).
 
@@ -633,32 +646,6 @@ def test_load_no_channels(tmp_path: Path) -> None:
         wdf_io.load(path)
 
 
-def test_load_json_decode_error(tmp_path: Path) -> None:
-    """Test loading with JSON decode error in operation history."""
-    path = tmp_path / "bad_json.wdf"
-
-    with h5py.File(path, "w") as f:
-        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
-        f.attrs["sampling_rate"] = 16000.0
-
-        # Add channels
-        ch_grp = f.create_group("channels")
-        c0 = ch_grp.create_group("0")
-        c0.create_dataset("data", data=np.zeros(100))
-
-        # Add bad op history
-        op_grp = f.create_group("operation_history")
-        op0 = op_grp.create_group("operation_0")
-        # Invalid JSON string
-        op0.attrs["params"] = "{bad_json"
-
-    # Legacy operation_history groups are ignored and are not translated into
-    # operation_summaries.
-    cf = wdf_io.load(path)
-    assert cf.operation_history == []
-    assert cf.operation_summaries == []
-
-
 def test_load_wdf_restores_operation_summaries_snapshot(tmp_path: Path) -> None:
     path = tmp_path / "manual_summaries.wdf"
     summaries = [{"operation": "loaded", "params": {"gain": 2.0}}]
@@ -713,6 +700,18 @@ def test_load_wdf_rejects_invalid_operation_summaries_json_shape(tmp_path: Path)
         channel.attrs["unit"] = ""
 
     with pytest.raises(ValueError, match="Invalid WDF operation summaries JSON"):
+        wdf_io.load(path)
+
+
+def test_load_wdf_rejects_non_strict_operation_summaries_json(tmp_path: Path) -> None:
+    path = tmp_path / "nan_summaries_json.wdf"
+    _write_minimal_wdf(
+        path,
+        operation_summaries_schema=1,
+        operation_summaries_json='[{"operation": "loaded", "params": {"gain": NaN}}]',
+    )
+
+    with pytest.raises(ValueError, match="Operation summaries snapshot must be strict JSON serializable"):
         wdf_io.load(path)
 
 
