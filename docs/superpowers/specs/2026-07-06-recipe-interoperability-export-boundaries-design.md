@@ -40,11 +40,16 @@ For now, WDF only needs to preserve operation history / operation summaries for 
 The WDF contract is an inspection-only snapshot boundary:
 
 - WDF save does not write an executable Recipe payload.
-- WDF load does not restore pre-save runtime lineage or `operation_graph`.
+- Runtime lineage and `operation_graph` remain the source of truth for executable replay.
+- The operation summaries snapshot is an inspection-only copy used to carry display history across the WDF boundary.
+- Pre-load operations must not be held in both snapshot and runtime lineage.
+- WDF load must not rebuild runtime lineage from the snapshot.
 - A frame loaded from WDF keeps the pre-save operation summaries as an inspection-only snapshot.
-- If users process that loaded frame, display summaries should look like `snapshot at load time + new post-load operation summaries`.
+- New operations after load are recorded only in runtime lineage, not immediately appended to the snapshot.
+- Display summaries are composed as `snapshot at load time + post-load runtime lineage delta`.
+- WDF save stores those composed summaries as the next inspection-only snapshot.
 - Repeating `save -> load -> process -> save -> load` should preserve summaries without dropping, duplicating, or reordering them.
-- `RecipeSpec.from_frame(...)` on a loaded frame should not be expected to recover pre-save operations, because those operations are snapshot metadata, not runtime lineage.
+- `RecipeSpec.from_frame(...)` reads runtime lineage / `operation_graph` only, so it should not recover pre-load snapshot operations as Recipe steps.
 
 Executable Recipe persistence remains #257. That later issue should define schema versioning, load behavior, portable custom functions, graph recipe handling, and unsupported future schema behavior.
 
