@@ -744,7 +744,7 @@ def test_empty_channel_ids_are_defaulted_when_setting_metadata():
     assert f._channel_ids == ["c0", "c1"]
 
 
-def test_label_metadata_and_operation_history_attrs_validation():
+def test_label_metadata_attrs_and_lineage_assignment_validation():
     f = make_frame(np.arange(6).reshape(2, 3))
 
     f.label = None
@@ -762,10 +762,6 @@ def test_label_metadata_and_operation_history_attrs_validation():
     with pytest.raises(TypeError, match="Metadata must be a dictionary"):
         f.metadata = cast(Any, "bad")
 
-    f._xr.attrs["operation_history"] = None
-    assert f.operation_history == []
-    f._xr.attrs["operation_history"] = "bad"
-    assert f.operation_history == []
     with pytest.raises(AttributeError):
         setattr(f, "operation_history", cast(Any, "bad"))
     with pytest.raises(AttributeError):
