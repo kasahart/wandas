@@ -314,6 +314,8 @@ spec = HighPassFilter(cutoff=100.0, order=2).to_spec()
 
 Wandas Recipe remains the canonical representation. sklearn `Pipeline` is for integration and familiar UX.
 
+WDF currently preserves operation summaries for inspection only. Loading a WDF does not rebuild runtime lineage or restore an executable `RecipeSpec`; executable Recipe persistence is tracked separately in #257.
+
 ## Advanced Reference: Choosing A Recipe Class
 
 Most users should start with `RecipeSpec.from_frame(processed)`. Use this table only when the frame
