@@ -32,7 +32,7 @@ frames/
 Responsibilities of each class:
 各クラスの責任：
 
-- **ChannelFrame**: Handles multi-channel time-domain waveform data. Manages axes, metadata, and operation history.
+- **ChannelFrame**: Handles multi-channel time-domain waveform data. Manages axes, metadata, and lineage-derived operation history views.
   **ChannelFrame**: マルチチャンネルの時間領域波形データを扱います。軸、メタデータ、操作履歴を管理します。
 - **SpectralFrame**: Handles frequency-domain data (e.g., FFT results).
   **SpectralFrame**: 周波数領域データ（FFT結果など）を扱います。
@@ -50,7 +50,7 @@ Responsibilities of each class:
 
 ### xarray-backed architecture / xarrayベースのアーキテクチャ
 
-Wandas uses xarray internally as the labelled storage and frame-state layer while keeping Wandas as the waveform analysis API. In the current migration stage, xarray owns data, named dimensions, selected coordinates, and frame-level attrs. Wandas still owns validation, channel metadata objects, operation history semantics, and operation execution.
+Wandas uses xarray internally as the labelled storage and frame-state layer while keeping Wandas as the waveform analysis API. In the current migration stage, xarray owns data, named dimensions, selected coordinates, and frame-level attrs. Wandas still owns validation, channel metadata objects, lineage-derived operation history view semantics, and operation execution.
 
 Wandasは内部でxarrayをラベル付きストレージとフレーム状態の層として使い、波形解析APIとしての責務はWandasに残します。現在の移行段階では、xarrayがデータ、名前付き次元、選択された座標、フレーム単位の属性を担当し、Wandasが検証、チャンネルメタデータオブジェクト、操作履歴の意味づけ、操作の実行を担当します。
 

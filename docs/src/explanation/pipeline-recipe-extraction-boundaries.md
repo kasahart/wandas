@@ -90,7 +90,7 @@ HPSS の `kernel_size` / `margin` は public API が scalar と 2要素 sequence
 
 `loudness_zwtv()`、`roughness_dw()`、`sharpness_din()` は optional `mosqito` backend を使うが、Recipe は依存関係を横取りしない。抽出・再生は既存 `apply_operation` に委譲し、backend が無い場合のエラーも既存 optional dependency 契約に従う。
 
-この段階では、Wandas の既存 frame operation が持つ不変性、metadata/history、Dask laziness に依存する。
+この段階では、Wandas の既存 frame operation が持つ不変性、metadata propagation、lineage-derived history view、Dask laziness に依存する。
 
 ## Stage 2: Method-Aware Linear Steps / frame method aware な直列 step
 
@@ -136,7 +136,7 @@ MethodStep(method="rename_channels", kwargs={"mapping": {0: "left", 1: "right"}}
 
 `rename_channels()` の `to_dict()` 表現では JSON object key の文字列化で int key intent が失われないよう、`{"mapping_items": [[0, "left"], [1, "right"]]}` の pair list として保存する。
 
-この段階では metadata 変換ロジックを Recipe 側に複製しない。既存 frame method を呼ぶことで、frame immutability、metadata/history、Dask laziness は既存契約に従う。
+この段階では metadata 変換ロジックを Recipe 側に複製しない。既存 frame method を呼ぶことで、frame immutability、metadata propagation、lineage-derived history view、Dask laziness は既存契約に従う。
 
 `get_channel()` の callable / regex query と regex 値を含む dict query は、選択時点の index へ潰すと query intent が失われるため現在は抽出時に拒否する。literal dict query は `None`、`bool`、`int`、`float`、`str` だけを値に持つ場合に限って保存する。
 
@@ -265,7 +265,7 @@ AddChannelDataStep(base="base", data="raw", params={"align": "strict", "label": 
 BinaryOperandStep(operation="+", frame="signal", operand="offset")
 ```
 
-`ScalarOperationStep` は既存 frame operator を呼ぶだけで、二項演算の metadata/history/Dask laziness は frame 本体に委譲する。対応 operand は operation graph に値として保存された Python / NumPy real scalar に限定する。NaN は recipe equality が安定しないため拒否する。`2 - frame` のように scalar が左辺にある場合は `reverse=True` を保存し、`frame - 2` と取り違えない。
+`ScalarOperationStep` は既存 frame operator を呼ぶだけで、二項演算の metadata propagation、lineage-derived history view、Dask laziness は frame 本体に委譲する。対応 operand は operation graph に値として保存された Python / NumPy real scalar に限定する。NaN は recipe equality が安定しないため拒否する。`2 - frame` のように scalar が左辺にある場合は `reverse=True` を保存し、`frame - 2` と取り違えない。
 
 `GraphRecipeSpec` は名前付き入力ごとに linear `RecipeSpec` を適用し、`BinaryFrameStep` で既存 frame-frame 演算を呼び、その後に optional な linear `tail_recipe` を適用する。`from_frame(..., input_names=...)` は 1 回だけ merge する graph だけを対象にし、入力名は呼び出し側が与える。`input_names` を省略した場合は、Python 変数名、frame label、channel label、metadata から名前を推定せず、source leaf の順番に基づく `input_0` / `input_1` を使う。二項演算では `input_0` が左 operand、`input_1` が右 operand であり、`input_0 - input_1` のような非可換演算でも順序を保つ。tail は既存 `RecipeSpec` step で表現するため、merge 後の `normalize()`、`trim()`、`stft()` のような replayable operation / method / typed method は同じ仕組みで扱う。
 

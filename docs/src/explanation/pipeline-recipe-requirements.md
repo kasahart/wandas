@@ -2,7 +2,7 @@
 
 ## Purpose / 目的
 
-Wandas の信号処理チェーンを、Notebook やバッチ処理で再利用できる小さな「レシピ」として表現する。scikit-learn の `Pipeline` を正本にせず、Wandas の frame API、`operation_graph`、operation history を正本にすることで、既存のフレーム不変性、メタデータ伝播、Dask lazy execution を保つ。
+Wandas の信号処理チェーンを、Notebook やバッチ処理で再利用できる小さな「レシピ」として表現する。scikit-learn の `Pipeline` を正本にせず、Wandas の frame API と `operation_graph` を replay の正本にすることで、既存のフレーム不変性、メタデータ伝播、Dask lazy execution を保つ。operation history は確認用の互換 view として扱う。
 
 The long-term target is to make every calculation that can be expressed with a Wandas frame replayable as a Recipe. The current implementation is a staged subset: linear single-input recipes, selected method-aware and typed steps, explicit terminal steps, importable custom functions, and graph recipes for supported multi-input trees.
 
@@ -12,7 +12,7 @@ The long-term target is to make every calculation that can be expressed with a W
 
 - 実験 Notebook で作った前処理手順を、後で同じ順序・同じパラメータで再実行したい信号処理ユーザー。
 - Wandas の `Frame` 操作を使いながら、sklearn 風の `fit` / `transform` インターフェースで前処理を組みたい ML ユーザー。
-- operation history で「どの処理をいつ適用したか」を追跡し、分析ノートやレビューで説明したい開発者。
+- operation history view で「どの処理をいつ適用したか」を確認し、分析ノートやレビューで説明したい開発者。
 
 ## Functional Requirements / 機能要件
 
@@ -20,7 +20,7 @@ The long-term target is to make every calculation that can be expressed with a W
 | --- | --- | --- |
 | R1 | Replayable な単一 operation を表現できる | `OperationSpec(operation, params)` が operation registry key とパラメータを保持する |
 | R2 | 複数 operation を直列適用できる | `RecipeSpec.apply(frame)` が `frame.apply_operation(...)` を順に呼び、最後の frame を返す |
-| R3 | 元 frame を破壊しない | レシピ適用後も入力 frame の data、metadata、operation history は変わらない |
+| R3 | 元 frame を破壊しない | レシピ適用後も入力 frame の data、metadata、operation history view は変わらない |
 | R4 | Dask laziness を維持する | Dask-backed frame に適用しても `.compute()` を呼ばず、lazy graph を返す |
 | R5 | sklearn 互換 transformer を提供する | `fit(X, y=None) -> self`、`transform(X)`、`get_params()`、`set_params()`、`to_spec()` が動く |
 | R6 | 代表的な signal operation をクラス化する | `HighPassFilter`、`LowPassFilter`、`BandPassFilter`、`Normalize`、`RemoveDC` を提供する |
@@ -53,10 +53,10 @@ The long-term target is to make every calculation that can be expressed with a W
 
 - Executable requirement checks live in [Pipeline Recipe Requirements Check Notebook](../tutorial/pipeline-recipe-requirements-check.md).
   実行可能な要件確認は [Pipeline Recipe Requirements Check Notebook](../tutorial/pipeline-recipe-requirements-check.md) にあります。
-- Notebook 上で `RecipeSpec` と sklearn `Pipeline` の両方を実行し、同じ operation history を確認できる。
+- Notebook 上で `RecipeSpec` と sklearn `Pipeline` の両方を実行し、同じ operation history view を確認できる。
 - Notebook 上で探索的に処理した frame から `RecipeSpec.from_frame(...)` を抽出し、別 frame へ replay できる。
 - Notebook 上で `GraphRecipeSpec.from_frame(...)` または `NodeGraphRecipeSpec.from_frame(...)` を使い、対応済み graph recipe を replay できる。
 - Notebook 上で対応外操作が `RecipeExtractionError` になることを確認できる。
-- 既存の Wandas operation history に、レシピ適用順とパラメータが記録される。
+- 既存の Wandas operation history view で、レシピ適用順とパラメータを確認できる。
 - `uv run pytest tests/test_optional_dependencies.py tests/pipeline` が通る。
 - `uv run ruff check wandas tests --config=pyproject.toml -v` と `uv run ty check wandas tests` が通る。

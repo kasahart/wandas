@@ -738,8 +738,8 @@ class TestBaseFrameUtilityMethods:
             result = self.channel_frame.visualize_graph()
             assert result is None  # Should return None on exception
 
-    def test_previous_property_tracks_lineage(self) -> None:
-        """Test previous property tracks operation lineage."""
+    def test_previous_property_keeps_debug_reference(self) -> None:
+        """Test previous remains a debug reference to the prior frame."""
         assert self.channel_frame.previous is None
         result = self.channel_frame + 1
         assert result.previous is self.channel_frame
