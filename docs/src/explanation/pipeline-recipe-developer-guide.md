@@ -24,8 +24,10 @@ The important design constraints are:
 
 | Term | Meaning |
 | --- | --- |
+| `previous` | Stable compatibility/debug pointer to the immediate prior frame when available. It is useful for inspection, but it is not the source of truth for history or Recipe extraction. |
 | `lineage` | Runtime tree stored on a frame. It records the operation object and parent lineage nodes used to create the frame. |
-| `operation_history` | Backward-compatible linear list derived from `lineage`. Good for user inspection, but not enough for graph extraction because it loses parent structure. |
+| `operation_history` | Backward-compatible linear list derived from `lineage`. Good for user inspection, but not enough for graph extraction because it loses parent structure. It is not backed by `previous` or `_xr.attrs["operation_history"]`. |
+| `operation_summaries` | Display-oriented operation list derived from runtime `lineage`, or from an inspection-only snapshot after WDF load or `persist()`. |
 | `operation_graph` | JSON-like tree derived from `lineage`. Recipe extraction reads this structure because it preserves operation params, parent edges, source leaves, and selected custom metadata. |
 | `OperationSpec` | A replayable `frame.apply_operation(operation, **params)` call for registered single-input operations. |
 | `RecipeSpec` | A single-input ordered sequence of replayable steps. It can be extracted from one linear parent chain with `RecipeSpec.from_frame(frame)`. |
@@ -61,6 +63,10 @@ lineage
   -> operation_graph
        {"operation": "normalize", "inputs": [{"operation": "remove_dc", ...}], ...}
 ```
+
+`previous` is separate from this flow. It may point to the prior frame for debugging or compatibility, but changing or missing `previous` must not change `operation_history`, `operation_summaries`, `operation_graph`, or Recipe extraction.
+
+At WDF and `persist()` boundaries, `operation_summaries` may come from an inspection-only snapshot instead of live runtime lineage. That snapshot is for display continuity only; it does not rebuild `operation_history` or executable Recipe lineage.
 
 Recipe extraction reads `operation_graph`, not `operation_history`:
 
