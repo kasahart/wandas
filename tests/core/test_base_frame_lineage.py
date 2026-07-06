@@ -339,6 +339,26 @@ def test_persist_preserves_multi_input_operation_summaries_from_snapshot() -> No
     assert [summary["operation"] for summary in summaries] == ["normalize", "remove_dc", "+"]
 
 
+def test_operation_summaries_ignore_legacy_operation_history_attrs() -> None:
+    frame = _frame().normalize()
+    frame._xr.attrs["operation_history"] = [{"operation": "legacy", "params": {"gain": 2.0}}]
+
+    assert [summary["operation"] for summary in frame.operation_summaries] == ["normalize"]
+    assert [record["operation"] for record in frame.operation_history] == ["normalize"]
+
+
+def test_snapshot_operation_summaries_ignore_legacy_operation_history_attrs() -> None:
+    frame = ChannelFrame(
+        da_from_array(np.array([[1.0, 2.0, 3.0]]), chunks=(1, -1)),
+        sampling_rate=16000,
+        operation_summaries_snapshot=[{"operation": "loaded", "params": {"gain": 2.0}}],
+    )
+    frame._xr.attrs["operation_history"] = [{"operation": "legacy", "params": {"gain": 3.0}}]
+
+    assert frame.operation_summaries == [{"operation": "loaded", "params": {"gain": 2.0}}]
+    assert frame.operation_history == []
+
+
 def test_snapshot_backed_getitem_hides_temporary_get_channel_summary() -> None:
     frame = ChannelFrame(
         da_from_array(np.array([[1.0, 2.0], [3.0, 4.0]]), chunks=(1, -1)),
