@@ -90,7 +90,7 @@ pip install "wandas[marimo,io,effects,psychoacoustic]"
 ```python
 import wandas as wd
 
-signal = wd.read("recording.wav", start=0, end=10, normalize=True)
+signal = wd.read("recording.wav", start=0, end=10)
 signal.info()
 signal.describe(fmin=20, fmax=8_000)
 ```
@@ -101,7 +101,7 @@ signal.describe(fmin=20, fmax=8_000)
 clean = (
     signal
     .remove_dc()
-    .band_pass_filter(80, 8_000)
+    .band_pass_filter(80, min(8_000, 0.45 * signal.sampling_rate))
     .normalize()
 )
 

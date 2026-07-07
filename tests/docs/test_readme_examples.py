@@ -35,6 +35,9 @@ def readme_example_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     sf.write(recordings / "tone.wav", samples, sr)
 
     pytest.importorskip("h5py", reason="README WDF example requires the io extra")
+    pytest.importorskip("IPython.display", reason="README describe example requires the marimo extra")
+    pytest.importorskip("mosqito.sound_level_meter", reason="README N-octave example requires the psychoacoustic extra")
+    pytest.importorskip("mosqito.sq_metrics", reason="README psychoacoustic examples require the psychoacoustic extra")
     wd.from_numpy(samples, sampling_rate=sr, label="saved tone").save(tmp_path / "analysis.wdf")
 
     monkeypatch.chdir(tmp_path)
@@ -75,3 +78,14 @@ def test_readme_optional_dependency_examples_are_labeled() -> None:
     assert "SPL-style dB plots require pressure calibration." in english
     assert "オクターブバンド解析には psychoacoustic extra が必要です。" in japanese
     assert "SPL として dB 表示する場合は、先に音圧校正を設定します。" in japanese
+
+
+def test_readme_recording_workflow_keeps_spl_data_calibrated_and_filter_bounded() -> None:
+    """README recording examples should not invalidate later SPL or filter examples."""
+    english = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    japanese = (REPO_ROOT / "README.ja.md").read_text(encoding="utf-8")
+
+    assert "normalize=True" not in english
+    assert "normalize=True" not in japanese
+    assert ".band_pass_filter(80, min(8_000, 0.45 * signal.sampling_rate))" in english
+    assert ".band_pass_filter(80, min(8_000, 0.45 * signal.sampling_rate))" in japanese
