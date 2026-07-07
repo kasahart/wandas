@@ -21,6 +21,17 @@ def _github_main_paths(markdown: str) -> Iterator[str]:
     yield from re.findall(pattern, markdown)
 
 
+def _require_readme_example_extras() -> None:
+    required_modules = {
+        "h5py": "README WDF example requires the io extra",
+        "IPython.display": "README describe example requires the marimo extra",
+        "mosqito.sound_level_meter": "README N-octave example requires the psychoacoustic extra",
+        "mosqito.sq_metrics": "README psychoacoustic examples require the psychoacoustic extra",
+    }
+    for module_name, reason in required_modules.items():
+        pytest.importorskip(module_name, reason=reason)
+
+
 @pytest.fixture()
 def readme_example_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     sr = 48_000
@@ -34,10 +45,7 @@ def readme_example_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     recordings.mkdir()
     sf.write(recordings / "tone.wav", samples, sr)
 
-    pytest.importorskip("h5py", reason="README WDF example requires the io extra")
-    pytest.importorskip("IPython.display", reason="README describe example requires the marimo extra")
-    pytest.importorskip("mosqito.sound_level_meter", reason="README N-octave example requires the psychoacoustic extra")
-    pytest.importorskip("mosqito.sq_metrics", reason="README psychoacoustic examples require the psychoacoustic extra")
+    _require_readme_example_extras()
     wd.from_numpy(samples, sampling_rate=sr, label="saved tone").save(tmp_path / "analysis.wdf")
 
     monkeypatch.chdir(tmp_path)
