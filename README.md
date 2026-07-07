@@ -117,6 +117,7 @@ spectrum.plot()
 spectrogram = clean.stft(n_fft=2048, hop_length=512)
 spectrogram.plot()
 
+# N-octave spectra require the psychoacoustic extra.
 third_octave = clean.noct_spectrum(n=3)
 third_octave.plot()
 ```
@@ -124,9 +125,13 @@ third_octave.plot()
 ### Compare channels and acoustic metrics
 
 ```python
-# Time-weighted sound level
+# SPL-style dB plots require pressure calibration.
+for channel in signal.channels:
+    channel.unit = "Pa"
+    channel.ref = 20e-6
+
 level = signal.sound_level(freq_weighting="A", time_weighting="Fast", dB=True)
-level.plot(ylabel="LA Fast [dB]")
+level.plot(ylabel="LA Fast [dB re 20 uPa]")
 
 # Psychoacoustic metrics require the psychoacoustic extra.
 loudness = signal.loudness_zwtv(field_type="free")

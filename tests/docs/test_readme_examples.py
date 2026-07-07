@@ -64,3 +64,14 @@ def test_readme_github_repository_links_target_existing_paths() -> None:
                 missing.append(f"{path.name}: {target}")
 
     assert missing == []
+
+
+def test_readme_optional_dependency_examples_are_labeled() -> None:
+    """README examples should name extras needed beyond the recommended install."""
+    english = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    japanese = (REPO_ROOT / "README.ja.md").read_text(encoding="utf-8")
+
+    assert "N-octave spectra require the psychoacoustic extra." in english
+    assert "SPL-style dB plots require pressure calibration." in english
+    assert "オクターブバンド解析には psychoacoustic extra が必要です。" in japanese
+    assert "SPL として dB 表示する場合は、先に音圧校正を設定します。" in japanese

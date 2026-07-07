@@ -117,6 +117,7 @@ spectrum.plot()
 spectrogram = clean.stft(n_fft=2048, hop_length=512)
 spectrogram.plot()
 
+# オクターブバンド解析には psychoacoustic extra が必要です。
 third_octave = clean.noct_spectrum(n=3)
 third_octave.plot()
 ```
@@ -124,9 +125,13 @@ third_octave.plot()
 ### チャンネル比較や音響指標を見る
 
 ```python
-# 時間重み付き騒音レベル
+# SPL として dB 表示する場合は、先に音圧校正を設定します。
+for channel in signal.channels:
+    channel.unit = "Pa"
+    channel.ref = 20e-6
+
 level = signal.sound_level(freq_weighting="A", time_weighting="Fast", dB=True)
-level.plot(ylabel="LA Fast [dB]")
+level.plot(ylabel="LA Fast [dB re 20 uPa]")
 
 # 心理音響指標には psychoacoustic extra が必要です。
 loudness = signal.loudness_zwtv(field_type="free")
