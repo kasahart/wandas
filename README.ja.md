@@ -118,7 +118,7 @@ spectrogram = clean.stft(n_fft=2048, hop_length=512)
 spectrogram.plot()
 
 # オクターブバンド解析には psychoacoustic extra が必要です。
-third_octave = clean.noct_spectrum(n=3)
+third_octave = clean.noct_spectrum(n=3)  # wandas[psychoacoustic] が必要
 third_octave.plot()
 ```
 

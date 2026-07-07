@@ -118,7 +118,7 @@ spectrogram = clean.stft(n_fft=2048, hop_length=512)
 spectrogram.plot()
 
 # N-octave spectra require the psychoacoustic extra.
-third_octave = clean.noct_spectrum(n=3)
+third_octave = clean.noct_spectrum(n=3)  # requires wandas[psychoacoustic]
 third_octave.plot()
 ```
 
