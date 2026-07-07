@@ -364,12 +364,11 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """
         logger.debug("Computing absolute value (magnitude) of spectrogram")
 
-        magnitude_data = da.absolute(self._data)
-
         new_metadata = self._updated_metadata("abs", {})
         from wandas.processing import create_operation
 
         operation = create_operation("abs", self.sampling_rate)
+        magnitude_data = operation.process(self._data)
 
         logger.debug("Created new SpectrogramFrame with abs operation added to graph")
 

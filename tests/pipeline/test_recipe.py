@@ -977,6 +977,16 @@ def test_node_graph_recipe_from_frame_uses_default_input_names() -> None:
     assert replayed.operation_history == processed.operation_history
 
 
+def test_node_graph_recipe_from_frame_rejects_duplicate_input_names() -> None:
+    base = _frame()
+    left_source = ChannelFrame.from_numpy(base.data, sampling_rate=base.sampling_rate, label="left")
+    right_source = ChannelFrame.from_numpy(base.data * 0.25, sampling_rate=base.sampling_rate, label="right")
+    processed = left_source + right_source
+
+    with pytest.raises(RecipeExtractionError, match="requires distinct input names"):
+        NodeGraphRecipeSpec.from_frame(processed, input_names=("same", "same"))
+
+
 def test_node_graph_recipe_rejects_input_output_when_nodes_exist() -> None:
     with pytest.raises(ValueError, match="output must reference a graph node"):
         NodeGraphRecipeSpec(
@@ -1169,28 +1179,28 @@ def test_node_graph_recipe_from_frame_extracts_typed_tail_after_merge() -> None:
     assert replayed.operation_history == processed.operation_history
 
 
-def test_node_graph_recipe_from_frame_replays_duplicated_shared_branch_with_same_input_name() -> None:
+def test_node_graph_recipe_from_frame_replays_duplicated_shared_branch_with_same_source() -> None:
     base = _frame()
     shared = base.normalize()
     signal = shared.low_pass_filter(cutoff=3000.0)
     noise = shared.high_pass_filter(cutoff=300.0)
     processed = signal.add(noise, snr=3.0)
 
-    recipe = NodeGraphRecipeSpec.from_frame(processed, input_names=("base", "base"))
-    replayed = recipe.apply({"base": base})
+    recipe = NodeGraphRecipeSpec.from_frame(processed, input_names=("base_signal", "base_noise"))
+    replayed = recipe.apply({"base_signal": base, "base_noise": base})
 
-    assert recipe.inputs == ("base",)
+    assert recipe.inputs == ("base_signal", "base_noise")
     assert recipe.nodes == (
         GraphNodeSpec(
             "n0",
             OperationSpec("normalize", {"axis": -1, "fill": None, "norm": float("inf"), "threshold": None}),
-            ("base",),
+            ("base_signal",),
         ),
         GraphNodeSpec("n1", OperationSpec("lowpass_filter", {"cutoff": 3000.0, "order": 4}), ("n0",)),
         GraphNodeSpec(
             "n2",
             OperationSpec("normalize", {"axis": -1, "fill": None, "norm": float("inf"), "threshold": None}),
-            ("base",),
+            ("base_noise",),
         ),
         GraphNodeSpec("n3", OperationSpec("highpass_filter", {"cutoff": 300.0, "order": 4}), ("n2",)),
         GraphNodeSpec("n4", BinaryFrameStep("add_with_snr", "n1", "n3", {"snr": 3.0}), ("n1", "n3")),

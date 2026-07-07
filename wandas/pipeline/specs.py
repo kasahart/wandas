@@ -272,6 +272,10 @@ class NodeGraphRecipeSpec:
         graph = frame.operation_graph
         if graph is None:
             raise RecipeExtractionError("NodeGraphRecipeSpec extraction requires operation_graph lineage")
+        if input_names is not None and len(set(input_names)) != len(input_names):
+            raise RecipeExtractionError(
+                f"NodeGraphRecipeSpec extraction requires distinct input names\n  Input names: {list(input_names)}"
+            )
 
         nodes: list[GraphNodeSpec] = []
         source_names: list[str] = []

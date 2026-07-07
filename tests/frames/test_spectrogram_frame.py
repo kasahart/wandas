@@ -140,6 +140,11 @@ class TestSpectrogramFrame:
         assert len(freqs) == spec.n_freq_bins  # FFTサイズの半分 + 1
         assert len(times) == 5
 
+    def test_abs_marks_operation_in_dask_graph(self, sample_spectrogram: SpectrogramFrame) -> None:
+        result = sample_spectrogram.abs()
+
+        assert [operation.name for operation in result.operations] == ["abs"]
+
     def test_source_times_add_source_time_offset(self, sample_spectrogram: SpectrogramFrame) -> None:
         """source_times returns spectrogram frame times on the source timeline."""
         spec = sample_spectrogram._create_new_instance(
