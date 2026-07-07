@@ -1,15 +1,20 @@
 import re
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any, cast
 
 import numpy as np
 import pytest
 import soundfile as sf
-
-import wandas as wd
+from matplotlib import image as mpimg
+from matplotlib import pyplot as plt
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 README_PATHS = (REPO_ROOT / "README.md", REPO_ROOT / "README.ja.md")
+README_SIGNAL_FIGURES = (
+    REPO_ROOT / "images" / "readme_known_signal_waveform.png",
+    REPO_ROOT / "images" / "readme_known_signal_spectrum.png",
+)
 
 
 def _python_blocks(markdown: str) -> list[str]:
@@ -21,15 +26,12 @@ def _github_main_paths(markdown: str) -> Iterator[str]:
     yield from re.findall(pattern, markdown)
 
 
-def _require_readme_example_extras() -> None:
-    required_modules = {
-        "h5py": "README WDF example requires the io extra",
-        "IPython.display": "README describe example requires the marimo extra",
-        "mosqito.sound_level_meter": "README N-octave example requires the psychoacoustic extra",
-        "mosqito.sq_metrics": "README psychoacoustic examples require the psychoacoustic extra",
-    }
-    for module_name, reason in required_modules.items():
-        pytest.importorskip(module_name, reason=reason)
+def _execute_known_signal_example(path: Path) -> dict[str, object]:
+    plt.close("all")
+    namespace: dict[str, object] = {"__name__": f"known_signal_{path.stem}"}
+    block = _python_blocks(path.read_text(encoding="utf-8"))[0]
+    exec(compile(block, f"{path.name}:known-signal-block", "exec"), namespace)
+    return namespace
 
 
 @pytest.fixture()
@@ -39,14 +41,7 @@ def readme_example_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     samples = (0.05 * np.sin(2 * np.pi * 440 * t)).astype(np.float32)
 
     sf.write(tmp_path / "recording.wav", samples, sr)
-    sf.write(tmp_path / "audio.wav", samples, sr)
-
-    recordings = tmp_path / "recordings"
-    recordings.mkdir()
-    sf.write(recordings / "tone.wav", samples, sr)
-
-    _require_readme_example_extras()
-    wd.from_numpy(samples, sampling_rate=sr, label="saved tone").save(tmp_path / "analysis.wdf")
+    (tmp_path / "images").mkdir()
 
     monkeypatch.chdir(tmp_path)
     return tmp_path
@@ -62,6 +57,7 @@ def test_readme_python_code_blocks_execute(readme_example_workspace: Path) -> No
         for index, block in enumerate(_python_blocks(path.read_text(encoding="utf-8")), start=1):
             try:
                 exec(compile(block, f"{path.name}:python-block-{index}", "exec"), namespace)
+                plt.close("all")
             except Exception as exc:
                 raise AssertionError(f"{path.name} Python block {index} failed: {exc}") from exc
 
@@ -78,32 +74,92 @@ def test_readme_github_repository_links_target_existing_paths() -> None:
 
 
 def test_readme_optional_dependency_examples_are_labeled() -> None:
-    """README examples should name extras needed beyond the recommended install."""
+    """README should label optional features without making them the main path."""
     english = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     japanese = (REPO_ROOT / "README.ja.md").read_text(encoding="utf-8")
 
-    assert "N-octave spectra require the psychoacoustic extra." in english
-    assert "SPL-style dB plots require calibrated pressure data." in english
-    assert "オクターブバンド解析には psychoacoustic extra が必要です。" in japanese
-    assert "SPL として dB 表示する場合は、校正済みの音圧データを使います。" in japanese
+    assert "`wandas[io]`" in english
+    assert "`wandas[psychoacoustic]`" in english
+    assert "`wandas[io]`" in japanese
+    assert "`wandas[psychoacoustic]`" in japanese
+    assert "loudness = " not in english
+    assert "roughness = " not in english
+    assert "loudness = " not in japanese
+    assert "roughness = " not in japanese
 
 
-def test_readme_recording_workflow_keeps_spl_data_calibrated_and_filter_bounded() -> None:
-    """README recording examples should not invalidate later SPL or filter examples."""
+def test_readme_real_data_path_stays_compact() -> None:
+    """README real-data path should be a short next step, not the main proof."""
     english = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     japanese = (REPO_ROOT / "README.ja.md").read_text(encoding="utf-8")
 
     assert "normalize=True" not in english
     assert "normalize=True" not in japanese
-    assert ".band_pass_filter(80, min(8_000, 0.45 * signal.sampling_rate))" in english
-    assert ".band_pass_filter(80, min(8_000, 0.45 * signal.sampling_rate))" in japanese
-    assert "fmax=min(20_000, 0.4 * clean.sampling_rate)" in english
-    assert "fmax=min(20_000, 0.4 * clean.sampling_rate)" in japanese
-    assert "calibration_gain = 1.0  # Pa per sample; replace with your microphone calibration" in english
-    assert "calibration_gain = 1.0  # Pa/sample。実際のマイク校正値に置き換えます" in japanese
-    assert "pressure = signal * calibration_gain" in english
-    assert "pressure = signal * calibration_gain" in japanese
-    assert "level = pressure.sound_level" in english
-    assert "level = pressure.sound_level" in japanese
-    assert "loudness = pressure.loudness_zwtv" in english
-    assert "loudness = pressure.loudness_zwtv" in japanese
+    assert 'recording = wd.read("recording.wav", start=0, end=10)' in english
+    assert 'recording = wd.read("recording.wav", start=0, end=10)' in japanese
+    assert english.count("```python") <= 3
+    assert japanese.count("```python") <= 3
+
+
+def test_readme_leads_with_verified_synthetic_signal_and_figure() -> None:
+    """README should lead with a known signal and Wandas-produced figures."""
+    english = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    japanese = (REPO_ROOT / "README.ja.md").read_text(encoding="utf-8")
+
+    assert "Known-signal check" in english
+    assert "既知信号で確認する" in japanese
+    assert "images/readme_known_signal_waveform.png" in english
+    assert "images/readme_known_signal_spectrum.png" in english
+    assert "images/readme_known_signal_waveform.png" in japanese
+    assert "images/readme_known_signal_spectrum.png" in japanese
+    assert "The figures below are Wandas output from the same frame." in english
+    assert "下の図は同じ frame から Wandas が出力したものです。" in japanese
+    assert "the DC offset disappears after `remove_dc()`" in english
+    assert "DC オフセットが消えていることが分かります" in japanese
+    assert "750 Hz and 1500 Hz for the first channel" in english
+    assert "1 つ目のチャンネルの 750 Hz / 1500 Hz" in japanese
+    for figure in README_SIGNAL_FIGURES:
+        assert figure.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+
+
+def test_known_signal_readme_result_matches_executed_example() -> None:
+    """The known-signal narrative should be backed by the README code itself."""
+    namespace = _execute_known_signal_example(REPO_ROOT / "README.md")
+    clean = cast(Any, namespace["clean"])
+    spectrum = cast(Any, namespace["spectrum"])
+
+    clean_data = np.asarray(clean.to_numpy(), dtype=np.float64)
+    means = clean_data.mean(axis=1)
+    amplitudes = np.asarray(spectrum.to_numpy())
+    freqs = spectrum.freqs
+    peak_freqs = freqs[np.argmax(amplitudes, axis=1)]
+
+    def bin_at(freq: float) -> int:
+        return int(np.argmin(np.abs(freqs - freq)))
+
+    assert np.max(np.abs(means)) < 1e-6
+    np.testing.assert_allclose(peak_freqs, [750.0, 1500.0])
+    np.testing.assert_allclose(amplitudes[0, bin_at(750)], 0.20)
+    np.testing.assert_allclose(amplitudes[0, bin_at(1500)], 0.05)
+    np.testing.assert_allclose(amplitudes[1, bin_at(1500)], 0.10)
+    np.testing.assert_allclose(amplitudes[1, bin_at(3000)], 0.02)
+    plt.close("all")
+
+
+def test_known_signal_figures_match_executed_readme_plots(tmp_path: Path) -> None:
+    """Committed README figures should stay in sync with Wandas plot output."""
+    _execute_known_signal_example(REPO_ROOT / "README.md")
+
+    figures = [plt.figure(number) for number in plt.get_fignums()]
+    assert len(figures) == len(README_SIGNAL_FIGURES)
+
+    for figure, expected_path in zip(figures, README_SIGNAL_FIGURES, strict=True):
+        actual_path = tmp_path / expected_path.name
+        figure.savefig(actual_path, bbox_inches="tight", dpi=140)
+
+        actual = mpimg.imread(actual_path)
+        expected = mpimg.imread(expected_path)
+        assert actual.shape == expected.shape
+        np.testing.assert_allclose(actual, expected, atol=1 / 255)
+
+    plt.close("all")

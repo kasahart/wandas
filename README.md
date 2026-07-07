@@ -15,7 +15,11 @@
 
 Wandas gives waveform and time-series data a pandas-like home: a `ChannelFrame` keeps the samples, sampling rate, channel labels, units, metadata, and operation history together while you inspect, clean, transform, and plot signals.
 
-Instead of juggling `array`, `sampling_rate`, `channels`, and a notebook full of helper variables, you can write a single readable analysis chain.
+Instead of juggling `array`, `sampling_rate`, `channels`, and a notebook full of helper variables, you can create one frame, keep the context attached, and check whether the result matches the signal you meant to analyze.
+
+## Known-signal check
+
+Start with a signal whose answer is already known: one channel contains 750 Hz and 1500 Hz tones with a DC offset, and the other contains 1500 Hz and 3000 Hz tones with a different DC offset. After `remove_dc()`, the waveform should be centered, and the spectrum should show the generated tones.
 
 ```python
 import numpy as np
@@ -23,28 +27,40 @@ import wandas as wd
 
 sr = 48_000
 t = np.arange(sr) / sr
+labels = ["750 Hz + 1500 Hz", "1500 Hz + 3000 Hz"]
+
+
+def tone(components, *, offset=0.0):
+    return offset + sum(amplitude * np.sin(2 * np.pi * freq * t) for freq, amplitude in components)
+
+
 samples = np.vstack([
-    np.sin(2 * np.pi * 440 * t),
-    0.5 * np.sin(2 * np.pi * 880 * t),
-]).astype(np.float32)
+    tone([(750, 0.20), (1500, 0.05)], offset=0.25),
+    tone([(1500, 0.10), (3000, 0.02)], offset=-0.10),
+]).astype(np.float64)
 
 signal = wd.from_numpy(
     samples,
     sampling_rate=sr,
-    label="demo tone",
-    ch_labels=["440 Hz", "880 Hz"],
+    label="known signal",
+    ch_labels=labels,
+    ch_units="Pa",
 )
 
-clean = signal.remove_dc().normalize()
-clean.describe()
-
+clean = signal.remove_dc()
 spectrum = clean.welch(n_fft=4096)
-spectrogram = clean.stft(n_fft=1024)
+
+clean.plot(overlay=True, xlim=(0, 0.02), title="Known signal after remove_dc()", label=labels)
+spectrum.plot(overlay=True, xlim=(0, 4_000), title="Welch spectrum of the known signal", label=labels)
 ```
 
-`describe()` gives you a quick visual summary of the waveform, spectrum, and spectrogram.
+The figures below are Wandas output from the same frame. The waveform view shows that the DC offset disappears after `remove_dc()`.
 
-![Wandas describe output](https://github.com/kasahart/wandas/blob/main/images/read_wav_describe.png?raw=true)
+![Wandas waveform plot after removing DC offset from the generated signal](images/readme_known_signal_waveform.png)
+
+The spectrum view then shows the tone components we put in: 750 Hz and 1500 Hz for the first channel, 1500 Hz and 3000 Hz for the second channel.
+
+![Wandas Welch spectrum plot for the generated signal](images/readme_known_signal_spectrum.png)
 
 ## Why try Wandas?
 
@@ -83,79 +99,26 @@ pip install "wandas[ml]"              # Torch/TensorFlow tensor helpers
 pip install "wandas[marimo,io,effects,psychoacoustic]"
 ```
 
-## Start with your own data
+## Use Your Own Data
 
-### Read and inspect a recording
+Once the known-signal check makes sense, replace the generated array with a recording. The same frame-first workflow still applies.
 
 ```python
 import wandas as wd
 
-signal = wd.read("recording.wav", start=0, end=10)
-signal.info()
-signal.describe(fmin=20, fmax=8_000)
+recording = wd.read("recording.wav", start=0, end=10)
+recording.describe(fmin=20, fmax=8_000, image_save="recording_overview.png")
 ```
 
-### Clean it before analysis
-
-```python
-clean = (
-    signal
-    .remove_dc()
-    .band_pass_filter(80, min(8_000, 0.45 * signal.sampling_rate))
-    .normalize()
-)
-
-clean.rms_plot(Aw=True)
-```
-
-### Look at the frequency content
-
-```python
-spectrum = clean.welch(n_fft=2048)
-spectrum.plot()
-
-spectrogram = clean.stft(n_fft=2048, hop_length=512)
-spectrogram.plot()
-
-# N-octave spectra require the psychoacoustic extra.
-third_octave = clean.noct_spectrum(
-    n=3,
-    fmax=min(20_000, 0.4 * clean.sampling_rate),
-)  # requires wandas[psychoacoustic]
-third_octave.plot()
-```
-
-### Compare channels and acoustic metrics
-
-```python
-# SPL-style dB plots require calibrated pressure data.
-calibration_gain = 1.0  # Pa per sample; replace with your microphone calibration
-pressure = signal * calibration_gain
-for channel in pressure.channels:
-    channel.unit = "Pa"
-    channel.ref = 20e-6
-
-level = pressure.sound_level(freq_weighting="A", time_weighting="Fast", dB=True)
-level.plot(ylabel="LA Fast [dB re 20 uPa]")
-
-# Psychoacoustic metrics require the psychoacoustic extra.
-loudness = pressure.loudness_zwtv(field_type="free")
-roughness = pressure.roughness_dw(overlap=0.5)
-```
+For SPL, loudness, roughness, or octave-band work, use calibrated pressure data. Those examples need the `wandas[psychoacoustic]` extra. WDF save/load support lives in `wandas[io]`.
 
 ## Small top-level API
 
-```python
-import numpy as np
-import wandas as wd
-
-signal = wd.read("audio.wav")          # WAV, CSV, supported audio, URL, bytes, file-like
-saved = wd.load("analysis.wdf")        # Wandas native WDF; requires wandas[io]
-data = np.zeros((2, 48_000), dtype=np.float32)
-array_signal = wd.from_numpy(data, sampling_rate=48_000)
-dataset = wd.from_folder("recordings/", recursive=True)
-formats = wd.supported_formats()
-```
+- `wd.read("audio.wav")`: WAV, CSV, supported audio, URL, bytes, and file-like input.
+- `wd.from_numpy(data, sampling_rate=48_000)`: create a frame from an array.
+- `wd.from_folder("recordings/", recursive=True)`: build a folder-backed dataset.
+- `wd.load("analysis.wdf")`: load Wandas native WDF files with `wandas[io]`.
+- `wd.supported_formats()`: inspect registered reader formats.
 
 `read_wav()`, `read_csv()`, and `from_ndarray()` remain available for existing code, but new examples use `read()` and `from_numpy()`.
 
