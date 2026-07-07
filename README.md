@@ -11,43 +11,67 @@
 [![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/kasahart/wandas/blob/main/LICENSE)
 [![Python Version](https://img.shields.io/pypi/pyversions/wandas)](https://pypi.org/project/wandas/)
 
-Data structures for waveform analysis.
+**Signal analysis that feels like working with data frames.**
 
-Wandas brings pandas-like workflows to time-domain, spectral, and spectrogram analysis.
+Wandas gives waveform and time-series data a pandas-like home: a `ChannelFrame` keeps the samples, sampling rate, channel labels, units, metadata, and operation history together while you inspect, clean, transform, and plot signals.
 
-## Overview
+Instead of juggling `array`, `sampling_rate`, `channels`, and a notebook full of helper variables, you can write a single readable analysis chain.
 
-Wandas is an open-source Python library for signal and waveform analysis with chainable, frame-based APIs.
+```python
+import numpy as np
+import wandas as wd
 
-It helps you move from raw data to inspection, filtering, spectral analysis, and plotting without losing context such as sampling rate, channel labels, and metadata.
+sr = 48_000
+t = np.arange(sr) / sr
+samples = np.vstack([
+    np.sin(2 * np.pi * 440 * t),
+    0.5 * np.sin(2 * np.pi * 880 * t),
+]).astype(np.float32)
 
-## Why Wandas
+signal = wd.from_numpy(
+    samples,
+    sampling_rate=sr,
+    label="demo tone",
+    ch_labels=["440 Hz", "880 Hz"],
+)
 
-- Work with waveform data using familiar, pandas-like objects instead of ad hoc NumPy arrays.
-- Keep metadata, channel information, and operation history attached as analysis grows.
-- Move smoothly between time-domain, spectral, and spectrogram views with a consistent API.
-- Use built-in plotting and summary helpers to inspect signals quickly.
-- Scale to larger data with Dask-backed lazy execution where available.
+clean = signal.remove_dc().normalize()
+clean.describe()
 
-## Quick Start
+spectrum = clean.welch(n_fft=4096)
+spectrogram = clean.stft(n_fft=1024)
+```
 
-Install from PyPI with the recommended marimo extra:
+`describe()` gives you a quick visual summary of the waveform, spectrum, and spectrogram.
+
+![Wandas describe output](https://github.com/kasahart/wandas/blob/main/images/read_wav_describe.png?raw=true)
+
+## Why try Wandas?
+
+- **Frame-first signal analysis**: use objects that know their sampling rate, duration, channels, labels, units, and metadata.
+- **A smooth path from raw data to insight**: read, trim, filter, normalize, resample, summarize, transform, and plot with consistent methods.
+- **Time, frequency, and time-frequency views**: move from `ChannelFrame` to `SpectralFrame`, `SpectrogramFrame`, or `NOctFrame` without rebuilding context by hand.
+- **Practical acoustics included**: RMS trends, sound level, A-weighting, octave-band spectra, loudness, and roughness are available when you need them.
+- **Works with real workflows**: read WAV/FLAC/OGG/AIFF/SND/CSV, URLs, bytes, file-like objects, NumPy arrays, folders of recordings, and Wandas WDF files.
+- **Built for interactive exploration**: `describe()`, Matplotlib-friendly plotting, and marimo learning apps make quick inspection easy.
+
+## Install
+
+For the best first experience, install the interactive display and learning-app extra:
 
 ```bash
 pip install "wandas[marimo]"
 ```
 
-For a minimal core-only install:
+For a small core install:
 
 ```bash
 pip install wandas
 ```
 
-### Installation Options
+Core install includes waveform frames, CSV/WAV reading, processing, plotting, and `describe()` figure/export workflows when you use options such as `is_close=False` or `image_save`. The default interactive `frame.describe()` display path uses the `marimo` extra.
 
-The core-only install keeps waveform, CSV/WAV, processing, plotting, and `describe()` figure/export workflows available when you use non-display options such as `is_close=False` or `image_save`. The default interactive `frame.describe()` display path requires `wandas[marimo]`.
-
-Install optional extras when you need additional file formats or heavier analysis features:
+Optional extras can be mixed as needed:
 
 ```bash
 pip install "wandas[io]"              # WDF save/load support
@@ -55,66 +79,110 @@ pip install "wandas[effects]"         # librosa-backed audio effects
 pip install "wandas[marimo]"          # marimo learning apps and interactive display support
 pip install "wandas[psychoacoustic]"  # loudness, roughness, octave-band helpers
 pip install "wandas[ml]"              # Torch/TensorFlow tensor helpers
-```
 
-Combine extras as needed:
-
-```bash
 pip install "wandas[marimo,io,effects,psychoacoustic]"
 ```
 
-Then read a signal file and inspect it in one short path:
+## Start with your own data
+
+### Read and inspect a recording
 
 ```python
 import wandas as wd
 
-# Read a signal file and inspect it.
-signal = wd.read("audio.wav")
-signal.describe()
+signal = wd.read("recording.wav", start=0, end=10, normalize=True)
+signal.info()
+signal.describe(fmin=20, fmax=8_000)
 ```
 
-`describe()` gives you a quick visual summary of the waveform, spectrum, and spectrogram.
+### Clean it before analysis
 
-![cf.describe](https://github.com/kasahart/wandas/blob/main/images/read_wav_describe.png?raw=true)
+```python
+clean = (
+    signal
+    .remove_dc()
+    .band_pass_filter(80, 8_000)
+    .normalize()
+)
 
-## Public API
+clean.rms_plot(Aw=True)
+```
 
-For most workflows, start with the small top-level API:
+### Look at the frequency content
+
+```python
+spectrum = clean.welch(n_fft=2048)
+spectrum.plot()
+
+spectrogram = clean.stft(n_fft=2048, hop_length=512)
+spectrogram.plot()
+
+third_octave = clean.noct_spectrum(n=3)
+third_octave.plot()
+```
+
+### Compare channels and acoustic metrics
+
+```python
+# Time-weighted sound level
+level = signal.sound_level(freq_weighting="A", time_weighting="Fast", dB=True)
+level.plot(ylabel="LA Fast [dB]")
+
+# Psychoacoustic metrics require the psychoacoustic extra.
+loudness = signal.loudness_zwtv(field_type="free")
+roughness = signal.roughness_dw(overlap=0.5)
+```
+
+## Small top-level API
 
 ```python
 import numpy as np
 import wandas as wd
 
-signal = wd.read("audio.wav")      # WAV, CSV, supported audio, URL, bytes, file-like
-saved = wd.load("analysis.wdf")    # Wandas native WDF
-data = np.zeros((1, 48000), dtype=np.float32)
-array_signal = wd.from_numpy(data, sampling_rate=48000)
-dataset = wd.from_folder("recordings/")
+signal = wd.read("audio.wav")          # WAV, CSV, supported audio, URL, bytes, file-like
+saved = wd.load("analysis.wdf")        # Wandas native WDF
+data = np.zeros((2, 48_000), dtype=np.float32)
+array_signal = wd.from_numpy(data, sampling_rate=48_000)
+dataset = wd.from_folder("recordings/", recursive=True)
+formats = wd.supported_formats()
 ```
 
 `read_wav()`, `read_csv()`, and `from_ndarray()` remain available for existing code, but new examples use `read()` and `from_numpy()`.
 
-## What You Can Do
+## Core objects
 
-- Read waveform and sensor data from registered reader formats: WAV, FLAC, OGG, AIFF/AIF, SND, and CSV. WDF is available through the separate save/load API.
-- Filter, resample, normalize, and summarize signals with method chaining.
-- Run FFT, STFT, Welch, coherence, transfer-function, and octave-style analyses.
-- Compute psychoacoustic metrics such as loudness and roughness.
-- Plot waveforms, spectra, and spectrograms directly with Matplotlib-friendly APIs.
+- `ChannelFrame`: time-domain waveform or sensor data with channels.
+- `SpectralFrame`: FFT, Welch, coherence, CSD, and transfer-function results.
+- `SpectrogramFrame`: STFT and time-frequency data.
+- `NOctFrame`: octave and fractional-octave spectra.
+- `ChannelFrameDataset`: a folder-backed collection of channel frames for batch workflows.
 
-## Learn More
+## Good fits
+
+Wandas is especially useful when you want to:
+
+- prototype signal-processing pipelines in notebooks or marimo apps;
+- keep channel metadata attached while trying filters and transforms;
+- inspect acoustic recordings quickly before deeper analysis;
+- compare many WAV/CSV files with the same API;
+- build readable examples for signal-processing education.
+
+## Learn more
 
 - [Documentation](https://kasahart.github.io/wandas/) - Guides, API reference, and examples.
 - [Learning Path](https://github.com/kasahart/wandas/tree/main/learning-path/) - marimo app-based walkthroughs.
 - [Examples](https://github.com/kasahart/wandas/tree/main/examples/) - Small runnable scripts and sample data.
+- [Issue Tracker](https://github.com/kasahart/wandas/issues) - Report bugs or propose ideas.
+
+## Project status
+
+Wandas is actively evolving. The package currently targets Python 3.10+ and is published under the MIT License. If you use it in a production workflow, pin the version and check release notes when upgrading.
 
 ## Contributing
 
 Contributions are welcome.
 
 For setup, quality checks, documentation rules, and pull request workflow, see [docs/src/contributing.md](https://kasahart.github.io/wandas/contributing/).
-
-If you want to report a bug or propose an idea, please use the [Issue Tracker](https://github.com/kasahart/wandas/issues).
 
 ## License
 
