@@ -118,24 +118,29 @@ spectrogram = clean.stft(n_fft=2048, hop_length=512)
 spectrogram.plot()
 
 # N-octave spectra require the psychoacoustic extra.
-third_octave = clean.noct_spectrum(n=3)  # requires wandas[psychoacoustic]
+third_octave = clean.noct_spectrum(
+    n=3,
+    fmax=min(20_000, 0.4 * clean.sampling_rate),
+)  # requires wandas[psychoacoustic]
 third_octave.plot()
 ```
 
 ### Compare channels and acoustic metrics
 
 ```python
-# SPL-style dB plots require pressure calibration.
-for channel in signal.channels:
+# SPL-style dB plots require calibrated pressure data.
+calibration_gain = 1.0  # Pa per sample; replace with your microphone calibration
+pressure = signal * calibration_gain
+for channel in pressure.channels:
     channel.unit = "Pa"
     channel.ref = 20e-6
 
-level = signal.sound_level(freq_weighting="A", time_weighting="Fast", dB=True)
+level = pressure.sound_level(freq_weighting="A", time_weighting="Fast", dB=True)
 level.plot(ylabel="LA Fast [dB re 20 uPa]")
 
 # Psychoacoustic metrics require the psychoacoustic extra.
-loudness = signal.loudness_zwtv(field_type="free")
-roughness = signal.roughness_dw(overlap=0.5)
+loudness = pressure.loudness_zwtv(field_type="free")
+roughness = pressure.roughness_dw(overlap=0.5)
 ```
 
 ## Small top-level API

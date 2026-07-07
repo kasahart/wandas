@@ -118,24 +118,29 @@ spectrogram = clean.stft(n_fft=2048, hop_length=512)
 spectrogram.plot()
 
 # オクターブバンド解析には psychoacoustic extra が必要です。
-third_octave = clean.noct_spectrum(n=3)  # wandas[psychoacoustic] が必要
+third_octave = clean.noct_spectrum(
+    n=3,
+    fmax=min(20_000, 0.4 * clean.sampling_rate),
+)  # wandas[psychoacoustic] が必要
 third_octave.plot()
 ```
 
 ### チャンネル比較や音響指標を見る
 
 ```python
-# SPL として dB 表示する場合は、先に音圧校正を設定します。
-for channel in signal.channels:
+# SPL として dB 表示する場合は、校正済みの音圧データを使います。
+calibration_gain = 1.0  # Pa/sample。実際のマイク校正値に置き換えます
+pressure = signal * calibration_gain
+for channel in pressure.channels:
     channel.unit = "Pa"
     channel.ref = 20e-6
 
-level = signal.sound_level(freq_weighting="A", time_weighting="Fast", dB=True)
+level = pressure.sound_level(freq_weighting="A", time_weighting="Fast", dB=True)
 level.plot(ylabel="LA Fast [dB re 20 uPa]")
 
 # 心理音響指標には psychoacoustic extra が必要です。
-loudness = signal.loudness_zwtv(field_type="free")
-roughness = signal.roughness_dw(overlap=0.5)
+loudness = pressure.loudness_zwtv(field_type="free")
+roughness = pressure.roughness_dw(overlap=0.5)
 ```
 
 ## 小さな top-level API

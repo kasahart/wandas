@@ -83,9 +83,9 @@ def test_readme_optional_dependency_examples_are_labeled() -> None:
     japanese = (REPO_ROOT / "README.ja.md").read_text(encoding="utf-8")
 
     assert "N-octave spectra require the psychoacoustic extra." in english
-    assert "SPL-style dB plots require pressure calibration." in english
+    assert "SPL-style dB plots require calibrated pressure data." in english
     assert "オクターブバンド解析には psychoacoustic extra が必要です。" in japanese
-    assert "SPL として dB 表示する場合は、先に音圧校正を設定します。" in japanese
+    assert "SPL として dB 表示する場合は、校正済みの音圧データを使います。" in japanese
 
 
 def test_readme_recording_workflow_keeps_spl_data_calibrated_and_filter_bounded() -> None:
@@ -97,3 +97,13 @@ def test_readme_recording_workflow_keeps_spl_data_calibrated_and_filter_bounded(
     assert "normalize=True" not in japanese
     assert ".band_pass_filter(80, min(8_000, 0.45 * signal.sampling_rate))" in english
     assert ".band_pass_filter(80, min(8_000, 0.45 * signal.sampling_rate))" in japanese
+    assert "fmax=min(20_000, 0.4 * clean.sampling_rate)" in english
+    assert "fmax=min(20_000, 0.4 * clean.sampling_rate)" in japanese
+    assert "calibration_gain = 1.0  # Pa per sample; replace with your microphone calibration" in english
+    assert "calibration_gain = 1.0  # Pa/sample。実際のマイク校正値に置き換えます" in japanese
+    assert "pressure = signal * calibration_gain" in english
+    assert "pressure = signal * calibration_gain" in japanese
+    assert "level = pressure.sound_level" in english
+    assert "level = pressure.sound_level" in japanese
+    assert "loudness = pressure.loudness_zwtv" in english
+    assert "loudness = pressure.loudness_zwtv" in japanese
