@@ -2053,6 +2053,7 @@ def test_rename_mapping_extraction_rejects_invalid_serialized_items(
     ("operation", "params", "message"),
     [
         ("+", {"operand_kind": "frame"}, "explicit node graph recipe"),
+        ("+", {"operand_kind": "operand", "operand": {"type": "int"}}, "numeric scalar operand"),
         ("+", {"operand_kind": "operand", "operand": {"type": "bool", "value": True}}, "numeric scalar operand"),
         ("+", {"operand_kind": "operand", "operand": {"type": "str", "value": "x"}}, "numeric scalar operand"),
         ("+", {"symbol": "-", "operand_kind": "operand", "operand": 1.0}, "inconsistent operator metadata"),
@@ -2237,6 +2238,26 @@ def test_validate_replayable_operation_rejects_multi_input_operation(
 
     with pytest.raises(RecipeExtractionError, match=r"NodeGraphRecipeSpec\.from_frame"):
         _validate_replayable_operation(MultiInputOperation.name)
+
+
+def test_validate_replayable_operation_reports_runtime_inputs_in_recipe_spec_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class MultiInputOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+        name = "_recipe_multi_input_recipe_spec_context"
+        _expected_input_count = 2
+
+        def _process(self, x: NDArrayReal) -> NDArrayReal:
+            return x
+
+    monkeypatch.setitem(_OPERATION_REGISTRY, MultiInputOperation.name, MultiInputOperation)
+
+    with pytest.raises(RecipeExtractionError) as exc_info:
+        _validate_replayable_operation(MultiInputOperation.name, recipe_spec_context=True)
+
+    message = str(exc_info.value)
+    assert "RecipeSpec.from_frame(...) cannot extract graph lineage as a linear recipe" in message
+    assert "Runtime inputs: 2" in message
 
 
 def test_operation_spec_rejects_non_string_mapping_keys() -> None:
