@@ -52,7 +52,7 @@ spectrogram = clean.stft(n_fft=1024)
 - **生データから洞察までが短い**: 読み込み、トリミング、フィルタ、正規化、リサンプリング、要約、変換、プロットを一貫したメソッドでつなげられます。
 - **時間・周波数・時間周波数を行き来できる**: `ChannelFrame` から `SpectralFrame`、`SpectrogramFrame`、`NOctFrame` へ、文脈を失わずに移れます。
 - **実用的な音響解析も同じ流れで**: RMS トレンド、騒音レベル、A 特性、オクターブバンド、ラウドネス、粗さを必要に応じて扱えます。
-- **実データで使いやすい**: WAV/FLAC/OGG/AIFF/SND/CSV、URL、bytes、file-like、NumPy 配列、録音フォルダ、Wandas WDF ファイルを扱えます。
+- **実データで使いやすい**: WAV/FLAC/OGG/AIFF/SND/CSV、URL、bytes、file-like、NumPy 配列、録音フォルダ、`io` extra を使った Wandas WDF ファイルを扱えます。
 - **探索に向いている**: `describe()`、Matplotlib と親和性の高いプロット、marimo 学習アプリで、まず見る・試すがすぐできます。
 
 ## インストール
@@ -140,7 +140,7 @@ import numpy as np
 import wandas as wd
 
 signal = wd.read("audio.wav")          # WAV、CSV、対応音声、URL、bytes、file-like
-saved = wd.load("analysis.wdf")        # Wandas ネイティブ WDF
+saved = wd.load("analysis.wdf")        # Wandas ネイティブ WDF; wandas[io] が必要
 data = np.zeros((2, 48_000), dtype=np.float32)
 array_signal = wd.from_numpy(data, sampling_rate=48_000)
 dataset = wd.from_folder("recordings/", recursive=True)
@@ -171,7 +171,7 @@ Wandas は、特に次のような場面で便利です。
 
 - [公式ドキュメント](https://kasahart.github.io/wandas/) - ガイド、API リファレンス、使用例。
 - [学習パス](https://github.com/kasahart/wandas/tree/main/learning-path/) - marimo アプリベースのステップ別チュートリアル。
-- [使用例](https://github.com/kasahart/wandas/tree/main/examples/) - 小さな実行例とサンプルデータ。
+- [チュートリアル](https://kasahart.github.io/wandas/tutorial/) - 基本ワークフローを順に確認できます。
 - [Issue Tracker](https://github.com/kasahart/wandas/issues) - バグ報告や機能提案。
 
 ## プロジェクトの状態

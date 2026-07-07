@@ -52,7 +52,7 @@ spectrogram = clean.stft(n_fft=1024)
 - **A smooth path from raw data to insight**: read, trim, filter, normalize, resample, summarize, transform, and plot with consistent methods.
 - **Time, frequency, and time-frequency views**: move from `ChannelFrame` to `SpectralFrame`, `SpectrogramFrame`, or `NOctFrame` without rebuilding context by hand.
 - **Practical acoustics included**: RMS trends, sound level, A-weighting, octave-band spectra, loudness, and roughness are available when you need them.
-- **Works with real workflows**: read WAV/FLAC/OGG/AIFF/SND/CSV, URLs, bytes, file-like objects, NumPy arrays, folders of recordings, and Wandas WDF files.
+- **Works with real workflows**: read WAV/FLAC/OGG/AIFF/SND/CSV, URLs, bytes, file-like objects, NumPy arrays, folders of recordings, and Wandas WDF files with the `io` extra.
 - **Built for interactive exploration**: `describe()`, Matplotlib-friendly plotting, and marimo learning apps make quick inspection easy.
 
 ## Install
@@ -140,7 +140,7 @@ import numpy as np
 import wandas as wd
 
 signal = wd.read("audio.wav")          # WAV, CSV, supported audio, URL, bytes, file-like
-saved = wd.load("analysis.wdf")        # Wandas native WDF
+saved = wd.load("analysis.wdf")        # Wandas native WDF; requires wandas[io]
 data = np.zeros((2, 48_000), dtype=np.float32)
 array_signal = wd.from_numpy(data, sampling_rate=48_000)
 dataset = wd.from_folder("recordings/", recursive=True)
@@ -171,7 +171,7 @@ Wandas is especially useful when you want to:
 
 - [Documentation](https://kasahart.github.io/wandas/) - Guides, API reference, and examples.
 - [Learning Path](https://github.com/kasahart/wandas/tree/main/learning-path/) - marimo app-based walkthroughs.
-- [Examples](https://github.com/kasahart/wandas/tree/main/examples/) - Small runnable scripts and sample data.
+- [Tutorial](https://kasahart.github.io/wandas/tutorial/) - A guided walkthrough of the core workflow.
 - [Issue Tracker](https://github.com/kasahart/wandas/issues) - Report bugs or propose ideas.
 
 ## Project status
