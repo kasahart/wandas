@@ -111,6 +111,7 @@ nav:
       - Pipeline Recipe Design: explanation/pipeline-recipe-design.md
       - Pipeline Recipe Support Matrix: explanation/pipeline-recipe-support-matrix.md
       - Pipeline Recipe Extraction Boundaries: explanation/pipeline-recipe-extraction-boundaries.md
+      - Pipeline Recipe Interoperability & Export: explanation/pipeline-recipe-interoperability-export.md
       - Pipeline Recipe Developer Guide: explanation/pipeline-recipe-developer-guide.md
   - Contributing Guide: contributing.md
 
