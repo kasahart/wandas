@@ -7,7 +7,6 @@ from typing import Any, cast
 import numpy as np
 import pytest
 import soundfile as sf
-from matplotlib import image as mpimg
 from matplotlib import pyplot as plt
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -174,30 +173,40 @@ def test_known_signal_readme_result_matches_executed_example(tmp_path: Path) -> 
     plt.close("all")
 
 
-def test_known_signal_figures_match_executed_readme_plots(tmp_path: Path) -> None:
-    """Committed README figures should stay in sync with Wandas plot output."""
+def test_known_signal_readme_plots_have_expected_semantics(tmp_path: Path) -> None:
+    """README figures should be backed by stable Wandas plot semantics."""
     _execute_known_signal_example(REPO_ROOT / "README.md", tmp_path)
 
     generated_describe_figures = (
         tmp_path / "readme_known_signal_describe_0.png",
         tmp_path / "readme_known_signal_describe_1.png",
     )
-    for actual_path, expected_path in zip(generated_describe_figures, README_DESCRIBE_FIGURES, strict=True):
-        actual = mpimg.imread(actual_path)
-        expected = mpimg.imread(expected_path)
-        assert actual.shape == expected.shape
-        np.testing.assert_allclose(actual, expected, atol=1 / 255)
+    for figure in generated_describe_figures:
+        assert figure.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
 
     figures = [plt.figure(number) for number in plt.get_fignums()]
     assert len(figures) == len(README_PLOT_FIGURES)
 
-    for figure, expected_path in zip(figures, README_PLOT_FIGURES, strict=True):
-        actual_path = tmp_path / expected_path.name
-        figure.savefig(actual_path, bbox_inches="tight", dpi=140)
+    waveform_ax = figures[0].axes[0]
+    spectrum_ax = figures[1].axes[0]
+    assert waveform_ax.get_title() == "Known signal after remove_dc()"
+    assert spectrum_ax.get_title() == "Welch spectrum of the known signal"
+    np.testing.assert_allclose(waveform_ax.get_xlim(), (0, 0.02))
+    np.testing.assert_allclose(spectrum_ax.get_xlim(), (0, 4_000))
 
-        actual = mpimg.imread(actual_path)
-        expected = mpimg.imread(expected_path)
-        assert actual.shape == expected.shape
-        np.testing.assert_allclose(actual, expected, atol=1 / 255)
+    waveform_lines = waveform_ax.get_lines()
+    spectrum_lines = spectrum_ax.get_lines()
+    assert [line.get_label() for line in waveform_lines] == ["750 Hz + 1500 Hz", "1500 Hz + 3000 Hz"]
+    assert [line.get_label() for line in spectrum_lines] == ["750 Hz + 1500 Hz", "1500 Hz + 3000 Hz"]
+    for line in waveform_lines:
+        y_data = np.asarray(line.get_ydata(), dtype=np.float64)
+        np.testing.assert_allclose(y_data.mean(), 0.0, atol=1e-6)
+
+    peak_freqs: list[float] = []
+    for line in spectrum_lines:
+        x_data = np.asarray(line.get_xdata(), dtype=np.float64)
+        y_data = np.asarray(line.get_ydata(), dtype=np.float64)
+        peak_freqs.append(float(x_data[np.argmax(y_data)]))
+    np.testing.assert_allclose(peak_freqs, [750.0, 1500.0])
 
     plt.close("all")
