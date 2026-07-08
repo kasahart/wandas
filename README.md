@@ -17,9 +17,11 @@ Wandas gives waveform and time-series data a pandas-like home: a `ChannelFrame` 
 
 Instead of juggling `array`, `sampling_rate`, `channels`, and a notebook full of helper variables, you can create one frame, keep the context attached, and check whether the result matches the signal you meant to analyze.
 
+That frame-first style is especially useful when analysis needs to be shared with teammates or AI agents: the code, labels, units, metadata, operation history, and generated figures stay close enough together to make implementation and review easier.
+
 ## Known-signal check
 
-Start with a signal whose answer is already known: one channel contains 750 Hz and 1500 Hz tones with a DC offset, and the other contains 1500 Hz and 3000 Hz tones with a different DC offset. After `remove_dc()`, the waveform should be centered, and the spectrum should show the generated tones.
+Start with a signal whose answer is already known: one channel contains 750 Hz and 1500 Hz tones with a DC offset, and the other contains 1500 Hz and 3000 Hz tones with a different DC offset. First use `describe()` to see the whole frame, then use focused plots to check the cleanup and spectrum.
 
 ```python
 import numpy as np
@@ -47,6 +49,8 @@ signal = wd.from_numpy(
     ch_units="Pa",
 )
 
+signal.describe(fmax=4_000, image_save="readme_known_signal_describe.png")
+
 clean = signal.remove_dc()
 spectrum = clean.welch(n_fft=4096)
 
@@ -54,17 +58,24 @@ clean.plot(overlay=True, xlim=(0, 0.02), title="Known signal after remove_dc()",
 spectrum.plot(overlay=True, xlim=(0, 4_000), title="Welch spectrum of the known signal", label=labels)
 ```
 
-The figures below are Wandas output from the same frame. The waveform view shows that the DC offset disappears after `remove_dc()`.
+The first figures are Wandas `describe()` output from the original frame: waveform, spectrogram, and spectrum are collected in one view for each channel.
+
+![Wandas describe output for the generated 750 Hz and 1500 Hz channel](images/readme_known_signal_describe_0.png)
+
+![Wandas describe output for the generated 1500 Hz and 3000 Hz channel](images/readme_known_signal_describe_1.png)
+
+The focused waveform view shows that the DC offset disappears after `remove_dc()`.
 
 ![Wandas waveform plot after removing DC offset from the generated signal](images/readme_known_signal_waveform.png)
 
-The spectrum view then shows the tone components we put in: 750 Hz and 1500 Hz for the first channel, 1500 Hz and 3000 Hz for the second channel.
+The focused spectrum view then shows the tone components we put in: 750 Hz and 1500 Hz for the first channel, 1500 Hz and 3000 Hz for the second channel.
 
 ![Wandas Welch spectrum plot for the generated signal](images/readme_known_signal_spectrum.png)
 
 ## Why try Wandas?
 
 - **Frame-first signal analysis**: use objects that know their sampling rate, duration, channels, labels, units, and metadata.
+- **Reviewable workflows**: keep code, data context, operation history, and figures connected so teammates and AI agents can inspect the same analysis.
 - **A smooth path from raw data to insight**: read, trim, filter, normalize, resample, summarize, transform, and plot with consistent methods.
 - **Time, frequency, and time-frequency views**: move from `ChannelFrame` to `SpectralFrame`, `SpectrogramFrame`, or `NOctFrame` without rebuilding context by hand.
 - **Practical acoustics included**: RMS trends, sound level, A-weighting, octave-band spectra, loudness, and roughness are available when you need them.

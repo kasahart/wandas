@@ -17,9 +17,11 @@ Wandas は、波形・時系列データを `ChannelFrame` として扱う Pytho
 
 `array`、`sampling_rate`、`channels`、処理メモを別々に持ち回る代わりに、1 つの frame に文脈を持たせたまま、意図した信号と結果が合っているか確認できます。
 
+この frame-first の考え方は、チームや AI エージェントと解析を共有・レビューする場面で特に効きます。コード、ラベル、単位、メタデータ、処理履歴、生成した図が近い場所に残るので、実装内容の確認とレビューが進めやすくなります。
+
 ## 既知信号で確認する
 
-まず答えが分かっている信号から始めます。片方のチャンネルには DC オフセット付きの 750 Hz と 1500 Hz、もう片方には別の DC オフセット付きの 1500 Hz と 3000 Hz を入れます。`remove_dc()` の後は波形が中心に戻り、スペクトルには作ったトーンが見えるはずです。
+まず答えが分かっている信号から始めます。片方のチャンネルには DC オフセット付きの 750 Hz と 1500 Hz、もう片方には別の DC オフセット付きの 1500 Hz と 3000 Hz を入れます。最初に `describe()` で frame 全体を見てから、個別の図で前処理後の波形とスペクトルを確認します。
 
 ```python
 import numpy as np
@@ -47,6 +49,8 @@ signal = wd.from_numpy(
     ch_units="Pa",
 )
 
+signal.describe(fmax=4_000, image_save="readme_known_signal_describe.png")
+
 clean = signal.remove_dc()
 spectrum = clean.welch(n_fft=4096)
 
@@ -54,17 +58,24 @@ clean.plot(overlay=True, xlim=(0, 0.02), title="Known signal after remove_dc()",
 spectrum.plot(overlay=True, xlim=(0, 4_000), title="Welch spectrum of the known signal", label=labels)
 ```
 
-下の図は同じ frame から Wandas が出力したものです。波形表示では、`remove_dc()` の後に DC オフセットが消えていることが分かります。
+最初の図は元の frame から Wandas の `describe()` が出力したものです。各チャンネルの波形、スペクトログラム、スペクトルを 1 つの表示で確認できます。
+
+![生成した 750 Hz と 1500 Hz チャンネルの Wandas describe 出力](images/readme_known_signal_describe_0.png)
+
+![生成した 1500 Hz と 3000 Hz チャンネルの Wandas describe 出力](images/readme_known_signal_describe_1.png)
+
+次の波形表示では、`remove_dc()` の後に DC オフセットが消えていることが分かります。
 
 ![生成信号から DC オフセットを除去した後の Wandas 波形プロット](images/readme_known_signal_waveform.png)
 
-次のスペクトル表示では、1 つ目のチャンネルの 750 Hz / 1500 Hz、2 つ目のチャンネルの 1500 Hz / 3000 Hz が見えます。
+最後のスペクトル表示では、1 つ目のチャンネルの 750 Hz / 1500 Hz、2 つ目のチャンネルの 1500 Hz / 3000 Hz が見えます。
 
 ![生成信号の Wandas Welch スペクトルプロット](images/readme_known_signal_spectrum.png)
 
 ## Wandas を試したくなるところ
 
 - **フレーム指向の信号解析**: サンプリング周波数、長さ、チャンネル、ラベル、単位、メタデータを知っているオブジェクトとして扱えます。
+- **レビューしやすい解析フロー**: コード、データ文脈、処理履歴、図がつながるので、チームや AI エージェントが同じ解析を確認しやすくなります。
 - **生データから洞察までが短い**: 読み込み、トリミング、フィルタ、正規化、リサンプリング、要約、変換、プロットを一貫したメソッドでつなげられます。
 - **時間・周波数・時間周波数を行き来できる**: `ChannelFrame` から `SpectralFrame`、`SpectrogramFrame`、`NOctFrame` へ、文脈を失わずに移れます。
 - **実用的な音響解析も同じ流れで**: RMS トレンド、騒音レベル、A 特性、オクターブバンド、ラウドネス、粗さを必要に応じて扱えます。

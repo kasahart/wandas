@@ -1,3 +1,4 @@
+import os
 import re
 from collections.abc import Iterator
 from pathlib import Path
@@ -11,10 +12,15 @@ from matplotlib import pyplot as plt
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 README_PATHS = (REPO_ROOT / "README.md", REPO_ROOT / "README.ja.md")
-README_SIGNAL_FIGURES = (
+README_DESCRIBE_FIGURES = (
+    REPO_ROOT / "images" / "readme_known_signal_describe_0.png",
+    REPO_ROOT / "images" / "readme_known_signal_describe_1.png",
+)
+README_PLOT_FIGURES = (
     REPO_ROOT / "images" / "readme_known_signal_waveform.png",
     REPO_ROOT / "images" / "readme_known_signal_spectrum.png",
 )
+README_SIGNAL_FIGURES = (*README_DESCRIBE_FIGURES, *README_PLOT_FIGURES)
 
 
 def _python_blocks(markdown: str) -> list[str]:
@@ -26,11 +32,16 @@ def _github_main_paths(markdown: str) -> Iterator[str]:
     yield from re.findall(pattern, markdown)
 
 
-def _execute_known_signal_example(path: Path) -> dict[str, object]:
+def _execute_known_signal_example(path: Path, workdir: Path) -> dict[str, object]:
     plt.close("all")
     namespace: dict[str, object] = {"__name__": f"known_signal_{path.stem}"}
     block = _python_blocks(path.read_text(encoding="utf-8"))[0]
-    exec(compile(block, f"{path.name}:known-signal-block", "exec"), namespace)
+    old_cwd = Path.cwd()
+    try:
+        os.chdir(workdir)
+        exec(compile(block, f"{path.name}:known-signal-block", "exec"), namespace)
+    finally:
+        os.chdir(old_cwd)
     return namespace
 
 
@@ -88,6 +99,19 @@ def test_readme_optional_dependency_examples_are_labeled() -> None:
     assert "roughness = " not in japanese
 
 
+def test_readme_positions_wandas_as_reviewable_analysis_workflow() -> None:
+    """README should include the collaboration and review value proposition."""
+    english = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    japanese = (REPO_ROOT / "README.ja.md").read_text(encoding="utf-8")
+
+    assert "shared with teammates or AI agents" in english
+    assert "implementation and review easier" in english
+    assert "Reviewable workflows" in english
+    assert "チームや AI エージェントと解析を共有・レビュー" in japanese
+    assert "実装内容の確認とレビュー" in japanese
+    assert "レビューしやすい解析フロー" in japanese
+
+
 def test_readme_real_data_path_stays_compact() -> None:
     """README real-data path should be a short next step, not the main proof."""
     english = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
@@ -108,12 +132,16 @@ def test_readme_leads_with_verified_synthetic_signal_and_figure() -> None:
 
     assert "Known-signal check" in english
     assert "既知信号で確認する" in japanese
+    assert "images/readme_known_signal_describe_0.png" in english
+    assert "images/readme_known_signal_describe_1.png" in english
+    assert "images/readme_known_signal_describe_0.png" in japanese
+    assert "images/readme_known_signal_describe_1.png" in japanese
     assert "images/readme_known_signal_waveform.png" in english
     assert "images/readme_known_signal_spectrum.png" in english
     assert "images/readme_known_signal_waveform.png" in japanese
     assert "images/readme_known_signal_spectrum.png" in japanese
-    assert "The figures below are Wandas output from the same frame." in english
-    assert "下の図は同じ frame から Wandas が出力したものです。" in japanese
+    assert "The first figures are Wandas `describe()` output from the original frame" in english
+    assert "最初の図は元の frame から Wandas の `describe()` が出力したものです" in japanese
     assert "the DC offset disappears after `remove_dc()`" in english
     assert "DC オフセットが消えていることが分かります" in japanese
     assert "750 Hz and 1500 Hz for the first channel" in english
@@ -122,9 +150,9 @@ def test_readme_leads_with_verified_synthetic_signal_and_figure() -> None:
         assert figure.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
 
 
-def test_known_signal_readme_result_matches_executed_example() -> None:
+def test_known_signal_readme_result_matches_executed_example(tmp_path: Path) -> None:
     """The known-signal narrative should be backed by the README code itself."""
-    namespace = _execute_known_signal_example(REPO_ROOT / "README.md")
+    namespace = _execute_known_signal_example(REPO_ROOT / "README.md", tmp_path)
     clean = cast(Any, namespace["clean"])
     spectrum = cast(Any, namespace["spectrum"])
 
@@ -148,12 +176,22 @@ def test_known_signal_readme_result_matches_executed_example() -> None:
 
 def test_known_signal_figures_match_executed_readme_plots(tmp_path: Path) -> None:
     """Committed README figures should stay in sync with Wandas plot output."""
-    _execute_known_signal_example(REPO_ROOT / "README.md")
+    _execute_known_signal_example(REPO_ROOT / "README.md", tmp_path)
+
+    generated_describe_figures = (
+        tmp_path / "readme_known_signal_describe_0.png",
+        tmp_path / "readme_known_signal_describe_1.png",
+    )
+    for actual_path, expected_path in zip(generated_describe_figures, README_DESCRIBE_FIGURES, strict=True):
+        actual = mpimg.imread(actual_path)
+        expected = mpimg.imread(expected_path)
+        assert actual.shape == expected.shape
+        np.testing.assert_allclose(actual, expected, atol=1 / 255)
 
     figures = [plt.figure(number) for number in plt.get_fignums()]
-    assert len(figures) == len(README_SIGNAL_FIGURES)
+    assert len(figures) == len(README_PLOT_FIGURES)
 
-    for figure, expected_path in zip(figures, README_SIGNAL_FIGURES, strict=True):
+    for figure, expected_path in zip(figures, README_PLOT_FIGURES, strict=True):
         actual_path = tmp_path / expected_path.name
         figure.savefig(actual_path, bbox_inches="tight", dpi=140)
 
