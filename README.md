@@ -19,9 +19,26 @@ Instead of juggling `array`, `sampling_rate`, `channels`, and a notebook full of
 
 That frame-first style is especially useful when analysis needs to be shared with teammates or AI agents: the code, labels, units, metadata, operation history, and generated figures stay close enough together to make implementation and review easier.
 
+## Inspect Sample Audio
+
+Start with the sample audio included in the repository. `describe()` gives you a compact overview of the waveform, spectrogram, and spectrum before you decide what to clean or measure next.
+
+```python
+import wandas as wd
+
+recording = wd.read("learning-path/sample_audio.wav", start=0, end=10, normalize=True)
+recording.describe(fmin=20, fmax=8_000, image_save="readme_sample_audio_describe.png")
+```
+
+The figures below are Wandas `describe()` output from the same frame, split by channel.
+
+![Wandas describe output for the first sample-audio channel](images/readme_sample_audio_describe_0.png)
+
+![Wandas describe output for the second sample-audio channel](images/readme_sample_audio_describe_1.png)
+
 ## Known-signal check
 
-Start with a signal whose answer is already known: one channel contains 750 Hz and 1500 Hz tones with a DC offset, and the other contains 1500 Hz and 3000 Hz tones with a different DC offset. First use `describe()` to see the whole frame, then use focused plots to check the cleanup and spectrum.
+After the quick overview, use a signal whose answer is already known to check whether the code and the acoustic result match: one channel contains 750 Hz and 1500 Hz tones with a DC offset, and the other contains 1500 Hz and 3000 Hz tones with a different DC offset.
 
 ```python
 import numpy as np
@@ -49,8 +66,6 @@ signal = wd.from_numpy(
     ch_units="Pa",
 )
 
-signal.describe(fmax=4_000, image_save="readme_known_signal_describe.png")
-
 clean = signal.remove_dc()
 spectrum = clean.welch(n_fft=4096)
 
@@ -58,17 +73,11 @@ clean.plot(overlay=True, xlim=(0, 0.02), title="Known signal after remove_dc()",
 spectrum.plot(overlay=True, xlim=(0, 4_000), title="Welch spectrum of the known signal", label=labels)
 ```
 
-The first figures are Wandas `describe()` output from the original frame: waveform, spectrogram, and spectrum are collected in one view for each channel.
-
-![Wandas describe output for the generated 750 Hz and 1500 Hz channel](images/readme_known_signal_describe_0.png)
-
-![Wandas describe output for the generated 1500 Hz and 3000 Hz channel](images/readme_known_signal_describe_1.png)
-
-The focused waveform view shows that the DC offset disappears after `remove_dc()`.
+The waveform view shows that the DC offset disappears after `remove_dc()`.
 
 ![Wandas waveform plot after removing DC offset from the generated signal](images/readme_known_signal_waveform.png)
 
-The focused spectrum view then shows the tone components we put in: 750 Hz and 1500 Hz for the first channel, 1500 Hz and 3000 Hz for the second channel.
+The spectrum view then shows the tone components we put in: 750 Hz and 1500 Hz for the first channel, 1500 Hz and 3000 Hz for the second channel.
 
 ![Wandas Welch spectrum plot for the generated signal](images/readme_known_signal_spectrum.png)
 

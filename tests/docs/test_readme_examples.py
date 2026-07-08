@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, cast
@@ -11,15 +12,15 @@ from matplotlib import pyplot as plt
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 README_PATHS = (REPO_ROOT / "README.md", REPO_ROOT / "README.ja.md")
-README_DESCRIBE_FIGURES = (
-    REPO_ROOT / "images" / "readme_known_signal_describe_0.png",
-    REPO_ROOT / "images" / "readme_known_signal_describe_1.png",
+README_SAMPLE_AUDIO_FIGURES = (
+    REPO_ROOT / "images" / "readme_sample_audio_describe_0.png",
+    REPO_ROOT / "images" / "readme_sample_audio_describe_1.png",
 )
 README_PLOT_FIGURES = (
     REPO_ROOT / "images" / "readme_known_signal_waveform.png",
     REPO_ROOT / "images" / "readme_known_signal_spectrum.png",
 )
-README_SIGNAL_FIGURES = (*README_DESCRIBE_FIGURES, *README_PLOT_FIGURES)
+README_FIGURES = (*README_SAMPLE_AUDIO_FIGURES, *README_PLOT_FIGURES)
 
 
 def _python_blocks(markdown: str) -> list[str]:
@@ -31,10 +32,17 @@ def _github_main_paths(markdown: str) -> Iterator[str]:
     yield from re.findall(pattern, markdown)
 
 
-def _execute_known_signal_example(path: Path, workdir: Path) -> dict[str, object]:
+def _python_block_containing(path: Path, marker: str) -> str:
+    for block in _python_blocks(path.read_text(encoding="utf-8")):
+        if marker in block:
+            return block
+    raise AssertionError(f"{path.name} has no Python block containing {marker!r}")
+
+
+def _execute_readme_example(path: Path, workdir: Path, marker: str) -> dict[str, object]:
     plt.close("all")
-    namespace: dict[str, object] = {"__name__": f"known_signal_{path.stem}"}
-    block = _python_blocks(path.read_text(encoding="utf-8"))[0]
+    namespace: dict[str, object] = {"__name__": f"readme_example_{path.stem}"}
+    block = _python_block_containing(path, marker)
     old_cwd = Path.cwd()
     try:
         os.chdir(workdir)
@@ -51,6 +59,9 @@ def readme_example_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     samples = (0.05 * np.sin(2 * np.pi * 440 * t)).astype(np.float32)
 
     sf.write(tmp_path / "recording.wav", samples, sr)
+    sample_dir = tmp_path / "learning-path"
+    sample_dir.mkdir()
+    shutil.copyfile(REPO_ROOT / "learning-path" / "sample_audio.wav", sample_dir / "sample_audio.wav")
     (tmp_path / "images").mkdir()
 
     monkeypatch.chdir(tmp_path)
@@ -116,42 +127,42 @@ def test_readme_real_data_path_stays_compact() -> None:
     english = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     japanese = (REPO_ROOT / "README.ja.md").read_text(encoding="utf-8")
 
-    assert "normalize=True" not in english
-    assert "normalize=True" not in japanese
     assert 'recording = wd.read("recording.wav", start=0, end=10)' in english
     assert 'recording = wd.read("recording.wav", start=0, end=10)' in japanese
     assert english.count("```python") <= 3
     assert japanese.count("```python") <= 3
 
 
-def test_readme_leads_with_verified_synthetic_signal_and_figure() -> None:
-    """README should lead with a known signal and Wandas-produced figures."""
+def test_readme_leads_with_sample_audio_describe_and_verified_signal_figures() -> None:
+    """README should lead with sample audio describe output before known-signal checks."""
     english = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     japanese = (REPO_ROOT / "README.ja.md").read_text(encoding="utf-8")
 
+    assert "learning-path/sample_audio.wav" in english
+    assert "learning-path/sample_audio.wav" in japanese
+    assert "images/readme_sample_audio_describe_0.png" in english
+    assert "images/readme_sample_audio_describe_1.png" in english
+    assert "images/readme_sample_audio_describe_0.png" in japanese
+    assert "images/readme_sample_audio_describe_1.png" in japanese
     assert "Known-signal check" in english
     assert "既知信号で確認する" in japanese
-    assert "images/readme_known_signal_describe_0.png" in english
-    assert "images/readme_known_signal_describe_1.png" in english
-    assert "images/readme_known_signal_describe_0.png" in japanese
-    assert "images/readme_known_signal_describe_1.png" in japanese
     assert "images/readme_known_signal_waveform.png" in english
     assert "images/readme_known_signal_spectrum.png" in english
     assert "images/readme_known_signal_waveform.png" in japanese
     assert "images/readme_known_signal_spectrum.png" in japanese
-    assert "The first figures are Wandas `describe()` output from the original frame" in english
-    assert "最初の図は元の frame から Wandas の `describe()` が出力したものです" in japanese
+    assert english.index("learning-path/sample_audio.wav") < english.index("Known-signal check")
+    assert japanese.index("learning-path/sample_audio.wav") < japanese.index("既知信号で確認する")
     assert "the DC offset disappears after `remove_dc()`" in english
     assert "DC オフセットが消えていることが分かります" in japanese
     assert "750 Hz and 1500 Hz for the first channel" in english
     assert "1 つ目のチャンネルの 750 Hz / 1500 Hz" in japanese
-    for figure in README_SIGNAL_FIGURES:
+    for figure in README_FIGURES:
         assert figure.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
 
 
 def test_known_signal_readme_result_matches_executed_example(tmp_path: Path) -> None:
     """The known-signal narrative should be backed by the README code itself."""
-    namespace = _execute_known_signal_example(REPO_ROOT / "README.md", tmp_path)
+    namespace = _execute_readme_example(REPO_ROOT / "README.md", tmp_path, "known signal")
     clean = cast(Any, namespace["clean"])
     spectrum = cast(Any, namespace["spectrum"])
 
@@ -175,14 +186,7 @@ def test_known_signal_readme_result_matches_executed_example(tmp_path: Path) -> 
 
 def test_known_signal_readme_plots_have_expected_semantics(tmp_path: Path) -> None:
     """README figures should be backed by stable Wandas plot semantics."""
-    _execute_known_signal_example(REPO_ROOT / "README.md", tmp_path)
-
-    generated_describe_figures = (
-        tmp_path / "readme_known_signal_describe_0.png",
-        tmp_path / "readme_known_signal_describe_1.png",
-    )
-    for figure in generated_describe_figures:
-        assert figure.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+    _execute_readme_example(REPO_ROOT / "README.md", tmp_path, "known signal")
 
     figures = [plt.figure(number) for number in plt.get_fignums()]
     assert len(figures) == len(README_PLOT_FIGURES)
@@ -209,4 +213,21 @@ def test_known_signal_readme_plots_have_expected_semantics(tmp_path: Path) -> No
         peak_freqs.append(float(x_data[np.argmax(y_data)]))
     np.testing.assert_allclose(peak_freqs, [750.0, 1500.0])
 
+    plt.close("all")
+
+
+def test_sample_audio_describe_example_creates_readme_figures(tmp_path: Path) -> None:
+    """The sample-audio describe example should create the committed overview figures."""
+    sample_dir = tmp_path / "learning-path"
+    sample_dir.mkdir()
+    shutil.copyfile(REPO_ROOT / "learning-path" / "sample_audio.wav", sample_dir / "sample_audio.wav")
+
+    _execute_readme_example(REPO_ROOT / "README.md", tmp_path, "learning-path/sample_audio.wav")
+
+    generated_figures = (
+        tmp_path / "readme_sample_audio_describe_0.png",
+        tmp_path / "readme_sample_audio_describe_1.png",
+    )
+    for figure in generated_figures:
+        assert figure.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
     plt.close("all")

@@ -19,9 +19,26 @@ Wandas は、波形・時系列データを `ChannelFrame` として扱う Pytho
 
 この frame-first の考え方は、チームや AI エージェントと解析を共有・レビューする場面で特に効きます。コード、ラベル、単位、メタデータ、処理履歴、生成した図が近い場所に残るので、実装内容の確認とレビューが進めやすくなります。
 
+## サンプル音声を確認する
+
+まず、リポジトリに含まれるサンプル音声から始めます。`describe()` を使うと、次に何を前処理・計測するかを決める前に、波形、スペクトログラム、スペクトルをまとめて確認できます。
+
+```python
+import wandas as wd
+
+recording = wd.read("learning-path/sample_audio.wav", start=0, end=10, normalize=True)
+recording.describe(fmin=20, fmax=8_000, image_save="readme_sample_audio_describe.png")
+```
+
+下の図は、同じ frame から Wandas の `describe()` が出力したものです。チャンネルごとに分かれて表示されます。
+
+![サンプル音声 1 つ目のチャンネルの Wandas describe 出力](images/readme_sample_audio_describe_0.png)
+
+![サンプル音声 2 つ目のチャンネルの Wandas describe 出力](images/readme_sample_audio_describe_1.png)
+
 ## 既知信号で確認する
 
-まず答えが分かっている信号から始めます。片方のチャンネルには DC オフセット付きの 750 Hz と 1500 Hz、もう片方には別の DC オフセット付きの 1500 Hz と 3000 Hz を入れます。最初に `describe()` で frame 全体を見てから、個別の図で前処理後の波形とスペクトルを確認します。
+全体を見た後は、答えが分かっている信号でコードのイメージと音響的な結果が合っているか確認します。片方のチャンネルには DC オフセット付きの 750 Hz と 1500 Hz、もう片方には別の DC オフセット付きの 1500 Hz と 3000 Hz を入れます。
 
 ```python
 import numpy as np
@@ -49,8 +66,6 @@ signal = wd.from_numpy(
     ch_units="Pa",
 )
 
-signal.describe(fmax=4_000, image_save="readme_known_signal_describe.png")
-
 clean = signal.remove_dc()
 spectrum = clean.welch(n_fft=4096)
 
@@ -58,17 +73,11 @@ clean.plot(overlay=True, xlim=(0, 0.02), title="Known signal after remove_dc()",
 spectrum.plot(overlay=True, xlim=(0, 4_000), title="Welch spectrum of the known signal", label=labels)
 ```
 
-最初の図は元の frame から Wandas の `describe()` が出力したものです。各チャンネルの波形、スペクトログラム、スペクトルを 1 つの表示で確認できます。
-
-![生成した 750 Hz と 1500 Hz チャンネルの Wandas describe 出力](images/readme_known_signal_describe_0.png)
-
-![生成した 1500 Hz と 3000 Hz チャンネルの Wandas describe 出力](images/readme_known_signal_describe_1.png)
-
-次の波形表示では、`remove_dc()` の後に DC オフセットが消えていることが分かります。
+波形表示では、`remove_dc()` の後に DC オフセットが消えていることが分かります。
 
 ![生成信号から DC オフセットを除去した後の Wandas 波形プロット](images/readme_known_signal_waveform.png)
 
-最後のスペクトル表示では、1 つ目のチャンネルの 750 Hz / 1500 Hz、2 つ目のチャンネルの 1500 Hz / 3000 Hz が見えます。
+スペクトル表示では、1 つ目のチャンネルの 750 Hz / 1500 Hz、2 つ目のチャンネルの 1500 Hz / 3000 Hz が見えます。
 
 ![生成信号の Wandas Welch スペクトルプロット](images/readme_known_signal_spectrum.png)
 
