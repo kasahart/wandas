@@ -19,6 +19,34 @@ Instead of juggling `array`, `sampling_rate`, `channels`, and a notebook full of
 
 That frame-first style is especially useful when analysis needs to be shared with teammates or AI agents: the code, labels, units, metadata, operation history, and generated figures stay close enough together to make implementation and review easier.
 
+## Install
+
+For the best first experience, install the interactive display and learning-app extra:
+
+```bash
+pip install "wandas[marimo]"
+```
+
+For a small core install:
+
+```bash
+pip install wandas
+```
+
+Core install includes waveform frames, CSV/WAV reading, processing, plotting, and `describe()` figure/export workflows when you use options such as `is_close=False` or `image_save`. The default interactive `frame.describe()` display path uses the `marimo` extra.
+
+Optional extras can be mixed as needed:
+
+```bash
+pip install "wandas[io]"              # WDF save/load support
+pip install "wandas[effects]"         # librosa-backed audio effects
+pip install "wandas[marimo]"          # marimo learning apps and interactive display support
+pip install "wandas[psychoacoustic]"  # loudness, roughness, octave-band helpers
+pip install "wandas[ml]"              # Torch/TensorFlow tensor helpers
+
+pip install "wandas[marimo,io,effects,psychoacoustic]"
+```
+
 ## Inspect Sample Audio
 
 Start with the sample audio included in the repository. `describe()` gives you a compact overview of the waveform, spectrogram, and spectrum before you decide what to clean or measure next.
@@ -90,34 +118,6 @@ The spectrum view then shows the tone components we put in: 750 Hz and 1500 Hz f
 - **Practical acoustics included**: RMS trends, sound level, A-weighting, octave-band spectra, loudness, and roughness are available when you need them.
 - **Works with real workflows**: read WAV/FLAC/OGG/AIFF/SND/CSV, URLs, bytes, file-like objects, NumPy arrays, folders of recordings, and Wandas WDF files with the `io` extra.
 - **Built for interactive exploration**: `describe()`, Matplotlib-friendly plotting, and marimo learning apps make quick inspection easy.
-
-## Install
-
-For the best first experience, install the interactive display and learning-app extra:
-
-```bash
-pip install "wandas[marimo]"
-```
-
-For a small core install:
-
-```bash
-pip install wandas
-```
-
-Core install includes waveform frames, CSV/WAV reading, processing, plotting, and `describe()` figure/export workflows when you use options such as `is_close=False` or `image_save`. The default interactive `frame.describe()` display path uses the `marimo` extra.
-
-Optional extras can be mixed as needed:
-
-```bash
-pip install "wandas[io]"              # WDF save/load support
-pip install "wandas[effects]"         # librosa-backed audio effects
-pip install "wandas[marimo]"          # marimo learning apps and interactive display support
-pip install "wandas[psychoacoustic]"  # loudness, roughness, octave-band helpers
-pip install "wandas[ml]"              # Torch/TensorFlow tensor helpers
-
-pip install "wandas[marimo,io,effects,psychoacoustic]"
-```
 
 ## Use Your Own Data
 

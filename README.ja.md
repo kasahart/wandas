@@ -19,6 +19,34 @@ Wandas は、波形・時系列データを `ChannelFrame` として扱う Pytho
 
 この frame-first の考え方は、チームや AI エージェントと解析を共有・レビューする場面で特に効きます。コード、ラベル、単位、メタデータ、処理履歴、生成した図が近い場所に残るので、実装内容の確認とレビューが進めやすくなります。
 
+## インストール
+
+最初に試すなら、インタラクティブ表示と学習アプリを含む extra 付きがおすすめです。
+
+```bash
+pip install "wandas[marimo]"
+```
+
+最小構成で入れる場合:
+
+```bash
+pip install wandas
+```
+
+core-only インストールでも、波形フレーム、CSV/WAV 読み込み、処理、プロット、`is_close=False` や `image_save` を使った `describe()` の図作成・保存ワークフローは利用できます。デフォルトのインタラクティブな `frame.describe()` 表示には `marimo` extra を使います。
+
+必要な機能に応じて optional extras を組み合わせられます。
+
+```bash
+pip install "wandas[io]"              # WDF の保存・読み込み
+pip install "wandas[effects]"         # librosa ベースのオーディオエフェクト
+pip install "wandas[marimo]"          # marimo 学習アプリとインタラクティブ表示
+pip install "wandas[psychoacoustic]"  # ラウドネス、粗さ、オクターブバンド補助機能
+pip install "wandas[ml]"              # Torch/TensorFlow テンソル補助機能
+
+pip install "wandas[marimo,io,effects,psychoacoustic]"
+```
+
 ## サンプル音声を確認する
 
 まず、リポジトリに含まれるサンプル音声から始めます。`describe()` を使うと、次に何を前処理・計測するかを決める前に、波形、スペクトログラム、スペクトルをまとめて確認できます。
@@ -90,34 +118,6 @@ spectrum.plot(overlay=True, xlim=(0, 4_000), title="Welch spectrum of the known 
 - **実用的な音響解析も同じ流れで**: RMS トレンド、騒音レベル、A 特性、オクターブバンド、ラウドネス、粗さを必要に応じて扱えます。
 - **実データで使いやすい**: WAV/FLAC/OGG/AIFF/SND/CSV、URL、bytes、file-like、NumPy 配列、録音フォルダ、`io` extra を使った Wandas WDF ファイルを扱えます。
 - **探索に向いている**: `describe()`、Matplotlib と親和性の高いプロット、marimo 学習アプリで、まず見る・試すがすぐできます。
-
-## インストール
-
-最初に試すなら、インタラクティブ表示と学習アプリを含む extra 付きがおすすめです。
-
-```bash
-pip install "wandas[marimo]"
-```
-
-最小構成で入れる場合:
-
-```bash
-pip install wandas
-```
-
-core-only インストールでも、波形フレーム、CSV/WAV 読み込み、処理、プロット、`is_close=False` や `image_save` を使った `describe()` の図作成・保存ワークフローは利用できます。デフォルトのインタラクティブな `frame.describe()` 表示には `marimo` extra を使います。
-
-必要な機能に応じて optional extras を組み合わせられます。
-
-```bash
-pip install "wandas[io]"              # WDF の保存・読み込み
-pip install "wandas[effects]"         # librosa ベースのオーディオエフェクト
-pip install "wandas[marimo]"          # marimo 学習アプリとインタラクティブ表示
-pip install "wandas[psychoacoustic]"  # ラウドネス、粗さ、オクターブバンド補助機能
-pip install "wandas[ml]"              # Torch/TensorFlow テンソル補助機能
-
-pip install "wandas[marimo,io,effects,psychoacoustic]"
-```
 
 ## 手元のデータで使う
 

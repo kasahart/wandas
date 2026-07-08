@@ -122,6 +122,15 @@ def test_readme_positions_wandas_as_reviewable_analysis_workflow() -> None:
     assert "レビューしやすい解析フロー" in japanese
 
 
+def test_readme_places_install_before_examples() -> None:
+    """README should let users install Wandas before running examples."""
+    english = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    japanese = (REPO_ROOT / "README.ja.md").read_text(encoding="utf-8")
+
+    assert english.index("## Install") < english.index("## Inspect Sample Audio")
+    assert japanese.index("## インストール") < japanese.index("## サンプル音声を確認する")
+
+
 def test_readme_real_data_path_stays_compact() -> None:
     """README real-data path should be a short next step, not the main proof."""
     english = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
