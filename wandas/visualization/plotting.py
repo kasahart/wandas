@@ -298,6 +298,7 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         kwargs = kwargs or {}
         axes_cls = _matplotlib_axes_type("waveform plot")
         line2d_cls = _matplotlib_line2d_type("waveform plot")
+        explicit_ylabel = "ylabel" in kwargs
         ylabel = kwargs.pop("ylabel", "Amplitude")
         xlabel = kwargs.pop("xlabel", "Time [s]")
         alpha = kwargs.pop("alpha", 1)
@@ -309,6 +310,11 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         def _waveform_ylabel(ylabel: str, ch_meta: Any) -> str:
             unit_suffix = f" [{ch_meta.unit}]" if ch_meta.unit else ""
             return f"{ylabel}{unit_suffix}"
+
+        if (overlay or ax is not None) and not explicit_ylabel:
+            channel_units = [ch_meta.unit for ch_meta in bf.channels]
+            if channel_units and all(unit and unit == channel_units[0] for unit in channel_units):
+                ylabel = f"{ylabel} [{channel_units[0]}]"
 
         return _plot_line_layout(
             self,
