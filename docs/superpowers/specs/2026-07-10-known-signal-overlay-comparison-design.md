@@ -34,9 +34,12 @@ processed = (
 ## Documentation and Tests
 
 - Keep the English and Japanese Python blocks identical.
+- Merge `origin/develop` so the branch includes #285, which makes overlay plots use every channel label by default.
+- Omit explicit `label=comparison.labels` arguments from both README plots and rely on frame metadata.
 - Explain the branch from one original signal to one processed signal and their recombination through `add_channel()`.
 - Explain that `plot()` is terminal, while preprocessing and FFT can remain method-chained.
 - Verify original and processed means, comparison labels, operation history, and the relative 750 Hz / 1500 Hz FFT amplitudes.
+- Verify the published block contains no explicit plot `label` override and the rendered lines still use both comparison labels.
 - Verify two overlaid lines, linear FFT x-axis, peak-relative 60 dB vertical range, titles, labels, and axis limits without pixel-exact comparisons.
 - Run README/docs tests, Ruff, ty, and the full test suite before completion.
 
