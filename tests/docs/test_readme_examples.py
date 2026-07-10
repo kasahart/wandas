@@ -166,10 +166,14 @@ def test_readme_leads_with_wav_describe_and_verified_signal_figures() -> None:
     assert english.index("## Validate with a Known Signal") < english.index("## Use Your Own Data")
     assert japanese.index("learning-path/sample_audio.wav") < japanese.index("既知信号で確認する")
     assert japanese.index("## 既知信号で確認する") < japanese.index("## 手元のデータで使う")
-    assert "the DC offset disappears after `remove_dc()`" in english
-    assert "DC オフセットが消えていることが分かります" in japanese
-    assert "750 Hz and 1500 Hz for the first channel" in english
-    assert "1 つ目のチャンネルの 750 Hz / 1500 Hz" in japanese
+    assert "DC offset disappears" in english
+    assert "DC オフセットが消え" in japanese
+    assert "750 Hz component" in english
+    assert "1500 Hz component" in english
+    assert "750 Hz 成分" in japanese
+    assert "1500 Hz 成分" in japanese
+    assert "signal.add_channel" in english
+    assert "signal.add_channel" in japanese
     assert "signal = wd.from_numpy" in japanese
     for figure in README_FIGURES:
         assert figure.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
@@ -222,24 +226,28 @@ def test_readme_documents_frame_context_and_boundaries() -> None:
 def test_known_signal_readme_result_matches_executed_example(tmp_path: Path) -> None:
     """The known-signal narrative should be backed by the README code itself."""
     namespace = _execute_readme_example(REPO_ROOT / "README.md", tmp_path, "known signal")
-    clean = cast(Any, namespace["clean"])
-    spectrum = cast(Any, namespace["spectrum"])
+    signal = cast(Any, namespace["signal"])
+    processed = cast(Any, namespace["processed"])
+    comparison = cast(Any, namespace["comparison"])
+    spectrum = comparison.fft(n_fft=48_000)
 
-    clean_data = np.asarray(clean.to_numpy(), dtype=np.float64)
-    means = clean_data.mean(axis=1)
-    amplitudes = np.asarray(spectrum.to_numpy())
+    assert comparison.labels == ["Original", "After DC removal + 1 kHz low-pass"]
+    assert [entry["operation"] for entry in processed.operation_history][-2:] == ["remove_dc", "lowpass_filter"]
+    np.testing.assert_allclose(np.asarray(signal.to_numpy()).mean(), 0.25, atol=1e-6)
+    np.testing.assert_allclose(np.asarray(processed.to_numpy()).mean(), 0.0, atol=1e-5)
+    np.testing.assert_allclose(np.asarray(comparison.to_numpy()).mean(axis=1), [0.25, 0.0], atol=1e-5)
+
+    amplitudes = np.abs(np.asarray(spectrum.to_numpy()))
     freqs = spectrum.freqs
-    peak_freqs = freqs[np.argmax(amplitudes, axis=1)]
 
     def bin_at(freq: float) -> int:
         return int(np.argmin(np.abs(freqs - freq)))
 
-    assert np.max(np.abs(means)) < 1e-6
-    np.testing.assert_allclose(peak_freqs, [750.0, 1500.0])
-    np.testing.assert_allclose(amplitudes[0, bin_at(750)], 0.20)
-    np.testing.assert_allclose(amplitudes[0, bin_at(1500)], 0.05)
-    np.testing.assert_allclose(amplitudes[1, bin_at(1500)], 0.10)
-    np.testing.assert_allclose(amplitudes[1, bin_at(3000)], 0.02)
+    np.testing.assert_allclose(amplitudes[0, bin_at(750)], 0.20, atol=1e-6)
+    assert amplitudes[1, bin_at(750)] > 0.15
+    assert amplitudes[1, bin_at(1500)] < amplitudes[0, bin_at(1500)] * 0.25
+    assert amplitudes[0, bin_at(0)] > 0.20
+    assert amplitudes[1, bin_at(0)] < 1e-6
     plt.close("all")
 
 
@@ -252,25 +260,32 @@ def test_known_signal_readme_plots_have_expected_semantics(tmp_path: Path) -> No
 
     waveform_ax = figures[0].axes[0]
     spectrum_ax = figures[1].axes[0]
-    assert waveform_ax.get_title() == "Known signal after remove_dc()"
-    assert spectrum_ax.get_title() == "Welch spectrum of the known signal"
+    assert waveform_ax.get_title() == "Original vs processed"
+    assert spectrum_ax.get_title() == "FFT: original vs processed"
     np.testing.assert_allclose(waveform_ax.get_xlim(), (0, 0.02))
     np.testing.assert_allclose(spectrum_ax.get_xlim(), (0, 4_000))
+    assert spectrum_ax.get_xscale() == "linear"
 
     waveform_lines = waveform_ax.get_lines()
     spectrum_lines = spectrum_ax.get_lines()
-    assert [line.get_label() for line in waveform_lines] == ["750 Hz + 1500 Hz", "1500 Hz + 3000 Hz"]
-    assert [line.get_label() for line in spectrum_lines] == ["750 Hz + 1500 Hz", "1500 Hz + 3000 Hz"]
-    for line in waveform_lines:
-        y_data = np.asarray(line.get_ydata(), dtype=np.float64)
-        np.testing.assert_allclose(y_data.mean(), 0.0, atol=1e-6)
+    expected_labels = ["Original", "After DC removal + 1 kHz low-pass"]
+    assert [line.get_label() for line in waveform_lines] == expected_labels
+    assert [line.get_label() for line in spectrum_lines] == expected_labels
+    np.testing.assert_allclose(
+        [np.asarray(line.get_ydata()).mean() for line in waveform_lines],
+        [0.25, 0.0],
+        atol=1e-5,
+    )
 
-    peak_freqs: list[float] = []
-    for line in spectrum_lines:
-        x_data = np.asarray(line.get_xdata(), dtype=np.float64)
-        y_data = np.asarray(line.get_ydata(), dtype=np.float64)
-        peak_freqs.append(float(x_data[np.argmax(y_data)]))
-    np.testing.assert_allclose(peak_freqs, [750.0, 1500.0])
+    freqs = np.asarray(spectrum_lines[0].get_xdata())
+    bin_750 = int(np.argmin(np.abs(freqs - 750)))
+    bin_1500 = int(np.argmin(np.abs(freqs - 1500)))
+    original_db = np.asarray(spectrum_lines[0].get_ydata())
+    processed_db = np.asarray(spectrum_lines[1].get_ydata())
+    peak_db = max(float(np.max(original_db)), float(np.max(processed_db)))
+    np.testing.assert_allclose(spectrum_ax.get_ylim(), (peak_db - 60, peak_db))
+    assert processed_db[bin_750] > original_db[bin_750] - 3
+    assert processed_db[bin_1500] < original_db[bin_1500] - 10
 
     plt.close("all")
 

@@ -103,7 +103,7 @@ The workflow stays method-centered from here. Call `recording.remove_dc()` to re
 
 Next, verify that the code and analysis result agree for a signal whose answer is known. `wd.from_numpy()` creates a `ChannelFrame` from a NumPy array while attaching the sampling rate, channel names, and units.
 
-This example puts 750 Hz and 1500 Hz tones plus a DC offset in the first channel, and 1500 Hz and 3000 Hz tones plus a different offset in the second.
+This example creates one mono signal containing 750 Hz and 1500 Hz tones plus a DC offset. It removes DC, applies a 1 kHz low-pass filter in one method chain, and combines the result with the original through `add_channel()` for overlaid waveform and FFT views.
 
 ```python
 import numpy as np
@@ -111,42 +111,55 @@ import wandas as wd
 
 sr = 48_000
 t = np.arange(sr) / sr
-labels = ["750 Hz + 1500 Hz", "1500 Hz + 3000 Hz"]
 
 
 def tone(components, *, offset=0.0):
     return offset + sum(amplitude * np.sin(2 * np.pi * freq * t) for freq, amplitude in components)
 
 
-samples = np.vstack([
-    tone([(750, 0.20), (1500, 0.05)], offset=0.25),
-    tone([(1500, 0.10), (3000, 0.02)], offset=-0.10),
-]).astype(np.float64)
+samples = tone([(750, 0.20), (1500, 0.05)], offset=0.25).astype(np.float64)
 
 signal = wd.from_numpy(
     samples,
     sampling_rate=sr,
     label="known signal",
-    ch_labels=labels,
+    ch_labels=["Original"],
     ch_units="Pa",
 )
 
-clean = signal.remove_dc()
-spectrum = clean.welch(n_fft=4096)
+processed = (
+    signal
+    .remove_dc()
+    .low_pass_filter(cutoff=1_000)
+    .rename_channels({0: "After DC removal + 1 kHz low-pass"})
+)
+comparison = signal.add_channel(processed)
 
-clean.plot(overlay=True, xlim=(0, 0.02), title="Known signal after remove_dc()", label=labels)
-spectrum.plot(overlay=True, xlim=(0, 4_000), title="Welch spectrum of the known signal", label=labels)
+comparison.plot(
+    overlay=True,
+    xlim=(0, 0.02),
+    title="Original vs processed",
+    label=comparison.labels,
+)
+spectrum_ax = comparison.fft(n_fft=sr).plot(
+    overlay=True,
+    xlim=(0, 4_000),
+    title="FFT: original vs processed",
+    label=comparison.labels,
+)
+spectrum_peak_db = max(float(np.max(line.get_ydata())) for line in spectrum_ax.get_lines())
+spectrum_ax.set_ylim(spectrum_peak_db - 60, spectrum_peak_db)
 ```
 
-`remove_dc()` returns a new `ChannelFrame` without changing the original `signal`. The preceding frame is available through `clean.previous`, while `clean.operation_history` records the applied operation.
+The method chain returns a new `ChannelFrame` without changing the original `signal`. `processed.previous` follows the preceding frame, while `processed.operation_history` records both `remove_dc()` and `low_pass_filter()`.
 
-The waveform view shows that the DC offset disappears after `remove_dc()`.
+`signal.add_channel(processed)` combines the original and processed signals into a two-channel comparison frame. In the waveform overlay, the DC offset disappears and the filtered waveform changes shape.
 
-![Wandas waveform plot after removing DC offset from the generated signal](images/readme_known_signal_waveform.png)
+![Overlaid Wandas waveforms for the original signal and the DC-removed low-pass result](images/readme_known_signal_waveform.png)
 
-`clean.welch()` returns a `SpectralFrame`. Its plot shows 750 Hz and 1500 Hz for the first channel, and 1500 Hz and 3000 Hz for the second.
+The FFT overlay uses a 60 dB vertical range below its peak. It shows that the processed signal keeps the 750 Hz component while attenuating the 1500 Hz component above the 1 kHz cutoff.
 
-![Wandas Welch spectrum plot for the generated signal](images/readme_known_signal_spectrum.png)
+![Overlaid Wandas FFT spectra for the original signal and the DC-removed low-pass result](images/readme_known_signal_spectrum.png)
 
 ## Use Your Own Data
 

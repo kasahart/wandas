@@ -103,7 +103,7 @@ recording.describe(fmin=20, fmax=8_000, vmin=-80, vmax=-20, image_save="readme_s
 
 次は、答えが分かっている信号で、コードと解析結果が一致することを確かめます。`wd.from_numpy()` を使えば、NumPy 配列にサンプリング周波数、チャンネル名、単位を与えて `ChannelFrame` を作れます。
 
-この例では、1 つ目のチャンネルに DC オフセット付きの 750 Hz / 1500 Hz、2 つ目のチャンネルに別の DC オフセット付きの 1500 Hz / 3000 Hz を入れます。
+この例では、750 Hz / 1500 Hz と DC オフセットを含むモノラル信号を作ります。DC 除去と 1 kHz ローパスフィルターを 1 つのメソッドチェインで適用し、`add_channel()` で元信号と加工後をまとめて波形と FFT を重ね書きします。
 
 ```python
 import numpy as np
@@ -111,42 +111,55 @@ import wandas as wd
 
 sr = 48_000
 t = np.arange(sr) / sr
-labels = ["750 Hz + 1500 Hz", "1500 Hz + 3000 Hz"]
 
 
 def tone(components, *, offset=0.0):
     return offset + sum(amplitude * np.sin(2 * np.pi * freq * t) for freq, amplitude in components)
 
 
-samples = np.vstack([
-    tone([(750, 0.20), (1500, 0.05)], offset=0.25),
-    tone([(1500, 0.10), (3000, 0.02)], offset=-0.10),
-]).astype(np.float64)
+samples = tone([(750, 0.20), (1500, 0.05)], offset=0.25).astype(np.float64)
 
 signal = wd.from_numpy(
     samples,
     sampling_rate=sr,
     label="known signal",
-    ch_labels=labels,
+    ch_labels=["Original"],
     ch_units="Pa",
 )
 
-clean = signal.remove_dc()
-spectrum = clean.welch(n_fft=4096)
+processed = (
+    signal
+    .remove_dc()
+    .low_pass_filter(cutoff=1_000)
+    .rename_channels({0: "After DC removal + 1 kHz low-pass"})
+)
+comparison = signal.add_channel(processed)
 
-clean.plot(overlay=True, xlim=(0, 0.02), title="Known signal after remove_dc()", label=labels)
-spectrum.plot(overlay=True, xlim=(0, 4_000), title="Welch spectrum of the known signal", label=labels)
+comparison.plot(
+    overlay=True,
+    xlim=(0, 0.02),
+    title="Original vs processed",
+    label=comparison.labels,
+)
+spectrum_ax = comparison.fft(n_fft=sr).plot(
+    overlay=True,
+    xlim=(0, 4_000),
+    title="FFT: original vs processed",
+    label=comparison.labels,
+)
+spectrum_peak_db = max(float(np.max(line.get_ydata())) for line in spectrum_ax.get_lines())
+spectrum_ax.set_ylim(spectrum_peak_db - 60, spectrum_peak_db)
 ```
 
-`remove_dc()` は元の `signal` を書き換えず、新しい `ChannelFrame` を返します。`clean.previous` から処理前の frame を参照でき、`clean.operation_history` には適用した操作が残ります。
+メソッドチェインは元の `signal` を書き換えず、新しい `ChannelFrame` を返します。`processed.previous` から直前の frame をたどれ、`processed.operation_history` には `remove_dc()` と `low_pass_filter()` が残ります。
 
-波形表示では、`remove_dc()` の後に DC オフセットが消えていることが分かります。
+`signal.add_channel(processed)` は元信号と加工後を 2 チャンネルの比較 frame にまとめます。波形の重ね書きでは、DC オフセットが消え、フィルター後の波形が変化していることを確認できます。
 
-![生成信号から DC オフセットを除去した後の Wandas 波形プロット](images/readme_known_signal_waveform.png)
+![元信号と DC 除去・ローパス後を重ね書きした Wandas 波形プロット](images/readme_known_signal_waveform.png)
 
-`clean.welch()` は `SpectralFrame` を返します。スペクトル表示では、1 つ目のチャンネルの 750 Hz / 1500 Hz、2 つ目のチャンネルの 1500 Hz / 3000 Hz が見えます。
+FFT の縦軸はピークから 60 dB 下までを表示します。加工後も 750 Hz 成分が残り、1 kHz のカットオフより高い 1500 Hz 成分が減衰していることを確認できます。
 
-![生成信号の Wandas Welch スペクトルプロット](images/readme_known_signal_spectrum.png)
+![元信号と DC 除去・ローパス後を重ね書きした Wandas FFT スペクトルプロット](images/readme_known_signal_spectrum.png)
 
 ## 手元のデータで使う
 
