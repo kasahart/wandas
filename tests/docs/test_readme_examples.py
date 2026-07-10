@@ -114,12 +114,13 @@ def test_readme_positions_wandas_as_reviewable_analysis_workflow() -> None:
     english = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     japanese = (REPO_ROOT / "README.ja.md").read_text(encoding="utf-8")
 
-    assert "shared with teammates or AI agents" in english
-    assert "implementation and review easier" in english
-    assert "Reviewable workflows" in english
-    assert "チームや AI エージェントと解析を共有・レビュー" in japanese
-    assert "実装内容の確認とレビュー" in japanese
-    assert "レビューしやすい解析フロー" in japanese
+    assert "review the analysis as a team" in english
+    assert "ask an AI agent to check" in english
+    assert "reviewable workflow" in english
+    assert "チームで解析をレビュー" in japanese
+    assert "AI エージェントに確認を頼む" in japanese
+    assert "レビューしやすい" in japanese
+    assert "データの文脈" in japanese
 
 
 def test_readme_places_install_before_examples() -> None:
@@ -127,8 +128,10 @@ def test_readme_places_install_before_examples() -> None:
     english = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     japanese = (REPO_ROOT / "README.ja.md").read_text(encoding="utf-8")
 
-    assert english.index("## Install") < english.index("## Inspect Sample Audio")
+    assert english.index("## Installation") < english.index("## Inspect the Sample Audio")
     assert japanese.index("## インストール") < japanese.index("## サンプル音声を確認する")
+    assert english.index('pip install "wandas[io]"') < english.index("## Inspect the Sample Audio")
+    assert japanese.index('pip install "wandas[io]"') < japanese.index("## サンプル音声を確認する")
 
 
 def test_readme_real_data_path_stays_compact() -> None:
@@ -142,8 +145,8 @@ def test_readme_real_data_path_stays_compact() -> None:
     assert japanese.count("```python") <= 3
 
 
-def test_readme_leads_with_sample_audio_describe_and_verified_signal_figures() -> None:
-    """README should lead with sample audio describe output before known-signal checks."""
+def test_readme_leads_with_wav_describe_and_verified_signal_figures() -> None:
+    """README should lead with WAV describe output before known-signal checks."""
     english = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     japanese = (REPO_ROOT / "README.ja.md").read_text(encoding="utf-8")
 
@@ -153,20 +156,59 @@ def test_readme_leads_with_sample_audio_describe_and_verified_signal_figures() -
     assert "images/readme_sample_audio_describe_1.png" in english
     assert "images/readme_sample_audio_describe_0.png" in japanese
     assert "images/readme_sample_audio_describe_1.png" in japanese
-    assert "Known-signal check" in english
+    assert "Validate with a Known Signal" in english
     assert "既知信号で確認する" in japanese
     assert "images/readme_known_signal_waveform.png" in english
     assert "images/readme_known_signal_spectrum.png" in english
     assert "images/readme_known_signal_waveform.png" in japanese
     assert "images/readme_known_signal_spectrum.png" in japanese
-    assert english.index("learning-path/sample_audio.wav") < english.index("Known-signal check")
+    assert english.index("learning-path/sample_audio.wav") < english.index("Validate with a Known Signal")
+    assert english.index("## Validate with a Known Signal") < english.index("## Use Your Own Data")
     assert japanese.index("learning-path/sample_audio.wav") < japanese.index("既知信号で確認する")
+    assert japanese.index("## 既知信号で確認する") < japanese.index("## 手元のデータで使う")
     assert "the DC offset disappears after `remove_dc()`" in english
     assert "DC オフセットが消えていることが分かります" in japanese
     assert "750 Hz and 1500 Hz for the first channel" in english
     assert "1 つ目のチャンネルの 750 Hz / 1500 Hz" in japanese
+    assert "signal = wd.from_numpy" in japanese
     for figure in README_FIGURES:
         assert figure.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+
+
+def test_readme_wav_describe_example_keeps_committed_frequency_range() -> None:
+    """README describe example should match the committed overview figure."""
+    english_block = _python_block_containing(REPO_ROOT / "README.md", "learning-path/sample_audio.wav")
+    japanese_block = _python_block_containing(REPO_ROOT / "README.ja.md", "learning-path/sample_audio.wav")
+
+    expected = 'recording.describe(fmin=20, fmax=8_000, image_save="readme_sample_audio_describe.png")'
+    assert expected in english_block
+    assert expected in japanese_block
+
+
+def test_readme_sample_audio_supports_checkout_and_installed_users() -> None:
+    """The first example should work inside and outside a repository checkout."""
+    expected_url = "https://raw.githubusercontent.com/kasahart/wandas/main/learning-path/sample_audio.wav"
+    for path in README_PATHS:
+        block = _python_block_containing(path, "sample_source")
+        assert 'Path("learning-path/sample_audio.wav")' in block
+        assert expected_url in block
+        assert "recording = wd.read(sample_source" in block
+
+
+def test_readme_documents_frame_context_and_boundaries() -> None:
+    """README claims should include the important execution and analysis boundaries."""
+    english = README_PATHS[0].read_text(encoding="utf-8")
+    japanese = README_PATHS[1].read_text(encoding="utf-8")
+
+    for text in (english, japanese):
+        assert "`previous`" in text
+        assert "`operation_history`" in text
+        assert "`wd.load()`" in text
+        assert "`wandas[ml]`" in text
+        assert "lazy_loading=True" in text
+
+    assert "calibrated" in english
+    assert "校正" in japanese
 
 
 def test_known_signal_readme_result_matches_executed_example(tmp_path: Path) -> None:
