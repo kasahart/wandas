@@ -145,8 +145,7 @@ spectrum_ax = comparison.fft(n_fft=sr).plot(
     xlim=(0, 4_000),
     title="FFT: original vs processed",
 )
-spectrum_peak_db = max(float(np.max(line.get_ydata())) for line in spectrum_ax.get_lines())
-spectrum_ax.set_ylim(spectrum_peak_db - 60, spectrum_peak_db)
+spectrum_ax.set_ylim(30, 90)
 ```
 
 メソッドチェインは元の `signal` を書き換えず、新しい `ChannelFrame` を返します。`processed.previous` から直前の frame をたどれ、`processed.operation_history` には `remove_dc()` と `low_pass_filter()` が残ります。
@@ -155,7 +154,7 @@ spectrum_ax.set_ylim(spectrum_peak_db - 60, spectrum_peak_db)
 
 ![元信号と DC 除去・ローパス後を重ね書きした Wandas 波形プロット](images/readme_known_signal_waveform.png)
 
-FFT の縦軸はピークから 60 dB 下までを表示します。加工後も 750 Hz 成分が残り、1 kHz のカットオフより高い 1500 Hz 成分が減衰していることを確認できます。
+FFT の縦軸は 30–90 dB の固定範囲で表示します。加工後も 750 Hz 成分が残り、1 kHz のカットオフより高い 1500 Hz 成分が減衰していることを確認できます。
 
 ![元信号と DC 除去・ローパス後を重ね書きした Wandas FFT スペクトルプロット](images/readme_known_signal_spectrum.png)
 

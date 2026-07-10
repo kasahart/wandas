@@ -293,8 +293,7 @@ def test_known_signal_readme_plots_have_expected_semantics(tmp_path: Path) -> No
     bin_1500 = int(np.argmin(np.abs(freqs - 1500)))
     original_db = np.asarray(spectrum_lines[0].get_ydata())
     processed_db = np.asarray(spectrum_lines[1].get_ydata())
-    peak_db = max(float(np.max(original_db)), float(np.max(processed_db)))
-    np.testing.assert_allclose(spectrum_ax.get_ylim(), (peak_db - 60, peak_db))
+    np.testing.assert_allclose(spectrum_ax.get_ylim(), (30, 90))
     assert processed_db[bin_750] > original_db[bin_750] - 3
     assert processed_db[bin_1500] < original_db[bin_1500] - 10
 

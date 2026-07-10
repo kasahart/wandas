@@ -27,7 +27,7 @@ processed = (
 - Plot `comparison` with `overlay=True` over 0–0.02 seconds.
 - Chain FFT directly to plotting and retain the returned axes.
 - Use a linear frequency axis with `xlim=(0, 4_000)`.
-- Set the FFT vertical range from the plotted peak down to peak minus 60 dB.
+- Set the FFT vertical range to a fixed 30–90 dB range.
 - Show DC removal in the waveform comparison and attenuation of the 1500 Hz component in the FFT comparison.
 - Keep the existing two image paths and regenerate both images from the published code.
 
@@ -40,7 +40,7 @@ processed = (
 - Explain that `plot()` is terminal, while preprocessing and FFT can remain method-chained.
 - Verify original and processed means, comparison labels, operation history, and the relative 750 Hz / 1500 Hz FFT amplitudes.
 - Verify the published block contains no explicit plot `label` override and the rendered lines still use both comparison labels.
-- Verify two overlaid lines, linear FFT x-axis, peak-relative 60 dB vertical range, titles, labels, and axis limits without pixel-exact comparisons.
+- Verify two overlaid lines, linear FFT x-axis, fixed 30–90 dB vertical range, titles, labels, and axis limits without pixel-exact comparisons.
 - Run README/docs tests, Ruff, ty, and the full test suite before completion.
 
 ## Non-goals

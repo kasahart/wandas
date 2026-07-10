@@ -31,7 +31,7 @@ processed = (
 comparison = signal.add_channel(processed)
 ```
 
-- [ ] Plot `comparison` with `overlay=True`, then plot `comparison.fft(n_fft=sr)` on a linear 0–4,000 Hz axis and set the vertical range from the plotted peak down 60 dB.
+- [ ] Plot `comparison` with `overlay=True`, then plot `comparison.fft(n_fft=sr)` on a linear 0–4,000 Hz axis and set the vertical range to a fixed 30–90 dB range.
 - [ ] Update English and Japanese prose to explain waveform DC removal and 1500 Hz attenuation.
 - [ ] Run focused numerical and plot tests until they pass.
 
@@ -43,7 +43,7 @@ comparison = signal.add_channel(processed)
 - Modify: `docs/superpowers/plans/2026-07-10-known-signal-overlay-comparison.md`
 
 - [ ] Execute the published English known-signal block and save its two figures to the existing image paths.
-- [ ] Visually confirm two overlay lines, waveform offset removal, a peak-relative 60 dB FFT range, and 1500 Hz attenuation.
+- [ ] Visually confirm two overlay lines, waveform offset removal, a fixed 30–90 dB FFT range, and 1500 Hz attenuation.
 - [ ] Run `uv run pytest tests/docs`, `uv run ruff check wandas tests`, `uv run --extra marimo --extra psychoacoustic ty check wandas tests`, and `uv run --extra effects pytest`.
 - [ ] Remove generated caches, run `git diff --check`, and commit with `docs: compare known signal before and after filtering`.
 

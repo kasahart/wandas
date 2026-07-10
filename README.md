@@ -145,8 +145,7 @@ spectrum_ax = comparison.fft(n_fft=sr).plot(
     xlim=(0, 4_000),
     title="FFT: original vs processed",
 )
-spectrum_peak_db = max(float(np.max(line.get_ydata())) for line in spectrum_ax.get_lines())
-spectrum_ax.set_ylim(spectrum_peak_db - 60, spectrum_peak_db)
+spectrum_ax.set_ylim(30, 90)
 ```
 
 The method chain returns a new `ChannelFrame` without changing the original `signal`. `processed.previous` follows the preceding frame, while `processed.operation_history` records both `remove_dc()` and `low_pass_filter()`.
@@ -155,7 +154,7 @@ The method chain returns a new `ChannelFrame` without changing the original `sig
 
 ![Overlaid Wandas waveforms for the original signal and the DC-removed low-pass result](images/readme_known_signal_waveform.png)
 
-The FFT overlay uses a 60 dB vertical range below its peak. It shows that the processed signal keeps the 750 Hz component while attenuating the 1500 Hz component above the 1 kHz cutoff.
+The FFT overlay uses a fixed 30–90 dB vertical range. It shows that the processed signal keeps the 750 Hz component while attenuating the 1500 Hz component above the 1 kHz cutoff.
 
 ![Overlaid Wandas FFT spectra for the original signal and the DC-removed low-pass result](images/readme_known_signal_spectrum.png)
 
