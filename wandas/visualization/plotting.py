@@ -38,6 +38,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 TFrame = TypeVar("TFrame", bound="BaseFrame[Any]")
+PlotLabel = str | Sequence[str] | None
 
 
 def _spectrogram_axis_values(frame: Any, data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -57,7 +58,7 @@ class PlotStrategy(abc.ABC, Generic[TFrame]):
         x: Any,
         y: Any,
         ax: Axes,
-        label: str | None = None,
+        label: PlotLabel = None,
         alpha: float = 1.0,
     ) -> None:
         """Implementation of channel plotting"""
@@ -224,7 +225,7 @@ def _plot_line_layout(
             x_data,
             data_2d.T,
             ax,
-            label=label if label is not None else (bf.labels[0] if isinstance(bf.labels, list) else bf.labels),
+            label=label if label is not None else bf.labels,
             alpha=alpha,
             **plot_kwargs,
         )
@@ -271,7 +272,7 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         x: Any,
         y: Any,
         ax: Axes,
-        label: str | None = None,
+        label: PlotLabel = None,
         alpha: float = 1.0,
         **kwargs: Any,
     ) -> None:
@@ -345,7 +346,7 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
         x: Any,
         y: Any,
         ax: Axes,
-        label: str | None = None,
+        label: PlotLabel = None,
         alpha: float = 1.0,
         **kwargs: Any,
     ) -> None:
@@ -418,7 +419,7 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
         x: Any,
         y: Any,
         ax: Axes,
-        label: str | None = None,
+        label: PlotLabel = None,
         alpha: float = 1.0,
         **kwargs: Any,
     ) -> None:
@@ -489,7 +490,7 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
         x: Any,
         y: Any,
         ax: Axes,
-        label: str | None = None,
+        label: PlotLabel = None,
         alpha: float = 1.0,
         **kwargs: Any,
     ) -> None:
@@ -605,7 +606,7 @@ class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
         x: Any,
         y: Any,
         ax: Axes,
-        label: str | None = None,
+        label: PlotLabel = None,
         alpha: float = 1.0,
         **kwargs: Any,
     ) -> None:
@@ -709,7 +710,7 @@ class MatrixPlotStrategy(PlotStrategy["SpectralFrame"]):
         x: Any,
         y: Any,
         ax: Axes,
-        label: str | None = None,
+        label: PlotLabel = None,
         alpha: float = 1.0,
         **kwargs: Any,
     ) -> None:

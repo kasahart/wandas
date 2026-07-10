@@ -1,5 +1,5 @@
 import types
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -49,7 +49,14 @@ class TestPlotStrategy(PlotStrategy[Any]):
 
     name = "test_strategy"
 
-    def channel_plot(self, x: Any, y: Any, ax: "Axes", label: str | None = None, alpha: float = 1.0) -> None:
+    def channel_plot(
+        self,
+        x: Any,
+        y: Any,
+        ax: "Axes",
+        label: str | Sequence[str] | None = None,
+        alpha: float = 1.0,
+    ) -> None:
         pass
 
     def plot(
