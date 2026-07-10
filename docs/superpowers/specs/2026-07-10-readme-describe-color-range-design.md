@@ -2,12 +2,13 @@
 
 ## Goal
 
-Fix the spectrogram color range in both README `describe()` examples to `-70` through `-10` dB while keeping the published sample figures and executable documentation tests synchronized.
+Fix the spectrogram color range in both README `describe()` examples to `-80` through `-20` dB while keeping the published sample figures and executable documentation tests synchronized.
 
 ## Scope
 
-- Add `vmin=-70, vmax=-10` to the sample-audio `recording.describe(...)` call in `README.md` and `README.ja.md`.
+- Add `vmin=-80, vmax=-20` to the sample-audio `recording.describe(...)` call in `README.md` and `README.ja.md`.
 - Add the same arguments to the own-data `clean.describe(...)` call in both languages.
+- Use `start=0, end=15` for both README recording examples and regenerate the sample figures over 15 seconds.
 - Update README tests so the published sample call must retain this exact range.
 - Regenerate `images/readme_sample_audio_describe_0.png` and `images/readme_sample_audio_describe_1.png` from the documented sample-audio block.
 - Do not change the `ChannelFrame.describe()` API or its defaults.

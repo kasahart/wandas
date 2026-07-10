@@ -139,8 +139,8 @@ def test_readme_real_data_path_stays_compact() -> None:
     english = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     japanese = (REPO_ROOT / "README.ja.md").read_text(encoding="utf-8")
 
-    assert 'recording = wd.read("recording.wav", start=0, end=10)' in english
-    assert 'recording = wd.read("recording.wav", start=0, end=10)' in japanese
+    assert 'recording = wd.read("recording.wav", start=0, end=15)' in english
+    assert 'recording = wd.read("recording.wav", start=0, end=15)' in japanese
     assert english.count("```python") <= 3
     assert japanese.count("```python") <= 3
 
@@ -175,14 +175,22 @@ def test_readme_leads_with_wav_describe_and_verified_signal_figures() -> None:
         assert figure.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
 
 
-def test_readme_wav_describe_example_keeps_committed_frequency_range() -> None:
-    """README describe example should match the committed overview figure."""
-    english_block = _python_block_containing(REPO_ROOT / "README.md", "learning-path/sample_audio.wav")
-    japanese_block = _python_block_containing(REPO_ROOT / "README.ja.md", "learning-path/sample_audio.wav")
+def test_readme_describe_examples_keep_committed_color_range() -> None:
+    """README describe examples should use the color range shown by the figures."""
+    english = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    japanese = (REPO_ROOT / "README.ja.md").read_text(encoding="utf-8")
+    english_sample = _python_block_containing(REPO_ROOT / "README.md", "sample_source")
+    japanese_sample = _python_block_containing(REPO_ROOT / "README.ja.md", "sample_source")
 
-    expected = 'recording.describe(fmin=20, fmax=8_000, image_save="readme_sample_audio_describe.png")'
-    assert expected in english_block
-    assert expected in japanese_block
+    sample_call = (
+        'recording.describe(fmin=20, fmax=8_000, vmin=-80, vmax=-20, image_save="readme_sample_audio_describe.png")'
+    )
+    own_data_call = 'clean.describe(fmin=20, fmax=fmax, vmin=-80, vmax=-20, image_save="recording_overview.png")'
+
+    assert sample_call in english_sample
+    assert sample_call in japanese_sample
+    assert own_data_call in english
+    assert own_data_call in japanese
 
 
 def test_readme_sample_audio_supports_checkout_and_installed_users() -> None:
@@ -192,7 +200,7 @@ def test_readme_sample_audio_supports_checkout_and_installed_users() -> None:
         block = _python_block_containing(path, "sample_source")
         assert 'Path("learning-path/sample_audio.wav")' in block
         assert expected_url in block
-        assert "recording = wd.read(sample_source" in block
+        assert "recording = wd.read(sample_source, start=0, end=15, normalize=True)" in block
 
 
 def test_readme_documents_frame_context_and_boundaries() -> None:

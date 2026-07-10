@@ -85,8 +85,8 @@ sample_source = (
     else "https://raw.githubusercontent.com/kasahart/wandas/main/learning-path/sample_audio.wav"
 )
 
-recording = wd.read(sample_source, start=0, end=10, normalize=True)
-recording.describe(fmin=20, fmax=8_000, image_save="readme_sample_audio_describe.png")
+recording = wd.read(sample_source, start=0, end=15, normalize=True)
+recording.describe(fmin=20, fmax=8_000, vmin=-80, vmax=-20, image_save="readme_sample_audio_describe.png")
 ```
 
 Before you decide what to clean or measure, `describe()` presents the waveform, spectrogram, and Welch spectrum together. For a multichannel frame, it saves one figure per channel.
@@ -155,12 +155,12 @@ After confirming the workflow with the sample, replace the input with your own W
 ```python
 import wandas as wd
 
-recording = wd.read("recording.wav", start=0, end=10)
+recording = wd.read("recording.wav", start=0, end=15)
 clean = recording.remove_dc().normalize()
 spectrum = clean.welch(n_fft=2048)
 fmax = min(8_000, clean.sampling_rate / 2)
 
-clean.describe(fmin=20, fmax=fmax, image_save="recording_overview.png")
+clean.describe(fmin=20, fmax=fmax, vmin=-80, vmax=-20, image_save="recording_overview.png")
 spectrum.plot(xlim=(20, fmax))
 ```
 
