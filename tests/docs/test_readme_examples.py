@@ -139,8 +139,10 @@ def test_readme_real_data_path_stays_compact() -> None:
     english = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     japanese = (REPO_ROOT / "README.ja.md").read_text(encoding="utf-8")
 
-    assert 'recording = wd.read("recording.wav", start=0, end=15)' in english
-    assert 'recording = wd.read("recording.wav", start=0, end=15)' in japanese
+    assert 'recording = wd.read("recording.wav", end=15)' in english
+    assert 'recording = wd.read("recording.wav", end=15)' in japanese
+    assert "spectrum = clean.welch()" in english
+    assert "spectrum = clean.welch()" in japanese
     assert english.count("```python") <= 3
     assert japanese.count("```python") <= 3
 
@@ -204,7 +206,7 @@ def test_readme_sample_audio_supports_checkout_and_installed_users() -> None:
         block = _python_block_containing(path, "sample_source")
         assert 'Path("learning-path/sample_audio.wav")' in block
         assert expected_url in block
-        assert "recording = wd.read(sample_source, start=0, end=15, normalize=True)" in block
+        assert "recording = wd.read(sample_source, end=15, normalize=True)" in block
 
 
 def test_readme_documents_frame_context_and_boundaries() -> None:
@@ -217,7 +219,8 @@ def test_readme_documents_frame_context_and_boundaries() -> None:
         assert "`operation_history`" in text
         assert "`wd.load()`" in text
         assert "`wandas[ml]`" in text
-        assert "lazy_loading=True" in text
+        assert "lazy_loading=True" not in text
+        assert 'wd.from_folder("recordings/", recursive=True)' in text
 
     assert "calibrated" in english
     assert "校正" in japanese
@@ -260,6 +263,8 @@ def test_known_signal_readme_uses_automatic_overlay_labels() -> None:
     for path in README_PATHS:
         block = _python_block_containing(path, "known signal")
         assert "label=comparison.labels" not in block
+        assert "fft(n_fft=sr)" not in block
+        assert "comparison.fft().plot(" in block
 
 
 def test_known_signal_readme_plots_have_expected_semantics(tmp_path: Path) -> None:

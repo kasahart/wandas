@@ -31,7 +31,7 @@ processed = (
 comparison = signal.add_channel(processed)
 ```
 
-- [ ] Plot `comparison` with `overlay=True`, then plot `comparison.fft(n_fft=sr)` on a linear 0–4,000 Hz axis and set the vertical range to a fixed 30–90 dB range.
+- [ ] Plot `comparison` with `overlay=True`, then plot `comparison.fft()` on a linear 0–4,000 Hz axis and set the vertical range to a fixed 30–90 dB range.
 - [ ] Update English and Japanese prose to explain waveform DC removal and 1500 Hz attenuation.
 - [ ] Run focused numerical and plot tests until they pass.
 

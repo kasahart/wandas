@@ -85,7 +85,7 @@ sample_source = (
     else "https://raw.githubusercontent.com/kasahart/wandas/main/learning-path/sample_audio.wav"
 )
 
-recording = wd.read(sample_source, start=0, end=15, normalize=True)
+recording = wd.read(sample_source, end=15, normalize=True)
 recording.describe(fmin=20, fmax=8_000, vmin=-80, vmax=-20, image_save="readme_sample_audio_describe.png")
 ```
 
@@ -140,7 +140,7 @@ comparison.plot(
     xlim=(0, 0.02),
     title="Original vs processed",
 )
-spectrum_ax = comparison.fft(n_fft=sr).plot(
+spectrum_ax = comparison.fft().plot(
     overlay=True,
     xlim=(0, 4_000),
     title="FFT: original vs processed",
@@ -165,9 +165,9 @@ FFT の縦軸は 30–90 dB の固定範囲で表示します。加工後も 750
 ```python
 import wandas as wd
 
-recording = wd.read("recording.wav", start=0, end=15)
+recording = wd.read("recording.wav", end=15)
 clean = recording.remove_dc().normalize()
-spectrum = clean.welch(n_fft=2048)
+spectrum = clean.welch()
 fmax = min(8_000, clean.sampling_rate / 2)
 
 clean.describe(fmin=20, fmax=fmax, vmin=-80, vmax=-20, image_save="recording_overview.png")
@@ -176,7 +176,7 @@ spectrum.plot(xlim=(20, fmax))
 
 物理量を扱う解析では、データの校正を保ってください。`normalize()` は振幅を変えるため、SPL、sound level、ラウドネス、粗さ、シャープネスなどを計算するときは、正しく Pa に換算された元データから解析します。心理音響指標には `wandas[psychoacoustic]`、WDF の保存・読み込みには `wandas[io]` が必要です。
 
-複数ファイルでは、`wd.from_folder("recordings/", recursive=True, lazy_loading=True)` から始められます。dataset に対して `.resample(16_000).trim(0, 5).normalize().stft(n_fft=512)` のように前処理をまとめて適用できます。ML へ渡すときは `frame.to_tensor(framework="torch")` または `frame.to_tensor(framework="tensorflow")` を使います（`wandas[ml]` が必要で、変換時に遅延データが実体化されます）。
+複数ファイルでは、`wd.from_folder("recordings/", recursive=True)` から始められます。dataset に対して `.resample(16_000).trim(0, 5).normalize().stft(n_fft=512)` のように前処理をまとめて適用できます。ML へ渡すときは `frame.to_tensor(framework="torch")` または `frame.to_tensor(framework="tensorflow")` を使います（`wandas[ml]` が必要で、変換時に遅延データが実体化されます）。
 
 ## 小さな top-level API
 
