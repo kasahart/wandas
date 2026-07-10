@@ -139,13 +139,11 @@ comparison.plot(
     overlay=True,
     xlim=(0, 0.02),
     title="Original vs processed",
-    label=comparison.labels,
 )
 spectrum_ax = comparison.fft(n_fft=sr).plot(
     overlay=True,
     xlim=(0, 4_000),
     title="FFT: original vs processed",
-    label=comparison.labels,
 )
 spectrum_peak_db = max(float(np.max(line.get_ydata())) for line in spectrum_ax.get_lines())
 spectrum_ax.set_ylim(spectrum_peak_db - 60, spectrum_peak_db)

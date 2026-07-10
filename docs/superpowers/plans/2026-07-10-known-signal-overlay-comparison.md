@@ -46,3 +46,19 @@ comparison = signal.add_channel(processed)
 - [ ] Visually confirm two overlay lines, waveform offset removal, a peak-relative 60 dB FFT range, and 1500 Hz attenuation.
 - [ ] Run `uv run pytest tests/docs`, `uv run ruff check wandas tests`, `uv run --extra marimo --extra psychoacoustic ty check wandas tests`, and `uv run --extra effects pytest`.
 - [ ] Remove generated caches, run `git diff --check`, and commit with `docs: compare known signal before and after filtering`.
+
+### Task 3: Use automatic overlay labels after #285
+
+**Files:**
+- Modify: `tests/docs/test_readme_examples.py`
+- Modify: `README.md`
+- Modify: `README.ja.md`
+- Regenerate: `images/readme_known_signal_waveform.png`
+- Regenerate: `images/readme_known_signal_spectrum.png`
+
+- [x] Merge `origin/develop` so the overlay-label fix from #285 is present.
+- [x] Add a README contract test that rejects redundant explicit `label=` arguments while retaining the two expected legend labels.
+- [x] Run the focused test and confirm it fails while the README still passes `label=comparison.labels`.
+- [x] Remove explicit plot labels from both language versions and rerun the focused tests.
+- [x] Regenerate and visually inspect both known-signal figures.
+- [x] Run the repository checks and remove generated caches before committing the README update.

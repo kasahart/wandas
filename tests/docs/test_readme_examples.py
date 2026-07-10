@@ -232,7 +232,11 @@ def test_known_signal_readme_result_matches_executed_example(tmp_path: Path) -> 
     spectrum = comparison.fft(n_fft=48_000)
 
     assert comparison.labels == ["Original", "After DC removal + 1 kHz low-pass"]
-    assert [entry["operation"] for entry in processed.operation_history][-2:] == ["remove_dc", "lowpass_filter"]
+    assert [entry["operation"] for entry in processed.operation_history][-3:] == [
+        "remove_dc",
+        "lowpass_filter",
+        "rename_channels",
+    ]
     np.testing.assert_allclose(np.asarray(signal.to_numpy()).mean(), 0.25, atol=1e-6)
     np.testing.assert_allclose(np.asarray(processed.to_numpy()).mean(), 0.0, atol=1e-5)
     np.testing.assert_allclose(np.asarray(comparison.to_numpy()).mean(axis=1), [0.25, 0.0], atol=1e-5)
@@ -249,6 +253,13 @@ def test_known_signal_readme_result_matches_executed_example(tmp_path: Path) -> 
     assert amplitudes[0, bin_at(0)] > 0.20
     assert amplitudes[1, bin_at(0)] < 1e-6
     plt.close("all")
+
+
+def test_known_signal_readme_uses_automatic_overlay_labels() -> None:
+    """The example should demonstrate channel-label propagation without plot boilerplate."""
+    for path in README_PATHS:
+        block = _python_block_containing(path, "known signal")
+        assert "label=comparison.labels" not in block
 
 
 def test_known_signal_readme_plots_have_expected_semantics(tmp_path: Path) -> None:
