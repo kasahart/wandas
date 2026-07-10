@@ -181,6 +181,16 @@ def test_readme_leads_with_wav_describe_and_verified_signal_figures() -> None:
         assert figure.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
 
 
+def test_readme_figures_use_absolute_urls_for_package_rendering() -> None:
+    """README figures should render outside a GitHub repository context."""
+    base_url = "https://raw.githubusercontent.com/kasahart/wandas/main/images/"
+    for path in README_PATHS:
+        markdown = path.read_text(encoding="utf-8")
+        for figure in README_FIGURES:
+            assert f"]({base_url}{figure.name})" in markdown
+            assert f"](images/{figure.name})" not in markdown
+
+
 def test_readme_describe_examples_keep_committed_color_range() -> None:
     """README describe examples should use the color range shown by the figures."""
     english = (REPO_ROOT / "README.md").read_text(encoding="utf-8")

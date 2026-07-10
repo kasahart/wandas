@@ -91,9 +91,9 @@ recording.describe(fmin=20, fmax=8_000, vmin=-80, vmax=-20, image_save="readme_s
 
 `describe()` は、次に何を前処理・計測するかを決める前に、波形、スペクトログラム、Welch スペクトルをまとめて表示します。複数チャンネルの frame では、チャンネルごとに図が保存されます。
 
-![サンプル音声 1 つ目のチャンネルの Wandas describe 出力](images/readme_sample_audio_describe_0.png)
+![サンプル音声 1 つ目のチャンネルの Wandas describe 出力](https://raw.githubusercontent.com/kasahart/wandas/main/images/readme_sample_audio_describe_0.png)
 
-![サンプル音声 2 つ目のチャンネルの Wandas describe 出力](images/readme_sample_audio_describe_1.png)
+![サンプル音声 2 つ目のチャンネルの Wandas describe 出力](https://raw.githubusercontent.com/kasahart/wandas/main/images/readme_sample_audio_describe_1.png)
 
 ここから先も流れはメソッド中心です。DC オフセットを外すなら `recording.remove_dc()`、ローパスフィルタをかけるなら `.low_pass_filter(cutoff=1_000)`、スペクトルへ変換するなら `.fft()`、図にするなら結果へ `.plot()` を呼びます。配列、サンプリング周波数、チャンネル情報を補助変数として持ち回る必要はありません。
 
@@ -152,11 +152,11 @@ spectrum_ax.set_ylim(30, 90)
 
 `signal.add_channel(processed)` は元信号と加工後を 2 チャンネルの比較 frame にまとめます。波形の重ね書きでは、DC オフセットが消え、フィルター後の波形が変化していることを確認できます。
 
-![元信号と DC 除去・ローパス後を重ね書きした Wandas 波形プロット](images/readme_known_signal_waveform.png)
+![元信号と DC 除去・ローパス後を重ね書きした Wandas 波形プロット](https://raw.githubusercontent.com/kasahart/wandas/main/images/readme_known_signal_waveform.png)
 
 FFT の縦軸は 30–90 dB の固定範囲で表示します。加工後も 750 Hz 成分が残り、1 kHz のカットオフより高い 1500 Hz 成分が減衰していることを確認できます。
 
-![元信号と DC 除去・ローパス後を重ね書きした Wandas FFT スペクトルプロット](images/readme_known_signal_spectrum.png)
+![元信号と DC 除去・ローパス後を重ね書きした Wandas FFT スペクトルプロット](https://raw.githubusercontent.com/kasahart/wandas/main/images/readme_known_signal_spectrum.png)
 
 ## 手元のデータで使う
 

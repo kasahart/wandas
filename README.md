@@ -91,9 +91,9 @@ recording.describe(fmin=20, fmax=8_000, vmin=-80, vmax=-20, image_save="readme_s
 
 Before you decide what to clean or measure, `describe()` presents the waveform, spectrogram, and Welch spectrum together. For a multichannel frame, it saves one figure per channel.
 
-![Wandas describe output for the first sample-audio channel](images/readme_sample_audio_describe_0.png)
+![Wandas describe output for the first sample-audio channel](https://raw.githubusercontent.com/kasahart/wandas/main/images/readme_sample_audio_describe_0.png)
 
-![Wandas describe output for the second sample-audio channel](images/readme_sample_audio_describe_1.png)
+![Wandas describe output for the second sample-audio channel](https://raw.githubusercontent.com/kasahart/wandas/main/images/readme_sample_audio_describe_1.png)
 
 The workflow stays method-centered from here. Call `recording.remove_dc()` to remove a DC offset, `.low_pass_filter(cutoff=1_000)` to apply a low-pass filter, `.fft()` to move into the frequency domain, and `.plot()` on the result to visualize it. You do not need to pass the array, sampling rate, and channel context through separate helper variables.
 
@@ -152,11 +152,11 @@ The method chain returns a new `ChannelFrame` without changing the original `sig
 
 `signal.add_channel(processed)` combines the original and processed signals into a two-channel comparison frame. In the waveform overlay, the DC offset disappears and the filtered waveform changes shape.
 
-![Overlaid Wandas waveforms for the original signal and the DC-removed low-pass result](images/readme_known_signal_waveform.png)
+![Overlaid Wandas waveforms for the original signal and the DC-removed low-pass result](https://raw.githubusercontent.com/kasahart/wandas/main/images/readme_known_signal_waveform.png)
 
 The FFT overlay uses a fixed 30–90 dB vertical range. It shows that the processed signal keeps the 750 Hz component while attenuating the 1500 Hz component above the 1 kHz cutoff.
 
-![Overlaid Wandas FFT spectra for the original signal and the DC-removed low-pass result](images/readme_known_signal_spectrum.png)
+![Overlaid Wandas FFT spectra for the original signal and the DC-removed low-pass result](https://raw.githubusercontent.com/kasahart/wandas/main/images/readme_known_signal_spectrum.png)
 
 ## Use Your Own Data
 
