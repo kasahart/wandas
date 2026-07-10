@@ -441,7 +441,7 @@ def _(np, spectrogram_dataset):
             window=frame.window,
             label=f"ML({frame.label})",
             metadata=frame.metadata,
-            operation_history=frame.operation_history,
+            lineage=frame.lineage,
             channel_metadata=[frame.channels[0]],
             previous=previous,
         )

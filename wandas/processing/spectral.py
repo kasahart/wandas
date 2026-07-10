@@ -2,6 +2,7 @@ import logging
 from typing import Any
 
 import numpy as np
+from dask.array.core import Array as DaArray
 from scipy.signal import ShortTimeFFT
 from scipy.signal.windows import get_window
 
@@ -22,6 +23,14 @@ def noct_synthesis(*args: Any, **kwargs: Any) -> Any:
 
 def _center_freq(*args: Any, **kwargs: Any) -> Any:
     return require_mosqito_center_freq("NOctFrame")(*args, **kwargs)
+
+
+def _spectral_real_dtype(input_dtype: np.dtype[Any]) -> np.dtype[Any]:
+    return np.dtype(np.result_type(input_dtype, np.float32))
+
+
+def _spectral_complex_dtype(input_dtype: np.dtype[Any]) -> np.dtype[Any]:
+    return np.dtype(np.result_type(_spectral_real_dtype(input_dtype), np.complex64))
 
 
 def _validate_spectral_params(
@@ -130,8 +139,6 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
 
     name = "fft"
     _display = "FFT"
-    n_fft: int | None
-    window: str
 
     def __init__(self, sampling_rate: float, n_fft: int | None = None, window: str = "hann"):
         """
@@ -162,9 +169,17 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
                 f"8192 (powers of 2 are most efficient)"
             )
 
-        self.n_fft = n_fft
-        self.window = window
         super().__init__(sampling_rate, n_fft=n_fft, window=window)
+
+    @property
+    def n_fft(self) -> int | None:
+        """FFT size captured at operation construction time."""
+        return self._config_value("n_fft")
+
+    @property
+    def window(self) -> str:
+        """Window name captured at operation construction time."""
+        return self._config_value("window")
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
@@ -180,20 +195,25 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         tuple
             Output data shape (channels, freqs).
         """
-        n_freqs = self.n_fft // 2 + 1 if self.n_fft else input_shape[-1] // 2 + 1
+        n_fft = self.n_fft
+        n_freqs = n_fft // 2 + 1 if n_fft else input_shape[-1] // 2 + 1
         return (*input_shape[:-1], n_freqs)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return np.dtype(np.complex128)
+
+    def _process(self, x: NDArrayReal) -> NDArrayComplex:
         """Apply FFT to the input array."""
         from scipy.signal import get_window
 
-        if self.n_fft is not None and x.shape[-1] > self.n_fft:
+        n_fft = self.n_fft
+        if n_fft is not None and x.shape[-1] > n_fft:
             # If n_fft is specified and input length exceeds it, truncate
-            x = x[..., : self.n_fft]
+            x = x[..., :n_fft]
 
         win = get_window(self.window, x.shape[-1])
         x = x * win
-        result: NDArrayComplex = np.fft.rfft(x, n=self.n_fft, axis=-1)
+        result: NDArrayComplex = np.fft.rfft(x, n=n_fft, axis=-1)
         result[..., 1:-1] *= 2.0
         # Window function scaling correction
         scaling_factor = np.sum(win)
@@ -206,8 +226,6 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
 
     name = "ifft"
     _display = "iFFT"
-    n_fft: int | None
-    window: str
 
     def __init__(self, sampling_rate: float, n_fft: int | None = None, window: str = "hann"):
         """
@@ -222,9 +240,17 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         window : str, optional
             Window function type, default is 'hann'
         """
-        self.n_fft = n_fft
-        self.window = window
         super().__init__(sampling_rate, n_fft=n_fft, window=window)
+
+    @property
+    def n_fft(self) -> int | None:
+        """IFFT size captured at operation construction time."""
+        return self._config_value("n_fft")
+
+    @property
+    def window(self) -> str:
+        """Window name captured at operation construction time."""
+        return self._config_value("window")
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
@@ -240,10 +266,14 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         tuple
             Output data shape (channels, samples)
         """
-        n_samples = 2 * (input_shape[-1] - 1) if self.n_fft is None else self.n_fft
+        n_fft = self.n_fft
+        n_samples = 2 * (input_shape[-1] - 1) if n_fft is None else n_fft
         return (*input_shape[:-1], n_samples)
 
-    def _process_array(self, x: NDArrayComplex) -> NDArrayReal:
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return np.dtype(np.float64)
+
+    def _process(self, x: NDArrayComplex) -> NDArrayReal:
         """Create processor function for IFFT operation"""
         logger.debug(f"Applying IFFT to array with shape: {x.shape}")
 
@@ -305,25 +335,40 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         # Validate and compute parameters
         actual_win_length, actual_hop_length = _validate_spectral_params(n_fft, win_length, hop_length, "STFT")
 
-        self.n_fft = n_fft
-        self.win_length = actual_win_length
-        self.hop_length = actual_hop_length
-        self.window = window
-
-        self.SFT = ShortTimeFFT(
-            win=get_window(window, self.win_length),
-            hop=self.hop_length,
+        self._SFT = ShortTimeFFT(
+            win=get_window(window, actual_win_length),
+            hop=actual_hop_length,
             fs=sampling_rate,
-            mfft=self.n_fft,
+            mfft=n_fft,
             scale_to="magnitude",
         )
         super().__init__(
             sampling_rate,
             n_fft=n_fft,
-            win_length=self.win_length,
-            hop_length=self.hop_length,
+            win_length=actual_win_length,
+            hop_length=actual_hop_length,
             window=window,
         )
+
+    @property
+    def n_fft(self) -> int:
+        """FFT size captured at operation construction time."""
+        return self._config_value("n_fft")
+
+    @property
+    def win_length(self) -> int:
+        """Window length captured at operation construction time."""
+        return self._config_value("win_length")
+
+    @property
+    def hop_length(self) -> int:
+        """Hop length captured at operation construction time."""
+        return self._config_value("hop_length")
+
+    @property
+    def window(self) -> str:
+        """Window name captured at operation construction time."""
+        return self._config_value("window")
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
@@ -339,12 +384,16 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         tuple
             Output data shape
         """
+        n_channels = input_shape[0]
         n_samples = input_shape[-1]
-        n_f = len(self.SFT.f)
-        n_t = len(self.SFT.t(n_samples))
-        return (input_shape[0], n_f, n_t)
+        n_f = len(self._SFT.f)
+        n_t = len(self._SFT.t(n_samples))
+        return (n_channels, n_f, n_t)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return np.dtype(np.complex128)
+
+    def _process(self, x: NDArrayReal) -> NDArrayComplex:
         """Apply SciPy STFT processing to multiple channels at once"""
         logger.debug(f"Applying SciPy STFT to array with shape: {x.shape}")
 
@@ -353,7 +402,7 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
             x = x.reshape(1, -1)
 
         # Apply STFT to all channels at once
-        result: NDArrayComplex = self.SFT.stft(x)
+        result: NDArrayComplex = self._SFT.stft(x)
         result[..., 1:-1, :] *= 2.0
         logger.debug(f"SciPy STFT applied, returning result with shape: {result.shape}")
         return result
@@ -400,29 +449,48 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         # Validate and compute parameters
         actual_win_length, actual_hop_length = _validate_spectral_params(n_fft, win_length, hop_length, "ISTFT")
 
-        self.n_fft = n_fft
-        self.win_length = actual_win_length
-        self.hop_length = actual_hop_length
-        self.window = window
-        self.length = length
-
         # Instantiate ShortTimeFFT for ISTFT calculation
-        self.SFT = ShortTimeFFT(
-            win=get_window(window, self.win_length),
-            hop=self.hop_length,
+        self._SFT = ShortTimeFFT(
+            win=get_window(window, actual_win_length),
+            hop=actual_hop_length,
             fs=sampling_rate,
-            mfft=self.n_fft,
+            mfft=n_fft,
             scale_to="magnitude",  # Consistent scaling with STFT
         )
 
         super().__init__(
             sampling_rate,
             n_fft=n_fft,
-            win_length=self.win_length,
-            hop_length=self.hop_length,
+            win_length=actual_win_length,
+            hop_length=actual_hop_length,
             window=window,
             length=length,
         )
+
+    @property
+    def n_fft(self) -> int:
+        """FFT size captured at operation construction time."""
+        return self._config_value("n_fft")
+
+    @property
+    def win_length(self) -> int:
+        """Window length captured at operation construction time."""
+        return self._config_value("win_length")
+
+    @property
+    def hop_length(self) -> int:
+        """Hop length captured at operation construction time."""
+        return self._config_value("hop_length")
+
+    @property
+    def window(self) -> str:
+        """Window name captured at operation construction time."""
+        return self._config_value("window")
+
+    @property
+    def length(self) -> int | None:
+        """Output length captured at operation construction time."""
+        return self._config_value("length")
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
@@ -470,7 +538,7 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         - hop: hop length (samples between frames)
         - m_num: window length
         - m_num_mid: window midpoint position
-        - self.length: optional length override (if set, limits output)
+        - length: optional length override (if set, limits output)
 
         References
         ----------
@@ -483,23 +551,27 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
 
         # Follow SciPy ShortTimeFFT formula
         # See: https://github.com/scipy/scipy/blob/main/scipy/signal/_short_time_fft.py
-        q_max = n_frames + self.SFT.p_min
-        k_max = (q_max - 1) * self.SFT.hop + self.SFT.m_num - self.SFT.m_num_mid
+        q_max = n_frames + self._SFT.p_min
+        k_max = (q_max - 1) * self._SFT.hop + self._SFT.m_num - self._SFT.m_num_mid
 
         # Default parameters: k0=0, k1=None (which becomes k_max)
         # The output length is k1 - k0 = k_max - 0 = k_max
         k0 = 0
         k1 = k_max
 
-        # If self.length is specified, it acts as an override to limit the output
-        if self.length is not None:
-            k1 = min(self.length, k1)
+        # If length is specified, it acts as an override to limit the output
+        length = self.length
+        if length is not None:
+            k1 = min(length, k1)
 
         output_samples = k1 - k0
 
         return (n_channels, output_samples)
 
-    def _process_array(self, x: NDArrayComplex) -> NDArrayReal:
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return np.dtype(np.float64)
+
+    def _process(self, x: NDArrayComplex) -> NDArrayReal:
         """
         Apply SciPy ISTFT processing to multiple channels at once using ShortTimeFFT"""
         logger.debug(f"Applying SciPy ISTFT (ShortTimeFFT) to array with shape: {x.shape}")
@@ -513,14 +585,20 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         _x[..., 1:-1, :] /= 2.0
 
         # Apply ISTFT using the ShortTimeFFT instance
-        result: NDArrayReal = self.SFT.istft(_x)
+        result: NDArrayReal = self._SFT.istft(_x)
 
         # Trim to desired length if specified
-        if self.length is not None:
-            result = result[..., : self.length]
+        length = self.length
+        if length is not None:
+            result = result[..., :length]
 
         logger.debug(f"ShortTimeFFT applied, returning result with shape: {result.shape}")
         return result
+
+    def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
+        """Execute ISTFT on Frame-internal channel-first spectrogram data."""
+        self._validate_process_inputs(data, *inputs, ndim=3)
+        return super().process(data, *inputs)
 
 
 class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -540,12 +618,6 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
 
     name = "welch"
     _display = "Welch"
-    n_fft: int
-    window: str
-    hop_length: int | None
-    win_length: int | None
-    average: str
-    detrend: str
 
     def __init__(
         self,
@@ -585,22 +657,50 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
         # Validate and compute parameters
         actual_win_length, actual_hop_length = _validate_spectral_params(n_fft, win_length, hop_length, "Welch method")
 
-        self.n_fft = n_fft
-        self.win_length = actual_win_length
-        self.hop_length = actual_hop_length
-        self.noverlap = self.win_length - self.hop_length if hop_length is not None else None
-        self.window = window
-        self.average = average
-        self.detrend = detrend
         super().__init__(
             sampling_rate,
             n_fft=n_fft,
-            win_length=self.win_length,
-            hop_length=self.hop_length,
+            win_length=actual_win_length,
+            hop_length=actual_hop_length,
             window=window,
             average=average,
             detrend=detrend,
         )
+
+    @property
+    def n_fft(self) -> int:
+        """FFT size captured at operation construction time."""
+        return self._config_value("n_fft")
+
+    @property
+    def win_length(self) -> int:
+        """Window length captured at operation construction time."""
+        return self._config_value("win_length")
+
+    @property
+    def hop_length(self) -> int:
+        """Hop length captured at operation construction time."""
+        return self._config_value("hop_length")
+
+    @property
+    def window(self) -> str:
+        """Window name captured at operation construction time."""
+        return self._config_value("window")
+
+    @property
+    def average(self) -> str:
+        """Averaging method captured at operation construction time."""
+        return self._config_value("average")
+
+    @property
+    def detrend(self) -> str:
+        """Detrend method captured at operation construction time."""
+        return self._config_value("detrend")
+
+    @property
+    def noverlap(self) -> int:
+        """Overlap captured at operation construction time."""
+        return self.win_length - self.hop_length
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
@@ -619,7 +719,10 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
         n_freqs = self.n_fft // 2 + 1
         return (*input_shape[:-1], n_freqs)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return _spectral_real_dtype(input_dtype)
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for Welch operation.
 
         Converts power spectrum from scipy.signal.welch to one-sided
@@ -673,26 +776,48 @@ class _NOctBase(AudioOperation[NDArrayReal, NDArrayReal]):
         G: int = 10,
         fr: int = 1000,
     ):
-        self.fmin = fmin
-        self.fmax = fmax
-        self.n = n
-        self.G = G
-        self.fr = fr
         super().__init__(sampling_rate, fmin=fmin, fmax=fmax, n=n, G=G, fr=fr)
+
+    @property
+    def fmin(self) -> float:
+        """Minimum band frequency captured at operation construction time."""
+        return self._config_value("fmin")
+
+    @property
+    def fmax(self) -> float:
+        """Maximum band frequency captured at operation construction time."""
+        return self._config_value("fmax")
+
+    @property
+    def n(self) -> int:
+        """Fractional octave denominator captured at operation construction time."""
+        return self._config_value("n")
+
+    @property
+    def G(self) -> int:  # noqa: N802
+        """Octave ratio base captured at operation construction time."""
+        return self._config_value("G")
+
+    @property
+    def fr(self) -> int:
+        """Reference frequency captured at operation construction time."""
+        return self._config_value("fr")
 
     def ensure_dependencies(self) -> None:
         require_mosqito_center_freq("NOctFrame")
 
-    def process_array(self, x: Any) -> Any:
+    def process(self, data: Any, *inputs: Any) -> Any:
         self.ensure_dependencies()
-        return super().process_array(x)
-
-    def process(self, data: Any) -> Any:
-        self.ensure_dependencies()
-        return super().process(data)
+        return super().process(data, *inputs)
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        _, fpref = _center_freq(fmin=self.fmin, fmax=self.fmax, n=self.n, G=self.G, fr=self.fr)
+        _, fpref = _center_freq(
+            fmin=self.fmin,
+            fmax=self.fmax,
+            n=self.n,
+            G=self.G,
+            fr=self.fr,
+        )
         return (input_shape[0], fpref.shape[0])
 
 
@@ -702,7 +827,7 @@ class NOctSpectrum(_NOctBase):
     name = "noct_spectrum"
     _display = "Oct"
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for octave spectrum"""
         logger.debug(f"Applying NoctSpectrum to array with shape: {x.shape}")
         spec, _ = noct_spectrum(
@@ -725,7 +850,7 @@ class NOctSynthesis(_NOctBase):
     name = "noct_synthesis"
     _display = "Octs"
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for octave synthesis"""
         logger.debug(f"Applying NoctSynthesis to array with shape: {x.shape}")
         # Calculate n from shape[-1]
@@ -755,7 +880,6 @@ class _CrossSpectralBase(AudioOperation[NDArrayReal, NDArrayReal]):
 
     _method_label: str  # human-readable label for _validate_spectral_params
     _display: str  # set by subclasses
-    n_fft: int
 
     def __init__(
         self,
@@ -770,26 +894,53 @@ class _CrossSpectralBase(AudioOperation[NDArrayReal, NDArrayReal]):
         actual_win_length, actual_hop_length = _validate_spectral_params(
             n_fft, win_length, hop_length, self._method_label
         )
-        self.n_fft = n_fft
-        self.win_length = actual_win_length
-        self.hop_length = actual_hop_length
-        self.noverlap = self.win_length - self.hop_length
-        self.window = window
-        self.detrend = detrend
         super().__init__(
             sampling_rate,
             n_fft=n_fft,
-            hop_length=self.hop_length,
-            win_length=self.win_length,
+            hop_length=actual_hop_length,
+            win_length=actual_win_length,
             window=window,
             detrend=detrend,
             **extra_kwargs,
         )
 
+    @property
+    def n_fft(self) -> int:
+        """FFT size captured at operation construction time."""
+        return self._config_value("n_fft")
+
+    @property
+    def win_length(self) -> int:
+        """Window length captured at operation construction time."""
+        return self._config_value("win_length")
+
+    @property
+    def hop_length(self) -> int:
+        """Hop length captured at operation construction time."""
+        return self._config_value("hop_length")
+
+    @property
+    def window(self) -> str:
+        """Window name captured at operation construction time."""
+        return self._config_value("window")
+
+    @property
+    def detrend(self) -> str:
+        """Detrend method captured at operation construction time."""
+        return self._config_value("detrend")
+
+    @property
+    def noverlap(self) -> int:
+        """Overlap captured at operation construction time."""
+        return self.win_length - self.hop_length
+
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         n_channels = input_shape[0]
         n_freqs = self.n_fft // 2 + 1
         return (n_channels * n_channels, n_freqs)
+
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return _spectral_real_dtype(input_dtype)
 
 
 class Coherence(_CrossSpectralBase):
@@ -799,7 +950,7 @@ class Coherence(_CrossSpectralBase):
     _method_label = "Coherence"
     _display = "Coh"
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Processor function for coherence estimation operation"""
         logger.debug(f"Applying coherence estimation to array with shape: {x.shape}")
         from scipy import signal as ss
@@ -840,8 +991,6 @@ class _ScaledCrossSpectralBase(_CrossSpectralBase):
         scaling: str = "spectrum",
         average: str = "mean",
     ):
-        self.scaling = scaling
-        self.average = average
         super().__init__(
             sampling_rate,
             n_fft=n_fft,
@@ -853,6 +1002,19 @@ class _ScaledCrossSpectralBase(_CrossSpectralBase):
             average=average,
         )
 
+    @property
+    def scaling(self) -> str:
+        """Scaling mode captured at operation construction time."""
+        return self._config_value("scaling")
+
+    @property
+    def average(self) -> str:
+        """Averaging method captured at operation construction time."""
+        return self._config_value("average")
+
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return _spectral_complex_dtype(input_dtype)
+
 
 class CSD(_ScaledCrossSpectralBase):
     """Cross-spectral density estimation operation"""
@@ -861,7 +1023,7 @@ class CSD(_ScaledCrossSpectralBase):
     _method_label = "CSD"
     _display = "CSD"
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
+    def _process(self, x: NDArrayReal) -> NDArrayComplex:
         """Processor function for cross-spectral density estimation operation"""
         logger.debug(f"Applying CSD estimation to array with shape: {x.shape}")
         from scipy import signal as ss
@@ -894,7 +1056,7 @@ class TransferFunction(_ScaledCrossSpectralBase):
     _method_label = "Transfer function"
     _display = "H"
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayComplex:
+    def _process(self, x: NDArrayReal) -> NDArrayComplex:
         """Processor function for transfer function estimation operation"""
         logger.debug(f"Applying transfer function estimation to array with shape: {x.shape}")
         from scipy import signal as ss

@@ -2,9 +2,19 @@ import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 
+from tests.pipeline.custom_recipe_fixtures import custom_scale
+from wandas.frames.channel import ChannelFrame
 from wandas.processing.base import _OPERATION_REGISTRY, create_operation, get_operation
 from wandas.processing.custom import CustomOperation
 from wandas.utils.dask_helpers import da_from_array
+
+
+def _metadata_scale(data: np.ndarray, gain: float) -> np.ndarray:
+    return data * gain
+
+
+def _metadata_same_shape(shape: tuple[int, ...]) -> tuple[int, ...]:
+    return shape
 
 
 class TestCustomOperation:
@@ -22,6 +32,39 @@ class TestCustomOperation:
         assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
         result = result_da.compute()
         np.testing.assert_array_equal(result, scale_add(data, gain=2.0))
+
+    def test_custom_operation_process_uses_operation_owned_params_copy(self) -> None:
+        data = np.array([[1.0, 2.0, 3.0]])
+        op = CustomOperation(16000, func=lambda x, gain: x * gain, gain=2.0)
+
+        np.testing.assert_array_equal(op._process(data), data * 2.0)
+
+    def test_custom_operation_copies_nested_params_for_each_delayed_execution(self) -> None:
+        data = np.array([[1.0, 2.0, 3.0]])
+        dask_data = da_from_array(data, chunks=(1, -1))
+
+        def mutating_scale(x: np.ndarray, config: dict[str, float]) -> np.ndarray:
+            gain = config["gain"]
+            config["gain"] = 99.0
+            return x * gain
+
+        op = CustomOperation(16000, func=mutating_scale, config={"gain": 2.0})
+        result = op.process(dask_data)
+
+        np.testing.assert_array_equal(result.compute(), data * 2.0)
+        np.testing.assert_array_equal(result.compute(), data * 2.0)
+        assert op.params["config"] == {"gain": 2.0}
+
+    def test_custom_operation_subclass_process_contract_uses_process_hook(self) -> None:
+        class HookedCustomOperation(CustomOperation):
+            def _process(self, x: np.ndarray) -> np.ndarray:
+                return super()._process(x) * 3.0
+
+        data = np.array([[1.0, 2.0, 3.0]])
+        dask_data = da_from_array(data, chunks=(1, -1))
+        op = HookedCustomOperation(16000, func=lambda x, gain: x * gain, gain=2.0)
+
+        np.testing.assert_array_equal(op.process(dask_data).compute(), data * 6.0)
 
     def test_custom_operation_output_shape_func_overrides(self) -> None:
         """output_shape_func overrides default shape inference for Dask graph."""
@@ -41,7 +84,8 @@ class TestCustomOperation:
         )
 
         processed = op.process(dask_data)
-        assert processed.shape == (1, 4)
+        assert op.func is halve_samples
+        assert op.output_shape_func is output_shape
         np.testing.assert_array_equal(processed.compute(), halve_samples(data))
 
     def test_get_display_name_uses_func_name(self) -> None:
@@ -88,3 +132,142 @@ class TestCustomOperation:
         # Direct call raises TypeError due to Python's argument handling
         with pytest.raises(TypeError, match="multiple values for argument"):
             CustomOperation(16000, func=my_func, sampling_rate=44100)  # ty: ignore[parameter-already-assigned]
+
+    def test_custom_operation_nested_params_are_defensive_snapshots(self) -> None:
+        def my_func(x: np.ndarray, config: dict[str, float]) -> np.ndarray:
+            return x * config["gain"]
+
+        op = CustomOperation(16000, func=my_func, config={"gain": 2.0})
+
+        params = op.params
+        params["config"]["gain"] = 3.0
+
+        assert op.params["config"]["gain"] == 2.0
+
+    def test_custom_operation_defaults_to_dask_pure(self) -> None:
+        op = CustomOperation(16000, func=lambda x: x)
+
+        assert op.pure is True
+
+    def test_custom_operation_dask_pure_controls_dask_purity_not_params(self) -> None:
+        op = CustomOperation(16000, func=lambda x, gain: x * gain, dask_pure=False, gain=2.0)
+
+        assert op.pure is False
+        assert op.params == {"gain": 2.0}
+        assert "dask_pure" not in op.to_params()
+
+    def test_custom_operation_summary_includes_callable_reference_for_display(self) -> None:
+        def scale(x: np.ndarray, gain: float) -> np.ndarray:
+            return x * gain
+
+        operation = CustomOperation(16000, func=scale, gain=2.0)
+
+        summary = operation.to_summary()
+
+        assert summary["operation"] == "custom"
+        assert summary["params"] == {"gain": 2.0}
+        assert summary["implementation"] is not scale
+        assert summary["implementation"].endswith(".scale")
+        assert "portable" not in summary
+        assert "schema_version" not in summary
+
+    def test_custom_operation_recipe_metadata_includes_importable_callables_and_frame_kwargs(self) -> None:
+        operation = CustomOperation(16000, func=_metadata_scale, output_shape_func=_metadata_same_shape, gain=2.0)
+        object.__setattr__(operation, "_recipe_output_frame_class", ChannelFrame)
+        object.__setattr__(
+            operation,
+            "_recipe_output_frame_kwargs",
+            {"label": "derived", "scale": 1.5, "enabled": np.bool_(True)},
+        )
+
+        assert operation.to_recipe_metadata() == {
+            "function": f"{_metadata_scale.__module__}._metadata_scale",
+            "output_shape_function": f"{_metadata_same_shape.__module__}._metadata_same_shape",
+            "dask_pure": True,
+            "output_frame_class": ChannelFrame,
+            "output_frame_kwargs": {"label": "derived", "scale": 1.5, "enabled": np.bool_(True)},
+        }
+
+    @pytest.mark.parametrize(
+        "func",
+        [
+            None,
+            lambda data: data,
+            custom_scale,
+        ],
+    )
+    def test_custom_operation_recipe_metadata_rejects_non_importable_function(
+        self,
+        func: object,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        if func is custom_scale:
+            monkeypatch.setattr(func, "__module__", "missing_custom_module")
+
+        assert CustomOperation(16000, func=func).to_recipe_metadata() is None  # ty: ignore[invalid-argument-type]
+
+    def test_custom_operation_recipe_metadata_rejects_closure_and_mismatched_module_function(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        scale = 2.0
+
+        def closure(data: np.ndarray) -> np.ndarray:
+            return data * scale
+
+        mismatched = _metadata_scale
+        monkeypatch.setattr(mismatched, "__module__", "math")
+        monkeypatch.setattr(mismatched, "__name__", "sqrt")
+        monkeypatch.setattr(mismatched, "__qualname__", "sqrt")
+
+        assert CustomOperation(16000, func=closure).to_recipe_metadata() is None
+        assert CustomOperation(16000, func=mismatched).to_recipe_metadata() is None
+
+    def test_custom_operation_recipe_metadata_rejects_non_importable_output_shape_and_kwargs(self) -> None:
+        operation = CustomOperation(16000, func=_metadata_scale, output_shape_func=lambda shape: shape)
+
+        assert operation.to_recipe_metadata() is None
+
+        operation = CustomOperation(16000, func=_metadata_scale)
+        object.__setattr__(operation, "_recipe_output_frame_class", ChannelFrame)
+        object.__setattr__(operation, "_recipe_output_frame_kwargs", {"shape": [[1, 2]]})
+
+        assert operation.to_recipe_metadata() is None
+
+    def test_custom_operation_does_not_expose_pure_constructor_option(self) -> None:
+        def my_func(x: np.ndarray, pure: bool) -> np.ndarray:
+            return x + (1.0 if pure else 2.0)
+
+        with pytest.raises(TypeError, match="multiple values"):
+            CustomOperation(16000, func=my_func, pure=False)
+
+    def test_custom_operation_accepts_params_named_function_argument(self) -> None:
+        data = np.array([[1.0, 2.0]])
+        dask_data = da_from_array(data, chunks=(1, -1))
+
+        def my_func(x: np.ndarray, params: float) -> np.ndarray:
+            return x * params
+
+        op = CustomOperation(16000, func=my_func, params=2.0)
+
+        assert op.params["params"] == 2.0
+        np.testing.assert_array_equal(op.process(dask_data).compute(), data * 2.0)
+
+    def test_custom_operation_callables_are_read_only(self) -> None:
+        def my_func(x: np.ndarray) -> np.ndarray:
+            return x
+
+        op = CustomOperation(16000, func=my_func)
+
+        with pytest.raises(AttributeError):
+            setattr(op, "func", lambda x: x * 2)
+
+        data = np.array([[1.0, 2.0]])
+        dask_data = da_from_array(data, chunks=(1, -1))
+        np.testing.assert_array_equal(op.process(dask_data).compute(), data)
+
+    def test_custom_operation_output_shape_callable_is_read_only(self) -> None:
+        op = CustomOperation(16000, func=lambda x: x, output_shape_func=lambda shape: shape)
+
+        with pytest.raises(AttributeError):
+            setattr(op, "output_shape_func", lambda shape: (shape[0],))

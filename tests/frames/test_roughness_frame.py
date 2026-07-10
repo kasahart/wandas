@@ -10,6 +10,8 @@ import pytest
 from dask.array.core import Array as DaArray
 
 from wandas.frames.roughness import RoughnessFrame
+from wandas.processing.base import LineageNode
+from wandas.processing.effects import Normalize
 
 # --- Module-level deterministic roughness test data ---
 _N_BARK: int = 47
@@ -97,6 +99,20 @@ class TestRoughnessFrame:
 
         assert frame.data.shape == (2, _N_BARK, _N_TIME)
         assert frame._n_channels == 2
+
+    def test_reverse_scalar_binary_operation_does_not_bypass_override(self) -> None:
+        """Reverse scalar operators should not use BaseFrame binary behavior."""
+        frame = RoughnessFrame(
+            data=_DATA_MONO,
+            sampling_rate=_SAMPLING_RATE,
+            bark_axis=_BARK_AXIS,
+            overlap=_OVERLAP,
+        )
+
+        with pytest.raises(TypeError, match="unsupported operand type"):
+            2.0 + frame
+        with pytest.raises(TypeError):
+            np.float64(2.0) + frame
 
     def test_initialization_validates_dimensions(self) -> None:
         """Test that initialization validates data dimensions."""
@@ -404,6 +420,39 @@ class TestRoughnessFrame:
 
     def test_binary_op_with_roughness_frame(self) -> None:
         """Test binary operations between RoughnessFrame instances."""
+        left_operation = Normalize(_SAMPLING_RATE)
+        right_operation = Normalize(_SAMPLING_RATE)
+        frame1 = RoughnessFrame(
+            data=_DATA_MONO,
+            sampling_rate=_SAMPLING_RATE,
+            bark_axis=_BARK_AXIS,
+            overlap=_OVERLAP,
+            lineage=LineageNode(left_operation),
+        )
+        frame2 = RoughnessFrame(
+            data=_DATA_MONO,
+            sampling_rate=_SAMPLING_RATE,
+            bark_axis=_BARK_AXIS,
+            overlap=_OVERLAP,
+            lineage=LineageNode(right_operation),
+        )
+
+        # Test addition
+        original_data1 = frame1.data.copy()
+        result = frame1 + frame2
+        assert result is not frame1  # Pillar 1: immutability
+        assert result is not frame2
+        assert isinstance(result._data, DaArray)  # Pillar 1: Dask laziness
+        assert isinstance(result, RoughnessFrame)
+        # Element-wise addition — np.allclose default tol (exact match expected)
+        assert np.allclose(result.data, original_data1 + frame2.data)
+        assert np.allclose(frame1.data, original_data1)  # Pillar 1: original unchanged
+        assert [record["operation"] for record in result.operation_history] == ["normalize", "normalize", "+"]
+        assert result.operation_graph is not None
+        assert [node["operation"] for node in result.operation_graph["inputs"]] == ["normalize", "normalize"]
+
+    def test_binary_op_with_raw_roughness_frames_records_source_parents(self) -> None:
+        """Raw RoughnessFrame binary operands keep positional source leaves."""
         frame1 = RoughnessFrame(
             data=_DATA_MONO,
             sampling_rate=_SAMPLING_RATE,
@@ -417,16 +466,46 @@ class TestRoughnessFrame:
             overlap=_OVERLAP,
         )
 
-        # Test addition
-        original_data1 = frame1.data.copy()
         result = frame1 + frame2
-        assert result is not frame1  # Pillar 1: immutability
-        assert result is not frame2
-        assert isinstance(result._data, DaArray)  # Pillar 1: Dask laziness
-        assert isinstance(result, RoughnessFrame)
-        # Element-wise addition — np.allclose default tol (exact match expected)
-        assert np.allclose(result.data, original_data1 + frame2.data)
-        assert np.allclose(frame1.data, original_data1)  # Pillar 1: original unchanged
+
+        assert result.operation_history == [{"operation": "+", "params": {"symbol": "+", "operand_kind": "frame"}}]
+        assert result.operation_graph is not None
+        assert [node["kind"] for node in result.operation_graph["inputs"]] == ["source", "source"]
+
+    def test_binary_op_preserves_snapshot_backed_operation_summaries(self) -> None:
+        frame = RoughnessFrame(
+            data=_DATA_MONO,
+            sampling_rate=_SAMPLING_RATE,
+            bark_axis=_BARK_AXIS,
+            overlap=_OVERLAP,
+            operation_summaries_snapshot=[{"operation": "loaded", "params": {}}],
+        )
+
+        result = frame + 1.0
+
+        assert [summary["operation"] for summary in result.operation_summaries] == ["loaded", "+"]
+        assert [record["operation"] for record in result.operation_history] == ["+"]
+
+    def test_binary_op_merges_snapshot_backed_roughness_frame_input_summaries(self) -> None:
+        left = RoughnessFrame(
+            data=_DATA_MONO,
+            sampling_rate=_SAMPLING_RATE,
+            bark_axis=_BARK_AXIS,
+            overlap=_OVERLAP,
+            lineage=LineageNode(Normalize(_SAMPLING_RATE)),
+        )
+        right = RoughnessFrame(
+            data=_DATA_MONO,
+            sampling_rate=_SAMPLING_RATE,
+            bark_axis=_BARK_AXIS,
+            overlap=_OVERLAP,
+            operation_summaries_snapshot=[{"operation": "loaded", "params": {}}],
+        )
+
+        result = left + right
+
+        assert [summary["operation"] for summary in result.operation_summaries] == ["normalize", "loaded", "+"]
+        assert [record["operation"] for record in result.operation_history] == ["normalize", "+"]
 
     def test_binary_op_sampling_rate_mismatch(self) -> None:
         """Test binary operation raises error on sampling rate mismatch."""

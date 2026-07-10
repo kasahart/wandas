@@ -1,9 +1,10 @@
 import copy
+import json
 import logging
 import numbers
 import uuid
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from re import Pattern
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast, overload
 
@@ -28,6 +29,8 @@ if TYPE_CHECKING:
     from IPython.display import Image as IPythonImage
     from matplotlib.axes import Axes
 
+    from wandas.processing.base import AudioOperation, LineageNode
+
     VisualizeReturnType: TypeAlias = IPythonImage | None
 else:
     # Use Any at runtime to avoid type checker errors
@@ -39,6 +42,81 @@ T = TypeVar("T", NDArrayComplex, NDArrayReal)
 S = TypeVar("S", bound="BaseFrame[Any]")
 S_Out = TypeVar("S_Out", bound="BaseFrame[Any]")
 QueryType = str | Pattern[str] | Callable[["ChannelMetadata"], bool] | dict[str, Any]
+
+
+class _LineageOperationName:
+    """Operation view used when callers provide an explicit lineage name."""
+
+    def __init__(self, operation: Any, name: str, params: Mapping[str, Any] | None = None) -> None:
+        self._operation = operation
+        self.name = name
+        self._params = params
+
+    @property
+    def params(self) -> Any:
+        return self._params if self._params is not None else getattr(self._operation, "params", {})
+
+    def to_params(self) -> Mapping[str, Any]:
+        if self._params is not None:
+            return self._params
+        if hasattr(self._operation, "to_params"):
+            return cast(Mapping[str, Any], self._operation.to_params())
+        return cast(Mapping[str, Any], getattr(self._operation, "params", {}))
+
+
+def _mutable_config_value(value: Any) -> Any:
+    """Convert operation config values to plain JSON-friendly containers for history."""
+    if isinstance(value, DaArray):
+        return {
+            "type": "dask.array",
+            "shape": [_mutable_config_value(item) for item in value.shape],
+            "dtype": str(value.dtype),
+            "chunks": [[_mutable_config_value(item) for item in chunk] for chunk in value.chunks],
+        }
+    if isinstance(value, np.ndarray):
+        return _mutable_config_value(value.tolist())
+    if isinstance(value, bool | np.bool_):
+        return bool(value)
+    if isinstance(value, numbers.Integral):
+        return int(value)
+    if isinstance(value, numbers.Real):
+        numeric = float(value)
+        if np.isfinite(numeric):
+            return numeric
+        if np.isnan(numeric):
+            return {"type": "float", "value": "nan"}
+        if numeric > 0:
+            return {"type": "float", "value": "inf"}
+        return {"type": "float", "value": "-inf"}
+    if isinstance(value, numbers.Complex):
+        return {
+            "type": "complex",
+            "real": _mutable_config_value(value.real),
+            "imag": _mutable_config_value(value.imag),
+        }
+    if isinstance(value, Mapping):
+        return {_mutable_config_key(key): _mutable_config_value(item) for key, item in value.items()}
+    if isinstance(value, tuple | list):
+        return [_mutable_config_value(item) for item in value]
+    if isinstance(value, set | frozenset):
+        return sorted((_mutable_config_value(item) for item in value), key=_stable_json_sort_key)
+    if value is None or isinstance(value, str | bool):
+        return value
+    return str(value)
+
+
+def _mutable_config_key(key: Any) -> str:
+    """Convert operation param keys to stable JSON object keys."""
+    if isinstance(key, str):
+        return key
+    value = _mutable_config_value(key)
+    if isinstance(value, str):
+        return value
+    return _stable_json_sort_key(value)
+
+
+def _stable_json_sort_key(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
 
 
 class BaseFrame(ABC, Generic[T]):
@@ -59,13 +137,15 @@ class BaseFrame(ABC, Generic[T]):
         A label for the frame. If not provided, defaults to "unnamed_frame".
     metadata : dict, optional
         Additional metadata for the frame.
-    operation_history : list[dict], optional
-        History of operations performed on this frame.
+    lineage : LineageNode, optional
+        Runtime operation lineage for this frame. This is the source of truth
+        for executable replay and the derived ``operation_history`` view.
     channel_metadata : list[ChannelMetadata | dict], optional
         Metadata for each channel in the frame. Can be ChannelMetadata objects
         or dicts that will be converted to ChannelMetadata objects.
     previous : BaseFrame, optional
-        The frame that this frame was derived from.
+        Compatibility/debug pointer to the immediate prior frame. This strong
+        reference is not the source of truth for processing history.
 
     Attributes
     ----------
@@ -75,8 +155,11 @@ class BaseFrame(ABC, Generic[T]):
         The label of the frame.
     metadata : dict
         Additional metadata for the frame.
+    lineage : LineageNode | None
+        Runtime-only computation lineage. This is set during construction and
+        propagated through ``_create_new_instance``.
     operation_history : list[dict]
-        History of operations performed on this frame.
+        Flat read-only compatibility view derived from ``lineage``.
     """
 
     _CHANNEL_DIM: ClassVar[str] = "channel"
@@ -84,6 +167,14 @@ class BaseFrame(ABC, Generic[T]):
     # prefer the xarray "channel" dimension when it is declared.
     _channel_axis: ClassVar[int | None] = -2
     _xarray_dim_suffix: ClassVar[tuple[str, ...]] = ()
+    _array_ufunc_reverse_methods: ClassVar[Mapping[str, str]] = {
+        "add": "__radd__",
+        "subtract": "__rsub__",
+        "multiply": "__rmul__",
+        "divide": "__rtruediv__",
+        "true_divide": "__rtruediv__",
+        "power": "__rpow__",
+    }
     _xr: xr.DataArray
     _previous: "BaseFrame[Any] | None"
 
@@ -93,11 +184,12 @@ class BaseFrame(ABC, Generic[T]):
         sampling_rate: float,
         label: str | None = None,
         metadata: dict[str, Any] | None = None,
-        operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
+        lineage: "LineageNode | None" = None,
+        operation_summaries_snapshot: Sequence[Mapping[str, Any]] | None = None,
     ):
         normalized_data = self._normalize_data(data)
         frame_label = label or "unnamed_frame"
@@ -117,7 +209,12 @@ class BaseFrame(ABC, Generic[T]):
         self.label = label
         self.sampling_rate = sampling_rate
         self.metadata = metadata
-        self.operation_history = operation_history
+        self._lineage = lineage
+        self._operation_summaries_snapshot = (
+            self._snapshot_operation_summaries(operation_summaries_snapshot)
+            if operation_summaries_snapshot is not None
+            else None
+        )
         self._set_channel_metadata(normalized_channel_metadata, self._pending_channel_ids)
         self.source_time_offset = source_time_offset
         del self._pending_channel_metadata
@@ -382,8 +479,11 @@ class BaseFrame(ABC, Generic[T]):
 
     @property
     def previous(self) -> "BaseFrame[Any] | None":
-        """
-        Returns the previous frame.
+        """Return the immediate prior frame for compatibility/debug inspection.
+
+        This strong reference is not the source of truth for processing
+        history. Runtime lineage drives ``operation_history``,
+        ``operation_summaries``, ``operation_graph``, and Recipe extraction.
         """
         return self._previous
 
@@ -435,23 +535,224 @@ class BaseFrame(ABC, Generic[T]):
 
     @property
     def operation_history(self) -> list[dict[str, Any]]:
-        """Return mutable operation history stored in xarray attrs."""
-        value = self._xr.attrs.get("operation_history")
-        if value is None:
-            value = []
-            self._xr.attrs["operation_history"] = value
-        if not isinstance(value, list):
-            raise TypeError(f"Internal operation_history attrs must be a list, got {type(value).__name__}")
-        return value
+        """Return a flat read-only view derived from ``lineage``."""
+        return self._lineage_to_history(self.lineage)
 
-    @operation_history.setter
-    def operation_history(self, value: list[dict[str, Any]] | None) -> None:
+    @property
+    def lineage(self) -> "LineageNode | None":
+        """Return runtime computation lineage for this frame."""
+        return self._lineage
+
+    @property
+    def operation_graph(self) -> dict[str, Any] | None:
+        """Return nested serializable computation lineage."""
+        return self._lineage_to_graph(self.lineage)
+
+    @property
+    def operation_summaries(self) -> list[dict[str, Any]]:
+        """Return display summaries derived from lineage or a boundary snapshot."""
+        if self._operation_summaries_snapshot is not None:
+            return copy.deepcopy(self._operation_summaries_snapshot)
+        return self._lineage_to_summaries(self.lineage)
+
+    def _operation_summaries_for_storage(self) -> list[dict[str, Any]]:
+        """Return a defensive strict-JSON-safe snapshot for persistence boundaries."""
+        return self._snapshot_operation_summaries(self.operation_summaries)
+
+    def _operation_summaries_with_lineage_delta(self, lineage: "LineageNode | None") -> list[dict[str, Any]]:
+        """Extend a boundary snapshot with summaries added since this frame."""
+        snapshot = self._snapshot_operation_summaries(self._operation_summaries_snapshot or [])
+        current_lineage_summaries = self._lineage_to_summaries(self.lineage)
+        new_lineage_summaries = self._lineage_to_summaries(lineage)
+        if new_lineage_summaries[: len(current_lineage_summaries)] != current_lineage_summaries:
+            return snapshot
+        return self._snapshot_operation_summaries([*snapshot, *new_lineage_summaries[len(current_lineage_summaries) :]])
+
+    def _operation_summaries_snapshot_kwargs(self, lineage: "LineageNode | None") -> dict[str, Any]:
+        """Return constructor kwargs that propagate a boundary snapshot for ``lineage``."""
+        if self._operation_summaries_snapshot is None:
+            return {}
+        return {"operation_summaries_snapshot": self._operation_summaries_with_lineage_delta(lineage)}
+
+    @staticmethod
+    def _operation_name(operation: Any) -> str:
+        from wandas.processing.base import BinaryOperation
+
+        if isinstance(operation, BinaryOperation):
+            return cast(str, getattr(operation, "symbol"))
+        return cast(str, getattr(operation, "name", type(operation).__name__))
+
+    @staticmethod
+    def _operation_params(operation: Any) -> dict[str, Any]:
+        if hasattr(operation, "to_params"):
+            params = operation.to_params()
+        else:
+            params = getattr(operation, "params", {})
+        return cast(dict[str, Any], _mutable_config_value(params))
+
+    @classmethod
+    def _lineage_to_history(cls, lineage: "LineageNode | None") -> list[dict[str, Any]]:
+        if lineage is None:
+            return []
+        from wandas.processing.base import FrameSourceOperation
+
+        if isinstance(lineage.operation, FrameSourceOperation):
+            return []
+        records: list[dict[str, Any]] = []
+        for input_lineage in lineage.inputs:
+            records.extend(cls._lineage_to_history(input_lineage))
+        params = cls._operation_params(lineage.operation)
+        record: dict[str, Any] = {"operation": cls._operation_name(lineage.operation)}
+        if params:
+            record["params"] = params
+        return [*records, record]
+
+    @classmethod
+    def _lineage_to_graph(cls, lineage: "LineageNode | None") -> dict[str, Any] | None:
+        if lineage is None:
+            return None
+        from wandas.processing.base import FrameSourceOperation
+
+        if isinstance(lineage.operation, FrameSourceOperation):
+            return {"operation": "__source__", "params": {}, "inputs": [], "kind": "source"}
+        graph = {
+            "operation": cls._operation_name(lineage.operation),
+            "params": cls._operation_params(lineage.operation),
+            "inputs": [
+                input_graph
+                for input_lineage in lineage.inputs
+                if (input_graph := cls._lineage_to_graph(input_lineage)) is not None
+            ],
+        }
+        from wandas.processing.base import FrameMethodOperation
+
+        if isinstance(lineage.operation, FrameMethodOperation):
+            graph["kind"] = "method"
+        from wandas.processing.custom import CustomOperation
+
+        if isinstance(lineage.operation, CustomOperation):
+            custom_metadata = lineage.operation.to_recipe_metadata()
+            if custom_metadata is not None:
+                graph["custom"] = custom_metadata
+        return graph
+
+    @classmethod
+    def _operation_summary(cls, operation: Any) -> dict[str, Any]:
+        if hasattr(operation, "to_summary"):
+            return cast(dict[str, Any], operation.to_summary())
+        from wandas.processing.base import _summary_value
+
+        if hasattr(operation, "to_params"):
+            params = operation.to_params()
+        else:
+            params = getattr(operation, "params", {})
+        return {
+            "operation": cls._operation_name(operation),
+            "params": _summary_value(params),
+        }
+
+    @classmethod
+    def _lineage_to_summaries(cls, lineage: "LineageNode | None") -> list[dict[str, Any]]:
+        if lineage is None:
+            return []
+        from wandas.processing.base import FrameSourceOperation
+
+        if isinstance(lineage.operation, FrameSourceOperation):
+            return []
+        records: list[dict[str, Any]] = []
+        for input_lineage in lineage.inputs:
+            records.extend(cls._lineage_to_summaries(input_lineage))
+        records.append(cls._operation_summary(lineage.operation))
+        return records
+
+    @classmethod
+    def _snapshot_operation_summaries(cls, summaries: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+        records = list(summaries)
+        if not all(isinstance(record, Mapping) for record in records):
+            raise ValueError(
+                "Operation summaries snapshot must be a sequence of mappings\n"
+                f"  Got: {type(summaries).__name__}\n"
+                "Use frame.operation_summaries or another JSON-safe summary list."
+            )
+        snapshot = [copy.deepcopy(dict(record)) for record in records]
+        try:
+            json.dumps(snapshot, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "Operation summaries snapshot must be strict JSON serializable\n"
+                f"  Got: {snapshot!r}\n"
+                "Use operation_summaries, which converts runtime values to display-safe summaries."
+            ) from exc
+        return snapshot
+
+    def _lineage_with_operation(self, operation: Any, *inputs: "LineageNode | None") -> "LineageNode":
+        from wandas.processing.base import LineageNode
+
+        lineage_inputs = tuple(input_lineage for input_lineage in inputs if input_lineage is not None)
+        return LineageNode(operation=operation, inputs=lineage_inputs)
+
+    def _lineage_or_source(self) -> "LineageNode":
+        from wandas.processing.base import FrameSourceOperation, LineageNode
+
+        return self.lineage or LineageNode(FrameSourceOperation())
+
+    def _lineage_with_method(self, method: str, params: Mapping[str, Any]) -> "LineageNode":
+        from wandas.processing.base import FrameMethodOperation
+
+        return self._lineage_with_operation(FrameMethodOperation(method, params), self.lineage)
+
+    def _lineage_with_unsupported_indexing(self, indexing: str) -> "LineageNode":
+        return self._lineage_with_method("__getitem__", {"indexing": indexing})
+
+    @staticmethod
+    def _is_literal_channel_query(query: Mapping[Any, Any]) -> bool:
+        for key, value in query.items():
+            if not isinstance(key, str):
+                return False
+            if value is None or isinstance(value, bool | int | float | str):
+                continue
+            if isinstance(value, np.bool_ | np.integer | np.floating):
+                continue
+            return False
+        return True
+
+    @staticmethod
+    def _slice_bound_for_lineage(value: Any) -> int | None:
         if value is None:
-            self._xr.attrs["operation_history"] = []
-            return
-        if not isinstance(value, list):
-            raise TypeError("Operation history must be a list")
-        self._xr.attrs["operation_history"] = copy.deepcopy(value)
+            return None
+        if isinstance(value, bool) or not isinstance(value, numbers.Integral):
+            return None
+        return int(value)
+
+    @classmethod
+    def _slice_for_lineage(cls, key: slice) -> dict[str, int | None] | None:
+        start = cls._slice_bound_for_lineage(key.start)
+        stop = cls._slice_bound_for_lineage(key.stop)
+        step = cls._slice_bound_for_lineage(key.step)
+        if (key.start is not None and start is None) or (key.stop is not None and stop is None):
+            return None
+        if key.step is not None and step is None:
+            return None
+        return {"start": start, "stop": stop, "step": step}
+
+    @classmethod
+    def _axis_slices_for_lineage(cls, keys: tuple[Any, ...]) -> tuple[dict[str, int | None], ...] | None:
+        axis_slices: list[dict[str, int | None]] = []
+        for key in keys:
+            if not isinstance(key, slice):
+                return None
+            axis_slice = cls._slice_for_lineage(key)
+            if axis_slice is None:
+                return None
+            axis_slices.append(axis_slice)
+        return tuple(axis_slices)
+
+    @property
+    def operations(self) -> tuple["AudioOperation[Any, Any]", ...]:
+        """Return Wandas operation instances found in the lazy Dask graph."""
+        from wandas.lineage import extract_operations
+
+        return extract_operations(self._data)
 
     @property
     def source_time_offset(self) -> NDArrayReal:
@@ -568,27 +869,48 @@ class BaseFrame(ABC, Generic[T]):
             if not indices:
                 raise KeyError(f"No channels match query: {query!r}")
             channel_idx_list = indices
+            if isinstance(query, str):
+                lineage_params: dict[str, Any] = {"query": query, "validate_query_keys": validate_query_keys}
+            elif isinstance(query, dict) and self._is_literal_channel_query(query):
+                lineage_params = {
+                    "query": dict(query),
+                    "validate_query_keys": validate_query_keys,
+                }
+            else:
+                lineage_params = {
+                    "channel_idx": channel_idx_list,
+                    "query_kind": type(query).__name__,
+                }
         else:
             if channel_idx is None:
                 raise TypeError("Either 'channel_idx' or 'query' must be provided.")
 
-            channel_idx_list = [channel_idx] if isinstance(channel_idx, int) else list(channel_idx)
+            if isinstance(channel_idx, np.ndarray) and channel_idx.dtype in (bool, np.bool_):
+                if channel_idx.ndim != 1:
+                    raise ValueError(f"Boolean mask must be 1-D, got shape {channel_idx.shape}")
+                if len(channel_idx) != self.n_channels:
+                    raise ValueError(
+                        f"Boolean mask length {len(channel_idx)} does not match number of channels {self.n_channels}"
+                    )
+                mask = [bool(value) for value in cast(npt.NDArray[np.bool_], channel_idx).tolist()]
+                channel_idx_list = [int(index) for index in np.where(channel_idx)[0]]
+                lineage_params = {"channel_mask": tuple(mask)}
+            else:
+                channel_idx_list = [channel_idx] if isinstance(channel_idx, int) else list(channel_idx)
+                lineage_params = {
+                    "channel_idx": channel_idx_list[0] if len(channel_idx_list) == 1 else channel_idx_list,
+                }
 
         new_data = self._data[channel_idx_list]
         new_channel_metadata = [self.channels[i].to_metadata() for i in channel_idx_list]
         new_channel_ids = self._channel_ids_for_selection(channel_idx_list)
 
-        # Preserve operation_history (copy for immutability) but do not
-        # append a selection operation so higher-level semantic operations
-        # (e.g., 'fade') remain the last recorded operation.
-        new_history = [*self.operation_history]
-
         return self._create_new_instance(
             data=new_data,
-            operation_history=new_history,
             channel_metadata=new_channel_metadata,
             channel_ids=new_channel_ids,
             source_time_offset=self.source_time_offset[channel_idx_list],
+            lineage=self._lineage_with_method("get_channel", lineage_params),
         )
 
     def __len__(self) -> int:
@@ -687,22 +1009,69 @@ class BaseFrame(ABC, Generic[T]):
 
         # Single label (str)
         if isinstance(key, str):
-            index = self.label2index(key)
-            return self.get_channel(index)
+            selected = self.get_channel(self.label2index(key))
+            return self._create_new_instance(
+                data=selected._data,
+                channel_metadata=selected.channels.to_list(),
+                channel_ids=selected._channel_ids,
+                source_time_offset=selected.source_time_offset,
+                lineage=self._lineage_with_method(
+                    "__getitem__",
+                    {"indexing": "label", "label": key},
+                ),
+            )
 
         # Phase 2: NumPy array support (bool mask and int array)
         if isinstance(key, np.ndarray):
             if key.dtype in (bool, np.bool_):
                 # Boolean mask
+                if key.ndim != 1:
+                    raise ValueError(f"Boolean mask must be 1-D, got shape {key.shape}")
                 if len(key) != self.n_channels:
                     raise ValueError(
                         f"Boolean mask length {len(key)} does not match number of channels {self.n_channels}"
                     )
+                mask = [bool(value) for value in cast(npt.NDArray[np.bool_], key).tolist()]
                 indices = np.where(cast(npt.NDArray[np.bool_], key))[0]
-                return self.get_channel(indices)
+                result = self.get_channel(indices)
+                lineage = self._lineage_with_method(
+                    "__getitem__",
+                    {"indexing": "boolean_mask", "mask": tuple(mask)},
+                )
+                creation_kwargs: dict[str, Any] = {}
+                if self._operation_summaries_snapshot is not None:
+                    creation_kwargs["operation_summaries_snapshot"] = self._operation_summaries_with_lineage_delta(
+                        lineage
+                    )
+                return result._create_new_instance(
+                    data=result._data,
+                    channel_metadata=result.channels.to_list(),
+                    channel_ids=result._channel_ids,
+                    source_time_offset=result.source_time_offset,
+                    lineage=lineage,
+                    **creation_kwargs,
+                )
             if np.issubdtype(key.dtype, np.integer):
                 # Integer array
-                return self.get_channel(cast(npt.NDArray[np.int_], key))
+                int_list = [int(index) for index in cast(npt.NDArray[np.integer[Any]], key).tolist()]
+                result = self.get_channel(cast(npt.NDArray[np.int_], key))
+                lineage = self._lineage_with_method(
+                    "__getitem__",
+                    {"indexing": "integer_list", "indices": tuple(int_list)},
+                )
+                creation_kwargs = {}
+                if self._operation_summaries_snapshot is not None:
+                    creation_kwargs["operation_summaries_snapshot"] = self._operation_summaries_with_lineage_delta(
+                        lineage
+                    )
+                return result._create_new_instance(
+                    data=result._data,
+                    channel_metadata=result.channels.to_list(),
+                    channel_ids=result._channel_ids,
+                    source_time_offset=result.source_time_offset,
+                    lineage=lineage,
+                    **creation_kwargs,
+                )
             raise TypeError(f"NumPy array must be of integer or boolean type, got {key.dtype}")
 
         # Phase 1: List support (int or str)
@@ -715,13 +1084,42 @@ class BaseFrame(ABC, Generic[T]):
                 # Multiple labels - type narrowing for type checker
                 str_list = cast(list[str], key)
                 indices_from_labels = [self.label2index(label) for label in str_list]
-                return self.get_channel(indices_from_labels)
+                new_data = self._data[indices_from_labels]
+                new_channel_metadata = [self.channels[i].to_metadata() for i in indices_from_labels]
+                new_channel_ids = [self._channel_ids[i] for i in indices_from_labels]
+                return self._create_new_instance(
+                    data=new_data,
+                    channel_metadata=new_channel_metadata,
+                    channel_ids=new_channel_ids,
+                    source_time_offset=self.source_time_offset[indices_from_labels],
+                    lineage=self._lineage_with_method(
+                        "__getitem__",
+                        {"indexing": "label_list", "labels": tuple(str_list)},
+                    ),
+                )
 
             # Check if all elements are integers
-            if all(isinstance(k, int | np.integer) for k in key):
+            if all(isinstance(k, int | np.integer) and not isinstance(k, bool | np.bool_) for k in key):
                 # Multiple indices - convert to list[int] for type safety
                 int_list = [int(k) for k in key]
-                return self.get_channel(int_list)
+                result = self.get_channel(int_list)
+                lineage = self._lineage_with_method(
+                    "__getitem__",
+                    {"indexing": "integer_list", "indices": tuple(int_list)},
+                )
+                creation_kwargs = {}
+                if self._operation_summaries_snapshot is not None:
+                    creation_kwargs["operation_summaries_snapshot"] = self._operation_summaries_with_lineage_delta(
+                        lineage
+                    )
+                return result._create_new_instance(
+                    data=result._data,
+                    channel_metadata=result.channels.to_list(),
+                    channel_ids=result._channel_ids,
+                    source_time_offset=result.source_time_offset,
+                    lineage=lineage,
+                    **creation_kwargs,
+                )
 
             raise TypeError(f"List must contain all str or all int, got mixed types: {[type(k).__name__ for k in key]}")
 
@@ -737,10 +1135,18 @@ class BaseFrame(ABC, Generic[T]):
             new_channel_ids = [self._channel_ids[i] for i in indices]
             return self._create_new_instance(
                 data=new_data,
-                operation_history=self.operation_history,
                 channel_metadata=new_channel_metadata,
                 channel_ids=new_channel_ids,
                 source_time_offset=self.source_time_offset[indices],
+                lineage=self._lineage_with_method(
+                    "__getitem__",
+                    {
+                        "indexing": "channel_slice",
+                        "start": key.start,
+                        "stop": key.stop,
+                        "step": key.step,
+                    },
+                ),
             )
 
         raise TypeError(f"Invalid key type: {type(key).__name__}. Expected int, str, slice, list, tuple, or ndarray.")
@@ -797,12 +1203,21 @@ class BaseFrame(ABC, Generic[T]):
                     raise ValueError("Stepped slicing on the time axis is not supported for source time offsets.")
                 start, _, _ = time_axis_key.indices(time_axis_size)
                 source_time_offset = source_time_offset + start * time_step
+            axis_slices = selected._axis_slices_for_lineage(time_keys)
+            lineage_params: dict[str, Any] = (
+                {"indexing": "multidimensional_slice", "axis_slices": axis_slices}
+                if axis_slices is not None
+                else {"indexing": "multidimensional"}
+            )
             return selected._create_new_instance(
                 data=new_data,
-                operation_history=selected.operation_history,
                 channel_metadata=selected.channels.to_list(),
                 channel_ids=selected._channel_ids,
                 source_time_offset=source_time_offset,
+                lineage=selected._lineage_with_method(
+                    "__getitem__",
+                    lineage_params,
+                ),
             )
 
         return selected
@@ -899,6 +1314,8 @@ class BaseFrame(ABC, Generic[T]):
                 exported = exported.assign_coords({coord_name: (coord.dims, coord.values.copy())})
         exported.name = self.label
         exported.attrs = copy.deepcopy(self._xr.attrs)
+        exported.attrs.pop("operation_history", None)
+        exported.attrs.pop("operation_graph", None)
         exported.attrs["wandas_frame_type"] = type(self).__name__
         return exported
 
@@ -912,9 +1329,13 @@ class BaseFrame(ABC, Generic[T]):
         """Plot the data"""
 
     def persist(self: S) -> S:
-        """Persist the data in memory"""
+        """Persist the data in memory."""
+        operation_summaries_snapshot = self._operation_summaries_for_storage()
         persisted_data = self._data.persist()
-        return self._create_new_instance(data=persisted_data)
+        return self._create_new_instance(
+            data=persisted_data,
+            operation_summaries_snapshot=operation_summaries_snapshot,
+        )
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
         """Return additional keyword arguments for ``_create_new_instance``.
@@ -942,9 +1363,10 @@ class BaseFrame(ABC, Generic[T]):
         if not isinstance(metadata, dict):
             raise TypeError("Metadata must be a dictionary")
 
-        operation_history = kwargs.pop("operation_history", copy.deepcopy(self.operation_history))
-        if not isinstance(operation_history, list):
-            raise TypeError("Operation history must be a list")
+        lineage = kwargs.pop("lineage", self.lineage)
+        operation_summaries_snapshot = kwargs.pop("operation_summaries_snapshot", None)
+        if operation_summaries_snapshot is None and self._operation_summaries_snapshot is not None:
+            operation_summaries_snapshot = self._operation_summaries_with_lineage_delta(lineage)
 
         channel_metadata = kwargs.pop("channel_metadata", self.channels.to_list())
         if not isinstance(channel_metadata, list):
@@ -966,18 +1388,22 @@ class BaseFrame(ABC, Generic[T]):
         additional_kwargs = self._get_additional_init_kwargs()
         kwargs.update(additional_kwargs)
 
-        return type(self)(
-            data=data,
-            sampling_rate=sampling_rate,
-            label=label,
-            metadata=metadata,
-            operation_history=operation_history,
-            channel_metadata=channel_metadata,
-            channel_ids=channel_ids,
-            source_time_offset=source_time_offset,
-            previous=self,
+        init_kwargs: dict[str, Any] = {
+            "data": data,
+            "sampling_rate": sampling_rate,
+            "label": label,
+            "metadata": metadata,
+            "channel_metadata": channel_metadata,
+            "channel_ids": channel_ids,
+            "source_time_offset": source_time_offset,
+            "previous": self,
+            "lineage": lineage,
             **kwargs,
-        )
+        }
+        if operation_summaries_snapshot is not None:
+            init_kwargs["operation_summaries_snapshot"] = operation_summaries_snapshot
+
+        return type(self)(**init_kwargs)
 
     def __array__(self, dtype: npt.DTypeLike = None) -> NDArrayReal:
         """Implicit conversion to NumPy array"""
@@ -985,6 +1411,16 @@ class BaseFrame(ABC, Generic[T]):
         if dtype is not None:
             return result.astype(dtype)
         return result
+
+    def __array_ufunc__(self, ufunc: np.ufunc, method: str, *inputs: Any, **kwargs: Any) -> Any:
+        """Handle NumPy scalar-left operators without forcing eager arrays."""
+        if method == "__call__" and len(inputs) == 2 and inputs[1] is self and isinstance(inputs[0], np.generic):
+            reverse_method_name = self._array_ufunc_reverse_methods.get(ufunc.__name__)
+            if reverse_method_name is not None:
+                result = getattr(self, reverse_method_name)(self._python_numeric_scalar(inputs[0]))
+                return result
+        array_inputs = tuple(np.asarray(input_value) if input_value is self else input_value for input_value in inputs)
+        return getattr(ufunc, method)(*array_inputs, **kwargs)
 
     def visualize_graph(self, filename: str | None = None) -> VisualizeReturnType:
         """
@@ -1046,21 +1482,32 @@ class BaseFrame(ABC, Generic[T]):
         op: Callable[[DaArray, Any], DaArray],
         symbol: str,
     ) -> S:
+        return self._binary_operand_op(other, op, symbol, reverse=False)
+
+    def _binary_operand_op(
+        self: S,
+        other: S | int | float | complex | NDArrayReal | DaArray,
+        op: Callable[[Any, Any], Any],
+        symbol: str,
+        *,
+        reverse: bool = False,
+    ) -> S:
         """Default implementation of binary operations using dask's lazy evaluation.
 
         Handles both frame-frame and frame-scalar/array operations with
-        metadata propagation and history tracking. Frame-frame operations
-        combine current array indices and preserve the left operand's source
-        timeline; no source-time alignment is performed. Uses
-        ``_create_new_instance`` so that subclass-specific constructor
-        parameters are automatically forwarded.
+        metadata propagation and runtime lineage tracking. Frame-frame operations are
+        index-wise: they combine current array positions, do not compare
+        ``source_time_offset`` values, and do not perform source-time alignment,
+        trimming, or padding. Results preserve the left operand's source-time
+        offset through ``_create_new_instance``. Uses ``_create_new_instance``
+        so that subclass-specific constructor parameters are automatically
+        forwarded.
 
         Subclasses may override this entirely (e.g. ``RoughnessFrame``).
         """
         logger.debug(f"Setting up {symbol} operation (lazy)")
 
         metadata = copy.deepcopy(self.metadata)
-        operation_history = copy.deepcopy(self.operation_history)
         if isinstance(other, type(self)):
             if self.sampling_rate != other.sampling_rate:
                 raise ValueError(
@@ -1093,27 +1540,74 @@ class BaseFrame(ABC, Generic[T]):
             result_data = op(self._data, other._data)
             other_str = other.label
             other_labels = other.labels
+            operand_kind = "frame"
+            lineage_inputs = (self._lineage_or_source(), other._lineage_or_source())
         else:
-            result_data = op(self._data, other)
+            result_data = op(other, self._data) if reverse else op(self._data, other)
             other_str = self._format_operand_str(other)
             other_labels = [other_str] * self.n_channels
+            operand_kind = "operand"
+            lineage_inputs = (self.lineage,)
 
         # Build merged channel metadata
         new_channel_metadata: list[ChannelMetadata] = []
         for self_ch, other_label in zip(self.channels, other_labels, strict=True):
             ch = self_ch.to_metadata()
-            ch.label = f"({self_ch.label} {symbol} {other_label})"
+            if reverse and operand_kind == "operand":
+                ch.label = f"({other_label} {symbol} {self_ch.label})"
+            else:
+                ch.label = f"({self_ch.label} {symbol} {other_label})"
             new_channel_metadata.append(ch)
 
-        operation_history.append({"operation": symbol, "with": other_str})
+        from wandas.processing.base import BinaryOperation
 
+        binary_operation = BinaryOperation(
+            symbol=symbol,
+            operand_kind=operand_kind,
+            operand=other_str if operand_kind == "frame" else other,
+            operand_position="left" if reverse and operand_kind == "operand" else "right",
+        )
+        lineage = self._lineage_with_operation(binary_operation, *lineage_inputs)
+        operation_summaries_snapshot = None
+        if isinstance(other, type(self)) and (
+            self._operation_summaries_snapshot is not None or other._operation_summaries_snapshot is not None
+        ):
+            operation_summaries_snapshot = self._snapshot_operation_summaries(
+                [
+                    *self.operation_summaries,
+                    *other.operation_summaries,
+                    self._operation_summary(binary_operation),
+                ]
+            )
+
+        label = (
+            f"({other_str} {symbol} {self.label})"
+            if reverse and operand_kind == "operand"
+            else f"({self.label} {symbol} {other_str})"
+        )
         return self._create_new_instance(
             data=result_data,
-            label=f"({self.label} {symbol} {other_str})",
+            label=label,
             metadata=metadata,
-            operation_history=operation_history,
+            lineage=lineage,
             channel_metadata=new_channel_metadata,
+            operation_summaries_snapshot=operation_summaries_snapshot,
         )
+
+    @staticmethod
+    def _is_supported_reverse_scalar(value: object) -> bool:
+        return isinstance(value, numbers.Real) and not isinstance(value, bool)
+
+    @staticmethod
+    def _python_numeric_scalar(value: object) -> int | float:
+        if isinstance(value, numbers.Integral):
+            return int(value)
+        if isinstance(value, numbers.Real):
+            return float(value)
+        raise TypeError(f"Expected a real scalar\n  Got: {type(value).__name__}")
+
+    def _supports_base_reverse_scalar_op(self) -> bool:
+        return type(self)._binary_op is BaseFrame._binary_op
 
     @staticmethod
     def _format_operand_str(other: object) -> str:
@@ -1148,6 +1642,36 @@ class BaseFrame(ABC, Generic[T]):
         """Power operator"""
         return self._binary_op(other, lambda x, y: x**y, "**")
 
+    def __radd__(self: S, other: int | float) -> S:
+        """Reverse addition operator."""
+        if not self._is_supported_reverse_scalar(other) or not self._supports_base_reverse_scalar_op():
+            return NotImplemented
+        return self._binary_operand_op(self._python_numeric_scalar(other), lambda x, y: x + y, "+", reverse=True)
+
+    def __rsub__(self: S, other: int | float) -> S:
+        """Reverse subtraction operator."""
+        if not self._is_supported_reverse_scalar(other) or not self._supports_base_reverse_scalar_op():
+            return NotImplemented
+        return self._binary_operand_op(self._python_numeric_scalar(other), lambda x, y: x - y, "-", reverse=True)
+
+    def __rmul__(self: S, other: int | float) -> S:
+        """Reverse multiplication operator."""
+        if not self._is_supported_reverse_scalar(other) or not self._supports_base_reverse_scalar_op():
+            return NotImplemented
+        return self._binary_operand_op(self._python_numeric_scalar(other), lambda x, y: x * y, "*", reverse=True)
+
+    def __rtruediv__(self: S, other: int | float) -> S:
+        """Reverse division operator."""
+        if not self._is_supported_reverse_scalar(other) or not self._supports_base_reverse_scalar_op():
+            return NotImplemented
+        return self._binary_operand_op(self._python_numeric_scalar(other), lambda x, y: x / y, "/", reverse=True)
+
+    def __rpow__(self: S, other: int | float) -> S:
+        """Reverse power operator."""
+        if not self._is_supported_reverse_scalar(other) or not self._supports_base_reverse_scalar_op():
+            return NotImplemented
+        return self._binary_operand_op(self._python_numeric_scalar(other), lambda x, y: x**y, "**", reverse=True)
+
     def apply_operation(self: S, operation_name: str, **params: Any) -> S:
         """
         Apply a named operation.
@@ -1167,28 +1691,24 @@ class BaseFrame(ABC, Generic[T]):
         # Apply the operation through abstract method
         return self._apply_operation_impl(operation_name, **params)
 
-    def _updated_metadata_and_history(
+    def _updated_metadata(
         self,
         operation_name: str,
-        params: dict[str, Any],
-    ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-        """Build new metadata dict and operation history after an operation.
+        params: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Return frame metadata for a derived frame.
 
-        Returns
-        -------
-        tuple[dict[str, Any], list[dict[str, Any]]]
-            (new_metadata, new_history) ready to pass to ``_create_new_instance``.
+        Operation parameters are owned by runtime lineage. Frame metadata only
+        carries user/domain metadata and is deep-copied to avoid sharing mutable
+        state between frames.
         """
-        new_metadata = copy.deepcopy(self.metadata)
-        new_metadata[operation_name] = params
-        new_history = [*self.operation_history, {"operation": operation_name, "params": params}]
-        return new_metadata, new_history
+        return copy.deepcopy(self.metadata)
 
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
         """Default implementation of operation application.
 
         Creates the named operation, applies it to the data, and returns
-        a new frame with updated metadata and operation history.
+        a new frame with updated metadata and runtime lineage.
         Derived classes may override this to add extra behaviour
         (e.g. channel relabelling).
         """
@@ -1201,13 +1721,20 @@ class BaseFrame(ABC, Generic[T]):
             ensure_dependencies()
         processed_data = operation.process(self._data)
 
-        new_metadata, new_history = self._updated_metadata_and_history(operation_name, params)
+        new_metadata = self._updated_metadata(operation_name, params)
 
-        return self._create_new_instance(
-            data=processed_data,
-            metadata=new_metadata,
-            operation_history=new_history,
-        )
+        creation_params: dict[str, Any] = {
+            "data": processed_data,
+            "metadata": new_metadata,
+            "lineage": self._lineage_with_operation(
+                operation
+                if getattr(operation, "name", None) == operation_name
+                else _LineageOperationName(operation, operation_name, params),
+                self.lineage,
+            ),
+        }
+
+        return self._create_new_instance(**creation_params)
 
     @overload
     def _apply_operation_instance(
@@ -1237,7 +1764,7 @@ class BaseFrame(ABC, Generic[T]):
         """Apply an already-instantiated operation to the frame.
 
         This method processes data through the operation, updates metadata,
-        operation history, and channel labels atomically.  It is the
+        runtime lineage, and channel labels atomically.  It is the
         entry-point used by ``ChannelProcessingMixin`` and by
         ``ChannelFrame._apply_operation_impl``.
 
@@ -1255,16 +1782,40 @@ class BaseFrame(ABC, Generic[T]):
             Extra constructor keyword arguments required by *output_frame_class*
             (e.g. ``{"n_fft": 1024, "window": "hann"}``).
         """
+        if operation_name is None:
+            operation_name = getattr(operation, "name", "unknown_operation")
+        if getattr(operation, "name", None) == "custom":
+            output_frame_class_name = (
+                None
+                if output_frame_class is None
+                else f"{output_frame_class.__module__}.{output_frame_class.__qualname__}"
+            )
+            setattr(operation, "_recipe_output_frame_class", output_frame_class_name)
+            setattr(operation, "_recipe_output_frame_kwargs", copy.deepcopy(output_frame_kwargs or {}))
+        expected_input_count = getattr(operation, "_expected_input_count", 1)
+        if isinstance(expected_input_count, int) and expected_input_count != 1:
+            raise ValueError(
+                "Operation requires multiple runtime inputs\n"
+                f"  Operation: {operation_name}\n"
+                f"  Expected inputs: {expected_input_count}\n"
+                "  Got: apply_operation provides one frame input\n"
+                "Use an operation-specific method that can pass all runtime inputs."
+            )
+
         ensure_dependencies = getattr(operation, "ensure_dependencies", None)
         if ensure_dependencies is not None:
             ensure_dependencies()
         processed_data = operation.process(self._data)
 
-        if operation_name is None:
-            operation_name = getattr(operation, "name", "unknown_operation")
         params = getattr(operation, "params", {})
 
-        new_metadata, new_history = self._updated_metadata_and_history(operation_name, params)
+        new_metadata = self._updated_metadata(operation_name, params)
+        lineage_operation = (
+            operation
+            if getattr(operation, "name", None) == operation_name
+            else _LineageOperationName(operation, operation_name, params)
+        )
+        lineage = self._lineage_with_operation(lineage_operation, self.lineage)
 
         metadata_updates = operation.get_metadata_updates()
         if operation_name == "trim":
@@ -1289,12 +1840,13 @@ class BaseFrame(ABC, Generic[T]):
                 "sampling_rate": metadata_updates.pop("sampling_rate", self.sampling_rate),
                 "label": self.label,
                 "metadata": new_metadata,
-                "operation_history": new_history,
                 "channel_metadata": new_channel_metadata,
                 "channel_ids": self._channel_ids,
                 "source_time_offset": metadata_updates.pop("source_time_offset", self.source_time_offset),
                 "previous": self,
+                "lineage": lineage,
             }
+            kw.update(self._operation_summaries_snapshot_kwargs(lineage))
             kw.update(metadata_updates)
             if output_frame_kwargs:
                 kw.update(output_frame_kwargs)
@@ -1314,7 +1866,7 @@ class BaseFrame(ABC, Generic[T]):
         creation_params: dict[str, Any] = {
             "data": processed_data,
             "metadata": new_metadata,
-            "operation_history": new_history,
+            "lineage": lineage,
             "channel_metadata": new_channel_metadata,
             "channel_ids": self._channel_ids,
         }

@@ -26,9 +26,8 @@ class ABS(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         super().__init__(sampling_rate)
 
-    def process(self, data: DaArray) -> DaArray:
-        # Use Dask's aggregate function directly without map_blocks
-        return da.abs(data)
+    def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
+        return self._mark_array(da.abs(data))
 
 
 class Power(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -48,12 +47,20 @@ class Power(AudioOperation[NDArrayReal, NDArrayReal]):
         exponent : float
             Power exponent
         """
-        super().__init__(sampling_rate)
-        self.exp = exponent
+        super().__init__(sampling_rate, exponent=exponent)
 
-    def process(self, data: DaArray) -> DaArray:
-        # Use Dask's aggregate function directly without map_blocks
-        return da.power(data, self.exp)
+    @property
+    def exponent(self) -> float:
+        """Exponent captured at operation construction time."""
+        return self._config_value("exponent")
+
+    @property
+    def exp(self) -> float:
+        """Backward-compatible read-only alias for the captured exponent."""
+        return self.exponent
+
+    def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
+        return self._mark_array(da.power(data, self.exponent))
 
 
 class Sum(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -62,9 +69,8 @@ class Sum(AudioOperation[NDArrayReal, NDArrayReal]):
     name = "sum"
     _display = "sum"
 
-    def process(self, data: DaArray) -> DaArray:
-        # Use Dask's aggregate function directly without map_blocks
-        return data.sum(axis=0, keepdims=True)
+    def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
+        return self._mark_array(data.sum(axis=0, keepdims=True))
 
 
 class Mean(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -73,9 +79,8 @@ class Mean(AudioOperation[NDArrayReal, NDArrayReal]):
     name = "mean"
     _display = "mean"
 
-    def process(self, data: DaArray) -> DaArray:
-        # Use Dask's aggregate function directly without map_blocks
-        return data.mean(axis=0, keepdims=True)
+    def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
+        return self._mark_array(data.mean(axis=0, keepdims=True))
 
 
 class ChannelDifference(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -83,7 +88,6 @@ class ChannelDifference(AudioOperation[NDArrayReal, NDArrayReal]):
 
     name = "channel_difference"
     _display = "diff"
-    other_channel: int
 
     def __init__(self, sampling_rate: float, other_channel: int = 0):
         """
@@ -96,13 +100,18 @@ class ChannelDifference(AudioOperation[NDArrayReal, NDArrayReal]):
         other_channel : int
             Channel to calculate difference with, default is 0
         """
-        self.other_channel = other_channel
         super().__init__(sampling_rate, other_channel=other_channel)
 
-    def process(self, data: DaArray) -> DaArray:
-        # Use Dask's aggregate function directly without map_blocks
-        result = data - data[self.other_channel]
-        return result
+    @property
+    def other_channel(self) -> int:
+        """Other channel index captured at operation construction time."""
+        return self._config_value("other_channel")
+
+    def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
+        other_channel = self.other_channel
+        if not -data.shape[0] <= other_channel < data.shape[0]:
+            raise IndexError("Channel index out of range")
+        return self._mark_array(data - data[other_channel])
 
 
 # Register all operations

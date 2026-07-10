@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 import dask.array as da
@@ -52,12 +52,14 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         A label for the frame.
     metadata : dict, optional
         Additional metadata for the frame.
-    operation_history : list[dict], optional
-        History of operations performed on this frame.
+    lineage : LineageNode, optional
+        Runtime operation lineage for this frame. ``operation_history`` is a
+        read-only derived compatibility view.
     channel_metadata : list[ChannelMetadata], optional
         Metadata for each channel in the frame.
     previous : BaseFrame, optional
-        The frame that this frame was derived from.
+        Compatibility/debug pointer to the immediate prior frame; not the
+        provenance source of truth.
 
     Attributes
     ----------
@@ -113,11 +115,12 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         window: str = "hann",
         label: str | None = None,
         metadata: dict[str, Any] | None = None,
-        operation_history: list[dict[str, Any]] | None = None,
+        lineage: Any | None = None,
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
+        operation_summaries_snapshot: Sequence[Mapping[str, Any]] | None = None,
     ) -> None:
         if data.ndim == 2:
             data = da.expand_dims(data, axis=0)
@@ -146,10 +149,11 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             sampling_rate=sampling_rate,
             label=label,
             metadata=metadata,
-            operation_history=operation_history,
             channel_metadata=channel_metadata,
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,
+            lineage=lineage,
+            operation_summaries_snapshot=operation_summaries_snapshot,
             previous=previous,
         )
 
@@ -360,9 +364,11 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """
         logger.debug("Computing absolute value (magnitude) of spectrogram")
 
-        magnitude_data = da.absolute(self._data)
+        new_metadata = self._updated_metadata("abs", {})
+        from wandas.processing import create_operation
 
-        new_metadata, new_history = self._updated_metadata_and_history("abs", {})
+        operation = create_operation("abs", self.sampling_rate)
+        magnitude_data = operation.process(self._data)
 
         logger.debug("Created new SpectrogramFrame with abs operation added to graph")
 
@@ -370,7 +376,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             data=magnitude_data,
             label=f"abs({self.label})",
             metadata=new_metadata,
-            operation_history=new_history,
+            lineage=self._lineage_with_operation(operation, self.lineage),
         )
 
     def get_frame_at(self, time_idx: int) -> "SpectralFrame":
@@ -404,6 +410,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
         frame_data = self._data[..., time_idx]
 
+        lineage = self._lineage_with_method("get_frame_at", {"time_idx": time_idx})
         return SpectralFrame(
             data=frame_data,
             sampling_rate=self.sampling_rate,
@@ -411,10 +418,11 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             window=self.window,
             label=f"{self.label} (Frame {time_idx}, Time {self.times[time_idx]:.3f}s)",
             metadata=self.metadata,
-            operation_history=self.operation_history,
             channel_metadata=self.channels.to_list(),
             channel_ids=self._channel_ids,
             source_time_offset=self.source_time_offset + float(self.times[time_idx]),
+            lineage=lineage,
+            **self._operation_summaries_snapshot_kwargs(lineage),
         )
 
     def to_channel_frame(self) -> "ChannelFrame":
@@ -454,15 +462,17 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         logger.debug(f"Created new ChannelFrame with operation {operation_name} added to graph")
 
         # Create new instance
+        lineage = self._lineage_with_method(operation_name, operation.to_params())
         return ChannelFrame(
             data=time_series,
             sampling_rate=self.sampling_rate,
             label=f"istft({self.label})",
             metadata=self.metadata,
-            operation_history=self.operation_history,
             channel_metadata=self.channels.to_list(),
             channel_ids=self._channel_ids,
             source_time_offset=self.source_time_offset,
+            lineage=lineage,
+            **self._operation_summaries_snapshot_kwargs(lineage),
         )
 
     def istft(self) -> "ChannelFrame":
@@ -607,7 +617,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         window: str = "hann",
         label: str | None = None,
         metadata: dict[str, Any] | None = None,
-        operation_history: list[dict[str, Any]] | None = None,
+        lineage: Any | None = None,
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
@@ -625,7 +635,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             window: The window function used (e.g., "hann", "hamming").
             label: A label for the frame.
             metadata: Optional metadata dictionary.
-            operation_history: History of operations applied to the frame.
+            lineage: Runtime operation lineage for this frame.
             channel_metadata: Metadata for each channel.
             previous: Reference to the previous frame in the processing chain.
 
@@ -661,7 +671,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             window=window,
             label=label or "numpy_spectrogram",
             metadata=metadata,
-            operation_history=operation_history,
+            lineage=lineage,
             channel_metadata=channel_metadata,
             channel_ids=channel_ids,
             previous=previous,

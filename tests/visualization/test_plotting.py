@@ -1,5 +1,5 @@
 import types
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -49,7 +49,14 @@ class TestPlotStrategy(PlotStrategy[Any]):
 
     name = "test_strategy"
 
-    def channel_plot(self, x: Any, y: Any, ax: "Axes", label: str | None = None, alpha: float = 1.0) -> None:
+    def channel_plot(
+        self,
+        x: Any,
+        y: Any,
+        ax: "Axes",
+        label: str | Sequence[str] | None = None,
+        alpha: float = 1.0,
+    ) -> None:
         pass
 
     def plot(
@@ -86,8 +93,8 @@ class TestPlotting:
         self.mock_channel_frame.labels = ["ch1", "ch2"]
         self.mock_channel_frame.label = "Test Channel"
         self.mock_channel_frame.channels = [
-            mock.MagicMock(label="ch1"),
-            mock.MagicMock(label="ch2"),
+            mock.MagicMock(label="ch1", unit=""),
+            mock.MagicMock(label="ch2", unit=""),
         ]
 
         # Single-channel mock channel frame
@@ -98,7 +105,7 @@ class TestPlotting:
         self.mock_single_channel_frame.labels = ["ch1"]
         self.mock_single_channel_frame.label = "Test Single Channel"
         self.mock_single_channel_frame.channels = [
-            mock.MagicMock(label="ch1"),
+            mock.MagicMock(label="ch1", unit=""),
         ]
 
         # Spectral frame mock -- deterministic data
@@ -316,6 +323,52 @@ class TestPlotting:
         assert isinstance(result, Iterator)
         axes_list = list(result)
         assert len(axes_list) == self.mock_channel_frame.n_channels
+
+    def test_overlay_waveform_uses_shared_channel_unit(self) -> None:
+        """Overlay waveform plots include a shared non-empty channel unit."""
+        strategy = WaveformPlotStrategy()
+        self.mock_channel_frame.channels = [
+            mock.MagicMock(label="ch1", unit="Pa"),
+            mock.MagicMock(label="ch2", unit="Pa"),
+        ]
+
+        result = strategy.plot(self.mock_channel_frame, overlay=True)
+
+        assert isinstance(result, Axes)
+        assert result.get_ylabel() == "Amplitude [Pa]"
+
+    def test_overlay_waveform_omits_mixed_or_missing_channel_units(self) -> None:
+        """Overlay waveform plots only show units when every channel shares one unit."""
+        strategy = WaveformPlotStrategy()
+
+        self.mock_channel_frame.channels = [
+            mock.MagicMock(label="ch1", unit="Pa"),
+            mock.MagicMock(label="ch2", unit="V"),
+        ]
+        mixed_result = strategy.plot(self.mock_channel_frame, overlay=True)
+        assert isinstance(mixed_result, Axes)
+        assert mixed_result.get_ylabel() == "Amplitude"
+
+        self.mock_channel_frame.channels = [
+            mock.MagicMock(label="ch1", unit="Pa"),
+            mock.MagicMock(label="ch2", unit=""),
+        ]
+        missing_result = strategy.plot(self.mock_channel_frame, overlay=True)
+        assert isinstance(missing_result, Axes)
+        assert missing_result.get_ylabel() == "Amplitude"
+
+    def test_overlay_waveform_explicit_ylabel_overrides_shared_unit(self) -> None:
+        """Explicit overlay waveform y-labels are not rewritten with channel units."""
+        strategy = WaveformPlotStrategy()
+        self.mock_channel_frame.channels = [
+            mock.MagicMock(label="ch1", unit="Pa"),
+            mock.MagicMock(label="ch2", unit="Pa"),
+        ]
+
+        result = strategy.plot(self.mock_channel_frame, overlay=True, ylabel="Custom")
+
+        assert isinstance(result, Axes)
+        assert result.get_ylabel() == "Custom"
 
     def test_single_channel_waveform_plot_strategy(self) -> None:
         """Test single-channel WaveformPlotStrategy."""

@@ -6,15 +6,15 @@ tools: ['edit/editFiles', 'read/readFile', 'read/problems', 'search/changes', 's
 handoffs:
   - label: Start Review
     agent: wandas-reviewer
-    prompt: Review the implementation above using the summary of changes, tests added or updated, command log, documentation updates, residual risks, and agent retrospective. Prioritize critical issues first, then style or convention issues, then enhancement suggestions. Verify immutability, metadata and operation_history consistency, Dask laziness, test coverage against the grand policy, and whether the recorded quality checks are sufficient.
+    prompt: Review the implementation above using the summary of changes, tests added or updated, command log, documentation updates, residual risks, and agent retrospective. Prioritize critical issues first, then style or convention issues, then enhancement suggestions. Verify immutability, metadata and lineage consistency, Dask laziness, test coverage against the grand policy, and whether the recorded quality checks are sufficient.
     send: true
 ---
 # Implementation protocol
 - When a planner handoff is provided, follow it exactly; if assumptions change, ask before editing.
 - Once `wandas-implementer` is active, implement directly and hand off forward when complete; do not re-delegate implementation to `wandas-implementer` again.
 - Prefer `wandas-planner` first for new substantive work. Direct use here remains valid when the user explicitly asks for this role, a prior handoff already exists, or the task is a narrow continuation with clear scope and validation context.
-- Keep frames immutable, preserve metadata/history, and honor Dask laziness from [.github/copilot-instructions.md](../copilot-instructions.md).
-- When touching frames/operations, update `operation_history`, sampling rate, labels, and metadata **atomically** via frame helpers.
+- Keep frames immutable, preserve metadata/lineage, and honor Dask laziness from [.github/copilot-instructions.md](../copilot-instructions.md).
+- When touching frames/operations, update runtime `lineage`, sampling rate, labels, and metadata **atomically** via frame helpers. `operation_history` is derived from lineage.
 - When implementation and validation are complete, hand off to the reviewer with the summary and command log.
 
 ## Guardrails

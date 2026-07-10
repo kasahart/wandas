@@ -1,6 +1,6 @@
 # spectral_frame.py
 import logging
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, TypeVar
 
 import numpy as np
@@ -61,12 +61,14 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         A label for the frame.
     metadata : dict, optional
         Additional metadata for the frame.
-    operation_history : list[dict], optional
-        History of operations performed on this frame.
+    lineage : LineageNode, optional
+        Runtime operation lineage for this frame. ``operation_history`` is a
+        read-only derived compatibility view.
     channel_metadata : list[ChannelMetadata], optional
         Metadata for each channel in the frame.
     previous : BaseFrame, optional
-        The frame that this frame was derived from.
+        Compatibility/debug pointer to the immediate prior frame; not the
+        provenance source of truth.
 
     Attributes
     ----------
@@ -132,11 +134,12 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         fr: int = 1000,
         label: str | None = None,
         metadata: dict[str, Any] | None = None,
-        operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
+        lineage: Any | None = None,
+        operation_summaries_snapshot: Sequence[Mapping[str, Any]] | None = None,
     ) -> None:
         """
         Initialize a NOctFrame instance.
@@ -157,10 +160,11 @@ class NOctFrame(BaseFrame[NDArrayReal]):
             sampling_rate=sampling_rate,
             label=label,
             metadata=metadata,
-            operation_history=operation_history,
             channel_metadata=channel_metadata,
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,
+            lineage=lineage,
+            operation_summaries_snapshot=operation_summaries_snapshot,
             previous=previous,
         )
 

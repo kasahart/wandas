@@ -1,7 +1,7 @@
 """Module providing mixins related to signal processing."""
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any, SupportsFloat, SupportsIndex, TypeAlias, TypeVar, cast, overload
 
 from wandas.core.metadata import ChannelMetadata
@@ -49,6 +49,28 @@ class ChannelProcessingMixin:
             return []
         return [ch.ref for ch in self._channel_metadata]
 
+    def _with_public_method_lineage(
+        self: T_Processing,
+        result: ProcessingFrameProtocol,
+        method: str,
+        params: Mapping[str, Any],
+    ) -> T_Processing:
+        """Return ``result`` data with lineage anchored to the public method call."""
+        result_frame = cast(Any, result)
+        return cast(
+            T_Processing,
+            self._create_new_instance(
+                data=result_frame._data,
+                sampling_rate=result_frame.sampling_rate,
+                label=result_frame.label,
+                metadata=result_frame.metadata,
+                channel_metadata=result_frame.channels.to_list(),
+                channel_ids=result_frame._channel_ids,
+                source_time_offset=result_frame.source_time_offset,
+                lineage=self._lineage_with_method(method, params),
+            ),
+        )
+
     def _compute_scalar_metric(
         self: ProcessingFrameProtocol,
         operation: Any,
@@ -67,7 +89,7 @@ class ChannelProcessingMixin:
         data = self.data
         if data.ndim == 1:
             data = data.reshape(1, -1)
-        result = operation.process_array(data).compute()
+        result = operation._process(data)
         values: NDArrayReal = result.squeeze()
         if values.ndim == 0:
             values = values.reshape(1)
@@ -81,6 +103,8 @@ class ChannelProcessingMixin:
         output_shape_func: Callable[[tuple[int, ...]], tuple[int, ...]] | None = ...,
         output_frame_class: None = ...,
         output_frame_kwargs: dict[str, Any] | None = ...,
+        *,
+        dask_pure: bool = ...,
         **kwargs: Any,
     ) -> T_Processing: ...
 
@@ -93,14 +117,19 @@ class ChannelProcessingMixin:
         output_shape_func: Callable[[tuple[int, ...]], tuple[int, ...]] | None = ...,
         output_frame_class: type[T_OutputFrame] = ...,
         output_frame_kwargs: dict[str, Any] | None = ...,
+        *,
+        dask_pure: bool = ...,
         **kwargs: Any,
     ) -> T_OutputFrame: ...
+
     def apply(
         self: T_Processing,
         func: Callable[..., Any],
         output_shape_func: Callable[[tuple[int, ...]], tuple[int, ...]] | None = None,
         output_frame_class: type[T_OutputFrame] | None = None,
         output_frame_kwargs: dict[str, Any] | None = None,
+        *,
+        dask_pure: bool = True,
         **kwargs: Any,
     ) -> Any:
         """Apply a custom function to the signal.
@@ -114,6 +143,10 @@ class ChannelProcessingMixin:
                 ``ChannelFrame`` -> ``SpectralFrame``).
             output_frame_kwargs: Extra constructor keyword arguments required
                 by *output_frame_class* (e.g. ``{"n_fft": 1024}``).
+            dask_pure: Dask execution-control flag for delayed custom
+                operations. Set to ``False`` for non-deterministic or
+                side-effecting functions. This value is not forwarded to
+                *func* or recorded in operation history.
             **kwargs: Additional arguments for the function.
 
         Returns:
@@ -130,11 +163,20 @@ class ChannelProcessingMixin:
                 "  Suggested alternatives: 'sr', 'sample_rate', or 'fs'\n"
                 f"  Received params: {list(kwargs.keys())}"
             )
+        if "pure" in kwargs:
+            raise ValueError(
+                "Parameter name conflict\n"
+                "  Cannot use 'pure' as a parameter in apply().\n"
+                "  'pure' is reserved for operation purity and Dask task semantics.\n"
+                "  Suggested alternative: rename the function argument to 'is_pure'.\n"
+                f"  Received params: {list(kwargs.keys())}"
+            )
 
         operation = CustomOperation(
             sampling_rate=self.sampling_rate,
             func=func,
             output_shape_func=output_shape_func,
+            dask_pure=dask_pure,
             **kwargs,
         )
 
@@ -304,14 +346,16 @@ class ChannelProcessingMixin:
 
     def _reduce_channels(self: T_Processing, op: str) -> T_Processing:
         """Helper to reduce all channels with the given operation ('sum' or 'mean')."""
+        from wandas.processing import create_operation
+
         if op == "sum":
-            reduced_data = self._data.sum(axis=0, keepdims=True)
             label = "sum"
         elif op == "mean":
-            reduced_data = self._data.mean(axis=0, keepdims=True)
             label = "mean"
         else:
             raise ValueError(f"Unsupported reduction operation: {op}")
+        operation = create_operation(op, self.sampling_rate)
+        reduced_data = operation.process(self._data)
 
         units = [ch.unit for ch in self._channel_metadata]
         reduced_unit = units[0] if all(u == units[0] for u in units) else ""
@@ -328,13 +372,14 @@ class ChannelProcessingMixin:
         reduced_source_time_offset = (
             source_time_offset[:1] if (source_time_offset == source_time_offset[0]).all() else 0.0
         )
-        new_metadata, new_history = self._updated_metadata_and_history(op, {})
+        new_metadata = self._updated_metadata(op, {})
+        operation = create_operation(op, cast(Any, self).sampling_rate)
         result = self._create_new_instance(
             data=reduced_data,
             metadata=new_metadata,
-            operation_history=new_history,
             channel_metadata=new_channel_metadata,
             source_time_offset=reduced_source_time_offset,
+            lineage=cast(Any, self)._lineage_with_operation(operation, cast(Any, self).lineage),
         )
         return result
 
@@ -429,7 +474,16 @@ class ChannelProcessingMixin:
         )
 
         # Sampling rate update is handled by the Operation class
-        return cast(T_Processing, result)
+        return self._with_public_method_lineage(
+            result,
+            "rms_trend",
+            {
+                "frame_length": frame_length,
+                "hop_length": hop_length,
+                "dB": dB,
+                "Aw": Aw,
+            },
+        )
 
     def sound_level(
         self: T_Processing,
@@ -461,22 +515,43 @@ class ChannelProcessingMixin:
             dB=dB,
             **({"ref": ref_values} if ref_values else {}),
         )
-        return cast(T_Processing, result)
+        return self._with_public_method_lineage(
+            result,
+            "sound_level",
+            {
+                "freq_weighting": freq_weighting,
+                "time_weighting": time_weighting,
+                "dB": dB,
+            },
+        )
 
     def channel_difference(self: T_Processing, other_channel: int | str = 0) -> T_Processing:
-        """Compute the difference between channels.
+        """Compute index-wise differences between channels.
+
+        ``channel_difference`` subtracts the selected reference channel from
+        each channel at the current array indices. It does not compare
+        per-channel ``source_time_offset`` values and does not perform
+        source-time alignment.
 
         Args:
             other_channel: Index or label of the reference channel. Default is 0.
 
         Returns:
-            New ChannelFrame containing the channel difference
+            New ChannelFrame containing the channel difference with the input
+            source-time offsets preserved.
         """
+        requested_other_channel = other_channel
         # label2index is a method of BaseFrame
         if isinstance(other_channel, str) and hasattr(self, "label2index"):
             other_channel = self.label2index(other_channel)
 
         result = self.apply_operation("channel_difference", other_channel=other_channel)
+        if isinstance(requested_other_channel, str):
+            return self._with_public_method_lineage(
+                result,
+                "channel_difference",
+                {"other_channel": requested_other_channel},
+            )
         return cast(T_Processing, result)
 
     def resampling(
@@ -892,12 +967,8 @@ class ChannelProcessingMixin:
         # Get metadata updates (sampling rate, bark_axis)
         metadata_updates = operation.get_metadata_updates()
 
-        # Build metadata and history
+        # Build metadata
         new_metadata = {**self.metadata, **params}
-        new_history = [
-            *self.operation_history,
-            {"operation": operation_name, "params": params},
-        ]
 
         # Extract bark_axis with proper type handling
         bark_axis_value = metadata_updates.get("bark_axis")
@@ -906,6 +977,7 @@ class ChannelProcessingMixin:
 
         # Create RoughnessFrame. operation.get_metadata_updates() should provide
         # sampling_rate and bark_axis
+        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
         roughness_frame = RoughnessFrame(
             data=r_spec_dask,
             sampling_rate=metadata_updates.get("sampling_rate", self.sampling_rate),
@@ -913,11 +985,12 @@ class ChannelProcessingMixin:
             overlap=overlap,
             label=f"{self.label}_roughness_spec" if self.label else "roughness_spec",
             metadata=new_metadata,
-            operation_history=new_history,
             channel_metadata=cast(Any, self).channels.to_list(),
             channel_ids=cast(Any, self)._channel_ids,
             source_time_offset=cast(Any, self).source_time_offset,
+            lineage=lineage,
             previous=cast("BaseFrame[NDArrayReal]", self),
+            **cast(Any, self)._operation_summaries_snapshot_kwargs(lineage),
         )
 
         logger.debug(
