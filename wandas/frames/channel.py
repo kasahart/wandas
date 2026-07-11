@@ -26,7 +26,7 @@ from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
 from ..core.metadata import ChannelMetadata
-from ..io.readers import get_file_reader
+from ..io.readers import DownloadedTemporaryFile, download_url_to_temporary_file, get_file_reader
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
 
 if TYPE_CHECKING:
@@ -1055,17 +1055,13 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         """
         from .channel import ChannelFrame
 
-        # Detect and handle URL paths — download to bytes before any path logic.
-        if isinstance(path, str) and path.lower().startswith(("http://", "https://")):
-            url_file_type = file_type
-            if url_file_type is None:
-                from pathlib import PurePosixPath
-                from urllib.parse import urlparse
+        download_owner: DownloadedTemporaryFile | None = None
+        downloaded_from_url = False
 
-                url_file_type = PurePosixPath(urlparse(path).path).suffix.lower() or None
-            if url_file_type is not None and url_file_type.lower().lstrip(".") == "csv":
-                require_pandas("CSV file reading")
-            path, file_type, source_name = _download_url(path, file_type, source_name, timeout)
+        # Stream URL input to a bounded temporary file before any path logic.
+        if isinstance(path, str) and path.lower().startswith(("http://", "https://")):
+            path, download_owner, file_type, source_name = _download_url(path, file_type, source_name, timeout)
+            downloaded_from_url = True
 
         source_obj, path_obj, reader, normalized_file_type = _resolve_source(path, file_type)
 

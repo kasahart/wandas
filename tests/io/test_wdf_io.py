@@ -1,5 +1,6 @@
 """Tests for WDF (Wandas Data File) I/O functionality."""
 
+import io
 import json
 from contextlib import contextmanager
 from pathlib import Path
