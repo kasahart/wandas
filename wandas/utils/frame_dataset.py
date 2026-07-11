@@ -428,6 +428,8 @@ class FrameDataset(Generic[F], ABC):
             for index, lazy_frame in enumerate(self._lazy_frames)
             if all(lazy_frame.metadata.get(key) == value for key, value in criteria.items())
         ]
+        if isinstance(self, _SubsetFrameDataset):
+            return _SubsetFrameDataset(self, selected_indices)
         subset = _SubsetFrameDataset(self, selected_indices)
         return cast(
             "FrameDataset[F]",
