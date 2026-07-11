@@ -77,6 +77,7 @@ def test_resolver_result_is_deep_copied_and_attached_to_new_frame(metadata_audio
     assert frame is not None
     assert frame.metadata["conditions"] == {"speed": 1_000}
     assert frame.metadata["_source_file"].endswith("section_01_target.wav")
+    assert frame.previous is None
     assert frame is not dataset._load_file(dataset._lazy_frames[0].file_path)
 
 
@@ -148,6 +149,36 @@ def test_select_rejects_unknown_metadata_key(metadata_audio_folder: Path) -> Non
     )
     with pytest.raises(KeyError, match="Unknown file metadata key.*machin"):
         dataset.select(machin="fan")
+
+
+def test_select_none_requires_metadata_key_presence(metadata_audio_folder: Path) -> None:
+    dataset = ChannelFrameDataset.from_folder(
+        str(metadata_audio_folder),
+        recursive=True,
+        file_extensions=[".wav"],
+        metadata_resolver=lambda path: {"optional": None} if path.parts[1] == "test" else {},
+    )
+
+    selected = dataset.select(optional=None)
+
+    assert len(selected) == 1
+    assert selected._get_file_paths()[0].name == "section_01_target.wav"
+
+
+def test_metadata_attachment_preserves_transform_previous(metadata_audio_folder: Path) -> None:
+    dataset = ChannelFrameDataset.from_folder(
+        str(metadata_audio_folder),
+        recursive=True,
+        file_extensions=[".wav"],
+        metadata_resolver=dcase_resolver,
+    )
+    source = dataset[0]
+
+    transformed = dataset.normalize()[0]
+
+    assert source is not None
+    assert transformed is not None
+    assert transformed.previous is source
 
 
 def test_metadata_survives_select_sample_and_processing(metadata_audio_folder: Path) -> None:

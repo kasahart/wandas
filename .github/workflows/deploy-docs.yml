@@ -31,7 +31,7 @@ jobs:
         # learning-path の Python ファイルを marimo export html で HTML に変換
         run: |
           mkdir -p docs/src/learning-path
-          for file in learning-path/0{0..7}_*.py; do
+          for file in learning-path/0{0..8}_*.py; do
             if [ -f "$file" ]; then
               echo "Converting $file to HTML..."
               uv run marimo export html "$file" -o "docs/src/learning-path/$(basename ${file%.py}.html)"
