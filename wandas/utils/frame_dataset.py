@@ -173,11 +173,12 @@ class FrameDataset(Generic[F], ABC):
 
     def _resolve_metadata(self, file_path: Path) -> dict[str, object]:
         """Resolve and validate metadata for one discovered file."""
+        if not self._path_metadata and self._metadata_resolver is None:
+            return {}
         relative_path = file_path.relative_to(self.folder_path)
         if self._path_metadata:
             return self._resolve_path_metadata(relative_path)
-        if self._metadata_resolver is None:
-            return {}
+        assert self._metadata_resolver is not None
         try:
             resolved = self._metadata_resolver(relative_path)
         except Exception as exc:
