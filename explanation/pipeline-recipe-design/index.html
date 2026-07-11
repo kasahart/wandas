@@ -1,0 +1,1943 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Wandas ライブラリのドキュメント">
+      
+      
+        <meta name="author" content="Wandas Team">
+      
+      
+        <link rel="canonical" href="https://wandas.github.io/explanation/pipeline-recipe-design/">
+      
+      
+        <link rel="prev" href="../pipeline-recipe-requirements/">
+      
+      
+        <link rel="next" href="../pipeline-recipe-support-matrix/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.23">
+    
+    
+      
+        <title>Pipeline Recipe Design - Wandas</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.84d31ad4.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_markdown_exec_pyodide.css">
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+  
+
+
+  
+  
+
+<script id="__analytics">function __md_analytics(){function e(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],e("js",new Date),e("config","G-MEASUREMENT-ID"),document.addEventListener("DOMContentLoaded",(function(){document.forms.search&&document.forms.search.query.addEventListener("blur",(function(){this.value&&e("event","search",{search_term:this.value})}));document$.subscribe((function(){var t=document.forms.feedback;if(void 0!==t)for(var a of t.querySelectorAll("[type=submit]"))a.addEventListener("click",(function(a){a.preventDefault();var n=document.location.pathname,d=this.getAttribute("data-md-value");e("event","feedback",{page:n,data:d}),t.firstElementChild.disabled=!0;var r=t.querySelector(".md-feedback__note [data-md-value='"+d+"']");r&&(r.hidden=!1)})),t.hidden=!1})),location$.subscribe((function(t){e("config","G-MEASUREMENT-ID",{page_path:t.pathname})}))}));var t=document.createElement("script");t.async=!0,t.src="https://www.googletagmanager.com/gtag/js?id=G-MEASUREMENT-ID",document.getElementById("__analytics").insertAdjacentElement("afterEnd",t)}</script>
+  
+    <script>"undefined"!=typeof __md_analytics&&__md_analytics()</script>
+  
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#pipeline-recipe-design" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Wandas" class="md-header__button md-logo" aria-label="Wandas" data-md-component="logo">
+      
+  <img src="../../assets/images/logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Wandas
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Pipeline Recipe Design
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="ダークモードへ"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="ダークモードへ" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="ライトモードへ"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="ライトモードへ" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/kasahart/wandas" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kasahart/wandas
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tutorial/" class="md-tabs__link">
+          
+  
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../how-to/pipeline-recipes/" class="md-tabs__link">
+          
+  
+  
+  How-to Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/" class="md-tabs__link">
+          
+  
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+  Theory & Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing Guide
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Wandas" class="md-nav__button md-logo" aria-label="Wandas" data-md-component="logo">
+      
+  <img src="../../assets/images/logo.png" alt="logo">
+
+    </a>
+    Wandas
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/kasahart/wandas" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kasahart/wandas
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Tutorials
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Tutorials
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorial/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorial/pipeline-recipe-use-cases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pipeline Recipe Use Cases
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorial/pipeline-recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pipeline Recipes Examples
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorial/pipeline-recipe-requirements-check/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pipeline Recipe Requirements Check
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    How-to Guides
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            How-to Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/pipeline-recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pipeline Recipes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    API Reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            API Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Core
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/frames/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Frames
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/processing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Processing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    IO
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/wdf_io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    WDF IO
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/visualization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Visualization
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Utils
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/datasets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Datasets
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Theory & Architecture
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Theory & Architecture
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline-recipe-requirements/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pipeline Recipe Requirements
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Pipeline Recipe Design
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pipeline Recipe Design
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#design-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      Design Summary / 設計概要
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#components" class="md-nav__link">
+    <span class="md-ellipsis">
+      Components / コンポーネント
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Components / コンポーネント">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#wandaspipelineoperationspec" class="md-nav__link">
+    <span class="md-ellipsis">
+      wandas.pipeline.OperationSpec
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandaspipelinerecipespec" class="md-nav__link">
+    <span class="md-ellipsis">
+      wandas.pipeline.RecipeSpec
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandaspipelineterminalstep" class="md-nav__link">
+    <span class="md-ellipsis">
+      wandas.pipeline.TerminalStep
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandaspipelinegraphrecipespec" class="md-nav__link">
+    <span class="md-ellipsis">
+      wandas.pipeline.GraphRecipeSpec
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandaspipelinenodegraphrecipespec" class="md-nav__link">
+    <span class="md-ellipsis">
+      wandas.pipeline.NodeGraphRecipeSpec
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandaspipelinemethodstep" class="md-nav__link">
+    <span class="md-ellipsis">
+      wandas.pipeline.MethodStep
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandaspipelinetypedmethodstep" class="md-nav__link">
+    <span class="md-ellipsis">
+      wandas.pipeline.TypedMethodStep
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandaspipelinecustomfunctionstep" class="md-nav__link">
+    <span class="md-ellipsis">
+      wandas.pipeline.CustomFunctionStep
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandaspipelinescalaroperationstep" class="md-nav__link">
+    <span class="md-ellipsis">
+      wandas.pipeline.ScalarOperationStep
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandaspipelineindexingstep" class="md-nav__link">
+    <span class="md-ellipsis">
+      wandas.pipeline.IndexingStep
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandaspipelinesklearnwandasoperationtransformer" class="md-nav__link">
+    <span class="md-ellipsis">
+      wandas.pipeline.sklearn.WandasOperationTransformer
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#named-transformers-transformer" class="md-nav__link">
+    <span class="md-ellipsis">
+      Named Transformers / 個別 transformer
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Flow / データフロー
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ux-principles-ux" class="md-nav__link">
+    <span class="md-ellipsis">
+      UX Principles / UX原則
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Error Handling / エラー処理
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Testing Strategy / テスト方針
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#future-extensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Future Extensions / 次フェーズ候補
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline-recipe-support-matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pipeline Recipe Support Matrix
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline-recipe-extraction-boundaries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pipeline Recipe Extraction Boundaries
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline-recipe-interoperability-export/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pipeline Recipe Interoperability & Export
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline-recipe-developer-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pipeline Recipe Developer Guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Contributing Guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#design-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      Design Summary / 設計概要
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#components" class="md-nav__link">
+    <span class="md-ellipsis">
+      Components / コンポーネント
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Components / コンポーネント">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#wandaspipelineoperationspec" class="md-nav__link">
+    <span class="md-ellipsis">
+      wandas.pipeline.OperationSpec
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandaspipelinerecipespec" class="md-nav__link">
+    <span class="md-ellipsis">
+      wandas.pipeline.RecipeSpec
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandaspipelineterminalstep" class="md-nav__link">
+    <span class="md-ellipsis">
+      wandas.pipeline.TerminalStep
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandaspipelinegraphrecipespec" class="md-nav__link">
+    <span class="md-ellipsis">
+      wandas.pipeline.GraphRecipeSpec
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandaspipelinenodegraphrecipespec" class="md-nav__link">
+    <span class="md-ellipsis">
+      wandas.pipeline.NodeGraphRecipeSpec
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandaspipelinemethodstep" class="md-nav__link">
+    <span class="md-ellipsis">
+      wandas.pipeline.MethodStep
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandaspipelinetypedmethodstep" class="md-nav__link">
+    <span class="md-ellipsis">
+      wandas.pipeline.TypedMethodStep
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandaspipelinecustomfunctionstep" class="md-nav__link">
+    <span class="md-ellipsis">
+      wandas.pipeline.CustomFunctionStep
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandaspipelinescalaroperationstep" class="md-nav__link">
+    <span class="md-ellipsis">
+      wandas.pipeline.ScalarOperationStep
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandaspipelineindexingstep" class="md-nav__link">
+    <span class="md-ellipsis">
+      wandas.pipeline.IndexingStep
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandaspipelinesklearnwandasoperationtransformer" class="md-nav__link">
+    <span class="md-ellipsis">
+      wandas.pipeline.sklearn.WandasOperationTransformer
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#named-transformers-transformer" class="md-nav__link">
+    <span class="md-ellipsis">
+      Named Transformers / 個別 transformer
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Flow / データフロー
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ux-principles-ux" class="md-nav__link">
+    <span class="md-ellipsis">
+      UX Principles / UX原則
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Error Handling / エラー処理
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Testing Strategy / テスト方針
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#future-extensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Future Extensions / 次フェーズ候補
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="pipeline-recipe-design">Pipeline Recipe Design / パイプラインレシピ設計書<a class="headerlink" href="#pipeline-recipe-design" title="Permanent link">&para;</a></h1>
+<h2 id="design-summary">Design Summary / 設計概要<a class="headerlink" href="#design-summary" title="Permanent link">&para;</a></h2>
+<p>Wandas 側に小さな replayable spec を置き、sklearn は optional adapter として扱う。中心は <code>OperationSpec</code> と <code>RecipeSpec</code> であり、実行は既存の <code>Frame.apply_operation(...)</code>、frame method、frame operator に委譲する。これにより、frame immutability、metadata propagation、lineage-derived history view、Dask lazy execution は既存 frame operation の契約に従う。</p>
+<p>Recipe の主要UXは二つある。ひとつは <code>RecipeSpec([...]).apply(frame)</code> のように明示的に組む入口であり、もうひとつは探索的に frame method chain を実行した後で <code>RecipeSpec.from_frame(processed)</code> / <code>GraphRecipeSpec.from_frame(processed)</code> / <code>NodeGraphRecipeSpec.from_frame(processed)</code> により <code>operation_graph</code> から抽出する入口である。長期的なあるべき姿は frame で計算できるものをすべて Recipe 化できることだが、現在は replay contract が定義済みの step だけを抽出し、未定義の境界は <code>RecipeExtractionError</code> として明示する。</p>
+<p>sklearn 互換の <code>WandasOperationTransformer</code> は、<code>BaseEstimator</code> / <code>TransformerMixin</code> と同じ呼び出し形を提供するだけの薄いラッパーである。信号処理の正本は Wandas operation registry key であり、sklearn <code>Pipeline</code> は UI/連携の選択肢に留める。</p>
+<h2 id="components">Components / コンポーネント<a class="headerlink" href="#components" title="Permanent link">&para;</a></h2>
+<h3 id="wandaspipelineoperationspec"><code>wandas.pipeline.OperationSpec</code><a class="headerlink" href="#wandaspipelineoperationspec" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>operation: str</code></li>
+<li><code>params: Mapping[str, Any]</code></li>
+</ul>
+<p>単一 Wandas operation の replayable な呼び出しを表す。<code>operation</code> は <code>"normalize"</code>、<code>"highpass_filter"</code>、<code>"fade"</code> のような registry key を使う。<code>params</code> は作成時に snapshot されるため、呼び出し元の dict を後から変更しても spec は変わらない。</p>
+<p>Stage 1 では、<code>params</code> は recipe literal に限定する。対応する値は <code>None</code>、<code>bool</code>、<code>int</code>、<code>float</code>、<code>str</code>、およびそれらだけを要素に持つ浅い <code>list</code> / <code>tuple</code> である。sequence は作成時に snapshot され、<code>to_dict()</code> では JSON 的に扱いやすい <code>list</code> として返る。nested sequence、dict、callable、array-like object、NaN は、保存形式と equality policy を決めるまで受け付けない。</p>
+<p><code>rename_channels()</code> は例外的に <code>MethodStep</code> 側で dedicated mapping snapshot を持つ。Python dict をそのまま JSON object にすると int key が文字列化されるため、<code>to_dict()</code> では <code>{"mapping_items": [[0, "left"], [1, "right"]]}</code> の pair list として保存する。これは汎用 mapping params のサポートではなく、既存 frame method の replay に必要な最小の typed 表現である。</p>
+<h3 id="wandaspipelinerecipespec"><code>wandas.pipeline.RecipeSpec</code><a class="headerlink" href="#wandaspipelinerecipespec" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>steps: tuple[OperationSpec | MethodStep | TypedMethodStep | CustomFunctionStep | IndexingStep | ScalarOperationStep | TerminalStep, ...]</code></li>
+<li><code>apply(frame) -&gt; Any</code></li>
+<li><code>from_frame(frame) -&gt; RecipeSpec</code></li>
+</ul>
+<p><code>steps</code> を順番に処理し、<code>OperationSpec</code> は <code>frame.apply_operation(step.operation, **step.params)</code>、<code>MethodStep</code> / <code>TypedMethodStep</code> は対応する frame method、<code>CustomFunctionStep</code> は import path から関数を読み込んで <code>frame.apply(...)</code>、<code>IndexingStep</code> は既存 <code>frame[key]</code>、<code>ScalarOperationStep</code> は既存の frame 演算子、<code>TerminalStep</code> は既存の terminal property を呼ぶ。<code>RecipeSpec</code> 自体は frame を保持しないため、同じレシピを複数 frame に再適用できる。</p>
+<p><code>from_frame(frame)</code> は、探索的に処理した frame の <code>operation_graph</code> から安全に replay できる直列 chain だけを抽出する。対応外の計算は黙って落とさず、<code>RecipeExtractionError</code> で現在の境界を返す。<code>operation_history</code> は人間が処理順を読むための記録であり、抽出の正本は親関係や source leaf を保持する <code>operation_graph</code> である。</p>
+<h3 id="wandaspipelineterminalstep"><code>wandas.pipeline.TerminalStep</code><a class="headerlink" href="#wandaspipelineterminalstep" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>metric: str</code></li>
+</ul>
+<p><code>rms</code>、<code>crest_factor</code>、<code>magnitude</code>、<code>phase</code>、<code>dB</code>、<code>time</code> のような terminal property、および <code>loudness_zwst()</code>、<code>sharpness_din_st()</code> のように frame ではなく NumPy 配列を返す terminal method を replay する。<code>TerminalStep</code> は Recipe の末尾で使うことを想定し、既存 frame property / method を呼ぶだけで評価ロジックを複製しない。Stage 1 では明示 allowlist に含まれる terminal metric / property に限定し、<code>RecipeSpec.from_frame(...)</code> による自動抽出は行わない。terminal 結果は frame lineage を保持しないため、探索後の自動抽出には別の report/metric recipe UX が必要である。</p>
+<h3 id="wandaspipelinegraphrecipespec"><code>wandas.pipeline.GraphRecipeSpec</code><a class="headerlink" href="#wandaspipelinegraphrecipespec" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>input_recipes: Mapping[str, RecipeSpec]</code></li>
+<li><code>output: BinaryFrameStep</code></li>
+<li><code>tail_recipe: RecipeSpec | None = None</code></li>
+</ul>
+<p>複数入力 frame 計算の最小表現である。名前付き入力ごとに既存の直列 <code>RecipeSpec</code> を適用し、<code>BinaryFrameStep</code> で frame-frame <code>+</code> / <code>-</code> / <code>*</code> / <code>/</code> / <code>**</code> または <code>add_with_snr</code> を実行し、必要なら merge 後にもう一度直列 <code>RecipeSpec</code> を適用する。演算は <code>left + right</code> のような既存 operator または <code>left.add(right, snr=...)</code> に委譲し、shape、sampling rate、channel metadata、Dask laziness の契約は既存 frame 実装に従う。</p>
+<p><code>GraphRecipeSpec</code> は明示的に組む API である。<code>GraphRecipeSpec.from_frame(processed, input_names=(...))</code> は frame graph が 2 本の linear chain、1 つの binary merge、0 個以上の linear tail として表現できる場合だけ抽出する。入力名は lineage から推定せず、呼び出し側が渡す。</p>
+<p>任意 DAG の自動抽出には、外部入力名の決定、未加工入力の表現、shared branch の扱い、array/dask operand の保存ポリシーが必要になるため、Stage 1 では扱わない。</p>
+<h3 id="wandaspipelinenodegraphrecipespec"><code>wandas.pipeline.NodeGraphRecipeSpec</code><a class="headerlink" href="#wandaspipelinenodegraphrecipespec" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>inputs: tuple[str, ...]</code></li>
+<li><code>nodes: tuple[GraphNodeSpec, ...]</code></li>
+<li><code>output: str</code></li>
+</ul>
+<p>複数 merge を含む replayable tree graph の表現である。<code>GraphRecipeSpec</code> は「2 入力・1 merge・任意の linear tail」の読みやすい最小 API として残し、それを超える graph は <code>NodeGraphRecipeSpec</code> が扱う。</p>
+<p>各 <code>GraphNodeSpec</code> は既存の <code>OperationSpec</code> / <code>MethodStep</code> / <code>TypedMethodStep</code> / <code>IndexingStep</code> / <code>ScalarOperationStep</code> / <code>BinaryFrameStep</code> / <code>BinaryOperandStep</code> をそのまま持つ。replay は外部入力と node 結果を dict に入れて topological order で進めるだけで、演算や metadata 更新は既存 frame method/operator に委譲する。</p>
+<p><code>CustomFunctionStep</code> も unary node として扱える。実行時は import path からユーザー関数を import して <code>frame.apply(...)</code> に渡すため、trusted user code として扱う。Recipe ファイルや notebook から外部由来の custom function path を実行する場合は、通常の Python import と同じ権限でコードが動く。</p>
+<p><code>add_channel(ChannelFrame, ...)</code> は <code>AddChannelStep</code> として扱う。これは二つの named frame input を受け取り、既存 <code>base.add_channel(added, align=..., label=..., suffix_on_dup=...)</code> に委譲するだけの graph 専用 step である。</p>
+<p><code>add_channel(ndarray|dask.array, ...)</code> は <code>AddChannelDataStep</code> として扱う。Recipe は raw data を保存せず、実行時に named external data input として受け取る。<code>source_time_offset</code> は raw data の時間意味を決める public option なので lineage params に保存し、replay 時に <code>base.add_channel(data, align=..., label=..., suffix_on_dup=..., source_time_offset=...)</code> へ渡す。</p>
+<p><code>frame + ndarray</code> や <code>frame * dask_array</code> は <code>BinaryOperandStep</code> として扱う。Recipe は array 値を保存せず、実行時に named external operand として受け取る。<code>operation_graph</code> の descriptor は operand が <code>ndarray</code> / <code>dask.array</code> だったことを判定するためだけに使い、shape/dtype/chunks から値を再構成しない。</p>
+<p>現在の <code>operation_graph</code> は shared object identity を保持しない tree 表現である。そのため <code>NodeGraphRecipeSpec.from_frame(...)</code> は shared branch を同じ構造の duplicated parent path として抽出する。必要なら同じ外部入力名を複数 source leaf に渡して同じ入力 frame から再生できるが、真の DAG node identity の保存は lineage 側の拡張が必要なので別段階とする。</p>
+<h3 id="wandaspipelinemethodstep"><code>wandas.pipeline.MethodStep</code><a class="headerlink" href="#wandaspipelinemethodstep" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>method: str</code></li>
+<li><code>params: Mapping[str, Any]</code></li>
+</ul>
+<p><code>sum()</code>、<code>mean()</code>、<code>fix_length()</code>、<code>channel_difference()</code>、<code>get_channel()</code>、<code>remove_channel()</code>、<code>rename_channels()</code> のように、metadata 変換を frame method 側に持つ処理を replay する。Recipe 側では metadata 再構成を複製せず、既存 method を呼ぶ。</p>
+<h3 id="wandaspipelinetypedmethodstep"><code>wandas.pipeline.TypedMethodStep</code><a class="headerlink" href="#wandaspipelinetypedmethodstep" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>method: str</code></li>
+<li><code>params: Mapping[str, Any]</code></li>
+</ul>
+<p><code>fft()</code>、<code>stft()</code>、<code>get_frame_at()</code>、<code>ifft()</code>、<code>istft()</code>、<code>welch()</code>、<code>noct_spectrum()</code>、<code>noct_synthesis()</code>、<code>coherence()</code>、<code>csd()</code>、<code>transfer_function()</code>、<code>roughness_dw_spec()</code> のように、出力 frame class が変わる method を replay する。戻り型は入力 frame と同じとは限らないため、<code>RecipeSpec.apply(frame)</code> の戻り値は実行した step chain に従う。</p>
+<h3 id="wandaspipelinecustomfunctionstep"><code>wandas.pipeline.CustomFunctionStep</code><a class="headerlink" href="#wandaspipelinecustomfunctionstep" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>function: str</code></li>
+<li><code>output_shape_function: str | None</code></li>
+<li><code>params: Mapping[str, Any]</code></li>
+<li><code>dask_pure: bool</code></li>
+</ul>
+<p><code>frame.apply(custom_func, output_shape_func=..., **params)</code> のうち、importable custom function を replay する。対象は module-level function に限定し、lambda、closure、nested function、callable object、bound method、<code>functools.partial</code>、<code>__main__</code> 上の関数は抽出しない。<code>output_shape_func</code> も指定する場合は同じく importable module-level function に限定する。</p>
+<p><code>output_frame_class</code> を使う custom domain transition は、frame class が importable な <code>BaseFrame</code> subclass で、<code>output_frame_kwargs</code> が recipe literal だけを含む場合に限って replay する。実行時は Recipe 側で constructor logic を複製せず、import した class と kwargs を既存 <code>frame.apply(...)</code> に渡す。</p>
+<p><code>operation_history</code> には従来どおり <code>{"operation": "custom", "params": ...}</code> だけを残し、callable identity は <code>operation_graph</code> の custom metadata と <code>CustomFunctionStep</code> にだけ保持する。Recipe 適用時は import path の Python コードを実行するため、信頼できる環境・信頼できる recipe だけを対象にする。</p>
+<h3 id="wandaspipelinescalaroperationstep"><code>wandas.pipeline.ScalarOperationStep</code><a class="headerlink" href="#wandaspipelinescalaroperationstep" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>symbol: str</code></li>
+<li><code>operand: int | float</code></li>
+</ul>
+<p><code>frame + 0.1</code>、<code>frame * 2</code>、<code>2 - frame</code> のような単一 numeric scalar operand を持つ frame 演算子を replay する。対応演算子は <code>+</code>、<code>-</code>、<code>*</code>、<code>/</code>、<code>**</code> に限定する。scalar が左辺にある場合は <code>ScalarOperationStep(reverse=True)</code> として保存する。</p>
+<p>この step も演算ロジックを Recipe 側に複製しない。<code>apply()</code> 時に <code>frame + operand</code> のように既存 frame operator を呼び、metadata propagation、lineage-derived history view、Dask laziness は frame 本体の実装に委譲する。operation graph に値として保存された Python / NumPy real scalar は replay できる。frame-frame 演算、ndarray/dask array operand、値を持たない scalar-like descriptor は、graph recipe と operand serialization policy が決まるまで対象外である。</p>
+<h3 id="wandaspipelineindexingstep"><code>wandas.pipeline.IndexingStep</code><a class="headerlink" href="#wandaspipelineindexingstep" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>key: slice | list[int] | list[str] | tuple[int | slice | list[int] | list[str], ...]</code></li>
+</ul>
+<p><code>frame[0:2]</code> のような channel slice、<code>frame[[1, 0]]</code> や <code>frame[np.array([1, 0])]</code> のような integer selection、<code>frame[np.array([False, True])]</code> のような 1-D boolean mask、<code>frame[["left", "right"]]</code> のような label list selection、<code>frame[:, 100:400]</code> のような slice-only tuple indexing を replay する。Recipe は selection logic や metadata 更新を複製せず、保存した key で既存 <code>frame[key]</code> を呼ぶ。Point/fancy time selection は、indexing intent を保存する schema が必要なため対象外である。</p>
+<h3 id="wandaspipelinesklearnwandasoperationtransformer"><code>wandas.pipeline.sklearn.WandasOperationTransformer</code><a class="headerlink" href="#wandaspipelinesklearnwandasoperationtransformer" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>fit(X, y=None) -&gt; self</code></li>
+<li><code>transform(X) -&gt; X.apply_operation(operation, **params)</code></li>
+<li><code>to_spec() -&gt; OperationSpec</code></li>
+<li>sklearn 標準の <code>get_params()</code> / <code>set_params()</code> を提供する</li>
+</ul>
+<p>この transformer は stateful learning をしない。sklearn <code>Pipeline.transform(frame)</code> の UX を使うための stateless transformer として扱う。</p>
+<p>Full Recipe/Pipeline conversion, joblib/skops export, and Dask-ML integration are outside the current contract; see <a href="../pipeline-recipe-interoperability-export/">Pipeline Recipe Interoperability And Export Boundaries</a>.</p>
+<h3 id="named-transformers-transformer">Named Transformers / 個別 transformer<a class="headerlink" href="#named-transformers-transformer" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Wandas operation</th>
+<th>Parameters</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>HighPassFilter</code></td>
+<td><code>highpass_filter</code></td>
+<td><code>cutoff</code>, <code>order=4</code></td>
+</tr>
+<tr>
+<td><code>LowPassFilter</code></td>
+<td><code>lowpass_filter</code></td>
+<td><code>cutoff</code>, <code>order=4</code></td>
+</tr>
+<tr>
+<td><code>BandPassFilter</code></td>
+<td><code>bandpass_filter</code></td>
+<td><code>low_cutoff</code>, <code>high_cutoff</code>, <code>order=4</code></td>
+</tr>
+<tr>
+<td><code>Normalize</code></td>
+<td><code>normalize</code></td>
+<td><code>norm=np.inf</code>, <code>axis=-1</code>, <code>threshold=None</code>, <code>fill=None</code></td>
+</tr>
+<tr>
+<td><code>RemoveDC</code></td>
+<td><code>remove_dc</code></td>
+<td>none</td>
+</tr>
+</tbody>
+</table>
+<h2 id="data-flow">Data Flow / データフロー<a class="headerlink" href="#data-flow" title="Permanent link">&para;</a></h2>
+<p>探索的解析から Recipe を作る場合の data flow は次の通りである。</p>
+<div class="highlight"><pre><span></span><code>frame method chain
+  -&gt; new frame with operation_history and operation_graph
+  -&gt; RecipeSpec.from_frame(processed)
+    -&gt; validate graph shape and step support
+    -&gt; OperationSpec / MethodStep / TypedMethodStep / IndexingStep / ScalarOperationStep / CustomFunctionStep
+  -&gt; recipe.apply(other_frame)
+    -&gt; existing frame API calls
+  -&gt; replayed frame with new operation_history
+</code></pre></div>
+<p>複数入力の場合は、<code>GraphRecipeSpec.from_frame(...)</code> または <code>NodeGraphRecipeSpec.from_frame(...)</code> が source leaf を名前付き入力へ対応づける。</p>
+<div class="highlight"><pre><span></span><code>frame_a, frame_b, external data or external operand
+  -&gt; frame graph calculation
+  -&gt; result frame with operation_graph tree
+  -&gt; GraphRecipeSpec.from_frame(...) or NodeGraphRecipeSpec.from_frame(...)
+    -&gt; named external inputs + graph nodes
+  -&gt; graph_recipe.apply({...})
+    -&gt; existing frame API calls in graph order
+</code></pre></div>
+<p>明示的に Recipe を組む場合の replay flow は次の通りである。</p>
+<div class="highlight"><pre><span></span><code>ChannelFrame
+  -&gt; RecipeSpec.apply(frame)
+    -&gt; OperationSpec(&quot;remove_dc&quot;)
+      -&gt; frame.apply_operation(&quot;remove_dc&quot;)
+    -&gt; MethodStep(&quot;fix_length&quot;, {&quot;length&quot;: 8000})
+      -&gt; frame.fix_length(length=8000)
+    -&gt; MethodStep(&quot;get_channel&quot;, {&quot;channel_idx&quot;: 0})
+      -&gt; frame.get_channel(channel_idx=0)
+    -&gt; OperationSpec(&quot;highpass_filter&quot;, {&quot;cutoff&quot;: 100.0})
+      -&gt; frame.apply_operation(&quot;highpass_filter&quot;, cutoff=100.0)
+    -&gt; ScalarOperationStep(&quot;+&quot;, 0.25)
+      -&gt; frame + 0.25
+    -&gt; OperationSpec(&quot;fade&quot;, {&quot;fade_ms&quot;: 10.0})
+      -&gt; frame.apply_operation(&quot;fade&quot;, fade_ms=10.0)
+    -&gt; OperationSpec(&quot;rms_trend&quot;, {&quot;frame_length&quot;: 512, &quot;hop_length&quot;: 128, &quot;ref&quot;: [1.0]})
+      -&gt; frame.apply_operation(&quot;rms_trend&quot;, frame_length=512, hop_length=128, ref=[1.0])
+    -&gt; OperationSpec(&quot;roughness_dw&quot;, {&quot;overlap&quot;: 0.5})
+      -&gt; frame.apply_operation(&quot;roughness_dw&quot;, overlap=0.5)
+    -&gt; OperationSpec(&quot;normalize&quot;)
+      -&gt; frame.apply_operation(&quot;normalize&quot;)
+  -&gt; new ChannelFrame with operation_history
+</code></pre></div>
+<p>型遷移を含む場合、戻り値の frame class は step chain に従う。</p>
+<div class="highlight"><pre><span></span><code>ChannelFrame
+  -&gt; RecipeSpec.apply(frame)
+    -&gt; TypedMethodStep(&quot;fft&quot;, {&quot;n_fft&quot;: 1024, &quot;window&quot;: &quot;hann&quot;})
+      -&gt; frame.fft(n_fft=1024, window=&quot;hann&quot;)
+  -&gt; SpectralFrame with operation_history
+
+ChannelFrame
+  -&gt; RecipeSpec.apply(frame)
+    -&gt; TypedMethodStep(&quot;stft&quot;, {&quot;n_fft&quot;: 512, &quot;hop_length&quot;: 128, &quot;win_length&quot;: 512, &quot;window&quot;: &quot;hann&quot;})
+      -&gt; frame.stft(n_fft=512, hop_length=128, win_length=512, window=&quot;hann&quot;)
+    -&gt; TypedMethodStep(&quot;istft&quot;)
+      -&gt; spectrogram.istft()
+  -&gt; ChannelFrame with operation_history
+
+ChannelFrame
+  -&gt; RecipeSpec.apply(frame)
+    -&gt; TypedMethodStep(&quot;coherence&quot;, {&quot;n_fft&quot;: 512, &quot;hop_length&quot;: 128, &quot;win_length&quot;: 512, &quot;window&quot;: &quot;hann&quot;, &quot;detrend&quot;: &quot;constant&quot;})
+      -&gt; frame.coherence(n_fft=512, hop_length=128, win_length=512, window=&quot;hann&quot;, detrend=&quot;constant&quot;)
+  -&gt; SpectralFrame with pairwise channel metadata
+
+SpectralFrame
+  -&gt; RecipeSpec.apply(frame)
+    -&gt; TypedMethodStep(&quot;noct_synthesis&quot;, {&quot;fmin&quot;: 25, &quot;fmax&quot;: 20000, &quot;n&quot;: 3, &quot;G&quot;: 10, &quot;fr&quot;: 1000})
+      -&gt; spectral_frame.noct_synthesis(fmin=25, fmax=20000, n=3, G=10, fr=1000)
+  -&gt; NOctFrame
+
+ChannelFrame
+  -&gt; RecipeSpec.apply(frame)
+    -&gt; TypedMethodStep(&quot;roughness_dw_spec&quot;, {&quot;overlap&quot;: 0.5})
+      -&gt; frame.roughness_dw_spec(overlap=0.5)
+  -&gt; RoughnessFrame
+</code></pre></div>
+<p>sklearn adapter の場合も、最終的には同じ <code>apply_operation</code> に到達する。</p>
+<div class="highlight"><pre><span></span><code>sklearn.pipeline.Pipeline
+  -&gt; HighPassFilter.transform(frame)
+    -&gt; frame.apply_operation(&quot;highpass_filter&quot;, cutoff=...)
+  -&gt; Normalize.transform(frame)
+    -&gt; frame.apply_operation(&quot;normalize&quot;, ...)
+</code></pre></div>
+<h2 id="ux-principles-ux">UX Principles / UX原則<a class="headerlink" href="#ux-principles-ux" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Wandas ユーザーには、探索的解析では通常の frame method chain を使わせ、その結果から <code>RecipeSpec.from_frame(processed)</code> を抽出する入口を見せる。これは「まず計算し、後で再利用可能なRecipeへ落とす」UXである。</li>
+<li>明示的な定義が必要な場面では <code>RecipeSpec([...]).apply(frame)</code> を見せる。これは「この順序で同じ処理を再実行する」意図が明確である。</li>
+<li>複数入力の再利用には <code>GraphRecipeSpec.from_frame(...)</code> または <code>NodeGraphRecipeSpec.from_frame(...)</code> を使い、外部入力名は呼び出し側が明示する。Python変数名やframe labelから入力名を推定しない。</li>
+<li>sklearn ユーザーには <code>Pipeline([("hp", HighPassFilter(...)), ...]).transform(frame)</code> を見せる。これは既存の ML 前処理文脈に馴染む。</li>
+<li>operation history を最終確認画面として使う。ユーザーは結果 frame を見れば、処理順とパラメータを確認できる。</li>
+<li><code>to_spec()</code> により、sklearn transformer から Wandas-native spec へ戻れる。</li>
+<li><code>RecipeExtractionError</code> はUX上の失敗ではなく、まだRecipe化できない境界を説明するためのメッセージとして扱う。</li>
+</ul>
+<h2 id="error-handling">Error Handling / エラー処理<a class="headerlink" href="#error-handling" title="Permanent link">&para;</a></h2>
+<ul>
+<li>sklearn 未導入で <code>wandas.pipeline.sklearn</code> を import した場合は、optional dependency registry を通じて <code>pip install "wandas[sklearn]"</code> を含む <code>ImportError</code> を出す。</li>
+<li>operation 名やパラメータが不正な場合は、既存の <code>apply_operation</code> / operation class の validation に委譲する。</li>
+<li>sequence params は浅い literal sequence だけを受け付ける。<code>rms_trend()</code> / <code>sound_level()</code> の <code>ref</code> や HPSS の <code>kernel_size</code> / <code>margin</code> は replay に必要な値として保存するが、nested list や array operand は graph recipe の範囲として拒否する。</li>
+<li><code>loudness_zwtv()</code>、<code>roughness_dw()</code>、<code>sharpness_din()</code> のような frame を返す psychoacoustic operation は <code>OperationSpec</code> で replay する。<code>loudness_zwst()</code>、<code>sharpness_din_st()</code> や <code>magnitude</code> のように配列を返す terminal metric / property は、明示 <code>TerminalStep</code> としてだけ扱う。</li>
+<li><code>get_channel()</code> は explicit index、integer sequence/ndarray、1-D boolean mask ndarray、exact label query、literal dict query だけを抽出する。callable、regex、regex 値を含む dict query は query intent を保存する schema が必要なため拒否する。</li>
+<li><code>__getitem__</code> は channel slice、integer list/ndarray、1-D boolean mask ndarray、label list、slice-only tuple indexing だけを <code>IndexingStep</code> として抽出する。point/fancy time selection は indexing intent と source time offset contract の追加 schema が必要なため現在は拒否する。</li>
+<li><code>add_channel()</code> は外部 data または別 frame 入力が必要なため、現行の単一入力 <code>RecipeSpec</code> では replay しない。非 <code>inplace</code> 実行では lineage を残し、抽出時に明示的に拒否して部分 Recipe を返さない。</li>
+<li><code>add_channel(ChannelFrame, ...)</code> は graph recipe の範囲として扱い、<code>NodeGraphRecipeSpec</code> が <code>AddChannelStep</code> に抽出する。</li>
+<li><code>add_channel(ndarray|dask.array, ...)</code> は graph recipe の範囲として扱い、<code>NodeGraphRecipeSpec</code> が <code>AddChannelDataStep</code> に抽出する。raw data 自体は保存せず、replay 時の named external input とする。</li>
+<li><code>frame.apply(...)</code> の custom callable は、function と <code>output_shape_func</code> が importable module-level function として検証できる場合だけ <code>CustomFunctionStep</code> に抽出する。custom domain transition は importable <code>BaseFrame</code> subclass と literal <code>output_frame_kwargs</code> に限定する。lambda、closure、nested function、callable object、bound method、<code>functools.partial</code>、<code>__main__</code> 上の関数は拒否する。</li>
+<li><code>RecipeSpec.from_frame(...)</code> は単一入力の直列 chain だけを返す。複数入力 graph は <code>GraphRecipeSpec.from_frame(...)</code> または <code>NodeGraphRecipeSpec.from_frame(...)</code> で扱い、<code>RecipeSpec.from_frame(...)</code> から暗黙に graph recipe へ昇格しない。</li>
+<li>method-aware step は明示 allowlist に含まれる method だけを抽出する。現在は <code>get_channel</code>、<code>remove_channel</code>、<code>rename_channels</code>、<code>fix_length</code>、<code>sum</code>、<code>mean</code>、<code>channel_difference</code> に限定する。</li>
+<li>typed method step は明示 allowlist に含まれる method だけを抽出する。現在は <code>fft</code>、<code>stft</code>、<code>get_frame_at</code>、<code>ifft</code>、<code>istft</code>、<code>welch</code>、<code>noct_spectrum</code>、<code>noct_synthesis</code>、<code>coherence</code>、<code>csd</code>、<code>transfer_function</code>、<code>roughness_dw_spec</code> に限定する。</li>
+<li>scalar operation step は numeric scalar operand だけを抽出する。frame operand と array/dask operand は graph recipe の範囲として扱う。array が左辺にある reverse operator は、array library 側の dispatch と外部入力表現を追加で決める必要があるため現在は対象外である。</li>
+</ul>
+<h2 id="testing-strategy">Testing Strategy / テスト方針<a class="headerlink" href="#testing-strategy" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Optional dependency tests: <code>sklearn</code> extra と dependency registry の整合性、未導入時の <code>ImportError</code> を確認する。</li>
+<li>Recipe tests: operation 順序、入力 frame 不変性、Dask lazy graph の維持を確認する。</li>
+<li>Extraction tests: <code>RecipeSpec.from_frame(...)</code> が対応済み linear chain を抽出し、対応外 boundary を <code>RecipeExtractionError</code> として返すことを確認する。</li>
+<li>Graph extraction tests: <code>GraphRecipeSpec.from_frame(...)</code> / <code>NodeGraphRecipeSpec.from_frame(...)</code> が対応済み複数入力 graph を named input から replay できることを確認する。</li>
+<li>sklearn adapter tests: <code>get_params()</code> / <code>set_params()</code>、sklearn <code>Pipeline.transform(frame)</code>、<code>to_spec()</code> を確認する。</li>
+<li>Notebook smoke: 合成信号で明示 Recipe、<code>from_frame</code> 抽出、graph recipe、sklearn <code>Pipeline</code> の UX を実行し、operation history と簡単な数値指標を表示する。</li>
+</ul>
+<h2 id="future-extensions">Future Extensions / 次フェーズ候補<a class="headerlink" href="#future-extensions" title="Permanent link">&para;</a></h2>
+<ul>
+<li>method-aware extraction を、metadata 変換を持つ他の frame method へ広げる。</li>
+<li>terminal metric / report recipe の設計。</li>
+<li>true DAG identity を保持する graph lineage。</li>
+<li><code>RecipeSpec</code> の JSON schema と WDF metadata 保存。</li>
+<li><code>RecipeSpec</code> と sklearn <code>Pipeline</code> の明示的な相互変換は現在非対応であり、必要な use case が固まってから再設計する。</li>
+<li>import path 以外で custom callable / custom frame class を参照する registry UX。</li>
+<li>notebook から保存済み recipe を読み込み、バッチ処理に適用する workflow。</li>
+</ul>
+<p>See also: <a href="../pipeline-recipe-extraction-boundaries/">Pipeline Recipe Extraction Boundaries</a>.</p>
+
+
+
+
+
+
+
+  
+    
+  
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Last update">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 6, 2026 15:11:54 UTC">July 6, 2026</span>
+  </span>
+
+    
+    
+    
+    
+  </aside>
+
+
+  
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      © 2025 Wandas Team
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/kasahart/wandas" target="_blank" rel="noopener" title="Wandas on GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.tracking", "navigation.top", "search.highlight", "search.share"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+        <script src="../../assets/_markdown_exec_pyodide.js"></script>
+      
+    
+  </body>
+</html>
