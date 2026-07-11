@@ -253,6 +253,20 @@ def test_from_file_url_wav_streams_in_chunks() -> None:
     np.testing.assert_allclose(cf.compute()[0], mono_data, rtol=1e-5)
 
 
+def test_from_file_url_pcm_wav_preserves_normalized_samples() -> None:
+    """URL PCM WAV loads preserve the historical normalized-float contract."""
+    url = "https://example.com/audio/pcm.wav"
+    sr = 8000
+    pcm_data = np.array([0, 16384, -16384, 32767, -32768], dtype=np.int16)
+    wav_bytes = _make_wav_bytes(sr, pcm_data)
+
+    with _mock_urlopen(wav_bytes):
+        cf = ChannelFrame.from_file(url, normalize=False)
+
+    expected = pcm_data.astype(np.float32) / 32768.0
+    np.testing.assert_allclose(cf.compute()[0], expected, rtol=0, atol=1e-7)
+
+
 def test_from_file_url_http_scheme() -> None:
     """Test that plain http:// URLs are also handled by from_file."""
     url = "http://example.com/audio/sample.wav"

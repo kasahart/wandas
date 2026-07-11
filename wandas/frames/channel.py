@@ -1024,11 +1024,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             file_type: File extension for in-memory data or URLs without a
                 recognisable extension (e.g. ".wav", ".csv").
             source_name: Optional source name for in-memory data. Used in metadata.
-            normalize: When False (default) and the effective file type is WAV
-                (local path or URL), return raw integer PCM samples cast to float32
-                (magnitudes preserved, e.g. 16384 stays 16384.0). When True,
-                normalize to float32 in [-1.0, 1.0]. Non-WAV formats always use
-                soundfile (normalized).
+            normalize: When False (default), local WAV paths return raw integer
+                PCM samples cast to float32 (for example, 16384 stays 16384.0).
+                URL WAV inputs preserve their historical normalized float32
+                behavior even when False. When True, normalize WAV samples to
+                float32 in [-1.0, 1.0]. Non-WAV formats always use soundfile
+                (normalized).
             timeout: Timeout in seconds for HTTP/HTTPS URL downloads. Default is
                 10.0 seconds. Has no effect for local files or in-memory data.
 
@@ -1083,7 +1084,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             if header is not None:
                 reader_kwargs["header"] = header
         if is_wav_file:
-            reader_kwargs["normalize"] = normalize
+            # URL WAV inputs historically went through the in-memory soundfile
+            # path, which returns normalized float samples. Preserve that
+            # contract now that remote files are backed by temporary paths.
+            reader_kwargs["normalize"] = normalize or downloaded_from_url
 
         info = reader.get_file_info(source_obj, **reader_kwargs)
         sr = info["samplerate"]

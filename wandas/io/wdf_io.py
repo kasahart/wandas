@@ -190,7 +190,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
         path: Path to the WDF file to load, or an HTTP/HTTPS URL pointing to
             a remote WDF file. URL input is streamed into a temporary file in
             bounded chunks and rejected when it exceeds
-            `wandas.io.constants.MAX_URL_DOWNLOAD_BYTES`. Call
+            `wandas.io.readers.MAX_URL_DOWNLOAD_BYTES`. Call
             `wandas.io.readers.download_url_to_temporary_file` directly with a
             larger `max_bytes` value when a trusted remote WDF exceeds the
             default limit.
