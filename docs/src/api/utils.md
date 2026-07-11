@@ -78,6 +78,33 @@ sampled = dataset.sample(seed=42)
 
 ### Metadata-driven file selection / メタデータ駆動のファイル選択
 
+#### Path-derived partitions / パス由来のパーティション
+
+For common partitioned folders, set `path_metadata=True` instead of writing a resolver. Wandas inspects only each discovered relative path, so discovery remains lazy and does not open audio files.
+一般的なパーティションフォルダでは resolver を書かずに `path_metadata=True` を指定できます。Wandas は探索した相対パスだけを調べるため、探索は遅延性を保ち、音声ファイルを開きません。
+
+```python
+dataset = wd.from_folder(
+    "recordings/",
+    recursive=True,
+    path_metadata=True,
+)
+selected = dataset.select(partition_0="group_a", partition_1="batch_01")
+```
+
+The naming follows AWS Glue crawler conventions:
+命名は AWS Glue crawler の規則に従います。
+
+- Plain parent segments use their zero-based path positions: `group_a/batch_01/file.wav` becomes `{"partition_0": "group_a", "partition_1": "batch_01"}`. / 通常の親セグメントにはゼロ始まりのパス位置を使います。
+- Hive-style segments use their keys: `group=group_a/batch=batch_01/file.wav` becomes `{"group": "group_a", "batch": "batch_01"}`. / Hive 形式のセグメントにはそのキーを使います。
+- The root folder and filename are excluded. Files at uneven depths receive only the keys present in their own parent path; a missing key does not match a `select()` criterion. / ルートフォルダとファイル名は除外します。深さが異なる場合は各ファイルに存在するキーだけを持ち、不足キーは `select()` 条件に一致しません。
+- Duplicate Hive keys and collisions between Hive keys and generated `partition_n` names raise `ValueError` instead of overwriting metadata. / Hive キーの重複、および Hive キーと生成された `partition_n` 名の衝突は、上書きせず `ValueError` になります。
+
+`path_metadata=True` and `metadata_resolver` are mutually exclusive because combining two metadata sources would make precedence ambiguous.
+2つのメタデータ源の優先順位が曖昧になるため、`path_metadata=True` と `metadata_resolver` は同時に指定できません。
+
+#### Custom metadata resolver / カスタムメタデータ resolver
+
 `metadata_resolver` receives each path relative to `folder_path` once during file discovery. This makes it possible to select files without reading audio headers or waveform samples. Multiple `select()` criteria use exact-match AND semantics.
 `metadata_resolver` はファイル探索時に、`folder_path` からの相対パスを各ファイルにつき一度受け取ります。音声ヘッダーや波形サンプルを読まずにファイルを選択でき、複数の `select()` 条件は完全一致の AND として扱われます。
 

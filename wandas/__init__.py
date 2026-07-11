@@ -51,8 +51,13 @@ def from_folder(
     recursive: bool = False,
     lazy_loading: bool = True,
     metadata_resolver: Callable[[Path], Mapping[str, object]] | None = None,
+    path_metadata: bool = False,
 ) -> "ChannelFrameDataset":
-    """Create a ChannelFrameDataset from a folder."""
+    """Create a ChannelFrameDataset from a folder.
+
+    Set ``path_metadata=True`` to infer AWS Glue-style partition metadata from
+    relative parent directories. It cannot be combined with ``metadata_resolver``.
+    """
     from .utils.frame_dataset import ChannelFrameDataset
 
     return ChannelFrameDataset.from_folder(
@@ -62,6 +67,7 @@ def from_folder(
         recursive=recursive,
         lazy_loading=lazy_loading,
         metadata_resolver=metadata_resolver,
+        path_metadata=path_metadata,
     )
 
 
