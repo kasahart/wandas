@@ -1,6 +1,8 @@
 # wandas/__init__.py
 import logging
+from collections.abc import Callable, Mapping
 from importlib.metadata import version
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from .frames.channel import ChannelFrame
@@ -48,6 +50,7 @@ def from_folder(
     file_extensions: list[str] | None = None,
     recursive: bool = False,
     lazy_loading: bool = True,
+    metadata_resolver: Callable[[Path], Mapping[str, object]] | None = None,
 ) -> "ChannelFrameDataset":
     """Create a ChannelFrameDataset from a folder."""
     from .utils.frame_dataset import ChannelFrameDataset
@@ -58,6 +61,7 @@ def from_folder(
         file_extensions=file_extensions,
         recursive=recursive,
         lazy_loading=lazy_loading,
+        metadata_resolver=metadata_resolver,
     )
 
 

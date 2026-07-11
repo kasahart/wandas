@@ -3,8 +3,9 @@ import logging
 import random
 import warnings
 from abc import ABC, abstractmethod
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from copy import deepcopy
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Generic, TypeVar, cast, overload
 
@@ -17,6 +18,8 @@ logger = logging.getLogger(__name__)
 FrameType = ChannelFrame | SpectrogramFrame
 F = TypeVar("F", bound=FrameType)
 F_out = TypeVar("F_out", bound=FrameType)
+MetadataResolver = Callable[[Path], Mapping[str, object]]
+_RESERVED_METADATA_KEYS = frozenset({"_source_file"})
 
 
 def _progress(iterable: range, *, desc: str) -> Any:
@@ -42,6 +45,7 @@ class LazyFrame(Generic[F]):
     """
 
     file_path: Path
+    metadata: dict[str, object] = field(default_factory=dict)
     frame: F | None = None
     is_loaded: bool = False
     load_attempted: bool = False
@@ -98,6 +102,7 @@ class FrameDataset(Generic[F], ABC):
         recursive: bool = False,
         source_dataset: "FrameDataset[Any] | None" = None,
         transform: Callable[[Any], F | None] | None = None,
+        metadata_resolver: MetadataResolver | None = None,
     ):
         self.folder_path = Path(folder_path)
         if source_dataset is None and not self.folder_path.exists():
@@ -108,6 +113,7 @@ class FrameDataset(Generic[F], ABC):
         self.file_extensions = file_extensions or [".wav"]
         self._recursive = recursive
         self._lazy_loading = lazy_loading
+        self._metadata_resolver = metadata_resolver
 
         # Changed to a list of LazyFrame
         self._lazy_frames: list[LazyFrame[F]] = []
@@ -115,7 +121,7 @@ class FrameDataset(Generic[F], ABC):
         self._source_dataset = source_dataset
         self._transform = transform
 
-        if self._source_dataset:
+        if self._source_dataset is not None:
             self._initialize_from_source()
         else:
             self._initialize_from_folder()
@@ -125,9 +131,10 @@ class FrameDataset(Generic[F], ABC):
         if self._source_dataset is None:
             return
 
-        # Copy file paths from source
-        file_paths = self._source_dataset._get_file_paths()
-        self._lazy_frames = [LazyFrame(file_path) for file_path in file_paths]
+        self._lazy_frames = [
+            LazyFrame(lazy_frame.file_path, metadata=deepcopy(lazy_frame.metadata))
+            for lazy_frame in self._source_dataset._lazy_frames
+        ]
 
         # Inherit other properties
         self.sampling_rate = self.sampling_rate or self._source_dataset.sampling_rate
@@ -152,8 +159,40 @@ class FrameDataset(Generic[F], ABC):
         # Remove duplicates and sort
         file_paths = sorted(set(file_paths))
 
-        # Create a list of LazyFrame
-        self._lazy_frames = [LazyFrame(file_path) for file_path in file_paths]
+        self._lazy_frames = [
+            LazyFrame(file_path, metadata=self._resolve_metadata(file_path)) for file_path in file_paths
+        ]
+
+    def _resolve_metadata(self, file_path: Path) -> dict[str, object]:
+        """Resolve and validate metadata for one discovered file."""
+        if self._metadata_resolver is None:
+            return {}
+        relative_path = file_path.relative_to(self.folder_path)
+        try:
+            resolved = self._metadata_resolver(relative_path)
+        except Exception as exc:
+            raise RuntimeError(f"Metadata resolver failed for {relative_path}: {exc}") from exc
+        if not isinstance(resolved, Mapping):
+            raise TypeError(
+                f"Metadata resolver must return a mapping for {relative_path}; got {type(resolved).__name__}"
+            )
+        invalid_keys = [key for key in resolved if not isinstance(key, str)]
+        if invalid_keys:
+            raise TypeError(f"Metadata keys must be strings for {relative_path}; got {invalid_keys!r}")
+        reserved_keys = _RESERVED_METADATA_KEYS.intersection(resolved)
+        if reserved_keys:
+            names = ", ".join(sorted(reserved_keys))
+            raise ValueError(f"Metadata resolver cannot set reserved key(s) for {relative_path}: {names}")
+        return deepcopy(dict(resolved))
+
+    @staticmethod
+    def _attach_metadata(frame: F | None, metadata: Mapping[str, object]) -> F | None:
+        """Return a new frame carrying a deep copy of file metadata."""
+        if frame is None or not metadata:
+            return frame
+        merged = deepcopy(frame.metadata)
+        merged.update(deepcopy(dict(metadata)))
+        return frame._create_new_instance(frame._data, metadata=merged)
 
     def _load_all_files(self) -> None:
         """Load all files."""
@@ -201,14 +240,18 @@ class FrameDataset(Generic[F], ABC):
 
         try:
             # Convert from source dataset
-            if self._transform and self._source_dataset:
+            if self._transform is not None and self._source_dataset is not None:
                 lazy_frame.load_attempted = True
                 frame = self._load_from_source(index)
+                frame = self._attach_metadata(frame, lazy_frame.metadata)
                 lazy_frame.frame = frame
                 lazy_frame.is_loaded = True
                 return frame
             # Load directly from file
-            return lazy_frame.ensure_loaded(self._load_file)
+            frame = lazy_frame.ensure_loaded(self._load_file)
+            frame = self._attach_metadata(frame, lazy_frame.metadata)
+            lazy_frame.frame = frame
+            return frame
         except Exception as e:
             f_path = lazy_frame.file_path
             logger.error(f"Failed to load or initialize index {index} ({f_path}): {e!s}")
@@ -355,14 +398,7 @@ class FrameDataset(Generic[F], ABC):
 
         total = len(self._lazy_frames)
         if total == 0:
-            return type(self)(
-                str(self.folder_path),
-                sampling_rate=self.sampling_rate,
-                signal_length=self.signal_length,
-                file_extensions=self.file_extensions,
-                lazy_loading=self._lazy_loading,
-                recursive=self._recursive,
-            )
+            return _SampledFrameDataset(self, [])
 
         # Determine sample size
         if n is None:
@@ -379,6 +415,33 @@ class FrameDataset(Generic[F], ABC):
         sampled_indices = sorted(random.sample(range(total), n))
 
         return _SampledFrameDataset(self, sampled_indices)
+
+    def select(self, **criteria: object) -> "FrameDataset[F]":
+        """Select files by exact-match resolver metadata without loading frames."""
+        known_keys = {key for lazy_frame in self._lazy_frames for key in lazy_frame.metadata}
+        unknown_keys = set(criteria).difference(known_keys)
+        if unknown_keys:
+            names = ", ".join(sorted(unknown_keys))
+            raise KeyError(f"Unknown file metadata key(s): {names}")
+        selected_indices = [
+            index
+            for index, lazy_frame in enumerate(self._lazy_frames)
+            if all(lazy_frame.metadata.get(key) == value for key, value in criteria.items())
+        ]
+        subset = _SubsetFrameDataset(self, selected_indices)
+        return cast(
+            "FrameDataset[F]",
+            type(self)(
+                folder_path=str(self.folder_path),
+                lazy_loading=True,
+                source_dataset=subset,
+                transform=lambda frame: frame,
+                sampling_rate=self.sampling_rate,
+                signal_length=self.signal_length,
+                file_extensions=self.file_extensions,
+                recursive=self._recursive,
+            ),
+        )
 
     def get_metadata(self) -> dict[str, Any]:
         """Get metadata for the dataset."""
@@ -417,7 +480,7 @@ class FrameDataset(Generic[F], ABC):
         }
 
 
-class _SampledFrameDataset(FrameDataset[F]):
+class _SubsetFrameDataset(FrameDataset[F]):
     """
     A class representing a subset of a dataset.
     Contains only the indices selected from the original dataset.
@@ -454,8 +517,11 @@ class _SampledFrameDataset(FrameDataset[F]):
         # Get file paths from the original dataset and create new LazyFrames
         original_file_paths = original_dataset._get_file_paths()
         try:
-            sampled_file_paths = [original_file_paths[i] for i in sampled_indices]
-            self._lazy_frames = [LazyFrame(file_path) for file_path in sampled_file_paths]
+            selected_frames = [original_dataset._lazy_frames[i] for i in sampled_indices]
+            self._lazy_frames = [
+                LazyFrame(lazy_frame.file_path, metadata=deepcopy(lazy_frame.metadata))
+                for lazy_frame in selected_frames
+            ]
         except IndexError as e:
             logger.error("Sampled indices are out of range for the original dataset")
             logger.error(f"  Original dataset file count: {len(original_file_paths)}")
@@ -522,7 +588,11 @@ class _SampledFrameDataset(FrameDataset[F]):
         transformed_dataset = self._original_dataset.apply(func)
 
         # Create a new sampled dataset with the same sampling indices
-        return _SampledFrameDataset(transformed_dataset, self._original_indices)
+        return type(self)(transformed_dataset, self._original_indices)
+
+
+class _SampledFrameDataset(_SubsetFrameDataset[F]):
+    """A subset produced by :meth:`FrameDataset.sample`."""
 
 
 class ChannelFrameDataset(FrameDataset[ChannelFrame]):
@@ -540,6 +610,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         recursive: bool = False,
         source_dataset: "FrameDataset[Any] | None" = None,
         transform: Callable[[Any], ChannelFrame | None] | None = None,
+        metadata_resolver: MetadataResolver | None = None,
     ):
         _file_extensions = file_extensions if file_extensions is not None else supported_formats()
 
@@ -552,6 +623,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
             recursive=recursive,
             source_dataset=source_dataset,
             transform=transform,
+            metadata_resolver=metadata_resolver,
         )
 
     def _load_file(self, file_path: Path) -> ChannelFrame | None:
@@ -568,6 +640,10 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         except Exception as e:
             logger.error(f"Failed to load or initialize file {file_path}: {e!s}")
             return None
+
+    def select(self, **criteria: object) -> "ChannelFrameDataset":
+        """Select files while preserving ChannelFrameDataset processing methods."""
+        return cast(ChannelFrameDataset, super().select(**criteria))
 
     def resample(self, target_sr: int) -> "ChannelFrameDataset":
         """Resample all frames in the dataset."""
@@ -655,6 +731,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         file_extensions: list[str] | None = None,
         recursive: bool = False,
         lazy_loading: bool = True,
+        metadata_resolver: MetadataResolver | None = None,
     ) -> "ChannelFrameDataset":
         """Class method to create a ChannelFrameDataset from a folder."""
         extensions = file_extensions if file_extensions is not None else supported_formats()
@@ -665,6 +742,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
             file_extensions=extensions,
             lazy_loading=lazy_loading,
             recursive=recursive,
+            metadata_resolver=metadata_resolver,
         )
 
 
