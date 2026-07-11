@@ -496,7 +496,9 @@ def download_url_to_temporary_file(
             downloaded_file = DownloadedTemporaryFile(path=temp_path, temp_dir=temp_dir)
             with temp_path.open("wb") as temp_file:
                 while True:
-                    chunk = response.read(effective_chunk_size)
+                    remaining_bytes = effective_max_bytes - downloaded_bytes
+                    read_size = min(effective_chunk_size, remaining_bytes + 1)
+                    chunk = response.read(read_size)
                     if not chunk:
                         break
                     next_downloaded_bytes = downloaded_bytes + len(chunk)

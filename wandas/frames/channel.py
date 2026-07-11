@@ -1073,7 +1073,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             path, download_owner, file_type, source_name = _download_url(path, file_type, source_name, timeout)
             downloaded_from_url = True
 
-        source_obj, path_obj, reader, normalized_file_type = _resolve_source(path, file_type)
+        try:
+            source_obj, path_obj, reader, normalized_file_type = _resolve_source(path, file_type)
+        except Exception:
+            if download_owner is not None:
+                download_owner.cleanup()
+            raise
 
         # Build kwargs for reader
         reader_kwargs: dict[str, Any] = {}
@@ -1089,7 +1094,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             # contract now that remote files are backed by temporary paths.
             reader_kwargs["normalize"] = normalize or downloaded_from_url
 
-        info = reader.get_file_info(source_obj, **reader_kwargs)
+        try:
+            info = reader.get_file_info(source_obj, **reader_kwargs)
+        except Exception:
+            if download_owner is not None:
+                download_owner.cleanup()
+            raise
         sr = info["samplerate"]
         n_channels = info["channels"]
         n_frames = info["frames"]
@@ -1099,7 +1109,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         logger.debug(f"File info: sr={sr}, channels={n_channels}, frames={n_frames}")
 
         # Channel selection processing
-        channels_to_load = _resolve_channels(channel, n_channels)
+        try:
+            channels_to_load = _resolve_channels(channel, n_channels)
+        except Exception:
+            if download_owner is not None:
+                download_owner.cleanup()
+            raise
 
         # Index calculation
         start_idx = 0 if start is None else max(0, int(start * sr))
@@ -1138,16 +1153,21 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         logger.debug(f"Creating delayed dask task with expected shape: {expected_shape}")
 
         # Create delayed operation
-        delayed_data = dask_delayed(_load_audio)()
-        logger.debug("Wrapping delayed function in dask array")
+        try:
+            delayed_data = dask_delayed(_load_audio)()
+            logger.debug("Wrapping delayed function in dask array")
 
-        # Create dask array from delayed computation and ensure channel-wise
-        # chunks. The sample axis (1) uses -1 by default to avoid forcing
-        # a sample chunk length here.
-        dask_array = da_from_delayed(delayed_data, shape=expected_shape, dtype=np.float32)
+            # Create dask array from delayed computation and ensure channel-wise
+            # chunks. The sample axis (1) uses -1 by default to avoid forcing
+            # a sample chunk length here.
+            dask_array = da_from_delayed(delayed_data, shape=expected_shape, dtype=np.float32)
 
-        # Ensure channel-wise chunks
-        dask_array = dask_array.rechunk((1, -1))
+            # Ensure channel-wise chunks
+            dask_array = dask_array.rechunk((1, -1))
+        except Exception:
+            if download_owner is not None:
+                download_owner.cleanup()
+            raise
 
         logger.debug("ChannelFrame setup complete - actual file reading will occur on compute()")
 
@@ -1172,15 +1192,20 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         elif source_name is not None:
             source_file = source_name
 
-        cf = ChannelFrame(
-            data=dask_array,
-            sampling_rate=sr,
-            label=frame_label,
-            metadata={"_source_file": source_file} if source_file is not None else None,
-            source_time_offset=source_time_start + start_idx / sr,
-        )
-        if ch_labels is not None:
-            cf._set_channel_labels(ch_labels)
+        try:
+            cf = ChannelFrame(
+                data=dask_array,
+                sampling_rate=sr,
+                label=frame_label,
+                metadata={"_source_file": source_file} if source_file is not None else None,
+                source_time_offset=source_time_start + start_idx / sr,
+            )
+            if ch_labels is not None:
+                cf._set_channel_labels(ch_labels)
+        except Exception:
+            if download_owner is not None:
+                download_owner.cleanup()
+            raise
         return cf
 
     @classmethod

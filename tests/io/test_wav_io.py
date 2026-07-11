@@ -253,6 +253,23 @@ def test_from_file_url_wav_streams_in_chunks() -> None:
     np.testing.assert_allclose(cf.compute()[0], mono_data, rtol=1e-5)
 
 
+def test_download_read_is_capped_by_remaining_budget() -> None:
+    """Each streamed read is bounded by the remaining limit plus one byte."""
+    wav_bytes = b"0123456789"
+
+    with _mock_urlopen(wav_bytes, include_content_length=False) as mock_fn:
+        with pytest.raises(OSError, match=r"Streaming audio would exceed size limit"):
+            io_readers.download_url_to_temporary_file(
+                "https://example.com/audio/sample.wav",
+                timeout=10.0,
+                resource_name="audio",
+                max_bytes=5,
+                chunk_size=100,
+            )
+
+    mock_fn.return_value.read.assert_called_once_with(6)
+
+
 def test_from_file_url_pcm_wav_preserves_normalized_samples() -> None:
     """URL PCM WAV loads preserve the historical normalized-float contract."""
     url = "https://example.com/audio/pcm.wav"
@@ -337,6 +354,21 @@ def test_download_url_midstream_failure_cleans_partial_file(monkeypatch, tmp_pat
                 suffix=".wav",
                 resource_name="audio",
             )
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_from_file_url_setup_failure_cleans_download(monkeypatch, tmp_path) -> None:
+    """A frame setup error after download must remove the temporary file."""
+    temporary_directory = tempfile.TemporaryDirectory
+    temporary_directory_factory = MagicMock(side_effect=lambda: temporary_directory(dir=tmp_path))
+    temporary_directory_factory.cleanup = temporary_directory.cleanup
+    monkeypatch.setattr(io_readers.tempfile, "TemporaryDirectory", temporary_directory_factory)
+    wav_bytes = _make_wav_bytes(8000, np.zeros(8, dtype=np.int16))
+
+    with _mock_urlopen(wav_bytes):
+        with pytest.raises(ValueError, match=r"Channel specification is out of range"):
+            ChannelFrame.from_file("https://example.com/audio/sample.wav", channel=1)
 
     assert list(tmp_path.iterdir()) == []
 
