@@ -169,6 +169,27 @@ def test_metadata_survives_select_sample_and_processing(metadata_audio_folder: P
     assert spectrogram.metadata["machine"] == "fan"
 
 
+def test_sample_then_select_preserves_subset_contract_without_loading(metadata_audio_folder: Path) -> None:
+    dataset = ChannelFrameDataset.from_folder(
+        str(metadata_audio_folder),
+        recursive=True,
+        file_extensions=[".wav"],
+        metadata_resolver=dcase_resolver,
+    )
+    sampled = dataset.sample(n=2, seed=3)
+
+    with patch.object(ChannelFrame, "from_file") as from_file:
+        selected = sampled.select(split="train")
+
+    from_file.assert_not_called()
+    assert len(selected) == 1
+    assert selected._get_file_paths()[0].name == "section_00_source.wav"
+    assert selected.get_metadata()["is_sampled"] is False
+    frame = selected[0]
+    assert frame is not None
+    assert frame.metadata["split"] == "train"
+
+
 def test_csv_lookup_resolver(metadata_audio_folder: Path) -> None:
     lookup = {
         "fan/train/section_00_source.wav": {"load": "low", "rpm": 1_000},
