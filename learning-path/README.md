@@ -80,10 +80,10 @@
 
 **波形を読む前に対象ファイルを絞り込む**
 
-- DCASE/ASDKit形式のパスからファイルメタデータを解決
+- 一般的なフォルダ名・ファイル名からメタデータを解決
 - `dataset.select()` による完全一致・AND検索
 - 選択後の処理チェーンとFrameへのメタデータ伝播
-- sidecar CSVをlookupとして接続
+- sidecar CSVをpandasで確認し、lookupとして接続
 
 ## 🚀 学習を始める前に
 

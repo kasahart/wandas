@@ -180,9 +180,9 @@ For multiple files, start with `wd.from_folder("recordings/", recursive=True)`. 
 
 ### Select files before reading waveforms
 
-When filenames or a sidecar table describe machine, split, or operating conditions, attach that information during discovery and select only the files you need:
+When filenames or a sidecar table describe groups, recording batches, or project-specific conditions, attach that information during discovery and select only the files you need:
 
-For a layout such as `recordings/fan/example.wav`, create the dataset with `metadata_resolver=lambda path: {"machine": path.parts[0]}`, then select files with `dataset.select(machine="fan")`.
+For a layout such as `recordings/group_a/example.wav`, create the dataset with `metadata_resolver=lambda path: {"group": path.parts[0]}`, then select files with `dataset.select(group="group_a")`.
 
 File selection does not read audio headers or waveform samples. The executable [metadata-driven dataset search learning path](learning-path/08_metadata_driven_dataset_search.py) covers path parsing, CSV lookup, lazy loading, and processing after selection.
 

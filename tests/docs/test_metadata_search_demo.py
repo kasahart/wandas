@@ -14,8 +14,8 @@ def test_metadata_search_demo_files_match_sidecar() -> None:
 
     assert len(rows) == 3
     assert sorted(row["path"] for row in rows) == wav_paths
-    assert {row["load"] for row in rows} == {"low", "high"}
-    assert {int(row["rpm"]) for row in rows} == {1_000, 1_500, 2_000}
+    assert {row["condition"] for row in rows} == {"reference", "variant"}
+    assert {int(row["priority"]) for row in rows} == {1, 2}
 
 
 def test_metadata_search_demo_wavs_are_tiny_and_consistent() -> None:
