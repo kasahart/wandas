@@ -51,6 +51,8 @@ def test_generic_operation_transformer_get_params_set_params_and_rejects_unknown
     transformer = WandasOperationTransformer("normalize", norm=2.0)
 
     assert transformer.get_params() == {"operation": "normalize", "norm": 2.0}
+    transformer.set_params(norm=3.0)
+    assert transformer.get_params() == {"operation": "normalize", "norm": 3.0}
 
     returned = transformer.set_params(operation="remove_dc")
 
@@ -63,6 +65,9 @@ def test_generic_operation_transformer_get_params_set_params_and_rejects_unknown
     assert transformer.to_spec() == OperationSpec("normalize", {"norm": 1.0})
     with pytest.raises(ValueError, match="Invalid parameter"):
         transformer.set_params(missing=True)
+
+    with pytest.raises(TypeError, match="operation must be a string"):
+        transformer.set_params(operation=42)
 
 
 def test_sklearn_pipeline_transform_applies_wandas_operations_in_order() -> None:

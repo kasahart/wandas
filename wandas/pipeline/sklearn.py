@@ -83,10 +83,7 @@ class WandasOperationTransformer(TransformerMixin, BaseEstimator):  # type: igno
                 valid_names = ", ".join(sorted(valid_params))
                 raise ValueError(f"Invalid parameter {key!r}. Valid parameters are: {valid_names}")
             if self._param_names is None:
-                if key == "operation":
-                    self.operation = value
-                else:
-                    self._params[key] = value
+                self._params[key] = value
             else:
                 setattr(self, key, value)
         return self
