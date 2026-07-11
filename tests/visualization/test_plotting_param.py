@@ -59,6 +59,26 @@ def test_plot_parametrize(strategy, kwargs, label):
 
 
 @pytest.mark.parametrize("strategy_cls", [WaveformPlotStrategy, FrequencyPlotStrategy, NOctPlotStrategy])
+def test_overlay_uses_frame_channel_labels_by_default(strategy_cls):
+    """Overlay mode labels each line from its corresponding channel metadata."""
+    frame = DummyFrame()
+
+    ax = strategy_cls().plot(frame, overlay=True)
+
+    assert [line.get_label() for line in ax.get_lines()] == ["ch1", "ch2"]
+
+
+@pytest.mark.parametrize("strategy_cls", [WaveformPlotStrategy, FrequencyPlotStrategy, NOctPlotStrategy])
+def test_overlay_label_sequence_overrides_frame_channel_labels(strategy_cls):
+    """An explicit overlay label sequence remains the caller override."""
+    frame = DummyFrame()
+
+    ax = strategy_cls().plot(frame, overlay=True, label=["left", "right"])
+
+    assert [line.get_label() for line in ax.get_lines()] == ["left", "right"]
+
+
+@pytest.mark.parametrize("strategy_cls", [WaveformPlotStrategy, FrequencyPlotStrategy, NOctPlotStrategy])
 def test_non_overlay_label_sequence_uses_per_channel_labels(strategy_cls):
     """Non-overlay mode applies per-channel labels from a sequence."""
     frame = DummyFrame()

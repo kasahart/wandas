@@ -38,6 +38,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 TFrame = TypeVar("TFrame", bound="BaseFrame[Any]")
+PlotLabel = str | Sequence[str] | None
 
 
 def _spectrogram_axis_values(frame: Any, data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -57,7 +58,7 @@ class PlotStrategy(abc.ABC, Generic[TFrame]):
         x: Any,
         y: Any,
         ax: Axes,
-        label: str | None = None,
+        label: PlotLabel = None,
         alpha: float = 1.0,
     ) -> None:
         """Implementation of channel plotting"""
@@ -224,7 +225,7 @@ def _plot_line_layout(
             x_data,
             data_2d.T,
             ax,
-            label=label if label is not None else (bf.labels[0] if isinstance(bf.labels, list) else bf.labels),
+            label=label if label is not None else bf.labels,
             alpha=alpha,
             **plot_kwargs,
         )
@@ -271,7 +272,7 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         x: Any,
         y: Any,
         ax: Axes,
-        label: str | None = None,
+        label: PlotLabel = None,
         alpha: float = 1.0,
         **kwargs: Any,
     ) -> None:
@@ -298,6 +299,7 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         kwargs = kwargs or {}
         axes_cls = _matplotlib_axes_type("waveform plot")
         line2d_cls = _matplotlib_line2d_type("waveform plot")
+        explicit_ylabel = "ylabel" in kwargs
         ylabel = kwargs.pop("ylabel", "Amplitude")
         xlabel = kwargs.pop("xlabel", "Time [s]")
         alpha = kwargs.pop("alpha", 1)
@@ -309,6 +311,11 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         def _waveform_ylabel(ylabel: str, ch_meta: Any) -> str:
             unit_suffix = f" [{ch_meta.unit}]" if ch_meta.unit else ""
             return f"{ylabel}{unit_suffix}"
+
+        if (overlay or ax is not None) and not explicit_ylabel:
+            channel_units = [ch_meta.unit for ch_meta in bf.channels]
+            if channel_units and all(unit and unit == channel_units[0] for unit in channel_units):
+                ylabel = f"{ylabel} [{channel_units[0]}]"
 
         return _plot_line_layout(
             self,
@@ -339,7 +346,7 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
         x: Any,
         y: Any,
         ax: Axes,
-        label: str | None = None,
+        label: PlotLabel = None,
         alpha: float = 1.0,
         **kwargs: Any,
     ) -> None:
@@ -412,7 +419,7 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
         x: Any,
         y: Any,
         ax: Axes,
-        label: str | None = None,
+        label: PlotLabel = None,
         alpha: float = 1.0,
         **kwargs: Any,
     ) -> None:
@@ -483,7 +490,7 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
         x: Any,
         y: Any,
         ax: Axes,
-        label: str | None = None,
+        label: PlotLabel = None,
         alpha: float = 1.0,
         **kwargs: Any,
     ) -> None:
@@ -599,7 +606,7 @@ class DescribePlotStrategy(PlotStrategy["ChannelFrame"]):
         x: Any,
         y: Any,
         ax: Axes,
-        label: str | None = None,
+        label: PlotLabel = None,
         alpha: float = 1.0,
         **kwargs: Any,
     ) -> None:
@@ -703,7 +710,7 @@ class MatrixPlotStrategy(PlotStrategy["SpectralFrame"]):
         x: Any,
         y: Any,
         ax: Axes,
-        label: str | None = None,
+        label: PlotLabel = None,
         alpha: float = 1.0,
         **kwargs: Any,
     ) -> None:

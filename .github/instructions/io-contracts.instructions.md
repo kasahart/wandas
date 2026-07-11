@@ -16,8 +16,8 @@ Use this prompt when working on `wandas/io/` or anything that reads/writes exter
 ## Invariants & contracts
 - Preserve **sampling rate**, **channel labels**, and **time/frequency axes** across I/O operations.
 - Ensure metadata round-trips for formats that support it (especially WDF):
-  - user/recording metadata,
-  - `operation_history` when applicable.
+  - user/recording metadata.
+- Runtime provenance (`lineage`, `operation_history`, `operation_graph`) is not persisted unless a format contract explicitly changes.
 - For WAV/CSV, define clear rules for what metadata is retained or reconstructed.
 
 ## Design guidelines

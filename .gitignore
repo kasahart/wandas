@@ -144,6 +144,9 @@ venv.bak/
 # Design documents (temporary working files)
 docs/design/working/
 
+# Agent execution plans (temporary working files)
+docs/superpowers/plans/
+
 # ty
 .ty_cache/
 

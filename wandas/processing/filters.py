@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 import numpy as np
 from scipy import signal
@@ -48,25 +49,46 @@ class _ButterworthFilter(AudioOperation[NDArrayReal, NDArrayReal]):
 
     _btype: str  # "high" or "low" — set by subclasses
     _display: str  # set by subclasses
-    a: NDArrayReal
-    b: NDArrayReal
+    _a: NDArrayReal
+    _b: NDArrayReal
 
     def __init__(self, sampling_rate: float, cutoff: float, order: int = 4):
-        self.cutoff = cutoff
-        self.order = order
         super().__init__(sampling_rate, cutoff=cutoff, order=order)
+
+    @property
+    def cutoff(self) -> float:
+        """Cutoff frequency captured at operation construction time."""
+        return self._config_value("cutoff")
+
+    @property
+    def order(self) -> int:
+        """Filter order captured at operation construction time."""
+        return self._config_value("order")
 
     def validate_params(self) -> None:
         _validate_cutoff(self.cutoff, self.sampling_rate, "Cutoff")
 
     def _setup_processor(self) -> None:
         normal_cutoff = self.cutoff / (0.5 * self.sampling_rate)
-        self.b, self.a = signal.butter(self.order, normal_cutoff, btype=self._btype)
-        logger.debug(f"{self._display} filter coefficients calculated: b={self.b}, a={self.a}")
+        self._b, self._a = signal.butter(self.order, normal_cutoff, btype=self._btype)
+        logger.debug(f"{self._display} filter coefficients calculated: b={self._b}, a={self._a}")
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    @property
+    def b(self) -> NDArrayReal:
+        """Return a defensive copy of numerator filter coefficients."""
+        return self._b.copy()
+
+    @property
+    def a(self) -> NDArrayReal:
+        """Return a defensive copy of denominator filter coefficients."""
+        return self._a.copy()
+
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return np.dtype(np.float64)
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying {self._display} filter to array with shape: {x.shape}")
-        result: NDArrayReal = signal.filtfilt(self.b, self.a, x, axis=1)
+        result: NDArrayReal = signal.filtfilt(self._b, self._a, x, axis=1)
         logger.debug(f"Filter applied, returning result with shape: {result.shape}")
         return result
 
@@ -122,21 +144,30 @@ class BandPassFilter(_ButterworthFilter):
             If either cutoff frequency is not within valid range (0 < cutoff < Nyquist),
             or if low_cutoff >= high_cutoff
         """
-        self.low_cutoff = low_cutoff
-        self.high_cutoff = high_cutoff
-        self.order = order
         # Skip single-cutoff _ButterworthFilter.__init__
         AudioOperation.__init__(self, sampling_rate, low_cutoff=low_cutoff, high_cutoff=high_cutoff, order=order)
 
+    @property
+    def low_cutoff(self) -> float:
+        """Lower cutoff frequency captured at operation construction time."""
+        return self._config_value("low_cutoff")
+
+    @property
+    def high_cutoff(self) -> float:
+        """Higher cutoff frequency captured at operation construction time."""
+        return self._config_value("high_cutoff")
+
     def validate_params(self) -> None:
         """Validate parameters"""
-        _validate_cutoff(self.low_cutoff, self.sampling_rate, "Lower cutoff")
-        _validate_cutoff(self.high_cutoff, self.sampling_rate, "Higher cutoff")
-        if self.low_cutoff >= self.high_cutoff:
+        low_cutoff = self.low_cutoff
+        high_cutoff = self.high_cutoff
+        _validate_cutoff(low_cutoff, self.sampling_rate, "Lower cutoff")
+        _validate_cutoff(high_cutoff, self.sampling_rate, "Higher cutoff")
+        if low_cutoff >= high_cutoff:
             raise ValueError(
                 f"Invalid bandpass filter cutoff frequencies\n"
-                f"  Lower cutoff: {self.low_cutoff} Hz\n"
-                f"  Higher cutoff: {self.high_cutoff} Hz\n"
+                f"  Lower cutoff: {low_cutoff} Hz\n"
+                f"  Higher cutoff: {high_cutoff} Hz\n"
                 f"  Problem: Lower cutoff must be less than higher cutoff\n"
                 f"A bandpass filter passes frequencies between low and high\n"
                 f"  cutoffs.\n"
@@ -151,8 +182,12 @@ class BandPassFilter(_ButterworthFilter):
         high_normal_cutoff = self.high_cutoff / nyquist
 
         # Precompute and save filter coefficients
-        self.b, self.a = signal.butter(self.order, [low_normal_cutoff, high_normal_cutoff], btype="band")
-        logger.debug(f"Bandpass filter coefficients calculated: b={self.b}, a={self.a}")
+        self._b, self._a = signal.butter(
+            self.order,
+            [low_normal_cutoff, high_normal_cutoff],
+            btype="band",
+        )
+        logger.debug(f"Bandpass filter coefficients calculated: b={self._b}, a={self._a}")
 
 
 class AWeighting(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -172,7 +207,10 @@ class AWeighting(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         super().__init__(sampling_rate)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return np.dtype(np.float64)
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for A-weighting filter"""
         logger.debug(f"Applying A-weighting to array with shape: {x.shape}")
         result = A_weight(x, self.sampling_rate)

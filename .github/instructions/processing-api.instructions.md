@@ -13,7 +13,7 @@ Use this prompt when working on `wandas/processing/` or adding new signal proces
   - psychoacoustic metrics, stats, temporal features, effects.
 - `wandas/frames/` is responsible for:
   - input validation and axis handling,
-  - metadata and `operation_history` updates,
+  - metadata and runtime lineage updates,
   - returning the correct frame type.
 
 ## Function design

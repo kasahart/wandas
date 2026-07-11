@@ -40,6 +40,20 @@ class TestHighPassFilter:
         hpf = HighPassFilter(_SR, _CUTOFF_HPF, order=6)
         assert hpf.order == 6
 
+    def test_highpass_filter_coefficients_are_defensive_copies(self) -> None:
+        """Public coefficient arrays cannot mutate the operation used for compute."""
+        hpf = HighPassFilter(_SR, _CUTOFF_HPF)
+        original_b = hpf.b.copy()
+        original_a = hpf.a.copy()
+
+        exposed_b = hpf.b
+        exposed_a = hpf.a
+        exposed_b[0] = 999.0
+        exposed_a[0] = 999.0
+
+        np.testing.assert_array_equal(hpf.b, original_b)
+        np.testing.assert_array_equal(hpf.a, original_a)
+
     def test_highpass_cutoff_zero_raises_error(self) -> None:
         """Test that cutoff=0 is rejected."""
         with pytest.raises(ValueError, match=r"Cutoff frequency out of valid range"):

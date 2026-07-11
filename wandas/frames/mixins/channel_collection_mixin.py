@@ -3,10 +3,13 @@ ChannelCollectionMixin: Common functionality for adding/removing channels in
 ChannelFrame
 """
 
+from collections.abc import Sequence
 from typing import Any, Literal, TypeVar
 
 import dask.array as da
 import numpy as np
+
+from wandas.utils.types import NDArrayReal
 
 T = TypeVar("T", bound="ChannelCollectionMixin")
 
@@ -19,6 +22,7 @@ class ChannelCollectionMixin:
         align: Literal["strict", "pad", "truncate"] = "strict",
         suffix_on_dup: str | None = None,
         inplace: bool = False,
+        source_time_offset: float | Sequence[float] | NDArrayReal | None = None,
         **kwargs: Any,
     ) -> T:
         """
@@ -29,6 +33,7 @@ class ChannelCollectionMixin:
             align: Behavior when lengths don't match
             suffix_on_dup: Suffix when label is duplicated
             inplace: True for self-modification
+            source_time_offset: Offset for raw ndarray/dask input
         Returns:
             New Frame or self
         Raises:

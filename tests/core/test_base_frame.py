@@ -11,6 +11,8 @@ from dask.array.core import Array as DaArray
 import wandas as wd
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
+from wandas.processing.base import FrameMethodOperation, LineageNode
+from wandas.processing.effects import Normalize
 from wandas.utils.dask_helpers import da_from_array
 
 
@@ -45,7 +47,7 @@ class TestBaseFrameArithmeticOperations:
         assert result.n_samples == 16000
         assert len(result.operation_history) == 1
         assert result.operation_history[0]["operation"] == "**"
-        assert result.operation_history[0]["with"] == "2"
+        assert result.operation_history[0]["params"]["operand"] == {"type": "int", "value": 2}
 
         # Pillar 4: Numerical correctness — deterministic expected value
         computed = result.compute()
@@ -73,7 +75,7 @@ class TestBaseFrameArithmeticOperations:
         assert result.n_samples == 16000
         assert len(result.operation_history) == 1
         assert result.operation_history[0]["operation"] == "**"
-        assert result.operation_history[0]["with"] == "exponent"
+        assert result.operation_history[0]["params"]["operand_kind"] == "frame"
 
         # Pillar 4: Numerical correctness
         computed = result.compute()
@@ -94,7 +96,7 @@ class TestBaseFrameArithmeticOperations:
         assert result.sampling_rate == self.sample_rate
         assert len(result.operation_history) == 1
         assert result.operation_history[0]["operation"] == "**"
-        assert "ndarray" in result.operation_history[0]["with"]
+        assert result.operation_history[0]["params"]["operand"]["type"] == "ndarray"
 
         # Pillar 4: Numerical correctness
         computed = result.compute()
@@ -116,7 +118,7 @@ class TestBaseFrameArithmeticOperations:
         assert result.sampling_rate == self.sample_rate
         assert len(result.operation_history) == 1
         assert result.operation_history[0]["operation"] == "**"
-        assert "dask.array" in result.operation_history[0]["with"]
+        assert result.operation_history[0]["params"]["operand"]["type"] == "dask.array"
 
         # Pillar 4: Numerical correctness — sqrt of deterministic ramp
         computed = result.compute()
@@ -332,7 +334,7 @@ def test_get_channel_validate_false_unknown_key_raises_no_match() -> None:
         _ = cf.get_channel(0, query={"no_such_key": "value"}, validate_query_keys=False)
 
 
-def test_get_channel_selection_preserves_history_and_immutability() -> None:
+def test_get_channel_selection_records_history_and_preserves_immutability() -> None:
     sample_rate = 16000
     data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
@@ -351,9 +353,11 @@ def test_get_channel_selection_preserves_history_and_immutability() -> None:
     np.testing.assert_array_equal(cf._data.compute(), original_data)
     assert isinstance(new_cf._data, DaArray)
 
-    # Pillar 2: History preserved (structural operation, no history added)
+    # Pillar 2: Source history is preserved and selection is replayable.
     assert cf.operation_history == original_history
-    assert new_cf.operation_history == original_history
+    assert new_cf.operation_history == [
+        {"operation": "get_channel", "params": {"channel_idx": 0}},
+    ]
     assert new_cf.sampling_rate == sample_rate
 
 
@@ -734,8 +738,8 @@ class TestBaseFrameUtilityMethods:
             result = self.channel_frame.visualize_graph()
             assert result is None  # Should return None on exception
 
-    def test_previous_property_tracks_lineage(self) -> None:
-        """Test previous property tracks operation lineage."""
+    def test_previous_property_keeps_debug_reference(self) -> None:
+        """Test previous remains a debug reference to the prior frame."""
         assert self.channel_frame.previous is None
         result = self.channel_frame + 1
         assert result.previous is self.channel_frame
@@ -753,6 +757,45 @@ class TestBaseFrameUtilityMethods:
         assert not isinstance(channels, list)
         assert len(channels) == 2
         assert all(isinstance(ch, ChannelMetadata) for ch in channels)
+
+    def test_operation_summary_delta_returns_snapshot_when_lineage_prefix_mismatches(self) -> None:
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            lineage=LineageNode(Normalize(self.sample_rate)),
+            operation_summaries_snapshot=[{"operation": "loaded"}],
+        )
+        lineage = LineageNode(FrameMethodOperation("fft", {"n_fft": 8}))
+
+        assert frame._operation_summaries_with_lineage_delta(lineage) == [{"operation": "loaded"}]
+
+    def test_operation_summaries_snapshot_rejects_non_mapping_items(self) -> None:
+        with pytest.raises(ValueError, match="must be a sequence of mappings"):
+            ChannelFrame._snapshot_operation_summaries([object()])  # ty: ignore[invalid-argument-type]
+
+    def test_lineage_and_indexing_static_helpers_handle_unreplayable_values(self) -> None:
+        lineage = self.channel_frame._lineage_with_unsupported_indexing("callable")
+
+        assert lineage.operation.name == "__getitem__"
+        assert lineage.operation.params == {"indexing": "callable"}
+        assert self.channel_frame._is_literal_channel_query({1: "left"}) is False
+        assert self.channel_frame._is_literal_channel_query({"idx": np.int64(1)}) is True
+        assert self.channel_frame._slice_bound_for_lineage(True) is None
+        assert self.channel_frame._slice_bound_for_lineage(object()) is None
+        assert self.channel_frame._slice_for_lineage(slice(object(), None, None)) is None
+        assert self.channel_frame._slice_for_lineage(slice(None, None, object())) is None
+        assert self.channel_frame._axis_slices_for_lineage((1,)) is None
+        assert self.channel_frame._axis_slices_for_lineage((slice(object(), None, None),)) is None
+
+    def test_reverse_scalar_helpers_and_unsupported_reverse_operands(self) -> None:
+        assert self.channel_frame._python_numeric_scalar(np.int64(2)) == 2
+        with pytest.raises(TypeError, match="Expected a real scalar"):
+            self.channel_frame._python_numeric_scalar(object())
+
+        assert self.channel_frame.__rsub__(True) is NotImplemented
+        assert self.channel_frame.__rmul__(True) is NotImplemented
+        assert self.channel_frame.__rtruediv__(True) is NotImplemented
+        assert self.channel_frame.__rpow__(True) is NotImplemented
 
 
 class TestBaseFrameIndexing:
@@ -776,6 +819,26 @@ class TestBaseFrameIndexing:
             channel_metadata=metadata_objs,
         )
 
+    def test_integer_sequence_indexing_extends_operation_summary_snapshot(self) -> None:
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[channel.to_metadata() for channel in self.channel_frame.channels],
+            operation_summaries_snapshot=[{"operation": "loaded"}],
+        )
+
+        numpy_indexed = frame[np.array([0, 1])]
+        list_indexed = frame[[0, 1]]
+
+        assert [summary["operation"] for summary in numpy_indexed.operation_summaries] == ["loaded", "__getitem__"]
+        assert [summary["operation"] for summary in list_indexed.operation_summaries] == ["loaded", "__getitem__"]
+        assert numpy_indexed.operation_history == [
+            {"operation": "__getitem__", "params": {"indexing": "integer_list", "indices": [0, 1]}}
+        ]
+        assert list_indexed.operation_history == [
+            {"operation": "__getitem__", "params": {"indexing": "integer_list", "indices": [0, 1]}}
+        ]
+
     def test_getitem_with_string_label(self) -> None:
         """Test __getitem__ with string label returns new instance with Dask preserved."""
         result = self.channel_frame["ch1"]
@@ -785,6 +848,15 @@ class TestBaseFrameIndexing:
         assert result.channels[0].label == "ch1"
         # Pillar 1: Dask laziness preserved
         assert isinstance(result._data, DaArray)
+
+    def test_getitem_with_duplicate_string_label_returns_first_match(self) -> None:
+        """String label indexing preserves the existing single-channel contract."""
+        self.channel_frame.channels[2].label = "ch1"
+
+        result = self.channel_frame["ch1"]
+
+        assert result.n_channels == 1
+        np.testing.assert_array_equal(result.compute(), self.data[1:2])
 
     def test_getitem_with_list_of_strings(self) -> None:
         """Test __getitem__ with list of string labels."""
@@ -932,18 +1004,18 @@ class TestBaseFrameInitialization:
         assert frame.channels[2].label == "ch2"
         assert isinstance(frame._data, DaArray)
 
-    def test_init_with_operation_history(self) -> None:
-        """Test initialization with operation history."""
+    def test_init_with_lineage(self) -> None:
+        """Test initialization with lineage."""
         data = np.linspace(0.1, 1.0, 32000).reshape(2, 16000)
         dask_data: DaArray = da_from_array(data, chunks=(1, -1))
-        history = [{"operation": "test", "param": "value"}]
+        operation = Normalize(self.sample_rate)
         frame = ChannelFrame(
             data=dask_data,
             sampling_rate=self.sample_rate,
-            operation_history=history,
+            lineage=LineageNode(operation),
         )
         assert len(frame.operation_history) == 1
-        assert frame.operation_history[0]["operation"] == "test"
+        assert frame.operation_history[0]["operation"] == "normalize"
 
     def test_init_with_metadata(self) -> None:
         """Test initialization with custom metadata."""

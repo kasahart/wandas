@@ -13,6 +13,8 @@ from wandas.frames.noct import NOctFrame
 from wandas.frames.roughness import RoughnessFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
+from wandas.processing.base import LineageNode
+from wandas.processing.effects import Normalize
 
 
 def _lazy_frame_with_counter(calls: list[str]) -> ChannelFrame:
@@ -245,17 +247,17 @@ def test_data_alias_is_read_only() -> None:
 
 
 def test_replace_data_preserves_xarray_attrs_backed_frame_state() -> None:
-    frame = ChannelFrame.from_numpy(
-        np.array([[1.0, 2.0, 3.0]]),
+    frame = ChannelFrame(
+        data=da.from_array(np.array([[1.0, 2.0, 3.0]]), chunks=(1, -1)),
         sampling_rate=3.0,
         label="original",
         metadata={"source": "test", "nested": {"x": 1}},
-        ch_labels=["mic"],
+        channel_metadata=[ChannelMetadata(label="mic")],
+        lineage=LineageNode(Normalize(3.0)),
     )
     frame.channels[0].unit = "Pa"
     frame.channels[0].ref = 0.25
     frame.channels[0].extra = {"gain": 12}
-    frame.operation_history = [{"operation": "load", "params": {"path": "input.wav"}}]
     replacement = da.full((1, 4), 2.0, chunks=(1, -1))
 
     frame._replace_data(replacement)
@@ -267,9 +269,8 @@ def test_replace_data_preserves_xarray_attrs_backed_frame_state() -> None:
     assert frame._xr.attrs["sampling_rate"] == 3.0
     assert frame._xr.attrs["label"] == "original"
     assert frame._xr.attrs["metadata"] == {"source": "test", "nested": {"x": 1}}
-    assert frame._xr.attrs["operation_history"] == [{"operation": "load", "params": {"path": "input.wav"}}]
     assert frame.metadata == {"source": "test", "nested": {"x": 1}}
-    assert frame.operation_history == [{"operation": "load", "params": {"path": "input.wav"}}]
+    assert frame.operation_history[0]["operation"] == "normalize"
     assert frame.channels[0].id == "c0"
     assert frame.channels[0].label == "mic"
     assert frame.channels[0].unit == "Pa"
@@ -511,13 +512,13 @@ def test_remove_channel_inplace_updates_xarray_without_compute() -> None:
 
 
 def test_to_xarray_returns_public_shallow_copy_with_export_attrs() -> None:
-    frame = ChannelFrame.from_numpy(
-        np.array([[1.0, 2.0]]),
+    frame = ChannelFrame(
+        data=da.from_array(np.array([[1.0, 2.0]]), chunks=(1, -1)),
         sampling_rate=2.0,
         label="exported",
         metadata={"source": "unit-test"},
+        lineage=LineageNode(Normalize(2.0)),
     )
-    frame.operation_history.append({"operation": "normalize", "params": {}})
 
     exported = frame.to_xarray()
 
@@ -528,7 +529,7 @@ def test_to_xarray_returns_public_shallow_copy_with_export_attrs() -> None:
     assert exported.attrs["sampling_rate"] == 2.0
     assert exported.attrs["label"] == "exported"
     assert exported.attrs["metadata"] == {"source": "unit-test"}
-    assert exported.attrs["operation_history"] == [{"operation": "normalize", "params": {}}]
+    assert "operation_history" not in exported.attrs
 
     exported.attrs["label"] = "changed-export"
     assert frame.label == "exported"
@@ -579,39 +580,41 @@ def test_to_xarray_deep_copies_exported_metadata_dict() -> None:
     assert frame.metadata["_source_file"] == "input.wav"
 
 
-def test_to_xarray_deep_copies_exported_operation_history() -> None:
-    frame = ChannelFrame.from_numpy(np.array([1.0, 2.0]), sampling_rate=2.0)
-    frame.operation_history.append({"operation": "gain", "params": {"factor": 2.0}})
+def test_to_xarray_omits_operation_history() -> None:
+    frame = ChannelFrame(
+        data=da.from_array(np.array([[1.0, 2.0]]), chunks=(1, -1)),
+        sampling_rate=2.0,
+        lineage=LineageNode(Normalize(2.0)),
+    )
 
     exported = frame.to_xarray()
-    exported.attrs["operation_history"][0]["params"]["factor"] = 99.0
 
-    assert frame.operation_history[0]["params"]["factor"] == 2.0
+    assert "operation_history" not in exported.attrs
+    assert frame.operation_history[0]["operation"] == "normalize"
 
 
 def test_frame_state_properties_are_backed_by_xarray_attrs() -> None:
-    frame = ChannelFrame.from_numpy(
-        np.array([[1.0, 2.0, 3.0]]),
+    frame = ChannelFrame(
+        data=da.from_array(np.array([[1.0, 2.0, 3.0]]), chunks=(1, -1)),
         sampling_rate=3.0,
         label="stateful",
         metadata={"owner": "attrs"},
+        lineage=LineageNode(Normalize(3.0)),
     )
-    frame.operation_history = [{"operation": "load", "params": {}}]
 
     assert frame._xr.attrs["sampling_rate"] == 3.0
     assert frame._xr.attrs["label"] == "stateful"
     assert frame._xr.attrs["metadata"] == {"owner": "attrs"}
-    assert frame._xr.attrs["operation_history"] == [{"operation": "load", "params": {}}]
+    assert "operation_history" not in frame._xr.attrs
 
     frame._xr.attrs["sampling_rate"] = 8.0
     frame._xr.attrs["label"] = "from-attrs"
     frame._xr.attrs["metadata"] = {"owner": "mutated"}
-    frame._xr.attrs["operation_history"] = [{"operation": "mutated", "params": {"x": 1}}]
 
     assert frame.sampling_rate == 8.0
     assert frame.label == "from-attrs"
     assert frame.metadata == {"owner": "mutated"}
-    assert frame.operation_history == [{"operation": "mutated", "params": {"x": 1}}]
+    assert frame.operation_history[0]["operation"] == "normalize"
 
 
 def test_frame_state_property_setters_update_xarray_attrs() -> None:
@@ -620,13 +623,12 @@ def test_frame_state_property_setters_update_xarray_attrs() -> None:
     frame.sampling_rate = 6
     frame.label = "updated"
     frame.metadata = {"nested": {"x": 1}}
-    frame.operation_history = [{"operation": "gain", "params": {"factor": 2.0}}]
 
     assert frame._xr.attrs["sampling_rate"] == 6.0
     assert frame._xr.attrs["label"] == "updated"
     assert frame._xr.name == "updated"
     assert frame._xr.attrs["metadata"] == {"nested": {"x": 1}}
-    assert frame._xr.attrs["operation_history"] == [{"operation": "gain", "params": {"factor": 2.0}}]
+    assert "operation_history" not in frame._xr.attrs
 
 
 def test_frame_state_property_setters_validate_inputs() -> None:
@@ -641,7 +643,7 @@ def test_frame_state_property_setters_validate_inputs() -> None:
     with pytest.raises(TypeError, match="Metadata must be a dictionary"):
         frame.metadata = "invalid"  # ty: ignore[invalid-assignment]
 
-    with pytest.raises(TypeError, match="Operation history must be a list"):
+    with pytest.raises(AttributeError):
         frame.operation_history = {"operation": "bad"}  # ty: ignore[invalid-assignment]
 
 

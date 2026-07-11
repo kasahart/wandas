@@ -1,6 +1,6 @@
 import logging
 import warnings
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO, TypeVar, cast
 
@@ -214,11 +214,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         sampling_rate: float,
         label: str | None = None,
         metadata: dict[str, Any] | None = None,
-        operation_history: list[dict[str, Any]] | None = None,
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
+        lineage: Any | None = None,
+        operation_summaries_snapshot: Sequence[Mapping[str, Any]] | None = None,
     ) -> None:
         """Initialize a ChannelFrame.
 
@@ -229,9 +230,14 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 Must be a positive value.
             label: A label for the frame.
             metadata: Optional metadata dictionary.
-            operation_history: History of operations applied to the frame.
+            lineage: Runtime operation lineage for this frame. This is the
+                provenance source for executable replay and derived history
+                views.
             channel_metadata: Metadata for each channel.
-            previous: Reference to the previous frame in the processing chain.
+            previous: Compatibility/debug pointer to the immediate prior frame;
+                not the provenance source of truth.
+            operation_summaries_snapshot: Inspection-only summary snapshot used
+                across persistence boundaries.
 
         Raises:
             ValueError: If data has more than 2 dimensions, or if
@@ -259,10 +265,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             sampling_rate=sampling_rate,
             label=label,
             metadata=metadata,
-            operation_history=operation_history,
             channel_metadata=channel_metadata,
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,
+            lineage=lineage,
+            operation_summaries_snapshot=operation_summaries_snapshot,
             previous=previous,
         )
 
@@ -293,25 +300,57 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         inplace: bool,
         channel_ids: list[str],
         source_time_offset: float | Sequence[float] | NDArrayReal | None = None,
+        lineage: Any | None = None,
+        operation_summaries_snapshot: Sequence[Mapping[str, Any]] | None = None,
     ) -> "ChannelFrame":
         """Apply *new_data* and *new_chmeta* either in-place or as a new frame."""
         offsets = self.source_time_offset if source_time_offset is None else source_time_offset
+        if operation_summaries_snapshot is not None:
+            operation_summaries_snapshot = self._snapshot_operation_summaries(operation_summaries_snapshot)
+        elif self._operation_summaries_snapshot is not None:
+            operation_summaries_snapshot = (
+                self._operation_summaries_with_lineage_delta(lineage)
+                if lineage is not None
+                else self._operation_summaries_for_storage()
+            )
         if inplace:
             self._replace_data(new_data)
             self._set_channel_metadata(new_chmeta, channel_ids)
             self.source_time_offset = cast(Any, offsets)
+            if lineage is not None:
+                self._lineage = lineage
+            if operation_summaries_snapshot is not None:
+                self._operation_summaries_snapshot = operation_summaries_snapshot
             return self
         return ChannelFrame(
             data=new_data,
             sampling_rate=self.sampling_rate,
             label=self.label,
             metadata=self.metadata,
-            operation_history=self.operation_history,
             channel_metadata=new_chmeta,
             channel_ids=channel_ids,
             source_time_offset=offsets,
+            lineage=self.lineage if lineage is None else lineage,
+            operation_summaries_snapshot=operation_summaries_snapshot,
             previous=self,
         )
+
+    def _lineage_with_add_channel(
+        self,
+        params: dict[str, Any],
+        added_lineage: Any | None = None,
+    ) -> Any:
+        from wandas.processing.base import FrameMethodOperation, FrameSourceOperation, LineageNode
+
+        if params.get("input_kind") == "frame":
+            inputs = (
+                self._lineage_or_source(),
+                added_lineage if added_lineage is not None else LineageNode(FrameSourceOperation()),
+            )
+            return self._lineage_with_operation(FrameMethodOperation("add_channel", params), *inputs)
+
+        inputs = (self.lineage,)
+        return self._lineage_with_operation(FrameMethodOperation("add_channel", params), *inputs)
 
     @property
     def time(self) -> NDArrayReal:
@@ -373,7 +412,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         This is a scalar reduction: it computes one value per channel and
         triggers immediate computation of the underlying Dask graph.  The
         result is a plain NumPy array and does **not** produce a new frame,
-        so no operation history is recorded.
+        so no runtime lineage or operation history view entry is created.
 
         The RMS is defined as::
 
@@ -407,7 +446,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         This is a scalar reduction: it computes one value per channel and
         triggers immediate computation of the underlying Dask graph.  The
         result is a plain NumPy array and does **not** produce a new frame,
-        so no operation history is recorded.
+        so no runtime lineage or operation history view entry is created.
 
         The crest factor is defined as::
 
@@ -520,13 +559,50 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         else:
             raise TypeError(f"Addition target with SNR must be a ChannelFrame or NumPy array: {type(other)}")
 
+        lineage_other = other._lineage_or_source()
+        other_operation_summaries = other.operation_summaries
+        other_has_operation_summaries_snapshot = other._operation_summaries_snapshot is not None
+
         # If SNR is specified, adjust the length of the other signal
         if other.duration != self.duration:
             other = other.fix_length(length=self.n_samples)
 
+        if snr is not None and other.n_channels not in {1, self.n_channels}:
+            raise ValueError(
+                "Channel count mismatch for SNR addition\n"
+                f"  Signal channels: {self.n_channels}\n"
+                f"  Other channels: {other.n_channels}\n"
+                "Use a single-channel noise frame for broadcast, or match the signal channel count."
+            )
+
         if snr is None:
             return self + other
-        return self.apply_operation("add_with_snr", other=other._data, snr=snr)
+        from wandas.processing import create_operation
+
+        operation = create_operation("add_with_snr", self.sampling_rate, snr=snr)
+        ensure_dependencies = getattr(operation, "ensure_dependencies", None)
+        if ensure_dependencies is not None:
+            ensure_dependencies()
+        result_data = operation.process(self._data, other._data)
+        get_display_name = getattr(operation, "get_display_name", None)
+        display_name = get_display_name() if callable(get_display_name) else getattr(operation, "name", "add_with_snr")
+        lineage = self._lineage_with_operation(operation, self._lineage_or_source(), lineage_other)
+        operation_summaries_snapshot = None
+        if self._operation_summaries_snapshot is not None or other_has_operation_summaries_snapshot:
+            operation_summaries_snapshot = self._snapshot_operation_summaries(
+                [
+                    *self.operation_summaries,
+                    *other_operation_summaries,
+                    self._operation_summary(operation),
+                ]
+            )
+        return self._create_new_instance(
+            data=result_data,
+            metadata=self._updated_metadata("add_with_snr", operation.params),
+            lineage=lineage,
+            channel_metadata=self._relabel_channels("add_with_snr", display_name),
+            operation_summaries_snapshot=operation_summaries_snapshot,
+        )
 
     def plot(
         self,
@@ -1248,6 +1324,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         align: str = "strict",
         suffix_on_dup: str | None = None,
         inplace: bool = False,
+        source_time_offset: float | Sequence[float] | NDArrayReal | None = None,
     ) -> "ChannelFrame":
         """Add a new channel to the frame.
 
@@ -1267,6 +1344,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             suffix_on_dup: Suffix to add to duplicate labels. If None, raises error.
             inplace: If True, modifies the frame in place.
                 Otherwise returns a new frame.
+            source_time_offset: Offset in seconds for raw numpy or dask input.
+                If None, raw input uses 0.0. When data is a ChannelFrame,
+                offsets are taken from that frame and this argument must be None.
 
         Returns:
             Modified ChannelFrame (self if inplace=True, new frame otherwise).
@@ -1286,7 +1366,19 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> cf_combined = cf.add_channel(cf2)
         """
         # Handle ndarray/dask/same-type Frame
+        lineage_params: dict[str, Any] = {
+            "align": align,
+            "label": label,
+            "suffix_on_dup": suffix_on_dup,
+        }
         if isinstance(data, ChannelFrame):
+            lineage_params["input_kind"] = "frame"
+            if source_time_offset is not None:
+                raise ValueError(
+                    "source_time_offset cannot be used when adding a ChannelFrame\n"
+                    "  ChannelFrame input already carries per-channel offsets.\n"
+                    "Pass raw ndarray or dask data to set an explicit offset."
+                )
             if self.sampling_rate != data.sampling_rate:
                 raise ValueError("sampling_rate mismatch")
             arr = _align_to_length(data._data, self.n_samples, align, data.n_samples)
@@ -1319,10 +1411,32 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 new_id = self._next_channel_id(new_ids)
                 new_ids.append(new_id)
             new_offsets = np.concatenate([self.source_time_offset, data.source_time_offset])
-            return self._finalize_channel_update(new_data, new_chmeta, inplace, new_ids, new_offsets)
+            lineage = self._lineage_with_add_channel(lineage_params, data.lineage)
+            operation_summaries_snapshot = None
+            if self._operation_summaries_snapshot is not None or data._operation_summaries_snapshot is not None:
+                operation_summaries_snapshot = self._snapshot_operation_summaries(
+                    [
+                        *self.operation_summaries,
+                        *data.operation_summaries,
+                        self._operation_summary(lineage.operation),
+                    ]
+                )
+            return self._finalize_channel_update(
+                new_data,
+                new_chmeta,
+                inplace,
+                new_ids,
+                new_offsets,
+                lineage=lineage,
+                operation_summaries_snapshot=operation_summaries_snapshot,
+            )
         if isinstance(data, np.ndarray):
+            lineage_params["input_kind"] = "ndarray"
+            lineage_params["source_time_offset"] = source_time_offset
             arr = _da_from_array(data.reshape(1, -1), chunks=(1, -1))
         elif isinstance(data, DaArray):
+            lineage_params["input_kind"] = "dask.array"
+            lineage_params["source_time_offset"] = source_time_offset
             arr = data[None, ...] if data.ndim == 1 else data
             if arr.shape[0] != 1:
                 arr = arr.reshape((1, -1))
@@ -1346,8 +1460,17 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         new_ids = [*self._channel_ids, self._next_channel_id()]
         new_chmeta = [*self.channels.to_list(), ChannelMetadata(label=new_label)]
-        new_offsets = np.concatenate([self.source_time_offset, np.array([0.0])])
-        return self._finalize_channel_update(new_data, new_chmeta, inplace, new_ids, new_offsets)
+        raw_source_time_offset = 0.0 if source_time_offset is None else source_time_offset
+        new_channel_offsets = self._normalize_source_time_offset(raw_source_time_offset, arr.shape[0])
+        new_offsets = np.concatenate([self.source_time_offset, new_channel_offsets])
+        return self._finalize_channel_update(
+            new_data,
+            new_chmeta,
+            inplace,
+            new_ids,
+            new_offsets,
+            lineage=self._lineage_with_add_channel(lineage_params),
+        )
 
     def remove_channel(self, key: int | str, inplace: bool = False) -> "ChannelFrame":
         if isinstance(key, int):
@@ -1369,6 +1492,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             inplace,
             new_ids,
             self.source_time_offset[keep_indices],
+            lineage=self._lineage_with_method("remove_channel", {"key": key}),
         )
 
     def rename_channels(
@@ -1460,10 +1584,13 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             new_ch_meta.label = new_labels[i]
             new_chmeta.append(new_ch_meta)
 
-        if inplace:
-            self._set_channel_metadata(new_chmeta, self._channel_ids)
-            return self
-        return self._finalize_channel_update(self._data, new_chmeta, inplace=False, channel_ids=self._channel_ids)
+        return self._finalize_channel_update(
+            self._data,
+            new_chmeta,
+            inplace=inplace,
+            channel_ids=self._channel_ids,
+            lineage=self._lineage_with_method("rename_channels", {"mapping_items": list(mapping.items())}),
+        )
 
     def _get_dataframe_index(self) -> "pd.Index[Any]":
         """Get time index for DataFrame."""

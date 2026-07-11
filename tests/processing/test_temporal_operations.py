@@ -80,7 +80,7 @@ class TestReSampling:
         monkeypatch.setattr("wandas.processing.temporal.resample_poly", fail_polyphase)
         monkeypatch.setattr("wandas.processing.temporal.resample", fake_resample)
 
-        result = resampler._process_array(data)
+        result = resampler._process(data)
 
         assert result.shape == resampler.calculate_output_shape(data.shape)
 
@@ -127,6 +127,19 @@ class TestReSampling:
         assert result_da is not dask_input
         np.testing.assert_array_equal(dask_input.compute(), input_copy)
         assert isinstance(result_da, DaArray)
+
+    def test_resampling_sampling_rate_reassignment_does_not_change_delayed_result(self) -> None:
+        data = np.arange(10, dtype=float).reshape(1, -1)
+        dask_input = da_from_array(data, chunks=(1, -1))
+        resampler = ReSampling(sampling_rate=10, target_sr=5)
+
+        result_da = resampler.process(dask_input)
+        with pytest.raises(AttributeError):
+            setattr(resampler, "sampling_rate", 5)
+
+        assert resampler.sampling_rate == 10
+        assert result_da.shape == (1, 5)
+        assert result_da.compute().shape == (1, 5)
 
     def test_resampling_downsample_shape_mono(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
         """Downsample 16 kHz -> 8 kHz halves sample count for mono."""
@@ -321,6 +334,20 @@ class TestRmsTrend:
         assert rms.dB is True
         assert rms.Aw is True
 
+    def test_rms_trend_ref_params_are_defensive_for_pending_compute(self) -> None:
+        data = np.ones((1, 8), dtype=float)
+        dask_data = da_from_array(data, chunks=(1, -1))
+        rms = RmsTrend(_SR, frame_length=4, hop_length=2, dB=True, ref=[1.0])
+        result = rms.process(dask_data)
+
+        rms.params["ref"][0] = 100.0
+        rms.to_params()["ref"][0] = 100.0
+
+        assert rms.params["ref"].tolist() == [1.0]
+        np.testing.assert_allclose(
+            result.compute(), np.array([[-3.010299956639812, 0.0, 0.0, 0.0, -3.010299956639812]])
+        )
+
     def test_rms_trend_registry_returns_correct_class(self) -> None:
         """Test that RmsTrend is registered as 'rms_trend'."""
         assert get_operation("rms_trend") == RmsTrend
@@ -335,6 +362,21 @@ class TestRmsTrend:
         rms = RmsTrend(_SR, dB=True, ref=[1.0])
         assert isinstance(rms.ref, np.ndarray)
         assert rms.ref.shape == (1,)
+
+    def test_public_ref_arrays_are_defensive_copies(self) -> None:
+        """Mutating exposed reference arrays must not change pending compute."""
+        rms = RmsTrend(_SR, frame_length=4, hop_length=2, dB=True, ref=[1.0])
+        sound_level = SoundLevel(_SR, dB=True, ref=[1.0])
+
+        rms.ref[0] = 100.0
+        sound_level.ref[0] = 100.0
+
+        np.testing.assert_array_equal(rms.ref, np.array([1.0]))
+        np.testing.assert_array_equal(sound_level.ref, np.array([1.0]))
+
+        data = da_from_array(np.ones((1, 8)), chunks=(1, -1))
+        expected = RmsTrend(_SR, frame_length=4, hop_length=2, dB=True, ref=[1.0]).process(data).compute()
+        np.testing.assert_allclose(rms.process(data).compute(), expected)
 
     # -- Layer 2: Domain (shape + immutability) ----------------------------
 
@@ -419,7 +461,7 @@ class TestRmsTrend:
         rms = RmsTrend(_SR, frame_length=5, hop_length=2)
 
         with pytest.raises(ValueError, match="Input is too short"):
-            rms._process_array(data)
+            rms._process(data)
         with pytest.raises(ValueError, match="Input is too short"):
             rms.calculate_output_shape(data.shape)
 
@@ -511,7 +553,7 @@ class TestRmsTrend:
         arr = np.array([np.sin(2 * np.pi * 440 * t)])
         tuple_result = (arr, None)
         with mock.patch("wandas.processing.temporal.A_weight", return_value=tuple_result):
-            result = rms._process_array(arr)
+            result = rms._process(arr)
         assert result.shape[0] == 1
         assert result.ndim == 2
 
@@ -522,7 +564,7 @@ class TestRmsTrend:
         arr = np.array([np.sin(2 * np.pi * 440 * t)])
         with mock.patch("wandas.processing.temporal.A_weight", return_value=42):
             with pytest.raises(ValueError, match="A_weighting returned an unexpected type"):
-                rms._process_array(arr)
+                rms._process(arr)
 
 
 class TestFixLength:
@@ -667,6 +709,15 @@ class TestSoundLevel:
         assert op.freq_weighting == "A"
         assert op.time_weighting == "Fast"
         assert op.dB is True
+
+    def test_sound_level_snapshots_external_ref_array(self) -> None:
+        """Mutating a caller-owned ref array must not change operation config."""
+        ref = np.array([1.0])
+        op = SoundLevel(_SR, ref=ref, dB=True)
+
+        ref[0] = 100.0
+
+        np.testing.assert_array_equal(op.ref, np.array([1.0]))
 
     def test_sound_level_defaults_to_linear(self) -> None:
         """Test SoundLevel defaults to linear (dB=False) output."""

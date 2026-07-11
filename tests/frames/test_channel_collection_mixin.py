@@ -27,6 +27,7 @@ class ConcreteChannelCollection(ChannelCollectionMixin):
         align: Literal["strict", "pad", "truncate"] = "strict",
         suffix_on_dup: Any = None,
         inplace: bool = False,
+        source_time_offset: Any = None,
         **kwargs: Any,
     ) -> Any:
         """Implementation of abstract method for testing"""
@@ -37,6 +38,7 @@ class ConcreteChannelCollection(ChannelCollectionMixin):
             "align": align,
             "suffix_on_dup": suffix_on_dup,
             "inplace": inplace,
+            "source_time_offset": source_time_offset,
             "kwargs": kwargs,
         }
         return self if inplace else MagicMock()
@@ -63,7 +65,17 @@ class TestChannelCollectionMixin:
         assert collection.add_channel_args["align"] == "strict"
         assert collection.add_channel_args["suffix_on_dup"] is None
         assert collection.add_channel_args["inplace"] is False
+        assert collection.add_channel_args["source_time_offset"] is None
         assert isinstance(result, MagicMock)  # Should return a mock since inplace=False
+
+    def test_add_channel_with_source_time_offset(self) -> None:
+        """Test the add_channel method with source_time_offset."""
+        collection = ConcreteChannelCollection()
+        data = np.ones(10)
+        collection.add_channel(data, label="test_channel", source_time_offset=1.25)
+
+        assert collection.add_channel_called
+        assert collection.add_channel_args["source_time_offset"] == 1.25
 
     def test_add_channel_with_inplace(self) -> None:
         """Test the add_channel method with inplace=True"""

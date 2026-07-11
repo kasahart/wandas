@@ -88,7 +88,13 @@ plugins:
 # ─── ナビゲーション ────────────────────────
 nav:
   - Home: index.md
-  - Tutorials: tutorial/index.md
+  - Tutorials:
+      - Overview: tutorial/index.md
+      - Pipeline Recipe Use Cases: tutorial/pipeline-recipe-use-cases.md
+      - Pipeline Recipes Examples: tutorial/pipeline-recipes.md
+      - Pipeline Recipe Requirements Check: tutorial/pipeline-recipe-requirements-check.md
+  - How-to Guides:
+      - Pipeline Recipes: how-to/pipeline-recipes.md
   - API Reference:
       - Overview: api/index.md
       - Core: api/core.md
@@ -101,6 +107,12 @@ nav:
       - Datasets: api/datasets.md
   - Theory & Architecture:
       - Overview: explanation/index.md
+      - Pipeline Recipe Requirements: explanation/pipeline-recipe-requirements.md
+      - Pipeline Recipe Design: explanation/pipeline-recipe-design.md
+      - Pipeline Recipe Support Matrix: explanation/pipeline-recipe-support-matrix.md
+      - Pipeline Recipe Extraction Boundaries: explanation/pipeline-recipe-extraction-boundaries.md
+      - Pipeline Recipe Interoperability & Export: explanation/pipeline-recipe-interoperability-export.md
+      - Pipeline Recipe Developer Guide: explanation/pipeline-recipe-developer-guide.md
   - Contributing Guide: contributing.md
 
 # ─── 追加設定 ──────────────────────────────

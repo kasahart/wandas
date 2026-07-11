@@ -15,7 +15,7 @@
 
 ## 📚 学習の流れ
 
-この学習パスは以下のmarimoアプリで構成されています。各marimoアプリは独立しており、順番に進めることも、興味のある部分だけを学ぶことも可能です。
+この学習パスは以下のmarimoアプリで構成されています。各アプリは独立しており、順番に進めることも、興味のある部分だけを学ぶことも可能です。
 
 ### 1. [00_why_wandas.py](00_why_wandas.py) - Wandasとは何か
 
@@ -57,6 +57,23 @@
 - 時間周波数解析の応用
 - 信号の特徴抽出
 
+### 6. [05_custom_functions.py](05_custom_functions.py) - custom function
+
+**独自処理をWandasの操作として扱う**
+
+- custom operationの最小例
+- frame操作としての組み込み
+- 再利用しやすい処理単位の作り方
+
+### 7. [06_pipeline_recipe_ux.py](06_pipeline_recipe_ux.py) - Frame-first Recipe UX
+
+**探索解析を別データで再現する基本導線**
+
+- 通常のFrame method chainからRecipeを抽出
+- 別Frameへのreplayによる再現実験
+- `operation_history` による処理履歴の確認
+- 明示Recipe構築とsklearn adapterは任意セクションとして確認
+
 ## 🚀 学習を始める前に
 
 ### 必要な環境
@@ -73,13 +90,16 @@
 | 01_getting_started | 環境構築 | インストール | すぐに始める |
 | 02_working_with_data | データ操作 | ファイルIO | データ活用 |
 | 03_signal_processing_basics | 基本処理 | フィルタリング | 信号改善 |
-| 04_advanced_signal_processing | 高度処理 | スペクトログラム | 特徴抽出 |
+| 04_advanced_processing | 高度処理 | スペクトログラム | 特徴抽出 |
+| 05_custom_functions | custom処理 | custom operation | 処理の再利用 |
+| 06_pipeline_recipe_ux | frame-first Recipe基本 | extract / replay | 探索解析の再現 |
 
 ## 🔗 関連リソース
 
 - [公式ドキュメント](https://kasahart.github.io/wandas/)
 - [GitHub リポジトリ](https://github.com/kasahart/wandas)
 - [API リファレンス](https://kasahart.github.io/wandas/api/)
+- [07_frame_centric_recipe_ux.py](07_frame_centric_recipe_ux.py) - Recipe UX設計検討用marimo。初学者向けの本線ではなく、graph recipe、terminal値、将来facade案を確認するための補助資料。
 
 ## 🤝 貢献とフィードバック
 

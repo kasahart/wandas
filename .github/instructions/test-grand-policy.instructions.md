@@ -77,7 +77,7 @@ To preserve Dask lazy evaluation, verify that `result._data` is a `DaskArray` in
 ### Checklist
 - [ ] Operation returns a new instance (`assert result is not original`)
 - [ ] Original data unchanged after operation (`assert_array_equal`)
-- [ ] Original metadata unchanged (sampling_rate, labels, operation_history)
+- [ ] Original metadata/provenance unchanged (sampling_rate, labels, lineage-derived operation_history)
 - [ ] Dask graph preserved (no premature `.compute()`)
 - [ ] `result._data` is a `DaskArray` instance after operation
 
@@ -88,10 +88,10 @@ To preserve Dask lazy evaluation, verify that `result._data` is a `DaskArray` in
 ### Rule: Metadata Auto-Tracking
 After any operation, sampling rate, channel count, and labels must be correctly inherited or transformed. Verify that sampling rate is preserved for all operations other than resampling, and that channel count is preserved.
 
-### Rule: Operation History Traceability
-Verify that processing content and parameters are recorded in `operation_history`. For methods designed to record history, verify that the `operation_history` count increases by exactly 1, and that the last entry contains the correct **registry key** (e.g., `"lowpass_filter"`) and parameters. For structural operations that only modify the channel collection (`add_channel` / `remove_channel` / `rename_channels`, etc.), verify that `operation_history` remains unchanged.
+### Rule: Runtime Lineage Traceability
+Verify that processing content and parameters are recorded in runtime `lineage`. The public `operation_history` is a read-only compatibility view derived from lineage, so tests may assert the flat view for user-facing behavior. For methods designed to record provenance, verify that the derived `operation_history` count increases by exactly 1, and that the last entry contains the correct **registry key** (e.g., `"lowpass_filter"`) and parameters. For structural operations that only modify the channel collection (`add_channel` / `remove_channel` / `rename_channels`, etc.), verify that lineage-derived `operation_history` remains unchanged.
 
-Note: What is recorded in `operation_history` is the **registry key**, not the method name — it may differ from the frame method name (e.g., `low_pass_filter`).
+Note: What appears in the derived `operation_history` is the **registry key**, not the method name — it may differ from the frame method name (e.g., `low_pass_filter`).
 
 ### Rule: Domain Transition Metadata
 For operations that change domain (time domain → frequency domain → time-frequency domain), verify that the number of axis dimensions matches the theoretical value of the domain conversion. For example, the number of frequency bins after FFT should be N/2+1 of the original time samples.
@@ -99,8 +99,8 @@ For operations that change domain (time domain → frequency domain → time-fre
 ### Checklist
 - [ ] Sampling rate preserved (or correctly updated for resampling)
 - [ ] Channel labels propagated with operation annotation
-- [ ] `operation_history` grows by exactly 1 entry per processing operation (registry-based); structural channel operations (add_channel / remove_channel / rename_channels) leave history unchanged
-- [ ] History entry contains correct operation name (registry key) and params
+- [ ] Runtime lineage grows by exactly 1 node per processing operation (registry-based); structural channel operations (add_channel / remove_channel / rename_channels) leave provenance unchanged
+- [ ] Derived history entry contains correct operation name (registry key) and params
 - [ ] Domain transition produces correct axis dimensions
 
 ---
@@ -220,7 +220,7 @@ The 4 pillars and the test pyramid are also the repository's coverage planning t
 - After running `uv run pytest -n auto --cov=wandas --cov-report=term-missing`, inspect the touched files in the coverage report and add focused tests for:
   - the main success path,
   - validation and error branches,
-  - metadata/history updates,
+  - metadata/lineage updates,
   - lazy Dask paths or domain-transition paths when they apply.
 - Treat coverage regressions on changed code as a warning that must be resolved or explicitly documented for review.
 - If a localized coverage gap cannot be closed in the same change, record the missing lines and the follow-up test idea in the implementation handoff so reviewers can evaluate the risk.
