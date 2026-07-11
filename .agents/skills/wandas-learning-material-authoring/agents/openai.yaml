@@ -1,0 +1,4 @@
+interface:
+  display_name: "Wandas Learning Material Authoring"
+  short_description: "Design clear, reusable Wandas learning materials"
+  default_prompt: "Use $wandas-learning-material-authoring to design or revise a Wandas lesson around a clear teaching contract."
