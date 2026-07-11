@@ -109,10 +109,10 @@ Sidecar CSV data remains application-owned in v1. Convert it to a lookup and ref
 v1 では sidecar CSV は利用側で管理します。lookup に変換し、同じ resolver 契約から参照してください。信号 CSV のヘッダー確認では現在 CSV 全体を実体化するため、WAV を明示的に指定します。
 
 ```python
-import csv
+import pandas as pd
 
-with open("recordings.csv", newline="") as rows:
-    lookup = {row["path"]: {"load": row["load"], "rpm": int(row["rpm"])} for row in csv.DictReader(rows)}
+recordings = pd.read_csv("recordings.csv")
+lookup = recordings.set_index("path")[["condition", "priority"]].to_dict(orient="index")
 
 dataset = wd.from_folder(
     "recordings/",
@@ -120,7 +120,7 @@ dataset = wd.from_folder(
     file_extensions=[".wav"],
     metadata_resolver=lambda path: lookup[path.as_posix()],
 )
-low_load = dataset.select(load="low")
+selected = dataset.select(condition="reference", priority=1)
 ```
 
 Indexing the lookup is recommended because a WAV missing from the CSV fails during dataset construction. Use `lookup.get(path.as_posix(), {})` only when files without CSV metadata are intentionally allowed.

@@ -1,6 +1,6 @@
 ---
 name: wandas-learning-material-authoring
-description: Create, revise, or review repository-specific Wandas learning materials, especially executable marimo notebooks under learning-path/ and their supporting README, tutorial, and API documentation. Use when defining a lesson's teaching contract, structuring its narrative and executable examples, choosing learner-appropriate representations and public APIs, or validating pedagogical clarity and technical accuracy.
+description: Create, revise, or review repository-specific Wandas learning materials, especially executable marimo notebooks under learning-path/ and the summaries or examples that point to them from README, tutorial, and API documentation. Use when defining teaching goals, structuring narratives and executable examples, choosing learner-appropriate representations and public APIs, or validating pedagogical clarity and technical accuracy.
 ---
 
 # Wandas Learning Material Authoring
@@ -12,7 +12,7 @@ Treat `AGENTS.md` as the repository source of truth. Use `wandas-workspace-hygie
 Before editing, state:
 
 - who the learner is and what they can already assume;
-- the one capability or mental model the material should leave them with;
+- the primary capability or mental model, plus any small number of supporting outcomes;
 - the observable evidence that demonstrates that outcome;
 - which details are supporting context and which are outside the lesson.
 
@@ -28,7 +28,7 @@ Use this contract to remove content that is correct but not useful to the lesson
 
 Make headings state learner outcomes rather than incidental actions. Use generic language unless real domain semantics materially improve understanding. Avoid unexplained acronyms, product-specific context, and command-runner instructions that are not part of the learning goal.
 
-Keep supporting README, tutorial indexes, and API examples consistent with the lesson's terminology and contract.
+Keep supporting README, tutorial indexes, and API examples consistent with the lesson's terminology and contract. When editing those supporting references, optimize for discoverability, scope accuracy, and API-contract precision; do not force the lesson narrative onto reference material.
 
 ## Choose representations deliberately
 
@@ -45,7 +45,7 @@ Do not encode static explanation as executable code. Do not prescribe a particul
 ## Design marimo cells
 
 - Teach one idea per Python cell. Split cells when their statements support different learning claims, not merely because the operations differ.
-- Start each visible Python cell with one short Japanese comment stating its purpose.
+- Add a short purpose comment, in the material's language, when a visible cell's teaching role is not already clear from its code and surrounding prose.
 - Keep operations together when their combination proves one claim, such as a meaningful before/after comparison.
 - Give every cross-cell variable exactly one definition. Use a descriptive unique name, or prefix disposable cell-local values with `_`.
 - Run `uv run marimo check <notebook>` after adding, splitting, merging, or renaming cells. Do not rely only on export execution to detect reactive-definition conflicts.

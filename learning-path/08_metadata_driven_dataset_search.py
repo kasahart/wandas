@@ -158,7 +158,8 @@ def _(mo):
     ファイルを選んだ後に、1件ずつ `normalize()` や `stft()` を呼ぶ必要はありません。
     Datasetに対して処理チェーンを定義すると、各ファイルへ同じ処理が自動的に適用されます。
     メタデータは処理後のDatasetにも保持されるため、`normalize().stft()` の後でも
-    `select()` を使えます。処理は遅延され、選択した要素へアクセスしたときに実行されます。
+    `select()` を使えます。要素へアクセスするとFrameと処理グラフが作られ、波形の読み込みと
+    数値計算は `data` にアクセスするまで遅延されます。
     """)
     return
 
@@ -168,10 +169,16 @@ def _(dataset):
     # Dataset全体に処理を定義した後で、解析対象を選択する
     processed_dataset = dataset.normalize().stft(n_fft=128)
     processed_selected = processed_dataset.select(group="group_a", batch="batch_01")
+    print("処理後に選択したファイル:", len(processed_selected), "件")
+    return (processed_selected,)
+
+
+@app.cell
+def _(processed_selected):
+    # 処理後のFrameにも選択に使ったメタデータが保持されることを確認する
     _selected_spectrogram = processed_selected[0]
     assert _selected_spectrogram is not None
 
-    print("処理後に選択したファイル:", len(processed_selected), "件")
     print("STFT後もgroupを保持:", _selected_spectrogram.metadata["group"])
     return
 
