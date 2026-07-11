@@ -311,6 +311,36 @@ def test_from_file_url_download_failure() -> None:
             ChannelFrame.from_file(url)
 
 
+def test_download_url_midstream_failure_cleans_partial_file(monkeypatch, tmp_path) -> None:
+    """A connection failure after writing data must remove the partial download."""
+    import urllib.error
+
+    temporary_directory = tempfile.TemporaryDirectory
+    temporary_directory_factory = MagicMock(side_effect=lambda: temporary_directory(dir=tmp_path))
+    temporary_directory_factory.cleanup = temporary_directory.cleanup
+    monkeypatch.setattr(
+        io_readers.tempfile,
+        "TemporaryDirectory",
+        temporary_directory_factory,
+    )
+    mock_resp = MagicMock()
+    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+    mock_resp.__exit__ = MagicMock(return_value=False)
+    mock_resp.headers = {}
+    mock_resp.read = MagicMock(side_effect=[b"partial WAV data", urllib.error.URLError("connection dropped")])
+
+    with patch("urllib.request.urlopen", return_value=mock_resp):
+        with pytest.raises(OSError, match=r"Failed to download audio from URL"):
+            io_readers.download_url_to_temporary_file(
+                "https://example.com/audio/sample.wav",
+                timeout=10.0,
+                suffix=".wav",
+                resource_name="audio",
+            )
+
+    assert list(tmp_path.iterdir()) == []
+
+
 def test_from_file_url_over_size_limit_raises() -> None:
     """URL WAV loads must stop when streamed bytes exceed the configured limit."""
     url = "https://example.com/audio/sample.wav"

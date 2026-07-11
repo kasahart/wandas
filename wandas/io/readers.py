@@ -520,6 +520,10 @@ def download_url_to_temporary_file(
             )
         return downloaded_file
     except urllib.error.URLError as exc:
+        if downloaded_file is not None:
+            downloaded_file.cleanup()
+        elif temp_dir is not None:
+            temp_dir.cleanup()
         raise OSError(
             f"Failed to download {resource_name} from URL\n"
             f"  URL: {url}\n"
