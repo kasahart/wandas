@@ -329,7 +329,6 @@ def test_path_metadata_rejects_metadata_resolver(partitioned_audio_folder: Path)
     "relative_path",
     [
         "group=first/group=second/recording.wav",
-        "partition_1=first/plain/recording.wav",
     ],
 )
 def test_path_metadata_rejects_duplicate_or_colliding_partition_keys(
@@ -347,3 +346,30 @@ def test_path_metadata_rejects_duplicate_or_colliding_partition_keys(
             file_extensions=[".wav"],
             path_metadata=True,
         )
+
+
+@pytest.mark.parametrize(
+    ("relative_path", "message"),
+    [
+        ("_source_file=spoof/recording.wav", "cannot set reserved key"),
+        ("partition_0=spoof/recording.wav", "uses the generated partition namespace"),
+        ("partition_12=spoof/recording.wav", "uses the generated partition namespace"),
+    ],
+)
+def test_path_metadata_rejects_reserved_hive_keys(
+    tmp_path: Path,
+    relative_path: str,
+    message: str,
+) -> None:
+    path = tmp_path / relative_path
+    path.parent.mkdir(parents=True)
+    sf.write(path, np.zeros(64, dtype=np.float32), 8_000)
+
+    with pytest.raises(ValueError, match=message) as exc_info:
+        ChannelFrameDataset.from_folder(
+            str(tmp_path),
+            recursive=True,
+            file_extensions=[".wav"],
+            path_metadata=True,
+        )
+    assert "recording.wav" in str(exc_info.value)

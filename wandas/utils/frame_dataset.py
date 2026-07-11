@@ -203,6 +203,16 @@ class FrameDataset(Generic[F], ABC):
             hive_key, separator, hive_value = segment.partition("=")
             if separator and hive_key:
                 key, value = hive_key, hive_value
+                if key in _RESERVED_METADATA_KEYS:
+                    raise ValueError(
+                        f"Path metadata cannot set reserved key {key!r} for {relative_path}; "
+                        "rename the Hive partition key"
+                    )
+                if key.startswith("partition_") and key.removeprefix("partition_").isdigit():
+                    raise ValueError(
+                        f"Hive path metadata key {key!r} uses the generated partition namespace "
+                        f"for {relative_path}; rename the Hive partition key"
+                    )
             else:
                 key, value = f"partition_{index}", segment
             if key in metadata:

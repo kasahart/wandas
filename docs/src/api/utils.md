@@ -98,7 +98,7 @@ The naming follows AWS Glue crawler conventions:
 - Plain parent segments use their zero-based path positions: `group_a/batch_01/file.wav` becomes `{"partition_0": "group_a", "partition_1": "batch_01"}`. / 通常の親セグメントにはゼロ始まりのパス位置を使います。
 - Hive-style segments use their keys: `group=group_a/batch=batch_01/file.wav` becomes `{"group": "group_a", "batch": "batch_01"}`. / Hive 形式のセグメントにはそのキーを使います。
 - The root folder and filename are excluded. Files at uneven depths receive only the keys present in their own parent path; a missing key does not match a `select()` criterion. / ルートフォルダとファイル名は除外します。深さが異なる場合は各ファイルに存在するキーだけを持ち、不足キーは `select()` 条件に一致しません。
-- Duplicate Hive keys and collisions between Hive keys and generated `partition_n` names raise `ValueError` instead of overwriting metadata. / Hive キーの重複、および Hive キーと生成された `partition_n` 名の衝突は、上書きせず `ValueError` になります。
+- Duplicate Hive keys, reserved `_source_file`, and Hive keys in the generated `partition_<number>` namespace raise `ValueError` instead of overwriting or impersonating metadata. / Hive キーの重複、予約キー `_source_file`、生成用 `partition_<number>` 名前空間の Hive キーは、メタデータの上書きや偽装をせず `ValueError` になります。
 
 `path_metadata=True` and `metadata_resolver` are mutually exclusive because combining two metadata sources would make precedence ambiguous.
 2つのメタデータ源の優先順位が曖昧になるため、`path_metadata=True` と `metadata_resolver` は同時に指定できません。
