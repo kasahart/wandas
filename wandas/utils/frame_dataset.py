@@ -192,7 +192,7 @@ class FrameDataset(Generic[F], ABC):
             return frame
         merged = deepcopy(frame.metadata)
         merged.update(deepcopy(dict(metadata)))
-        return frame._create_new_instance(frame._data, metadata=merged)
+        return frame._create_new_instance(frame._data, metadata=merged, previous=frame.previous)
 
     def _load_all_files(self) -> None:
         """Load all files."""
@@ -426,7 +426,7 @@ class FrameDataset(Generic[F], ABC):
         selected_indices = [
             index
             for index, lazy_frame in enumerate(self._lazy_frames)
-            if all(lazy_frame.metadata.get(key) == value for key, value in criteria.items())
+            if all(key in lazy_frame.metadata and lazy_frame.metadata[key] == value for key, value in criteria.items())
         ]
         if isinstance(self, _SubsetFrameDataset):
             return _SubsetFrameDataset(self, selected_indices)
