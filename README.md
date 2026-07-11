@@ -178,6 +178,14 @@ Preserve calibration when analyzing physical quantities. Because `normalize()` c
 
 For multiple files, start with `wd.from_folder("recordings/", recursive=True)`. Apply preprocessing to the dataset with a chain such as `.resample(16_000).trim(0, 5).normalize().stft(n_fft=512)`. To pass a frame to ML code, use `frame.to_tensor(framework="torch")` or `frame.to_tensor(framework="tensorflow")` (`wandas[ml]` is required, and conversion materializes the lazy data).
 
+### Select files before reading waveforms
+
+When filenames or a sidecar table describe machine, split, or operating conditions, attach that information during discovery and select only the files you need:
+
+For a layout such as `recordings/fan/example.wav`, create the dataset with `metadata_resolver=lambda path: {"machine": path.parts[0]}`, then select files with `dataset.select(machine="fan")`.
+
+File selection does not read audio headers or waveform samples. The executable [metadata-driven dataset search learning path](learning-path/08_metadata_driven_dataset_search.py) covers path parsing, CSV lookup, lazy loading, and processing after selection.
+
 ## Small top-level API
 
 - `wd.read("audio.wav")`: read WAV, CSV, supported audio, URL, bytes, or file-like input into a `ChannelFrame`.

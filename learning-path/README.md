@@ -74,11 +74,22 @@
 - `operation_history` による処理履歴の確認
 - 明示Recipe構築とsklearn adapterは任意セクションとして確認
 
+### 8. [08_metadata_driven_dataset_search.py](08_metadata_driven_dataset_search.py) - メタデータ駆動のファイル検索
+
+> 07はRecipe UXの設計検討用補助資料で、初学者向けの本線ではありません。そのため本線は06から08へ進みます。
+
+**波形を読む前に対象ファイルを絞り込む**
+
+- DCASE/ASDKit形式のパスからファイルメタデータを解決
+- `dataset.select()` による完全一致・AND検索
+- 選択後の処理チェーンとFrameへのメタデータ伝播
+- sidecar CSVをlookupとして接続
+
 ## 🚀 学習を始める前に
 
 ### 必要な環境
 
-- Python 3.9+
+- Python 3.10+
 - marimo
 - 基本的な信号処理の知識（なくてもOK）
 
@@ -93,6 +104,7 @@
 | 04_advanced_processing | 高度処理 | スペクトログラム | 特徴抽出 |
 | 05_custom_functions | custom処理 | custom operation | 処理の再利用 |
 | 06_pipeline_recipe_ux | frame-first Recipe基本 | extract / replay | 探索解析の再現 |
+| 08_metadata_driven_dataset_search | Dataset検索 | resolver / select | 大量ファイルの事前絞り込み |
 
 ## 🔗 関連リソース
 
