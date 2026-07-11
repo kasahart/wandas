@@ -30,6 +30,7 @@ Only the `.instructions.md` files in this directory are live agent guidance. Arc
 | `processing-api.instructions.md` | `wandas/processing/**` | Processing layer |
 | `io-contracts.instructions.md` | `wandas/io/**` | I/O contracts |
 | `agent-maintenance.instructions.md` | `.github/agents/**` | This file |
+| `pr-lifecycle-harness.instructions.md` | (none) | PR completion, issue triage, finite monitoring, and workspace cleanup gates |
 | `test-grand-policy.instructions.md` | `tests/**` | Test quality: 4 pillars + pyramid |
 | `test-frames-policy.instructions.md` | `tests/frames/**` | Frame test patterns |
 | `test-processing-policy.instructions.md` | `tests/processing/**` | Processing test patterns |

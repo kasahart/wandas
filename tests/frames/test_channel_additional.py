@@ -83,7 +83,7 @@ def test_from_file_in_memory_and_source_name_and_ch_labels_and_header_and_csv_kw
     )
     assert isinstance(cf, ChannelFrame)
     assert cf.sampling_rate == 44100
-    assert cf.metadata.source_file == "my_file.wav"
+    assert cf.metadata["_source_file"] == "my_file.wav"
     assert cf.labels == ["L", "R"]
     assert cap.get("time_column") == 1
     assert cap.get("delimiter") == ";"
@@ -175,16 +175,20 @@ def test_add_channel_pad_truncate_and_duplicate_label_behavior():
     assert padded is not base  # Pillar 1: immutability
     assert padded.n_channels == 3
     assert base.n_channels == original_n_channels  # Pillar 1: original unchanged
-    # Pillar 2: structural op leaves history unchanged
-    assert len(padded.operation_history) == len(base.operation_history)
+    assert padded.operation_history[-1] == {
+        "operation": "add_channel",
+        "params": {"align": "pad", "input_kind": "frame", "label": None, "suffix_on_dup": None},
+    }
 
     # truncate (use different label)
     long = ChannelFrame.from_numpy(np.arange(20).reshape(1, 20), sampling_rate=100, ch_labels=["long1"])
     truncated = base.add_channel(long, align="truncate")
     assert truncated is not base  # Pillar 1: immutability
     assert truncated.n_channels == 3
-    # Pillar 2: structural op leaves history unchanged
-    assert len(truncated.operation_history) == len(base.operation_history)
+    assert truncated.operation_history[-1] == {
+        "operation": "add_channel",
+        "params": {"align": "truncate", "input_kind": "frame", "label": None, "suffix_on_dup": None},
+    }
 
     # duplicate label without suffix
     with pytest.raises(ValueError, match=r"Duplicate channel label"):
@@ -212,11 +216,11 @@ def test_remove_channel_errors_and_inplace():
     assert cf2 is not cf  # Pillar 1: immutability
     assert cf2.n_channels == 1
     assert cf.n_channels == 2  # Pillar 1: original unchanged
-    # Pillar 2: structural op leaves history unchanged
-    assert len(cf2.operation_history) == len(cf.operation_history)
+    assert cf2.operation_history == [{"operation": "remove_channel", "params": {"key": 0}}]
     # inplace True
     cf.remove_channel(0, inplace=True)
     assert cf.n_channels == 1
+    assert cf.operation_history[-1] == {"operation": "remove_channel", "params": {"key": 0}}
 
 
 def test_describe_image_save_jpg(tmp_path):

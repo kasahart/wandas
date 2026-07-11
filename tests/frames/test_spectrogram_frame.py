@@ -13,6 +13,8 @@ from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
+from wandas.processing.base import LineageNode
+from wandas.processing.effects import Normalize
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 # Reference to dask array functions
@@ -138,6 +140,50 @@ class TestSpectrogramFrame:
         assert len(freqs) == spec.n_freq_bins  # FFTサイズの半分 + 1
         assert len(times) == 5
 
+    def test_abs_marks_operation_in_dask_graph(self, sample_spectrogram: SpectrogramFrame) -> None:
+        result = sample_spectrogram.abs()
+
+        assert [operation.name for operation in result.operations] == ["abs"]
+
+    def test_source_times_add_source_time_offset(self, sample_spectrogram: SpectrogramFrame) -> None:
+        """source_times returns spectrogram frame times on the source timeline."""
+        spec = sample_spectrogram._create_new_instance(
+            data=sample_spectrogram._data,
+            source_time_offset=1.25,
+        )
+
+        np.testing.assert_array_equal(spec.source_time_offset, np.array([1.25, 1.25]))
+        np.testing.assert_array_equal(spec.source_times, spec.times[None, :] + np.array([[1.25], [1.25]]))
+
+    def test_time_slice_advances_source_time_offset_by_hop_length(self, sample_spectrogram: SpectrogramFrame) -> None:
+        """Spectrogram time slicing advances by hop_length / sampling_rate."""
+        spec = sample_spectrogram._create_new_instance(
+            data=sample_spectrogram._data,
+            source_time_offset=1.25,
+        )
+
+        result = spec[:, :, 2:]
+
+        np.testing.assert_array_equal(
+            result.source_time_offset,
+            np.array([1.25 + 2 * spec.hop_length / spec.sampling_rate] * 2),
+        )
+
+    def test_stepped_time_slice_raises_for_source_time_offset(self, sample_spectrogram: SpectrogramFrame) -> None:
+        """Stepped spectrogram slicing would make source_times spacing ambiguous."""
+        spec = sample_spectrogram._create_new_instance(
+            data=sample_spectrogram._data,
+            source_time_offset=1.25,
+        )
+
+        with pytest.raises(ValueError, match="Stepped slicing on the time axis is not supported"):
+            _ = spec[:, :, 2::2]
+
+    def test_point_time_selection_raises_for_source_time_offset(self, sample_spectrogram: SpectrogramFrame) -> None:
+        """Point spectrogram time selection is outside the continuous-slice model."""
+        with pytest.raises(ValueError, match="Only continuous slicing on the time axis is supported"):
+            _ = sample_spectrogram[:, :, 2]
+
     def test_binary_operations(self, sample_spectrogram: SpectrogramFrame) -> None:
         """二項演算子の動作テスト"""
         spec: SpectrogramFrame = sample_spectrogram
@@ -248,11 +294,18 @@ class TestSpectrogramFrame:
 
     def test_get_frame_at(self, sample_spectrogram: SpectrogramFrame) -> None:
         """特定時間フレームの取得テスト"""
-        spec: SpectrogramFrame = sample_spectrogram
+        spec: SpectrogramFrame = sample_spectrogram._create_new_instance(
+            data=sample_spectrogram._data,
+            source_time_offset=3.0,
+            lineage=LineageNode(Normalize(sample_spectrogram.sampling_rate)),
+        )
 
         # 正常なインデックス
         frame: SpectralFrame = spec.get_frame_at(4)
         assert frame.shape == (2, 65)  # チャネル数 x 周波数ビン数
+        np.testing.assert_array_equal(frame.source_time_offset, np.array([3.0 + spec.times[4]] * 2))
+        assert [record["operation"] for record in frame.operation_history] == ["normalize", "get_frame_at"]
+        assert frame.operation_history[-1]["params"] == {"time_idx": 4}
 
         # 範囲外インデックス（負の値）
         with pytest.raises(
@@ -283,10 +336,25 @@ class TestSpectrogramFrame:
         # 基本プロパティの確認
         assert channel_frame.sampling_rate == spec.sampling_rate
         assert channel_frame._n_channels == spec._n_channels
+        assert channel_frame.lineage is not None
+        assert channel_frame.lineage.operation.name == "istft"
+        assert channel_frame.operation_history[-1] == {
+            "operation": "istft",
+            "params": {
+                "n_fft": spec.n_fft,
+                "hop_length": spec.hop_length,
+                "win_length": spec.win_length,
+                "window": spec.window,
+                "length": None,
+            },
+        }
 
     def test_istft(self, sample_spectrogram: SpectrogramFrame) -> None:
         """istftメソッドがto_channel_frameのエイリアスとして機能することをテスト"""
-        spec: SpectrogramFrame = sample_spectrogram
+        spec: SpectrogramFrame = sample_spectrogram._create_new_instance(
+            data=sample_spectrogram._data,
+            source_time_offset=4.5,
+        )
 
         # istftメソッドを呼び出し
         channel_frame_istft: Any = spec.istft()
@@ -302,8 +370,10 @@ class TestSpectrogramFrame:
         assert channel_frame_istft._n_channels == channel_frame_to._n_channels
         assert channel_frame_istft.shape == channel_frame_to.shape
 
-        # Pillar 2: sampling rate inherited from spectrogram
+        # Pillar 2: sampling rate and source offset inherited from spectrogram
         assert channel_frame_istft.sampling_rate == spec.sampling_rate
+        np.testing.assert_array_equal(channel_frame_istft.source_time_offset, np.array([4.5, 4.5]))
+        np.testing.assert_array_equal(channel_frame_to.source_time_offset, np.array([4.5, 4.5]))
 
         # データが同じであることを確認
         # Same ISTFT algorithm — decimal=6 default (alias, results identical)
@@ -485,9 +555,8 @@ class TestSpectrogramFrame:
         # 結果が正しいSpectrogramFrameオブジェクトであることを確認
         assert isinstance(result, SpectrogramFrame)
 
-        # メタデータが正しく更新されていることを確認
-        assert "test_operation" in result.metadata
-        assert result.metadata["test_operation"] == {"param1": 10, "param2": "test"}
+        # Operation params are stored in lineage, not duplicated into metadata.
+        assert "test_operation" not in result.metadata
 
         # 操作履歴が正しく更新されていることを確認
         last_operation = result.operation_history[-1]
@@ -508,16 +577,12 @@ class TestSpectrogramFrame:
             operation = create_operation(operation_name, self.sampling_rate, **params)
             processed_data = operation.process(self._data)
 
-            operation_metadata = {"operation": operation_name, "params": params}
-            new_history = self.operation_history.copy()
-            new_history.append(operation_metadata)
-            new_metadata = {**self.metadata}
-            new_metadata[operation_name] = params
+            new_metadata = self._updated_metadata(operation_name, params)
 
             return self._create_new_instance(
                 data=processed_data,
                 metadata=new_metadata,
-                operation_history=new_history,
+                lineage=self._lineage_with_operation(operation, self.lineage),
             )
 
         # モックを適用
@@ -528,6 +593,8 @@ class TestSpectrogramFrame:
 
         # モックオペレーション作成
         class MockOperation:
+            name = "test_operation"
+
             def process(self, data: Any) -> Any:
                 return processed_data
 
@@ -550,15 +617,16 @@ class TestSpectrogramFrame:
         # 結果の検証
         assert isinstance(result, SpectrogramFrame)
         assert_array_equal(result.data, processed_data)
-        assert "test_operation" in result.metadata
+        assert "test_operation" not in result.metadata
         assert result.operation_history[-1]["operation"] == "test_operation"
 
     def test_dBA_property(  # noqa: N802
         self, sample_spectrogram: SpectrogramFrame, monkeypatch: Any
     ) -> None:
         """dBAプロパティが正しくA特性重み付けを適用していることを確認"""
-        import librosa
         import numpy as np
+
+        import wandas.frames.mixins.spectral_properties_mixin as spectral_properties_mixin
 
         spec: SpectrogramFrame = sample_spectrogram
 
@@ -573,8 +641,7 @@ class TestSpectrogramFrame:
                 weights[i] = mock_a_weights[i]
             return weights
 
-        # librosa.A_weightingをモック
-        monkeypatch.setattr(librosa, "A_weighting", mock_a_weighting)
+        monkeypatch.setattr(spectral_properties_mixin, "a_weighting_db", mock_a_weighting)
 
         # dBとdBAの値を取得
         db_values = spec.dB
@@ -611,6 +678,8 @@ class TestSpectrogramFrame:
         assert abs_spec.hop_length == spec.hop_length
         assert abs_spec.win_length == spec.win_length
         assert abs_spec.window == spec.window
+        assert abs_spec.lineage is not None
+        assert abs_spec.lineage.operation.name == "abs"
 
         # ラベルが正しく更新されていることを確認
         assert abs_spec.label == f"abs({spec.label})"
@@ -624,11 +693,10 @@ class TestSpectrogramFrame:
         # 操作履歴に "abs" が追加されていることを確認
         assert len(abs_spec.operation_history) == len(spec.operation_history) + 1
         assert abs_spec.operation_history[-1]["operation"] == "abs"
-        assert abs_spec.operation_history[-1]["params"] == {}
+        assert abs_spec.operation_history[-1].get("params", {}) == {}
 
-        # メタデータに "abs" が追加されていることを確認
-        assert "abs" in abs_spec.metadata
-        assert abs_spec.metadata["abs"] == {}
+        # Operation params are stored in lineage, not duplicated into metadata.
+        assert "abs" not in abs_spec.metadata
 
         # チャネルメタデータが保持されていることを確認
         assert abs_spec._channel_metadata == spec._channel_metadata
@@ -804,7 +872,7 @@ class TestSpectrogramFrame:
 
         # メタデータの作成
         metadata = {"source": "test", "version": "1.0"}
-        operation_history = [{"operation": "test_op", "params": {"param": 1}}]
+        lineage = LineageNode(Normalize(sampling_rate))
         channel_metadata = [
             ChannelMetadata(label="ch1", unit="Pa", ref=1.0),
             ChannelMetadata(label="ch2", unit="Pa", ref=2.0),
@@ -820,7 +888,7 @@ class TestSpectrogramFrame:
             window=window,
             label="test_full",
             metadata=metadata,
-            operation_history=operation_history,
+            lineage=lineage,
             channel_metadata=channel_metadata,
         )
 
@@ -832,7 +900,7 @@ class TestSpectrogramFrame:
         assert spec_frame.window == window
         assert spec_frame.label == "test_full"
         assert spec_frame.metadata == metadata
-        assert spec_frame.operation_history == operation_history
+        assert spec_frame.lineage is lineage
         assert spec_frame._channel_metadata == channel_metadata
 
     def test_from_numpy_default_label(self) -> None:

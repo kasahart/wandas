@@ -10,16 +10,32 @@ from collections.abc import Callable
 from typing import Any, ClassVar, overload
 
 import numpy as np
-from mosqito.sq_metrics import loudness_zwst as loudness_zwst_mosqito
-from mosqito.sq_metrics import loudness_zwtv as loudness_zwtv_mosqito
-from mosqito.sq_metrics import roughness_dw as roughness_dw_mosqito
-from mosqito.sq_metrics import sharpness_din_st as sharpness_din_st_mosqito
-from mosqito.sq_metrics import sharpness_din_tv as sharpness_din_tv_mosqito
 
 from wandas.processing.base import AudioOperation, get_operation, register_operation
+from wandas.utils.optional_imports import require_mosqito_sq_metric
 from wandas.utils.types import NDArrayReal
 
 logger = logging.getLogger(__name__)
+
+
+def loudness_zwtv_mosqito(*args: Any, **kwargs: Any) -> Any:
+    return require_mosqito_sq_metric("loudness_zwtv", "loudness_zwtv")(*args, **kwargs)
+
+
+def loudness_zwst_mosqito(*args: Any, **kwargs: Any) -> Any:
+    return require_mosqito_sq_metric("loudness_zwst", "loudness_zwst")(*args, **kwargs)
+
+
+def roughness_dw_mosqito(*args: Any, **kwargs: Any) -> Any:
+    return require_mosqito_sq_metric("roughness_dw", "roughness_dw")(*args, **kwargs)
+
+
+def sharpness_din_tv_mosqito(*args: Any, **kwargs: Any) -> Any:
+    return require_mosqito_sq_metric("sharpness_din_tv", "sharpness_din_tv")(*args, **kwargs)
+
+
+def sharpness_din_st_mosqito(*args: Any, **kwargs: Any) -> Any:
+    return require_mosqito_sq_metric("sharpness_din_st", "sharpness_din_st")(*args, **kwargs)
 
 
 @overload
@@ -105,7 +121,16 @@ def _register_canonical(operation_class: type[AudioOperation[Any, Any]]) -> None
     globals()[operation_class.__name__] = get_operation(operation_class.name)
 
 
-class _ZwickerTimeVaryingBase(AudioOperation[NDArrayReal, NDArrayReal]):
+class _PsychoacousticOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+    def ensure_dependencies(self) -> None:
+        return None
+
+    def process(self, data: Any, *inputs: Any) -> Any:
+        self.ensure_dependencies()
+        return super().process(data, *inputs)
+
+
+class _ZwickerTimeVaryingBase(_PsychoacousticOperation):
     """Shared base for Zwicker time-varying metrics (loudness, sharpness).
 
     These operations share:
@@ -125,7 +150,7 @@ class _ZwickerTimeVaryingBase(AudioOperation[NDArrayReal, NDArrayReal]):
         return (n_channels, estimated_time_samples)
 
 
-class _SteadyStateBase(AudioOperation[NDArrayReal, NDArrayReal]):
+class _SteadyStateBase(_PsychoacousticOperation):
     """Shared base for steady-state psychoacoustic metrics.
 
     These operations return one scalar per channel (shape ``(n_channels, 1)``)
@@ -172,7 +197,7 @@ class LoudnessZwtv(_ZwickerTimeVaryingBase):
     --------
     Calculate loudness for a signal:
     >>> import wandas as wd
-    >>> signal = wd.read_wav("audio.wav")
+    >>> signal = wd.read("audio.wav")
     >>> loudness = signal.loudness_zwtv(field_type="free")
 
     Notes
@@ -194,13 +219,24 @@ class LoudnessZwtv(_ZwickerTimeVaryingBase):
     name = "loudness_zwtv"
 
     def __init__(self, sampling_rate: float, field_type: str = "free"):
-        self.field_type = field_type
+        self._field_type = field_type
         super().__init__(sampling_rate, field_type=field_type)
+
+    @property
+    def field_type(self) -> str:
+        """Sound-field type captured at operation construction time."""
+        return self._field_type
+
+    def to_params(self) -> dict[str, str]:
+        return {"field_type": self._field_type}
 
     def validate_params(self) -> None:
         _validate_field_type(self.field_type)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def ensure_dependencies(self) -> None:
+        require_mosqito_sq_metric("loudness_zwtv", "loudness_zwtv")
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """
         Process array to calculate loudness.
 
@@ -260,7 +296,7 @@ class LoudnessZwst(_SteadyStateBase):
     --------
     Calculate steady-state loudness for a signal:
     >>> import wandas as wd
-    >>> signal = wd.read_wav("fan_noise.wav")
+    >>> signal = wd.read("fan_noise.wav")
     >>> loudness = signal.loudness_zwst(field_type="free")
     >>> print(f"Steady-state loudness: {loudness.data[0]:.2f} sones")
 
@@ -285,13 +321,24 @@ class LoudnessZwst(_SteadyStateBase):
     name = "loudness_zwst"
 
     def __init__(self, sampling_rate: float, field_type: str = "free"):
-        self.field_type = field_type
+        self._field_type = field_type
         super().__init__(sampling_rate, field_type=field_type)
+
+    @property
+    def field_type(self) -> str:
+        """Sound-field type captured at operation construction time."""
+        return self._field_type
+
+    def to_params(self) -> dict[str, str]:
+        return {"field_type": self._field_type}
 
     def validate_params(self) -> None:
         _validate_field_type(self.field_type)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def ensure_dependencies(self) -> None:
+        require_mosqito_sq_metric("loudness_zwst", "loudness_zwst")
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """
         Process array to calculate steady-state loudness.
 
@@ -321,7 +368,7 @@ class LoudnessZwst(_SteadyStateBase):
 _register_canonical(LoudnessZwst)
 
 
-class _RoughnessBase(AudioOperation[NDArrayReal, NDArrayReal]):
+class _RoughnessBase(_PsychoacousticOperation):
     """Shared base for Daniel-Weber roughness operations.
 
     Provides common parameter validation, output estimation helpers,
@@ -329,22 +376,30 @@ class _RoughnessBase(AudioOperation[NDArrayReal, NDArrayReal]):
     """
 
     _WINDOW_DURATION = 0.2  # 200 ms analysis window
-    overlap: float  # Set by subclass __init__
+    _overlap: float  # Set by subclass __init__
+
+    @property
+    def overlap(self) -> float:
+        """Overlap captured at operation construction time."""
+        return self._overlap
+
+    def to_params(self) -> dict[str, float]:
+        return {"overlap": self._overlap}
 
     def validate_params(self) -> None:
         """Validate overlap is in [0.0, 1.0]."""
-        if not 0.0 <= self.overlap <= 1.0:
-            raise ValueError(f"overlap must be in [0.0, 1.0], got {self.overlap}")
+        if not 0.0 <= self._overlap <= 1.0:
+            raise ValueError(f"overlap must be in [0.0, 1.0], got {self._overlap}")
 
     def _output_sampling_rate(self) -> float:
         """Compute output sampling rate from window duration and overlap."""
-        hop_duration = self._WINDOW_DURATION * (1 - self.overlap)
+        hop_duration = self._WINDOW_DURATION * (1 - self._overlap)
         return 1.0 / hop_duration if hop_duration > 0 else 5.0
 
     def _estimated_time_samples(self, n_samples: int) -> int:
         """Estimate output time-axis length for *n_samples* input."""
         window_samples = int(self._WINDOW_DURATION * self.sampling_rate)
-        hop_samples = int(window_samples * (1 - self.overlap))
+        hop_samples = int(window_samples * (1 - self._overlap))
         if hop_samples > 0:
             return max(1, (n_samples - window_samples) // hop_samples + 1)
         return 1
@@ -394,7 +449,7 @@ class RoughnessDw(_RoughnessBase):
     --------
     Calculate roughness for a signal:
     >>> import wandas as wd
-    >>> signal = wd.read_wav("motor_noise.wav")
+    >>> signal = wd.read("motor_noise.wav")
     >>> roughness = signal.roughness_dw(overlap=0.5)
     >>> print(f"Mean roughness: {roughness.data.mean():.2f} asper")
 
@@ -429,10 +484,13 @@ class RoughnessDw(_RoughnessBase):
         overlap : float, default=0.5
             Overlapping coefficient (0.0 to 1.0)
         """
-        self.overlap = overlap
+        self._overlap = overlap
         super().__init__(sampling_rate, overlap=overlap)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def ensure_dependencies(self) -> None:
+        require_mosqito_sq_metric("roughness_dw", "roughness_dw")
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """
         Process array to calculate roughness.
 
@@ -447,10 +505,10 @@ class RoughnessDw(_RoughnessBase):
             Time-varying roughness in asper for each channel.
             Shape: (channels, time_samples)
         """
-        logger.debug(f"Calculating roughness for signal with shape: {x.shape}, overlap: {self.overlap}")
+        logger.debug(f"Calculating roughness for signal with shape: {x.shape}, overlap: {self._overlap}")
 
         def _compute(ch: NDArrayReal) -> NDArrayReal:
-            roughness_r, _, _, _ = roughness_dw_mosqito(ch, self.sampling_rate, overlap=self.overlap)
+            roughness_r, _, _, _ = roughness_dw_mosqito(ch, self.sampling_rate, overlap=self._overlap)
             return np.asarray(roughness_r)
 
         return _process_per_channel(x, _compute)
@@ -476,7 +534,7 @@ class RoughnessDwSpec(_RoughnessBase):
     _bark_axis_cache: ClassVar[dict[tuple[float, float], NDArrayReal]] = {}
 
     def __init__(self, sampling_rate: float, overlap: float = 0.5) -> None:
-        self.overlap = overlap
+        self._overlap = overlap
         self.validate_params()
         # Check cache first to avoid redundant MoSQITo calls
         cache_key = (sampling_rate, overlap)
@@ -490,6 +548,8 @@ class RoughnessDwSpec(_RoughnessBase):
             reference_signal = np.zeros(int(sampling_rate * 0.2))  # 200ms minimal signal
             try:
                 _, _, bark_axis_from_mosqito, _ = roughness_dw_mosqito(reference_signal, sampling_rate, overlap=overlap)
+            except ImportError:
+                raise
             except Exception as e:
                 logger.error(f"Failed to retrieve bark_axis from MoSQITo's roughness_dw: {e}")
                 raise RuntimeError(
@@ -502,9 +562,10 @@ class RoughnessDwSpec(_RoughnessBase):
                 raise RuntimeError(
                     "Could not initialize RoughnessDwSpec: MoSQITo's roughness_dw returned an empty or None bark_axis."
                 )
-            self._bark_axis = bark_axis_from_mosqito
+            self._bark_axis = np.asarray(bark_axis_from_mosqito)
+            self._bark_axis.flags.writeable = False
             # Cache the result for future use
-            RoughnessDwSpec._bark_axis_cache[cache_key] = bark_axis_from_mosqito
+            RoughnessDwSpec._bark_axis_cache[cache_key] = self._bark_axis
         super().__init__(sampling_rate, overlap=overlap)
 
     @property
@@ -528,11 +589,11 @@ class RoughnessDwSpec(_RoughnessBase):
             return (n_bark_bands, estimated_time_samples)
         return (n_channels, n_bark_bands, estimated_time_samples)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(
             "Calculating specific roughness for signal with shape: %s, overlap: %s",
             x.shape,
-            self.overlap,
+            self._overlap,
         )
 
         # Ensure (n_channels, n_samples)
@@ -548,7 +609,7 @@ class RoughnessDwSpec(_RoughnessBase):
             channel_data = np.asarray(x_proc[ch]).ravel()
 
             # Call MoSQITo's roughness_dw (module-level import)
-            _, r_spec, bark_axis, _ = roughness_dw_mosqito(channel_data, self.sampling_rate, overlap=self.overlap)
+            _, r_spec, bark_axis, _ = roughness_dw_mosqito(channel_data, self.sampling_rate, overlap=self._overlap)
 
             r_spec_list.append(r_spec)
             if self._bark_axis is None:
@@ -611,7 +672,7 @@ class SharpnessDin(_ZwickerTimeVaryingBase):
     --------
     Calculate sharpness for a signal:
     >>> import wandas as wd
-    >>> signal = wd.read_wav("sharp_sound.wav")
+    >>> signal = wd.read("sharp_sound.wav")
     >>> sharpness = signal.sharpness_din(weighting="din", field_type="free")
     >>> print(f"Mean sharpness: {sharpness.data.mean():.2f} acum")
 
@@ -634,14 +695,30 @@ class SharpnessDin(_ZwickerTimeVaryingBase):
     name = "sharpness_din"
 
     def __init__(self, sampling_rate: float, weighting: str = "din", field_type: str = "free"):
-        self.weighting = weighting
-        self.field_type = field_type
+        self._weighting = weighting
+        self._field_type = field_type
         super().__init__(sampling_rate, weighting=weighting, field_type=field_type)
+
+    @property
+    def weighting(self) -> str:
+        """Sharpness weighting captured at operation construction time."""
+        return self._weighting
+
+    @property
+    def field_type(self) -> str:
+        """Sound-field type captured at operation construction time."""
+        return self._field_type
+
+    def to_params(self) -> dict[str, str]:
+        return {"weighting": self._weighting, "field_type": self._field_type}
 
     def validate_params(self) -> None:
         _validate_sharpness_params(self.weighting, self.field_type)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def ensure_dependencies(self) -> None:
+        require_mosqito_sq_metric("sharpness_din_tv", "sharpness_din")
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """
         Process array to calculate sharpness.
 
@@ -716,7 +793,7 @@ class SharpnessDinSt(_SteadyStateBase):
     --------
     Calculate steady-state sharpness for a signal:
     >>> import wandas as wd
-    >>> signal = wd.read_wav("constant_tone.wav")
+    >>> signal = wd.read("constant_tone.wav")
     >>> sharpness = signal.sharpness_din_st(weighting="din", field_type="free")
     >>> print(f"Steady-state sharpness: {sharpness.data[0]:.2f} acum")
 
@@ -741,14 +818,30 @@ class SharpnessDinSt(_SteadyStateBase):
     name = "sharpness_din_st"
 
     def __init__(self, sampling_rate: float, weighting: str = "din", field_type: str = "free"):
-        self.weighting = weighting
-        self.field_type = field_type
+        self._weighting = weighting
+        self._field_type = field_type
         super().__init__(sampling_rate, weighting=weighting, field_type=field_type)
+
+    @property
+    def weighting(self) -> str:
+        """Sharpness weighting captured at operation construction time."""
+        return self._weighting
+
+    @property
+    def field_type(self) -> str:
+        """Sound-field type captured at operation construction time."""
+        return self._field_type
+
+    def to_params(self) -> dict[str, str]:
+        return {"weighting": self._weighting, "field_type": self._field_type}
 
     def validate_params(self) -> None:
         _validate_sharpness_params(self.weighting, self.field_type)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def ensure_dependencies(self) -> None:
+        require_mosqito_sq_metric("sharpness_din_st", "sharpness_din_st")
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """
         Process array to calculate steady-state sharpness.
 

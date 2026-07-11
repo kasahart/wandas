@@ -28,17 +28,17 @@ jobs:
       - name: Python 3.12 をインストール
         run: uv python install 3.12
 
-      - name: 依存関係をインストール (testグループのみ)
-        run: uv sync --all-extras --group test
+      - name: 依存関係をインストール (testグループ + 非ML extras)
+        run: uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group test
 
       - name: フォーマットチェック (ruff format)
-        run: uv run ruff format --check wandas tests
+        run: uv run --no-sync ruff format --check wandas tests
 
       - name: Lintチェック (ruff check)
-        run: uv run ruff check wandas tests
+        run: uv run --no-sync ruff check wandas tests
 
       - name: 型チェック (ty)
-        run: uv run ty check wandas tests
+        run: uv run --no-sync ty check wandas tests
 
   docs:
       name: Build Documentation
@@ -57,13 +57,83 @@ jobs:
         - name: Python 3.12 をインストール
           run: uv python install 3.12
 
-        - name: 依存関係をインストール (docsグループのみ)
-          # ドキュメント構築に必要なパッケージ群のみを分離してインストール
-          run: uv sync --all-extras --group docs
+        - name: 依存関係をインストール (docsグループ + 非ML extras)
+          # ドキュメント構築に必要なパッケージ群と非ML extrasのみをインストール
+          run: uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group docs
 
         - name: ドキュメントのビルドテスト (MkDocs)
           # --strictフラグにより、警告（リンク切れやパースエラー）をエラーとして扱いCIを落とす
-          run: uv run mkdocs build -f docs/mkdocs.yml --strict
+          run: uv run --no-sync mkdocs build -f docs/mkdocs.yml --strict
+
+  core-install-smoke:
+    name: Core-only wheel install smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: uv をセットアップ
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          version: "latest"
+
+      - name: Python 3.12 をインストール
+        run: uv python install 3.12
+
+      - name: wheel をビルド
+        run: uv build --wheel
+
+      - name: core-only wheel install smoke
+        # Keep this as a packaging smoke test, not a duplicate pytest subset.
+        shell: bash
+        env:
+          MPLBACKEND: Agg
+        run: |
+          uv venv --python 3.12 "$RUNNER_TEMP/wandas-core-smoke"
+          uv pip install --python "$RUNNER_TEMP/wandas-core-smoke/bin/python" dist/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/wandas-core-smoke/bin/python" - <<'PY'
+          import importlib
+          import importlib.util
+          import pkgutil
+          import tempfile
+          from pathlib import Path
+
+          import numpy as np
+          import wandas as wd
+
+          optional_modules = [
+              "h5py",
+              "IPython",
+              "librosa",
+              "mosqito",
+              "tensorflow",
+              "torch",
+          ]
+          installed_optional = [name for name in optional_modules if importlib.util.find_spec(name) is not None]
+          assert installed_optional == [], f"Unexpected optional packages installed: {installed_optional}"
+
+          import_errors = []
+          for module_info in pkgutil.walk_packages(wd.__path__, prefix=f"{wd.__name__}."):
+              try:
+                  importlib.import_module(module_info.name)
+              except Exception as exc:  # noqa: BLE001 - CI smoke should report every import failure.
+                  import_errors.append(f"{module_info.name}: {type(exc).__name__}: {exc}")
+          assert import_errors == [], "Submodule imports failed:\n" + "\n".join(import_errors)
+
+          data = np.sin(np.linspace(0, 16, 4096, dtype=float))[None, :]
+          frame = wd.ChannelFrame.from_numpy(data, sampling_rate=48000)
+          assert np.allclose((frame + 1).to_numpy(), data + 1)
+          assert frame.to_dataframe().shape == (4096, 1)
+          assert frame.fft().n_channels == 1
+
+          with tempfile.TemporaryDirectory() as tmpdir:
+              output = Path(tmpdir) / "describe.png"
+              frame.describe(image_save=output)
+              assert output.exists(), "describe(image_save=...) should work in a core-only install"
+          PY
 
   test:
     name: Test on ${{ matrix.os }} / Python ${{ matrix.python-version }}
@@ -86,14 +156,14 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: 依存関係をインストール
-        # testグループのみインストールしてCI実行時間を短縮
-        run: uv sync --all-extras --group test
+        # testグループと非ML extrasのみインストールしてCI実行時間を短縮
+        run: uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group test
 
       - name: テスト実行とカバレッジレポート生成 (pytest)
         # Windowsの場合のみ MPLBACKEND を設定
         env:
           MPLBACKEND: ${{ matrix.os == 'windows-latest' && 'Agg' || '' }}
-        run: uv run pytest -n auto -vv
+        run: uv run --no-sync pytest -n auto -vv
 
       - name: Upload coverage reports to Codecov
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'

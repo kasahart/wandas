@@ -33,11 +33,15 @@ class TestChannelTransform:
             mock_fft = mock.MagicMock(spec=FFT)
             mock_fft.n_fft = 4096
             mock_fft.window = "hann"
+            mock_fft.to_params.return_value = {"n_fft": 4096, "window": "hann"}
             mock_data = mock.MagicMock(spec=DaArray)
             mock_data.ndim = 2  # Set ndim property to pass dimension check
             mock_data.shape = (2, 2049)  # Set appropriate shape for a 2D array
+            mock_data.rechunk.return_value = mock_data
             mock_fft.process.return_value = mock_data
             mock_create_op.return_value = mock_fft
+
+            self.channel_frame.source_time_offset = 2.75
 
             # fftを遅延実行
             result = self.channel_frame.fft(n_fft=4096, window="hamming")
@@ -54,8 +58,32 @@ class TestChannelTransform:
             assert result.n_fft == 4096
             assert result.window == "hann"
             assert result.previous is self.channel_frame
-            # Pillar 2: domain transition preserves sampling rate
+            # Pillar 2: domain transition preserves sampling rate and source offset
             assert result.sampling_rate == self.channel_frame.sampling_rate
+            np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
+            assert result.operation_history[-1] == {"operation": "fft", "params": {"n_fft": 4096, "window": "hann"}}
+            assert result.operation_graph is not None
+            assert result.operation_graph["kind"] == "method"
+
+    def test_fft_default_n_fft_operation_lineage_matches_history(self) -> None:
+        data = np.arange(8.0).reshape(1, 8)
+        frame = ChannelFrame.from_numpy(
+            data,
+            sampling_rate=_SAMPLE_RATE,
+            label="test_audio",
+            metadata={"recording": "fixture"},
+        )
+
+        result = frame.fft()
+
+        assert result.n_fft == 8
+        assert result.window == "hann"
+        assert result.metadata == {"recording": "fixture"}
+        assert result.lineage is not None
+        assert result.lineage.operation.params["n_fft"] == 8
+        assert result.operation_history[-1] == {"operation": "fft", "params": {"n_fft": 8, "window": "hann"}}
+        assert "n_fft" not in result.metadata
+        assert "window" not in result.metadata
 
     def test_welch_transform(self) -> None:
         """
@@ -72,11 +100,22 @@ class TestChannelTransform:
             mock_welch.win_length = 1024
             mock_welch.window = "blackman"
             mock_welch.average = "mean"
+            mock_welch.to_params.return_value = {
+                "n_fft": 2048,
+                "hop_length": 256,
+                "win_length": 1024,
+                "window": "blackman",
+                "average": "mean",
+                "detrend": "constant",
+            }
             mock_data = mock.MagicMock(spec=DaArray)
             mock_data.ndim = 2  # Set ndim property to pass dimension check
             mock_data.shape = (2, 1025)  # Set appropriate shape for a 2D array
+            mock_data.rechunk.return_value = mock_data
             mock_welch.process.return_value = mock_data
             mock_create_op.return_value = mock_welch
+
+            self.channel_frame.source_time_offset = 2.75
 
             # welchを遅延実行
             result = self.channel_frame.welch(
@@ -106,6 +145,46 @@ class TestChannelTransform:
             assert result.n_fft == 2048
             assert result.window == "blackman"
             assert result.previous is self.channel_frame
+            np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
+            assert result.operation_history[-1] == {
+                "operation": "welch",
+                "params": {
+                    "n_fft": 2048,
+                    "hop_length": 256,
+                    "win_length": 1024,
+                    "window": "blackman",
+                    "average": "mean",
+                    "detrend": "constant",
+                },
+            }
+            assert result.operation_graph is not None
+            assert result.operation_graph["kind"] == "method"
+
+    def test_welch_default_params_operation_lineage_matches_history(self) -> None:
+        frame = ChannelFrame.from_numpy(
+            _DATA,
+            _SAMPLE_RATE,
+            label="test_audio",
+            metadata={"recording": "fixture"},
+        )
+
+        result = frame.welch()
+
+        assert result.n_fft == 2048
+        assert result.window == "hann"
+        assert result.metadata == {"recording": "fixture"}
+        assert result.lineage is not None
+        operation_params = dict(result.lineage.operation.params)
+        assert operation_params == {
+            "n_fft": 2048,
+            "win_length": 2048,
+            "hop_length": 512,
+            "window": "hann",
+            "average": "mean",
+            "detrend": "constant",
+        }
+        assert result.operation_history[-1] == {"operation": "welch", "params": operation_params}
+        assert not set(operation_params).intersection(result.metadata)
 
     def test_stft_transform(self) -> None:
         """Test stft method for lazy short-time Fourier transform."""
@@ -114,11 +193,21 @@ class TestChannelTransform:
         with mock.patch("wandas.processing.create_operation") as mock_create_op:
             # モックSTFTオペレーションの設定
             mock_stft = mock.MagicMock(spec=STFT)
+            mock_stft.name = "stft"
+            mock_stft.to_params.return_value = {
+                "n_fft": 2048,
+                "hop_length": 512,
+                "win_length": 2048,
+                "window": "hann",
+            }
             mock_data = mock.MagicMock(spec=DaArray)
             mock_data.ndim = 3  # Set ndim property to pass dimension check
             mock_data.shape = (2, 1025, 10)  # Set appropriate shape for a 3D array
+            mock_data.rechunk.return_value = mock_data
             mock_stft.process.return_value = mock_data
             mock_create_op.return_value = mock_stft
+
+            self.channel_frame.source_time_offset = 2.75
 
             # stftを遅延実行（デフォルト引数）
             result = self.channel_frame.stft()
@@ -142,9 +231,21 @@ class TestChannelTransform:
             assert result.n_fft == 2048
             assert result.hop_length == 512
             assert result.win_length == 2048
+            assert result.operation_history[-1] == {
+                "operation": "stft",
+                "params": {
+                    "n_fft": 2048,
+                    "hop_length": 512,
+                    "win_length": 2048,
+                    "window": "hann",
+                },
+            }
+            assert result.operation_graph is not None
+            assert result.operation_graph["kind"] == "method"
             assert result.window == "hann"
-            # Pillar 2: domain transition preserves sampling rate
+            # Pillar 2: domain transition preserves sampling rate and source offset
             assert result.sampling_rate == self.channel_frame.sampling_rate
+            np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
 
             # カスタムパラメータでテスト
             mock_create_op.reset_mock()
@@ -185,11 +286,15 @@ class TestChannelTransform:
         with mock.patch("wandas.processing.create_operation") as mock_create_op:
             # モックNOctSpectrumオペレーションの設定
             mock_noct = mock.MagicMock(spec=NOctSpectrum)
+            mock_noct.to_params.return_value = {"fmin": 20, "fmax": 20000, "n": 3, "G": 10, "fr": 1000}
             mock_data = mock.MagicMock(spec=DaArray)
             mock_data.ndim = 2
             mock_data.shape = (2, 10)  # バンド数に応じた適切な形状
+            mock_data.rechunk.return_value = mock_data
             mock_noct.process.return_value = mock_data
             mock_create_op.return_value = mock_noct
+
+            self.channel_frame.source_time_offset = 2.75
 
             # noct_spectrumを呼び出す
             fmin, fmax, n = 20, 20000, 3
@@ -218,6 +323,35 @@ class TestChannelTransform:
             assert result.G == G
             assert result.fr == fr
             assert result.previous is self.channel_frame
+            np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
+            assert result.operation_history[-1] == {
+                "operation": "noct_spectrum",
+                "params": {"fmin": 20, "fmax": 20000, "n": 3, "G": 10, "fr": 1000},
+            }
+            assert result.operation_graph is not None
+            assert result.operation_graph["kind"] == "method"
+
+    def test_noct_spectrum_preserves_metadata_and_stores_params_in_lineage(self) -> None:
+        frame = ChannelFrame.from_numpy(
+            _DATA,
+            _SAMPLE_RATE,
+            label="test_audio",
+            metadata={"recording": "fixture"},
+        )
+
+        result = frame.noct_spectrum(fmin=20, fmax=8000, n=3, G=10, fr=1000)
+
+        assert result.fmin == 20
+        assert result.fmax == 8000
+        assert result.n == 3
+        assert result.G == 10
+        assert result.fr == 1000
+        assert result.metadata == {"recording": "fixture"}
+        assert result.operation_history[-1] == {
+            "operation": "noct_spectrum",
+            "params": {"fmin": 20, "fmax": 8000, "n": 3, "G": 10, "fr": 1000},
+        }
+        assert not {"fmin", "fmax", "n", "G", "fr"}.intersection(result.metadata)
 
     def test_csd(self) -> None:
         """クロススペクトル密度（CSD）メソッドのテスト"""
@@ -234,6 +368,7 @@ class TestChannelTransform:
 
         # ChannelFrameインスタンスを作成
         cf = ChannelFrame.from_numpy(sigs, sr)
+        cf.source_time_offset = 3.5
 
         # CSD計算のパラメータ
         n_fft = 512
@@ -242,6 +377,9 @@ class TestChannelTransform:
 
         # ChannelFrameメソッドを使用してCSDを計算
         csd_frame = cf.csd(n_fft=n_fft, win_length=win_length, hop_length=hop_length, window="hamming")
+        np.testing.assert_array_equal(csd_frame.source_time_offset, np.array([3.5, 3.5, 3.5, 3.5]))
+        assert csd_frame.lineage is not None
+        assert csd_frame.lineage.operation.name == "csd"
 
         # 実際のデータを取得するために計算
         csd_data = csd_frame.compute()
@@ -282,6 +420,76 @@ class TestChannelTransform:
         ch1_auto = csd_data[3]  # ch1 -> ch1
         assert abs(ch1_auto[idx_100hz]) > abs(ch1_auto[idx_200hz])
         assert abs(ch1_auto[idx_300hz]) > abs(ch1_auto[idx_200hz])
+
+    def test_cross_channel_transform_uses_input_channel_source_time_offsets(self) -> None:
+        """Pairwise channel transforms use the input-side channel timeline."""
+        cf = ChannelFrame.from_numpy(_DATA, _SAMPLE_RATE)
+        cf.source_time_offset = [0.0, 5.0]
+
+        csd_frame = cf.csd(n_fft=512, win_length=256, hop_length=128)
+
+        np.testing.assert_array_equal(csd_frame.source_time_offset, np.array([0.0, 5.0, 0.0, 5.0]))
+
+    @pytest.mark.parametrize("method_name", ["coherence", "csd", "transfer_function"])
+    def test_cross_channel_default_params_operation_lineage_matches_history(self, method_name: str) -> None:
+        cf = ChannelFrame.from_numpy(_DATA, _SAMPLE_RATE, metadata={"recording": "fixture"})
+
+        result = getattr(cf, method_name)()
+
+        assert result.n_fft == 2048
+        assert result.window == "hann"
+        assert result.metadata == {"recording": "fixture"}
+        assert result.lineage is not None
+        operation_params = dict(result.lineage.operation.params)
+        expected_params = {
+            "n_fft": 2048,
+            "hop_length": 512,
+            "win_length": 2048,
+            "window": "hann",
+            "detrend": "constant",
+        }
+        if method_name in {"csd", "transfer_function"}:
+            expected_params.update({"scaling": "spectrum", "average": "mean"})
+        assert operation_params == expected_params
+        assert result.operation_history[-1] == {"operation": method_name, "params": operation_params}
+        assert not set(operation_params).intersection(result.metadata)
+
+    @pytest.mark.parametrize(
+        ("method_name", "expected_labels"),
+        [
+            ("csd", ["csd(left, left)", "csd(right, left)", "csd(left, right)", "csd(right, right)"]),
+            (
+                "coherence",
+                [
+                    "$\\gamma_{left, left}$",
+                    "$\\gamma_{right, left}$",
+                    "$\\gamma_{left, right}$",
+                    "$\\gamma_{right, right}$",
+                ],
+            ),
+            (
+                "transfer_function",
+                ["$H_{left, left}$", "$H_{right, left}$", "$H_{left, right}$", "$H_{right, right}$"],
+            ),
+        ],
+    )
+    def test_cross_channel_transform_metadata_and_offsets_follow_flattened_order(
+        self,
+        method_name: str,
+        expected_labels: list[str],
+    ) -> None:
+        cf = ChannelFrame.from_numpy(
+            _DATA,
+            _SAMPLE_RATE,
+            ch_labels=["left", "right"],
+        )
+        cf.source_time_offset = [1.0, 9.0]
+
+        transform = getattr(cf, method_name)
+        result = transform(n_fft=512, win_length=256, hop_length=128)
+
+        assert result.labels == expected_labels
+        np.testing.assert_array_equal(result.source_time_offset, np.array([1.0, 9.0, 1.0, 9.0]))
 
     def test_transfer_function(self) -> None:
         """伝達関数メソッドのテスト"""
@@ -376,6 +584,8 @@ class TestChannelTransform:
 
         # ChannelFrameメソッドを使用してコヒーレンスを計算
         coherence_frame = cf.coherence(n_fft=n_fft, win_length=win_length, hop_length=hop_length, window="hamming")
+        assert coherence_frame.lineage is not None
+        assert coherence_frame.lineage.operation.name == "coherence"
 
         # 実際のデータを取得するために計算
         coherence_data = coherence_frame.compute()
@@ -508,7 +718,7 @@ def test_cross_channel_spectral_transform_n_fft_not_int():
 
     mock_op = MagicMock()
     mock_op.process.return_value = _da_from_array(np.random.default_rng(42).random((3, 513)), chunks=(3, 513))
-    mock_op.n_fft = "not_an_int"  # non-int value
+    mock_op.to_params.return_value = {"n_fft": "not_an_int", "window": "hann"}
 
     with patch("wandas.processing.create_operation", return_value=mock_op):
         with pytest.raises(TypeError, match="must provide a positive integer n_fft"):
@@ -524,7 +734,7 @@ def test_cross_channel_spectral_transform_n_fft_non_positive():
 
     mock_op = MagicMock()
     mock_op.process.return_value = _da_from_array(np.random.default_rng(42).random((3, 513)), chunks=(3, 513))
-    mock_op.n_fft = 0  # non-positive int
+    mock_op.to_params.return_value = {"n_fft": 0, "window": "hann"}
 
     with patch("wandas.processing.create_operation", return_value=mock_op):
         with pytest.raises(ValueError, match="must provide a positive integer n_fft"):

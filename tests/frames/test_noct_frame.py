@@ -91,6 +91,13 @@ class TestNOctFrame:
         assert self.frame.label == "test_frame"
         assert self.frame.metadata == {"test": "metadata"}
 
+    def test_reverse_scalar_binary_operation_remains_unsupported(self) -> None:
+        """Reverse scalar operators should respect NOctFrame binary-op policy."""
+        with pytest.raises(TypeError, match="unsupported operand type"):
+            2.0 + self.frame
+        with pytest.raises(TypeError):
+            np.float64(2.0) + self.frame
+
     def test_reshape_1d_data(self) -> None:
         """Test that 1D data is reshaped to 2D"""
         # Create 1D real data
@@ -131,7 +138,7 @@ class TestNOctFrame:
 
     def test_property_dba(self) -> None:
         """Test dBA property"""
-        with mock.patch("librosa.A_weighting") as mock_a_weighting:
+        with mock.patch("wandas.frames.noct.a_weighting_db") as mock_a_weighting:
             # モックの周波数重み付け係数を設定
             mock_weights: NDArrayReal = np.ones_like(self.frame.freqs)
             mock_a_weighting.return_value = mock_weights
@@ -139,7 +146,7 @@ class TestNOctFrame:
             # dBAプロパティを取得
             dba: NDArrayReal = self.frame.dBA
 
-            # librosのA_weightingが期待される引数で呼び出されたことを確認
+            # A-weighting helper is called with expected arguments
             mock_a_weighting.assert_called_once()
             np.testing.assert_array_equal(mock_a_weighting.call_args[1]["frequencies"], self.frame.freqs)
 

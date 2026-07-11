@@ -14,8 +14,10 @@ from matplotlib.axes import Axes
 from scipy.io import wavfile
 
 import wandas as wd
+import wandas.processing as processing_module
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
+from wandas.pipeline import NodeGraphRecipeSpec
 from wandas.utils.types import NDArrayReal
 
 _da_from_array = da.from_array
@@ -67,6 +69,36 @@ class TestChannelFrame:
             _: NDArrayReal = self.channel_frame.data
             mock_compute.assert_called_once()
 
+    def test_add_with_snr_calls_operation_dependency_preflight(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        calls: list[str] = []
+
+        class FakeAddWithSNR:
+            name = "add_with_snr"
+            params = {"snr": 6.0}
+
+            def ensure_dependencies(self) -> None:
+                calls.append("ensure")
+
+            def process(self, data: DaArray, noise: DaArray) -> DaArray:
+                assert noise is other._data
+                calls.append("process")
+                return data
+
+        def fake_create_operation(operation_name: str, sampling_rate: float, **params: Any) -> FakeAddWithSNR:
+            assert operation_name == "add_with_snr"
+            assert sampling_rate == self.sample_rate
+            assert params["snr"] == 6.0
+            return FakeAddWithSNR()
+
+        monkeypatch.setattr(processing_module, "create_operation", fake_create_operation)
+        other = ChannelFrame(_da_from_array(np.zeros_like(self.data), chunks=(1, 4000)), self.sample_rate)
+
+        result = self.channel_frame.add(other, snr=6.0)
+
+        assert calls == ["ensure", "process"]
+        assert result is not self.channel_frame
+        assert result.labels == ["add_with_snr(ch0)", "add_with_snr(ch1)"]
+
     def test_compute_method(self) -> None:
         """Test explicit compute method."""
         with mock.patch.object(DaArray, "compute", return_value=self.data) as mock_compute:
@@ -81,6 +113,108 @@ class TestChannelFrame:
             mock_compute.assert_not_called()
             expected_time = np.arange(16000) / 16000
             np.testing.assert_array_equal(time, expected_time)
+
+    def test_source_time_adds_source_time_offset(self) -> None:
+        """Test source-relative time property."""
+        cf = ChannelFrame(self.dask_data, self.sample_rate, source_time_offset=2.5)
+
+        np.testing.assert_array_equal(cf.source_time_offset, np.array([2.5, 2.5]))
+        np.testing.assert_array_equal(cf.source_time, cf.time[None, :] + np.array([[2.5], [2.5]]))
+        xr = cf.to_xarray()
+        np.testing.assert_array_equal(xr.coords["source_time_offset"].values, np.array([2.5, 2.5]))
+        assert "source_time_offset" not in xr.attrs
+
+    def test_source_time_offset_accepts_per_channel_values(self) -> None:
+        """source_time_offset is stored per channel."""
+        cf = ChannelFrame(self.dask_data, self.sample_rate, source_time_offset=[2.5, 7.5])
+
+        np.testing.assert_array_equal(cf.source_time_offset, np.array([2.5, 7.5]))
+        np.testing.assert_array_equal(cf.source_time[:, 0], np.array([2.5, 7.5]))
+
+    def test_source_time_offset_rejects_wrong_channel_count(self) -> None:
+        """source_time_offset arrays must match the channel count."""
+        with pytest.raises(ValueError, match="source_time_offset length must match number of channels"):
+            ChannelFrame(self.dask_data, self.sample_rate, source_time_offset=[1.0])
+
+    def test_source_time_offset_rejects_multidimensional_values(self) -> None:
+        """source_time_offset must be scalar or channel-wise 1D."""
+        with pytest.raises(ValueError, match="source_time_offset must be a scalar or a 1D array"):
+            ChannelFrame(self.dask_data, self.sample_rate, source_time_offset=np.zeros((2, 1)))
+
+    def test_source_time_offset_rejects_non_finite_values(self) -> None:
+        """source_time_offset must remain finite."""
+        cf = ChannelFrame(self.dask_data, self.sample_rate)
+
+        with pytest.raises(ValueError, match="source_time_offset must be finite"):
+            cf.source_time_offset = float("nan")
+        with pytest.raises(ValueError, match="source_time_offset must be finite"):
+            cf.source_time_offset = float("inf")
+        with pytest.raises(TypeError, match="source_time_offset must be a finite numeric value"):
+            cast(Any, cf).source_time_offset = "not-a-number"
+
+    def test_time_slice_advances_source_time_offset(self) -> None:
+        """Continuous sample slicing advances source-relative time."""
+        result = self.channel_frame[:, 500:1500]
+
+        np.testing.assert_array_equal(result.source_time_offset, np.array([500 / self.sample_rate] * 2))
+        np.testing.assert_array_equal(result.source_time[:, 0], np.array([500 / self.sample_rate] * 2))
+
+    def test_stepped_time_slice_raises_for_source_time_offset(self) -> None:
+        """Stepped sample slicing would make source_time spacing ambiguous."""
+        with pytest.raises(ValueError, match="Stepped slicing on the time axis is not supported"):
+            _ = self.channel_frame[:, 500::2]
+
+    def test_point_time_selection_raises_for_source_time_offset(self) -> None:
+        """Point time selection is outside the offset-only continuous-slice model."""
+        with pytest.raises(ValueError, match="Only continuous slicing on the time axis is supported"):
+            _ = self.channel_frame[0, 500]
+
+    def test_fancy_time_selection_raises_for_source_time_offset(self) -> None:
+        """Fancy time selection may imply irregular time spacing."""
+        with pytest.raises(ValueError, match="Only continuous slicing on the time axis is supported"):
+            _ = self.channel_frame[:, [500, 700, 900]]
+
+    def test_positional_previous_constructor_argument_remains_compatible_after_history_removal(self) -> None:
+        """previous remains compatible at its new positional slot after removing legacy history."""
+        previous = ChannelFrame(self.dask_data, self.sample_rate)
+
+        cf = ChannelFrame(self.dask_data, self.sample_rate, None, None, None, None, previous)
+
+        assert cf.previous is previous
+        np.testing.assert_array_equal(cf.source_time_offset, np.array([0.0, 0.0]))
+
+    def test_constructor_rejects_legacy_history_provenance_kwargs(self) -> None:
+        """Legacy history/provenance names are not constructor state sources."""
+        with pytest.raises(TypeError, match="unexpected keyword argument 'operation_history'"):
+            ChannelFrame(self.dask_data, self.sample_rate, operation_history=[])  # ty: ignore[unknown-argument]
+        with pytest.raises(TypeError, match="unexpected keyword argument 'operation_graph'"):
+            ChannelFrame(self.dask_data, self.sample_rate, operation_graph={})  # ty: ignore[unknown-argument]
+        with pytest.raises(TypeError, match="unexpected keyword argument 'operations'"):
+            ChannelFrame(self.dask_data, self.sample_rate, operations=[])  # ty: ignore[unknown-argument]
+
+    def test_binary_op_allows_source_time_offset_mismatch_and_inherits_left_offset(self) -> None:
+        """Frame-frame binary ops are index-wise and keep the left source timeline."""
+        left = ChannelFrame(self.dask_data, self.sample_rate, source_time_offset=2.0)
+        right = ChannelFrame(self.dask_data, self.sample_rate, source_time_offset=7.0)
+
+        result = left + right
+
+        np.testing.assert_array_equal(result.compute(), self.data + self.data)
+        np.testing.assert_array_equal(result.source_time_offset, np.array([2.0, 2.0]))
+
+    def test_channel_difference_allows_per_channel_source_time_offset_mismatch(self) -> None:
+        """channel_difference is index-wise within one frame and keeps input offsets."""
+        frame = ChannelFrame(
+            self.dask_data,
+            self.sample_rate,
+            source_time_offset=[2.0, 7.0],
+        )
+
+        result = frame.channel_difference(other_channel=0)
+
+        expected = self.data - self.data[0]
+        np.testing.assert_array_equal(result.compute(), expected)
+        np.testing.assert_array_equal(result.source_time_offset, np.array([2.0, 7.0]))
 
     def test_operations_are_lazy(self) -> None:
         """Test that operations don't trigger immediate computation."""
@@ -235,6 +369,33 @@ class TestChannelFrame:
         assert isinstance(channels, ChannelFrame)
         assert channels.n_channels == 2
         np.testing.assert_array_equal(channels.data, self.data[[-1, -2]])
+
+    def test_get_channel_boolean_numpy_array(self) -> None:
+        """Test get_channel with a 1-D boolean mask."""
+        mask = np.array([False, True])
+        channels = self.channel_frame.get_channel(mask)
+
+        assert isinstance(channels, ChannelFrame)
+        assert channels.n_channels == 1
+        assert channels.channels[0].label == "ch1"
+        assert channels.operation_history[-1] == {
+            "operation": "get_channel",
+            "params": {"channel_mask": [False, True]},
+        }
+        assert isinstance(channels._data, DaArray)
+        np.testing.assert_array_equal(channels.data, self.data[1])
+
+    @pytest.mark.parametrize(
+        "mask",
+        [
+            np.array([True]),
+            np.array([[False, True]]),
+            np.array([[False], [True]]),
+        ],
+    )
+    def test_get_channel_boolean_numpy_array_rejects_invalid_masks(self, mask: np.ndarray[Any, Any]) -> None:
+        with pytest.raises(ValueError, match="Boolean mask"):
+            self.channel_frame.get_channel(mask)
 
     def test_get_channel_with_range(self) -> None:
         """Test get_channel with range object."""
@@ -445,6 +606,136 @@ def test_add_channel_inplace_updates_original() -> None:
     base.add_channel(np.zeros(6), label="new_ch", inplace=True)
     assert base.n_channels == orig_n + 1
     assert any(ch.label == "new_ch" for ch in base._channel_metadata)
+    assert base.operation_history[-1]["operation"] == "add_channel"
+
+
+def test_add_channel_inplace_preserves_replayable_lineage() -> None:
+    base = ChannelFrame(data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)), sampling_rate=16000)
+
+    base.add_channel(np.ones(6), label="new_ch", inplace=True)
+
+    recipe = NodeGraphRecipeSpec.from_frame(base, input_names=("base", "new_data"))
+    replayed = recipe.apply(
+        {
+            "base": ChannelFrame(data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)), sampling_rate=16000),
+            "new_data": np.ones(6),
+        }
+    )
+
+    assert replayed.labels == ["ch0", "new_ch"]
+    np.testing.assert_allclose(replayed.data, base.data)
+
+
+def test_channel_update_helpers_preserve_source_time_offset() -> None:
+    base = ChannelFrame(
+        data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)),
+        sampling_rate=16000,
+        source_time_offset=2.5,
+    )
+
+    added = base.add_channel(np.zeros(6), label="new_ch")
+    removed = added.remove_channel("new_ch")
+
+    np.testing.assert_array_equal(added.source_time_offset, np.array([2.5, 0.0]))
+    np.testing.assert_array_equal(removed.source_time_offset, np.array([2.5]))
+
+
+def test_add_channel_numpy_raw_uses_explicit_source_time_offset() -> None:
+    base = ChannelFrame(
+        data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)),
+        sampling_rate=16000,
+        source_time_offset=2.5,
+    )
+
+    added = base.add_channel(np.zeros(6), label="new_ch", source_time_offset=5.0)
+
+    np.testing.assert_array_equal(added.source_time_offset, np.array([2.5, 5.0]))
+    np.testing.assert_array_equal(added.source_time[:, 0], np.array([2.5, 5.0]))
+
+
+def test_add_channel_dask_raw_uses_explicit_source_time_offset_and_stays_lazy() -> None:
+    base = ChannelFrame(
+        data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)),
+        sampling_rate=16000,
+        source_time_offset=2.5,
+    )
+    raw_channel = _da_from_array(np.ones(6), chunks=3)
+    history_before = list(base.operation_history)
+
+    added = base.add_channel(raw_channel, label="new_ch", source_time_offset=[5.0])
+
+    assert isinstance(added._data, DaArray)
+    assert base.operation_history == history_before
+    assert added.operation_history == [
+        {
+            "operation": "add_channel",
+            "params": {
+                "align": "strict",
+                "input_kind": "dask.array",
+                "label": "new_ch",
+                "source_time_offset": [5.0],
+                "suffix_on_dup": None,
+            },
+        }
+    ]
+    np.testing.assert_array_equal(added.source_time_offset, np.array([2.5, 5.0]))
+
+
+@pytest.mark.parametrize(
+    ("source_time_offset", "error_type", "match"),
+    [
+        ([1.0, 2.0], ValueError, "source_time_offset length must match number of channels"),
+        (float("nan"), ValueError, "source_time_offset must be finite"),
+        (float("inf"), ValueError, "source_time_offset must be finite"),
+        ("not-a-number", TypeError, "source_time_offset must be a finite numeric value"),
+        (np.zeros((1, 1)), ValueError, "source_time_offset must be a scalar or a 1D array"),
+    ],
+)
+def test_add_channel_raw_source_time_offset_validation(
+    source_time_offset: Any,
+    error_type: type[Exception],
+    match: str,
+) -> None:
+    base = ChannelFrame(data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)), sampling_rate=16000)
+
+    with pytest.raises(error_type, match=match):
+        base.add_channel(np.zeros(6), label="new_ch", source_time_offset=source_time_offset)
+
+
+def test_add_channel_frame_preserves_per_channel_source_time_offsets() -> None:
+    base = ChannelFrame(
+        data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)),
+        sampling_rate=16000,
+        source_time_offset=2.5,
+    )
+    other = ChannelFrame(
+        data=_da_from_array(np.ones((2, 6)), chunks=(1, -1)),
+        sampling_rate=16000,
+        channel_metadata=[{"label": "other0"}, {"label": "other1"}],
+        source_time_offset=[5.0, 8.0],
+    )
+
+    added = base.add_channel(other)
+
+    np.testing.assert_array_equal(added.source_time_offset, np.array([2.5, 5.0, 8.0]))
+    np.testing.assert_array_equal(added.source_time[:, 0], np.array([2.5, 5.0, 8.0]))
+
+
+def test_add_channel_frame_rejects_explicit_source_time_offset() -> None:
+    base = ChannelFrame(
+        data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)),
+        sampling_rate=16000,
+        source_time_offset=2.5,
+    )
+    other = ChannelFrame(
+        data=_da_from_array(np.ones((1, 6)), chunks=(1, -1)),
+        sampling_rate=16000,
+        channel_metadata=[{"label": "other0"}],
+        source_time_offset=5.0,
+    )
+
+    with pytest.raises(ValueError, match="source_time_offset cannot be used when adding a ChannelFrame"):
+        base.add_channel(other, source_time_offset=9.0)
 
 
 def test_add_channel_unsupported_type_raises() -> None:
@@ -466,8 +757,10 @@ def test_add_channel_with_channelframe_align_pad_and_truncate() -> None:
     assert out.n_samples == base.n_samples
     assert out.n_channels == 2
     assert base.n_channels == 1  # Pillar 1: original unchanged
-    # Pillar 2: structural op leaves history unchanged
-    assert len(out.operation_history) == len(base.operation_history)
+    assert out.operation_history[-1] == {
+        "operation": "add_channel",
+        "params": {"align": "pad", "input_kind": "frame", "label": None, "suffix_on_dup": None},
+    }
 
     # longer incoming frame -> truncate
     other_long = ChannelFrame(data=_da_from_array(np.zeros((1, 20)), chunks=(1, -1)), sampling_rate=16000)
@@ -477,8 +770,10 @@ def test_add_channel_with_channelframe_align_pad_and_truncate() -> None:
     assert out2 is not base  # Pillar 1: immutability
     assert out2.n_samples == base.n_samples
     assert out2.n_channels == 2
-    # Pillar 2: structural op leaves history unchanged
-    assert len(out2.operation_history) == len(base.operation_history)
+    assert out2.operation_history[-1] == {
+        "operation": "add_channel",
+        "params": {"align": "truncate", "input_kind": "frame", "label": None, "suffix_on_dup": None},
+    }
 
 
 def test_remove_channel_index_out_of_range_raises() -> None:
@@ -1055,6 +1350,8 @@ def test_describe_plot_return_type_error() -> None:
                 cf = ChannelFrame.from_file(temp_filename, channel=0, start=0.1, end=0.5)
                 # assert cf.metadata["channels"] == [0]
                 assert cf.channels[0].label == "ch0"
+                np.testing.assert_array_equal(cf.source_time_offset, np.array([0.1]))
+                np.testing.assert_array_equal(cf.source_time[:, 0], np.array([0.1]))
                 # Test with multiple channels
                 cf = ChannelFrame.from_file(temp_filename, channel=[0, 1])
                 # assert cf.metadata["channels"] == [0, 1]
@@ -1274,11 +1571,8 @@ def test_describe_plot_return_type_error() -> None:
             # Test with normalize=False and is_close=False
             self.channel_frame.describe(normalize=False, is_close=False)
 
-            # Verify Audio was called with normalize=False
-            for call in mock_audio.call_args_list:
-                assert call[1].get("normalize") is False
-
-            # Verify plt.close was not called
+            # Returning figures skips interactive audio/display and leaves figures open.
+            mock_audio.assert_not_called()
             mock_close.assert_not_called()
 
     def test_describe_backward_compatibility_warning(self) -> None:
@@ -1402,8 +1696,8 @@ class TestDescribeIntegration:
         ):
             self.channel_frame.describe(is_close=False)
 
-            # Verify plot was created (display was called)
-            assert mock_display.call_count > 0
+            # Returning figures skips interactive display.
+            mock_display.assert_not_called()
 
     def test_describe_integration_stft_computation(self) -> None:
         """Test that describe() computes STFT correctly."""
@@ -1533,6 +1827,19 @@ class TestDescribeIntegration:
 
         expected_data = np.loadtxt(io.BytesIO(csv_bytes), delimiter=",", skiprows=1).T
         np.testing.assert_array_equal(cf.data, expected_data[1:])
+
+    def test_from_file_csv_uses_time_column_origin_for_source_time(self) -> None:
+        """CSV source time starts at the selected time-column value."""
+        header = "time,value1,value2\n"
+        data = "\n".join([f"{10 + i / 10},{1.1},{2.2}" for i in range(20)])
+        csv_bytes = (header + data).encode()
+
+        cf = ChannelFrame.from_file(csv_bytes, file_type=".csv", time_column=0, start=0.5)
+
+        assert cf.sampling_rate == 10
+        assert cf.n_samples == 15
+        np.testing.assert_array_equal(cf.source_time_offset, np.array([10.5, 10.5]))
+        np.testing.assert_array_equal(cf.source_time[:, 0], np.array([10.5, 10.5]))
 
     def test_from_file_bytes_requires_file_type(self) -> None:
         """Test in-memory data requires file_type."""
@@ -2142,7 +2449,7 @@ class TestFadeIntegration:
         assert processed.n_channels == 1
         assert processed.n_samples == self.channel_frame.n_samples
 
-        # Check that operation history is recorded
+        # Check the lineage-derived operation history view
         assert len(processed.operation_history) == 2
         assert processed.operation_history[0]["operation"] == "fade"
         assert processed.operation_history[1]["operation"] == "normalize"
@@ -2160,7 +2467,7 @@ class TestFadeIntegration:
         assert isinstance(processed, ChannelFrame)
         assert processed.sampling_rate == self.sample_rate
 
-        # Check operation history
+        # Check the operation history view
         assert len(processed.operation_history) == 2
         assert processed.operation_history[0]["operation"] == "fade"
         assert processed.operation_history[1]["operation"] == "lowpass_filter"
@@ -2195,7 +2502,7 @@ class TestFadeIntegration:
         # Should work correctly
         assert isinstance(processed, ChannelFrame)
         assert processed.n_channels == 1
-        assert processed.operation_history[-1]["operation"] == "fade"
+        assert [record["operation"] for record in processed.operation_history] == ["fade", "get_channel"]
 
     def test_fade_with_arithmetic_operations(self) -> None:
         """Test fade with arithmetic operations."""
@@ -2225,7 +2532,7 @@ class TestFadeIntegration:
         assert faded.channels[0]["gain"] == 0.8
         assert faded.metadata["test_key"] == "test_value"
 
-        # Check operation history
+        # Check the operation history view
         assert faded.operation_history[0]["operation"] == "fade"
         assert faded.operation_history[0]["params"]["fade_ms"] == 50.0
 

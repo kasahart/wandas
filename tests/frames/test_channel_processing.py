@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 
 import dask.array as da
@@ -5,9 +6,12 @@ import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 
-from wandas.core.metadata import FrameMetadata
 from wandas.frames.channel import ChannelFrame, ChannelMetadata
 from wandas.frames.spectral import SpectralFrame
+from wandas.processing.base import _OPERATION_REGISTRY, AudioOperation, LineageNode, register_operation
+from wandas.processing.effects import Normalize
+from wandas.processing.temporal import Trim
+from wandas.utils.types import NDArrayReal
 from wandas.utils.util import calculate_rms
 
 _da_from_array = da.from_array
@@ -118,6 +122,151 @@ class TestChannelProcessing:
         np.testing.assert_array_almost_equal(computed, self.data + 1.5)
         assert func.call_count == 1
 
+    def test_apply_custom_function_lineage_callable_is_read_only(self) -> None:
+        """Custom operation callable cannot be swapped before lazy compute."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
+        )
+
+        result = frame.apply(lambda x: x + 1.0, output_shape_func=lambda shape: shape)
+        assert result.lineage is not None
+        op = result.lineage.operation
+
+        with pytest.raises(AttributeError):
+            setattr(op, "func", lambda x: x * 0)
+
+        np.testing.assert_array_equal(result.compute(), self.data + 1.0)
+
+    def test_apply_custom_function_rejects_pure_reserved_argument(self) -> None:
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
+        )
+
+        def add_for_pure_arg(x: np.ndarray, pure: bool) -> np.ndarray:
+            return x + (1.0 if pure else 2.0)
+
+        with pytest.raises(ValueError, match="Parameter name conflict"):
+            frame.apply(add_for_pure_arg, output_shape_func=lambda shape: shape, pure=False)
+
+    def test_apply_custom_function_defaults_to_dask_pure(self) -> None:
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
+        )
+
+        result = frame.apply(lambda x: x, output_shape_func=lambda shape: shape)
+
+        assert result.lineage is not None
+        assert result.lineage.operation.pure is True
+
+    def test_apply_custom_function_dask_pure_controls_operation_not_history_params(self) -> None:
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
+        )
+
+        result = frame.apply(
+            lambda x, user_param: x + user_param,
+            output_shape_func=lambda shape: shape,
+            dask_pure=False,
+            user_param=1.5,
+        )
+
+        assert result.lineage is not None
+        assert result.lineage.operation.pure is False
+        assert result.lineage.operation.params == {"user_param": 1.5}
+        assert result.operation_history[-1]["params"] == {"user_param": 1.5}
+
+    def test_apply_custom_function_params_copy_mutation_does_not_change_history_or_compute(self) -> None:
+        """Custom operation params are defensive views for history and compute."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
+        )
+
+        result = frame.apply(lambda x, gain: x * gain, output_shape_func=lambda shape: shape, gain=2.0)
+        assert result.lineage is not None
+        op = result.lineage.operation
+        params = op.params.copy()
+        params["gain"] = 0.0
+
+        np.testing.assert_array_equal(result.compute(), self.data * 2.0)
+        assert result.operation_history[-1]["params"] == {"gain": 2.0}
+
+    def test_apply_custom_function_mutating_nested_param_does_not_change_history_or_compute(self) -> None:
+        """Custom functions receive per-call config snapshots for mutable kwargs."""
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
+        )
+
+        def mutating_scale(x: np.ndarray, config: dict[str, float]) -> np.ndarray:
+            gain = config["gain"]
+            config["gain"] = 99.0
+            return x * gain
+
+        result = frame.apply(mutating_scale, output_shape_func=lambda shape: shape, config={"gain": 2.0})
+
+        np.testing.assert_array_equal(result.compute(), self.data * 2.0)
+        np.testing.assert_array_equal(result.compute(), self.data * 2.0)
+        assert result.operation_history[-1]["params"] == {"config": {"gain": 2.0}}
+
+    def test_registered_operation_params_copy_mutation_does_not_change_history_or_compute(self) -> None:
+        """Registered operation params are defensive views for history and compute."""
+
+        class ParamsDrivenGain(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "test_params_driven_gain"
+
+            def __init__(self, sampling_rate: float, gain: float):
+                self._gain = gain
+                super().__init__(sampling_rate, gain=gain)
+
+            def to_params(self) -> dict[str, float]:
+                return {"gain": self._gain}
+
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                return x * self.params["gain"]
+
+        frame = ChannelFrame(
+            data=self.dask_data,
+            sampling_rate=self.sample_rate,
+            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
+        )
+
+        register_operation(ParamsDrivenGain)
+        try:
+            result = frame.apply_operation("test_params_driven_gain", gain=2.0)
+        finally:
+            _OPERATION_REGISTRY.pop("test_params_driven_gain", None)
+
+        assert result.lineage is not None
+        op = result.lineage.operation
+        params = op.params.copy()
+        params["gain"] = 0.0
+
+        np.testing.assert_array_equal(result.compute(), self.data * 2.0)
+        assert result.operation_history[-1]["params"] == {"gain": 2.0}
+
+    def test_compute_scalar_metric_uses_direct_operation_kernel(self) -> None:
+        """Scalar metric helpers call the concrete kernel after materializing frame data."""
+        frame = ChannelFrame(data=self.dask_data, sampling_rate=self.sample_rate)
+
+        class ChannelMean:
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                return x.mean(axis=1)
+
+        result = frame._compute_scalar_metric(ChannelMean())
+
+        np.testing.assert_array_equal(result, np.mean(self.data, axis=1))
+
     def test_apply_custom_updates_history_metadata_and_labels(self) -> None:
         """
         Custom apply should update history, metadata, and labels using display name.
@@ -140,12 +289,12 @@ class TestChannelProcessing:
         assert last_op["operation"] == "custom"
         assert last_op["params"] == {"bias": 0.0}
 
-        # Metadata should include the new entry while preserving existing keys
+        # Metadata should preserve user/domain keys without duplicating operation params.
         assert frame.metadata == {"source": "test"}
-        assert result.metadata == {"source": "test", "custom": {"bias": 0.0}}
+        assert result.metadata == {"source": "test"}
 
         # Channel labels should use display name from callable __name__
-        assert result.labels == ["fancy(sig)"]
+        assert result.labels == ["fancy(sig)", "fancy(ch1)"]
 
     def test_apply_custom_label_fallback_to_custom_name(self) -> None:
         """When callable lacks __name__, label should fall back to 'custom'."""
@@ -161,7 +310,7 @@ class TestChannelProcessing:
         )
 
         result = frame.apply(CallableObj())
-        assert result.labels == ["custom(sig)"]
+        assert result.labels == ["custom(sig)", "custom(ch1)"]
 
     def test_apply_with_sr_in_params(self) -> None:
         """
@@ -212,14 +361,14 @@ class TestChannelProcessing:
         def rfft_transform(x: np.ndarray) -> np.ndarray:
             return np.fft.rfft(x, axis=-1)
 
-        metadata = FrameMetadata({"source": "test"}, source_file="input.wav")
-        operation_history = [{"operation": "normalize", "params": {"method": "peak"}}]
+        metadata = {"source": "test", "_source_file": "input.wav"}
+        lineage = LineageNode(Normalize(self.sample_rate))
 
         frame = ChannelFrame(
             data=self.dask_data,
             sampling_rate=self.sample_rate,
             metadata=metadata,
-            operation_history=operation_history,
+            lineage=lineage,
             channel_metadata=[{"label": "sig0", "unit": "V", "extra": {}}, {"label": "sig1", "unit": "V", "extra": {}}],
             label="time_signal",
         )
@@ -239,14 +388,11 @@ class TestChannelProcessing:
         assert result.label == frame.label
         assert frame.labels == ["sig0", "sig1"]
         assert result.labels == ["rfft_transform(sig0)", "rfft_transform(sig1)"]
-        assert result.metadata == {"source": "test", "custom": {}}
-        assert result.metadata.source_file == "input.wav"
-        assert frame.metadata.source_file == "input.wav"
-        assert frame.operation_history == operation_history
-        assert result.operation_history == [
-            {"operation": "normalize", "params": {"method": "peak"}},
-            {"operation": "custom", "params": {}},
-        ]
+        assert result.metadata == {"source": "test", "_source_file": "input.wav"}
+        assert result.metadata["_source_file"] == "input.wav"
+        assert frame.metadata["_source_file"] == "input.wav"
+        assert frame.operation_history[0]["operation"] == "normalize"
+        assert [record["operation"] for record in result.operation_history] == ["normalize", "custom"]
         assert result.shape == (2, self.data.shape[1] // 2 + 1)
 
         computed = result.compute()
@@ -404,9 +550,11 @@ class TestChannelProcessing:
             # Check no computation happened yet
             mock_compute.assert_not_called()
 
-            # Verify result is the expected type
-            assert isinstance(sum_cf, ChannelFrame)
-            assert sum_cf.n_channels == 1
+        # Verify result is the expected type
+        assert isinstance(sum_cf, ChannelFrame)
+        assert sum_cf.n_channels == 1
+        assert sum_cf.lineage is not None
+        assert sum_cf.lineage.operation.name == "sum"
 
         # Test correctness of computation result
         sum_cf = self.channel_frame.sum()
@@ -414,6 +562,10 @@ class TestChannelProcessing:
         expected_sum = self.data.sum(axis=-2, keepdims=True)
         # Direct numpy sum — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(sum_data, expected_sum)
+        assert [record["operation"] for record in self.channel_frame.normalize().sum().operation_history] == [
+            "normalize",
+            "sum",
+        ]
 
     def test_mean_methods(self) -> None:
         """Test mean() methods."""
@@ -425,9 +577,11 @@ class TestChannelProcessing:
             # Check no computation happened yet
             mock_compute.assert_not_called()
 
-            # Verify result is the expected type
-            assert isinstance(mean_cf, ChannelFrame)
-            assert mean_cf.n_channels == 1
+        # Verify result is the expected type
+        assert isinstance(mean_cf, ChannelFrame)
+        assert mean_cf.n_channels == 1
+        assert mean_cf.lineage is not None
+        assert mean_cf.lineage.operation.name == "mean"
 
         # Compute and check results
         mean_cf = self.channel_frame.mean()
@@ -435,6 +589,26 @@ class TestChannelProcessing:
         expected_mean = self.data.mean(axis=-2, keepdims=True)
         # Direct numpy mean — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(mean_data, expected_mean)
+
+    def test_reduce_channels_resets_mismatched_source_time_offsets(self) -> None:
+        """Channel reduction resets source timeline metadata."""
+        self.channel_frame.source_time_offset = [0.0, 5.0]
+
+        sum_cf = self.channel_frame.sum()
+        mean_cf = self.channel_frame.mean()
+
+        np.testing.assert_array_equal(sum_cf.source_time_offset, np.array([0.0]))
+        np.testing.assert_array_equal(mean_cf.source_time_offset, np.array([0.0]))
+
+    def test_reduce_channels_preserves_shared_source_time_offset(self) -> None:
+        """Channel reduction preserves a shared source timeline."""
+        self.channel_frame.source_time_offset = [5.0, 5.0]
+
+        sum_cf = self.channel_frame.sum()
+        mean_cf = self.channel_frame.mean()
+
+        np.testing.assert_array_equal(sum_cf.source_time_offset, np.array([5.0]))
+        np.testing.assert_array_equal(mean_cf.source_time_offset, np.array([5.0]))
 
     def test_channel_difference(self) -> None:
         """Test channel_difference method."""
@@ -464,6 +638,16 @@ class TestChannelProcessing:
         # Element-wise subtraction — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(computed, expected)
 
+    def test_channel_difference_preserves_each_output_source_time_offset(self) -> None:
+        """Channel difference is index-wise and keeps each output channel's timeline."""
+        self.channel_frame.source_time_offset = [0.0, 5.0]
+
+        diff_cf = self.channel_frame.channel_difference(other_channel=0)
+
+        np.testing.assert_array_equal(diff_cf.source_time_offset, np.array([0.0, 5.0]))
+
+    def test_channel_difference_invalid_channel(self) -> None:
+        """Test invalid channel index."""
         # Test invalid channel index
         with pytest.raises(IndexError):
             self.channel_frame.channel_difference(other_channel=10)
@@ -475,16 +659,26 @@ class TestChannelProcessing:
         assert isinstance(trimmed_frame, ChannelFrame)
         assert trimmed_frame.n_samples == int(0.4 * self.sample_rate)
         assert trimmed_frame.n_channels == self.channel_frame.n_channels
+        np.testing.assert_array_equal(trimmed_frame.source_time_offset, np.array([0.1, 0.1]))
+        np.testing.assert_array_equal(trimmed_frame.source_time[:, 0], np.array([0.1, 0.1]))
 
         # Test trimming with only start time
         trimmed_frame = self.channel_frame.trim(start=0.2)
         assert isinstance(trimmed_frame, ChannelFrame)
         assert trimmed_frame.n_samples == int(0.8 * self.sample_rate)
+        np.testing.assert_array_equal(trimmed_frame.source_time_offset, np.array([0.2, 0.2]))
 
         # Test trimming with only end time
         trimmed_frame = self.channel_frame.trim(end=0.3)
         assert isinstance(trimmed_frame, ChannelFrame)
         assert trimmed_frame.n_samples == int(0.3 * self.sample_rate)
+
+        # Non-sample-aligned trim starts report the actual sliced sample time.
+        sample_data = _da_from_array(np.arange(1000, dtype=np.float64).reshape(1, -1), chunks=(1, -1))
+        sample_frame = ChannelFrame(sample_data, sampling_rate=1000)
+        trimmed_frame = sample_frame.trim(start=0.1005, end=0.2)
+        np.testing.assert_array_equal(trimmed_frame.source_time_offset, np.array([0.1]))
+        np.testing.assert_array_equal(trimmed_frame.source_time[:, 0], np.array([0.1]))
 
         # Test trimming with no start or end (should return the same frame)
         trimmed_frame = self.channel_frame.trim()
@@ -494,6 +688,22 @@ class TestChannelProcessing:
         # Test trimming with invalid start and end times
         with pytest.raises(ValueError):
             self.channel_frame.trim(start=0.5, end=0.1)
+
+    def test_trim_operation_sample_bounds_are_read_only_in_lineage(self) -> None:
+        data = np.arange(10, dtype=np.float64).reshape(1, -1)
+        frame = ChannelFrame(_da_from_array(data, chunks=(1, -1)), sampling_rate=10)
+
+        trimmed_frame = frame.trim(start=0.2, end=0.5)
+        assert trimmed_frame.lineage is not None
+        trim_op = trimmed_frame.lineage.operation
+        assert isinstance(trim_op, Trim)
+
+        with pytest.raises(AttributeError):
+            setattr(trim_op, "start_sample", 0)
+
+        assert trim_op.start_sample == 2
+        assert trim_op.end_sample == 5
+        np.testing.assert_array_equal(trimmed_frame.compute(), data[:, 2:5])
 
     def test_hpss_operations(self) -> None:
         """Test HPSS (Harmonic-Percussive Source Separation) methods."""
@@ -577,6 +787,92 @@ class TestChannelProcessing:
         assert isinstance(neg_computed, np.ndarray)
         assert neg_computed.shape == (2, 16000)
 
+    def test_add_with_snr_merges_other_frame_operations(self) -> None:
+        """SNR add preserves lineage from both operands."""
+        signal_cf = ChannelFrame(_da_from_array(np.ones((1, 16000)), chunks=(1, -1)), self.sample_rate)
+        noise_cf = ChannelFrame(_da_from_array(np.ones((1, 16000)) * 0.1, chunks=(1, -1)), self.sample_rate)
+
+        signal = signal_cf.normalize()
+        result = signal.add(noise_cf.low_pass_filter(cutoff=1000), snr=10.0)
+
+        assert [record["operation"] for record in result.operation_history] == [
+            "normalize",
+            "lowpass_filter",
+            "add_with_snr",
+        ]
+        assert result.operation_graph is not None
+        assert [node["operation"] for node in result.operation_graph["inputs"]] == ["normalize", "lowpass_filter"]
+        assert result.previous is signal
+
+    def test_add_with_snr_records_json_serializable_noise_param(self) -> None:
+        signal_cf = ChannelFrame(_da_from_array(np.ones((1, 16000)), chunks=(1, -1)), self.sample_rate)
+        noise_cf = ChannelFrame(_da_from_array(np.ones((1, 16000)) * 0.1, chunks=(1, -1)), self.sample_rate)
+
+        result = signal_cf.add(noise_cf, snr=10.0)
+
+        assert result.operation_history[-1]["params"] == {"snr": 10.0}
+        json.dumps(result.operation_history)
+        assert result.operation_graph is not None
+        assert [node["kind"] for node in result.operation_graph["inputs"]] == ["source", "source"]
+        json.dumps(result.operation_graph)
+        json.dumps(dict(result.metadata))
+        assert result.lineage is not None
+        assert result.lineage.operation.params == result.lineage.operation.params
+
+    def test_add_with_snr_rejects_broadcast_to_more_channels(self) -> None:
+        signal = ChannelFrame(_da_from_array(np.ones((1, 16000)), chunks=(1, -1)), self.sample_rate)
+        noise = ChannelFrame(_da_from_array(np.ones((2, 16000)) * 0.1, chunks=(1, -1)), self.sample_rate)
+
+        with pytest.raises(ValueError, match=r"Channel count mismatch for SNR addition"):
+            signal.add(noise, snr=6.0)
+
+    def test_add_with_snr_allows_single_noise_channel_for_multichannel_signal(self) -> None:
+        signal_data = np.ones((2, 16000), dtype=np.float64)
+        signal = ChannelFrame(_da_from_array(signal_data, chunks=(1, -1)), self.sample_rate)
+        noise = ChannelFrame(_da_from_array(np.ones((1, 16000)) * 0.1, chunks=(1, -1)), self.sample_rate)
+
+        result = signal.add(noise, snr=6.0)
+
+        assert result.n_channels == 2
+        assert result.compute().shape == signal_data.shape
+
+    def test_add_with_snr_rewrites_lineage_for_subclass_result_frame(self) -> None:
+        class LegacyChannelFrame(ChannelFrame):
+            def __init__(
+                self,
+                data,
+                sampling_rate,
+                label=None,
+                metadata=None,
+                channel_metadata=None,
+                channel_ids=None,
+                previous=None,
+                source_time_offset=0.0,
+                lineage=None,
+            ):
+                super().__init__(
+                    data=data,
+                    sampling_rate=sampling_rate,
+                    label=label,
+                    metadata=metadata,
+                    channel_metadata=channel_metadata,
+                    channel_ids=channel_ids,
+                    previous=previous,
+                    source_time_offset=source_time_offset,
+                    lineage=lineage,
+                )
+
+        signal_cf = LegacyChannelFrame(_da_from_array(np.ones((1, 16000)), chunks=(1, -1)), self.sample_rate)
+        noise_cf = ChannelFrame(_da_from_array(np.ones((1, 16000)) * 0.1, chunks=(1, -1)), self.sample_rate)
+
+        result = signal_cf.add(noise_cf.low_pass_filter(cutoff=1000), snr=10.0)
+
+        assert isinstance(result, LegacyChannelFrame)
+        assert result.operation_history[-1]["operation"] == "add_with_snr"
+        assert result.operation_graph is not None
+        assert [node["operation"] for node in result.operation_graph["inputs"]] == ["__source__", "lowpass_filter"]
+        assert result.operation_graph["inputs"][0]["kind"] == "source"
+
     def test_add_with_snr_numpy_array(self) -> None:
         """add(..., snr=...) should accept NumPy array inputs via ChannelFrame coercion."""
         signal_data = np.ones((2, 16000), dtype=np.float64)
@@ -590,7 +886,7 @@ class TestChannelProcessing:
         assert result.sampling_rate == self.sample_rate
         assert result.n_channels == 2
         assert result.n_samples == 16000
-        assert len(result.operation_history) > len(signal_cf.operation_history)
+        assert result.operation_history[-1] == {"operation": "add_with_snr", "params": {"snr": snr_db}}
         computed = result.compute()
         added_noise = computed - signal_data
         added_noise_rms = calculate_rms(added_noise)
@@ -601,6 +897,44 @@ class TestChannelProcessing:
         # atol=1e-3: SNR estimation from computed noise has small float64 rounding
         np.testing.assert_allclose(actual_snr, np.full_like(actual_snr, snr_db), atol=1e-3)
 
+    def test_add_with_snr_matches_processing_formula_and_two_parent_lineage(self) -> None:
+        """Frame SNR add delegates noise as a Dask input and records both parent branches."""
+        t = np.linspace(0, 1, 16000, endpoint=False)
+        clean = np.sin(2 * np.pi * 440 * t).reshape(1, -1)
+        noise = np.cos(2 * np.pi * 880 * t).reshape(1, -1)
+        signal_cf = ChannelFrame(_da_from_array(clean, chunks=(1, -1)), self.sample_rate)
+        noise_cf = ChannelFrame(_da_from_array(noise, chunks=(1, -1)), self.sample_rate)
+
+        signal = signal_cf.normalize()
+        noise_branch = noise_cf.low_pass_filter(cutoff=1200)
+        result = signal.add(noise_branch, snr=6.0)
+
+        clean_input = signal.compute()
+        noise_input = noise_branch.compute()
+        desired_noise_rms = calculate_rms(clean_input) / (10 ** (6.0 / 20))
+        expected = clean_input + noise_input * (desired_noise_rms / calculate_rms(noise_input))
+
+        np.testing.assert_allclose(result.compute(), expected)
+        assert result.operation_history[-1] == {"operation": "add_with_snr", "params": {"snr": 6.0}}
+        assert result.operation_graph is not None
+        assert [node["operation"] for node in result.operation_graph["inputs"]] == ["normalize", "lowpass_filter"]
+
+    def test_add_with_snr_shared_input_graph_keeps_shared_branch_once_per_parent_path(self) -> None:
+        data = _da_from_array(np.linspace(0.1, 1.0, 16000).reshape(1, -1), chunks=(1, -1))
+        base = ChannelFrame(data, self.sample_rate)
+        shared = base.normalize()
+        signal = shared.low_pass_filter(cutoff=3000)
+        noise = shared.high_pass_filter(cutoff=300)
+
+        result = signal.add(noise, snr=3.0)
+
+        operations = [record["operation"] for record in result.operation_history]
+        assert operations == ["normalize", "lowpass_filter", "normalize", "highpass_filter", "add_with_snr"]
+        assert result.operation_graph is not None
+        assert [node["operation"] for node in result.operation_graph["inputs"]] == ["lowpass_filter", "highpass_filter"]
+        shared_parents = [node["inputs"][0]["operation"] for node in result.operation_graph["inputs"]]
+        assert shared_parents == ["normalize", "normalize"]
+
     def test_add_with_snr_scalar_returns_direct_addition(self) -> None:
         """Scalar inputs should follow the direct-addition branch even when snr is provided."""
         scalar_value = 0.25
@@ -610,8 +944,9 @@ class TestChannelProcessing:
         assert isinstance(result, ChannelFrame)
         # Scalar broadcast addition — default rtol (exact match expected)
         np.testing.assert_allclose(result.compute(), self.data + scalar_value)
-        assert result.operation_history[-1] == {"operation": "+", "with": str(scalar_value)}
-        assert "snr" not in result.operation_history[-1]
+        assert result.operation_history[-1]["operation"] == "+"
+        assert result.operation_history[-1]["params"]["operand"] == {"type": "float", "value": scalar_value}
+        assert "snr" not in result.operation_history[-1]["params"]
 
     def test_add_with_snr_invalid_type_raises_type_error(self) -> None:
         """Unsupported add(..., snr=...) inputs should raise a targeted TypeError."""
@@ -642,6 +977,11 @@ class TestChannelProcessing:
         )  # SNR estimation noise floor
         assert np.all(computed[:, :8000] > 1.0)
         np.testing.assert_allclose(computed[:, 8000:], 1.0)  # Exact: zero-padded region unchanged
+
+    def test_apply_operation_rejects_add_with_snr_without_runtime_noise_input(self) -> None:
+        """Generic apply_operation cannot supply AddWithSNR's second runtime input."""
+        with pytest.raises(ValueError, match="Operation requires multiple runtime inputs"):
+            self.channel_frame.apply_operation("add_with_snr", snr=6.0)
 
     def test_add_with_different_lengths(self) -> None:
         """異なる長さの信号を加算するテスト。"""
@@ -723,7 +1063,7 @@ class TestChannelProcessing:
         """rms_trend後のChannelFrame属性を確認するテスト"""
         # 事前に属性をセット
         self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
+        self.channel_frame.metadata = {"foo": "bar"}
         self.channel_frame._channel_metadata = [
             ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
             ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
@@ -744,12 +1084,11 @@ class TestChannelProcessing:
         expected_sr = base.sampling_rate / hop_length if hop_length else base.sampling_rate
         assert result.sampling_rate == expected_sr
         assert result.label == base.label
-        # metadata: baseの内容が含まれていること、新しい操作分のキーが追加されていること
+        # metadata: base user/domain metadata is preserved without operation params duplication.
         for k, v in base.metadata.items():
             assert k in result.metadata
             assert result.metadata[k] == v
-        if op_key is not None:
-            assert op_key in result.metadata
+        assert result.metadata == base.metadata
         # _channel_metadata: unit="Pa"のrefが期待値通りか確認
         if hasattr(result, "_channel_metadata") and hasattr(base, "_channel_metadata"):
             for res_meta, base_meta in zip(result._channel_metadata, base._channel_metadata):
@@ -773,7 +1112,7 @@ class TestChannelProcessing:
         the frame label, metadata, and channel metadata in place.
         """
         self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = FrameMetadata({"foo": "bar"})
+        self.channel_frame.metadata = {"foo": "bar"}
         self.channel_frame._channel_metadata = [
             ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
             ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
@@ -1037,6 +1376,8 @@ class TestRoughnessOperations:
         first_op = result.operation_history[0]
         op_name = first_op.get("name") or first_op.get("operation")
         assert op_name == "roughness_dw_spec"
+        assert result.lineage is not None
+        assert result.lineage.operation.name == "roughness_dw_spec"
 
         # Compare with MoSQITo direct calculation
         computed_data = result.compute()
@@ -1046,6 +1387,47 @@ class TestRoughnessOperations:
             r_spec_direct,
             err_msg="Specific roughness values differ from MoSQITo calculation",
         )
+
+    def test_roughness_dw_spec_preserves_snapshot_backed_operation_summaries(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        class FakeRoughnessSpecOperation:
+            name = "roughness_dw_spec"
+            params = {"overlap": 0.5}
+
+            def process(self, data: DaArray) -> DaArray:
+                return da.ones((data.shape[0], 47, 2), chunks=(1, 47, 2))
+
+            def get_metadata_updates(self) -> dict[str, object]:
+                return {"sampling_rate": 10.0, "bark_axis": np.linspace(0.5, 23.5, 47)}
+
+            def to_params(self) -> dict[str, float]:
+                return {"overlap": 0.5}
+
+        def fake_create_operation(operation_name: str, sampling_rate: float, **params: object) -> object:
+            assert operation_name == "roughness_dw_spec"
+            assert sampling_rate == self.sample_rate
+            assert params == {"overlap": 0.5}
+            return FakeRoughnessSpecOperation()
+
+        monkeypatch.setattr(
+            "wandas.frames.mixins.channel_processing_mixin.create_operation",
+            fake_create_operation,
+        )
+        frame = ChannelFrame(
+            data=_da_from_array(np.ones((1, 16)), chunks=(1, -1)),
+            sampling_rate=self.sample_rate,
+            operation_summaries_snapshot=[{"operation": "loaded", "params": {}}],
+        )
+
+        result = frame.roughness_dw_spec(overlap=0.5)
+
+        assert [summary["operation"] for summary in result.operation_summaries] == [
+            "loaded",
+            "roughness_dw_spec",
+        ]
+        assert [record["operation"] for record in result.operation_history] == ["roughness_dw_spec"]
 
     def test_roughness_dw_spec_plot(self) -> None:
         """Test that roughness_dw_spec plot method works."""
@@ -1103,6 +1485,36 @@ class TestRoughnessOperations:
         assert roughness_spec.data.shape[1] == 47  # 47 Bark bands
 
 
+def test_roughness_dw_spec_preserves_source_channel_metadata_and_ids() -> None:
+    data = np.random.default_rng(123).random((2, 16000))
+    frame = ChannelFrame(
+        data=_da_from_array(data, chunks=(1, 4000)),
+        sampling_rate=_SAMPLE_RATE,
+        channel_metadata=[
+            ChannelMetadata(label="left", unit="Pa", ref=0.25, extra={"gain": 10}),
+            ChannelMetadata(label="right", unit="V", ref=0.5, extra={"gain": 20}),
+        ],
+        channel_ids=["left-id", "right-id"],
+        source_time_offset=3.25,
+    )
+
+    result = frame.roughness_dw_spec(overlap=0.5)
+
+    assert result.data.ndim == 3
+    assert result.data.shape[0] == 2
+    assert result.data.shape[1] == 47
+    np.testing.assert_array_equal(result.source_time_offset, np.array([3.25, 3.25]))
+    assert result._channel_ids == ["left-id", "right-id"]
+    assert result.channels[0].label == "left"
+    assert result.channels[0].unit == "Pa"
+    assert result.channels[0].ref == 0.25
+    assert result.channels[0].extra == {"gain": 10}
+    assert result.channels[1].label == "right"
+    assert result.channels[1].unit == "V"
+    assert result.channels[1].ref == 0.5
+    assert result.channels[1].extra == {"gain": 20}
+
+
 # --- Tests for channel_processing_mixin coverage gaps ---
 
 
@@ -1111,14 +1523,14 @@ def test_get_ref_values_empty_channel_metadata() -> None:
     cf = ChannelFrame.from_numpy(np.random.default_rng(42).random((2, 100)), sampling_rate=1000)
     cf._channel_metadata = []  # force empty
     result = cf._get_ref_values()
-    assert result == []
+    assert result == [1.0, 1.0]
 
 
 def test_reduce_channels_unsupported_op_raises() -> None:
     """_reduce_channels raises ValueError for unsupported operation (line 313)."""
     cf = ChannelFrame.from_numpy(np.random.default_rng(42).random((2, 100)), sampling_rate=1000)
     with pytest.raises(ValueError, match="Unsupported reduction operation"):
-        cf._reduce_channels("median")  # ty: ignore[call-non-callable]
+        cf._reduce_channels("median")
 
 
 def test_roughness_dw_spec_missing_bark_axis() -> None:

@@ -1,6 +1,5 @@
 from typing import Any
 
-import librosa
 import numpy as np
 from scipy.signal.windows import tukey
 
@@ -12,7 +11,7 @@ DB_FLOOR = 1e-12
 # Reference sound pressure for Pa-based channels (20 uPa, ISO 226).
 PA_REFERENCE = 2e-5
 
-# Minimum amplitude for librosa.amplitude_to_db to avoid log10(0).
+# Minimum amplitude for amplitude_to_db to avoid log10(0).
 DB_AMIN = 1e-15
 
 
@@ -157,7 +156,9 @@ def amplitude_to_db(amplitude: "NDArrayReal", ref: float) -> "NDArrayReal":
     NDArrayReal
         Amplitude data converted to decibels.
     """
-    db: NDArrayReal = librosa.amplitude_to_db(np.abs(amplitude), ref=ref, amin=DB_AMIN, top_db=None)
+    magnitude = np.abs(amplitude)
+    ref_magnitude = abs(ref)
+    db: NDArrayReal = 20.0 * np.log10(np.maximum(DB_AMIN, magnitude)) - 20.0 * np.log10(max(DB_AMIN, ref_magnitude))
     return db
 
 

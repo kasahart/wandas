@@ -1,11 +1,21 @@
+import copy
 import json
+from dataclasses import is_dataclass
 from typing import Any
 
-from wandas.core.metadata import ChannelMetadata, FrameMetadata
+import pytest
+
+from wandas.core.metadata import ChannelMetadata
 from wandas.utils.util import unit_to_ref
 
 
 class TestChannelMetadata:
+    def test_channel_metadata_is_dataclass(self) -> None:
+        """ChannelMetadata uses stdlib dataclass semantics."""
+        metadata = ChannelMetadata()
+
+        assert is_dataclass(metadata)
+
     def test_init_default_values_empty_strings_and_dict(self) -> None:
         """Test initialization with default values returns empty strings and dict."""
         metadata: ChannelMetadata = ChannelMetadata()
@@ -91,6 +101,10 @@ class TestChannelMetadata:
         assert metadata4.unit == "Pa"
         assert metadata4.ref == 0.5  # ref should not be overridden
 
+        metadata4b: ChannelMetadata = ChannelMetadata(unit="Pa", ref=1.0)
+        assert metadata4b.unit == "Pa"
+        assert metadata4b.ref == 1.0  # explicit ref should not be overridden
+
         # Case 7: Test with other units
         other_units = ["V", "m/s", "g"]
         for unit in other_units:
@@ -134,27 +148,81 @@ class TestChannelMetadata:
         assert metadata.extra["calibrated"] is True
         assert metadata.extra["notes"] == "Test recording"
 
-    def test_copy_deep_independent_from_original(self) -> None:
-        """Test deep copy is independent from original."""
-        metadata: ChannelMetadata = ChannelMetadata(
+    def test_from_json_preserves_explicit_unit_ref_one(self) -> None:
+        """JSON with explicit ref=1.0 preserves that value."""
+        metadata = ChannelMetadata.from_json('{"unit": "Pa", "ref": 1.0, "extra": {}}')
+
+        assert metadata.unit == "Pa"
+        assert metadata.ref == 1.0
+
+    def test_from_json_rejects_non_object_json(self) -> None:
+        """ChannelMetadata JSON must decode to an object."""
+        with pytest.raises(ValueError, match="ChannelMetadata JSON must decode to an object"):
+            ChannelMetadata.from_json('["not", "an", "object"]')
+
+    @pytest.mark.parametrize(
+        ("kwargs", "message"),
+        [
+            ({"label": 1}, "ChannelMetadata label must be a string"),
+            ({"unit": 1}, "ChannelMetadata unit must be a string"),
+            ({"ref": "bad"}, "ChannelMetadata ref must be a number"),
+            ({"ref": True}, "ChannelMetadata ref must be a number"),
+            ({"extra": []}, "ChannelMetadata extra must be a dictionary"),
+            ({"extra": None}, "ChannelMetadata extra must be a dictionary"),
+        ],
+    )
+    def test_init_rejects_invalid_field_types(self, kwargs: dict[str, Any], message: str) -> None:
+        """ChannelMetadata rejects invalid dataclass field types."""
+        with pytest.raises(TypeError, match=message):
+            ChannelMetadata(**kwargs)
+
+    def test_extra_dict_is_copied_from_caller_input(self) -> None:
+        """Caller-owned extra dictionaries are not stored directly."""
+        extra: dict[str, Any] = {"nested": {"gain": 10}}
+        metadata = ChannelMetadata(extra=extra)
+
+        extra["nested"]["gain"] = 99
+        extra["new"] = "value"
+
+        assert metadata.extra == {"nested": {"gain": 10}}
+
+    def test_from_json_rejects_explicit_null_extra(self) -> None:
+        """JSON extra must be a dictionary when explicitly provided."""
+        with pytest.raises(ValueError, match="ChannelMetadata extra must be a dictionary"):
+            ChannelMetadata.from_json('{"extra": null}')
+
+    def test_init_converts_numeric_ref_to_float(self) -> None:
+        """ChannelMetadata stores valid numeric ref values as floats."""
+        metadata = ChannelMetadata(ref=2)
+
+        assert metadata.ref == 2.0
+        assert isinstance(metadata.ref, float)
+
+    def test_from_json_wraps_malformed_json(self) -> None:
+        """Malformed JSON raises a ChannelMetadata-specific ValueError."""
+        with pytest.raises(ValueError, match="Invalid ChannelMetadata JSON:"):
+            ChannelMetadata.from_json("{")
+
+    def test_deepcopy_independent_from_original(self) -> None:
+        """Standard deepcopy is independent from original."""
+        metadata = ChannelMetadata(
             label="test_label",
             unit="Hz",
-            extra={"source": "microphone", "calibrated": True},
+            extra={"source": "microphone", "nested": {"gain": 10}},
         )
-        copy_mata: ChannelMetadata = metadata.model_copy(deep=True)
+        copied = copy.deepcopy(metadata)
 
-        # Verify all fields are equal
-        assert copy_mata.label == metadata.label
-        assert copy_mata.unit == metadata.unit
-        assert copy_mata.extra == metadata.extra
+        assert copied.label == metadata.label
+        assert copied.unit == metadata.unit
+        assert copied.extra == metadata.extra
 
-        # Verify it's a deep copy by modifying the original
         metadata.label = "modified_label"
         metadata.extra["new_key"] = "new_value"
+        metadata.extra["nested"]["gain"] = 99
 
-        # The copy should remain unchanged
-        assert copy_mata.label == "test_label"
-        assert "new_key" not in copy_mata.extra
+        assert copied.label == "test_label"
+        assert "new_key" not in copied.extra
+        assert copied.extra["nested"]["gain"] == 10
 
     def test_unicode_and_special_chars_roundtrip(self) -> None:
         """Test Unicode and special characters survive JSON round-trip."""
@@ -261,80 +329,3 @@ class TestChannelMetadata:
         assert metadata.unit == "Hz"
         assert metadata.ref == 0.75
         assert metadata.extra["new_key"] == "new_value"
-
-
-class TestFrameMetadata:
-    """Tests for FrameMetadata."""
-
-    def test_init_default_empty_dict_no_source(self) -> None:
-        """Empty FrameMetadata behaves like an empty dict with no source."""
-        meta = FrameMetadata()
-        assert meta.source_file is None
-        assert dict(meta) == {}
-
-    def test_init_source_file_preserved(self) -> None:
-        meta = FrameMetadata(source_file="audio.wav")
-        assert meta.source_file == "audio.wav"
-        assert dict(meta) == {}
-
-    def test_init_dict_content_and_source_file(self) -> None:
-        meta = FrameMetadata({"gain": 0.5, "device": "mic"}, source_file="test.wav")
-        assert meta.source_file == "test.wav"
-        assert meta["gain"] == 0.5
-        assert meta["device"] == "mic"
-
-    def test_dict_operations_setitem_contains_get(self) -> None:
-        meta = FrameMetadata({"a": 1})
-        meta["b"] = 2
-        assert "a" in meta
-        assert "b" in meta
-        assert meta.get("a") == 1
-        assert meta.get("missing") is None
-        assert list(meta.items()) == [("a", 1), ("b", 2)]
-
-    def test_equality_compares_dict_content_only(self) -> None:
-        meta = FrameMetadata({"x": 10}, source_file="file.wav")
-        assert meta == {"x": 10}
-
-    def test_copy_preserves_source_file_independent(self) -> None:
-        meta = FrameMetadata({"key": "val"}, source_file="orig.wav")
-        copied = meta.copy()
-        assert isinstance(copied, FrameMetadata)
-        assert copied.source_file == "orig.wav"
-        assert copied["key"] == "val"
-        # Modifying copy does not affect original
-        copied["key"] = "changed"
-        assert meta["key"] == "val"
-
-    def test_deepcopy_preserves_source_file_independent(self) -> None:
-        import copy
-
-        meta = FrameMetadata({"nested": {"n": 1}}, source_file="deep.wav")
-        cloned = copy.deepcopy(meta)
-        assert isinstance(cloned, FrameMetadata)
-        assert cloned.source_file == "deep.wav"
-        assert cloned["nested"] == {"n": 1}
-        # Modifying nested content in clone does not affect original
-        cloned["nested"]["n"] = 99
-        assert meta["nested"]["n"] == 1
-
-    def test_json_serializable_dict_portion(self) -> None:
-        meta = FrameMetadata({"rate": 44100}, source_file="audio.wav")
-        # json.dumps should only serialize the dict portion
-        data = json.loads(json.dumps(dict(meta)))
-        assert data == {"rate": 44100}
-
-    def test_repr_contains_class_name_and_source(self) -> None:
-        meta = FrameMetadata({"k": 1}, source_file="f.wav")
-        r = repr(meta)
-        assert "FrameMetadata" in r
-        assert "f.wav" in r
-
-    def test_bool_empty_is_falsy_nonempty_is_truthy(self) -> None:
-        assert not FrameMetadata()
-        assert FrameMetadata({"a": 1})
-
-    def test_unpack_operator_merges_with_dict(self) -> None:
-        meta = FrameMetadata({"a": 1, "b": 2}, source_file="s.wav")
-        merged = {**meta, "c": 3}
-        assert merged == {"a": 1, "b": 2, "c": 3}

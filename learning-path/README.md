@@ -15,9 +15,9 @@
 
 ## 📚 学習の流れ
 
-この学習パスは以下のノートブックで構成されています。各ノートブックは独立しており、順番に進めることも、興味のある部分だけを学ぶことも可能です。
+この学習パスは以下のmarimoアプリで構成されています。各アプリは独立しており、順番に進めることも、興味のある部分だけを学ぶことも可能です。
 
-### 1. [00_why_wandas.ipynb](00_why_wandas.ipynb) - Wandasとは何か
+### 1. [00_why_wandas.py](00_why_wandas.py) - Wandasとは何か
 
 **なぜWandasが必要なのか？**
 
@@ -25,15 +25,15 @@
 - Wandasの特徴と利点
 - どんな問題を解決できるか
 
-### 2. [01_getting_started.ipynb](01_getting_started.ipynb) - 環境構築とウォームアップ
+### 2. [01_getting_started.py](01_getting_started.py) - 環境構築とウォームアップ
 
 **Wandasを動かしてみよう**
 
 - インストールと環境設定
 - 最初の信号生成と可視化
-- Jupyter環境でのインタラクティブな操作
+- marimo環境での探索的な確認
 
-### 3. [02_working_with_data.ipynb](02_working_with_data.ipynb) - データの読み込みと操作
+### 3. [02_working_with_data.py](02_working_with_data.py) - データの読み込みと操作
 
 **現実のデータをWandasで扱う**
 
@@ -41,7 +41,7 @@
 - ChannelFrameデータ構造の理解
 - データのアクセスと基本操作
 
-### 4. [03_signal_processing_basics.ipynb](03_signal_processing_basics.ipynb) - 信号処理の基礎
+### 4. [03_signal_processing_basics.py](03_signal_processing_basics.py) - 信号処理の基礎
 
 **周波数分析とフィルタリング**
 
@@ -49,7 +49,7 @@
 - ローパス/ハイパス/バンドパスフィルター
 - 実践的なオーディオ処理例
 
-### 5. [04_advanced_signal_processing.ipynb](04_advanced_signal_processing.ipynb) - 高度な信号処理
+### 5. [04_advanced_processing.py](04_advanced_processing.py) - 高度な信号処理
 
 **スペクトログラムと時間周波数分析**
 
@@ -57,29 +57,49 @@
 - 時間周波数解析の応用
 - 信号の特徴抽出
 
+### 6. [05_custom_functions.py](05_custom_functions.py) - custom function
+
+**独自処理をWandasの操作として扱う**
+
+- custom operationの最小例
+- frame操作としての組み込み
+- 再利用しやすい処理単位の作り方
+
+### 7. [06_pipeline_recipe_ux.py](06_pipeline_recipe_ux.py) - Frame-first Recipe UX
+
+**探索解析を別データで再現する基本導線**
+
+- 通常のFrame method chainからRecipeを抽出
+- 別Frameへのreplayによる再現実験
+- `operation_history` による処理履歴の確認
+- 明示Recipe構築とsklearn adapterは任意セクションとして確認
+
 ## 🚀 学習を始める前に
 
 ### 必要な環境
 
 - Python 3.9+
-- Jupyter Notebook/Lab
+- marimo
 - 基本的な信号処理の知識（なくてもOK）
 
-## 📖 各ノートブックの特徴
+## 📖 各marimoアプリの特徴
 
-| ノートブック | 学習目標 | 実践要素 | 動機付け |
+| marimoアプリ | 学習目標 | 実践要素 | 動機付け |
 |-------------|---------|---------|---------|
 | 00_why_wandas | Wandas理解 | 概念説明 | なぜ必要か |
 | 01_getting_started | 環境構築 | インストール | すぐに始める |
 | 02_working_with_data | データ操作 | ファイルIO | データ活用 |
 | 03_signal_processing_basics | 基本処理 | フィルタリング | 信号改善 |
-| 04_advanced_signal_processing | 高度処理 | スペクトログラム | 特徴抽出 |
+| 04_advanced_processing | 高度処理 | スペクトログラム | 特徴抽出 |
+| 05_custom_functions | custom処理 | custom operation | 処理の再利用 |
+| 06_pipeline_recipe_ux | frame-first Recipe基本 | extract / replay | 探索解析の再現 |
 
 ## 🔗 関連リソース
 
 - [公式ドキュメント](https://kasahart.github.io/wandas/)
 - [GitHub リポジトリ](https://github.com/kasahart/wandas)
 - [API リファレンス](https://kasahart.github.io/wandas/api/)
+- [07_frame_centric_recipe_ux.py](07_frame_centric_recipe_ux.py) - Recipe UX設計検討用marimo。初学者向けの本線ではなく、graph recipe、terminal値、将来facade案を確認するための補助資料。
 
 ## 🤝 貢献とフィードバック
 

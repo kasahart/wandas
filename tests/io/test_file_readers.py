@@ -5,8 +5,11 @@ import numpy as np
 import pandas as pd
 import pytest
 import soundfile as sf
+from dask.array.core import Array as DaArray
 
+import wandas as wd
 import wandas.io.readers as readers
+from wandas.frames.channel import ChannelFrame
 from wandas.io.readers import (
     CSVFileReader,
     SoundFileReader,
@@ -15,8 +18,72 @@ from wandas.io.readers import (
     _prepare_file_source,
     get_file_reader,
     register_file_reader,
+    supported_formats,
 )
 from wandas.utils.types import NDArrayReal
+
+SUPPORTED_AUDIO_CASES = [
+    pytest.param(".wav", "WAV", "PCM_16", id="wav"),
+    pytest.param(".flac", "FLAC", "PCM_16", id="flac"),
+    pytest.param(".ogg", "OGG", "VORBIS", id="ogg-vorbis"),
+    pytest.param(".aiff", "AIFF", "PCM_16", id="aiff"),
+    pytest.param(".aif", "AIFF", "PCM_16", id="aif"),
+    pytest.param(".snd", "AU", "PCM_16", id="snd-au"),
+]
+
+
+@pytest.mark.parametrize(("extension", "file_format", "subtype"), SUPPORTED_AUDIO_CASES)
+def test_read_supported_audio_format_matches_soundfile_reference(
+    tmp_path: Path,
+    extension: str,
+    file_format: str,
+    subtype: str,
+) -> None:
+    """Every advertised audio extension is readable through the public API."""
+    sample_rate = 16_000
+    n_samples = 800
+    time = np.arange(n_samples, dtype=np.float32) / sample_rate
+    source = np.column_stack(
+        [
+            0.5 * np.sin(2 * np.pi * 440 * time),
+            0.25 * np.sin(2 * np.pi * 880 * time),
+        ]
+    ).astype(np.float32)
+    path = tmp_path / f"known_signal{extension}"
+    # Explicit containers keep aliases such as .aif and .snd independent of
+    # libsndfile's extension inference.
+    sf.write(path, source, sample_rate, format=file_format, subtype=subtype)
+    expected, expected_sample_rate = sf.read(path, dtype="float32", always_2d=True)
+
+    frame = wd.read(path, normalize=True)
+
+    assert isinstance(frame, ChannelFrame)
+    assert frame.sampling_rate == expected_sample_rate
+    assert frame.n_channels == 2
+    assert frame._data.shape == (2, n_samples)
+    assert isinstance(frame._data, DaArray)
+    # Wrapper equivalence: Wandas and the authoritative SoundFile read must agree.
+    np.testing.assert_allclose(frame.data, expected.T)
+
+
+@pytest.mark.parametrize(("extension", "file_format", "subtype"), SUPPORTED_AUDIO_CASES)
+def test_read_supported_audio_format_accepts_uppercase_extension(
+    tmp_path: Path,
+    extension: str,
+    file_format: str,
+    subtype: str,
+) -> None:
+    """Reader dispatch normalizes uppercase advertised extensions."""
+    sample_rate = 8_000
+    source = np.zeros((80, 1), dtype=np.float32)
+    path = tmp_path / f"silence{extension.upper()}"
+    sf.write(path, source, sample_rate, format=file_format, subtype=subtype)
+
+    frame = wd.read(path, normalize=True)
+
+    assert frame.sampling_rate == sample_rate
+    assert frame.n_channels == 1
+    np.testing.assert_array_equal(frame.data, np.zeros(80, dtype=np.float32))
 
 
 class TestSoundFileReader:
@@ -293,6 +360,38 @@ class TestFileReaderHelpers:
 
         assert prepared is stream
 
+    def test_supported_formats_returns_registered_reader_extensions(self) -> None:
+        formats = supported_formats()
+
+        assert formats == [".aif", ".aiff", ".csv", ".flac", ".ogg", ".snd", ".wav"]
+        assert ".mp3" not in formats
+
+    def test_supported_formats_reflects_custom_reader_registration(self) -> None:
+        class CustomFileReader(SoundFileReader):
+            supported_extensions: list[str] = ["custom", ".WAV"]
+
+        original_count = len(_file_readers)
+        try:
+            register_file_reader(CustomFileReader)
+
+            formats = supported_formats()
+
+            assert ".custom" in formats
+            assert formats.count(".wav") == 1
+
+            reader = get_file_reader("test.custom")
+            assert isinstance(reader, CustomFileReader)
+        finally:
+            del _file_readers[original_count:]
+
+    def test_can_read_uses_normalized_supported_extensions(self) -> None:
+        class CustomFileReader(SoundFileReader):
+            supported_extensions: list[str] = ["custom"]
+
+        assert CustomFileReader.can_read("test.custom") is True
+        assert CustomFileReader.can_read("test.wav") is False
+        assert CustomFileReader.can_read("test") is False
+
 
 class TestGetFileReader:
     def test_get_file_reader_wav(self) -> None:
@@ -327,8 +426,11 @@ class TestRegisterFileReader:
             supported_extensions: list[str] = [".custom"]
 
         original_count: int = len(_file_readers)
-        register_file_reader(CustomFileReader)
+        try:
+            register_file_reader(CustomFileReader)
 
-        assert len(_file_readers) == original_count + 1
-        reader = get_file_reader("test.custom")
-        assert isinstance(reader, CustomFileReader)
+            assert len(_file_readers) == original_count + 1
+            reader = get_file_reader("test.custom")
+            assert isinstance(reader, CustomFileReader)
+        finally:
+            del _file_readers[original_count:]

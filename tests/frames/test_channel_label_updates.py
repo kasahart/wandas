@@ -334,8 +334,8 @@ class TestBackwardCompatibility:
         result = frame.normalize()
         assert result.labels == ["norm(ch0)", "norm(ch1)"]
 
-    def test_operation_history_still_tracked(self) -> None:
-        """Test that operation history is still tracked correctly."""
+    def test_operation_history_view_from_lineage(self) -> None:
+        """Test that the operation history view is still derived correctly."""
         frame = ChannelFrame(
             data=_DASK_2CH,
             sampling_rate=_SAMPLE_RATE,
@@ -436,11 +436,11 @@ class TestAddChannelWithLabelPrefix:
 
         # With label prefix, should not conflict
         result = frame1.add_channel(frame2, label="ref")
-        assert result.labels == ["ch0", "ref_ch0"]
+        assert result.labels == ["ch0", "ch1", "ref_ch0", "ref_ch1"]
 
         # Without label, would conflict and use suffix_on_dup
         result2 = frame1.add_channel(frame2, suffix_on_dup="_dup")
-        assert result2.labels == ["ch0", "ch0_dup"]
+        assert result2.labels == ["ch0", "ch1", "ch0_dup", "ch1_dup"]
 
 
 class TestRenameChannels:
@@ -460,8 +460,9 @@ class TestRenameChannels:
         result = frame.rename_channels({0: "left", 1: "right"})
 
         assert result.labels == ["left", "right"]
-        # Pillar 2: structural operation — history unchanged
-        assert len(result.operation_history) == 0
+        assert result.operation_history == [
+            {"operation": "rename_channels", "params": {"mapping_items": [[0, "left"], [1, "right"]]}}
+        ]
 
     def test_rename_channels_by_label(self) -> None:
         """Test renaming channels using label keys."""
@@ -508,6 +509,10 @@ class TestRenameChannels:
 
         assert result is frame
         assert frame.labels == ["left", "right"]
+        assert frame.operation_history[-1] == {
+            "operation": "rename_channels",
+            "params": {"mapping_items": [[0, "left"], [1, "right"]]},
+        }
 
     def test_rename_channels_nonexistent_index_error(self) -> None:
         """Test error when renaming non-existent index."""

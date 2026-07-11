@@ -230,7 +230,7 @@ def test_from_file_url_wav() -> None:
     np.testing.assert_allclose(computed[0], data_left, rtol=1e-5)
     np.testing.assert_allclose(computed[1], data_right, rtol=1e-5)
     # Provenance metadata (Pillar 2)
-    assert cf.metadata.source_file == url, "source_file metadata not preserved"
+    assert cf.metadata["_source_file"] == url, "source file metadata not preserved"
     assert cf.label == "sample"
 
 

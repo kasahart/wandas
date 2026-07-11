@@ -1,20 +1,20 @@
 # spectral_frame.py
 import logging
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, TypeVar
 
-import librosa
 import numpy as np
-import pandas as pd
 from dask.array.core import Array as DaArray
-from mosqito.sound_level_meter.noct_spectrum._center_freq import _center_freq
 
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
+from wandas.processing.weighting import a_weighting_db
+from wandas.utils.optional_imports import require_mosqito_center_freq, require_pandas
 from wandas.utils.types import NDArrayReal
 from wandas.utils.util import ref_weighted_dB
 
 if TYPE_CHECKING:
+    import pandas as pd
     from matplotlib.axes import Axes
 
     from wandas.visualization.plotting import PlotStrategy
@@ -23,6 +23,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 S = TypeVar("S", bound="BaseFrame[Any]")
+
+
+def _center_freq(*args: Any, **kwargs: Any) -> Any:
+    return require_mosqito_center_freq("NOctFrame.freqs")(*args, **kwargs)
 
 
 class NOctFrame(BaseFrame[NDArrayReal]):
@@ -57,12 +61,14 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         A label for the frame.
     metadata : dict, optional
         Additional metadata for the frame.
-    operation_history : list[dict], optional
-        History of operations performed on this frame.
+    lineage : LineageNode, optional
+        Runtime operation lineage for this frame. ``operation_history`` is a
+        read-only derived compatibility view.
     channel_metadata : list[ChannelMetadata], optional
         Metadata for each channel in the frame.
     previous : BaseFrame, optional
-        The frame that this frame was derived from.
+        Compatibility/debug pointer to the immediate prior frame; not the
+        provenance source of truth.
 
     Attributes
     ----------
@@ -109,6 +115,8 @@ class NOctFrame(BaseFrame[NDArrayReal]):
       perception, following IEC 61672-1:2013.
     """
 
+    _xarray_dim_suffix = ("channel", "band")
+
     fmin: float
     fmax: float
     n: int
@@ -126,9 +134,12 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         fr: int = 1000,
         label: str | None = None,
         metadata: dict[str, Any] | None = None,
-        operation_history: list[dict[str, Any]] | None = None,
-        channel_metadata: list[ChannelMetadata] | list[dict[str, Any]] | None = None,
+        channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
+        channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
+        source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
+        lineage: Any | None = None,
+        operation_summaries_snapshot: Sequence[Mapping[str, Any]] | None = None,
     ) -> None:
         """
         Initialize a NOctFrame instance.
@@ -149,8 +160,11 @@ class NOctFrame(BaseFrame[NDArrayReal]):
             sampling_rate=sampling_rate,
             label=label,
             metadata=metadata,
-            operation_history=operation_history,
             channel_metadata=channel_metadata,
+            channel_ids=channel_ids,
+            source_time_offset=source_time_offset,
+            lineage=lineage,
+            operation_summaries_snapshot=operation_summaries_snapshot,
             previous=previous,
         )
 
@@ -189,7 +203,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
             (channels, frequency_bins).
         """
         # Collect dB reference values from _channel_metadata
-        weighted: NDArrayReal = librosa.A_weighting(frequencies=self.freqs, min_db=None)
+        weighted: NDArrayReal = a_weighting_db(frequencies=self.freqs, min_db=None)
         return self.dB + weighted
 
     @property
@@ -358,4 +372,5 @@ class NOctFrame(BaseFrame[NDArrayReal]):
 
     def _get_dataframe_index(self) -> "pd.Index[Any]":
         """Get frequency index for DataFrame."""
+        pd = require_pandas("NOctFrame.to_dataframe")
         return pd.Index(self.freqs, name="frequency")

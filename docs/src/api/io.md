@@ -3,6 +3,17 @@
 The `wandas.io` module provides reading and writing capabilities for various file formats.
 `wandas.io` モジュールは、様々なファイル形式の読み書き機能を提供します。
 
+## Recommended Entry Points / 推奨入口
+
+Use `wd.read(...)` for external source data such as WAV, CSV, supported audio files, URLs, bytes, and file-like objects.
+WAV、CSV、対応音声ファイル、URL、bytes、file-like object などの外部ソースデータには `wd.read(...)` を使います。
+
+Use `wd.load(...)` for Wandas native WDF files.
+Wandas native WDF ファイルには `wd.load(...)` を使います。
+
+`read_wav()` and `read_csv()` remain available for compatibility, but new documentation and examples prefer `read()`.
+互換性のため `read_wav()` と `read_csv()` は残りますが、新しいドキュメントと例では `read()` を優先します。
+
 ## File Readers / ファイルリーダー
 
 Provides functionality to read data from various file formats.

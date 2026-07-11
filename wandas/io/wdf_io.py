@@ -11,7 +11,6 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import h5py
 import numpy as np
 
 if TYPE_CHECKING:
@@ -19,15 +18,17 @@ if TYPE_CHECKING:
 
 # Import BaseFrame from core module
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
+from wandas.utils.optional_imports import require_h5py
 
 from ..core.base_frame import BaseFrame
-from ..core.metadata import FrameMetadata
-from .readers import DownloadedTemporaryFile, download_url_to_temporary_file
 
 logger = logging.getLogger(__name__)
 
 # Constants for version management
 WDF_FORMAT_VERSION = "0.1"
+OPERATION_SUMMARIES_SCHEMA_VERSION = 1
+OPERATION_SUMMARIES_SCHEMA_ATTR = "operation_summaries_schema"
+OPERATION_SUMMARIES_JSON_ATTR = "operation_summaries_json"
 
 
 def _decode_hdf5_str(value: object) -> str:
@@ -41,6 +42,46 @@ def _decode_hdf5_str(value: object) -> str:
         except (UnicodeDecodeError, AttributeError):
             return str(value)
     return str(value)
+
+
+def _load_operation_summaries_snapshot(h5_file: Any) -> list[dict[str, Any]] | None:
+    if OPERATION_SUMMARIES_JSON_ATTR not in h5_file.attrs:
+        return _load_legacy_operation_history(h5_file)
+    schema = int(h5_file.attrs.get(OPERATION_SUMMARIES_SCHEMA_ATTR, 0))
+    if schema != OPERATION_SUMMARIES_SCHEMA_VERSION:
+        raise ValueError(
+            "Unsupported WDF operation summaries schema\n"
+            f"  Got: {schema}\n"
+            f"  Supported: {OPERATION_SUMMARIES_SCHEMA_VERSION}\n"
+            "Use a compatible Wandas version or resave the file."
+        )
+    parsed = json.loads(_decode_hdf5_str(h5_file.attrs[OPERATION_SUMMARIES_JSON_ATTR]))
+    if not isinstance(parsed, list) or not all(isinstance(record, dict) for record in parsed):
+        raise ValueError(
+            f"Invalid WDF operation summaries JSON\n  Expected: JSON array of objects\n  Got: {type(parsed).__name__}"
+        )
+    return parsed
+
+
+def _load_legacy_operation_history(h5_file: Any) -> list[dict[str, Any]] | None:
+    """Migrate the WDF 0.1 operation_history group to summary records."""
+    if "operation_history" not in h5_file:
+        return None
+    operation_group = h5_file["operation_history"]
+    records: list[dict[str, Any]] = []
+    for key in sorted(operation_group, key=lambda item: int(item.rsplit("_", 1)[1])):
+        stored = operation_group[key]
+        record: dict[str, Any] = {}
+        for name, value in stored.attrs.items():
+            decoded = _decode_hdf5_str(value) if isinstance(value, (str, bytes, np.bytes_)) else value
+            if isinstance(decoded, str):
+                try:
+                    decoded = json.loads(decoded)
+                except json.JSONDecodeError:
+                    pass
+            record[name] = decoded
+        records.append(record)
+    return records
 
 
 def save(
@@ -79,6 +120,10 @@ def save(
     if format.lower() != "hdf5":
         raise NotImplementedError(f"Format {format} not supported. Only 'hdf5' is currently implemented.")
 
+    h5py = require_h5py("WDF save")
+
+    operation_summaries = frame._operation_summaries_for_storage()
+
     # Compute data arrays (this triggers actual computation)
     logger.info("Computing data arrays for saving...")
     computed_data = frame.compute()
@@ -95,12 +140,15 @@ def save(
         f.attrs["sampling_rate"] = frame.sampling_rate
         f.attrs["label"] = frame.label or ""
         f.attrs["frame_type"] = type(frame).__name__
+        f.attrs["channel_ids_json"] = json.dumps(frame._channel_ids)
+        f.attrs[OPERATION_SUMMARIES_SCHEMA_ATTR] = OPERATION_SUMMARIES_SCHEMA_VERSION
+        f.attrs[OPERATION_SUMMARIES_JSON_ATTR] = json.dumps(operation_summaries, allow_nan=False)
 
         # Create channels group
         channels_grp = f.create_group("channels")
 
         # Store each channel
-        for i, (channel_data, ch_meta) in enumerate(zip(computed_data, frame._channel_metadata, strict=True)):
+        for i, (channel_data, ch_meta) in enumerate(zip(computed_data, frame.channels, strict=True)):
             ch_grp = channels_grp.create_group(f"{i}")
 
             # Store channel data
@@ -112,39 +160,18 @@ def save(
             # Store metadata
             ch_grp.attrs["label"] = ch_meta.label
             ch_grp.attrs["unit"] = ch_meta.unit
+            ch_grp.attrs["ref"] = ch_meta.ref
+            ch_grp.attrs["source_time_offset"] = frame.source_time_offset[i]
 
             # Store extra metadata as JSON
             if ch_meta.extra:
                 ch_grp.attrs["metadata_json"] = json.dumps(ch_meta.extra)
 
-        # Store operation history
-        if frame.operation_history:
-            op_grp = f.create_group("operation_history")
-            for i, op in enumerate(frame.operation_history):
-                op_sub_grp = op_grp.create_group(f"operation_{i}")
-                for k, v in op.items():
-                    # Store simple attributes directly
-                    if isinstance(v, (str, int, float, bool, np.number)):
-                        op_sub_grp.attrs[k] = v
-                    else:
-                        # For complex types, serialize to JSON
-                        try:
-                            op_sub_grp.attrs[k] = json.dumps(v)
-                        except (TypeError, OverflowError) as e:
-                            logger.warning(f"Could not serialize operation key '{k}': {e}")
-                            op_sub_grp.attrs[k] = str(v)
-
         # Store frame metadata
-        dict_is_nonempty = bool(frame.metadata)
-        has_source_file = isinstance(frame.metadata, FrameMetadata) and frame.metadata.source_file is not None
-        if dict_is_nonempty or has_source_file:
+        if frame.metadata:
             meta_grp = f.create_group("meta")
             # Store metadata dict content as JSON
             meta_grp.attrs["json"] = json.dumps(dict(frame.metadata))
-
-            # Store source_file separately if present
-            if has_source_file:
-                meta_grp.attrs["source_file"] = str(frame.metadata.source_file)
 
             # Also store individual metadata items as attributes for compatibility
             for k, v in frame.metadata.items():
@@ -178,8 +205,9 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
         ValueError: If the file format is invalid or incompatible.
 
     Example:
-        >>> cf = ChannelFrame.load("audio_data.wdf")
-        >>> cf = ChannelFrame.load("https://example.com/audio_data.wdf")
+        >>> import wandas as wd
+        >>> cf = wd.load("audio_data.wdf")
+        >>> cf = wd.load("https://example.com/audio_data.wdf")
     """
     # Ensure ChannelFrame is imported here to avoid circular imports
     from ..core.metadata import ChannelMetadata
@@ -188,10 +216,15 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
     if format.lower() != "hdf5":
         raise NotImplementedError(f"Format '{format}' is not supported")
 
-    # Detect and handle URL paths — stream to disk before HDF5 open.
-    h5_source: str | Path
-    download_owner: DownloadedTemporaryFile | None = None
-    if isinstance(path, str) and path.startswith(("http://", "https://")):
+    h5py = require_h5py("WDF load")
+
+    # Detect and handle URL paths — download to memory before HDF5 open.
+    h5_source: str | Path | io.BytesIO
+    h5_kwargs: dict[str, object] = {}
+    if isinstance(path, str) and path.lower().startswith(("http://", "https://")):
+        import urllib.error
+        import urllib.request
+
         logger.debug(f"Downloading WDF from URL: {path}")
         download_owner = download_url_to_temporary_file(
             path,
@@ -215,43 +248,36 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
             if version != WDF_FORMAT_VERSION:
                 logger.warning(f"File format version mismatch: file={version}, current={WDF_FORMAT_VERSION}")
 
-            # Get global attributes
-            sampling_rate = float(f.attrs["sampling_rate"])
-            frame_label = f.attrs.get("label", "")
+        # Get global attributes
+        sampling_rate = float(f.attrs["sampling_rate"])
+        frame_label = _decode_hdf5_str(f.attrs.get("label", ""))
+        legacy_source_time_offset = f.attrs.get("source_time_offset", None)
 
-            # Get frame metadata
-            frame_metadata = FrameMetadata()
-            if "meta" in f:
-                meta_json = f["meta"].attrs.get("json", "{}")
-                if isinstance(meta_json, (bytes, np.bytes_)):
-                    meta_json = _decode_hdf5_str(meta_json)
-                frame_metadata.update(json.loads(meta_json))
-                source_file = f["meta"].attrs.get("source_file", None)
-                if source_file is not None:
-                    frame_metadata.source_file = _decode_hdf5_str(source_file)
+        # Get frame metadata
+        frame_metadata: dict[str, Any] = {}
+        if "meta" in f:
+            meta_json = f["meta"].attrs.get("json", "{}")
+            if isinstance(meta_json, (bytes, np.bytes_)):
+                meta_json = _decode_hdf5_str(meta_json)
+            parsed_metadata = json.loads(meta_json)
+            if not isinstance(parsed_metadata, dict):
+                raise ValueError("WDF meta/json must decode to a JSON object")
+            frame_metadata = parsed_metadata
+            source_file = f["meta"].attrs.get("source_file", None)
+            if source_file is not None:
+                frame_metadata.setdefault("_source_file", _decode_hdf5_str(source_file))
 
-            # Load operation history
-            operation_history = []
-            if "operation_history" in f:
-                op_grp = f["operation_history"]
-                # Sort operation indices numerically
-                op_indices = sorted([int(key.split("_")[1]) for key in op_grp])
+        operation_summaries_snapshot = _load_operation_summaries_snapshot(f)
 
-                for idx in op_indices:
-                    op_sub_grp = op_grp[f"operation_{idx}"]
-                    op_dict = {}
-                    for attr_name in op_sub_grp.attrs:
-                        attr_value = op_sub_grp.attrs[attr_name]
-                        # Try to deserialize JSON, fallback to string
-                        try:
-                            op_dict[attr_name] = json.loads(attr_value)
-                        except (json.JSONDecodeError, TypeError):
-                            op_dict[attr_name] = attr_value
-                    operation_history.append(op_dict)
-
-            # Load channel data and metadata
-            all_channel_data = []
-            channel_metadata_list = []
+        # Load channel data and metadata
+        all_channel_data = []
+        channel_metadata_list = []
+        channel_source_time_offsets = []
+        channel_ids = None
+        if "channel_ids_json" in f.attrs:
+            parsed_channel_ids = json.loads(_decode_hdf5_str(f.attrs["channel_ids_json"]))
+            if isinstance(parsed_channel_ids, list):
+                channel_ids = [str(channel_id) for channel_id in parsed_channel_ids]
 
             if "channels" in f:
                 channels_group = f["channels"]
@@ -267,18 +293,24 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
                     # Append to combined array
                     all_channel_data.append(channel_data)
 
-                    # Load channel metadata
-                    label = ch_group.attrs.get("label", f"Ch{idx}")
-                    unit = ch_group.attrs.get("unit", "")
+                # Load channel metadata
+                label = _decode_hdf5_str(ch_group.attrs.get("label", f"Ch{idx}"))
+                unit = _decode_hdf5_str(ch_group.attrs.get("unit", ""))
+                ref = float(ch_group.attrs["ref"]) if "ref" in ch_group.attrs else None
+                if "source_time_offset" in ch_group.attrs:
+                    channel_source_time_offsets.append(float(ch_group.attrs["source_time_offset"]))
 
                     # Load additional metadata if present
                     ch_extra = {}
                     if "metadata_json" in ch_group.attrs:
                         ch_extra = json.loads(ch_group.attrs["metadata_json"])
 
-                    # Create ChannelMetadata object
+                # Create ChannelMetadata object
+                if ref is None:
                     channel_metadata = ChannelMetadata(label=label, unit=unit, extra=ch_extra)
-                    channel_metadata_list.append(channel_metadata)
+                else:
+                    channel_metadata = ChannelMetadata(label=label, unit=unit, ref=ref, extra=ch_extra)
+                channel_metadata_list.append(channel_metadata)
 
             # Stack channel data into a single array
             if all_channel_data:
@@ -286,18 +318,27 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
             else:
                 raise ValueError("No channel data found in the file")
 
-            # Create a new ChannelFrame
-            # Use channel-wise chunking: 1 for channel axis and -1 for samples
-            dask_data = _da_from_array(combined_data, chunks=(1, -1))
+        if channel_source_time_offsets:
+            source_time_offset = channel_source_time_offsets
+        elif legacy_source_time_offset is not None:
+            source_time_offset = legacy_source_time_offset
+        else:
+            source_time_offset = 0.0
 
-            cf = ChannelFrame(
-                data=dask_data,
-                sampling_rate=sampling_rate,
-                label=frame_label if frame_label else None,
-                metadata=frame_metadata,
-                operation_history=operation_history,
-                channel_metadata=channel_metadata_list,
-            )
+        # Create a new ChannelFrame
+        # Use channel-wise chunking: 1 for channel axis and -1 for samples
+        dask_data = _da_from_array(combined_data, chunks=(1, -1))
+
+        cf = ChannelFrame(
+            data=dask_data,
+            sampling_rate=sampling_rate,
+            label=frame_label if frame_label else None,
+            metadata=frame_metadata,
+            channel_metadata=channel_metadata_list,
+            channel_ids=channel_ids,
+            source_time_offset=source_time_offset,
+            operation_summaries_snapshot=operation_summaries_snapshot,
+        )
 
             logger.debug(f"ChannelFrame loaded from {path}: {len(cf)} channels, {cf.n_samples} samples")
             return cf

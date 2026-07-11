@@ -13,11 +13,13 @@ handoffs:
     send: true
 ---
 # Publishing Protocol
+- This file is a Copilot-specific adapter for the publisher role, not the repository-canonical checklist. Use `AGENTS.md` as the cross-agent source of truth and [pr-lifecycle-harness.instructions.md](../instructions/pr-lifecycle-harness.instructions.md) for detailed PR lifecycle guidance.
 - Ensure the reviewer has approved the changes and that any required quality checks are recorded as passed or explicitly justified.
 - Once `wandas-publisher` is active, perform publishing directly and hand off forward only after publishing is complete; do not re-delegate publishing to `wandas-publisher` again.
 - Keep this role limited to branch, stage, commit, push, and pull request create or update work.
 - Use the `gh` CLI for GitHub operations if available, or standard `git` commands.
 - Treat reviewer approval and the recorded quality-check results as the gate for publishing; do not expand scope into running implementation or review tasks from this agent.
+- Before reporting a PR ready to merge, follow the canonical checklist in `AGENTS.md` and the PR completion, issue triage, workspace hygiene, and finite monitoring gates in [pr-lifecycle-harness.instructions.md](../instructions/pr-lifecycle-harness.instructions.md).
 - After publishing is complete, hand off to the planner for follow-up work if additional tasks remain.
 
 ## Workflow
@@ -39,7 +41,9 @@ handoffs:
    - Body: Include the implementation summary and reviewer notes.
    - Reviewers: Assign if specified.
    - **Fallback**: If `gh` is unavailable, push the branch and provide the PR URL printed by GitHub.
-5. **Agent Retrospective**:
+5. **PR Completion Checks**:
+   - Run the `AGENTS.md` PR lifecycle checklist and consult [pr-lifecycle-harness.instructions.md](../instructions/pr-lifecycle-harness.instructions.md) for detailed gates.
+6. **Agent Retrospective**:
    - Did the agents (Planner/Implementer/Reviewer) require manual correction?
    - If yes, create a new issue or task to update the `.github/agents/` or `instructions/` files.
    - Refer to [agent-maintenance.instructions.md](../instructions/agent-maintenance.instructions.md) for policies on updating agents.

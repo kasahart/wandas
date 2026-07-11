@@ -4,6 +4,8 @@ operations."""
 import logging
 from typing import TYPE_CHECKING, Any, cast
 
+import numpy as np
+
 from ...core.base_frame import BaseFrame
 from .protocols import TransformFrameProtocol
 
@@ -35,8 +37,8 @@ def _build_cross_channel_metadata(
     from wandas.core.metadata import ChannelMetadata
 
     result = []
-    for in_ch in channel_metadata:
-        for out_ch in channel_metadata:
+    for out_ch in channel_metadata:
+        for in_ch in channel_metadata:
             meta = ChannelMetadata()
             meta.label = label_template.format(in_label=in_ch.label, out_label=out_ch.label)
             meta.unit = ""
@@ -44,6 +46,20 @@ def _build_cross_channel_metadata(
             meta["metadata"] = {"in_ch": in_ch["metadata"], "out_ch": out_ch["metadata"]}
             result.append(meta)
     return result
+
+
+def _build_cross_channel_source_time_offsets(source_time_offset: Any) -> Any:
+    """Build pairwise source offsets for cross-channel spectral outputs."""
+    offsets = np.asarray(source_time_offset, dtype=float)
+    result: list[float] = []
+    for _out_offset in offsets:
+        for in_offset in offsets:
+            result.append(float(in_offset))
+    return np.asarray(result, dtype=float)
+
+
+def _operation_summaries_snapshot_kwargs(frame: TransformFrameProtocol, lineage: Any) -> dict[str, Any]:
+    return cast(Any, frame)._operation_summaries_snapshot_kwargs(lineage)
 
 
 class ChannelTransformMixin:
@@ -86,7 +102,8 @@ class ChannelTransformMixin:
             label_template,
         )
 
-        n_fft = operation.n_fft
+        operation_params = operation.to_params()
+        n_fft = operation_params["n_fft"]
         if isinstance(n_fft, bool) or not isinstance(n_fft, int):
             raise TypeError(
                 f"Operation '{operation_name}' must provide a positive integer n_fft "
@@ -97,20 +114,19 @@ class ChannelTransformMixin:
                 f"Operation '{operation_name}' must provide a positive integer n_fft "
                 f"to create a SpectralFrame, but got {n_fft}."
             )
-
+        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
         return SpectralFrame(
             data=result_data,
             sampling_rate=self.sampling_rate,
             n_fft=n_fft,
-            window=operation.window,
+            window=operation_params["window"],
             label=f"{label_prefix} {self.label}",
-            metadata=self.metadata.merged(**params),
-            operation_history=[
-                *self.operation_history,
-                {"operation": operation_name, "params": params},
-            ],
+            metadata=self.metadata,
             channel_metadata=channel_metadata,
+            source_time_offset=_build_cross_channel_source_time_offsets(cast(Any, self).source_time_offset),
+            lineage=lineage,
             previous=self._as_base_frame,
+            **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
     def fft(self: TransformFrameProtocol, n_fft: int | None = None, window: str = "hann") -> "SpectralFrame":
@@ -127,7 +143,8 @@ class ChannelTransformMixin:
         from wandas.frames.spectral import SpectralFrame
         from wandas.processing import FFT, create_operation
 
-        params = {"n_fft": n_fft, "window": window}
+        _n_fft = int(self._data.shape[-1]) if n_fft is None else n_fft
+        params = {"n_fft": _n_fft, "window": window}
         operation_name = "fft"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
 
@@ -139,25 +156,20 @@ class ChannelTransformMixin:
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
-        if n_fft is None:
-            is_even = spectrum_data.shape[-1] % 2 == 0
-            _n_fft = spectrum_data.shape[-1] * 2 - 2 if is_even else spectrum_data.shape[-1] * 2 - 1
-        else:
-            _n_fft = n_fft
-
+        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
         return SpectralFrame(
             data=spectrum_data,
             sampling_rate=self.sampling_rate,
             n_fft=_n_fft,
             window=operation.window,
             label=f"Spectrum of {self.label}",
-            metadata=self.metadata.merged(window=window, n_fft=_n_fft),
-            operation_history=[
-                *self.operation_history,
-                {"operation": "fft", "params": {"n_fft": _n_fft, "window": window}},
-            ],
-            channel_metadata=self._channel_metadata,
+            metadata=self.metadata,
+            channel_metadata=cast(Any, self).channels.to_list(),
+            channel_ids=cast(Any, self)._channel_ids,
+            source_time_offset=cast(Any, self).source_time_offset,
+            lineage=lineage,
             previous=self._as_base_frame,
+            **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
     def welch(
@@ -202,19 +214,20 @@ class ChannelTransformMixin:
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
+        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
         return SpectralFrame(
             data=spectrum_data,
             sampling_rate=self.sampling_rate,
             n_fft=operation.n_fft,
             window=operation.window,
             label=f"Spectrum of {self.label}",
-            metadata=self.metadata.merged(**params),
-            operation_history=[
-                *self.operation_history,
-                {"operation": "welch", "params": params},
-            ],
-            channel_metadata=self._channel_metadata,
+            metadata=self.metadata,
+            channel_metadata=cast(Any, self).channels.to_list(),
+            channel_ids=cast(Any, self)._channel_ids,
+            source_time_offset=cast(Any, self).source_time_offset,
+            lineage=lineage,
             previous=self._as_base_frame,
+            **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
     def noct_spectrum(
@@ -253,6 +266,7 @@ class ChannelTransformMixin:
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
+        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
         return NOctFrame(
             data=spectrum_data,
             sampling_rate=self.sampling_rate,
@@ -262,16 +276,13 @@ class ChannelTransformMixin:
             G=G,
             fr=fr,
             label=f"1/{n}Oct of {self.label}",
-            metadata=self.metadata.merged(**params),
-            operation_history=[
-                *self.operation_history,
-                {
-                    "operation": "noct_spectrum",
-                    "params": params,
-                },
-            ],
-            channel_metadata=self._channel_metadata,
+            metadata=self.metadata,
+            channel_metadata=cast(Any, self).channels.to_list(),
+            channel_ids=cast(Any, self)._channel_ids,
+            source_time_offset=cast(Any, self).source_time_offset,
+            lineage=lineage,
             previous=self._as_base_frame,
+            **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
     def stft(
@@ -320,6 +331,7 @@ class ChannelTransformMixin:
         logger.debug(f"Created new SpectrogramFrame with operation {operation_name} added to graph")
 
         # Create new instance
+        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
         return SpectrogramFrame(
             data=spectrogram_data,
             sampling_rate=self.sampling_rate,
@@ -329,9 +341,12 @@ class ChannelTransformMixin:
             window=window,
             label=f"stft({self.label})",
             metadata=self.metadata,
-            operation_history=self.operation_history,
-            channel_metadata=self._channel_metadata,
+            channel_metadata=cast(Any, self).channels.to_list(),
+            channel_ids=cast(Any, self)._channel_ids,
+            source_time_offset=cast(Any, self).source_time_offset,
+            lineage=lineage,
             previous=self._as_base_frame,
+            **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
     def coherence(

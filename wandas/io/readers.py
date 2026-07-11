@@ -8,10 +8,11 @@ from pathlib import Path
 from typing import Any, BinaryIO, ClassVar, TypedDict, cast
 
 import numpy as np
-import pandas as pd
 import soundfile as sf
 from numpy.typing import ArrayLike
 from scipy.io import wavfile
+
+from wandas.utils.optional_imports import require_pandas
 
 logger = logging.getLogger(__name__)
 
@@ -135,10 +136,22 @@ class FileReader(ABC):
         # pragma: no cover
 
     @classmethod
+    def _normalize_supported_extensions(cls) -> list[str]:
+        """Return normalized reader extensions in lowercase dot form."""
+        normalized_extensions: list[str] = []
+        for extension in cls.supported_extensions:
+            normalized_extension = _normalize_extension(extension)
+            if normalized_extension is not None:
+                normalized_extensions.append(normalized_extension)
+        return normalized_extensions
+
+    @classmethod
     def can_read(cls, path: str | Path) -> bool:
         """Check if this reader can handle the file based on extension."""
-        ext = Path(path).suffix.lower()
-        return ext in cls.supported_extensions
+        ext = _normalize_extension(Path(path).suffix)
+        if ext is None:
+            return False
+        return ext in cls._normalize_supported_extensions()
 
 
 class SoundFileReader(FileReader):
@@ -273,6 +286,7 @@ class CSVFileReader(FileReader):
         time_column: int | str = kwargs.get("time_column", 0)
 
         # Read first few lines to determine structure
+        pd = require_pandas("CSV file reading")
         df = pd.read_csv(_prepare_file_source(path), delimiter=delimiter, header=header)
 
         # Estimate sampling rate from first column (assuming it's time)
@@ -280,6 +294,7 @@ class CSVFileReader(FileReader):
             # Get time column as Series
             time_series = df[time_column] if isinstance(time_column, str) else df.iloc[:, time_column]
             time_values = np.array(time_series.values)
+            time_start = float(time_values[0]) if len(time_values) > 0 else 0.0
             if len(time_values) > 1:
                 # Use round() instead of int() to handle floating-point precision issues
                 estimated_sr = round(1 / np.mean(np.diff(time_values)))
@@ -287,6 +302,7 @@ class CSVFileReader(FileReader):
                 estimated_sr = 0  # Cannot determine from single row
         except Exception:
             estimated_sr = 0  # Default if can't calculate
+            time_start = 0.0
 
         frames = df.shape[0]
         duration = frames / estimated_sr if estimated_sr else None
@@ -299,6 +315,7 @@ class CSVFileReader(FileReader):
             "format": "CSV",
             "duration": duration,
             "ch_labels": df.columns[1:].tolist(),  # Assuming first column is time
+            "time_start": time_start,
         }
 
     @classmethod
@@ -350,6 +367,7 @@ class CSVFileReader(FileReader):
         logger.debug(f"Reading CSV data from {path!r} starting at {start_idx}")
 
         # Read the CSV file
+        pd = require_pandas("CSV file reading")
         df = pd.read_csv(_prepare_file_source(path), delimiter=delimiter, header=header)
 
         # Remove time column
@@ -392,129 +410,12 @@ def _normalize_extension(file_type: str | None) -> str | None:
     return ext
 
 
-def _get_validated_content_length_or_none(
-    response: Any,
-    *,
-    url: str,
-    resource_name: str,
-) -> int | None:
-    headers = getattr(response, "headers", {})
-    raw_value = headers.get("Content-Length") if hasattr(headers, "get") else None
-    if raw_value in (None, ""):
-        return None
-
-    try:
-        content_length = int(raw_value)
-    except (TypeError, ValueError) as exc:
-        raise OSError(
-            f"Invalid Content-Length for {resource_name} download\n"
-            f"  URL: {url}\n"
-            f"  Content-Length: {raw_value!r}\n"
-            f"Use a valid URL or download the file locally before loading."
-        ) from exc
-
-    if content_length < 0:
-        raise OSError(
-            f"Invalid Content-Length for {resource_name} download\n"
-            f"  URL: {url}\n"
-            f"  Content-Length: {content_length}\n"
-            f"Use a valid URL or download the file locally before loading."
-        )
-    return content_length
-
-
-def download_url_to_temporary_file(
-    url: str,
-    *,
-    timeout: float,
-    suffix: str | None = None,
-    resource_name: str = "file",
-    max_bytes: int | None = None,
-    chunk_size: int | None = None,
-) -> DownloadedTemporaryFile:
-    import urllib.error
-    import urllib.request
-
-    effective_max_bytes = MAX_URL_DOWNLOAD_BYTES if max_bytes is None else max_bytes
-    effective_chunk_size = URL_DOWNLOAD_CHUNK_SIZE if chunk_size is None else chunk_size
-    if effective_max_bytes <= 0:
-        raise ValueError(
-            f"Download size limit must be greater than zero\n"
-            f"  Resource: {resource_name}\n"
-            f"  URL: {url}\n"
-            f"  Got: {effective_max_bytes} bytes\n"
-            f"Provide a positive max_bytes value."
-        )
-    if effective_chunk_size <= 0:
-        raise ValueError(
-            f"Download chunk size must be greater than zero\n"
-            f"  Resource: {resource_name}\n"
-            f"  URL: {url}\n"
-            f"  Got: {effective_chunk_size} bytes\n"
-            f"Provide a positive chunk_size value."
-        )
-    normalized_suffix = _normalize_extension(suffix) or ""
-    downloaded_bytes = 0
-    temp_dir: tempfile.TemporaryDirectory[str] | None = None
-    downloaded_file: DownloadedTemporaryFile | None = None
-
-    try:
-        with urllib.request.urlopen(url, timeout=timeout) as response:
-            content_length = _get_validated_content_length_or_none(
-                response,
-                url=url,
-                resource_name=resource_name,
-            )
-            if content_length is not None and content_length > effective_max_bytes:
-                raise OSError(
-                    f"Declared size of {resource_name} exceeds download limit\n"
-                    f"  URL: {url}\n"
-                    f"  Declared size: {content_length} bytes\n"
-                    f"  Limit: {effective_max_bytes} bytes\n"
-                    f"Use a smaller file or download it locally before loading."
-                )
-
-            temp_dir = tempfile.TemporaryDirectory()
-            temp_path = Path(temp_dir.name) / f"download{normalized_suffix}"
-            downloaded_file = DownloadedTemporaryFile(path=temp_path, temp_dir=temp_dir)
-            with temp_path.open("wb") as temp_file:
-                while True:
-                    chunk = response.read(effective_chunk_size)
-                    if not chunk:
-                        break
-                    next_downloaded_bytes = downloaded_bytes + len(chunk)
-                    if next_downloaded_bytes > effective_max_bytes:
-                        raise OSError(
-                            f"Streaming {resource_name} would exceed size limit\n"
-                            f"  URL: {url}\n"
-                            f"  Attempted size: {next_downloaded_bytes} bytes\n"
-                            f"  Limit: {effective_max_bytes} bytes\n"
-                            f"Use a smaller file or download it locally before loading."
-                        )
-                    downloaded_bytes = next_downloaded_bytes
-                    temp_file.write(chunk)
-        if downloaded_file is None:
-            raise RuntimeError(
-                f"URL download did not produce a temporary file\n"
-                f"  Resource: {resource_name}\n"
-                f"  URL: {url}\n"
-                f"This indicates an unexpected failure in the download logic.\n"
-                f"Please report this as a bug."
-            )
-        return downloaded_file
-    except urllib.error.URLError as exc:
-        raise OSError(
-            f"Failed to download {resource_name} from URL\n"
-            f"  URL: {url}\n"
-            f"  Error: {exc}\n"
-            f"Verify the URL is accessible and try again."
-        ) from exc
-    except Exception:
-        if downloaded_file is not None:
-            downloaded_file.cleanup()
-        elif temp_dir is not None:
-            temp_dir.cleanup()
-        raise
+def supported_formats() -> list[str]:
+    """Return file extensions supported by the registered readers."""
+    extensions: set[str] = set()
+    for reader in _file_readers:
+        extensions.update(reader.__class__._normalize_supported_extensions())
+    return sorted(extensions)
 
 
 def _prepare_file_source(
@@ -556,7 +457,7 @@ def get_file_reader(
 
     # Try each reader in order
     for reader in _file_readers:
-        if ext in reader.__class__.supported_extensions:
+        if ext in reader.__class__._normalize_supported_extensions():
             logger.debug(f"Using {reader.__class__.__name__} for {path_str}")
             return reader
 

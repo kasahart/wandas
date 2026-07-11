@@ -2,16 +2,58 @@ import logging
 from typing import Any
 
 import numpy as np
-from dask.array.core import Array as DaArray
-from librosa import effects
-from librosa import util as librosa_util
 from scipy.signal import windows as sp_windows
 
 from wandas.processing.base import AudioOperation, register_operation
 from wandas.utils import util
+from wandas.utils.optional_imports import require_librosa_effects
 from wandas.utils.types import NDArrayReal
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_array(
+    x: NDArrayReal,
+    norm: float | None,
+    axis: int | None,
+    threshold: float | None,
+    fill: bool | None,
+) -> NDArrayReal:
+    if norm is None:
+        return x
+    if threshold is None:
+        dtype = np.asarray(x).dtype
+        threshold = float(np.finfo(dtype.name).tiny if dtype.kind == "f" else np.finfo(float).tiny)
+    elif threshold <= 0:
+        raise ValueError("threshold must be strictly positive")
+    if norm == 0:
+        length = np.sum(x != 0, axis=axis, keepdims=True).astype(float)
+    elif norm in {np.inf, -np.inf}:
+        dtype = np.asarray(x).dtype
+        magnitude_input = x if dtype.kind == "f" else x.astype(float, copy=False)
+        magnitude = np.abs(magnitude_input)
+        if norm == np.inf:
+            length = np.max(magnitude, axis=axis, keepdims=True)
+        else:
+            length = np.min(magnitude, axis=axis, keepdims=True)
+    else:
+        magnitude = np.abs(x.astype(float, copy=False))
+        length = np.sum(magnitude**norm, axis=axis, keepdims=True) ** (1.0 / norm)
+
+    small = length < threshold
+    safe_length = np.where(small, 1.0, length)
+    out = x / safe_length
+    if fill is True:
+        if norm == 0:
+            raise ValueError("Cannot normalize with norm=0 and fill=True")
+        fill_value = 1.0
+        if norm not in {np.inf, -np.inf}:
+            axis_length = x.size if axis is None else x.shape[axis]
+            fill_value = axis_length ** (-1.0 / norm)
+        out = np.where(np.broadcast_to(small, x.shape), fill_value, out)
+    elif fill is False:
+        out = np.where(np.broadcast_to(small, x.shape), 0.0, out)
+    return np.asarray(out)
 
 
 class _HpssBase(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -21,13 +63,18 @@ class _HpssBase(AudioOperation[NDArrayReal, NDArrayReal]):
     _display: str  # set by subclasses
 
     def __init__(self, sampling_rate: float, **kwargs: Any):
-        self.kwargs = kwargs
+        self._effects = require_librosa_effects(self.name)
         super().__init__(sampling_rate, **kwargs)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    @property
+    def kwargs(self) -> dict[str, Any]:
+        """Keyword arguments captured at operation construction time."""
+        return self._config_snapshot()
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying HPSS {self._extract_func} to array with shape: {x.shape}")
-        func = getattr(effects, self._extract_func)
-        result: NDArrayReal = func(x, **self.kwargs)
+        func = getattr(self._effects, self._extract_func)
+        result: NDArrayReal = func(x, **self._config)
         logger.debug(f"HPSS {self._extract_func} applied, returning result with shape: {result.shape}")
         return result
 
@@ -49,10 +96,19 @@ class HpssPercussive(_HpssBase):
 
 
 class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
-    """Signal normalization operation using librosa.util.normalize"""
+    """Signal normalization operation."""
 
     name = "normalize"
     _display = "norm"
+
+    @staticmethod
+    def _output_dtype(input_dtype: np.dtype[Any], norm: float | None) -> np.dtype[Any]:
+        dtype = np.dtype(input_dtype)
+        if norm is None:
+            return dtype
+        if dtype.kind == "f" and norm in {np.inf, -np.inf}:
+            return dtype
+        return np.dtype(np.float64)
 
     def __init__(
         self,
@@ -116,35 +172,58 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
             )
 
         # Validate threshold
-        if threshold is not None and threshold < 0:
+        if threshold is not None and threshold <= 0:
             raise ValueError(
                 f"Invalid threshold for normalization\n"
                 f"  Got: {threshold}\n"
-                f"  Expected: Non-negative value or None\n"
-                f"Threshold must be non-negative.\n"
-                f"Typical values: 0.0 (no threshold), 1e-10 (small threshold)"
+                f"  Expected: Positive value or None\n"
+                f"Threshold must be strictly positive.\n"
+                f"Typical values: 1e-10 (small threshold), 1e-6 (larger threshold)"
             )
 
         super().__init__(sampling_rate, norm=norm, axis=axis, threshold=threshold, fill=fill)
-        self.norm = norm
-        self.axis = axis
-        self.threshold = threshold
-        self.fill = fill
         logger.debug(
             f"Initialized Normalize operation with norm={norm}, axis={axis}, threshold={threshold}, fill={fill}"
         )
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    @property
+    def norm(self) -> float | None:
+        """Norm captured at operation construction time."""
+        return self._config_value("norm")
+
+    @property
+    def axis(self) -> int | None:
+        """Axis captured at operation construction time."""
+        return self._config_value("axis")
+
+    @property
+    def threshold(self) -> float | None:
+        """Threshold captured at operation construction time."""
+        return self._config_value("threshold")
+
+    @property
+    def fill(self) -> bool | None:
+        """Fill behavior captured at operation construction time."""
+        return self._config_value("fill")
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Perform normalization processing"""
         logger.debug(f"Applying normalization to array with shape: {x.shape}, norm={self.norm}, axis={self.axis}")
 
-        # Apply librosa.util.normalize
-        result: NDArrayReal = librosa_util.normalize(
-            x, norm=self.norm, axis=self.axis, threshold=self.threshold, fill=self.fill
+        result = _normalize_array(
+            x,
+            norm=self.norm,
+            axis=self.axis,
+            threshold=self.threshold,
+            fill=self.fill,
         )
 
         logger.debug(f"Normalization applied, returning result with shape: {result.shape}")
         return result
+
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        """Return normalization output dtype metadata."""
+        return self._output_dtype(input_dtype, self.norm)
 
 
 class RemoveDC(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -168,7 +247,12 @@ class RemoveDC(AudioOperation[NDArrayReal, NDArrayReal]):
         super().__init__(sampling_rate)
         logger.debug("Initialized RemoveDC operation")
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        if np.issubdtype(input_dtype, np.integer):
+            return np.dtype(np.float64)
+        return np.dtype(input_dtype)
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Perform DC removal processing.
 
         Parameters
@@ -196,8 +280,9 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
 
     name = "add_with_snr"
     _display = "+SNR"
+    _expected_input_count = 2
 
-    def __init__(self, sampling_rate: float, other: DaArray, snr: float = 1.0):
+    def __init__(self, sampling_rate: float, snr: float = 1.0):
         """
         Initialize addition operation considering SNR
 
@@ -205,34 +290,34 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
         ----------
         sampling_rate : float
             Sampling rate (Hz)
-        other : DaArray
-            Noise signal to add (channel-frame format)
         snr : float
             Signal-to-noise ratio (dB)
         """
-        super().__init__(sampling_rate, other=other, snr=snr)
-
-        self.other = other
-        self.snr = snr
+        super().__init__(sampling_rate, snr=snr)
         logger.debug(f"Initialized AddWithSNR operation with SNR: {snr} dB")
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
-        """Perform addition processing considering SNR"""
+    @property
+    def snr(self) -> float:
+        """Signal-to-noise ratio captured at operation construction time."""
+        return self._config_value("snr")
+
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        """Promote SNR mixing to at least float32 precision."""
+        return np.result_type(input_dtype, *input_dtypes, np.float32)
+
+    def _process(self, x: NDArrayReal, other: NDArrayReal) -> NDArrayReal:
+        """Perform addition processing considering SNR."""
         logger.debug(f"Applying SNR-based addition with shape: {x.shape}")
-        other: NDArrayReal = self.other.compute()
+        output_dtype = self.calculate_output_dtype(x.dtype, other.dtype)
+        clean = np.asarray(x, dtype=output_dtype)
+        noise = np.asarray(other, dtype=output_dtype)
 
-        # Use multi-channel versions of calculate_rms and calculate_desired_noise_rms
-        clean_rms = util.calculate_rms(x)
-        other_rms = util.calculate_rms(other)
-
-        # Adjust noise gain based on specified SNR (apply per channel)
+        clean_rms = util.calculate_rms(clean)
+        other_rms = util.calculate_rms(noise)
         desired_noise_rms = util.calculate_desired_noise_rms(clean_rms, self.snr)
-
-        # Apply gain per channel using broadcasting
         gain = desired_noise_rms / other_rms
-        # Add adjusted noise to signal
-        result: NDArrayReal = x + other * gain
-        return result
+        result: NDArrayReal = clean + noise * gain
+        return np.asarray(result, dtype=output_dtype)
 
 
 class Fade(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -248,14 +333,20 @@ class Fade(AudioOperation[NDArrayReal, NDArrayReal]):
     _display = "fade"
 
     def __init__(self, sampling_rate: float, fade_ms: float = 50) -> None:
-        self.fade_ms = float(fade_ms)
-        # Precompute fade length in samples at construction time
-        self.fade_len = round(self.fade_ms * float(sampling_rate) / 1000.0)
+        fade_ms = float(fade_ms)
         super().__init__(sampling_rate, fade_ms=fade_ms)
+
+    @property
+    def fade_ms(self) -> float:
+        """Fade duration captured at operation construction time."""
+        return self._config_value("fade_ms")
 
     def validate_params(self) -> None:
         if self.fade_ms < 0:
             raise ValueError("fade_ms must be non-negative")
+
+    def _fade_len_for_sampling_rate(self) -> int:
+        return round(self.fade_ms * self.sampling_rate / 1000.0)
 
     @staticmethod
     def calculate_tukey_alpha(fade_len: int, n_samples: int) -> float:
@@ -287,7 +378,13 @@ class Fade(AudioOperation[NDArrayReal, NDArrayReal]):
         alpha = float(2 * fade_len) / float(n_samples)
         return min(1.0, alpha)
 
-    def _process_array(self, x: NDArrayReal) -> NDArrayReal:
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        del input_dtypes
+        if self._fade_len_for_sampling_rate() <= 0:
+            return np.dtype(input_dtype)
+        return np.result_type(input_dtype, np.float64)
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying Tukey Fade to array with shape: {x.shape}")
 
         arr = x
@@ -297,14 +394,16 @@ class Fade(AudioOperation[NDArrayReal, NDArrayReal]):
         n_samples = int(arr.shape[-1])
 
         # If no fade requested, return input
-        if self.fade_len <= 0:
+        fade_len = self._fade_len_for_sampling_rate()
+
+        if fade_len <= 0:
             return arr
 
-        if 2 * self.fade_len >= n_samples:
+        if 2 * fade_len >= n_samples:
             raise ValueError("Fade length too long: 2*fade_ms must be less than signal length")
 
         # Calculate Tukey window alpha parameter
-        alpha = self.calculate_tukey_alpha(self.fade_len, n_samples)
+        alpha = self.calculate_tukey_alpha(fade_len, n_samples)
 
         # Create tukey window (numpy) and apply
         env = sp_windows.tukey(n_samples, alpha=alpha)

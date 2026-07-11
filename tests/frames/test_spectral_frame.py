@@ -11,6 +11,8 @@ from dask.array.core import Array as DaArray
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectral import SpectralFrame
+from wandas.processing.base import LineageNode
+from wandas.processing.effects import Normalize
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 # Reference to dask array functions
@@ -148,7 +150,7 @@ class TestSpectralFrame:
 
     def test_property_dba(self) -> None:
         """Test dBA property"""
-        with mock.patch("librosa.A_weighting") as mock_a_weighting:
+        with mock.patch("wandas.frames.mixins.spectral_properties_mixin.a_weighting_db") as mock_a_weighting:
             mock_weights: NDArrayReal = np.ones_like(self.frame.freqs)
             mock_a_weighting.return_value = mock_weights
 
@@ -170,6 +172,14 @@ class TestSpectralFrame:
         expected: NDArrayReal = np.fft.rfftfreq(_N_FFT, 1.0 / _SAMPLING_RATE)
         # Frequency axis from np.fft.rfftfreq — default rtol (exact match)
         np.testing.assert_allclose(freqs, expected)
+
+    def test_frequency_slice_preserves_source_time_offset(self) -> None:
+        """Frequency-axis slicing does not move source-relative time."""
+        self.frame.source_time_offset = 1.25
+
+        result = self.frame[:, 10:20]
+
+        np.testing.assert_array_equal(result.source_time_offset, np.array([1.25, 1.25]))
 
     def test_binary_op_with_spectral_frame(self) -> None:
         """Test _binary_op with another SpectralFrame"""
@@ -395,6 +405,7 @@ class TestSpectralFrame:
             mock_ifft_op.process.return_value = mock_time_series
             mock_result: Any = mock.MagicMock()
             mock_channel_frame.return_value = mock_result
+            self.frame.source_time_offset = 6.25
 
             result = self.frame.ifft()
 
@@ -406,8 +417,14 @@ class TestSpectralFrame:
                 sampling_rate=_SAMPLING_RATE,
                 label=f"ifft({self.frame.label})",
                 metadata=self.frame.metadata,
-                operation_history=self.frame.operation_history,
-                channel_metadata=self.frame._channel_metadata,
+                channel_metadata=self.frame.channels.to_list(),
+                channel_ids=self.frame._channel_ids,
+                source_time_offset=mock.ANY,
+                lineage=mock.ANY,
+            )
+            np.testing.assert_array_equal(
+                mock_channel_frame.call_args.kwargs["source_time_offset"],
+                np.array([6.25, 6.25]),
             )
 
             assert result is mock_result
@@ -450,16 +467,11 @@ class TestSpectralFrame:
             mock_create_op.assert_called_once_with(operation_name, _SAMPLING_RATE, **params)
             mock_op.process.assert_called_once_with(self.data)
 
-            expected_metadata: dict[str, Any] = {
-                **self.frame.metadata,
-                operation_name: params,
-            }
-            expected_history: list[dict[str, Any]] = self.frame.operation_history.copy()
-            expected_history.append({"operation": operation_name, "params": params})
+            expected_metadata: dict[str, Any] = dict(self.frame.metadata)
             mock_create_new_instance.assert_called_once_with(
                 data=mock_processed_data,
                 metadata=expected_metadata,
-                operation_history=expected_history,
+                lineage=mock.ANY,
             )
 
             # 戻り値の検証
@@ -488,6 +500,7 @@ class TestSpectralFrame:
             label="test_frame",
             metadata={"test": "metadata"},
             channel_metadata=self.channel_metadata,
+            source_time_offset=6.25,
         )
 
         with (
@@ -529,33 +542,59 @@ class TestSpectralFrame:
                 G=G,
                 fr=fr,
                 label=f"1/{n}Oct of {correct_sr_frame.label}",
-                metadata={
-                    **correct_sr_frame.metadata,
-                    "fmin": fmin,
-                    "fmax": fmax,
-                    "n": n,
-                    "G": G,
-                    "fr": fr,
-                },
-                operation_history=[
-                    *correct_sr_frame.operation_history,
-                    {
-                        "operation": "noct_synthesis",
-                        "params": {
-                            "fmin": fmin,
-                            "fmax": fmax,
-                            "n": n,
-                            "G": G,
-                            "fr": fr,
-                        },
-                    },
-                ],
-                channel_metadata=correct_sr_frame._channel_metadata,
+                metadata=correct_sr_frame.metadata,
+                channel_metadata=correct_sr_frame.channels.to_list(),
+                channel_ids=correct_sr_frame._channel_ids,
+                source_time_offset=mock.ANY,
+                lineage=mock.ANY,
                 previous=correct_sr_frame,
+            )
+            np.testing.assert_array_equal(
+                mock_noct_frame.call_args.kwargs["source_time_offset"],
+                np.array([6.25, 6.25]),
             )
 
             # 結果の検証
             assert result is mock_result
+
+    def test_noct_synthesis_materializes_default_params_without_metadata_duplication(self) -> None:
+        """Real noct_synthesis preserves metadata and stores params in lineage."""
+        user_metadata: dict[str, Any] = {
+            "test": "metadata",
+            "recording": {"take": "A"},
+        }
+        frame = SpectralFrame(
+            data=_da_from_array(create_complex_data(_SHAPE), chunks=(1, -1)),
+            sampling_rate=48000,
+            n_fft=_N_FFT,
+            window=_WINDOW,
+            label="test_frame",
+            metadata=user_metadata,
+            channel_metadata=self.channel_metadata,
+        )
+
+        result = frame.noct_synthesis(fmin=125.0, fmax=8000.0)
+
+        assert result.metadata == user_metadata
+        assert result.fmin == 125.0
+        assert result.fmax == 8000.0
+        assert result.n == 3
+        assert result.G == 10
+        assert result.fr == 1000
+
+        expected_params = {
+            "fmin": 125.0,
+            "fmax": 8000.0,
+            "n": 3,
+            "G": 10,
+            "fr": 1000,
+        }
+        assert result.operation_history[-1] == {
+            "operation": "noct_synthesis",
+            "params": expected_params,
+        }
+        for param_name in expected_params:
+            assert param_name not in result.metadata
 
     def test_to_dataframe(self) -> None:
         """Test to_dataframe converts frame data to DataFrame with frequency index."""
@@ -653,10 +692,7 @@ class TestSpectralFrame:
             sampling_rate=_SAMPLING_RATE,
             n_fft=_N_FFT,
             window=_WINDOW,
-            operation_history=[
-                {"operation": "fft", "params": {}},
-                {"operation": "normalize", "params": {}},
-            ],
+            lineage=LineageNode(Normalize(_SAMPLING_RATE), (LineageNode(Normalize(_SAMPLING_RATE)),)),
             channel_metadata=self.channel_metadata,
         )
 

@@ -144,6 +144,9 @@ venv.bak/
 # Design documents (temporary working files)
 docs/design/working/
 
+# Agent execution plans (temporary working files)
+docs/superpowers/plans/
+
 # ty
 .ty_cache/
 
@@ -181,6 +184,7 @@ examples/data/dataset/
 
 # Local/agent-specific settings
 .claude/settings.json
+.worktrees/
 
 # Accidental notebooks (keep repo clean)
 learning-path/06_skill_validation.py

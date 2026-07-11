@@ -86,6 +86,7 @@ class TestPowerOperation:
         """Test Power stores custom exponent."""
         power_op = Power(_SR, exponent=3.0)
         assert power_op.sampling_rate == _SR
+        assert power_op.exponent == 3.0
         assert power_op.exp == 3.0
 
     def test_power_registry_returns_correct_class(self) -> None:
@@ -94,6 +95,19 @@ class TestPowerOperation:
         power_op = create_operation("power", _SR, exponent=3.0)
         assert isinstance(power_op, Power)
         assert power_op.exp == 3.0
+
+    def test_power_exp_alias_is_read_only_and_process_uses_exponent(self) -> None:
+        data = np.array([[2.0, 3.0]])
+        power_op = Power(_SR, exponent=2.0)
+
+        with pytest.raises(AttributeError):
+            setattr(power_op, "exp", 3.0)
+
+        assert power_op.exp == 2.0
+        np.testing.assert_array_equal(
+            power_op.process(da_from_array(data, chunks=(1, -1))).compute(),
+            data**2,
+        )
 
     # -- Layer 2: Domain (shape + immutability) ----------------------------
 
@@ -170,6 +184,14 @@ class TestSum:
         sum_op = create_operation("sum", _SR)
         assert isinstance(sum_op, Sum)
 
+    def test_sum_process_rejects_1d_direct_input(self) -> None:
+        """Sum.process requires Frame-internal channel-first Dask arrays."""
+        data = da_from_array(np.array([1.0, 2.0, 3.0]), chunks=(-1,))
+        sum_op = Sum(_SR)
+
+        with pytest.raises(ValueError, match=r"AudioOperation.process requires channel-first data"):
+            sum_op.process(data)
+
     # -- Layer 2: Domain (shape reduction + immutability) -------------------
 
     def test_sum_mono_identity_and_immutability(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
@@ -229,6 +251,14 @@ class TestMean:
         assert get_operation("mean") == Mean
         mean_op = create_operation("mean", _SR)
         assert isinstance(mean_op, Mean)
+
+    def test_mean_process_rejects_1d_direct_input(self) -> None:
+        """Mean.process requires Frame-internal channel-first Dask arrays."""
+        data = da_from_array(np.array([1.0, 2.0, 3.0]), chunks=(-1,))
+        mean_op = Mean(_SR)
+
+        with pytest.raises(ValueError, match=r"AudioOperation.process requires channel-first data"):
+            mean_op.process(data)
 
     # -- Layer 2: Domain (shape + immutability) ----------------------------
 
@@ -291,6 +321,14 @@ class TestChannelDifference:
         diff_op = create_operation("channel_difference", _SR, other_channel=1)
         assert isinstance(diff_op, ChannelDifference)
         assert diff_op.other_channel == 1
+
+    def test_channel_diff_process_rejects_1d_direct_input(self) -> None:
+        """ChannelDifference.process requires Frame-internal channel-first Dask arrays."""
+        data = da_from_array(np.array([1.0, 2.0, 4.0]), chunks=(-1,))
+        diff_op = ChannelDifference(_SR)
+
+        with pytest.raises(ValueError, match=r"AudioOperation.process requires channel-first data"):
+            diff_op.process(data)
 
     # -- Layer 2: Domain (shape + immutability) ----------------------------
 

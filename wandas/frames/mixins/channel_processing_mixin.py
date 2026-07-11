@@ -1,8 +1,8 @@
 """Module providing mixins related to signal processing."""
 
 import logging
-from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, TypeVar, cast, overload
+from collections.abc import Callable, Mapping
+from typing import TYPE_CHECKING, Any, SupportsFloat, SupportsIndex, TypeAlias, TypeVar, cast, overload
 
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.roughness import RoughnessFrame
@@ -11,15 +11,12 @@ from wandas.processing import create_operation
 from .protocols import ProcessingFrameProtocol, T_Processing
 
 T_OutputFrame = TypeVar("T_OutputFrame")
+HpssIntLike: TypeAlias = SupportsIndex
+HpssFloatLike: TypeAlias = SupportsFloat
+HpssKernelSize: TypeAlias = HpssIntLike | tuple[HpssIntLike, HpssIntLike] | list[HpssIntLike]
+HpssMargin: TypeAlias = HpssFloatLike | tuple[HpssFloatLike, HpssFloatLike] | list[HpssFloatLike]
 
 if TYPE_CHECKING:
-    from librosa._typing import (
-        _FloatLike_co,
-        _IntLike_co,
-        _PadModeSTFT,
-        _WindowSpec,
-    )
-
     from wandas.core.base_frame import BaseFrame
     from wandas.utils.types import NDArrayReal
 logger = logging.getLogger(__name__)
@@ -52,6 +49,28 @@ class ChannelProcessingMixin:
             return []
         return [ch.ref for ch in self._channel_metadata]
 
+    def _with_public_method_lineage(
+        self: T_Processing,
+        result: ProcessingFrameProtocol,
+        method: str,
+        params: Mapping[str, Any],
+    ) -> T_Processing:
+        """Return ``result`` data with lineage anchored to the public method call."""
+        result_frame = cast(Any, result)
+        return cast(
+            T_Processing,
+            self._create_new_instance(
+                data=result_frame._data,
+                sampling_rate=result_frame.sampling_rate,
+                label=result_frame.label,
+                metadata=result_frame.metadata,
+                channel_metadata=result_frame.channels.to_list(),
+                channel_ids=result_frame._channel_ids,
+                source_time_offset=result_frame.source_time_offset,
+                lineage=self._lineage_with_method(method, params),
+            ),
+        )
+
     def _compute_scalar_metric(
         self: ProcessingFrameProtocol,
         operation: Any,
@@ -63,10 +82,14 @@ class ChannelProcessingMixin:
         """
         from wandas.utils.types import NDArrayReal
 
+        ensure_dependencies = getattr(operation, "ensure_dependencies", None)
+        if ensure_dependencies is not None:
+            ensure_dependencies()
+
         data = self.data
         if data.ndim == 1:
             data = data.reshape(1, -1)
-        result = operation.process_array(data).compute()
+        result = operation._process(data)
         values: NDArrayReal = result.squeeze()
         if values.ndim == 0:
             values = values.reshape(1)
@@ -80,6 +103,8 @@ class ChannelProcessingMixin:
         output_shape_func: Callable[[tuple[int, ...]], tuple[int, ...]] | None = ...,
         output_frame_class: None = ...,
         output_frame_kwargs: dict[str, Any] | None = ...,
+        *,
+        dask_pure: bool = ...,
         **kwargs: Any,
     ) -> T_Processing: ...
 
@@ -92,14 +117,19 @@ class ChannelProcessingMixin:
         output_shape_func: Callable[[tuple[int, ...]], tuple[int, ...]] | None = ...,
         output_frame_class: type[T_OutputFrame] = ...,
         output_frame_kwargs: dict[str, Any] | None = ...,
+        *,
+        dask_pure: bool = ...,
         **kwargs: Any,
     ) -> T_OutputFrame: ...
+
     def apply(
         self: T_Processing,
         func: Callable[..., Any],
         output_shape_func: Callable[[tuple[int, ...]], tuple[int, ...]] | None = None,
         output_frame_class: type[T_OutputFrame] | None = None,
         output_frame_kwargs: dict[str, Any] | None = None,
+        *,
+        dask_pure: bool = True,
         **kwargs: Any,
     ) -> Any:
         """Apply a custom function to the signal.
@@ -113,6 +143,10 @@ class ChannelProcessingMixin:
                 ``ChannelFrame`` -> ``SpectralFrame``).
             output_frame_kwargs: Extra constructor keyword arguments required
                 by *output_frame_class* (e.g. ``{"n_fft": 1024}``).
+            dask_pure: Dask execution-control flag for delayed custom
+                operations. Set to ``False`` for non-deterministic or
+                side-effecting functions. This value is not forwarded to
+                *func* or recorded in operation history.
             **kwargs: Additional arguments for the function.
 
         Returns:
@@ -129,11 +163,20 @@ class ChannelProcessingMixin:
                 "  Suggested alternatives: 'sr', 'sample_rate', or 'fs'\n"
                 f"  Received params: {list(kwargs.keys())}"
             )
+        if "pure" in kwargs:
+            raise ValueError(
+                "Parameter name conflict\n"
+                "  Cannot use 'pure' as a parameter in apply().\n"
+                "  'pure' is reserved for operation purity and Dask task semantics.\n"
+                "  Suggested alternative: rename the function argument to 'is_pure'.\n"
+                f"  Received params: {list(kwargs.keys())}"
+            )
 
         operation = CustomOperation(
             sampling_rate=self.sampling_rate,
             func=func,
             output_shape_func=output_shape_func,
+            dask_pure=dask_pure,
             **kwargs,
         )
 
@@ -200,7 +243,7 @@ class ChannelProcessingMixin:
         threshold: float | None = None,
         fill: bool | None = None,
     ) -> T_Processing:
-        """Normalize signal levels using librosa.util.normalize.
+        """Normalize signal levels using NumPy-based normalization.
 
         This method normalizes the signal amplitude according to the specified norm.
 
@@ -226,7 +269,7 @@ class ChannelProcessingMixin:
 
         Examples:
             >>> import wandas as wd
-            >>> signal = wd.read_wav("audio.wav")
+            >>> signal = wd.read("audio.wav")
             >>> # Normalize to maximum absolute value of 1.0 (per channel)
             >>> normalized = signal.normalize()
             >>> # Global normalization across all channels
@@ -252,7 +295,7 @@ class ChannelProcessingMixin:
             >>> import wandas as wd
             >>> import numpy as np
             >>> # Create signal with DC offset
-            >>> signal = wd.read_wav("audio.wav")
+            >>> signal = wd.read("audio.wav")
             >>> signal_with_dc = signal + 2.0  # Add DC offset
             >>> # Remove DC offset
             >>> signal_clean = signal_with_dc.remove_dc()
@@ -303,14 +346,16 @@ class ChannelProcessingMixin:
 
     def _reduce_channels(self: T_Processing, op: str) -> T_Processing:
         """Helper to reduce all channels with the given operation ('sum' or 'mean')."""
+        from wandas.processing import create_operation
+
         if op == "sum":
-            reduced_data = self._data.sum(axis=0, keepdims=True)
             label = "sum"
         elif op == "mean":
-            reduced_data = self._data.mean(axis=0, keepdims=True)
             label = "mean"
         else:
             raise ValueError(f"Unsupported reduction operation: {op}")
+        operation = create_operation(op, self.sampling_rate)
+        reduced_data = operation.process(self._data)
 
         units = [ch.unit for ch in self._channel_metadata]
         reduced_unit = units[0] if all(u == units[0] for u in units) else ""
@@ -323,12 +368,18 @@ class ChannelProcessingMixin:
                 extra=reduced_extra,
             )
         ]
-        new_metadata, new_history = self._updated_metadata_and_history(op, {})
+        source_time_offset = cast(Any, self).source_time_offset
+        reduced_source_time_offset = (
+            source_time_offset[:1] if (source_time_offset == source_time_offset[0]).all() else 0.0
+        )
+        new_metadata = self._updated_metadata(op, {})
+        operation = create_operation(op, cast(Any, self).sampling_rate)
         result = self._create_new_instance(
             data=reduced_data,
             metadata=new_metadata,
-            operation_history=new_history,
             channel_metadata=new_channel_metadata,
+            source_time_offset=reduced_source_time_offset,
+            lineage=cast(Any, self)._lineage_with_operation(operation, cast(Any, self).lineage),
         )
         return result
 
@@ -423,7 +474,16 @@ class ChannelProcessingMixin:
         )
 
         # Sampling rate update is handled by the Operation class
-        return cast(T_Processing, result)
+        return self._with_public_method_lineage(
+            result,
+            "rms_trend",
+            {
+                "frame_length": frame_length,
+                "hop_length": hop_length,
+                "dB": dB,
+                "Aw": Aw,
+            },
+        )
 
     def sound_level(
         self: T_Processing,
@@ -455,22 +515,43 @@ class ChannelProcessingMixin:
             dB=dB,
             **({"ref": ref_values} if ref_values else {}),
         )
-        return cast(T_Processing, result)
+        return self._with_public_method_lineage(
+            result,
+            "sound_level",
+            {
+                "freq_weighting": freq_weighting,
+                "time_weighting": time_weighting,
+                "dB": dB,
+            },
+        )
 
     def channel_difference(self: T_Processing, other_channel: int | str = 0) -> T_Processing:
-        """Compute the difference between channels.
+        """Compute index-wise differences between channels.
+
+        ``channel_difference`` subtracts the selected reference channel from
+        each channel at the current array indices. It does not compare
+        per-channel ``source_time_offset`` values and does not perform
+        source-time alignment.
 
         Args:
             other_channel: Index or label of the reference channel. Default is 0.
 
         Returns:
-            New ChannelFrame containing the channel difference
+            New ChannelFrame containing the channel difference with the input
+            source-time offsets preserved.
         """
+        requested_other_channel = other_channel
         # label2index is a method of BaseFrame
         if isinstance(other_channel, str) and hasattr(self, "label2index"):
             other_channel = self.label2index(other_channel)
 
         result = self.apply_operation("channel_difference", other_channel=other_channel)
+        if isinstance(requested_other_channel, str):
+            return self._with_public_method_lineage(
+                result,
+                "channel_difference",
+                {"other_channel": requested_other_channel},
+            )
         return cast(T_Processing, result)
 
     def resampling(
@@ -499,15 +580,15 @@ class ChannelProcessingMixin:
     def _hpss(
         self: T_Processing,
         operation_name: str,
-        kernel_size: "_IntLike_co | tuple[_IntLike_co, _IntLike_co] | list[_IntLike_co]" = 31,
-        power: float = 2,
-        margin: "_FloatLike_co | tuple[_FloatLike_co, _FloatLike_co] | list[_FloatLike_co]" = 1,
-        n_fft: int = 2048,
-        hop_length: int | None = None,
-        win_length: int | None = None,
-        window: "_WindowSpec" = "hann",
+        kernel_size: HpssKernelSize = 31,
+        power: HpssFloatLike = 2,
+        margin: HpssMargin = 1,
+        n_fft: HpssIntLike = 2048,
+        hop_length: HpssIntLike | None = None,
+        win_length: HpssIntLike | None = None,
+        window: "Any" = "hann",
         center: bool = True,
-        pad_mode: "_PadModeSTFT" = "constant",
+        pad_mode: "str" = "constant",
     ) -> T_Processing:
         """Shared implementation for HPSS harmonic/percussive extraction."""
         result = self.apply_operation(
@@ -526,15 +607,15 @@ class ChannelProcessingMixin:
 
     def hpss_harmonic(
         self: T_Processing,
-        kernel_size: "_IntLike_co | tuple[_IntLike_co, _IntLike_co] | list[_IntLike_co]" = 31,
-        power: float = 2,
-        margin: "_FloatLike_co | tuple[_FloatLike_co, _FloatLike_co] | list[_FloatLike_co]" = 1,
-        n_fft: int = 2048,
-        hop_length: int | None = None,
-        win_length: int | None = None,
-        window: "_WindowSpec" = "hann",
+        kernel_size: HpssKernelSize = 31,
+        power: HpssFloatLike = 2,
+        margin: HpssMargin = 1,
+        n_fft: HpssIntLike = 2048,
+        hop_length: HpssIntLike | None = None,
+        win_length: HpssIntLike | None = None,
+        window: "Any" = "hann",
         center: bool = True,
-        pad_mode: "_PadModeSTFT" = "constant",
+        pad_mode: "str" = "constant",
     ) -> T_Processing:
         """
         Extract harmonic components using HPSS
@@ -574,15 +655,15 @@ class ChannelProcessingMixin:
 
     def hpss_percussive(
         self: T_Processing,
-        kernel_size: "_IntLike_co | tuple[_IntLike_co, _IntLike_co] | list[_IntLike_co]" = 31,
-        power: float = 2,
-        margin: "_FloatLike_co | tuple[_FloatLike_co, _FloatLike_co] | list[_FloatLike_co]" = 1,
-        n_fft: int = 2048,
-        hop_length: int | None = None,
-        win_length: int | None = None,
-        window: "_WindowSpec" = "hann",
+        kernel_size: HpssKernelSize = 31,
+        power: HpssFloatLike = 2,
+        margin: HpssMargin = 1,
+        n_fft: HpssIntLike = 2048,
+        hop_length: HpssIntLike | None = None,
+        win_length: HpssIntLike | None = None,
+        window: "Any" = "hann",
         center: bool = True,
-        pad_mode: "_PadModeSTFT" = "constant",
+        pad_mode: "str" = "constant",
     ) -> T_Processing:
         """
         Extract percussive components using HPSS
@@ -641,7 +722,7 @@ class ChannelProcessingMixin:
         Examples:
             Calculate loudness for a signal:
             >>> import wandas as wd
-            >>> signal = wd.read_wav("audio.wav")
+            >>> signal = wd.read("audio.wav")
             >>> loudness = signal.loudness_zwtv(field_type="free")
             >>> loudness.plot(title="Time-varying Loudness")
 
@@ -704,7 +785,7 @@ class ChannelProcessingMixin:
         Examples:
             Calculate steady-state loudness for a fan noise:
             >>> import wandas as wd
-            >>> signal = wd.read_wav("fan_noise.wav")
+            >>> signal = wd.read("fan_noise.wav")
             >>> loudness = signal.loudness_zwst(field_type="free")
             >>> print(f"Channel 0 loudness: {loudness[0]:.2f} sones")
             >>> print(f"Mean loudness: {loudness.mean():.2f} sones")
@@ -759,7 +840,7 @@ class ChannelProcessingMixin:
         Examples:
             Calculate roughness for a motor noise:
             >>> import wandas as wd
-            >>> signal = wd.read_wav("motor_noise.wav")
+            >>> signal = wd.read("motor_noise.wav")
             >>> roughness = signal.roughness_dw(overlap=0.5)
             >>> roughness.plot(ylabel="Roughness [asper]")
 
@@ -770,8 +851,8 @@ class ChannelProcessingMixin:
             >>> print(f"Max: {max_roughness:.2f} asper")
 
             Compare before and after modification:
-            >>> before = wd.read_wav("motor_before.wav").roughness_dw()
-            >>> after = wd.read_wav("motor_after.wav").roughness_dw()
+            >>> before = wd.read("motor_before.wav").roughness_dw()
+            >>> after = wd.read("motor_after.wav").roughness_dw()
             >>> improvement = before.data.mean() - after.data.mean()
             >>> print(f"Roughness reduction: {improvement:.2f} asper")
 
@@ -837,7 +918,7 @@ class ChannelProcessingMixin:
             Analyze frequency-specific roughness:
             >>> import wandas as wd
             >>> import numpy as np
-            >>> signal = wd.read_wav("motor.wav")
+            >>> signal = wd.read("motor.wav")
             >>> roughness_spec = signal.roughness_dw_spec(overlap=0.5)
             >>>
             >>> # Plot Bark-Time heatmap
@@ -886,12 +967,8 @@ class ChannelProcessingMixin:
         # Get metadata updates (sampling rate, bark_axis)
         metadata_updates = operation.get_metadata_updates()
 
-        # Build metadata and history
-        new_metadata = self.metadata.merged(**params)
-        new_history = [
-            *self.operation_history,
-            {"operation": operation_name, "params": params},
-        ]
+        # Build metadata
+        new_metadata = {**self.metadata, **params}
 
         # Extract bark_axis with proper type handling
         bark_axis_value = metadata_updates.get("bark_axis")
@@ -900,6 +977,7 @@ class ChannelProcessingMixin:
 
         # Create RoughnessFrame. operation.get_metadata_updates() should provide
         # sampling_rate and bark_axis
+        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
         roughness_frame = RoughnessFrame(
             data=r_spec_dask,
             sampling_rate=metadata_updates.get("sampling_rate", self.sampling_rate),
@@ -907,9 +985,12 @@ class ChannelProcessingMixin:
             overlap=overlap,
             label=f"{self.label}_roughness_spec" if self.label else "roughness_spec",
             metadata=new_metadata,
-            operation_history=new_history,
-            channel_metadata=self._channel_metadata,
+            channel_metadata=cast(Any, self).channels.to_list(),
+            channel_ids=cast(Any, self)._channel_ids,
+            source_time_offset=cast(Any, self).source_time_offset,
+            lineage=lineage,
             previous=cast("BaseFrame[NDArrayReal]", self),
+            **cast(Any, self)._operation_summaries_snapshot_kwargs(lineage),
         )
 
         logger.debug(
@@ -941,7 +1022,7 @@ class ChannelProcessingMixin:
 
         Examples:
             >>> import wandas as wd
-            >>> signal = wd.read_wav("audio.wav")
+            >>> signal = wd.read("audio.wav")
             >>> # Apply 10ms fade-in and fade-out
             >>> faded = signal.fade(fade_ms=10.0)
             >>> # Apply very short fade (almost no effect)
@@ -998,7 +1079,7 @@ class ChannelProcessingMixin:
         Examples
         --------
         >>> import wandas as wd
-        >>> signal = wd.read_wav("sharp_sound.wav")
+        >>> signal = wd.read("sharp_sound.wav")
         >>> sharpness = signal.sharpness_din(weighting="din", field_type="free")
         >>> print(f"Mean sharpness: {sharpness.data.mean():.2f} acum")
 
@@ -1064,7 +1145,7 @@ class ChannelProcessingMixin:
         Examples
         --------
         >>> import wandas as wd
-        >>> signal = wd.read_wav("constant_tone.wav")
+        >>> signal = wd.read("constant_tone.wav")
         >>> sharpness = signal.sharpness_din_st(weighting="din", field_type="free")
         >>> print(f"Steady-state sharpness: {sharpness[0]:.2f} acum")
 

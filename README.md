@@ -1,5 +1,7 @@
 # Wandas
 
+English | [日本語](https://github.com/kasahart/wandas/blob/main/README.ja.md)
+
 ![Wandas logo](https://github.com/kasahart/wandas/blob/main/images/logo.png?raw=true)
 
 [![PyPI](https://img.shields.io/pypi/v/wandas)](https://pypi.org/project/wandas/)
@@ -9,93 +11,218 @@
 [![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/kasahart/wandas/blob/main/LICENSE)
 [![Python Version](https://img.shields.io/pypi/pyversions/wandas)](https://pypi.org/project/wandas/)
 
-Data structures for waveform analysis.
-Python で波形・信号データを扱うためのデータ構造ライブラリです。
+**Signal analysis that feels like working with a data frame.**
 
-Wandas brings pandas-like workflows to time-domain, spectral, and spectrogram analysis.
-WAV や CSV を読み込み、メタデータを保ちながら、可視化や周波数解析まで一貫して進められます。
+Wandas is a Python library for treating audio, vibration, sensor, and other waveform data as a `ChannelFrame`. Samples stay together with their sampling rate, channel names, units, metadata, and processing history as you read, preprocess, analyze, and visualize a signal.
 
-## Overview / 概要
+Signal-analysis code often keeps the waveform in a NumPy array, the sampling rate in another variable, labels and units in a dictionary, and processing notes in notebook comments. Wandas gathers that context into one frame, so the intent reads directly in code: `wd.read(...) → remove_dc() → low_pass_filter() → fft() → plot()`.
 
-Wandas is an open-source Python library for signal and waveform analysis with chainable, frame-based APIs.
-Wandas は、メソッドチェーンしやすいフレーム指向 API で信号解析を進められる、オープンソースの Python ライブラリです。
+Methods do not mutate their input; each one returns a new frame. The result records `operation_history`, and `previous` points back to the preceding frame, making before-and-after checks easy. This reviewable workflow helps when you review the analysis as a team or ask an AI agent to check it: the code, data context, processing history, and figures remain connected.
 
-It helps you move from raw data to inspection, filtering, spectral analysis, and plotting without losing context such as sampling rate, channel labels, and metadata.
-サンプリング周波数、チャネル名、付随メタデータを保ちながら、読み込みから確認、フィルタリング、周波数解析、可視化までつなげられます。
+## Why Wandas
 
-## Why Wandas / なぜ Wandas か
+1. **The processing flow reads naturally**
 
-- Work with waveform data using familiar, pandas-like objects instead of ad hoc NumPy arrays.
-  NumPy 配列を都度組み合わせる代わりに、pandas ライクなオブジェクトで波形データを扱えます。
-- Keep metadata, channel information, and operation history attached as analysis grows.
-  解析が進んでも、メタデータ、チャネル情報、処理履歴を一緒に保てます。
-- Move smoothly between time-domain, spectral, and spectrogram views with a consistent API.
-  時間領域、周波数領域、スペクトログラムを一貫した API で行き来できます。
-- Use built-in plotting and summary helpers to inspect signals quickly.
-  組み込みの可視化と要約機能で、信号をすぐに確認できます。
-- Scale to larger data with Dask-backed lazy execution where available.
-  必要に応じて Dask ベースの遅延実行で大きなデータにも対応できます。
+   Traditional workflows connect NumPy, SciPy, Matplotlib, and other libraries while repeatedly checking array shapes and axes. Wandas exposes reading, filtering, FFT, and visualization as frame methods in the order you use them.
 
-## Quick Start / クイックスタート
+2. **The frame carries data context and processing history**
 
-Install from PyPI:
-PyPI からインストールします。
+   Sampling rate, channel names, units, and metadata stay with the waveform. `operation_history` and `previous` let you trace which operation produced each result.
+
+3. **Visualization is close at hand**
+
+   Signal analysis works best when you can inspect waveforms, spectra, and spectrograms alongside the numbers. `describe()` shows the main views together, and each frame provides `plot()` for quick visualization.
+
+4. **Real-world inputs enter the same workflow**
+
+   WAV, FLAC, OGG, AIFF, SND, CSV, URLs, bytes, file-like objects, and NumPy arrays all feed into the same frame-based API. Once loaded, recordings and sensor data follow the same analysis flow.
+
+5. **The workflow scales toward larger data and ML preprocessing**
+
+   Frame processing is Dask-backed and lazy by default, while `ChannelFrameDataset` lazily loads multiple files from a folder. You can chain resampling, trimming, normalization, and STFT before converting results to PyTorch or TensorFlow tensors when needed.
+
+## Installation
+
+For the best first experience, install the extra that includes interactive display support and the marimo learning app:
+
+```bash
+pip install "wandas[marimo]"
+```
+
+If you already use Jupyter or IPython, or only need to save figures to files, you can start with the core package:
 
 ```bash
 pip install wandas
 ```
 
-Then load a WAV file and inspect it in one short path:
-次に、WAV ファイルを読み込んで、そのまま確認できます。
+The core package includes waveform frames, CSV/WAV reading, signal processing, Matplotlib plots, and `describe()` figure creation and export through options such as `is_close=False` and `image_save`.
+
+Combine optional extras as needed:
+
+```bash
+pip install "wandas[io]"              # WDF save and load
+pip install "wandas[effects]"         # librosa-backed audio effects
+pip install "wandas[marimo]"          # marimo learning app and interactive display
+pip install "wandas[psychoacoustic]"  # loudness, roughness, sharpness, and related metrics
+pip install "wandas[ml]"              # PyTorch / TensorFlow tensor conversion
+
+pip install "wandas[marimo,io,effects,psychoacoustic]"
+```
+
+## Inspect the Sample Audio
+
+Start with `describe()` to see the recording as a whole. The example uses the bundled file in a repository checkout and the same sample's public URL in an installed environment, so you can run it as written in either case.
+
+```python
+from pathlib import Path
+
+import wandas as wd
+
+local_sample = Path("learning-path/sample_audio.wav")
+sample_source = (
+    local_sample
+    if local_sample.exists()
+    else "https://raw.githubusercontent.com/kasahart/wandas/main/learning-path/sample_audio.wav"
+)
+
+recording = wd.read(sample_source, end=15, normalize=True)
+recording.describe(fmin=20, fmax=8_000, vmin=-80, vmax=-20, image_save="readme_sample_audio_describe.png")
+```
+
+Before you decide what to clean or measure, `describe()` presents the waveform, spectrogram, and Welch spectrum together. For a multichannel frame, it saves one figure per channel.
+
+![Wandas describe output for the first sample-audio channel](https://raw.githubusercontent.com/kasahart/wandas/main/images/readme_sample_audio_describe_0.png)
+
+![Wandas describe output for the second sample-audio channel](https://raw.githubusercontent.com/kasahart/wandas/main/images/readme_sample_audio_describe_1.png)
+
+The workflow stays method-centered from here. Call `recording.remove_dc()` to remove a DC offset, `.low_pass_filter(cutoff=1_000)` to apply a low-pass filter, `.fft()` to move into the frequency domain, and `.plot()` on the result to visualize it. You do not need to pass the array, sampling rate, and channel context through separate helper variables.
+
+> `normalize=True` rescales amplitude for listening and shape inspection. Use data converted to Pa for SPL and psychoacoustic metrics that require calibrated values.
+
+## Validate with a Known Signal
+
+Next, verify that the code and analysis result agree for a signal whose answer is known. `wd.from_numpy()` creates a `ChannelFrame` from a NumPy array while attaching the sampling rate, channel names, and units.
+
+This example creates one mono signal containing 750 Hz and 1500 Hz tones plus a DC offset. It removes DC, applies a 1 kHz low-pass filter in one method chain, and combines the result with the original through `add_channel()` for overlaid waveform and FFT views.
+
+```python
+import numpy as np
+import wandas as wd
+
+sr = 48_000
+t = np.arange(sr) / sr
+
+
+def tone(components, *, offset=0.0):
+    return offset + sum(amplitude * np.sin(2 * np.pi * freq * t) for freq, amplitude in components)
+
+
+samples = tone([(750, 0.20), (1500, 0.05)], offset=0.25).astype(np.float64)
+
+signal = wd.from_numpy(
+    samples,
+    sampling_rate=sr,
+    label="known signal",
+    ch_labels=["Original"],
+    ch_units="Pa",
+)
+
+processed = (
+    signal
+    .remove_dc()
+    .low_pass_filter(cutoff=1_000)
+    .rename_channels({0: "After DC removal + 1 kHz low-pass"})
+)
+comparison = signal.add_channel(processed)
+
+comparison.plot(
+    overlay=True,
+    xlim=(0, 0.02),
+    title="Original vs processed",
+)
+spectrum_ax = comparison.fft().plot(
+    overlay=True,
+    xlim=(0, 4_000),
+    title="FFT: original vs processed",
+)
+spectrum_ax.set_ylim(30, 90)
+```
+
+The method chain returns a new `ChannelFrame` without changing the original `signal`. `processed.previous` follows the preceding frame, while `processed.operation_history` records both `remove_dc()` and `low_pass_filter()`.
+
+`signal.add_channel(processed)` combines the original and processed signals into a two-channel comparison frame. In the waveform overlay, the DC offset disappears and the filtered waveform changes shape.
+
+![Overlaid Wandas waveforms for the original signal and the DC-removed low-pass result](https://raw.githubusercontent.com/kasahart/wandas/main/images/readme_known_signal_waveform.png)
+
+The FFT overlay uses a fixed 30–90 dB vertical range. It shows that the processed signal keeps the 750 Hz component while attenuating the 1500 Hz component above the 1 kHz cutoff.
+
+![Overlaid Wandas FFT spectra for the original signal and the DC-removed low-pass result](https://raw.githubusercontent.com/kasahart/wandas/main/images/readme_known_signal_spectrum.png)
+
+## Use Your Own Data
+
+After confirming the workflow with the sample, replace the input with your own WAV or CSV file. The same frame-first API carries you from reading through preprocessing, visualization, and frequency analysis.
 
 ```python
 import wandas as wd
 
-# Load a WAV file and inspect it.
-# WAV ファイルを読み込んで確認する。
-signal = wd.read_wav("audio.wav")
-signal.describe()
+recording = wd.read("recording.wav", end=15)
+clean = recording.remove_dc().normalize()
+spectrum = clean.welch()
+fmax = min(8_000, clean.sampling_rate / 2)
+
+clean.describe(fmin=20, fmax=fmax, vmin=-80, vmax=-20, image_save="recording_overview.png")
+spectrum.plot(xlim=(20, fmax))
 ```
 
-`describe()` gives you a quick visual summary of the waveform, spectrum, and spectrogram.
-`describe()` で、波形、スペクトル、スペクトログラムをまとめて素早く確認できます。
+Preserve calibration when analyzing physical quantities. Because `normalize()` changes amplitude, calculate SPL, sound level, loudness, roughness, sharpness, and similar metrics from the original data after correctly converting it to Pa. Psychoacoustic metrics require `wandas[psychoacoustic]`, while WDF save and load require `wandas[io]`.
 
-![cf.describe](https://github.com/kasahart/wandas/blob/main/images/read_wav_describe.png?raw=true)
+For multiple files, start with `wd.from_folder("recordings/", recursive=True)`. Apply preprocessing to the dataset with a chain such as `.resample(16_000).trim(0, 5).normalize().stft(n_fft=512)`. To pass a frame to ML code, use `frame.to_tensor(framework="torch")` or `frame.to_tensor(framework="tensorflow")` (`wandas[ml]` is required, and conversion materializes the lazy data).
 
-## What You Can Do / できること
+## Small top-level API
 
-- Read waveform and sensor data from formats such as WAV, CSV, and WDF.
-  WAV、CSV、WDF などから波形やセンサーデータを読み込めます。
-- Filter, resample, normalize, and summarize signals with method chaining.
-  フィルタ、リサンプリング、正規化、要約をメソッドチェーンで進められます。
-- Run FFT, STFT, Welch, coherence, transfer-function, and octave-style analyses.
-  FFT、STFT、Welch、コヒーレンス、伝達関数、オクターブ系解析を実行できます。
-- Compute psychoacoustic metrics such as loudness and roughness.
-  ラウドネスや粗さなどの心理音響指標を扱えます。
-- Plot waveforms, spectra, and spectrograms directly with Matplotlib-friendly APIs.
-  波形、スペクトル、スペクトログラムを Matplotlib と親和性の高い API で描画できます。
+- `wd.read("audio.wav")`: read WAV, CSV, supported audio, URL, bytes, or file-like input into a `ChannelFrame`.
+- `wd.from_numpy(data, sampling_rate=48_000)`: create a frame from a NumPy array.
+- `wd.from_folder("recordings/", recursive=True)`: create a lazy folder-backed dataset.
+- `wd.load("analysis.wdf")`: load Wandas native WDF with `wandas[io]`.
+- `wd.supported_formats()`: inspect registered reader formats.
 
-## Learn More / 次に読む
+Read WDF with `wd.load()`, not `wd.read()`. `read_wav()`, `read_csv()`, and `from_ndarray()` remain available for existing code, but new examples use `read()` and `from_numpy()`.
+
+## Core Objects
+
+- `ChannelFrame`: multichannel waveform or sensor data in the time domain.
+- `SpectralFrame`: FFT, Welch, coherence, CSD, and transfer-function results.
+- `SpectrogramFrame`: STFT and other time-frequency data.
+- `NOctFrame`: octave and fractional-octave spectra.
+- `ChannelFrameDataset`: a lazy collection for loading and preprocessing recordings from a folder.
+
+## Good Fits
+
+Wandas is especially useful when you want to:
+
+- prototype a signal-processing pipeline while inspecting waveforms in a notebook or marimo;
+- preserve labels, units, and processing history for audio, vibration, or sensor data;
+- compare multiple WAV or CSV files through the same preprocessing and analysis API;
+- review signal-processing steps and results with teammates or AI agents;
+- build STFT and related features before PyTorch or TensorFlow preprocessing.
+
+## Learn More
 
 - [Documentation](https://kasahart.github.io/wandas/) - Guides, API reference, and examples.
-  [公式ドキュメント](https://kasahart.github.io/wandas/) - ガイド、API リファレンス、使用例。
-- [Learning Path](https://github.com/kasahart/wandas/tree/main/learning-path/) - Notebook-based walkthroughs.
-  [Learning Path](https://github.com/kasahart/wandas/tree/main/learning-path/) - Notebook ベースのステップ別チュートリアル。
-- [Examples](https://github.com/kasahart/wandas/tree/main/examples/) - Small runnable scripts and sample data.
-  [examples](https://github.com/kasahart/wandas/tree/main/examples/) - 小さな実行例とサンプルデータ。
+- [Learning Path](https://github.com/kasahart/wandas/tree/main/learning-path/) - Step-by-step marimo learning apps.
+- [Tutorial](https://kasahart.github.io/wandas/tutorial/) - A guided walkthrough of the core workflow.
+- [Issue Tracker](https://github.com/kasahart/wandas/issues) - Report bugs or propose ideas.
 
-## Contributing / 貢献
+## Project Status
+
+Wandas is actively evolving. The package targets Python 3.10+ and is published under the MIT License. For production workflows, pin the version and review the release notes before upgrading.
+
+## Contributing
 
 Contributions are welcome.
-貢献を歓迎します。
 
-For setup, quality checks, documentation rules, and pull request workflow, see [docs/src/contributing.md](https://kasahart.github.io/wandas/contributing/).
-開発環境セットアップ、品質チェック、ドキュメント規約、プルリクエスト手順は [docs/src/contributing.md](https://kasahart.github.io/wandas/contributing/) を参照してください。
+For development setup, quality checks, documentation conventions, and the pull request workflow, see [docs/src/contributing.md](https://kasahart.github.io/wandas/contributing/).
 
-If you want to report a bug or propose an idea, please use the [Issue Tracker](https://github.com/kasahart/wandas/issues).
-バグ報告や機能提案は [Issue Tracker](https://github.com/kasahart/wandas/issues) を利用してください。
-
-## License / ライセンス
+## License
 
 Released under the [MIT License](https://github.com/kasahart/wandas/blob/main/LICENSE).
-このプロジェクトは [MIT License](https://github.com/kasahart/wandas/blob/main/LICENSE) の下で公開されています。

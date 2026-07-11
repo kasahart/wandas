@@ -1,5 +1,5 @@
 import types
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 from matplotlib.axes import Axes
-from matplotlib.collections import QuadMesh
 from matplotlib.figure import Figure
 
 import wandas as wd
@@ -50,7 +49,14 @@ class TestPlotStrategy(PlotStrategy[Any]):
 
     name = "test_strategy"
 
-    def channel_plot(self, x: Any, y: Any, ax: "Axes", label: str | None = None, alpha: float = 1.0) -> None:
+    def channel_plot(
+        self,
+        x: Any,
+        y: Any,
+        ax: "Axes",
+        label: str | Sequence[str] | None = None,
+        alpha: float = 1.0,
+    ) -> None:
         pass
 
     def plot(
@@ -87,8 +93,8 @@ class TestPlotting:
         self.mock_channel_frame.labels = ["ch1", "ch2"]
         self.mock_channel_frame.label = "Test Channel"
         self.mock_channel_frame.channels = [
-            mock.MagicMock(label="ch1"),
-            mock.MagicMock(label="ch2"),
+            mock.MagicMock(label="ch1", unit=""),
+            mock.MagicMock(label="ch2", unit=""),
         ]
 
         # Single-channel mock channel frame
@@ -99,7 +105,7 @@ class TestPlotting:
         self.mock_single_channel_frame.labels = ["ch1"]
         self.mock_single_channel_frame.label = "Test Single Channel"
         self.mock_single_channel_frame.channels = [
-            mock.MagicMock(label="ch1"),
+            mock.MagicMock(label="ch1", unit=""),
         ]
 
         # Spectral frame mock -- deterministic data
@@ -318,6 +324,52 @@ class TestPlotting:
         axes_list = list(result)
         assert len(axes_list) == self.mock_channel_frame.n_channels
 
+    def test_overlay_waveform_uses_shared_channel_unit(self) -> None:
+        """Overlay waveform plots include a shared non-empty channel unit."""
+        strategy = WaveformPlotStrategy()
+        self.mock_channel_frame.channels = [
+            mock.MagicMock(label="ch1", unit="Pa"),
+            mock.MagicMock(label="ch2", unit="Pa"),
+        ]
+
+        result = strategy.plot(self.mock_channel_frame, overlay=True)
+
+        assert isinstance(result, Axes)
+        assert result.get_ylabel() == "Amplitude [Pa]"
+
+    def test_overlay_waveform_omits_mixed_or_missing_channel_units(self) -> None:
+        """Overlay waveform plots only show units when every channel shares one unit."""
+        strategy = WaveformPlotStrategy()
+
+        self.mock_channel_frame.channels = [
+            mock.MagicMock(label="ch1", unit="Pa"),
+            mock.MagicMock(label="ch2", unit="V"),
+        ]
+        mixed_result = strategy.plot(self.mock_channel_frame, overlay=True)
+        assert isinstance(mixed_result, Axes)
+        assert mixed_result.get_ylabel() == "Amplitude"
+
+        self.mock_channel_frame.channels = [
+            mock.MagicMock(label="ch1", unit="Pa"),
+            mock.MagicMock(label="ch2", unit=""),
+        ]
+        missing_result = strategy.plot(self.mock_channel_frame, overlay=True)
+        assert isinstance(missing_result, Axes)
+        assert missing_result.get_ylabel() == "Amplitude"
+
+    def test_overlay_waveform_explicit_ylabel_overrides_shared_unit(self) -> None:
+        """Explicit overlay waveform y-labels are not rewritten with channel units."""
+        strategy = WaveformPlotStrategy()
+        self.mock_channel_frame.channels = [
+            mock.MagicMock(label="ch1", unit="Pa"),
+            mock.MagicMock(label="ch2", unit="Pa"),
+        ]
+
+        result = strategy.plot(self.mock_channel_frame, overlay=True, ylabel="Custom")
+
+        assert isinstance(result, Axes)
+        assert result.get_ylabel() == "Custom"
+
     def test_single_channel_waveform_plot_strategy(self) -> None:
         """Test single-channel WaveformPlotStrategy."""
         strategy = WaveformPlotStrategy()
@@ -477,14 +529,9 @@ class TestPlotting:
         # Partially patch Matplotlib methods
         with (
             mock.patch("matplotlib.figure.Figure.add_subplot") as mock_add_subplot,
-            mock.patch("librosa.display.specshow") as mock_specshow,
             mock.patch("matplotlib.pyplot.figure") as mock_figure,
             mock.patch.object(Figure, "colorbar"),
         ):
-            # Set return value for mock specshow
-            mock_img = mock.MagicMock(spec=QuadMesh)
-            mock_specshow.return_value = mock_img
-
             mock_fig = mock.MagicMock(spec=Figure)
             mock_figure.return_value = mock_fig
 
@@ -522,14 +569,9 @@ class TestPlotting:
         # Partially patch Matplotlib methods
         with (
             mock.patch("matplotlib.figure.Figure.add_subplot") as mock_add_subplot,
-            mock.patch("librosa.display.specshow") as mock_specshow,
             mock.patch("matplotlib.pyplot.figure") as mock_figure,
             mock.patch.object(Figure, "colorbar"),
         ):
-            # Set return value for mock specshow
-            mock_img = mock.MagicMock(spec=QuadMesh)
-            mock_specshow.return_value = mock_img
-
             mock_fig = mock.MagicMock(spec=Figure)
             mock_figure.return_value = mock_fig
 
@@ -833,26 +875,21 @@ class TestPlotting:
 
         # Test in dBA units
         fig, ax = plt.subplots()
-        with mock.patch("librosa.display.specshow") as mock_specshow:
-            mock_img = mock.MagicMock()
-            mock_specshow.return_value = mock_img
+        result = strategy.plot(
+            self.mock_single_spectrogram_frame,
+            ax=ax,
+            Aw=True,
+            cmap="viridis",
+            vmin=-100,
+            vmax=0,
+        )
 
-            result = strategy.plot(
-                self.mock_single_spectrogram_frame,
-                ax=ax,
-                Aw=True,
-                cmap="viridis",
-                vmin=-100,
-                vmax=0,
-            )
-
-            assert result is ax
-            # Verify dBA units and custom color params forwarded to specshow
-            mock_specshow.assert_called_once()
-            call_args = mock_specshow.call_args
-            assert call_args[1]["cmap"] == "viridis"
-            assert call_args[1]["vmin"] == -100
-            assert call_args[1]["vmax"] == 0
+        assert result is ax
+        assert ax.collections
+        image = ax.collections[-1]
+        assert image.cmap.name == "viridis"
+        assert image.norm.vmin == -100
+        assert image.norm.vmax == 0
 
     @staticmethod
     def _make_spectrogram(
@@ -948,12 +985,9 @@ class TestPlotting:
 
         with (
             mock.patch("matplotlib.figure.Figure.add_subplot") as mock_add_subplot,
-            mock.patch("librosa.display.specshow") as mock_specshow,
             mock.patch("matplotlib.pyplot.figure") as mock_figure,
             mock.patch.object(Figure, "colorbar"),
         ):
-            mock_img = mock.MagicMock()
-            mock_specshow.return_value = mock_img
             mock_fig = mock.MagicMock(spec=Figure)
             mock_figure.return_value = mock_fig
 
@@ -1044,19 +1078,11 @@ class TestPlotting:
         # Test with 2D data (single channel)
         fig, ax = plt.subplots()
 
-        with mock.patch("librosa.display.specshow") as mock_specshow:
-            mock_img = mock.MagicMock()
-            mock_specshow.return_value = mock_img
+        _ = strategy.plot(self.mock_single_spectrogram_frame, ax=ax)
 
-            _ = strategy.plot(self.mock_single_spectrogram_frame, ax=ax)
-
-            # Verify specshow was called
-            mock_specshow.assert_called_once()
-            call_args = mock_specshow.call_args
-            # Verify correct parameters were passed
-            assert call_args[1]["sr"] == self.mock_single_spectrogram_frame.sampling_rate
-            assert call_args[1]["hop_length"] == self.mock_single_spectrogram_frame.hop_length
-            assert call_args[1]["n_fft"] == self.mock_single_spectrogram_frame.n_fft
+        assert ax.collections
+        assert ax.get_xlabel() == "Time [s]"
+        assert ax.get_ylabel() == "Frequency [Hz]"
 
     def test_channel_metadata_access(self) -> None:
         """Test channel metadata access."""
@@ -1339,31 +1365,19 @@ class TestPlotting:
         assert SpectrogramPlotStrategy().channel_plot(None, None, mock.MagicMock()) is None
         assert DescribePlotStrategy().channel_plot(None, None, mock.MagicMock()) is None
 
-    def test_plotting_module_fallback_import_path(self) -> None:
-        """Fallback import should use librosa.display when direct import fails."""
+    def test_plotting_module_does_not_require_librosa_display(self) -> None:
+        """Plotting module should not import librosa for spectrogram rendering."""
         import wandas.visualization.plotting as plotting_module
 
-        isolated_module = types.ModuleType("wandas.visualization.plotting_fallback_test")
+        isolated_module = types.ModuleType("wandas.visualization.plotting_lazy_test")
         isolated_module.__file__ = plotting_module.__file__
         isolated_module.__package__ = "wandas.visualization"
         plotting_source = Path(plotting_module.__file__).read_text(encoding="utf-8")
-        real_import = __import__
 
-        def import_side_effect(
-            name: str,
-            globals_: dict[str, Any] | None = None,
-            locals_: dict[str, Any] | None = None,
-            fromlist: tuple[str, ...] | None = (),
-            level: int = 0,
-        ) -> Any:
-            if name == "librosa" and fromlist and "display" in fromlist:
-                raise ImportError("forced display import failure")
-            return real_import(name, globals_, locals_, fromlist, level)
+        exec(compile(plotting_source, plotting_module.__file__, "exec"), isolated_module.__dict__)
 
-        with mock.patch("builtins.__import__", side_effect=import_side_effect):
-            exec(compile(plotting_source, plotting_module.__file__, "exec"), isolated_module.__dict__)
-
-        assert isolated_module.display is isolated_module.librosa.display
+        assert "librosa" not in isolated_module.__dict__
+        assert "_librosa_display" not in isolated_module.__dict__
 
     def test_spectrogram_plot_strategy_colorbar_error_paths(self) -> None:
         """Spectrogram plotting should swallow colorbar creation errors for both paths."""
@@ -1371,7 +1385,6 @@ class TestPlotting:
 
         fig_single, ax_single = plt.subplots()
         with (
-            mock.patch("librosa.display.specshow", return_value=mock.MagicMock()),
             mock.patch.object(
                 fig_single,
                 "colorbar",
@@ -1388,7 +1401,6 @@ class TestPlotting:
         fig_multi, axs_multi = plt.subplots(2, 1)
         with (
             mock.patch("matplotlib.pyplot.subplots", return_value=(fig_multi, axs_multi)),
-            mock.patch("librosa.display.specshow", return_value=mock.MagicMock()),
             mock.patch.object(
                 fig_multi,
                 "colorbar",

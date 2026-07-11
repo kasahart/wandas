@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.1"
+__generated_with = "0.23.9"
 app = marimo.App()
 
 
@@ -17,7 +17,7 @@ def _(mo):
     # 00 Wandasとは何か
     ## 信号処理・音響解析のための新しいアプローチ
 
-    このノートブックでは、**なぜWandasが必要なのか**を説明し、信号処理の課題とWandasがどのように解決するかを紹介します。
+    このmarimoアプリでは、**なぜWandasが必要なのか**を説明し、信号処理の課題とWandasがどのように解決するかを紹介します。
 
     **学習目標:**
     - 信号処理の現状と課題を理解する
@@ -148,14 +148,6 @@ def _(mo):
     - メソッドチェーンで処理を連鎖
     - pandasユーザーになじみやすい
     """)
-    return
-
-
-@app.cell
-def _(plt):
-    _fig, _ax = plt.subplots()
-    _ax.plot([1, 2, 3])
-    _fig  # セルの最後に必ずオブジェクトを置く
     return
 
 
@@ -449,7 +441,7 @@ def _(np, spectrogram_dataset):
             window=frame.window,
             label=f"ML({frame.label})",
             metadata=frame.metadata,
-            operation_history=frame.operation_history,
+            lineage=frame.lineage,
             channel_metadata=[frame.channels[0]],
             previous=previous,
         )
@@ -708,7 +700,7 @@ def _(mo):
 
     Wandasの可能性を感じていただけましたか？
 
-    **次のノートブック**: [01_getting_started.ipynb](01_getting_started.ipynb)
+    **次のmarimoアプリ**: [01_getting_started.py](01_getting_started.py)
 
     ここでは実際にWandasをインストールし、環境を設定して、最初の信号処理を行ってみましょう。
 
