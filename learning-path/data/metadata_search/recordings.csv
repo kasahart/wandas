@@ -1,0 +1,4 @@
+path,load,rpm
+fan/train/section_00_source.wav,low,1000
+fan/test/section_01_target.wav,high,1500
+pump/train/section_00_source.wav,high,2000

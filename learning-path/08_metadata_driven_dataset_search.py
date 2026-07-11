@@ -6,19 +6,14 @@ app = marimo.App()
 
 @app.cell
 def _():
-    import atexit
     import csv
     import pathlib
-    import shutil
-    import tempfile
 
     import marimo as mo
-    import numpy as np
-    from scipy.io import wavfile
 
     import wandas as wd
 
-    return atexit, csv, mo, np, pathlib, shutil, tempfile, wavfile, wd
+    return csv, mo, pathlib, wd
 
 
 @app.cell(hide_code=True)
@@ -40,12 +35,12 @@ def _(mo):
     uv run marimo edit learning-path/08_metadata_driven_dataset_search.py
     ```
 
-    ブラウザで読むだけなら `edit` を `run` に置き換えます。サンプルデータは自動生成されるため、
-    手元のWAVやCSVは必要ありません。
+    ブラウザで読むだけなら `edit` を `run` に置き換えます。リポジトリには3個の短い合成WAVと
+    sidecar CSVからなるデモデータが同梱されているため、手元のWAVやCSVは必要ありません。
 
     このチュートリアルでは次の流れを実行します。
 
-    1. DCASE/ASDKit風のフォルダを用意する
+    1. 同梱されたDCASE/ASDKit風フォルダを確認する
     2. パスから `machine`、`split`、`section`、`domain` を解決する
     3. ヘッダーや波形を読まずにファイルを選択する
     4. 選択後に通常の Wandas 処理チェーンを適用する
@@ -55,25 +50,14 @@ def _(mo):
 
 
 @app.cell
-def _(atexit, np, pathlib, shutil, tempfile, wavfile):
-    root = pathlib.Path(tempfile.mkdtemp(prefix="wandas_metadata_search_"))
-    atexit.register(shutil.rmtree, root, ignore_errors=True)
-    sampling_rate = 8_000
-    time = np.arange(512) / sampling_rate
-    waveform = np.sin(2 * np.pi * 440 * time).reshape(1, -1)
+def _(pathlib):
+    root = pathlib.Path(__file__).parent / "data" / "metadata_search"
+    relative_paths = sorted(path.relative_to(root) for path in root.rglob("*.wav"))
 
-    relative_paths = [
-        pathlib.Path("fan/train/section_00_source.wav"),
-        pathlib.Path("fan/test/section_01_target.wav"),
-        pathlib.Path("pump/train/section_00_source.wav"),
-    ]
-    for _relative_path in relative_paths:
-        output_path = root / _relative_path
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        wavfile.write(output_path, sampling_rate, waveform.squeeze().astype(np.float32))
-
-    print(f"デモ用フォルダ: {root}")
-    print(f"作成したWAV: {len(relative_paths)}件")
+    print(f"同梱データセット: {root}")
+    print(f"WAV: {len(relative_paths)}件")
+    for relative_path in relative_paths:
+        print(f"  - {relative_path.as_posix()}")
     return relative_paths, root
 
 
@@ -172,20 +156,10 @@ def _(mo):
 @app.cell
 def _(csv, relative_paths, root, wd):
     sidecar_path = root / "recordings.csv"
-    with sidecar_path.open("w", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=["path", "load", "rpm"])
-        writer.writeheader()
-        for _index, _relative_path in enumerate(relative_paths):
-            writer.writerow(
-                {
-                    "path": _relative_path.as_posix(),
-                    "load": "low" if _index == 0 else "high",
-                    "rpm": 1_000 + _index * 500,
-                }
-            )
-
     with sidecar_path.open(newline="") as stream:
         lookup = {row["path"]: {"load": row["load"], "rpm": int(row["rpm"])} for row in csv.DictReader(stream)}
+
+    assert set(lookup) == {path.as_posix() for path in relative_paths}
 
     csv_dataset = wd.from_folder(
         str(root),
