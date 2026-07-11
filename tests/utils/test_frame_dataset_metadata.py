@@ -291,6 +291,9 @@ def test_path_metadata_select_supports_missing_keys_and_processing(
         "recording_002.wav",
         "recording_001.wav",
     ]
+    assert deep.get_metadata()["path_metadata"] is True
+    assert transformed.get_metadata()["path_metadata"] is True
+    assert dataset.sample(n=1, seed=3).get_metadata()["path_metadata"] is True
     frame = transformed[0]
     assert frame is not None
     assert frame.metadata["partition_0"] == "group_a"

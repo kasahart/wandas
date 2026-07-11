@@ -552,6 +552,7 @@ class _SubsetFrameDataset(FrameDataset[F]):
 
         # Store the original dataset
         self._original_dataset = original_dataset
+        self._path_metadata = original_dataset._path_metadata
 
         # Mapping of sampled indices
         self._original_indices = sampled_indices
