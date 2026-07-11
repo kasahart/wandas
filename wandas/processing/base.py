@@ -198,7 +198,10 @@ class BinaryOperation:
         if self.operand_kind == "frame" and self.operand is not None:
             params["operand"] = {"type": "frame", "label": str(self.operand)}
         elif self.operand_kind != "frame":
-            params["operand"] = _operand_descriptor(self.operand)
+            if isinstance(self.operand, Mapping) and "type" in self.operand:
+                params["operand"] = _snapshot_config_value(self.operand)
+            else:
+                params["operand"] = _operand_descriptor(self.operand)
         return params
 
     def to_summary(self) -> OperationSummary:

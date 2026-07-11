@@ -92,6 +92,25 @@ def test_operations_includes_binary_frame_and_scalar_operations() -> None:
     assert scalar_operations[0].symbol == "*"
 
 
+def test_binary_dask_operand_marker_stores_descriptor_without_graph_dependency() -> None:
+    frame = _frame().normalize()
+    operand = da.from_array(np.full(frame._data.shape, 0.25), chunks=frame._data.chunks)
+
+    result = frame + operand
+    operations = result.operations
+
+    assert len(operations) == 2
+    marker = operations[-1]
+    assert isinstance(marker, BinaryOperation)
+    assert marker.params["operand"] == {
+        "type": "dask.array",
+        "shape": [1, 4096],
+        "dtype": "float64",
+        "chunks": [[1], [4096]],
+    }
+    np.testing.assert_allclose(result.compute(), frame.compute() + 0.25)
+
+
 def test_operations_ignores_dask_internal_tasks_rechunk_and_from_delayed() -> None:
     delayed_data = delayed(lambda: np.ones((1, 32), dtype=np.float64))()
     dask_data = da.from_delayed(delayed_data, shape=(1, 32), dtype=np.float64).rechunk((1, -1))

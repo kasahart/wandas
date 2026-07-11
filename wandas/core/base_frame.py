@@ -1567,7 +1567,15 @@ class BaseFrame(ABC, Generic[T]):
             operand=other_str if operand_kind == "frame" else other,
             operand_position="left" if reverse and operand_kind == "operand" else "right",
         )
-        result_data = binary_operation._mark_array(result_data)
+        marker_operation = binary_operation
+        if operand_kind == "operand" and isinstance(other, np.ndarray | DaArray):
+            marker_operation = BinaryOperation(
+                symbol=symbol,
+                operand_kind=operand_kind,
+                operand=binary_operation.to_params()["operand"],
+                operand_position=binary_operation.operand_position,
+            )
+        result_data = marker_operation._mark_array(result_data)
         lineage = self._lineage_with_operation(binary_operation, *lineage_inputs)
         operation_summaries_snapshot = None
         if isinstance(other, type(self)) and (
