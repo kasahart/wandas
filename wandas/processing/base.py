@@ -209,6 +209,11 @@ class BinaryOperation:
             "params": {key: _summary_value(value) for key, value in params.items()},
         }
 
+    def _mark_array(self, data: DaArray) -> DaArray:
+        """Attach this binary operation to a Dask-native result graph."""
+        marker = cast(Any, _mark_wandas_operation)
+        return data.map_blocks(marker, self, dtype=data.dtype)
+
 
 @dataclass(frozen=True)
 class FrameMethodOperation:

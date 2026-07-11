@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from IPython.display import Image as IPythonImage
     from matplotlib.axes import Axes
 
-    from wandas.processing.base import AudioOperation, LineageNode
+    from wandas.processing.base import AudioOperation, BinaryOperation, LineageNode
 
     VisualizeReturnType: TypeAlias = IPythonImage | None
 else:
@@ -748,7 +748,7 @@ class BaseFrame(ABC, Generic[T]):
         return tuple(axis_slices)
 
     @property
-    def operations(self) -> tuple["AudioOperation[Any, Any]", ...]:
+    def operations(self) -> tuple["AudioOperation[Any, Any] | BinaryOperation", ...]:
         """Return Wandas operation instances found in the lazy Dask graph."""
         from wandas.lineage import extract_operations
 
@@ -1567,6 +1567,7 @@ class BaseFrame(ABC, Generic[T]):
             operand=other_str if operand_kind == "frame" else other,
             operand_position="left" if reverse and operand_kind == "operand" else "right",
         )
+        result_data = binary_operation._mark_array(result_data)
         lineage = self._lineage_with_operation(binary_operation, *lineage_inputs)
         operation_summaries_snapshot = None
         if isinstance(other, type(self)) and (

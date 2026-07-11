@@ -6,15 +6,16 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from wandas.processing.base import AudioOperation, _execute_wandas_operation, _mark_wandas_operation
+from wandas.processing.base import AudioOperation, BinaryOperation, _execute_wandas_operation, _mark_wandas_operation
 
 _OPERATION_MARKER_FUNCTIONS = {_execute_wandas_operation, _mark_wandas_operation}
+OperationMarker = AudioOperation[Any, Any] | BinaryOperation
 
 
 @dataclass(frozen=True)
 class _OperationNode:
     key: Any
-    operation: AudioOperation[Any, Any]
+    operation: OperationMarker
     dependencies: frozenset[Any]
 
 
@@ -50,7 +51,7 @@ class _SubgraphOutputTask:
         return frozenset({self.output_dependency})
 
 
-def extract_operations(collection: Any) -> tuple[AudioOperation[Any, Any], ...]:
+def extract_operations(collection: Any) -> tuple[OperationMarker, ...]:
     """Return Wandas operations embedded in an unoptimized Dask collection graph."""
     graph = _collection_graph(collection)
     nodes = _operation_nodes(graph)
@@ -153,7 +154,7 @@ def _operation_nodes(graph: Mapping[Any, Any]) -> dict[Any, _OperationNode]:
     return nodes
 
 
-def _operation_marker(task: Any) -> AudioOperation[Any, Any] | None:
+def _operation_marker(task: Any) -> OperationMarker | None:
     func, args = _task_func_and_args(task)
     if getattr(func, "__name__", None) == "_execute_subgraph":
         return None
@@ -171,13 +172,13 @@ def _subgraph_substitutions(args: tuple[Any, ...]) -> dict[Any, Any]:
 def _operation_from_args(
     args: tuple[Any, ...],
     substitutions: Mapping[Any, Any] | None = None,
-) -> AudioOperation[Any, Any] | None:
+) -> OperationMarker | None:
     substitutions = substitutions or {}
     for arg in args:
         value = _literal_value(arg)
-        if not isinstance(value, AudioOperation):
+        if not isinstance(value, AudioOperation | BinaryOperation):
             value = _literal_value(substitutions.get(_dependency_key(arg), value))
-        if isinstance(value, AudioOperation):
+        if isinstance(value, AudioOperation | BinaryOperation):
             return value
     return None
 

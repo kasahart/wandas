@@ -667,6 +667,25 @@ def test_load_wdf_restores_operation_summaries_snapshot(tmp_path: Path) -> None:
     assert loaded.operation_history == []
 
 
+def test_load_wdf_migrates_legacy_operation_history_to_summary_snapshot(tmp_path: Path) -> None:
+    path = tmp_path / "legacy_history.wdf"
+    with h5py.File(path, "w") as f:
+        f.attrs["version"] = "0.1"
+        f.attrs["sampling_rate"] = 16000.0
+        channels = f.create_group("channels")
+        channel = channels.create_group("0")
+        channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
+        history = f.create_group("operation_history")
+        first = history.create_group("operation_0")
+        first.attrs["operation"] = "normalize"
+        first.attrs["params"] = json.dumps({"axis": -1})
+
+    loaded = wdf_io.load(path)
+
+    assert loaded.operation_summaries == [{"operation": "normalize", "params": {"axis": -1}}]
+    assert loaded.operation_history == []
+
+
 def test_load_wdf_rejects_unsupported_operation_summaries_schema(tmp_path: Path) -> None:
     path = tmp_path / "bad_summary_schema.wdf"
 

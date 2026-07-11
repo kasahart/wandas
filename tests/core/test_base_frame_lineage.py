@@ -10,7 +10,7 @@ from dask.delayed import delayed
 
 from wandas.frames.channel import ChannelFrame
 from wandas.lineage import extract_operations
-from wandas.processing.base import AudioOperation, LineageNode, _execute_wandas_operation
+from wandas.processing.base import AudioOperation, BinaryOperation, LineageNode, _execute_wandas_operation
 from wandas.processing.custom import CustomOperation
 from wandas.processing.effects import Normalize
 from wandas.processing.filters import HighPassFilter
@@ -77,6 +77,19 @@ def test_operations_keeps_repeated_operations_as_distinct_instances() -> None:
 
     assert [operation.name for operation in operations] == ["normalize", "normalize"]
     assert operations[0] is not operations[1]
+
+
+def test_operations_includes_binary_frame_and_scalar_operations() -> None:
+    left = _frame()
+    right = _frame()
+
+    frame_operations = (left + right).operations
+    scalar_operations = (left * 2.0).operations
+
+    assert len(frame_operations) == 1 and isinstance(frame_operations[0], BinaryOperation)
+    assert len(scalar_operations) == 1 and isinstance(scalar_operations[0], BinaryOperation)
+    assert frame_operations[0].symbol == "+"
+    assert scalar_operations[0].symbol == "*"
 
 
 def test_operations_ignores_dask_internal_tasks_rechunk_and_from_delayed() -> None:

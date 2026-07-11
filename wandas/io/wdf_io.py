@@ -47,7 +47,7 @@ def _decode_hdf5_str(value: object) -> str:
 
 def _load_operation_summaries_snapshot(h5_file: Any) -> list[dict[str, Any]] | None:
     if OPERATION_SUMMARIES_JSON_ATTR not in h5_file.attrs:
-        return None
+        return _load_legacy_operation_history(h5_file)
     schema = int(h5_file.attrs.get(OPERATION_SUMMARIES_SCHEMA_ATTR, 0))
     if schema != OPERATION_SUMMARIES_SCHEMA_VERSION:
         raise ValueError(
@@ -62,6 +62,27 @@ def _load_operation_summaries_snapshot(h5_file: Any) -> list[dict[str, Any]] | N
             f"Invalid WDF operation summaries JSON\n  Expected: JSON array of objects\n  Got: {type(parsed).__name__}"
         )
     return parsed
+
+
+def _load_legacy_operation_history(h5_file: Any) -> list[dict[str, Any]] | None:
+    """Migrate the WDF 0.1 operation_history group to summary records."""
+    if "operation_history" not in h5_file:
+        return None
+    operation_group = h5_file["operation_history"]
+    records: list[dict[str, Any]] = []
+    for key in sorted(operation_group, key=lambda item: int(item.rsplit("_", 1)[1])):
+        stored = operation_group[key]
+        record: dict[str, Any] = {}
+        for name, value in stored.attrs.items():
+            decoded = _decode_hdf5_str(value) if isinstance(value, (str, bytes, np.bytes_)) else value
+            if isinstance(decoded, str):
+                try:
+                    decoded = json.loads(decoded)
+                except json.JSONDecodeError:
+                    pass
+            record[name] = decoded
+        records.append(record)
+    return records
 
 
 def save(

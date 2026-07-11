@@ -231,7 +231,7 @@ Implemented:
 - `GraphRecipeSpec.from_frame(processed, input_names=("signal", "noise"))` when one or both binary parents are unprocessed source frames
 - `GraphRecipeSpec.from_frame(processed)` with default structural input names `input_0` and `input_1`
 - `NodeGraphRecipeSpec.from_frame(processed)` for replayable tree graphs with multiple binary merges
-- `NodeGraphRecipeSpec.from_frame(processed, input_names=("base", "base"))` for duplicated parent paths replayed from the same external input
+- `NodeGraphRecipeSpec.from_frame(processed, input_names=("base_signal", "base_noise"))` for duplicated parent paths; pass the same frame for both names when replaying from one external input
 - `NodeGraphRecipeSpec.from_frame(processed, input_names=("base", "added"))` for `base.add_channel(added_frame, ...)`
 - `NodeGraphRecipeSpec.from_frame(processed, input_names=("base", "raw"))` for `base.add_channel(raw_array, ...)`
 
@@ -271,7 +271,7 @@ BinaryOperandStep(operation="+", frame="signal", operand="offset")
 
 For `add_with_snr`, Recipe stores the two frame inputs and the public `snr` value. If the runtime method internally adjusts the noise length, that helper operation is not extracted as a separate `fix_length` step. Replay calls `frame.add(other, snr=...)`, so the current inputs decide any length alignment.
 
-`NodeGraphRecipeSpec` は `operation_graph` を bottom-up に走査し、source leaf を外部入力、operation node を topological order の `GraphNodeSpec` に変換する。複数 binary merge は扱うが、各 node の処理自体は既存 step と `BinaryFrameStep` に委譲する。現時点の `operation_graph` は tree であり true DAG identity は持たないため、shared branch は duplicated parent path として replay する。同じ source を使いたい場合は、`input_names=("base", "base")` のように同じ外部入力名を複数 leaf に割り当てる。
+`NodeGraphRecipeSpec` は `operation_graph` を bottom-up に走査し、source leaf を外部入力、operation node を topological order の `GraphNodeSpec` に変換する。複数 binary merge は扱うが、各 node の処理自体は既存 step と `BinaryFrameStep` に委譲する。現時点の `operation_graph` は tree であり true DAG identity は持たないため、shared branch は duplicated parent path として replay する。同じ source を使いたい場合も各leafには異なる名前を付け、`apply`時に両方の名前へ同じframeを渡す。
 
 `frame + ndarray` や `frame * dask_array` のような array operand は `BinaryOperandStep` に変換する。Recipe は array 値を保存せず、named external input として replay 時に受け取る。`operation_graph` に残る shape/dtype/chunk descriptor は、対象が external operand であることの判定にだけ使い、値の再構成には使わない。
 
