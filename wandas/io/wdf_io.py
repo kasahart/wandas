@@ -6,9 +6,9 @@ WDF (Wandas Data File) format, which is based on HDF5. The format preserves
 all metadata including sampling rate, channel labels, units, and frame metadata.
 """
 
-import io
 import json
 import logging
+from contextlib import ExitStack
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -22,6 +22,7 @@ from wandas.utils.dask_helpers import da_from_array as _da_from_array
 from wandas.utils.optional_imports import require_h5py
 
 from ..core.base_frame import BaseFrame
+from .readers import download_url_to_temporary_file
 
 logger = logging.getLogger(__name__)
 
@@ -187,8 +188,12 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
 
     Args:
         path: Path to the WDF file to load, or an HTTP/HTTPS URL pointing to
-            a remote WDF file. When a URL is given the file is downloaded in
-            full before opening.
+            a remote WDF file. URL input is streamed into a temporary file in
+            bounded chunks and rejected when it exceeds
+            `wandas.io.readers.MAX_URL_DOWNLOAD_BYTES`. Call
+            `wandas.io.readers.download_url_to_temporary_file` directly with a
+            larger `max_bytes` value when a trusted remote WDF exceeds the
+            default limit.
         format: Format of the file. Currently only "hdf5" is supported.
         timeout: Timeout in seconds for HTTP/HTTPS URL downloads. Default is
             10.0 seconds. Has no effect for local file paths.
@@ -215,130 +220,124 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
 
     h5py = require_h5py("WDF load")
 
-    # Detect and handle URL paths — download to memory before HDF5 open.
-    h5_source: str | Path | io.BytesIO
-    h5_kwargs: dict[str, object] = {}
-    if isinstance(path, str) and path.lower().startswith(("http://", "https://")):
-        import urllib.error
-        import urllib.request
-
-        logger.debug(f"Downloading WDF from URL: {path}")
-        try:
-            with urllib.request.urlopen(path, timeout=timeout) as _resp:
-                h5_source = io.BytesIO(_resp.read())
-        except urllib.error.URLError as exc:
-            raise OSError(
-                f"Failed to download WDF file from URL\n"
-                f"  URL: {path}\n"
-                f"  Error: {exc}\n"
-                f"Verify the URL is accessible and try again."
-            ) from exc
-        h5_kwargs = {"driver": "fileobj"}
-    else:
-        path = Path(path)
-        if not path.exists():
-            raise FileNotFoundError(f"File not found: {path}")
-        h5_source = path
-
-    logger.debug(f"Loading ChannelFrame from {h5_source!r}")
-
-    with h5py.File(h5_source, "r", **h5_kwargs) as f:
-        # Check format version for compatibility
-        version = f.attrs.get("version", "unknown")
-        if version != WDF_FORMAT_VERSION:
-            logger.warning(f"File format version mismatch: file={version}, current={WDF_FORMAT_VERSION}")
-
-        # Get global attributes
-        sampling_rate = float(f.attrs["sampling_rate"])
-        frame_label = _decode_hdf5_str(f.attrs.get("label", ""))
-        legacy_source_time_offset = f.attrs.get("source_time_offset", None)
-
-        # Get frame metadata
-        frame_metadata: dict[str, Any] = {}
-        if "meta" in f:
-            meta_json = f["meta"].attrs.get("json", "{}")
-            if isinstance(meta_json, (bytes, np.bytes_)):
-                meta_json = _decode_hdf5_str(meta_json)
-            parsed_metadata = json.loads(meta_json)
-            if not isinstance(parsed_metadata, dict):
-                raise ValueError("WDF meta/json must decode to a JSON object")
-            frame_metadata = parsed_metadata
-            source_file = f["meta"].attrs.get("source_file", None)
-            if source_file is not None:
-                frame_metadata.setdefault("_source_file", _decode_hdf5_str(source_file))
-
-        operation_summaries_snapshot = _load_operation_summaries_snapshot(f)
-
-        # Load channel data and metadata
-        all_channel_data = []
-        channel_metadata_list = []
-        channel_source_time_offsets = []
-        channel_ids = None
-        if "channel_ids_json" in f.attrs:
-            parsed_channel_ids = json.loads(_decode_hdf5_str(f.attrs["channel_ids_json"]))
-            if isinstance(parsed_channel_ids, list):
-                channel_ids = [str(channel_id) for channel_id in parsed_channel_ids]
-
-        if "channels" in f:
-            channels_group = f["channels"]
-            # Sort channel indices numerically
-            channel_indices = sorted([int(key) for key in channels_group])
-
-            for idx in channel_indices:
-                ch_group = channels_group[f"{idx}"]
-
-                # Load channel data
-                channel_data = ch_group["data"][()]
-
-                # Append to combined array
-                all_channel_data.append(channel_data)
-
-                # Load channel metadata
-                label = _decode_hdf5_str(ch_group.attrs.get("label", f"Ch{idx}"))
-                unit = _decode_hdf5_str(ch_group.attrs.get("unit", ""))
-                ref = float(ch_group.attrs["ref"]) if "ref" in ch_group.attrs else None
-                if "source_time_offset" in ch_group.attrs:
-                    channel_source_time_offsets.append(float(ch_group.attrs["source_time_offset"]))
-
-                # Load additional metadata if present
-                ch_extra = {}
-                if "metadata_json" in ch_group.attrs:
-                    ch_extra = json.loads(ch_group.attrs["metadata_json"])
-
-                # Create ChannelMetadata object
-                if ref is None:
-                    channel_metadata = ChannelMetadata(label=label, unit=unit, extra=ch_extra)
-                else:
-                    channel_metadata = ChannelMetadata(label=label, unit=unit, ref=ref, extra=ch_extra)
-                channel_metadata_list.append(channel_metadata)
-
-        # Stack channel data into a single array
-        if all_channel_data:
-            combined_data = np.stack(all_channel_data, axis=0)
+    with ExitStack() as downloads:
+        h5_source: str | Path
+        if isinstance(path, str) and path.lower().startswith(("http://", "https://")):
+            logger.debug(f"Downloading WDF from URL: {path}")
+            download = downloads.enter_context(
+                download_url_to_temporary_file(
+                    path,
+                    timeout=timeout,
+                    suffix=".wdf",
+                    resource_name="WDF file",
+                )
+            )
+            h5_source = download.path
         else:
-            raise ValueError("No channel data found in the file")
+            path = Path(path)
+            if not path.exists():
+                raise FileNotFoundError(f"File not found: {path}")
+            h5_source = path
 
-        if channel_source_time_offsets:
-            source_time_offset = channel_source_time_offsets
-        elif legacy_source_time_offset is not None:
-            source_time_offset = legacy_source_time_offset
-        else:
-            source_time_offset = 0.0
+        logger.debug(f"Loading ChannelFrame from {h5_source!r}")
 
-        # Create a new ChannelFrame
-        # Use channel-wise chunking: 1 for channel axis and -1 for samples
-        dask_data = _da_from_array(combined_data, chunks=(1, -1))
+        with h5py.File(h5_source, "r") as f:
+            # Check format version for compatibility
+            version = f.attrs.get("version", "unknown")
+            if version != WDF_FORMAT_VERSION:
+                logger.warning(f"File format version mismatch: file={version}, current={WDF_FORMAT_VERSION}")
 
-        cf = ChannelFrame(
-            data=dask_data,
-            sampling_rate=sampling_rate,
-            label=frame_label if frame_label else None,
-            metadata=frame_metadata,
-            channel_metadata=channel_metadata_list,
-            channel_ids=channel_ids,
-            source_time_offset=source_time_offset,
-            operation_summaries_snapshot=operation_summaries_snapshot,
-        )
+            # Get global attributes
+            sampling_rate = float(f.attrs["sampling_rate"])
+            frame_label = _decode_hdf5_str(f.attrs.get("label", ""))
+            legacy_source_time_offset = f.attrs.get("source_time_offset", None)
 
-        logger.debug(f"ChannelFrame loaded from {path}: {len(cf)} channels, {cf.n_samples} samples")
-        return cf
+            # Get frame metadata
+            frame_metadata: dict[str, Any] = {}
+            if "meta" in f:
+                meta_json = f["meta"].attrs.get("json", "{}")
+                if isinstance(meta_json, (bytes, np.bytes_)):
+                    meta_json = _decode_hdf5_str(meta_json)
+                parsed_metadata = json.loads(meta_json)
+                if not isinstance(parsed_metadata, dict):
+                    raise ValueError("WDF meta/json must decode to a JSON object")
+                frame_metadata = parsed_metadata
+                source_file = f["meta"].attrs.get("source_file", None)
+                if source_file is not None:
+                    frame_metadata.setdefault("_source_file", _decode_hdf5_str(source_file))
+
+            operation_summaries_snapshot = _load_operation_summaries_snapshot(f)
+
+            # Load channel data and metadata
+            all_channel_data = []
+            channel_metadata_list = []
+            channel_source_time_offsets = []
+            channel_ids = None
+            if "channel_ids_json" in f.attrs:
+                parsed_channel_ids = json.loads(_decode_hdf5_str(f.attrs["channel_ids_json"]))
+                if isinstance(parsed_channel_ids, list):
+                    channel_ids = [str(channel_id) for channel_id in parsed_channel_ids]
+
+            if "channels" in f:
+                channels_group = f["channels"]
+                # Sort channel indices numerically
+                channel_indices = sorted([int(key) for key in channels_group])
+
+                for idx in channel_indices:
+                    ch_group = channels_group[f"{idx}"]
+
+                    # Load channel data
+                    channel_data = ch_group["data"][()]
+
+                    # Append to combined array
+                    all_channel_data.append(channel_data)
+
+                    # Load channel metadata
+                    label = _decode_hdf5_str(ch_group.attrs.get("label", f"Ch{idx}"))
+                    unit = _decode_hdf5_str(ch_group.attrs.get("unit", ""))
+                    ref = float(ch_group.attrs["ref"]) if "ref" in ch_group.attrs else None
+                    if "source_time_offset" in ch_group.attrs:
+                        channel_source_time_offsets.append(float(ch_group.attrs["source_time_offset"]))
+
+                    # Load additional metadata if present
+                    ch_extra = {}
+                    if "metadata_json" in ch_group.attrs:
+                        ch_extra = json.loads(ch_group.attrs["metadata_json"])
+
+                    # Create ChannelMetadata object
+                    if ref is None:
+                        channel_metadata = ChannelMetadata(label=label, unit=unit, extra=ch_extra)
+                    else:
+                        channel_metadata = ChannelMetadata(label=label, unit=unit, ref=ref, extra=ch_extra)
+                    channel_metadata_list.append(channel_metadata)
+
+            # Stack channel data into a single array
+            if all_channel_data:
+                combined_data = np.stack(all_channel_data, axis=0)
+            else:
+                raise ValueError("No channel data found in the file")
+
+            if channel_source_time_offsets:
+                source_time_offset = channel_source_time_offsets
+            elif legacy_source_time_offset is not None:
+                source_time_offset = legacy_source_time_offset
+            else:
+                source_time_offset = 0.0
+
+            # Create a new ChannelFrame
+            # Use channel-wise chunking: 1 for channel axis and -1 for samples
+            dask_data = _da_from_array(combined_data, chunks=(1, -1))
+
+            cf = ChannelFrame(
+                data=dask_data,
+                sampling_rate=sampling_rate,
+                label=frame_label if frame_label else None,
+                metadata=frame_metadata,
+                channel_metadata=channel_metadata_list,
+                channel_ids=channel_ids,
+                source_time_offset=source_time_offset,
+                operation_summaries_snapshot=operation_summaries_snapshot,
+            )
+
+            logger.debug(f"ChannelFrame loaded from {path}: {len(cf)} channels, {cf.n_samples} samples")
+            return cf

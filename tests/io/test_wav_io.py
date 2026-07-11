@@ -1,6 +1,8 @@
 # tests/io/test_wav_io.py
 import io
+import tempfile
 from contextlib import contextmanager
+from pathlib import Path
 from typing import BinaryIO, cast
 from unittest.mock import MagicMock, patch
 
@@ -10,6 +12,7 @@ import pytest
 from scipy.io import wavfile
 
 from wandas.frames.channel import ChannelFrame
+from wandas.io import readers as io_readers
 from wandas.io import write_wav
 
 
@@ -21,12 +24,28 @@ def _make_wav_bytes(sr: int, data: np.ndarray) -> bytes:
 
 
 @contextmanager
-def _mock_urlopen(wav_bytes: bytes):
-    """Context manager that mocks urllib.request.urlopen to return wav_bytes."""
+def _mock_urlopen(
+    wav_bytes: bytes,
+    *,
+    forbid_unbounded_read: bool = False,
+    include_content_length: bool = True,
+    expected_chunk_size: int | None = None,
+):
+    """Context manager that mocks urllib.request.urlopen to stream wav_bytes."""
+    stream = io.BytesIO(wav_bytes)
     mock_resp = MagicMock()
     mock_resp.__enter__ = MagicMock(return_value=mock_resp)
     mock_resp.__exit__ = MagicMock(return_value=False)
-    mock_resp.read = MagicMock(return_value=wav_bytes)
+    mock_resp.headers = {"Content-Length": str(len(wav_bytes))} if include_content_length else {}
+
+    def _read(size: int = -1) -> bytes:
+        if forbid_unbounded_read and size < 0:
+            raise AssertionError("URL reads must request bounded chunks")
+        if expected_chunk_size is not None and size >= 0:
+            assert size == expected_chunk_size, f"Expected chunk size {expected_chunk_size}, got {size}"
+        return stream.read(size)
+
+    mock_resp.read = MagicMock(side_effect=_read)
     with patch("urllib.request.urlopen", return_value=mock_resp) as mock_fn:
         yield mock_fn
 
@@ -215,6 +234,56 @@ def test_from_file_url_wav() -> None:
     assert cf.label == "sample"
 
 
+def test_from_file_url_wav_streams_in_chunks() -> None:
+    """URL WAV loads must stream in bounded chunks instead of full-response reads."""
+    url = "https://example.com/audio/sample.wav"
+    sr = 22050
+    n_samples = 100
+    mono_data = np.full(n_samples, 0.25, dtype=np.float32)
+    wav_bytes = _make_wav_bytes(sr, mono_data)
+
+    with _mock_urlopen(
+        wav_bytes,
+        forbid_unbounded_read=True,
+        expected_chunk_size=io_readers.URL_DOWNLOAD_CHUNK_SIZE,
+    ):
+        cf = ChannelFrame.from_file(url)
+
+    assert cf.sampling_rate == sr
+    np.testing.assert_allclose(cf.compute()[0], mono_data, rtol=1e-5)
+
+
+def test_download_read_is_capped_by_remaining_budget() -> None:
+    """Each streamed read is bounded by the remaining limit plus one byte."""
+    wav_bytes = b"0123456789"
+
+    with _mock_urlopen(wav_bytes, include_content_length=False) as mock_fn:
+        with pytest.raises(OSError, match=r"Streaming audio would exceed size limit"):
+            io_readers.download_url_to_temporary_file(
+                "https://example.com/audio/sample.wav",
+                timeout=10.0,
+                resource_name="audio",
+                max_bytes=5,
+                chunk_size=100,
+            )
+
+    mock_fn.return_value.read.assert_called_once_with(6)
+
+
+def test_from_file_url_pcm_wav_preserves_normalized_samples() -> None:
+    """URL PCM WAV loads preserve the historical normalized-float contract."""
+    url = "https://example.com/audio/pcm.wav"
+    sr = 8000
+    pcm_data = np.array([0, 16384, -16384, 32767, -32768], dtype=np.int16)
+    wav_bytes = _make_wav_bytes(sr, pcm_data)
+
+    with _mock_urlopen(wav_bytes):
+        cf = ChannelFrame.from_file(url, normalize=False)
+
+    expected = pcm_data.astype(np.float32) / 32768.0
+    np.testing.assert_allclose(cf.compute()[0], expected, rtol=0, atol=1e-7)
+
+
 def test_from_file_url_http_scheme() -> None:
     """Test that plain http:// URLs are also handled by from_file."""
     url = "http://example.com/audio/sample.wav"
@@ -257,6 +326,150 @@ def test_from_file_url_download_failure() -> None:
     ):
         with pytest.raises(OSError, match=r"Failed to download audio from URL"):
             ChannelFrame.from_file(url)
+
+
+def test_download_url_midstream_failure_cleans_partial_file(monkeypatch, tmp_path) -> None:
+    """A connection failure after writing data must remove the partial download."""
+    import urllib.error
+
+    temporary_directory = tempfile.TemporaryDirectory
+    temporary_directory_factory = MagicMock(side_effect=lambda: temporary_directory(dir=tmp_path))
+    temporary_directory_factory.cleanup = temporary_directory.cleanup
+    monkeypatch.setattr(
+        io_readers.tempfile,
+        "TemporaryDirectory",
+        temporary_directory_factory,
+    )
+    mock_resp = MagicMock()
+    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+    mock_resp.__exit__ = MagicMock(return_value=False)
+    mock_resp.headers = {}
+    mock_resp.read = MagicMock(side_effect=[b"partial WAV data", urllib.error.URLError("connection dropped")])
+
+    with patch("urllib.request.urlopen", return_value=mock_resp):
+        with pytest.raises(OSError, match=r"Failed to download audio from URL"):
+            io_readers.download_url_to_temporary_file(
+                "https://example.com/audio/sample.wav",
+                timeout=10.0,
+                suffix=".wav",
+                resource_name="audio",
+            )
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_from_file_url_setup_failure_cleans_download(monkeypatch, tmp_path) -> None:
+    """A frame setup error after download must remove the temporary file."""
+    temporary_directory = tempfile.TemporaryDirectory
+    temporary_directory_factory = MagicMock(side_effect=lambda: temporary_directory(dir=tmp_path))
+    temporary_directory_factory.cleanup = temporary_directory.cleanup
+    monkeypatch.setattr(io_readers.tempfile, "TemporaryDirectory", temporary_directory_factory)
+    wav_bytes = _make_wav_bytes(8000, np.zeros(8, dtype=np.int16))
+
+    with _mock_urlopen(wav_bytes):
+        with pytest.raises(ValueError, match=r"Channel specification is out of range"):
+            ChannelFrame.from_file("https://example.com/audio/sample.wav", channel=1)
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_from_file_url_over_size_limit_raises() -> None:
+    """URL WAV loads must stop when streamed bytes exceed the configured limit."""
+    url = "https://example.com/audio/sample.wav"
+    sr = 16000
+    n_samples = 500
+    mono_data = np.full(n_samples, 0.5, dtype=np.float32)
+    wav_bytes = _make_wav_bytes(sr, mono_data)
+
+    with patch.object(io_readers, "MAX_URL_DOWNLOAD_BYTES", 128):
+        with _mock_urlopen(wav_bytes, include_content_length=False):
+            with pytest.raises(OSError, match=r"Streaming audio would exceed size limit"):
+                ChannelFrame.from_file(url)
+
+
+def test_from_file_url_declared_size_limit_raises_before_streaming() -> None:
+    """URL WAV loads must reject oversized Content-Length before streaming data."""
+    url = "https://example.com/audio/sample.wav"
+    sr = 16000
+    n_samples = 500
+    mono_data = np.full(n_samples, 0.5, dtype=np.float32)
+    wav_bytes = _make_wav_bytes(sr, mono_data)
+
+    with patch.object(io_readers, "MAX_URL_DOWNLOAD_BYTES", 128):
+        with _mock_urlopen(wav_bytes, include_content_length=True) as mock_fn:
+            with pytest.raises(OSError, match=r"Declared size of audio exceeds download limit"):
+                ChannelFrame.from_file(url)
+
+    mock_resp = mock_fn.return_value
+    mock_resp.read.assert_not_called()
+
+
+def test_download_url_to_temporary_file_invalid_max_bytes_raises() -> None:
+    """Helper must reject non-positive max_bytes before opening the URL."""
+    with patch("urllib.request.urlopen") as mock_urlopen:
+        with pytest.raises(ValueError, match=r"Download size limit must be greater than zero"):
+            io_readers.download_url_to_temporary_file(
+                "https://example.com/audio/sample.wav",
+                timeout=10.0,
+                resource_name="audio",
+                max_bytes=0,
+            )
+
+    mock_urlopen.assert_not_called()
+
+
+def test_download_url_to_temporary_file_invalid_chunk_size_raises() -> None:
+    """Helper must reject non-positive chunk_size before opening the URL."""
+    with patch("urllib.request.urlopen") as mock_urlopen:
+        with pytest.raises(ValueError, match=r"Download chunk size must be greater than zero"):
+            io_readers.download_url_to_temporary_file(
+                "https://example.com/audio/sample.wav",
+                timeout=10.0,
+                resource_name="audio",
+                chunk_size=0,
+            )
+
+    mock_urlopen.assert_not_called()
+
+
+def test_download_url_to_temporary_file_invalid_content_length_raises() -> None:
+    """Helper must reject non-numeric Content-Length headers."""
+    wav_bytes = _make_wav_bytes(8000, np.full(10, 0.25, dtype=np.float32))
+
+    with _mock_urlopen(wav_bytes) as mock_fn:
+        mock_fn.return_value.headers = {"Content-Length": "not-a-number"}
+        with pytest.raises(OSError, match=r"Invalid Content-Length for audio download"):
+            io_readers.download_url_to_temporary_file(
+                "https://example.com/audio/sample.wav",
+                timeout=10.0,
+                resource_name="audio",
+            )
+
+
+def test_download_url_to_temporary_file_negative_content_length_raises() -> None:
+    """Helper must reject negative Content-Length headers."""
+    wav_bytes = _make_wav_bytes(8000, np.full(10, 0.25, dtype=np.float32))
+
+    with _mock_urlopen(wav_bytes) as mock_fn:
+        mock_fn.return_value.headers = {"Content-Length": "-1"}
+        with pytest.raises(OSError, match=r"Invalid Content-Length for audio download"):
+            io_readers.download_url_to_temporary_file(
+                "https://example.com/audio/sample.wav",
+                timeout=10.0,
+                resource_name="audio",
+            )
+
+
+def test_downloaded_temporary_file_context_manager_cleans_up() -> None:
+    """DownloadedTemporaryFile must clean up its temp directory on context exit."""
+    temp_dir = tempfile.TemporaryDirectory()
+    temp_path = Path(temp_dir.name) / "download.wav"
+
+    with io_readers.DownloadedTemporaryFile(path=temp_path, temp_dir=temp_dir) as downloaded:
+        downloaded.path.write_bytes(b"wav")
+        assert downloaded.path.exists()
+
+    assert not temp_path.parent.exists()
 
 
 def test_from_file_nonexistent_path_raises_file_not_found(tmp_path) -> None:
