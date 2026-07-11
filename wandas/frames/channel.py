@@ -1058,8 +1058,17 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         download_owner: DownloadedTemporaryFile | None = None
         downloaded_from_url = False
 
-        # Stream URL input to a bounded temporary file before any path logic.
+        # Validate optional CSV dependencies before starting a remote download.
         if isinstance(path, str) and path.lower().startswith(("http://", "https://")):
+            url_file_type = file_type
+            if url_file_type is None:
+                from pathlib import PurePosixPath
+                from urllib.parse import urlparse
+
+                url_file_type = PurePosixPath(urlparse(path).path).suffix.lower() or None
+            if url_file_type is not None and url_file_type.lower().lstrip(".") == "csv":
+                require_pandas("CSV file reading")
+
             path, download_owner, file_type, source_name = _download_url(path, file_type, source_name, timeout)
             downloaded_from_url = True
 
