@@ -24,8 +24,8 @@ The `FrameDataset` classes enable efficient batch processing of audio files in a
 
 ### Main Classes / 主なクラス
 
-- **`ChannelFrameDataset`**: For time-domain audio data (WAV, MP3, FLAC, CSV files).
-  **`ChannelFrameDataset`**: 時間領域の音声データ用（WAV、MP3、FLAC、CSVファイル）。
+- **`ChannelFrameDataset`**: For time-domain data (WAV, FLAC, OGG, AIFF, SND, and CSV files).
+  **`ChannelFrameDataset`**: 時間領域データ用（WAV、FLAC、OGG、AIFF、SND、CSVファイル）。
 - **`SpectrogramFrameDataset`**: For time-frequency domain data (typically created from STFT).
   **`SpectrogramFrameDataset`**: 時間周波数領域データ用（通常はSTFTから作成）。
 
@@ -39,7 +39,7 @@ from wandas.utils.frame_dataset import ChannelFrameDataset
 dataset = ChannelFrameDataset.from_folder(
     folder_path="path/to/audio/files",
     sampling_rate=16000,  # Optional: resample all files to this rate / オプション: すべてのファイルをこのレートにリサンプリング
-    file_extensions=[".wav", ".mp3"],  # File types to include / 含めるファイルタイプ
+    file_extensions=[".wav", ".flac"],  # File types to include / 含めるファイルタイプ
     recursive=True,  # Search subdirectories / サブディレクトリを検索
     lazy_loading=True  # Load files on demand (recommended) / オンデマンドでファイルを読み込む（推奨）
 )
@@ -145,8 +145,8 @@ for i in range(len(dataset)):
 **sampling_rate** (Optional[int]): Target sampling rate. Files will be resampled if different from this rate.
 ターゲットサンプリングレート。このレートと異なる場合、ファイルはリサンプリングされます。
 
-**file_extensions** (Optional[list[str]]): List of file extensions to include. Default: `[".wav", ".mp3", ".flac", ".csv"]`.
-含めるファイル拡張子のリスト。デフォルト: `[".wav", ".mp3", ".flac", ".csv"]`。
+**file_extensions** (Optional[list[str]]): List of file extensions to include. By default, all registered reader extensions from `wd.supported_formats()` are used: `[".aif", ".aiff", ".csv", ".flac", ".ogg", ".snd", ".wav"]`. Audio format availability follows the libsndfile library bundled or installed with SoundFile. MP3 is not a registered Wandas reader format.
+含めるファイル拡張子のリスト。デフォルトでは、`wd.supported_formats()` が返す登録済み reader 拡張子 `[".aif", ".aiff", ".csv", ".flac", ".ogg", ".snd", ".wav"]` をすべて使用します。音声形式の利用可否は SoundFile に同梱またはインストールされた libsndfile に従います。MP3 は Wandas の登録済み reader 形式ではありません。
 
 **lazy_loading** (bool): If True, files are loaded only when accessed. Default: True.
 Trueの場合、ファイルはアクセス時にのみ読み込まれます。デフォルト: True。
