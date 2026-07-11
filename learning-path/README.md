@@ -80,10 +80,10 @@
 
 **波形を読む前に対象ファイルを絞り込む**
 
-- 一般的なフォルダ名・ファイル名からメタデータを解決
+- `path_metadata=True` でフォルダ階層からメタデータを自動推論
 - `dataset.select()` による完全一致・AND検索
 - Dataset全体への処理チェーンと処理後のメタデータ選択
-- sidecar CSVをpandasで確認し、lookupとして接続
+- 外部属性が必要な場合だけsidecar CSVをlookupとして接続
 
 ## 🚀 学習を始める前に
 
@@ -104,7 +104,7 @@
 | 04_advanced_processing | 高度処理 | スペクトログラム | 特徴抽出 |
 | 05_custom_functions | custom処理 | custom operation | 処理の再利用 |
 | 06_pipeline_recipe_ux | frame-first Recipe基本 | extract / replay | 探索解析の再現 |
-| 08_metadata_driven_dataset_search | Dataset検索 | resolver / select | 大量ファイルの事前絞り込み |
+| 08_metadata_driven_dataset_search | Dataset検索 | path_metadata / select | 大量ファイルの事前絞り込み |
 
 ## 🔗 関連リソース
 
