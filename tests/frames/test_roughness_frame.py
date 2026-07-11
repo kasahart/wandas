@@ -10,7 +10,7 @@ import pytest
 from dask.array.core import Array as DaArray
 
 from wandas.frames.roughness import RoughnessFrame
-from wandas.processing.base import LineageNode
+from wandas.processing.base import BinaryOperation, LineageNode
 from wandas.processing.effects import Normalize
 
 # --- Module-level deterministic roughness test data ---
@@ -379,6 +379,10 @@ class TestRoughnessFrame:
         # Scalar addition — np.allclose default tol (exact match expected)
         assert np.allclose(result.data, original_data + 1.0)
         assert np.allclose(frame.data, original_data)  # Pillar 1: original unchanged
+        assert len(result.operations) == 1
+        marker = result.operations[0]
+        assert isinstance(marker, BinaryOperation)
+        assert marker.symbol == "+"
 
     def test_time_slice_advances_source_time_offset(self) -> None:
         """RoughnessFrame time slicing advances on the last axis."""
@@ -450,6 +454,10 @@ class TestRoughnessFrame:
         assert [record["operation"] for record in result.operation_history] == ["normalize", "normalize", "+"]
         assert result.operation_graph is not None
         assert [node["operation"] for node in result.operation_graph["inputs"]] == ["normalize", "normalize"]
+        assert len(result.operations) == 1
+        marker = result.operations[0]
+        assert isinstance(marker, BinaryOperation)
+        assert marker.symbol == "+"
 
     def test_binary_op_with_raw_roughness_frames_records_source_parents(self) -> None:
         """Raw RoughnessFrame binary operands keep positional source leaves."""

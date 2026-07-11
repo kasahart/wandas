@@ -52,11 +52,15 @@ def test_generic_operation_transformer_get_params_set_params_and_rejects_unknown
 
     assert transformer.get_params() == {"operation": "normalize", "norm": 2.0}
 
-    returned = transformer.set_params(operation="remove_dc", norm=1.0)
+    returned = transformer.set_params(operation="remove_dc")
 
     assert returned is transformer
-    assert transformer.get_params() == {"operation": "remove_dc", "norm": 1.0}
-    assert transformer.to_spec() == OperationSpec("remove_dc", {"norm": 1.0})
+    assert transformer.get_params() == {"operation": "remove_dc"}
+    assert transformer.to_spec() == OperationSpec("remove_dc", {})
+
+    transformer.set_params(operation="normalize", norm=1.0)
+    assert transformer.get_params() == {"operation": "normalize", "norm": 1.0}
+    assert transformer.to_spec() == OperationSpec("normalize", {"norm": 1.0})
     with pytest.raises(ValueError, match="Invalid parameter"):
         transformer.set_params(missing=True)
 

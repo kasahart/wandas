@@ -70,6 +70,13 @@ class WandasOperationTransformer(TransformerMixin, BaseEstimator):  # type: igno
         return params
 
     def set_params(self, **params: Any) -> WandasOperationTransformer:
+        if self._param_names is None and "operation" in params:
+            operation = params.pop("operation")
+            if not isinstance(operation, str):
+                raise TypeError(f"operation must be a string, got {type(operation).__name__}")
+            self.operation = operation
+            self._params = dict(params)
+            return self
         valid_params = self.get_params(deep=True)
         for key, value in params.items():
             if key not in valid_params:

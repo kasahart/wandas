@@ -217,6 +217,17 @@ class BinaryOperation:
         marker = cast(Any, _mark_wandas_operation)
         return data.map_blocks(marker, self, dtype=data.dtype)
 
+    def graph_marker(self) -> "BinaryOperation":
+        """Return a marker that does not retain array graph dependencies."""
+        if not isinstance(self.operand, np.ndarray | DaArray):
+            return self
+        return BinaryOperation(
+            symbol=self.symbol,
+            operand_kind=self.operand_kind,
+            operand=_operand_descriptor(self.operand),
+            operand_position=self.operand_position,
+        )
+
 
 @dataclass(frozen=True)
 class FrameMethodOperation:
