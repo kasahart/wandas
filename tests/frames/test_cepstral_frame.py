@@ -1,3 +1,5 @@
+from typing import Any, cast
+
 import dask.array as da
 import numpy as np
 import pytest
@@ -23,6 +25,18 @@ class TestCepstralFrame:
             ],
             label="ceps",
         )
+
+    def test_constructor_rejects_higher_dimensional_data(self) -> None:
+        data = da.zeros((2, 3, 4), chunks=(1, -1, -1))
+
+        with pytest.raises(ValueError, match=r"must be 1D or 2D"):
+            CepstralFrame(data=data, sampling_rate=self.sampling_rate, n_fft=4)
+
+    def test_constructor_rejects_complex_data(self) -> None:
+        data = da.zeros((1, 4), chunks=(1, -1), dtype=np.complex128)
+
+        with pytest.raises(TypeError, match=r"real-valued coefficients"):
+            CepstralFrame(data=data, sampling_rate=self.sampling_rate, n_fft=4)
 
     def test_quefrencies_property_matches_sampling_rate(self) -> None:
         expected = np.arange(self.n_fft) / self.sampling_rate
@@ -121,6 +135,16 @@ class TestCepstralFrame:
         with pytest.raises(ValueError, match=r"supports only plot_type='raw'"):
             self.frame.plot(plot_type="matrix")
 
+    def test_plot_single_channel_uses_full_coefficient_vector(self) -> None:
+        import matplotlib.pyplot as plt
+
+        frame = self.frame[0]
+        ax = cast(Any, frame.plot())
+
+        np.testing.assert_allclose(np.asarray(ax.lines[0].get_xdata()), frame.quefrencies)
+        np.testing.assert_allclose(np.asarray(ax.lines[0].get_ydata()), np.zeros(self.n_fft))
+        plt.close("all")
+
     def test_dataframe_uses_quefrency_index(self) -> None:
         result = self.frame.to_dataframe()
 
@@ -170,6 +194,18 @@ class TestCepstralFrame:
 
         np.testing.assert_allclose(added.compute(), np.ones(self.frame.shape))
         np.testing.assert_allclose(multiplied.compute(), np.zeros(self.frame.shape))
+
+    @pytest.mark.parametrize(
+        "operand",
+        [
+            1j,
+            np.ones(1024, dtype=np.complex128),
+            da.ones(1024, chunks=-1, dtype=np.complex128),
+        ],
+    )
+    def test_binary_operations_reject_complex_operands(self, operand: object) -> None:
+        with pytest.raises(TypeError, match=r"real-valued operands"):
+            _ = self.frame + cast(Any, operand)
 
     @pytest.mark.parametrize("operation_name", ["cepstrum", "lifter", "spectral_envelope"])
     def test_generic_operations_outside_cepstral_contract_are_rejected(self, operation_name: str) -> None:

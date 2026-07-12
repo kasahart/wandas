@@ -42,6 +42,14 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
     ) -> None:
         if data.ndim == 1:
             data = data.reshape(1, -1)
+        elif data.ndim != 2:
+            raise ValueError(
+                f"CepstralFrame data must be 1D or 2D\n"
+                f"  Got: shape {data.shape} ({data.ndim}D)\n"
+                "Reshape higher-dimensional data to (channels, quefrency_bins)."
+            )
+        if np.issubdtype(data.dtype, np.complexfloating):
+            raise TypeError("CepstralFrame requires real-valued coefficients, not complex data.")
         self.n_fft = int(n_fft)
         self.window = window
         self._pending_sampling_rate = float(sampling_rate)
@@ -112,6 +120,8 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
                 raise ValueError(f"Cepstral n_fft mismatch: {self.n_fft} != {other.n_fft}")
             if not np.array_equal(self.quefrencies, other.quefrencies):
                 raise ValueError("Cepstral quefrency coordinates must match exactly.")
+        elif np.iscomplexobj(other):
+            raise TypeError("CepstralFrame operations require real-valued operands, not complex data.")
         return cast(
             "CepstralFrame",
             super()._binary_operand_op(other, op, symbol, reverse=reverse),
@@ -195,8 +205,9 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
         import matplotlib.pyplot as plt
 
         target = ax if ax is not None else plt.subplots()[1]
+        values = np.asarray(self._data.compute())
         for index, label in enumerate(self.labels):
-            target.plot(self.quefrencies, self.data[index], label=label, alpha=alpha, **kwargs)
+            target.plot(self.quefrencies, values[index], label=label, alpha=alpha, **kwargs)
         if overlay or self.n_channels > 1:
             target.legend()
         target.set(
