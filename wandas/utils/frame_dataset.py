@@ -103,7 +103,13 @@ class FrameDataset(Generic[F], ABC):
         source_dataset: "FrameDataset[Any] | None" = None,
         transform: Callable[[Any], F | None] | None = None,
         metadata_resolver: MetadataResolver | None = None,
+        path_metadata: bool = False,
     ):
+        if path_metadata and metadata_resolver is not None:
+            raise ValueError(
+                "path_metadata=True cannot be combined with metadata_resolver; "
+                "disable one metadata source to avoid ambiguous precedence"
+            )
         self.folder_path = Path(folder_path)
         if source_dataset is None and not self.folder_path.exists():
             raise FileNotFoundError(f"Folder does not exist: {self.folder_path}")
@@ -114,6 +120,7 @@ class FrameDataset(Generic[F], ABC):
         self._recursive = recursive
         self._lazy_loading = lazy_loading
         self._metadata_resolver = metadata_resolver
+        self._path_metadata = path_metadata
 
         # Changed to a list of LazyFrame
         self._lazy_frames: list[LazyFrame[F]] = []
@@ -141,6 +148,7 @@ class FrameDataset(Generic[F], ABC):
         self.signal_length = self.signal_length or self._source_dataset.signal_length
         self.file_extensions = self.file_extensions or self._source_dataset.file_extensions
         self._recursive = self._source_dataset._recursive
+        self._path_metadata = self._source_dataset._path_metadata
         self.folder_path = self._source_dataset.folder_path
 
     def _initialize_from_folder(self) -> None:
@@ -165,9 +173,12 @@ class FrameDataset(Generic[F], ABC):
 
     def _resolve_metadata(self, file_path: Path) -> dict[str, object]:
         """Resolve and validate metadata for one discovered file."""
-        if self._metadata_resolver is None:
+        if not self._path_metadata and self._metadata_resolver is None:
             return {}
         relative_path = file_path.relative_to(self.folder_path)
+        if self._path_metadata:
+            return self._resolve_path_metadata(relative_path)
+        assert self._metadata_resolver is not None
         try:
             resolved = self._metadata_resolver(relative_path)
         except Exception as exc:
@@ -184,6 +195,34 @@ class FrameDataset(Generic[F], ABC):
             names = ", ".join(sorted(reserved_keys))
             raise ValueError(f"Metadata resolver cannot set reserved key(s) for {relative_path}: {names}")
         return deepcopy(dict(resolved))
+
+    @staticmethod
+    def _resolve_path_metadata(relative_path: Path) -> dict[str, object]:
+        """Infer AWS Glue-style metadata from relative parent segments."""
+        metadata: dict[str, object] = {}
+        for index, segment in enumerate(relative_path.parent.parts):
+            hive_key, separator, hive_value = segment.partition("=")
+            if separator and hive_key:
+                key, value = hive_key, hive_value
+                if key in _RESERVED_METADATA_KEYS:
+                    raise ValueError(
+                        f"Path metadata cannot set reserved key {key!r} for {relative_path}; "
+                        "rename the Hive partition key"
+                    )
+                if key.startswith("partition_") and key.removeprefix("partition_").isdigit():
+                    raise ValueError(
+                        f"Hive path metadata key {key!r} uses the generated partition namespace "
+                        f"for {relative_path}; rename the Hive partition key"
+                    )
+            else:
+                key, value = f"partition_{index}", segment
+            if key in metadata:
+                raise ValueError(
+                    f"Duplicate path metadata key {key!r} for {relative_path}; "
+                    "rename the Hive partition key or directory segment"
+                )
+            metadata[key] = value
+        return metadata
 
     @staticmethod
     def _attach_metadata(frame: F | None, metadata: Mapping[str, object]) -> F | None:
@@ -476,6 +515,7 @@ class FrameDataset(Generic[F], ABC):
             "file_extensions": self.file_extensions,
             "lazy_loading": self._lazy_loading,
             "recursive": self._recursive,
+            "path_metadata": self._path_metadata,
             "frame_type": frame_type_name,
             "has_transform": self._transform is not None,
             "is_sampled": isinstance(self, _SampledFrameDataset),
@@ -512,6 +552,7 @@ class _SubsetFrameDataset(FrameDataset[F]):
 
         # Store the original dataset
         self._original_dataset = original_dataset
+        self._path_metadata = original_dataset._path_metadata
 
         # Mapping of sampled indices
         self._original_indices = sampled_indices
@@ -613,6 +654,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         source_dataset: "FrameDataset[Any] | None" = None,
         transform: Callable[[Any], ChannelFrame | None] | None = None,
         metadata_resolver: MetadataResolver | None = None,
+        path_metadata: bool = False,
     ):
         _file_extensions = file_extensions if file_extensions is not None else supported_formats()
 
@@ -626,6 +668,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
             source_dataset=source_dataset,
             transform=transform,
             metadata_resolver=metadata_resolver,
+            path_metadata=path_metadata,
         )
 
     def _load_file(self, file_path: Path) -> ChannelFrame | None:
@@ -734,8 +777,9 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         recursive: bool = False,
         lazy_loading: bool = True,
         metadata_resolver: MetadataResolver | None = None,
+        path_metadata: bool = False,
     ) -> "ChannelFrameDataset":
-        """Class method to create a ChannelFrameDataset from a folder."""
+        """Create a dataset, optionally inferring metadata from parent paths."""
         extensions = file_extensions if file_extensions is not None else supported_formats()
 
         return cls(
@@ -745,6 +789,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
             lazy_loading=lazy_loading,
             recursive=recursive,
             metadata_resolver=metadata_resolver,
+            path_metadata=path_metadata,
         )
 
 

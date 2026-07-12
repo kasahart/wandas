@@ -180,11 +180,11 @@ For multiple files, start with `wd.from_folder("recordings/", recursive=True)`. 
 
 ### Select files before reading waveforms
 
-When filenames or a sidecar table describe groups, recording batches, or project-specific conditions, attach that information during discovery and select only the files you need:
+When folders describe groups or recording batches, let Wandas infer that metadata during discovery and select only the files you need:
 
-For a layout such as `recordings/group_a/example.wav`, create the dataset with `metadata_resolver=lambda path: {"group": path.parts[0]}`, then select files with `dataset.select(group="group_a")`.
+Create the dataset with `dataset = wd.from_folder("recordings/", recursive=True, path_metadata=True)`, then select a group with `selected = dataset.select(partition_0="group_a")`.
 
-File selection does not read audio headers or waveform samples. The executable [metadata-driven dataset search learning path](learning-path/08_metadata_driven_dataset_search.py) covers path parsing, CSV lookup, lazy loading, and dataset-wide processing before selection.
+Plain folders become `partition_0`, `partition_1`, and so on; Hive-style folders such as `group=group_a` use `group` as the key. File selection does not read audio headers or waveform samples. Use `metadata_resolver` only when metadata must come from custom filename rules or an external table. The executable [metadata-driven dataset search learning path](learning-path/08_metadata_driven_dataset_search.py) covers the recommended folder workflow, CSV lookup, lazy loading, and dataset-wide processing before selection.
 
 ## Small top-level API
 

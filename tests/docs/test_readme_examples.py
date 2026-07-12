@@ -231,6 +231,8 @@ def test_readme_documents_frame_context_and_boundaries() -> None:
         assert "`wandas[ml]`" in text
         assert "lazy_loading=True" not in text
         assert 'wd.from_folder("recordings/", recursive=True)' in text
+        assert 'wd.from_folder("recordings/", recursive=True, path_metadata=True)' in text
+        assert 'dataset.select(partition_0="group_a")' in text
 
     assert "calibrated" in english
     assert "校正" in japanese

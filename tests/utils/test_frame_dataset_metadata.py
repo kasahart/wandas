@@ -236,3 +236,143 @@ def test_csv_lookup_resolver(metadata_audio_folder: Path) -> None:
 
     assert len(selected) == 1
     assert selected._get_file_paths()[0].name == "section_00_source.wav"
+
+
+@pytest.fixture
+def partitioned_audio_folder(tmp_path: Path) -> Path:
+    signal = np.linspace(-0.5, 0.5, 256, dtype=np.float32)
+    paths = [
+        "group_a/recording_001.wav",
+        "group_a/batch_01/recording_002.wav",
+        "group=group_b/batch=batch_02/recording_003.wav",
+    ]
+    for relative in paths:
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        sf.write(path, signal, 8_000)
+    return tmp_path
+
+
+def test_path_metadata_infers_plain_and_hive_partitions_without_loading(
+    partitioned_audio_folder: Path,
+) -> None:
+    with patch.object(ChannelFrame, "from_file") as from_file:
+        dataset = wd.from_folder(
+            str(partitioned_audio_folder),
+            recursive=True,
+            file_extensions=[".wav"],
+            path_metadata=True,
+        )
+
+    from_file.assert_not_called()
+    assert [lazy_frame.metadata for lazy_frame in dataset._lazy_frames] == [
+        {"group": "group_b", "batch": "batch_02"},
+        {"partition_0": "group_a", "partition_1": "batch_01"},
+        {"partition_0": "group_a"},
+    ]
+    assert all(not lazy_frame.is_loaded for lazy_frame in dataset._lazy_frames)
+
+
+def test_path_metadata_select_supports_missing_keys_and_processing(
+    partitioned_audio_folder: Path,
+) -> None:
+    dataset = ChannelFrameDataset.from_folder(
+        str(partitioned_audio_folder),
+        recursive=True,
+        file_extensions=[".wav"],
+        path_metadata=True,
+    )
+
+    deep = dataset.select(partition_1="batch_01")
+    transformed = dataset.normalize().stft(n_fft=64).select(partition_0="group_a")
+
+    assert [path.name for path in deep._get_file_paths()] == ["recording_002.wav"]
+    assert [path.name for path in transformed._get_file_paths()] == [
+        "recording_002.wav",
+        "recording_001.wav",
+    ]
+    assert deep.get_metadata()["path_metadata"] is True
+    assert transformed.get_metadata()["path_metadata"] is True
+    assert dataset.sample(n=1, seed=3).get_metadata()["path_metadata"] is True
+    frame = transformed[0]
+    assert frame is not None
+    assert frame.metadata["partition_0"] == "group_a"
+    assert frame.metadata["partition_1"] == "batch_01"
+
+
+def test_path_metadata_false_preserves_existing_behavior(partitioned_audio_folder: Path) -> None:
+    dataset = ChannelFrameDataset.from_folder(
+        str(partitioned_audio_folder),
+        recursive=True,
+        file_extensions=[".wav"],
+    )
+
+    assert all(lazy_frame.metadata == {} for lazy_frame in dataset._lazy_frames)
+
+
+def test_path_metadata_excludes_root_and_filename(tmp_path: Path) -> None:
+    sf.write(tmp_path / "recording.wav", np.zeros(64, dtype=np.float32), 8_000)
+
+    dataset = wd.from_folder(str(tmp_path), file_extensions=[".wav"], path_metadata=True)
+
+    assert dataset._lazy_frames[0].metadata == {}
+
+
+def test_path_metadata_rejects_metadata_resolver(partitioned_audio_folder: Path) -> None:
+    with pytest.raises(ValueError, match="path_metadata=True cannot be combined with metadata_resolver"):
+        wd.from_folder(
+            str(partitioned_audio_folder),
+            recursive=True,
+            path_metadata=True,
+            metadata_resolver=lambda _path: {},
+        )
+
+
+@pytest.mark.parametrize(
+    "relative_path",
+    [
+        "group=first/group=second/recording.wav",
+    ],
+)
+def test_path_metadata_rejects_duplicate_or_colliding_partition_keys(
+    tmp_path: Path,
+    relative_path: str,
+) -> None:
+    path = tmp_path / relative_path
+    path.parent.mkdir(parents=True)
+    sf.write(path, np.zeros(64, dtype=np.float32), 8_000)
+
+    with pytest.raises(ValueError, match=r"Duplicate path metadata key.*recording\.wav"):
+        ChannelFrameDataset.from_folder(
+            str(tmp_path),
+            recursive=True,
+            file_extensions=[".wav"],
+            path_metadata=True,
+        )
+
+
+@pytest.mark.parametrize(
+    ("relative_path", "message"),
+    [
+        ("_source_file=spoof/recording.wav", "cannot set reserved key"),
+        ("partition_0=spoof/recording.wav", "uses the generated partition namespace"),
+        ("partition_12=spoof/recording.wav", "uses the generated partition namespace"),
+    ],
+)
+def test_path_metadata_rejects_reserved_hive_keys(
+    tmp_path: Path,
+    relative_path: str,
+    message: str,
+) -> None:
+    path = tmp_path / relative_path
+    path.parent.mkdir(parents=True)
+    sf.write(path, np.zeros(64, dtype=np.float32), 8_000)
+
+    with pytest.raises(ValueError, match=message) as exc_info:
+        ChannelFrameDataset.from_folder(
+            str(tmp_path),
+            recursive=True,
+            file_extensions=[".wav"],
+            path_metadata=True,
+        )
+    assert "recording.wav" in str(exc_info.value)
