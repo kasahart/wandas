@@ -9,7 +9,7 @@ import soundfile as sf
 
 import wandas as wd
 from wandas.frames.channel import ChannelFrame
-from wandas.utils.frame_dataset import ChannelFrameDataset, _SampledFrameDataset
+from wandas.utils.frame_dataset import ChannelFrameDataset, FrameDataset, _SampledFrameDataset
 
 
 @pytest.fixture
@@ -219,6 +219,42 @@ def test_sample_then_select_preserves_subset_contract_without_loading(metadata_a
     frame = selected[0]
     assert frame is not None
     assert frame.metadata["split"] == "train"
+
+
+def test_select_and_sample_reuse_discovered_frames_without_rediscovery(
+    metadata_audio_folder: Path,
+) -> None:
+    dataset = ChannelFrameDataset.from_folder(
+        str(metadata_audio_folder),
+        recursive=True,
+        file_extensions=[".wav"],
+        metadata_resolver=dcase_resolver,
+    )
+
+    with (
+        patch.object(FrameDataset, "_discover_files", side_effect=AssertionError("rediscovered folder")),
+        patch.object(ChannelFrame, "from_file") as from_file,
+    ):
+        selected = dataset.select(machine="fan")
+        sampled = dataset.sample(n=2, seed=3)
+
+    from_file.assert_not_called()
+    assert [path.name for path in selected._get_file_paths()] == [
+        "section_01_target.wav",
+        "section_00_source.wav",
+    ]
+    assert sampled._get_file_paths() == [
+        dataset._get_file_paths()[0],
+        dataset._get_file_paths()[2],
+    ]
+    assert [lazy_frame.metadata for lazy_frame in selected._lazy_frames] == [
+        dataset._lazy_frames[0].metadata,
+        dataset._lazy_frames[1].metadata,
+    ]
+    assert selected._lazy_frames[0].metadata is not dataset._lazy_frames[0].metadata
+    selected._lazy_frames[0].metadata["machine"] = "changed"
+    assert dataset._lazy_frames[0].metadata["machine"] == "fan"
+    assert all(not lazy_frame.is_loaded for lazy_frame in (*selected._lazy_frames, *sampled._lazy_frames))
 
 
 def test_csv_lookup_resolver(metadata_audio_folder: Path) -> None:
