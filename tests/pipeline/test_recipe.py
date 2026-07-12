@@ -3433,6 +3433,22 @@ def test_recipe_from_frame_extracts_fft_typed_transition() -> None:
     assert replayed.sampling_rate == processed.sampling_rate
 
 
+def test_recipe_from_frame_replays_cepstral_workflow() -> None:
+    frame = ChannelFrame.from_numpy(np.ones((1, 16)), sampling_rate=16000)
+    processed = frame.cepstrum(n_fft=16, window="boxcar").lifter(cutoff=0.00025).to_spectral_envelope()
+
+    recipe = RecipeSpec.from_frame(processed)
+    replayed = recipe.apply(frame)
+
+    assert isinstance(replayed, SpectralFrame)
+    assert recipe.steps == (
+        TypedMethodStep("cepstrum", {"n_fft": 16, "window": "boxcar", "floor": 1e-12}),
+        TypedMethodStep("lifter", {"cutoff": 0.00025, "mode": "low"}),
+        TypedMethodStep("to_spectral_envelope"),
+    )
+    np.testing.assert_allclose(replayed.compute(), processed.compute())
+
+
 def test_recipe_from_frame_rejects_direct_apply_operation_typed_transition() -> None:
     frame = _frame()
     processed = frame.apply_operation("fft", n_fft=1024, window="hann")

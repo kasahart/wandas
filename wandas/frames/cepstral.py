@@ -127,6 +127,13 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
             super()._binary_operand_op(other, op, symbol, reverse=reverse),
         )
 
+    def apply_operation(self, operation_name: str, **params: Any) -> CepstralFrame:
+        """Reject generic operations so domain transitions stay on typed APIs."""
+        raise ValueError(
+            f"Operation {operation_name!r} is not available through CepstralFrame.apply_operation(). "
+            "Use lifter() or to_spectral_envelope() for cepstral-domain processing."
+        )
+
     def lifter(self, cutoff: float, mode: str = "low") -> CepstralFrame:
         """Apply low-pass or high-pass liftering in the quefrency domain."""
         self._require_complete_quefrency_axis("lifter")

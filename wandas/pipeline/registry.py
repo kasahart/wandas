@@ -46,16 +46,19 @@ _REPLAYABLE_METHOD_OPERATIONS = {
 }
 _REPLAYABLE_METHOD_NAMES = frozenset(method for method, _param_names in _REPLAYABLE_METHOD_OPERATIONS.values())
 _REPLAYABLE_TYPED_METHOD_OPERATIONS = {
+    "cepstrum": ("cepstrum", None),
     "coherence": ("coherence", None),
     "csd": ("csd", None),
     "fft": ("fft", None),
     "get_frame_at": ("get_frame_at", {"time_idx": "time_idx"}),
     "ifft": ("ifft", {}),
     "istft": ("istft", {}),
+    "lifter": ("lifter", None),
     "noct_spectrum": ("noct_spectrum", None),
     "noct_synthesis": ("noct_synthesis", None),
     "roughness_dw_spec": ("roughness_dw_spec", None),
     "stft": ("stft", None),
+    "spectral_envelope": ("to_spectral_envelope", {}),
     "transfer_function": ("transfer_function", None),
     "welch": (
         "welch",

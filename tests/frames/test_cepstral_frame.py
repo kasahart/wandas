@@ -207,7 +207,10 @@ class TestCepstralFrame:
         with pytest.raises(TypeError, match=r"real-valued operands"):
             _ = self.frame + cast(Any, operand)
 
-    @pytest.mark.parametrize("operation_name", ["cepstrum", "lifter", "spectral_envelope"])
+    @pytest.mark.parametrize(
+        "operation_name",
+        ["cepstrum", "lifter", "spectral_envelope", "ifft", "normalize"],
+    )
     def test_generic_operations_outside_cepstral_contract_are_rejected(self, operation_name: str) -> None:
-        with pytest.raises(ValueError, match=r"typed cepstral workflow"):
+        with pytest.raises(ValueError, match=r"not available through CepstralFrame.apply_operation"):
             self.frame.apply_operation(operation_name)
