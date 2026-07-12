@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 
+import wandas.processing.cepstral  # noqa: F401
 import wandas.processing.custom  # noqa: F401
 import wandas.processing.effects as effects_module
 import wandas.processing.filters  # noqa: F401
@@ -16,6 +17,7 @@ import wandas.processing.spectral as spectral_module
 import wandas.processing.stats  # noqa: F401
 import wandas.processing.temporal  # noqa: F401
 from wandas.processing.base import _OPERATION_REGISTRY, AudioOperation
+from wandas.processing.cepstral import Cepstrum, Lifter, SpectralEnvelope
 from wandas.processing.custom import CustomOperation
 from wandas.processing.effects import AddWithSNR, Fade, HpssHarmonic, HpssPercussive, Normalize, RemoveDC
 from wandas.processing.filters import AWeighting, BandPassFilter, HighPassFilter, LowPassFilter
@@ -222,6 +224,9 @@ def _operation_cases() -> list[OperationCase]:
     psycho = _psycho_signal()
 
     return [
+        OperationCase("cepstrum", lambda: Cepstrum(SR, n_fft=256, window="boxcar"), real),
+        OperationCase("lifter", lambda: Lifter(SR, cutoff=0.002), real),
+        OperationCase("spectral_envelope", lambda: SpectralEnvelope(SR), real),
         OperationCase(
             "custom",
             lambda: CustomOperation(SR, func=_custom_halve, output_shape_func=_halve_shape),

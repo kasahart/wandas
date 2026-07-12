@@ -1308,10 +1308,8 @@ class BaseFrame(ABC, Generic[T]):
     def to_xarray(self) -> xr.DataArray:
         """Return a public xarray view of this frame without changing Wandas ownership."""
         exported = self._xr.copy(deep=False)
-        for coord_name in (self._CHANNEL_DIM, "channel_label", "channel_unit", "channel_ref", "source_time_offset"):
-            if coord_name in exported.coords:
-                coord = exported.coords[coord_name]
-                exported = exported.assign_coords({coord_name: (coord.dims, coord.values.copy())})
+        for coord_name, coord in exported.coords.items():
+            exported = exported.assign_coords({coord_name: (coord.dims, coord.values.copy())})
         exported.name = self.label
         exported.attrs = copy.deepcopy(self._xr.attrs)
         exported.attrs.pop("operation_history", None)
@@ -1689,6 +1687,12 @@ class BaseFrame(ABC, Generic[T]):
         S
             A new instance with the operation applied.
         """
+        if operation_name in {"cepstrum", "lifter", "spectral_envelope"}:
+            raise ValueError(
+                f"Operation {operation_name!r} requires the typed cepstral workflow. "
+                "Use ChannelFrame.cepstrum(), CepstralFrame.lifter(), or "
+                "CepstralFrame.to_spectral_envelope()."
+            )
         # Apply the operation through abstract method
         return self._apply_operation_impl(operation_name, **params)
 

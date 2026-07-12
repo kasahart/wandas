@@ -114,6 +114,7 @@ def test_formatter():
 def test_top_level_all_is_curated_primary_api() -> None:
     assert wandas.__all__ == [
         "ChannelFrame",
+        "CepstralFrame",
         "SpectralFrame",
         "SpectrogramFrame",
         "NOctFrame",
@@ -145,6 +146,7 @@ def test_frames_module_all_matches_documented_frames() -> None:
 
     assert frames.__all__ == [
         "ChannelFrame",
+        "CepstralFrame",
         "SpectralFrame",
         "SpectrogramFrame",
         "NOctFrame",

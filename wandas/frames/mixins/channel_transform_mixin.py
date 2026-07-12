@@ -10,6 +10,7 @@ from ...core.base_frame import BaseFrame
 from .protocols import TransformFrameProtocol
 
 if TYPE_CHECKING:
+    from wandas.frames.cepstral import CepstralFrame
     from wandas.frames.noct import NOctFrame
     from wandas.frames.spectral import SpectralFrame
     from wandas.frames.spectrogram import SpectrogramFrame
@@ -124,6 +125,41 @@ class ChannelTransformMixin:
             metadata=self.metadata,
             channel_metadata=channel_metadata,
             source_time_offset=_build_cross_channel_source_time_offsets(cast(Any, self).source_time_offset),
+            lineage=lineage,
+            previous=self._as_base_frame,
+            **_operation_summaries_snapshot_kwargs(self, lineage),
+        )
+
+    def cepstrum(
+        self: TransformFrameProtocol,
+        n_fft: int | None = None,
+        window: str = "hann",
+        floor: float = 1e-12,
+    ) -> "CepstralFrame":
+        """Calculate the real cepstrum in the quefrency domain."""
+        from wandas.frames.cepstral import CepstralFrame
+        from wandas.processing import Cepstrum, create_operation
+
+        operation = cast(
+            "Cepstrum",
+            create_operation("cepstrum", self.sampling_rate, n_fft=n_fft, window=window, floor=floor),
+        )
+        cepstrum_data = operation.process(self._data)
+        resolved_n_fft = int(cepstrum_data.shape[-1])
+        lineage = cast(Any, self)._lineage_with_method(
+            "cepstrum",
+            {"n_fft": resolved_n_fft, "window": window, "floor": floor},
+        )
+        return CepstralFrame(
+            data=cepstrum_data,
+            sampling_rate=self.sampling_rate,
+            n_fft=resolved_n_fft,
+            window=window,
+            label=f"cepstrum({self.label})",
+            metadata=self.metadata,
+            channel_metadata=cast(Any, self).channels.to_list(),
+            channel_ids=cast(Any, self)._channel_ids,
+            source_time_offset=cast(Any, self).source_time_offset,
             lineage=lineage,
             previous=self._as_base_frame,
             **_operation_summaries_snapshot_kwargs(self, lineage),
