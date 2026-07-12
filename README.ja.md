@@ -178,6 +178,14 @@ spectrum.plot(xlim=(20, fmax))
 
 複数ファイルでは、`wd.from_folder("recordings/", recursive=True)` から始められます。dataset に対して `.resample(16_000).trim(0, 5).normalize().stft(n_fft=512)` のように前処理をまとめて適用できます。ML へ渡すときは `frame.to_tensor(framework="torch")` または `frame.to_tensor(framework="tensorflow")` を使います（`wandas[ml]` が必要で、変換時に遅延データが実体化されます）。
 
+### 波形を読む前にファイルを選ぶ
+
+グループや収録単位をフォルダで分けている場合は、Wandas にメタデータを推論させるのが最も手軽です。
+
+`dataset = wd.from_folder("recordings/", recursive=True, path_metadata=True)` で dataset を作り、`selected = dataset.select(partition_0="group_a")` でグループを選びます。
+
+通常のフォルダ名は `partition_0`、`partition_1` のようなキーになり、`group=group_a` のような Hive 形式では `group` がキーになります。選択時には音声ヘッダーや波形サンプルを読みません。独自のファイル名規則や外部テーブルからメタデータを得る場合だけ `metadata_resolver` を使います。実行可能な [メタデータ駆動のファイル検索 learning path](learning-path/08_metadata_driven_dataset_search.py) では、推奨するフォルダ経由の方法、CSV lookup、遅延読み込み、選択前の Dataset 一括処理を確認できます。
+
 ## 小さな top-level API
 
 - `wd.read("audio.wav")`: WAV、CSV、対応音声、URL、bytes、file-like input を `ChannelFrame` として読み込み。

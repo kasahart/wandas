@@ -26,9 +26,9 @@ def _(mo):
     対象を選ぶために、すべての波形を先に読み込む必要はありません。フォルダ名やファイル名、
     CSVに記録した属性を使えば、必要なファイルだけを絞り込んでから信号処理を始められます。
 
-    `metadata_resolver` は相対パスをファイル単位のメタデータへ変換し、
-    `dataset.select()` はそのメタデータを完全一致で検索します。この方法は、測定対象、収録日、
-    実験条件、確認状態など、プロジェクトごとに異なる属性へそのまま応用できます。
+    フォルダでグループや収録単位を分けている場合は、`path_metadata=True` を指定するだけで
+    相対パスからメタデータを推論できます。`dataset.select()` はそのメタデータを完全一致で
+    検索します。独自の解析コードを書かずに、必要なファイルだけを選べます。
 
     3件の短い合成WAVとsidecar CSVからなるデモデータを同梱しているため、
     手元のWAVやCSVは必要ありません。
@@ -36,10 +36,10 @@ def _(mo):
     このチュートリアルでは次の流れを実行します。
 
     1. グループと収録単位で分けた同梱サンプルを確認する
-    2. パスから `group`、`batch`、`recording_id` を取り出す
+    2. `path_metadata=True` でフォルダ階層をメタデータにする
     3. ファイルを選択する
     4. Dataset全体に処理チェーンを定義してからファイルを選択する
-    5. sidecar CSVをlookupとして利用する
+    5. 外部属性が必要な場合だけsidecar CSVをlookupとして利用する
     """)
     return
 
@@ -61,7 +61,8 @@ def _(mo):
     ## 1. パス由来メタデータで選択する
 
     この例では `group/batch/filename.wav` という単純なフォルダ規則を使います。
-    自分のフォルダ名・ファイル名の規則に合わせて、resolverの処理を置き換えられます。
+    `path_metadata=True` を指定すると、通常のフォルダ名はルートから順に
+    `partition_0`、`partition_1` というキーになります。
 
     サンプルのフォルダ構造は次のとおりです。
 
@@ -77,28 +78,21 @@ def _(mo):
             └── recording_003.wav
     ```
 
-    resolverへ渡る `Path` はルートフォルダからの相対パスです。resolverは探索時に
-    各ファイルにつき一度だけ呼ばれます。ここではファイルを開かず、パス文字列だけを解析します。
+    たとえば `group_a/batch_01/recording_001.wav` には
+    `{"partition_0": "group_a", "partition_1": "batch_01"}` が付きます。
+    ルートフォルダとファイル名は対象外です。この推論は相対パスだけを調べ、音声ファイルを開きません。
     """)
     return
 
 
 @app.cell
-def _(pathlib, root, wd):
-    # 相対パスをメタデータへ変換してDatasetを作る
-    def resolve_recording_metadata(path: pathlib.Path):
-        group, batch, filename = path.parts
-        return {
-            "group": group,
-            "batch": batch,
-            "recording_id": filename.removesuffix(".wav"),
-        }
-
+def _(root, wd):
+    # フォルダ階層をメタデータとして推論するDatasetを作る
     dataset = wd.from_folder(
         str(root),
         recursive=True,
         file_extensions=[".wav"],
-        metadata_resolver=resolve_recording_metadata,
+        path_metadata=True,
     )
     print("見つかったWAVファイル:", len(dataset), "件")
     return (dataset,)
@@ -106,8 +100,8 @@ def _(pathlib, root, wd):
 
 @app.cell
 def _(dataset):
-    # groupとbatchの条件に一致するファイルだけを選択する
-    selected = dataset.select(group="group_a", batch="batch_01")
+    # 1階層目と2階層目のフォルダ条件に一致するファイルだけを選択する
+    selected = dataset.select(partition_0="group_a", partition_1="batch_01")
     print("group_a / batch_01 に一致したファイル:", len(selected), "件")
     return (selected,)
 
@@ -168,7 +162,7 @@ def _(mo):
 def _(dataset):
     # Dataset全体に処理を定義した後で、解析対象を選択する
     processed_dataset = dataset.normalize().stft(n_fft=128)
-    processed_selected = processed_dataset.select(group="group_a", batch="batch_01")
+    processed_selected = processed_dataset.select(partition_0="group_a", partition_1="batch_01")
     print("処理後に選択したファイル:", len(processed_selected), "件")
     return (processed_selected,)
 
@@ -179,7 +173,7 @@ def _(processed_selected):
     _selected_spectrogram = processed_selected[0]
     assert _selected_spectrogram is not None
 
-    print("STFT後もgroupを保持:", _selected_spectrogram.metadata["group"])
+    print("STFT後もpartition_0を保持:", _selected_spectrogram.metadata["partition_0"])
     return
 
 
@@ -188,7 +182,7 @@ def _(mo):
     mo.md(r"""
     ## 2. CSVのメタデータでファイルを選ぶ
 
-    ファイルの属性をCSVで管理している場合も、同じ方法で対象を選べます。
+    フォルダ階層にない属性をCSVで管理している場合は、`metadata_resolver` で対象を選べます。
     CSVを `pandas.read_csv()` でDataFrameとして読み、内容を表で表示した後、
     lookup（パスをキーにした辞書）へ変換します。resolverは相対パスをキーにlookupを
     参照するだけです。信号CSVを誤って音声として
@@ -235,11 +229,11 @@ def _(mo):
     mo.md(r"""
     ## まとめ
 
-    - resolverは相対パスから小さな `Mapping` を返す
+    - フォルダ階層で選ぶ場合は、まず `path_metadata=True` を使う
     - `select()` は波形を読む前に完全一致で絞り込む
     - Dataset全体に `normalize()`、`stft()` などを定義してから選択できる
-    - resolverメタデータはロードしたFrameと変換結果へ伝播する
-    - 外部CSVはpandasで内容を確認し、lookupへ変換すれば同じresolver契約へ接続できる
+    - パス由来メタデータはロードしたFrameと変換結果へ伝播する
+    - 外部属性が必要な場合だけ、CSVをlookupへ変換してresolver契約へ接続する
 
     APIの詳細とエラー契約は
     [Frame Dataset utility reference](../api/utils.md#metadata-driven-file-selection--メタデータ駆動のファイル選択)
