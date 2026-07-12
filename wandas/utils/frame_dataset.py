@@ -548,23 +548,19 @@ class _SubsetFrameDataset(FrameDataset[F]):
             signal_length=original_dataset.signal_length,
             file_extensions=original_dataset.file_extensions,
             recursive=original_dataset._recursive,
+            source_dataset=original_dataset,
         )
 
         # Store the original dataset
         self._original_dataset = original_dataset
-        self._path_metadata = original_dataset._path_metadata
 
         # Mapping of sampled indices
         self._original_indices = sampled_indices
 
-        # Get file paths from the original dataset and create new LazyFrames
+        # Select from the LazyFrame copies initialized from the source dataset
         original_file_paths = original_dataset._get_file_paths()
         try:
-            selected_frames = [original_dataset._lazy_frames[i] for i in sampled_indices]
-            self._lazy_frames = [
-                LazyFrame(lazy_frame.file_path, metadata=deepcopy(lazy_frame.metadata))
-                for lazy_frame in selected_frames
-            ]
+            self._lazy_frames = [self._lazy_frames[i] for i in sampled_indices]
         except IndexError as e:
             logger.error("Sampled indices are out of range for the original dataset")
             logger.error(f"  Original dataset file count: {len(original_file_paths)}")
