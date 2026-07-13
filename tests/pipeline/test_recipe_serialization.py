@@ -94,6 +94,8 @@ def test_public_call_constructors_share_fail_closed_contracts() -> None:
         MethodCall("to_numpy", "wandas.core.base_frame.BaseFrame.to_numpy")
     with pytest.raises(RecipeSerializationError, match="contract mismatch"):
         TerminalCall("compute", "wandas.core.base_frame.BaseFrame.compute")
+    with pytest.raises(RecipeSerializationError, match="stable"):
+        CustomCall("__main__.<lambda>", {})
 
 
 def test_custom_call_direct_constructor_deeply_freezes_params() -> None:

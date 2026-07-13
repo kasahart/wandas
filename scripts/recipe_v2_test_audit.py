@@ -23,26 +23,18 @@ REMOVED_HELPERS = (
 ROUTES = (
     (("sklearn",), "tests/pipeline/test_sklearn_adapter.py", "test_transform_applies_operation"),
     (
-        ("terminal",),
-        "tests/pipeline/test_recipe_serialization.py",
-        "test_valid_terminal_property_roundtrips_and_executes",
-    ),
-    (
-        ("custom", "callable", "importable"),
-        "tests/pipeline/test_recipe_execution.py",
-        "test_custom_function_replays_by_stable_path",
-    ),
-    (
         ("index", "getitem", "slice", "mask"),
         "tests/pipeline/test_recipe_compiler.py",
         "test_multidimensional_indexing_is_one_call",
     ),
     (("add_channel",), "tests/pipeline/test_recipe_execution.py", "test_add_channel_frame_and_array_replay"),
     (
-        ("binary", "operand", "scalar", "graph_recipe"),
+        ("scalar", "operand"),
         "tests/pipeline/test_recipe_compiler.py",
         "test_scalar_and_reflected_scalar_preserve_order",
     ),
+    (("typed",), "tests/pipeline/test_recipe_execution.py", "test_typed_transition_after_merge_replays"),
+    (("binary", "graph_recipe"), "tests/pipeline/test_recipe_compiler.py", "test_shared_dag_identity_is_preserved"),
     (
         ("serial", "dict", "json", "params"),
         "tests/pipeline/test_recipe_serialization.py",
@@ -59,7 +51,6 @@ ROUTES = (
         "test_metadata_and_source_time_offset_are_preserved",
     ),
 )
-DEFAULT = ("tests/pipeline/test_recipe_compiler.py", "test_linear_audio_recipe_replays")
 
 
 def functions(path: Path) -> set[str]:
@@ -83,17 +74,35 @@ def main() -> None:
     migrated = removed = 0
     print("v1_test\tdisposition\trationale\tcurrent_test")
     for name in old_names:
+        if "terminal" in name and "terminal_rms_metric" not in name:
+            removed += 1
+            print(f"{name}\tremoved_contract\tv1 implicit terminal allowlist removed; v2 requires explicit opt-in\t-")
+            continue
         if any(marker in name for marker in REMOVED_HELPERS):
             removed += 1
             print(f"{name}\tremoved_contract\tv1 dict/step reconstruction no longer exists\t-")
             continue
-        path, target = DEFAULT
-        rationale = "public RecipePlan behavior retained"
-        for words, candidate_path, candidate_target in ROUTES:
-            if any(word in name for word in words):
-                path, target = candidate_path, candidate_target
-                rationale = "behavior migrated to canonical public/family contract"
-                break
+        if "custom" in name:
+            path = "tests/pipeline/test_recipe_serialization.py"
+            target = "test_public_call_constructors_share_fail_closed_contracts"
+            rationale = "stable custom callable boundary migrated"
+        elif "terminal_rms_metric" in name:
+            path = "tests/pipeline/test_recipe_serialization.py"
+            target = "test_valid_terminal_property_roundtrips_and_executes"
+            rationale = "explicit rms terminal contract migrated"
+        else:
+            path = target = ""
+            rationale = ""
+        if not path:
+            for words, candidate_path, candidate_target in ROUTES:
+                if any(word in name for word in words):
+                    path, target = candidate_path, candidate_target
+                    rationale = "behavior migrated to canonical public/family contract"
+                    break
+        if not path:
+            removed += 1
+            print(f"{name}\tremoved_contract\tv1 spec/step API contract intentionally removed\t-")
+            continue
         available = inventories.setdefault(path, functions(ROOT / path))
         if target not in available:
             raise RuntimeError(f"Audit target does not exist: {path}::{target}")

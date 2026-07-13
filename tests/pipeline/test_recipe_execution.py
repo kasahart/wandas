@@ -18,6 +18,16 @@ def test_typed_frame_transition_replays() -> None:
     assert replayed.shape == processed.shape
 
 
+def test_typed_transition_after_merge_replays() -> None:
+    left = _frame(1.0)
+    right = _frame(2.0)
+    processed = (left + right).fft(n_fft=16)
+    replayed = RecipePlan.from_frame(processed, input_names=("left", "right")).apply({"left": left, "right": right})
+
+    assert type(replayed) is type(processed)
+    np.testing.assert_allclose(replayed.compute(), processed.compute())
+
+
 def test_add_channel_frame_and_array_replay() -> None:
     source = _frame()
     added = _frame(2)
