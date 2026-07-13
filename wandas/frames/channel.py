@@ -556,12 +556,16 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                     else ChannelFrame(raw_array, self.sampling_rate, label="array_data")
                 )
                 if array_frame.duration != self.duration:
-                    array_frame = array_frame.fix_length(length=self.n_samples)
-                array_frame = ChannelFrame(
-                    array_frame._data,
-                    self.sampling_rate,
-                    label="array_data",
-                )
+                    array_frame = ChannelFrame(
+                        _align_to_length(
+                            array_frame._data,
+                            self.n_samples,
+                            "pad",
+                            array_frame.n_samples,
+                        ),
+                        self.sampling_rate,
+                        label="array_data",
+                    )
                 return self + array_frame
         if isinstance(other, ChannelFrame):
             # Check if sampling rates match

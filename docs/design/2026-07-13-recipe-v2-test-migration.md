@@ -33,7 +33,11 @@ summaries, or a subsequently compiled plan. Semantic atomicity tests own the inv
 that the returned Frame carries the semantic lineage selected at public entry, including
 for external `BaseFrame` subclasses. External-input tests own the complementary
 contract that NumPy and Dask values compile as named inputs without embedding container
-details or forcing Dask computation.
+details or forcing Dask computation. Codec contract tests reject missing or substituted
+Frame parents before compilation can reinterpret them as external inputs, and prove
+that operation identity and scalar values have one descriptor source of truth.
+Raw-array add tests require the same operation object in semantic lineage and the Dask
+graph.
 
 `uv run python scripts/recipe_v2_test_audit.py` emits all 192 baseline cases with a
 `migrated` or `removed_contract` disposition, rationale, and an AST-verified current
@@ -63,9 +67,9 @@ of each sample's p95; lower is better.
 
 | metric | v1 | v2 | v2 index |
 | --- | ---: | ---: | ---: |
-| extraction p95 | 160.1 µs | 216.3 µs | 135.1 |
-| lazy graph-build p95 | 13,696.8 µs | 14,655.3 µs | 107.0 |
-| traced peak memory | 840,257 B | 808,935 B | 96.3 |
+| extraction p95 | 175.8 µs | 259.5 µs | 147.5 |
+| lazy graph-build p95 | 14,487.0 µs | 15,386.3 µs | 106.2 |
+| traced peak memory | 838,457 B | 799,163 B | 95.3 |
 
 This is a reproducible microbenchmark, not a claim about end-to-end numerical compute.
 Neither measured path calls Dask `compute()`.
@@ -73,15 +77,16 @@ Neither measured path calls Dask `compute()`.
 ## Cleanup measurements
 
 The final non-sklearn `wandas.pipeline` modules plus
-`wandas/processing/semantic.py` total 1,750 PLOC, below the 1,753-line cleanup
-gate. Relative to the pre-cleanup Recipe v2 head, production changes contain 49
-additions and 82 deletions, a net reduction of 33 lines. Relative to the v2 base,
-all production Python is down by 230 lines.
+`wandas/processing/semantic.py` total 1,772 PLOC, 19 lines above the 1,753 reference.
+This is not a reason to remove explanatory names, validation, or type safety. Relative
+to the pre-cleanup Recipe v2 head, production changes contain 194 additions and 202
+deletions, a net reduction of 8 lines. Relative to the v2 base, all production Python
+is down by 205 lines.
 
 The cleanup changes no central model, compiler, call serializer, or persistence
 serializer module. The extension probes therefore add no central dispatch branch.
 Extraction and lazy graph construction remain compute-free; the Dask compute-bomb
 tests and the benchmark both complete without calling `compute()`.
 
-Final validation completed with 141 pipeline tests, 40 core lineage tests, and
-2,202 full-suite tests passing; three unrelated optional tests remained skipped.
+Final validation completed with 153 pipeline tests, 40 core lineage tests, and
+2,217 full-suite tests passing; three unrelated optional tests remained skipped.

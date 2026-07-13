@@ -8,10 +8,10 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from wandas.core.base_frame import BaseFrame, _LineageOperationName, _mutable_config_key, _mutable_config_value
+from wandas.core.base_frame import BaseFrame, _LineageOperationAlias, _mutable_config_key, _mutable_config_value
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
-from wandas.processing.base import AudioOperation, LineageNode
+from wandas.processing.base import AudioOperation, BinaryOperation, FrameMethodOperation, LineageNode
 from wandas.processing.effects import Normalize
 from wandas.processing.stats import Power
 from wandas.utils.dask_helpers import da_from_array
@@ -138,21 +138,54 @@ def test_rechunk_failure_fallback_logs_warning(caplog):
     assert hasattr(f, "_data")
 
 
-def test_lineage_operation_name_uses_wrapped_params_when_no_override() -> None:
-    operation = _TestLineageOperation("wrapped", {"alpha": 1.0})
-    named = _LineageOperationName(operation, "display")
+def test_lineage_operation_alias_delegates_to_wrapped_operation_snapshot() -> None:
+    user_params = {"levels": [1.0]}
+    operation = AudioOperation(8000, settings=user_params)
+    aliased_operation = _LineageOperationAlias(operation, "display")
+    user_params["levels"].append(2.0)
 
-    assert named.params == {"alpha": 1.0}
-    assert named.to_params() == {"alpha": 1.0}
+    assert dict(aliased_operation.params) == {"settings": {"levels": [1.0]}}
+    assert aliased_operation.to_params() == {"settings": {"levels": [1.0]}}
 
 
-def test_lineage_operation_name_falls_back_to_params_attribute() -> None:
+def test_lineage_operation_alias_delegates_to_params_attribute() -> None:
     class ParamsOnlyOperation:
         params = {"beta": 2.0}
 
-    named = _LineageOperationName(ParamsOnlyOperation(), "display")
+    aliased_operation = _LineageOperationAlias(ParamsOnlyOperation(), "display")
 
-    assert named.to_params() == {"beta": 2.0}
+    assert aliased_operation.to_params() == {"beta": 2.0}
+
+
+def test_lineage_operation_alias_snapshots_params_for_operations_without_param_contract() -> None:
+    class NoParamsOperation:
+        params: dict[str, list[float]]
+
+    user_params = {"levels": [1.0]}
+    operation = NoParamsOperation()
+    aliased_operation = _LineageOperationAlias(operation, "alias", user_params)
+    user_params["levels"].append(2.0)
+    operation.params = {"levels": [9.0]}
+
+    assert aliased_operation.to_params() == {"levels": [1.0]}
+
+
+def test_lineage_operation_alias_preserves_family_canonical_replay_params() -> None:
+    operations = (
+        BinaryOperation("+", "operand", 2),
+        FrameMethodOperation("normalize", {"inplace": True}, "wandas.frames.channel.ChannelFrame.normalize"),
+    )
+
+    for operation in operations:
+        direct_descriptor = operation.replay_descriptor()
+        aliased_descriptor = _LineageOperationAlias(
+            operation,
+            "alias",
+            {"ignored_fallback": True},
+        ).replay_descriptor()
+
+        assert aliased_descriptor.contract.operation_id == "alias"
+        assert aliased_descriptor.thaw_params() == direct_descriptor.thaw_params()
 
 
 def test_mutable_config_value_preserves_plain_float_and_non_string_key() -> None:

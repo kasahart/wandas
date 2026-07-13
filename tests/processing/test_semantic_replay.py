@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 
 from wandas.frames.channel import ChannelFrame
-from wandas.processing.base import FrameMethodOperation, FrameSourceOperation, LineageNode
+from wandas.processing.base import FrameMethodOperation, FrameSourceOperation, IndexOperation, LineageNode
 from wandas.processing.semantic import InputBinding, OperationContract, frozen_params
 
 
@@ -25,9 +25,34 @@ def test_lineage_owns_an_immutable_descriptor_snapshot() -> None:
     lineage = LineageNode(operation, (LineageNode(FrameSourceOperation()),))
 
     values.append(3)
-    operation.method_params["values"].append(4)
+    returned_values = operation.method_params["values"]
+    returned_values.append(4)
 
+    assert operation.to_params() == {"values": [1, 2]}
+    assert lineage.summary == {"operation": "probe", "params": {"values": [1, 2]}}
     assert lineage.replay.thaw_params() == {"values": [1, 2]}
+
+
+def test_index_operation_exposes_only_defensive_parameter_values() -> None:
+    operation = IndexOperation(
+        {
+            "indexing": "multidimensional_slice",
+            "channel": {"type": "integer", "index": 0},
+            "axis_slices": ({"start": 2, "stop": 6, "step": None},),
+        }
+    )
+    source_lineage = LineageNode(FrameSourceOperation())
+    lineage = LineageNode(operation, (source_lineage,))
+
+    returned_channel_selector = operation.params["channel"]
+    returned_axis_slices = operation.params["axis_slices"]
+    returned_channel_selector["index"] = 9
+    returned_axis_slices[0]["start"] = 99
+
+    assert operation.to_params()["channel"]["index"] == 0
+    assert operation.to_params()["axis_slices"][0]["start"] == 2
+    assert lineage.replay.thaw_params()["channel"]["index"] == 0
+    assert lineage.inputs == (source_lineage,)
 
 
 def test_replay_params_return_defensive_values() -> None:

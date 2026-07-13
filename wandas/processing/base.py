@@ -8,7 +8,6 @@ from collections import defaultdict
 from collections.abc import Callable, Iterator, Mapping, MutableMapping
 from dataclasses import dataclass, field
 from functools import wraps
-from types import MappingProxyType
 from typing import Any, ClassVar, Generic, Literal, NoReturn, TypeVar, cast
 
 import dask.array as da
@@ -103,7 +102,6 @@ class LineageNode:
             replay = UnsupportedReplay(
                 OperationContract(str(name), 1, True, ()),
                 frozen_params(params, allow_opaque=True),
-                str(name),
                 "Operation has no typed replay descriptor",
             )
         object.__setattr__(self, "replay", replay)
@@ -134,7 +132,7 @@ class FrameSourceOperation:
         return {}
 
     def replay_descriptor(self) -> SourceReplay:
-        return SourceReplay(OperationContract(self.name, 1, True, ()), frozen_params({}), self.name)
+        return SourceReplay(OperationContract(self.name, 1, True, ()), frozen_params({}))
 
 
 def _operand_descriptor(value: Any) -> dict[str, Any]:
@@ -165,6 +163,12 @@ def _operand_descriptor(value: Any) -> dict[str, Any]:
         return {"type": "bool", "value": value}
     if isinstance(value, int | float | str) or value is None:
         return {"type": type(value).__name__, "value": value}
+    if isinstance(value, numbers.Integral):
+        return {"type": type(value).__name__, "value": int(value)}
+    if isinstance(value, numbers.Real):
+        return {"type": type(value).__name__, "value": float(value)}
+    if isinstance(value, numbers.Complex):
+        return {"type": type(value).__name__, "real": float(value.real), "imag": float(value.imag)}
     if hasattr(value, "shape"):
         return {"type": type(value).__name__, "shape": list(value.shape)}
     return {"type": type(value).__name__}
@@ -238,7 +242,8 @@ class BinaryOperation:
             descriptor = _operand_descriptor(self.operand)
             descriptor["type"] = "array"
             descriptor.pop("chunks", None)
-            object.__setattr__(self, "operand", _freeze_runtime_value(descriptor))
+            descriptor["shape"] = tuple(descriptor["shape"])
+            object.__setattr__(self, "operand", _DefensiveParamsMapping(descriptor))
 
     @property
     def params(self) -> Mapping[str, Any]:
@@ -280,32 +285,19 @@ class BinaryOperation:
                     (InputBinding(roles[0], "frame"), InputBinding(roles[1], "array")),
                 ),
                 frozen_params({}),
-                operation,
                 self.replay_handler,
-                roles,
             )
         other_kind = "frame" if self.operand_kind == "frame" else "array"
-        scalar: bool | int | float | complex | None = None
         is_array_operand = isinstance(self.operand, Mapping) and self.operand.get("type") == "array"
         if self.operand_kind != "frame" and not is_array_operand:
             other_kind = "scalar"
-            if isinstance(self.operand, bool | np.bool_):
-                scalar = bool(self.operand)
-            elif isinstance(self.operand, numbers.Real):
-                scalar = int(self.operand) if isinstance(self.operand, numbers.Integral) else float(self.operand)
-            elif isinstance(self.operand, numbers.Complex):
-                scalar = complex(self.operand)
         bindings = (InputBinding("left", "frame"), InputBinding("right", cast(Any, other_kind)))
         if self.operand_position == "left":
             bindings = tuple(reversed(bindings))
+        replay_params = {"operand": self.to_params()["operand"]} if other_kind == "scalar" else {}
         return BinaryReplay(
             OperationContract(self.symbol, 1, True, bindings),
-            frozen_params(self.to_params(), allow_opaque=True),
-            self.symbol,
-            self.symbol,
-            cast(Any, other_kind),
-            cast(Any, self.operand_position),
-            scalar,
+            frozen_params(replay_params, allow_opaque=True),
         )
 
     def _mark_array(self, data: DaArray) -> DaArray:
@@ -324,7 +316,7 @@ class FrameMethodOperation:
     version: int = 1
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "method_params", _snapshot_config_value(self.method_params))
+        object.__setattr__(self, "method_params", _DefensiveParamsMapping(self.method_params))
 
     @property
     def params(self) -> Mapping[str, Any]:
@@ -346,20 +338,17 @@ class FrameMethodOperation:
             return UnsupportedReplay(
                 contract,
                 frozen_params(runtime_params, allow_opaque=True),
-                self.name,
                 "Public method arguments are not portable Recipe values",
             )
         if self.target is None:
             return UnsupportedReplay(
                 contract,
                 frozen_params(runtime_params, allow_opaque=True),
-                self.name,
                 "Public method has no stable replay target",
             )
         return MethodReplay(
             contract,
             call_params,
-            self.name,
             self.target,
         )
 
@@ -369,6 +358,9 @@ class IndexOperation:
     params: Mapping[str, Any]
     name: ClassVar[str] = "__getitem__"
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "params", _DefensiveParamsMapping(self.params))
+
     def to_params(self) -> Mapping[str, Any]:
         return _snapshot_config_value(self.params)
 
@@ -376,7 +368,6 @@ class IndexOperation:
         return IndexReplay(
             OperationContract(self.name, 1, True, (InputBinding("frame", "frame"),)),
             frozen_params(self.to_params(), allow_opaque=True),
-            self.name,
         )
 
 
@@ -387,7 +378,12 @@ class AddChannelOperation:
     name: ClassVar[str] = "add_channel"
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "params", _freeze_runtime_value(self.params))
+        if self.input_kind not in {"frame", "array"}:
+            raise ValueError("add-channel input kind must be 'frame' or 'array'")
+        params = _snapshot_config_value(self.params)
+        if isinstance(source_time_offset := params.get("source_time_offset"), np.ndarray | tuple):
+            params["source_time_offset"] = list(source_time_offset)
+        object.__setattr__(self, "params", _DefensiveParamsMapping(params))
 
     def to_params(self) -> Mapping[str, Any]:
         return _snapshot_config_value(self.params)
@@ -401,8 +397,6 @@ class AddChannelOperation:
                 (InputBinding("base", "frame"), InputBinding("added", self.input_kind)),
             ),
             frozen_params(self.to_params(), allow_opaque=True),
-            self.name,
-            self.input_kind,
         )
 
 
@@ -450,20 +444,6 @@ def _snapshot_config_value(value: Any) -> Any:
         return value
 
 
-def _freeze_runtime_value(value: Any) -> Any:
-    """Return a deeply read-only runtime descriptor value."""
-    snapshot = _snapshot_config_value(value)
-    if isinstance(snapshot, np.ndarray):
-        return _freeze_runtime_value(snapshot.tolist())
-    if isinstance(snapshot, Mapping):
-        return MappingProxyType({key: _freeze_runtime_value(item) for key, item in snapshot.items()})
-    if isinstance(snapshot, list | tuple):
-        return tuple(_freeze_runtime_value(item) for item in snapshot)
-    if isinstance(snapshot, set | frozenset):
-        return frozenset(_freeze_runtime_value(item) for item in snapshot)
-    return snapshot
-
-
 def _config_values_equal(left: Any, right: Any) -> bool:
     """Compare captured config values without NumPy's ambiguous bool errors."""
     if isinstance(left, DaArray) or isinstance(right, DaArray):
@@ -502,7 +482,9 @@ def _config_values_equal(left: Any, right: Any) -> bool:
         return False
 
 
-class _ParamsSnapshot(Mapping[str, Any]):
+class _DefensiveParamsMapping(Mapping[str, Any]):
+    """Own parameter snapshots and return a fresh defensive value on every read."""
+
     def __init__(self, params: Mapping[str, Any]) -> None:
         self._params = {key: _snapshot_config_value(value) for key, value in params.items()}
 
@@ -603,9 +585,9 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         return object.__getattribute__(self, "_sampling_rate")
 
     @property
-    def params(self) -> _ParamsSnapshot:
+    def params(self) -> _DefensiveParamsMapping:
         """Return a read-only defensive snapshot of operation parameters."""
-        return _ParamsSnapshot(self.to_params())
+        return _DefensiveParamsMapping(self.to_params())
 
     def to_params(self) -> Mapping[str, Any]:
         """Return operation parameters used for lineage and display."""
@@ -620,17 +602,15 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
             return MultiInputReplay(
                 OperationContract(self.name, self.operation_version, bool(self.pure), bindings),
                 frozen_params(self.to_params(), allow_opaque=True),
-                self.name,
                 handler,
-                roles,
             )
         contract = OperationContract(
             self.name, self.operation_version, bool(self.pure), (InputBinding("frame", "frame"),)
         )
         params = frozen_params(self.to_params(), allow_opaque=True)
         if not self.supports_generic_replay:
-            return UnsupportedReplay(contract, params, self.name, "Audio operation has not opted into generic replay")
-        return AudioReplay(contract, params, self.name)
+            return UnsupportedReplay(contract, params, "Audio operation has not opted into generic replay")
+        return AudioReplay(contract, params)
 
     def to_summary(self) -> OperationSummary:
         """Return a lightweight display summary for this operation."""

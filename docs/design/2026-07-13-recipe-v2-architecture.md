@@ -63,11 +63,14 @@ the sole executable edge owner. Validation enforces topological availability, ca
 arity and input kinds, frame/terminal output, terminal-at-output, and the absence of
 dead nodes or unused inputs. Execution evaluates that one validated graph only.
 
-At the compiler boundary, `BoundInput.lineage is None` is the complete representation
-of an external input; there is no duplicate external flag. For add-channel replay,
-`AddChannelOperation.input_kind` is the sole owner of the second input kind. Runtime
-parameters do not duplicate that state, and the codec derives bindings from the typed
-operation field.
+At the compiler boundary, an external array is represented only by
+`BoundInput.lineage is None`; there is no duplicate external flag. Frame inputs always
+carry a source or operation lineage, so a missing parent cannot silently create a new
+external Frame input. For add-channel replay, `AddChannelOperation.input_kind` is the
+sole runtime owner of the second input kind. Replay descriptors derive that kind from
+their contract rather than storing another synchronized field. Descriptors likewise
+derive semantic operation identity from the contract and scalar execution values from
+their immutable parameter tree; neither value has a second synchronized field.
 
 ## Persistence
 
@@ -78,9 +81,10 @@ targets must be importable stable paths; method targets must be directly owned c
 members with matching replay contracts. External NumPy and Dask arrays are named
 inputs and are never embedded.
 
-Runtime parameter snapshots and persistence use one immutable, collision-proof value
-tree. User mappings are encoded as mapping nodes rather than inferred from reserved
-JSON key shapes. Arbitrary objects and callables are not serialized as parameters.
+Runtime operations own defensive parameter snapshots, while persistence uses one
+immutable, collision-proof value tree. User mappings are encoded as mapping nodes
+rather than inferred from reserved JSON key shapes. Arbitrary objects and callables
+are not serialized as parameters.
 
 ## Explicitly removed
 

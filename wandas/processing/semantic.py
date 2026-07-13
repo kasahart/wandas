@@ -39,14 +39,18 @@ def semantic_lineage(lineage: Any) -> Any:
         _semantic_capture.reset(token)
 
 
+def _has_frame_lineage_contract(value: object) -> bool:
+    """Return whether a result structurally exposes Wandas Frame lineage."""
+    frame_contract_members = {name for base in type(value).__mro__ for name in base.__dict__}
+    return {"_lineage_or_source", "lineage"} <= frame_contract_members
+
+
 def _invoke_semantic(method: Callable[P, R], args: tuple[Any, ...], kwargs: Mapping[str, Any], lineage: Any) -> R:
     token = _semantic_capture.set(lineage)
     try:
         result = method(*args, **kwargs)
-        result_members = {name for base in type(result).__mro__ for name in base.__dict__}
-        is_frame_result = {"_lineage_or_source", "lineage"} <= result_members
         result_lineage = getattr(result, "lineage", lineage)
-        if is_frame_result and result_lineage is not lineage:
+        if _has_frame_lineage_contract(result) and result_lineage is not lineage:
             raise RuntimeError("Public operation did not preserve semantic lineage")
         return result
     finally:
@@ -273,12 +277,15 @@ def thaw_replay_value(value: ReplayValue) -> Any:
 class ReplayDescriptor:
     contract: OperationContract
     params: ReplayValue
-    semantic_name: str
 
     def __post_init__(self) -> None:
-        _identifier(self.semantic_name, "Replay semantic name")
         if self.params[0] != "mapping":
             raise TypeError("Replay descriptor params must be a frozen mapping")
+
+    @property
+    def semantic_name(self) -> str:
+        """Return the single operation identity owned by the replay contract."""
+        return self.contract.operation_id
 
     def thaw_params(self) -> dict[str, Any]:
         return dict(thaw_replay_value(self.params))
@@ -306,7 +313,15 @@ class IndexReplay(ReplayDescriptor):
 
 @dataclass(frozen=True)
 class AddChannelReplay(ReplayDescriptor):
-    input_kind: Literal["frame", "array"]
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        input_kinds = tuple(binding.kind for binding in self.contract.bindings)
+        if input_kinds not in {("frame", "frame"), ("frame", "array")}:
+            raise ValueError("add-channel replay requires ordered frame and frame-or-array bindings")
+
+    @property
+    def input_kind(self) -> Literal["frame", "array"]:
+        return cast(Literal["frame", "array"], self.contract.bindings[1].kind)
 
 
 @dataclass(frozen=True)
@@ -316,10 +331,26 @@ class TerminalReplay(ReplayDescriptor):
 
 @dataclass(frozen=True)
 class BinaryReplay(ReplayDescriptor):
-    symbol: str
-    operand_kind: Literal["frame", "scalar", "array"]
-    operand_position: Literal["left", "right"]
-    scalar_operand: bool | int | float | complex | None = None
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        input_kinds = tuple(binding.kind for binding in self.contract.bindings)
+        if len(input_kinds) != 2 or input_kinds.count("frame") not in {1, 2}:
+            raise ValueError("binary replay requires two bindings with one or two frame inputs")
+
+    @property
+    def scalar_operand(self) -> bool | int | float | complex | None:
+        """Restore the scalar execution value from canonical replay operand params."""
+        operand = self.thaw_params().get("operand")
+        if not isinstance(operand, Mapping):
+            return None
+        value = operand.get("value")
+        if isinstance(value, bool | int | float | complex):
+            return value
+        real = operand.get("real")
+        imaginary = operand.get("imag")
+        if isinstance(real, numbers.Real) and isinstance(imaginary, numbers.Real):
+            return complex(real, imaginary)
+        return None
 
 
 @dataclass(frozen=True)
@@ -333,13 +364,6 @@ class CustomReplay(ReplayDescriptor):
 @dataclass(frozen=True)
 class MultiInputReplay(ReplayDescriptor):
     handler: str
-    roles: tuple[str, ...]
-
-    def __post_init__(self) -> None:
-        super().__post_init__()
-        binding_roles = tuple(binding.role for binding in self.contract.bindings if binding.kind != "scalar")
-        if not self.roles or len(set(self.roles)) != len(self.roles) or self.roles != binding_roles:
-            raise ValueError("Multi-input roles must exactly match ordered non-scalar bindings")
 
 
 @dataclass(frozen=True)

@@ -76,13 +76,29 @@ class ReplayCodecRegistry:
         codec = self._codecs.get(type(descriptor))
         if codec is None:
             raise RecipeExtractionError(f"No Recipe codec for descriptor: {type(descriptor).__name__}")
+        expected_frame_count = sum(binding.kind == "frame" for binding in descriptor.contract.bindings)
+        if len(lineage_inputs) != expected_frame_count:
+            raise RecipeExtractionError(
+                "Recipe descriptor frame bindings and lineage inputs disagree\n"
+                f"  Expected: {expected_frame_count}; got: {len(lineage_inputs)}"
+            )
         result = codec(descriptor, lineage_inputs)
-        expected = tuple(
+        expected_bindings = tuple(
             (binding.role, binding.kind) for binding in descriptor.contract.bindings if binding.kind != "scalar"
         )
-        actual = tuple((binding.role, binding.kind) for binding in result.bindings)
-        if expected != actual or len(actual) != result.call.arity:
-            raise RecipeExtractionError(f"Recipe codec bindings disagree with descriptor\n  Expected: {expected}")
+        codec_bindings = tuple((binding.role, binding.kind) for binding in result.bindings)
+        if expected_bindings != codec_bindings or len(codec_bindings) != result.call.arity:
+            raise RecipeExtractionError(
+                f"Recipe codec bindings disagree with descriptor\n  Expected: {expected_bindings}"
+            )
+        codec_frame_lineages = tuple(binding.lineage for binding in result.bindings if binding.kind == "frame")
+        frame_lineage_mismatch = any(
+            codec_lineage is not descriptor_lineage
+            for codec_lineage, descriptor_lineage in zip(codec_frame_lineages, lineage_inputs, strict=True)
+        )
+        array_has_lineage = any(binding.lineage is not None for binding in result.bindings if binding.kind == "array")
+        if frame_lineage_mismatch or array_has_lineage:
+            raise RecipeExtractionError("Recipe codec input lineage disagrees with descriptor inputs")
         return result
 
 
@@ -100,43 +116,39 @@ def default_codec_registry() -> ReplayCodecRegistry:
     return registry.freeze()
 
 
-def _frame(role: str, lineage: LineageNode | None) -> BoundInput:
+def _frame(role: str, lineage: LineageNode) -> BoundInput:
     return BoundInput(role, "frame", lineage)
 
 
 def _audio(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]) -> CodecResult:
-    if not isinstance(descriptor, AudioReplay):
-        raise RecipeExtractionError("Audio codec requires AudioReplay")
-    lineage = lineage_inputs[0] if lineage_inputs else None
-    binding = descriptor.contract.bindings[0]
+    descriptor = cast(AudioReplay, descriptor)
     return CodecResult(
         AudioCall(descriptor.contract.operation_id, descriptor.thaw_params(), descriptor.contract.version),
-        (_frame(binding.role, lineage),),
+        (_frame(descriptor.contract.bindings[0].role, lineage_inputs[0]),),
     )
 
 
 def _binary(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]) -> CodecResult:
-    if not isinstance(descriptor, BinaryReplay):
-        raise RecipeExtractionError("Binary codec requires BinaryReplay")
-    operation = descriptor.symbol
+    descriptor = cast(BinaryReplay, descriptor)
+    operation = descriptor.contract.operation_id
     bindings = descriptor.contract.bindings
-    if descriptor.operand_kind == "frame":
-        if len(lineage_inputs) != 2:
-            raise RecipeExtractionError("Frame binary replay requires two lineage inputs")
+    if all(binding.kind == "frame" for binding in bindings):
         return CodecResult(
             BinaryCall(operation, descriptor.contract.version),
             tuple(_frame(binding.role, lineage) for binding, lineage in zip(bindings, lineage_inputs, strict=True)),
         )
     frame_binding = next(binding for binding in bindings if binding.kind == "frame")
-    frame_lineage = lineage_inputs[0] if lineage_inputs else None
-    if descriptor.operand_kind == "scalar":
-        if descriptor.scalar_operand is None:
+    frame_lineage = lineage_inputs[0]
+    if any(binding.kind == "scalar" for binding in bindings):
+        scalar_operand = descriptor.scalar_operand
+        if scalar_operand is None:
             raise RecipeExtractionError("Unsupported scalar Recipe operand")
+        scalar_is_left_operand = bindings[0].kind == "scalar"
         return CodecResult(
             ScalarCall(
                 operation,
-                descriptor.scalar_operand,
-                descriptor.operand_position == "left",
+                scalar_operand,
+                scalar_is_left_operand,
                 descriptor.contract.version,
             ),
             (_frame(frame_binding.role, frame_lineage),),
@@ -172,22 +184,19 @@ def _selector(value: Mapping[str, Any]) -> Any:
 
 
 def _method(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]) -> CodecResult:
-    if not isinstance(descriptor, MethodReplay):
-        raise RecipeExtractionError("Method codec requires MethodReplay")
+    descriptor = cast(MethodReplay, descriptor)
     operation = descriptor.contract.operation_id
     params = descriptor.thaw_params()
-    frame_lineage = lineage_inputs[0] if lineage_inputs else None
     if descriptor.target is None:
         raise RecipeExtractionError(f"Recipe method has no stable target: {operation!r}")
     return CodecResult(
         MethodCall(operation, descriptor.target, params, descriptor.contract.version),
-        (_frame(descriptor.contract.bindings[0].role, frame_lineage),),
+        (_frame(descriptor.contract.bindings[0].role, lineage_inputs[0]),),
     )
 
 
 def _index(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]) -> CodecResult:
-    if not isinstance(descriptor, IndexReplay):
-        raise RecipeExtractionError("Index codec requires IndexReplay")
+    descriptor = cast(IndexReplay, descriptor)
     params = descriptor.thaw_params()
     if params.get("indexing") == "multidimensional_slice":
         key = (_selector(params["channel"]), *(_slice(item) for item in params["axis_slices"]))
@@ -195,45 +204,36 @@ def _index(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]
         raise RecipeExtractionError("Unsupported multidimensional Recipe indexing")
     else:
         key = _selector(params)
-    lineage = lineage_inputs[0] if lineage_inputs else None
-    return CodecResult(IndexCall(key, descriptor.contract.version), (_frame("frame", lineage),))
+    return CodecResult(IndexCall(key, descriptor.contract.version), (_frame("frame", lineage_inputs[0]),))
 
 
 def _add_channel(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]) -> CodecResult:
-    if not isinstance(descriptor, AddChannelReplay):
-        raise RecipeExtractionError("add-channel codec requires AddChannelReplay")
-    params = descriptor.thaw_params()
-    if isinstance(source_time_offset := params.get("source_time_offset"), np.ndarray | tuple):
-        params["source_time_offset"] = list(source_time_offset)
+    descriptor = cast(AddChannelReplay, descriptor)
     bindings = descriptor.contract.bindings
-    if descriptor.input_kind == "frame":
-        if len(lineage_inputs) != 2:
-            raise RecipeExtractionError("add_channel frame replay requires two parents")
+    input_kind = descriptor.input_kind
+    if input_kind == "frame":
         resolved = tuple(
             _frame(binding.role, lineage) for binding, lineage in zip(bindings, lineage_inputs, strict=True)
         )
     else:
         resolved = (
-            _frame(bindings[0].role, lineage_inputs[0] if lineage_inputs else None),
+            _frame(bindings[0].role, lineage_inputs[0]),
             BoundInput(bindings[1].role, "array"),
         )
-    return CodecResult(AddChannelCall(descriptor.input_kind, params, descriptor.contract.version), resolved)
+    return CodecResult(AddChannelCall(input_kind, descriptor.thaw_params(), descriptor.contract.version), resolved)
 
 
 def _terminal(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]) -> CodecResult:
-    if not isinstance(descriptor, TerminalReplay):
-        raise RecipeExtractionError("Terminal codec requires TerminalReplay")
-    lineage = lineage_inputs[0] if lineage_inputs else None
+    descriptor = cast(TerminalReplay, descriptor)
     return CodecResult(
         TerminalCall(descriptor.contract.operation_id, descriptor.target, descriptor.contract.version),
-        (_frame(descriptor.contract.bindings[0].role, lineage),),
+        (_frame(descriptor.contract.bindings[0].role, lineage_inputs[0]),),
     )
 
 
 def _custom(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]) -> CodecResult:
     if not isinstance(descriptor, CustomReplay) or descriptor.function is None:
         raise RecipeExtractionError("Custom Recipe replay requires stable callable paths")
-    binding = descriptor.contract.bindings[0]
     return CodecResult(
         CustomCall(
             descriptor.function,
@@ -244,7 +244,7 @@ def _custom(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...
             descriptor.contract.pure,
             descriptor.contract.version,
         ),
-        (_frame(binding.role, lineage_inputs[0] if lineage_inputs else None),),
+        (_frame(descriptor.contract.bindings[0].role, lineage_inputs[0]),),
     )
 
 
@@ -252,9 +252,7 @@ def _multi(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]
     if not isinstance(descriptor, MultiInputReplay) or not descriptor.handler:
         raise RecipeExtractionError("Multi-input Recipe replay requires a stable handler")
     executable_bindings = tuple(binding for binding in descriptor.contract.bindings if binding.kind != "scalar")
-    frame_bindings = tuple(binding for binding in executable_bindings if binding.kind == "frame")
-    if len(lineage_inputs) != len(frame_bindings):
-        raise RecipeExtractionError("Multi-input frame lineage and bindings disagree")
+    roles = tuple(binding.role for binding in executable_bindings)
     lineage_iterator = iter(lineage_inputs)
     bindings = tuple(
         _frame(binding.role, next(lineage_iterator)) if binding.kind == "frame" else BoundInput(binding.role, "array")
@@ -263,7 +261,7 @@ def _multi(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]
     return CodecResult(
         MultiInputCall(
             descriptor.contract.operation_id,
-            descriptor.roles,
+            roles,
             descriptor.handler,
             descriptor.params,
             descriptor.contract.version,

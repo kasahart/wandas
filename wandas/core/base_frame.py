@@ -62,24 +62,44 @@ def _get_channel_semantic_params(params: Mapping[str, Any]) -> Mapping[str, Any]
     return params
 
 
-class _LineageOperationName:
+class _LineageOperationAlias:
     """Operation view used when callers provide an explicit lineage name."""
 
-    def __init__(self, operation: Any, name: str, params: Mapping[str, Any] | None = None) -> None:
+    def __init__(
+        self,
+        operation: Any,
+        name: str,
+        fallback_params: Mapping[str, Any] | None = None,
+    ) -> None:
         self._operation = operation
         self.name = name
-        self._params = params
+        operation_params = getattr(operation, "params", None)
+        if callable(getattr(operation, "to_params", None)) or isinstance(operation_params, Mapping):
+            self._fallback_params: Mapping[str, Any] | None = None
+        else:
+            from wandas.processing.base import _snapshot_config_value
+
+            self._fallback_params = cast(
+                Mapping[str, Any],
+                _snapshot_config_value(fallback_params or {}),
+            )
 
     @property
-    def params(self) -> Any:
-        return self._params if self._params is not None else getattr(self._operation, "params", {})
+    def params(self) -> Mapping[str, Any]:
+        return self.to_params()
 
     def to_params(self) -> Mapping[str, Any]:
-        if self._params is not None:
-            return self._params
-        if hasattr(self._operation, "to_params"):
-            return cast(Mapping[str, Any], self._operation.to_params())
-        return cast(Mapping[str, Any], getattr(self._operation, "params", {}))
+        if self._fallback_params is not None:
+            from wandas.processing.base import _snapshot_config_value
+
+            return cast(Mapping[str, Any], _snapshot_config_value(self._fallback_params))
+        to_params = getattr(self._operation, "to_params", None)
+        if callable(to_params):
+            return cast(Mapping[str, Any], to_params())
+        operation_params = getattr(self._operation, "params", None)
+        if isinstance(operation_params, Mapping):
+            return operation_params
+        return {}
 
     def to_summary(self) -> Mapping[str, Any]:
         return {"operation": self.name, "params": self.to_params()}
@@ -93,11 +113,10 @@ class _LineageOperationName:
             return UnsupportedReplay(
                 OperationContract(self.name, 1, True, ()),
                 frozen_params(self.to_params(), allow_opaque=True),
-                self.name,
                 "Operation has no typed replay descriptor",
             )
         contract = replace(descriptor.contract, operation_id=self.name)
-        return replace(descriptor, contract=contract, params=frozen_params(self.to_params()), semantic_name=self.name)
+        return replace(descriptor, contract=contract)
 
 
 def _mutable_config_value(value: Any) -> Any:
@@ -1103,7 +1122,7 @@ class BaseFrame(ABC, Generic[T]):
                 lineage=lineage,
             )
 
-        # Phase 2: NumPy array support (bool mask and int array)
+        # NumPy array selectors (boolean masks and integer arrays)
         if isinstance(key, np.ndarray):
             if key.dtype in (bool, np.bool_):
                 # Boolean mask
@@ -1146,7 +1165,7 @@ class BaseFrame(ABC, Generic[T]):
                 )
             raise TypeError(f"NumPy array must be of integer or boolean type, got {key.dtype}")
 
-        # Phase 1: List support (int or str)
+        # List selectors (integer positions or string labels)
         if isinstance(key, list):
             if len(key) == 0:
                 raise ValueError("Cannot index with an empty list")
@@ -1639,8 +1658,9 @@ class BaseFrame(ABC, Generic[T]):
             operand=other_str if operand_kind == "frame" else other,
             operand_position="left" if reverse and operand_kind == "operand" else "right",
         )
-        result_data = binary_operation._mark_array(result_data)
         lineage = self._lineage_with_operation(binary_operation, *lineage_inputs)
+        graph_operation = lineage.operation if isinstance(lineage.operation, BinaryOperation) else binary_operation
+        result_data = graph_operation._mark_array(result_data)
         operation_summaries_snapshot = None
         if isinstance(other, type(self)) and (
             self._operation_summaries_snapshot is not None or other._operation_summaries_snapshot is not None
@@ -1804,7 +1824,7 @@ class BaseFrame(ABC, Generic[T]):
             "lineage": self._lineage_with_operation(
                 operation
                 if getattr(operation, "name", None) == operation_name
-                else _LineageOperationName(operation, operation_name, params),
+                else _LineageOperationAlias(operation, operation_name, params),
                 self._lineage_or_source(),
             ),
         }
@@ -1888,7 +1908,7 @@ class BaseFrame(ABC, Generic[T]):
         lineage_operation = (
             operation
             if getattr(operation, "name", None) == operation_name
-            else _LineageOperationName(operation, operation_name, params)
+            else _LineageOperationAlias(operation, operation_name, params)
         )
         lineage = self._lineage_with_operation(lineage_operation, self._lineage_or_source())
 

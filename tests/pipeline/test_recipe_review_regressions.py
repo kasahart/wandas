@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
+from fractions import Fraction
 from typing import Any, cast
 
 import dask.array as da
@@ -13,7 +14,7 @@ from wandas.pipeline import RecipePlan
 from wandas.pipeline.calls import MethodCall
 from wandas.pipeline.decorators import replay_method
 from wandas.pipeline.errors import RecipeExtractionError, RecipeSerializationError
-from wandas.processing.base import FrameMethodOperation, LineageNode
+from wandas.processing.base import BinaryOperation, FrameMethodOperation, IndexOperation, LineageNode
 
 
 class ExternalBrokenFrame(ChannelFrame):
@@ -86,10 +87,51 @@ def test_method_runtime_params_are_snapshotted_for_history_and_graph() -> None:
     lineage = LineageNode(FrameMethodOperation("probe", params), (source._lineage_or_source(),))
     processed = source._create_new_instance(data=source._data, lineage=lineage)
     params["nested"]["value"] = 9
+    returned_nested_params = lineage.operation.method_params["nested"]
+    returned_nested_params["value"] = 7
 
+    assert lineage.operation.to_params() == {"nested": {"value": 1}}
     assert processed.operation_history[-1]["params"] == {"nested": {"value": 1}}
     assert processed.operation_graph is not None
     assert processed.operation_graph["params"] == {"nested": {"value": 1}}
+
+
+def test_public_method_runtime_params_cannot_diverge_from_summary_or_recipe() -> None:
+    source = _frame()
+    processed = source.get_channel([0])
+    assert processed.lineage is not None
+    operation = processed.lineage.operation
+    assert isinstance(operation, FrameMethodOperation)
+    history = processed.operation_history
+    summaries = processed.operation_summaries
+    plan_payload = RecipePlan.from_frame(processed).to_dict()
+
+    returned_channel_indices = operation.method_params["channel_idx"]
+    returned_channel_indices.append(1)
+
+    assert operation.method_params["channel_idx"] == [0]
+    assert processed.operation_history == history
+    assert processed.operation_summaries == summaries
+    assert RecipePlan.from_frame(processed).to_dict() == plan_payload
+
+
+def test_index_runtime_params_cannot_diverge_from_summary_or_recipe() -> None:
+    source = _frame()
+    processed = source[0, 2:8]
+    assert processed.lineage is not None
+    operation = processed.lineage.operation
+    assert isinstance(operation, IndexOperation)
+    history = processed.operation_history
+    summaries = processed.operation_summaries
+    plan_payload = RecipePlan.from_frame(processed).to_dict()
+
+    returned_channel_selector = operation.params["channel"]
+    returned_channel_selector["index"] = 2
+
+    assert operation.params["channel"]["index"] == 0
+    assert processed.operation_history == history
+    assert processed.operation_summaries == summaries
+    assert RecipePlan.from_frame(processed).to_dict() == plan_payload
 
 
 def test_external_base_frame_subclass_cannot_discard_semantic_lineage() -> None:
@@ -113,6 +155,17 @@ def test_array_operand_mutation_cannot_change_history_summary_or_recipe() -> Non
     assert processed.operation_summaries == summaries
     assert RecipePlan.from_frame(processed, input_names=("signal", "operand")).to_dict() == plan_payload
     assert history[-1]["params"]["operand"]["type"] == "array"
+
+
+def test_non_source_operation_requires_its_frame_parent_lineage() -> None:
+    source = _frame(channels=1)
+    normalized = source.normalize()
+    assert normalized.lineage is not None
+    broken_lineage = LineageNode(normalized.lineage.operation, ())
+    broken = normalized._create_new_instance(data=normalized._data, lineage=broken_lineage)
+
+    with pytest.raises(RecipeExtractionError, match="frame bindings and lineage inputs disagree"):
+        RecipePlan.from_frame(broken)
 
 
 def test_add_channel_offset_mutation_cannot_change_history_summary_or_recipe() -> None:
@@ -158,7 +211,7 @@ def test_binary_runtime_descriptor_is_deeply_read_only() -> None:
     assert processed.operation_history == history
 
 
-def test_add_channel_runtime_params_are_deeply_read_only() -> None:
+def test_add_channel_runtime_params_expose_only_defensive_values() -> None:
     source = _frame(channels=1)
     processed = source.add_channel(
         np.ones((1, source.n_samples)),
@@ -168,10 +221,11 @@ def test_add_channel_runtime_params_are_deeply_read_only() -> None:
     operation = processed.lineage.operation
     history = processed.operation_history
 
-    with pytest.raises(TypeError):
-        operation.params["source_time_offset"][0] = 9.0
+    returned_offset = operation.params["source_time_offset"]
+    returned_offset[0] = 9.0
 
     assert processed.operation_history == history
+    assert operation.params["source_time_offset"] == [1.25]
 
 
 def test_direct_to_channel_frame_and_istft_keep_distinct_public_identity() -> None:
@@ -241,6 +295,16 @@ def test_integer_scalar_replay_preserves_labels_and_operand_type() -> None:
     assert plan.apply({"input_0": source}).labels == processed.labels
 
 
+def test_generic_real_scalar_roundtrips_from_canonical_operand_params() -> None:
+    source = _frame(channels=1)
+    processed = source + cast(Any, Fraction(1, 2))
+    plan = RecipePlan.from_dict(RecipePlan.from_frame(processed).to_dict())
+
+    assert plan.to_dict()["nodes"][0]["call"]["operand"] == 0.5
+    expected = np.asarray(processed.compute(), dtype=float)
+    np.testing.assert_allclose(plan.apply({"input_0": source}).compute(), expected)
+
+
 @pytest.mark.parametrize("operand", [np.inf, -np.inf, np.nan])
 def test_nonfinite_scalar_operands_roundtrip(operand: float) -> None:
     source = _frame(channels=1)
@@ -281,6 +345,41 @@ def test_raw_add_without_snr_remains_an_external_array_input() -> None:
     assert [item.kind for item in plan.inputs] == ["frame", "array"]
     replayed = plan.apply({"signal": source, "operand": operand})
     np.testing.assert_allclose(replayed.compute(), processed.compute())
+
+
+@pytest.mark.parametrize("use_dask_operand", [False, True], ids=["numpy", "dask"])
+def test_raw_add_uses_one_operation_for_lineage_graph_and_recipe(
+    use_dask_operand: bool,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _frame(channels=1)
+    source.metadata["contract"] = "preserved"
+    source.source_time_offset = [0.25]
+    raw_operand = np.linspace(0.25, 1.25, source.n_samples // 2).reshape(1, -1)
+    operand = da.from_array(raw_operand, chunks=(1, 32)) if use_dask_operand else raw_operand
+
+    def fail_compute(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("raw add graph construction must stay lazy")
+
+    monkeypatch.setattr(da.Array, "compute", fail_compute)
+    processed = source.add(operand)
+    assert processed.lineage is not None
+    assert isinstance(processed.lineage.operation, BinaryOperation)
+    graph_operations = processed.operations
+    assert len(graph_operations) == 1
+    assert graph_operations[0] is processed.lineage.operation
+    assert len(processed.operation_history) == 1
+    plan = RecipePlan.from_dict(RecipePlan.from_frame(processed, input_names=("signal", "operand")).to_dict())
+    replayed = plan.apply({"signal": source, "operand": operand})
+    monkeypatch.undo()
+
+    expected_operand = np.pad(raw_operand, ((0, 0), (0, source.n_samples - raw_operand.shape[1])))
+    np.testing.assert_allclose(processed.compute(), source.compute() + expected_operand)
+    np.testing.assert_allclose(replayed.compute(), processed.compute())
+    assert [item.kind for item in plan.inputs] == ["frame", "array"]
+    assert processed.label == "(source + array_data)"
+    assert processed.metadata == source.metadata
+    np.testing.assert_allclose(processed.source_time_offset, source.source_time_offset)
 
 
 def test_raw_add_recipe_accepts_dask_operand_without_eager_compute(

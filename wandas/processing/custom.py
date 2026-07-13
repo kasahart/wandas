@@ -173,15 +173,14 @@ class CustomOperation(AudioOperation[InputArrayType, OutputArrayType]):
             metadata = None
             params = frozen_params(self.to_params(), allow_opaque=True)
         if metadata is None:
-            return UnsupportedReplay(contract, params, self.name, "Custom call is not portable")
-        kwargs = {} if metadata is None else metadata.get("output_frame_kwargs", {})
+            return UnsupportedReplay(contract, params, "Custom call is not portable")
+        kwargs = metadata.get("output_frame_kwargs", {})
         return CustomReplay(
             contract,
             params,
-            self.name,
-            None if metadata is None else metadata["function"],
-            None if metadata is None else metadata["output_shape_function"],
-            None if metadata is None else metadata["output_frame_class"],
+            metadata["function"],
+            metadata["output_shape_function"],
+            metadata["output_frame_class"],
             frozen_params(kwargs),
         )
 
