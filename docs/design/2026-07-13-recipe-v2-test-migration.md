@@ -20,6 +20,21 @@ their behavioral outcomes are covered through the public `RecipePlan` contract. 
 contract tests import no private production symbols. White-box codec tests remain next
 to the production responsibility they exercise.
 
+The private indexing lineage builders `_lineage_with_index` and
+`_lineage_with_unsupported_indexing` are deleted. Their former white-box assertions
+move to public `frame[key]` contract tests that verify the result lineage, history,
+metadata, source-time offset, persistence roundtrip, and replay result. Every supported
+indexing form, including multidimensional indexing, must produce exactly one semantic
+node and one history entry for one public call.
+
+Mutation tests own the snapshot boundary: changing an operand, add-channel parameters,
+or source-time-offset input after the public call must not change history, operation
+summaries, or a subsequently compiled plan. Semantic atomicity tests own the invariant
+that the returned Frame carries the semantic lineage selected at public entry, including
+for external `BaseFrame` subclasses. External-input tests own the complementary
+contract that NumPy and Dask values compile as named inputs without embedding container
+details or forcing Dask computation.
+
 `uv run python scripts/recipe_v2_test_audit.py` emits all 192 baseline cases with a
 `migrated` or `removed_contract` disposition, rationale, and an AST-verified current
 pytest function for every migrated row. Migration entries are an explicit curated map,

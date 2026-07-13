@@ -25,12 +25,23 @@ public Frame operation
 the live runtime operation. This prevents later mutation of operation parameters,
 bindings, versions, callables, or operand order from changing history or Recipe output.
 
+Runtime operations do not retain user-owned mutable values. Binary NumPy and Dask
+operands are captured as immutable descriptors when the operation is created, and
+add-channel parameters are snapshotted at the same boundary. Display history records
+semantic values, not container implementation details such as NumPy versus Dask.
+
 ## Semantic lineage
 
 One public Frame operation produces one semantic lineage node and one history record.
 Internal helper calls are not lineage. Multidimensional indexing is one typed indexing
 intent. Shared `LineageNode` identity is preserved and projections visit shared nodes
 once by object identity; equal but separately invoked operations remain distinct.
+
+The public semantic entry point is the sole owner of lineage creation. In particular,
+`@semantic_index` creates the one indexing node used by every indexing branch;
+branches may select data and metadata, but must not rebuild lineage or its parameters.
+Semantic result validation uses the structural Frame contract rather than a defining
+module name so that external `BaseFrame` subclasses receive the same atomicity check.
 
 Source identity is in-memory only. Compiler memoization may use runtime object identity,
 but persisted node IDs are deterministic graph references and never Python object IDs.
@@ -51,6 +62,12 @@ opt-in. Calls and descriptors never contain graph references.
 the sole executable edge owner. Validation enforces topological availability, call
 arity and input kinds, frame/terminal output, terminal-at-output, and the absence of
 dead nodes or unused inputs. Execution evaluates that one validated graph only.
+
+At the compiler boundary, `BoundInput.lineage is None` is the complete representation
+of an external input; there is no duplicate external flag. For add-channel replay,
+`AddChannelOperation.input_kind` is the sole owner of the second input kind. Runtime
+parameters do not duplicate that state, and the codec derives bindings from the typed
+operation field.
 
 ## Persistence
 
