@@ -53,6 +53,8 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
         if np.issubdtype(data.dtype, np.complexfloating):
             raise TypeError("CepstralFrame requires real-valued coefficients, not complex data.")
         self._n_fft = int(n_fft)
+        if int(data.shape[-1]) > self.n_fft:
+            raise ValueError("CepstralFrame cannot contain more quefrency bins than n_fft.")
         self._window = window
         self._analysis_length = self.n_fft if analysis_length is None else int(analysis_length)
         if self.analysis_length <= 0 or self.analysis_length > self.n_fft:

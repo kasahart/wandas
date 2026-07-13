@@ -38,6 +38,12 @@ class TestCepstralFrame:
         with pytest.raises(TypeError, match=r"real-valued coefficients"):
             CepstralFrame(data=data, sampling_rate=self.sampling_rate, n_fft=4)
 
+    def test_constructor_rejects_more_quefrency_bins_than_n_fft(self) -> None:
+        data = da.zeros((1, 16), chunks=(1, -1))
+
+        with pytest.raises(ValueError, match=r"more quefrency bins than n_fft"):
+            CepstralFrame(data=data, sampling_rate=self.sampling_rate, n_fft=8)
+
     def test_quefrencies_property_matches_sampling_rate(self) -> None:
         expected = np.arange(self.n_fft) / self.sampling_rate
         np.testing.assert_allclose(self.frame.quefrencies, expected)
@@ -206,6 +212,17 @@ class TestCepstralFrame:
 
         with pytest.raises(TypeError, match=r"matching frame types"):
             _ = time_frame + self.frame
+
+    def test_binary_operations_allow_parent_subclass_frames_in_both_orders(self) -> None:
+        class DerivedChannelFrame(ChannelFrame):
+            pass
+
+        data = da.ones((1, 8), chunks=(1, -1))
+        base = ChannelFrame(data=data, sampling_rate=self.sampling_rate)
+        derived = DerivedChannelFrame(data=data, sampling_rate=self.sampling_rate)
+
+        assert isinstance(base + derived, ChannelFrame)
+        assert isinstance(derived + base, DerivedChannelFrame)
 
     @pytest.mark.parametrize(
         ("window", "analysis_length"),

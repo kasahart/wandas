@@ -1506,14 +1506,17 @@ class BaseFrame(ABC, Generic[T]):
         logger.debug(f"Setting up {symbol} operation (lazy)")
 
         metadata = copy.deepcopy(self.metadata)
-        if isinstance(other, BaseFrame) and not isinstance(other, type(self)):
+        compatible_frame_operand = isinstance(other, BaseFrame) and (
+            isinstance(other, type(self)) or isinstance(self, type(other))
+        )
+        if isinstance(other, BaseFrame) and not compatible_frame_operand:
             raise TypeError(
                 f"Binary frame operations require matching frame types\n"
                 f"  Left operand: {type(self).__name__}\n"
                 f"  Right operand: {type(other).__name__}\n"
                 "Convert both operands to the same domain before combining them."
             )
-        if isinstance(other, type(self)):
+        if isinstance(other, BaseFrame):
             if self.sampling_rate != other.sampling_rate:
                 raise ValueError(
                     f"Sampling rate mismatch\n"
@@ -1575,7 +1578,7 @@ class BaseFrame(ABC, Generic[T]):
         result_data = binary_operation.graph_marker()._mark_array(result_data)
         lineage = self._lineage_with_operation(binary_operation, *lineage_inputs)
         operation_summaries_snapshot = None
-        if isinstance(other, type(self)) and (
+        if isinstance(other, BaseFrame) and (
             self._operation_summaries_snapshot is not None or other._operation_summaries_snapshot is not None
         ):
             operation_summaries_snapshot = self._snapshot_operation_summaries(
