@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Callable
 from fractions import Fraction
@@ -293,6 +294,20 @@ def test_integer_scalar_replay_preserves_labels_and_operand_type() -> None:
     assert payload["nodes"][0]["call"]["operand"] == 1
     assert type(payload["nodes"][0]["call"]["operand"]) is int
     assert plan.apply({"input_0": source}).labels == processed.labels
+
+
+@pytest.mark.parametrize("operand", [np.int64(1), np.float32(1.5), np.complex64(1 + 2j)])
+def test_numpy_scalar_roundtrip_preserves_dtype_labels_and_history(operand: Any) -> None:
+    source = _frame(channels=1)
+    processed = source + operand
+    payload = RecipePlan.from_frame(processed).to_dict()
+
+    json.dumps(payload)
+    replayed = RecipePlan.from_dict(payload).apply({"input_0": source})
+
+    np.testing.assert_allclose(replayed.compute(), processed.compute())
+    assert replayed.labels == processed.labels
+    assert replayed.operation_history == processed.operation_history
 
 
 def test_generic_real_scalar_roundtrips_from_canonical_operand_params() -> None:

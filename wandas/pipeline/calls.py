@@ -225,7 +225,7 @@ def _operator(symbol: str, left: Any, right: Any) -> Any:
 @dataclass(frozen=True)
 class ScalarCall(FrameCall):
     operation: str
-    operand: bool | int | float | complex
+    operand: bool | int | float | complex | np.number[Any] | np.ndarray[Any, Any]
     reverse: bool = False
     version: int = 1
     arity: ClassVar[int] = 1
@@ -234,20 +234,24 @@ class ScalarCall(FrameCall):
         _version(self.version)
         if self.operation not in _OPERATORS:
             raise RecipeSerializationError("Unknown scalar Recipe operation")
-        if not isinstance(self.operand, numbers.Number):
+        operand = self.operand
+        if isinstance(operand, np.ndarray) and operand.ndim == 0:
+            operand = cast(Any, operand)[()]
+        if not isinstance(operand, numbers.Number):
             raise RecipeSerializationError("Scalar Recipe operand must be numeric")
-        value = complex(self.operand)
+        value = complex(operand)
         if type(self.reverse) is not bool:
             raise RecipeSerializationError("Scalar Recipe operand and direction are invalid")
-        normalized = (
-            bool(self.operand)
-            if isinstance(self.operand, bool | np.bool_)
-            else int(self.operand)
-            if isinstance(self.operand, numbers.Integral)
-            else float(self.operand)
-            if isinstance(self.operand, numbers.Real)
-            else value
-        )
+        if isinstance(operand, np.number):
+            normalized = operand
+        elif isinstance(operand, bool | np.bool_):
+            normalized = bool(operand)
+        elif isinstance(operand, numbers.Integral):
+            normalized = int(operand)
+        elif isinstance(operand, numbers.Real):
+            normalized = float(operand)
+        else:
+            normalized = value
         object.__setattr__(self, "operand", normalized)
 
     def invoke(self, inputs: tuple[Any, ...]) -> Any:
@@ -255,16 +259,20 @@ class ScalarCall(FrameCall):
         return _operator(self.operation, left, right)
 
     def to_payload(self) -> dict[str, Any]:
+        if isinstance(self.operand, np.number):
+            operand = freeze_replay_value(np.asarray(self.operand))
+        elif isinstance(self.operand, complex) or (
+            isinstance(self.operand, numbers.Real) and not math.isfinite(float(self.operand))
+        ):
+            operand = freeze_replay_value(self.operand)
+        else:
+            operand = self.operand
         return {
             "type": "scalar",
             "operation": self.operation,
             "version": self.version,
             "params": _freeze_params({}),
-            "operand": freeze_replay_value(self.operand)
-            if isinstance(self.operand, complex)
-            or isinstance(self.operand, numbers.Real)
-            and not math.isfinite(float(self.operand))
-            else self.operand,
+            "operand": operand,
             "reverse": self.reverse,
         }
 

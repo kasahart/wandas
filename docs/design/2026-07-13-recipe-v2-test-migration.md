@@ -67,9 +67,9 @@ of each sample's p95; lower is better.
 
 | metric | v1 | v2 | v2 index |
 | --- | ---: | ---: | ---: |
-| extraction p95 | 175.8 µs | 259.5 µs | 147.5 |
-| lazy graph-build p95 | 14,487.0 µs | 15,386.3 µs | 106.2 |
-| traced peak memory | 838,457 B | 799,163 B | 95.3 |
+| extraction p95 | 175.8 µs | 237.6 µs | 135.2 |
+| lazy graph-build p95 | 14,487.0 µs | 14,583.1 µs | 100.7 |
+| traced peak memory | 838,457 B | 817,621 B | 97.5 |
 
 This is a reproducible microbenchmark, not a claim about end-to-end numerical compute.
 Neither measured path calls Dask `compute()`.
@@ -77,16 +77,20 @@ Neither measured path calls Dask `compute()`.
 ## Cleanup measurements
 
 The final non-sklearn `wandas.pipeline` modules plus
-`wandas/processing/semantic.py` total 1,772 PLOC, 19 lines above the 1,753 reference.
+`wandas/processing/semantic.py` total 1,792 PLOC, 39 lines above the 1,753 reference.
 This is not a reason to remove explanatory names, validation, or type safety. Relative
-to the pre-cleanup Recipe v2 head, production changes contain 194 additions and 202
-deletions, a net reduction of 8 lines. Relative to the v2 base, all production Python
-is down by 205 lines.
+to the pre-cleanup Recipe v2 head, production changes contain 231 additions and 219
+deletions, a net increase of 12 lines after restoring NumPy scalar dtype fidelity in
+serialized recipes. This cleanup-only comparison is a reference breakdown; relative
+to the v2 base, all production Python is down by 185 lines and satisfies the required
+non-increase gate.
 
-The cleanup changes no central model, compiler, call serializer, or persistence
-serializer module. The extension probes therefore add no central dispatch branch.
-Extraction and lazy graph construction remain compute-free; the Dask compute-bomb
-tests and the benchmark both complete without calling `compute()`.
+The extension probes change no central model, compiler, call serializer, or
+persistence serializer module and therefore add no central dispatch branch. The
+NumPy scalar fidelity fix reuses the existing replay-value representation instead of
+adding a serializer tag or schema field. Extraction and lazy graph construction
+remain compute-free; the Dask compute-bomb tests and the benchmark both complete
+without calling `compute()`.
 
-Final validation completed with 153 pipeline tests, 40 core lineage tests, and
-2,217 full-suite tests passing; three unrelated optional tests remained skipped.
+Final validation completed with 156 pipeline tests, 40 core lineage tests, and
+2,220 full-suite tests passing; three unrelated optional tests remained skipped.

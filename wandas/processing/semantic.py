@@ -338,11 +338,23 @@ class BinaryReplay(ReplayDescriptor):
             raise ValueError("binary replay requires two bindings with one or two frame inputs")
 
     @property
-    def scalar_operand(self) -> bool | int | float | complex | None:
+    def scalar_operand(self) -> bool | int | float | complex | np.number[Any] | None:
         """Restore the scalar execution value from canonical replay operand params."""
         operand = self.thaw_params().get("operand")
         if not isinstance(operand, Mapping):
             return None
+        operand_type = operand.get("type")
+        if isinstance(operand_type, str) and operand_type not in {"bool", "int", "float", "complex"}:
+            try:
+                dtype = np.dtype(operand_type)
+            except TypeError:
+                pass
+            else:
+                if np.issubdtype(dtype, np.number):
+                    if "value" in operand:
+                        return cast(Any, dtype.type(operand["value"]))
+                    if "real" in operand and "imag" in operand:
+                        return cast(Any, dtype.type(complex(operand["real"], operand["imag"])))
         value = operand.get("value")
         if isinstance(value, bool | int | float | complex):
             return value
