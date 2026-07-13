@@ -380,6 +380,7 @@ class ChannelProcessingMixin:
         """
         return cast(T_Processing, cast(Any, self)._reduce_channels("mean"))
 
+    @replay_method()
     def trim(
         self: T_Processing,
         start: float = 0,

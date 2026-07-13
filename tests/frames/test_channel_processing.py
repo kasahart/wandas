@@ -10,7 +10,6 @@ from wandas.frames.channel import ChannelFrame, ChannelMetadata
 from wandas.frames.spectral import SpectralFrame
 from wandas.processing.base import _OPERATION_REGISTRY, AudioOperation, LineageNode, register_operation
 from wandas.processing.effects import Normalize
-from wandas.processing.temporal import Trim
 from wandas.utils.types import NDArrayReal
 from wandas.utils.util import calculate_rms
 
@@ -689,21 +688,18 @@ class TestChannelProcessing:
         with pytest.raises(ValueError):
             self.channel_frame.trim(start=0.5, end=0.1)
 
-    def test_trim_operation_sample_bounds_are_read_only_in_lineage(self) -> None:
+    def test_trim_history_records_public_method_params(self) -> None:
         data = np.arange(10, dtype=np.float64).reshape(1, -1)
         frame = ChannelFrame(_da_from_array(data, chunks=(1, -1)), sampling_rate=10)
 
         trimmed_frame = frame.trim(start=0.2, end=0.5)
-        assert trimmed_frame.lineage is not None
-        trim_op = trimmed_frame.lineage.operation
-        assert isinstance(trim_op, Trim)
 
-        with pytest.raises(AttributeError):
-            setattr(trim_op, "start_sample", 0)
-
-        assert trim_op.start_sample == 2
-        assert trim_op.end_sample == 5
+        assert trimmed_frame.operation_history[-1] == {
+            "operation": "trim",
+            "params": {"start": 0.2, "end": 0.5},
+        }
         np.testing.assert_array_equal(trimmed_frame.compute(), data[:, 2:5])
+        np.testing.assert_array_equal(frame.compute(), data)
 
     def test_hpss_operations(self) -> None:
         """Test HPSS (Harmonic-Percussive Source Separation) methods."""

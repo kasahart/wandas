@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import re
 from collections.abc import Callable
@@ -449,6 +450,25 @@ def test_fix_length_emits_replayable_public_method_lineage() -> None:
     source = _frame(samples=128)
 
     _roundtrip_replay(source, source.fix_length(length=96))
+
+
+def test_trim_with_omitted_end_uses_runtime_input_duration() -> None:
+    source = ChannelFrame.from_numpy(np.ones((1, 1000)), sampling_rate=1000)
+    runtime_input = ChannelFrame.from_numpy(np.ones((1, 2000)), sampling_rate=1000)
+    plan = RecipePlan.from_dict(RecipePlan.from_frame(source.trim(start=0.2)).to_dict())
+    history_before = runtime_input.operation_history
+    metadata_before = copy.deepcopy(runtime_input.metadata)
+    offset_before = runtime_input.source_time_offset.copy()
+
+    replayed = plan.apply({"input_0": runtime_input})
+    expected = runtime_input.trim(start=0.2)
+
+    assert replayed.n_samples == expected.n_samples == 1800
+    np.testing.assert_allclose(replayed.compute(), expected.compute())
+    assert runtime_input.n_samples == 2000
+    assert runtime_input.operation_history == history_before
+    assert runtime_input.metadata == metadata_before
+    np.testing.assert_array_equal(runtime_input.source_time_offset, offset_before)
 
 
 @pytest.mark.parametrize(

@@ -79,11 +79,11 @@ Neither measured path calls Dask `compute()`.
 The final non-sklearn `wandas.pipeline` modules plus
 `wandas/processing/semantic.py` total 1,792 PLOC, 39 lines above the 1,753 reference.
 This is not a reason to remove explanatory names, validation, or type safety. Relative
-to the pre-cleanup Recipe v2 head, production changes contain 231 additions and 219
-deletions, a net increase of 12 lines after restoring NumPy scalar dtype fidelity in
-serialized recipes. This cleanup-only comparison is a reference breakdown; relative
-to the v2 base, all production Python is down by 185 lines and satisfies the required
-non-increase gate.
+to the pre-cleanup Recipe v2 head, production changes contain 232 additions and 219
+deletions, a net increase of 13 lines after restoring NumPy scalar dtype fidelity and
+the omitted-end `trim` intent in serialized recipes. This cleanup-only comparison is a
+reference breakdown; relative to the v2 base, all production Python is down by 184
+lines and satisfies the required non-increase gate.
 
 The extension probes change no central model, compiler, call serializer, or
 persistence serializer module and therefore add no central dispatch branch. The
@@ -92,5 +92,5 @@ adding a serializer tag or schema field. Extraction and lazy graph construction
 remain compute-free; the Dask compute-bomb tests and the benchmark both complete
 without calling `compute()`.
 
-Final validation completed with 156 pipeline tests, 40 core lineage tests, and
-2,220 full-suite tests passing; three unrelated optional tests remained skipped.
+Final validation completed with 157 pipeline tests, 40 core lineage tests, and
+2,221 full-suite tests passing; three unrelated optional tests remained skipped.
