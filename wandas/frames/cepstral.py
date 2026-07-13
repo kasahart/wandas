@@ -31,6 +31,7 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
         sampling_rate: float,
         n_fft: int,
         window: str = "hann",
+        analysis_length: int | None = None,
         label: str | None = None,
         metadata: dict[str, Any] | None = None,
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
@@ -52,6 +53,9 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
             raise TypeError("CepstralFrame requires real-valued coefficients, not complex data.")
         self.n_fft = int(n_fft)
         self.window = window
+        self.analysis_length = self.n_fft if analysis_length is None else int(analysis_length)
+        if self.analysis_length <= 0 or self.analysis_length > self.n_fft:
+            raise ValueError("analysis_length must be positive and no greater than n_fft.")
         self._pending_sampling_rate = float(sampling_rate)
         super().__init__(
             data=data,
@@ -153,7 +157,12 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
         from wandas.processing import SpectralEnvelope, create_operation
 
         operation_name = "spectral_envelope"
-        operation = create_operation(operation_name, self.sampling_rate, window=self.window)
+        operation = create_operation(
+            operation_name,
+            self.sampling_rate,
+            window=self.window,
+            window_length=self.analysis_length,
+        )
         operation = cast("SpectralEnvelope", operation)
         envelope_data = operation.process(self._data)
         lineage = self._lineage_with_method(operation_name, operation.to_params())
@@ -186,6 +195,7 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
         return {
             "n_fft": self.n_fft,
             "window": self.window,
+            "analysis_length": self.analysis_length,
         }
 
     def _get_dataframe_index(self) -> Any:

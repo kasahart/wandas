@@ -83,6 +83,17 @@ class TestCepstralOperations:
 
         np.testing.assert_allclose(reconstructed.real, np.abs(spectrum), rtol=1e-12, atol=1e-12)
 
+    @pytest.mark.parametrize(("signal_length", "n_fft"), [(64, 128), (65, 65)])
+    def test_reconstruction_matches_fft_for_padding_and_odd_lengths(self, signal_length: int, n_fft: int) -> None:
+        rng = np.random.default_rng(43)
+        signal = rng.normal(size=(1, signal_length))
+
+        cepstrum = Cepstrum(16000, n_fft=n_fft, window="boxcar")._process(signal)
+        reconstructed = SpectralEnvelope(16000, window="boxcar", window_length=signal_length)._process(cepstrum)
+        spectrum = FFT(16000, n_fft=n_fft, window="boxcar")._process(signal)
+
+        np.testing.assert_allclose(reconstructed.real, np.abs(spectrum), rtol=1e-12, atol=1e-12)
+
     def test_cepstrum_process_preserves_lazy_output(self) -> None:
         sr = 16000
         signal = da.from_array(np.ones((1, 512), dtype=np.float32), chunks=(1, -1))

@@ -187,12 +187,24 @@ class SpectralEnvelope(AudioOperation[NDArrayReal, NDArrayComplex]):
 
     name = "spectral_envelope"
 
-    def __init__(self, sampling_rate: float, window: str = "hann"):
-        super().__init__(sampling_rate, window=window)
+    def __init__(self, sampling_rate: float, window: str = "hann", window_length: int | None = None):
+        if window_length is not None and (
+            isinstance(window_length, bool) or not isinstance(window_length, numbers.Integral)
+        ):
+            raise TypeError("window_length must be a positive integer or None")
+        if window_length is not None:
+            window_length = int(window_length)
+        if window_length is not None and window_length <= 0:
+            raise ValueError("window_length must be a positive integer or None")
+        super().__init__(sampling_rate, window=window, window_length=window_length)
 
     @property
     def window(self) -> str:
         return self._config_value("window")
+
+    @property
+    def window_length(self) -> int | None:
+        return self._config_value("window_length")
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         return (*input_shape[:-1], int(input_shape[-1]) // 2 + 1)
@@ -209,11 +221,11 @@ class SpectralEnvelope(AudioOperation[NDArrayReal, NDArrayComplex]):
         log_envelope = np.fft.rfft(np.asarray(x, dtype=np.float64), axis=-1)
         envelope = np.exp(np.real(log_envelope))
         n_fft = int(x.shape[-1])
-        window_gain = float(np.sum(get_window(self.window, n_fft)))
+        window_length = n_fft if self.window_length is None else self.window_length
+        window_gain = float(np.sum(get_window(self.window, window_length)))
         envelope *= 2.0 / window_gain
         envelope[..., 0] *= 0.5
-        if n_fft % 2 == 0:
-            envelope[..., -1] *= 0.5
+        envelope[..., -1] *= 0.5
         complex_dtype = _complex_output_dtype(np.dtype(x.dtype))
         return np.asarray(envelope.astype(complex_dtype, copy=False))
 

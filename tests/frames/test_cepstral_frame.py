@@ -106,7 +106,10 @@ class TestCepstralFrame:
 
         assert isinstance(result, SpectralFrame)
         assert result.n_fft == self.n_fft
-        assert result.operation_history[-1] == {"operation": "spectral_envelope", "params": {"window": "hann"}}
+        assert result.operation_history[-1] == {
+            "operation": "spectral_envelope",
+            "params": {"window": "hann", "window_length": 1024},
+        }
         expected = np.full((2, self.n_fft // 2 + 1), 2.0 / np.sum(np.hanning(self.n_fft + 1)[:-1]))
         expected[..., 0] *= 0.5
         expected[..., -1] *= 0.5
@@ -128,7 +131,21 @@ class TestCepstralFrame:
         assert envelope.metadata["_source_file"] == "speech.wav"
         assert cepstrum.operation_history[-1]["operation"] == "cepstrum"
         assert low_ceps.operation_history[-1] == {"operation": "lifter", "params": {"cutoff": 0.001, "mode": "low"}}
-        assert envelope.operation_history[-1] == {"operation": "spectral_envelope", "params": {"window": "boxcar"}}
+        assert envelope.operation_history[-1] == {
+            "operation": "spectral_envelope",
+            "params": {"window": "boxcar", "window_length": 1024},
+        }
+
+    def test_padded_cepstrum_preserves_analysis_window_scaling(self) -> None:
+        rng = np.random.default_rng(43)
+        frame = ChannelFrame.from_numpy(rng.normal(size=(1, 64)), self.sampling_rate)
+
+        cepstrum = frame.cepstrum(n_fft=128, window="boxcar")
+        envelope = cepstrum.to_spectral_envelope()
+        spectrum = frame.fft(n_fft=128, window="boxcar")
+
+        assert cepstrum.analysis_length == 64
+        np.testing.assert_allclose(envelope.compute().real, np.abs(spectrum.compute()), rtol=1e-12, atol=1e-12)
 
     @pytest.mark.parametrize("attribute", ["ifft", "noct_synthesis", "magnitude", "phase", "dB", "freqs"])
     def test_spectral_api_is_not_exposed(self, attribute: str) -> None:

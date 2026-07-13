@@ -146,6 +146,7 @@ class ChannelTransformMixin:
         )
         cepstrum_data = operation.process(self._data)
         resolved_n_fft = int(cepstrum_data.shape[-1])
+        analysis_length = min(int(self._data.shape[-1]), resolved_n_fft)
         lineage = cast(Any, self)._lineage_with_method(
             "cepstrum",
             {"n_fft": resolved_n_fft, "window": window, "floor": floor},
@@ -155,6 +156,7 @@ class ChannelTransformMixin:
             sampling_rate=self.sampling_rate,
             n_fft=resolved_n_fft,
             window=window,
+            analysis_length=analysis_length,
             label=f"cepstrum({self.label})",
             metadata=self.metadata,
             channel_metadata=cast(Any, self).channels.to_list(),
