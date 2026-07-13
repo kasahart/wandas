@@ -8,7 +8,7 @@ from collections import defaultdict
 from collections.abc import Callable, Iterator, Mapping, MutableMapping
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Any, ClassVar, Generic, NoReturn, TypeVar, cast
+from typing import Any, ClassVar, Generic, Literal, NoReturn, TypeVar, cast
 
 import dask.array as da
 import numpy as np
@@ -16,8 +16,10 @@ from dask.array.core import Array as DaArray
 from dask.delayed import delayed
 
 from wandas.processing.semantic import (
+    AddChannelReplay,
     AudioReplay,
     BinaryReplay,
+    IndexReplay,
     InputBinding,
     MethodReplay,
     MultiInputReplay,
@@ -26,6 +28,7 @@ from wandas.processing.semantic import (
     SourceReplay,
     UnsupportedReplay,
     frozen_params,
+    method_replay_params,
 )
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
@@ -308,17 +311,55 @@ class FrameMethodOperation:
     def to_params(self) -> Mapping[str, Any]:
         return _snapshot_config_value(self.method_params)
 
+    def to_summary(self) -> OperationSummary:
+        return {"operation": self.name, "params": _summary_value(self.to_params())}
+
     def replay_descriptor(self) -> MethodReplay:
-        if self.name == "add_channel":
-            kind = "frame" if self.method_params.get("input_kind") == "frame" else "array"
-            bindings = (InputBinding("base", "frame"), InputBinding("added", kind))
-        else:
-            bindings = (InputBinding("frame", "frame"),)
         return MethodReplay(
-            OperationContract(self.name, 1, True, bindings),
+            OperationContract(self.name, 1, True, (InputBinding("frame", "frame"),)),
             frozen_params(self.to_params(), allow_opaque=True),
             self.name,
             self.target,
+            frozen_params(method_replay_params(self.name, self.to_params()), allow_opaque=True),
+        )
+
+
+@dataclass(frozen=True)
+class IndexOperation:
+    params: Mapping[str, Any]
+    name: ClassVar[str] = "__getitem__"
+
+    def to_params(self) -> Mapping[str, Any]:
+        return _snapshot_config_value(self.params)
+
+    def replay_descriptor(self) -> IndexReplay:
+        return IndexReplay(
+            OperationContract(self.name, 1, True, (InputBinding("frame", "frame"),)),
+            frozen_params(self.to_params(), allow_opaque=True),
+            self.name,
+        )
+
+
+@dataclass(frozen=True)
+class AddChannelOperation:
+    params: Mapping[str, Any]
+    input_kind: Literal["frame", "array"]
+    name: ClassVar[str] = "add_channel"
+
+    def to_params(self) -> Mapping[str, Any]:
+        return _snapshot_config_value(self.params)
+
+    def replay_descriptor(self) -> AddChannelReplay:
+        return AddChannelReplay(
+            OperationContract(
+                self.name,
+                1,
+                True,
+                (InputBinding("base", "frame"), InputBinding("added", self.input_kind)),
+            ),
+            frozen_params(self.to_params(), allow_opaque=True),
+            self.name,
+            self.input_kind,
         )
 
 

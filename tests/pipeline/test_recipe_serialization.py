@@ -7,6 +7,7 @@ import pytest
 
 from wandas.frames.channel import ChannelFrame
 from wandas.pipeline import AudioCall, RecipePlan, RecipeSerializationError
+from wandas.pipeline.calls import CustomCall, IndexCall, MethodCall, TerminalCall
 
 
 def _plan() -> RecipePlan:
@@ -58,6 +59,8 @@ def test_arbitrary_objects_and_non_string_mapping_keys_are_rejected() -> None:
         AudioCall("normalize", {"value": object()})
     with pytest.raises(RecipeSerializationError, match="string-keyed"):
         AudioCall("normalize", cast(Any, {1: "value"}))
+    with pytest.raises(RecipeSerializationError, match="External arrays"):
+        AudioCall("normalize", {"weights": np.arange(4)})
 
 
 def test_persisted_ids_do_not_use_python_object_identity() -> None:
@@ -66,3 +69,44 @@ def test_persisted_ids_do_not_use_python_object_identity() -> None:
 
     assert "node-0" in serialized and "input-0" in serialized
     assert str(id(_plan())) not in serialized
+
+
+@pytest.mark.parametrize("build", [lambda frame: 10 - frame, lambda frame: frame + frame])
+def test_edge_free_empty_params_use_the_canonical_value_tree(build: Any) -> None:
+    source = ChannelFrame.from_numpy(np.arange(16, dtype=float).reshape(1, 16) + 1, sampling_rate=8000)
+    plan = RecipePlan.from_frame(build(source))
+
+    restored = RecipePlan.from_dict(plan.to_dict())
+
+    assert restored.to_dict() == plan.to_dict()
+
+
+def test_public_call_constructors_share_fail_closed_contracts() -> None:
+    with pytest.raises(RecipeSerializationError, match="public versioned"):
+        MethodCall("_lineage_or_source", "wandas.core.base_frame.BaseFrame._lineage_or_source")
+    with pytest.raises(RecipeSerializationError, match="versioned"):
+        MethodCall("fft", "wandas.frames.mixins.channel_transform_mixin.ChannelTransformMixin.fft", version=99)
+    with pytest.raises(RecipeSerializationError, match="selection intent"):
+        IndexCall({"bad": "mapping"})
+    with pytest.raises(RecipeSerializationError, match="public method"):
+        TerminalCall("_lineage_or_source", "wandas.core.base_frame.BaseFrame._lineage_or_source")
+
+
+def test_custom_call_direct_constructor_deeply_freezes_params() -> None:
+    params = {"gain": [1]}
+    call = CustomCall("tests.pipeline.test_recipe_serialization._stable_custom", params)
+    params["gain"].append(2)
+
+    assert call.to_payload()["params"] == ("mapping", (("gain", ("list", (("int", 1),))),))
+
+
+def _stable_custom(data: Any, *, gain: list[int]) -> Any:
+    return data * gain[0]
+
+
+def test_truncated_value_tree_is_normalized_to_serialization_error() -> None:
+    payload = copy.deepcopy(_plan().to_dict())
+    payload["nodes"][0]["call"]["params"] = ["mapping"]
+
+    with pytest.raises(RecipeSerializationError, match="mapping value"):
+        RecipePlan.from_dict(payload)

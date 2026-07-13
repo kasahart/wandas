@@ -23,12 +23,15 @@ from wandas.pipeline.errors import RecipeExtractionError
 from wandas.pipeline.model import RecipeCall
 from wandas.processing.base import LineageNode
 from wandas.processing.semantic import (
+    AddChannelReplay,
     AudioReplay,
     BinaryReplay,
     CustomReplay,
+    IndexReplay,
     MethodReplay,
     MultiInputReplay,
     ReplayDescriptor,
+    thaw_replay_value,
 )
 
 
@@ -83,6 +86,8 @@ def default_codec_registry() -> ReplayCodecRegistry:
     registry = ReplayCodecRegistry()
     registry.register(AudioReplay, _audio)
     registry.register(MethodReplay, _method)
+    registry.register(IndexReplay, _index)
+    registry.register(AddChannelReplay, _add_channel)
     registry.register(BinaryReplay, _binary)
     registry.register(CustomReplay, _custom)
     registry.register(MultiInputReplay, _multi)
@@ -157,56 +162,55 @@ def _selector(value: Mapping[str, Any]) -> Any:
     raise RecipeExtractionError(f"Unsupported Recipe selector: {kind!r}")
 
 
-def _method_params(operation: str, params: dict[str, Any]) -> dict[str, Any]:
-    if operation in {"ifft", "istft"}:
-        return {}
-    if operation == "fix_length" and "target_length" in params:
-        params["length"] = params.pop("target_length")
-    if operation == "rename_channels" and "mapping_items" in params:
-        params["mapping"] = dict(params.pop("mapping_items"))
-    if operation == "get_channel":
-        params.pop("query_kind", None)
-    if operation == "welch":
-        params.pop("detrend", None)
-    return params
-
-
 def _method(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]) -> CodecResult:
     if not isinstance(descriptor, MethodReplay):
         raise RecipeExtractionError("Method codec requires MethodReplay")
     operation = descriptor.contract.operation_id
-    params = descriptor.thaw_params()
+    params = (
+        descriptor.thaw_params() if descriptor.call_params is None else dict(thaw_replay_value(descriptor.call_params))
+    )
     frame_lineage = lineage_inputs[0] if lineage_inputs else None
-    if operation == "__getitem__":
-        if params.get("indexing") == "multidimensional_slice":
-            key = (_selector(params["channel"]), *(_slice(item) for item in params["axis_slices"]))
-        elif params.get("indexing") == "multidimensional":
-            raise RecipeExtractionError("Unsupported multidimensional Recipe indexing")
-        else:
-            key = _selector(params)
-        return CodecResult(IndexCall(key), (_frame("frame", frame_lineage),))
-    if operation == "add_channel":
-        kind = "frame" if params.pop("input_kind", None) == "frame" else "array"
-        params.pop("data_kind", None)
-        bindings = descriptor.contract.bindings
-        if kind == "frame":
-            if len(lineage_inputs) != 2:
-                raise RecipeExtractionError("add_channel frame replay requires two parents")
-            resolved = tuple(
-                _frame(binding.role, lineage) for binding, lineage in zip(bindings, lineage_inputs, strict=True)
-            )
-        else:
-            resolved = (
-                _frame(bindings[0].role, frame_lineage),
-                BoundInput(bindings[1].role, "array", external=True),
-            )
-        return CodecResult(AddChannelCall(kind, params), resolved)
     if descriptor.target is None:
         raise RecipeExtractionError(f"Recipe method has no stable target: {operation!r}")
     return CodecResult(
-        MethodCall(operation, descriptor.target, _method_params(operation, params), descriptor.contract.version),
+        MethodCall(operation, descriptor.target, params, descriptor.contract.version),
         (_frame(descriptor.contract.bindings[0].role, frame_lineage),),
     )
+
+
+def _index(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]) -> CodecResult:
+    if not isinstance(descriptor, IndexReplay):
+        raise RecipeExtractionError("Index codec requires IndexReplay")
+    params = descriptor.thaw_params()
+    if params.get("indexing") == "multidimensional_slice":
+        key = (_selector(params["channel"]), *(_slice(item) for item in params["axis_slices"]))
+    elif params.get("indexing") == "multidimensional":
+        raise RecipeExtractionError("Unsupported multidimensional Recipe indexing")
+    else:
+        key = _selector(params)
+    lineage = lineage_inputs[0] if lineage_inputs else None
+    return CodecResult(IndexCall(key), (_frame("frame", lineage),))
+
+
+def _add_channel(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]) -> CodecResult:
+    if not isinstance(descriptor, AddChannelReplay):
+        raise RecipeExtractionError("add-channel codec requires AddChannelReplay")
+    params = descriptor.thaw_params()
+    params.pop("input_kind", None)
+    params.pop("data_kind", None)
+    bindings = descriptor.contract.bindings
+    if descriptor.input_kind == "frame":
+        if len(lineage_inputs) != 2:
+            raise RecipeExtractionError("add_channel frame replay requires two parents")
+        resolved = tuple(
+            _frame(binding.role, lineage) for binding, lineage in zip(bindings, lineage_inputs, strict=True)
+        )
+    else:
+        resolved = (
+            _frame(bindings[0].role, lineage_inputs[0] if lineage_inputs else None),
+            BoundInput(bindings[1].role, "array", external=True),
+        )
+    return CodecResult(AddChannelCall(descriptor.input_kind, params), resolved)
 
 
 def _custom(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]) -> CodecResult:

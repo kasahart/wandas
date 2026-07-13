@@ -335,17 +335,17 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         params: dict[str, Any],
         added_lineage: Any | None = None,
     ) -> Any:
-        from wandas.processing.base import FrameMethodOperation, FrameSourceOperation, LineageNode
+        from wandas.processing.base import AddChannelOperation, FrameSourceOperation, LineageNode
 
         if params.get("input_kind") == "frame":
             inputs = (
                 self._lineage_or_source(),
                 added_lineage if added_lineage is not None else LineageNode(FrameSourceOperation()),
             )
-            return self._lineage_with_operation(FrameMethodOperation("add_channel", params), *inputs)
+            return self._lineage_with_operation(AddChannelOperation(params, "frame"), *inputs)
 
         inputs = (self.lineage,)
-        return self._lineage_with_operation(FrameMethodOperation("add_channel", params), *inputs)
+        return self._lineage_with_operation(AddChannelOperation(params, "array"), *inputs)
 
     @property
     def time(self) -> NDArrayReal:

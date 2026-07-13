@@ -55,10 +55,22 @@ def _operation(payload: Mapping[str, Any]) -> str:
 def _freeze_params(params: Mapping[str, Any]) -> ReplayValue:
     if not isinstance(params, Mapping) or not all(isinstance(key, str) for key in params):
         raise RecipeSerializationError("Recipe params must be a string-keyed mapping")
+    if _contains_array(params):
+        raise RecipeSerializationError("External arrays must be named Recipe inputs, not params")
     try:
         return freeze_replay_value(dict(params))
     except (TypeError, ValueError) as exc:
         raise RecipeSerializationError(f"Invalid Recipe params\n  Cause: {exc}") from exc
+
+
+def _contains_array(value: Any) -> bool:
+    if isinstance(value, np.ndarray | DaArray):
+        return True
+    if isinstance(value, Mapping):
+        return any(_contains_array(item) for item in value.values())
+    if isinstance(value, tuple | list | set | frozenset):
+        return any(_contains_array(item) for item in value)
+    return False
 
 
 def _thaw_params(params: ReplayValue) -> dict[str, Any]:
@@ -156,6 +168,8 @@ class MethodCall(FrameCall):
         owner = _load_path(owner_path)
         if not isinstance(owner, type) or owner.__dict__.get(member) is not function:
             raise RecipeSerializationError("Recipe method target must be a directly owned class member")
+        if member.startswith("_") or operation != member or version != 1:
+            raise RecipeSerializationError("Recipe method must be a public versioned target")
         contract = getattr(function, "__wandas_replay_contract__", None)
         if contract is not None and contract != OperationContract(operation, version, True, ()):
             raise RecipeSerializationError("Recipe method target contract mismatch")
@@ -211,7 +225,7 @@ class ScalarCall(FrameCall):
             "type": "scalar",
             "operation": self.operation,
             "version": self.version,
-            "params": {},
+            "params": _freeze_params({}),
             "operand": self.operand,
             "reverse": self.reverse,
         }
@@ -272,6 +286,8 @@ class IndexCall(FrameCall):
 
     def __init__(self, key: Any, version: int = 1) -> None:
         _version(version)
+        if not _valid_index(key):
+            raise RecipeSerializationError("Recipe index is not a supported selection intent")
         object.__setattr__(self, "key", freeze_replay_value(key))
         object.__setattr__(self, "version", version)
 
@@ -280,6 +296,24 @@ class IndexCall(FrameCall):
 
     def to_payload(self) -> dict[str, Any]:
         return {"type": "index", "operation": "__getitem__", "version": self.version, "key": self.key}
+
+
+def _valid_index(key: Any) -> bool:
+    if isinstance(key, bool | np.bool_):
+        return False
+    if isinstance(key, numbers.Integral | str | slice):
+        return True
+    if isinstance(key, np.ndarray):
+        return key.ndim == 1 and (np.issubdtype(key.dtype, np.integer) or np.issubdtype(key.dtype, np.bool_))
+    if isinstance(key, list):
+        return bool(key) and (all(isinstance(item, str) for item in key) or all(type(item) is int for item in key))
+    if isinstance(key, tuple):
+        return bool(key) and _valid_index(key[0]) and all(isinstance(item, slice) for item in key[1:])
+    return False
+
+
+def _is_frozen_mapping(value: object) -> bool:
+    return isinstance(value, tuple) and len(value) == 2 and value[0] == "mapping" and isinstance(value[1], tuple)
 
 
 @dataclass(frozen=True)
@@ -320,6 +354,30 @@ class CustomCall(FrameCall):
     pure: bool = True
     version: int = 1
     arity: ClassVar[int] = 1
+
+    def __init__(
+        self,
+        function: str,
+        params: Mapping[str, Any] | ReplayValue,
+        output_shape_function: str | None = None,
+        output_frame_class: str | None = None,
+        output_frame_kwargs: Mapping[str, Any] | ReplayValue | None = None,
+        pure: bool = True,
+        version: int = 1,
+    ) -> None:
+        object.__setattr__(self, "function", function)
+        object.__setattr__(self, "params", params if _is_frozen_mapping(params) else _freeze_params(cast(Any, params)))
+        object.__setattr__(self, "output_shape_function", output_shape_function)
+        object.__setattr__(self, "output_frame_class", output_frame_class)
+        kwargs = output_frame_kwargs or {}
+        object.__setattr__(
+            self,
+            "output_frame_kwargs",
+            kwargs if _is_frozen_mapping(kwargs) else _freeze_params(cast(Any, kwargs)),
+        )
+        object.__setattr__(self, "pure", pure)
+        object.__setattr__(self, "version", version)
+        self.__post_init__()
 
     def __post_init__(self) -> None:
         _version(self.version)
@@ -365,19 +423,33 @@ class CustomCall(FrameCall):
 @dataclass(frozen=True)
 class TerminalCall(FrameCall):
     operation: str
+    target: str
     version: int = 1
     arity: ClassVar[int] = 1
     output_kind: ClassVar[str] = "terminal"
 
     def __post_init__(self) -> None:
         _version(self.version)
+        function = _load_path(self.target)
+        owner_path, _, member = self.target.rpartition(".")
+        owner = _load_path(owner_path)
+        if (
+            not self.operation
+            or self.operation != member
+            or member.startswith("_")
+            or not isinstance(owner, type)
+            or owner.__dict__.get(member) is not function
+        ):
+            raise RecipeSerializationError("Terminal Recipe target must be a directly owned public method")
 
     def invoke(self, inputs: tuple[Any, ...]) -> Any:
         target = getattr(inputs[0], self.operation)
         return target() if callable(target) else target
 
     def to_payload(self) -> dict[str, Any]:
-        return _payload("terminal", self.operation, self.version, _freeze_params({}))
+        payload = _payload("terminal", self.operation, self.version, _freeze_params({}))
+        payload["target"] = self.target
+        return payload
 
 
 @dataclass(frozen=True)
@@ -420,6 +492,8 @@ def _tree(value: Any) -> ReplayValue:
         raise RecipeSerializationError("Recipe value tree is malformed")
     kind = value[0]
     if kind == "mapping":
+        if len(value) != 2:
+            raise RecipeSerializationError("Recipe mapping value is malformed")
         pairs = value[1]
         if not isinstance(pairs, list):
             raise RecipeSerializationError("Recipe mapping value is malformed")
@@ -432,14 +506,22 @@ def _tree(value: Any) -> ReplayValue:
             items.append((pair[0], _tree(pair[1])))
         return ("mapping", tuple(items))
     if kind in {"list", "tuple", "set", "frozenset"}:
+        if len(value) != 2:
+            raise RecipeSerializationError("Recipe sequence value is malformed")
         if not isinstance(value[1], list):
             raise RecipeSerializationError("Recipe sequence value is malformed")
         return (kind, tuple(_tree(item) for item in value[1]))
     if kind in {"complex", "slice"}:
+        if len(value) != (3 if kind == "complex" else 4):
+            raise RecipeSerializationError(f"Recipe {kind} value is malformed")
         return (kind, *(_tree(item) for item in value[1:]))
     if kind == "ndarray":
+        if len(value) != 4:
+            raise RecipeSerializationError("Recipe ndarray value is malformed")
         return (kind, value[1], tuple(value[2]), _tree(value[3]))
     if kind == "dask-descriptor":
+        if len(value) != 2:
+            raise RecipeSerializationError("Recipe Dask descriptor is malformed")
         return (kind, _tree(value[1]))
     if kind == "none" and len(value) == 1:
         return (kind,)
@@ -535,8 +617,10 @@ register_call(
 )
 register_call(
     "terminal",
-    lambda value: TerminalCall(_operation(value), _version(value)) if not _params_payload(value) else _reject_params(),
-    _BASE,
+    lambda value: TerminalCall(_operation(value), str(value["target"]), _version(value))
+    if not _params_payload(value)
+    else _reject_params(),
+    _BASE | {"target"},
 )
 
 

@@ -64,6 +64,9 @@ class _LineageOperationName:
             return cast(Mapping[str, Any], self._operation.to_params())
         return cast(Mapping[str, Any], getattr(self._operation, "params", {}))
 
+    def to_summary(self) -> Mapping[str, Any]:
+        return {"operation": self.name, "params": self.to_params()}
+
     def replay_descriptor(self) -> Any:
         from wandas.processing.semantic import OperationContract, ReplayDescriptor, UnsupportedReplay, frozen_params
 
@@ -756,8 +759,13 @@ class BaseFrame(ABC, Generic[T]):
             target = f"{function.__module__}.{function.__qualname__}"
         return self._lineage_with_operation(FrameMethodOperation(method, params, target), self._lineage_or_source())
 
+    def _lineage_with_index(self, params: Mapping[str, Any]) -> "LineageNode":
+        from wandas.processing.base import IndexOperation
+
+        return self._lineage_with_operation(IndexOperation(params), self._lineage_or_source())
+
     def _lineage_with_unsupported_indexing(self, indexing: str) -> "LineageNode":
-        return self._lineage_with_method("__getitem__", {"indexing": indexing})
+        return self._lineage_with_index({"indexing": indexing})
 
     @staticmethod
     def _is_literal_channel_query(query: Mapping[Any, Any]) -> bool:
@@ -1057,6 +1065,12 @@ class BaseFrame(ABC, Generic[T]):
         >>> frame[[0, 1], ::2]  # Channels 0-1, every 2nd sample
         """
 
+        # Python treats ``frame[(selector,)]`` as the same selection as
+        # ``frame[selector]``. Normalize before semantic dispatch so both forms
+        # produce the same canonical lineage intent.
+        if isinstance(key, tuple) and len(key) == 1:
+            key = key[0]
+
         # Single index (int)
         if isinstance(key, numbers.Integral):
             selected = self.get_channel(int(key))
@@ -1065,7 +1079,7 @@ class BaseFrame(ABC, Generic[T]):
                 channel_metadata=selected.channels.to_list(),
                 channel_ids=selected._channel_ids,
                 source_time_offset=selected.source_time_offset,
-                lineage=self._lineage_with_method("__getitem__", {"indexing": "integer", "index": int(key)}),
+                lineage=self._lineage_with_index({"indexing": "integer", "index": int(key)}),
             )
 
         # Single label (str)
@@ -1076,8 +1090,7 @@ class BaseFrame(ABC, Generic[T]):
                 channel_metadata=selected.channels.to_list(),
                 channel_ids=selected._channel_ids,
                 source_time_offset=selected.source_time_offset,
-                lineage=self._lineage_with_method(
-                    "__getitem__",
+                lineage=self._lineage_with_index(
                     {"indexing": "label", "label": key},
                 ),
             )
@@ -1095,8 +1108,7 @@ class BaseFrame(ABC, Generic[T]):
                 mask = [bool(value) for value in cast(npt.NDArray[np.bool_], key).tolist()]
                 indices = np.where(cast(npt.NDArray[np.bool_], key))[0]
                 result = self.get_channel(indices)
-                lineage = self._lineage_with_method(
-                    "__getitem__",
+                lineage = self._lineage_with_index(
                     {"indexing": "boolean_mask", "mask": tuple(mask)},
                 )
                 creation_kwargs: dict[str, Any] = {}
@@ -1116,8 +1128,7 @@ class BaseFrame(ABC, Generic[T]):
                 # Integer array
                 int_list = [int(index) for index in cast(npt.NDArray[np.integer[Any]], key).tolist()]
                 result = self.get_channel(cast(npt.NDArray[np.int_], key))
-                lineage = self._lineage_with_method(
-                    "__getitem__",
+                lineage = self._lineage_with_index(
                     {"indexing": "integer_array", "indices": tuple(int_list)},
                 )
                 creation_kwargs = {}
@@ -1153,8 +1164,7 @@ class BaseFrame(ABC, Generic[T]):
                     channel_metadata=new_channel_metadata,
                     channel_ids=new_channel_ids,
                     source_time_offset=self.source_time_offset[indices_from_labels],
-                    lineage=self._lineage_with_method(
-                        "__getitem__",
+                    lineage=self._lineage_with_index(
                         {"indexing": "label_list", "labels": tuple(str_list)},
                     ),
                 )
@@ -1164,8 +1174,7 @@ class BaseFrame(ABC, Generic[T]):
                 # Multiple indices - convert to list[int] for type safety
                 int_list = [int(k) for k in key]
                 result = self.get_channel(int_list)
-                lineage = self._lineage_with_method(
-                    "__getitem__",
+                lineage = self._lineage_with_index(
                     {"indexing": "integer_list", "indices": tuple(int_list)},
                 )
                 creation_kwargs = {}
@@ -1199,8 +1208,7 @@ class BaseFrame(ABC, Generic[T]):
                 channel_metadata=new_channel_metadata,
                 channel_ids=new_channel_ids,
                 source_time_offset=self.source_time_offset[indices],
-                lineage=self._lineage_with_method(
-                    "__getitem__",
+                lineage=self._lineage_with_index(
                     {
                         "indexing": "channel_slice",
                         "start": key.start,
@@ -1276,8 +1284,7 @@ class BaseFrame(ABC, Generic[T]):
                 channel_metadata=selected.channels.to_list(),
                 channel_ids=selected._channel_ids,
                 source_time_offset=source_time_offset,
-                lineage=self._lineage_with_method(
-                    "__getitem__",
+                lineage=self._lineage_with_index(
                     lineage_params,
                 ),
             )
@@ -1288,8 +1295,7 @@ class BaseFrame(ABC, Generic[T]):
             channel_metadata=selected.channels.to_list(),
             channel_ids=selected._channel_ids,
             source_time_offset=selected.source_time_offset,
-            lineage=self._lineage_with_method(
-                "__getitem__",
+            lineage=self._lineage_with_index(
                 {"indexing": "multidimensional", "channel": channel},
             ),
         )

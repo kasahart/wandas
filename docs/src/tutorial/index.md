@@ -114,9 +114,6 @@ Note: Keys specified in dict are only allowed for dataclass fields of `ChannelMe
 - [Pipeline Recipes Examples / Recipe例](pipeline-recipes.md)
   - Use after the frame-first path when you need graph recipes, custom functions, terminal steps, and extraction boundaries.
   - frame-first導線の後に、graph recipe、custom function、terminal step、抽出境界を確認する。
-- [Pipeline Recipe Requirements Check Notebook](pipeline-recipe-requirements-check.md)
-  - Run assert-driven checks for the current Pipeline Recipe requirements.
-  - Pipeline Recipe 要件を assert 中心の Notebook で確認する。
 - [API Reference / APIリファレンス](../api/index.md)
   - Detailed API specifications.
   - 詳細な機能やAPI仕様を調べる。

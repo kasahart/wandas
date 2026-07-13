@@ -56,7 +56,7 @@ def test_terminal_call_must_be_output() -> None:
         RecipePlan(
             (RecipeInput("x", "signal"),),
             (
-                RecipeNode("terminal", TerminalCall("rms"), ("x",)),
+                RecipeNode("terminal", TerminalCall("rms", "wandas.frames.channel.ChannelFrame.rms"), ("x",)),
                 RecipeNode("after", AudioCall("normalize"), ("terminal",)),
             ),
             "after",

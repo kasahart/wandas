@@ -81,6 +81,15 @@ def test_multidimensional_indexing_is_one_call() -> None:
     assert replayed.shape == processed.shape
 
 
+def test_singleton_tuple_indexing_uses_the_same_canonical_selector() -> None:
+    source = _frame()
+    direct = RecipePlan.from_frame(source[0])
+    singleton = RecipePlan.from_frame(source[(0,)])
+
+    assert singleton.nodes[0].call.to_payload() == direct.nodes[0].call.to_payload()
+    assert len(source[(0,)].operation_history) == 1
+
+
 def test_input_name_count_is_validated() -> None:
     with pytest.raises(Exception, match="one name|too few"):
         RecipePlan.from_frame(_frame() + _frame(2), input_names=("only",))

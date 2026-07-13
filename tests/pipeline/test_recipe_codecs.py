@@ -4,7 +4,13 @@ import pytest
 
 from wandas.pipeline.calls import AudioCall
 from wandas.pipeline.codecs import BoundInput, CodecResult, ReplayCodecRegistry
-from wandas.processing.semantic import InputBinding, OperationContract, ReplayDescriptor, frozen_params
+from wandas.processing.semantic import (
+    InputBinding,
+    MultiInputReplay,
+    OperationContract,
+    ReplayDescriptor,
+    frozen_params,
+)
 
 
 @dataclass(frozen=True)
@@ -45,3 +51,19 @@ def test_duplicate_codec_registration_is_rejected() -> None:
     registry.register(ProbeReplay, codec)
     with pytest.raises(ValueError, match="already"):
         registry.register(ProbeReplay, codec)
+
+
+def test_multi_input_roles_must_match_ordered_bindings() -> None:
+    with pytest.raises(ValueError, match="exactly match"):
+        MultiInputReplay(
+            OperationContract(
+                "mix",
+                1,
+                True,
+                (InputBinding("left", "frame"), InputBinding("right", "frame")),
+            ),
+            frozen_params({}),
+            "mix",
+            "tests.pipeline.test_recipe_codecs.handler",
+            ("signal", "noise"),
+        )

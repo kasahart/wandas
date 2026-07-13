@@ -181,6 +181,17 @@ class AudioReplay(ReplayDescriptor):
 @dataclass(frozen=True)
 class MethodReplay(ReplayDescriptor):
     target: str | None = None
+    call_params: ReplayValue | None = None
+
+
+@dataclass(frozen=True)
+class IndexReplay(ReplayDescriptor):
+    """A public selection intent, independent of its internal array slicing."""
+
+
+@dataclass(frozen=True)
+class AddChannelReplay(ReplayDescriptor):
+    input_kind: Literal["frame", "array"]
 
 
 @dataclass(frozen=True)
@@ -204,6 +215,12 @@ class MultiInputReplay(ReplayDescriptor):
     handler: str
     roles: tuple[str, ...]
 
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        binding_roles = tuple(binding.role for binding in self.contract.bindings if binding.kind != "scalar")
+        if not self.roles or len(set(self.roles)) != len(self.roles) or self.roles != binding_roles:
+            raise ValueError("Multi-input roles must exactly match ordered non-scalar bindings")
+
 
 @dataclass(frozen=True)
 class UnsupportedReplay(ReplayDescriptor):
@@ -212,3 +229,28 @@ class UnsupportedReplay(ReplayDescriptor):
 
 def frozen_params(params: Mapping[str, Any], *, allow_opaque: bool = False) -> ReplayValue:
     return freeze_replay_value(dict(params), allow_opaque=allow_opaque)
+
+
+def method_replay_params(operation: str, params: Mapping[str, Any]) -> dict[str, Any]:
+    """Apply declarative adapters for legacy runtime/public signature differences."""
+    result = dict(params)
+    policy = {
+        "ifft": ({}, ()),
+        "istft": ({}, ()),
+        "fix_length": ({"target_length": "length"}, ()),
+        "rename_channels": ({"mapping_items": "mapping"}, ()),
+        "get_channel": ({}, ("query_kind",)),
+        "welch": ({}, ("detrend",)),
+    }.get(operation)
+    if policy is None:
+        return result
+    renames, drops = policy
+    if operation in {"ifft", "istft"}:
+        return {}
+    for old, new in renames.items():
+        if old in result:
+            value = result.pop(old)
+            result[new] = dict(value) if old == "mapping_items" else value
+    for name in drops:
+        result.pop(name, None)
+    return result
