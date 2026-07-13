@@ -83,7 +83,7 @@ class TestCepstralOperations:
 
         np.testing.assert_allclose(reconstructed.real, np.abs(spectrum), rtol=1e-12, atol=1e-12)
 
-    @pytest.mark.parametrize(("signal_length", "n_fft"), [(64, 128), (65, 65)])
+    @pytest.mark.parametrize(("signal_length", "n_fft"), [(1, 1), (64, 128), (65, 65)])
     def test_reconstruction_matches_fft_for_padding_and_odd_lengths(self, signal_length: int, n_fft: int) -> None:
         rng = np.random.default_rng(43)
         signal = rng.normal(size=(1, signal_length))

@@ -225,7 +225,8 @@ class SpectralEnvelope(AudioOperation[NDArrayReal, NDArrayComplex]):
         window_gain = float(np.sum(get_window(self.window, window_length)))
         envelope *= 2.0 / window_gain
         envelope[..., 0] *= 0.5
-        envelope[..., -1] *= 0.5
+        if envelope.shape[-1] > 1:
+            envelope[..., -1] *= 0.5
         complex_dtype = _complex_output_dtype(np.dtype(x.dtype))
         return np.asarray(envelope.astype(complex_dtype, copy=False))
 
