@@ -167,3 +167,25 @@ def test_audio_invoke_rechecks_runtime_operation_version(monkeypatch: pytest.Mon
 
     with pytest.raises(RecipeSerializationError, match="version"):
         call.invoke((ChannelFrame.from_numpy(np.ones((1, 8)), sampling_rate=8000),))
+
+
+def test_stable_targets_cannot_be_replaced_by_runtime_overrides() -> None:
+    class EvilFrame(ChannelFrame):
+        def fft(self, n_fft: int | None = None, window: str = "hann") -> Any:
+            del n_fft, window
+            return "evil"
+
+        @property
+        def rms(self) -> Any:
+            return np.array([999.0])
+
+    source = EvilFrame.from_numpy(np.ones((1, 16)), sampling_rate=8000)
+    method = MethodCall(
+        "fft",
+        "wandas.frames.mixins.channel_transform_mixin.ChannelTransformMixin.fft",
+        {"n_fft": 8},
+    )
+    terminal = TerminalCall("rms", "wandas.frames.channel.ChannelFrame.rms")
+
+    assert method.invoke((source,)) != "evil"
+    np.testing.assert_allclose(terminal.invoke((source,)), [1.0])

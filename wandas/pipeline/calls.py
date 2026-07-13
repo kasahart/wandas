@@ -204,9 +204,8 @@ class MethodCall(FrameCall):
         object.__setattr__(self, "version", version)
 
     def invoke(self, inputs: tuple[Any, ...]) -> Any:
-        _target_member(self.operation, self.target, self.version, "frame")
-        method = getattr(inputs[0], self.operation)
-        return method(**_thaw_params(self.params))
+        member = _target_member(self.operation, self.target, self.version, "frame")
+        return member.__get__(inputs[0], type(inputs[0]))(**_thaw_params(self.params))
 
     def to_payload(self) -> dict[str, Any]:
         payload = _payload("method", self.operation, self.version, self.params)
@@ -457,8 +456,8 @@ class TerminalCall(FrameCall):
         _target_member(self.operation, self.target, self.version, "terminal")
 
     def invoke(self, inputs: tuple[Any, ...]) -> Any:
-        _target_member(self.operation, self.target, self.version, "terminal")
-        target = getattr(inputs[0], self.operation)
+        member = _target_member(self.operation, self.target, self.version, "terminal")
+        target = member.__get__(inputs[0], type(inputs[0]))
         return target() if callable(target) else target
 
     def to_payload(self) -> dict[str, Any]:

@@ -19,3 +19,32 @@ step/call conversion, or dictionary graph reconstruction were intentionally remo
 their behavioral outcomes are covered through the public `RecipePlan` contract. Public
 contract tests import no private production symbols. White-box codec tests remain next
 to the production responsibility they exercise.
+
+`uv run python scripts/recipe_v2_test_audit.py` emits a case-level route for all 192
+v1 tests from the baseline commit. The route is an audit index, not a claim that every
+deleted implementation assertion survives unchanged.
+
+## Extension amplification
+
+| extension | future production modules | central modules changed |
+| --- | ---: | ---: |
+| unary same-frame opt-in operation | 1 | 0 |
+| versioned typed frame transition | 1 | 0 |
+| true multi-input operation plus stable handler | 2 | 0 |
+
+The median is 1 and maximum is 2. The model, compiler, validator, executor,
+serializer dispatch, and central allowlists change zero times for all three probes.
+
+## Performance sample
+
+`scripts/recipe_v2_benchmark.py` ran 100 iterations in detached baseline and v2
+worktrees on the same environment. Lower is better.
+
+| metric | v1 | v2 | v2 index |
+| --- | ---: | ---: | ---: |
+| extraction p95 | 300.8 µs | 212.0 µs | 70.5 |
+| lazy graph-build p95 | 20,306.6 µs | 14,089.3 µs | 69.4 |
+| traced peak memory | 811,977 B | 763,825 B | 94.1 |
+
+This is a reproducible microbenchmark, not a claim about end-to-end numerical compute.
+Neither measured path calls Dask `compute()`.
