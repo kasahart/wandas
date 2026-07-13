@@ -24,7 +24,7 @@ to the production responsibility they exercise.
 `migrated` or `removed_contract` disposition, rationale, and an AST-verified current
 pytest function for every migrated row. Migration entries are an explicit curated map,
 with an explicit per-test map and no inferred keyword routing. The current audit
-records 19 exactly retained cases and 173 contracts intentionally removed with the
+records 30 exactly retained cases and 162 contracts intentionally removed with the
 destructive v1 API replacement. Retained entries include laziness, typed transition
 chains, operand order, external arrays/operators, add-channel, indexing, custom
 callable safety, terminal RMS, and missing-input validation.

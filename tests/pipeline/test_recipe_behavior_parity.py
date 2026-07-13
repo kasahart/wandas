@@ -199,3 +199,14 @@ def test_add_channel_preserves_metadata_and_source_time_contract() -> None:
 
     assert replayed_raw.metadata == processed_raw.metadata
     np.testing.assert_allclose(replayed_raw.source_time_offset, processed_raw.source_time_offset)
+
+
+@pytest.mark.parametrize("method", ["coherence", "csd", "transfer_function"])
+def test_cross_channel_typed_transitions_replay(method: str) -> None:
+    base = _frame()
+    source = base.add_channel(base, label="second")
+    processed = getattr(source, method)(n_fft=128, hop_length=32, win_length=128)
+    replayed = RecipePlan.from_frame(processed, input_names=("signal",)).apply({"signal": base})
+
+    assert type(replayed) is type(processed)
+    np.testing.assert_allclose(replayed.compute(), processed.compute())

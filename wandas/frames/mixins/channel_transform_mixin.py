@@ -355,6 +355,7 @@ class ChannelTransformMixin:
             **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
+    @replay_method()
     def coherence(
         self: TransformFrameProtocol,
         n_fft: int = 2048,
@@ -387,6 +388,7 @@ class ChannelTransformMixin:
             detrend=detrend,
         )
 
+    @replay_method()
     def csd(
         self: TransformFrameProtocol,
         n_fft: int = 2048,
@@ -425,6 +427,7 @@ class ChannelTransformMixin:
             average=average,
         )
 
+    @replay_method()
     def transfer_function(
         self: TransformFrameProtocol,
         n_fft: int = 2048,

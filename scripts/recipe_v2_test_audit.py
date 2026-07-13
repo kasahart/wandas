@@ -80,10 +80,6 @@ MIGRATIONS = {
         "tests/pipeline/test_recipe_compiler.py",
         "test_processed_parent_add_channel_external_dask_stays_lazy",
     ),
-    "test_recipe_from_frame_extracts_multidimensional_slice_indexing": (
-        "tests/pipeline/test_recipe_compiler.py",
-        "test_multidimensional_indexing_is_one_call",
-    ),
     "test_recipe_from_frame_extracts_additional_single_input_apply_operations": (
         "tests/pipeline/test_recipe_behavior_parity.py",
         "test_supported_unary_audio_operations_replay",
@@ -120,9 +116,17 @@ MIGRATIONS = {
         "tests/pipeline/test_recipe_behavior_parity.py",
         "test_noct_spectrum_and_synthesis_transitions_replay",
     ),
+    "test_recipe_from_frame_extracts_cross_channel_typed_transitions": (
+        "tests/pipeline/test_recipe_behavior_parity.py",
+        "test_cross_channel_typed_transitions_replay",
+    ),
     "test_node_graph_recipe_add_channel_frame_input_omits_raw_source_time_offset_option": (
         "tests/pipeline/test_recipe_behavior_parity.py",
         "test_add_channel_preserves_metadata_and_source_time_contract",
+    ),
+    "test_recipe_from_frame_extracts_multidimensional_slice_indexing": (
+        "tests/pipeline/test_recipe_compiler.py",
+        "test_multidimensional_indexing_is_one_call",
     ),
 }
 FORCED_REMOVALS = {
