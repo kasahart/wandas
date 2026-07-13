@@ -74,8 +74,8 @@ Neither measured path calls Dask `compute()`.
 
 The final non-sklearn `wandas.pipeline` modules plus
 `wandas/processing/semantic.py` total 1,750 PLOC, below the 1,753-line cleanup
-gate. Relative to the pre-cleanup Recipe v2 head, production changes contain 47
-additions and 80 deletions, a net reduction of 33 lines. Relative to the v2 base,
+gate. Relative to the pre-cleanup Recipe v2 head, production changes contain 49
+additions and 82 deletions, a net reduction of 33 lines. Relative to the v2 base,
 all production Python is down by 230 lines.
 
 The cleanup changes no central model, compiler, call serializer, or persistence
