@@ -311,14 +311,36 @@ def test_numpy_scalar_roundtrip_preserves_dtype_labels_and_history(operand: Any)
     assert replayed.operation_history == processed.operation_history
 
 
-def test_generic_real_scalar_roundtrips_from_canonical_operand_params() -> None:
+def test_non_builtin_real_scalar_is_recipe_extraction_boundary() -> None:
     source = _frame(channels=1)
     processed = source + cast(Any, Fraction(1, 2))
-    plan = RecipePlan.from_dict(RecipePlan.from_frame(processed).to_dict())
 
-    assert plan.to_dict()["nodes"][0]["call"]["operand"] == 0.5
-    expected = np.asarray(processed.compute(), dtype=float)
-    np.testing.assert_allclose(plan.apply({"input_0": source}).compute(), expected)
+    np.testing.assert_allclose(np.asarray(processed.compute(), dtype=float), source.compute() + 0.5)
+    with pytest.raises(RecipeExtractionError, match="Unsupported scalar Recipe operand"):
+        RecipePlan.from_frame(processed)
+
+
+_EXTENDED_REAL = np.longdouble(1) + np.finfo(np.longdouble).eps
+
+
+@pytest.mark.parametrize(
+    ("operand", "standard_dtype"),
+    [
+        pytest.param(_EXTENDED_REAL, np.float64, id="longdouble"),
+        pytest.param(np.clongdouble(_EXTENDED_REAL), np.complex128, id="clongdouble"),
+    ],
+)
+def test_extended_precision_numpy_scalar_is_recipe_extraction_boundary(
+    operand: Any,
+    standard_dtype: Any,
+) -> None:
+    if np.asarray(operand).dtype.itemsize <= np.dtype(standard_dtype).itemsize:
+        pytest.skip("platform scalar has no extended precision")
+    source = _frame(channels=1)
+    processed = source + operand
+
+    with pytest.raises(RecipeExtractionError, match="Unsupported scalar Recipe operand"):
+        RecipePlan.from_frame(processed)
 
 
 @pytest.mark.parametrize("operand", [np.inf, -np.inf, np.nan])

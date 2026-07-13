@@ -63,7 +63,9 @@ serializer dispatch, and central allowlists change zero times for all three prob
 
 `scripts/recipe_v2_benchmark.py` ran three 100-iteration samples in detached
 baseline and v2 worktrees on the same environment. The table reports the median
-of each sample's p95; lower is better.
+of each sample's p95; lower is better. Each `--api` mode runs from the matching
+checkout; the v1 mode is not intended to import the removed `RecipeSpec` from a
+v2 checkout.
 
 | metric | v1 | v2 | v2 index |
 | --- | ---: | ---: | ---: |
@@ -77,20 +79,22 @@ Neither measured path calls Dask `compute()`.
 ## Cleanup measurements
 
 The final non-sklearn `wandas.pipeline` modules plus
-`wandas/processing/semantic.py` total 1,792 PLOC, 39 lines above the 1,753 reference.
+`wandas/processing/semantic.py` total 1,804 PLOC, 51 lines above the 1,753 reference.
 This is not a reason to remove explanatory names, validation, or type safety. Relative
-to the pre-cleanup Recipe v2 head, production changes contain 232 additions and 219
-deletions, a net increase of 13 lines after restoring NumPy scalar dtype fidelity and
-the omitted-end `trim` intent in serialized recipes. This cleanup-only comparison is a
-reference breakdown; relative to the v2 base, all production Python is down by 184
-lines and satisfies the required non-increase gate.
+to the pre-cleanup Recipe v2 head, production changes contain 244 additions and 219
+deletions, a net increase of 25 lines after enforcing lossless scalar replay and the
+omitted-end `trim` intent. This cleanup-only comparison is a reference breakdown;
+relative to the v2 base, all production Python is down by 172 lines and satisfies the
+required non-increase gate.
 
 The extension probes change no central model, compiler, call serializer, or
 persistence serializer module and therefore add no central dispatch branch. The
 NumPy scalar fidelity fix reuses the existing replay-value representation instead of
-adding a serializer tag or schema field. Extraction and lazy graph construction
-remain compute-free; the Dask compute-bomb tests and the benchmark both complete
-without calling `compute()`.
+adding a serializer tag or schema field. Non-builtin numeric values and
+extended-precision NumPy scalars that cannot be represented losslessly by that
+schema fail at Recipe extraction instead of replaying with altered values. Extraction
+and lazy graph construction remain compute-free; the Dask compute-bomb tests and the
+benchmark both complete without calling `compute()`.
 
-Final validation completed with 157 pipeline tests, 40 core lineage tests, and
-2,221 full-suite tests passing; three unrelated optional tests remained skipped.
+Final validation completed with 159 pipeline tests, 40 core lineage tests, and
+2,223 full-suite tests passing; three unrelated optional tests remained skipped.

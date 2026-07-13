@@ -344,24 +344,36 @@ class BinaryReplay(ReplayDescriptor):
         if not isinstance(operand, Mapping):
             return None
         operand_type = operand.get("type")
-        if isinstance(operand_type, str) and operand_type not in {"bool", "int", "float", "complex"}:
-            try:
-                dtype = np.dtype(operand_type)
-            except TypeError:
-                pass
-            else:
-                if np.issubdtype(dtype, np.number):
-                    if "value" in operand:
-                        return cast(Any, dtype.type(operand["value"]))
-                    if "real" in operand and "imag" in operand:
-                        return cast(Any, dtype.type(complex(operand["real"], operand["imag"])))
+        if not isinstance(operand_type, str):
+            return None
         value = operand.get("value")
-        if isinstance(value, bool | int | float | complex):
-            return value
+        builtin_type = {"bool": bool, "int": int, "float": float}.get(operand_type)
+        if builtin_type is not None:
+            return value if type(value) is builtin_type else None
+        if operand_type == "complex":
+            real = operand.get("real")
+            imaginary = operand.get("imag")
+            if isinstance(real, numbers.Real) and isinstance(imaginary, numbers.Real):
+                return complex(real, imaginary)
+            return None
+        try:
+            dtype = np.dtype(operand_type)
+        except TypeError:
+            return None
+        if not np.issubdtype(dtype, np.number):
+            return None
+        # Operand descriptors snapshot NumPy float and complex values through
+        # Python scalars, so wider dtypes cannot be restored losslessly.
+        if np.issubdtype(dtype, np.floating) and dtype.itemsize > np.dtype(np.float64).itemsize:
+            return None
+        if np.issubdtype(dtype, np.complexfloating) and dtype.itemsize > np.dtype(np.complex128).itemsize:
+            return None
+        if "value" in operand:
+            return cast(Any, dtype.type(value))
         real = operand.get("real")
         imaginary = operand.get("imag")
         if isinstance(real, numbers.Real) and isinstance(imaginary, numbers.Real):
-            return complex(real, imaginary)
+            return cast(Any, dtype.type(complex(real, imaginary)))
         return None
 
 
