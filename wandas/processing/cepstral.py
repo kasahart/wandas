@@ -153,6 +153,9 @@ class Lifter(AudioOperation[NDArrayReal, NDArrayReal]):
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying {self.mode} lifter to array with shape: {x.shape}")
 
+        if np.iscomplexobj(x):
+            raise TypeError("Lifter requires real-valued cepstral input.")
+
         n_quefrency = int(x.shape[-1])
         cutoff_samples = int(np.floor(self.cutoff * self.sampling_rate))
         if cutoff_samples <= 0:
@@ -220,6 +223,9 @@ class SpectralEnvelope(AudioOperation[NDArrayReal, NDArrayComplex]):
 
     def _process(self, x: NDArrayReal) -> NDArrayComplex:
         logger.debug(f"Applying spectral envelope reconstruction to array with shape: {x.shape}")
+
+        if np.iscomplexobj(x):
+            raise TypeError("SpectralEnvelope requires real-valued cepstral input.")
 
         log_envelope = np.fft.rfft(np.asarray(x, dtype=np.float64), axis=-1)
         envelope = np.exp(np.real(log_envelope))

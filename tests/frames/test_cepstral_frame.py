@@ -304,6 +304,19 @@ class TestCepstralFrame:
         with pytest.raises(TypeError, match=r"real-valued scalar operand"):
             _ = np.arange(self.n_fft) * self.frame
 
+    def test_supported_numpy_scalar_ufunc_preserves_frame(self) -> None:
+        direct = np.add(self.frame, 1.0)
+        reverse = np.subtract(1.0, self.frame)
+
+        assert isinstance(direct, CepstralFrame)
+        assert isinstance(reverse, CepstralFrame)
+        np.testing.assert_allclose(direct.compute(), np.ones(self.frame.shape))
+        np.testing.assert_allclose(reverse.compute(), np.ones(self.frame.shape))
+
+    def test_unsupported_numpy_ufunc_is_rejected(self) -> None:
+        with pytest.raises(TypeError, match=r"does not support NumPy ufunc 'maximum'"):
+            np.maximum(self.frame, 0.0)
+
     @pytest.mark.parametrize(
         "operation_name",
         ["cepstrum", "lifter", "spectral_envelope", "ifft", "normalize"],

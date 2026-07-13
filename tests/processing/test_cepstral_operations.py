@@ -1,3 +1,5 @@
+from typing import Any
+
 import dask.array as da
 import numpy as np
 import pytest
@@ -36,6 +38,14 @@ class TestCepstralOperations:
     def test_cepstrum_rejects_complex_input(self) -> None:
         with pytest.raises(TypeError, match=r"requires real-valued input"):
             Cepstrum(16000, n_fft=8)._process(np.ones((1, 8), dtype=np.complex128))
+
+    @pytest.mark.parametrize(
+        "operation",
+        [Lifter(16000, cutoff=0.001), SpectralEnvelope(16000)],
+    )
+    def test_cepstral_processing_rejects_complex_input(self, operation: Any) -> None:
+        with pytest.raises(TypeError, match=r"requires real-valued cepstral input"):
+            operation._process(np.ones((1, 16), dtype=np.complex128))
 
     def test_cepstrum_matches_direct_real_cepstrum_reference(self) -> None:
         sr = 16000
