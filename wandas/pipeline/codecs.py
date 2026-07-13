@@ -203,8 +203,8 @@ def _add_channel(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode
     if not isinstance(descriptor, AddChannelReplay):
         raise RecipeExtractionError("add-channel codec requires AddChannelReplay")
     params = descriptor.thaw_params()
-    if isinstance(params.get("source_time_offset"), np.ndarray):
-        params["source_time_offset"] = params["source_time_offset"].tolist()
+    if isinstance(source_time_offset := params.get("source_time_offset"), np.ndarray | tuple):
+        params["source_time_offset"] = list(source_time_offset)
     bindings = descriptor.contract.bindings
     if descriptor.input_kind == "frame":
         if len(lineage_inputs) != 2:

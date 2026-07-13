@@ -133,6 +133,19 @@ def test_add_channel_offset_mutation_cannot_change_history_summary_or_recipe() -
     assert "input_kind" not in history[-1]["params"]
 
 
+def test_add_channel_offset_keeps_canonical_list_payload() -> None:
+    source = _frame(channels=1)
+    processed = source.add_channel(
+        np.ones((1, source.n_samples)),
+        source_time_offset=np.array([1.25]),
+    )
+
+    call = RecipePlan.from_frame(processed).to_dict()["nodes"][0]["call"]
+    params = dict(call["params"][1])
+
+    assert params["source_time_offset"] == ["list", [["float", 1.25]]]
+
+
 def test_binary_runtime_descriptor_is_deeply_read_only() -> None:
     processed = _frame(channels=1) + np.ones((1, 256))
     assert processed.lineage is not None
