@@ -303,6 +303,7 @@ class FrameMethodOperation:
     name: str
     method_params: Mapping[str, Any]
     target: str | None = None
+    version: int = 1
 
     @property
     def params(self) -> Mapping[str, Any]:
@@ -316,7 +317,7 @@ class FrameMethodOperation:
 
     def replay_descriptor(self) -> MethodReplay:
         return MethodReplay(
-            OperationContract(self.name, 1, True, (InputBinding("frame", "frame"),)),
+            OperationContract(self.name, self.version, True, (InputBinding("frame", "frame"),)),
             frozen_params(self.to_params(), allow_opaque=True),
             self.name,
             self.target,

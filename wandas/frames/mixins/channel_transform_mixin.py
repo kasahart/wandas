@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
+from wandas.processing.semantic import replay_method
+
 from ...core.base_frame import BaseFrame
 from .protocols import TransformFrameProtocol
 
@@ -129,6 +131,7 @@ class ChannelTransformMixin:
             **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
+    @replay_method()
     def fft(self: TransformFrameProtocol, n_fft: int | None = None, window: str = "hann") -> "SpectralFrame":
         """Calculate Fast Fourier Transform (FFT).
 
@@ -172,6 +175,7 @@ class ChannelTransformMixin:
             **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
+    @replay_method()
     def welch(
         self: TransformFrameProtocol,
         n_fft: int = 2048,
@@ -230,6 +234,7 @@ class ChannelTransformMixin:
             **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
+    @replay_method()
     def noct_spectrum(
         self: TransformFrameProtocol,
         fmin: float = 25,
@@ -285,6 +290,7 @@ class ChannelTransformMixin:
             **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
+    @replay_method()
     def stft(
         self: TransformFrameProtocol,
         n_fft: int = 2048,

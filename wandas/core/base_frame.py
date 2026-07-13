@@ -14,6 +14,7 @@ import numpy.typing as npt
 import xarray as xr
 from dask.array.core import Array as DaArray
 
+from wandas.processing.semantic import replay_method
 from wandas.utils import validate_sampling_rate
 from wandas.utils.optional_imports import require_dependency, require_pandas
 from wandas.utils.types import NDArrayComplex, NDArrayReal
@@ -748,6 +749,7 @@ class BaseFrame(ABC, Generic[T]):
 
     def _lineage_with_method(self, method: str, params: Mapping[str, Any]) -> "LineageNode":
         from wandas.processing.base import FrameMethodOperation
+        from wandas.processing.semantic import ReplayTargetContract
 
         function = None
         for owner in type(self).__mro__:
@@ -755,9 +757,19 @@ class BaseFrame(ABC, Generic[T]):
                 function = owner.__dict__[method]
                 break
         target = None
-        if function is not None:
+        version = 1
+        contract = getattr(function, "__wandas_replay_target__", None)
+        if (
+            function is not None
+            and isinstance(contract, ReplayTargetContract)
+            and contract.operation_id == method
+            and contract.output_kind == "frame"
+        ):
             target = f"{function.__module__}.{function.__qualname__}"
-        return self._lineage_with_operation(FrameMethodOperation(method, params, target), self._lineage_or_source())
+            version = contract.version
+        return self._lineage_with_operation(
+            FrameMethodOperation(method, params, target, version), self._lineage_or_source()
+        )
 
     def _lineage_with_index(self, params: Mapping[str, Any]) -> "LineageNode":
         from wandas.processing.base import IndexOperation
@@ -858,6 +870,7 @@ class BaseFrame(ABC, Generic[T]):
             raise ValueError("source_time_offset must be finite")
         return offsets.astype(float, copy=True)
 
+    @replay_method()
     def get_channel(
         self: S,
         channel_idx: int | list[int] | tuple[int, ...] | npt.NDArray[np.int_] | npt.NDArray[np.bool_] | None = None,

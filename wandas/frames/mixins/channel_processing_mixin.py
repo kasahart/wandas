@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, SupportsFloat, SupportsIndex, TypeAlias, 
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.roughness import RoughnessFrame
 from wandas.processing import create_operation
+from wandas.processing.semantic import replay_method
 
 from .protocols import ProcessingFrameProtocol, T_Processing
 
@@ -383,6 +384,7 @@ class ChannelProcessingMixin:
         )
         return result
 
+    @replay_method()
     def sum(self: T_Processing) -> T_Processing:
         """Sum all channels.
 
@@ -391,6 +393,7 @@ class ChannelProcessingMixin:
         """
         return cast(T_Processing, cast(Any, self)._reduce_channels("sum"))
 
+    @replay_method()
     def mean(self: T_Processing) -> T_Processing:
         """Average all channels.
 
@@ -423,6 +426,7 @@ class ChannelProcessingMixin:
         result = self.apply_operation("trim", start=start, end=end)
         return cast(T_Processing, result)
 
+    @replay_method()
     def fix_length(
         self: T_Processing,
         length: int | None = None,
@@ -525,6 +529,7 @@ class ChannelProcessingMixin:
             },
         )
 
+    @replay_method()
     def channel_difference(self: T_Processing, other_channel: int | str = 0) -> T_Processing:
         """Compute index-wise differences between channels.
 
@@ -886,6 +891,7 @@ class ChannelProcessingMixin:
         result = self.apply_operation("roughness_dw", overlap=overlap)
         return cast(T_Processing, result)
 
+    @replay_method()
     def roughness_dw_spec(self: ProcessingFrameProtocol, overlap: float = 0.5) -> "RoughnessFrame":
         """Calculate specific roughness with Bark-band frequency information.
 

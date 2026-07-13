@@ -9,6 +9,7 @@ from dask.array.core import Array as DaArray
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.mixins.spectral_properties_mixin import SpectralPropertiesMixin
+from wandas.processing.semantic import replay_method
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 if TYPE_CHECKING:
@@ -379,6 +380,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             lineage=self._lineage_with_operation(operation, self._lineage_or_source()),
         )
 
+    @replay_method()
     def get_frame_at(self, time_idx: int) -> "SpectralFrame":
         """
         Extract spectral data at a specific time frame.
@@ -475,6 +477,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             **self._operation_summaries_snapshot_kwargs(lineage),
         )
 
+    @replay_method()
     def istft(self) -> "ChannelFrame":
         """
         Convert the spectrogram back to time domain using inverse STFT.

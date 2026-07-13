@@ -5,19 +5,11 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from wandas.processing.semantic import OperationContract
+from wandas.processing.semantic import OperationContract, replay_method, terminal_method
+
+__all__ = ["multi_input_handler", "replay_method", "terminal_method"]
 
 MultiInputHandler = Callable[[tuple[Any, ...], Mapping[str, Any]], Any]
-
-
-def replay_method(operation_id: str, *, version: int = 1) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    contract = OperationContract(operation_id, version, True, ())
-
-    def decorate(method: Callable[..., Any]) -> Callable[..., Any]:
-        setattr(method, "__wandas_replay_contract__", contract)
-        return method
-
-    return decorate
 
 
 def multi_input_handler(

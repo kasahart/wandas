@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, cast
 import numpy as np
 from dask.array.core import Array as DaArray
 
+from wandas.processing.semantic import replay_method
 from wandas.utils.optional_imports import require_pandas
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
@@ -266,6 +267,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
         return _ax
 
+    @replay_method()
     def ifft(self) -> ChannelFrame:
         """
         Compute the Inverse Fast Fourier Transform (IFFT) to return to time domain.
@@ -327,6 +329,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         pd = require_pandas("SpectralFrame.to_dataframe")
         return pd.Index(self.freqs, name="frequency")
 
+    @replay_method()
     def noct_synthesis(
         self,
         fmin: float,

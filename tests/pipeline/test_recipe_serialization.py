@@ -84,12 +84,16 @@ def test_edge_free_empty_params_use_the_canonical_value_tree(build: Any) -> None
 def test_public_call_constructors_share_fail_closed_contracts() -> None:
     with pytest.raises(RecipeSerializationError, match="public versioned"):
         MethodCall("_lineage_or_source", "wandas.core.base_frame.BaseFrame._lineage_or_source")
-    with pytest.raises(RecipeSerializationError, match="versioned"):
+    with pytest.raises(RecipeSerializationError, match="contract mismatch"):
         MethodCall("fft", "wandas.frames.mixins.channel_transform_mixin.ChannelTransformMixin.fft", version=99)
     with pytest.raises(RecipeSerializationError, match="selection intent"):
         IndexCall({"bad": "mapping"})
     with pytest.raises(RecipeSerializationError, match="public method"):
         TerminalCall("_lineage_or_source", "wandas.core.base_frame.BaseFrame._lineage_or_source")
+    with pytest.raises(RecipeSerializationError, match="contract mismatch"):
+        MethodCall("to_numpy", "wandas.core.base_frame.BaseFrame.to_numpy")
+    with pytest.raises(RecipeSerializationError, match="contract mismatch"):
+        TerminalCall("compute", "wandas.core.base_frame.BaseFrame.compute")
 
 
 def test_custom_call_direct_constructor_deeply_freezes_params() -> None:
@@ -98,6 +102,16 @@ def test_custom_call_direct_constructor_deeply_freezes_params() -> None:
     params["gain"].append(2)
 
     assert call.to_payload()["params"] == ("mapping", (("gain", ("list", (("int", 1),))),))
+
+
+def test_frozen_value_tree_cannot_bypass_external_array_guard() -> None:
+    frozen_array = (
+        "mapping",
+        (("weights", ("ndarray", "int64", (2,), ("list", (("int", 1), ("int", 2))))),),
+    )
+
+    with pytest.raises(RecipeSerializationError, match="External arrays"):
+        CustomCall("tests.pipeline.test_recipe_serialization._stable_custom", frozen_array)
 
 
 def _stable_custom(data: Any, *, gain: list[int]) -> Any:

@@ -10,7 +10,7 @@ import wandas.processing.base as processing_base
 from wandas.frames.channel import ChannelFrame
 from wandas.pipeline.calls import AudioCall, MethodCall, MultiInputCall
 from wandas.pipeline.codecs import default_codec_registry
-from wandas.pipeline.decorators import multi_input_handler
+from wandas.pipeline.decorators import multi_input_handler, replay_method
 from wandas.processing.base import AudioOperation, LineageNode
 from wandas.processing.semantic import (
     AudioReplay,
@@ -31,6 +31,7 @@ class RecipeProbeUnary(AudioOperation[Any, Any]):
 
 
 class ProbeTransitionOwner:
+    @replay_method(version=2)
     def probe_transition(self) -> None:
         return None
 
@@ -57,7 +58,7 @@ def test_new_unary_same_frame_uses_existing_audio_family(monkeypatch: pytest.Mon
 def test_new_typed_transition_uses_existing_method_family() -> None:
     target = f"{__name__}.ProbeTransitionOwner.probe_transition"
     descriptor = MethodReplay(
-        OperationContract("probe_transition", 1, True, (InputBinding("frame", "frame"),)),
+        OperationContract("probe_transition", 2, True, (InputBinding("frame", "frame"),)),
         frozen_params({}),
         "probe_transition",
         target,
@@ -65,7 +66,7 @@ def test_new_typed_transition_uses_existing_method_family() -> None:
 
     result = default_codec_registry().encode(descriptor, (LineageNode.__new__(LineageNode),))
 
-    assert isinstance(result.call, MethodCall)
+    assert isinstance(result.call, MethodCall) and result.call.version == 2
 
 
 def test_new_true_multi_input_uses_existing_multi_family() -> None:

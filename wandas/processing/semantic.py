@@ -5,15 +5,17 @@ from __future__ import annotations
 import json
 import math
 import numbers
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal, ParamSpec, TypeAlias, TypeVar
 
 import numpy as np
 from dask.array.core import Array as DaArray
 
 InputKind = Literal["frame", "array", "scalar"]
 ReplayValue: TypeAlias = tuple[Any, ...]
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
 def _identifier(value: object, label: str) -> str:
@@ -51,6 +53,36 @@ class OperationContract:
         roles = tuple(item.role for item in self.bindings)
         if len(set(roles)) != len(roles):
             raise ValueError("Replay input roles must be unique")
+
+
+@dataclass(frozen=True)
+class ReplayTargetContract:
+    operation_id: str
+    version: int
+    output_kind: Literal["frame", "terminal"]
+
+    def __post_init__(self) -> None:
+        _identifier(self.operation_id, "Replay target operation id")
+        if type(self.version) is not int or self.version < 1:
+            raise ValueError("Replay target version must be positive")
+
+
+def replay_method(operation_id: str | None = None, *, version: int = 1) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    def decorate(method: Callable[P, R]) -> Callable[P, R]:
+        operation = getattr(method, "__name__") if operation_id is None else operation_id
+        setattr(method, "__wandas_replay_target__", ReplayTargetContract(operation, version, "frame"))
+        return method
+
+    return decorate
+
+
+def terminal_method(operation_id: str | None = None, *, version: int = 1) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    def decorate(method: Callable[P, R]) -> Callable[P, R]:
+        operation = getattr(method, "__name__") if operation_id is None else operation_id
+        setattr(method, "__wandas_replay_target__", ReplayTargetContract(operation, version, "terminal"))
+        return method
+
+    return decorate
 
 
 def freeze_replay_value(value: Any, *, allow_opaque: bool = False) -> ReplayValue:
@@ -192,6 +224,11 @@ class IndexReplay(ReplayDescriptor):
 @dataclass(frozen=True)
 class AddChannelReplay(ReplayDescriptor):
     input_kind: Literal["frame", "array"]
+
+
+@dataclass(frozen=True)
+class TerminalReplay(ReplayDescriptor):
+    target: str
 
 
 @dataclass(frozen=True)

@@ -16,7 +16,13 @@ from dask.array.core import Array as DaArray
 
 from wandas.pipeline.decorators import MultiInputHandler, multi_input_handler
 from wandas.pipeline.errors import RecipeSerializationError
-from wandas.processing.semantic import OperationContract, ReplayValue, freeze_replay_value, thaw_replay_value
+from wandas.processing.semantic import (
+    OperationContract,
+    ReplayTargetContract,
+    ReplayValue,
+    freeze_replay_value,
+    thaw_replay_value,
+)
 
 CallLoader = Callable[[Mapping[str, Any]], "CanonicalCall"]
 _LOADERS: dict[str, tuple[CallLoader, frozenset[str]]] = {}
@@ -75,6 +81,11 @@ def _contains_array(value: Any) -> bool:
 
 def _thaw_params(params: ReplayValue) -> dict[str, Any]:
     return dict(thaw_replay_value(params))
+
+
+def _normalize_params(value: Mapping[str, Any] | ReplayValue) -> ReplayValue:
+    params = thaw_replay_value(cast(ReplayValue, value)) if _is_frozen_mapping(value) else value
+    return _freeze_params(cast(Mapping[str, Any], params))
 
 
 def _load_path(path: object) -> Any:
@@ -168,10 +179,10 @@ class MethodCall(FrameCall):
         owner = _load_path(owner_path)
         if not isinstance(owner, type) or owner.__dict__.get(member) is not function:
             raise RecipeSerializationError("Recipe method target must be a directly owned class member")
-        if member.startswith("_") or operation != member or version != 1:
+        if member.startswith("_") or operation != member:
             raise RecipeSerializationError("Recipe method must be a public versioned target")
-        contract = getattr(function, "__wandas_replay_contract__", None)
-        if contract is not None and contract != OperationContract(operation, version, True, ()):
+        contract = getattr(function, "__wandas_replay_target__", None)
+        if contract != ReplayTargetContract(operation, version, "frame"):
             raise RecipeSerializationError("Recipe method target contract mismatch")
         _version(version, None)
         object.__setattr__(self, "operation", operation)
@@ -366,14 +377,14 @@ class CustomCall(FrameCall):
         version: int = 1,
     ) -> None:
         object.__setattr__(self, "function", function)
-        object.__setattr__(self, "params", params if _is_frozen_mapping(params) else _freeze_params(cast(Any, params)))
+        object.__setattr__(self, "params", _normalize_params(params))
         object.__setattr__(self, "output_shape_function", output_shape_function)
         object.__setattr__(self, "output_frame_class", output_frame_class)
         kwargs = output_frame_kwargs or {}
         object.__setattr__(
             self,
             "output_frame_kwargs",
-            kwargs if _is_frozen_mapping(kwargs) else _freeze_params(cast(Any, kwargs)),
+            _normalize_params(kwargs),
         )
         object.__setattr__(self, "pure", pure)
         object.__setattr__(self, "version", version)
@@ -441,6 +452,10 @@ class TerminalCall(FrameCall):
             or owner.__dict__.get(member) is not function
         ):
             raise RecipeSerializationError("Terminal Recipe target must be a directly owned public method")
+        if getattr(function, "__wandas_replay_target__", None) != ReplayTargetContract(
+            self.operation, self.version, "terminal"
+        ):
+            raise RecipeSerializationError("Terminal Recipe target contract mismatch")
 
     def invoke(self, inputs: tuple[Any, ...]) -> Any:
         target = getattr(inputs[0], self.operation)
@@ -466,7 +481,7 @@ class MultiInputCall(FrameCall):
 
     def __post_init__(self) -> None:
         _version(self.version, None)
-        handler = _load_path(self.target)
+        handler = _load_stable_function(self.target)
         if getattr(handler, "__wandas_multi_input_contract__", None) != (
             OperationContract(self.operation, self.version, True, ()),
             self.roles,
@@ -474,7 +489,7 @@ class MultiInputCall(FrameCall):
             raise RecipeSerializationError("Multi-input handler contract mismatch")
 
     def invoke(self, inputs: tuple[Any, ...]) -> Any:
-        handler: MultiInputHandler = _load_path(self.target)
+        handler: MultiInputHandler = _load_stable_function(self.target)
         return handler(inputs, _thaw_params(self.params))
 
     def to_payload(self) -> dict[str, Any]:

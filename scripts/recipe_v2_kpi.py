@@ -13,7 +13,7 @@ FILES = sorted((ROOT / "wandas" / "pipeline").glob("*.py")) + [ROOT / "wandas" /
 
 def counts(path: Path) -> tuple[int, int]:
     lines = path.read_text(encoding="utf-8").splitlines()
-    ploc = sum(bool(line.strip()) for line in lines)
+    ploc = len(lines)
     ignored: set[int] = set()
     for token in tokenize.generate_tokens(io.StringIO("\n".join(lines)).readline):
         if token.type in {tokenize.COMMENT, tokenize.STRING}:

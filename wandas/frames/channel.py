@@ -10,6 +10,7 @@ import numpy as np
 from dask.array.core import Array as DaArray
 from dask.array.core import concatenate
 
+from wandas.processing.semantic import replay_method, terminal_method
 from wandas.utils import validate_sampling_rate
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
 from wandas.utils.optional_imports import (
@@ -344,7 +345,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             )
             return self._lineage_with_operation(AddChannelOperation(params, "frame"), *inputs)
 
-        inputs = (self.lineage,)
+        inputs = (self._lineage_or_source(),)
         return self._lineage_with_operation(AddChannelOperation(params, "array"), *inputs)
 
     @property
@@ -401,6 +402,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         return data
 
     @property
+    @terminal_method()
     def rms(self) -> NDArrayReal:
         """Calculate RMS (Root Mean Square) value for each channel.
 
@@ -1515,6 +1517,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             lineage=self._lineage_with_add_channel(lineage_params),
         )
 
+    @replay_method()
     def remove_channel(self, key: int | str, inplace: bool = False) -> "ChannelFrame":
         if isinstance(key, int):
             if not (0 <= key < self.n_channels):
@@ -1538,6 +1541,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             lineage=self._lineage_with_method("remove_channel", {"key": key}),
         )
 
+    @replay_method()
     def rename_channels(
         self,
         mapping: dict[int | str, str],

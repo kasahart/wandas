@@ -18,6 +18,7 @@ from wandas.pipeline.calls import (
     MethodCall,
     MultiInputCall,
     ScalarCall,
+    TerminalCall,
 )
 from wandas.pipeline.errors import RecipeExtractionError
 from wandas.pipeline.model import RecipeCall
@@ -31,6 +32,7 @@ from wandas.processing.semantic import (
     MethodReplay,
     MultiInputReplay,
     ReplayDescriptor,
+    TerminalReplay,
     thaw_replay_value,
 )
 
@@ -88,6 +90,7 @@ def default_codec_registry() -> ReplayCodecRegistry:
     registry.register(MethodReplay, _method)
     registry.register(IndexReplay, _index)
     registry.register(AddChannelReplay, _add_channel)
+    registry.register(TerminalReplay, _terminal)
     registry.register(BinaryReplay, _binary)
     registry.register(CustomReplay, _custom)
     registry.register(MultiInputReplay, _multi)
@@ -211,6 +214,16 @@ def _add_channel(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode
             BoundInput(bindings[1].role, "array", external=True),
         )
     return CodecResult(AddChannelCall(descriptor.input_kind, params), resolved)
+
+
+def _terminal(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]) -> CodecResult:
+    if not isinstance(descriptor, TerminalReplay):
+        raise RecipeExtractionError("Terminal codec requires TerminalReplay")
+    lineage = lineage_inputs[0] if lineage_inputs else None
+    return CodecResult(
+        TerminalCall(descriptor.contract.operation_id, descriptor.target, descriptor.contract.version),
+        (_frame(descriptor.contract.bindings[0].role, lineage),),
+    )
 
 
 def _custom(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]) -> CodecResult:

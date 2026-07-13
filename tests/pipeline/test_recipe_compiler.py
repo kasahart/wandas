@@ -70,6 +70,16 @@ def test_external_dask_array_is_named_input_and_stays_lazy(monkeypatch: pytest.M
     assert replayed.shape == source.shape
 
 
+def test_raw_add_channel_retains_base_source_lineage() -> None:
+    source = _frame()
+    processed = source.add_channel(np.ones(source.n_samples), label="added")
+
+    assert processed.lineage is not None and len(processed.lineage.inputs) == 1
+    plan = RecipePlan.from_frame(processed, input_names=("signal", "added"))
+    replayed = plan.apply({"signal": source, "added": np.ones(source.n_samples)})
+    assert replayed.labels[-1] == "added"
+
+
 def test_multidimensional_indexing_is_one_call() -> None:
     source = _frame()
     processed = source[:, 2:10]
