@@ -35,26 +35,26 @@ def test_multidimensional_indexing_preserves_frame_semantics() -> None:
     np.testing.assert_allclose(result.source_time_offset, [0.25025, 0.50025])
 
 
-def test_baseline_multidimensional_indexing_exposes_two_internal_nodes() -> None:
+def test_multidimensional_indexing_is_one_semantic_operation() -> None:
     result = _frame()[:, 2:10]
 
-    assert [record["operation"] for record in result.operation_history] == ["__getitem__", "__getitem__"]
+    assert [record["operation"] for record in result.operation_history] == ["__getitem__"]
 
 
-def test_baseline_empty_integer_array_is_recorded_as_integer_list() -> None:
+def test_empty_integer_array_preserves_array_intent() -> None:
     result = _frame()[np.array([], dtype=int)]
 
-    assert result.operation_history[-1]["params"]["indexing"] == "integer_list"
+    assert result.operation_history[-1]["params"]["indexing"] == "integer_array"
 
 
-def test_baseline_shared_branch_identity_exists_but_history_duplicates() -> None:
+def test_shared_branch_identity_is_reported_once() -> None:
     source = _frame()
     branch = source.normalize()
     result = branch + branch
 
     assert result.lineage is not None
     assert result.lineage.inputs[0] is result.lineage.inputs[1]
-    assert [record["operation"] for record in result.operation_history] == ["normalize", "normalize", "+"]
+    assert [record["operation"] for record in result.operation_history] == ["normalize", "+"]
 
 
 def test_existing_graph_replay_preserves_non_commutative_order() -> None:

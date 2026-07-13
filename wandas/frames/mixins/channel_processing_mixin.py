@@ -379,7 +379,7 @@ class ChannelProcessingMixin:
             metadata=new_metadata,
             channel_metadata=new_channel_metadata,
             source_time_offset=reduced_source_time_offset,
-            lineage=cast(Any, self)._lineage_with_operation(operation, cast(Any, self).lineage),
+            lineage=cast(Any, self)._lineage_with_operation(operation, cast(Any, self)._lineage_or_source()),
         )
         return result
 

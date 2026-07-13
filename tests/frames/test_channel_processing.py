@@ -929,7 +929,7 @@ class TestChannelProcessing:
         result = signal.add(noise, snr=3.0)
 
         operations = [record["operation"] for record in result.operation_history]
-        assert operations == ["normalize", "lowpass_filter", "normalize", "highpass_filter", "add_with_snr"]
+        assert operations == ["normalize", "lowpass_filter", "highpass_filter", "add_with_snr"]
         assert result.operation_graph is not None
         assert [node["operation"] for node in result.operation_graph["inputs"]] == ["lowpass_filter", "highpass_filter"]
         shared_parents = [node["inputs"][0]["operation"] for node in result.operation_graph["inputs"]]

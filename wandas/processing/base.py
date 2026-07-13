@@ -6,7 +6,7 @@ import logging
 import numbers
 from collections import defaultdict
 from collections.abc import Callable, Iterator, Mapping, MutableMapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import wraps
 from typing import Any, ClassVar, Generic, NoReturn, TypeVar, cast
 
@@ -15,6 +15,17 @@ import numpy as np
 from dask.array.core import Array as DaArray
 from dask.delayed import delayed
 
+from wandas.processing.semantic import (
+    AudioReplay,
+    BinaryReplay,
+    InputBinding,
+    MethodReplay,
+    OperationContract,
+    ReplayDescriptor,
+    SourceReplay,
+    UnsupportedReplay,
+    frozen_params,
+)
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 logger = logging.getLogger(__name__)
@@ -74,6 +85,35 @@ class LineageNode:
 
     operation: Any
     inputs: tuple["LineageNode", ...] = ()
+    replay: ReplayDescriptor = field(init=False)
+    _summary_json: str = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        descriptor = getattr(self.operation, "replay_descriptor", None)
+        replay = descriptor() if callable(descriptor) else None
+        if not isinstance(replay, ReplayDescriptor):
+            name = getattr(self.operation, "name", type(self.operation).__name__)
+            params_method = getattr(self.operation, "to_params", None)
+            params = params_method() if callable(params_method) else getattr(self.operation, "params", {})
+            params = params if isinstance(params, Mapping) else {}
+            replay = UnsupportedReplay(
+                OperationContract(str(name), 1, True, ()),
+                frozen_params(params, allow_opaque=True),
+                str(name),
+                "Operation has no typed replay descriptor",
+            )
+        object.__setattr__(self, "replay", replay)
+        summary_method = getattr(self.operation, "to_summary", None)
+        summary = summary_method() if callable(summary_method) else None
+        if not isinstance(summary, Mapping):
+            summary = {"operation": replay.semantic_name, "params": _summary_value(replay.thaw_params())}
+        object.__setattr__(self, "_summary_json", json.dumps(_summary_value(summary), sort_keys=True))
+        if not isinstance(self.inputs, tuple) or not all(isinstance(item, LineageNode) for item in self.inputs):
+            raise TypeError("Lineage inputs must be a tuple of LineageNode values")
+
+    @property
+    def summary(self) -> dict[str, Any]:
+        return cast(dict[str, Any], json.loads(self._summary_json))
 
 
 @dataclass(frozen=True)
@@ -88,6 +128,9 @@ class FrameSourceOperation:
 
     def to_params(self) -> Mapping[str, Any]:
         return {}
+
+    def replay_descriptor(self) -> SourceReplay:
+        return SourceReplay(OperationContract(self.name, 1, True, ()), frozen_params({}), self.name)
 
 
 def _operand_descriptor(value: Any) -> dict[str, Any]:
@@ -212,6 +255,26 @@ class BinaryOperation:
             "params": {key: _summary_value(value) for key, value in params.items()},
         }
 
+    def replay_descriptor(self) -> BinaryReplay:
+        other_kind = "frame" if self.operand_kind == "frame" else "array"
+        scalar: int | float | None = None
+        if self.operand_kind != "frame" and not isinstance(self.operand, np.ndarray | DaArray):
+            other_kind = "scalar"
+            if not isinstance(self.operand, bool) and isinstance(self.operand, numbers.Real):
+                scalar = float(self.operand)
+        bindings = (InputBinding("left", "frame"), InputBinding("right", cast(Any, other_kind)))
+        if self.operand_position == "left":
+            bindings = tuple(reversed(bindings))
+        return BinaryReplay(
+            OperationContract(self.symbol, 1, True, bindings),
+            frozen_params(self.to_params(), allow_opaque=True),
+            self.symbol,
+            self.symbol,
+            cast(Any, other_kind),
+            cast(Any, self.operand_position),
+            scalar,
+        )
+
     def _mark_array(self, data: DaArray) -> DaArray:
         """Attach this binary operation to a Dask-native result graph."""
         marker = cast(Any, _mark_wandas_operation)
@@ -242,6 +305,18 @@ class FrameMethodOperation:
 
     def to_params(self) -> Mapping[str, Any]:
         return _snapshot_config_value(self.method_params)
+
+    def replay_descriptor(self) -> MethodReplay:
+        if self.name == "add_channel":
+            kind = "frame" if self.method_params.get("input_kind") == "frame" else "array"
+            bindings = (InputBinding("base", "frame"), InputBinding("added", kind))
+        else:
+            bindings = (InputBinding("frame", "frame"),)
+        return MethodReplay(
+            OperationContract(self.name, 1, True, bindings),
+            frozen_params(self.to_params(), allow_opaque=True),
+            self.name,
+        )
 
 
 def _snapshot_config_value(value: Any) -> Any:
@@ -367,6 +442,8 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     # Class variable: operation name
     name: ClassVar[str]
     _expected_input_count: ClassVar[int | None] = 1
+    operation_version: ClassVar[int] = 1
+    supports_generic_replay: ClassVar[bool] = False
 
     _config: dict[str, Any]
     _process: Callable[..., OutputArrayType] = _unimplemented_process
@@ -430,6 +507,14 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     def to_params(self) -> Mapping[str, Any]:
         """Return operation parameters used for lineage and display."""
         return self._config_snapshot()
+
+    def replay_descriptor(self) -> ReplayDescriptor:
+        return AudioReplay(
+            OperationContract(self.name, self.operation_version, bool(self.pure), (InputBinding("frame", "frame"),)),
+            frozen_params(self.to_params(), allow_opaque=True),
+            self.name,
+            self.supports_generic_replay,
+        )
 
     def to_summary(self) -> OperationSummary:
         """Return a lightweight display summary for this operation."""

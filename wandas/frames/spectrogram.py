@@ -376,7 +376,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             data=magnitude_data,
             label=f"abs({self.label})",
             metadata=new_metadata,
-            lineage=self._lineage_with_operation(operation, self.lineage),
+            lineage=self._lineage_with_operation(operation, self._lineage_or_source()),
         )
 
     def get_frame_at(self, time_idx: int) -> "SpectralFrame":

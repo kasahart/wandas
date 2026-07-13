@@ -833,7 +833,7 @@ class TestBaseFrameIndexing:
         assert [summary["operation"] for summary in numpy_indexed.operation_summaries] == ["loaded", "__getitem__"]
         assert [summary["operation"] for summary in list_indexed.operation_summaries] == ["loaded", "__getitem__"]
         assert numpy_indexed.operation_history == [
-            {"operation": "__getitem__", "params": {"indexing": "integer_list", "indices": [0, 1]}}
+            {"operation": "__getitem__", "params": {"indexing": "integer_array", "indices": [0, 1]}}
         ]
         assert list_indexed.operation_history == [
             {"operation": "__getitem__", "params": {"indexing": "integer_list", "indices": [0, 1]}}

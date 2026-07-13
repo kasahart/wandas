@@ -5,6 +5,7 @@ import numbers
 import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator, Mapping, Sequence
+from dataclasses import replace
 from re import Pattern
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast, overload
 
@@ -62,6 +63,21 @@ class _LineageOperationName:
         if hasattr(self._operation, "to_params"):
             return cast(Mapping[str, Any], self._operation.to_params())
         return cast(Mapping[str, Any], getattr(self._operation, "params", {}))
+
+    def replay_descriptor(self) -> Any:
+        from wandas.processing.semantic import OperationContract, ReplayDescriptor, UnsupportedReplay, frozen_params
+
+        replay = getattr(self._operation, "replay_descriptor", None)
+        descriptor = replay() if callable(replay) else None
+        if not isinstance(descriptor, ReplayDescriptor):
+            return UnsupportedReplay(
+                OperationContract(self.name, 1, True, ()),
+                frozen_params(self.to_params(), allow_opaque=True),
+                self.name,
+                "Operation has no typed replay descriptor",
+            )
+        contract = replace(descriptor.contract, operation_id=self.name)
+        return replace(descriptor, contract=contract, params=frozen_params(self.to_params()), semantic_name=self.name)
 
 
 def _mutable_config_value(value: Any) -> Any:
@@ -210,6 +226,12 @@ class BaseFrame(ABC, Generic[T]):
         self.sampling_rate = sampling_rate
         self.metadata = metadata
         self._lineage = lineage
+        if lineage is None:
+            from wandas.processing.base import FrameSourceOperation, LineageNode
+
+            self._source_lineage: LineageNode | None = LineageNode(FrameSourceOperation())
+        else:
+            self._source_lineage = None
         self._operation_summaries_snapshot = (
             self._snapshot_operation_summaries(operation_summaries_snapshot)
             if operation_summaries_snapshot is not None
@@ -592,17 +614,25 @@ class BaseFrame(ABC, Generic[T]):
 
     @classmethod
     def _lineage_to_history(cls, lineage: "LineageNode | None") -> list[dict[str, Any]]:
+        return cls._lineage_history_visit(lineage, set())
+
+    @classmethod
+    def _lineage_history_visit(cls, lineage: "LineageNode | None", seen: set[int]) -> list[dict[str, Any]]:
         if lineage is None:
             return []
         from wandas.processing.base import FrameSourceOperation
 
         if isinstance(lineage.operation, FrameSourceOperation):
             return []
+        identity = id(lineage)
+        if identity in seen:
+            return []
+        seen.add(identity)
         records: list[dict[str, Any]] = []
         for input_lineage in lineage.inputs:
-            records.extend(cls._lineage_to_history(input_lineage))
-        params = cls._operation_params(lineage.operation)
-        record: dict[str, Any] = {"operation": cls._operation_name(lineage.operation)}
+            records.extend(cls._lineage_history_visit(input_lineage, seen))
+        params = cast(dict[str, Any], _mutable_config_value(lineage.replay.thaw_params()))
+        record: dict[str, Any] = {"operation": lineage.replay.semantic_name}
         if params:
             record["params"] = params
         return [*records, record]
@@ -616,8 +646,8 @@ class BaseFrame(ABC, Generic[T]):
         if isinstance(lineage.operation, FrameSourceOperation):
             return {"operation": "__source__", "params": {}, "inputs": [], "kind": "source"}
         graph = {
-            "operation": cls._operation_name(lineage.operation),
-            "params": cls._operation_params(lineage.operation),
+            "operation": lineage.replay.semantic_name,
+            "params": cast(dict[str, Any], _mutable_config_value(lineage.replay.thaw_params())),
             "inputs": [
                 input_graph
                 for input_lineage in lineage.inputs
@@ -628,12 +658,18 @@ class BaseFrame(ABC, Generic[T]):
 
         if isinstance(lineage.operation, FrameMethodOperation):
             graph["kind"] = "method"
-        from wandas.processing.custom import CustomOperation
+        from wandas.processing.semantic import CustomReplay, thaw_replay_value
 
-        if isinstance(lineage.operation, CustomOperation):
-            custom_metadata = lineage.operation.to_recipe_metadata()
-            if custom_metadata is not None:
-                graph["custom"] = custom_metadata
+        if isinstance(lineage.replay, CustomReplay) and lineage.replay.function is not None:
+            graph["custom"] = {
+                "function": lineage.replay.function,
+                "output_shape_function": lineage.replay.output_shape_function,
+                "dask_pure": lineage.replay.contract.pure,
+                "output_frame_class": lineage.replay.output_frame_class,
+            }
+            kwargs = cast(dict[str, Any], thaw_replay_value(lineage.replay.output_frame_kwargs))
+            if kwargs:
+                graph["custom"]["output_frame_kwargs"] = kwargs
         return graph
 
     @classmethod
@@ -652,17 +688,24 @@ class BaseFrame(ABC, Generic[T]):
         }
 
     @classmethod
-    def _lineage_to_summaries(cls, lineage: "LineageNode | None") -> list[dict[str, Any]]:
+    def _lineage_to_summaries(
+        cls, lineage: "LineageNode | None", _seen: set[int] | None = None
+    ) -> list[dict[str, Any]]:
         if lineage is None:
             return []
         from wandas.processing.base import FrameSourceOperation
 
         if isinstance(lineage.operation, FrameSourceOperation):
             return []
+        seen = set() if _seen is None else _seen
+        identity = id(lineage)
+        if identity in seen:
+            return []
+        seen.add(identity)
         records: list[dict[str, Any]] = []
         for input_lineage in lineage.inputs:
-            records.extend(cls._lineage_to_summaries(input_lineage))
-        records.append(cls._operation_summary(lineage.operation))
+            records.extend(cls._lineage_to_summaries(input_lineage, seen))
+        records.append(lineage.summary)
         return records
 
     @classmethod
@@ -694,12 +737,16 @@ class BaseFrame(ABC, Generic[T]):
     def _lineage_or_source(self) -> "LineageNode":
         from wandas.processing.base import FrameSourceOperation, LineageNode
 
-        return self.lineage or LineageNode(FrameSourceOperation())
+        if self.lineage is not None:
+            return self.lineage
+        if self._source_lineage is None:
+            self._source_lineage = LineageNode(FrameSourceOperation())
+        return self._source_lineage
 
     def _lineage_with_method(self, method: str, params: Mapping[str, Any]) -> "LineageNode":
         from wandas.processing.base import FrameMethodOperation
 
-        return self._lineage_with_operation(FrameMethodOperation(method, params), self.lineage)
+        return self._lineage_with_operation(FrameMethodOperation(method, params), self._lineage_or_source())
 
     def _lineage_with_unsupported_indexing(self, indexing: str) -> "LineageNode":
         return self._lineage_with_method("__getitem__", {"indexing": indexing})
@@ -1004,8 +1051,14 @@ class BaseFrame(ABC, Generic[T]):
 
         # Single index (int)
         if isinstance(key, numbers.Integral):
-            # Ensure we pass a plain Python int to satisfy the type checker
-            return self.get_channel(int(key))
+            selected = self.get_channel(int(key))
+            return selected._create_new_instance(
+                data=selected._data,
+                channel_metadata=selected.channels.to_list(),
+                channel_ids=selected._channel_ids,
+                source_time_offset=selected.source_time_offset,
+                lineage=self._lineage_with_method("__getitem__", {"indexing": "integer", "index": int(key)}),
+            )
 
         # Single label (str)
         if isinstance(key, str):
@@ -1057,7 +1110,7 @@ class BaseFrame(ABC, Generic[T]):
                 result = self.get_channel(cast(npt.NDArray[np.int_], key))
                 lineage = self._lineage_with_method(
                     "__getitem__",
-                    {"indexing": "integer_list", "indices": tuple(int_list)},
+                    {"indexing": "integer_array", "indices": tuple(int_list)},
                 )
                 creation_kwargs = {}
                 if self._operation_summaries_snapshot is not None:
@@ -1204,9 +1257,10 @@ class BaseFrame(ABC, Generic[T]):
                 start, _, _ = time_axis_key.indices(time_axis_size)
                 source_time_offset = source_time_offset + start * time_step
             axis_slices = selected._axis_slices_for_lineage(time_keys)
+            channel = self._channel_selector_for_lineage(channel_key)
             lineage_params: dict[str, Any] = (
-                {"indexing": "multidimensional_slice", "axis_slices": axis_slices}
-                if axis_slices is not None
+                {"indexing": "multidimensional_slice", "channel": channel, "axis_slices": axis_slices}
+                if axis_slices is not None and channel is not None
                 else {"indexing": "multidimensional"}
             )
             return selected._create_new_instance(
@@ -1214,13 +1268,41 @@ class BaseFrame(ABC, Generic[T]):
                 channel_metadata=selected.channels.to_list(),
                 channel_ids=selected._channel_ids,
                 source_time_offset=source_time_offset,
-                lineage=selected._lineage_with_method(
+                lineage=self._lineage_with_method(
                     "__getitem__",
                     lineage_params,
                 ),
             )
 
-        return selected
+        channel = self._channel_selector_for_lineage(channel_key)
+        return selected._create_new_instance(
+            data=selected._data,
+            channel_metadata=selected.channels.to_list(),
+            channel_ids=selected._channel_ids,
+            source_time_offset=selected.source_time_offset,
+            lineage=self._lineage_with_method(
+                "__getitem__",
+                {"indexing": "multidimensional", "channel": channel},
+            ),
+        )
+
+    def _channel_selector_for_lineage(self, key: Any) -> dict[str, Any] | None:
+        if isinstance(key, numbers.Integral) and not isinstance(key, bool):
+            return {"type": "integer", "index": int(key)}
+        if isinstance(key, str):
+            return {"type": "label", "label": key}
+        if isinstance(key, slice):
+            bounds = self._slice_for_lineage(key)
+            return None if bounds is None else {"type": "channel_slice", **bounds}
+        if isinstance(key, list) and all(isinstance(item, str) for item in key):
+            return {"type": "label_list", "labels": tuple(key)}
+        if isinstance(key, list) and all(isinstance(item, numbers.Integral) for item in key):
+            return {"type": "integer_list", "indices": tuple(int(item) for item in key)}
+        if isinstance(key, np.ndarray) and np.issubdtype(key.dtype, np.bool_):
+            return {"type": "boolean_mask", "mask": tuple(bool(item) for item in key.tolist())}
+        if isinstance(key, np.ndarray) and np.issubdtype(key.dtype, np.integer):
+            return {"type": "integer_array", "indices": tuple(int(item) for item in key.tolist())}
+        return None
 
     def _source_time_slice_context(self, keys: tuple[Any, ...]) -> tuple[Any, int, float] | None:
         """Return the sliced time-axis key, axis size, and seconds per index."""
@@ -1731,7 +1813,7 @@ class BaseFrame(ABC, Generic[T]):
                 operation
                 if getattr(operation, "name", None) == operation_name
                 else _LineageOperationName(operation, operation_name, params),
-                self.lineage,
+                self._lineage_or_source(),
             ),
         }
 
@@ -1816,7 +1898,7 @@ class BaseFrame(ABC, Generic[T]):
             if getattr(operation, "name", None) == operation_name
             else _LineageOperationName(operation, operation_name, params)
         )
-        lineage = self._lineage_with_operation(lineage_operation, self.lineage)
+        lineage = self._lineage_with_operation(lineage_operation, self._lineage_or_source())
 
         metadata_updates = operation.get_metadata_updates()
         if operation_name == "trim":
