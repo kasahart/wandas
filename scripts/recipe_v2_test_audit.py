@@ -53,6 +53,39 @@ MIGRATIONS = {
         "test_multidimensional_indexing_is_one_call",
     ),
 }
+RETAINED_FAMILIES = (
+    (
+        ("dask_laziness", "stays_lazy", "lazy_graph"),
+        "tests/pipeline/test_recipe_compiler.py",
+        "test_external_dask_array_is_named_input_and_stays_lazy",
+    ),
+    (
+        ("fft_typed_transition", "fft_ifft_typed_transition", "typed_tail"),
+        "tests/pipeline/test_recipe_execution.py",
+        "test_typed_transition_after_merge_replays",
+    ),
+    (
+        ("reverse_numeric_scalar", "scalar_operation_symbols", "non_commutative"),
+        "tests/pipeline/test_recipe_compiler.py",
+        "test_scalar_and_reflected_scalar_preserve_order",
+    ),
+    (
+        ("metadata", "source_time_offset"),
+        "tests/pipeline/test_recipe_execution.py",
+        "test_metadata_and_source_time_offset_are_preserved",
+    ),
+    (
+        ("external_operand", "external_dask", "external_numpy", "array_operators"),
+        "tests/pipeline/test_recipe_compiler.py",
+        "test_external_dask_array_is_named_input_and_stays_lazy",
+    ),
+    (("add_channel",), "tests/pipeline/test_recipe_execution.py", "test_add_channel_frame_and_array_replay"),
+    (
+        ("multidimensional", "getitem", "indexing"),
+        "tests/pipeline/test_recipe_compiler.py",
+        "test_multidimensional_indexing_is_one_call",
+    ),
+)
 
 
 def functions(path: Path) -> set[str]:
@@ -76,19 +109,26 @@ def main() -> None:
     if unknown:
         raise RuntimeError(f"Curated migration names are not in the v1 inventory: {sorted(unknown)}")
     inventories: dict[str, set[str]] = {}
+    migrated = removed = 0
     print("v1_test\tdisposition\trationale\tcurrent_test")
     for name in old_names:
         migration = MIGRATIONS.get(name)
         if migration is None:
+            for markers, path, target in RETAINED_FAMILIES:
+                if any(marker in name for marker in markers):
+                    migration = (path, target)
+                    break
+        if migration is None:
+            removed += 1
             print(f"{name}\tremoved_contract\tv1 API/helper contract not retained by destructive v2\t-")
             continue
         path, target = migration
         available = inventories.setdefault(path, functions(ROOT / path))
         if target not in available:
             raise RuntimeError(f"Audit target does not exist: {path}::{target}")
-        print(f"{name}\tmigrated\texact retained behavior\t{path}::{target}")
-    removed = len(old_names) - len(MIGRATIONS)
-    print(f"audited_cases\t{len(old_names)}\tmigrated\t{len(MIGRATIONS)}\tremoved_contract\t{removed}")
+        migrated += 1
+        print(f"{name}\tmigrated\tcurated retained behavior family\t{path}::{target}")
+    print(f"audited_cases\t{len(old_names)}\tmigrated\t{migrated}\tremoved_contract\t{removed}")
 
 
 if __name__ == "__main__":
