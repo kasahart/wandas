@@ -1,4 +1,4 @@
-"""Audit every deleted v1 Recipe test as migrated or intentionally removed."""
+"""Audit every deleted v1 Recipe test with an explicitly curated disposition."""
 
 from __future__ import annotations
 
@@ -7,50 +7,52 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-REMOVED_HELPERS = (
-    "steps_from_graph",
-    "step_from_graph",
-    "axis_slices_from_params",
-    "indices_from_params",
-    "mask_from_params",
-    "slice_from_serialized",
-    "channel_key_from_parent_graph",
-    "rename_mapping_from_params",
-    "restore_history_value",
-    "snapshot_get_channel_query_params",
-    "boolean_mask_wrapper",
-)
-ROUTES = (
-    (("sklearn",), "tests/pipeline/test_sklearn_adapter.py", "test_transform_applies_operation"),
-    (
-        ("index", "getitem", "slice", "mask"),
+MIGRATIONS = {
+    "test_recipe_apply_runs_steps_in_order_and_preserves_source_frame": (
+        "tests/pipeline/test_recipe_compiler.py",
+        "test_linear_audio_recipe_replays",
+    ),
+    "test_recipe_apply_supports_terminal_rms_metric": (
+        "tests/pipeline/test_recipe_serialization.py",
+        "test_valid_terminal_property_roundtrips_and_executes",
+    ),
+    "test_recipe_from_frame_extracts_importable_custom_function": (
+        "tests/pipeline/test_recipe_execution.py",
+        "test_custom_function_replays_by_stable_path",
+    ),
+    "test_recipe_from_frame_rejects_custom_lambda_boundary": (
+        "tests/pipeline/test_recipe_serialization.py",
+        "test_public_call_constructors_share_fail_closed_contracts",
+    ),
+    "test_graph_recipe_applies_add_with_snr": (
+        "tests/pipeline/test_recipe_execution.py",
+        "test_true_multi_input_replays_in_role_order",
+    ),
+    "test_graph_recipe_rejects_missing_input": (
+        "tests/pipeline/test_recipe_contract.py",
+        "test_missing_and_wrong_input_types_are_rejected",
+    ),
+    "test_graph_recipe_from_frame_extracts_single_merge_with_typed_tail": (
+        "tests/pipeline/test_recipe_execution.py",
+        "test_typed_transition_after_merge_replays",
+    ),
+    "test_graph_recipe_from_frame_uses_numbered_default_names_with_typed_tail": (
+        "tests/pipeline/test_recipe_execution.py",
+        "test_typed_transition_after_merge_replays",
+    ),
+    "test_node_graph_recipe_from_frame_extracts_typed_tail_after_merge": (
+        "tests/pipeline/test_recipe_execution.py",
+        "test_typed_transition_after_merge_replays",
+    ),
+    "test_node_graph_recipe_from_frame_extracts_multidimensional_indexing_branch": (
         "tests/pipeline/test_recipe_compiler.py",
         "test_multidimensional_indexing_is_one_call",
     ),
-    (("add_channel",), "tests/pipeline/test_recipe_execution.py", "test_add_channel_frame_and_array_replay"),
-    (
-        ("scalar", "operand"),
+    "test_recipe_from_frame_extracts_multidimensional_slice_indexing": (
         "tests/pipeline/test_recipe_compiler.py",
-        "test_scalar_and_reflected_scalar_preserve_order",
+        "test_multidimensional_indexing_is_one_call",
     ),
-    (("typed",), "tests/pipeline/test_recipe_execution.py", "test_typed_transition_after_merge_replays"),
-    (("binary", "graph_recipe"), "tests/pipeline/test_recipe_compiler.py", "test_shared_dag_identity_is_preserved"),
-    (
-        ("serial", "dict", "json", "params"),
-        "tests/pipeline/test_recipe_serialization.py",
-        "test_canonical_schema_roundtrip_is_json_serializable",
-    ),
-    (
-        ("reject", "invalid", "missing", "unknown"),
-        "tests/pipeline/test_recipe_contract.py",
-        "test_graph_invariants_fail_closed",
-    ),
-    (
-        ("metadata", "source_time"),
-        "tests/pipeline/test_recipe_execution.py",
-        "test_metadata_and_source_time_offset_are_preserved",
-    ),
-)
+}
 
 
 def functions(path: Path) -> set[str]:
@@ -70,45 +72,23 @@ def main() -> None:
     ]
     if len(old_names) != 192 or len(set(old_names)) != len(old_names):
         raise RuntimeError("v1 Recipe test inventory is incomplete or duplicated")
+    unknown = set(MIGRATIONS) - set(old_names)
+    if unknown:
+        raise RuntimeError(f"Curated migration names are not in the v1 inventory: {sorted(unknown)}")
     inventories: dict[str, set[str]] = {}
-    migrated = removed = 0
     print("v1_test\tdisposition\trationale\tcurrent_test")
     for name in old_names:
-        if "terminal" in name and "terminal_rms_metric" not in name:
-            removed += 1
-            print(f"{name}\tremoved_contract\tv1 implicit terminal allowlist removed; v2 requires explicit opt-in\t-")
+        migration = MIGRATIONS.get(name)
+        if migration is None:
+            print(f"{name}\tremoved_contract\tv1 API/helper contract not retained by destructive v2\t-")
             continue
-        if any(marker in name for marker in REMOVED_HELPERS):
-            removed += 1
-            print(f"{name}\tremoved_contract\tv1 dict/step reconstruction no longer exists\t-")
-            continue
-        if "custom" in name:
-            path = "tests/pipeline/test_recipe_serialization.py"
-            target = "test_public_call_constructors_share_fail_closed_contracts"
-            rationale = "stable custom callable boundary migrated"
-        elif "terminal_rms_metric" in name:
-            path = "tests/pipeline/test_recipe_serialization.py"
-            target = "test_valid_terminal_property_roundtrips_and_executes"
-            rationale = "explicit rms terminal contract migrated"
-        else:
-            path = target = ""
-            rationale = ""
-        if not path:
-            for words, candidate_path, candidate_target in ROUTES:
-                if any(word in name for word in words):
-                    path, target = candidate_path, candidate_target
-                    rationale = "behavior migrated to canonical public/family contract"
-                    break
-        if not path:
-            removed += 1
-            print(f"{name}\tremoved_contract\tv1 spec/step API contract intentionally removed\t-")
-            continue
+        path, target = migration
         available = inventories.setdefault(path, functions(ROOT / path))
         if target not in available:
             raise RuntimeError(f"Audit target does not exist: {path}::{target}")
-        migrated += 1
-        print(f"{name}\tmigrated\t{rationale}\t{path}::{target}")
-    print(f"audited_cases\t{len(old_names)}\tmigrated\t{migrated}\tremoved_contract\t{removed}")
+        print(f"{name}\tmigrated\texact retained behavior\t{path}::{target}")
+    removed = len(old_names) - len(MIGRATIONS)
+    print(f"audited_cases\t{len(old_names)}\tmigrated\t{len(MIGRATIONS)}\tremoved_contract\t{removed}")
 
 
 if __name__ == "__main__":

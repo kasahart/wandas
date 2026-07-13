@@ -22,9 +22,9 @@ to the production responsibility they exercise.
 
 `uv run python scripts/recipe_v2_test_audit.py` emits all 192 baseline cases with a
 `migrated` or `removed_contract` disposition, rationale, and an AST-verified current
-pytest function for every migrated row. The current audit records 157 migrated cases
-and 35 contracts intentionally removed with v1 specs, implicit terminal allowlists,
-or dictionary/step reconstruction.
+pytest function for every migrated row. Migration entries are an explicit curated map,
+not keyword inference. The current audit records 11 exactly retained cases and 181
+contracts intentionally removed with the destructive v1 API replacement.
 
 ## Extension amplification
 
