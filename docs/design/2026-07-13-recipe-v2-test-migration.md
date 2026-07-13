@@ -20,9 +20,11 @@ their behavioral outcomes are covered through the public `RecipePlan` contract. 
 contract tests import no private production symbols. White-box codec tests remain next
 to the production responsibility they exercise.
 
-`uv run python scripts/recipe_v2_test_audit.py` emits a case-level route for all 192
-v1 tests from the baseline commit. The route is an audit index, not a claim that every
-deleted implementation assertion survives unchanged.
+`uv run python scripts/recipe_v2_test_audit.py` emits all 192 baseline cases with a
+`migrated` or `removed_contract` disposition, rationale, and an AST-verified current
+pytest function for every migrated row. The current audit records 189 migrated cases
+and three v1 dictionary/step reconstruction contracts intentionally removed with the
+implementation they described.
 
 ## Extension amplification
 
