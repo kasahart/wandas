@@ -84,6 +84,46 @@ MIGRATIONS = {
         "tests/pipeline/test_recipe_compiler.py",
         "test_multidimensional_indexing_is_one_call",
     ),
+    "test_recipe_from_frame_extracts_additional_single_input_apply_operations": (
+        "tests/pipeline/test_recipe_behavior_parity.py",
+        "test_supported_unary_audio_operations_replay",
+    ),
+    "test_recipe_from_frame_extracts_hpss_apply_operations": (
+        "tests/pipeline/test_recipe_behavior_parity.py",
+        "test_hpss_operations_replay",
+    ),
+    "test_recipe_from_frame_extracts_psychoacoustic_apply_operations": (
+        "tests/pipeline/test_recipe_behavior_parity.py",
+        "test_psychoacoustic_operations_replay",
+    ),
+    "test_recipe_from_frame_extracts_roughness_spec_typed_transition": (
+        "tests/pipeline/test_recipe_behavior_parity.py",
+        "test_roughness_typed_transition_replays",
+    ),
+    "test_recipe_from_frame_extracts_stft_istft_typed_transition_chain": (
+        "tests/pipeline/test_recipe_behavior_parity.py",
+        "test_stft_istft_and_welch_transitions_replay",
+    ),
+    "test_recipe_from_frame_extracts_stft_typed_transition": (
+        "tests/pipeline/test_recipe_behavior_parity.py",
+        "test_stft_istft_and_welch_transitions_replay",
+    ),
+    "test_recipe_from_frame_extracts_welch_typed_transition": (
+        "tests/pipeline/test_recipe_behavior_parity.py",
+        "test_stft_istft_and_welch_transitions_replay",
+    ),
+    "test_recipe_from_frame_extracts_noct_spectrum_typed_transition": (
+        "tests/pipeline/test_recipe_behavior_parity.py",
+        "test_noct_spectrum_and_synthesis_transitions_replay",
+    ),
+    "test_recipe_from_frame_extracts_noct_synthesis_typed_transition": (
+        "tests/pipeline/test_recipe_behavior_parity.py",
+        "test_noct_spectrum_and_synthesis_transitions_replay",
+    ),
+    "test_node_graph_recipe_add_channel_frame_input_omits_raw_source_time_offset_option": (
+        "tests/pipeline/test_recipe_behavior_parity.py",
+        "test_add_channel_preserves_metadata_and_source_time_contract",
+    ),
 }
 FORCED_REMOVALS = {
     "test_steps_from_graph_rejects_invalid_multidimensional_parent_shapes": "v1 dictionary parent-shape parser removed",
