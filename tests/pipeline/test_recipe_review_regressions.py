@@ -66,6 +66,13 @@ def test_literal_channel_query_is_re_evaluated_on_recipe_input() -> None:
     assert plan.apply({"signal": reordered}).labels == ["ch1"]
 
 
+def test_query_recipe_drops_ignored_channel_index_argument() -> None:
+    source = _frame()
+    processed = source.get_channel(channel_idx=np.array([0]), query="ch1")
+
+    _roundtrip_replay(source, processed)
+
+
 def test_method_runtime_params_are_snapshotted_for_history_and_graph() -> None:
     source = _frame(channels=1)
     params = {"nested": {"value": 1}}

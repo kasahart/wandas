@@ -50,7 +50,10 @@ def _get_channel_semantic_params(params: Mapping[str, Any]) -> Mapping[str, Any]
     """Normalize replayable selection intent without resolving runtime searches."""
     query = params.get("query")
     if query is not None:
-        return params
+        return {
+            "query": query,
+            **({"validate_query_keys": params["validate_query_keys"]} if "validate_query_keys" in params else {}),
+        }
     channel_idx = params.get("channel_idx")
     if isinstance(channel_idx, np.ndarray) and channel_idx.dtype in (bool, np.bool_):
         return {"channel_idx": [index for index, selected in enumerate(channel_idx.tolist()) if selected]}
