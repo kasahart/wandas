@@ -1,6 +1,6 @@
 # ADR: Recipe v2 canonical replay architecture
 
-- **Status:** Proposed for implementation
+- **Status:** Implemented
 - **Date:** 2026-07-13
 - **Base:** `origin/develop@b808c8e`
 
@@ -83,3 +83,22 @@ performance KPIs. In addition to normal tests, adversarial gates cover snapshot
 mutation, marker collisions, duplicate keys, callable ownership, dead graph elements,
 shared DAG identity, reflected operand order, and compute bombs during extraction and
 lazy graph construction.
+
+## Public API
+
+`RecipePlan.from_frame(frame, input_names=...)` compiles runtime semantic lineage.
+`plan.apply({"name": frame_or_array})` executes it, while `plan.to_dict()` and
+`RecipePlan.from_dict(payload)` are the only persistence entry points. For explicit
+graphs, `RecipePlanBuilder` creates the same model and therefore cannot bypass the
+validator or executor.
+
+The public call families are edge-free values. Adding an operation within an existing
+family changes the operation implementation and its tests; it does not change the
+graph model, compiler traversal, validator, executor, or serializer dispatch.
+
+## Deferred work
+
+WDF may retain display history, but executable Recipe persistence in WDF is deferred.
+The schema records graph identity and ordered roles, not a content-derived global
+identity. Cross-file node identity and Dask graph restoration require a separate
+persistence contract.
