@@ -461,7 +461,7 @@ class TestRenameChannels:
 
         assert result.labels == ["left", "right"]
         assert result.operation_history == [
-            {"operation": "rename_channels", "params": {"mapping_items": [[0, "left"], [1, "right"]]}}
+            {"operation": "rename_channels", "params": {"mapping": {"0": "left", "1": "right"}}}
         ]
 
     def test_rename_channels_by_label(self) -> None:
@@ -511,7 +511,7 @@ class TestRenameChannels:
         assert frame.labels == ["left", "right"]
         assert frame.operation_history[-1] == {
             "operation": "rename_channels",
-            "params": {"mapping_items": [[0, "left"], [1, "right"]]},
+            "params": {"mapping": {"0": "left", "1": "right"}, "inplace": True},
         }
 
     def test_rename_channels_nonexistent_index_error(self) -> None:

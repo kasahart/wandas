@@ -47,7 +47,6 @@ def test_new_unary_same_frame_uses_existing_audio_family(monkeypatch: pytest.Mon
         OperationContract("recipe_probe_unary", 1, True, (InputBinding("frame", "frame"),)),
         frozen_params({}),
         "recipe_probe_unary",
-        True,
     )
 
     result = default_codec_registry().encode(descriptor, (LineageNode.__new__(LineageNode),))

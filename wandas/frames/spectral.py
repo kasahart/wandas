@@ -297,7 +297,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
         # Create new instance
-        lineage = self._lineage_with_method(operation_name, operation.to_params())
+        lineage = self._required_semantic_lineage()
         return ChannelFrame(
             data=time_series,
             sampling_rate=self.sampling_rate,
@@ -386,7 +386,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
-        lineage = self._lineage_with_method(operation_name, operation.to_params())
+        lineage = self._required_semantic_lineage()
         return NOctFrame(
             data=spectrum_data,
             sampling_rate=self.sampling_rate,

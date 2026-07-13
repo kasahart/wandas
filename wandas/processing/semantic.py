@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import inspect
 import math
 import numbers
 from collections.abc import Callable, Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Any, Literal, ParamSpec, TypeAlias, TypeVar
+from functools import wraps
+from typing import Any, Literal, ParamSpec, TypeAlias, TypeVar, cast
 
 import numpy as np
 from dask.array.core import Array as DaArray
@@ -15,6 +19,36 @@ InputKind = Literal["frame", "array", "scalar"]
 ReplayValue: TypeAlias = tuple[Any, ...]
 P = ParamSpec("P")
 R = TypeVar("R")
+
+
+_semantic_capture: ContextVar[Any | None] = ContextVar("wandas_semantic_capture", default=None)
+
+
+def active_semantic_lineage() -> Any | None:
+    """Return the public-operation lineage selected at the current call boundary."""
+    return _semantic_capture.get()
+
+
+@contextmanager
+def semantic_lineage(lineage: Any) -> Any:
+    """Make an already-final semantic node authoritative for nested helpers."""
+    token = _semantic_capture.set(lineage)
+    try:
+        yield
+    finally:
+        _semantic_capture.reset(token)
+
+
+def _invoke_semantic(method: Callable[P, R], args: tuple[Any, ...], kwargs: Mapping[str, Any], lineage: Any) -> R:
+    token = _semantic_capture.set(lineage)
+    try:
+        result = method(*args, **kwargs)
+        result_lineage = getattr(result, "lineage", lineage)
+        if type(result).__module__.startswith("wandas.") and result_lineage is not lineage:
+            raise RuntimeError("Public operation did not preserve semantic lineage")
+        return result
+    finally:
+        _semantic_capture.reset(token)
 
 
 def _identifier(value: object, label: str) -> str:
@@ -66,13 +100,65 @@ class ReplayTargetContract:
             raise ValueError("Replay target version must be positive")
 
 
-def replay_method(operation_id: str | None = None, *, version: int = 1) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def replay_method(
+    operation_id: str | None = None,
+    *,
+    version: int = 1,
+    params: Callable[[Mapping[str, Any]], Mapping[str, Any]] | None = None,
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     def decorate(method: Callable[P, R]) -> Callable[P, R]:
         operation = getattr(method, "__name__") if operation_id is None else operation_id
-        setattr(method, "__wandas_replay_target__", ReplayTargetContract(operation, version, "frame"))
-        return method
+        signature = inspect.signature(method)
+
+        @wraps(method)
+        def semantic_call(*args: P.args, **kwargs: P.kwargs) -> R:
+            if _semantic_capture.get() is not None:
+                return method(*args, **kwargs)
+            if not args or not hasattr(args[0], "_lineage_or_source"):
+                return method(*args, **kwargs)
+            bound = signature.bind(*args, **kwargs)
+            captured_params = dict(bound.arguments)
+            captured_params.pop(next(iter(signature.parameters)), None)
+            for name, parameter in signature.parameters.items():
+                if parameter.kind is inspect.Parameter.VAR_KEYWORD and name in captured_params:
+                    captured_params.update(cast(Mapping[str, Any], captured_params.pop(name)))
+            if params is not None:
+                captured_params = dict(params(captured_params))
+            from wandas.processing.base import FrameMethodOperation, LineageNode
+
+            receiver = cast(Any, args[0])
+            target = f"{semantic_call.__module__}.{semantic_call.__qualname__}"
+            lineage = LineageNode(
+                FrameMethodOperation(operation, captured_params, target, version),
+                (receiver._lineage_or_source(),),
+            )
+            return _invoke_semantic(method, args, kwargs, lineage)
+
+        setattr(semantic_call, "__wandas_replay_target__", ReplayTargetContract(operation, version, "frame"))
+        return semantic_call
 
     return decorate
+
+
+def semantic_index(method: Callable[P, R]) -> Callable[P, R]:
+    """Capture one public indexing intent before helper selections execute."""
+
+    @wraps(method)
+    def semantic_call(*args: P.args, **kwargs: P.kwargs) -> R:
+        if _semantic_capture.get() is not None or not args:
+            return method(*args, **kwargs)
+        bound = inspect.signature(method).bind(*args, **kwargs)
+        key = bound.arguments.get("key")
+        from wandas.processing.base import IndexOperation, LineageNode
+
+        receiver = cast(Any, args[0])
+        lineage = LineageNode(
+            IndexOperation(receiver._semantic_index_params(key)),
+            (receiver._lineage_or_source(),),
+        )
+        return _invoke_semantic(method, args, kwargs, lineage)
+
+    return semantic_call
 
 
 def terminal_method(operation_id: str | None = None, *, version: int = 1) -> Callable[[Callable[P, R]], Callable[P, R]]:
@@ -203,13 +289,12 @@ class SourceReplay(ReplayDescriptor):
 
 @dataclass(frozen=True)
 class AudioReplay(ReplayDescriptor):
-    generic: bool
+    pass
 
 
 @dataclass(frozen=True)
 class MethodReplay(ReplayDescriptor):
     target: str | None = None
-    call_params: ReplayValue | None = None
 
 
 @dataclass(frozen=True)
@@ -262,28 +347,3 @@ class UnsupportedReplay(ReplayDescriptor):
 
 def frozen_params(params: Mapping[str, Any], *, allow_opaque: bool = False) -> ReplayValue:
     return freeze_replay_value(dict(params), allow_opaque=allow_opaque)
-
-
-def method_replay_params(operation: str, params: Mapping[str, Any]) -> dict[str, Any]:
-    """Apply declarative adapters for legacy runtime/public signature differences."""
-    if operation in {"ifft", "istft"}:
-        return {}
-    result = dict(params)
-    policy = {
-        "rename_channels": ({"mapping_items": "mapping"}, ()),
-        "get_channel": ({}, ("query_kind",)),
-        "welch": ({}, ("detrend",)),
-    }.get(operation)
-    if policy is None:
-        return result
-    renames, drops = policy
-    for old, new in renames.items():
-        if old in result:
-            value = result.pop(old)
-            result[new] = dict(value) if old == "mapping_items" else value
-    if operation == "get_channel" and "channel_mask" in result:
-        mask = result.pop("channel_mask")
-        result["channel_idx"] = [index for index, selected in enumerate(mask) if selected]
-    for name in drops:
-        result.pop(name, None)
-    return result

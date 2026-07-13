@@ -10,7 +10,7 @@ import numpy as np
 from dask.array.core import Array as DaArray
 from dask.array.core import concatenate
 
-from wandas.processing.semantic import replay_method, terminal_method
+from wandas.processing.semantic import replay_method, semantic_lineage, terminal_method
 from wandas.utils import validate_sampling_rate
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
 from wandas.utils.optional_imports import (
@@ -541,6 +541,31 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         raw_array = other if isinstance(other, np.ndarray | DaArray) else None
         noise_input_kind = "array" if raw_array is not None else "frame"
+        if raw_array is not None and snr is None:
+            from wandas.processing.base import BinaryOperation
+
+            operation = BinaryOperation(
+                "+",
+                "operand",
+                raw_array,
+                replay_operation="add",
+                replay_handler="wandas.pipeline.calls.apply_add",
+            )
+            lineage = self._lineage_with_operation(operation, self._lineage_or_source())
+            with semantic_lineage(lineage):
+                array_frame = (
+                    ChannelFrame.from_numpy(cast(NDArrayReal, raw_array), self.sampling_rate, label="array_data")
+                    if isinstance(raw_array, np.ndarray)
+                    else ChannelFrame(raw_array, self.sampling_rate, label="array_data")
+                )
+                if array_frame.duration != self.duration:
+                    array_frame = array_frame.fix_length(length=self.n_samples)
+                array_frame = ChannelFrame(
+                    array_frame._data,
+                    self.sampling_rate,
+                    label="array_data",
+                )
+                return self + array_frame
         if isinstance(other, ChannelFrame):
             # Check if sampling rates match
             if self.sampling_rate != other.sampling_rate:
@@ -580,20 +605,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             )
 
         if snr is None:
-            result = self + other
-            if raw_array is None:
-                return result
-            from wandas.processing.base import BinaryOperation
-
-            operation = BinaryOperation(
-                "+",
-                "operand",
-                raw_array,
-                replay_operation="add",
-                replay_handler="wandas.pipeline.calls.apply_add",
-            )
-            lineage = self._lineage_with_operation(operation, self._lineage_or_source())
-            return self._replace_semantic_lineage(result, lineage)
+            return self + other
         from wandas.processing import create_operation
 
         operation = create_operation(
@@ -1563,7 +1575,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             inplace,
             new_ids,
             self.source_time_offset[keep_indices],
-            lineage=self._lineage_with_method("remove_channel", {"key": key}),
+            lineage=self._required_semantic_lineage(),
         )
 
     @replay_method()
@@ -1661,7 +1673,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             new_chmeta,
             inplace=inplace,
             channel_ids=self._channel_ids,
-            lineage=self._lineage_with_method("rename_channels", {"mapping_items": list(mapping.items())}),
+            lineage=self._required_semantic_lineage(),
         )
 
     def _get_dataframe_index(self) -> "pd.Index[Any]":

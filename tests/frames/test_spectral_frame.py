@@ -582,13 +582,7 @@ class TestSpectralFrame:
         assert result.G == 10
         assert result.fr == 1000
 
-        expected_params = {
-            "fmin": 125.0,
-            "fmax": 8000.0,
-            "n": 3,
-            "G": 10,
-            "fr": 1000,
-        }
+        expected_params = {"fmin": 125.0, "fmax": 8000.0}
         assert result.operation_history[-1] == {
             "operation": "noct_synthesis",
             "params": expected_params,

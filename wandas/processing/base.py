@@ -28,7 +28,6 @@ from wandas.processing.semantic import (
     SourceReplay,
     UnsupportedReplay,
     frozen_params,
-    method_replay_params,
 )
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
@@ -328,6 +327,9 @@ class FrameMethodOperation:
     target: str | None = None
     version: int = 1
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "method_params", _snapshot_config_value(self.method_params))
+
     @property
     def params(self) -> Mapping[str, Any]:
         return self.to_params()
@@ -338,13 +340,30 @@ class FrameMethodOperation:
     def to_summary(self) -> OperationSummary:
         return {"operation": self.name, "params": _summary_value(self.to_params())}
 
-    def replay_descriptor(self) -> MethodReplay:
+    def replay_descriptor(self) -> ReplayDescriptor:
+        contract = OperationContract(self.name, self.version, True, (InputBinding("frame", "frame"),))
+        runtime_params = self.to_params()
+        try:
+            call_params = frozen_params(runtime_params)
+        except TypeError:
+            return UnsupportedReplay(
+                contract,
+                frozen_params(runtime_params, allow_opaque=True),
+                self.name,
+                "Public method arguments are not portable Recipe values",
+            )
+        if self.target is None:
+            return UnsupportedReplay(
+                contract,
+                frozen_params(runtime_params, allow_opaque=True),
+                self.name,
+                "Public method has no stable replay target",
+            )
         return MethodReplay(
-            OperationContract(self.name, self.version, True, (InputBinding("frame", "frame"),)),
-            frozen_params(self.to_params(), allow_opaque=True),
+            contract,
+            call_params,
             self.name,
             self.target,
-            frozen_params(method_replay_params(self.name, self.to_params()), allow_opaque=True),
         )
 
 
@@ -591,12 +610,13 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
                 handler,
                 roles,
             )
-        return AudioReplay(
-            OperationContract(self.name, self.operation_version, bool(self.pure), (InputBinding("frame", "frame"),)),
-            frozen_params(self.to_params(), allow_opaque=True),
-            self.name,
-            self.supports_generic_replay,
+        contract = OperationContract(
+            self.name, self.operation_version, bool(self.pure), (InputBinding("frame", "frame"),)
         )
+        params = frozen_params(self.to_params(), allow_opaque=True)
+        if not self.supports_generic_replay:
+            return UnsupportedReplay(contract, params, self.name, "Audio operation has not opted into generic replay")
+        return AudioReplay(contract, params, self.name)
 
     def to_summary(self) -> OperationSummary:
         """Return a lightweight display summary for this operation."""

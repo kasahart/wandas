@@ -778,8 +778,6 @@ class TestBaseFrameUtilityMethods:
 
         assert lineage.operation.name == "__getitem__"
         assert lineage.operation.params == {"indexing": "callable"}
-        assert self.channel_frame._is_literal_channel_query({1: "left"}) is False
-        assert self.channel_frame._is_literal_channel_query({"idx": np.int64(1)}) is True
         assert self.channel_frame._slice_bound_for_lineage(True) is None
         assert self.channel_frame._slice_bound_for_lineage(object()) is None
         assert self.channel_frame._slice_for_lineage(slice(object(), None, None)) is None

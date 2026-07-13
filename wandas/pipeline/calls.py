@@ -302,9 +302,13 @@ class ExternalArrayCall(CanonicalCall):
     def invoke(self, inputs: tuple[Any, ...]) -> Any:
         if not isinstance(inputs[self.array_index], np.ndarray | DaArray):
             raise TypeError("External Recipe operand must be NumPy or Dask")
-        if self.array_index == 0:
-            return inputs[1]._binary_operand_op(inputs[0], _OPERATORS[self.operation], self.operation, reverse=True)
-        return _operator(self.operation, inputs[0], inputs[1])
+        frame = inputs[1 - self.array_index]
+        return frame._binary_operand_op(
+            inputs[self.array_index],
+            _OPERATORS[self.operation],
+            self.operation,
+            reverse=self.array_index == 0,
+        )
 
     def to_payload(self) -> dict[str, Any]:
         payload = _payload("external_array", self.operation, self.version, _freeze_params({}))
@@ -639,16 +643,22 @@ def _load_external(value: Mapping[str, Any]) -> ExternalArrayCall:
 register_call("scalar", _load_scalar, _BASE | {"operand", "reverse"})
 register_call("binary", _load_binary, _BASE)
 register_call("external_array", _load_external, _BASE | {"array_index"})
-register_call(
-    "index",
-    lambda value: IndexCall(thaw_replay_value(_tree(value["key"])), _version(value)),
-    frozenset({"type", "operation", "version", "key"}),
-)
-register_call(
-    "add_channel",
-    lambda value: AddChannelCall(value["input_kind"], _params_payload(value), _version(value)),  # type: ignore[arg-type]
-    _BASE | {"input_kind"},
-)
+
+
+def _load_index(value: Mapping[str, Any]) -> IndexCall:
+    if _operation(value) != "__getitem__":
+        raise RecipeSerializationError("Index Recipe operation must be '__getitem__'")
+    return IndexCall(thaw_replay_value(_tree(value["key"])), _version(value))
+
+
+def _load_add_channel(value: Mapping[str, Any]) -> AddChannelCall:
+    if _operation(value) != "add_channel":
+        raise RecipeSerializationError("Add-channel Recipe operation must be 'add_channel'")
+    return AddChannelCall(value["input_kind"], _params_payload(value), _version(value))  # type: ignore[arg-type]
+
+
+register_call("index", _load_index, frozenset({"type", "operation", "version", "key"}))
+register_call("add_channel", _load_add_channel, _BASE | {"input_kind"})
 
 
 def _load_custom(value: Mapping[str, Any]) -> CustomCall:

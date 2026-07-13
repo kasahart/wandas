@@ -216,11 +216,11 @@ def test_remove_channel_errors_and_inplace():
     assert cf2 is not cf  # Pillar 1: immutability
     assert cf2.n_channels == 1
     assert cf.n_channels == 2  # Pillar 1: original unchanged
-    assert cf2.operation_history == [{"operation": "remove_channel", "params": {"key": 0}}]
+    assert cf2.operation_history == [{"operation": "remove_channel", "params": {"key": 0, "inplace": False}}]
     # inplace True
     cf.remove_channel(0, inplace=True)
     assert cf.n_channels == 1
-    assert cf.operation_history[-1] == {"operation": "remove_channel", "params": {"key": 0}}
+    assert cf.operation_history[-1] == {"operation": "remove_channel", "params": {"key": 0, "inplace": True}}
 
 
 def test_describe_image_save_jpg(tmp_path):

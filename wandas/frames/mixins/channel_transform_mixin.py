@@ -116,7 +116,7 @@ class ChannelTransformMixin:
                 f"Operation '{operation_name}' must provide a positive integer n_fft "
                 f"to create a SpectralFrame, but got {n_fft}."
             )
-        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
+        lineage = cast(Any, self)._required_semantic_lineage()
         return SpectralFrame(
             data=result_data,
             sampling_rate=self.sampling_rate,
@@ -159,7 +159,7 @@ class ChannelTransformMixin:
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
-        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
+        lineage = cast(Any, self)._required_semantic_lineage()
         return SpectralFrame(
             data=spectrum_data,
             sampling_rate=self.sampling_rate,
@@ -218,7 +218,7 @@ class ChannelTransformMixin:
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
-        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
+        lineage = cast(Any, self)._required_semantic_lineage()
         return SpectralFrame(
             data=spectrum_data,
             sampling_rate=self.sampling_rate,
@@ -271,7 +271,7 @@ class ChannelTransformMixin:
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
-        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
+        lineage = cast(Any, self)._required_semantic_lineage()
         return NOctFrame(
             data=spectrum_data,
             sampling_rate=self.sampling_rate,
@@ -337,7 +337,7 @@ class ChannelTransformMixin:
         logger.debug(f"Created new SpectrogramFrame with operation {operation_name} added to graph")
 
         # Create new instance
-        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
+        lineage = cast(Any, self)._required_semantic_lineage()
         return SpectrogramFrame(
             data=spectrogram_data,
             sampling_rate=self.sampling_rate,

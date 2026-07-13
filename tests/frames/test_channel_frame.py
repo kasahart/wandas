@@ -380,7 +380,7 @@ class TestChannelFrame:
         assert channels.channels[0].label == "ch1"
         assert channels.operation_history[-1] == {
             "operation": "get_channel",
-            "params": {"channel_mask": [False, True]},
+            "params": {"channel_idx": [1]},
         }
         assert isinstance(channels._data, DaArray)
         np.testing.assert_array_equal(channels.data, self.data[1])

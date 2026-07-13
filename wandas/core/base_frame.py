@@ -14,7 +14,7 @@ import numpy.typing as npt
 import xarray as xr
 from dask.array.core import Array as DaArray
 
-from wandas.processing.semantic import replay_method
+from wandas.processing.semantic import replay_method, semantic_index
 from wandas.utils import validate_sampling_rate
 from wandas.utils.optional_imports import require_dependency, require_pandas
 from wandas.utils.types import NDArrayComplex, NDArrayReal
@@ -44,6 +44,19 @@ T = TypeVar("T", NDArrayComplex, NDArrayReal)
 S = TypeVar("S", bound="BaseFrame[Any]")
 S_Out = TypeVar("S_Out", bound="BaseFrame[Any]")
 QueryType = str | Pattern[str] | Callable[["ChannelMetadata"], bool] | dict[str, Any]
+
+
+def _get_channel_semantic_params(params: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Normalize replayable selection intent without resolving runtime searches."""
+    query = params.get("query")
+    if query is not None:
+        return params
+    channel_idx = params.get("channel_idx")
+    if isinstance(channel_idx, np.ndarray) and channel_idx.dtype in (bool, np.bool_):
+        return {"channel_idx": [index for index, selected in enumerate(channel_idx.tolist()) if selected]}
+    if isinstance(channel_idx, np.ndarray):
+        return {"channel_idx": [int(value) for value in channel_idx.tolist()]}
+    return params
 
 
 class _LineageOperationName:
@@ -600,11 +613,6 @@ class BaseFrame(ABC, Generic[T]):
             return {}
         return {"operation_summaries_snapshot": self._operation_summaries_with_lineage_delta(lineage)}
 
-    def _replace_semantic_lineage(self: S, result: S, lineage: "LineageNode", **kwargs: Any) -> S:
-        """Replace helper lineage while deriving display summaries from the public source."""
-        kwargs.update(self._operation_summaries_snapshot_kwargs(lineage))
-        return result._create_new_instance(data=kwargs.pop("data", result._data), lineage=lineage, **kwargs)
-
     @staticmethod
     def _operation_name(operation: Any) -> str:
         from wandas.processing.base import BinaryOperation
@@ -640,7 +648,7 @@ class BaseFrame(ABC, Generic[T]):
         records: list[dict[str, Any]] = []
         for input_lineage in lineage.inputs:
             records.extend(cls._lineage_history_visit(input_lineage, seen))
-        params = cast(dict[str, Any], _mutable_config_value(lineage.replay.thaw_params()))
+        params = cls._operation_params(lineage.operation)
         record: dict[str, Any] = {"operation": lineage.replay.semantic_name}
         if params:
             record["params"] = params
@@ -656,7 +664,7 @@ class BaseFrame(ABC, Generic[T]):
             return {"operation": "__source__", "params": {}, "inputs": [], "kind": "source"}
         graph = {
             "operation": lineage.replay.semantic_name,
-            "params": cast(dict[str, Any], _mutable_config_value(lineage.replay.thaw_params())),
+            "params": cls._operation_params(lineage.operation),
             "inputs": [
                 input_graph
                 for input_lineage in lineage.inputs
@@ -739,6 +747,11 @@ class BaseFrame(ABC, Generic[T]):
 
     def _lineage_with_operation(self, operation: Any, *inputs: "LineageNode | None") -> "LineageNode":
         from wandas.processing.base import LineageNode
+        from wandas.processing.semantic import active_semantic_lineage
+
+        semantic_lineage = active_semantic_lineage()
+        if isinstance(semantic_lineage, LineageNode):
+            return semantic_lineage
 
         lineage_inputs = tuple(input_lineage for input_lineage in inputs if input_lineage is not None)
         return LineageNode(operation=operation, inputs=lineage_inputs)
@@ -752,29 +765,14 @@ class BaseFrame(ABC, Generic[T]):
             self._source_lineage = LineageNode(FrameSourceOperation())
         return self._source_lineage
 
-    def _lineage_with_method(self, method: str, params: Mapping[str, Any]) -> "LineageNode":
-        from wandas.processing.base import FrameMethodOperation
-        from wandas.processing.semantic import ReplayTargetContract
+    def _required_semantic_lineage(self) -> "LineageNode":
+        from wandas.processing.base import LineageNode
+        from wandas.processing.semantic import active_semantic_lineage
 
-        function = None
-        for owner in type(self).__mro__:
-            if method in owner.__dict__:
-                function = owner.__dict__[method]
-                break
-        target = None
-        version = 1
-        contract = getattr(function, "__wandas_replay_target__", None)
-        if (
-            function is not None
-            and isinstance(contract, ReplayTargetContract)
-            and contract.operation_id == method
-            and contract.output_kind == "frame"
-        ):
-            target = f"{function.__module__}.{function.__qualname__}"
-            version = contract.version
-        return self._lineage_with_operation(
-            FrameMethodOperation(method, params, target, version), self._lineage_or_source()
-        )
+        lineage = active_semantic_lineage()
+        if not isinstance(lineage, LineageNode):
+            raise RuntimeError("Public semantic lineage capture is not active")
+        return lineage
 
     def _lineage_with_index(self, params: Mapping[str, Any]) -> "LineageNode":
         from wandas.processing.base import IndexOperation
@@ -784,17 +782,31 @@ class BaseFrame(ABC, Generic[T]):
     def _lineage_with_unsupported_indexing(self, indexing: str) -> "LineageNode":
         return self._lineage_with_index({"indexing": indexing})
 
-    @staticmethod
-    def _is_literal_channel_query(query: Mapping[Any, Any]) -> bool:
-        for key, value in query.items():
-            if not isinstance(key, str):
-                return False
-            if value is None or isinstance(value, bool | int | float | str):
-                continue
-            if isinstance(value, np.bool_ | np.integer | np.floating):
-                continue
-            return False
-        return True
+    def _semantic_index_params(self, key: Any) -> Mapping[str, Any]:
+        if isinstance(key, tuple) and len(key) == 1:
+            key = key[0]
+        if isinstance(key, numbers.Integral):
+            return {"indexing": "integer", "index": int(key)}
+        if isinstance(key, str):
+            return {"indexing": "label", "label": key}
+        if isinstance(key, slice):
+            bounds = self._slice_for_lineage(key)
+            return {"indexing": "unsupported"} if bounds is None else {"indexing": "channel_slice", **bounds}
+        if isinstance(key, np.ndarray) and key.dtype in (bool, np.bool_):
+            return {"indexing": "boolean_mask", "mask": tuple(bool(value) for value in key.tolist())}
+        if isinstance(key, np.ndarray) and np.issubdtype(key.dtype, np.integer):
+            return {"indexing": "integer_array", "indices": tuple(int(value) for value in key.tolist())}
+        if isinstance(key, list) and all(isinstance(value, str) for value in key):
+            return {"indexing": "label_list", "labels": tuple(key)}
+        if isinstance(key, list) and all(isinstance(value, numbers.Integral) for value in key):
+            return {"indexing": "integer_list", "indices": tuple(int(value) for value in key)}
+        if isinstance(key, tuple) and key:
+            channel = self._channel_selector_for_lineage(key[0])
+            axis_slices = self._axis_slices_for_lineage(key[1:])
+            if channel is not None and axis_slices is not None:
+                return {"indexing": "multidimensional_slice", "channel": channel, "axis_slices": axis_slices}
+            return {"indexing": "multidimensional"}
+        return {"indexing": "unsupported"}
 
     @staticmethod
     def _slice_bound_for_lineage(value: Any) -> int | None:
@@ -875,7 +887,7 @@ class BaseFrame(ABC, Generic[T]):
             raise ValueError("source_time_offset must be finite")
         return offsets.astype(float, copy=True)
 
-    @replay_method()
+    @replay_method(params=_get_channel_semantic_params)
     def get_channel(
         self: S,
         channel_idx: int | list[int] | tuple[int, ...] | npt.NDArray[np.int_] | npt.NDArray[np.bool_] | None = None,
@@ -950,18 +962,6 @@ class BaseFrame(ABC, Generic[T]):
             if not indices:
                 raise KeyError(f"No channels match query: {query!r}")
             channel_idx_list = indices
-            if isinstance(query, str):
-                lineage_params: dict[str, Any] = {"query": query, "validate_query_keys": validate_query_keys}
-            elif isinstance(query, dict) and self._is_literal_channel_query(query):
-                lineage_params = {
-                    "query": dict(query),
-                    "validate_query_keys": validate_query_keys,
-                }
-            else:
-                lineage_params = {
-                    "channel_idx": channel_idx_list,
-                    "query_kind": type(query).__name__,
-                }
         else:
             if channel_idx is None:
                 raise TypeError("Either 'channel_idx' or 'query' must be provided.")
@@ -973,14 +973,9 @@ class BaseFrame(ABC, Generic[T]):
                     raise ValueError(
                         f"Boolean mask length {len(channel_idx)} does not match number of channels {self.n_channels}"
                     )
-                mask = [bool(value) for value in cast(npt.NDArray[np.bool_], channel_idx).tolist()]
                 channel_idx_list = [int(index) for index in np.where(channel_idx)[0]]
-                lineage_params = {"channel_mask": tuple(mask)}
             else:
                 channel_idx_list = [channel_idx] if isinstance(channel_idx, int) else list(channel_idx)
-                lineage_params = {
-                    "channel_idx": channel_idx_list[0] if len(channel_idx_list) == 1 else channel_idx_list,
-                }
 
         new_data = self._data[channel_idx_list]
         new_channel_metadata = [self.channels[i].to_metadata() for i in channel_idx_list]
@@ -991,7 +986,7 @@ class BaseFrame(ABC, Generic[T]):
             channel_metadata=new_channel_metadata,
             channel_ids=new_channel_ids,
             source_time_offset=self.source_time_offset[channel_idx_list],
-            lineage=self._lineage_with_method("get_channel", lineage_params),
+            lineage=self._required_semantic_lineage(),
         )
 
     def __len__(self) -> int:
@@ -1004,6 +999,7 @@ class BaseFrame(ABC, Generic[T]):
         for idx in range(len(self)):
             yield self[idx]
 
+    @semantic_index
     def __getitem__(
         self: S,
         key: int
@@ -1092,12 +1088,12 @@ class BaseFrame(ABC, Generic[T]):
         # Single index (int)
         if isinstance(key, numbers.Integral):
             selected = self.get_channel(int(key))
-            return self._replace_semantic_lineage(
-                selected,
-                self._lineage_with_index({"indexing": "integer", "index": int(key)}),
+            return selected._create_new_instance(
+                data=selected._data,
                 channel_metadata=selected.channels.to_list(),
                 channel_ids=selected._channel_ids,
                 source_time_offset=selected.source_time_offset,
+                lineage=self._lineage_with_index({"indexing": "integer", "index": int(key)}),
             )
 
         # Single label (str)
@@ -1297,22 +1293,21 @@ class BaseFrame(ABC, Generic[T]):
                 if axis_slices is not None and channel is not None
                 else {"indexing": "multidimensional"}
             )
-            return self._replace_semantic_lineage(
-                selected,
-                self._lineage_with_index(lineage_params),
+            return selected._create_new_instance(
                 data=new_data,
                 channel_metadata=selected.channels.to_list(),
                 channel_ids=selected._channel_ids,
                 source_time_offset=source_time_offset,
+                lineage=self._lineage_with_index(lineage_params),
             )
 
         channel = self._channel_selector_for_lineage(channel_key)
-        return self._replace_semantic_lineage(
-            selected,
-            self._lineage_with_index({"indexing": "multidimensional", "channel": channel}),
+        return selected._create_new_instance(
+            data=selected._data,
             channel_metadata=selected.channels.to_list(),
             channel_ids=selected._channel_ids,
             source_time_offset=selected.source_time_offset,
+            lineage=self._lineage_with_index({"indexing": "multidimensional", "channel": channel}),
         )
 
     def _channel_selector_for_lineage(self, key: Any) -> dict[str, Any] | None:
@@ -1688,7 +1683,7 @@ class BaseFrame(ABC, Generic[T]):
                 [
                     *self.operation_summaries,
                     *other.operation_summaries,
-                    self._operation_summary(binary_operation),
+                    lineage.summary,
                 ]
             )
 

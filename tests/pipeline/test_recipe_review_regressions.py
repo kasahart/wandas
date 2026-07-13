@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from typing import Any
 
@@ -9,11 +10,18 @@ import pytest
 
 from wandas.frames.channel import ChannelFrame
 from wandas.pipeline import RecipePlan
+from wandas.pipeline.calls import MethodCall
+from wandas.pipeline.errors import RecipeExtractionError, RecipeSerializationError
+from wandas.processing.base import FrameMethodOperation, LineageNode
 
 
 def _frame(channels: int = 3, samples: int = 256) -> ChannelFrame:
     data = np.arange(channels * samples, dtype=float).reshape(channels, samples) + 1.0
     return ChannelFrame.from_numpy(data, sampling_rate=8000, label="source")
+
+
+def _custom_callback(data: Any, *, callback: Callable[[Any], Any]) -> Any:
+    return callback(data)
 
 
 def _roundtrip_replay(source: ChannelFrame, processed: Any) -> Any:
@@ -29,6 +37,71 @@ def test_boolean_mask_get_channel_replays_as_public_channel_idx() -> None:
     processed = source.get_channel(np.array([True, False, True]))
 
     _roundtrip_replay(source, processed)
+
+
+def test_non_literal_get_channel_query_is_an_extraction_boundary() -> None:
+    source = _frame()
+    processed = source.get_channel(query=re.compile("ch1"))
+
+    with pytest.raises(RecipeExtractionError, match="not portable"):
+        RecipePlan.from_frame(processed)
+
+
+@pytest.mark.parametrize(
+    "query",
+    [lambda channel: channel.label == "ch1", {"label": re.compile("ch1")}],
+)
+def test_runtime_search_queries_remain_valid_but_nonportable(query: Any) -> None:
+    processed = _frame().get_channel(query=query)
+    assert processed.labels == ["ch1"]
+    with pytest.raises(RecipeExtractionError, match="not portable"):
+        RecipePlan.from_frame(processed)
+
+
+def test_literal_channel_query_is_re_evaluated_on_recipe_input() -> None:
+    source = _frame()
+    plan = RecipePlan.from_frame(source.get_channel(query="ch1"), input_names=("signal",))
+    reordered = source[[1, 0, 2]]
+
+    assert plan.apply({"signal": reordered}).labels == ["ch1"]
+
+
+def test_method_runtime_params_are_snapshotted_for_history_and_graph() -> None:
+    source = _frame(channels=1)
+    params = {"nested": {"value": 1}}
+    lineage = LineageNode(FrameMethodOperation("probe", params), (source._lineage_or_source(),))
+    processed = source._create_new_instance(data=source._data, lineage=lineage)
+    params["nested"]["value"] = 9
+
+    assert processed.operation_history[-1]["params"] == {"nested": {"value": 1}}
+    assert processed.operation_graph is not None
+    assert processed.operation_graph["params"] == {"nested": {"value": 1}}
+
+
+def test_direct_to_channel_frame_and_istft_keep_distinct_public_identity() -> None:
+    source = _frame(channels=1)
+    spectrogram = source.stft(n_fft=64, hop_length=16, win_length=64)
+    direct = spectrogram.to_channel_frame()
+    alias = spectrogram.istft()
+
+    assert direct.operation_history[-1]["operation"] == "to_channel_frame"
+    assert alias.operation_history[-1]["operation"] == "istft"
+    direct_call = RecipePlan.from_frame(direct).nodes[-1].call
+    alias_call = RecipePlan.from_frame(alias).nodes[-1].call
+    assert isinstance(direct_call, MethodCall) and direct_call.operation == "to_channel_frame"
+    assert isinstance(alias_call, MethodCall) and alias_call.operation == "istft"
+
+
+def test_fixed_call_loaders_reject_tampered_operation() -> None:
+    source = _frame()
+    plans = [
+        RecipePlan.from_frame(source[0]).to_dict(),
+        RecipePlan.from_frame(source.add_channel(np.ones((1, source.n_samples)))).to_dict(),
+    ]
+    for payload in plans:
+        payload["nodes"][0]["call"]["operation"] = "unknown"
+        with pytest.raises(RecipeSerializationError, match="operation must be"):
+            RecipePlan.from_dict(payload)
 
 
 def test_integer_key_rename_mapping_survives_serialization() -> None:
@@ -233,4 +306,13 @@ def test_array_backed_operations_require_public_method_replay(operation: str) ->
     processed = source.apply_operation(operation, ref=np.array([1.0]))
 
     with pytest.raises(Exception, match="opted into generic"):
+        RecipePlan.from_frame(processed)
+
+
+def test_nonportable_custom_params_fail_at_extraction_not_runtime() -> None:
+    source = _frame(channels=1)
+    processed = source.apply(_custom_callback, callback=lambda value: value)
+    np.testing.assert_allclose(processed.compute(), source.compute())
+
+    with pytest.raises(RecipeExtractionError, match="not portable"):
         RecipePlan.from_frame(processed)

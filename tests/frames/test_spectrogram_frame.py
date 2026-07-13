@@ -337,17 +337,8 @@ class TestSpectrogramFrame:
         assert channel_frame.sampling_rate == spec.sampling_rate
         assert channel_frame._n_channels == spec._n_channels
         assert channel_frame.lineage is not None
-        assert channel_frame.lineage.operation.name == "istft"
-        assert channel_frame.operation_history[-1] == {
-            "operation": "istft",
-            "params": {
-                "n_fft": spec.n_fft,
-                "hop_length": spec.hop_length,
-                "win_length": spec.win_length,
-                "window": spec.window,
-                "length": None,
-            },
-        }
+        assert channel_frame.lineage.operation.name == "to_channel_frame"
+        assert channel_frame.operation_history[-1] == {"operation": "to_channel_frame"}
 
     def test_istft(self, sample_spectrogram: SpectrogramFrame) -> None:
         """istftメソッドがto_channel_frameのエイリアスとして機能することをテスト"""

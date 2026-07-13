@@ -11,7 +11,13 @@ from wandas.processing.base import (
     OutputArrayType,
     register_operation,
 )
-from wandas.processing.semantic import CustomReplay, OperationContract, frozen_params
+from wandas.processing.semantic import (
+    CustomReplay,
+    OperationContract,
+    ReplayDescriptor,
+    UnsupportedReplay,
+    frozen_params,
+)
 
 
 def _callable_reference(func: Callable[..., Any]) -> str:
@@ -153,22 +159,30 @@ class CustomOperation(AudioOperation[InputArrayType, OutputArrayType]):
             metadata["output_frame_kwargs"] = output_frame_kwargs
         return metadata
 
-    def replay_descriptor(self) -> CustomReplay:
+    def replay_descriptor(self) -> ReplayDescriptor:
         metadata = self.to_recipe_metadata()
+        contract = OperationContract(
+            self.name,
+            self.operation_version,
+            bool(self.pure),
+            super().replay_descriptor().contract.bindings,
+        )
+        try:
+            params = frozen_params(self.to_params())
+        except TypeError:
+            metadata = None
+            params = frozen_params(self.to_params(), allow_opaque=True)
+        if metadata is None:
+            return UnsupportedReplay(contract, params, self.name, "Custom call is not portable")
         kwargs = {} if metadata is None else metadata.get("output_frame_kwargs", {})
         return CustomReplay(
-            OperationContract(
-                self.name,
-                self.operation_version,
-                bool(self.pure),
-                super().replay_descriptor().contract.bindings,
-            ),
-            frozen_params(self.to_params(), allow_opaque=metadata is None),
+            contract,
+            params,
             self.name,
             None if metadata is None else metadata["function"],
             None if metadata is None else metadata["output_shape_function"],
             None if metadata is None else metadata["output_frame_class"],
-            frozen_params(kwargs, allow_opaque=metadata is None),
+            frozen_params(kwargs),
         )
 
 

@@ -33,7 +33,7 @@ from wandas.processing.semantic import (
     MultiInputReplay,
     ReplayDescriptor,
     TerminalReplay,
-    thaw_replay_value,
+    UnsupportedReplay,
 )
 
 
@@ -71,6 +71,8 @@ class ReplayCodecRegistry:
         return self
 
     def encode(self, descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]) -> CodecResult:
+        if isinstance(descriptor, UnsupportedReplay):
+            raise RecipeExtractionError(descriptor.reason)
         codec = self._codecs.get(type(descriptor))
         if codec is None:
             raise RecipeExtractionError(f"No Recipe codec for descriptor: {type(descriptor).__name__}")
@@ -102,8 +104,8 @@ def _frame(role: str, lineage: LineageNode | None) -> BoundInput:
 
 
 def _audio(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]) -> CodecResult:
-    if not isinstance(descriptor, AudioReplay) or not descriptor.generic:
-        raise RecipeExtractionError("Audio operation has not opted into generic Recipe replay")
+    if not isinstance(descriptor, AudioReplay):
+        raise RecipeExtractionError("Audio codec requires AudioReplay")
     lineage = lineage_inputs[0] if lineage_inputs else None
     binding = descriptor.contract.bindings[0]
     return CodecResult(
@@ -130,7 +132,12 @@ def _binary(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...
         if descriptor.scalar_operand is None:
             raise RecipeExtractionError("Unsupported scalar Recipe operand")
         return CodecResult(
-            ScalarCall(operation, descriptor.scalar_operand, descriptor.operand_position == "left"),
+            ScalarCall(
+                operation,
+                descriptor.scalar_operand,
+                descriptor.operand_position == "left",
+                descriptor.contract.version,
+            ),
             (_frame(frame_binding.role, frame_lineage),),
         )
     array_index = next(index for index, binding in enumerate(bindings) if binding.kind == "array")
@@ -140,7 +147,7 @@ def _binary(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...
         else _frame(binding.role, frame_lineage)
         for binding in bindings
     )
-    return CodecResult(ExternalArrayCall(operation, array_index), result_bindings)
+    return CodecResult(ExternalArrayCall(operation, array_index, descriptor.contract.version), result_bindings)
 
 
 def _slice(value: Mapping[str, Any]) -> slice:
@@ -169,9 +176,7 @@ def _method(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...
     if not isinstance(descriptor, MethodReplay):
         raise RecipeExtractionError("Method codec requires MethodReplay")
     operation = descriptor.contract.operation_id
-    params = (
-        descriptor.thaw_params() if descriptor.call_params is None else dict(thaw_replay_value(descriptor.call_params))
-    )
+    params = descriptor.thaw_params()
     frame_lineage = lineage_inputs[0] if lineage_inputs else None
     if descriptor.target is None:
         raise RecipeExtractionError(f"Recipe method has no stable target: {operation!r}")
@@ -192,7 +197,7 @@ def _index(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]
     else:
         key = _selector(params)
     lineage = lineage_inputs[0] if lineage_inputs else None
-    return CodecResult(IndexCall(key), (_frame("frame", lineage),))
+    return CodecResult(IndexCall(key, descriptor.contract.version), (_frame("frame", lineage),))
 
 
 def _add_channel(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]) -> CodecResult:
@@ -215,7 +220,7 @@ def _add_channel(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode
             _frame(bindings[0].role, lineage_inputs[0] if lineage_inputs else None),
             BoundInput(bindings[1].role, "array", external=True),
         )
-    return CodecResult(AddChannelCall(descriptor.input_kind, params), resolved)
+    return CodecResult(AddChannelCall(descriptor.input_kind, params, descriptor.contract.version), resolved)
 
 
 def _terminal(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]) -> CodecResult:

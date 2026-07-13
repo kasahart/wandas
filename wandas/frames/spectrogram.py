@@ -378,7 +378,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             data=magnitude_data,
             label=f"abs({self.label})",
             metadata=new_metadata,
-            lineage=self._lineage_with_method("abs", {}),
+            lineage=self._required_semantic_lineage(),
         )
 
     @replay_method()
@@ -413,7 +413,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
         frame_data = self._data[..., time_idx]
 
-        lineage = self._lineage_with_method("get_frame_at", {"time_idx": time_idx})
+        lineage = self._required_semantic_lineage()
         return SpectralFrame(
             data=frame_data,
             sampling_rate=self.sampling_rate,
@@ -428,6 +428,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             **self._operation_summaries_snapshot_kwargs(lineage),
         )
 
+    @replay_method()
     def to_channel_frame(self) -> "ChannelFrame":
         """
         Convert the spectrogram back to time domain using inverse STFT.
@@ -465,7 +466,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         logger.debug(f"Created new ChannelFrame with operation {operation_name} added to graph")
 
         # Create new instance
-        lineage = self._lineage_with_method(operation_name, operation.to_params())
+        lineage = self._required_semantic_lineage()
         return ChannelFrame(
             data=time_series,
             sampling_rate=self.sampling_rate,

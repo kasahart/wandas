@@ -61,7 +61,10 @@ class TestChannelTransform:
             # Pillar 2: domain transition preserves sampling rate and source offset
             assert result.sampling_rate == self.channel_frame.sampling_rate
             np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
-            assert result.operation_history[-1] == {"operation": "fft", "params": {"n_fft": 4096, "window": "hann"}}
+            assert result.operation_history[-1] == {
+                "operation": "fft",
+                "params": {"n_fft": 4096, "window": "hamming"},
+            }
             assert result.operation_graph is not None
             assert result.operation_graph["kind"] == "method"
 
@@ -80,8 +83,8 @@ class TestChannelTransform:
         assert result.window == "hann"
         assert result.metadata == {"recording": "fixture"}
         assert result.lineage is not None
-        assert result.lineage.operation.params["n_fft"] == 8
-        assert result.operation_history[-1] == {"operation": "fft", "params": {"n_fft": 8, "window": "hann"}}
+        assert dict(result.lineage.operation.params) == {}
+        assert result.operation_history[-1] == {"operation": "fft"}
         assert "n_fft" not in result.metadata
         assert "window" not in result.metadata
 
@@ -154,7 +157,6 @@ class TestChannelTransform:
                     "win_length": 1024,
                     "window": "blackman",
                     "average": "mean",
-                    "detrend": "constant",
                 },
             }
             assert result.operation_graph is not None
@@ -175,15 +177,8 @@ class TestChannelTransform:
         assert result.metadata == {"recording": "fixture"}
         assert result.lineage is not None
         operation_params = dict(result.lineage.operation.params)
-        assert operation_params == {
-            "n_fft": 2048,
-            "win_length": 2048,
-            "hop_length": 512,
-            "window": "hann",
-            "average": "mean",
-            "detrend": "constant",
-        }
-        assert result.operation_history[-1] == {"operation": "welch", "params": operation_params}
+        assert operation_params == {}
+        assert result.operation_history[-1] == {"operation": "welch"}
         assert not set(operation_params).intersection(result.metadata)
 
     def test_stft_transform(self) -> None:
@@ -231,15 +226,7 @@ class TestChannelTransform:
             assert result.n_fft == 2048
             assert result.hop_length == 512
             assert result.win_length == 2048
-            assert result.operation_history[-1] == {
-                "operation": "stft",
-                "params": {
-                    "n_fft": 2048,
-                    "hop_length": 512,
-                    "win_length": 2048,
-                    "window": "hann",
-                },
-            }
+            assert result.operation_history[-1] == {"operation": "stft"}
             assert result.operation_graph is not None
             assert result.operation_graph["kind"] == "method"
             assert result.window == "hann"
@@ -441,17 +428,8 @@ class TestChannelTransform:
         assert result.metadata == {"recording": "fixture"}
         assert result.lineage is not None
         operation_params = dict(result.lineage.operation.params)
-        expected_params = {
-            "n_fft": 2048,
-            "hop_length": 512,
-            "win_length": 2048,
-            "window": "hann",
-            "detrend": "constant",
-        }
-        if method_name in {"csd", "transfer_function"}:
-            expected_params.update({"scaling": "spectrum", "average": "mean"})
-        assert operation_params == expected_params
-        assert result.operation_history[-1] == {"operation": method_name, "params": operation_params}
+        assert operation_params == {}
+        assert result.operation_history[-1] == {"operation": method_name}
         assert not set(operation_params).intersection(result.metadata)
 
     @pytest.mark.parametrize(
