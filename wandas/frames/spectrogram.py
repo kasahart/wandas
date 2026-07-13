@@ -340,6 +340,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """
         return self.plot(plot_type=plot_type, ax=ax, Aw=True, **kwargs)
 
+    @replay_method()
     def abs(self) -> "SpectrogramFrame":
         """
         Compute the absolute value (magnitude) of the complex spectrogram.
@@ -377,7 +378,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             data=magnitude_data,
             label=f"abs({self.label})",
             metadata=new_metadata,
-            lineage=self._lineage_with_operation(operation, self._lineage_or_source()),
+            lineage=self._lineage_with_method("abs", {}),
         )
 
     @replay_method()

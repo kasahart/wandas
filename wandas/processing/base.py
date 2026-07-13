@@ -261,11 +261,13 @@ class BinaryOperation:
 
     def replay_descriptor(self) -> BinaryReplay:
         other_kind = "frame" if self.operand_kind == "frame" else "array"
-        scalar: int | float | None = None
+        scalar: int | float | complex | None = None
         if self.operand_kind != "frame" and not isinstance(self.operand, np.ndarray | DaArray):
             other_kind = "scalar"
             if not isinstance(self.operand, bool) and isinstance(self.operand, numbers.Real):
                 scalar = int(self.operand) if isinstance(self.operand, numbers.Integral) else float(self.operand)
+            elif isinstance(self.operand, numbers.Complex):
+                scalar = complex(self.operand)
         bindings = (InputBinding("left", "frame"), InputBinding("right", cast(Any, other_kind)))
         if self.operand_position == "left":
             bindings = tuple(reversed(bindings))

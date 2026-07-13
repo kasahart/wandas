@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 import dask.array as da
 import numpy as np
@@ -15,7 +16,7 @@ def _frame(channels: int = 3, samples: int = 256) -> ChannelFrame:
     return ChannelFrame.from_numpy(data, sampling_rate=8000, label="source")
 
 
-def _roundtrip_replay(source: ChannelFrame, processed: ChannelFrame) -> ChannelFrame:
+def _roundtrip_replay(source: ChannelFrame, processed: Any) -> Any:
     plan = RecipePlan.from_dict(RecipePlan.from_frame(processed, input_names=("signal",)).to_dict())
     replayed = plan.apply({"signal": source})
     np.testing.assert_allclose(replayed.compute(), processed.compute())
@@ -75,6 +76,17 @@ def test_raw_snr_noise_remains_an_external_array_input() -> None:
     np.testing.assert_allclose(replayed.compute(), processed.compute())
 
 
+def test_raw_add_without_snr_remains_an_external_array_input() -> None:
+    source = _frame(channels=1)
+    operand = np.linspace(0.25, 1.25, source.n_samples).reshape(1, -1)
+    processed = source.add(operand)
+    plan = RecipePlan.from_frame(processed, input_names=("signal", "operand"))
+
+    assert [item.kind for item in plan.inputs] == ["frame", "array"]
+    replayed = plan.apply({"signal": source, "operand": operand})
+    np.testing.assert_allclose(replayed.compute(), processed.compute())
+
+
 def test_raw_snr_recipe_accepts_dask_noise_without_eager_compute(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -119,3 +131,20 @@ def test_integer_channel_difference_emits_method_lineage() -> None:
     source = _frame()
 
     _roundtrip_replay(source, source.channel_difference(0))
+
+
+def test_spectrogram_abs_replays_public_label_semantics() -> None:
+    source = _frame(channels=1)
+    processed = source.stft(n_fft=64, hop_length=16, win_length=64).abs()
+
+    _roundtrip_replay(source, processed)
+
+
+def test_complex_scalar_roundtrips_without_losing_value_or_labels() -> None:
+    source = _frame(channels=1)
+    processed = source + (1 + 2j)
+    plan = RecipePlan.from_dict(RecipePlan.from_frame(processed).to_dict())
+    replayed = plan.apply({"input_0": source})
+
+    np.testing.assert_allclose(replayed.compute(), processed.compute())
+    assert replayed.labels == processed.labels

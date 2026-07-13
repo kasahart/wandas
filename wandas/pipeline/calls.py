@@ -225,7 +225,7 @@ def _operator(symbol: str, left: Any, right: Any) -> Any:
 @dataclass(frozen=True)
 class ScalarCall(FrameCall):
     operation: str
-    operand: int | float
+    operand: int | float | complex
     reverse: bool = False
     version: int = 1
     arity: ClassVar[int] = 1
@@ -234,10 +234,19 @@ class ScalarCall(FrameCall):
         _version(self.version)
         if self.operation not in _OPERATORS:
             raise RecipeSerializationError("Unknown scalar Recipe operation")
-        if isinstance(self.operand, bool) or not isinstance(self.operand, numbers.Real):
-            raise RecipeSerializationError("Scalar Recipe operand must be real and non-boolean")
-        if not math.isfinite(float(self.operand)) or type(self.reverse) is not bool:
+        if isinstance(self.operand, bool) or not isinstance(self.operand, numbers.Number):
+            raise RecipeSerializationError("Scalar Recipe operand must be numeric and non-boolean")
+        value = complex(self.operand)
+        if not math.isfinite(value.real) or not math.isfinite(value.imag) or type(self.reverse) is not bool:
             raise RecipeSerializationError("Scalar Recipe operand and direction are invalid")
+        normalized = (
+            int(self.operand)
+            if isinstance(self.operand, numbers.Integral)
+            else float(self.operand)
+            if isinstance(self.operand, numbers.Real)
+            else value
+        )
+        object.__setattr__(self, "operand", normalized)
 
     def invoke(self, inputs: tuple[Any, ...]) -> Any:
         left, right = (self.operand, inputs[0]) if self.reverse else (inputs[0], self.operand)
@@ -249,7 +258,7 @@ class ScalarCall(FrameCall):
             "operation": self.operation,
             "version": self.version,
             "params": _freeze_params({}),
-            "operand": self.operand,
+            "operand": freeze_replay_value(self.operand) if isinstance(self.operand, complex) else self.operand,
             "reverse": self.reverse,
         }
 
@@ -609,9 +618,10 @@ register_call(
 
 def _load_scalar(value: Mapping[str, Any]) -> ScalarCall:
     _empty_params(value)
-    return ScalarCall(
-        _operation(value), cast(Any, value.get("operand")), cast(Any, value.get("reverse")), _version(value)
-    )
+    operand = value.get("operand")
+    if isinstance(operand, list):
+        operand = thaw_replay_value(_tree(operand))
+    return ScalarCall(_operation(value), cast(Any, operand), cast(Any, value.get("reverse")), _version(value))
 
 
 def _load_binary(value: Mapping[str, Any]) -> BinaryCall:

@@ -539,6 +539,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         """
         logger.debug(f"Setting up add operation with SNR={snr} (lazy)")
 
+        if isinstance(other, np.ndarray) and snr is None:
+            return self + other
         noise_input_kind = "array" if isinstance(other, np.ndarray) else "frame"
         if isinstance(other, ChannelFrame):
             # Check if sampling rates match

@@ -232,7 +232,7 @@ class BinaryReplay(ReplayDescriptor):
     symbol: str
     operand_kind: Literal["frame", "scalar", "array"]
     operand_position: Literal["left", "right"]
-    scalar_operand: int | float | None = None
+    scalar_operand: int | float | complex | None = None
 
 
 @dataclass(frozen=True)
