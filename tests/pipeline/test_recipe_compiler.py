@@ -1,4 +1,5 @@
-from typing import cast
+from collections.abc import Callable
+from typing import Any, cast
 
 import dask.array as da
 import numpy as np
@@ -70,6 +71,26 @@ def test_external_dask_array_is_named_input_and_stays_lazy(monkeypatch: pytest.M
     assert replayed.shape == source.shape
 
 
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda frame, array: frame - array,
+        lambda frame, array: frame * array,
+        lambda frame, array: frame / array,
+        lambda frame, array: frame**array,
+    ],
+)
+def test_external_numpy_non_additive_operators_preserve_semantics(build: Callable[[Any, Any], Any]) -> None:
+    source = _frame(2.0)
+    operand = np.full(source.shape, 2.0)
+    processed = build(source, operand)
+    replayed = RecipePlan.from_frame(processed, input_names=("signal", "operand")).apply(
+        {"signal": source, "operand": operand}
+    )
+
+    np.testing.assert_allclose(replayed.compute(), processed.compute())
+
+
 def test_raw_add_channel_retains_base_source_lineage() -> None:
     source = _frame()
     processed = source.add_channel(np.ones(source.n_samples), label="added")
@@ -78,6 +99,21 @@ def test_raw_add_channel_retains_base_source_lineage() -> None:
     plan = RecipePlan.from_frame(processed, input_names=("signal", "added"))
     replayed = plan.apply({"signal": source, "added": np.ones(source.n_samples)})
     assert replayed.labels[-1] == "added"
+
+
+def test_processed_parent_add_channel_external_dask_stays_lazy(monkeypatch: pytest.MonkeyPatch) -> None:
+    source = _frame().normalize()
+    added = da.ones((1, source.n_samples), chunks=(1, 8))
+
+    def fail_compute(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("compile/apply must not compute")
+
+    monkeypatch.setattr(da.Array, "compute", fail_compute)
+    processed = source.add_channel(added, label="added")
+    plan = RecipePlan.from_frame(processed, input_names=("signal", "added"))
+    replayed = plan.apply({"signal": _frame(), "added": added})
+
+    assert replayed.n_channels == 3
 
 
 def test_add_channel_reuses_shared_root_identity() -> None:

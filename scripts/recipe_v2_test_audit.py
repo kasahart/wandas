@@ -48,44 +48,48 @@ MIGRATIONS = {
         "tests/pipeline/test_recipe_compiler.py",
         "test_multidimensional_indexing_is_one_call",
     ),
+    "test_binary_operand_step_applies_non_additive_array_operators": (
+        "tests/pipeline/test_recipe_compiler.py",
+        "test_external_numpy_non_additive_operators_preserve_semantics",
+    ),
+    "test_node_graph_recipe_from_frame_extracts_numpy_operand_as_external_input": (
+        "tests/pipeline/test_recipe_compiler.py",
+        "test_external_numpy_non_additive_operators_preserve_semantics",
+    ),
+    "test_recipe_from_frame_extracts_fft_ifft_typed_transition_chain": (
+        "tests/pipeline/test_recipe_execution.py",
+        "test_fft_ifft_typed_transition_chain_replays",
+    ),
+    "test_recipe_apply_preserves_dask_laziness": (
+        "tests/pipeline/test_recipe_compiler.py",
+        "test_external_dask_array_is_named_input_and_stays_lazy",
+    ),
+    "test_recipe_from_frame_extracts_reverse_numeric_scalar_operations": (
+        "tests/pipeline/test_recipe_compiler.py",
+        "test_scalar_and_reflected_scalar_preserve_order",
+    ),
+    "test_recipe_from_frame_extracts_scalar_operation_symbols": (
+        "tests/pipeline/test_recipe_compiler.py",
+        "test_scalar_and_reflected_scalar_preserve_order",
+    ),
+    "test_recipe_from_frame_extracts_fft_typed_transition": (
+        "tests/pipeline/test_recipe_execution.py",
+        "test_typed_frame_transition_replays",
+    ),
+    "test_node_graph_recipe_from_frame_extracts_add_channel_dask_data_after_processed_parent": (
+        "tests/pipeline/test_recipe_compiler.py",
+        "test_processed_parent_add_channel_external_dask_stays_lazy",
+    ),
     "test_recipe_from_frame_extracts_multidimensional_slice_indexing": (
         "tests/pipeline/test_recipe_compiler.py",
         "test_multidimensional_indexing_is_one_call",
     ),
 }
-RETAINED_FAMILIES = (
-    (
-        ("dask_laziness", "stays_lazy", "lazy_graph"),
-        "tests/pipeline/test_recipe_compiler.py",
-        "test_external_dask_array_is_named_input_and_stays_lazy",
-    ),
-    (
-        ("fft_typed_transition", "fft_ifft_typed_transition", "typed_tail"),
-        "tests/pipeline/test_recipe_execution.py",
-        "test_typed_transition_after_merge_replays",
-    ),
-    (
-        ("reverse_numeric_scalar", "scalar_operation_symbols", "non_commutative"),
-        "tests/pipeline/test_recipe_compiler.py",
-        "test_scalar_and_reflected_scalar_preserve_order",
-    ),
-    (
-        ("metadata", "source_time_offset"),
-        "tests/pipeline/test_recipe_execution.py",
-        "test_metadata_and_source_time_offset_are_preserved",
-    ),
-    (
-        ("external_operand", "external_dask", "external_numpy", "array_operators"),
-        "tests/pipeline/test_recipe_compiler.py",
-        "test_external_dask_array_is_named_input_and_stays_lazy",
-    ),
-    (("add_channel",), "tests/pipeline/test_recipe_execution.py", "test_add_channel_frame_and_array_replay"),
-    (
-        ("multidimensional", "getitem", "indexing"),
-        "tests/pipeline/test_recipe_compiler.py",
-        "test_multidimensional_indexing_is_one_call",
-    ),
-)
+FORCED_REMOVALS = {
+    "test_steps_from_graph_rejects_invalid_multidimensional_parent_shapes": "v1 dictionary parent-shape parser removed",
+    "test_custom_function_step_rejects_invalid_metadata": "v1 step metadata schema removed",
+    "test_graph_step_extraction_rejects_unreplayable_binary_metadata": "v1 dictionary metadata inference removed",
+}
 
 
 def functions(path: Path) -> set[str]:
@@ -112,12 +116,11 @@ def main() -> None:
     migrated = removed = 0
     print("v1_test\tdisposition\trationale\tcurrent_test")
     for name in old_names:
+        if name in FORCED_REMOVALS:
+            removed += 1
+            print(f"{name}\tremoved_contract\t{FORCED_REMOVALS[name]}\t-")
+            continue
         migration = MIGRATIONS.get(name)
-        if migration is None:
-            for markers, path, target in RETAINED_FAMILIES:
-                if any(marker in name for marker in markers):
-                    migration = (path, target)
-                    break
         if migration is None:
             removed += 1
             print(f"{name}\tremoved_contract\tv1 API/helper contract not retained by destructive v2\t-")

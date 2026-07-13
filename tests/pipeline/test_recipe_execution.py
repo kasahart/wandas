@@ -28,6 +28,15 @@ def test_typed_transition_after_merge_replays() -> None:
     np.testing.assert_allclose(replayed.compute(), processed.compute())
 
 
+def test_fft_ifft_typed_transition_chain_replays() -> None:
+    source = _frame(1.0)
+    processed = source.fft(n_fft=32).ifft()
+    replayed = RecipePlan.from_frame(processed).apply({"input_0": source})
+
+    assert type(replayed) is type(processed)
+    np.testing.assert_allclose(replayed.compute(), processed.compute())
+
+
 def test_add_channel_frame_and_array_replay() -> None:
     source = _frame()
     added = _frame(2)

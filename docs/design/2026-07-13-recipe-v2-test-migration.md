@@ -23,10 +23,11 @@ to the production responsibility they exercise.
 `uv run python scripts/recipe_v2_test_audit.py` emits all 192 baseline cases with a
 `migrated` or `removed_contract` disposition, rationale, and an AST-verified current
 pytest function for every migrated row. Migration entries are an explicit curated map,
-with explicit retained-behavior family rules. The current audit records 56 retained
-behavior cases and 136 contracts intentionally removed with the destructive v1 API
-replacement. Laziness, typed transitions, operand order, metadata/source time,
-external arrays, add-channel, and indexing are always classified as retained.
+with an explicit per-test map and no inferred keyword routing. The current audit
+records 19 exactly retained cases and 173 contracts intentionally removed with the
+destructive v1 API replacement. Retained entries include laziness, typed transition
+chains, operand order, external arrays/operators, add-channel, indexing, custom
+callable safety, terminal RMS, and missing-input validation.
 
 ## Extension amplification
 
