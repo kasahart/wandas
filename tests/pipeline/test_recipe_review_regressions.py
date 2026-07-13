@@ -111,6 +111,20 @@ def test_integer_key_rename_mapping_survives_serialization() -> None:
     _roundtrip_replay(source, processed)
 
 
+def test_inplace_public_intent_replays_without_mutating_recipe_input() -> None:
+    captured = _frame()
+    processed = captured.rename_channels({0: "left"}, inplace=True)
+    plan = RecipePlan.from_dict(RecipePlan.from_frame(processed, input_names=("signal",)).to_dict())
+    runtime_input = _frame()
+
+    replayed = plan.apply({"signal": runtime_input})
+
+    assert replayed is not runtime_input
+    assert replayed.labels[0] == "left"
+    assert runtime_input.labels[0] == "ch0"
+    assert processed.operation_history[-1]["params"]["inplace"] is True
+
+
 def test_scalar_branches_share_the_source_recipe_input() -> None:
     source = _frame()
     processed = (source + 1) + (source + 2)
@@ -129,6 +143,19 @@ def test_integer_scalar_replay_preserves_labels_and_operand_type() -> None:
     assert payload["nodes"][0]["call"]["operand"] == 1
     assert type(payload["nodes"][0]["call"]["operand"]) is int
     assert plan.apply({"input_0": source}).labels == processed.labels
+
+
+@pytest.mark.parametrize("operand", [np.inf, -np.inf, np.nan])
+def test_nonfinite_scalar_operands_roundtrip(operand: float) -> None:
+    source = _frame(channels=1)
+    processed = source + operand
+    plan = RecipePlan.from_dict(RecipePlan.from_frame(processed).to_dict())
+
+    np.testing.assert_allclose(
+        plan.apply({"input_0": source}).compute(),
+        processed.compute(),
+        equal_nan=True,
+    )
 
 
 @pytest.mark.parametrize("method", ["sum", "mean"])

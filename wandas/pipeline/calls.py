@@ -237,7 +237,7 @@ class ScalarCall(FrameCall):
         if not isinstance(self.operand, numbers.Number):
             raise RecipeSerializationError("Scalar Recipe operand must be numeric")
         value = complex(self.operand)
-        if not math.isfinite(value.real) or not math.isfinite(value.imag) or type(self.reverse) is not bool:
+        if type(self.reverse) is not bool:
             raise RecipeSerializationError("Scalar Recipe operand and direction are invalid")
         normalized = (
             bool(self.operand)
@@ -260,7 +260,11 @@ class ScalarCall(FrameCall):
             "operation": self.operation,
             "version": self.version,
             "params": _freeze_params({}),
-            "operand": freeze_replay_value(self.operand) if isinstance(self.operand, complex) else self.operand,
+            "operand": freeze_replay_value(self.operand)
+            if isinstance(self.operand, complex)
+            or isinstance(self.operand, numbers.Real)
+            and not math.isfinite(float(self.operand))
+            else self.operand,
             "reverse": self.reverse,
         }
 

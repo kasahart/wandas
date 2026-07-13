@@ -343,8 +343,9 @@ class FrameMethodOperation:
     def replay_descriptor(self) -> ReplayDescriptor:
         contract = OperationContract(self.name, self.version, True, (InputBinding("frame", "frame"),))
         runtime_params = self.to_params()
+        replay_params = {**runtime_params, "inplace": False} if "inplace" in runtime_params else runtime_params
         try:
-            call_params = frozen_params(runtime_params)
+            call_params = frozen_params(replay_params)
         except TypeError:
             return UnsupportedReplay(
                 contract,
