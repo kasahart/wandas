@@ -8,6 +8,7 @@ from collections import defaultdict
 from collections.abc import Callable, Iterator, Mapping, MutableMapping
 from dataclasses import dataclass, field
 from functools import wraps
+from types import MappingProxyType
 from typing import Any, ClassVar, Generic, Literal, NoReturn, TypeVar, cast
 
 import dask.array as da
@@ -237,7 +238,7 @@ class BinaryOperation:
             descriptor = _operand_descriptor(self.operand)
             descriptor["type"] = "array"
             descriptor.pop("chunks", None)
-            object.__setattr__(self, "operand", descriptor)
+            object.__setattr__(self, "operand", _freeze_runtime_value(descriptor))
 
     @property
     def params(self) -> Mapping[str, Any]:
@@ -386,7 +387,7 @@ class AddChannelOperation:
     name: ClassVar[str] = "add_channel"
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "params", _snapshot_config_value(self.params))
+        object.__setattr__(self, "params", _freeze_runtime_value(self.params))
 
     def to_params(self) -> Mapping[str, Any]:
         return _snapshot_config_value(self.params)
@@ -447,6 +448,20 @@ def _snapshot_config_value(value: Any) -> Any:
         return copy.deepcopy(value)
     except Exception:
         return value
+
+
+def _freeze_runtime_value(value: Any) -> Any:
+    """Return a deeply read-only runtime descriptor value."""
+    snapshot = _snapshot_config_value(value)
+    if isinstance(snapshot, np.ndarray):
+        return _freeze_runtime_value(snapshot.tolist())
+    if isinstance(snapshot, Mapping):
+        return MappingProxyType({key: _freeze_runtime_value(item) for key, item in snapshot.items()})
+    if isinstance(snapshot, list | tuple):
+        return tuple(_freeze_runtime_value(item) for item in snapshot)
+    if isinstance(snapshot, set | frozenset):
+        return frozenset(_freeze_runtime_value(item) for item in snapshot)
+    return snapshot
 
 
 def _config_values_equal(left: Any, right: Any) -> bool:

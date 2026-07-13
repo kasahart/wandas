@@ -133,6 +133,34 @@ def test_add_channel_offset_mutation_cannot_change_history_summary_or_recipe() -
     assert "input_kind" not in history[-1]["params"]
 
 
+def test_binary_runtime_descriptor_is_deeply_read_only() -> None:
+    processed = _frame(channels=1) + np.ones((1, 256))
+    assert processed.lineage is not None
+    operation = processed.lineage.operation
+    history = processed.operation_history
+
+    with pytest.raises(TypeError):
+        operation.operand["shape"][0] = 99
+
+    assert processed.operation_history == history
+
+
+def test_add_channel_runtime_params_are_deeply_read_only() -> None:
+    source = _frame(channels=1)
+    processed = source.add_channel(
+        np.ones((1, source.n_samples)),
+        source_time_offset=np.array([1.25]),
+    )
+    assert processed.lineage is not None
+    operation = processed.lineage.operation
+    history = processed.operation_history
+
+    with pytest.raises(TypeError):
+        operation.params["source_time_offset"][0] = 9.0
+
+    assert processed.operation_history == history
+
+
 def test_direct_to_channel_frame_and_istft_keep_distinct_public_identity() -> None:
     source = _frame(channels=1)
     spectrogram = source.stft(n_fft=64, hop_length=16, win_length=64)
