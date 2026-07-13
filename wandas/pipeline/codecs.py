@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from functools import cache
 from typing import Any, Literal, cast
 
 import numpy as np
@@ -85,6 +86,7 @@ class ReplayCodecRegistry:
         return result
 
 
+@cache
 def default_codec_registry() -> ReplayCodecRegistry:
     registry = ReplayCodecRegistry()
     registry.register(AudioReplay, _audio)

@@ -43,13 +43,8 @@ def _invoke_semantic(method: Callable[P, R], args: tuple[Any, ...], kwargs: Mapp
     token = _semantic_capture.set(lineage)
     try:
         result = method(*args, **kwargs)
-        try:
-            inspect.getattr_static(result, "_lineage_or_source")
-            inspect.getattr_static(result, "lineage")
-        except AttributeError:
-            is_frame_result = False
-        else:
-            is_frame_result = True
+        result_members = {name for base in type(result).__mro__ for name in base.__dict__}
+        is_frame_result = {"_lineage_or_source", "lineage"} <= result_members
         result_lineage = getattr(result, "lineage", lineage)
         if is_frame_result and result_lineage is not lineage:
             raise RuntimeError("Public operation did not preserve semantic lineage")
