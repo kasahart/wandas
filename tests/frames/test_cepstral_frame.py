@@ -210,6 +210,13 @@ class TestCepstralFrame:
         with pytest.raises(ValueError, match=r"requires a complete, unsliced quefrency axis"):
             sliced.to_spectral_envelope()
 
+    def test_spectral_envelope_rejects_asymmetric_complete_frame(self) -> None:
+        data = da.from_array(np.array([[0.0, 1.0, 0.0, 0.0]]), chunks=(1, -1))
+        frame = CepstralFrame(data=data, sampling_rate=self.sampling_rate, n_fft=4)
+
+        with pytest.raises(ValueError, match=r"requires symmetric real cepstral coefficients"):
+            frame.to_spectral_envelope().compute()
+
     def test_binary_operations_reject_spectral_domain_mixing(self) -> None:
         spectral = SpectralFrame(
             data=da.ones((2, self.n_fft), chunks=(1, -1), dtype=np.complex128),

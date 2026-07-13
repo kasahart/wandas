@@ -227,7 +227,12 @@ class SpectralEnvelope(AudioOperation[NDArrayReal, NDArrayComplex]):
         if np.iscomplexobj(x):
             raise TypeError("SpectralEnvelope requires real-valued cepstral input.")
 
-        log_envelope = np.fft.rfft(np.asarray(x, dtype=np.float64), axis=-1)
+        values = np.asarray(x)
+        tolerance = 64 * np.finfo(_real_output_dtype(values.dtype)).eps
+        if not np.allclose(values[..., 1:], values[..., :0:-1], rtol=tolerance, atol=tolerance):
+            raise ValueError("SpectralEnvelope requires symmetric real cepstral coefficients.")
+
+        log_envelope = np.fft.rfft(np.asarray(values, dtype=np.float64), axis=-1)
         envelope = np.exp(np.real(log_envelope))
         n_fft = int(x.shape[-1])
         window_length = n_fft if self.window_length is None else self.window_length

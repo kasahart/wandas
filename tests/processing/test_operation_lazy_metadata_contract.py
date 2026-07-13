@@ -222,11 +222,12 @@ def _operation_cases() -> list[OperationCase]:
     real64 = _wave(256, dtype=np.float64)
     stereo_long = _wave(4096, dtype=np.float64)
     psycho = _psycho_signal()
+    cepstral = Cepstrum(SR, n_fft=256, window="boxcar")._process(real)
 
     return [
         OperationCase("cepstrum", lambda: Cepstrum(SR, n_fft=256, window="boxcar"), real),
         OperationCase("lifter", lambda: Lifter(SR, cutoff=0.002), real),
-        OperationCase("spectral_envelope", lambda: SpectralEnvelope(SR), real),
+        OperationCase("spectral_envelope", lambda: SpectralEnvelope(SR), cepstral),
         OperationCase(
             "custom",
             lambda: CustomOperation(SR, func=_custom_halve, output_shape_func=_halve_shape),

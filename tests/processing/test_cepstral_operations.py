@@ -101,6 +101,13 @@ class TestCepstralOperations:
         with pytest.raises(ValueError, match=r"window_length cannot be greater"):
             SpectralEnvelope(16000, window="boxcar", window_length=128)._process(np.zeros((1, 64)))
 
+    def test_spectral_envelope_rejects_asymmetric_cepstrum(self) -> None:
+        cepstrum = np.zeros((1, 8))
+        cepstrum[..., 1] = 1.0
+
+        with pytest.raises(ValueError, match=r"requires symmetric real cepstral coefficients"):
+            SpectralEnvelope(16000)._process(cepstrum)
+
     @pytest.mark.parametrize(("signal_length", "n_fft"), [(1, 1), (64, 128), (65, 65)])
     def test_reconstruction_matches_fft_for_padding_and_odd_lengths(self, signal_length: int, n_fft: int) -> None:
         rng = np.random.default_rng(43)
