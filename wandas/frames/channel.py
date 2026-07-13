@@ -520,7 +520,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
     def add(
         self,
-        other: "ChannelFrame | int | float | NDArrayReal",
+        other: "ChannelFrame | int | float | NDArrayReal | DaArray",
         snr: float | None = None,
     ) -> "ChannelFrame":
         """Add another signal or value to the current signal.
@@ -539,8 +539,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         """
         logger.debug(f"Setting up add operation with SNR={snr} (lazy)")
 
-        raw_array = other if isinstance(other, np.ndarray) else None
-        noise_input_kind = "array" if isinstance(other, np.ndarray) else "frame"
+        raw_array = other if isinstance(other, np.ndarray | DaArray) else None
+        noise_input_kind = "array" if raw_array is not None else "frame"
         if isinstance(other, ChannelFrame):
             # Check if sampling rates match
             if self.sampling_rate != other.sampling_rate:
@@ -553,10 +553,15 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         elif isinstance(other, np.ndarray):
             other = ChannelFrame.from_numpy(cast(NDArrayReal, other), self.sampling_rate, label="array_data")
+        elif isinstance(other, DaArray):
+            other = ChannelFrame(other, self.sampling_rate, label="array_data")
         elif isinstance(other, int | float):
             return self + other
         else:
-            raise TypeError(f"Addition target with SNR must be a ChannelFrame or NumPy array: {type(other)}")
+            raise TypeError(
+                f"Addition target with SNR must be a ChannelFrame or NumPy array "
+                f"(Dask arrays are also supported): {type(other)}"
+            )
 
         lineage_other = other._lineage_or_source() if noise_input_kind == "frame" else None
         other_operation_summaries = other.operation_summaries
@@ -588,7 +593,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 replay_handler="wandas.pipeline.calls.apply_add",
             )
             lineage = self._lineage_with_operation(operation, self._lineage_or_source())
-            return result._create_new_instance(data=result._data, lineage=lineage)
+            return self._replace_semantic_lineage(result, lineage)
         from wandas.processing import create_operation
 
         operation = create_operation(

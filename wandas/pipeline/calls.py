@@ -716,9 +716,4 @@ def apply_add(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
 
 @multi_input_handler("add_with_snr", version=1, roles=("signal", "noise"))
 def apply_add_with_snr(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
-    signal, noise = inputs
-    if isinstance(noise, DaArray):
-        from wandas.frames.channel import ChannelFrame
-
-        noise = ChannelFrame(noise, signal.sampling_rate, label="array_data")
-    return signal.add(noise, **params)
+    return inputs[0].add(inputs[1], **params)

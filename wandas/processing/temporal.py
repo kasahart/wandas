@@ -284,7 +284,6 @@ class FixLength(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
-    supports_generic_replay = True
     """RMS calculation"""
 
     name = "rms_trend"
@@ -429,7 +428,6 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
-    supports_generic_replay = True
     """Time-weighted RMS or sound level with frequency and time weighting."""
 
     name = "sound_level"

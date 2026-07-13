@@ -600,6 +600,11 @@ class BaseFrame(ABC, Generic[T]):
             return {}
         return {"operation_summaries_snapshot": self._operation_summaries_with_lineage_delta(lineage)}
 
+    def _replace_semantic_lineage(self: S, result: S, lineage: "LineageNode", **kwargs: Any) -> S:
+        """Replace helper lineage while deriving display summaries from the public source."""
+        kwargs.update(self._operation_summaries_snapshot_kwargs(lineage))
+        return result._create_new_instance(data=kwargs.pop("data", result._data), lineage=lineage, **kwargs)
+
     @staticmethod
     def _operation_name(operation: Any) -> str:
         from wandas.processing.base import BinaryOperation
@@ -1087,12 +1092,12 @@ class BaseFrame(ABC, Generic[T]):
         # Single index (int)
         if isinstance(key, numbers.Integral):
             selected = self.get_channel(int(key))
-            return self._create_new_instance(
-                data=selected._data,
+            return self._replace_semantic_lineage(
+                selected,
+                self._lineage_with_index({"indexing": "integer", "index": int(key)}),
                 channel_metadata=selected.channels.to_list(),
                 channel_ids=selected._channel_ids,
                 source_time_offset=selected.source_time_offset,
-                lineage=self._lineage_with_index({"indexing": "integer", "index": int(key)}),
             )
 
         # Single label (str)
@@ -1292,25 +1297,22 @@ class BaseFrame(ABC, Generic[T]):
                 if axis_slices is not None and channel is not None
                 else {"indexing": "multidimensional"}
             )
-            return selected._create_new_instance(
+            return self._replace_semantic_lineage(
+                selected,
+                self._lineage_with_index(lineage_params),
                 data=new_data,
                 channel_metadata=selected.channels.to_list(),
                 channel_ids=selected._channel_ids,
                 source_time_offset=source_time_offset,
-                lineage=self._lineage_with_index(
-                    lineage_params,
-                ),
             )
 
         channel = self._channel_selector_for_lineage(channel_key)
-        return selected._create_new_instance(
-            data=selected._data,
+        return self._replace_semantic_lineage(
+            selected,
+            self._lineage_with_index({"indexing": "multidimensional", "channel": channel}),
             channel_metadata=selected.channels.to_list(),
             channel_ids=selected._channel_ids,
             source_time_offset=selected.source_time_offset,
-            lineage=self._lineage_with_index(
-                {"indexing": "multidimensional", "channel": channel},
-            ),
         )
 
     def _channel_selector_for_lineage(self, key: Any) -> dict[str, Any] | None:
