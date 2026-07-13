@@ -15,6 +15,8 @@ MultiInputHandler = Callable[[tuple[Any, ...], Mapping[str, Any]], Any]
 def multi_input_handler(
     operation_id: str, *, version: int, roles: tuple[str, ...]
 ) -> Callable[[MultiInputHandler], MultiInputHandler]:
+    if not roles or len(set(roles)) != len(roles) or not all(role.strip() for role in roles):
+        raise ValueError("Multi-input handler roles must be non-empty, unique strings")
     contract = OperationContract(operation_id, version, True, ())
 
     def decorate(handler: MultiInputHandler) -> MultiInputHandler:

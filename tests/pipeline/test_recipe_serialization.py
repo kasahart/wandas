@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 
 from wandas.frames.channel import ChannelFrame
-from wandas.pipeline import AudioCall, RecipePlan, RecipeSerializationError
-from wandas.pipeline.calls import CustomCall, IndexCall, MethodCall, TerminalCall
+from wandas.pipeline import AudioCall, RecipeInput, RecipeNode, RecipePlan, RecipeSerializationError
+from wandas.pipeline.calls import CustomCall, IndexCall, MethodCall, MultiInputCall, TerminalCall
 
 
 def _plan() -> RecipePlan:
@@ -82,13 +82,13 @@ def test_edge_free_empty_params_use_the_canonical_value_tree(build: Any) -> None
 
 
 def test_public_call_constructors_share_fail_closed_contracts() -> None:
-    with pytest.raises(RecipeSerializationError, match="public versioned"):
+    with pytest.raises(RecipeSerializationError, match="public member"):
         MethodCall("_lineage_or_source", "wandas.core.base_frame.BaseFrame._lineage_or_source")
     with pytest.raises(RecipeSerializationError, match="contract mismatch"):
         MethodCall("fft", "wandas.frames.mixins.channel_transform_mixin.ChannelTransformMixin.fft", version=99)
     with pytest.raises(RecipeSerializationError, match="selection intent"):
         IndexCall({"bad": "mapping"})
-    with pytest.raises(RecipeSerializationError, match="public method"):
+    with pytest.raises(RecipeSerializationError, match="public member"):
         TerminalCall("_lineage_or_source", "wandas.core.base_frame.BaseFrame._lineage_or_source")
     with pytest.raises(RecipeSerializationError, match="contract mismatch"):
         MethodCall("to_numpy", "wandas.core.base_frame.BaseFrame.to_numpy")
@@ -124,3 +124,46 @@ def test_truncated_value_tree_is_normalized_to_serialization_error() -> None:
 
     with pytest.raises(RecipeSerializationError, match="mapping value"):
         RecipePlan.from_dict(payload)
+
+
+def test_valid_terminal_property_roundtrips_and_executes() -> None:
+    source = ChannelFrame.from_numpy(np.ones((1, 16)), sampling_rate=8000)
+    plan = RecipePlan(
+        (RecipeInput("input-0", "signal"),),
+        (
+            RecipeNode(
+                "node-0",
+                TerminalCall("rms", "wandas.frames.channel.ChannelFrame.rms"),
+                ("input-0",),
+            ),
+        ),
+        "node-0",
+    )
+
+    restored = RecipePlan.from_dict(plan.to_dict())
+
+    np.testing.assert_allclose(restored.apply({"signal": source}), [1.0])
+
+
+def test_multi_input_direct_constructor_normalizes_mutable_value_tree() -> None:
+    child: list[Any] = ["list", []]
+    params = ("mapping", (("snr", child),))
+    call = MultiInputCall(
+        "add_with_snr",
+        ("signal", "noise"),
+        "wandas.pipeline.calls.apply_add_with_snr",
+        cast(Any, params),
+    )
+    child[1].append(("float", 3.0))
+
+    assert call.params == ("mapping", (("snr", ("list", ())),))
+
+
+def test_audio_invoke_rechecks_runtime_operation_version(monkeypatch: pytest.MonkeyPatch) -> None:
+    from wandas.processing import get_operation
+
+    call = AudioCall("normalize")
+    monkeypatch.setattr(get_operation("normalize"), "operation_version", 2, raising=False)
+
+    with pytest.raises(RecipeSerializationError, match="version"):
+        call.invoke((ChannelFrame.from_numpy(np.ones((1, 8)), sampling_rate=8000),))

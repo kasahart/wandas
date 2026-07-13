@@ -80,6 +80,15 @@ def test_raw_add_channel_retains_base_source_lineage() -> None:
     assert replayed.labels[-1] == "added"
 
 
+def test_add_channel_reuses_shared_root_identity() -> None:
+    source = _frame()
+    processed = source.add_channel(source, label="same")
+
+    assert processed.lineage is not None
+    assert processed.lineage.inputs[0] is processed.lineage.inputs[1]
+    assert len(RecipePlan.from_frame(processed).inputs) == 1
+
+
 def test_multidimensional_indexing_is_one_call() -> None:
     source = _frame()
     processed = source[:, 2:10]

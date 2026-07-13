@@ -135,6 +135,36 @@ class FrameCall(CanonicalCall):
         return all(kind == "frame" for kind in kinds)
 
 
+def _audio_operation(operation: str, version: int) -> type[Any]:
+    from wandas.processing import get_operation
+
+    try:
+        operation_class = get_operation(operation)
+    except ValueError as exc:
+        raise RecipeSerializationError(f"Unknown Recipe operation\n  Operation: {operation!r}") from exc
+    if getattr(operation_class, "operation_version", 1) != version:
+        raise RecipeSerializationError("Recipe operation version does not match runtime operation")
+    if not getattr(operation_class, "supports_generic_replay", False):
+        raise RecipeSerializationError("Audio operation has not opted into generic Recipe replay")
+    return operation_class
+
+
+def _target_member(operation: str, target: str, version: int, output_kind: str) -> Any:
+    member_value = _load_path(target)
+    owner_path, _, member = target.rpartition(".")
+    owner = _load_path(owner_path)
+    if not isinstance(owner, type) or owner.__dict__.get(member) is not member_value or member.startswith("_"):
+        raise RecipeSerializationError("Recipe target must be a directly owned public member")
+    if operation != member:
+        raise RecipeSerializationError("Recipe operation and target member must match")
+    contract_owner = member_value.fget if isinstance(member_value, property) else member_value
+    if getattr(contract_owner, "__wandas_replay_target__", None) != ReplayTargetContract(
+        operation, version, cast(Any, output_kind)
+    ):
+        raise RecipeSerializationError(f"Recipe {output_kind} target contract mismatch")
+    return member_value
+
+
 @dataclass(frozen=True)
 class AudioCall(FrameCall):
     operation: str
@@ -143,22 +173,14 @@ class AudioCall(FrameCall):
     arity: ClassVar[int] = 1
 
     def __init__(self, operation: str, params: Mapping[str, Any] | None = None, version: int = 1) -> None:
-        from wandas.processing import get_operation
-
         _version(version, None)
-        try:
-            operation_class = get_operation(operation)
-        except ValueError as exc:
-            raise RecipeSerializationError(f"Unknown Recipe operation\n  Operation: {operation!r}") from exc
-        if getattr(operation_class, "operation_version", 1) != version:
-            raise RecipeSerializationError("Recipe operation version does not match runtime operation")
-        if not getattr(operation_class, "supports_generic_replay", False):
-            raise RecipeSerializationError("Audio operation has not opted into generic Recipe replay")
+        _audio_operation(operation, version)
         object.__setattr__(self, "operation", operation)
         object.__setattr__(self, "params", _freeze_params(params or {}))
         object.__setattr__(self, "version", version)
 
     def invoke(self, inputs: tuple[Any, ...]) -> Any:
+        _audio_operation(self.operation, self.version)
         return inputs[0].apply_operation(self.operation, **_thaw_params(self.params))
 
     def to_payload(self) -> dict[str, Any]:
@@ -174,16 +196,7 @@ class MethodCall(FrameCall):
     arity: ClassVar[int] = 1
 
     def __init__(self, operation: str, target: str, params: Mapping[str, Any] | None = None, version: int = 1) -> None:
-        function = _load_path(target)
-        owner_path, _, member = target.rpartition(".")
-        owner = _load_path(owner_path)
-        if not isinstance(owner, type) or owner.__dict__.get(member) is not function:
-            raise RecipeSerializationError("Recipe method target must be a directly owned class member")
-        if member.startswith("_") or operation != member:
-            raise RecipeSerializationError("Recipe method must be a public versioned target")
-        contract = getattr(function, "__wandas_replay_target__", None)
-        if contract != ReplayTargetContract(operation, version, "frame"):
-            raise RecipeSerializationError("Recipe method target contract mismatch")
+        _target_member(operation, target, version, "frame")
         _version(version, None)
         object.__setattr__(self, "operation", operation)
         object.__setattr__(self, "target", target)
@@ -191,8 +204,8 @@ class MethodCall(FrameCall):
         object.__setattr__(self, "version", version)
 
     def invoke(self, inputs: tuple[Any, ...]) -> Any:
-        function = _load_path(self.target)
-        method = getattr(inputs[0], function.__name__)
+        _target_member(self.operation, self.target, self.version, "frame")
+        method = getattr(inputs[0], self.operation)
         return method(**_thaw_params(self.params))
 
     def to_payload(self) -> dict[str, Any]:
@@ -441,23 +454,10 @@ class TerminalCall(FrameCall):
 
     def __post_init__(self) -> None:
         _version(self.version)
-        function = _load_path(self.target)
-        owner_path, _, member = self.target.rpartition(".")
-        owner = _load_path(owner_path)
-        if (
-            not self.operation
-            or self.operation != member
-            or member.startswith("_")
-            or not isinstance(owner, type)
-            or owner.__dict__.get(member) is not function
-        ):
-            raise RecipeSerializationError("Terminal Recipe target must be a directly owned public method")
-        if getattr(function, "__wandas_replay_target__", None) != ReplayTargetContract(
-            self.operation, self.version, "terminal"
-        ):
-            raise RecipeSerializationError("Terminal Recipe target contract mismatch")
+        _target_member(self.operation, self.target, self.version, "terminal")
 
     def invoke(self, inputs: tuple[Any, ...]) -> Any:
+        _target_member(self.operation, self.target, self.version, "terminal")
         target = getattr(inputs[0], self.operation)
         return target() if callable(target) else target
 
@@ -475,22 +475,45 @@ class MultiInputCall(FrameCall):
     params: ReplayValue
     version: int = 1
 
+    def __init__(
+        self,
+        operation: str,
+        roles: tuple[str, ...],
+        target: str,
+        params: Mapping[str, Any] | ReplayValue,
+        version: int = 1,
+    ) -> None:
+        normalized_roles = tuple(roles)
+        if not normalized_roles or len(set(normalized_roles)) != len(normalized_roles):
+            raise RecipeSerializationError("Multi-input roles must be non-empty and unique")
+        if not all(isinstance(role, str) and role.strip() for role in normalized_roles):
+            raise RecipeSerializationError("Multi-input roles must be non-blank strings")
+        object.__setattr__(self, "operation", operation)
+        object.__setattr__(self, "roles", normalized_roles)
+        object.__setattr__(self, "target", target)
+        object.__setattr__(self, "params", _normalize_params(params))
+        object.__setattr__(self, "version", version)
+        self.__post_init__()
+
     @property
     def arity(self) -> int:
         return len(self.roles)
 
     def __post_init__(self) -> None:
         _version(self.version, None)
+        self._handler()
+
+    def _handler(self) -> MultiInputHandler:
         handler = _load_stable_function(self.target)
         if getattr(handler, "__wandas_multi_input_contract__", None) != (
             OperationContract(self.operation, self.version, True, ()),
             self.roles,
         ):
             raise RecipeSerializationError("Multi-input handler contract mismatch")
+        return handler
 
     def invoke(self, inputs: tuple[Any, ...]) -> Any:
-        handler: MultiInputHandler = _load_stable_function(self.target)
-        return handler(inputs, _thaw_params(self.params))
+        return self._handler()(inputs, _thaw_params(self.params))
 
     def to_payload(self) -> dict[str, Any]:
         payload = _payload("multi_input", self.operation, self.version, self.params)

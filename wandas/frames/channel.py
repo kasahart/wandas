@@ -1456,7 +1456,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 new_id = self._next_channel_id(new_ids)
                 new_ids.append(new_id)
             new_offsets = np.concatenate([self.source_time_offset, data.source_time_offset])
-            lineage = self._lineage_with_add_channel(lineage_params, data.lineage)
+            lineage = self._lineage_with_add_channel(lineage_params, data._lineage_or_source())
             operation_summaries_snapshot = None
             if self._operation_summaries_snapshot is not None or data._operation_summaries_snapshot is not None:
                 operation_summaries_snapshot = self._snapshot_operation_summaries(
