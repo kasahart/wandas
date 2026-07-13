@@ -1,0 +1,247 @@
+"""Typed ReplayDescriptor codecs used by the generic lineage compiler."""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+from typing import Any, Literal
+
+import numpy as np
+
+from wandas.pipeline.calls import (
+    AddChannelCall,
+    AudioCall,
+    BinaryCall,
+    CustomCall,
+    ExternalArrayCall,
+    IndexCall,
+    MethodCall,
+    MultiInputCall,
+    ScalarCall,
+)
+from wandas.pipeline.errors import RecipeExtractionError
+from wandas.pipeline.model import RecipeCall
+from wandas.processing.base import LineageNode
+from wandas.processing.semantic import (
+    AudioReplay,
+    BinaryReplay,
+    CustomReplay,
+    MethodReplay,
+    MultiInputReplay,
+    ReplayDescriptor,
+)
+
+
+@dataclass(frozen=True)
+class BoundInput:
+    role: str
+    kind: Literal["frame", "array"]
+    lineage: LineageNode | None = None
+    external: bool = False
+
+
+@dataclass(frozen=True)
+class CodecResult:
+    call: RecipeCall
+    bindings: tuple[BoundInput, ...]
+
+
+ReplayCodec = Callable[[ReplayDescriptor, tuple[LineageNode, ...]], CodecResult]
+
+
+class ReplayCodecRegistry:
+    def __init__(self) -> None:
+        self._codecs: dict[type[ReplayDescriptor], ReplayCodec] = {}
+        self._frozen = False
+
+    def register(self, descriptor_type: type[ReplayDescriptor], codec: ReplayCodec) -> None:
+        if self._frozen:
+            raise TypeError("Frozen Recipe codec registries cannot be modified")
+        if descriptor_type in self._codecs:
+            raise ValueError(f"Recipe codec is already registered: {descriptor_type.__name__}")
+        self._codecs[descriptor_type] = codec
+
+    def freeze(self) -> ReplayCodecRegistry:
+        self._frozen = True
+        return self
+
+    def encode(self, descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]) -> CodecResult:
+        codec = self._codecs.get(type(descriptor))
+        if codec is None:
+            raise RecipeExtractionError(f"No Recipe codec for descriptor: {type(descriptor).__name__}")
+        result = codec(descriptor, lineage_inputs)
+        expected = tuple(
+            (binding.role, binding.kind) for binding in descriptor.contract.bindings if binding.kind != "scalar"
+        )
+        actual = tuple((binding.role, binding.kind) for binding in result.bindings)
+        if expected != actual or len(actual) != result.call.arity:
+            raise RecipeExtractionError(f"Recipe codec bindings disagree with descriptor\n  Expected: {expected}")
+        return result
+
+
+def default_codec_registry() -> ReplayCodecRegistry:
+    registry = ReplayCodecRegistry()
+    registry.register(AudioReplay, _audio)
+    registry.register(MethodReplay, _method)
+    registry.register(BinaryReplay, _binary)
+    registry.register(CustomReplay, _custom)
+    registry.register(MultiInputReplay, _multi)
+    return registry.freeze()
+
+
+def _frame(role: str, lineage: LineageNode | None) -> BoundInput:
+    return BoundInput(role, "frame", lineage)
+
+
+def _audio(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]) -> CodecResult:
+    if not isinstance(descriptor, AudioReplay) or not descriptor.generic:
+        raise RecipeExtractionError("Audio operation has not opted into generic Recipe replay")
+    lineage = lineage_inputs[0] if lineage_inputs else None
+    binding = descriptor.contract.bindings[0]
+    return CodecResult(
+        AudioCall(descriptor.contract.operation_id, descriptor.thaw_params(), descriptor.contract.version),
+        (_frame(binding.role, lineage),),
+    )
+
+
+def _binary(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]) -> CodecResult:
+    if not isinstance(descriptor, BinaryReplay):
+        raise RecipeExtractionError("Binary codec requires BinaryReplay")
+    operation = descriptor.symbol
+    bindings = descriptor.contract.bindings
+    if descriptor.operand_kind == "frame":
+        if len(lineage_inputs) != 2:
+            raise RecipeExtractionError("Frame binary replay requires two lineage inputs")
+        return CodecResult(
+            BinaryCall(operation, descriptor.contract.version),
+            tuple(_frame(binding.role, lineage) for binding, lineage in zip(bindings, lineage_inputs, strict=True)),
+        )
+    frame_binding = next(binding for binding in bindings if binding.kind == "frame")
+    frame_lineage = lineage_inputs[0] if lineage_inputs else None
+    if descriptor.operand_kind == "scalar":
+        if descriptor.scalar_operand is None:
+            raise RecipeExtractionError("Unsupported scalar Recipe operand")
+        return CodecResult(
+            ScalarCall(operation, descriptor.scalar_operand, descriptor.operand_position == "left"),
+            (_frame(frame_binding.role, frame_lineage),),
+        )
+    array_index = next(index for index, binding in enumerate(bindings) if binding.kind == "array")
+    result_bindings = tuple(
+        BoundInput(binding.role, "array", external=True)
+        if binding.kind == "array"
+        else _frame(binding.role, frame_lineage)
+        for binding in bindings
+    )
+    return CodecResult(ExternalArrayCall(operation, array_index), result_bindings)
+
+
+def _slice(value: Mapping[str, Any]) -> slice:
+    return slice(value.get("start"), value.get("stop"), value.get("step"))
+
+
+def _selector(value: Mapping[str, Any]) -> Any:
+    kind = value.get("type", value.get("indexing"))
+    if kind == "integer":
+        return int(value["index"])
+    if kind == "label":
+        return value["label"]
+    if kind == "channel_slice":
+        return _slice(value)
+    if kind in {"integer_list", "integer_array"}:
+        items = [int(item) for item in value["indices"]]
+        return items if kind == "integer_list" else np.array(items, dtype=int)
+    if kind == "label_list":
+        return list(value["labels"])
+    if kind == "boolean_mask":
+        return np.array(value["mask"], dtype=bool)
+    raise RecipeExtractionError(f"Unsupported Recipe selector: {kind!r}")
+
+
+def _method_params(operation: str, params: dict[str, Any]) -> dict[str, Any]:
+    if operation in {"ifft", "istft"}:
+        return {}
+    if operation == "fix_length" and "target_length" in params:
+        params["length"] = params.pop("target_length")
+    if operation == "rename_channels" and "mapping_items" in params:
+        params["mapping"] = dict(params.pop("mapping_items"))
+    if operation == "get_channel":
+        params.pop("query_kind", None)
+    if operation == "welch":
+        params.pop("detrend", None)
+    return params
+
+
+def _method(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]) -> CodecResult:
+    if not isinstance(descriptor, MethodReplay):
+        raise RecipeExtractionError("Method codec requires MethodReplay")
+    operation = descriptor.contract.operation_id
+    params = descriptor.thaw_params()
+    frame_lineage = lineage_inputs[0] if lineage_inputs else None
+    if operation == "__getitem__":
+        if params.get("indexing") == "multidimensional_slice":
+            key = (_selector(params["channel"]), *(_slice(item) for item in params["axis_slices"]))
+        elif params.get("indexing") == "multidimensional":
+            raise RecipeExtractionError("Unsupported multidimensional Recipe indexing")
+        else:
+            key = _selector(params)
+        return CodecResult(IndexCall(key), (_frame("frame", frame_lineage),))
+    if operation == "add_channel":
+        kind = "frame" if params.pop("input_kind", None) == "frame" else "array"
+        params.pop("data_kind", None)
+        bindings = descriptor.contract.bindings
+        if kind == "frame":
+            if len(lineage_inputs) != 2:
+                raise RecipeExtractionError("add_channel frame replay requires two parents")
+            resolved = tuple(
+                _frame(binding.role, lineage) for binding, lineage in zip(bindings, lineage_inputs, strict=True)
+            )
+        else:
+            resolved = (
+                _frame(bindings[0].role, frame_lineage),
+                BoundInput(bindings[1].role, "array", external=True),
+            )
+        return CodecResult(AddChannelCall(kind, params), resolved)
+    if descriptor.target is None:
+        raise RecipeExtractionError(f"Recipe method has no stable target: {operation!r}")
+    return CodecResult(
+        MethodCall(operation, descriptor.target, _method_params(operation, params), descriptor.contract.version),
+        (_frame(descriptor.contract.bindings[0].role, frame_lineage),),
+    )
+
+
+def _custom(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]) -> CodecResult:
+    if not isinstance(descriptor, CustomReplay) or descriptor.function is None:
+        raise RecipeExtractionError("Custom Recipe replay requires stable callable paths")
+    binding = descriptor.contract.bindings[0]
+    return CodecResult(
+        CustomCall(
+            descriptor.function,
+            descriptor.params,
+            descriptor.output_shape_function,
+            descriptor.output_frame_class,
+            descriptor.output_frame_kwargs,
+            descriptor.contract.pure,
+            descriptor.contract.version,
+        ),
+        (_frame(binding.role, lineage_inputs[0] if lineage_inputs else None),),
+    )
+
+
+def _multi(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]) -> CodecResult:
+    if not isinstance(descriptor, MultiInputReplay) or not descriptor.handler:
+        raise RecipeExtractionError("Multi-input Recipe replay requires a stable handler")
+    if len(lineage_inputs) != len(descriptor.roles):
+        raise RecipeExtractionError("Multi-input lineage and roles disagree")
+    return CodecResult(
+        MultiInputCall(
+            descriptor.contract.operation_id,
+            descriptor.roles,
+            descriptor.handler,
+            descriptor.params,
+            descriptor.contract.version,
+        ),
+        tuple(
+            _frame(binding.role, lineage)
+            for binding, lineage in zip(descriptor.contract.bindings, lineage_inputs, strict=True)
+        ),
+    )

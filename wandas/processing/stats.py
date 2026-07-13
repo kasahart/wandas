@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class ABS(AudioOperation[NDArrayReal, NDArrayReal]):
+    supports_generic_replay = True
     """Absolute value operation"""
 
     name = "abs"
@@ -31,6 +32,7 @@ class ABS(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 class Power(AudioOperation[NDArrayReal, NDArrayReal]):
+    supports_generic_replay = True
     """Power operation"""
 
     name = "power"

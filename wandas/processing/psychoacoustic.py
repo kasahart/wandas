@@ -122,6 +122,8 @@ def _register_canonical(operation_class: type[AudioOperation[Any, Any]]) -> None
 
 
 class _PsychoacousticOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+    supports_generic_replay = True
+
     def ensure_dependencies(self) -> None:
         return None
 

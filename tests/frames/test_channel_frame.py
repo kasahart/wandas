@@ -17,7 +17,7 @@ import wandas as wd
 import wandas.processing as processing_module
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
-from wandas.pipeline import NodeGraphRecipeSpec
+from wandas.pipeline import RecipePlan
 from wandas.utils.types import NDArrayReal
 
 _da_from_array = da.from_array
@@ -614,7 +614,7 @@ def test_add_channel_inplace_preserves_replayable_lineage() -> None:
 
     base.add_channel(np.ones(6), label="new_ch", inplace=True)
 
-    recipe = NodeGraphRecipeSpec.from_frame(base, input_names=("base", "new_data"))
+    recipe = RecipePlan.from_frame(base, input_names=("base", "new_data"))
     replayed = recipe.apply(
         {
             "base": ChannelFrame(data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)), sampling_rate=16000),

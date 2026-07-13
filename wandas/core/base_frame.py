@@ -746,7 +746,15 @@ class BaseFrame(ABC, Generic[T]):
     def _lineage_with_method(self, method: str, params: Mapping[str, Any]) -> "LineageNode":
         from wandas.processing.base import FrameMethodOperation
 
-        return self._lineage_with_operation(FrameMethodOperation(method, params), self._lineage_or_source())
+        function = None
+        for owner in type(self).__mro__:
+            if method in owner.__dict__:
+                function = owner.__dict__[method]
+                break
+        target = None
+        if function is not None:
+            target = f"{function.__module__}.{function.__qualname__}"
+        return self._lineage_with_operation(FrameMethodOperation(method, params, target), self._lineage_or_source())
 
     def _lineage_with_unsupported_indexing(self, indexing: str) -> "LineageNode":
         return self._lineage_with_method("__getitem__", {"indexing": indexing})

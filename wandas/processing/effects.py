@@ -57,6 +57,7 @@ def _normalize_array(
 
 
 class _HpssBase(AudioOperation[NDArrayReal, NDArrayReal]):
+    supports_generic_replay = True
     """Shared base for HPSS harmonic/percussive extraction."""
 
     _extract_func: str  # "harmonic" or "percussive" — set by subclasses
@@ -96,6 +97,7 @@ class HpssPercussive(_HpssBase):
 
 
 class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
+    supports_generic_replay = True
     """Signal normalization operation."""
 
     name = "normalize"
@@ -227,6 +229,7 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 class RemoveDC(AudioOperation[NDArrayReal, NDArrayReal]):
+    supports_generic_replay = True
     """Remove DC component (DC offset) from the signal.
 
     This operation removes the DC component by subtracting the mean value
@@ -276,11 +279,14 @@ class RemoveDC(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
+    supports_generic_replay = False
     """Addition operation considering SNR"""
 
     name = "add_with_snr"
     _display = "+SNR"
     _expected_input_count = 2
+    input_roles = ("signal", "noise")
+    replay_handler_path = "wandas.pipeline.calls.apply_add_with_snr"
 
     def __init__(self, sampling_rate: float, snr: float = 1.0):
         """
@@ -321,6 +327,7 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 class Fade(AudioOperation[NDArrayReal, NDArrayReal]):
+    supports_generic_replay = True
     """Fade operation using a Tukey (tapered cosine) window.
 
     This operation applies symmetric fade-in and fade-out with the same

@@ -14,7 +14,7 @@ import pytest
 from wandas.frames.channel import ChannelFrame
 from wandas.io import readers as io_readers
 from wandas.io import wdf_io
-from wandas.pipeline import RecipeSpec
+from wandas.pipeline import RecipePlan
 
 
 @contextmanager
@@ -297,7 +297,7 @@ def test_wdf_loaded_summary_snapshot_is_not_recipe_lineage(known_signal_frame, t
 
     assert loaded.operation_summaries == expected_summaries
     assert loaded.operation_graph is None
-    assert RecipeSpec.from_frame(loaded).steps == ()
+    assert RecipePlan.from_frame(loaded).nodes == ()
 
     followup = loaded.high_pass_filter(cutoff=200, order=4)
 
@@ -307,7 +307,9 @@ def test_wdf_loaded_summary_snapshot_is_not_recipe_lineage(known_signal_frame, t
         "highpass_filter",
     ]
     assert [record["operation"] for record in followup.operation_history] == ["highpass_filter"]
-    assert [step.to_dict()["operation"] for step in RecipeSpec.from_frame(followup).steps] == ["highpass_filter"]
+    assert [node.call.to_payload()["operation"] for node in RecipePlan.from_frame(followup).nodes] == [
+        "highpass_filter"
+    ]
 
 
 def test_wdf_repeated_save_load_preserves_composed_summary_order(tmp_path: Path) -> None:

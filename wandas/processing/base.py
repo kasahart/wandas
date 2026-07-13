@@ -20,6 +20,7 @@ from wandas.processing.semantic import (
     BinaryReplay,
     InputBinding,
     MethodReplay,
+    MultiInputReplay,
     OperationContract,
     ReplayDescriptor,
     SourceReplay,
@@ -298,6 +299,7 @@ class FrameMethodOperation:
 
     name: str
     method_params: Mapping[str, Any]
+    target: str | None = None
 
     @property
     def params(self) -> Mapping[str, Any]:
@@ -316,6 +318,7 @@ class FrameMethodOperation:
             OperationContract(self.name, 1, True, bindings),
             frozen_params(self.to_params(), allow_opaque=True),
             self.name,
+            self.target,
         )
 
 
@@ -443,6 +446,8 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     name: ClassVar[str]
     _expected_input_count: ClassVar[int | None] = 1
     operation_version: ClassVar[int] = 1
+    # Replay is an explicit capability: subclasses must opt in after confirming
+    # that constructor parameters fully describe a pure, unary same-frame call.
     supports_generic_replay: ClassVar[bool] = False
 
     _config: dict[str, Any]
@@ -509,6 +514,17 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         return self._config_snapshot()
 
     def replay_descriptor(self) -> ReplayDescriptor:
+        if self._expected_input_count not in {None, 1}:
+            roles = getattr(self, "input_roles", tuple(f"input_{index}" for index in range(self._expected_input_count)))
+            handler = getattr(self, "replay_handler_path", "")
+            bindings = tuple(InputBinding(role, "frame") for role in roles)
+            return MultiInputReplay(
+                OperationContract(self.name, self.operation_version, bool(self.pure), bindings),
+                frozen_params(self.to_params(), allow_opaque=True),
+                self.name,
+                handler,
+                roles,
+            )
         return AudioReplay(
             OperationContract(self.name, self.operation_version, bool(self.pure), (InputBinding("frame", "frame"),)),
             frozen_params(self.to_params(), allow_opaque=True),

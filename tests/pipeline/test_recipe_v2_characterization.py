@@ -9,7 +9,7 @@ import dask.array as da
 import numpy as np
 
 from wandas.frames.channel import ChannelFrame
-from wandas.pipeline import NodeGraphRecipeSpec
+from wandas.pipeline import RecipePlan
 
 
 def _frame() -> ChannelFrame:
@@ -61,7 +61,7 @@ def test_existing_graph_replay_preserves_non_commutative_order() -> None:
     left = _frame()
     right = ChannelFrame.from_numpy(np.ones((2, 32)), sampling_rate=8000)
     processed = left - right
-    recipe = NodeGraphRecipeSpec.from_frame(processed, input_names=("left", "right"))
+    recipe = RecipePlan.from_frame(processed, input_names=("left", "right"))
     replayed = recipe.apply({"left": left, "right": right})
 
     np.testing.assert_allclose(replayed._data.compute(), processed._data.compute())
@@ -75,6 +75,6 @@ def test_external_dask_operand_is_lazy_during_recipe_extraction(monkeypatch) -> 
         raise AssertionError("Recipe extraction must not compute Dask inputs")
 
     monkeypatch.setattr(da.Array, "compute", fail_compute)
-    recipe = NodeGraphRecipeSpec.from_frame(processed, input_names=("signal", "operand"))
+    recipe = RecipePlan.from_frame(processed, input_names=("signal", "operand"))
 
     assert len(recipe.inputs) == 2

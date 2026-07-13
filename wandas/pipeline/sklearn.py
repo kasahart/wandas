@@ -4,7 +4,7 @@ from typing import Any
 
 import numpy as np
 
-from wandas.pipeline import OperationSpec
+from wandas.pipeline import AudioCall
 from wandas.utils.optional_imports import require_dependency_attr
 
 _SKLEARN_IMPORT_ERROR: ImportError | None = None
@@ -88,8 +88,8 @@ class WandasOperationTransformer(TransformerMixin, BaseEstimator):  # type: igno
                 setattr(self, key, value)
         return self
 
-    def to_spec(self) -> OperationSpec:
-        return OperationSpec(self._resolved_operation(), self._resolved_params())
+    def to_call(self) -> AudioCall:
+        return AudioCall(self._resolved_operation(), self._resolved_params())
 
 
 class HighPassFilter(WandasOperationTransformer):

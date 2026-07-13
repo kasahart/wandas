@@ -51,6 +51,7 @@ def _resampling_ratio(source_sr: float, target_sr: float) -> tuple[int, int]:
 
 
 class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
+    supports_generic_replay = True
     """Resampling operation"""
 
     name = "resampling"
@@ -142,6 +143,7 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
+    supports_generic_replay = True
     """Trimming operation"""
 
     name = "trim"
@@ -282,6 +284,7 @@ class FixLength(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
+    supports_generic_replay = True
     """RMS calculation"""
 
     name = "rms_trend"
@@ -426,6 +429,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
+    supports_generic_replay = True
     """Time-weighted RMS or sound level with frequency and time weighting."""
 
     name = "sound_level"
