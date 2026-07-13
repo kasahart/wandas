@@ -232,7 +232,7 @@ class BinaryReplay(ReplayDescriptor):
     symbol: str
     operand_kind: Literal["frame", "scalar", "array"]
     operand_position: Literal["left", "right"]
-    scalar_operand: int | float | complex | None = None
+    scalar_operand: bool | int | float | complex | None = None
 
 
 @dataclass(frozen=True)
@@ -266,11 +266,10 @@ def frozen_params(params: Mapping[str, Any], *, allow_opaque: bool = False) -> R
 
 def method_replay_params(operation: str, params: Mapping[str, Any]) -> dict[str, Any]:
     """Apply declarative adapters for legacy runtime/public signature differences."""
+    if operation in {"ifft", "istft"}:
+        return {}
     result = dict(params)
     policy = {
-        "ifft": ({}, ()),
-        "istft": ({}, ()),
-        "fix_length": ({"target_length": "length"}, ()),
         "rename_channels": ({"mapping_items": "mapping"}, ()),
         "get_channel": ({}, ("query_kind",)),
         "welch": ({}, ("detrend",)),
@@ -278,8 +277,6 @@ def method_replay_params(operation: str, params: Mapping[str, Any]) -> dict[str,
     if policy is None:
         return result
     renames, drops = policy
-    if operation in {"ifft", "istft"}:
-        return {}
     for old, new in renames.items():
         if old in result:
             value = result.pop(old)

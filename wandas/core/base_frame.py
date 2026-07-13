@@ -1087,7 +1087,7 @@ class BaseFrame(ABC, Generic[T]):
         # Single index (int)
         if isinstance(key, numbers.Integral):
             selected = self.get_channel(int(key))
-            return selected._create_new_instance(
+            return self._create_new_instance(
                 data=selected._data,
                 channel_metadata=selected.channels.to_list(),
                 channel_ids=selected._channel_ids,
@@ -1724,6 +1724,8 @@ class BaseFrame(ABC, Generic[T]):
         """Return a short display string for a binary operand."""
         if isinstance(other, int | float):
             return str(other)
+        if isinstance(other, np.bool_):
+            return str(bool(other))
         if isinstance(other, complex):
             return f"complex({other.real}, {other.imag})"
         if isinstance(other, np.ndarray):

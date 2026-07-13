@@ -78,13 +78,23 @@ def test_raw_snr_noise_remains_an_external_array_input() -> None:
 
 def test_raw_add_without_snr_remains_an_external_array_input() -> None:
     source = _frame(channels=1)
-    operand = np.linspace(0.25, 1.25, source.n_samples).reshape(1, -1)
+    operand = np.linspace(0.25, 1.25, source.n_samples // 2).reshape(1, -1)
     processed = source.add(operand)
     plan = RecipePlan.from_frame(processed, input_names=("signal", "operand"))
 
     assert [item.kind for item in plan.inputs] == ["frame", "array"]
     replayed = plan.apply({"signal": source, "operand": operand})
     np.testing.assert_allclose(replayed.compute(), processed.compute())
+
+
+def test_add_channel_accepts_numpy_source_time_offset_metadata() -> None:
+    source = _frame(channels=1)
+    added = np.ones((1, source.n_samples))
+    processed = source.add_channel(added, label="added", source_time_offset=np.array([1.25]))
+    plan = RecipePlan.from_dict(RecipePlan.from_frame(processed, input_names=("signal", "added")).to_dict())
+
+    replayed = plan.apply({"signal": source, "added": added})
+    np.testing.assert_allclose(replayed.source_time_offset, processed.source_time_offset)
 
 
 def test_raw_snr_recipe_accepts_dask_noise_without_eager_compute(
@@ -148,3 +158,26 @@ def test_complex_scalar_roundtrips_without_losing_value_or_labels() -> None:
 
     np.testing.assert_allclose(replayed.compute(), processed.compute())
     assert replayed.labels == processed.labels
+
+
+@pytest.mark.parametrize("operand", [True, np.bool_(True)])
+def test_boolean_scalar_roundtrips_without_complex_coercion(operand: Any) -> None:
+    source = _frame(channels=1)
+    processed = source + operand
+    plan = RecipePlan.from_dict(RecipePlan.from_frame(processed).to_dict())
+    replayed = plan.apply({"input_0": source})
+
+    np.testing.assert_allclose(replayed.compute(), processed.compute())
+    assert replayed.labels == processed.labels
+
+
+def test_integer_index_replaces_loaded_operation_summary() -> None:
+    source = ChannelFrame(
+        da.from_array(np.ones((2, 16)), chunks=(1, 8)),
+        sampling_rate=8000,
+        operation_summaries_snapshot=({"operation": "loaded", "params": {}},),
+    )
+
+    selected = source[0]
+
+    assert selected.operation_summaries[-1]["operation"] == "__getitem__"

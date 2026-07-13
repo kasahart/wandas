@@ -201,6 +201,8 @@ def _add_channel(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode
     params = descriptor.thaw_params()
     params.pop("input_kind", None)
     params.pop("data_kind", None)
+    if isinstance(params.get("source_time_offset"), np.ndarray):
+        params["source_time_offset"] = params["source_time_offset"].tolist()
     bindings = descriptor.contract.bindings
     if descriptor.input_kind == "frame":
         if len(lineage_inputs) != 2:

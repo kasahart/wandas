@@ -229,6 +229,8 @@ class BinaryOperation:
     operand_kind: str
     operand: Any | None = None
     operand_position: str = "right"
+    replay_operation: str | None = None
+    replay_handler: str | None = None
     name: str = "binary_operation"
 
     @property
@@ -259,12 +261,29 @@ class BinaryOperation:
             "params": {key: _summary_value(value) for key, value in params.items()},
         }
 
-    def replay_descriptor(self) -> BinaryReplay:
+    def replay_descriptor(self) -> ReplayDescriptor:
+        if self.replay_handler is not None:
+            roles = ("signal", "operand")
+            operation = self.replay_operation or self.symbol
+            return MultiInputReplay(
+                OperationContract(
+                    operation,
+                    1,
+                    True,
+                    (InputBinding(roles[0], "frame"), InputBinding(roles[1], "array")),
+                ),
+                frozen_params({}),
+                operation,
+                self.replay_handler,
+                roles,
+            )
         other_kind = "frame" if self.operand_kind == "frame" else "array"
-        scalar: int | float | complex | None = None
+        scalar: bool | int | float | complex | None = None
         if self.operand_kind != "frame" and not isinstance(self.operand, np.ndarray | DaArray):
             other_kind = "scalar"
-            if not isinstance(self.operand, bool) and isinstance(self.operand, numbers.Real):
+            if isinstance(self.operand, bool | np.bool_):
+                scalar = bool(self.operand)
+            elif isinstance(self.operand, numbers.Real):
                 scalar = int(self.operand) if isinstance(self.operand, numbers.Integral) else float(self.operand)
             elif isinstance(self.operand, numbers.Complex):
                 scalar = complex(self.operand)
@@ -295,6 +314,8 @@ class BinaryOperation:
             operand_kind=self.operand_kind,
             operand=_operand_descriptor(self.operand),
             operand_position=self.operand_position,
+            replay_operation=self.replay_operation,
+            replay_handler=self.replay_handler,
         )
 
 

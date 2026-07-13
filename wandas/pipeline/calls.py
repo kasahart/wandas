@@ -225,7 +225,7 @@ def _operator(symbol: str, left: Any, right: Any) -> Any:
 @dataclass(frozen=True)
 class ScalarCall(FrameCall):
     operation: str
-    operand: int | float | complex
+    operand: bool | int | float | complex
     reverse: bool = False
     version: int = 1
     arity: ClassVar[int] = 1
@@ -234,13 +234,15 @@ class ScalarCall(FrameCall):
         _version(self.version)
         if self.operation not in _OPERATORS:
             raise RecipeSerializationError("Unknown scalar Recipe operation")
-        if isinstance(self.operand, bool) or not isinstance(self.operand, numbers.Number):
-            raise RecipeSerializationError("Scalar Recipe operand must be numeric and non-boolean")
+        if not isinstance(self.operand, numbers.Number):
+            raise RecipeSerializationError("Scalar Recipe operand must be numeric")
         value = complex(self.operand)
         if not math.isfinite(value.real) or not math.isfinite(value.imag) or type(self.reverse) is not bool:
             raise RecipeSerializationError("Scalar Recipe operand and direction are invalid")
         normalized = (
-            int(self.operand)
+            bool(self.operand)
+            if isinstance(self.operand, bool | np.bool_)
+            else int(self.operand)
             if isinstance(self.operand, numbers.Integral)
             else float(self.operand)
             if isinstance(self.operand, numbers.Real)
@@ -705,6 +707,11 @@ register_call(
     ),
     _BASE | {"roles", "input_kinds", "target"},
 )
+
+
+@multi_input_handler("add", version=1, roles=("signal", "operand"))
+def apply_add(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
+    return inputs[0].add(inputs[1], **params)
 
 
 @multi_input_handler("add_with_snr", version=1, roles=("signal", "noise"))
