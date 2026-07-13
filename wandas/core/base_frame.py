@@ -777,14 +777,6 @@ class BaseFrame(ABC, Generic[T]):
             raise RuntimeError("Public semantic lineage capture is not active")
         return lineage
 
-    def _lineage_with_index(self, params: Mapping[str, Any]) -> "LineageNode":
-        from wandas.processing.base import IndexOperation
-
-        return self._lineage_with_operation(IndexOperation(params), self._lineage_or_source())
-
-    def _lineage_with_unsupported_indexing(self, indexing: str) -> "LineageNode":
-        return self._lineage_with_index({"indexing": indexing})
-
     def _semantic_index_params(self, key: Any) -> Mapping[str, Any]:
         if isinstance(key, tuple) and len(key) == 1:
             key = key[0]
@@ -1087,6 +1079,7 @@ class BaseFrame(ABC, Generic[T]):
         # produce the same canonical lineage intent.
         if isinstance(key, tuple) and len(key) == 1:
             key = key[0]
+        lineage = self._required_semantic_lineage()
 
         # Single index (int)
         if isinstance(key, numbers.Integral):
@@ -1096,7 +1089,7 @@ class BaseFrame(ABC, Generic[T]):
                 channel_metadata=selected.channels.to_list(),
                 channel_ids=selected._channel_ids,
                 source_time_offset=selected.source_time_offset,
-                lineage=self._lineage_with_index({"indexing": "integer", "index": int(key)}),
+                lineage=lineage,
             )
 
         # Single label (str)
@@ -1107,9 +1100,7 @@ class BaseFrame(ABC, Generic[T]):
                 channel_metadata=selected.channels.to_list(),
                 channel_ids=selected._channel_ids,
                 source_time_offset=selected.source_time_offset,
-                lineage=self._lineage_with_index(
-                    {"indexing": "label", "label": key},
-                ),
+                lineage=lineage,
             )
 
         # Phase 2: NumPy array support (bool mask and int array)
@@ -1122,12 +1113,8 @@ class BaseFrame(ABC, Generic[T]):
                     raise ValueError(
                         f"Boolean mask length {len(key)} does not match number of channels {self.n_channels}"
                     )
-                mask = [bool(value) for value in cast(npt.NDArray[np.bool_], key).tolist()]
                 indices = np.where(cast(npt.NDArray[np.bool_], key))[0]
                 result = self.get_channel(indices)
-                lineage = self._lineage_with_index(
-                    {"indexing": "boolean_mask", "mask": tuple(mask)},
-                )
                 creation_kwargs: dict[str, Any] = {}
                 if self._operation_summaries_snapshot is not None:
                     creation_kwargs["operation_summaries_snapshot"] = self._operation_summaries_with_lineage_delta(
@@ -1143,11 +1130,7 @@ class BaseFrame(ABC, Generic[T]):
                 )
             if np.issubdtype(key.dtype, np.integer):
                 # Integer array
-                int_list = [int(index) for index in cast(npt.NDArray[np.integer[Any]], key).tolist()]
                 result = self.get_channel(cast(npt.NDArray[np.int_], key))
-                lineage = self._lineage_with_index(
-                    {"indexing": "integer_array", "indices": tuple(int_list)},
-                )
                 creation_kwargs = {}
                 if self._operation_summaries_snapshot is not None:
                     creation_kwargs["operation_summaries_snapshot"] = self._operation_summaries_with_lineage_delta(
@@ -1181,9 +1164,7 @@ class BaseFrame(ABC, Generic[T]):
                     channel_metadata=new_channel_metadata,
                     channel_ids=new_channel_ids,
                     source_time_offset=self.source_time_offset[indices_from_labels],
-                    lineage=self._lineage_with_index(
-                        {"indexing": "label_list", "labels": tuple(str_list)},
-                    ),
+                    lineage=lineage,
                 )
 
             # Check if all elements are integers
@@ -1191,9 +1172,6 @@ class BaseFrame(ABC, Generic[T]):
                 # Multiple indices - convert to list[int] for type safety
                 int_list = [int(k) for k in key]
                 result = self.get_channel(int_list)
-                lineage = self._lineage_with_index(
-                    {"indexing": "integer_list", "indices": tuple(int_list)},
-                )
                 creation_kwargs = {}
                 if self._operation_summaries_snapshot is not None:
                     creation_kwargs["operation_summaries_snapshot"] = self._operation_summaries_with_lineage_delta(
@@ -1225,14 +1203,7 @@ class BaseFrame(ABC, Generic[T]):
                 channel_metadata=new_channel_metadata,
                 channel_ids=new_channel_ids,
                 source_time_offset=self.source_time_offset[indices],
-                lineage=self._lineage_with_index(
-                    {
-                        "indexing": "channel_slice",
-                        "start": key.start,
-                        "stop": key.stop,
-                        "step": key.step,
-                    },
-                ),
+                lineage=lineage,
             )
 
         raise TypeError(f"Invalid key type: {type(key).__name__}. Expected int, str, slice, list, tuple, or ndarray.")
@@ -1289,28 +1260,20 @@ class BaseFrame(ABC, Generic[T]):
                     raise ValueError("Stepped slicing on the time axis is not supported for source time offsets.")
                 start, _, _ = time_axis_key.indices(time_axis_size)
                 source_time_offset = source_time_offset + start * time_step
-            axis_slices = selected._axis_slices_for_lineage(time_keys)
-            channel = self._channel_selector_for_lineage(channel_key)
-            lineage_params: dict[str, Any] = (
-                {"indexing": "multidimensional_slice", "channel": channel, "axis_slices": axis_slices}
-                if axis_slices is not None and channel is not None
-                else {"indexing": "multidimensional"}
-            )
             return selected._create_new_instance(
                 data=new_data,
                 channel_metadata=selected.channels.to_list(),
                 channel_ids=selected._channel_ids,
                 source_time_offset=source_time_offset,
-                lineage=self._lineage_with_index(lineage_params),
+                lineage=self._required_semantic_lineage(),
             )
 
-        channel = self._channel_selector_for_lineage(channel_key)
         return selected._create_new_instance(
             data=selected._data,
             channel_metadata=selected.channels.to_list(),
             channel_ids=selected._channel_ids,
             source_time_offset=selected.source_time_offset,
-            lineage=self._lineage_with_index({"indexing": "multidimensional", "channel": channel}),
+            lineage=self._required_semantic_lineage(),
         )
 
     def _channel_selector_for_lineage(self, key: Any) -> dict[str, Any] | None:
@@ -1676,7 +1639,7 @@ class BaseFrame(ABC, Generic[T]):
             operand=other_str if operand_kind == "frame" else other,
             operand_position="left" if reverse and operand_kind == "operand" else "right",
         )
-        result_data = binary_operation.graph_marker()._mark_array(result_data)
+        result_data = binary_operation._mark_array(result_data)
         lineage = self._lineage_with_operation(binary_operation, *lineage_inputs)
         operation_summaries_snapshot = None
         if isinstance(other, type(self)) and (

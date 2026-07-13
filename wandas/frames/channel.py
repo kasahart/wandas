@@ -336,13 +336,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         params: dict[str, Any],
         added_lineage: Any | None = None,
     ) -> Any:
-        from wandas.processing.base import AddChannelOperation, FrameSourceOperation, LineageNode
+        from wandas.processing.base import AddChannelOperation
 
-        if params.get("input_kind") == "frame":
-            inputs = (
-                self._lineage_or_source(),
-                added_lineage if added_lineage is not None else LineageNode(FrameSourceOperation()),
-            )
+        if added_lineage is not None:
+            inputs = (self._lineage_or_source(), added_lineage)
             return self._lineage_with_operation(AddChannelOperation(params, "frame"), *inputs)
 
         inputs = (self._lineage_or_source(),)
@@ -1454,7 +1451,6 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             "suffix_on_dup": suffix_on_dup,
         }
         if isinstance(data, ChannelFrame):
-            lineage_params["input_kind"] = "frame"
             if source_time_offset is not None:
                 raise ValueError(
                     "source_time_offset cannot be used when adding a ChannelFrame\n"
@@ -1513,11 +1509,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 operation_summaries_snapshot=operation_summaries_snapshot,
             )
         if isinstance(data, np.ndarray):
-            lineage_params["input_kind"] = "ndarray"
             lineage_params["source_time_offset"] = source_time_offset
             arr = _da_from_array(data.reshape(1, -1), chunks=(1, -1))
         elif isinstance(data, DaArray):
-            lineage_params["input_kind"] = "dask.array"
             lineage_params["source_time_offset"] = source_time_offset
             arr = data[None, ...] if data.ndim == 1 else data
             if arr.shape[0] != 1:

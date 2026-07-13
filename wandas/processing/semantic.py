@@ -43,8 +43,9 @@ def _invoke_semantic(method: Callable[P, R], args: tuple[Any, ...], kwargs: Mapp
     token = _semantic_capture.set(lineage)
     try:
         result = method(*args, **kwargs)
+        is_frame_result = hasattr(result, "_lineage_or_source") and hasattr(result, "lineage")
         result_lineage = getattr(result, "lineage", lineage)
-        if type(result).__module__.startswith("wandas.") and result_lineage is not lineage:
+        if is_frame_result and result_lineage is not lineage:
             raise RuntimeError("Public operation did not preserve semantic lineage")
         return result
     finally:

@@ -232,6 +232,13 @@ class BinaryOperation:
     replay_handler: str | None = None
     name: str = "binary_operation"
 
+    def __post_init__(self) -> None:
+        if isinstance(self.operand, np.ndarray | DaArray):
+            descriptor = _operand_descriptor(self.operand)
+            descriptor["type"] = "array"
+            descriptor.pop("chunks", None)
+            object.__setattr__(self, "operand", descriptor)
+
     @property
     def params(self) -> Mapping[str, Any]:
         return self.to_params()
@@ -278,7 +285,8 @@ class BinaryOperation:
             )
         other_kind = "frame" if self.operand_kind == "frame" else "array"
         scalar: bool | int | float | complex | None = None
-        if self.operand_kind != "frame" and not isinstance(self.operand, np.ndarray | DaArray):
+        is_array_operand = isinstance(self.operand, Mapping) and self.operand.get("type") == "array"
+        if self.operand_kind != "frame" and not is_array_operand:
             other_kind = "scalar"
             if isinstance(self.operand, bool | np.bool_):
                 scalar = bool(self.operand)
@@ -303,19 +311,6 @@ class BinaryOperation:
         """Attach this binary operation to a Dask-native result graph."""
         marker = cast(Any, _mark_wandas_operation)
         return data.map_blocks(marker, self, dtype=data.dtype)
-
-    def graph_marker(self) -> "BinaryOperation":
-        """Return a marker that does not retain array graph dependencies."""
-        if not isinstance(self.operand, np.ndarray | DaArray):
-            return self
-        return BinaryOperation(
-            symbol=self.symbol,
-            operand_kind=self.operand_kind,
-            operand=_operand_descriptor(self.operand),
-            operand_position=self.operand_position,
-            replay_operation=self.replay_operation,
-            replay_handler=self.replay_handler,
-        )
 
 
 @dataclass(frozen=True)
@@ -389,6 +384,9 @@ class AddChannelOperation:
     params: Mapping[str, Any]
     input_kind: Literal["frame", "array"]
     name: ClassVar[str] = "add_channel"
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "params", _snapshot_config_value(self.params))
 
     def to_params(self) -> Mapping[str, Any]:
         return _snapshot_config_value(self.params)

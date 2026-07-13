@@ -671,7 +671,6 @@ def test_add_channel_dask_raw_uses_explicit_source_time_offset_and_stays_lazy() 
             "operation": "add_channel",
             "params": {
                 "align": "strict",
-                "input_kind": "dask.array",
                 "label": "new_ch",
                 "source_time_offset": [5.0],
                 "suffix_on_dup": None,
@@ -759,7 +758,7 @@ def test_add_channel_with_channelframe_align_pad_and_truncate() -> None:
     assert base.n_channels == 1  # Pillar 1: original unchanged
     assert out.operation_history[-1] == {
         "operation": "add_channel",
-        "params": {"align": "pad", "input_kind": "frame", "label": None, "suffix_on_dup": None},
+        "params": {"align": "pad", "label": None, "suffix_on_dup": None},
     }
 
     # longer incoming frame -> truncate
@@ -772,7 +771,7 @@ def test_add_channel_with_channelframe_align_pad_and_truncate() -> None:
     assert out2.n_channels == 2
     assert out2.operation_history[-1] == {
         "operation": "add_channel",
-        "params": {"align": "truncate", "input_kind": "frame", "label": None, "suffix_on_dup": None},
+        "params": {"align": "truncate", "label": None, "suffix_on_dup": None},
     }
 
 

@@ -42,7 +42,6 @@ class BoundInput:
     role: str
     kind: Literal["frame", "array"]
     lineage: LineageNode | None = None
-    external: bool = False
 
 
 @dataclass(frozen=True)
@@ -142,9 +141,7 @@ def _binary(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...
         )
     array_index = next(index for index, binding in enumerate(bindings) if binding.kind == "array")
     result_bindings = tuple(
-        BoundInput(binding.role, "array", external=True)
-        if binding.kind == "array"
-        else _frame(binding.role, frame_lineage)
+        BoundInput(binding.role, "array") if binding.kind == "array" else _frame(binding.role, frame_lineage)
         for binding in bindings
     )
     return CodecResult(ExternalArrayCall(operation, array_index, descriptor.contract.version), result_bindings)
@@ -204,8 +201,6 @@ def _add_channel(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode
     if not isinstance(descriptor, AddChannelReplay):
         raise RecipeExtractionError("add-channel codec requires AddChannelReplay")
     params = descriptor.thaw_params()
-    params.pop("input_kind", None)
-    params.pop("data_kind", None)
     if isinstance(params.get("source_time_offset"), np.ndarray):
         params["source_time_offset"] = params["source_time_offset"].tolist()
     bindings = descriptor.contract.bindings
@@ -218,7 +213,7 @@ def _add_channel(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode
     else:
         resolved = (
             _frame(bindings[0].role, lineage_inputs[0] if lineage_inputs else None),
-            BoundInput(bindings[1].role, "array", external=True),
+            BoundInput(bindings[1].role, "array"),
         )
     return CodecResult(AddChannelCall(descriptor.input_kind, params, descriptor.contract.version), resolved)
 
@@ -260,9 +255,7 @@ def _multi(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]
         raise RecipeExtractionError("Multi-input frame lineage and bindings disagree")
     lineage_iterator = iter(lineage_inputs)
     bindings = tuple(
-        _frame(binding.role, next(lineage_iterator))
-        if binding.kind == "frame"
-        else BoundInput(binding.role, "array", external=True)
+        _frame(binding.role, next(lineage_iterator)) if binding.kind == "frame" else BoundInput(binding.role, "array")
         for binding in executable_bindings
     )
     return CodecResult(

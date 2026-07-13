@@ -177,7 +177,7 @@ def test_add_channel_pad_truncate_and_duplicate_label_behavior():
     assert base.n_channels == original_n_channels  # Pillar 1: original unchanged
     assert padded.operation_history[-1] == {
         "operation": "add_channel",
-        "params": {"align": "pad", "input_kind": "frame", "label": None, "suffix_on_dup": None},
+        "params": {"align": "pad", "label": None, "suffix_on_dup": None},
     }
 
     # truncate (use different label)
@@ -187,7 +187,7 @@ def test_add_channel_pad_truncate_and_duplicate_label_behavior():
     assert truncated.n_channels == 3
     assert truncated.operation_history[-1] == {
         "operation": "add_channel",
-        "params": {"align": "truncate", "input_kind": "frame", "label": None, "suffix_on_dup": None},
+        "params": {"align": "truncate", "label": None, "suffix_on_dup": None},
     }
 
     # duplicate label without suffix

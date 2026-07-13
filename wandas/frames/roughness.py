@@ -348,7 +348,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             operand_kind=operand_kind,
             operand=None if operand_kind == "frame" else other,
         )
-        result_data = binary_operation.graph_marker()._mark_array(result_data)
+        result_data = binary_operation._mark_array(result_data)
         lineage = self._lineage_with_operation(binary_operation, *lineage_inputs)
         operation_summaries_snapshot = None
         if other_frame is not None and (

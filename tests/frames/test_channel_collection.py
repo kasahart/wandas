@@ -36,7 +36,6 @@ class TestChannelFrameCollection:
             "operation": "add_channel",
             "params": {
                 "align": "pad",
-                "input_kind": "ndarray",
                 "label": "B",
                 "source_time_offset": None,
                 "suffix_on_dup": None,
@@ -49,7 +48,6 @@ class TestChannelFrameCollection:
             "operation": "add_channel",
             "params": {
                 "align": "truncate",
-                "input_kind": "ndarray",
                 "label": "C",
                 "source_time_offset": None,
                 "suffix_on_dup": None,

@@ -103,10 +103,9 @@ def test_binary_dask_operand_marker_stores_descriptor_without_graph_dependency()
     marker = operations[-1]
     assert isinstance(marker, BinaryOperation)
     assert marker.params["operand"] == {
-        "type": "dask.array",
+        "type": "array",
         "shape": [1, 4096],
         "dtype": "float64",
-        "chunks": [[1], [4096]],
     }
     np.testing.assert_allclose(result.compute(), frame.compute() + 0.25)
 

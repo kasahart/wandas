@@ -96,7 +96,7 @@ class TestBaseFrameArithmeticOperations:
         assert result.sampling_rate == self.sample_rate
         assert len(result.operation_history) == 1
         assert result.operation_history[0]["operation"] == "**"
-        assert result.operation_history[0]["params"]["operand"]["type"] == "ndarray"
+        assert result.operation_history[0]["params"]["operand"]["type"] == "array"
 
         # Pillar 4: Numerical correctness
         computed = result.compute()
@@ -118,7 +118,7 @@ class TestBaseFrameArithmeticOperations:
         assert result.sampling_rate == self.sample_rate
         assert len(result.operation_history) == 1
         assert result.operation_history[0]["operation"] == "**"
-        assert result.operation_history[0]["params"]["operand"]["type"] == "dask.array"
+        assert result.operation_history[0]["params"]["operand"]["type"] == "array"
 
         # Pillar 4: Numerical correctness — sqrt of deterministic ramp
         computed = result.compute()
@@ -773,11 +773,7 @@ class TestBaseFrameUtilityMethods:
         with pytest.raises(ValueError, match="must be a sequence of mappings"):
             ChannelFrame._snapshot_operation_summaries([object()])  # ty: ignore[invalid-argument-type]
 
-    def test_lineage_and_indexing_static_helpers_handle_unreplayable_values(self) -> None:
-        lineage = self.channel_frame._lineage_with_unsupported_indexing("callable")
-
-        assert lineage.operation.name == "__getitem__"
-        assert lineage.operation.params == {"indexing": "callable"}
+    def test_indexing_static_helpers_handle_unreplayable_values(self) -> None:
         assert self.channel_frame._slice_bound_for_lineage(True) is None
         assert self.channel_frame._slice_bound_for_lineage(object()) is None
         assert self.channel_frame._slice_for_lineage(slice(object(), None, None)) is None
