@@ -247,15 +247,25 @@ class TestCepstralFrame:
         np.testing.assert_allclose(self.frame.quefrencies, expected)
 
     @pytest.mark.parametrize(
+        ("attribute", "value"),
+        [("n_fft", 512), ("window", "boxcar"), ("analysis_length", 512)],
+    )
+    def test_analysis_metadata_is_immutable(self, attribute: str, value: object) -> None:
+        with pytest.raises(AttributeError):
+            setattr(self.frame, attribute, value)
+
+    @pytest.mark.parametrize(
         "operand",
         [
             1j,
+            np.ones(1024, dtype=np.float64),
             np.ones(1024, dtype=np.complex128),
+            da.ones(1024, chunks=-1, dtype=np.float64),
             da.ones(1024, chunks=-1, dtype=np.complex128),
         ],
     )
-    def test_binary_operations_reject_complex_operands(self, operand: object) -> None:
-        with pytest.raises(TypeError, match=r"real-valued operands"):
+    def test_binary_operations_reject_non_scalar_operands(self, operand: object) -> None:
+        with pytest.raises(TypeError, match=r"real-valued scalar operand"):
             _ = self.frame + cast(Any, operand)
 
     @pytest.mark.parametrize(

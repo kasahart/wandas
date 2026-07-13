@@ -52,9 +52,9 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
             )
         if np.issubdtype(data.dtype, np.complexfloating):
             raise TypeError("CepstralFrame requires real-valued coefficients, not complex data.")
-        self.n_fft = int(n_fft)
-        self.window = window
-        self.analysis_length = self.n_fft if analysis_length is None else int(analysis_length)
+        self._n_fft = int(n_fft)
+        self._window = window
+        self._analysis_length = self.n_fft if analysis_length is None else int(analysis_length)
         if self.analysis_length <= 0 or self.analysis_length > self.n_fft:
             raise ValueError("analysis_length must be positive and no greater than n_fft.")
         self._pending_sampling_rate = float(sampling_rate)
@@ -76,6 +76,21 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
     def quefrencies(self) -> NDArrayReal:
         """Return the quefrency axis in seconds."""
         return np.asarray(self._xr.coords["quefrency"].values, dtype=float).copy()
+
+    @property
+    def n_fft(self) -> int:
+        """Return the immutable period of the complete cepstrum."""
+        return self._n_fft
+
+    @property
+    def window(self) -> str:
+        """Return the immutable analysis window."""
+        return self._window
+
+    @property
+    def analysis_length(self) -> int:
+        """Return the immutable pre-padding analysis window length."""
+        return self._analysis_length
 
     @property
     def sampling_rate(self) -> float:
@@ -144,8 +159,8 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
                 )
             if not np.array_equal(self.quefrencies, other.quefrencies):
                 raise ValueError("Cepstral quefrency coordinates must match exactly.")
-        elif np.iscomplexobj(other):
-            raise TypeError("CepstralFrame operations require real-valued operands, not complex data.")
+        elif isinstance(other, bool) or not isinstance(other, numbers.Real):
+            raise TypeError("CepstralFrame operations require another CepstralFrame or a real-valued scalar operand.")
         return cast(
             "CepstralFrame",
             super()._binary_operand_op(other, op, symbol, reverse=reverse),
