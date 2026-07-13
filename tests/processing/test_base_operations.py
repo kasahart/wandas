@@ -184,7 +184,7 @@ def test_binary_operation_to_summary_describes_array_operand_without_values() ->
         "params": {
             "symbol": "+",
             "operand_kind": "scalar",
-            "operand": {"type": "ndarray", "shape": [2], "dtype": "float64"},
+            "operand": {"type": "array", "shape": [2], "dtype": "float64"},
         },
     }
     json.dumps(summary, allow_nan=False)
