@@ -57,14 +57,31 @@ serializer dispatch, and central allowlists change zero times for all three prob
 
 ## Performance sample
 
-`scripts/recipe_v2_benchmark.py` ran 100 iterations in detached baseline and v2
-worktrees on the same environment. Lower is better.
+`scripts/recipe_v2_benchmark.py` ran three 100-iteration samples in detached
+baseline and v2 worktrees on the same environment. The table reports the median
+of each sample's p95; lower is better.
 
 | metric | v1 | v2 | v2 index |
 | --- | ---: | ---: | ---: |
-| extraction p95 | 300.8 µs | 212.0 µs | 70.5 |
-| lazy graph-build p95 | 20,306.6 µs | 14,089.3 µs | 69.4 |
-| traced peak memory | 811,977 B | 763,825 B | 94.1 |
+| extraction p95 | 160.1 µs | 216.3 µs | 135.1 |
+| lazy graph-build p95 | 13,696.8 µs | 14,655.3 µs | 107.0 |
+| traced peak memory | 840,257 B | 808,935 B | 96.3 |
 
 This is a reproducible microbenchmark, not a claim about end-to-end numerical compute.
 Neither measured path calls Dask `compute()`.
+
+## Cleanup measurements
+
+The final non-sklearn `wandas.pipeline` modules plus
+`wandas/processing/semantic.py` total 1,750 PLOC, below the 1,753-line cleanup
+gate. Relative to the pre-cleanup Recipe v2 head, production changes contain 32
+additions and 80 deletions, a net reduction of 48 lines. Relative to the v2 base,
+all production Python is down by 245 lines.
+
+The cleanup changes no central model, compiler, call serializer, or persistence
+serializer module. The extension probes therefore add no central dispatch branch.
+Extraction and lazy graph construction remain compute-free; the Dask compute-bomb
+tests and the benchmark both complete without calling `compute()`.
+
+Final validation completed with 138 pipeline tests, 40 core lineage tests, and
+2,199 full-suite tests passing; three unrelated optional tests remained skipped.
