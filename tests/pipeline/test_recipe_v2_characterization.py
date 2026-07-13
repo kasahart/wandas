@@ -7,9 +7,11 @@ commit, making the intended break reviewable rather than accidental.
 
 import dask.array as da
 import numpy as np
+import pytest
 
 from wandas.frames.channel import ChannelFrame
 from wandas.pipeline import RecipePlan
+from wandas.processing.base import IndexOperation
 
 
 def _frame() -> ChannelFrame:
@@ -39,6 +41,35 @@ def test_multidimensional_indexing_is_one_semantic_operation() -> None:
     result = _frame()[:, 2:10]
 
     assert [record["operation"] for record in result.operation_history] == ["__getitem__"]
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        0,
+        "left",
+        slice(None),
+        [0, 1],
+        ["left", "right"],
+        np.array([0, 1]),
+        np.array([True, False]),
+        (slice(None), slice(2, 10)),
+    ],
+    ids=("integer", "label", "slice", "integer-list", "label-list", "integer-array", "mask", "multidim"),
+)
+def test_each_public_indexing_form_owns_one_lineage_node(key: object) -> None:
+    source = _frame()
+
+    result = source[key]  # ty: ignore[invalid-argument-type]
+    plan = RecipePlan.from_frame(result)
+
+    assert result.lineage is not None
+    assert isinstance(result.lineage.operation, IndexOperation)
+    assert result.lineage.inputs == (source._lineage_or_source(),)
+    assert [record["operation"] for record in result.operation_history] == ["__getitem__"]
+    assert len(plan.nodes) == 1
+    assert result.metadata == source.metadata
+    assert len(result.source_time_offset) == result.n_channels
 
 
 def test_empty_integer_array_preserves_array_intent() -> None:

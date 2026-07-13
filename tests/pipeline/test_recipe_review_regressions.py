@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 import dask.array as da
 import numpy as np
@@ -11,8 +11,15 @@ import pytest
 from wandas.frames.channel import ChannelFrame
 from wandas.pipeline import RecipePlan
 from wandas.pipeline.calls import MethodCall
+from wandas.pipeline.decorators import replay_method
 from wandas.pipeline.errors import RecipeExtractionError, RecipeSerializationError
 from wandas.processing.base import FrameMethodOperation, LineageNode
+
+
+class ExternalBrokenFrame(ChannelFrame):
+    @replay_method()
+    def discard_semantic_lineage(self) -> ExternalBrokenFrame:
+        return self._create_new_instance(data=self._data, lineage=self._lineage_or_source())
 
 
 def _frame(channels: int = 3, samples: int = 256) -> ChannelFrame:
@@ -83,6 +90,47 @@ def test_method_runtime_params_are_snapshotted_for_history_and_graph() -> None:
     assert processed.operation_history[-1]["params"] == {"nested": {"value": 1}}
     assert processed.operation_graph is not None
     assert processed.operation_graph["params"] == {"nested": {"value": 1}}
+
+
+def test_external_base_frame_subclass_cannot_discard_semantic_lineage() -> None:
+    source = cast(ExternalBrokenFrame, ExternalBrokenFrame.from_numpy(np.ones((1, 8)), sampling_rate=8000))
+
+    with pytest.raises(RuntimeError, match="did not preserve semantic lineage"):
+        source.discard_semantic_lineage()
+
+
+def test_array_operand_mutation_cannot_change_history_summary_or_recipe() -> None:
+    source = _frame(channels=1)
+    operand = np.arange(source.n_samples, dtype=float).reshape(1, -1)
+    processed = source + operand
+    history = processed.operation_history
+    summaries = processed.operation_summaries
+    plan_payload = RecipePlan.from_frame(processed, input_names=("signal", "operand")).to_dict()
+
+    operand[:] = -1
+
+    assert processed.operation_history == history
+    assert processed.operation_summaries == summaries
+    assert RecipePlan.from_frame(processed, input_names=("signal", "operand")).to_dict() == plan_payload
+    assert history[-1]["params"]["operand"]["type"] == "array"
+
+
+def test_add_channel_offset_mutation_cannot_change_history_summary_or_recipe() -> None:
+    source = _frame(channels=1)
+    added = np.ones((1, source.n_samples))
+    source_time_offset = np.array([1.25])
+    processed = source.add_channel(added, label="added", source_time_offset=source_time_offset)
+    history = processed.operation_history
+    summaries = processed.operation_summaries
+    plan_payload = RecipePlan.from_frame(processed, input_names=("signal", "added")).to_dict()
+
+    source_time_offset[:] = 9.0
+
+    assert processed.operation_history == history
+    assert processed.operation_summaries == summaries
+    assert RecipePlan.from_frame(processed, input_names=("signal", "added")).to_dict() == plan_payload
+    np.testing.assert_allclose(processed.source_time_offset, [0.0, 1.25])
+    assert "input_kind" not in history[-1]["params"]
 
 
 def test_direct_to_channel_frame_and_istft_keep_distinct_public_identity() -> None:
@@ -331,7 +379,7 @@ def test_raw_add_replacement_summary_uses_external_array_intent() -> None:
 
     processed = source.add(np.ones((1, 8)))
 
-    assert processed.operation_summaries[-1]["params"]["operand"]["type"] == "ndarray"
+    assert processed.operation_summaries[-1]["params"]["operand"]["type"] == "array"
 
 
 @pytest.mark.parametrize("operation", ["rms_trend", "sound_level"])
