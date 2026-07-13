@@ -11,6 +11,7 @@ from dask.array.core import Array as DaArray
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.spectral import SpectralFrame
+from wandas.utils import validate_sampling_rate
 from wandas.utils.optional_imports import require_pandas
 from wandas.utils.types import NDArrayReal
 
@@ -76,6 +77,19 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
         """Return the quefrency axis in seconds."""
         return np.asarray(self._xr.coords["quefrency"].values, dtype=float).copy()
 
+    @property
+    def sampling_rate(self) -> float:
+        """Return the immutable sampling rate defining the quefrency axis."""
+        return float(self._xr.attrs["sampling_rate"])
+
+    @sampling_rate.setter
+    def sampling_rate(self, value: float) -> None:
+        validate_sampling_rate(value)
+        current = self._xr.attrs.get("sampling_rate")
+        if current is not None and float(value) != float(current):
+            raise AttributeError("CepstralFrame sampling_rate is immutable because it defines the quefrency axis.")
+        self._xr.attrs["sampling_rate"] = float(value)
+
     def _xarray_coords(self, data: DaArray) -> dict[str, Any]:
         coords = super()._xarray_coords(data)
         if "quefrency" in self._xarray_dims(data):
@@ -122,6 +136,12 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
         if isinstance(other, CepstralFrame):
             if self.n_fft != other.n_fft:
                 raise ValueError(f"Cepstral n_fft mismatch: {self.n_fft} != {other.n_fft}")
+            if self.window != other.window or self.analysis_length != other.analysis_length:
+                raise ValueError(
+                    "Cepstral analysis metadata must match exactly: "
+                    f"(window={self.window!r}, analysis_length={self.analysis_length}) != "
+                    f"(window={other.window!r}, analysis_length={other.analysis_length})."
+                )
             if not np.array_equal(self.quefrencies, other.quefrencies):
                 raise ValueError("Cepstral quefrency coordinates must match exactly.")
         elif np.iscomplexobj(other):

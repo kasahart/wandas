@@ -1506,6 +1506,13 @@ class BaseFrame(ABC, Generic[T]):
         logger.debug(f"Setting up {symbol} operation (lazy)")
 
         metadata = copy.deepcopy(self.metadata)
+        if isinstance(other, BaseFrame) and not isinstance(other, type(self)):
+            raise TypeError(
+                f"Binary frame operations require matching frame types\n"
+                f"  Left operand: {type(self).__name__}\n"
+                f"  Right operand: {type(other).__name__}\n"
+                "Convert both operands to the same domain before combining them."
+            )
         if isinstance(other, type(self)):
             if self.sampling_rate != other.sampling_rate:
                 raise ValueError(

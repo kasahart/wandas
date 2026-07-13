@@ -201,6 +201,28 @@ class TestCepstralFrame:
         with pytest.raises(TypeError, match=r"require another CepstralFrame"):
             _ = self.frame + spectral
 
+    def test_binary_operations_reject_cepstrum_as_right_hand_time_domain_operand(self) -> None:
+        time_frame = ChannelFrame.from_numpy(np.ones((2, self.n_fft)), self.sampling_rate)
+
+        with pytest.raises(TypeError, match=r"matching frame types"):
+            _ = time_frame + self.frame
+
+    @pytest.mark.parametrize(
+        ("window", "analysis_length"),
+        [("boxcar", 1024), ("hann", 512)],
+    )
+    def test_binary_operations_require_matching_analysis_metadata(self, window: str, analysis_length: int) -> None:
+        other = CepstralFrame(
+            data=self.data,
+            sampling_rate=self.sampling_rate,
+            n_fft=self.n_fft,
+            window=window,
+            analysis_length=analysis_length,
+        )
+
+        with pytest.raises(ValueError, match=r"analysis metadata must match"):
+            _ = self.frame + other
+
     def test_binary_operations_require_matching_quefrency_coordinates(self) -> None:
         left = self.frame[:, :4]
         right = self.frame[:, 4:8]
@@ -214,6 +236,15 @@ class TestCepstralFrame:
 
         np.testing.assert_allclose(added.compute(), np.ones(self.frame.shape))
         np.testing.assert_allclose(multiplied.compute(), np.zeros(self.frame.shape))
+
+    def test_sampling_rate_is_immutable(self) -> None:
+        expected = self.frame.quefrencies
+
+        with pytest.raises(AttributeError, match=r"sampling_rate is immutable"):
+            self.frame.sampling_rate = self.sampling_rate / 2
+
+        assert self.frame.sampling_rate == self.sampling_rate
+        np.testing.assert_allclose(self.frame.quefrencies, expected)
 
     @pytest.mark.parametrize(
         "operand",
