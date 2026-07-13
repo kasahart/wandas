@@ -183,12 +183,16 @@ class Lifter(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 class SpectralEnvelope(AudioOperation[NDArrayReal, NDArrayComplex]):
-    """Reconstruct a smooth spectral envelope from a liftered cepstrum."""
+    """Reconstruct an FFT-amplitude-scaled envelope from a liftered cepstrum."""
 
     name = "spectral_envelope"
 
-    def __init__(self, sampling_rate: float):
-        super().__init__(sampling_rate)
+    def __init__(self, sampling_rate: float, window: str = "hann"):
+        super().__init__(sampling_rate, window=window)
+
+    @property
+    def window(self) -> str:
+        return self._config_value("window")
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         return (*input_shape[:-1], int(input_shape[-1]) // 2 + 1)
@@ -204,6 +208,12 @@ class SpectralEnvelope(AudioOperation[NDArrayReal, NDArrayComplex]):
 
         log_envelope = np.fft.rfft(np.asarray(x, dtype=np.float64), axis=-1)
         envelope = np.exp(np.real(log_envelope))
+        n_fft = int(x.shape[-1])
+        window_gain = float(np.sum(get_window(self.window, n_fft)))
+        envelope *= 2.0 / window_gain
+        envelope[..., 0] *= 0.5
+        if n_fft % 2 == 0:
+            envelope[..., -1] *= 0.5
         complex_dtype = _complex_output_dtype(np.dtype(x.dtype))
         return np.asarray(envelope.astype(complex_dtype, copy=False))
 

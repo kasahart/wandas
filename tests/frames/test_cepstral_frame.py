@@ -106,8 +106,11 @@ class TestCepstralFrame:
 
         assert isinstance(result, SpectralFrame)
         assert result.n_fft == self.n_fft
-        assert result.operation_history[-1] == {"operation": "spectral_envelope"}
-        np.testing.assert_allclose(result.compute().real, np.ones((2, self.n_fft // 2 + 1)))
+        assert result.operation_history[-1] == {"operation": "spectral_envelope", "params": {"window": "hann"}}
+        expected = np.full((2, self.n_fft // 2 + 1), 2.0 / np.sum(np.hanning(self.n_fft + 1)[:-1]))
+        expected[..., 0] *= 0.5
+        expected[..., -1] *= 0.5
+        np.testing.assert_allclose(result.compute().real, expected)
 
     def test_cepstral_workflow_preserves_source_file_metadata(self) -> None:
         frame = ChannelFrame.from_numpy(
@@ -125,7 +128,7 @@ class TestCepstralFrame:
         assert envelope.metadata["_source_file"] == "speech.wav"
         assert cepstrum.operation_history[-1]["operation"] == "cepstrum"
         assert low_ceps.operation_history[-1] == {"operation": "lifter", "params": {"cutoff": 0.001, "mode": "low"}}
-        assert envelope.operation_history[-1] == {"operation": "spectral_envelope"}
+        assert envelope.operation_history[-1] == {"operation": "spectral_envelope", "params": {"window": "boxcar"}}
 
     @pytest.mark.parametrize("attribute", ["ifft", "noct_synthesis", "magnitude", "phase", "dB", "freqs"])
     def test_spectral_api_is_not_exposed(self, attribute: str) -> None:

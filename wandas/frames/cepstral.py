@@ -153,7 +153,7 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
         from wandas.processing import SpectralEnvelope, create_operation
 
         operation_name = "spectral_envelope"
-        operation = create_operation(operation_name, self.sampling_rate)
+        operation = create_operation(operation_name, self.sampling_rate, window=self.window)
         operation = cast("SpectralEnvelope", operation)
         envelope_data = operation.process(self._data)
         lineage = self._lineage_with_method(operation_name, operation.to_params())

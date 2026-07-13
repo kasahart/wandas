@@ -1,8 +1,9 @@
 import dask.array as da
 import numpy as np
 import pytest
+from scipy.signal import get_window
 
-from wandas.processing import Cepstrum, Lifter, SpectralEnvelope
+from wandas.processing import FFT, Cepstrum, Lifter, SpectralEnvelope
 from wandas.processing.base import create_operation, get_operation
 
 
@@ -60,15 +61,27 @@ class TestCepstralOperations:
         expected[0, -2:] = data[0, -2:]
         np.testing.assert_allclose(result, expected)
 
-    def test_spectral_envelope_zero_cepstrum_returns_unity_spectrum(self) -> None:
+    def test_spectral_envelope_zero_cepstrum_uses_fft_amplitude_scaling(self) -> None:
         sr = 16000
         cepstrum = np.zeros((1, 1024), dtype=np.float64)
 
         result = SpectralEnvelope(sr)._process(cepstrum)
 
-        # Zero cepstrum -> log spectrum of 0 -> exp(0) = 1 across all bins.
-        np.testing.assert_allclose(result.real, np.ones((1, 513)), atol=1e-12)
+        expected = np.full((1, 513), 2.0 / np.sum(get_window("hann", 1024)))
+        expected[..., 0] *= 0.5
+        expected[..., -1] *= 0.5
+        np.testing.assert_allclose(result.real, expected, atol=1e-12)
         np.testing.assert_allclose(result.imag, np.zeros((1, 513)), atol=1e-12)
+
+    def test_complete_cepstrum_reconstructs_fft_amplitude_scale(self) -> None:
+        rng = np.random.default_rng(42)
+        signal = rng.normal(size=(2, 64))
+
+        cepstrum = Cepstrum(16000, n_fft=64, window="boxcar")._process(signal)
+        reconstructed = SpectralEnvelope(16000, window="boxcar")._process(cepstrum)
+        spectrum = FFT(16000, n_fft=64, window="boxcar")._process(signal)
+
+        np.testing.assert_allclose(reconstructed.real, np.abs(spectrum), rtol=1e-12, atol=1e-12)
 
     def test_cepstrum_process_preserves_lazy_output(self) -> None:
         sr = 16000
@@ -95,7 +108,10 @@ class TestCepstralOperations:
         assert isinstance(result, da.Array)
         assert result.shape == (2, 9)
         assert result.dtype == expected_dtype
-        np.testing.assert_allclose(result.compute(), np.ones((2, 9), dtype=expected_dtype))
+        expected = np.full((2, 9), 2.0 / np.sum(get_window("hann", 16)), dtype=expected_dtype)
+        expected[..., 0] *= 0.5
+        expected[..., -1] *= 0.5
+        np.testing.assert_allclose(result.compute(), expected)
 
     def test_lifter_invalid_mode_raises_error(self) -> None:
         with pytest.raises(ValueError, match=r"Invalid lifter mode"):
