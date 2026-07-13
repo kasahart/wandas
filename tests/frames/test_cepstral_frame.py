@@ -44,6 +44,15 @@ class TestCepstralFrame:
         with pytest.raises(ValueError, match=r"more quefrency bins than n_fft"):
             CepstralFrame(data=data, sampling_rate=self.sampling_rate, n_fft=8)
 
+    @pytest.mark.parametrize(
+        ("parameter", "value"), [("n_fft", True), ("n_fft", 4.9), ("analysis_length", True), ("analysis_length", 4.9)]
+    )
+    def test_constructor_rejects_non_integral_analysis_sizes(self, parameter: str, value: object) -> None:
+        kwargs: dict[str, Any] = {"n_fft": 8, parameter: value}
+
+        with pytest.raises(TypeError, match=rf"{parameter} must be a positive integer"):
+            CepstralFrame(data=da.zeros((1, 4), chunks=(1, -1)), sampling_rate=self.sampling_rate, **kwargs)
+
     def test_quefrencies_property_matches_sampling_rate(self) -> None:
         expected = np.arange(self.n_fft) / self.sampling_rate
         np.testing.assert_allclose(self.frame.quefrencies, expected)

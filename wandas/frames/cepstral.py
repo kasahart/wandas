@@ -52,10 +52,18 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
             )
         if np.issubdtype(data.dtype, np.complexfloating):
             raise TypeError("CepstralFrame requires real-valued coefficients, not complex data.")
+        if isinstance(n_fft, bool) or not isinstance(n_fft, numbers.Integral):
+            raise TypeError("n_fft must be a positive integer.")
         self._n_fft = int(n_fft)
+        if self.n_fft <= 0:
+            raise ValueError("n_fft must be a positive integer.")
         if int(data.shape[-1]) > self.n_fft:
             raise ValueError("CepstralFrame cannot contain more quefrency bins than n_fft.")
         self._window = window
+        if analysis_length is not None and (
+            isinstance(analysis_length, bool) or not isinstance(analysis_length, numbers.Integral)
+        ):
+            raise TypeError("analysis_length must be a positive integer or None.")
         self._analysis_length = self.n_fft if analysis_length is None else int(analysis_length)
         if self.analysis_length <= 0 or self.analysis_length > self.n_fft:
             raise ValueError("analysis_length must be positive and no greater than n_fft.")

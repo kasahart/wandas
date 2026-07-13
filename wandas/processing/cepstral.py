@@ -222,6 +222,8 @@ class SpectralEnvelope(AudioOperation[NDArrayReal, NDArrayComplex]):
         envelope = np.exp(np.real(log_envelope))
         n_fft = int(x.shape[-1])
         window_length = n_fft if self.window_length is None else self.window_length
+        if window_length > n_fft:
+            raise ValueError("window_length cannot be greater than the cepstrum length.")
         window_gain = float(np.sum(get_window(self.window, window_length)))
         envelope *= 2.0 / window_gain
         envelope[..., 0] *= 0.5

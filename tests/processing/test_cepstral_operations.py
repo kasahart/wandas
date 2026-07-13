@@ -83,6 +83,10 @@ class TestCepstralOperations:
 
         np.testing.assert_allclose(reconstructed.real, np.abs(spectrum), rtol=1e-12, atol=1e-12)
 
+    def test_spectral_envelope_rejects_window_longer_than_cepstrum(self) -> None:
+        with pytest.raises(ValueError, match=r"window_length cannot be greater"):
+            SpectralEnvelope(16000, window="boxcar", window_length=128)._process(np.zeros((1, 64)))
+
     @pytest.mark.parametrize(("signal_length", "n_fft"), [(1, 1), (64, 128), (65, 65)])
     def test_reconstruction_matches_fft_for_padding_and_odd_lengths(self, signal_length: int, n_fft: int) -> None:
         rng = np.random.default_rng(43)
