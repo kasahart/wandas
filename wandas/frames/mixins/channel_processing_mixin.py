@@ -391,7 +391,7 @@ class ChannelProcessingMixin:
         Returns:
             A new ChannelFrame with summed signal.
         """
-        return cast(T_Processing, cast(Any, self)._reduce_channels("sum"))
+        return self._with_public_method_lineage(cast(Any, self)._reduce_channels("sum"), "sum", {})
 
     @replay_method()
     def mean(self: T_Processing) -> T_Processing:
@@ -400,7 +400,7 @@ class ChannelProcessingMixin:
         Returns:
             A new ChannelFrame with averaged signal.
         """
-        return cast(T_Processing, cast(Any, self)._reduce_channels("mean"))
+        return self._with_public_method_lineage(cast(Any, self)._reduce_channels("mean"), "mean", {})
 
     def trim(
         self: T_Processing,
@@ -443,8 +443,13 @@ class ChannelProcessingMixin:
         """
 
         result = self.apply_operation("fix_length", length=length, duration=duration)
-        return cast(T_Processing, result)
+        return self._with_public_method_lineage(
+            result,
+            "fix_length",
+            {"length": length, "duration": duration},
+        )
 
+    @replay_method()
     def rms_trend(
         self: T_Processing,
         frame_length: int = 2048,
@@ -489,6 +494,7 @@ class ChannelProcessingMixin:
             },
         )
 
+    @replay_method()
     def sound_level(
         self: T_Processing,
         freq_weighting: str | None = "Z",
@@ -551,13 +557,11 @@ class ChannelProcessingMixin:
             other_channel = self.label2index(other_channel)
 
         result = self.apply_operation("channel_difference", other_channel=other_channel)
-        if isinstance(requested_other_channel, str):
-            return self._with_public_method_lineage(
-                result,
-                "channel_difference",
-                {"other_channel": requested_other_channel},
-            )
-        return cast(T_Processing, result)
+        return self._with_public_method_lineage(
+            result,
+            "channel_difference",
+            {"other_channel": requested_other_channel},
+        )
 
     def resampling(
         self: T_Processing,

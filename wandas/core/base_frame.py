@@ -1656,7 +1656,7 @@ class BaseFrame(ABC, Generic[T]):
             other_str = self._format_operand_str(other)
             other_labels = [other_str] * self.n_channels
             operand_kind = "operand"
-            lineage_inputs = (self.lineage,)
+            lineage_inputs = (self._lineage_or_source(),)
 
         # Build merged channel metadata
         new_channel_metadata: list[ChannelMetadata] = []

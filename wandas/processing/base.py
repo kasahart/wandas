@@ -265,7 +265,7 @@ class BinaryOperation:
         if self.operand_kind != "frame" and not isinstance(self.operand, np.ndarray | DaArray):
             other_kind = "scalar"
             if not isinstance(self.operand, bool) and isinstance(self.operand, numbers.Real):
-                scalar = float(self.operand)
+                scalar = int(self.operand) if isinstance(self.operand, numbers.Integral) else float(self.operand)
         bindings = (InputBinding("left", "frame"), InputBinding("right", cast(Any, other_kind)))
         if self.operand_position == "left":
             bindings = tuple(reversed(bindings))
@@ -559,7 +559,8 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         if self._expected_input_count not in {None, 1}:
             roles = getattr(self, "input_roles", tuple(f"input_{index}" for index in range(self._expected_input_count)))
             handler = getattr(self, "replay_handler_path", "")
-            bindings = tuple(InputBinding(role, "frame") for role in roles)
+            kinds = getattr(self, "replay_input_kinds", ("frame",) * len(roles))
+            bindings = tuple(InputBinding(role, kind) for role, kind in zip(roles, kinds, strict=True))
             return MultiInputReplay(
                 OperationContract(self.name, self.operation_version, bool(self.pure), bindings),
                 frozen_params(self.to_params(), allow_opaque=True),

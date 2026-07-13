@@ -339,7 +339,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
 
             result_data = op(self._data, other)
             operand_kind = "operand"
-            lineage_inputs = (self.lineage,)
+            lineage_inputs = (self._lineage_or_source(),)
 
         from wandas.processing.base import BinaryOperation
 

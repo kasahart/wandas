@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import numpy as np
 
@@ -247,8 +247,17 @@ def _custom(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...
 def _multi(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]) -> CodecResult:
     if not isinstance(descriptor, MultiInputReplay) or not descriptor.handler:
         raise RecipeExtractionError("Multi-input Recipe replay requires a stable handler")
-    if len(lineage_inputs) != len(descriptor.roles):
-        raise RecipeExtractionError("Multi-input lineage and roles disagree")
+    executable_bindings = tuple(binding for binding in descriptor.contract.bindings if binding.kind != "scalar")
+    frame_bindings = tuple(binding for binding in executable_bindings if binding.kind == "frame")
+    if len(lineage_inputs) != len(frame_bindings):
+        raise RecipeExtractionError("Multi-input frame lineage and bindings disagree")
+    lineage_iterator = iter(lineage_inputs)
+    bindings = tuple(
+        _frame(binding.role, next(lineage_iterator))
+        if binding.kind == "frame"
+        else BoundInput(binding.role, "array", external=True)
+        for binding in executable_bindings
+    )
     return CodecResult(
         MultiInputCall(
             descriptor.contract.operation_id,
@@ -256,9 +265,10 @@ def _multi(descriptor: ReplayDescriptor, lineage_inputs: tuple[LineageNode, ...]
             descriptor.handler,
             descriptor.params,
             descriptor.contract.version,
+            input_kinds=cast(
+                tuple[Literal["frame", "array"], ...],
+                tuple(binding.kind for binding in executable_bindings),
+            ),
         ),
-        tuple(
-            _frame(binding.role, lineage)
-            for binding, lineage in zip(descriptor.contract.bindings, lineage_inputs, strict=True)
-        ),
+        bindings,
     )

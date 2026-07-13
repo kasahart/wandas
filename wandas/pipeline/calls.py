@@ -473,6 +473,7 @@ class MultiInputCall(FrameCall):
     target: str
     params: ReplayValue
     version: int = 1
+    input_kinds: tuple[Literal["frame", "array"], ...] = ()
 
     def __init__(
         self,
@@ -481,6 +482,8 @@ class MultiInputCall(FrameCall):
         target: str,
         params: Mapping[str, Any] | ReplayValue,
         version: int = 1,
+        *,
+        input_kinds: tuple[Literal["frame", "array"], ...] | None = None,
     ) -> None:
         normalized_roles = tuple(roles)
         if not normalized_roles or len(set(normalized_roles)) != len(normalized_roles):
@@ -492,6 +495,8 @@ class MultiInputCall(FrameCall):
         object.__setattr__(self, "target", target)
         object.__setattr__(self, "params", _normalize_params(params))
         object.__setattr__(self, "version", version)
+        kinds = ("frame",) * len(normalized_roles) if input_kinds is None else tuple(input_kinds)
+        object.__setattr__(self, "input_kinds", kinds)
         self.__post_init__()
 
     @property
@@ -500,7 +505,12 @@ class MultiInputCall(FrameCall):
 
     def __post_init__(self) -> None:
         _version(self.version, None)
+        if len(self.input_kinds) != len(self.roles) or any(kind not in {"frame", "array"} for kind in self.input_kinds):
+            raise RecipeSerializationError("Multi-input kinds must match roles")
         self._handler()
+
+    def accepts_input_kinds(self, kinds: tuple[str, ...]) -> bool:
+        return kinds == self.input_kinds
 
     def _handler(self) -> MultiInputHandler:
         handler = _load_stable_function(self.target)
@@ -516,7 +526,7 @@ class MultiInputCall(FrameCall):
 
     def to_payload(self) -> dict[str, Any]:
         payload = _payload("multi_input", self.operation, self.version, self.params)
-        payload.update({"roles": list(self.roles), "target": self.target})
+        payload.update({"roles": list(self.roles), "input_kinds": list(self.input_kinds), "target": self.target})
         return payload
 
 
@@ -534,13 +544,21 @@ def _tree(value: Any) -> ReplayValue:
         pairs = value[1]
         if not isinstance(pairs, list):
             raise RecipeSerializationError("Recipe mapping value is malformed")
-        seen: set[str] = set()
-        items: list[tuple[str, ReplayValue]] = []
+        seen: set[Any] = set()
+        items: list[tuple[Any, ReplayValue]] = []
         for pair in pairs:
-            if not isinstance(pair, list) or len(pair) != 2 or not isinstance(pair[0], str) or pair[0] in seen:
-                raise RecipeSerializationError("Recipe mapping keys must be unique strings")
-            seen.add(pair[0])
-            items.append((pair[0], _tree(pair[1])))
+            if not isinstance(pair, list) or len(pair) != 2:
+                raise RecipeSerializationError("Recipe mapping entry is malformed")
+            key = pair[0] if isinstance(pair[0], str) else _tree(pair[0])
+            try:
+                runtime_key = key if isinstance(key, str) else thaw_replay_value(key)
+                hash(runtime_key)
+            except (TypeError, ValueError) as exc:
+                raise RecipeSerializationError("Recipe mapping key must be a supported hashable value") from exc
+            if runtime_key in seen:
+                raise RecipeSerializationError("Recipe mapping keys must be unique")
+            seen.add(runtime_key)
+            items.append((key, _tree(pair[1])))
         return ("mapping", tuple(items))
     if kind in {"list", "tuple", "set", "frozenset"}:
         if len(value) != 2:
@@ -673,8 +691,9 @@ register_call(
         str(value["target"]),
         _tree(value["params"]),
         _version(value, None),
+        input_kinds=tuple(value["input_kinds"]),
     ),
-    _BASE | {"roles", "target"},
+    _BASE | {"roles", "input_kinds", "target"},
 )
 
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import math
 import numbers
 from collections.abc import Callable, Mapping
@@ -124,20 +123,15 @@ def freeze_replay_value(value: Any, *, allow_opaque: bool = False) -> ReplayValu
         }
         return ("dask-descriptor", freeze_replay_value(descriptor))
     if isinstance(value, Mapping):
-        if not all(isinstance(key, str) for key in value) and not allow_opaque:
-            raise TypeError("Replay parameter mappings require string keys")
-        items = (
-            (
-                key
-                if isinstance(key, str)
-                else json.dumps(thaw_replay_value(freeze_replay_value(key)), separators=(",", ":")),
-                item,
-            )
-            for key, item in value.items()
-        )
         return (
             "mapping",
-            tuple((key, freeze_replay_value(item, allow_opaque=allow_opaque)) for key, item in items),
+            tuple(
+                (
+                    key if isinstance(key, str) else freeze_replay_value(key),
+                    freeze_replay_value(item, allow_opaque=allow_opaque),
+                )
+                for key, item in value.items()
+            ),
         )
     if isinstance(value, list):
         return ("list", tuple(freeze_replay_value(item, allow_opaque=allow_opaque) for item in value))
@@ -168,7 +162,9 @@ def thaw_replay_value(value: ReplayValue) -> Any:
     if kind == "slice":
         return slice(*(thaw_replay_value(item) for item in payload))
     if kind == "mapping":
-        return {key: thaw_replay_value(item) for key, item in payload[0]}
+        return {
+            key if isinstance(key, str) else thaw_replay_value(key): thaw_replay_value(item) for key, item in payload[0]
+        }
     if kind in {"list", "tuple", "set", "frozenset"}:
         items = [thaw_replay_value(item) for item in payload[0]]
         if kind == "list":
@@ -288,6 +284,9 @@ def method_replay_params(operation: str, params: Mapping[str, Any]) -> dict[str,
         if old in result:
             value = result.pop(old)
             result[new] = dict(value) if old == "mapping_items" else value
+    if operation == "get_channel" and "channel_mask" in result:
+        mask = result.pop("channel_mask")
+        result["channel_idx"] = [index for index, selected in enumerate(mask) if selected]
     for name in drops:
         result.pop(name, None)
     return result

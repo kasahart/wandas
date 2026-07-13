@@ -539,6 +539,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         """
         logger.debug(f"Setting up add operation with SNR={snr} (lazy)")
 
+        noise_input_kind = "array" if isinstance(other, np.ndarray) else "frame"
         if isinstance(other, ChannelFrame):
             # Check if sampling rates match
             if self.sampling_rate != other.sampling_rate:
@@ -556,7 +557,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         else:
             raise TypeError(f"Addition target with SNR must be a ChannelFrame or NumPy array: {type(other)}")
 
-        lineage_other = other._lineage_or_source()
+        lineage_other = other._lineage_or_source() if noise_input_kind == "frame" else None
         other_operation_summaries = other.operation_summaries
         other_has_operation_summaries_snapshot = other._operation_summaries_snapshot is not None
 
@@ -576,7 +577,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             return self + other
         from wandas.processing import create_operation
 
-        operation = create_operation("add_with_snr", self.sampling_rate, snr=snr)
+        operation = create_operation(
+            "add_with_snr",
+            self.sampling_rate,
+            snr=snr,
+            noise_input_kind=noise_input_kind,
+        )
         ensure_dependencies = getattr(operation, "ensure_dependencies", None)
         if ensure_dependencies is not None:
             ensure_dependencies()

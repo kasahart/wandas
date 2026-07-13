@@ -288,7 +288,7 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
     input_roles = ("signal", "noise")
     replay_handler_path = "wandas.pipeline.calls.apply_add_with_snr"
 
-    def __init__(self, sampling_rate: float, snr: float = 1.0):
+    def __init__(self, sampling_rate: float, snr: float = 1.0, *, noise_input_kind: str = "frame"):
         """
         Initialize addition operation considering SNR
 
@@ -299,6 +299,9 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
         snr : float
             Signal-to-noise ratio (dB)
         """
+        if noise_input_kind not in {"frame", "array"}:
+            raise ValueError("noise_input_kind must be 'frame' or 'array'")
+        object.__setattr__(self, "replay_input_kinds", ("frame", noise_input_kind))
         super().__init__(sampling_rate, snr=snr)
         logger.debug(f"Initialized AddWithSNR operation with SNR: {snr} dB")
 
